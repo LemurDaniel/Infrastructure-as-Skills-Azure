@@ -38,7 +38,9 @@ the detail; this list says what was decided and why, so a session does not reope
   (hub, VPN) given; it pre-answers `landing_zone` and through it the network's ownership
   and exposure, and opens the addressing for the network team when ranges are assigned.
   No option in the customer batch is marked recommended: the default is a fallback, not
-  advice. The first install test's customer said
+  advice - except the address range when the network is free, which is offered as three
+  sizes out of 10.100.0.0 with the one that fits the system recommended (sizing the plugin
+  derives, not a guess about the organisation); the endpoint prefix is cut from it. The first install test's customer said
   "Netz egal, kein VPN" and the interview had no question for it. The batch rule says the
   host's four-questions-per-call limit means several calls in a row, never a batch cut to
   four.

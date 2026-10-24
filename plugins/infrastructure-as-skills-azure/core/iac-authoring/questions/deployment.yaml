@@ -896,15 +896,31 @@ groups:
         type: string
         audience: platform
         plain:
-          en: "The new network uses the address range {value}, assigned by whoever manages addresses."
-          de: "Das neue Netz nutzt den Adressbereich {value}, zugewiesen von der Adressverwaltung."
+          en: "The new network uses the address range {value}."
+          de: "Das neue Netz nutzt den Adressbereich {value}."
         required: true
         depends_on: { question: network_ownership, equals: create }
         per_environment: true
+        forced_when: >
+          network_requirements decides who answers. `free`: the range is chosen with the
+          customer in the Phase 3 batch as a sizing choice - three ranges out of a private block
+          nobody peers with (10.100.0.0/24, /23, /22), the one that fits the described system
+          marked recommended, which is the one recommendation the batch allows because it is
+          sizing, not a guess about the organisation: /24 for a system of one or two compute
+          subnets and up to 27 private endpoints, /23 from three compute subnets or a Container
+          Apps environment with workload profiles, /22 for a consumption-only Container Apps
+          environment (its infrastructure subnet alone is a /23) or several environments; each
+          stage takes its own block of that size (10.100.0.0, 10.101.0.0, 10.102.0.0), so the
+          stages could be peered later without renumbering. `assigned_ranges` and `corporate`:
+          an open entry owned by the network team unless the request states the range; never
+          guessed, because an overlap is invisible until the first peering and every subnet has
+          to be rebuilt to fix it.
         why: >
           Cannot be defaulted: an overlapping CIDR is invisible until the first
           peering and expensive to change afterwards, because every subnet in it has
-          to be rebuilt. Ask for the range the address-management owner assigned.
+          to be rebuilt. Where nobody manages addresses (network_requirements: free) the
+          customer picks a size the plugin derives from the system; where somebody does,
+          ask them.
         renders: azurerm_virtual_network.address_space / properties.addressSpace.addressPrefixes
 
       - id: private_endpoint_subnet
@@ -933,6 +949,11 @@ groups:
         required: true
         depends_on: { question: network_ownership, equals: create }
         per_environment: true
+        forced_when: >
+          network_requirements: free - cut from the chosen address space by the engineer, never
+          asked: the first /27 of the range (the first /26 when the system has more than 27
+          private endpoints), the compute subnets after it. assigned_ranges and corporate: an
+          open entry owned by the network team together with the address space, unless stated.
         why: >
           With the deployment owning the network there is nothing to reference yet -
           the subnet is generated, so what is needed is its prefix out of the

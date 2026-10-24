@@ -344,7 +344,13 @@ call, 2026-10-24): a `customer` question asks for a fact about the organisation 
 system joins the company network, how bad a day's outage is, where the data may live - and
 there is no better answer the plugin could know. The default is the guardrail's fallback for
 an answer nobody gave, not advice, and marking it steers the person towards the guess the
-question exists to replace. Nothing else is asked. An `engineer` question takes its default; a `platform`
+question exists to replace. **The one exception is the address range when the network is
+free** (`network_requirements: free`): the batch offers three ranges out of a private block
+nobody peers with - 10.100.0.0/24, /23, /22 - with the size that fits the described system
+marked recommended, because that recommendation is sizing the plugin derives from the
+system (compute subnets, private endpoints, a Container Apps environment), not a guess
+about the organisation; the rule and the sizes are on `address_space` in the deployment
+set, and each stage takes its own block of the chosen size. Nothing else is asked. An `engineer` question takes its default; a `platform`
 question takes the profile's value or its default; a `required` question of either
 audience that nothing answers becomes an `open:` entry with its owner named, and Phase 4
 says so. Put the batch in the customer's words — the `ask` texts of the `requirements`
