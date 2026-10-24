@@ -125,6 +125,14 @@ Verified Modules first, authored resources second.
 - **No registry alias, no registry modules — for the owner's own registry.** `br/public:`
   needs no alias and is the default; `br/modules:` is only rendered when
   `bicepconfig.json` already has it (`implementation: reuse`).
+- **The three early examples were removed 2026-10-24** (owner's call: not needed any more):
+  `private-storage-on-platform`, `greenfield-telemetry`, `private-storage-gitlab`. `chatbot` and
+  `chatbot-rag` remain. With them went the only Bicep example and the only rendered pipelines
+  (GitHub, Azure DevOps, GitLab); the pipeline checks keep their own fixtures in
+  `iac-rendering/tests/pipelines/`. The two diagram cases that read the removed specs are gone
+  from `run_diagram_tests.py`. The eval cases of the same names are self-contained prompts and
+  stay. References to the examples in the storage references, `avm.md` and `bicep-idiom.md`
+  were reworded; the findings they record stand.
 
 ## Open
 
@@ -171,7 +179,7 @@ Verified Modules first, authored resources second.
   untested. `scripts/check_pipeline.py` checks the invariants of `pipelines.md` per
   platform; `tests/run_pipeline_tests.py` (55 cases) runs it on five fixtures taken from
   the references (GitHub x2 targets, Azure DevOps, GitLab, local) and on ~45 single-invariant
-  breaks. **A rendered example exists** (2026-10-18): `examples/private-storage-on-platform`
+  breaks. **A rendered example existed** (2026-10-18; removed 2026-10-24, see the git history): `examples/private-storage-on-platform`
   got `request.pipeline.md` (an extension run), `deploy_mechanism: github` in its spec and
   `.github/workflows/` with all three stage blocks; development and test are `open:` and
   hold **placeholder** stage files (all-zero GUID, `OPEN-<what>`) - the owner's call
@@ -187,7 +195,7 @@ Verified Modules first, authored resources second.
   ignored without an error (local state, gone with the runner) - the example now holds an
   empty `backend "azurerm" {}`, `terraform-idiom.md` and `pipelines.md` say so, and
   `check_pipeline.py` fails on a root without one. **The other two examples landed the same
-  day:** `greenfield-telemetry` (Bicep) got `deploy_mechanism: azure_devops` - `azure-pipelines.yml`,
+  day (both removed 2026-10-24):** `greenfield-telemetry` (Bicep) got `deploy_mechanism: azure_devops` - `azure-pipelines.yml`,
   `.azure-pipelines/stage.yml`, working directory `bicep/`, placeholder `bicepparam` files for
   its three open stages - and `private-storage-gitlab` is the storage example's Terraform
   root with a `.gitlab-ci.yml` (one spec names one system, so GitLab needs its own). Run:

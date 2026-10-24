@@ -81,8 +81,8 @@ and tests against that shape.
 Scaling on an unproven base multiplies the debt. Everything in `PROGRESS.md` Open that
 the quality claim rests on:
 
-1. Re-render `private-storage-on-platform` on the AVM modules, both targets, from the
-   unchanged spec; settle the test contract in `avm.md`.
+1. Re-render the storage spec on the AVM modules, both targets, from the unchanged spec;
+   settle the test contract in `avm.md`. (Done 2026-10-18; the example has since been removed.)
 2. Write `check_question_set.py`: enum defaults, `depends_on` and `from_deployment`
    targets, `audience`, `renders` against the rendering reference.
 3. Bicep tests: assertions on the compiled ARM JSON per decision, the same `# decision:`
@@ -128,8 +128,7 @@ the quality claim rests on:
    selects `private-webapp`; the customer confirms the picture, not the resource list.
 5. **The diagram scales:** grouped by tier and subnet, identity edges on their own track,
    a decisions panel per tier rather than per resource.
-6. Examples: `greenfield-telemetry` (Bicep, the `create` branches), then `private-webapp`
-   (both targets, diffed).
+6. Examples: `private-webapp` (both targets, diffed).
 
 ### D. Quality as a gate
 
