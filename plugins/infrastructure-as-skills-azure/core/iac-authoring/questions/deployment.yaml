@@ -27,7 +27,7 @@ groups:
       - id: environments
         ask: Which stages does the system go through? The usual set is development, test and production; a sandbox is one throwaway environment.
         type: list
-        audience: customer
+        resolved_by: interview
         plain:
           en: "The system is deployed in these stages: {value}."
           de: "Das System wird in diesen Stufen ausgerollt: {value}."
@@ -70,7 +70,7 @@ groups:
       - id: stage_isolation
         ask: Are the stages separated by subscription, or do they share one subscription and differ by resource group?
         type: enum
-        audience: platform
+        resolved_by: platform
         plain:
           en: "Each stage lives in {value}."
           de: "Jede Stufe liegt in {value}."
@@ -101,7 +101,6 @@ groups:
       - id: non_production_savings
         ask: Should the non-production stages run cheaper than production?
         type: enum
-        audience: engineer
         plain:
           en: "Development and test stages {value}."
           de: "Entwicklungs- und Teststufen {value}."
@@ -138,7 +137,6 @@ groups:
       - id: location
         ask: Which Azure region?
         type: string
-        audience: engineer
         plain:
           en: "Everything runs in the Azure region {value}."
           de: "Alles läuft in der Azure-Region {value}."
@@ -155,7 +153,6 @@ groups:
       - id: workload
         ask: Which workload is this for? (short name, goes into every resource name)
         type: string
-        audience: engineer
         plain:
           en: "\"{value}\" is the name every part of the system carries."
           de: "„{value}“ ist der Name, den jeder Teil des Systems trägt."
@@ -171,7 +168,7 @@ groups:
       - id: naming_convention
         ask: Should resource names follow the default convention, or does your organisation have its own?
         type: enum
-        audience: platform
+        resolved_by: platform
         plain:
           en: "Resource names follow the {value} naming convention, so they are consistent to find and read."
           de: "Die Namen folgen der Namenskonvention „{value}“, damit sie einheitlich zu finden und zu lesen sind."
@@ -199,7 +196,6 @@ groups:
       - id: subscription_id
         ask: Which subscription does this deploy into?
         type: ref
-        audience: engineer
         plain:
           en: "The system is deployed into subscription {value}."
           de: "Das System wird in die Subscription {value} ausgerollt."
@@ -215,7 +211,6 @@ groups:
       - id: resource_group_name
         ask: Which resource group?
         type: ref
-        audience: engineer
         plain:
           en: "All parts are placed into the existing resource group {value}."
           de: "Alle Teile liegen in der bestehenden Ressourcengruppe {value}."
@@ -243,7 +238,7 @@ groups:
       - id: resource_group_split
         ask: Should everything live in one resource group, or should some areas get a group of their own - network, data, application, monitoring, security?
         type: list
-        audience: customer
+        resolved_by: interview
         plain:
           en: "These areas get a resource group of their own: {value}. Everything else shares the main group."
           de: "Diese Bereiche erhalten eine eigene Ressourcengruppe: {value}. Alles andere liegt in der Hauptgruppe."
@@ -273,7 +268,7 @@ groups:
       - id: resource_group_mode_main
         ask: Does the main resource group already exist, or should the infrastructure create it?
         type: enum
-        audience: customer
+        resolved_by: interview
         plain:
           en: "The main resource group {value}."
           de: "Die Hauptressourcengruppe {value}."
@@ -300,7 +295,7 @@ groups:
       - id: resource_group_mode_network
         ask: Does the network resource group already exist, or should the infrastructure create it?
         type: enum
-        audience: customer
+        resolved_by: interview
         plain:
           en: "The network resource group {value}."
           de: "Die Ressourcengruppe für das Netzwerk {value}."
@@ -323,7 +318,7 @@ groups:
       - id: resource_group_mode_data
         ask: Does the data resource group already exist, or should the infrastructure create it?
         type: enum
-        audience: customer
+        resolved_by: interview
         plain:
           en: "The data resource group {value}."
           de: "Die Ressourcengruppe für die Daten {value}."
@@ -344,7 +339,7 @@ groups:
       - id: resource_group_mode_application
         ask: Does the application resource group already exist, or should the infrastructure create it?
         type: enum
-        audience: customer
+        resolved_by: interview
         plain:
           en: "The application resource group {value}."
           de: "Die Ressourcengruppe für die Anwendung {value}."
@@ -362,7 +357,7 @@ groups:
       - id: resource_group_mode_observability
         ask: Does the monitoring resource group already exist, or should the infrastructure create it?
         type: enum
-        audience: customer
+        resolved_by: interview
         plain:
           en: "The monitoring resource group {value}."
           de: "Die Ressourcengruppe für die Überwachung {value}."
@@ -383,7 +378,7 @@ groups:
       - id: resource_group_mode_security
         ask: Does the security resource group already exist, or should the infrastructure create it?
         type: enum
-        audience: customer
+        resolved_by: interview
         plain:
           en: "The security resource group {value}."
           de: "Die Ressourcengruppe für die Sicherheit {value}."
@@ -401,7 +396,6 @@ groups:
       - id: resource_group_lock
         ask: Should created resource groups be protected against deletion?
         type: enum
-        audience: engineer
         plain:
           en: "Created resource groups {value}."
           de: "Angelegte Ressourcengruppen {value}."
@@ -433,7 +427,7 @@ groups:
       - id: deploy_mechanism
         ask: Where does the code live, and what should deploy it - Azure DevOps, GitHub, GitLab, or by hand from a workstation?
         type: enum
-        audience: customer
+        resolved_by: interview
         plain:
           en: "The system is deployed {value}."
           de: "Das System wird {value} ausgerollt."
@@ -462,7 +456,7 @@ groups:
       - id: pipeline_auth
         ask: How does the pipeline sign in to Azure?
         type: enum
-        audience: platform
+        resolved_by: platform
         plain:
           en: "The pipeline signs in to Azure {value}."
           de: "Die Pipeline meldet sich {value} bei Azure an."
@@ -492,7 +486,6 @@ groups:
       - id: pipeline_approvals
         ask: Which stages need a person to approve before anything is changed?
         type: enum
-        audience: engineer
         plain:
           en: "A person approves the change before it is applied: {value}."
           de: "Eine Person gibt die Änderung frei, bevor sie ausgerollt wird: {value}."
@@ -533,7 +526,7 @@ groups:
         type: enum
         values: [free, assigned_ranges, corporate]
         default: free
-        audience: customer
+        resolved_by: interview
         plain:
           en: The network {value}.
           de: Das Netz {value}.
@@ -576,7 +569,7 @@ groups:
         type: enum
         values: [tolerable, disruptive, critical]
         default: disruptive
-        audience: customer
+        resolved_by: interview
         plain:
           en: "A day's outage would be {value}."
           de: "Ein Tag Ausfall wäre {value}."
@@ -604,7 +597,7 @@ groups:
         type: enum
         values: [reproducible, one_week, one_month, three_months]
         default: one_week
-        audience: customer
+        resolved_by: interview
         plain:
           en: "After a mistaken delete you must be able to go back {value}."
           de: "Nach einem versehentlichen Löschen müsst ihr {value} zurückkommen."
@@ -630,7 +623,7 @@ groups:
         type: enum
         values: [active, occasional, archive]
         default: active
-        audience: customer
+        resolved_by: interview
         plain:
           en: "The data is {value}."
           de: "Die Daten werden {value}."
@@ -656,7 +649,7 @@ groups:
         type: enum
         values: [operational, isolated, immutable]
         default: operational
-        audience: customer
+        resolved_by: interview
         plain:
           en: "Against deliberate destruction the data is {value}."
           de: "Gegen absichtliche Zerstörung sind die Daten {value}."
@@ -691,7 +684,7 @@ groups:
         type: enum
         values: [country, data_zone, unrestricted]
         default: data_zone
-        audience: customer
+        resolved_by: interview
         plain:
           en: "The data is stored and processed {value}."
           de: "Die Daten werden {value} gespeichert und verarbeitet."
@@ -733,7 +726,7 @@ groups:
       - id: module_source
         ask: Should the code be built from the building blocks Microsoft tests and maintains, or from resources written out one by one?
         type: enum
-        audience: customer
+        resolved_by: interview
         plain:
           en: "The code is built from {value}."
           de: "Der Code wird aus {value} gebaut."
@@ -775,7 +768,7 @@ groups:
       - id: naming_source
         ask: How should the resource names be generated - by a ready-made naming tool from the plugin, by Microsoft's naming module, or by a mechanism of your own?
         type: enum
-        audience: customer
+        resolved_by: interview
         plain:
           en: "Resource names are generated by {value}."
           de: "Die Ressourcennamen erzeugt {value}."
@@ -814,7 +807,7 @@ groups:
       - id: module_telemetry
         ask: May the Azure Verified Modules send their deployment telemetry to Microsoft?
         type: enum
-        audience: platform
+        resolved_by: platform
         plain:
           en: "Usage telemetry to Microsoft is {value}: a count per deployment, none of your data."
           de: "Nutzungstelemetrie an Microsoft ist {value}: eine Zählung pro Ausrollen, keine eurer Daten."
@@ -846,7 +839,7 @@ groups:
       - id: landing_zone
         ask: Is there a landing zone platform at all (standalone if not), and if so, which kind of landing zone does this workload go into - internal (corp), internet-facing (online) or a sandbox?
         type: enum
-        audience: platform
+        resolved_by: platform
         plain:
           en: "The system lands in {value}."
           de: "Das System landet in {value}."
@@ -899,7 +892,7 @@ groups:
       - id: network_exposure
         ask: Should this infrastructure be reachable from the internet?
         type: enum
-        audience: customer
+        resolved_by: interview
         plain:
           en: "Access is {value}."
           de: "Der Zugang ist {value}."
@@ -935,7 +928,6 @@ groups:
       - id: local_auth
         ask: May resources keep key-based or connection-string auth?
         type: enum
-        audience: engineer
         plain:
           en: "Passwords and access keys are {value}; access goes through company accounts, so every action is attributable."
           de: "Passwörter und Zugriffsschlüssel sind {value}; der Zugriff läuft über Firmenkonten, damit jede Aktion zuordenbar ist."
@@ -960,7 +952,7 @@ groups:
       - id: mandates
         ask: Are there compliance or internal mandates this deployment has to satisfy?
         type: list
-        audience: customer
+        resolved_by: interview
         plain:
           en: "Rules to comply with: {value}."
           de: "Einzuhaltende Vorgaben: {value}."
@@ -978,7 +970,6 @@ groups:
       - id: key_protection
         ask: Do keys have to be HSM-protected?
         type: enum
-        audience: engineer
         plain:
           en: "Encryption keys are {value}."
           de: "Verschlüsselungsschlüssel sind {value}."
@@ -1002,7 +993,6 @@ groups:
       - id: key_management
         ask: Platform-managed keys, or customer-managed?
         type: enum
-        audience: engineer
         plain:
           en: "Encryption keys are {value}."
           de: "Verschlüsselungsschlüssel sind {value}."
@@ -1029,7 +1019,7 @@ groups:
       - id: network_ownership
         ask: Should this deployment build its own virtual network, reference an existing one, or does it need none?
         type: enum
-        audience: platform
+        resolved_by: platform
         plain:
           en: "The network is {value}."
           de: "Das Netz wird {value}."
@@ -1070,7 +1060,7 @@ groups:
       - id: existing_vnet
         ask: Which existing virtual network should the deployment reference?
         type: ref
-        audience: platform
+        resolved_by: platform
         plain:
           en: "The existing network {value} is used."
           de: "Das bestehende Netz {value} wird genutzt."
@@ -1087,7 +1077,7 @@ groups:
       - id: address_space
         ask: Which address space should the new virtual network use?
         type: string
-        audience: platform
+        resolved_by: platform
         plain:
           en: "The new network uses the address range {value}."
           de: "Das neue Netz nutzt den Adressbereich {value}."
@@ -1119,7 +1109,7 @@ groups:
       - id: private_endpoint_subnet
         ask: Which existing subnet should private endpoints live in?
         type: ref
-        audience: platform
+        resolved_by: platform
         plain:
           en: "Private connections land in the existing subnet {value}."
           de: "Private Anbindungen landen im bestehenden Subnetz {value}."
@@ -1135,7 +1125,7 @@ groups:
       - id: private_endpoint_subnet_prefix
         ask: Which prefix should the private endpoint subnet get?
         type: string
-        audience: platform
+        resolved_by: platform
         plain:
           en: "Private connections get their own subnet, {value}."
           de: "Private Anbindungen bekommen ein eigenes Subnetz, {value}."
@@ -1161,7 +1151,7 @@ groups:
       - id: private_dns_ownership
         ask: Who owns the private DNS zones?
         type: enum
-        audience: platform
+        resolved_by: platform
         plain:
           en: "Name resolution for private connections is handled by {value}."
           de: "Die Namensauflösung für private Anbindungen übernimmt {value}."
@@ -1191,7 +1181,7 @@ groups:
       - id: private_dns_records
         ask: Does a platform policy create the DNS records for private endpoints, or does this deployment?
         type: enum
-        audience: platform
+        resolved_by: platform
         plain:
           en: "The name entries for private connections are written by {value}."
           de: "Die Namenseinträge für private Anbindungen schreibt {value}."
@@ -1218,7 +1208,7 @@ groups:
       - id: private_dns_zone_scope
         ask: In which subscription and resource group does the platform keep the private DNS zones?
         type: ref
-        audience: platform
+        resolved_by: platform
         plain:
           en: "The platform keeps the name zones in {value}."
           de: "Die Plattform hält die Namenszonen in {value}."
@@ -1245,7 +1235,7 @@ groups:
       - id: observability_ownership
         ask: Should this deployment build its own Log Analytics workspace, or reference an existing one?
         type: enum
-        audience: platform
+        resolved_by: platform
         plain:
           en: "Logs go to {value}."
           de: "Logs gehen in {value}."
@@ -1271,7 +1261,7 @@ groups:
       - id: diagnostics_destination
         ask: Which existing Log Analytics workspace should receive diagnostics?
         type: ref
-        audience: platform
+        resolved_by: platform
         plain:
           en: "Logs are collected in {value}."
           de: "Logs werden in {value} gesammelt."
@@ -1293,7 +1283,7 @@ groups:
       - id: log_retention_days
         ask: How long should logs be retained?
         type: int
-        audience: customer
+        resolved_by: interview
         plain:
           en: "Logs are kept for {value} days."
           de: "Logs werden {value} Tage aufbewahrt."
@@ -1318,7 +1308,6 @@ groups:
       - id: daily_quota_gb
         ask: Should ingestion be capped per day?
         type: int
-        audience: engineer
         plain:
           en: "Daily log intake cap: {value} GB (-1: no cap)."
           de: "Tägliche Obergrenze für Logs: {value} GB (-1: keine)."

@@ -26,7 +26,6 @@ groups:
       - id: environments
         ask: Which stages is this deployed to?
         type: list
-        audience: engineer
         plain:
           en: "Deployed in the stages {value}."
           de: "Wird in den Stufen {value} ausgerollt."
@@ -42,7 +41,6 @@ groups:
       - id: location
         ask: Which Azure region?
         type: string
-        audience: engineer
         plain:
           en: "Created in the Azure region {value}."
           de: "Wird in der Azure-Region {value} angelegt."
@@ -56,7 +54,6 @@ groups:
       - id: resource_group_name
         ask: Which resource group?
         type: ref
-        audience: engineer
         plain:
           en: "Placed in the resource group {value}."
           de: "Liegt in der Ressourcengruppe {value}."
@@ -76,7 +73,6 @@ groups:
       - id: subnet_purpose
         ask: What does the subnet this group guards carry?
         type: enum
-        audience: engineer
         plain:
           en: "The group guards a subnet for {value}."
           de: "Die Gruppe schützt ein Subnetz für {value}."
@@ -101,7 +97,6 @@ groups:
       - id: default_inbound
         ask: What should happen to inbound traffic that no rule allows?
         type: enum
-        audience: engineer
         plain:
           en: "Inbound traffic that no rule allows is {value}."
           de: "Eingehender Verkehr, den keine Regel erlaubt, wird {value}."
@@ -123,7 +118,6 @@ groups:
       - id: default_outbound
         ask: What should happen to outbound traffic to the internet that no rule allows?
         type: enum
-        audience: engineer
         plain:
           en: "Outbound traffic to the internet that no rule allows is {value}."
           de: "Ausgehender Verkehr ins Internet, den keine Regel erlaubt, wird {value}."
@@ -148,7 +142,6 @@ groups:
       - id: rules
         ask: Which traffic should be allowed explicitly?
         type: list
-        audience: engineer
         plain:
           en: "Traffic allowed explicitly: {value}."
           de: "Ausdrücklich erlaubter Verkehr: {value}."
@@ -172,7 +165,7 @@ groups:
       - id: diagnostic_workspace
         ask: Which Log Analytics workspace should receive diagnostics?
         type: ref
-        audience: platform
+        resolved_by: platform
         plain:
           en: "Its logs go to {value}."
           de: "Seine Logs gehen in {value}."
@@ -188,7 +181,6 @@ groups:
       - id: diagnostic_categories
         ask: Which log categories should be collected?
         type: list
-        audience: engineer
         plain:
           en: "Logged: {value}."
           de: "Geloggt wird: {value}."

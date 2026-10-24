@@ -32,7 +32,6 @@ groups:
       - id: environments
         ask: Which stages is this deployed to?
         type: list
-        audience: engineer
         plain:
           en: "Deployed in the stages {value}."
           de: "Wird in den Stufen {value} ausgerollt."
@@ -47,7 +46,6 @@ groups:
       - id: location
         ask: Which Azure region?
         type: string
-        audience: engineer
         plain:
           en: "Runs in the Azure region {value}."
           de: "Läuft in der Azure-Region {value}."
@@ -62,7 +60,6 @@ groups:
       - id: resource_group_name
         ask: Which resource group?
         type: ref
-        audience: engineer
         plain:
           en: "Placed in the resource group {value}."
           de: "Liegt in der Ressourcengruppe {value}."
@@ -83,7 +80,6 @@ groups:
       - id: workload_profile
         ask: Which compute should the app run on?
         type: enum
-        audience: engineer
         plain:
           en: "The app runs on {value}."
           de: "Die App läuft auf {value}."
@@ -108,7 +104,6 @@ groups:
       - id: zone_redundant
         ask: Should the environment survive the loss of an availability zone?
         type: bool
-        audience: engineer
         plain:
           en: "The environment {value} survive the loss of one datacenter of the region."
           de: "Die Umgebung {value} den Ausfall eines Rechenzentrums der Region."
@@ -137,7 +132,6 @@ groups:
       - id: internal
         ask: Should the environment be reachable only from inside the network?
         type: bool
-        audience: engineer
         plain:
           en: "The environment is {value}."
           de: "Die Umgebung ist {value}."
@@ -157,7 +151,7 @@ groups:
       - id: infrastructure_subnet
         ask: Which subnet should the environment's infrastructure live in?
         type: ref
-        audience: platform
+        resolved_by: platform
         plain:
           en: "The environment's infrastructure lives in subnet {value}."
           de: "Die Infrastruktur der Umgebung liegt im Subnetz {value}."
@@ -180,7 +174,6 @@ groups:
       - id: public_network_access
         ask: Should the environment depart from the deployment's exposure posture?
         type: enum
-        audience: engineer
         plain:
           en: "The environment is {value}."
           de: "Die Umgebung ist {value}."
@@ -208,7 +201,6 @@ groups:
       - id: peer_traffic_encryption
         ask: Should traffic between the apps of the environment be encrypted?
         type: bool
-        audience: engineer
         plain:
           en: "Traffic between the apps inside the environment is {value}."
           de: "Der Verkehr zwischen den Apps innerhalb der Umgebung wird {value}."
@@ -231,7 +223,6 @@ groups:
       - id: container_image
         ask: Which container image should run?
         type: string
-        audience: engineer
         plain:
           en: "The app runs the container image {value}."
           de: "Die App führt das Container-Image {value} aus."
@@ -249,7 +240,6 @@ groups:
       - id: container_size
         ask: How large should each replica be?
         type: enum
-        audience: engineer
         plain:
           en: "Each copy of the app gets {value}."
           de: "Jede Kopie der App bekommt {value}."
@@ -271,7 +261,6 @@ groups:
       - id: min_replicas
         ask: How many copies of the app must always be running?
         type: int
-        audience: engineer
         plain:
           en: "At least {value} copies of the app are always running."
           de: "Mindestens {value} Kopien der App laufen immer."
@@ -294,7 +283,6 @@ groups:
       - id: max_replicas
         ask: How many copies may the app scale out to?
         type: int
-        audience: engineer
         plain:
           en: "The app may scale out to at most {value} copies."
           de: "Die App darf auf höchstens {value} Kopien skalieren."
@@ -309,7 +297,6 @@ groups:
       - id: revision_mode
         ask: Should several versions of the app run at once?
         type: enum
-        audience: engineer
         plain:
           en: "{value}."
           de: "{value}."
@@ -332,7 +319,6 @@ groups:
       - id: ingress
         ask: Who may call the app over HTTP?
         type: enum
-        audience: engineer
         plain:
           en: "The app is {value}."
           de: "Die App ist {value}."
@@ -361,7 +347,6 @@ groups:
       - id: target_port
         ask: Which port does the app listen on?
         type: int
-        audience: engineer
         plain:
           en: "The app listens on port {value}."
           de: "Die App lauscht auf Port {value}."
@@ -376,7 +361,6 @@ groups:
       - id: allow_insecure
         ask: Should the app accept plain HTTP?
         type: bool
-        audience: engineer
         plain:
           en: "Unencrypted connections to the app are {value}."
           de: "Unverschlüsselte Verbindungen zur App werden {value}."
@@ -399,7 +383,6 @@ groups:
       - id: managed_identity
         ask: Which managed identity should the app carry?
         type: enum
-        audience: engineer
         plain:
           en: "The app has {value} for reaching other services."
           de: "Die App hat {value}, um andere Dienste zu erreichen."
@@ -422,7 +405,6 @@ groups:
       - id: user_assigned_identity_ids
         ask: Which user-assigned identity?
         type: list
-        audience: engineer
         plain:
           en: "It uses the identity {value}."
           de: "Es nutzt die Identität {value}."
@@ -438,7 +420,6 @@ groups:
       - id: secret_references
         ask: Which secrets should the app read from a key vault?
         type: list
-        audience: engineer
         plain:
           en: "The app reads the secrets {value} from the key vault."
           de: "Die App liest die Geheimnisse {value} aus dem Schlüsseltresor."
@@ -455,7 +436,6 @@ groups:
       - id: role_assignments
         ask: Who may manage the app?
         type: list
-        audience: engineer
         plain:
           en: "Management rights on the app granted to: {value}."
           de: "Verwaltungsrechte an der App vergeben an: {value}."
@@ -473,7 +453,7 @@ groups:
       - id: diagnostic_workspace
         ask: Which Log Analytics workspace should receive the environment's logs?
         type: ref
-        audience: platform
+        resolved_by: platform
         plain:
           en: "Its logs go to {value}."
           de: "Seine Logs gehen in {value}."
@@ -495,7 +475,6 @@ groups:
       - id: diagnostic_categories
         ask: Which log categories should be collected?
         type: list
-        audience: engineer
         plain:
           en: "Logged: {value}."
           de: "Geloggt wird: {value}."
@@ -516,7 +495,6 @@ groups:
       - id: metrics_enabled
         ask: Should all metrics be collected?
         type: bool
-        audience: engineer
         plain:
           en: "Usage and performance figures are {value}."
           de: "Nutzungs- und Leistungswerte werden {value}."

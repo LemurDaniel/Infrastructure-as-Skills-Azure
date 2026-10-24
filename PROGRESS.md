@@ -97,10 +97,10 @@ the detail; this list says what was decided and why, so a session does not reope
 - **Sub-resource names go through `<?SUBNAME>`**, never appended to a finished name. The
   first cross-backend diff found `…-01-blob` against `…-blob-01`.
 - **The interview is the customer's, alone** (2026-10-18; the engineer mode beside it
-  dropped 2026-10-24). Every question carries an `audience`; only `customer` questions
-  are asked, in one batch. `platform` comes from `platform.yaml` (`source: platform`,
-  read at precedence 3, never written by an interview) or opens; `engineer` defaults,
-  derives or opens. An engineer states what they know in prose and it is recorded
+  dropped 2026-10-24). The `audience` field was replaced by `resolved_by` (2026-10-25):
+  only `interview` questions are asked, in one batch. `platform` comes from `platform.yaml`
+  (`source: platform`, read at precedence 3, never written by an interview) or opens; a
+  question without `resolved_by` defaults, derives or opens. An engineer states what they know in prose and it is recorded
   `stated`; a later change is `overridden` with a reason. The plugin is public and has to
   hold for any use case.
 - **Requirements live in the deployment set, the map on the resource.** Five customer

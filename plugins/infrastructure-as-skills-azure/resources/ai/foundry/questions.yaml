@@ -33,7 +33,6 @@ groups:
       - id: environments
         ask: Which stages is this deployed to?
         type: list
-        audience: engineer
         plain:
           en: "Deployed in the stages {value}."
           de: "Wird in den Stufen {value} ausgerollt."
@@ -48,7 +47,6 @@ groups:
       - id: location
         ask: Which Azure region?
         type: string
-        audience: engineer
         plain:
           en: "Runs in the Azure region {value}."
           de: "Läuft in der Azure-Region {value}."
@@ -64,7 +62,6 @@ groups:
       - id: resource_group_name
         ask: Which resource group?
         type: ref
-        audience: engineer
         plain:
           en: "Placed in the resource group {value}."
           de: "Liegt in der Ressourcengruppe {value}."
@@ -84,7 +81,6 @@ groups:
       - id: kind
         ask: Which kind of AI account?
         type: enum
-        audience: engineer
         plain:
           en: "The account is {value}."
           de: "Das Konto ist {value}."
@@ -103,7 +99,6 @@ groups:
       - id: sku_name
         ask: Which pricing tier?
         type: enum
-        audience: engineer
         plain:
           en: "The account uses the pricing tier {value}."
           de: "Das Konto nutzt die Preisstufe {value}."
@@ -121,7 +116,6 @@ groups:
       - id: project_management
         ask: Should the account hold projects?
         type: bool
-        audience: engineer
         plain:
           en: "The account {value}."
           de: "Das Konto {value}."
@@ -142,7 +136,6 @@ groups:
       - id: projects
         ask: Which projects should the account hold?
         type: list
-        audience: engineer
         plain:
           en: "The account holds the projects {value}."
           de: "Das Konto enthält die Projekte {value}."
@@ -167,7 +160,6 @@ groups:
       - id: model_deployments
         ask: Which models should be deployed?
         type: list
-        audience: engineer
         plain:
           en: "The account serves the models {value}."
           de: "Das Konto stellt die Modelle {value} bereit."
@@ -186,7 +178,6 @@ groups:
       - id: deployment_sku
         ask: Where may the models process the data?
         type: enum
-        audience: engineer
         plain:
           en: "Requests to the models are processed {value}."
           de: "Anfragen an die Modelle werden {value} verarbeitet."
@@ -219,7 +210,6 @@ groups:
       - id: deployment_capacity
         ask: How many tokens per minute may each model use?
         type: int
-        audience: engineer
         plain:
           en: "Each model may process up to {value} thousand tokens per minute."
           de: "Jedes Modell darf bis zu {value} Tausend Token pro Minute verarbeiten."
@@ -238,7 +228,6 @@ groups:
       - id: version_upgrade_option
         ask: What should happen when a model version is retired?
         type: enum
-        audience: engineer
         plain:
           en: "When the model version expires, {value}."
           de: "Läuft die Modellversion aus, {value}."
@@ -260,7 +249,6 @@ groups:
       - id: content_filter
         ask: Which content filter should the models run behind?
         type: string
-        audience: engineer
         plain:
           en: "Prompts and answers are checked by the content filter {value}."
           de: "Anfragen und Antworten werden vom Inhaltsfilter {value} geprüft."
@@ -283,7 +271,6 @@ groups:
       - id: public_network_access
         ask: Should this account depart from the deployment's exposure posture?
         type: enum
-        audience: engineer
         plain:
           en: "The account is {value}."
           de: "Das Konto ist {value}."
@@ -315,7 +302,7 @@ groups:
       - id: private_endpoint_subnet
         ask: Which subnet should this account's private endpoint live in?
         type: ref
-        audience: platform
+        resolved_by: platform
         plain:
           en: "Its private connection lands in subnet {value}."
           de: "Seine private Anbindung landet im Subnetz {value}."
@@ -333,7 +320,6 @@ groups:
       - id: ip_rules
         ask: Which public IP ranges may reach the account?
         type: list
-        audience: engineer
         plain:
           en: "Public addresses allowed to reach the account: {value}."
           de: "Öffentliche Adressen, die das Konto erreichen dürfen: {value}."
@@ -349,7 +335,6 @@ groups:
       - id: restrict_outbound
         ask: Should the account's own outgoing calls be limited to named addresses?
         type: bool
-        audience: engineer
         plain:
           en: "The account {value}."
           de: "Das Konto {value}."
@@ -372,7 +357,6 @@ groups:
       - id: managed_identity
         ask: Which managed identity should the account carry?
         type: enum
-        audience: engineer
         plain:
           en: "The account has {value}."
           de: "Das Konto hat {value}."
@@ -395,7 +379,6 @@ groups:
       - id: user_assigned_identity_ids
         ask: Which user-assigned identity?
         type: list
-        audience: engineer
         plain:
           en: "It uses the identity {value}."
           de: "Es nutzt die Identität {value}."
@@ -409,7 +392,6 @@ groups:
       - id: role_assignments
         ask: Who needs which role on this account?
         type: list
-        audience: engineer
         plain:
           en: "Access rights on the account granted to: {value}."
           de: "Zugriffsrechte auf das Konto vergeben an: {value}."
@@ -433,7 +415,6 @@ groups:
       - id: local_authentication_disabled
         ask: May clients sign in with the account keys?
         type: bool
-        audience: engineer
         plain:
           en: "Signing in with account keys is {value}; access goes through company accounts."
           de: "Die Anmeldung mit Kontoschlüsseln ist {value}; der Zugriff läuft über Firmenkonten."
@@ -454,7 +435,6 @@ groups:
       - id: key_management
         ask: Are the account's encryption keys platform-managed or customer-managed?
         type: enum
-        audience: engineer
         plain:
           en: "Encryption keys are {value}."
           de: "Verschlüsselungsschlüssel sind {value}."
@@ -474,7 +454,6 @@ groups:
       - id: cmk_key_vault_key_id
         ask: Which Key Vault key should encrypt the account?
         type: ref
-        audience: engineer
         plain:
           en: "Encrypted with your key {value}."
           de: "Verschlüsselt mit eurem Schlüssel {value}."
@@ -496,7 +475,7 @@ groups:
       - id: diagnostic_workspace
         ask: Which Log Analytics workspace should receive diagnostics?
         type: ref
-        audience: platform
+        resolved_by: platform
         plain:
           en: "Its logs go to {value}."
           de: "Seine Logs gehen in {value}."
@@ -511,7 +490,6 @@ groups:
       - id: diagnostic_categories
         ask: Which log categories should be collected?
         type: list
-        audience: engineer
         plain:
           en: "Logged: {value}."
           de: "Geloggt wird: {value}."
@@ -535,7 +513,6 @@ groups:
       - id: metrics_enabled
         ask: Should all metrics be collected?
         type: bool
-        audience: engineer
         plain:
           en: "Usage and performance figures are {value}."
           de: "Nutzungs- und Leistungswerte werden {value}."

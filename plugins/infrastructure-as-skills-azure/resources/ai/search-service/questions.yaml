@@ -28,7 +28,6 @@ groups:
       - id: environments
         ask: Which stages is this deployed to?
         type: list
-        audience: engineer
         plain:
           en: "Deployed in the stages {value}."
           de: "Wird in den Stufen {value} ausgerollt."
@@ -43,7 +42,6 @@ groups:
       - id: location
         ask: Which Azure region?
         type: string
-        audience: engineer
         plain:
           en: "Runs in the Azure region {value}."
           de: "Läuft in der Azure-Region {value}."
@@ -58,7 +56,6 @@ groups:
       - id: resource_group_name
         ask: Which resource group?
         type: ref
-        audience: engineer
         plain:
           en: "Placed in the resource group {value}."
           de: "Liegt in der Ressourcengruppe {value}."
@@ -78,7 +75,6 @@ groups:
       - id: sku
         ask: Which service tier?
         type: enum
-        audience: engineer
         plain:
           en: "The search service is the {value} tier."
           de: "Der Suchdienst hat die Stufe {value}."
@@ -105,7 +101,6 @@ groups:
       - id: replica_count
         ask: How many copies of the index should serve queries?
         type: int
-        audience: engineer
         plain:
           en: "{value} copies of the index answer queries."
           de: "{value} Kopien des Index beantworten Anfragen."
@@ -126,7 +121,6 @@ groups:
       - id: partition_count
         ask: How many partitions should the index be spread over?
         type: int
-        audience: engineer
         plain:
           en: "The index data is spread over {value} partition(s)."
           de: "Die Indexdaten sind auf {value} Partition(en) verteilt."
@@ -142,7 +136,6 @@ groups:
       - id: semantic_ranker
         ask: Should results be re-ranked by meaning?
         type: enum
-        audience: engineer
         plain:
           en: "Re-ranking of results by meaning is {value}."
           de: "Die Neubewertung der Ergebnisse nach Bedeutung ist {value}."
@@ -166,7 +159,6 @@ groups:
       - id: public_network_access
         ask: Should this service depart from the deployment's exposure posture?
         type: enum
-        audience: engineer
         plain:
           en: "The search service is {value}."
           de: "Der Suchdienst ist {value}."
@@ -196,7 +188,7 @@ groups:
       - id: private_endpoint_subnet
         ask: Which subnet should this service's private endpoint live in?
         type: ref
-        audience: platform
+        resolved_by: platform
         plain:
           en: "Its private connection lands in subnet {value}."
           de: "Seine private Anbindung landet im Subnetz {value}."
@@ -211,7 +203,6 @@ groups:
       - id: ip_rules
         ask: Which public IP ranges may reach the service?
         type: list
-        audience: engineer
         plain:
           en: "Public addresses allowed to reach the search service: {value}."
           de: "Öffentliche Adressen, die den Suchdienst erreichen dürfen: {value}."
@@ -227,7 +218,6 @@ groups:
       - id: network_rule_bypass
         ask: May trusted Azure services reach the service past its firewall?
         type: enum
-        audience: engineer
         plain:
           en: "Trusted Azure services {value} past the search service's firewall."
           de: "Vertrauenswürdige Azure-Dienste {value} an der Firewall des Suchdienstes vorbei."
@@ -250,7 +240,6 @@ groups:
       - id: managed_identity
         ask: Which managed identity should the service carry?
         type: enum
-        audience: engineer
         plain:
           en: "The search service has {value}."
           de: "Der Suchdienst hat {value}."
@@ -271,7 +260,6 @@ groups:
       - id: user_assigned_identity_ids
         ask: Which user-assigned identity?
         type: list
-        audience: engineer
         plain:
           en: "It uses the identity {value}."
           de: "Es nutzt die Identität {value}."
@@ -285,7 +273,6 @@ groups:
       - id: role_assignments
         ask: Who needs which role on this service?
         type: list
-        audience: engineer
         plain:
           en: "Access rights on the search service granted to: {value}."
           de: "Zugriffsrechte auf den Suchdienst vergeben an: {value}."
@@ -308,7 +295,6 @@ groups:
       - id: local_authentication_disabled
         ask: May clients sign in with API keys?
         type: bool
-        audience: engineer
         plain:
           en: "Signing in with API keys is {value}; access goes through company accounts."
           de: "Die Anmeldung mit API-Schlüsseln ist {value}; der Zugriff läuft über Firmenkonten."
@@ -328,7 +314,6 @@ groups:
       - id: key_management
         ask: Are the service's encryption keys platform-managed or customer-managed?
         type: enum
-        audience: engineer
         plain:
           en: "Encryption keys are {value}."
           de: "Verschlüsselungsschlüssel sind {value}."
@@ -349,7 +334,6 @@ groups:
       - id: cmk_enforcement
         ask: Should the service refuse objects that are not encrypted with a customer key?
         type: bool
-        audience: engineer
         plain:
           en: "Objects not encrypted with your own key are {value}."
           de: "Objekte, die nicht mit eurem eigenen Schlüssel verschlüsselt sind, werden {value}."
@@ -372,7 +356,7 @@ groups:
       - id: diagnostic_workspace
         ask: Which Log Analytics workspace should receive diagnostics?
         type: ref
-        audience: platform
+        resolved_by: platform
         plain:
           en: "Its logs go to {value}."
           de: "Seine Logs gehen in {value}."
@@ -387,7 +371,6 @@ groups:
       - id: diagnostic_categories
         ask: Which log categories should be collected?
         type: list
-        audience: engineer
         plain:
           en: "Logged: {value}."
           de: "Geloggt wird: {value}."
@@ -406,7 +389,6 @@ groups:
       - id: metrics_enabled
         ask: Should all metrics be collected?
         type: bool
-        audience: engineer
         plain:
           en: "Usage and performance figures are {value}."
           de: "Nutzungs- und Leistungswerte werden {value}."

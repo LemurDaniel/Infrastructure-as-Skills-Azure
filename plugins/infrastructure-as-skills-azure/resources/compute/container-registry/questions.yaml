@@ -27,7 +27,6 @@ groups:
       - id: environments
         ask: Which stages is this deployed to?
         type: list
-        audience: engineer
         plain:
           en: "Deployed in the stages {value}."
           de: "Wird in den Stufen {value} ausgerollt."
@@ -43,7 +42,6 @@ groups:
       - id: location
         ask: Which Azure region?
         type: string
-        audience: engineer
         plain:
           en: "Runs in the Azure region {value}."
           de: "Läuft in der Azure-Region {value}."
@@ -58,7 +56,6 @@ groups:
       - id: resource_group_name
         ask: Which resource group?
         type: ref
-        audience: engineer
         plain:
           en: "Placed in the resource group {value}."
           de: "Liegt in der Ressourcengruppe {value}."
@@ -78,7 +75,6 @@ groups:
       - id: sku
         ask: Which registry tier?
         type: enum
-        audience: engineer
         plain:
           en: "The registry is the {value} tier."
           de: "Die Registry hat die Stufe {value}."
@@ -105,7 +101,6 @@ groups:
       - id: zone_redundant
         ask: Should the registry survive the loss of an availability zone?
         type: bool
-        audience: engineer
         plain:
           en: "The registry {value} survive the loss of one datacenter of the region."
           de: "Die Registry {value} den Ausfall eines Rechenzentrums der Region."
@@ -130,7 +125,6 @@ groups:
       - id: geo_replicas
         ask: In which further regions should the images be kept?
         type: list
-        audience: engineer
         plain:
           en: "The images are also kept in {value} (empty: only in the main region)."
           de: "Die Images liegen zusätzlich in {value} (leer: nur in der Hauptregion)."
@@ -152,7 +146,6 @@ groups:
       - id: retention_untagged_days
         ask: After how many days should untagged images be deleted?
         type: int
-        audience: engineer
         plain:
           en: "Untagged images are deleted after {value} days."
           de: "Images ohne Tag werden nach {value} Tagen gelöscht."
@@ -174,7 +167,6 @@ groups:
       - id: public_network_access
         ask: Should this registry depart from the deployment's exposure posture?
         type: enum
-        audience: engineer
         plain:
           en: "The registry is {value}."
           de: "Die Registry ist {value}."
@@ -205,7 +197,7 @@ groups:
       - id: private_endpoint_subnet
         ask: Which subnet should this registry's private endpoint live in?
         type: ref
-        audience: platform
+        resolved_by: platform
         plain:
           en: "Its private connection lands in subnet {value}."
           de: "Seine private Anbindung landet im Subnetz {value}."
@@ -222,7 +214,6 @@ groups:
       - id: ip_rules
         ask: Which public IP ranges may reach the registry?
         type: list
-        audience: engineer
         plain:
           en: "Public addresses allowed to reach the registry: {value}."
           de: "Öffentliche Adressen, die die Registry erreichen dürfen: {value}."
@@ -237,7 +228,6 @@ groups:
       - id: network_rule_bypass
         ask: May trusted Azure services reach the registry past its firewall?
         type: enum
-        audience: engineer
         plain:
           en: "Trusted Azure services {value} past the registry's firewall."
           de: "Vertrauenswürdige Azure-Dienste {value} an der Firewall der Registry vorbei."
@@ -256,7 +246,6 @@ groups:
       - id: export_policy_enabled
         ask: May images be exported out of the registry's network?
         type: bool
-        audience: engineer
         plain:
           en: "Copying images out of the registry to elsewhere is {value}."
           de: "Das Herauskopieren von Images aus der Registry ist {value}."
@@ -280,7 +269,6 @@ groups:
       - id: managed_identity
         ask: Which managed identity should the registry carry?
         type: enum
-        audience: engineer
         plain:
           en: "The registry has {value}."
           de: "Die Registry hat {value}."
@@ -304,7 +292,6 @@ groups:
       - id: user_assigned_identity_ids
         ask: Which user-assigned identity?
         type: list
-        audience: engineer
         plain:
           en: "It uses the identity {value}."
           de: "Es nutzt die Identität {value}."
@@ -318,7 +305,6 @@ groups:
       - id: role_assignments
         ask: Who needs which role on this registry?
         type: list
-        audience: engineer
         plain:
           en: "Access rights on the registry granted to: {value}."
           de: "Zugriffsrechte auf die Registry vergeben an: {value}."
@@ -342,7 +328,6 @@ groups:
       - id: admin_enabled
         ask: May clients sign in with the registry's shared admin account?
         type: bool
-        audience: engineer
         plain:
           en: "The shared admin account is {value}; access goes through company accounts."
           de: "Das gemeinsame Admin-Konto ist {value}; der Zugriff läuft über Firmenkonten."
@@ -362,7 +347,6 @@ groups:
       - id: anonymous_pull_enabled
         ask: May anyone pull images without signing in?
         type: bool
-        audience: engineer
         plain:
           en: "Pulling images without signing in is {value}."
           de: "Das Herunterladen von Images ohne Anmeldung ist {value}."
@@ -380,7 +364,6 @@ groups:
       - id: key_management
         ask: Are the registry's encryption keys platform-managed or customer-managed?
         type: enum
-        audience: engineer
         plain:
           en: "Encryption keys are {value}."
           de: "Verschlüsselungsschlüssel sind {value}."
@@ -400,7 +383,6 @@ groups:
       - id: cmk_key_vault_key_id
         ask: Which Key Vault key should encrypt the registry?
         type: ref
-        audience: engineer
         plain:
           en: "Encrypted with your key {value}."
           de: "Verschlüsselt mit eurem Schlüssel {value}."
@@ -422,7 +404,7 @@ groups:
       - id: diagnostic_workspace
         ask: Which Log Analytics workspace should receive diagnostics?
         type: ref
-        audience: platform
+        resolved_by: platform
         plain:
           en: "Its logs go to {value}."
           de: "Seine Logs gehen in {value}."
@@ -437,7 +419,6 @@ groups:
       - id: diagnostic_categories
         ask: Which log categories should be collected?
         type: list
-        audience: engineer
         plain:
           en: "Logged: {value}."
           de: "Geloggt wird: {value}."
@@ -457,7 +438,6 @@ groups:
       - id: metrics_enabled
         ask: Should all metrics be collected?
         type: bool
-        audience: engineer
         plain:
           en: "Usage and performance figures are {value}."
           de: "Nutzungs- und Leistungswerte werden {value}."

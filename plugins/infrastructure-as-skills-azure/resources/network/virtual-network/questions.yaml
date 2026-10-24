@@ -23,7 +23,6 @@ groups:
       - id: environments
         ask: Which stages is this deployed to?
         type: list
-        audience: engineer
         plain:
           en: "Deployed in the stages {value}."
           de: "Wird in den Stufen {value} ausgerollt."
@@ -37,7 +36,6 @@ groups:
       - id: location
         ask: Which Azure region?
         type: string
-        audience: engineer
         plain:
           en: "Runs in the Azure region {value}."
           de: "Läuft in der Azure-Region {value}."
@@ -52,7 +50,6 @@ groups:
       - id: resource_group_name
         ask: Which resource group?
         type: ref
-        audience: engineer
         plain:
           en: "Placed in the resource group {value}."
           de: "Liegt in der Ressourcengruppe {value}."
@@ -73,7 +70,7 @@ groups:
       - id: address_space
         ask: Which address range does the network use?
         type: string
-        audience: platform
+        resolved_by: platform
         plain:
           en: "The network uses the address range {value}."
           de: "Das Netz nutzt den Adressbereich {value}."
@@ -90,7 +87,6 @@ groups:
       - id: subnets
         ask: Which subnets does the network need, and with which prefixes?
         type: list
-        audience: engineer
         plain:
           en: "Subnets: {value}."
           de: "Subnetze: {value}."
@@ -108,7 +104,7 @@ groups:
       - id: private_endpoint_subnet_prefix
         ask: Which prefix carries the private endpoints?
         type: string
-        audience: platform
+        resolved_by: platform
         plain:
           en: "Private connections get the subnet {value}."
           de: "Private Anbindungen bekommen das Subnetz {value}."
@@ -123,7 +119,7 @@ groups:
       - id: dns_servers
         ask: Which DNS servers should the network use?
         type: list
-        audience: platform
+        resolved_by: platform
         plain:
           en: "Custom name servers: {value} (none: Azure's own)."
           de: "Eigene Namensserver: {value} (keine: Azures eigene)."
@@ -144,7 +140,6 @@ groups:
       - id: private_endpoint_network_policies
         ask: Should network policies apply to private endpoints in their subnet?
         type: enum
-        audience: engineer
         plain:
           en: "Network rules {value} to private connections in their subnet."
           de: "Netzwerkregeln {value} für private Anbindungen in ihrem Subnetz."
@@ -166,7 +161,6 @@ groups:
       - id: service_endpoints
         ask: Which service endpoints should the subnets carry?
         type: list
-        audience: engineer
         plain:
           en: "Shortcuts to Azure services from the subnets: {value}."
           de: "Abkürzungen zu Azure-Diensten aus den Subnetzen: {value}."
@@ -182,7 +176,6 @@ groups:
       - id: subnet_delegations
         ask: Which subnets are delegated to a service?
         type: list
-        audience: engineer
         plain:
           en: "Subnets handed to a service: {value}."
           de: "An einen Dienst übergebene Subnetze: {value}."
@@ -202,7 +195,7 @@ groups:
       - id: ddos_protection
         ask: Should the network use a DDoS protection plan?
         type: bool
-        audience: platform
+        resolved_by: platform
         plain:
           en: "A paid DDoS protection plan is {value}; Azure's basic protection applies either way."
           de: "Ein kostenpflichtiger DDoS-Schutzplan wird {value}; Azures Basisschutz gilt ohnehin."
@@ -221,7 +214,6 @@ groups:
       - id: subnets_expecting_nsg
         ask: Which subnets will have a network security group attached?
         type: list
-        audience: engineer
         plain:
           en: "Subnets that will get a security group: {value}."
           de: "Subnetze, die eine Sicherheitsgruppe bekommen: {value}."
@@ -241,7 +233,7 @@ groups:
       - id: diagnostic_workspace
         ask: Which Log Analytics workspace should receive diagnostics?
         type: ref
-        audience: platform
+        resolved_by: platform
         plain:
           en: "Network logs go to {value}."
           de: "Netzwerk-Logs gehen in {value}."
@@ -257,7 +249,6 @@ groups:
       - id: flow_logs_enabled
         ask: Should NSG flow logs be collected?
         type: bool
-        audience: engineer
         plain:
           en: "A record of allowed and denied traffic is {value}."
           de: "Eine Aufzeichnung erlaubten und abgewiesenen Verkehrs wird {value}."

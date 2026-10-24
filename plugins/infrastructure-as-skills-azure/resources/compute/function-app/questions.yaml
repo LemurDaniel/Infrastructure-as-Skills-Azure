@@ -34,7 +34,6 @@ groups:
       - id: environments
         ask: Which stages is this deployed to?
         type: list
-        audience: engineer
         plain:
           en: "Deployed in the stages {value}."
           de: "Wird in den Stufen {value} ausgerollt."
@@ -49,7 +48,6 @@ groups:
       - id: location
         ask: Which Azure region?
         type: string
-        audience: engineer
         plain:
           en: "Runs in the Azure region {value}."
           de: "Läuft in der Azure-Region {value}."
@@ -64,7 +62,6 @@ groups:
       - id: resource_group_name
         ask: Which resource group?
         type: ref
-        audience: engineer
         plain:
           en: "Placed in the resource group {value}."
           de: "Liegt in der Ressourcengruppe {value}."
@@ -84,7 +81,6 @@ groups:
       - id: plan_type
         ask: How should the function app be hosted?
         type: enum
-        audience: engineer
         plain:
           en: "The function app runs on {value}."
           de: "Die Function App läuft auf {value}."
@@ -107,7 +103,6 @@ groups:
       - id: runtime_stack
         ask: Which language or runtime does the function app run?
         type: enum
-        audience: engineer
         plain:
           en: "The function app is written for {value}."
           de: "Die Function App ist geschrieben für {value}."
@@ -129,7 +124,6 @@ groups:
       - id: runtime_version
         ask: Which version of the runtime?
         type: string
-        audience: engineer
         plain:
           en: "Runtime version {value}."
           de: "Laufzeit-Version {value}."
@@ -145,7 +139,6 @@ groups:
       - id: zone_redundant
         ask: Should the plan survive the loss of an availability zone?
         type: bool
-        audience: engineer
         plain:
           en: "The function app {value} survive the loss of one datacenter of the region."
           de: "Die Function App {value} den Ausfall eines Rechenzentrums der Region."
@@ -172,7 +165,6 @@ groups:
       - id: max_instance_count
         ask: How many instances may the function app scale out to?
         type: int
-        audience: engineer
         plain:
           en: "The function app may scale out to at most {value} instances."
           de: "Die Function App darf auf höchstens {value} Instanzen skalieren."
@@ -188,7 +180,6 @@ groups:
       - id: always_ready_instances
         ask: How many instances should stay warm?
         type: int
-        audience: engineer
         plain:
           en: "{value} instance(s) are kept warm so the first call does not wait."
           de: "{value} Instanz(en) werden vorgewärmt gehalten, damit der erste Aufruf nicht wartet."
@@ -210,7 +201,6 @@ groups:
       - id: instance_memory_mb
         ask: How much memory should each instance get?
         type: enum
-        audience: engineer
         plain:
           en: "Each instance gets {value} MB of memory."
           de: "Jede Instanz bekommt {value} MB Arbeitsspeicher."
@@ -230,7 +220,6 @@ groups:
       - id: host_storage_account
         ask: Which storage account does the Functions host use?
         type: ref
-        audience: engineer
         plain:
           en: "The function app keeps its own state in the storage account {value}."
           de: "Die Function App hält ihren eigenen Zustand im Speicherkonto {value}."
@@ -250,7 +239,6 @@ groups:
       - id: host_storage_auth
         ask: How does the function app sign in to its storage account?
         type: enum
-        audience: engineer
         plain:
           en: "The function app signs in to its storage with {value}."
           de: "Die Function App meldet sich an ihrem Speicher an mit {value}."
@@ -276,7 +264,6 @@ groups:
       - id: deployment_container
         ask: In which container is the deployment package kept?
         type: string
-        audience: engineer
         plain:
           en: "The deployed code is kept in the container {value}."
           de: "Der ausgerollte Code liegt im Container {value}."
@@ -296,7 +283,6 @@ groups:
       - id: public_network_access
         ask: Should this function app depart from the deployment's exposure posture?
         type: enum
-        audience: engineer
         plain:
           en: "The function app is {value}."
           de: "Die Function App ist {value}."
@@ -327,7 +313,7 @@ groups:
       - id: private_endpoint_subnet
         ask: Which subnet should this function app's private endpoint live in?
         type: ref
-        audience: platform
+        resolved_by: platform
         plain:
           en: "Its private connection lands in subnet {value}."
           de: "Seine private Anbindung landet im Subnetz {value}."
@@ -342,7 +328,6 @@ groups:
       - id: vnet_integration
         ask: Does the function call services that are only reachable privately?
         type: bool
-        audience: engineer
         plain:
           en: "The function app's own outgoing traffic {value}."
           de: "Der ausgehende Verkehr der Function App {value}."
@@ -365,7 +350,7 @@ groups:
       - id: integration_subnet
         ask: Which subnet does the function app's outgoing traffic leave through?
         type: ref
-        audience: platform
+        resolved_by: platform
         plain:
           en: "Outgoing traffic leaves through the subnet {value}."
           de: "Ausgehender Verkehr verlässt das Netz über das Subnetz {value}."
@@ -390,7 +375,6 @@ groups:
       - id: vnet_route_all
         ask: Should all outgoing traffic go through the network, or only traffic to private addresses?
         type: bool
-        audience: engineer
         plain:
           en: "Outgoing traffic is routed {value}."
           de: "Ausgehender Verkehr wird {value} geleitet."
@@ -411,7 +395,6 @@ groups:
       - id: ip_restrictions
         ask: Which public IP ranges may reach the function app?
         type: list
-        audience: engineer
         plain:
           en: "Public addresses allowed to reach the function app: {value}."
           de: "Öffentliche Adressen, die die Function App erreichen dürfen: {value}."
@@ -431,7 +414,6 @@ groups:
       - id: managed_identity
         ask: Which managed identity should the function app carry?
         type: enum
-        audience: engineer
         plain:
           en: "The function app has {value} for reaching other services."
           de: "Die Function App hat {value}, um andere Dienste zu erreichen."
@@ -454,7 +436,6 @@ groups:
       - id: user_assigned_identity_ids
         ask: Which user-assigned identity?
         type: list
-        audience: engineer
         plain:
           en: "It uses the identity {value}."
           de: "Es nutzt die Identität {value}."
@@ -470,7 +451,6 @@ groups:
       - id: role_assignments
         ask: Who may manage the function app?
         type: list
-        audience: engineer
         plain:
           en: "Management rights on the function app granted to: {value}."
           de: "Verwaltungsrechte an der Function App vergeben an: {value}."
@@ -488,7 +468,6 @@ groups:
       - id: https_only
         ask: Should the function app refuse plain HTTP?
         type: bool
-        audience: engineer
         plain:
           en: "Unencrypted connections are {value}."
           de: "Unverschlüsselte Verbindungen werden {value}."
@@ -505,7 +484,6 @@ groups:
       - id: min_tls_version
         ask: What is the minimum TLS version?
         type: enum
-        audience: engineer
         plain:
           en: "Connections must use at least {value} encryption."
           de: "Verbindungen müssen mindestens {value}-Verschlüsselung nutzen."
@@ -523,7 +501,6 @@ groups:
       - id: basic_auth_enabled
         ask: Should publishing with a username and password stay possible?
         type: bool
-        audience: engineer
         plain:
           en: "Deploying with a user name and password is {value}; deployments run through company accounts."
           de: "Das Ausrollen mit Benutzername und Passwort ist {value}; Rollouts laufen über Firmenkonten."
@@ -545,7 +522,6 @@ groups:
       - id: application_insights
         ask: Which Application Insights component should receive the function app's telemetry?
         type: ref
-        audience: engineer
         plain:
           en: "Its application telemetry goes to {value} (empty: none)."
           de: "Seine Anwendungstelemetrie geht an {value} (leer: keine)."
@@ -568,7 +544,7 @@ groups:
       - id: diagnostic_workspace
         ask: Which Log Analytics workspace should receive diagnostics?
         type: ref
-        audience: platform
+        resolved_by: platform
         plain:
           en: "Its logs go to {value}."
           de: "Seine Logs gehen in {value}."
@@ -584,7 +560,6 @@ groups:
       - id: diagnostic_categories
         ask: Which log categories should be collected?
         type: list
-        audience: engineer
         plain:
           en: "Logged: {value}."
           de: "Geloggt wird: {value}."
@@ -605,7 +580,6 @@ groups:
       - id: metrics_enabled
         ask: Should all metrics be collected?
         type: bool
-        audience: engineer
         plain:
           en: "Usage and performance figures are {value}."
           de: "Nutzungs- und Leistungswerte werden {value}."

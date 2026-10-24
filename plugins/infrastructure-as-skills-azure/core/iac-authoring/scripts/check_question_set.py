@@ -21,11 +21,11 @@ a regex cannot see - what references/question-set-format.md promises:
   5. References: `depends_on` names a question in the same set and, for an
      enum, a value it can take; `from_deployment` and `from_context` name a
      question in the deployment set; `confirm_in` names environments the
-     deployment set knows; `derived_from` names a customer question in the
+     deployment set knows; `derived_from` names an interview question in the
      deployment set and maps every one of its values to a value of this
      question's kind (and, for an enum, one of its values).
-  6. `audience` is present and is customer, engineer or platform - who answers
-     the question; a question without one would reach the customer by accident.
+  6. `resolved_by`, where present, is interview or platform; absent means the question
+     is defaulted or derived and never asked.
   7. `plain` is present: a mapping of language code to one customer-language
      line (`en` required, `{value}` optional), and `plain_values`, where
      present, maps every key to such a mapping and names only values the
@@ -38,7 +38,7 @@ a regex cannot see - what references/question-set-format.md promises:
   9. Unknown fields are reported: a misspelt `default` is a question that is
      silently asked every run.
   8. With --platform <file>: the platform profile's keys are deployment-set
-     questions with audience platform, enum values are within `values`, and a
+     questions with resolved_by platform, enum values are within `values`, and a
      ref value is a name and resource group, not a resource id.
 
 Needs PyYAML (pip install pyyaml). Without it the script says so and exits 2
@@ -65,13 +65,13 @@ PLUGIN = os.path.abspath(os.path.join(HERE, '..', '..', '..'))
 DEPLOYMENT_SET = os.path.join(HERE, '..', 'questions', 'deployment.yaml')
 
 TYPES = ['enum', 'bool', 'string', 'int', 'list', 'ref']
-AUDIENCES = ['customer', 'engineer', 'platform']
+RESOLVED_BY = ['interview', 'platform']
 REVIEW_ORDER = ['placement', 'networking', 'identity', 'security', 'data_protection', 'observability']
 RESOLUTION_FIELDS = ['required', 'default', 'from_deployment', 'parameterized', 'derived_from']
 KNOWN_FIELDS = {
     'id', 'ask', 'type', 'values', 'default', 'required', 'parameterized', 'confirm_in',
     'why', 'renders', 'depends_on', 'ref', 'from_deployment', 'forced_when', 'from_context',
-    'audience', 'plain', 'plain_values', 'derived_from', 'per_environment', 'non_production_default',
+    'resolved_by', 'plain', 'plain_values', 'derived_from', 'per_environment', 'non_production_default',
 }
 # Groups whose decisions may never be relaxed for a non-production stage.
 NO_SAVINGS_GROUPS = {'security', 'networking', 'identity', 'access', 'dns', 'compliance', 'posture', 'modules', 'subnet_policy'}
@@ -351,8 +351,8 @@ def check_set(path, doc, deployment, rel):
                 err(f"{where}: derived_from '{dv['question']}', which the deployment set does not have")
             else:
                 tq = dep_ids[dv['question']]
-                if tq.get('audience') != 'customer':
-                    err(f"{where}: derived_from '{dv['question']}', whose audience is {tq.get('audience')} - a derivation answers a customer question; otherwise use from_deployment")
+                if tq.get('resolved_by') != 'interview':
+                    err(f"{where}: derived_from '{dv['question']}', which the interview does not ask - a derivation answers an interview question; otherwise use from_deployment")
                 tv = tq.get('values') if tq.get('type') == 'enum' else None
                 m = dv['map']
                 if not isinstance(m, dict) or not m:
@@ -432,12 +432,10 @@ def check_set(path, doc, deployment, rel):
                 if pl and '{value}' not in pl.get('en', ''):
                     wrn(f"{where}: plain_values given but plain.en has no {{value}} placeholder")
 
-        # --- 6. audience
-        aud = q.get('audience')
-        if aud is None:
-            err(f"{where}: audience is missing (customer | engineer | platform) - who answers it?")
-        elif aud not in AUDIENCES:
-            err(f"{where}: audience '{aud}' is not one of {', '.join(AUDIENCES)}")
+        # --- 6. resolved_by (absent: defaulted or derived, never asked)
+        rb = q.get('resolved_by')
+        if rb is not None and rb not in RESOLVED_BY:
+            err(f"{where}: resolved_by '{rb}' is not one of {', '.join(RESOLVED_BY)}")
 
     return errors, warnings, len(qs)
 
@@ -446,7 +444,7 @@ PLATFORM_TOP = {'schema_version', 'platform'}
 
 
 def check_platform(doc, deployment, rel):
-    """A platform.yaml: keys are deployment-set questions with audience platform."""
+    """A platform.yaml: keys are deployment-set questions with resolved_by platform."""
     errors = []
 
     def err(t): errors.append(f"{rel}: {t}")
@@ -470,8 +468,8 @@ def check_platform(doc, deployment, rel):
         if q is None:
             err(f"'{k}' is not a deployment-set question")
             continue
-        if q.get('audience') != 'platform':
-            err(f"'{k}' has audience {q.get('audience')}, not platform - it is not the platform's to fix")
+        if q.get('resolved_by') != 'platform':
+            err(f"'{k}' is not resolved_by platform - it is not the platform's to fix")
             continue
         t, values = q.get('type'), q.get('values')
         stages = (dep.get('environments') or {}).get('values') or []

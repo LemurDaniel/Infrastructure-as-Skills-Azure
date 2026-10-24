@@ -23,7 +23,6 @@ groups:
       - id: environments
         ask: Which stages is this deployed to?
         type: list
-        audience: engineer
         plain:
           en: "Deployed in the stages {value}."
           de: "Wird in den Stufen {value} ausgerollt."
@@ -37,7 +36,6 @@ groups:
       - id: location
         ask: Which Azure region?
         type: string
-        audience: engineer
         plain:
           en: "Runs in the Azure region {value}."
           de: "Läuft in der Azure-Region {value}."
@@ -52,7 +50,6 @@ groups:
       - id: resource_group_name
         ask: Which resource group?
         type: ref
-        audience: engineer
         plain:
           en: "Placed in the resource group {value}."
           de: "Liegt in der Ressourcengruppe {value}."
@@ -73,7 +70,6 @@ groups:
       - id: retention_days
         ask: How long should logs be retained?
         type: int
-        audience: engineer
         plain:
           en: "Logs are kept for {value} days."
           de: "Logs werden {value} Tage aufbewahrt."
@@ -92,7 +88,6 @@ groups:
       - id: daily_quota_gb
         ask: Should ingestion be capped per day?
         type: int
-        audience: engineer
         plain:
           en: "Daily log intake cap: {value} GB (-1: no cap)."
           de: "Tägliche Obergrenze für Logs: {value} GB (-1: keine)."
@@ -108,7 +103,6 @@ groups:
       - id: sku
         ask: Which pricing tier?
         type: enum
-        audience: engineer
         plain:
           en: "Billed {value}."
           de: "Abgerechnet {value}."
@@ -131,7 +125,6 @@ groups:
       - id: public_network_access
         ask: Should the workspace be reachable from the internet?
         type: enum
-        audience: engineer
         plain:
           en: "The log workspace is {value}."
           de: "Der Log-Arbeitsbereich ist {value}."
@@ -162,7 +155,6 @@ groups:
       - id: local_auth
         ask: Should workspace keys be usable for ingestion?
         type: bool
-        audience: engineer
         plain:
           en: "Sending logs with the workspace key is {value}."
           de: "Logs mit dem Arbeitsbereichs-Schlüssel zu senden ist {value}."
@@ -180,7 +172,6 @@ groups:
       - id: rbac_only_access
         ask: Should data access be governed only by Azure RBAC?
         type: bool
-        audience: engineer
         plain:
           en: "Who may read logs is decided {value}."
           de: "Wer Logs lesen darf, entscheiden {value}."
@@ -204,7 +195,6 @@ groups:
       - id: immediate_purge_protection
         ask: Should the workspace keep its 14-day soft delete?
         type: bool
-        audience: engineer
         plain:
           en: "A deleted workspace {value} be recovered for 14 days."
           de: "Ein gelöschter Arbeitsbereich {value} 14 Tage lang wiederhergestellt werden."
@@ -224,7 +214,6 @@ groups:
       - id: archive_to_storage
         ask: Should logs also be archived to a storage account?
         type: bool
-        audience: engineer
         plain:
           en: "Long-term archiving to cheap storage is {value}."
           de: "Langzeitarchivierung in günstigen Speicher ist {value}."

@@ -28,7 +28,6 @@ groups:
       - id: environments
         ask: Which stages is this deployed to?
         type: list
-        audience: engineer
         plain:
           en: "Deployed in the stages {value}."
           de: "Wird in den Stufen {value} ausgerollt."
@@ -43,7 +42,6 @@ groups:
       - id: location
         ask: Which Azure region?
         type: string
-        audience: engineer
         plain:
           en: "Runs in the Azure region {value}."
           de: "Läuft in der Azure-Region {value}."
@@ -58,7 +56,6 @@ groups:
       - id: resource_group_name
         ask: Which resource group?
         type: ref
-        audience: engineer
         plain:
           en: "Placed in the resource group {value}."
           de: "Liegt in der Ressourcengruppe {value}."
@@ -78,7 +75,6 @@ groups:
       - id: capacity_mode
         ask: Is the throughput reserved, or paid per request?
         type: enum
-        audience: engineer
         plain:
           en: "Capacity is {value}."
           de: "Die Kapazität ist {value}."
@@ -107,7 +103,6 @@ groups:
       - id: throughput_mode
         ask: Should the throughput follow the load, or stay at a fixed rate?
         type: enum
-        audience: engineer
         plain:
           en: "Throughput {value}."
           de: "Der Durchsatz {value}."
@@ -129,7 +124,6 @@ groups:
       - id: max_throughput
         ask: What is the highest throughput the data may use?
         type: int
-        audience: engineer
         plain:
           en: "Throughput is capped at {value} request units per second per container."
           de: "Der Durchsatz ist auf {value} Anfrageeinheiten pro Sekunde je Container begrenzt."
@@ -146,7 +140,6 @@ groups:
       - id: total_throughput_limit
         ask: Should the whole account have a throughput ceiling?
         type: int
-        audience: engineer
         plain:
           en: "The account as a whole may use at most {value} request units per second (-1: no limit)."
           de: "Das gesamte Konto darf höchstens {value} Anfrageeinheiten pro Sekunde nutzen (-1: keine Grenze)."
@@ -162,7 +155,6 @@ groups:
       - id: free_tier
         ask: Should the account use the free tier?
         type: bool
-        audience: engineer
         plain:
           en: "The monthly free allowance of throughput and storage is {value}."
           de: "Das monatliche Freikontingent an Durchsatz und Speicher ist {value}."
@@ -184,7 +176,6 @@ groups:
       - id: zone_redundant
         ask: Should the primary region survive the loss of an availability zone?
         type: bool
-        audience: engineer
         plain:
           en: "The data {value} survive the loss of one datacenter of the region."
           de: "Die Daten {value} den Ausfall eines Rechenzentrums der Region."
@@ -209,7 +200,6 @@ groups:
       - id: geo_replicas
         ask: In which further regions should the data be kept?
         type: list
-        audience: engineer
         plain:
           en: "The data is also kept in {value} (empty: only in the main region)."
           de: "Die Daten liegen zusätzlich in {value} (leer: nur in der Hauptregion)."
@@ -235,7 +225,6 @@ groups:
       - id: automatic_failover
         ask: Should the account fail over to a replica by itself?
         type: bool
-        audience: engineer
         plain:
           en: "If the main region fails, the account {value}."
           de: "Fällt die Hauptregion aus, {value} das Konto."
@@ -252,7 +241,6 @@ groups:
       - id: consistency_level
         ask: How up to date must a read be after a write?
         type: enum
-        audience: engineer
         plain:
           en: "A read sees {value}."
           de: "Eine Leseanfrage sieht {value}."
@@ -281,7 +269,6 @@ groups:
       - id: public_network_access
         ask: Should this account depart from the deployment's exposure posture?
         type: enum
-        audience: engineer
         plain:
           en: "The account is {value}."
           de: "Das Konto ist {value}."
@@ -312,7 +299,7 @@ groups:
       - id: private_endpoint_subnet
         ask: Which subnet should this account's private endpoint live in?
         type: ref
-        audience: platform
+        resolved_by: platform
         plain:
           en: "Its private connection lands in subnet {value}."
           de: "Seine private Anbindung landet im Subnetz {value}."
@@ -327,7 +314,6 @@ groups:
       - id: ip_rules
         ask: Which public IP ranges may reach the account?
         type: list
-        audience: engineer
         plain:
           en: "Public addresses allowed to reach the account: {value}."
           de: "Öffentliche Adressen, die das Konto erreichen dürfen: {value}."
@@ -344,7 +330,6 @@ groups:
       - id: network_acl_bypass
         ask: May trusted Azure services reach the account past its firewall?
         type: bool
-        audience: engineer
         plain:
           en: "Trusted Azure services {value} past the account's firewall."
           de: "Vertrauenswürdige Azure-Dienste {value} an der Firewall des Kontos vorbei."
@@ -366,7 +351,6 @@ groups:
       - id: managed_identity
         ask: Which managed identity should the account carry?
         type: enum
-        audience: engineer
         plain:
           en: "The account has {value}."
           de: "Das Konto hat {value}."
@@ -391,7 +375,6 @@ groups:
       - id: user_assigned_identity_ids
         ask: Which user-assigned identity?
         type: list
-        audience: engineer
         plain:
           en: "It uses the identity {value}."
           de: "Es nutzt die Identität {value}."
@@ -405,7 +388,6 @@ groups:
       - id: data_plane_role_assignments
         ask: Who needs to read or write the data?
         type: list
-        audience: engineer
         plain:
           en: "Access to the data itself granted to: {value}."
           de: "Zugriff auf die Daten selbst vergeben an: {value}."
@@ -428,7 +410,6 @@ groups:
       - id: role_assignments
         ask: Who may manage the account itself?
         type: list
-        audience: engineer
         plain:
           en: "Management rights on the account granted to: {value}."
           de: "Verwaltungsrechte am Konto vergeben an: {value}."
@@ -448,7 +429,6 @@ groups:
       - id: local_authentication_disabled
         ask: May clients sign in with the account keys?
         type: bool
-        audience: engineer
         plain:
           en: "Signing in with account keys is {value}; access goes through company accounts."
           de: "Die Anmeldung mit Kontoschlüsseln ist {value}; der Zugriff läuft über Firmenkonten."
@@ -468,7 +448,6 @@ groups:
       - id: key_based_metadata_writes
         ask: May account keys change databases and containers?
         type: bool
-        audience: engineer
         plain:
           en: "Creating or changing databases, containers and throughput with account keys is {value}."
           de: "Das Anlegen oder Ändern von Datenbanken, Containern und Durchsatz mit Kontoschlüsseln ist {value}."
@@ -487,7 +466,6 @@ groups:
       - id: key_management
         ask: Are the account's encryption keys platform-managed or customer-managed?
         type: enum
-        audience: engineer
         plain:
           en: "Encryption keys are {value}."
           de: "Verschlüsselungsschlüssel sind {value}."
@@ -508,7 +486,6 @@ groups:
       - id: cmk_key_vault_key_id
         ask: Which Key Vault key should encrypt the account?
         type: ref
-        audience: engineer
         plain:
           en: "Encrypted with your key {value}."
           de: "Verschlüsselt mit eurem Schlüssel {value}."
@@ -531,7 +508,6 @@ groups:
       - id: backup_policy
         ask: How far back must a deletion or a bad write be undoable?
         type: enum
-        audience: engineer
         plain:
           en: "Backups allow going back {value}."
           de: "Backups erlauben den Rückgang {value}."
@@ -564,7 +540,6 @@ groups:
       - id: backup_storage_redundancy
         ask: Where are periodic backups kept?
         type: enum
-        audience: engineer
         plain:
           en: "Periodic backups are kept {value}."
           de: "Periodische Backups liegen {value}."
@@ -588,7 +563,6 @@ groups:
       - id: analytical_storage
         ask: Should the data also be kept in a column store for analytics?
         type: bool
-        audience: engineer
         plain:
           en: "A column store for analytics beside the data is {value}."
           de: "Ein Spaltenspeicher für Analysen neben den Daten ist {value}."
@@ -609,7 +583,6 @@ groups:
       - id: databases
         ask: Which databases and containers should the account hold?
         type: list
-        audience: engineer
         plain:
           en: "The account holds the databases and containers {value}."
           de: "Das Konto enthält die Datenbanken und Container {value}."
@@ -634,7 +607,7 @@ groups:
       - id: diagnostic_workspace
         ask: Which Log Analytics workspace should receive diagnostics?
         type: ref
-        audience: platform
+        resolved_by: platform
         plain:
           en: "Its logs go to {value}."
           de: "Seine Logs gehen in {value}."
@@ -650,7 +623,6 @@ groups:
       - id: diagnostic_categories
         ask: Which log categories should be collected?
         type: list
-        audience: engineer
         plain:
           en: "Logged: {value}."
           de: "Geloggt wird: {value}."
@@ -676,7 +648,6 @@ groups:
       - id: metrics_enabled
         ask: Should all metrics be collected?
         type: bool
-        audience: engineer
         plain:
           en: "Usage and performance figures are {value}."
           de: "Nutzungs- und Leistungswerte werden {value}."

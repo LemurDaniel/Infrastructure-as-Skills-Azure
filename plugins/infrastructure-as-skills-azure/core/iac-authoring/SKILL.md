@@ -14,9 +14,8 @@ things and record them the same way.
 This skill is the **entry point**: its description carries what people type when they
 want Azure infrastructure — the targets, the workload words ("Chatapp mit RAG", web app,
 API, landing zone) and a few resource names — because a request names what the system
-does far more often than the resources it needs (the first install test, 2026-10-24,
-asked for "eine Chatapp in Azure mit RAG" and matched nothing while the resource list was
-the only trigger). Behind it, three units kept apart on purpose: the
+does far more often than the resources it needs ("eine Chatapp in Azure mit RAG"
+must match, and a resource list alone does not). Behind it, three units kept apart on purpose: the
 [azure-resources](../azure-resources/SKILL.md) skill carries the **resource terms** and
 routes to the family, the family is the **routing** unit, the question set the
 **knowledge** unit. They are separate because the skill listing has a shared character
@@ -36,9 +35,8 @@ The picture comes before the code, always: the customer signs off on the diagram
 the spec, and the render starts only once they have.
 
 The spec in the middle is the load-bearing part. It is the handover interface, not a
-by-product: a backend renders *from* it, and the same spec can go to a different backend —
-including `Infrastructure-by-Skill` for API-driven execution — which is what makes the two
-tracks comparable at all. Never generate code directly from the interview.
+by-product: a backend renders *from* it, and the same spec gives Terraform and Bicep the
+same decisions. Never generate code directly from the interview.
 
 ## Before anything — find an existing spec
 
@@ -53,7 +51,7 @@ several roots, are in [references/spec.md](references/spec.md#where-it-lives).
 
 Look for `platform.yaml` beside it in the same search. It is the platform engineer's
 profile — landing zone, hub network and subnet, DNS, workspace, telemetry — and every
-value in it answers a deployment-set question with `audience: platform` before anyone is
+value in it answers a deployment-set question with `resolved_by: platform` before anyone is
 asked. Say in the first message whether one was found. Never write it from an interview:
 [references/platform.md](references/platform.md).
 
@@ -61,16 +59,15 @@ asked. Say in the first message whether one was found. Never write it from an in
 
 The person answering is **the customer**: someone who can say what the system is for,
 who uses it and how bad an outage or a loss would be, and who did not come to answer
-questions about subnets. There is one audience in the interview and no second mode
-(the engineer mode was dropped on 2026-10-24). Every question carries an `audience`
-([question-set-format](references/question-set-format.md#who-answers-audience)), and
-the audience decides what happens to it:
+questions about subnets. There is one person in the interview and no second mode. A question's `resolved_by`
+([question-set-format](references/question-set-format.md#who-resolves-it-resolved_by))
+decides what happens to it:
 
-| `audience` | What happens |
+| `resolved_by` | What happens |
 |---|---|
-| `customer` | Put to the person: the module choice and the naming mechanism (asked first), the deployment set's context, posture, mandates and `requirements` group, and any resource question that carries it |
+| `interview` | Put to the person: the module choice and the naming mechanism (asked first), the deployment set's context, posture, mandates and `requirements` group, and any resource question that carries it |
 | `platform` | Read from `platform.yaml`, else its default; a `required` one with no profile is an `open:` entry owned by the platform team |
-| `engineer` | Its default, or derived from a requirement; a `required` one nobody can default is an `open:` entry owned by the workload's engineer |
+| *(absent)* | Its default, or derived from a requirement; a `required` one nobody can default is an `open:` entry owned by the workload's engineer |
 
 Say so in the first message: "Ich frage dich nur, was das System braucht; die
 technischen Entscheidungen setze ich nach den Vorgaben und zeige sie dir am Ende." An
@@ -284,7 +281,7 @@ private network exposure brings the virtual network and its private-endpoint sub
 diagnostics or retention decision brings the Log Analytics workspace, a registry or
 identity requirement brings its own resource. Work out the full resource list from the
 deployment set first, then read all of the sets in one pass. A set read after the batch, or
-after Phase 5 has begun, means its `customer` questions could not be asked and its defaults
+after Phase 5 has begun, means its interview questions could not be asked and its defaults
 are guesses.
 
 For each question, the answer then comes from the first source that has one:
@@ -305,10 +302,10 @@ carried value. Consequences are the exception — `deployment` and `forced` valu
 re-derived from what they follow, not carried.
 
 A question with `required: true` has no default and no safe guess. It is the only kind you
-must ask — of the audience that can answer it. Every question carries an `audience`
-([question-set-format](references/question-set-format.md#who-answers-audience)): a
-`customer` question is put to the person in the interview; an `engineer` or `platform`
-question is never put to a customer — it resolves from the profile or the default, and a
+must ask. A question with `resolved_by: interview`
+([question-set-format](references/question-set-format.md#who-resolves-it-resolved_by)) is
+put to the person; one with `resolved_by: platform`, or none, is never put to a customer —
+it resolves from the profile or the default, and a
 `required` one nobody present can answer becomes an `open:` entry naming its owner.
 
 **A forced value is pre-answered, not asked.** `key_protection: hsm` requires a Premium Key
@@ -322,7 +319,7 @@ lives. Read it before choosing any default or justifying one.
 
 ## Phase 3 — Ask, in one batch
 
-Only what Phase 0's description left open reaches this phase, and only the audiences the
+Only what Phase 0's description left open reaches this phase, and only the questions the
 mode allows. A question the user already answered in prose and is asked again tells them
 the description was not read.
 
@@ -333,13 +330,13 @@ about them, "there is no default for these" included, is a bug in the interview:
 is designing and has no deployment target yet. The group's *name* is that kind of value; the
 `resource_groups` group of the deployment set is not: whether areas get a group of their own
 (`resource_group_split`) and whether each group exists or is created
-(`resource_group_mode_<role>`) are `customer` questions, with `existing` and no split as the
+(`resource_group_mode_<role>`) are interview questions, with `existing` and no split as the
 defaults. Nor is the customer's language:
 it is the language the request and the answers are written in, and Phase 0 writes it to
 `context.language` (`en` or `de`) - the picture, the decision document and the
 customer-facing text in the spec follow it.
 
-**There is one batch**: the surviving `customer` questions — the
+**There is one batch**: the surviving interview questions — the
 environment, who reaches it and from where, the mandates, and the `requirements` group
 (network requirements - may the network be chosen freely, or are ranges assigned or a
 connection to the company network given -, outage impact, data-loss tolerance, access pattern, backup isolation, data
@@ -351,8 +348,7 @@ number of customer questions: the customer answers multiple choice, and a tenth 
 row costs them less than a decision nobody asked them about. `AskUserQuestion` takes four
 questions per call: a batch of ten is three calls in a row, numbered for the person
 ("Fragen 1-4 von 10"), with nothing reasoned or reported between them - the batch is never
-trimmed to four to fit one call. **No option in the batch is marked recommended** (owner's
-call, 2026-10-24): a `customer` question asks for a fact about the organisation - whether the
+trimmed to four to fit one call. **No option in the batch is marked recommended**: an interview question asks for a fact about the organisation - whether the
 system joins the company network, how bad a day's outage is, where the data may live - and
 there is no better answer the plugin could know. The default is the guardrail's fallback for
 an answer nobody gave, not advice, and marking it steers the person towards the guess the
@@ -362,9 +358,9 @@ nobody peers with - 10.100.0.0/24, /23, /22 - with the size that fits the descri
 marked recommended, because that recommendation is sizing the plugin derives from the
 system (compute subnets, private endpoints, a Container Apps environment), not a guess
 about the organisation; the rule and the sizes are on `address_space` in the deployment
-set, and each stage takes its own block of the chosen size. Nothing else is asked. An `engineer` question takes its default; a `platform`
+set, and each stage takes its own block of the chosen size. Nothing else is asked. A question without `resolved_by` takes its default; a `platform`
 question takes the profile's value or its default; a `required` question of either
-audience that nothing answers becomes an `open:` entry with its owner named, and Phase 4
+kind that nothing answers becomes an `open:` entry with its owner named, and Phase 4
 says so. Put the batch in the customer's words — the `ask` texts of the `requirements`
 group are written for that — and never a decision's vocabulary (`ZRS`, `TLS1_2`, a
 subnet) in a question to a customer.
@@ -375,7 +371,7 @@ exists to avoid.
 
 **One exchange, every question in it.** Where the host offers `AskUserQuestion`, use it —
 grouped options with the trade-off in the description beat prose. The deployment set is
-resolved before the resource sets (Phase 2), so a `customer` question a resource set
+resolved before the resource sets (Phase 2), so an interview question a resource set
 carries is already filtered by the deployment answers when it reaches the batch -
 `network_exposure: private` has removed the firewall questions before anyone sees them.
 
@@ -383,7 +379,7 @@ A serial interrogation ("and now, the TLS version?") is the one failure mode tha
 people abandon a tool like this, and it is entirely avoidable: the question set is known up
 front, so there is no reason to discover questions one at a time.
 
-If an `engineer` or `platform` question survives into the batch, something is wrong: it
+If a question without `resolved_by: interview` survives into the batch, something is wrong: it
 is asking a thing that should have a default, a platform value or an `open:` entry. Never
 ask it; default it and say so in Phase 4, or open it with its owner.
 
@@ -412,7 +408,7 @@ the values whose blast radius makes a silent default inappropriate.
 
 ## Phase 4 — Show the design, report what was defaulted, then ask once
 
-**First the design, as a list the customer ticks off** (owner's call, 2026-10-24). Before
+**First the design, as a list the customer ticks off**. Before
 the account of defaults and before any file is written, say in the customer's words what
 will be built: one line per part with what it is for, one line per connection, the handful
 of decisions that cost money or change what the system can do. Nothing technical, no
@@ -533,9 +529,7 @@ otherwise the line is simply absent.
 `context.language` names - the one exception to the English spec: `wiring.access[].label`, `wiring.purposes` and the
 `owner` of every `open:` entry are printed verbatim into the picture, the `question` into
 the decision document (the picture counts the open entries by owner and points at the
-document), so an English label there is a `spec` finding of the review
-(found 2026-10-24: a German customer, five English labels and three English open items in
-their picture). Keys, values, `why`, `reason` stay English.
+document), so an English label there is a `spec` finding of the review. Keys, values, `why`, `reason` stay English.
 
 **Write the decision document in the same step**, in the user's language:
 
@@ -563,7 +557,7 @@ session is cheaper and does the steps itself. Only a spec of a single resource f
 host without the Agent tool, is not asked and runs in the same session. **A change or
 extension of an existing spec enters this phase again** - decision document, diagram,
 this question (unless already answered in the session), review - it is not a shortcut
-past it (missed 2026-10-25: a second app service added, diagram reviewed by hand only).
+past it.
 
 ```
 Wie soll ich weiterarbeiten?
@@ -576,8 +570,7 @@ Wie soll ich weiterarbeiten?
 Run [iac-diagram](../iac-diagram/SKILL.md) on the spec as soon as it validates and put
 `infra-diagram.drawio.png` beside it - every run, for a single storage account as much as
 for twelve resources, because the picture is the thing the person signs off on and the
-question "soll ich ein Diagramm zeichnen?" was a question nobody ever answered with no
-(dropped 2026-10-24). Where the PNG cannot be exported (no draw.io CLI), hand over the
+question "soll ich ein Diagramm zeichnen?" was a question nobody ever answered with no. Where the PNG cannot be exported (no draw.io CLI), hand over the
 `.drawio` and say so.
 
 **Review it before anyone sees it - Loop 1 of
@@ -610,9 +603,18 @@ again. Every finding names the cells it concerns by their draw.io ids (`e-6`,
 the customer a picture with an error you have already seen** - that is what the loop is
 for.
 
-**The sign-off.** Show the reviewed picture and the decision document's first section (what
+**The sign-off.** Every reviewed diagram ends in this question, in the same message that
+shows it - after the first draw, after every redraw in the loop, after a diagram-only
+request, after an extension of the spec. A diagram shown without the question, or a
+turn that ends on "Diagramm ist fertig" or on a list of findings, is a missed step. It is asked with
+`AskUserQuestion` and never replaced by prose like "sag Bescheid, wenn ich rendern soll".
+Show the reviewed picture and the decision document's first section (what
 follows from their answers), name what is still `open:` and from whom, and ask one
-question:
+question. The block below is the German wording; it is asked in `context.language` - for
+`en`: "This is what the system looks like (infra/infra-diagram.drawio.png); what you
+decided is in infra/infra-decisions.md. Does this fit your requirements?" with *Yes, build
+it* / *Change something* / *Not yet*. The three options keep their meaning in any language:
+only the yes starts the render.
 
 ```
 So sieht das System aus (infra/infra-diagram.drawio.png); was ihr entschieden habt, steht

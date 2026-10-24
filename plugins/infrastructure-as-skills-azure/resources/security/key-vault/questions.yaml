@@ -27,7 +27,6 @@ groups:
       - id: environments
         ask: Which stages is this deployed to?
         type: list
-        audience: engineer
         plain:
           en: "Deployed in the stages {value}."
           de: "Wird in den Stufen {value} ausgerollt."
@@ -42,7 +41,6 @@ groups:
       - id: location
         ask: Which Azure region?
         type: string
-        audience: engineer
         plain:
           en: "Runs in the Azure region {value}."
           de: "Läuft in der Azure-Region {value}."
@@ -56,7 +54,6 @@ groups:
       - id: resource_group_name
         ask: Which resource group?
         type: ref
-        audience: engineer
         plain:
           en: "Placed in the resource group {value}."
           de: "Liegt in der Ressourcengruppe {value}."
@@ -76,7 +73,6 @@ groups:
       - id: sku
         ask: Which vault tier?
         type: enum
-        audience: engineer
         plain:
           en: "The vault is the {value} tier."
           de: "Der Tresor ist die Stufe {value}."
@@ -99,7 +95,6 @@ groups:
       - id: purge_protection
         ask: Should deleted items be impossible to purge during their retention?
         type: bool
-        audience: engineer
         plain:
           en: "A deleted vault or secret {value} before its retention ends."
           de: "Ein gelöschter Tresor oder ein gelöschtes Geheimnis {value}, bevor die Aufbewahrungszeit endet."
@@ -122,7 +117,6 @@ groups:
       - id: soft_delete_retention_days
         ask: How many days stay deleted items recoverable?
         type: int
-        audience: engineer
         plain:
           en: "Deleted vault contents can be restored for {value} days."
           de: "Gelöschte Inhalte des Tresors lassen sich {value} Tage lang wiederherstellen."
@@ -140,7 +134,6 @@ groups:
       - id: rbac_authorization
         ask: Should access be granted by role assignments instead of access policies?
         type: bool
-        audience: engineer
         plain:
           en: "Access to the vault's contents is controlled by {value}."
           de: "Der Zugriff auf den Inhalt des Tresors wird über {value} gesteuert."
@@ -164,7 +157,6 @@ groups:
       - id: public_network_access
         ask: Should this vault depart from the deployment's exposure posture?
         type: enum
-        audience: engineer
         plain:
           en: "The vault is {value}."
           de: "Der Tresor ist {value}."
@@ -196,7 +188,7 @@ groups:
       - id: private_endpoint_subnet
         ask: Which subnet should this vault's private endpoint live in?
         type: ref
-        audience: platform
+        resolved_by: platform
         plain:
           en: "Its private connection lands in subnet {value}."
           de: "Seine private Anbindung landet im Subnetz {value}."
@@ -211,7 +203,6 @@ groups:
       - id: network_acl_bypass
         ask: May trusted Azure services reach the vault past its firewall?
         type: enum
-        audience: engineer
         plain:
           en: "Trusted Azure services {value} past the vault's firewall."
           de: "Vertrauenswürdige Azure-Dienste {value} an der Firewall des Tresors vorbei."
@@ -236,7 +227,6 @@ groups:
       - id: ip_rules
         ask: Which public IP ranges may reach the vault?
         type: list
-        audience: engineer
         plain:
           en: "Public addresses allowed to reach the vault: {value}."
           de: "Öffentliche Adressen, die den Tresor erreichen dürfen: {value}."
@@ -256,7 +246,6 @@ groups:
       - id: role_assignments
         ask: Who needs which role on this vault?
         type: list
-        audience: engineer
         plain:
           en: "Access rights on the vault granted to: {value}."
           de: "Zugriffsrechte auf den Tresor vergeben an: {value}."
@@ -282,7 +271,6 @@ groups:
       - id: enabled_for_services
         ask: Which Azure services may fetch secrets or certificates from this vault on their own?
         type: list
-        audience: engineer
         plain:
           en: "Platform services allowed to read from the vault: {value} (empty: none)."
           de: "Plattformdienste, die aus dem Tresor lesen dürfen: {value} (leer: keine)."
@@ -307,7 +295,6 @@ groups:
       - id: secret_placeholders
         ask: Which secrets should exist in the vault, to be filled in later?
         type: list
-        audience: engineer
         plain:
           en: "Empty slots are created for the secrets {value}; their values are entered afterwards by hand or by the workload."
           de: "Für die Geheimnisse {value} werden leere Plätze angelegt; die Werte werden danach von Hand oder von der Anwendung eingetragen."
@@ -335,7 +322,6 @@ groups:
       - id: key_management
         ask: Does this vault hold keys that encrypt other resources?
         type: enum
-        audience: engineer
         plain:
           en: "Encryption keys are {value}."
           de: "Verschlüsselungsschlüssel sind {value}."
@@ -353,7 +339,6 @@ groups:
       - id: customer_managed_keys
         ask: Which keys should the vault hold for customer-managed encryption?
         type: list
-        audience: engineer
         plain:
           en: "The vault holds the encryption keys {value}."
           de: "Der Tresor hält die Verschlüsselungsschlüssel {value}."
@@ -369,7 +354,6 @@ groups:
       - id: key_type
         ask: Which key type?
         type: enum
-        audience: engineer
         plain:
           en: "The keys are {value}."
           de: "Die Schlüssel sind {value}."
@@ -390,7 +374,6 @@ groups:
       - id: key_size
         ask: How large should the keys be?
         type: enum
-        audience: engineer
         plain:
           en: "The keys are {value} bits long."
           de: "Die Schlüssel sind {value} Bit lang."
@@ -407,7 +390,6 @@ groups:
       - id: key_rotation_days
         ask: After how many days should a key rotate itself?
         type: int
-        audience: engineer
         plain:
           en: "Keys are replaced automatically every {value} days."
           de: "Schlüssel werden automatisch alle {value} Tage erneuert."
@@ -424,7 +406,6 @@ groups:
       - id: key_expiry_days
         ask: After how many days does a key expire?
         type: int
-        audience: engineer
         plain:
           en: "A key version expires after {value} days."
           de: "Eine Schlüsselversion läuft nach {value} Tagen ab."
@@ -443,7 +424,7 @@ groups:
       - id: diagnostic_workspace
         ask: Which Log Analytics workspace should receive diagnostics?
         type: ref
-        audience: platform
+        resolved_by: platform
         plain:
           en: "Its logs go to {value}."
           de: "Seine Logs gehen in {value}."
@@ -459,7 +440,6 @@ groups:
       - id: diagnostic_categories
         ask: Which log categories should be collected?
         type: list
-        audience: engineer
         plain:
           en: "Logged: {value}."
           de: "Geloggt wird: {value}."
@@ -479,7 +459,6 @@ groups:
       - id: metrics_enabled
         ask: Should all metrics be collected?
         type: bool
-        audience: engineer
         plain:
           en: "Usage and performance figures are {value}."
           de: "Nutzungs- und Leistungswerte werden {value}."

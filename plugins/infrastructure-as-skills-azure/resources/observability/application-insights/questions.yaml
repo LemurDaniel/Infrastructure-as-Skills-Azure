@@ -26,7 +26,6 @@ groups:
       - id: environments
         ask: Which stages is this deployed to?
         type: list
-        audience: engineer
         plain:
           en: "Deployed in the stages {value}."
           de: "Wird in den Stufen {value} ausgerollt."
@@ -41,7 +40,6 @@ groups:
       - id: location
         ask: Which Azure region?
         type: string
-        audience: engineer
         plain:
           en: "Runs in the Azure region {value}."
           de: "Läuft in der Azure-Region {value}."
@@ -56,7 +54,6 @@ groups:
       - id: resource_group_name
         ask: Which resource group?
         type: ref
-        audience: engineer
         plain:
           en: "Placed in the resource group {value}."
           de: "Liegt in der Ressourcengruppe {value}."
@@ -76,7 +73,7 @@ groups:
       - id: workspace
         ask: Which Log Analytics workspace stores the telemetry?
         type: ref
-        audience: platform
+        resolved_by: platform
         plain:
           en: "Its telemetry is stored in {value}."
           de: "Seine Telemetrie wird in {value} gespeichert."
@@ -95,7 +92,6 @@ groups:
       - id: application_type
         ask: Which kind of application sends telemetry?
         type: enum
-        audience: engineer
         plain:
           en: "The component is set up for {value}."
           de: "Die Komponente ist eingerichtet für {value}."
@@ -115,7 +111,6 @@ groups:
       - id: sampling_percentage
         ask: What share of the telemetry should be kept?
         type: int
-        audience: engineer
         plain:
           en: "{value} percent of the telemetry is kept."
           de: "{value} Prozent der Telemetrie werden behalten."
@@ -132,7 +127,6 @@ groups:
       - id: daily_cap_gb
         ask: Should this component's intake be capped per day?
         type: int
-        audience: engineer
         plain:
           en: "Daily telemetry cap for this component: {value} GB (0: no cap)."
           de: "Tägliche Obergrenze für die Telemetrie dieser Komponente: {value} GB (0: keine)."
@@ -149,7 +143,6 @@ groups:
       - id: store_client_ip
         ask: Should the visitor's IP address be stored with the telemetry?
         type: bool
-        audience: engineer
         plain:
           en: "Visitors' IP addresses are {value}."
           de: "IP-Adressen von Besuchern werden {value}."
@@ -174,7 +167,6 @@ groups:
       - id: public_network_access
         ask: Should this component depart from the deployment's exposure posture?
         type: enum
-        audience: engineer
         plain:
           en: "The component is {value}."
           de: "Die Komponente ist {value}."
@@ -205,7 +197,7 @@ groups:
       - id: private_link_scope
         ask: Which private monitoring connection should the component belong to?
         type: ref
-        audience: platform
+        resolved_by: platform
         plain:
           en: "Its private connection is the monitoring scope {value}."
           de: "Seine private Anbindung ist der Überwachungsbereich {value}."
@@ -229,7 +221,6 @@ groups:
       - id: role_assignments
         ask: Who needs which role on this component?
         type: list
-        audience: engineer
         plain:
           en: "Access rights on the component granted to: {value}."
           de: "Zugriffsrechte auf die Komponente vergeben an: {value}."
@@ -251,7 +242,6 @@ groups:
       - id: local_authentication_disabled
         ask: May applications send telemetry with the instrumentation key alone?
         type: bool
-        audience: engineer
         plain:
           en: "Sending telemetry with only a key is {value}; applications sign in with company identities."
           de: "Das Senden von Telemetrie nur mit einem Schlüssel ist {value}; Anwendungen melden sich mit Firmenidentitäten an."

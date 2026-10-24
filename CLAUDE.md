@@ -43,7 +43,7 @@ python3 plugins/infrastructure-as-skills-azure/core/iac-authoring/scripts/check_
 python plugins/infrastructure-as-skills-azure/core/iac-authoring/tests/run_spec_tests.py
 
 # Validates every question set (or the paths given) against the format: enum defaults,
-# depends_on / from_deployment targets, resolution fields, audience, unknown fields.
+# depends_on / from_deployment targets, resolution fields, `resolved_by`, unknown fields.
 # --platform <platform.yaml> checks a platform profile against the deployment set instead.
 python3 plugins/infrastructure-as-skills-azure/core/iac-authoring/scripts/check_question_set.py
 
@@ -150,6 +150,11 @@ are in [README.md](README.md#why-one-trigger-and-families-that-are-not-skills).
 - **A `CLAUDE.md` inside the plugin directory is not loaded as context.** Instructions that
   must reach Claude belong in a skill. This file is at the repo root and does load.
 - **Frontmatter `name` must equal the skill's directory name.**
+- **Skills carry the rule and its lasting reason, never its history.** No dates, "owner's
+  call" or "missed on ..." in a `SKILL.md`: every line is loaded on every use. The
+  incident belongs in the commit message or `PROGRESS.md`.
+- **Customer-facing wording in a skill is a template for `context.language`.** A German
+  block is the German variant, with the English one beside it, never the only text.
 - **The plugin never refers to `examples/`.** It ships without them; a live deployment has
   neither the directory nor the specs. Skills, references and question sets carry what they
   need themselves; nothing under `plugins/` - tests and fixtures included - reads from it or
@@ -170,9 +175,9 @@ are in [README.md](README.md#why-one-trigger-and-families-that-are-not-skills).
   key, never a workspace) per stage. A `per_environment` value is a parameter from the
   stage file, never a literal in the template; `non_production_default` relaxes cost
   knobs outside production and is refused on anything security-shaped.
-- **Every question carries an `audience`** (`customer`, `engineer`, `platform`), and only
-  `customer` questions reach the person in the interview. Platform facts come from
-  `platform.yaml`, which the interview reads and never writes.
+- **Only `resolved_by: interview` questions reach the person.** There is no audience
+  field: a question is `interview`, `platform` (read from `platform.yaml`, which the
+  interview reads and never writes) or has no `resolved_by` and is defaulted or derived.
 - **A render ships with its tests, both targets.** Terraform: one `assert` per spec
   decision, named `# decision: <resource>.<group>.<question>`, what a plan cannot observe
   `# not-testable:` with a reason. Bicep: one entry per decision in `tests/*.armtest.yaml`

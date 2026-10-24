@@ -12,10 +12,10 @@ on that platform reads them. The customer never sees the questions.
 
 ## Shape
 
-The keys are the ids of the deployment-set questions whose `audience` is `platform`
+The keys are the ids of the deployment-set questions with `resolved_by: platform`
 ([questions/deployment.yaml](../questions/deployment.yaml)); the values are what those
 questions would take. Nothing else goes in — a key the deployment set does not have, or
-one whose audience is `customer` or `engineer`, is rejected by the check.
+one without `resolved_by: platform`, is rejected by the check.
 
 ```yaml
 schema_version: 1
@@ -93,6 +93,6 @@ pattern presumes about the platform, and both outrank the question set's default
 python3 <plugin>/core/iac-authoring/scripts/check_question_set.py --platform ./platform.yaml
 ```
 
-Checks that every key is a deployment-set question with `audience: platform`, that enum
+Checks that every key is a deployment-set question with `resolved_by: platform`, that enum
 values are within the question's `values`, and that a `ref` value carries what the
 deployment set asks for (a name and a resource group, not a resource id).

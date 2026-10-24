@@ -1,6 +1,6 @@
 # platform.yaml - the platform profile. Written once by the platform or DevOps engineer,
 # read by every interview on this platform. Keys are the deployment-set questions whose
-# audience is `platform` (core/iac-authoring/questions/deployment.yaml); delete the keys
+# `resolved_by` is `platform` (core/iac-authoring/questions/deployment.yaml); delete the keys
 # you do not want to fix, keep the rest. Rules: references/platform.md.
 schema_version: 1
 

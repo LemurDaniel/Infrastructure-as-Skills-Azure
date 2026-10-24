@@ -18,4 +18,4 @@ generation and enforcement cannot drift apart.
 - Policy at deploy time (Azure Policy, deny/audit) vs. at PR time (Checkov in the pipeline),
   or both.
 - Ownership: policy is usually a platform concern, outside what this plugin owns
-  (`audience: platform`).
+  (`resolved_by: platform`).

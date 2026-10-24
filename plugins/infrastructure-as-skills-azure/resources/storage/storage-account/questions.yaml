@@ -24,7 +24,6 @@ groups:
       - id: environments
         ask: Which stages is this deployed to?
         type: list
-        audience: engineer
         plain:
           en: "Deployed in the stages {value}."
           de: "Wird in den Stufen {value} ausgerollt."
@@ -39,7 +38,6 @@ groups:
       - id: location
         ask: Which Azure region?
         type: string
-        audience: engineer
         plain:
           en: "Runs in the Azure region {value}."
           de: "Läuft in der Azure-Region {value}."
@@ -54,7 +52,6 @@ groups:
       - id: resource_group_name
         ask: Which resource group?
         type: ref
-        audience: engineer
         plain:
           en: "Placed in the resource group {value}."
           de: "Liegt in der Ressourcengruppe {value}."
@@ -74,7 +71,6 @@ groups:
       - id: public_network_access
         ask: Should this account depart from the deployment's exposure posture?
         type: enum
-        audience: engineer
         plain:
           en: "The storage is {value}."
           de: "Der Speicher ist {value}."
@@ -105,7 +101,7 @@ groups:
       - id: private_endpoint_subnet
         ask: Which subnet should this account's private endpoint live in?
         type: ref
-        audience: platform
+        resolved_by: platform
         plain:
           en: "Its private connection lands in subnet {value}."
           de: "Seine private Anbindung landet im Subnetz {value}."
@@ -122,7 +118,6 @@ groups:
       - id: private_endpoint_subresources
         ask: Which storage services need an endpoint?
         type: list
-        audience: engineer
         plain:
           en: "Private connections exist for: {value}."
           de: "Private Anbindungen gibt es für: {value}."
@@ -143,7 +138,6 @@ groups:
       - id: firewall_ip_rules
         ask: Which public IP ranges may reach the account?
         type: list
-        audience: engineer
         plain:
           en: "Public addresses allowed through the firewall: {value}."
           de: "Durch die Firewall erlaubte öffentliche Adressen: {value}."
@@ -159,7 +153,6 @@ groups:
       - id: firewall_subnet_rules
         ask: Which subnets may reach the account via service endpoint?
         type: list
-        audience: engineer
         plain:
           en: "Networks allowed through the firewall: {value}."
           de: "Durch die Firewall erlaubte Netze: {value}."
@@ -176,7 +169,6 @@ groups:
       - id: allow_azure_services_bypass
         ask: Should trusted Azure services bypass the firewall?
         type: bool
-        audience: engineer
         plain:
           en: "Azure's own services (backup, monitoring) {value} reach the storage past the firewall."
           de: "Azures eigene Dienste (Backup, Überwachung) {value} am Firewall vorbei auf den Speicher zugreifen."
@@ -198,7 +190,6 @@ groups:
       - id: managed_identity
         ask: Which managed identity should the account carry?
         type: enum
-        audience: engineer
         plain:
           en: "The storage has {value} for reaching other services."
           de: "Der Speicher hat {value}, um andere Dienste zu erreichen."
@@ -218,7 +209,6 @@ groups:
       - id: user_assigned_identity_ids
         ask: Which user-assigned identities?
         type: list
-        audience: engineer
         plain:
           en: "It uses the identities {value}."
           de: "Er nutzt die Identitäten {value}."
@@ -232,7 +222,6 @@ groups:
       - id: role_assignments
         ask: Who needs which data-plane role on this account?
         type: list
-        audience: engineer
         plain:
           en: "Access rights granted to: {value}."
           de: "Zugriffsrechte vergeben an: {value}."
@@ -256,7 +245,6 @@ groups:
       - id: shared_access_key_enabled
         ask: Should shared key (account key) authentication stay enabled?
         type: bool
-        audience: engineer
         plain:
           en: "Access with a shared key is {value}; access goes through company accounts."
           de: "Zugriff mit einem geteilten Schlüssel ist {value}; der Zugriff läuft über Firmenkonten."
@@ -278,7 +266,6 @@ groups:
       - id: min_tls_version
         ask: What is the minimum TLS version?
         type: enum
-        audience: engineer
         plain:
           en: "Connections must use at least {value} encryption."
           de: "Verbindungen müssen mindestens {value}-Verschlüsselung nutzen."
@@ -296,7 +283,6 @@ groups:
       - id: https_traffic_only
         ask: Should the account refuse plain HTTP?
         type: bool
-        audience: engineer
         plain:
           en: "Unencrypted connections are {value}."
           de: "Unverschlüsselte Verbindungen werden {value}."
@@ -313,7 +299,6 @@ groups:
       - id: allow_blob_public_access
         ask: May individual containers be made publicly readable?
         type: bool
-        audience: engineer
         plain:
           en: "Making individual folders publicly readable is {value}."
           de: "Einzelne Ordner öffentlich lesbar zu machen ist {value}."
@@ -332,7 +317,6 @@ groups:
       - id: infrastructure_encryption_enabled
         ask: Should infrastructure (double) encryption be enabled?
         type: bool
-        audience: engineer
         plain:
           en: "A second encryption layer below the service is {value}."
           de: "Eine zweite Verschlüsselungsschicht unterhalb des Dienstes ist {value}."
@@ -350,7 +334,6 @@ groups:
       - id: key_management
         ask: Platform-managed or customer-managed encryption keys?
         type: enum
-        audience: engineer
         plain:
           en: "Encryption keys are {value}."
           de: "Verschlüsselungsschlüssel sind {value}."
@@ -370,7 +353,6 @@ groups:
       - id: cmk_key_vault_key_id
         ask: Which Key Vault key should encrypt the account?
         type: ref
-        audience: engineer
         plain:
           en: "Encrypted with your key {value}."
           de: "Verschlüsselt mit eurem Schlüssel {value}."
@@ -387,7 +369,6 @@ groups:
       - id: sftp_enabled
         ask: Should the SFTP endpoint be enabled?
         type: bool
-        audience: engineer
         plain:
           en: "File transfer via SFTP is {value}."
           de: "Dateiübertragung per SFTP ist {value}."
@@ -409,7 +390,6 @@ groups:
       - id: replication
         ask: Which replication does the data need?
         type: enum
-        audience: engineer
         plain:
           en: "The data is kept {value}."
           de: "Die Daten liegen {value}."
@@ -446,7 +426,6 @@ groups:
       - id: access_tier
         ask: Which default access tier?
         type: enum
-        audience: engineer
         plain:
           en: "Stored in the {value} class."
           de: "Gespeichert in der Klasse {value}."
@@ -469,7 +448,6 @@ groups:
       - id: blob_soft_delete_days
         ask: How many days should deleted blobs stay restorable?
         type: int
-        audience: engineer
         plain:
           en: "Deleted files can be restored for {value} days (0: not at all)."
           de: "Gelöschte Dateien sind {value} Tage wiederherstellbar (0: gar nicht)."
@@ -486,7 +464,6 @@ groups:
       - id: container_soft_delete_days
         ask: How many days should deleted containers stay restorable?
         type: int
-        audience: engineer
         plain:
           en: "Deleted folders can be restored for {value} days (0: not at all)."
           de: "Gelöschte Ordner sind {value} Tage wiederherstellbar (0: gar nicht)."
@@ -502,7 +479,6 @@ groups:
       - id: versioning_enabled
         ask: Should blob versioning be enabled?
         type: bool
-        audience: engineer
         plain:
           en: "Earlier versions of overwritten files are {value}."
           de: "Frühere Versionen überschriebener Dateien werden {value}."
@@ -522,7 +498,6 @@ groups:
       - id: change_feed_enabled
         ask: Should the change feed be enabled?
         type: bool
-        audience: engineer
         plain:
           en: "A log of every change is {value}."
           de: "Ein Log jeder Änderung wird {value}."
@@ -539,7 +514,6 @@ groups:
       - id: point_in_time_restore_days
         ask: How many days of point-in-time restore?
         type: int
-        audience: engineer
         plain:
           en: "The whole storage can be rewound {value} days (0: not at all)."
           de: "Der ganze Speicher lässt sich {value} Tage zurückdrehen (0: gar nicht)."
@@ -555,7 +529,6 @@ groups:
       - id: immutability
         ask: Does the data need immutability (WORM)?
         type: enum
-        audience: engineer
         plain:
           en: "Deletion protection by law or policy: {value}."
           de: "Löschschutz per Gesetz oder Richtlinie: {value}."
@@ -581,7 +554,7 @@ groups:
       - id: diagnostic_workspace
         ask: Which Log Analytics workspace should receive diagnostics?
         type: ref
-        audience: platform
+        resolved_by: platform
         plain:
           en: "Its logs go to {value}."
           de: "Seine Logs gehen in {value}."
@@ -599,7 +572,6 @@ groups:
       - id: diagnostic_categories
         ask: Which log categories should be collected?
         type: list
-        audience: engineer
         plain:
           en: "Logged: {value}."
           de: "Geloggt wird: {value}."
@@ -621,7 +593,6 @@ groups:
       - id: metrics_enabled
         ask: Should all metrics be collected?
         type: bool
-        audience: engineer
         plain:
           en: "Usage and performance figures are {value}."
           de: "Nutzungs- und Leistungswerte werden {value}."

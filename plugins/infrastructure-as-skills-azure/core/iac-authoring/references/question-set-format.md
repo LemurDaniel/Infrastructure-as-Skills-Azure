@@ -88,37 +88,36 @@ groups:
 | `from_deployment` | no | The deployment-set question whose answer this one takes. Mutually exclusive with `default` and `required`. |
 | `forced_when` | no | Which answer elsewhere removes a value from `values`, or determines this one. Prose, because the conditions are not uniform enough to encode. Recorded as `forced` with `forced_by` in the spec. |
 | `from_context` | no | The value comes from the spec's `context:` rather than being asked per resource. |
-| `audience` | yes | Who answers it: `customer`, `engineer` or `platform`. See below. |
+| `resolved_by` | no | `interview` (put to the customer) or `platform` (read from the platform profile); absent means defaulted or derived. See below. |
 | `plain` | yes | One line per language (`en` required, `de` and others optional) saying what the decision means to the customer, with `{value}` where the value goes. Read by the decision document. See below. |
 | `plain_values` | no | For an enum, list or bool: the customer's words for each value, per language — what `{value}` becomes. Keys are the question's values. |
 | `per_environment` | no | `true` means the value differs per stage: it renders as a parameter whose value lives in each stage's parameter file, never as a literal in the template, and the spec holds a map keyed by stage. See *Stages*. |
 | `non_production_default` | no | The value every stage but production takes while `deployment.non_production_savings` is enabled. Cost knobs only: refused in the security, networking, identity, access, DNS, compliance and posture groups. |
 | `derived_from` | no | `{ question: <deployment id>, map: { <answer>: <value> } }` — the value follows from a customer's answer in the deployment set's `requirements` group, mapped through this table. Mutually exclusive with `default`, `required` and `from_deployment`. See below. |
 
-## Who answers: `audience`
+## Who resolves it: `resolved_by`
 
-The person in front of the interview is, by default, the customer — someone who can say
-what the system is for and who uses it, and who cannot say which subnet carries private
-endpoints. Every question therefore names who can answer it, and the interview puts a
-question only to the audience that can:
+The person in front of the interview is the customer - someone who can say what the system
+is for and who uses it, and who cannot say which subnet carries private endpoints. A
+question is put to them only when it says so:
 
-| `audience` | Can answer | Example | When nobody of that audience is there |
+| `resolved_by` | Resolved by | Example | When nobody is there |
 |---|---|---|---|
-| `customer` | What the system needs: who uses it, how bad an outage or a loss is, which rules apply, how long data lives | `environment`, `network_exposure`, `replication`, `blob_soft_delete_days`, `mandates` | Asked — these are the questions the interview exists for |
-| `engineer` | A technical choice of the workload's engineer, with a safe default from the guardrails | `min_tls_version`, `private_endpoint_subresources`, `diagnostic_categories`, `key_management` | Defaulted and reported, never asked of a customer; a `required` one becomes an `open:` entry owned by the engineer |
-| `platform` | A fact of the organisation's platform, the same for every deployment on it | `landing_zone`, `existing_vnet`, `private_endpoint_subnet`, `private_dns_records`, `diagnostics_destination` | Read from [`platform.yaml`](platform.md); without one, defaulted where a default exists and otherwise an `open:` entry owned by the platform team |
+| `interview` | The customer: what the system needs - who uses it, how bad an outage or a loss is, which rules apply, how long data lives | `environment`, `network_exposure`, `blob_soft_delete_days`, `mandates` | Asked - these are the questions the interview exists for |
+| `platform` | The organisation's platform, the same for every deployment on it | `landing_zone`, `existing_vnet`, `private_endpoint_subnet`, `private_dns_records`, `diagnostics_destination` | Read from [`platform.yaml`](platform.md); without one, defaulted where a default exists and otherwise an `open:` entry owned by the platform team |
+| *(absent)* | The default from the guardrails, or a derivation from an interview answer - a technical choice of the workload's engineer | `min_tls_version`, `private_endpoint_subresources`, `diagnostic_categories`, `key_management` | Defaulted and reported, never asked of a customer; a `required` one becomes an `open:` entry owned by the engineer |
 
-The test for `customer` is whether the question can be put in the customer's own words
-with no Azure vocabulary in it. "How long must deleted data stay restorable?" passes;
-"Which subnet should the private endpoint live in?" does not, however it is phrased —
-it is `platform`. An inherited question (`from_deployment`, `from_context`) carries the
-audience that may override it per resource, which is usually `engineer`.
+The field is optional: most questions have none. The test for `interview` is whether the
+question can be put in the customer's own words with no Azure vocabulary in it. "How long
+must deleted data stay restorable?" passes; "Which subnet should the private endpoint live
+in?" does not, however it is phrased - it is `platform`. An inherited question
+(`from_deployment`, `from_context`) carries no `resolved_by` of its own: it takes the
+deployment answer, and a per-resource departure from it is the engineer's.
 
-Keep `customer` for what only the customer knows - a requirement of the system, in their
+Keep `interview` for what only the customer knows - a requirement of the system, in their
 words - and never for a technical choice with a safe default. There is no cap on their
-number (the cap of six was dropped on 2026-10-24: the customer answers multiple choice,
-and a question not asked is a guess recorded as their decision); the test is the one
-above, whether the question can be put without Azure vocabulary.
+number: the customer answers multiple choice, and a question not asked is a guess recorded
+as their decision.
 
 ## The customer's line: `plain` and `plain_values`
 
@@ -181,7 +180,6 @@ once, in the customer's terms (`outage_impact`, `data_loss_tolerance`,
 ```yaml
       - id: replication
         type: enum
-        audience: engineer
         values: [LRS, ZRS, GRS, GZRS]
         derived_from:
           question: outage_impact
@@ -203,7 +201,7 @@ Three rules:
   `one_week` → 7 days, `active` → `Hot`. An unanswered requirement changes nothing; it
   only lets the customer change things. A map whose default-answer row departs from
   [guardrails.md](guardrails.md) is a bug in one of the two.
-- **A derived question's `audience` is `engineer`**: the customer answered the
+- **A derived question has no `resolved_by`**: the customer answered the
   requirement; a per-resource departure from the derivation is the engineer's.
 
 What cannot be mapped mechanically stays an engineer's question with a default and is
@@ -259,9 +257,8 @@ enum, a default within `values` and of the type's kind, `ref` on a ref question;
 `required`, `default`, `from_deployment` and `parameterized` mutually exclusive and one
 of them present; `depends_on` naming a question in the set and a value it can take;
 `from_deployment` and `from_context` naming a deployment-set question; `confirm_in`
-naming known environments; `derived_from` naming a customer question in the deployment
-set with a map covering every answer; `audience` present and one of `customer`, `engineer`,
-`platform`; and
+naming known environments; `derived_from` naming an interview question in the deployment
+set with a map covering every answer; `resolved_by`, where present, one of `interview`, `platform`; and
 unknown fields, which is how a misspelt `default` turns into a question asked every run.
 Exit 0 clean, 1 violations, 2 could not check.
 

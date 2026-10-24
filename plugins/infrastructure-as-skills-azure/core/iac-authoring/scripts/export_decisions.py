@@ -7,7 +7,7 @@ theirs. This script turns every decision in the spec into one line in the
 customer's language, using the `plain` and `plain_values` texts of the
 question sets:
 
-  1. What follows from your answers - the customer-audience deployment
+  1. What follows from your answers - the interview-resolved deployment
      decisions (environment, exposure, mandates, the requirements) with the
      decisions derived from each (`source: requirement`, `derived_from`).
   2. Set by the rules - everything defaulted, inherited or forced, per
@@ -371,7 +371,7 @@ def main():
     w(f"## {L['answers']}")
     w('')
     for qid, (gid, q) in dep_q.items():
-        if q.get('audience') != 'customer' or qid not in dep:
+        if q.get('resolved_by') != 'interview' or qid not in dep:
             continue
         d = dep[qid]
         if not isinstance(d, dict):
@@ -404,7 +404,7 @@ def main():
     w(f"### {L['whole_system']}")
     w('')
     for qid, (gid, q) in dep_q.items():
-        if q.get('audience') == 'customer' or qid not in dep or gid == 'context':
+        if q.get('resolved_by') == 'interview' or qid not in dep or gid == 'context':
             continue
         d = dep[qid]
         if not isinstance(d, dict) or d.get('source') in ('overridden', 'assumed'):

@@ -32,7 +32,6 @@ groups:
       - id: environments
         ask: Which stages is this deployed to?
         type: list
-        audience: engineer
         plain:
           en: "Deployed in the stages {value}."
           de: "Wird in den Stufen {value} ausgerollt."
@@ -47,7 +46,6 @@ groups:
       - id: location
         ask: Which Azure region?
         type: string
-        audience: engineer
         plain:
           en: "Runs in the Azure region {value}."
           de: "Läuft in der Azure-Region {value}."
@@ -62,7 +60,6 @@ groups:
       - id: resource_group_name
         ask: Which resource group?
         type: ref
-        audience: engineer
         plain:
           en: "Placed in the resource group {value}."
           de: "Liegt in der Ressourcengruppe {value}."
@@ -82,7 +79,6 @@ groups:
       - id: os_type
         ask: Linux or Windows hosting?
         type: enum
-        audience: engineer
         plain:
           en: "The app runs on {value}."
           de: "Die App läuft auf {value}."
@@ -101,7 +97,6 @@ groups:
       - id: sku
         ask: Which plan size?
         type: enum
-        audience: engineer
         plain:
           en: "The hosting plan is size {value}."
           de: "Der Hosting-Plan hat die Größe {value}."
@@ -137,7 +132,6 @@ groups:
       - id: zone_redundant
         ask: Should the plan survive the loss of an availability zone?
         type: bool
-        audience: engineer
         plain:
           en: "The app {value} survive the loss of one datacenter of the region."
           de: "Die App {value} den Ausfall eines Rechenzentrums der Region."
@@ -169,7 +163,6 @@ groups:
       - id: instance_count
         ask: How many instances should run?
         type: int
-        audience: engineer
         plain:
           en: "Copies of the app running at the same time: {value}."
           de: "Gleichzeitig laufende Kopien der App: {value}."
@@ -193,7 +186,6 @@ groups:
       - id: public_network_access
         ask: Should this app depart from the deployment's exposure posture?
         type: enum
-        audience: engineer
         plain:
           en: "The app is {value}."
           de: "Die App ist {value}."
@@ -227,7 +219,7 @@ groups:
       - id: private_endpoint_subnet
         ask: Which subnet should this app's private endpoint live in?
         type: ref
-        audience: platform
+        resolved_by: platform
         plain:
           en: "Its private connection lands in subnet {value}."
           de: "Seine private Anbindung landet im Subnetz {value}."
@@ -244,7 +236,6 @@ groups:
       - id: vnet_integration
         ask: Does the app call services that are only reachable privately?
         type: bool
-        audience: engineer
         plain:
           en: "The app's own outgoing traffic {value}."
           de: "Der ausgehende Verkehr der App {value}."
@@ -270,7 +261,7 @@ groups:
       - id: integration_subnet
         ask: Which subnet does the app's outgoing traffic leave through?
         type: ref
-        audience: platform
+        resolved_by: platform
         plain:
           en: "Outgoing traffic leaves through the subnet {value}."
           de: "Ausgehender Verkehr verlässt das Netz über das Subnetz {value}."
@@ -295,7 +286,6 @@ groups:
       - id: vnet_route_all
         ask: Should all outgoing traffic go through the network, or only traffic to private addresses?
         type: bool
-        audience: engineer
         plain:
           en: "Outgoing traffic is routed {value}."
           de: "Ausgehender Verkehr wird {value} geleitet."
@@ -320,7 +310,6 @@ groups:
       - id: ip_restrictions
         ask: Which public IP ranges may reach the app?
         type: list
-        audience: engineer
         plain:
           en: "Public addresses allowed to reach the app: {value}."
           de: "Öffentliche Adressen, die die App erreichen dürfen: {value}."
@@ -345,7 +334,6 @@ groups:
       - id: managed_identity
         ask: Which managed identity should the app carry?
         type: enum
-        audience: engineer
         plain:
           en: "The app has {value} for reaching other services."
           de: "Die App hat {value}, um andere Dienste zu erreichen."
@@ -368,7 +356,6 @@ groups:
       - id: user_assigned_identity_ids
         ask: Which user-assigned identities?
         type: list
-        audience: engineer
         plain:
           en: "It uses the identities {value}."
           de: "Sie nutzt die Identitäten {value}."
@@ -386,7 +373,6 @@ groups:
       - id: https_only
         ask: Should the app refuse plain HTTP?
         type: bool
-        audience: engineer
         plain:
           en: "Unencrypted connections are {value}."
           de: "Unverschlüsselte Verbindungen werden {value}."
@@ -404,7 +390,6 @@ groups:
       - id: min_tls_version
         ask: What is the minimum TLS version?
         type: enum
-        audience: engineer
         plain:
           en: "Connections must use at least {value} encryption."
           de: "Verbindungen müssen mindestens {value}-Verschlüsselung nutzen."
@@ -424,7 +409,6 @@ groups:
       - id: ftps_state
         ask: How may files be uploaded by FTP?
         type: enum
-        audience: engineer
         plain:
           en: "File upload by FTP is {value}."
           de: "Dateiupload per FTP ist {value}."
@@ -445,7 +429,6 @@ groups:
       - id: basic_auth_enabled
         ask: Should publishing with a username and password stay possible?
         type: bool
-        audience: engineer
         plain:
           en: "Deploying with a user name and password is {value}; deployments run through company accounts."
           de: "Das Ausrollen mit Benutzername und Passwort ist {value}; Rollouts laufen über Firmenkonten."
@@ -475,7 +458,6 @@ groups:
       - id: runtime_stack
         ask: Which language or runtime does the app run?
         type: enum
-        audience: engineer
         plain:
           en: "The app is written for {value}."
           de: "Die App ist geschrieben für {value}."
@@ -501,7 +483,6 @@ groups:
       - id: runtime_version
         ask: Which version of the runtime?
         type: string
-        audience: engineer
         plain:
           en: "Runtime version {value}."
           de: "Laufzeit-Version {value}."
@@ -521,7 +502,6 @@ groups:
       - id: container_image
         ask: Which container image?
         type: string
-        audience: engineer
         plain:
           en: "The app runs the container image {value}."
           de: "Die App führt das Container-Image {value} aus."
@@ -540,7 +520,6 @@ groups:
       - id: always_on
         ask: Should the app stay loaded when nobody is calling it?
         type: bool
-        audience: engineer
         plain:
           en: "The app {value} when there is no traffic."
           de: "Die App {value}, wenn kein Verkehr anliegt."
@@ -559,7 +538,6 @@ groups:
       - id: health_check_path
         ask: Which path reports whether the app is healthy?
         type: string
-        audience: engineer
         plain:
           en: "The platform checks the app's health at the path {value} (empty: not checked)."
           de: "Die Plattform prüft die Gesundheit der App unter dem Pfad {value} (leer: keine Prüfung)."
@@ -577,7 +555,6 @@ groups:
       - id: http2_enabled
         ask: Should HTTP/2 be enabled?
         type: bool
-        audience: engineer
         plain:
           en: "HTTP/2 is {value}."
           de: "HTTP/2 ist {value}."
@@ -598,7 +575,7 @@ groups:
       - id: diagnostic_workspace
         ask: Which Log Analytics workspace should receive diagnostics?
         type: ref
-        audience: platform
+        resolved_by: platform
         plain:
           en: "Its logs go to {value}."
           de: "Seine Logs gehen in {value}."
@@ -615,7 +592,6 @@ groups:
       - id: diagnostic_categories
         ask: Which log categories should be collected?
         type: list
-        audience: engineer
         plain:
           en: "Logged: {value}."
           de: "Geloggt wird: {value}."
@@ -643,7 +619,6 @@ groups:
       - id: metrics_enabled
         ask: Should all metrics be collected?
         type: bool
-        audience: engineer
         plain:
           en: "Usage and performance figures are {value}."
           de: "Nutzungs- und Leistungswerte werden {value}."

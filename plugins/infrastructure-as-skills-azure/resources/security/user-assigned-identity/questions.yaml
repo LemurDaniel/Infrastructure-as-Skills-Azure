@@ -25,7 +25,6 @@ groups:
       - id: environments
         ask: Which stages is this deployed to?
         type: list
-        audience: engineer
         plain:
           en: "Deployed in the stages {value}."
           de: "Wird in den Stufen {value} ausgerollt."
@@ -40,7 +39,6 @@ groups:
       - id: location
         ask: Which Azure region?
         type: string
-        audience: engineer
         plain:
           en: "Created in the Azure region {value}."
           de: "Wird in der Azure-Region {value} angelegt."
@@ -55,7 +53,6 @@ groups:
       - id: resource_group_name
         ask: Which resource group?
         type: ref
-        audience: engineer
         plain:
           en: "Placed in the resource group {value}."
           de: "Liegt in der Ressourcengruppe {value}."
@@ -76,7 +73,6 @@ groups:
       - id: purpose
         ask: What does this identity exist for?
         type: string
-        audience: engineer
         plain:
           en: "This identity exists for {value}."
           de: "Diese Identität gibt es für {value}."
@@ -93,7 +89,6 @@ groups:
       - id: federated_credentials
         ask: Which external systems may sign in as this identity without a secret?
         type: list
-        audience: engineer
         plain:
           en: "External systems trusted to act as this identity: {value} (empty: none)."
           de: "Externe Systeme, die als diese Identität handeln dürfen: {value} (leer: keine)."
@@ -112,7 +107,6 @@ groups:
       - id: isolation_scope
         ask: Should the identity be restricted to its own region?
         type: enum
-        audience: engineer
         plain:
           en: "The identity can be used {value}."
           de: "Die Identität kann {value} genutzt werden."
@@ -131,7 +125,6 @@ groups:
       - id: role_assignments
         ask: Who may manage or assign this identity?
         type: list
-        audience: engineer
         plain:
           en: "Rights on the identity itself granted to: {value}."
           de: "Rechte an der Identität selbst vergeben an: {value}."

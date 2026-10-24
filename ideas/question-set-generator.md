@@ -6,7 +6,7 @@
 
 Given a resource type, the agent drafts a `questions.yaml` from the AVM module README
 (inputs), the Azure docs and the guardrails: one question per real decision, a default with
-its reasoning, the attribute it renders to, audience. It validates the draft with
+its reasoning, the attribute it renders to, who resolves it. It validates the draft with
 `check_question_set.py`.
 
 ## Output
