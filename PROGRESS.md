@@ -139,6 +139,11 @@ Verified Modules first, authored resources second.
   step) starts only after "ja, passt". The Word offer is a side line in the first round,
   no longer an option. `iac-diagram` and `iac-rendering` rule 9 say the same; the evals
   were not re-run on the new flow.
+  `docs/process.drawio.png` and `docs/process-agents.drawio.png` redrawn to the flow of
+  this day (phases, one audience, the sign-off loop before the render); without draw.io
+  in the cloud session they were rendered from their embedded XML through the draw.io
+  viewer script in headless Chromium, with the XML re-embedded by `drawio_png.py embed`
+  - open them in draw.io once on the owner's machine to confirm they still edit.
 - **The decision document is rendered, not written.** B5, 2026-10-18. Every question
   carries `plain` (`en` and `de`, `{value}` where the value goes) and, where a raw value
   means nothing to a customer, `plain_values`; `export_decisions.py` turns a spec into
