@@ -20,6 +20,8 @@ idiom, a reviewer sees what `source:` buys.
 <case>/
   request.md            # the user's words, verbatim
   deploy.ps1            # the local delivery for deploy_mechanism: local - no pipeline
+  CLAUDE.md             # what the render leaves in the customer's repository: the spec is the
+                        # source of truth, a code change is a spec change first (rule 11)
   request.pipeline.md   # a follow-up request, where an extension run added to the spec
   infra-spec.yaml       # the interview's output - the artefact everything else follows from
   infra-decisions.md    # the spec as the customer reads it, rendered by export_decisions.py

@@ -183,7 +183,13 @@ Verified Modules first, authored resources second.
   sandbox rule now makes by itself: plan B1 and search `basic` (forced by `environments`),
   the vault without purge protection and with a 7-day soft-delete window (`overridden`).
   The diagram's decision panel was finished by hand before those two and does not list
-  the new forced chain; `verify_diagram.py` still passes. **Plugin findings the agents reported, all open:**
+  the new forced chain; `verify_diagram.py` still passes. **The render now leaves a
+  `CLAUDE.md` section in the customer's repository** (rule 11 of `iac-rendering`, owner's
+  call after that SKU correction): the spec is the source of truth, a code change is a
+  spec change first (`overridden` + `reason`), what regenerates from it, which checks prove
+  the two agree; created or replaced between two markers, the rest of the file untouched.
+  `examples/chat-sandbox/CLAUDE.md` is the rendered one. A drift check that compares spec,
+  tests and plan is `ideas/spec-drift-check.md`. **Plugin findings the agents reported, all open:**
   (1) `log-analytics-workspace/terraform.md`, `app-service/terraform.md`,
   `foundry/terraform.md` and several `renders` lines carry azurerm 4.x spellings
   (`internet_*_enabled`, `local_authentication_disabled`, `*_basic_auth_enabled`,
