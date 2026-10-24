@@ -1,184 +1,19 @@
-# Infrastructure as Skills
+# Infrastructure as Skills: Azure
 
-> Azure infrastructure authored from the decisions it actually has — rendered as Terraform or Bicep.
+> [!NOTE]
+> **AI disclaimer:** Yes, an AI helped write this, and yes, an AI is the one doing the interviewing. No, it does not get to `terraform apply`. Every decision it makes is written down with where it came from, and every render ships with a test per decision. 🤖
 
-A Claude Code plugin. Not a module library and not a template collection: a set of skills
-that know **which questions a resource forces you to answer**, and how your answers turn
-into code that follows this author's conventions.
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-## The idea
+A Claude Code plugin that authors Azure infrastructure as **Terraform or Bicep** from the decisions a resource actually forces. Not a module library and not a template collection. The interview writes an `infra-spec.yaml`; the code, its tests, a diagram and a decision document are rendered from that, onto [Azure Verified Modules](https://azure.github.io/Azure-Verified-Modules/) first.
 
-Writing a storage account is not hard because the HCL is hard. It is hard because a
-storage account carries about forty decisions — public network access, TLS floor, shared
-key access, replication, soft delete, immutability, which subnet, which private DNS zone,
-where diagnostics go — and most of them are invisible until something breaks. Generic code
-generation gets the syntax right and the decisions wrong.
+## 💡 The Idea
 
-So the knowledge in this repo is shaped as a **question set**, not as a template.
+Writing a storage account is not hard because the HCL is hard. It is hard because a storage account carries about forty decisions — public network access, TLS floor, shared key access, replication, soft delete, immutability, which subnet, which private DNS zone, where diagnostics go — and most of them are invisible until something breaks. Generic code generation gets the syntax right and the decisions wrong.
 
-## Two layers
+So the knowledge in this repo is shaped as a **question set**, not as a template: one per resource type, in YAML, each decision with the reasoning behind its default and the attribute it renders to. Most questions have an opinionated secure default and are never asked — they are *reported*. Only the decisions that genuinely cannot be defaulted get asked. That distinction is what keeps the interview short enough to be used.
 
-**Resources** — one question set per Azure resource type, grouped into families
-(`storage`, `network`, `observability`). A single `azure-resources` skill routes any
-resource request to the right one. Each question set carries its decisions grouped by
-concern:
-
-| Group | Decides |
-|---|---|
-| Placement | subscription, resource group, region, environment |
-| Networking | public access, firewall, private endpoints, DNS |
-| Identity | managed identity, RBAC vs. keys, who gets which role |
-| Security | encryption, TLS floor, key management, local auth |
-| Data protection | retention, soft delete, versioning, immutability |
-| Observability | diagnostic settings, which log categories, destination |
-
-Most questions have an opinionated secure default and are never asked — they are *reported*.
-Only the decisions that genuinely cannot be defaulted get asked. That distinction is what
-keeps the interview short enough to be used.
-
-**Pattern skills** — compose resources into whole systems. A pattern is not a shortcut
-around the questions; it is an **answer set** plus the wiring. `private-webapp`
-pre-answers thirty of the storage account's questions because the pattern implies them,
-asks the four that remain, and then owns what no single question set can: the private
-endpoints, the DNS zone links, the role assignments between the parts.
-
-```
-private-webapp
-├── pre-answers ──> app-service
-├── pre-answers ──> storage-account
-├── pre-answers ──> key-vault
-└── owns the wiring between them
-```
-
-## Terraform and Bicep from one question set
-
-The questions are IaC-neutral. Only the rendering differs, so each resource has a
-`terraform.md` and a `bicep.md` beside its question set, and Claude reads the one you need.
-This is why both targets live in one repo: duplicating the decision knowledge per target
-is how the two halves drift apart.
-
-**The decisions land on [Azure Verified Modules](https://azure.github.io/Azure-Verified-Modules/)
-first.** A resource with a published AVM module — in the
-[Terraform](https://azure.github.io/Azure-Verified-Modules/indexes/terraform/) or
-[Bicep](https://azure.github.io/Azure-Verified-Modules/indexes/bicep/) index — renders as a
-call to it, every decision an explicit input, the version resolved at render time and
-pinned in the code. The modules already carry what every hand-written render gets wrong
-first: private endpoints with their DNS zone groups, diagnostic settings per sub-resource,
-role assignments, locks, customer-managed keys — with the same interface in both targets.
-Authored resources are the fallback: for a type without a module, or a repository that
-already renders that way. Each resource's rendering reference opens with the decision →
-module input mapping and keeps the authored rendering below it.
-
-```
-infra-spec.yaml ──> module "storage" { source = "Azure/avm-res-storage-storageaccount/azurerm" ... }
-                ──> module storageAccount 'br/public:avm/res/storage/storage-account:0.33.1' = { ... }
-```
-
-Rendering targets this author's own naming stack, and hands the rendered name to the module:
-
-- **Terraform** → the [`LemurDaniel/naming`](https://registry.terraform.io/providers/LemurDaniel/naming/latest) provider
-- **Bicep** → names assembled from `var`s in the template. The
-  [`utility/naming` modules](https://github.com/LemurDaniel/BICEP__Registry/tree/master/modules/utility/naming)
-  in `LemurDaniel/BICEP__Registry` are not ready to ship, so generated Bicep does not
-  import them
-
-## The spec is the interface
-
-The interview does not produce code. It produces `infra-spec.yaml` — every decision, its
-value, and where that value came from (`asked`, `pattern`, `default`, `overridden`). A
-backend then renders *from* the spec.
-
-That boundary is the load-bearing part of the design. It makes a review readable at the
-level decisions are actually made, turns a regeneration into a diff, and lets the same spec
-go to a different backend — including `Infrastructure-by-Skill` for API-driven execution,
-which is what makes the two tracks comparable at all.
-
-The spec names decisions, never a backend's attribute spelling:
-`public_network_access: disabled`, not `public_network_access_enabled: false`. The mapping
-to an attribute lives in the question set's `renders` field and in each target's rendering
-reference.
-
-## Layout
-
-```
-Infrastructure-as-Skills-Azure/
-├── .claude-plugin/marketplace.json
-└── plugins/infrastructure-as-skills-azure/
-    ├── .claude-plugin/plugin.json
-    ├── core/                       # the shared contract
-    │   ├── iac-authoring/          # interview protocol, the spec, question-set format
-    │   │   ├── questions/deployment.yaml     # posture, network, mandates — asked once
-    │   │   ├── references/guardrails.md      # where the defaults come from
-    │   │   └── scripts/check_spec.py         # validates an infra-spec.yaml
-    │   ├── iac-rendering/          # spec -> Terraform or Bicep: naming, layout, idiom
-    │   ├── iac-diagram/            # spec -> infra-diagram.drawio.png for the customer
-    │   └── azure-resources/        # the one trigger for every resource -> family
-    ├── resources/                  # NOT skills - undeclared, read by azure-resources
-    │   ├── storage/
-    │   │   ├── routing.md          # routes to the right question set
-    │   │   └── storage-account/    # one directory per resource
-    │   │       ├── questions.yaml  # the decisions — this is the content
-    │   │       ├── notes.md        # what the question set cannot express
-    │   │       ├── terraform.md
-    │   │       └── bicep.md
-    │   ├── network/                # virtual-network
-    │   ├── compute/                # app-service
-    │   └── observability/          # log-analytics-workspace
-    └── patterns/                   # compositions of resource families
-```
-
-Planned families: `storage`, `network`, `compute`, `data`, `security`, `observability`.
-
-### Why one trigger, and families that are not skills
-
-Claude Code keeps a listing of every skill's name and description in context, and that
-listing has a **shared character budget** — [1% of the model's context
-window](https://code.claude.com/docs/en/skills) by default, with each entry capped at 1,536
-characters. When it overflows, descriptions get dropped, starting with the least-used
-skills. The name survives; the description does not, and the description *is* the
-triggering mechanism.
-
-That failure is silent. The skill is installed, it appears in the listing, and nothing
-matches it. One report with 160 skills installed kept 20 descriptions and the model found
-none of the skills that had lost theirs.
-
-Fifty Azure resources at one skill each would spend the whole budget at once. One skill per
-family was the first answer, and it did not survive measurement: five skills cost 1,506 of
-~2,000 characters, and the three planned families would have taken it to ~2,450. So there
-are three units now — **`azure-resources` triggers, the family routes, the question set
-holds the knowledge**. One entry carries the keyword surface for every family at a fifth of
-the cost: the 1,536-character cap fits about five family descriptions. Three skills in
-total, 954 characters, under half the budget.
-
-The trigger is its own skill rather than part of `iac-authoring` so that a keyword list
-growing with every family never crowds out the description of how the protocol works —
-both would otherwise share one cap.
-
-### Why the groups are declared, not discovered
-
-`skills/` is scanned exactly one level deep — `<name>/SKILL.md` — and does not recurse, so
-nesting inside it would load nothing. The skills therefore live in a scan directory declared
-in `plugin.json`:
-
-```json
-"skills": ["./core/"]
-```
-
-It sits beside `skills/` rather than inside it, because the default `skills/` scan cannot be
-switched off and would otherwise treat the group folder as a skill without a `SKILL.md`.
-`resources/` is deliberately **not** declared: nothing in it is a skill, so nothing in it
-costs budget, and a family's routing table is a `routing.md` that the azure-resources skill
-reads by path. A declared path that does not exist fails to load the plugin, which is why
-`./patterns/` is not listed yet.
-
-## Examples
-
-[`examples/`](examples/README.md) holds complete runs — request, spec, render, tests — as
-the reference for what a good output looks like. `chatbot` is the complex case: twelve kinds
-of resource in a spoke network of its own, split into family modules. `chatbot-rag` is a
-smaller chat app on Azure AI Foundry with a RAG system, one root, authored resources.
-
-## Install
+## 🚀 Quick Start
 
 On Claude Code 2.1.275 or later, one step:
 
@@ -193,67 +28,260 @@ Before that, the marketplace is added first:
 /plugin install infrastructure-as-skills-azure
 ```
 
-Then just say what you need — `"ich brauch ein storage account für terraform"` — and the
-matching skill triggers.
+Then say what you need, in your own words and language:
 
-## Status
+```
+Ich brauch ein Storage Account für die Buchhaltung, Prod, nur Firmennetz. Terraform.
+```
 
-Early, and the shape matters more than the coverage right now. One interview has been run
-end to end; it produced a spec, and the spec is honest about what it could not resolve.
-Two specs have been rendered to Terraform, with plan-only tests against mocked providers:
-`chatbot` and `chatbot-rag`. Nothing has been applied.
+The plugin interviews you about the system, not about the HCL: which stages, who may reach it, what an outage would cost, how much data loss is tolerable. Everything technical is derived from that, defaulted from the guardrails and *reported*, never asked. What comes out:
 
-- [x] Plugin skeleton, marketplace manifest, grouped layout
-- [x] Shared contract: spec format, question-set format, the interview protocol
-- [x] Deployment-wide question set: posture, network ownership, mandates — resolved once,
-      inherited by every resource via `from_deployment`
-- [x] Rendering: naming interfaces, module layout and idiom per target
-- [x] Azure Verified Modules as the primary rendering: the contract, the shared
-      interfaces, decision → module input per resource for both targets
-- [x] The example re-rendered on AVM, both targets, with its tests — which settled the
-      test contract with a module in the middle
-- [x] Guardrails: the rules every question set takes its defaults from, shared with
-      `Infrastructure-by-Skill`
-- [x] Three resources: `storage-account`, `virtual-network`, `log-analytics-workspace`
-- [x] A fourth, `app-service` (family `compute`): question set and both rendering references; no rendered example yet
-- [x] `check_spec.py` — validates a spec against the contract, and separately whether it
-      is applyable at all
-- [x] `check_render_coverage.py` — every spec decision asserted by the rendered tests, or
-      marked not-testable with a reason; Terraform (`terraform test`) and Bicep
-      (`run_arm_tests.py` against the compiled ARM) alike
-- [x] `check_question_set.py` — every question set parsed and checked against the format:
-      enum defaults, reference targets, resolution fields, `audience`
-- [x] The customer interview: every question names its audience, the customer answers the
-      requirement questions in their words, the technical decisions are derived from them,
-      platform facts come from `platform.yaml`, and the spec renders as a decision document
-      (`export_decisions.py`) in the customer's language
-- [ ] **Reference pattern skill** — `patterns/` is empty, so composition is specified but
-      unproven
-- [x] A rendered spec: storage account on a referenced platform, Terraform, validated and
-      tested plan-only. Surfaced the `azurerm` 5.x renames and the two-target diagnostics
-      (the example has since been removed; the git history holds it)
-- [x] The same spec rendered to Bicep, compiled and linted, and diffed against the
-      Terraform render — one real divergence found (private endpoint naming) and fixed
-      (also removed; the git history holds it)
-- [ ] **An applied render.** Neither plan nor what-if has run against a subscription
-- [ ] Remaining families: `compute`, `data`, `security`
-- [ ] Remaining storage resources: blob container, file share, queue
-- [ ] Evals per pattern, plus a consistency run: same spec many times, measure the spread
-- [ ] Cross-backend check: one spec through both backends, diff the result
+| File | What it is |
+|---|---|
+| `infra-spec.yaml` | Every decision, its value, and where it came from (`asked`, `requirement`, `platform`, `default`, `forced`) |
+| `infra-decisions.md` | The same decisions as the customer reads them, in their language |
+| `infra-diagram.drawio.png` | An editable draw.io picture of what gets built, for sign-off before any code |
+| `*.tf` / `*.bicep` + `tests/` | The render: AVM calls with every decision explicit, one test assert per decision |
+| `.github/workflows/` or `deploy.ps1` | The delivery: a pipeline per stage (GitHub, Azure DevOps, GitLab) or a local script |
 
-Run `claude plugin validate ./plugins/infrastructure-as-skills-azure` before trusting the manifest
-— the grouped `skills` array is the part most likely to be wrong.
+Complete runs, request to tests, live under [`examples/`](examples/README.md).
 
-## Relation to `Infrastructure-by-Skill`
+## Why This Plugin?
 
-A sibling repo pointing the other way: it drives a GUI through an agent and records the
-run, where this one emits code for a provider to apply.
+- **Decisions, not syntax.** Every decision is explicit in the render and recorded with where it came from, so a review happens at the level decisions are actually made.
+- **Secure by default, from written rules.** Defaults come from the [guardrails](plugins/infrastructure-as-skills-azure/core/iac-authoring/references/guardrails.md), not from the Azure portal and not from a module's default. The two diverge routinely, in the same direction.
+- **The customer sits alone in front of it.** Every question names its audience. Only the `customer` questions reach the person; platform facts come from a `platform.yaml`; an engineer question nobody can answer becomes an `open:` item instead of a guess.
+- **AVM first.** A resource with an Azure Verified Module renders as a call to it, every decision an explicit input, the version looked up live and pinned. Authored resources are the fallback, and the spec says which one it took.
+- **One question set, two targets.** The questions are IaC-neutral; only `terraform.md` and `bicep.md` differ. Duplicating the decision knowledge per target is how two halves drift apart.
+- **The spec is the interface.** A review happens at the level decisions are made, a regeneration is a diff, and the same spec can go to a different backend.
+- **Tested per decision.** `check_render_coverage.py` fails on any spec decision that no test asserts and no `not-testable` reason excuses, for both targets.
 
-The split is not simply "no API there, API here". `Infrastructure-by-Skill` is explicitly
-an experiment, and part of that experiment is running it against systems that *do* have an
-API — otherwise there is no baseline. Without a comparable IaC path next to it, there is no
-way to tell whether a guided GUI run is merely slower or actually worse, and no honest
-answer to how much of the gap is the approach versus the absence of an API.
+## 🧭 How a Run Works
 
-So the two repos are not a clean handover. Where both are possible, this one is the
-production answer and the other one is the measurement.
+![From the request to a checked render: interview, spec, sign-off, render](docs/process.drawio.png)
+
+1. **`azure-resources` triggers** on any request naming an Azure resource and routes it through the family's `routing.md` to the question set.
+2. **`iac-authoring` interviews.** The deployment-wide set first (posture, network ownership, mandates, the five requirements), then each resource. Answers resolve in order: stated › carried spec › platform › pattern › deployment › default.
+3. **Sign-off.** The spec, the decision document and the diagram go to the customer. A correction is a spec change, and the loop runs again.
+4. **`iac-rendering` renders** the approved spec: AVM module and version, naming, layout, code, tests, pipeline. Then `fmt`, `validate`, `test`, and the coverage check.
+
+## 📦 What's in the Plugin
+
+| | Purpose |
+|---|---|
+| [`core/azure-resources`](plugins/infrastructure-as-skills-azure/core/azure-resources/SKILL.md) | The single trigger for every resource. Its description is the keyword surface for all families. |
+| [`core/iac-authoring`](plugins/infrastructure-as-skills-azure/core/iac-authoring/SKILL.md) | The interview protocol, the spec schema, the question-set format, the guardrails, the deployment-wide set, `check_spec.py` and `export_decisions.py`. |
+| [`core/iac-rendering`](plugins/infrastructure-as-skills-azure/core/iac-rendering/SKILL.md) | Spec to Terraform or Bicep: the AVM contract, naming, idiom per target, pipelines, `check_render_coverage.py` and `check_pipeline.py`. |
+| [`core/iac-diagram`](plugins/infrastructure-as-skills-azure/core/iac-diagram/SKILL.md) | Spec to an editable draw.io diagram with embedded source. |
+| `resources/<family>/` | The knowledge. Not skills: one `routing.md` per family, one directory per resource. |
+| `patterns/` | Compositions of resources with the wiring between them. **Planned, not yet present.** |
+
+### Resource families
+
+| Family | Resources |
+|---|---|
+| `storage` | storage-account |
+| `network` | virtual-network, network-security-group |
+| `compute` | app-service, function-app, container-apps, container-registry |
+| `data` | cosmos-db |
+| `security` | key-vault, user-assigned-identity |
+| `observability` | log-analytics-workspace, application-insights |
+| `ai` | foundry, search-service |
+
+Each resource directory holds four files:
+
+| File | Role |
+|---|---|
+| `questions.yaml` | The decisions, grouped by concern. **This is the content.** |
+| `notes.md` | What the question set cannot express |
+| `terraform.md` | The AVM call with the decision → input mapping, the authored rendering below it |
+| `bicep.md` | The same for Bicep |
+
+### A question set, in short
+
+```yaml
+resource: Microsoft.Storage/storageAccounts
+naming:
+  terraform: "Azure::Microsoft.Storage/storageAccounts"   # the naming provider's identifier
+  bicep: "Microsoft.Storage/storageAccounts"
+  abbreviation: "st"
+
+groups:
+  - id: networking
+    questions:
+      - id: public_network_access
+        ask: Should this account depart from the deployment's exposure posture?
+        type: enum
+        audience: engineer          # customer | engineer | platform
+        values: [enabled, disabled]
+        from_deployment: network_exposure
+        why: >
+          One posture per system. A resource that re-asks it carries the
+          deployment's answer instead of a default of its own.
+        renders: azurerm_storage_account.public_network_access / properties.publicNetworkAccess
+```
+
+| Group | Decides |
+|---|---|
+| Placement | subscription, resource group, region, stages |
+| Networking | public access, firewall, private endpoints, DNS |
+| Identity | managed identity, RBAC vs. keys, who gets which role |
+| Security | encryption, TLS floor, key management, local auth |
+| Data protection | retention, soft delete, versioning, immutability |
+| Observability | diagnostic settings, which log categories, destination |
+
+A decision that holds for more than one resource lives in the deployment-wide set and is inherited via `from_deployment`. The format is specified in [`question-set-format.md`](plugins/infrastructure-as-skills-azure/core/iac-authoring/references/question-set-format.md).
+
+## 📐 The Spec
+
+The interview does not produce code. It produces `infra-spec.yaml`, and a backend renders *from* it:
+
+```yaml
+deployment:
+  network_exposure:
+    value: private
+    source: asked             # the customer's words are kept beside it
+  outage_impact:
+    value: business_critical
+    source: asked
+
+resources:
+  storage-account:
+    networking:
+      public_network_access:
+        value: disabled
+        source: deployment    # inherited from network_exposure
+    data_protection:
+      blob_soft_delete_days:
+        value: 30
+        source: default       # guardrail, reported, never asked
+open:
+  - key: resources.app-service.identity.entra_client_id
+    question: Which app registration does the web app sign users in with?
+    owner: Workload-Team
+    blocks: apply             # a placeholder in the stage file until answered
+```
+
+The spec names **decisions, never a backend's attribute spelling**: `public_network_access: disabled`, not `public_network_access_enabled: false`. The mapping to an attribute lives in the question's `renders` field and in each target's rendering reference. Module coordinates and versions stay in the renderer, never in the spec.
+
+```
+infra-spec.yaml ──> module "storage" { source = "Azure/avm-res-storage-storageaccount/azurerm" ... }
+                ──> module storageAccount 'br/public:avm/res/storage/storage-account:0.33.1' = { ... }
+```
+
+Names come from this author's own naming stack: Terraform uses the [`LemurDaniel/naming`](https://registry.terraform.io/providers/LemurDaniel/naming/latest) provider; Bicep assembles the name from `var`s, since the [`utility/naming` modules](https://github.com/LemurDaniel/BICEP__Registry/tree/master/modules/utility/naming) are not ready to ship.
+
+## Layout
+
+```
+Infrastructure-as-Skills-Azure/
+├── .claude-plugin/marketplace.json
+├── plugins/infrastructure-as-skills-azure/
+│   ├── .claude-plugin/plugin.json
+│   ├── core/                       # the skills, declared as "skills": ["./core/"]
+│   │   ├── azure-resources/        # the one trigger for every resource -> family
+│   │   ├── iac-authoring/          # interview protocol, the spec, question-set format
+│   │   │   ├── questions/deployment.yaml     # posture, network, mandates — asked once
+│   │   │   ├── references/guardrails.md      # where the defaults come from
+│   │   │   └── scripts/check_spec.py         # validates an infra-spec.yaml
+│   │   ├── iac-rendering/          # spec -> Terraform or Bicep: AVM, naming, idiom, pipelines
+│   │   └── iac-diagram/            # spec -> infra-diagram.drawio.png
+│   ├── resources/                  # NOT skills: undeclared, read by azure-resources
+│   │   └── storage/
+│   │       ├── routing.md          # request -> question set
+│   │       └── storage-account/
+│   │           ├── questions.yaml
+│   │           ├── notes.md
+│   │           ├── terraform.md
+│   │           └── bicep.md
+│   └── evals/                      # claude plugin eval cases, graders, baseline
+├── examples/                       # complete runs; not shipped with the plugin
+├── ideas/                          # what could come next, one file each; there is no roadmap
+└── PROGRESS.md                     # the state between sessions
+```
+
+### Why one trigger, and families that are not skills
+
+Claude Code keeps a listing of every skill's name and description in context, and that listing has a **shared character budget**, [1% of the context window](https://code.claude.com/docs/en/skills) by default, each entry capped at 1,536 characters. When it overflows, descriptions are dropped silently: the skill stays listed and stops matching, because the description *is* the triggering mechanism. One report with 160 skills installed kept 20 descriptions.
+
+Fifty Azure resources at one skill each would spend the whole budget at once. One skill per family did not survive measurement either: five skills cost 1,506 of ~2,000 characters. So there are three units: **`azure-resources` triggers, the family routes, the question set holds the knowledge**. The trigger is its own skill rather than part of `iac-authoring` so that a keyword list growing with every family never crowds out the description of the protocol.
+
+### Why the groups are declared, not discovered
+
+`skills/` is scanned exactly one level deep and does not recurse, so the skills live in a scan directory declared in `plugin.json`:
+
+```json
+"skills": ["./core/"]
+```
+
+It sits beside `skills/`, not inside it, because the default scan cannot be switched off. `resources/` is deliberately **not** declared: nothing in it is a skill, so nothing in it costs budget. A declared path that does not exist fails to load the plugin, which is why `./patterns/` is not listed yet.
+
+## 📚 Examples
+
+[`examples/`](examples/README.md) holds complete runs, request to tests, as the reference for what a good output looks like:
+
+| Example | What it shows |
+|---|---|
+| [`chat-sandbox/`](examples/chat-sandbox/) | The first full run with a customer in the conversation: a public, single-stage chat environment on authored Terraform with a local deploy script. 118 decisions. |
+| [`chatbot/`](examples/chatbot/) | The complex case: twelve kinds of resource in a spoke network, split into family modules, 16 AVM calls. 284 decisions across 20 resources. |
+| [`chatbot-rag/`](examples/chatbot-rag/) | A small RAG chat app on the default three-stage stack, private, authored resources, GitHub pipeline. |
+
+An example is rendered and tested plan-only against mocked providers. **Nothing has been applied.**
+
+## ✅ Checks
+
+There is no build. The artefacts are Markdown and YAML; these scripts and the examples' Terraform tests are the whole verification story. Python 3.9+ with PyYAML.
+
+```powershell
+# repository consistency, incl. `claude plugin validate` on plugin and marketplace
+python3 .claude/skills/git-commit-conventions/scripts/check_repo_consistency.py
+
+# every question set against the format
+python3 plugins/infrastructure-as-skills-azure/core/iac-authoring/scripts/check_question_set.py
+
+# a spec against the contract; --require-applyable also fails on assumed values and open items
+python3 plugins/infrastructure-as-skills-azure/core/iac-authoring/scripts/check_spec.py <spec>
+
+# a rendered example: fmt, validate, plan-only tests, then every decision asserted or excused
+terraform -chdir=examples/chatbot init -backend=false && terraform -chdir=examples/chatbot test
+python3 plugins/infrastructure-as-skills-azure/core/iac-rendering/scripts/check_render_coverage.py examples/chatbot/infra-spec.yaml
+
+# diagram, PNG round-trip and pipeline invariants
+python3 plugins/infrastructure-as-skills-azure/core/iac-diagram/tests/run_diagram_tests.py
+python3 plugins/infrastructure-as-skills-azure/core/iac-diagram/tests/run_png_tests.py
+python3 plugins/infrastructure-as-skills-azure/core/iac-rendering/tests/run_pipeline_tests.py
+
+# the end-to-end evals: a request in, the spec graded
+claude plugin eval plugins/infrastructure-as-skills-azure --allow-tools Write Edit
+```
+
+## 🧪 Status
+
+Early, and the shape matters more than the coverage. The eval baseline holds; three specs are rendered to Terraform with plan-only tests; nothing has run against a subscription.
+
+- [x] Shared contract: spec format, question-set format, interview protocol, guardrails
+- [x] Deployment-wide question set, inherited by every resource via `from_deployment`
+- [x] The customer interview: audiences, requirements derived into decisions, `platform.yaml`, decision document in the customer's language
+- [x] Azure Verified Modules as the primary rendering, both targets, with the test contract
+- [x] 14 resources in 7 families
+- [x] Rendering: naming, layout, idiom and pipelines (GitHub, Azure DevOps, GitLab, local)
+- [x] Diagram from the spec, editable draw.io embedded in the PNG
+- [x] Checks: `check_spec.py`, `check_question_set.py`, `check_render_coverage.py`, `check_pipeline.py`
+- [x] Eval suite with a baseline
+- [ ] **Reference pattern skill.** `patterns/` is empty, so composition is specified but unproven
+- [ ] **An applied render.** Neither `plan` nor `what-if` has run against a subscription
+- [ ] The complex example in Bicep; the sets added for it have no Bicep render yet
+- [ ] Remaining resources: blob container, file share, queue, backup vault
+- [ ] AVM version drift check; cross-backend diff of one spec
+
+## 🔁 Relation to `Infrastructure-by-Skill`
+
+A sibling repo pointing the other way: it drives a GUI through an agent and records the run, where this one emits code for a provider to apply. That one is explicitly an experiment, and part of the experiment is running it against systems that *do* have an API. Without a comparable IaC path next to it there is no way to tell whether a guided GUI run is merely slower or actually worse. Where both are possible, this repo is the production answer and the other one is the measurement.
+
+## 🙏 Acknowledgments
+
+- 🤖 [Anthropic](https://www.anthropic.com/) for Claude Code and the plugin system the whole thing hangs on
+- ☁️ Microsoft for Azure and the [Azure Verified Modules](https://azure.github.io/Azure-Verified-Modules/) the decisions land on
+- 🔤 [CAF Naming Conventions](https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/ready/azure-best-practices/resource-abbreviations) behind the [`LemurDaniel/naming`](https://github.com/LemurDaniel/terraform-provider-naming) provider
+- 🟣 [HashiCorp](https://www.hashicorp.com/) for Terraform and `terraform test`
+- 💖 Open Source contributors and the community for inspiration
