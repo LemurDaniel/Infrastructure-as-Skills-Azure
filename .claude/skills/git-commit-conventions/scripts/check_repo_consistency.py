@@ -53,6 +53,10 @@ USE_COLOR = sys.stdout.isatty() and not os.environ.get('NO_COLOR')
 
 
 def say(text, color=None):
+    # The CLI's output carries UTF-8 glyphs; a cp1252 console on Windows would
+    # otherwise die printing them.
+    if hasattr(sys.stdout, 'reconfigure'):
+        sys.stdout.reconfigure(errors='replace')
     if color and USE_COLOR:
         print(f"\033[{COLORS[color]}m{text}\033[0m")
     else:
@@ -518,7 +522,10 @@ def main():
         warnings.append('claude plugin validate could not run - the CLI is not on PATH and no bundled binary was found. It is the only check that reads plugin.json the way the loader does.')
     else:
         def validate(target):
-            p = subprocess.run([cli, 'plugin', 'validate', target], capture_output=True, text=True)
+            # The CLI prints UTF-8 (check marks); on Windows the default is cp1252 and
+            # the reader thread dies, leaving stdout as None.
+            p = subprocess.run([cli, 'plugin', 'validate', target], capture_output=True,
+                               text=True, encoding='utf-8', errors='replace')
             return p.returncode, (p.stdout + p.stderr).splitlines()
 
         code, out = validate(plugin_root)
