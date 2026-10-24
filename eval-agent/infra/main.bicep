@@ -64,8 +64,11 @@ param vaultRoleAssignments array
 // Open points of the spec and application inputs (placeholders in the stage file until answered)
 // ---------------------------------------------------------------------------------------------
 
-@description('Container image as name:tag without the registry, no latest (spec open: resources.app-service.runtime.container_image).')
+@description('Bootstrap image as name:tag without the registry, no latest; used only on the first deployment, the image pipeline owns the image afterwards (spec: resources.app-service.runtime.container_image_owner).')
 param containerImage string
+
+@description('linuxFxVersion the web app runs now; the pipeline fills this from the live web app before the deployment so the image is never rolled back. Empty on the first deployment.')
+param existingLinuxFxVersion string = ''
 
 @description('Model deployments as { name, model: { format, name, version } } (spec open: resources.foundry.models.model_deployments).')
 param modelDeployments array
@@ -281,6 +284,7 @@ module app 'modules/app.bicep' = {
     foundryEndpoint: ai.outputs.endpoint
     storageAccountName: storage.outputs.name
     containerImage: containerImage
+    existingLinuxFxVersion: existingLinuxFxVersion
     pluginSource: pluginSource
     entraClientId: entraClientId
     entraTenantId: entraTenantId

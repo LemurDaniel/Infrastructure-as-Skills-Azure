@@ -551,6 +551,10 @@ resources:
       http2_enabled:
         value: true
         source: default
+      container_image_owner:
+        value: image_pipeline
+        source: overridden
+        reason: "A separate pipeline builds, pushes and updates the image. This template sets the stage-file image only on the first deployment and keeps the running one afterwards."
     observability:
       diagnostic_workspace:
         value: log-analytics-workspace
@@ -653,11 +657,6 @@ wiring:
     source: stated
 
 open:
-  - key: resources.app-service.runtime.container_image
-    environments: [production]
-    question: "Welches Container-Image (Name und Tag, nicht latest) soll laufen? Es entsteht erst durch die erste Pipeline."
-    owner: "Workload-Owner"
-    blocks: apply
   - key: resources.foundry.models.model_deployments
     environments: [production]
     question: "Welche Modelle werden gebraucht (Agent und Bewertung)? Claude-Modelle sind in Foundry womöglich nur weltweit verarbeitet verfügbar, das widerspräche 'nur EU'."

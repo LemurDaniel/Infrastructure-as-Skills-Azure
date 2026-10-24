@@ -186,13 +186,13 @@ Nichts davon wurde gefragt; jede Zeile folgt einer Regel oder einer der Antworte
 - Azure App Service (web app on an App Service plan): Die App ist aus dem Internet erreichbar. _(Grund: The dashboard is the one internet-facing part (customer: reachable from the internet, sign-in with company accounts). Departs from the private baseline, which would map to disabled.)_
 - Azure App Service (web app on an App Service plan): Ausgehender Verkehr wird nur für private Adressen durch das Firmennetz geleitet geleitet. _(Grund: The agent needs the internet (plugin source, package installs). With all traffic routed into the VNet there is no outbound path without a NAT gateway; private endpoint addresses are RFC 1918 and still go through the VNet.)_
 - Azure App Service (web app on an App Service plan): Die App hat eine gemeinsame, separat verwaltete Identität, um andere Dienste zu erreichen. _(Grund: Departs from system_assigned: AcrPull and the data roles must exist before the container first starts, which a system-assigned identity cannot have.)_
+- Azure App Service (web app on an App Service plan): `"image_pipeline"` _(Grund: A separate pipeline builds, pushes and updates the image. This template sets the stage-file image only on the first deployment and keeps the running one afterwards.)_
 - Azure Key Vault: Für die Geheimnisse entra-client-secret werden leere Plätze angelegt; die Werte werden danach von Hand oder von der Anwendung eingetragen. _(Grund: Departs from the default []: the app's Entra sign-in reads this client secret through a Key Vault reference and needs the secret to exist before its first start.)_
 
 ## Noch offen
 
 Solange diese Punkte offen sind, wird nichts ausgerollt.
 
-- Welches Container-Image (Name und Tag, nicht latest) soll laufen? Es entsteht erst durch die erste Pipeline. [Echtbetrieb] _(gebraucht von: Workload-Owner)_ — blockiert: apply
 - Welche Modelle werden gebraucht (Agent und Bewertung)? Claude-Modelle sind in Foundry womöglich nur weltweit verarbeitet verfügbar, das widerspräche 'nur EU'. [Echtbetrieb] _(gebraucht von: Workload-Owner)_ — blockiert: apply
 - Woher holt der Agent das Claude-Plugin (Git-Repo, Speicher)? [Echtbetrieb] _(gebraucht von: Workload-Owner)_ — blockiert: apply
 - Die Anmeldung nutzt eure bestehende App-Registrierung samt Client Secret. Wer erzeugt das Secret und trägt es im Tresor ein (der Tresor ist nur aus dem Netz erreichbar), und wer trägt nach dem ersten Ausrollen die Weiterleitungsadresse der App ein (https://<App-Adresse>/.auth/login/aad/callback)? _(gebraucht von: Identitäts-Team)_ — blockiert: apply
@@ -330,6 +330,7 @@ Solange diese Punkte offen sind, wird nichts ausgerollt.
 | `app-service.runtime.always_on` | true | Regel |
 | `app-service.runtime.health_check_path` |  | Regel |
 | `app-service.runtime.http2_enabled` | true | Regel |
+| `app-service.runtime.container_image_owner` | image_pipeline | eure Abweichung |
 | `app-service.observability.diagnostic_workspace` | log-analytics-workspace | übernommen |
 | `app-service.observability.diagnostic_categories` | ["AppServiceHTTPLogs", "AppServiceAppLogs", "AppServiceAuditLogs", "AppServiceIPSecAuditLogs", "AppServicePlatformLogs"] | Regel |
 | `app-service.observability.metrics_enabled` | true | Regel |

@@ -83,6 +83,25 @@ jobs:
           printf '\nparam existingSecretNames = [%s]\n' "$list" >> "main.${STAGE}.resolved.bicepparam"
           echo "existingSecretNames = [$list]"
 
+      # The image belongs to the separate image pipeline: keep what the web app runs now so this
+      # deployment never rolls it back. Management plane only; empty on the first deployment.
+      - name: Resolve existingLinuxFxVersion
+        run: |
+          set -euo pipefail
+          fx=""
+          if [ "$(az group exists --subscription "$SUBSCRIPTION_ID" --name "$RESOURCE_GROUP")" = "true" ]; then
+            sites=$(az resource list --subscription "$SUBSCRIPTION_ID" --resource-group "$RESOURCE_GROUP" \
+              --resource-type Microsoft.Web/sites --query "[].id" -o tsv | tr -d '\r')
+            for id in $sites; do
+              fx=$(az rest --method get \
+                --url "https://management.azure.com${id}/config/web?api-version=2024-11-01" \
+                --query "properties.linuxFxVersion" -o tsv | tr -d '\r')
+              case "$fx" in 'DOCKER|'*) break ;; *) fx="" ;; esac
+            done
+          fi
+          printf "\nparam existingLinuxFxVersion = '%s'\n" "$fx" >> "main.${STAGE}.resolved.bicepparam"
+          echo "existingLinuxFxVersion = '$fx'"
+
       - name: What-if
         id: whatif
         run: |

@@ -39,8 +39,11 @@ param foundryEndpoint string
 @description('Name of the storage account (storage module output); the app reads and writes eval results there.')
 param storageAccountName string
 
-@description('Container image as name:tag, without the registry (OPEN in the stage file until the first pipeline has built it; no latest).')
+@description('Bootstrap image as name:tag, without the registry; used only while the web app has no image yet. After that the image belongs to the separate image pipeline (no latest).')
 param containerImage string
+
+@description('linuxFxVersion the web app runs now (DOCKER|<registry>/<name>:<tag>), read by the pipeline before the deployment; empty on the first deployment. Kept as is so this template never rolls the image back.')
+param existingLinuxFxVersion string = ''
 
 @description('Where the agent fetches the Claude plugin from (OPEN in the stage file).')
 param pluginSource string
@@ -112,7 +115,9 @@ resource site 'Microsoft.Web/sites@2024-11-01' = {
     keyVaultReferenceIdentity: identityId
 
     siteConfig: {
-      linuxFxVersion: 'DOCKER|${registryLoginServer}/${containerImage}'
+      // decision: app-service.runtime.container_image_owner - the image is set here only on the
+      // first deployment; later the image pipeline owns it and this keeps what runs.
+      linuxFxVersion: !empty(existingLinuxFxVersion) ? existingLinuxFxVersion : 'DOCKER|${registryLoginServer}/${containerImage}'
       // Image pull with the managed identity instead of registry credentials.
       acrUseManagedIdentityCreds: true
       acrUserManagedIdentityID: identityClientId

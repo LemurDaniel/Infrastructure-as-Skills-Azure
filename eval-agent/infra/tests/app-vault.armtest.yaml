@@ -80,6 +80,11 @@
   path: resources.app.properties.template.resources.site.kind
   equals: app,linux,container
 
+# The running image wins over the bootstrap one: the template keeps existingLinuxFxVersion when set.
+- decision: app-service.runtime.container_image_owner
+  path: resources.app.properties.template.resources.site.properties.siteConfig.linuxFxVersion
+  matches: 'if\(not\(empty\(parameters\(''existingLinuxFxVersion''\)\)\), parameters\(''existingLinuxFxVersion''\), format\(''DOCKER\|\{0\}/\{1\}'''
+
 - decision: app-service.runtime.always_on
   path: resources.app.properties.template.resources.site.properties.siteConfig.alwaysOn
   equals: true

@@ -41,7 +41,8 @@ param storageRoleAssignments = []
 param vaultRoleAssignments = []
 
 // ---- open points (placeholders) ----
-// Name and tag of the image, without the registry; not latest.
+// Bootstrap image (name:tag, without the registry; not latest), used only while the web app has
+// no image. The separate image pipeline owns the image afterwards; the pipeline keeps what runs.
 param containerImage = 'eval-agent:0.0.1'
 // Models of the Foundry account, e.g. { name: 'chat', model: { format: 'OpenAI', name: '<model>', version: '<version>' } }.
 // Empty until the workload owner names them; no deployment is created from an empty list.
