@@ -329,13 +329,17 @@ customer-facing text in the spec follow it.
 
 **There is one batch**: the surviving `customer` questions — the
 environment, who reaches it and from where, the mandates, and the `requirements` group
-(outage impact, data-loss tolerance, access pattern, backup isolation, data residency),
-fewer only where the description stated an answer. **The `requirements` group is asked in
+(network connectivity - does the system join the company network, or stand on its own with
+no VPN -, outage impact, data-loss tolerance, access pattern, backup isolation, data
+residency), fewer only where the description stated an answer. **The `requirements` group is asked in
 full, every run**: a requirement that has a default is still asked, because the default
 is the guardrail's guess and the customer is the only one who knows - skipping one because
 the batch looks long is the failure this group exists to prevent. There is no cap on the
 number of customer questions: the customer answers multiple choice, and a tenth option
-row costs them less than a decision nobody asked them about. Nothing else is asked. An `engineer` question takes its default; a `platform`
+row costs them less than a decision nobody asked them about. `AskUserQuestion` takes four
+questions per call: a batch of ten is three calls in a row, numbered for the person
+("Fragen 1-4 von 10"), with nothing reasoned or reported between them - the batch is never
+trimmed to four to fit one call. Nothing else is asked. An `engineer` question takes its default; a `platform`
 question takes the profile's value or its default; a `required` question of either
 audience that nothing answers becomes an `open:` entry with its owner named, and Phase 4
 says so. Put the batch in the customer's words — the `ask` texts of the `requirements`

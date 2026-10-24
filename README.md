@@ -61,7 +61,7 @@ Complete runs, request to tests, live under [`examples/`](examples/README.md).
 ![From the request to a checked render: interview, spec, sign-off, render](docs/process.drawio.png)
 
 1. **`iac-authoring` triggers** on any request for Azure infrastructure — one that names the workload ("eine Chatapp mit RAG") as much as one that names a resource. **`azure-resources`** routes each resource through the family's `routing.md` to its question set.
-2. **The interview.** The deployment-wide set first (posture, network ownership, mandates, the five requirements), then each resource. Answers resolve in order: stated › carried spec › platform › pattern › deployment › default.
+2. **The interview.** The deployment-wide set first (posture, network ownership, mandates, the six requirements), then each resource. Answers resolve in order: stated › carried spec › platform › pattern › deployment › default.
 3. **Sign-off.** The spec, the decision document and the diagram go to the customer. A correction is a spec change, and the loop runs again.
 4. **`iac-rendering` renders** the approved spec: AVM module and version, naming, layout, code, tests, pipeline. Then `fmt`, `validate`, `test`, and the coverage check.
 
