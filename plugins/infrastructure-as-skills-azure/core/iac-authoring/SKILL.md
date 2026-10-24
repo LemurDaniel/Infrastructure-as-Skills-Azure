@@ -278,6 +278,15 @@ Resolve it once and every resource inherits it. A resource question carrying
 one run must not produce eight separate exposure answers, and a system is not private
 because seven of them are.
 
+**Read every question set before Phase 3 asks anything.** That is the set of each resource
+the request names **plus** every resource a deployment decision forces into the design: a
+private network exposure brings the virtual network and its private-endpoint subnet, a
+diagnostics or retention decision brings the Log Analytics workspace, a registry or
+identity requirement brings its own resource. Work out the full resource list from the
+deployment set first, then read all of the sets in one pass. A set read after the batch, or
+after Phase 5 has begun, means its `customer` questions could not be asked and its defaults
+are guesses.
+
 For each question, the answer then comes from the first source that has one:
 
 | # | Source | `source` recorded as |

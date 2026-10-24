@@ -37,6 +37,13 @@ the detail; this list says what was decided and why, so a session does not reope
   account and before any file, one line per part in the customer's words, the connections,
   what costs money; one question "Passt das Design?" and the spec is written only when the
   list is right. A missing part is cheaper to find here than after the picture.
+- **Every question set is read before Phase 3 asks** (2026-10-24): the resources the
+  request names plus those a deployment decision forces in (private exposure → vnet,
+  diagnostics → workspace). A set read later has `customer` questions that could not be
+  asked. The first install test of the eval agent read `virtual-network` and
+  `log-analytics-workspace` only after Phase 5 began; its spec shows no question lost
+  (the deployment set had asked them), so the rule is a guard, not a fix for a seen loss.
+  Whether `user-assigned-identity` was read at all in that run is unchecked.
 - **`network_requirements` is a customer requirement** (2026-10-24): may the network be
   chosen freely, or are address ranges assigned or a connection to the company network
   (hub, VPN) given; it pre-answers `landing_zone` and through it the network's ownership
