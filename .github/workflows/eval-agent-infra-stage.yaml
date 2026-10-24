@@ -127,6 +127,10 @@ jobs:
     if: ${{ inputs.gated && needs.plan.outputs.changes == 'true' }}
     runs-on: ubuntu-latest
     environment: ${{ inputs.stage }}-approval
+    # No checkout here, so the workflow default working directory does not exist.
+    defaults:
+      run:
+        working-directory: .
     steps:
       - run: echo "Approved for ${{ inputs.stage }}."
 
