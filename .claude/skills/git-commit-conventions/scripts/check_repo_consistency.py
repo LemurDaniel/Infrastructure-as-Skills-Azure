@@ -230,7 +230,7 @@ def main():
             say(f"[warn] {msg}", 'yellow')
             for r in rows:
                 say(r, 'gray')
-            warnings.append('The listing exceeds the assumed budget, so Claude Code may drop descriptions - which silently stops those skills from triggering. Check /context and /doctor, shorten descriptions, or move keyword terms into the single azure-resources description rather than adding skills.')
+            warnings.append('The listing exceeds the assumed budget, so Claude Code may drop descriptions - which silently stops those skills from triggering. Check /context and /doctor, shorten descriptions, or move resource terms into the azure-resources description rather than adding skills - the iac-authoring description is the entry and stays short.')
         elif pct >= 70:
             say(f"[warn] {msg}", 'yellow')
             warnings.append('The listing is near its budget. Shorten descriptions before adding a skill - families are not skills and should not become them.')

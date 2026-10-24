@@ -36,9 +36,14 @@ the detail; this list says what was decided and why, so a session does not reope
 - **The target is Phase 0's first question** (2026-10-24): Terraform or Bicep before the
   module choice and the naming mechanism, two options, none recommended; Phase 1 only
   reads the layout and asks nothing.
-- **One triggering skill, families as routing, question sets as knowledge.** The skill
-  listing has a shared character budget and drops descriptions silently when it
-  overflows. A skill per family overflowed at the sixth family.
+- **`iac-authoring` is the entry, `azure-resources` carries the resource names, families
+  route, question sets are knowledge** (entry moved 2026-10-24). The skill listing has a
+  shared character budget and drops descriptions silently when it overflows; a skill per
+  family overflowed at the sixth family. The entry moved because the first install test
+  asked for "eine Chatapp in Azure mit RAG" and nothing triggered: the only trigger
+  listed resource names, and a request names what the system does more often than the
+  resources it needs. Workload and target terms, with German anchors, are in the entry
+  description; new resource terms go into `azure-resources` only.
 - **Defaults from the guardrails, not the portal — and not the module.** AVM defaults
   diverge from the guardrails too (`Standard_GRS`, 365 days retention, infrastructure
   encryption off, public access on, Key Vault `premium`, Container App ingress external),
@@ -257,6 +262,11 @@ until it is fixed or decided against.
 
 ### Evals
 
+- No case covers triggering. The one failure a real run has shown is a workload-shaped
+  request ("eine Chatapp in Azure mit RAG", no resource named) that opened no interview;
+  a case with that prompt and an llm grader on the first message (interview opened, the
+  customer sentence said, no home-made questionnaire) is the regression test, and the
+  no-plugin baseline arm shows what it is measured against.
 - No grader checks `implementation` or `module_source`. No case for: the delivery
   questions; an engineer-flavoured request asserting no `engineer` question is asked;
   the whole `requirements` group reaching the customer (the gap of 2026-10-24); the

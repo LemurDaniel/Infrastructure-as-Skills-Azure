@@ -83,7 +83,8 @@ The full tree is in [README.md](README.md#layout). What is not obvious from it:
 | Path | Role |
 |---|---|
 | `.../core/` | The skills, declared in `plugin.json` as `"skills": ["./core/"]` — it sits beside `skills/`, not inside it |
-| `.../core/azure-resources/` | The single trigger for every resource. Its description is the keyword surface for all families |
+| `.../core/iac-authoring/` | The entry point. Its description carries the target and workload terms a request says; the interview lives here |
+| `.../core/azure-resources/` | Routes every resource to its family and question set. Its description is the keyword surface for resource names |
 | `.../core/iac-authoring/questions/deployment.yaml` | The deployment-wide set, resolved before any resource |
 | `.../core/iac-authoring/references/{spec,question-set-format,guardrails,platform}.md` | The spec schema; how to author a `questions.yaml`; where every default comes from; the platform profile |
 | `.../core/iac-rendering/references/avm.md` | AVM first: which module, status, live version lookup, interfaces, provider requirements, gaps, the test contract |
@@ -97,12 +98,15 @@ The full tree is in [README.md](README.md#layout). What is not obvious from it:
 Both are easy to violate by accident and both fail quietly. The measurements behind them
 are in [README.md](README.md#why-one-trigger-and-families-that-are-not-skills).
 
-- **One skill triggers every resource; families are not skills.** Skill descriptions
-  share a character budget (~1% of the context window) and are dropped silently when it
-  overflows — the skill stays listed and stops matching. So `azure-resources` is the
-  triggering unit, the family the routing unit, the question set the knowledge unit.
-  Its description may be long (cap 1,536 characters); past ~1,200 prune the least-typed
-  terms, never split it. `/context` shows the listing after the budget.
+- **`iac-authoring` is the entry, `azure-resources` carries the resource names; families
+  are not skills.** Skill descriptions share a character budget (~1% of the context
+  window) and are dropped silently when it overflows — the skill stays listed and stops
+  matching. So `iac-authoring` triggers on what a request says (target, workload, a few
+  resources — "eine Chatapp mit RAG" must match), `azure-resources` on any resource name
+  and routes it, the family routes further, the question set is the knowledge unit. New
+  resource terms go into `azure-resources`, never into the entry description, which stays
+  short. The resource description may be long (cap 1,536 characters); past ~1,200 prune
+  the least-typed terms, never split it. `/context` shows the listing after the budget.
 - **The groups are declared, not discovered.** `core/` is declared in `plugin.json`;
   `resources/` is deliberately not, so nothing in it costs budget — a family has a
   `routing.md`, never a `SKILL.md`, and the consistency script fails on one. The `skills/`

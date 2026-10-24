@@ -1,6 +1,6 @@
 ---
 name: iac-authoring
-description: The interview protocol behind every skill here — how a question set becomes infra-spec.yaml, which questions get asked versus silently defaulted, and what the spec records. Read before authoring any Azure resource or pattern, when extending a question set, or when asked why a default was chosen.
+description: The entry point for Azure infrastructure as Terraform or Bicep. Use whenever someone wants something built, changed or reviewed in Azure, whether they name the workload (chat app, chatbot, RAG, web app, API, data platform, landing zone) or a resource, or ask for Azure Infrastruktur, Terraform-Code, Bicep-Code, an infra-spec.yaml, or why a default was chosen. Runs the interview that turns a question set into infra-spec.yaml, then hands the spec to iac-diagram and iac-rendering; azure-resources routes each resource to its question set. Read before authoring any Azure resource or pattern.
 ---
 
 # Authoring infrastructure from a question set
@@ -11,12 +11,19 @@ protocol for turning a question set into a spec, and the spec into code. Follow 
 than improvising — the value of the plugin is that two runs of the same skill ask the same
 things and record them the same way.
 
-Three units, kept apart on purpose: the [azure-resources](../azure-resources/SKILL.md)
-skill is the **triggering** unit, the family the **routing** unit, the question set the
+This skill is the **entry point**: its description carries what people type when they
+want Azure infrastructure — the targets, the workload words ("Chatapp mit RAG", web app,
+API, landing zone) and a few resource names — because a request names what the system
+does far more often than the resources it needs (the first install test, 2026-10-24,
+asked for "eine Chatapp in Azure mit RAG" and matched nothing while the resource list was
+the only trigger). Behind it, three units kept apart on purpose: the
+[azure-resources](../azure-resources/SKILL.md) skill carries the **resource terms** and
+routes to the family, the family is the **routing** unit, the question set the
 **knowledge** unit. They are separate because the skill listing has a shared character
 budget, and a description that overflows it is dropped silently — the skill stays
 installed and stops matching. A skill per resource would spend the budget at once; a skill
-per family spent it by the sixth family.
+per family spent it by the sixth family; and the resource list lives in azure-resources so
+that it can grow without crowding out this description.
 
 ## The pipeline
 
@@ -652,7 +659,8 @@ family:
    `ICONS` table of [iac-diagram](../iac-diagram/SKILL.md#icons), so it is drawable.
 8. If people would ask for it with a term the
    [azure-resources](../azure-resources/SKILL.md) description does not carry, add the term
-   there — that description is the only trigger the resource has.
+   there, never here — resource terms are its job, workload and target terms are this
+   description's, and this one stays short so the entry is never what gets pruned.
 9. Validate with `scripts/check_question_set.py <resource-directory>` — enum defaults,
    `depends_on` and `from_deployment` targets, the resolution fields, unknown fields —
    and with the repo's `check_repo_consistency.py` for routing reachability.

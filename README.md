@@ -60,8 +60,8 @@ Complete runs, request to tests, live under [`examples/`](examples/README.md).
 
 ![From the request to a checked render: interview, spec, sign-off, render](docs/process.drawio.png)
 
-1. **`azure-resources` triggers** on any request naming an Azure resource and routes it through the family's `routing.md` to the question set.
-2. **`iac-authoring` interviews.** The deployment-wide set first (posture, network ownership, mandates, the five requirements), then each resource. Answers resolve in order: stated › carried spec › platform › pattern › deployment › default.
+1. **`iac-authoring` triggers** on any request for Azure infrastructure — one that names the workload ("eine Chatapp mit RAG") as much as one that names a resource. **`azure-resources`** routes each resource through the family's `routing.md` to its question set.
+2. **The interview.** The deployment-wide set first (posture, network ownership, mandates, the five requirements), then each resource. Answers resolve in order: stated › carried spec › platform › pattern › deployment › default.
 3. **Sign-off.** The spec, the decision document and the diagram go to the customer. A correction is a spec change, and the loop runs again.
 4. **`iac-rendering` renders** the approved spec: AVM module and version, naming, layout, code, tests, pipeline. Then `fmt`, `validate`, `test`, and the coverage check.
 
@@ -69,8 +69,8 @@ Complete runs, request to tests, live under [`examples/`](examples/README.md).
 
 | | Purpose |
 |---|---|
-| [`core/azure-resources`](plugins/infrastructure-as-skills-azure/core/azure-resources/SKILL.md) | The single trigger for every resource. Its description is the keyword surface for all families. |
-| [`core/iac-authoring`](plugins/infrastructure-as-skills-azure/core/iac-authoring/SKILL.md) | The interview protocol, the spec schema, the question-set format, the guardrails, the deployment-wide set, `check_spec.py` and `export_decisions.py`. |
+| [`core/iac-authoring`](plugins/infrastructure-as-skills-azure/core/iac-authoring/SKILL.md) | The entry point for any Azure infrastructure request. The interview protocol, the spec schema, the question-set format, the guardrails, the deployment-wide set, `check_spec.py` and `export_decisions.py`. |
+| [`core/azure-resources`](plugins/infrastructure-as-skills-azure/core/azure-resources/SKILL.md) | Routes every resource to its family and question set. Its description is the keyword surface for resource names. |
 | [`core/iac-rendering`](plugins/infrastructure-as-skills-azure/core/iac-rendering/SKILL.md) | Spec to Terraform or Bicep: the AVM contract, naming, idiom per target, pipelines, `check_render_coverage.py` and `check_pipeline.py`. |
 | [`core/iac-diagram`](plugins/infrastructure-as-skills-azure/core/iac-diagram/SKILL.md) | Spec to an editable draw.io diagram with embedded source. |
 | `resources/<family>/` | The knowledge. Not skills: one `routing.md` per family, one directory per resource. |
@@ -179,8 +179,8 @@ Infrastructure-as-Skills-Azure/
 ├── plugins/infrastructure-as-skills-azure/
 │   ├── .claude-plugin/plugin.json
 │   ├── core/                       # the skills, declared as "skills": ["./core/"]
-│   │   ├── azure-resources/        # the one trigger for every resource -> family
-│   │   ├── iac-authoring/          # interview protocol, the spec, question-set format
+│   │   ├── azure-resources/        # resource names -> family -> question set
+│   │   ├── iac-authoring/          # the entry point; interview protocol, the spec, question-set format
 │   │   │   ├── questions/deployment.yaml     # posture, network, mandates — asked once
 │   │   │   ├── references/guardrails.md      # where the defaults come from
 │   │   │   └── scripts/check_spec.py         # validates an infra-spec.yaml
