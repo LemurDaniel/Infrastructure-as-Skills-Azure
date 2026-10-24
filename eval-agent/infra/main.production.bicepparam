@@ -19,6 +19,8 @@ param workload = 'evalagent'
 param environment = 'production'
 param subscriptionId = '6ad43a20-9532-41c0-ad61-885a26bef90f'
 param resourceGroupName = 'rg-evalagent-prod-001'
+// Instance number in the names (vnet-we-prod-evalagent-02).
+param index = 2
 
 // ---- per-stage decisions (known) ----
 // deployment.address_space / resources.virtual-network.addressing.address_space
