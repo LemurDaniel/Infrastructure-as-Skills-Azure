@@ -202,9 +202,11 @@ Infrastructure-as-Skills-Azure/
 
 ### Why one trigger, and families that are not skills
 
+![The skills, the entry point and how the units relate](docs/skills.drawio.png)
+
 Claude Code keeps a listing of every skill's name and description in context, and that listing has a **shared character budget**, [1% of the context window](https://code.claude.com/docs/en/skills) by default, each entry capped at 1,536 characters. When it overflows, descriptions are dropped silently: the skill stays listed and stops matching, because the description *is* the triggering mechanism. One report with 160 skills installed kept 20 descriptions.
 
-Fifty Azure resources at one skill each would spend the whole budget at once. One skill per family did not survive measurement either: five skills cost 1,506 of ~2,000 characters. So there are three units: **`azure-resources` triggers, the family routes, the question set holds the knowledge**. The trigger is its own skill rather than part of `iac-authoring` so that a keyword list growing with every family never crowds out the description of the protocol.
+Fifty Azure resources at one skill each would spend the whole budget at once. One skill per family did not survive measurement either: five skills cost 1,506 of ~2,000 characters. So the resource names live in one description: **`azure-resources` carries the resource terms and routes, the family routes further, the question set holds the knowledge**. The entry point is `iac-authoring`: its description carries what a request actually says — the target, the workload ("eine Chatapp mit RAG"), a few resource names — because a request names what the system does more often than the resources it needs. The first install test on 2026-10-24 asked for exactly that and matched nothing while `azure-resources` was the only trigger. The resource list is its own skill so that it can grow with every family without crowding out the entry description.
 
 ### Why the groups are declared, not discovered
 

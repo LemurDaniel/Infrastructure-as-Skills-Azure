@@ -168,9 +168,17 @@ the detail; this list says what was decided and why, so a session does not reope
   `private-storage-on-platform` 3/3, `vague-public-dev` 78%. Four plugin rules came out
   of the three rounds. Plugin-vs-plain measured once as a pilot (1 run per arm): 17/17
   against 15/17, the difference AVM and tests.
+- **Installed on the owner's machine** (2026-10-24) at user scope, from this repo as the
+  directory marketplace `infrastructure-as-skills-azure`. A directory install loads in
+  place from the repo path (`claude plugin list` shows "Read from"), so an edit is live at
+  the next session start or `/reload-plugins`; the copy under `~/.claude/plugins/cache`
+  is only the install record. The older marketplace entry `infrastructure-as-skills`
+  points at the sister repo and is unrelated.
 - `docs/process.drawio.png` and `docs/process-agents.drawio.png` show the flow of
-  2026-10-24; they were rendered headless in a cloud session and want one open in draw.io
-  on the owner's machine to confirm they still edit.
+  2026-10-24, `docs/skills.drawio.png` the skills, the entry and how the units relate
+  (generator in the owner's `drawio-diagrams` skill style; the PNG is the source). The
+  process pair was rendered headless in a cloud session and wants one open in draw.io on
+  the owner's machine to confirm it still edits.
 
 ## Open
 
