@@ -269,14 +269,44 @@ until it is fixed or decided against.
   App" needs a singular form. `infra-decisions.docx` is missing everywhere (no `pandoc`).
 - The extension run that writes a further stage's file once its `open:` entries are
   answered has not been exercised.
-- **Resource-group roles are the contract only** (2026-10-25): `resource_groups` group in
-  `deployment.yaml` (split, mode per role, lock), `references/resource-groups.md`, the
-  `contains` condition in `check_question_set.py`. Not done: `check_spec.py` does not
-  validate the new keys or `placement.resource_group`; `pipelines*.md` still deploy with
-  `az deployment group` (a `create` root needs `sub`); no example renders a split or a
-  created group, so the Terraform/Bicep tests and `check_render_coverage.py` do not cover
-  it; the `rg` + role name segment is unchecked against `naming.yaml`; `export_decisions.py`
-  and the diagram do not draw groups; no eval case.
+- **Resource groups: the contract stands, the render does not** (2026-10-25). Done: the
+  `resource_groups` group in `deployment.yaml` (split, a mode per role, lock), the `contains`
+  condition in `check_question_set.py`, `references/resource-groups.md`, the role table
+  `resource-group-roles.yaml` (read by the diagram and the decision document), `spec.md`
+  ("Resource groups: roles, modes, names"), `check_spec.py` with
+  `iac-authoring/tests/run_spec_tests.py` (one broken rule per case), the diagram (a tag per
+  service zone, support zone, network and monitoring zone framed per group, compute tagged) with fixture
+  `resource-groups-split.yaml`, `resource-groups-small.yaml` and three cases, the "Ressourcengruppen" table in
+  `export_decisions.py`, pipelines.md invariant 12 with a step in the four Terraform pipelines,
+  `check_pipeline.py` and four mutations, and `examples/chatbot-multi-rg` (spec, diagram,
+  decision document; not rendered). Open, in the order they block a `create` root:
+  - **Bicep pipelines deploy with `az deployment group`** (`pipelines.github.md`, `.ado.md`,
+    `.gitlab.md`, `.local.md`); a root with a `create` group has `targetScope = 'subscription'`
+    and needs `az deployment sub`, and the stage identity Contributor on the subscription. The
+    pipelines reference lists neither.
+  - **No render of a split**: no example has Terraform or Bicep for it, so the Terraform
+    `assert`s, `run_arm_tests.py` and `check_render_coverage.py` do not cover a group decision
+    (`# decision: deployment.resource_group_mode_<role>`, `<resource>.placement.resource_group`).
+    `chatbot-multi-rg` is the candidate.
+  - **The `jq` filter of invariant 12 is unproven**: it never ran against a real plan JSON, so
+    its `azurerm_resource_group` and `azapi_resource` branches (does the AVM resource group
+    module create the group as `azapi_resource`, with `Microsoft.Resources/resourceGroups` in
+    `change.before.type`?) are assumptions; the tests only assert the step is in the text. The
+    GitLab example also assumes `jq` in `mcr.microsoft.com/azure-cli`.
+  - **The name of a created group** (`rg-we-prod-payments-data-01`: workload plus role as the
+    name segment) is not checked against `naming.yaml` or the naming provider.
+  - **Bicep never deletes a group**: dropping one from the spec or switching `create` to
+    `existing` leaves it orphaned. The hand-over should say so; nothing does yet.
+  - **A mode or role change is not announced**: the CLAUDE.md block tells the render to read the
+    plan first, but `iac-authoring` has no step that detects a carried `resource_group_mode_*`
+    or `placement` that changed and names it before writing.
+  - **No eval case** for a split, nor for "spec exists, the user changes one value".
+  - **`export_decisions.py` has no test of its own**; the groups table was checked on the
+    example only.
+  - **The diagram frames a group only where its resources stand together**: the services, the
+    support zone, the network and the monitoring zone. Compute sits in the network's subnets and
+    gets a tag; more than eight services in the compact layout fall back to tags too. Frames of
+    different groups can leave blank space (a frame is as tall as its tallest label).
 
 ### Pipelines
 
