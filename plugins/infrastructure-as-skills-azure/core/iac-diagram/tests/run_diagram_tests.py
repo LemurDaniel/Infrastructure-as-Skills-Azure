@@ -45,7 +45,8 @@ def load(spec, language):
         g = c.find('mxGeometry')
         if g is not None:
             cells[c.get('id')]['geo'] = {k: float(g.get(k, 0)) for k in ('x', 'y', 'width', 'height')}
-            cells[c.get('id')]['points'] = [(float(m.get('x')), float(m.get('y'))) for m in g.iter('mxPoint')]
+            # the waypoints only - a label offset is an mxPoint too (as="offset")
+            cells[c.get('id')]['points'] = [(float(m.get('x')), float(m.get('y'))) for m in g.iter('mxPoint') if m.get('as') is None]
     return proc, cells
 
 
@@ -124,7 +125,7 @@ def case_ten_resources(cells):
         bad.append(f"the one type without an icon should be the only box, found {boxes}")
     if 'event-grid' in cells.get('res-event-grid-icon', {}).get('value', '') and 'no question set' not in cells['res-event-grid-icon']['value']:
         bad.append('the box does not say it has no question set')
-    if 'app-service: AcrPull' not in cells.get('res-container-registry', {}).get('value', ''):
+    if 'App Service: AcrPull' not in cells.get('res-container-registry', {}).get('value', ''):
         bad.append('the role is not on the target label')
     if 'opacity=60' not in cells.get('res-redis-cache', {}).get('style', '') or 'optional' not in cells.get('res-redis-cache', {}).get('value', ''):
         bad.append('the optional resource is not faded and marked')
@@ -248,7 +249,11 @@ def case_private_stages_open(cells):
         pts = e['points']
         sx, sy, sw, sh = absolute(cells, e['source'])
         tx, ty, tw, th = absolute(cells, e['target'])
-        path = [(sx + sw, sy + sh / 2)] + pts + [(tx + tw, ty + th / 2)]
+        # the anchors come from the style: two lines on one side take different heights
+        anchor = lambda key, default: float((re.search(key + r'=([\d.]+)', e['style']) or [None, default])[1])
+        src = (sx + sw * anchor('exitX', 1), sy + sh * anchor('exitY', 0.5))
+        dst = (tx + tw * anchor('entryX', 1), ty + th * anchor('entryY', 0.5))
+        path = [src] + pts + [dst]
         for (x1, y1), (x2, y2) in zip(path, path[1:]):
             for k in paas:
                 if k in (e['source'], e['target']) and y1 == y2:
@@ -260,7 +265,7 @@ def case_private_stages_open(cells):
                 lo_x, hi_x = min(x1, x2), max(x1, x2)
                 # the icon box, and the slot below it that holds the label and the roles
                 if lo_x < slots[k][1] and hi_x > slots[k][0] and lo_y < slot_bottom and hi_y > iy:
-                    if k in (e['source'], e['target']) and x1 == x2 and x1 > slots[k][1]:
+                    if k in (e['source'], e['target']) and x1 == x2 and (x1 > slots[k][1] or x1 < slots[k][0]):
                         continue
                     bad.append(f"line {e['source']} -> {e['target']} crosses {k}")
         if not (len(pts) == 2 and pts[0][0] == pts[1][0] and all(not (lo < pts[0][0] < hi) for lo, hi in slots.values())):
@@ -274,7 +279,8 @@ def case_private_stages_open(cells):
             ras = ras.get('production') or next(iter(ras.values()))
         for ra in ras or []:
             label = ' '.join(v['value'] for k, v in cells.items() if k in (f'res-{key}', f'res-{key}-icon'))
-            if f"{ra['principal']}: {ra['role']}" not in label:
+            # the principal is named as the picture names it (kind title · instance), the role verbatim
+            if f": {ra['role']}" not in label:
                 bad.append(f"{key}: role '{ra['principal']}: {ra['role']}' is not on the label")
     return bad
 

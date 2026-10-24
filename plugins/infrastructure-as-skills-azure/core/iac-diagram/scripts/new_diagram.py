@@ -95,6 +95,7 @@ LABELS = {
         'subPrivateExc': 'Access runs over private endpoints; reachable from the internet: {names}.',
         'noPublicExc': 'no public access, except: {names}',
         'telemetry': 'telemetry', 'openRef': 'details in infra-decisions.md', 'noOwner': 'no owner yet',
+        'rg': 'resource group', 'publicMark': 'reachable from the internet',
         'keyless': ' Access to the resources is by identity, no keys.',
     },
     'de': {
@@ -115,6 +116,7 @@ LABELS = {
         'subPrivateExc': 'Zugriffe laufen über Private Endpoints; aus dem Internet erreichbar: {names}.',
         'noPublicExc': 'kein öffentlicher Zugriff, außer: {names}',
         'telemetry': 'Telemetrie', 'openRef': 'Details in infra-decisions.md', 'noOwner': 'noch ohne Zuständigen',
+        'rg': 'Ressourcengruppe', 'publicMark': 'aus dem Internet erreichbar',
         'keyless': ' Zugriffe auf die Ressourcen laufen über Identitäten, ohne Schlüssel.',
     },
 }
@@ -389,6 +391,11 @@ def main():
                and (base(k) not in INJECTED_KINDS or pe_subnet_of(k) is not None)
                and (is_private or pe_subnet_of(k) is not None) and (pna(k) == 'disabled' or pe_subnet_of(k) is not None)]
 
+    # One endpoint per resource, unless it names several subresources (a storage account with
+    # blob, queue and table is three).
+    n_pe = sum(max(1, len([x for x in as_list(get_decision(resources.get(k), ['networking', 'private_endpoint_subresources'])) if x]))
+               for k in with_pe)
+
     # A private posture with a named departure (a workspace left public) is not "no public access":
     # the subtitle and the footer name the exception instead of claiming everything.
     public_exceptions = [k for k in res_keys if exposure in ('private', 'private_with_exceptions') and base(k) not in SUPPORT_KINDS
@@ -513,13 +520,15 @@ def main():
             role_lines.setdefault(s(ra.get('to')), []).append(f"{s(ra.get('from'))}: {s(ra.get('role'))}")
     # The same on the resource itself: resources.<r>.identity.role_assignments, a list of
     # { principal, role } (per stage or one list). Every principal with its role is a line.
+    # ... and identity.data_plane_role_assignments (Cosmos DB's own role model) the same way.
     for rk, rnode in resources.items():
-        ras = get_decision(rnode, ['identity', 'role_assignments']) if isinstance(rnode, dict) else None
-        for ra in as_list(ras):
-            if isinstance(ra, dict) and ra.get('principal') and ra.get('role'):
-                line = f"{s(ra['principal'])}: {s(ra['role'])}"
-                if line not in role_lines.setdefault(rk, []):
-                    role_lines[rk].append(line)
+        for group in ('role_assignments', 'data_plane_role_assignments'):
+            ras = get_decision(rnode, ['identity', group]) if isinstance(rnode, dict) else None
+            for ra in as_list(ras):
+                if isinstance(ra, dict) and ra.get('principal') and ra.get('role'):
+                    line = f"{s(ra['principal'])}: {s(ra['role'])}"
+                    if line not in role_lines.setdefault(rk, []):
+                        role_lines[rk].append(line)
     role_principals = {k: {ln.split(':', 1)[0] for ln in v} for k, v in role_lines.items()}
 
     callers = []
@@ -568,13 +577,23 @@ def main():
             if a['from'] in role_principals.get(a['to'], ()):
                 callers_listed_in_roles.add((a['to'], who))
 
+    def display_name(p):
+        """A principal as the picture names it: the kind's title and the instance, not the spec key
+        (`user-assigned-identity__web` -> `Managed Identity · web`), which wrapped at every hyphen."""
+        if p in resources or base(p) in TYPE_NAMES:
+            return TYPE_NAMES.get(base(p), base(p)) + (f" · {p.partition('__')[2]}" if '__' in p else '')
+        return p
+
     def resource_label(k):
         kind_title = TYPE_NAMES.get(base(k), base(k).replace('-', ' ').title())
         sub = s(purposes.get(k)) or (k.partition('__')[2] or k)
         note = ' · '.join(n for n in (T['noSet'] if not has_question_set(base(k)) else '', T['optional'] if k in optional else '') if n)
         label = format_label(kind_title, sub, note)
+        if k in public_exceptions:
+            label += f"<br><font style='font-size:10px' color='{PUBLIC_COLOR}'>&#9888; {esc(T['publicMark'])}</font>"
         for line in role_lines.get(k, []):
-            label += f"<br><font style='font-size:10px' color='#5C2D91'>&#8592; {esc(line)}</font>"
+            principal, _, role = line.partition(': ')
+            label += f"<br><font style='font-size:10px' color='#5C2D91'>&#8592; {esc(display_name(principal))}: {esc(role)}</font>"
         rest = [c for c in callers_of.get(k, []) if (k, c.split(' (')[0]) not in callers_listed_in_roles]
         if side and rest:
             label += f"<br><font style='font-size:10px' color='#5C2D91'>&#8592; {', '.join(rest)}</font>"
@@ -813,9 +832,10 @@ def main():
                 add_icon(cid, 'z-ext', slot_x, slot_y, actor_base(name), f"<b>{esc(actor_title(name))}</b>", False, False, slot_h=110, warn=False)
 
     # Resource group
-    loc, env_ = s(get_value(ctx.get('location'))), s(get_value(ctx.get('environment')))
+    loc = s(get_value(ctx.get('location')))
+    env_ = ' · '.join(s(e) for e in as_list(get_value(ctx.get('environments'))) if s(e)) or s(get_value(ctx.get('environment')))
     rg_name = get_value(ctx.get('resource_group_name'))
-    rg_label = format_label(s(rg_name if rg_name is not None else 'resource group'), ' · '.join(p for p in (loc, env_) if p != ''), '')
+    rg_label = format_label(s(rg_name if rg_name is not None else T['rg']), ' · '.join(p for p in (loc, env_) if p != ''), '')
     add_container({'id': 'rg', 'parent': '1', 'x': rg_x, 'y': rg_y, 'w': rg_w, 'h': rg_h, 'style': CONTAINER_STYLE, 'value': rg_label})
     icons.append({'id': 'rg-icon', 'parent': 'rg', 'x': rg_x + 6, 'y': rg_y + 6, 'w': 24, 'h': 24,
                   'style': f"image;aspect=fixed;html=1;image={ICONS['resource-group']};", 'value': ''})
@@ -829,6 +849,13 @@ def main():
     paas_y = main_y if side else main_y + vn_h + (gap if (vn_h and paas_h) else 0)
     paas_x = main_x + w_main + chan_w if side else main_x
     bus_base = main_y + vn_h + 14
+    # An open entry on the network - the address space, a subnet prefix, the subnet plan - colours
+    # the network and its subnets red like a resource with an open entry; before, only resource
+    # icons were flagged and the network read as decided.
+    net_open = flagged('virtual-network') or any(
+        isinstance(o, dict) and s(o.get('key')).startswith(('deployment.address_space', 'deployment.private_endpoint_subnet', 'deployment.subnet'))
+        for o in open_items)
+    redn = (lambda h: f"<font color='#D13438'>{h}</font>") if net_open else (lambda h: h)
     if draw_vnet:
         vn_name = vnet_ref['name'] if (vnet_existing and vnet_ref['name']) else 'Virtual Network'
         addr = get_decision(dep, ['address_space'])
@@ -837,7 +864,7 @@ def main():
         vn_sub = s(addr)
         vn_note = T['existing'] if vnet_existing else ''
         style = CONTAINER_STYLE + (EXISTING_STYLE if vnet_existing else '')
-        add_container({'id': 'vnet', 'parent': 'rg', 'x': main_x, 'y': main_y, 'w': w_main, 'h': vn_h, 'style': style, 'value': format_label(vn_name, vn_sub, vn_note)})
+        add_container({'id': 'vnet', 'parent': 'rg', 'x': main_x, 'y': main_y, 'w': w_main, 'h': vn_h, 'style': style, 'value': redn(format_label(vn_name, vn_sub, vn_note))})
         icons.append({'id': 'vnet-icon', 'parent': 'vnet', 'x': main_x + 6, 'y': main_y + 6, 'w': 24, 'h': 24,
                       'style': f"image;aspect=fixed;html=1;image={ICONS['virtual-network']};", 'value': ''})
         sn_x, sn_w, cursor = main_x + PAD, w_main - 2 * PAD, main_y + HEAD
@@ -848,7 +875,7 @@ def main():
             lbl = f"<b>{esc(name)}</b>" + (f"  <font style='font-size:10px'>{esc(prefix)}</font>" if prefix else '')
             if note:
                 lbl += f"<br><font style='font-size:10px'><i>{esc(note)}</i></font>"
-            add_container({'id': f"snet-c{gi}", 'parent': 'vnet', 'x': sn_x, 'y': cursor, 'w': cw if side else sn_w, 'h': h, 'style': sn_style, 'value': lbl})
+            add_container({'id': f"snet-c{gi}", 'parent': 'vnet', 'x': sn_x, 'y': cursor, 'w': cw if side else sn_w, 'h': h, 'style': sn_style, 'value': redn(lbl)})
             place_grid(keys, f"snet-c{gi}", sn_x + PAD, cursor + hh, cols_c)
             cursor += h + PAD
         if show_pe and side:
@@ -856,22 +883,22 @@ def main():
             col_h = cursor - PAD - (main_y + HEAD)
             pe_x = sn_x + cw + coll_w
             pe_label = f"<b>{esc(pe_subnet_name)}</b>" + (f"  <font style='font-size:10px'>{esc(pe_subnet_prefix)}</font>" if pe_subnet_prefix else '')
-            add_container({'id': 'snet-pe', 'parent': 'vnet', 'x': pe_x, 'y': main_y + HEAD, 'w': pe_w, 'h': col_h, 'style': sn_style, 'value': pe_label})
+            add_container({'id': 'snet-pe', 'parent': 'vnet', 'x': pe_x, 'y': main_y + HEAD, 'w': pe_w, 'h': col_h, 'style': sn_style, 'value': redn(pe_label)})
             kinds = list(dict.fromkeys(TYPE_NAMES.get(base(k), base(k)) for k in with_pe))
             names = ', '.join(kinds[:2]) + (f" +{len(kinds) - 2}" if len(kinds) > 2 else '')
             add_icon('pe-bundle', 'snet-pe', pe_x, main_y + HEAD + (col_h - SLOT_H) / 2, 'private-endpoint',
-                     format_label(T['peBundle'], f"{len(with_pe)}× {names}", ''), slot_h=SLOT_H)
+                     format_label(T['peBundle'], f"{n_pe}× {names}", ''), slot_h=SLOT_H)
         elif show_pe:
             pe_label = f"<b>{esc(pe_subnet_name)}</b>" + (f"  <font style='font-size:10px'>{esc(pe_subnet_prefix)}</font>" if pe_subnet_prefix else '')
-            add_container({'id': 'snet-pe', 'parent': 'vnet', 'x': sn_x, 'y': cursor, 'w': sn_w, 'h': pe_box_h, 'style': sn_style, 'value': pe_label})
+            add_container({'id': 'snet-pe', 'parent': 'vnet', 'x': sn_x, 'y': cursor, 'w': sn_w, 'h': pe_box_h, 'style': sn_style, 'value': redn(pe_label)})
             kinds = list(dict.fromkeys(TYPE_NAMES.get(base(k), base(k)) for k in with_pe))
             names = ', '.join(kinds[:2]) + (f" +{len(kinds) - 2}" if len(kinds) > 2 else '')
             add_icon('pe-bundle', 'snet-pe', sn_x + PAD, cursor + ZHEAD, 'private-endpoint',
-                     format_label(T['peBundle'], f"{len(with_pe)}× {names}", ''), slot_h=SLOT_H)
+                     format_label(T['peBundle'], f"{n_pe}× {names}", ''), slot_h=SLOT_H)
             cursor += pe_box_h + PAD
         for j, sn in enumerate(strips):
             lbl = f"<b>{esc(sn['name'])}</b>" + (f"  <font style='font-size:10px'>{esc(sn['prefix'])}</font>" if sn['prefix'] else '')
-            add_container({'id': f"snet-{j}", 'parent': 'vnet', 'x': sn_x, 'y': cursor, 'w': sn_w, 'h': 44, 'style': sn_style, 'value': lbl})
+            add_container({'id': f"snet-{j}", 'parent': 'vnet', 'x': sn_x, 'y': cursor, 'w': sn_w, 'h': 44, 'style': sn_style, 'value': redn(lbl)})
             cursor += 44 + 10
     elif compute:
         add_container({'id': 'z-compute', 'parent': 'rg', 'x': main_x, 'y': main_y, 'w': w_main, 'h': vn_h, 'style': ZONES['compute'], 'value': esc(T['compute'])})
@@ -902,9 +929,11 @@ def main():
         sx, sy = zx + (ZONE_W - SLOT_W) / 2, zy + ZHEAD
         if is_mon:
             if draw_law:
-                law_name = s(diag_target) if diag_target else 'log-analytics-workspace'
-                add_icon('law', f"z-{zid}", sx, sy, 'log-analytics-workspace',
-                         format_label('Log Analytics', law_name, T['existing'] if existing else ''),
+                law_name = s(purposes.get('log-analytics-workspace')) or (s(diag_target) if diag_target else 'log-analytics-workspace')
+                law_label = format_label('Log Analytics', law_name, T['existing'] if existing else '')
+                if 'log-analytics-workspace' in public_exceptions:
+                    law_label += f"<br><font style='font-size:10px' color='{PUBLIC_COLOR}'>&#9888; {esc(T['publicMark'])}</font>"
+                add_icon('law', f"z-{zid}", sx, sy, 'log-analytics-workspace', law_label,
                          flagged('log-analytics-workspace'), existing)
                 sy += SLOT_H
             if has_ai:
@@ -979,6 +1008,9 @@ def main():
     # where another line leaves.
     IN_FR, OUT_FR = 0.25, 0.75
     inter_tgt = {a['to'] for a in access if a['from'] in compute and a['to'] in compute}
+    PP_FR = (0.7, 0.3, 0.5)   # anchor heights for lines sharing one side of an icon
+    pp_side = {}               # (resource, side) -> the PaaS -> PaaS lines already anchored there
+    pp_touched = {a['from'] for a in pp_edges} | {a['to'] for a in pp_edges}
     gap_edges = 0  # actors <-> compute: tracks in the gap between the external zone and the group,
                    # so a vertical run never lies on the resource group's border
     for n, a in enumerate(access):
@@ -997,8 +1029,23 @@ def main():
         if a['from'] in caller_i and a['to'] in paas:
             tx = gut0 - 16 * track_rank[a['from']]
             bus_y = bus_base + 10 * lane_rank[a['from']]
-            edge['style'] = style + 'exitX=1;exitY=0.5;entryX=0.5;entryY=0;'
-            edge['points'] = [{'x': tx, 'y': sc['y'] + sc['h'] / 2}, {'x': tx, 'y': bus_y}, {'x': dc['x'] + dc['w'] / 2, 'y': bus_y}]
+            tcx = dc['x'] + dc['w'] / 2
+            if a['from'] in at_comp:
+                # actor lines end at the icon's left at mid height; the trunk leaving at the same
+                # height read as one line through the icon, so it leaves over the top
+                top = sc['slot']['y'] + 2
+                edge['style'] = style + 'exitX=0.5;exitY=0;entryX=0.5;entryY=0;'
+                edge['points'] = [{'x': sc['x'] + sc['w'] / 2, 'y': top}, {'x': tx, 'y': top}, {'x': tx, 'y': bus_y}, {'x': tcx, 'y': bus_y}]
+            else:
+                edge['style'] = style + 'exitX=1;exitY=0.5;entryX=0.5;entryY=0;'
+                edge['points'] = [{'x': tx, 'y': sc['y'] + sc['h'] / 2}, {'x': tx, 'y': bus_y}, {'x': tcx, 'y': bus_y}]
+            if edge_label:
+                # beside the line's own drop into its target, not on the shared run
+                path = [(sc['x'] + sc['w'], sc['y'] + sc['h'] / 2)] + [(p['x'], p['y']) for p in edge['points']] + [(tcx, dc['y'])]
+                seg = [abs(x2 - x1) + abs(y2 - y1) for (x1, y1), (x2, y2) in zip(path, path[1:])]
+                if sum(seg):
+                    edge['lx'] = round(2 * ((sum(seg[:-1]) + 0.5 * seg[-1]) / sum(seg)) - 1, 3)
+                    edge['off'] = (8 + 3 * plain_len(edge_label), 0)
         elif a['from'] in compute and a['to'] in compute:
             k = inter.setdefault(a['from'] + '>' + a['to'], len(inter))
             if side and 'snet-pe' in by_id:
@@ -1012,6 +1059,7 @@ def main():
             # corridor right of the network, along the gutter above the zone's row, down beside
             # the zone, in at the icon's left - never across another zone or a service line.
             zone = by_id.get('z-monitoring')
+            style = EDGE_BASE + f"strokeColor={PUBLIC_COLOR if public else PRIVATE_COLOR};fontColor={PUBLIC_COLOR if public else PRIVATE_COLOR};fontSize=10;labelBackgroundColor=#FFFFFF;"
             gx = (zone['x'] - 8) if zone else dc['x'] - 22
             gutter_y = (zone['y'] - PAD / 2) if zone else dc['y'] - 20
             mid = dc['y'] + dc['h'] / 2
@@ -1044,9 +1092,18 @@ def main():
             # the vertical run, in the channel.
             sc_col, dc_col = paas.index(a['from']) % cols_p, paas.index(a['to']) % cols_p
             lx_track = paas_x + PAD + SLOT_W + 12 + TRK * pp_lane.get((a['from'], a['to']), 0)
-            sy_, dy_ = sc['y'] + sc['h'] / 2, dc['y'] + dc['h'] / 2
-            edge['style'] = style + f"exitX={1 if sc_col == 0 else 0};exitY=0.5;entryX={1 if dc_col == 0 else 0};entryY=0.5;"
+            # Two lines on one side of an icon take different heights (0.7, then 0.3); the trunk
+            # into a first-column service enters at 0.3 when such a line leaves it at 0.7, so two
+            # lines never meet at one height and read as one line through the icon.
+            fr_s = PP_FR[pp_side.setdefault((a['from'], 'R' if sc_col == 0 else 'L'), []).__len__() % len(PP_FR)]
+            pp_side[(a['from'], 'R' if sc_col == 0 else 'L')].append(a)
+            fr_d = PP_FR[pp_side.setdefault((a['to'], 'R' if dc_col == 0 else 'L'), []).__len__() % len(PP_FR)]
+            pp_side[(a['to'], 'R' if dc_col == 0 else 'L')].append(a)
+            sy_, dy_ = sc['y'] + sc['h'] * fr_s, dc['y'] + dc['h'] * fr_d
+            edge['style'] = style + f"exitX={1 if sc_col == 0 else 0};exitY={fr_s};entryX={1 if dc_col == 0 else 0};entryY={fr_d};"
             edge['points'] = [{'x': lx_track, 'y': sy_}, {'x': lx_track, 'y': dy_}]
+            if sy_ == dy_:
+                edge['off'] = (0, -11)   # a straight run: the label above it, not on it
             sx_edge = sc['x'] + sc['w'] if sc_col == 0 else sc['x']
             dx_edge = dc['x'] + dc['w'] if dc_col == 0 else dc['x']
             h1, v, h2 = abs(lx_track - sx_edge), abs(dy_ - sy_), abs(lx_track - dx_edge)
@@ -1072,19 +1129,37 @@ def main():
             edge['style'] = style + 'exitX=0.5;exitY=0;entryX=1;entryY=0.5;'
             left = by_id[sc['parent']]['x'] + 10 if sc['parent'] in by_id else sc['slot']['x']
             edge['points'] = [{'x': sc['x'] + sc['w'] / 2, 'y': sc['slot']['y'] + 3}, {'x': left, 'y': sc['slot']['y'] + 3}]
+        elif a['from'] in paas and a['to'] in paas and abs(paas.index(a['from']) - paas.index(a['to'])) > 1:
+            # Not neighbours: draw.io's own route went through every icon in between. Up out of
+            # the source, along the strip above the row's icons, down beside the target, in at the
+            # side that faces the source. The label sits above the run.
+            to_right = dc['x'] > sc['x']
+            top_y = min(sc['slot']['y'], dc['slot']['y']) - 6
+            x_side = (dc['x'] - 12) if to_right else (dc['x'] + dc['w'] + 12)
+            edge['style'] = style + f"exitX={0.8 if to_right else 0.2};exitY=0;entryX={0 if to_right else 1};entryY=0.5;"
+            edge['points'] = [{'x': sc['x'] + sc['w'] * (0.8 if to_right else 0.2), 'y': top_y}, {'x': x_side, 'y': top_y}, {'x': x_side, 'y': dc['y'] + dc['h'] / 2}]
+            # the label beside the descent at the target, where no other label sits (the strip
+            # above the row carries the trunk labels)
+            v1, h, v2 = abs(sc['y'] - top_y), abs(x_side - sc['x'] - sc['w'] * (0.8 if to_right else 0.2)), abs(dc['y'] + dc['h'] / 2 - top_y)
+            if v1 + h + v2 and edge_label:
+                edge['lx'] = round(2 * ((v1 + h + 0.5 * v2) / (v1 + h + v2 + 12)) - 1, 3)
+                edge['off'] = ((-1 if to_right else 1) * (8 + 3 * plain_len(edge_label)), 0)
         else:
             edge['style'] = style + 'exitX=1;exitY=0.5;entryX=0;entryY=0.5;'
-        if a in actor_edges and edge.get('points') and len(edge['points']) == 2:
-            # Label on the vertical run, a third of the way in from the actor: the middle of the path
-            # is where another actor's line crosses.
+            if edge_label:
+                edge['off'] = (0, -11)   # a short direct line: the label above it, clear of the arrowhead
+        if a in actor_edges and edge.get('points') and len(edge['points']) == 2 and edge_label:
+            # Label above the horizontal run at the compute icon - the only segment that is this
+            # line's own; the vertical in the gap is where the other actor lines run.
             p0, p1 = edge['points']
             sx_, sy_ = (sc['x'] + sc['w'], sc['y'] + sc['h'] / 2) if is_actor(a['from']) else (sc['x'], p0['y'])
             ex_, ey_ = (dc['x'], p1['y']) if is_actor(a['from']) else (dc['x'] + dc['w'], dc['y'] + dc['h'] / 2)
             h1, v, h2 = abs(p0['x'] - sx_), abs(p1['y'] - p0['y']), abs(ex_ - p1['x'])
             tot = h1 + v + h2
-            if tot and v:
-                f = (h1 + 0.3 * v) / tot if is_actor(a['from']) else (h1 + 0.7 * v) / tot
+            if tot:
+                f = (h1 + v + 0.5 * h2) / tot if is_actor(a['from']) else (0.5 * h1) / tot
                 edge['lx'] = round(2 * f - 1, 3)
+                edge['off'] = (0, -11)
         edges.append(edge)
 
     # Hub layout: one line per caller into the endpoints, one per service out of them.
@@ -1115,9 +1190,11 @@ def main():
                 continue
             dc = by_id[f"res-{k}"]
             if i % cols_p == 0:
-                # first column: in from the left at the icon's height
-                st = EDGE_BASE + f"strokeColor={PRIVATE_COLOR};exitX=1;exitY=0.5;entryX=0;entryY=0.5;"
-                pts = [{'x': trunk, 'y': pe_mid}, {'x': trunk, 'y': dc['y'] + dc['h'] / 2}]
+                # first column: in from the left at the icon's height - lower (0.3) when a
+                # PaaS -> PaaS line leaves the icon at 0.7 on the other side
+                fr = 0.3 if k in pp_touched else 0.5
+                st = EDGE_BASE + f"strokeColor={PRIVATE_COLOR};exitX=1;exitY=0.5;entryX=0;entryY={fr};"
+                pts = [{'x': trunk, 'y': pe_mid}, {'x': trunk, 'y': dc['y'] + dc['h'] * fr}]
             else:
                 # second column: along the gutter above its row, past the first column's slot, and
                 # down into the icon from the top
@@ -1134,10 +1211,10 @@ def main():
             legend.append(f"<font color='{caller_color[k]}'><b>&#9473;&#9473;&#9654;</b></font> "
                           f"{esc(TYPE_NAMES.get(base(k), base(k)))} &#183; {esc(s(purposes.get(k)) or (k.partition('__')[2] or k))}")
     if side:
-        legend.append(f"<font color='{PRIVATE_COLOR}'><b>&#9473;&#9473;&#9654;</b></font> {esc(T['legPE'])}")
-        # blue lines that are not the endpoint-to-service lines (users reaching the app) need their own entry
-        if any(PRIVATE_COLOR in e['style'] and not e['id'].startswith('e-out-') for e in edges):
-            legend.append(f"<font color='{PRIVATE_COLOR}'><b>&#9473;&#9473;&#9654;</b></font> {esc(T['legPrivateAny'])}")
+        # one blue row: the endpoint lines alone, or every private line when other blue lines
+        # (users reaching the app, telemetry) exist too - two rows with one arrow said nothing
+        other_blue = any(PRIVATE_COLOR in e['style'] and not e['id'].startswith('e-out-') for e in edges)
+        legend.append(f"<font color='{PRIVATE_COLOR}'><b>&#9473;&#9473;&#9654;</b></font> {esc(T['legPrivateAny'] if other_blue else T['legPE'])}")
     elif not dense and any(PRIVATE_COLOR in e['style'] for e in edges):
         legend.append(f"<font color='{PRIVATE_COLOR}'><b>&#9473;&#9473;&#9654;</b></font> {esc(T['legPrivate'])}")
     if any(PUBLIC_COLOR in e['style'] for e in edges):
@@ -1285,13 +1362,17 @@ def main():
         o.append('        </mxCell>')
     for e in edges:
         o.append(f'        <mxCell id="{e["id"]}" value="{esc(e["value"])}" style="{esc(e["style"])}" edge="1" parent="1" source="{e["source"]}" target="{e["target"]}">')
+        lx_attr = ' x="' + num(e['lx']) + '"' if 'lx' in e else ''
+        inner = ''
         if e.get('points'):
             # Waypoints are absolute, since every edge's parent is the root layer.
-            pts = ''.join(f'<mxPoint x="{num(p["x"])}" y="{num(p["y"])}"/>' for p in e['points'])
-            lx_attr = ' x="' + num(e['lx']) + '"' if 'lx' in e else ''
-            o.append(f'          <mxGeometry{lx_attr} relative="1" as="geometry"><Array as="points">{pts}</Array></mxGeometry>')
+            inner += '<Array as="points">' + ''.join(f'<mxPoint x="{num(p["x"])}" y="{num(p["y"])}"/>' for p in e['points']) + '</Array>'
+        if e.get('off'):
+            inner += f'<mxPoint x="{num(e["off"][0])}" y="{num(e["off"][1])}" as="offset"/>'
+        if inner:
+            o.append(f'          <mxGeometry{lx_attr} relative="1" as="geometry">{inner}</mxGeometry>')
         else:
-            o.append('          <mxGeometry relative="1" as="geometry"/>')
+            o.append(f'          <mxGeometry{lx_attr} relative="1" as="geometry"/>')
         o.append('        </mxCell>')
     o.append('      </root>')
     o.append('    </mxGraphModel>')
