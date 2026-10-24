@@ -480,7 +480,7 @@ resources:
       sku:
         value: B2
         source: overridden
-        reason: "The subscription has no quota for P1v3 (SubscriptionIsOverQuotaForSku). B2 is Basic: VNet integration, always on and the container run, no slots, no autoscale, no zone redundancy."
+        reason: "The subscription has no App Service quota in germanywestcentral (SubscriptionIsOverQuotaForSku for P1v3 and B1), so the stack runs in westeurope on B2. B2 is Basic: VNet integration, always on and the container run; no slots, no autoscale, no zone redundancy."
       zone_redundant:
         value: false
         source: requirement

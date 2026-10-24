@@ -14,7 +14,7 @@
 using './main.bicep'
 
 // ---- context (parameterized) ----
-param location = 'germanywestcentral'
+param location = 'westeurope'
 param workload = 'evalagent'
 param environment = 'production'
 param subscriptionId = '6ad43a20-9532-41c0-ad61-885a26bef90f'
