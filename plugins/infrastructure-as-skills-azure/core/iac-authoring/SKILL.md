@@ -21,11 +21,12 @@ per family spent it by the sixth family.
 ## The pipeline
 
 ```
-question set  ──interview──>  infra-spec.yaml  ──render──>  Terraform / Bicep  ──validate──>  explained plan
-                 [here]             │         [iac-rendering]
-                                    └──draw──>  infra-diagram.drawio.png
-                                                [iac-diagram]
+question set  ──interview──>  infra-spec.yaml  ──draw──>  infra-diagram.drawio.png  ──sign-off──>  render  ──validate──>  explained plan
+                 [here]                          [iac-diagram]        (loop with the customer)    [iac-rendering]
 ```
+
+The picture comes before the code, always: the customer signs off on the diagram, not on
+the spec, and the render starts only once they have.
 
 The spec in the middle is the load-bearing part. It is the handover interface, not a
 by-product: a backend renders *from* it, and the same spec can go to a different backend —
@@ -421,7 +422,7 @@ argue with, and they can only do that if they see the chain.
 This is the step that keeps the plugin honest. Someone who disagrees with a default needs
 to see it to disagree with it, and the ones they never look at cost one glance.
 
-## Phase 5 — Write the spec, then ask twice before rendering
+## Phase 5 — Write the spec, draw it, loop on the picture, then render
 
 Write `infra-spec.yaml` into the user's repository first — the IaC root, or `infra/` —
 and validate it with `check_spec.py`.
@@ -466,48 +467,44 @@ artefact the person signs off on; the spec is for the engineer. The script reads
 question sets' `plain` lines and falls back to English where a line lacks the language,
 and says how many did — translate those in the conversation rather than editing the file.
 
-Then stop and ask. The spec and the document are finished artefacts on their own, and the
-steps after them are the user's to start — each one produces files in their repository.
+**Then draw it, without asking.** Nobody reads the spec; the customer reads the picture.
+Run [iac-diagram](../iac-diagram/SKILL.md) on the spec as soon as it validates and put
+`infra-diagram.drawio.png` beside it - every run, for a single storage account as much as
+for twelve resources, because the picture is the thing the person signs off on and the
+question "soll ich ein Diagramm zeichnen?" was a question nobody ever answered with no
+(dropped 2026-10-24). Where the PNG cannot be exported (no draw.io CLI), hand over the
+`.drawio` and say so.
 
-**First: a diagram before the code?** The diagram is always delivered with a render
-([iac-rendering](../iac-rendering/SKILL.md), last step); what is asked here is whether the
-person wants to see it *before* the code, as the sign-off. Ask whether to draw the spec with
-[iac-diagram](../iac-diagram/SKILL.md) now. Recommend it when someone other than the person in
-the conversation has to sign off, or when the spec holds more than one resource; skip the
-recommendation for a single resource the user clearly understands. Offer the document as
-Word in the same question, once: the Markdown is already written, the `.docx` is a
-conversion (`pandoc infra-decisions.md -o infra-decisions.docx` where pandoc is on PATH;
-say so and leave the Markdown where it is not).
-
-```
-Die Spec liegt in infra/infra-spec.yaml, die Entscheidungen lesbar in infra/infra-decisions.md.
-Soll ich daraus ein Diagramm erstellen, und das Dokument auch als Word-Datei?
-  - Diagramm, ja (empfohlen)  -> infra-diagram.drawio.png, zum Prüfen oder Weitergeben
-  - Word-Datei, ja            -> infra-decisions.docx neben der Markdown-Datei
-  - Nein                      -> weiter zur Prüfung (das Diagramm kommt mit dem Code trotzdem)
-```
-
-**Second: does it match, and should the code be generated?** Show what the user is
-confirming — the diagram if there is one, otherwise the decision document's first two
-sections — and ask whether it meets the requirements:
+**The diagram loop.** Show the picture and the decision document's first section (what
+follows from their answers), name what is still `open:` and from whom, and ask one
+question:
 
 ```
-Passt das so zu euren Anforderungen?
-  - Ja, Terraform-Code erzeugen  -> render into the same directory
-  - Etwas ändern                 -> the user says what; change the spec, redraw, ask again
-  - Noch nicht                   -> stop here; the spec stays and the next run extends it
+So sieht das System aus (infra/infra-diagram.drawio.png); was ihr entschieden habt, steht
+lesbar in infra/infra-decisions.md. Passt das so zu euren Anforderungen?
+  - Ja, passt                 -> the picture is signed off; the code is generated next
+  - Etwas ändern              -> the user says what; change the spec, redraw, ask again
+  - Noch nicht                -> stop here; the spec and the picture stay, the next run extends them
 ```
 
-The order is the point. An objection to the picture is a one-line change to the spec now,
-and a regenerated module later. "Etwas ändern" therefore loops back to the spec, never
-into the code: change the decision there, as `overridden` where it replaces an answer,
-regenerate the diagram if one exists, and ask the second question again.
+"Etwas ändern" loops back to the spec, never into code: change the decision there, as
+`overridden` where it replaces an answer, re-export the decision document, redraw, ask
+again. Stay in this loop as long as the person has objections - a round costs seconds
+here and a regenerated module later. Offer the decision document as Word once, in the
+first round, as a side line and not an option: the `.docx` is a conversion
+(`pandoc infra-decisions.md -o infra-decisions.docx` where pandoc is on PATH; say so and
+leave the Markdown where it is not).
 
-Never offer code generation as already decided. If the spec still holds `open:` entries or
-`assumed` values, say so in the question — the code will then `plan` but not `apply` —
-rather than letting "Ja" read as "ready to deploy".
+**Only after "Ja, passt" does the render start** ([iac-rendering](../iac-rendering/SKILL.md)),
+into the same directory, with its own loop of fmt, validate, tests and plan. It is the
+long step, and it runs on a picture the customer has agreed to, so nothing in it goes
+back to the interview. Say that it takes a while and what will be there at the end.
 
-A spec extended by a later run asks the same two questions; the diagram and the code are
+Never present the render as already decided. If the spec still holds `open:` entries or
+`assumed` values, say so with the question — the code will then `plan` but not `apply` —
+rather than letting "Ja, passt" read as "ready to deploy".
+
+A spec extended by a later run goes through the same loop; the diagram and the code are
 regenerated from the whole spec, so the diff shows what the extension moved.
 
 - Spec schema and the `source` field: [references/spec.md](references/spec.md)

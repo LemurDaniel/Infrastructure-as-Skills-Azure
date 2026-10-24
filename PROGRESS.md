@@ -131,6 +131,14 @@ Verified Modules first, authored resources second.
   it. It was Phase 1's question, folded into the Phase 3 batch, while the naming question
   that exists only for Terraform was already asked in Phase 0: the order was inconsistent.
   Phase 1 now only reads the layout and asks nothing.
+- **The picture before the code, always.** Owner's call, 2026-10-24: nobody reads the
+  spec, the customer reads the diagram. Phase 5 no longer asks whether to draw: the
+  diagram is drawn as soon as the spec validates, shown with the decision document's
+  first section, and the one question is "passt das so?" - a loop of change the spec,
+  re-export, redraw, ask again, for as long as the person objects. The render (the long
+  step) starts only after "ja, passt". The Word offer is a side line in the first round,
+  no longer an option. `iac-diagram` and `iac-rendering` rule 9 say the same; the evals
+  were not re-run on the new flow.
 - **The decision document is rendered, not written.** B5, 2026-10-18. Every question
   carries `plain` (`en` and `de`, `{value}` where the value goes) and, where a raw value
   means nothing to a customer, `plain_values`; `export_decisions.py` turns a spec into
