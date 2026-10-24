@@ -125,6 +125,12 @@ Verified Modules first, authored resources second.
   stays on the questions - it names who owns the default and the `open:` entries, not a
   mode. Not done: the evals have no case that puts an engineer-flavoured request in and
   checks that no `engineer` question is asked.
+- **The target is Phase 0's first question.** Owner's call, 2026-10-24: Terraform or Bicep
+  is asked before the module choice and the naming mechanism, through `AskUserQuestion`,
+  two options, none recommended - skipped when the repository or a carried spec answers
+  it. It was Phase 1's question, folded into the Phase 3 batch, while the naming question
+  that exists only for Terraform was already asked in Phase 0: the order was inconsistent.
+  Phase 1 now only reads the layout and asks nothing.
 - **The decision document is rendered, not written.** B5, 2026-10-18. Every question
   carries `plain` (`en` and `de`, `{value}` where the value goes) and, where a raw value
   means nothing to a customer, `plain_values`; `export_decisions.py` turns a spec into

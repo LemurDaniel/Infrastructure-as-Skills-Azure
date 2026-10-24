@@ -75,7 +75,27 @@ cost of a subnet question is a person who stops answering.
 
 ## Phase 0 — Ask how the code is built, then what is being built
 
-**The first question is the module choice**, before the description and before any resource
+Three structured questions open the interview, each through `AskUserQuestion`, each
+skipped when the repository or the request already answers it; then one open question in
+prose. In this order, because each one decides how the next is worded.
+
+**The first question is the target**: Terraform or Bicep. The repository answers it when
+it can - `*.tf` or `.terraform.lock.hcl` present → Terraform, `*.bicep` or
+`bicepconfig.json` present → Bicep, and a carried `infra-spec.yaml` has it - and then it is
+not asked. Both or neither → ask, once, two options and none marked recommended:
+
+```
+In welcher Sprache soll die Infrastruktur beschrieben werden?
+  1. Terraform - Herstellerunabhängig, eine Sprache für Azure und alles andere; der Stand
+     wird in einer State-Datei geführt
+  2. Bicep - Microsofts eigene Sprache für Azure, ohne State-Datei; der Stand ist, was in
+     Azure liegt
+```
+
+It comes first because the naming question below exists only for Terraform, and because
+the layout (Phase 1) and every rendering reference read it.
+
+**The second question is the module choice**, before the description and before any resource
 question: `deployment.module_source` — the code built from Azure Verified Modules (`avm`), or
 from resources written out one by one (`authored`). It comes first because it decides what
 every later decision renders to, and because it is the one choice a person can make without
@@ -96,7 +116,7 @@ is already answered**: the user said it ("ohne Module", "mit AVM"), or a carried
 `infra-spec.yaml` has it. A resource whose type has no Azure Verified Module renders
 authored whatever the answer, recorded per module; say so when the person chose `avm`.
 
-**The second question, for a Terraform target, is the naming
+**The third question, for a Terraform target only, is the naming
 mechanism**: `deployment.naming_source`. Ask it right after the module choice through
 `AskUserQuestion`, with three options and **none marked recommended**: the
 `LemurDaniel/naming` provider, the `Azure/naming/azurerm` module, or a custom mechanism
@@ -189,16 +209,10 @@ mapping:
 What remains open goes into Phase 3's batches. The description does not replace them; it
 shrinks them, and usually to the `required` questions nobody mentions unprompted.
 
-## Phase 1 — Establish the target and the layout
+## Phase 1 — Establish the layout
 
-Terraform or Bicep. Do not ask if the repository answers it:
-
-- `*.tf` or `.terraform.lock.hcl` present → Terraform
-- `*.bicep` or `bicepconfig.json` present → Bicep
-- both, or neither → then ask, once
-
-The same reading settles how the code is split, which the spec records under
-`composition.granularity`:
+The target is known from Phase 0. The same reading of the repository that answered it
+settles how the code is split, which the spec records under `composition.granularity`:
 
 - An existing `modules/` directory → match what is there, per module and per file
 - **Stages are part of the layout.** `context.environments` — `[development, test,
@@ -315,9 +329,9 @@ says so. Put the batch in the customer's words — the `ask` texts of the `requi
 group are written for that — and never a decision's vocabulary (`ZRS`, `TLS1_2`, a
 subnet) in a question to a customer.
 
-**Fold Phase 1's question into the batch** when the repository did not answer it. Target
-and layout are two more questions, not a separate exchange — a round trip per phase is
-the serial interrogation this protocol exists to avoid.
+Phase 1 asks nothing: the target was Phase 0's first question and the layout is read
+from the repository. A round trip per phase is the serial interrogation this protocol
+exists to avoid.
 
 **One exchange, every question in it.** Where the host offers `AskUserQuestion`, use it —
 grouped options with the trade-off in the description beat prose. The deployment set is
