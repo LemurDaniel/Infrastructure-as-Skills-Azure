@@ -82,6 +82,16 @@ cost of a subnet question is a person who stops answering.
 
 ## Phase 0 — Ask how the code is built, then what is being built
 
+**Everything said to the person is said in their language - from the very first question.**
+Take it from the request ("I need a chat app..." is `en`, "Ich brauche..." is `de`) before
+anything is asked; it becomes `context.language`. The blocks in this skill that are written
+in German - the target, module and naming questions, the description prompt, the design
+tick list, the working-mode question, the sign-off, the opening line - are the German
+wording of a question, not the question itself. For `en` (or any other language) ask the
+same question with the same options and the same meaning, translated; never put the German
+text in front of someone who wrote English. Option labels and the `AskUserQuestion` header
+follow the same rule.
+
 Three structured questions open the interview, each through `AskUserQuestion`, each
 skipped when the repository or the request already answers it; then one open question in
 prose. In this order, because each one decides how the next is worded.
