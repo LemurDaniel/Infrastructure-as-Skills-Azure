@@ -335,43 +335,49 @@ groups:
   - id: requirements
     title: Requirements
     questions:
-      - id: network_connectivity
-        ask: Does the system have to be connected to your company network - reachable from it, or reaching into it over a hub, VPN or ExpressRoute - or does it stand on its own, with no connection to your network and no VPN?
+      - id: network_requirements
+        ask: May the network be chosen freely - this deployment picks its address ranges, no connection to your company network, no VPN - or are there network requirements, either address ranges your network team assigns, or a connection to the company network over a hub, VPN or ExpressRoute?
         type: enum
-        values: [none, corporate]
-        default: none
+        values: [free, assigned_ranges, corporate]
+        default: free
         audience: customer
         plain:
-          en: The system {value}.
-          de: Das System {value}.
+          en: The network {value}.
+          de: Das Netz {value}.
         plain_values:
-          none:
-            en: stands on its own, with no connection to your company network and no VPN
-            de: steht für sich, ohne Verbindung zum Firmennetz und ohne VPN
+          free:
+            en: is chosen freely by this deployment, with no connection to your company network and no VPN
+            de: wird von diesem Ausrollen frei gewählt, ohne Verbindung zum Firmennetz und ohne VPN
+          assigned_ranges:
+            en: stands on its own, but its address ranges are assigned by your network team
+            de: steht für sich, seine Adressbereiche weist aber euer Netzwerk-Team zu
           corporate:
             en: is connected to your company network over the company platform's hub
             de: ist über den Hub der Firmenplattform mit dem Firmennetz verbunden
         confirm_in: [production]
         why: >
-          The one question behind the landing-zone archetype and the network's ownership, and
-          the customer is the only one who can answer it: whether the system must join the
-          company network - users on it, a database behind it, a hub, a VPN - is a fact about
-          the organisation, not an engineering choice. An engineer who guesses builds a
-          standalone network for a workload meant to be a spoke, or asks for a hub nobody has.
-          `none` is the default and matches landing_zone's `standalone`: the system brings its
-          own network and needs no platform. `corporate` says a platform exists: the network is
-          a spoke peered to the hub (landing_zone: corp) and reached from the company network;
-          what the hub, the peering and the shared DNS are comes from platform.yaml, and without
-          a profile they are open entries owned by the platform team, never guessed. Asked
-          first in the group because it decides the posture before any resource does. The
+          The one question behind the landing-zone archetype, the network's ownership and its
+          addressing, and the customer is the only one who can answer it: whether the network
+          may be chosen freely or follows requirements - ranges from an IPAM, a connection to
+          the company network, a hub, a VPN - is a fact about the organisation, not an
+          engineering choice. An engineer who guesses picks a range that collides at the first
+          peering, builds a standalone network for a workload meant to be a spoke, or asks for
+          a hub nobody has. `free` is the default and matches landing_zone's `standalone`: the
+          deployment brings its own network and picks its ranges. `assigned_ranges` keeps the
+          network standalone but makes the address space and the subnet prefixes open entries
+          owned by the network team until they are given. `corporate` says a platform exists:
+          the network is a spoke peered to the hub (landing_zone: corp) and reached from the
+          company network; the hub, the peering and the shared DNS come from platform.yaml, and
+          without a profile they are open entries owned by the platform team, never guessed.
+          Asked first in the group because it decides the posture before any resource does. The
           first install test (2026-10-24) answered "Netz egal, wir brauchen kein VPN" and had no
           question to put that answer in.
         renders: >
-          pre-answers landing_zone (none: standalone, corporate: corp) and through it
-          network_ownership and network_exposure; a platform.yaml value wins, and a
-          contradiction between the two is asked, not resolved. `corporate` without any
-          platform part referenced is an open entry owned by the platform team (hub, peering,
-          DNS)
+          pre-answers landing_zone (free, assigned_ranges: standalone; corporate: corp) and
+          through it network_ownership and network_exposure; assigned_ranges and corporate make
+          address_space and private_endpoint_subnet_prefix open entries owned by the network
+          team unless the request states them. A platform.yaml value wins, and a contradiction
+          between the two is asked, not resolved
       - id: outage_impact
         ask: How bad is it if the system is unavailable for a day?
         type: enum
@@ -680,9 +686,9 @@ groups:
           aus dem Firmennetz", "öffentlich erreichbar" or "wir haben keine
           Landing Zone" has usually answered it already.
         forced_when: >
-          network_connectivity pre-answers it - none: standalone, corporate: corp; a
-          platform.yaml value wins, and a contradiction between the two is asked, not
-          resolved. A referenced platform part forces a platform archetype: a request that
+          network_requirements pre-answers it - free and assigned_ranges: standalone,
+          corporate: corp; a platform.yaml value wins, and a contradiction between the two is
+          asked, not resolved. A referenced platform part forces a platform archetype: a request that
           names an existing hub network, a shared private-endpoint subnet or a
           central workspace (network_ownership: reference, observability_ownership:
           reference) says a landing zone platform exists, so standalone is ruled
