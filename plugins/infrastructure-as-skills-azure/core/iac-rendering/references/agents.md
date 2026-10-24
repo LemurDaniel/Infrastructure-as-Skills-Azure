@@ -6,8 +6,9 @@ they can run as agents. This file is the protocol; the order of work in
 [SKILL.md](../SKILL.md) stays the contract each agent follows.
 
 **When.** Ask when the Agent tool is available and the spec has several resource families:
-one `AskUserQuestion` before rendering, with two options - **Subagents (recommended)** and
-**Same session** - and run what the user picks. Say in the option text what it costs: agents
+one `AskUserQuestion` at the start of `iac-authoring` Phase 5, before the diagram is drawn,
+with two options - **Subagents (recommended)** and **Same session** - and run both loops
+the way the user picked. Say in the option text what it costs: agents
 run in parallel and check each other, but each starts cold and uses its own tokens; the same
 session is cheaper and sequential. A small spec (one resource, one family) is not asked: it
 is faster done in sequence, because every agent reads the spec, the references and the
@@ -33,8 +34,10 @@ long, expensive loop - is rendered only from a spec whose picture they have agre
 1 is Phase 5 of `iac-authoring`; the diagram agent and the review agent iterate on the
 picture until it carries no real error, then the main agent shows it to the customer with
 the one question of Phase 5. "Etwas ändern" corrects the spec and redraws; "ja" starts
-Loop 2. In Loop 2 the agents never read each other's output, and none of them touches the
-picture: the code is rendered from the spec the customer saw drawn, so the diagram stays as
+Loop 2. In the same session, Loop 1 is the same loop with the session in both roles:
+draw, then review the PNG against the checklist as a reader who has not seen the spec,
+fix every `error`, and only then show it. In Loop 2 the agents never read each other's
+output, and none of them touches the picture: the code is rendered from the spec the customer saw drawn, so the diagram stays as
 signed off. The main agent starts the loops, counts the passes, routes findings and writes
 the hand-over.
 

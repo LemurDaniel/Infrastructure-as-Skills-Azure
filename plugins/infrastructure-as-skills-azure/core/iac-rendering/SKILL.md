@@ -87,16 +87,17 @@ than inferring the shape from an example spec.
     `scripts/check_pipeline.py <spec>` before handing over; it fails on a missing stage, a
     gate that does not match `pipeline_approvals`, an apply without a saved plan and a
     secret in the file.
-11. **Ask how to run it when the spec is large.** With the Agent tool and several resource
-    families, ask once through `AskUserQuestion` before the first file is written: **Subagents**
-    (recommended) or **Same session**. Subagents run the code loop - code, pipeline and a
-    read-only test agent, with a bounded fix loop - after the diagram loop of
-    `iac-authoring` Phase 5 (diagram agent, read-only review agent, the customer's
-    sign-off) has ended with a yes; never both at once. The protocol, the stop rules and what goes
-    into an agent's brief are in [agents.md](references/agents.md). Same session does the
-    steps above in order, itself. The answer is a working mode, not a decision: it is not
-    written to the spec. A small spec, or a host without the Agent tool, is not asked -
-    it is rendered in sequence.
+11. **Run it the way Phase 5 settled.** The working mode - **Subagents** or **Same
+    session** - was asked once at the start of `iac-authoring` Phase 5, before the diagram
+    loop, and holds for this loop too; ask it here only when this render starts in a run
+    that never went through Phase 5 (a carried spec rendered on its own), with the Agent
+    tool available and several resource families. Subagents run the code loop - code,
+    pipeline and a read-only test agent, with a bounded fix loop - after the diagram loop
+    has ended with the customer's yes; never both at once. The protocol, the stop rules and
+    what goes into an agent's brief are in [agents.md](references/agents.md). Same session
+    does the steps above in order, itself. The answer is a working mode, not a decision: it
+    is not written to the spec. A small spec, or a host without the Agent tool, is not
+    asked - it is rendered in sequence.
 
 ## Do not invent attributes
 

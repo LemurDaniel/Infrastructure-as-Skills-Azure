@@ -147,7 +147,22 @@ Verified Modules first, authored resources second.
   agents picture was then redrawn a second time on the owner's remark: not two parallel
   arms but **two loops in sequence** - the diagram loop (diagram agent, review agent,
   customer sign-off, Phase 5) first, the code loop only after the yes - and the code loop
-  never redraws: the picture is the customer's, a spec finding goes back to Loop 1. `agents.md` and rule 11 of
+  never redraws: the picture is the customer's, a spec finding goes back to Loop 1.
+  **Found by the first full dry run (2026-10-24, a public chat sandbox: App Service
+  container, Foundry, Search, Storage, Key Vault, own workspace):** Phase 5 of
+  `iac-authoring` did not say to review the picture before showing it, and the
+  "Subagents or same session" question sat in `iac-rendering` rule 11, after the
+  sign-off - so the session drew, saw overlapping arrows, and showed the picture anyway.
+  Both fixed: Phase 5 asks the working mode first, then draws, then runs Loop 1 (review
+  agent, errors back to the diagram agent, two passes) before the sign-off; rule 11 only
+  re-asks for a render without a Phase 5. The dry run's other findings, not yet fixed:
+  `public` maps to `enabled_with_firewall` on every resource, but with
+  `network_ownership: none` the app has no fixed outbound address and an empty firewall
+  locks it out of its own backends (overridden by hand in the run; wants a `forced_when`:
+  none forces `enabled`); `new_diagram.py` routes the search → foundry edge through the
+  key vault icon and merges the app's edges into one bus with stacked labels; the
+  decision document prints `reason` and `open:` texts untranslated; "1 Kopien der App"
+  needs a singular form. `agents.md` and rule 11 of
   `iac-rendering` say the same now.
 - **The decision document is rendered, not written.** B5, 2026-10-18. Every question
   carries `plain` (`en` and `de`, `{value}` where the value goes) and, where a raw value

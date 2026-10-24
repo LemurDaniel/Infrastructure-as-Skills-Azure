@@ -467,6 +467,23 @@ artefact the person signs off on; the spec is for the engineer. The script reads
 question sets' `plain` lines and falls back to English where a line lacks the language,
 and says how many did — translate those in the conversation rather than editing the file.
 
+**Then ask how the rest of the run works - once, here, before anything is drawn.** With
+the Agent tool available and a spec that spans more than one resource family, ask through
+`AskUserQuestion`: **Subagents** (recommended) or **Same session**. The answer covers both
+loops that follow - the diagram loop below and the code loop of
+[iac-rendering](../iac-rendering/SKILL.md) after the sign-off - and it is a working mode,
+not a decision: it is not written to the spec. Say what it costs: agents check each other
+and work in the background, but each starts cold and spends its own tokens; the same
+session is cheaper and does the steps itself. A spec of one family, or a host without the
+Agent tool, is not asked and runs in the same session.
+
+```
+Wie soll ich weiterarbeiten?
+  1. Mit Subagenten (empfohlen) - Ein Agent zeichnet, ein zweiter prüft das Bild, bevor du
+     es siehst; später rendert und testet je ein Agent den Code. Gründlicher, kostet mehr
+  2. In dieser Sitzung - Ich mache alles selbst, nacheinander. Günstiger, keine zweite Prüfung
+```
+
 **Then draw it, without asking.** Nobody reads the spec; the customer reads the picture.
 Run [iac-diagram](../iac-diagram/SKILL.md) on the spec as soon as it validates and put
 `infra-diagram.drawio.png` beside it - every run, for a single storage account as much as
@@ -475,7 +492,25 @@ question "soll ich ein Diagramm zeichnen?" was a question nobody ever answered w
 (dropped 2026-10-24). Where the PNG cannot be exported (no draw.io CLI), hand over the
 `.drawio` and say so.
 
-**The diagram loop.** Show the picture and the decision document's first section (what
+**Review it before anyone sees it - Loop 1 of
+[agents.md](../iac-rendering/references/agents.md).** The picture is not shown to the
+customer as it comes out of the script. A **review agent** (read-only; with Subagents a
+subagent, in the same session the session itself, with the same checklist) looks at the
+PNG and reports a numbered list: a line through an icon or another line, overlapping or
+wrapped labels, a label in the wrong language, a legend that contradicts a colour, a
+number or a name that disagrees with the spec. Each finding carries a severity (`error`:
+wrong, misleading or unreadable; `polish`: only looks worse than it could) and a cause
+(`render`: the drawing or the script; `spec`: the spec says it that way). An `error` with
+cause `render` goes back to the **diagram agent**, which fixes it the way
+[iac-diagram](../iac-diagram/SKILL.md) says - a fault that would recur on any spec is a bug
+in `new_diagram.py` and is fixed there, a fault particular to this picture is a hand edit
+of the affected cells - and redraws; the review runs again. Two passes, then the customer
+sees the picture as it is, with the open findings named. `polish` findings never go back;
+they go into the hand-over. An `error` with cause `spec` is the main agent's: correct the
+spec, re-export the decision document, redraw. **Never show the customer a picture with
+an error you have already seen** - that is what the loop is for.
+
+**The sign-off.** Show the reviewed picture and the decision document's first section (what
 follows from their answers), name what is still `open:` and from whom, and ask one
 question:
 
@@ -488,15 +523,18 @@ lesbar in infra/infra-decisions.md. Passt das so zu euren Anforderungen?
 ```
 
 "Etwas ändern" loops back to the spec, never into code: change the decision there, as
-`overridden` where it replaces an answer, re-export the decision document, redraw, ask
-again. Stay in this loop as long as the person has objections - a round costs seconds
+`overridden` where it replaces an answer, re-export the decision document, redraw, review
+again, ask again. An objection to the picture itself ("die Pfeile überlappen sich") is a
+review finding that the review missed: it goes to the diagram agent like any other
+`error`, and the customer sees the picture again only after the review passed. Stay in this loop as long as the person has objections - a round costs seconds
 here and a regenerated module later. Offer the decision document as Word once, in the
 first round, as a side line and not an option: the `.docx` is a conversion
 (`pandoc infra-decisions.md -o infra-decisions.docx` where pandoc is on PATH; say so and
 leave the Markdown where it is not).
 
 **Only after "Ja, passt" does the render start** ([iac-rendering](../iac-rendering/SKILL.md)),
-into the same directory, with its own loop of fmt, validate, tests and plan. It is the
+into the same directory, with its own loop of fmt, validate, tests and plan - Loop 2, in
+the working mode chosen above. It is the
 long step, and it runs on a picture the customer has agreed to, so nothing in it goes
 back to the interview. Say that it takes a while and what will be there at the end.
 
