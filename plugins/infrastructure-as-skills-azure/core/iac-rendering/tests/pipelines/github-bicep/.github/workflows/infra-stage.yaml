@@ -49,7 +49,18 @@ jobs:
             --no-pretty-print > whatif.json
           n=$(jq '[.changes[] | select(.changeType != "NoChange" and .changeType != "Ignore")] | length' whatif.json)
           echo "changes=$([ "$n" -gt 0 ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
-          { echo "### What-if: ${STAGE}"; echo '```'; jq -r '.changes[] | select(.changeType != "NoChange" and .changeType != "Ignore") | "\(.changeType)\t\(.resourceId)"' whatif.json; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          {
+            echo "### What-if: ${STAGE}"
+            echo '```'
+            jq -r '.changes[] | select(.changeType != "NoChange" and .changeType != "Ignore") | "\(.changeType)\t\(.resourceId)"' whatif.json
+            echo '```'
+            # A module whose parameters use another module's output cannot be expanded before the
+            # deployment: what-if skips it and shows none of its resources.
+            skipped=$(jq -r '[.diagnostics[]? | select(.code == "NestedDeploymentShortCircuited") | .target | split("/") | last] | join(", ")' whatif.json)
+            if [ -n "$skipped" ]; then
+              echo "**Not predicted (what-if cannot expand these modules, they are deployed anyway):** ${skipped}"
+            fi
+          } | tee -a "$GITHUB_STEP_SUMMARY"
 
   approve:
     needs: plan

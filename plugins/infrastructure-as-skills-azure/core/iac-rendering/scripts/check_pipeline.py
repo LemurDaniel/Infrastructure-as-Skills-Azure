@@ -293,6 +293,17 @@ def check_github(root, stages, target, auth, gated, exempt):
         needs = [needs] if isinstance(needs, str) else (needs or [])
         if 'approve' not in needs:
             err(f"{srel}: apply does not need approve")
+    # a job without a checkout has no deployable root on its runner
+    wd = ((sd.get('defaults') or {}).get('run') or {}).get('working-directory')
+    if wd and str(wd).strip('./') != '':
+        for jid, j in sj.items():
+            steps = j.get('steps') or []
+            if any(str(st.get('uses', '')).startswith('actions/checkout') for st in steps):
+                continue
+            own = ((j.get('defaults') or {}).get('run') or {}).get('working-directory')
+            if own is None or str(own).strip('./') != '':
+                err(f"{srel}: job {jid} has no checkout but inherits working-directory {wd!r}, "
+                    f"which is not on a fresh runner - set `defaults.run.working-directory: .` on it")
     ap = sj.get('apply') or {}
     if 'changes' not in str(ap.get('if', '')):
         err(f"{srel}: apply is not conditional on the plan having changes")
@@ -317,8 +328,11 @@ def check_github(root, stages, target, auth, gated, exempt):
             err(f"{srel}: every setup-terraform needs a `~>` constraint on terraform_version, found {versions}")
         state_keys(stext, srel, r'\$\{?STAGE\}?|inputs\.stage')
     else:
-        if 'what-if' not in allscripts:
+        if not re.search(r'az deployment \w+ what-if', allscripts):
             err(f"{srel}: no `az deployment ... what-if` before the deployment")
+        elif 'NestedDeploymentShortCircuited' not in allscripts:
+            err(f"{srel}: the what-if step does not report the modules what-if short-circuits - "
+                f"the approver would take a partial list for the whole plan")
     if auth == 'workload_identity':
         if target == 'terraform' and not re.search(r'ARM_USE_OIDC:\s*["\']?true', stext):
             err(f"{srel}: ARM_USE_OIDC is not true - Terraform would look for a secret")

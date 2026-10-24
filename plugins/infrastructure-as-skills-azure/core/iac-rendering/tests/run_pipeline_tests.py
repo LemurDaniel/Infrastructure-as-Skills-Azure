@@ -180,6 +180,10 @@ MUTATIONS = [
      'run: az bicep lint --file main.bicep', 'run: echo skipped', 'bicep lint'),
     ('bicep deploys without what-if', 'github-bicep', GHS,
      'az deployment group what-if', 'az deployment group show', 'what-if'),
+    ('bicep what-if hides the modules it skips', 'github-bicep', GHS,
+     'NestedDeploymentShortCircuited', 'NestedDeploymentSomethingElse', 'short-circuits'),
+    ('approve inherits a directory it never checked out', 'github-terraform', GHS,
+     '\njobs:\n', '\ndefaults:\n  run:\n    working-directory: infra\n\njobs:\n', 'inherits working-directory'),
     ('state key without the stage', 'ado-terraform', ADOS,
      'key=payments/$(STAGE).tfstate', 'key=payments/main.tfstate', 'state key'),
 ]

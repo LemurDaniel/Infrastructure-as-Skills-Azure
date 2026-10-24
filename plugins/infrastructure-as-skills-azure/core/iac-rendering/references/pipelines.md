@@ -48,7 +48,10 @@ reports as "not checkable" instead of passing them.
    run - never a fresh plan, which may differ from the one the approver read. Bicep has no
    saved plan: `what-if` is read-only and `create` redeploys, so the template, parameter
    file and commit are the same run's, and the pipeline says in a comment that the
-   approver read a prediction.
+   approver read a prediction. The prediction can be partial: a Bicep module that takes
+   another module's output is skipped by what-if (`NestedDeploymentShortCircuited`), so the
+   plan step prints the list to the log and names the skipped modules under it - an approval
+   must not look like it covers resources it never showed.
 3. **The gate is the platform's, and only on a stage that has changes.** A stage with no
    change skips both approval and apply, so nobody approves an empty plan.
    `pipeline_approvals` says which stages are gated; the rendered job names the
@@ -111,7 +114,10 @@ header comment of the entry file and in the reply, as a short list:
 Paths in a pipeline are relative to the deployable root. When the root is the repository
 root that is `.`; when it is a directory (`bicep/` beside a Terraform root, a `infra/`
 folder) the render sets the working directory of every step to it, in the platform's own
-construct, and says so in the header comment.
+construct, and says so in the header comment. A job that checks out nothing (the empty
+approval job) does not have that directory on its runner: it resets the working directory
+instead of inheriting it. On GitHub the workflows also stay at the repository root whatever
+the deployable root is - see [pipelines.github.md](pipelines.github.md#deployable-root-below-the-repository-root).
 
 A stage whose values are `open:` in the spec still gets its block, its variables set and
 its stage file, filled with placeholders ([terraform-idiom.md](terraform-idiom.md#the-context-values-and-the-stage-files)):

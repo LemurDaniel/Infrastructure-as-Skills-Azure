@@ -58,6 +58,15 @@ credential per stage: issuer `https://token.actions.githubusercontent.com`, subj
 `repo:<owner>/<repo>:environment:<stage>`. With `stage_isolation: subscription` each stage has
 its own identity and the roles of its own subscription.
 
+**Read the subject from the repository, do not assemble it.** A repository (or its organisation)
+can switch on immutable subjects, and the token then carries the ids:
+`repo:<owner>@<owner id>/<repo>@<repo id>:environment:<stage>`. The name-only subject is then
+refused at login. `gh api repos/<owner>/<repo>/actions/oidc/customization/sub` says which form
+applies (`use_immutable_subject`, `sub_claim_prefix` is the prefix to use), and
+`gh api repos/<owner>/<repo> --jq '{id, owner_id: .owner.id}'` gives the ids. The header comment
+of the entry workflow names the form the repository uses; where the render cannot ask, it
+writes the name-only form and says to check this.
+
 ## Stages that are still open
 
 A stage with `open:` entries in the spec still gets its block in the entry workflow, its
@@ -296,7 +305,18 @@ jobs:
             --no-pretty-print > whatif.json
           n=$(jq '[.changes[] | select(.changeType != "NoChange" and .changeType != "Ignore")] | length' whatif.json)
           echo "changes=$([ "$n" -gt 0 ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
-          { echo "### What-if: ${STAGE}"; echo '```'; jq -r '.changes[] | select(.changeType != "NoChange" and .changeType != "Ignore") | "\(.changeType)\t\(.resourceId)"' whatif.json; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          {
+            echo "### What-if: ${STAGE}"
+            echo '```'
+            jq -r '.changes[] | select(.changeType != "NoChange" and .changeType != "Ignore") | "\(.changeType)\t\(.resourceId)"' whatif.json
+            echo '```'
+            # A module whose parameters use another module's output cannot be expanded before the
+            # deployment: what-if skips it and shows none of its resources.
+            skipped=$(jq -r '[.diagnostics[]? | select(.code == "NestedDeploymentShortCircuited") | .target | split("/") | last] | join(", ")' whatif.json)
+            if [ -n "$skipped" ]; then
+              echo "**Not predicted (what-if cannot expand these modules, they are deployed anyway):** ${skipped}"
+            fi
+          } | tee -a "$GITHUB_STEP_SUMMARY"
 
   approve:
     # unchanged from the Terraform workflow
@@ -326,6 +346,37 @@ jobs:
 
 The `jq` filter assumes the `changes[].changeType` shape of `az deployment group what-if
 --no-pretty-print`; check it against one real run before relying on the skip.
+
+**What-if is partial for modules, and the step says so.** A module whose parameters use another
+module's output (an identity's principal id, a subnet id) gets a `reference()` in the compiled
+template that what-if cannot evaluate; it reports `NestedDeploymentShortCircuited` in
+`diagnostics` and lists none of that module's resources. A real run of a seven-module root
+listed 20 changes and left out five modules, with nothing in the step to say so. The step
+therefore prints the list to the job log as well as the summary and names the skipped modules
+under it, so the approver knows what the approval does not cover. Do not rewrite the modules to
+`existing` lookups to make what-if see them: the resources do not exist before the first run.
+
+## Deployable root below the repository root
+
+GitHub reads workflows only from `.github/workflows/` at the repository root. When the
+deployable root is a directory (`eval-agent/infra/`, one of several roots in a repository), the
+workflows still go to the root and carry the directory:
+
+- file names are prefixed with the root (`eval-agent-infra.yaml`, `eval-agent-infra-stage.yaml`)
+  and the entry calls the prefixed stage file; the concurrency group is prefixed as well, so two
+  roots do not queue behind each other;
+- the `paths:` filters of the entry name `<root>/**` and the prefixed workflow files, not the
+  repository's `**.tf`;
+- `defaults.run.working-directory` is `<root>` in the entry's jobs and the stage workflow. The
+  paths of `upload-artifact` and `download-artifact` are workspace-relative, not relative to
+  that default: `<root>/whatif.json`, `path: <root>`. `::error file=` annotations name
+  `<root>/<file>` too;
+- **a job without a checkout does not inherit a directory that is not there.** The `approve`
+  job checks out nothing, and under a workflow-wide `working-directory: <root>` its first step
+  fails with "An error occurred trying to start process '/usr/bin/bash' with working directory"
+  before it runs. Such a job sets `defaults.run.working-directory: .`.
+
+`check_pipeline.py` fails on a job that has no `actions/checkout` and inherits such a default.
 
 ## Left out of the scaffold
 
