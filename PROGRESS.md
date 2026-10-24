@@ -169,7 +169,43 @@ Verified Modules first, authored resources second.
   embedded afterwards. Not done: `export_decisions.py` still prints `reason` untranslated
   (the open texts are German in the spec by rule now), and the script faults of
   `new_diagram.py` from the review (PaaS-to-PaaS edges unrouted, shared anchors, branch
-  labels on the trunk, the law subline, the role-count line) are a plugin todo. The dry run's other findings, not yet fixed:
+  labels on the trunk, the law subline, the role-count line) are a plugin todo.
+- **The first full dry run went through both loops with subagents, 2026-10-24**, on the
+  chat sandbox above (`[sandbox]`, public, authored Terraform, naming provider, local
+  deploy): Loop 1 review (uncapped, 17 findings) → diagram agent fixed 7 errors by hand
+  (reordered the PaaS column, own anchors, own tracks, labels beside their drops) → second
+  review 0 errors → customer's yes; Loop 2 code agent (14 min, 32 tests, 92/92 covered,
+  9 not-testable) → pipeline agent (`deploy.ps1`) → test agent 0 errors, 3 polish, green.
+  Nothing was planned or applied against Azure; Terraform 1.9.8 was downloaded into the
+  session, the providers came through the proxy. The run's artefacts live in the session's
+  scratchpad only (not committed). **Plugin findings the agents reported, all open:**
+  (1) `log-analytics-workspace/terraform.md`, `app-service/terraform.md`,
+  `foundry/terraform.md` and several `renders` lines carry azurerm 4.x spellings
+  (`internet_*_enabled`, `local_authentication_disabled`, `*_basic_auth_enabled`,
+  `legacy_access_policies_enabled`, "use azapi" for Foundry projects) - 5.x has
+  `internet_ingestion_access_type`, `local_authentication_enabled`,
+  `ftp/webdeploy_publish_basic_authentication_enabled`, `azurerm_cognitive_account_project`;
+  only storage takes the string `public_network_access`, the others keep the bool.
+  (2) A non-empty `key-vault.secret_placeholders` needs the applying identity to hold Key
+  Vault Secrets Officer, and rendered role assignments need RBAC Administrator - neither
+  is in the spec's roles nor derivable from `pipeline_auth`; the interview should add the
+  deployer's roles, `pipelines.md`'s hand-over list the data-plane roles.
+  (3) The spec has no `open:` entries for `subscription_id` and `resource_group_name`
+  although the stage file carries placeholders for them; and `check_pipeline.py` counts an
+  `open:` entry without `environments` as resolved - a false fail on every such entry
+  (worked around in the run by naming the stage on each entry).
+  (4) `check_pipeline.py` applies the workload-identity secret grep to `local`, and its
+  `client[-_]?secret` pattern matches the placeholder name `entra-client-secret`.
+  (5) `pipelines.local.md`'s script runs `validate` after the backend init and has no
+  `terraform test`, no `-reconfigure`, no cd to its own directory; `terraform-idiom.md`
+  says the empty backend block is for non-local only, but the local script passes
+  `-backend-config` too. (6) `storage-account.private_endpoint_subresources` has no
+  `depends_on` and lands in a spec without a network; `foundry.restrict_outbound: true`
+  has no `allowed_fqdns` question, so the account may call out to nothing. (7) The
+  idiom's mock example needs a GUID `tenant_id` for `data.azurerm_client_config`, and
+  `terraform providers schema -json` refuses a root with an empty backend block unless
+  run on a copy without it. (8) `terraform test` names in `naming.tftest.hcl` prove
+  "from naming.yaml", not the deployed suffix, when the stage file holds placeholders. The dry run's other findings, not yet fixed:
   `public` maps to `enabled_with_firewall` on every resource, but with
   `network_ownership: none` the app has no fixed outbound address and an empty firewall
   locks it out of its own backends (overridden by hand in the run; wants a `forced_when`:
