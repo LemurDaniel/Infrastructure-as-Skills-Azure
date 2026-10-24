@@ -1,0 +1,12 @@
+# Which resource group role a kind of resource belongs to when deployment.resource_group_split
+# names that role. A role not split off is part of `main`. One table, read by the diagram
+# (iac-diagram/scripts/new_diagram.py) and the decision document
+# (iac-authoring/scripts/export_decisions.py); the prose is resource-groups.md. A resource departs
+# with `placement.resource_group` in the spec, never here.
+roles: [main, network, data, application, observability, security]
+kinds:
+  network: [virtual-network, network-security-group]
+  data: [storage-account, cosmos-db, sql-server, redis-cache]
+  application: [app-service, function-app, container-apps, container-registry, foundry, search-service]
+  observability: [log-analytics-workspace, application-insights]
+  security: [key-vault, user-assigned-identity]

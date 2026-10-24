@@ -23,6 +23,13 @@ Read-only. Checks what the contract in references/spec.md promises:
   7. Stages: context.environments is a non-empty list; a value that is a map
      keyed by stage names uses only those stages, and a stage it leaves out
      is named by an open entry (`environments:`) for that key.
+  8. Resource groups: `resource_group_split` lists known roles only (never
+     `main`); a split makes `resource_group_mode_<role>` required for `main`
+     and every listed role, and a mode or a `context.resource_group_name_<role>`
+     for a role that is not split off is stale; a resource's
+     `placement.resource_group` names `main` or a split role;
+     `resource_group_lock` is a known value. A group's name is never required
+     here: like `resource_group_name` it is a parameter the stage file supplies.
 
 Needs PyYAML (pip install pyyaml). Without it the script says so and exits 2
 rather than pretending the file is fine.
@@ -52,6 +59,9 @@ BACKEND_SPELLINGS = [
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 PLUGIN = os.path.abspath(os.path.join(HERE, '..', '..', '..'))
+RG_ROLES_FILE = os.path.join(HERE, '..', '..', 'iac-rendering', 'references', 'resource-group-roles.yaml')
+RG_MODES = ['existing', 'create']
+RG_LOCKS = ['production', 'all_stages', 'none']
 
 
 def load_question_index(yaml):
@@ -295,6 +305,71 @@ def main():
 
         if modules:
             ok(f"composition - {len(modules)} module(s), needs acyclic")
+
+    # --- 8. resource groups ------------------------------------------------
+    rg_errors = len(errors)
+    try:
+        with open(RG_ROLES_FILE, encoding='utf-8') as f:
+            all_roles = list((yaml.safe_load(f) or {}).get('roles') or [])
+    except (OSError, yaml.YAMLError):
+        all_roles = ['main', 'network', 'data', 'application', 'observability', 'security']
+    split_roles = [r for r in all_roles if r != 'main']
+    dep_node = get(spec, 'deployment') or {}
+    ctx_node = get(spec, 'context') or {}
+
+    def dep_value(qid):
+        d = get(dep_node, qid)
+        return d.get('value') if isinstance(d, dict) else None
+
+    split = dep_value('resource_group_split')
+    if split is None:
+        split = []
+    if not isinstance(split, list):
+        errors.append("deployment.resource_group_split is not a list of roles")
+        split = []
+    for r in split:
+        if r == 'main':
+            errors.append("deployment.resource_group_split lists 'main' - the main group always exists; the list is the roles split off from it")
+        elif r not in split_roles:
+            errors.append(f"deployment.resource_group_split lists '{r}', which is not one of {', '.join(split_roles)}")
+    if len(set(map(str, split))) != len(split):
+        errors.append("deployment.resource_group_split lists a role twice")
+    split = [r for r in split if r in split_roles]
+    in_play = ['main'] + split
+
+    for r in all_roles:
+        mode = dep_value(f'resource_group_mode_{r}')
+        mode_path = f'deployment.resource_group_mode_{r}'
+        if mode is None:
+            if split and r in in_play:
+                errors.append(f"{mode_path} is missing - with a split every group says whether it exists or is created")
+        else:
+            if mode not in RG_MODES:
+                errors.append(f"{mode_path} '{mode}' is not existing or create")
+            if r not in in_play:
+                errors.append(f"{mode_path} is stale - '{r}' is not split off, so it is part of the main group and has no group of its own")
+
+        name_key = 'resource_group_name' if r == 'main' else f'resource_group_name_{r}'
+        name = ctx_node.get(name_key) if isinstance(ctx_node, dict) else None
+        if r != 'main' and name is not None and r not in in_play:
+            errors.append(f"context.{name_key} is stale - '{r}' is not split off, so it has no group of its own")
+
+    lock = dep_value('resource_group_lock')
+    if lock is not None and lock not in RG_LOCKS:
+        errors.append(f"deployment.resource_group_lock '{lock}' is not one of {', '.join(RG_LOCKS)}")
+
+    placed = 0
+    for rkey, rnode in (get(spec, 'resources') or {}).items():
+        d = get(get(rnode, 'placement'), 'resource_group')
+        if d is None:
+            continue
+        placed += 1
+        role = d.get('value') if isinstance(d, dict) else d
+        if role not in in_play:
+            errors.append(f"resources.{rkey}.placement.resource_group '{role}' names a group the deployment does not have - "
+                          f"add the role to deployment.resource_group_split, or drop the placement (in play: {', '.join(in_play)})")
+    if len(errors) == rg_errors and (split or placed):
+        ok(f"resource groups - main and {len(split)} split role(s), {placed} placement(s)")
 
     # --- open: and assumed -------------------------------------------------
     blocking = []

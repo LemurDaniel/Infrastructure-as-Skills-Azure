@@ -300,10 +300,10 @@ def check_set(path, doc, deployment, rel):
                 err(f"{where}: depends_on must be {{ question: <id>, equals: <value> }} or not_equals")
             else:
                 target = dep['question']
-                cond = [k for k in ('equals', 'not_equals') if k in dep]
+                cond = [k for k in ('equals', 'not_equals', 'contains') if k in dep]
                 if len(cond) != 1:
-                    err(f"{where}: depends_on needs exactly one of equals / not_equals")
-                extra = set(dep) - {'question', 'equals', 'not_equals'}
+                    err(f"{where}: depends_on needs exactly one of equals / not_equals / contains")
+                extra = set(dep) - {'question', 'equals', 'not_equals', 'contains'}
                 if extra:
                     err(f"{where}: depends_on has unknown key(s) {sorted(extra)}")
                 if target == qid:
@@ -314,8 +314,12 @@ def check_set(path, doc, deployment, rel):
                     tq = by_id[target]
                     tv = tq.get('values')
                     v = dep[cond[0]]
+                    if cond[0] == 'contains' and tq.get('type') != 'list':
+                        err(f"{where}: depends_on contains needs a list question, but {target} is {tq.get('type')}")
                     if tq.get('type') == 'enum' and isinstance(tv, list) and v not in tv:
                         err(f"{where}: depends_on {target} {cond[0]} '{v}', which {target} cannot take (values {tv})")
+                    if cond[0] == 'contains' and isinstance(tv, list) and v not in tv:
+                        err(f"{where}: depends_on {target} contains '{v}', which {target} cannot hold (values {tv})")
                     if tq.get('type') == 'bool' and not isinstance(v, bool):
                         err(f"{where}: depends_on {target} {cond[0]} {v!r}, but {target} is a bool")
 

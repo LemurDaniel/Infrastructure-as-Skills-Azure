@@ -79,6 +79,22 @@ deployment:
   network_ownership:
     value: create
     source: asked
+  # Resource groups: `context.resource_group_name` is the `main` group. A listed role
+  # is a group of its own; each group is `existing` (name from the stage file) or
+  # `create` (the render makes it). Per resource: `placement.resource_group: <role>`
+  # departs from the role table in iac-rendering/references/resource-groups.md.
+  resource_group_split:
+    value: [network, data]
+    source: asked
+  resource_group_mode_main:
+    value: create
+    source: asked
+  resource_group_mode_network:
+    value: existing
+    source: default
+  resource_group_mode_data:
+    value: create
+    source: asked
   address_space:
     # per_environment: one value per stage, never a literal in the template. A stage
     # nobody could answer for is missing here and named in open: below.
@@ -233,6 +249,52 @@ stage whose file holds no placeholder (the values were guessed) and a resolved s
 file still holds one. A placeholder never deploys; the pipeline refuses it
 ([pipelines.md](../../iac-rendering/references/pipelines.md), invariant 11), and the stage
 chain then holds every stage behind it.
+
+## Resource groups: roles, modes, names
+
+`context.resource_group_name` is the **main** group: where everything lands unless a concern is
+split off. Splitting is a deployment decision; the keys it leaves in the spec:
+
+| Key | Holds | Notes |
+|---|---|---|
+| `deployment.resource_group_split` | The roles with a group of their own: any of `network`, `data`, `application`, `observability`, `security` | `[]` or absent: one group, nothing below is written |
+| `deployment.resource_group_mode_<role>` | `existing` or `create`, for `main` and for every listed role | An unlisted role has no mode - it is part of `main` |
+| `deployment.resource_group_lock` | `production`, `all_stages`, `none` | Only groups in mode `create` get a lock |
+| `context.resource_group_name_<role>` | The name of the group, a stage map like `resource_group_name` | `main` keeps `context.resource_group_name`. Optional, like it: recorded when the customer or the platform stated it, otherwise a parameter the stage file supplies. For a `create` group a stated name is used verbatim; without one the render computes it from the naming interface. Never for a role that is not split off |
+| `resources.<key>.placement.resource_group` | One role, for a resource that departs from its kind's role | `source: overridden` with a `reason`; without the key the kind's role applies |
+
+```yaml
+context:
+  resource_group_name:                  # main, mode create: the name is a parameter of the stage
+    production: rg-chatbot-prod-we
+  resource_group_name_network:          # network, mode existing: the platform handed it out
+    production: rg-spoke-chatbot-prod-we
+deployment:
+  resource_group_split: { value: [network, data], source: asked }
+  resource_group_mode_main: { value: create, source: asked }
+  resource_group_mode_network: { value: existing, source: asked }
+  resource_group_mode_data: { value: create, source: asked }
+resources:
+  storage-account__host:
+    placement:
+      resource_group:
+        value: data
+        source: overridden
+        reason: The Function App's own state is kept with the data, not with the app.
+```
+
+- **Which kind belongs to which role** is one table,
+  [resource-group-roles.yaml](../../iac-rendering/references/resource-group-roles.yaml); the
+  diagram and the decision document read it, the prose is
+  [resource-groups.md](../../iac-rendering/references/resource-groups.md). A private endpoint is
+  in the group of the resource it serves and has no row.
+- **A group's name is a parameter, never an open item** - as for the main group
+  (`deployment.yaml`, `resource_group_name`): an existing group's name comes from the stage file,
+  the run does not ask for it and does not invent one. A stage the spec's stage map leaves out
+  is the generic per-stage rule above.
+- **A mode change is not an edit of a value.** `existing` <-> `create` creates, deletes or orphans
+  a real group; the next run says so before it writes, and the pipeline refuses a Terraform plan
+  that deletes one ([pipelines.md](../../iac-rendering/references/pipelines.md), invariant 12).
 
 ## Delivery: the pipeline
 

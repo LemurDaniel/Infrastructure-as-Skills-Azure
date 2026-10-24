@@ -38,6 +38,10 @@ python3 .claude/skills/git-commit-conventions/scripts/check_repo_consistency.py
 # open items. Needs PyYAML (pip install pyyaml).
 python3 plugins/infrastructure-as-skills-azure/core/iac-authoring/scripts/check_spec.py <spec>
 
+# The resource-group rules of check_spec.py: a valid split must pass, and each mutation breaks
+# one rule (a role that does not exist, a mode missing, a placement into a group that is not there).
+python plugins/infrastructure-as-skills-azure/core/iac-authoring/tests/run_spec_tests.py
+
 # Validates every question set (or the paths given) against the format: enum defaults,
 # depends_on / from_deployment targets, resolution fields, audience, unknown fields.
 # --platform <platform.yaml> checks a platform profile against the deployment set instead.

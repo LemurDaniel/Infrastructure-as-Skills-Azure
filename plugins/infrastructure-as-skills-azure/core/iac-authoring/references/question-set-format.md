@@ -83,7 +83,7 @@ groups:
 | `confirm_in` | no | Environments where the default is surfaced for confirmation rather than applied silently. |
 | `why` | yes | The reasoning. This is what a reviewer reads and what justifies the default. |
 | `renders` | yes | Which attribute(s) the answer drives, per target where they differ. Lets a review skill map code back to a decision. |
-| `depends_on` | no | `{ question: <id>, equals: <value> }`, or `not_equals` — skip unless the condition holds. |
+| `depends_on` | no | `{ question: <id>, equals: <value> }`, `not_equals`, or `contains` (a `list` question holds the value) — skip unless the condition holds. |
 | `ref` | for `ref` | What the value points at, e.g. `subnet`, `log_analytics_workspace`. Signals that a pattern usually supplies it. |
 | `from_deployment` | no | The deployment-set question whose answer this one takes. Mutually exclusive with `default` and `required`. |
 | `forced_when` | no | Which answer elsewhere removes a value from `values`, or determines this one. Prose, because the conditions are not uniform enough to encode. Recorded as `forced` with `forced_by` in the spec. |

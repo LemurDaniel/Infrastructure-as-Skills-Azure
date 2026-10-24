@@ -330,8 +330,11 @@ the description was not read.
 the subscription id, the resource group and the region.** They are `parameterized` context
 in the deployment set - input variables the stage file supplies, not decisions. A question
 about them, "there is no default for these" included, is a bug in the interview: the person
-is designing and has no deployment target yet. Whether the resource group exists or is
-created is not asked either; the boundary is that it exists. Nor is the customer's language:
+is designing and has no deployment target yet. The group's *name* is that kind of value; the
+`resource_groups` group of the deployment set is not: whether areas get a group of their own
+(`resource_group_split`) and whether each group exists or is created
+(`resource_group_mode_<role>`) are `customer` questions, with `existing` and no split as the
+defaults. Nor is the customer's language:
 it is the language the request and the answers are written in, and Phase 0 writes it to
 `context.language` (`en` or `de`) - the picture, the decision document and the
 customer-facing text in the spec follow it.

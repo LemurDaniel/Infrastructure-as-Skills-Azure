@@ -15,7 +15,8 @@ title: Deployment-wide decisions
 # or a region before they have a deployment target overruns them.
 
 boundaries:
-  - "Does not create the subscription or the resource group; expects both from the context."
+  - "Does not create the subscription; expects it from the context."
+  - "Creates a resource group only where its mode is `create`; otherwise expects it from the context."
   - "Does not decide a single resource's exceptions - a resource may depart, and then records why."
 
 groups:
@@ -228,6 +229,198 @@ groups:
           network that belongs in a platform group is a separate, asked decision
           (network_ownership), not this value.
         renders: variable resource_group_name / param resourceGroupName / scope
+
+  # ------------------------------------------------------- resource groups
+  # `context.resource_group_name` above is the `main` group: where everything lands
+  # unless a concern is split off. A split-off concern is a role with a group of its
+  # own, and each group is either expected to exist or created by the render - the
+  # mode is per role, because a platform often owns `network` while the workload
+  # owns the rest. Which resource belongs to which role is
+  # core/iac-rendering/references/resource-groups.md.
+  - id: resource_groups
+    title: Resource groups
+    questions:
+      - id: resource_group_split
+        ask: Should everything live in one resource group, or should some areas get a group of their own - network, data, application, monitoring, security?
+        type: list
+        audience: customer
+        plain:
+          en: "These areas get a resource group of their own: {value}. Everything else shares the main group."
+          de: "Diese Bereiche erhalten eine eigene Ressourcengruppe: {value}. Alles andere liegt in der Hauptgruppe."
+        plain_values:
+          network: { en: "network", de: "Netzwerk" }
+          data: { en: "data", de: "Daten" }
+          application: { en: "application", de: "Anwendung" }
+          observability: { en: "monitoring", de: "Überwachung" }
+          security: { en: "security", de: "Sicherheit" }
+        values: [network, data, application, observability, security]
+        default: []
+        why: >
+          One group per workload and stage is the simplest thing that works, and
+          it is the default: the group is the unit of deletion, of RBAC and of
+          cost view, and one lifecycle per stage is easy to reason about. A
+          split earns its place when areas are owned differently - the network by
+          a platform team, the data by a team with stricter access - or live
+          differently: a data group with a delete lock outliving an application
+          group that is rebuilt freely. Every added group is one more name, one
+          more role assignment scope and one more thing a stage file must supply,
+          so nothing is split by default. A role not listed here is part of the
+          main group.
+        renders: >
+          resource_groups.<role> per listed role; a resource's group is its role's
+          group, or the main group when its role is not split off
+
+      - id: resource_group_mode_main
+        ask: Does the main resource group already exist, or should the infrastructure create it?
+        type: enum
+        audience: customer
+        plain:
+          en: "The main resource group {value}."
+          de: "Die Hauptressourcengruppe {value}."
+        plain_values:
+          existing: { en: "already exists and is only used", de: "existiert bereits und wird nur verwendet" }
+          create: { en: "is created together with the system", de: "wird zusammen mit dem System angelegt" }
+        values: [existing, create]
+        default: existing
+        why: >
+          `existing` is the default because a group usually carries more than
+          this deployment: RBAC, policy assignments, locks and the cost view are
+          set by whoever hands it out, and a render that creates the group owns
+          a lifecycle wider than its resources - a destroy would delete the group
+          and with it anything else in it. `create` is right for a workload that
+          has its own subscription or a sandbox, where nobody hands groups out.
+          It costs a wider deployment right: creating a group needs
+          Contributor on the subscription, not on the group, so a Bicep root
+          deploys at subscription scope. Decided per group because the platform
+          often owns one and the workload the others.
+        renders: >
+          existing: variable resource_group_name per stage; create: the AVM
+          resource group module, named by the naming interface unless a name is stated
+
+      - id: resource_group_mode_network
+        ask: Does the network resource group already exist, or should the infrastructure create it?
+        type: enum
+        audience: customer
+        plain:
+          en: "The network resource group {value}."
+          de: "Die Ressourcengruppe für das Netzwerk {value}."
+        plain_values:
+          existing: { en: "already exists and is only used", de: "existiert bereits und wird nur verwendet" }
+          create: { en: "is created together with the system", de: "wird zusammen mit dem System angelegt" }
+        values: [existing, create]
+        default: existing
+        depends_on: { question: resource_group_split, contains: network }
+        why: >
+          A network group is the one most often handed out by a platform team
+          that also owns the address plan, the hub peering and the DNS zones, so
+          `existing` is the default; see resource_group_mode_main for what
+          `create` costs. A workload that builds its own network creates its own
+          group.
+        renders: >
+          existing: variable resource_group_name_network per stage; create: the
+          AVM resource group module, named by the naming interface unless a name is stated
+
+      - id: resource_group_mode_data
+        ask: Does the data resource group already exist, or should the infrastructure create it?
+        type: enum
+        audience: customer
+        plain:
+          en: "The data resource group {value}."
+          de: "Die Ressourcengruppe für die Daten {value}."
+        plain_values:
+          existing: { en: "already exists and is only used", de: "existiert bereits und wird nur verwendet" }
+          create: { en: "is created together with the system", de: "wird zusammen mit dem System angelegt" }
+        values: [existing, create]
+        default: existing
+        depends_on: { question: resource_group_split, contains: data }
+        why: >
+          See resource_group_mode_main. A data group is split off to keep its
+          lifecycle and its lock apart from the application, which is the reason
+          to create it with the system as well: the lock then comes with it.
+        renders: >
+          existing: variable resource_group_name_data per stage; create: the AVM
+          resource group module, named by the naming interface unless a name is stated
+
+      - id: resource_group_mode_application
+        ask: Does the application resource group already exist, or should the infrastructure create it?
+        type: enum
+        audience: customer
+        plain:
+          en: "The application resource group {value}."
+          de: "Die Ressourcengruppe für die Anwendung {value}."
+        plain_values:
+          existing: { en: "already exists and is only used", de: "existiert bereits und wird nur verwendet" }
+          create: { en: "is created together with the system", de: "wird zusammen mit dem System angelegt" }
+        values: [existing, create]
+        default: existing
+        depends_on: { question: resource_group_split, contains: application }
+        why: See resource_group_mode_main; the rule is the same for every role, only the owner differs.
+        renders: >
+          existing: variable resource_group_name_application per stage; create:
+          the AVM resource group module, named by the naming interface unless a name is stated
+
+      - id: resource_group_mode_observability
+        ask: Does the monitoring resource group already exist, or should the infrastructure create it?
+        type: enum
+        audience: customer
+        plain:
+          en: "The monitoring resource group {value}."
+          de: "Die Ressourcengruppe für die Überwachung {value}."
+        plain_values:
+          existing: { en: "already exists and is only used", de: "existiert bereits und wird nur verwendet" }
+          create: { en: "is created together with the system", de: "wird zusammen mit dem System angelegt" }
+        values: [existing, create]
+        default: existing
+        depends_on: { question: resource_group_split, contains: observability }
+        why: >
+          See resource_group_mode_main. A central monitoring group usually
+          belongs to the platform, which collects the logs of many workloads in
+          it - a workload that creates it owns a workspace nobody else feeds.
+        renders: >
+          existing: variable resource_group_name_observability per stage; create:
+          the AVM resource group module, named by the naming interface unless a name is stated
+
+      - id: resource_group_mode_security
+        ask: Does the security resource group already exist, or should the infrastructure create it?
+        type: enum
+        audience: customer
+        plain:
+          en: "The security resource group {value}."
+          de: "Die Ressourcengruppe für die Sicherheit {value}."
+        plain_values:
+          existing: { en: "already exists and is only used", de: "existiert bereits und wird nur verwendet" }
+          create: { en: "is created together with the system", de: "wird zusammen mit dem System angelegt" }
+        values: [existing, create]
+        default: existing
+        depends_on: { question: resource_group_split, contains: security }
+        why: See resource_group_mode_main; keys and secrets groups are often fenced by their own RBAC, which is a reason to expect it from outside.
+        renders: >
+          existing: variable resource_group_name_security per stage; create: the
+          AVM resource group module, named by the naming interface unless a name is stated
+
+      - id: resource_group_lock
+        ask: Should created resource groups be protected against deletion?
+        type: enum
+        audience: engineer
+        plain:
+          en: "Created resource groups {value}."
+          de: "Angelegte Ressourcengruppen {value}."
+        plain_values:
+          production: { en: "carry a delete lock in production", de: "tragen in der Produktion eine Löschsperre" }
+          all_stages: { en: "carry a delete lock in every stage", de: "tragen in jeder Stufe eine Löschsperre" }
+          none: { en: "carry no lock", de: "tragen keine Sperre" }
+        values: [production, all_stages, none]
+        default: production
+        why: >
+          A group created by the render is deleted by a careless destroy or a
+          portal click with everything in it. A CanNotDelete lock in production
+          is the cheap guard; in the other stages it only gets in the way of
+          teardown, which is why it is production only. Not asked: it applies
+          only to groups in mode `create` and never to a group that exists.
+          The lock blocks a destroy too - removing it is a deliberate step.
+        renders: >
+          a lock (CanNotDelete) on each created group in the stages named, as the
+          AVM resource group module's lock input
 
   # ---------------------------------------------------------------- delivery
   # How the rendered code reaches Azure. Asked right after the stages because the
