@@ -1,0 +1,678 @@
+schema_version: 1
+
+spec:
+  id: claude-plugin-eval-agent
+  target: bicep
+  generated_by: infrastructure-as-skills-azure
+  skill: iac-authoring
+  skill_version: 0.1.0
+  at: 2026-10-24T12:00:00Z
+
+context:
+  environments: [production]
+  language: de
+  # location, workload, subscription_id and resource_group_name are parameterized: input
+  # parameters the stage file supplies, never asked and never baked into the spec.
+
+deployment:
+  deploy_mechanism:
+    value: github
+    source: asked
+  pipeline_auth:
+    value: workload_identity
+    source: default
+  pipeline_approvals:
+    value: production
+    source: default
+
+  module_source:
+    value: authored
+    source: asked
+  naming_convention:
+    value: default
+    source: default
+
+  stage_isolation:
+    value: subscription
+    source: default
+  non_production_savings:
+    value: enabled
+    source: default
+
+  # requirements (the customer's answers)
+  network_requirements:
+    value: free
+    source: asked
+  outage_impact:
+    value: tolerable
+    source: asked
+  data_loss_tolerance:
+    value: reproducible
+    source: asked
+  data_access_pattern:
+    value: active
+    source: asked
+  backup_isolation:
+    value: operational
+    source: asked
+  data_residency:
+    value: data_zone
+    source: asked
+
+  # posture
+  landing_zone:
+    value: standalone
+    source: forced
+    forced_by: deployment.network_requirements
+  network_exposure:
+    value: private_with_exceptions
+    source: asked
+  local_auth:
+    value: disabled
+    source: default
+  mandates:
+    value: []
+    source: asked
+  key_protection:
+    value: software
+    source: default
+  key_management:
+    value: platform_managed
+    source: default
+
+  # network
+  network_ownership:
+    value: create
+    source: forced
+    forced_by: deployment.landing_zone
+  address_space:
+    value:
+      production: 10.100.0.0/24
+    source: asked
+  private_endpoint_subnet_prefix:
+    value:
+      production: 10.100.0.0/27
+    source: forced
+    forced_by: deployment.network_requirements
+
+  # dns
+  private_dns_ownership:
+    value: deployment
+    source: forced
+    forced_by: deployment.landing_zone
+
+  # observability
+  observability_ownership:
+    value: create
+    source: forced
+    forced_by: deployment.landing_zone
+  diagnostics_destination:
+    value: log-analytics-workspace
+    source: forced
+    forced_by: deployment.observability_ownership
+  log_retention_days:
+    value: 30
+    source: asked
+  daily_quota_gb:
+    value: -1
+    source: default
+
+composition:
+  granularity: per-concern
+  source: default
+  modules:
+    - id: network
+      contains: [virtual-network]
+      implementation: authored
+      source: deployment
+      outputs: [id, integration_subnet_id, private_endpoint_subnet_id]
+    - id: observability
+      contains: [log-analytics-workspace]
+      implementation: authored
+      source: deployment
+      outputs: [id]
+    - id: identity
+      contains: [user-assigned-identity]
+      implementation: authored
+      source: deployment
+      outputs: [id, principal_id, client_id]
+    - id: registry
+      contains: [container-registry]
+      implementation: authored
+      source: deployment
+      needs: [network, observability]
+      outputs: [id, login_server]
+    - id: ai
+      contains: [foundry]
+      implementation: authored
+      source: deployment
+      needs: [network, observability]
+      outputs: [id, endpoint]
+    - id: storage
+      contains: [storage-account]
+      implementation: authored
+      source: deployment
+      needs: [network, observability]
+      outputs: [id, name]
+    - id: vault
+      contains: [key-vault]
+      implementation: authored
+      source: deployment
+      needs: [network, observability]
+      outputs: [id, vault_uri]
+    - id: app
+      contains: [app-service]
+      implementation: authored
+      source: deployment
+      needs: [network, observability, identity, registry, vault]
+      outputs: [id, default_hostname]
+
+resources:
+
+  virtual-network:
+    addressing:
+      address_space:
+        value:
+          production: 10.100.0.0/24
+        source: deployment
+      subnets:
+        value:
+          production:
+            - { name: pe, prefix: 10.100.0.0/27 }
+            - { name: app-integration, prefix: 10.100.0.64/26 }
+        source: default
+      private_endpoint_subnet_prefix:
+        value:
+          production: 10.100.0.0/27
+        source: deployment
+      dns_servers:
+        value: []
+        source: default
+    subnet_policy:
+      private_endpoint_network_policies:
+        value: Enabled
+        source: default
+      service_endpoints:
+        value: []
+        source: default
+      subnet_delegations:
+        value:
+          - { subnet: app-integration, service: Microsoft.Web/serverFarms }
+        source: forced
+        forced_by: resources.app-service.networking.vnet_integration
+    security:
+      ddos_protection:
+        value: false
+        source: default
+      subnets_expecting_nsg:
+        value:
+          production: []
+        source: default
+    observability:
+      diagnostic_workspace:
+        value: log-analytics-workspace
+        source: deployment
+      flow_logs_enabled:
+        value: false
+        source: default
+
+  log-analytics-workspace:
+    cost:
+      retention_days:
+        value: 30
+        source: deployment
+      daily_quota_gb:
+        value: -1
+        source: deployment
+      sku:
+        value: PerGB2018
+        source: default
+    access:
+      public_network_access:
+        value: enabled
+        source: default
+      local_auth:
+        value: false
+        source: deployment
+      rbac_only_access:
+        value: true
+        source: default
+    data_protection:
+      immediate_purge_protection:
+        value: true
+        source: default
+      archive_to_storage:
+        value: false
+        source: default
+
+  user-assigned-identity:
+    identity:
+      purpose:
+        value: app-runtime
+        source: default
+        # AcrPull and the data roles must exist before the container first starts, which a
+        # system-assigned identity of the app cannot have.
+      federated_credentials:
+        value: []
+        source: default
+      isolation_scope:
+        value: None
+        source: default
+      role_assignments:
+        value:
+          production: []
+        source: default
+
+  container-registry:
+    registry:
+      sku:
+        value: Premium
+        source: forced
+        forced_by: deployment.network_exposure
+      zone_redundant:
+        value: false
+        source: requirement
+        derived_from: deployment.outage_impact
+      geo_replicas:
+        value:
+          production: []
+        source: default
+      retention_untagged_days:
+        value: 7
+        source: default
+    networking:
+      public_network_access:
+        value: disabled
+        source: deployment
+      private_endpoint_subnet:
+        value: pe
+        source: deployment
+      network_rule_bypass:
+        value: None
+        source: default
+      export_policy_enabled:
+        value: false
+        source: default
+    identity:
+      managed_identity:
+        value: none
+        source: default
+      role_assignments:
+        value:
+          production: []
+        source: default
+    security:
+      admin_enabled:
+        value: false
+        source: deployment
+      anonymous_pull_enabled:
+        value: false
+        source: default
+      key_management:
+        value: platform_managed
+        source: deployment
+    observability:
+      diagnostic_workspace:
+        value: log-analytics-workspace
+        source: deployment
+      diagnostic_categories:
+        value: [ContainerRegistryRepositoryEvents, ContainerRegistryLoginEvents]
+        source: default
+      metrics_enabled:
+        value: true
+        source: default
+
+  foundry:
+    account:
+      kind:
+        value: AIServices
+        source: default
+      sku_name:
+        value: S0
+        source: default
+      project_management:
+        value: true
+        source: default
+      projects:
+        value: [eval]
+        source: overridden
+        reason: "Departs from the default []: Foundry evaluations are scoped to a project."
+    models:
+      deployment_sku:
+        value: DataZoneStandard
+        source: requirement
+        derived_from: deployment.data_residency
+      deployment_capacity:
+        value: 10
+        source: default
+      version_upgrade_option:
+        value: OnceCurrentVersionExpired
+        source: default
+      content_filter:
+        value: Microsoft.DefaultV2
+        source: default
+    networking:
+      public_network_access:
+        value: disabled
+        source: deployment
+      private_endpoint_subnet:
+        value: pe
+        source: deployment
+      restrict_outbound:
+        value: true
+        source: default
+    identity:
+      managed_identity:
+        value: system_assigned
+        source: default
+      role_assignments:
+        value:
+          production: []
+        source: default
+    security:
+      local_authentication_disabled:
+        value: true
+        source: deployment
+      key_management:
+        value: platform_managed
+        source: deployment
+    observability:
+      diagnostic_workspace:
+        value: log-analytics-workspace
+        source: deployment
+      diagnostic_categories:
+        value: [Audit, RequestResponse, AzureOpenAIRequestUsage]
+        source: default
+      metrics_enabled:
+        value: true
+        source: default
+
+  storage-account:
+    networking:
+      public_network_access:
+        value: disabled
+        source: deployment
+      private_endpoint_subnet:
+        value: pe
+        source: deployment
+      private_endpoint_subresources:
+        value: [blob]
+        source: default
+      allow_azure_services_bypass:
+        value: true
+        source: default
+    identity:
+      managed_identity:
+        value: system_assigned
+        source: default
+      role_assignments:
+        value:
+          production: []
+        source: default
+    security:
+      shared_access_key_enabled:
+        value: false
+        source: deployment
+      min_tls_version:
+        value: TLS1_2
+        source: default
+      https_traffic_only:
+        value: true
+        source: default
+      allow_blob_public_access:
+        value: false
+        source: default
+      infrastructure_encryption_enabled:
+        value: true
+        source: default
+      key_management:
+        value: platform_managed
+        source: deployment
+      sftp_enabled:
+        value: false
+        source: default
+    data_protection:
+      replication:
+        value: LRS
+        source: requirement
+        derived_from: deployment.outage_impact
+      access_tier:
+        value: Hot
+        source: requirement
+        derived_from: deployment.data_access_pattern
+      blob_soft_delete_days:
+        value: 0
+        source: requirement
+        derived_from: deployment.data_loss_tolerance
+      container_soft_delete_days:
+        value: 0
+        source: requirement
+        derived_from: deployment.data_loss_tolerance
+      versioning_enabled:
+        value: false
+        source: requirement
+        derived_from: deployment.data_loss_tolerance
+      change_feed_enabled:
+        value: false
+        source: default
+      point_in_time_restore_days:
+        value: 0
+        source: default
+      immutability:
+        value: none
+        source: default
+    observability:
+      diagnostic_workspace:
+        value: log-analytics-workspace
+        source: deployment
+      diagnostic_categories:
+        value: [audit]
+        source: default
+      metrics_enabled:
+        value: true
+        source: default
+
+  app-service:
+    hosting:
+      os_type:
+        value: Linux
+        source: default
+      sku:
+        value: P1v3
+        source: default
+      zone_redundant:
+        value: false
+        source: requirement
+        derived_from: deployment.outage_impact
+      instance_count:
+        value: 1
+        source: requirement
+        derived_from: deployment.outage_impact
+    networking:
+      public_network_access:
+        value: enabled
+        source: overridden
+        reason: "The dashboard is the one internet-facing part (customer: reachable from the internet, sign-in with company accounts). Departs from the private baseline, which would map to disabled."
+      vnet_integration:
+        value: true
+        source: default
+      integration_subnet:
+        value: app-integration
+        source: forced
+        forced_by: deployment.network_ownership
+      vnet_route_all:
+        value: false
+        source: overridden
+        reason: "The agent needs the internet (plugin source, package installs). With all traffic routed into the VNet there is no outbound path without a NAT gateway; private endpoint addresses are RFC 1918 and still go through the VNet."
+    identity:
+      managed_identity:
+        value: user_assigned
+        source: overridden
+        reason: "Departs from system_assigned: AcrPull and the data roles must exist before the container first starts, which a system-assigned identity cannot have."
+      user_assigned_identity_ids:
+        value:
+          production: [user-assigned-identity]
+        source: forced
+        forced_by: resources.app-service.identity.managed_identity
+      entra_sign_in:
+        # No question set covers App Service authentication; this decision is rendered by hand
+        # (authsettingsV2: sign-in required, redirect to login). The registration exists already;
+        # its client id and the tenant id are stage-file parameters.
+        value: existing_app_registration
+        source: stated
+      entra_client_secret:
+        # The sign-in uses the registration's client secret, held in the vault and read through
+        # a Key Vault reference in the app settings; never a value in the template.
+        value: key_vault_reference
+        source: stated
+    security:
+      https_only:
+        value: true
+        source: default
+      min_tls_version:
+        value: "1.2"
+        source: default
+      ftps_state:
+        value: Disabled
+        source: default
+      basic_auth_enabled:
+        value: false
+        source: deployment
+    runtime:
+      runtime_stack:
+        value: container
+        source: stated
+      always_on:
+        value: true
+        source: default
+      health_check_path:
+        value: ""
+        source: default
+      http2_enabled:
+        value: true
+        source: default
+    observability:
+      diagnostic_workspace:
+        value: log-analytics-workspace
+        source: deployment
+      diagnostic_categories:
+        value: [AppServiceHTTPLogs, AppServiceAppLogs, AppServiceAuditLogs, AppServiceIPSecAuditLogs, AppServicePlatformLogs]
+        source: default
+      metrics_enabled:
+        value: true
+        source: default
+
+  key-vault:
+    vault:
+      sku:
+        value: standard
+        source: default
+      purge_protection:
+        value: true
+        source: default
+      soft_delete_retention_days:
+        value: 90
+        source: default
+      rbac_authorization:
+        value: true
+        source: deployment
+    networking:
+      public_network_access:
+        value: disabled
+        source: deployment
+      private_endpoint_subnet:
+        value: pe
+        source: deployment
+      network_acl_bypass:
+        value: None
+        source: default
+    identity:
+      role_assignments:
+        value:
+          production: []
+        source: default
+    security:
+      enabled_for_services:
+        value: []
+        source: default
+      secret_placeholders:
+        value: [entra-client-secret]
+        source: overridden
+        reason: "Departs from the default []: the app's Entra sign-in reads this client secret through a Key Vault reference and needs the secret to exist before its first start."
+    keys:
+      key_management:
+        value: platform_managed
+        source: deployment
+    observability:
+      diagnostic_workspace:
+        value: log-analytics-workspace
+        source: deployment
+      diagnostic_categories:
+        value: [AuditEvent, AzurePolicyEvaluationDetails]
+        source: default
+      metrics_enabled:
+        value: true
+        source: default
+
+wiring:
+  private_dns_zones:
+    value:
+      - privatelink.vaultcore.azure.net
+      - privatelink.blob.core.windows.net
+      - privatelink.azurecr.io
+      - privatelink.cognitiveservices.azure.com
+      - privatelink.openai.azure.com
+      - privatelink.services.ai.azure.com
+    source: forced
+    forced_by: deployment.private_dns_ownership
+  role_assignments:
+    value:
+      - { from: user-assigned-identity, to: container-registry, role: AcrPull }
+      - { from: user-assigned-identity, to: storage-account, role: Storage Blob Data Contributor }
+      - { from: user-assigned-identity, to: foundry, role: Azure AI User }
+      - { from: user-assigned-identity, to: key-vault, role: Key Vault Secrets User }
+    source: default
+  access:
+    value:
+      - { from: users, to: app-service, label: "HTTPS 443, Anmeldung mit Firmenkonto" }
+      - { from: app-service, to: foundry, label: "Modelle aufrufen" }
+      - { from: app-service, to: storage-account, label: "Ergebnisse lesen und schreiben" }
+      - { from: app-service, to: container-registry, label: "Image laden" }
+      - { from: app-service, to: key-vault, label: "Anmelde-Secret lesen" }
+    source: stated
+  purposes:
+    value:
+      app-service: "Dashboard und Agent (ein Container)"
+      container-registry: "Image des Containers"
+      foundry: "Sprachmodelle für Agent und Bewertung"
+      storage-account: "Eval-Ergebnisse"
+      key-vault: "Client Secret der Anmeldung"
+      virtual-network: "Privates Netz"
+      log-analytics-workspace: "Logs aller Teile"
+      user-assigned-identity: "Zugriff ohne Schlüssel"
+    source: stated
+
+open:
+  - key: resources.app-service.runtime.container_image
+    environments: [production]
+    question: "Welches Container-Image (Name und Tag, nicht latest) soll laufen? Es entsteht erst durch die erste Pipeline."
+    owner: "Workload-Owner"
+    blocks: apply
+  - key: resources.foundry.models.model_deployments
+    environments: [production]
+    question: "Welche Modelle werden gebraucht (Agent und Bewertung)? Claude-Modelle sind in Foundry womöglich nur weltweit verarbeitet verfügbar, das widerspräche 'nur EU'."
+    owner: "Workload-Owner"
+    blocks: apply
+  - key: application.plugin_source
+    environments: [production]
+    question: "Woher holt der Agent das Claude-Plugin (Git-Repo, Speicher)?"
+    owner: "Workload-Owner"
+    blocks: apply
+  - key: resources.app-service.identity.entra_sign_in
+    question: "Die Anmeldung nutzt eure bestehende App-Registrierung samt Client Secret. Wer erzeugt das Secret und trägt es im Tresor ein (der Tresor ist nur aus dem Netz erreichbar), und wer trägt nach dem ersten Ausrollen die Weiterleitungsadresse der App ein (https://<App-Adresse>/.auth/login/aad/callback)?"
+    owner: "Identitäts-Team"
+    blocks: apply
+  - key: resources.container-registry.networking.image_push_path
+    question: "Die Registry ist nur privat erreichbar. Wie kommt das Image hinein (Pipeline-Runner im Netz oder ein Build in der Registry)?"
+    owner: "Workload-Owner"
+    blocks: apply

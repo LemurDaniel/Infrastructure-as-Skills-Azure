@@ -1,0 +1,241 @@
+# Tests for the modules app and vault (spec: app-service, key-vault) and the wiring in main.bicep.
+
+# ---- app-service --------------------------------------------------------------------------------
+
+- decision: app-service.hosting.os_type
+  path: resources.app.properties.template.resources.plan.kind
+  equals: linux
+
+- decision: app-service.hosting.sku
+  path: resources.app.properties.template.resources.plan.sku.name
+  equals: P1v3
+
+- decision: app-service.hosting.zone_redundant
+  path: resources.app.properties.template.resources.plan.properties.zoneRedundant
+  equals: false
+
+- decision: app-service.hosting.instance_count
+  path: resources.app.properties.template.resources.plan.sku.capacity
+  equals: 1
+
+- decision: app-service.networking.public_network_access
+  path: resources.app.properties.template.resources.site.properties.publicNetworkAccess
+  equals: Enabled
+
+- decision: app-service.networking.vnet_integration
+  path: resources.app.properties.template.resources.site.properties.virtualNetworkSubnetId
+  matches: "parameters\\('integrationSubnetId'\\)"
+
+- decision: app-service.networking.integration_subnet
+  path: resources.app.properties.parameters.integrationSubnetId.value
+  matches: "reference\\('network'\\)\\.outputs\\.integrationSubnetId"
+
+- decision: app-service.networking.vnet_route_all
+  path: resources.app.properties.template.resources.site.properties.outboundVnetRouting.allTraffic
+  equals: false
+
+- decision: app-service.identity.managed_identity
+  path: resources.app.properties.template.resources.site.identity.type
+  equals: UserAssigned
+
+- decision: app-service.identity.user_assigned_identity_ids
+  path: resources.app.properties.parameters.identityId.value
+  matches: "reference\\('identity'\\)\\.outputs\\.id"
+
+# Hand-rendered: no question set. Sign-in required, anonymous requests go to the login.
+- decision: app-service.identity.entra_sign_in
+  path: resources.app.properties.template.resources.authSettings.properties.globalValidation
+  equals:
+    requireAuthentication: true
+    unauthenticatedClientAction: RedirectToLoginPage
+    redirectToProvider: azureactivedirectory
+
+# The client secret is a Key Vault reference in the app settings, never a value.
+- decision: app-service.identity.entra_client_secret
+  path: resources.app.properties.template.resources.site.properties.siteConfig.appSettings[0].value
+  matches: "@Microsoft\\.KeyVault\\(SecretUri=\\{0\\}secrets/\\{1\\}/\\)"
+
+- decision: app-service.security.https_only
+  path: resources.app.properties.template.resources.site.properties.httpsOnly
+  equals: true
+
+- decision: app-service.security.min_tls_version
+  path: resources.app.properties.template.resources.site.properties.siteConfig.minTlsVersion
+  equals: "1.2"
+
+- decision: app-service.security.ftps_state
+  path: resources.app.properties.template.resources.site.properties.siteConfig.ftpsState
+  equals: Disabled
+
+# FTP and SCM are two switches; the decision is asserted on FTP, SCM has its own entry below.
+- decision: app-service.security.basic_auth_enabled
+  path: resources.app.properties.template.resources.basicAuthFtp.properties.allow
+  equals: false
+
+- deployment: basic_auth_scm_disabled
+  path: resources.app.properties.template.resources.basicAuthScm.properties.allow
+  equals: false
+
+- decision: app-service.runtime.runtime_stack
+  path: resources.app.properties.template.resources.site.kind
+  equals: app,linux,container
+
+- decision: app-service.runtime.always_on
+  path: resources.app.properties.template.resources.site.properties.siteConfig.alwaysOn
+  equals: true
+
+- decision: app-service.runtime.health_check_path
+  path: resources.app.properties.template.resources.site.properties.siteConfig.healthCheckPath
+  absent: true
+
+- decision: app-service.runtime.http2_enabled
+  path: resources.app.properties.template.resources.site.properties.siteConfig.http20Enabled
+  equals: true
+
+- decision: app-service.observability.diagnostic_workspace
+  path: resources.app.properties.parameters.diagnosticWorkspaceId.value
+  matches: "reference\\('observability'\\)\\.outputs\\.id"
+
+- decision: app-service.observability.diagnostic_categories
+  path: resources.app.properties.template.resources.siteDiagnostics.properties.logs
+  equals:
+    - { category: AppServiceHTTPLogs, enabled: true }
+    - { category: AppServiceAppLogs, enabled: true }
+    - { category: AppServiceAuditLogs, enabled: true }
+    - { category: AppServiceIPSecAuditLogs, enabled: true }
+    - { category: AppServicePlatformLogs, enabled: true }
+
+- decision: app-service.observability.metrics_enabled
+  path: resources.app.properties.template.resources.siteDiagnostics.properties.metrics
+  equals:
+    - { category: AllMetrics, enabled: true }
+
+# Image pull with the managed identity, no registry credentials.
+- deployment: image_pull_with_managed_identity
+  path: resources.app.properties.template.resources.site.properties.siteConfig.acrUseManagedIdentityCreds
+  equals: true
+
+# ---- key-vault ----------------------------------------------------------------------------------
+
+- decision: key-vault.vault.sku
+  path: resources.vault.properties.template.resources.vault.properties.sku.name
+  equals: standard
+
+- decision: key-vault.vault.purge_protection
+  path: resources.vault.properties.template.resources.vault.properties.enablePurgeProtection
+  equals: true
+
+- decision: key-vault.vault.soft_delete_retention_days
+  path: resources.vault.properties.template.resources.vault.properties.softDeleteRetentionInDays
+  equals: 90
+
+- decision: key-vault.vault.rbac_authorization
+  path: resources.vault.properties.template.resources.vault.properties.enableRbacAuthorization
+  equals: true
+
+- decision: key-vault.networking.public_network_access
+  path: resources.vault.properties.template.resources.vault.properties.publicNetworkAccess
+  equals: Disabled
+
+- decision: key-vault.networking.private_endpoint_subnet
+  path: resources.vault.properties.parameters.privateEndpointSubnetId.value
+  matches: "reference\\('network'\\)\\.outputs\\.privateEndpointSubnetId"
+
+- decision: key-vault.networking.network_acl_bypass
+  path: resources.vault.properties.template.resources.vault.properties.networkAcls.bypass
+  equals: None
+
+- decision: key-vault.identity.role_assignments
+  stage: production
+  path: parameters.vaultRoleAssignments.value
+  equals: []
+
+- decision: key-vault.security.enabled_for_services
+  path: resources.vault.properties.template.resources.vault.properties
+  matches: '"enabledForDeployment": false, "enabledForDiskEncryption": false, "enabledForTemplateDeployment": false'
+
+- decision: key-vault.security.secret_placeholders
+  path: resources.vault.properties.template.variables.secretPlaceholders
+  equals: [entra-client-secret]
+
+# A placeholder is created only while the secret does not exist (the pipeline fills existingSecretNames).
+- deployment: secret_placeholder_does_not_overwrite
+  path: resources.vault.properties.template.resources.placeholder.condition
+  matches: "not\\(contains\\(parameters\\('existingSecretNames'\\)"
+
+- not_testable: key-vault.keys.key_management
+  reason: platform_managed renders no key resource and no encryption property, so there is no path to assert; the absence of the vault's keys block is not observable
+
+- decision: key-vault.observability.diagnostic_workspace
+  path: resources.vault.properties.parameters.diagnosticWorkspaceId.value
+  matches: "reference\\('observability'\\)\\.outputs\\.id"
+
+- decision: key-vault.observability.diagnostic_categories
+  path: resources.vault.properties.template.resources.diagnostics.properties.logs
+  equals:
+    - { category: AuditEvent, enabled: true }
+    - { category: AzurePolicyEvaluationDetails, enabled: true }
+
+- decision: key-vault.observability.metrics_enabled
+  path: resources.vault.properties.template.resources.diagnostics.properties.metrics
+  equals:
+    - { category: AllMetrics, enabled: true }
+
+# ---- wiring (main.bicep) ------------------------------------------------------------------------
+
+- wiring: private_dns_zones
+  path: variables.privateDnsZoneNames
+  equals:
+    vault: privatelink.vaultcore.azure.net
+    blob: privatelink.blob.core.windows.net
+    registry: privatelink.azurecr.io
+    cognitiveservices: privatelink.cognitiveservices.azure.com
+    openai: privatelink.openai.azure.com
+    aiservices: privatelink.services.ai.azure.com
+
+- wiring: role_assignments.acr_pull
+  path: resources.acrPullAssignment.properties.roleDefinitionId
+  matches: "roleDefinitionIds'\\)\\.AcrPull"
+
+- wiring: role_assignments.storage_blob_data_contributor
+  path: resources.storageBlobAssignment.properties.roleDefinitionId
+  matches: "Storage Blob Data Contributor"
+
+# Role shown as "Foundry User" in the tenant now; the GUID (53ca6127-...) is unchanged, the map key in main.bicep keeps the old name.
+- wiring: role_assignments.azure_ai_user
+  path: resources.foundryUserAssignment.properties.roleDefinitionId
+  matches: "Azure AI User"
+
+- wiring: role_assignments.key_vault_secrets_user
+  path: resources.keyVaultSecretsAssignment.properties.roleDefinitionId
+  matches: "Key Vault Secrets User"
+
+# The app starts only after the roles exist.
+- wiring: app_waits_for_roles
+  path: resources.app.dependsOn
+  contains: acrPullAssignment
+
+# ---- app settings: the targets the app needs (values come from module outputs) -----------------
+
+- deployment: app_setting_foundry_endpoint
+  path: resources.app.properties.template.resources.site.properties.siteConfig.appSettings[4]
+  matches: '"name": "FOUNDRY_ENDPOINT", "value": "\[parameters\(''foundryEndpoint''\)\]"'
+
+- deployment: app_setting_storage_account_name
+  path: resources.app.properties.template.resources.site.properties.siteConfig.appSettings[5]
+  matches: '"name": "STORAGE_ACCOUNT_NAME", "value": "\[parameters\(''storageAccountName''\)\]"'
+
+- wiring: app_foundry_endpoint_from_ai_output
+  path: resources.app.properties.parameters.foundryEndpoint.value
+  matches: 'reference\(''ai''\)\.outputs\.endpoint'
+
+- wiring: app_storage_name_from_storage_output
+  path: resources.app.properties.parameters.storageAccountName.value
+  matches: 'reference\(''storage''\)\.outputs\.name'
+
+# Image pull of the platform goes through the VNet integration (registry has only a private endpoint).
+- deployment: image_pull_over_vnet
+  path: resources.app.properties.template.resources.site.properties.siteConfig.appSettings[3]
+  equals:
+    name: WEBSITE_PULL_IMAGE_OVER_VNET
+    value: "true"

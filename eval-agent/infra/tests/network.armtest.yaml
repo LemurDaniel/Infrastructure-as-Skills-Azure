@@ -1,0 +1,91 @@
+# Tests for the modules network and observability (spec: virtual-network, log-analytics-workspace).
+# Run: run_arm_tests.py infra-spec.yaml --template main.bicep
+# The module bodies are nested deployments: resources.<module>.properties.template.resources.<symbol>.
+
+# ---- virtual-network ----------------------------------------------------------------------------
+
+- decision: virtual-network.addressing.address_space
+  stage: production
+  path: parameters.addressSpace.value
+  equals: 10.100.0.0/24
+
+- decision: virtual-network.addressing.subnets
+  stage: production
+  path: parameters.subnets.value
+  equals:
+    - { name: pe, prefix: 10.100.0.0/27 }
+    - { name: app-integration, prefix: 10.100.0.64/26 }
+
+- decision: virtual-network.addressing.private_endpoint_subnet_prefix
+  stage: production
+  path: parameters.privateEndpointSubnetPrefix.value
+  equals: 10.100.0.0/27
+
+- decision: virtual-network.addressing.dns_servers
+  path: resources.network.properties.template.variables.dnsServers
+  equals: []
+
+- decision: virtual-network.subnet_policy.private_endpoint_network_policies
+  path: resources.network.properties.template.variables.privateEndpointNetworkPolicies
+  equals: Enabled
+
+- decision: virtual-network.subnet_policy.service_endpoints
+  path: resources.network.properties.template.variables.serviceEndpoints
+  equals: []
+
+- decision: virtual-network.subnet_policy.subnet_delegations
+  path: resources.network.properties.template.variables.subnetDelegations
+  equals:
+    - { subnet: app-integration, service: Microsoft.Web/serverFarms }
+
+- decision: virtual-network.security.ddos_protection
+  path: resources.network.properties.template.resources.virtualNetwork.properties.enableDdosProtection
+  equals: false
+
+- not_testable: virtual-network.security.subnets_expecting_nsg
+  reason: an empty list for production; the spec records that no subnet expects an NSG and no NSG resource is rendered, so there is nothing in the template to observe
+
+- decision: virtual-network.observability.diagnostic_workspace
+  path: resources.virtualNetworkDiagnostics.properties.workspaceId
+  matches: "reference\\('observability'\\)\\.outputs\\.id"
+
+- not_testable: virtual-network.observability.flow_logs_enabled
+  reason: false renders no flow log resource (a Network Watcher child, platform-owned); the absence of a resource has no path to assert
+
+# wiring: the subnet name every private endpoint is placed in (resources.*.networking.private_endpoint_subnet)
+- wiring: private_endpoint_subnet_name
+  path: variables.privateEndpointSubnetName
+  equals: pe
+
+# ---- log-analytics-workspace --------------------------------------------------------------------
+
+- decision: log-analytics-workspace.cost.retention_days
+  path: resources.observability.properties.template.resources.workspace.properties.retentionInDays
+  equals: 30
+
+- decision: log-analytics-workspace.cost.daily_quota_gb
+  path: resources.observability.properties.template.resources.workspace.properties.workspaceCapping.dailyQuotaGb
+  equals: -1
+
+- decision: log-analytics-workspace.cost.sku
+  path: resources.observability.properties.template.resources.workspace.properties.sku.name
+  equals: PerGB2018
+
+# Ingestion and query are two switches; both are matched in the one decision.
+- decision: log-analytics-workspace.access.public_network_access
+  path: resources.observability.properties.template.resources.workspace.properties
+  matches: '"publicNetworkAccessForIngestion": "Enabled".*"publicNetworkAccessForQuery": "Enabled"'
+
+- decision: log-analytics-workspace.access.local_auth
+  path: resources.observability.properties.template.resources.workspace.properties.features.disableLocalAuth
+  equals: true
+
+- decision: log-analytics-workspace.access.rbac_only_access
+  path: resources.observability.properties.template.resources.workspace.properties.features.enableLogAccessUsingOnlyResourcePermissions
+  equals: false
+
+- not_testable: log-analytics-workspace.data_protection.immediate_purge_protection
+  reason: the 14-day soft delete is Azure's behaviour and a forceDelete query parameter at deletion time, not a template property
+
+- not_testable: log-analytics-workspace.data_protection.archive_to_storage
+  reason: false renders no data export rule; the absence of a resource has no path to assert

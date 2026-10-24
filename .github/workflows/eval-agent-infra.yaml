@@ -1,0 +1,72 @@
+# Rendered from infra/infra-spec.yaml (target: bicep, deploy_mechanism: github,
+# pipeline_auth: workload_identity, pipeline_approvals: production, stage_isolation: subscription).
+# Stages: production (one stage). Working directory of every step: infra/
+#
+# PLATFORM PREREQUISITES - this repository does not create them:
+#
+#  1. Identity (app registration or user-assigned managed identity) for stage production, in the
+#     production subscription. No client secret exists; the run presents an OIDC token.
+#  2. Federated credential on that identity:
+#       issuer   https://token.actions.githubusercontent.com
+#       subject  repo:LemurDaniel/TEMP:environment:production     (check owner/repo against the real remote)
+#       audience api://AzureADTokenExchange
+#     The plan and apply jobs run in environment 'production', so the subject is the environment one.
+#  3. RBAC of the identity, on the production resource group and nothing else:
+#       Contributor
+#       Role Based Access Control Administrator (or User Access Administrator): main.bicep creates
+#       role assignments on registry, storage, Foundry, vault.
+#     Resource providers used by main.bicep registered in the subscription.
+#  4. The resource group (parameter resourceGroupName in infra/main.production.bicepparam) exists;
+#     the pipeline deploys into it and does not create it.
+#  5. GitHub environment 'production': variables (plain variables, no secrets)
+#       AZURE_CLIENT_ID, AZURE_TENANT_ID, AZURE_SUBSCRIPTION_ID  (must equal subscriptionId in the stage file)
+#     Protection: deployment branches = default branch only.
+#  6. GitHub environment 'production-approval': Required reviewers (pipeline_approvals: production).
+#     The approve job stops the run between what-if and deploy; it holds no credential.
+#  7. infra/main.production.bicepparam still holds placeholders (OPEN-... values, all-zero GUIDs;
+#     see the open entries of the spec). The plan job refuses them before any login: nothing is
+#     deployed until they are replaced.
+#
+# NOT PART OF THIS PIPELINE (deliberately): building and pushing the container image into the private
+# registry (open item 'image_push_path' of the spec). The registry is reachable privately only.
+#
+# Bicep has no saved plan: what-if is a read-only prediction, 'create' redeploys. The approver reads
+# the what-if of this run; apply uses the same commit and the very parameter file the plan job
+# resolved (uploaded as artifact, kept for one day).
+name: Eval-Agent Infrastructure
+
+on:
+  pull_request:
+    paths: ["eval-agent/infra/**", ".github/workflows/eval-agent-infra*.yaml"]
+  push:
+    branches: [main, master]
+    paths: ["eval-agent/infra/**", ".github/workflows/eval-agent-infra*.yaml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    # No Azure credential: safe for unreviewed pull requests.
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: eval-agent/infra
+    steps:
+      - uses: actions/checkout@v7
+      - run: az bicep build --file main.bicep --stdout > /dev/null
+      - run: az bicep lint --file main.bicep
+      - name: Parameter files compile against the template
+        run: for f in main.*.bicepparam; do az bicep build-params --file "$f" --stdout > /dev/null; done
+
+  production:
+    needs: validate
+    if: github.event_name != 'pull_request'
+    uses: ./.github/workflows/eval-agent-infra-stage.yaml
+    permissions:
+      contents: read
+      id-token: write
+    with:
+      stage: production
+      gated: true   # pipeline_approvals: production

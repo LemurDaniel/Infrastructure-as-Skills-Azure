@@ -1,0 +1,181 @@
+# Tests for the modules ai and storage (spec: foundry, storage-account).
+
+# ---- foundry ------------------------------------------------------------------------------------
+
+- decision: foundry.account.kind
+  path: resources.ai.properties.template.resources.account.kind
+  equals: AIServices
+
+- decision: foundry.account.sku_name
+  path: resources.ai.properties.template.resources.account.sku.name
+  equals: S0
+
+- decision: foundry.account.project_management
+  path: resources.ai.properties.template.resources.account.properties.allowProjectManagement
+  equals: true
+
+- decision: foundry.account.projects
+  path: resources.ai.properties.template.variables.projects
+  equals: [eval]
+
+- decision: foundry.models.deployment_sku
+  path: resources.ai.properties.template.resources.modelDeployment.sku.name
+  equals: DataZoneStandard
+
+- decision: foundry.models.deployment_capacity
+  path: resources.ai.properties.template.resources.modelDeployment.sku.capacity
+  equals: 10
+
+- decision: foundry.models.version_upgrade_option
+  path: resources.ai.properties.template.resources.modelDeployment.properties.versionUpgradeOption
+  equals: OnceCurrentVersionExpired
+
+- decision: foundry.models.content_filter
+  path: resources.ai.properties.template.resources.modelDeployment.properties.raiPolicyName
+  equals: Microsoft.DefaultV2
+
+- decision: foundry.networking.public_network_access
+  path: resources.ai.properties.template.resources.account.properties.publicNetworkAccess
+  equals: Disabled
+
+- decision: foundry.networking.private_endpoint_subnet
+  path: resources.ai.properties.parameters.privateEndpointSubnetId.value
+  matches: "reference\\('network'\\)\\.outputs\\.privateEndpointSubnetId"
+
+- decision: foundry.networking.restrict_outbound
+  path: resources.ai.properties.template.resources.account.properties.restrictOutboundNetworkAccess
+  equals: true
+
+- decision: foundry.identity.managed_identity
+  path: resources.ai.properties.template.resources.account.identity.type
+  equals: SystemAssigned
+
+- decision: foundry.identity.role_assignments
+  stage: production
+  path: parameters.foundryRoleAssignments.value
+  equals: []
+
+- decision: foundry.security.local_authentication_disabled
+  path: resources.ai.properties.template.resources.account.properties.disableLocalAuth
+  equals: true
+
+- decision: foundry.security.key_management
+  path: resources.ai.properties.template.resources.account.properties.encryption
+  absent: true
+
+- decision: foundry.observability.diagnostic_workspace
+  path: resources.ai.properties.parameters.diagnosticWorkspaceId.value
+  matches: "reference\\('observability'\\)\\.outputs\\.id"
+
+- decision: foundry.observability.diagnostic_categories
+  path: resources.ai.properties.template.resources.diagnostics.properties.logs
+  equals:
+    - { category: Audit, enabled: true }
+    - { category: RequestResponse, enabled: true }
+    - { category: AzureOpenAIRequestUsage, enabled: true }
+
+- decision: foundry.observability.metrics_enabled
+  path: resources.ai.properties.template.resources.diagnostics.properties.metrics
+  equals:
+    - { category: AllMetrics, enabled: true }
+
+# ---- storage-account ----------------------------------------------------------------------------
+
+- decision: storage-account.networking.public_network_access
+  path: resources.storage.properties.template.resources.storageAccount.properties.publicNetworkAccess
+  equals: Disabled
+
+- decision: storage-account.networking.private_endpoint_subnet
+  path: resources.storage.properties.parameters.privateEndpointSubnetId.value
+  matches: "reference\\('network'\\)\\.outputs\\.privateEndpointSubnetId"
+
+- decision: storage-account.networking.private_endpoint_subresources
+  path: resources.storage.properties.template.variables.privateEndpointSubresources
+  equals: [blob]
+
+- decision: storage-account.networking.allow_azure_services_bypass
+  path: resources.storage.properties.template.resources.storageAccount.properties.networkAcls.bypass
+  equals: AzureServices
+
+- decision: storage-account.identity.managed_identity
+  path: resources.storage.properties.template.resources.storageAccount.identity.type
+  equals: SystemAssigned
+
+- decision: storage-account.identity.role_assignments
+  stage: production
+  path: parameters.storageRoleAssignments.value
+  equals: []
+
+- decision: storage-account.security.shared_access_key_enabled
+  path: resources.storage.properties.template.resources.storageAccount.properties.allowSharedKeyAccess
+  equals: false
+
+- decision: storage-account.security.min_tls_version
+  path: resources.storage.properties.template.resources.storageAccount.properties.minimumTlsVersion
+  equals: TLS1_2
+
+- decision: storage-account.security.https_traffic_only
+  path: resources.storage.properties.template.resources.storageAccount.properties.supportsHttpsTrafficOnly
+  equals: true
+
+- decision: storage-account.security.allow_blob_public_access
+  path: resources.storage.properties.template.resources.storageAccount.properties.allowBlobPublicAccess
+  equals: false
+
+- decision: storage-account.security.infrastructure_encryption_enabled
+  path: resources.storage.properties.template.resources.storageAccount.properties.encryption.requireInfrastructureEncryption
+  equals: true
+
+- decision: storage-account.security.key_management
+  path: resources.storage.properties.template.resources.storageAccount.properties.encryption.keySource
+  equals: Microsoft.Storage
+
+- decision: storage-account.security.sftp_enabled
+  path: resources.storage.properties.template.resources.storageAccount.properties.isSftpEnabled
+  equals: false
+
+- decision: storage-account.data_protection.replication
+  path: resources.storage.properties.template.resources.storageAccount.sku.name
+  equals: Standard_LRS
+
+- decision: storage-account.data_protection.access_tier
+  path: resources.storage.properties.template.resources.storageAccount.properties.accessTier
+  equals: Hot
+
+- decision: storage-account.data_protection.blob_soft_delete_days
+  path: resources.storage.properties.template.resources.blobService.properties.deleteRetentionPolicy.enabled
+  equals: false
+
+- decision: storage-account.data_protection.container_soft_delete_days
+  path: resources.storage.properties.template.resources.blobService.properties.containerDeleteRetentionPolicy.enabled
+  equals: false
+
+- decision: storage-account.data_protection.versioning_enabled
+  path: resources.storage.properties.template.resources.blobService.properties.isVersioningEnabled
+  equals: false
+
+- decision: storage-account.data_protection.change_feed_enabled
+  path: resources.storage.properties.template.resources.blobService.properties.changeFeed.enabled
+  equals: false
+
+- decision: storage-account.data_protection.point_in_time_restore_days
+  path: resources.storage.properties.template.resources.blobService.properties.restorePolicy.enabled
+  equals: false
+
+- decision: storage-account.data_protection.immutability
+  path: resources.storage.properties.template.resources.storageAccount.properties.immutableStorageWithVersioning
+  absent: true
+
+- decision: storage-account.observability.diagnostic_workspace
+  path: resources.storage.properties.parameters.diagnosticWorkspaceId.value
+  matches: "reference\\('observability'\\)\\.outputs\\.id"
+
+- decision: storage-account.observability.diagnostic_categories
+  path: resources.storage.properties.template.resources.blobDiagnostics.properties.logs
+  equals:
+    - { categoryGroup: audit, enabled: true }
+
+- decision: storage-account.observability.metrics_enabled
+  path: resources.storage.properties.template.resources.accountDiagnostics.properties.metrics
+  equals:
+    - { category: AllMetrics, enabled: true }
