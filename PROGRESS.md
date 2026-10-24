@@ -412,6 +412,39 @@ What the second review found, all `render`:
 - Panel: skip the "Private DNS" line when the spec has no zones; the legend-beside-panel
   threshold (380px) keeps them stacked on a 850px group - 300 is enough for eight lines.
 
+**Plugin todos from the 2026-10-25 review of a spec with a second App Service** (an
+`app-service__mcp` added to a bicep spec of eight resources; review agent plus hand edits in
+the `.drawio`, `new_diagram.py` not touched). The picture's hand edits live only in the PNG: a
+regeneration from the spec loses them. All `render`:
+
+- **Role lines run through icons.** `wiring.role_assignments` draws one line per role from the
+  identity to each target with no waypoints, and draw.io routes them: straight along the
+  identity's row through the monitoring and DNS icons, up a trunk through the endpoints' icon
+  and label, through the "Namensauflösung" title, across the Key Vault icon to reach Storage,
+  and ending on the Registry and Key Vault icons. The first finding of the review, and the owner
+  saw it at once. The hand fix deleted the four edges (the targets' text already says
+  "← Managed Identity: <role>"). Do the same in the script - drop role lines when the target
+  text carries the principal and role - or route them through the free strip between the
+  network's bottom and the zones' top (a 16px corridor: the network ends at y 394, the zones start at y 410) and enter each
+  target from a side no other line uses; at minimum never leave a role edge without waypoints.
+- **A caller behind a caller.** With two compute icons in a subnet the first caller's line to
+  the endpoints passes behind the second icon (same row, exit at 0.5). Offset the second icon's
+  row, or leave the first caller over a lane that the second does not occupy; the hand fix moved
+  the MCP icon 38px down and routed `dashboard -> mcp` from the right side to the left.
+- **A compute-to-compute line goes top to top.** `e-5` (`dashboard -> mcp`) is drawn as a loop
+  over both icons, its label lands on the subnet header ("delegiert an …"), and the straight
+  line between the icons reads as a second connection. Route it side to side and put the label
+  above its first segment.
+- **Subtitle and the green group line say "App Service" in the singular** when one of two App
+  Services is public. Name the one that is (`wiring.purposes` entry or instance name), as the
+  icon label already does.
+- **"HTTPS 443, …" straddles the group border again** (see the second round above). Break the
+  label into two lines and put it above the segment at its actor.
+- **The instance names `app-service__web` / `app-service__mcp` work in the picture** (icon,
+  title and purpose are taken from the set before the `__`), but the "Private Endpoints" bundle
+  reads "5× App Service, Container Registry +3": count and name instances, e.g. "App Service
+  (mcp)", so the reader sees which of two has an endpoint.
+
 ### Evals
 
 - No case covers triggering. The one failure a real run has shown is a workload-shaped
