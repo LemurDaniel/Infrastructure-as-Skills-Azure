@@ -33,17 +33,17 @@ long, expensive loop - is rendered only from a spec whose picture they have agre
 1 is Phase 5 of `iac-authoring`; the diagram agent and the review agent iterate on the
 picture until it carries no real error, then the main agent shows it to the customer with
 the one question of Phase 5. "Etwas ändern" corrects the spec and redraws; "ja" starts
-Loop 2. In Loop 2 the agents never read each other's output; at its end the diagram agent
-redraws the picture from the final spec so it matches the code, and the test agent verifies
-it (`verify_diagram.py`) - there is no second sign-off. The main agent starts the loops,
-counts the passes, routes findings and writes the hand-over.
+Loop 2. In Loop 2 the agents never read each other's output, and none of them touches the
+picture: the code is rendered from the spec the customer saw drawn, so the diagram stays as
+signed off. The main agent starts the loops, counts the passes, routes findings and writes
+the hand-over.
 
 | Agent | Does | May write | Never |
 |---|---|---|---|
 | **Code** | Steps 1-7 of the order of work: AVM resolution, names, code, tests per decision | The render root only | Pipeline, diagram, `apply`, a commit |
 | **Pipeline** | Step 10, after the code agent has reported the layout (root, stage files, backend keys, working directory) | The pipeline files only | Code, tests |
-| **Test** | `fmt`, `validate`, `test`, `check_render_coverage.py`, `check_pipeline.py`, the diagram's `verify_diagram.py` | Nothing | Fixing what it finds |
-| **Diagram** | Loop 1, and once more at the end of Loop 2: `iac-diagram` from the spec | `infra-diagram.drawio.png` beside the spec | Code, pipeline |
+| **Test** | `fmt`, `validate`, `test`, `check_render_coverage.py`, `check_pipeline.py` | Nothing | Fixing what it finds |
+| **Diagram** | Loop 1 only: `iac-diagram` from the spec | `infra-diagram.drawio.png` beside the spec | Code, pipeline |
 | **Review** | Loop 1: reads the PNG and compares it with the spec | Nothing | Fixing what it finds |
 
 The test and review agents are read-only on purpose. The one that checks must not be the one
@@ -63,9 +63,9 @@ a **severity** and a **cause**:
 
 The main agent routes by cause. A `render` finding goes back to the agent that made that
 part, with the finding as the only new instruction. A `spec` finding is the main agent's:
-it corrects the spec (or the question set behind it) and redraws; when the correction
-changes the picture the customer signed off on, the customer sees it again before Loop 2
-continues, and a running Loop 2 is restarted so it renders the corrected spec.
+it corrects the spec (or the question set behind it) and goes back to Loop 1: the picture
+is redrawn, and when the correction changed it, the customer sees it again before Loop 2
+is restarted on the corrected spec. Loop 2 never redraws on its own.
 
 ## Stopping
 
@@ -118,6 +118,6 @@ changed, so the test agent can filter.
 ## The hand-over
 
 The main agent's closing message is the explained plan, unchanged from the order of work:
-code, tests, diagram, pipeline, open items and which changes are service-affecting. Add the
+code, tests, the signed-off diagram, pipeline, open items and which changes are service-affecting. Add the
 open findings of a loop that stopped without green, the `polish` findings of the review, and
 which agents ran in how many passes.

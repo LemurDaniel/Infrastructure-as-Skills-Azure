@@ -71,13 +71,14 @@ than inferring the shape from an example spec.
 8. **Validate before handing over.** Syntactically valid is not done — `fmt` →
    `validate` → `test` → `plan` / `what-if`, then say which diffs are service-affecting.
    The commands are at the end of each idiom file.
-9. **The diagram matches the code, every time.** The customer signed off on
-   `infra-diagram.drawio.png` before this render started (iac-authoring Phase 5); a render
-   is not handed over unless the picture beside the spec is drawn from the spec as it
-   stands now ([iac-diagram](../iac-diagram/SKILL.md)). Regenerate it on every render, so
-   a re-render that moved a decision moves the picture too. If the export cannot run (no
-   draw.io CLI), hand over the `.drawio` and say the PNG is missing - never skip the
-   diagram.
+9. **The diagram is the customer's; a render does not touch it.** They signed off on
+   `infra-diagram.drawio.png` before this render started (iac-authoring Phase 5), and the
+   code is rendered from the same spec the picture was drawn from, so the picture stays as
+   agreed. A render never redraws it. The only thing that changes the picture is a change
+   to the spec, and that is not the renderer's to make: a finding whose cause is the spec
+   goes back to Phase 5, where the spec is corrected, the diagram redrawn
+   ([iac-diagram](../iac-diagram/SKILL.md)) and the customer asked again before the render
+   continues.
 10. **Render the pipeline the spec chose.** `deployment.deploy_mechanism` names the system
     (`github`, `azure_devops`, `gitlab`, `local`); the stages, the approval gate and the
     login come from the same spec as the code. Read [pipelines.md](references/pipelines.md),

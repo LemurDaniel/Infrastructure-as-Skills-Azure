@@ -146,8 +146,8 @@ Verified Modules first, authored resources second.
   - open them in draw.io once on the owner's machine to confirm they still edit. The
   agents picture was then redrawn a second time on the owner's remark: not two parallel
   arms but **two loops in sequence** - the diagram loop (diagram agent, review agent,
-  customer sign-off, Phase 5) first, the code loop only after the yes, the diagram
-  redrawn once more at its end without a second sign-off. `agents.md` and rule 11 of
+  customer sign-off, Phase 5) first, the code loop only after the yes - and the code loop
+  never redraws: the picture is the customer's, a spec finding goes back to Loop 1. `agents.md` and rule 11 of
   `iac-rendering` say the same now.
 - **The decision document is rendered, not written.** B5, 2026-10-18. Every question
   carries `plain` (`en` and `de`, `{value}` where the value goes) and, where a raw value
