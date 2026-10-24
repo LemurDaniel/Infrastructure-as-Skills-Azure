@@ -8,7 +8,7 @@
 #     production subscription. No client secret exists; the run presents an OIDC token.
 #  2. Federated credential on that identity:
 #       issuer   https://token.actions.githubusercontent.com
-#       subject  repo:LemurDaniel/Infrastructure-as-Skills-Azure:environment:production
+#       subject  repo:LemurDaniel@49441790/Infrastructure-as-Skills-Azure@1422740204:environment:production   (immutable subject, see gh api repos/<owner>/<repo>/actions/oidc/customization/sub)
 #       audience api://AzureADTokenExchange
 #     The plan and apply jobs run in environment 'production', so the subject is the environment one.
 #  3. RBAC of the identity, on the production resource group and nothing else:
