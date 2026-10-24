@@ -21,11 +21,12 @@ per family spent it by the sixth family.
 ## The pipeline
 
 ```
-question set  ──interview──>  infra-spec.yaml  ──render──>  Terraform / Bicep  ──validate──>  explained plan
-                 [here]             │         [iac-rendering]
-                                    └──draw──>  infra-diagram.drawio.png
-                                                [iac-diagram]
+question set  ──interview──>  infra-spec.yaml  ──draw──>  infra-diagram.drawio.png  ──sign-off──>  render  ──validate──>  explained plan
+                 [here]                          [iac-diagram]        (loop with the customer)    [iac-rendering]
 ```
+
+The picture comes before the code, always: the customer signs off on the diagram, not on
+the spec, and the render starts only once they have.
 
 The spec in the middle is the load-bearing part. It is the handover interface, not a
 by-product: a backend renders *from* it, and the same spec can go to a different backend —
@@ -47,38 +48,61 @@ value in it answers a deployment-set question with `audience: platform` before a
 asked. Say in the first message whether one was found. Never write it from an interview:
 [references/platform.md](references/platform.md).
 
-## Who is in the interview — customer mode and engineer mode
+## Who is in the interview — the customer, always
 
-The person answering is, by default, **the customer**: someone who can say what the
-system is for, who uses it and how bad an outage or a loss would be, and who did not
-come to answer questions about subnets. Every question carries an `audience`
+The person answering is **the customer**: someone who can say what the system is for,
+who uses it and how bad an outage or a loss would be, and who did not come to answer
+questions about subnets. There is one audience in the interview and no second mode
+(the engineer mode was dropped on 2026-10-24). Every question carries an `audience`
 ([question-set-format](references/question-set-format.md#who-answers-audience)), and
-the mode decides which audiences are put to the person:
+the audience decides what happens to it:
 
-| Mode | Asked | Resolved without asking | Entered when |
-|---|---|---|---|
-| **customer** (default) | `customer` questions only — the module choice (asked first), the deployment set's context, posture, mandates and `requirements` group | `platform` from `platform.yaml` or its default, `engineer` from its default; a `required` one nobody present can answer is an `open:` entry naming its owner | Nothing says otherwise |
-| **engineer** | `customer` and `engineer` questions; `platform` too when no profile answers them | — | The user says they are the engineer or asks in engineer terms (names a subnet, a SKU, a provider argument), or the repository already holds IaC code or a spec and the user is extending it |
+| `audience` | What happens |
+|---|---|
+| `customer` | Put to the person: the module choice and the naming mechanism (asked first), the deployment set's context, posture, mandates and `requirements` group, and any resource question that carries it |
+| `platform` | Read from `platform.yaml`, else its default; a `required` one with no profile is an `open:` entry owned by the platform team |
+| `engineer` | Its default, or derived from a requirement; a `required` one nobody can default is an `open:` entry owned by the workload's engineer |
 
-Say which mode the run is in, in the first message, so the person can redirect:
-"Ich frage dich nur, was das System braucht; die technischen Entscheidungen setze ich
-nach den Vorgaben und zeige sie dir am Ende" versus "Ich frage dich auch die technischen
-Entscheidungen". A customer who starts answering engineer questions has switched mode;
-an engineer who says "frag mich nur das Fachliche" has switched back.
+Say so in the first message: "Ich frage dich nur, was das System braucht; die
+technischen Entscheidungen setze ich nach den Vorgaben und zeige sie dir am Ende." An
+engineer in front of the plugin gets the same questions. What they know beyond them they
+say in prose - "ZRS", "Subnet snet-pe-01", "TLS 1.2 reicht" - and Phase 0 records it as
+`stated`, which outranks every default; what they want changed afterwards is an
+`overridden` value in the spec, not a second interview.
 
-In customer mode no question with Azure vocabulary reaches the person, whatever it
-would cost to default it. The cost of a wrong default is a line in Phase 4 that the
-person can object to; the cost of a subnet question is a person who stops answering.
+No question with Azure vocabulary reaches the person, whatever it would cost to default
+it. The cost of a wrong default is a line in Phase 4 that the person can object to; the
+cost of a subnet question is a person who stops answering.
 
 ## Phase 0 — Ask how the code is built, then what is being built
 
-**The first question is the module choice**, before the description and before any resource
+Three structured questions open the interview, each through `AskUserQuestion`, each
+skipped when the repository or the request already answers it; then one open question in
+prose. In this order, because each one decides how the next is worded.
+
+**The first question is the target**: Terraform or Bicep. The repository answers it when
+it can - `*.tf` or `.terraform.lock.hcl` present → Terraform, `*.bicep` or
+`bicepconfig.json` present → Bicep, and a carried `infra-spec.yaml` has it - and then it is
+not asked. Both or neither → ask, once, two options and none marked recommended:
+
+```
+In welcher Sprache soll die Infrastruktur beschrieben werden?
+  1. Terraform - Herstellerunabhängig, eine Sprache für Azure und alles andere; der Stand
+     wird in einer State-Datei geführt
+  2. Bicep - Microsofts eigene Sprache für Azure, ohne State-Datei; der Stand ist, was in
+     Azure liegt
+```
+
+It comes first because the naming question below exists only for Terraform, and because
+the layout (Phase 1) and every rendering reference read it.
+
+**The second question is the module choice**, before the description and before any resource
 question: `deployment.module_source` — the code built from Azure Verified Modules (`avm`), or
 from resources written out one by one (`authored`). It comes first because it decides what
 every later decision renders to, and because it is the one choice a person can make without
 knowing a resource. Ask it through `AskUserQuestion`, `avm` first and marked recommended;
 when the repository already holds authored resource blocks, put `authored` first instead.
-In customer mode word it without the product name:
+Word it without the product name in the label:
 
 ```
 Wie soll der Code gebaut werden?
@@ -88,17 +112,17 @@ Wie soll der Code gebaut werden?
      Review, dafür mehr Code, den ihr selbst pflegt
 ```
 
-In engineer mode name them: Azure Verified Modules, or authored resources. **Skip it when it
+**Skip it when it
 is already answered**: the user said it ("ohne Module", "mit AVM"), or a carried
 `infra-spec.yaml` has it. A resource whose type has no Azure Verified Module renders
 authored whatever the answer, recorded per module; say so when the person chose `avm`.
 
-**The second question, in every mode and for a Terraform target, is the naming
+**The third question, for a Terraform target only, is the naming
 mechanism**: `deployment.naming_source`. Ask it right after the module choice through
 `AskUserQuestion`, with three options and **none marked recommended**: the
 `LemurDaniel/naming` provider, the `Azure/naming/azurerm` module, or a custom mechanism
 (the organisation's own locals or module). Word it like this, with the product names in
-brackets in every mode (the labels are the same in customer and engineer mode):
+brackets - the one place a product name is allowed, because the options are products:
 
 ```
 Wie sollen die Ressourcennamen erzeugt werden?
@@ -134,8 +158,8 @@ description; it names the resource and nothing about the system around it.
 
 Ask in plain text, not through `AskUserQuestion`: the point is free prose, and options
 would turn it back into the structured interview it precedes. Give the user a short list
-of what is worth mentioning, so the description lands on the questions that matter. In
-customer mode the list is the `requirements` group in prose and nothing technical:
+of what is worth mentioning, so the description lands on the questions that matter. The
+list is the `requirements` group in prose and nothing technical:
 
 ```
 Beschreib kurz, was ihr braucht. Hilfreich ist alles davon, nichts davon ist Pflicht:
@@ -144,13 +168,10 @@ Beschreib kurz, was ihr braucht. Hilfreich ist alles davon, nichts davon ist Pfl
   - Wer arbeitet damit, und von wo (nur Mitarbeiter im Firmennetz, Partner, das Internet)?
   - Wie schlimm wäre es, wenn es einen Tag nicht erreichbar ist?
   - Wie weit zurück müsst ihr kommen, wenn jemand versehentlich etwas löscht?
+  - Muss eine Kopie überleben, wenn jemand die Daten absichtlich zerstört (Ransomware,
+    ein gekapertes Admin-Konto)?
+  - Wo dürfen die Daten liegen und verarbeitet werden: nur im Land, nur in der EU, egal?
   - Gibt es Vorgaben, die ihr nachweisen müsst (BSI C5, ISO 27001, DSGVO, interne Richtlinien)?
-```
-
-In engineer mode add the platform line, which is the one a customer cannot answer:
-
-```
-  - Was existiert schon (VNet, Log Analytics Workspace, DNS) und soll genutzt werden?
 ```
 
 Then map the answer onto the deployment set and every routed question set. Everything it
@@ -189,16 +210,10 @@ mapping:
 What remains open goes into Phase 3's batches. The description does not replace them; it
 shrinks them, and usually to the `required` questions nobody mentions unprompted.
 
-## Phase 1 — Establish the target and the layout
+## Phase 1 — Establish the layout
 
-Terraform or Bicep. Do not ask if the repository answers it:
-
-- `*.tf` or `.terraform.lock.hcl` present → Terraform
-- `*.bicep` or `bicepconfig.json` present → Bicep
-- both, or neither → then ask, once
-
-The same reading settles how the code is split, which the spec records under
-`composition.granularity`:
+The target is known from Phase 0. The same reading of the repository that answered it
+settles how the code is split, which the spec records under `composition.granularity`:
 
 - An existing `modules/` directory → match what is there, per module and per file
 - **Stages are part of the layout.** `context.environments` — `[development, test,
@@ -287,7 +302,7 @@ Defaults are not invented per resource — they come from
 [references/guardrails.md](references/guardrails.md), which is also where their reasoning
 lives. Read it before choosing any default or justifying one.
 
-## Phase 3 — Ask, in at most two batches
+## Phase 3 — Ask, in one batch
 
 Only what Phase 0's description left open reaches this phase, and only the audiences the
 mode allows. A question the user already answered in prose and is asked again tells them
@@ -300,60 +315,48 @@ about them, "there is no default for these" included, is a bug in the interview:
 is designing and has no deployment target yet. Whether the resource group exists or is
 created is not asked either; the boundary is that it exists.
 
-**In customer mode there is one batch**: the surviving `customer` questions — the
-environment, who reaches it and from where, the mandates, and the three requirements
-(outage impact, data-loss tolerance, access pattern), fewer when the description settled
-some. Nothing else is asked. An `engineer` question takes its default; a `platform`
+**There is one batch**: the surviving `customer` questions — the
+environment, who reaches it and from where, the mandates, and the `requirements` group
+(outage impact, data-loss tolerance, access pattern, backup isolation, data residency),
+fewer only where the description stated an answer. **The `requirements` group is asked in
+full, every run**: a requirement that has a default is still asked, because the default
+is the guardrail's guess and the customer is the only one who knows - skipping one because
+the batch looks long is the failure this group exists to prevent. There is no cap on the
+number of customer questions: the customer answers multiple choice, and a tenth option
+row costs them less than a decision nobody asked them about. Nothing else is asked. An `engineer` question takes its default; a `platform`
 question takes the profile's value or its default; a `required` question of either
 audience that nothing answers becomes an `open:` entry with its owner named, and Phase 4
 says so. Put the batch in the customer's words — the `ask` texts of the `requirements`
 group are written for that — and never a decision's vocabulary (`ZRS`, `TLS1_2`, a
 subnet) in a question to a customer.
 
-**In engineer mode** the two batches below apply, with the customer questions in the
-first.
+Phase 1 asks nothing: the target was Phase 0's first question and the layout is read
+from the repository. A round trip per phase is the serial interrogation this protocol
+exists to avoid.
 
-**Fold Phase 1's question into the first batch** when the repository did not answer it.
-Target and layout are two more questions, not a separate exchange — a round trip per
-phase is the serial interrogation this protocol exists to avoid.
-
-**The deployment batch first, on its own.** Its answers decide which resource questions
-survive at all — `network_exposure` removes the firewall questions, `local_auth` settles
-the key switch on every resource — so mixing the two batches asks things that the first
-batch would have answered. It also keeps a missing prerequisite where it belongs: that no
-workspace and no address range exist yet is a deployment problem, and discovering it
-halfway through a storage interview means the interview was wasted.
-
-**Then the resource batch.** Collect every question that survived and put them in a single
-exchange. Where
-the host offers `AskUserQuestion`, use it — grouped options with the trade-off in the
-description beat prose.
+**One exchange, every question in it.** Where the host offers `AskUserQuestion`, use it —
+grouped options with the trade-off in the description beat prose. The deployment set is
+resolved before the resource sets (Phase 2), so a `customer` question a resource set
+carries is already filtered by the deployment answers when it reaches the batch -
+`network_exposure: private` has removed the firewall questions before anyone sees them.
 
 A serial interrogation ("and now, the TLS version?") is the one failure mode that makes
 people abandon a tool like this, and it is entirely avoidable: the question set is known up
 front, so there is no reason to discover questions one at a time.
 
-If more than about six questions survive, you are asking things that should have defaults.
-Say so and propose the defaults instead.
+If an `engineer` or `platform` question survives into the batch, something is wrong: it
+is asking a thing that should have a default, a platform value or an `open:` entry. Never
+ask it; default it and say so in Phase 4, or open it with its owner.
 
-**Never offer an invented value as an option.** Grouped options work for an `enum`, where
-the values come from the question set. They are wrong for a `ref`, an address range, a
-subscription id, a workspace name — anything only the user's environment knows. Offering
-`log-we-prod-platform-01` as a choice does not help someone decide; it invites them to pick
-a plausible-looking identifier that does not exist, and a wrong ref surfaces at apply time.
-
-For those, ask whether the value is already assigned, and let the answer come as text:
-
-```
-Steht ein Adressraum für das neue VNet fest?
-  - Ja, ich gebe ihn an            -> the user types the CIDR
-  - Nein, noch keiner zugewiesen   -> name it as an open decision, do not pick one
-```
-
-An unassigned address range is a blocker to say out loud, not a gap to fill with
-`10.0.0.0/16`. The same holds for a workspace that does not exist yet: that is a
-boundary — something this run does not create — and the honest answer is to record it as
-missing rather than to reference a name nobody has.
+**Never invent a value nobody gave.** Grouped options work for an `enum`, where the
+values come from the question set. A `ref`, an address range, a subscription id, a
+workspace name — anything only the environment knows — is never offered as an option and
+never guessed: it comes from `platform.yaml`, from the stage file, or from the person's
+own prose in Phase 0, and otherwise it is an `open:` entry naming its owner. An
+unassigned address range is a blocker to say out loud, not a gap to fill with
+`10.0.0.0/16`; a workspace that does not exist yet is a boundary — something this run
+does not create — and the honest answer is to record it as missing rather than to
+reference a name nobody has.
 
 **Ask in the user's language; keep the artefacts in English.** The question sets are
 written in English, but a question put to someone who wrote their request in German is
@@ -370,7 +373,7 @@ the values whose blast radius makes a silent default inappropriate.
 
 ## Phase 4 — Report what was defaulted, before generating
 
-Show a compact account. Not forty rows — group it. In customer mode the account opens
+Show a compact account. Not forty rows — group it. The account opens
 with what the person's answers decided, in their words and their language, and keeps the
 technical rows for the engineer section below it:
 
@@ -419,7 +422,7 @@ argue with, and they can only do that if they see the chain.
 This is the step that keeps the plugin honest. Someone who disagrees with a default needs
 to see it to disagree with it, and the ones they never look at cost one glance.
 
-## Phase 5 — Write the spec, then ask twice before rendering
+## Phase 5 — Write the spec, draw it, loop on the picture, then render
 
 Write `infra-spec.yaml` into the user's repository first — the IaC root, or `infra/` —
 and validate it with `check_spec.py`.
@@ -449,6 +452,13 @@ invented line in a picture the customer signs off on is a decision nobody made. 
 the request leaves out is an `open:` entry only where the spec cannot work without it;
 otherwise the line is simply absent.
 
+**Customer-facing text in the spec is written in the customer's language** - the one
+exception to the English spec: `wiring.access[].label`, `wiring.purposes` and the
+`question` and `owner` of every `open:` entry are printed verbatim into the picture and
+the decision document, so an English label there is a `spec` finding of the review
+(found 2026-10-24: a German customer, five English labels and three English open items in
+their picture). Keys, values, `why`, `reason` stay English.
+
 **Write the decision document in the same step**, in the user's language:
 
 ```sh
@@ -459,53 +469,99 @@ It renders every decision in the spec as one line in the customer's words
 (`infra-decisions.md` beside the spec): what follows from their answers, with the
 decisions derived from each; what the rules set; what they decided differently; what is
 still open and from whom. It is the Phase 4 account as a file someone can send, and it is
-regenerated from the spec on every later run like the diagram. In customer mode it is the
+regenerated from the spec on every later run like the diagram. It is the
 artefact the person signs off on; the spec is for the engineer. The script reads the
 question sets' `plain` lines and falls back to English where a line lacks the language,
 and says how many did — translate those in the conversation rather than editing the file.
 
-Then stop and ask. The spec and the document are finished artefacts on their own, and the
-steps after them are the user's to start — each one produces files in their repository.
-
-**First: a diagram before the code?** The diagram is always delivered with a render
-([iac-rendering](../iac-rendering/SKILL.md), last step); what is asked here is whether the
-person wants to see it *before* the code, as the sign-off. Ask whether to draw the spec with
-[iac-diagram](../iac-diagram/SKILL.md) now. Recommend it when someone other than the person in
-the conversation has to sign off, or when the spec holds more than one resource; skip the
-recommendation for a single resource the user clearly understands. Offer the document as
-Word in the same question, once: the Markdown is already written, the `.docx` is a
-conversion (`pandoc infra-decisions.md -o infra-decisions.docx` where pandoc is on PATH;
-say so and leave the Markdown where it is not).
+**Then ask how the rest of the run works - once, here, before anything is drawn.** With
+the Agent tool available and a spec that spans more than one resource family, ask through
+`AskUserQuestion`: **Subagents** (recommended) or **Same session**. The answer covers both
+loops that follow - the diagram loop below and the code loop of
+[iac-rendering](../iac-rendering/SKILL.md) after the sign-off - and it is a working mode,
+not a decision: it is not written to the spec. Say what it costs: agents check each other
+and work in the background, but each starts cold and spends its own tokens; the same
+session is cheaper and does the steps itself. A spec of one family, or a host without the
+Agent tool, is not asked and runs in the same session.
 
 ```
-Die Spec liegt in infra/infra-spec.yaml, die Entscheidungen lesbar in infra/infra-decisions.md.
-Soll ich daraus ein Diagramm erstellen, und das Dokument auch als Word-Datei?
-  - Diagramm, ja (empfohlen)  -> infra-diagram.drawio.png, zum Prüfen oder Weitergeben
-  - Word-Datei, ja            -> infra-decisions.docx neben der Markdown-Datei
-  - Nein                      -> weiter zur Prüfung (das Diagramm kommt mit dem Code trotzdem)
+Wie soll ich weiterarbeiten?
+  1. Mit Subagenten (empfohlen) - Ein Agent zeichnet, ein zweiter prüft das Bild, bevor du
+     es siehst; später rendert und testet je ein Agent den Code. Gründlicher, kostet mehr
+  2. In dieser Sitzung - Ich mache alles selbst, nacheinander. Günstiger, keine zweite Prüfung
 ```
 
-**Second: does it match, and should the code be generated?** Show what the user is
-confirming — the diagram if there is one, otherwise the decision document's first two
-sections — and ask whether it meets the requirements:
+**Then draw it, without asking.** Nobody reads the spec; the customer reads the picture.
+Run [iac-diagram](../iac-diagram/SKILL.md) on the spec as soon as it validates and put
+`infra-diagram.drawio.png` beside it - every run, for a single storage account as much as
+for twelve resources, because the picture is the thing the person signs off on and the
+question "soll ich ein Diagramm zeichnen?" was a question nobody ever answered with no
+(dropped 2026-10-24). Where the PNG cannot be exported (no draw.io CLI), hand over the
+`.drawio` and say so.
+
+**Review it before anyone sees it - Loop 1 of
+[agents.md](../iac-rendering/references/agents.md).** The picture is not shown to the
+customer as it comes out of the script. A **review agent** (read-only; with Subagents a
+subagent, in the same session the session itself, with the same checklist) looks at the
+PNG and reports a numbered list: a line through an icon or another line, overlapping or
+wrapped labels, a label in the wrong language, a legend that contradicts a colour, a
+number or a name that disagrees with the spec. Each finding carries a severity (`error`:
+wrong, misleading or unreadable; `polish`: only looks worse than it could) and a cause
+(`render`: the drawing; `spec`: the spec says it that way). An `error` with cause
+`render` goes back to the **diagram agent**, which fixes it **by hand in the `.drawio`**
+the way [iac-diagram](../iac-diagram/SKILL.md) says - the affected cells by id, a
+waypoint, a geometry, a label - verifies, exports, and the review runs again. The script
+is not touched in the loop: `new_diagram.py` exists to produce the first draft cheaply,
+and the picture the customer signs off on is finished by hand. A fault the script would
+repeat on the next spec is noted in the hand-over as a plugin todo, not fixed now. Two passes, then the customer
+sees the picture as it is, with the open findings named. `polish` findings never go back;
+they go into the hand-over. **The review has a ceiling**, because a reviewer always finds
+more: at most **8 findings per pass, errors first, at most 3 of them `polish`**; the same
+fault on several cells is one finding that lists the cells; it reads the PNG and the spec
+and opens the `.drawio` only for a coordinate it needs, never samples pixels, and stops
+once the list is full. A second pass reports only what the first pass named and what the
+fix broke - never a fresh sweep. An `error` with cause `spec` is the main agent's: correct the
+spec, re-export the decision document, regenerate the draft - **and do that before the
+diagram agent starts its hand edits**, because a regenerated draft loses them; the order
+of a pass is spec findings first, then the hand edits on the fresh draft, then the review
+again. Every finding names the cells it concerns by their draw.io ids (`e-6`,
+`res-key-vault`), so the diagram agent can act on it without re-deriving it. **Never show
+the customer a picture with an error you have already seen** - that is what the loop is
+for.
+
+**The sign-off.** Show the reviewed picture and the decision document's first section (what
+follows from their answers), name what is still `open:` and from whom, and ask one
+question:
 
 ```
-Passt das so zu euren Anforderungen?
-  - Ja, Terraform-Code erzeugen  -> render into the same directory
-  - Etwas ändern                 -> the user says what; change the spec, redraw, ask again
-  - Noch nicht                   -> stop here; the spec stays and the next run extends it
+So sieht das System aus (infra/infra-diagram.drawio.png); was ihr entschieden habt, steht
+lesbar in infra/infra-decisions.md. Passt das so zu euren Anforderungen?
+  - Ja, passt                 -> the picture is signed off; the code is generated next
+  - Etwas ändern              -> the user says what; change the spec, redraw, ask again
+  - Noch nicht                -> stop here; the spec and the picture stay, the next run extends them
 ```
 
-The order is the point. An objection to the picture is a one-line change to the spec now,
-and a regenerated module later. "Etwas ändern" therefore loops back to the spec, never
-into the code: change the decision there, as `overridden` where it replaces an answer,
-regenerate the diagram if one exists, and ask the second question again.
+"Etwas ändern" loops back to the spec, never into code: change the decision there, as
+`overridden` where it replaces an answer, re-export the decision document, redraw, review
+again, ask again. An objection to the picture itself ("die Pfeile überlappen sich") is a
+review finding that the review missed: it goes to the diagram agent like any other
+`error`, and the customer sees the picture again only after the review passed. Stay in this loop as long as the person has objections - a round costs seconds
+here and a regenerated module later. Offer the decision document as Word once, in the
+first round, as a side line and not an option: the `.docx` is a conversion
+(`pandoc infra-decisions.md -o infra-decisions.docx` where pandoc is on PATH; say so and
+leave the Markdown where it is not).
 
-Never offer code generation as already decided. If the spec still holds `open:` entries or
-`assumed` values, say so in the question — the code will then `plan` but not `apply` —
-rather than letting "Ja" read as "ready to deploy".
+**Only after "Ja, passt" does the render start** ([iac-rendering](../iac-rendering/SKILL.md)),
+into the same directory, with its own loop of fmt, validate, tests and plan - Loop 2, in
+the working mode chosen above. It is the
+long step, and it runs on a picture the customer has agreed to, so nothing in it goes
+back to the interview. Say that it takes a while and what will be there at the end.
 
-A spec extended by a later run asks the same two questions; the diagram and the code are
+Never present the render as already decided. If the spec still holds `open:` entries or
+`assumed` values, say so with the question — the code will then `plan` but not `apply` —
+rather than letting "Ja, passt" read as "ready to deploy".
+
+A spec extended by a later run goes through the same loop; the diagram and the code are
 regenerated from the whole spec, so the diff shows what the extension moved.
 
 - Spec schema and the `source` field: [references/spec.md](references/spec.md)

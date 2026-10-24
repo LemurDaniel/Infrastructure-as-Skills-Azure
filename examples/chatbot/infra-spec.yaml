@@ -47,6 +47,12 @@ deployment:
   data_access_pattern:
     value: active
     source: default
+  backup_isolation:
+    value: operational
+    source: default
+  data_residency:
+    value: data_zone
+    source: stated
   landing_zone:
     value: corp
     source: stated
@@ -711,8 +717,8 @@ resources:
         source: stated
       deployment_sku:
         value: DataZoneStandard
-        source: forced
-        forced_by: deployment.mandates
+        source: requirement
+        derived_from: deployment.data_residency
       deployment_capacity:
         value: 10
         source: default

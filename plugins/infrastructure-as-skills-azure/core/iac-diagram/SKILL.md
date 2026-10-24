@@ -14,9 +14,10 @@ infra-spec.yaml  ──new_diagram──>  infra-diagram.drawio  ──export_di
 ```
 
 It draws **from the spec, never from rendered code**. That is what lets the diagram come
-before rendering — iac-authoring offers it once the spec is written, and asks about code
-only after: the customer signs off on the picture while changing a decision is
-still one line in the spec, not a regenerated module. It also keeps the diagram identical
+before rendering — iac-authoring draws it as soon as the spec is written, without asking,
+and loops on it with the customer until it fits; the render starts only after that
+sign-off, while changing a decision is still one line in the spec, not a regenerated
+module. It also keeps the diagram identical
 for Terraform and Bicep, as the spec is.
 
 ## Run it
@@ -42,27 +43,30 @@ every word because they inherit the 48px icon width, a label running into the ic
 role names stacked on the same line. The script does the bulk of the work, and does it
 without spending tokens on coordinates.
 
-**Then fine-tune by hand, last.** What the script cannot judge is taste: a label a few pixels
-off its line, a lane that sits a little tight, a colour that reads too close to its
-neighbour. Fix those on the generated file, in this order:
+**Then finish it by hand.** The script's job ends with the first draft: a cheap, correct
+starting point with every shape in a slot. What the customer signs off on is finished by
+hand on that file, against the review's findings (iac-authoring Phase 5, Loop 1) - a line
+through an icon, two edges on one track, a label on a line, a lane that sits tight, a
+colour that reads too close to its neighbour. In this order:
 
-1. Generate, verify, look at the picture, and list what is off.
-2. Sort the list. A fault that would recur on any spec (overlap, shared anchor, a line
-   through an icon, a legend that contradicts a colour) is a **script bug**: fix
-   `new_diagram.py` and regenerate, so the next spec benefits. A fault that is particular to
-   this picture is **hand work**.
-3. Keep the `.drawio` (`export_diagram.py --keep`, or `drawio_png.py extract`), edit only the
-   affected cells by id with Edit — `geometry`, `value`, a style attribute, a waypoint —
-   never rewrite the file, and never change the ids, which `verify_diagram.py` and the
-   `extract` diff rely on.
-4. `verify_diagram.py`, then `export_diagram.py`, then look at the picture again. Each
+1. Generate, verify, look at the picture (or take the review agent's list), and list what
+   is off.
+2. Keep the `.drawio` (`export_diagram.py --keep`, or `drawio_png.py extract`), edit only
+   the affected cells by id with Edit — `geometry`, `value`, a style attribute, a
+   waypoint, an `exitX`/`entryX` anchor — never rewrite the file, and never change the
+   ids, which `verify_diagram.py` and the `extract` diff rely on. Move a shape where the
+   picture needs it; the computed slot was a starting point, not a rule.
+3. `verify_diagram.py`, then `export_diagram.py`, then look at the picture again. Each
    hand edit must pass the same checks as a generated one.
+4. **Do not touch `new_diagram.py` in the loop.** A fault the script would repeat on the
+   next spec (a routing that merges edges, a slot too narrow for its label) is written
+   into the hand-over as a plugin todo, with the cell ids it hit, and fixed in a session of
+   its own - never while a customer waits for the picture.
 
-Hand edits are the **last step and are lost on regeneration**: tune only once the spec is
-settled, and if the spec changes afterwards, regenerate and redo the edits (note them in the
-hand-over so that is possible). Never hand-edit to silence `overlaps` or `does not fit`, and
-never move a shape the script placed on a computed slot by more than a few pixels — a
-bigger move is a script bug.
+Hand edits are **lost on regeneration**: if the spec changes after them ("etwas ändern"),
+regenerate and redo the edits, so note them in the hand-over. Never hand-edit to silence
+`overlaps` or `does not fit` from the script - those are the script failing on its own
+draft and are reported as such.
 
 **One file is delivered: `infra-diagram.drawio.png`.** A PNG with the diagram embedded — it
 opens in a document, a chat or an email like any image, and opens in draw.io as the
@@ -74,9 +78,13 @@ Exit codes, all scripts: `0` ok, `1` failed, `2` could not run.
 
 - `new_diagram.py` exit 1 with `overlaps` or `does not fit` is a layout bug in the script, not
   something to patch in the output.
-- `export_diagram.py` exit 2 means draw.io desktop is not installed. Say so, deliver the
-  `.drawio` file (the one case where it is the deliverable), and do not substitute a different renderer — a PNG without the embedded
-  diagram is a picture the customer cannot correct.
+- `export_diagram.py` exit 2 means draw.io desktop is not installed. Say so. A substitute
+  renderer is acceptable only when the result is the same deliverable: the `.drawio` XML
+  embedded into the PNG afterwards (`drawio_png.py embed`) and `drawio_png.py check`
+  passing - a cloud session has done it through draw.io's viewer script in headless
+  Chromium. A PNG without the embedded diagram is a picture the customer cannot correct;
+  where no renderer at all is available, deliver the `.drawio` file (the one case where
+  it is the deliverable).
 - `export_diagram.py` repairs and checks the PNG after an embedded export. The draw.io
   desktop CLI writes a bad zTXt CRC and no IEND chunk with `--embed-diagram`, every time:
   browsers still show it, strict decoders (and Claude's image reader) reject it. Never

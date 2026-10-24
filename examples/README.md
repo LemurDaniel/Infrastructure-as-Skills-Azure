@@ -7,6 +7,7 @@ idiom, a reviewer sees what `source:` buys.
 
 | Example | Targets | Scenario | Why it is here |
 |---|---|---|---|
+| [`chat-sandbox/`](chat-sandbox/) | Terraform | A small chat environment for development on one `[sandbox]` stage, public, deployed by hand: a containerised web app on App Service, models in AI Foundry, AI Search for retrieval, a storage account, a key vault holding the Entra app's client secret as a placeholder, its own Log Analytics workspace; `landing_zone: standalone`, no network | The first run of the whole flow with a customer in the conversation and both loops with subagents (`request.md` tells it). Authored Terraform (`module_source: authored`), the naming provider, `deploy.ps1` as the local delivery with the placeholder refusal; the three open items (image, models, the Entra app) as placeholders in the stage file. 118 decisions, 92 under `resources:` all asserted or marked (83 / 9), 32 test files. The run found the firewall trap (`public` + no network) and the sandbox cost rule, both written into the sets the same day; the diagram was finished by hand after the review |
 | [`chatbot/`](chatbot/) | Terraform | An internal RAG chatbot on one stage (the request said "nur Produktion"): twelve kinds of resource, two of them twice - web app and MCP server on App Service, a connector function (Flex Consumption), a code interpreter on Container Apps, models in AI Foundry, AI Search, Cosmos DB, two storage accounts, Key Vault, Container Registry, Application Insights - in a spoke network of its own in a corp landing zone, the platform's DNS, its own workspace, every service private and keyless | The complex case, built from the sets added for it: 284 decisions across 20 resources, every role between them a `role_assignments` entry, `<set>__<instance>` keys for a second resource of one kind, seven open items (the Entra app registration among them). One root, 16 AVM module calls and the container environment authored - its module declares an ephemeral resource that mock providers cannot plan. 79 decisions are asserted, 205 marked not-testable with a reason. The Cosmos DB, Key Vault, Foundry, Search, Container Apps, Function App and Application Insights references were corrected by running it. No Bicep, no pipeline; nothing applied |
 | [`chatbot-rag/`](chatbot-rag/) | Terraform | A small chat app on Azure AI Foundry with a RAG system on the default three-stage stack: standalone landing zone (own network, own private DNS zones, own workspace), private, `deploy_mechanism: github` | Authored resources throughout (`module_source: authored`), one `res.<kind>.tf` file per concern, a test file per resource and question group. Address ranges, models, runtime, subscriptions and groups are `open:` - the stage files hold placeholders until they are answered |
 
@@ -16,6 +17,9 @@ idiom, a reviewer sees what `source:` buys.
 ```
 <case>/
   request.md            # the user's words, verbatim
+  deploy.ps1            # the local delivery for deploy_mechanism: local - no pipeline
+  CLAUDE.md             # what the render leaves in the customer's repository: the spec is the
+                        # source of truth, a code change is a spec change first (rule 11)
   request.pipeline.md   # a follow-up request, where an extension run added to the spec
   infra-spec.yaml       # the interview's output - the artefact everything else follows from
   infra-decisions.md    # the spec as the customer reads it, rendered by export_decisions.py

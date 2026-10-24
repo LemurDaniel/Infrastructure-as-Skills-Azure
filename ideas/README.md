@@ -12,5 +12,6 @@ up it moves to `ROADMAP.md` and its file gets a pointer to it.
 | [Cost estimate and profiles](cost-and-security-profiles.md) - cost-first / security-first | Sketch |
 | [Eval dashboard](eval-dashboard.md) - runs over time | Sketch |
 | [Spec versions and diff](spec-diff.md) - readable "what changed" between two specs | Sketch |
+| [Spec drift check](spec-drift-check.md) - spec vs. tests vs. plan, every decision whose values disagree | Sketch |
 | [Guardrails as policy](guardrails-as-policy.md) - same rules enforced as Azure Policy / Checkov | Sketch, large |
 | [Question-set generator](question-set-generator.md) - drafts new families | Sketch |

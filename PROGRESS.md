@@ -70,11 +70,11 @@ Verified Modules first, authored resources second.
   so "everything is tested" is a gate, not an intention.
 - **The interview is the customer's, alone.** Decided 2026-10-18: the person answering
   sits in front of the plugin without an engineer, so every question carries an
-  `audience`, the customer answers about six requirement questions in their own words,
+  `audience`, the customer answers the requirement questions in their own words,
   technical decisions are derived from those (`source: requirement`), platform facts come
   from a `platform.yaml` (`source: platform`), and an engineer question nobody can answer
-  becomes an `open:` entry instead of a question. Customer mode is the default; the
-  engineer mode is entered on request or when the repository shows it. The plugin is
+  becomes an `open:` entry instead of a question. The engineer mode that existed beside
+  it was dropped 2026-10-24 (below). The plugin is
   public and has to hold for any use case. Beside the diagram, a decision document in the
   customer's language (Markdown first, Word offered once) is a deliverable. Plan:
   `ROADMAP.md`, phases A–E. B1 and B3 landed the same day: every one of the 82
@@ -91,10 +91,140 @@ Verified Modules first, authored resources second.
   deployment set; the spec records `source: requirement` + `derived_from`, and the
   default answer derives the guardrail default so an unanswered requirement changes
   nothing. Both checks verify the map covers every answer. Customer questions in a
-  run: environment, exposure, mandates, the three requirements, and log retention when
-  the deployment owns the workspace - six, the budget (the module choice, asked first, is one more). `iac-authoring` now has the two
+  run: environment, exposure, mandates, the requirements, and log retention when
+  the deployment owns the workspace (the module choice, asked first, is one more; the
+  cap of six was dropped 2026-10-24, below). `iac-authoring` now has the two
   modes: customer (default; only `customer` questions asked, the rest resolved or
-  opened) and engineer.
+  opened) and engineer - the second dropped again on 2026-10-24.
+- **Two more requirements, and no cap on customer questions.** Owner's call, 2026-10-24,
+  after an interview that did not put `data_loss_tolerance` to them: a defaulted
+  requirement was being dropped as the batch grew past the "about six" rule. The rule is
+  gone from `SKILL.md`, `question-set-format.md` and `ROADMAP.md` - the customer answers
+  multiple choice, a guess recorded as their decision is the expensive thing - and the
+  `requirements` group is asked in full on every run, defaults included. Added:
+  `backup_isolation` (operational / isolated / immutable: who can destroy the copies, as
+  distinct from how far back they reach) and `data_residency` (country / data_zone /
+  unrestricted; default `data_zone`, confirmed in production). `data_residency` now
+  derives `foundry.deployment_sku` (was a default forced by a free-text mandate) and
+  constrains, in `forced_when` prose, storage `replication` (GZRS → ZRS where the paired
+  region is in another country), Cosmos `geo_replicas` and `backup_storage_redundancy`,
+  ACR `geo_replicas`. `backup_isolation` derives nothing yet: `isolated` and `immutable`
+  need a Backup vault resource set this plugin does not have, so they are said out loud as
+  a missing set; Cosmos meets `isolated` by itself and names `immutable` as a gap. The
+  five example specs carry both answers (`default`; chatbot's residency `stated` from its
+  EU mandate) and their decision documents are re-exported. Not done: the Backup vault
+  set (`recovery/backup-vault`, vaulted blob backup, immutability), a resource lock
+  decision, a pipeline guard that checks a stage's `location` against the residency, and
+  an eval case that asserts both questions are put to the customer.
+- **One audience: the engineer mode is gone.** Owner's call, 2026-10-24: the plugin
+  addresses a customer, so `iac-authoring` has no second mode to enter, no mode to
+  announce and no two-batch Phase 3. `customer` questions are asked in one batch,
+  `platform` comes from the profile or opens, `engineer` defaults, derives or opens. An
+  engineer gets the same interview: what they know beyond it they say in prose and it is
+  recorded `stated`; a later change is `overridden` in the spec. `audience: engineer`
+  stays on the questions - it names who owns the default and the `open:` entries, not a
+  mode. Not done: the evals have no case that puts an engineer-flavoured request in and
+  checks that no `engineer` question is asked.
+- **The target is Phase 0's first question.** Owner's call, 2026-10-24: Terraform or Bicep
+  is asked before the module choice and the naming mechanism, through `AskUserQuestion`,
+  two options, none recommended - skipped when the repository or a carried spec answers
+  it. It was Phase 1's question, folded into the Phase 3 batch, while the naming question
+  that exists only for Terraform was already asked in Phase 0: the order was inconsistent.
+  Phase 1 now only reads the layout and asks nothing.
+- **The picture before the code, always.** Owner's call, 2026-10-24: nobody reads the
+  spec, the customer reads the diagram. Phase 5 no longer asks whether to draw: the
+  diagram is drawn as soon as the spec validates, shown with the decision document's
+  first section, and the one question is "passt das so?" - a loop of change the spec,
+  re-export, redraw, ask again, for as long as the person objects. The render (the long
+  step) starts only after "ja, passt". The Word offer is a side line in the first round,
+  no longer an option. `iac-diagram` and `iac-rendering` rule 9 say the same; the evals
+  were not re-run on the new flow.
+  `docs/process.drawio.png` and `docs/process-agents.drawio.png` redrawn to the flow of
+  this day (phases, one audience, the sign-off loop before the render); without draw.io
+  in the cloud session they were rendered from their embedded XML through the draw.io
+  viewer script in headless Chromium, with the XML re-embedded by `drawio_png.py embed`
+  - open them in draw.io once on the owner's machine to confirm they still edit. The
+  agents picture was then redrawn a second time on the owner's remark: not two parallel
+  arms but **two loops in sequence** - the diagram loop (diagram agent, review agent,
+  customer sign-off, Phase 5) first, the code loop only after the yes - and the code loop
+  never redraws: the picture is the customer's, a spec finding goes back to Loop 1.
+  **Found by the first full dry run (2026-10-24, a public chat sandbox: App Service
+  container, Foundry, Search, Storage, Key Vault, own workspace):** Phase 5 of
+  `iac-authoring` did not say to review the picture before showing it, and the
+  "Subagents or same session" question sat in `iac-rendering` rule 11, after the
+  sign-off - so the session drew, saw overlapping arrows, and showed the picture anyway.
+  Both fixed: Phase 5 asks the working mode first, then draws, then runs Loop 1 (review
+  agent, errors back to the diagram agent, two passes) before the sign-off; rule 11 only
+  re-asks for a render without a Phase 5. Owner's rule from the same run: the script only
+  makes the first draft; the diagram agent fixes the review's findings **by hand in the
+  `.drawio`** and never touches `new_diagram.py` inside the loop - script faults become a
+  plugin todo in the hand-over. And the review is capped (8 findings per pass, errors
+  first, at most 3 polish, no pixel sampling, a second pass re-checks only) after the
+  first uncapped review returned 17 findings in six minutes. Also written down from the
+  run, 2026-10-24: customer-facing spec text (wiring labels, purposes, open questions and
+  owners) is in the customer's language; spec findings are fixed and the draft regenerated
+  before the hand edits; every resource inheriting the exposure carries a `forced_when`
+  that `network_ownership: none` forces `enabled`; a `[sandbox]` stack takes every
+  `non_production_default` by rule; a substitute renderer is allowed when the XML is
+  embedded afterwards. Not done: `export_decisions.py` still prints `reason` untranslated
+  (the open texts are German in the spec by rule now), and the script faults of
+  `new_diagram.py` from the review (PaaS-to-PaaS edges unrouted, shared anchors, branch
+  labels on the trunk, the law subline, the role-count line) are a plugin todo.
+- **The first full dry run went through both loops with subagents, 2026-10-24**, on the
+  chat sandbox above (`[sandbox]`, public, authored Terraform, naming provider, local
+  deploy): Loop 1 review (uncapped, 17 findings) → diagram agent fixed 7 errors by hand
+  (reordered the PaaS column, own anchors, own tracks, labels beside their drops) → second
+  review 0 errors → customer's yes; Loop 2 code agent (14 min, 32 tests, 92/92 covered,
+  9 not-testable) → pipeline agent (`deploy.ps1`) → test agent 0 errors, 3 polish, green.
+  Nothing was planned or applied against Azure; Terraform 1.9.8 was downloaded into the
+  session, the providers came through the proxy. The run is committed as
+  `examples/chat-sandbox/` (request, spec, decisions, hand-finished diagram, authored
+  Terraform, 32 tests, `deploy.ps1`), after two corrections the owner asked for and the
+  sandbox rule now makes by itself: plan B1 and search `basic` (forced by `environments`),
+  the vault without purge protection and with a 7-day soft-delete window (`overridden`).
+  The diagram's decision panel was finished by hand before those two and does not list
+  the new forced chain; `verify_diagram.py` still passes. **The render now leaves a
+  `CLAUDE.md` section in the customer's repository** (rule 11 of `iac-rendering`, owner's
+  call after that SKU correction): the spec is the source of truth, a code change is a
+  spec change first (`overridden` + `reason`), what regenerates from it, which checks prove
+  the two agree; created or replaced between two markers, the rest of the file untouched.
+  `examples/chat-sandbox/CLAUDE.md` is the rendered one. A drift check that compares spec,
+  tests and plan is `ideas/spec-drift-check.md`. **Plugin findings the agents reported, all open:**
+  (1) `log-analytics-workspace/terraform.md`, `app-service/terraform.md`,
+  `foundry/terraform.md` and several `renders` lines carry azurerm 4.x spellings
+  (`internet_*_enabled`, `local_authentication_disabled`, `*_basic_auth_enabled`,
+  `legacy_access_policies_enabled`, "use azapi" for Foundry projects) - 5.x has
+  `internet_ingestion_access_type`, `local_authentication_enabled`,
+  `ftp/webdeploy_publish_basic_authentication_enabled`, `azurerm_cognitive_account_project`;
+  only storage takes the string `public_network_access`, the others keep the bool.
+  (2) A non-empty `key-vault.secret_placeholders` needs the applying identity to hold Key
+  Vault Secrets Officer, and rendered role assignments need RBAC Administrator - neither
+  is in the spec's roles nor derivable from `pipeline_auth`; the interview should add the
+  deployer's roles, `pipelines.md`'s hand-over list the data-plane roles.
+  (3) The spec has no `open:` entries for `subscription_id` and `resource_group_name`
+  although the stage file carries placeholders for them; and `check_pipeline.py` counts an
+  `open:` entry without `environments` as resolved - a false fail on every such entry
+  (worked around in the run by naming the stage on each entry).
+  (4) `check_pipeline.py` applies the workload-identity secret grep to `local`, and its
+  `client[-_]?secret` pattern matches the placeholder name `entra-client-secret`.
+  (5) `pipelines.local.md`'s script runs `validate` after the backend init and has no
+  `terraform test`, no `-reconfigure`, no cd to its own directory; `terraform-idiom.md`
+  says the empty backend block is for non-local only, but the local script passes
+  `-backend-config` too. (6) `storage-account.private_endpoint_subresources` has no
+  `depends_on` and lands in a spec without a network; `foundry.restrict_outbound: true`
+  has no `allowed_fqdns` question, so the account may call out to nothing. (7) The
+  idiom's mock example needs a GUID `tenant_id` for `data.azurerm_client_config`, and
+  `terraform providers schema -json` refuses a root with an empty backend block unless
+  run on a copy without it. (8) `terraform test` names in `naming.tftest.hcl` prove
+  "from naming.yaml", not the deployed suffix, when the stage file holds placeholders. The dry run's other findings, not yet fixed:
+  `public` maps to `enabled_with_firewall` on every resource, but with
+  `network_ownership: none` the app has no fixed outbound address and an empty firewall
+  locks it out of its own backends (overridden by hand in the run; wants a `forced_when`:
+  none forces `enabled`); `new_diagram.py` routes the search → foundry edge through the
+  key vault icon and merges the app's edges into one bus with stacked labels; the
+  decision document prints `reason` and `open:` texts untranslated; "1 Kopien der App"
+  needs a singular form. `agents.md` and rule 11 of
+  `iac-rendering` say the same now.
 - **The decision document is rendered, not written.** B5, 2026-10-18. Every question
   carries `plain` (`en` and `de`, `{value}` where the value goes) and, where a raw value
   means nothing to a customer, `plain_values`; `export_decisions.py` turns a spec into
@@ -208,8 +338,8 @@ Verified Modules first, authored resources second.
   or GitLab accepting their file (no lint available offline), and GitHub with Bicep has a
   fixture and `actionlint` but no rendered example. `spec.md` documents the keys; the
   diagram does not draw the pipeline, by the owner's call (not needed). Not yet done: no
-  eval case for the delivery questions, and `deploy_mechanism` is a customer question on top
-  of an interview already over its six-question budget.
+  eval case for the delivery questions, and `deploy_mechanism` is a customer question that
+  the repository usually answers (a candidate for `engineer`).
 - **`security` landed 2026-10-23** (`key-vault` 23 questions, `user-assigned-identity` 5; both checks green):
   taken from the adessoGPT architecture diagram (`adessoGPT-architektur.drawio.png`), a
   complex case that needs ~10 more resource sets. Owner's call: all Azure resources, family
@@ -387,6 +517,9 @@ Verified Modules first, authored resources second.
 
 ## Next
 
+Build the `recovery/backup-vault` set so `backup_isolation: isolated | immutable` renders
+instead of being named as missing, and add an eval case that asserts the whole
+`requirements` group reaches the customer (the gap that surfaced on 2026-10-24).
 Add the two missing rules to `agents.md` (a severity *not checkable*, one cause per finding). Widen the plugin-vs-plain measurement (3 runs per arm, cases on the small decisions, ~$15-25)
 before trusting the pilot. Re-run the eval suite (full, ~$5) against the two rules written after the baseline and
 accept the run if `vague-public-dev` rises without the other two dropping. Then

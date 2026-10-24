@@ -25,9 +25,11 @@ rules, and record in the spec that no question set backed it.
 
 ## True for the whole family
 
-**Data is where the customer's three requirements land.** `outage_impact` decides zone
+**Data is where the customer's requirements land.** `outage_impact` decides zone
 redundancy and a second region, `data_loss_tolerance` decides how far back a restore reaches,
-`data_access_pattern` decides tiering where a resource has it. The customer is asked nothing
+`data_access_pattern` decides tiering where a resource has it, `data_residency` decides
+which regions a replica or a geo copy may land in, and `backup_isolation` whether a
+separate backup store is wanted - which Cosmos DB meets by itself. The customer is asked nothing
 new; the engineer's own questions are the data model's.
 
 **What cannot be changed after creation is the decision to take slowly.** A partition key,

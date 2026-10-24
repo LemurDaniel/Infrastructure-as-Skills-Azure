@@ -195,22 +195,25 @@ groups:
           DataZoneStandard: { en: "anywhere inside the same data zone (for example the EU)", de: "überall innerhalb derselben Datenzone (zum Beispiel der EU)" }
           GlobalStandard: { en: "anywhere in the world, with the largest quota and the newest models", de: "irgendwo auf der Welt, mit dem größten Kontingent und den neuesten Modellen" }
         values: [Standard, DataZoneStandard, GlobalStandard]
-        default: DataZoneStandard
+        derived_from:
+          question: data_residency
+          map: { country: Standard, data_zone: DataZoneStandard, unrestricted: GlobalStandard }
         confirm_in: [production]
         why: >
           **This is a data-residency decision, and it is the one the portal makes for you**:
           the portal's default is `GlobalStandard`, which may process a prompt in any region.
           Data at rest stays in the account's geography either way, but processing does not,
-          and a prompt is data. `DataZoneStandard` keeps processing inside the data zone, which
-          is what a mandate that names the EU needs, at the price of a smaller catalogue
-          and quota. A customer's `mandates` that name a residency force `Standard` or
-          `DataZoneStandard`; `GlobalStandard` is a recorded departure. Provisioned
-          (reserved) throughput is a different, billed-by-the-hour purchase and is not offered.
-          The default is the guardrails' conservative reading; it is a judgement, written
-          down so a reviewer can disagree.
+          and a prompt is data. Derived from where the customer said the data may be:
+          `country` keeps processing in the region, with the smallest catalogue and quota;
+          `data_zone` keeps it inside the data zone (the EU, the US), which is what a GDPR
+          reading needs and is the guardrail default; `unrestricted` buys the largest
+          catalogue and quota. A `mandates` entry naming a residency rule is the reason
+          behind the customer's answer, not a second switch. Provisioned (reserved)
+          throughput is a different, billed-by-the-hour purchase and is not offered.
         forced_when: >
-          A mandate naming data residency forbids `GlobalStandard`, recorded as forced with
-          the mandate as forced_by
+          A model not offered in the derived deployment type (some are `GlobalStandard`
+          only) is not deployed under `country` or `data_zone`; the gap is named, never
+          widened to `GlobalStandard` silently
         renders: cognitive_deployments.<key>.scale.type / deployments[].sku.name
 
       - id: deployment_capacity
@@ -299,6 +302,12 @@ groups:
           surface, so the posture is always written. With `disabled` the account answers only
           through its private endpoint, which is also how the Foundry portal's playground
           reaches it - from inside the network.
+        forced_when: >
+          `network_ownership: none` (a public deployment without a network) forces
+          `enabled`, recorded as forced with `network_ownership` as forced_by: the
+          deployment's own callers have no fixed outbound address, so a firewall with no
+          rule locks them out of this resource - the first dry run (2026-10-24) hit it on
+          five resources at once
         renders: >
           terraform: public_network_access_enabled (bool) and network_acls;
           bicep: publicNetworkAccess and networkAcls

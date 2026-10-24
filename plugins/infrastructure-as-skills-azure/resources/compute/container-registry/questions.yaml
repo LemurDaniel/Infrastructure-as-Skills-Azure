@@ -144,7 +144,9 @@ groups:
           is wanted: with no region named the decision is an `open:` entry owned by the
           workload owner, naming the paired region as the usual answer.
         forced_when: >
-          `outage_impact: critical` requires at least one entry here, or an `open:` entry
+          `outage_impact: critical` requires at least one entry here, or an `open:` entry;
+          every region named must satisfy `data_residency`, and one that does not is
+          refused with the residency as the reason
         renders: georeplications / replications
 
       - id: retention_untagged_days
@@ -190,6 +192,12 @@ groups:
           network - which also means the pipeline that pushes the image must run inside it, or
           push through a task, or the registry is open while images are pushed. That is the
           usual snag and a decision for the pipeline, not for this set.
+        forced_when: >
+          `network_ownership: none` (a public deployment without a network) forces
+          `enabled`, recorded as forced with `network_ownership` as forced_by: the
+          deployment's own callers have no fixed outbound address, so a firewall with no
+          rule locks them out of this resource - the first dry run (2026-10-24) hit it on
+          five resources at once
         renders: >
           terraform: public_network_access_enabled (bool) and network_rule_set;
           bicep: publicNetworkAccess and networkRuleSetIpRules

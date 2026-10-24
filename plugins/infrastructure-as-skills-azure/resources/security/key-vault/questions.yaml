@@ -183,6 +183,12 @@ groups:
           between the internet and them. With `disabled` it answers only through its
           private endpoint, so the deploying agent has to run inside the network - or the
           vault is created before it is closed.
+        forced_when: >
+          `network_ownership: none` (a public deployment without a network) forces
+          `enabled`, recorded as forced with `network_ownership` as forced_by: the
+          deployment's own callers have no fixed outbound address, so a firewall with no
+          rule locks them out of this resource - the first dry run (2026-10-24) hit it on
+          five resources at once
         renders: >
           terraform: public_network_access_enabled (bool) and network_acls (null only for
           `enabled`); bicep: publicNetworkAccess and networkAcls.defaultAction

@@ -38,6 +38,10 @@ Stand 2026-10-23. Spezifikation: `infra-spec.yaml`.
 - **Die Daten werden laufend genutzt.** _(nicht gesagt, daher gilt die übliche Antwort)_
   - daher, Azure Storage Account (uploads): Gespeichert in der Klasse Standard: günstig beim Lesen, für Daten in Nutzung.
   - daher, Azure Storage Account (host): Gespeichert in der Klasse Standard: günstig beim Lesen, für Daten in Nutzung.
+- **Gegen absichtliche Zerstörung sind die Daten nur innerhalb des Systems selbst geschützt; wer das System löschen kann, kann auch die Kopien löschen.** _(nicht gesagt, daher gilt die übliche Antwort)_
+- **Die Daten werden nur innerhalb des Wirtschaftsraums der Region, zum Beispiel der EU gespeichert und verarbeitet.** _(aus eurer Beschreibung)_
+  - daher, Azure AI Foundry (AI Services account with projects and model deployments): Anfragen an die Modelle werden überall innerhalb derselben Datenzone (zum Beispiel der EU) verarbeitet.
+- **Der Code wird aus Microsofts geprüften, getesteten Bausteinen (Azure Verified Modules) gebaut.** _(nicht gesagt, daher gilt die übliche Antwort)_
 - **Der Zugang ist nur privat, nichts ist aus dem Internet erreichbar.** _(aus eurer Beschreibung)_
 - **Einzuhaltende Vorgaben: Datenverarbeitung nur in der EU.** _(aus eurer Beschreibung)_
 - **Protokolle werden 30 Tage aufbewahrt.** _(aus eurer Beschreibung)_
@@ -48,7 +52,6 @@ Nichts davon wurde gefragt; jede Zeile folgt einer Regel oder einer der Antworte
 
 ### Für das ganze System
 
-- Der Code wird aus Microsofts geprüften, getesteten Bausteinen (Azure Verified Modules) gebaut.
 - Nutzungstelemetrie an Microsoft ist eingeschaltet: eine Zählung pro Ausrollen, keine eurer Daten.
 - Das System landet in dem internen Teil der Firmenplattform, verbunden mit dem Firmennetz.
 - Passwörter und Zugriffsschlüssel sind abgeschaltet; der Zugriff läuft über Firmenkonten, damit jede Aktion zuordenbar ist.
@@ -240,7 +243,6 @@ Nichts davon wurde gefragt; jede Zeile folgt einer Regel oder einer der Antworte
 - Das Konto enthält Foundry-Projekte als Behälter für Zugriff, Daten und Kosten.
 - Das Konto enthält die Projekte chatbot.
 - Das Konto stellt die Modelle chat format OpenAI, model gpt-4.1, version 2025-04-14, embeddings format OpenAI, model text-embedding-3-large, version 1 bereit.
-- Anfragen an die Modelle werden überall innerhalb derselben Datenzone (zum Beispiel der EU) verarbeitet. — weil: Einzuhaltende Vorgaben: Datenverarbeitung nur in der EU.
 - Jedes Modell darf bis zu 10 Tausend Token pro Minute verarbeiten.
 - Läuft die Modellversion aus, wechselt sie an diesem Tag auf die neue Standardversion.
 - Anfragen und Antworten werden vom Inhaltsfilter Microsoft.DefaultV2 geprüft.
@@ -409,6 +411,8 @@ Solange diese Punkte offen sind, wird nichts ausgerollt.
 | `deployment.outage_impact` | disruptive | Regel |
 | `deployment.data_loss_tolerance` | one_week | Regel |
 | `deployment.data_access_pattern` | active | Regel |
+| `deployment.backup_isolation` | operational | Regel |
+| `deployment.data_residency` | data_zone | eure Beschreibung |
 | `deployment.landing_zone` | corp | eure Beschreibung |
 | `deployment.network_exposure` | private | eure Beschreibung |
 | `deployment.local_auth` | disabled | Regel |
@@ -572,7 +576,7 @@ Solange diese Punkte offen sind, wird nichts ausgerollt.
 | `foundry.account.project_management` | true | Regel |
 | `foundry.account.projects` | ["chatbot"] | eure Beschreibung |
 | `foundry.models.model_deployments` | [{"name": "chat", "format": "OpenAI", "model": "gpt-4.1", "version": "2025-04-14"}, {"name": "embeddings", "format": "OpenAI", "model": "text-embedding-3-large", "version": "1"}] | eure Beschreibung |
-| `foundry.models.deployment_sku` | DataZoneStandard | erzwungen |
+| `foundry.models.deployment_sku` | DataZoneStandard | abgeleitet aus eurer Antwort |
 | `foundry.models.deployment_capacity` | 10 | Regel |
 | `foundry.models.version_upgrade_option` | OnceCurrentVersionExpired | Regel |
 | `foundry.models.content_filter` | Microsoft.DefaultV2 | Regel |
@@ -708,6 +712,6 @@ Solange diese Punkte offen sind, wird nichts ausgerollt.
 | `app-service__mcp.observability.diagnostic_workspace` | {"production": "log-analytics-workspace"} | übernommen |
 | `app-service__mcp.observability.diagnostic_categories` | ["AppServiceHTTPLogs", "AppServiceAppLogs", "AppServiceAuditLogs", "AppServiceIPSecAuditLogs", "AppServicePlatformLogs"] | Regel |
 | `app-service__mcp.observability.metrics_enabled` | true | Regel |
-| `wiring.access` | [{"from": "users", "to": "app-service__web", "label": "HTTPS 443"}, {"from": "app-service__web", "to": "external:entra-id", "label": "sign-in"}, {"from": "app-service__web", "to": "app-service__mcp"}, {"from": "app-service__web", "to": "foundry"}, {"from": "app-service__web", "to": "search-service"}, {"from": "app-service__web", "to": "cosmos-db"}, {"from": "app-service__web", "to": "storage-account__uploads"}, {"from": "app-service__web", "to": "key-vault"}, {"from": "app-service__mcp", "to": "container-apps", "label": "runs code"}, {"from": "app-service__mcp", "to": "foundry"}, {"from": "function-app", "to": "search-service"}, {"from": "function-app", "to": "foundry"}, {"from": "function-app", "to": "key-vault"}, {"from": "function-app", "to": "storage-account__host"}, {"from": "function-app", "to": "application-insights"}, {"from": "container-apps", "to": "container-registry", "label": "pulls its image"}, {"from": "search-service", "to": "storage-account__uploads", "label": "indexes"}, {"from": "search-service", "to": "foundry", "label": "embeds"}] | eure Beschreibung |
-| `wiring.purposes` | {"app-service__web": "Chat front end and back end", "app-service__mcp": "MCP tool server", "function-app": "Connector to the document store", "container-apps": "Code interpreter", "foundry": "Chat and embedding models", "search-service": "Vector and keyword search", "cosmos-db": "Conversation history", "storage-account__uploads": "Uploaded files", "storage-account__host": "State of the connector function", "key-vault": "Secrets", "container-registry": "Images of all apps", "application-insights": "Application telemetry"} | eure Beschreibung |
+| `wiring.access` | [{"from": "users", "to": "app-service__web", "label": "HTTPS 443"}, {"from": "app-service__web", "to": "external:entra-id", "label": "sign-in"}, {"from": "app-service__web", "to": "app-service__mcp"}, {"from": "app-service__web", "to": "foundry"}, {"from": "app-service__web", "to": "search-service"}, {"from": "app-service__web", "to": "cosmos-db"}, {"from": "app-service__web", "to": "storage-account__uploads"}, {"from": "app-service__web", "to": "key-vault"}, {"from": "app-service__mcp", "to": "container-apps"}, {"from": "app-service__mcp", "to": "foundry"}, {"from": "function-app", "to": "search-service"}, {"from": "function-app", "to": "foundry"}, {"from": "function-app", "to": "key-vault"}, {"from": "function-app", "to": "storage-account__host"}, {"from": "function-app", "to": "application-insights"}, {"from": "container-apps", "to": "container-registry", "label": "pulls its image"}] | eure Beschreibung |
+| `wiring.purposes` | {"app-service__web": "Chat front end and back end", "app-service__mcp": "MCP tool server", "function-app": "Connector to the document store", "container-apps": "Code interpreter", "foundry": "Chat and embedding models", "search-service": "Search; indexes the uploads, embeds with the models", "cosmos-db": "Conversation history", "storage-account__uploads": "Uploaded files", "storage-account__host": "State of the connector function", "key-vault": "Secrets", "user-assigned-identity__web": "Web app and MCP server", "user-assigned-identity__connector": "Connector function", "user-assigned-identity__runner": "Code interpreter", "network-security-group__endpoints": "Private endpoints subnet", "network-security-group__integration": "App integration subnets", "network-security-group__containerapps": "Container Apps subnet", "container-registry": "Images of all apps", "application-insights": "Application telemetry"} | eure Beschreibung |
 | `wiring.optional` | [] | Regel |

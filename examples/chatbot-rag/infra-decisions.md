@@ -56,6 +56,9 @@ Ein Code wird durch diese Stufen ausgerollt; alles, was hier nicht steht, ist in
   - daher, Azure Storage Account: Frühere Versionen überschriebener Dateien werden aufgehoben.
 - **Die Daten werden laufend genutzt.** _(nicht gesagt, daher gilt die übliche Antwort)_
   - daher, Azure Storage Account: Gespeichert in der Klasse Standard: günstig beim Lesen, für Daten in Nutzung.
+- **Gegen absichtliche Zerstörung sind die Daten nur innerhalb des Systems selbst geschützt; wer das System löschen kann, kann auch die Kopien löschen.** _(nicht gesagt, daher gilt die übliche Antwort)_
+- **Die Daten werden nur innerhalb des Wirtschaftsraums der Region, zum Beispiel der EU gespeichert und verarbeitet.** _(nicht gesagt, daher gilt die übliche Antwort)_
+  - daher, Azure AI Foundry (AI Services account with projects and model deployments): Anfragen an die Modelle werden überall innerhalb derselben Datenzone (zum Beispiel der EU) verarbeitet.
 - **Der Code wird aus einzeln ausgeschriebenen Ressourcen gebaut.** _(eure Antwort)_
 - **Der Zugang ist nur privat, nichts ist aus dem Internet erreichbar.** _(aus eurer Beschreibung)_
 - **Einzuhaltende Vorgaben: keine.** _(aus eurer Beschreibung)_
@@ -173,7 +176,6 @@ Nichts davon wurde gefragt; jede Zeile folgt einer Regel oder einer der Antworte
 - Das Konto nutzt die Preisstufe S0, die bezahlte Standardstufe.
 - Das Konto enthält Foundry-Projekte als Behälter für Zugriff, Daten und Kosten.
 - Das Konto enthält die Projekte keine.
-- Anfragen an die Modelle werden überall innerhalb derselben Datenzone (zum Beispiel der EU) verarbeitet.
 - Jedes Modell darf bis zu 10 Tausend Token pro Minute verarbeiten.
 - Läuft die Modellversion aus, wechselt sie an diesem Tag auf die neue Standardversion.
 - Anfragen und Antworten werden vom Inhaltsfilter Microsoft.DefaultV2 geprüft.
@@ -263,6 +265,8 @@ Werte, die der Lauf angenommen hat, um weiterzukommen. Das sind noch keine Entsc
 | `deployment.outage_impact` | tolerable | eure Beschreibung |
 | `deployment.data_loss_tolerance` | one_week | Regel |
 | `deployment.data_access_pattern` | active | Regel |
+| `deployment.backup_isolation` | operational | Regel |
+| `deployment.data_residency` | data_zone | Regel |
 | `deployment.landing_zone` | standalone | eure Beschreibung |
 | `deployment.network_exposure` | private | eure Beschreibung |
 | `deployment.local_auth` | disabled | Regel |
@@ -352,7 +356,7 @@ Werte, die der Lauf angenommen hat, um weiterzukommen. Das sind noch keine Entsc
 | `foundry.account.sku_name` | S0 | Regel |
 | `foundry.account.project_management` | true | Regel |
 | `foundry.account.projects` | [] | Regel |
-| `foundry.models.deployment_sku` | DataZoneStandard | Regel |
+| `foundry.models.deployment_sku` | DataZoneStandard | abgeleitet aus eurer Antwort |
 | `foundry.models.deployment_capacity` | 10 | Regel |
 | `foundry.models.version_upgrade_option` | OnceCurrentVersionExpired | Regel |
 | `foundry.models.content_filter` | Microsoft.DefaultV2 | Regel |

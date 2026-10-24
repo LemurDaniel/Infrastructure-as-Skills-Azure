@@ -92,6 +92,12 @@ groups:
           A storage account reachable from the internet is the most common Azure
           data-exposure finding, so a departure towards `enabled` is recorded as
           `overridden` with its reason.
+        forced_when: >
+          `network_ownership: none` (a public deployment without a network) forces
+          `enabled`, recorded as forced with `network_ownership` as forced_by: the
+          deployment's own callers have no fixed outbound address, so a firewall with no
+          rule locks them out of this resource - the first dry run (2026-10-24) hit it on
+          five resources at once
         renders: >
           terraform: public_network_access_enabled, network_rules.default_action;
           bicep: properties.publicNetworkAccess, properties.networkAcls.defaultAction
@@ -430,6 +436,11 @@ groups:
           survives a zone loss protects nothing anyone would miss.
           Replication cannot be changed between local and geo tiers in place, so
           this choice forces a replacement later.
+        forced_when: >
+          `data_residency: country` with a paired region in another country forces
+          GZRS down to ZRS, recorded as forced with the residency as forced_by - the
+          secondary copy of a geo tier always lands in the paired region, and
+          `critical` then needs a recovery plan the template does not own
         renders: account_replication_type / sku.name
 
       - id: access_tier

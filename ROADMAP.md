@@ -33,8 +33,8 @@ read against it. Decided with the owner on 2026-10-18; revised when a phase clos
 
 Today: question set → spec. Planned: **requirements → derivation → question sets → spec.**
 
-The customer answers about six questions about outcomes. Each answer derives technical
-decisions, recorded with `source: requirement` and `derived_from: <requirement id>`:
+The customer answers questions about outcomes, in their words. Each answer derives
+technical decisions, recorded with `source: requirement` and `derived_from: <requirement id>`:
 
 | Asked of the customer | Derives |
 |---|---|
@@ -43,11 +43,15 @@ decisions, recorded with `source: requirement` and `derived_from: <requirement i
 | Who reaches it, and from where? (staff on the company network / partners / the internet) | `network_exposure`, private endpoints |
 | Is there anything you have to prove compliance with? (BSI C5, ISO 27001, GDPR, an internal policy) | `mandates`, `key_protection`, `immutability`, retention |
 | How long does the data live, and how often is old data read? | `access_tier`, lifecycle rules |
+| Must a copy survive deliberate destruction - ransomware, a compromised admin? | a Backup vault and its policies, immutability |
+| Where may the data be stored and processed - the country, the EU, anywhere? | the AI deployment type, which geo tiers and replica regions are allowed, the `location` parameter |
 | What is this for: trying things out, testing, or real operation? | `environment` |
 
-Everything else is a guardrail default and is reported, not asked. **Hard budget: at most
-six customer questions per interview.** A seventh means a question set is missing a
-default; an eval grader counts.
+Everything else is a guardrail default and is reported, not asked. There is no cap on the
+customer questions (the budget of six was dropped on 2026-10-24: multiple choice is cheap
+for the customer, a guess recorded as their decision is not); the `requirements` group is
+asked in full on every run, and a `customer` question that is really a technical choice
+with a default is the thing to catch.
 
 ### A platform profile per platform
 
@@ -61,8 +65,8 @@ With it the interview separates into **roles**. Every question carries
 `audience: customer | engineer | platform`. The customer answers the requirements, the
 profile answers the platform facts, the guardrails answer the rest. An engineer question
 with no profile to answer it becomes an `open:` entry with its owner, and is never put to
-the customer. The default mode is the customer's; the engineer mode is entered when the
-user says so or the repository shows it (existing IaC, an existing spec).
+the customer. There is one audience: the engineer mode planned here was dropped on
+2026-10-24 - an engineer states what they know in prose and it is recorded as `stated`.
 
 ### Stages, not an environment
 
@@ -95,16 +99,16 @@ the quality claim rests on:
 
 1. Extend `question-set-format.md`: `audience`, `plain` (a one-line customer-language
    reason per default), `derived_from`.
-2. `core/iac-authoring/questions/requirements.yaml`: the six questions above, each with
+2. `core/iac-authoring/questions/requirements.yaml`: the questions above, each with
    a `derives:` block mapping answers to decisions.
 3. `platform.yaml`: schema, location, resolution step in `iac-authoring` Phase 2.
    Deployment-set questions that are pure platform facts get `audience: platform`.
-4. Phase 0 and 3 filter by audience. Customer mode is the default.
+4. Phase 0 and 3 filter by audience: only `customer` is asked.
 5. **The decision document.** `export_decisions.py` renders the spec into a Markdown
    document in the customer's language: because you said X, Y is set; it costs Z and
    protects against W. Offered beside the diagram in Phase 5; after the Markdown, offer a
    Word version once. The spec stays English; the document is for the customer.
-6. Evals: a grader on the question count, one on technical vocabulary in customer-mode
+6. Evals: a grader on the question count, one on technical vocabulary in the interview's
    questions (CIDR, subnet, policy, telemetry), one `llm` grader on readability with
    concrete PASS and FAIL conditions.
 
