@@ -175,7 +175,8 @@ account) is not routed, so say it in `wiring.purposes` instead.
 
 A legend at the bottom lists only what the picture uses.
 
-Plus a **decisions panel** on the right: exposure, network, mandates, DNS and diagnostics
+Plus a **decisions panel**, right of the group or, when it is taller than the group, under the
+picture in columns: exposure, network, mandates, DNS and diagnostics
 ownership, every forced chain (`key_protection: hsm → forces key-vault.sku = premium`), and
 the open items with who has to answer them. A forced cost is the decision a customer most
 needs to see and the one an icon cannot show.

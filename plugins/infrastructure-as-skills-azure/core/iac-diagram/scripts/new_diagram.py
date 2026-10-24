@@ -524,20 +524,29 @@ def main():
     # of the services' column, outside every icon and label. Lines whose runs overlap in height
     # take different lanes; lines that only meet at one icon share a lane.
     pp_lane = {}
+    # In the side layout the services stand in two columns with a channel between them: four
+    # services are two rows, not a column four slots tall beside a network of one (the single
+    # column left everything under the network empty). The PaaS -> PaaS lines run in that
+    # channel - out of the side of the source that faces it, down or up, in at the facing side of
+    # the target - and never across the neighbour in the row. Lines whose rows overlap or touch
+    # take different lanes.
+    PAAS_COLS = 2
     if side:
-        pp_iv = []   # per lane: occupied (top, bottom) index intervals
+        pp_iv = []   # per lane: occupied (top, bottom) row intervals
         pp_edges = [a for a in access if a['from'] in paas and a['to'] in paas and a['from'] != a['to']]
-        for a in sorted(pp_edges, key=lambda a: abs(paas.index(a['from']) - paas.index(a['to']))):
-            lo, hi = sorted((paas.index(a['from']), paas.index(a['to'])))
+        row_of = lambda k: paas.index(k) // PAAS_COLS
+        for a in sorted(pp_edges, key=lambda a: abs(row_of(a['from']) - row_of(a['to']))):
+            lo, hi = sorted((row_of(a['from']), row_of(a['to'])))
             for ln, iv in enumerate(pp_iv):
-                if all(hi <= l or lo >= h for l, h in iv):
+                if all(hi < l or lo > h for l, h in iv):
                     iv.append((lo, hi))
                     break
             else:
                 ln = len(pp_iv)
                 pp_iv.append([(lo, hi)])
             pp_lane[(a['from'], a['to'])] = ln
-    pp_w = (46 + TRK * (max(pp_lane.values()) + 1) + 30) if pp_lane else 0
+    # the channel: a gap that keeps the two columns' labels apart, plus one track per lane
+    pp_chan = 24 + (TRK * (max(pp_lane.values()) + 1) if pp_lane else 0)
     callers_of = {}
     callers_listed_in_roles = set()   # callers whose role is already on the label
     for a in access:
@@ -582,8 +591,9 @@ def main():
     def rows_of(keys, cols):
         return [keys[i:i + cols] for i in range(0, len(keys), cols)]
 
-    def rows_height(keys, cols):
-        return sum(max(pitch[k] for k in r) for r in rows_of(keys, cols))
+    def rows_height(keys, cols, gutter=0):
+        rows = rows_of(keys, cols)
+        return sum(max(pitch[k] for k in r) for r in rows) + gutter * max(len(rows) - 1, 0)
 
     cols_c = min(max([len(v) for v in groups.values()] or [1]), 4)
     # Up to five services in one row; more wrap into two, the second row shifted by half a slot, so
@@ -594,14 +604,14 @@ def main():
         # Hub layout, after the hand-drawn ones: compute subnets | collector tracks | the endpoint
         # column | one trunk | the services. Callers run into the endpoints, one line each; from
         # there one line leaves for each service. Who calls what is text at the service.
-        cols_p = 2 if len(paas) > 9 else 1
+        cols_p = PAAS_COLS
         stagger = 0
         cw = max(cols_c * SLOT_W + 2 * PAD, 2 * SLOT_W + 2 * PAD)        # compute subnet width
         coll_w = 34 + TRK * (len(callers) + n_inter)
         pe_w = SLOT_W
         w_main = PAD + cw + coll_w + pe_w + PAD
         chan_w = 80
-        paas_w = cols_p * SLOT_W + 2 * PAD + pp_w
+        paas_w = cols_p * SLOT_W + (cols_p - 1) * pp_chan + 2 * PAD
     else:
         cols_p = len(paas) if len(paas) <= 5 else math.ceil(len(paas) / 2)
         cols_p = min(max(cols_p, 1), 8)
@@ -644,16 +654,20 @@ def main():
         vn_h = ZHEAD + rows_height(compute, cols_c) + PAD
     PAAS_TOP, PAAS_TITLE = 14, 26
     paas_h = (PAAS_TOP + rows_height(paas, cols_p) + PAAS_TITLE) if paas else 0
+    GUT = 16   # side layout: the gap between two rows of services; a line to a second-column service runs in it
     if side:
-        PAAS_HEAD = 48   # a two-line title: the column is narrow
-        paas_h = PAAS_HEAD + rows_height(paas, cols_p) + PAD
-    cols_s = min(max(len(support), 1), max((block_w - 2 * PAD) // SLOT_W, 1) if side else max(cols_p, 3))
+        PAAS_HEAD = 44   # the title, then the first row's gutter
+        paas_h = PAAS_HEAD + rows_height(paas, cols_p, GUT) + PAD
+    # The support zone sits under the network and is as wide as the network: identities and
+    # security groups belong to the compute side, and a zone that also spanned the services'
+    # column was a strip of empty space with one icon in it.
+    cols_s = min(max(len(support), 1), max((w_main - 2 * PAD) // SLOT_W, 1) if side else max(cols_p, 3))
     support_h = (ZHEAD + rows_height(support, cols_s) + PAD) if support else 0
 
     # One bus lane per compute resource that calls PaaS, between the network and the PaaS zone.
     gap = 30 + 10 * len(callers)
     if side:
-        main_h = max(vn_h, paas_h) + (support_h + PAD if support else 0)
+        main_h = max(vn_h + (support_h + PAD if support else 0), paas_h)
     else:
         main_h = vn_h + (gap if (vn_h and paas_h) else 0) + paas_h + (support_h + PAD if support else 0)
 
@@ -722,13 +736,13 @@ def main():
         icons.append({'id': cid, 'parent': parent, 'x': x, 'y': y, 'w': w, 'h': h, 'style': style, 'value': label,
                       'slot': {'x': slot_x, 'y': slot_y, 'w': SLOT_W, 'h': slot_h}, 'labelBelow': bool(img)})
 
-    def place_grid(keys, parent, gx, gy, cols, stagger=0):
+    def place_grid(keys, parent, gx, gy, cols, stagger=0, col_gap=0, gutter=0):
         y = gy
         for r, row in enumerate(rows_of(keys, cols)):
             rh = max(pitch[k] for k in row)
             for c, k in enumerate(row):
-                add_icon(f"res-{k}", parent, gx + c * SLOT_W + (stagger if r % 2 else 0), y, base(k), labels[k], flagged(k), k in optional, slot_h=rh)
-            y += rh
+                add_icon(f"res-{k}", parent, gx + c * (SLOT_W + col_gap) + (stagger if r % 2 else 0), y, base(k), labels[k], flagged(k), k in optional, slot_h=rh)
+            y += rh + gutter
 
     def add_text(cid, parent, x, y, w, h, value, style):
         icons.append({'id': cid, 'parent': parent, 'x': x, 'y': y, 'w': w, 'h': h, 'style': style, 'value': value})
@@ -834,13 +848,13 @@ def main():
         if side:
             # the lines come in from the left here, so the title can stay at the top
             add_container({'id': 'z-paas', 'parent': 'rg', 'x': paas_x, 'y': paas_y, 'w': paas_w, 'h': paas_h, 'style': ZONES['paas'], 'value': title})
-            place_grid(paas, 'z-paas', paas_x + PAD, paas_y + PAAS_HEAD, cols_p)
+            place_grid(paas, 'z-paas', paas_x + PAD, paas_y + PAAS_HEAD, cols_p, col_gap=pp_chan, gutter=GUT)
         else:
             add_container({'id': 'z-paas', 'parent': 'rg', 'x': main_x, 'y': paas_y, 'w': w_main, 'h': paas_h, 'style': ZONES['paas_in'], 'value': title})
             place_grid(paas, 'z-paas', main_x + PAD, paas_y + PAAS_TOP, cols_p, stagger)
     if support:
-        support_y = (main_y + max(vn_h, paas_h) + PAD) if side else paas_y + (paas_h + PAD if paas else 0)
-        add_container({'id': 'z-support', 'parent': 'rg', 'x': main_x, 'y': support_y, 'w': block_w, 'h': support_h, 'style': ZONES['paas'], 'value': esc(T['support'])})
+        support_y = (main_y + vn_h + PAD) if side else paas_y + (paas_h + PAD if paas else 0)
+        add_container({'id': 'z-support', 'parent': 'rg', 'x': main_x, 'y': support_y, 'w': w_main if side else block_w, 'h': support_h, 'style': ZONES['paas'], 'value': esc(T['support'])})
         place_grid(support, 'z-support', main_x + PAD, support_y + ZHEAD, cols_s)
 
     # Platform and monitoring zones
@@ -876,80 +890,6 @@ def main():
             ry_in += r['h'] + PAD
         else:
             ry_out += r['h'] + PAD
-
-    # Decisions panel, right of everything.
-    lines = [f"<b>{T['decisions']}</b>"]
-    if exposure:
-        lines.append(f"{T['exposure']}: <b>{esc(exposure)}</b>")
-    if net_ownership:
-        lines.append(f"{T['network']}: {esc(net_ownership)}" + (f", {esc(vn_sub)}" if vn_sub else ''))
-    mand = [m for m in as_list(get_decision(dep, ['mandates'])) if m]
-    if mand:
-        lines.append(f"{T['mandates']}: {esc(', '.join(s(m) for m in mand))}")
-    if dns_ownership:
-        lines.append(f"{T['dns']}: {esc(dns_ownership)}")
-    if diag_target:
-        lines.append(f"{T['diag']}: {esc(diag_target)}" + (f" ({esc(diag_ref['rg'])})" if diag_ref['rg'] else ''))
-    if vnet_existing and vnet_ref['rg']:
-        lines.append(f"VNet: {esc(vnet_ref['name'])} ({esc(vnet_ref['rg'])})")
-    if isinstance(dep, dict):
-        for k in dep:
-            for entry in [e for e in as_list(get_at(dep, [k, 'forces'])) if e]:
-                if isinstance(entry, dict):
-                    txt = ', '.join(f"{ek} = {ev}" for ek, ev in entry.items())
-                else:
-                    txt = s(entry)
-                lines.append(f"<font color='#8A6100'>{esc(k)}: {esc(get_decision(dep, [k]))} → {T['forces']} {esc(txt)}</font>")
-    # Every forced decision, grouped by what forced it: the same attribute with the same value on
-    # several resources is one entry with a count.
-    chains = {}
-
-    def walk_forced(node, path):
-        if isinstance(node, dict):
-            if s(node.get('source')) == 'forced' and node.get('forced_by'):
-                chains.setdefault(s(node['forced_by']), []).append((path, node))
-                return
-            for ck, cv in node.items():
-                walk_forced(cv, f"{path}.{ck}" if path else str(ck))
-
-    walk_forced(dep, 'deployment')
-    walk_forced(resources, 'resources')
-    if chains:
-        lines.append('')
-        lines.append(f"<b>{esc(T['forcedHead'])}</b>")
-    for by, items in chains.items():
-        grouped = {}
-        for path, node in items:
-            attr = path.split('.')[-1]
-            val = get_value(node)
-            shown = s(val) if not isinstance(val, (dict, list)) else f"({len(val)})"
-            grouped.setdefault((attr, shown), []).append(path)
-        parts = []
-        for (attr, shown), paths in grouped.items():
-            where = f" ×{len(paths)}" if len(paths) > 1 else (f" ({paths[0].split('.')[1]})" if paths[0].startswith('resources.') else '')
-            parts.append(f"{attr} = {shown}{where}")
-        src = by.replace('deployment.', '').replace('resources.', '')
-        lines.append(f"<font color='#8A6100'>{esc(src)} → {T['forces']} {esc('; '.join(parts))}</font>")
-    if open_items:
-        lines.append('')
-        lines.append(f"<b><font color='#D13438'>{T['open']}</font></b>")
-        for o in open_items:
-            o = o if isinstance(o, dict) else {}
-            owner = f" <i>({T['owner']}: {esc(o['owner'])})</i>" if o.get('owner') else ''
-            q = o.get('question') if o.get('question') is not None else o.get('key')
-            lines.append(f"<font color='#D13438'>• {esc(q)}</font>{owner}")
-    if assumed:
-        lines.append('')
-        lines.append(f"<b><font color='#D13438'>{T['assumed']}</font></b>")
-        for a in assumed:
-            lines.append(f"<font color='#D13438'>• {esc(a)}</font>")
-    panel_w = 340
-    # Wrap estimate measured on the export: ~54 characters per line at 12px in 340px, 15px a line.
-    panel_lines = sum(max(1, math.ceil(plain_len(line) / 54)) for line in lines)
-    panel_h = max(80, panel_lines * 15 + 30)
-    add_container({'id': 'panel', 'parent': '1', 'x': panel_x, 'y': sub_y, 'w': panel_w, 'h': panel_h,
-                   'style': 'rounded=1;arcSize=3;whiteSpace=wrap;html=1;align=left;verticalAlign=top;spacing=12;fillColor=#F3F2F1;strokeColor=#C8C6C4;',
-                   'value': '<br>'.join(lines)})
 
     # --- Edges: access -----------------------------------------------------
     by_id = {c['id']: c for c in containers + icons}
@@ -1054,14 +994,17 @@ def main():
             edge['style'] = style + 'exitX=1;exitY=0.5;entryX=0;entryY=0.5;'
             edge['points'] = [{'x': tx, 'y': sc['y'] + sc['h'] / 2}, {'x': tx, 'y': dc['y'] + dc['h'] / 2}]
         elif side and a['from'] in paas and a['to'] in paas:
-            # Out of the right of the source, along a lane outside the column of icons and labels,
-            # in at the right of the target. The label sits on the vertical run, in the lane.
-            slot_r = sc['slot']['x'] + sc['slot']['w']
-            lx_track = slot_r + 46 + TRK * pp_lane.get((a['from'], a['to']), 0)
+            # Through the channel between the two columns: out of the side of the source that faces
+            # it, along a lane of its own, in at the facing side of the target. The label sits on
+            # the vertical run, in the channel.
+            sc_col, dc_col = paas.index(a['from']) % cols_p, paas.index(a['to']) % cols_p
+            lx_track = paas_x + PAD + SLOT_W + 12 + TRK * pp_lane.get((a['from'], a['to']), 0)
             sy_, dy_ = sc['y'] + sc['h'] / 2, dc['y'] + dc['h'] / 2
-            edge['style'] = style + 'exitX=1;exitY=0.5;entryX=1;entryY=0.5;'
+            edge['style'] = style + f"exitX={1 if sc_col == 0 else 0};exitY=0.5;entryX={1 if dc_col == 0 else 0};entryY=0.5;"
             edge['points'] = [{'x': lx_track, 'y': sy_}, {'x': lx_track, 'y': dy_}]
-            h1, v, h2 = lx_track - (sc['x'] + sc['w']), abs(dy_ - sy_), lx_track - (dc['x'] + dc['w'])
+            sx_edge = sc['x'] + sc['w'] if sc_col == 0 else sc['x']
+            dx_edge = dc['x'] + dc['w'] if dc_col == 0 else dc['x']
+            h1, v, h2 = abs(lx_track - sx_edge), abs(dy_ - sy_), abs(lx_track - dx_edge)
             if v:
                 edge['lx'] = round(2 * ((h1 + 0.5 * v) / (h1 + v + h2)) - 1, 3)
         elif is_actor(a['from']) and a['to'] in compute:
@@ -1126,9 +1069,17 @@ def main():
             if k not in callers_of or f"res-{k}" not in by_id:
                 continue
             dc = by_id[f"res-{k}"]
-            st = EDGE_BASE + f"strokeColor={PRIVATE_COLOR};exitX=1;exitY=0.5;entryX=0;entryY=0.5;"
-            edges.append({'id': f"e-out-{i}", 'source': 'pe-bundle', 'target': f"res-{k}", 'value': '', 'style': st,
-                          'points': [{'x': trunk, 'y': pe_mid}, {'x': trunk, 'y': dc['y'] + dc['h'] / 2}]})
+            if i % cols_p == 0:
+                # first column: in from the left at the icon's height
+                st = EDGE_BASE + f"strokeColor={PRIVATE_COLOR};exitX=1;exitY=0.5;entryX=0;entryY=0.5;"
+                pts = [{'x': trunk, 'y': pe_mid}, {'x': trunk, 'y': dc['y'] + dc['h'] / 2}]
+            else:
+                # second column: along the gutter above its row, past the first column's slot, and
+                # down into the icon from the top
+                gy = dc['slot']['y'] - GUT / 2
+                st = EDGE_BASE + f"strokeColor={PRIVATE_COLOR};exitX=1;exitY=0.5;entryX=0.5;entryY=0;"
+                pts = [{'x': trunk, 'y': pe_mid}, {'x': trunk, 'y': gy}, {'x': dc['x'] + dc['w'] / 2, 'y': gy}]
+            edges.append({'id': f"e-out-{i}", 'source': 'pe-bundle', 'target': f"res-{k}", 'value': '', 'style': st, 'points': pts})
 
     # Legend: only what the picture uses.
     legend = [f"<b>{esc(T['legend'])}</b>"]
@@ -1157,6 +1108,116 @@ def main():
         add_container({'id': 'legend', 'parent': '1', 'x': sub_x, 'y': sub_y + sub_h + 30, 'w': min(max(sub_w, 420), 560), 'h': len(legend) * 15 + 26,
                        'style': 'rounded=1;arcSize=4;whiteSpace=wrap;html=1;align=left;verticalAlign=top;spacing=10;fillColor=#FFFFFF;strokeColor=#C8C6C4;fontSize=11;',
                        'value': '<br>'.join(legend)})
+
+    # Decisions panel. Beside the resource group while it is no taller than the group; a longer
+    # list - many open entries, printed verbatim by design - goes under the picture across its
+    # width in columns, instead of a narrow column that makes the page twice as tall as the
+    # architecture and leaves the lower half empty.
+    lines = [f"<b>{T['decisions']}</b>"]
+    if exposure:
+        lines.append(f"{T['exposure']}: <b>{esc(exposure)}</b>")
+    if net_ownership:
+        lines.append(f"{T['network']}: {esc(net_ownership)}" + (f", {esc(vn_sub)}" if vn_sub else ''))
+    mand = [m for m in as_list(get_decision(dep, ['mandates'])) if m]
+    if mand:
+        lines.append(f"{T['mandates']}: {esc(', '.join(s(m) for m in mand))}")
+    if dns_ownership:
+        lines.append(f"{T['dns']}: {esc(dns_ownership)}")
+    if diag_target:
+        lines.append(f"{T['diag']}: {esc(diag_target)}" + (f" ({esc(diag_ref['rg'])})" if diag_ref['rg'] else ''))
+    if vnet_existing and vnet_ref['rg']:
+        lines.append(f"VNet: {esc(vnet_ref['name'])} ({esc(vnet_ref['rg'])})")
+    if isinstance(dep, dict):
+        for k in dep:
+            for entry in [e for e in as_list(get_at(dep, [k, 'forces'])) if e]:
+                if isinstance(entry, dict):
+                    txt = ', '.join(f"{ek} = {ev}" for ek, ev in entry.items())
+                else:
+                    txt = s(entry)
+                lines.append(f"<font color='#8A6100'>{esc(k)}: {esc(get_decision(dep, [k]))} → {T['forces']} {esc(txt)}</font>")
+    # Every forced decision, grouped by what forced it: the same attribute with the same value on
+    # several resources is one entry with a count.
+    chains = {}
+
+    def walk_forced(node, path):
+        if isinstance(node, dict):
+            if s(node.get('source')) == 'forced' and node.get('forced_by'):
+                chains.setdefault(s(node['forced_by']), []).append((path, node))
+                return
+            for ck, cv in node.items():
+                walk_forced(cv, f"{path}.{ck}" if path else str(ck))
+
+    walk_forced(dep, 'deployment')
+    walk_forced(resources, 'resources')
+    if chains:
+        lines.append('')
+        lines.append(f"<b>{esc(T['forcedHead'])}</b>")
+    for by, items in chains.items():
+        grouped = {}
+        for path, node in items:
+            attr = path.split('.')[-1]
+            val = get_value(node)
+            shown = s(val) if not isinstance(val, (dict, list)) else f"({len(val)})"
+            grouped.setdefault((attr, shown), []).append(path)
+        parts = []
+        for (attr, shown), paths in grouped.items():
+            where = f" ×{len(paths)}" if len(paths) > 1 else (f" ({paths[0].split('.')[1]})" if paths[0].startswith('resources.') else '')
+            parts.append(f"{attr} = {shown}{where}")
+        src = by.replace('deployment.', '').replace('resources.', '')
+        lines.append(f"<font color='#8A6100'>{esc(src)} → {T['forces']} {esc('; '.join(parts))}</font>")
+    if open_items:
+        lines.append('')
+        lines.append(f"<b><font color='#D13438'>{T['open']}</font></b>")
+        for o in open_items:
+            o = o if isinstance(o, dict) else {}
+            owner = f" <i>({T['owner']}: {esc(o['owner'])})</i>" if o.get('owner') else ''
+            q = o.get('question') if o.get('question') is not None else o.get('key')
+            lines.append(f"<font color='#D13438'>• {esc(q)}</font>{owner}")
+    if assumed:
+        lines.append('')
+        lines.append(f"<b><font color='#D13438'>{T['assumed']}</font></b>")
+        for a in assumed:
+            lines.append(f"<font color='#D13438'>• {esc(a)}</font>")
+    PANEL_STYLE = 'rounded=1;arcSize=3;whiteSpace=wrap;html=1;align=left;verticalAlign=top;spacing=12;fillColor=#F3F2F1;strokeColor=#C8C6C4;'
+
+    def wrapped(text_lines, width):
+        # Wrap estimate measured on the export: ~54 characters per line at 12px in 340px, 15px a line.
+        return sum(max(1, math.ceil(plain_len(line) / max(int((width - 24) / 5.6), 20))) for line in text_lines)
+    panel_w = 340
+    panel_h = max(80, wrapped(lines, panel_w) * 15 + 30)
+    if panel_h <= sub_h + 60:
+        add_container({'id': 'panel', 'parent': '1', 'x': panel_x, 'y': sub_y, 'w': panel_w, 'h': panel_h, 'style': PANEL_STYLE, 'value': '<br>'.join(lines)})
+    else:
+        # Under the legend, across the group's width, in two or three columns filled to equal
+        # height and broken only between lines. The first column keeps the id `panel`.
+        n_col = 2 if panel_h <= 2 * sub_h else 3
+        legend_cell = next((c for c in containers if c['id'] == 'legend'), None)
+        py = (legend_cell['y'] + legend_cell['h'] + 20) if legend_cell else sub_y + sub_h + 30
+        col_w = (sub_w - 20 * (n_col - 1)) / n_col
+        heights = [wrapped([line], col_w) for line in lines]
+
+        def chunks(cap):
+            out, acc = [[]], 0
+            for line, h in zip(lines, heights):
+                if out[-1] and acc + h > cap:
+                    out.append([])
+                    acc = 0
+                out[-1].append(line)
+                acc += h
+            return out
+        # the smallest column height that still fits the list into n_col columns
+        lo, hi = max(heights), sum(heights)
+        while lo < hi:
+            mid = (lo + hi) // 2
+            if len(chunks(mid)) <= n_col:
+                hi = mid
+            else:
+                lo = mid + 1
+        cols = chunks(lo)
+        tall = max(wrapped(c, col_w) for c in cols) * 15 + 30
+        for j, c in enumerate(cols):
+            add_container({'id': 'panel' if j == 0 else f"panel-{j}", 'parent': '1', 'x': sub_x + j * (col_w + 20), 'y': py,
+                           'w': col_w, 'h': tall, 'style': PANEL_STYLE, 'value': '<br>'.join(c)})
 
     # Containers first, then icons, so icons are drawn on top.
     cells = containers + icons

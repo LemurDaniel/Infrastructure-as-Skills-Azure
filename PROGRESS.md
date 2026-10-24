@@ -174,6 +174,12 @@ the detail; this list says what was decided and why, so a session does not reope
   the next session start or `/reload-plugins`; the copy under `~/.claude/plugins/cache`
   is only the install record. The older marketplace entry `infrastructure-as-skills`
   points at the sister repo and is unrelated.
+- **Diagram side layout** (2026-10-24, from the first install test's render, two thirds of it
+  empty): the services stand in two columns with a channel for the PaaS-to-PaaS lines, the
+  support zone sits under the network at its width, and a decisions panel taller than the
+  group goes under the picture in two or three balanced columns. `private_with_exceptions`
+  names its exceptions in the subtitle and the footer like `private` does; before, the
+  footer claimed "no public access" over a public Container App.
 - `docs/process.drawio.png` and `docs/process-agents.drawio.png` show the flow of
   2026-10-24, `docs/skills.drawio.png` the skills, the entry and how the units relate
   (generator in the owner's `drawio-diagrams` skill style; the PNG is the source). The

@@ -230,7 +230,7 @@ def absolute(cells, cid):
 
 def case_private_stages_open(cells):
     """A PaaS -> PaaS line (search reading storage, search calling the model) runs on a track of
-    its own right of the services' icon and label column: it crosses no other icon and no label
+    its own in the channel between the two service columns: it crosses no other icon and no label
     slot, and its label sits on its own run. Every role the spec assigns to a resource is on
     that resource's label with its principal."""
     import yaml
@@ -263,8 +263,8 @@ def case_private_stages_open(cells):
                     if k in (e['source'], e['target']) and x1 == x2 and x1 > slots[k][1]:
                         continue
                     bad.append(f"line {e['source']} -> {e['target']} crosses {k}")
-        if not (len(pts) == 2 and all(px > max(s[1] for s in slots.values()) for px, _ in pts)):
-            bad.append(f"line {e['source']} -> {e['target']} is not on a track outside the icon column")
+        if not (len(pts) == 2 and pts[0][0] == pts[1][0] and all(not (lo < pts[0][0] < hi) for lo, hi in slots.values())):
+            bad.append(f"line {e['source']} -> {e['target']} is not on a vertical track outside every icon slot")
         if not e['value']:
             bad.append(f"line {e['source']} -> {e['target']} lost its label")
     for key, node in spec['resources'].items():
