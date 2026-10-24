@@ -88,7 +88,7 @@ LABELS = {
         'subPublic': 'The system is reachable from the internet by design.',
         'subPrivateExc': 'Access runs over private endpoints; reachable from the internet: {names}.',
         'noPublicExc': 'no public access, except: {names}',
-        'telemetry': 'telemetry',
+        'telemetry': 'telemetry', 'openRef': 'the questions are in infra-decisions.md',
         'keyless': ' Access to the resources is by identity, no keys.',
     },
     'de': {
@@ -108,7 +108,7 @@ LABELS = {
         'subPublic': 'Das System ist absichtlich aus dem Internet erreichbar.',
         'subPrivateExc': 'Zugriffe laufen über Private Endpoints; aus dem Internet erreichbar: {names}.',
         'noPublicExc': 'kein öffentlicher Zugriff, außer: {names}',
-        'telemetry': 'Telemetrie',
+        'telemetry': 'Telemetrie', 'openRef': 'die Fragen stehen in infra-decisions.md',
         'keyless': ' Zugriffe auf die Ressourcen laufen über Identitäten, ohne Schlüssel.',
     },
 }
@@ -1158,6 +1158,8 @@ def main():
             attr = path.split('.')[-1]
             val = get_value(node)
             shown = s(val) if not isinstance(val, (dict, list)) else f"({len(val)})"
+            if len(shown) > 40:   # a value that is prose (a purpose, a reason) is in the decision document
+                shown = shown[:38].rstrip() + '…'
             grouped.setdefault((attr, shown), []).append(path)
         parts = []
         for (attr, shown), paths in grouped.items():
@@ -1166,13 +1168,15 @@ def main():
         src = by.replace('deployment.', '').replace('resources.', '')
         lines.append(f"<font color='#8A6100'>{esc(src)} → {T['forces']} {esc('; '.join(parts))}</font>")
     if open_items:
+        # By key and owner only: the question is prose, and the picture is not where prose is read.
+        # The decision document beside the spec carries every question in full.
         lines.append('')
-        lines.append(f"<b><font color='#D13438'>{T['open']}</font></b>")
+        lines.append(f"<b><font color='#D13438'>{T['open']}</font></b> <i>({esc(T['openRef'])})</i>")
         for o in open_items:
             o = o if isinstance(o, dict) else {}
             owner = f" <i>({T['owner']}: {esc(o['owner'])})</i>" if o.get('owner') else ''
-            q = o.get('question') if o.get('question') is not None else o.get('key')
-            lines.append(f"<font color='#D13438'>• {esc(q)}</font>{owner}")
+            key = o.get('key') if o.get('key') is not None else o.get('question')
+            lines.append(f"<font color='#D13438'>• {esc(key)}</font>{owner}")
     if assumed:
         lines.append('')
         lines.append(f"<b><font color='#D13438'>{T['assumed']}</font></b>")

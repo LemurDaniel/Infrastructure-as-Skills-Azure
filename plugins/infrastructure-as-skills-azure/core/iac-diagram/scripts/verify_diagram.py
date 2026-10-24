@@ -7,7 +7,7 @@ of the iac-diagram skill, as a script.
 The second argument may also be the infra-diagram.drawio.png; the XML is read from it.
 
   - every key under `resources:` is drawn exactly once, and nothing else is drawn as a resource
-  - every `open:` entry (its question, else its key) is in the picture
+  - every `open:` entry (its key, else its question) is in the picture
   - every `wiring.optional` resource is marked optional
   - with --language de: no ae/oe/ue/ss transliterations in the fixed labels ("ueber", "oeffentlich")
 
@@ -60,7 +60,7 @@ def verify(spec, cells, language):
     for o in (spec.get('open') or []):
         if not isinstance(o, dict):
             continue
-        want = o.get('question') if o.get('question') is not None else o.get('key')
+        want = o.get('key') if o.get('key') is not None else o.get('question')
         if want and plain(str(want)) not in text:
             bad.append(f"open entry not in the picture: {str(want)[:70]}")
 
