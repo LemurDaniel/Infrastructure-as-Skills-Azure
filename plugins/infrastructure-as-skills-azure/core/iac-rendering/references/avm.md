@@ -224,7 +224,7 @@ document; a newer version is re-walked, not assumed.
 The contract from [terraform-idiom.md](terraform-idiom.md#tests) holds — one assert per
 spec decision, named by its key path, or a `# not-testable:` marker with a reason — but
 the root no longer owns the resource, so the assert target moves. Settled by the first
-AVM render (`examples/private-storage-on-platform`, storage module v0.10.0, 2026-10-18):
+AVM render (a storage account on a referenced platform, storage module v0.10.0, 2026-10-18):
 
 - **Mock `azapi` and `modtm` as the platform is mocked.** `mock_provider "azapi" {}` and
   `mock_provider "modtm" {}` beside the `azurerm` mock; the naming provider stays real.
@@ -258,7 +258,7 @@ AVM render (`examples/private-storage-on-platform`, storage module v0.10.0, 2026
   published. What the render tests prove is that *this* root passes *these* decisions —
   which is the part a module cannot test for you.
 
-**What twelve more modules showed** (`examples/chatbot`, 2026-10-23) - the contract holds, the
+**What twelve more modules showed** (a chatbot render, 2026-10-23) - the contract holds, the
 reachable surface varies by module, and one module cannot be tested at all:
 
 - **A module's `resource` output is one of three things.** The `azapi_resource` itself (storage,
@@ -281,7 +281,7 @@ reachable surface varies by module, and one module cannot be tested at all:
   that advertise zone-redundant Flex Consumption (`azapi_resource_action`), the Application
   Insights module the subscription's resource id (`azapi_client_config`): `mock_data` with a
   value of the right shape, or the plan fails before any assert.
-- **The unreachable share is large and honest.** 79 of 284 decisions of the chatbot example are
+- **The unreachable share is large and honest.** 79 of 284 decisions of that chatbot render are
   asserted, 205 are marked with a reason - mostly private endpoints, role assignments, diagnostic
   settings and sub-resources the modules build in children. Say it in the handover.
 
@@ -291,7 +291,7 @@ Bicep asserts on the compiled ARM ([bicep-idiom.md](bicep-idiom.md#tests)): a mo
 compiles to a nested deployment whose `properties.parameters.<param>.value` is the
 decision, a loop to a `copy` whose expression text names the literal. `bicep build`
 resolves the module from `mcr.microsoft.com`, so the tests need that network access and
-nothing else. Settled by `greenfield-telemetry`: 41 of 43 decisions across three modules
+nothing else. Settled by a three-module Bicep render: 41 of 43 decisions across three modules
 are observable in the compiled template; the two that are not are a deletion-time
 parameter and a spec-only record.
 

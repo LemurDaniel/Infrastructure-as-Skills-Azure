@@ -49,7 +49,7 @@ Not carried by the module at 0.33.1: nothing from this question set.
 
 ### The call
 
-Rendered for the `private-storage-on-platform` spec. The params, the naming vars and the
+Rendered for a private storage account on a referenced platform. The params, the naming vars and the
 `existing` platform references are as in the authored render below; only the resource
 block changes:
 

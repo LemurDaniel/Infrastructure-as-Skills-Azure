@@ -54,7 +54,7 @@ has no decision for — leave them unset rather than inventing a default.
 
 ### The call
 
-Rendered for the `private-storage-on-platform` spec — production, ZRS, private, platform
+Rendered for a production, ZRS, private storage account with the platform
 referenced, `private_dns_records: policy`:
 
 ```hcl
@@ -183,7 +183,7 @@ The contract and the markers are unchanged
 `azapi` and `modtm` are mocked beside `azurerm`; the assert target is the module's
 `resource` output, whose `body` is what the call passed in. The output is `sensitive`, so
 a failing assert shows `(sensitive value)` — the `error_message` names the expected value.
-Settled by `examples/private-storage-on-platform` on v0.10.0:
+Settled by the first AVM render on v0.10.0:
 
 ```hcl
 mock_provider "azapi" {}

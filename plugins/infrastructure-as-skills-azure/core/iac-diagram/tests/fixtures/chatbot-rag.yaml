@@ -1,0 +1,796 @@
+# The interview's output for the chatbot-rag example: a small chat app on Azure AI Foundry with a RAG
+# system. Three stages (the default stack), standalone landing zone (own network, own private DNS zones,
+# own workspace), private, authored resources. Address ranges, models, runtime, subscriptions and groups
+# are open: entries - stage files hold placeholders until they are answered.
+schema_version: 1
+spec:
+  id: chatbot-rag
+  target: terraform
+  generated_by: infrastructure-as-skills-azure
+  skill: azure-resources
+  skill_version: 0.1
+  at: '2026-10-24T12:00:00Z'
+context:
+  environments:
+  - development
+  - test
+  - production
+  location: westeurope
+  workload: chatrag
+  tags: {}
+deployment:
+  naming_convention:
+    value: default
+    source: default
+  module_source:
+    value: authored
+    source: asked
+  deploy_mechanism:
+    value: github
+    source: stated
+  pipeline_auth:
+    value: workload_identity
+    source: default
+  pipeline_approvals:
+    value: production
+    source: default
+  stage_isolation:
+    value: subscription
+    source: default
+  non_production_savings:
+    value: enabled
+    source: default
+  outage_impact:
+    value: tolerable
+    source: stated
+  data_loss_tolerance:
+    value: one_week
+    source: default
+  data_access_pattern:
+    value: active
+    source: default
+  landing_zone:
+    value: standalone
+    source: stated
+  network_exposure:
+    value: private
+    source: stated
+  local_auth:
+    value: disabled
+    source: default
+  mandates:
+    value: []
+    source: stated
+  key_protection:
+    value: software
+    source: default
+  key_management:
+    value: platform_managed
+    source: default
+  network_ownership:
+    value: create
+    source: stated
+  private_dns_ownership:
+    value: deployment
+    source: forced
+    forced_by: deployment.landing_zone
+  observability_ownership:
+    value: create
+    source: forced
+    forced_by: deployment.landing_zone
+  diagnostics_destination:
+    value:
+      development: log-analytics-workspace
+      test: log-analytics-workspace
+      production: log-analytics-workspace
+    source: forced
+    forced_by: deployment.observability_ownership
+  log_retention_days:
+    value: 30
+    source: default
+  daily_quota_gb:
+    value: -1
+    source: default
+composition:
+  granularity: single
+  source: default
+resources:
+  virtual-network:
+    addressing:
+      dns_servers:
+        value:
+          development: []
+          test: []
+          production: []
+        source: default
+    subnet_policy:
+      private_endpoint_network_policies:
+        value: Enabled
+        source: default
+      service_endpoints:
+        value: []
+        source: default
+      subnet_delegations:
+        value:
+        - subnet: snet-web
+          service: Microsoft.Web/serverFarms
+        source: forced
+        forced_by: resources.app-service.networking.integration_subnet
+    security:
+      ddos_protection:
+        value: false
+        source: default
+      subnets_expecting_nsg:
+        value:
+          development:
+          - snet-endpoints
+          - snet-web
+          test:
+          - snet-endpoints
+          - snet-web
+          production:
+          - snet-endpoints
+          - snet-web
+        source: forced
+        forced_by: resources.network-security-group__endpoints.rules.subnet_purpose
+    observability:
+      diagnostic_workspace:
+        value:
+          development: log-analytics-workspace
+          test: log-analytics-workspace
+          production: log-analytics-workspace
+        source: deployment
+      flow_logs_enabled:
+        value: false
+        source: default
+  network-security-group__endpoints:
+    rules:
+      subnet_purpose:
+        value: private_endpoints
+        source: stated
+      default_inbound:
+        value: deny_all
+        source: default
+      default_outbound:
+        value: deny_internet
+        source: forced
+        forced_by: resources.network-security-group__endpoints.rules.subnet_purpose
+      rules:
+        value:
+          development: []
+          test: []
+          production: []
+        source: default
+    observability:
+      diagnostic_workspace:
+        value:
+          development: log-analytics-workspace
+          test: log-analytics-workspace
+          production: log-analytics-workspace
+        source: deployment
+      diagnostic_categories:
+        value:
+        - NetworkSecurityGroupEvent
+        - NetworkSecurityGroupRuleCounter
+        source: default
+  network-security-group__integration:
+    rules:
+      subnet_purpose:
+        value: app_integration
+        source: stated
+      default_inbound:
+        value: deny_all
+        source: default
+      default_outbound:
+        value: azure_default
+        source: default
+      rules:
+        value:
+          development: []
+          test: []
+          production: []
+        source: default
+    observability:
+      diagnostic_workspace:
+        value:
+          development: log-analytics-workspace
+          test: log-analytics-workspace
+          production: log-analytics-workspace
+        source: deployment
+      diagnostic_categories:
+        value:
+        - NetworkSecurityGroupEvent
+        - NetworkSecurityGroupRuleCounter
+        source: default
+  log-analytics-workspace:
+    cost:
+      retention_days:
+        value: 30
+        source: deployment
+      daily_quota_gb:
+        value: -1
+        source: deployment
+      sku:
+        value: PerGB2018
+        source: default
+    access:
+      public_network_access:
+        value: enabled
+        source: default
+      local_auth:
+        value: false
+        source: deployment
+      rbac_only_access:
+        value: true
+        source: default
+    data_protection:
+      immediate_purge_protection:
+        value: true
+        source: default
+      archive_to_storage:
+        value: false
+        source: default
+  application-insights:
+    component:
+      workspace:
+        value:
+          development: log-analytics-workspace
+          test: log-analytics-workspace
+          production: log-analytics-workspace
+        source: deployment
+      application_type:
+        value: web
+        source: default
+      sampling_percentage:
+        value: 100
+        source: default
+      daily_cap_gb:
+        value: 0
+        source: default
+      store_client_ip:
+        value: false
+        source: default
+    networking:
+      public_network_access:
+        value: disabled
+        source: deployment
+    identity:
+      role_assignments:
+        value:
+          development:
+          - principal: app-service
+            role: Monitoring Metrics Publisher
+          test:
+          - principal: app-service
+            role: Monitoring Metrics Publisher
+          production:
+          - principal: app-service
+            role: Monitoring Metrics Publisher
+        source: assumed
+    security:
+      local_authentication_disabled:
+        value: true
+        source: deployment
+  key-vault:
+    vault:
+      sku:
+        value: standard
+        source: default
+      purge_protection:
+        value: true
+        source: default
+      soft_delete_retention_days:
+        value: 90
+        source: default
+      rbac_authorization:
+        value: true
+        source: deployment
+    networking:
+      public_network_access:
+        value: disabled
+        source: deployment
+      private_endpoint_subnet:
+        value:
+          development: snet-endpoints
+          test: snet-endpoints
+          production: snet-endpoints
+        source: forced
+        forced_by: deployment.network_ownership
+      network_acl_bypass:
+        value: None
+        source: default
+    security:
+      enabled_for_services:
+        value: []
+        source: default
+      secret_placeholders:
+        value: []
+        source: default
+    keys:
+      key_management:
+        value: platform_managed
+        source: deployment
+    observability:
+      diagnostic_workspace:
+        value:
+          development: log-analytics-workspace
+          test: log-analytics-workspace
+          production: log-analytics-workspace
+        source: deployment
+      diagnostic_categories:
+        value:
+        - AuditEvent
+        - AzurePolicyEvaluationDetails
+        source: default
+      metrics_enabled:
+        value: true
+        source: default
+  storage-account:
+    networking:
+      public_network_access:
+        value: disabled
+        source: deployment
+      private_endpoint_subnet:
+        value:
+          development: snet-endpoints
+          test: snet-endpoints
+          production: snet-endpoints
+        source: forced
+        forced_by: deployment.network_ownership
+      private_endpoint_subresources:
+        value:
+        - blob
+        source: default
+      allow_azure_services_bypass:
+        value: true
+        source: default
+    identity:
+      managed_identity:
+        value: system_assigned
+        source: default
+      role_assignments:
+        value:
+          development:
+          - principal: search-service
+            role: Storage Blob Data Reader
+          test:
+          - principal: search-service
+            role: Storage Blob Data Reader
+          production:
+          - principal: search-service
+            role: Storage Blob Data Reader
+        source: asked
+    security:
+      shared_access_key_enabled:
+        value: false
+        source: deployment
+      min_tls_version:
+        value: TLS1_2
+        source: default
+      https_traffic_only:
+        value: true
+        source: default
+      allow_blob_public_access:
+        value: false
+        source: default
+      infrastructure_encryption_enabled:
+        value: true
+        source: default
+      key_management:
+        value: platform_managed
+        source: deployment
+      sftp_enabled:
+        value: false
+        source: default
+    data_protection:
+      replication:
+        value: LRS
+        source: requirement
+        derived_from: deployment.outage_impact
+      access_tier:
+        value: Hot
+        source: requirement
+        derived_from: deployment.data_access_pattern
+      blob_soft_delete_days:
+        value: 7
+        source: requirement
+        derived_from: deployment.data_loss_tolerance
+      container_soft_delete_days:
+        value: 7
+        source: requirement
+        derived_from: deployment.data_loss_tolerance
+      versioning_enabled:
+        value: true
+        source: requirement
+        derived_from: deployment.data_loss_tolerance
+      change_feed_enabled:
+        value: false
+        source: default
+      point_in_time_restore_days:
+        value: 0
+        source: default
+      immutability:
+        value: none
+        source: default
+    observability:
+      diagnostic_workspace:
+        value:
+          development: log-analytics-workspace
+          test: log-analytics-workspace
+          production: log-analytics-workspace
+        source: deployment
+      diagnostic_categories:
+        value:
+        - audit
+        source: default
+      metrics_enabled:
+        value: true
+        source: default
+  foundry:
+    account:
+      kind:
+        value: AIServices
+        source: default
+      sku_name:
+        value: S0
+        source: default
+      project_management:
+        value: true
+        source: default
+      projects:
+        value: []
+        source: default
+    models:
+      deployment_sku:
+        value: DataZoneStandard
+        source: default
+      deployment_capacity:
+        value: 10
+        source: default
+      version_upgrade_option:
+        value: OnceCurrentVersionExpired
+        source: default
+      content_filter:
+        value: Microsoft.DefaultV2
+        source: default
+    networking:
+      public_network_access:
+        value: disabled
+        source: deployment
+      private_endpoint_subnet:
+        value:
+          development: snet-endpoints
+          test: snet-endpoints
+          production: snet-endpoints
+        source: forced
+        forced_by: deployment.network_ownership
+      restrict_outbound:
+        value: true
+        source: default
+    identity:
+      managed_identity:
+        value: system_assigned
+        source: default
+      role_assignments:
+        value:
+          development:
+          - principal: app-service
+            role: Cognitive Services OpenAI User
+          - principal: search-service
+            role: Cognitive Services OpenAI User
+          test:
+          - principal: app-service
+            role: Cognitive Services OpenAI User
+          - principal: search-service
+            role: Cognitive Services OpenAI User
+          production:
+          - principal: app-service
+            role: Cognitive Services OpenAI User
+          - principal: search-service
+            role: Cognitive Services OpenAI User
+        source: stated
+    security:
+      local_authentication_disabled:
+        value: true
+        source: deployment
+      key_management:
+        value: platform_managed
+        source: deployment
+    observability:
+      diagnostic_workspace:
+        value:
+          development: log-analytics-workspace
+          test: log-analytics-workspace
+          production: log-analytics-workspace
+        source: deployment
+      diagnostic_categories:
+        value:
+        - Audit
+        - RequestResponse
+        - AzureOpenAIRequestUsage
+        source: default
+      metrics_enabled:
+        value: true
+        source: default
+  search-service:
+    service:
+      sku:
+        value:
+          development: basic
+          test: basic
+          production: standard
+        source: default
+        non_production: default
+      replica_count:
+        value: 1
+        source: requirement
+        derived_from: deployment.outage_impact
+      partition_count:
+        value: 1
+        source: default
+      semantic_ranker:
+        value: free
+        source: default
+    networking:
+      public_network_access:
+        value: disabled
+        source: deployment
+      private_endpoint_subnet:
+        value:
+          development: snet-endpoints
+          test: snet-endpoints
+          production: snet-endpoints
+        source: forced
+        forced_by: deployment.network_ownership
+      network_rule_bypass:
+        value: None
+        source: default
+    identity:
+      managed_identity:
+        value: system_assigned
+        source: default
+      role_assignments:
+        value:
+          development:
+          - principal: app-service
+            role: Search Index Data Reader
+          test:
+          - principal: app-service
+            role: Search Index Data Reader
+          production:
+          - principal: app-service
+            role: Search Index Data Reader
+        source: stated
+    security:
+      local_authentication_disabled:
+        value: true
+        source: deployment
+      key_management:
+        value: platform_managed
+        source: deployment
+    observability:
+      diagnostic_workspace:
+        value:
+          development: log-analytics-workspace
+          test: log-analytics-workspace
+          production: log-analytics-workspace
+        source: deployment
+      diagnostic_categories:
+        value:
+        - OperationLogs
+        source: default
+      metrics_enabled:
+        value: true
+        source: default
+  app-service:
+    hosting:
+      os_type:
+        value: Linux
+        source: default
+      sku:
+        value:
+          development: B1
+          test: B1
+          production: P1v3
+        source: default
+        non_production: default
+      zone_redundant:
+        value: false
+        source: requirement
+        derived_from: deployment.outage_impact
+      instance_count:
+        value: 1
+        source: requirement
+        derived_from: deployment.outage_impact
+    networking:
+      public_network_access:
+        value: disabled
+        source: deployment
+      private_endpoint_subnet:
+        value:
+          development: snet-endpoints
+          test: snet-endpoints
+          production: snet-endpoints
+        source: forced
+        forced_by: deployment.network_ownership
+      vnet_integration:
+        value: true
+        source: default
+      integration_subnet:
+        value:
+          development: snet-web
+          test: snet-web
+          production: snet-web
+        source: forced
+        forced_by: deployment.network_ownership
+      vnet_route_all:
+        value: true
+        source: default
+    identity:
+      managed_identity:
+        value: system_assigned
+        source: default
+    security:
+      https_only:
+        value: true
+        source: default
+      min_tls_version:
+        value: '1.2'
+        source: default
+      ftps_state:
+        value: Disabled
+        source: default
+      basic_auth_enabled:
+        value: false
+        source: deployment
+    runtime:
+      always_on:
+        value: true
+        source: default
+      health_check_path:
+        value: ''
+        source: default
+      http2_enabled:
+        value: true
+        source: default
+    observability:
+      diagnostic_workspace:
+        value:
+          development: log-analytics-workspace
+          test: log-analytics-workspace
+          production: log-analytics-workspace
+        source: deployment
+      diagnostic_categories:
+        value:
+        - AppServiceHTTPLogs
+        - AppServiceAppLogs
+        - AppServiceAuditLogs
+        - AppServiceIPSecAuditLogs
+        - AppServicePlatformLogs
+        source: default
+      metrics_enabled:
+        value: true
+        source: default
+wiring:
+  private_dns_zones:
+    value:
+    - privatelink.blob.core.windows.net
+    - privatelink.vaultcore.azure.net
+    - privatelink.cognitiveservices.azure.com
+    - privatelink.openai.azure.com
+    - privatelink.services.ai.azure.com
+    - privatelink.search.windows.net
+    - privatelink.azurewebsites.net
+    - privatelink.monitor.azure.com
+    source: forced
+    forced_by: deployment.private_dns_ownership
+  access:
+    value:
+    - from: users
+      to: app-service
+      label: HTTPS 443
+    - from: app-service
+      to: foundry
+    - from: app-service
+      to: search-service
+    - from: search-service
+      to: storage-account
+      label: indexer
+    - from: search-service
+      to: foundry
+      label: embeddings
+    source: stated
+  purposes:
+    value:
+      app-service: Chat web app
+      foundry: Chat and embedding models
+      search-service: Retrieval index over the documents
+      storage-account: Source documents
+      key-vault: Secrets of the app
+      application-insights: Application telemetry
+      network-security-group__endpoints: Private endpoints subnet
+      network-security-group__integration: App integration subnet
+    source: stated
+  optional:
+    value: []
+    source: default
+open:
+- key: context.subscription_id
+  environments:
+  - development
+  - test
+  - production
+  question: 'Which subscription does each stage deploy into? One per stage (stage_isolation: subscription).'
+  owner: workload owner
+  blocks: apply
+- key: context.resource_group_name
+  environments:
+  - development
+  - test
+  - production
+  question: Which resource group does each stage deploy into?
+  owner: workload owner
+  blocks: apply
+- key: context.tags
+  question: Which tag set does the organisation apply? Nothing stated, no repository to read it from.
+  owner: workload owner
+  blocks: apply
+- key: deployment.address_space
+  environments:
+  - development
+  - test
+  - production
+  question: Which address range does each stage's new virtual network get?
+  owner: network / IPAM owner
+  blocks: apply
+- key: deployment.private_endpoint_subnet_prefix
+  environments:
+  - development
+  - test
+  - production
+  question: Which prefix inside that range is the private endpoint subnet (snet-endpoints)?
+  owner: network / IPAM owner
+  blocks: apply
+- key: resources.virtual-network.addressing.subnets
+  environments:
+  - development
+  - test
+  - production
+  question: Prefixes of the subnets snet-endpoints (private endpoints) and snet-web (App Service integration, delegated to
+    Microsoft.Web/serverFarms), per stage.
+  owner: network / IPAM owner
+  blocks: apply
+- key: resources.foundry.models.model_deployments
+  question: Which chat model and which embedding model (name and version)? Regional, with quota - looked up at render time,
+    never recalled.
+  owner: workload owner
+  blocks: apply
+- key: resources.foundry.models.deployment_capacity
+  question: Is there quota for the chosen models as DataZoneStandard in West Europe at 10,000 tokens per minute each? Not
+    checked; a deployment beyond the quota fails at apply.
+  owner: workload owner
+  blocks: apply
+- key: resources.app-service.runtime.runtime_stack
+  question: Which runtime stack and version does the web app run (runtime_stack and runtime_version)?
+  owner: workload owner
+  blocks: apply
+- key: resources.application-insights.networking.private_link_scope
+  question: 'Which Azure Monitor Private Link Scope should the component belong to? Standalone: none exists, so it is built
+    or the component stays open.'
+  owner: workload owner
+  blocks: apply
+- key: resources.key-vault.identity.role_assignments
+  question: Which principal reads which secrets? Nothing stated; with RBAC-only access a vault without assignment is working
+    as specified and unusable.
+  owner: workload owner
+  blocks: apply
+- key: resources.storage-account.identity.role_assignments
+  question: Who uploads the documents, and which data-plane role does that principal need? Only the search service (reader)
+    is assigned.
+  owner: workload owner
+  blocks: apply
+- key: wiring.search_shared_private_link
+  question: 'The search indexer reaches the storage account over a shared private link, approved on the account. Not rendered:
+    wiring between two resources that no question set owns.'
+  owner: workload owner
+  blocks: apply

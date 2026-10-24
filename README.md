@@ -174,10 +174,9 @@ reads by path. A declared path that does not exist fails to load the plugin, whi
 ## Examples
 
 [`examples/`](examples/README.md) holds complete runs — request, spec, render, tests — as
-the reference for what a good output looks like. `private-storage-on-platform` is the
-first: one storage account on a referenced platform, rendered to Terraform and to Bicep
-from the one spec, with the diff between the two written down. `greenfield-telemetry` is
-the second: three resources, nothing referenced, the `create` branches, in Bicep.
+the reference for what a good output looks like. `chatbot` is the complex case: twelve kinds
+of resource in a spoke network of its own, split into family modules. `chatbot-rag` is a
+smaller chat app on Azure AI Foundry with a RAG system, one root, authored resources.
 
 ## Install
 
@@ -201,11 +200,8 @@ matching skill triggers.
 
 Early, and the shape matters more than the coverage right now. One interview has been run
 end to end; it produced a spec, and the spec is honest about what it could not resolve.
-Two specs have been rendered on the Azure Verified Modules: `private-storage-on-platform`
-to both targets (Terraform with plan-only tests against mocked `azapi`, Bicep compiled and
-linted) and diffed between them; `greenfield-telemetry` — three resources, created
-network, private DNS zone and workspace — to Bicep, with tests against the compiled ARM.
-Nothing has been applied.
+Two specs have been rendered to Terraform, with plan-only tests against mocked providers:
+`chatbot` and `chatbot-rag`. Nothing has been applied.
 
 - [x] Plugin skeleton, marketplace manifest, grouped layout
 - [x] Shared contract: spec format, question-set format, the interview protocol
@@ -234,11 +230,11 @@ Nothing has been applied.
 - [ ] **Reference pattern skill** — `patterns/` is empty, so composition is specified but
       unproven
 - [x] A rendered spec: storage account on a referenced platform, Terraform, validated and
-      tested plan-only, committed under `examples/`. Surfaced the `azurerm` 5.x renames
-      and the two-target diagnostics
+      tested plan-only. Surfaced the `azurerm` 5.x renames and the two-target diagnostics
+      (the example has since been removed; the git history holds it)
 - [x] The same spec rendered to Bicep, compiled and linted, and diffed against the
-      Terraform render — one real divergence found (private endpoint naming) and fixed,
-      the rest documented in `examples/README.md`
+      Terraform render — one real divergence found (private endpoint naming) and fixed
+      (also removed; the git history holds it)
 - [ ] **An applied render.** Neither plan nor what-if has run against a subscription
 - [ ] Remaining families: `compute`, `data`, `security`
 - [ ] Remaining storage resources: blob container, file share, queue

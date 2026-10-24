@@ -59,19 +59,12 @@ python3 plugins/infrastructure-as-skills-azure/core/iac-rendering/tests/run_pipe
 # Renders a spec as the customer's decision document (infra-decisions.md beside it).
 python3 plugins/infrastructure-as-skills-azure/core/iac-authoring/scripts/export_decisions.py <spec> --language de
 
-# A rendered example: fmt, validate, plan-only tests with a mocked platform - and the
-# Bicep render of the same spec compiled and linted.
-terraform -chdir=examples/private-storage-on-platform init && terraform -chdir=examples/private-storage-on-platform test
+# A rendered example: fmt, validate, plan-only tests with a mocked platform.
 # Every decision in the spec asserted by those tests, or marked not-testable with a reason.
-python3 plugins/infrastructure-as-skills-azure/core/iac-rendering/scripts/check_render_coverage.py examples/private-storage-on-platform/infra-spec.yaml
-bicep build --stdout examples/private-storage-on-platform/bicep/main.bicep > $null && bicep lint examples/private-storage-on-platform/bicep/main.bicep
 # A per-family render (examples/chatbot): each family module carries its own tests, the root one wiring test.
 terraform -chdir=examples/chatbot/modules/ai init -backend=false && terraform -chdir=examples/chatbot/modules/ai test
 terraform -chdir=examples/chatbot init -backend=false && terraform -chdir=examples/chatbot test
 python plugins/infrastructure-as-skills-azure/core/iac-rendering/scripts/check_render_coverage.py examples/chatbot/infra-spec.yaml
-# The Bicep example: its tests run against the compiled ARM, then the same coverage check.
-python3 plugins/infrastructure-as-skills-azure/core/iac-rendering/scripts/run_arm_tests.py examples/greenfield-telemetry/infra-spec.yaml
-python3 plugins/infrastructure-as-skills-azure/core/iac-rendering/scripts/check_render_coverage.py examples/greenfield-telemetry/infra-spec.yaml
 ```
 
 There is no build. The artefacts are Markdown and YAML; the scripts and the examples'
@@ -149,6 +142,9 @@ are in [README.md](README.md#why-one-trigger-and-families-that-are-not-skills).
 - **A `CLAUDE.md` inside the plugin directory is not loaded as context.** Instructions that
   must reach Claude belong in a skill. This file is at the repo root and does load.
 - **Frontmatter `name` must equal the skill's directory name.**
+- **The plugin never refers to `examples/`.** It ships without them; a live deployment has
+  neither the directory nor the specs. Skills, references and question sets carry what they
+  need themselves; nothing under `plugins/` - tests included - reads from it. Only the repo's own docs may point at an example.
 - **The spec names decisions, not attributes.** `public_network_access: disabled`, never
   `public_network_access_enabled: false` — that is one backend's spelling leaking into the
   interface the others read.
