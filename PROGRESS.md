@@ -183,6 +183,12 @@ the detail; this list says what was decided and why, so a session does not reope
   function-app, container-apps, container-registry; cosmos-db; key-vault,
   user-assigned-identity; log-analytics-workspace, application-insights; foundry,
   search-service. The deployment set has 37 questions; 323 questions in total.
+- **First applied render (2026-10-25): `eval-agent/`**, Bicep, one stage, deployed through its
+  own rendered GitHub pipeline (what-if, approval, deploy; OIDC). The first run fed three
+  fixes back into `pipelines.github.md` and `check_pipeline.py` (job without checkout,
+  partial what-if, immutable OIDC subject). Not yet in the plugin: an image owned by a
+  separate pipeline (`existingLinuxFxVersion`, spec decision `container_image_owner`), and
+  the instance number in the unique-name seed. Terraform and the other pipelines have not run.
 - **Three examples, Terraform only, nothing applied:** `chat-sandbox` (the first full run
   with a customer and both agent loops, authored, 118 decisions, 32 tests),
   `chatbot` (per-family AVM, 284 decisions, 79 asserted / 205 not-testable),
@@ -263,6 +269,14 @@ until it is fixed or decided against.
   App" needs a singular form. `infra-decisions.docx` is missing everywhere (no `pandoc`).
 - The extension run that writes a further stage's file once its `open:` entries are
   answered has not been exercised.
+- **Resource-group roles are the contract only** (2026-10-25): `resource_groups` group in
+  `deployment.yaml` (split, mode per role, lock), `references/resource-groups.md`, the
+  `contains` condition in `check_question_set.py`. Not done: `check_spec.py` does not
+  validate the new keys or `placement.resource_group`; `pipelines*.md` still deploy with
+  `az deployment group` (a `create` root needs `sub`); no example renders a split or a
+  created group, so the Terraform/Bicep tests and `check_render_coverage.py` do not cover
+  it; the `rg` + role name segment is unchecked against `naming.yaml`; `export_decisions.py`
+  and the diagram do not draw groups; no eval case.
 
 ### Pipelines
 
@@ -369,9 +383,9 @@ What the second review found, all `render`:
 
 ### Waiting on the owner
 
-- A sandbox subscription with a federated credential and a fenced resource group, for the
-  first real `plan` / `what-if`, an apply, and the deploy agent
-  (`ideas/autonomous-terraform-agent.md`). Not available yet.
+- A sandbox subscription with a federated credential and a fenced resource group for the
+  deploy agent (`ideas/autonomous-terraform-agent.md`). The first apply ran in the owner's
+  own subscription (`eval-agent/`); a fenced sandbox is still missing.
 - `patterns/` is empty: composition is specified and proven by two hand-wired examples
   only (`ideas/pattern-skill.md`).
 - An AVM version drift check, read-only, scheduled (`ideas/avm-drift-watch.md`).

@@ -259,7 +259,7 @@ claude plugin eval plugins/infrastructure-as-skills-azure --allow-tools Write Ed
 
 ## 🧪 Status
 
-Early, and the shape matters more than the coverage. The eval baseline holds; three specs are rendered to Terraform with plan-only tests; nothing has run against a subscription.
+Early, and the shape matters more than the coverage. The eval baseline holds; three specs are rendered to Terraform with plan-only tests, and one Bicep render, [`eval-agent/`](eval-agent/), has been deployed to a subscription through its own rendered GitHub pipeline.
 
 - [x] Shared contract: spec format, question-set format, interview protocol, guardrails
 - [x] Deployment-wide question set, inherited by every resource via `from_deployment`
@@ -271,7 +271,7 @@ Early, and the shape matters more than the coverage. The eval baseline holds; th
 - [x] Checks: `check_spec.py`, `check_question_set.py`, `check_render_coverage.py`, `check_pipeline.py`
 - [x] Eval suite with a baseline
 - [ ] **Reference pattern skill.** `patterns/` is empty, so composition is specified but unproven
-- [ ] **An applied render.** Neither `plan` nor `what-if` has run against a subscription
+- [x] **An applied render.** [`eval-agent/`](eval-agent/) - rendered Bicep from an `infra-spec.yaml`, what-if, approval and deploy through the rendered GitHub pipeline (OIDC, no secret). The first run found what the pipeline reference now says: a job without a checkout, a what-if that skips modules, immutable OIDC subjects. One spec override came from a quota, not from the interview. Terraform and the other pipelines are still unapplied
 - [ ] The complex example in Bicep; the sets added for it have no Bicep render yet
 - [ ] Remaining resources: blob container, file share, queue, backup vault
 - [ ] AVM version drift check; cross-backend diff of one spec
