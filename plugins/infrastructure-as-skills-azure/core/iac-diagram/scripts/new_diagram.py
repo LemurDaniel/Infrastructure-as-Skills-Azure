@@ -381,7 +381,7 @@ def main():
 
     # A private posture with a named departure (a workspace left public) is not "no public access":
     # the subtitle and the footer name the exception instead of claiming everything.
-    public_exceptions = [k for k in res_keys if exposure == 'private' and base(k) not in SUPPORT_KINDS
+    public_exceptions = [k for k in res_keys if exposure in ('private', 'private_with_exceptions') and base(k) not in SUPPORT_KINDS
                          and k != 'virtual-network' and pna(k) != 'disabled']
     exception_names = ', '.join(dict.fromkeys(TYPE_NAMES.get(base(k), base(k)) for k in public_exceptions))
 
@@ -736,7 +736,7 @@ def main():
     # Title and subtitle
     workload = s(get_value(ctx.get('workload'))) or s(get_at(spec, ['spec', 'id']))
     sub_line = {'private': T['subPrivate'], 'private_with_exceptions': T['subExc'], 'public': T['subPublic']}.get(exposure, '')
-    if exposure == 'private' and public_exceptions:
+    if exposure in ('private', 'private_with_exceptions') and public_exceptions:
         sub_line = T['subPrivateExc'].replace('{names}', exception_names)
     if sub_line and s(get_decision(dep, ['local_auth'])) == 'disabled':
         sub_line += T['keyless']
