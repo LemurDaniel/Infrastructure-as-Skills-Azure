@@ -314,6 +314,21 @@ Verified Modules first, authored resources second.
   `terraform.md` tables are stale in places (`log_categories` for the Key Vault, Search, Foundry, ACR,
   Cosmos DB and NSG modules). The trial's render was **discarded** (owner's call, 2026-10-24) and is not
   in the repo; what it left is the list above.
+- **The chatbot-rag example landed 2026-10-24** (`examples/chatbot-rag/`, interview run with the owner, Terraform,
+  `module_source: authored`, standalone landing zone, three stages, GitHub Actions): 10 resource sets, 151 decisions, 14
+  `open:` entries (subscription, group, address ranges, models, runtime, tags, Key Vault roles, uploader role, monitor
+  scope, search-to-storage link) that all three stage files hold as placeholders; one `assumed` role. Rendered by agents
+  (`agents.md`): code, pipeline, test and a diagram review with one fix pass; `terraform test` 45 passed, coverage
+  125/125, `check_pipeline.py` green, `actionlint` not run, nothing planned against Azure. **Rule from it:** a file with
+  an authored resource starts with `res.` (`terraform-idiom.md`). **Fixed in `new_diagram.py`:** PaaS-to-PaaS lines run on
+  a track of their own and every `identity.role_assignments` role stands at its target as `← principal: role`.
+  **Open from it:** the default NSG pattern has no `<?SUBNAME>` (two NSGs got one name; the render passes `name`), the
+  web app name has no unique id (global hostname), `wiring.private_dns_zones` lacks `oms`/`ods`/`agentsvc` for a monitor
+  scope, `SKILL.md` of iac-diagram still says PaaS-to-PaaS lines are not routed, `pipelines.github.md` says nothing about
+  an example in a subfolder (working directory, artifact paths, path filters) and pins Terraform 1.16 (live 1.17), the
+  Key Vault has no caller in the picture until its access is decided, `per-family` is unknown to `check_spec.py`, and
+  `infra-decisions.docx` is missing (no `pandoc`). The Telemetry default is `disabled` for new specs; the older examples
+  keep `enabled`.
 - **Next:** the same case rendered to Bicep from the one spec (the cross-backend diff is what
   tests the sets), a deploy pipeline once the owner names the system, and `patterns/` - the
   wiring in this example (roles between resources, the private link, the order identity -> vault

@@ -86,11 +86,15 @@ than inferring the shape from an example spec.
     `scripts/check_pipeline.py <spec>` before handing over; it fails on a missing stage, a
     gate that does not match `pipeline_approvals`, an apply without a saved plan and a
     secret in the file.
-11. **Run it as agents when the spec is large.** With the Agent tool and several resource
-    families, render in two parallel arms - code, pipeline and a read-only test agent;
-    diagram and a read-only review agent that looks at the picture - each with its own
-    bounded fix loop. The protocol, the stop rules and what goes into an agent's brief are
-    in [agents.md](references/agents.md). A small spec is faster in sequence.
+11. **Ask how to run it when the spec is large.** With the Agent tool and several resource
+    families, ask once through `AskUserQuestion` before the first file is written: **Subagents**
+    (recommended) or **Same session**. Subagents render in two parallel arms - code, pipeline
+    and a read-only test agent; diagram and a read-only review agent that looks at the
+    picture - each with its own bounded fix loop. The protocol, the stop rules and what goes
+    into an agent's brief are in [agents.md](references/agents.md). Same session does the
+    steps above in order, itself. The answer is a working mode, not a decision: it is not
+    written to the spec. A small spec, or a host without the Agent tool, is not asked -
+    it is rendered in sequence.
 
 ## Do not invent attributes
 

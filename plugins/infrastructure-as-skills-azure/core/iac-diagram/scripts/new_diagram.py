@@ -501,6 +501,16 @@ def main():
     for ra in roles:
         if s(ra.get('to')) in resources:
             role_lines.setdefault(s(ra.get('to')), []).append(f"{s(ra.get('from'))}: {s(ra.get('role'))}")
+    # The same on the resource itself: resources.<r>.identity.role_assignments, a list of
+    # { principal, role } (per stage or one list). Every principal with its role is a line.
+    for rk, rnode in resources.items():
+        ras = get_decision(rnode, ['identity', 'role_assignments']) if isinstance(rnode, dict) else None
+        for ra in as_list(ras):
+            if isinstance(ra, dict) and ra.get('principal') and ra.get('role'):
+                line = f"{s(ra['principal'])}: {s(ra['role'])}"
+                if line not in role_lines.setdefault(rk, []):
+                    role_lines[rk].append(line)
+    role_principals = {k: {ln.split(':', 1)[0] for ln in v} for k, v in role_lines.items()}
 
     callers = []
     for a in access:
@@ -510,11 +520,32 @@ def main():
     # a hand-drawn architecture - short horizontal lines through a routing channel of their own,
     # one track per caller - and not a block below it that every line has to bend around.
     side = bool(draw_vnet and callers and len(paas) >= 4)
+    # PaaS -> PaaS (a search service reading a storage account): a track of its own at the right
+    # of the services' column, outside every icon and label. Lines whose runs overlap in height
+    # take different lanes; lines that only meet at one icon share a lane.
+    pp_lane = {}
+    if side:
+        pp_iv = []   # per lane: occupied (top, bottom) index intervals
+        pp_edges = [a for a in access if a['from'] in paas and a['to'] in paas and a['from'] != a['to']]
+        for a in sorted(pp_edges, key=lambda a: abs(paas.index(a['from']) - paas.index(a['to']))):
+            lo, hi = sorted((paas.index(a['from']), paas.index(a['to'])))
+            for ln, iv in enumerate(pp_iv):
+                if all(hi <= l or lo >= h for l, h in iv):
+                    iv.append((lo, hi))
+                    break
+            else:
+                ln = len(pp_iv)
+                pp_iv.append([(lo, hi)])
+            pp_lane[(a['from'], a['to'])] = ln
+    pp_w = (46 + TRK * (max(pp_lane.values()) + 1) + 30) if pp_lane else 0
     callers_of = {}
+    callers_listed_in_roles = set()   # callers whose role is already on the label
     for a in access:
         if a['from'] in compute and a['to'] in paas:
             who = TYPE_NAMES.get(base(a['from']), base(a['from'])) + (f" &#183; {a['from'].partition('__')[2]}" if '__' in a['from'] else '')
             callers_of.setdefault(a['to'], []).append(who + (f" ({a['label']})" if a.get('label') else ''))
+            if a['from'] in role_principals.get(a['to'], ()):
+                callers_listed_in_roles.add((a['to'], who))
 
     def resource_label(k):
         kind_title = TYPE_NAMES.get(base(k), base(k).replace('-', ' ').title())
@@ -523,8 +554,9 @@ def main():
         label = format_label(kind_title, sub, note)
         for line in role_lines.get(k, []):
             label += f"<br><font style='font-size:10px' color='#5C2D91'>&#8592; {esc(line)}</font>"
-        if side and callers_of.get(k):
-            label += f"<br><font style='font-size:10px' color='#5C2D91'>&#8592; {', '.join(callers_of[k])}</font>"
+        rest = [c for c in callers_of.get(k, []) if (k, c.split(' (')[0]) not in callers_listed_in_roles]
+        if side and rest:
+            label += f"<br><font style='font-size:10px' color='#5C2D91'>&#8592; {', '.join(rest)}</font>"
         return label
 
     labels = {k: resource_label(k) for k in drawn + (['application-insights'] if has_ai else [])}
@@ -569,7 +601,7 @@ def main():
         pe_w = SLOT_W
         w_main = PAD + cw + coll_w + pe_w + PAD
         chan_w = 80
-        paas_w = cols_p * SLOT_W + 2 * PAD
+        paas_w = cols_p * SLOT_W + 2 * PAD + pp_w
     else:
         cols_p = len(paas) if len(paas) <= 5 else math.ceil(len(paas) / 2)
         cols_p = min(max(cols_p, 1), 8)
@@ -630,8 +662,9 @@ def main():
     law_existing = (not has_law_res) and obs_ownership != 'create'
     dns_existing = dns_ownership != 'deployment'
     right = []   # dicts: id, h, inside
+    ai_h = max(SLOT_H, pitch_of(labels['application-insights'])) if has_ai else 0   # roles make its label taller
     if draw_law or has_ai:
-        right.append({'id': 'monitoring', 'h': ZHEAD + SLOT_H * ((1 if draw_law else 0) + (1 if has_ai else 0)) + 40 + PAD,
+        right.append({'id': 'monitoring', 'h': ZHEAD + (SLOT_H if draw_law else 0) + ai_h + 40 + PAD,
                       'inside': not law_existing})
     if zones or dns_existing and dns_ownership:
         right.append({'id': 'dnszones', 'h': ZHEAD + SLOT_H + PAD, 'inside': not dns_existing})
@@ -831,8 +864,8 @@ def main():
                 sy += SLOT_H
             if has_ai:
                 add_icon('res-application-insights', f"z-{r['id']}", sx, sy, 'application-insights',
-                         labels['application-insights'], flagged('application-insights'))
-                sy += SLOT_H
+                         labels['application-insights'], flagged('application-insights'), slot_h=ai_h)
+                sy += ai_h
             add_text('diag-note', f"z-{r['id']}", px + 12, sy + 4, ZONE_W - 24, 32, f"<i>{esc(T['diagNote'])}</i>",
                      'text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;fontSize=10;fontColor=#605E5C;')
         else:
@@ -1020,6 +1053,17 @@ def main():
             tx = (vn_cell['x'] + vn_cell['w'] + 14) if vn_cell else dc['x'] - 20
             edge['style'] = style + 'exitX=1;exitY=0.5;entryX=0;entryY=0.5;'
             edge['points'] = [{'x': tx, 'y': sc['y'] + sc['h'] / 2}, {'x': tx, 'y': dc['y'] + dc['h'] / 2}]
+        elif side and a['from'] in paas and a['to'] in paas:
+            # Out of the right of the source, along a lane outside the column of icons and labels,
+            # in at the right of the target. The label sits on the vertical run, in the lane.
+            slot_r = sc['slot']['x'] + sc['slot']['w']
+            lx_track = slot_r + 46 + TRK * pp_lane.get((a['from'], a['to']), 0)
+            sy_, dy_ = sc['y'] + sc['h'] / 2, dc['y'] + dc['h'] / 2
+            edge['style'] = style + 'exitX=1;exitY=0.5;entryX=1;entryY=0.5;'
+            edge['points'] = [{'x': lx_track, 'y': sy_}, {'x': lx_track, 'y': dy_}]
+            h1, v, h2 = lx_track - (sc['x'] + sc['w']), abs(dy_ - sy_), lx_track - (dc['x'] + dc['w'])
+            if v:
+                edge['lx'] = round(2 * ((h1 + 0.5 * v) / (h1 + v + h2)) - 1, 3)
         elif is_actor(a['from']) and a['to'] in compute:
             # own x track per actor line, own height at the compute icon: no shared or crossing runs
             gx = gx_of[(a['from'], a['to'])]

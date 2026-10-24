@@ -349,7 +349,7 @@ the same thing to the API.
 
 ## Private endpoint
 
-One endpoint per sub-resource, in `storage.network.tf`. The DNS zone is referenced, never
+One endpoint per sub-resource, in `res.storage.network.tf`. The DNS zone is referenced, never
 created:
 
 ```hcl

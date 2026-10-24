@@ -5,10 +5,13 @@ diagram, and the checks that tie them to the spec. They share one input and litt
 they can run as agents. This file is the protocol; the order of work in
 [SKILL.md](../SKILL.md) stays the contract each agent follows.
 
-**When.** Use it when the Agent tool is available and the spec has several resource families.
-A small spec (one resource, one family) is faster done in sequence: every agent starts cold
-and reads the spec, the references and the guardrails again. Without the Agent tool, do the
-same steps in the same order yourself.
+**When.** Ask when the Agent tool is available and the spec has several resource families:
+one `AskUserQuestion` before rendering, with two options - **Subagents (recommended)** and
+**Same session** - and run what the user picks. Say in the option text what it costs: agents
+run in parallel and check each other, but each starts cold and uses its own tokens; the same
+session is cheaper and sequential. A small spec (one resource, one family) is not asked: it
+is faster done in sequence, because every agent reads the spec, the references and the
+guardrails again. Without the Agent tool, do the same steps in the same order yourself.
 
 ## Two arms from one spec
 

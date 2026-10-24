@@ -150,7 +150,7 @@ GUID table the authored Bicep render needed.
 **Telemetry.** Every AVM module sends a deployment telemetry event to Microsoft unless
 told not to; the Terraform modules do it through the `Azure/modtm` provider, the Bicep
 modules through an empty nested deployment. It is a deployment decision
-(`deployment.module_telemetry`, default `enabled`) and is rendered explicitly on every call
+(`deployment.module_telemetry`, default `disabled`) and is rendered explicitly on every call
 either way, so a reviewer sees it was decided.
 
 ## Provider requirements (Terraform)

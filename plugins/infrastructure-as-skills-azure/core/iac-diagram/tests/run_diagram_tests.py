@@ -43,6 +43,10 @@ def load(spec, language):
             continue
         cells[c.get('id')] = {'value': c.get('value') or '', 'style': c.get('style') or '', 'parent': c.get('parent'),
                               'edge': c.get('edge') == '1', 'source': c.get('source'), 'target': c.get('target')}
+        g = c.find('mxGeometry')
+        if g is not None:
+            cells[c.get('id')]['geo'] = {k: float(g.get(k, 0)) for k in ('x', 'y', 'width', 'height')}
+            cells[c.get('id')]['points'] = [(float(m.get('x')), float(m.get('y'))) for m in g.iter('mxPoint')]
     return proc, cells
 
 
@@ -241,6 +245,67 @@ def case_example_chatbot(cells):
     return bad
 
 
+def absolute(cells, cid):
+    """x, y, w, h of a vertex in page coordinates (geometry is relative to the parent)."""
+    c, x, y = cells[cid], 0.0, 0.0
+    while c is not None and 'geo' in c:
+        x, y = x + c['geo']['x'], y + c['geo']['y']
+        c = cells.get(c['parent'])
+    g = cells[cid]['geo']
+    return x, y, g['width'], g['height']
+
+
+def case_example_chatbot_rag(cells):
+    """A PaaS -> PaaS line (search reading storage, search calling the model) runs on a track of
+    its own right of the services' icon and label column: it crosses no other icon and no label
+    slot, and its label sits on its own run. Every role the spec assigns to a resource is on
+    that resource's label with its principal."""
+    import yaml
+    bad = []
+    spec = yaml.safe_load(open(os.path.join(EXAMPLES, 'chatbot-rag', 'infra-spec.yaml'), encoding='utf-8'))
+    paas = [k for k, v in cells.items() if k.startswith('res-') and v.get('parent') == 'z-paas']
+    pp = [e for e in edges(cells).values() if e['source'] in paas and e['target'] in paas]
+    if len(pp) != 2:
+        bad.append(f"expected the two PaaS-to-PaaS lines (indexer, embeddings), found {len(pp)}")
+    slots = {}
+    for k in paas:
+        x, y, w, h = absolute(cells, k)
+        slots[k] = (x + w / 2 - 86, x + w / 2 + 86)   # the slot: SLOT_W 172 around the icon
+    for e in pp:
+        pts = e['points']
+        sx, sy, sw, sh = absolute(cells, e['source'])
+        tx, ty, tw, th = absolute(cells, e['target'])
+        path = [(sx + sw, sy + sh / 2)] + pts + [(tx + tw, ty + th / 2)]
+        for (x1, y1), (x2, y2) in zip(path, path[1:]):
+            for k in paas:
+                if k in (e['source'], e['target']) and y1 == y2:
+                    continue
+                ix, iy, iw, ih = absolute(cells, k)
+                lo_y, hi_y = min(y1, y2), max(y1, y2)
+                below = [absolute(cells, o)[1] for o in paas if absolute(cells, o)[1] > iy]
+                slot_bottom = min(below) if below else iy + ih + 80   # the slot ends where the next icon starts
+                lo_x, hi_x = min(x1, x2), max(x1, x2)
+                # the icon box, and the slot below it that holds the label and the roles
+                if lo_x < slots[k][1] and hi_x > slots[k][0] and lo_y < slot_bottom and hi_y > iy:
+                    if k in (e['source'], e['target']) and x1 == x2 and x1 > slots[k][1]:
+                        continue
+                    bad.append(f"line {e['source']} -> {e['target']} crosses {k}")
+        if not (len(pts) == 2 and all(px > max(s[1] for s in slots.values()) for px, _ in pts)):
+            bad.append(f"line {e['source']} -> {e['target']} is not on a track outside the icon column")
+        if not e['value']:
+            bad.append(f"line {e['source']} -> {e['target']} lost its label")
+    for key, node in spec['resources'].items():
+        ras = (node.get('identity') or {}).get('role_assignments')
+        ras = ras.get('value') if isinstance(ras, dict) else None
+        if isinstance(ras, dict):
+            ras = ras.get('production') or next(iter(ras.values()))
+        for ra in ras or []:
+            label = ' '.join(v['value'] for k, v in cells.items() if k in (f'res-{key}', f'res-{key}-icon'))
+            if f"{ra['principal']}: {ra['role']}" not in label:
+                bad.append(f"{key}: role '{ra['principal']}: {ra['role']}' is not on the label")
+    return bad
+
+
 CASES = [
     ('ten-resources', os.path.join(FIXTURES, 'ten-resources.yaml'), 'en', case_ten_resources),
     ('ten-resources-de', os.path.join(FIXTURES, 'ten-resources.yaml'), 'de', case_ten_resources_de),
@@ -248,6 +313,7 @@ CASES = [
     ('example-private-storage-on-platform', os.path.join(EXAMPLES, 'private-storage-on-platform', 'infra-spec.yaml'), 'en', case_example_platform),
     ('example-greenfield-telemetry', os.path.join(EXAMPLES, 'greenfield-telemetry', 'infra-spec.yaml'), 'en', case_example_greenfield),
     ('example-chatbot', os.path.join(EXAMPLES, 'chatbot', 'infra-spec.yaml'), 'en', case_example_chatbot),
+    ('example-chatbot-rag', os.path.join(EXAMPLES, 'chatbot-rag', 'infra-spec.yaml'), 'de', case_example_chatbot_rag),
 ]
 
 

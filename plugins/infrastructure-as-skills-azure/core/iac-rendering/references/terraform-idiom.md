@@ -8,8 +8,8 @@ layout, follow that and ignore the defaults below.
 One concern per file, named after it. Not `main.tf` holding everything:
 
 ```
-storage.tf              # the resource and what belongs only to it
-storage.network.tf      # private endpoint, DNS record, firewall rules
+res.storage.tf          # the resource and what belongs only to it
+res.storage.network.tf  # private endpoint, DNS record, firewall rules
 variables.tf
 outputs.tf
 providers.tf            # required_providers + the naming provider block
@@ -28,6 +28,11 @@ tests/
 
 The reason to split is review, not tidiness: a private endpoint change and a retention
 change land in different files and can be read apart.
+
+**Every file that holds an authored resource starts with `res.`** (`res.storage.tf`,
+`res.nsg.tf`, `res.network.tf`); a file holding AVM calls starts with `avm.`. The prefix sorts
+the resource files together and apart from the plumbing (`variables.tf`, `providers.tf`,
+`locals.tf`, `outputs.tf`, `data.tf`), which keep their plain names.
 
 That is the `granularity: single` shape. With modules, the same files move one level down; under AVM with several families the shape is [`per-family`](#grouped-avm-calls-modulesfamily).
 
@@ -162,7 +167,7 @@ modules/
 
 A family has no `main.tf`: the file is named after the resource it holds, `avm.<resource>.tf`
 (`avm.` because the call is an Azure Verified Module; an authored resource is
-`resource.<name>.tf`). Resources that render as several instances (`for_each`) or as a pair
+`res.<name>.tf`). Resources that render as several instances (`for_each`) or as a pair
 of modules (plan and app) stay in one file.
 
 Rules:

@@ -16,7 +16,7 @@ landing_zone: standalone
 naming_convention: default
 
 # enabled | disabled - whether the Azure Verified Modules may send deployment telemetry.
-module_telemetry: enabled
+module_telemetry: disabled
 
 # --- network: a corp workload references the hub; standalone creates its own ------------
 # create | reference | none

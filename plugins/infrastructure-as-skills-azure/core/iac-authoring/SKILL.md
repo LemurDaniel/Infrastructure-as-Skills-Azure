@@ -82,16 +82,40 @@ In customer mode word it without the product name:
 
 ```
 Wie soll der Code gebaut werden?
-  1. Aus Microsofts geprüften, gepflegten Bausteinen (empfohlen) - getestet, in Terraform
-     und Bicep gleich aufgebaut
-  2. Aus einzeln ausgeschriebenen Ressourcen - jede Zeile im eigenen Review, dafür mehr
-     Code, den ihr selbst pflegt
+  1. Geprüfte Bausteine (empfohlen) - Aus Microsofts getesteten, gepflegten Bausteinen
+     (Azure Verified Modules) - in Terraform und Bicep gleich aufgebaut
+  2. Einzelne Ressourcen - Aus einzeln ausgeschriebenen Ressourcen - jede Zeile im eigenen
+     Review, dafür mehr Code, den ihr selbst pflegt
 ```
 
 In engineer mode name them: Azure Verified Modules, or authored resources. **Skip it when it
 is already answered**: the user said it ("ohne Module", "mit AVM"), or a carried
 `infra-spec.yaml` has it. A resource whose type has no Azure Verified Module renders
 authored whatever the answer, recorded per module; say so when the person chose `avm`.
+
+**The second question, in every mode and for a Terraform target, is the naming
+mechanism**: `deployment.naming_source`. Ask it right after the module choice through
+`AskUserQuestion`, with three options and **none marked recommended**: the
+`LemurDaniel/naming` provider, the `Azure/naming/azurerm` module, or a custom mechanism
+(the organisation's own locals or module). Word it like this, with the product names in
+brackets in every mode (the labels are the same in customer and engineer mode):
+
+```
+Wie sollen die Ressourcennamen erzeugt werden?
+  1. Naming-Werkzeug des Plugins - Gesteuert über eine Namensdatei (naming.yaml), die ihr
+     anpassen könnt (LemurDaniel/naming Provider)
+  2. Microsofts Naming-Modul - Fertiges Modul mit CAF-Abkürzungen, keine eigene Namensdatei
+     (Azure/naming/azurerm)
+  3. Eigener Mechanismus - Der Mechanismus, den eure Organisation schon nutzt (eigene
+     locals oder eigenes Modul)
+```
+
+A Bicep target is not asked: it always assembles names from vars.
+
+**Skip it when it is already answered**: the user said it, a carried spec has it, or the
+repository already uses one - a naming provider block, a naming module call or naming
+locals answers it. Which mechanism renders what is in
+[naming.md](../iac-rendering/references/naming.md#the-mechanism).
 
 Then the interview opens with one open question, not with the question set. Let the user
 describe what they are building, and let that description answer as much as it can.

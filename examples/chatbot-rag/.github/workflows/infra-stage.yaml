@@ -1,0 +1,115 @@
+# Reusable stage workflow: plan -> approve -> apply for one stage. Platform prerequisites: see the
+# header of infra.yaml. Action majors and Terraform minor looked up 2026-10-24.
+name: Infrastructure stage
+
+on:
+  workflow_call:
+    inputs:
+      stage: { type: string, required: true }
+      gated: { type: boolean, required: true }
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    working-directory: examples/chatbot-rag
+
+# Queue, never cancel: an apply cut off halfway is how state and reality part.
+concurrency:
+  group: infra-${{ inputs.stage }}
+  cancel-in-progress: false
+
+env:
+  STAGE: ${{ inputs.stage }}
+  ARM_USE_OIDC: "true"
+  ARM_USE_AZUREAD: "true"
+  ARM_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
+  ARM_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+  TF_IN_AUTOMATION: "true"
+  TF_STATE_KEY_PREFIX: chatrag        # context.workload
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.stage }}
+    permissions: { contents: read, id-token: write }
+    outputs:
+      changes: ${{ steps.plan.outputs.changes }}
+    steps:
+      - uses: actions/checkout@v7
+      - name: Refuse placeholder values
+        run: |
+          f="environments/${STAGE}.tfvars"
+          [ -f "$f" ] || { echo "::error::$f is missing"; exit 1; }
+          if grep -Eq '00000000-0000-0000-0000-000000000000|OPEN-' "$f"; then
+            echo "::error file=examples/chatbot-rag/$f::Stage ${STAGE} still holds placeholder values - answer the open items first."
+            exit 1
+          fi
+      - uses: hashicorp/setup-terraform@v4
+        with:
+          terraform_version: "~> 1.17.0"
+          terraform_wrapper: false      # the wrapper swallows the exit code the plan step reads
+      - name: Init
+        run: |
+          terraform init -input=false \
+            -backend-config="subscription_id=${{ vars.TF_STATE_SUBSCRIPTION_ID }}" \
+            -backend-config="resource_group_name=${{ vars.TF_STATE_RESOURCE_GROUP }}" \
+            -backend-config="storage_account_name=${{ vars.TF_STATE_STORAGE_ACCOUNT }}" \
+            -backend-config="container_name=${{ vars.TF_STATE_CONTAINER }}" \
+            -backend-config="key=${TF_STATE_KEY_PREFIX}/${STAGE}.tfstate" \
+            -backend-config="use_azuread_auth=true"
+      - name: Plan
+        id: plan
+        run: |
+          set +e
+          terraform plan -input=false -detailed-exitcode \
+            -var-file="environments/${STAGE}.tfvars" -out=tfplan
+          code=$?
+          set -e
+          if [ "$code" -eq 1 ]; then exit 1; fi
+          echo "changes=$([ "$code" -eq 2 ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
+          { echo "### Plan: ${STAGE}"; echo '```'; terraform show -no-color tfplan; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v7
+        if: steps.plan.outputs.changes == 'true'
+        with:
+          name: tfplan-${{ inputs.stage }}
+          path: examples/chatbot-rag/tfplan
+          retention-days: 1             # a plan file can hold sensitive values in clear
+
+  approve:
+    needs: plan
+    if: ${{ inputs.gated && needs.plan.outputs.changes == 'true' }}
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.stage }}-approval
+    steps:
+      - run: echo "Approved for ${{ inputs.stage }}."
+
+  apply:
+    needs: [plan, approve]
+    # approve is skipped on an ungated stage; !failure() lets that pass and still stops on a rejection
+    if: ${{ !cancelled() && !failure() && needs.plan.outputs.changes == 'true' }}
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.stage }}
+    permissions: { contents: read, id-token: write }
+    steps:
+      - uses: actions/checkout@v7
+      - uses: hashicorp/setup-terraform@v4
+        with:
+          terraform_version: "~> 1.17.0"
+          terraform_wrapper: false
+      - uses: actions/download-artifact@v8
+        with:
+          name: tfplan-${{ inputs.stage }}
+          path: examples/chatbot-rag
+      - name: Init
+        run: |
+          terraform init -input=false \
+            -backend-config="subscription_id=${{ vars.TF_STATE_SUBSCRIPTION_ID }}" \
+            -backend-config="resource_group_name=${{ vars.TF_STATE_RESOURCE_GROUP }}" \
+            -backend-config="storage_account_name=${{ vars.TF_STATE_STORAGE_ACCOUNT }}" \
+            -backend-config="container_name=${{ vars.TF_STATE_CONTAINER }}" \
+            -backend-config="key=${TF_STATE_KEY_PREFIX}/${STAGE}.tfstate" \
+            -backend-config="use_azuread_auth=true"
+      - name: Apply the approved plan
+        run: terraform apply -input=false tfplan

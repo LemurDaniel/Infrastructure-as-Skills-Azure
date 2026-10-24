@@ -8,6 +8,20 @@ targets read it differently:
 | Terraform | The `LemurDaniel/naming` provider renders it, reading the repository's `naming.yaml` |
 | Bicep | **Assembled from `var`s in the template**, generated from the same `naming.yaml`. The Bicep naming modules are not shipped yet |
 
+## The mechanism
+
+For a Terraform target `deployment.naming_source` picks what produces the names; the rest of
+this file describes `provider`, the default. One mechanism per configuration, never mixed.
+
+| `naming_source` | Rendered as |
+|---|---|
+| `provider` | `LemurDaniel/naming` and `data "naming_name"`, reading `naming.yaml` - [Terraform](#terraform) below |
+| `module` | `module "naming" { source = "Azure/naming/azurerm" }` and its outputs (`module.naming.storage_account.name`); look up the version live and pin the minor. The module has no `naming.yaml`: a departure from its pattern is a `custom` decision, not a patch |
+| `custom` | The repository's own mechanism, carried as it is - locals, an in-house module. Do not add a pattern the repository does not have |
+
+`naming.yaml` is written only for `provider`. The spec still records `naming_convention`;
+with `module` the convention is the module's own. Bicep ignores `naming_source`.
+
 ## The convention
 
 [naming.default.yaml](naming.default.yaml) is the plugin's convention: the one the
