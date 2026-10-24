@@ -158,7 +158,9 @@ Verified Modules first, authored resources second.
   re-asks for a render without a Phase 5. Owner's rule from the same run: the script only
   makes the first draft; the diagram agent fixes the review's findings **by hand in the
   `.drawio`** and never touches `new_diagram.py` inside the loop - script faults become a
-  plugin todo in the hand-over. The dry run's other findings, not yet fixed:
+  plugin todo in the hand-over. And the review is capped (8 findings per pass, errors
+  first, at most 3 polish, no pixel sampling, a second pass re-checks only) after the
+  first uncapped review returned 17 findings in six minutes. The dry run's other findings, not yet fixed:
   `public` maps to `enabled_with_firewall` on every resource, but with
   `network_ownership: none` the app has no fixed outbound address and an empty firewall
   locks it out of its own backends (overridden by hand in the run; wants a `forced_when`:

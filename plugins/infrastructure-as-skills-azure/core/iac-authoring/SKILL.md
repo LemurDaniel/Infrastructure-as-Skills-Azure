@@ -508,7 +508,12 @@ is not touched in the loop: `new_diagram.py` exists to produce the first draft c
 and the picture the customer signs off on is finished by hand. A fault the script would
 repeat on the next spec is noted in the hand-over as a plugin todo, not fixed now. Two passes, then the customer
 sees the picture as it is, with the open findings named. `polish` findings never go back;
-they go into the hand-over. An `error` with cause `spec` is the main agent's: correct the
+they go into the hand-over. **The review has a ceiling**, because a reviewer always finds
+more: at most **8 findings per pass, errors first, at most 3 of them `polish`**; the same
+fault on several cells is one finding that lists the cells; it reads the PNG and the spec
+and opens the `.drawio` only for a coordinate it needs, never samples pixels, and stops
+once the list is full. A second pass reports only what the first pass named and what the
+fix broke - never a fresh sweep. An `error` with cause `spec` is the main agent's: correct the
 spec, re-export the decision document, redraw. **Never show the customer a picture with
 an error you have already seen** - that is what the loop is for.
 

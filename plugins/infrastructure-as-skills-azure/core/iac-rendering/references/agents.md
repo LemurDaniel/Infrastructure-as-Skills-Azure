@@ -78,7 +78,13 @@ is restarted on the corrected spec. Loop 2 never redraws on its own.
 | 2: Code | 3 | `error` findings, to the agent that made the part | The same message in two passes in a row |
 
 `polish` findings from the review never go back: a reviewer always finds something, so
-feeding them back means the loop never ends. They go into the hand-over.
+feeding them back means the loop never ends. They go into the hand-over. For the same
+reason the review is capped: **at most 8 findings per pass, errors first, at most 3
+`polish`**, one finding per fault even when it hits several cells, the PNG and the spec
+as its sources and the `.drawio` only for a coordinate, no pixel sampling; a second pass
+re-checks the first pass's findings and what the fix touched, never the whole picture
+again. The first dry run's review (2026-10-24) returned 17 findings after six minutes;
+the ceiling exists because of it.
 
 When a loop stops without green, hand over its open findings as they are. A message that
 returns unchanged after a fix means the cause is in the spec or the question set, not in the
