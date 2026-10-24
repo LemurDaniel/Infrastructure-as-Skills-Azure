@@ -293,8 +293,38 @@ top when actor lines end at the icon, a PaaS-to-PaaS line without the network ro
 the row, the network red over open addressing, `wiring.purposes` on the workspace, a
 localised group label with the stages, data-plane roles and endpoint subresources counted,
 principals by display name, one blue legend row, telemetry in blue, a mark on a public
-exception. Left as polish: a wide label still wraps in its 162px slot; an empty area under
-the network remains when the services are taller.
+exception.
+
+**Second round, open (owner's call 2026-10-24: later).** The three examples were regenerated
+with the fixed generator and reviewed again: 10 errors (chat-sandbox 5, chatbot 1,
+chatbot-rag 4) against 11 before, so the first round closed as many as it moved. The
+committed example PNGs are the hand-finished ones from Loop 1, not the regenerated drafts.
+What the second review found, all `render`:
+
+- Actor lines: tracks are assigned by actor height, so the line to the farthest actor
+  turns on the innermost track and crosses the others; assign tracks by distance from the
+  compute (farthest actor, outermost track). Their labels now stack at the three arrowheads;
+  put each label above the segment at its own actor, where no other line runs.
+- Hub layout: the caller's line into the endpoints leaves at 0.5 while the users line
+  enters at 0.5 (one line through the App Service); leave at 0.7 when actor lines end at
+  the icon, as the bus layout already does. The trunk into a first-column service enters at
+  0.3, but the PaaS line leaving it can be at 0.3 too (second anchor on that side): pick
+  the trunk's height from what the icon's sides do not use.
+- Caller lines cross each other in the collector corridor (chatbot: four crossings between
+  web→mcp, mcp→container-apps and the e-in lines); the track assignment ignores the
+  compute-to-compute lines.
+- Labels: a PaaS-to-PaaS label on the vertical in the channel has the line through the
+  word - put it above the line's first horizontal, at the source; the bus-layout trunk
+  label lands at the junction, not on the drop, because the label fraction is computed
+  from the right-edge exit while the line leaves over the top; a label beside a track with
+  offset 8 + 3·chars reaches the next drop; "HTTPS 443" straddles the network border.
+- Without the network, the PaaS-to-PaaS run over the row crosses the trunk drops; give
+  the edges `jumpStyle=arc` so a crossing reads as a crossing.
+- Role lines wrap in the 162px slot and read as twice as many entries: bold the principal,
+  or widen the slot for icons with roles. The legend has no row for the purple role text
+  and the orange public mark.
+- Panel: skip the "Private DNS" line when the spec has no zones; the legend-beside-panel
+  threshold (380px) keeps them stacked on a 850px group - 300 is enough for eight lines.
 
 ### Evals
 
