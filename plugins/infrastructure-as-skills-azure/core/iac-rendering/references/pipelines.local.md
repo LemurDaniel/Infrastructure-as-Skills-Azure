@@ -65,6 +65,11 @@ try {
   terraform plan -input=false -detailed-exitcode "-var-file=environments/$Stage.tfvars" "-out=$plan"
   switch ($LASTEXITCODE) { 0 { Write-Host 'No changes.'; return } 1 { throw 'terraform plan failed' } }
 
+  $doomed = terraform show -json $plan | ConvertFrom-Json | ForEach-Object { $_.resource_changes } |
+    Where-Object { $_.change.actions -contains 'delete' -and ($_.type -eq 'azurerm_resource_group' -or
+      ($_.type -eq 'azapi_resource' -and "$($_.change.before.type)" -like 'Microsoft.Resources/resourceGroups*')) }
+  if ($doomed) { throw 'The plan deletes a resource group - a group is destroyed by hand, never by the pipeline.' }
+
   $answer = Read-Host "Apply this plan to '$Stage'? Type the stage name to confirm"
   if ($answer -ne $Stage) { Write-Host 'Not applied.'; return }
   terraform apply -input=false $plan;              if ($LASTEXITCODE) { throw 'terraform apply failed' }

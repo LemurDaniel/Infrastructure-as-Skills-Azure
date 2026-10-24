@@ -200,6 +200,7 @@ stages:
                 [ "$code" -eq 1 ] && exit 1
                 echo "##vso[task.setvariable variable=changes;isOutput=true]$([ "$code" -eq 2 ] && echo true || echo false)"
                 terraform show -no-color "$(Build.ArtifactStagingDirectory)/tfplan"
+                terraform show -json "$(Build.ArtifactStagingDirectory)/tfplan" | jq -e '[.resource_changes[]? | select(.change.actions | index("delete")) | select(.type == "azurerm_resource_group" or (.type == "azapi_resource" and ((.change.before.type // "") | startswith("Microsoft.Resources/resourceGroups"))))] | length == 0' > /dev/null \n                  || { echo "##vso[task.logissue type=error]The plan deletes a resource group - a group is destroyed by hand, never by the pipeline."; exit 1; }
           - task: PublishPipelineArtifact@1
             condition: eq(variables['plan.changes'], 'true')
             inputs:

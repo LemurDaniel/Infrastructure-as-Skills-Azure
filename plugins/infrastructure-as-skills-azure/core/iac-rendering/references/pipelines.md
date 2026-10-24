@@ -97,6 +97,17 @@ reports as "not checkable" instead of passing them.
     still holds a marker fails it too, which is the point - and the grep reads comments as
     well, so a resolved stage's file must not spell either marker out, not even to explain
     the convention (a staging file once did, and would have refused itself).
+12. **A plan that deletes a resource group does not reach apply.** Terraform only: after the
+    plan, a step reads `terraform show -json <plan>` and fails when a `delete` hits a
+    resource group (`azurerm_resource_group`, or an `azapi_resource` whose type is
+    `Microsoft.Resources/resourceGroups`), before the plan is saved as an artifact or sent for
+    approval. A group is the unit that takes everything in it along, and an approval that
+    scrolls past one line in a long plan is not a safeguard; a deliberate teardown is done by
+    hand, outside the pipeline, after the production lock is removed on purpose. Bicep
+    deploys incrementally and never deletes: dropping a group from the spec leaves it
+    behind, orphaned, and the hand-over says so. The step needs `jq` (or PowerShell in the
+    local script); verify the `azapi_resource` branch against the AVM resource group
+    module's plan before relying on it.
 
 ## What the render hands over besides the files
 

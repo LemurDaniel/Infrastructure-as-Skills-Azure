@@ -26,6 +26,9 @@ renders under the root, and checks what a reviewer would otherwise check by eye:
      without a backend block is ignored without an error - local state.
  11. A placeholder never deploys: the pipeline has a step that fails on a stage
      file holding a marker, before any login.
+ 12. Terraform: a plan that deletes a resource group does not reach apply - the
+     plan job reads `terraform show -json` and fails on a `delete` of a group.
+     Bicep deploys incrementally and never deletes, so there is nothing to refuse.
 
 Platform-specific constructs are checked where the file can show them. What the
 file cannot - an environment's approval check, a lock check, the federated
@@ -595,6 +598,18 @@ def check_guard(root, mech):
             "must fail before any login (pipelines.md, invariant 11)")
 
 
+def check_group_guard(root, mech):
+    """Terraform only: a plan that deletes a resource group is refused before apply."""
+    text = ''
+    for f in pipeline_files(root, mech):
+        with open(f, encoding='utf-8') as fh:
+            text += fh.read() + '\n'
+    if not ('show -json' in text and 'azurerm_resource_group' in text and 'delete' in text):
+        err("no step that refuses a plan deleting a resource group - the plan job must read "
+            "`terraform show -json` and fail on a `delete` of a group before the plan is saved or approved "
+            "(pipelines.md, invariant 12)")
+
+
 def check_stage_files(root, stages, target, open_stages):
     """Every stage has its file; an open stage's file holds placeholders, a resolved stage's none."""
     code = root
@@ -679,6 +694,7 @@ def main():
     check_stage_files(root, stages, target, open_stages)
     if target == 'terraform':
         check_backend(root)
+        check_group_guard(root, mech)
 
     say(f"Pipeline check - {mech}, {target}, stages {', '.join(stages)}, gated {', '.join(gated) or 'none'}", 'cyan')
     say('-' * 70, 'gray')

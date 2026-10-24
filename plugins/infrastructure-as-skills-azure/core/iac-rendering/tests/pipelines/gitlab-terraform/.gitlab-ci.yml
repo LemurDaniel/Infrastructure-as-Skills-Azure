@@ -52,6 +52,7 @@ validate:
     - if [ "$code" -eq 1 ]; then exit 1; fi
     - echo "$code" > plan.exitcode
     - terraform show -no-color tfplan
+    - terraform show -json tfplan | jq -e '[.resource_changes[]? | select(.change.actions | index("delete")) | select(.type == "azurerm_resource_group" or (.type == "azapi_resource" and ((.change.before.type // "") | startswith("Microsoft.Resources/resourceGroups"))))] | length == 0' > /dev/null || { echo "The plan deletes a resource group - a group is destroyed by hand, never by the pipeline."; exit 1; }
   artifacts:
     paths: [tfplan, plan.exitcode]
     expire_in: 1 day                      # a plan file can hold sensitive values in clear

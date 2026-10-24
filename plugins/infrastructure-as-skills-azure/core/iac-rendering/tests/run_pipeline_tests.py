@@ -109,6 +109,16 @@ MUTATIONS = [
     ('gitlab manual job lets the pipeline run on', 'gitlab-terraform', GL,
      '      allow_failure: false ', '      allow_failure: true ', 'run on past the gate'),
 
+    # a resource group is never destroyed by the pipeline
+    ('github plan may delete a resource group', 'github-terraform', GHS,
+     'azurerm_resource_group', 'azurerm_x', 'invariant 12'),
+    ('ado plan may delete a resource group', 'ado-terraform', ADOS,
+     'azurerm_resource_group', 'azurerm_x', 'invariant 12'),
+    ('gitlab plan may delete a resource group', 'gitlab-terraform', GL,
+     'azurerm_resource_group', 'azurerm_x', 'invariant 12'),
+    ('local plan may delete a resource group', 'local-terraform', 'deploy.ps1',
+     'azurerm_resource_group', 'azurerm_x', 'invariant 12'),
+
     # one apply at a time
     ('github cancels an apply', 'github-terraform', GHS,
      'cancel-in-progress: false', 'cancel-in-progress: true', 'cancel-in-progress'),

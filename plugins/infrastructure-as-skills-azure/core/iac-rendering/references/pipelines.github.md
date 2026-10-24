@@ -219,6 +219,9 @@ jobs:
           if [ "$code" -eq 1 ]; then exit 1; fi
           echo "changes=$([ "$code" -eq 2 ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
           { echo "### Plan: ${STAGE}"; echo '```'; terraform show -no-color tfplan; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+      - name: Refuse a plan that deletes a resource group
+        run: |
+          terraform show -json tfplan | jq -e '[.resource_changes[]? | select(.change.actions | index("delete")) | select(.type == "azurerm_resource_group" or (.type == "azapi_resource" and ((.change.before.type // "") | startswith("Microsoft.Resources/resourceGroups"))))] | length == 0' > /dev/null \n            || { echo "::error::The plan deletes a resource group - a group is destroyed by hand, never by the pipeline."; exit 1; }
       - uses: actions/upload-artifact@v7
         if: steps.plan.outputs.changes == 'true'
         with:
