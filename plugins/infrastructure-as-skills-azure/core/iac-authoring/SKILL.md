@@ -398,11 +398,39 @@ A question may carry `confirm_in: [production]`. Its default still applies, but 
 environment you surface it for confirmation rather than applying it silently — these are
 the values whose blast radius makes a silent default inappropriate.
 
-## Phase 4 — Report what was defaulted, before generating
+## Phase 4 — Show the design, report what was defaulted, then ask once
 
-Show a compact account. Not forty rows — group it. The account opens
-with what the person's answers decided, in their words and their language, and keeps the
-technical rows for the engineer section below it:
+**First the design, as a list the customer ticks off** (owner's call, 2026-10-24). Before
+the account of defaults and before any file is written, say in the customer's words what
+will be built: one line per part with what it is for, one line per connection, the handful
+of decisions that cost money or change what the system can do. Nothing technical, no
+attribute names - the customer recognises their system or says what is missing, which is
+cheaper here than after the picture and far cheaper than after the code:
+
+```
+Das würde ich bauen - bitte abhaken, was stimmt:
+  [ ] Eine Chat-Anwendung als Container, aus dem Internet erreichbar, Anmeldung mit Firmenkonten
+  [ ] Ein Sprachmodell und ein Embedding-Modell (AI Foundry), nur in der EU
+  [ ] Ein Suchindex über eure Dokumente (AI Search)
+  [ ] Ein Speicher für die Dokumente und ein Datenbank für die Chatverläufe
+  [ ] Ein Tresor für das eine Geheimnis, das die App braucht
+  [ ] Ein eigenes Netz, 10.100.0.0/24, in dem alles außer der App nur privat erreichbar ist
+  [ ] Protokolle aller Teile an einem Ort, 30 Tage
+  Verbindungen: die App spricht mit Modellen, Suche, Speicher, Datenbank und Tresor; die
+  Suche liest den Speicher und die Modelle. Nichts anderes spricht miteinander.
+  Was Geld kostet oder euch einschränkt: eine Stufe (Sandbox), keine zweite Region, keine
+  getrennte Sicherungskopie - alles so, wie ihr es beantwortet habt.
+```
+
+Close it with one `AskUserQuestion`: **Passt das Design?** - *Ja, so bauen* (recommended
+when nothing is open) / *Etwas fehlt oder ist zu viel* (the person says what; the spec is
+not written until the list is right). A part the customer strikes is removed, a part they
+add goes through `azure-resources` like any other request, and the account below is
+redone for the change.
+
+**Then the account of what was decided for them.** Compact - not forty rows, group it. It
+opens with what the person's answers decided, in their words and their language, and
+keeps the technical rows for the engineer section below it:
 
 ```
 Was aus euren Antworten folgt:

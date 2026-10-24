@@ -33,6 +33,10 @@ the detail; this list says what was decided and why, so a session does not reope
   `deployment.module_source` records it once, `module_telemetry` beside it (default
   `disabled` for new specs). The module choice is a `customer` question, asked in Phase 0
   (owner's call, 2026-10-24), skipped when the repository or a carried spec answers it.
+- **Phase 4 opens with the design as a tick list** (2026-10-24): before the defaults
+  account and before any file, one line per part in the customer's words, the connections,
+  what costs money; one question "Passt das Design?" and the spec is written only when the
+  list is right. A missing part is cheaper to find here than after the picture.
 - **`network_requirements` is a customer requirement** (2026-10-24): may the network be
   chosen freely, or are address ranges assigned or a connection to the company network
   (hub, VPN) given; it pre-answers `landing_zone` and through it the network's ownership
