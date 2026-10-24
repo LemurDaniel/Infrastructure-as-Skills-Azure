@@ -160,8 +160,9 @@ endpoints' height, the further right its track, so a vertical never crosses anot
 connections become four plus seven, and who calls what is text at the service
 (`← App Service · web, Function App`), not a line. With fewer services the zone sits below the
 network instead and each caller runs on a track beside the subnets and a lane under them to its
-services. A line to Application Insights goes out along the row, over the zones through the strip
-under the group's title and down in the gap in front of the monitoring zone; lines to and from an
+services. A line to Application Insights goes out along the row, down the corridor right of the
+network, along the gutter above the monitoring zone's row and in at the icon's left - the zone
+sits under the network or the services, never beside them; lines to and from an
 actor (users, Entra ID) run in the gap between the external zone and the group, never on the
 group's border. **With three or more callers the lines into the endpoints are told apart by
 colour**, one per caller, and the legend names them; the lines out of the endpoints stay blue,
@@ -175,8 +176,8 @@ account) is not routed, so say it in `wiring.purposes` instead.
 
 A legend at the bottom lists only what the picture uses.
 
-Plus a **decisions panel**, right of the group or, when it is taller than the group, under the
-picture in columns: exposure, network, mandates, DNS and diagnostics ownership, and the count
+Plus a **decisions panel** under the group, beside the legend when the width allows and in
+columns below it otherwise: exposure, network, mandates, DNS and diagnostics ownership, and the count
 of open and assumed entries by owner, pointing at `infra-decisions.md`. Nothing in it is prose:
 the forced chains (`key_protection: hsm → forces key-vault.sku = premium`), the questions and
 the reasons are in the decision document, which the customer reads beside the picture (owner's

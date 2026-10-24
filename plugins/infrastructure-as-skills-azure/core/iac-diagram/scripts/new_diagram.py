@@ -10,8 +10,12 @@ something to fix by hand in draw.io.
 
 The picture is about who can reach what, drawn in zones:
 
-  external zone | resource group > [ virtual network (subnets with
-  their compute) / Azure PaaS ] | platform and monitoring zones | decisions
+  external zone | resource group > [ virtual network (subnets with their compute) | Azure PaaS
+                                     identities, monitoring, name resolution below them ]
+  legend and decisions below the group
+
+The picture grows downwards, not sideways: nothing stands right of the services, so a
+deployment of a dozen resources still fits an A4 page in landscape without shrinking.
 
 Compute sits in the subnet it integrates with. Every private endpoint of the
 deployment is one bundled icon in the endpoint subnet - one per resource drew a
@@ -530,10 +534,12 @@ def main():
     # channel - out of the side of the source that faces it, down or up, in at the facing side of
     # the target - and never across the neighbour in the row. Lines whose rows overlap or touch
     # take different lanes.
-    PAAS_COLS = 2
+    pp_edges = [a for a in access if a['from'] in paas and a['to'] in paas and a['from'] != a['to']]
+    # Three columns from seven services on, as long as no PaaS -> PaaS line needs the channel
+    # between the first two: eight services in two columns are four rows beside a network of one.
+    PAAS_COLS = 3 if len(paas) >= 7 and not pp_edges else 2
     if side:
         pp_iv = []   # per lane: occupied (top, bottom) row intervals
-        pp_edges = [a for a in access if a['from'] in paas and a['to'] in paas and a['from'] != a['to']]
         row_of = lambda k: paas.index(k) // PAAS_COLS
         for a in sorted(pp_edges, key=lambda a: abs(row_of(a['from']) - row_of(a['to']))):
             lo, hi = sorted((row_of(a['from']), row_of(a['to'])))
@@ -658,33 +664,61 @@ def main():
     if side:
         PAAS_HEAD = 44   # the title, then the first row's gutter
         paas_h = PAAS_HEAD + rows_height(paas, cols_p, GUT) + PAD
-    # The support zone sits under the network and is as wide as the network: identities and
-    # security groups belong to the compute side, and a zone that also spanned the services'
-    # column was a strip of empty space with one icon in it.
-    cols_s = min(max(len(support), 1), max((w_main - 2 * PAD) // SLOT_W, 1) if side else max(cols_p, 3))
-    support_h = (ZHEAD + rows_height(support, cols_s) + PAD) if support else 0
-
     # One bus lane per compute resource that calls PaaS, between the network and the PaaS zone.
     gap = 30 + 10 * len(callers)
-    if side:
-        main_h = max(vn_h + (support_h + PAD if support else 0), paas_h)
-    else:
-        main_h = vn_h + (gap if (vn_h and paas_h) else 0) + paas_h + (support_h + PAD if support else 0)
 
-    # Right column: platform and monitoring zones. Created things belong to the
-    # resource group, referenced ones sit outside it.
+    # The lower zones - identities and security groups, monitoring, name resolution - sit under
+    # the network and the services, never in a column of their own at the right: a picture that
+    # has to fit a page is built downwards. Created zones go inside the group, referenced
+    # (existing) ones below it.
+    cols_s = min(max(len(support), 1), max((w_main - 2 * PAD) // SLOT_W, 1))
+    support_h = (ZHEAD + rows_height(support, cols_s) + PAD) if support else 0
     law_existing = (not has_law_res) and obs_ownership != 'create'
     dns_existing = dns_ownership != 'deployment'
-    right = []   # dicts: id, h, inside
+    lower, outside = [], []   # dicts: id, w, h (dx, dy once placed)
+    if support:
+        lower.append({'id': 'support', 'w': cols_s * SLOT_W + 2 * PAD, 'h': support_h})
     ai_h = max(SLOT_H, pitch_of(labels['application-insights'])) if has_ai else 0   # roles make its label taller
     if draw_law or has_ai:
-        right.append({'id': 'monitoring', 'h': ZHEAD + (SLOT_H if draw_law else 0) + ai_h + 40 + PAD,
-                      'inside': not law_existing})
+        z = {'id': 'monitoring', 'w': ZONE_W, 'h': ZHEAD + (SLOT_H if draw_law else 0) + ai_h + 40 + PAD}
+        (outside if law_existing else lower).append(z)
     if zones or dns_existing and dns_ownership:
-        right.append({'id': 'dnszones', 'h': ZHEAD + SLOT_H + PAD, 'inside': not dns_existing})
-    right_in = [r for r in right if r['inside']]
-    right_out = [r for r in right if not r['inside']]
-    in_h = sum(r['h'] + PAD for r in right_in) - (PAD if right_in else 0)
+        z = {'id': 'dnszones', 'w': ZONE_W, 'h': ZHEAD + SLOT_H + PAD}
+        (outside if dns_existing else lower).append(z)
+
+    def flow(items, width):
+        """Packs the zones left to right in rows of `width`; sets dx, dy; returns the height."""
+        x = y = row_h = 0
+        for it in items:
+            if x and x + it['w'] > width:
+                x, y, row_h = 0, y + row_h + PAD, 0
+            it['dx'], it['dy'] = x, y
+            x += it['w'] + PAD
+            row_h = max(row_h, it['h'])
+        return (y + row_h) if items else 0
+
+    if side:
+        # Under the network or under the services: whichever split keeps the group shortest.
+        # The support zone stays under the network, where the identities belong.
+        fixed = [z for z in lower if z['id'] == 'support']
+        movable = [z for z in lower if z['id'] != 'support']
+        best = None
+        for mask in range(2 ** len(movable)):
+            left = fixed + [z for i, z in enumerate(movable) if not mask >> i & 1]
+            right = [z for i, z in enumerate(movable) if mask >> i & 1]
+            lh = vn_h + ((PAD + flow(left, w_main)) if left else 0)
+            rh = paas_h + ((PAD + flow(right, paas_w)) if right else 0)
+            if best is None or max(lh, rh) < best[0]:
+                best = (max(lh, rh), left, right)
+        main_h, lower_left, lower_right = best
+        flow(lower_left, w_main)
+        flow(lower_right, paas_w)
+    else:
+        lower_left, lower_right = lower, []
+        main_h = vn_h + (gap if (vn_h and paas_h) else 0) + paas_h + ((PAD + flow(lower_left, w_main)) if lower_left else 0)
+    # A telemetry line to the monitoring zone needs a corridor right of the network; in the side
+    # layout the channel to the services is one, otherwise the group is widened by a strip.
+    n_mon = any(a['from'] in compute and base(a['to']) in MONITOR_KINDS for a in access)
 
     # --- Geometry, phase B: positions --------------------------------------
     ext_w = ZONE_W if actors else 0
@@ -696,14 +730,10 @@ def main():
     rg_x, rg_y = 20 + (ext_w + ext_gap if actors else 0), TOP
     sub_x, sub_y = rg_x, rg_y
     main_x, main_y = rg_x + PAD, rg_y + HEAD + 10
-    rin_x = main_x + block_w + PAD
-    rg_w = (rin_x + ZONE_W + PAD - rg_x) if right_in else (main_x + block_w + PAD - rg_x)
-    content_h = max(main_h, in_h, 140)
+    rg_w = main_x + block_w + PAD + (24 if n_mon and not side else 0) - rg_x
+    content_h = max(main_h, 140)
     rg_h = HEAD + 10 + content_h + PAD + (24 if is_private else 0)
-    sub_w, sub_h = rg_w, rg_h   # the extent the panel and the legend line up with
-    out_x = sub_x + sub_w + 40
-    out_w = ZONE_W if right_out else 0
-    panel_x = out_x + (out_w + 40 if right_out else 0)
+    sub_w, sub_h = rg_w, rg_h   # the extent the legend and the panel line up with
 
     # --- Cells -------------------------------------------------------------
     containers, icons = [], []
@@ -852,44 +882,49 @@ def main():
         else:
             add_container({'id': 'z-paas', 'parent': 'rg', 'x': main_x, 'y': paas_y, 'w': w_main, 'h': paas_h, 'style': ZONES['paas_in'], 'value': title})
             place_grid(paas, 'z-paas', main_x + PAD, paas_y + PAAS_TOP, cols_p, stagger)
-    if support:
-        support_y = (main_y + vn_h + PAD) if side else paas_y + (paas_h + PAD if paas else 0)
-        add_container({'id': 'z-support', 'parent': 'rg', 'x': main_x, 'y': support_y, 'w': w_main if side else block_w, 'h': support_h, 'style': ZONES['paas'], 'value': esc(T['support'])})
-        place_grid(support, 'z-support', main_x + PAD, support_y + ZHEAD, cols_s)
-
-    # Platform and monitoring zones
-    ry_in, ry_out = main_y, main_y
-    for r in right:
-        inside = r['inside']
-        px, parent = (rin_x, 'rg') if inside else (out_x, '1')
-        py = ry_in if inside else ry_out
-        is_mon = r['id'] == 'monitoring'
+    def draw_zone(z, zx, zy, parent):
+        zid = z['id']
+        if zid == 'support':
+            add_container({'id': 'z-support', 'parent': parent, 'x': zx, 'y': zy, 'w': z['w'], 'h': z['h'], 'style': ZONES['paas'], 'value': esc(T['support'])})
+            place_grid(support, 'z-support', zx + PAD, zy + ZHEAD, cols_s)
+            return
+        is_mon = zid == 'monitoring'
         existing = law_existing if is_mon else dns_existing
-        add_container({'id': f"z-{r['id']}", 'parent': parent, 'x': px, 'y': py, 'w': ZONE_W, 'h': r['h'],
+        add_container({'id': f"z-{zid}", 'parent': parent, 'x': zx, 'y': zy, 'w': ZONE_W, 'h': z['h'],
                        'style': (ZONES['monitoring'] if is_mon else ZONES['platform']) + (EXISTING_STYLE if existing else ''),
                        'value': esc(T['monitoring'] if is_mon else T['nameRes'])})
-        sx, sy = px + (ZONE_W - SLOT_W) / 2, py + ZHEAD
+        sx, sy = zx + (ZONE_W - SLOT_W) / 2, zy + ZHEAD
         if is_mon:
             if draw_law:
                 law_name = s(diag_target) if diag_target else 'log-analytics-workspace'
-                add_icon('law', f"z-{r['id']}", sx, sy, 'log-analytics-workspace',
+                add_icon('law', f"z-{zid}", sx, sy, 'log-analytics-workspace',
                          format_label('Log Analytics', law_name, T['existing'] if existing else ''),
                          flagged('log-analytics-workspace'), existing)
                 sy += SLOT_H
             if has_ai:
-                add_icon('res-application-insights', f"z-{r['id']}", sx, sy, 'application-insights',
+                add_icon('res-application-insights', f"z-{zid}", sx, sy, 'application-insights',
                          labels['application-insights'], flagged('application-insights'), slot_h=ai_h)
                 sy += ai_h
-            add_text('diag-note', f"z-{r['id']}", px + 12, sy + 4, ZONE_W - 24, 32, f"<i>{esc(T['diagNote'])}</i>",
+            add_text('diag-note', f"z-{zid}", zx + 12, sy + 4, ZONE_W - 24, 32, f"<i>{esc(T['diagNote'])}</i>",
                      'text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;fontSize=10;fontColor=#605E5C;')
         else:
-            add_icon('dns', f"z-{r['id']}", sx, sy, 'private-dns-zone',
+            add_icon('dns', f"z-{zid}", sx, sy, 'private-dns-zone',
                      format_label('Private DNS Zones', f"{len(zones)}× privatelink.*" if zones else 'privatelink.*', T['existing'] if existing else ''),
                      False, existing)
-        if inside:
-            ry_in += r['h'] + PAD
-        else:
-            ry_out += r['h'] + PAD
+
+    # The lower zones: under the network (and, in the side layout, under the services); the
+    # referenced ones in a row below the group, the legend under those.
+    left_y0 = (main_y + vn_h + PAD) if side else paas_y + (paas_h + PAD if paas else (PAD if vn_h else 0))
+    columns = [(lower_left, main_x, left_y0, 'rg')]
+    if side:
+        columns.append((lower_right, paas_x, main_y + paas_h + PAD, 'rg'))
+    out_y = rg_y + rg_h + 30
+    out_h = flow(outside, rg_w)
+    columns.append((outside, rg_x, out_y, '1'))
+    legend_y = out_y + (out_h + 30 if outside else 0)
+    for items, x0, y0, parent in columns:
+        for z in items:
+            draw_zone(z, x0 + z['dx'], y0 + z['dy'], parent)
 
     # --- Edges: access -----------------------------------------------------
     by_id = {c['id']: c for c in containers + icons}
@@ -966,33 +1001,37 @@ def main():
                 tx = gut0 - 16 * (len(callers) + 1 + k)
             edge['style'] = style + f"exitX=1;exitY=0.5;entryX=1;entryY={IN_FR};"
             edge['points'] = [{'x': tx, 'y': sc['y'] + sc['h'] / 2}, {'x': tx, 'y': dc['y'] + dc['h'] * IN_FR}]
-        elif side and a['from'] in compute and base(a['to']) in MONITOR_KINDS:
-            # past the PaaS column along the free strip above the zones, down in the gap in front
-            # of the monitoring zone
-            tx = vn_cell['x'] + vn_cell['w'] + 54
-            top = main_y - 6
+        elif a['from'] in compute and base(a['to']) in MONITOR_KINDS:
+            # To the monitoring zone, which sits below the network or the services: down a
+            # corridor right of the network, along the gutter above the zone's row, down beside
+            # the zone, in at the icon's left - never across another zone or a service line.
             zone = by_id.get('z-monitoring')
-            gx = (zone['x'] - 9) if zone else dc['x'] - 22
-            # Leaves the icon low on its right side on a track of its own (the endpoint line leaves
-            # at mid height), drops to the strip under the endpoint subnet and runs out below it,
-            # so it never lies on a line from the endpoints to a service.
-            ex_y = sc['y'] + sc['h'] * 0.9
-            sub = by_id.get(sc['parent'])
-            xa = (sub['x'] + sub['w'] + 12) if sub else sc['x'] + sc['w'] + 40
-            pe_sn = by_id.get('snet-pe')
-            yg = (pe_sn['y'] + pe_sn['h'] + 16) if pe_sn else ex_y + 40
-            edge['style'] = style + 'exitX=1;exitY=0.9;entryX=0;entryY=0.5;'
-            edge['points'] = [{'x': xa, 'y': ex_y}, {'x': xa, 'y': yg}, {'x': tx, 'y': yg}, {'x': tx, 'y': top}, {'x': gx, 'y': top}, {'x': gx, 'y': dc['y'] + dc['h'] / 2}]
-            # label on the first drop, near the icon
-            seg = [abs(xa - (sc['x'] + sc['w'])), abs(yg - ex_y), abs(tx - xa), abs(yg - top), abs(gx - tx), abs(dc['y'] + dc['h'] / 2 - top)]
+            gx = (zone['x'] - 8) if zone else dc['x'] - 22
+            gutter_y = (zone['y'] - PAD / 2) if zone else dc['y'] - 20
+            mid = dc['y'] + dc['h'] / 2
+            if side:
+                # Leaves the icon low on its right side on a track of its own (the endpoint line
+                # leaves at mid height), drops to the strip under the endpoint subnet and runs out
+                # below it into the channel, so it never lies on a line to the endpoints.
+                tx = vn_cell['x'] + vn_cell['w'] + 54
+                ex_y = sc['y'] + sc['h'] * 0.9
+                sub = by_id.get(sc['parent'])
+                xa = (sub['x'] + sub['w'] + 12) if sub else sc['x'] + sc['w'] + 40
+                pe_sn = by_id.get('snet-pe')
+                yg = (pe_sn['y'] + pe_sn['h'] + 16) if pe_sn else ex_y + 40
+                edge['style'] = style + 'exitX=1;exitY=0.9;entryX=0;entryY=0.5;'
+                pts = [{'x': xa, 'y': ex_y}, {'x': xa, 'y': yg}, {'x': tx, 'y': yg}, {'x': tx, 'y': gutter_y}, {'x': gx, 'y': gutter_y}, {'x': gx, 'y': mid}]
+            else:
+                tx = (vn_cell['x'] + vn_cell['w'] + 20) if vn_cell else sc['x'] + sc['w'] + 40
+                ex_y = sc['y'] + sc['h'] / 2
+                edge['style'] = style + 'exitX=1;exitY=0.5;entryX=0;entryY=0.5;'
+                pts = [{'x': tx, 'y': ex_y}, {'x': tx, 'y': gutter_y}, {'x': gx, 'y': gutter_y}, {'x': gx, 'y': mid}]
+            edge['points'] = pts
+            # label on the first run, near the icon
+            path = [(sc['x'] + sc['w'], ex_y)] + [(p['x'], p['y']) for p in pts] + [(dc['x'], mid)]
+            seg = [abs(x2 - x1) + abs(y2 - y1) for (x1, y1), (x2, y2) in zip(path, path[1:])]
             if sum(seg):
                 edge['lx'] = round(2 * ((seg[0] + 0.5 * seg[1]) / sum(seg)) - 1, 3)
-        elif a['from'] in compute and base(a['to']) in MONITOR_KINDS:
-            # To the monitoring zone: out to the right along the row, up or down in the gap between
-            # the network and the zone, in from the left - not across the picture.
-            tx = (vn_cell['x'] + vn_cell['w'] + 14) if vn_cell else dc['x'] - 20
-            edge['style'] = style + 'exitX=1;exitY=0.5;entryX=0;entryY=0.5;'
-            edge['points'] = [{'x': tx, 'y': sc['y'] + sc['h'] / 2}, {'x': tx, 'y': dc['y'] + dc['h'] / 2}]
         elif side and a['from'] in paas and a['to'] in paas:
             # Through the channel between the two columns: out of the side of the source that faces
             # it, along a lane of its own, in at the facing side of the target. The label sits on
@@ -1105,14 +1144,13 @@ def main():
         # open items are drawn as red text (a flagged label, the panel list), not as a marker
         legend.append(f"<font color='#D13438'>{esc(T['legOpen'])}</font>")
     if len(legend) > 1:
-        add_container({'id': 'legend', 'parent': '1', 'x': sub_x, 'y': sub_y + sub_h + 30, 'w': min(max(sub_w, 420), 560), 'h': len(legend) * 15 + 26,
+        add_container({'id': 'legend', 'parent': '1', 'x': sub_x, 'y': legend_y, 'w': min(max(sub_w, 420), 560), 'h': len(legend) * 15 + 26,
                        'style': 'rounded=1;arcSize=4;whiteSpace=wrap;html=1;align=left;verticalAlign=top;spacing=10;fillColor=#FFFFFF;strokeColor=#C8C6C4;fontSize=11;',
                        'value': '<br>'.join(legend)})
 
-    # Decisions panel. Beside the resource group while it is no taller than the group; a longer
-    # list - many open entries, printed verbatim by design - goes under the picture across its
-    # width in columns, instead of a narrow column that makes the page twice as tall as the
-    # architecture and leaves the lower half empty.
+    # Decisions panel, under the legend across the group's width, in up to three columns filled
+    # to equal height and broken only between lines - never beside the group, which would widen
+    # a page that should fit A4 landscape. The first column keeps the id `panel`.
     lines = [f"<b>{T['decisions']}</b>"]
     if exposure:
         lines.append(f"{T['exposure']}: <b>{esc(exposure)}</b>")
@@ -1148,41 +1186,39 @@ def main():
     def wrapped(text_lines, width):
         # Wrap estimate measured on the export: ~54 characters per line at 12px in 340px, 15px a line.
         return sum(max(1, math.ceil(plain_len(line) / max(int((width - 24) / 5.6), 20))) for line in text_lines)
-    panel_w = 340
-    panel_h = max(80, wrapped(lines, panel_w) * 15 + 30)
-    if panel_h <= sub_h + 60:
-        add_container({'id': 'panel', 'parent': '1', 'x': panel_x, 'y': sub_y, 'w': panel_w, 'h': panel_h, 'style': PANEL_STYLE, 'value': '<br>'.join(lines)})
+    legend_cell = next((c for c in containers if c['id'] == 'legend'), None)
+    beside = legend_cell is not None and sub_w - legend_cell['w'] - 20 >= 380
+    if beside:
+        # right of the legend, in the width that is left
+        px0, py, avail = legend_cell['x'] + legend_cell['w'] + 20, legend_y, sub_w - legend_cell['w'] - 20
     else:
-        # Under the legend, across the group's width, in two or three columns filled to equal
-        # height and broken only between lines. The first column keeps the id `panel`.
-        n_col = 2 if panel_h <= 2 * sub_h else 3
-        legend_cell = next((c for c in containers if c['id'] == 'legend'), None)
-        py = (legend_cell['y'] + legend_cell['h'] + 20) if legend_cell else sub_y + sub_h + 30
-        col_w = (sub_w - 20 * (n_col - 1)) / n_col
-        heights = [wrapped([line], col_w) for line in lines]
+        px0, py, avail = sub_x, (legend_cell['y'] + legend_cell['h'] + 20) if legend_cell else legend_y, sub_w
+    n_col = max(1, min(3, int(avail // 400)))
+    col_w = (avail - 20 * (n_col - 1)) / n_col
+    heights = [wrapped([line], col_w) for line in lines]
 
-        def chunks(cap):
-            out, acc = [[]], 0
-            for line, h in zip(lines, heights):
-                if out[-1] and acc + h > cap:
-                    out.append([])
-                    acc = 0
-                out[-1].append(line)
-                acc += h
-            return out
-        # the smallest column height that still fits the list into n_col columns
-        lo, hi = max(heights), sum(heights)
-        while lo < hi:
-            mid = (lo + hi) // 2
-            if len(chunks(mid)) <= n_col:
-                hi = mid
-            else:
-                lo = mid + 1
-        cols = chunks(lo)
-        tall = max(wrapped(c, col_w) for c in cols) * 15 + 30
-        for j, c in enumerate(cols):
-            add_container({'id': 'panel' if j == 0 else f"panel-{j}", 'parent': '1', 'x': sub_x + j * (col_w + 20), 'y': py,
-                           'w': col_w, 'h': tall, 'style': PANEL_STYLE, 'value': '<br>'.join(c)})
+    def chunks(cap):
+        out, acc = [[]], 0
+        for line, h in zip(lines, heights):
+            if out[-1] and acc + h > cap:
+                out.append([])
+                acc = 0
+            out[-1].append(line)
+            acc += h
+        return out
+    # the smallest column height that still fits the list into n_col columns
+    lo, hi = max(heights), sum(heights)
+    while lo < hi:
+        mid = (lo + hi) // 2
+        if len(chunks(mid)) <= n_col:
+            hi = mid
+        else:
+            lo = mid + 1
+    cols = chunks(lo)
+    tall = max(wrapped(c, col_w) for c in cols) * 15 + 30
+    for j, c in enumerate(cols):
+        add_container({'id': 'panel' if j == 0 else f"panel-{j}", 'parent': '1', 'x': px0 + j * (col_w + 20), 'y': py,
+                       'w': col_w, 'h': tall, 'style': PANEL_STYLE, 'value': '<br>'.join(c)})
 
     # Containers first, then icons, so icons are drawn on top.
     cells = containers + icons

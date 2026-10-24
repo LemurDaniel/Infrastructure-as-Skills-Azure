@@ -174,10 +174,13 @@ the detail; this list says what was decided and why, so a session does not reope
   the next session start or `/reload-plugins`; the copy under `~/.claude/plugins/cache`
   is only the install record. The older marketplace entry `infrastructure-as-skills`
   points at the sister repo and is unrelated.
-- **Diagram side layout** (2026-10-24, from the first install test's render, two thirds of it
-  empty): the services stand in two columns with a channel for the PaaS-to-PaaS lines, the
-  support zone sits under the network at its width, and a decisions panel taller than the
-  group goes under the picture in two or three balanced columns. The panel carries no
+- **The diagram grows downwards** (2026-10-24, from the first install test's render: two
+  thirds empty, and too wide for a page). The services stand in two columns with a channel
+  for the PaaS-to-PaaS lines, three from seven services without such lines; identities,
+  monitoring and name resolution sit under the network or the services, whichever keeps
+  the group shortest, referenced zones in a row below the group; the legend and the panel
+  share a row under it. Nothing stands right of the services, so a dozen resources fit A4
+  landscape (owner's ask: the pictures go into PDFs). The panel carries no
   prose: it counts open and assumed entries by owner and points at `infra-decisions.md`,
   which has the forced chains and the questions (owner's call, 2026-10-24). `private_with_exceptions`
   names its exceptions in the subtitle and the footer like `private` does; before, the
