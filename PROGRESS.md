@@ -177,8 +177,13 @@ Verified Modules first, authored resources second.
   review 0 errors → customer's yes; Loop 2 code agent (14 min, 32 tests, 92/92 covered,
   9 not-testable) → pipeline agent (`deploy.ps1`) → test agent 0 errors, 3 polish, green.
   Nothing was planned or applied against Azure; Terraform 1.9.8 was downloaded into the
-  session, the providers came through the proxy. The run's artefacts live in the session's
-  scratchpad only (not committed). **Plugin findings the agents reported, all open:**
+  session, the providers came through the proxy. The run is committed as
+  `examples/chat-sandbox/` (request, spec, decisions, hand-finished diagram, authored
+  Terraform, 32 tests, `deploy.ps1`), after two corrections the owner asked for and the
+  sandbox rule now makes by itself: plan B1 and search `basic` (forced by `environments`),
+  the vault without purge protection and with a 7-day soft-delete window (`overridden`).
+  The diagram's decision panel was finished by hand before those two and does not list
+  the new forced chain; `verify_diagram.py` still passes. **Plugin findings the agents reported, all open:**
   (1) `log-analytics-workspace/terraform.md`, `app-service/terraform.md`,
   `foundry/terraform.md` and several `renders` lines carry azurerm 4.x spellings
   (`internet_*_enabled`, `local_authentication_disabled`, `*_basic_auth_enabled`,
