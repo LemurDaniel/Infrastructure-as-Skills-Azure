@@ -9,10 +9,6 @@ They are **not** the Azure portal's defaults. The two diverge routinely and in t
 direction — public network access, shared-key auth and anonymous blob access all ship
 enabled — so inheriting the portal's posture is how an exposure finding happens.
 
-Shared deliberately with `Infrastructure-by-Skill`: a GUI-driven run and a generated
-Terraform run should reach the same posture, or the comparison between the two tracks
-measures the wrong thing.
-
 ## 0. Platform model: Azure landing zone
 
 The plugin authors a **workload into an application landing zone** — one subscription

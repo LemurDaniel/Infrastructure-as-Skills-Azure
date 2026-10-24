@@ -7,12 +7,10 @@ renders. Keeping that boundary sharp is the most load-bearing decision in this d
 
 Three things fall out of it that direct generation cannot give you:
 
-**It is the contract between backends.** The same spec can be rendered as Terraform, as
-Bicep, or handed to `Infrastructure-by-Skill` for API-driven execution. Without a spec in
-the middle, each backend grows its own private notion of what was decided, and there is
-nothing to compare. With one, sending a single spec through two backends and diffing the
-result is a test you can actually run — which is exactly the measurement that tells you
-whether the research track is maturing.
+**It is the contract between backends.** The same spec can be rendered as Terraform or as
+Bicep. Without a spec in the middle, each backend grows its own private notion of what was
+decided, and there is nothing to compare. With one, sending a single spec through both
+backends and diffing the result is a test you can actually run.
 
 **It is reviewable at the level decisions are made.** HCL records the *result* of a
 decision and never the decision itself. `public_network_access_enabled = false` tells you
@@ -30,7 +28,7 @@ schema_version: 1
 
 spec:
   id: payments-api-prod
-  target: terraform          # terraform | bicep | api  (api => Infrastructure-by-Skill)
+  target: terraform          # terraform | bicep
   generated_by: infrastructure-as-skills-azure
   skill: private-webapp
   skill_version: 0.1.0

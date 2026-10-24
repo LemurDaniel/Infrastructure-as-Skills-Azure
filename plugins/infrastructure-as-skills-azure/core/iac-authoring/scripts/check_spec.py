@@ -154,8 +154,8 @@ def main():
         if not has(head, k):
             errors.append(f"spec.{k} is missing")
     target = get(head, 'target')
-    if target and target not in ('terraform', 'bicep', 'api'):
-        errors.append(f"spec.target '{target}' is not terraform, bicep or api")
+    if target and target not in ('terraform', 'bicep'):
+        errors.append(f"spec.target '{target}' is not terraform or bicep")
     environments = get(get(spec, 'context'), 'environments')
     if not isinstance(environments, list) or not environments or not all(isinstance(e, str) for e in environments):
         errors.append("context.environments is missing or not a list of stage names - the stack the code is deployed through, [development, test, production] by default")

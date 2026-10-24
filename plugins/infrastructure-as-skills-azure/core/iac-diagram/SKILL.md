@@ -20,6 +20,14 @@ sign-off, while changing a decision is still one line in the spec, not a regener
 module. It also keeps the diagram identical
 for Terraform and Bicep, as the spec is.
 
+**A diagram is never the last message.** Whoever exports one - first draw, redraw after a
+change, a diagram-only request - ends the turn with the sign-off question of
+[iac-authoring](../iac-authoring/SKILL.md) (Phase 5, "The sign-off"): does this fit - yes /
+change something / not yet. The wording follows `context.language` (German: *Passt das
+so? Ja, passt / Etwas ändern / Noch nicht*; English: *Does this fit your requirements?
+Yes, build it / Change something / Not yet*). The yes option is what starts the code
+render; without the question it never starts.
+
 ## Run it
 
 ```sh
@@ -74,8 +82,7 @@ checklist and the ceiling of [iac-authoring](../iac-authoring/SKILL.md) Phase 5 
 the spec was only extended or changed, and also when this skill was loaded on its own. Nobody
 sees the picture before it has been reviewed. If the working mode (Subagents or Same session)
 has not been answered in this session, ask it through `AskUserQuestion` before drawing, as
-Phase 5 says; never review silently "by looking once" and call it done (missed 2026-10-25:
-an MCP app service added to an existing spec, the picture fixed by hand without a review).
+Phase 5 says; never review silently "by looking once" and call it done.
 
 **One file is delivered: `infra-diagram.drawio.png`.** A PNG with the diagram embedded — it
 opens in a document, a chat or an email like any image, and opens in draw.io as the
@@ -190,8 +197,8 @@ Plus a **decisions panel** under the group, beside the legend when the width all
 columns below it otherwise: exposure, network, mandates, DNS and diagnostics ownership, and the count
 of open and assumed entries by owner, pointing at `infra-decisions.md`. Nothing in it is prose:
 the forced chains (`key_protection: hsm → forces key-vault.sku = premium`), the questions and
-the reasons are in the decision document, which the customer reads beside the picture (owner's
-call, 2026-10-24: a drawing is not where prose is read).
+the reasons are in the decision document, which the customer reads beside the picture (a drawing
+is not where prose is read).
 
 What it leaves out: SKUs nobody asked about, TLS floors, soft-delete days, every `default`
 from the guardrail baseline. They are in the spec and in the Phase 4 report; on the
