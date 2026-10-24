@@ -180,7 +180,7 @@ def case_public_webshop(cells):
     return bad
 
 
-def case_chatbot(cells):
+def case_corp_spoke_roles(cells):
     """Twenty resources, two of them twice: instance keys, a zone for what is not called, and
     lines told apart - one colour per caller, one row of services, no line through an icon."""
     bad = []
@@ -228,14 +228,14 @@ def absolute(cells, cid):
     return x, y, g['width'], g['height']
 
 
-def case_chatbot_rag(cells):
+def case_private_stages_open(cells):
     """A PaaS -> PaaS line (search reading storage, search calling the model) runs on a track of
     its own right of the services' icon and label column: it crosses no other icon and no label
     slot, and its label sits on its own run. Every role the spec assigns to a resource is on
     that resource's label with its principal."""
     import yaml
     bad = []
-    spec = yaml.safe_load(open(os.path.join(FIXTURES, 'chatbot-rag.yaml'), encoding='utf-8'))
+    spec = yaml.safe_load(open(os.path.join(FIXTURES, 'private-stages-open.yaml'), encoding='utf-8'))
     paas = [k for k, v in cells.items() if k.startswith('res-') and v.get('parent') == 'z-paas']
     pp = [e for e in edges(cells).values() if e['source'] in paas and e['target'] in paas]
     if len(pp) != 2:
@@ -283,8 +283,8 @@ CASES = [
     ('ten-resources', os.path.join(FIXTURES, 'ten-resources.yaml'), 'en', case_ten_resources),
     ('ten-resources-de', os.path.join(FIXTURES, 'ten-resources.yaml'), 'de', case_ten_resources_de),
     ('public-webshop', os.path.join(FIXTURES, 'public-webshop.yaml'), 'en', case_public_webshop),
-    ('chatbot', os.path.join(FIXTURES, 'chatbot.yaml'), 'en', case_chatbot),
-    ('chatbot-rag', os.path.join(FIXTURES, 'chatbot-rag.yaml'), 'de', case_chatbot_rag),
+    ('corp-spoke-roles', os.path.join(FIXTURES, 'corp-spoke-roles.yaml'), 'en', case_corp_spoke_roles),
+    ('private-stages-open', os.path.join(FIXTURES, 'private-stages-open.yaml'), 'de', case_private_stages_open),
 ]
 
 
