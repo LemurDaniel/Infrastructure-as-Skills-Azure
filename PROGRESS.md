@@ -307,6 +307,26 @@ until it is fixed or decided against.
     support zone, the network and the monitoring zone. Compute sits in the network's subnets and
     gets a tag; more than eight services in the compact layout fall back to tags too. Frames of
     different groups can leave blank space (a frame is as tall as its tallest label).
+  - **Plugin todos from the 2026-10-25 diagram reviews** (the four examples were re-rendered
+    through review and diagram agents; `new_diagram.py` was not touched in the loop). Two pictures
+    still carry a finding after two passes: `chat-sandbox` (`e-7`, the label "liest das Client
+    Secret" sits beside its arrow, not on it) and `chatbot-multi-rg` (`e-14`, the telemetry line
+    now runs through the "Identities and network baseline" zone). The hand edits of
+    `chatbot-rag`, `chat-sandbox` and `chatbot-multi-rg` live only in the PNGs; a regeneration from
+    the spec loses them. Script faults behind the findings:
+    - a target below the zones is reached by a detour through the private endpoints' trunk (or,
+      when hand-routed, through another zone) - the corridor belongs left of the trunk;
+    - edge labels sit in the middle of a line and land on frame borders - offset them, or move
+      them onto a drop outside the frames;
+    - actor lines on one side of a target and every top-to-top edge share one track;
+    - the slot order ignores which services call each other, so lines cross (sort by edge
+      adjacency, stagger actor lines by the target's height);
+    - the Monitoring zone title reads "Monitoring · monitoring (created)" with a split - name the
+      group once;
+    - the legend has no entry for purple role text or the orange public-access warning, and the
+      decisions panel prints raw spec values ("Netzwerk: none", "Private DNS: deployment");
+    - the legend line "existing, not created here" next to a dashed network group frame reads as
+      "this run builds none of it" although the group exists and its contents are created.
 
 ### Pipelines
 
