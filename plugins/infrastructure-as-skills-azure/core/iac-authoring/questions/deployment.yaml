@@ -109,6 +109,12 @@ groups:
           disabled: { en: "are built identically to production", de: "werden identisch zur Produktion gebaut" }
         values: [enabled, disabled]
         default: enabled
+        forced_when: >
+          A stack without a production stage (`[sandbox]`) takes every
+          non_production_default in every stage, recorded as forced with `environments`
+          as forced_by - there is no production to be the baseline, and a sandbox that
+          pays production prices (a P1v3 plan, ZRS) is the finding of the first dry run
+          (2026-10-24). The question is then not asked.
         depends_on: { question: environments, not_equals: [sandbox] }
         why: >
           A development stage that keeps three copies of its data in three
@@ -816,7 +822,9 @@ groups:
           network_exposure in [private, private_with_exceptions] removes `none`;
           network_exposure: public makes `none` the default; landing_zone: corp
           pre-answers `create` (a spoke), landing_zone: standalone pre-answers `create`
-          (standalone, no peering), online and sandbox pre-answer `none`
+          (standalone, no peering), online and sandbox pre-answer `none`. `none` in turn
+          forces every resource's public_network_access to `enabled`: without a network
+          the deployment's own callers have no fixed address a firewall could list
         renders: >
           terraform: azurerm_virtual_network resource vs. data "azurerm_virtual_network";
           bicep: Microsoft.Network/virtualNetworks resource vs. an `existing` reference

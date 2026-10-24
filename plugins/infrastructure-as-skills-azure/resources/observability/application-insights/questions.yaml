@@ -192,6 +192,12 @@ groups:
           ingestion means every application that sends to it must reach the scope**: a
           function or an app on a network that cannot reach the private monitoring endpoint
           silently loses its telemetry, and nothing at apply says so.
+        forced_when: >
+          `network_ownership: none` (a public deployment without a network) forces
+          `enabled`, recorded as forced with `network_ownership` as forced_by: the
+          deployment's own callers have no fixed outbound address, so a firewall with no
+          rule locks them out of this resource - the first dry run (2026-10-24) hit it on
+          five resources at once
         renders: >
           terraform: internet_ingestion_enabled and internet_query_enabled;
           bicep: publicNetworkAccessForIngestion and publicNetworkAccessForQuery

@@ -302,6 +302,12 @@ groups:
           surface, so the posture is always written. With `disabled` the account answers only
           through its private endpoint, which is also how the Foundry portal's playground
           reaches it - from inside the network.
+        forced_when: >
+          `network_ownership: none` (a public deployment without a network) forces
+          `enabled`, recorded as forced with `network_ownership` as forced_by: the
+          deployment's own callers have no fixed outbound address, so a firewall with no
+          rule locks them out of this resource - the first dry run (2026-10-24) hit it on
+          five resources at once
         renders: >
           terraform: public_network_access_enabled (bool) and network_acls;
           bicep: publicNetworkAccess and networkAcls

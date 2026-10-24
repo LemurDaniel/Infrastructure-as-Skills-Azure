@@ -78,9 +78,13 @@ Exit codes, all scripts: `0` ok, `1` failed, `2` could not run.
 
 - `new_diagram.py` exit 1 with `overlaps` or `does not fit` is a layout bug in the script, not
   something to patch in the output.
-- `export_diagram.py` exit 2 means draw.io desktop is not installed. Say so, deliver the
-  `.drawio` file (the one case where it is the deliverable), and do not substitute a different renderer — a PNG without the embedded
-  diagram is a picture the customer cannot correct.
+- `export_diagram.py` exit 2 means draw.io desktop is not installed. Say so. A substitute
+  renderer is acceptable only when the result is the same deliverable: the `.drawio` XML
+  embedded into the PNG afterwards (`drawio_png.py embed`) and `drawio_png.py check`
+  passing - a cloud session has done it through draw.io's viewer script in headless
+  Chromium. A PNG without the embedded diagram is a picture the customer cannot correct;
+  where no renderer at all is available, deliver the `.drawio` file (the one case where
+  it is the deliverable).
 - `export_diagram.py` repairs and checks the PNG after an embedded export. The draw.io
   desktop CLI writes a bad zTXt CRC and no IEND chunk with `--embed-diagram`, every time:
   browsers still show it, strict decoders (and Claude's image reader) reject it. Never

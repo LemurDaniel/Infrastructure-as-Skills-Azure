@@ -452,6 +452,13 @@ invented line in a picture the customer signs off on is a decision nobody made. 
 the request leaves out is an `open:` entry only where the spec cannot work without it;
 otherwise the line is simply absent.
 
+**Customer-facing text in the spec is written in the customer's language** - the one
+exception to the English spec: `wiring.access[].label`, `wiring.purposes` and the
+`question` and `owner` of every `open:` entry are printed verbatim into the picture and
+the decision document, so an English label there is a `spec` finding of the review
+(found 2026-10-24: a German customer, five English labels and three English open items in
+their picture). Keys, values, `why`, `reason` stay English.
+
 **Write the decision document in the same step**, in the user's language:
 
 ```sh
@@ -514,8 +521,13 @@ fault on several cells is one finding that lists the cells; it reads the PNG and
 and opens the `.drawio` only for a coordinate it needs, never samples pixels, and stops
 once the list is full. A second pass reports only what the first pass named and what the
 fix broke - never a fresh sweep. An `error` with cause `spec` is the main agent's: correct the
-spec, re-export the decision document, redraw. **Never show the customer a picture with
-an error you have already seen** - that is what the loop is for.
+spec, re-export the decision document, regenerate the draft - **and do that before the
+diagram agent starts its hand edits**, because a regenerated draft loses them; the order
+of a pass is spec findings first, then the hand edits on the fresh draft, then the review
+again. Every finding names the cells it concerns by their draw.io ids (`e-6`,
+`res-key-vault`), so the diagram agent can act on it without re-deriving it. **Never show
+the customer a picture with an error you have already seen** - that is what the loop is
+for.
 
 **The sign-off.** Show the reviewed picture and the decision document's first section (what
 follows from their answers), name what is still `open:` and from whom, and ask one

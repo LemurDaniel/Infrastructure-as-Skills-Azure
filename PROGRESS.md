@@ -160,7 +160,16 @@ Verified Modules first, authored resources second.
   `.drawio`** and never touches `new_diagram.py` inside the loop - script faults become a
   plugin todo in the hand-over. And the review is capped (8 findings per pass, errors
   first, at most 3 polish, no pixel sampling, a second pass re-checks only) after the
-  first uncapped review returned 17 findings in six minutes. The dry run's other findings, not yet fixed:
+  first uncapped review returned 17 findings in six minutes. Also written down from the
+  run, 2026-10-24: customer-facing spec text (wiring labels, purposes, open questions and
+  owners) is in the customer's language; spec findings are fixed and the draft regenerated
+  before the hand edits; every resource inheriting the exposure carries a `forced_when`
+  that `network_ownership: none` forces `enabled`; a `[sandbox]` stack takes every
+  `non_production_default` by rule; a substitute renderer is allowed when the XML is
+  embedded afterwards. Not done: `export_decisions.py` still prints `reason` untranslated
+  (the open texts are German in the spec by rule now), and the script faults of
+  `new_diagram.py` from the review (PaaS-to-PaaS edges unrouted, shared anchors, branch
+  labels on the trunk, the law subline, the role-count line) are a plugin todo. The dry run's other findings, not yet fixed:
   `public` maps to `enabled_with_firewall` on every resource, but with
   `network_ownership: none` the app has no fixed outbound address and an empty firewall
   locks it out of its own backends (overridden by hand in the run; wants a `forced_when`:

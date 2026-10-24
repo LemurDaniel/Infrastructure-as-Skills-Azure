@@ -171,8 +171,8 @@ groups:
         type: int
         audience: engineer
         plain:
-          en: "{value} copies of the app run at the same time."
-          de: "{value} Kopien der App laufen gleichzeitig."
+          en: "Copies of the app running at the same time: {value}."
+          de: "Gleichzeitig laufende Kopien der App: {value}."
         derived_from:
           question: outage_impact
           map: { tolerable: 1, disruptive: 2, critical: 3 }
@@ -214,6 +214,12 @@ groups:
           the honest answer, so the allowlist (`ip_restrictions`) is what makes it a
           posture rather than an absence of one. With `disabled` the app answers only
           through its private endpoint, which also closes the Kudu/SCM site.
+        forced_when: >
+          `network_ownership: none` (a public deployment without a network) forces
+          `enabled`, recorded as forced with `network_ownership` as forced_by: the
+          deployment's own callers have no fixed outbound address, so a firewall with no
+          rule locks them out of this resource - the first dry run (2026-10-24) hit it on
+          five resources at once
         renders: >
           terraform: public_network_access_enabled and site_config.ip_restriction_default_action;
           bicep: publicNetworkAccess and siteConfig.ipSecurityRestrictionsDefaultAction

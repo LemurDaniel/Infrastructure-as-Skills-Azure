@@ -158,7 +158,8 @@ own parameter file with its own state. Two fields say how a decision behaves acr
   per-stage too, and the check says so.
 - **`non_production_default`** is the value every stage but production takes while
   `deployment.non_production_savings` is enabled (the default): `replication: LRS`,
-  `log_retention_days: 30`. It exists for cost and for nothing else — the check refuses
+  `log_retention_days: 30`. A stack with no production stage (`[sandbox]`) takes it in
+  every stage by rule, without the question (`forced`, by `environments`). It exists for cost and for nothing else — the check refuses
   it in the security, networking, identity, access, DNS, compliance and posture groups,
   because a development stage that is less secure than production is where the breach
   happens. Everything else is identical in every stage: parity is what the stack is for.
