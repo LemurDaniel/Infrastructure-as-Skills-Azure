@@ -1,6 +1,6 @@
-# The interview's output for examples/chatbot/request.md, run headless. One stage (the request
-# said "nur Produktion"), a corp landing zone with a spoke network of its own, the platform's DNS
-# and the workload's own workspace. Twelve kinds of resource, two of them twice: a `<set>__<instance>`
+# Hand-written fixture for run_diagram_tests.py. Never a starting spec, never a template: it tests
+# the drawing, not a deployment. One stage, a corp landing zone with a spoke network of its own,
+# the platform's DNS and the workload's own workspace. Twelve kinds of resource, two of them twice: a `<set>__<instance>`
 # key (spec.md, "Several of a kind") is a second resource of one kind. Every role between the
 # resources is its identity.role_assignments entry: a principal is a user-assigned identity's
 # resource key, or the key of a resource with a system-assigned identity.

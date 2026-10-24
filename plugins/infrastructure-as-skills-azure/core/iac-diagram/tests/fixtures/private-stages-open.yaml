@@ -1,7 +1,8 @@
-# The interview's output for the chatbot-rag example: a small chat app on Azure AI Foundry with a RAG
-# system. Three stages (the default stack), standalone landing zone (own network, own private DNS zones,
-# own workspace), private, authored resources. Address ranges, models, runtime, subscriptions and groups
-# are open: entries - stage files hold placeholders until they are answered.
+# Hand-written fixture for run_diagram_tests.py. Never a starting spec, never a template: it tests
+# the drawing, not a deployment. A small chat app on Azure AI Foundry with a RAG system: three stages
+# (the default stack), standalone landing zone (own network, own private DNS zones, own workspace),
+# private, authored resources. Address ranges, models, runtime, subscriptions and groups are open:
+# entries - stage files hold placeholders until they are answered.
 schema_version: 1
 spec:
   id: chatbot-rag

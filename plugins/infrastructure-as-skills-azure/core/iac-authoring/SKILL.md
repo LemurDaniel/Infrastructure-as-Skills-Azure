@@ -35,8 +35,10 @@ tracks comparable at all. Never generate code directly from the interview.
 
 ## Before anything — find an existing spec
 
-Search the repository for `**/infra-spec.yaml` first. If one exists, this run **extends**
-it rather than starting over: its decisions are carried, Phase 0 asks what should be added
+Search the repository for `**/infra-spec.yaml` first — the customer's repository, never
+the plugin's own directory: nothing under it, its tests and fixtures included, is a
+starting spec, a template or something to copy from, whatever its name resembles. If one
+exists, this run **extends** it rather than starting over: its decisions are carried, Phase 0 asks what should be added
 or changed, and only the delta is asked and reported. If none exists, the spec this run
 writes goes into the repository's IaC root, or `infra/` when there is none, and is
 committed with the code — it is what the next run extends. The rules for both, and for

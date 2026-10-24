@@ -144,7 +144,9 @@ are in [README.md](README.md#why-one-trigger-and-families-that-are-not-skills).
 - **Frontmatter `name` must equal the skill's directory name.**
 - **The plugin never refers to `examples/`.** It ships without them; a live deployment has
   neither the directory nor the specs. Skills, references and question sets carry what they
-  need themselves; nothing under `plugins/` - tests included - reads from it. Only the repo's own docs may point at an example.
+  need themselves; nothing under `plugins/` - tests and fixtures included - reads from it or
+  names one, and `check_repo_consistency.py` fails on `examples/` anywhere under `plugins/`.
+  Only the repo's own docs may point at an example.
 - **The spec names decisions, not attributes.** `public_network_access: disabled`, never
   `public_network_access_enabled: false` — that is one backend's spelling leaking into the
   interface the others read.

@@ -455,6 +455,27 @@ def main():
                 say(f"         {rel(repo, s)}", 'gray')
             errors.append('A CLAUDE.md in the plugin is not loaded as context and claude plugin validate warns about it. Instructions that must reach Claude belong in a skill; repo guidance belongs in the root CLAUDE.md.')
 
+    # --- 7b. the plugin never refers to examples/ --------------------------
+    if os.path.isdir(plugin_root):
+        hits = []
+        for t in tracked:
+            if not t.startswith('plugins/') or '/evals/results/' in t:
+                continue
+            try:
+                with open(os.path.join(repo, t), encoding='utf-8', errors='ignore') as fh:
+                    for i, line in enumerate(fh, 1):
+                        if 'examples/' in line:
+                            hits.append(f"{t}:{i}")
+            except OSError:
+                continue
+        if not hits:
+            say('[ ok ] the plugin does not refer to examples/', 'green')
+        else:
+            say(f"[fail] {len(hits)} reference(s) to examples/ inside the plugin", 'red')
+            for h in hits:
+                say(f"         {h}", 'gray')
+            errors.append('The plugin ships without examples/: a live deployment has neither the directory nor its specs. Skills, references, tests and fixtures carry what they need themselves and name no example.')
+
     # --- 8. relative links + spaces in paths -------------------------------
     if args.skip_links:
         print('[skip] relative links')
