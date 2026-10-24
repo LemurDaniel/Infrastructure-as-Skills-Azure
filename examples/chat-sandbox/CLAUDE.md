@@ -12,6 +12,13 @@ the Terraform under `./` is rendered from it, so are `infra-decisions.md`,
   plugin's `azure-resources` skill, which asks nothing it already knows.
 - **A new resource or a removed one goes through the interview**, not through a new
   `.tf` file: the spec gains or loses the resource, and the render follows.
+- **Start every infrastructure change with the plugin's `iac-authoring` skill**, even
+  when the request names no Azure term ("make it private", "bigger plan"): it finds
+  this spec and extends it, asking only the delta.
+- **Resource groups are the destructive edit.** Switching a group between `existing`
+  and `create`, or moving a resource to another group role, creates, destroys or moves
+  real resources. Read the plan (what-if) before applying, say so in the hand-over, and
+  never apply a plan that destroys a group; the production lock blocks that on purpose.
 - **After every change run**, in `./`: `check_spec.py infra-spec.yaml`,
   `terraform test` and `check_render_coverage.py infra-spec.yaml` from the plugin's
   `core/iac-authoring/scripts/` and `core/iac-rendering/scripts/`; a decision the tests
