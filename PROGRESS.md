@@ -73,8 +73,8 @@ Verified Modules first, authored resources second.
   `audience`, the customer answers the requirement questions in their own words,
   technical decisions are derived from those (`source: requirement`), platform facts come
   from a `platform.yaml` (`source: platform`), and an engineer question nobody can answer
-  becomes an `open:` entry instead of a question. Customer mode is the default; the
-  engineer mode is entered on request or when the repository shows it. The plugin is
+  becomes an `open:` entry instead of a question. The engineer mode that existed beside
+  it was dropped 2026-10-24 (below). The plugin is
   public and has to hold for any use case. Beside the diagram, a decision document in the
   customer's language (Markdown first, Word offered once) is a deliverable. Plan:
   `ROADMAP.md`, phases A–E. B1 and B3 landed the same day: every one of the 82
@@ -95,7 +95,7 @@ Verified Modules first, authored resources second.
   the deployment owns the workspace (the module choice, asked first, is one more; the
   cap of six was dropped 2026-10-24, below). `iac-authoring` now has the two
   modes: customer (default; only `customer` questions asked, the rest resolved or
-  opened) and engineer.
+  opened) and engineer - the second dropped again on 2026-10-24.
 - **Two more requirements, and no cap on customer questions.** Owner's call, 2026-10-24,
   after an interview that did not put `data_loss_tolerance` to them: a defaulted
   requirement was being dropped as the batch grew past the "about six" rule. The rule is
@@ -116,6 +116,15 @@ Verified Modules first, authored resources second.
   set (`recovery/backup-vault`, vaulted blob backup, immutability), a resource lock
   decision, a pipeline guard that checks a stage's `location` against the residency, and
   an eval case that asserts both questions are put to the customer.
+- **One audience: the engineer mode is gone.** Owner's call, 2026-10-24: the plugin
+  addresses a customer, so `iac-authoring` has no second mode to enter, no mode to
+  announce and no two-batch Phase 3. `customer` questions are asked in one batch,
+  `platform` comes from the profile or opens, `engineer` defaults, derives or opens. An
+  engineer gets the same interview: what they know beyond it they say in prose and it is
+  recorded `stated`; a later change is `overridden` in the spec. `audience: engineer`
+  stays on the questions - it names who owns the default and the `open:` entries, not a
+  mode. Not done: the evals have no case that puts an engineer-flavoured request in and
+  checks that no `engineer` question is asked.
 - **The decision document is rendered, not written.** B5, 2026-10-18. Every question
   carries `plain` (`en` and `de`, `{value}` where the value goes) and, where a raw value
   means nothing to a customer, `plain_values`; `export_decisions.py` turns a spec into

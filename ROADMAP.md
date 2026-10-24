@@ -65,8 +65,8 @@ With it the interview separates into **roles**. Every question carries
 `audience: customer | engineer | platform`. The customer answers the requirements, the
 profile answers the platform facts, the guardrails answer the rest. An engineer question
 with no profile to answer it becomes an `open:` entry with its owner, and is never put to
-the customer. The default mode is the customer's; the engineer mode is entered when the
-user says so or the repository shows it (existing IaC, an existing spec).
+the customer. There is one audience: the engineer mode planned here was dropped on
+2026-10-24 - an engineer states what they know in prose and it is recorded as `stated`.
 
 ### Stages, not an environment
 
@@ -103,12 +103,12 @@ the quality claim rests on:
    a `derives:` block mapping answers to decisions.
 3. `platform.yaml`: schema, location, resolution step in `iac-authoring` Phase 2.
    Deployment-set questions that are pure platform facts get `audience: platform`.
-4. Phase 0 and 3 filter by audience. Customer mode is the default.
+4. Phase 0 and 3 filter by audience: only `customer` is asked.
 5. **The decision document.** `export_decisions.py` renders the spec into a Markdown
    document in the customer's language: because you said X, Y is set; it costs Z and
    protects against W. Offered beside the diagram in Phase 5; after the Markdown, offer a
    Word version once. The spec stays English; the document is for the customer.
-6. Evals: a grader on the question count, one on technical vocabulary in customer-mode
+6. Evals: a grader on the question count, one on technical vocabulary in the interview's
    questions (CIDR, subnet, policy, telemetry), one `llm` grader on readability with
    concrete PASS and FAIL conditions.
 

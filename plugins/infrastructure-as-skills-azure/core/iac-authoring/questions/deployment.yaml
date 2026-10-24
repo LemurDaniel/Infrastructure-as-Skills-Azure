@@ -516,7 +516,7 @@ groups:
           A resource whose type has no `Available` module in the AVM index
           renders authored either way, recorded per module with
           `source: forced` - the index is checked at render time, not
-          remembered. Asked first, in both modes, before the description
+          remembered. Asked first, before the description
           and before any resource question: it decides what every later
           decision renders to, and it is the one choice a person can make
           without knowing a resource. `avm` is the recommended answer and
@@ -555,8 +555,8 @@ groups:
           module - and the render carries it as the repository has it,
           without inventing a pattern. The default, `provider`, applies only
           when nobody answers; it is what the plugin rendered before the
-          question existed. Asked in every mode, with the product names left
-          out in customer mode. One answer per
+          question existed. Asked with the product names in brackets, the one
+          question where the options are products. One answer per
           deployment, never mixed in one configuration: two mechanisms mean
           two conventions, and most names cannot change after creation. An
           existing naming provider block, naming module call or naming locals
