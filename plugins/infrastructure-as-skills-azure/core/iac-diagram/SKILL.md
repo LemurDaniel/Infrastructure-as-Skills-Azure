@@ -68,6 +68,15 @@ regenerate and redo the edits, so note them in the hand-over. Never hand-edit to
 `overlaps` or `does not fit` from the script - those are the script failing on its own
 draft and are reported as such.
 
+**The review is not optional.** Every generation or hand edit of the diagram ends in Loop 1
+of [iac-rendering/references/agents.md](../iac-rendering/references/agents.md), with the
+checklist and the ceiling of [iac-authoring](../iac-authoring/SKILL.md) Phase 5 - also when
+the spec was only extended or changed, and also when this skill was loaded on its own. Nobody
+sees the picture before it has been reviewed. If the working mode (Subagents or Same session)
+has not been answered in this session, ask it through `AskUserQuestion` before drawing, as
+Phase 5 says; never review silently "by looking once" and call it done (missed 2026-10-25:
+an MCP app service added to an existing spec, the picture fixed by hand without a review).
+
 **One file is delivered: `infra-diagram.drawio.png`.** A PNG with the diagram embedded — it
 opens in a document, a chat or an email like any image, and opens in draw.io as the
 editable diagram. `new_diagram.py` writes `infra-diagram.drawio` only as the input of the

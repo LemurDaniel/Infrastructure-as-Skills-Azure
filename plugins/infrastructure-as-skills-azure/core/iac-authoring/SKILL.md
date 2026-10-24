@@ -559,8 +559,11 @@ loops that follow - the diagram loop below and the code loop of
 [iac-rendering](../iac-rendering/SKILL.md) after the sign-off - and it is a working mode,
 not a decision: it is not written to the spec. Say what it costs: agents check each other
 and work in the background, but each starts cold and spends its own tokens; the same
-session is cheaper and does the steps itself. A spec of one family, or a host without the
-Agent tool, is not asked and runs in the same session.
+session is cheaper and does the steps itself. Only a spec of a single resource family, or a
+host without the Agent tool, is not asked and runs in the same session. **A change or
+extension of an existing spec enters this phase again** - decision document, diagram,
+this question (unless already answered in the session), review - it is not a shortcut
+past it (missed 2026-10-25: a second app service added, diagram reviewed by hand only).
 
 ```
 Wie soll ich weiterarbeiten?
