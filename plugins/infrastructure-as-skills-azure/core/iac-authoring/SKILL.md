@@ -415,12 +415,18 @@ Das würde ich bauen - bitte abhaken, was stimmt:
   [ ] Ein Speicher für die Dokumente und ein Datenbank für die Chatverläufe
   [ ] Ein Tresor für das eine Geheimnis, das die App braucht
   [ ] Ein eigenes Netz, 10.100.0.0/24, in dem alles außer der App nur privat erreichbar ist
-  [ ] Protokolle aller Teile an einem Ort, 30 Tage
+  [ ] Logs aller Teile an einem Ort, 30 Tage
   Verbindungen: die App spricht mit Modellen, Suche, Speicher, Datenbank und Tresor; die
   Suche liest den Speicher und die Modelle. Nichts anderes spricht miteinander.
   Was Geld kostet oder euch einschränkt: eine Stufe (Sandbox), keine zweite Region, keine
   getrennte Sicherungskopie - alles so, wie ihr es beantwortet habt.
 ```
+
+It is a list, not a summary. No preamble that names a phase ("Phase 3 ist abgeschlossen, ich
+fasse zusammen"), no paragraph that strings the parts together with commas: the person
+reads one line per part and ticks it, that is the whole point of the shape. The words are
+the customer's: "Logs", not "Protokollierung"; "Speicher für die Dokumente", not
+"Storage Account mit Blob-Container".
 
 Close it with one `AskUserQuestion`: **Passt das Design?** - *Ja, so bauen* (recommended
 when nothing is open) / *Etwas fehlt oder ist zu viel* (the person says what; the spec is
@@ -440,7 +446,7 @@ Was aus euren Antworten folgt:
   Nur aus dem Firmennetz      -> kein öffentlicher Zugang, Anbindung über private Endpunkte
 
 Nach den Vorgaben gesetzt (ohne Rückfrage):
-  Zugriff nur mit Firmenkonten, verschlüsselt, Protokolle in den zentralen Workspace
+  Zugriff nur mit Firmenkonten, verschlüsselt, Logs in den zentralen Workspace
 
 Offen (braucht jemanden vom Plattform-Team):
   Welche Anwendung greift zu und braucht welche Rechte?

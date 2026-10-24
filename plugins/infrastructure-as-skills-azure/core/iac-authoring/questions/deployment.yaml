@@ -105,7 +105,7 @@ groups:
           en: "Development and test stages {value}."
           de: "Entwicklungs- und Teststufen {value}."
         plain_values:
-          enabled: { en: "run cheaper than production: less redundancy, shorter log retention - never less security", de: "laufen günstiger als die Produktion: weniger Redundanz, kürzere Protokoll-Aufbewahrung, nie weniger Sicherheit" }
+          enabled: { en: "run cheaper than production: less redundancy, shorter log retention - never less security", de: "laufen günstiger als die Produktion: weniger Redundanz, kürzere Log-Aufbewahrung, nie weniger Sicherheit" }
           disabled: { en: "are built identically to production", de: "werden identisch zur Produktion gebaut" }
         values: [enabled, disabled]
         default: enabled
@@ -658,7 +658,7 @@ groups:
           en: "The system lands in {value}."
           de: "Das System landet in {value}."
         plain_values:
-          standalone: { en: "its own environment: there is no shared platform, so it brings its own network, name resolution and logging", de: "einer eigenen Umgebung: es gibt keine gemeinsame Plattform, also bringt es Netz, Namensauflösung und Protokollierung selbst mit" }
+          standalone: { en: "its own environment: there is no shared platform, so it brings its own network, name resolution and logging", de: "einer eigenen Umgebung: es gibt keine gemeinsame Plattform, also bringt es Netz, Namensauflösung und Logging selbst mit" }
           corp: { en: "the internal part of the company platform, connected to the company network", de: "dem internen Teil der Firmenplattform, verbunden mit dem Firmennetz" }
           online: { en: "the internet-facing part of the company platform", de: "dem internetseitigen Teil der Firmenplattform" }
           sandbox: { en: "a sandbox for experiments, never for real operation", de: "einer Sandbox zum Ausprobieren, nie für den Echtbetrieb" }
@@ -1055,10 +1055,10 @@ groups:
         audience: platform
         plain:
           en: "Logs go to {value}."
-          de: "Protokolle gehen in {value}."
+          de: "Logs gehen in {value}."
         plain_values:
           create: { en: "a workspace this deployment creates and pays for", de: "einen Arbeitsbereich, den dieses Ausrollen anlegt und bezahlt" }
-          reference: { en: "the company's central log workspace", de: "den zentralen Protokoll-Arbeitsbereich der Firma" }
+          reference: { en: "the company's central log workspace", de: "den zentralen Log-Arbeitsbereich der Firma" }
         values: [create, reference]
         default: reference
         forced_when: >
@@ -1081,7 +1081,7 @@ groups:
         audience: platform
         plain:
           en: "Logs are collected in {value}."
-          de: "Protokolle werden in {value} gesammelt."
+          de: "Logs werden in {value} gesammelt."
         ref: log_analytics_workspace
         required: true
         depends_on: { question: observability_ownership, equals: reference }
@@ -1103,7 +1103,7 @@ groups:
         audience: customer
         plain:
           en: "Logs are kept for {value} days."
-          de: "Protokolle werden {value} Tage aufbewahrt."
+          de: "Logs werden {value} Tage aufbewahrt."
         default: 30
         non_production_default: 30
         depends_on: { question: observability_ownership, equals: create }
@@ -1128,7 +1128,7 @@ groups:
         audience: engineer
         plain:
           en: "Daily log intake cap: {value} GB (-1: no cap)."
-          de: "Tägliche Obergrenze für Protokolle: {value} GB (-1: keine)."
+          de: "Tägliche Obergrenze für Logs: {value} GB (-1: keine)."
         default: -1
         confirm_in: [production]
         depends_on: { question: observability_ownership, equals: create }

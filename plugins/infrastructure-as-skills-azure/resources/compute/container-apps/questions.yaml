@@ -476,7 +476,7 @@ groups:
         audience: platform
         plain:
           en: "Its logs go to {value}."
-          de: "Seine Protokolle gehen in {value}."
+          de: "Seine Logs gehen in {value}."
         ref: log_analytics_workspace
         from_deployment: diagnostics_destination
         per_environment: true
@@ -498,7 +498,7 @@ groups:
         audience: engineer
         plain:
           en: "Logged: {value}."
-          de: "Protokolliert wird: {value}."
+          de: "Geloggt wird: {value}."
         plain_values:
           ContainerAppConsoleLogs: { en: "what the app writes to its console", de: "was die App auf ihre Konsole schreibt" }
           ContainerAppSystemLogs: { en: "the platform's own messages about the app and its revisions", de: "die eigenen Meldungen der Plattform zur App und ihren Revisionen" }

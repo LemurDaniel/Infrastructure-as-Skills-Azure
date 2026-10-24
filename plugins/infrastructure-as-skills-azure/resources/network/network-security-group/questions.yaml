@@ -175,7 +175,7 @@ groups:
         audience: platform
         plain:
           en: "Its logs go to {value}."
-          de: "Seine Protokolle gehen in {value}."
+          de: "Seine Logs gehen in {value}."
         ref: log_analytics_workspace
         from_deployment: diagnostics_destination
         per_environment: true
@@ -191,7 +191,7 @@ groups:
         audience: engineer
         plain:
           en: "Logged: {value}."
-          de: "Protokolliert wird: {value}."
+          de: "Geloggt wird: {value}."
         plain_values:
           NetworkSecurityGroupEvent: { en: "which rule was applied to which machine", de: "welche Regel auf welche Maschine angewendet wurde" }
           NetworkSecurityGroupRuleCounter: { en: "how often each rule matched", de: "wie oft jede Regel gegriffen hat" }

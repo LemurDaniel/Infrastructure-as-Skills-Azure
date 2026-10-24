@@ -637,7 +637,7 @@ groups:
         audience: platform
         plain:
           en: "Its logs go to {value}."
-          de: "Seine Protokolle gehen in {value}."
+          de: "Seine Logs gehen in {value}."
         ref: log_analytics_workspace
         from_deployment: diagnostics_destination
         per_environment: true
@@ -653,7 +653,7 @@ groups:
         audience: engineer
         plain:
           en: "Logged: {value}."
-          de: "Protokolliert wird: {value}."
+          de: "Geloggt wird: {value}."
         plain_values:
           ControlPlaneRequests: { en: "every change to the account, its databases and containers", de: "jede Änderung am Konto, an Datenbanken und Containern" }
           DataPlaneRequests: { en: "every request to the data, with its cost and result", de: "jede Anfrage an die Daten mit Kosten und Ergebnis" }

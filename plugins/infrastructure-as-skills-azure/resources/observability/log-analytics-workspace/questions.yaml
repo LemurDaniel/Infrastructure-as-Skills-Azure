@@ -76,7 +76,7 @@ groups:
         audience: engineer
         plain:
           en: "Logs are kept for {value} days."
-          de: "Protokolle werden {value} Tage aufbewahrt."
+          de: "Logs werden {value} Tage aufbewahrt."
         from_deployment: log_retention_days
         non_production_default: 30
         why: >
@@ -95,7 +95,7 @@ groups:
         audience: engineer
         plain:
           en: "Daily log intake cap: {value} GB (-1: no cap)."
-          de: "Tägliche Obergrenze für Protokolle: {value} GB (-1: keine)."
+          de: "Tägliche Obergrenze für Logs: {value} GB (-1: keine)."
         from_deployment: daily_quota_gb
         confirm_in: [production]
         why: >
@@ -134,7 +134,7 @@ groups:
         audience: engineer
         plain:
           en: "The log workspace is {value}."
-          de: "Der Protokoll-Arbeitsbereich ist {value}."
+          de: "Der Log-Arbeitsbereich ist {value}."
         plain_values:
           disabled: { en: "reachable only through the platform's private link scope", de: "nur über den privaten Zugang der Plattform erreichbar" }
           enabled: { en: "reachable from the internet, with company accounts and encryption - there is no private link scope to go through", de: "aus dem Internet erreichbar, mit Firmenkonten und Verschlüsselung; einen privaten Zugang dafür gibt es nicht" }
@@ -165,7 +165,7 @@ groups:
         audience: engineer
         plain:
           en: "Sending logs with the workspace key is {value}."
-          de: "Protokolle mit dem Arbeitsbereichs-Schlüssel zu senden ist {value}."
+          de: "Logs mit dem Arbeitsbereichs-Schlüssel zu senden ist {value}."
         plain_values:
           true: { en: "possible", de: "möglich" }
           false: { en: "not possible - agents use company identities", de: "nicht möglich, Agenten nutzen Firmenidentitäten" }
@@ -183,7 +183,7 @@ groups:
         audience: engineer
         plain:
           en: "Who may read logs is decided {value}."
-          de: "Wer Protokolle lesen darf, entscheiden {value}."
+          de: "Wer Logs lesen darf, entscheiden {value}."
         plain_values:
           true: { en: "by the workspace's own permissions", de: "die Berechtigungen des Arbeitsbereichs selbst" }
           false: { en: "also by permissions on the resources that sent them", de: "auch die Berechtigungen auf den sendenden Ressourcen" }

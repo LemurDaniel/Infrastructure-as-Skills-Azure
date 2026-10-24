@@ -571,7 +571,7 @@ groups:
         audience: platform
         plain:
           en: "Its logs go to {value}."
-          de: "Seine Protokolle gehen in {value}."
+          de: "Seine Logs gehen in {value}."
         ref: log_analytics_workspace
         from_deployment: diagnostics_destination
         per_environment: true
@@ -587,9 +587,9 @@ groups:
         audience: engineer
         plain:
           en: "Logged: {value}."
-          de: "Protokolliert wird: {value}."
+          de: "Geloggt wird: {value}."
         plain_values:
-          FunctionAppLogs: { en: "what the functions write to their log", de: "was die Funktionen in ihr Protokoll schreiben" }
+          FunctionAppLogs: { en: "what the functions write to their log", de: "was die Funktionen in ihr Log schreiben" }
           AppServiceAuditLogs: { en: "who signed in to deploy or manage the app", de: "wer sich zum Ausrollen oder Verwalten angemeldet hat" }
           AppServiceHTTPLogs: { en: "every web request", de: "jede Web-Anfrage" }
         values: [FunctionAppLogs, AppServiceAuditLogs, AppServiceHTTPLogs]

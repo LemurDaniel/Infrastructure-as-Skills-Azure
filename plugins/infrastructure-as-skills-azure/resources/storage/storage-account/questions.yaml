@@ -525,7 +525,7 @@ groups:
         audience: engineer
         plain:
           en: "A log of every change is {value}."
-          de: "Ein Protokoll jeder Änderung wird {value}."
+          de: "Ein Log jeder Änderung wird {value}."
         plain_values:
           true: { en: "kept", de: "geführt" }
           false: { en: "not kept", de: "nicht geführt" }
@@ -584,7 +584,7 @@ groups:
         audience: platform
         plain:
           en: "Its logs go to {value}."
-          de: "Seine Protokolle gehen in {value}."
+          de: "Seine Logs gehen in {value}."
         ref: log_analytics_workspace
         from_deployment: diagnostics_destination
         per_environment: true
@@ -602,7 +602,7 @@ groups:
         audience: engineer
         plain:
           en: "Logged: {value}."
-          de: "Protokolliert wird: {value}."
+          de: "Geloggt wird: {value}."
         plain_values:
           audit: { en: "who accessed what", de: "wer worauf zugegriffen hat" }
           allLogs: { en: "everything, including every read and write", de: "alles, inklusive jedem Lesen und Schreiben" }

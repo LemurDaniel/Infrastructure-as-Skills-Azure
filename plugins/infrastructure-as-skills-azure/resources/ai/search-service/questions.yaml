@@ -375,7 +375,7 @@ groups:
         audience: platform
         plain:
           en: "Its logs go to {value}."
-          de: "Seine Protokolle gehen in {value}."
+          de: "Seine Logs gehen in {value}."
         ref: log_analytics_workspace
         from_deployment: diagnostics_destination
         per_environment: true
@@ -390,7 +390,7 @@ groups:
         audience: engineer
         plain:
           en: "Logged: {value}."
-          de: "Protokolliert wird: {value}."
+          de: "Geloggt wird: {value}."
         plain_values:
           OperationLogs: { en: "every query and every change to indexes and indexers", de: "jede Abfrage und jede Änderung an Indizes und Indexern" }
         values: [OperationLogs]

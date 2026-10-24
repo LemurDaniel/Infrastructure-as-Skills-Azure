@@ -425,7 +425,7 @@ groups:
         audience: platform
         plain:
           en: "Its logs go to {value}."
-          de: "Seine Protokolle gehen in {value}."
+          de: "Seine Logs gehen in {value}."
         ref: log_analytics_workspace
         from_deployment: diagnostics_destination
         per_environment: true
@@ -440,7 +440,7 @@ groups:
         audience: engineer
         plain:
           en: "Logged: {value}."
-          de: "Protokolliert wird: {value}."
+          de: "Geloggt wird: {value}."
         plain_values:
           ContainerRegistryRepositoryEvents: { en: "every push, pull and delete of an image", de: "jedes Hochladen, Herunterladen und Löschen eines Images" }
           ContainerRegistryLoginEvents: { en: "every sign-in to the registry", de: "jede Anmeldung an der Registry" }

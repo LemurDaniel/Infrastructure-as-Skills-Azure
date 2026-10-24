@@ -499,7 +499,7 @@ groups:
         audience: platform
         plain:
           en: "Its logs go to {value}."
-          de: "Seine Protokolle gehen in {value}."
+          de: "Seine Logs gehen in {value}."
         ref: log_analytics_workspace
         from_deployment: diagnostics_destination
         per_environment: true
@@ -514,7 +514,7 @@ groups:
         audience: engineer
         plain:
           en: "Logged: {value}."
-          de: "Protokolliert wird: {value}."
+          de: "Geloggt wird: {value}."
         plain_values:
           Audit: { en: "changes to the account and who made them", de: "Änderungen am Konto und wer sie gemacht hat" }
           RequestResponse: { en: "every request to the models, with its caller, size and result (not the text)", de: "jede Anfrage an die Modelle mit Aufrufer, Größe und Ergebnis (nicht der Text)" }
