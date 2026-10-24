@@ -155,7 +155,10 @@ Verified Modules first, authored resources second.
   sign-off - so the session drew, saw overlapping arrows, and showed the picture anyway.
   Both fixed: Phase 5 asks the working mode first, then draws, then runs Loop 1 (review
   agent, errors back to the diagram agent, two passes) before the sign-off; rule 11 only
-  re-asks for a render without a Phase 5. The dry run's other findings, not yet fixed:
+  re-asks for a render without a Phase 5. Owner's rule from the same run: the script only
+  makes the first draft; the diagram agent fixes the review's findings **by hand in the
+  `.drawio`** and never touches `new_diagram.py` inside the loop - script faults become a
+  plugin todo in the hand-over. The dry run's other findings, not yet fixed:
   `public` maps to `enabled_with_firewall` on every resource, but with
   `network_ownership: none` the app has no fixed outbound address and an empty firewall
   locks it out of its own backends (overridden by hand in the run; wants a `forced_when`:

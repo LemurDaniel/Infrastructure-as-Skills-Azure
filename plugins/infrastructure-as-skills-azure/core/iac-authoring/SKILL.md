@@ -500,11 +500,13 @@ PNG and reports a numbered list: a line through an icon or another line, overlap
 wrapped labels, a label in the wrong language, a legend that contradicts a colour, a
 number or a name that disagrees with the spec. Each finding carries a severity (`error`:
 wrong, misleading or unreadable; `polish`: only looks worse than it could) and a cause
-(`render`: the drawing or the script; `spec`: the spec says it that way). An `error` with
-cause `render` goes back to the **diagram agent**, which fixes it the way
-[iac-diagram](../iac-diagram/SKILL.md) says - a fault that would recur on any spec is a bug
-in `new_diagram.py` and is fixed there, a fault particular to this picture is a hand edit
-of the affected cells - and redraws; the review runs again. Two passes, then the customer
+(`render`: the drawing; `spec`: the spec says it that way). An `error` with cause
+`render` goes back to the **diagram agent**, which fixes it **by hand in the `.drawio`**
+the way [iac-diagram](../iac-diagram/SKILL.md) says - the affected cells by id, a
+waypoint, a geometry, a label - verifies, exports, and the review runs again. The script
+is not touched in the loop: `new_diagram.py` exists to produce the first draft cheaply,
+and the picture the customer signs off on is finished by hand. A fault the script would
+repeat on the next spec is noted in the hand-over as a plugin todo, not fixed now. Two passes, then the customer
 sees the picture as it is, with the open findings named. `polish` findings never go back;
 they go into the hand-over. An `error` with cause `spec` is the main agent's: correct the
 spec, re-export the decision document, redraw. **Never show the customer a picture with

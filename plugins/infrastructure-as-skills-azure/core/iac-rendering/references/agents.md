@@ -46,7 +46,7 @@ the hand-over.
 | **Code** | Steps 1-7 of the order of work: AVM resolution, names, code, tests per decision | The render root only | Pipeline, diagram, `apply`, a commit |
 | **Pipeline** | Step 10, after the code agent has reported the layout (root, stage files, backend keys, working directory) | The pipeline files only | Code, tests |
 | **Test** | `fmt`, `validate`, `test`, `check_render_coverage.py`, `check_pipeline.py` | Nothing | Fixing what it finds |
-| **Diagram** | Loop 1 only: `iac-diagram` from the spec | `infra-diagram.drawio.png` beside the spec | Code, pipeline |
+| **Diagram** | Loop 1 only: `iac-diagram` from the spec, then the review's findings fixed by hand in the `.drawio` | `infra-diagram.drawio.png` beside the spec | Code, pipeline, `new_diagram.py` |
 | **Review** | Loop 1: reads the PNG and compares it with the spec | Nothing | Fixing what it finds |
 
 The test and review agents are read-only on purpose. The one that checks must not be the one
