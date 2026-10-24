@@ -95,6 +95,15 @@ def main():
     if not args.no_embed:
         cmd.append('--embed-diagram')
     cmd += ['--output', out, path]
+    # The old PNG goes first: draw.io has exited 0 and left an existing file untouched (seen
+    # 2026-10-24, the file open elsewhere), and an "ok" over a stale picture is the one result
+    # the review loop cannot afford.
+    if os.path.isfile(out):
+        try:
+            os.remove(out)
+        except OSError as e:
+            say(f"[fail] {out} cannot be replaced ({e.strerror}) - is it open in another program?", 'red')
+            return 1
     try:
         proc = subprocess.run(cmd, env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         code = proc.returncode
