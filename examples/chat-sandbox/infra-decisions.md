@@ -31,7 +31,7 @@ Stand 2026-10-24. Spezifikation: `infra-spec.yaml`.
 - **Die Ressourcennamen erzeugt das Naming-Werkzeug des Plugins, gesteuert über eine Namensdatei, die ihr anpassen könnt.** _(eure Antwort)_
 - **Der Zugang ist öffentlich, absichtlich aus dem Internet erreichbar.** _(eure Antwort)_
 - **Einzuhaltende Vorgaben: keine.** _(eure Antwort)_
-- **Protokolle werden 30 Tage aufbewahrt.** _(eure Antwort)_
+- **Logs werden 30 Tage aufbewahrt.** _(eure Antwort)_
 
 ## Nach den Vorgaben gesetzt
 
@@ -39,15 +39,15 @@ Nichts davon wurde gefragt; jede Zeile folgt einer Regel oder einer der Antworte
 
 ### Für das ganze System
 
-- Das System landet in einer eigenen Umgebung: es gibt keine gemeinsame Plattform, also bringt es Netz, Namensauflösung und Protokollierung selbst mit.
+- Das System landet in einer eigenen Umgebung: es gibt keine gemeinsame Plattform, also bringt es Netz, Namensauflösung und Logging selbst mit.
 - Passwörter und Zugriffsschlüssel sind abgeschaltet; der Zugriff läuft über Firmenkonten, damit jede Aktion zuordenbar ist.
 - Verschlüsselungsschlüssel sind in Software geschützt, der Standard, ausreichend ohne Vorgabe für Hardware.
 - Verschlüsselungsschlüssel sind von Azure verwaltet: verschlüsselt, rotiert, kein Aufwand bei euch.
 - Das Netz wird nicht gebraucht, alles wird über öffentliche Endpunkte erreicht. — weil: Der Zugang ist öffentlich, absichtlich aus dem Internet erreichbar.
-- Die Namensauflösung für private Anbindungen übernimmt dieses Ausrollen selbst. — weil: Das System landet in einer eigenen Umgebung: es gibt keine gemeinsame Plattform, also bringt es Netz, Namensauflösung und Protokollierung selbst mit.
-- Protokolle gehen in einen Arbeitsbereich, den dieses Ausrollen anlegt und bezahlt. — weil: Das System landet in einer eigenen Umgebung: es gibt keine gemeinsame Plattform, also bringt es Netz, Namensauflösung und Protokollierung selbst mit.
-- Protokolle werden in log-analytics-workspace gesammelt. — weil: Protokolle gehen in einen Arbeitsbereich, den dieses Ausrollen anlegt und bezahlt.
-- Tägliche Obergrenze für Protokolle: -1 GB (-1: keine).
+- Die Namensauflösung für private Anbindungen übernimmt dieses Ausrollen selbst. — weil: Das System landet in einer eigenen Umgebung: es gibt keine gemeinsame Plattform, also bringt es Netz, Namensauflösung und Logging selbst mit.
+- Logs gehen in einen Arbeitsbereich, den dieses Ausrollen anlegt und bezahlt. — weil: Das System landet in einer eigenen Umgebung: es gibt keine gemeinsame Plattform, also bringt es Netz, Namensauflösung und Logging selbst mit.
+- Logs werden in log-analytics-workspace gesammelt. — weil: Logs gehen in einen Arbeitsbereich, den dieses Ausrollen anlegt und bezahlt.
+- Tägliche Obergrenze für Logs: -1 GB (-1: keine).
 
 ### Azure App Service (web app on an App Service plan)
 
@@ -63,8 +63,8 @@ Nichts davon wurde gefragt; jede Zeile folgt einer Regel oder einer der Antworte
 - Die App bleibt geladen und antwortet sofort auf die erste Anfrage, wenn kein Verkehr anliegt.
 - Die Plattform prüft die Gesundheit der App unter dem Pfad  (leer: keine Prüfung).
 - HTTP/2 ist eingeschaltet.
-- Seine Protokolle gehen in log-analytics-workspace.
-- Protokolliert wird: jede Web-Anfrage, die eigenen Log-Meldungen der App, wer sich zum Ausrollen oder Verwalten angemeldet hat, Änderungen an den Zugriffsbeschränkungen, die eigenen Meldungen der Plattform zur App.
+- Seine Logs gehen in log-analytics-workspace.
+- Geloggt wird: jede Web-Anfrage, die eigenen Log-Meldungen der App, wer sich zum Ausrollen oder Verwalten angemeldet hat, Änderungen an den Zugriffsbeschränkungen, die eigenen Meldungen der Plattform zur App.
 - Nutzungs- und Leistungswerte werden erfasst.
 
 ### Azure AI Foundry (AI Services account with projects and model deployments)
@@ -81,8 +81,8 @@ Nichts davon wurde gefragt; jede Zeile folgt einer Regel oder einer der Antworte
 - Zugriffsrechte auf das Konto vergeben an: app-service (Cognitive Services OpenAI User), search-service (Cognitive Services OpenAI User). — weil: `wiring.access`
 - Die Anmeldung mit Kontoschlüsseln ist abgeschaltet; der Zugriff läuft über Firmenkonten.
 - Verschlüsselungsschlüssel sind von Azure verwaltet: verschlüsselt, rotiert, kein Aufwand bei euch.
-- Seine Protokolle gehen in log-analytics-workspace.
-- Protokolliert wird: Änderungen am Konto und wer sie gemacht hat, jede Anfrage an die Modelle mit Aufrufer, Größe und Ergebnis (nicht der Text), die von jedem Aufruf verbrauchten Token.
+- Seine Logs gehen in log-analytics-workspace.
+- Geloggt wird: Änderungen am Konto und wer sie gemacht hat, jede Anfrage an die Modelle mit Aufrufer, Größe und Ergebnis (nicht der Text), die von jedem Aufruf verbrauchten Token.
 - Nutzungs- und Leistungswerte werden erfasst.
 
 ### Azure AI Search service
@@ -95,8 +95,8 @@ Nichts davon wurde gefragt; jede Zeile folgt einer Regel oder einer der Antworte
 - Zugriffsrechte auf den Suchdienst vergeben an: app-service (Search Index Data Reader). — weil: `wiring.access`
 - Die Anmeldung mit API-Schlüsseln ist abgeschaltet; der Zugriff läuft über Firmenkonten.
 - Verschlüsselungsschlüssel sind von Azure verwaltet: verschlüsselt, rotiert, kein Aufwand bei euch.
-- Seine Protokolle gehen in log-analytics-workspace.
-- Protokolliert wird: jede Abfrage und jede Änderung an Indizes und Indexern.
+- Seine Logs gehen in log-analytics-workspace.
+- Geloggt wird: jede Abfrage und jede Änderung an Indizes und Indexern.
 - Nutzungs- und Leistungswerte werden erfasst.
 
 ### Azure Storage Account
@@ -112,11 +112,11 @@ Nichts davon wurde gefragt; jede Zeile folgt einer Regel oder einer der Antworte
 - Eine zweite Verschlüsselungsschicht unterhalb des Dienstes ist eingeschaltet.
 - Verschlüsselungsschlüssel sind von Azure verwaltet: verschlüsselt, rotiert, kein Aufwand bei euch.
 - Dateiübertragung per SFTP ist ausgeschaltet.
-- Ein Protokoll jeder Änderung wird nicht geführt.
+- Ein Log jeder Änderung wird nicht geführt.
 - Der ganze Speicher lässt sich 0 Tage zurückdrehen (0: gar nicht).
 - Löschschutz per Gesetz oder Richtlinie: keiner.
-- Seine Protokolle gehen in log-analytics-workspace.
-- Protokolliert wird: wer worauf zugegriffen hat.
+- Seine Logs gehen in log-analytics-workspace.
+- Geloggt wird: wer worauf zugegriffen hat.
 - Nutzungs- und Leistungswerte werden erfasst.
 
 ### Azure Key Vault
@@ -128,18 +128,18 @@ Nichts davon wurde gefragt; jede Zeile folgt einer Regel oder einer der Antworte
 - Plattformdienste, die aus dem Tresor lesen dürfen: keine (leer: keine).
 - Für die Geheimnisse entra-client-secret werden leere Plätze angelegt; die Werte werden danach von Hand oder von der Anwendung eingetragen.
 - Verschlüsselungsschlüssel sind von Azure verwaltet - der Tresor hält dafür keine.
-- Seine Protokolle gehen in log-analytics-workspace.
-- Protokolliert wird: jeder Lese-, Schreib- und fehlgeschlagene Zugriff auf den Tresor, wie Richtlinien den Tresor bewertet haben.
+- Seine Logs gehen in log-analytics-workspace.
+- Geloggt wird: jeder Lese-, Schreib- und fehlgeschlagene Zugriff auf den Tresor, wie Richtlinien den Tresor bewertet haben.
 - Nutzungs- und Leistungswerte werden erfasst.
 
 ### Azure Log Analytics Workspace
 
-- Protokolle werden 30 Tage aufbewahrt.
-- Tägliche Obergrenze für Protokolle: -1 GB (-1: keine).
+- Logs werden 30 Tage aufbewahrt.
+- Tägliche Obergrenze für Logs: -1 GB (-1: keine).
 - Abgerechnet pro Gigabyte, nach Verbrauch.
-- Der Protokoll-Arbeitsbereich ist aus dem Internet erreichbar, mit Firmenkonten und Verschlüsselung; einen privaten Zugang dafür gibt es nicht.
-- Protokolle mit dem Arbeitsbereichs-Schlüssel zu senden ist disabled.
-- Wer Protokolle lesen darf, entscheiden die Berechtigungen des Arbeitsbereichs selbst.
+- Der Log-Arbeitsbereich ist aus dem Internet erreichbar, mit Firmenkonten und Verschlüsselung; einen privaten Zugang dafür gibt es nicht.
+- Logs mit dem Arbeitsbereichs-Schlüssel zu senden ist disabled.
+- Wer Logs lesen darf, entscheiden die Berechtigungen des Arbeitsbereichs selbst.
 - Ein gelöschter Arbeitsbereich kann 14 Tage lang wiederhergestellt werden.
 - Langzeitarchivierung in günstigen Speicher ist ausgeschaltet.
 
