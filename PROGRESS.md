@@ -33,6 +33,12 @@ the detail; this list says what was decided and why, so a session does not reope
   `deployment.module_source` records it once, `module_telemetry` beside it (default
   `disabled` for new specs). The module choice is a `customer` question, asked in Phase 0
   (owner's call, 2026-10-24), skipped when the repository or a carried spec answers it.
+- **`network_connectivity` is a customer requirement** (2026-10-24): does the system join
+  the company network (hub, VPN) or stand on its own; it pre-answers `landing_zone` and
+  through it the network's ownership and exposure. The first install test's customer said
+  "Netz egal, kein VPN" and the interview had no question for it. The batch rule says the
+  host's four-questions-per-call limit means several calls in a row, never a batch cut to
+  four.
 - **`context.language` names the customer's language** (2026-10-24): `en` or `de`, set by
   Phase 0 from the language the request is written in, never asked. The picture, the
   decision document and the customer-facing spec text follow it; the scripts read it and
