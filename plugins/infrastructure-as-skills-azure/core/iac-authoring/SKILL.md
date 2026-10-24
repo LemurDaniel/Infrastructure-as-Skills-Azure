@@ -322,7 +322,10 @@ the subscription id, the resource group and the region.** They are `parameterize
 in the deployment set - input variables the stage file supplies, not decisions. A question
 about them, "there is no default for these" included, is a bug in the interview: the person
 is designing and has no deployment target yet. Whether the resource group exists or is
-created is not asked either; the boundary is that it exists.
+created is not asked either; the boundary is that it exists. Nor is the customer's language:
+it is the language the request and the answers are written in, and Phase 0 writes it to
+`context.language` (`en` or `de`) - the picture, the decision document and the
+customer-facing text in the spec follow it.
 
 **There is one batch**: the surviving `customer` questions — the
 environment, who reaches it and from where, the mandates, and the `requirements` group
@@ -465,8 +468,8 @@ invented line in a picture the customer signs off on is a decision nobody made. 
 the request leaves out is an `open:` entry only where the spec cannot work without it;
 otherwise the line is simply absent.
 
-**Customer-facing text in the spec is written in the customer's language** - the one
-exception to the English spec: `wiring.access[].label`, `wiring.purposes` and the
+**Customer-facing text in the spec is written in the customer's language**, the one
+`context.language` names - the one exception to the English spec: `wiring.access[].label`, `wiring.purposes` and the
 `owner` of every `open:` entry are printed verbatim into the picture, the `question` into
 the decision document (the picture counts the open entries by owner and points at the
 document), so an English label there is a `spec` finding of the review
@@ -476,7 +479,7 @@ their picture). Keys, values, `why`, `reason` stay English.
 **Write the decision document in the same step**, in the user's language:
 
 ```sh
-python3 <plugin>/core/iac-authoring/scripts/export_decisions.py ./infra-spec.yaml --language de
+python3 <plugin>/core/iac-authoring/scripts/export_decisions.py ./infra-spec.yaml
 ```
 
 It renders every decision in the spec as one line in the customer's words

@@ -23,16 +23,16 @@ for Terraform and Bicep, as the spec is.
 ## Run it
 
 ```sh
-python3 <plugin>/core/iac-diagram/scripts/new_diagram.py    ./infra-spec.yaml --language de
-python3 <plugin>/core/iac-diagram/scripts/verify_diagram.py  ./infra-spec.yaml ./infra-diagram.drawio --language de
+python3 <plugin>/core/iac-diagram/scripts/new_diagram.py    ./infra-spec.yaml
+python3 <plugin>/core/iac-diagram/scripts/verify_diagram.py  ./infra-spec.yaml ./infra-diagram.drawio
 python3 <plugin>/core/iac-diagram/scripts/export_diagram.py ./infra-diagram.drawio
 ```
 
 Verify first: the export deletes the `.drawio`, and `verify_diagram.py` also reads the PNG,
 so it can be run afterwards too.
 
-`--language` is the user's language, `de` or `en`. It covers the fixed labels and the
-decisions panel; Azure names, types, ranges and role names stay as Azure spells them,
+The language is the spec's `context.language`, `de` or `en`; `--language` overrides it for a
+check. It covers the fixed labels and the decisions panel; Azure names, types, ranges and role names stay as Azure spells them,
 since those are what the customer will find in the portal.
 
 **Generate first, never write the draw.io XML from scratch.** The layout is computed: every
@@ -194,7 +194,7 @@ the customer this run builds it. The grey styling is the boundary this run stops
 
 1. `verify_diagram.py` checks the file against the spec: every resource in `resources:`
    drawn exactly once, nothing drawn that the spec does not contain, every `open:` entry in
-   the picture, every `wiring.optional` resource faded. With `--language de` it also fails
+   the picture, every `wiring.optional` resource faded. In German it also fails
    on transliterated umlauts (`ueber`, `oeffentlich`) in any label. The network and the
    workspace are drawn even when the spec only references them, and application insights
    next to the workspace; those are not extras.

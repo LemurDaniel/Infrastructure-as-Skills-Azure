@@ -25,7 +25,9 @@ how many fell back.
 Needs PyYAML. Reads the question sets from the plugin this script ships in.
 
 Usage:
-    python3 export_decisions.py ./infra-spec.yaml --language de [--out ./infra-decisions.md]
+    python3 export_decisions.py ./infra-spec.yaml [--language de] [--out ./infra-decisions.md]
+
+The language is `context.language` of the spec; --language overrides it.
 
 Exit 0 written, 1 the spec or a question set could not be read, 2 could not run.
 """
@@ -183,7 +185,7 @@ class Renderer:
 def main():
     ap = argparse.ArgumentParser(description="Render an infra-spec.yaml as the customer's decision document.")
     ap.add_argument('spec', help='the infra-spec.yaml')
-    ap.add_argument('--language', default='en', help='two-letter language code (en, de; others fall back per line)')
+    ap.add_argument('--language', help="two-letter language code (default: the spec's context.language, else en; others fall back per line)")
     ap.add_argument('--out', help='output path (default: infra-decisions.md beside the spec)')
     args = ap.parse_args()
 
@@ -195,11 +197,14 @@ def main():
     if not os.path.isfile(args.spec):
         say(f"[fail] no such file: {args.spec}")
         return 2
-    lang = args.language if args.language in LABELS else 'en'
+    with open(args.spec, encoding='utf-8') as f:
+        ctx_lang = ((yaml.safe_load(f) or {}).get('context') or {}).get('language')
+    requested = args.language or (str(ctx_lang) if ctx_lang else None) or 'en'
+    lang = requested if requested in LABELS else 'en'
     L = LABELS[lang]
-    if lang != args.language:
-        say(f"[warn] no fixed labels for '{args.language}'; using en labels, per-decision lines in '{args.language}' where the sets carry them")
-        lang = args.language
+    if lang != requested:
+        say(f"[warn] no fixed labels for '{requested}'; using en labels, per-decision lines in '{requested}' where the sets carry them")
+        lang = requested
         R = Renderer(lang, L)
     else:
         R = Renderer(lang, L)

@@ -4,6 +4,8 @@ of the iac-diagram skill, as a script.
 
     python3 verify_diagram.py ./infra-spec.yaml ./infra-diagram.drawio [--language de]
 
+The language is `context.language` of the spec; --language overrides it.
+
 The second argument may also be the infra-diagram.drawio.png; the XML is read from it.
 
   - every key under `resources:` is drawn exactly once, and nothing else is drawn as a resource
@@ -89,7 +91,7 @@ def main():
     ap = argparse.ArgumentParser(description='Check a diagram against its infra-spec.yaml.')
     ap.add_argument('spec')
     ap.add_argument('diagram', help='the .drawio or the .drawio.png')
-    ap.add_argument('--language', choices=['de', 'en'], default='en')
+    ap.add_argument('--language', choices=['de', 'en'], help="language of the fixed labels (default: the spec's context.language, else en)")
     args = ap.parse_args()
     try:
         import yaml
@@ -102,7 +104,8 @@ def main():
             return 2
     with open(args.spec, encoding='utf-8') as f:
         spec = yaml.safe_load(f) or {}
-    bad = verify(spec, cells_of(args.diagram), args.language)
+    language = args.language or str((spec.get('context') or {}).get('language') or 'en')
+    bad = verify(spec, cells_of(args.diagram), language)
     for b in bad:
         print(f"[FAIL] {b}")
     if not bad:

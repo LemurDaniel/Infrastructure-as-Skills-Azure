@@ -11,6 +11,7 @@ spec:
 # One throwaway stage. location and workload are parameters of the template; the
 # values here are the documented example (EU region for data_residency: data_zone).
 context:
+  language: de
   environments: [sandbox]
   location: germanywestcentral
   workload: chat

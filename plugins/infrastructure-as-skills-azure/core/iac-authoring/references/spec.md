@@ -41,6 +41,7 @@ spec:
 # map keyed by stage, rendered as a parameter whose value lives in the stage's file.
 context:
   environments: [development, test, production]
+  language: de               # the customer's language (en | de): the picture, the decision document, the customer-facing text
   location: westeurope
   workload: payments
   subscription_id:
@@ -171,6 +172,16 @@ wiring:
     value: [redis-cache]
     source: stated
 ```
+
+## Language
+
+`context.language` is the customer's language, `en` or `de`: the fixed labels of the picture,
+the decision document and every customer-facing text in the spec (`wiring.purposes`,
+`wiring.access[].label`, the `owner` and `question` of an `open:` entry) are written in it.
+Phase 0 sets it from the language the request and the answers are written in; it is never
+asked. The scripts read it (`new_diagram.py`, `verify_diagram.py`, `export_decisions.py`) and
+their `--language` only overrides it for a check. A spec without it is drawn in English and
+`check_spec.py` warns. Keys, values, `why` and `reason` stay English whatever it says.
 
 ## Stages: one value or a map
 

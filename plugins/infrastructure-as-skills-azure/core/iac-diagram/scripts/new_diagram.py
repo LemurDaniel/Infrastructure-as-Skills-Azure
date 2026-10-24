@@ -30,7 +30,9 @@ what a resource is for on its label.
 Needs PyYAML (pip install pyyaml). Without it the script exits 2.
 
 Usage:
-    python3 new_diagram.py ./infra-spec.yaml --language de [--out ./infra-diagram.drawio]
+    python3 new_diagram.py ./infra-spec.yaml [--language de] [--out ./infra-diagram.drawio]
+
+The language is `context.language` of the spec; --language overrides it.
 
 Exit 0 written, 1 layout check failed or spec unreadable, 2 could not run.
 """
@@ -314,8 +316,8 @@ def main():
     ap = argparse.ArgumentParser(description='Draw an infra-spec.yaml as a draw.io diagram.')
     ap.add_argument('path', help='the infra-spec.yaml to draw')
     ap.add_argument('--out', help='the .drawio to write (default: infra-diagram.drawio next to the spec)')
-    ap.add_argument('--language', choices=['de', 'en'], default='en',
-                    help='language of the fixed labels and the decisions panel; Azure names, types, ranges and roles are never translated')
+    ap.add_argument('--language', choices=['de', 'en'],
+                    help="language of the fixed labels and the decisions panel (default: the spec's context.language, else en); Azure names, types, ranges and roles are never translated")
     args = ap.parse_args()
 
     if not os.path.isfile(args.path):
@@ -337,7 +339,11 @@ def main():
         say(f"[fail] YAML does not parse: {e}", 'red')
         return 1
 
-    T = LABELS[args.language]
+    language = args.language or s((spec.get('context') or {}).get('language')) or 'en'
+    if language not in LABELS:
+        say(f"[warn] no labels for context.language '{language}' - drawing in English", 'yellow')
+        language = 'en'
+    T = LABELS[language]
 
     # --- Read the spec -----------------------------------------------------
     ctx = get_at(spec, ['context']) or {}

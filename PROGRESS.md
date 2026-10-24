@@ -33,6 +33,10 @@ the detail; this list says what was decided and why, so a session does not reope
   `deployment.module_source` records it once, `module_telemetry` beside it (default
   `disabled` for new specs). The module choice is a `customer` question, asked in Phase 0
   (owner's call, 2026-10-24), skipped when the repository or a carried spec answers it.
+- **`context.language` names the customer's language** (2026-10-24): `en` or `de`, set by
+  Phase 0 from the language the request is written in, never asked. The picture, the
+  decision document and the customer-facing spec text follow it; the scripts read it and
+  `--language` only overrides. Before, the language was guessed at drawing time.
 - **The target is Phase 0's first question** (2026-10-24): Terraform or Bicep before the
   module choice and the naming mechanism, two options, none recommended; Phase 1 only
   reads the layout and asks nothing.

@@ -152,6 +152,11 @@ def main():
         environments = []
     if 'environment' in (get(spec, 'context') or {}):
         errors.append("context.environment is the old single-stage field; the stack is context.environments")
+    lang = get(get(spec, 'context'), 'language')
+    if lang is None:
+        warnings.append("context.language is missing - the customer's language (en, de) that the picture and the decision document are written in; the scripts fall back to en")
+    elif not (isinstance(lang, str) and len(lang) == 2 and lang.isalpha() and lang.islower()):
+        errors.append(f"context.language '{lang}' is not a two-letter lowercase code (en, de)")
     if not errors:
         ok(f"envelope - id '{get(head, 'id')}', target '{target}', stages {environments}")
 

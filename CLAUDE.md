@@ -151,6 +151,8 @@ are in [README.md](README.md#why-one-trigger-and-families-that-are-not-skills).
   need themselves; nothing under `plugins/` - tests and fixtures included - reads from it or
   names one, and `check_repo_consistency.py` fails on `examples/` anywhere under `plugins/`.
   Only the repo's own docs may point at an example.
+- **The customer's language is `context.language`** (`en`, `de`), set from the request and
+  never asked. The diagram and decision scripts read it; `--language` only overrides it.
 - **The spec names decisions, not attributes.** `public_network_access: disabled`, never
   `public_network_access_enabled: false` — that is one backend's spelling leaking into the
   interface the others read.
