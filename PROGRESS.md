@@ -279,6 +279,31 @@ until it is fixed or decided against.
   as an error) and the rule one cause per finding.
 - The evals were not re-run on the sign-off-first flow or the module-choice question.
 
+### Diagram generator (from the Loop 1 runs on the three examples, 2026-10-24)
+
+The three example diagrams were redrawn with the downward layout and finished through
+Loop 1 with subagents: 11 `error` findings in pass 1, all fixed by hand, 0 in pass 2.
+Nearly every error is a fault `new_diagram.py` repeats on the next spec:
+
+- Edge anchors are always `exitY/entryY = 0.5`: two lines on one side of an icon share a
+  track, two on opposite sides at one height read as one line through the icon
+  (chatbot-rag `e-3`/`e-4`/`e-out-0`; chat-sandbox trunk vs. the actor lines).
+- Edge labels sit at the path's middle without regard to the segment: on a short vertical
+  in a gutter, on the shared trunk, on an arrowhead (`e-0`, `e-3`, `e-7`, `e-5`).
+- Without the network, the PaaS-to-PaaS line is routed by draw.io through every icon in
+  between (chat-sandbox `e-6`); route it over the icons' top edges, or draw it as text.
+- Open entries on the network (`deployment.address_space`, `virtual-network.*`) do not
+  colour the VNet or subnet titles red; only resource icons are flagged.
+- `wiring.purposes` is not read for `log-analytics-workspace` (spec key leaks into the
+  label); the group label is not localised and lacks the stage(s).
+- Role lines read `identity.role_assignments` only, not `data_plane_role_assignments`
+  (chatbot Cosmos DB); the endpoint badge counts resources, not
+  `private_endpoint_subresources` (10 vs 12).
+- Role lines print the raw principal key (`user-assigned-identity__web`) and wrap at the
+  hyphen; the legend emits two identical blue rows in hub mode; the telemetry line takes
+  the caller's colour instead of blue; a public exception (`law`) carries no marker on
+  its icon.
+
 ### Evals
 
 - No case covers triggering. The one failure a real run has shown is a workload-shaped
