@@ -417,6 +417,9 @@ What the second review found, all `render`:
 the `.drawio`, `new_diagram.py` not touched). The picture's hand edits live only in the PNG: a
 regeneration from the spec loses them. All `render`:
 
+- **Done 2026-10-25** (`new_diagram.py`): role lines dropped (the label carries them), a compute -> compute
+  line between two icons of one row runs side to side, the public exception names the instance
+  ("App Service · dashboard"). The other four of this list are open.
 - **Role lines run through icons.** `wiring.role_assignments` draws one line per role from the
   identity to each target with no waypoints, and draw.io routes them: straight along the
   identity's row through the monitoring and DNS icons, up a trunk through the endpoints' icon

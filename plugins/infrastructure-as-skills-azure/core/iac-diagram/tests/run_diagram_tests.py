@@ -116,10 +116,10 @@ def case_ten_resources(cells):
     res = [k for k in vertices(cells) if k.startswith('res-') and not k.endswith('-icon') and k != 'res-application-insights']
     if len(res) != 10:
         bad.append(f"expected 10 drawn resources, found {len(res)}: {sorted(res)}")
-    if len(edges(cells)) != 12:
-        bad.append(f"expected 12 lines (9 access + 3 role-only), found {len(edges(cells))}")
-    if (count_colour(cells, PUBLIC), count_colour(cells, PRIVATE)) != (2, 10):
-        bad.append(f"expected 2 orange (Entra, SharePoint) and 10 blue lines, found {count_colour(cells, PUBLIC)} and {count_colour(cells, PRIVATE)}")
+    if len(edges(cells)) != 10:
+        bad.append(f"expected 10 lines (9 access; a role assignment is text on the target, not a line), found {len(edges(cells))}")
+    if (count_colour(cells, PUBLIC), count_colour(cells, PRIVATE)) != (2, 8):
+        bad.append(f"expected 2 orange (Entra, SharePoint) and 8 blue lines, found {count_colour(cells, PUBLIC)} and {count_colour(cells, PRIVATE)}")
     boxes = [k for k, v in vertices(cells).items() if k.startswith('res-') and is_box(v)]
     if boxes != ['res-event-grid']:
         bad.append(f"the one type without an icon should be the only box, found {boxes}")

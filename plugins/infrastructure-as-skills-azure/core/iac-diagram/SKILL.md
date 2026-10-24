@@ -150,7 +150,7 @@ lines are access, not plumbing.
 | Private endpoints | **One** bundled icon in the endpoint subnet (`9× app-service, function-app +7`), not one per resource |
 | `subnet_policy.subnet_delegations` | The delegation printed on each subnet; the kind's usual delegation only where the spec says none |
 | `wiring.access` | The lines: `{ from, to, label }`. `from` and `to` are resource keys or actors - `internet`, `users`, `external:<name>` - which sit in the *Internet and external services* zone. A line to a PaaS service runs on a shared track and splits on a bus lane, like a tree |
-| `wiring.role_assignments` | A line as well, if `wiring.access` has none for the pair, and `← principal: role` in purple on the target's label |
+| `wiring.role_assignments` | `← principal: role` in purple on the target's label, **no line of its own** (lines without waypoints ran through icons and titles); an actor as the principal, who has no label to carry it, still gets one. A pair that `wiring.access` draws keeps its line |
 | `deployment.network_exposure: public` | An *Internet* actor with an orange line to each compute resource (or PaaS service if there is no compute) |
 | Blue and orange lines | Blue: private path, no public route. Orange: from or over the internet, or to a target whose public access is not disabled |
 | `wiring.purposes` | What a resource is for, under its type (`Storage Account · Product images`); without one, the spec key |

@@ -472,7 +472,14 @@ def main():
     # the subtitle and the footer name the exception instead of claiming everything.
     public_exceptions = [k for k in res_keys if exposure in ('private', 'private_with_exceptions') and base(k) not in SUPPORT_KINDS
                          and k != 'virtual-network' and pna(k) != 'disabled']
-    exception_names = ', '.join(dict.fromkeys(TYPE_NAMES.get(base(k), base(k)) for k in public_exceptions))
+    # With two instances of one kind (`app-service__web`, `app-service__mcp`) the exception names the
+    # instance - "App Service" alone would read as both.
+    def exception_name(k):
+        title = TYPE_NAMES.get(base(k), base(k))
+        if sum(1 for r in res_keys if base(r) == base(k)) > 1:
+            title += f" · {k.partition('__')[2] or k}"
+        return title
+    exception_names = ', '.join(dict.fromkeys(exception_name(k) for k in public_exceptions))
 
     pe_subnet_name = subnet_name(get_decision(dep, ['private_endpoint_subnet']), res_keys)
     pe_subnet_prefix = get_decision(dep, ['private_endpoint_subnet_prefix'])
@@ -541,9 +548,13 @@ def main():
         if isinstance(a, dict) and a.get('from') and a.get('to'):
             access.append({'from': s(a['from']), 'to': s(a['to']), 'label': s(a.get('label'))})
             seen.add((s(a['from']), s(a['to'])))
+    # A role assignment is no line of its own: the target's label carries `<- principal: role`
+    # (role_lines below). Its line was routed by draw.io without waypoints and ran through icons
+    # and titles (found 2026-10-25); an actor as the principal has no label to carry it, so only
+    # those still get a line.
     for ra in roles:
         pair = (s(ra.get('from')), s(ra.get('to')))
-        if pair not in seen:
+        if pair not in seen and (pair[0] in ('internet', 'users') or pair[0].startswith('external:')):
             access.append({'from': pair[0], 'to': pair[1], 'label': ''})
             seen.add(pair)
     if exposure == 'public' and not any(a['from'] == 'internet' for a in access):
@@ -1225,6 +1236,12 @@ def main():
                 if sum(seg):
                     edge['lx'] = round(2 * ((sum(seg[:-1]) + 0.5 * seg[-1]) / sum(seg)) - 1, 3)
                     edge['off'] = (8 + 3 * plain_len(edge_label), 0)
+        elif a['from'] in compute and a['to'] in compute and abs(sc['y'] - dc['y']) < 1 and dc['x'] > sc['x']:
+            # Two icons in one row: side to side, straight, the label above the line. The track
+            # round the right side below went over the second icon.
+            edge['style'] = style + 'exitX=1;exitY=0.5;entryX=0;entryY=0.5;'
+            if edge_label:
+                edge['off'] = (0, -11)
         elif a['from'] in compute and a['to'] in compute:
             k = inter.setdefault(a['from'] + '>' + a['to'], len(inter))
             if side and 'snet-pe' in by_id:
