@@ -88,9 +88,10 @@ than inferring the shape from an example spec.
     secret in the file.
 11. **Ask how to run it when the spec is large.** With the Agent tool and several resource
     families, ask once through `AskUserQuestion` before the first file is written: **Subagents**
-    (recommended) or **Same session**. Subagents render in two parallel arms - code, pipeline
-    and a read-only test agent; diagram and a read-only review agent that looks at the
-    picture - each with its own bounded fix loop. The protocol, the stop rules and what goes
+    (recommended) or **Same session**. Subagents run the code loop - code, pipeline and a
+    read-only test agent, with a bounded fix loop - after the diagram loop of
+    `iac-authoring` Phase 5 (diagram agent, read-only review agent, the customer's
+    sign-off) has ended with a yes; never both at once. The protocol, the stop rules and what goes
     into an agent's brief are in [agents.md](references/agents.md). Same session does the
     steps above in order, itself. The answer is a working mode, not a decision: it is not
     written to the spec. A small spec, or a host without the Agent tool, is not asked -
@@ -126,7 +127,7 @@ is spelled. A port that reads as a transliteration has usually lost one of them.
 | [references/bicep-idiom.md](references/bicep-idiom.md) | Target is Bicep |
 | [references/pipelines.md](references/pipelines.md) | Always, after the code: the flow and invariants every pipeline shares |
 | [references/pipelines.github.md](references/pipelines.github.md), [.ado.md](references/pipelines.ado.md), [.gitlab.md](references/pipelines.gitlab.md), [.local.md](references/pipelines.local.md) | `deploy_mechanism` is that system |
-| [references/agents.md](references/agents.md) | The Agent tool is available and the spec spans several families: the two arms, the loops, the briefs |
+| [references/agents.md](references/agents.md) | The Agent tool is available and the spec spans several families: the two loops in sequence, the stop rules, the briefs |
 | [../iac-authoring/references/spec.md](../iac-authoring/references/spec.md) | Reading the spec you render from |
 | [../iac-authoring/references/guardrails.md](../iac-authoring/references/guardrails.md) | A value in the spec looks wrong and you need the rule behind it |
 | `scripts/run_arm_tests.py` | A Bicep render: its `tests/*.armtest.yaml` against the compiled ARM |

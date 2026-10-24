@@ -143,7 +143,12 @@ Verified Modules first, authored resources second.
   this day (phases, one audience, the sign-off loop before the render); without draw.io
   in the cloud session they were rendered from their embedded XML through the draw.io
   viewer script in headless Chromium, with the XML re-embedded by `drawio_png.py embed`
-  - open them in draw.io once on the owner's machine to confirm they still edit.
+  - open them in draw.io once on the owner's machine to confirm they still edit. The
+  agents picture was then redrawn a second time on the owner's remark: not two parallel
+  arms but **two loops in sequence** - the diagram loop (diagram agent, review agent,
+  customer sign-off, Phase 5) first, the code loop only after the yes, the diagram
+  redrawn once more at its end without a second sign-off. `agents.md` and rule 11 of
+  `iac-rendering` say the same now.
 - **The decision document is rendered, not written.** B5, 2026-10-18. Every question
   carries `plain` (`en` and `de`, `{value}` where the value goes) and, where a raw value
   means nothing to a customer, `plain_values`; `export_decisions.py` turns a spec into

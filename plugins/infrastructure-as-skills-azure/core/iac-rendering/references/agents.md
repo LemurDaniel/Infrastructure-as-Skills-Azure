@@ -13,21 +13,29 @@ session is cheaper and sequential. A small spec (one resource, one family) is no
 is faster done in sequence, because every agent reads the spec, the references and the
 guardrails again. Without the Agent tool, do the same steps in the same order yourself.
 
-## Two arms from one spec
+## Two loops from one spec, one after the other
 
 ```
-                         ┌─ Arm A: Code ────────────────────────────────────────────┐
-                         │  code agent ─> pipeline agent ─> test agent ─> green?    │
- infra-spec.yaml ─ main ─┤                    ^                              │ no   │
-                         │                    └──────── findings ────────────┘      │
-                         ├─ Arm B: Diagram ─────────────────────────────────────────┤
-                         │  diagram agent ─> review agent ─> errors?                │
-                         │        ^                              │ yes              │
-                         │        └──────────── findings ────────┘                  │
-                         └──────────────────────────────────────────────────────────┘
+ Loop 1 · Diagram and sign-off (iac-authoring, Phase 5)
+   infra-spec.yaml ─> diagram agent ─> review agent ─> errors? ──no──> customer: fits? ──yes──┐
+                            ^                            │ yes              │ change          │
+                            └──────── findings ──────────┘                  v                 │
+                                                                    spec corrected, redrawn   │
+ Loop 2 · Code (iac-rendering) - starts only after the yes  <─────────────────────────────────┘
+   code agent ─> pipeline agent ─> test agent ─> green? ──yes──> hand-over
+        ^                                          │ no
+        └──────────────── findings ────────────────┘
 ```
 
-The arms run in parallel and never read each other's output. The main agent starts both,
+**The loops run one after the other, never in parallel** (owner's call, 2026-10-24,
+replacing two parallel arms): the customer signs off on the picture, and the code - the
+long, expensive loop - is rendered only from a spec whose picture they have agreed to. Loop
+1 is Phase 5 of `iac-authoring`; the diagram agent and the review agent iterate on the
+picture until it carries no real error, then the main agent shows it to the customer with
+the one question of Phase 5. "Etwas ändern" corrects the spec and redraws; "ja" starts
+Loop 2. In Loop 2 the agents never read each other's output; at its end the diagram agent
+redraws the picture from the final spec so it matches the code, and the test agent verifies
+it (`verify_diagram.py`) - there is no second sign-off. The main agent starts the loops,
 counts the passes, routes findings and writes the hand-over.
 
 | Agent | Does | May write | Never |
@@ -35,8 +43,8 @@ counts the passes, routes findings and writes the hand-over.
 | **Code** | Steps 1-7 of the order of work: AVM resolution, names, code, tests per decision | The render root only | Pipeline, diagram, `apply`, a commit |
 | **Pipeline** | Step 10, after the code agent has reported the layout (root, stage files, backend keys, working directory) | The pipeline files only | Code, tests |
 | **Test** | `fmt`, `validate`, `test`, `check_render_coverage.py`, `check_pipeline.py`, the diagram's `verify_diagram.py` | Nothing | Fixing what it finds |
-| **Diagram** | Step 9: `iac-diagram` from the spec | `infra-diagram.drawio.png` beside the spec | Code, pipeline |
-| **Review** | Reads the PNG and compares it with the spec | Nothing | Fixing what it finds |
+| **Diagram** | Loop 1, and once more at the end of Loop 2: `iac-diagram` from the spec | `infra-diagram.drawio.png` beside the spec | Code, pipeline |
+| **Review** | Loop 1: reads the PNG and compares it with the spec | Nothing | Fixing what it finds |
 
 The test and review agents are read-only on purpose. The one that checks must not be the one
 that edits: two authors on one file overwrite each other, and a checker that fixes its own
@@ -55,20 +63,21 @@ a **severity** and a **cause**:
 
 The main agent routes by cause. A `render` finding goes back to the agent that made that
 part, with the finding as the only new instruction. A `spec` finding is the main agent's:
-it corrects the spec (or the question set behind it) and then **restarts both arms**, because
-each would otherwise fix against a different spec.
+it corrects the spec (or the question set behind it) and redraws; when the correction
+changes the picture the customer signed off on, the customer sees it again before Loop 2
+continues, and a running Loop 2 is restarted so it renders the corrected spec.
 
 ## Stopping
 
-| Arm | Passes | Goes back | Stops early |
+| Loop | Passes | Goes back | Stops early |
 |---|---|---|---|
-| A: Code | 3 | `error` findings, to the agent that made the part | The same message in two passes in a row |
-| B: Diagram | 2 | `error` findings only | The same finding in two passes in a row |
+| 1: Diagram | 2 | `error` findings only | The same finding in two passes in a row; the customer then sees the picture as it is |
+| 2: Code | 3 | `error` findings, to the agent that made the part | The same message in two passes in a row |
 
 `polish` findings from the review never go back: a reviewer always finds something, so
 feeding them back means the loop never ends. They go into the hand-over.
 
-When an arm stops without green, hand over its open findings as they are. A message that
+When a loop stops without green, hand over its open findings as they are. A message that
 returns unchanged after a fix means the cause is in the spec or the question set, not in the
 code; say so.
 
@@ -79,12 +88,12 @@ belongs to the changed resource plus the wiring and naming tests, which read acr
 resources. A change to a shared file (`providers.tf`, `variables.tf`, `locals.tf`, `data.tf`,
 `naming.tf`, a stage file) can reach every test and gets the full run. The cheap checks
 (`fmt`, `validate`, `check_render_coverage.py`, `check_pipeline.py`) run every time. **One full
-run closes the arm**, once its filtered passes are green: a fix can break a neighbour that its
+run closes the loop**, once its filtered passes are green: a fix can break a neighbour that its
 own test never touches, and a hand-over that was only ever tested in slices has not been
 tested. A test that never ran, because an earlier block failed and skipped it, is not covered
 by a filtered pass of another file.
 
-**Never weaken a test to turn the arm green.** No removed `# decision:` assert, no
+**Never weaken a test to turn the loop green.** No removed `# decision:` assert, no
 `# not-testable:` added to silence a failing check, no loosened expectation. A test that is
 wrong is a finding of its own, reported with the reason.
 
@@ -102,13 +111,13 @@ Each agent starts without this conversation. Its prompt carries:
 6. **The report**: what it produced, what it could not do or had to assume, the layout the
    next agent depends on (code agent), the findings list (test and review agent).
 
-Run the agents in the background and carry on with the other arm; the main agent never
-repeats an agent's work while it runs. The brief of a later pass names the files the fix
+Run the agents in the background; the main agent never repeats an agent's work while it
+runs, and never starts Loop 2 before the customer's yes. The brief of a later pass names the files the fix
 changed, so the test agent can filter.
 
 ## The hand-over
 
 The main agent's closing message is the explained plan, unchanged from the order of work:
 code, tests, diagram, pipeline, open items and which changes are service-affecting. Add the
-open findings of an arm that stopped without green, the `polish` findings of the review, and
+open findings of a loop that stopped without green, the `polish` findings of the review, and
 which agents ran in how many passes.
