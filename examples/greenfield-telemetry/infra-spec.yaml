@@ -61,6 +61,12 @@ deployment:
   data_access_pattern:
     value: active
     source: default
+  backup_isolation:
+    value: operational
+    source: default
+  data_residency:
+    value: data_zone
+    source: default
   landing_zone:
     value: standalone
     source: default         # "es gibt noch nichts" describes the workload; no platform is

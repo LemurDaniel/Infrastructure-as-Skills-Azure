@@ -35,6 +35,9 @@ Ein Code wird durch diese Stufen ausgerollt; alles, was hier nicht steht, ist in
   - daher, Azure Storage Account: Frühere Versionen überschriebener Dateien werden aufgehoben.
 - **Die Daten werden laufend genutzt.** _(nicht gesagt, daher gilt die übliche Antwort)_
   - daher, Azure Storage Account: Gespeichert in der Klasse Standard: günstig beim Lesen, für Daten in Nutzung.
+- **Gegen absichtliche Zerstörung sind die Daten nur innerhalb des Systems selbst geschützt; wer das System löschen kann, kann auch die Kopien löschen.** _(nicht gesagt, daher gilt die übliche Antwort)_
+- **Die Daten werden nur innerhalb des Wirtschaftsraums der Region, zum Beispiel der EU gespeichert und verarbeitet.** _(nicht gesagt, daher gilt die übliche Antwort)_
+- **Der Code wird aus Microsofts geprüften, getesteten Bausteinen (Azure Verified Modules) gebaut.** _(nicht gesagt, daher gilt die übliche Antwort)_
 - **Der Zugang ist nur privat, nichts ist aus dem Internet erreichbar.** _(aus eurer Beschreibung)_
 - **Einzuhaltende Vorgaben: BSI C5.** _(aus eurer Beschreibung)_
 
@@ -46,7 +49,6 @@ Nichts davon wurde gefragt; jede Zeile folgt einer Regel oder einer der Antworte
 
 - Die Pipeline meldet sich mit einem kurzlebigen Token pro Lauf, ohne irgendwo gespeichertes Passwort bei Azure an.
 - Eine Person gibt die Änderung frei, bevor sie ausgerollt wird: nur im Echtbetrieb.
-- Der Code wird aus Microsofts geprüften, getesteten Bausteinen (Azure Verified Modules) gebaut.
 - Nutzungstelemetrie an Microsoft ist eingeschaltet: eine Zählung pro Ausrollen, keine eurer Daten.
 - Das System landet in dem internen Teil der Firmenplattform, verbunden mit dem Firmennetz. — weil: Das Netz wird das bestehende, hier genutzt und nie verändert.
 - Passwörter und Zugriffsschlüssel sind abgeschaltet; der Zugriff läuft über Firmenkonten, damit jede Aktion zuordenbar ist.
@@ -111,6 +113,8 @@ Solange diese Punkte offen sind, wird nichts ausgerollt.
 | `deployment.outage_impact` | disruptive | Regel |
 | `deployment.data_loss_tolerance` | one_week | Regel |
 | `deployment.data_access_pattern` | active | Regel |
+| `deployment.backup_isolation` | operational | Regel |
+| `deployment.data_residency` | data_zone | Regel |
 | `deployment.landing_zone` | corp | erzwungen |
 | `deployment.network_exposure` | private | eure Beschreibung |
 | `deployment.local_auth` | disabled | Regel |

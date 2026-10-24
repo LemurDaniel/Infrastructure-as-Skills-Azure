@@ -114,9 +114,11 @@ with no Azure vocabulary in it. "How long must deleted data stay restorable?" pa
 it is `platform`. An inherited question (`from_deployment`, `from_context`) carries the
 audience that may override it per resource, which is usually `engineer`.
 
-Keep `customer` scarce for the same reason as `required`: each one is a question put to
-someone who did not come to answer questions. Six per interview is the budget
-(`ROADMAP.md`); a seventh means a question set is missing a default.
+Keep `customer` for what only the customer knows - a requirement of the system, in their
+words - and never for a technical choice with a safe default. There is no cap on their
+number (the cap of six was dropped on 2026-10-24: the customer answers multiple choice,
+and a question not asked is a guess recorded as their decision); the test is the one
+above, whether the question can be put without Azure vocabulary.
 
 ## The customer's line: `plain` and `plain_values`
 
@@ -172,7 +174,8 @@ A resource question whose answer the customer could give — how much redundancy
 back a delete must be recoverable, how the data is used — is not asked per resource and
 not asked in the resource's vocabulary. The deployment set's `requirements` group asks it
 once, in the customer's terms (`outage_impact`, `data_loss_tolerance`,
-`data_access_pattern`), and the resource question **derives** its value:
+`data_access_pattern`, `backup_isolation`, `data_residency`), and the resource question
+**derives** its value:
 
 ```yaml
       - id: replication

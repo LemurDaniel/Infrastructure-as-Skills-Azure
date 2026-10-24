@@ -226,7 +226,10 @@ groups:
           (a different feature) are not offered here: they need conflict resolution the
           application has to be written for.
         forced_when: >
-          `outage_impact: critical` requires at least one entry here, or an `open:` entry
+          `outage_impact: critical` requires at least one entry here, or an `open:` entry;
+          every region named must satisfy `data_residency` (`country`: the same country,
+          `data_zone`: the same data zone), and a region that does not is refused with the
+          residency as the reason
         renders: geo_locations[] (failover_priority 1..n) / failoverLocations[]
 
       - id: automatic_failover
@@ -544,7 +547,10 @@ groups:
           pretending, and the decision document names the gap. **Continuous cannot be
           combined with multi-region writes**, which this set does not offer, and
           converting periodic to continuous is one-way. The modules disagree on a default
-          (tier and redundancy), so every field is written.
+          (tier and redundancy), so every field is written. The backups are kept by the
+          platform outside the account, so `backup_isolation: isolated` is met here
+          without a vault; `immutable` is not something Cosmos DB offers, and is named as
+          a gap in the decision document rather than claimed.
         renders: >
           backup.type and backup.tier / backupPolicyType and backupPolicyContinuousTier
           (`Continuous7Days`, `Continuous30Days`)
@@ -563,6 +569,9 @@ groups:
         values: [Local, Zone, Geo]
         default: Zone
         depends_on: { question: backup_policy, equals: periodic }
+        forced_when: >
+          `data_residency: country` with a paired region in another country forbids `Geo`,
+          recorded as forced with the residency as forced_by
         why: >
           Only periodic backups have it. Zone matches the platform's replication default
           (ZRS); Geo is for a documented regional recovery plan. **The modules disagree**:

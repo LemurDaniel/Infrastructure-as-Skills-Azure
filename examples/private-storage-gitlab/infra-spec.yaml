@@ -63,6 +63,12 @@ deployment:
   data_access_pattern:
     value: active
     source: default
+  backup_isolation:
+    value: operational
+    source: default
+  data_residency:
+    value: data_zone
+    source: default
   landing_zone:
     # A referenced hub and central workspace say a platform exists, so standalone is
     # out; private exposure makes it corp. Forced by the references, not inferred.

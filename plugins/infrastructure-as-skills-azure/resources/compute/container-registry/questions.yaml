@@ -144,7 +144,9 @@ groups:
           is wanted: with no region named the decision is an `open:` entry owned by the
           workload owner, naming the paired region as the usual answer.
         forced_when: >
-          `outage_impact: critical` requires at least one entry here, or an `open:` entry
+          `outage_impact: critical` requires at least one entry here, or an `open:` entry;
+          every region named must satisfy `data_residency`, and one that does not is
+          refused with the residency as the reason
         renders: georeplications / replications
 
       - id: retention_untagged_days

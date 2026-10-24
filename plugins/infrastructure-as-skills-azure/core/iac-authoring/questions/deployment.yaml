@@ -409,6 +409,82 @@ groups:
         renders: >
           derived by the resource sets: storage-account.access_tier (Hot / Cool / Cold)
 
+      - id: backup_isolation
+        ask: Must a copy of the data survive if someone destroys it on purpose or with administrator rights - ransomware, a compromised account, a deleted storage account?
+        type: enum
+        values: [operational, isolated, immutable]
+        default: operational
+        audience: customer
+        plain:
+          en: "Against deliberate destruction the data is {value}."
+          de: "Gegen absichtliche Zerstörung sind die Daten {value}."
+        plain_values:
+          operational: { en: "protected only inside the system itself - whoever can delete the system can delete the copies", de: "nur innerhalb des Systems selbst geschützt; wer das System löschen kann, kann auch die Kopien löschen" }
+          isolated: { en: "also kept in a separate backup store that the system's own administrators cannot delete", de: "zusätzlich in einem getrennten Backup-Speicher, den die Administratoren des Systems nicht löschen können" }
+          immutable: { en: "also kept in a separate backup store where nobody can change or delete a copy before it expires", de: "zusätzlich in einem getrennten Backup-Speicher, in dem niemand eine Kopie vor ihrem Ablauf ändern oder löschen kann" }
+        confirm_in: [production]
+        why: >
+          The question `data_loss_tolerance` does not ask. Soft delete, versioning and
+          point-in-time restore undo a mistake, but they live inside the resource they
+          protect: an administrator who deletes the account, a ransomware run with the
+          administrator's token, or a wrong `destroy` takes the copies with the data.
+          `operational` accepts that, which is right for data that is reproducible or
+          whose loss is a nuisance, and costs nothing extra. `isolated` keeps a backup in
+          a separate vault with its own permissions and soft delete - the system's
+          operators can restore from it, not empty it - and costs the vault's storage.
+          `immutable` locks each copy until its retention expires, against everyone
+          including the vault's owners; it is what a ransomware policy or an audit
+          mandate asks for, and it cannot be undone - a copy kept too long is paid for
+          until it expires. How far back the copies reach is still `data_loss_tolerance`;
+          this question decides who can destroy them.
+        renders: >
+          derived by the resource sets: the Backup vault and its policies (vaulted blob
+          backup, immutability on the vault) - a resource set this plugin does not have
+          yet, so `isolated` and `immutable` are said out loud as a missing set, never
+          improvised; cosmos-db meets `isolated` by itself (its backups live outside the
+          account) and names `immutable` as a gap
+
+      - id: data_residency
+        ask: Where may the data be stored and processed - only in the country of the chosen region, anywhere in the same economic area such as the EU, or anywhere in the world?
+        type: enum
+        values: [country, data_zone, unrestricted]
+        default: data_zone
+        audience: customer
+        plain:
+          en: "The data is stored and processed {value}."
+          de: "Die Daten werden {value} gespeichert und verarbeitet."
+        plain_values:
+          country: { en: "only in the country of the chosen region", de: "nur im Land der gewählten Region" }
+          data_zone: { en: "only inside the region's economic area, for example the EU", de: "nur innerhalb des Wirtschaftsraums der Region, zum Beispiel der EU" }
+          unrestricted: { en: "anywhere in the world", de: "irgendwo auf der Welt" }
+        confirm_in: [production]
+        why: >
+          The one question behind every decision that puts data somewhere other than
+          the chosen region, and the customer is the only one who can answer it: a
+          data-protection officer, a works council or a contract says where the data
+          may be, and the engineer cannot infer it. Three places move data out of the
+          region without anyone choosing to: a geo-redundant copy goes to Azure's
+          **paired region**, which is in the same country for most European regions
+          (Germany West Central - Germany North, Switzerland North - Switzerland West)
+          and in another country for some (Brazil South - South Central US); a
+          geo-replica or a backup kept in a second region goes wherever it is pointed;
+          and the AI models process a prompt wherever their deployment type allows,
+          **anywhere in the world by the portal's default**. `country` forbids all three
+          unless the second place is in the same country. `data_zone` is the EU (or the
+          US) as Azure defines its data zones and is the default: it is what a GDPR
+          reading needs and what the AI deployment default already honours. `unrestricted`
+          lifts the constraint and buys the largest model catalogue and quota. The
+          constraint is recorded once here; a `mandates` entry naming a residency rule
+          is the reason, this is the decision. It also constrains the `location`
+          parameter: a stage file naming a region outside the constraint is wrong, and
+          the pipeline's guard may check it.
+        renders: >
+          derived by the resource sets: foundry.deployment_sku (Standard /
+          DataZoneStandard / GlobalStandard); constrains storage-account.replication
+          (a geo tier only where the paired region satisfies it), cosmos-db.geo_replicas
+          and backup_storage_redundancy, container-registry.geo_replicas, and the
+          `location` parameter of every stage
+
   - id: modules
     title: Modules
     questions:

@@ -70,7 +70,7 @@ Verified Modules first, authored resources second.
   so "everything is tested" is a gate, not an intention.
 - **The interview is the customer's, alone.** Decided 2026-10-18: the person answering
   sits in front of the plugin without an engineer, so every question carries an
-  `audience`, the customer answers about six requirement questions in their own words,
+  `audience`, the customer answers the requirement questions in their own words,
   technical decisions are derived from those (`source: requirement`), platform facts come
   from a `platform.yaml` (`source: platform`), and an engineer question nobody can answer
   becomes an `open:` entry instead of a question. Customer mode is the default; the
@@ -91,10 +91,31 @@ Verified Modules first, authored resources second.
   deployment set; the spec records `source: requirement` + `derived_from`, and the
   default answer derives the guardrail default so an unanswered requirement changes
   nothing. Both checks verify the map covers every answer. Customer questions in a
-  run: environment, exposure, mandates, the three requirements, and log retention when
-  the deployment owns the workspace - six, the budget (the module choice, asked first, is one more). `iac-authoring` now has the two
+  run: environment, exposure, mandates, the requirements, and log retention when
+  the deployment owns the workspace (the module choice, asked first, is one more; the
+  cap of six was dropped 2026-10-24, below). `iac-authoring` now has the two
   modes: customer (default; only `customer` questions asked, the rest resolved or
   opened) and engineer.
+- **Two more requirements, and no cap on customer questions.** Owner's call, 2026-10-24,
+  after an interview that did not put `data_loss_tolerance` to them: a defaulted
+  requirement was being dropped as the batch grew past the "about six" rule. The rule is
+  gone from `SKILL.md`, `question-set-format.md` and `ROADMAP.md` - the customer answers
+  multiple choice, a guess recorded as their decision is the expensive thing - and the
+  `requirements` group is asked in full on every run, defaults included. Added:
+  `backup_isolation` (operational / isolated / immutable: who can destroy the copies, as
+  distinct from how far back they reach) and `data_residency` (country / data_zone /
+  unrestricted; default `data_zone`, confirmed in production). `data_residency` now
+  derives `foundry.deployment_sku` (was a default forced by a free-text mandate) and
+  constrains, in `forced_when` prose, storage `replication` (GZRS → ZRS where the paired
+  region is in another country), Cosmos `geo_replicas` and `backup_storage_redundancy`,
+  ACR `geo_replicas`. `backup_isolation` derives nothing yet: `isolated` and `immutable`
+  need a Backup vault resource set this plugin does not have, so they are said out loud as
+  a missing set; Cosmos meets `isolated` by itself and names `immutable` as a gap. The
+  five example specs carry both answers (`default`; chatbot's residency `stated` from its
+  EU mandate) and their decision documents are re-exported. Not done: the Backup vault
+  set (`recovery/backup-vault`, vaulted blob backup, immutability), a resource lock
+  decision, a pipeline guard that checks a stage's `location` against the residency, and
+  an eval case that asserts both questions are put to the customer.
 - **The decision document is rendered, not written.** B5, 2026-10-18. Every question
   carries `plain` (`en` and `de`, `{value}` where the value goes) and, where a raw value
   means nothing to a customer, `plain_values`; `export_decisions.py` turns a spec into
@@ -200,8 +221,8 @@ Verified Modules first, authored resources second.
   or GitLab accepting their file (no lint available offline), and GitHub with Bicep has a
   fixture and `actionlint` but no rendered example. `spec.md` documents the keys; the
   diagram does not draw the pipeline, by the owner's call (not needed). Not yet done: no
-  eval case for the delivery questions, and `deploy_mechanism` is a customer question on top
-  of an interview already over its six-question budget.
+  eval case for the delivery questions, and `deploy_mechanism` is a customer question that
+  the repository usually answers (a candidate for `engineer`).
 - **`security` landed 2026-10-23** (`key-vault` 23 questions, `user-assigned-identity` 5; both checks green):
   taken from the adessoGPT architecture diagram (`adessoGPT-architektur.drawio.png`), a
   complex case that needs ~10 more resource sets. Owner's call: all Azure resources, family
@@ -379,6 +400,9 @@ Verified Modules first, authored resources second.
 
 ## Next
 
+Build the `recovery/backup-vault` set so `backup_isolation: isolated | immutable` renders
+instead of being named as missing, and add an eval case that asserts the whole
+`requirements` group reaches the customer (the gap that surfaced on 2026-10-24).
 Add the two missing rules to `agents.md` (a severity *not checkable*, one cause per finding). Widen the plugin-vs-plain measurement (3 runs per arm, cases on the small decisions, ~$15-25)
 before trusting the pilot. Re-run the eval suite (full, ~$5) against the two rules written after the baseline and
 accept the run if `vague-public-dev` rises without the other two dropping. Then

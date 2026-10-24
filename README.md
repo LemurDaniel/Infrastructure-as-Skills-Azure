@@ -227,7 +227,7 @@ Nothing has been applied.
       (`run_arm_tests.py` against the compiled ARM) alike
 - [x] `check_question_set.py` — every question set parsed and checked against the format:
       enum defaults, reference targets, resolution fields, `audience`
-- [x] The customer interview: every question names its audience, the customer answers six
+- [x] The customer interview: every question names its audience, the customer answers the
       requirement questions in their words, the technical decisions are derived from them,
       platform facts come from `platform.yaml`, and the spec renders as a decision document
       (`export_decisions.py`) in the customer's language

@@ -144,6 +144,9 @@ Beschreib kurz, was ihr braucht. Hilfreich ist alles davon, nichts davon ist Pfl
   - Wer arbeitet damit, und von wo (nur Mitarbeiter im Firmennetz, Partner, das Internet)?
   - Wie schlimm wäre es, wenn es einen Tag nicht erreichbar ist?
   - Wie weit zurück müsst ihr kommen, wenn jemand versehentlich etwas löscht?
+  - Muss eine Kopie überleben, wenn jemand die Daten absichtlich zerstört (Ransomware,
+    ein gekapertes Admin-Konto)?
+  - Wo dürfen die Daten liegen und verarbeitet werden: nur im Land, nur in der EU, egal?
   - Gibt es Vorgaben, die ihr nachweisen müsst (BSI C5, ISO 27001, DSGVO, interne Richtlinien)?
 ```
 
@@ -301,9 +304,14 @@ is designing and has no deployment target yet. Whether the resource group exists
 created is not asked either; the boundary is that it exists.
 
 **In customer mode there is one batch**: the surviving `customer` questions — the
-environment, who reaches it and from where, the mandates, and the three requirements
-(outage impact, data-loss tolerance, access pattern), fewer when the description settled
-some. Nothing else is asked. An `engineer` question takes its default; a `platform`
+environment, who reaches it and from where, the mandates, and the `requirements` group
+(outage impact, data-loss tolerance, access pattern, backup isolation, data residency),
+fewer only where the description stated an answer. **The `requirements` group is asked in
+full, every run**: a requirement that has a default is still asked, because the default
+is the guardrail's guess and the customer is the only one who knows - skipping one because
+the batch looks long is the failure this group exists to prevent. There is no cap on the
+number of customer questions: the customer answers multiple choice, and a tenth option
+row costs them less than a decision nobody asked them about. Nothing else is asked. An `engineer` question takes its default; a `platform`
 question takes the profile's value or its default; a `required` question of either
 audience that nothing answers becomes an `open:` entry with its owner named, and Phase 4
 says so. Put the batch in the customer's words — the `ask` texts of the `requirements`
@@ -333,8 +341,9 @@ A serial interrogation ("and now, the TLS version?") is the one failure mode tha
 people abandon a tool like this, and it is entirely avoidable: the question set is known up
 front, so there is no reason to discover questions one at a time.
 
-If more than about six questions survive, you are asking things that should have defaults.
-Say so and propose the defaults instead.
+If an `engineer` question survives into a customer-mode batch, something is wrong: it is
+asking a thing that should have a default or a platform value. Say so and propose the
+default instead of asking it.
 
 **Never offer an invented value as an option.** Grouped options work for an `enum`, where
 the values come from the question set. They are wrong for a `ref`, an address range, a
