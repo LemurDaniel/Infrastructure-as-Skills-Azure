@@ -468,7 +468,7 @@ otherwise the line is simply absent.
 **Customer-facing text in the spec is written in the customer's language** - the one
 exception to the English spec: `wiring.access[].label`, `wiring.purposes` and the
 `owner` of every `open:` entry are printed verbatim into the picture, the `question` into
-the decision document (the picture lists open entries by key and owner and points at the
+the decision document (the picture counts the open entries by owner and points at the
 document), so an English label there is a `spec` finding of the review
 (found 2026-10-24: a German customer, five English labels and three English open items in
 their picture). Keys, values, `why`, `reason` stay English.

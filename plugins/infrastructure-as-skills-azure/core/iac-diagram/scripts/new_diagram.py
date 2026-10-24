@@ -75,7 +75,7 @@ LABELS = {
         'internet': 'Internet', 'users': 'Users', 'noPublic': 'no public access', 'existing': 'existing - not created',
         'decisions': 'Decisions', 'open': 'Open', 'assumed': 'Assumed', 'exposure': 'Exposure',
         'network': 'Network', 'mandates': 'Mandates', 'dns': 'Private DNS', 'diag': 'Diagnostics',
-        'forces': 'forces', 'forcedHead': 'Forced by a decision', 'peSubnet': 'private endpoints', 'owner': 'owner', 'noSet': 'no question set',
+        'peSubnet': 'private endpoints', 'owner': 'owner', 'noSet': 'no question set',
         'arch': 'Architecture', 'ext': 'Internet and external services', 'monitoring': 'Monitoring',
         'diagNote': 'Diagnostic settings of all resources', 'nameRes': 'Name resolution',
         'peBundle': 'Private Endpoints', 'paas': 'Azure PaaS', 'paasPrivate': 'public access disabled', 'support': 'Identities and network baseline',
@@ -88,14 +88,14 @@ LABELS = {
         'subPublic': 'The system is reachable from the internet by design.',
         'subPrivateExc': 'Access runs over private endpoints; reachable from the internet: {names}.',
         'noPublicExc': 'no public access, except: {names}',
-        'telemetry': 'telemetry', 'openRef': 'the questions are in infra-decisions.md',
+        'telemetry': 'telemetry', 'openRef': 'details in infra-decisions.md', 'noOwner': 'no owner yet',
         'keyless': ' Access to the resources is by identity, no keys.',
     },
     'de': {
         'internet': 'Internet', 'users': 'Benutzer', 'noPublic': 'kein öffentlicher Zugriff', 'existing': 'vorhanden - wird nicht erstellt',
         'decisions': 'Entscheidungen', 'open': 'Offen', 'assumed': 'Angenommen', 'exposure': 'Erreichbarkeit',
         'network': 'Netzwerk', 'mandates': 'Vorgaben', 'dns': 'Private DNS', 'diag': 'Diagnose',
-        'forces': 'erzwingt', 'forcedHead': 'Durch Entscheidungen erzwungen', 'peSubnet': 'Private Endpoints', 'owner': 'zuständig', 'noSet': 'ohne Fragenset',
+        'peSubnet': 'Private Endpoints', 'owner': 'zuständig', 'noSet': 'ohne Fragenset',
         'arch': 'Architektur', 'ext': 'Internet und externe Dienste', 'monitoring': 'Monitoring',
         'diagNote': 'Diagnose-Einstellungen aller Ressourcen', 'nameRes': 'Namensauflösung',
         'peBundle': 'Private Endpoints', 'paas': 'Azure PaaS', 'paasPrivate': 'öffentlicher Zugriff deaktiviert', 'support': 'Identitäten und Netzwerkgrundlage',
@@ -108,7 +108,7 @@ LABELS = {
         'subPublic': 'Das System ist absichtlich aus dem Internet erreichbar.',
         'subPrivateExc': 'Zugriffe laufen über Private Endpoints; aus dem Internet erreichbar: {names}.',
         'noPublicExc': 'kein öffentlicher Zugriff, außer: {names}',
-        'telemetry': 'Telemetrie', 'openRef': 'die Fragen stehen in infra-decisions.md',
+        'telemetry': 'Telemetrie', 'openRef': 'Details in infra-decisions.md', 'noOwner': 'noch ohne Zuständigen',
         'keyless': ' Zugriffe auf die Ressourcen laufen über Identitäten, ohne Schlüssel.',
     },
 }
@@ -1127,61 +1127,22 @@ def main():
         lines.append(f"{T['diag']}: {esc(diag_target)}" + (f" ({esc(diag_ref['rg'])})" if diag_ref['rg'] else ''))
     if vnet_existing and vnet_ref['rg']:
         lines.append(f"VNet: {esc(vnet_ref['name'])} ({esc(vnet_ref['rg'])})")
-    if isinstance(dep, dict):
-        for k in dep:
-            for entry in [e for e in as_list(get_at(dep, [k, 'forces'])) if e]:
-                if isinstance(entry, dict):
-                    txt = ', '.join(f"{ek} = {ev}" for ek, ev in entry.items())
-                else:
-                    txt = s(entry)
-                lines.append(f"<font color='#8A6100'>{esc(k)}: {esc(get_decision(dep, [k]))} → {T['forces']} {esc(txt)}</font>")
-    # Every forced decision, grouped by what forced it: the same attribute with the same value on
-    # several resources is one entry with a count.
-    chains = {}
-
-    def walk_forced(node, path):
-        if isinstance(node, dict):
-            if s(node.get('source')) == 'forced' and node.get('forced_by'):
-                chains.setdefault(s(node['forced_by']), []).append((path, node))
-                return
-            for ck, cv in node.items():
-                walk_forced(cv, f"{path}.{ck}" if path else str(ck))
-
-    walk_forced(dep, 'deployment')
-    walk_forced(resources, 'resources')
-    if chains:
+    # Nothing that is prose. The forced chains, the questions and their reasons are in the
+    # decision document beside the spec; the picture counts what stays open and who owns it, and
+    # the affected resources are drawn red (owner's call, 2026-10-24: a drawing is not where
+    # prose is read).
+    if open_items or assumed:
         lines.append('')
-        lines.append(f"<b>{esc(T['forcedHead'])}</b>")
-    for by, items in chains.items():
-        grouped = {}
-        for path, node in items:
-            attr = path.split('.')[-1]
-            val = get_value(node)
-            shown = s(val) if not isinstance(val, (dict, list)) else f"({len(val)})"
-            if len(shown) > 40:   # a value that is prose (a purpose, a reason) is in the decision document
-                shown = shown[:38].rstrip() + '…'
-            grouped.setdefault((attr, shown), []).append(path)
-        parts = []
-        for (attr, shown), paths in grouped.items():
-            where = f" ×{len(paths)}" if len(paths) > 1 else (f" ({paths[0].split('.')[1]})" if paths[0].startswith('resources.') else '')
-            parts.append(f"{attr} = {shown}{where}")
-        src = by.replace('deployment.', '').replace('resources.', '')
-        lines.append(f"<font color='#8A6100'>{esc(src)} → {T['forces']} {esc('; '.join(parts))}</font>")
-    if open_items:
-        # By key and owner only: the question is prose, and the picture is not where prose is read.
-        # The decision document beside the spec carries every question in full.
-        lines.append('')
-        lines.append(f"<b><font color='#D13438'>{T['open']}</font></b> <i>({esc(T['openRef'])})</i>")
-        for o in open_items:
-            o = o if isinstance(o, dict) else {}
-            owner = f" <i>({T['owner']}: {esc(o['owner'])})</i>" if o.get('owner') else ''
-            key = o.get('key') if o.get('key') is not None else o.get('question')
-            lines.append(f"<font color='#D13438'>• {esc(key)}</font>{owner}")
-    if assumed:
-        lines.append('')
-        lines.append(f"<b><font color='#D13438'>{T['assumed']}</font></b>")
-        for a in assumed:
-            lines.append(f"<font color='#D13438'>• {esc(a)}</font>")
+        if open_items:
+            owners = {}
+            for o in open_items:
+                who = s(o.get('owner')) if isinstance(o, dict) and o.get('owner') else T['noOwner']
+                owners[who] = owners.get(who, 0) + 1
+            by_owner = ', '.join(f"{esc(w)} ×{n}" if n > 1 else esc(w) for w, n in owners.items())
+            lines.append(f"<font color='#D13438'><b>{T['open']}: {len(open_items)}</b> &#183; {by_owner}</font>")
+        if assumed:
+            lines.append(f"<font color='#D13438'><b>{T['assumed']}: {len(assumed)}</b></font>")
+        lines.append(f"<i>{esc(T['openRef'])}</i>")
     PANEL_STYLE = 'rounded=1;arcSize=3;whiteSpace=wrap;html=1;align=left;verticalAlign=top;spacing=12;fillColor=#F3F2F1;strokeColor=#C8C6C4;'
 
     def wrapped(text_lines, width):

@@ -177,9 +177,9 @@ the detail; this list says what was decided and why, so a session does not reope
 - **Diagram side layout** (2026-10-24, from the first install test's render, two thirds of it
   empty): the services stand in two columns with a channel for the PaaS-to-PaaS lines, the
   support zone sits under the network at its width, and a decisions panel taller than the
-  group goes under the picture in two or three balanced columns. The panel lists open
-  entries by key and owner only and points at `infra-decisions.md` for the questions
-  (owner's call, 2026-10-24: the picture is not where prose is read). `private_with_exceptions`
+  group goes under the picture in two or three balanced columns. The panel carries no
+  prose: it counts open and assumed entries by owner and points at `infra-decisions.md`,
+  which has the forced chains and the questions (owner's call, 2026-10-24). `private_with_exceptions`
   names its exceptions in the subtitle and the footer like `private` does; before, the
   footer claimed "no public access" over a public Container App.
 - `docs/process.drawio.png` and `docs/process-agents.drawio.png` show the flow of

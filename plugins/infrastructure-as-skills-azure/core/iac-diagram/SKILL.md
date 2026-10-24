@@ -149,7 +149,7 @@ lines are access, not plumbing.
 | Diagnostics | **Not** a line per resource: a *Monitoring* zone with the workspace and the note *Diagnostic settings of all resources* |
 | Private DNS zones | One bundled icon in a *Name resolution* zone (`8× privatelink.*`) |
 | Referenced things (`network_ownership: reference`, a central workspace, platform DNS) | Grey and dashed, outside the resource group, labelled as existing and not created |
-| `open:` entries, `assumed` values | The affected resource in red, and listed in the panel by key and owner; the question itself is in `infra-decisions.md`, which the panel points at |
+| `open:` entries, `assumed` values | The affected resource in red; the panel counts them by owner and points at `infra-decisions.md`, which carries every question |
 
 **Layout and how the lines run.** With four or more PaaS services the picture is a **hub**, as in
 a hand-drawn architecture: the compute subnets on the left, the endpoint subnet as a tall column
@@ -176,12 +176,11 @@ account) is not routed, so say it in `wiring.purposes` instead.
 A legend at the bottom lists only what the picture uses.
 
 Plus a **decisions panel**, right of the group or, when it is taller than the group, under the
-picture in columns: exposure, network, mandates, DNS and diagnostics
-ownership, every forced chain (`key_protection: hsm → forces key-vault.sku = premium`), and
-the open items by key, with who has to answer them. The question text stays in
-`infra-decisions.md` (owner's call, 2026-10-24: the picture is not where prose is read), and a
-forced value that is prose is cut at forty characters. A forced cost is the decision a customer
-most needs to see and the one an icon cannot show.
+picture in columns: exposure, network, mandates, DNS and diagnostics ownership, and the count
+of open and assumed entries by owner, pointing at `infra-decisions.md`. Nothing in it is prose:
+the forced chains (`key_protection: hsm → forces key-vault.sku = premium`), the questions and
+the reasons are in the decision document, which the customer reads beside the picture (owner's
+call, 2026-10-24: a drawing is not where prose is read).
 
 What it leaves out: SKUs nobody asked about, TLS floors, soft-delete days, every `default`
 from the guardrail baseline. They are in the spec and in the Phase 4 report; on the
