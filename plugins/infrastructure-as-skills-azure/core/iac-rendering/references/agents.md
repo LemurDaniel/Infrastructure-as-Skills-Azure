@@ -69,6 +69,18 @@ When an arm stops without green, hand over its open findings as they are. A mess
 returns unchanged after a fix means the cause is in the spec or the question set, not in the
 code; say so.
 
+**A later pass re-runs only what the change can reach.** The test agent is told which files
+the fix touched and runs the checks that cover them, not the whole suite again: in Terraform
+`terraform test -filter=tests/<file>.tftest.hcl` (repeatable), with the test file that
+belongs to the changed resource plus the wiring and naming tests, which read across
+resources. A change to a shared file (`providers.tf`, `variables.tf`, `locals.tf`, `data.tf`,
+`naming.tf`, a stage file) can reach every test and gets the full run. The cheap checks
+(`fmt`, `validate`, `check_render_coverage.py`, `check_pipeline.py`) run every time. **One full
+run closes the arm**, once its filtered passes are green: a fix can break a neighbour that its
+own test never touches, and a hand-over that was only ever tested in slices has not been
+tested. A test that never ran, because an earlier block failed and skipped it, is not covered
+by a filtered pass of another file.
+
 **Never weaken a test to turn the arm green.** No removed `# decision:` assert, no
 `# not-testable:` added to silence a failing check, no loosened expectation. A test that is
 wrong is a finding of its own, reported with the reason.
@@ -88,7 +100,8 @@ Each agent starts without this conversation. Its prompt carries:
    next agent depends on (code agent), the findings list (test and review agent).
 
 Run the agents in the background and carry on with the other arm; the main agent never
-repeats an agent's work while it runs.
+repeats an agent's work while it runs. The brief of a later pass names the files the fix
+changed, so the test agent can filter.
 
 ## The hand-over
 
