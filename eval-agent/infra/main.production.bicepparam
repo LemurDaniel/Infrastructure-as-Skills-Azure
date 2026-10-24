@@ -14,11 +14,11 @@
 using './main.bicep'
 
 // ---- context (parameterized) ----
-param location = 'OPEN-location'
-param workload = 'OPEN-workload'
+param location = 'germanywestcentral'
+param workload = 'evalagent'
 param environment = 'production'
-param subscriptionId = '00000000-0000-0000-0000-000000000000'
-param resourceGroupName = 'OPEN-resource-group-name'
+param subscriptionId = '6ad43a20-9532-41c0-ad61-885a26bef90f'
+param resourceGroupName = 'rg-evalagent-prod-001'
 
 // ---- per-stage decisions (known) ----
 // deployment.address_space / resources.virtual-network.addressing.address_space
@@ -42,11 +42,11 @@ param vaultRoleAssignments = []
 
 // ---- open points (placeholders) ----
 // Name and tag of the image, without the registry; not latest.
-param containerImage = 'OPEN-container-image'
+param containerImage = 'eval-agent:0.0.1'
 // Models of the Foundry account, e.g. { name: 'chat', model: { format: 'OpenAI', name: '<model>', version: '<version>' } }.
 // Empty until the workload owner names them; no deployment is created from an empty list.
 param modelDeployments = []
-param pluginSource = 'OPEN-plugin-source'
+param pluginSource = 'https://github.com/LemurDaniel/Infrastructure-as-Skills-Azure'
 // Client id of the existing Entra app registration and the tenant id (all-zero GUID until known).
-param entraClientId = '00000000-0000-0000-0000-000000000000'
-param entraTenantId = '00000000-0000-0000-0000-000000000000'
+param entraClientId = '2a1028db-7ae1-4eff-b842-3d639a9afcf1'
+param entraTenantId = 'a910deee-8c06-4a0a-a458-8b347c88c614'
