@@ -93,7 +93,7 @@ reports as "not checkable" instead of passing them.
     `grep -Eq '00000000-0000-0000-0000-000000000000|OPEN-'`. A resolved stage whose file
     still holds a marker fails it too, which is the point - and the grep reads comments as
     well, so a resolved stage's file must not spell either marker out, not even to explain
-    the convention (the example's staging file once did, and would have refused itself).
+    the convention (a staging file once did, and would have refused itself).
 
 ## What the render hands over besides the files
 

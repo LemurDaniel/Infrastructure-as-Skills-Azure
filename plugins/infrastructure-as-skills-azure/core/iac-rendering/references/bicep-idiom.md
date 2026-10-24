@@ -339,7 +339,7 @@ still names the literal. The tests read that JSON: `tests/<name>.armtest.yaml`, 
 `resources.<symbolicName>` needs the template compiled with symbolic names
 (languageVersion 2.0): a `bicepconfig.json` beside the root with
 `"experimentalFeaturesEnabled": { "symbolicNameCodegen": true }` forces it — the
-`greenfield-telemetry` example carries one. An AVM module call compiles to a nested
+Bicep roots carry one. An AVM module call compiles to a nested
 deployment whose `properties.parameters.<param>.value` is the decision, which is why most
 paths look alike; a loop (`for`) compiles to a `copy` whose `input` is one expression, so
 the decisions inside it are matched, not equalled.

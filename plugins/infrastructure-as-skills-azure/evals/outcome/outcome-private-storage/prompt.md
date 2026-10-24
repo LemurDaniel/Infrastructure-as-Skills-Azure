@@ -1,5 +1,5 @@
 ---
-description: Outcome pilot - same request as private-storage-on-platform, but graded on the Terraform a user receives, not on the spec. Run with and without the plugin to measure what the skills add.
+description: Outcome pilot - same request as the spec case private-storage-on-platform, but graded on the Terraform a user receives, not on the spec. Run with and without the plugin to measure what the skills add.
 expected_outcome: Terraform under infra/ (any layout) with one private storage account, referenced network and workspace, no invented values.
 tags: [terraform, production, private, reference, outcome, ablation]
 plugins: ["../../.."]

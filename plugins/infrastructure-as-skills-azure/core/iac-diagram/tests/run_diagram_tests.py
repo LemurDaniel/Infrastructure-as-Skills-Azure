@@ -181,32 +181,6 @@ def case_public_webshop(cells):
     return bad
 
 
-def case_example_platform(cells):
-    bad = []
-    for need in ('pe-bundle', 'snet-pe', 'z-paas', 'z-monitoring'):
-        if need not in cells:
-            bad.append(f"missing {need}")
-    if 'dashed=1' not in cells.get('vnet', {}).get('style', ''):
-        bad.append('the referenced network is not dashed')
-    if edges(cells):
-        bad.append('the spec names no caller, so no line should be drawn')
-    return bad
-
-
-def case_example_greenfield(cells):
-    bad = []
-    if cells.get('z-dnszones', {}).get('parent') != 'rg':
-        bad.append('DNS zones the deployment owns belong inside the resource group')
-    if cells.get('snet-pe', {}).get('value', '').count('snet-') != 1 or 'snet-privateendpoints' in cells.get('snet-pe', {}).get('value', ''):
-        bad.append('the endpoint subnet is not named from the spec')
-    stray = [k for k in vertices(cells) if k.startswith('snet-') and k not in ('snet-pe', 'snet-0', 'snet-c0')]
-    if len(vertices({k: cells[k] for k in cells if k.startswith('snet-')})) != 2:
-        bad.append(f"expected the endpoint subnet and one more, found {sorted(k for k in cells if k.startswith('snet-'))}")
-    if "{'" in ''.join(v['value'] for v in cells.values()):
-        bad.append('a per-stage map leaked into a label')
-    return bad
-
-
 def case_example_chatbot(cells):
     """Twenty resources, two of them twice: instance keys, a zone for what is not called, and
     lines told apart - one colour per caller, one row of services, no line through an icon."""
@@ -310,8 +284,6 @@ CASES = [
     ('ten-resources', os.path.join(FIXTURES, 'ten-resources.yaml'), 'en', case_ten_resources),
     ('ten-resources-de', os.path.join(FIXTURES, 'ten-resources.yaml'), 'de', case_ten_resources_de),
     ('public-webshop', os.path.join(FIXTURES, 'public-webshop.yaml'), 'en', case_public_webshop),
-    ('example-private-storage-on-platform', os.path.join(EXAMPLES, 'private-storage-on-platform', 'infra-spec.yaml'), 'en', case_example_platform),
-    ('example-greenfield-telemetry', os.path.join(EXAMPLES, 'greenfield-telemetry', 'infra-spec.yaml'), 'en', case_example_greenfield),
     ('example-chatbot', os.path.join(EXAMPLES, 'chatbot', 'infra-spec.yaml'), 'en', case_example_chatbot),
     ('example-chatbot-rag', os.path.join(EXAMPLES, 'chatbot-rag', 'infra-spec.yaml'), 'de', case_example_chatbot_rag),
 ]
