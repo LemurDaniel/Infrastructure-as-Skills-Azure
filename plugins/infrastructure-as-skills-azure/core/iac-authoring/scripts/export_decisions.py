@@ -43,6 +43,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 PLUGIN = os.path.abspath(os.path.join(HERE, '..', '..', '..'))
 DEPLOYMENT_SET = os.path.join(HERE, '..', 'questions', 'deployment.yaml')
 RESOURCES = os.path.join(PLUGIN, 'resources')
+RG_ROLES_FILE = os.path.join(HERE, '..', '..', 'iac-rendering', 'references', 'resource-group-roles.yaml')
 
 LABELS = {
     'en': {
@@ -56,6 +57,13 @@ LABELS = {
         'answers': 'What follows from your answers',
         'answered': 'your answer', 'stated': 'from your description', 'assumed_default': 'not said, so the usual answer applies',
         'carried': 'as decided earlier',
+        'groups': 'Resource groups',
+        'groups_intro': 'A resource group is the unit that is deleted, permitted and costed as a whole. Each group is either created with the system or already exists and is only used.',
+        'g_group': 'Group', 'g_state': 'State', 'g_name': 'Name', 'g_contains': 'Contains',
+        'g_created': 'created with the system', 'g_existing': 'exists, only used',
+        'g_named': 'named by the naming convention',
+        'g_roles': {'main': 'main', 'network': 'network', 'data': 'data', 'application': 'application',
+                    'observability': 'monitoring', 'security': 'security'},
         'derived': 'therefore', 'rules': 'Set by the rules',
         'rules_intro': 'Nothing here was asked; each follows a rule or one of the answers above. Say so if one is wrong.',
         'whole_system': 'For the whole system', 'because': 'because',
@@ -81,6 +89,13 @@ LABELS = {
         'answers': 'Was aus euren Antworten folgt',
         'answered': 'eure Antwort', 'stated': 'aus eurer Beschreibung', 'assumed_default': 'nicht gesagt, daher gilt die übliche Antwort',
         'carried': 'wie früher entschieden',
+        'groups': 'Ressourcengruppen',
+        'groups_intro': 'Eine Ressourcengruppe wird als Ganzes gelöscht, berechtigt und abgerechnet. Jede Gruppe wird entweder mit dem System angelegt oder existiert bereits und wird nur verwendet.',
+        'g_group': 'Gruppe', 'g_state': 'Zustand', 'g_name': 'Name', 'g_contains': 'Enthält',
+        'g_created': 'wird mit dem System angelegt', 'g_existing': 'existiert, wird nur verwendet',
+        'g_named': 'nach der Namenskonvention benannt',
+        'g_roles': {'main': 'Haupt', 'network': 'Netzwerk', 'data': 'Daten', 'application': 'Anwendung',
+                    'observability': 'Überwachung', 'security': 'Sicherheit'},
         'derived': 'daher', 'rules': 'Nach den Vorgaben gesetzt',
         'rules_intro': 'Nichts davon wurde gefragt; jede Zeile folgt einer Regel oder einer der Antworten oben. Sagt Bescheid, wenn eine nicht passt.',
         'whole_system': 'Für das ganze System', 'because': 'weil',
@@ -269,6 +284,48 @@ def main():
         if src is not None and key in src and key in dep_q and not R.is_stage_map(src[key]):
             w(f"- {R.line(dep_q[key][1], src[key])}")   # per-stage values follow in their own section
     w('')
+
+    # --- the resource groups -----------------------------------------------------
+    def dval(qid):
+        d = dep.get(qid)
+        return d.get('value') if isinstance(d, dict) else None
+
+    split = [r for r in (dval('resource_group_split') or []) if isinstance(r, str)]
+    if split:
+        role_of_kind = {}
+        try:
+            with open(RG_ROLES_FILE, encoding='utf-8') as f:
+                for role, kinds in (yaml.safe_load(f).get('kinds') or {}).items():
+                    role_of_kind.update({k: role for k in kinds})
+        except (OSError, yaml.YAMLError, AttributeError):
+            say('[warn] no resource group roles - every resource is listed under the main group')
+        members = {r: [] for r in ['main'] + split}
+        for res, groups in resources.items():
+            placed = ((groups or {}).get('placement') or {}).get('resource_group') if isinstance(groups, dict) else None
+            role = (placed.get('value') if isinstance(placed, dict) else placed) or role_of_kind.get(res.partition('__')[0], 'main')
+            members[role if role in members else 'main'].append(titles.get(res, res))
+
+        def group_name(role, state):
+            if state != 'existing':
+                return L['g_named']
+            v = ctx.get('resource_group_name' if role == 'main' else f'resource_group_name_{role}')
+            if R.is_stage_map(v):
+                if len(v) == 1:
+                    return f"`{next(iter(v.values()))}`"
+                return '; '.join(f"{R.stage_name(st)}: `{n}`" for st, n in v.items())
+            return f"`{v}`" if v else L['nobody']
+
+        w(f"## {L['groups']}")
+        w('')
+        w(L['groups_intro'])
+        w('')
+        w(f"| {L['g_group']} | {L['g_state']} | {L['g_name']} | {L['g_contains']} |")
+        w('|---|---|---|---|')
+        for role in ['main'] + split:
+            state = dval(f'resource_group_mode_{role}') or 'existing'
+            w(f"| {L['g_roles'][role]} | {L['g_created'] if state == 'create' else L['g_existing']} | "
+              f"{group_name(role, state)} | {', '.join(sorted(members[role])) or '-'} |")
+        w('')
 
     # --- what differs between the stages ---------------------------------------
     stage_lines = []

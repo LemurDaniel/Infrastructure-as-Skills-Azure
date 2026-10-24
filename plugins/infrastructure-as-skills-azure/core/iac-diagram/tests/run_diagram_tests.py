@@ -285,12 +285,119 @@ def case_private_stages_open(cells):
     return bad
 
 
+FOLDER = 'azure2/general/Resource_Groups.svg'   # Azure's resource group icon, inline in a label
+
+
+def label_of(cells, *ids):
+    return ' '.join(cells[i]['value'] for i in ids if i in cells)
+
+
+def inside(cells, child, frame):
+    """The child's box lies within the frame's box."""
+    cx, cy, cw, ch = absolute(cells, child)
+    fx, fy, fw, fh = absolute(cells, frame)
+    return fx <= cx and cy >= fy and cx + cw <= fx + fw and cy + ch <= fy + fh
+
+
+def case_resource_groups_split(cells):
+    """With a split the services stand group by group, each group in a frame of its colour: solid
+    when the group is created, dashed when it exists. Five services in two groups (data, and main
+    - application is not split off) give the side layout. A framed resource carries no tag (the frame says it), compute in the subnets does; the
+    network is the network group's frame, the support zone has a frame per group, the monitoring
+    zone's title names its group, and the outer frame is no group's name."""
+    bad = []
+    outer = cells.get('rg', {}).get('value', '')
+    if 'Deployment' not in outer or 'rg-shop-prod-we' in outer or 'Resource groups' in outer:
+        bad.append(f"the outer frame is not the deployment's, or names a group: {outer[:80]!r}")
+    if 'rg-icon' in cells:
+        bad.append("the outer frame carries the resource group icon - the deployment would be mistaken for a group")
+    for frame, tag, dashed in (('rg-data', 'data (created)', False), ('rg-main', 'main (created)', False),
+                               ('rg-network-support', 'network (existing)', True), ('rg-main-support', 'main (created)', False)):
+        c = cells.get(frame)
+        if c is None:
+            bad.append(f"no frame {frame}")
+            continue
+        if FOLDER not in c['value'] or tag not in c['value']:
+            bad.append(f"{frame} does not say '{tag}': {c['value']!r}")
+        if ('dashed=1' in c['style']) != dashed:
+            bad.append(f"{frame} is {'dashed' if 'dashed=1' in c['style'] else 'solid'}, a group that is {tag.split('(')[1][:-1]}")
+    for res, frame in (('storage-account', 'rg-data'), ('cosmos-db', 'rg-data'), ('key-vault', 'rg-data'),   # key-vault: placement departs
+                       ('container-registry', 'rg-main'), ('search-service', 'rg-main')):   # application is not split off
+        c = cells.get(f'res-{res}')
+        if c is None:
+            bad.append(f"{res} is not drawn")
+            continue
+        if c['parent'] != frame or not inside(cells, f'res-{res}', frame):
+            bad.append(f"{res} is not inside {frame} (parent {c['parent']})")
+        if FOLDER in label_of(cells, f'res-{res}', f'res-{res}-icon'):
+            bad.append(f"{res} repeats its group as a tag inside the frame that names it")
+    for res, frame in (('network-security-group', 'rg-network-support'), ('user-assigned-identity', 'rg-main-support')):
+        if cells.get(f'res-{res}', {}).get('parent') != frame:
+            bad.append(f"{res} is not in {frame}")
+    if FOLDER not in label_of(cells, 'res-app-service', 'res-app-service-icon') or 'main (created)' not in label_of(cells, 'res-app-service', 'res-app-service-icon'):
+        bad.append("compute is not tagged 'main (created)'")
+    vnet = cells.get('vnet', {})
+    if 'network (existing)' not in vnet.get('value', '') or 'dashed=1' not in vnet.get('style', ''):
+        bad.append(f"the network is not the dashed frame of its existing group: {vnet.get('value', '')!r}")
+    if 'monitoring (created)' not in cells.get('z-monitoring', {}).get('value', ''):
+        bad.append(f"the monitoring zone's title does not name its group: {cells.get('z-monitoring', {}).get('value', '')!r}")
+    for part in ('Resource groups:', 'main (created)', 'network (existing)', 'data (created)', 'monitoring (created)'):
+        if part not in ' '.join(v['value'] for k, v in cells.items() if k.startswith('panel')):
+            bad.append(f"the decisions panel lacks '{part}'")
+    legend = cells.get('legend', {}).get('value', '')
+    if 'Resource groups' not in legend or 'data (created)' not in legend:
+        bad.append('the legend does not list the groups')
+    if FOLDER in label_of(cells, 'pe-bundle'):
+        bad.append('the private endpoints carry a group - they live with the resource they serve')
+    return bad
+
+
+def case_resource_groups_small(cells):
+    """The compact layout: three services in three groups stand side by side in one row, each in
+    its frame, and every service sits inside its own."""
+    bad = []
+    want = {'rg-main': 'key-vault', 'rg-data': 'storage-account', 'rg-application': 'container-registry'}
+    ys = set()
+    for frame, res in want.items():
+        c = cells.get(frame)
+        if c is None:
+            bad.append(f"no frame {frame}")
+            continue
+        if not inside(cells, f'res-{res}', frame) or cells[f'res-{res}']['parent'] != frame:
+            bad.append(f"{res} is not inside {frame}")
+        ys.add(round(absolute(cells, frame)[1]))
+    if len(ys) > 1:
+        bad.append(f"the frames do not stand in one row: tops {sorted(ys)}")
+    xs = sorted((absolute(cells, f)[0], absolute(cells, f)[0] + absolute(cells, f)[2]) for f in want if f in cells)
+    for (x1, e1), (x2, e2) in zip(xs, xs[1:]):
+        if x2 < e1:
+            bad.append('two frames overlap')
+    if 'dashed=1' not in cells.get('rg-data', {}).get('style', ''):
+        bad.append("rg-data (existing) is not dashed")
+    return bad
+
+
+def case_no_split_no_group_tags(cells):
+    """One group, no split: nothing is tagged and the frame keeps the group's own name."""
+    bad = [f"{k}: carries a group tag without a split" for k, v in cells.items() if FOLDER in v['value']]
+    if 'rg-icon' not in cells:
+        bad.append('the single resource group lost its icon')
+    if 'rg-shop-prod-we' not in cells.get('rg', {}).get('value', ''):
+        bad.append('the frame lost the resource group name')
+    if 'Resource groups' in ' '.join(v['value'] for v in cells.values()):
+        bad.append('a panel line about resource groups is drawn without a split')
+    return bad
+
+
 CASES = [
     ('ten-resources', os.path.join(FIXTURES, 'ten-resources.yaml'), 'en', case_ten_resources),
     ('ten-resources-de', os.path.join(FIXTURES, 'ten-resources.yaml'), 'de', case_ten_resources_de),
     ('public-webshop', os.path.join(FIXTURES, 'public-webshop.yaml'), 'en', case_public_webshop),
     ('corp-spoke-roles', os.path.join(FIXTURES, 'corp-spoke-roles.yaml'), 'en', case_corp_spoke_roles),
     ('private-stages-open', os.path.join(FIXTURES, 'private-stages-open.yaml'), 'de', case_private_stages_open),
+    ('resource-groups-split', os.path.join(FIXTURES, 'resource-groups-split.yaml'), 'en', case_resource_groups_split),
+    ('resource-groups-small', os.path.join(FIXTURES, 'resource-groups-small.yaml'), 'de', case_resource_groups_small),
+    ('no-split-no-group-tags', os.path.join(FIXTURES, 'public-webshop.yaml'), 'en', case_no_split_no_group_tags),
 ]
 
 

@@ -1,0 +1,85 @@
+schema_version: 1
+
+# A private deployment whose resource groups are split: network (existing, handed out by the
+# platform), data and observability (created), compute and the rest in the main group (created).
+# The key vault departs from its role and sits with the data. Five services in two groups, so the
+# services stand in the side layout, a frame per group; the support zone has two groups as well.
+spec:
+  id: shop-groups
+  target: terraform
+  at: 2026-10-25T12:00:00Z
+
+context:
+  language: en
+  environments: [production]
+  location: westeurope
+  workload: shop
+  subscription_id:
+    production: 11111111-2222-3333-4444-555555555555
+  resource_group_name:
+    production: rg-shop-prod-we
+  resource_group_name_network:
+    production: rg-spoke-shop-prod-we
+
+deployment:
+  landing_zone: { value: standalone, source: stated }
+  network_exposure: { value: private, source: stated }
+  network_ownership: { value: create, source: stated }
+  address_space: { value: 10.30.0.0/16, source: asked }
+  observability_ownership: { value: create, source: default }
+  private_dns_ownership: { value: deployment, source: default }
+  local_auth: { value: disabled, source: default }
+  resource_group_split: { value: [network, data, observability], source: stated }
+  resource_group_mode_main: { value: create, source: stated }
+  resource_group_mode_network: { value: existing, source: stated }
+  resource_group_mode_data: { value: create, source: stated }
+  resource_group_mode_observability: { value: create, source: asked }
+  resource_group_lock: { value: production, source: default }
+
+wiring:
+  access:
+    value:
+      - { from: users, to: app-service, label: HTTPS 443 }
+      - { from: app-service, to: storage-account }
+      - { from: app-service, to: key-vault }
+      - { from: app-service, to: cosmos-db }
+      - { from: app-service, to: container-registry }
+      - { from: app-service, to: search-service }
+    source: stated
+  purposes:
+    value: { app-service: Shop frontend, storage-account: Product images, key-vault: Secrets, cosmos-db: Orders, container-registry: Images, search-service: Product search }
+    source: stated
+
+resources:
+  virtual-network:
+    addressing:
+      address_space: { value: 10.30.0.0/16, source: forced, forced_by: deployment.address_space }
+  app-service:
+    networking:
+      public_network_access: { value: disabled, source: deployment }
+  storage-account:
+    networking:
+      public_network_access: { value: disabled, source: deployment }
+  key-vault:
+    placement:
+      resource_group: { value: data, source: overridden, reason: the vault is kept with the data it protects }
+    networking:
+      public_network_access: { value: disabled, source: deployment }
+  log-analytics-workspace:
+    cost:
+      retention_days: { value: 30, source: default }
+  cosmos-db:
+    networking:
+      public_network_access: { value: disabled, source: deployment }
+  container-registry:
+    networking:
+      public_network_access: { value: disabled, source: deployment }
+  search-service:
+    networking:
+      public_network_access: { value: disabled, source: deployment }
+  network-security-group:
+    networking:
+      subnet: { value: snet-app, source: default }
+  user-assigned-identity:
+    identity:
+      purpose: { value: the app's identity, source: default }

@@ -96,6 +96,9 @@ LABELS = {
         'noPublicExc': 'no public access, except: {names}',
         'telemetry': 'telemetry', 'openRef': 'details in infra-decisions.md', 'noOwner': 'no owner yet',
         'rg': 'resource group', 'publicMark': 'reachable from the internet',
+        'rgs': 'Resource groups', 'rgNew': 'created', 'rgOld': 'existing', 'scope': 'Deployment',
+        'rgRole_main': 'main', 'rgRole_network': 'network', 'rgRole_data': 'data', 'rgRole_application': 'application',
+        'rgRole_observability': 'monitoring', 'rgRole_security': 'security',
         'keyless': ' Access to the resources is by identity, no keys.',
     },
     'de': {
@@ -117,6 +120,9 @@ LABELS = {
         'noPublicExc': 'kein öffentlicher Zugriff, außer: {names}',
         'telemetry': 'Telemetrie', 'openRef': 'Details in infra-decisions.md', 'noOwner': 'noch ohne Zuständigen',
         'rg': 'Ressourcengruppe', 'publicMark': 'aus dem Internet erreichbar',
+        'rgs': 'Ressourcengruppen', 'rgNew': 'angelegt', 'rgOld': 'vorhanden', 'scope': 'Bereitstellung',
+        'rgRole_main': 'Haupt', 'rgRole_network': 'Netzwerk', 'rgRole_data': 'Daten', 'rgRole_application': 'Anwendung',
+        'rgRole_observability': 'Überwachung', 'rgRole_security': 'Sicherheit',
         'keyless': ' Zugriffe auf die Ressourcen laufen über Identitäten, ohne Schlüssel.',
     },
 }
@@ -168,6 +174,11 @@ MONITOR_KINDS = {'log-analytics-workspace', 'application-insights'}
 # Not services that are called: identities hold roles, security groups guard subnets. They get a
 # zone of their own so that no line to a service runs through them.
 SUPPORT_KINDS = {'user-assigned-identity', 'network-security-group'}
+# The resource group role of a kind (iac-rendering/references/resource-groups.md). A role that is
+# not split off (deployment.resource_group_split) is part of `main`; a resource may depart with
+# `placement.resource_group`.
+RG_ROLES_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', 'iac-rendering', 'references', 'resource-group-roles.yaml')
+RG_ROLE = {}   # kind -> role, read from RG_ROLES_FILE in main (it needs PyYAML)
 DELEGATIONS = {'app-service': 'Microsoft.Web/serverFarms', 'function-app': 'Microsoft.Web/serverFarms',
                'container-apps-environment': 'Microsoft.App/environments', 'container-apps': 'Microsoft.App/environments'}
 
@@ -212,6 +223,30 @@ ZONES = {
     'monitoring': zone_style('#F1F8F2', '#5BA55B', '#107C10'),
     'compute': zone_style('#F3F9FD', '#0078D4', '#005A9E'),
 }
+
+
+# A resource group with resources drawn together is a frame in the colour of its role. Created
+# groups have a solid border, existing ones a dashed one - the "existing is not created" convention.
+RG_COLORS = {   # role: (fill, stroke, font)
+    'main': ('#F5F5F5', '#605E5C', '#3B3A39'),
+    'network': ('#EAF3FB', '#2B6CB0', '#1F4E86'),
+    'data': ('#FFF6E5', '#C98A1B', '#8A5A00'),
+    'application': ('#F3EDFA', '#8764B8', '#5C2D91'),
+    'observability': ('#EDF7ED', '#5BA55B', '#107C10'),
+    'security': ('#FCEBEE', '#C4506A', '#8E2B43'),
+}
+PG_TOP, PG_BOT, PG_GAP, PG_MIN_W = 30, 38, 12, 250   # a group frame: the gutter above its first row, the title band below, the gap to the next
+# Azure's own resource group icon, inline in a label: it says what Azure means by the group, a
+# generic folder does not. The path is the one ICONS['resource-group'] holds.
+RG_IMG = "<img src='img/lib/azure2/general/Resource_Groups.svg' width='20' height='20' style='vertical-align:middle;'>"   # in a frame's title
+RG_IMG_TAG = "<img src='img/lib/azure2/general/Resource_Groups.svg' width='16' height='16' style='vertical-align:middle;'>"   # in a resource's tag
+
+
+def rg_frame_style(role, existing):
+    fill, stroke, font = RG_COLORS.get(role, RG_COLORS['main'])
+    return (f"rounded=1;arcSize=3;whiteSpace=wrap;html=1;fillColor={fill};strokeColor={stroke};fontColor={font};"
+            "verticalAlign=bottom;align=left;spacingLeft=12;spacingBottom=8;fontSize=14;fontStyle=1;container=1;collapsible=0;"
+            + ("dashed=1;dashPattern=6 4;strokeWidth=1;" if existing else "strokeWidth=2;"))
 
 
 def get_at(m, keys):
@@ -347,6 +382,13 @@ def main():
         language = 'en'
     T = LABELS[language]
 
+    try:
+        with open(RG_ROLES_FILE, encoding='utf-8') as f:
+            for role, kinds in (yaml.safe_load(f).get('kinds') or {}).items():
+                RG_ROLE.update({k: role for k in kinds})
+    except (OSError, yaml.YAMLError, AttributeError) as e:
+        say(f"[warn] no resource group roles ({e}) - every resource is drawn in the main group", 'yellow')
+
     # --- Read the spec -----------------------------------------------------
     ctx = get_at(spec, ['context']) or {}
     dep = get_at(spec, ['deployment'])
@@ -364,11 +406,41 @@ def main():
     draw_vnet = has_vnet_res or net_ownership in ('create', 'reference')
     vnet_existing = (not has_vnet_res) and net_ownership == 'reference'
 
+    rg_split = [x for x in as_list(get_decision(dep, ['resource_group_split'])) if x in RG_ROLE.values()]
+    rg_modes = {'main': s(get_decision(dep, ['resource_group_mode_main'])) or 'existing'}
+    for r in rg_split:
+        rg_modes[r] = s(get_decision(dep, [f'resource_group_mode_{r}'])) or 'existing'
+
+    def rg_role(k):
+        """The role whose group holds a resource: its own `placement`, else the kind's, else main."""
+        node = resources.get(k) if isinstance(resources.get(k), dict) else {}
+        placed = s(get_decision(node, ['placement', 'resource_group']))
+        role = placed or RG_ROLE.get(base(k), 'main')
+        return role if role in rg_split else 'main'
+
+    def rg_title(role):
+        return f"{T['rgRole_' + role]} ({T['rgNew'] if rg_modes[role] == 'create' else T['rgOld']})"
+
     compute = [k for k in res_keys if base(k) in COMPUTE_KINDS]
     paas = [k for k in res_keys if base(k) not in COMPUTE_KINDS and base(k) not in MONITOR_KINDS
             and base(k) not in SUPPORT_KINDS and k != 'virtual-network']
     support = [k for k in res_keys if base(k) in SUPPORT_KINDS]
+    # With a split, the services and the support resources stand group by group, each group in a
+    # frame of its own; one group in a zone is only a tag. The order puts a group's resources together.
+    rg_order = ['main'] + rg_split
+    paas_grouped = len({rg_role(k) for k in paas}) > 1
+    support_grouped = len({rg_role(k) for k in support}) > 1
+    if paas_grouped:
+        paas = sorted(paas, key=lambda k: rg_order.index(rg_role(k)))
+    if support_grouped:
+        support = sorted(support, key=lambda k: rg_order.index(rg_role(k)))
     drawn = compute + paas + support
+
+    def groups_of(keys):
+        out = {}
+        for k in keys:
+            out.setdefault(rg_role(k), []).append(k)
+        return [(r, out[r]) for r in rg_order if r in out]
 
     def pna(k):
         # The group differs by question set (a workspace keeps it under `access`): networking first,
@@ -539,6 +611,13 @@ def main():
     # a hand-drawn architecture - short horizontal lines through a routing channel of their own,
     # one track per caller - and not a block below it that every line has to bend around.
     side = bool(draw_vnet and callers and len(paas) >= 4)
+    # Group frames need room: in the side layout they stack in the services' column, in the compact
+    # layout they stand side by side in the one row the callers' lines expect - which takes at most
+    # eight services.
+    paas_grouped = paas_grouped and (side or len(paas) <= 8)
+    # A resource inside a group frame, or in the monitoring zone whose title names the group, does not
+    # repeat it as a tag; the tag stays where nothing else says it (compute in the subnets).
+    framed = (set(paas) if paas_grouped else set()) | (set(support) if support_grouped else set())
     # PaaS -> PaaS (a search service reading a storage account): a track of its own at the right
     # of the services' column, outside every icon and label. Lines whose runs overlap in height
     # take different lanes; lines that only meet at one icon share a lane.
@@ -553,9 +632,21 @@ def main():
     # Three columns from seven services on, as long as no PaaS -> PaaS line needs the channel
     # between the first two: eight services in two columns are four rows beside a network of one.
     PAAS_COLS = 3 if len(paas) >= 7 and not pp_edges else 2
+    # A service's place in the grid: row * columns + column. With groups every group starts on a row
+    # of its own, so the index has gaps and is no longer the position in the list.
+    paas_cols_est = PAAS_COLS if side else min(max(len(paas) if len(paas) <= 5 else math.ceil(len(paas) / 2), 1), 8)
+    pidx = {}
+    if paas_grouped and side:
+        row0 = 0
+        for _, ks in groups_of(paas):
+            for i, k in enumerate(ks):
+                pidx[k] = (row0 + i // paas_cols_est) * paas_cols_est + i % paas_cols_est
+            row0 += math.ceil(len(ks) / paas_cols_est)
+    else:
+        pidx = {k: i for i, k in enumerate(paas)}
     if side:
         pp_iv = []   # per lane: occupied (top, bottom) row intervals
-        row_of = lambda k: paas.index(k) // PAAS_COLS
+        row_of = lambda k: pidx[k] // PAAS_COLS
         for a in sorted(pp_edges, key=lambda a: abs(row_of(a['from']) - row_of(a['to']))):
             lo, hi = sorted((row_of(a['from']), row_of(a['to'])))
             for ln, iv in enumerate(pp_iv):
@@ -589,6 +680,8 @@ def main():
         sub = s(purposes.get(k)) or (k.partition('__')[2] or k)
         note = ' · '.join(n for n in (T['noSet'] if not has_question_set(base(k)) else '', T['optional'] if k in optional else '') if n)
         label = format_label(kind_title, sub, note)
+        if rg_split and k not in framed and not (k == 'application-insights' and rg_role(k) == rg_role('log-analytics-workspace')):
+            label += f"<br><font style='font-size:12px' color='{RG_COLORS[rg_role(k)][1]}'>{RG_IMG_TAG} {esc(rg_title(rg_role(k)))}</font>"
         if k in public_exceptions:
             label += f"<br><font style='font-size:10px' color='{PUBLIC_COLOR}'>&#9888; {esc(T['publicMark'])}</font>"
         for line in role_lines.get(k, []):
@@ -647,7 +740,12 @@ def main():
         cols_p = len(paas) if len(paas) <= 5 else math.ceil(len(paas) / 2)
         cols_p = min(max(cols_p, 1), 8)
         stagger = SLOT_W // 2 if len(paas) > cols_p else 0
-        w_main = max(cols_c * SLOT_W + 4 * PAD, cols_p * SLOT_W + stagger + 2 * PAD, min(len(support), cols_p) * SLOT_W + 2 * PAD, 2 * SLOT_W + 4 * PAD)
+        grouped_w = 0
+        if paas_grouped:
+            cols_p, stagger = len(paas), 0
+            n_g = len(groups_of(paas))
+            grouped_w = 16 + sum(max(len(ks) * SLOT_W + 16, PG_MIN_W) for _, ks in groups_of(paas)) + (n_g - 1) * PG_GAP
+        w_main = max(cols_c * SLOT_W + 4 * PAD, cols_p * SLOT_W + stagger + 2 * PAD, grouped_w, min(len(support), cols_p) * SLOT_W + 2 * PAD, 2 * SLOT_W + 4 * PAD)
         chan_w = paas_w = 0
     block_w = w_main + (chan_w + paas_w if side else 0)   # what the zones below the network span
 
@@ -689,6 +787,37 @@ def main():
     if side:
         PAAS_HEAD = 44   # the title, then the first row's gutter
         paas_h = PAAS_HEAD + rows_height(paas, cols_p, GUT) + PAD
+    # Grouped: each group is a frame - the gutter above its first row, its rows, the title band
+    # below (the side layout), or side by side in one row (the compact layout). Everything is relative
+    # to the zone: paas_rows are (keys, y, h, grid row, role, x of the first column), paas_frames
+    # (role, x, y, w, h).
+    paas_rows, paas_frames = [], []
+    if paas_grouped and side:
+        y, grid_row = 30, 0
+        for role, ks in groups_of(paas):
+            fy = y
+            y += PG_TOP
+            rws = rows_of(ks, cols_p)
+            for ri, row in enumerate(rws):
+                rh = max(pitch[k] for k in row)
+                paas_rows.append((row, y, rh, grid_row, role, PAD))
+                y += rh + (GUT if ri < len(rws) - 1 else 0)
+                grid_row += 1
+            y += PG_BOT
+            paas_frames.append((role, 8, fy, paas_w - 16, y - fy))
+            y += PG_GAP
+        paas_h = (y - PG_GAP) + PAD
+    elif paas_grouped:
+        gl = groups_of(paas)
+        row_h = max(max(pitch[k] for k in ks) for _, ks in gl)
+        frame_h = PG_TOP + row_h + PG_BOT
+        x = 8
+        for role, ks in gl:
+            fw = max(len(ks) * SLOT_W + 16, PG_MIN_W)   # wide enough for the title, the icons centred in it
+            paas_frames.append((role, x, 8, fw, frame_h))
+            paas_rows.append((ks, 8 + PG_TOP, row_h, 0, role, x + (fw - len(ks) * SLOT_W) / 2))
+            x += fw + PG_GAP
+        paas_h = 8 + frame_h + PAAS_TITLE
     # One bus lane per compute resource that calls PaaS, between the network and the PaaS zone.
     gap = 30 + 10 * len(callers)
 
@@ -698,14 +827,30 @@ def main():
     # (existing) ones below it.
     cols_s = min(max(len(support), 1), max((w_main - 2 * PAD) // SLOT_W, 1))
     support_h = (ZHEAD + rows_height(support, cols_s) + PAD) if support else 0
+    support_frames = []   # (role, keys, y, h) relative to the zone's content
+    if support_grouped:
+        y = 0
+        for role, ks in groups_of(support):
+            h = 8 + rows_height(ks, cols_s) + PG_BOT
+            support_frames.append((role, ks, y, h))
+            y += h + PG_GAP
+        support_h = ZHEAD + (y - PG_GAP) + PAD
     law_existing = (not has_law_res) and obs_ownership != 'create'
     dns_existing = dns_ownership != 'deployment'
     lower, outside = [], []   # dicts: id, w, h (dx, dy once placed)
     if support:
         lower.append({'id': 'support', 'w': cols_s * SLOT_W + 2 * PAD, 'h': support_h})
     ai_h = max(SLOT_H, pitch_of(labels['application-insights'])) if has_ai else 0   # roles make its label taller
+
+    def law_label_of(existing):
+        law_name = s(purposes.get('log-analytics-workspace')) or (s(diag_target) if diag_target else 'log-analytics-workspace')
+        label = format_label('Log Analytics', law_name, T['existing'] if existing else '')
+        if 'log-analytics-workspace' in public_exceptions:
+            label += f"<br><font style='font-size:10px' color='{PUBLIC_COLOR}'>&#9888; {esc(T['publicMark'])}</font>"
+        return label
+    law_h = max(SLOT_H, pitch_of(law_label_of(law_existing))) if draw_law else 0   # tag and warning make it taller
     if draw_law or has_ai:
-        z = {'id': 'monitoring', 'w': ZONE_W, 'h': ZHEAD + (SLOT_H if draw_law else 0) + ai_h + 40 + PAD}
+        z = {'id': 'monitoring', 'w': ZONE_W, 'h': ZHEAD + law_h + ai_h + 40 + PAD}
         (outside if law_existing else lower).append(z)
     if zones or dns_existing and dns_ownership:
         z = {'id': 'dnszones', 'w': ZONE_W, 'h': ZHEAD + SLOT_H + PAD}
@@ -799,6 +944,17 @@ def main():
                 add_icon(f"res-{k}", parent, gx + c * (SLOT_W + col_gap) + (stagger if r % 2 else 0), y, base(k), labels[k], flagged(k), k in optional, slot_h=rh)
             y += rh + gutter
 
+    def place_groups(zx, zy, col_gap, stagger):
+        """The services group by group: a frame per group, its rows inside."""
+        for role, fx, fy, fw, fh in paas_frames:
+            add_container({'id': f"rg-{role}", 'parent': 'z-paas', 'x': zx + fx, 'y': zy + fy, 'w': fw, 'h': fh,
+                           'style': rg_frame_style(role, rg_modes[role] == 'existing'),
+                           'value': f"{RG_IMG} {esc(rg_title(role))}"})
+        for row, ry, rh, grid_row, role, rx in paas_rows:
+            for c, k in enumerate(row):
+                add_icon(f"res-{k}", f"rg-{role}", zx + rx + c * (SLOT_W + col_gap) + (stagger if grid_row % 2 else 0), zy + ry,
+                         base(k), labels[k], flagged(k), k in optional, slot_h=rh)
+
     def add_text(cid, parent, x, y, w, h, value, style):
         icons.append({'id': cid, 'parent': parent, 'x': x, 'y': y, 'w': w, 'h': h, 'style': style, 'value': value})
 
@@ -835,10 +991,17 @@ def main():
     loc = s(get_value(ctx.get('location')))
     env_ = ' · '.join(s(e) for e in as_list(get_value(ctx.get('environments'))) if s(e)) or s(get_value(ctx.get('environment')))
     rg_name = get_value(ctx.get('resource_group_name'))
-    rg_label = format_label(s(rg_name if rg_name is not None else T['rg']), ' · '.join(p for p in (loc, env_) if p != ''), '')
-    add_container({'id': 'rg', 'parent': '1', 'x': rg_x, 'y': rg_y, 'w': rg_w, 'h': rg_h, 'style': CONTAINER_STYLE, 'value': rg_label})
-    icons.append({'id': 'rg-icon', 'parent': 'rg', 'x': rg_x + 6, 'y': rg_y + 6, 'w': 24, 'h': 24,
-                  'style': f"image;aspect=fixed;html=1;image={ICONS['resource-group']};", 'value': ''})
+    # With a split the frame is no single group - its name would claim everything is in the main one;
+    # each resource names its own group instead.
+    rg_label = format_label(T['scope'] if rg_split else s(rg_name if rg_name is not None else T['rg']),
+                            ' · '.join(p for p in (loc, env_) if p != ''), '')
+    # With a split the outer frame is the deployment, not a group: no resource group icon on it, or the
+    # two are mistaken for each other. The title then stands where the icon was.
+    add_container({'id': 'rg', 'parent': '1', 'x': rg_x, 'y': rg_y, 'w': rg_w, 'h': rg_h,
+                   'style': CONTAINER_STYLE.replace('spacingLeft=36', 'spacingLeft=14') if rg_split else CONTAINER_STYLE, 'value': rg_label})
+    if not rg_split:
+        icons.append({'id': 'rg-icon', 'parent': 'rg', 'x': rg_x + 6, 'y': rg_y + 6, 'w': 24, 'h': 24,
+                      'style': f"image;aspect=fixed;html=1;image={ICONS['resource-group']};", 'value': ''})
     if is_private:
         footer = T['noPublicExc'].replace('{names}', exception_names) if public_exceptions else T['noPublic']
         add_text('rg-private', 'rg', rg_x + PAD, rg_y + rg_h - 26, rg_w - 2 * PAD, 20, f"&#128274; {esc(footer)}",
@@ -863,8 +1026,15 @@ def main():
             addr = get_decision(resources.get('virtual-network'), ['addressing', 'address_space'])
         vn_sub = s(addr)
         vn_note = T['existing'] if vnet_existing else ''
+        # the header has room for two lines; the group goes behind the range
+        vn_head = ' · '.join(x for x in (vn_sub, rg_title(rg_role('virtual-network')) if rg_split and not vnet_existing else '') if x)
         style = CONTAINER_STYLE + (EXISTING_STYLE if vnet_existing else '')
-        add_container({'id': 'vnet', 'parent': 'rg', 'x': main_x, 'y': main_y, 'w': w_main, 'h': vn_h, 'style': style, 'value': redn(format_label(vn_name, vn_sub, vn_note))})
+        if rg_split and not vnet_existing:
+            # the network is its group's frame: the group's colour, dashed when the group exists
+            net_role = rg_role('virtual-network')
+            style = style.replace('strokeColor=#0078D4', f"strokeColor={RG_COLORS[net_role][1]}") + (
+                'dashed=1;dashPattern=6 4;' if rg_modes[net_role] == 'existing' else 'strokeWidth=2;')
+        add_container({'id': 'vnet', 'parent': 'rg', 'x': main_x, 'y': main_y, 'w': w_main, 'h': vn_h, 'style': style, 'value': redn(format_label(vn_name, vn_head, vn_note))})
         icons.append({'id': 'vnet-icon', 'parent': 'vnet', 'x': main_x + 6, 'y': main_y + 6, 'w': 24, 'h': 24,
                       'style': f"image;aspect=fixed;html=1;image={ICONS['virtual-network']};", 'value': ''})
         sn_x, sn_w, cursor = main_x + PAD, w_main - 2 * PAD, main_y + HEAD
@@ -911,31 +1081,40 @@ def main():
         if side:
             # the lines come in from the left here, so the title can stay at the top
             add_container({'id': 'z-paas', 'parent': 'rg', 'x': paas_x, 'y': paas_y, 'w': paas_w, 'h': paas_h, 'style': ZONES['paas'], 'value': title})
-            place_grid(paas, 'z-paas', paas_x + PAD, paas_y + PAAS_HEAD, cols_p, col_gap=pp_chan, gutter=GUT)
+            if paas_grouped:
+                place_groups(paas_x, paas_y, pp_chan, 0)
+            else:
+                place_grid(paas, 'z-paas', paas_x + PAD, paas_y + PAAS_HEAD, cols_p, col_gap=pp_chan, gutter=GUT)
         else:
             add_container({'id': 'z-paas', 'parent': 'rg', 'x': main_x, 'y': paas_y, 'w': w_main, 'h': paas_h, 'style': ZONES['paas_in'], 'value': title})
-            place_grid(paas, 'z-paas', main_x + PAD, paas_y + PAAS_TOP, cols_p, stagger)
+            if paas_grouped:
+                place_groups(main_x, paas_y, 0, 0)
+            else:
+                place_grid(paas, 'z-paas', main_x + PAD, paas_y + PAAS_TOP, cols_p, stagger)
     def draw_zone(z, zx, zy, parent):
         zid = z['id']
         if zid == 'support':
             add_container({'id': 'z-support', 'parent': parent, 'x': zx, 'y': zy, 'w': z['w'], 'h': z['h'], 'style': ZONES['paas'], 'value': esc(T['support'])})
-            place_grid(support, 'z-support', zx + PAD, zy + ZHEAD, cols_s)
+            if support_grouped:
+                for role, ks, fy, fh in support_frames:
+                    add_container({'id': f"rg-{role}-support", 'parent': 'z-support', 'x': zx + 8, 'y': zy + ZHEAD + fy, 'w': z['w'] - 16, 'h': fh,
+                                   'style': rg_frame_style(role, rg_modes[role] == 'existing'),
+                                   'value': f"{RG_IMG} {esc(rg_title(role))}"})
+                    place_grid(ks, f"rg-{role}-support", zx + PAD, zy + ZHEAD + fy + 8, cols_s)
+            else:
+                place_grid(support, 'z-support', zx + PAD, zy + ZHEAD, cols_s)
             return
         is_mon = zid == 'monitoring'
         existing = law_existing if is_mon else dns_existing
         add_container({'id': f"z-{zid}", 'parent': parent, 'x': zx, 'y': zy, 'w': ZONE_W, 'h': z['h'],
                        'style': (ZONES['monitoring'] if is_mon else ZONES['platform']) + (EXISTING_STYLE if existing else ''),
-                       'value': esc(T['monitoring'] if is_mon else T['nameRes'])})
+                       'value': esc(T['monitoring'] + (f" · {rg_title(rg_role('log-analytics-workspace'))}" if rg_split and not existing else '') if is_mon else T['nameRes'])})
         sx, sy = zx + (ZONE_W - SLOT_W) / 2, zy + ZHEAD
         if is_mon:
             if draw_law:
-                law_name = s(purposes.get('log-analytics-workspace')) or (s(diag_target) if diag_target else 'log-analytics-workspace')
-                law_label = format_label('Log Analytics', law_name, T['existing'] if existing else '')
-                if 'log-analytics-workspace' in public_exceptions:
-                    law_label += f"<br><font style='font-size:10px' color='{PUBLIC_COLOR}'>&#9888; {esc(T['publicMark'])}</font>"
-                add_icon('law', f"z-{zid}", sx, sy, 'log-analytics-workspace', law_label,
-                         flagged('log-analytics-workspace'), existing)
-                sy += SLOT_H
+                add_icon('law', f"z-{zid}", sx, sy, 'log-analytics-workspace', law_label_of(existing),
+                         flagged('log-analytics-workspace'), existing, slot_h=law_h)
+                sy += law_h
             if has_ai:
                 add_icon('res-application-insights', f"z-{zid}", sx, sy, 'application-insights',
                          labels['application-insights'], flagged('application-insights'), slot_h=ai_h)
@@ -1090,7 +1269,7 @@ def main():
             # Through the channel between the two columns: out of the side of the source that faces
             # it, along a lane of its own, in at the facing side of the target. The label sits on
             # the vertical run, in the channel.
-            sc_col, dc_col = paas.index(a['from']) % cols_p, paas.index(a['to']) % cols_p
+            sc_col, dc_col = pidx[a['from']] % cols_p, pidx[a['to']] % cols_p
             lx_track = paas_x + PAD + SLOT_W + 12 + TRK * pp_lane.get((a['from'], a['to']), 0)
             # Two lines on one side of an icon take different heights (0.7, then 0.3); the trunk
             # into a first-column service enters at 0.3 when such a line leaves it at 0.7, so two
@@ -1129,7 +1308,7 @@ def main():
             edge['style'] = style + 'exitX=0.5;exitY=0;entryX=1;entryY=0.5;'
             left = by_id[sc['parent']]['x'] + 10 if sc['parent'] in by_id else sc['slot']['x']
             edge['points'] = [{'x': sc['x'] + sc['w'] / 2, 'y': sc['slot']['y'] + 3}, {'x': left, 'y': sc['slot']['y'] + 3}]
-        elif a['from'] in paas and a['to'] in paas and abs(paas.index(a['from']) - paas.index(a['to'])) > 1:
+        elif a['from'] in paas and a['to'] in paas and abs(pidx[a['from']] - pidx[a['to']]) > 1:
             # Not neighbours: draw.io's own route went through every icon in between. Up out of
             # the source, along the strip above the row's icons, down beside the target, in at the
             # side that faces the source. The label sits above the run.
@@ -1185,7 +1364,8 @@ def main():
             edges.append({'id': f"e-in-{by_y.index(k)}", 'source': node_of[k], 'target': 'pe-bundle', 'value': '', 'style': st,
                           'points': [{'x': tx, 'y': mid_y[k]}, {'x': tx, 'y': pe['y'] + pe['h'] * frac}]})
         trunk = vn_cell['x'] + vn_cell['w'] + 28
-        for i, k in enumerate(paas):
+        for k in paas:
+            i = pidx[k]
             if k not in callers_of or f"res-{k}" not in by_id:
                 continue
             dc = by_id[f"res-{k}"]
@@ -1226,6 +1406,10 @@ def main():
     if open_items or assumed:
         # open items are drawn as red text (a flagged label, the panel list), not as a marker
         legend.append(f"<font color='#D13438'>{esc(T['legOpen'])}</font>")
+    if rg_split:
+        legend.append(f"<i>{esc(T['rgs'])}</i>")
+        for r in rg_order:
+            legend.append(f"<font color='{RG_COLORS[r][1]}'><b>&#9632;</b></font> {esc(rg_title(r))}")
     if len(legend) > 1:
         add_container({'id': 'legend', 'parent': '1', 'x': sub_x, 'y': legend_y, 'w': min(max(sub_w, 420), 560), 'h': len(legend) * 15 + 26,
                        'style': 'rounded=1;arcSize=4;whiteSpace=wrap;html=1;align=left;verticalAlign=top;spacing=10;fillColor=#FFFFFF;strokeColor=#C8C6C4;fontSize=11;',
@@ -1239,6 +1423,8 @@ def main():
         lines.append(f"{T['exposure']}: <b>{esc(exposure)}</b>")
     if net_ownership:
         lines.append(f"{T['network']}: {esc(net_ownership)}" + (f", {esc(vn_sub)}" if vn_sub else ''))
+    if rg_split:
+        lines.append(f"{T['rgs']}: " + esc(', '.join(rg_title(r) for r in ['main'] + rg_split)))
     mand = [m for m in as_list(get_decision(dep, ['mandates'])) if m]
     if mand:
         lines.append(f"{T['mandates']}: {esc(', '.join(s(m) for m in mand))}")
