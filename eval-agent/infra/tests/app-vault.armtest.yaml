@@ -8,7 +8,7 @@
 
 - decision: app-service.hosting.sku
   path: resources.app.properties.template.resources.plan.sku.name
-  equals: P1v3
+  equals: B2
 
 - decision: app-service.hosting.zone_redundant
   path: resources.app.properties.template.resources.plan.properties.zoneRedundant

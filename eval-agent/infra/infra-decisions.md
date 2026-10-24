@@ -146,7 +146,6 @@ Nichts davon wurde gefragt; jede Zeile folgt einer Regel oder einer der Antworte
 ### Azure App Service (web app on an App Service plan)
 
 - Die App läuft auf Linux.
-- Der Hosting-Plan hat die Größe P1v3, Premium, die übliche Produktionsgröße.
 - Der ausgehende Verkehr der App läuft durch das Firmennetz, so erreicht sie private Dienste.
 - Ausgehender Verkehr verlässt das Netz über das Subnetz app-integration. — weil: Das Netz wird von diesem Ausrollen selbst gebaut.
 - Sie nutzt die Identitäten user-assigned-identity. — weil: `resources.app-service.identity.managed_identity`
@@ -183,6 +182,7 @@ Nichts davon wurde gefragt; jede Zeile folgt einer Regel oder einer der Antworte
 ## Von euch anders entschieden
 
 - Azure AI Foundry (AI Services account with projects and model deployments): Das Konto enthält die Projekte eval. _(Grund: Departs from the default []: Foundry evaluations are scoped to a project.)_
+- Azure App Service (web app on an App Service plan): Der Hosting-Plan hat die Größe B2, Basic, zwei Kerne. _(Grund: The subscription has no quota for P1v3 (SubscriptionIsOverQuotaForSku). B2 is Basic: VNet integration, always on and the container run, no slots, no autoscale, no zone redundancy.)_
 - Azure App Service (web app on an App Service plan): Die App ist aus dem Internet erreichbar. _(Grund: The dashboard is the one internet-facing part (customer: reachable from the internet, sign-in with company accounts). Departs from the private baseline, which would map to disabled.)_
 - Azure App Service (web app on an App Service plan): Ausgehender Verkehr wird nur für private Adressen durch das Firmennetz geleitet geleitet. _(Grund: The agent needs the internet (plugin source, package installs). With all traffic routed into the VNet there is no outbound path without a NAT gateway; private endpoint addresses are RFC 1918 and still go through the VNet.)_
 - Azure App Service (web app on an App Service plan): Die App hat eine gemeinsame, separat verwaltete Identität, um andere Dienste zu erreichen. _(Grund: Departs from system_assigned: AcrPull and the data roles must exist before the container first starts, which a system-assigned identity cannot have.)_
@@ -311,7 +311,7 @@ Solange diese Punkte offen sind, wird nichts ausgerollt.
 | `storage-account.observability.diagnostic_categories` | ["audit"] | Regel |
 | `storage-account.observability.metrics_enabled` | true | Regel |
 | `app-service.hosting.os_type` | Linux | Regel |
-| `app-service.hosting.sku` | P1v3 | Regel |
+| `app-service.hosting.sku` | B2 | eure Abweichung |
 | `app-service.hosting.zone_redundant` | false | abgeleitet aus eurer Antwort |
 | `app-service.hosting.instance_count` | 1 | abgeleitet aus eurer Antwort |
 | `app-service.networking.public_network_access` | enabled | eure Abweichung |

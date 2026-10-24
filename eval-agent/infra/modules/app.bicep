@@ -66,7 +66,7 @@ resource plan 'Microsoft.Web/serverfarms@2024-11-01' = {
   kind: 'linux'
   sku: {
     // decision: app-service.hosting.sku
-    name: 'P1v3'
+    name: 'B2'
     // decision: app-service.hosting.instance_count
     capacity: 1
   }

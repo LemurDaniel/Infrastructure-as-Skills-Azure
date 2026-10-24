@@ -478,8 +478,9 @@ resources:
         value: Linux
         source: default
       sku:
-        value: P1v3
-        source: default
+        value: B2
+        source: overridden
+        reason: "The subscription has no quota for P1v3 (SubscriptionIsOverQuotaForSku). B2 is Basic: VNet integration, always on and the container run, no slots, no autoscale, no zone redundancy."
       zone_redundant:
         value: false
         source: requirement
