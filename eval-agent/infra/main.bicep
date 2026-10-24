@@ -114,8 +114,9 @@ var locationCodes = {
 var loc = locationCodes[location]
 var env = environmentCodes[environment]
 var idx = padLeft(index, 2, '0')
-// <UNIQUE_ID_4>: scoped like the Terraform seed (subscription and resource group).
-var unique4 = take(uniqueString(subscriptionId, resourceGroupName), 4)
+// <UNIQUE_ID_4>: subscription, resource group and instance number. The instance number is in the seed
+// so a new instance gets new globally unique names (a deleted vault keeps its name until purged).
+var unique4 = take(uniqueString(subscriptionId, resourceGroupName, idx), 4)
 
 // <TYPE>-<LOCATION>-<ENVIRONMENT>-<NAME>-<INDEX>
 var virtualNetworkName = 'vnet-${loc}-${env}-${workload}-${idx}'
