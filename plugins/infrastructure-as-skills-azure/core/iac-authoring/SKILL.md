@@ -434,7 +434,11 @@ to see it to disagree with it, and the ones they never look at cost one glance.
 ## Phase 5 — Write the spec, draw it, loop on the picture, then render
 
 Write `infra-spec.yaml` into the user's repository first — the IaC root, or `infra/` —
-and validate it with `check_spec.py`.
+and validate it with `check_spec.py`. Its shape is
+[references/spec.md](references/spec.md#shape), and that is the whole format: the plugin
+ships no sample spec to copy, and the scripts are tools, not documentation — run
+`check_spec.py`, `new_diagram.py` and `export_decisions.py`, never read their source to
+learn what a spec looks like. What `check_spec.py` rejects, it names.
 
 **For a Terraform target, write `naming.yaml` beside it in the same step**, when the
 directory has none: a full copy of
