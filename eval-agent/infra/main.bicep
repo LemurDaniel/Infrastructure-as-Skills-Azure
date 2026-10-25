@@ -45,7 +45,7 @@ param privateEndpointSubnetPrefix string
 @description('Additional registry regions as { location }.')
 param registryGeoReplicas array
 
-@description('Role assignments on the user-assigned identities themselves (dashboard and agent), as { principalId, roleDefinitionId, principalType }.')
+@description('Role assignments on the user-assigned identities themselves (dashboard, agent and drift watcher), as { principalId, roleDefinitionId, principalType }.')
 param identityRoleAssignments array
 
 @description('Role assignments on the registry, as { principalId, roleDefinitionId, principalType }.')
@@ -70,11 +70,20 @@ param dashboardContainerImage string
 @description('Bootstrap image of the agent as name:tag without the registry, no latest; used only on the first deployment, the image pipeline owns the image afterwards (spec: resources.app-service__agent.runtime.container_image_owner).')
 param agentContainerImage string
 
+@description('Bootstrap image of the drift watcher as name:tag without the registry, no latest; used only on the first deployment, the image pipeline owns the image afterwards (spec: resources.app-service__drift.runtime.container_image_owner).')
+param driftContainerImage string
+
 @description('linuxFxVersion the dashboard runs now; the pipeline fills this from the live web app before the deployment so the image is never rolled back. Empty on the first deployment.')
 param existingDashboardLinuxFxVersion string = ''
 
 @description('linuxFxVersion the agent runs now; the pipeline fills this from the live web app before the deployment so the image is never rolled back. Empty on the first deployment.')
 param existingAgentLinuxFxVersion string = ''
+
+@description('linuxFxVersion the drift watcher runs now; the pipeline fills this from the live web app before the deployment so the image is never rolled back. Empty on the first deployment.')
+param existingDriftLinuxFxVersion string = ''
+
+@description('When the drift watcher runs its check (spec open: application.drift_schedule).')
+param driftSchedule string
 
 @description('Model deployments as { name, model: { format, name, version } } (spec open: resources.foundry.models.model_deployments).')
 param modelDeployments array
@@ -129,11 +138,13 @@ var virtualNetworkName = 'vnet-${loc}-${env}-${workload}-${idx}'
 var workspaceName = 'log-${loc}-${env}-${workload}-${idx}'
 var identityDashboardName = 'id-${loc}-${env}-${workload}-dashboard-${idx}'
 var identityAgentName = 'id-${loc}-${env}-${workload}-agent-${idx}'
+var identityDriftName = 'id-${loc}-${env}-${workload}-drift-${idx}'
 var planName = 'plan-${loc}-${env}-${workload}-${idx}'
 // The dashboard keeps the name of the single app that came before the split: it is the public
 // hostname, and the Entra redirect URI is registered for it.
 var dashboardAppName = 'app-${loc}-${env}-${workload}-${idx}'
 var agentAppName = 'app-${loc}-${env}-${workload}-agent-${idx}'
+var driftAppName = 'app-${loc}-${env}-${workload}-drift-${idx}'
 // <TYPE><LOCATION><ENVIRONMENT><NAME><INDEX>, lowercase, alphanumeric only
 var registryName = toLower('cr${loc}${env}${workload}${idx}')
 var storageAccountName = toLower('st${loc}${env}${workload}${idx}')
@@ -146,6 +157,7 @@ var registryPrivateEndpointName = '${privateEndpointNamePrefix}-registry-${idx}'
 var foundryPrivateEndpointName = '${privateEndpointNamePrefix}-account-${idx}'
 var vaultPrivateEndpointName = '${privateEndpointNamePrefix}-vault-${idx}'
 var agentPrivateEndpointName = '${privateEndpointNamePrefix}-agent-${idx}'
+var driftPrivateEndpointName = '${privateEndpointNamePrefix}-drift-${idx}'
 var dnsLinkName = 'vnl-${loc}-${env}-${workload}-${idx}'
 
 // Subnet names (spec: virtual-network.addressing.subnets, resources.*.networking.private_endpoint_subnet,
@@ -206,6 +218,16 @@ module identityAgent 'modules/identity.bicep' = {
   name: 'identity-agent'
   params: {
     name: identityAgentName
+    location: location
+    tags: tags
+    roleAssignments: identityRoleAssignments
+  }
+}
+
+module identityDrift 'modules/identity.bicep' = {
+  name: 'identity-drift'
+  params: {
+    name: identityDriftName
     location: location
     tags: tags
     roleAssignments: identityRoleAssignments
@@ -297,25 +319,32 @@ module app 'modules/app.bicep' = {
     planName: planName
     dashboardAppName: dashboardAppName
     agentAppName: agentAppName
+    driftAppName: driftAppName
     location: location
     tags: tags
     integrationSubnetId: network.outputs.integrationSubnetId
     privateEndpointSubnetId: network.outputs.privateEndpointSubnetId
     agentPrivateEndpointName: agentPrivateEndpointName
+    driftPrivateEndpointName: driftPrivateEndpointName
     privateDnsZoneId: resourceId('Microsoft.Network/privateDnsZones', privateDnsZoneNames.sites)
     diagnosticWorkspaceId: observability.outputs.id
     dashboardIdentityId: identityDashboard.outputs.id
     dashboardIdentityClientId: identityDashboard.outputs.clientId
     agentIdentityId: identityAgent.outputs.id
     agentIdentityClientId: identityAgent.outputs.clientId
+    driftIdentityId: identityDrift.outputs.id
+    driftIdentityClientId: identityDrift.outputs.clientId
     registryLoginServer: registry.outputs.loginServer
     vaultUri: vault.outputs.vaultUri
     foundryEndpoint: ai.outputs.endpoint
     storageAccountName: storage.outputs.name
     dashboardContainerImage: dashboardContainerImage
     agentContainerImage: agentContainerImage
+    driftContainerImage: driftContainerImage
     existingDashboardLinuxFxVersion: existingDashboardLinuxFxVersion
     existingAgentLinuxFxVersion: existingAgentLinuxFxVersion
+    existingDriftLinuxFxVersion: existingDriftLinuxFxVersion
+    driftSchedule: driftSchedule
     pluginSource: pluginSource
     entraClientId: entraClientId
     entraTenantId: entraTenantId
@@ -323,7 +352,7 @@ module app 'modules/app.bicep' = {
   dependsOn: [
     // The roles must be effective before the container first starts (image pull, secret reference).
     // Bicep cannot see this: the app module takes no output of the role assignments.
-    // The zone group of the agent's private endpoint needs the zone (and its link) to exist.
+    // The zone group of the agent's and the drift watcher's private endpoints needs the zone (and its link) to exist.
     privateDnsZoneLinks
     acrPullDashboardAssignment
     acrPullAgentAssignment
@@ -331,6 +360,10 @@ module app 'modules/app.bicep' = {
     storageBlobContributorAgentAssignment
     foundryUserAgentAssignment
     keyVaultSecretsDashboardAssignment
+    acrPullDriftAssignment
+    storageBlobContributorDriftAssignment
+    foundryUserDriftAssignment
+    keyVaultSecretsDriftAssignment
   ]
 }
 
@@ -397,6 +430,10 @@ resource identityDashboardRef 'Microsoft.ManagedIdentity/userAssignedIdentities@
 
 resource identityAgentRef 'Microsoft.ManagedIdentity/userAssignedIdentities@2024-11-30' existing = {
   name: identityAgentName
+}
+
+resource identityDriftRef 'Microsoft.ManagedIdentity/userAssignedIdentities@2024-11-30' existing = {
+  name: identityDriftName
 }
 
 // wiring.role_assignments: user-assigned-identity__dashboard -> container-registry, AcrPull
@@ -497,6 +534,71 @@ resource keyVaultSecretsDashboardAssignment 'Microsoft.Authorization/roleAssignm
   ]
 }
 
+// wiring.role_assignments: user-assigned-identity__drift -> container-registry, AcrPull
+resource acrPullDriftAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(registryRef.id, identityDriftRef.id, roleDefinitionIds.AcrPull)
+  scope: registryRef
+  properties: {
+    principalId: identityDrift.outputs.principalId
+    principalType: 'ServicePrincipal'
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', roleDefinitionIds.AcrPull)
+  }
+  dependsOn: [
+    registry
+  ]
+}
+
+// wiring.role_assignments: user-assigned-identity__drift -> storage-account, Storage Blob Data Contributor
+resource storageBlobContributorDriftAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(storageAccountRef.id, identityDriftRef.id, roleDefinitionIds['Storage Blob Data Contributor'])
+  scope: storageAccountRef
+  properties: {
+    principalId: identityDrift.outputs.principalId
+    principalType: 'ServicePrincipal'
+    roleDefinitionId: subscriptionResourceId(
+      'Microsoft.Authorization/roleDefinitions',
+      roleDefinitionIds['Storage Blob Data Contributor']
+    )
+  }
+  dependsOn: [
+    storage
+  ]
+}
+
+// wiring.role_assignments: user-assigned-identity__drift -> foundry, Azure AI User
+resource foundryUserDriftAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(foundryRef.id, identityDriftRef.id, roleDefinitionIds['Azure AI User'])
+  scope: foundryRef
+  properties: {
+    principalId: identityDrift.outputs.principalId
+    principalType: 'ServicePrincipal'
+    roleDefinitionId: subscriptionResourceId(
+      'Microsoft.Authorization/roleDefinitions',
+      roleDefinitionIds['Azure AI User']
+    )
+  }
+  dependsOn: [
+    ai
+  ]
+}
+
+// wiring.role_assignments: user-assigned-identity__drift -> key-vault, Key Vault Secrets User
+resource keyVaultSecretsDriftAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(vaultRef.id, identityDriftRef.id, roleDefinitionIds['Key Vault Secrets User'])
+  scope: vaultRef
+  properties: {
+    principalId: identityDrift.outputs.principalId
+    principalType: 'ServicePrincipal'
+    roleDefinitionId: subscriptionResourceId(
+      'Microsoft.Authorization/roleDefinitions',
+      roleDefinitionIds['Key Vault Secrets User']
+    )
+  }
+  dependsOn: [
+    vault
+  ]
+}
+
 // ---------------------------------------------------------------------------------------------
 // Wiring: diagnostics of the virtual network (the network module does not need the workspace)
 // ---------------------------------------------------------------------------------------------
@@ -534,6 +636,7 @@ resource virtualNetworkDiagnostics 'Microsoft.Insights/diagnosticSettings@2021-0
 output dashboardId string = app.outputs.dashboardId
 output dashboardDefaultHostname string = app.outputs.dashboardDefaultHostname
 output agentId string = app.outputs.agentId
+output driftId string = app.outputs.driftId
 output registryLoginServer string = registry.outputs.loginServer
 output vaultUri string = vault.outputs.vaultUri
 output foundryEndpoint string = ai.outputs.endpoint

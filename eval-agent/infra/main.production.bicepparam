@@ -6,7 +6,7 @@
 // deploys: the pipeline refuses it. Replace each one, then the stage can be deployed.
 //
 //   location, workload, subscriptionId, resourceGroupName  parameterized in the spec, never asked
-//   dashboardContainerImage, agentContainerImage          open: resources.app-service__*.runtime.container_image
+//   dashboardContainerImage, agentContainerImage, driftContainerImage  open: resources.app-service__*.runtime.container_image
 //   modelDeployments                                      open: resources.foundry.models.model_deployments
 //   pluginSource                                          open: application.plugin_source
 //   entraClientId, entraTenantId                          existing app registration, open: resources.app-service__dashboard.identity.entra_sign_in
@@ -47,6 +47,9 @@ param vaultRoleAssignments = []
 // no image. The separate image pipeline owns the image afterwards; the pipeline keeps what runs.
 param dashboardContainerImage = 'eval-dashboard:0.0.1'
 param agentContainerImage = 'eval-agent:0.0.1'
+param driftContainerImage = 'eval-drift:0.0.1'
+// How often the drift watcher checks the AVM versions; the watcher reads this keyword.
+param driftSchedule = 'weekly'
 // Models of the Foundry account, e.g. { name: 'chat', model: { format: 'OpenAI', name: '<model>', version: '<version>' } }.
 // Empty until the workload owner names them; no deployment is created from an empty list.
 param modelDeployments = []

@@ -241,6 +241,173 @@
   path: resources.app.properties.template.resources.agent.properties.siteConfig.acrUseManagedIdentityCreds
   equals: true
 
+# ---- app-service__drift --------------------------------------------------------------------------------
+
+- decision: app-service__drift.hosting.os_type
+  path: resources.app.properties.template.resources.plan.kind
+  equals: linux
+
+- decision: app-service__drift.hosting.sku
+  path: resources.app.properties.template.resources.plan.sku.name
+  equals: B2
+
+- decision: app-service__drift.hosting.zone_redundant
+  path: resources.app.properties.template.resources.plan.properties.zoneRedundant
+  equals: false
+
+- decision: app-service__drift.hosting.instance_count
+  path: resources.app.properties.template.resources.plan.sku.capacity
+  equals: 1
+
+- decision: app-service__drift.networking.public_network_access
+  path: resources.app.properties.template.resources.drift.properties.publicNetworkAccess
+  equals: Disabled
+
+- decision: app-service__drift.networking.private_endpoint_subnet
+  path: resources.app.properties.template.resources.driftPrivateEndpoint.properties.subnet.id
+  matches: "parameters\\('privateEndpointSubnetId'\\)"
+
+# The endpoint is for the 'sites' sub-resource and lands in the zone privatelink.azurewebsites.net.
+- deployment: drift_private_endpoint_group
+  path: resources.app.properties.template.resources.driftPrivateEndpoint.properties.privateLinkServiceConnections[0].properties.groupIds
+  equals: [sites]
+
+- decision: app-service__drift.networking.vnet_integration
+  path: resources.app.properties.template.resources.drift.properties.virtualNetworkSubnetId
+  matches: "parameters\\('integrationSubnetId'\\)"
+
+- decision: app-service__drift.networking.integration_subnet
+  path: resources.app.properties.parameters.integrationSubnetId.value
+  matches: "reference\\('network'\\)\\.outputs\\.integrationSubnetId"
+
+# false: the AVM sources are on the internet and there is no NAT gateway.
+- decision: app-service__drift.networking.vnet_route_all
+  path: resources.app.properties.template.resources.drift.properties.outboundVnetRouting.allTraffic
+  equals: false
+
+- decision: app-service__drift.identity.managed_identity
+  path: resources.app.properties.template.resources.drift.identity.type
+  equals: UserAssigned
+
+- decision: app-service__drift.identity.user_assigned_identity_ids
+  path: resources.app.properties.parameters.driftIdentityId.value
+  matches: "reference\\('identityDrift'\\)\\.outputs\\.id"
+
+- decision: app-service__drift.security.https_only
+  path: resources.app.properties.template.resources.drift.properties.httpsOnly
+  equals: true
+
+- decision: app-service__drift.security.min_tls_version
+  path: resources.app.properties.template.resources.drift.properties.siteConfig.minTlsVersion
+  equals: "1.2"
+
+- decision: app-service__drift.security.ftps_state
+  path: resources.app.properties.template.resources.drift.properties.siteConfig.ftpsState
+  equals: Disabled
+
+# FTP and SCM are two switches; the decision is asserted on FTP, SCM has its own entry below.
+- decision: app-service__drift.security.basic_auth_enabled
+  path: resources.app.properties.template.resources.driftBasicAuthFtp.properties.allow
+  equals: false
+
+- deployment: drift_basic_auth_scm_disabled
+  path: resources.app.properties.template.resources.driftBasicAuthScm.properties.allow
+  equals: false
+
+- decision: app-service__drift.runtime.runtime_stack
+  path: resources.app.properties.template.resources.drift.kind
+  equals: app,linux,container
+
+# The running image wins over the bootstrap one: the template keeps existingDriftLinuxFxVersion when set.
+- decision: app-service__drift.runtime.container_image_owner
+  path: resources.app.properties.template.resources.drift.properties.siteConfig.linuxFxVersion
+  matches: 'if\(not\(empty\(parameters\(''existingDriftLinuxFxVersion''\)\)\), parameters\(''existingDriftLinuxFxVersion''\), format\(''DOCKER\|\{0\}/\{1\}'''
+
+- decision: app-service__drift.runtime.always_on
+  path: resources.app.properties.template.resources.drift.properties.siteConfig.alwaysOn
+  equals: true
+
+- decision: app-service__drift.runtime.health_check_path
+  path: resources.app.properties.template.resources.drift.properties.siteConfig.healthCheckPath
+  absent: true
+
+- decision: app-service__drift.runtime.http2_enabled
+  path: resources.app.properties.template.resources.drift.properties.siteConfig.http20Enabled
+  equals: true
+
+- decision: app-service__drift.observability.diagnostic_workspace
+  path: resources.app.properties.parameters.diagnosticWorkspaceId.value
+  matches: "reference\\('observability'\\)\\.outputs\\.id"
+
+- decision: app-service__drift.observability.diagnostic_categories
+  path: resources.app.properties.template.resources.driftDiagnostics.properties.logs
+  equals:
+    - { category: AppServiceHTTPLogs, enabled: true }
+    - { category: AppServiceAppLogs, enabled: true }
+    - { category: AppServiceAuditLogs, enabled: true }
+    - { category: AppServiceIPSecAuditLogs, enabled: true }
+    - { category: AppServicePlatformLogs, enabled: true }
+
+- decision: app-service__drift.observability.metrics_enabled
+  path: resources.app.properties.template.resources.driftDiagnostics.properties.metrics
+  equals:
+    - { category: AllMetrics, enabled: true }
+
+# Image pull with the managed identity, no registry credentials.
+- deployment: drift_image_pull_with_managed_identity
+  path: resources.app.properties.template.resources.drift.properties.siteConfig.acrUseManagedIdentityCreds
+  equals: true
+
+- deployment: drift_image_pull_over_vnet
+  path: resources.app.properties.template.resources.drift.properties.siteConfig.appSettings[1]
+  equals:
+    name: WEBSITE_PULL_IMAGE_OVER_VNET
+    value: "true"
+
+- deployment: drift_setting_azure_client_id
+  path: resources.app.properties.template.resources.drift.properties.siteConfig.appSettings[0]
+  matches: '"name": "AZURE_CLIENT_ID", "value": "\[parameters\(''driftIdentityClientId''\)\]"'
+
+- deployment: drift_setting_foundry_endpoint
+  path: resources.app.properties.template.resources.drift.properties.siteConfig.appSettings[2]
+  matches: '"name": "FOUNDRY_ENDPOINT", "value": "\[parameters\(''foundryEndpoint''\)\]"'
+
+- deployment: drift_setting_storage_account_name
+  path: resources.app.properties.template.resources.drift.properties.siteConfig.appSettings[3]
+  matches: '"name": "STORAGE_ACCOUNT_NAME", "value": "\[parameters\(''storageAccountName''\)\]"'
+
+# The watcher's GitHub token is a Key Vault reference to its own secret, resolved with its own identity.
+- deployment: drift_github_token_secret_name
+  path: resources.app.properties.template.variables.driftGithubTokenSecretName
+  equals: github-drift-token
+
+- deployment: drift_setting_github_token_is_key_vault_reference
+  path: resources.app.properties.template.resources.drift.properties.siteConfig.appSettings[4]
+  matches: 'KeyVault\(SecretUri=\{0\}secrets/\{1\}/\)'
+
+- deployment: drift_key_vault_reference_identity
+  path: resources.app.properties.template.resources.drift.properties.keyVaultReferenceIdentity
+  matches: "parameters\\('driftIdentityId'\\)"
+
+# The allowlist is an app setting only; nothing in the network enforces it (spec open: application.drift_internet_allowlist).
+- deployment: drift_allowed_hosts_list
+  path: resources.app.properties.template.variables.driftAllowedHosts
+  equals: [github.com, api.github.com, raw.githubusercontent.com, mcr.microsoft.com, azure.github.io]
+
+- deployment: drift_setting_allowed_hosts
+  path: resources.app.properties.template.resources.drift.properties.siteConfig.appSettings[5]
+  matches: 'AVM_ALLOWED_HOSTS.*join\(variables\(''driftAllowedHosts''\)'
+
+- deployment: drift_setting_schedule
+  path: resources.app.properties.template.resources.drift.properties.siteConfig.appSettings[6]
+  matches: '"name": "DRIFT_SCHEDULE", "value": "\[parameters\(''driftSchedule''\)\]"'
+
+# The rhythm the customer named: weekly. The stage file carries the keyword, no invented cron.
+- deployment: drift_schedule_is_weekly
+  stage: production
+  path: parameters.driftSchedule.value
+  matches: "weekly"
+
 # ---- key-vault ----------------------------------------------------------------------------------
 
 - decision: key-vault.vault.sku
@@ -282,7 +449,7 @@
 
 - decision: key-vault.security.secret_placeholders
   path: resources.vault.properties.template.variables.secretPlaceholders
-  equals: [entra-client-secret, github-token]
+  equals: [entra-client-secret, github-token, github-drift-token]
 
 # A placeholder is created only while the secret does not exist (the pipeline fills existingSecretNames).
 - deployment: secret_placeholder_does_not_overwrite
@@ -407,3 +574,38 @@
   equals:
     name: WEBSITE_PULL_IMAGE_OVER_VNET
     value: "true"
+
+# ---- wiring of the drift watcher (main.bicep) ---------------------------------------------------
+
+- wiring: role_assignments.acr_pull_drift
+  path: resources.acrPullDriftAssignment.properties.roleDefinitionId
+  matches: "roleDefinitionIds'\\)\\.AcrPull"
+
+- wiring: role_assignments.storage_blob_data_contributor_drift
+  path: resources.storageBlobContributorDriftAssignment.properties.roleDefinitionId
+  matches: "Storage Blob Data Contributor"
+
+- wiring: role_assignments.key_vault_secrets_user_drift
+  path: resources.keyVaultSecretsDriftAssignment.properties.roleDefinitionId
+  matches: "Key Vault Secrets User"
+
+- wiring: role_assignments.azure_ai_user_drift
+  path: resources.foundryUserDriftAssignment.properties.roleDefinitionId
+  matches: "Azure AI User"
+
+# The watcher is read-only towards Azure beyond its data roles: no further assignment exists for it.
+- wiring: drift_has_no_reader_role
+  path: resources.readerDriftAssignment
+  absent: true
+
+- wiring: drift_waits_for_roles
+  path: resources.app.dependsOn
+  contains: acrPullDriftAssignment
+
+- wiring: drift_waits_for_vault_role
+  path: resources.app.dependsOn
+  contains: keyVaultSecretsDriftAssignment
+
+- wiring: app_drift_identity_from_identity_output
+  path: resources.app.properties.parameters.driftIdentityClientId.value
+  matches: "reference\\('identityDrift'\\)\\.outputs\\.clientId"

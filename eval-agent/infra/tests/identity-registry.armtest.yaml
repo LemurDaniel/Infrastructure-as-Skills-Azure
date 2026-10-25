@@ -38,6 +38,25 @@
   path: parameters.identityRoleAssignments.value
   equals: []
 
+# ---- user-assigned-identity__drift -----------------------------------------------------------------
+
+- decision: user-assigned-identity__drift.identity.purpose
+  path: resources.identityDrift.properties.template.resources.identity.tags
+  matches: "createObject\\('purpose', 'app-runtime'\\)"
+
+- decision: user-assigned-identity__drift.identity.federated_credentials
+  path: resources.identityDrift.properties.template.variables.federatedCredentials
+  equals: []
+
+- decision: user-assigned-identity__drift.identity.isolation_scope
+  path: resources.identityDrift.properties.template.resources.identity.properties.isolationScope
+  equals: None
+
+- decision: user-assigned-identity__drift.identity.role_assignments
+  stage: production
+  path: parameters.identityRoleAssignments.value
+  equals: []
+
 # ---- container-registry -------------------------------------------------------------------------
 
 - decision: container-registry.registry.sku
