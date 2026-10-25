@@ -23,6 +23,7 @@ grouping costs nothing; a case's `prompt.md` reaches the plugin with `plugins: [
 | `spec/` | The interview's output, `infra/infra-spec.yaml` | `greenfield-telemetry`, `private-storage-on-platform`, `vague-public-dev` |
 | `diagram/` | What the spec carries for the picture | `diagram-*` |
 | `interview/` | The final message: what was asked | `interview-asks-no-context` |
+| `language/` | The language of the person is the language of everything said to them | `language-en-request`, `language-de-request`, `language-en-first-question` |
 | `outcome/` | The IaC a user receives, with and without the plugin | `outcome-private-storage` (pilot) |
 
 ## The cases
@@ -53,6 +54,13 @@ python3 plugins/infrastructure-as-skills-azure/core/iac-diagram/tests/run_diagra
 Fixture specs go in, assertions on the `.drawio` come out: zones, one bundled endpoint icon,
 line count and colour, no Python syntax in a label, solid rounded containers, the fallback box
 for a type without an icon. Run it after any change to `new_diagram.py`.
+
+The three `language/` cases test that `context.language` follows the request: the spec's
+customer-facing text, the final message and, in `language-en-first-question`, the very first
+interview question (the skill carries it as German wording). The English cases close with the
+English translation of the usual paragraph - a German paragraph would itself signal German -
+and `language-en-first-question` has only a one-line note, because its final message *is* the
+question that is graded.
 
 Every case ends the same way, so every case can be graded the same way: no one answers
 follow-up questions (a headless run cannot), and neither a diagram nor code is wanted —

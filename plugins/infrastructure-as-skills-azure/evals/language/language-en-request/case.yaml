@@ -1,0 +1,34 @@
+schema_version: "1.1"
+name: language-en-request
+
+graders:
+  - name: skill-fired
+    type: tool_used
+    tool: Skill
+    input_match: infrastructure-as-skills-azure
+
+  - name: language-is-en
+    type: regex
+    weight: 3
+    target: { source: file, path: infra/infra-spec.yaml }
+    pattern: 'language:\s*(?:#[^\n]*\s*)*[''"]?en\b'
+
+  # An English customer gets an English spec: umlauts, ß and common German words in
+  # labels, purposes or open items mean the German wording of the skill leaked through.
+  - name: no-german-in-spec
+    type: regex
+    weight: 3
+    target: { source: file, path: infra/infra-spec.yaml }
+    flags: i
+    pattern: '[äöüß]|\b(zugriff|und|der|die|das|für|nicht|liest|schreibt|speicher|anwendung|benutzer|nachricht)\b'
+    match: not_contains
+
+  - name: final-message-english
+    type: llm
+    weight: 3
+    focus: last_message
+    criteria: |
+      The user wrote in English. PASS if the final message is written in English. FAIL
+      if it, or any question or option text in it, is written in German or any other
+      language than English. Product names, resource types and code identifiers do
+      not count; formatting does not matter.

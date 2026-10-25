@@ -1,0 +1,22 @@
+schema_version: "1.1"
+name: language-en-first-question
+
+graders:
+  - name: skill-fired
+    type: tool_used
+    tool: Skill
+    input_match: infrastructure-as-skills-azure
+
+  # The skill carries the target, module and naming questions as German wording. An
+  # English request must still get them in English.
+  - name: first-message-english
+    type: llm
+    weight: 5
+    focus: last_message
+    criteria: |
+      The user wrote in English. PASS if everything the final message asks or lists -
+      questions, option labels and their descriptions - is in English. FAIL if any
+      question or option text is German (for example "In welcher Sprache", "Geprüfte
+      Bausteine", "Herstellerunabhängig", "Passt das so") or a mix of both. Product
+      names and code identifiers do not count; formatting does not matter.
+
