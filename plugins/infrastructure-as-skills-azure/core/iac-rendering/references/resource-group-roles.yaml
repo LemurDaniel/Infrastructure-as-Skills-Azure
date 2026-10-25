@@ -5,8 +5,8 @@
 # with `placement.resource_group` in the spec, never here.
 roles: [main, network, data, application, observability, security]
 kinds:
-  network: [virtual-network, network-security-group]
-  data: [storage-account, cosmos-db, sql-server, redis-cache]
-  application: [app-service, function-app, container-apps, container-registry, foundry, search-service]
+  network: [virtual-network, network-security-group, application-gateway, front-door]
+  data: [storage-account, cosmos-db, sql-server, redis-cache, backup-vault, recovery-services-vault]
+  application: [app-service, function-app, container-apps, container-registry, foundry, search-service, service-bus, event-hubs, event-grid-topic, api-management]
   observability: [log-analytics-workspace, application-insights]
   security: [key-vault, user-assigned-identity]

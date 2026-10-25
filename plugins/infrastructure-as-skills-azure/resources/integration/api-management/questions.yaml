@@ -1,0 +1,557 @@
+schema_version: 1
+
+resource: Microsoft.ApiManagement/service
+title: Azure API Management service
+
+naming:
+  terraform: "Azure::Microsoft.ApiManagement/service"
+  bicep: "Microsoft.ApiManagement/service"
+  # Bicep assembles the name from vars - this is the prefix it renders. The name is global and limited to 50 characters; the gateway hostname is derived from it.
+  abbreviation: "apim"
+
+boundaries:
+  - "Does not create the resource group. Expects one from the spec's context."
+  - "Does not create private DNS zones (`privatelink.azure-api.net`) or the custom domain's public zone - shared infrastructure, owned by a pattern or the platform."
+  - "Does not create the Log Analytics workspace or the Application Insights component it logs to."
+  - "Does not create the subnet an injected or integrated instance needs, nor its network security group and route table. The subnet is the platform's or the network set's."
+  - "Does not grant the instance's identity its roles on backends and on Key Vault - that is wiring between resources, owned by a pattern. It records the instance's own role assignments in `role_assignments`."
+  - "Does not render API definitions, operations, policies per API, products or subscriptions beyond naming them. They are the API team's content and change at a different pace than the infrastructure; `apis` and `products` are recorded as free text and rendered from the module README."
+  - "Does not create certificates or custom domains: a certificate is a Key Vault secret reference and a custom domain needs DNS the platform owns. Both are `open:` entries when asked for."
+  - "Does not create the self-hosted gateway, workspaces or the federated-API setup."
+
+groups:
+
+  - id: placement
+    title: Placement
+    questions:
+      - id: environments
+        ask: Which stages is this deployed to?
+        type: list
+        plain:
+          en: "Deployed in the stages {value}."
+          de: "Wird in den Stufen {value} ausgerollt."
+        values: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
+        required: true
+        from_context: true
+        why: >
+          Drives the rendered name and the strictness of several defaults below. Nothing
+          sensible can be guessed.
+        renders: >
+          naming parameter `environment`, and the tag of that name where the repository uses
+          one
+
+      - id: location
+        ask: Which Azure region?
+        type: string
+        plain:
+          en: "Runs in the Azure region {value}."
+          de: "Läuft in der Azure-Region {value}."
+        required: true
+        from_context: true
+        why: >
+          Part of the rendered name and not inferable. An instance is regional; an
+          additional region is a Premium feature (`additional_regions`), not a property of
+          this one.
+        renders: location
+
+      - id: resource_group_name
+        ask: Which resource group?
+        type: ref
+        plain:
+          en: "Placed in the resource group {value}."
+          de: "Liegt in der Ressourcengruppe {value}."
+        ref: resource_group
+        required: true
+        from_context: true
+        per_environment: true
+        why: >
+          The instance is placed into an existing group. Creating one here would make this
+          set own a lifecycle wider than the resource it describes.
+        renders: resource_group_name (AVM Terraform) / implicit in Bicep scope
+
+  - id: service
+    title: The service
+    questions:
+      - id: publisher_name
+        ask: Which organisation name should API consumers see?
+        type: string
+        resolved_by: interview
+        plain:
+          en: "API consumers see the publisher name {value}."
+          de: "API-Nutzer sehen den Herausgebernamen {value}."
+        required: true
+        why: >
+          Shown on the developer portal and in notification mails. Required by the service;
+          the Terraform module's placeholder default ("Apim Example Publisher") must never
+          reach a real instance, which is why it is asked. The organisation's own name, not
+          the project's.
+        renders: publisher_name / publisherName
+
+      - id: publisher_email
+        ask: Which contact address receives notifications from the service?
+        type: string
+        resolved_by: interview
+        plain:
+          en: "Notifications go to {value}."
+          de: "Benachrichtigungen gehen an {value}."
+        required: true
+        why: >
+          The address the service mails about subscription requests, quota warnings and the
+          expiry of a certificate. A shared mailbox, not a person: the person leaves and the
+          mails keep coming. Required by the service and the one value that cannot be
+          derived.
+        renders: publisher_email / publisherEmail
+
+      - id: sku
+        ask: Which tier does the gateway need?
+        type: enum
+        plain:
+          en: "The gateway is the {value} tier."
+          de: "Das Gateway ist die Stufe {value}."
+        plain_values:
+          Consumption: { en: "serverless, billed per call, with no private network", de: "serverlos, nach Aufrufen abgerechnet, ohne privates Netz" }
+          Developer: { en: a test tier without a service guarantee, de: eine Teststufe ohne Verfügbarkeitszusage }
+          Basic: { en: "basic, with a service guarantee", de: "Basic, mit Verfügbarkeitszusage" }
+          Standard: { en: "standard, with a service guarantee and more capacity", de: "Standard, mit Verfügbarkeitszusage und mehr Kapazität" }
+          Premium: { en: "premium, with zones, several regions and network injection", de: "Premium, mit Zonen, mehreren Regionen und Netzwerkeinbindung" }
+          BasicV2: { en: basic on the faster v2 platform, de: Basic auf der schnelleren v2-Plattform }
+          StandardV2: { en: "standard on the faster v2 platform, with private connections", de: "Standard auf der schnelleren v2-Plattform, mit privaten Anbindungen" }
+          PremiumV2: { en: premium on the v2 platform with zones and isolation, de: Premium auf der v2-Plattform mit Zonen und Isolation }
+        values: [Consumption, Developer, Basic, Standard, Premium, BasicV2, StandardV2, PremiumV2]
+        derived_from:
+          question: outage_impact
+          map: { tolerable: Developer, disruptive: StandardV2, critical: PremiumV2 }
+        confirm_in: [production]
+        non_production_default: Developer
+        forced_when: >
+          `zone_redundant: true` forces `Premium` or `PremiumV2`; `additional_regions`
+          forces `Premium`; `network_integration: internal` forces a tier that supports it
+          (see the notes). The tier is looked up against the Azure documentation before a
+          render because the v2 feature set is still growing.
+        why: >
+          Derived from how bad an outage is. **Developer has no SLA and one unit; it is a
+          test tier and never production.** Basic and Standard are the classic tiers with a
+          SLA and scale units; Premium adds availability zones, multiple regions and
+          virtual-network injection. The v2 tiers (BasicV2, StandardV2, PremiumV2) start in
+          minutes instead of half an hour and bring private endpoints and VNet integration.
+          Consumption is serverless and pay-per-call with no VNet. The modules disagree on
+          the default - **Terraform `Developer_1`, Bicep `Premium` with three units** - so
+          the tier is written on every call and a Premium default in Bicep is never
+          inherited.
+        renders: >
+          sku_name (`<Tier>_<capacity>`, `Developer_1`) / sku + skuCapacity
+
+      - id: capacity
+        ask: How many scale units does the instance reserve?
+        type: int
+        plain:
+          en: "The instance reserves {value} scale unit(s)."
+          de: "Die Instanz reserviert {value} Skalierungseinheit(en)."
+        default: 1
+        non_production_default: 1
+        why: >
+          A unit is the tier's unit of throughput and is billed around the clock. The
+          Developer tier has exactly one; for the others one unit is the floor and a
+          measured request rate raises it - the Bicep module's default of **three** is a
+          Premium sizing, not a starting point. Consumption has no units.
+        renders: sku_name suffix / skuCapacity
+
+      - id: zone_redundant
+        ask: Should the gateway survive the loss of one datacenter of its region?
+        type: bool
+        plain:
+          en: "The gateway survives the loss of a datacenter: {value}."
+          de: "Das Gateway übersteht den Ausfall eines Rechenzentrums: {value}."
+        plain_values:
+          true: { en: do, de: überstehen }
+          false: { en: do not, de: überstehen nicht }
+        default: false
+        depends_on: { question: sku, equals: Premium }
+        why: >
+          Derived from how bad an outage is. Zones spread the units over the region's
+          datacenters; only Premium and PremiumV2 offer it, and a unit count that is not a
+          multiple of the zones leaves them uneven (use 3 units for 3 zones). The cost is
+          the Premium tier, which is why the tier is derived from the same answer.
+        renders: zones / availabilityZones
+
+      - id: additional_regions
+        ask: In which further regions should the gateway also run?
+        type: list
+        plain:
+          en: "Also running in the regions {value} (empty: none)."
+          de: "Läuft zusätzlich in den Regionen {value} (leer: keine)."
+        default: []
+        depends_on: { question: sku, equals: Premium }
+        per_environment: true
+        why: >
+          A Premium instance can run its gateway in more regions behind one name; the
+          management plane stays in the primary. Each region costs the units it reserves and
+          must satisfy `data_residency`. Empty is the common answer - a second region is a
+          decision with a traffic-routing story (Front Door or Traffic Manager) that someone
+          owns.
+        renders: additional_location / additionalLocations
+
+      - id: managed_identity
+        ask: Which managed identity should the instance carry?
+        type: enum
+        plain:
+          en: "The instance has {value}."
+          de: "Die Instanz hat {value}."
+        plain_values:
+          none: { en: no identity of its own, de: keine eigene Identität }
+          system_assigned: { en: its own identity, de: eine eigene Identität }
+          user_assigned: { en: a separately managed identity, de: eine separat verwaltete Identität }
+        values: [none, system_assigned, user_assigned]
+        default: system_assigned
+        why: >
+          The instance's identity authenticates it to backends (`authentication-managed-
+          identity`) and to Key Vault for named values and certificates. A system-assigned
+          identity exists with the instance, so a role on a backend or a Key Vault secret
+          comes after the instance - fine for a backend call, a cycle for a named value read
+          at creation. A user-assigned identity breaks it: the roles are in place first.
+          Both are written explicitly.
+        renders: managed_identities / managedIdentities
+
+      - id: user_assigned_identity_ids
+        ask: Which user-assigned identity?
+        type: list
+        plain:
+          en: "It uses the identity {value}."
+          de: "Es nutzt die Identität {value}."
+        ref: user_assigned_identity
+        required: true
+        depends_on: { question: managed_identity, equals: user_assigned }
+        per_environment: true
+        why: >
+          The identity that holds the roles on the backends and on Key Vault before the
+          instance exists. It is created before the service, by the identity set.
+        renders: >
+          managed_identities.user_assigned_resource_ids /
+          managedIdentities.userAssignedResourceIds
+
+  - id: access
+    title: Callers and APIs
+    questions:
+      - id: caller_authentication
+        ask: How do callers of the APIs prove who they are?
+        type: enum
+        resolved_by: interview
+        plain:
+          en: "Callers sign in with {value}."
+          de: "Aufrufer melden sich an mit {value}."
+        plain_values:
+          entra_id: { en: their company account, de: ihrem Firmenkonto }
+          subscription_key: { en: a personal access key, de: einem persönlichen Zugriffsschlüssel }
+          entra_id_and_key: { en: their company account and an access key, de: ihrem Firmenkonto und einem Zugriffsschlüssel }
+          open: { en: nothing - anyone may call, de: "nichts, jeder darf aufrufen" }
+        values: [entra_id, subscription_key, entra_id_and_key, open]
+        default: entra_id
+        confirm_in: [production]
+        forced_when: >
+          `local_auth: disabled` forces `entra_id`, recorded as forced with `local_auth` as
+          forced_by. A departure to `subscription_key` or `open` names the API it applies
+          to.
+        why: >
+          The customer's question behind the global policy. `entra_id` validates a token
+          from the company's directory (`validate-jwt`) and makes every call attributable.
+          `subscription_key` is an API key per consumer: simple, shareable, not tied to a
+          person, and a secret in the caller's hands. `entra_id_and_key` requires both.
+          `open` accepts anyone and belongs on an API that is public by design. `local_auth:
+          disabled` removes the key, so it forces `entra_id`.
+        renders: >
+          policy.xml_content (validate-jwt) and products[].subscriptionRequired / policies
+
+      - id: rate_limit_calls_per_minute
+        ask: How many calls per minute may one caller make?
+        type: int
+        resolved_by: interview
+        plain:
+          en: "One caller may make {value} calls per minute (0: no limit)."
+          de: "Ein Aufrufer darf {value} Aufrufe pro Minute machen (0: keine Grenze)."
+        default: 600
+        why: >
+          A ceiling per caller in the global policy (`rate-limit-by-key`), so one runaway
+          client cannot take the backend down for the others. 0 means no limit, which is a
+          deliberate statement and not the default: the backend behind a gateway is usually
+          the smaller system. 600 is ten calls a second per caller, a sensible start for an
+          interactive client; a batch caller gets its own product with its own number.
+        renders: policy.xml_content (rate-limit-by-key)
+
+      - id: developer_portal
+        ask: Do outside developers need a portal to read and try the APIs?
+        type: bool
+        resolved_by: interview
+        plain:
+          en: "A developer portal is {value}."
+          de: "Ein Entwicklerportal ist {value}."
+        plain_values:
+          true: { en: provided, de: bereitgestellt }
+          false: { en: not provided, de: nicht bereitgestellt }
+        default: false
+        why: >
+          The portal is a public site (Developer and Premium also a self-hosted one) where
+          consumers read the documentation, sign up and get keys. It is another internet-
+          facing surface, a published URL and a sign-in to maintain; internal APIs
+          documented elsewhere do not need it. Off by default in the Bicep module, on in the
+          Terraform one for the classic tiers.
+        renders: >
+          enableDeveloperPortal (Bicep); the portal is a platform feature in Terraform,
+          enabled through `sign_in` / `sign_up` and `delegation`
+
+      - id: apis
+        ask: Which APIs should the gateway expose?
+        type: list
+        plain:
+          en: "APIs: {value} (empty: none yet)."
+          de: "APIs: {value} (leer: noch keine)."
+        default: []
+        why: >
+          Each entry is a name, a URL path and the backend it forwards to (another resource
+          of the deployment or a URL). The API definitions themselves - operations, schemas
+          - are the API team's content, imported from an OpenAPI file at deploy time or by
+          their own pipeline; the infrastructure names the API so the routing, the identity
+          and the policy have something to attach to. Empty is a valid and common first
+          answer.
+        renders: apis / apis
+
+      - id: products
+        ask: Which groups of consumers should be set apart, each with its own limits?
+        type: list
+        plain:
+          en: "Consumer groups: {value} (empty: none)."
+          de: "Konsumentengruppen: {value} (leer: keine)."
+        default: []
+        why: >
+          A product bundles APIs for a group of consumers with its own rate limit, quota and
+          approval. Empty means every API is open to every authenticated caller, which is
+          right for a single consumer team and wrong for external partners next to internal
+          users.
+        renders: products / products
+
+  - id: networking
+    title: Networking
+    questions:
+      - id: network_integration
+        ask: How should the gateway sit in the private network?
+        type: enum
+        plain:
+          en: "The gateway is {value}."
+          de: "Das Gateway ist {value}."
+        plain_values:
+          none: { en: outside the private network, de: außerhalb des privaten Netzes }
+          external: { en: "public, but able to reach services inside the network", de: "öffentlich, aber mit Zugriff auf Dienste im Netz" }
+          internal: { en: inside the private network only, de: nur im privaten Netz }
+        values: [none, external, internal]
+        default: internal
+        confirm_in: [production]
+        forced_when: >
+          `network_exposure: public` makes it `external` where the deployment has a network
+          and `none` where it has none; `network_ownership: none` forces `none`. `sku:
+          Consumption` forces `none`.
+        why: >
+          `internal` puts the gateway inside the network with a private address only
+          (classic Developer and Premium by injection, the v2 tiers by private endpoint), so
+          it is reached from the network and from nothing else. `external` keeps a public
+          gateway address and lets it reach backends in the network. `none` has no network
+          involvement at all - the instance is outside, its backends must be public. A
+          private deployment is `internal`; a public one with backends in the network is
+          `external`. Consumption cannot do either.
+        renders: >
+          virtual_network_type + virtual_network_subnet_id / virtualNetworkType +
+          subnetResourceId
+
+      - id: apim_subnet
+        ask: Which subnet should the gateway use?
+        type: ref
+        resolved_by: platform
+        plain:
+          en: "The gateway is placed in subnet {value}."
+          de: "Das Gateway liegt im Subnetz {value}."
+        ref: subnet
+        required: true
+        depends_on: { question: network_integration, not_equals: none }
+        per_environment: true
+        why: >
+          A dedicated subnet: classic injection needs one with its own network security
+          group and the management-plane rules, the v2 tiers need one delegated to
+          `Microsoft.Web/hostingEnvironments`. It cannot be shared with the private
+          endpoints or with other resources. Looked up from the platform or created by the
+          network set.
+        renders: virtual_network_subnet_id / subnetResourceId
+
+      - id: public_ip_address
+        ask: Which public IP address does an injected gateway use?
+        type: ref
+        plain:
+          en: "The gateway uses the public address {value}."
+          de: "Das Gateway nutzt die öffentliche Adresse {value}."
+        ref: public_ip_address
+        required: true
+        depends_on: { question: network_integration, not_equals: none }
+        per_environment: true
+        why: >
+          Classic injection (Developer, Premium) needs a Standard-SKU static public IP, even
+          for `internal`, for the management plane. The v2 tiers do not take one. The
+          address is a separate resource with a lifecycle of its own.
+        renders: public_ip_address_id / publicIpAddressResourceId
+
+      - id: public_network_access
+        ask: Should this gateway depart from the deployment's exposure posture?
+        type: enum
+        plain:
+          en: "The gateway is {value}."
+          de: "Das Gateway ist {value}."
+        plain_values:
+          disabled: { en: not reachable from the internet at all, de: aus dem Internet überhaupt nicht erreichbar }
+          enabled_with_firewall: { en: reachable from the internet only from listed addresses, de: aus dem Internet nur von gelisteten Adressen erreichbar }
+          enabled: { en: reachable from the internet, de: aus dem Internet erreichbar }
+        values: [disabled, enabled_with_firewall, enabled]
+        from_deployment: network_exposure
+        confirm_in: [production]
+        forced_when: >
+          `network_integration: external` forces `enabled`; `network_ownership: none` forces
+          `enabled`, recorded as forced with that question as forced_by.
+        why: >
+          Asked only as a departure: exposure is a property of the system, the deployment
+          set already answered it. It switches the **management plane** and, on tiers with
+          private endpoints, the gateway's public face. `private` is `disabled`; an
+          `external` gateway is public by construction and records `enabled` here. The
+          modules disagree on the default - Terraform `true`, Bicep unset - so it is
+          written.
+        renders: public_network_access_enabled (bool) / publicNetworkAccess
+
+      - id: private_endpoint_subnet
+        ask: Which subnet should the instance's private endpoint live in?
+        type: ref
+        resolved_by: platform
+        plain:
+          en: "Its private connection lands in subnet {value}."
+          de: "Seine private Anbindung landet im Subnetz {value}."
+        ref: subnet
+        from_deployment: private_endpoint_subnet
+        per_environment: true
+        why: >
+          One subnet carries the deployment's private endpoints, so this is inherited. The
+          sub-resource is `Gateway`. Applies to the tiers that take a private endpoint
+          instead of injection; classic Developer and Premium use `network_integration` and
+          have none.
+        renders: >
+          private_endpoints.<key>.subnet_resource_id / privateEndpoints[].subnetResourceId
+
+  - id: identity
+    title: Identity and access
+    questions:
+      - id: role_assignments
+        ask: Who needs which role on this instance?
+        type: list
+        plain:
+          en: "Access rights on the instance granted to: {value}."
+          de: "Zugriffsrechte vergeben an: {value}."
+        default: []
+        per_environment: true
+        why: >
+          Data-plane access is granted by role, never by key. The narrow roles are `API
+          Management Service Reader Role` for read access to the configuration and `API
+          Management Service Contributor` for the API team; `API Management Service Operator
+          Role` runs the instance without editing APIs. Scope to the narrowest resource the
+          consumer needs, never the subscription. A pattern normally fills this from the
+          consumers it knows about and grants a consumer's role in the pattern, not here.
+          The instance's own roles on backends and Key Vault are wiring, not listed here.
+        renders: role_assignments / roleAssignments
+
+  - id: security
+    title: Security
+    questions:
+      - id: legacy_protocols_disabled
+        ask: Should old TLS versions and weak ciphers be refused?
+        type: bool
+        plain:
+          en: "Old encryption protocols are {value}."
+          de: "Alte Verschlüsselungsprotokolle sind {value}."
+        plain_values:
+          true: { en: refused, de: abgewiesen }
+          false: { en: still accepted, de: weiterhin akzeptiert }
+        default: true
+        why: >
+          SSL 3.0, TLS 1.0 and 1.1 and the CBC ciphers, on the client side and towards the
+          backends. Both modules default to refusing the protocols; the ciphers and the
+          backend side differ, so the whole set is written. Off only for a client that
+          cannot be upgraded, named at this instance.
+        renders: >
+          security.* /
+          customProperties[Microsoft.WindowsAzure.ApiManagement.Gateway.Security.*]
+
+      - id: client_certificate_required
+        ask: Must every caller present a client certificate?
+        type: bool
+        plain:
+          en: "Client certificates are {value}."
+          de: "Clientzertifikate sind {value}."
+        plain_values:
+          true: { en: required, de: verlangt }
+          false: { en: not required, de: nicht verlangt }
+        default: false
+        why: >
+          Mutual TLS at the gateway for every request. It is a posture for a closed set of
+          machine callers; for browsers and mixed callers it breaks the sign-in. Off by
+          default; a single API that needs it validates the certificate in its own policy
+          instead.
+        renders: client_certificate_enabled / enableClientCertificate
+
+  - id: observability
+    title: Observability
+    questions:
+      - id: diagnostic_workspace
+        ask: Which Log Analytics workspace should receive diagnostics?
+        type: ref
+        resolved_by: platform
+        plain:
+          en: "Its logs go to {value}."
+          de: "Seine Logs gehen in {value}."
+        ref: log_analytics_workspace
+        from_deployment: diagnostics_destination
+        per_environment: true
+        why: >
+          Inherited: one deployment, one destination. Without a diagnostic setting the
+          resource keeps no record anyone can query.
+        renders: diagnostic_settings / diagnosticSettings
+
+      - id: diagnostic_categories
+        ask: Which log categories should be collected?
+        type: list
+        plain:
+          en: "Logged: {value}."
+          de: "Geloggt wird: {value}."
+        plain_values:
+          GatewayLogs: { en: "every call through the gateway: caller, API, status, time", de: "jeder Aufruf durch das Gateway: Aufrufer, API, Status, Dauer" }
+          WebSocketConnectionLogs: { en: WebSocket connections, de: WebSocket-Verbindungen }
+          DeveloperPortalAuditLogs: { en: actions in the developer portal, de: Aktionen im Entwicklerportal }
+          GatewayLlmLogs: { en: "calls to language-model backends, with token counts", de: "Aufrufe an Sprachmodell-Backends, mit Tokenzahlen" }
+        values: [GatewayLogs, WebSocketConnectionLogs, DeveloperPortalAuditLogs, GatewayLlmLogs]
+        default: [GatewayLogs]
+        why: >
+          The gateway log is the record of every call and is what an incident review needs;
+          it is as large as the traffic. The portal audit log belongs with
+          `developer_portal`, the WebSocket log with WebSocket APIs, the language-model log
+          with a Foundry backend. The names are the platform's and are checked against `az
+          monitor diagnostic-settings categories list` for the resource before a render, not
+          remembered.
+        renders: >
+          diagnostic_settings.<key>.logs[].category /
+          diagnosticSettings[].logCategoriesAndGroups[].category
+
+      - id: metrics_enabled
+        ask: Should all metrics be collected?
+        type: bool
+        plain:
+          en: "Usage and performance figures are {value}."
+          de: "Nutzungs- und Leistungswerte werden {value}."
+        plain_values:
+          true: { en: collected, de: erfasst }
+          false: { en: not collected, de: nicht erfasst }
+        default: true
+        why: >
+          Requests, failed requests, capacity (the number to alert on before the gateway
+          saturates) and backend duration.
+        renders: metrics[].category = "AllMetrics" / metricCategories[].category
+

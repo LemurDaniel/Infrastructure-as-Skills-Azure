@@ -1,0 +1,490 @@
+schema_version: 1
+
+resource: Microsoft.RecoveryServices/vaults
+title: Azure Recovery Services vault
+
+naming:
+  terraform: "Azure::Microsoft.RecoveryServices/vaults"
+  bicep: "Microsoft.RecoveryServices/vaults"
+  # Bicep assembles the name from vars - this is the prefix it renders. The name is 2-50 characters.
+  abbreviation: "rsv"
+
+boundaries:
+  - "Does not create the resource group. Expects one from the spec's context."
+  - "Does not create private DNS zones (`privatelink.<region>.backup.windowsazure.com` and the blob/queue zones the backup path uses) - shared infrastructure, owned by a pattern or the platform."
+  - "Does not create the Log Analytics workspace it routes diagnostics to."
+  - "Does not create the machines and file shares it protects or grant the vault's identity its roles on them. That is wiring between resources, owned by a pattern."
+  - "Does not create the Resource Guard (a different subscription, owned by a security team); the set takes its id, an `open:` entry when nobody supplied one."
+  - "Does not configure Azure Site Recovery (replication fabrics, policies, replicated machines) or MARS agent backups of on-premises servers. A request for either is said out loud."
+  - "Does not protect blobs, managed disks, PostgreSQL or AKS - those use the Backup vault (`backup-vault`)."
+
+groups:
+
+  - id: placement
+    title: Placement
+    questions:
+      - id: environments
+        ask: Which stages is this deployed to?
+        type: list
+        plain:
+          en: "Deployed in the stages {value}."
+          de: "Wird in den Stufen {value} ausgerollt."
+        values: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
+        required: true
+        from_context: true
+        why: >
+          Drives the rendered name and the strictness of several defaults below. Nothing
+          sensible can be guessed.
+        renders: >
+          naming parameter `environment`, and the tag of that name where the repository uses
+          one
+
+      - id: location
+        ask: Which Azure region?
+        type: string
+        plain:
+          en: "Runs in the Azure region {value}."
+          de: "Läuft in der Azure-Region {value}."
+        required: true
+        from_context: true
+        why: >
+          Part of the rendered name and not inferable. A vault is regional and can only
+          protect resources of its own region; the backups sit in the vault's region and,
+          with geo-redundant storage, its paired region.
+        renders: location
+
+      - id: resource_group_name
+        ask: Which resource group?
+        type: ref
+        plain:
+          en: "Placed in the resource group {value}."
+          de: "Liegt in der Ressourcengruppe {value}."
+        ref: resource_group
+        required: true
+        from_context: true
+        per_environment: true
+        why: >
+          The vault is placed into an existing group. For `isolated` and `immutable` backups
+          it is usually a group of its own with its own access, so that whoever administers
+          the workload's group cannot delete the vault. A `deployment.resource_group_split`
+          role of `security` is the place.
+        renders: resource_group_name (AVM Terraform) / implicit in Bicep scope
+
+  - id: vault
+    title: The vault
+    questions:
+      - id: storage_redundancy
+        ask: How many copies of the backups are kept, and where?
+        type: enum
+        plain:
+          en: "The backups are kept {value}."
+          de: "Die Sicherungen werden {value} aufbewahrt."
+        plain_values:
+          LocallyRedundant: { en: "in one datacenter, three times", de: dreifach in einem Rechenzentrum }
+          ZoneRedundant: { en: in three datacenters of the region, de: in drei Rechenzentren der Region }
+          GeoRedundant: { en: also in a second region, de: zusätzlich in einer zweiten Region }
+        values: [LocallyRedundant, ZoneRedundant, GeoRedundant]
+        derived_from:
+          question: outage_impact
+          map: { tolerable: LocallyRedundant, disruptive: ZoneRedundant, critical: GeoRedundant }
+        non_production_default: LocallyRedundant
+        forced_when: >
+          `data_residency: country` forbids `GeoRedundant` where the paired region lies in
+          another country, recorded as forced with `data_residency` as forced_by.
+        why: >
+          Derived from how bad an outage is. `LocallyRedundant` is three copies in one
+          datacenter; `ZoneRedundant` survives the loss of a datacenter; `GeoRedundant` also
+          copies to the paired region, which `data_residency` can forbid. **It cannot be
+          changed once an item is protected.** Both modules default to geo-redundant - the
+          dearest choice, and one that moves data across a border - so the value is written.
+        renders: storage_mode_type / redundancySettings.standardTierStorageRedundancy
+
+      - id: cross_region_restore
+        ask: May a backup be restored in the second region if the first is lost?
+        type: bool
+        plain:
+          en: "Restoring in the paired region is {value}."
+          de: "Wiederherstellung in der Partnerregion ist {value}."
+        plain_values:
+          true: { en: possible, de: möglich }
+          false: { en: not possible, de: nicht möglich }
+        default: false
+        depends_on: { question: storage_redundancy, equals: GeoRedundant }
+        why: >
+          Only with geo-redundant storage. Without it the geo copy exists but cannot be used
+          until Microsoft declares the primary region failed. The Terraform module defaults
+          to **on**, but the platform only accepts it with `GeoRedundant`, so it is written
+          for every redundancy.
+        renders: cross_region_restore_enabled / redundancySettings.crossRegionRestore
+
+      - id: soft_delete
+        ask: Can a deleted backup be recovered, and can that be switched off?
+        type: enum
+        plain:
+          en: "Deleted backups are {value}."
+          de: "Gelöschte Sicherungen werden {value}."
+        plain_values:
+          Enabled: { en: "kept for a time and recoverable, but administrators can switch that off", de: "eine Zeit lang aufbewahrt und wiederherstellbar, Administratoren können das aber abschalten" }
+          AlwaysOn: { en: "kept for a time and recoverable, and nobody can switch that off", de: "eine Zeit lang aufbewahrt und wiederherstellbar, und niemand kann das abschalten" }
+          Disabled: { en: deleted for good at once, de: sofort endgültig gelöscht }
+        values: [Enabled, AlwaysOn, Disabled]
+        derived_from:
+          question: backup_isolation
+          map: { operational: Enabled, isolated: AlwaysOn, immutable: AlwaysOn }
+        confirm_in: [production]
+        why: >
+          Soft delete keeps a deleted backup recoverable for the retention below. `Enabled`
+          can be turned off by an administrator; `AlwaysOn` cannot be reverted by anyone,
+          which is what an attacker with administrator rights needs to be unable to do.
+          Derived from the isolation answer: ordinary data keeps `Enabled`, an `isolated` or
+          `immutable` store takes `AlwaysOn`. Never `Disabled` outside a vault that holds
+          nothing.
+        renders: >
+          soft_delete_enabled / softDeleteSettings.softDeleteState (`AlwaysON`)
+
+      - id: soft_delete_retention_days
+        ask: How long can a deleted backup still be recovered?
+        type: int
+        plain:
+          en: "A deleted backup can be recovered for {value} days."
+          de: "Eine gelöschte Sicherung lässt sich {value} Tage lang wiederherstellen."
+        derived_from:
+          question: data_loss_tolerance
+          map: { reproducible: 14, one_week: 14, one_month: 30, three_months: 90 }
+        depends_on: { question: soft_delete, not_equals: Disabled }
+        why: >
+          The window, 14 to 180 days. It protects against the deletion of a backup, which
+          `data_loss_tolerance` (how far back a restore reaches) does not. The window is
+          paid for in storage once the backup is deleted.
+        renders: >
+          softDeleteSettings.softDeleteRetentionPeriodInDays (Bicep); a vault property in
+          Terraform, set with the soft-delete state
+
+      - id: immutability
+        ask: Can a backup be changed or deleted before it expires?
+        type: enum
+        plain:
+          en: "Backups are {value}."
+          de: "Sicherungen sind {value}."
+        plain_values:
+          Disabled: { en: ordinary - an administrator can delete them, de: "gewöhnlich: ein Administrator kann sie löschen" }
+          Unlocked: { en: "protected from change, but the protection can still be turned off", de: "vor Änderung geschützt, der Schutz lässt sich aber noch abschalten" }
+          Locked: { en: "protected until they expire, for everyone, for good", de: bis zum Ablauf für alle endgültig geschützt }
+        values: [Disabled, Unlocked, Locked]
+        derived_from:
+          question: backup_isolation
+          map: { operational: Disabled, isolated: Unlocked, immutable: Locked }
+        confirm_in: [production]
+        non_production_default: Unlocked
+        why: >
+          Derived from who must not be able to destroy the copies. `Disabled` leaves the
+          vault ordinary. `Unlocked` makes backups immutable but the setting can still be
+          turned off - the state to test in, and the Terraform module's default. `Locked` is
+          **irreversible**: nobody can shorten a retention or delete a backup before it
+          expires, and a retention set too long is paid for to the last day. Locked is what
+          a ransomware mandate asks for and is raised in production only, after the policy
+          is tested.
+        renders: immutability / immutabilitySettingState
+
+      - id: multi_user_authorization
+        ask: Must a second person from another team approve deleting backups?
+        type: bool
+        plain:
+          en: "Deleting backups {value}."
+          de: "Das Löschen von Sicherungen {value}."
+        plain_values:
+          true: { en: needs approval from a second team, de: braucht die Freigabe eines zweiten Teams }
+          false: { en: needs no second approval, de: braucht keine zweite Freigabe }
+        derived_from:
+          question: backup_isolation
+          map: { operational: false, isolated: true, immutable: true }
+        confirm_in: [production]
+        non_production_default: false
+        why: >
+          A Resource Guard in a different subscription owned by a security team: a critical
+          operation (delete a backup, disable soft delete, reduce a retention) needs an
+          approval from whoever holds the guard, so a compromised administrator of the
+          workload cannot erase the copies. Derived from the isolation answer.
+        renders: >
+          resource_guard_id, resource_guard_association_enabled /
+          resourceGuardOperationRequests
+
+      - id: resource_guard
+        ask: Which Resource Guard protects the vault?
+        type: ref
+        plain:
+          en: "The approving guard is {value}."
+          de: "Die freigebende Schutzinstanz ist {value}."
+        ref: resource_guard
+        required: true
+        depends_on: { question: multi_user_authorization, equals: true }
+        per_environment: true
+        why: >
+          The id of the guard in the security team's subscription; the vault's identity
+          needs `Reader` on it. Nobody on the workload team can create it, so it is an
+          `open:` entry owned by the security team when the request did not name one.
+        renders: resource_guard_id / resourceGuardOperationRequests
+
+      - id: job_failure_alerts
+        ask: Should a failed backup raise an alert?
+        type: bool
+        plain:
+          en: "A failed backup {value}."
+          de: "Eine fehlgeschlagene Sicherung {value}."
+        plain_values:
+          true: { en: raises an alert, de: löst eine Warnung aus }
+          false: { en: is not reported, de: wird nicht gemeldet }
+        default: true
+        why: >
+          A backup nobody knows failed is not a backup. The built-in alert fires on each
+          failed job and costs nothing; both modules default to on for job failures, written
+          anyway.
+        renders: >
+          alerts_for_all_job_failures_enabled / monitoringSettings.azureMonitorAlertSettings
+
+  - id: protection
+    title: What is protected
+    questions:
+      - id: protected_resources
+        ask: Which machines or file shares should the vault back up?
+        type: list
+        plain:
+          en: "Backed up: {value} (empty: nothing yet)."
+          de: "Gesichert werden: {value} (leer: noch nichts)."
+        default: []
+        why: >
+          Each entry names a virtual machine or an Azure Files share of the deployment and
+          the policy that applies. A vault with no protected item protects nothing, which is
+          a valid first state; the pattern adds each resource.
+        renders: backup_protected_vm, backup_protected_file_share / protectedItems
+
+      - id: backup_schedule
+        ask: How often should a backup be taken?
+        type: enum
+        plain:
+          en: "A backup is taken {value}."
+          de: "Eine Sicherung wird {value} erstellt."
+        plain_values:
+          daily: { en: every day, de: täglich }
+          weekly: { en: every week, de: wöchentlich }
+        values: [daily, weekly]
+        default: daily
+        why: >
+          The recovery point objective in the vault's terms. Daily is the default and what
+          most workloads accept; weekly suits slow-changing data. Several a day is the
+          *enhanced* policy, which a mission-critical VM asks for and which cannot be
+          converted back.
+        renders: >
+          vm_backup_policy.<k>.frequency / backupPolicies[].properties.schedulePolicy
+
+      - id: retention_days
+        ask: How long must a backup be kept?
+        type: int
+        plain:
+          en: "A backup is kept for {value} days."
+          de: "Eine Sicherung wird {value} Tage aufbewahrt."
+        derived_from:
+          question: data_loss_tolerance
+          map: { reproducible: 7, one_week: 30, one_month: 60, three_months: 120 }
+        non_production_default: 7
+        why: >
+          Derived from how far back a restore must reach. This is the retention of the
+          backup itself, not the soft-delete window: a mistake noticed after it has passed
+          is not recoverable from the vault. Longer retention costs storage per day kept,
+          and with `Locked` immutability it cannot be shortened.
+        renders: >
+          vm_backup_policy.<k>.retention_daily_count /
+          backupPolicies[].properties.retentionPolicy
+
+  - id: networking
+    title: Networking
+    questions:
+      - id: public_network_access
+        ask: Should this vault depart from the deployment's exposure posture?
+        type: enum
+        plain:
+          en: "The vault is {value}."
+          de: "Der Dienst (vault) ist {value}."
+        plain_values:
+          disabled: { en: not reachable from the internet at all, de: aus dem Internet überhaupt nicht erreichbar }
+          enabled_with_firewall: { en: reachable from the internet only from listed addresses, de: aus dem Internet nur von gelisteten Adressen erreichbar }
+          enabled: { en: reachable from the internet, de: aus dem Internet erreichbar }
+        values: [disabled, enabled_with_firewall, enabled]
+        from_deployment: network_exposure
+        confirm_in: [production]
+        forced_when: >
+          `network_ownership: none` (a public deployment without a network) forces
+          `enabled`, recorded as forced with `network_ownership` as forced_by: the
+          deployment's callers have no fixed outbound address, so a firewall with no rule
+          locks them out.
+        why: >
+          Asked only as a departure: exposure is a property of the system, the deployment
+          set already answered it. `private` is `disabled`, `public` is
+          `enabled_with_firewall`. A bare `enabled` is a deliberate choice for a consumer
+          that cannot be given an address in advance. The Terraform module defaults to
+          **public access on**, the Bicep module to **off**, so it is written. A closed
+          vault needs the backup path through the private endpoint: the protected resources
+          reach it from the network, and the DNS zones for the backup service.
+        renders: >
+          terraform: public_network_access_enabled (bool); bicep: publicNetworkAccess
+
+      - id: private_endpoint_subnet
+        ask: Which subnet should the vault's private endpoint live in?
+        type: ref
+        resolved_by: platform
+        plain:
+          en: "Its private connection lands in subnet {value}."
+          de: "Seine private Anbindung landet im Subnetz {value}."
+        ref: subnet
+        from_deployment: private_endpoint_subnet
+        per_environment: true
+        why: >
+          One subnet carries the deployment's private endpoints, so this is inherited. The
+          sub-resource is `AzureBackup`; there is no list to choose from.
+        renders: >
+          private_endpoints.<key>.subnet_resource_id / privateEndpoints[].subnetResourceId
+
+  - id: encryption
+    title: Encryption
+    questions:
+      - id: key_management
+        ask: Platform-managed or customer-managed encryption keys?
+        type: enum
+        plain:
+          en: "Encryption keys are {value}."
+          de: "Verschlüsselungsschlüssel sind {value}."
+        plain_values:
+          platform_managed: { en: "managed by Azure - encrypted, rotated, no effort on your side", de: "von Azure verwaltet: verschlüsselt, rotiert, kein Aufwand bei euch" }
+          customer_managed: { en: "your own, held in your key vault, so you can revoke them", de: "eure eigenen in eurem Schlüsseltresor, damit ihr sie zurückziehen könnt" }
+        values: [platform_managed, customer_managed]
+        from_deployment: key_management
+        why: >
+          Inherited: one answer per system. `customer_managed` points the vault at a key in
+          the customer's vault and needs a user-assigned identity with wrap and unwrap on
+          it. Revoking the key makes every backup in the vault unreadable.
+        renders: customerManagedKey (Bicep); a vault property in Terraform
+
+      - id: cmk_key_vault_key_id
+        ask: Which Key Vault key should encrypt the vault?
+        type: ref
+        plain:
+          en: "Encrypted with your key {value}."
+          de: "Verschlüsselt mit eurem Schlüssel {value}."
+        ref: key_vault_key
+        required: true
+        depends_on: { question: key_management, equals: customer_managed }
+        per_environment: true
+        why: >
+          The key must exist and the vault's user-assigned identity must hold wrap and
+          unwrap on it before the key is set; the key vault must have soft delete and purge
+          protection.
+        renders: customerManagedKey.keyName + keyVaultResourceId
+
+      - id: managed_identity
+        ask: Which managed identity should the vault carry?
+        type: enum
+        plain:
+          en: "The vault has {value}."
+          de: "Der Tresor hat {value}."
+        plain_values:
+          none: { en: no identity of its own, de: keine eigene Identität }
+          system_assigned: { en: its own identity, de: eine eigene Identität }
+          user_assigned: { en: a separately managed identity, de: eine separat verwaltete Identität }
+        values: [none, system_assigned, user_assigned]
+        default: system_assigned
+        forced_when: >
+          `key_management: customer_managed` forces `user_assigned`, or `system_assigned`
+          where `public_network_access: disabled` (a user-assigned key identity does not
+          work with private endpoints for backup), recorded as forced with `key_management`
+          as forced_by
+        why: >
+          A system-assigned identity is the vault's own, exists with the vault, and is what
+          protected resources (a file share's storage account) grant their backup roles to.
+          A customer-managed key needs the key role before the key is set, which a user-
+          assigned identity allows - but **a vault whose key is read through a user-assigned
+          identity cannot use private endpoints for backup**, so a private vault with a
+          customer-managed key takes `system_assigned` and the key role is granted in a
+          second step.
+        renders: managed_identities / managedIdentities
+
+  - id: identity
+    title: Identity and access
+    questions:
+      - id: role_assignments
+        ask: Who needs which role on this vault?
+        type: list
+        plain:
+          en: "Access rights on the vault granted to: {value}."
+          de: "Zugriffsrechte vergeben an: {value}."
+        default: []
+        per_environment: true
+        why: >
+          Data-plane access is granted by role, never by key. The narrow roles are `Backup
+          Reader` to see jobs and items, `Backup Operator` to run and restore, and `Backup
+          Contributor` to manage policies; `Owner` and `Contributor` can also delete the
+          vault and are not for a workload. Scope to the narrowest resource the consumer
+          needs, never the subscription. A pattern normally fills this from the consumers it
+          knows about and grants a consumer's role in the pattern, not here. The vault's own
+          identity needs a role on each protected resource - that is wiring, owned by the
+          pattern, not listed here.
+        renders: role_assignments / roleAssignments
+
+  - id: observability
+    title: Observability
+    questions:
+      - id: diagnostic_workspace
+        ask: Which Log Analytics workspace should receive diagnostics?
+        type: ref
+        resolved_by: platform
+        plain:
+          en: "Its logs go to {value}."
+          de: "Seine Logs gehen in {value}."
+        ref: log_analytics_workspace
+        from_deployment: diagnostics_destination
+        per_environment: true
+        why: >
+          Inherited: one deployment, one destination. Without a diagnostic setting the
+          resource keeps no record anyone can query.
+        renders: diagnostic_settings / diagnosticSettings
+
+      - id: diagnostic_categories
+        ask: Which log categories should be collected?
+        type: list
+        plain:
+          en: "Logged: {value}."
+          de: "Geloggt wird: {value}."
+        plain_values:
+          CoreAzureBackup: { en: "backup items, jobs and policies as a reporting table", de: "Sicherungselemente, Aufträge und Richtlinien als Berichtstabelle" }
+          AddonAzureBackupJobs: { en: every backup and restore job and its result, de: jeder Sicherungs- und Wiederherstellungsauftrag und sein Ergebnis }
+          AddonAzureBackupAlerts: { en: alerts the service raises, de: vom Dienst ausgelöste Warnungen }
+          AddonAzureBackupPolicy: { en: the backup policies in force, de: die geltenden Sicherungsrichtlinien }
+          AddonAzureBackupProtectedInstance: { en: which resources are protected and in which state, de: welche Ressourcen geschützt sind und in welchem Zustand }
+        values: [CoreAzureBackup, AddonAzureBackupJobs, AddonAzureBackupAlerts, AddonAzureBackupPolicy, AddonAzureBackupProtectedInstance]
+        default: [CoreAzureBackup, AddonAzureBackupJobs, AddonAzureBackupAlerts, AddonAzureBackupProtectedInstance]
+        why: >
+          Job results are the record that a backup ran - the one thing nobody checks until a
+          restore is needed - and are small. The reporting tables (`CoreAzureBackup`,
+          `AddonAzureBackupProtectedInstance`) feed the Backup Center and the compliance
+          view. The category names are the same across both vault types. The names are the
+          platform's and are checked against `az monitor diagnostic-settings categories
+          list` for the resource before a render, not remembered.
+        renders: >
+          diagnostic_settings.<key>.logs[].category /
+          diagnosticSettings[].logCategoriesAndGroups[].category
+
+      - id: metrics_enabled
+        ask: Should all metrics be collected?
+        type: bool
+        plain:
+          en: "Usage and performance figures are {value}."
+          de: "Nutzungs- und Leistungswerte werden {value}."
+        plain_values:
+          true: { en: collected, de: erfasst }
+          false: { en: not collected, de: nicht erfasst }
+        default: true
+        why: >
+          Backup health and restore health - the failed-backup count is the number to alert
+          on, because a vault that quietly stopped backing up looks the same as a healthy
+          one.
+        renders: metrics[].category = "AllMetrics" / metricCategories[].category
+

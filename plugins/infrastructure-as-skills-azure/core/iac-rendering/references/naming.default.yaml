@@ -272,6 +272,7 @@ abbreviations:
     Microsoft.EventGrid/namespaces::default: evgns
     Microsoft.EventGrid/eventSubscriptions::default: evgs
     Microsoft.EventGrid/domains/topics::default: evgt
+    Microsoft.EventGrid/topics::default: evt
     Microsoft.EventGrid/systemTopics::default: egst
 
     # HDInsight/clusters::default: hadoop
@@ -498,7 +499,9 @@ abbreviations:
     Microsoft.DataProtection/backupVaults::default: bvault
     Microsoft.DataProtection/backupVaults/backupPolicies::default: bkpol
     Microsoft.DataProtection/resourceGuards::default: rgd
+    Microsoft.Storage/storageAccounts/blobServices/containers::default: cont
     Microsoft.Storage/storageAccounts/fileServices/shares::default: share
+    Microsoft.Storage/storageAccounts/queueServices/queues::default: stq
     Microsoft.Storage/storageAccounts::default: st
     Microsoft.Storage/storageAccounts::vm: stvm
     Microsoft.StorageSync/storageSyncServices::default: sss

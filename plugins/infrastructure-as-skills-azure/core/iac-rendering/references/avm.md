@@ -90,6 +90,15 @@ current one before rendering (next section).
 | Application Insights | `avm-res-insights-component` v0.5.0 | `avm/res/insights/component` 0.8.0 | Terraform module AzAPI only (`azapi`, `time`). Modules disagree: IP masking (`false` / `true` stores IPs), retention (90 / 365); both default public ingestion/query on and local auth off. Looked up 2026-10-23 |
 | Network security group | `avm-res-network-networksecuritygroup` v0.6.0 | `avm/res/network/network-security-group` 0.5.4 | Terraform module AzAPI only. Looked up 2026-10-23 |
 | Resource group | `avm-res-resources-resourcegroup` v0.4.0 | `avm/res/resources/resource-group` 0.4.4 | Rendered per role whose `resource_group_mode_<role>` is `create`; an `existing` group is only read. See [resource-groups.md](resource-groups.md) |
+| Service Bus namespace | `avm-res-servicebus-namespace` 0.4.0 | `avm/res/service-bus/namespace` 0.17.1 | Terraform module `azurerm`-based (`~> 4.14`, no `azapi`). **Modules disagree on defaults:** SAS local auth (on / off), trusted-service bypass (off / on), public access (on / unset); both default to Premium and double encryption. No Terraform input for zone redundancy or geo-recovery. Looked up 2026-10-25 |
+| Event Hubs namespace | `avm-res-eventhub-namespace` 0.1.1 | `avm/res/event-hub/namespace` 0.15.2 | Terraform module AzAPI with `azurerm ~> 4.0`; no input for TLS minimum, double encryption, zone redundancy, consumer groups or geo pairing, and `network_rulesets` is documented as Premium-only. Bicep zone redundancy defaults to true. Looked up 2026-10-25 |
+| Event Grid topic | `avm-res-eventgrid-topic` 0.1.1 | `avm/res/event-grid/topic` 0.10.0 | Terraform module AzAPI with `azurerm ~> 4.0`. Modules disagree on public access (`Disabled` / unset). Looked up 2026-10-25 |
+| API Management service | `avm-res-apimanagement-service` 0.1.0 | `avm/res/api-management/service` 0.15.0 | Terraform module AzAPI with `azurerm >= 4.0, < 5.0`. **Modules disagree on the tier:** Terraform `Developer_1`, Bicep `Premium` with 3 units. Placeholder publisher name in Terraform. Looked up 2026-10-25 |
+| Application Gateway | `avm-res-network-applicationgateway` 0.5.3 | `avm/res/network/application-gateway` 0.10.0 | Terraform module AzAPI with `azurerm >= 3.117, < 5.0` and Terraform `>= 1.12`. The firewall policy is a separate module in both targets. Bicep defaults to `WAF_v2` with a fixed capacity of 2. Looked up 2026-10-25 |
+| Application Gateway WAF policy | `avm-res-network-applicationgatewaywebapplicationfirewallpolicy` 0.2.0 | `avm/res/network/application-gateway-web-application-firewall-policy` 0.3.0 | Terraform module `azurerm`-based (`~> 4.2`). Looked up 2026-10-25 |
+| Front Door (Standard / Premium) | `avm-res-cdn-profile` 0.1.9 | `avm/res/cdn/profile` 0.20.0 | The CDN profile module carries Front Door. Terraform AzAPI with `azurerm ~> 4.0`, firewall policy inside the module; Bicep takes the policy from `avm/res/network/front-door-web-application-firewall-policy` 0.3.3. Response timeout 120 / 60. The Bicep `avm/res/network/front-door` module is **Deprecated**. Looked up 2026-10-25 |
+| Backup vault (Data Protection) | `avm-res-dataprotection-backupvault` 2.0.9 | `avm/res/data-protection/backup-vault` 0.13.3 | Terraform module AzAPI with `azurerm >= 4.2, < 6.0` (works on 5.x). Soft delete is always on in the current API version. The Bicep module has no Resource Guard parameter. Looked up 2026-10-25 |
+| Recovery Services vault | `avm-res-recoveryservices-vault` 1.3.3 | `avm/res/recovery-services/vault` 0.13.2 | Terraform module **AzAPI only** (no `azurerm`). Modules disagree on public access (on / off) and cross-region restore (on / unset); both default to geo-redundant storage. Looked up 2026-10-25 |
 
 Pattern modules worth knowing when `patterns/` fills: `avm-ptn-network-private-link-private-dns-zones`
 / `avm/ptn/network/private-link-private-dns-zones` (the privatelink zones a
@@ -134,13 +143,21 @@ that lands in one of these lands the same way on every resource:
 | `private_endpoint_subnet`, `private_endpoint_subresources` | `private_endpoints = { <key> = { subnet_resource_id, subresource_name, name } }` | `privateEndpoints: [ { service, subnetResourceId, name } ]` |
 | `deployment.private_dns_records: policy` | `private_endpoints_manage_dns_zone_group = false` and no `private_dns_zone_resource_ids` | no `privateDnsZoneGroup` on the endpoint |
 | `deployment.private_dns_records: deployment` | `private_dns_zone_resource_ids = [<zone id>]` per endpoint | `privateDnsZoneGroup: { privateDnsZoneGroupConfigs: [ { privateDnsZoneResourceId } ] }` |
-| `diagnostic_workspace`, `diagnostic_categories`, `metrics_enabled` | `diagnostic_settings = { <key> = { workspace_resource_id, logs = [{ category_group }], metrics = [{ category }] } }` (per-service variants where the resource has them, e.g. `diagnostic_settings_blob`) | `diagnosticSettings: [ { workspaceResourceId, logCategoriesAndGroups: [ { categoryGroup } ], metricCategories: [ { category } ] } ]` (nested under the service object where the resource has them, e.g. `blobServices.diagnosticSettings`) |
+| `diagnostic_workspace`, `diagnostic_categories`, `metrics_enabled` | `diagnostic_settings = { <key> = { workspace_resource_id, log_categories, log_groups, metric_categories } }` (sets of names; `log_groups` defaults to `["allLogs"]`, so it is set empty beside `log_categories`). **Three modules use the older object form** - `logs = [{ category }]`, `metrics = [{ category }]` - namely `web-site`, `web-serverfarm` and `insights-component`, and the storage account's per-service variants (`diagnostic_settings_blob`); read the Type block of the pinned version | `diagnosticSettings: [ { workspaceResourceId, logCategoriesAndGroups: [ { categoryGroup } ], metricCategories: [ { category } ] } ]` (nested under the service object where the resource has them, e.g. `blobServices.diagnosticSettings`) |
 | `managed_identity` | `managed_identities = { system_assigned = true, user_assigned_resource_ids = [] }` | `managedIdentities: { systemAssigned: true, userAssignedResourceIds: [] }` |
 | `role_assignments` | `role_assignments = { <key> = { role_definition_id_or_name, principal_id, principal_type } }` | `roleAssignments: [ { roleDefinitionIdOrName, principalId, principalType } ]` |
 | `key_management: customer_managed` | `customer_managed_key = { key_vault_resource_id, key_name, user_assigned_identity = { resource_id } }` | `customerManagedKey: { keyVaultResourceId, keyName, userAssignedIdentityResourceId }` |
-| deletion lock (not a question yet) | `lock = { kind = "CanNotDelete" }` | `lock: { kind: 'CanNotDelete' }` |
+| `deployment.resource_lock` | `lock = { kind = "CanNotDelete" }` | `lock: { kind: 'CanNotDelete' }` |
 | `context.tags` | `tags = local.tags` | `tags: tags` |
 | `deployment.module_telemetry` | `enable_telemetry = true` / `false` | `enableTelemetry: true` / `false` |
+
+**Which resources are locked.** `deployment.resource_lock` puts a `CanNotDelete` lock, in the
+stages it names, on the resources whose loss cannot be undone from the spec: `storage-account`,
+`cosmos-db`, `key-vault`, `backup-vault`, `recovery-services-vault`, `log-analytics-workspace`,
+`service-bus`, `event-hubs`, `container-registry` and `search-service`. Compute, identities, network
+resources and network security groups carry none - a lock on a virtual network also blocks changing
+its subnets. A lock blocks `terraform destroy` and removing the resource from the spec; the
+handover says that the lock comes off first.
 
 Map keys on the Terraform side are arbitrary and stable — use the decision's own key
 (`blob`, `file`) so the resource address reads as the decision does. Role assignments take

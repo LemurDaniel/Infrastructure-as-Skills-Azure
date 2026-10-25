@@ -1,0 +1,650 @@
+schema_version: 1
+
+resource: Microsoft.EventHub/namespaces
+title: Azure Event Hubs namespace
+
+naming:
+  terraform: "Azure::Microsoft.EventHub/namespaces"
+  bicep: "Microsoft.EventHub/namespaces"
+  # Bicep assembles the name from vars - this is the prefix it renders. The name is global and limited to 50 characters.
+  abbreviation: "evhns"
+
+boundaries:
+  - "Does not create the resource group. Expects one from the spec's context."
+  - "Does not create private DNS zones - shared infrastructure, owned by a pattern or the platform (`privatelink.servicebus.windows.net`, shared with Service Bus)."
+  - "Does not create the Log Analytics workspace it routes diagnostics to, nor the storage account that receives Capture."
+  - "Does not grant the producers and consumers their roles - that is wiring between resources, owned by a pattern. It records the namespace's own role assignments in `role_assignments`."
+  - "Does not render SAS authorization rules or connection strings. With `local_auth: disabled` there are none."
+  - "Does not create Event Hubs Dedicated clusters or schema registry groups. A dedicated cluster is a separate resource with its own cost model; a request for one is said out loud."
+
+groups:
+
+  - id: placement
+    title: Placement
+    questions:
+      - id: environments
+        ask: Which stages is this deployed to?
+        type: list
+        plain:
+          en: "Deployed in the stages {value}."
+          de: "Wird in den Stufen {value} ausgerollt."
+        values: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
+        required: true
+        from_context: true
+        why: >
+          Drives the rendered name and the strictness of several defaults below. Nothing
+          sensible can be guessed.
+        renders: >
+          naming parameter `environment`, and the tag of that name where the repository uses
+          one
+
+      - id: location
+        ask: Which Azure region?
+        type: string
+        plain:
+          en: "Runs in the Azure region {value}."
+          de: "Läuft in der Azure-Region {value}."
+        required: true
+        from_context: true
+        why: >
+          Part of the rendered name and not inferable. A namespace is regional; the events
+          stay in the region unless a geo pairing (`geo_recovery`) copies the metadata to
+          another.
+        renders: location
+
+      - id: resource_group_name
+        ask: Which resource group?
+        type: ref
+        plain:
+          en: "Placed in the resource group {value}."
+          de: "Liegt in der Ressourcengruppe {value}."
+        ref: resource_group
+        required: true
+        from_context: true
+        per_environment: true
+        why: >
+          The namespace is placed into an existing group. Creating one here would make this
+          set own a lifecycle wider than the resource it describes.
+        renders: resource_group_name (AVM Terraform) / implicit in Bicep scope
+
+  - id: namespace
+    title: The namespace
+    questions:
+      - id: sku
+        ask: Which tier does the event stream need?
+        type: enum
+        plain:
+          en: "The namespace is the {value} tier."
+          de: "Der Namensraum ist die Stufe {value}."
+        plain_values:
+          Basic: { en: "basic, one reader group and a day of history", de: "Basic, eine Lesergruppe und ein Tag Historie" }
+          Standard: { en: "standard, several reader groups, up to a week of history and private connections", de: "Standard, mehrere Lesergruppen, bis zu einer Woche Historie und private Anbindung" }
+          Premium: { en: "premium, dedicated capacity with the strongest isolation", de: "Premium, dedizierte Kapazität mit der stärksten Isolation" }
+        values: [Basic, Standard, Premium]
+        default: Standard
+        confirm_in: [production]
+        forced_when: >
+          `network_exposure: private`, `event_archive: true`, `message_retention_days` above
+          1 and `key_management: customer_managed` each force at least `Standard`, recorded
+          as forced with that question as forced_by. `infrastructure_encryption: true`
+          forces `Premium`.
+        why: >
+          Basic is one consumer group, one-day retention and no private endpoint, no
+          capture, no Kafka. Standard adds consumer groups, retention up to seven days,
+          capture, Kafka and the firewall and private endpoint, billed in throughput units.
+          Premium is dedicated processing units with longer retention, zone-resilient
+          capacity and the strongest isolation. Both AVM modules default to **Standard**.
+          The tier can be raised from Basic to Standard; Premium is a new namespace.
+        renders: >
+          sku / skuName (`Basic`, `Standard`, `Premium`)
+
+      - id: capacity
+        ask: How many throughput units (Standard) or processing units (Premium) does the namespace reserve?
+        type: int
+        plain:
+          en: "The namespace reserves {value} capacity unit(s)."
+          de: "Der Namensraum reserviert {value} Kapazitätseinheit(en)."
+        default: 1
+        non_production_default: 1
+        why: >
+          One throughput unit carries 1 MB/s or 1,000 events/s in and twice that out; a
+          processing unit is a Premium unit of dedicated capacity (1, 2, 4, 8 or 16). The
+          count is billed around the clock, so the floor of 1 is the default and the number
+          comes from a measured load; auto-inflate is the safety valve for a Standard
+          namespace that is outgrown. Basic takes the Standard unit count.
+        renders: capacity / skuCapacity
+
+      - id: auto_inflate
+        ask: Should the namespace add capacity itself when the load grows?
+        type: bool
+        plain:
+          en: "Capacity {value} when the load grows."
+          de: "Die Kapazität {value}, wenn die Last wächst."
+        plain_values:
+          true: { en: grows by itself up to a limit, de: wächst selbst bis zu einer Grenze }
+          false: { en: stays as reserved, de: bleibt wie reserviert }
+        default: false
+        depends_on: { question: sku, equals: Standard }
+        why: >
+          Auto-inflate raises the throughput units up to a ceiling when traffic exceeds the
+          reserved capacity, and **does not scale back down on its own**. Without it a burst
+          is throttled, which senders see as server-busy errors. Standard only; it makes the
+          bill follow the peak, which is why it needs a ceiling.
+        renders: >
+          auto_inflate_enabled, maximum_throughput_units / isAutoInflateEnabled,
+          maximumThroughputUnits
+
+      - id: maximum_throughput_units
+        ask: What is the ceiling for automatic growth?
+        type: int
+        plain:
+          en: "Automatic growth stops at {value} throughput units."
+          de: "Das automatische Wachstum endet bei {value} Durchsatzeinheiten."
+        default: 10
+        depends_on: { question: auto_inflate, equals: true }
+        why: >
+          The most the namespace may grow to, 1 to 40. A ceiling is the point of the cost
+          control: without one a runaway sender is paid for until someone notices. 10 is
+          room for a tenfold burst on a small namespace.
+        renders: maximum_throughput_units / maximumThroughputUnits
+
+      - id: minimum_tls_version
+        ask: Which TLS version is the lowest a client may use?
+        type: enum
+        plain:
+          en: "Clients must use at least TLS {value}."
+          de: "Clients müssen mindestens TLS {value} verwenden."
+        values: ["1.0", "1.1", "1.2"]
+        default: "1.2"
+        why: >
+          1.2 is the guardrails' floor. The Bicep module defaults to it; **the Terraform
+          module has no input for it**, so a Terraform render leaves the platform default
+          (also 1.2 for new namespaces) and records the gap in the handover. Azure retired TLS
+          below 1.2 in 2025 and the azurerm provider accepts only `1.2`, so `1.0` and `1.1` are
+          values the platform may refuse.
+        renders: minimumTlsVersion (Bicep); no input in the Terraform module
+
+      - id: local_auth
+        ask: Should shared access signatures (keys and connection strings) work?
+        type: enum
+        plain:
+          en: "Access keys and connection strings are {value}."
+          de: "Zugriffsschlüssel und Verbindungszeichenfolgen sind {value}."
+        plain_values:
+          disabled: { en: switched off, de: abgeschaltet }
+          allowed_where_unavoidable: { en: allowed on this namespace, de: auf diesem Namensraum erlaubt }
+        values: [disabled, allowed_where_unavoidable]
+        from_deployment: local_auth
+        why: >
+          Inherited: `local_auth: disabled` renders as local authentication off, so every
+          producer and consumer signs in with Entra ID. Both modules default to off; written
+          anyway. Terraform expresses it positively (`local_authentication_enabled`), Bicep
+          negatively (`disableLocalAuth`). Kafka clients then need OAuth, not a connection
+          string.
+        renders: local_authentication_enabled (inverse) / disableLocalAuth
+
+      - id: managed_identity
+        ask: Which managed identity should the namespace carry?
+        type: enum
+        plain:
+          en: "The namespace has {value}."
+          de: "Der Namensraum hat {value}."
+        plain_values:
+          none: { en: no identity of its own, de: keine eigene Identität }
+          system_assigned: { en: its own identity, de: eine eigene Identität }
+          user_assigned: { en: a separately managed identity, de: eine separat verwaltete Identität }
+        values: [none, system_assigned, user_assigned]
+        default: none
+        forced_when: >
+          `key_management: customer_managed` forces `user_assigned`, recorded as forced with
+          `key_management` as forced_by
+        why: >
+          A namespace needs an identity of its own for two things: reading a customer-
+          managed key, and writing Capture files to a storage account without a key.
+          Producers and consumers use their own identities. A customer-managed key needs the
+          identity to hold its role on the key before the key is set, which is why that case
+          is `user_assigned`.
+        renders: managed_identities / managedIdentities
+
+      - id: user_assigned_identity_ids
+        ask: Which user-assigned identity?
+        type: list
+        plain:
+          en: "It uses the identity {value}."
+          de: "Es nutzt die Identität {value}."
+        ref: user_assigned_identity
+        required: true
+        depends_on: { question: managed_identity, equals: user_assigned }
+        per_environment: true
+        why: >
+          The identity that holds `Key Vault Crypto Service Encryption User` on the key, and
+          `Storage Blob Data Contributor` on the Capture container. It is created before the
+          namespace, by the identity set.
+        renders: >
+          managed_identities.user_assigned_resource_ids /
+          managedIdentities.userAssignedResourceIds
+
+  - id: entities
+    title: Event hubs
+    questions:
+      - id: event_hubs
+        ask: Which event hubs (streams) should the namespace hold?
+        type: list
+        plain:
+          en: "Event hubs: {value}."
+          de: "Event Hubs: {value}."
+        required: true
+        why: >
+          One event hub is one stream with its own partitions and retention, named for what
+          flows through it (`telemetry`, `orders`). The names are part of the workload's
+          contract with its producers and consumers, so they are asked. At least one is
+          needed: an empty namespace carries nothing. All of them take the settings below.
+        renders: event_hubs / eventhubs
+
+      - id: partition_count
+        ask: How many readers must be able to process the stream in parallel?
+        type: int
+        resolved_by: interview
+        plain:
+          en: "The stream can be processed by up to {value} readers at once."
+          de: "Der Datenstrom kann von bis zu {value} Lesern gleichzeitig verarbeitet werden."
+        default: 4
+        why: >
+          The customer's way of asking for **partitions**. A partition is an ordered lane of
+          the stream, and one reader of a consumer group reads one lane, so the count is the
+          ceiling of parallelism and fixes the order guarantee (events with the same key
+          stay in order within a lane). It is **fixed at creation** on Basic and Standard
+          and can only be raised on Premium, never lowered. Too few caps the consumers for
+          good; too many costs nothing per lane but spreads a small load thin. 4 is a sound
+          start; 32 is the Standard ceiling.
+        renders: partition_count / partitionCount
+
+      - id: message_retention_days
+        ask: How long must events stay readable for a consumer that falls behind?
+        type: int
+        resolved_by: interview
+        plain:
+          en: "Events stay readable for {value} day(s)."
+          de: "Ereignisse bleiben {value} Tag(e) lesbar."
+        default: 1
+        why: >
+          The window in which a consumer that was down can catch up. After it the events are
+          gone from the stream (an archive, if asked for, keeps them). Basic and Standard
+          top out at one and seven days; Premium goes to ninety. A day covers a night and a
+          failed deploy, a week covers a long weekend and a slow fix. Long retention raises
+          the stored volume and with Premium the cost.
+        renders: message_retention / messageRetentionInDays
+
+      - id: consumer_groups
+        ask: Which independent readers need their own view of the stream?
+        type: list
+        plain:
+          en: "Reader groups: {value} (empty: the default group only)."
+          de: "Lesergruppen: {value} (leer: nur die Standardgruppe)."
+        default: []
+        why: >
+          A consumer group is one reader's position in the stream: two applications that
+          must each see every event need two groups; two instances of one application share
+          one. Every namespace has `$Default`. Naming a group per reader keeps them from
+          stealing each other's checkpoints, which is the usual fault. Basic has the default
+          group only; Standard allows 20 per event hub.
+        renders: consumergroups
+
+      - id: event_archive
+        ask: Must every event also be kept as a file for later analysis?
+        type: bool
+        resolved_by: interview
+        plain:
+          en: "Every event is {value}."
+          de: "Jedes Ereignis wird {value}."
+        plain_values:
+          true: { en: also archived as files in storage, de: zusätzlich als Dateien im Speicher archiviert }
+          false: { en: not archived, de: nicht archiviert }
+        default: false
+        why: >
+          The customer's way of asking for **Capture**: the namespace writes the stream to
+          Blob Storage in Avro files at a time or size interval, with no reader to build. It
+          is the way to keep raw events past the retention window or to feed a data lake.
+          Standard and above; it costs per throughput unit and the storage. Needs a storage
+          account and container, a role for the namespace's identity on it, and the account
+          must be in the same region family for the private path.
+        renders: capture_description / captureDescription
+
+      - id: archive_storage_account
+        ask: Which storage account receives the archive?
+        type: ref
+        plain:
+          en: "The archive goes to the storage account {value}."
+          de: "Das Archiv geht in das Speicherkonto {value}."
+        ref: storage_account
+        required: true
+        depends_on: { question: event_archive, equals: true }
+        per_environment: true
+        why: >
+          A storage account in the deployment, written by the namespace's identity with
+          `Storage Blob Data Contributor` on the container (Capture uses managed identity,
+          not a key). The account's own network rules must let the namespace through: the
+          trusted-service path or a private endpoint.
+        renders: >
+          capture_description.destination.storage_account_id /
+          captureDescription.destination.properties.storageAccountResourceId
+
+      - id: archive_container
+        ask: In which container are the archive files written?
+        type: string
+        plain:
+          en: "Archive files go to the container {value}."
+          de: "Archivdateien gehen in den Container {value}."
+        default: eventhub-capture
+        depends_on: { question: event_archive, equals: true }
+        why: >
+          The container is created by the storage set (blob container); this names it. One
+          container per event hub keeps the retention and access separate.
+        renders: >
+          capture_description.destination.blob_container_name /
+          captureDescription.destination.properties.blobContainerName
+
+      - id: archive_interval_seconds
+        ask: How often is the archive file written?
+        type: int
+        plain:
+          en: "A file is written every {value} seconds."
+          de: "Alle {value} Sekunden wird eine Datei geschrieben."
+        default: 300
+        depends_on: { question: event_archive, equals: true }
+        why: >
+          The time window of one Avro file, 60 to 900 seconds (a size limit closes it
+          earlier). 300 seconds is the default: files small enough to be current, large
+          enough not to flood the container with thousands of tiny blobs a day.
+        renders: >
+          capture_description.interval_in_seconds / captureDescription.intervalInSeconds
+
+  - id: networking
+    title: Networking
+    questions:
+      - id: public_network_access
+        ask: Should this namespace depart from the deployment's exposure posture?
+        type: enum
+        plain:
+          en: "The namespace is {value}."
+          de: "Der Dienst (namespace) ist {value}."
+        plain_values:
+          disabled: { en: not reachable from the internet at all, de: aus dem Internet überhaupt nicht erreichbar }
+          enabled_with_firewall: { en: reachable from the internet only from listed addresses, de: aus dem Internet nur von gelisteten Adressen erreichbar }
+          enabled: { en: reachable from the internet, de: aus dem Internet erreichbar }
+        values: [disabled, enabled_with_firewall, enabled]
+        from_deployment: network_exposure
+        confirm_in: [production]
+        forced_when: >
+          `network_ownership: none` (a public deployment without a network) forces
+          `enabled`, recorded as forced with `network_ownership` as forced_by: the
+          deployment's callers have no fixed outbound address, so a firewall with no rule
+          locks them out.
+        why: >
+          Asked only as a departure: exposure is a property of the system, the deployment
+          set already answered it. `private` is `disabled`, `public` is
+          `enabled_with_firewall`. A bare `enabled` is a deliberate choice for a consumer
+          that cannot be given an address in advance. Basic has no private endpoint, so a
+          closed namespace is Standard or above.
+        renders: >
+          terraform: the public network access input (a bool in the AVM modules) and the
+          module's network rules; bicep: publicNetworkAccess and the network rule set
+
+      - id: private_endpoint_subnet
+        ask: Which subnet should the namespace's private endpoint live in?
+        type: ref
+        resolved_by: platform
+        plain:
+          en: "Its private connection lands in subnet {value}."
+          de: "Seine private Anbindung landet im Subnetz {value}."
+        ref: subnet
+        from_deployment: private_endpoint_subnet
+        per_environment: true
+        why: >
+          One subnet carries the deployment's private endpoints, so this is inherited. The
+          sub-resource is `namespace`; there is no list to choose from.
+        renders: >
+          private_endpoints.<key>.subnet_resource_id / privateEndpoints[].subnetResourceId
+
+      - id: ip_rules
+        ask: Which public IP ranges may reach the namespace?
+        type: list
+        plain:
+          en: "Public addresses allowed to reach the namespace: {value}."
+          de: "Öffentliche Adressen, die den Dienst erreichen dürfen: {value}."
+        default: []
+        depends_on: { question: public_network_access, equals: enabled_with_firewall }
+        per_environment: true
+        why: >
+          An enumerated allowlist with a default action of `Deny`. An empty list denies
+          every public caller, which is valid and deliberate. `0.0.0.0/0` is not an
+          allowlist and is rejected by the guardrails; a single address takes `/32`.
+        renders: network_rulesets.ip_rules / networkRuleSets.ipRules
+
+      - id: trusted_service_bypass
+        ask: May trusted Azure services reach the namespace past its firewall?
+        type: bool
+        plain:
+          en: "Trusted Azure services {value} past the firewall."
+          de: "Vertrauenswürdige Azure-Dienste {value} an der Firewall vorbei."
+        plain_values:
+          true: { en: may pass, de: dürfen }
+          false: { en: may not pass, de: dürfen nicht }
+        default: false
+        depends_on: { question: public_network_access, not_equals: disabled }
+        why: >
+          Lets a short list of Microsoft's own services (Capture to storage, Event Grid,
+          Stream Analytics, Azure Monitor) reach a firewalled namespace without a private
+          endpoint of their own. Off unless a named service needs it; it has no effect with
+          `public_network_access: disabled`. Capture over a private storage account needs it
+          on.
+        renders: >
+          network_rulesets.trusted_service_access_enabled /
+          networkRuleSets.trustedServiceAccessEnabled
+
+  - id: encryption
+    title: Encryption
+    questions:
+      - id: key_management
+        ask: Platform-managed or customer-managed encryption keys?
+        type: enum
+        plain:
+          en: "Encryption keys are {value}."
+          de: "Verschlüsselungsschlüssel sind {value}."
+        plain_values:
+          platform_managed: { en: "managed by Azure - encrypted, rotated, no effort on your side", de: "von Azure verwaltet: verschlüsselt, rotiert, kein Aufwand bei euch" }
+          customer_managed: { en: "your own, held in your key vault, so you can revoke them", de: "eure eigenen in eurem Schlüsseltresor, damit ihr sie zurückziehen könnt" }
+        values: [platform_managed, customer_managed]
+        from_deployment: key_management
+        why: >
+          Inherited: one answer per system. Event Hubs encrypts at rest with a platform key
+          either way; `customer_managed` points the namespace at a key in the customer's
+          vault, needs Standard or above (Premium or a dedicated cluster for double
+          encryption) and a user-assigned identity, and makes the vault a dependency.
+        renders: >
+          whether `customer_managed_key` is rendered at all
+
+      - id: cmk_key_vault_key_id
+        ask: Which Key Vault key should encrypt the namespace?
+        type: ref
+        plain:
+          en: "Encrypted with your key {value}."
+          de: "Verschlüsselt mit eurem Schlüssel {value}."
+        ref: key_vault_key
+        required: true
+        depends_on: { question: key_management, equals: customer_managed }
+        per_environment: true
+        why: >
+          The key must exist and the namespace's identity must hold wrap and unwrap on it
+          before the key is set. The key is referenced without a version so a rotation is
+          followed.
+        renders: >
+          customer_managed_key.key_vault_resource_id + key_name /
+          customerManagedKey.keyVaultResourceId + keyName
+
+      - id: infrastructure_encryption
+        ask: Should the data be encrypted twice?
+        type: bool
+        plain:
+          en: "Double encryption is {value}."
+          de: "Doppelte Verschlüsselung ist {value}."
+        plain_values:
+          true: { en: "on", de: eingeschaltet }
+          false: { en: "off", de: ausgeschaltet }
+        default: false
+        depends_on: { question: key_management, equals: customer_managed }
+        why: >
+          A second layer of encryption with a separate platform key, for a mandate that
+          names it. It needs a customer-managed key and is **fixed at creation**. Off unless
+          a mandate asks; the Bicep module defaults to off, the Terraform module has no
+          dedicated input and takes it from the platform.
+        renders: requireInfrastructureEncryption (Bicep)
+
+  - id: recovery
+    title: Recovery
+    questions:
+      - id: zone_redundant
+        ask: Should the namespace survive the loss of one datacenter of its region?
+        type: bool
+        plain:
+          en: "The event stream survives the loss of a datacenter: {value}."
+          de: "Der Datenstrom übersteht den Ausfall eines Rechenzentrums: {value}."
+        plain_values:
+          true: { en: do, de: überstehen }
+          false: { en: do not, de: überstehen nicht }
+        derived_from:
+          question: outage_impact
+          map: { tolerable: false, disruptive: true, critical: true }
+        non_production_default: false
+        why: >
+          Derived from how bad an outage is. Event Hubs spreads a namespace over the
+          region's zones at no extra charge in a zonal region, so the answer is `true`
+          unless the outage is tolerable. The Bicep module has the switch (default `true`);
+          in Terraform the platform decides and the decision is not testable in a plan.
+        renders: zoneRedundant (Bicep); no Terraform input
+
+      - id: geo_recovery
+        ask: Is a second region on standby for a regional outage?
+        type: enum
+        plain:
+          en: "For a regional outage there is {value}."
+          de: "Für den Ausfall einer ganzen Region gibt es {value}."
+        plain_values:
+          none: { en: no standby region, de: keine Ausweichregion }
+          paired_namespace: { en: a paired namespace in a second region, de: ein gekoppelter Namensraum in einer zweiten Region }
+        values: [none, paired_namespace]
+        derived_from:
+          question: outage_impact
+          map: { tolerable: none, disruptive: none, critical: paired_namespace }
+        confirm_in: [production]
+        non_production_default: none
+        why: >
+          Derived from how bad an outage is. Geo-disaster recovery pairs the namespace with
+          one in another region and copies its **metadata** (event hubs, consumer groups) -
+          not the events - so a failover finds the streams ready and the events that were in
+          flight are lost. Standard and above; costs a second namespace and a failover that
+          someone has practised; the partner must lie where `data_residency` allows.
+        renders: disaster_recovery_config / disasterRecoveryConfig
+
+      - id: partner_namespace
+        ask: Which namespace is the partner?
+        type: ref
+        plain:
+          en: "The partner namespace is {value}."
+          de: "Der Partner-Namensraum ist {value}."
+        ref: event_hubs_namespace
+        required: true
+        depends_on: { question: geo_recovery, equals: paired_namespace }
+        per_environment: true
+        why: >
+          The second namespace, in a region that satisfies `data_residency`, with the same
+          tier and no event hubs when paired. It is an `open:` entry owned by the workload
+          owner when nobody named one.
+        renders: >
+          disaster_recovery_config.partner_namespace_id /
+          disasterRecoveryConfig.partnerNamespace
+
+  - id: identity
+    title: Identity and access
+    questions:
+      - id: role_assignments
+        ask: Who needs which role on this namespace?
+        type: list
+        plain:
+          en: "Access rights on the namespace granted to: {value}."
+          de: "Zugriffsrechte vergeben an: {value}."
+        default: []
+        per_environment: true
+        why: >
+          Data-plane access is granted by role, never by key. The narrow roles are `Azure
+          Event Hubs Data Sender` and `Azure Event Hubs Data Receiver`; `Azure Event Hubs
+          Data Owner` is for the deploying principal and a person, never for a workload.
+          Scope to the narrowest resource the consumer needs, never the subscription. A
+          pattern normally fills this from the consumers it knows about and grants a
+          consumer's role in the pattern, not here. A producer needs only Sender, a consumer
+          only Receiver; a consumer that checkpoints into a storage account also needs its
+          blob role there, which is the pattern's wiring.
+        renders: role_assignments / roleAssignments
+
+  - id: observability
+    title: Observability
+    questions:
+      - id: diagnostic_workspace
+        ask: Which Log Analytics workspace should receive diagnostics?
+        type: ref
+        resolved_by: platform
+        plain:
+          en: "Its logs go to {value}."
+          de: "Seine Logs gehen in {value}."
+        ref: log_analytics_workspace
+        from_deployment: diagnostics_destination
+        per_environment: true
+        why: >
+          Inherited: one deployment, one destination. Without a diagnostic setting the
+          resource keeps no record anyone can query.
+        renders: diagnostic_settings / diagnosticSettings
+
+      - id: diagnostic_categories
+        ask: Which log categories should be collected?
+        type: list
+        plain:
+          en: "Logged: {value}."
+          de: "Geloggt wird: {value}."
+        plain_values:
+          OperationalLogs: { en: management operations on the namespace, de: Verwaltungsvorgänge am Namensraum }
+          EventHubVNetConnectionEvent: { en: connections accepted or blocked by the firewall, de: von der Firewall angenommene oder blockierte Verbindungen }
+          AutoScaleLogs: { en: automatic capacity changes, de: automatische Kapazitätsänderungen }
+          ArchiveLogs: { en: the archive writing its files, de: das Schreiben der Archivdateien }
+          RuntimeAuditLogs: { en: "every send and receive, for audit", de: "jedes Senden und Empfangen, für die Nachvollziehbarkeit" }
+          ApplicationMetricsLogs: { en: event counts and sizes per hub, de: Anzahl und Größe der Ereignisse je Hub }
+          KafkaUserErrorLogs: { en: errors made by Kafka clients, de: Fehler von Kafka-Clients }
+          KafkaCoordinatorLogs: { en: Kafka consumer group coordination, de: Koordination der Kafka-Lesergruppen }
+        values: [OperationalLogs, EventHubVNetConnectionEvent, AutoScaleLogs, ArchiveLogs, RuntimeAuditLogs, ApplicationMetricsLogs, KafkaUserErrorLogs, KafkaCoordinatorLogs]
+        default: [OperationalLogs, EventHubVNetConnectionEvent]
+        why: >
+          Management operations and firewall decisions are the baseline and cheap.
+          `RuntimeAuditLogs` records every data-plane call and is as large as the traffic,
+          so it is raised for a mandate that asks for it. `ArchiveLogs` belongs with
+          `event_archive`, `AutoScaleLogs` with `auto_inflate`, the Kafka categories with
+          Kafka clients. The names are the platform's and are checked against `az monitor
+          diagnostic-settings categories list` for the resource before a render, not
+          remembered.
+        renders: >
+          diagnostic_settings.<key>.logs[].category /
+          diagnosticSettings[].logCategoriesAndGroups[].category
+
+      - id: metrics_enabled
+        ask: Should all metrics be collected?
+        type: bool
+        plain:
+          en: "Usage and performance figures are {value}."
+          de: "Nutzungs- und Leistungswerte werden {value}."
+        plain_values:
+          true: { en: collected, de: erfasst }
+          false: { en: not collected, de: nicht erfasst }
+        default: true
+        why: >
+          Incoming and outgoing events and bytes, throttled and server-busy requests, and
+          the capture backlog - throttling is how an under-sized namespace shows up.
+        renders: metrics[].category = "AllMetrics" / metricCategories[].category
+
