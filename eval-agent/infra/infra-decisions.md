@@ -25,6 +25,7 @@ Stand 2026-10-24. Spezifikation: `infra-spec.yaml`.
 - **Die Daten werden laufend genutzt.** _(eure Antwort)_
   - daher, Azure Storage Account: Gespeichert in der Klasse Standard: günstig beim Lesen, für Daten in Nutzung.
 - **Gegen absichtliche Zerstörung sind die Daten nur innerhalb des Systems selbst geschützt; wer das System löschen kann, kann auch die Kopien löschen.** _(eure Antwort)_
+  - daher, Azure Storage blob container: Gespeicherte Dateien sind wie jede andere Datei änderbar.
 - **Die Daten werden nur innerhalb des Wirtschaftsraums der Region, zum Beispiel der EU gespeichert und verarbeitet.** _(eure Antwort)_
   - daher, Azure AI Foundry (AI Services account with projects and model deployments): Anfragen an die Modelle werden überall innerhalb derselben Datenzone (zum Beispiel der EU) verarbeitet.
 - **Der Code wird aus einzeln ausgeschriebenen Ressourcen gebaut.** _(eure Antwort)_
@@ -279,6 +280,14 @@ Nichts davon wurde gefragt; jede Zeile folgt einer Regel oder einer der Antworte
 - Seine Logs gehen in log-analytics-workspace.
 - Geloggt wird: jede Web-Anfrage, die eigenen Log-Meldungen der App, wer sich zum Ausrollen oder Verwalten angemeldet hat, Änderungen an den Zugriffsbeschränkungen, die eigenen Meldungen der Plattform zur App.
 - Nutzungs- und Leistungswerte werden erfasst.
+
+### Azure Storage blob container
+
+- Es wird im Speicherkonto storage-account angelegt.
+- Container: results.
+- Anonymes Lesen ist nicht erlaubt, jeder meldet sich an.
+- Absender, die einen anderen Schlüsselbereich wählen, werden erlaubt.
+- Zugriffsrechte vergeben an: keine.
 
 ### Azure Key Vault
 
@@ -580,6 +589,12 @@ Solange diese Punkte offen sind, wird nichts ausgerollt.
 | `app-service__tune.observability.diagnostic_workspace` | log-analytics-workspace | übernommen |
 | `app-service__tune.observability.diagnostic_categories` | ["AppServiceHTTPLogs", "AppServiceAppLogs", "AppServiceAuditLogs", "AppServiceIPSecAuditLogs", "AppServicePlatformLogs"] | Regel |
 | `app-service__tune.observability.metrics_enabled` | true | Regel |
+| `blob-container.placement.storage_account` | {"production": "storage-account"} | übernommen |
+| `blob-container.containers.container_names` | ["results"] | eure Beschreibung |
+| `blob-container.containers.public_access` | None | Regel |
+| `blob-container.containers.immutable_storage` | false | abgeleitet aus eurer Antwort |
+| `blob-container.containers.encryption_scope_locked` | false | Regel |
+| `blob-container.identity.role_assignments` | {"production": []} | Regel |
 | `key-vault.vault.sku` | standard | Regel |
 | `key-vault.vault.purge_protection` | true | Regel |
 | `key-vault.vault.soft_delete_retention_days` | 90 | Regel |

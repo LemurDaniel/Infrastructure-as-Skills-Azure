@@ -210,7 +210,7 @@ the detail; this list says what was decided and why, so a session does not reope
   `eval-agent/dashboard/` (Node 22, Express; `MOCK=1` or `run-local.ps1` runs it without Azure; pages Overview and Tune & Fuzz; it starts
   the tuner only, the tuner starts the fuzz agent; reads `runs/`, `fuzz/`, `tune/` from the storage account; agents not written yet,
   `POST /run` and `tune/<id>/run.json` are its contract). Open there: the plugin source, models, the sign-in secret, the GitHub token
-  `github-token`, the container `results` in the storage account. The old single identity `id-…-02` and, if the first
+  `github-token`. The storage account's container `results` (prefixes `runs/`, `fuzz/`, `tune/`) is in the spec as `blob-container` and rendered. The old single identity `id-…-02` and, if the first
   render was deployed, its role assignments stay orphaned until deleted by hand.
   Since 2026-10-26 two more apps on the same plan, spec and render (not deployed): a fuzz agent
   (draws random specs with the plugin's diagram script, scores the layout, writes the report to
@@ -554,8 +554,7 @@ regeneration from the spec loses them. All `render`:
 - `patterns/` is empty: composition is specified and proven by two hand-wired examples
   only (`ideas/pattern-skill.md`).
 - An AVM version drift check, read-only, scheduled (`ideas/avm-drift-watch.md`).
-- **AcrPush** on the registry for the identity of the infra pipeline (Contributor cannot push); first run of the image pipeline, and a
-  check that its closing step really leaves the registry at `Disabled`. The dashboard's real mode (blob, GitHub, sign-in) has not run.
+- First run of the image pipeline (AcrPush is granted, 2026-10-25) and a check that its closing step really leaves the registry at `Disabled`. The dashboard's real mode (blob, GitHub, sign-in) has not run.
 
 ### Environment
 

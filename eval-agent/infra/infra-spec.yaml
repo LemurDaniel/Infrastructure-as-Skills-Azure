@@ -169,7 +169,7 @@ composition:
       needs: [network, observability]
       outputs: [id, endpoint]
     - id: storage
-      contains: [storage-account]
+      contains: [storage-account, blob-container]
       implementation: authored
       source: deployment
       needs: [network, observability]
@@ -1048,6 +1048,33 @@ resources:
         source: default
       metrics_enabled:
         value: true
+        source: default
+
+  blob-container:
+    placement:
+      storage_account:
+        value:
+          production: storage-account
+        source: deployment
+    containers:
+      container_names:
+        value: [results]
+        source: stated
+        reason: "One container for everything the apps share: the eval runs (runs/<id>/aggregate-result.json), the fuzz reports (fuzz/<id>/report.json) and the tuner's runs (tune/<id>/run.json). The dashboard reads the prefixes, the agents write them; the roles on the account (data reader for the dashboard, data contributor for the writers) already separate the two sides."
+      public_access:
+        value: None
+        source: default
+      immutable_storage:
+        value: false
+        source: requirement
+        derived_from: deployment.backup_isolation
+      encryption_scope_locked:
+        value: false
+        source: default
+    identity:
+      role_assignments:
+        value:
+          production: []
         source: default
 
   key-vault:

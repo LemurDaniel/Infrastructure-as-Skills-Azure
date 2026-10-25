@@ -179,3 +179,28 @@
   path: resources.storage.properties.template.resources.accountDiagnostics.properties.metrics
   equals:
     - { category: AllMetrics, enabled: true }
+
+# ---- blob-container -----------------------------------------------------------------------------
+
+- decision: blob-container.containers.container_names
+  path: resources.storage.properties.template.variables.containerNames
+  equals: [results]
+
+- decision: blob-container.placement.storage_account
+  path: resources.storage.properties.template.resources.container.name
+  matches: 'parameters\(''name''\), ''default'''
+
+- decision: blob-container.containers.public_access
+  path: resources.storage.properties.template.resources.container.properties.publicAccess
+  equals: None
+
+- decision: blob-container.containers.immutable_storage
+  path: resources.storage.properties.template.resources.container.properties.immutableStorageWithVersioning.enabled
+  equals: false
+
+- decision: blob-container.containers.encryption_scope_locked
+  path: resources.storage.properties.template.resources.container.properties.denyEncryptionScopeOverride
+  equals: false
+
+- not_testable: blob-container.identity.role_assignments
+  reason: an empty list renders no role assignment on the container, so there is no path to assert; the roles on the account that carry the access are asserted with the storage account's wiring

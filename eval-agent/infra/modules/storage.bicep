@@ -107,6 +107,30 @@ resource blobService 'Microsoft.Storage/storageAccounts/blobServices@2025-01-01'
   }
 }
 
+// decision: blob-container.containers.container_names - one container for everything the apps share:
+// runs/<id>/ (the eval runs), fuzz/<id>/ (the fuzz reports), tune/<id>/ (the tuner's runs).
+// decision: blob-container.placement.storage_account - a child of the account of this module.
+var containerNames = ['results']
+
+resource container 'Microsoft.Storage/storageAccounts/blobServices/containers@2025-01-01' = [
+  for containerName in containerNames: {
+    parent: blobService
+    name: containerName
+    properties: {
+      // decision: blob-container.containers.public_access
+      publicAccess: 'None'
+      // decision: blob-container.containers.immutable_storage - false: no immutableStorageWithVersioning
+      // block on the container.
+      immutableStorageWithVersioning: { enabled: false }
+      // decision: blob-container.containers.encryption_scope_locked - false: no scope is set and none locked.
+      denyEncryptionScopeOverride: false
+    }
+  }
+]
+
+// decision: blob-container.identity.role_assignments - none on the container; the roles on the account
+// (wiring.role_assignments) carry the access.
+
 // One endpoint per sub-resource.
 resource privateEndpoint 'Microsoft.Network/privateEndpoints@2025-01-01' = [
   for sub in privateEndpointSubresources: {
