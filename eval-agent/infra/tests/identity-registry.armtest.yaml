@@ -1,20 +1,39 @@
 # Tests for the modules identity and registry (spec: user-assigned-identity, container-registry).
 
-# ---- user-assigned-identity ---------------------------------------------------------------------
+# ---- user-assigned-identity__dashboard -------------------------------------------------------------
 
-- decision: user-assigned-identity.identity.purpose
-  path: resources.identity.properties.template.resources.identity.tags
+- decision: user-assigned-identity__dashboard.identity.purpose
+  path: resources.identityDashboard.properties.template.resources.identity.tags
   matches: "createObject\\('purpose', 'app-runtime'\\)"
 
-- decision: user-assigned-identity.identity.federated_credentials
-  path: resources.identity.properties.template.variables.federatedCredentials
+- decision: user-assigned-identity__dashboard.identity.federated_credentials
+  path: resources.identityDashboard.properties.template.variables.federatedCredentials
   equals: []
 
-- decision: user-assigned-identity.identity.isolation_scope
-  path: resources.identity.properties.template.resources.identity.properties.isolationScope
+- decision: user-assigned-identity__dashboard.identity.isolation_scope
+  path: resources.identityDashboard.properties.template.resources.identity.properties.isolationScope
   equals: None
 
-- decision: user-assigned-identity.identity.role_assignments
+- decision: user-assigned-identity__dashboard.identity.role_assignments
+  stage: production
+  path: parameters.identityRoleAssignments.value
+  equals: []
+
+# ---- user-assigned-identity__agent -----------------------------------------------------------------
+
+- decision: user-assigned-identity__agent.identity.purpose
+  path: resources.identityAgent.properties.template.resources.identity.tags
+  matches: "createObject\\('purpose', 'app-runtime'\\)"
+
+- decision: user-assigned-identity__agent.identity.federated_credentials
+  path: resources.identityAgent.properties.template.variables.federatedCredentials
+  equals: []
+
+- decision: user-assigned-identity__agent.identity.isolation_scope
+  path: resources.identityAgent.properties.template.resources.identity.properties.isolationScope
+  equals: None
+
+- decision: user-assigned-identity__agent.identity.role_assignments
   stage: production
   path: parameters.identityRoleAssignments.value
   equals: []

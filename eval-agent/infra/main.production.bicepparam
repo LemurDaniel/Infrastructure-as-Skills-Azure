@@ -6,10 +6,10 @@
 // deploys: the pipeline refuses it. Replace each one, then the stage can be deployed.
 //
 //   location, workload, subscriptionId, resourceGroupName  parameterized in the spec, never asked
-//   containerImage                                        open: resources.app-service.runtime.container_image
+//   dashboardContainerImage, agentContainerImage          open: resources.app-service__*.runtime.container_image
 //   modelDeployments                                      open: resources.foundry.models.model_deployments
 //   pluginSource                                          open: application.plugin_source
-//   entraClientId, entraTenantId                          existing app registration, open: resources.app-service.identity.entra_sign_in
+//   entraClientId, entraTenantId                          existing app registration, open: resources.app-service__dashboard.identity.entra_sign_in
 
 using './main.bicep'
 
@@ -45,7 +45,8 @@ param vaultRoleAssignments = []
 // ---- open points (placeholders) ----
 // Bootstrap image (name:tag, without the registry; not latest), used only while the web app has
 // no image. The separate image pipeline owns the image afterwards; the pipeline keeps what runs.
-param containerImage = 'eval-agent:0.0.1'
+param dashboardContainerImage = 'eval-dashboard:0.0.1'
+param agentContainerImage = 'eval-agent:0.0.1'
 // Models of the Foundry account, e.g. { name: 'chat', model: { format: 'OpenAI', name: '<model>', version: '<version>' } }.
 // Empty until the workload owner names them; no deployment is created from an empty list.
 param modelDeployments = []

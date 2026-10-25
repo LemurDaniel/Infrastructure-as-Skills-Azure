@@ -131,8 +131,13 @@ composition:
       implementation: authored
       source: deployment
       outputs: [id]
-    - id: identity
-      contains: [user-assigned-identity]
+    - id: identity-dashboard
+      contains: [user-assigned-identity__dashboard]
+      implementation: authored
+      source: deployment
+      outputs: [id, principal_id, client_id]
+    - id: identity-agent
+      contains: [user-assigned-identity__agent]
       implementation: authored
       source: deployment
       outputs: [id, principal_id, client_id]
@@ -161,10 +166,12 @@ composition:
       needs: [network, observability]
       outputs: [id, vault_uri]
     - id: app
-      contains: [app-service]
+      # Two sites on one plan (the question set renders one site per plan; the shared plan is
+      # rendered by hand, see resources.app-service__agent.hosting).
+      contains: [app-service__dashboard, app-service__agent]
       implementation: authored
       source: deployment
-      needs: [network, observability, identity, registry, vault]
+      needs: [network, observability, identity-dashboard, identity-agent, registry, vault, ai, storage]
       outputs: [id, default_hostname]
 
 resources:
@@ -199,7 +206,7 @@ resources:
         value:
           - { subnet: app-integration, service: Microsoft.Web/serverFarms }
         source: forced
-        forced_by: resources.app-service.networking.vnet_integration
+        forced_by: resources.app-service__dashboard.networking.vnet_integration
     security:
       ddos_protection:
         value: false
@@ -245,13 +252,31 @@ resources:
         value: false
         source: default
 
-  user-assigned-identity:
+  # One identity per app: the dashboard (internet-facing, holds the sign-in secret and the GitHub
+  # token) and the agent (runs plugin code, holds no secret) share no role.
+  user-assigned-identity__dashboard:
     identity:
       purpose:
         value: app-runtime
         source: default
         # AcrPull and the data roles must exist before the container first starts, which a
         # system-assigned identity of the app cannot have.
+      federated_credentials:
+        value: []
+        source: default
+      isolation_scope:
+        value: None
+        source: default
+      role_assignments:
+        value:
+          production: []
+        source: default
+
+  user-assigned-identity__agent:
+    identity:
+      purpose:
+        value: app-runtime
+        source: default
       federated_credentials:
         value: []
         source: default
@@ -472,7 +497,10 @@ resources:
         value: true
         source: default
 
-  app-service:
+  # The dashboard shows the eval results and files the tickets after a failed run. It is the
+  # internet-facing part, so it is the one with the sign-in and the GitHub token, and it only reads
+  # the results.
+  app-service__dashboard:
     hosting:
       os_type:
         value: Linux
@@ -512,9 +540,9 @@ resources:
         reason: "Departs from system_assigned: AcrPull and the data roles must exist before the container first starts, which a system-assigned identity cannot have."
       user_assigned_identity_ids:
         value:
-          production: [user-assigned-identity]
+          production: [user-assigned-identity__dashboard]
         source: forced
-        forced_by: resources.app-service.identity.managed_identity
+        forced_by: resources.app-service__dashboard.identity.managed_identity
       entra_sign_in:
         # No question set covers App Service authentication; this decision is rendered by hand
         # (authsettingsV2: sign-in required, redirect to login). The registration exists already;
@@ -526,6 +554,99 @@ resources:
         # a Key Vault reference in the app settings; never a value in the template.
         value: key_vault_reference
         source: stated
+    security:
+      https_only:
+        value: true
+        source: default
+      min_tls_version:
+        value: "1.2"
+        source: default
+      ftps_state:
+        value: Disabled
+        source: default
+      basic_auth_enabled:
+        value: false
+        source: deployment
+    runtime:
+      runtime_stack:
+        value: container
+        source: stated
+      always_on:
+        value: true
+        source: default
+      health_check_path:
+        value: ""
+        source: default
+      http2_enabled:
+        value: true
+        source: default
+      container_image_owner:
+        value: image_pipeline
+        source: overridden
+        reason: "A separate pipeline builds, pushes and updates the image. This template sets the stage-file image only on the first deployment and keeps the running one afterwards."
+    observability:
+      diagnostic_workspace:
+        value: log-analytics-workspace
+        source: deployment
+      diagnostic_categories:
+        value: [AppServiceHTTPLogs, AppServiceAppLogs, AppServiceAuditLogs, AppServiceIPSecAuditLogs, AppServicePlatformLogs]
+        source: default
+      metrics_enabled:
+        value: true
+        source: default
+
+  # The agent runs the evals (plugin code, model calls) and writes the results. It is not
+  # reachable from outside and holds no secret: neither the sign-in secret nor the GitHub token.
+  app-service__agent:
+    hosting:
+      # The plan is shared with the dashboard: one B2 plan, two sites. The question set renders one
+      # site per plan, so the plan is rendered once (from the dashboard's values) and the site of
+      # the agent is rendered by hand; both decisions below follow the dashboard.
+      os_type:
+        value: Linux
+        source: forced
+        forced_by: resources.app-service__dashboard.hosting.os_type
+      sku:
+        value: B2
+        source: forced
+        forced_by: resources.app-service__dashboard.hosting.sku
+      zone_redundant:
+        value: false
+        source: forced
+        forced_by: resources.app-service__dashboard.hosting.zone_redundant
+      instance_count:
+        value: 1
+        source: forced
+        forced_by: resources.app-service__dashboard.hosting.instance_count
+    networking:
+      public_network_access:
+        value: disabled
+        source: overridden
+        reason: "Nothing outside the VNet calls the agent: the dashboard starts a run from inside the VNet, through the agent's private endpoint."
+      private_endpoint_subnet:
+        value: pe
+        source: deployment
+      vnet_integration:
+        value: true
+        source: default
+      integration_subnet:
+        value: app-integration
+        source: forced
+        forced_by: deployment.network_ownership
+      vnet_route_all:
+        value: false
+        source: overridden
+        reason: "The agent needs the internet (plugin source, package installs). With all traffic routed into the VNet there is no outbound path without a NAT gateway; private endpoint addresses are RFC 1918 and still go through the VNet."
+    identity:
+      managed_identity:
+        value: user_assigned
+        source: overridden
+        reason: "Departs from system_assigned: AcrPull and the data roles must exist before the container first starts, which a system-assigned identity cannot have."
+      user_assigned_identity_ids:
+        value:
+          production: [user-assigned-identity__agent]
+        source: forced
+        forced_by: resources.app-service__agent.identity.managed_identity
     security:
       https_only:
         value: true
@@ -601,9 +722,9 @@ resources:
         value: []
         source: default
       secret_placeholders:
-        value: [entra-client-secret]
+        value: [entra-client-secret, github-token]
         source: overridden
-        reason: "Departs from the default []: the app's Entra sign-in reads this client secret through a Key Vault reference and needs the secret to exist before its first start."
+        reason: "Departs from the default []: the dashboard reads the sign-in's client secret and the GitHub token (issues:write on this repository only) through Key Vault references and needs both to exist before its first start. The agent reads neither."
     keys:
       key_management:
         value: platform_managed
@@ -628,33 +749,41 @@ wiring:
       - privatelink.cognitiveservices.azure.com
       - privatelink.openai.azure.com
       - privatelink.services.ai.azure.com
+      - privatelink.azurewebsites.net
     source: forced
     forced_by: deployment.private_dns_ownership
   role_assignments:
     value:
-      - { from: user-assigned-identity, to: container-registry, role: AcrPull }
-      - { from: user-assigned-identity, to: storage-account, role: Storage Blob Data Contributor }
-      - { from: user-assigned-identity, to: foundry, role: Azure AI User }
-      - { from: user-assigned-identity, to: key-vault, role: Key Vault Secrets User }
+      - { from: user-assigned-identity__dashboard, to: container-registry, role: AcrPull }
+      - { from: user-assigned-identity__dashboard, to: storage-account, role: Storage Blob Data Reader }
+      - { from: user-assigned-identity__dashboard, to: key-vault, role: Key Vault Secrets User }
+      - { from: user-assigned-identity__agent, to: container-registry, role: AcrPull }
+      - { from: user-assigned-identity__agent, to: storage-account, role: Storage Blob Data Contributor }
+      - { from: user-assigned-identity__agent, to: foundry, role: Azure AI User }
     source: default
   access:
     value:
-      - { from: users, to: app-service, label: "HTTPS 443, Anmeldung mit Firmenkonto" }
-      - { from: app-service, to: foundry, label: "Modelle aufrufen" }
-      - { from: app-service, to: storage-account, label: "Ergebnisse lesen und schreiben" }
-      - { from: app-service, to: container-registry, label: "Image laden" }
-      - { from: app-service, to: key-vault, label: "Anmelde-Secret lesen" }
+      - { from: users, to: app-service__dashboard, label: "HTTPS 443, Anmeldung mit Firmenkonto" }
+      - { from: app-service__dashboard, to: storage-account, label: "Ergebnisse lesen" }
+      - { from: app-service__dashboard, to: key-vault, label: "Anmelde-Secret und GitHub-Token lesen" }
+      - { from: app-service__dashboard, to: container-registry, label: "Image laden" }
+      - { from: app-service__dashboard, to: app-service__agent, label: "Lauf starten" }
+      - { from: app-service__agent, to: foundry, label: "Modelle aufrufen" }
+      - { from: app-service__agent, to: storage-account, label: "Ergebnisse schreiben" }
+      - { from: app-service__agent, to: container-registry, label: "Image laden" }
     source: stated
   purposes:
     value:
-      app-service: "Dashboard und Agent (ein Container)"
-      container-registry: "Image des Containers"
+      app-service__dashboard: "Dashboard: zeigt Ergebnisse, legt Tickets an"
+      app-service__agent: "Agent: führt die Evals aus"
+      container-registry: "Images von Dashboard und Agent"
       foundry: "Sprachmodelle für Agent und Bewertung"
       storage-account: "Eval-Ergebnisse"
-      key-vault: "Client Secret der Anmeldung"
+      key-vault: "Anmelde-Secret und GitHub-Token des Dashboards"
       virtual-network: "Privates Netz"
       log-analytics-workspace: "Logs aller Teile"
-      user-assigned-identity: "Zugriff ohne Schlüssel"
+      user-assigned-identity__dashboard: "Zugriff des Dashboards ohne Schlüssel"
+      user-assigned-identity__agent: "Zugriff des Agents ohne Schlüssel"
     source: stated
 
 open:
@@ -668,7 +797,12 @@ open:
     question: "Woher holt der Agent das Claude-Plugin (Git-Repo, Speicher)?"
     owner: "Workload-Owner"
     blocks: apply
-  - key: resources.app-service.identity.entra_sign_in
+  - key: application.ticket_trigger
+    environments: [production]
+    question: "Wann legt das Dashboard ein Ticket an: automatisch nach jedem Lauf mit fehlgeschlagenen Evals (vermutlich, noch nicht entschieden) oder erst auf Klick? Wer legt das GitHub-Token (issues:write, nur dieses Repo) im Tresor als 'github-token' ab?"
+    owner: "Workload-Owner"
+    blocks: apply
+  - key: resources.app-service__dashboard.identity.entra_sign_in
     question: "Die Anmeldung nutzt eure bestehende App-Registrierung samt Client Secret. Wer erzeugt das Secret und trägt es im Tresor ein (der Tresor ist nur aus dem Netz erreichbar), und wer trägt nach dem ersten Ausrollen die Weiterleitungsadresse der App ein (https://<App-Adresse>/.auth/login/aad/callback)?"
     owner: "Identitäts-Team"
     blocks: apply

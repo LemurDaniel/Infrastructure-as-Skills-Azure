@@ -16,8 +16,8 @@ Stand 2026-10-24. Spezifikation: `infra-spec.yaml`.
 - **Ein Tag Ausfall wäre verkraftbar.** _(eure Antwort)_
   - daher, Azure Container Registry: Die Registry übersteht nicht den Ausfall eines Rechenzentrums der Region.
   - daher, Azure Storage Account: Die Daten liegen dreifach in einem Rechenzentrum.
-  - daher, Azure App Service (web app on an App Service plan): Die App übersteht nicht den Ausfall eines Rechenzentrums der Region.
-  - daher, Azure App Service (web app on an App Service plan): Gleichzeitig laufende Kopien der App: 1.
+  - daher, Azure App Service (web app on an App Service plan) (dashboard): Die App übersteht nicht den Ausfall eines Rechenzentrums der Region.
+  - daher, Azure App Service (web app on an App Service plan) (dashboard): Gleichzeitig laufende Kopien der App: 1.
 - **Nach einem versehentlichen Löschen müsst ihr gar nicht, die Daten lassen sich neu erzeugen zurückkommen.** _(eure Antwort)_
   - daher, Azure Storage Account: Gelöschte Dateien sind 0 Tage wiederherstellbar (0: gar nicht).
   - daher, Azure Storage Account: Gelöschte Ordner sind 0 Tage wiederherstellbar (0: gar nicht).
@@ -60,7 +60,7 @@ Nichts davon wurde gefragt; jede Zeile folgt einer Regel oder einer der Antworte
 - Eigene Namensserver: keine (keine: Azures eigene).
 - Netzwerkregeln gelten für private Anbindungen in ihrem Subnetz.
 - Abkürzungen zu Azure-Diensten aus den Subnetzen: keine.
-- An einen Dienst übergebene Subnetze: app-integration (Microsoft.Web/serverFarms). — weil: `resources.app-service.networking.vnet_integration`
+- An einen Dienst übergebene Subnetze: app-integration (Microsoft.Web/serverFarms). — weil: `resources.app-service__dashboard.networking.vnet_integration`
 - Ein kostenpflichtiger DDoS-Schutzplan wird nicht genutzt; Azures Basisschutz gilt ohnehin.
 - Subnetze, die eine Sicherheitsgruppe bekommen: keine.
 - Netzwerk-Logs gehen in log-analytics-workspace.
@@ -77,7 +77,14 @@ Nichts davon wurde gefragt; jede Zeile folgt einer Regel oder einer der Antworte
 - Ein gelöschter Arbeitsbereich kann 14 Tage lang wiederhergestellt werden.
 - Langzeitarchivierung in günstigen Speicher ist ausgeschaltet.
 
-### Azure user-assigned managed identity
+### Azure user-assigned managed identity (dashboard)
+
+- Diese Identität gibt es für app-runtime.
+- Externe Systeme, die als diese Identität handeln dürfen: keine (leer: keine).
+- Die Identität kann von Ressourcen in jeder Region aus genutzt werden.
+- Rechte an der Identität selbst vergeben an: keine.
+
+### Azure user-assigned managed identity (agent)
 
 - Diese Identität gibt es für app-runtime.
 - Externe Systeme, die als diese Identität handeln dürfen: keine (leer: keine).
@@ -143,14 +150,36 @@ Nichts davon wurde gefragt; jede Zeile folgt einer Regel oder einer der Antworte
 - Geloggt wird: wer worauf zugegriffen hat.
 - Nutzungs- und Leistungswerte werden erfasst.
 
-### Azure App Service (web app on an App Service plan)
+### Azure App Service (web app on an App Service plan) (dashboard)
 
 - Die App läuft auf Linux.
 - Der ausgehende Verkehr der App läuft durch das Firmennetz, so erreicht sie private Dienste.
 - Ausgehender Verkehr verlässt das Netz über das Subnetz app-integration. — weil: Das Netz wird von diesem Ausrollen selbst gebaut.
-- Sie nutzt die Identitäten user-assigned-identity. — weil: `resources.app-service.identity.managed_identity`
+- Sie nutzt die Identitäten user-assigned-identity__dashboard. — weil: `resources.app-service__dashboard.identity.managed_identity`
 - `"existing_app_registration"`
 - `"key_vault_reference"`
+- Unverschlüsselte Verbindungen werden auf die verschlüsselte Adresse umgeleitet.
+- Verbindungen müssen mindestens TLS 1.2-Verschlüsselung nutzen.
+- Dateiupload per FTP ist abgeschaltet.
+- Das Ausrollen mit Benutzername und Passwort ist nicht möglich; Rollouts laufen über Firmenkonten.
+- Die App ist geschrieben für ein Container-Image, das seine Laufzeit selbst mitbringt.
+- Die App bleibt geladen und antwortet sofort auf die erste Anfrage, wenn kein Verkehr anliegt.
+- Die Plattform prüft die Gesundheit der App unter dem Pfad  (leer: keine Prüfung).
+- HTTP/2 ist eingeschaltet.
+- Seine Logs gehen in log-analytics-workspace.
+- Geloggt wird: jede Web-Anfrage, die eigenen Log-Meldungen der App, wer sich zum Ausrollen oder Verwalten angemeldet hat, Änderungen an den Zugriffsbeschränkungen, die eigenen Meldungen der Plattform zur App.
+- Nutzungs- und Leistungswerte werden erfasst.
+
+### Azure App Service (web app on an App Service plan) (agent)
+
+- Die App läuft auf Linux. — weil: `resources.app-service__dashboard.hosting.os_type`
+- Der Hosting-Plan hat die Größe B2, Basic, zwei Kerne. — weil: `resources.app-service__dashboard.hosting.sku`
+- Die App übersteht nicht den Ausfall eines Rechenzentrums der Region. — weil: `resources.app-service__dashboard.hosting.zone_redundant`
+- Gleichzeitig laufende Kopien der App: 1. — weil: `resources.app-service__dashboard.hosting.instance_count`
+- Seine private Anbindung landet im Subnetz pe.
+- Der ausgehende Verkehr der App läuft durch das Firmennetz, so erreicht sie private Dienste.
+- Ausgehender Verkehr verlässt das Netz über das Subnetz app-integration. — weil: Das Netz wird von diesem Ausrollen selbst gebaut.
+- Sie nutzt die Identitäten user-assigned-identity__agent. — weil: `resources.app-service__agent.identity.managed_identity`
 - Unverschlüsselte Verbindungen werden auf die verschlüsselte Adresse umgeleitet.
 - Verbindungen müssen mindestens TLS 1.2-Verschlüsselung nutzen.
 - Dateiupload per FTP ist abgeschaltet.
@@ -182,12 +211,16 @@ Nichts davon wurde gefragt; jede Zeile folgt einer Regel oder einer der Antworte
 ## Von euch anders entschieden
 
 - Azure AI Foundry (AI Services account with projects and model deployments): Das Konto enthält die Projekte eval. _(Grund: Departs from the default []: Foundry evaluations are scoped to a project.)_
-- Azure App Service (web app on an App Service plan): Der Hosting-Plan hat die Größe B2, Basic, zwei Kerne. _(Grund: The subscription has no App Service quota in germanywestcentral (SubscriptionIsOverQuotaForSku for P1v3 and B1), so the stack runs in westeurope on B2. B2 is Basic: VNet integration, always on and the container run; no slots, no autoscale, no zone redundancy.)_
-- Azure App Service (web app on an App Service plan): Die App ist aus dem Internet erreichbar. _(Grund: The dashboard is the one internet-facing part (customer: reachable from the internet, sign-in with company accounts). Departs from the private baseline, which would map to disabled.)_
-- Azure App Service (web app on an App Service plan): Ausgehender Verkehr wird nur für private Adressen durch das Firmennetz geleitet geleitet. _(Grund: The agent needs the internet (plugin source, package installs). With all traffic routed into the VNet there is no outbound path without a NAT gateway; private endpoint addresses are RFC 1918 and still go through the VNet.)_
-- Azure App Service (web app on an App Service plan): Die App hat eine gemeinsame, separat verwaltete Identität, um andere Dienste zu erreichen. _(Grund: Departs from system_assigned: AcrPull and the data roles must exist before the container first starts, which a system-assigned identity cannot have.)_
-- Azure App Service (web app on an App Service plan): `"image_pipeline"` _(Grund: A separate pipeline builds, pushes and updates the image. This template sets the stage-file image only on the first deployment and keeps the running one afterwards.)_
-- Azure Key Vault: Für die Geheimnisse entra-client-secret werden leere Plätze angelegt; die Werte werden danach von Hand oder von der Anwendung eingetragen. _(Grund: Departs from the default []: the app's Entra sign-in reads this client secret through a Key Vault reference and needs the secret to exist before its first start.)_
+- Azure App Service (web app on an App Service plan) (dashboard): Der Hosting-Plan hat die Größe B2, Basic, zwei Kerne. _(Grund: The subscription has no App Service quota in germanywestcentral (SubscriptionIsOverQuotaForSku for P1v3 and B1), so the stack runs in westeurope on B2. B2 is Basic: VNet integration, always on and the container run; no slots, no autoscale, no zone redundancy.)_
+- Azure App Service (web app on an App Service plan) (dashboard): Die App ist aus dem Internet erreichbar. _(Grund: The dashboard is the one internet-facing part (customer: reachable from the internet, sign-in with company accounts). Departs from the private baseline, which would map to disabled.)_
+- Azure App Service (web app on an App Service plan) (dashboard): Ausgehender Verkehr wird nur für private Adressen durch das Firmennetz geleitet geleitet. _(Grund: The agent needs the internet (plugin source, package installs). With all traffic routed into the VNet there is no outbound path without a NAT gateway; private endpoint addresses are RFC 1918 and still go through the VNet.)_
+- Azure App Service (web app on an App Service plan) (dashboard): Die App hat eine gemeinsame, separat verwaltete Identität, um andere Dienste zu erreichen. _(Grund: Departs from system_assigned: AcrPull and the data roles must exist before the container first starts, which a system-assigned identity cannot have.)_
+- Azure App Service (web app on an App Service plan) (dashboard): `"image_pipeline"` _(Grund: A separate pipeline builds, pushes and updates the image. This template sets the stage-file image only on the first deployment and keeps the running one afterwards.)_
+- Azure App Service (web app on an App Service plan) (agent): Die App ist aus dem Internet überhaupt nicht erreichbar. _(Grund: Nothing outside the VNet calls the agent: the dashboard starts a run from inside the VNet, through the agent's private endpoint.)_
+- Azure App Service (web app on an App Service plan) (agent): Ausgehender Verkehr wird nur für private Adressen durch das Firmennetz geleitet geleitet. _(Grund: The agent needs the internet (plugin source, package installs). With all traffic routed into the VNet there is no outbound path without a NAT gateway; private endpoint addresses are RFC 1918 and still go through the VNet.)_
+- Azure App Service (web app on an App Service plan) (agent): Die App hat eine gemeinsame, separat verwaltete Identität, um andere Dienste zu erreichen. _(Grund: Departs from system_assigned: AcrPull and the data roles must exist before the container first starts, which a system-assigned identity cannot have.)_
+- Azure App Service (web app on an App Service plan) (agent): `"image_pipeline"` _(Grund: A separate pipeline builds, pushes and updates the image. This template sets the stage-file image only on the first deployment and keeps the running one afterwards.)_
+- Azure Key Vault: Für die Geheimnisse entra-client-secret, github-token werden leere Plätze angelegt; die Werte werden danach von Hand oder von der Anwendung eingetragen. _(Grund: Departs from the default []: the dashboard reads the sign-in's client secret and the GitHub token (issues:write on this repository only) through Key Vault references and needs both to exist before its first start. The agent reads neither.)_
 
 ## Noch offen
 
@@ -195,6 +228,7 @@ Solange diese Punkte offen sind, wird nichts ausgerollt.
 
 - Welche Modelle werden gebraucht (Agent und Bewertung)? Claude-Modelle sind in Foundry womöglich nur weltweit verarbeitet verfügbar, das widerspräche 'nur EU'. [Echtbetrieb] _(gebraucht von: Workload-Owner)_ — blockiert: apply
 - Woher holt der Agent das Claude-Plugin (Git-Repo, Speicher)? [Echtbetrieb] _(gebraucht von: Workload-Owner)_ — blockiert: apply
+- Wann legt das Dashboard ein Ticket an: automatisch nach jedem Lauf mit fehlgeschlagenen Evals (vermutlich, noch nicht entschieden) oder erst auf Klick? Wer legt das GitHub-Token (issues:write, nur dieses Repo) im Tresor als 'github-token' ab? [Echtbetrieb] _(gebraucht von: Workload-Owner)_ — blockiert: apply
 - Die Anmeldung nutzt eure bestehende App-Registrierung samt Client Secret. Wer erzeugt das Secret und trägt es im Tresor ein (der Tresor ist nur aus dem Netz erreichbar), und wer trägt nach dem ersten Ausrollen die Weiterleitungsadresse der App ein (https://<App-Adresse>/.auth/login/aad/callback)? _(gebraucht von: Identitäts-Team)_ — blockiert: apply
 - Die Registry ist nur privat erreichbar. Wie kommt das Image hinein (Pipeline-Runner im Netz oder ein Build in der Registry)? _(gebraucht von: Workload-Owner)_ — blockiert: apply
 
@@ -248,10 +282,14 @@ Solange diese Punkte offen sind, wird nichts ausgerollt.
 | `log-analytics-workspace.access.rbac_only_access` | true | Regel |
 | `log-analytics-workspace.data_protection.immediate_purge_protection` | true | Regel |
 | `log-analytics-workspace.data_protection.archive_to_storage` | false | Regel |
-| `user-assigned-identity.identity.purpose` | app-runtime | Regel |
-| `user-assigned-identity.identity.federated_credentials` | [] | Regel |
-| `user-assigned-identity.identity.isolation_scope` | None | Regel |
-| `user-assigned-identity.identity.role_assignments` | {"production": []} | Regel |
+| `user-assigned-identity__dashboard.identity.purpose` | app-runtime | Regel |
+| `user-assigned-identity__dashboard.identity.federated_credentials` | [] | Regel |
+| `user-assigned-identity__dashboard.identity.isolation_scope` | None | Regel |
+| `user-assigned-identity__dashboard.identity.role_assignments` | {"production": []} | Regel |
+| `user-assigned-identity__agent.identity.purpose` | app-runtime | Regel |
+| `user-assigned-identity__agent.identity.federated_credentials` | [] | Regel |
+| `user-assigned-identity__agent.identity.isolation_scope` | None | Regel |
+| `user-assigned-identity__agent.identity.role_assignments` | {"production": []} | Regel |
 | `container-registry.registry.sku` | Premium | erzwungen |
 | `container-registry.registry.zone_redundant` | false | abgeleitet aus eurer Antwort |
 | `container-registry.registry.geo_replicas` | {"production": []} | Regel |
@@ -310,30 +348,53 @@ Solange diese Punkte offen sind, wird nichts ausgerollt.
 | `storage-account.observability.diagnostic_workspace` | log-analytics-workspace | übernommen |
 | `storage-account.observability.diagnostic_categories` | ["audit"] | Regel |
 | `storage-account.observability.metrics_enabled` | true | Regel |
-| `app-service.hosting.os_type` | Linux | Regel |
-| `app-service.hosting.sku` | B2 | eure Abweichung |
-| `app-service.hosting.zone_redundant` | false | abgeleitet aus eurer Antwort |
-| `app-service.hosting.instance_count` | 1 | abgeleitet aus eurer Antwort |
-| `app-service.networking.public_network_access` | enabled | eure Abweichung |
-| `app-service.networking.vnet_integration` | true | Regel |
-| `app-service.networking.integration_subnet` | app-integration | erzwungen |
-| `app-service.networking.vnet_route_all` | false | eure Abweichung |
-| `app-service.identity.managed_identity` | user_assigned | eure Abweichung |
-| `app-service.identity.user_assigned_identity_ids` | {"production": ["user-assigned-identity"]} | erzwungen |
-| `app-service.identity.entra_sign_in` | existing_app_registration | eure Beschreibung |
-| `app-service.identity.entra_client_secret` | key_vault_reference | eure Beschreibung |
-| `app-service.security.https_only` | true | Regel |
-| `app-service.security.min_tls_version` | 1.2 | Regel |
-| `app-service.security.ftps_state` | Disabled | Regel |
-| `app-service.security.basic_auth_enabled` | false | übernommen |
-| `app-service.runtime.runtime_stack` | container | eure Beschreibung |
-| `app-service.runtime.always_on` | true | Regel |
-| `app-service.runtime.health_check_path` |  | Regel |
-| `app-service.runtime.http2_enabled` | true | Regel |
-| `app-service.runtime.container_image_owner` | image_pipeline | eure Abweichung |
-| `app-service.observability.diagnostic_workspace` | log-analytics-workspace | übernommen |
-| `app-service.observability.diagnostic_categories` | ["AppServiceHTTPLogs", "AppServiceAppLogs", "AppServiceAuditLogs", "AppServiceIPSecAuditLogs", "AppServicePlatformLogs"] | Regel |
-| `app-service.observability.metrics_enabled` | true | Regel |
+| `app-service__dashboard.hosting.os_type` | Linux | Regel |
+| `app-service__dashboard.hosting.sku` | B2 | eure Abweichung |
+| `app-service__dashboard.hosting.zone_redundant` | false | abgeleitet aus eurer Antwort |
+| `app-service__dashboard.hosting.instance_count` | 1 | abgeleitet aus eurer Antwort |
+| `app-service__dashboard.networking.public_network_access` | enabled | eure Abweichung |
+| `app-service__dashboard.networking.vnet_integration` | true | Regel |
+| `app-service__dashboard.networking.integration_subnet` | app-integration | erzwungen |
+| `app-service__dashboard.networking.vnet_route_all` | false | eure Abweichung |
+| `app-service__dashboard.identity.managed_identity` | user_assigned | eure Abweichung |
+| `app-service__dashboard.identity.user_assigned_identity_ids` | {"production": ["user-assigned-identity__dashboard"]} | erzwungen |
+| `app-service__dashboard.identity.entra_sign_in` | existing_app_registration | eure Beschreibung |
+| `app-service__dashboard.identity.entra_client_secret` | key_vault_reference | eure Beschreibung |
+| `app-service__dashboard.security.https_only` | true | Regel |
+| `app-service__dashboard.security.min_tls_version` | 1.2 | Regel |
+| `app-service__dashboard.security.ftps_state` | Disabled | Regel |
+| `app-service__dashboard.security.basic_auth_enabled` | false | übernommen |
+| `app-service__dashboard.runtime.runtime_stack` | container | eure Beschreibung |
+| `app-service__dashboard.runtime.always_on` | true | Regel |
+| `app-service__dashboard.runtime.health_check_path` |  | Regel |
+| `app-service__dashboard.runtime.http2_enabled` | true | Regel |
+| `app-service__dashboard.runtime.container_image_owner` | image_pipeline | eure Abweichung |
+| `app-service__dashboard.observability.diagnostic_workspace` | log-analytics-workspace | übernommen |
+| `app-service__dashboard.observability.diagnostic_categories` | ["AppServiceHTTPLogs", "AppServiceAppLogs", "AppServiceAuditLogs", "AppServiceIPSecAuditLogs", "AppServicePlatformLogs"] | Regel |
+| `app-service__dashboard.observability.metrics_enabled` | true | Regel |
+| `app-service__agent.hosting.os_type` | Linux | erzwungen |
+| `app-service__agent.hosting.sku` | B2 | erzwungen |
+| `app-service__agent.hosting.zone_redundant` | false | erzwungen |
+| `app-service__agent.hosting.instance_count` | 1 | erzwungen |
+| `app-service__agent.networking.public_network_access` | disabled | eure Abweichung |
+| `app-service__agent.networking.private_endpoint_subnet` | pe | übernommen |
+| `app-service__agent.networking.vnet_integration` | true | Regel |
+| `app-service__agent.networking.integration_subnet` | app-integration | erzwungen |
+| `app-service__agent.networking.vnet_route_all` | false | eure Abweichung |
+| `app-service__agent.identity.managed_identity` | user_assigned | eure Abweichung |
+| `app-service__agent.identity.user_assigned_identity_ids` | {"production": ["user-assigned-identity__agent"]} | erzwungen |
+| `app-service__agent.security.https_only` | true | Regel |
+| `app-service__agent.security.min_tls_version` | 1.2 | Regel |
+| `app-service__agent.security.ftps_state` | Disabled | Regel |
+| `app-service__agent.security.basic_auth_enabled` | false | übernommen |
+| `app-service__agent.runtime.runtime_stack` | container | eure Beschreibung |
+| `app-service__agent.runtime.always_on` | true | Regel |
+| `app-service__agent.runtime.health_check_path` |  | Regel |
+| `app-service__agent.runtime.http2_enabled` | true | Regel |
+| `app-service__agent.runtime.container_image_owner` | image_pipeline | eure Abweichung |
+| `app-service__agent.observability.diagnostic_workspace` | log-analytics-workspace | übernommen |
+| `app-service__agent.observability.diagnostic_categories` | ["AppServiceHTTPLogs", "AppServiceAppLogs", "AppServiceAuditLogs", "AppServiceIPSecAuditLogs", "AppServicePlatformLogs"] | Regel |
+| `app-service__agent.observability.metrics_enabled` | true | Regel |
 | `key-vault.vault.sku` | standard | Regel |
 | `key-vault.vault.purge_protection` | true | Regel |
 | `key-vault.vault.soft_delete_retention_days` | 90 | Regel |
@@ -343,12 +404,12 @@ Solange diese Punkte offen sind, wird nichts ausgerollt.
 | `key-vault.networking.network_acl_bypass` | None | Regel |
 | `key-vault.identity.role_assignments` | {"production": []} | Regel |
 | `key-vault.security.enabled_for_services` | [] | Regel |
-| `key-vault.security.secret_placeholders` | ["entra-client-secret"] | eure Abweichung |
+| `key-vault.security.secret_placeholders` | ["entra-client-secret", "github-token"] | eure Abweichung |
 | `key-vault.keys.key_management` | platform_managed | übernommen |
 | `key-vault.observability.diagnostic_workspace` | log-analytics-workspace | übernommen |
 | `key-vault.observability.diagnostic_categories` | ["AuditEvent", "AzurePolicyEvaluationDetails"] | Regel |
 | `key-vault.observability.metrics_enabled` | true | Regel |
-| `wiring.private_dns_zones` | ["privatelink.vaultcore.azure.net", "privatelink.blob.core.windows.net", "privatelink.azurecr.io", "privatelink.cognitiveservices.azure.com", "privatelink.openai.azure.com", "privatelink.services.ai.azure.com"] | erzwungen |
-| `wiring.role_assignments` | [{"from": "user-assigned-identity", "to": "container-registry", "role": "AcrPull"}, {"from": "user-assigned-identity", "to": "storage-account", "role": "Storage Blob Data Contributor"}, {"from": "user-assigned-identity", "to": "foundry", "role": "Azure AI User"}, {"from": "user-assigned-identity", "to": "key-vault", "role": "Key Vault Secrets User"}] | Regel |
-| `wiring.access` | [{"from": "users", "to": "app-service", "label": "HTTPS 443, Anmeldung mit Firmenkonto"}, {"from": "app-service", "to": "foundry", "label": "Modelle aufrufen"}, {"from": "app-service", "to": "storage-account", "label": "Ergebnisse lesen und schreiben"}, {"from": "app-service", "to": "container-registry", "label": "Image laden"}, {"from": "app-service", "to": "key-vault", "label": "Anmelde-Secret lesen"}] | eure Beschreibung |
-| `wiring.purposes` | {"app-service": "Dashboard und Agent (ein Container)", "container-registry": "Image des Containers", "foundry": "Sprachmodelle für Agent und Bewertung", "storage-account": "Eval-Ergebnisse", "key-vault": "Client Secret der Anmeldung", "virtual-network": "Privates Netz", "log-analytics-workspace": "Logs aller Teile", "user-assigned-identity": "Zugriff ohne Schlüssel"} | eure Beschreibung |
+| `wiring.private_dns_zones` | ["privatelink.vaultcore.azure.net", "privatelink.blob.core.windows.net", "privatelink.azurecr.io", "privatelink.cognitiveservices.azure.com", "privatelink.openai.azure.com", "privatelink.services.ai.azure.com", "privatelink.azurewebsites.net"] | erzwungen |
+| `wiring.role_assignments` | [{"from": "user-assigned-identity__dashboard", "to": "container-registry", "role": "AcrPull"}, {"from": "user-assigned-identity__dashboard", "to": "storage-account", "role": "Storage Blob Data Reader"}, {"from": "user-assigned-identity__dashboard", "to": "key-vault", "role": "Key Vault Secrets User"}, {"from": "user-assigned-identity__agent", "to": "container-registry", "role": "AcrPull"}, {"from": "user-assigned-identity__agent", "to": "storage-account", "role": "Storage Blob Data Contributor"}, {"from": "user-assigned-identity__agent", "to": "foundry", "role": "Azure AI User"}] | Regel |
+| `wiring.access` | [{"from": "users", "to": "app-service__dashboard", "label": "HTTPS 443, Anmeldung mit Firmenkonto"}, {"from": "app-service__dashboard", "to": "storage-account", "label": "Ergebnisse lesen"}, {"from": "app-service__dashboard", "to": "key-vault", "label": "Anmelde-Secret und GitHub-Token lesen"}, {"from": "app-service__dashboard", "to": "container-registry", "label": "Image laden"}, {"from": "app-service__dashboard", "to": "app-service__agent", "label": "Lauf starten"}, {"from": "app-service__agent", "to": "foundry", "label": "Modelle aufrufen"}, {"from": "app-service__agent", "to": "storage-account", "label": "Ergebnisse schreiben"}, {"from": "app-service__agent", "to": "container-registry", "label": "Image laden"}] | eure Beschreibung |
+| `wiring.purposes` | {"app-service__dashboard": "Dashboard: zeigt Ergebnisse, legt Tickets an", "app-service__agent": "Agent: führt die Evals aus", "container-registry": "Images von Dashboard und Agent", "foundry": "Sprachmodelle für Agent und Bewertung", "storage-account": "Eval-Ergebnisse", "key-vault": "Anmelde-Secret und GitHub-Token des Dashboards", "virtual-network": "Privates Netz", "log-analytics-workspace": "Logs aller Teile", "user-assigned-identity__dashboard": "Zugriff des Dashboards ohne Schlüssel", "user-assigned-identity__agent": "Zugriff des Agents ohne Schlüssel"} | eure Beschreibung |

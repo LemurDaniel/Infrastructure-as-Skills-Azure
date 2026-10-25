@@ -45,7 +45,7 @@ param privateEndpointSubnetPrefix string
 @description('Additional registry regions as { location }.')
 param registryGeoReplicas array
 
-@description('Role assignments on the user-assigned identity itself, as { principalId, roleDefinitionId, principalType }.')
+@description('Role assignments on the user-assigned identities themselves (dashboard and agent), as { principalId, roleDefinitionId, principalType }.')
 param identityRoleAssignments array
 
 @description('Role assignments on the registry, as { principalId, roleDefinitionId, principalType }.')
@@ -64,11 +64,17 @@ param vaultRoleAssignments array
 // Open points of the spec and application inputs (placeholders in the stage file until answered)
 // ---------------------------------------------------------------------------------------------
 
-@description('Bootstrap image as name:tag without the registry, no latest; used only on the first deployment, the image pipeline owns the image afterwards (spec: resources.app-service.runtime.container_image_owner).')
-param containerImage string
+@description('Bootstrap image of the dashboard as name:tag without the registry, no latest; used only on the first deployment, the image pipeline owns the image afterwards (spec: resources.app-service__dashboard.runtime.container_image_owner).')
+param dashboardContainerImage string
 
-@description('linuxFxVersion the web app runs now; the pipeline fills this from the live web app before the deployment so the image is never rolled back. Empty on the first deployment.')
-param existingLinuxFxVersion string = ''
+@description('Bootstrap image of the agent as name:tag without the registry, no latest; used only on the first deployment, the image pipeline owns the image afterwards (spec: resources.app-service__agent.runtime.container_image_owner).')
+param agentContainerImage string
+
+@description('linuxFxVersion the dashboard runs now; the pipeline fills this from the live web app before the deployment so the image is never rolled back. Empty on the first deployment.')
+param existingDashboardLinuxFxVersion string = ''
+
+@description('linuxFxVersion the agent runs now; the pipeline fills this from the live web app before the deployment so the image is never rolled back. Empty on the first deployment.')
+param existingAgentLinuxFxVersion string = ''
 
 @description('Model deployments as { name, model: { format, name, version } } (spec open: resources.foundry.models.model_deployments).')
 param modelDeployments array
@@ -121,9 +127,13 @@ var unique4 = take(uniqueString(subscriptionId, resourceGroupName, idx), 4)
 // <TYPE>-<LOCATION>-<ENVIRONMENT>-<NAME>-<INDEX>
 var virtualNetworkName = 'vnet-${loc}-${env}-${workload}-${idx}'
 var workspaceName = 'log-${loc}-${env}-${workload}-${idx}'
-var identityName = 'id-${loc}-${env}-${workload}-${idx}'
+var identityDashboardName = 'id-${loc}-${env}-${workload}-dashboard-${idx}'
+var identityAgentName = 'id-${loc}-${env}-${workload}-agent-${idx}'
 var planName = 'plan-${loc}-${env}-${workload}-${idx}'
-var appName = 'app-${loc}-${env}-${workload}-${idx}'
+// The dashboard keeps the name of the single app that came before the split: it is the public
+// hostname, and the Entra redirect URI is registered for it.
+var dashboardAppName = 'app-${loc}-${env}-${workload}-${idx}'
+var agentAppName = 'app-${loc}-${env}-${workload}-agent-${idx}'
 // <TYPE><LOCATION><ENVIRONMENT><NAME><INDEX>, lowercase, alphanumeric only
 var registryName = toLower('cr${loc}${env}${workload}${idx}')
 var storageAccountName = toLower('st${loc}${env}${workload}${idx}')
@@ -135,6 +145,7 @@ var privateEndpointNamePrefix = 'pep-${loc}-${env}-${workload}'
 var registryPrivateEndpointName = '${privateEndpointNamePrefix}-registry-${idx}'
 var foundryPrivateEndpointName = '${privateEndpointNamePrefix}-account-${idx}'
 var vaultPrivateEndpointName = '${privateEndpointNamePrefix}-vault-${idx}'
+var agentPrivateEndpointName = '${privateEndpointNamePrefix}-agent-${idx}'
 var dnsLinkName = 'vnl-${loc}-${env}-${workload}-${idx}'
 
 // Subnet names (spec: virtual-network.addressing.subnets, resources.*.networking.private_endpoint_subnet,
@@ -148,6 +159,7 @@ var integrationSubnetName = 'app-integration'
 
 var roleDefinitionIds = {
   AcrPull: '7f951dda-4ed3-4680-a7ca-43fe172d538d'
+  'Storage Blob Data Reader': '2a2b9908-6ea1-4ae2-8e65-a410df84e7d1'
   'Storage Blob Data Contributor': 'ba92f5b4-2d11-453d-a403-e96b0029c9fe'
   'Azure AI User': '53ca6127-db72-4b80-b1b0-d745d6d5456d'
   'Key Vault Secrets User': '4633458b-17de-408a-b874-0445c86b69e6'
@@ -180,10 +192,20 @@ module observability 'modules/observability.bicep' = {
   }
 }
 
-module identity 'modules/identity.bicep' = {
-  name: 'identity'
+module identityDashboard 'modules/identity.bicep' = {
+  name: 'identity-dashboard'
   params: {
-    name: identityName
+    name: identityDashboardName
+    location: location
+    tags: tags
+    roleAssignments: identityRoleAssignments
+  }
+}
+
+module identityAgent 'modules/identity.bicep' = {
+  name: 'identity-agent'
+  params: {
+    name: identityAgentName
     location: location
     tags: tags
     roleAssignments: identityRoleAssignments
@@ -273,19 +295,27 @@ module app 'modules/app.bicep' = {
   name: 'app'
   params: {
     planName: planName
-    appName: appName
+    dashboardAppName: dashboardAppName
+    agentAppName: agentAppName
     location: location
     tags: tags
     integrationSubnetId: network.outputs.integrationSubnetId
+    privateEndpointSubnetId: network.outputs.privateEndpointSubnetId
+    agentPrivateEndpointName: agentPrivateEndpointName
+    privateDnsZoneId: resourceId('Microsoft.Network/privateDnsZones', privateDnsZoneNames.sites)
     diagnosticWorkspaceId: observability.outputs.id
-    identityId: identity.outputs.id
-    identityClientId: identity.outputs.clientId
+    dashboardIdentityId: identityDashboard.outputs.id
+    dashboardIdentityClientId: identityDashboard.outputs.clientId
+    agentIdentityId: identityAgent.outputs.id
+    agentIdentityClientId: identityAgent.outputs.clientId
     registryLoginServer: registry.outputs.loginServer
     vaultUri: vault.outputs.vaultUri
     foundryEndpoint: ai.outputs.endpoint
     storageAccountName: storage.outputs.name
-    containerImage: containerImage
-    existingLinuxFxVersion: existingLinuxFxVersion
+    dashboardContainerImage: dashboardContainerImage
+    agentContainerImage: agentContainerImage
+    existingDashboardLinuxFxVersion: existingDashboardLinuxFxVersion
+    existingAgentLinuxFxVersion: existingAgentLinuxFxVersion
     pluginSource: pluginSource
     entraClientId: entraClientId
     entraTenantId: entraTenantId
@@ -293,10 +323,14 @@ module app 'modules/app.bicep' = {
   dependsOn: [
     // The roles must be effective before the container first starts (image pull, secret reference).
     // Bicep cannot see this: the app module takes no output of the role assignments.
-    acrPullAssignment
-    storageBlobAssignment
-    foundryUserAssignment
-    keyVaultSecretsAssignment
+    // The zone group of the agent's private endpoint needs the zone (and its link) to exist.
+    privateDnsZoneLinks
+    acrPullDashboardAssignment
+    acrPullAgentAssignment
+    storageBlobReaderDashboardAssignment
+    storageBlobContributorAgentAssignment
+    foundryUserAgentAssignment
+    keyVaultSecretsDashboardAssignment
   ]
 }
 
@@ -313,6 +347,7 @@ var privateDnsZoneNames = {
   cognitiveservices: 'privatelink.cognitiveservices.azure.com'
   openai: 'privatelink.openai.azure.com'
   aiservices: 'privatelink.services.ai.azure.com'
+  sites: 'privatelink.azurewebsites.net'
 }
 
 resource privateDnsZone 'Microsoft.Network/privateDnsZones@2024-06-01' = [
@@ -356,16 +391,20 @@ resource vaultRef 'Microsoft.KeyVault/vaults@2024-11-01' existing = {
   name: vaultName
 }
 
-resource identityRef 'Microsoft.ManagedIdentity/userAssignedIdentities@2024-11-30' existing = {
-  name: identityName
+resource identityDashboardRef 'Microsoft.ManagedIdentity/userAssignedIdentities@2024-11-30' existing = {
+  name: identityDashboardName
 }
 
-// wiring.role_assignments: user-assigned-identity -> container-registry, AcrPull
-resource acrPullAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  name: guid(registryRef.id, identityRef.id, roleDefinitionIds.AcrPull)
+resource identityAgentRef 'Microsoft.ManagedIdentity/userAssignedIdentities@2024-11-30' existing = {
+  name: identityAgentName
+}
+
+// wiring.role_assignments: user-assigned-identity__dashboard -> container-registry, AcrPull
+resource acrPullDashboardAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(registryRef.id, identityDashboardRef.id, roleDefinitionIds.AcrPull)
   scope: registryRef
   properties: {
-    principalId: identity.outputs.principalId
+    principalId: identityDashboard.outputs.principalId
     principalType: 'ServicePrincipal'
     roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', roleDefinitionIds.AcrPull)
   }
@@ -375,12 +414,43 @@ resource acrPullAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' 
   ]
 }
 
-// wiring.role_assignments: user-assigned-identity -> storage-account, Storage Blob Data Contributor
-resource storageBlobAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  name: guid(storageAccountRef.id, identityRef.id, roleDefinitionIds['Storage Blob Data Contributor'])
+// wiring.role_assignments: user-assigned-identity__agent -> container-registry, AcrPull
+resource acrPullAgentAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(registryRef.id, identityAgentRef.id, roleDefinitionIds.AcrPull)
+  scope: registryRef
+  properties: {
+    principalId: identityAgent.outputs.principalId
+    principalType: 'ServicePrincipal'
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', roleDefinitionIds.AcrPull)
+  }
+  dependsOn: [
+    registry
+  ]
+}
+
+// wiring.role_assignments: user-assigned-identity__dashboard -> storage-account, Storage Blob Data Reader
+resource storageBlobReaderDashboardAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(storageAccountRef.id, identityDashboardRef.id, roleDefinitionIds['Storage Blob Data Reader'])
   scope: storageAccountRef
   properties: {
-    principalId: identity.outputs.principalId
+    principalId: identityDashboard.outputs.principalId
+    principalType: 'ServicePrincipal'
+    roleDefinitionId: subscriptionResourceId(
+      'Microsoft.Authorization/roleDefinitions',
+      roleDefinitionIds['Storage Blob Data Reader']
+    )
+  }
+  dependsOn: [
+    storage
+  ]
+}
+
+// wiring.role_assignments: user-assigned-identity__agent -> storage-account, Storage Blob Data Contributor
+resource storageBlobContributorAgentAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(storageAccountRef.id, identityAgentRef.id, roleDefinitionIds['Storage Blob Data Contributor'])
+  scope: storageAccountRef
+  properties: {
+    principalId: identityAgent.outputs.principalId
     principalType: 'ServicePrincipal'
     roleDefinitionId: subscriptionResourceId(
       'Microsoft.Authorization/roleDefinitions',
@@ -392,13 +462,13 @@ resource storageBlobAssignment 'Microsoft.Authorization/roleAssignments@2022-04-
   ]
 }
 
-// wiring.role_assignments: user-assigned-identity -> foundry, Azure AI User (the tenant now calls
-// this role 'Foundry User'; the role definition GUID is the same)
-resource foundryUserAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  name: guid(foundryRef.id, identityRef.id, roleDefinitionIds['Azure AI User'])
+// wiring.role_assignments: user-assigned-identity__agent -> foundry, Azure AI User (the tenant now
+// calls this role 'Foundry User'; the role definition GUID is the same)
+resource foundryUserAgentAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(foundryRef.id, identityAgentRef.id, roleDefinitionIds['Azure AI User'])
   scope: foundryRef
   properties: {
-    principalId: identity.outputs.principalId
+    principalId: identityAgent.outputs.principalId
     principalType: 'ServicePrincipal'
     roleDefinitionId: subscriptionResourceId(
       'Microsoft.Authorization/roleDefinitions',
@@ -410,12 +480,12 @@ resource foundryUserAssignment 'Microsoft.Authorization/roleAssignments@2022-04-
   ]
 }
 
-// wiring.role_assignments: user-assigned-identity -> key-vault, Key Vault Secrets User
-resource keyVaultSecretsAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  name: guid(vaultRef.id, identityRef.id, roleDefinitionIds['Key Vault Secrets User'])
+// wiring.role_assignments: user-assigned-identity__dashboard -> key-vault, Key Vault Secrets User
+resource keyVaultSecretsDashboardAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(vaultRef.id, identityDashboardRef.id, roleDefinitionIds['Key Vault Secrets User'])
   scope: vaultRef
   properties: {
-    principalId: identity.outputs.principalId
+    principalId: identityDashboard.outputs.principalId
     principalType: 'ServicePrincipal'
     roleDefinitionId: subscriptionResourceId(
       'Microsoft.Authorization/roleDefinitions',
@@ -461,8 +531,9 @@ resource virtualNetworkDiagnostics 'Microsoft.Insights/diagnosticSettings@2021-0
 // Outputs (nothing secret)
 // ---------------------------------------------------------------------------------------------
 
-output appId string = app.outputs.id
-output appDefaultHostname string = app.outputs.defaultHostname
+output dashboardId string = app.outputs.dashboardId
+output dashboardDefaultHostname string = app.outputs.dashboardDefaultHostname
+output agentId string = app.outputs.agentId
 output registryLoginServer string = registry.outputs.loginServer
 output vaultUri string = vault.outputs.vaultUri
 output foundryEndpoint string = ai.outputs.endpoint

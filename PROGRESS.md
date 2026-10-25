@@ -189,6 +189,13 @@ the detail; this list says what was decided and why, so a session does not reope
   partial what-if, immutable OIDC subject). Not yet in the plugin: an image owned by a
   separate pipeline (`existingLinuxFxVersion`, spec decision `container_image_owner`), and
   the instance number in the unique-name seed. Terraform and the other pipelines have not run.
+  Since 2026-10-25 the spec and the render (not yet deployed) split it in two: a public
+  dashboard (sign-in, reads the results, holds the GitHub token) and an agent behind a private
+  endpoint (runs plugin code, writes the results, no secret), on one B2 plan, one user-assigned
+  identity each; the tests assert the separation (`ideas/eval-agent.md`). Open there: when the
+  dashboard files a ticket (`application.ticket_trigger`), the plugin source, models, the
+  sign-in secret and the image push path. The old single identity `id-…-02` and, if the first
+  render was deployed, its role assignments stay orphaned until deleted by hand.
 - **Three examples, Terraform only, nothing applied:** `chat-sandbox` (the first full run
   with a customer and both agent loops, authored, 118 decisions, 32 tests),
   `chatbot` (per-family AVM, 284 decisions, 79 asserted / 205 not-testable),
@@ -252,6 +259,11 @@ until it is fixed or decided against.
   renders instead of being named as missing); blob container, file share, queue; a
   resource lock decision; a pipeline guard that checks a stage's `location` against
   `data_residency`.
+- `app-service` renders one site per plan; two apps on one plan (`eval-agent/`) are a
+  hand-rendered plan and site, noted in the spec. Either the set gets a `plan` decision
+  (own plan or shared with an instance) or a pattern owns the shared plan. A second app also
+  needs a private endpoint subnet decision per instance and `privatelink.azurewebsites.net`
+  in `wiring.private_dns_zones`, which no rule adds.
 - Bicep: no per-family shape in `bicep-idiom.md`; the sets from 2026-10-23 have no Bicep
   render at all; `*.armtest.yaml` is one file per example.
 
@@ -433,7 +445,11 @@ regeneration from the spec loses them. All `render`:
 - **A caller behind a caller.** With two compute icons in a subnet the first caller's line to
   the endpoints passes behind the second icon (same row, exit at 0.5). Offset the second icon's
   row, or leave the first caller over a lane that the second does not occupy; the hand fix moved
-  the MCP icon 38px down and routed `dashboard -> mcp` from the right side to the left.
+  the MCP icon 38px down and routed `dashboard -> mcp` from the right side to the left. Seen
+  again on `eval-agent/` (2026-10-25): the users line ran through the first icon to reach the
+  second, and both callers' lines to the endpoints ran behind the second icon. The hand fix put
+  the actor-facing app first, moved both icons 14px down, routed that app's endpoint line over
+  a corridor above the icons, and widened the subnet; a regeneration loses it.
 - **A compute-to-compute line goes top to top.** `e-5` (`dashboard -> mcp`) is drawn as a loop
   over both icons, its label lands on the subnet header ("delegiert an …"), and the straight
   line between the icons reads as a second connection. Route it side to side and put the label

@@ -1,108 +1,113 @@
 # Tests for the modules app and vault (spec: app-service, key-vault) and the wiring in main.bicep.
 
-# ---- app-service --------------------------------------------------------------------------------
+# ---- app-service__dashboard --------------------------------------------------------------------------------
 
-- decision: app-service.hosting.os_type
+- decision: app-service__dashboard.hosting.os_type
   path: resources.app.properties.template.resources.plan.kind
   equals: linux
 
-- decision: app-service.hosting.sku
+- decision: app-service__dashboard.hosting.sku
   path: resources.app.properties.template.resources.plan.sku.name
   equals: B2
 
-- decision: app-service.hosting.zone_redundant
+- decision: app-service__dashboard.hosting.zone_redundant
   path: resources.app.properties.template.resources.plan.properties.zoneRedundant
   equals: false
 
-- decision: app-service.hosting.instance_count
+- decision: app-service__dashboard.hosting.instance_count
   path: resources.app.properties.template.resources.plan.sku.capacity
   equals: 1
 
-- decision: app-service.networking.public_network_access
-  path: resources.app.properties.template.resources.site.properties.publicNetworkAccess
+- decision: app-service__dashboard.networking.public_network_access
+  path: resources.app.properties.template.resources.dashboard.properties.publicNetworkAccess
   equals: Enabled
 
-- decision: app-service.networking.vnet_integration
-  path: resources.app.properties.template.resources.site.properties.virtualNetworkSubnetId
+- decision: app-service__dashboard.networking.vnet_integration
+  path: resources.app.properties.template.resources.dashboard.properties.virtualNetworkSubnetId
   matches: "parameters\\('integrationSubnetId'\\)"
 
-- decision: app-service.networking.integration_subnet
+- decision: app-service__dashboard.networking.integration_subnet
   path: resources.app.properties.parameters.integrationSubnetId.value
   matches: "reference\\('network'\\)\\.outputs\\.integrationSubnetId"
 
-- decision: app-service.networking.vnet_route_all
-  path: resources.app.properties.template.resources.site.properties.outboundVnetRouting.allTraffic
+- decision: app-service__dashboard.networking.vnet_route_all
+  path: resources.app.properties.template.resources.dashboard.properties.outboundVnetRouting.allTraffic
   equals: false
 
-- decision: app-service.identity.managed_identity
-  path: resources.app.properties.template.resources.site.identity.type
+- decision: app-service__dashboard.identity.managed_identity
+  path: resources.app.properties.template.resources.dashboard.identity.type
   equals: UserAssigned
 
-- decision: app-service.identity.user_assigned_identity_ids
-  path: resources.app.properties.parameters.identityId.value
-  matches: "reference\\('identity'\\)\\.outputs\\.id"
+- decision: app-service__dashboard.identity.user_assigned_identity_ids
+  path: resources.app.properties.parameters.dashboardIdentityId.value
+  matches: "reference\\('identityDashboard'\\)\\.outputs\\.id"
 
 # Hand-rendered: no question set. Sign-in required, anonymous requests go to the login.
-- decision: app-service.identity.entra_sign_in
-  path: resources.app.properties.template.resources.authSettings.properties.globalValidation
+- decision: app-service__dashboard.identity.entra_sign_in
+  path: resources.app.properties.template.resources.dashboardAuthSettings.properties.globalValidation
   equals:
     requireAuthentication: true
     unauthenticatedClientAction: RedirectToLoginPage
     redirectToProvider: azureactivedirectory
 
 # The client secret is a Key Vault reference in the app settings, never a value.
-- decision: app-service.identity.entra_client_secret
-  path: resources.app.properties.template.resources.site.properties.siteConfig.appSettings[0].value
+- decision: app-service__dashboard.identity.entra_client_secret
+  path: resources.app.properties.template.resources.dashboard.properties.siteConfig.appSettings[0].value
   matches: "@Microsoft\\.KeyVault\\(SecretUri=\\{0\\}secrets/\\{1\\}/\\)"
 
-- decision: app-service.security.https_only
-  path: resources.app.properties.template.resources.site.properties.httpsOnly
+# The GitHub token is a Key Vault reference too, in the dashboard only.
+- deployment: dashboard_github_token_secret_name
+  path: resources.app.properties.template.variables.githubTokenSecretName
+  equals: github-token
+
+- decision: app-service__dashboard.security.https_only
+  path: resources.app.properties.template.resources.dashboard.properties.httpsOnly
   equals: true
 
-- decision: app-service.security.min_tls_version
-  path: resources.app.properties.template.resources.site.properties.siteConfig.minTlsVersion
+- decision: app-service__dashboard.security.min_tls_version
+  path: resources.app.properties.template.resources.dashboard.properties.siteConfig.minTlsVersion
   equals: "1.2"
 
-- decision: app-service.security.ftps_state
-  path: resources.app.properties.template.resources.site.properties.siteConfig.ftpsState
+- decision: app-service__dashboard.security.ftps_state
+  path: resources.app.properties.template.resources.dashboard.properties.siteConfig.ftpsState
   equals: Disabled
 
 # FTP and SCM are two switches; the decision is asserted on FTP, SCM has its own entry below.
-- decision: app-service.security.basic_auth_enabled
-  path: resources.app.properties.template.resources.basicAuthFtp.properties.allow
+- decision: app-service__dashboard.security.basic_auth_enabled
+  path: resources.app.properties.template.resources.dashboardBasicAuthFtp.properties.allow
   equals: false
 
-- deployment: basic_auth_scm_disabled
-  path: resources.app.properties.template.resources.basicAuthScm.properties.allow
+- deployment: dashboard_basic_auth_scm_disabled
+  path: resources.app.properties.template.resources.dashboardBasicAuthScm.properties.allow
   equals: false
 
-- decision: app-service.runtime.runtime_stack
-  path: resources.app.properties.template.resources.site.kind
+- decision: app-service__dashboard.runtime.runtime_stack
+  path: resources.app.properties.template.resources.dashboard.kind
   equals: app,linux,container
 
-# The running image wins over the bootstrap one: the template keeps existingLinuxFxVersion when set.
-- decision: app-service.runtime.container_image_owner
-  path: resources.app.properties.template.resources.site.properties.siteConfig.linuxFxVersion
-  matches: 'if\(not\(empty\(parameters\(''existingLinuxFxVersion''\)\)\), parameters\(''existingLinuxFxVersion''\), format\(''DOCKER\|\{0\}/\{1\}'''
+# The running image wins over the bootstrap one: the template keeps existingDashboardLinuxFxVersion when set.
+- decision: app-service__dashboard.runtime.container_image_owner
+  path: resources.app.properties.template.resources.dashboard.properties.siteConfig.linuxFxVersion
+  matches: 'if\(not\(empty\(parameters\(''existingDashboardLinuxFxVersion''\)\)\), parameters\(''existingDashboardLinuxFxVersion''\), format\(''DOCKER\|\{0\}/\{1\}'''
 
-- decision: app-service.runtime.always_on
-  path: resources.app.properties.template.resources.site.properties.siteConfig.alwaysOn
+- decision: app-service__dashboard.runtime.always_on
+  path: resources.app.properties.template.resources.dashboard.properties.siteConfig.alwaysOn
   equals: true
 
-- decision: app-service.runtime.health_check_path
-  path: resources.app.properties.template.resources.site.properties.siteConfig.healthCheckPath
+- decision: app-service__dashboard.runtime.health_check_path
+  path: resources.app.properties.template.resources.dashboard.properties.siteConfig.healthCheckPath
   absent: true
 
-- decision: app-service.runtime.http2_enabled
-  path: resources.app.properties.template.resources.site.properties.siteConfig.http20Enabled
+- decision: app-service__dashboard.runtime.http2_enabled
+  path: resources.app.properties.template.resources.dashboard.properties.siteConfig.http20Enabled
   equals: true
 
-- decision: app-service.observability.diagnostic_workspace
+- decision: app-service__dashboard.observability.diagnostic_workspace
   path: resources.app.properties.parameters.diagnosticWorkspaceId.value
   matches: "reference\\('observability'\\)\\.outputs\\.id"
 
-- decision: app-service.observability.diagnostic_categories
-  path: resources.app.properties.template.resources.siteDiagnostics.properties.logs
+- decision: app-service__dashboard.observability.diagnostic_categories
+  path: resources.app.properties.template.resources.dashboardDiagnostics.properties.logs
   equals:
     - { category: AppServiceHTTPLogs, enabled: true }
     - { category: AppServiceAppLogs, enabled: true }
@@ -110,14 +115,130 @@
     - { category: AppServiceIPSecAuditLogs, enabled: true }
     - { category: AppServicePlatformLogs, enabled: true }
 
-- decision: app-service.observability.metrics_enabled
-  path: resources.app.properties.template.resources.siteDiagnostics.properties.metrics
+- decision: app-service__dashboard.observability.metrics_enabled
+  path: resources.app.properties.template.resources.dashboardDiagnostics.properties.metrics
   equals:
     - { category: AllMetrics, enabled: true }
 
 # Image pull with the managed identity, no registry credentials.
-- deployment: image_pull_with_managed_identity
-  path: resources.app.properties.template.resources.site.properties.siteConfig.acrUseManagedIdentityCreds
+- deployment: dashboard_image_pull_with_managed_identity
+  path: resources.app.properties.template.resources.dashboard.properties.siteConfig.acrUseManagedIdentityCreds
+  equals: true
+
+# ---- app-service__agent --------------------------------------------------------------------------------
+
+- decision: app-service__agent.hosting.os_type
+  path: resources.app.properties.template.resources.plan.kind
+  equals: linux
+
+- decision: app-service__agent.hosting.sku
+  path: resources.app.properties.template.resources.plan.sku.name
+  equals: B2
+
+- decision: app-service__agent.hosting.zone_redundant
+  path: resources.app.properties.template.resources.plan.properties.zoneRedundant
+  equals: false
+
+- decision: app-service__agent.hosting.instance_count
+  path: resources.app.properties.template.resources.plan.sku.capacity
+  equals: 1
+
+- decision: app-service__agent.networking.public_network_access
+  path: resources.app.properties.template.resources.agent.properties.publicNetworkAccess
+  equals: Disabled
+
+- decision: app-service__agent.networking.private_endpoint_subnet
+  path: resources.app.properties.parameters.privateEndpointSubnetId.value
+  matches: "reference\\('network'\\)\\.outputs\\.privateEndpointSubnetId"
+
+# The endpoint is for the 'sites' sub-resource and lands in the zone privatelink.azurewebsites.net.
+- deployment: agent_private_endpoint_group
+  path: resources.app.properties.template.resources.agentPrivateEndpoint.properties.privateLinkServiceConnections[0].properties.groupIds
+  equals: [sites]
+
+- decision: app-service__agent.networking.vnet_integration
+  path: resources.app.properties.template.resources.agent.properties.virtualNetworkSubnetId
+  matches: "parameters\\('integrationSubnetId'\\)"
+
+- decision: app-service__agent.networking.integration_subnet
+  path: resources.app.properties.parameters.integrationSubnetId.value
+  matches: "reference\\('network'\\)\\.outputs\\.integrationSubnetId"
+
+- decision: app-service__agent.networking.vnet_route_all
+  path: resources.app.properties.template.resources.agent.properties.outboundVnetRouting.allTraffic
+  equals: false
+
+- decision: app-service__agent.identity.managed_identity
+  path: resources.app.properties.template.resources.agent.identity.type
+  equals: UserAssigned
+
+- decision: app-service__agent.identity.user_assigned_identity_ids
+  path: resources.app.properties.parameters.agentIdentityId.value
+  matches: "reference\\('identityAgent'\\)\\.outputs\\.id"
+
+- decision: app-service__agent.security.https_only
+  path: resources.app.properties.template.resources.agent.properties.httpsOnly
+  equals: true
+
+- decision: app-service__agent.security.min_tls_version
+  path: resources.app.properties.template.resources.agent.properties.siteConfig.minTlsVersion
+  equals: "1.2"
+
+- decision: app-service__agent.security.ftps_state
+  path: resources.app.properties.template.resources.agent.properties.siteConfig.ftpsState
+  equals: Disabled
+
+# FTP and SCM are two switches; the decision is asserted on FTP, SCM has its own entry below.
+- decision: app-service__agent.security.basic_auth_enabled
+  path: resources.app.properties.template.resources.agentBasicAuthFtp.properties.allow
+  equals: false
+
+- deployment: agent_basic_auth_scm_disabled
+  path: resources.app.properties.template.resources.agentBasicAuthScm.properties.allow
+  equals: false
+
+- decision: app-service__agent.runtime.runtime_stack
+  path: resources.app.properties.template.resources.agent.kind
+  equals: app,linux,container
+
+# The running image wins over the bootstrap one: the template keeps existingAgentLinuxFxVersion when set.
+- decision: app-service__agent.runtime.container_image_owner
+  path: resources.app.properties.template.resources.agent.properties.siteConfig.linuxFxVersion
+  matches: 'if\(not\(empty\(parameters\(''existingAgentLinuxFxVersion''\)\)\), parameters\(''existingAgentLinuxFxVersion''\), format\(''DOCKER\|\{0\}/\{1\}'''
+
+- decision: app-service__agent.runtime.always_on
+  path: resources.app.properties.template.resources.agent.properties.siteConfig.alwaysOn
+  equals: true
+
+- decision: app-service__agent.runtime.health_check_path
+  path: resources.app.properties.template.resources.agent.properties.siteConfig.healthCheckPath
+  absent: true
+
+- decision: app-service__agent.runtime.http2_enabled
+  path: resources.app.properties.template.resources.agent.properties.siteConfig.http20Enabled
+  equals: true
+
+- decision: app-service__agent.observability.diagnostic_workspace
+  path: resources.app.properties.parameters.diagnosticWorkspaceId.value
+  matches: "reference\\('observability'\\)\\.outputs\\.id"
+
+- decision: app-service__agent.observability.diagnostic_categories
+  path: resources.app.properties.template.resources.agentDiagnostics.properties.logs
+  equals:
+    - { category: AppServiceHTTPLogs, enabled: true }
+    - { category: AppServiceAppLogs, enabled: true }
+    - { category: AppServiceAuditLogs, enabled: true }
+    - { category: AppServiceIPSecAuditLogs, enabled: true }
+    - { category: AppServicePlatformLogs, enabled: true }
+
+- decision: app-service__agent.observability.metrics_enabled
+  path: resources.app.properties.template.resources.agentDiagnostics.properties.metrics
+  equals:
+    - { category: AllMetrics, enabled: true }
+
+# Image pull with the managed identity, no registry credentials.
+- deployment: agent_image_pull_with_managed_identity
+  path: resources.app.properties.template.resources.agent.properties.siteConfig.acrUseManagedIdentityCreds
   equals: true
 
 # ---- key-vault ----------------------------------------------------------------------------------
@@ -161,7 +282,7 @@
 
 - decision: key-vault.security.secret_placeholders
   path: resources.vault.properties.template.variables.secretPlaceholders
-  equals: [entra-client-secret]
+  equals: [entra-client-secret, github-token]
 
 # A placeholder is created only while the secret does not exist (the pipeline fills existingSecretNames).
 - deployment: secret_placeholder_does_not_overwrite
@@ -197,37 +318,73 @@
     cognitiveservices: privatelink.cognitiveservices.azure.com
     openai: privatelink.openai.azure.com
     aiservices: privatelink.services.ai.azure.com
+    sites: privatelink.azurewebsites.net
 
-- wiring: role_assignments.acr_pull
-  path: resources.acrPullAssignment.properties.roleDefinitionId
+- wiring: role_assignments.acr_pull_dashboard
+  path: resources.acrPullDashboardAssignment.properties.roleDefinitionId
   matches: "roleDefinitionIds'\\)\\.AcrPull"
 
-- wiring: role_assignments.storage_blob_data_contributor
-  path: resources.storageBlobAssignment.properties.roleDefinitionId
+- wiring: role_assignments.acr_pull_agent
+  path: resources.acrPullAgentAssignment.properties.roleDefinitionId
+  matches: "roleDefinitionIds'\\)\\.AcrPull"
+
+- wiring: role_assignments.storage_blob_data_reader_dashboard
+  path: resources.storageBlobReaderDashboardAssignment.properties.roleDefinitionId
+  matches: "Storage Blob Data Reader"
+
+- wiring: role_assignments.storage_blob_data_contributor_agent
+  path: resources.storageBlobContributorAgentAssignment.properties.roleDefinitionId
   matches: "Storage Blob Data Contributor"
 
 # Role shown as "Foundry User" in the tenant now; the GUID (53ca6127-...) is unchanged, the map key in main.bicep keeps the old name.
-- wiring: role_assignments.azure_ai_user
-  path: resources.foundryUserAssignment.properties.roleDefinitionId
+- wiring: role_assignments.azure_ai_user_agent
+  path: resources.foundryUserAgentAssignment.properties.roleDefinitionId
   matches: "Azure AI User"
 
-- wiring: role_assignments.key_vault_secrets_user
-  path: resources.keyVaultSecretsAssignment.properties.roleDefinitionId
+- wiring: role_assignments.key_vault_secrets_user_dashboard
+  path: resources.keyVaultSecretsDashboardAssignment.properties.roleDefinitionId
   matches: "Key Vault Secrets User"
 
-# The app starts only after the roles exist.
-- wiring: app_waits_for_roles
+# The separation itself: the agent, which runs plugin code, gets no role on the vault, and the
+# dashboard, which is internet-facing, gets none on the models and cannot write the results.
+- wiring: agent_has_no_vault_role
+  path: resources.keyVaultSecretsAgentAssignment
+  absent: true
+
+- wiring: dashboard_has_no_foundry_role
+  path: resources.foundryUserDashboardAssignment
+  absent: true
+
+- wiring: dashboard_has_no_blob_write_role
+  path: resources.storageBlobContributorDashboardAssignment
+  absent: true
+
+# The agent holds no Key Vault reference: no identity to resolve one with.
+- deployment: agent_has_no_key_vault_reference_identity
+  path: resources.app.properties.template.resources.agent.properties.keyVaultReferenceIdentity
+  absent: true
+
+# The apps start only after their roles exist.
+- wiring: dashboard_waits_for_roles
   path: resources.app.dependsOn
-  contains: acrPullAssignment
+  contains: acrPullDashboardAssignment
 
-# ---- app settings: the targets the app needs (values come from module outputs) -----------------
+- wiring: agent_waits_for_roles
+  path: resources.app.dependsOn
+  contains: foundryUserAgentAssignment
 
-- deployment: app_setting_foundry_endpoint
-  path: resources.app.properties.template.resources.site.properties.siteConfig.appSettings[4]
+# ---- app settings: the targets the apps need (values come from module outputs) -----------------
+
+- deployment: agent_setting_foundry_endpoint
+  path: resources.app.properties.template.resources.agent.properties.siteConfig.appSettings[3]
   matches: '"name": "FOUNDRY_ENDPOINT", "value": "\[parameters\(''foundryEndpoint''\)\]"'
 
-- deployment: app_setting_storage_account_name
-  path: resources.app.properties.template.resources.site.properties.siteConfig.appSettings[5]
+- deployment: agent_setting_storage_account_name
+  path: resources.app.properties.template.resources.agent.properties.siteConfig.appSettings[4]
+  matches: '"name": "STORAGE_ACCOUNT_NAME", "value": "\[parameters\(''storageAccountName''\)\]"'
+
+- deployment: dashboard_setting_storage_account_name
+  path: resources.app.properties.template.resources.dashboard.properties.siteConfig.appSettings[4]
   matches: '"name": "STORAGE_ACCOUNT_NAME", "value": "\[parameters\(''storageAccountName''\)\]"'
 
 - wiring: app_foundry_endpoint_from_ai_output
@@ -239,8 +396,14 @@
   matches: 'reference\(''storage''\)\.outputs\.name'
 
 # Image pull of the platform goes through the VNet integration (registry has only a private endpoint).
-- deployment: image_pull_over_vnet
-  path: resources.app.properties.template.resources.site.properties.siteConfig.appSettings[3]
+- deployment: dashboard_image_pull_over_vnet
+  path: resources.app.properties.template.resources.dashboard.properties.siteConfig.appSettings[3]
+  equals:
+    name: WEBSITE_PULL_IMAGE_OVER_VNET
+    value: "true"
+
+- deployment: agent_image_pull_over_vnet
+  path: resources.app.properties.template.resources.agent.properties.siteConfig.appSettings[2]
   equals:
     name: WEBSITE_PULL_IMAGE_OVER_VNET
     value: "true"

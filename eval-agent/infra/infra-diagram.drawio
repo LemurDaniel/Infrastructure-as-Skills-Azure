@@ -8,39 +8,39 @@
           <mxGeometry x="20" y="130" width="212" height="156" as="geometry"/>
         </mxCell>
         <mxCell id="rg" value="&lt;b&gt;Ressourcengruppe&lt;/b&gt;&lt;br&gt;&lt;font style=&apos;font-size:10px&apos;&gt;production&lt;/font&gt;" style="rounded=1;arcSize=2;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#0078D4;verticalAlign=top;align=left;spacingLeft=36;spacingTop=4;fontStyle=1;container=1;collapsible=0;" vertex="1" parent="1">
-          <mxGeometry x="272" y="80" width="1150" height="712" as="geometry"/>
+          <mxGeometry x="272" y="80" width="1198" height="782" as="geometry"/>
         </mxCell>
         <mxCell id="vnet" value="&lt;b&gt;Virtual Network&lt;/b&gt;&lt;br&gt;&lt;font style=&apos;font-size:10px&apos;&gt;10.100.0.0/24&lt;/font&gt;" style="rounded=1;arcSize=2;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#0078D4;verticalAlign=top;align=left;spacingLeft=36;spacingTop=4;fontStyle=1;container=1;collapsible=0;" vertex="1" parent="rg">
-          <mxGeometry x="16" y="50" width="638" height="264" as="geometry"/>
+          <mxGeometry x="16" y="50" width="686" height="264" as="geometry"/>
         </mxCell>
         <mxCell id="snet-c0" value="&lt;b&gt;app-integration&lt;/b&gt;  &lt;font style=&apos;font-size:10px&apos;&gt;10.100.0.64/26&lt;/font&gt;&lt;br&gt;&lt;font style=&apos;font-size:10px&apos;&gt;&lt;i&gt;delegiert an Microsoft.Web/serverFarms&lt;/i&gt;&lt;/font&gt;" style="rounded=1;arcSize=4;whiteSpace=wrap;html=1;fillColor=#F3F9FD;strokeColor=#7FBAEA;verticalAlign=top;align=left;spacingLeft=10;spacingTop=2;container=1;collapsible=0;" vertex="1" parent="vnet">
-          <mxGeometry x="16" y="40" width="376" height="192" as="geometry"/>
+          <mxGeometry x="16" y="40" width="406" height="192" as="geometry"/>
         </mxCell>
         <mxCell id="snet-pe" value="&lt;b&gt;pe&lt;/b&gt;  &lt;font style=&apos;font-size:10px&apos;&gt;10.100.0.0/27&lt;/font&gt;" style="rounded=1;arcSize=4;whiteSpace=wrap;html=1;fillColor=#F3F9FD;strokeColor=#7FBAEA;verticalAlign=top;align=left;spacingLeft=10;spacingTop=2;container=1;collapsible=0;" vertex="1" parent="vnet">
-          <mxGeometry x="450" y="40" width="172" height="192" as="geometry"/>
+          <mxGeometry x="498" y="40" width="172" height="192" as="geometry"/>
         </mxCell>
         <mxCell id="z-paas" value="Azure PaaS &amp;#8212; öffentlicher Zugriff deaktiviert" style="rounded=1;arcSize=2;whiteSpace=wrap;html=1;fillColor=#F7F7F7;strokeColor=#8A8886;fontColor=#323130;verticalAlign=top;align=left;spacingLeft=12;spacingTop=6;fontStyle=1;container=1;collapsible=0;" vertex="1" parent="rg">
-          <mxGeometry x="734" y="50" width="400" height="428" as="geometry"/>
+          <mxGeometry x="782" y="50" width="400" height="572" as="geometry"/>
         </mxCell>
         <mxCell id="z-support" value="Identitäten und Netzwerkgrundlage" style="rounded=1;arcSize=2;whiteSpace=wrap;html=1;fillColor=#F7F7F7;strokeColor=#8A8886;fontColor=#323130;verticalAlign=top;align=left;spacingLeft=12;spacingTop=6;fontStyle=1;container=1;collapsible=0;" vertex="1" parent="rg">
-          <mxGeometry x="16" y="330" width="204" height="142" as="geometry"/>
+          <mxGeometry x="16" y="330" width="376" height="158" as="geometry"/>
         </mxCell>
         <mxCell id="z-monitoring" value="Monitoring" style="rounded=1;arcSize=2;whiteSpace=wrap;html=1;fillColor=#F1F8F2;strokeColor=#5BA55B;fontColor=#107C10;verticalAlign=top;align=left;spacingLeft=12;spacingTop=6;fontStyle=1;container=1;collapsible=0;" vertex="1" parent="rg">
-          <mxGeometry x="236" y="330" width="212" height="218" as="geometry"/>
+          <mxGeometry x="408" y="330" width="212" height="218" as="geometry"/>
         </mxCell>
         <mxCell id="z-dnszones" value="Namensauflösung" style="rounded=1;arcSize=2;whiteSpace=wrap;html=1;fillColor=#F5F0FA;strokeColor=#8661C5;fontColor=#5C2D91;verticalAlign=top;align=left;spacingLeft=12;spacingTop=6;fontStyle=1;container=1;collapsible=0;" vertex="1" parent="rg">
-          <mxGeometry x="734" y="494" width="212" height="178" as="geometry"/>
+          <mxGeometry x="16" y="564" width="212" height="178" as="geometry"/>
         </mxCell>
-        <mxCell id="legend" value="&lt;b&gt;Legende&lt;/b&gt;&lt;br&gt;&lt;font color=&apos;#0078D4&apos;&gt;&lt;b&gt;&amp;#9473;&amp;#9473;&amp;#9654;&lt;/b&gt;&lt;/font&gt; privater Zugriff, kein öffentlicher Weg&lt;br&gt;&lt;font color=&apos;#E8710A&apos;&gt;&lt;b&gt;&amp;#9473;&amp;#9473;&amp;#9654;&lt;/b&gt;&lt;/font&gt; Zugriff aus dem oder über das Internet&lt;br&gt;&lt;font color=&apos;#D13438&apos;&gt;offene oder angenommene Entscheidung&lt;/font&gt;" style="rounded=1;arcSize=4;whiteSpace=wrap;html=1;align=left;verticalAlign=top;spacing=10;fillColor=#FFFFFF;strokeColor=#C8C6C4;fontSize=11;" vertex="1" parent="1">
-          <mxGeometry x="272" y="822" width="560" height="86" as="geometry"/>
+        <mxCell id="legend" value="&lt;b&gt;Legende&lt;/b&gt;&lt;br&gt;&lt;font color=&apos;#0078D4&apos;&gt;&lt;b&gt;&amp;#9473;&amp;#9473;&amp;#9654;&lt;/b&gt;&lt;/font&gt; privater Zugriff, kein öffentlicher Weg&lt;br&gt;&lt;font color=&apos;#D83B01&apos;&gt;&lt;b&gt;&amp;#9473;&amp;#9473;&amp;#9654;&lt;/b&gt;&lt;/font&gt; Zugriff aus dem oder über das Internet&lt;br&gt;&lt;font color=&apos;#D13438&apos;&gt;offene oder angenommene Entscheidung&lt;/font&gt;" style="rounded=1;arcSize=4;whiteSpace=wrap;html=1;align=left;verticalAlign=top;spacing=10;fillColor=#FFFFFF;strokeColor=#C8C6C4;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="272" y="892" width="560" height="86" as="geometry"/>
         </mxCell>
-        <mxCell id="panel" value="&lt;b&gt;Entscheidungen&lt;/b&gt;&lt;br&gt;Erreichbarkeit: &lt;b&gt;privat, nur der App Service ist öffentlich&lt;/b&gt;&lt;br&gt;Netzwerk: eigenes Netz, 10.100.0.0/24&lt;br&gt;Namensauflösung: im System selbst&lt;br&gt;Logs: eigener Log-Arbeitsbereich&lt;br&gt;&lt;br&gt;&lt;font color=&apos;#D13438&apos;&gt;&lt;b&gt;Offen: 5&lt;/b&gt; &amp;#183; Workload-Owner ×4, Identitäts-Team&lt;/font&gt;&lt;br&gt;&lt;i&gt;Details in infra-decisions.md&lt;/i&gt;" style="rounded=1;arcSize=3;whiteSpace=wrap;html=1;align=left;verticalAlign=top;spacing=12;fillColor=#F3F2F1;strokeColor=#C8C6C4;" vertex="1" parent="1">
-          <mxGeometry x="852" y="822" width="570" height="150" as="geometry"/>
+        <mxCell id="panel" value="&lt;b&gt;Entscheidungen&lt;/b&gt;&lt;br&gt;Erreichbarkeit: &lt;b&gt;private_with_exceptions&lt;/b&gt;&lt;br&gt;Netzwerk: create, 10.100.0.0/24&lt;br&gt;Private DNS: deployment&lt;br&gt;Diagnose: log-analytics-workspace&lt;br&gt;&lt;br&gt;&lt;font color=&apos;#D13438&apos;&gt;&lt;b&gt;Offen: 5&lt;/b&gt; &amp;#183; Workload-Owner ×4, Identitäts-Team&lt;/font&gt;&lt;br&gt;&lt;i&gt;Details in infra-decisions.md&lt;/i&gt;" style="rounded=1;arcSize=3;whiteSpace=wrap;html=1;align=left;verticalAlign=top;spacing=12;fillColor=#F3F2F1;strokeColor=#C8C6C4;" vertex="1" parent="1">
+          <mxGeometry x="852" y="892" width="618" height="150" as="geometry"/>
         </mxCell>
         <mxCell id="title" value="&lt;b&gt;claude-plugin-eval-agent &amp;#8212; Architektur&lt;/b&gt;" style="text;html=1;align=left;verticalAlign=middle;fontSize=20;" vertex="1" parent="1">
           <mxGeometry x="20" y="12" width="900" height="30" as="geometry"/>
         </mxCell>
-        <mxCell id="subtitle" value="Zugriffe laufen über Private Endpoints; aus dem Internet erreichbar: App Service, Log Analytics Workspace. Zugriffe auf die Ressourcen laufen über Identitäten, ohne Schlüssel." style="text;html=1;align=left;verticalAlign=middle;fontSize=12;fontColor=#605E5C;" vertex="1" parent="1">
+        <mxCell id="subtitle" value="Zugriffe laufen über Private Endpoints; aus dem Internet erreichbar: App Service · dashboard, Log Analytics Workspace. Zugriffe auf die Ressourcen laufen über Identitäten, ohne Schlüssel." style="text;html=1;align=left;verticalAlign=middle;fontSize=12;fontColor=#605E5C;" vertex="1" parent="1">
           <mxGeometry x="20" y="46" width="1300" height="22" as="geometry"/>
         </mxCell>
         <mxCell id="act-users" value="&lt;b&gt;Benutzer&lt;/b&gt;" style="image;aspect=fixed;html=1;points=[];align=center;verticalLabelPosition=bottom;verticalAlign=top;whiteSpace=wrap;labelBackgroundColor=none;labelWidth=162;image=img/lib/azure2/identity/Users.svg;" vertex="1" parent="z-ext">
@@ -49,59 +49,71 @@
         <mxCell id="rg-icon" value="" style="image;aspect=fixed;html=1;image=img/lib/azure2/general/Resource_Groups.svg;" vertex="1" parent="rg">
           <mxGeometry x="6" y="6" width="24" height="24" as="geometry"/>
         </mxCell>
-        <mxCell id="rg-private" value="&amp;#128274; kein öffentlicher Zugriff, außer: App Service, Log Analytics Workspace" style="text;html=1;align=left;verticalAlign=middle;fontColor=#107C10;fontStyle=2;" vertex="1" parent="rg">
-          <mxGeometry x="16" y="686" width="1118" height="20" as="geometry"/>
+        <mxCell id="rg-private" value="&amp;#128274; kein öffentlicher Zugriff, außer: App Service · dashboard, Log Analytics Workspace" style="text;html=1;align=left;verticalAlign=middle;fontColor=#107C10;fontStyle=2;" vertex="1" parent="rg">
+          <mxGeometry x="16" y="756" width="1166" height="20" as="geometry"/>
         </mxCell>
         <mxCell id="vnet-icon" value="" style="image;aspect=fixed;html=1;image=img/lib/azure2/networking/Virtual_Networks.svg;" vertex="1" parent="vnet">
           <mxGeometry x="6" y="6" width="24" height="24" as="geometry"/>
         </mxCell>
-        <mxCell id="res-app-service" value="&lt;b&gt;App Service&lt;/b&gt;&lt;br&gt;&lt;font style=&apos;font-size:10px&apos;&gt;Dashboard und Agent (ein Container)&lt;/font&gt;&lt;br&gt;&lt;font style=&apos;font-size:10px&apos; color=&apos;#E8710A&apos;&gt;&amp;#9888; aus dem Internet erreichbar&lt;/font&gt;" style="image;aspect=fixed;html=1;points=[];align=center;verticalLabelPosition=bottom;verticalAlign=top;whiteSpace=wrap;labelBackgroundColor=none;labelWidth=162;image=img/lib/azure2/app_services/App_Services.svg;fontColor=#D13438;" vertex="1" parent="snet-c0">
-          <mxGeometry x="78" y="50" width="48" height="48" as="geometry"/>
+        <mxCell id="res-app-service__agent" value="&lt;b&gt;App Service&lt;/b&gt;&lt;br&gt;&lt;font style=&apos;font-size:10px&apos;&gt;Agent: führt die Evals aus&lt;/font&gt;" style="image;aspect=fixed;html=1;points=[];align=center;verticalLabelPosition=bottom;verticalAlign=top;whiteSpace=wrap;labelBackgroundColor=none;labelWidth=162;image=img/lib/azure2/app_services/App_Services.svg;" vertex="1" parent="snet-c0">
+          <mxGeometry x="268" y="64" width="48" height="48" as="geometry"/>
         </mxCell>
-        <mxCell id="pe-bundle" value="&lt;b&gt;Private Endpoints&lt;/b&gt;&lt;br&gt;&lt;font style=&apos;font-size:10px&apos;&gt;4× Container Registry, AI Foundry, Key Vault, Storage Account&lt;/font&gt;" style="image;aspect=fixed;html=1;points=[];align=center;verticalLabelPosition=bottom;verticalAlign=top;whiteSpace=wrap;labelBackgroundColor=none;labelWidth=162;image=img/lib/azure2/networking/Private_Endpoint.svg;" vertex="1" parent="snet-pe">
+        <mxCell id="res-app-service__dashboard" value="&lt;b&gt;App Service&lt;/b&gt;&lt;br&gt;&lt;font style=&apos;font-size:10px&apos;&gt;Dashboard: zeigt Ergebnisse, legt Tickets an&lt;/font&gt;&lt;br&gt;&lt;font style=&apos;font-size:10px&apos; color=&apos;#D83B01&apos;&gt;&amp;#9888; aus dem Internet erreichbar&lt;/font&gt;" style="image;aspect=fixed;html=1;points=[];align=center;verticalLabelPosition=bottom;verticalAlign=top;whiteSpace=wrap;labelBackgroundColor=none;labelWidth=162;image=img/lib/azure2/app_services/App_Services.svg;fontColor=#D13438;" vertex="1" parent="snet-c0">
+          <mxGeometry x="100" y="64" width="48" height="48" as="geometry"/>
+        </mxCell>
+        <mxCell id="pe-bundle" value="&lt;b&gt;Private Endpoints&lt;/b&gt;&lt;br&gt;&lt;font style=&apos;font-size:10px&apos;&gt;5× App Service, Container Registry +3&lt;/font&gt;" style="image;aspect=fixed;html=1;points=[];align=center;verticalLabelPosition=bottom;verticalAlign=top;whiteSpace=wrap;labelBackgroundColor=none;labelWidth=162;image=img/lib/azure2/networking/Private_Endpoint.svg;" vertex="1" parent="snet-pe">
           <mxGeometry x="62" y="38" width="48" height="48" as="geometry"/>
         </mxCell>
-        <mxCell id="res-container-registry" value="&lt;b&gt;Container Registry&lt;/b&gt;&lt;br&gt;&lt;font style=&apos;font-size:10px&apos;&gt;Image des Containers&lt;/font&gt;&lt;br&gt;&lt;font style=&apos;font-size:10px&apos; color=&apos;#5C2D91&apos;&gt;&amp;#8592; Managed Identity: AcrPull&lt;/font&gt;&lt;br&gt;&lt;font style=&apos;font-size:10px&apos; color=&apos;#5C2D91&apos;&gt;&amp;#8592; App Service (Image laden)&lt;/font&gt;" style="image;aspect=fixed;html=1;points=[];align=center;verticalLabelPosition=bottom;verticalAlign=top;whiteSpace=wrap;labelBackgroundColor=none;labelWidth=162;image=img/lib/azure2/containers/Container_Registries.svg;fontColor=#D13438;" vertex="1" parent="z-paas">
+        <mxCell id="res-container-registry" value="&lt;b&gt;Container Registry&lt;/b&gt;&lt;br&gt;&lt;font style=&apos;font-size:10px&apos;&gt;Images von Dashboard und Agent&lt;/font&gt;&lt;br&gt;&lt;font style=&apos;font-size:10px&apos; color=&apos;#5C2D91&apos;&gt;&amp;#8592; Managed Identity · dashboard: AcrPull&lt;/font&gt;&lt;br&gt;&lt;font style=&apos;font-size:10px&apos; color=&apos;#5C2D91&apos;&gt;&amp;#8592; Managed Identity · agent: AcrPull&lt;/font&gt;&lt;br&gt;&lt;font style=&apos;font-size:10px&apos; color=&apos;#5C2D91&apos;&gt;&amp;#8592; App Service &amp;#183; dashboard (Image laden), App Service &amp;#183; agent (Image laden)&lt;/font&gt;" style="image;aspect=fixed;html=1;points=[];align=center;verticalLabelPosition=bottom;verticalAlign=top;whiteSpace=wrap;labelBackgroundColor=none;labelWidth=162;image=img/lib/azure2/containers/Container_Registries.svg;fontColor=#D13438;" vertex="1" parent="z-paas">
           <mxGeometry x="78" y="52" width="48" height="48" as="geometry"/>
         </mxCell>
-        <mxCell id="res-foundry" value="&lt;b&gt;AI Foundry&lt;/b&gt;&lt;br&gt;&lt;font style=&apos;font-size:10px&apos;&gt;Sprachmodelle für Agent und Bewertung&lt;/font&gt;&lt;br&gt;&lt;font style=&apos;font-size:10px&apos; color=&apos;#5C2D91&apos;&gt;&amp;#8592; Managed Identity: Azure AI User&lt;/font&gt;&lt;br&gt;&lt;font style=&apos;font-size:10px&apos; color=&apos;#5C2D91&apos;&gt;&amp;#8592; App Service (Modelle aufrufen)&lt;/font&gt;" style="image;aspect=fixed;html=1;points=[];align=center;verticalLabelPosition=bottom;verticalAlign=top;whiteSpace=wrap;labelBackgroundColor=none;labelWidth=162;image=img/lib/azure2/ai_machine_learning/Cognitive_Services.svg;fontColor=#D13438;" vertex="1" parent="z-paas">
+        <mxCell id="res-foundry" value="&lt;b&gt;AI Foundry&lt;/b&gt;&lt;br&gt;&lt;font style=&apos;font-size:10px&apos;&gt;Sprachmodelle für Agent und Bewertung&lt;/font&gt;&lt;br&gt;&lt;font style=&apos;font-size:10px&apos; color=&apos;#5C2D91&apos;&gt;&amp;#8592; Managed Identity · agent: Azure AI User&lt;/font&gt;&lt;br&gt;&lt;font style=&apos;font-size:10px&apos; color=&apos;#5C2D91&apos;&gt;&amp;#8592; App Service &amp;#183; agent (Modelle aufrufen)&lt;/font&gt;" style="image;aspect=fixed;html=1;points=[];align=center;verticalLabelPosition=bottom;verticalAlign=top;whiteSpace=wrap;labelBackgroundColor=none;labelWidth=162;image=img/lib/azure2/ai_machine_learning/Cognitive_Services.svg;fontColor=#D13438;" vertex="1" parent="z-paas">
           <mxGeometry x="274" y="52" width="48" height="48" as="geometry"/>
         </mxCell>
-        <mxCell id="res-key-vault" value="&lt;b&gt;Key Vault&lt;/b&gt;&lt;br&gt;&lt;font style=&apos;font-size:10px&apos;&gt;Client Secret der Anmeldung&lt;/font&gt;&lt;br&gt;&lt;font style=&apos;font-size:10px&apos; color=&apos;#5C2D91&apos;&gt;&amp;#8592; Managed Identity: Key Vault Secrets User&lt;/font&gt;&lt;br&gt;&lt;font style=&apos;font-size:10px&apos; color=&apos;#5C2D91&apos;&gt;&amp;#8592; App Service (Anmelde-Secret lesen)&lt;/font&gt;" style="image;aspect=fixed;html=1;points=[];align=center;verticalLabelPosition=bottom;verticalAlign=top;whiteSpace=wrap;labelBackgroundColor=none;labelWidth=162;image=img/lib/azure2/security/Key_Vaults.svg;" vertex="1" parent="z-paas">
-          <mxGeometry x="78" y="244" width="48" height="48" as="geometry"/>
+        <mxCell id="res-key-vault" value="&lt;b&gt;Key Vault&lt;/b&gt;&lt;br&gt;&lt;font style=&apos;font-size:10px&apos;&gt;Anmelde-Secret und GitHub-Token des Dashboards&lt;/font&gt;&lt;br&gt;&lt;font style=&apos;font-size:10px&apos; color=&apos;#5C2D91&apos;&gt;&amp;#8592; Managed Identity · dashboard: Key Vault Secrets User&lt;/font&gt;&lt;br&gt;&lt;font style=&apos;font-size:10px&apos; color=&apos;#5C2D91&apos;&gt;&amp;#8592; App Service &amp;#183; dashboard (Anmelde-Secret und GitHub-Token lesen)&lt;/font&gt;" style="image;aspect=fixed;html=1;points=[];align=center;verticalLabelPosition=bottom;verticalAlign=top;whiteSpace=wrap;labelBackgroundColor=none;labelWidth=162;image=img/lib/azure2/security/Key_Vaults.svg;" vertex="1" parent="z-paas">
+          <mxGeometry x="78" y="308" width="48" height="48" as="geometry"/>
         </mxCell>
-        <mxCell id="res-storage-account" value="&lt;b&gt;Storage Account&lt;/b&gt;&lt;br&gt;&lt;font style=&apos;font-size:10px&apos;&gt;Eval-Ergebnisse&lt;/font&gt;&lt;br&gt;&lt;font style=&apos;font-size:10px&apos; color=&apos;#5C2D91&apos;&gt;&amp;#8592; Managed Identity: Storage Blob Data Contributor&lt;/font&gt;&lt;br&gt;&lt;font style=&apos;font-size:10px&apos; color=&apos;#5C2D91&apos;&gt;&amp;#8592; App Service (Ergebnisse lesen und schreiben)&lt;/font&gt;" style="image;aspect=fixed;html=1;points=[];align=center;verticalLabelPosition=bottom;verticalAlign=top;whiteSpace=wrap;labelBackgroundColor=none;labelWidth=162;image=img/lib/azure2/storage/Storage_Accounts.svg;" vertex="1" parent="z-paas">
-          <mxGeometry x="274" y="244" width="48" height="48" as="geometry"/>
+        <mxCell id="res-storage-account" value="&lt;b&gt;Storage Account&lt;/b&gt;&lt;br&gt;&lt;font style=&apos;font-size:10px&apos;&gt;Eval-Ergebnisse&lt;/font&gt;&lt;br&gt;&lt;font style=&apos;font-size:10px&apos; color=&apos;#5C2D91&apos;&gt;&amp;#8592; Managed Identity · dashboard: Storage Blob Data Reader&lt;/font&gt;&lt;br&gt;&lt;font style=&apos;font-size:10px&apos; color=&apos;#5C2D91&apos;&gt;&amp;#8592; Managed Identity · agent: Storage Blob Data Contributor&lt;/font&gt;&lt;br&gt;&lt;font style=&apos;font-size:10px&apos; color=&apos;#5C2D91&apos;&gt;&amp;#8592; App Service &amp;#183; dashboard (Ergebnisse lesen), App Service &amp;#183; agent (Ergebnisse schreiben)&lt;/font&gt;" style="image;aspect=fixed;html=1;points=[];align=center;verticalLabelPosition=bottom;verticalAlign=top;whiteSpace=wrap;labelBackgroundColor=none;labelWidth=162;image=img/lib/azure2/storage/Storage_Accounts.svg;" vertex="1" parent="z-paas">
+          <mxGeometry x="274" y="308" width="48" height="48" as="geometry"/>
         </mxCell>
-        <mxCell id="res-user-assigned-identity" value="&lt;b&gt;Managed Identity&lt;/b&gt;&lt;br&gt;&lt;font style=&apos;font-size:10px&apos;&gt;Zugriff ohne Schlüssel&lt;/font&gt;" style="image;aspect=fixed;html=1;points=[];align=center;verticalLabelPosition=bottom;verticalAlign=top;whiteSpace=wrap;labelBackgroundColor=none;labelWidth=162;image=img/lib/azure2/identity/Managed_Identities.svg;" vertex="1" parent="z-support">
+        <mxCell id="res-user-assigned-identity__agent" value="&lt;b&gt;Managed Identity&lt;/b&gt;&lt;br&gt;&lt;font style=&apos;font-size:10px&apos;&gt;Zugriff des Agents ohne Schlüssel&lt;/font&gt;" style="image;aspect=fixed;html=1;points=[];align=center;verticalLabelPosition=bottom;verticalAlign=top;whiteSpace=wrap;labelBackgroundColor=none;labelWidth=162;image=img/lib/azure2/identity/Managed_Identities.svg;" vertex="1" parent="z-support">
           <mxGeometry x="78" y="38" width="48" height="48" as="geometry"/>
         </mxCell>
-        <mxCell id="law" value="&lt;b&gt;Log Analytics&lt;/b&gt;&lt;br&gt;&lt;font style=&apos;font-size:10px&apos;&gt;Logs aller Teile&lt;/font&gt;&lt;br&gt;&lt;font style=&apos;font-size:10px&apos; color=&apos;#E8710A&apos;&gt;&amp;#9888; aus dem Internet erreichbar&lt;/font&gt;" style="image;aspect=fixed;html=1;points=[];align=center;verticalLabelPosition=bottom;verticalAlign=top;whiteSpace=wrap;labelBackgroundColor=none;labelWidth=162;image=img/lib/azure2/analytics/Log_Analytics_Workspaces.svg;" vertex="1" parent="z-monitoring">
+        <mxCell id="res-user-assigned-identity__dashboard" value="&lt;b&gt;Managed Identity&lt;/b&gt;&lt;br&gt;&lt;font style=&apos;font-size:10px&apos;&gt;Zugriff des Dashboards ohne Schlüssel&lt;/font&gt;" style="image;aspect=fixed;html=1;points=[];align=center;verticalLabelPosition=bottom;verticalAlign=top;whiteSpace=wrap;labelBackgroundColor=none;labelWidth=162;image=img/lib/azure2/identity/Managed_Identities.svg;" vertex="1" parent="z-support">
+          <mxGeometry x="250" y="38" width="48" height="48" as="geometry"/>
+        </mxCell>
+        <mxCell id="law" value="&lt;b&gt;Log Analytics&lt;/b&gt;&lt;br&gt;&lt;font style=&apos;font-size:10px&apos;&gt;Logs aller Teile&lt;/font&gt;&lt;br&gt;&lt;font style=&apos;font-size:10px&apos; color=&apos;#D83B01&apos;&gt;&amp;#9888; aus dem Internet erreichbar&lt;/font&gt;" style="image;aspect=fixed;html=1;points=[];align=center;verticalLabelPosition=bottom;verticalAlign=top;whiteSpace=wrap;labelBackgroundColor=none;labelWidth=162;image=img/lib/azure2/analytics/Log_Analytics_Workspaces.svg;" vertex="1" parent="z-monitoring">
           <mxGeometry x="82" y="38" width="48" height="48" as="geometry"/>
         </mxCell>
         <mxCell id="diag-note" value="&lt;i&gt;Diagnose-Einstellungen aller Ressourcen&lt;/i&gt;" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;fontSize=10;fontColor=#605E5C;" vertex="1" parent="z-monitoring">
           <mxGeometry x="12" y="166" width="188" height="32" as="geometry"/>
         </mxCell>
-        <mxCell id="dns" value="&lt;b&gt;Private DNS Zones&lt;/b&gt;&lt;br&gt;&lt;font style=&apos;font-size:10px&apos;&gt;6× privatelink.*&lt;/font&gt;" style="image;aspect=fixed;html=1;points=[];align=center;verticalLabelPosition=bottom;verticalAlign=top;whiteSpace=wrap;labelBackgroundColor=none;labelWidth=162;image=img/lib/azure2/networking/DNS_Zones.svg;" vertex="1" parent="z-dnszones">
+        <mxCell id="dns" value="&lt;b&gt;Private DNS Zones&lt;/b&gt;&lt;br&gt;&lt;font style=&apos;font-size:10px&apos;&gt;7× privatelink.*&lt;/font&gt;" style="image;aspect=fixed;html=1;points=[];align=center;verticalLabelPosition=bottom;verticalAlign=top;whiteSpace=wrap;labelBackgroundColor=none;labelWidth=162;image=img/lib/azure2/networking/DNS_Zones.svg;" vertex="1" parent="z-dnszones">
           <mxGeometry x="82" y="38" width="48" height="48" as="geometry"/>
         </mxCell>
-        <mxCell id="e-0" value="HTTPS, Anmeldung" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endFill=1;strokeWidth=2;strokeColor=#E8710A;fontColor=#E8710A;fontSize=10;labelBackgroundColor=#FFFFFF;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1" parent="1" source="act-users" target="res-app-service">
-          <mxGeometry x="-0.5" relative="1" as="geometry"><Array as="points"><mxPoint x="246" y="192"/><mxPoint x="246" y="244"/></Array><mxPoint x="0" y="-12" as="offset"/></mxGeometry>
+        <mxCell id="e-0" value="HTTPS 443,&lt;br&gt;Anmeldung mit Firmenkonto" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endFill=1;strokeWidth=2;strokeColor=#D83B01;fontColor=#D83B01;fontSize=10;labelBackgroundColor=#FFFFFF;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1" parent="1" source="act-users" target="res-app-service__dashboard">
+          <mxGeometry x="0.6" relative="1" as="geometry"><Array as="points"><mxPoint x="246" y="192"/><mxPoint x="246" y="258"/></Array><mxPoint x="0" y="-24" as="offset"/></mxGeometry>
         </mxCell>
-        <mxCell id="e-in-0" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endFill=1;strokeWidth=2;strokeColor=#0078D4;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1" parent="1" source="res-app-service" target="pe-bundle">
-          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="694" y="244"/><mxPoint x="694" y="232"/></Array></mxGeometry>
+        <mxCell id="e-4" value="Lauf starten&lt;br&gt;(Private Endpoint)" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endFill=1;strokeWidth=2;strokeColor=#0078D4;fontColor=#0078D4;fontSize=10;labelBackgroundColor=#FFFFFF;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1" parent="1" source="res-app-service__dashboard" target="res-app-service__agent">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="0" y="-22" as="offset"/></mxGeometry>
+        </mxCell>
+        <mxCell id="e-in-0" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endFill=1;strokeWidth=2;strokeColor=#0078D4;exitX=0.5;exitY=0;entryX=0;entryY=0.2;" edge="1" parent="1" source="res-app-service__dashboard" target="pe-bundle">
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="428" y="224"/><mxPoint x="740" y="224"/><mxPoint x="740" y="217.6"/></Array></mxGeometry>
+        </mxCell>
+        <mxCell id="e-in-1" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endFill=1;strokeWidth=2;strokeColor=#0078D4;exitX=1;exitY=0.75;entryX=0;entryY=0.8;" edge="1" parent="1" source="res-app-service__agent" target="pe-bundle">
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="760" y="270"/><mxPoint x="760" y="246.4"/></Array></mxGeometry>
         </mxCell>
         <mxCell id="e-out-0" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endFill=1;strokeWidth=2;strokeColor=#0078D4;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1" parent="1" source="pe-bundle" target="res-container-registry">
-          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="954" y="232"/><mxPoint x="954" y="206"/></Array></mxGeometry>
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="1002" y="232"/><mxPoint x="1002" y="206"/></Array></mxGeometry>
         </mxCell>
         <mxCell id="e-out-1" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endFill=1;strokeWidth=2;strokeColor=#0078D4;exitX=1;exitY=0.5;entryX=0.5;entryY=0;" edge="1" parent="1" source="pe-bundle" target="res-foundry">
-          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="954" y="232"/><mxPoint x="954" y="166"/><mxPoint x="1304" y="166"/></Array></mxGeometry>
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="1002" y="232"/><mxPoint x="1002" y="166"/><mxPoint x="1352" y="166"/></Array></mxGeometry>
         </mxCell>
         <mxCell id="e-out-2" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endFill=1;strokeWidth=2;strokeColor=#0078D4;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1" parent="1" source="pe-bundle" target="res-key-vault">
-          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="954" y="232"/><mxPoint x="954" y="398"/></Array></mxGeometry>
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="1002" y="232"/><mxPoint x="1002" y="462"/></Array></mxGeometry>
         </mxCell>
         <mxCell id="e-out-3" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endFill=1;strokeWidth=2;strokeColor=#0078D4;exitX=1;exitY=0.5;entryX=0.5;entryY=0;" edge="1" parent="1" source="pe-bundle" target="res-storage-account">
-          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="954" y="232"/><mxPoint x="954" y="358"/><mxPoint x="1304" y="358"/></Array></mxGeometry>
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="1002" y="232"/><mxPoint x="1002" y="422"/><mxPoint x="1352" y="422"/></Array></mxGeometry>
         </mxCell>
       </root>
     </mxGraphModel>
