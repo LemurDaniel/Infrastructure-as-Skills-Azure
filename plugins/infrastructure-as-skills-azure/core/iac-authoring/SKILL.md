@@ -588,7 +588,8 @@ question "soll ich ein Diagramm zeichnen?" was a question nobody ever answered w
 [agents.md](../iac-rendering/references/agents.md).** The picture is not shown to the
 customer as it comes out of the script. A **review agent** (read-only; with Subagents a
 subagent, in the same session the session itself, with the same checklist) looks at the
-PNG and reports a numbered list: a line through an icon or another line, overlapping or
+PNG, works through [the checklist](../iac-diagram/SKILL.md#the-review-checklist) edge by
+edge and reports a numbered list: a line through an icon or another line, overlapping or
 wrapped labels, a label in the wrong language, a legend that contradicts a colour, a
 number or a name that disagrees with the spec. Each finding carries a severity (`error`:
 wrong, misleading or unreadable; `polish`: only looks worse than it could) and a cause

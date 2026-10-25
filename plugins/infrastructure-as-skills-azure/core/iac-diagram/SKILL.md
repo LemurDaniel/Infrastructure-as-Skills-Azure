@@ -84,6 +84,39 @@ sees the picture before it has been reviewed. If the working mode (Subagents or 
 has not been answered in this session, ask it through `AskUserQuestion` before drawing, as
 Phase 5 says; never review silently "by looking once" and call it done.
 
+### The review checklist
+
+The reviewer works through this list, in this order, and reports every hit with the cell ids.
+A hit in 1-3 is an `error` with cause `render`, always: a customer cannot read a line that
+runs through something, whatever the spec says.
+
+1. **Trace every edge from its source to its target**, segment by segment, and for each
+   segment ask what it crosses. A segment that passes through the icon, the label or the
+   container title of any shape other than its own two ends is an error. Count the edges
+   in the picture against `wiring.access` and the generated per-pair edges; a missing one
+   is an error, and so is one that ends on the wrong shape.
+2. **Two edges that share a stretch** - collinear, or closer than about 8 px for more than a
+   short run - are one error: nobody can tell which line goes where. A right-angle crossing
+   is not an error.
+3. **A label on top of a shape, an icon, another label or another edge's line**, or one that
+   sits on a container border so that the border reads as part of the text. A label on its
+   own edge's line with a white background is normal.
+4. **Text**: wrapped after single words, cut off, in the wrong language, a name that
+   disagrees with the spec (`Avm Quellen` for `AVM-Quellen`).
+5. **Spec fidelity**: every resource, number and range in the picture is in the spec and the
+   other way round; the legend's colours match the edges.
+6. **Arrow direction** matches the call (who initiates), not the data flow.
+
+Everything the checklist does not name and that only looks worse than it could is `polish`.
+
+**A layout error is not handed over.** A line through an icon means the row is wrong, not
+that the line needs a better waypoint: re-slot the shapes (a column instead of a row, an
+icon moved, a container grown and everything below it shifted) until 1-3 are empty. Moving
+shapes is allowed here, as above; the pass ceiling limits the reviewer's findings, not what
+the diagram agent may change. Only when the same layout error survives a re-slot does the
+customer see the picture with it, and then it is named in the sign-off message as an open
+`error`, never as "known" or "polish".
+
 **One file is delivered: `infra-diagram.drawio.png`.** A PNG with the diagram embedded — it
 opens in a document, a chat or an email like any image, and opens in draw.io as the
 editable diagram. `new_diagram.py` writes `infra-diagram.drawio` only as the input of the

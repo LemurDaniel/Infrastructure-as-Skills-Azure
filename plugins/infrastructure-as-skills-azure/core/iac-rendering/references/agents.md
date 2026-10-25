@@ -74,7 +74,7 @@ is restarted on the corrected spec. Loop 2 never redraws on its own.
 
 | Loop | Passes | Goes back | Stops early |
 |---|---|---|---|
-| 1: Diagram | 2 | `error` findings only | The same finding in two passes in a row; the customer then sees the picture as it is |
+| 1: Diagram | 2 | `error` findings only | The same finding in two passes in a row *after a re-slot of the shapes* (checklist in `iac-diagram/SKILL.md`); the customer then sees the picture with the error named as open |
 | 2: Code | 3 | `error` findings, to the agent that made the part | The same message in two passes in a row |
 
 `polish` findings from the review never go back: a reviewer always finds something, so
@@ -123,7 +123,8 @@ Each agent starts without this conversation. Its prompt carries:
 Loop 1's two briefs carry, in addition:
 
 - **Review agent**: the PNG and the spec as its sources, the `.drawio` only for a
-  coordinate; the checklist (`iac-diagram/SKILL.md`); the ceiling (8 findings, errors
+  coordinate; the checklist (`iac-diagram/SKILL.md#the-review-checklist`, worked through in
+  order, every edge traced end to end - never "looked at once"); the ceiling (8 findings, errors
   first, at most 3 polish, one finding per fault, cell ids on every finding, no pixel
   sampling); on a second pass, the first pass's list and the cells the fix touched, and
   nothing else to look at.
