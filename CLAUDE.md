@@ -60,6 +60,14 @@ python3 plugins/infrastructure-as-skills-azure/core/iac-diagram/tests/run_png_te
 python3 plugins/infrastructure-as-skills-azure/core/iac-rendering/scripts/check_pipeline.py <spec> [--root <dir>]
 python3 plugins/infrastructure-as-skills-azure/core/iac-rendering/tests/run_pipeline_tests.py
 
+# The CLAUDE.md section the render leaves in a customer repository: written, replaced when
+# older, never overwritten when newer (rev in the begin marker; the block is
+# references/claude-md-block.md, its lock claude-md-block.lock). docs/claude-md-sync.drawio.png.
+python3 plugins/infrastructure-as-skills-azure/core/iac-rendering/tests/run_claude_md_tests.py
+# The version gate: a spec whose spec.plugin_version is newer than the installed plugin halts
+# the run (exit 3) so the person is asked to update; older, equal or no version never blocks.
+python3 plugins/infrastructure-as-skills-azure/core/iac-authoring/tests/run_plugin_version_tests.py
+
 # Renders a spec as the customer's decision document (infra-decisions.md beside it).
 python3 plugins/infrastructure-as-skills-azure/core/iac-authoring/scripts/export_decisions.py <spec> --language de
 

@@ -142,6 +142,20 @@ the detail; this list says what was decided and why, so a session does not reope
   2026-10-24): the spec is the source of truth, a code change is a spec change first,
   what regenerates from it, which checks prove the two agree; written between two markers,
   the rest of the file untouched.
+- **The section is versioned and synced by the skills, not by CI** (2026-10-25): the text is
+  `iac-rendering/references/claude-md-block.md`, `rev=<n>` in its begin marker, written by
+  `sync_claude_md.py` (or by hand without a shell). A lower rev is replaced, the same left, a
+  higher one never overwritten (no downgrade) and the person told the plugin is old; a damaged
+  marker pair is left alone; the script always exits 0. `claude-md-block.lock` pins rev and
+  text hash so the plugin repo cannot change the text without a new rev (`check_repo_consistency.py`).
+  `iac-authoring` runs the sync before its first question where a spec exists.
+- **`spec.plugin_version` halts an older plugin** (2026-10-25): the plugin that last wrote a spec
+  stamps its version; a plugin older than that renders nothing, writes nothing and asks once
+  (AskUserQuestion) to update with `claude plugin update`, restart required; there is no way on
+  with the older plugin. A spec without the field is not held back, a malformed one is ignored.
+  `check_plugin_version.py` exits 3 for the halt. Evals: `sync/plugin-newer-halts` and
+  `sync/claude-md-section-replaced`; the no-downgrade rule is script-tested only, an eval costs too much.
+  The example specs carry no `plugin_version` yet; the next write stamps them.
 - **The stack is the default, and per-stage values are never literals** (2026-10-18).
   `development`, `test`, `production` unless the customer says otherwise; a request naming
   one stage names that stage of the stack. `per_environment` values render as parameters

@@ -476,6 +476,17 @@ def main():
                 say(f"         {h}", 'gray')
             errors.append('The plugin ships without examples/: a live deployment has neither the directory nor its specs. Skills, references, tests and fixtures carry what they need themselves and name no example.')
 
+    # --- 7c. the CLAUDE.md block's text does not change without a new rev ---
+    sync = os.path.join(plugin_root, 'core', 'iac-rendering', 'scripts', 'sync_claude_md.py')
+    if os.path.isfile(sync):
+        p = subprocess.run([sys.executable, sync, '--verify-lock'], capture_output=True, text=True)
+        if p.returncode == 0:
+            say('[ ok ] the CLAUDE.md block matches its lock (text and rev)', 'green')
+        else:
+            say('[fail] the CLAUDE.md block changed without a new rev', 'red')
+            say(f"         {(p.stdout or p.stderr).strip()}", 'gray')
+            errors.append('A customer repository only updates its CLAUDE.md section when rev rises. Bump rev in references/claude-md-block.md and write the line --verify-lock names into claude-md-block.lock.')
+
     # --- 8. relative links + spaces in paths -------------------------------
     if args.skip_links:
         print('[skip] relative links')

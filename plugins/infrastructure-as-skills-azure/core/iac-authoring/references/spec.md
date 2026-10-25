@@ -30,6 +30,7 @@ spec:
   id: payments-api-prod
   target: terraform          # terraform | bicep
   generated_by: infrastructure-as-skills-azure
+  plugin_version: 0.0.2      # the plugin that last wrote this file; an older plugin halts on it
   skill: private-webapp
   skill_version: 0.1.0
   at: 2026-10-17T09:14:00Z
@@ -608,8 +609,14 @@ what moved.
 When a spec exists, load it before interviewing. Its values enter resolution as `carried`,
 so a re-run that changes nothing asks nothing.
 
-Two cases need care:
+Three cases need care:
 
+- **`spec.plugin_version` is newer than the installed plugin.** The spec was written by a
+  newer plugin, whose questions and renderings this one does not know. Nothing is asked,
+  synced, rendered or written until the plugin is updated:
+  `scripts/check_plugin_version.py <spec>` exits 3 for this case. A spec without the field
+  predates it and is not held back. Every run that writes the spec sets the field to the
+  installed version and never lowers it.
 - **A question was added to the set since.** See the table above.
 - **`schema_version` is older than the question set's.** Say what changed before
   regenerating. Silently migrating a file whose purpose is auditability defeats the file.

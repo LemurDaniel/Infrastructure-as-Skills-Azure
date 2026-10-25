@@ -43,6 +43,7 @@ Exit 0 clean, 1 contract violations, 2 could not check (no parser, no file).
 
 import argparse
 import os
+import re
 import sys
 
 KNOWN_SOURCES = ['stated', 'asked', 'platform', 'pattern', 'requirement', 'deployment', 'forced', 'assumed', 'default', 'carried', 'overridden']
@@ -156,6 +157,9 @@ def main():
     target = get(head, 'target')
     if target and target not in ('terraform', 'bicep'):
         errors.append(f"spec.target '{target}' is not terraform or bicep")
+    pv = get(head, 'plugin_version')
+    if pv is not None and not re.match(r'^\d+\.\d+\.\d+', str(pv)):
+        warnings.append(f"spec.plugin_version '{pv}' is not a version (x.y.z); it is ignored and re-stamped on the next write")
     environments = get(get(spec, 'context'), 'environments')
     if not isinstance(environments, list) or not environments or not all(isinstance(e, str) for e in environments):
         errors.append("context.environments is missing or not a list of stage names - the stack the code is deployed through, [development, test, production] by default")

@@ -50,6 +50,30 @@ writes goes into the repository's IaC root, or `infra/` when there is none, and 
 committed with the code — it is what the next run extends. The rules for both, and for
 several roots, are in [references/spec.md](references/spec.md#where-it-lives).
 
+**Version gate, first.** Where a spec was found, run `python <plugin>/core/iac-authoring/scripts/check_plugin_version.py <spec>`
+(without a shell: read `version` in `<plugin>/.claude-plugin/plugin.json` and `spec.plugin_version`
+and compare them as numbers yourself; a spec without the field is not held back).
+Exit 3 - or a spec version higher than the installed one - means the spec was written by a newer plugin than the installed one: **stop** - no sync, no
+question of the interview, nothing written or rendered. Ask once with AskUserQuestion, in
+`context.language`: the spec's and the installed version, and "Plugin jetzt aktualisieren?" with
+two options. *Ja, jetzt aktualisieren* runs
+`claude plugin update infrastructure-as-skills-azure@infrastructure-as-skills-azure` (`claude plugin list`
+shows the id if that one is unknown; where `claude` is not on `PATH`, name the command instead of
+running it), then says that Claude Code must be restarted for the update to load and the request
+repeated - and stops. *Nein, ich aktualisiere selbst* names the command and stops. There is no
+third option that carries on with the older plugin, and `plugin_version` is never lowered. Whatever
+this run writes into the spec sets `spec.plugin_version` to the installed version
+(`.claude-plugin/plugin.json`).
+
+Then bring the repository's `CLAUDE.md` section up to date, before
+anything else is asked: `python <plugin>/core/iac-rendering/scripts/sync_claude_md.py
+<repo-root> --root <iac-root> --write`. It replaces only an older plugin section, leaves a
+newer one alone and never fails the run (without a shell, apply the same rules by hand with
+Read and Edit, from [claude-md-block.md](../iac-rendering/references/claude-md-block.md)); say in one line what it did. A section **newer**
+than this plugin means the plugin is out of date: tell the customer so in the first message,
+in `context.language` ("Das Plugin ist älter als der letzte Lauf in diesem Repo - bitte
+aktualisieren"), and carry on. It changes no code, so it is its own commit.
+
 Look for `platform.yaml` beside it in the same search. It is the platform engineer's
 profile — landing zone, hub network and subnet, DNS, workspace, telemetry — and every
 value in it answers a deployment-set question with `resolved_by: platform` before anyone is
