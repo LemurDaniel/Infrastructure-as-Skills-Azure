@@ -7,6 +7,10 @@ writes an `infra-spec.yaml` that records every decision with where it came from.
 an editable draw.io diagram and a decision document are rendered from that spec, onto
 [Azure Verified Modules](https://azure.github.io/Azure-Verified-Modules/) first.
 
+Parts of this plugin were developed with the help of AI (Claude Code). The plugin itself
+works with an AI by design: it conducts the interview and renders the code, never applies
+anything, and a person signs off the spec and the diagram before any code is written.
+
 Defaults come from written security guardrails, not from the Azure portal or a module's
 default, and are reported rather than asked. Each rendered resource ships with a test per
 decision.
