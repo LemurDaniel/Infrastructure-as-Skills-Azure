@@ -1,5 +1,5 @@
 {
-  "startedAt": "2026-10-25T03:20:33.179Z",
+  "startedAt": "2026-10-25T17:04:58.412Z",
   "cases": {
     "diagram-no-invented-lines": {
       "skill-fired": {
@@ -265,6 +265,66 @@
       "asks-for-signoff": {
         "passed": 3,
         "total": 3
+      }
+    },
+    "claude-md-section-replaced": {
+      "skill-fired": {
+        "passed": 1,
+        "total": 1
+      },
+      "change-is-in-the-spec": {
+        "passed": 1,
+        "total": 1
+      },
+      "section-is-current": {
+        "passed": 1,
+        "total": 1
+      },
+      "old-section-gone": {
+        "passed": 1,
+        "total": 1
+      },
+      "one-section-only": {
+        "passed": 1,
+        "total": 1
+      },
+      "team-text-before-kept": {
+        "passed": 1,
+        "total": 1
+      },
+      "team-text-after-kept": {
+        "passed": 1,
+        "total": 1
+      },
+      "spec-stamped": {
+        "passed": 1,
+        "total": 1
+      }
+    },
+    "plugin-newer-halts": {
+      "skill-fired": {
+        "passed": 1,
+        "total": 1
+      },
+      "spec-untouched": {
+        "passed": 1,
+        "total": 1
+      },
+      "version-not-lowered": {
+        "passed": 1,
+        "total": 1
+      },
+      "no-claude-md-written": {
+        "passed": 1,
+        "total": 1
+      },
+      "no-code": {
+        "passed": 1,
+        "total": 1
+      },
+      "asks-for-update": {
+        "passed": 1,
+        "total": 1
       }
     }
   }

@@ -1,0 +1,55 @@
+schema_version: "1.1"
+name: claude-md-section-replaced
+
+context:
+  scaffold_script: scaffold.sh
+
+graders:
+  - name: skill-fired
+    type: tool_used
+    tool: Skill
+    input_match: iac-authoring
+  - name: change-is-in-the-spec
+    type: regex
+    weight: 2
+    target: { source: file, path: infra/infra-spec.yaml }
+    pattern: 'public_network_access:\s*(?:#[^\n]*\s*)*(?:\{\s*)?(?:value:\s*)?\W?disabled\b'
+
+  - name: section-is-current
+    type: regex
+    weight: 3
+    target: { source: file, path: CLAUDE.md }
+    pattern: '<!-- infrastructure-as-skills: begin rev=\d+'
+
+  - name: old-section-gone
+    type: regex
+    weight: 3
+    match: not_contains
+    target: { source: file, path: CLAUDE.md }
+    pattern: 'ALTER-ABSCHNITT-SENTINEL'
+
+  - name: one-section-only
+    type: regex
+    weight: 2
+    match: 'count:1'
+    target: { source: file, path: CLAUDE.md }
+    pattern: 'infrastructure-as-skills: begin'
+
+  - name: team-text-before-kept
+    type: regex
+    weight: 3
+    target: { source: file, path: CLAUDE.md }
+    pattern: 'Unsere Teamregeln: Commits auf Englisch'
+
+  - name: team-text-after-kept
+    type: regex
+    weight: 3
+    target: { source: file, path: CLAUDE.md }
+    pattern: 'Weitere Hinweise des Teams\.'
+
+  - name: spec-stamped
+    type: regex
+    weight: 2
+    match: not_contains
+    target: { source: file, path: infra/infra-spec.yaml }
+    pattern: 'plugin_version:\s*\W?0\.0\.1\b'

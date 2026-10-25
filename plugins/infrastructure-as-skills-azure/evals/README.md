@@ -25,6 +25,7 @@ grouping costs nothing; a case's `prompt.md` reaches the plugin with `plugins: [
 | `trigger/` | That a request triggers the plugin at all | `trigger-workload-request` |
 | `language/` | The language of the person is the language of everything said to them | `language-en-request`, `language-de-request`, `language-en-first-question` |
 | `process/` | The order of the run: after a change of the spec, diagram and sign-off come before any code | `diagram-before-code-after-change` |
+| `sync/` | The version gate and the CLAUDE.md section in a repository that already holds a spec (scaffolded) | `plugin-newer-halts`, `claude-md-section-replaced` |
 | `render/` | The code the render writes, for the few rules a spec cannot show | `bicep-secret-placeholder-once` |
 
 ## The cases
@@ -39,6 +40,14 @@ most different situations rather than three variations of one:
 | `requirements-stated` | Terraform | production | - | - | - | All five customer requirements in plain words, none at its default; the access tier derives |
 | `diagram-no-invented-lines` | Bicep | staging | - | - | - | Three resources, **no call named**: no line may be invented |
 | `bicep-secret-placeholder-once` | Bicep | development | public | none | - | Spec and diagram already signed off, Bicep asked: each secret placeholder carries `@onlyIfNotExists()`, no lookup of existing secrets, no secret value as a parameter |
+| `plugin-newer-halts` | Terraform | development | public | none | - | The spec carries `plugin_version: 99.0.0`: the run halts, changes and writes nothing, and says to update the plugin |
+| `claude-md-section-replaced` | Terraform | development | public | none | - | A CLAUDE.md with an older plugin section (no rev) between the team's own text: replaced, once, team text intact, the spec stamped |
+
+The two `sync/` cases start from a scaffold (`scaffold.sh` in the case directory, run with
+`--scaffold`): the eval sandbox has no shell, so the agent compares versions and edits the
+section by hand with Read and Edit, which is also the path on a machine without Python. The
+scripts are tested by `run_plugin_version_tests.py` and `run_claude_md_tests.py`; the rule that a section with a
+higher rev is left alone is only there, since an eval run for it costs real money and the script test is free.
 
 The `diagram-no-invented-lines` case tests the half of the diagram a run can reach: the spec. The
 picture is drawn from `wiring.access`, `wiring.purposes` and `wiring.optional` and from
