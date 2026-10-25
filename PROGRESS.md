@@ -323,6 +323,17 @@ per-family` in `check_spec.py` and the `chatbot` spec, and `references/private-d
 - `app-service` with `plan: shared`: the render documents are written, no example renders it, and
   the `<?SUBNAME>` / second private endpoint naming is untested.
 - Evals: none for the new sets, for `resource_lock`, or for the shared plan.
+- **A re-render of `eval-agent/infra` from the spec (2026-10-25) reproduced the hand-written Bicep** except one property
+  (`keyVaultReferenceIdentity` on the fuzz app, which has no vault access; removed). The re-render was not independent: the
+  renderer read the old modules first. What the plugin does not carry, so a render from the spec alone would guess:
+  - app settings (`STORAGE_ACCOUNT_NAME`, `FOUNDRY_ENDPOINT`, `GITHUB_TOKEN` as a vault reference, schedules, a peer's hostname)
+    appear in no spec and no reference; the spec needs a place for them (a decision per setting, or a `wiring` entry);
+  - the authored section of `resources/compute/app-service/bicep.md` shows the AVM call only: a container site, user-assigned
+    identity with `acrUseManagedIdentityCreds`, `keyVaultReferenceIdentity`, `WEBSITE_PULL_IMAGE_OVER_VNET`, a private endpoint
+    with zone group for a site, `authsettingsV2` and the `existing...LinuxFxVersion` pattern for `container_image_owner:
+    image_pipeline` are missing;
+  - several sites on one authored plan: the shared-plan section covers the AVM module only;
+  - `run_arm_tests.py` and the other scripts are run with `python -I`; the skills do not say so.
 
 ### Interview and spec
 
