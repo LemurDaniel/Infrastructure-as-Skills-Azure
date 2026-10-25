@@ -208,6 +208,16 @@ the detail; this list says what was decided and why, so a session does not reope
   dashboard files a ticket (`application.ticket_trigger`), the plugin source, models, the
   sign-in secret and the image push path. The old single identity `id-…-02` and, if the first
   render was deployed, its role assignments stay orphaned until deleted by hand.
+  Since 2026-10-26 two more apps on the same plan, spec and render (not deployed): a fuzz agent
+  (draws random specs with the plugin's diagram script, scores the layout, writes the report to
+  storage; image and data role only, no vault, no model) and a tuner (timer in the app reads the
+  newest fuzz report, lets the model draft a change to `new_diagram.py`, opens a pull request,
+  never merges). Open: `application.fuzz_schedule`, `application.tune_schedule` (cadence,
+  score threshold, open-PR limit; the stage file holds `OPEN-*` placeholders the pipeline
+  refuses), `application.tune_github_token`. The fuzzer itself is `tools/diagram-fuzz/`, outside
+  the plugin (development tooling, not shipped; `ideas/diagram-fuzz.md`). Its zone check
+  never fires on its own specs yet - only the `four-apps-one-subnet` fixture test guards the
+  rule that a call inside one container stays in it.
 - **Names before the deploy** (2026-10-25): `list_names.py` derives every resource's name
   from the spec and the convention, offline - no plan, no tool, no login is assumed; the
   render's step 8 hands the table over and asks "Passen die Namen?". `<UNIQUE_ID_n>` prints

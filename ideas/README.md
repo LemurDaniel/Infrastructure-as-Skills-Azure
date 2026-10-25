@@ -14,6 +14,7 @@ taken up, `PROGRESS.md` records the decision and its file gets a pointer to it.
 | [Cost estimate and profiles](cost-and-security-profiles.md) - cost-first / security-first | Sketch |
 | [Eval dashboard](eval-dashboard.md) - runs over time | Sketch |
 | [Eval agent](eval-agent.md) - runs the evals on request, files tickets per cause | Sketch |
+| [Diagram fuzz](diagram-fuzz.md) - random specs drawn and scored on layout, on CI and on the eval agent | Sketch, fuzzer exists |
 | [Simulated customer in the evals](simulated-customer-eval.md) - scripted answers so the interview path runs | Sketch |
 | [Spec versions and diff](spec-diff.md) - readable "what changed" between two specs | Sketch |
 | [Spec drift check](spec-drift-check.md) - spec vs. tests vs. plan, every decision whose values disagree | Sketch |

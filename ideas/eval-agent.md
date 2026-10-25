@@ -53,6 +53,9 @@ secret.
 
 ## Related
 
+- [Diagram fuzz](diagram-fuzz.md): a second job type of the agent - Python only, no model call,
+  results into the same storage.
+
 - [Autonomous Terraform agent](autonomous-terraform-agent.md) and
   [AVM drift watch](avm-drift-watch.md): same agent host, same ticket/PR mechanics.
 - [Eval dashboard](eval-dashboard.md): the dashboard of this idea; the ticket and the
