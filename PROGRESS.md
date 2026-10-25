@@ -307,6 +307,13 @@ the detail; this list says what was decided and why, so a session does not reope
   line. No frame around everything, with or without a resource group split. Private DNS
   zones with nobody named for them are drawn red and *open*, not left out. Not done: the
   PaaS-to-PaaS lines along the strip above a compact row are still the noisiest part.
+- **Every diagram carries an AI notice** (2026-10-25, owner's call): a yellow badge with a
+  robot on the title row, right of the title (`KI-generiert - bitte prüfen` /
+  `AI-generated - please review`, by `context.language`). `new_diagram.py` draws it in every
+  render and `run_diagram_tests.py` fails without the `ai-notice` cell. The six rendered
+  pictures (`examples/*`, `eval-agent/infra`) got the cell by hand in the existing XML, not a
+  re-render, so the signed-off layout stays; the four `docs/` pictures likewise (German text,
+  no generator behind them).
 - `docs/process.drawio.png` and `docs/process-agents.drawio.png` show the flow of
   2026-10-24, `docs/skills.drawio.png` the skills, the entry and how the units relate
   (generator in the owner's `drawio-diagrams` skill style; the PNG is the source). The
