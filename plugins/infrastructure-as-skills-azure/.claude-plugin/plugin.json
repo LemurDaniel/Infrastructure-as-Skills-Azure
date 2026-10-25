@@ -2,7 +2,7 @@
   "$schema": "https://anthropic.com/claude-code/plugin.schema.json",
   "name": "infrastructure-as-skills-azure",
   "description": "Author Azure infrastructure as Terraform or Bicep by answering the decisions each resource actually has. Each resource carries a grouped question set (placement, networking, identity, security, data protection, observability), and a deployment-wide set settles posture, network ownership and mandates once for everything in a deployment. Renders Azure Verified Modules first, authored resources as the fallback.",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "author": {
     "name": "LemurDaniel"
   },
