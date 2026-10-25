@@ -100,6 +100,7 @@ LABELS = {
         'rgRole_main': 'main', 'rgRole_network': 'network', 'rgRole_data': 'data', 'rgRole_application': 'application',
         'rgRole_observability': 'monitoring', 'rgRole_security': 'security',
         'keyless': ' Access to the resources is by identity, no keys.',
+        'aiNotice': 'AI-generated - please review',
         'dnsOpen': 'open - owner not decided', 'entry': 'Entry', 'children': 'Containers', 'children_file-share': 'File shares', 'children_queue': 'Queues',
     },
     'de': {
@@ -125,6 +126,7 @@ LABELS = {
         'rgRole_main': 'Haupt', 'rgRole_network': 'Netzwerk', 'rgRole_data': 'Daten', 'rgRole_application': 'Anwendung',
         'rgRole_observability': 'Überwachung', 'rgRole_security': 'Sicherheit',
         'keyless': ' Zugriffe auf die Ressourcen laufen über Identitäten, ohne Schlüssel.',
+        'aiNotice': 'KI-generiert - bitte prüfen',
         'dnsOpen': 'offen - Zuständigkeit ungeklärt', 'entry': 'Eingang', 'children': 'Container', 'children_file-share': 'Dateifreigaben', 'children_queue': 'Warteschlangen',
     },
 }
@@ -1187,8 +1189,12 @@ def main():
         sub_line = T['subPrivateExc'].replace('{names}', exception_names)
     if sub_line and s(get_decision(dep, ['local_auth'])) == 'disabled':
         sub_line += T['keyless']
-    add_text('title', '1', 20, 12, 900, 30, f"<b>{esc(workload)} &#8212; {T['arch']}</b>",
+    title_w = int(len(f"{workload} - {T['arch']}") * 12.5) + 20   # 20px bold, estimated
+    add_text('title', '1', 20, 12, title_w, 30, f"<b>{esc(workload)} &#8212; {T['arch']}</b>",
              'text;html=1;align=left;verticalAlign=middle;fontSize=20;')
+    # Every picture says it was drawn by an AI: a badge on the title row, right of the title.
+    add_text('ai-notice', '1', 20 + title_w + 10, 15, 330, 24, f"&#129302; {esc(T['aiNotice'])}",
+             'rounded=1;arcSize=50;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;fontSize=12;fontStyle=1;fontColor=#8A5A00;fillColor=#FFF4CE;strokeColor=#C98A1B;')
     if sub_line:
         add_text('subtitle', '1', 20, 46, 1300, 22, esc(sub_line), 'text;html=1;align=left;verticalAlign=middle;fontSize=12;fontColor=#605E5C;')
 

@@ -100,6 +100,9 @@ def generic(cells):
         bad.append(f"one private endpoint icon per resource is back: {pe}")
     if not any(k == 'title' for k in cells):
         bad.append('no title')
+    notice = cells.get('ai-notice')
+    if not notice or not re.search(r'AI-generated|KI-generiert', notice['value']):
+        bad.append('no AI notice')
     return bad
 
 
