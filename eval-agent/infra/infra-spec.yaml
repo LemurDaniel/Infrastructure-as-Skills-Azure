@@ -1245,6 +1245,6 @@ open:
     owner: "Workload-Owner"
     blocks: apply
   - key: resources.app-service__dashboard.identity.entra_sign_in
-    question: "Die Anmeldung nutzt eure bestehende App-Registrierung samt Client Secret. Wer erzeugt das Secret und trägt es im Tresor ein (der Tresor ist nur aus dem Netz erreichbar), und wer trägt nach dem ersten Ausrollen die Weiterleitungsadresse der App ein (https://<App-Adresse>/.auth/login/aad/callback)?"
+    question: "Die Anmeldung nutzt eure bestehende App-Registrierung samt Client Secret. Wer erzeugt das Secret und trägt es im Tresor ein (der Tresor ist nur aus dem Netz erreichbar), und wer trägt nach dem ersten Ausrollen die Weiterleitungsadresse der App ein (https://<App-Adresse>/.auth/login/aad/callback) und aktiviert an der Registrierung unter Authentifizierung die ID-Token (Implicit- und Hybrid-Flows)? Ohne sie scheitert die Anmeldung mit AADSTS700054."
     owner: "Identitäts-Team"
     blocks: apply
