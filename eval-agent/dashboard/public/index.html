@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Eval Dashboard</title>
+  <style>
+    :root {
+      --bg:#0b1220; --side:#0a101c; --card:rgba(30,41,66,.55); --line:rgba(120,140,190,.22);
+      --fg:#e6ecf8; --muted:#8d9bb8; --accent:#3b82f6; --accent-fg:#fff; --pill:rgba(59,130,246,.22);
+      --ok-bg:rgba(34,197,94,.16); --ok:#4ade80; --bad-bg:rgba(239,68,68,.18); --bad:#f87171;
+      --neutral-bg:rgba(148,163,184,.16); --warn-bg:rgba(234,179,8,.18); --warn:#facc15;
+    }
+    @media (prefers-color-scheme: light) {
+      :root { --bg:#eef2fa; --side:#fff; --card:rgba(255,255,255,.8); --line:#d5dcec; --fg:#18202f; --muted:#5d6b86;
+              --pill:rgba(59,130,246,.15); --neutral-bg:#e6ebf5; --ok:#15803d; --bad:#b91c1c; --warn:#a16207; }
+    }
+    * { box-sizing:border-box; }
+    body { margin:0; background:var(--bg); color:var(--fg); font:15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
+           display:grid; grid-template-columns:260px 1fr; min-height:100vh; position:relative; overflow-x:hidden; }
+    /* Lavalampe: Wachsblasen steigen aus dem Pool unten nach oben, verschmelzen (Goo-Filter) und sinken oben wieder ein */
+    .lava { position:fixed; inset:0; z-index:0; pointer-events:none; overflow:hidden; opacity:.3;
+      filter:url(#goo) drop-shadow(0 0 16px rgba(110,168,254,.65)) drop-shadow(0 0 60px rgba(59,130,246,.7)); }
+    .lava::before, .lava::after { content:""; position:absolute; left:-10%; right:-10%; height:20vh; border-radius:50%; background:var(--accent); }
+    .lava::before { bottom:-24vh; } .lava::after { top:-24vh; }
+    .lava i { position:absolute; left:var(--x); bottom:calc(-1 * var(--s)); width:var(--s); height:var(--s);
+      background:radial-gradient(closest-side, #e4efff 0%, #a9cbff 22%, #6ea8fe 42%, var(--accent) 80%, #3170d8 100%);
+      animation:rise calc(var(--t) * 2) ease-in-out calc(var(--d) * 2) infinite, morph calc(var(--t) / 1.5) ease-in-out infinite alternate; }
+    @keyframes rise {
+      0%   { transform:translate3d(0, 0, 0) scale(.7, .85); }
+      20%  { transform:translate3d(var(--w), -25vh, 0) scale(.9, 1.15); }
+      50%  { transform:translate3d(calc(var(--w) * -.7), -58vh, 0) scale(1.05, 1.2); }
+      80%  { transform:translate3d(var(--w), -88vh, 0) scale(.95, 1.1); }
+      100% { transform:translate3d(0, calc(-108vh - var(--s)), 0) scale(.8, .9); }
+    }
+    @keyframes morph {
+      0%   { border-radius:50% 50% 46% 54% / 56% 44% 56% 44%; }
+      50%  { border-radius:44% 56% 55% 45% / 48% 58% 42% 52%; }
+      100% { border-radius:56% 44% 48% 52% / 42% 52% 58% 48%; }
+    }
+    @media (prefers-reduced-motion: reduce) { .lava { display:none; } }
+    aside { background:color-mix(in srgb, var(--side) 82%, transparent); border-right:1px solid var(--line); padding:20px 0; display:flex; flex-direction:column; z-index:1; }
+    aside h2 { margin:0 24px 12px; font-size:12px; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); }
+    .case { display:flex; justify-content:space-between; gap:8px; padding:8px 24px; font-weight:600; }
+    .case small { font-weight:500; font-variant-numeric:tabular-nums; }
+    .ver { margin-top:auto; padding:12px 24px 0; font-size:12px; color:var(--muted); }
+    main { padding:16px 24px 48px; max-width:1100px; width:100%; margin-inline:auto; z-index:1; min-width:0; }
+    nav { display:flex; gap:8px; justify-content:center; margin-bottom:20px; flex-wrap:wrap; }
+    nav a { padding:8px 18px; border-radius:999px; color:var(--muted); text-decoration:none; }
+    nav a.on { background:var(--pill); color:var(--fg); font-weight:600; }
+    [hidden] { display:none !important; }
+    code { background:var(--neutral-bg); padding:0 5px; border-radius:4px; }
+    .pair { display:grid; grid-template-columns:repeat(auto-fit, minmax(280px, 1fr)); gap:16px; margin-top:16px; }
+    .ico { flex:none; width:56px; height:56px; border-radius:16px; display:grid; place-items:center; font-size:30px;
+           background:rgba(8,12,22,.75); border:1px solid var(--line); }
+    @media (prefers-color-scheme: light) { .ico { background:#eaf0fb; } }
+    .sub { border:1px solid var(--line); border-radius:12px; padding:16px 18px; display:flex; gap:16px; align-items:flex-start; }
+    .sub { cursor:pointer; transition:border-color .15s, background .15s; }
+    .sub:hover { border-color:var(--accent); }
+    .sub.sel { border-color:var(--accent); background:var(--pill); }
+    .sub:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+    .actions { margin-top:12px; text-align:right; }
+    .sub > div:last-child { flex:1; min-width:0; }
+    .sub h4 { margin:0 0 8px; font-size:16px; display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap; }
+    .reg > div:first-child { display:flex; gap:14px; align-items:center; }
+    .sub dl { margin:0; display:grid; grid-template-columns:auto 1fr; gap:3px 14px; }
+    .sub dt { color:var(--muted); } .sub dd { margin:0; text-align:right; font-variant-numeric:tabular-nums; }
+    .who { text-align:right; font-size:13px; color:var(--muted); margin-bottom:8px; }
+    .card { background:var(--card); border:1px solid var(--line); border-radius:16px; padding:20px 24px; backdrop-filter:blur(8px); }
+    .card h3 { margin:0 0 4px; font-size:17px; }
+    .card p { margin:0; color:var(--muted); }
+    .grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(320px, 1fr)); gap:16px; margin:16px 0 28px; }
+    .reg { display:flex; justify-content:space-between; gap:12px; }
+    .reg b { display:block; font-size:16px; }
+    .reg .meta { color:var(--muted); font-size:13px; }
+    .big { font-size:22px; font-weight:700; font-variant-numeric:tabular-nums; }
+    button { font:inherit; font-weight:600; border:0; border-radius:10px; padding:8px 16px; background:var(--accent); color:var(--accent-fg); cursor:pointer; }
+    button:disabled { opacity:.6; cursor:wait; }
+    h2.sec { margin:28px 0 8px; font-size:17px; }
+    .row { display:flex; align-items:center; gap:14px; padding:12px 8px; border-top:1px solid var(--line); flex-wrap:wrap; }
+    .row .t { font-weight:600; }
+    .row .r { margin-left:auto; color:var(--muted); font-size:13px; font-variant-numeric:tabular-nums; }
+    .chip { font-size:12px; padding:2px 12px; border-radius:999px; background:var(--neutral-bg); color:var(--muted); white-space:nowrap; }
+    .chip.ok { background:var(--ok-bg); color:var(--ok); } .chip.bad { background:var(--bad-bg); color:var(--bad); } .chip.warn { background:var(--warn-bg); color:var(--warn); }
+    .mock { background:var(--warn-bg); color:var(--warn); padding:1px 8px; border-radius:6px; font-size:12px; margin-left:6px; }
+    #msg { color:var(--muted); min-height:1.5em; margin:12px 0 0; word-break:break-all; }
+    @media (max-width:760px) { body { grid-template-columns:1fr; } aside { display:none; } }
+  </style>
+</head>
+<body>
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <filter id="goo" color-interpolation-filters="sRGB">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="14" result="b"/>
+      <feColorMatrix in="b" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 20 -9"/>
+    </filter>
+  </svg>
+  <div class="lava" aria-hidden="true">
+    <i style="--x:6%;  --s:120px; --w:40px;  --t:46s; --d:-6s"></i>
+    <i style="--x:20%; --s:180px; --w:-55px; --t:62s; --d:-34s"></i>
+    <i style="--x:35%; --s:90px;  --w:34px;  --t:40s; --d:-22s"></i>
+    <i style="--x:50%; --s:150px; --w:-48px; --t:56s; --d:-48s"></i>
+    <i style="--x:64%; --s:110px; --w:50px;  --t:44s; --d:-12s"></i>
+    <i style="--x:78%; --s:200px; --w:-40px; --t:68s; --d:-28s"></i>
+    <i style="--x:90%; --s:100px; --w:30px;  --t:48s; --d:-40s"></i>
+  </div>
+  <aside>
+    <h2>Cases</h2>
+    <div id="cases"></div>
+    <div class="ver" id="ver"></div>
+  </aside>
+  <main>
+    <div class="who" id="who"></div>
+    <nav><a href="#overview" data-tab="overview" class="on">Übersicht</a><a href="#agents" data-tab="agents">Tune &amp; Fuzz</a></nav>
+    <p id="msg"></p>
+    <div id="view-agents" hidden>
+      <section class="card">
+        <h3>Tune &amp; Fuzz</h3>
+        <p>Der Fuzz-Agent zeichnet zufällige Specs mit dem Diagramm-Skript und bewertet das Layout (niedriger ist besser). Der Tuner liest den neuesten Fuzz-Report und committet einen Änderungsvorschlag auf einen Tuning-Branch, wenn der Score sinkt und die Tests bestehen – nie auf <code>master</code>.</p>
+        <div class="pair" id="pair"></div>
+      </section>
+      <h2 class="sec" id="historyTitle">Letzte Läufe</h2>
+      <div id="history"></div>
+    </div>
+    <div id="view-overview">
+    <section class="card">
+      <h3>Eval Dashboard</h3>
+      <p>Zeigt die Läufe der Eval-Suite mit Pass-Rate je Case, Kosten und Dauer. Fällt ein Case gegenüber dem vorigen Lauf ab, kann hier ein Ticket angelegt werden – offene Tickets zum selben Case bekommen stattdessen einen Kommentar. Baseline, Cases und Skills fasst das Dashboard nicht an.</p>
+    </section>
+    <h2 class="sec">Regressionen im letzten Lauf</h2>
+    <div class="grid" id="regressions"></div>
+    <h2 class="sec">Letzte Läufe</h2>
+    <div id="runs"></div>
+    </div>
+  </main>
+  <script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,17 @@
+{
+  "name": "eval-dashboard",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=22" },
+  "scripts": {
+    "start": "node src/index.js",
+    "mock": "MOCK=1 node src/index.js",
+    "test": "node --test test/server.test.js"
+  },
+  "dependencies": {
+    "@azure/identity": "^4.5.0",
+    "@azure/storage-blob": "^12.26.0",
+    "express": "^4.21.2"
+  }
+}
