@@ -197,6 +197,12 @@ the detail; this list says what was decided and why, so a session does not reope
 
 ## State
 
+- **Release 0.1.0 (2026-10-25), the first stable one** (owner's call): `release.yml` marks only `0.0.x` and
+  suffixed versions as prereleases. The plugin folder has its own `README.md` (the directory reads it, with what the plugin
+  runs and writes), `displayName` and new keywords are in `plugin.json`. Not done: the submission to Anthropic's plugin
+  directory (developer portal, `claude.ai/directory/manage`; needs the owner's account, GitHub connection and the
+  Software Directory Policy read - not read by a session), a plugin icon, a re-run of the evals against the rules written
+  after the 2026-10-18 baseline.
 - **24 more sets written 2026-10-25 (49 resource sets, 1,044 questions with the deployment set), checked, not exercised:** compute
   virtual-machine, managed-disk, availability-set (the proximity placement group is a question
   group of it), virtual-machine-scale-set, aks, static-web-app, container-instances; network
