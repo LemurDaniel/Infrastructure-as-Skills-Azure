@@ -41,3 +41,11 @@ A secret is created as a *placeholder* - a dummy entry the consumer's reference 
 resolve - and its real value is filled in afterwards, by hand or by the workload. The
 placeholder must never overwrite the real value on a later deployment, which no AVM module
 guarantees; the Key Vault set says how each target guards it.
+
+**Special case, Bicep: `@onlyIfNotExists()` on a secret.** A secret resource that carries the
+decorator is deployed only when it does not exist yet, so the placeholder is written once and a
+later deployment never overwrites the value somebody set. It is the default: the toolchain is
+assumed to be the latest Bicep, so the render has no lookup of existing secrets, no parameter for
+one and no pipeline step (see [key-vault/bicep.md](key-vault/bicep.md)). Terraform has no
+equivalent: `ignore_changes = [value]` keeps a changed value, and the placeholder is still
+created by the module's own resource.

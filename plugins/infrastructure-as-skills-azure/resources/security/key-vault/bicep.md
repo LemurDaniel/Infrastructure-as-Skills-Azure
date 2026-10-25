@@ -99,18 +99,18 @@ output uri string = vault.outputs.uri
 
 The module requires a `value` for every secret, and a redeploy writes it as a **new version**,
 so a placeholder passed through `secrets` replaces the real value on every deployment. The
-render keeps placeholders out of the module and creates each one only when it does not exist:
+render keeps placeholders out of the module and gives each one `@onlyIfNotExists()`, so it is
+deployed once and never again over a value somebody set. The toolchain is assumed to be the
+latest Bicep; there is no lookup of existing secrets, no parameter for one and no pipeline step:
 
 ```bicep
-@description('Placeholder secrets that already hold a real value; set by the pipeline from a lookup.')
-param existingSecretNames array = []
-
 resource vaultRef 'Microsoft.KeyVault/vaults@2024-11-01' existing = {
   name: vaultName
   dependsOn: [ vault ]
 }
 
-resource placeholder 'Microsoft.KeyVault/vaults/secrets@2024-11-01' = [for name in secretPlaceholders: if (!contains(existingSecretNames, name)) {
+@onlyIfNotExists()
+resource placeholder 'Microsoft.KeyVault/vaults/secrets@2024-11-01' = [for name in secretPlaceholders: {
   parent: vaultRef
   name: name
   properties: {
@@ -120,17 +120,16 @@ resource placeholder 'Microsoft.KeyVault/vaults/secrets@2024-11-01' = [for name 
 }]
 ```
 
-The pipeline fills `existingSecretNames` from `az keyvault secret list --vault-name ...`
-before the deployment. Without that lookup the safe form is to create placeholders once,
-outside the recurring deployment. The API version is looked up against the compiled module
-rather than recalled.
+The API version is looked up against the compiled module rather than recalled. A Bicep that
+rejects the decorator is a toolchain to update, not a reason to write a lookup.
 
 ### Tests
 
 A module call compiles to a nested deployment whose `properties.parameters.<param>.value` is
 the decision, so every decision above is observable in `tests/*.armtest.yaml`
-([bicep-idiom.md](../../../core/iac-rendering/references/bicep-idiom.md#tests)). The
-placeholder resources are matched by their `condition` expression text.
+([bicep-idiom.md](../../../core/iac-rendering/references/bicep-idiom.md#tests)). How the
+decorator shows in the compiled ARM is read from a compile, not recalled; the placeholder
+resources are matched by that.
 
 ## Authored rendering
 
