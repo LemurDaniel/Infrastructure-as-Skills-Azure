@@ -35,7 +35,7 @@ function runChip(run, regressedIds) {
 async function load() {
   const [me, { runs, regressions }] = await Promise.all([api('/api/me'), api('/api/runs')]);
   $('who').innerHTML = esc(me.user) + (me.mock ? '<span class="mock">MOCK</span>' : '');
-  $('ver').textContent = me.mock ? 'lokal · Mock-Daten' : 'eval-dashboard';
+  $('ver').textContent = `eval-dashboard · ${me.commit}` + (me.mock ? ' · Mock-Daten' : '');
 
   const latest = runs[0];
   $('cases').innerHTML = (latest?.cases ?? [])

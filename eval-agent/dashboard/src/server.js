@@ -5,7 +5,7 @@ import { summarizeRun, summarizeFuzz, findRegressions, ticketText } from './resu
 const publicDir = fileURLToPath(new URL('../public', import.meta.url));
 
 // userOf(req) -> name or null. Real: the App Service sign-in header. Mock: a fixed name.
-export function createApp({ store, github, agents, userOf, repoUrl, mock = false }) {
+export function createApp({ store, github, agents, userOf, repoUrl, mock = false, commit = 'unknown' }) {
   const app = express();
   app.disable('x-powered-by');
   app.use(express.json());
@@ -20,7 +20,7 @@ export function createApp({ store, github, agents, userOf, repoUrl, mock = false
     next();
   });
 
-  app.get('/api/me', (req, res) => res.json({ user: req.user, mock }));
+  app.get('/api/me', (req, res) => res.json({ user: req.user, mock, commit }));
 
   app.get('/api/runs', async (_req, res, next) => {
     try {

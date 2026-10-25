@@ -117,7 +117,7 @@ jobs:
         run: |
           set -euo pipefail
           server="${REGISTRY}.azurecr.io"
-          docker build -t "${server}/${IMAGE}:${TAG}" .
+          docker build --build-arg "GIT_COMMIT=${GITHUB_SHA}" -t "${server}/${IMAGE}:${TAG}" .
           docker push "${server}/${IMAGE}:${TAG}"
 
       - name: Close the registry again

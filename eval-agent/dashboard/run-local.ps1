@@ -16,11 +16,12 @@ param(
 $ErrorActionPreference = 'Stop'
 Push-Location $PSScriptRoot
 try {
-    docker build -t eval-dashboard:local .
+    $commit = (git rev-parse --short=8 HEAD 2>$null) ?? 'local'
+    docker build --build-arg "GIT_COMMIT=$commit" -t eval-dashboard:local .
     if ($LASTEXITCODE) { throw 'docker build failed' }
 
     Write-Host "🚀 http://localhost:$Port (MOCK, Strg+C beendet)"
     docker run --rm --name eval-dashboard-local -p "${Port}:8080" `
-        -e MOCK=1 -e "MOCK_USER=$MockUser" eval-dashboard:local
+        -e MOCK=1 -e "MOCK_USER=$MockUser" -e "GIT_COMMIT=$commit" eval-dashboard:local
 }
 finally { Pop-Location }

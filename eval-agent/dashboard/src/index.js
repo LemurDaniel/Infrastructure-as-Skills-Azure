@@ -25,5 +25,7 @@ if (mock) {
   userOf = (req) => req.get('x-ms-client-principal-name') ?? null;
 }
 
-createApp({ store, github, agents, userOf, repoUrl: `https://github.com/${repo}`, mock })
+const commit = (process.env.GIT_COMMIT ?? 'unknown').slice(0, 8);
+
+createApp({ store, github, agents, userOf, repoUrl: `https://github.com/${repo}`, mock, commit })
   .listen(port, () => console.log(`eval-dashboard on :${port}`));

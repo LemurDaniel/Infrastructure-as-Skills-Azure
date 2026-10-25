@@ -7,7 +7,7 @@ import { mockAgents } from '../src/agents.js';
 
 async function start(userOf = () => 'tester') {
   const github = mockGithub();
-  const app = createApp({ store: mockStore(), github, agents: mockAgents(), userOf, repoUrl: 'https://example/repo', mock: true });
+  const app = createApp({ store: mockStore(), github, agents: mockAgents(), commit: 'abc12345', userOf, repoUrl: 'https://example/repo', mock: true });
   const server = await new Promise((r) => { const s = app.listen(0, () => r(s)); });
   return { base: `http://127.0.0.1:${server.address().port}`, server, github };
 }
@@ -72,4 +72,11 @@ test('an agent is started once, a second start while it runs gets 409', async ()
   assert.equal(second.status, 409);
   assert.equal(unknown.status, 404);
   assert.equal(foreign.status, 403);
+});
+
+test('the commit the image was built from is reported', async () => {
+  const { base, server } = await start();
+  const me = await (await fetch(`${base}/api/me`)).json();
+  server.close();
+  assert.equal(me.commit, 'abc12345');
 });
