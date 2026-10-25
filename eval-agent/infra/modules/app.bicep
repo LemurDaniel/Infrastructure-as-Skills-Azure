@@ -4,10 +4,11 @@
 //   drift     - not reachable from outside, compares the pinned AVM versions with the current ones and
 //               opens a pull request; reads its GitHub token from the vault and reaches the AVM sources
 //               on the internet (allowlist enforced in code only, spec open application.drift_internet_allowlist)
-//   fuzz      - not reachable from outside, renders random specs on a timer and on click; reads and
-//               writes the storage account, holds no secret and calls no model
-//   tune      - not reachable from outside, checks the fuzz score on a timer and opens a pull request;
-//               reads its GitHub token from the vault, calls the models and reads the storage account
+//   fuzz      - not reachable from outside, renders random specs on demand (dashboard) and when the tuner starts it;
+//               reads the plugin from the tuning branch on github.com, reads and writes the storage account,
+//               holds no secret and calls no model
+//   tune      - not reachable from outside, checks the fuzz score on a timer and pushes to a branch;
+//               asks the fuzz agent whether a run is going and starts one; reads its GitHub token from the vault, calls the models and reads the storage account
 // All have VNet integration and diagnostics.
 // The agent, the drift watcher, the fuzz agent and the tuner have a private endpoint each (the dashboard starts a run through
 // them); the root owns the zone.
@@ -141,10 +142,7 @@ param existingTuneLinuxFxVersion string = ''
 @description('When the drift watcher runs its check (OPEN in the stage file, spec open: application.drift_schedule).')
 param driftSchedule string
 
-@description('When the fuzz agent runs on its timer (OPEN in the stage file, spec open: application.fuzz_schedule).')
-param fuzzSchedule string
-
-@description('When the tuner checks the fuzz score on its timer (OPEN in the stage file, spec open: application.tune_schedule).')
+@description('Timer cadence of the tuner and its maximum commits per day (OPEN in the stage file, spec open: application.tune_schedule).')
 param tuneSchedule string
 
 @description('Where the agent fetches the Claude plugin from (OPEN in the stage file).')
@@ -600,8 +598,8 @@ resource fuzz 'Microsoft.Web/sites@2024-11-01' = {
 
     // decision: app-service__fuzz.networking.vnet_integration / app-service__fuzz.networking.integration_subnet
     virtualNetworkSubnetId: integrationSubnetId
-    // decision: app-service__fuzz.networking.vnet_route_all - false: no outbound internet is needed at
-    // run time (the plugin code is in the image); private endpoint addresses still go through the VNet.
+    // decision: app-service__fuzz.networking.vnet_route_all - false: the fuzz agent reads the plugin from the
+    // tuning branch on github.com (no new Azure resource, no secret, no vault or foundry role); private endpoint addresses go through the VNet.
     outboundVnetRouting: {
       allTraffic: false
     }
@@ -617,7 +615,7 @@ resource fuzz 'Microsoft.Web/sites@2024-11-01' = {
       acrUseManagedIdentityCreds: true
       acrUserManagedIdentityID: fuzzIdentityClientId
 
-      // decision: app-service__fuzz.runtime.always_on - the schedule is a timer inside the app.
+      // decision: app-service__fuzz.runtime.always_on - it serves runs on demand and stays up.
       alwaysOn: true
       // decision: app-service__fuzz.runtime.http2_enabled
       http20Enabled: true
@@ -634,7 +632,6 @@ resource fuzz 'Microsoft.Web/sites@2024-11-01' = {
         // See the dashboard: the registry has only a private endpoint.
         { name: 'WEBSITE_PULL_IMAGE_OVER_VNET', value: 'true' }
         { name: 'STORAGE_ACCOUNT_NAME', value: storageAccountName }
-        { name: 'FUZZ_SCHEDULE', value: fuzzSchedule }
       ]
     }
   }
@@ -717,8 +714,8 @@ resource tune 'Microsoft.Web/sites@2024-11-01' = {
 
     // decision: app-service__tune.networking.vnet_integration / app-service__tune.networking.integration_subnet
     virtualNetworkSubnetId: integrationSubnetId
-    // decision: app-service__tune.networking.vnet_route_all - false: the tuner reads the plugin source and opens
-    // its pull request on github.com and api.github.com, and there is no NAT gateway; private endpoint addresses go through the VNet.
+    // decision: app-service__tune.networking.vnet_route_all - false: the tuner reads the plugin source and pushes
+    // to its branch on github.com and api.github.com, and there is no NAT gateway; private endpoint addresses go through the VNet.
     outboundVnetRouting: {
       allTraffic: false
     }
@@ -752,13 +749,15 @@ resource tune 'Microsoft.Web/sites@2024-11-01' = {
         { name: 'WEBSITE_PULL_IMAGE_OVER_VNET', value: 'true' }
         { name: 'FOUNDRY_ENDPOINT', value: foundryEndpoint }
         { name: 'STORAGE_ACCOUNT_NAME', value: storageAccountName }
-        // The tuner's own GitHub token (contents and pull requests write on this repository only):
+        // The tuner's own GitHub token (contents write on this repository only, master blocked by a branch rule):
         // a Key Vault reference, never a value.
         {
           name: 'GITHUB_TOKEN'
           value: '@Microsoft.KeyVault(SecretUri=${vaultUri}secrets/${tuneGithubTokenSecretName}/)'
         }
         { name: 'TUNE_SCHEDULE', value: tuneSchedule }
+        // The tuner asks the fuzz agent whether a run is going and starts one, through its private endpoint.
+        { name: 'FUZZ_APP_HOSTNAME', value: fuzz.properties.defaultHostName }
       ]
     }
   }
@@ -933,5 +932,6 @@ output driftId string = drift.id
 output driftName string = drift.name
 output fuzzId string = fuzz.id
 output fuzzName string = fuzz.name
+output fuzzDefaultHostname string = fuzz.properties.defaultHostName
 output tuneId string = tune.id
 output tuneName string = tune.name

@@ -539,16 +539,6 @@
   path: resources.app.properties.template.resources.fuzz.properties.siteConfig.appSettings[2]
   matches: '"name": "STORAGE_ACCOUNT_NAME", "value": "\[parameters\(''storageAccountName''\)\]"'
 
-- deployment: fuzz_setting_schedule
-  path: resources.app.properties.template.resources.fuzz.properties.siteConfig.appSettings[3]
-  matches: '"name": "FUZZ_SCHEDULE", "value": "\[parameters\(''fuzzSchedule''\)\]"'
-
-# The schedule is open (spec open: application.fuzz_schedule): the stage file holds a placeholder the pipeline refuses.
-- deployment: fuzz_schedule_is_open_placeholder
-  stage: production
-  path: parameters.fuzzSchedule.value
-  matches: "OPEN-fuzz-schedule"
-
 # ---- app-service__tune --------------------------------------------------------------------------------
 
 - decision: app-service__tune.hosting.os_type
@@ -701,11 +691,16 @@
   path: resources.app.properties.template.resources.tune.properties.siteConfig.appSettings[5]
   matches: '"name": "TUNE_SCHEDULE", "value": "\[parameters\(''tuneSchedule''\)\]"'
 
-# The schedule is open (spec open: application.tune_schedule): the stage file holds a placeholder the pipeline refuses.
+# The cadence is open (spec open: application.tune_schedule): the stage file holds a placeholder the pipeline refuses.
 - deployment: tune_schedule_is_open_placeholder
   stage: production
   path: parameters.tuneSchedule.value
   matches: "OPEN-tune-schedule"
+
+# The tuner reaches the fuzz agent by its default hostname.
+- deployment: tune_setting_fuzz_app_hostname
+  path: resources.app.properties.template.resources.tune.properties.siteConfig.appSettings[6]
+  matches: 'FUZZ_APP_HOSTNAME'
 
 # ---- key-vault ----------------------------------------------------------------------------------
 
@@ -954,7 +949,7 @@
   path: resources.foundryUserTuneAssignment.properties.roleDefinitionId
   matches: "Azure AI User"
 
-# The tuner only reads the storage account; it writes through a pull request.
+# The tuner only reads the storage account; it writes to a branch through the GitHub token.
 - wiring: tune_has_no_blob_contributor_role
   path: resources.storageBlobContributorTuneAssignment
   absent: true

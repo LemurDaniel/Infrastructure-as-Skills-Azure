@@ -340,8 +340,8 @@ resources:
           production: []
         source: default
 
-  # The tuner reads the fuzz report, lets the Foundry model draft a layout change and opens a pull
-  # request: it holds the one GitHub token for that and shares no role with the other apps.
+  # The tuner reads the fuzz report, lets the Foundry model draft a layout change and pushes it to
+  # the tuning branch: it holds the one GitHub token for that and shares no role with the other apps.
   user-assigned-identity__tune:
     identity:
       purpose:
@@ -853,11 +853,12 @@ resources:
         value: true
         source: default
 
-  # The fuzz agent draws random valid specs with the plugin's diagram script and scores the layout
-  # (run_fuzz.py: Python and PyYAML only). It runs on a timer inside the app and on demand from the
-  # dashboard. It is not reachable from outside, calls no model and holds no secret: its only write
-  # target is the report and the worst cases in the storage account, its only roles are the image
-  # and the data role in wiring.role_assignments.
+  # The fuzz agent draws random valid specs with the plugin's diagram script from the tuning branch
+  # and scores the layout (run_fuzz.py: Python and PyYAML only). It has no schedule of its own: it
+  # runs on demand from the dashboard and after every tuner run, which starts it and asks first
+  # whether it is still running. It is not reachable from outside, calls no model and holds no
+  # secret: it reads the branch (a public repository) and writes the report and the worst cases to
+  # the storage account; its only roles are the image and the data role in wiring.role_assignments.
   app-service__fuzz:
     hosting:
       os_type:
@@ -894,7 +895,7 @@ resources:
       vnet_route_all:
         value: false
         source: overridden
-        reason: "The fuzz agent needs no outbound internet at run time (the plugin code is in the image), but the site shares the integration subnet and its setting with the other apps; private endpoint addresses are RFC 1918 and go through the VNet either way."
+        reason: "The fuzz agent reads the plugin source from the tuning branch on github.com. With all traffic routed into the VNet there is no outbound path without a NAT gateway; private endpoint addresses are RFC 1918 and still go through the VNet."
     identity:
       managed_identity:
         value: user_assigned
@@ -925,7 +926,7 @@ resources:
       always_on:
         value: true
         source: default
-        # The schedule is a timer inside the app, so the site must not idle out.
+        # A run takes minutes and is started from outside, so the site must not idle out.
       health_check_path:
         value: ""
         source: default
@@ -947,12 +948,15 @@ resources:
         value: true
         source: default
 
-  # The tuner improves the diagram layout. It reads the fuzz report from the storage account, lets
-  # the Foundry model draft a change to new_diagram.py, re-runs the fuzzer and the tests on it and,
-  # only when the score drops and the tests pass, opens a pull request. It never merges and never
-  # touches a baseline or a case. It runs on a timer inside the app - which reads the newest fuzz
-  # report from the storage account and starts only when the score is worse than the baseline by
-  # a threshold - and on demand from the dashboard. It is not reachable from outside. Azure is read-only to it: no role beyond the data roles in wiring.role_assignments.
+  # The tuner improves the diagram layout on a branch of its own. On its timer it first asks the fuzz
+  # agent whether a run is still going and does nothing if so. Otherwise it reads the newest fuzz
+  # report from the storage account, lets the Foundry model draft a change to new_diagram.py,
+  # re-runs the fuzzer and the tests on it and pushes the change to the tuning branch only when the
+  # score drops and the tests pass, then starts the fuzz agent and waits for its next timer. It
+  # changes new_diagram.py and adds fixtures; it never touches the fuzzer, its metrics, an existing
+  # test or master, and never merges: the owner merges the branch when they want. It is not
+  # reachable from outside. Azure is read-only to it: no role beyond the data roles in
+  # wiring.role_assignments.
   app-service__tune:
     hosting:
       os_type:
@@ -989,7 +993,7 @@ resources:
       vnet_route_all:
         value: false
         source: overridden
-        reason: "The tuner reads the plugin source and opens its pull request on github.com and api.github.com. With all traffic routed into the VNet there is no outbound path without a NAT gateway; private endpoint addresses are RFC 1918 and still go through the VNet."
+        reason: "The tuner reads the plugin source and pushes to the tuning branch on github.com and api.github.com. With all traffic routed into the VNet there is no outbound path without a NAT gateway; private endpoint addresses are RFC 1918 and still go through the VNet."
     identity:
       managed_identity:
         value: user_assigned
@@ -1078,7 +1082,7 @@ resources:
       secret_placeholders:
         value: [entra-client-secret, github-token, github-drift-token, github-tune-token]
         source: overridden
-        reason: "Departs from the default []: the dashboard reads the sign-in's client secret and the GitHub token (issues:write on this repository only) the drift watcher reads its own GitHub token (contents and pull requests write on this repository only) and the tuner reads its own (the same scope, a separate token), all through Key Vault references that must exist before the first start. The agent and the fuzz agent read none of them."
+        reason: "Departs from the default []: the dashboard reads the sign-in's client secret and the GitHub token (issues:write on this repository only), the drift watcher reads its own GitHub token (contents and pull requests write on this repository only) and the tuner reads its own (contents write on this repository; a branch rule keeps it off master), all through Key Vault references that must exist before the first start. The agent and the fuzz agent read none of them."
     keys:
       key_management:
         value: platform_managed
@@ -1145,20 +1149,22 @@ wiring:
       - { from: app-service__dashboard, to: app-service__fuzz, label: "Fuzz-Lauf starten" }
       - { from: app-service__fuzz, to: storage-account, label: "Fuzz-Bericht schreiben" }
       - { from: app-service__fuzz, to: container-registry, label: "Image laden" }
+      - { from: app-service__fuzz, to: external:github, label: "Plugin-Stand lesen" }
       - { from: app-service__dashboard, to: app-service__tune, label: "Verbesserung starten" }
       - { from: app-service__tune, to: storage-account, label: "Fuzz-Bericht lesen" }
       - { from: app-service__tune, to: foundry, label: "Layout-Änderung entwerfen" }
       - { from: app-service__tune, to: key-vault, label: "GitHub-Token lesen" }
       - { from: app-service__tune, to: container-registry, label: "Image laden" }
-      - { from: app-service__tune, to: external:github, label: "Pull Request öffnen" }
+      - { from: app-service__tune, to: external:github, label: "Verbesserung auf Branch schreiben" }
+      - { from: app-service__tune, to: app-service__fuzz, label: "Läuft er? Neuen Lauf starten" }
     source: stated
   purposes:
     value:
       app-service__dashboard: "Dashboard: zeigt Ergebnisse, legt Tickets an"
       app-service__agent: "Agent: führt die Evals aus"
       app-service__drift: "Drift-Watcher: prüft AVM-Versionen, öffnet Pull Requests"
-      app-service__fuzz: "Fuzz-Agent: zeichnet Zufalls-Specs, bewertet das Layout"
-      app-service__tune: "Tuner: entwirft Layout-Verbesserungen, öffnet Pull Requests"
+      app-service__fuzz: "Fuzz-Agent: zeichnet Zufalls-Specs vom Branch, bewertet das Layout"
+      app-service__tune: "Tuner: verbessert das Layout auf einem Branch, stößt den Fuzz an"
       container-registry: "Images aller fünf Apps"
       foundry: "Sprachmodelle für Agent, Bewertung, Drift-Watcher und Tuner"
       storage-account: "Eval-Ergebnisse, Drift- und Fuzz-Berichte"
@@ -1188,24 +1194,19 @@ open:
     question: "Der Drift-Watcher prüft wöchentlich. Wer legt das GitHub-Token 'github-drift-token' (nur dieses Repo, Contents + Pull requests schreiben) im Tresor ab?"
     owner: "Workload-Owner"
     blocks: apply
-  - key: application.fuzz_schedule
-    environments: [production]
-    question: "Der Fuzz-Agent läuft auf Klick und nach Zeitplan. Wie oft soll der Zeitplan laufen (z. B. wöchentlich), und wie viele Zufalls-Specs pro Lauf?"
-    owner: "Workload-Owner"
-    blocks: apply
   - key: application.tune_github_token
     environments: [production]
-    question: "Der Tuner öffnet Pull Requests mit Layout-Verbesserungen. Wer legt das GitHub-Token 'github-tune-token' (nur dieses Repo, Contents + Pull requests schreiben, kein Merge-Recht) im Tresor ab?"
+    question: "Der Tuner schreibt Verbesserungen auf einen eigenen Branch (z. B. tune/layout). Wer legt das GitHub-Token 'github-tune-token' (nur dieses Repo, Contents schreiben) im Tresor ab, und wer richtet die Branch-Regel ein, die master für das Token sperrt?"
     owner: "Workload-Owner"
     blocks: apply
   - key: application.tune_schedule
     environments: [production]
-    question: "Der Tuner prüft per Timer, ob der Fuzz-Score schlechter geworden ist, und öffnet dann einen Pull Request. Wie oft soll er prüfen (z. B. täglich), ab welchem Score-Anstieg gegenüber der Baseline soll er starten, und wie viele offene Pull Requests des Tuners dürfen gleichzeitig bestehen (z. B. einer)?"
+    question: "Der Tuner läuft per Timer: läuft der Fuzz-Agent gerade, tut er nichts; sonst verbessert er, schreibt auf den Branch, stößt den Fuzz an und wartet auf den nächsten Timer. Wie oft soll der Timer laufen (z. B. alle sechs Stunden), und wie viele Verbesserungen darf er pro Tag höchstens committen?"
     owner: "Workload-Owner"
     blocks: apply
   - key: application.plugin_source
     environments: [production]
-    question: "Woher holen der Agent, der Fuzz-Agent und der Tuner das Claude-Plugin (Git-Repo, Speicher, oder im Image)?"
+    question: "Woher holt der Agent das Claude-Plugin (Git-Repo, Speicher, oder im Image)? Fuzz-Agent und Tuner lesen es vom Tuning-Branch auf GitHub."
     owner: "Workload-Owner"
     blocks: apply
   - key: application.ticket_trigger

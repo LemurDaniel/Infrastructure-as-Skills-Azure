@@ -97,10 +97,7 @@ param existingTuneLinuxFxVersion string = ''
 @description('When the drift watcher runs its check (spec open: application.drift_schedule).')
 param driftSchedule string
 
-@description('When the fuzz agent runs on its timer (spec open: application.fuzz_schedule).')
-param fuzzSchedule string
-
-@description('When the tuner checks the fuzz score on its timer (spec open: application.tune_schedule).')
+@description('Timer cadence of the tuner and the maximum number of commits it makes per day (spec open: application.tune_schedule).')
 param tuneSchedule string
 
 @description('Model deployments as { name, model: { format, name, version } } (spec open: resources.foundry.models.model_deployments).')
@@ -401,7 +398,6 @@ module app 'modules/app.bicep' = {
     existingFuzzLinuxFxVersion: existingFuzzLinuxFxVersion
     existingTuneLinuxFxVersion: existingTuneLinuxFxVersion
     driftSchedule: driftSchedule
-    fuzzSchedule: fuzzSchedule
     tuneSchedule: tuneSchedule
     pluginSource: pluginSource
     entraClientId: entraClientId
