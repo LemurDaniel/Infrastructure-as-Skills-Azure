@@ -606,8 +606,6 @@ resource fuzz 'Microsoft.Web/sites@2024-11-01' = {
       allTraffic: false
     }
 
-    // Key Vault references are resolved with the user-assigned identity, not the (absent) system one.
-    keyVaultReferenceIdentity: fuzzIdentityId
 
     siteConfig: {
       // decision: app-service__fuzz.runtime.container_image_owner - the image is set here only on
