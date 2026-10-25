@@ -43,3 +43,22 @@ fix is committed, and put the commit hash in once it exists.
 - **After:** The remaining 8 graders of the case 8 of 8 (1 run). The other two diagram cases
   have not been run yet - the first run cost $1.60 for one case, so a `runs: 3` measurement of
   all three is about $15 and was not started.
+
+## language-en-first-question (and the `language/` group)
+
+- **Symptom:** An English request ("I need a chat app with an MCP server ...") got the target,
+  module and naming questions in German: the skill carries those blocks as German wording and
+  the model copied them.
+- **Cause:** The skill never said that the blocks are templates for `context.language`, and the
+  language was set after the first question.
+- **Fix:** Phase 0 of `iac-authoring` now takes the language from the request before anything is
+  asked and says the German blocks are the German wording of a question. Cases:
+  `language-en-request`, `language-de-request`, `language-en-first-question`.
+- **Grader notes:** The first version of `language-en-first-question` judged "everything the
+  message asks" and failed an all-English message that asked nothing (headless runs write the
+  spec at once when `AskUserQuestion` is not granted); the criterion is now "nothing is German".
+  Headless, the first message is prose, not an `AskUserQuestion` call, so the case grades the
+  final message.
+- **After:** `language-en-request` and `language-de-request` all graders (1 run each);
+  `language-en-first-question` 3 of 3 runs, all graders. The cases were not run against the
+  skill from before the fix, so they are not yet shown to fail without it.

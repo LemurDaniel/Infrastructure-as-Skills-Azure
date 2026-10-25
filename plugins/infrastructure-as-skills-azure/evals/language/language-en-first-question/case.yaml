@@ -7,16 +7,25 @@ graders:
     tool: Skill
     input_match: infrastructure-as-skills-azure
 
-  # The skill carries the target, module and naming questions as German wording. An
-  # English request must still get them in English.
-  - name: first-message-english
+  # Headless, the interview's first message is prose and not an AskUserQuestion call, so the
+  # grader reads the final message: the target question must be there, in English.
+  - name: target-question-asked
+    type: llm
+    weight: 3
+    focus: last_message
+    criteria: |
+      PASS if the final message asks the user whether the infrastructure is written in
+      Terraform or Bicep (or says that it was already decided). FAIL if it never raises
+      the choice. Language and formatting do not matter.
+
+  - name: no-german-question
     type: llm
     weight: 5
     focus: last_message
     criteria: |
-      The user wrote in English. PASS if everything the final message asks or lists -
-      questions, option labels and their descriptions - is in English. FAIL if any
-      question or option text is German (for example "In welcher Sprache", "Geprüfte
-      Bausteine", "Herstellerunabhängig", "Passt das so") or a mix of both. Product
-      names and code identifiers do not count; formatting does not matter.
-
+      The user wrote in English. PASS if nothing the final message says, asks or lists is
+      German - questions, option labels, descriptions, headings. FAIL only if any of it is
+      German (for example "In welcher Sprache", "Geprüfte Bausteine", "Herstellerunabhängig",
+      "Passt das so") or a mix of both. A message that asks no question at all passes if it
+      is entirely English. Product names and code identifiers do not count; formatting does
+      not matter.

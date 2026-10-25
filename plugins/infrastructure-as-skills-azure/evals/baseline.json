@@ -202,6 +202,56 @@
         "passed": 3,
         "total": 3
       }
+    },
+    "language-de-request": {
+      "skill-fired": {
+        "passed": 1,
+        "total": 1
+      },
+      "language-is-de": {
+        "passed": 1,
+        "total": 1
+      },
+      "german-customer-text": {
+        "passed": 1,
+        "total": 1
+      },
+      "final-message-german": {
+        "passed": 1,
+        "total": 1
+      }
+    },
+    "language-en-first-question": {
+      "skill-fired": {
+        "passed": 3,
+        "total": 3
+      },
+      "target-question-asked": {
+        "passed": 3,
+        "total": 3
+      },
+      "no-german-question": {
+        "passed": 3,
+        "total": 3
+      }
+    },
+    "language-en-request": {
+      "skill-fired": {
+        "passed": 1,
+        "total": 1
+      },
+      "language-is-en": {
+        "passed": 1,
+        "total": 1
+      },
+      "no-german-in-spec": {
+        "passed": 1,
+        "total": 1
+      },
+      "final-message-english": {
+        "passed": 1,
+        "total": 1
+      }
     }
   }
 }
