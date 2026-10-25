@@ -211,10 +211,10 @@ the detail; this list says what was decided and why, so a session does not reope
   Since 2026-10-26 two more apps on the same plan, spec and render (not deployed): a fuzz agent
   (draws random specs with the plugin's diagram script, scores the layout, writes the report to
   storage; image and data role only, no vault, no model) and a tuner (timer in the app reads the
-  newest fuzz report, lets the model draft a change to `new_diagram.py`, opens a pull request,
-  never merges). Open: `application.fuzz_schedule`, `application.tune_schedule` (cadence,
-  score threshold, open-PR limit; the stage file holds `OPEN-*` placeholders the pipeline
-  refuses), `application.tune_github_token`. The fuzzer itself is `tools/diagram-fuzz/`, outside
+  newest fuzz report, lets the model draft a change to `new_diagram.py`, commits it to a tuning
+  branch when the score drops and the tests pass, then starts the fuzz agent; it skips a run while
+  the fuzz agent is going, never merges, never touches `master`). Open: `application.tune_schedule` (timer cadence, commits per day; the stage file
+  holds an `OPEN-*` placeholder the pipeline refuses), `application.tune_github_token`. The fuzzer itself is `tools/diagram-fuzz/`, outside
   the plugin (development tooling, not shipped; `ideas/diagram-fuzz.md`). Its zone check
   never fires on its own specs yet - only the `four-apps-one-subnet` fixture test guards the
   rule that a call inside one container stays in it.

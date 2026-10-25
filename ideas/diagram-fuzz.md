@@ -20,6 +20,21 @@ icons) is a bug, everything else is a ranking.
   `report.json` and the worst specs into the results storage the agent already writes to;
   the [dashboard](eval-dashboard.md) reads the score over time next to the eval runs.
 
+## Fuzzer and tuner on a branch of their own
+
+The tuner improves `new_diagram.py` on a branch (`tune/layout`), not through pull requests: a
+second fuzz run on the state of an open pull request measures the same thing again. On its
+timer the tuner asks the fuzz agent whether a run is going and does nothing if so; otherwise it
+drafts a change, re-runs the fuzzer and the tests, commits to the branch only when the score
+drops and the tests pass, starts the fuzz agent and waits for its next timer. The fuzz agent has
+no schedule of its own. The owner merges the branch when they like.
+
+- The tuner changes `new_diagram.py` and adds fixtures; never the fuzzer, its metrics, an
+  existing test or `master` (a branch rule keeps its token off `master`).
+- The score measures crossings and overlaps, not whether a picture is good: new seeds each run
+  next to a fixed comparison set, a limit of commits per day, and the pull request to `master`
+  shows the worst cases before and after.
+
 ## Why on the agent
 
 It is plugin code run on a schedule with results into storage, which is the agent's job. A
