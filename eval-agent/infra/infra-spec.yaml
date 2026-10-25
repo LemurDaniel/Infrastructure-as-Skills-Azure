@@ -754,7 +754,7 @@ resources:
       vnet_route_all:
         value: false
         source: overridden
-        reason: "The watcher reads the AVM sources on the internet (github.com, api.github.com, mcr.microsoft.com, registry.terraform.io). With all traffic routed into the VNet there is no outbound path without a NAT gateway; private endpoint addresses are RFC 1918 and still go through the VNet."
+        reason: "The watcher reads the AVM sources on the internet (github.com, api.github.com, raw.githubusercontent.com, mcr.microsoft.com, azure.github.io). With all traffic routed into the VNet there is no outbound path without a NAT gateway; private endpoint addresses are RFC 1918 and still go through the VNet."
     identity:
       managed_identity:
         value: user_assigned
@@ -926,12 +926,12 @@ open:
     blocks: apply
   - key: application.drift_internet_allowlist
     environments: [production]
-    question: "Der Drift-Watcher darf nur an die AVM-Quellen (github.com, api.github.com, mcr.microsoft.com, registry.terraform.io). App Service filtert den Ausgang nicht; die Liste gilt nur im Code. Reicht das, oder soll der Ausgang im Netz erzwungen werden (Firewall oder NAT-Gateway mit Regeln, deutlich mehr Betrieb und Kosten)?"
+    question: "Der Drift-Watcher darf nur an die AVM-Quellen (github.com, api.github.com, raw.githubusercontent.com, mcr.microsoft.com, azure.github.io). App Service filtert den Ausgang nicht; die Liste gilt nur im Code. Reicht das, oder soll der Ausgang im Netz erzwungen werden (Firewall oder NAT-Gateway mit Regeln, deutlich mehr Betrieb und Kosten)?"
     owner: "Workload-Owner"
     blocks: apply
-  - key: application.drift_schedule
+  - key: application.drift_github_token
     environments: [production]
-    question: "In welchem Rhythmus prüft der Drift-Watcher (vermutlich wöchentlich)? Und wer legt das GitHub-Token 'github-drift-token' (nur dieses Repo, Contents + Pull requests schreiben) im Tresor ab?"
+    question: "Der Drift-Watcher prüft wöchentlich. Wer legt das GitHub-Token 'github-drift-token' (nur dieses Repo, Contents + Pull requests schreiben) im Tresor ab?"
     owner: "Workload-Owner"
     blocks: apply
   - key: application.plugin_source
