@@ -364,10 +364,13 @@ per-family` in `check_spec.py` and the `chatbot` spec, and `references/private-d
     gets a tag; more than eight services in the compact layout fall back to tags too. Frames of
     different groups can leave blank space (a frame is as tall as its tallest label).
   - **Plugin todos from the 2026-10-25 diagram reviews** (the four examples were re-rendered
-    through review and diagram agents; `new_diagram.py` was not touched in the loop). Two pictures
-    still carry a finding after two passes: `chat-sandbox` (`e-7`, the label "liest das Client
-    Secret" sits beside its arrow, not on it) and `chatbot-multi-rg` (`e-14`, the telemetry line
-    now runs through the "Identities and network baseline" zone). The hand edits of
+    through review and diagram agents; `new_diagram.py` was not touched in the loop). A second
+    run the same day (review, hand fix, second pass per example) ended with no error in any of
+    the four; what is left is `polish`: the telemetry line of `chatbot` and `chatbot-multi-rg`
+    runs 7-8px beside the Monitoring frame, "HTTPS 443" and "sign-in" sit close above their
+    lines, the `chat-sandbox` app-service exits are 19px apart. The `chatbot` decisions panel
+    prints the German `deployment.mandates.value` in an English picture: the value is the
+    spec's, change it there. The hand edits of
     `chatbot-rag`, `chat-sandbox` and `chatbot-multi-rg` live only in the PNGs; a regeneration from
     the spec loses them. Script faults behind the findings:
     - a target below the zones is reached by a detour through the private endpoints' trunk (or,
@@ -377,6 +380,9 @@ per-family` in `check_spec.py` and the `chatbot` spec, and `references/private-d
     - actor lines on one side of a target and every top-to-top edge share one track;
     - the slot order ignores which services call each other, so lines cross (sort by edge
       adjacency, stagger actor lines by the target's height);
+    - with three or more callers the entries into the private endpoints' icon are 9-10px apart
+      (`entryY` 0.2-0.8) and two edges from one source leave at the same `exitY`, so they run
+      collinear: spread entries over the icon's sides, top and bottom from the third caller;
     - the Monitoring zone title reads "Monitoring · monitoring (created)" with a split - name the
       group once;
     - the legend has no entry for purple role text or the orange public-access warning, and the
