@@ -204,9 +204,13 @@ the detail; this list says what was decided and why, so a session does not reope
   Since 2026-10-25 the spec and the render (not yet deployed) split it in two: a public
   dashboard (sign-in, reads the results, holds the GitHub token) and an agent behind a private
   endpoint (runs plugin code, writes the results, no secret), on one B2 plan, one user-assigned
-  identity each; the tests assert the separation (`ideas/eval-agent.md`). Open there: when the
-  dashboard files a ticket (`application.ticket_trigger`), the plugin source, models, the
-  sign-in secret and the image push path. The old single identity `id-…-02` and, if the first
+  identity each; the tests assert the separation (`ideas/eval-agent.md`). Decided 2026-10-25: the dashboard files a ticket on a click, never automatically; its image goes in through
+  `.github/workflows/eval-dashboard-image.yaml` (the pipeline opens the registry for the runner's address only and closes it in an
+  `always()` step; `container-registry.networking.image_push_path`, needs AcrPush for the pipeline identity). The dashboard app is
+  `eval-agent/dashboard/` (Node 22, Express; `MOCK=1` or `run-local.ps1` runs it without Azure; pages Overview and Tune & Fuzz; it starts
+  the tuner only, the tuner starts the fuzz agent; reads `runs/`, `fuzz/`, `tune/` from the storage account; agents not written yet,
+  `POST /run` and `tune/<id>/run.json` are its contract). Open there: the plugin source, models, the sign-in secret, the GitHub token
+  `github-token`, the container `results` in the storage account. The old single identity `id-…-02` and, if the first
   render was deployed, its role assignments stay orphaned until deleted by hand.
   Since 2026-10-26 two more apps on the same plan, spec and render (not deployed): a fuzz agent
   (draws random specs with the plugin's diagram script, scores the layout, writes the report to
@@ -550,6 +554,8 @@ regeneration from the spec loses them. All `render`:
 - `patterns/` is empty: composition is specified and proven by two hand-wired examples
   only (`ideas/pattern-skill.md`).
 - An AVM version drift check, read-only, scheduled (`ideas/avm-drift-watch.md`).
+- **AcrPush** on the registry for the identity of the infra pipeline (Contributor cannot push); first run of the image pipeline, and a
+  check that its closing step really leaves the registry at `Disabled`. The dashboard's real mode (blob, GitHub, sign-in) has not run.
 
 ### Environment
 

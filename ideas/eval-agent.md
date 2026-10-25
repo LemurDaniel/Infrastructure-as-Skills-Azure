@@ -63,9 +63,8 @@ secret.
 
 ## Open questions
 
-- When does the dashboard file a ticket: automatically after a run with failed evals
-  (probably, not decided) or on a click? Automatic needs a trigger in the dashboard (a
-  timer or an event on the result storage); a click needs none.
+- ~~When does the dashboard file a ticket~~ Decided 2026-10-25: on a click, no trigger in
+  the dashboard. Automatic filing stays an option once the noise threshold below is set.
 - Who puts the GitHub token into the vault (`github-token`), and who creates the client
   secret of the sign-in (`entra-client-secret`)?
 - Ticket noise: a threshold before a flaky grader becomes a ticket (UNSTABLE in two
