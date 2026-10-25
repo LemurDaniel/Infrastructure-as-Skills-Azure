@@ -1,0 +1,74 @@
+schema_version: "1.1"
+name: requirements-stated
+
+# The five requirements are customer questions; a request that answers them in plain words
+# must land them in deployment.* with the enum value, and the resource decisions derive from
+# them (the storage access tier from data_access_pattern). Headless, nobody is asked, so this
+# case grades the recording; that the questions reach a customer is not covered here.
+graders:
+  - name: skill-fired
+    type: tool_used
+    tool: Skill
+    input_match: infrastructure-as-skills-azure
+
+  - name: outage-critical
+    type: regex
+    weight: 2
+    target: { source: file, path: infra/infra-spec.yaml }
+    pattern: 'outage_impact:\s*(?:#[^\n]*\s*)*(?:\{\s*)?(?:value:\s*)?\W?critical\b'
+
+  - name: loss-three-months
+    type: regex
+    weight: 2
+    target: { source: file, path: infra/infra-spec.yaml }
+    pattern: 'data_loss_tolerance:\s*(?:#[^\n]*\s*)*(?:\{\s*)?(?:value:\s*)?\W?three_months\b'
+
+  - name: access-archive
+    type: regex
+    weight: 2
+    target: { source: file, path: infra/infra-spec.yaml }
+    pattern: 'data_access_pattern:\s*(?:#[^\n]*\s*)*(?:\{\s*)?(?:value:\s*)?\W?archive\b'
+
+  - name: backup-immutable
+    type: regex
+    weight: 2
+    target: { source: file, path: infra/infra-spec.yaml }
+    pattern: 'backup_isolation:\s*(?:#[^\n]*\s*)*(?:\{\s*)?(?:value:\s*)?\W?immutable\b'
+
+  - name: residency-country
+    type: regex
+    weight: 2
+    target: { source: file, path: infra/infra-spec.yaml }
+    pattern: 'data_residency:\s*(?:#[^\n]*\s*)*(?:\{\s*)?(?:value:\s*)?\W?country\b'
+
+  # The stated values are not defaults: a spec that records the guardrail default
+  # (disruptive, one_week, active, operational, data_zone) ignored the request.
+  - name: no-default-requirements
+    type: regex
+    weight: 3
+    target: { source: file, path: infra/infra-spec.yaml }
+    pattern: '(?:outage_impact:\s*(?:#[^\n]*\s*)*(?:\{\s*)?(?:value:\s*)?\W?disruptive|data_loss_tolerance:\s*(?:#[^\n]*\s*)*(?:\{\s*)?(?:value:\s*)?\W?one_week|data_access_pattern:\s*(?:#[^\n]*\s*)*(?:\{\s*)?(?:value:\s*)?\W?active|backup_isolation:\s*(?:#[^\n]*\s*)*(?:\{\s*)?(?:value:\s*)?\W?operational|data_residency:\s*(?:#[^\n]*\s*)*(?:\{\s*)?(?:value:\s*)?\W?data_zone)\b'
+    match: not_contains
+
+  # Derived on the resource: archive -> Cold.
+  - name: access-tier-cold
+    type: regex
+    target: { source: file, path: infra/infra-spec.yaml }
+    pattern: 'access_tier:\s*(?:#[^\n]*\s*)*(?:\{\s*)?(?:value:\s*)?\W?Cold\b'
+
+  - name: module-source-avm-default
+    type: regex
+    target: { source: file, path: infra/infra-spec.yaml }
+    pattern: 'module_source:\s*(?:#[^\n]*\s*)*(?:\{\s*)?(?:value:\s*)?\W?avm\b'
+
+  - name: no-invented-subscription
+    type: regex
+    weight: 3
+    target: { source: file, path: infra/infra-spec.yaml }
+    pattern: '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}'
+    match: not_contains
+
+  - name: no-code-before-confirmation
+    type: file_exists
+    path: '**/*.tf'
+    exists: false

@@ -1,0 +1,41 @@
+schema_version: "1.1"
+name: trigger-workload-request
+
+# The one failure a real install test showed: "eine Chatapp in Azure mit RAG" named no
+# resource and opened no interview, because the only trigger listed resource names.
+# The skill indicator is the primary check; the judge reads only the final message.
+graders:
+  - name: skill-fired
+    type: tool_used
+    tool: Skill
+    weight: 3
+    input_match: infrastructure-as-skills-azure
+
+  - name: iac-authoring-fired
+    type: tool_used
+    tool: Skill
+    weight: 2
+    input_match: iac-authoring
+
+  - name: no-terraform-code
+    type: file_exists
+    path: '**/*.tf'
+    exists: false
+
+  - name: no-bicep-code
+    type: file_exists
+    path: '**/*.bicep'
+    exists: false
+
+  - name: treated-as-infra-task
+    type: llm
+    focus: last_message
+    criteria: |
+      PASS if the final message treats the request as Azure infrastructure to be designed
+      through an interview or a spec: it asks about the target (Terraform or Bicep), the
+      module choice, or customer-level questions about the system (who uses it, what data,
+      how it must be protected), or it reports an infra-spec / open items.
+      FAIL if it only gives generic architecture advice or a list of Azure services
+      without asking or recording decisions, if it contains Terraform or Bicep code, or if
+      it asks only for technical values such as SKUs, address ranges or the region.
+      Language and formatting do not matter.

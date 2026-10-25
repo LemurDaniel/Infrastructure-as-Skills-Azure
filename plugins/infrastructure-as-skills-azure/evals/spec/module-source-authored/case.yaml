@@ -1,0 +1,53 @@
+schema_version: "1.1"
+name: module-source-authored
+
+# AVM is the default; "no modules" is the departure. The deployment decision holds for every
+# resource, so no resource carries implementation: avm.
+graders:
+  - name: skill-fired
+    type: tool_used
+    tool: Skill
+    input_match: infrastructure-as-skills-azure
+
+  - name: target-terraform
+    type: regex
+    target: { source: file, path: infra/infra-spec.yaml }
+    pattern: 'target:\s*(?:#[^\n]*\s*)*(?:\{\s*)?(?:value:\s*)?\W?terraform\b'
+
+  - name: module-source-authored
+    type: regex
+    weight: 3
+    target: { source: file, path: infra/infra-spec.yaml }
+    pattern: 'module_source:\s*(?:#[^\n]*\s*)*(?:\{\s*)?(?:value:\s*)?\W?authored\b'
+
+  - name: module-source-not-avm
+    type: regex
+    weight: 3
+    target: { source: file, path: infra/infra-spec.yaml }
+    pattern: 'module_source:\s*(?:#[^\n]*\s*)*(?:\{\s*)?(?:value:\s*)?\W?avm\b'
+    match: not_contains
+
+  - name: no-avm-implementation
+    type: regex
+    weight: 2
+    target: { source: file, path: infra/infra-spec.yaml }
+    pattern: 'implementation:\s*\W?avm\b'
+    match: not_contains
+
+  - name: exposure-private
+    type: regex
+    weight: 2
+    target: { source: file, path: infra/infra-spec.yaml }
+    pattern: 'network_exposure:\s*(?:#[^\n]*\s*)*(?:\{\s*)?(?:value:\s*)?\W?private\b'
+
+  - name: no-invented-subscription
+    type: regex
+    weight: 3
+    target: { source: file, path: infra/infra-spec.yaml }
+    pattern: '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}'
+    match: not_contains
+
+  - name: no-code-before-confirmation
+    type: file_exists
+    path: '**/*.tf'
+    exists: false
