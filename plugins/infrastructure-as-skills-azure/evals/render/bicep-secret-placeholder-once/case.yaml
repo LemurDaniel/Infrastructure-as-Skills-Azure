@@ -1,0 +1,57 @@
+schema_version: "1.1"
+name: bicep-secret-placeholder-once
+
+# The eval sandbox has no shell, so nothing is compiled here; the graders read the Bicep the
+# run wrote. Whether the decorator compiles is the pipeline's latest Bicep to say, not this case.
+graders:
+  - name: skill-fired
+    type: tool_used
+    tool: Skill
+    input_match: infrastructure-as-skills-azure
+
+  - name: bicep-written
+    type: file_exists
+    path: infra/main.bicep
+    weight: 2
+
+  - name: placeholders-are-only-if-not-exists
+    type: regex
+    weight: 3
+    target: { source: file, path: infra/main.bicep }
+    pattern: '@onlyIfNotExists\(\)\s*\n\s*resource\s+\w+\s+''Microsoft\.KeyVault/vaults/secrets@[^'']+'''
+
+  - name: no-secret-lookup
+    type: regex
+    weight: 3
+    target: { source: file, path: infra/main.bicep }
+    pattern: 'existingSecretNames|contains\(\s*existing'
+    match: not_contains
+
+  - name: no-condition-on-the-placeholder
+    type: regex
+    weight: 2
+    target: { source: file, path: infra/main.bicep }
+    pattern: 'secrets@[^'']+''\s*=\s*(?:\[\s*for[^\n]*:\s*)?if\s*\('
+    match: not_contains
+
+  - name: both-placeholders-present
+    type: regex
+    weight: 2
+    target: { source: file, path: infra/main.bicep }
+    pattern: '(?=[\s\S]*api-key)(?=[\s\S]*db-password)[\s\S]*@onlyIfNotExists'
+
+  - name: no-secret-value-as-parameter
+    type: regex
+    weight: 3
+    target: { source: file, path: infra/main.bicep }
+    pattern: '@secure\(\)\s*\n\s*param\s+\w*(?:secret|password|key)\w*'
+    flags: i
+    match: not_contains
+
+  - name: placeholders-not-through-the-module
+    type: regex
+    weight: 2
+    target: { source: file, path: infra/main.bicep }
+    pattern: '^\s+secrets:\s*[\[{]'
+    flags: m
+    match: not_contains

@@ -25,6 +25,7 @@ grouping costs nothing; a case's `prompt.md` reaches the plugin with `plugins: [
 | `trigger/` | That a request triggers the plugin at all | `trigger-workload-request` |
 | `language/` | The language of the person is the language of everything said to them | `language-en-request`, `language-de-request`, `language-en-first-question` |
 | `process/` | The order of the run: after a change of the spec, diagram and sign-off come before any code | `diagram-before-code-after-change` |
+| `render/` | The code the render writes, for the few rules a spec cannot show | `bicep-secret-placeholder-once` |
 
 ## The cases
 
@@ -37,6 +38,7 @@ most different situations rather than three variations of one:
 | `module-source-authored` | Terraform | development | private | none | - | A stated departure from the AVM default: `module_source: authored`, no `implementation: avm` |
 | `requirements-stated` | Terraform | production | - | - | - | All five customer requirements in plain words, none at its default; the access tier derives |
 | `diagram-no-invented-lines` | Bicep | staging | - | - | - | Three resources, **no call named**: no line may be invented |
+| `bicep-secret-placeholder-once` | Bicep | development | public | none | - | Spec and diagram already signed off, Bicep asked: each secret placeholder carries `@onlyIfNotExists()`, no lookup of existing secrets, no secret value as a parameter |
 
 The `diagram-no-invented-lines` case tests the half of the diagram a run can reach: the spec. The
 picture is drawn from `wiring.access`, `wiring.purposes` and `wiring.optional` and from
