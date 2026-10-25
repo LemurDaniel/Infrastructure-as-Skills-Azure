@@ -256,8 +256,8 @@ def main():
     if has(spec, 'composition'):
         comp = spec['composition']
         gran = get(comp, 'granularity')
-        if gran and gran not in ('single', 'per-concern', 'per-resource'):
-            errors.append(f"composition.granularity '{gran}' is not single, per-concern or per-resource")
+        if gran and gran not in ('single', 'per-concern', 'per-resource', 'per-family'):
+            errors.append(f"composition.granularity '{gran}' is not single, per-concern, per-resource or per-family")
 
         modules = [m for m in (get(comp, 'modules') or []) if m]
         ids = [get(m, 'id') for m in modules]
@@ -357,6 +357,9 @@ def main():
     lock = dep_value('resource_group_lock')
     if lock is not None and lock not in RG_LOCKS:
         errors.append(f"deployment.resource_group_lock '{lock}' is not one of {', '.join(RG_LOCKS)}")
+    rlock = dep_value('resource_lock')
+    if rlock is not None and rlock not in RG_LOCKS:
+        errors.append(f"deployment.resource_lock '{rlock}' is not one of {', '.join(RG_LOCKS)}")
 
     placed = 0
     for rkey, rnode in (get(spec, 'resources') or {}).items():

@@ -105,8 +105,28 @@ deployment:
     value: -1
     source: default
 composition:
-  granularity: single
+  granularity: per-family
   source: default
+  modules:
+    - id: observability
+      contains: [log-analytics-workspace, application-insights]
+    - id: identity
+      contains: [user-assigned-identity__web, user-assigned-identity__connector, user-assigned-identity__runner]
+    - id: network
+      contains: [virtual-network, network-security-group__endpoints, network-security-group__integration, network-security-group__containerapps]
+      needs: [observability]
+    - id: security
+      contains: [key-vault]
+      needs: [observability]
+    - id: data
+      contains: [storage-account__uploads, storage-account__host, cosmos-db]
+      needs: [observability]
+    - id: ai
+      contains: [foundry, search-service]
+      needs: [observability]
+    - id: compute
+      contains: [container-registry, container-apps, function-app, app-service__web, app-service__mcp]
+      needs: [ai, data, identity, observability, security]
 resources:
   virtual-network:
     addressing:

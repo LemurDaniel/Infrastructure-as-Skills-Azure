@@ -162,6 +162,7 @@ resources:
 
 # Decisions that belong to no single resource. The pattern owns these.
 wiring:
+  # Which zone belongs to which endpoint: iac-rendering/references/private-dns-zones.md
   private_dns_zones:
     value: [privatelink.blob.core.windows.net, privatelink.vaultcore.azure.net]
     source: pattern
@@ -258,6 +259,7 @@ split off. Splitting is a deployment decision; the keys it leaves in the spec:
 | `deployment.resource_group_split` | The roles with a group of their own: any of `network`, `data`, `application`, `observability`, `security` | `[]` or absent: one group, nothing below is written |
 | `deployment.resource_group_mode_<role>` | `existing` or `create`, for `main` and for every listed role | An unlisted role has no mode - it is part of `main` |
 | `deployment.resource_group_lock` | `production`, `all_stages`, `none` | Only groups in mode `create` get a lock |
+| `deployment.resource_lock` | `production`, `all_stages`, `none` | A `CanNotDelete` lock on each resource that holds data or state, in the stages named; see [avm.md](../../iac-rendering/references/avm.md#the-shared-interfaces) for which kinds |
 | `context.resource_group_name_<role>` | The name of the group, a stage map like `resource_group_name` | `main` keeps `context.resource_group_name`. Optional, like it: recorded when the customer or the platform stated it, otherwise a parameter the stage file supplies. For a `create` group a stated name is used verbatim; without one the render computes it from the naming interface. Never for a role that is not split off |
 | `resources.<key>.placement.resource_group` | One role, for a resource that departs from its kind's role | `source: overridden` with a `reason`; without the key the kind's role applies |
 
@@ -435,7 +437,7 @@ particular split.
 | `single` | One root, no modules | A single resource, a throwaway, or a repository that has no `modules/` |
 | `per-concern` | A module per concern — the resource, its networking, its observability | Default. Mirrors the one-concern-per-file rule a level up |
 | `per-resource` | A module per resource | A pattern with many resources whose parts are reused separately |
-| `per-family` | A module per resource family (`network`, `security`, `ai`, ...), each holding that family's AVM calls | Default under AVM when the spec has more than one family. Terraform only for now; the root then holds one call per family and the wiring between them |
+| `per-family` | A module per resource family (`network`, `security`, `ai`, ...), each holding that family's AVM calls | Default under AVM when the spec has more than one family, in both targets ([Terraform](../../iac-rendering/references/terraform-idiom.md#grouped-avm-calls-modulesfamily), [Bicep](../../iac-rendering/references/bicep-idiom.md#grouped-avm-calls-modulesfamilybicep)); the root then holds one call per family and the wiring between them |
 
 Do not ask for it when the repository answers it. An existing `modules/` directory, or an
 existing spec, decides this before the interview starts.

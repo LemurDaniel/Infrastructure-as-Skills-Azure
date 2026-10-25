@@ -173,7 +173,8 @@ of modules (plan and app) stay in one file.
 Rules:
 
 - **The family is the resource's directory under `resources/`** (`network`, `security`,
-  `identity`, `observability`, `data`, `ai`, `compute`). Resources of one family that
+  `identity`, `observability`, `data`, `ai`, `compute`, `storage`, `messaging`, `integration`,
+  `recovery`). Resources of one family that
   share a lifecycle stay together; do not invent finer groups.
 - **The root file is a call and nothing else.** `modules.<family>.tf` holds one `module`
   block with `source = "./modules/<family>"` (no `version` - local path) and its

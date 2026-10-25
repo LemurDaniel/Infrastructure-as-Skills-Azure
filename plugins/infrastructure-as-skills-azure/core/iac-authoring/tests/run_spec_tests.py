@@ -40,6 +40,7 @@ MUTATIONS = [
     ('a placement into a group that does not exist', 'resource_group: { value: data,', 'resource_group: { value: frontend,', 'names a group the deployment does not have'),
     ('a placement without its reason', ', reason: the vault is kept with the data it protects', '', 'overridden with no reason'),
     ('a lock value that does not exist', "  resource_group_lock: { value: production, source: default }\n", "  resource_group_lock: { value: forever, source: default }\n", "resource_group_lock 'forever'"),
+    ('a resource lock value that does not exist', "  resource_group_lock: { value: production, source: default }\n", "  resource_group_lock: { value: production, source: default }\n  resource_lock: { value: forever, source: default }\n", "resource_lock 'forever'"),
 ]
 
 # The same spec without a split: every resource group line and the placement taken out.

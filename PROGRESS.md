@@ -70,6 +70,11 @@ the detail; this list says what was decided and why, so a session does not reope
   listed resource names, and a request names what the system does more often than the
   resources it needs. Workload and target terms, with German anchors, are in the entry
   description; new resource terms go into `azure-resources` only.
+- **A resource lock is a decision of its own** (2026-10-25): `deployment.resource_lock`
+  (`production` by default) puts `CanNotDelete` on the resources whose loss cannot be undone
+  from the spec - the list is in `avm.md` - through the `lock` interface every AVM module has.
+  Compute, identities and network resources carry none: they are recreated from the spec, and a
+  lock on a virtual network blocks changing its subnets. It is not the resource group's lock.
 - **Defaults from the guardrails, not the portal — and not the module.** AVM defaults
   diverge from the guardrails too (`Standard_GRS`, 365 days retention, infrastructure
   encryption off, public access on, Key Vault `premium`, Container App ingress external),
@@ -178,11 +183,18 @@ the detail; this list says what was decided and why, so a session does not reope
 
 ## State
 
-- **14 resource sets in 7 families**, all with both rendering references, both checks
-  green: storage-account; virtual-network, network-security-group; app-service,
-  function-app, container-apps, container-registry; cosmos-db; key-vault,
-  user-assigned-identity; log-analytics-workspace, application-insights; foundry,
-  search-service. The deployment set has 37 questions; 323 questions in total.
+- **25 resource sets in 10 families**, all with both rendering references, both checks
+  green: storage-account, blob-container, file-share, queue; virtual-network,
+  network-security-group, application-gateway, front-door; app-service, function-app,
+  container-apps, container-registry; cosmos-db; key-vault, user-assigned-identity;
+  log-analytics-workspace, application-insights; foundry, search-service; service-bus,
+  event-hubs, event-grid-topic (`messaging`); api-management (`integration`); backup-vault,
+  recovery-services-vault (`recovery`). The deployment set has 38 questions; 562 in total.
+  The eight sets added 2026-10-25 (messaging, integration, recovery, application-gateway,
+  front-door) are checked, not exercised: every Terraform call in their `terraform.md` passes
+  `terraform validate` against the pinned module version (module installed from the registry,
+  variables stubbed), every Bicep call compiles with `bicep build` (parameters stubbed with
+  `any()`); no example renders them, no eval covers them, nothing is applied.
 - **First applied render (2026-10-25): `eval-agent/`**, Bicep, one stage, deployed through its
   own rendered GitHub pipeline (what-if, approval, deploy; OIDC). The first run fed three
   fixes back into `pipelines.github.md` and `check_pipeline.py` (job without checkout,
@@ -238,40 +250,54 @@ the detail; this list says what was decided and why, so a session does not reope
 
 ## Open
 
-Grouped by where the fix lands. Each item is a finding from a run or a review, kept
+Grouped by where the fix lands. A module's README on `main` is ahead of its tag: Event Grid topic
+(`parent_id`, `input_schema`) and Application Gateway (`parent_id`, no public IP input) were
+first written from `main` and failed `terraform validate` on the pinned tag. Write and check
+a reference against the installed module, never against `main`. Each item is a finding from a run or a review, kept
 until it is fixed or decided against.
 
 ### Rendering references and question sets
 
-- **azurerm 4.x spellings** in `log-analytics-workspace`, `app-service`, `foundry`
-  `terraform.md` and ~50 `renders` lines: `internet_*_enabled`,
-  `local_authentication_disabled`, `*_basic_auth_enabled`, `legacy_access_policies_enabled`,
-  "use azapi" for Foundry projects. 5.x has `internet_ingestion_access_type`,
-  `local_authentication_enabled`, `ftp/webdeploy_publish_basic_authentication_enabled`,
-  `azurerm_cognitive_account_project`.
-- `terraform.md` tables stale in places: `log_categories` for the Key Vault, Search,
-  Foundry, ACR, Cosmos DB and NSG modules. Diagnostic category names in several sets are
-  from memory (Key Vault, Cosmos DB, Foundry, App Service, Search) and want
-  `az monitor diagnostic-settings categories list` against a real resource.
-- `storage-account.private_endpoint_subresources` has no `depends_on` and lands in a spec
-  without a network. `foundry.restrict_outbound: true` has no `allowed_fqdns` question.
-- Function App's per-plan subnet delegation is from memory; Container Apps session pools
-  have no set; a container's throughput in Cosmos DB is one value for all; the Foundry
-  project API version is a placeholder; the NSG baseline rules per `subnet_purpose` are
-  general knowledge, to be confirmed per service before a render; a closed Application
-  Insights needs the platform's Azure Monitor Private Link Scope. The Key Vault modules'
+Done 2026-10-25: the azurerm 5.x spellings (checked against `terraform providers schema -json` of
+5.11 and the provider docs at the tag; only storage has the string `public_network_access`), the
+module `diagnostic_settings` interface (two forms, see `avm.md`), every diagnostic category name
+(compared with Microsoft Learn's supported-categories pages; Backup vault has no
+`AddonAzureBackupAlerts`), the Function App delegation (Flex `Microsoft.App/environments`, Elastic
+Premium `Microsoft.Web/serverFarms`), the Foundry project API version, `foundry.allowed_fqdns`,
+`storage-account.private_endpoint_subresources.depends_on`, the sets `backup-vault`,
+`recovery-services-vault`, `blob-container`, `file-share`, `queue`, `deployment.resource_lock`, the
+`app-service` `plan` decision (own or shared), the Bicep per-family shape, `granularity:
+per-family` in `check_spec.py` and the `chatbot` spec, and `references/private-dns-zones.md`.
+
+- **Pipeline guard for `location` against `data_residency`**: not done. It needs a region -> country
+  and data-zone table (`az account list-locations` carries `geographyGroup` and `geography`), an
+  invariant 13 in `pipelines.md`, a step in the four platform files and the local script, a check
+  in `check_pipeline.py` and a mutation per platform, and the six fixtures under
+  `tests/pipelines/` rebuilt.
+- **The sets from 2026-10-23 have no Bicep render** (`chatbot` is Terraform only) and
+  `*.armtest.yaml` is still one file per example; the per-family Bicep shape is documented and the
+  nested path checked on a toy compile, not on a render.
+- Missing sets: Container Apps session pools; a Table storage set; Logic Apps, Data Factory, SQL,
+  Redis (`azure-resources` says so out loud).
+- A container's throughput in Cosmos DB is one value for all; the NSG baseline rules per
+  `subnet_purpose` are general knowledge, to be confirmed per service before a render; a closed
+  Application Insights needs the platform's Azure Monitor Private Link Scope; the Key Vault modules'
   `keys` member names are read from the README at render time.
-- Missing sets: `recovery/backup-vault` (so `backup_isolation: isolated | immutable`
-  renders instead of being named as missing); blob container, file share, queue; a
-  resource lock decision; a pipeline guard that checks a stage's `location` against
-  `data_residency`.
-- `app-service` renders one site per plan; two apps on one plan (`eval-agent/`) are a
-  hand-rendered plan and site, noted in the spec. Either the set gets a `plan` decision
-  (own plan or shared with an instance) or a pattern owns the shared plan. A second app also
-  needs a private endpoint subnet decision per instance and `privatelink.azurewebsites.net`
-  in `wiring.private_dns_zones`, which no rule adds.
-- Bicep: no per-family shape in `bicep-idiom.md`; the sets from 2026-10-23 have no Bicep
-  render at all; `*.armtest.yaml` is one file per example.
+- New sets, known gaps in the modules: Service Bus (the Terraform module refuses
+  `DiagnosticErrorLogs`; no input for zone redundancy or geo recovery), Event Hubs (no Terraform
+  input for TLS minimum, double encryption, zone redundancy, consumer groups, geo pairing; the
+  README calls `network_rulesets` Premium-only, check), Backup vault (the Bicep module has no
+  diagnostics or Resource Guard parameter), Recovery Services vault (the Terraform module has no
+  soft-delete retention input), Front Door (the policy and the security policy bind by hand),
+  API Management (v2 tiers: which of private endpoint, VNet injection, VNet integration each
+  supports is read from the documentation before a render). `DELEGATIONS['function-app']` in
+  `new_diagram.py` is Elastic Premium's; a Flex app is drawn with the wrong delegation.
+- Diagram: the new kinds have icons (`ICONS`) and a resource group role, but no layout of their
+  own; Application Gateway, Front Door and API Management are drawn as services, not as the edge
+  in front of the compute.
+- `app-service` with `plan: shared`: the render documents are written, no example renders it, and
+  the `<?SUBNAME>` / second private endpoint naming is untested.
+- Evals: none for the new sets, for `resource_lock`, or for the shared plan.
 
 ### Interview and spec
 
@@ -281,8 +307,8 @@ until it is fixed or decided against.
   hand-over list the data-plane roles.
 - `chat-sandbox` has no `open:` entries for `subscription_id` and `resource_group_name`
   although its stage file holds placeholders for them.
-- `check_spec.py` does not know `granularity: per-family`; all three example specs say
-  `single`, `chatbot` is per-family. `wiring:` is validated by example only.
+- `wiring:` is validated by example only. (`check_spec.py` knows `granularity: per-family`
+  since 2026-10-25 and the `chatbot` spec declares its seven family modules.)
 - `export_decisions.py` prints `reason` and `open:` texts untranslated; "1 Kopien der
   App" needs a singular form. `infra-decisions.docx` is missing everywhere (no `pandoc`).
 - The extension run that writes a further stage's file once its `open:` entries are
@@ -510,8 +536,8 @@ regeneration from the spec loses them. All `render`:
 `chatbot-rag` carry by hand — roles between resources, the private link, the order
 identity → vault → consumer — becomes the first pattern, `./patterns/` enters
 `plugin.json` in the same commit, and `wiring:` becomes a schema `check_spec.py` validates.
-Before it, the two small items from 2026-10-24: the `recovery/backup-vault` set and the
-eval case that asserts the `requirements` group reaches the customer. Beside it, when a
+Before it, the eval case that asserts the `requirements` group reaches the customer (the
+`backup-vault` set it waited for exists since 2026-10-25). Beside it, when a
 run is paid for anyway: the eval suite re-run against the rules written after the
 baseline, and `agents.md`'s two missing rules. The chatbot case in Bicep is what tests the
 sets from 2026-10-23 cross-backend; it follows the pattern, not the other way round.

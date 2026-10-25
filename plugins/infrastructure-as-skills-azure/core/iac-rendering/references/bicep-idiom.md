@@ -82,11 +82,68 @@ Four of these cost a deployment if ported naively from the Terraform side:
 `dependsOn` is almost never needed: referencing `storage.outputs.id` creates the edge.
 Write it only for a dependency Bicep cannot see, with a comment saying what it is.
 
+### Grouped AVM calls: `modules/<family>.bicep`
+
+The Bicep counterpart of Terraform's [per-family shape](terraform-idiom.md#grouped-avm-calls-modulesfamily):
+a spec with several resource families does not put dozens of AVM calls into `main.bicep`. **A local
+module per family, and a `main.bicep` that only calls them and wires them.**
+
+```
+main.bicep               # one `module network 'modules/network.bicep'` per family, and the wiring
+main.<stage>.bicepparam  # the stage's values
+bicepconfig.json         # symbolicNameCodegen, so the tests can address resources by name
+infra-spec.yaml
+modules/
+  network.bicep          # the family's AVM calls, its role assignments, its private endpoints
+  security.bicep
+  ai.bicep
+tests/
+  network.armtest.yaml   # this family's decisions
+  security.armtest.yaml
+  wiring.armtest.yaml    # what only main.bicep can see
+```
+
+Rules:
+
+- **The family is the resource's directory under `resources/`**, as in Terraform; resources of one
+  family that share a lifecycle stay together.
+- **`main.bicep` is calls and wiring.** One `module <family> 'modules/<family>.bicep'` per family
+  with the context values (names, ids, subnets, the stage's values) as `params`, and the role
+  assignments or private links that span two families. No AVM call in it.
+- **The AVM calls live in the family module**, versions pinned there, every decision written as an
+  explicit literal with its `// decision:` comment, as in the AVM example above. A decision passed
+  down as a `param` compiles to an expression (`[parameters('x')]`), and the test has to match text
+  instead of a value - so only the **context** crosses the module boundary, not the decisions.
+- **A family needing another's id takes it as a `param`**, from the other module's `output` in
+  `main.bicep`; it never reaches into the other's resources.
+- **`name` of a module call is the deployment name** (64 characters, unique per scope): the family
+  module names its AVM deployments `'<family>-<resource>'`, so two families cannot collide.
+- **Outputs are what `main.bicep` and the other families read**: ids, URIs, principal ids. Never a
+  key or a connection string.
+
+The spec carries it as `composition.granularity: per-family`, as for Terraform.
+
+**Tests move into the family.** One `tests/<family>.armtest.yaml` per family module plus one
+`tests/wiring.armtest.yaml` for `main.bicep`. `run_arm_tests.py` already reads every
+`*.armtest.yaml` of the directory. A family module compiles to a nested deployment, so a decision
+inside it is addressed through that deployment:
+
+```yaml
+- decision: storage-account.networking.public_network_access
+  path: resources.network.properties.template.resources.storageAccount.properties.parameters.publicNetworkAccess.value
+  equals: Disabled
+```
+
+`resources.<family>` is the module call in `main.bicep`, `properties.template.resources.<name>` the
+symbolic resource inside it (checked against a nested compile with `symbolicNameCodegen`). What
+`main.bicep` passes as a parameter is `resources.<family>.properties.parameters.<param>.value`.
+
 ### Do not generate a module per resource by reflex
 
 `granularity: per-resource` exists for patterns whose parts are reused separately. A
 one-resource module whose params restate the resource's properties is a file that adds a
-hop and removes nothing.
+hop and removes nothing. The family module is not that: it holds several AVM calls and the
+decisions that belong together.
 
 ## Azure Verified Modules from the public registry
 

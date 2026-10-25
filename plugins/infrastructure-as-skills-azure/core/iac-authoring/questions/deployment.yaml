@@ -416,6 +416,35 @@ groups:
           a lock (CanNotDelete) on each created group in the stages named, as the
           AVM resource group module's lock input
 
+      - id: resource_lock
+        ask: Should resources that hold data or state be protected against deletion?
+        type: enum
+        plain:
+          en: "Resources that hold data {value}."
+          de: "Ressourcen, die Daten halten, {value}."
+        plain_values:
+          production: { en: "carry a delete lock in production", de: "tragen in der Produktion eine Löschsperre" }
+          all_stages: { en: "carry a delete lock in every stage", de: "tragen in jeder Stufe eine Löschsperre" }
+          none: { en: "carry no lock", de: "tragen keine Sperre" }
+        values: [production, all_stages, none]
+        default: production
+        resolved_by: interview
+        why: >
+          A `CanNotDelete` lock on the resources whose loss cannot be undone from the
+          spec - storage accounts, Cosmos DB accounts, key vaults, backup and recovery
+          vaults, Log Analytics workspaces, messaging namespaces, container registries and
+          search services - stops a careless destroy or a portal click. Compute, identities,
+          network resources and network security groups carry none: they are recreated from
+          the spec, and a lock on a virtual network also blocks changing its subnets. In the
+          other stages a lock only gets in the way of teardown, which is why the default is
+          production. The lock blocks `terraform destroy` and removing the resource from the
+          spec: removing it is a deliberate step, and the handover says so. It is the
+          resource's own lock; the resource group's is `resource_group_lock`.
+        renders: >
+          lock = { kind = "CanNotDelete" } (terraform, every AVM module) / lock: { kind:
+          'CanNotDelete' } (bicep) on the listed kinds, in the stages named; a lock on the
+          resource group does not replace it
+
   # ---------------------------------------------------------------- delivery
   # How the rendered code reaches Azure. Asked right after the stages because the
   # pipeline is built from them: one deployment job per stage, one state and one
@@ -673,11 +702,13 @@ groups:
           until it expires. How far back the copies reach is still `data_loss_tolerance`;
           this question decides who can destroy them.
         renders: >
-          derived by the resource sets: the Backup vault and its policies (vaulted blob
-          backup, immutability on the vault) - a resource set this plugin does not have
-          yet, so `isolated` and `immutable` are said out loud as a missing set, never
-          improvised; cosmos-db meets `isolated` by itself (its backups live outside the
-          account) and names `immutable` as a gap
+          derived by the resource sets: the Backup vault (`backup-vault`: blobs, disks,
+          PostgreSQL, AKS) or the Recovery Services vault (`recovery-services-vault`: VMs,
+          Azure Files, SQL in a VM) with its soft delete, immutability and Resource Guard,
+          and the container's `immutable_storage`; a deployment answering `isolated` or
+          `immutable` is missing a protected resource without one of the vaults, and the
+          pattern adds the vault; cosmos-db meets `isolated` by itself (its backups live
+          outside the account) and names `immutable` as a gap
 
       - id: data_residency
         ask: Where may the data be stored and processed - only in the country of the chosen region, anywhere in the same economic area such as the EU, or anywhere in the world?
