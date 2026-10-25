@@ -69,6 +69,10 @@ python3 plugins/infrastructure-as-skills-azure/core/iac-authoring/scripts/export
 terraform -chdir=examples/chatbot/modules/ai init -backend=false && terraform -chdir=examples/chatbot/modules/ai test
 terraform -chdir=examples/chatbot init -backend=false && terraform -chdir=examples/chatbot test
 python plugins/infrastructure-as-skills-azure/core/iac-rendering/scripts/check_render_coverage.py examples/chatbot/infra-spec.yaml
+# The eval dashboard app (eval-agent/dashboard, Node 22): endpoint tests, and the container
+# locally with generated data, no Azure and no GitHub (MOCK=1).
+npm --prefix eval-agent/dashboard test
+pwsh eval-agent/dashboard/run-local.ps1 -Port 8099
 ```
 
 There is no build. The artefacts are Markdown and YAML; the scripts and the examples'
@@ -178,6 +182,12 @@ are in [README.md](README.md#why-one-trigger-and-families-that-are-not-skills).
 - **Only `resolved_by: interview` questions reach the person.** There is no audience
   field: a question is `interview`, `platform` (read from `platform.yaml`, which the
   interview reads and never writes) or has no `resolved_by` and is defaulted or derived.
+- **A change to a rendered tree (`eval-agent/infra/`, `examples/`) goes spec, `check_spec.py`,
+  diagram, sign-off, then the render by `iac-rendering` - never a hand edit of the `.bicep`/`.tf`.**
+  Small changes follow it too (one app setting, one removed access line). A hand edit is for a
+  part the spec names as hand-rendered; after a render, compare it with the code it replaced.
+  The block that makes this rule reach a customer repository is step 11 of `iac-rendering`; the
+  copies in `eval-agent/CLAUDE.md` and `examples/chat-sandbox/CLAUDE.md` follow it.
 - **A render ships with its tests, both targets.** Terraform: one `assert` per spec
   decision, named `# decision: <resource>.<group>.<question>`, what a plan cannot observe
   `# not-testable:` with a reason. Bicep: one entry per decision in `tests/*.armtest.yaml`
