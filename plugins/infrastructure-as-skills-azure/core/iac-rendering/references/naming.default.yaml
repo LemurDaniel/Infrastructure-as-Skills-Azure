@@ -349,6 +349,13 @@ abbreviations:
     Microsoft.DBforPostgreSQL/servers::default: psql
 
     Microsoft.Sql/managedInstances::default: sqlmi
+    Microsoft.Cache/redisEnterprise::default: amr
+    Microsoft.DBforPostgreSQL/flexibleServers::default: psql
+    Microsoft.DBforMySQL/flexibleServers::default: mysql
+    Microsoft.Security/pricings::default: mdc
+    Microsoft.KeyVault/vaults/keys::default: key
+    Microsoft.KeyVault/vaults/secrets::default: secret
+    Microsoft.Authorization/roleAssignments::default: ra
     Microsoft.Sql/servers::default: sql
     Microsoft.Sql/servers/databases::default: sqldb
     Microsoft.Sql/servers/jobAgents::default: sqlja
@@ -437,7 +444,7 @@ abbreviations:
     Microsoft.Network/dnsResolvers::default: dnspr
     Microsoft.Network/dnsResolvers/inboundEndpoints::default: in
     Microsoft.Network/dnsResolvers/outboundEndpoints::default: out
-    Microsoft.Network/privateDnsZones::default: 
+    Microsoft.Network/privateDnsZones::default: pdnsz
     Microsoft.Network/azureFirewalls::default: afw
     Microsoft.Network/firewallPolicies::default: afwp
     Microsoft.Network/expressRouteCircuits::default: erc
