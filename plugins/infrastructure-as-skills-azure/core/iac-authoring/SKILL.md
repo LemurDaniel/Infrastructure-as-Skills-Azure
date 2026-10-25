@@ -651,6 +651,13 @@ the working mode chosen above. It is the
 long step, and it runs on a picture the customer has agreed to, so nothing in it goes
 back to the interview. Say that it takes a while and what will be there at the end.
 
+**A request for code is not the sign-off.** "Dann schreibe den Terraform-Code" in the same
+message as the spec, or a change of the spec the person asked for themselves, still goes
+spec, diagram, review, question - the code is what they sign off on, not what they ordered.
+A run in which nobody can answer (no `AskUserQuestion`) ends after the diagram with the
+sign-off question as the last message and writes no `.tf` or `.bicep`: a sign-off nobody
+gave is not one, and the code would be built on a picture nobody has seen.
+
 Never present the render as already decided. If the spec still holds `open:` entries or
 `assumed` values, say so with the question — the code will then `plan` but not `apply` —
 rather than letting "Ja, passt" read as "ready to deploy".
