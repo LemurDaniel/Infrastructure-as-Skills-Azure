@@ -1,0 +1,789 @@
+schema_version: 1
+
+resource: Microsoft.Compute/virtualMachines
+title: Azure Virtual Machine
+
+naming:
+  terraform: "Azure::Microsoft.Compute/virtualMachines"
+  bicep: "Microsoft.Compute/virtualMachines"
+  # Bicep assembles the name from vars - this is the prefix it renders. A Windows computer
+  # name is limited to **15 characters**, which the convention's pattern is kept tight for;
+  # the Linux hostname limit is 64.
+  abbreviation: "vm"
+
+boundaries:
+  - "Does not create the resource group. Expects one from the spec's context."
+  - "Does not create the subnet, the network security group on it or the virtual network. The machine takes a subnet of the deployment's network (the `virtual-network` set under `network_ownership: create`, the platform's otherwise); the NSG belongs to the subnet, not to the network interface."
+  - "Does not create a public IP, a Bastion host, a load balancer or an Application Gateway. A machine is reached privately; how people get to the private network (Bastion, VPN, hub) is the platform's, and what serves traffic in front of it is its own resource."
+  - "Does not create the Log Analytics workspace it routes platform metrics to, nor the Azure Monitor Agent and the Data Collection Rule that collect guest logs and performance counters. Guest monitoring is a decision of its own with no question set."
+  - "Does not create the Recovery Services vault or its backup policy; the `recovery-services-vault` set owns both. This set only links the machine to them."
+  - "Does not create the disk encryption set, nor the Key Vault key behind it, nor the identity that unwraps it. A customer-managed key is wiring between the key vault, the set and the machine."
+  - "Does not install software, join a domain, run DSC or custom scripts, or configure the guest. The only extension it renders is the Entra login one."
+  - "Does not create maintenance configurations (scheduled patch windows), dedicated hosts, capacity reservations, Spot or hibernation settings."
+  - "Does not grant other resources a role for the machine's identity (Key Vault secrets, storage data). `role_assignments` records who may log in to this machine; a role the machine's identity needs elsewhere is wiring, owned by a pattern."
+  - "Standalone data disks are the `managed-disk` set; this set lists the data disks the machine carries and renders them through the module."
+  - "Scale sets (`virtual-machine-scale-set`) and availability sets with their proximity placement group (`availability-set`) are their own sets; this machine only references an availability set."
+
+groups:
+
+  # ---------------------------------------------------------------- placement
+  - id: placement
+    title: Placement
+    questions:
+      - id: environments
+        ask: Which stages is this deployed to?
+        type: list
+        plain:
+          en: "Deployed in the stages {value}."
+          de: "Wird in den Stufen {value} ausgerollt."
+        values: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
+        required: true
+        from_context: true
+        why: >
+          Drives the rendered name and the strictness of several defaults below. Nothing
+          sensible can be guessed. A machine is one per stage: it is not shared, and its disks
+          carry the stage's data.
+        renders: naming parameter `environment`, and the tag of that name where the repository uses one
+
+      - id: location
+        ask: Which Azure region?
+        type: string
+        plain:
+          en: "Runs in the Azure region {value}."
+          de: "Läuft in der Azure-Region {value}."
+        required: true
+        from_context: true
+        why: >
+          Part of the rendered name and the home of the machine and its disks. The size is
+          offered per region and per zone, and a region without availability zones changes the
+          `availability` decision below. Backup needs the vault in the same region.
+        renders: location
+
+      - id: resource_group_name
+        ask: Which resource group?
+        type: ref
+        plain:
+          en: "Placed in the resource group {value}."
+          de: "Liegt in der Ressourcengruppe {value}."
+        ref: resource_group
+        required: true
+        from_context: true
+        per_environment: true
+        why: >
+          The machine is placed into an existing group. Creating one here would make this set
+          own a lifecycle wider than the resource it describes.
+        renders: resource_group_name (AVM Terraform, azurerm-based) / implicit in Bicep scope
+
+  # ------------------------------------------------------------------ machine
+  - id: machine
+    title: The machine
+    questions:
+      - id: os_type
+        ask: Which operating system does the software run on?
+        type: enum
+        resolved_by: interview
+        plain:
+          en: "The machine runs {value}."
+          de: "Die Maschine läuft mit {value}."
+        plain_values:
+          Linux: { en: "Linux", de: "Linux" }
+          Windows: { en: "Windows Server, whose licence is part of the price", de: "Windows Server, dessen Lizenz im Preis enthalten ist" }
+        values: [Linux, Windows]
+        default: Linux
+        why: >
+          Only the customer knows what the software needs. Linux is the default: no licence in
+          the hourly price, key-based sign-in without a password, and the smaller attack
+          surface. Windows is for software that needs it, and brings a password for the local
+          administrator that has to live somewhere (see `credential_key_vault`). The OS type is
+          fixed at creation, and with it the extension names, the patch modes and the
+          authentication options below.
+        renders: os_type / osType (`Linux`, `Windows`)
+
+      - id: image
+        ask: Which operating system image?
+        type: enum
+        plain:
+          en: "Built from the image {value}."
+          de: "Wird aus dem Image {value} gebaut."
+        plain_values:
+          ubuntu_24_04: { en: "Ubuntu Server 24.04 LTS", de: "Ubuntu Server 24.04 LTS" }
+          windows_server_2022: { en: "Windows Server 2022 Datacenter", de: "Windows Server 2022 Datacenter" }
+          windows_server_2025: { en: "Windows Server 2025 Datacenter", de: "Windows Server 2025 Datacenter" }
+          gallery_image: { en: "your own image from a compute gallery", de: "euer eigenes Image aus einer Compute Gallery" }
+        values: [ubuntu_24_04, windows_server_2022, windows_server_2025, gallery_image]
+        default: ubuntu_24_04
+        confirm_in: [production]
+        why: >
+          Always a **generation 2** image: trusted launch, encryption at host and the current
+          sizes all need it, and a generation 1 image cannot be converted. `latest` as the
+          version means a rebuild gets today's patch level; patching a running machine is
+          `patch_mode`. A gallery image is a departure that names the image id and carries the
+          organisation's hardening, which this set cannot check.
+        forced_when: >
+          `os_type: Windows` removes `ubuntu_24_04` and defaults to `windows_server_2022`;
+          `os_type: Linux` removes both Windows images, recorded as forced with `os_type` as
+          forced_by
+        renders: >
+          source_image_reference { publisher, offer, sku, version = "latest" } (a gallery image:
+          source_image_resource_id) / imageReference
+
+      - id: gallery_image_id
+        ask: Which compute gallery image version?
+        type: ref
+        plain:
+          en: "The image comes from {value}."
+          de: "Das Image stammt aus {value}."
+        ref: gallery_image
+        required: true
+        depends_on: { question: image, equals: gallery_image }
+        per_environment: true
+        why: >
+          The image must exist, be generation 2, and be shared to the deployment's subscription
+          or tenant. A gallery image is how an organisation ships its hardened base.
+        renders: source_image_resource_id / imageReference.id
+
+      - id: size
+        ask: Which machine size?
+        type: string
+        plain:
+          en: "The machine size is {value}."
+          de: "Die Maschinengröße ist {value}."
+        default: Standard_D2ds_v5
+        confirm_in: [production]
+        why: >
+          A starting size, not a sizing: 2 vCPUs and 8 GiB of memory with a local temporary
+          disk, generation 2, premium storage and encryption at host capable - and the module's
+          own default. The right size comes from measurement, and a change of size restarts the
+          machine. Whether a size exists in a region and a zone is checked with `az vm list-skus
+          --location <region> --size <size>`, not remembered; some sizes lack encryption at
+          host, premium storage (the `s` in the name) or an availability zone.
+        renders: sku_size / vmSize
+
+      - id: license_type
+        ask: Do you own Windows Server licences with Software Assurance that the machine may use?
+        type: enum
+        resolved_by: interview
+        plain:
+          en: "The Windows licence is {value}."
+          de: "Die Windows-Lizenz ist {value}."
+        plain_values:
+          included: { en: "included in the price", de: "im Preis enthalten" }
+          azure_hybrid_benefit: { en: "your own, which lowers the price", de: "eure eigene, was den Preis senkt" }
+        values: [included, azure_hybrid_benefit]
+        default: included
+        depends_on: { question: os_type, equals: Windows }
+        why: >
+          Azure Hybrid Benefit is a licensing fact only the customer can state; claiming it
+          without the licences is a compliance finding, not a saving, so it is never defaulted.
+        renders: license_type (`Windows_Server`) / licenseType
+
+      - id: availability
+        ask: How should the machine be placed against a datacenter failure?
+        type: enum
+        plain:
+          en: "The machine is placed {value}."
+          de: "Die Maschine wird {value} platziert."
+        plain_values:
+          zone: { en: "in one availability zone, which you name", de: "in einer Verfügbarkeitszone, die ihr benennt" }
+          availability_set: { en: "in an availability set, spread over separate racks of one datacenter", de: "in einer Verfügbarkeitsgruppe, verteilt auf getrennte Racks eines Rechenzentrums" }
+          none: { en: "nowhere in particular", de: "ohne besondere Platzierung" }
+        values: [zone, availability_set, none]
+        default: zone
+        why: >
+          **One machine in a zone is not redundant** - it fixes where the machine runs, so its
+          disks and a second machine can be placed deliberately, and the Terraform module makes
+          the zone required for that reason. Redundancy is a second machine in another zone
+          behind a load balancer, or a scale set. A zone and an availability set exclude each
+          other, and a machine in a scale set takes neither (use `virtual-machine-scale-set`).
+          Neither can be changed after creation without replacing the machine.
+        forced_when: >
+          A region without availability zones forces `availability_set`, recorded as forced
+          with `location` as forced_by
+        renders: >
+          terraform: zone = "1" / null, availability_set_resource_id; bicep: availabilityZone (1, 2, 3
+          or -1) and availabilitySetResourceId
+
+      - id: zone
+        ask: In which availability zone?
+        type: enum
+        plain:
+          en: "Placed in zone {value}."
+          de: "Platziert in Zone {value}."
+        values: ["1", "2", "3"]
+        default: "1"
+        depends_on: { question: availability, equals: zone }
+        why: >
+          The logical zone number of the subscription, which maps to a different physical zone
+          in other subscriptions. Zone 1 is the default; a second machine of the same workload
+          takes another zone. The machine's data disks must be in the same zone.
+        renders: zone / availabilityZone
+
+      - id: availability_set_id
+        ask: Which availability set?
+        type: ref
+        plain:
+          en: "Placed in the availability set {value}."
+          de: "Platziert in der Verfügbarkeitsgruppe {value}."
+        ref: availability_set
+        required: true
+        depends_on: { question: availability, equals: availability_set }
+        why: >
+          The set is its own resource (`availability-set`) and is created first. A machine
+          cannot be moved into or out of a set without being recreated.
+        renders: availability_set_resource_id / availabilitySetResourceId
+
+      - id: os_disk_storage
+        ask: Which disk type should the system disk have?
+        type: enum
+        plain:
+          en: "The system disk is {value}."
+          de: "Die Systemplatte ist {value}."
+        plain_values:
+          Premium_LRS: { en: "premium SSD, kept three times in one datacenter", de: "Premium-SSD, dreifach in einem Rechenzentrum" }
+          Premium_ZRS: { en: "premium SSD, kept in three datacenters of the region so one can fail", de: "Premium-SSD, in drei Rechenzentren der Region, eines darf ausfallen" }
+          StandardSSD_LRS: { en: "standard SSD, kept three times in one datacenter", de: "Standard-SSD, dreifach in einem Rechenzentrum" }
+          StandardSSD_ZRS: { en: "standard SSD, kept in three datacenters of the region", de: "Standard-SSD, in drei Rechenzentren der Region" }
+        values: [Premium_LRS, Premium_ZRS, StandardSSD_LRS, StandardSSD_ZRS]
+        derived_from:
+          question: outage_impact
+          map: { tolerable: Premium_LRS, disruptive: Premium_ZRS, critical: Premium_ZRS }
+        confirm_in: [production]
+        non_production_default: Premium_LRS
+        why: >
+          Derived from how bad an outage is: a ZRS disk survives the loss of a zone, which an
+          LRS disk of a zonal machine does not. Premium SSD is the floor for anything with a
+          service-level agreement - the single-instance SLA applies only where every disk is
+          premium or ultra - and costs little over StandardSSD at this size. ZRS is not
+          offered in every region; the check is the region's disk support, not memory. The type
+          of the system disk is changed in place only while the machine is deallocated.
+        forced_when: >
+          A size without premium storage (no `s` in its name) removes the Premium types, and a
+          region without ZRS disks removes the ZRS types, recorded as forced with `size` or
+          `location` as forced_by
+        renders: os_disk.storage_account_type / osDisk.managedDisk.storageAccountType
+
+      - id: os_disk_size_gb
+        ask: How large should the system disk be, in GiB?
+        type: int
+        plain:
+          en: "The system disk is {value} GiB."
+          de: "Die Systemplatte ist {value} GiB groß."
+        default: 64
+        why: >
+          The Ubuntu image is 30 GiB, which fills with logs and packages; 64 GiB is the next
+          tier up and costs about the same. A disk is billed by tier, not by use, so the number
+          is the price. Windows images are 127 GiB and cannot be made smaller. A disk grows in
+          place and never shrinks.
+        forced_when: >
+          `os_type: Windows` forces 128, recorded as forced with `os_type` as forced_by
+        renders: os_disk.disk_size_gb / osDisk.diskSizeGB
+
+      - id: data_disks
+        ask: Which data disks does the machine carry?
+        type: list
+        plain:
+          en: "Data disks: {value} (empty: none)."
+          de: "Datenplatten: {value} (leer: keine)."
+        default: []
+        why: >
+          Each entry names a size, a disk type and a caching mode; the disk's own decisions
+          (encryption, network access, zone) are the `managed-disk` set's and are inherited
+          here. Data goes on a data disk, not on the system disk, so the machine can be
+          rebuilt from its image without the data. A disk is in the machine's zone. Shared
+          disks, ultra disks and write accelerator are departures that name the workload.
+        renders: data_disk_managed_disks / dataDisks
+
+  # --------------------------------------------------------------- networking
+  - id: networking
+    title: Networking
+    questions:
+      - id: workload_subnet
+        ask: Which subnet does the machine's network interface live in?
+        type: ref
+        resolved_by: platform
+        plain:
+          en: "Its network connection lands in subnet {value}."
+          de: "Seine Netzwerkanbindung landet im Subnetz {value}."
+        ref: subnet
+        required: true
+        per_environment: true
+        why: >
+          The workload subnet, not the private endpoint subnet: the deployment's endpoint
+          subnet is for endpoints and carries nothing else. Under `network_ownership: create`
+          it is a subnet of the created network, which the virtual-network set carries and
+          this question is answered by that wiring, not asked; with a referenced network it is
+          the platform's.
+        forced_when: >
+          `network_ownership: create` - the created network's workload subnet, recorded as
+          forced with the network as forced_by
+        renders: network_interfaces.<key>.ip_configurations.<key>.private_ip_subnet_resource_id / nicConfigurations[].ipConfigurations[].subnetResourceId
+
+      - id: public_ip
+        ask: Should the machine have its own public address?
+        type: bool
+        plain:
+          en: "The machine {value} a public address."
+          de: "Die Maschine {value} eine öffentliche Adresse."
+        plain_values:
+          true: { en: "has", de: "hat" }
+          false: { en: "has no", de: "hat keine" }
+        default: false
+        confirm_in: [production]
+        why: >
+          A public IP on a machine is a management port on the internet within minutes of
+          creation. People reach it through Bastion or the private network, and traffic from
+          users reaches whatever serves it - a load balancer, an Application Gateway - never
+          the machine directly. `network_exposure: public` does not change this: the exposure
+          is the front door's, not the VM's. A departure names the machine and the reason.
+        renders: network_interfaces.<key>.ip_configurations.<key>.create_public_ip_address / nicConfigurations[].ipConfigurations[].pipConfiguration (absent)
+
+      - id: private_ip_allocation
+        ask: Should the machine keep the same private address for good?
+        type: enum
+        plain:
+          en: "The private address is {value}."
+          de: "Die private Adresse ist {value}."
+        plain_values:
+          Dynamic: { en: "assigned by the network and kept while the machine exists", de: "vom Netz vergeben und behalten, solange die Maschine existiert" }
+          Static: { en: "fixed, a number you choose", de: "fest, eine Nummer, die ihr wählt" }
+        values: [Dynamic, Static]
+        default: Dynamic
+        why: >
+          A dynamic address is kept for the life of the network interface; it changes only if
+          the interface is deleted. Static is for a machine other things are configured to by
+          address (a DNS server, a database that firewalls by IP) and needs the address to be
+          free and inside the subnet - the address is then an `open:` entry owned by the
+          network owner, never invented.
+        renders: private_ip_address_allocation, private_ip_address / ipConfigurations[].privateIPAllocationMethod, privateIPAddress
+
+      - id: accelerated_networking
+        ask: Should the network interface use accelerated networking?
+        type: bool
+        plain:
+          en: "Accelerated networking is {value}."
+          de: "Beschleunigtes Netzwerk ist {value}."
+        plain_values:
+          true: { en: "on", de: "an" }
+          false: { en: "off", de: "aus" }
+        default: true
+        why: >
+          Lower latency and less CPU spent on the network at no cost; it is what the platform
+          recommends for every size that supports it. The Terraform module defaults it to off.
+          Sizes with fewer than two vCPUs and a few families do not support it, and enabling it
+          there fails the deployment.
+        forced_when: >
+          A size that does not support it forces `false`, recorded as forced with `size` as
+          forced_by
+        renders: network_interfaces.<key>.accelerated_networking_enabled / nicConfigurations[].enableAcceleratedNetworking
+
+  # ----------------------------------------------------------------- identity
+  - id: identity
+    title: Identity and access
+    questions:
+      - id: system_assigned_identity
+        ask: Should the machine carry an identity of its own?
+        type: bool
+        plain:
+          en: "The machine {value} an identity of its own."
+          de: "Die Maschine {value} eine eigene Identität."
+        plain_values:
+          true: { en: "has", de: "hat" }
+          false: { en: "has no", de: "hat keine" }
+        default: true
+        why: >
+          What the machine reaches in Azure (a Key Vault secret, a storage blob) it reaches as
+          itself, with a role, without a key on the disk. The platform extensions need it too,
+          and the Entra sign-in extension cannot work without it. A system-assigned identity
+          lives and dies with the machine, which is right for an identity used only by it.
+        forced_when: >
+          `entra_login: true` forces `true`, recorded as forced with `entra_login` as forced_by
+        renders: managed_identities.system_assigned / managedIdentities.systemAssigned
+
+      - id: user_assigned_identity_ids
+        ask: Which user-assigned identities should the machine carry?
+        type: list
+        plain:
+          en: "It also uses the identities {value} (empty: none)."
+          de: "Es nutzt zusätzlich die Identitäten {value} (leer: keine)."
+        ref: user_assigned_identity
+        default: []
+        per_environment: true
+        why: >
+          For an identity that outlives the machine or is shared with others - a role granted
+          once and kept across a rebuild, or a customer-managed key unwrapped by the same
+          identity as the disks. The identities must already exist; this set does not create
+          them.
+        renders: managed_identities.user_assigned_resource_ids / managedIdentities.userAssignedResourceIds
+
+      - id: entra_login
+        ask: Should people sign in to the machine with their company account?
+        type: bool
+        plain:
+          en: "People sign in with their company account: {value}."
+          de: "Man meldet sich mit dem Firmenkonto an: {value}."
+        plain_values:
+          true: { en: "yes, so every login is attributable and ends with the account", de: "ja, damit jede Anmeldung zuordenbar ist und mit dem Konto endet" }
+          false: { en: "no, only local accounts", de: "nein, nur lokale Konten" }
+        default: true
+        why: >
+          The baseline of identity over keys applied to a machine: a local account or a shared
+          key is not attributable and outlives the person. The extension (`AADSSHLoginForLinux`,
+          `AADLoginForWindows`) maps the sign-in to a role on the machine, so who may log in is
+          a role assignment, not a user on the disk. It needs the system-assigned identity and
+          the role `Virtual Machine Administrator Login` or `Virtual Machine User Login`.
+        renders: >
+          terraform: extensions.<key> (publisher `Microsoft.Azure.ActiveDirectory`); bicep:
+          extensionAadJoinConfig.enabled
+
+      - id: role_assignments
+        ask: Who may sign in to this machine, and as administrator or as user?
+        type: list
+        plain:
+          en: "Sign-in rights on the machine granted to: {value}."
+          de: "Anmelderechte auf die Maschine vergeben an: {value}."
+        default: []
+        per_environment: true
+        depends_on: { question: entra_login, equals: true }
+        why: >
+          With Entra sign-in on, nobody can log in until a role is assigned: `Virtual Machine
+          Administrator Login` for the people who administer, `Virtual Machine User Login` for
+          the rest, scoped to the machine and given to groups, never to a person. An empty list
+          is a working machine nobody can enter, and not an answer: with no one named it is an
+          `open:` entry owned by the workload owner, blocking apply.
+        renders: role_assignments / roleAssignments
+
+  # ----------------------------------------------------------------- security
+  - id: security
+    title: Security
+    questions:
+      - id: trusted_launch
+        ask: Should the machine start with secure boot and a virtual security chip?
+        type: bool
+        plain:
+          en: "Trusted launch - secure boot and virtual TPM - is {value}."
+          de: "Trusted Launch - Secure Boot und virtuelles TPM - ist {value}."
+        plain_values:
+          true: { en: "on, so a tampered boot loader or rootkit is refused", de: "an, damit ein manipulierter Bootloader oder ein Rootkit abgewiesen wird" }
+          false: { en: "off", de: "aus" }
+        default: true
+        confirm_in: [production]
+        why: >
+          Secure boot, a virtual TPM and boot integrity monitoring, at no cost, on every
+          generation 2 image and size that supports it. It is chosen at creation and cannot be
+          removed from a machine that has it or added to one that has not, which is why it is
+          the default and not an upgrade. A custom kernel module or a driver that is not signed
+          fails secure boot.
+        forced_when: >
+          A generation 1 gallery image or a size without trusted launch forces `false`,
+          recorded as forced with `image` or `size` as forced_by
+        renders: >
+          terraform: secure_boot_enabled, vtpm_enabled; bicep: securityType `TrustedLaunch`,
+          secureBootEnabled, vTpmEnabled
+
+      - id: encryption_at_host
+        ask: Should every disk of the machine, including the temporary one, be encrypted at the host?
+        type: bool
+        plain:
+          en: "Encryption at the host, covering the temporary disk and caches too, is {value}."
+          de: "Verschlüsselung am Host, auch für temporäre Platte und Caches, ist {value}."
+        plain_values:
+          true: { en: "on", de: "an" }
+          false: { en: "off", de: "aus" }
+        default: true
+        confirm_in: [production]
+        why: >
+          The only encryption that covers the temporary disk and the disk cache and reaches the
+          data before it leaves the host. **The modules disagree**: Terraform defaults it to on,
+          Bicep to off, so it is written. It needs the subscription feature
+          `Microsoft.Compute/EncryptionAtHost` registered, or the deployment fails; a size
+          without support forces it off. It cannot be combined with Azure Disk Encryption.
+        renders: encryption_at_host_enabled / encryptionAtHost
+
+      - id: key_management
+        ask: Are the disk encryption keys platform-managed or customer-managed?
+        type: enum
+        plain:
+          en: "Encryption keys are {value}."
+          de: "Verschlüsselungsschlüssel sind {value}."
+        plain_values:
+          platform_managed: { en: "managed by Azure - encrypted, rotated, no effort on your side", de: "von Azure verwaltet: verschlüsselt, rotiert, kein Aufwand bei euch" }
+          customer_managed: { en: "your own, held in your key vault, so you can revoke them", de: "eure eigenen in eurem Schlüsseltresor, damit ihr sie zurückziehen könnt" }
+        values: [platform_managed, customer_managed]
+        from_deployment: key_management
+        confirm_in: [production]
+        why: >
+          Inherited. Disks are encrypted at rest with a platform key either way;
+          `customer_managed` encrypts the system disk and the data disks with a key in the
+          customer's Key Vault through a disk encryption set, so revoking the key makes every
+          disk unreadable. That needs a vault with purge protection, an identity on the set
+          and a rotation story; a machine whose key is lost does not start.
+        renders: os_disk.disk_encryption_set_id, data disks' disk_encryption_set_resource_id / osDisk.managedDisk.diskEncryptionSetResourceId
+
+      - id: disk_encryption_set_id
+        ask: Which disk encryption set should encrypt the disks?
+        type: ref
+        plain:
+          en: "Disks are encrypted with your set {value}."
+          de: "Platten werden mit eurem Set {value} verschlüsselt."
+        ref: disk_encryption_set
+        required: true
+        depends_on: { question: key_management, equals: customer_managed }
+        per_environment: true
+        why: >
+          The set references a key in the customer's Key Vault and carries its own identity. It
+          must exist in the machine's region before the machine does, and every disk of the
+          machine takes the same set.
+        renders: os_disk.disk_encryption_set_id / osDisk.managedDisk.diskEncryptionSetResourceId
+
+      - id: admin_username
+        ask: What should the local administrator account be called?
+        type: string
+        plain:
+          en: "The local administrator account is called {value}."
+          de: "Das lokale Administratorkonto heißt {value}."
+        default: azureuser
+        why: >
+          Required by the platform even when everyone signs in with Entra. Not `admin`,
+          `administrator` or `root`: Azure refuses them, and a name that every scanner tries
+          first is no help. The name is fixed at creation.
+        renders: account_credentials.admin_credentials.username / adminUsername
+
+      - id: password_authentication
+        ask: May people sign in with a password?
+        type: bool
+        plain:
+          en: "Signing in with a password is {value}."
+          de: "Die Anmeldung mit Passwort ist {value}."
+        plain_values:
+          true: { en: "allowed", de: "erlaubt" }
+          false: { en: "not allowed; keys and company accounts only", de: "nicht erlaubt; nur Schlüssel und Firmenkonten" }
+        from_deployment: local_auth
+        depends_on: { question: os_type, equals: Linux }
+        confirm_in: [production]
+        why: >
+          Inherited, inverted: `local_auth: disabled` renders as `false`. SSH with a key or
+          with Entra replaces the password on Linux; a password on a machine with a private
+          address is still a password that is guessed from inside the network. Windows has no
+          choice - it always has the administrator password, held in a vault (see
+          `credential_key_vault`).
+        renders: account_credentials.password_authentication_disabled (inverted) / disablePasswordAuthentication (inverted)
+
+      - id: ssh_public_key
+        ask: Which SSH public key may sign in?
+        type: string
+        plain:
+          en: "The SSH public key {value} may sign in."
+          de: "Der öffentliche SSH-Schlüssel {value} darf sich anmelden."
+        required: true
+        depends_on: { question: os_type, equals: Linux }
+        why: >
+          A public key is not a secret, but it is whose key - the person's, so it is an open
+          entry owned by the workload owner until given, and an input variable of the template
+          rather than a literal. A generated key pair would put the private
+          key into the state file, which is why the module's generation is switched off and the
+          key supplied. With `entra_login`, the key is the break-glass path for when the
+          extension is unhealthy.
+        renders: account_credentials.admin_credentials.ssh_keys / publicKeys
+
+      - id: credential_key_vault
+        ask: Which Key Vault holds the administrator password?
+        type: ref
+        plain:
+          en: "The administrator password is kept in the key vault {value}."
+          de: "Das Administratorpasswort liegt im Schlüsseltresor {value}."
+        ref: key_vault
+        required: true
+        depends_on: { question: os_type, equals: Windows }
+        per_environment: true
+        why: >
+          A Windows machine is created with an administrator password and the password has to
+          exist somewhere that is not the template. The vault must exist and the deploying
+          identity must be allowed to write a secret; the password is a generated secret with
+          an expiry, never a parameter value typed by a person. The Terraform module generates
+          it into state as well as the vault - the state is then as sensitive as the vault.
+        renders: account_credentials.key_vault_configuration.resource_id / adminPassword from a Key Vault reference (`getSecret`)
+
+  # ---------------------------------------------------------- data_protection
+  - id: data_protection
+    title: Data protection
+    questions:
+      - id: backup_enabled
+        ask: Should the machine be backed up?
+        type: bool
+        plain:
+          en: "The machine is backed up: {value}."
+          de: "Die Maschine wird gesichert: {value}."
+        plain_values:
+          true: { en: "yes", de: "ja" }
+          false: { en: "no", de: "nein" }
+        derived_from:
+          question: data_loss_tolerance
+          map: { reproducible: false, one_week: true, one_month: true, three_months: true }
+        confirm_in: [production]
+        non_production_default: false
+        why: >
+          Derived from how far back a mistake must be recoverable: a machine whose disks hold
+          nothing that cannot be rebuilt from the template and the image (`reproducible`) needs
+          no backup, and every other answer does. A snapshot of the disks is the only way back
+          from a deleted file on the data disk or an update that broke the system disk.
+          The non-production stages take `false` while non_production_savings is enabled.
+          Whether the backup survives an administrator who destroys the machine is
+          `backup_isolation`, answered by the vault.
+        renders: azure_backup_configurations / backupVaultName and backupPolicyName
+
+      - id: backup_vault_id
+        ask: Which Recovery Services vault should hold the backups?
+        type: ref
+        plain:
+          en: "Backups go to the vault {value}."
+          de: "Die Sicherungen gehen in den Tresor {value}."
+        ref: recovery_services_vault
+        required: true
+        depends_on: { question: backup_enabled, equals: true }
+        per_environment: true
+        why: >
+          The vault of the `recovery-services-vault` set, in the machine's region and, for the
+          Bicep module, in a resource group it can name. The vault and its policy exist before
+          the machine's protection is configured. A pattern normally supplies it.
+        renders: azure_backup_configurations.<key>.recovery_vault_resource_id / backupVaultName, backupVaultResourceGroup
+
+      - id: backup_policy_id
+        ask: Which backup policy applies?
+        type: ref
+        plain:
+          en: "The backup policy is {value}."
+          de: "Die Sicherungsrichtlinie ist {value}."
+        ref: backup_policy
+        required: true
+        depends_on: { question: backup_enabled, equals: true }
+        per_environment: true
+        why: >
+          The policy carries the schedule and the retention, which the vault's set derives from
+          `data_loss_tolerance`; the machine only points at one. The Terraform module takes the
+          policy's id, the Bicep module its name in the vault (it defaults to `DefaultPolicy`,
+          which is not the retention the customer chose).
+        renders: azure_backup_configurations.<key>.backup_policy_resource_id / backupPolicyName
+
+  # -------------------------------------------------------------- maintenance
+  - id: maintenance
+    title: Patching and running hours
+    questions:
+      - id: patch_mode
+        ask: How should operating system updates be installed?
+        type: enum
+        plain:
+          en: "Operating system updates are {value}."
+          de: "Betriebssystem-Updates werden {value}."
+        plain_values:
+          AutomaticByPlatform: { en: "installed by Azure on its own schedule, after checking the region's health", de: "von Azure nach eigenem Plan eingespielt, nachdem die Gesundheit der Region geprüft wurde" }
+          ImageDefault: { en: "left to the operating system's own updater", de: "dem Updater des Betriebssystems selbst überlassen" }
+        values: [AutomaticByPlatform, ImageDefault]
+        default: AutomaticByPlatform
+        confirm_in: [production]
+        why: >
+          Platform orchestration patches one zone at a time, backs off on regional health and
+          reports compliance, which the guest updater does not. `ImageDefault` leaves Ubuntu's
+          unattended upgrades or Windows Update running - fine, but nobody sees whether they
+          ran. A scheduled window needs a maintenance configuration, which is a separate
+          resource this set does not create; until one is attached, a reboot can happen at the
+          platform's choosing.
+        renders: patch_mode, patch_assessment_mode / patchMode, patchAssessmentMode
+
+      - id: auto_shutdown
+        ask: Should the machine shut itself down every evening?
+        type: bool
+        plain:
+          en: "The machine shuts down every evening: {value}."
+          de: "Die Maschine fährt abends herunter: {value}."
+        plain_values:
+          true: { en: "yes", de: "ja" }
+          false: { en: "no", de: "nein" }
+        default: false
+        non_production_default: true
+        why: >
+          A deallocated machine costs only its disks; a development machine that runs sixteen
+          idle hours a day pays two thirds of its compute bill for nothing. It is a cost knob
+          and takes `true` in every stage but production while non_production_savings is
+          enabled. The shutdown deallocates and does not start the machine again in the morning
+          - that is the person's, or an automation's.
+        renders: shutdown_schedules / autoShutdownConfig
+
+      - id: auto_shutdown_time
+        ask: At what time should it shut down?
+        type: string
+        plain:
+          en: "It shuts down at {value} (HHmm)."
+          de: "Es wird um {value} Uhr heruntergefahren (HHmm)."
+        default: "1900"
+        depends_on: { question: auto_shutdown, equals: true }
+        why: >
+          Format `HHmm`, 24 hours, in the time zone below. 19:00 is after most working days
+          and before most evening jobs.
+        renders: shutdown_schedules.<key>.daily_recurrence_time / autoShutdownConfig.dailyRecurrenceTime
+
+      - id: auto_shutdown_timezone
+        ask: In which time zone?
+        type: string
+        plain:
+          en: "Time zone of the shutdown: {value}."
+          de: "Zeitzone des Herunterfahrens: {value}."
+        default: UTC
+        depends_on: { question: auto_shutdown, equals: true }
+        why: >
+          A Windows time zone id (`W. Europe Standard Time`), not an IANA name. UTC is the
+          default because the set cannot know where the people are; the customer's own zone is
+          the usual departure.
+        renders: shutdown_schedules.<key>.timezone / autoShutdownConfig.timeZone
+
+  # ------------------------------------------------------------ observability
+  - id: observability
+    title: Observability
+    questions:
+      - id: boot_diagnostics
+        ask: Should the machine keep boot screenshots and its serial console output?
+        type: bool
+        plain:
+          en: "Boot screenshots and console output are {value}."
+          de: "Boot-Screenshots und Konsolenausgabe werden {value}."
+        plain_values:
+          true: { en: "kept", de: "aufbewahrt" }
+          false: { en: "not kept", de: "nicht aufbewahrt" }
+        default: true
+        why: >
+          The only view of a machine that does not come up - a broken fstab, a blue screen, a
+          failed secure boot - when it has no network to sign in over. Uses a managed storage
+          account that Azure owns: no keys, no firewall to open and no account to own. A custom
+          account is a departure that needs a reachable storage account, which the storage
+          set's closed firewall makes a snag.
+        renders: boot_diagnostics (true means managed storage) / bootDiagnostics
+
+      - id: diagnostic_workspace
+        ask: Which Log Analytics workspace should receive diagnostics?
+        type: ref
+        resolved_by: platform
+        plain:
+          en: "Its metrics go to {value}."
+          de: "Seine Metriken gehen in {value}."
+        ref: log_analytics_workspace
+        from_deployment: diagnostics_destination
+        per_environment: true
+        why: >
+          Inherited: one deployment, one destination. A machine's platform diagnostic setting
+          carries metrics only; the guest's logs and counters need the Azure Monitor Agent and
+          a Data Collection Rule, which this set does not create.
+        renders: diagnostic_settings / diagnosticSettings (on the network interface in Bicep)
+
+      - id: metrics_enabled
+        ask: Should all metrics be collected?
+        type: bool
+        plain:
+          en: "Usage and performance figures are {value}."
+          de: "Nutzungs- und Leistungswerte werden {value}."
+        plain_values:
+          true: { en: "collected", de: "erfasst" }
+          false: { en: "not collected", de: "nicht erfasst" }
+        default: true
+        why: >
+          CPU, disk and network throughput and the credits of a burstable size are the input to
+          the right-sizing the `size` default defers, and they are cheap.
+        renders: diagnostic_settings.<key>.metric_categories = ["AllMetrics"] / diagnosticSettings[].metricCategories

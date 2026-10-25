@@ -9,8 +9,13 @@ skill. Routing table - the request picks the question set:
 | function app, Azure Functions, Flex Consumption | `function-app/questions.yaml` | [notes](function-app/notes.md) - same module as App Service, `kind: functionapp` |
 | Container Apps, container app environment, containerapp | `container-apps/questions.yaml` | [notes](container-apps/notes.md) - environment and one app |
 | Container Registry, ACR, image registry | `container-registry/questions.yaml` | [notes](container-registry/notes.md) |
-| AKS, Kubernetes | *not yet written* | — |
-| virtual machine, VM, scale set | *not yet written* | — |
+| AKS, Kubernetes, managed cluster, node pool, kubernetes cluster | `aks/questions.yaml` | [notes](aks/notes.md) - cluster with one system and one user pool |
+| Static Web App, static site, SWA, azurestaticapps | `static-web-app/questions.yaml` | [notes](static-web-app/notes.md) |
+| Container Instances, ACI, container group, container instance | `container-instances/questions.yaml` | [notes](container-instances/notes.md) - one group, one container |
+| virtual machine, VM, Linux VM, Windows VM, Azure VM, server, Entra login, trusted launch, encryption at host | `virtual-machine/questions.yaml` | [notes](virtual-machine/notes.md) - one machine; Entra sign-in, backup link and auto-shutdown included |
+| managed disk, data disk, OS disk, disk encryption set, Premium SSD, ZRS disk | `managed-disk/questions.yaml` | [notes](managed-disk/notes.md) - a standalone disk; a machine's own disks are in the VM set |
+| availability set, fault domain, update domain, proximity placement group, PPG | `availability-set/questions.yaml` | [notes](availability-set/notes.md) - the PPG is a question group of this set |
+| scale set, VMSS, Flexible orchestration, instance repair, rolling upgrade | `virtual-machine-scale-set/questions.yaml` | [notes](virtual-machine-scale-set/notes.md) - Flexible by default |
 | deployment slot, autoscale, custom domain | *not yet written* | Decisions of an existing app; listed as boundaries of the App Service set |
 
 When a question set does not exist yet, say so rather than improvising one. Fall back to

@@ -1,0 +1,186 @@
+schema_version: 1
+
+resource: Microsoft.Compute/availabilitySets
+title: Azure Availability Set (with its proximity placement group)
+
+naming:
+  terraform: "Azure::Microsoft.Compute/availabilitySets"
+  bicep: "Microsoft.Compute/availabilitySets"
+  # Bicep assembles the name from vars - this is the prefix it renders. The optional
+  # proximity placement group is a second resource of this set and takes its own identifier,
+  # `Azure::Microsoft.Compute/proximityPlacementGroups` / `Microsoft.Compute/proximityPlacementGroups`,
+  # abbreviation `ppg`.
+  abbreviation: "avail"
+
+boundaries:
+  - "Does not create the resource group. Expects one from the spec's context."
+  - "Does not create the machines. A machine joins the set through its own `availability: availability_set` and `availability_set_id` (`virtual-machine`); the set is created first and a machine cannot be moved into or out of it afterwards."
+  - "Is not zonal. A set spreads machines over racks of one datacenter (fault domains) and over maintenance groups (update domains); a machine in a set has no availability zone and a machine in a zone has no set. A workload that can be zonal is zonal, and this set is for a region without zones or for a machine that cannot be."
+  - "Does not host a scale set. A Flexible scale set spreads its own instances over fault domains (`virtual-machine-scale-set`) and takes no availability set."
+  - "Proximity placement group: this set owns it, because a group exists only to constrain what is placed into a set, a machine or a scale set, and carries no decision apart from them. It is created here, optionally, beside the set; a machine or scale set that needs one without an availability set is an instance of this set with the group and no further wiring, or a departure that names the group."
+  - "Does not create a capacity reservation, a dedicated host or a host group."
+
+groups:
+
+  # ---------------------------------------------------------------- placement
+  - id: placement
+    title: Placement
+    questions:
+      - id: environments
+        ask: Which stages is this deployed to?
+        type: list
+        plain:
+          en: "Deployed in the stages {value}."
+          de: "Wird in den Stufen {value} ausgerollt."
+        values: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
+        required: true
+        from_context: true
+        why: >
+          Drives the rendered name and the strictness of several defaults. Nothing sensible can
+          be guessed. A set is one per stage: it groups the machines of one workload in one
+          stage and is never shared across them.
+        renders: naming parameter `environment`, and the tag of that name where the repository uses one
+
+      - id: location
+        ask: Which Azure region?
+        type: string
+        plain:
+          en: "Runs in the Azure region {value}."
+          de: "Läuft in der Azure-Region {value}."
+        required: true
+        from_context: true
+        why: >
+          Part of the rendered name and the home of the set and of every machine in it. The
+          number of fault domains a region offers (two or three) is a property of the region.
+          A region with availability zones does not need a set for a workload that can be zonal.
+        renders: location
+
+      - id: resource_group_name
+        ask: Which resource group?
+        type: ref
+        plain:
+          en: "Placed in the resource group {value}."
+          de: "Liegt in der Ressourcengruppe {value}."
+        ref: resource_group
+        required: true
+        from_context: true
+        per_environment: true
+        why: >
+          The set is placed into an existing group, the machines' own - a machine and its set
+          can be in different groups, but removing them together is simpler. Creating a group
+          here would make this set own a lifecycle wider than the resource it describes.
+        renders: resource_group_name (authored Terraform) / implicit in Bicep scope
+
+  # ---------------------------------------------------------------------- set
+  - id: set
+    title: The availability set
+    questions:
+      - id: sku
+        ask: Should the set use managed disks?
+        type: enum
+        plain:
+          en: "The set is {value}."
+          de: "Die Gruppe ist {value}."
+        plain_values:
+          Aligned: { en: "built for managed disks, so a machine's disks are spread over the same racks as the machine", de: "für verwaltete Platten gebaut, sodass die Platten einer Maschine auf denselben Racks liegen wie die Maschine" }
+          Classic: { en: "built for old unmanaged disks in storage accounts", de: "für alte, nicht verwaltete Platten in Speicherkonten gebaut" }
+        values: [Aligned, Classic]
+        default: Aligned
+        why: >
+          `Aligned` is the only choice for a machine with a managed disk - which every new
+          machine has. `Classic` exists for a machine with a VHD in a storage account, which is
+          legacy and cannot be Premium-ZRS or encrypted at the host. A set's kind is fixed at
+          creation and a machine with managed disks in a `Classic` set is refused.
+        renders: managed / skuName (`Aligned`, `Classic`)
+
+      - id: fault_domain_count
+        ask: Over how many racks should the machines be spread?
+        type: int
+        plain:
+          en: "The machines are spread over {value} racks, so one failing rack takes down at most a share of them."
+          de: "Die Maschinen werden auf {value} Racks verteilt, sodass der Ausfall eines Racks nur einen Teil von ihnen trifft."
+        default: 2
+        why: >
+          A fault domain is a rack with its own power and network. The count can be at most
+          what the region offers - **two or three, never more** - and a request above it fails
+          the deployment. 2 is what every region has and what the Bicep module defaults to;
+          the azurerm resource defaults to 3, which fails in a two-domain region. With three
+          available, three is the better spread for three or more machines. Fixed at creation.
+        renders: platform_fault_domain_count / platformFaultDomainCount
+
+      - id: update_domain_count
+        ask: Over how many maintenance groups should the machines be spread?
+        type: int
+        plain:
+          en: "The machines are updated in {value} groups, one group at a time."
+          de: "Die Maschinen werden in {value} Gruppen aktualisiert, eine Gruppe nach der anderen."
+        default: 5
+        why: >
+          An update domain is the group of machines rebooted together during platform
+          maintenance, one group at a time with a 30-minute pause. 5 is the default of both the
+          resource and the module, and the maximum is 20. With more machines than domains, the
+          later machines share a domain. Fixed at creation.
+        renders: platform_update_domain_count / platformUpdateDomainCount
+
+  # ---------------------------------------------------- proximity placement
+  - id: proximity
+    title: Proximity placement group
+    questions:
+      - id: proximity_placement_group
+        ask: Is the lowest possible network delay between the machines more important than spreading them apart?
+        type: bool
+        resolved_by: interview
+        plain:
+          en: "The machines are placed physically close together: {value}."
+          de: "Die Maschinen werden physisch nah beieinander platziert: {value}."
+        plain_values:
+          true: { en: "yes, at the price of failing together more easily", de: "ja, zum Preis, dass sie leichter gemeinsam ausfallen" }
+          false: { en: "no, spread for availability", de: "nein, verteilt für die Verfügbarkeit" }
+        default: false
+        why: >
+          A proximity placement group places machines in the same datacenter, within a latency
+          the network alone cannot give: a chatty application and database tier, a tightly
+          coupled compute job. It is the opposite of what an availability set is for - the
+          machines share the datacenter's fate - and its price is capacity: a later machine in
+          another size or family may fail to allocate into the group. Only the customer can say
+          that latency outweighs resilience, so it is never defaulted on.
+        renders: a second resource, `azurerm_proximity_placement_group` / `Microsoft.Compute/proximityPlacementGroups`, and the set's proximity_placement_group_id / proximityPlacementGroupResourceId
+
+      - id: proximity_zone
+        ask: In which availability zone should the group sit?
+        type: enum
+        plain:
+          en: "The group sits in {value}."
+          de: "Die Gruppe liegt in {value}."
+        plain_values:
+          none: { en: "no particular zone", de: "keiner bestimmten Zone" }
+          "1": { en: "zone 1", de: "Zone 1" }
+          "2": { en: "zone 2", de: "Zone 2" }
+          "3": { en: "zone 3", de: "Zone 3" }
+        values: [none, "1", "2", "3"]
+        default: none
+        depends_on: { question: proximity_placement_group, equals: true }
+        why: >
+          A group pinned to a zone accepts only machines in that zone - which a set's machines
+          are not. With an availability set the group is therefore regional (`none`); a zone is
+          for a group that serves zonal machines without a set. The Terraform module defaults
+          to zone `1`, so the value is written. Fixed at creation.
+        forced_when: >
+          This set exists to hold machines without a zone, so `none` is the value; a zone is a
+          departure that names the machines it serves
+        renders: zone (a string, module default "1") / availabilityZone (`-1` is none)
+
+      - id: proximity_vm_sizes
+        ask: Which machine sizes will be placed in the group?
+        type: list
+        plain:
+          en: "The group is meant for the sizes {value} (empty: not stated)."
+          de: "Die Gruppe ist für die Größen {value} gedacht (leer: nicht angegeben)."
+        default: []
+        depends_on: { question: proximity_placement_group, equals: true }
+        why: >
+          The sizes tell the platform which capacity to reserve in that datacenter when the group
+          is first used. A group created without them takes the first machine's size and can fail
+          to place a different family later - the usual reason a growing group stops growing.
+          List every size the workload will use, including the scale-up one.
+        renders: allowed_vm_sizes / intent.vmSizes

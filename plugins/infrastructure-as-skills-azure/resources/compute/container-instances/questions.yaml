@@ -1,0 +1,394 @@
+schema_version: 1
+
+resource: Microsoft.ContainerInstance/containerGroups
+title: Azure Container Instances (one container group with one container)
+
+# The container group is the resource: the unit that is scheduled, billed, networked and
+# addressed. One container per group here; sidecars, init containers and volumes are not
+# modelled.
+naming:
+  terraform: "Azure::Microsoft.ContainerInstance/containerGroups"
+  bicep: "Microsoft.ContainerInstance/containerGroups"
+  # Bicep assembles the name from vars - this is the prefix it renders. The container inside
+  # the group is named `main`.
+  abbreviation: "ci"
+
+boundaries:
+  - "Does not create the resource group. Expects one from the spec's context."
+  - "Does not create the subnet when the network is referenced; under network_ownership: create the virtual-network set carries it, with the delegation to `Microsoft.ContainerInstance/containerGroups`."
+  - "Does not create private DNS zones - shared infrastructure, owned by a pattern or the platform. A container group has no private endpoint; its private address is an IP in the delegated subnet."
+  - "Does not create the container registry, the Log Analytics workspace, the Key Vault or the key it refers to."
+  - "Does not grant the group's identity its roles (`AcrPull` on the registry, secret access on a vault) - wiring between resources, owned by a pattern; the identity must hold the pull role before the group is created, which is why it is user-assigned."
+  - "Does not render secret values. There is no Key Vault reference for a container group's environment: a secret is read by the container itself with its identity, never put in a template."
+  - "Does not render volumes (Azure Files shares need the storage account key), several containers or init containers, probes, GPU, Windows containers, spot priority, confidential or dedicated SKUs, container group profiles, standby pools, custom DNS servers or DNS name labels. Each is a separate concern and has no question set yet."
+  - "Does not make a container group zone-redundant: a group lives in one zone. Spreading over zones is several groups behind a load balancer, a pattern."
+
+groups:
+
+  # ---------------------------------------------------------------- placement
+  - id: placement
+    title: Placement
+    questions:
+      - id: environments
+        ask: Which stages is this deployed to?
+        type: list
+        plain:
+          en: "Deployed in the stages {value}."
+          de: "Wird in den Stufen {value} ausgerollt."
+        values: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
+        required: true
+        from_context: true
+        why: >
+          Drives the rendered name and the strictness of several defaults below. Nothing
+          sensible can be guessed.
+        renders: naming parameter `environment`, and the tag of that name where the repository uses one
+
+      - id: location
+        ask: Which Azure region?
+        type: string
+        plain:
+          en: "Runs in the Azure region {value}."
+          de: "Läuft in der Azure-Region {value}."
+        required: true
+        from_context: true
+        why: >
+          Part of the rendered name and where the group runs. Availability zones, CPU and memory
+          limits and the features of a VNet-injected group differ by region, and the group sits
+          next to the registry it pulls from and the services it calls.
+        renders: location
+
+      - id: resource_group_name
+        ask: Which resource group?
+        type: ref
+        plain:
+          en: "Placed in the resource group {value}."
+          de: "Liegt in der Ressourcengruppe {value}."
+        ref: resource_group
+        required: true
+        from_context: true
+        per_environment: true
+        why: >
+          The group is placed into an existing resource group. Creating one here would make this
+          set own a lifecycle wider than the resource it describes.
+        renders: resource_group_name (AVM Terraform, azurerm-based) / implicit in Bicep scope
+
+  # ---------------------------------------------------------- container group
+  - id: container_group
+    title: The container group
+    questions:
+      - id: container_image
+        ask: Which container image should run?
+        type: string
+        plain:
+          en: "The group runs the container image {value}."
+          de: "Die Gruppe führt das Container-Image {value} aus."
+        required: true
+        why: >
+          Registry, repository and a **tag or digest that is not `latest`**: the group is created
+          with this image, and a tag that moves under an unchanged template means the template no
+          longer says what runs. A container group pulls at start and **never updates**: a new
+          image is a new deployment, or a restart of the group. The registry is expected to exist -
+          and to be pulled from with the group's managed identity (`AcrPull`), not an admin user,
+          which is wiring this set does not own. With no answer the decision is an `open:` entry
+          owned by the workload owner.
+        renders: containers[].image / containers[].properties.image
+
+      - id: cpu
+        ask: How many CPU cores should the container get?
+        type: int
+        plain:
+          en: "The container gets {value} CPU cores."
+          de: "Der Container bekommt {value} CPU-Kerne."
+        default: 1
+        why: >
+          Billed per core per second for as long as the group runs, whether busy or not. One core
+          is a start that a measured workload moves; an out-of-memory kill and a throttled CPU
+          are the two ways to find out it was wrong. A group has an upper limit per region (read from `az container
+          list-usage` and the region's documentation, never recalled), and a bigger job is a
+          different service. Whole cores: the Bicep module takes an integer.
+        renders: cpu / containers[].resources.cpu / containers[].properties.resources.requests.cpu
+
+      - id: memory_in_gb
+        ask: How much memory should the container get, in gigabytes?
+        type: int
+        plain:
+          en: "The container gets {value} GB of memory."
+          de: "Der Container bekommt {value} GB Arbeitsspeicher."
+        default: 2
+        why: >
+          Billed per GB per second, independent of use. Two gigabytes per core is the ratio that
+          fits most runtimes; a JVM or a data job wants more, a small script less. Memory is a
+          hard limit - exceeding it kills the container, and with `OnFailure` it restarts in a
+          loop.
+        renders: memory / containers[].resources.memory / containers[].properties.resources.requests.memoryInGB
+
+      - id: restart_policy
+        ask: Should the container be restarted when it ends?
+        type: enum
+        plain:
+          en: "{value}."
+          de: "{value}."
+        plain_values:
+          Always: { en: "The container is restarted whenever it ends, however it ended - a service that should never stop", de: "Der Container wird neu gestartet, sobald er endet, egal wie - ein Dienst, der nie enden soll" }
+          OnFailure: { en: "The container is restarted only when it ends with an error; a clean finish ends the group", de: "Der Container wird nur bei einem Fehler neu gestartet; ein sauberes Ende beendet die Gruppe" }
+          Never: { en: "The container runs once and the group stops when it ends", de: "Der Container läuft einmal und die Gruppe hält an, wenn er endet" }
+        values: [Always, OnFailure, Never]
+        default: OnFailure
+        why: >
+          Container Instances is where a job runs, and **a stopped group costs nothing while a
+          restarting one is billed forever**. `OnFailure` survives a crash and lets a finished job
+          end; `Always` is for a long-running service (and is both modules' default - for a
+          job it is a bill that never ends); `Never` is for a run-once task whose failure is
+          someone's alert, not a retry. Written: the Terraform module requires it, the Bicep module
+          defaults to `Always`.
+        renders: restart_policy / restartPolicy
+
+      - id: availability_zone
+        ask: In which availability zone should the group run?
+        type: enum
+        plain:
+          en: "The group runs {value}."
+          de: "Die Gruppe läuft {value}."
+        plain_values:
+          none: { en: "in whichever zone Azure picks", de: "in der Zone, die Azure wählt" }
+          "1": { en: "in zone 1 of the region", de: "in Zone 1 der Region" }
+          "2": { en: "in zone 2 of the region", de: "in Zone 2 der Region" }
+          "3": { en: "in zone 3 of the region", de: "in Zone 3 der Region" }
+        values: [none, "1", "2", "3"]
+        default: none
+        why: >
+          A container group lives in **one** zone and cannot be spread, so no requirement maps to
+          it: `outage_impact` is answered by more than one group behind a load balancer, which is
+          a pattern. A zone is named only to sit next to a zonal resource (a disk, a database) in
+          the same zone, or to be explicit about it. **The Bicep module requires the parameter**
+          (`-1` for none), the Terraform module takes a list. Not every region has zones.
+        renders: zones / availabilityZone
+
+  # --------------------------------------------------------------- networking
+  - id: networking
+    title: Networking
+    questions:
+      - id: ip_address_type
+        ask: Should this group depart from the deployment's exposure posture?
+        type: enum
+        plain:
+          en: "The group has {value}."
+          de: "Die Gruppe hat {value}."
+        plain_values:
+          private: { en: "an address inside the company network only", de: "nur eine Adresse im Firmennetz" }
+          public: { en: "an address on the internet", de: "eine Adresse im Internet" }
+        values: [private, public]
+        from_deployment: network_exposure
+        confirm_in: [production]
+        why: >
+          Asked only as a departure: exposure is a property of the system. `private` is a group
+          **injected into a delegated subnet** with a private address, so its outbound traffic
+          follows the network's routes (the platform's firewall) too; `public` gives it a public
+          address. **A public container group has no firewall, no network security group and no
+          private endpoint**: every port it exposes is open to the whole internet, which makes
+          `public` the "public, unrestricted" rung of the posture ladder. A group that exposes no
+          port has no inbound surface either way, but a `public` one still leaves through the
+          platform's shared addresses and cannot reach private resources.
+        forced_when: >
+          `network_ownership: none` (a public deployment without a network) forces `public`,
+          recorded as forced with `network_ownership` as forced_by: there is no subnet to inject
+          the group into
+        renders: ip_address.type and subnet_ids / ipAddress.type and subnets
+
+      - id: subnet_id
+        ask: Which subnet should the group be injected into?
+        type: ref
+        resolved_by: platform
+        plain:
+          en: "The group lives in subnet {value}."
+          de: "Die Gruppe liegt im Subnetz {value}."
+        ref: subnet
+        required: true
+        depends_on: { question: ip_address_type, equals: private }
+        per_environment: true
+        why: >
+          The subnet must be **delegated to `Microsoft.ContainerInstance/containerGroups`** and
+          can then hold nothing but container groups. It is the platform's subnet when the
+          network is referenced and a subnet of the created network otherwise, where the
+          virtual-network set carries it with the delegation and this question is answered by that
+          wiring. Each running group takes an address of it. A group cannot be moved to another
+          subnet.
+        forced_when: >
+          network_ownership: create - the created network's subnet, recorded as forced with the
+          network as forced_by
+        renders: subnet_ids / subnets[].subnetResourceId
+
+      - id: exposed_ports
+        ask: Which ports should the group accept connections on?
+        type: list
+        plain:
+          en: "The group accepts connections on: {value} (empty: none, it only makes outbound calls)."
+          de: "Die Gruppe nimmt Verbindungen an auf: {value} (leer: keine, sie ruft nur nach außen)."
+        default: []
+        why: >
+          A port and a protocol (`TCP`, `UDP`) per entry. A job or a worker exposes nothing and
+          has no inbound surface; a service names exactly the ports it listens on. On a public
+          group each port is open to the internet (see `ip_address_type`). The container must
+          listen on the same ports: the group exposes them, the image opens them. TLS is not
+          terminated here - a service that needs HTTPS puts a gateway in front.
+        renders: exposed_ports and containers[].ports / ipAddress.ports and containers[].properties.ports
+
+  # ----------------------------------------------------------------- identity
+  - id: identity
+    title: Identity and access
+    questions:
+      - id: managed_identity
+        ask: Which managed identity should the group carry?
+        type: enum
+        plain:
+          en: "The group has {value} for reaching other services."
+          de: "Die Gruppe hat {value}, um andere Dienste zu erreichen."
+        plain_values:
+          user_assigned: { en: "a shared, separately managed identity", de: "eine gemeinsame, separat verwaltete Identität" }
+          system_assigned: { en: "its own identity", de: "eine eigene Identität" }
+          none: { en: "no identity of its own", de: "keine eigene Identität" }
+        values: [user_assigned, system_assigned, none]
+        default: user_assigned
+        why: >
+          **Differs from App Service's default, for one concrete reason.** The group pulls its
+          image from a private registry *while it is being created*, so the identity must hold
+          `AcrPull` **before the group exists** - which a system-assigned identity, created with
+          the group, cannot. Creating the group first fails the pull. **The Terraform module takes
+          only a user-assigned identity for the registry sign-in**. `none` is for a group that
+          pulls a public image and calls nothing. The container reads its secrets and data with
+          this identity, from inside.
+        forced_when: >
+          `registry_login_server` set (a private registry) forces `user_assigned`;
+          `key_management: customer_managed` forces `user_assigned`; both recorded as forced with
+          the question as forced_by
+        renders: managed_identities / managedIdentities
+
+      - id: user_assigned_identity_ids
+        ask: Which user-assigned identity?
+        type: list
+        plain:
+          en: "It uses the identity {value}."
+          de: "Es nutzt die Identität {value}."
+        ref: user_assigned_identity
+        required: true
+        depends_on: { question: managed_identity, equals: user_assigned }
+        per_environment: true
+        why: >
+          The identity must already exist and hold its roles; this set does not create it or
+          grant them. It is the one the registry sign-in and the customer-managed key name.
+        renders: managed_identities.user_assigned_resource_ids / managedIdentities.userAssignedResourceIds
+
+      - id: registry_login_server
+        ask: Which container registry does the image come from?
+        type: string
+        plain:
+          en: "The image is pulled from the registry {value} (empty: a public image)."
+          de: "Das Image wird aus der Registry {value} geladen (leer: ein öffentliches Image)."
+        default: ""
+        why: >
+          The login server of a private registry (`<name>.azurecr.io`), signed in to with the
+          group's user-assigned identity - never `username` and `password`, which would be a
+          credential in the template and in state. Empty is a public image. A registry with a
+          private endpoint needs a route and its DNS from the group's subnet; a registry with a
+          firewall needs the group's outbound address allowed or the trusted-service bypass.
+        renders: image_registry_credential.server and user_assigned_identity_id / imageRegistryCredentials[].server and identity
+
+      - id: role_assignments
+        ask: Who may manage the group?
+        type: list
+        plain:
+          en: "Management rights on the group granted to: {value}."
+          de: "Verwaltungsrechte an der Gruppe vergeben an: {value}."
+        default: []
+        per_environment: true
+        why: >
+          Azure RBAC on the group - the control plane, including who may read its logs and run
+          `az container exec`, which opens a shell in the running container. Usually the deploying
+          principal's alone, so empty is a normal answer. **The Bicep module has no role
+          assignment parameter**: the render writes the assignment beside the module.
+        renders: role_assignments / roleAssignments (authored beside the module in Bicep)
+
+  # ----------------------------------------------------------------- security
+  - id: security
+    title: Security
+    questions:
+      - id: key_management
+        ask: Is the group's data encrypted with platform-managed or customer-managed keys?
+        type: enum
+        plain:
+          en: "Encryption keys for the group's data are {value}."
+          de: "Verschlüsselungsschlüssel für die Daten der Gruppe sind {value}."
+        plain_values:
+          platform_managed: { en: "managed by Azure - encrypted, rotated, no effort on your side", de: "von Azure verwaltet: verschlüsselt, rotiert, kein Aufwand bei euch" }
+          customer_managed: { en: "your own, held in your key vault, so you can revoke them", de: "eure eigenen in eurem Schlüsseltresor, damit ihr sie zurückziehen könnt" }
+        values: [platform_managed, customer_managed]
+        from_deployment: key_management
+        confirm_in: [production]
+        why: >
+          Inherited. What is stored is the group's definition - the environment variables,
+          including the secure ones, and the logs of the running container - encrypted with a
+          platform key either way. `customer_managed` adds the customer's key in a Key Vault with
+          purge protection and a user-assigned identity that can wrap and unwrap. **The key is
+          pinned to the version current at deployment: ACI does not follow a rotation**, so a
+          rotated key needs a redeployment.
+        renders: key_vault_key_id / customerManagedKey
+
+      - id: cmk_key_vault_key_id
+        ask: Which Key Vault key should encrypt the group's data?
+        type: ref
+        plain:
+          en: "Encrypted with your key {value}."
+          de: "Verschlüsselt mit eurem Schlüssel {value}."
+        ref: key_vault_key
+        required: true
+        depends_on: { question: key_management, equals: customer_managed }
+        per_environment: true
+        why: >
+          The key must exist, the vault must have soft delete and purge protection, and the
+          group's user-assigned identity must hold wrap and unwrap on it before the group is
+          created. This set does not create the key or the grant.
+        renders: key_vault_key_id and key_vault_user_assigned_identity_id / customerManagedKey.keyVaultResourceId and keyName
+
+  # ------------------------------------------------------------ observability
+  - id: observability
+    title: Observability
+    questions:
+      - id: diagnostic_workspace
+        ask: Which Log Analytics workspace should receive the container's logs?
+        type: ref
+        resolved_by: platform
+        plain:
+          en: "Its logs go to {value}."
+          de: "Seine Logs gehen in {value}."
+        ref: log_analytics_workspace
+        from_deployment: diagnostics_destination
+        per_environment: true
+        why: >
+          Inherited: one deployment, one destination. **A container group sends its logs through
+          the workspace's id and shared key, not through a diagnostic setting** - there is no other
+          path for the console output, and without it the output is gone with the group. That
+          contradicts the keyless guardrail and is the one place it cannot be kept: the Bicep
+          module reads the key at deployment time, the Terraform module needs it as an input
+          (`primary_shared_key` of the workspace data source) and so keeps it in state. The
+          deploying principal needs `sharedkeys/read` on the workspace.
+        renders: diagnostics_log_analytics.workspace_id and workspace_key / logAnalytics.workspaceResourceId
+
+      - id: log_type
+        ask: Which kind of logs should be collected?
+        type: enum
+        plain:
+          en: "Collected: {value}."
+          de: "Gesammelt wird: {value}."
+        plain_values:
+          ContainerInstanceLogs: { en: "what the container writes to its console, and the group's events", de: "was der Container auf seine Konsole schreibt, und die Ereignisse der Gruppe" }
+          ContainerInsights: { en: "the same as a record format that Container insights dashboards read", de: "dasselbe im Satzformat, das die Dashboards von Container insights lesen" }
+        values: [ContainerInstanceLogs, ContainerInsights]
+        default: ContainerInstanceLogs
+        why: >
+          `ContainerInstanceLogs` is the console output and the group's events, which is what a job
+          needs: its last line and why it ended.
+          `ContainerInsights` is for a fleet that is looked at in the Container insights views.
+          Volume follows what the container writes - the reason to watch the workspace's daily
+          cap. The Terraform module does not expose the log type and leaves it to the provider, a
+          gap named in the handover.
+        renders: logAnalytics.logType (Bicep) / not carried by the module (Terraform)

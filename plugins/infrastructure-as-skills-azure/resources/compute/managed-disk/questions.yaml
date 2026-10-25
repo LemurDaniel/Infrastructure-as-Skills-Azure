@@ -1,0 +1,304 @@
+schema_version: 1
+
+resource: Microsoft.Compute/disks
+title: Azure Managed Disk
+
+naming:
+  terraform: "Azure::Microsoft.Compute/disks"
+  bicep: "Microsoft.Compute/disks"
+  # Bicep assembles the name from vars - this is the prefix it renders. The convention
+  # has two kinds of this type: `::data` (`disk`), which the Terraform render passes as the
+  # identifier's kind suffix, and `::os` (`osdisk`), which a machine's own system disk takes
+  # and no set renders.
+  abbreviation: "disk"
+
+boundaries:
+  - "Does not create the resource group. Expects one from the spec's context."
+  - "Does not attach the disk. Which machine or scale set carries it, at which LUN and with which caching, is the machine's decision (`data_disks` of `virtual-machine`) or wiring owned by a pattern; a disk with no machine is a valid, billed, state."
+  - "Does not create the disk encryption set, the Key Vault key behind it or the identity that unwraps it. A customer-managed key is wiring between the key vault, the set and the disk."
+  - "Does not create the disk access resource (`Microsoft.Compute/diskAccesses`) a private import or export needs; it takes its id. Nor does it create the private DNS zone, which is shared infrastructure owned by the platform."
+  - "Does not back the disk up. A disk attached to a machine is protected with the machine (`recovery-services-vault`); a disk on its own is protected by the Backup vault (`backup-vault`). Neither module of this set carries a backup input."
+  - "Does not create snapshots, restore points, images or galleries - copies of a disk are content of the workload and its recovery plan, not configuration of the disk."
+  - "Does not offer Ultra or Premium SSD v2 disks, shared disks (`max_shares`), on-demand bursting, performance tiers or provisioned IOPS and throughput. They carry decisions tied to one workload and a zone; a request for one is said out loud."
+  - "Does not create a resource lock: the deployment's `resource_lock` names the kinds that carry one, and the disk is not among them."
+
+groups:
+
+  # ---------------------------------------------------------------- placement
+  - id: placement
+    title: Placement
+    questions:
+      - id: environments
+        ask: Which stages is this deployed to?
+        type: list
+        plain:
+          en: "Deployed in the stages {value}."
+          de: "Wird in den Stufen {value} ausgerollt."
+        values: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
+        required: true
+        from_context: true
+        why: >
+          Drives the rendered name and the strictness of several defaults below. Nothing
+          sensible can be guessed. A disk is one per stage: it holds the stage's data.
+        renders: naming parameter `environment`, and the tag of that name where the repository uses one
+
+      - id: location
+        ask: Which Azure region?
+        type: string
+        plain:
+          en: "Runs in the Azure region {value}."
+          de: "Läuft in der Azure-Region {value}."
+        required: true
+        from_context: true
+        why: >
+          Part of the rendered name and the home of the disk. A disk can only be attached to a
+          machine of the same region, and the disk types offered differ per region.
+        renders: location
+
+      - id: resource_group_name
+        ask: Which resource group?
+        type: ref
+        plain:
+          en: "Placed in the resource group {value}."
+          de: "Liegt in der Ressourcengruppe {value}."
+        ref: resource_group
+        required: true
+        from_context: true
+        per_environment: true
+        why: >
+          The disk is placed into an existing group. Creating one here would make this set own
+          a lifecycle wider than the resource it describes. A disk lives in the group of the
+          machine it serves, so the two are removed together.
+        renders: resource_group_name (AVM Terraform, AzAPI-based) / implicit in Bicep scope
+
+  # --------------------------------------------------------------------- disk
+  - id: disk
+    title: The disk
+    questions:
+      - id: create_option
+        ask: Should the disk start empty or as a copy?
+        type: enum
+        plain:
+          en: "The disk starts {value}."
+          de: "Die Platte startet {value}."
+        plain_values:
+          Empty: { en: "empty", de: "leer" }
+          Copy: { en: "as a copy of a snapshot or another disk", de: "als Kopie eines Snapshots oder einer anderen Platte" }
+        values: [Empty, Copy]
+        default: Empty
+        why: >
+          Empty is the normal case: the workload formats and fills it. A copy restores a
+          snapshot or clones a disk, and is a one-time act - the template that created the copy
+          cannot tell later whether the data has since changed, and changing the source forces
+          a new disk. Import from a blob (`Import`, `Upload`) and from an image are departures
+          this set does not render.
+        renders: create_option / createOption
+
+      - id: source_resource_id
+        ask: Which snapshot or disk is the copy of?
+        type: ref
+        plain:
+          en: "The disk is a copy of {value}."
+          de: "Die Platte ist eine Kopie von {value}."
+        ref: snapshot
+        required: true
+        depends_on: { question: create_option, equals: Copy }
+        per_environment: true
+        why: >
+          The source must exist, be in the same region (or be copied across), and be at most
+          the size given below. A source in another subscription needs the identity that
+          deploys to read it.
+        renders: source_resource_id / sourceResourceId
+
+      - id: sku
+        ask: Which disk type should it be?
+        type: enum
+        plain:
+          en: "The disk is {value}."
+          de: "Die Platte ist {value}."
+        plain_values:
+          Premium_LRS: { en: "premium SSD, kept three times in one datacenter", de: "Premium-SSD, dreifach in einem Rechenzentrum" }
+          Premium_ZRS: { en: "premium SSD, kept in three datacenters of the region so one can fail", de: "Premium-SSD, in drei Rechenzentren der Region, eines darf ausfallen" }
+          StandardSSD_LRS: { en: "standard SSD, kept three times in one datacenter", de: "Standard-SSD, dreifach in einem Rechenzentrum" }
+          StandardSSD_ZRS: { en: "standard SSD, kept in three datacenters of the region", de: "Standard-SSD, in drei Rechenzentren der Region" }
+          Standard_LRS: { en: "standard HDD, the slowest and cheapest, kept three times in one datacenter", de: "Standard-HDD, die langsamste und günstigste, dreifach in einem Rechenzentrum" }
+        values: [Premium_LRS, Premium_ZRS, StandardSSD_LRS, StandardSSD_ZRS, Standard_LRS]
+        derived_from:
+          question: outage_impact
+          map: { tolerable: Premium_LRS, disruptive: Premium_ZRS, critical: Premium_ZRS }
+        confirm_in: [production]
+        non_production_default: Premium_LRS
+        why: >
+          Derived from how bad an outage is: a ZRS disk survives the loss of a zone, which an
+          LRS disk does not, and the machine that carries it can be started in another zone. It
+          is the floor for a disk behind anything with a service-level agreement. Standard HDD
+          has no place behind a machine in production. The type is changed in place while the
+          disk is detached, or the machine deallocated, only between families that allow it; a
+          move between LRS and ZRS is a copy.
+        forced_when: >
+          A machine size without premium storage removes the Premium types, and a region
+          without ZRS disks removes the ZRS types, recorded as forced with the machine's
+          `size` or `location` as forced_by
+        renders: storage_account_type / sku
+
+      - id: size_gb
+        ask: How large should the disk be, in GiB?
+        type: int
+        plain:
+          en: "The disk is {value} GiB."
+          de: "Die Platte ist {value} GiB groß."
+        default: 128
+        why: >
+          A disk is billed by its tier, not by what it holds - 128 GiB is the P10 / E10 tier -
+          so the number is the price, and a size just over a tier boundary costs the next tier.
+          It grows in place (offline for some types) and never shrinks. 128 is a starting size;
+          the workload's growth and the throughput its tier gives decide the rest.
+        renders: disk_size_gb / diskSizeGB
+
+      - id: zone
+        ask: In which availability zone should the disk be?
+        type: enum
+        plain:
+          en: "The disk is placed in zone {value}."
+          de: "Die Platte wird in Zone {value} platziert."
+        plain_values:
+          "1": { en: "1", de: "1" }
+          "2": { en: "2", de: "2" }
+          "3": { en: "3", de: "3" }
+        values: ["1", "2", "3"]
+        default: "1"
+        why: >
+          A locally redundant disk lives in one zone and can be attached only to a machine in
+          that zone - the machine's `zone` and this one are the same number, which the render
+          takes from the machine. Fixed at creation. The Terraform module requires a value;
+          the Bicep module takes `-1` for none.
+        forced_when: >
+          A ZRS type has no zone, and a region without zones has none: `-1` in Bicep, `null`
+          in Terraform where the module allows it, recorded as forced with `sku` as forced_by.
+          A disk attached to a machine takes the machine's zone, recorded as forced with the
+          machine's `zone` as forced_by
+        renders: zone / availabilityZone
+
+  # --------------------------------------------------------------- networking
+  - id: networking
+    title: Networking
+    questions:
+      - id: network_access
+        ask: How may the disk be reached for export and import over the network?
+        type: enum
+        plain:
+          en: "Exporting or importing the disk over the network is {value}."
+          de: "Das Exportieren oder Importieren der Platte über das Netz ist {value}."
+        plain_values:
+          deny_all: { en: "not possible at all", de: "überhaupt nicht möglich" }
+          allow_private: { en: "possible only over a private connection", de: "nur über eine private Anbindung möglich" }
+          allow_all: { en: "possible over the internet with a time-limited link", de: "über das Internet mit einem zeitlich begrenzten Link möglich" }
+        values: [deny_all, allow_private, allow_all]
+        default: deny_all
+        confirm_in: [production]
+        why: >
+          Exposure is a property of the system, but a disk is never the front door: the only
+          reason to reach it over the network is an export or an import (a shared access
+          signature on a snapshot), which is how a disk's content leaves the subscription.
+          `deny_all` closes that path; the machine that carries the disk reads it through the
+          host regardless. `network_exposure: public` does not open a disk. **The modules
+          disagree**: Terraform defaults to `AllowPrivate` with public access off, Bicep to
+          `DenyAll` and `Disabled`, so both are written.
+        renders: >
+          terraform: network_access_policy and public_network_access_enabled (bool); bicep:
+          networkAccessPolicy and publicNetworkAccess (`Disabled`, `Enabled`)
+
+      - id: disk_access_id
+        ask: Which disk access resource carries the private connection?
+        type: ref
+        plain:
+          en: "Private access goes through {value}."
+          de: "Der private Zugriff läuft über {value}."
+        ref: disk_access
+        required: true
+        depends_on: { question: network_access, equals: allow_private }
+        per_environment: true
+        why: >
+          `AllowPrivate` needs a `Microsoft.Compute/diskAccesses` resource in the disk's
+          region, one for many disks, which this set does not create. Without one the policy
+          has nothing to point at; the decision is an `open:` entry owned by the platform
+          team.
+        renders: disk_access_id / not a module parameter in Bicep (property `diskAccessId`)
+
+      - id: private_endpoint_subnet
+        ask: Which subnet should the disk access resource's private endpoint live in?
+        type: ref
+        resolved_by: platform
+        plain:
+          en: "Its private connection lands in subnet {value}."
+          de: "Seine private Anbindung landet im Subnetz {value}."
+        ref: subnet
+        from_deployment: private_endpoint_subnet
+        depends_on: { question: network_access, equals: allow_private }
+        per_environment: true
+        why: >
+          One subnet carries the deployment's private endpoints, so this is inherited. The
+          endpoint's sub-resource is `disks` and its zone `privatelink.blob.core.windows.net`,
+          the same as the storage account's blob endpoint - the platform zone must hold the
+          record.
+        renders: private_endpoints.<key>.subnet_resource_id (sub-resource `disks`)
+
+  # ----------------------------------------------------------------- identity
+  - id: identity
+    title: Identity and access
+    questions:
+      - id: role_assignments
+        ask: Who needs which role on this disk?
+        type: list
+        plain:
+          en: "Access rights on the disk granted to: {value} (empty: none)."
+          de: "Zugriffsrechte auf die Platte vergeben an: {value} (leer: keine)."
+        default: []
+        per_environment: true
+        why: >
+          The roles over the disk itself - `Disk Snapshot Contributor` for the identity that
+          takes snapshots, `Disk Backup Reader` for the backup vault's identity, `Disk Pool
+          Operator` for the storage pool that uses it - never `Contributor`, and never on the
+          resource group for the sake of one disk. The machine that carries the disk needs no
+          role on it. An empty list is a working disk; a snapshot or backup identity that was
+          named and not granted is an `open:` entry owned by the workload owner.
+        renders: role_assignments / roleAssignments
+
+  # ----------------------------------------------------------------- security
+  - id: security
+    title: Security
+    questions:
+      - id: key_management
+        ask: Are the disk's encryption keys platform-managed or customer-managed?
+        type: enum
+        plain:
+          en: "Encryption keys are {value}."
+          de: "Verschlüsselungsschlüssel sind {value}."
+        plain_values:
+          platform_managed: { en: "managed by Azure - encrypted, rotated, no effort on your side", de: "von Azure verwaltet: verschlüsselt, rotiert, kein Aufwand bei euch" }
+          customer_managed: { en: "your own, held in your key vault, so you can revoke them", de: "eure eigenen in eurem Schlüsseltresor, damit ihr sie zurückziehen könnt" }
+        values: [platform_managed, customer_managed]
+        from_deployment: key_management
+        confirm_in: [production]
+        why: >
+          Inherited. A managed disk is encrypted at rest with a platform key either way (server
+          side); `customer_managed` adds a disk encryption set that wraps the disk's key with
+          the customer's key, so revoking it makes the disk unreadable. It is set at creation of
+          the disk, can be changed to another set later, and needs the vault, purge protection
+          and an identity on the set. Encryption at the host is the machine's decision.
+        renders: disk_encryption_set_id / diskEncryptionSetResourceId
+
+      - id: disk_encryption_set_id
+        ask: Which disk encryption set should encrypt the disk?
+        type: ref
+        plain:
+          en: "The disk is encrypted with your set {value}."
+          de: "Die Platte wird mit eurem Set {value} verschlüsselt."
+        ref: disk_encryption_set
+        required: true
+        depends_on: { question: key_management, equals: customer_managed }
+        per_environment: true
+        why: >
+          The set must exist in the disk's region, and the same set encrypts every disk of a
+          machine so that revoking the key revokes the machine as a whole.
+        renders: disk_encryption_set_id / diskEncryptionSetResourceId

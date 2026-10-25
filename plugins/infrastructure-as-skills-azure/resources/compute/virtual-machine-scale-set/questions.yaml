@@ -1,0 +1,684 @@
+schema_version: 1
+
+resource: Microsoft.Compute/virtualMachineScaleSets
+title: Azure Virtual Machine Scale Set
+
+naming:
+  terraform: "Azure::Microsoft.Compute/virtualMachineScaleSets"
+  bicep: "Microsoft.Compute/virtualMachineScaleSets"
+  # Bicep assembles the name from vars - this is the prefix it renders. The name also seeds
+  # the instances' computer names (`vmNamePrefix` in Bicep, `computer_name_prefix` in
+  # Terraform); a Windows computer name prefix is limited to 9 characters.
+  abbreviation: "vmss"
+
+boundaries:
+  - "Does not create the resource group. Expects one from the spec's context."
+  - "Does not create the subnet, the network security group on it or the virtual network. The instances take a subnet of the deployment's network (the `virtual-network` set under `network_ownership: create`, the platform's otherwise)."
+  - "Does not create the load balancer or Application Gateway in front of the instances, nor its probe and rules. It takes the ids of the backend pools; what serves the traffic is its own resource and wiring owned by a pattern."
+  - "Does not create autoscale rules. `instances` is the capacity the set starts with; the autoscale setting (`Microsoft.Insights/autoscaleSettings`: metric, schedule, minimum, maximum, cool-down) is a decision of the workload's load and has no question set."
+  - "Does not create public IPs, Bastion or NAT. Instances are reached privately and reach out through the network's egress, which the platform owns."
+  - "Does not create the disk encryption set, nor the Key Vault key behind it, nor the identity that unwraps it. A customer-managed key is wiring between the key vault, the set and the set's disks."
+  - "Does not install software or configure the guest beyond the platform's health extension: custom script, DSC, domain join, the Azure Monitor Agent and Data Collection Rules are image-build or deployment-pipeline decisions."
+  - "Does not back instances up. Scale set instances are replaceable; state belongs on a data store, not on an instance."
+  - "Does not grant other resources a role for the set's identity (Key Vault secrets, storage data). `role_assignments` is the roles on the set itself; a role the identity needs elsewhere is wiring, owned by a pattern."
+  - "Single machines are `virtual-machine`; a group of machines that need a set's rack spreading in a region without zones is `availability-set`."
+
+groups:
+
+  # ---------------------------------------------------------------- placement
+  - id: placement
+    title: Placement
+    questions:
+      - id: environments
+        ask: Which stages is this deployed to?
+        type: list
+        plain:
+          en: "Deployed in the stages {value}."
+          de: "Wird in den Stufen {value} ausgerollt."
+        values: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
+        required: true
+        from_context: true
+        why: >
+          Drives the rendered name and the strictness of several defaults below. Nothing
+          sensible can be guessed. A scale set is one per stage; its instances are not shared.
+        renders: naming parameter `environment`, and the tag of that name where the repository uses one
+
+      - id: location
+        ask: Which Azure region?
+        type: string
+        plain:
+          en: "Runs in the Azure region {value}."
+          de: "Läuft in der Azure-Region {value}."
+        required: true
+        from_context: true
+        why: >
+          Part of the rendered name and the home of the set and its instances. The size is
+          offered per region and per zone, and a region without availability zones changes the
+          `zones` decision.
+        renders: location
+
+      - id: resource_group_name
+        ask: Which resource group?
+        type: ref
+        plain:
+          en: "Placed in the resource group {value}."
+          de: "Liegt in der Ressourcengruppe {value}."
+        ref: resource_group
+        required: true
+        from_context: true
+        per_environment: true
+        why: >
+          The set is placed into an existing group. Creating one here would make this set own a
+          lifecycle wider than the resource it describes. The AzAPI-based Terraform module takes
+          the group's id (`parent_id`), not its name.
+        renders: parent_id (AVM Terraform, AzAPI) / implicit in Bicep scope
+
+  # ---------------------------------------------------------------- scale_set
+  - id: scale_set
+    title: The scale set
+    questions:
+      - id: orchestration_mode
+        ask: Should the scale set manage identical instances as one unit or as individual virtual machines?
+        type: enum
+        plain:
+          en: "The scale set manages its instances {value}."
+          de: "Die Skalierungsgruppe verwaltet ihre Instanzen {value}."
+        plain_values:
+          Flexible: { en: "as ordinary virtual machines that it adds and removes, spread over zones and racks", de: "als gewöhnliche virtuelle Maschinen, die sie hinzufügt und entfernt, verteilt auf Zonen und Racks" }
+          Uniform: { en: "as identical copies of one model, the older way", de: "als identische Kopien eines Modells, die ältere Art" }
+        values: [Flexible, Uniform]
+        default: Flexible
+        confirm_in: [production]
+        why: >
+          **Flexible is the current model** and the one Azure recommends for new work: each
+          instance is a real virtual machine in the resource group, zones and fault domains are
+          spread by the platform, instances of different sizes can be mixed, and it is where new
+          features land. Uniform is a legacy shape that exists for a workload that was built on
+          its model (a single placement group of up to 1,000 identical instances, a Service
+          Fabric cluster). The mode is fixed at creation; a set does not convert.
+        forced_when: >
+          A request for Service Fabric, or for more than 1,000 instances in one set, selects
+          `Uniform` as a departure that names the reason
+        renders: orchestrationMode `Flexible` / `Uniform` (the Terraform module renders Flexible only; the Uniform set is the authored `azurerm_linux_virtual_machine_scale_set` / `azurerm_windows_virtual_machine_scale_set`)
+
+      - id: os_type
+        ask: Which operating system does the software run on?
+        type: enum
+        resolved_by: interview
+        plain:
+          en: "The instances run {value}."
+          de: "Die Instanzen laufen mit {value}."
+        plain_values:
+          Linux: { en: "Linux", de: "Linux" }
+          Windows: { en: "Windows Server, whose licence is part of the price", de: "Windows Server, dessen Lizenz im Preis enthalten ist" }
+        values: [Linux, Windows]
+        default: Linux
+        why: >
+          Only the customer knows what the software needs. Linux is the default: no licence in
+          the hourly price, key-based sign-in, and the smaller attack surface. The OS type is
+          fixed at creation and decides the profile's shape, the patch modes and the extension
+          names.
+        renders: os_profile.linux_configuration / windows_configuration; osType
+
+      - id: image
+        ask: Which operating system image?
+        type: enum
+        plain:
+          en: "Instances are built from the image {value}."
+          de: "Instanzen werden aus dem Image {value} gebaut."
+        plain_values:
+          ubuntu_24_04: { en: "Ubuntu Server 24.04 LTS", de: "Ubuntu Server 24.04 LTS" }
+          windows_server_2022: { en: "Windows Server 2022 Datacenter", de: "Windows Server 2022 Datacenter" }
+          windows_server_2025: { en: "Windows Server 2025 Datacenter", de: "Windows Server 2025 Datacenter" }
+          gallery_image: { en: "your own image from a compute gallery", de: "euer eigenes Image aus einer Compute Gallery" }
+        values: [ubuntu_24_04, windows_server_2022, windows_server_2025, gallery_image]
+        default: ubuntu_24_04
+        confirm_in: [production]
+        why: >
+          Always **generation 2**: trusted launch, encryption at host and the current sizes need
+          it. An instance is a copy of the image at the time it is added, so with `latest` a
+          scale-out next month is built from a newer image than the instances beside it; an
+          organisation with a golden image pins the gallery image version, which is why a
+          scale set is where a gallery image earns its keep. A gallery image is a departure that
+          names the image id and carries the organisation's hardening.
+        forced_when: >
+          `os_type: Windows` removes `ubuntu_24_04` and defaults to `windows_server_2022`;
+          `os_type: Linux` removes both Windows images, recorded as forced with `os_type` as
+          forced_by
+        renders: >
+          source_image_reference { publisher, offer, sku, version = "latest" } (a gallery image: source_image_id) / imageReference
+
+      - id: gallery_image_id
+        ask: Which compute gallery image version?
+        type: ref
+        plain:
+          en: "The image comes from {value}."
+          de: "Das Image stammt aus {value}."
+        ref: gallery_image
+        required: true
+        depends_on: { question: image, equals: gallery_image }
+        per_environment: true
+        why: >
+          The image must exist, be generation 2 and be shared to the deployment's subscription
+          or tenant. A pinned version, not `latest`, is what makes every instance identical.
+        renders: source_image_id / imageReference.id
+
+      - id: size
+        ask: Which instance size?
+        type: string
+        plain:
+          en: "The instance size is {value}."
+          de: "Die Instanzgröße ist {value}."
+        default: Standard_D2ds_v5
+        confirm_in: [production]
+        why: >
+          A starting size, not a sizing: 2 vCPUs and 8 GiB of memory with a local temporary
+          disk, generation 2, premium storage and encryption at host capable. The right size
+          comes from measurement under load, and a change of size is a model change that
+          reaches instances through the upgrade policy. Whether the size exists in a region and
+          its zones is checked with `az vm list-skus --location <region> --size <size>`.
+        renders: sku_name / skuName
+
+      - id: instances
+        ask: How many instances should the scale set start with?
+        type: int
+        plain:
+          en: "The scale set starts with {value} instances."
+          de: "Die Skalierungsgruppe startet mit {value} Instanzen."
+        derived_from:
+          question: outage_impact
+          map: { tolerable: 1, disruptive: 2, critical: 3 }
+        confirm_in: [production]
+        non_production_default: 1
+        why: >
+          Derived from how bad an outage is: two instances in two zones survive the loss of one,
+          three leave headroom while one is gone. One instance is a machine with an autoscaler.
+          The number is the starting capacity; where an autoscale setting exists it overrides it
+          at the next scale event and the template must not fight it (see the notes). The
+          non-production stages take 1 while non_production_savings is enabled.
+        renders: instances / skuCapacity
+
+      - id: zones
+        ask: In which availability zones should the instances be spread?
+        type: list
+        plain:
+          en: "Instances are spread over the zones {value} (empty: no zones)."
+          de: "Die Instanzen werden auf die Zonen {value} verteilt (leer: keine Zonen)."
+        values: ["1", "2", "3"]
+        default: ["1", "2", "3"]
+        why: >
+          All three: the platform places new instances in the zones named, so losing one zone
+          loses a third of the capacity and not the set. Fixed at creation. A region without
+          zones, or a size not offered in all three, narrows the list; an empty list leaves the
+          set regional, spread over fault domains only.
+        forced_when: >
+          A region without availability zones forces an empty list, and a size missing in a zone
+          removes that zone, recorded as forced with `location` or `size` as forced_by
+        renders: zones / availabilityZones
+
+      - id: zone_balance
+        ask: Must the instances stay evenly spread over the zones?
+        type: bool
+        plain:
+          en: "Even spread over the zones is {value}."
+          de: "Gleichmäßige Verteilung über die Zonen ist {value}."
+        plain_values:
+          true: { en: "enforced - a scale-out waits for a zone with room rather than skewing", de: "erzwungen; eine Vergrößerung wartet auf eine Zone mit Platz, statt sich zu verschieben" }
+          false: { en: "best effort - instances are added wherever there is room", de: "nach bestem Bemühen; Instanzen kommen dorthin, wo Platz ist" }
+        default: false
+        depends_on: { question: orchestration_mode, equals: Flexible }
+        why: >
+          Strict balance blocks a scale-out when one zone has no capacity, which is the moment
+          capacity was needed; best effort keeps adding instances and rebalances later. Both
+          modules default to `false`; written.
+        renders: zone_balance / zoneBalance
+
+      - id: fault_domain_count
+        ask: Over how many racks should the instances be spread inside a zone?
+        type: int
+        plain:
+          en: "Inside a zone the instances are spread over {value} racks."
+          de: "Innerhalb einer Zone werden die Instanzen auf {value} Racks verteilt."
+        default: 1
+        depends_on: { question: orchestration_mode, equals: Flexible }
+        why: >
+          With zones, 1 is the value Azure documents: the zone is the failure domain and the
+          platform spreads within it on its own. Without zones, use the maximum the region
+          offers (2 or 3) for the best spread - the same constraint as an availability set. A
+          request above the region's maximum fails the deployment. Fixed at creation.
+        forced_when: >
+          Empty `zones` raises the value to the region's maximum (2 or 3), recorded as forced
+          with `zones` as forced_by
+        renders: platform_fault_domain_count / scaleSetFaultDomain
+
+      - id: os_disk_storage
+        ask: Which disk type should the instances' system disks have?
+        type: enum
+        plain:
+          en: "The system disks are {value}."
+          de: "Die Systemplatten sind {value}."
+        plain_values:
+          Premium_LRS: { en: "premium SSD, kept three times in one datacenter", de: "Premium-SSD, dreifach in einem Rechenzentrum" }
+          Premium_ZRS: { en: "premium SSD, kept in three datacenters of the region", de: "Premium-SSD, in drei Rechenzentren der Region" }
+          StandardSSD_LRS: { en: "standard SSD, kept three times in one datacenter", de: "Standard-SSD, dreifach in einem Rechenzentrum" }
+        values: [Premium_LRS, Premium_ZRS, StandardSSD_LRS]
+        default: Premium_LRS
+        why: >
+          An instance is replaceable: if its zone fails, the platform adds one in another zone,
+          so a ZRS disk buys nothing a spread of instances does not already give. Premium SSD
+          because a slow disk is a slow start for every scale-out, and the single-instance SLA
+          needs it. Ephemeral OS disks (`diffDiskSettings`) are the cheaper and faster option for
+          stateless instances and a departure that names the workload.
+        renders: os_disk.storage_account_type / osDisk.managedDisk.storageAccountType
+
+      - id: os_disk_size_gb
+        ask: How large should each system disk be, in GiB?
+        type: int
+        plain:
+          en: "Each system disk is {value} GiB."
+          de: "Jede Systemplatte ist {value} GiB groß."
+        default: 64
+        why: >
+          Billed by tier, not by use, and multiplied by the number of instances - the number is
+          the price. 64 GiB is the next tier over the Ubuntu image (30 GiB). Windows images are
+          127 GiB and cannot be made smaller.
+        forced_when: >
+          `os_type: Windows` forces 128, recorded as forced with `os_type` as forced_by
+        renders: os_disk.disk_size_gb / osDisk.diskSizeGB
+
+      - id: upgrade_mode
+        ask: How should a change to the instance model reach the running instances?
+        type: enum
+        plain:
+          en: "A new model reaches running instances {value}."
+          de: "Ein neues Modell erreicht laufende Instanzen {value}."
+        plain_values:
+          Manual: { en: "only when you update them yourself; new instances get the new model", de: "nur, wenn ihr sie selbst aktualisiert; neue Instanzen bekommen das neue Modell" }
+          Rolling: { en: "in batches, with a health check between batches", de: "in Batches, mit einer Gesundheitsprüfung zwischen den Batches" }
+          Automatic: { en: "all at once", de: "alle auf einmal" }
+        values: [Manual, Rolling, Automatic]
+        default: Manual
+        confirm_in: [production]
+        why: >
+          `Manual` is both modules' default and changes nothing under a running workload: the
+          model moves forward, existing instances keep the old one until the pipeline replaces
+          them. `Rolling` replaces in batches and stops on an unhealthy batch, which needs the
+          health check below and a percent policy; it is the right answer for a fleet that is
+          never taken down together. `Automatic` replaces every instance at once and is not a
+          production answer. Image-based automatic OS upgrades are a further setting this set
+          does not offer.
+        renders: upgrade_policy.upgrade_mode / upgradePolicyMode
+
+      - id: health_check_port
+        ask: On which port does the software answer a health check?
+        type: int
+        plain:
+          en: "The platform checks health on port {value}."
+          de: "Die Plattform prüft die Gesundheit auf Port {value}."
+        required: true
+        why: >
+          Instance repair, rolling upgrades and platform patching all need a signal that an
+          instance is up, and the application health extension is it. Only the workload's
+          engineer knows its port, so there is no default; it is an `open:` entry owned by the
+          workload owner. The extension checks inside the instance on the loopback address.
+        renders: extension (`ApplicationHealthLinux` / `ApplicationHealthWindows`).settings.port / extensionHealthConfig.port
+
+      - id: health_check_path
+        ask: On which path does the software answer a health check?
+        type: string
+        plain:
+          en: "The health check asks {value}."
+          de: "Die Gesundheitsprüfung fragt {value}."
+        default: "/"
+        why: >
+          An HTTP path that returns 200 when the instance can serve, not merely when the process
+          runs - a path that checks the database connection keeps a broken instance in service.
+          `/` is the placeholder every web server answers; the engineer replaces it.
+        renders: extension.settings.requestPath / extensionHealthConfig.requestPath
+
+      - id: instance_repair
+        ask: Should the platform replace an instance that stops answering its health check?
+        type: bool
+        plain:
+          en: "A failing instance is replaced automatically: {value}."
+          de: "Eine ausfallende Instanz wird automatisch ersetzt: {value}."
+        plain_values:
+          true: { en: "yes", de: "ja" }
+          false: { en: "no", de: "nein" }
+        default: true
+        why: >
+          The reliability baseline and the default of both modules. It needs the health check
+          (a rendering without the extension fails the module's own precondition). The grace
+          period of 30 minutes keeps a slow start from being repaired in a loop; shorter risks
+          that, longer leaves a broken instance in service.
+        renders: automatic_instance_repair { enabled, grace_period = "PT30M" } / automaticRepairsPolicyEnabled, gracePeriod
+
+  # --------------------------------------------------------------- networking
+  - id: networking
+    title: Networking
+    questions:
+      - id: workload_subnet
+        ask: Which subnet do the instances' network interfaces live in?
+        type: ref
+        resolved_by: platform
+        plain:
+          en: "Their network connection lands in subnet {value}."
+          de: "Ihre Netzwerkanbindung landet im Subnetz {value}."
+        ref: subnet
+        required: true
+        per_environment: true
+        why: >
+          The workload subnet, not the private endpoint subnet. Every instance takes an address,
+          so the subnet is sized for the maximum, not the initial count; a /24 gives 251
+          addresses. Under `network_ownership: create` it is a subnet of the created network,
+          and this question is answered by that wiring, not asked.
+        forced_when: >
+          `network_ownership: create` - the created network's workload subnet, recorded as
+          forced with the network as forced_by
+        renders: network_interface.ip_configuration.subnet_id / nicConfigurations[].ipConfigurations[].properties.subnet.id
+
+      - id: public_ip
+        ask: Should each instance have its own public address?
+        type: bool
+        plain:
+          en: "Each instance {value} a public address."
+          de: "Jede Instanz {value} eine öffentliche Adresse."
+        plain_values:
+          true: { en: "has", de: "hat" }
+          false: { en: "has no", de: "hat keine" }
+        default: false
+        confirm_in: [production]
+        why: >
+          Instances are replaced at will, so a public address per instance is a management port
+          that appears and disappears with the scale. Traffic reaches the set through whatever
+          is in front of it; people reach an instance through the private network. A departure
+          names the reason.
+        renders: network_interface.ip_configuration.public_ip_address (absent) / ipConfigurations[].properties.publicIPAddressConfiguration (absent)
+
+      - id: load_balancer_backend_pool_ids
+        ask: Which load balancer or Application Gateway backend pools should receive the instances?
+        type: list
+        plain:
+          en: "Instances join the backend pools {value} (empty: nothing in front)."
+          de: "Instanzen treten den Backend-Pools {value} bei (leer: nichts davor)."
+        ref: load_balancer_backend_pool
+        default: []
+        per_environment: true
+        why: >
+          A scale set is a fleet; what makes it a service is the thing in front of it. The pools
+          belong to a load balancer or an Application Gateway that this set does not create, so
+          the ids come from the pattern that wires them. An empty list is a valid set (a worker
+          fleet that pulls from a queue) and the decision records that nothing fronts it.
+        renders: network_interface.ip_configuration.load_balancer_backend_address_pool_ids, application_gateway_backend_address_pool_ids / ipConfigurations[].properties.loadBalancerBackendAddressPools
+
+      - id: accelerated_networking
+        ask: Should the instances' network interfaces use accelerated networking?
+        type: bool
+        plain:
+          en: "Accelerated networking is {value}."
+          de: "Beschleunigtes Netzwerk ist {value}."
+        plain_values:
+          true: { en: "on", de: "an" }
+          false: { en: "off", de: "aus" }
+        default: true
+        why: >
+          Lower latency and less CPU spent on the network at no cost; the Terraform module
+          defaults it to off. A size that does not support it fails the deployment.
+        forced_when: >
+          A size that does not support it forces `false`, recorded as forced with `size` as
+          forced_by
+        renders: network_interface.enable_accelerated_networking / nicConfigurations[].enableAcceleratedNetworking
+
+  # ----------------------------------------------------------------- identity
+  - id: identity
+    title: Identity and access
+    questions:
+      - id: user_assigned_identity_ids
+        ask: Which user-assigned identity do the instances share?
+        type: list
+        plain:
+          en: "The instances use the identity {value}."
+          de: "Die Instanzen nutzen die Identität {value}."
+        ref: user_assigned_identity
+        default: []
+        per_environment: true
+        why: >
+          A Flexible scale set supports **user-assigned identities only** - the module refuses a
+          system-assigned one, so an identity per instance does not exist. One user-assigned
+          identity shared by all instances is the right shape anyway: a role is granted to it
+          once and every new instance has it from its first minute, which a system-assigned
+          identity cannot give. The identity must exist; this set does not create it.
+        renders: managed_identities.user_assigned_resource_ids / managedIdentities.userAssignedResourceIds
+
+      - id: role_assignments
+        ask: Who needs which role on this scale set?
+        type: list
+        plain:
+          en: "Access rights on the scale set granted to: {value} (empty: none)."
+          de: "Zugriffsrechte auf die Skalierungsgruppe vergeben an: {value} (leer: keine)."
+        default: []
+        per_environment: true
+        why: >
+          The roles over the set itself - the people or pipeline that may change its model or
+          scale it - never `Contributor` on the resource group for the sake of one set. Signing
+          in to an instance with Entra needs the system-assigned identity a Flexible set does
+          not have, so access to instances is by key and the private network. Empty is a valid
+          answer.
+        renders: role_assignments / roleAssignments
+
+  # ----------------------------------------------------------------- security
+  - id: security
+    title: Security
+    questions:
+      - id: trusted_launch
+        ask: Should the instances start with secure boot and a virtual security chip?
+        type: bool
+        plain:
+          en: "Trusted launch - secure boot and virtual TPM - is {value}."
+          de: "Trusted Launch - Secure Boot und virtuelles TPM - ist {value}."
+        plain_values:
+          true: { en: "on, so a tampered boot loader or rootkit is refused", de: "an, damit ein manipulierter Bootloader oder ein Rootkit abgewiesen wird" }
+          false: { en: "off", de: "aus" }
+        default: true
+        confirm_in: [production]
+        why: >
+          Secure boot, a virtual TPM and boot integrity monitoring, at no cost, on every
+          generation 2 image and size that supports it; it cannot be added to a set that
+          lacks it. **The Terraform module has no input for it**: the setting is rendered in
+          Bicep and, in Terraform, is a named gap of the module (the authored `azurerm` resource
+          carries it for a Uniform set).
+        forced_when: >
+          A generation 1 gallery image or a size without trusted launch forces `false`,
+          recorded as forced with `image` or `size` as forced_by
+        renders: >
+          bicep: securityType `TrustedLaunch`, secureBootEnabled, vTpmEnabled; terraform: no
+          module input (authored: secure_boot_enabled, vtpm_enabled)
+
+      - id: encryption_at_host
+        ask: Should every disk of the instances, including the temporary one, be encrypted at the host?
+        type: bool
+        plain:
+          en: "Encryption at the host, covering the temporary disk and caches too, is {value}."
+          de: "Verschlüsselung am Host, auch für temporäre Platte und Caches, ist {value}."
+        plain_values:
+          true: { en: "on", de: "an" }
+          false: { en: "off", de: "aus" }
+        default: true
+        confirm_in: [production]
+        why: >
+          The only encryption that covers the temporary disk and the disk cache and reaches the
+          data before it leaves the host. **The modules disagree**: the Bicep module defaults to
+          on, the Terraform one leaves it unset, so it is written. It needs the subscription
+          feature `Microsoft.Compute/EncryptionAtHost` registered, or the deployment fails.
+        renders: encryption_at_host_enabled / encryptionAtHost
+
+      - id: key_management
+        ask: Are the disk encryption keys platform-managed or customer-managed?
+        type: enum
+        plain:
+          en: "Encryption keys are {value}."
+          de: "Verschlüsselungsschlüssel sind {value}."
+        plain_values:
+          platform_managed: { en: "managed by Azure - encrypted, rotated, no effort on your side", de: "von Azure verwaltet: verschlüsselt, rotiert, kein Aufwand bei euch" }
+          customer_managed: { en: "your own, held in your key vault, so you can revoke them", de: "eure eigenen in eurem Schlüsseltresor, damit ihr sie zurückziehen könnt" }
+        values: [platform_managed, customer_managed]
+        from_deployment: key_management
+        confirm_in: [production]
+        why: >
+          Inherited. Disks are encrypted at rest with a platform key either way;
+          `customer_managed` wraps them with a key in the customer's Key Vault through a disk
+          encryption set. For a scale set the set is in the model, so every instance added later
+          takes it - and an instance cannot start if the key is lost.
+        renders: os_disk.disk_encryption_set_id / osDisk.managedDisk.diskEncryptionSet.id
+
+      - id: disk_encryption_set_id
+        ask: Which disk encryption set should encrypt the instances' disks?
+        type: ref
+        plain:
+          en: "Disks are encrypted with your set {value}."
+          de: "Platten werden mit eurem Set {value} verschlüsselt."
+        ref: disk_encryption_set
+        required: true
+        depends_on: { question: key_management, equals: customer_managed }
+        per_environment: true
+        why: >
+          The set references a key in the customer's Key Vault and carries its own identity. It
+          must exist in the set's region before the scale set does.
+        renders: os_disk.disk_encryption_set_id / osDisk.managedDisk.diskEncryptionSet.id
+
+      - id: admin_username
+        ask: What should the local administrator account be called?
+        type: string
+        plain:
+          en: "The local administrator account is called {value}."
+          de: "Das lokale Administratorkonto heißt {value}."
+        default: azureuser
+        why: >
+          Required by the platform. Not `admin`, `administrator` or `root`: Azure refuses them,
+          and a name every scanner tries first is no help. It is the same on every instance and
+          fixed at creation.
+        renders: os_profile.linux_configuration.admin_username / adminUsername
+
+      - id: password_authentication
+        ask: May people sign in with a password?
+        type: bool
+        plain:
+          en: "Signing in with a password is {value}."
+          de: "Die Anmeldung mit Passwort ist {value}."
+        plain_values:
+          true: { en: "allowed", de: "erlaubt" }
+          false: { en: "not allowed; keys only", de: "nicht erlaubt; nur Schlüssel" }
+        from_deployment: local_auth
+        depends_on: { question: os_type, equals: Linux }
+        confirm_in: [production]
+        why: >
+          Inherited, inverted: `local_auth: disabled` renders as `false`. A scale set's
+          instances share one credential, so a password is one password on every instance.
+          Windows has no choice: its administrator password comes from the vault below.
+        renders: os_profile.linux_configuration.disable_password_authentication (inverted) / disablePasswordAuthentication (inverted)
+
+      - id: ssh_public_key
+        ask: Which SSH public key may sign in?
+        type: string
+        plain:
+          en: "The SSH public key {value} may sign in."
+          de: "Der öffentliche SSH-Schlüssel {value} darf sich anmelden."
+        required: true
+        depends_on: { question: os_type, equals: Linux }
+        why: >
+          The same key on every instance. A public key is not a secret, but it is whose key - the
+          person's - so it is an open entry owned by the workload owner until given, and an input
+          variable of the template rather than a literal. Without a key and without a password,
+          nobody enters an instance, which is the intended shape for stateless instances.
+        renders: admin_ssh_keys, os_profile.linux_configuration.admin_ssh_key_id / publicKeys
+
+      - id: admin_password_secret
+        ask: Which Key Vault secret holds the administrator password?
+        type: ref
+        plain:
+          en: "The administrator password is the secret {value}."
+          de: "Das Administratorpasswort ist das Geheimnis {value}."
+        ref: key_vault_secret
+        required: true
+        depends_on: { question: os_type, equals: Windows }
+        per_environment: true
+        why: >
+          A Windows set is created with one administrator password for all instances, and it has
+          to come from somewhere that is not the template. Neither module generates and stores
+          one, so the secret exists beforehand and the deploying identity reads it; the value
+          reaches the template as a secure parameter (Bicep `getSecret`, Terraform a sensitive
+          variable) and never as a literal.
+        renders: admin_password (sensitive variable) / adminPassword from a Key Vault reference
+
+      - id: patch_mode
+        ask: How should operating system updates be installed?
+        type: enum
+        plain:
+          en: "Operating system updates are {value}."
+          de: "Betriebssystem-Updates werden {value}."
+        plain_values:
+          AutomaticByPlatform: { en: "installed by Azure on its own schedule, after checking the region's health", de: "von Azure nach eigenem Plan eingespielt, nachdem die Gesundheit der Region geprüft wurde" }
+          ImageDefault: { en: "left to the operating system's own updater", de: "dem Updater des Betriebssystems selbst überlassen" }
+        values: [AutomaticByPlatform, ImageDefault]
+        default: AutomaticByPlatform
+        confirm_in: [production]
+        why: >
+          Both modules default to platform orchestration. It needs the application health
+          extension (`health_check_port`) and the VM agent in the image; it patches one zone and
+          one batch at a time and stops on an unhealthy instance. For stateless instances the
+          cleaner alternative is replacing them with a newer image through `upgrade_mode`, which
+          makes patching a deployment and not an in-place event.
+        renders: os_profile.linux_configuration.patch_mode, patch_assessment_mode / patchMode, patchAssessmentMode
+
+  # ------------------------------------------------------------ observability
+  - id: observability
+    title: Observability
+    questions:
+      - id: boot_diagnostics
+        ask: Should the instances keep boot screenshots and serial console output?
+        type: bool
+        plain:
+          en: "Boot screenshots and console output are {value}."
+          de: "Boot-Screenshots und Konsolenausgabe werden {value}."
+        plain_values:
+          true: { en: "kept", de: "aufbewahrt" }
+          false: { en: "not kept", de: "nicht aufbewahrt" }
+        default: true
+        why: >
+          The only view of an instance that does not come up, for example after a scale-out in
+          which a new instance fails its health check before anything can be read from it. Uses
+          a managed storage account that Azure owns: no keys, no firewall to open.
+        renders: boot_diagnostics = {} (an empty object is the managed account) / bootDiagnosticEnabled
+
+      - id: diagnostic_workspace
+        ask: Which Log Analytics workspace should receive diagnostics?
+        type: ref
+        resolved_by: platform
+        plain:
+          en: "Its metrics go to {value}."
+          de: "Seine Metriken gehen in {value}."
+        ref: log_analytics_workspace
+        from_deployment: diagnostics_destination
+        per_environment: true
+        why: >
+          Inherited: one deployment, one destination. The set's platform diagnostic setting
+          carries metrics only; the guest's logs and counters need the Azure Monitor Agent and a
+          Data Collection Rule, which this set does not create. **The Terraform module has no
+          diagnostic input**, so the setting is a named gap there and a sibling authored
+          resource.
+        renders: diagnostic_settings (authored) / diagnosticSettings
+
+      - id: metrics_enabled
+        ask: Should all metrics be collected?
+        type: bool
+        plain:
+          en: "Usage and performance figures are {value}."
+          de: "Nutzungs- und Leistungswerte werden {value}."
+        plain_values:
+          true: { en: "collected", de: "erfasst" }
+          false: { en: "not collected", de: "nicht erfasst" }
+        default: true
+        why: >
+          CPU, network and disk throughput across the set are the input to the autoscale rules and
+          to the right-sizing that the `size` default defers, and they are cheap.
+        renders: metrics[].category = "AllMetrics" / diagnosticSettings[].metricCategories
