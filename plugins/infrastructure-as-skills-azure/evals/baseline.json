@@ -1,17 +1,185 @@
 {
-  "startedAt": "2026-10-18T11:27:41.267Z",
+  "startedAt": "2026-10-25T03:20:33.179Z",
   "cases": {
+    "diagram-no-invented-lines": {
+      "skill-fired": {
+        "passed": 3,
+        "total": 3
+      },
+      "target-bicep": {
+        "passed": 3,
+        "total": 3
+      },
+      "no-invented-calls": {
+        "passed": 3,
+        "total": 3
+      },
+      "has-app-service": {
+        "passed": 3,
+        "total": 3
+      },
+      "has-storage-account": {
+        "passed": 3,
+        "total": 3
+      },
+      "has-sql": {
+        "passed": 3,
+        "total": 3
+      },
+      "no-invented-purposes": {
+        "passed": 3,
+        "total": 3
+      },
+      "no-code-before-confirmation": {
+        "passed": 3,
+        "total": 3
+      },
+      "no-hand-drawn-diagram": {
+        "passed": 3,
+        "total": 3
+      }
+    },
+    "language-de-request": {
+      "skill-fired": {
+        "passed": 3,
+        "total": 3
+      },
+      "language-is-de": {
+        "passed": 3,
+        "total": 3
+      },
+      "german-customer-text": {
+        "passed": 3,
+        "total": 3
+      },
+      "final-message-german": {
+        "passed": 3,
+        "total": 3
+      }
+    },
+    "language-en-first-question": {
+      "skill-fired": {
+        "passed": 3,
+        "total": 3
+      },
+      "target-question-asked": {
+        "passed": 3,
+        "total": 3
+      },
+      "no-german-question": {
+        "passed": 3,
+        "total": 3
+      }
+    },
+    "language-en-request": {
+      "skill-fired": {
+        "passed": 3,
+        "total": 3
+      },
+      "language-is-en": {
+        "passed": 3,
+        "total": 3
+      },
+      "no-german-in-spec": {
+        "passed": 3,
+        "total": 3
+      },
+      "final-message-english": {
+        "passed": 3,
+        "total": 3
+      }
+    },
+    "module-source-authored": {
+      "skill-fired": {
+        "passed": 3,
+        "total": 3
+      },
+      "target-terraform": {
+        "passed": 3,
+        "total": 3
+      },
+      "module-source-authored": {
+        "passed": 3,
+        "total": 3
+      },
+      "module-source-not-avm": {
+        "passed": 3,
+        "total": 3
+      },
+      "no-avm-implementation": {
+        "passed": 3,
+        "total": 3
+      },
+      "exposure-private": {
+        "passed": 3,
+        "total": 3
+      },
+      "no-invented-subscription": {
+        "passed": 3,
+        "total": 3
+      },
+      "no-code-before-confirmation": {
+        "passed": 3,
+        "total": 3
+      }
+    },
+    "requirements-stated": {
+      "skill-fired": {
+        "passed": 3,
+        "total": 3
+      },
+      "outage-critical": {
+        "passed": 3,
+        "total": 3
+      },
+      "loss-three-months": {
+        "passed": 3,
+        "total": 3
+      },
+      "access-archive": {
+        "passed": 3,
+        "total": 3
+      },
+      "backup-immutable": {
+        "passed": 3,
+        "total": 3
+      },
+      "residency-country": {
+        "passed": 3,
+        "total": 3
+      },
+      "no-default-requirements": {
+        "passed": 3,
+        "total": 3
+      },
+      "access-tier-cold": {
+        "passed": 3,
+        "total": 3
+      },
+      "module-source-avm-default": {
+        "passed": 3,
+        "total": 3
+      },
+      "no-invented-subscription": {
+        "passed": 3,
+        "total": 3
+      },
+      "no-code-before-confirmation": {
+        "passed": 3,
+        "total": 3
+      }
+    },
     "vague-public-dev": {
       "skill-fired": {
         "passed": 3,
         "total": 3
       },
       "exposure-public": {
-        "passed": 1,
+        "passed": 3,
         "total": 3
       },
       "no-network": {
-        "passed": 1,
+        "passed": 3,
         "total": 3
       },
       "stages-default-stack": {
@@ -31,7 +199,7 @@
         "total": 3
       },
       "open-role-assignments": {
-        "passed": 0,
+        "passed": 3,
         "total": 3
       },
       "no-invented-subscription": {
@@ -55,54 +223,48 @@
         "total": 3
       }
     },
-    "language-de-request": {
-      "skill-fired": {
-        "passed": 1,
-        "total": 1
-      },
-      "language-is-de": {
-        "passed": 1,
-        "total": 1
-      },
-      "german-customer-text": {
-        "passed": 1,
-        "total": 1
-      },
-      "final-message-german": {
-        "passed": 1,
-        "total": 1
-      }
-    },
-    "language-en-first-question": {
+    "trigger-workload-request": {
       "skill-fired": {
         "passed": 3,
         "total": 3
       },
-      "target-question-asked": {
+      "iac-authoring-fired": {
         "passed": 3,
         "total": 3
       },
-      "no-german-question": {
+      "no-terraform-code": {
+        "passed": 3,
+        "total": 3
+      },
+      "no-bicep-code": {
+        "passed": 3,
+        "total": 3
+      },
+      "treated-as-infra-task": {
         "passed": 3,
         "total": 3
       }
     },
-    "language-en-request": {
+    "diagram-before-code-after-change": {
       "skill-fired": {
-        "passed": 1,
-        "total": 1
+        "passed": 3,
+        "total": 3
       },
-      "language-is-en": {
-        "passed": 1,
-        "total": 1
+      "diagram-skill-fired": {
+        "passed": 0,
+        "total": 3
       },
-      "no-german-in-spec": {
-        "passed": 1,
-        "total": 1
+      "change-is-in-the-spec": {
+        "passed": 3,
+        "total": 3
       },
-      "final-message-english": {
-        "passed": 1,
-        "total": 1
+      "no-code-before-signoff": {
+        "passed": 3,
+        "total": 3
+      },
+      "asks-for-signoff": {
+        "passed": 3,
+        "total": 3
       }
     }
   }

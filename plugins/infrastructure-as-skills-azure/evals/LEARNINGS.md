@@ -14,6 +14,31 @@ fix is committed, and put the commit hash in once it exists.
 
 ## Entries
 
+### `diagram-before-code-after-change`, 2026-10-25
+
+- **Symptom:** The case never ran (invalid `case.yaml`: the `llm` grader used `target` and
+  `prompt` instead of `focus` and `criteria`). Once loadable it failed 0/3 on
+  `no-code-before-signoff`, `asks-for-signoff` and `diagram-skill-fired`: the plugin wrote the
+  whole IaC, tests included, without drawing or asking.
+- **Cause:** The plugin. The sign-off rule existed, but the request said "dann schreibe den
+  Terraform-Code" and nobody could answer, and the run took the order over the rule.
+- **Fix:** A paragraph in Phase 5 of `iac-authoring`: a request for code is not the sign-off,
+  and a run nobody can answer ends after the diagram with the question and no code. Grader
+  keys corrected.
+- **After:** 3/3 on `no-code-before-signoff` and `asks-for-signoff`. `diagram-skill-fired`
+  stays 0/3: it is an indicator, and the run names the diagram without calling the skill.
+
+### `diagram-no-invented-lines`, 2026-10-25
+
+- **Symptom:** `no-invented-purposes` 0/3, `has-sql` 1/3.
+- **Cause:** Both graders. The request calls the app "Bestell-App", so a purpose for the app
+  service is a fair reading; only a purpose for storage or SQL is invented. Azure SQL has no
+  question set, so it is a module entry and an open item, not a `resources:` key.
+- **Fix:** `no-invented-purposes` forbids a purpose for storage-account and sql-*; `has-sql`
+  accepts any mention of `sql-database` or `sql-server`. A rewrite first turned `` into a
+  backspace (0/3 again): test a pattern from the file on disk, not from the edit.
+- **After:** 3/3 on both.
+
 ### `diagram-external-and-optional`, 2026-10-18
 
 - **Symptom:** `no-invented-cache-call` failed, 1 of 1 runs. The spec carried

@@ -29,8 +29,8 @@ graders:
   - name: asks-for-signoff
     type: llm
     weight: 2
-    target: { source: final_message }
-    prompt: |
+    focus: last_message
+    criteria: |
       PASS if the message presents or announces the architecture diagram and asks the
       person to confirm or sign it off before the code is written.
       FAIL if it reports the code as done, or ends without asking for the diagram's approval.

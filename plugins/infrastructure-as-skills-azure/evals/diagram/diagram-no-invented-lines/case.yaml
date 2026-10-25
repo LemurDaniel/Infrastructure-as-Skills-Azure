@@ -22,7 +22,8 @@ graders:
     pattern: 'from:\s*\W?(?:app-service|storage-account|sql-server|sql-database)\b'
     match: not_contains
 
-  # The spec holds all three resources, under whatever key the SQL one takes.
+  # The spec holds all three resources. Azure SQL has no question set yet, so it is a module
+  # entry and an open item rather than a resource key - any mention of it counts.
   - name: has-app-service
     type: regex
     target: { source: file, path: infra/infra-spec.yaml }
@@ -38,14 +39,14 @@ graders:
   - name: has-sql
     type: regex
     target: { source: file, path: infra/infra-spec.yaml }
-    pattern: '^\s{2}sql-[a-z-]+:'
-    flags: m
+    pattern: 'sql-(?:database|server)\b'
 
-  # The request gives no purpose for anything.
+  # The request calls the app "Bestell-App", so the app service may carry that as its purpose.
+  # It says nothing about what the storage account or the database is for.
   - name: no-invented-purposes
     type: regex
     target: { source: file, path: infra/infra-spec.yaml }
-    pattern: '^\s{2}purposes:'
+    pattern: '^\s{2}purposes:\s*(?:#[^\n]*\s*)*(?:\{\s*)?(?:value:\s*)?\{[^}]*\b(?:storage-account|sql-[a-z]+)\s*:'
     flags: m
     match: not_contains
 
