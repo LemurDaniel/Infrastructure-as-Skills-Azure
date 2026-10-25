@@ -1,0 +1,41 @@
+schema_version: 1
+
+# Private endpoints and nobody named for the private DNS zones: the zones are drawn, marked open.
+spec:
+  id: dns-open
+  target: terraform
+  at: 2026-10-25T12:00:00Z
+
+context:
+  language: de
+  environments: [production]
+  location: westeurope
+  workload: shop
+  resource_group_name:
+    production: rg-shop-prod-we
+
+deployment:
+  network_exposure: { value: private, source: stated }
+  network_ownership: { value: create, source: stated }
+  address_space: { value: 10.30.0.0/16, source: asked }
+  local_auth: { value: disabled, source: default }
+
+wiring:
+  access:
+    value:
+      - { from: app-service, to: storage-account }
+    source: stated
+
+resources:
+  app-service:
+    networking:
+      public_network_access: { value: disabled, source: deployment }
+  storage-account:
+    networking:
+      public_network_access: { value: disabled, source: deployment }
+
+open:
+  - key: deployment.private_dns_ownership
+    question: Who owns the private DNS zones?
+    owner: platform team
+    blocks: apply

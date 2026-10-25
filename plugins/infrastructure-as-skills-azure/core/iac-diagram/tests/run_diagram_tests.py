@@ -75,7 +75,7 @@ def generic(cells):
             if "{'" in v[field] or 'None' in v[field] or "['" in v[field]:
                 bad.append(f"{k}: label leaks Python syntax: {v[field][:60]!r}")
     for k, v in vertices(cells).items():
-        if 'container=1' in v['style']:
+        if 'container=1' in v['style'] and 'strokeColor=none' not in v['style']:   # the invisible outer cell of a split
             if 'rounded=1' not in v['style']:
                 bad.append(f"{k}: container without rounded corners")
             if 'fillColor=none' in v['style'] or 'fillColor=' not in v['style']:
@@ -304,11 +304,13 @@ def case_resource_groups_split(cells):
     when the group is created, dashed when it exists. Five services in two groups (data, and main
     - application is not split off) give the side layout. A framed resource carries no tag (the frame says it), compute in the subnets does; the
     network is the network group's frame, the support zone has a frame per group, the monitoring
-    zone's title names its group, and the outer frame is no group's name."""
+    zone's title names its group, and nothing is framed around everything."""
     bad = []
     outer = cells.get('rg', {}).get('value', '')
-    if 'Deployment' not in outer or 'rg-shop-prod-we' in outer or 'Resource groups' in outer:
-        bad.append(f"the outer frame is not the deployment's, or names a group: {outer[:80]!r}")
+    if 'rg-shop-prod-we' in outer or 'Resource groups' in outer or 'Deployment' in outer:
+        bad.append(f"the outer cell names a group or says deployment: {outer[:80]!r}")
+    if 'strokeColor=none' not in cells.get('rg', {}).get('style', ''):
+        bad.append("a frame is drawn around everything with a split")
     if 'rg-icon' in cells:
         bad.append("the outer frame carries the resource group icon - the deployment would be mistaken for a group")
     for frame, tag, dashed in (('rg-data', 'data (created)', False), ('rg-main', 'main (created)', False),
@@ -380,12 +382,82 @@ def case_resource_groups_small(cells):
 def case_no_split_no_group_tags(cells):
     """One group, no split: nothing is tagged and the frame keeps the group's own name."""
     bad = [f"{k}: carries a group tag without a split" for k, v in cells.items() if FOLDER in v['value']]
-    if 'rg-icon' not in cells:
-        bad.append('the single resource group lost its icon')
+    if 'rg-icon' in cells:
+        bad.append('a frame with a resource group icon is back')
     if 'rg-shop-prod-we' not in cells.get('rg', {}).get('value', ''):
-        bad.append('the frame lost the resource group name')
+        bad.append('the resource group name is gone from the top line')
     if 'Resource groups' in ' '.join(v['value'] for v in cells.values()):
         bad.append('a panel line about resource groups is drawn without a split')
+    return bad
+
+
+def case_entry_chain(cells):
+    """Front Door stands with the actors, the gateway and API Management in their subnets in the
+    order a request meets them, the containers are words on the account (no box of their own),
+    the topic's delivery into the function is a word on its label and no line, and what is
+    reachable from the internet by what it is carries the warning."""
+    bad = []
+    if not cells['res-front-door']['parent'].startswith('z-act'):
+        bad.append('front-door is not in a zone of its own left of the network')
+    if cells['act-users']['parent'] == cells['res-front-door']['parent']:
+        bad.append('the users and Front Door share a zone')
+    if 'z-top-0' not in cells or not inside(cells, 'act-external-entra-id', 'z-top-0'):
+        bad.append('the directory is not in a zone above the network')
+    if 'strokeColor=none' not in cells.get('rg', {}).get('style', ''):
+        bad.append('a frame is drawn around everything')
+    for res, sn in (('application-gateway', 'snet-gateway'), ('api-management', 'snet-apim'), ('function-app', 'snet-func')):
+        frame = next((k for k, v in cells.items() if k.startswith('snet-c') and sn in v['value']), None)
+        if frame is None or not inside(cells, f'res-{res}', frame):
+            bad.append(f"{res} is not in {sn}")
+    pos = [absolute(cells, f'res-{r}') for r in ('application-gateway', 'api-management', 'function-app')]
+    if [p[0] for p in pos] != sorted(p[0] for p in pos):
+        bad.append(f"the subnets are not left to right in the order of the request: {[p[0] for p in pos]}")
+    if len({round(p[1]) for p in pos}) > 1:
+        bad.append(f"the chain is not one row: {[p[1] for p in pos]}")
+    call = [e for e in edges(cells).values() if e['target'] == 'res-storage-account' and e['source'].startswith('snet-c')]
+    if len(call) != 1 or len(call[0]['points']) != 2:
+        bad.append('the call from the function into the storage account is not one line out of its subnet along a lane')
+    for kind, n in (('network-security-group', 3), ('user-assigned-identity', 2)):
+        b = f'res-bundle.{kind}.main'
+        if b not in cells or f'{n}× ' not in label_of(cells, b):
+            bad.append(f'the {n} {kind} resources are not one bundle icon')
+    if any(k.startswith(('res-network-security-group__', 'res-user-assigned-identity__')) for k in cells):
+        bad.append('a security group or identity has an icon of its own beside the bundle')
+    for e in edges(cells).values():
+        if e['source'] == 'res-application-gateway' and e['target'] == 'res-api-management' and e['points']:
+            bad.append('the line between two neighbours in the chain is not straight')
+    if 'res-blob-container' in cells:
+        bad.append('the blob container has a box of its own')
+    if 'order-documents' not in label_of(cells, 'res-storage-account'):
+        bad.append('the container names are not on the storage account')
+    for res in ('front-door', 'application-gateway', 'function-app'):
+        if 'aus dem Internet erreichbar' not in label_of(cells, f'res-{res}'):
+            bad.append(f"{res} is not marked as reachable from the internet")
+    if 'pe-bundle' in cells and any(r in label_of(cells, 'pe-bundle') for r in ('Gateway', 'API Management')):
+        bad.append('the gateway or API Management got a private endpoint')
+    if any(e['source'] == 'res-event-grid-topic' and e['target'] == 'res-function-app' for e in edges(cells).values()):
+        bad.append('the delivery into the function is a line again')
+    if 'Event Grid Topic' not in label_of(cells, 'res-function-app'):
+        bad.append('the delivery is not on the function label')
+    for src_, dst_ in (('act-users', 'res-front-door'), ('res-front-door', 'res-application-gateway'), ('res-api-management', 'act-external-entra-id')):
+        e = [e for e in edges(cells).values() if e['source'] == src_ and e['target'] == dst_]
+        if not e:
+            bad.append(f'no line {src_} -> {dst_}')
+        elif e[0]['points']:
+            bad.append(f'the line {src_} -> {dst_} is not one straight stretch')
+    return bad
+
+
+def case_dns_open(cells):
+    """Private endpoints and no answer on who owns the zones: the zones are drawn anyway, red,
+    marked open - not left out as if no name resolution were needed."""
+    bad = []
+    if 'dns' not in cells:
+        return ['the private DNS zones are not drawn although private endpoints exist']
+    if 'D13438' not in cells['dns']['style'] and 'D13438' not in cells['dns']['value']:
+        bad.append('the open zones are not red')
+    if 'offen' not in cells['dns']['value']:
+        bad.append('the zones do not say they are open')
     return bad
 
 
@@ -397,6 +469,8 @@ CASES = [
     ('private-stages-open', os.path.join(FIXTURES, 'private-stages-open.yaml'), 'de', case_private_stages_open),
     ('resource-groups-split', os.path.join(FIXTURES, 'resource-groups-split.yaml'), 'en', case_resource_groups_split),
     ('resource-groups-small', os.path.join(FIXTURES, 'resource-groups-small.yaml'), 'de', case_resource_groups_small),
+    ('dns-open', os.path.join(FIXTURES, 'dns-open.yaml'), 'de', case_dns_open),
+    ('entry-chain', os.path.join(FIXTURES, 'entry-chain.yaml'), 'de', case_entry_chain),
     ('no-split-no-group-tags', os.path.join(FIXTURES, 'public-webshop.yaml'), 'en', case_no_split_no_group_tags),
 ]
 

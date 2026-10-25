@@ -1,0 +1,100 @@
+schema_version: 1
+
+# Front Door, a gateway and API Management in front of a function app, and a topic delivering to it:
+# the edge service stands with the actors, the gateway and API Management in their subnets, the
+# containers are words on the storage account, the delivery into compute is a word on the function.
+spec:
+  id: orders-chain
+  target: terraform
+  at: 2026-10-25T12:00:00Z
+
+context:
+  language: de
+  environments: [production]
+  location: germanywestcentral
+  workload: orders
+  resource_group_name:
+    production: rg-orders-prod-gwc
+
+deployment:
+  landing_zone: { value: standalone, source: default }
+  network_exposure: { value: private_with_exceptions, source: stated }
+  network_ownership: { value: create, source: default }
+  address_space: { value: 10.102.0.0/23, source: asked }
+  private_endpoint_subnet_prefix: { value: 10.102.0.0/27, source: default }
+  observability_ownership: { value: create, source: forced, forced_by: deployment.landing_zone }
+  private_dns_ownership: { value: deployment, source: forced, forced_by: deployment.landing_zone }
+  local_auth: { value: disabled, source: stated }
+
+wiring:
+  access:
+    value:
+      - { from: users, to: front-door, label: HTTPS 443 }
+      - { from: front-door, to: application-gateway, label: nur Front Door }
+      - { from: application-gateway, to: api-management }
+      - { from: api-management, to: function-app, label: Backend }
+      - { from: api-management, to: external:entra-id, label: validate-jwt }
+      - { from: storage-account, to: event-grid-topic, label: blob events }
+      - { from: event-grid-topic, to: function-app, label: Zustellung }
+      - { from: function-app, to: storage-account, label: Zustand }
+    source: stated
+
+resources:
+  virtual-network:
+    addressing:
+      subnets:
+        value:
+          production:
+            - { name: snet-endpoints, prefix: 10.102.0.0/27 }
+            - { name: snet-apim, prefix: 10.102.0.32/27 }
+            - { name: snet-func, prefix: 10.102.0.64/26 }
+            - { name: snet-gateway, prefix: 10.102.1.0/24 }
+        source: stated
+  front-door:
+    profile:
+      sku: { value: Premium_AzureFrontDoor, source: stated }
+  application-gateway:
+    gateway:
+      gateway_subnet: { value: { production: snet-gateway }, source: forced, forced_by: deployment.network_ownership }
+    networking:
+      frontend_exposure: { value: public, source: overridden, reason: Front Door reaches the gateway over its public frontend. }
+  api-management:
+    service:
+      sku: { value: Premium, source: stated }
+    networking:
+      network_integration: { value: internal, source: stated }
+      apim_subnet: { value: { production: snet-apim }, source: forced, forced_by: deployment.network_ownership }
+      public_network_access: { value: disabled, source: deployment }
+  function-app:
+    networking:
+      public_network_access: { value: enabled_with_firewall, source: overridden, reason: Event Grid delivers over the public path. }
+      integration_subnet: { value: { production: snet-func }, source: forced, forced_by: deployment.network_ownership }
+  storage-account:
+    networking:
+      public_network_access: { value: disabled, source: deployment }
+  blob-container:
+    placement:
+      storage_account: { value: { production: storage-account }, source: stated }
+    containers:
+      container_names: { value: [order-documents, eventgrid-deadletter], source: stated }
+  event-grid-topic:
+    networking:
+      public_network_access: { value: disabled, source: deployment }
+  log-analytics-workspace:
+    cost:
+      retention_days: { value: 30, source: default }
+  network-security-group__gateway:
+    rules:
+      subnet_purpose: { value: workload, source: stated }
+  network-security-group__apim:
+    rules:
+      subnet_purpose: { value: workload, source: stated }
+  network-security-group__func:
+    rules:
+      subnet_purpose: { value: app_integration, source: stated }
+  user-assigned-identity__func:
+    identity:
+      purpose: { value: the function app, source: stated }
+  user-assigned-identity__gateway:
+    identity:
+      purpose: { value: the application gateway, source: stated }

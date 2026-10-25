@@ -31,6 +31,8 @@ import drawio_png  # noqa: E402
 IMPLIED = {'application-insights', 'virtual-network', 'log-analytics-workspace'}
 # Resources the script draws under a fixed id instead of res-<key>.
 FIXED_IDS = {'virtual-network': 'vnet', 'log-analytics-workspace': 'law'}
+# Children of a storage account have no icon; their names are on the account's label.
+CHILD_KINDS = {'blob-container', 'file-share', 'queue'}
 TRANSLITERATED = re.compile(r'\b(ueber\w*|oeffentlich\w*|fuer|koennen|muessen|zurueck\w*|loesch\w*|aender\w*|vorhanden\s+-\s+wird\s+nicht\s+erstell\w*\s+fuer)\b', re.I)
 
 
@@ -51,9 +53,14 @@ def verify(spec, cells, language):
     bad = []
     resources = list((spec.get('resources') or {}).keys())
     drawn = {k[4:] for k in cells if k.startswith('res-') and not k.endswith('-icon')}
+    # a bundle (`bundle.<kind>.<role>`) stands for every resource of that kind
+    bundles = {k for k in drawn if k.startswith('bundle.')}
+    drawn -= bundles
+    for b in bundles:
+        drawn |= {r for r in resources if r.partition('__')[0] == b.split('.')[1]}
     drawn |= {k for k, cid in FIXED_IDS.items() if cid in cells}
     for k in resources:
-        if k not in drawn:
+        if k not in drawn and k.partition('__')[0] not in CHILD_KINDS:
             bad.append(f"resource '{k}' is in the spec but not drawn")
     for k in sorted(drawn - set(resources) - IMPLIED):
         bad.append(f"'{k}' is drawn but not in the spec")

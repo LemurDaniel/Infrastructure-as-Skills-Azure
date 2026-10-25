@@ -242,6 +242,18 @@ the detail; this list says what was decided and why, so a session does not reope
   which has the forced chains and the questions (owner's call, 2026-10-24). `private_with_exceptions`
   names its exceptions in the subtitle and the footer like `private` does; before, the
   footer claimed "no public access" over a public Container App.
+- **The diagram has a chain layout** (2026-10-25, from `examples/orders-integration`, owner's
+  pictures to copy): three or more subnets of compute that call each other - gateway, API
+  management, function - stand as columns in the order of `wiring.access`, the private
+  endpoints the last, the line between neighbours straight. Actors that start a request
+  (users, Front Door) are zones of their own left of the network at the row's height, one that
+  is only called (Entra ID) a zone above its caller; identities, monitoring and name
+  resolution stand in a column under them, security groups and identities of one kind as one
+  icon. Calls into services leave the bottom of the subnet along a lane; a call from a
+  service into compute (Event Grid delivering to a function) is a word on the function, no
+  line. No frame around everything, with or without a resource group split. Private DNS
+  zones with nobody named for them are drawn red and *open*, not left out. Not done: the
+  PaaS-to-PaaS lines along the strip above a compact row are still the noisiest part.
 - `docs/process.drawio.png` and `docs/process-agents.drawio.png` show the flow of
   2026-10-24, `docs/skills.drawio.png` the skills, the entry and how the units relate
   (generator in the owner's `drawio-diagrams` skill style; the PNG is the source). The

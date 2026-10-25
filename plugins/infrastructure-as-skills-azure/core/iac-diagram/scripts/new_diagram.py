@@ -100,6 +100,7 @@ LABELS = {
         'rgRole_main': 'main', 'rgRole_network': 'network', 'rgRole_data': 'data', 'rgRole_application': 'application',
         'rgRole_observability': 'monitoring', 'rgRole_security': 'security',
         'keyless': ' Access to the resources is by identity, no keys.',
+        'dnsOpen': 'open - owner not decided', 'entry': 'Entry', 'children': 'Containers', 'children_file-share': 'File shares', 'children_queue': 'Queues',
     },
     'de': {
         'internet': 'Internet', 'users': 'Benutzer', 'noPublic': 'kein öffentlicher Zugriff', 'existing': 'vorhanden - wird nicht erstellt',
@@ -124,6 +125,7 @@ LABELS = {
         'rgRole_main': 'Haupt', 'rgRole_network': 'Netzwerk', 'rgRole_data': 'Daten', 'rgRole_application': 'Anwendung',
         'rgRole_observability': 'Überwachung', 'rgRole_security': 'Sicherheit',
         'keyless': ' Zugriffe auf die Ressourcen laufen über Identitäten, ohne Schlüssel.',
+        'dnsOpen': 'offen - Zuständigkeit ungeklärt', 'entry': 'Eingang', 'children': 'Container', 'children_file-share': 'Dateifreigaben', 'children_queue': 'Warteschlangen',
     },
 }
 
@@ -186,6 +188,14 @@ SUPPORT_KINDS = {'user-assigned-identity', 'network-security-group'}
 # The resource group role of a kind (iac-rendering/references/resource-groups.md). A role that is
 # not split off (deployment.resource_group_split) is part of `main`; a resource may depart with
 # `placement.resource_group`.
+# Resources that stand in a subnet of the network without being compute: the decision that names
+# the subnet, per kind. Drawn like compute, in that subnet, and without a private endpoint.
+HOSTED_DEFAULT_SUBNET = {'application-gateway': 'snet-gateway', 'api-management': 'snet-apim'}
+SUBNET_HOSTED = {'application-gateway': ['gateway', 'gateway_subnet'], 'api-management': ['networking', 'apim_subnet']}
+# A global service in front of the network: drawn with the actors, outside it.
+EDGE_KINDS = {'front-door'}
+# Children of a storage account: no icon of their own, their names go on the account's label.
+CHILD_KINDS = {'blob-container': 'container_names', 'file-share': 'share_names', 'queue': 'queue_names'}
 RG_ROLES_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', 'iac-rendering', 'references', 'resource-group-roles.yaml')
 RG_ROLE = {}   # kind -> role, read from RG_ROLES_FILE in main (it needs PyYAML)
 DELEGATIONS = {'app-service': 'Microsoft.Web/serverFarms', 'function-app': 'Microsoft.Web/serverFarms',
@@ -194,7 +204,11 @@ DELEGATIONS = {'app-service': 'Microsoft.Web/serverFarms', 'function-app': 'Micr
 
 def base(key):
     """A second resource of one kind is `<set>__<instance>` in the spec (spec.md, "Several of a
-    kind"); everything that looks a kind up - icon, title, question set - reads the set."""
+    kind"); everything that looks a kind up - icon, title, question set - reads the set.
+    A bundle (`bundle.<kind>.<role>`, the chain layout's one icon for several identities or
+    security groups) is its kind."""
+    if key.startswith('bundle.'):
+        return key.split('.')[1]
     return key.partition('__')[0]
 
 # A slot holds an icon and up to four label lines below it. The label is given
@@ -422,6 +436,8 @@ def main():
 
     def rg_role(k):
         """The role whose group holds a resource: its own `placement`, else the kind's, else main."""
+        if k.startswith('bundle.'):
+            return k.split('.')[2]
         node = resources.get(k) if isinstance(resources.get(k), dict) else {}
         placed = s(get_decision(node, ['placement', 'resource_group']))
         role = placed or RG_ROLE.get(base(k), 'main')
@@ -430,9 +446,40 @@ def main():
     def rg_title(role):
         return f"{T['rgRole_' + role]} ({T['rgNew'] if rg_modes[role] == 'create' else T['rgOld']})"
 
-    compute = [k for k in res_keys if base(k) in COMPUTE_KINDS]
+    def hosted_subnet(k):
+        """The subnet the spec names for a hosted resource, else the one its kind usually gets."""
+        return subnet_name(get_decision(resources[k], SUBNET_HOSTED[base(k)]), res_keys) or HOSTED_DEFAULT_SUBNET[base(k)]
+
+    def is_hosted(k):
+        """A gateway always stands in a subnet; API Management when it is injected (network_integration
+        or virtual_network_type internal/external, or a subnet named)."""
+        if base(k) not in SUBNET_HOSTED or not draw_vnet or not isinstance(resources.get(k), dict):
+            return False
+        node = resources[k]
+        mode = s(get_decision(node, ['networking', 'network_integration']) or get_decision(node, ['networking', 'virtual_network_type'])).lower()
+        if mode == 'none':
+            return False
+        if base(k) == 'api-management':
+            return mode in ('internal', 'external') or bool(subnet_name(get_decision(node, SUBNET_HOSTED[base(k)]), res_keys))
+        return True
+
+    # Children of a storage account are words on its label, not icons.
+    children_of = {}
+    for k in res_keys:
+        if base(k) in CHILD_KINDS and isinstance(resources[k], dict):
+            parent, names = None, []
+            for grp in resources[k].values():
+                if isinstance(grp, dict):
+                    parent = parent or get_value(grp.get('storage_account'))
+                    names += [s(n) for n in as_list(get_value(grp.get(CHILD_KINDS[base(k)]))) if n]
+            if parent in resources:
+                children_of.setdefault(parent, []).append((base(k), names))
+    child_keys = {k for k in res_keys if base(k) in CHILD_KINDS}
+    edge_res = [k for k in res_keys if base(k) in EDGE_KINDS]
+    compute = [k for k in res_keys if base(k) in COMPUTE_KINDS or is_hosted(k)]
     paas = [k for k in res_keys if base(k) not in COMPUTE_KINDS and base(k) not in MONITOR_KINDS
-            and base(k) not in SUPPORT_KINDS and k != 'virtual-network']
+            and base(k) not in SUPPORT_KINDS and k != 'virtual-network' and k not in child_keys
+            and k not in edge_res and not is_hosted(k)]
     support = [k for k in res_keys if base(k) in SUPPORT_KINDS]
     # With a split, the services and the support resources stand group by group, each group in a
     # frame of its own; one group in a zone is only a tag. The order puts a group's resources together.
@@ -468,7 +515,7 @@ def main():
     # and not a public-access departure. A Container Apps environment is injected into its
     # subnet (internal), it has no endpoint unless the spec names a subnet for one.
     INJECTED_KINDS = {'container-app', 'container-apps', 'container-apps-environment'}
-    with_pe = [k for k in drawn if base(k) not in SUPPORT_KINDS
+    with_pe = [k for k in drawn if base(k) not in SUPPORT_KINDS and not is_hosted(k)
                and (base(k) not in INJECTED_KINDS or pe_subnet_of(k) is not None)
                and (is_private or pe_subnet_of(k) is not None) and (pna(k) == 'disabled' or pe_subnet_of(k) is not None)]
 
@@ -479,8 +526,13 @@ def main():
 
     # A private posture with a named departure (a workspace left public) is not "no public access":
     # the subtitle and the footer name the exception instead of claiming everything.
+    def public_front(k):
+        """Reachable from the internet by what it is, with no public_network_access question: Front Door,
+        and a gateway whose frontend the spec makes public."""
+        node = resources.get(k) if isinstance(resources.get(k), dict) else {}
+        return base(k) in EDGE_KINDS or (base(k) == 'application-gateway' and s(get_decision(node, ['networking', 'frontend_exposure'])) == 'public')
     public_exceptions = [k for k in res_keys if exposure in ('private', 'private_with_exceptions') and base(k) not in SUPPORT_KINDS
-                         and k != 'virtual-network' and pna(k) != 'disabled']
+                         and k != 'virtual-network' and k not in child_keys and (pna(k) != 'disabled' or public_front(k))]
     # With two instances of one kind (`app-service__web`, `app-service__mcp`) the exception names the
     # instance - "App Service" alone would read as both.
     def exception_name(k):
@@ -570,11 +622,19 @@ def main():
         for k in (compute or paas):
             access.append({'from': 'internet', 'to': k, 'label': 'HTTPS'})
 
+    # A line from a service into compute (Event Grid delivering to a function) has no route that
+    # stays clear of the icons between them; it is a word on the target's label, like a role.
+    deliveries = {}
+    for a in access:
+        if a['from'] in paas and a['to'] in compute:
+            deliveries.setdefault(a['to'], []).append((a['from'], a['label']))
+    access = [a for a in access if not (a['from'] in paas and a['to'] in compute)]
+
     # Only these are actors outside the deployment. A name that is neither an actor nor a
     # resource in the spec is a mistake in the spec - drawing it as an actor would put a
     # resource the deployment does not build into the customer's picture.
     def is_actor(name):
-        return name in ('internet', 'users') or name.startswith('external:')
+        return name in ('internet', 'users') or name.startswith('external:') or name in edge_res
 
     valid = []
     for a in access:
@@ -584,6 +644,40 @@ def main():
         else:
             valid.append(a)
     access = valid
+
+    # Compute is drawn in the order a request meets it (gateway, API management, function), not
+    # in the alphabet: the first appearance in wiring.access, sources before targets.
+    first_seen = {}
+    for a in access:
+        for name in (a['from'], a['to']):
+            first_seen.setdefault(name, len(first_seen))
+    compute = sorted(compute, key=lambda k: first_seen.get(k, len(first_seen)))
+    # Services that call each other stand next to each other: the same order, alphabetical among the rest.
+    # (A split into resource groups sorts by group first, and keeps this order inside a group.)
+    paas = sorted(paas, key=lambda k: (first_seen.get(k, len(first_seen)), k))
+    # Services with a line between them stand next to each other in the row, a path of them end to end:
+    # walk from the services with one partner along their partners, then the rest.
+    partners = {}
+    for a in access:
+        if a['from'] in paas and a['to'] in paas and a['from'] != a['to']:
+            partners.setdefault(a['from'], []).append(a['to'])
+            partners.setdefault(a['to'], []).append(a['from'])
+    walked = []
+
+    def walk(k):
+        while k is not None and k not in walked:
+            walked.append(k)
+            k = next((n for n in partners.get(k, []) if n not in walked), None)
+    receiving = {a['to'] for a in access if a['from'] in paas and a['to'] in paas}
+    ends = [k for k in paas if len(set(partners.get(k, []))) == 1]
+    for k in sorted(ends, key=lambda k: k in receiving) + [k for k in paas if k in partners]:
+        walk(k)
+    paas = walked + [k for k in paas if k not in walked]
+    if paas_grouped:
+        paas = sorted(paas, key=lambda k: rg_order.index(rg_role(k)))
+    if support_grouped:
+        support = sorted(support, key=lambda k: rg_order.index(rg_role(k)))
+    drawn = compute + paas + support
 
     actors = []
     for a in access:
@@ -623,6 +717,53 @@ def main():
                         role_lines[rk].append(line)
     role_principals = {k: {ln.split(':', 1)[0] for ln in v} for k, v in role_lines.items()}
 
+    def compute_subnet(k):
+        if is_hosted(k):
+            return hosted_subnet(k)
+        n = subnet_name(get_decision(resources[k], ['networking', 'integration_subnet'])
+                        or get_decision(resources[k], ['environment', 'infrastructure_subnet']), res_keys)
+        if n:
+            return n
+        for sn in other_subnets:
+            if 'integration' in sn['name'] or 'app' in sn['name']:
+                return sn['name']
+        return other_subnets[0]['name'] if other_subnets else T['computeSubnet']
+
+    # Chain layout: three or more subnets of compute that call each other in a row (gateway, API
+    # management, function) stand side by side in the order of the request, the line between two
+    # of them straight; the private endpoints are the last column. The calls into the services
+    # are words on the services (`<- caller`), not lines: they would cross the whole row.
+    n_inter = sum(1 for a in access if a['from'] in compute and a['to'] in compute)
+    chain = bool(draw_vnet and n_inter >= 2 and any(is_hosted(k) for k in compute) and len({compute_subnet(k) for k in compute}) >= 3)
+
+    # In the chain layout identities and security groups of one kind (and group) are one icon, as
+    # private endpoints and DNS zones are: `4x Network Security Group`, the instances' names under it.
+    bundle_members = {}
+    if chain and len(support) > 1:
+        by_kind = {}
+        for k in support:
+            by_kind.setdefault((base(k), rg_role(k)), []).append(k)
+        support = []
+        for (kind, role), ks in by_kind.items():
+            if len(ks) == 1:
+                support.append(ks[0])
+            else:
+                bundle_members[f"bundle.{kind}.{role}"] = ks
+                support.append(f"bundle.{kind}.{role}")
+        support_grouped = len({rg_role(k) for k in support}) > 1
+        if support_grouped:
+            support = sorted(support, key=lambda k: rg_order.index(rg_role(k)))
+        drawn = compute + paas + support
+
+    # In the chain layout the actors that start a request stand in zones of their own left of the
+    # network, at the height of the row; an actor that is only called (the directory) stands above
+    # the caller's column, so the line to it is one straight stretch up.
+    sources_ = {a['from'] for a in access}
+    left_actors = [n for n in actors if n in sources_ or n in edge_res] if chain else []
+    top_actors = [n for n in actors if chain and n not in left_actors]
+    chain_left_w = (len(left_actors) * ZONE_W + (len(left_actors) - 1) * 20) if left_actors else 0
+    TOP_BAND = 110 + PAD
+
     callers = []
     for a in access:
         if a['from'] in compute and a['to'] in paas and a['from'] not in callers:
@@ -630,7 +771,7 @@ def main():
     # Side layout: with four or more services the PaaS zone is a column beside the network, as in
     # a hand-drawn architecture - short horizontal lines through a routing channel of their own,
     # one track per caller - and not a block below it that every line has to bend around.
-    side = bool(draw_vnet and callers and len(paas) >= 4)
+    side = bool(draw_vnet and callers and len(paas) >= 4 and not chain)
     # Group frames need room: in the side layout they stack in the services' column, in the compact
     # layout they stand side by side in the one row the callers' lines expect - which takes at most
     # eight services.
@@ -688,6 +829,9 @@ def main():
             if a['from'] in role_principals.get(a['to'], ()):
                 callers_listed_in_roles.add((a['to'], who))
 
+    if chain:
+        callers = []   # the hub machinery is for the other layouts; the chain has its own lanes below
+
     def display_name(p):
         """A principal as the picture names it: the kind's title and the instance, not the spec key
         (`user-assigned-identity__web` -> `Managed Identity · web`), which wrapped at every hyphen."""
@@ -696,6 +840,13 @@ def main():
         return p
 
     def resource_label(k):
+        if k in bundle_members:
+            names = [x.partition('__')[2] or x for x in bundle_members[k]]
+            sub = ', '.join(names[:3]) + (f" +{len(names) - 3}" if len(names) > 3 else '')
+            label = format_label(f"{len(names)}× {TYPE_NAMES.get(base(k), base(k))}", sub, '')
+            if rg_split and k not in framed:
+                label += f"<br><font style='font-size:12px' color='{RG_COLORS[rg_role(k)][1]}'>{RG_IMG_TAG} {esc(rg_title(rg_role(k)))}</font>"
+            return label
         kind_title = TYPE_NAMES.get(base(k), base(k).replace('-', ' ').title())
         sub = s(purposes.get(k)) or (k.partition('__')[2] or k)
         note = ' · '.join(n for n in (T['noSet'] if not has_question_set(base(k)) else '', T['optional'] if k in optional else '') if n)
@@ -707,25 +858,20 @@ def main():
         for line in role_lines.get(k, []):
             principal, _, role = line.partition(': ')
             label += f"<br><font style='font-size:10px' color='#5C2D91'>&#8592; {esc(display_name(principal))}: {esc(role)}</font>"
+        for kind, names in children_of.get(k, []):
+            if names:
+                label += f"<br><font style='font-size:10px'>{esc(T['children' if kind == 'blob-container' else 'children_' + kind])}: {esc(', '.join(names))}</font>"
+        for src, text in deliveries.get(k, []):
+            label += f"<br><font style='font-size:10px' color='#5C2D91'>&#8592; {esc(display_name(src))}" + (f": {esc(text)}" if text else '') + "</font>"
         rest = [c for c in callers_of.get(k, []) if (k, c.split(' (')[0]) not in callers_listed_in_roles]
         if side and rest:
             label += f"<br><font style='font-size:10px' color='#5C2D91'>&#8592; {', '.join(rest)}</font>"
         return label
 
-    labels = {k: resource_label(k) for k in drawn + (['application-insights'] if has_ai else [])}
-    pitch = {k: pitch_of(labels[k]) for k in drawn}
+    labels = {k: resource_label(k) for k in drawn + edge_res + (['application-insights'] if has_ai else [])}
+    pitch = {k: pitch_of(labels[k]) for k in drawn + edge_res}
 
     # --- Geometry, phase A: sizes ------------------------------------------
-    def compute_subnet(k):
-        n = subnet_name(get_decision(resources[k], ['networking', 'integration_subnet'])
-                        or get_decision(resources[k], ['environment', 'infrastructure_subnet']), res_keys)
-        if n:
-            return n
-        for sn in other_subnets:
-            if 'integration' in sn['name'] or 'app' in sn['name']:
-                return sn['name']
-        return other_subnets[0]['name'] if other_subnets else T['computeSubnet']
-
     groups = {}
     for k in compute:
         groups.setdefault(compute_subnet(k), []).append(k)
@@ -740,6 +886,12 @@ def main():
         return sum(max(pitch[k] for k in r) for r in rows) + gutter * max(len(rows) - 1, 0)
 
     cols_c = min(max([len(v) for v in groups.values()] or [1]), 4)
+    if chain:
+        cols_c = 1
+    cw_chain = SLOT_W + 60
+    chain_gap = max(70, 12 + 6 * max([len(a['label']) for a in access if a['from'] in compute and a['to'] in compute] or [0]))
+    n_col = len(groups) + (1 if draw_vnet and with_pe else 0)
+    chain_w = (2 * PAD + n_col * cw_chain + (n_col - 1) * chain_gap) if chain else 0
     # Up to five services in one row; more wrap into two, the second row shifted by half a slot, so
     # that the line to a second-row icon comes down in the gap between two first-row icons and not
     # through one. A narrower row means a narrower network and less empty space in it.
@@ -765,7 +917,7 @@ def main():
             cols_p, stagger = len(paas), 0
             n_g = len(groups_of(paas))
             grouped_w = 16 + sum(max(len(ks) * SLOT_W + 16, PG_MIN_W) for _, ks in groups_of(paas)) + (n_g - 1) * PG_GAP
-        w_main = max(cols_c * SLOT_W + 4 * PAD, cols_p * SLOT_W + stagger + 2 * PAD, grouped_w, min(len(support), cols_p) * SLOT_W + 2 * PAD, 2 * SLOT_W + 4 * PAD)
+        w_main = max(chain_w, cols_c * SLOT_W + 4 * PAD, cols_p * SLOT_W + stagger + 2 * PAD, grouped_w, min(len(support), cols_p) * SLOT_W + 2 * PAD, 2 * SLOT_W + 4 * PAD)
         chan_w = paas_w = 0
     block_w = w_main + (chan_w + paas_w if side else 0)   # what the zones below the network span
 
@@ -790,12 +942,21 @@ def main():
 
     show_pe = draw_vnet and bool(with_pe)
     pe_box_h = ZHEAD + SLOT_H + 10
+    chain_h = 0
+    if chain:
+        # one header height and one column height for all: the icons then stand in one row
+        hh_c = 14 + 14 * max(1 + (1 if meta.get(g[0], {}).get('prefix') else 0) + (1 if delegation(g[1], g[0]) else 0) for g in group_boxes)
+        group_boxes = [(n_, ks_, hh_c, hh_c + rows_height(ks_, 1) + 6) for n_, ks_, _, _ in group_boxes]
+        chain_h = max([g[3] for g in group_boxes] + ([pe_box_h] if show_pe else []))
     vn_h = 0
     if draw_vnet:
         vn_h = HEAD
+        if chain:
+            vn_h += chain_h + PAD
         for _, _, _, h in group_boxes:
-            vn_h += h + PAD
-        if show_pe and not side:
+            if not chain:
+                vn_h += h + PAD
+        if show_pe and not side and not chain:
             vn_h += pe_box_h + PAD
         vn_h += len(strips) * (44 + 10)
         vn_h += PAD - (10 if strips else 0)
@@ -839,13 +1000,15 @@ def main():
             x += fw + PG_GAP
         paas_h = 8 + frame_h + PAAS_TITLE
     # One bus lane per compute resource that calls PaaS, between the network and the PaaS zone.
-    gap = 30 + 10 * len(callers)
+    # In the chain layout one lane per subnet whose compute calls a service.
+    n_chain_lanes = len({compute_subnet(a['from']) for a in access if a['from'] in compute and a['to'] in paas}) if chain else 0
+    gap = 30 + 10 * (len(callers) + n_chain_lanes)
 
     # The lower zones - identities and security groups, monitoring, name resolution - sit under
     # the network and the services, never in a column of their own at the right: a picture that
     # has to fit a page is built downwards. Created zones go inside the group, referenced
     # (existing) ones below it.
-    cols_s = min(max(len(support), 1), max((w_main - 2 * PAD) // SLOT_W, 1))
+    cols_s = min(max(len(support), 1), max(((chain_left_w or w_main) - 2 * PAD) // SLOT_W, 1))
     support_h = (ZHEAD + rows_height(support, cols_s) + PAD) if support else 0
     support_frames = []   # (role, keys, y, h) relative to the zone's content
     if support_grouped:
@@ -856,7 +1019,10 @@ def main():
             y += h + PG_GAP
         support_h = ZHEAD + (y - PG_GAP) + PAD
     law_existing = (not has_law_res) and obs_ownership != 'create'
-    dns_existing = dns_ownership != 'deployment'
+    # Private endpoints with nobody named for the zones: the zones are drawn anyway, marked open -
+    # their absence would read as "not needed".
+    dns_open = bool(with_pe) and not dns_ownership and not zones
+    dns_existing = dns_ownership != 'deployment' and not dns_open
     lower, outside = [], []   # dicts: id, w, h (dx, dy once placed)
     if support:
         lower.append({'id': 'support', 'w': cols_s * SLOT_W + 2 * PAD, 'h': support_h})
@@ -872,7 +1038,7 @@ def main():
     if draw_law or has_ai:
         z = {'id': 'monitoring', 'w': ZONE_W, 'h': ZHEAD + law_h + ai_h + 40 + PAD}
         (outside if law_existing else lower).append(z)
-    if zones or dns_existing and dns_ownership:
+    if zones or dns_existing and dns_ownership or dns_open:
         z = {'id': 'dnszones', 'w': ZONE_W, 'h': ZHEAD + SLOT_H + PAD}
         (outside if dns_existing else lower).append(z)
 
@@ -905,7 +1071,12 @@ def main():
         flow(lower_right, paas_w)
     else:
         lower_left, lower_right = lower, []
-        main_h = vn_h + (gap if (vn_h and paas_h) else 0) + paas_h + ((PAD + flow(lower_left, w_main)) if lower_left else 0)
+        if chain_left_w:
+            # the lower zones stand in the column under the actors, beside the services
+            left_stack = vn_h + ((PAD + flow(lower_left, chain_left_w)) if lower_left else 0)
+            main_h = max(left_stack, vn_h + (gap if (vn_h and paas_h) else 0) + paas_h)
+        else:
+            main_h = vn_h + (gap if (vn_h and paas_h) else 0) + paas_h + ((PAD + flow(lower_left, w_main)) if lower_left else 0)
     # A telemetry line to the monitoring zone needs a corridor right of the network; in the side
     # layout the channel to the services is one, otherwise the group is widened by a strip.
     n_mon = any(a['from'] in compute and base(a['to']) in MONITOR_KINDS for a in access)
@@ -918,11 +1089,17 @@ def main():
     ACT_STEP = 36
     ext_gap = 40 + ACT_STEP * max(n_ae - 1, 0)
     rg_x, rg_y = 20 + (ext_w + ext_gap if actors else 0), TOP
+    top_band = TOP_BAND if top_actors else 0
+    if chain_left_w:
+        ext_gap = max(70, 12 + 6 * max([len(a['label']) for a in access if is_actor(a['from']) and a['to'] in compute] or [0]))
+        rg_x = 20
     sub_x, sub_y = rg_x, rg_y
-    main_x, main_y = rg_x + PAD, rg_y + HEAD + 10
+    main_x, main_y = rg_x + PAD, rg_y + HEAD + 10 + top_band
+    if chain_left_w:
+        main_x = rg_x + chain_left_w + ext_gap
     rg_w = main_x + block_w + PAD + (24 if n_mon and not side else 0) - rg_x
     content_h = max(main_h, 140)
-    rg_h = HEAD + 10 + content_h + PAD + (24 if is_private else 0)
+    rg_h = HEAD + 10 + top_band + content_h + PAD + (24 if is_private else 0)
     sub_w, sub_h = rg_w, rg_h   # the extent the legend and the panel line up with
 
     # --- Cells -------------------------------------------------------------
@@ -992,14 +1169,43 @@ def main():
 
     # External zone with its actors
     actor_ids = {}
-    if actors:
-        ext_h = ZHEAD + len(actors) * 110 + PAD
+    if chain_left_w:
+        slot_y0 = main_y + HEAD + hh_c
+        for i, name in enumerate(left_actors):
+            zx, zid = 20 + i * (ZONE_W + 20), f"z-act-{i}"
+            add_container({'id': zid, 'parent': 'rg', 'x': zx, 'y': main_y, 'w': ZONE_W, 'h': vn_h, 'style': ZONES['external'],
+                           'value': esc(T['entry'] if name in edge_res else actor_title(name))})
+            sx, sh = zx + (ZONE_W - SLOT_W) / 2, vn_h - (slot_y0 - main_y) - 6
+            if name in edge_res:
+                actor_ids[name] = f"res-{name}"
+                add_icon(f"res-{name}", zid, sx, slot_y0, base(name), labels[name], flagged(name), name in optional, slot_h=sh)
+            else:
+                cid = f"act-{re.sub('[^a-z0-9]+', '-', name.lower())}"
+                actor_ids[name] = cid
+                if actor_base(name) == 'internet':
+                    icons.append({'id': cid, 'parent': zid, 'x': sx + (SLOT_W - 64) / 2, 'y': slot_y0 + 8, 'w': 64, 'h': 44,
+                                  'style': 'ellipse;shape=cloud;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#605E5C;verticalLabelPosition=bottom;verticalAlign=top;labelBackgroundColor=none;',
+                                  'value': f"<b>{esc(actor_title(name))}</b>",
+                                  'slot': {'x': sx, 'y': slot_y0, 'w': SLOT_W, 'h': sh}, 'labelBelow': True})
+                else:
+                    add_icon(cid, zid, sx, slot_y0, actor_base(name), f"<b>{esc(actor_title(name))}</b>", False, False, slot_h=sh, warn=False)
+    elif actors:
+        def actor_h(name):
+            return max(110, pitch[name]) if name in edge_res else 110
+        ext_h = ZHEAD + sum(actor_h(n) for n in actors) + PAD
+        ext_y = {}
+        for name in actors:
+            ext_y[name] = main_y + ZHEAD + sum(actor_h(n) for n in actors[:actors.index(name)])
         add_container({'id': 'z-ext', 'parent': '1', 'x': 20, 'y': main_y, 'w': ext_w, 'h': ext_h, 'style': ZONES['external'], 'value': esc(T['ext'])})
         for i, name in enumerate(actors):
             cid = f"act-{re.sub('[^a-z0-9]+', '-', name.lower())}"
             actor_ids[name] = cid
-            slot_x, slot_y = 20 + (ext_w - SLOT_W) / 2, main_y + ZHEAD + i * 110
-            if actor_base(name) == 'internet':
+            slot_x, slot_y = 20 + (ext_w - SLOT_W) / 2, ext_y[name]
+            if name in edge_res:
+                cid = f"res-{name}"
+                actor_ids[name] = cid
+                add_icon(cid, 'z-ext', slot_x, slot_y, base(name), labels[name], flagged(name), name in optional, slot_h=actor_h(name))
+            elif actor_base(name) == 'internet':
                 icons.append({'id': cid, 'parent': 'z-ext', 'x': slot_x + (SLOT_W - 64) / 2, 'y': slot_y + 8, 'w': 64, 'h': 44,
                               'style': 'ellipse;shape=cloud;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#605E5C;verticalLabelPosition=bottom;verticalAlign=top;labelBackgroundColor=none;',
                               'value': f"<b>{esc(actor_title(name))}</b>",
@@ -1011,17 +1217,13 @@ def main():
     loc = s(get_value(ctx.get('location')))
     env_ = ' · '.join(s(e) for e in as_list(get_value(ctx.get('environments'))) if s(e)) or s(get_value(ctx.get('environment')))
     rg_name = get_value(ctx.get('resource_group_name'))
-    # With a split the frame is no single group - its name would claim everything is in the main one;
-    # each resource names its own group instead.
-    rg_label = format_label(T['scope'] if rg_split else s(rg_name if rg_name is not None else T['rg']),
-                            ' · '.join(p for p in (loc, env_) if p != ''), '')
-    # With a split the outer frame is the deployment, not a group: no resource group icon on it, or the
-    # two are mistaken for each other. The title then stands where the icon was.
+    # No frame around everything: it adds a line and says nothing a zone does not. The outer cell
+    # stays as the parent of the zones, drawn with no border and no fill; its label is the group's
+    # name (without a split, where there is only one), the region and the stages in small grey type.
+    # With a split each resource names its own group.
     add_container({'id': 'rg', 'parent': '1', 'x': rg_x, 'y': rg_y, 'w': rg_w, 'h': rg_h,
-                   'style': CONTAINER_STYLE.replace('spacingLeft=36', 'spacingLeft=14') if rg_split else CONTAINER_STYLE, 'value': rg_label})
-    if not rg_split:
-        icons.append({'id': 'rg-icon', 'parent': 'rg', 'x': rg_x + 6, 'y': rg_y + 6, 'w': 24, 'h': 24,
-                      'style': f"image;aspect=fixed;html=1;image={ICONS['resource-group']};", 'value': ''})
+                   'style': 'rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=none;verticalAlign=top;align=left;spacingLeft=14;spacingTop=6;fontSize=11;fontColor=#605E5C;container=1;collapsible=0;',
+                   'value': esc(' · '.join(p for p in ((s(rg_name if rg_name is not None else T['rg']) if not rg_split else ''), loc, env_) if p != ''))})
     if is_private:
         footer = T['noPublicExc'].replace('{names}', exception_names) if public_exceptions else T['noPublic']
         add_text('rg-private', 'rg', rg_x + PAD, rg_y + rg_h - 26, rg_w - 2 * PAD, 20, f"&#128274; {esc(footer)}",
@@ -1059,16 +1261,36 @@ def main():
                       'style': f"image;aspect=fixed;html=1;image={ICONS['virtual-network']};", 'value': ''})
         sn_x, sn_w, cursor = main_x + PAD, w_main - 2 * PAD, main_y + HEAD
         sn_style = SUBNET_STYLE + (EXISTING_STYLE if vnet_existing else '')
+        chain_x0 = main_x + (w_main - (n_col * cw_chain + (n_col - 1) * chain_gap)) / 2
         for gi, (name, keys, hh, h) in enumerate(group_boxes):
             prefix = s(meta.get(name, {}).get('prefix'))
             note = delegation(keys, name)
             lbl = f"<b>{esc(name)}</b>" + (f"  <font style='font-size:10px'>{esc(prefix)}</font>" if prefix else '')
+            if chain:
+                # one short line each: a line straight up out of the icon then crosses no text
+                lbl = f"<b>{esc(name)}</b>" + (f"<br><font style='font-size:10px'>{esc(prefix)}</font>" if prefix else '')
             if note:
                 lbl += f"<br><font style='font-size:10px'><i>{esc(note)}</i></font>"
+            if chain:
+                cx_ = chain_x0 + gi * (cw_chain + chain_gap)
+                add_container({'id': f"snet-c{gi}", 'parent': 'vnet', 'x': cx_, 'y': main_y + HEAD, 'w': cw_chain, 'h': chain_h, 'style': sn_style, 'value': redn(lbl)})
+                place_grid(keys, f"snet-c{gi}", cx_ + (cw_chain - SLOT_W) / 2, main_y + HEAD + hh, 1)
+                continue
             add_container({'id': f"snet-c{gi}", 'parent': 'vnet', 'x': sn_x, 'y': cursor, 'w': cw if side else sn_w, 'h': h, 'style': sn_style, 'value': redn(lbl)})
             place_grid(keys, f"snet-c{gi}", sn_x + PAD, cursor + hh, cols_c)
             cursor += h + PAD
-        if show_pe and side:
+        if chain:
+            cursor = main_y + HEAD + chain_h + PAD
+        if show_pe and chain:
+            # the last column: the endpoints' subnet, as tall as the others
+            pe_label = f"<b>{esc(pe_subnet_name)}</b>" + (f"  <font style='font-size:10px'>{esc(pe_subnet_prefix)}</font>" if pe_subnet_prefix else '')
+            pe_x = chain_x0 + len(group_boxes) * (cw_chain + chain_gap)
+            add_container({'id': 'snet-pe', 'parent': 'vnet', 'x': pe_x, 'y': main_y + HEAD, 'w': cw_chain, 'h': chain_h, 'style': sn_style, 'value': redn(pe_label)})
+            kinds = list(dict.fromkeys(TYPE_NAMES.get(base(k), base(k)) for k in with_pe))
+            names = ', '.join(kinds[:2]) + (f" +{len(kinds) - 2}" if len(kinds) > 2 else '')
+            add_icon('pe-bundle', 'snet-pe', pe_x + (cw_chain - SLOT_W) / 2, main_y + HEAD + ZHEAD, 'private-endpoint',
+                     format_label(T['peBundle'], f"{n_pe}× {names}", ''), slot_h=SLOT_H)
+        elif show_pe and side:
             # the endpoint column, as tall as the compute subnets beside it; the bundle in its middle
             col_h = cursor - PAD - (main_y + HEAD)
             pe_x = sn_x + cw + coll_w
@@ -1143,13 +1365,14 @@ def main():
                      'text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;fontSize=10;fontColor=#605E5C;')
         else:
             add_icon('dns', f"z-{zid}", sx, sy, 'private-dns-zone',
-                     format_label('Private DNS Zones', f"{len(zones)}× privatelink.*" if zones else 'privatelink.*', T['existing'] if existing else ''),
-                     False, existing)
+                     format_label('Private DNS Zones', f"{len(zones)}× privatelink.*" if zones else 'privatelink.*',
+                                  T['dnsOpen'] if dns_open else (T['existing'] if existing else '')),
+                     dns_open, existing)
 
     # The lower zones: under the network (and, in the side layout, under the services); the
     # referenced ones in a row below the group, the legend under those.
     left_y0 = (main_y + vn_h + PAD) if side else paas_y + (paas_h + PAD if paas else (PAD if vn_h else 0))
-    columns = [(lower_left, main_x, left_y0, 'rg')]
+    columns = [(lower_left, 20, main_y + vn_h + PAD, 'rg')] if chain_left_w else [(lower_left, main_x, left_y0, 'rg')]
     if side:
         columns.append((lower_right, paas_x, main_y + paas_h + PAD, 'rg'))
     out_y = rg_y + rg_h + 30
@@ -1159,6 +1382,25 @@ def main():
     for items, x0, y0, parent in columns:
         for z in items:
             draw_zone(z, x0 + z['dx'], y0 + z['dy'], parent)
+
+    # The actors that are only called, above the column of their caller (chain layout)
+    for i, name in enumerate(top_actors):
+        src_ = next((a['from'] for a in access if a['to'] == name and a['from'] in compute), None)
+        ic = next((c for c in icons if c['id'] == f"res-{src_}"), None) if src_ else None
+        if ic is None:
+            continue
+        cx_ = ic['x'] + ic['w'] / 2
+        zx, zy, zw = cx_ - 70, main_y - TOP_BAND, 250
+        zid = f"z-top-{i}"
+        add_container({'id': zid, 'parent': 'rg', 'x': zx, 'y': zy, 'w': zw, 'h': TOP_BAND - PAD, 'style': ZONES['external'], 'value': esc(actor_title(name))})
+        cid = f"act-{re.sub('[^a-z0-9]+', '-', name.lower())}"
+        actor_ids[name] = cid
+        img = ICONS.get(actor_base(name))
+        icons.append({'id': cid, 'parent': zid, 'x': cx_ - ICON / 2, 'y': zy + ZHEAD + 8, 'w': ICON, 'h': ICON,
+                      'style': ("image;aspect=fixed;html=1;labelPosition=right;verticalLabelPosition=middle;align=left;verticalAlign=middle;"
+                                f"spacingLeft=8;labelWidth=120;fontSize=12;fontStyle=1;{('image=' + img + ';') if img else ''}"),
+                      'value': f"<b>{esc(actor_title(name))}</b>",
+                      'slot': {'x': cx_ - ICON / 2, 'y': zy + ZHEAD + 8, 'w': ICON + 8 + 120, 'h': ICON}})
 
     # --- Edges: access -----------------------------------------------------
     by_id = {c['id']: c for c in containers + icons}
@@ -1175,7 +1417,7 @@ def main():
         # Either end outside the deployment, or a target whose public access is not disabled.
         if is_outside(a['from']) or is_outside(a['to']):
             return True
-        return a['to'] in drawn and pna(a['to']) != 'disabled'
+        return a['to'] in drawn + edge_res and (pna(a['to']) != 'disabled' or a['to'] in public_exceptions)
 
     # Routing. A caller leaves its icon to the right and drops on a track of its own in the free
     # space at the right of the subnets - never through another icon - to its lane below the
@@ -1210,6 +1452,8 @@ def main():
     PP_FR = (0.7, 0.3, 0.5)   # anchor heights for lines sharing one side of an icon
     pp_side = {}               # (resource, side) -> the PaaS -> PaaS lines already anchored there
     pp_touched = {a['from'] for a in pp_edges} | {a['to'] for a in pp_edges}
+    chain_lanes = {}   # chain layout: subnet -> its lane below the network
+    strip_lines = 0   # PaaS -> PaaS lines along the strip above the row: each its own height
     gap_edges = 0  # actors <-> compute: tracks in the gap between the external zone and the group,
                    # so a vertical run never lies on the resource group's border
     for n, a in enumerate(access):
@@ -1219,6 +1463,43 @@ def main():
             continue
         if side and a['from'] in caller_i and a['to'] in paas:
             continue   # drawn as caller -> endpoints -> service, below
+        if chain and a['from'] in compute and a['to'] in paas:
+            # Out of the bottom of the subnet the caller stands in - under the labels, never through
+            # them - along a lane of its own below the network, down into the service from above.
+            sc, dc = by_id[src], by_id[dst]
+            col = PUBLIC_COLOR if is_public_edge(a) else PRIVATE_COLOR
+            lane = chain_lanes.setdefault(sc['parent'], len(chain_lanes))
+            sn = by_id[sc['parent']]
+            bus_y = bus_base + 10 * lane
+            edges.append({'id': f"e-{n}", 'source': sc['parent'], 'target': dst, 'value': a['label'],
+                          'style': EDGE_BASE + f"strokeColor={col};fontColor={col};fontSize=10;labelBackgroundColor=#FFFFFF;exitX=0.5;exitY=1;entryX=0.5;entryY=0;",
+                          'points': [{'x': sn['x'] + sn['w'] / 2, 'y': bus_y}, {'x': dc['x'] + dc['w'] / 2, 'y': bus_y}]})
+            continue
+        if chain and (a['from'] in left_actors or a['to'] in top_actors) and (is_actor(a['from']) and (is_actor(a['to']) or a['to'] in compute) or is_actor(a['to']) and a['from'] in compute):
+            sc, dc = by_id[src], by_id[dst]
+            col = PUBLIC_COLOR if is_public_edge(a) else PRIVATE_COLOR
+            e_style = EDGE_BASE + f"strokeColor={col};fontColor={col};fontSize=10;labelBackgroundColor=#FFFFFF;"
+            if a['to'] in top_actors:
+                # straight up out of the icon into the actor above
+                e_style += 'exitX=0.5;exitY=0;entryX=0.5;entryY=1;'
+                off = (0, 0)
+            else:
+                e_style += 'exitX=1;exitY=0.5;entryX=0;entryY=0.5;'
+                off = (0, -11)
+            edges.append({'id': f"e-{n}", 'source': src, 'target': dst, 'value': a['label'], 'style': e_style, 'off': off})
+            continue
+        if is_actor(a['from']) and is_actor(a['to']) and 'z-ext' in by_id:
+            # Both stand in the external zone, one above the other: out of the left of the source,
+            # down the zone's left edge, in at the left of the target. The right side is where
+            # the lines to the network leave, the label below an icon is in the way underneath.
+            zx = by_id['z-ext']['x'] + 14
+            e_style = EDGE_BASE + f"strokeColor={PUBLIC_COLOR if is_public_edge(a) else PRIVATE_COLOR};fontColor={PUBLIC_COLOR if is_public_edge(a) else PRIVATE_COLOR};fontSize=10;labelBackgroundColor=#FFFFFF;"
+            sc, dc = by_id[src], by_id[dst]
+            edges.append({'id': f"e-{n}", 'source': src, 'target': dst, 'value': a['label'],
+                          'style': e_style + 'exitX=0;exitY=0.5;entryX=0;entryY=0.5;',
+                          'points': [{'x': zx, 'y': sc['y'] + sc['h'] / 2}, {'x': zx, 'y': dc['y'] + dc['h'] / 2}],
+                          'off': (a['label'] and 8 + 3 * plain_len(a['label']) or 0, 0)})
+            continue
         public = is_public_edge(a)
         color = PUBLIC_COLOR if public else (caller_color.get(a['from'], PRIVATE_COLOR) if dense else PRIVATE_COLOR)
         style = EDGE_BASE + f"strokeColor={color};fontColor={color};fontSize=10;labelBackgroundColor=#FFFFFF;"
@@ -1313,7 +1594,9 @@ def main():
             dx_edge = dc['x'] + dc['w'] if dc_col == 0 else dc['x']
             h1, v, h2 = abs(lx_track - sx_edge), abs(dy_ - sy_), abs(lx_track - dx_edge)
             if v:
-                edge['lx'] = round(2 * ((h1 + 0.5 * v) / (h1 + v + h2)) - 1, 3)
+                # labels of lines on neighbouring lanes sit at different heights, not side by side
+                spread = 0.3 * (pp_lane.get((a['from'], a['to']), 0) - (len(pp_iv) - 1) / 2) if len(pp_iv) > 1 else 0.0
+                edge['lx'] = max(-0.85, min(0.85, round(2 * ((h1 + 0.5 * v) / (h1 + v + h2)) - 1 + spread, 3)))
         elif is_actor(a['from']) and a['to'] in compute:
             # own x track per actor line, own height at the compute icon: no shared or crossing runs
             gx = gx_of[(a['from'], a['to'])]
@@ -1339,7 +1622,8 @@ def main():
             # the source, along the strip above the row's icons, down beside the target, in at the
             # side that faces the source. The label sits above the run.
             to_right = dc['x'] > sc['x']
-            top_y = min(sc['slot']['y'], dc['slot']['y']) - 6
+            top_y = min(sc['slot']['y'], dc['slot']['y']) - 6 - 8 * strip_lines
+            strip_lines += 1
             x_side = (dc['x'] - 12) if to_right else (dc['x'] + dc['w'] + 12)
             edge['style'] = style + f"exitX={0.8 if to_right else 0.2};exitY=0;entryX={0 if to_right else 1};entryY=0.5;"
             edge['points'] = [{'x': sc['x'] + sc['w'] * (0.8 if to_right else 0.2), 'y': top_y}, {'x': x_side, 'y': top_y}, {'x': x_side, 'y': dc['y'] + dc['h'] / 2}]
@@ -1349,6 +1633,11 @@ def main():
             if v1 + h + v2 and edge_label:
                 edge['lx'] = round(2 * ((v1 + h + 0.5 * v2) / (v1 + h + v2 + 12)) - 1, 3)
                 edge['off'] = ((-1 if to_right else 1) * (8 + 3 * plain_len(edge_label)), 0)
+        elif a['from'] in paas and a['to'] in paas and abs(sc['y'] - dc['y']) < 1 and dc['x'] < sc['x']:
+            # neighbours in one row, the target on the left: out of the left, in at the right
+            edge['style'] = style + 'exitX=0;exitY=0.5;entryX=1;entryY=0.5;'
+            if edge_label:
+                edge['off'] = (0, -11)
         else:
             edge['style'] = style + 'exitX=1;exitY=0.5;entryX=0;entryY=0.5;'
             if edge_label:
