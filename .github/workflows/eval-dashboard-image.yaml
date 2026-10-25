@@ -8,10 +8,12 @@
 #  2. On top of the infra roles, the identity needs AcrPush on the registry (Contributor cannot push). Contributor
 #     on the resource group covers the registry network rule and the web app setting.
 #
-# THE REGISTRY IS PRIVATE (publicNetworkAccess Disabled, spec decision). A hosted runner cannot reach it, so the push
-# opens it for the runner's address only and closes it again in a step that always runs. While the window is open
-# the registry is reachable from that one address with Azure credentials; if the closing step itself fails the
-# registry stays open - the job then fails and says so. The infra pipeline shares the concurrency group, so a
+# THE REGISTRY IS PRIVATE (publicNetworkAccess Disabled, export policy disabled; spec decisions). A hosted runner
+# cannot reach it, so the push opens it for the runner's address only and closes it again in a step that always
+# runs. Azure refuses public access on a registry whose export policy is disabled, so the window opens the export
+# policy first and closes it last: while it is open the registry is reachable from that one address with Azure
+# credentials and images can leave it by import or export. If the closing step itself fails the registry stays
+# open - the job then fails and says so. The infra pipeline shares the concurrency group, so a
 # Bicep deployment never resets the registry halfway through a push.
 name: Eval Dashboard image
 
@@ -99,6 +101,8 @@ jobs:
           set -euo pipefail
           ip=$(curl -fsS https://api.ipify.org)
           echo "RUNNER_IP=$ip" >> "$GITHUB_ENV"
+          # public access is refused while the export policy is disabled: allow exports first
+          az acr update --subscription "$SUBSCRIPTION_ID" -n "$REGISTRY" --allow-exports true -o none
           az acr update --subscription "$SUBSCRIPTION_ID" -n "$REGISTRY" --public-network-enabled true --default-action Deny -o none
           az acr network-rule add --subscription "$SUBSCRIPTION_ID" -n "$REGISTRY" --ip-address "$ip" -o none
           # the rule takes a while to apply
@@ -120,11 +124,17 @@ jobs:
         if: always()
         run: |
           set -uo pipefail
-          [ -n "${RUNNER_IP:-}" ] && az acr network-rule remove --subscription "$SUBSCRIPTION_ID" -n "$REGISTRY" --ip-address "$RUNNER_IP" -o none
-          az acr update --subscription "$SUBSCRIPTION_ID" -n "$REGISTRY" --public-network-enabled false -o none || {
-            echo "::error::THE REGISTRY $REGISTRY IS STILL PUBLIC - close it by hand: az acr update -n $REGISTRY --public-network-enabled false"; exit 1; }
-          state=$(az acr show --subscription "$SUBSCRIPTION_ID" -n "$REGISTRY" --query publicNetworkAccess -o tsv | tr -d '\r')
-          [ "$state" = "Disabled" ] || { echo "::error::registry public access is '$state', expected Disabled"; exit 1; }
+          # Back to the spec: public access off first (exports can only be disabled on a closed registry), then
+          # the export policy. Each step runs even if an earlier one failed, so a half-open window is closed as far as possible.
+          status=0
+          [ -n "${RUNNER_IP:-}" ] && { az acr network-rule remove --subscription "$SUBSCRIPTION_ID" -n "$REGISTRY" --ip-address "$RUNNER_IP" -o none || status=1; }
+          az acr update --subscription "$SUBSCRIPTION_ID" -n "$REGISTRY" --public-network-enabled false -o none || status=1
+          az acr update --subscription "$SUBSCRIPTION_ID" -n "$REGISTRY" --allow-exports false -o none || status=1
+          state=$(az acr show --subscription "$SUBSCRIPTION_ID" -n "$REGISTRY" --query "[publicNetworkAccess, policies.exportPolicy.status]" -o tsv | tr -d '\r' | paste -sd, -)
+          if [ "$status" != 0 ] || [ "$state" != "Disabled,disabled" ]; then
+            echo "::error::THE REGISTRY $REGISTRY IS NOT CLOSED (public access, export policy: $state) - close it by hand: az acr update -n $REGISTRY --public-network-enabled false && az acr update -n $REGISTRY --allow-exports false"
+            exit 1
+          fi
           echo "Registry closed ($state)."
 
       # The app pulls through its private endpoint with its identity (acrUseManagedIdentityCreds is set by Bicep).
