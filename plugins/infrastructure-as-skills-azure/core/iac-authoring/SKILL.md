@@ -32,7 +32,8 @@ question set  ──interview──>  infra-spec.yaml  ──draw──>  infra-
 ```
 
 The picture comes before the code, always: the customer signs off on the diagram, not on
-the spec, and the render starts only once they have.
+the spec, and the render starts only once they have. This holds for every change of the
+spec, including one made by editing it directly: redraw, then render.
 
 The spec in the middle is the load-bearing part. It is the handover interface, not a
 by-product: a backend renders *from* it, and the same spec gives Terraform and Bicep the

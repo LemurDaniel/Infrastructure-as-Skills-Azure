@@ -120,6 +120,9 @@ than inferring the shape from an example spec.
       and `create`, or moving a resource to another group role, creates, destroys or moves
       real resources. Read the plan (what-if) before applying, say so in the hand-over, and
       never apply a plan that destroys a group; the production lock blocks that on purpose.
+    - **The order is fixed, also for a direct edit of the spec:** spec, `check_spec.py`,
+      redraw the diagram (`iac-diagram`), sign-off, only then code and tests. A spec change
+      without the redrawn diagram is unfinished; never start the Bicep/Terraform before it.
     - **After every change run**, in `<root>/`: `check_spec.py infra-spec.yaml`,
       `terraform test` (or `run_arm_tests.py infra-spec.yaml` for Bicep) and
       `check_render_coverage.py infra-spec.yaml` from the plugin's

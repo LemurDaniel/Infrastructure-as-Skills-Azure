@@ -24,6 +24,7 @@ grouping costs nothing; a case's `prompt.md` reaches the plugin with `plugins: [
 | `diagram/` | What the spec carries for the picture | `diagram-*` |
 | `interview/` | The final message: what was asked | `interview-asks-no-context` |
 | `language/` | The language of the person is the language of everything said to them | `language-en-request`, `language-de-request`, `language-en-first-question` |
+| `process/` | The order of the run: after a change of the spec, diagram and sign-off come before any code | `diagram-before-code-after-change` |
 | `outcome/` | The IaC a user receives, with and without the plugin | `outcome-private-storage` (pilot) |
 
 ## The cases

@@ -1,0 +1,36 @@
+schema_version: "1.1"
+name: diagram-before-code-after-change
+
+# The eval sandbox has no shell, so the drawing itself cannot happen here; what a run can
+# show is the order: the diagram skill is used and code does not exist before the sign-off.
+graders:
+  - name: skill-fired
+    type: tool_used
+    tool: Skill
+    input_match: infrastructure-as-skills-azure
+
+  - name: diagram-skill-fired
+    type: tool_used
+    tool: Skill
+    weight: 2
+    input_match: iac-diagram
+
+  - name: change-is-in-the-spec
+    type: regex
+    target: { source: file, path: infra/infra-spec.yaml }
+    pattern: 'public_network_access:\s*(?:#[^\n]*\s*)*(?:\{\s*)?(?:value:\s*)?\W?disabled\b'
+
+  - name: no-code-before-signoff
+    type: file_exists
+    path: '**/*.tf'
+    exists: false
+    weight: 3
+
+  - name: asks-for-signoff
+    type: llm
+    weight: 2
+    target: { source: final_message }
+    prompt: |
+      PASS if the message presents or announces the architecture diagram and asks the
+      person to confirm or sign it off before the code is written.
+      FAIL if it reports the code as done, or ends without asking for the diagram's approval.
