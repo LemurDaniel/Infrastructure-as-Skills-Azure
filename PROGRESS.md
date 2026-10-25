@@ -323,6 +323,11 @@ per-family` in `check_spec.py` and the `chatbot` spec, and `references/private-d
 - `app-service` with `plan: shared`: the render documents are written, no example renders it, and
   the `<?SUBNAME>` / second private endpoint naming is untested.
 - Evals: none for the new sets, for `resource_lock`, or for the shared plan.
+- **Secret placeholders in Bicep are `@onlyIfNotExists()` by default** (the pipeline runs the latest Bicep; a local `az bicep` may reject it).
+  `key-vault/bicep.md` and the security routing say so; the case `render/bicep-secret-placeholder-once` grades it (load-checked, not run).
+  Not yet moved: `eval-agent/infra` (`vault.bicep`, the `existingSecretNames` parameter in `main.bicep`, the lookup step in
+  `eval-agent-infra-stage.yaml`, the `condition` tests in `tests/app-vault.armtest.yaml`) - a change through the spec and the render;
+  and `pipelines*.md` / `check_pipeline.py` if they expect the lookup step.
 - **A re-render of `eval-agent/infra` from the spec (2026-10-25) reproduced the hand-written Bicep** except one property
   (`keyVaultReferenceIdentity` on the fuzz app, which has no vault access; removed). The re-render was not independent: the
   renderer read the old modules first. What the plugin does not carry, so a render from the spec alone would guess:
