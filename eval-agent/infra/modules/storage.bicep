@@ -122,8 +122,8 @@ resource container 'Microsoft.Storage/storageAccounts/blobServices/containers@20
       // decision: blob-container.containers.immutable_storage - false: no immutableStorageWithVersioning
       // block on the container.
       immutableStorageWithVersioning: { enabled: false }
-      // decision: blob-container.containers.encryption_scope_locked - false: no scope is set and none locked.
-      denyEncryptionScopeOverride: false
+      // decision: blob-container.containers.encryption_scope_locked - false: no scope is set and none locked,
+      // so neither defaultEncryptionScope nor denyEncryptionScopeOverride is written (Azure takes both or none).
     }
   }
 ]

@@ -17,7 +17,7 @@ Module: `br/public:avm/res/storage/storage-account:0.33.1` (resolved 2026-10-25)
 | `container_names` | `blobServices.containers: [ { name } ]` | |
 | `public_access` | `blobServices.containers[].publicAccess` | `'None'`, `'Blob'`, `'Container'`; written. The account must allow anonymous access (`allowBlobPublicAccess`) for anything but `'None'` |
 | `immutable_storage` | `blobServices.containers[].immutableStorageWithVersioningEnabled` | Needs `blobServices.isVersioningEnabled`; **cannot be combined with `restorePolicyEnabled`** |
-| `encryption_scope_locked` | `blobServices.containers[].denyEncryptionScopeOverride`, `defaultEncryptionScope` | |
+| `encryption_scope_locked` | `blobServices.containers[].denyEncryptionScopeOverride`, `defaultEncryptionScope` | Both or neither: Azure refuses a container with one of them (`ContainerOperationFailure`, missing `x-ms-default-encryption-scope` / `x-ms-deny-encryption-scope-override`). `false` with no scope writes neither |
 | `role_assignments` | `blobServices.containers[].roleAssignments: [ { principalId, roleDefinitionIdOrName, principalType } ]` | |
 
 ```bicep
@@ -46,4 +46,4 @@ The fallback. `Microsoft.Storage/storageAccounts/blobServices/containers` (paren
 |---|---|
 | `public_access` | `properties.publicAccess` |
 | `immutable_storage` | `properties.immutableStorageWithVersioning: { enabled }` |
-| `encryption_scope_locked` | `properties.denyEncryptionScopeOverride`, `defaultEncryptionScope` |
+| `encryption_scope_locked` | `properties.denyEncryptionScopeOverride`, `defaultEncryptionScope` - written together, or both left out when no scope is set |

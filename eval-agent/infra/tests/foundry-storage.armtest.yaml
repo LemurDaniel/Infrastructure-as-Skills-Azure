@@ -200,7 +200,7 @@
 
 - decision: blob-container.containers.encryption_scope_locked
   path: resources.storage.properties.template.resources.container.properties.denyEncryptionScopeOverride
-  equals: false
+  absent: true
 
 - not_testable: blob-container.identity.role_assignments
   reason: an empty list renders no role assignment on the container, so there is no path to assert; the roles on the account that carry the access are asserted with the storage account's wiring
