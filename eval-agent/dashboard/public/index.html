@@ -84,6 +84,8 @@
     .chip.ok { background:var(--ok-bg); color:var(--ok); } .chip.bad { background:var(--bad-bg); color:var(--bad); } .chip.warn { background:var(--warn-bg); color:var(--warn); }
     .mock { background:var(--warn-bg); color:var(--warn); padding:1px 8px; border-radius:6px; font-size:12px; margin-left:6px; }
     #msg { color:var(--muted); min-height:1.5em; margin:12px 0 0; word-break:break-all; }
+    /* the case list belongs to the overview only */
+    body.no-side { grid-template-columns:1fr; } body.no-side aside { display:none; }
     @media (max-width:760px) { body { grid-template-columns:1fr; } aside { display:none; } }
   </style>
 </head>

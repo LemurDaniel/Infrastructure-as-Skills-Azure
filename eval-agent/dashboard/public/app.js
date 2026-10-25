@@ -147,6 +147,7 @@ function route() {
   document.querySelectorAll('nav a').forEach((a) => a.classList.toggle('on', a.dataset.tab === tab));
   $('view-overview').hidden = tab !== 'overview';
   $('view-agents').hidden = tab !== 'agents';
+  document.body.classList.toggle('no-side', tab === 'agents');
   if (tab === 'agents' && !agentsLoaded) {
     agentsLoaded = true;
     loadAgents().catch((e) => { agentsLoaded = false; $('msg').textContent = `Fehler: ${e.message}`; });
