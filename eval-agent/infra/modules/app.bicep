@@ -265,6 +265,8 @@ resource dashboard 'Microsoft.Web/sites@2024-11-01' = {
         // type definition of API 2024-11-01 (bicep build rejects it), hence the app setting.
         { name: 'WEBSITE_PULL_IMAGE_OVER_VNET', value: 'true' }
         { name: 'STORAGE_ACCOUNT_NAME', value: storageAccountName }
+        // The dashboard starts a tuner run through its private endpoint; the tuner starts the fuzz agent itself.
+        { name: 'TUNE_APP_HOSTNAME', value: tune.properties.defaultHostName }
       ]
     }
   }

@@ -97,6 +97,9 @@
 
 # ---- container-registry -------------------------------------------------------------------------
 
+- not_testable: container-registry.networking.image_push_path
+  reason: the registry is rendered closed (publicNetworkAccess Disabled, asserted in this file); the temporary opening for a push is behaviour of the image pipeline at run time, not of the template
+
 - decision: container-registry.registry.sku
   path: resources.registry.properties.template.resources.registry.sku.name
   equals: Premium

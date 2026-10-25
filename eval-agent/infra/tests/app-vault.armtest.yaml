@@ -848,6 +848,11 @@
   path: resources.app.properties.template.resources.dashboard.properties.siteConfig.appSettings[4]
   matches: '"name": "STORAGE_ACCOUNT_NAME", "value": "\[parameters\(''storageAccountName''\)\]"'
 
+# The dashboard reaches the tuner by its default hostname (the only agent it starts).
+- deployment: dashboard_setting_tune_app_hostname
+  path: resources.app.properties.template.resources.dashboard.properties.siteConfig.appSettings[5]
+  matches: 'TUNE_APP_HOSTNAME'
+
 - wiring: app_foundry_endpoint_from_ai_output
   path: resources.app.properties.parameters.foundryEndpoint.value
   matches: 'reference\(''ai''\)\.outputs\.endpoint'
