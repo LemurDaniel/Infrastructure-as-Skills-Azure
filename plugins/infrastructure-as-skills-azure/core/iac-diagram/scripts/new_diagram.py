@@ -911,7 +911,7 @@ def main():
         n_same = sum(1 for a in access if a['from'] in compute and a['to'] in compute
                      and a['from'] != a['to'] and compute_subnet(a['from']) == compute_subnet(a['to']))
         cw = max(cols_c * SLOT_W + 2 * PAD, 2 * SLOT_W + 2 * PAD) + (14 * n_same + 14 if n_same else 0)   # compute subnet width
-        coll_w = 34 + TRK * (len(callers) + n_inter - n_same)
+        coll_w = 34 + TRK * len(callers)   # the tracks between services run left of it, inside the subnets
         pe_w = SLOT_W
         w_main = PAD + cw + coll_w + pe_w + PAD
         chan_w = 80
@@ -1087,7 +1087,7 @@ def main():
             main_h = vn_h + (gap if (vn_h and paas_h) else 0) + paas_h + ((PAD + flow(lower_left, w_main)) if lower_left else 0)
     # A telemetry line to the monitoring zone needs a corridor right of the network; in the side
     # layout the channel to the services is one, otherwise the group is widened by a strip.
-    n_mon = any(a['from'] in compute and base(a['to']) in MONITOR_KINDS for a in access)
+    n_mon = False   # a compute -> monitoring line is not drawn: diagnostics are the note in the zone
 
     # --- Geometry, phase B: positions --------------------------------------
     ext_w = ZONE_W if actors else 0
@@ -1458,6 +1458,7 @@ def main():
     # where another line leaves.
     IN_FR, OUT_FR = 0.25, 0.75
     inter_tgt = {a['to'] for a in access if a['from'] in compute and a['to'] in compute}
+    inter_src = {a['from'] for a in access if a['from'] in compute and a['to'] in compute}
     PP_FR = (0.7, 0.3, 0.5)   # anchor heights for lines sharing one side of an icon
     pp_side = {}               # (resource, side) -> the PaaS -> PaaS lines already anchored there
     pp_touched = {a['from'] for a in pp_edges} | {a['to'] for a in pp_edges}
@@ -1472,6 +1473,8 @@ def main():
             continue
         if side and a['from'] in caller_i and a['to'] in paas:
             continue   # drawn as caller -> endpoints -> service, below
+        if a['from'] in compute and base(a['to']) in MONITOR_KINDS:
+            continue   # a line out of the network to the monitoring zone: one zone's traffic stays in it
         if chain and a['from'] in compute and a['to'] in paas:
             # Out of the bottom of the subnet the caller stands in - under the labels, never through
             # them - along a lane of its own below the network, down into the service from above.
@@ -1549,7 +1552,8 @@ def main():
                 k_in = inter_in.setdefault(sc['parent'], {}).setdefault(a['from'] + '>' + a['to'], len(inter_in.get(sc['parent'], {})))
                 tx = sc['slot']['x'] + sc['slot']['w'] + 10 + 14 * k_in
             elif side and 'snet-pe' in by_id:
-                tx = by_id['snet-pe']['x'] - coll_w + 14 + TRK * (len(callers) + k)
+                # between two subnets: left of every caller's track, so no run to the endpoints crosses it
+                tx = by_id['snet-pe']['x'] - coll_w - 16 - TRK * k
             else:
                 tx = gut0 - 16 * (len(callers) + 1 + k)
             # Several lines out of one icon leave at heights of their own, the farthest target
@@ -1558,6 +1562,8 @@ def main():
             mates = sorted((x for x in access if x['from'] == a['from'] and x['to'] in compute and node_id(x['to']) in by_id),
                            key=lambda x: -abs(by_id[node_id(x['to'])]['y'] - sc['y']))
             ex_fr = 0.5 if len(mates) < 2 else 0.1 + 0.15 * mates.index(a)
+            if side and len(mates) < 2:
+                ex_fr = 0.8 if a['from'] in inter_tgt else 0.7   # below its own line to the endpoints
             edge['style'] = style + f"exitX=1;exitY={num(ex_fr)};entryX=1;entryY={IN_FR};"
             y0 = sc['y'] + sc['h'] * ex_fr
             edge['points'] = [{'x': tx, 'y': y0}, {'x': tx, 'y': dc['y'] + dc['h'] * IN_FR}]
@@ -1695,7 +1701,8 @@ def main():
         cx0 = by_id['snet-pe']['x'] - coll_w
         pe_mid = pe['y'] + pe['h'] / 2
         n_c = len(callers)
-        out_fr = {k: (OUT_FR if k in inter_tgt else 0.5) for k in callers}
+        # a caller that also calls a compute leaves for the endpoints above that line
+        out_fr = {k: (0.5 if k in inter_tgt and k in inter_src else OUT_FR if k in inter_tgt else 0.3 if k in inter_src else 0.5) for k in callers}
         mid_y = {k: by_id[node_of[k]]['y'] + by_id[node_of[k]]['h'] * out_fr[k] for k in callers if node_of[k] in by_id}
         by_dist = sorted(mid_y, key=lambda k: -abs(mid_y[k] - pe_mid))
         by_y = sorted(mid_y, key=lambda k: mid_y[k])

@@ -214,8 +214,9 @@ def case_corp_spoke_roles(cells):
         bad.append('the subtitle claims no service is public although the workspace is')
     if 'Log Analytics' not in cells['rg-private']['value']:
         bad.append('the footer says "no public access" without naming the workspace as the exception')
-    if not any(e['value'] == 'telemetry' for e in edges(cells).values()):
-        bad.append('the line to Application Insights is not labelled as telemetry')
+    # Traffic out of the network to the monitoring zone is not drawn: the zone carries the diagnostics note.
+    if any(e['target'] in ('res-application-insights', 'res-log-analytics-workspace') for e in edges(cells).values()):
+        bad.append('a line leaves the network for the monitoring zone')
     return bad
 
 

@@ -218,9 +218,11 @@ endpoints' height, the further right its track, so a vertical never crosses anot
 connections become four plus seven, and who calls what is text at the service
 (`← App Service · web, Function App`), not a line. With fewer services the zone sits below the
 network instead and each caller runs on a track beside the subnets and a lane under them to its
-services. A line to Application Insights goes out along the row, down the corridor right of the
-network, along the gutter above the monitoring zone's row and in at the icon's left - the zone
-sits under the network or the services, never beside them; lines to and from an
+services. **No line leaves the network for the monitoring zone**: the zone carries the note
+*Diagnostic settings of all resources* and sits under the network or the services, never beside
+them. A call between two subnets (web to MCP) runs on a track left of the callers' tracks, inside
+the subnets, and leaves its icon below the icon's own line to the endpoints, so no run to the
+endpoints crosses it; lines to and from an
 actor (users, Entra ID) run in the gap between the external zone and the group, never on the
 group's border. **With three or more callers the lines into the endpoints are told apart by
 colour**, one per caller, and the legend names them; the lines out of the endpoints stay blue,
