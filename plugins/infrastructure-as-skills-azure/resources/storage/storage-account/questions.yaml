@@ -13,7 +13,7 @@ boundaries:
   - "Does not create the resource group. Expects one from the spec's context."
   - "Does not create private DNS zones — shared infrastructure, owned by a pattern or the platform."
   - "Does not create the Log Analytics workspace it routes diagnostics to."
-  - "Does not create containers, shares or queues. Data-plane objects are a separate concern."
+  - "Does not decide containers, shares or queues. They are children of the account with their own sets (`blob-container`, `file-share`, `queue`), rendered into this account's module call."
 
 groups:
 
@@ -130,6 +130,7 @@ groups:
           web: { en: "the static website", de: "die statische Website" }
         values: [blob, file, queue, table, dfs, web]
         default: [blob]
+        depends_on: { question: public_network_access, not_equals: enabled }
         why: >
           One private endpoint per sub-resource, each with its own DNS zone. Adding
           every service "to be safe" multiplies both, so enumerate what is used.

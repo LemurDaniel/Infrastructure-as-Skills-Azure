@@ -9,9 +9,10 @@ this file routes to the right one and holds what is true across the family.
 | Request mentions | Question set | Notes |
 |---|---|---|
 | storage account, blob storage, ADLS Gen2, data lake, static website | `storage-account/questions.yaml` | [notes](storage-account/notes.md) |
-| container, blob container | *not yet written* | A child of an account; ask whether the account exists |
-| file share, Azure Files, SMB share | *not yet written* | Needs an account with the right kind |
-| queue, storage queue | *not yet written* | Not Service Bus — check which the user means |
+| container, blob container | `blob-container/questions.yaml` | [notes](blob-container/notes.md) - a child of an account; resolve the account first |
+| file share, Azure Files, SMB share, NFS share | `file-share/questions.yaml` | [notes](file-share/notes.md) - needs an account of the right kind; shared keys off changes how it mounts |
+| queue, storage queue | `queue/questions.yaml` | [notes](queue/notes.md) - not Service Bus; the set asks whether ordering or a dead-letter queue is needed |
+| table, Table storage | *not yet written* | - |
 
 When a question set does not exist yet, say so rather than improvising one. Generating a
 resource without its decision set is how this plugin loses the property that makes it worth

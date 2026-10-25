@@ -1,0 +1,441 @@
+schema_version: 1
+
+resource: Microsoft.Cdn/profiles
+title: Azure Front Door (Standard / Premium)
+
+naming:
+  terraform: "Azure::Microsoft.Cdn/profiles"
+  bicep: "Microsoft.Cdn/profiles"
+  # Bicep assembles the name from vars - this is the prefix it renders. The name is global-ish and limited to 260 characters; the endpoint hostname carries its own hash.
+  abbreviation: "afd"
+
+boundaries:
+  - "Does not create the resource group. Expects one from the spec's context."
+  - "Does not create the origins it routes to. An origin is another resource of the deployment (an App Service, a storage account, an Application Gateway) or a host name; `origins` names it."
+  - "Does not create the public DNS zone or the records for a custom domain. The platform owns DNS; the CNAME and the validation TXT record are an `open:` entry owned by it."
+  - "Does not create the Log Analytics workspace it routes diagnostics to, nor the Key Vault that holds a customer certificate."
+  - "Does not approve the private endpoint connection a Private Link origin raises: it arrives as *pending* on the origin and is approved by the origin's owner. That step is an `open:` entry."
+  - "Does not render classic CDN (`Standard_Microsoft`, `Standard_Verizon`, the China SKUs) or the retired Front Door classic. A request for one gets a Standard or Premium Front Door, said out loud."
+  - "Is a global service: it has no region, and `data_residency: country` cannot be met by it (see the notes)."
+
+groups:
+
+  - id: placement
+    title: Placement
+    questions:
+      - id: environments
+        ask: Which stages is this deployed to?
+        type: list
+        plain:
+          en: "Deployed in the stages {value}."
+          de: "Wird in den Stufen {value} ausgerollt."
+        values: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
+        required: true
+        from_context: true
+        why: >
+          Drives the rendered name and the strictness of several defaults below. Nothing
+          sensible can be guessed.
+        renders: >
+          naming parameter `environment`, and the tag of that name where the repository uses
+          one
+
+      - id: location
+        ask: Which Azure region?
+        type: string
+        plain:
+          en: "Created in the Azure region {value}."
+          de: "Wird in der Azure-Region {value} angelegt."
+        required: true
+        from_context: true
+        why: >
+          Front Door is a global resource and ignores the region for its traffic; the
+          profile object itself is created as `global`. The context's region still goes into
+          the rendered name and the metadata of the resource group, and a diagnostic
+          workspace is regional. Not asked: it takes the context value.
+        renders: >
+          location (`global` on the profile)
+
+      - id: resource_group_name
+        ask: Which resource group?
+        type: ref
+        plain:
+          en: "Placed in the resource group {value}."
+          de: "Liegt in der Ressourcengruppe {value}."
+        ref: resource_group
+        required: true
+        from_context: true
+        per_environment: true
+        why: >
+          The profile is placed into an existing group. In a split deployment it belongs to
+          the `network` role, with the other edge components.
+        renders: resource_group_name (AVM Terraform) / implicit in Bicep scope
+
+  - id: profile
+    title: The profile
+    questions:
+      - id: sku
+        ask: Which Front Door tier does the system need?
+        type: enum
+        plain:
+          en: "Front Door is the {value} tier."
+          de: "Front Door ist die Stufe {value}."
+        plain_values:
+          Standard_AzureFrontDoor: { en: "standard, with basic firewall rules", de: "Standard, mit einfachen Firewall-Regeln" }
+          Premium_AzureFrontDoor: { en: "premium, with managed firewall rules and private connections to the backends", de: "Premium, mit verwalteten Firewall-Regeln und privaten Verbindungen zu den Backends" }
+        values: [Standard_AzureFrontDoor, Premium_AzureFrontDoor]
+        default: Premium_AzureFrontDoor
+        confirm_in: [production]
+        non_production_default: Standard_AzureFrontDoor
+        forced_when: >
+          `origin_connection: private_link` and `waf_managed_rules: true` each force
+          `Premium_AzureFrontDoor`, recorded as forced with that question as forced_by.
+        why: >
+          `Premium` adds the managed web application firewall rule sets (default rules, bot
+          protection) and **private connections to the origins** (Private Link); `Standard`
+          has custom firewall rules and rate limiting only. A system that is private behind
+          the edge needs Premium; so does one that wants managed rules. The Terraform module
+          defaults to `Standard_AzureFrontDoor`, the Bicep module has no default. Cannot be
+          lowered from Premium to Standard in place.
+        renders: >
+          sku / sku.name (`Standard_AzureFrontDoor`, `Premium_AzureFrontDoor`)
+
+      - id: response_timeout_seconds
+        ask: How long may a backend take to answer before the edge gives up?
+        type: int
+        plain:
+          en: "The edge waits at most {value} seconds for a backend."
+          de: "Der Rand wartet höchstens {value} Sekunden auf ein Backend."
+        default: 60
+        why: >
+          16 to 240 seconds. **The modules disagree: Terraform defaults to 120, Bicep to
+          60**, so the value is written. 60 is the normal answer for an interactive system -
+          a request that takes longer than a minute is a design problem - and 240 is the
+          ceiling for a deliberate long-running call.
+        renders: response_timeout_seconds / originResponseTimeoutSeconds
+
+      - id: managed_identity
+        ask: Which managed identity should the profile carry?
+        type: enum
+        plain:
+          en: "The profile has {value}."
+          de: "Das Profil hat {value}."
+        plain_values:
+          none: { en: no identity of its own, de: keine eigene Identität }
+          system_assigned: { en: its own identity, de: eine eigene Identität }
+          user_assigned: { en: a separately managed identity, de: eine separat verwaltete Identität }
+        values: [none, system_assigned, user_assigned]
+        default: none
+        why: >
+          A profile reads a customer certificate from Key Vault. Front Door can do it
+          through its managed identity instead of the shared first-party application, which
+          is the form without a standing access policy. Without a customer certificate (the
+          default is a certificate Front Door issues itself) no identity is needed.
+        renders: managed_identities / identity
+
+      - id: user_assigned_identity_ids
+        ask: Which user-assigned identity?
+        type: list
+        plain:
+          en: "It uses the identity {value}."
+          de: "Es nutzt die Identität {value}."
+        ref: user_assigned_identity
+        required: true
+        depends_on: { question: managed_identity, equals: user_assigned }
+        per_environment: true
+        why: >
+          The identity that holds `Key Vault Secrets User` on the vault with the
+          certificate, created by the identity set before the profile.
+        renders: >
+          managed_identities.user_assigned_resource_ids /
+          managedIdentities.userAssignedResourceIds
+
+  - id: delivery
+    title: Delivery
+    questions:
+      - id: origins
+        ask: Which backends does Front Door route to?
+        type: list
+        plain:
+          en: "Backends: {value}."
+          de: "Backends: {value}."
+        default: []
+        per_environment: true
+        why: >
+          Each entry is a backend of the deployment (an App Service, a storage account's
+          static website, an Application Gateway) or a host name, with the route pattern it
+          serves. A profile with no origin serves nothing, a valid first state. Origin
+          groups, health probes and routes are the wiring to the services behind and belong
+          to the pattern.
+        renders: >
+          front_door_origin_groups, front_door_origins, front_door_routes / originGroups,
+          afdEndpoints
+
+      - id: origin_connection
+        ask: How does Front Door reach the backends?
+        type: enum
+        plain:
+          en: "Front Door reaches the backends over {value}."
+          de: "Front Door erreicht die Backends über {value}."
+        plain_values:
+          public: { en: "the backends' public addresses", de: die öffentlichen Adressen der Backends }
+          private_link: { en: "a private connection, so the backends stay closed to the internet", de: "eine private Verbindung, sodass die Backends für das Internet geschlossen bleiben" }
+        values: [public, private_link]
+        default: private_link
+        confirm_in: [production]
+        forced_when: >
+          `network_exposure: public` makes it `public`; a backend that cannot take a private
+          endpoint (an external host name) forces `public` for that origin, recorded as
+          overridden.
+        why: >
+          `public` calls the backend's public address, so the backend must stay reachable
+          from the internet and lock itself down to Front Door by service tag and the
+          `X-Azure-FDID` header. `private_link` has Front Door open a private endpoint to
+          the backend (Premium), which can then be closed to the internet entirely. The
+          connection arrives as *pending* and the backend's owner approves it - a step
+          outside the template. `private` is the deployment's posture.
+        renders: >
+          front_door_origins.<k>.private_link /
+          originGroups[].origins[].sharedPrivateLinkResource
+
+      - id: forwarding_protocol
+        ask: Should Front Door talk to the backends over HTTPS only?
+        type: enum
+        plain:
+          en: "Front Door talks to the backends over {value}."
+          de: "Front Door spricht mit den Backends über {value}."
+        plain_values:
+          HttpsOnly: { en: an encrypted connection only, de: nur eine verschlüsselte Verbindung }
+          MatchRequest: { en: whatever the visitor used, de: was der Besucher benutzt hat }
+        values: [HttpsOnly, MatchRequest]
+        default: HttpsOnly
+        why: >
+          `HttpsOnly` keeps the leg between the edge and the backend encrypted;
+          `MatchRequest` forwards plain HTTP when the client used it. HTTPS only is the
+          guardrails' default. The route default in the modules is `MatchRequest`.
+        renders: >
+          front_door_routes.<k>.forwarding_protocol / routes[].forwardingProtocol
+
+      - id: https_redirect
+        ask: Should plain HTTP requests be redirected to HTTPS?
+        type: bool
+        plain:
+          en: "Plain HTTP requests are {value}."
+          de: "Unverschlüsselte HTTP-Anfragen werden {value}."
+        plain_values:
+          true: { en: redirected to the encrypted address, de: auf die verschlüsselte Adresse umgeleitet }
+          false: { en: not answered, de: nicht beantwortet }
+        default: true
+        why: >
+          A route setting (`https_redirect_enabled`) that sends an `http://` request to the
+          `https://` address. On: Front Door accepts both protocols at the edge and a
+          visitor who typed no scheme still ends encrypted.
+        renders: front_door_routes.<k>.https_redirect_enabled / routes[].httpsRedirect
+
+      - id: caching
+        ask: Should Front Door keep copies of responses at the edge?
+        type: bool
+        resolved_by: interview
+        plain:
+          en: "Responses are {value} at the edge."
+          de: "Antworten werden am Rand {value}."
+        plain_values:
+          true: { en: kept, de: zwischengespeichert }
+          false: { en: not kept, de: nicht zwischengespeichert }
+        default: false
+        why: >
+          Caching turns repeated requests for static content into answers from the nearest
+          edge location, which is the point of a CDN, and does nothing but add risk for
+          personalised responses (a cached page served to the wrong visitor). Off by
+          default; on for a static site or assets, scoped by route. The query-string
+          behaviour is part of the route.
+        renders: front_door_routes.<k>.cache / routes[].cacheConfiguration
+
+      - id: custom_domains
+        ask: Which host names should Front Door answer for?
+        type: list
+        plain:
+          en: "Host names: {value} (empty: only the generated *.azurefd.net name)."
+          de: "Hostnamen: {value} (leer: nur der erzeugte *.azurefd.net-Name)."
+        default: []
+        per_environment: true
+        why: >
+          A custom domain needs DNS the platform owns: a CNAME to the endpoint and a TXT
+          record to prove ownership, an `open:` entry owned by the DNS team. Empty means the
+          generated name only, which is fine for a test and wrong for a product. Domains
+          need a minimum TLS version and a certificate source below.
+        renders: front_door_custom_domains / customDomains
+
+      - id: certificate_source
+        ask: Who provides the certificate for the host names?
+        type: enum
+        plain:
+          en: "The certificate is {value}."
+          de: "Das Zertifikat wird {value}."
+        plain_values:
+          managed: { en: issued and renewed by Front Door itself, de: von Front Door selbst ausgestellt und erneuert }
+          customer: { en: "your own, held in your key vault", de: "euer eigenes, im Schlüsseltresor" }
+        values: [managed, customer]
+        default: managed
+        depends_on: { question: custom_domains, not_equals: [] }
+        why: >
+          `managed` is a certificate Front Door issues and renews itself after the DNS proof
+          - nothing to rotate, nothing to expire silently. `customer` is a certificate held
+          in Key Vault, for a name Front Door cannot validate or a mandate that names the
+          issuer; then the renewal is the owner's job and an expiry takes the site down.
+        renders: >
+          front_door_custom_domains.<k>.tls.certificate_type /
+          customDomains[].certificateType (`ManagedCertificate`, `CustomerCertificate`)
+
+      - id: minimum_tls_version
+        ask: Which TLS version is the lowest a visitor may use?
+        type: enum
+        plain:
+          en: "Visitors must use at least TLS {value}."
+          de: "Besucher müssen mindestens TLS {value} verwenden."
+        plain_values:
+          TLS10: { en: "1.0", de: "1.0" }
+          TLS12: { en: "1.2", de: "1.2" }
+        values: [TLS10, TLS12]
+        default: TLS12
+        depends_on: { question: custom_domains, not_equals: [] }
+        why: >
+          1.2 is the guardrails' floor; the platform still accepts 1.0 on a custom domain,
+          which is a named departure for a client that cannot be upgraded. TLS 1.3 needs no
+          setting: the edge negotiates it. Written on every custom domain.
+        renders: >
+          front_door_custom_domains.<k>.tls.minimum_tls_version /
+          customDomains[].minimumTlsVersion
+
+  - id: security
+    title: Security
+    questions:
+      - id: waf_enabled
+        ask: Should a web application firewall inspect the requests at the edge?
+        type: bool
+        plain:
+          en: "A web application firewall at the edge is {value}."
+          de: "Eine Web Application Firewall am Rand ist {value}."
+        plain_values:
+          true: { en: inspected by a web application firewall, de: von einer Web Application Firewall geprüft }
+          false: { en: not inspected by a firewall, de: nicht von einer Firewall geprüft }
+        default: true
+        confirm_in: [production]
+        why: >
+          A firewall policy attached to the endpoint through a security policy inspects
+          every request before it reaches the backend, at the nearest edge. On by default
+          for anything that faces the internet; off only for a profile whose backends are
+          inspected elsewhere, named at this instance.
+        renders: >
+          front_door_firewall_policies + front_door_security_policies / a WAF policy module
+          + securityPolicies
+
+      - id: waf_mode
+        ask: Should the firewall block what it judges malicious, or only record it?
+        type: enum
+        plain:
+          en: "The firewall {value}."
+          de: "Die Firewall {value}."
+        plain_values:
+          Prevention: { en: blocks the requests it judges malicious, de: "blockiert Anfragen, die es für bösartig hält" }
+          Detection: { en: only records the requests it judges malicious, de: "protokolliert Anfragen, die es für bösartig hält, nur" }
+        values: [Prevention, Detection]
+        default: Prevention
+        depends_on: { question: waf_enabled, equals: true }
+        confirm_in: [production]
+        why: >
+          `Prevention` blocks, `Detection` records and lets through. Detection is the mode
+          to *learn* in, not to run in; moving there is a recorded, temporary departure with
+          an owner, never a savings default.
+        renders: front_door_firewall_policies.<k>.mode / policySettings.mode
+
+      - id: waf_managed_rules
+        ask: Should the firewall apply Microsoft's maintained rule sets?
+        type: bool
+        plain:
+          en: "Maintained firewall rules are {value}."
+          de: "Gepflegte Firewall-Regeln sind {value}."
+        plain_values:
+          true: { en: applied, de: angewandt }
+          false: { en: "not applied, only custom rules", de: "nicht angewandt, nur eigene Regeln" }
+        default: true
+        depends_on: { question: waf_enabled, equals: true }
+        why: >
+          The default rule set (injection, cross-site scripting, protocol attacks) and the
+          bot protection rule set, both maintained by Microsoft. They need the **Premium**
+          tier; Standard has only the custom rules and a rate limit. On with the firewall,
+          and it is what makes Premium worth its price.
+        renders: >
+          front_door_firewall_policies.<k>.managed_rules / managedRules.managedRuleSets
+
+      - id: waf_rate_limit_per_minute
+        ask: How many requests per minute may one visitor address make?
+        type: int
+        plain:
+          en: "One address may make {value} requests per minute (0: no limit)."
+          de: "Eine Adresse darf {value} Anfragen pro Minute stellen (0: keine Grenze)."
+        default: 1000
+        depends_on: { question: waf_enabled, equals: true }
+        why: >
+          A custom firewall rule that blocks an address exceeding the rate, so a flood from
+          one source costs the attacker and not the backend. 0 means no rule - a statement,
+          not a default. 1000 per minute per address is a sound start for an interactive
+          site; an API gateway sets its own figure.
+        renders: >
+          front_door_firewall_policies.<k>.custom_rules (RateLimitRule) / customRules.rules
+
+  - id: observability
+    title: Observability
+    questions:
+      - id: diagnostic_workspace
+        ask: Which Log Analytics workspace should receive diagnostics?
+        type: ref
+        resolved_by: platform
+        plain:
+          en: "Its logs go to {value}."
+          de: "Seine Logs gehen in {value}."
+        ref: log_analytics_workspace
+        from_deployment: diagnostics_destination
+        per_environment: true
+        why: >
+          Inherited: one deployment, one destination. Without a diagnostic setting the
+          resource keeps no record anyone can query.
+        renders: diagnostic_settings / diagnosticSettings
+
+      - id: diagnostic_categories
+        ask: Which log categories should be collected?
+        type: list
+        plain:
+          en: "Logged: {value}."
+          de: "Geloggt wird: {value}."
+        plain_values:
+          FrontDoorAccessLog: { en: "every request: client, host, route, status, cache result", de: "jede Anfrage: Client, Host, Route, Status, Cache-Ergebnis" }
+          FrontDoorHealthProbeLog: { en: the health probes to each backend and their result, de: die Gesundheitsprüfungen je Backend und ihr Ergebnis }
+          FrontDoorWebApplicationFirewallLog: { en: "what the firewall matched, blocked or let through", de: "was die Firewall erkannt, blockiert oder durchgelassen hat" }
+        values: [FrontDoorAccessLog, FrontDoorHealthProbeLog, FrontDoorWebApplicationFirewallLog]
+        default: [FrontDoorAccessLog, FrontDoorHealthProbeLog, FrontDoorWebApplicationFirewallLog]
+        why: >
+          The access log, the probe log and the firewall log are the three records an
+          incident needs and what the Front Door workbook reads. The access log is as large
+          as the traffic; the other two are small. The names are the platform's. The names
+          are the platform's and are checked against `az monitor diagnostic-settings
+          categories list` for the resource before a render, not remembered.
+        renders: >
+          diagnostic_settings.<key>.logs[].category /
+          diagnosticSettings[].logCategoriesAndGroups[].category
+
+      - id: metrics_enabled
+        ask: Should all metrics be collected?
+        type: bool
+        plain:
+          en: "Usage and performance figures are {value}."
+          de: "Nutzungs- und Leistungswerte werden {value}."
+        plain_values:
+          true: { en: collected, de: erfasst }
+          false: { en: not collected, de: nicht erfasst }
+        default: true
+        why: >
+          Request count, origin health percentage (the number to alert on, because a backend
+          that failed its probe silently leaves the pool), total latency, and WAF request
+          counts.
+        renders: metrics[].category = "AllMetrics" / metricCategories[].category
+

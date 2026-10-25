@@ -24,7 +24,7 @@ provider set is the union with the other modules.
 | `default_inbound` | `security_rules` entry: Deny, Inbound, any to any, priority 4096 | Written as a rule |
 | `default_outbound` | `security_rules` entry: Deny, Outbound, destination `Internet`, priority 4096 | Only for `deny_internet` |
 | `rules` | `security_rules = { <k> = { name, priority, direction, access = "Allow", protocol, source_*, destination_* } }` | The module's map key is arbitrary; names unique |
-| `diagnostic_*` | `diagnostic_settings = { workspace = { workspace_resource_id, logs = [{ category }] } }` | No metrics for an NSG |
+| `diagnostic_*` | `diagnostic_settings = { workspace = { workspace_resource_id, log_categories = [...], log_groups = [], metric_categories = [] } }` | `log_groups` defaults to `["allLogs"]`: set it empty when `log_categories` names the categories, or every log is collected beside them; no metrics for an NSG |
 | `deployment.module_telemetry` | `enable_telemetry` | |
 | `context.tags` | `tags = local.tags` | |
 
@@ -61,10 +61,9 @@ module "nsg" {
   diagnostic_settings = {
     workspace = {
       workspace_resource_id = var.diagnostic_workspace_id
-      logs = [
-        { category = "NetworkSecurityGroupEvent" },
-        { category = "NetworkSecurityGroupRuleCounter" },
-      ]
+      log_categories        = ["NetworkSecurityGroupEvent", "NetworkSecurityGroupRuleCounter"]
+      log_groups            = []
+      metric_categories     = []
     }
   }
 

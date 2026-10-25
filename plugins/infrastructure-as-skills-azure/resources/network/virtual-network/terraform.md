@@ -28,7 +28,7 @@ deployment's.
 | `private_endpoint_network_policies` | `subnets.<name>.private_endpoint_network_policies = "Enabled"` | Module default is `Enabled` already; written anyway |
 | `service_endpoints` | `subnets.<name>.service_endpoints` | |
 | `subnet_delegations` | `subnets.<name>.delegations = [{ name, service_delegation = { name } }]` | A list, plural |
-| diagnostics (from the deployment set) | `diagnostic_settings = { <key> = { workspace_resource_id, metrics = [...] } }` | |
+| diagnostics (from the deployment set) | `diagnostic_settings = { <key> = { workspace_resource_id, log_groups = [], metric_categories = ["AllMetrics"] } }` | |
 | `deployment.module_telemetry` | `enable_telemetry` | |
 | `context.tags` | `tags = local.tags` | |
 

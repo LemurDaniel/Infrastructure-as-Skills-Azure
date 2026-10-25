@@ -1,0 +1,165 @@
+schema_version: 1
+
+resource: Microsoft.Storage/storageAccounts/blobServices/containers
+title: Azure Storage blob container
+
+naming:
+  terraform: "Azure::Microsoft.Storage/storageAccounts/blobServices/containers"
+  bicep: "Microsoft.Storage/storageAccounts/blobServices/containers"
+  # Bicep assembles the name from vars - this is the prefix it renders. Container names are 3-63 characters, lowercase letters, digits and single hyphens.
+  abbreviation: "cont"
+
+boundaries:
+  - "Does not create the storage account. It is a child of one (`storage-account`) and inherits its network posture, authentication model and encryption."
+  - "Does not decide soft delete, versioning, change feed or point-in-time restore: those are properties of the account's blob service and are the `storage-account` set's."
+  - "Does not create data lake (ADLS Gen2) file systems. They are containers of an account with the hierarchical namespace; the account set decides that and the module takes them as `storage_data_lake_gen2_filesystems`."
+  - "Does not render shared access signatures, stored access policies or blobs. No SAS in a template, and the content of a container is the application's."
+  - "Does not render lifecycle management rules (tiering, deletion by age): they are rules of the account, with their own decisions."
+
+groups:
+
+  - id: placement
+    title: Placement
+    questions:
+      - id: environments
+        ask: Which stages is this deployed to?
+        type: list
+        plain:
+          en: "Deployed in the stages {value}."
+          de: "Wird in den Stufen {value} ausgerollt."
+        values: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
+        required: true
+        from_context: true
+        why: >
+          Drives the strictness of several defaults below. Nothing sensible can be guessed.
+        renders: tag of the environment where the repository uses one
+
+      - id: storage_account
+        ask: In which storage account should it live?
+        type: ref
+        plain:
+          en: "It is created in the storage account {value}."
+          de: "Es wird im Speicherkonto {value} angelegt."
+        ref: storage_account
+        required: true
+        per_environment: true
+        why: >
+          A child cannot soften what its account decided: network posture, shared-key
+          authentication and public access are the account's. The account is resolved first,
+          in `storage-account`, and this set only names the objects inside it. Looked up
+          from the deployment when the account is created in the same run.
+        renders: storage account id / parent of the child resource
+
+  - id: containers
+    title: The containers
+    questions:
+      - id: container_names
+        ask: Which containers should the account hold?
+        type: list
+        resolved_by: interview
+        plain:
+          en: "Containers: {value}."
+          de: "Container: {value}."
+        required: true
+        why: >
+          A container is the unit that carries an access level, an immutability setting and
+          role assignments, so data with a different audience or a different lifetime gets
+          its own. The names are the workload's own and part of its contract with whatever
+          writes and reads them, so they are asked, not invented. At least one: an account
+          with no container stores nothing.
+        renders: containers / blobServices.containers
+
+      - id: public_access
+        ask: May anyone on the internet read blobs in these containers without signing in?
+        type: enum
+        plain:
+          en: "Anonymous reading is {value}."
+          de: "Anonymes Lesen ist {value}."
+        plain_values:
+          None: { en: "not allowed, everyone signs in", de: "nicht erlaubt, jeder meldet sich an" }
+          Blob: { en: allowed for single files with the link, de: für einzelne Dateien mit dem Link erlaubt }
+          Container: { en: "allowed, including the file listing", de: "erlaubt, einschließlich der Dateiliste" }
+        values: [None, Blob, Container]
+        default: None
+        confirm_in: [production]
+        why: >
+          `None` is the guardrails' answer and the only one that is private: every request
+          authenticates. `Blob` and `Container` publish the content (a single blob by URL,
+          or the listing too) and only work while the account itself allows anonymous access
+          (`allow_blob_public_access`), which the account set turns off. A public container
+          is a static asset host and belongs behind Front Door or a CDN, a named departure
+          with its own reason. The module default is `None`; written anyway.
+        renders: containers.<k>.public_access / blobServices.containers[].publicAccess
+
+      - id: immutable_storage
+        ask: Must a stored file be impossible to change or delete once written?
+        type: bool
+        plain:
+          en: "Stored files are {value}."
+          de: "Gespeicherte Dateien sind {value}."
+        plain_values:
+          true: { en: locked against change and deletion, de: gegen Änderung und Löschen gesperrt }
+          false: { en: changeable like any other file, de: wie jede andere Datei änderbar }
+        derived_from:
+          question: backup_isolation
+          map: { operational: false, isolated: false, immutable: true }
+        confirm_in: [production]
+        non_production_default: false
+        forced_when: >
+          `true` makes the account's `versioning_enabled` `true` and
+          `point_in_time_restore_days` `0`, recorded as forced with `immutable_storage` as
+          forced_by
+        why: >
+          Derived from who must not be able to destroy the copies. Version-level
+          immutability (WORM) keeps every version of every blob unchangeable for a retention
+          period set on the container or the blob, which is what an audit or ransomware
+          mandate asks for. It needs blob versioning on the account, **cannot be combined
+          with point-in-time restore** (the account set drops one or the other, recorded as
+          forced), and a retention set too long is paid for until it ends. Off for ordinary
+          data.
+        renders: >
+          containers.<k>.immutable_storage_with_versioning.enabled /
+          blobServices.containers[].immutableStorageWithVersioningEnabled
+
+      - id: encryption_scope_locked
+        ask: Must every file be encrypted with the container's own key scope?
+        type: bool
+        plain:
+          en: "Writers choosing another key scope are {value}."
+          de: "Absender, die einen anderen Schlüsselbereich wählen, werden {value}."
+        plain_values:
+          true: { en: refused, de: abgewiesen }
+          false: { en: allowed, de: erlaubt }
+        default: false
+        why: >
+          An encryption scope puts a container's data under its own key (platform- or
+          customer-managed) beside the account's. This switch stops a writer from overriding
+          the container's scope per upload. Meaningful only with a scope created on the
+          account; off by default, and the account set owns the scope.
+        renders: >
+          containers.<k>.deny_encryption_scope_override /
+          blobServices.containers[].denyEncryptionScopeOverride
+
+  - id: identity
+    title: Identity and access
+    questions:
+      - id: role_assignments
+        ask: Who needs which role on this container?
+        type: list
+        plain:
+          en: "Access rights on the container granted to: {value}."
+          de: "Zugriffsrechte vergeben an: {value}."
+        default: []
+        per_environment: true
+        why: >
+          Data-plane access is granted by role, never by key. The narrow roles are `Storage
+          Blob Data Reader` to read, `Storage Blob Data Contributor` to read and write,
+          `Storage Blob Data Owner` to also set access control; the deploying principal
+          needs `Storage Blob Data Contributor` when the render creates the container
+          through the data plane. Scope to the narrowest resource the consumer needs, never
+          the subscription. A pattern normally fills this from the consumers it knows about
+          and grants a consumer's role in the pattern, not here. A role on the *container*,
+          share or queue is scoped narrower than one on the account; the account-level roles
+          belong to the storage set.
+        renders: role_assignments / roleAssignments
+

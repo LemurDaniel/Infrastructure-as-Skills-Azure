@@ -1,0 +1,475 @@
+schema_version: 1
+
+resource: Microsoft.Network/applicationGateways
+title: Azure Application Gateway (v2) with web application firewall
+
+naming:
+  terraform: "Azure::Microsoft.Network/applicationGateways"
+  bicep: "Microsoft.Network/applicationGateways"
+  # Bicep assembles the name from vars - this is the prefix it renders. The name is regional.
+  abbreviation: "agw"
+
+boundaries:
+  - "Does not create the resource group. Expects one from the spec's context."
+  - "Does not create the subnet it lives in, nor that subnet's network security group. The gateway needs a subnet of its own; the network set or the platform creates it."
+  - "Does not create private DNS zones or the public DNS record for the listener's host name - the platform owns DNS."
+  - "Does not create the Log Analytics workspace it routes diagnostics to, nor the Key Vault that holds the TLS certificates."
+  - "Does not decide the listeners, backend pools, health probes and routing rules in detail: they are wiring to the services behind the gateway and belong to a pattern. `listeners` names them, the module README gives the shape."
+  - "Does not create certificates. A certificate is a Key Vault secret read by the gateway's identity; issuing and renewing it is the certificate owner's."
+  - "Does not render the v1 SKUs (`Standard`, `WAF`): they are retired. A request for one gets a v2 gateway, said out loud."
+
+groups:
+
+  - id: placement
+    title: Placement
+    questions:
+      - id: environments
+        ask: Which stages is this deployed to?
+        type: list
+        plain:
+          en: "Deployed in the stages {value}."
+          de: "Wird in den Stufen {value} ausgerollt."
+        values: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
+        required: true
+        from_context: true
+        why: >
+          Drives the rendered name and the strictness of several defaults below. Nothing
+          sensible can be guessed.
+        renders: >
+          naming parameter `environment`, and the tag of that name where the repository uses
+          one
+
+      - id: location
+        ask: Which Azure region?
+        type: string
+        plain:
+          en: "Runs in the Azure region {value}."
+          de: "Läuft in der Azure-Region {value}."
+        required: true
+        from_context: true
+        why: >
+          Part of the rendered name and not inferable. A gateway is regional and sits in the
+          same region as the network it routes into; for several regions the answer is Front
+          Door in front of one gateway per region.
+        renders: location
+
+      - id: resource_group_name
+        ask: Which resource group?
+        type: ref
+        plain:
+          en: "Placed in the resource group {value}."
+          de: "Liegt in der Ressourcengruppe {value}."
+        ref: resource_group
+        required: true
+        from_context: true
+        per_environment: true
+        why: >
+          The gateway is placed into an existing group. In a split deployment it belongs to
+          the `network` role, with the subnet it lives in.
+        renders: resource_group_name (AVM Terraform) / implicit in Bicep scope
+
+  - id: gateway
+    title: The gateway
+    questions:
+      - id: waf_enabled
+        ask: Should a web application firewall inspect the requests?
+        type: bool
+        plain:
+          en: "A web application firewall is {value}."
+          de: "Eine Web Application Firewall ist {value}."
+        plain_values:
+          true: { en: inspected by a web application firewall, de: von einer Web Application Firewall geprüft }
+          false: { en: not inspected by a firewall, de: nicht von einer Firewall geprüft }
+        default: true
+        confirm_in: [production]
+        why: >
+          A layer-7 load balancer in front of web applications is the place an internet-
+          facing system takes its attacks, and the firewall is what inspects them
+          (injection, cross-site scripting, known bad bots). On by default: the guardrails
+          want it on anything that faces the internet, and the cost is the `WAF_v2` SKU,
+          which is not much dearer than `Standard_v2`. Off only for a gateway that faces the
+          private network alone and whose backends are behind other controls, named at this
+          instance. The Bicep module defaults to `WAF_v2`; the Terraform module has no
+          default SKU.
+        renders: >
+          sku.name, sku.tier, firewall_policy / sku, firewallPolicyResourceId (`WAF_v2` or
+          `Standard_v2`)
+
+      - id: waf_mode
+        ask: Should the firewall block what it judges malicious, or only record it?
+        type: enum
+        plain:
+          en: "The firewall {value}."
+          de: "Die Firewall {value}."
+        plain_values:
+          Prevention: { en: blocks the requests it judges malicious, de: "blockiert Anfragen, die es für bösartig hält" }
+          Detection: { en: only records the requests it judges malicious, de: "protokolliert Anfragen, die es für bösartig hält, nur" }
+        values: [Prevention, Detection]
+        default: Prevention
+        depends_on: { question: waf_enabled, equals: true }
+        confirm_in: [production]
+        why: >
+          `Prevention` blocks, `Detection` records and lets through. Detection is the mode
+          to *learn* in - a new rule set blocks legitimate requests that look odd, and the
+          first week is spent finding them - but a gateway left in Detection is a gateway
+          that logs attacks it let in. Prevention is the default; moving to Detection is a
+          recorded, temporary departure with an owner, never a savings default.
+        renders: firewall policy policy_settings.mode / policySettings.mode
+
+      - id: waf_rule_set
+        ask: Which rule set should the firewall apply?
+        type: enum
+        plain:
+          en: "The firewall applies the rule set {value}."
+          de: "Die Firewall wendet das Regelwerk {value} an."
+        plain_values:
+          Microsoft_DefaultRuleSet_2.1: { en: "Microsoft's maintained default rules", de: die gepflegten Standardregeln von Microsoft }
+          OWASP_3.2: { en: the older OWASP rules, de: die älteren OWASP-Regeln }
+        values: [Microsoft_DefaultRuleSet_2.1, OWASP_3.2]
+        default: Microsoft_DefaultRuleSet_2.1
+        depends_on: { question: waf_enabled, equals: true }
+        why: >
+          The Microsoft Default Rule Set (DRS) is the maintained successor of the OWASP core
+          rule set: it is updated by Microsoft, includes the anomaly-scoring model and more
+          rules. 2.1 is current as of this writing and is looked up against the Azure
+          documentation before a render. OWASP 3.2 is for a gateway migrated from it that
+          has a tuned exclusion list. The bot manager rule set below is separate.
+        renders: managed_rules.managed_rule_set / managedRules.managedRuleSets
+
+      - id: waf_bot_protection
+        ask: Should known malicious bots be blocked?
+        type: bool
+        plain:
+          en: "Known malicious bots are {value}."
+          de: "Bekannte bösartige Bots werden {value}."
+        plain_values:
+          true: { en: blocked, de: blockiert }
+          false: { en: let through, de: durchgelassen }
+        default: true
+        depends_on: { question: waf_enabled, equals: true }
+        why: >
+          The bot manager rule set blocks scrapers, scanners and known bad actors by
+          reputation. Cheap, rarely a false positive, and an effect on the bill (less junk
+          traffic). On with the firewall.
+        renders: >
+          managed_rules.managed_rule_set (`Microsoft_BotManagerRuleSet_1.1`) /
+          managedRules.managedRuleSets
+
+      - id: capacity_min
+        ask: How many instances should always be running?
+        type: int
+        plain:
+          en: "At least {value} instance(s) are always running."
+          de: "Mindestens {value} Instanz(en) laufen immer."
+        derived_from:
+          question: outage_impact
+          map: { tolerable: 1, disruptive: 2, critical: 2 }
+        non_production_default: 1
+        why: >
+          The floor of the autoscale range. Derived from how bad an outage is: with 0 the
+          first request after idle waits for a scale-out, and a single instance is a single
+          point of failure during an upgrade. Two is the floor for anything that must stay
+          up (upgrades roll one at a time); a development stage keeps one. The Bicep module
+          defaults to a fixed capacity of 2, the Terraform module to nothing.
+        renders: autoscale_configuration.min_capacity / autoscaleMinCapacity
+
+      - id: capacity_max
+        ask: How many instances may it grow to under load?
+        type: int
+        plain:
+          en: "It grows to at most {value} instances."
+          de: "Es wächst auf höchstens {value} Instanzen."
+        default: 10
+        non_production_default: 2
+        why: >
+          The ceiling of the autoscale range, 2 to 125. A ceiling is the point of the cost
+          control: without one a flood is paid for until someone notices. 10 is room for a
+          tenfold burst on a small gateway. Each instance is billed by the hour in capacity
+          units.
+        renders: autoscale_configuration.max_capacity / autoscaleMaxCapacity
+
+      - id: zone_redundant
+        ask: Should the gateway survive the loss of one datacenter of its region?
+        type: bool
+        plain:
+          en: "The gateway survives the loss of a datacenter: {value}."
+          de: "Das Gateway übersteht den Ausfall eines Rechenzentrums: {value}."
+        plain_values:
+          true: { en: do, de: überstehen }
+          false: { en: do not, de: überstehen nicht }
+        derived_from:
+          question: outage_impact
+          map: { tolerable: false, disruptive: true, critical: true }
+        non_production_default: false
+        why: >
+          Derived from how bad an outage is. A v2 gateway spreads its instances over the
+          region's zones at no extra charge; the public IP address must be zone-redundant as
+          well. The only cost is the minimum of two instances, so it is `true` unless the
+          outage is tolerable. A region without zones takes `false`, said out loud.
+        renders: zones / availabilityZones
+
+      - id: gateway_subnet
+        ask: Which subnet is reserved for the gateway?
+        type: ref
+        resolved_by: platform
+        plain:
+          en: "The gateway uses the subnet {value}."
+          de: "Das Gateway nutzt das Subnetz {value}."
+        ref: subnet
+        required: true
+        per_environment: true
+        why: >
+          A subnet of its own, with nothing else in it - a /24 is the recommendation so
+          autoscale never runs out of addresses (each instance takes one, plus a private
+          frontend address if one is used). Its network security group must let
+          `GatewayManager` through on ports 65200-65535 and the load balancer probe; a rule
+          that forgets them fails the deployment late. Looked up from the platform or
+          created by the network set.
+        renders: >
+          gateway_ip_configurations.subnet_id / gatewayIPConfigurations[].properties.subnet
+
+      - id: managed_identity
+        ask: Which managed identity should the gateway carry?
+        type: enum
+        plain:
+          en: "The gateway has {value}."
+          de: "Das Gateway hat {value}."
+        plain_values:
+          none: { en: no identity of its own, de: keine eigene Identität }
+          user_assigned: { en: a separately managed identity, de: eine separat verwaltete Identität }
+        values: [none, user_assigned]
+        default: user_assigned
+        why: >
+          The gateway reads its TLS certificates from Key Vault with an identity, and only a
+          user-assigned one can hold the role before the gateway exists. Without
+          certificates in Key Vault no identity is needed. The role (`Key Vault Secrets
+          User`) is wiring and belongs to the pattern.
+        renders: identity / managedIdentities
+
+      - id: user_assigned_identity_ids
+        ask: Which user-assigned identity?
+        type: list
+        plain:
+          en: "It uses the identity {value}."
+          de: "Es nutzt die Identität {value}."
+        ref: user_assigned_identity
+        required: true
+        depends_on: { question: managed_identity, equals: user_assigned }
+        per_environment: true
+        why: >
+          The identity that holds `Key Vault Secrets User` on the vault with the
+          certificates, created by the identity set before the gateway.
+        renders: identity.identity_ids / managedIdentities.userAssignedResourceIds
+
+  - id: networking
+    title: Networking
+    questions:
+      - id: frontend_exposure
+        ask: On which side of the network does the gateway take requests?
+        type: enum
+        plain:
+          en: "The gateway takes requests {value}."
+          de: "Das Gateway nimmt Anfragen {value} entgegen."
+        plain_values:
+          public: { en: from the internet, de: aus dem Internet }
+          private: { en: only from inside the private network, de: nur aus dem privaten Netz }
+        values: [public, private]
+        default: private
+        confirm_in: [production]
+        forced_when: >
+          `network_exposure: public` forces `public`; `private_with_exceptions` makes this
+          gateway the exception and records `public` as overridden. `network_ownership:
+          none` forces `public`.
+        why: >
+          A gateway in front of an internet-facing system has a public frontend (a Standard
+          static IP). A private one answers only from the network - the way for an internal
+          application, or for a gateway behind Front Door's private link. A private-only
+          gateway needs a feature the subscription has to be enrolled in; a gateway with a
+          public IP can also hold a private frontend beside it. `private` is the
+          deployment's posture; `public` is a stated exception.
+        renders: >
+          frontend_ip_configurations / frontendIPConfigurations; public_ip_addresses
+          (module-created) / the public IP
+
+      - id: public_ip_zone_redundant
+        ask: Should the public address be zone-redundant?
+        type: bool
+        plain:
+          en: "The public address is zone-redundant: {value}."
+          de: "Die öffentliche Adresse ist zonenredundant: {value}."
+        plain_values:
+          true: { en: "yes", de: ja }
+          false: { en: "no", de: nein }
+        default: true
+        depends_on: { question: frontend_exposure, equals: public }
+        why: >
+          A zonal gateway with a non-zonal public IP is zonal in name only. Follows
+          `zone_redundant`; the module's public IP is created with the same zones.
+        renders: public_ip_addresses.<k>.zones / the public IP resource zones
+
+      - id: tls_policy
+        ask: Which TLS versions and ciphers may clients use?
+        type: enum
+        plain:
+          en: "Clients connect with the policy {value}."
+          de: "Clients verbinden sich mit der Richtlinie {value}."
+        plain_values:
+          AppGwSslPolicy20220101: { en: TLS 1.2 or newer with a broad cipher list, de: TLS 1.2 oder neuer mit breiter Chiffrenliste }
+          AppGwSslPolicy20220101S: { en: TLS 1.2 or newer with strong ciphers only, de: TLS 1.2 oder neuer nur mit starken Chiffren }
+        values: [AppGwSslPolicy20220101, AppGwSslPolicy20220101S]
+        default: AppGwSslPolicy20220101S
+        why: >
+          A predefined policy, so the list does not rot. Both set TLS 1.2 as the floor; the
+          `S` policy narrows the ciphers to the strong set. `AppGwSslPolicy20220101S` is the
+          default. The module's own default is a *custom* policy with TLS 1.2 minimum and no
+          cipher list - written here so the chosen policy is what applies. Looked up against
+          the Azure documentation before a render, because the predefined list grows.
+        renders: ssl_policy / sslPolicyName, sslPolicyType
+
+      - id: backend_protocol
+        ask: Should the gateway talk to the services behind it encrypted?
+        type: enum
+        plain:
+          en: "The gateway talks to the services behind it over {value}."
+          de: "Das Gateway spricht mit den dahinterliegenden Diensten über {value}."
+        plain_values:
+          Https: { en: an encrypted connection, de: eine verschlüsselte Verbindung }
+          Http: { en: an unencrypted connection, de: eine unverschlüsselte Verbindung }
+        values: [Https, Http]
+        default: Https
+        why: >
+          End-to-end TLS keeps the traffic encrypted inside the network, which the
+          guardrails want for anything that carries personal data. `Http` terminates TLS at
+          the gateway - acceptable only where the leg is inside a closed subnet and a
+          mandate allows it, and a recorded departure. HTTPS needs a certificate the gateway
+          trusts on the backend (a well-known CA, or a root certificate added to it).
+        renders: >
+          backend_http_settings_collection.protocol /
+          backendHttpSettingsCollection[].properties.protocol
+
+      - id: redirect_http_to_https
+        ask: Should plain HTTP requests be redirected to HTTPS?
+        type: bool
+        plain:
+          en: "Plain HTTP requests are {value}."
+          de: "Unverschlüsselte HTTP-Anfragen werden {value}."
+        plain_values:
+          true: { en: redirected to the encrypted address, de: auf die verschlüsselte Adresse umgeleitet }
+          false: { en: not answered, de: nicht beantwortet }
+        default: true
+        why: >
+          A listener on port 80 that redirects to the 443 listener, so a link typed without
+          `https://` still ends encrypted. On unless there is no port 80 at all.
+        renders: >
+          redirect_configurations + a routing rule / redirectConfigurations +
+          requestRoutingRules
+
+      - id: http2_enabled
+        ask: Should HTTP/2 be offered to clients?
+        type: bool
+        plain:
+          en: "HTTP/2 is {value}."
+          de: "HTTP/2 ist {value}."
+        plain_values:
+          true: { en: offered, de: angeboten }
+          false: { en: not offered, de: nicht angeboten }
+        default: true
+        why: >
+          Faster for browsers, no downside for others. The Terraform module leaves it unset
+          (the platform default), so it is written.
+        renders: enable_http2 / enableHttp2
+
+      - id: listeners
+        ask: Which sites does the gateway serve, and where does each go?
+        type: list
+        plain:
+          en: "Sites: {value}."
+          de: "Seiten: {value}."
+        default: []
+        per_environment: true
+        why: >
+          Each entry is a host name, the certificate that secures it (a Key Vault secret)
+          and the backend that answers it (a service of the deployment or a URL). Listeners,
+          backend pools, probes and routing rules are the wiring to the services behind; the
+          pattern fills them. A gateway with no listener serves nothing - the first state,
+          and a valid one.
+        renders: >
+          http_listeners, backend_address_pools, request_routing_rules, probes / the same
+          lists in Bicep
+
+  - id: security
+    title: Security
+    questions:
+      - id: waf_exclusions
+        ask: Which request parts must the firewall not inspect?
+        type: list
+        plain:
+          en: "Exempt from inspection: {value} (empty: nothing)."
+          de: "Von der Prüfung ausgenommen: {value} (leer: nichts)."
+        default: []
+        depends_on: { question: waf_enabled, equals: true }
+        why: >
+          A false positive is solved by an exclusion on one request attribute (a cookie, a
+          header) for one rule - never by turning the rule off, and never by switching to
+          Detection. Each entry is the match variable, the selector, and the reason. Empty
+          at the start; the list grows from the first week in Detection or from the logs.
+          Recorded as free text and rendered into `managed_rules.exclusion`.
+        renders: managed_rules.exclusion / managedRules.exclusions
+
+  - id: observability
+    title: Observability
+    questions:
+      - id: diagnostic_workspace
+        ask: Which Log Analytics workspace should receive diagnostics?
+        type: ref
+        resolved_by: platform
+        plain:
+          en: "Its logs go to {value}."
+          de: "Seine Logs gehen in {value}."
+        ref: log_analytics_workspace
+        from_deployment: diagnostics_destination
+        per_environment: true
+        why: >
+          Inherited: one deployment, one destination. Without a diagnostic setting the
+          resource keeps no record anyone can query.
+        renders: diagnostic_settings / diagnosticSettings
+
+      - id: diagnostic_categories
+        ask: Which log categories should be collected?
+        type: list
+        plain:
+          en: "Logged: {value}."
+          de: "Geloggt wird: {value}."
+        plain_values:
+          ApplicationGatewayAccessLog: { en: "every request: client, host, status, time", de: "jede Anfrage: Client, Host, Status, Dauer" }
+          ApplicationGatewayPerformanceLog: { en: instance throughput and health (v1 only), de: Durchsatz und Zustand der Instanzen (nur v1) }
+          ApplicationGatewayFirewallLog: { en: "what the firewall matched, blocked or let through", de: "was die Firewall erkannt, blockiert oder durchgelassen hat" }
+        values: [ApplicationGatewayAccessLog, ApplicationGatewayPerformanceLog, ApplicationGatewayFirewallLog]
+        default: [ApplicationGatewayAccessLog, ApplicationGatewayFirewallLog]
+        why: >
+          The access log is the record of every request and the firewall log is the record
+          of every attack the firewall saw - the two things an incident review needs. Both
+          are as large as the traffic. The performance log exists only on the retired v1 SKU
+          and is not collected. The names are the platform's and are checked against `az
+          monitor diagnostic-settings categories list` for the resource before a render, not
+          remembered.
+        renders: >
+          diagnostic_settings.<key>.logs[].category /
+          diagnosticSettings[].logCategoriesAndGroups[].category
+
+      - id: metrics_enabled
+        ask: Should all metrics be collected?
+        type: bool
+        plain:
+          en: "Usage and performance figures are {value}."
+          de: "Nutzungs- und Leistungswerte werden {value}."
+        plain_values:
+          true: { en: collected, de: erfasst }
+          false: { en: not collected, de: nicht erfasst }
+        default: true
+        why: >
+          Throughput, healthy and unhealthy host count (the number to alert on, because a
+          backend that failed its probe is silently out of rotation), response status counts
+          and capacity units.
+        renders: metrics[].category = "AllMetrics" / metricCategories[].category
+

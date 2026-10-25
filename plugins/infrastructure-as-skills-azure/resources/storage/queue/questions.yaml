@@ -1,0 +1,126 @@
+schema_version: 1
+
+resource: Microsoft.Storage/storageAccounts/queueServices/queues
+title: Azure Queue Storage queue
+
+naming:
+  terraform: "Azure::Microsoft.Storage/storageAccounts/queueServices/queues"
+  bicep: "Microsoft.Storage/storageAccounts/queueServices/queues"
+  # Bicep assembles the name from vars - this is the prefix it renders. Queue names are 3-63 characters, lowercase letters, digits and single hyphens.
+  abbreviation: "stq"
+
+boundaries:
+  - "Does not create the storage account. It is a child of one (`storage-account`) and inherits its network posture and authentication model."
+  - "Is not Service Bus. A storage queue has no ordering guarantee, no dead-letter queue, no duplicate detection and no topics; a request that needs any of them is `service-bus`. The interview asks which is meant."
+  - "Does not render access policies, SAS or messages. The content is the application's."
+  - "Does not decide message handling: visibility timeout, poison-message handling and retries are the consumer's code, not the queue's."
+
+groups:
+
+  - id: placement
+    title: Placement
+    questions:
+      - id: environments
+        ask: Which stages is this deployed to?
+        type: list
+        plain:
+          en: "Deployed in the stages {value}."
+          de: "Wird in den Stufen {value} ausgerollt."
+        values: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
+        required: true
+        from_context: true
+        why: >
+          Drives the strictness of several defaults below. Nothing sensible can be guessed.
+        renders: tag of the environment where the repository uses one
+
+      - id: storage_account
+        ask: In which storage account should it live?
+        type: ref
+        plain:
+          en: "It is created in the storage account {value}."
+          de: "Es wird im Speicherkonto {value} angelegt."
+        ref: storage_account
+        required: true
+        per_environment: true
+        why: >
+          A child cannot soften what its account decided: network posture, shared-key
+          authentication and public access are the account's. The account is resolved first,
+          in `storage-account`, and this set only names the objects inside it. Looked up
+          from the deployment when the account is created in the same run.
+        renders: storage account id / parent of the child resource
+
+  - id: queues
+    title: The queues
+    questions:
+      - id: queue_names
+        ask: Which queues should the account hold?
+        type: list
+        resolved_by: interview
+        plain:
+          en: "Queues: {value}."
+          de: "Warteschlangen: {value}."
+        required: true
+        why: >
+          A queue is a simple, cheap buffer between a producer and a worker, in the account
+          that already exists - billed by operations, with a size limit of the account
+          itself. The names are the workload's own and part of its contract with whatever
+          writes and reads them. At least one. Names are lowercase and may be used as a
+          Functions or Container Apps trigger.
+        renders: queues / queueServices.queues
+
+      - id: needs_dead_letter_or_ordering
+        ask: Must messages be delivered in order, or must a message that keeps failing be set aside automatically?
+        type: bool
+        resolved_by: interview
+        plain:
+          en: "Ordering or automatic set-aside is {value}."
+          de: "Reihenfolge oder automatisches Beiseitelegen ist {value}."
+        plain_values:
+          true: { en: required, de: erforderlich }
+          false: { en: not required, de: nicht erforderlich }
+        default: false
+        forced_when: >
+          `true` replaces this set with `service-bus` for the same queue names
+        why: >
+          The customer's way of asking whether a storage queue is enough. A storage queue
+          guarantees neither: a message that keeps failing is retried by the consumer's own
+          code, and order is best effort. If either is needed the answer is Service Bus, and
+          the interview switches the resource rather than rendering a queue that cannot do
+          it. `false` keeps the storage queue.
+        renders: selects service-bus instead of this set when true
+
+      - id: metadata
+        ask: Should the queues carry labels?
+        type: list
+        plain:
+          en: "Queue labels: {value} (empty: none)."
+          de: "Beschriftungen der Warteschlangen: {value} (leer: keine)."
+        default: []
+        why: >
+          Key-value metadata on a queue, lowercase keys. Usually empty; used by tools that
+          discover queues by label.
+        renders: queues.<k>.metadata / queueServices.queues[].metadata
+
+  - id: identity
+    title: Identity and access
+    questions:
+      - id: role_assignments
+        ask: Who needs which role on this queue?
+        type: list
+        plain:
+          en: "Access rights on the queue granted to: {value}."
+          de: "Zugriffsrechte vergeben an: {value}."
+        default: []
+        per_environment: true
+        why: >
+          Data-plane access is granted by role, never by key. The narrow roles are `Storage
+          Queue Data Message Sender` to add messages, `Storage Queue Data Message Processor`
+          to read and delete them, `Storage Queue Data Reader` to peek and `Storage Queue
+          Data Contributor` to manage; a producer needs only Sender, a worker only
+          Processor. Scope to the narrowest resource the consumer needs, never the
+          subscription. A pattern normally fills this from the consumers it knows about and
+          grants a consumer's role in the pattern, not here. A role on the *container*,
+          share or queue is scoped narrower than one on the account; the account-level roles
+          belong to the storage set.
+        renders: role_assignments / roleAssignments
+
