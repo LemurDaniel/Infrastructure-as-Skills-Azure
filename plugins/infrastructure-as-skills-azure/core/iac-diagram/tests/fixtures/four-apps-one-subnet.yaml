@@ -1,0 +1,220 @@
+schema_version: 1
+spec:
+  id: four-apps-one-subnet
+  target: terraform
+  generated_by: hand-written fixture for run_diagram_tests.py
+  at: 2026-10-18 12:00:00+00:00
+context:
+  language: en
+  environments:
+  - development
+  - test
+  - production
+  location: germanywestcentral
+  workload: webshop
+  subscription_id:
+    production: 11111111-2222-3333-4444-555555555555
+  resource_group_name:
+    production: rg-webshop-prod-gwc
+  tags: {}
+deployment:
+  landing_zone:
+    value: corp
+    source: stated
+    forces:
+    - network_exposure: private
+  network_exposure:
+    value: private
+    source: stated
+  network_ownership:
+    value: create
+    source: stated
+  address_space:
+    value:
+      production: 10.40.0.0/16
+    source: stated
+  private_endpoint_subnet:
+    value:
+      production: snet-privatelink
+    source: stated
+  private_endpoint_subnet_prefix:
+    value:
+      production: 10.40.1.0/26
+    source: stated
+  private_dns_ownership:
+    value: platform
+    source: default
+  private_dns_records:
+    value: policy
+    source: default
+  observability_ownership:
+    value: reference
+    source: stated
+  diagnostics_destination:
+    value:
+      production:
+        name: log-platform-prod-gwc
+        resource_group_name: rg-observability-prod-gwc
+    source: stated
+  mandates:
+    value:
+    - BSI C5
+    - ISO 27001
+    source: stated
+  local_auth:
+    value: disabled
+    source: default
+composition:
+  granularity: single
+  source: default
+wiring:
+  access:
+    value:
+    - from: users
+      to: app-service__dashboard
+      label: HTTPS 443
+    - from: app-service__dashboard
+      to: app-service__worker
+      label: Run starten
+    - from: app-service__dashboard
+      to: app-service__tuner
+      label: Tuning starten
+    - from: app-service__dashboard
+      to: app-service__scheduler
+      label: Zeitplan setzen
+    - from: app-service__dashboard
+      to: storage-account
+    - from: app-service__worker
+      to: storage-account
+    - from: app-service__tuner
+      to: storage-account
+    - from: app-service__scheduler
+      to: storage-account
+    - from: app-service__tuner
+      to: key-vault
+    - from: app-service__worker
+      to: sql-server
+    source: stated
+  purposes:
+    value:
+      app-service__dashboard: Dashboard
+      app-service__worker: Worker
+      app-service__tuner: Tuner
+      app-service__scheduler: Scheduler
+      storage-account: Results
+      key-vault: Secrets
+      sql-server: State
+      container-registry: Images
+    source: stated
+  optional:
+    value: []
+    source: stated
+  private_dns_zones:
+  - privatelink.blob.core.windows.net
+  - privatelink.vaultcore.azure.net
+  - privatelink.azurewebsites.net
+  - privatelink.database.windows.net
+  - privatelink.servicebus.windows.net
+  - privatelink.azurecr.io
+  - privatelink.redis.cache.windows.net
+  - privatelink.documents.azure.com
+resources:
+  virtual-network:
+    addressing:
+      address_space:
+        value:
+          production: 10.40.0.0/16
+        source: stated
+      subnets:
+        value:
+          production:
+          - name: snet-privatelink
+            prefix: 10.40.1.0/26
+            purpose: private_endpoints
+          - name: snet-app-integration
+            prefix: 10.40.2.0/26
+          - name: snet-data
+            prefix: 10.40.3.0/24
+          - name: snet-agents
+            prefix: 10.40.4.0/27
+        source: assumed
+  app-service__dashboard:
+    networking:
+      integration_subnet:
+        value:
+          production: virtual-network.snet-app-integration
+        source: stated
+      public_network_access:
+        value: disabled
+        source: deployment
+      private_endpoint_subnet:
+        value:
+          production: snet-privatelink
+        source: deployment
+  app-service__worker:
+    networking:
+      integration_subnet:
+        value:
+          production: virtual-network.snet-app-integration
+        source: stated
+      public_network_access:
+        value: disabled
+        source: deployment
+      private_endpoint_subnet:
+        value:
+          production: snet-privatelink
+        source: deployment
+  app-service__tuner:
+    networking:
+      integration_subnet:
+        value:
+          production: virtual-network.snet-app-integration
+        source: stated
+      public_network_access:
+        value: disabled
+        source: deployment
+      private_endpoint_subnet:
+        value:
+          production: snet-privatelink
+        source: deployment
+  app-service__scheduler:
+    networking:
+      integration_subnet:
+        value:
+          production: virtual-network.snet-app-integration
+        source: stated
+      public_network_access:
+        value: disabled
+        source: deployment
+      private_endpoint_subnet:
+        value:
+          production: snet-privatelink
+        source: deployment
+  storage-account:
+    networking:
+      public_network_access:
+        value: disabled
+        source: deployment
+      private_endpoint_subnet:
+        value:
+          production: snet-privatelink
+        source: deployment
+  key-vault:
+    networking:
+      public_network_access:
+        value: disabled
+        source: deployment
+      private_endpoint_subnet:
+        value:
+          production: snet-privatelink
+        source: deployment
+  container-registry:
+    networking:
+      public_network_access:
+        value: disabled
+        source: deployment
+  sql-server:
+    networking:
+      public_network_access:
+        value: disabled
+        source: deployment

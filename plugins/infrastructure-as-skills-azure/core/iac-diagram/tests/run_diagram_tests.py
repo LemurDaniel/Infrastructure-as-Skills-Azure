@@ -461,6 +461,33 @@ def case_dns_open(cells):
     return bad
 
 
+def case_four_apps_one_subnet(cells):
+    """Four apps in one subnet that call each other: they stand in a column, not a row (a row
+    sends the first one's lines through the others), and a call between two of them never
+    leaves the subnet - every waypoint lies inside its frame, the line is not drawn around it."""
+    bad = []
+    apps = [k for k in cells if k.startswith('res-app-service__')]
+    if len(apps) != 4:
+        return [f'expected four apps, found {len(apps)}']
+    frames = {cells[a]['parent'] for a in apps}
+    if len(frames) != 1:
+        return [f'the apps do not share one subnet: {frames}']
+    frame = frames.pop()
+    if len({round(absolute(cells, a)[1]) for a in apps}) != 4:
+        bad.append('the apps are not in a column (one row each)')
+    fx, fy, fw, fh = absolute(cells, frame)
+    n = 0
+    for k, e in edges(cells).items():
+        if e['source'] in apps and e['target'] in apps:
+            n += 1
+            for x, y in e['points']:
+                if not (fx < x < fx + fw and fy < y < fy + fh):
+                    bad.append(f"{k}: a call inside the subnet leaves it at ({x:.0f}, {y:.0f}), frame x {fx:.0f}-{fx + fw:.0f}")
+    if n != 3:
+        bad.append(f'expected three calls between the apps, found {n}')
+    return bad
+
+
 CASES = [
     ('ten-resources', os.path.join(FIXTURES, 'ten-resources.yaml'), 'en', case_ten_resources),
     ('ten-resources-de', os.path.join(FIXTURES, 'ten-resources.yaml'), 'de', case_ten_resources_de),
@@ -471,6 +498,7 @@ CASES = [
     ('resource-groups-small', os.path.join(FIXTURES, 'resource-groups-small.yaml'), 'de', case_resource_groups_small),
     ('dns-open', os.path.join(FIXTURES, 'dns-open.yaml'), 'de', case_dns_open),
     ('entry-chain', os.path.join(FIXTURES, 'entry-chain.yaml'), 'de', case_entry_chain),
+    ('four-apps-one-subnet', os.path.join(FIXTURES, 'four-apps-one-subnet.yaml'), 'en', case_four_apps_one_subnet),
     ('no-split-no-group-tags', os.path.join(FIXTURES, 'public-webshop.yaml'), 'en', case_no_split_no_group_tags),
 ]
 

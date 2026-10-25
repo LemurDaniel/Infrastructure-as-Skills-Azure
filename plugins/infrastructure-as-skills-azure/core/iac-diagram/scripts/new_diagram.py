@@ -888,6 +888,10 @@ def main():
     cols_c = min(max([len(v) for v in groups.values()] or [1]), 4)
     if chain:
         cols_c = 1
+    if side and len(callers) >= 3:
+        # Three or more callers stand in a column: in one row, the lines of the first run through
+        # the icons of the others on their way to the endpoints, and the lines between callers too.
+        cols_c = 1
     cw_chain = SLOT_W + 60
     chain_gap = max(70, 12 + 6 * max([len(a['label']) for a in access if a['from'] in compute and a['to'] in compute] or [0]))
     n_col = len(groups) + (1 if draw_vnet and with_pe else 0)
@@ -902,8 +906,12 @@ def main():
         # there one line leaves for each service. Who calls what is text at the service.
         cols_p = PAAS_COLS
         stagger = 0
-        cw = max(cols_c * SLOT_W + 2 * PAD, 2 * SLOT_W + 2 * PAD)        # compute subnet width
-        coll_w = 34 + TRK * (len(callers) + n_inter)
+        # A call between two services of one subnet stays inside it: a track of its own at the right
+        # of the icons, in the subnet - so the subnet is wider by one track each.
+        n_same = sum(1 for a in access if a['from'] in compute and a['to'] in compute
+                     and a['from'] != a['to'] and compute_subnet(a['from']) == compute_subnet(a['to']))
+        cw = max(cols_c * SLOT_W + 2 * PAD, 2 * SLOT_W + 2 * PAD) + (14 * n_same + 14 if n_same else 0)   # compute subnet width
+        coll_w = 34 + TRK * (len(callers) + n_inter - n_same)
         pe_w = SLOT_W
         w_main = PAD + cw + coll_w + pe_w + PAD
         chan_w = 80
@@ -1436,6 +1444,7 @@ def main():
     vn_cell = by_id.get('vnet') or by_id.get('z-compute')
     gut0 = (vn_cell['x'] + vn_cell['w'] - 2 * PAD) if vn_cell else sub_x
     inter = {}   # compute -> compute: tracks left of the callers' own
+    inter_in = {}   # subnet -> its compute -> compute tracks inside it
     actor_edges = [a for a in access if (is_actor(a['from']) and a['to'] in compute) or (is_actor(a['to']) and a['from'] in compute)]
     actor_edges = [a for a in actor_edges if node_id(a['from']) in by_id and node_id(a['to']) in by_id]
     ay = lambda a: by_id[node_id(a['from'] if is_actor(a['from']) else a['to'])]['y']
@@ -1534,12 +1543,32 @@ def main():
                 edge['off'] = (0, -11)
         elif a['from'] in compute and a['to'] in compute:
             k = inter.setdefault(a['from'] + '>' + a['to'], len(inter))
-            if side and 'snet-pe' in by_id:
+            same = sc.get('parent') == dc.get('parent') and str(sc.get('parent', '')).startswith('snet-c')
+            if same:
+                # inside the subnet, between the icons' column and its right border
+                k_in = inter_in.setdefault(sc['parent'], {}).setdefault(a['from'] + '>' + a['to'], len(inter_in.get(sc['parent'], {})))
+                tx = sc['slot']['x'] + sc['slot']['w'] + 10 + 14 * k_in
+            elif side and 'snet-pe' in by_id:
                 tx = by_id['snet-pe']['x'] - coll_w + 14 + TRK * (len(callers) + k)
             else:
                 tx = gut0 - 16 * (len(callers) + 1 + k)
-            edge['style'] = style + f"exitX=1;exitY=0.5;entryX=1;entryY={IN_FR};"
-            edge['points'] = [{'x': tx, 'y': sc['y'] + sc['h'] / 2}, {'x': tx, 'y': dc['y'] + dc['h'] * IN_FR}]
+            # Several lines out of one icon leave at heights of their own, the farthest target
+            # highest: a nearer line's drop then never crosses a farther one's run, and the runs do
+            # not lie on each other. The label sits on the first run, where the line is alone.
+            mates = sorted((x for x in access if x['from'] == a['from'] and x['to'] in compute and node_id(x['to']) in by_id),
+                           key=lambda x: -abs(by_id[node_id(x['to'])]['y'] - sc['y']))
+            ex_fr = 0.5 if len(mates) < 2 else 0.1 + 0.15 * mates.index(a)
+            edge['style'] = style + f"exitX=1;exitY={num(ex_fr)};entryX=1;entryY={IN_FR};"
+            y0 = sc['y'] + sc['h'] * ex_fr
+            edge['points'] = [{'x': tx, 'y': y0}, {'x': tx, 'y': dc['y'] + dc['h'] * IN_FR}]
+            if edge_label:
+                # on the last stretch, into the target: every line ends at a height of its own, the
+                # first run is shared by all of them
+                run3 = abs(tx - (dc['x'] + dc['w']))
+                total = abs(tx - (sc['x'] + sc['w'])) + abs(dc['y'] + dc['h'] * IN_FR - y0) + run3
+                if total > 0:
+                    edge['lx'] = round(2 * ((total - run3 / 2) / total) - 1, 3)
+                    edge['off'] = (0, -10)
         elif a['from'] in compute and base(a['to']) in MONITOR_KINDS:
             # To the monitoring zone, which sits below the network or the services: down a
             # corridor right of the network, along the gutter above the zone's row, down beside

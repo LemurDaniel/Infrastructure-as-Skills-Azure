@@ -87,7 +87,7 @@ Phase 5 says; never review silently "by looking once" and call it done.
 ### The review checklist
 
 The reviewer works through this list, in this order, and reports every hit with the cell ids.
-A hit in 1-3 is an `error` with cause `render`, always: a customer cannot read a line that
+A hit in 1-3 or 7 is an `error` with cause `render`, always: a customer cannot read a line that
 runs through something, whatever the spec says.
 
 1. **Trace every edge from its source to its target**, segment by segment, and for each
@@ -106,12 +106,16 @@ runs through something, whatever the spec says.
 5. **Spec fidelity**: every resource, number and range in the picture is in the spec and the
    other way round; the legend's colours match the edges.
 6. **Arrow direction** matches the call (who initiates), not the data flow.
+7. **A call between two shapes in one container stays in it.** Two apps in one subnet, two
+   services in one zone: the line, waypoints included, runs inside that container's border and
+   never round it. A line that leaves the subnet and comes back reads as a call to something
+   outside. An error with cause `render`, like 1-3.
 
 Everything the checklist does not name and that only looks worse than it could is `polish`.
 
 **A layout error is not handed over.** A line through an icon means the row is wrong, not
 that the line needs a better waypoint: re-slot the shapes (a column instead of a row, an
-icon moved, a container grown and everything below it shifted) until 1-3 are empty. Moving
+icon moved, a container grown and everything below it shifted) until 1-3 and 7 are empty. Moving
 shapes is allowed here, as above; the pass ceiling limits the reviewer's findings, not what
 the diagram agent may change. Only when the same layout error survives a re-slot does the
 customer see the picture with it, and then it is named in the sign-off message as an open
