@@ -691,11 +691,11 @@
   path: resources.app.properties.template.resources.tune.properties.siteConfig.appSettings[5]
   matches: '"name": "TUNE_SCHEDULE", "value": "\[parameters\(''tuneSchedule''\)\]"'
 
-# The cadence is open (spec open: application.tune_schedule): the stage file holds a placeholder the pipeline refuses.
-- deployment: tune_schedule_is_open_placeholder
+# The tuner's timer runs every 24 hours (stage file).
+- deployment: tune_schedule_is_every_24h
   stage: production
   path: parameters.tuneSchedule.value
-  matches: "OPEN-tune-schedule"
+  matches: "every-24h"
 
 # The tuner reaches the fuzz agent by its default hostname.
 - deployment: tune_setting_fuzz_app_hostname

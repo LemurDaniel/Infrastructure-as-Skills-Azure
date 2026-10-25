@@ -142,7 +142,7 @@ param existingTuneLinuxFxVersion string = ''
 @description('When the drift watcher runs its check (OPEN in the stage file, spec open: application.drift_schedule).')
 param driftSchedule string
 
-@description('Timer cadence of the tuner and its maximum commits per day (OPEN in the stage file, spec open: application.tune_schedule).')
+@description('Timer cadence of the tuner (every 24 hours, set in the stage file).')
 param tuneSchedule string
 
 @description('Where the agent fetches the Claude plugin from (OPEN in the stage file).')

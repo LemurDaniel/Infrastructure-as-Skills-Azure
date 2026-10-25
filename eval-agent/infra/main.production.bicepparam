@@ -7,7 +7,6 @@
 //
 //   location, workload, subscriptionId, resourceGroupName  parameterized in the spec, never asked
 //   dashboardContainerImage, agentContainerImage, driftContainerImage, fuzzContainerImage, tuneContainerImage  open: resources.app-service__*.runtime.container_image
-//   tuneSchedule                                          open: application.tune_schedule
 //   modelDeployments                                      open: resources.foundry.models.model_deployments
 //   pluginSource                                          open: application.plugin_source
 //   entraClientId, entraTenantId                          existing app registration, open: resources.app-service__dashboard.identity.entra_sign_in
@@ -53,8 +52,8 @@ param fuzzContainerImage = 'eval-fuzz:0.0.1'
 param tuneContainerImage = 'eval-tune:0.0.1'
 // How often the drift watcher checks the AVM versions; the watcher reads this keyword.
 param driftSchedule = 'weekly'
-// Timer cadence of the tuner and its maximum commits per day; open: application.tune_schedule. The pipeline refuses OPEN-*.
-param tuneSchedule = 'OPEN-tune-schedule'
+// Timer cadence of the tuner: every 24 hours; the tuner reads this keyword.
+param tuneSchedule = 'every-24h'
 // Models of the Foundry account, e.g. { name: 'chat', model: { format: 'OpenAI', name: '<model>', version: '<version>' } }.
 // Empty until the workload owner names them; no deployment is created from an empty list.
 param modelDeployments = []

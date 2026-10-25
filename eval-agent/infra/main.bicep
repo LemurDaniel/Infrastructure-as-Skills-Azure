@@ -97,7 +97,7 @@ param existingTuneLinuxFxVersion string = ''
 @description('When the drift watcher runs its check (spec open: application.drift_schedule).')
 param driftSchedule string
 
-@description('Timer cadence of the tuner and the maximum number of commits it makes per day (spec open: application.tune_schedule).')
+@description('Timer cadence of the tuner (every 24 hours, set in the stage file).')
 param tuneSchedule string
 
 @description('Model deployments as { name, model: { format, name, version } } (spec open: resources.foundry.models.model_deployments).')

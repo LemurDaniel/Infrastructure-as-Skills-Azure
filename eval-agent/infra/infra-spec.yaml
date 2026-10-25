@@ -953,7 +953,7 @@ resources:
   # report from the storage account, lets the Foundry model draft a change to new_diagram.py,
   # re-runs the fuzzer and the tests on it and pushes the change to the tuning branch only when the
   # score drops and the tests pass, then starts the fuzz agent and waits for its next timer. It
-  # changes new_diagram.py and adds fixtures; it never touches the fuzzer, its metrics, an existing
+  # changes new_diagram.py and adds fixtures (timer: every 24 hours); it never touches the fuzzer, its metrics, an existing
   # test or master, and never merges: the owner merges the branch when they want. It is not
   # reachable from outside. Azure is read-only to it: no role beyond the data roles in
   # wiring.role_assignments.
@@ -1199,9 +1199,9 @@ open:
     question: "Der Tuner schreibt Verbesserungen auf einen eigenen Branch (z. B. tune/layout). Wer legt das GitHub-Token 'github-tune-token' (nur dieses Repo, Contents schreiben) im Tresor ab, und wer richtet die Branch-Regel ein, die master für das Token sperrt?"
     owner: "Workload-Owner"
     blocks: apply
-  - key: application.tune_schedule
+  - key: application.tune_commit_limit
     environments: [production]
-    question: "Der Tuner läuft per Timer: läuft der Fuzz-Agent gerade, tut er nichts; sonst verbessert er, schreibt auf den Branch, stößt den Fuzz an und wartet auf den nächsten Timer. Wie oft soll der Timer laufen (z. B. alle sechs Stunden), und wie viele Verbesserungen darf er pro Tag höchstens committen?"
+    question: "Der Tuner läuft alle 24 Stunden: läuft der Fuzz-Agent gerade, tut er nichts; sonst verbessert er, schreibt auf den Branch, stößt den Fuzz an und wartet auf den nächsten Lauf. Wie viele Verbesserungen darf er pro Lauf höchstens committen (z. B. eine)?"
     owner: "Workload-Owner"
     blocks: apply
   - key: application.plugin_source
