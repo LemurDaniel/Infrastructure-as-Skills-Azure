@@ -98,6 +98,20 @@ Nichts davon wurde gefragt; jede Zeile folgt einer Regel oder einer der Antworte
 - Die Identität kann von Ressourcen in jeder Region aus genutzt werden.
 - Rechte an der Identität selbst vergeben an: keine.
 
+### Azure user-assigned managed identity (fuzz)
+
+- Diese Identität gibt es für app-runtime.
+- Externe Systeme, die als diese Identität handeln dürfen: keine (leer: keine).
+- Die Identität kann von Ressourcen in jeder Region aus genutzt werden.
+- Rechte an der Identität selbst vergeben an: keine.
+
+### Azure user-assigned managed identity (tune)
+
+- Diese Identität gibt es für app-runtime.
+- Externe Systeme, die als diese Identität handeln dürfen: keine (leer: keine).
+- Die Identität kann von Ressourcen in jeder Region aus genutzt werden.
+- Rechte an der Identität selbst vergeben an: keine.
+
 ### Azure Container Registry
 
 - Die Registry hat die Stufe Premium, die als einzige per privater Anbindung abgeschottet und auf mehrere Regionen verteilt werden kann. — weil: Der Zugang ist privat, mit benannten Ausnahmen hinter einer Firewall aus dem Internet erreichbar.
@@ -221,6 +235,50 @@ Nichts davon wurde gefragt; jede Zeile folgt einer Regel oder einer der Antworte
 - Geloggt wird: jede Web-Anfrage, die eigenen Log-Meldungen der App, wer sich zum Ausrollen oder Verwalten angemeldet hat, Änderungen an den Zugriffsbeschränkungen, die eigenen Meldungen der Plattform zur App.
 - Nutzungs- und Leistungswerte werden erfasst.
 
+### Azure App Service (web app on an App Service plan) (fuzz)
+
+- Die App läuft auf Linux. — weil: `resources.app-service__dashboard.hosting.os_type`
+- Der Hosting-Plan hat die Größe B2, Basic, zwei Kerne. — weil: `resources.app-service__dashboard.hosting.sku`
+- Die App übersteht nicht den Ausfall eines Rechenzentrums der Region. — weil: `resources.app-service__dashboard.hosting.zone_redundant`
+- Gleichzeitig laufende Kopien der App: 1. — weil: `resources.app-service__dashboard.hosting.instance_count`
+- Seine private Anbindung landet im Subnetz pe.
+- Der ausgehende Verkehr der App läuft durch das Firmennetz, so erreicht sie private Dienste.
+- Ausgehender Verkehr verlässt das Netz über das Subnetz app-integration. — weil: Das Netz wird von diesem Ausrollen selbst gebaut.
+- Sie nutzt die Identitäten user-assigned-identity__fuzz. — weil: `resources.app-service__fuzz.identity.managed_identity`
+- Unverschlüsselte Verbindungen werden auf die verschlüsselte Adresse umgeleitet.
+- Verbindungen müssen mindestens TLS 1.2-Verschlüsselung nutzen.
+- Dateiupload per FTP ist abgeschaltet.
+- Das Ausrollen mit Benutzername und Passwort ist nicht möglich; Rollouts laufen über Firmenkonten.
+- Die App ist geschrieben für ein Container-Image, das seine Laufzeit selbst mitbringt.
+- Die App bleibt geladen und antwortet sofort auf die erste Anfrage, wenn kein Verkehr anliegt.
+- Die Plattform prüft die Gesundheit der App unter dem Pfad  (leer: keine Prüfung).
+- HTTP/2 ist eingeschaltet.
+- Seine Logs gehen in log-analytics-workspace.
+- Geloggt wird: jede Web-Anfrage, die eigenen Log-Meldungen der App, wer sich zum Ausrollen oder Verwalten angemeldet hat, Änderungen an den Zugriffsbeschränkungen, die eigenen Meldungen der Plattform zur App.
+- Nutzungs- und Leistungswerte werden erfasst.
+
+### Azure App Service (web app on an App Service plan) (tune)
+
+- Die App läuft auf Linux. — weil: `resources.app-service__dashboard.hosting.os_type`
+- Der Hosting-Plan hat die Größe B2, Basic, zwei Kerne. — weil: `resources.app-service__dashboard.hosting.sku`
+- Die App übersteht nicht den Ausfall eines Rechenzentrums der Region. — weil: `resources.app-service__dashboard.hosting.zone_redundant`
+- Gleichzeitig laufende Kopien der App: 1. — weil: `resources.app-service__dashboard.hosting.instance_count`
+- Seine private Anbindung landet im Subnetz pe.
+- Der ausgehende Verkehr der App läuft durch das Firmennetz, so erreicht sie private Dienste.
+- Ausgehender Verkehr verlässt das Netz über das Subnetz app-integration. — weil: Das Netz wird von diesem Ausrollen selbst gebaut.
+- Sie nutzt die Identitäten user-assigned-identity__tune. — weil: `resources.app-service__tune.identity.managed_identity`
+- Unverschlüsselte Verbindungen werden auf die verschlüsselte Adresse umgeleitet.
+- Verbindungen müssen mindestens TLS 1.2-Verschlüsselung nutzen.
+- Dateiupload per FTP ist abgeschaltet.
+- Das Ausrollen mit Benutzername und Passwort ist nicht möglich; Rollouts laufen über Firmenkonten.
+- Die App ist geschrieben für ein Container-Image, das seine Laufzeit selbst mitbringt.
+- Die App bleibt geladen und antwortet sofort auf die erste Anfrage, wenn kein Verkehr anliegt.
+- Die Plattform prüft die Gesundheit der App unter dem Pfad  (leer: keine Prüfung).
+- HTTP/2 ist eingeschaltet.
+- Seine Logs gehen in log-analytics-workspace.
+- Geloggt wird: jede Web-Anfrage, die eigenen Log-Meldungen der App, wer sich zum Ausrollen oder Verwalten angemeldet hat, Änderungen an den Zugriffsbeschränkungen, die eigenen Meldungen der Plattform zur App.
+- Nutzungs- und Leistungswerte werden erfasst.
+
 ### Azure Key Vault
 
 - Der Tresor ist die Stufe Standard, Schlüssel in Software geschützt.
@@ -253,7 +311,15 @@ Nichts davon wurde gefragt; jede Zeile folgt einer Regel oder einer der Antworte
 - Azure App Service (web app on an App Service plan) (drift): Ausgehender Verkehr wird nur für private Adressen durch das Firmennetz geleitet geleitet. _(Grund: The watcher reads the AVM sources on the internet (github.com, api.github.com, raw.githubusercontent.com, mcr.microsoft.com, azure.github.io). With all traffic routed into the VNet there is no outbound path without a NAT gateway; private endpoint addresses are RFC 1918 and still go through the VNet.)_
 - Azure App Service (web app on an App Service plan) (drift): Die App hat eine gemeinsame, separat verwaltete Identität, um andere Dienste zu erreichen. _(Grund: Departs from system_assigned: AcrPull and the data roles must exist before the container first starts, which a system-assigned identity cannot have.)_
 - Azure App Service (web app on an App Service plan) (drift): `"image_pipeline"` _(Grund: A separate pipeline builds, pushes and updates the image. This template sets the stage-file image only on the first deployment and keeps the running one afterwards.)_
-- Azure Key Vault: Für die Geheimnisse entra-client-secret, github-token, github-drift-token werden leere Plätze angelegt; die Werte werden danach von Hand oder von der Anwendung eingetragen. _(Grund: Departs from the default []: the dashboard reads the sign-in's client secret and the GitHub token (issues:write on this repository only) and the drift watcher reads its own GitHub token (contents and pull requests write on this repository only), all through Key Vault references that must exist before the first start. The agent reads none of them.)_
+- Azure App Service (web app on an App Service plan) (fuzz): Die App ist aus dem Internet überhaupt nicht erreichbar. _(Grund: Nothing outside the VNet calls the fuzz agent: the dashboard starts a run from inside the VNet, through its private endpoint.)_
+- Azure App Service (web app on an App Service plan) (fuzz): Ausgehender Verkehr wird nur für private Adressen durch das Firmennetz geleitet geleitet. _(Grund: The fuzz agent needs no outbound internet at run time (the plugin code is in the image), but the site shares the integration subnet and its setting with the other apps; private endpoint addresses are RFC 1918 and go through the VNet either way.)_
+- Azure App Service (web app on an App Service plan) (fuzz): Die App hat eine gemeinsame, separat verwaltete Identität, um andere Dienste zu erreichen. _(Grund: Departs from system_assigned: AcrPull and the data roles must exist before the container first starts, which a system-assigned identity cannot have.)_
+- Azure App Service (web app on an App Service plan) (fuzz): `"image_pipeline"` _(Grund: A separate pipeline builds, pushes and updates the image. This template sets the stage-file image only on the first deployment and keeps the running one afterwards.)_
+- Azure App Service (web app on an App Service plan) (tune): Die App ist aus dem Internet überhaupt nicht erreichbar. _(Grund: Nothing outside the VNet calls the tuner: the dashboard starts a run from inside the VNet, through its private endpoint.)_
+- Azure App Service (web app on an App Service plan) (tune): Ausgehender Verkehr wird nur für private Adressen durch das Firmennetz geleitet geleitet. _(Grund: The tuner reads the plugin source and opens its pull request on github.com and api.github.com. With all traffic routed into the VNet there is no outbound path without a NAT gateway; private endpoint addresses are RFC 1918 and still go through the VNet.)_
+- Azure App Service (web app on an App Service plan) (tune): Die App hat eine gemeinsame, separat verwaltete Identität, um andere Dienste zu erreichen. _(Grund: Departs from system_assigned: AcrPull and the data roles must exist before the container first starts, which a system-assigned identity cannot have.)_
+- Azure App Service (web app on an App Service plan) (tune): `"image_pipeline"` _(Grund: A separate pipeline builds, pushes and updates the image. This template sets the stage-file image only on the first deployment and keeps the running one afterwards.)_
+- Azure Key Vault: Für die Geheimnisse entra-client-secret, github-token, github-drift-token, github-tune-token werden leere Plätze angelegt; die Werte werden danach von Hand oder von der Anwendung eingetragen. _(Grund: Departs from the default []: the dashboard reads the sign-in's client secret and the GitHub token (issues:write on this repository only) the drift watcher reads its own GitHub token (contents and pull requests write on this repository only) and the tuner reads its own (the same scope, a separate token), all through Key Vault references that must exist before the first start. The agent and the fuzz agent read none of them.)_
 
 ## Noch offen
 
@@ -262,7 +328,10 @@ Solange diese Punkte offen sind, wird nichts ausgerollt.
 - Welche Modelle werden gebraucht (Agent und Bewertung)? Claude-Modelle sind in Foundry womöglich nur weltweit verarbeitet verfügbar, das widerspräche 'nur EU'. [Echtbetrieb] _(gebraucht von: Workload-Owner)_ — blockiert: apply
 - Der Drift-Watcher darf nur an die AVM-Quellen (github.com, api.github.com, raw.githubusercontent.com, mcr.microsoft.com, azure.github.io). App Service filtert den Ausgang nicht; die Liste gilt nur im Code. Reicht das, oder soll der Ausgang im Netz erzwungen werden (Firewall oder NAT-Gateway mit Regeln, deutlich mehr Betrieb und Kosten)? [Echtbetrieb] _(gebraucht von: Workload-Owner)_ — blockiert: apply
 - Der Drift-Watcher prüft wöchentlich. Wer legt das GitHub-Token 'github-drift-token' (nur dieses Repo, Contents + Pull requests schreiben) im Tresor ab? [Echtbetrieb] _(gebraucht von: Workload-Owner)_ — blockiert: apply
-- Woher holt der Agent das Claude-Plugin (Git-Repo, Speicher)? [Echtbetrieb] _(gebraucht von: Workload-Owner)_ — blockiert: apply
+- Der Fuzz-Agent läuft auf Klick und nach Zeitplan. Wie oft soll der Zeitplan laufen (z. B. wöchentlich), und wie viele Zufalls-Specs pro Lauf? [Echtbetrieb] _(gebraucht von: Workload-Owner)_ — blockiert: apply
+- Der Tuner öffnet Pull Requests mit Layout-Verbesserungen. Wer legt das GitHub-Token 'github-tune-token' (nur dieses Repo, Contents + Pull requests schreiben, kein Merge-Recht) im Tresor ab? [Echtbetrieb] _(gebraucht von: Workload-Owner)_ — blockiert: apply
+- Der Tuner prüft per Timer, ob der Fuzz-Score schlechter geworden ist, und öffnet dann einen Pull Request. Wie oft soll er prüfen (z. B. täglich), ab welchem Score-Anstieg gegenüber der Baseline soll er starten, und wie viele offene Pull Requests des Tuners dürfen gleichzeitig bestehen (z. B. einer)? [Echtbetrieb] _(gebraucht von: Workload-Owner)_ — blockiert: apply
+- Woher holen der Agent, der Fuzz-Agent und der Tuner das Claude-Plugin (Git-Repo, Speicher, oder im Image)? [Echtbetrieb] _(gebraucht von: Workload-Owner)_ — blockiert: apply
 - Wann legt das Dashboard ein Ticket an: automatisch nach jedem Lauf mit fehlgeschlagenen Evals (vermutlich, noch nicht entschieden) oder erst auf Klick? Wer legt das GitHub-Token (issues:write, nur dieses Repo) im Tresor als 'github-token' ab? [Echtbetrieb] _(gebraucht von: Workload-Owner)_ — blockiert: apply
 - Die Anmeldung nutzt eure bestehende App-Registrierung samt Client Secret. Wer erzeugt das Secret und trägt es im Tresor ein (der Tresor ist nur aus dem Netz erreichbar), und wer trägt nach dem ersten Ausrollen die Weiterleitungsadresse der App ein (https://<App-Adresse>/.auth/login/aad/callback)? _(gebraucht von: Identitäts-Team)_ — blockiert: apply
 - Die Registry ist nur privat erreichbar. Wie kommt das Image hinein (Pipeline-Runner im Netz oder ein Build in der Registry)? _(gebraucht von: Workload-Owner)_ — blockiert: apply
@@ -329,6 +398,14 @@ Solange diese Punkte offen sind, wird nichts ausgerollt.
 | `user-assigned-identity__drift.identity.federated_credentials` | [] | Regel |
 | `user-assigned-identity__drift.identity.isolation_scope` | None | Regel |
 | `user-assigned-identity__drift.identity.role_assignments` | {"production": []} | Regel |
+| `user-assigned-identity__fuzz.identity.purpose` | app-runtime | Regel |
+| `user-assigned-identity__fuzz.identity.federated_credentials` | [] | Regel |
+| `user-assigned-identity__fuzz.identity.isolation_scope` | None | Regel |
+| `user-assigned-identity__fuzz.identity.role_assignments` | {"production": []} | Regel |
+| `user-assigned-identity__tune.identity.purpose` | app-runtime | Regel |
+| `user-assigned-identity__tune.identity.federated_credentials` | [] | Regel |
+| `user-assigned-identity__tune.identity.isolation_scope` | None | Regel |
+| `user-assigned-identity__tune.identity.role_assignments` | {"production": []} | Regel |
 | `container-registry.registry.sku` | Premium | erzwungen |
 | `container-registry.registry.zone_redundant` | false | abgeleitet aus eurer Antwort |
 | `container-registry.registry.geo_replicas` | {"production": []} | Regel |
@@ -457,6 +534,52 @@ Solange diese Punkte offen sind, wird nichts ausgerollt.
 | `app-service__drift.observability.diagnostic_workspace` | log-analytics-workspace | übernommen |
 | `app-service__drift.observability.diagnostic_categories` | ["AppServiceHTTPLogs", "AppServiceAppLogs", "AppServiceAuditLogs", "AppServiceIPSecAuditLogs", "AppServicePlatformLogs"] | Regel |
 | `app-service__drift.observability.metrics_enabled` | true | Regel |
+| `app-service__fuzz.hosting.os_type` | Linux | erzwungen |
+| `app-service__fuzz.hosting.sku` | B2 | erzwungen |
+| `app-service__fuzz.hosting.zone_redundant` | false | erzwungen |
+| `app-service__fuzz.hosting.instance_count` | 1 | erzwungen |
+| `app-service__fuzz.networking.public_network_access` | disabled | eure Abweichung |
+| `app-service__fuzz.networking.private_endpoint_subnet` | pe | übernommen |
+| `app-service__fuzz.networking.vnet_integration` | true | Regel |
+| `app-service__fuzz.networking.integration_subnet` | app-integration | erzwungen |
+| `app-service__fuzz.networking.vnet_route_all` | false | eure Abweichung |
+| `app-service__fuzz.identity.managed_identity` | user_assigned | eure Abweichung |
+| `app-service__fuzz.identity.user_assigned_identity_ids` | {"production": ["user-assigned-identity__fuzz"]} | erzwungen |
+| `app-service__fuzz.security.https_only` | true | Regel |
+| `app-service__fuzz.security.min_tls_version` | 1.2 | Regel |
+| `app-service__fuzz.security.ftps_state` | Disabled | Regel |
+| `app-service__fuzz.security.basic_auth_enabled` | false | übernommen |
+| `app-service__fuzz.runtime.runtime_stack` | container | eure Beschreibung |
+| `app-service__fuzz.runtime.always_on` | true | Regel |
+| `app-service__fuzz.runtime.health_check_path` |  | Regel |
+| `app-service__fuzz.runtime.http2_enabled` | true | Regel |
+| `app-service__fuzz.runtime.container_image_owner` | image_pipeline | eure Abweichung |
+| `app-service__fuzz.observability.diagnostic_workspace` | log-analytics-workspace | übernommen |
+| `app-service__fuzz.observability.diagnostic_categories` | ["AppServiceHTTPLogs", "AppServiceAppLogs", "AppServiceAuditLogs", "AppServiceIPSecAuditLogs", "AppServicePlatformLogs"] | Regel |
+| `app-service__fuzz.observability.metrics_enabled` | true | Regel |
+| `app-service__tune.hosting.os_type` | Linux | erzwungen |
+| `app-service__tune.hosting.sku` | B2 | erzwungen |
+| `app-service__tune.hosting.zone_redundant` | false | erzwungen |
+| `app-service__tune.hosting.instance_count` | 1 | erzwungen |
+| `app-service__tune.networking.public_network_access` | disabled | eure Abweichung |
+| `app-service__tune.networking.private_endpoint_subnet` | pe | übernommen |
+| `app-service__tune.networking.vnet_integration` | true | Regel |
+| `app-service__tune.networking.integration_subnet` | app-integration | erzwungen |
+| `app-service__tune.networking.vnet_route_all` | false | eure Abweichung |
+| `app-service__tune.identity.managed_identity` | user_assigned | eure Abweichung |
+| `app-service__tune.identity.user_assigned_identity_ids` | {"production": ["user-assigned-identity__tune"]} | erzwungen |
+| `app-service__tune.security.https_only` | true | Regel |
+| `app-service__tune.security.min_tls_version` | 1.2 | Regel |
+| `app-service__tune.security.ftps_state` | Disabled | Regel |
+| `app-service__tune.security.basic_auth_enabled` | false | übernommen |
+| `app-service__tune.runtime.runtime_stack` | container | eure Beschreibung |
+| `app-service__tune.runtime.always_on` | true | Regel |
+| `app-service__tune.runtime.health_check_path` |  | Regel |
+| `app-service__tune.runtime.http2_enabled` | true | Regel |
+| `app-service__tune.runtime.container_image_owner` | image_pipeline | eure Abweichung |
+| `app-service__tune.observability.diagnostic_workspace` | log-analytics-workspace | übernommen |
+| `app-service__tune.observability.diagnostic_categories` | ["AppServiceHTTPLogs", "AppServiceAppLogs", "AppServiceAuditLogs", "AppServiceIPSecAuditLogs", "AppServicePlatformLogs"] | Regel |
+| `app-service__tune.observability.metrics_enabled` | true | Regel |
 | `key-vault.vault.sku` | standard | Regel |
 | `key-vault.vault.purge_protection` | true | Regel |
 | `key-vault.vault.soft_delete_retention_days` | 90 | Regel |
@@ -466,12 +589,12 @@ Solange diese Punkte offen sind, wird nichts ausgerollt.
 | `key-vault.networking.network_acl_bypass` | None | Regel |
 | `key-vault.identity.role_assignments` | {"production": []} | Regel |
 | `key-vault.security.enabled_for_services` | [] | Regel |
-| `key-vault.security.secret_placeholders` | ["entra-client-secret", "github-token", "github-drift-token"] | eure Abweichung |
+| `key-vault.security.secret_placeholders` | ["entra-client-secret", "github-token", "github-drift-token", "github-tune-token"] | eure Abweichung |
 | `key-vault.keys.key_management` | platform_managed | übernommen |
 | `key-vault.observability.diagnostic_workspace` | log-analytics-workspace | übernommen |
 | `key-vault.observability.diagnostic_categories` | ["AuditEvent", "AzurePolicyEvaluationDetails"] | Regel |
 | `key-vault.observability.metrics_enabled` | true | Regel |
 | `wiring.private_dns_zones` | ["privatelink.vaultcore.azure.net", "privatelink.blob.core.windows.net", "privatelink.azurecr.io", "privatelink.cognitiveservices.azure.com", "privatelink.openai.azure.com", "privatelink.services.ai.azure.com", "privatelink.azurewebsites.net"] | erzwungen |
-| `wiring.role_assignments` | [{"from": "user-assigned-identity__dashboard", "to": "container-registry", "role": "AcrPull"}, {"from": "user-assigned-identity__dashboard", "to": "storage-account", "role": "Storage Blob Data Reader"}, {"from": "user-assigned-identity__dashboard", "to": "key-vault", "role": "Key Vault Secrets User"}, {"from": "user-assigned-identity__agent", "to": "container-registry", "role": "AcrPull"}, {"from": "user-assigned-identity__agent", "to": "storage-account", "role": "Storage Blob Data Contributor"}, {"from": "user-assigned-identity__agent", "to": "foundry", "role": "Azure AI User"}, {"from": "user-assigned-identity__drift", "to": "container-registry", "role": "AcrPull"}, {"from": "user-assigned-identity__drift", "to": "storage-account", "role": "Storage Blob Data Contributor"}, {"from": "user-assigned-identity__drift", "to": "key-vault", "role": "Key Vault Secrets User"}, {"from": "user-assigned-identity__drift", "to": "foundry", "role": "Azure AI User"}] | Regel |
-| `wiring.access` | [{"from": "users", "to": "app-service__dashboard", "label": "HTTPS 443, Anmeldung mit Firmenkonto"}, {"from": "app-service__dashboard", "to": "storage-account", "label": "Ergebnisse lesen"}, {"from": "app-service__dashboard", "to": "key-vault", "label": "Anmelde-Secret und GitHub-Token lesen"}, {"from": "app-service__dashboard", "to": "container-registry", "label": "Image laden"}, {"from": "app-service__dashboard", "to": "app-service__agent", "label": "Lauf starten"}, {"from": "app-service__agent", "to": "foundry", "label": "Modelle aufrufen"}, {"from": "app-service__agent", "to": "storage-account", "label": "Ergebnisse schreiben"}, {"from": "app-service__agent", "to": "container-registry", "label": "Image laden"}, {"from": "app-service__dashboard", "to": "app-service__drift", "label": "Prüfung jetzt starten"}, {"from": "app-service__drift", "to": "foundry", "label": "Modul-Änderungen bewerten"}, {"from": "app-service__drift", "to": "storage-account", "label": "Drift-Bericht schreiben"}, {"from": "app-service__drift", "to": "key-vault", "label": "GitHub-Token lesen"}, {"from": "app-service__drift", "to": "container-registry", "label": "Image laden"}, {"from": "app-service__drift", "to": "external:AVM-Quellen", "label": "Modulversionen und READMEs lesen"}, {"from": "app-service__drift", "to": "external:github", "label": "Pull Request öffnen"}] | eure Beschreibung |
-| `wiring.purposes` | {"app-service__dashboard": "Dashboard: zeigt Ergebnisse, legt Tickets an", "app-service__agent": "Agent: führt die Evals aus", "app-service__drift": "Drift-Watcher: prüft AVM-Versionen, öffnet Pull Requests", "container-registry": "Images von Dashboard, Agent und Drift-Watcher", "foundry": "Sprachmodelle für Agent, Bewertung und Drift-Watcher", "storage-account": "Eval-Ergebnisse und Drift-Berichte", "key-vault": "Anmelde-Secret und GitHub-Token von Dashboard und Drift-Watcher", "virtual-network": "Privates Netz", "log-analytics-workspace": "Logs aller Teile", "user-assigned-identity__dashboard": "Zugriff des Dashboards ohne Schlüssel", "user-assigned-identity__agent": "Zugriff des Agents ohne Schlüssel", "user-assigned-identity__drift": "Zugriff des Drift-Watchers ohne Schlüssel"} | eure Beschreibung |
+| `wiring.role_assignments` | [{"from": "user-assigned-identity__dashboard", "to": "container-registry", "role": "AcrPull"}, {"from": "user-assigned-identity__dashboard", "to": "storage-account", "role": "Storage Blob Data Reader"}, {"from": "user-assigned-identity__dashboard", "to": "key-vault", "role": "Key Vault Secrets User"}, {"from": "user-assigned-identity__agent", "to": "container-registry", "role": "AcrPull"}, {"from": "user-assigned-identity__agent", "to": "storage-account", "role": "Storage Blob Data Contributor"}, {"from": "user-assigned-identity__agent", "to": "foundry", "role": "Azure AI User"}, {"from": "user-assigned-identity__drift", "to": "container-registry", "role": "AcrPull"}, {"from": "user-assigned-identity__drift", "to": "storage-account", "role": "Storage Blob Data Contributor"}, {"from": "user-assigned-identity__drift", "to": "key-vault", "role": "Key Vault Secrets User"}, {"from": "user-assigned-identity__drift", "to": "foundry", "role": "Azure AI User"}, {"from": "user-assigned-identity__fuzz", "to": "container-registry", "role": "AcrPull"}, {"from": "user-assigned-identity__fuzz", "to": "storage-account", "role": "Storage Blob Data Contributor"}, {"from": "user-assigned-identity__tune", "to": "container-registry", "role": "AcrPull"}, {"from": "user-assigned-identity__tune", "to": "storage-account", "role": "Storage Blob Data Reader"}, {"from": "user-assigned-identity__tune", "to": "key-vault", "role": "Key Vault Secrets User"}, {"from": "user-assigned-identity__tune", "to": "foundry", "role": "Azure AI User"}] | Regel |
+| `wiring.access` | [{"from": "users", "to": "app-service__dashboard", "label": "HTTPS 443, Anmeldung mit Firmenkonto"}, {"from": "app-service__dashboard", "to": "storage-account", "label": "Ergebnisse lesen"}, {"from": "app-service__dashboard", "to": "key-vault", "label": "Anmelde-Secret und GitHub-Token lesen"}, {"from": "app-service__dashboard", "to": "container-registry", "label": "Image laden"}, {"from": "app-service__dashboard", "to": "app-service__agent", "label": "Lauf starten"}, {"from": "app-service__agent", "to": "foundry", "label": "Modelle aufrufen"}, {"from": "app-service__agent", "to": "storage-account", "label": "Ergebnisse schreiben"}, {"from": "app-service__agent", "to": "container-registry", "label": "Image laden"}, {"from": "app-service__dashboard", "to": "app-service__drift", "label": "Prüfung jetzt starten"}, {"from": "app-service__drift", "to": "foundry", "label": "Modul-Änderungen bewerten"}, {"from": "app-service__drift", "to": "storage-account", "label": "Drift-Bericht schreiben"}, {"from": "app-service__drift", "to": "key-vault", "label": "GitHub-Token lesen"}, {"from": "app-service__drift", "to": "container-registry", "label": "Image laden"}, {"from": "app-service__drift", "to": "external:AVM-Quellen", "label": "Modulversionen und READMEs lesen"}, {"from": "app-service__drift", "to": "external:github", "label": "Pull Request öffnen"}, {"from": "app-service__dashboard", "to": "app-service__fuzz", "label": "Fuzz-Lauf starten"}, {"from": "app-service__fuzz", "to": "storage-account", "label": "Fuzz-Bericht schreiben"}, {"from": "app-service__fuzz", "to": "container-registry", "label": "Image laden"}, {"from": "app-service__dashboard", "to": "app-service__tune", "label": "Verbesserung starten"}, {"from": "app-service__tune", "to": "storage-account", "label": "Fuzz-Bericht lesen"}, {"from": "app-service__tune", "to": "foundry", "label": "Layout-Änderung entwerfen"}, {"from": "app-service__tune", "to": "key-vault", "label": "GitHub-Token lesen"}, {"from": "app-service__tune", "to": "container-registry", "label": "Image laden"}, {"from": "app-service__tune", "to": "external:github", "label": "Pull Request öffnen"}] | eure Beschreibung |
+| `wiring.purposes` | {"app-service__dashboard": "Dashboard: zeigt Ergebnisse, legt Tickets an", "app-service__agent": "Agent: führt die Evals aus", "app-service__drift": "Drift-Watcher: prüft AVM-Versionen, öffnet Pull Requests", "app-service__fuzz": "Fuzz-Agent: zeichnet Zufalls-Specs, bewertet das Layout", "app-service__tune": "Tuner: entwirft Layout-Verbesserungen, öffnet Pull Requests", "container-registry": "Images aller fünf Apps", "foundry": "Sprachmodelle für Agent, Bewertung, Drift-Watcher und Tuner", "storage-account": "Eval-Ergebnisse, Drift- und Fuzz-Berichte", "key-vault": "Anmelde-Secret und GitHub-Token von Dashboard, Drift-Watcher und Tuner", "virtual-network": "Privates Netz", "log-analytics-workspace": "Logs aller Teile", "user-assigned-identity__dashboard": "Zugriff des Dashboards ohne Schlüssel", "user-assigned-identity__agent": "Zugriff des Agents ohne Schlüssel", "user-assigned-identity__drift": "Zugriff des Drift-Watchers ohne Schlüssel", "user-assigned-identity__fuzz": "Zugriff des Fuzz-Agents ohne Schlüssel", "user-assigned-identity__tune": "Zugriff des Tuners ohne Schlüssel"} | eure Beschreibung |

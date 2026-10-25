@@ -31,7 +31,7 @@ param roleAssignments array
 param existingSecretNames array = []
 
 // decision: key-vault.security.secret_placeholders
-var secretPlaceholders = ['entra-client-secret', 'github-token', 'github-drift-token']
+var secretPlaceholders = ['entra-client-secret', 'github-token', 'github-drift-token', 'github-tune-token']
 
 resource vault 'Microsoft.KeyVault/vaults@2024-11-01' = {
   name: name

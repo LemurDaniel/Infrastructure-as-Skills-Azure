@@ -408,6 +408,305 @@
   path: parameters.driftSchedule.value
   matches: "weekly"
 
+# ---- app-service__fuzz --------------------------------------------------------------------------------
+
+- decision: app-service__fuzz.hosting.os_type
+  path: resources.app.properties.template.resources.plan.kind
+  equals: linux
+
+- decision: app-service__fuzz.hosting.sku
+  path: resources.app.properties.template.resources.plan.sku.name
+  equals: B2
+
+- decision: app-service__fuzz.hosting.zone_redundant
+  path: resources.app.properties.template.resources.plan.properties.zoneRedundant
+  equals: false
+
+- decision: app-service__fuzz.hosting.instance_count
+  path: resources.app.properties.template.resources.plan.sku.capacity
+  equals: 1
+
+- decision: app-service__fuzz.networking.public_network_access
+  path: resources.app.properties.template.resources.fuzz.properties.publicNetworkAccess
+  equals: Disabled
+
+- decision: app-service__fuzz.networking.private_endpoint_subnet
+  path: resources.app.properties.template.resources.fuzzPrivateEndpoint.properties.subnet.id
+  matches: "parameters\\('privateEndpointSubnetId'\\)"
+
+# The endpoint is for the 'sites' sub-resource and lands in the zone privatelink.azurewebsites.net.
+- deployment: fuzz_private_endpoint_group
+  path: resources.app.properties.template.resources.fuzzPrivateEndpoint.properties.privateLinkServiceConnections[0].properties.groupIds
+  equals: [sites]
+
+- decision: app-service__fuzz.networking.vnet_integration
+  path: resources.app.properties.template.resources.fuzz.properties.virtualNetworkSubnetId
+  matches: "parameters\\('integrationSubnetId'\\)"
+
+- decision: app-service__fuzz.networking.integration_subnet
+  path: resources.app.properties.parameters.integrationSubnetId.value
+  matches: "reference\\('network'\\)\\.outputs\\.integrationSubnetId"
+
+# false: the AVM sources are on the internet and there is no NAT gateway.
+- decision: app-service__fuzz.networking.vnet_route_all
+  path: resources.app.properties.template.resources.fuzz.properties.outboundVnetRouting.allTraffic
+  equals: false
+
+- decision: app-service__fuzz.identity.managed_identity
+  path: resources.app.properties.template.resources.fuzz.identity.type
+  equals: UserAssigned
+
+- decision: app-service__fuzz.identity.user_assigned_identity_ids
+  path: resources.app.properties.parameters.fuzzIdentityId.value
+  matches: "reference\\('identityFuzz'\\)\\.outputs\\.id"
+
+- decision: app-service__fuzz.security.https_only
+  path: resources.app.properties.template.resources.fuzz.properties.httpsOnly
+  equals: true
+
+- decision: app-service__fuzz.security.min_tls_version
+  path: resources.app.properties.template.resources.fuzz.properties.siteConfig.minTlsVersion
+  equals: "1.2"
+
+- decision: app-service__fuzz.security.ftps_state
+  path: resources.app.properties.template.resources.fuzz.properties.siteConfig.ftpsState
+  equals: Disabled
+
+# FTP and SCM are two switches; the decision is asserted on FTP, SCM has its own entry below.
+- decision: app-service__fuzz.security.basic_auth_enabled
+  path: resources.app.properties.template.resources.fuzzBasicAuthFtp.properties.allow
+  equals: false
+
+- deployment: fuzz_basic_auth_scm_disabled
+  path: resources.app.properties.template.resources.fuzzBasicAuthScm.properties.allow
+  equals: false
+
+- decision: app-service__fuzz.runtime.runtime_stack
+  path: resources.app.properties.template.resources.fuzz.kind
+  equals: app,linux,container
+
+# The running image wins over the bootstrap one: the template keeps existingFuzzLinuxFxVersion when set.
+- decision: app-service__fuzz.runtime.container_image_owner
+  path: resources.app.properties.template.resources.fuzz.properties.siteConfig.linuxFxVersion
+  matches: 'if\(not\(empty\(parameters\(''existingFuzzLinuxFxVersion''\)\)\), parameters\(''existingFuzzLinuxFxVersion''\), format\(''DOCKER\|\{0\}/\{1\}'''
+
+- decision: app-service__fuzz.runtime.always_on
+  path: resources.app.properties.template.resources.fuzz.properties.siteConfig.alwaysOn
+  equals: true
+
+- decision: app-service__fuzz.runtime.health_check_path
+  path: resources.app.properties.template.resources.fuzz.properties.siteConfig.healthCheckPath
+  absent: true
+
+- decision: app-service__fuzz.runtime.http2_enabled
+  path: resources.app.properties.template.resources.fuzz.properties.siteConfig.http20Enabled
+  equals: true
+
+- decision: app-service__fuzz.observability.diagnostic_workspace
+  path: resources.app.properties.parameters.diagnosticWorkspaceId.value
+  matches: "reference\\('observability'\\)\\.outputs\\.id"
+
+- decision: app-service__fuzz.observability.diagnostic_categories
+  path: resources.app.properties.template.resources.fuzzDiagnostics.properties.logs
+  equals:
+    - { category: AppServiceHTTPLogs, enabled: true }
+    - { category: AppServiceAppLogs, enabled: true }
+    - { category: AppServiceAuditLogs, enabled: true }
+    - { category: AppServiceIPSecAuditLogs, enabled: true }
+    - { category: AppServicePlatformLogs, enabled: true }
+
+- decision: app-service__fuzz.observability.metrics_enabled
+  path: resources.app.properties.template.resources.fuzzDiagnostics.properties.metrics
+  equals:
+    - { category: AllMetrics, enabled: true }
+
+# Image pull with the managed identity, no registry credentials.
+- deployment: fuzz_image_pull_with_managed_identity
+  path: resources.app.properties.template.resources.fuzz.properties.siteConfig.acrUseManagedIdentityCreds
+  equals: true
+
+- deployment: fuzz_image_pull_over_vnet
+  path: resources.app.properties.template.resources.fuzz.properties.siteConfig.appSettings[1]
+  equals:
+    name: WEBSITE_PULL_IMAGE_OVER_VNET
+    value: "true"
+
+- deployment: fuzz_setting_azure_client_id
+  path: resources.app.properties.template.resources.fuzz.properties.siteConfig.appSettings[0]
+  matches: '"name": "AZURE_CLIENT_ID", "value": "\[parameters\(''fuzzIdentityClientId''\)\]"'
+
+- deployment: fuzz_setting_storage_account_name
+  path: resources.app.properties.template.resources.fuzz.properties.siteConfig.appSettings[2]
+  matches: '"name": "STORAGE_ACCOUNT_NAME", "value": "\[parameters\(''storageAccountName''\)\]"'
+
+- deployment: fuzz_setting_schedule
+  path: resources.app.properties.template.resources.fuzz.properties.siteConfig.appSettings[3]
+  matches: '"name": "FUZZ_SCHEDULE", "value": "\[parameters\(''fuzzSchedule''\)\]"'
+
+# The schedule is open (spec open: application.fuzz_schedule): the stage file holds a placeholder the pipeline refuses.
+- deployment: fuzz_schedule_is_open_placeholder
+  stage: production
+  path: parameters.fuzzSchedule.value
+  matches: "OPEN-fuzz-schedule"
+
+# ---- app-service__tune --------------------------------------------------------------------------------
+
+- decision: app-service__tune.hosting.os_type
+  path: resources.app.properties.template.resources.plan.kind
+  equals: linux
+
+- decision: app-service__tune.hosting.sku
+  path: resources.app.properties.template.resources.plan.sku.name
+  equals: B2
+
+- decision: app-service__tune.hosting.zone_redundant
+  path: resources.app.properties.template.resources.plan.properties.zoneRedundant
+  equals: false
+
+- decision: app-service__tune.hosting.instance_count
+  path: resources.app.properties.template.resources.plan.sku.capacity
+  equals: 1
+
+- decision: app-service__tune.networking.public_network_access
+  path: resources.app.properties.template.resources.tune.properties.publicNetworkAccess
+  equals: Disabled
+
+- decision: app-service__tune.networking.private_endpoint_subnet
+  path: resources.app.properties.template.resources.tunePrivateEndpoint.properties.subnet.id
+  matches: "parameters\\('privateEndpointSubnetId'\\)"
+
+# The endpoint is for the 'sites' sub-resource and lands in the zone privatelink.azurewebsites.net.
+- deployment: tune_private_endpoint_group
+  path: resources.app.properties.template.resources.tunePrivateEndpoint.properties.privateLinkServiceConnections[0].properties.groupIds
+  equals: [sites]
+
+- decision: app-service__tune.networking.vnet_integration
+  path: resources.app.properties.template.resources.tune.properties.virtualNetworkSubnetId
+  matches: "parameters\\('integrationSubnetId'\\)"
+
+- decision: app-service__tune.networking.integration_subnet
+  path: resources.app.properties.parameters.integrationSubnetId.value
+  matches: "reference\\('network'\\)\\.outputs\\.integrationSubnetId"
+
+# false: the AVM sources are on the internet and there is no NAT gateway.
+- decision: app-service__tune.networking.vnet_route_all
+  path: resources.app.properties.template.resources.tune.properties.outboundVnetRouting.allTraffic
+  equals: false
+
+- decision: app-service__tune.identity.managed_identity
+  path: resources.app.properties.template.resources.tune.identity.type
+  equals: UserAssigned
+
+- decision: app-service__tune.identity.user_assigned_identity_ids
+  path: resources.app.properties.parameters.tuneIdentityId.value
+  matches: "reference\\('identityTune'\\)\\.outputs\\.id"
+
+- decision: app-service__tune.security.https_only
+  path: resources.app.properties.template.resources.tune.properties.httpsOnly
+  equals: true
+
+- decision: app-service__tune.security.min_tls_version
+  path: resources.app.properties.template.resources.tune.properties.siteConfig.minTlsVersion
+  equals: "1.2"
+
+- decision: app-service__tune.security.ftps_state
+  path: resources.app.properties.template.resources.tune.properties.siteConfig.ftpsState
+  equals: Disabled
+
+# FTP and SCM are two switches; the decision is asserted on FTP, SCM has its own entry below.
+- decision: app-service__tune.security.basic_auth_enabled
+  path: resources.app.properties.template.resources.tuneBasicAuthFtp.properties.allow
+  equals: false
+
+- deployment: tune_basic_auth_scm_disabled
+  path: resources.app.properties.template.resources.tuneBasicAuthScm.properties.allow
+  equals: false
+
+- decision: app-service__tune.runtime.runtime_stack
+  path: resources.app.properties.template.resources.tune.kind
+  equals: app,linux,container
+
+# The running image wins over the bootstrap one: the template keeps existingTuneLinuxFxVersion when set.
+- decision: app-service__tune.runtime.container_image_owner
+  path: resources.app.properties.template.resources.tune.properties.siteConfig.linuxFxVersion
+  matches: 'if\(not\(empty\(parameters\(''existingTuneLinuxFxVersion''\)\)\), parameters\(''existingTuneLinuxFxVersion''\), format\(''DOCKER\|\{0\}/\{1\}'''
+
+- decision: app-service__tune.runtime.always_on
+  path: resources.app.properties.template.resources.tune.properties.siteConfig.alwaysOn
+  equals: true
+
+- decision: app-service__tune.runtime.health_check_path
+  path: resources.app.properties.template.resources.tune.properties.siteConfig.healthCheckPath
+  absent: true
+
+- decision: app-service__tune.runtime.http2_enabled
+  path: resources.app.properties.template.resources.tune.properties.siteConfig.http20Enabled
+  equals: true
+
+- decision: app-service__tune.observability.diagnostic_workspace
+  path: resources.app.properties.parameters.diagnosticWorkspaceId.value
+  matches: "reference\\('observability'\\)\\.outputs\\.id"
+
+- decision: app-service__tune.observability.diagnostic_categories
+  path: resources.app.properties.template.resources.tuneDiagnostics.properties.logs
+  equals:
+    - { category: AppServiceHTTPLogs, enabled: true }
+    - { category: AppServiceAppLogs, enabled: true }
+    - { category: AppServiceAuditLogs, enabled: true }
+    - { category: AppServiceIPSecAuditLogs, enabled: true }
+    - { category: AppServicePlatformLogs, enabled: true }
+
+- decision: app-service__tune.observability.metrics_enabled
+  path: resources.app.properties.template.resources.tuneDiagnostics.properties.metrics
+  equals:
+    - { category: AllMetrics, enabled: true }
+
+# Image pull with the managed identity, no registry credentials.
+- deployment: tune_image_pull_with_managed_identity
+  path: resources.app.properties.template.resources.tune.properties.siteConfig.acrUseManagedIdentityCreds
+  equals: true
+
+- deployment: tune_image_pull_over_vnet
+  path: resources.app.properties.template.resources.tune.properties.siteConfig.appSettings[1]
+  equals:
+    name: WEBSITE_PULL_IMAGE_OVER_VNET
+    value: "true"
+
+- deployment: tune_setting_azure_client_id
+  path: resources.app.properties.template.resources.tune.properties.siteConfig.appSettings[0]
+  matches: '"name": "AZURE_CLIENT_ID", "value": "\[parameters\(''tuneIdentityClientId''\)\]"'
+
+- deployment: tune_setting_foundry_endpoint
+  path: resources.app.properties.template.resources.tune.properties.siteConfig.appSettings[2]
+  matches: '"name": "FOUNDRY_ENDPOINT", "value": "\[parameters\(''foundryEndpoint''\)\]"'
+
+- deployment: tune_setting_storage_account_name
+  path: resources.app.properties.template.resources.tune.properties.siteConfig.appSettings[3]
+  matches: '"name": "STORAGE_ACCOUNT_NAME", "value": "\[parameters\(''storageAccountName''\)\]"'
+
+# The watcher's GitHub token is a Key Vault reference to its own secret, resolved with its own identity.
+- deployment: tune_github_token_secret_name
+  path: resources.app.properties.template.variables.tuneGithubTokenSecretName
+  equals: github-tune-token
+
+- deployment: tune_setting_github_token_is_key_vault_reference
+  path: resources.app.properties.template.resources.tune.properties.siteConfig.appSettings[4]
+  matches: 'KeyVault\(SecretUri=\{0\}secrets/\{1\}/\)'
+
+- deployment: tune_key_vault_reference_identity
+  path: resources.app.properties.template.resources.tune.properties.keyVaultReferenceIdentity
+  matches: "parameters\\('tuneIdentityId'\\)"
+
+- deployment: tune_setting_schedule
+  path: resources.app.properties.template.resources.tune.properties.siteConfig.appSettings[5]
+  matches: '"name": "TUNE_SCHEDULE", "value": "\[parameters\(''tuneSchedule''\)\]"'
+
+# The schedule is open (spec open: application.tune_schedule): the stage file holds a placeholder the pipeline refuses.
+- deployment: tune_schedule_is_open_placeholder
+  stage: production
+  path: parameters.tuneSchedule.value
+  matches: "OPEN-tune-schedule"
+
 # ---- key-vault ----------------------------------------------------------------------------------
 
 - decision: key-vault.vault.sku
@@ -449,7 +748,7 @@
 
 - decision: key-vault.security.secret_placeholders
   path: resources.vault.properties.template.variables.secretPlaceholders
-  equals: [entra-client-secret, github-token, github-drift-token]
+  equals: [entra-client-secret, github-token, github-drift-token, github-tune-token]
 
 # A placeholder is created only while the secret does not exist (the pipeline fills existingSecretNames).
 - deployment: secret_placeholder_does_not_overwrite
@@ -609,3 +908,65 @@
 - wiring: app_drift_identity_from_identity_output
   path: resources.app.properties.parameters.driftIdentityClientId.value
   matches: "reference\\('identityDrift'\\)\\.outputs\\.clientId"
+
+# ---- wiring of the fuzz agent (main.bicep) ------------------------------------------------------
+
+- wiring: role_assignments.acr_pull_fuzz
+  path: resources.acrPullFuzzAssignment.properties.roleDefinitionId
+  matches: "roleDefinitionIds'\\)\\.AcrPull"
+
+- wiring: role_assignments.storage_blob_data_contributor_fuzz
+  path: resources.storageBlobContributorFuzzAssignment.properties.roleDefinitionId
+  matches: "Storage Blob Data Contributor"
+
+# The fuzz agent reads no secret and calls no model: no vault and no Foundry role exists for it.
+- wiring: fuzz_has_no_vault_role
+  path: resources.keyVaultSecretsFuzzAssignment
+  absent: true
+
+- wiring: fuzz_has_no_foundry_role
+  path: resources.foundryUserFuzzAssignment
+  absent: true
+
+- wiring: fuzz_waits_for_roles
+  path: resources.app.dependsOn
+  contains: acrPullFuzzAssignment
+
+- wiring: app_fuzz_identity_from_identity_output
+  path: resources.app.properties.parameters.fuzzIdentityClientId.value
+  matches: "reference\\('identityFuzz'\\)\\.outputs\\.clientId"
+
+# ---- wiring of the tuner (main.bicep) -----------------------------------------------------------
+
+- wiring: role_assignments.acr_pull_tune
+  path: resources.acrPullTuneAssignment.properties.roleDefinitionId
+  matches: "roleDefinitionIds'\\)\\.AcrPull"
+
+- wiring: role_assignments.storage_blob_data_reader_tune
+  path: resources.storageBlobReaderTuneAssignment.properties.roleDefinitionId
+  matches: "Storage Blob Data Reader"
+
+- wiring: role_assignments.key_vault_secrets_user_tune
+  path: resources.keyVaultSecretsTuneAssignment.properties.roleDefinitionId
+  matches: "Key Vault Secrets User"
+
+- wiring: role_assignments.azure_ai_user_tune
+  path: resources.foundryUserTuneAssignment.properties.roleDefinitionId
+  matches: "Azure AI User"
+
+# The tuner only reads the storage account; it writes through a pull request.
+- wiring: tune_has_no_blob_contributor_role
+  path: resources.storageBlobContributorTuneAssignment
+  absent: true
+
+- wiring: tune_waits_for_roles
+  path: resources.app.dependsOn
+  contains: acrPullTuneAssignment
+
+- wiring: tune_waits_for_vault_role
+  path: resources.app.dependsOn
+  contains: keyVaultSecretsTuneAssignment
+
+- wiring: app_tune_identity_from_identity_output
+  path: resources.app.properties.parameters.tuneIdentityClientId.value
+  matches: "reference\\('identityTune'\\)\\.outputs\\.clientId"

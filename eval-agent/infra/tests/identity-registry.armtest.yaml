@@ -57,6 +57,44 @@
   path: parameters.identityRoleAssignments.value
   equals: []
 
+# ---- user-assigned-identity__fuzz -----------------------------------------------------------------
+
+- decision: user-assigned-identity__fuzz.identity.purpose
+  path: resources.identityFuzz.properties.template.resources.identity.tags
+  matches: "createObject\\('purpose', 'app-runtime'\\)"
+
+- decision: user-assigned-identity__fuzz.identity.federated_credentials
+  path: resources.identityFuzz.properties.template.variables.federatedCredentials
+  equals: []
+
+- decision: user-assigned-identity__fuzz.identity.isolation_scope
+  path: resources.identityFuzz.properties.template.resources.identity.properties.isolationScope
+  equals: None
+
+- decision: user-assigned-identity__fuzz.identity.role_assignments
+  stage: production
+  path: parameters.identityRoleAssignments.value
+  equals: []
+
+# ---- user-assigned-identity__tune -----------------------------------------------------------------
+
+- decision: user-assigned-identity__tune.identity.purpose
+  path: resources.identityTune.properties.template.resources.identity.tags
+  matches: "createObject\\('purpose', 'app-runtime'\\)"
+
+- decision: user-assigned-identity__tune.identity.federated_credentials
+  path: resources.identityTune.properties.template.variables.federatedCredentials
+  equals: []
+
+- decision: user-assigned-identity__tune.identity.isolation_scope
+  path: resources.identityTune.properties.template.resources.identity.properties.isolationScope
+  equals: None
+
+- decision: user-assigned-identity__tune.identity.role_assignments
+  stage: production
+  path: parameters.identityRoleAssignments.value
+  equals: []
+
 # ---- container-registry -------------------------------------------------------------------------
 
 - decision: container-registry.registry.sku

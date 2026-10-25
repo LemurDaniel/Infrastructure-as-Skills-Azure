@@ -45,7 +45,7 @@ param privateEndpointSubnetPrefix string
 @description('Additional registry regions as { location }.')
 param registryGeoReplicas array
 
-@description('Role assignments on the user-assigned identities themselves (dashboard, agent and drift watcher), as { principalId, roleDefinitionId, principalType }.')
+@description('Role assignments on the user-assigned identities themselves (dashboard, agent, drift watcher, fuzz agent and tuner), as { principalId, roleDefinitionId, principalType }.')
 param identityRoleAssignments array
 
 @description('Role assignments on the registry, as { principalId, roleDefinitionId, principalType }.')
@@ -73,6 +73,12 @@ param agentContainerImage string
 @description('Bootstrap image of the drift watcher as name:tag without the registry, no latest; used only on the first deployment, the image pipeline owns the image afterwards (spec: resources.app-service__drift.runtime.container_image_owner).')
 param driftContainerImage string
 
+@description('Bootstrap image of the fuzz agent as name:tag without the registry, no latest; used only on the first deployment, the image pipeline owns the image afterwards (spec: resources.app-service__fuzz.runtime.container_image_owner).')
+param fuzzContainerImage string
+
+@description('Bootstrap image of the tuner as name:tag without the registry, no latest; used only on the first deployment, the image pipeline owns the image afterwards (spec: resources.app-service__tune.runtime.container_image_owner).')
+param tuneContainerImage string
+
 @description('linuxFxVersion the dashboard runs now; the pipeline fills this from the live web app before the deployment so the image is never rolled back. Empty on the first deployment.')
 param existingDashboardLinuxFxVersion string = ''
 
@@ -82,8 +88,20 @@ param existingAgentLinuxFxVersion string = ''
 @description('linuxFxVersion the drift watcher runs now; the pipeline fills this from the live web app before the deployment so the image is never rolled back. Empty on the first deployment.')
 param existingDriftLinuxFxVersion string = ''
 
+@description('linuxFxVersion the fuzz agent runs now; the pipeline fills this from the live web app before the deployment so the image is never rolled back. Empty on the first deployment.')
+param existingFuzzLinuxFxVersion string = ''
+
+@description('linuxFxVersion the tuner runs now; the pipeline fills this from the live web app before the deployment so the image is never rolled back. Empty on the first deployment.')
+param existingTuneLinuxFxVersion string = ''
+
 @description('When the drift watcher runs its check (spec open: application.drift_schedule).')
 param driftSchedule string
+
+@description('When the fuzz agent runs on its timer (spec open: application.fuzz_schedule).')
+param fuzzSchedule string
+
+@description('When the tuner checks the fuzz score on its timer (spec open: application.tune_schedule).')
+param tuneSchedule string
 
 @description('Model deployments as { name, model: { format, name, version } } (spec open: resources.foundry.models.model_deployments).')
 param modelDeployments array
@@ -139,12 +157,16 @@ var workspaceName = 'log-${loc}-${env}-${workload}-${idx}'
 var identityDashboardName = 'id-${loc}-${env}-${workload}-dashboard-${idx}'
 var identityAgentName = 'id-${loc}-${env}-${workload}-agent-${idx}'
 var identityDriftName = 'id-${loc}-${env}-${workload}-drift-${idx}'
+var identityFuzzName = 'id-${loc}-${env}-${workload}-fuzz-${idx}'
+var identityTuneName = 'id-${loc}-${env}-${workload}-tune-${idx}'
 var planName = 'plan-${loc}-${env}-${workload}-${idx}'
 // The dashboard keeps the name of the single app that came before the split: it is the public
 // hostname, and the Entra redirect URI is registered for it.
 var dashboardAppName = 'app-${loc}-${env}-${workload}-${idx}'
 var agentAppName = 'app-${loc}-${env}-${workload}-agent-${idx}'
 var driftAppName = 'app-${loc}-${env}-${workload}-drift-${idx}'
+var fuzzAppName = 'app-${loc}-${env}-${workload}-fuzz-${idx}'
+var tuneAppName = 'app-${loc}-${env}-${workload}-tune-${idx}'
 // <TYPE><LOCATION><ENVIRONMENT><NAME><INDEX>, lowercase, alphanumeric only
 var registryName = toLower('cr${loc}${env}${workload}${idx}')
 var storageAccountName = toLower('st${loc}${env}${workload}${idx}')
@@ -158,6 +180,8 @@ var foundryPrivateEndpointName = '${privateEndpointNamePrefix}-account-${idx}'
 var vaultPrivateEndpointName = '${privateEndpointNamePrefix}-vault-${idx}'
 var agentPrivateEndpointName = '${privateEndpointNamePrefix}-agent-${idx}'
 var driftPrivateEndpointName = '${privateEndpointNamePrefix}-drift-${idx}'
+var fuzzPrivateEndpointName = '${privateEndpointNamePrefix}-fuzz-${idx}'
+var tunePrivateEndpointName = '${privateEndpointNamePrefix}-tune-${idx}'
 var dnsLinkName = 'vnl-${loc}-${env}-${workload}-${idx}'
 
 // Subnet names (spec: virtual-network.addressing.subnets, resources.*.networking.private_endpoint_subnet,
@@ -228,6 +252,26 @@ module identityDrift 'modules/identity.bicep' = {
   name: 'identity-drift'
   params: {
     name: identityDriftName
+    location: location
+    tags: tags
+    roleAssignments: identityRoleAssignments
+  }
+}
+
+module identityFuzz 'modules/identity.bicep' = {
+  name: 'identity-fuzz'
+  params: {
+    name: identityFuzzName
+    location: location
+    tags: tags
+    roleAssignments: identityRoleAssignments
+  }
+}
+
+module identityTune 'modules/identity.bicep' = {
+  name: 'identity-tune'
+  params: {
+    name: identityTuneName
     location: location
     tags: tags
     roleAssignments: identityRoleAssignments
@@ -320,12 +364,16 @@ module app 'modules/app.bicep' = {
     dashboardAppName: dashboardAppName
     agentAppName: agentAppName
     driftAppName: driftAppName
+    fuzzAppName: fuzzAppName
+    tuneAppName: tuneAppName
     location: location
     tags: tags
     integrationSubnetId: network.outputs.integrationSubnetId
     privateEndpointSubnetId: network.outputs.privateEndpointSubnetId
     agentPrivateEndpointName: agentPrivateEndpointName
     driftPrivateEndpointName: driftPrivateEndpointName
+    fuzzPrivateEndpointName: fuzzPrivateEndpointName
+    tunePrivateEndpointName: tunePrivateEndpointName
     privateDnsZoneId: resourceId('Microsoft.Network/privateDnsZones', privateDnsZoneNames.sites)
     diagnosticWorkspaceId: observability.outputs.id
     dashboardIdentityId: identityDashboard.outputs.id
@@ -334,6 +382,10 @@ module app 'modules/app.bicep' = {
     agentIdentityClientId: identityAgent.outputs.clientId
     driftIdentityId: identityDrift.outputs.id
     driftIdentityClientId: identityDrift.outputs.clientId
+    fuzzIdentityId: identityFuzz.outputs.id
+    fuzzIdentityClientId: identityFuzz.outputs.clientId
+    tuneIdentityId: identityTune.outputs.id
+    tuneIdentityClientId: identityTune.outputs.clientId
     registryLoginServer: registry.outputs.loginServer
     vaultUri: vault.outputs.vaultUri
     foundryEndpoint: ai.outputs.endpoint
@@ -341,10 +393,16 @@ module app 'modules/app.bicep' = {
     dashboardContainerImage: dashboardContainerImage
     agentContainerImage: agentContainerImage
     driftContainerImage: driftContainerImage
+    fuzzContainerImage: fuzzContainerImage
+    tuneContainerImage: tuneContainerImage
     existingDashboardLinuxFxVersion: existingDashboardLinuxFxVersion
     existingAgentLinuxFxVersion: existingAgentLinuxFxVersion
     existingDriftLinuxFxVersion: existingDriftLinuxFxVersion
+    existingFuzzLinuxFxVersion: existingFuzzLinuxFxVersion
+    existingTuneLinuxFxVersion: existingTuneLinuxFxVersion
     driftSchedule: driftSchedule
+    fuzzSchedule: fuzzSchedule
+    tuneSchedule: tuneSchedule
     pluginSource: pluginSource
     entraClientId: entraClientId
     entraTenantId: entraTenantId
@@ -352,7 +410,7 @@ module app 'modules/app.bicep' = {
   dependsOn: [
     // The roles must be effective before the container first starts (image pull, secret reference).
     // Bicep cannot see this: the app module takes no output of the role assignments.
-    // The zone group of the agent's and the drift watcher's private endpoints needs the zone (and its link) to exist.
+    // The zone group of the agent's, the drift watcher's, the fuzz agent's and the tuner's private endpoints needs the zone (and its link) to exist.
     privateDnsZoneLinks
     acrPullDashboardAssignment
     acrPullAgentAssignment
@@ -364,6 +422,12 @@ module app 'modules/app.bicep' = {
     storageBlobContributorDriftAssignment
     foundryUserDriftAssignment
     keyVaultSecretsDriftAssignment
+    acrPullFuzzAssignment
+    storageBlobContributorFuzzAssignment
+    acrPullTuneAssignment
+    storageBlobReaderTuneAssignment
+    foundryUserTuneAssignment
+    keyVaultSecretsTuneAssignment
   ]
 }
 
@@ -434,6 +498,14 @@ resource identityAgentRef 'Microsoft.ManagedIdentity/userAssignedIdentities@2024
 
 resource identityDriftRef 'Microsoft.ManagedIdentity/userAssignedIdentities@2024-11-30' existing = {
   name: identityDriftName
+}
+
+resource identityFuzzRef 'Microsoft.ManagedIdentity/userAssignedIdentities@2024-11-30' existing = {
+  name: identityFuzzName
+}
+
+resource identityTuneRef 'Microsoft.ManagedIdentity/userAssignedIdentities@2024-11-30' existing = {
+  name: identityTuneName
 }
 
 // wiring.role_assignments: user-assigned-identity__dashboard -> container-registry, AcrPull
@@ -599,6 +671,102 @@ resource keyVaultSecretsDriftAssignment 'Microsoft.Authorization/roleAssignments
   ]
 }
 
+// wiring.role_assignments: user-assigned-identity__fuzz -> container-registry, AcrPull
+resource acrPullFuzzAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(registryRef.id, identityFuzzRef.id, roleDefinitionIds.AcrPull)
+  scope: registryRef
+  properties: {
+    principalId: identityFuzz.outputs.principalId
+    principalType: 'ServicePrincipal'
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', roleDefinitionIds.AcrPull)
+  }
+  dependsOn: [
+    registry
+  ]
+}
+
+// wiring.role_assignments: user-assigned-identity__fuzz -> storage-account, Storage Blob Data Contributor
+resource storageBlobContributorFuzzAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(storageAccountRef.id, identityFuzzRef.id, roleDefinitionIds['Storage Blob Data Contributor'])
+  scope: storageAccountRef
+  properties: {
+    principalId: identityFuzz.outputs.principalId
+    principalType: 'ServicePrincipal'
+    roleDefinitionId: subscriptionResourceId(
+      'Microsoft.Authorization/roleDefinitions',
+      roleDefinitionIds['Storage Blob Data Contributor']
+    )
+  }
+  dependsOn: [
+    storage
+  ]
+}
+
+// wiring.role_assignments: user-assigned-identity__tune -> container-registry, AcrPull
+resource acrPullTuneAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(registryRef.id, identityTuneRef.id, roleDefinitionIds.AcrPull)
+  scope: registryRef
+  properties: {
+    principalId: identityTune.outputs.principalId
+    principalType: 'ServicePrincipal'
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', roleDefinitionIds.AcrPull)
+  }
+  dependsOn: [
+    registry
+  ]
+}
+
+// wiring.role_assignments: user-assigned-identity__tune -> storage-account, Storage Blob Data Reader
+resource storageBlobReaderTuneAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(storageAccountRef.id, identityTuneRef.id, roleDefinitionIds['Storage Blob Data Reader'])
+  scope: storageAccountRef
+  properties: {
+    principalId: identityTune.outputs.principalId
+    principalType: 'ServicePrincipal'
+    roleDefinitionId: subscriptionResourceId(
+      'Microsoft.Authorization/roleDefinitions',
+      roleDefinitionIds['Storage Blob Data Reader']
+    )
+  }
+  dependsOn: [
+    storage
+  ]
+}
+
+// wiring.role_assignments: user-assigned-identity__tune -> foundry, Azure AI User
+resource foundryUserTuneAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(foundryRef.id, identityTuneRef.id, roleDefinitionIds['Azure AI User'])
+  scope: foundryRef
+  properties: {
+    principalId: identityTune.outputs.principalId
+    principalType: 'ServicePrincipal'
+    roleDefinitionId: subscriptionResourceId(
+      'Microsoft.Authorization/roleDefinitions',
+      roleDefinitionIds['Azure AI User']
+    )
+  }
+  dependsOn: [
+    ai
+  ]
+}
+
+// wiring.role_assignments: user-assigned-identity__tune -> key-vault, Key Vault Secrets User
+resource keyVaultSecretsTuneAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(vaultRef.id, identityTuneRef.id, roleDefinitionIds['Key Vault Secrets User'])
+  scope: vaultRef
+  properties: {
+    principalId: identityTune.outputs.principalId
+    principalType: 'ServicePrincipal'
+    roleDefinitionId: subscriptionResourceId(
+      'Microsoft.Authorization/roleDefinitions',
+      roleDefinitionIds['Key Vault Secrets User']
+    )
+  }
+  dependsOn: [
+    vault
+  ]
+}
+
 // ---------------------------------------------------------------------------------------------
 // Wiring: diagnostics of the virtual network (the network module does not need the workspace)
 // ---------------------------------------------------------------------------------------------
@@ -637,6 +805,8 @@ output dashboardId string = app.outputs.dashboardId
 output dashboardDefaultHostname string = app.outputs.dashboardDefaultHostname
 output agentId string = app.outputs.agentId
 output driftId string = app.outputs.driftId
+output fuzzId string = app.outputs.fuzzId
+output tuneId string = app.outputs.tuneId
 output registryLoginServer string = registry.outputs.loginServer
 output vaultUri string = vault.outputs.vaultUri
 output foundryEndpoint string = ai.outputs.endpoint

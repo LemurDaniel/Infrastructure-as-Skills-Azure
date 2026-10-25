@@ -1,18 +1,22 @@
-// Module "app" (spec composition: app) - one Linux App Service plan and three container web apps on it:
+// Module "app" (spec composition: app) - one Linux App Service plan and five container web apps on it:
 //   dashboard - internet-facing, Entra sign-in (authsettingsV2), reads the results, files the tickets
 //   agent     - not reachable from outside, runs the evals, writes the results; holds no secret
 //   drift     - not reachable from outside, compares the pinned AVM versions with the current ones and
 //               opens a pull request; reads its GitHub token from the vault and reaches the AVM sources
 //               on the internet (allowlist enforced in code only, spec open application.drift_internet_allowlist)
+//   fuzz      - not reachable from outside, renders random specs on a timer and on click; reads and
+//               writes the storage account, holds no secret and calls no model
+//   tune      - not reachable from outside, checks the fuzz score on a timer and opens a pull request;
+//               reads its GitHub token from the vault, calls the models and reads the storage account
 // All have VNet integration and diagnostics.
-// The agent and the drift watcher have a private endpoint each (the dashboard starts a run through
+// The agent, the drift watcher, the fuzz agent and the tuner have a private endpoint each (the dashboard starts a run through
 // them); the root owns the zone.
 // Needs: network (integration and private endpoint subnet), observability (workspace), identity-dashboard,
-// identity-agent and identity-drift (user-assigned), registry (login server), vault (vault URI for the
+// identity-agent, identity-drift, identity-fuzz and identity-tune (user-assigned), registry (login server), vault (vault URI for the
 // secret references), ai (endpoint), storage (account name).
 // The question set renders one site per plan; the shared plan is rendered once here and the agent's
-// and the drift watcher's sites are rendered by hand from the same decisions (spec: app-service__agent.hosting,
-// app-service__drift.hosting).
+// the drift watcher's, the fuzz agent's and the tuner's sites are rendered by hand from the same decisions (spec: app-service__agent.hosting,
+// app-service__drift.hosting, app-service__fuzz.hosting, app-service__tune.hosting).
 
 @description('Finished plan name, assembled in main.bicep.')
 param planName string
@@ -25,6 +29,12 @@ param agentAppName string
 
 @description('Finished name of the drift watcher app, assembled in main.bicep.')
 param driftAppName string
+
+@description('Finished name of the fuzz agent app, assembled in main.bicep.')
+param fuzzAppName string
+
+@description('Finished name of the tuner app, assembled in main.bicep.')
+param tuneAppName string
 
 @description('Azure region.')
 param location string
@@ -43,6 +53,12 @@ param agentPrivateEndpointName string
 
 @description('Finished name of the drift watcher private endpoint, assembled in main.bicep.')
 param driftPrivateEndpointName string
+
+@description('Finished name of the fuzz agent private endpoint, assembled in main.bicep.')
+param fuzzPrivateEndpointName string
+
+@description('Finished name of the tuner private endpoint, assembled in main.bicep.')
+param tunePrivateEndpointName string
 
 @description('Resource id of the privatelink.azurewebsites.net zone (owned by the root).')
 param privateDnsZoneId string
@@ -68,16 +84,28 @@ param driftIdentityId string
 @description('Client id of the drift watcher identity (identity-drift module output).')
 param driftIdentityClientId string
 
+@description('Resource id of the fuzz agent identity (identity-fuzz module output).')
+param fuzzIdentityId string
+
+@description('Client id of the fuzz agent identity (identity-fuzz module output).')
+param fuzzIdentityClientId string
+
+@description('Resource id of the tuner identity (identity-tune module output).')
+param tuneIdentityId string
+
+@description('Client id of the tuner identity (identity-tune module output).')
+param tuneIdentityClientId string
+
 @description('Login server of the container registry (registry module output).')
 param registryLoginServer string
 
-@description('Vault URI (vault module output); the dashboard reads the client secret and the GitHub token, the drift watcher its own GitHub token from there through Key Vault references.')
+@description('Vault URI (vault module output); the dashboard reads the client secret and the GitHub token, the drift watcher and the tuner their own GitHub tokens from there through Key Vault references.')
 param vaultUri string
 
-@description('Endpoint of the Foundry account (ai module output); the agent and the drift watcher call the models there.')
+@description('Endpoint of the Foundry account (ai module output); the agent, the drift watcher and the tuner call the models there.')
 param foundryEndpoint string
 
-@description('Name of the storage account (storage module output); the dashboard reads and the agent writes eval results there, the drift watcher writes its reports.')
+@description('Name of the storage account (storage module output); the dashboard reads and the agent writes eval results there, the drift watcher and the fuzz agent write their reports and results, the tuner reads them.')
 param storageAccountName string
 
 @description('Bootstrap image of the dashboard as name:tag, without the registry; used only while the app has no image yet. After that the image belongs to the separate image pipeline (no latest).')
@@ -89,6 +117,12 @@ param agentContainerImage string
 @description('Bootstrap image of the drift watcher as name:tag, without the registry; used only while the app has no image yet. After that the image belongs to the separate image pipeline (no latest).')
 param driftContainerImage string
 
+@description('Bootstrap image of the fuzz agent as name:tag, without the registry; used only while the app has no image yet. After that the image belongs to the separate image pipeline (no latest).')
+param fuzzContainerImage string
+
+@description('Bootstrap image of the tuner as name:tag, without the registry; used only while the app has no image yet. After that the image belongs to the separate image pipeline (no latest).')
+param tuneContainerImage string
+
 @description('linuxFxVersion the dashboard runs now (DOCKER|<registry>/<name>:<tag>), read by the pipeline before the deployment; empty on the first deployment. Kept as is so this template never rolls the image back.')
 param existingDashboardLinuxFxVersion string = ''
 
@@ -98,8 +132,20 @@ param existingAgentLinuxFxVersion string = ''
 @description('linuxFxVersion the drift watcher runs now (DOCKER|<registry>/<name>:<tag>), read by the pipeline before the deployment; empty on the first deployment. Kept as is so this template never rolls the image back.')
 param existingDriftLinuxFxVersion string = ''
 
+@description('linuxFxVersion the fuzz agent runs now (DOCKER|<registry>/<name>:<tag>), read by the pipeline before the deployment; empty on the first deployment. Kept as is so this template never rolls the image back.')
+param existingFuzzLinuxFxVersion string = ''
+
+@description('linuxFxVersion the tuner runs now (DOCKER|<registry>/<name>:<tag>), read by the pipeline before the deployment; empty on the first deployment. Kept as is so this template never rolls the image back.')
+param existingTuneLinuxFxVersion string = ''
+
 @description('When the drift watcher runs its check (OPEN in the stage file, spec open: application.drift_schedule).')
 param driftSchedule string
+
+@description('When the fuzz agent runs on its timer (OPEN in the stage file, spec open: application.fuzz_schedule).')
+param fuzzSchedule string
+
+@description('When the tuner checks the fuzz score on its timer (OPEN in the stage file, spec open: application.tune_schedule).')
+param tuneSchedule string
 
 @description('Where the agent fetches the Claude plugin from (OPEN in the stage file).')
 param pluginSource string
@@ -116,6 +162,8 @@ var clientSecretSettingName = 'MICROSOFT_PROVIDER_AUTHENTICATION_SECRET'
 var githubTokenSecretName = 'github-token'
 // decision: key-vault.security.secret_placeholders - the drift watcher's own GitHub token.
 var driftGithubTokenSecretName = 'github-drift-token'
+// decision: key-vault.security.secret_placeholders - the tuner's own GitHub token.
+var tuneGithubTokenSecretName = 'github-tune-token'
 
 // The internet hosts the drift watcher may reach. App Service does not filter outbound traffic, so the
 // list is enforced in the watcher's code only (spec open: application.drift_internet_allowlist).
@@ -520,6 +568,247 @@ resource driftZoneGroup 'Microsoft.Network/privateEndpoints/privateDnsZoneGroups
 }
 
 // ---------------------------------------------------------------------------------------------
+// Fuzz agent
+// ---------------------------------------------------------------------------------------------
+
+resource fuzz 'Microsoft.Web/sites@2024-11-01' = {
+  name: fuzzAppName
+  location: location
+  tags: tags
+  // decision: app-service__fuzz.runtime.runtime_stack - container
+  kind: 'app,linux,container'
+
+  // decision: app-service__fuzz.identity.managed_identity - user-assigned, so that AcrPull and the
+  // data roles exist before the container first starts.
+  // decision: app-service__fuzz.identity.user_assigned_identity_ids
+  identity: {
+    type: 'UserAssigned'
+    userAssignedIdentities: {
+      '${fuzzIdentityId}': {}
+    }
+  }
+
+  properties: {
+    serverFarmId: plan.id
+
+    // decision: app-service__fuzz.security.https_only
+    httpsOnly: true
+
+    // decision: app-service__fuzz.networking.public_network_access - nothing outside the VNet calls
+    // the fuzz agent; the dashboard starts a run through its private endpoint.
+    publicNetworkAccess: 'Disabled'
+
+    // decision: app-service__fuzz.networking.vnet_integration / app-service__fuzz.networking.integration_subnet
+    virtualNetworkSubnetId: integrationSubnetId
+    // decision: app-service__fuzz.networking.vnet_route_all - false: no outbound internet is needed at
+    // run time (the plugin code is in the image); private endpoint addresses still go through the VNet.
+    outboundVnetRouting: {
+      allTraffic: false
+    }
+
+    // Key Vault references are resolved with the user-assigned identity, not the (absent) system one.
+    keyVaultReferenceIdentity: fuzzIdentityId
+
+    siteConfig: {
+      // decision: app-service__fuzz.runtime.container_image_owner - the image is set here only on
+      // the first deployment; later the image pipeline owns it and this keeps what runs.
+      linuxFxVersion: !empty(existingFuzzLinuxFxVersion) ? existingFuzzLinuxFxVersion : 'DOCKER|${registryLoginServer}/${fuzzContainerImage}'
+      // Image pull with the managed identity instead of registry credentials.
+      acrUseManagedIdentityCreds: true
+      acrUserManagedIdentityID: fuzzIdentityClientId
+
+      // decision: app-service__fuzz.runtime.always_on - the schedule is a timer inside the app.
+      alwaysOn: true
+      // decision: app-service__fuzz.runtime.http2_enabled
+      http20Enabled: true
+      // decision: app-service__fuzz.security.ftps_state
+      ftpsState: 'Disabled'
+      // decision: app-service__fuzz.security.min_tls_version - the Kudu/SCM site gets the same minimum.
+      minTlsVersion: '1.2'
+      scmMinTlsVersion: '1.2'
+      // decision: app-service__fuzz.runtime.health_check_path - empty: no healthCheckPath is rendered.
+
+      appSettings: [
+        // DefaultAzureCredential needs the client id to pick the user-assigned identity.
+        { name: 'AZURE_CLIENT_ID', value: fuzzIdentityClientId }
+        // See the dashboard: the registry has only a private endpoint.
+        { name: 'WEBSITE_PULL_IMAGE_OVER_VNET', value: 'true' }
+        { name: 'STORAGE_ACCOUNT_NAME', value: storageAccountName }
+        { name: 'FUZZ_SCHEDULE', value: fuzzSchedule }
+      ]
+    }
+  }
+}
+
+// decision: app-service__fuzz.security.basic_auth_enabled - two switches, FTP and SCM.
+resource fuzzBasicAuthFtp 'Microsoft.Web/sites/basicPublishingCredentialsPolicies@2024-11-01' = {
+  parent: fuzz
+  name: 'ftp'
+  properties: { allow: false }
+}
+
+resource fuzzBasicAuthScm 'Microsoft.Web/sites/basicPublishingCredentialsPolicies@2024-11-01' = {
+  parent: fuzz
+  name: 'scm'
+  properties: { allow: false }
+}
+
+// decision: app-service__fuzz.networking.private_endpoint_subnet - the subnet id is the private
+// endpoint subnet 'pe' selected in the network module. The site has one sub-resource, 'sites'.
+resource fuzzPrivateEndpoint 'Microsoft.Network/privateEndpoints@2025-01-01' = {
+  name: fuzzPrivateEndpointName
+  location: location
+  tags: tags
+  properties: {
+    subnet: { id: privateEndpointSubnetId }
+    privateLinkServiceConnections: [
+      {
+        name: 'psc-fuzz'
+        properties: {
+          privateLinkServiceId: fuzz.id
+          groupIds: ['sites']
+        }
+      }
+    ]
+  }
+}
+
+// private_dns_ownership: deployment - this deployment writes the zone group.
+resource fuzzZoneGroup 'Microsoft.Network/privateEndpoints/privateDnsZoneGroups@2025-01-01' = {
+  parent: fuzzPrivateEndpoint
+  name: 'default'
+  properties: {
+    privateDnsZoneConfigs: [
+      { name: 'azurewebsites', properties: { privateDnsZoneId: privateDnsZoneId } }
+    ]
+  }
+}
+
+// ---------------------------------------------------------------------------------------------
+// Tuner
+// ---------------------------------------------------------------------------------------------
+
+resource tune 'Microsoft.Web/sites@2024-11-01' = {
+  name: tuneAppName
+  location: location
+  tags: tags
+  // decision: app-service__tune.runtime.runtime_stack - container
+  kind: 'app,linux,container'
+
+  // decision: app-service__tune.identity.managed_identity - user-assigned, so that AcrPull and the
+  // data roles exist before the container first starts.
+  // decision: app-service__tune.identity.user_assigned_identity_ids
+  identity: {
+    type: 'UserAssigned'
+    userAssignedIdentities: {
+      '${tuneIdentityId}': {}
+    }
+  }
+
+  properties: {
+    serverFarmId: plan.id
+
+    // decision: app-service__tune.security.https_only
+    httpsOnly: true
+
+    // decision: app-service__tune.networking.public_network_access - nothing outside the VNet calls
+    // the tuner; the dashboard starts a run through its private endpoint.
+    publicNetworkAccess: 'Disabled'
+
+    // decision: app-service__tune.networking.vnet_integration / app-service__tune.networking.integration_subnet
+    virtualNetworkSubnetId: integrationSubnetId
+    // decision: app-service__tune.networking.vnet_route_all - false: the tuner reads the plugin source and opens
+    // its pull request on github.com and api.github.com, and there is no NAT gateway; private endpoint addresses go through the VNet.
+    outboundVnetRouting: {
+      allTraffic: false
+    }
+
+    // Key Vault references are resolved with the user-assigned identity, not the (absent) system one.
+    keyVaultReferenceIdentity: tuneIdentityId
+
+    siteConfig: {
+      // decision: app-service__tune.runtime.container_image_owner - the image is set here only on
+      // the first deployment; later the image pipeline owns it and this keeps what runs.
+      linuxFxVersion: !empty(existingTuneLinuxFxVersion) ? existingTuneLinuxFxVersion : 'DOCKER|${registryLoginServer}/${tuneContainerImage}'
+      // Image pull with the managed identity instead of registry credentials.
+      acrUseManagedIdentityCreds: true
+      acrUserManagedIdentityID: tuneIdentityClientId
+
+      // decision: app-service__tune.runtime.always_on - the schedule is a timer inside the app.
+      alwaysOn: true
+      // decision: app-service__tune.runtime.http2_enabled
+      http20Enabled: true
+      // decision: app-service__tune.security.ftps_state
+      ftpsState: 'Disabled'
+      // decision: app-service__tune.security.min_tls_version - the Kudu/SCM site gets the same minimum.
+      minTlsVersion: '1.2'
+      scmMinTlsVersion: '1.2'
+      // decision: app-service__tune.runtime.health_check_path - empty: no healthCheckPath is rendered.
+
+      appSettings: [
+        // DefaultAzureCredential needs the client id to pick the user-assigned identity.
+        { name: 'AZURE_CLIENT_ID', value: tuneIdentityClientId }
+        // See the dashboard: the registry has only a private endpoint.
+        { name: 'WEBSITE_PULL_IMAGE_OVER_VNET', value: 'true' }
+        { name: 'FOUNDRY_ENDPOINT', value: foundryEndpoint }
+        { name: 'STORAGE_ACCOUNT_NAME', value: storageAccountName }
+        // The tuner's own GitHub token (contents and pull requests write on this repository only):
+        // a Key Vault reference, never a value.
+        {
+          name: 'GITHUB_TOKEN'
+          value: '@Microsoft.KeyVault(SecretUri=${vaultUri}secrets/${tuneGithubTokenSecretName}/)'
+        }
+        { name: 'TUNE_SCHEDULE', value: tuneSchedule }
+      ]
+    }
+  }
+}
+
+// decision: app-service__tune.security.basic_auth_enabled - two switches, FTP and SCM.
+resource tuneBasicAuthFtp 'Microsoft.Web/sites/basicPublishingCredentialsPolicies@2024-11-01' = {
+  parent: tune
+  name: 'ftp'
+  properties: { allow: false }
+}
+
+resource tuneBasicAuthScm 'Microsoft.Web/sites/basicPublishingCredentialsPolicies@2024-11-01' = {
+  parent: tune
+  name: 'scm'
+  properties: { allow: false }
+}
+
+// decision: app-service__tune.networking.private_endpoint_subnet - the subnet id is the private
+// endpoint subnet 'pe' selected in the network module. The site has one sub-resource, 'sites'.
+resource tunePrivateEndpoint 'Microsoft.Network/privateEndpoints@2025-01-01' = {
+  name: tunePrivateEndpointName
+  location: location
+  tags: tags
+  properties: {
+    subnet: { id: privateEndpointSubnetId }
+    privateLinkServiceConnections: [
+      {
+        name: 'psc-tune'
+        properties: {
+          privateLinkServiceId: tune.id
+          groupIds: ['sites']
+        }
+      }
+    ]
+  }
+}
+
+// private_dns_ownership: deployment - this deployment writes the zone group.
+resource tuneZoneGroup 'Microsoft.Network/privateEndpoints/privateDnsZoneGroups@2025-01-01' = {
+  parent: tunePrivateEndpoint
+  name: 'default'
+  properties: {
+    privateDnsZoneConfigs: [
+      { name: 'azurewebsites', properties: { privateDnsZoneId: privateDnsZoneId } }
+    ]
+  }
+}
+
+// ---------------------------------------------------------------------------------------------
 // Diagnostics
 // ---------------------------------------------------------------------------------------------
 
@@ -595,6 +884,46 @@ resource driftDiagnostics 'Microsoft.Insights/diagnosticSettings@2021-05-01-prev
   }
 }
 
+resource fuzzDiagnostics 'Microsoft.Insights/diagnosticSettings@2021-05-01-preview' = {
+  name: 'diag'
+  scope: fuzz
+  properties: {
+    workspaceId: diagnosticWorkspaceId
+    // decision: app-service__fuzz.observability.diagnostic_categories
+    logs: [
+      { category: 'AppServiceHTTPLogs', enabled: true }
+      { category: 'AppServiceAppLogs', enabled: true }
+      { category: 'AppServiceAuditLogs', enabled: true }
+      { category: 'AppServiceIPSecAuditLogs', enabled: true }
+      { category: 'AppServicePlatformLogs', enabled: true }
+    ]
+    // decision: app-service__fuzz.observability.metrics_enabled
+    metrics: [
+      { category: 'AllMetrics', enabled: true }
+    ]
+  }
+}
+
+resource tuneDiagnostics 'Microsoft.Insights/diagnosticSettings@2021-05-01-preview' = {
+  name: 'diag'
+  scope: tune
+  properties: {
+    workspaceId: diagnosticWorkspaceId
+    // decision: app-service__tune.observability.diagnostic_categories
+    logs: [
+      { category: 'AppServiceHTTPLogs', enabled: true }
+      { category: 'AppServiceAppLogs', enabled: true }
+      { category: 'AppServiceAuditLogs', enabled: true }
+      { category: 'AppServiceIPSecAuditLogs', enabled: true }
+      { category: 'AppServicePlatformLogs', enabled: true }
+    ]
+    // decision: app-service__tune.observability.metrics_enabled
+    metrics: [
+      { category: 'AllMetrics', enabled: true }
+    ]
+  }
+}
+
 output dashboardId string = dashboard.id
 output dashboardName string = dashboard.name
 output dashboardDefaultHostname string = dashboard.properties.defaultHostName
@@ -602,3 +931,7 @@ output agentId string = agent.id
 output agentName string = agent.name
 output driftId string = drift.id
 output driftName string = drift.name
+output fuzzId string = fuzz.id
+output fuzzName string = fuzz.name
+output tuneId string = tune.id
+output tuneName string = tune.name
