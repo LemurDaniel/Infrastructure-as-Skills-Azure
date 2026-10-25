@@ -1,0 +1,435 @@
+schema_version: 1
+
+resource: Microsoft.Network/loadBalancers
+title: Azure Load Balancer (Standard, layer 4)
+
+naming:
+  terraform: "Azure::Microsoft.Network/loadBalancers"
+  bicep: "Microsoft.Network/loadBalancers"
+  # Bicep assembles the name from vars - this is the prefix it renders: `lbi` for an internal
+  # balancer, `lbe` for a public one (the naming kinds `internal` and `external`). The public IP
+  # address is `pip`.
+  abbreviation: "lbi"
+
+boundaries:
+  - "Does not create the resource group. Expects one from the spec's context."
+  - "Does not create the subnet of a private frontend or the virtual network of the backends. The network set or the platform owns them."
+  - "Does not create the machines, scale sets or network interfaces behind it. A backend pool names them; what joins the pool (a scale set's network profile, a NIC's pool membership) is the compute that owns them. The pool itself is the wiring."
+  - "Does not decide the load balancing rules, the probes and the pools in detail: they are wiring to the services behind the balancer and belong to a pattern. `rules` names them; the module README gives the shape."
+  - "Does not render the Basic SKU (retired on 30 September 2025), the Gateway SKU (a service-chaining feature the subscription has to be enrolled in by the service team) or the global tier (cross-region). A request for one gets a Standard regional balancer, said out loud."
+  - "Is a layer-4 balancer. TLS termination, host- and path-based routing and a web application firewall are Application Gateway's (application-gateway); global routing is Front Door's (front-door)."
+  - "Does not create NAT gateways or route tables. Outbound access for backends that need it is a NAT gateway on their subnet or the platform's firewall, referenced and not built."
+
+groups:
+
+  # ---------------------------------------------------------------- placement
+  - id: placement
+    title: Placement
+    questions:
+      - id: environments
+        ask: Which stages is this deployed to?
+        type: list
+        plain:
+          en: "Deployed in the stages {value}."
+          de: "Wird in den Stufen {value} ausgerollt."
+        values: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
+        required: true
+        from_context: true
+        why: >
+          Drives the rendered name and the strictness of several defaults below. Nothing
+          sensible can be guessed.
+        renders: >
+          naming parameter `environment`, and the tag of that name where the repository uses
+          one
+
+      - id: location
+        ask: Which Azure region?
+        type: string
+        plain:
+          en: "Runs in the Azure region {value}."
+          de: "Läuft in der Azure-Region {value}."
+        required: true
+        from_context: true
+        why: >
+          A regional balancer sits in the region of the network and the backends it serves;
+          its backends are in one virtual network of that region.
+        renders: location
+
+      - id: resource_group_name
+        ask: Which resource group?
+        type: ref
+        plain:
+          en: "Placed in the resource group {value}."
+          de: "Liegt in der Ressourcengruppe {value}."
+        ref: resource_group
+        required: true
+        from_context: true
+        per_environment: true
+        why: >
+          The balancer is placed into an existing group. In a split deployment it belongs to
+          the `network` role, or to the `application` role when it serves one workload only.
+        renders: resource_group_name (AVM Terraform) / implicit in Bicep scope
+
+  # ---------------------------------------------------------------- the balancer
+  - id: balancer
+    title: The balancer
+    questions:
+      - id: sku
+        ask: Which balancer SKU?
+        type: enum
+        plain:
+          en: "The balancer is the {value} SKU."
+          de: "Der Load Balancer ist die SKU {value}."
+        plain_values:
+          Standard: { en: Standard, de: Standard }
+        values: [Standard]
+        default: Standard
+        why: >
+          Standard is the only one: the Basic SKU was retired on 30 September 2025, and the
+          Gateway SKU chains network appliances rather than balancing a workload. Standard is
+          closed by default - nothing reaches a backend without a rule, and a network security
+          group has to allow the traffic - which is the posture the guardrails want, and it
+          spans availability zones. Written, because the Terraform and Bicep modules both
+          default to it and a module release can move that.
+        renders: sku / skuName
+
+      - id: zone_redundant
+        ask: Should the balancer survive the loss of one datacenter of its region?
+        type: bool
+        plain:
+          en: "The balancer survives the loss of a datacenter: {value}."
+          de: "Der Load Balancer übersteht den Ausfall eines Rechenzentrums: {value}."
+        plain_values:
+          true: { en: do, de: überstehen }
+          false: { en: do not, de: überstehen nicht }
+        derived_from:
+          question: outage_impact
+          map: { tolerable: false, disruptive: true, critical: true }
+        non_production_default: false
+        why: >
+          Derived from how bad an outage is. A zone-redundant frontend is served from every
+          zone of the region at no extra charge and survives the loss of one; a zonal or
+          non-zonal one does not. The frontend's zones are set at creation, and the backends
+          have to be spread over the zones too, or the redundancy is only in the balancer. A
+          region without zones takes `false`, said out loud. Both modules default to all three
+          zones.
+        renders: frontend_ip_configurations.<k>.zones, public_ip_address_configuration / frontendIPConfigurations[].availabilityZones
+
+  # ---------------------------------------------------------------- networking
+  - id: networking
+    title: Networking
+    questions:
+      - id: frontend_exposure
+        ask: On which side of the network does the balancer take traffic?
+        type: enum
+        plain:
+          en: "The balancer takes traffic {value}."
+          de: "Der Load Balancer nimmt Verkehr {value} entgegen."
+        plain_values:
+          public: { en: from the internet, de: aus dem Internet }
+          private: { en: only from inside the private network, de: nur aus dem privaten Netz }
+        values: [public, private]
+        default: private
+        confirm_in: [production]
+        forced_when: >
+          `network_exposure: public` forces `public`; `private_with_exceptions` makes this
+          balancer the exception and records `public` as overridden. `network_ownership: none`
+          forces `public`.
+        why: >
+          An internal balancer has a private address in a subnet and answers the network only
+          - the default, because the guardrails make every resource private unless a stated
+          requirement says otherwise. A public balancer has a Standard static public IP and is
+          reachable by anyone the backends' network security group lets through; it is the
+          exception, and for web traffic Application Gateway or Front Door is usually the right
+          front. `private` is the deployment's posture; `public` is a stated exception.
+        renders: >
+          frontend_ip_configurations (private: frontend_private_ip_subnet_resource_id; public:
+          create_public_ip_address) / frontendIPConfigurations[].subnetResourceId or
+          publicIPAddressConfiguration
+
+      - id: frontend_subnet
+        ask: Which subnet carries the balancer's private address?
+        type: ref
+        resolved_by: platform
+        plain:
+          en: "The balancer's private address is in the subnet {value}."
+          de: "Die private Adresse des Load Balancers liegt im Subnetz {value}."
+        ref: subnet
+        required: true
+        depends_on: { question: frontend_exposure, equals: private }
+        per_environment: true
+        why: >
+          The subnet of the backends, or one beside it in the same network. A balancer does
+          not need a subnet of its own and a delegation is not required; the subnet needs a
+          free address and a network security group that lets the probe through (the service
+          tag `AzureLoadBalancer`).
+        renders: frontend_ip_configurations.<k>.frontend_private_ip_subnet_resource_id / frontendIPConfigurations[].subnetResourceId
+
+      - id: private_ip_allocation
+        ask: Should the private address be fixed or handed out by the network?
+        type: enum
+        plain:
+          en: "The private address is {value}."
+          de: "Die private Adresse ist {value}."
+        plain_values:
+          Static: { en: fixed, de: fest vergeben }
+          Dynamic: { en: handed out by the network, de: vom Netz vergeben }
+        values: [Static, Dynamic]
+        default: Static
+        depends_on: { question: frontend_exposure, equals: private }
+        why: >
+          Clients, DNS records, firewall rules and other balancers' backends point at this
+          address, and a dynamic one stays only as long as the balancer exists. Fixed means one
+          more value to take from the address plan; a dynamic address that is later rebuilt
+          takes everything pointing at it down. Both modules default to dynamic.
+        renders: frontend_ip_configurations.<k>.frontend_private_ip_address_allocation / frontendIPConfigurations[].privateIPAllocationMethod (the Bicep module infers it from `privateIPAddress`)
+
+      - id: private_ip_address
+        ask: Which private address does the balancer take?
+        type: string
+        resolved_by: platform
+        plain:
+          en: "The balancer's private address is {value}."
+          de: "Die private Adresse des Load Balancers ist {value}."
+        required: true
+        depends_on: { question: private_ip_allocation, equals: Static }
+        per_environment: true
+        why: >
+          An unused address inside the subnet, not one of the five Azure reserves, taken from
+          the address plan. Last in the first half of the range is the habit that keeps
+          clear of what is allocated dynamically.
+        renders: frontend_ip_configurations.<k>.frontend_private_ip_address / frontendIPConfigurations[].privateIPAddress
+
+      - id: public_ip_zone_redundant
+        ask: Should the public address be zone-redundant?
+        type: bool
+        plain:
+          en: "The public address is zone-redundant: {value}."
+          de: "Die öffentliche Adresse ist zonenredundant: {value}."
+        plain_values:
+          true: { en: "yes", de: ja }
+          false: { en: "no", de: nein }
+        default: true
+        depends_on: { question: frontend_exposure, equals: public }
+        why: >
+          A zonal balancer with a non-zonal public IP is zonal in name only. Follows
+          `zone_redundant`; the public IP is created with the same zones.
+        renders: public IP zones / publicIPAddressConfiguration.availabilityZones
+
+      - id: backend_pools
+        ask: Which backends does the balancer serve?
+        type: list
+        plain:
+          en: "Backends: {value}."
+          de: "Ziele: {value}."
+        default: []
+        per_environment: true
+        why: >
+          Each entry is a pool: a name and its members - network interfaces or IP addresses in
+          the pool's virtual network. A pool whose members are a scale set joins through the
+          scale set's network profile, not here. A balancer with no pool serves nothing - the
+          first state, and a valid one.
+        renders: backend_address_pools, backend_address_pool_addresses / backendAddressPools
+
+      - id: health_probe_protocol
+        ask: How should the balancer check that a backend is healthy?
+        type: enum
+        plain:
+          en: "A backend counts as healthy when {value}."
+          de: "Ein Ziel gilt als gesund, wenn {value}."
+        plain_values:
+          Tcp: { en: "its port accepts a connection", de: "sein Port eine Verbindung annimmt" }
+          Http: { en: "its health page answers with success over HTTP", de: "seine Statusseite per HTTP erfolgreich antwortet" }
+          Https: { en: "its health page answers with success over HTTPS", de: "seine Statusseite per HTTPS erfolgreich antwortet" }
+        values: [Tcp, Http, Https]
+        default: Tcp
+        why: >
+          A TCP probe says the port is open, not that the application behind it works; an HTTP
+          or HTTPS probe asks a path and expects a 200. For a layer-4 balancer carrying
+          non-HTTP traffic (a database, a queue, a custom protocol) TCP is all there is, so it
+          is the default; a web backend takes `Https` - and then a health path is part of
+          the answer, set in the probe. A probe that reports everything healthy is the usual
+          cause of a balanced outage.
+        renders: lb_probes.<k>.protocol, request_path / probes[].protocol, requestPath
+
+      - id: health_probe_interval_seconds
+        ask: How often should the balancer check each backend?
+        type: int
+        plain:
+          en: "Each backend is checked every {value} seconds."
+          de: "Jedes Ziel wird alle {value} Sekunden geprüft."
+        default: 5
+        why: >
+          The interval times the unhealthy threshold is how long a dead backend still receives
+          traffic: 5 s and two failed probes is ten seconds against the Terraform module's 15 s
+          default (thirty). More often adds probe traffic and nothing else. Written, because the
+          modules differ.
+        renders: lb_probes.<k>.interval_in_seconds / probes[].intervalInSeconds
+
+      - id: health_probe_unhealthy_threshold
+        ask: How many failed checks take a backend out of service?
+        type: int
+        plain:
+          en: "A backend is taken out after {value} failed checks."
+          de: "Ein Ziel wird nach {value} fehlgeschlagenen Prüfungen herausgenommen."
+        default: 2
+        why: >
+          Two is the lowest the Terraform module allows and avoids pulling a backend for one
+          lost packet. A single probe is flapping, many is a long outage.
+        renders: lb_probes.<k>.number_of_probes_before_removal / probes[].numberOfProbes
+
+      - id: tcp_reset
+        ask: Should the balancer reset a connection that ran into the idle timeout?
+        type: bool
+        plain:
+          en: "A connection that sat idle too long is {value}."
+          de: "Eine zu lange ruhende Verbindung wird {value}."
+        plain_values:
+          true: { en: "reset, so both ends find out", de: "zurückgesetzt, damit beide Seiten es merken" }
+          false: { en: "dropped silently", de: "stillschweigend verworfen" }
+        default: true
+        why: >
+          Without it the balancer silently drops the flow when the idle timeout (4 minutes by
+          default) passes, and the client finds out on its next write after a long wait.
+          With a reset both ends fail fast and reconnect. No cost. The Terraform module
+          defaults to `false`; it is written.
+        renders: lb_rules.<k>.enable_tcp_reset / loadBalancingRules[].enableTcpReset
+
+      - id: load_distribution
+        ask: Should one client keep reaching the same backend?
+        type: enum
+        plain:
+          en: "Connections are spread {value}."
+          de: "Verbindungen werden {value} verteilt."
+        plain_values:
+          Default: { en: "evenly, whichever backend is next", de: "gleichmäßig auf das jeweils nächste Ziel" }
+          SourceIP: { en: "so that one client address keeps reaching the same backend", de: "so, dass eine Client-Adresse immer dasselbe Ziel erreicht" }
+          SourceIPProtocol: { en: "so that one client address and protocol keep reaching the same backend", de: "so, dass eine Client-Adresse mit Protokoll immer dasselbe Ziel erreicht" }
+        values: [Default, SourceIP, SourceIPProtocol]
+        default: Default
+        why: >
+          The default hashes five values (addresses, ports, protocol) and spreads connections
+          evenly; the source-IP modes pin a client to a backend while it exists, which a
+          session-bound backend needs and a stateless one does not. Pinning makes the spread
+          uneven behind a NAT, where many clients share one address.
+        renders: lb_rules.<k>.load_distribution / loadBalancingRules[].loadDistribution
+
+      - id: floating_ip
+        ask: Should the backends answer on the balancer's own address (floating IP)?
+        type: bool
+        plain:
+          en: "Backends answer on the balancer's own address: {value}."
+          de: "Ziele antworten auf der eigenen Adresse des Load Balancers: {value}."
+        plain_values:
+          true: { en: "yes (direct server return)", de: "ja (Direct Server Return)" }
+          false: { en: "no", de: nein }
+        default: false
+        why: >
+          Needed for exactly two cases: a SQL Server Always On availability group listener and
+          a network appliance behind the balancer. Everywhere else it changes the address the
+          backend sees and breaks it. Off, and a stated reason when on.
+        renders: lb_rules.<k>.enable_floating_ip / loadBalancingRules[].enableFloatingIP
+
+      - id: rules
+        ask: Which ports does the balancer forward, and to which pool?
+        type: list
+        plain:
+          en: "Forwarded: {value}."
+          de: "Weitergeleitet wird: {value}."
+        default: []
+        per_environment: true
+        why: >
+          Each entry is a protocol, a frontend port, a backend port, the pool and the probe.
+          They are the wiring to the services behind; the pattern fills them. The Terraform
+          module's rule defaults are 3389 to 3389 (remote desktop) - never inherited: a rule
+          states both ports. A balancer with no rule serves nothing, which is the safe first
+          state.
+        renders: lb_rules / loadBalancingRules
+
+      - id: inbound_nat_rules
+        ask: Should individual machines behind the balancer be reachable on their own ports from outside?
+        type: list
+        plain:
+          en: "Direct ports to single machines: {value} (none: administration goes through Bastion)."
+          de: "Direkte Ports auf einzelne Maschinen: {value} (keine: Administration läuft über Bastion)."
+        default: []
+        why: >
+          A NAT rule that forwards port 3389 or 22 on the balancer to one machine is a remote
+          administration port exposed on a public address, or on the network, for anyone who
+          can route to it. Empty: administration goes through Azure Bastion, which needs no
+          open port at all. An entry is a stated exception with the source range allowed.
+        renders: lb_nat_rules / inboundNatRules
+
+      - id: outbound_snat
+        ask: Should the balancer provide outbound internet access for its backends?
+        type: enum
+        plain:
+          en: "Outbound internet access for the backends is {value}."
+          de: "Ausgehender Internetzugang für die Ziele erfolgt {value}."
+        plain_values:
+          none: { en: "not provided by the balancer", de: "nicht über den Load Balancer" }
+          outbound_rule: { en: "through an explicit outbound rule on the balancer's public address", de: "über eine ausdrückliche Ausgangsregel auf der öffentlichen Adresse des Load Balancers" }
+        values: [none, outbound_rule]
+        default: none
+        depends_on: { question: frontend_exposure, equals: public }
+        why: >
+          Backends of a Standard balancer have no outbound path unless one is given - default
+          outbound access is being retired. The guardrails send egress through the platform's
+          firewall or a NAT gateway, so the balancer provides none. An outbound rule is for a
+          public balancer whose backends have no other way out; it allocates source ports per
+          backend explicitly, and the inbound rules on the same address must then switch
+          their own outbound translation off, or the two compete.
+        renders: lb_outbound_rules and lb_rules.<k>.disable_outbound_snat / outboundRules and loadBalancingRules[].disableOutboundSnat
+
+      - id: outbound_allocated_ports
+        ask: How many outbound ports should each backend get?
+        type: int
+        plain:
+          en: "Each backend gets {value} outbound ports."
+          de: "Jedes Ziel bekommt {value} ausgehende Ports."
+        default: 1024
+        depends_on: { question: outbound_snat, equals: outbound_rule }
+        why: >
+          A fixed allocation is predictable where the automatic one shrinks as the pool grows
+          and starts dropping connections without a message. Each public address gives 64,000
+          ports to share, so 1,024 per backend allows about sixty backends per address.
+          The Bicep module's example uses the maximum; neither module forces a value.
+        renders: lb_outbound_rules.<k>.number_of_allocated_outbound_ports / outboundRules[].allocatedOutboundPorts
+
+  # ------------------------------------------------------------ observability
+  - id: observability
+    title: Observability
+    questions:
+      - id: diagnostic_workspace
+        ask: Which Log Analytics workspace should receive diagnostics?
+        type: ref
+        resolved_by: platform
+        plain:
+          en: "Its metrics go to {value}."
+          de: "Seine Messwerte gehen in {value}."
+        ref: log_analytics_workspace
+        from_deployment: diagnostics_destination
+        per_environment: true
+        why: >
+          Inherited: one deployment, one destination. A Standard balancer's useful record is
+          its metrics: without them a backend that fell out of the pool is only visible as a
+          slow site.
+        renders: diagnostic_settings / diagnosticSettings
+
+      - id: metrics_enabled
+        ask: Should all metrics be collected?
+        type: bool
+        plain:
+          en: "Usage and performance figures are {value}."
+          de: "Nutzungs- und Leistungswerte werden {value}."
+        plain_values:
+          true: { en: collected, de: erfasst }
+          false: { en: not collected, de: nicht erfasst }
+        default: true
+        why: >
+          Data path availability, health probe status (the number to alert on, because it says
+          how many backends are in the pool), byte and packet counts, and SNAT connections and
+          used SNAT ports. The metrics are the record; Standard's resource log is a health
+          event log whose categories are checked against `az monitor diagnostic-settings
+          categories list` before anyone adds them.
+        renders: metric_categories = ["AllMetrics"] / metricCategories[].category

@@ -1,0 +1,174 @@
+schema_version: 1
+
+resource: Microsoft.Network/routeTables
+title: Azure Route Table (user-defined routes)
+
+naming:
+  terraform: "Azure::Microsoft.Network/routeTables"
+  bicep: "Microsoft.Network/routeTables"
+  # Bicep assembles the name from vars - this is the prefix it renders.
+  abbreviation: "rt"
+
+boundaries:
+  - "Does not create the resource group. Expects one from the spec's context."
+  - "Does not associate itself with a subnet. The association is a property of the subnet, which the virtual-network set carries (`route_table` on a subnet); a route table nobody associates routes nothing. `subnets` records which subnets expect this one."
+  - "Does not create the firewall or network virtual appliance a route points at. The hub firewall is the platform's, referenced by its private address (`firewall_private_ip`) and never built; this plugin builds spokes."
+  - "Does not create firewall rules. Sending traffic to a firewall that has no rule for it drops it; the rules are the platform's and the handover names them."
+  - "Does not model Virtual WAN or Azure Virtual Network Manager routing. Where AVNM `ManagedOnly` routing or a DeployIfNotExists policy attaches the route table, the subnet's `properties.routeTable` is owned by that controller and this set does not render the association."
+  - "Does not create the NSG, the peering or the gateway. A route says where a packet goes; whether it is allowed, and whether the path exists, are other resources."
+  - "Does not carry diagnostics or a resource lock: a route table has none, and `deployment.resource_lock` does not list network resources."
+  - "Effective routes are not rendered. They are what Azure computes from system routes, BGP and these routes together, and are read with `az network nic show-effective-route-table` on a machine in the subnet."
+
+groups:
+
+  # ---------------------------------------------------------------- placement
+  - id: placement
+    title: Placement
+    questions:
+      - id: environments
+        ask: Which stages is this deployed to?
+        type: list
+        plain:
+          en: "Deployed in the stages {value}."
+          de: "Wird in den Stufen {value} ausgerollt."
+        values: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
+        required: true
+        from_context: true
+        why: >
+          Drives the rendered name. One route table per subnet role per stage: the routes are
+          the same in every stage, only the addresses differ, and a stage whose traffic skips
+          the firewall is the one an attacker starts in.
+        renders: naming parameter `environment`, and the tag of that name where the repository uses one
+
+      - id: location
+        ask: Which Azure region?
+        type: string
+        plain:
+          en: "Created in the Azure region {value}."
+          de: "Wird in der Azure-Region {value} angelegt."
+        required: true
+        from_context: true
+        why: >
+          A route table is regional and associates only with subnets of virtual networks in
+          its own region - the one constraint on where it goes.
+        renders: location
+
+      - id: resource_group_name
+        ask: Which resource group?
+        type: ref
+        plain:
+          en: "Placed in the resource group {value}."
+          de: "Liegt in der Ressourcengruppe {value}."
+        ref: resource_group
+        required: true
+        from_context: true
+        per_environment: true
+        why: >
+          Placed into an existing group, usually the network's, so the people who own the
+          subnets own the routes that steer them.
+        renders: resource_group_name (azurerm modules) / parent_id (AzAPI modules) / implicit in Bicep scope
+
+  # --------------------------------------------------------------- networking
+  - id: networking
+    title: Networking
+    questions:
+      - id: subnets
+        ask: Which subnets should use this route table?
+        type: list
+        plain:
+          en: "Subnets that follow these routes: {value}."
+          de: "Subnetze, die diesen Routen folgen: {value}."
+        required: true
+        per_environment: true
+        why: >
+          Recorded and rendered where the subnet is: the table is only effective once a subnet
+          takes its id. The subnets of one role share one table; a subnet takes one table at
+          most. Not for `GatewaySubnet` without care (see `bgp_route_propagation`), and
+          `AzureFirewallSubnet` and `AzureBastionSubnet` have requirements of their own
+          that `notes.md` lists - a default route on the wrong one breaks the service.
+        renders: virtual-network subnets.<k>.route_table.id / routeTableResourceId
+
+      - id: default_route
+        ask: Where should traffic to the internet and to unknown networks go?
+        type: enum
+        plain:
+          en: "Traffic to unknown destinations goes {value}."
+          de: "Verkehr zu unbekannten Zielen geht {value}."
+        plain_values:
+          firewall: { en: "through the company firewall", de: "über die Firmen-Firewall" }
+          none: { en: "by Azure's own routes, with no default route of ours", de: "nach Azures eigenen Routen, ohne eigene Standardroute" }
+        values: [firewall, none]
+        default: firewall
+        forced_when: >
+          `landing_zone: standalone`, `online` and `sandbox` have no platform firewall to point
+          at: `none`, and the table then holds only the `routes` below or is not created.
+          `corp` keeps `firewall`: a spoke whose egress skips the hub firewall defeats the hub
+        why: >
+          A route table exists in this plugin to steer egress, and the one route that does it
+          is `0.0.0.0/0` to a virtual appliance - forced tunnelling to the hub firewall, so
+          that every packet that leaves the spoke is inspected and logged. Without it Azure's
+          system route sends internet traffic straight out, and an NSG that denies
+          `Internet` outbound is the only thing left standing. The route is written as an
+          explicit entry, so it shows in the plan.
+        renders: routes entry `0.0.0.0/0`, next hop `VirtualAppliance` / properties.routes
+
+      - id: firewall_private_ip
+        ask: Which private address does the firewall have?
+        type: string
+        resolved_by: platform
+        plain:
+          en: "The firewall is reached at {value}."
+          de: "Die Firewall ist unter {value} erreichbar."
+        required: true
+        depends_on: { question: default_route, equals: firewall }
+        per_environment: true
+        why: >
+          The hub firewall's private address, an input from the platform (`platform.yaml`),
+          never guessed: a wrong address drops all egress of every subnet using the table,
+          and the first symptom is a timeout in the application, not an error in the plan.
+          Per stage, because each stage peers to its own hub where the stages are separated.
+          It is an address, not a resource id - the next hop is an IP in the hub's range.
+        renders: next_hop_in_ip_address / nextHopIpAddress
+
+      - id: routes
+        ask: Which further routes should the table hold?
+        type: list
+        plain:
+          en: "Further routes: {value}."
+          de: "Weitere Routen: {value}."
+        default: []
+        per_environment: true
+        why: >
+          Each entry is a name, a destination (a CIDR or an Azure service tag), a next hop
+          type (`VirtualAppliance`, `VirtualNetworkGateway`, `VnetLocal`, `Internet`, `None`)
+          and, for `VirtualAppliance`, the address. The usual ones are exceptions to the
+          default route: a service tag that must not pass the firewall (`AzureBackup`,
+          `ApiManagement` management traffic) with `Internet`, an on-premises range with
+          `VirtualNetworkGateway`, a range to black-hole with `None`. Longest prefix wins, so
+          a more specific route beats the default one. Empty is valid for a table whose job is
+          the default route alone. Destinations are per stage.
+        renders: routes / properties.routes
+
+      - id: bgp_route_propagation
+        ask: Should routes learned from a gateway be added to the subnet's routes?
+        type: enum
+        plain:
+          en: "Routes learned from gateways are {value}."
+          de: "Von Gateways gelernte Routen werden {value}."
+        plain_values:
+          disabled: { en: "ignored - only our routes apply", de: "ignoriert, nur unsere Routen gelten" }
+          enabled: { en: "added to the subnet's routes", de: "den Routen des Subnetzes hinzugefügt" }
+        values: [disabled, enabled]
+        default: disabled
+        forced_when: >
+          A table on `GatewaySubnet` keeps `enabled`: the gateway needs the routes it learns,
+          and a table that disables propagation on that subnet stops the gateway working.
+          Recorded as forced, with the subnet as the reason
+        why: >
+          Azure adds routes that a VPN or ExpressRoute gateway learns over BGP to every subnet,
+          and a learned route with a longer prefix beats the table's `0.0.0.0/0`: an on-premises
+          network can then pull traffic past the firewall without anyone writing a route. Off
+          keeps the table the only source for the spoke, which is what a forced-tunnelling
+          design means. On is for a subnet that must follow the on-premises routes - the gateway
+          subnet itself, or a hub without a firewall. The portal's default is on.
+        renders: bgp_route_propagation_enabled (Terraform, true/false) / disableBgpRoutePropagation (Bicep, inverted)

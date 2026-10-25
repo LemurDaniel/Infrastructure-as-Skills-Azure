@@ -1,0 +1,321 @@
+schema_version: 1
+
+resource: Microsoft.Network/publicIPAddresses
+title: Azure Public IP Address
+
+naming:
+  terraform: "Azure::Microsoft.Network/publicIPAddresses"
+  bicep: "Microsoft.Network/publicIPAddresses"
+  # Bicep assembles the name from vars - this is the prefix it renders.
+  abbreviation: "pip"
+
+boundaries:
+  - "Does not create the resource group. Expects one from the spec's context."
+  - "Does not attach itself to anything. The consumer - a NAT gateway, an Application Gateway, a firewall, a Bastion host, a load balancer - takes the resource id; an address nobody uses is a bill and an inventory entry."
+  - "Does not decide whether a public address may exist. That is `deployment.network_exposure`: under `private` only outbound-only and platform-access purposes (see `purpose`) are rendered, and an inbound address needs the posture to say so."
+  - "Does not create public IP prefixes or custom IP prefixes (BYOIP). A prefix is referenced by id where a customer owns a contiguous range; none has a question set."
+  - "Does not create the DDoS protection plan, nor the Log Analytics workspace it routes diagnostics to. Both are the platform's, referenced and not built."
+  - "Does not create DNS records for the label or the address. Public DNS zones and their records belong to the platform."
+  - "Does not render the Basic SKU or the Dynamic allocation that goes with it: Basic public IPs are retired. A request for one gets a Standard address, said out loud."
+  - "Does not cover a NAT gateway's own addresses when the NAT gateway creates them: the `nat-gateway` set carries that count. This set is for an address that exists on its own."
+
+groups:
+
+  # ---------------------------------------------------------------- placement
+  - id: placement
+    title: Placement
+    questions:
+      - id: environments
+        ask: Which stages is this deployed to?
+        type: list
+        plain:
+          en: "Deployed in the stages {value}."
+          de: "Wird in den Stufen {value} ausgerollt."
+        values: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
+        required: true
+        from_context: true
+        why: >
+          Drives the rendered name. An address is allocated per stage and per consumer:
+          a development stage that shares the production address shares its allowlist
+          entries with every partner that trusts it.
+        renders: naming parameter `environment`, and the tag of that name where the repository uses one
+
+      - id: location
+        ask: Which Azure region?
+        type: string
+        plain:
+          en: "Created in the Azure region {value}."
+          de: "Wird in der Azure-Region {value} angelegt."
+        required: true
+        from_context: true
+        why: >
+          A regional address can be attached only to a resource of its own region, and
+          the zones it spans are that region's.
+        renders: location
+
+      - id: resource_group_name
+        ask: Which resource group?
+        type: ref
+        plain:
+          en: "Placed in the resource group {value}."
+          de: "Liegt in der Ressourcengruppe {value}."
+        ref: resource_group
+        required: true
+        from_context: true
+        per_environment: true
+        why: >
+          Placed into an existing group, normally that of the resource that uses the
+          address, so the people who own the consumer own the address.
+        renders: resource_group_name (azurerm modules) / parent_id (AzAPI modules) / implicit in Bicep scope
+
+  # ------------------------------------------------------------------ address
+  - id: address
+    title: Address
+    questions:
+      - id: purpose
+        ask: What is the address for?
+        type: enum
+        plain:
+          en: "The address is for {value}."
+          de: "Die Adresse ist für {value}."
+        plain_values:
+          nat_gateway: { en: "outgoing traffic of a network (NAT gateway)", de: "den ausgehenden Verkehr eines Netzes (NAT-Gateway)" }
+          application_gateway: { en: "the entrance of a web gateway", de: "den Eingang eines Web-Gateways" }
+          firewall: { en: "a firewall", de: "eine Firewall" }
+          bastion: { en: "administrator access (Bastion)", de: "den Administratorzugang (Bastion)" }
+          load_balancer: { en: "a load balancer", de: "einen Lastverteiler" }
+          vpn_gateway: { en: "a VPN gateway", de: "ein VPN-Gateway" }
+          other: { en: "something else, named in the spec", de: "etwas anderes, im Spec benannt" }
+        values: [nat_gateway, application_gateway, firewall, bastion, load_balancer, vpn_gateway, other]
+        required: true
+        forced_when: >
+          `deployment.network_exposure: private` accepts `nat_gateway` (outbound only),
+          `firewall` and `bastion` (the platform's access paths) and `vpn_gateway`; the others
+          make a reachable-from-the-internet address, so they need `private_with_exceptions` or
+          `public` and are recorded `overridden` otherwise
+        why: >
+          The plugin cannot guess it, and it decides three things: the name (`pip-<region>-<env>-<workload>-<purpose>-01`),
+          whether the posture allows the address at all, and which SKU the consumer accepts
+          (below). An address with no stated purpose is the one that stays in a subscription
+          for two years after its consumer was deleted.
+        renders: the `name` parameter of the naming convention (`<workload>-<purpose>`) and the SKU decision
+
+      - id: sku
+        ask: Which SKU should the address have?
+        type: enum
+        plain:
+          en: "The address is of the type {value}."
+          de: "Die Adresse hat den Typ {value}."
+        plain_values:
+          Standard: { en: "Standard (static, zone-aware, closed to inbound traffic until a rule opens it)", de: "Standard (statisch, zonenfähig, für eingehenden Verkehr zu, bis eine Regel öffnet)" }
+          StandardV2: { en: "Standard V2 (zone-redundant by design, only for a NAT gateway of the same generation)", de: "Standard V2 (von Haus aus zonenredundant, nur für ein NAT-Gateway derselben Generation)" }
+        values: [Standard, StandardV2]
+        default: Standard
+        forced_when: >
+          A NAT gateway of SKU `StandardV2` takes only `StandardV2` addresses and a `Standard`
+          one only `Standard` (the `nat-gateway` set's `sku`); every other purpose takes
+          `Standard`. `Basic` is not offered: it is retired
+        why: >
+          Standard is secure by default - it accepts no inbound traffic until an NSG allows it -
+          and is the SKU every other consumer (Application Gateway, firewall, Bastion, a
+          Standard load balancer) requires. The Basic SKU is open by default and is retired.
+          `StandardV2` exists for the zone-redundant NAT gateway generation and is not
+          interchangeable with `Standard`: the pair has to match, and the SKU of an address
+          cannot be changed in place.
+        renders: azurerm_public_ip.sku / properties (sku.name) - `sku` (AVM Terraform), `skuName` (AVM Bicep)
+
+      - id: sku_tier
+        ask: Should the address be regional or global?
+        type: enum
+        plain:
+          en: "The address is {value}."
+          de: "Die Adresse ist {value}."
+        plain_values:
+          Regional: { en: "tied to one region", de: "an eine Region gebunden" }
+          Global: { en: "global (front end of a cross-region load balancer)", de: "global (Front-End eines regionsübergreifenden Lastverteilers)" }
+        values: [Regional, Global]
+        default: Regional
+        why: >
+          `Global` is only for the front end of a cross-region load balancer; every other
+          consumer needs a regional address. A global address is the more expensive form and
+          cannot be attached to a regional resource.
+        renders: sku_tier / sku.tier
+
+      - id: allocation_method
+        ask: Should the address stay the same for its whole life?
+        type: enum
+        plain:
+          en: "The address is {value}."
+          de: "Die Adresse ist {value}."
+        plain_values:
+          Static: { en: "fixed - it stays the same, also when the consumer is restarted", de: "fest - sie bleibt gleich, auch wenn der Verbraucher neu startet" }
+          Dynamic: { en: "assigned when first used and then fixed until released", de: "bei erster Nutzung vergeben und bis zur Freigabe fest" }
+        values: [Static, Dynamic]
+        default: Static
+        forced_when: "`sku: Standard` and `StandardV2` take only `Static`; `Dynamic` belongs to the retired Basic SKU"
+        why: >
+          A partner's firewall allowlist, a certificate's SAN and a DNS A record all hold the
+          address. `Static` is the only allocation a Standard address supports, and the one
+          that does not change under the people depending on it. The question exists to make
+          the decision visible, not because the other value is available.
+        renders: allocation_method / properties.publicIPAllocationMethod
+
+      - id: ip_version
+        ask: Which IP version should the address have?
+        type: enum
+        plain:
+          en: "The address is of version {value}."
+          de: "Die Adresse hat die Version {value}."
+        values: [IPv4, IPv6]
+        default: IPv4
+        why: >
+          IPv4 is what every partner allowlist and most consumers expect. IPv6 is chosen when
+          a consumer demands a dual-stack front end, and then needs a second address - one
+          resource per family.
+        renders: ip_version / properties.publicIPAddressVersion
+
+      - id: zones
+        ask: Which availability zones should the address span?
+        type: list
+        plain:
+          en: "The address is held in zones {value}."
+          de: "Die Adresse liegt in den Zonen {value}."
+        values: [1, 2, 3]
+        default: [1, 2, 3]
+        why: >
+          All three zones make the address zone-redundant: it survives the loss of a zone at
+          no price difference. A zonal address (one zone) is for a consumer that is itself
+          pinned to that zone - a zonal NAT gateway - and then has to match it, because the
+          zone of an address cannot be changed. Empty is a non-zonal address, which exists
+          only in regions without zones.
+        forced_when: "A zonal NAT gateway (`nat-gateway.zone`) takes the same single zone"
+        renders: zones / availabilityZones / zones[]
+
+      - id: idle_timeout_minutes
+        ask: After how many minutes of silence should an idle connection through the address be dropped?
+        type: int
+        plain:
+          en: "Connections that stay silent for {value} minutes are dropped."
+          de: "Verbindungen, die {value} Minuten schweigen, werden getrennt."
+        default: 4
+        why: >
+          Azure's own floor, and the right default for request/response traffic: it frees
+          SNAT ports quickly. A long-lived idle connection (a database session, an SSH tunnel)
+          is better kept alive by the client than by raising this to the 30-minute ceiling,
+          which holds the port for everyone else too. Only an outbound or load-balancer
+          address uses it.
+        renders: idle_timeout_in_minutes / idleTimeoutInMinutes
+
+      - id: dns_label
+        ask: Should the address get a name under Azure's public domain?
+        type: string
+        plain:
+          en: "Public name label: {value} (empty: none)."
+          de: "Öffentlicher Namensbestandteil: {value} (leer: keiner)."
+        default: ""
+        why: >
+          Empty by default. A label creates `<label>.<region>.cloudapp.azure.com`, a
+          globally visible name that points at the address, is unique per region and tells
+          anyone enumerating Azure what exists. The customer's own domain is the stable name;
+          a label is for a short-lived test endpoint with no DNS zone, and it is released
+          with the address.
+        renders: domain_name_label / dnsSettings.domainNameLabel
+
+  # ----------------------------------------------------------------- security
+  - id: security
+    title: Security
+    questions:
+      - id: ddos_protection_mode
+        ask: How should the address be protected against DDoS?
+        type: enum
+        resolved_by: platform
+        plain:
+          en: "DDoS protection for the address is {value}."
+          de: "Der DDoS-Schutz für die Adresse ist {value}."
+        plain_values:
+          VirtualNetworkInherited: { en: "taken from the network the consumer sits in", de: "vom Netz übernommen, in dem der Verbraucher steht" }
+          Enabled: { en: "a paid protection plan set on the address itself", de: "ein kostenpflichtiger Schutzplan direkt an der Adresse" }
+          Disabled: { en: "off - Azure's basic protection applies either way", de: "aus - Azures Basisschutz gilt ohnehin" }
+        values: [VirtualNetworkInherited, Enabled, Disabled]
+        default: VirtualNetworkInherited
+        confirm_in: [production]
+        why: >
+          Inherited is the default and does the right thing: if the virtual network of the
+          consumer has a DDoS plan (`virtual-network.ddos_protection`) the address is covered,
+          otherwise Azure's free infrastructure protection applies. `Enabled` protects an
+          address that has no virtual network - a standalone one - and costs a plan, which
+          is a platform decision and usually shared. The question exists so the choice is
+          written, because inherited from a network with no plan means unprotected, and a
+          reviewer should see that.
+        renders: ddos_protection_mode / ddosSettings.protectionMode (Bicep - omitted for inherited)
+
+      - id: ddos_protection_plan
+        ask: Which DDoS protection plan should protect the address?
+        type: ref
+        resolved_by: platform
+        plain:
+          en: "The protection plan is {value}."
+          de: "Der Schutzplan ist {value}."
+        ref: ddos_protection_plan
+        required: true
+        depends_on: { question: ddos_protection_mode, equals: Enabled }
+        per_environment: true
+        why: >
+          The plan is shared across a subscription and owned by the platform, so it is
+          referenced and never created here. Read by name and resource group, not by id.
+        renders: ddos_protection_plan_id / ddosSettings.ddosProtectionPlan.id
+
+  # ------------------------------------------------------------ observability
+  - id: observability
+    title: Observability
+    questions:
+      - id: diagnostic_workspace
+        ask: Which Log Analytics workspace should receive diagnostics?
+        type: ref
+        resolved_by: platform
+        plain:
+          en: "Its logs go to {value}."
+          de: "Seine Logs gehen in {value}."
+        ref: log_analytics_workspace
+        from_deployment: diagnostics_destination
+        per_environment: true
+        why: >
+          Inherited: one deployment, one destination. The address's logs are DDoS
+          notifications and mitigation records; without a destination an attack on the address
+          is visible only as its symptoms.
+        renders: diagnostic_settings / diagnosticSettings
+
+      - id: diagnostic_categories
+        ask: Which log categories should be collected?
+        type: list
+        plain:
+          en: "Logged: {value}."
+          de: "Geloggt wird: {value}."
+        plain_values:
+          DDoSProtectionNotifications: { en: "when an attack starts and stops", de: "wann ein Angriff beginnt und endet" }
+          DDoSMitigationFlowLogs: { en: "which traffic was dropped during an attack", de: "welcher Verkehr während eines Angriffs verworfen wurde" }
+          DDoSMitigationReports: { en: "the summary of each mitigated attack", de: "die Zusammenfassung jedes abgewehrten Angriffs" }
+        values: [DDoSProtectionNotifications, DDoSMitigationFlowLogs, DDoSMitigationReports]
+        default: [DDoSProtectionNotifications, DDoSMitigationFlowLogs, DDoSMitigationReports]
+        why: >
+          All three are written only while an attack is mitigated, so they cost nothing the
+          rest of the time, and an incident review without them has nothing to read. The names
+          are the platform's and are checked against `az monitor diagnostic-settings
+          categories list --resource <pip id>` before a render, not remembered.
+        renders: diagnostic_settings.<key>.log_categories / diagnosticSettings[].logCategoriesAndGroups[].category
+
+      - id: metrics_enabled
+        ask: Should all metrics be collected?
+        type: bool
+        plain:
+          en: "Usage and performance figures are {value}."
+          de: "Nutzungs- und Leistungswerte werden {value}."
+        plain_values:
+          true: { en: collected, de: erfasst }
+          false: { en: not collected, de: nicht erfasst }
+        default: true
+        why: >
+          Byte and packet counts, SYN counts and the DDoS attack indicators
+          (`IfUnderDDoSAttack`) are the metrics an alert on an attack rests on, and `AllMetrics`
+          is cheap.
+        renders: diagnostic_settings.<key>.metric_categories = ["AllMetrics"] / metricCategories[].category

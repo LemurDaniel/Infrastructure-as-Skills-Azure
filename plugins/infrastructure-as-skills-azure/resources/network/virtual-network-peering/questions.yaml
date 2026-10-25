@@ -1,0 +1,350 @@
+schema_version: 1
+
+resource: Microsoft.Network/virtualNetworks/virtualNetworkPeerings
+title: Azure Virtual Network Peering (hub and spoke)
+
+naming:
+  terraform: "Azure::Microsoft.Network/virtualNetworks/virtualNetworkPeerings"
+  bicep: "Microsoft.Network/virtualNetworks/virtualNetworkPeerings"
+  # Bicep assembles the name from vars - this is the prefix it renders. A peering has a name per
+  # side; the convention's pattern takes the workload from the `name` parameter, so each side gets
+  # its own (`<workload>-to-hub`, `hub-to-<workload>`).
+  abbreviation: "peer"
+
+boundaries:
+  - "Creates no virtual network. Both networks exist: the local one from the network set (or referenced), the remote one from the platform."
+  - "Does not create or change the hub: its gateways, firewall, route tables and address space are the platform's (guardrails §0). It writes the reverse peering on the hub network only when `both_directions` says so - and that is a write to a platform resource, which needs the pipeline's identity to hold the rights there."
+  - "Does not create route tables. A peering makes two networks reachable; the user-defined routes that send a spoke's traffic through the hub firewall are a route table per spoke subnet, which has no question set yet."
+  - "Does not create gateways, firewalls or DNS settings. `hub_gateway` and `central_inspection` record what the platform has; they do not build it."
+  - "Does not peer part of a network. Subset peering (selected address spaces or subnets) is not rendered; both networks are peered whole."
+  - "Does not check for overlapping address spaces. That is `deployment.address_space`, settled before this set runs - a peering is refused when the ranges overlap, and the refusal arrives at apply time."
+  - "Does not model Azure Virtual Network Manager connectivity configurations, virtual WAN hub connections or Private Link: other ways of connecting, each with its own resource."
+
+groups:
+
+  # ---------------------------------------------------------------- placement
+  - id: placement
+    title: Placement
+    questions:
+      - id: environments
+        ask: Which stages is this deployed to?
+        type: list
+        plain:
+          en: "Deployed in the stages {value}."
+          de: "Wird in den Stufen {value} ausgerollt."
+        values: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
+        required: true
+        from_context: true
+        why: >
+          Drives the rendered name and the strictness of several defaults below. Nothing
+          sensible can be guessed. Each stage is peered to its own stage's hub (or to the one
+          hub the platform has), and the remote network is a per-stage value.
+        renders: >
+          naming parameter `environment`, and the tag of that name where the repository uses
+          one
+
+      - id: location
+        ask: Which Azure region?
+        type: string
+        plain:
+          en: "Runs in the Azure region {value}."
+          de: "Läuft in der Azure-Region {value}."
+        required: true
+        from_context: true
+        why: >
+          The region of the local network. A remote network in another region makes it a
+          global peering: it works, is billed for the data crossing regions at both ends,
+          and the gateway transit and forwarded-traffic switches below behave the same. The
+          peering resource itself has no location.
+        renders: naming parameter `location` (a peering is a child of the network and carries no location)
+
+      - id: resource_group_name
+        ask: Which resource group?
+        type: ref
+        plain:
+          en: "Placed in the resource group {value}."
+          de: "Liegt in der Ressourcengruppe {value}."
+        ref: resource_group
+        required: true
+        from_context: true
+        per_environment: true
+        why: >
+          The group of the local network - a peering is a child of it and lives where it
+          lives. In a split deployment that is the `network` role.
+        renders: parent_id (the local network's id) / implicit in Bicep scope
+
+  # ----------------------------------------------------------------- peering
+  - id: peering
+    title: The peering
+    questions:
+      - id: peering_role
+        ask: Is the local network a spoke that connects to a hub, or the hub itself?
+        type: enum
+        plain:
+          en: "The local network is {value}."
+          de: "Das lokale Netz ist {value}."
+        plain_values:
+          spoke: { en: "a spoke connecting to a central hub", de: "ein Spoke, der sich mit einem zentralen Hub verbindet" }
+          hub: { en: "the central hub the spokes connect to", de: "der zentrale Hub, mit dem sich die Spokes verbinden" }
+        values: [spoke, hub]
+        default: spoke
+        forced_when: >
+          `landing_zone: corp` and `network_ownership: create` make the created network a
+          spoke. `landing_zone: standalone`, `online` and `sandbox` have nothing to peer to; the
+          set is then not used. `hub` is the platform team's own repository.
+        why: >
+          The role decides which side carries which switch: the hub side offers the gateway
+          (`allow_gateway_transit`) and the spoke side uses it (`use_remote_gateways`), and both
+          sides accept forwarded traffic when the hub inspects. Peering is not transitive, so
+          a spoke peered to the hub reaches another spoke only through something in the hub that
+          forwards - a firewall or a gateway - which is what the two switches are for. A
+          workload deployment is a spoke; it does not make itself a hub.
+        renders: decides which of the local and reverse switches below is the spoke's
+
+      - id: local_virtual_network
+        ask: Which network is being peered (the local side)?
+        type: ref
+        plain:
+          en: "The local network is {value}."
+          de: "Das lokale Netz ist {value}."
+        ref: virtual_network
+        required: true
+        per_environment: true
+        why: >
+          Usually the network this deployment created: the network set's output, passed by
+          reference, never an id typed into the template. An id pins a subscription into the
+          code, and a stage file carries the value instead.
+        renders: parent_id / localVnetName (the name of the parent network)
+
+      - id: remote_virtual_network
+        ask: Which network should it be peered with (the remote side)?
+        type: ref
+        resolved_by: platform
+        plain:
+          en: "It is peered with the network {value}."
+          de: "Es wird mit dem Netz {value} verbunden."
+        ref: virtual_network
+        required: true
+        per_environment: true
+        why: >
+          The hub of the platform, read from the platform profile and not guessed. Its address
+          space must not overlap the local one - a peering is refused, at apply time, when it
+          does - and the remote network may sit in another subscription; the
+          pipeline's identity then needs rights there for the reverse side (below).
+        renders: remote_virtual_network_id / remoteVirtualNetworkResourceId
+
+      - id: both_directions
+        ask: Should this deployment create the peering on both networks?
+        type: bool
+        plain:
+          en: "The connection is created from {value}."
+          de: "Die Verbindung wird {value} angelegt."
+        plain_values:
+          true: { en: "both networks (the hub side as well)", de: "beiden Netzen aus (auch auf der Hub-Seite)" }
+          false: { en: "the local network only (the hub team adds its side)", de: "nur dem lokalen Netz aus (das Hub-Team ergänzt seine Seite)" }
+        default: true
+        why: >
+          A peering works only when both sides exist: one side alone shows `Initiated` and
+          carries no traffic. Both in one deployment is the whole connection and nothing to
+          coordinate; it needs the pipeline's identity to be allowed to write a peering on the hub
+          (`Network Contributor` on that network, or the peering write and `peer/action`
+          rights). Where the platform owns its side - by policy, by a network manager or by hand -
+          `false` creates the local half and the handover says who has to add the other, because a
+          half-peering is a connection that looks created.
+        renders: create_reverse_peering / a second peering module call scoped to the remote network
+
+      - id: allow_virtual_network_access
+        ask: Should machines in the local network be able to reach machines in the remote one?
+        type: bool
+        plain:
+          en: "The local network reaches the remote network: {value}."
+          de: "Das lokale Netz erreicht das Remote-Netz: {value}."
+        plain_values:
+          true: { en: "yes", de: ja }
+          false: { en: "no", de: nein }
+        default: true
+        why: >
+          That is the reason for a peering; `false` keeps the link up and blocks its traffic,
+          for a connection created ahead of its use or held back during a migration. Network
+          security groups and firewalls decide what actually passes - this switch is the outer
+          door. Written, because the Terraform and Bicep modules agree on `true` and a release
+          can move it.
+        renders: allow_virtual_network_access / allowVirtualNetworkAccess
+
+      - id: reverse_allow_virtual_network_access
+        ask: Should machines in the remote network be able to reach machines in the local one?
+        type: bool
+        plain:
+          en: "The remote network reaches the local network: {value}."
+          de: "Das Remote-Netz erreicht das lokale Netz: {value}."
+        plain_values:
+          true: { en: "yes", de: ja }
+          false: { en: "no", de: nein }
+        default: true
+        depends_on: { question: both_directions, equals: true }
+        why: >
+          The same switch on the other side. A spoke that must stay unreachable from the hub
+          (rare: a hub is usually what administers it) sets this `false`, and then
+          management from the hub fails in only one direction, which is hard to diagnose.
+        renders: reverse_allow_virtual_network_access / allowVirtualNetworkAccess (reverse module call)
+
+  # ---------------------------------------------------------------- networking
+  - id: networking
+    title: Traffic through the hub
+    questions:
+      - id: central_inspection
+        ask: Does the hub send spoke traffic through a firewall or appliance?
+        type: bool
+        resolved_by: platform
+        plain:
+          en: "The hub inspects traffic between spokes and to the outside: {value}."
+          de: "Der Hub prüft Verkehr zwischen Spokes und nach außen: {value}."
+        plain_values:
+          true: { en: "yes", de: ja }
+          false: { en: "no", de: nein }
+        default: true
+        confirm_in: [production]
+        why: >
+          In a landing zone the hub holds the firewall and every spoke routes through it, which
+          is what makes the forwarded-traffic switches below necessary: traffic that enters a
+          spoke from the firewall did not originate in the hub network, and without the switch
+          it is dropped. Recorded rather than asked of a person; it is a property of the
+          platform. Without a hub appliance the switches stay off.
+        renders: decides allow_forwarded_traffic and reverse_allow_forwarded_traffic
+
+      - id: allow_forwarded_traffic
+        ask: Should the local network accept traffic that the remote network forwards from elsewhere?
+        type: bool
+        plain:
+          en: "The local network accepts traffic forwarded by the remote one: {value}."
+          de: "Das lokale Netz nimmt vom Remote-Netz weitergeleiteten Verkehr an: {value}."
+        plain_values:
+          true: { en: "yes", de: ja }
+          false: { en: "no", de: nein }
+        default: false
+        forced_when: >
+          `central_inspection: true` forces `true` on the spoke side (a spoke accepts what the
+          hub firewall sends it). The Terraform module defaults to `false`, the Bicep module to
+          `true`.
+        why: >
+          Forwarded traffic is traffic whose source is not in the peered network - another
+          spoke's, the internet's or on-premises', sent on by a firewall or gateway in the
+          peer. Off unless something inspects, because on without an inspector lets a
+          peer vouch for addresses it does not own. The two modules disagree on the default;
+          written.
+        renders: allow_forwarded_traffic / allowForwardedTraffic
+
+      - id: reverse_allow_forwarded_traffic
+        ask: Should the remote network accept traffic that the local network forwards from elsewhere?
+        type: bool
+        plain:
+          en: "The remote network accepts traffic forwarded by the local one: {value}."
+          de: "Das Remote-Netz nimmt vom lokalen Netz weitergeleiteten Verkehr an: {value}."
+        plain_values:
+          true: { en: "yes", de: ja }
+          false: { en: "no", de: nein }
+        default: false
+        depends_on: { question: both_directions, equals: true }
+        forced_when: >
+          `central_inspection: true` forces `true` where the hub is the remote side: the hub
+          accepts what a spoke forwards (replies through the firewall's route, an appliance
+          in the spoke).
+        why: >
+          The other side of the previous switch. A spoke does not normally forward anything,
+          so the hub side stays off unless the spoke hosts an appliance of its own; with a
+          central inspector both are typically on, and the second is the one forgotten, which
+          shows as one-way traffic.
+        renders: reverse_allow_forwarded_traffic / allowForwardedTraffic (reverse module call)
+
+      - id: hub_gateway
+        ask: Do the spokes reach on-premises through a VPN or ExpressRoute gateway in the hub?
+        type: bool
+        resolved_by: platform
+        plain:
+          en: "The spokes reach on-premises through a gateway in the hub: {value}."
+          de: "Die Spokes erreichen das lokale Netz über ein Gateway im Hub: {value}."
+        plain_values:
+          true: { en: "yes", de: ja }
+          false: { en: "no", de: nein }
+        default: false
+        why: >
+          Recorded from the platform, not asked: a hub has a gateway or it does not. When it
+          does, the hub side offers it (`allow_gateway_transit`) and the spoke side uses it
+          (`use_remote_gateways`) - one gateway for all spokes instead of one each. The local
+          network must have no gateway of its own then, and the hub's gateway must exist
+          before the spoke side is created.
+        renders: decides allow_gateway_transit, use_remote_gateways and reverse_allow_gateway_transit
+
+      - id: allow_gateway_transit
+        ask: Should the remote network be allowed to use the local network's gateway?
+        type: bool
+        plain:
+          en: "The remote network may use a gateway of the local one: {value}."
+          de: "Das Remote-Netz darf ein Gateway des lokalen Netzes nutzen: {value}."
+        plain_values:
+          true: { en: "yes", de: ja }
+          false: { en: "no", de: nein }
+        default: false
+        forced_when: >
+          `hub_gateway: true` with `peering_role: hub` forces `true`. For a spoke it is always
+          `false`: a spoke has no gateway to share.
+        why: >
+          Gateway transit lets a peer use this network's VPN or ExpressRoute gateway. It
+          belongs on the hub's side only; on a spoke it either does nothing or, worse, shares a
+          gateway the spoke should not have.
+        renders: allow_gateway_transit / allowGatewayTransit
+
+      - id: use_remote_gateways
+        ask: Should the local network use the remote network's gateway?
+        type: bool
+        plain:
+          en: "The local network uses a gateway of the remote one: {value}."
+          de: "Das lokale Netz nutzt ein Gateway des Remote-Netzes: {value}."
+        plain_values:
+          true: { en: "yes", de: ja }
+          false: { en: "no", de: nein }
+        default: false
+        forced_when: >
+          `hub_gateway: true` with `peering_role: spoke` forces `true`.
+        why: >
+          The spoke's half of the pair: routes to on-premises learned by the hub's gateway reach
+          the spoke through the peering. It fails if the remote side does not offer transit, or
+          if the local network has a gateway, and it must not be set on both sides.
+        renders: use_remote_gateways / useRemoteGateways
+
+      - id: reverse_allow_gateway_transit
+        ask: Should the remote network offer its gateway to the local network?
+        type: bool
+        plain:
+          en: "The remote network offers its gateway: {value}."
+          de: "Das Remote-Netz stellt sein Gateway bereit: {value}."
+        plain_values:
+          true: { en: "yes", de: ja }
+          false: { en: "no", de: nein }
+        default: false
+        depends_on: { question: both_directions, equals: true }
+        forced_when: >
+          `hub_gateway: true` with `peering_role: spoke` forces `true`: the hub is the remote
+          side and must offer what the spoke uses.
+        why: >
+          The hub's half of the pair, set on the reverse peering. Order matters: this side has
+          to exist before the spoke side asks to use it, or the spoke's peering is refused.
+        renders: reverse_allow_gateway_transit / allowGatewayTransit (reverse module call)
+
+      - id: verify_remote_gateways
+        ask: Should the peering check that the remote network really has a gateway before it is created?
+        type: bool
+        plain:
+          en: "The remote gateway is checked on creation: {value}."
+          de: "Das Remote-Gateway wird beim Anlegen geprüft: {value}."
+        plain_values:
+          true: { en: "yes", de: ja }
+          false: { en: "no", de: nein }
+        default: true
+        depends_on: { question: use_remote_gateways, equals: true }
+        why: >
+          With the check on, a spoke that asks for a gateway the hub does not have is refused,
+          which is the message wanted. Off hides the mistake until the first on-premises
+          connection fails. The Bicep module defaults to not checking (`doNotVerifyRemoteGateways:
+          true`), the Terraform module to checking; written as the check.
+        renders: do_not_verify_remote_gateways (inverted) / doNotVerifyRemoteGateways (inverted)

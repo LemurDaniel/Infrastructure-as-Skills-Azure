@@ -1,0 +1,269 @@
+schema_version: 1
+
+resource: Microsoft.Network/privateEndpoints
+title: Azure Private Endpoint (standalone)
+
+naming:
+  terraform: "Azure::Microsoft.Network/privateEndpoints"
+  bicep: "Microsoft.Network/privateEndpoints"
+  # Bicep assembles the name from vars - this is the prefix it renders. The convention
+  # takes a `subname` (the sub-resource) so the index stays last: pep-we-prod-invoicing-blob-01.
+  abbreviation: "pep"
+
+boundaries:
+  - "Does not create the resource group. Expects one from the spec's context."
+  - "Is the standalone form. A resource whose AVM module carries the shared `private_endpoints` / `privateEndpoints` interface (storage account, Key Vault, Cosmos DB, ...) renders its endpoints through that module from its own set's `private_endpoint_*` questions; this set is for a target whose module does not, a target this deployment does not create (an existing resource, a Private Link service of another team), and a type with no set."
+  - "Does not decide whether an endpoint exists. `deployment.network_exposure` and the target's `public_network_access` do; an endpoint under `network_exposure: public` is a deliberate exception."
+  - "Does not decide the subnet. One subnet carries the deployment's endpoints (`deployment.private_endpoint_subnet` / `private_endpoint_subnet_prefix`) and this set inherits it; the subnet's `private_endpoint_network_policies` belong to the virtual-network set."
+  - "Does not create the private DNS zone or its link to the network. A zone is shared infrastructure (`private-dns-zone` set, or the platform's); this set references it and attaches the endpoint to it, or leaves the record to the platform's policy."
+  - "Does not approve a connection to a target in another tenant or subscription. A manual connection is created pending; the owner of the target approves it, and nothing resolves until then."
+  - "Does not model application security groups, custom DNS configs or one endpoint over several sub-resources. One endpoint is one sub-resource; a target that needs three gets three."
+  - "Does not carry diagnostics. A private endpoint has no diagnostic setting of its own in the modules; traffic is seen on the target and in the network's flow logs."
+
+groups:
+
+  # ---------------------------------------------------------------- placement
+  - id: placement
+    title: Placement
+    questions:
+      - id: environments
+        ask: Which stages is this deployed to?
+        type: list
+        plain:
+          en: "Deployed in the stages {value}."
+          de: "Wird in den Stufen {value} ausgerollt."
+        values: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
+        required: true
+        from_context: true
+        why: >
+          Drives the rendered name. One endpoint per stage and per target: a target of another
+          stage is reached through its own endpoint, never through a shared one.
+        renders: naming parameter `environment`, and the tag of that name where the repository uses one
+
+      - id: location
+        ask: Which Azure region?
+        type: string
+        plain:
+          en: "Created in the Azure region {value}."
+          de: "Wird in der Azure-Region {value} angelegt."
+        required: true
+        from_context: true
+        why: >
+          The endpoint lives in the region of the virtual network its subnet belongs to, not
+          in the target's: a target in another region is reached by an endpoint here, which is
+          allowed and billed as cross-region traffic.
+        renders: location
+
+      - id: resource_group_name
+        ask: Which resource group?
+        type: ref
+        plain:
+          en: "Placed in the resource group {value}."
+          de: "Liegt in der Ressourcengruppe {value}."
+        ref: resource_group
+        required: true
+        from_context: true
+        per_environment: true
+        why: >
+          Placed into an existing group - the consumer's or the network's. The endpoint's
+          network interface is created by Azure in the same group.
+        renders: parent_id (AVM Terraform, AzAPI) / implicit in Bicep scope
+
+  # ------------------------------------------------------------------- target
+  - id: target
+    title: Target
+    questions:
+      - id: target_resource
+        ask: Which resource should the endpoint connect to?
+        type: ref
+        plain:
+          en: "The private connection leads to {value}."
+          de: "Die private Anbindung führt zu {value}."
+        ref: private_link_resource
+        required: true
+        per_environment: true
+        why: >
+          Nothing to default: the endpoint exists for exactly one resource. Read by name and
+          resource group where it is another set's output or an existing resource, never as
+          a hardcoded id, so no subscription is pinned into the template. The target has to
+          support Private Link; the table in `private-dns-zones.md` lists the types this plugin
+          knows.
+        renders: private_connection_resource_id / privateLinkServiceConnections[].properties.privateLinkServiceId
+
+      - id: subresource
+        ask: Which part of the target should the endpoint reach?
+        type: string
+        plain:
+          en: "The endpoint reaches the {value} service of the target."
+          de: "Der Endpunkt erreicht den Dienst {value} des Ziels."
+        required: true
+        why: >
+          The Private Link group id (`blob`, `vault`, `Sql`, `registry`, `sites`, `namespace`,
+          `account`, `searchService`, ...) - Azure fixes it per target type, and it decides which
+          private DNS zone applies, so it is read from the table in `private-dns-zones.md`, not
+          remembered. One endpoint, one group id: a storage account with `blob` and `file`
+          used needs two endpoints. Wrong case is an error at apply (`Sql`, not `sql`), and a
+          group id the target does not offer is rejected there, not at plan.
+        renders: subresource_names / privateLinkServiceConnections[].properties.groupIds
+
+      - id: connection_approval
+        ask: Is the connection approved automatically?
+        type: enum
+        plain:
+          en: "The connection is approved {value}."
+          de: "Die Verbindung wird {value} freigegeben."
+        plain_values:
+          automatic: { en: "automatically, because this deployment has the right to do so on the target", de: "automatisch, weil dieses Ausrollen das Recht dazu am Ziel hat" }
+          manual: { en: "by the owner of the target, who has to confirm the request", de: "vom Eigentümer des Ziels, der die Anfrage bestätigen muss" }
+        values: [automatic, manual]
+        default: automatic
+        why: >
+          `automatic` is right for a target in the same subscription or one the deploying
+          identity can read and write (the role `Microsoft.<RP>/<type>/privateEndpointConnectionsApproval/action`
+          is part of Owner and Contributor on the target). `manual` is for a target another
+          team or tenant owns: the endpoint is created `Pending` and unusable until they
+          approve it, which the handover names as a step outside the deployment.
+        renders: private_service_connection.is_manual_connection / manualPrivateLinkServiceConnections (instead of privateLinkServiceConnections)
+
+      - id: approval_message
+        ask: Which message should the request to the owner carry?
+        type: string
+        plain:
+          en: "The request tells the owner: {value}."
+          de: "Die Anfrage teilt dem Eigentümer mit: {value}."
+        default: ""
+        depends_on: { question: connection_approval, equals: manual }
+        why: >
+          The owner sees a list of pending connections with only this text to tell them
+          apart, so it names the deployment, the stage and a contact. Empty is accepted by
+          Azure and leaves the owner guessing.
+        renders: private_service_connection.request_message / manualPrivateLinkServiceConnections[].properties.requestMessage
+
+  # --------------------------------------------------------------- networking
+  - id: networking
+    title: Networking
+    questions:
+      - id: subnet
+        ask: Which subnet should the endpoint live in?
+        type: ref
+        resolved_by: platform
+        plain:
+          en: "Its private connection lands in subnet {value}."
+          de: "Seine private Anbindung landet im Subnetz {value}."
+        ref: subnet
+        from_deployment: private_endpoint_subnet
+        per_environment: true
+        why: >
+          One subnet carries the deployment's private endpoints, so this is inherited rather
+          than asked. Overridden only where the endpoint genuinely belongs elsewhere - a
+          separate data zone, or a subnet whose NSG differs. The endpoint takes one address
+          from it per sub-resource, and the subnet's `private_endpoint_network_policies` decide
+          whether its NSG and routes apply to the endpoint's traffic.
+        renders: subnet_resource_id / subnetResourceId
+
+      - id: private_ip_address
+        ask: Which fixed address should the endpoint take?
+        type: string
+        plain:
+          en: "Fixed address: {value} (empty: assigned by Azure)."
+          de: "Feste Adresse: {value} (leer: von Azure vergeben)."
+        default: ""
+        why: >
+          Empty: Azure picks the next free address and the DNS record follows it, which is
+          what a zone group or the platform's policy maintains. A fixed address is for a
+          consumer that cannot resolve names (an allowlist on an appliance) and then has to
+          be inside the subnet and outside its first four and last address; it is bound to
+          the sub-resource and cannot change without recreating the endpoint.
+        renders: ip_configurations.<k>.private_ip_address / ipConfigurations[].properties.privateIPAddress
+
+  # ---------------------------------------------------------------------- dns
+  - id: dns
+    title: Name resolution
+    questions:
+      - id: dns_ownership
+        ask: Who owns the private DNS zones?
+        type: enum
+        resolved_by: platform
+        plain:
+          en: "Name resolution for private connections is handled by {value}."
+          de: "Die Namensauflösung für private Anbindungen übernimmt {value}."
+        plain_values:
+          platform: { en: "the company platform", de: "die Firmenplattform" }
+          deployment: { en: "this deployment itself", de: "dieses Ausrollen selbst" }
+        values: [platform, deployment]
+        from_deployment: private_dns_ownership
+        why: >
+          Inherited: one answer per deployment. It decides where the zone comes from - the
+          platform's hub or the `private-dns-zone` set - and nothing else here.
+        renders: whether the zone is referenced or created, and so where its id comes from
+
+      - id: dns_records
+        ask: Does a platform policy create the DNS records for private endpoints, or does this deployment?
+        type: enum
+        resolved_by: platform
+        plain:
+          en: "The name entries for private connections are written by {value}."
+          de: "Die Namenseinträge für private Anbindungen schreibt {value}."
+        plain_values:
+          policy: { en: "a platform rule, automatically", de: "eine Plattformregel, automatisch" }
+          deployment: { en: "this deployment", de: "dieses Ausrollen" }
+        values: [policy, deployment]
+        from_deployment: private_dns_records
+        why: >
+          Inherited. With `policy` a DeployIfNotExists policy attaches the endpoint to the
+          platform's zone and writes the record; a zone group written here as well means two
+          owners of one record, and a plan that shows drift on every run. Only reached when
+          `dns_ownership` is `platform`; under `deployment` this deployment writes the records.
+        renders: whether private_dns_zone_group / privateDnsZoneGroup is rendered at all
+
+      - id: dns_zone_group
+        ask: Should the endpoint carry its own DNS zone group?
+        type: enum
+        plain:
+          en: "The endpoint's name entry is {value}."
+          de: "Der Namenseintrag des Endpunkts wird {value}."
+        plain_values:
+          attached: { en: "written by this deployment, into the zone named below", de: "von diesem Ausrollen in die unten genannte Zone geschrieben" }
+          left_to_policy: { en: "left to the platform, which writes it itself", de: "der Plattform überlassen, die ihn selbst schreibt" }
+        values: [attached, left_to_policy]
+        default: left_to_policy
+        forced_when: >
+          `dns_ownership: deployment` forces `attached` (there is no platform to write it), and
+          so does `dns_records: deployment`; `dns_records: policy` keeps `left_to_policy`,
+          recorded as forced with the deployment question as forced_by
+        why: >
+          The single switch the two deployment answers resolve to, so the render does not
+          re-derive it. An endpoint without a zone group, where nobody else writes the
+          record, is the usual reason a private endpoint is created and nothing resolves to it.
+        renders: private_dns_zone_resource_ids / privateDnsZoneGroup (present or absent)
+
+      - id: dns_zones
+        ask: Which private DNS zones should the endpoint be attached to?
+        type: list
+        plain:
+          en: "Attached to the name zones: {value}."
+          de: "An die Namenszonen angeschlossen: {value}."
+        default: []
+        depends_on: { question: dns_zone_group, equals: attached }
+        why: >
+          Empty means the zone(s) of the table row for the target and `subresource` in
+          `private-dns-zones.md` - fixed by Azure, the same for every deployment - and the
+          render fills them. A zone group holds up to five zones; most targets need one,
+          `foundry` three. A name here departs from the table (a custom zone) and says so.
+        renders: private_dns_zone_resource_ids / privateDnsZoneGroup.privateDnsZoneGroupConfigs[].privateDnsZoneResourceId
+
+      - id: dns_zone_scope
+        ask: In which subscription and resource group does the platform keep the private DNS zones?
+        type: ref
+        resolved_by: platform
+        plain:
+          en: "The platform keeps the name zones in {value}."
+          de: "Die Plattform hält die Namenszonen in {value}."
+        ref: resource_group
+        from_deployment: private_dns_zone_scope
+        depends_on: { question: dns_zone_group, equals: attached }
+        per_environment: true
+        why: >
+          Inherited. Needed only to reference a zone the platform owns; for a zone created in
+          this deployment the id comes from the `private-dns-zone` set instead.
+        renders: data "azurerm_private_dns_zone" with a provider alias for the hub / `existing` zone with a cross-subscription scope

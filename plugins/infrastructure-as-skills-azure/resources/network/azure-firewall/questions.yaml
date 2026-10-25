@@ -1,0 +1,454 @@
+schema_version: 1
+
+resource: Microsoft.Network/azureFirewalls
+title: Azure Firewall (VNet) with firewall policy
+
+naming:
+  terraform: "Azure::Microsoft.Network/azureFirewalls"
+  bicep: "Microsoft.Network/azureFirewalls"
+  # Bicep assembles the name from vars - this is the prefix it renders. The firewall policy
+  # (Microsoft.Network/firewallPolicies, `afwp`) and the public IPs (`pip`) are named the same way.
+  abbreviation: "afw"
+
+boundaries:
+  - "Does not create the resource group. Expects one from the spec's context."
+  - "In a landing zone the hub firewall belongs to the connectivity subscription and the platform team (guardrails §0): a workload deployment peers to it and never creates or changes it. This set is for `landing_zone: standalone`, for the platform team's own repository, or for a spoke-local firewall the customer insisted on and the spec records as `overridden`."
+  - "Does not create the subnets. `AzureFirewallSubnet` (a /26 at least) and, with forced tunneling, `AzureFirewallManagementSubnet` (a /26) are the network set's; both names are fixed by Azure."
+  - "Does not create route tables. The user-defined routes that send a spoke's traffic to the firewall are a route table per spoke subnet, which has no question set yet; a firewall nobody routes through filters nothing."
+  - "Does not create the peerings to the spokes (see virtual-network-peering) or the private DNS zones the DNS proxy resolves."
+  - "Does not create the Log Analytics workspace it routes diagnostics to, nor the Key Vault that holds a TLS inspection certificate."
+  - "Does not decide the rules. Rule collection groups, their collections and the IP groups they use are wiring to the workloads behind the firewall and belong to a pattern or the platform. `rule_collection_groups` names them; the module README gives the shape. The first state - no rule, everything denied - is a valid one."
+  - "Does not render Virtual WAN secured hubs (`AZFW_Hub`), the Firewall Manager, the web application firewall that Application Gateway carries, or DDoS protection (a plan on the virtual network, the network set's)."
+
+groups:
+
+  # ---------------------------------------------------------------- placement
+  - id: placement
+    title: Placement
+    questions:
+      - id: environments
+        ask: Which stages is this deployed to?
+        type: list
+        plain:
+          en: "Deployed in the stages {value}."
+          de: "Wird in den Stufen {value} ausgerollt."
+        values: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
+        required: true
+        from_context: true
+        why: >
+          Drives the rendered name and the strictness of several defaults below. Nothing
+          sensible can be guessed.
+        renders: >
+          naming parameter `environment`, and the tag of that name where the repository uses
+          one
+
+      - id: location
+        ask: Which Azure region?
+        type: string
+        plain:
+          en: "Runs in the Azure region {value}."
+          de: "Läuft in der Azure-Region {value}."
+        required: true
+        from_context: true
+        why: >
+          A firewall is regional and sits in the virtual network it filters, so it follows
+          that network's region. Traffic from another region reaches it through peering and
+          pays for the crossing.
+        renders: location
+
+      - id: resource_group_name
+        ask: Which resource group?
+        type: ref
+        plain:
+          en: "Placed in the resource group {value}."
+          de: "Liegt in der Ressourcengruppe {value}."
+        ref: resource_group
+        required: true
+        from_context: true
+        per_environment: true
+        why: >
+          The firewall is placed into an existing group. In a split deployment it belongs to
+          the `network` role, with the network it protects.
+        renders: resource_group_name (AVM Terraform) / implicit in Bicep scope
+
+  # --------------------------------------------------------------- the firewall
+  - id: firewall
+    title: The firewall
+    questions:
+      - id: sku_tier
+        ask: Which firewall tier?
+        type: enum
+        plain:
+          en: "The firewall is the {value} tier."
+          de: "Die Firewall ist die Stufe {value}."
+        plain_values:
+          Basic: { en: "Basic (small workloads, up to 250 Mbit/s)", de: "Basic (kleine Lasten, bis 250 Mbit/s)" }
+          Standard: { en: "Standard (filtering by address, name and threat reputation)", de: "Standard (Filter nach Adresse, Name und Bedrohungsreputation)" }
+          Premium: { en: "Premium (adds inspection of encrypted traffic and intrusion prevention)", de: "Premium (zusätzlich Prüfung verschlüsselten Verkehrs und Einbruchserkennung)" }
+        values: [Basic, Standard, Premium]
+        default: Standard
+        confirm_in: [production]
+        why: >
+          Standard filters on addresses, ports, FQDNs and FQDN tags and applies threat
+          intelligence; Premium adds TLS inspection, the intrusion detection and prevention
+          system (IDPS) and URL categories, and is what a mandate for inspecting outbound
+          traffic needs. Basic is capped at 250 Mbit/s and always runs a management NIC - for
+          a small workload where Standard is not worth its price, and not for a hub. The
+          firewall policy must be the same tier, and a move between tiers is a maintenance
+          window, not an edit. The Terraform module requires the tier, the Bicep module
+          defaults to `Standard`.
+        renders: firewall_sku_tier, firewall_policy_sku / azureSkuTier, tier (policy)
+
+      - id: zone_redundant
+        ask: Should the firewall survive the loss of one datacenter of its region?
+        type: bool
+        plain:
+          en: "The firewall survives the loss of a datacenter: {value}."
+          de: "Die Firewall übersteht den Ausfall eines Rechenzentrums: {value}."
+        plain_values:
+          true: { en: do, de: überstehen }
+          false: { en: do not, de: überstehen nicht }
+        derived_from:
+          question: outage_impact
+          map: { tolerable: false, disruptive: true, critical: true }
+        non_production_default: false
+        why: >
+          Derived from how bad an outage is. The firewall is the one path every spoke goes
+          through, so its outage is everyone's; spreading it over the region's three zones costs
+          nothing on the firewall itself (the data transfer between zones is billed). The
+          zones are fixed at creation: a firewall without them does not gain them, it is
+          rebuilt. A region without zones takes `false`, said out loud. The public IP
+          addresses take the same zones. Both modules default to all three zones.
+        renders: firewall_zones / availabilityZones
+
+      - id: firewall_subnet
+        ask: Which subnet is reserved for the firewall?
+        type: ref
+        resolved_by: platform
+        plain:
+          en: "The firewall uses the subnet {value}."
+          de: "Die Firewall nutzt das Subnetz {value}."
+        ref: subnet
+        required: true
+        per_environment: true
+        why: >
+          The subnet must be called `AzureFirewallSubnet`, hold nothing else and be a /26 at
+          least, so that scale-out never runs out of addresses. Looked up from the platform
+          or created by the network set. Its name is not a choice.
+        renders: >
+          firewall_ip_configuration.subnet_id / virtualNetworkResourceId (the module finds the
+          subnet by its fixed name)
+
+      - id: public_ip_count
+        ask: How many public addresses should the firewall have for outbound traffic?
+        type: int
+        plain:
+          en: "The firewall has {value} public address(es) for outbound traffic."
+          de: "Die Firewall hat {value} öffentliche Adresse(n) für ausgehenden Verkehr."
+        default: 1
+        why: >
+          Every public address brings a budget of source ports for translated connections;
+          a workload that opens very many connections to one destination exhausts it (SNAT
+          port exhaustion shows as timeouts under load, not as an error). One is enough until
+          the `SNAT port utilization` metric says otherwise, and the address list is also what
+          partners allowlist, so it is better small and stable. Each additional address is
+          billed per hour.
+        renders: firewall_ip_configuration (one per address) / publicIPAddressObject, additionalPublicIpConfigurations
+
+  # ---------------------------------------------------------------- networking
+  - id: networking
+    title: Networking
+    questions:
+      - id: forced_tunneling
+        ask: Should all internet-bound traffic be sent on to another network instead of straight out?
+        type: bool
+        plain:
+          en: "Internet-bound traffic is {value}."
+          de: "Internetverkehr wird {value}."
+        plain_values:
+          true: { en: "sent on to another network first (forced tunneling)", de: "zuerst an ein anderes Netz weitergeleitet (Forced Tunneling)" }
+          false: { en: "sent straight out by the firewall", de: "von der Firewall direkt ins Internet geschickt" }
+        default: false
+        forced_when: >
+          `sku_tier: Basic` forces `true`: a Basic firewall always runs a management NIC, so
+          it needs the management subnet and address below whatever the routing is.
+        why: >
+          Forced tunneling sends the default route to an on-premises or other next hop, and
+          the firewall then needs a second subnet and a second public IP of its own - the
+          management NIC - to keep reaching Azure's control plane. It is decided at creation
+          (the management NIC is part of the firewall's shape), so the question belongs
+          here and not in the routing. Off unless a mandate wants all egress inspected
+          on-premises.
+        renders: firewall_management_ip_configuration / enableManagementNic, managementIPAddressObject
+
+      - id: management_subnet
+        ask: Which subnet is reserved for the management traffic?
+        type: ref
+        resolved_by: platform
+        plain:
+          en: "The management traffic uses the subnet {value}."
+          de: "Der Verwaltungsverkehr nutzt das Subnetz {value}."
+        ref: subnet
+        required: true
+        depends_on: { question: forced_tunneling, equals: true }
+        per_environment: true
+        why: >
+          Fixed name `AzureFirewallManagementSubnet`, a /26 at least, nothing else in it. The
+          management public IP is created beside it, Standard and static, with the same
+          zones as the firewall.
+        renders: firewall_management_ip_configuration.subnet_id / the subnet the module finds by name
+
+      - id: dns_proxy
+        ask: Should the firewall answer DNS queries for the networks behind it?
+        type: bool
+        plain:
+          en: "The firewall answers name lookups for the networks behind it: {value}."
+          de: "Die Firewall beantwortet Namensauflösungen für die Netze dahinter: {value}."
+        plain_values:
+          true: { en: "yes", de: ja }
+          false: { en: "no", de: nein }
+        default: true
+        why: >
+          With the proxy on, the spokes point their DNS at the firewall's address and it
+          forwards - which is what lets a network rule name an FQDN (the firewall then sees
+          the same answer the client got) and keeps one place where privatelink zones are
+          resolved for every spoke. On, because the guardrails put private resolution in the
+          platform and this is the usual way to reach it from a spoke. Off for a firewall
+          whose spokes resolve on their own. The setting lives on the firewall policy.
+        renders: firewall_policy_dns.proxy_enabled / policy enableProxy (the firewall's additionalProperties `Network.DNS.EnableProxy` with no policy)
+
+      - id: dns_servers
+        ask: Which DNS servers should the firewall forward to?
+        type: list
+        resolved_by: platform
+        plain:
+          en: "Forwarded to the name servers: {value} (none: Azure's own)."
+          de: "Weitergeleitet an die Namensserver: {value} (keine: Azures eigene)."
+        default: []
+        depends_on: { question: dns_proxy, equals: true }
+        per_environment: true
+        why: >
+          Empty means Azure-provided DNS (168.63.129.16), which resolves privatelink zones
+          linked to the firewall's network. A hybrid network lists its resolvers instead, and
+          then the privatelink zones must be forwarded to Azure DNS or private endpoints
+          resolve to their public addresses.
+        renders: firewall_policy_dns.servers / policy servers
+
+      - id: snat_private_ranges
+        ask: Which destination ranges count as private, so that the firewall does not translate the source address?
+        type: list
+        plain:
+          en: "Traffic to {value} keeps its source address."
+          de: "Verkehr nach {value} behält seine Quelladresse."
+        default: [IANAPrivateRanges]
+        why: >
+          The firewall translates the source address of everything except traffic to the
+          private ranges of RFC 1918 (the special value `IANAPrivateRanges`). A range that
+          is private in practice but not in RFC 1918 - 100.64.0.0/10, a privately used public
+          range - needs listing here, or on-premises systems see the firewall's address
+          instead of the client's and any source-based rule fails. Written, because both
+          modules leave it to the platform.
+        renders: firewall_policy_private_ip_ranges / policy snat.privateRanges
+
+  # ------------------------------------------------------------------ identity
+  - id: identity
+    title: Identity
+    questions:
+      - id: policy_identity
+        ask: Which managed identity should the firewall policy carry?
+        type: enum
+        plain:
+          en: "The firewall policy has {value}."
+          de: "Die Firewall-Richtlinie hat {value}."
+        plain_values:
+          none: { en: no identity of its own, de: keine eigene Identität }
+          user_assigned: { en: a separately managed identity, de: eine separat verwaltete Identität }
+        values: [none, user_assigned]
+        default: none
+        forced_when: >
+          `tls_inspection: true` forces `user_assigned`.
+        why: >
+          The policy needs an identity for one thing: reading the inspection certificate
+          from Key Vault. Without TLS inspection there is nothing for it to read. A
+          user-assigned identity can hold the role before the policy exists.
+        renders: firewall_policy_identity / managedIdentities
+
+      - id: user_assigned_identity_ids
+        ask: Which user-assigned identity?
+        type: list
+        plain:
+          en: "It uses the identity {value}."
+          de: "Sie nutzt die Identität {value}."
+        ref: user_assigned_identity
+        required: true
+        depends_on: { question: policy_identity, equals: user_assigned }
+        per_environment: true
+        why: >
+          The identity that holds `Key Vault Secrets User` on the vault with the
+          certificate, created by the identity set before the policy.
+        renders: firewall_policy_identity.identity_ids / managedIdentities.userAssignedResourceIds
+
+  # ------------------------------------------------------------------ security
+  - id: security
+    title: Security
+    questions:
+      - id: threat_intelligence_mode
+        ask: Should the firewall block traffic to and from known malicious addresses?
+        type: enum
+        plain:
+          en: "Traffic to and from known malicious addresses is {value}."
+          de: "Verkehr von und zu bekannten bösartigen Adressen wird {value}."
+        plain_values:
+          Deny: { en: blocked and logged, de: blockiert und protokolliert }
+          Alert: { en: only logged, de: nur protokolliert }
+          "Off": { en: not checked, de: nicht geprüft }
+        values: [Deny, Alert, "Off"]
+        default: Deny
+        confirm_in: [production]
+        forced_when: >
+          `sku_tier: Basic` removes `Deny` from `values`: Basic filters on threat intelligence
+          in alert mode only.
+        why: >
+          Microsoft's threat intelligence feed lists addresses and names with a bad record;
+          it is cheap, rarely a false positive, and it runs before the rules. `Deny` is the
+          default, because a firewall that logs the connection to a known command-and-control
+          address and lets it through is a record of the breach. Both modules default to
+          `Deny`; it is written. Moving to `Alert` is a recorded departure with an owner.
+        renders: firewall_policy_threat_intelligence_mode / policy threatIntelMode
+
+      - id: idps_mode
+        ask: Should the firewall detect and stop intrusion attempts in traffic?
+        type: enum
+        plain:
+          en: "Intrusion attempts are {value}."
+          de: "Einbruchsversuche werden {value}."
+        plain_values:
+          Deny: { en: detected and blocked, de: erkannt und blockiert }
+          Alert: { en: only detected and logged, de: nur erkannt und protokolliert }
+          "Off": { en: not looked for, de: nicht gesucht }
+        values: [Deny, Alert, "Off"]
+        default: Deny
+        depends_on: { question: sku_tier, equals: Premium }
+        confirm_in: [production]
+        why: >
+          The intrusion detection and prevention system matches traffic against signatures,
+          including in encrypted traffic when TLS inspection is on. `Deny` is the default for
+          the same reason the firewall in front of a web application prevents instead of
+          detecting; the way out of a false positive is a bypass entry for one source and one
+          signature, never `Off`. Premium only.
+        renders: firewall_policy_intrusion_detection.mode / policy intrusionDetection.mode
+
+      - id: tls_inspection
+        ask: Should the firewall decrypt and inspect outbound encrypted traffic?
+        type: bool
+        plain:
+          en: "Outbound encrypted traffic is {value}."
+          de: "Ausgehender verschlüsselter Verkehr wird {value}."
+        plain_values:
+          true: { en: "decrypted and inspected by the firewall", de: "von der Firewall entschlüsselt und geprüft" }
+          false: { en: "passed on unread", de: "ungelesen durchgereicht" }
+        default: false
+        depends_on: { question: sku_tier, equals: Premium }
+        why: >
+          Without it the firewall filters TLS traffic by name and address only, and intrusion
+          detection sees nothing inside it. Turning it on means an issuing CA certificate in
+          Key Vault that every client trusts, an identity that reads it, and a decision per
+          destination category about what is exempt (banking, health) - a rollout, not a
+          switch. Off unless a mandate asks; Premium only.
+        renders: firewall_policy_tls_certificate, firewall_policy_identity / policy certificateName, keyVaultSecretId, managedIdentities
+
+      - id: tls_certificate_secret_id
+        ask: Which Key Vault secret holds the inspection certificate?
+        type: ref
+        plain:
+          en: "The inspection certificate is {value}."
+          de: "Das Prüfzertifikat ist {value}."
+        ref: key_vault_secret
+        required: true
+        depends_on: { question: tls_inspection, equals: true }
+        per_environment: true
+        why: >
+          An intermediate CA certificate with its key, issued by the organisation's CA and
+          stored as a Key Vault secret; the policy's identity reads it. Issuing and renewing
+          it is the certificate owner's - an expired one stops the inspection or the traffic.
+        renders: firewall_policy_tls_certificate.key_vault_secret_id / policy keyVaultSecretId
+
+      - id: rule_collection_groups
+        ask: Which traffic does the firewall allow, and where does each rule go?
+        type: list
+        plain:
+          en: "Rules: {value} (all other traffic is denied)."
+          de: "Regeln: {value} (aller andere Verkehr wird abgewiesen)."
+        default: []
+        per_environment: true
+        why: >
+          Each entry is a rule collection group with a priority, and in it collections of
+          network, application (FQDN) and NAT rules. They are the wiring to what runs behind
+          the firewall; the pattern or the platform fills them. A firewall with no rule
+          denies everything - the first state, and a valid one. Rules are named for the
+          workload they serve and never `Any` to `Any`.
+        renders: rule_collection_groups (policy submodule) / ruleCollectionGroups (policy module)
+
+  # ------------------------------------------------------------ observability
+  - id: observability
+    title: Observability
+    questions:
+      - id: diagnostic_workspace
+        ask: Which Log Analytics workspace should receive diagnostics?
+        type: ref
+        resolved_by: platform
+        plain:
+          en: "Its logs go to {value}."
+          de: "Seine Logs gehen in {value}."
+        ref: log_analytics_workspace
+        from_deployment: diagnostics_destination
+        per_environment: true
+        why: >
+          Inherited: one deployment, one destination. The firewall's log is the record of
+          every connection it allowed and every one it refused - the evidence an incident
+          review starts from.
+        renders: diagnostic_settings / diagnosticSettings
+
+      - id: diagnostic_categories
+        ask: Which log categories should be collected?
+        type: list
+        plain:
+          en: "Logged: {value}."
+          de: "Geloggt wird: {value}."
+        plain_values:
+          AZFWNetworkRule: { en: "every connection a network rule allowed or denied", de: "jede Verbindung, die eine Netzwerkregel erlaubt oder abgewiesen hat" }
+          AZFWApplicationRule: { en: "every web or FQDN request an application rule allowed or denied", de: "jede Web- oder FQDN-Anfrage, die eine Anwendungsregel erlaubt oder abgewiesen hat" }
+          AZFWNatRule: { en: "every inbound translation", de: "jede eingehende Adressumsetzung" }
+          AZFWThreatIntel: { en: "every match against the threat feed", de: "jeder Treffer im Bedrohungsfeed" }
+          AZFWIdpsSignature: { en: "every intrusion signature hit", de: "jeder Treffer einer Einbruchssignatur" }
+          AZFWDnsQuery: { en: "every name lookup the firewall answered", de: "jede Namensauflösung, die die Firewall beantwortet hat" }
+          AZFWFqdnResolveFailure: { en: "names the firewall could not resolve", de: "Namen, die die Firewall nicht auflösen konnte" }
+        values: [AZFWNetworkRule, AZFWApplicationRule, AZFWNatRule, AZFWThreatIntel, AZFWIdpsSignature, AZFWDnsQuery, AZFWFqdnResolveFailure, AZFWFlowTrace, AZFWFatFlow, AZFWNetworkRuleAggregation, AZFWApplicationRuleAggregation, AZFWNatRuleAggregation, AZFWInternalFqdnResolutionFailure]
+        default: [AZFWNetworkRule, AZFWApplicationRule, AZFWNatRule, AZFWThreatIntel, AZFWDnsQuery, AZFWFqdnResolveFailure]
+        why: >
+          The structured (resource-specific) categories, not the legacy `AzureFirewall*Rule`
+          ones: they land in their own tables, need the `Dedicated` destination type, and are
+          the ones the workbooks read. Rule, threat and DNS logs are the record of what went
+          through and why; they are as large as the traffic. `AZFWIdpsSignature` is added with
+          Premium and intrusion detection on, `AZFWDnsQuery` is meaningful only with the DNS
+          proxy. Flow trace, fat flow and the aggregations are volume on top of volume and
+          left out until an investigation wants them. The names are the platform's and are
+          checked against `az monitor diagnostic-settings categories list` before a render.
+        renders: >
+          diagnostic_settings.<key>.log_categories (log_analytics_destination_type = Dedicated) /
+          diagnosticSettings[].logCategoriesAndGroups[].category
+
+      - id: metrics_enabled
+        ask: Should all metrics be collected?
+        type: bool
+        plain:
+          en: "Usage and performance figures are {value}."
+          de: "Nutzungs- und Leistungswerte werden {value}."
+        plain_values:
+          true: { en: collected, de: erfasst }
+          false: { en: not collected, de: nicht erfasst }
+        default: true
+        why: >
+          Throughput, firewall health, SNAT port utilization (the number to alert on, because
+          exhaustion looks like timeouts) and latency probe. Cheap.
+        renders: metric_categories = ["AllMetrics"] / metricCategories[].category

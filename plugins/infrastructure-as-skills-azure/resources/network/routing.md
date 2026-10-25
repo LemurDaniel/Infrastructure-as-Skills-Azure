@@ -9,9 +9,15 @@ skill. Routing table — the request picks the question set:
 | network security group, NSG, security rules | `network-security-group/questions.yaml` | [notes](network-security-group/notes.md) - the subnet association is the virtual-network set's |
 | Application Gateway, WAF, web application firewall, layer-7 load balancer, ingress for a vnet, reverse proxy for web apps | `application-gateway/questions.yaml` | [notes](application-gateway/notes.md) - v2 only, firewall policy as its own resource |
 | Front Door, CDN, global load balancer, edge, global WAF | `front-door/questions.yaml` | [notes](front-door/notes.md) - Standard and Premium; classic CDN is not covered |
-| peering, hub, spoke | *not yet written* | Needs both sides; usually a pattern, not a resource |
-| route table, UDR, forced tunneling | *not yet written* | — |
-| NAT gateway, outbound | *not yet written* | — |
+| peering, VNet peering, hub and spoke, spoke, gateway transit, forwarded traffic | `virtual-network-peering/questions.yaml` | [notes](virtual-network-peering/notes.md) - both directions, route tables are separate |
+| Azure Firewall, firewall policy, DNS proxy, threat intelligence, IDPS, TLS inspection, egress filtering, hub firewall | `azure-firewall/questions.yaml` | [notes](azure-firewall/notes.md) - VNet firewall plus policy; a spoke deployment peers to the platform's hub firewall and does not create one |
+| load balancer, internal load balancer, public load balancer, ILB, layer-4, health probe, backend pool, outbound rule, NAT rule | `load-balancer/questions.yaml` | [notes](load-balancer/notes.md) - Standard regional only; Basic is retired, Gateway and global tier are not covered |
+| Bastion, Azure Bastion, jump host, RDP/SSH without public IP, AzureBastionSubnet | `bastion/questions.yaml` | [notes](bastion/notes.md) - `AzureBastionSubnet` is the network set's; the subnet's NSG rules are the NSG set's |
+| public IP, public IP address, PIP, static IP, outbound IP, DNS label | `public-ip-address/questions.yaml` | [notes](public-ip-address/notes.md) - Standard and StandardV2 only; consumers take the id |
+| private endpoint, private link, privatelink, subresource, group id | `private-endpoint/questions.yaml` | [notes](private-endpoint/notes.md) - standalone form; a resource whose module has `private_endpoints` renders its own |
+| private DNS zone, privatelink zone, vnet link, auto-registration, internal DNS | `private-dns-zone/questions.yaml` | [notes](private-dns-zone/notes.md) - the platform owns the privatelink zones unless `private_dns_ownership: deployment` |
+| route table, UDR, user-defined route, forced tunneling, default route, BGP propagation | `route-table/questions.yaml` | [notes](route-table/notes.md) - the subnet association is the virtual-network set's |
+| NAT gateway, outbound, SNAT | `nat-gateway/questions.yaml` | [notes](nat-gateway/notes.md) - outbound only; overridden by a default route to a firewall |
 
 When a question set does not exist yet, say so rather than improvising one. Generating a
 resource without its decision set is how this plugin loses the property that makes it worth

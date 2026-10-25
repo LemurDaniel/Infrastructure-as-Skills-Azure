@@ -1,0 +1,372 @@
+schema_version: 1
+
+resource: Microsoft.Network/bastionHosts
+title: Azure Bastion
+
+naming:
+  terraform: "Azure::Microsoft.Network/bastionHosts"
+  bicep: "Microsoft.Network/bastionHosts"
+  # Bicep assembles the name from vars - this is the prefix it renders. The public IP address is `pip`.
+  abbreviation: "bas"
+
+boundaries:
+  - "Does not create the resource group. Expects one from the spec's context."
+  - "Does not create the subnet. `AzureBastionSubnet` (a /26 at least, nothing else in it) is the network set's or the platform's; the name is fixed by Azure. The Developer SKU needs none."
+  - "Does not create the network security group of `AzureBastionSubnet`. Its rules are a fixed list Azure documents (inbound 443 from the internet or the users' range, `GatewayManager` 443, `AzureLoadBalancer` 443, the data-plane port between bastion hosts; outbound 22 and 3389 to the virtual network, 443 to `AzureCloud`); the network security group set carries them."
+  - "Does not grant access. Who may use Bastion to reach which machine is role assignments (Reader on the machine, its network interface and the Bastion, Virtual Machine Login roles for Entra sign-in) and belongs to the pattern or the platform."
+  - "Does not create the machines it connects to, nor open anything on them: a machine behind Bastion needs no public address and no inbound rule from the internet."
+  - "Does not create the Log Analytics workspace it routes diagnostics to."
+  - "In a landing zone a shared Bastion belongs to the hub or a management spoke and the platform team; a workload deployment connects to it through peering and does not create a second one, unless the spec records an own Bastion as `overridden`."
+  - "Does not render Kerberos authentication or the Premium session-recording storage account (a container with a SAS URL); a request for them is said out loud."
+
+groups:
+
+  # ---------------------------------------------------------------- placement
+  - id: placement
+    title: Placement
+    questions:
+      - id: environments
+        ask: Which stages is this deployed to?
+        type: list
+        plain:
+          en: "Deployed in the stages {value}."
+          de: "Wird in den Stufen {value} ausgerollt."
+        values: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
+        required: true
+        from_context: true
+        why: >
+          Drives the rendered name and the strictness of several defaults below. Nothing
+          sensible can be guessed.
+        renders: >
+          naming parameter `environment`, and the tag of that name where the repository uses
+          one
+
+      - id: location
+        ask: Which Azure region?
+        type: string
+        plain:
+          en: "Runs in the Azure region {value}."
+          de: "Läuft in der Azure-Region {value}."
+        required: true
+        from_context: true
+        why: >
+          A Bastion sits in the virtual network it serves and reaches the peered networks of
+          the same region; machines in another region need a Bastion there or a global
+          peering (Standard and above).
+        renders: location
+
+      - id: resource_group_name
+        ask: Which resource group?
+        type: ref
+        plain:
+          en: "Placed in the resource group {value}."
+          de: "Liegt in der Ressourcengruppe {value}."
+        ref: resource_group
+        required: true
+        from_context: true
+        per_environment: true
+        why: >
+          The Bastion is placed into an existing group. In a split deployment it belongs to
+          the `network` role, with the virtual network it sits in.
+        renders: parent_id (AzAPI, a resource group id) / implicit in Bicep scope
+
+  # ----------------------------------------------------------------- bastion
+  - id: bastion
+    title: The Bastion
+    questions:
+      - id: admin_access
+        ask: Can your administrators reach the virtual network over a private connection (VPN or ExpressRoute)?
+        type: enum
+        resolved_by: interview
+        plain:
+          en: "Administrators connect to the Bastion {value}."
+          de: "Administratoren verbinden sich mit dem Bastion {value}."
+        plain_values:
+          internet: { en: "over the internet, through the Azure portal", de: "über das Internet, durch das Azure-Portal" }
+          private_network: { en: "only over a private connection (VPN or ExpressRoute)", de: "nur über eine private Verbindung (VPN oder ExpressRoute)" }
+        values: [internet, private_network]
+        default: internet
+        confirm_in: [production]
+        why: >
+          A Bastion with a public address is reached by anyone who can open the portal and
+          sign in: the address only terminates an encrypted session the user's Entra sign-in
+          and RBAC still have to allow, and no machine behind it has a public address or an
+          open management port. A private-only Bastion has no public address at all - the
+          sessions come in over the private connection - and needs the Premium SKU and users
+          who are on that connection. `private_network` is the better posture and the answer
+          wherever the organisation's administrators are already on a VPN; it is not a default
+          because it also locks out the administrator who is not.
+        renders: private_only_enabled, ip_configuration.create_public_ip / enablePrivateOnlyBastion, publicIPAddressObject
+
+      - id: sku
+        ask: Which Bastion SKU?
+        type: enum
+        plain:
+          en: "The Bastion is the {value} SKU."
+          de: "Der Bastion ist die SKU {value}."
+        plain_values:
+          Developer: { en: "Developer (shared, one machine at a time, for trying things out)", de: "Developer (geteilt, eine Maschine zur Zeit, zum Ausprobieren)" }
+          Basic: { en: "Basic (browser sessions, a fixed size)", de: "Basic (Browser-Sitzungen, feste Größe)" }
+          Standard: { en: "Standard (adds scaling, native clients and connecting by address)", de: "Standard (zusätzlich Skalierung, native Clients und Verbindung per Adresse)" }
+          Premium: { en: "Premium (adds a private-only Bastion and session recording)", de: "Premium (zusätzlich ein rein privater Bastion und Sitzungsaufzeichnung)" }
+        values: [Developer, Basic, Standard, Premium]
+        default: Standard
+        confirm_in: [production]
+        forced_when: >
+          `admin_access: private_network` forces `Premium` (private-only Bastion);
+          `session_recording: true` forces `Premium`. `Developer` is for development stages
+          only: it is shared, has no subnet, no zones, no peered networks and one machine
+          per session.
+        why: >
+          Standard is the floor for anything people depend on: host scaling, the native
+          client (SSH and RDP from the user's own tools), connecting to a machine by address,
+          and the switches below are Standard and above. Basic is a fixed two-instance host
+          for the browser alone and is cheaper; Developer is a free shared host for one
+          virtual machine at a time in a development network. A SKU can be raised in place
+          and not lowered, which argues against starting on Basic for a stage that will be
+          used. The Terraform and the Bicep module both default to `Basic`; it is written.
+        renders: sku / skuName
+
+      - id: zone_redundant
+        ask: Should the Bastion survive the loss of one datacenter of its region?
+        type: bool
+        plain:
+          en: "The Bastion survives the loss of a datacenter: {value}."
+          de: "Der Bastion übersteht den Ausfall eines Rechenzentrums: {value}."
+        plain_values:
+          true: { en: do, de: überstehen }
+          false: { en: do not, de: überstehen nicht }
+        derived_from:
+          question: outage_impact
+          map: { tolerable: false, disruptive: true, critical: true }
+        non_production_default: false
+        forced_when: >
+          `sku: Developer` forces `false`: the Developer SKU has no zones.
+        why: >
+          Derived from how bad an outage is. Bastion is the way in when everything else is
+          broken, which makes its own outage costly at the worst time; the zones are free
+          beyond the instances' normal price. Fixed at creation. The Terraform module defaults
+          to all three zones, the Bicep module to none, so it is written. A region without
+          zones takes `false`, said out loud. The public IP takes the same zones.
+        renders: zones / availabilityZones
+
+      - id: scale_units
+        ask: How many scale units should the Bastion run?
+        type: int
+        plain:
+          en: "The Bastion runs {value} scale units."
+          de: "Der Bastion läuft mit {value} Skalierungseinheiten."
+        default: 2
+        forced_when: >
+          `sku: Basic` and `sku: Developer` fix the value at 2.
+        why: >
+          Each unit carries a number of concurrent sessions (about 20 RDP or 40 SSH); 2 is the
+          minimum and enough for a team. Raise it from the session metric, not in advance:
+          every unit is billed by the hour. The value is a ceiling on parallel administration,
+          not on throughput.
+        renders: scale_units / scaleUnits
+
+  # ---------------------------------------------------------------- networking
+  - id: networking
+    title: Networking
+    questions:
+      - id: bastion_subnet
+        ask: Which subnet is reserved for the Bastion?
+        type: ref
+        resolved_by: platform
+        plain:
+          en: "The Bastion uses the subnet {value}."
+          de: "Der Bastion nutzt das Subnetz {value}."
+        ref: subnet
+        required: true
+        per_environment: true
+        why: >
+          The subnet must be called `AzureBastionSubnet`, be a /26 or larger and hold nothing
+          else; scale-out takes addresses from it. Looked up from the platform or created by
+          the network set. Its name is not a choice. Not used by the `Developer` SKU, which
+          takes the virtual network instead.
+        renders: >
+          ip_configuration.subnet_id, virtual_network_id for Developer / virtualNetworkResourceId
+          (the module finds the subnet by its fixed name)
+
+      - id: public_ip_zone_redundant
+        ask: Should the public address be zone-redundant?
+        type: bool
+        plain:
+          en: "The public address is zone-redundant: {value}."
+          de: "Die öffentliche Adresse ist zonenredundant: {value}."
+        plain_values:
+          true: { en: "yes", de: ja }
+          false: { en: "no", de: nein }
+        default: true
+        depends_on: { question: admin_access, equals: internet }
+        why: >
+          A zonal Bastion with a non-zonal public IP is zonal in name only. Follows
+          `zone_redundant`. The address is Standard and static; the Developer SKU needs none.
+        renders: public IP zones / publicIPAddressObject.availabilityZones
+
+  # ------------------------------------------------------------------ security
+  - id: security
+    title: Security
+    questions:
+      - id: shareable_link
+        ask: Should users be able to hand out a link that opens a session without signing in to the portal?
+        type: bool
+        plain:
+          en: "Session links that skip the portal sign-in are {value}."
+          de: "Sitzungslinks, die die Portal-Anmeldung überspringen, sind {value}."
+        plain_values:
+          true: { en: allowed, de: erlaubt }
+          false: { en: switched off, de: abgeschaltet }
+        default: false
+        why: >
+          A shareable link opens a session to a machine for whoever holds it, in a browser,
+          without an Azure sign-in and without the RBAC check that would otherwise stop them -
+          the access is the link. That is the whole feature and the whole risk: a link pasted
+          in a ticket is access to a machine. Off, always; the guardrails' identity-over-secrets
+          rule. Standard and above only.
+        renders: shareable_link_enabled / enableShareableLink
+
+      - id: native_client
+        ask: Should administrators be able to use their own SSH and RDP programs through the Bastion?
+        type: bool
+        plain:
+          en: "Connecting with their own programs through the Bastion is {value}."
+          de: "Verbindungen mit den eigenen Programmen über den Bastion sind {value}."
+        plain_values:
+          true: { en: allowed, de: erlaubt }
+          false: { en: "not possible (browser only)", de: "nicht möglich (nur Browser)" }
+        default: false
+        forced_when: >
+          `session_recording: true` forces `false`: recording and the native client exclude
+          each other.
+        why: >
+          Tunneling lets `az network bastion ssh|rdp|tunnel` open sessions from the user's own
+          machine, which brings key-based and Entra sign-in, scripting and file transfer - and
+          also puts a TCP tunnel on the administrator's own device. Off until someone needs
+          it; browser sessions cover the common case and keep the session in the portal. Not
+          available with session recording. Standard and above.
+        renders: tunneling_enabled / not carried by the Bicep module, which fixes it on for Standard and for Premium without session recording
+
+      - id: ip_connect
+        ask: Should administrators be able to connect to a machine by its address instead of picking it from the list?
+        type: bool
+        plain:
+          en: "Connecting to a machine by its address is {value}."
+          de: "Verbindungen zu einer Maschine über ihre Adresse sind {value}."
+        plain_values:
+          true: { en: allowed, de: erlaubt }
+          false: { en: "not possible (machines in the network only)", de: "nicht möglich (nur Maschinen im Netz)" }
+        default: false
+        why: >
+          IP-based connection reaches any address the Bastion's network can route to,
+          including peered networks and on-premises hosts that are not Azure resources and so
+          have no role assignment to check. The range widens from "machines I may reach" to
+          "everything routable". Off unless a named target needs it. Standard and above.
+        renders: ip_connect_enabled / enableIpConnect
+
+      - id: file_copy
+        ask: Should administrators be able to copy files to and from the machines through the Bastion?
+        type: bool
+        plain:
+          en: "Copying files through the Bastion is {value}."
+          de: "Dateien über den Bastion zu kopieren ist {value}."
+        plain_values:
+          true: { en: allowed, de: erlaubt }
+          false: { en: switched off, de: abgeschaltet }
+        default: false
+        why: >
+          File transfer is a data path out of the machine and into it that no firewall rule
+          sees, and the audit log records the session and not what was copied. Off by default
+          - the Terraform module agrees, the Bicep module defaults to `true`, so it is written.
+          On for a stated need. Standard and above.
+        renders: file_copy_enabled / enableFileCopy
+
+      - id: copy_paste
+        ask: Should the clipboard work between the user's computer and the remote session?
+        type: bool
+        plain:
+          en: "Copy and paste into and out of sessions is {value}."
+          de: "Kopieren und Einfügen in und aus Sitzungen ist {value}."
+        plain_values:
+          true: { en: allowed, de: erlaubt }
+          false: { en: switched off, de: abgeschaltet }
+        default: true
+        why: >
+          Switching it off is a data-loss-prevention control: nothing leaves the machine through
+          the clipboard. It also makes the day-to-day work awkward (a password or a command
+          cannot be pasted), so it is on until a mandate for confidential data asks. Basic and
+          Developer always allow it.
+        renders: copy_paste_enabled / disableCopyPaste (inverted)
+
+      - id: session_recording
+        ask: Should sessions be recorded?
+        type: bool
+        plain:
+          en: "Administrator sessions are {value}."
+          de: "Administrator-Sitzungen werden {value}."
+        plain_values:
+          true: { en: recorded, de: aufgezeichnet }
+          false: { en: "not recorded (only who connected and when is logged)", de: "nicht aufgezeichnet (nur wer sich wann verbunden hat, wird protokolliert)" }
+        default: false
+        depends_on: { question: sku, equals: Premium }
+        why: >
+          A recording is the only evidence of what an administrator did, for the privileged
+          access a mandate wants proven. It needs the Premium SKU and a storage container the
+          recordings go to (a SAS URL, which is a key to hold and rotate), and it turns the
+          native client off. Off unless a mandate asks; the connection log below is the
+          baseline.
+        renders: session_recording_enabled / enableSessionRecording
+
+  # ------------------------------------------------------------ observability
+  - id: observability
+    title: Observability
+    questions:
+      - id: diagnostic_workspace
+        ask: Which Log Analytics workspace should receive diagnostics?
+        type: ref
+        resolved_by: platform
+        plain:
+          en: "Its logs go to {value}."
+          de: "Seine Logs gehen in {value}."
+        ref: log_analytics_workspace
+        from_deployment: diagnostics_destination
+        per_environment: true
+        why: >
+          Inherited: one deployment, one destination. The audit log is the record of who
+          opened a session to which machine - the first thing asked after an incident.
+        renders: diagnostic_settings / diagnosticSettings
+
+      - id: diagnostic_categories
+        ask: Which log categories should be collected?
+        type: list
+        plain:
+          en: "Logged: {value}."
+          de: "Geloggt wird: {value}."
+        plain_values:
+          BastionAuditLogs: { en: "who connected to which machine, when, from where and with which protocol", de: "wer sich wann, von wo und mit welchem Protokoll mit welcher Maschine verbunden hat" }
+        values: [BastionAuditLogs]
+        default: [BastionAuditLogs]
+        why: >
+          The audit log is the one resource log of the service and the reason to have one: a
+          Bastion without it is access nobody can reconstruct. It is small. The name is the
+          platform's and is checked against `az monitor diagnostic-settings categories list`
+          for the resource before a render, not remembered.
+        renders: >
+          diagnostic_settings.<key>.log_categories /
+          diagnosticSettings[].logCategoriesAndGroups[].category
+
+      - id: metrics_enabled
+        ask: Should all metrics be collected?
+        type: bool
+        plain:
+          en: "Usage and performance figures are {value}."
+          de: "Nutzungs- und Leistungswerte werden {value}."
+        plain_values:
+          true: { en: collected, de: erfasst }
+          false: { en: not collected, de: nicht erfasst }
+        default: true
+        why: >
+          Sessions per Bastion and the host's load - what says when the scale units are too
+          few. Cheap.
+        renders: metric_categories = ["AllMetrics"] / metricCategories[].category
