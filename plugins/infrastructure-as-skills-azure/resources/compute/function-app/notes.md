@@ -38,8 +38,9 @@ until it is removed out of band.
 regional VNet integration is for traffic *from* it, including to the host storage. See
 `vnet_integration`.
 
-**The delegation depends on the plan.** Flex Consumption and Elastic Premium delegate the
-integration subnet to different services; confirm the one for the platform before a render. A
+**The delegation depends on the plan.** Flex Consumption delegates the integration subnet to
+`Microsoft.App/environments` (minimum /27), Elastic Premium and App Service plans to
+`Microsoft.Web/serverFarms` (minimum /28) - Microsoft Learn, functions-networking-options. A
 subnet delegated for the other kind cannot be reused.
 
 **Cold starts are the price of scaling to zero.** With no always-ready instance the first call

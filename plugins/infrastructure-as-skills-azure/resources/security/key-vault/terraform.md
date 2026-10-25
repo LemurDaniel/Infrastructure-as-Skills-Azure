@@ -36,7 +36,7 @@ already calls an AzAPI module and this one carries both families.
 | `customer_managed_keys`, `key_type`, `key_size` | `keys = { <k> = { name, key_type, key_size, key_opts, rotation_policy } }` | Read the exact member names from the README |
 | `key_rotation_days`, `key_expiry_days` | `keys.<k>.rotation_policy` | |
 | `secret_placeholders` | **not the module** - see below | |
-| `diagnostic_*`, `metrics_enabled` | `diagnostic_settings = { workspace = { workspace_resource_id, logs = [{ category }], metrics = [{ category = "AllMetrics" }] } }` | Per category |
+| `diagnostic_*`, `metrics_enabled` | `diagnostic_settings = { workspace = { workspace_resource_id, log_categories = [...], log_groups = [], metric_categories = ["AllMetrics"] } }` | `log_groups` defaults to `["allLogs"]`: set it empty when `log_categories` names the categories, or every log is collected beside them |
 | `deployment.module_telemetry` | `enable_telemetry` | |
 | `context.tags` | `tags = local.tags` | |
 
@@ -93,11 +93,9 @@ module "vault" {
   diagnostic_settings = {
     workspace = {
       workspace_resource_id = var.diagnostic_workspace_id
-      logs = [
-        { category = "AuditEvent" },
-        { category = "AzurePolicyEvaluationDetails" },
-      ]
-      metrics = [{ category = "AllMetrics" }]
+      log_categories        = ["AuditEvent", "AzurePolicyEvaluationDetails"]
+      log_groups            = []
+      metric_categories     = ["AllMetrics"]
     }
   }
 
@@ -153,7 +151,7 @@ way. Targets `azurerm` **5.x**; check against `terraform providers schema -json`
 | `purge_protection` | `purge_protection_enabled` |
 | `soft_delete_retention_days` | `soft_delete_retention_days` |
 | `rbac_authorization` | `rbac_authorization_enabled` |
-| `public_network_access` | `public_network_access_enabled` on 4.x; check the 5.x type |
+| `public_network_access` | `public_network_access_enabled` (a bool, unchanged in 5.x; only storage moved to a string) |
 | `network_acl_bypass`, `ip_rules` | `network_acls { bypass, default_action, ip_rules }` |
 | `enabled_for_services` | `enabled_for_deployment`, `enabled_for_disk_encryption`, `enabled_for_template_deployment` |
 | diagnostics | `azurerm_monitor_diagnostic_setting` with `enabled_log { category }` |

@@ -150,8 +150,9 @@ groups:
           identity, which is the identity a project's connections use. An empty list is a
           valid answer for an account that only hosts models.
         renders: >
-          terraform: azapi_resource `Microsoft.CognitiveServices/accounts/projects` (module
-          input `default_project` names one); bicep: child resource `accounts/projects`
+          terraform: azapi_resource `Microsoft.CognitiveServices/accounts/projects` next to the AVM
+          module (module input `default_project` names one), or azurerm_cognitive_account_project
+          (azurerm 5.x) in an authored render; bicep: child resource `accounts/projects`
 
   # ------------------------------------------------------------------- models
   - id: models
@@ -349,6 +350,26 @@ groups:
           (`allowed_fqdns`) are the workload's, and the usual blocker is a tool that calls a
           public API - a named departure, not a reason to leave the account open.
         renders: outbound_network_access_restricted / restrictOutboundNetworkAccess
+
+      - id: allowed_fqdns
+        ask: Which addresses may the account call when its outgoing calls are limited?
+        type: list
+        plain:
+          en: "The account may call only: {value} (empty: nothing outside Azure)."
+          de: "Das Konto darf nur aufrufen: {value} (leer: nichts außerhalb von Azure)."
+        default: []
+        depends_on: { question: restrict_outbound, equals: true }
+        why: >
+          The allowlist behind `restrict_outbound`. Each entry is a host name a tool or a
+          connection of the account genuinely needs - the search service, a vendor API, a
+          storage account's blob endpoint - never a wildcard, and each with the reason it is
+          there. An empty list is a valid, strict answer: the account reaches only what Azure
+          lets it reach on its own. A restricted account with a tool that calls an address not
+          on this list fails at the call, not at the deployment, which is how the missing entry
+          is usually found.
+        renders: >
+          terraform: the module input `fqdns` (azurerm_cognitive_account.fqdns); bicep: the
+          module has no parameter, the property is properties.allowedFqdnList
 
   # ----------------------------------------------------------------- identity
   - id: identity

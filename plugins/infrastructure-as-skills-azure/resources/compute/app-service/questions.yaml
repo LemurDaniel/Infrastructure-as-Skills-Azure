@@ -5,8 +5,8 @@ title: Azure App Service (web app on an App Service plan)
 
 # The site is the resource; the plan it runs on (Microsoft.Web/serverFarms, abbreviation
 # `plan`, identifier `Azure::Microsoft.Web/serverFarms`) is created with it and decided in
-# the `hosting` group. One web app per plan: a plan shared by several apps is a pattern's
-# wiring, not this set's.
+# the `hosting` group, or - with `plan: shared` - belongs to another instance of this set
+# whose plan this site runs on.
 naming:
   terraform: "Azure::Microsoft.Web/sites"
   bicep: "Microsoft.Web/sites"
@@ -76,6 +76,54 @@ groups:
   - id: hosting
     title: Hosting plan
     questions:
+      - id: plan
+        ask: Should the app run on a hosting plan of its own, or on another app's plan?
+        type: enum
+        plain:
+          en: "The app runs on {value}."
+          de: "Die App läuft auf {value}."
+        plain_values:
+          own: { en: "a hosting plan of its own", de: "einem eigenen Hosting-Plan" }
+          shared: { en: "the hosting plan of another app, sharing its capacity", de: "dem Hosting-Plan einer anderen App und teilt sich dessen Kapazität" }
+        values: [own, shared]
+        default: own
+        why: >
+          A plan is the machine the apps run on and is what is billed: two apps on one plan
+          pay once and compete for the same cores and memory; two plans pay twice and cannot
+          starve each other. Own is the default because a noisy neighbour is the harder fault
+          to find. Shared is right for small, related apps of one workload (a dashboard and its
+          admin API) that together fit the plan's size, and it is the only way to a second app
+          for the price of the first. A shared plan has **one** operating system, one size, one
+          zone setting, one instance count and one VNet integration subnet - the owner's - so
+          the questions about them are not asked of the second app. Deployment slots and scale-out
+          also draw on the shared capacity. The private endpoint stays per app.
+        forced_when: >
+          `shared` removes `os_type`, `sku`, `zone_redundant` and `instance_count` from this
+          instance (they are the plan owner's), and forces `vnet_integration` and
+          `integration_subnet` to the owner's values - a plan has one integration subnet -
+          recorded as forced with `plan` as forced_by
+        renders: >
+          own: the plan resource (azurerm_service_plan / Microsoft.Web/serverFarms) is created
+          with this site; shared: no plan resource, the site's service_plan_id /
+          serverFarmResourceId is the owner's plan id
+
+      - id: shared_plan_with
+        ask: Whose hosting plan does the app run on?
+        type: ref
+        plain:
+          en: "It shares the plan of {value}."
+          de: "Es teilt sich den Plan von {value}."
+        ref: app_service
+        required: true
+        depends_on: { question: plan, equals: shared }
+        why: >
+          The instance of this set (`app-service__<name>`) that owns the plan. It is created
+          first; the second site takes its plan id, so the order is owner, plan, then this site.
+          An owner that is itself shared is refused: the plan is created exactly once.
+        renders: >
+          service_plan_id (module input `service_plan_resource_id`) / serverFarmResourceId of
+          the owner's plan
+
       - id: os_type
         ask: Linux or Windows hosting?
         type: enum
@@ -87,6 +135,7 @@ groups:
           Windows: { en: "Windows", de: "Windows" }
         values: [Linux, Windows]
         default: Linux
+        depends_on: { question: plan, equals: own }
         why: >
           Linux is cheaper at the same SKU, supports every current stack and is where
           custom containers run. Windows is for what needs it - .NET Framework, not
@@ -113,6 +162,7 @@ groups:
           P3mv3: { en: "P3mv3, premium with extra memory, four times P1mv3", de: "P3mv3, Premium mit mehr Arbeitsspeicher, viermal so groß wie P1mv3" }
         values: [B1, B2, B3, P0v3, P1v3, P2v3, P3v3, P1mv3, P2mv3, P3mv3]
         default: P1v3
+        depends_on: { question: plan, equals: own }
         non_production_default: B1
         confirm_in: [production]
         why: >
@@ -141,6 +191,7 @@ groups:
         derived_from:
           question: outage_impact
           map: { tolerable: false, disruptive: true, critical: true }
+        depends_on: { question: plan, equals: own }
         confirm_in: [production]
         non_production_default: false
         why: >
@@ -169,6 +220,7 @@ groups:
         derived_from:
           question: outage_impact
           map: { tolerable: 1, disruptive: 2, critical: 3 }
+        depends_on: { question: plan, equals: own }
         non_production_default: 1
         why: >
           Derived from the same answer. One instance is a single point of failure that

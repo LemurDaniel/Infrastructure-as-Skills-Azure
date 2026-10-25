@@ -43,7 +43,8 @@ must cover all three, or the first call to the missing one fails name resolution
 playground in the portal reaches a closed account only from inside the network.
 
 **Outbound restriction breaks tools.** `restrict_outbound: true` stops the account calling any
-address that is not listed; an agent tool that calls a public API fails until it is allowed.
+address that is not in `allowed_fqdns`; an agent tool that calls a public API fails at the call,
+not at the deployment, until its host name is added to the list.
 
 **Projects are not created by either module.** They are rendered as child resources next to
 the module, each with an identity whose roles are the pattern's wiring.

@@ -443,7 +443,9 @@ groups:
           attributable. It cannot be combined with the data roles above in the same client
           without the client choosing one, which is why the roles come first. Both modules
           default to disabled; written anyway.
-        renders: local_authentication_disabled / disableLocalAuthentication
+        renders: >
+          local_authentication_enabled (inverse; azurerm 5.x) or the module input
+          local_authentication_disabled / disableLocalAuthentication
 
       - id: key_based_metadata_writes
         ask: May account keys change databases and containers?

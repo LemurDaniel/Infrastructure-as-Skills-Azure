@@ -167,6 +167,28 @@ about the plan.
 module already defaults the flag to `false`; written anyway. An app with the flag off and
 no endpoint answers nobody, which is `disabled` working as stated.
 
+### A shared plan
+
+With `plan: shared` the instance has **no `module "plan"`** and none of `os_type`, `sku`,
+`zone_redundant`, `instance_count`: they are the owner's. Its site takes the owner's plan id, and
+the order is owner plan, then this site:
+
+```hcl
+module "web_mcp" {
+  source  = "Azure/avm-res-web-site/azurerm"
+  version = "~> 0.24.0"
+
+  # decision: app-service__mcp.hosting.plan - shared with app-service__web
+  service_plan_resource_id = module.plan.resource_id
+  # ... the site's own decisions, as above; virtual_network_subnet_id is the owner's
+}
+```
+
+The private endpoint and the `privatelink.azurewebsites.net` record are per app; the zone is already
+in `wiring.private_dns_zones` ([private-dns-zones.md](../../../core/iac-rendering/references/private-dns-zones.md)).
+The assertions for the plan's decisions stay with the owner's file; this instance's tests assert
+`service_plan_resource_id` and the site's own decisions.
+
 ### Tests
 
 The site module's `resource` output is the `azapi_resource` of the site, so with `azapi`
@@ -221,13 +243,13 @@ way, or reading what the modules do inside. Targets `azurerm` **5.x**.
 | `sku` | `azurerm_service_plan.sku_name` |
 | `zone_redundant` | `azurerm_service_plan.zone_balancing_enabled` |
 | `instance_count` | `azurerm_service_plan.worker_count` |
-| `public_network_access` | `public_network_access_enabled` on 4.x; the string form on 5.x - check `terraform providers schema -json` |
+| `public_network_access` | `public_network_access_enabled` (a bool, unchanged in 5.x; only storage moved to a string) |
 | `vnet_integration` | `virtual_network_subnet_id` on the app, or `azurerm_app_service_virtual_network_swift_connection` (not both) |
 | `vnet_route_all` | `vnet_route_all_enabled` in `site_config` |
 | `https_only` | `https_only` |
 | `min_tls_version` | `site_config.minimum_tls_version`, `scm_minimum_tls_version` |
 | `ftps_state` | `site_config.ftps_state` |
-| `basic_auth_enabled` | `ftp_publish_basic_auth_enabled`, `webdeploy_publish_basic_auth_enabled` |
+| `basic_auth_enabled` | `ftp_publish_basic_authentication_enabled`, `webdeploy_publish_basic_authentication_enabled` (the SCM switch is the WebDeploy one on the provider) |
 | `runtime_*` | `site_config.application_stack` |
 | diagnostics | `azurerm_monitor_diagnostic_setting` with `enabled_log { category }` |
 

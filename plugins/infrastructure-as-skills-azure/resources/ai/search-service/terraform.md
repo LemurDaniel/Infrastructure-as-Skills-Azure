@@ -34,7 +34,7 @@ Terraform `>= 1.9`. The root's provider set is the union with the other modules.
 | `role_assignments` | `role_assignments` | |
 | `local_authentication_disabled` | `local_authentication_enabled` | **Inverse**; module default `null` (on); written |
 | `cmk_enforcement` | `customer_managed_key_enforcement_enabled` | Default `null` (false); written |
-| `diagnostic_*`, `metrics_enabled` | `diagnostic_settings = { workspace = { workspace_resource_id, logs = [{ category }], metrics = [{ category = "AllMetrics" }] } }` | |
+| `diagnostic_*`, `metrics_enabled` | `diagnostic_settings = { workspace = { workspace_resource_id, log_categories = [...], log_groups = [], metric_categories = ["AllMetrics"] } }` | `log_groups` defaults to `["allLogs"]`: set it empty when `log_categories` names the categories, or every log is collected beside them |
 | `deployment.module_telemetry` | `enable_telemetry` | |
 | `context.tags` | `tags = local.tags` | |
 
@@ -84,8 +84,9 @@ module "search" {
   diagnostic_settings = {
     workspace = {
       workspace_resource_id = var.diagnostic_workspace_id
-      logs                  = [{ category = "OperationLogs" }]
-      metrics               = [{ category = "AllMetrics" }]
+      log_categories        = ["OperationLogs"]
+      log_groups            = []
+      metric_categories     = ["AllMetrics"]
     }
   }
 

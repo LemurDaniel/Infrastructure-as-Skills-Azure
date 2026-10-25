@@ -149,7 +149,8 @@ groups:
           `disabled` as unworkable. `disabled` is for a stated AMPLS the workspace
           joins. Query and ingestion are two separate switches, rendered together.
         renders: >
-          internet_ingestion_enabled and internet_query_enabled /
+          internet_ingestion_access_type and internet_query_access_type (azurerm 5.x; the AVM
+          module takes the 4.x bools internet_ingestion_enabled / internet_query_enabled) /
           properties.publicNetworkAccessForIngestion and ...ForQuery
 
       - id: local_auth
@@ -167,7 +168,7 @@ groups:
           expiry. Disabling it forces Entra ID, which the modern agents use
           anyway; the blocker is usually a legacy collector still posting with the
           workspace key.
-        renders: local_authentication_disabled / properties.features.disableLocalAuth
+        renders: local_authentication_enabled (inverse) / properties.features.disableLocalAuth
 
       - id: rbac_only_access
         ask: Should data access be governed only by Azure RBAC?
@@ -185,7 +186,7 @@ groups:
           reader on a resource can query its logs here — convenient, and the
           reason people find data in a workspace they were never granted.
         renders: >
-          local_authentication_disabled is separate; this is
+          local_authentication_enabled is separate; this is allow_resource_only_permissions (azurerm) /
           properties.features.enableLogAccessUsingOnlyResourcePermissions (inverted)
 
   # ------------------------------------------------------------- data export

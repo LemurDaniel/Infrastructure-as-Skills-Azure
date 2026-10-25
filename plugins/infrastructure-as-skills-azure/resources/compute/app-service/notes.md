@@ -61,6 +61,13 @@ as an option.
 checked against `az monitor diagnostic-settings categories list --resource <site id>`
 before a render; a wrong name fails the diagnostic setting at apply, not the site.
 
+**A shared plan shares everything but the app.** Two sites on one plan draw on the same cores
+and memory, the same instance count, the same zone setting and the same VNet integration subnet;
+deployment slots and scale-out count against that capacity too. A plan sized for one app is
+undersized for two, and the symptom is the second app's deploy slowing the first. The plan's
+size is the owner's decision (`plan: own`); the second app's `plan: shared` names the owner and
+nothing else about hosting.
+
 ## Not covered here, and why
 
 Deployment slots, autoscale, custom domains and certificates, Easy Auth, backups and

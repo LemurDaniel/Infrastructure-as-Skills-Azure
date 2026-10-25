@@ -360,9 +360,9 @@ groups:
         per_environment: true
         why: >
           The subnet must be delegated, and **the delegation differs by plan**: Flex Consumption
-          delegates to `Microsoft.App/environments`, Elastic Premium to
-          `Microsoft.Web/serverFarms`; the right one for the platform is confirmed against its
-          documentation before a render. Exclusive to one plan either way, and sized with
+          delegates to `Microsoft.App/environments` (at least a /27, a /26 for several apps),
+          Elastic Premium to `Microsoft.Web/serverFarms` (at least a /28, a /26 on Linux; both
+          per Microsoft Learn, 2026-10-25). Exclusive to one plan either way, and sized with
           headroom for scale-out. The platform's subnet when the network is referenced, a subnet
           of the created network otherwise, where the virtual-network set carries it with the
           delegation.

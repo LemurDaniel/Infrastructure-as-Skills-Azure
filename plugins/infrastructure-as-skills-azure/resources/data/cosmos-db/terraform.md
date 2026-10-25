@@ -44,7 +44,7 @@ modules in the deployment.
 | `backup_storage_redundancy` | `backup.storage_redundancy` | Module default **`Geo`**; written |
 | `analytical_storage` | `analytical_storage_enabled` | Default `false`; written |
 | `databases` | `sql_databases = { <db> = { name, containers = { <c> = { name, partition_key_paths, default_ttl, autoscale_settings } } } }` | |
-| `diagnostic_*`, `metrics_enabled` | `diagnostic_settings = { workspace = { workspace_resource_id, log_categories = [...], log_groups = [], metric_categories = ["Requests"] } }` | **Not the interface of the other modules**: plain sets, and the module's validation allows only `Requests` and `SLI` as metric categories - its own default `AllMetrics` fails it |
+| `diagnostic_*`, `metrics_enabled` | `diagnostic_settings = { workspace = { workspace_resource_id, log_categories = [...], log_groups = [], metric_categories = ["Requests"] } }` | The same plain-set interface as most modules (the Web App, Application Insights and Storage modules use `logs` / `metrics` objects instead); this module's validation allows only `Requests` and `SLI` as metric categories - its own default `AllMetrics` fails it |
 | `deployment.module_telemetry` | `enable_telemetry` | |
 | `context.tags` | `tags = local.tags` | |
 
@@ -170,7 +170,7 @@ this way. Targets `azurerm` **5.x**; check against `terraform providers schema -
 | `zone_redundant`, `geo_replicas` | `geo_location { zone_redundant, failover_priority }` |
 | `consistency_level` | `consistency_policy { consistency_level }` |
 | `public_network_access` | `public_network_access_enabled`, `ip_range_filter` |
-| `local_authentication_disabled` | `local_authentication_disabled` |
+| `local_authentication_disabled` | `local_authentication_enabled` (inverse; the AVM module input keeps the 4.x name `local_authentication_disabled`) |
 | `key_based_metadata_writes` | `access_key_metadata_writes_enabled` |
 | `backup_policy` | `backup { type, tier }` |
 | `key_management` | `key_vault_key_id` (versionless) and `default_identity_type` |

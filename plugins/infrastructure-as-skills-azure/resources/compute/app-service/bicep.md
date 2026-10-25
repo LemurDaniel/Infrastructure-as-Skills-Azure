@@ -148,6 +148,25 @@ The exact shape of `outboundVnetRouting` and of the `siteConfig` members is read
 README of the pinned version - the parameter table lists them as object members, and the
 spelling above is the ARM property names, which the module passes through.
 
+### A shared plan
+
+With `plan: shared` the instance has **no plan module** and none of `os_type`, `sku`,
+`zone_redundant`, `instance_count`: they are the owner's. Its site takes the owner's plan id:
+
+```bicep
+module webMcp 'br/public:avm/res/web/site:0.24.0' = {
+  name: 'web-mcp'
+  params: {
+    // decision: app-service__mcp.hosting.plan - shared with app-service__web
+    serverFarmResourceId: plan.outputs.resourceId
+    // ... the site's own decisions, as above; virtualNetworkSubnetResourceId is the owner's
+  }
+}
+```
+
+The private endpoint and the `privatelink.azurewebsites.net` record are per app; the zone is already
+in `wiring.private_dns_zones` ([private-dns-zones.md](../../../core/iac-rendering/references/private-dns-zones.md)).
+
 ### Tests
 
 A module call compiles to a nested deployment whose `properties.parameters.<param>.value`

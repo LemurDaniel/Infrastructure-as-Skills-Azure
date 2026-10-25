@@ -158,7 +158,7 @@ groups:
           module does not (`disableIpMasking: true`, which stores them), so it is written on
           both. The decision belongs in the decision document, because a data-protection
           review will ask.
-        renders: disable_ip_masking / disableIpMasking
+        renders: disable_ip_masking (AVM module) or ip_masking_enabled (inverse; azurerm 5.x) / disableIpMasking
 
   # --------------------------------------------------------------- networking
   - id: networking
@@ -258,4 +258,4 @@ groups:
           accepted. **Both modules default to off (keys allowed)**, so it is written. A
           **browser** SDK cannot authenticate with a managed identity, which is the case that
           names a departure at this component.
-        renders: local_authentication_disabled / disableLocalAuth
+        renders: local_authentication_enabled (inverse; azurerm 5.x) / disableLocalAuth

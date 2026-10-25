@@ -32,7 +32,7 @@ below.
 | `immediate_purge_protection` | — | Provider-side `features {}` in the root, as in the authored render; not a module input |
 | `managed_identity` | `log_analytics_workspace_identity = { type = "SystemAssigned" }` | |
 | `key_management: customer_managed` | `customer_managed_key = { key_vault_resource_id, key_name, … }` | |
-| diagnostics of the workspace itself | `diagnostic_settings = { <key> = { workspace_resource_id, logs, metrics } }` | Into itself, usually |
+| diagnostics of the workspace itself | `diagnostic_settings = { <key> = { workspace_resource_id, log_categories, log_groups, metric_categories } }` | Into itself, usually |
 | `deployment.module_telemetry` | `enable_telemetry` | |
 | `context.tags` | `tags = local.tags` | |
 
@@ -98,8 +98,8 @@ workspace this way, or reading what the module does inside.
 | `retention_days` | `retention_in_days` (30–730; 30 is the floor on PerGB2018) |
 | `daily_quota_gb` | `daily_quota_gb` — `-1` for no cap |
 | `sku` | `sku` — `PerGB2018`, or `CapacityReservation` with `reservation_capacity_in_gb_per_day` |
-| `public_network_access: disabled` | `internet_ingestion_enabled = false` **and** `internet_query_enabled = false` |
-| `local_auth: disabled` | `local_authentication_enabled = false` (`local_authentication_disabled` is deprecated and goes in azurerm 5.0) |
+| `public_network_access: disabled` | `internet_ingestion_access_type = "Disabled"` **and** `internet_query_access_type = "Disabled"` (strings: `Enabled`, `Disabled`, `SecuredByPerimeter`; the 4.x bools are gone in 5.x) |
+| `local_auth: disabled` | `local_authentication_enabled = false` (the 4.x `local_authentication_disabled` is gone in 5.x) |
 | `rbac_only_access` | `allow_resource_only_permissions = false` — note the inversion |
 | `immediate_purge_protection` | provider-side `permanently_delete_on_destroy` in the `features` block, inverted |
 
@@ -116,8 +116,8 @@ resource "azurerm_log_analytics_workspace" "this" {
   daily_quota_gb    = -1
 
   # Both, or logs arrive and nobody can read them.
-  internet_ingestion_enabled = false
-  internet_query_enabled     = false
+  internet_ingestion_access_type = "Disabled"
+  internet_query_access_type     = "Disabled"
 
   # Access is via Entra ID; the workspace key is a non-expiring bearer credential.
   local_authentication_enabled = false
@@ -205,13 +205,13 @@ run "access" {
 
   # decision: log-analytics-workspace.access.public_network_access
   assert {
-    condition     = azurerm_log_analytics_workspace.this.internet_ingestion_enabled == false && azurerm_log_analytics_workspace.this.internet_query_enabled == false
+    condition     = azurerm_log_analytics_workspace.this.internet_ingestion_access_type == "Disabled" && azurerm_log_analytics_workspace.this.internet_query_access_type == "Disabled"
     error_message = "Both switches, or the workspace is half-private."
   }
 
   # decision: log-analytics-workspace.access.local_auth
   assert {
-    condition     = azurerm_log_analytics_workspace.this.local_authentication_disabled == true
+    condition     = azurerm_log_analytics_workspace.this.local_authentication_enabled == false
     error_message = "The workspace key is a non-expiring bearer credential."
   }
 

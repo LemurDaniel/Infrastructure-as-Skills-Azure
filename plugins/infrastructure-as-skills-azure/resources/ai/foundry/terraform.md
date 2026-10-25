@@ -30,13 +30,14 @@ creates its resources through `azapi`.
 | `public_network_access` | `public_network_access_enabled` | **Bool**; module default **`true`** |
 | `ip_rules` | `network_acls = { default_action = "Deny", ip_rules }` | Needs `custom_subdomain_name`; read member names from the README |
 | `restrict_outbound` | `outbound_network_access_restricted` | Default `null` (off); written |
+| `allowed_fqdns` | `fqdns` | Only with `restrict_outbound`; the host names, no wildcards |
 | `private_endpoint_subnet` | `private_endpoints = { account = { subnet_resource_id } }` | |
 | `deployment.private_dns_records` | `private_endpoints_manage_dns_zone_group` | `false` under `policy` |
 | `managed_identity`, `user_assigned_identity_ids` | `managed_identities = { system_assigned, user_assigned_resource_ids }` | |
 | `role_assignments` | `role_assignments` | |
 | `local_authentication_disabled` | `local_auth_enabled` | **Inverse**; default `null` (on); written |
 | `key_management`, `cmk_key_vault_key_id` | `customer_managed_key = { key_vault_resource_id, key_name, user_assigned_identity = { resource_id } }` | Unversioned |
-| `diagnostic_*`, `metrics_enabled` | `diagnostic_settings = { workspace = { workspace_resource_id, logs = [{ category }], metrics = [{ category = "AllMetrics" }] } }` | |
+| `diagnostic_*`, `metrics_enabled` | `diagnostic_settings = { workspace = { workspace_resource_id, log_categories = [...], log_groups = [], metric_categories = ["AllMetrics"] } }` | `log_groups` defaults to `["allLogs"]`: set it empty when `log_categories` names the categories, or every log is collected beside them |
 | `deployment.module_telemetry` | `enable_telemetry` | |
 | `context.tags` | `tags = local.tags` | |
 
@@ -103,12 +104,9 @@ module "foundry" {
   diagnostic_settings = {
     workspace = {
       workspace_resource_id = var.diagnostic_workspace_id
-      logs = [
-        { category = "Audit" },
-        { category = "RequestResponse" },
-        { category = "AzureOpenAIRequestUsage" },
-      ]
-      metrics = [{ category = "AllMetrics" }]
+      log_categories        = ["Audit", "RequestResponse", "AzureOpenAIRequestUsage"]
+      log_groups            = []
+      metric_categories     = ["AllMetrics"]
     }
   }
 
@@ -131,7 +129,7 @@ child resources, each with its own system-assigned identity:
 resource "azapi_resource" "project" {
   for_each = toset(var.projects)
 
-  type      = "Microsoft.CognitiveServices/accounts/projects@<api-version>"
+  type      = "Microsoft.CognitiveServices/accounts/projects@2025-06-01"
   name      = each.key
   parent_id = module.foundry.resource_id
   location  = var.location
@@ -144,7 +142,9 @@ resource "azapi_resource" "project" {
 }
 ```
 
-The API version is looked up against the provider's schema, not recalled.
+`2025-06-01` is a GA version of the type (listed by `az provider show -n Microsoft.CognitiveServices`
+on 2026-10-25; newer GA versions exist). Look the current one up the same way, and check the
+pinned `azapi` knows it before moving up: an unknown version fails schema validation.
 
 ### Tests
 
@@ -156,15 +156,17 @@ Deployments are child resources and are `# not-testable:` where the plan hides t
 
 ## Authored rendering
 
-The fallback. Targets `azurerm` **5.x** (`azurerm_cognitive_account`, `azurerm_cognitive_deployment`)
-or `azapi` for the project-bearing form; check against `terraform providers schema -json`.
+The fallback. Targets `azurerm` **5.x** (`azurerm_cognitive_account`, `azurerm_cognitive_account_project`,
+`azurerm_cognitive_deployment`); check against `terraform providers schema -json`.
 
 | Decision | Argument |
 |---|---|
 | `kind`, `sku_name`, `custom_subdomain_name` | `azurerm_cognitive_account` `kind`, `sku_name`, `custom_subdomain_name` |
-| `project_management` | not in `azurerm_cognitive_account` - use `azapi_resource` for the account |
+| `project_management` | `project_management_enabled` (in 5.x; it was not in 4.x, where the account needed `azapi_resource`) |
 | `public_network_access`, `ip_rules` | `public_network_access_enabled`, `network_acls` |
 | `restrict_outbound` | `outbound_network_access_restricted` |
+| `allowed_fqdns` | `fqdns` |
 | `local_authentication_disabled` | `local_auth_enabled` (inverse) |
+| `projects` | `azurerm_cognitive_account_project` (`cognitive_account_id`, `location`, `identity`) - the resource the AVM module lacks |
 | deployments | `azurerm_cognitive_deployment` (`model`, `sku`) |
 | diagnostics | `azurerm_monitor_diagnostic_setting` with `enabled_log { category }` |

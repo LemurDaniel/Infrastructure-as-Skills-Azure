@@ -34,7 +34,7 @@ provider set is the union with the other modules.
 | `public_network_access` | env | `public_network_access` | `"Enabled"`/`"Disabled"`; **forced `Disabled` while `internal`** |
 | `peer_traffic_encryption` | env | `peer_traffic_configuration = { encryption = { enabled } }` | Module default unset; written |
 | `diagnostic_workspace` | env | `app_logs_configuration = { destination = "azure-monitor" }` | Omit it and app logs are off; **not** `log_analytics_workspace` (shared key) |
-| `diagnostic_*`, `metrics_enabled` | env | `diagnostic_settings = { workspace = { workspace_resource_id, logs = [{ category }], metrics = [{ category = "AllMetrics" }] } }` | |
+| `diagnostic_*`, `metrics_enabled` | env | `diagnostic_settings = { workspace = { workspace_resource_id, log_categories = [...], log_groups = [], metric_categories = ["AllMetrics"] } }` | `log_groups` defaults to `["allLogs"]`: set it empty when `log_categories` names the categories, or every log is collected beside them |
 | `container_image`, `container_size` | app | `template = { containers = [{ name, image, cpu, memory }] }` | cpu and memory are the pair, e.g. `0.5` and `"1Gi"` |
 | `min_replicas`, `max_replicas` | app | `template.min_replicas`, `template.max_replicas` | |
 | `revision_mode` | app | `revision_mode` | Default `Single`; written |
@@ -78,11 +78,9 @@ module "environment" {
   diagnostic_settings = {
     workspace = {
       workspace_resource_id = var.diagnostic_workspace_id
-      logs = [
-        { category = "ContainerAppConsoleLogs" },
-        { category = "ContainerAppSystemLogs" },
-      ]
-      metrics = [{ category = "AllMetrics" }]
+      log_categories        = ["ContainerAppConsoleLogs", "ContainerAppSystemLogs"]
+      log_groups            = []
+      metric_categories     = ["AllMetrics"]
     }
   }
 
@@ -162,7 +160,7 @@ The fallback. Targets `azurerm` **5.x**; check against `terraform providers sche
 | Decision | Resource and argument |
 |---|---|
 | the environment | `azurerm_container_app_environment` (`zone_redundancy_enabled`, `infrastructure_subnet_id`, `internal_load_balancer_enabled`, `workload_profile`) |
-| `peer_traffic_encryption` | `peer_traffic_encryption_enabled` |
-| `public_network_access` | `public_network_access` |
+| `peer_traffic_encryption` | not on `azurerm_container_app_environment` in 5.x (it has `mutual_tls_enabled` only): set `peerTrafficConfiguration` with an `azapi_update_resource` on the environment |
+| `public_network_access` | `public_network_access` (a string, `Enabled` / `Disabled`) |
 | the app | `azurerm_container_app` (`revision_mode`, `template`, `ingress`, `registry`, `secret`, `identity`) |
 | diagnostics | `azurerm_monitor_diagnostic_setting` with `enabled_log { category }` on the environment |

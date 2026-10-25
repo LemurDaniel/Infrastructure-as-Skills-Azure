@@ -31,6 +31,7 @@ module's own `deployment` and `project` child modules are `Proposed` in the inde
 | `public_network_access` | `publicNetworkAccess: 'Disabled'` / `'Enabled'` | Unset, it is disabled only when private endpoints are set and no `networkAcls`; written |
 | `ip_rules` | `networkAcls: { defaultAction: 'Deny', ipRules: [ { value } ] }` | |
 | `restrict_outbound` | `restrictOutboundNetworkAccess` | Default **`true`**; written |
+| `allowed_fqdns` | - | **No parameter** in the module. The allowlist is `properties.allowedFqdnList` on the account: render it with a second deployment against the account (an `existing` reference and a `Microsoft.CognitiveServices/accounts` update), and say so in the handover |
 | `private_endpoint_subnet` | `privateEndpoints: [ { subnetResourceId, service: 'account' } ]` | |
 | `deployment.private_dns_records: policy` | no `privateDnsZoneGroup` on the endpoint | |
 | `managed_identity` | `managedIdentities: { systemAssigned, userAssignedResourceIds }` | |
@@ -143,6 +144,7 @@ The fallback. `Microsoft.CognitiveServices/accounts` with `kind`, `sku` and `pro
 | `project_management` | `properties.allowProjectManagement` |
 | `public_network_access`, `ip_rules` | `properties.publicNetworkAccess`, `properties.networkAcls` |
 | `restrict_outbound` | `properties.restrictOutboundNetworkAccess` |
+| `allowed_fqdns` | `properties.allowedFqdnList` |
 | `local_authentication_disabled` | `properties.disableLocalAuth` |
 | deployments | child `accounts/deployments` with `sku` and `properties.model`, `versionUpgradeOption`, `raiPolicyName` - created one after another (`@batchSize(1)`) |
 | `projects` | child `accounts/projects` |

@@ -35,7 +35,7 @@ Terraform `>= 1.8`. The root's provider set is the union with the other modules.
 | `admin_enabled` | `admin_enabled` | Default off; written |
 | `anonymous_pull_enabled` | `anonymous_pull_enabled` | Default `false`; written |
 | `key_management`, `cmk_key_vault_key_id` | `customer_managed_key = { key_vault_resource_id, key_name, user_assigned_identity = { resource_id } }` | `key_version` left unset: unversioned |
-| `diagnostic_*`, `metrics_enabled` | `diagnostic_settings = { workspace = { workspace_resource_id, logs = [{ category }], metrics = [{ category = "AllMetrics" }] } }` | |
+| `diagnostic_*`, `metrics_enabled` | `diagnostic_settings = { workspace = { workspace_resource_id, log_categories = [...], log_groups = [], metric_categories = ["AllMetrics"] } }` | `log_groups` defaults to `["allLogs"]`: set it empty when `log_categories` names the categories, or every log is collected beside them |
 | `deployment.module_telemetry` | `enable_telemetry` | |
 | `context.tags` | `tags = local.tags` | |
 
@@ -85,11 +85,9 @@ module "registry" {
   diagnostic_settings = {
     workspace = {
       workspace_resource_id = var.diagnostic_workspace_id
-      logs = [
-        { category = "ContainerRegistryRepositoryEvents" },
-        { category = "ContainerRegistryLoginEvents" },
-      ]
-      metrics = [{ category = "AllMetrics" }]
+      log_categories        = ["ContainerRegistryRepositoryEvents", "ContainerRegistryLoginEvents"]
+      log_groups            = []
+      metric_categories     = ["AllMetrics"]
     }
   }
 

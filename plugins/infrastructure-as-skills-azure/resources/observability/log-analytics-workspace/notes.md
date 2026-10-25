@@ -18,8 +18,8 @@ diagnoses into it.
 
 ## Pitfalls
 
-**Ingestion and query are separate switches.** `internet_ingestion_enabled` and
-`internet_query_enabled` are independent, and a workspace with ingestion open and query
+**Ingestion and query are separate switches.** `internet_ingestion_access_type` and
+`internet_query_access_type` (azurerm 5.x; the AVM module still takes the 4.x bools) are independent, and a workspace with ingestion open and query
 closed accepts everything and shows nothing to anyone outside the network — which reads
 like a broken agent rather than a configuration choice.
 

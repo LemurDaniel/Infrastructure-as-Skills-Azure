@@ -148,7 +148,9 @@ groups:
           to a single secret or key. Both modules default to RBAC; the Terraform module
           expresses it inversely (`legacy_access_policies_enabled = false`). Departing is
           for a consumer that only speaks access policies and is named at this vault.
-        renders: legacy_access_policies_enabled (inverse) / enableRbacAuthorization
+        renders: >
+          legacy_access_policies_enabled (inverse; AVM module input) or rbac_authorization_enabled
+          (azurerm) / enableRbacAuthorization
 
   # --------------------------------------------------------------- networking
   - id: networking
