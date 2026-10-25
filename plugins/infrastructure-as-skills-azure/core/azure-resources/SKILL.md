@@ -54,8 +54,8 @@ and let the user decide.
 2. The family's question set, through the interview protocol.
 3. [iac-rendering](../iac-rendering/SKILL.md), from the spec, never from the conversation.
 
-A request naming several resources across families — "ein Storage Account im eigenen VNet
-mit Log Analytics" — is one interview and one spec, not three. The deployment set is asked
+A request naming several resources across families — "a storage account in its own VNet
+with Log Analytics" ("ein Storage Account im eigenen VNet mit Log Analytics") — is one interview and one spec, not three. The deployment set is asked
 once and every family's questions inherit from it.
 
 ## Adding a family

@@ -12,9 +12,9 @@ than improvising — the value of the plugin is that two runs of the same skill 
 things and record them the same way.
 
 This skill is the **entry point**: its description carries what people type when they
-want Azure infrastructure — the targets, the workload words ("Chatapp mit RAG", web app,
+want Azure infrastructure — the targets, the workload words ("chat app with RAG" / "Chatapp mit RAG", web app,
 API, landing zone) and a few resource names — because a request names what the system
-does far more often than the resources it needs ("eine Chatapp in Azure mit RAG"
+does far more often than the resources it needs ("a chat app in Azure with RAG" / "eine Chatapp in Azure mit RAG"
 must match, and a resource list alone does not). Behind it, three units kept apart on purpose: the
 [azure-resources](../azure-resources/SKILL.md) skill carries the **resource terms** and
 routes to the family, the family is the **routing** unit, the question set the
@@ -55,8 +55,9 @@ several roots, are in [references/spec.md](references/spec.md#where-it-lives).
 and compare them as numbers yourself; a spec without the field is not held back).
 Exit 3 - or a spec version higher than the installed one - means the spec was written by a newer plugin than the installed one: **stop** - no sync, no
 question of the interview, nothing written or rendered. Ask once with AskUserQuestion, in
-`context.language`: the spec's and the installed version, and "Plugin jetzt aktualisieren?" with
-two options. *Ja, jetzt aktualisieren* runs
+`context.language`: the spec's and the installed version, and "Plugin jetzt aktualisieren?" / "Update the plugin now?" with
+two options (*Ja, jetzt aktualisieren* / *Yes, update now*; *Nein, ich aktualisiere selbst* /
+*No, I will update it myself*). The yes runs
 `claude plugin update infrastructure-as-skills-azure@infrastructure-as-skills-azure` (`claude plugin list`
 shows the id if that one is unknown; where `claude` is not on `PATH`, name the command instead of
 running it), then says that Claude Code must be restarted for the update to load and the request
@@ -72,7 +73,8 @@ newer one alone and never fails the run (without a shell, apply the same rules b
 Read and Edit, from [claude-md-block.md](../iac-rendering/references/claude-md-block.md)); say in one line what it did. A section **newer**
 than this plugin means the plugin is out of date: tell the customer so in the first message,
 in `context.language` ("Das Plugin ist älter als der letzte Lauf in diesem Repo - bitte
-aktualisieren"), and carry on. It changes no code, so it is its own commit.
+aktualisieren" / "The plugin is older than the last run in this repo - please update"), and
+carry on. It changes no code, so it is its own commit.
 
 Look for `platform.yaml` beside it in the same search. It is the platform engineer's
 profile — landing zone, hub network and subnet, DNS, workspace, telemetry — and every
@@ -95,9 +97,11 @@ decides what happens to it:
 | *(absent)* | Its default, or derived from a requirement; a `required` one nobody can default is an `open:` entry owned by the workload's engineer |
 
 Say so in the first message: "Ich frage dich nur, was das System braucht; die
-technischen Entscheidungen setze ich nach den Vorgaben und zeige sie dir am Ende." An
+technischen Entscheidungen setze ich nach den Vorgaben und zeige sie dir am Ende." / "I only
+ask what the system needs; I set the technical decisions from the baseline and show them to
+you at the end." An
 engineer in front of the plugin gets the same questions. What they know beyond them they
-say in prose - "ZRS", "Subnet snet-pe-01", "TLS 1.2 reicht" - and Phase 0 records it as
+say in prose - "ZRS", "subnet snet-pe-01", "TLS 1.2 is enough" ("TLS 1.2 reicht") - and Phase 0 records it as
 `stated`, which outranks every default; what they want changed afterwards is an
 `overridden` value in the spec, not a second interview.
 
@@ -111,9 +115,9 @@ cost of a subnet question is a person who stops answering.
 Take it from the request ("I need a chat app..." is `en`, "Ich brauche..." is `de`) before
 anything is asked; it becomes `context.language`. The blocks in this skill that are written
 in German - the target, module and naming questions, the description prompt, the design
-tick list, the working-mode question, the sign-off, the opening line - are the German
-wording of a question, not the question itself. For `en` (or any other language) ask the
-same question with the same options and the same meaning, translated; never put the German
+tick list, the working-mode question, the sign-off, the opening line - come with an English
+block beside them. Use the block that matches `context.language`; for any other language
+translate the English one, with the same options and the same meaning. Never put the German
 text in front of someone who wrote English. Option labels and the `AskUserQuestion` header
 follow the same rule.
 
@@ -132,6 +136,14 @@ In welcher Sprache soll die Infrastruktur beschrieben werden?
      wird in einer State-Datei geführt
   2. Bicep - Microsofts eigene Sprache für Azure, ohne State-Datei; der Stand ist, was in
      Azure liegt
+```
+
+```
+Which language should describe the infrastructure?
+  1. Terraform - Vendor-neutral, one language for Azure and everything else; the state is
+     kept in a state file
+  2. Bicep - Microsoft's own language for Azure, no state file; the state is whatever is in
+     Azure
 ```
 
 It comes first because the naming question below exists only for Terraform, and because
@@ -153,8 +165,16 @@ Wie soll der Code gebaut werden?
      Review, dafür mehr Code, den ihr selbst pflegt
 ```
 
+```
+How should the code be built?
+  1. Verified building blocks (recommended) - From Microsoft's tested, maintained building
+     blocks (Azure Verified Modules) - built the same way in Terraform and Bicep
+  2. Individual resources - Written out resource by resource - every line in its own
+     review, but more code that you maintain yourselves
+```
+
 **Skip it when it
-is already answered**: the user said it ("ohne Module", "mit AVM"), or a carried
+is already answered**: the user said it ("without modules" / "ohne Module", "with AVM" / "mit AVM"), or a carried
 `infra-spec.yaml` has it. A resource whose type has no Azure Verified Module renders
 authored whatever the answer, recorded per module; say so when the person chose `avm`.
 
@@ -175,6 +195,16 @@ Wie sollen die Ressourcennamen erzeugt werden?
      locals oder eigenes Modul)
 ```
 
+```
+How should the resource names be generated?
+  1. The plugin's naming tool - Driven by a naming file (naming.yaml) that you can adapt
+     (LemurDaniel/naming provider)
+  2. Microsoft's naming module - Ready-made module with CAF abbreviations, no naming file of
+     your own (Azure/naming/azurerm)
+  3. Custom mechanism - The mechanism your organisation already uses (your own locals or
+     your own module)
+```
+
 A Bicep target is not asked: it always assembles names from vars.
 
 **Skip it when it is already answered**: the user said it, a carried spec has it, or the
@@ -192,9 +222,11 @@ and whether a mandate applies — half the deployment set, before a single struc
 question. Starting with the question set instead asks those things one field at a time,
 and asks some that the user would have answered in passing.
 
-**Skip it when the request already is that description.** "Storage für die Rechnungsablage
-der Buchhaltung, Prod in West Europe, nur aus dem Firmennetz, BSI C5" needs no opening
-question. A bare resource name — "ich brauch ein storage account für terraform" — is not a
+**Skip it when the request already is that description.** "Storage for the accounting
+department's invoice archive, prod in West Europe, company network only, BSI C5" (German:
+"Storage für die Rechnungsablage der Buchhaltung, Prod in West Europe, nur aus dem
+Firmennetz, BSI C5") needs no opening question. A bare resource name — "I need a storage
+account for terraform" (German: "ich brauch ein storage account für terraform") — is not a
 description; it names the resource and nothing about the system around it.
 
 Ask in plain text, not through `AskUserQuestion`: the point is free prose, and options
@@ -215,19 +247,32 @@ Beschreib kurz, was ihr braucht. Hilfreich ist alles davon, nichts davon ist Pfl
   - Gibt es Vorgaben, die ihr nachweisen müsst (BSI C5, ISO 27001, DSGVO, interne Richtlinien)?
 ```
 
+```
+Briefly describe what you need. Everything here helps, none of it is required:
+  - What is it for? There is a development, a test and a production stage, unless you say
+    otherwise (a sandbox only to try things out, one more stage)
+  - Who works with it, and from where (only staff on the company network, partners, the internet)?
+  - How bad would it be if it were unreachable for a day?
+  - How far back do you need to get if someone deletes something by accident?
+  - Must a copy survive if someone destroys the data on purpose (ransomware, a hijacked
+    admin account)?
+  - Where may the data be stored and processed: only in the country, only in the EU, anywhere?
+  - Are there requirements you must prove (BSI C5, ISO 27001, GDPR, internal policies)?
+```
+
 Then map the answer onto the deployment set and every routed question set. Everything it
 settles is recorded with `source: stated` and is not asked again. Three rules for the
 mapping:
 
-- **A value is stated only if the user said it.** "Nur intern" settles
+- **A value is stated only if the user said it.** "Internal only" ("Nur intern") settles
   `network_exposure: private`; it does not settle an address range. An inferred value that
   the text does not carry belongs to the normal resolution order, not to `stated`.
-- **A contradiction is asked, not resolved.** "Öffentlich erreichbar" next to "nur aus dem
-  Firmennetz" is one question in Phase 3, quoting both halves.
-- **The description may add resources.** "…mit Logs nach Log Analytics" routes a second
+- **A contradiction is asked, not resolved.** "Publicly reachable" ("Öffentlich erreichbar") next to
+  "company network only" ("nur aus dem Firmennetz") is one question in Phase 3, quoting both halves.
+- **The description may add resources.** "…with logs to Log Analytics" ("…mit Logs nach Log Analytics") routes a second
   question set through [azure-resources](../azure-resources/SKILL.md) — the same request,
   one interview, one spec.
-- **A default is not an assumption.** "Nimm nichts an, was nicht dasteht" removes guesses,
+- **A default is not an assumption.** "Assume nothing that isn't stated" ("Nimm nichts an, was nicht dasteht") removes guesses,
   never defaults: the stack `[development, test, production]` stays, with a named stage
   joining it rather than replacing it, and so does every other default in the sets. What
   the instruction forbids is inventing a value no default exists for — a range, a
@@ -236,8 +281,8 @@ mapping:
   subnet or central workspace means a platform exists, so `landing_zone` is `corp` (private)
   or `online` (public), recorded as `forced` by that reference — never `standalone`, and
   never an open item, because the references are the answer.
-- **A stated value holds in every stage, and posture is one per system.** "Öffentlich
-  erreichbar ist okay" said about the development stage is said about the system: the
+- **A stated value holds in every stage, and posture is one per system.** "Publicly
+  reachable is fine" ("Öffentlich erreichbar ist okay") said about the development stage is said about the system: the
   exposure is `public` in every stage, the network `none` in every stage. A run never
   splits a posture decision (exposure, local auth, keys, DNS, landing zone) by stage; only
   the customer's explicit word for a named stage does, recorded as `overridden` there.
@@ -465,14 +510,30 @@ Das würde ich bauen - bitte abhaken, was stimmt:
   getrennte Sicherungskopie - alles so, wie ihr es beantwortet habt.
 ```
 
-It is a list, not a summary. No preamble that names a phase ("Phase 3 ist abgeschlossen, ich
-fasse zusammen"), no paragraph that strings the parts together with commas: the person
-reads one line per part and ticks it, that is the whole point of the shape. The words are
-the customer's: "Logs", not "Protokollierung"; "Speicher für die Dokumente", not
-"Storage Account mit Blob-Container".
+```
+This is what I would build - please tick what is right:
+  [ ] A chat application as a container, reachable from the internet, sign-in with company accounts
+  [ ] A language model and an embedding model (AI Foundry), EU only
+  [ ] A search index over your documents (AI Search)
+  [ ] A store for the documents and a database for the chat histories
+  [ ] A vault for the one secret the app needs
+  [ ] A network of its own, 10.100.0.0/24, in which everything except the app is private only
+  [ ] Logs of all parts in one place, 30 days
+  Connections: the app talks to models, search, storage, database and vault; search reads
+  the storage and the models. Nothing else talks to anything else.
+  What costs money or limits you: one stage (sandbox), no second region, no separate
+  backup copy - all as you answered it.
+```
 
-Close it with one `AskUserQuestion`: **Passt das Design?** - *Ja, so bauen* (recommended
-when nothing is open) / *Etwas fehlt oder ist zu viel* (the person says what; the spec is
+It is a list, not a summary. No preamble that names a phase ("Phase 3 is complete, let me
+summarise" / "Phase 3 ist abgeschlossen, ich fasse zusammen"), no paragraph that strings the parts together with commas: the person
+reads one line per part and ticks it, that is the whole point of the shape. The words are
+the customer's: "logs", not "logging pipeline" ("Logs", not "Protokollierung"); "a store
+for the documents", not "storage account with blob container" ("Speicher für die Dokumente",
+not "Storage Account mit Blob-Container").
+
+Close it with one `AskUserQuestion`: **Passt das Design?** / **Does the design fit?** - *Ja, so bauen* / *Yes, build it that way* (recommended
+when nothing is open) / *Etwas fehlt oder ist zu viel* / *Something is missing or too much* (the person says what; the spec is
 not written until the list is right). A part the customer strikes is removed, a part they
 add goes through `azure-resources` like any other request, and the account below is
 redone for the change.
@@ -493,6 +554,20 @@ Nach den Vorgaben gesetzt (ohne Rückfrage):
 
 Offen (braucht jemanden vom Plattform-Team):
   Welche Anwendung greift zu und braucht welche Rechte?
+```
+
+```
+What follows from your answers:
+  An outage would be disruptive -> data sits in three datacenters of the region (ZRS)
+  One week back                 -> deleted files and folders recoverable for 7 days, old versions stay
+  Data in active use            -> standard access tier, no surcharge for reads
+  Company network only          -> no public access, connected through private endpoints
+
+Set by the baseline (no question asked):
+  Access only with company accounts, encrypted, logs to the central workspace
+
+Open (needs someone from the platform team):
+  Which application accesses it and needs which permissions?
 ```
 
 The engineer's view follows, as before:
@@ -552,6 +627,13 @@ Wie soll ich weiterarbeiten?
   2. In dieser Sitzung - Ich mache alles selbst, nacheinander. Günstiger, keine zweite Prüfung
 ```
 
+```
+How should I continue?
+  1. With subagents (recommended) - One agent draws, a second reviews the picture before you
+     see it; later one agent each renders and tests the code. More thorough, costs more
+  2. In this session - I do everything myself, one step after the other. Cheaper, no second review
+```
+
 **Then write the spec.** `infra-spec.yaml` goes into the user's repository — the IaC root,
 or `infra/` — and is validated with `check_spec.py`. Its shape is
 [references/spec.md](references/spec.md#shape), and that is the whole format: the plugin
@@ -564,7 +646,7 @@ directory has none: a full copy of
 [naming.default.yaml](../iac-rendering/references/naming.default.yaml), with any departure
 the user stated applied to it. The provider reads it at plan time, so it belongs to the
 spec, not to the code — the names in the diagram and every later render come from it, and
-a run that stops after the spec (the user says "noch nicht") must still leave the
+a run that stops after the spec (the user says "not yet" / "noch nicht") must still leave the
 convention in the repository. An existing `naming.yaml` is left untouched.
 
 **For a Bicep target, write none** — nothing in a Bicep deployment reads it; the names are
@@ -575,7 +657,7 @@ The rules are in [naming.md](../iac-rendering/references/naming.md#namingyaml-in
 **Record who reaches what in `wiring:`** when the spec holds more than one resource, from
 what the request says — the diagram draws exactly this and nothing else
 ([spec.md](references/spec.md)). `wiring.access` is one `{ from, to, label }` per call the
-request names ("die Web-App liest aus dem Storage" is `app-service` → `storage-account`),
+request names ("the web app reads from the storage" / "die Web-App liest aus dem Storage" is `app-service` → `storage-account`),
 with `users`, `internet` and `external:<name>` as the actors outside the deployment;
 `wiring.purposes` is a few words per resource in the user's own terms ("Produktbilder");
 `wiring.optional` lists what the user called optional. Never infer a call from the
@@ -609,7 +691,7 @@ and says how many did — translate those in the conversation rather than editin
 Run [iac-diagram](../iac-diagram/SKILL.md) on the spec as soon as it validates and put
 `infra-diagram.drawio.png` beside it - every run, for a single storage account as much as
 for twelve resources, because the picture is the thing the person signs off on and the
-question "soll ich ein Diagramm zeichnen?" was a question nobody ever answered with no. Where the PNG cannot be exported (no draw.io CLI), hand over the
+question "should I draw a diagram?" was a question nobody ever answered with no. Where the PNG cannot be exported (no draw.io CLI), hand over the
 `.drawio` and say so.
 
 **Review it before anyone sees it - Loop 1 of
@@ -650,20 +732,18 @@ for.
 **The code question.** Every reviewed diagram ends in this question, in the same message
 that shows it - after the first draw, after every redraw in the loop, after a diagram-only
 request, after an extension of the spec. It is always asked: nothing the person said
-earlier - "dann schreib den Code", a stated target, an answer in the interview, a request
+earlier - "then write the code" / "dann schreib den Code", a stated target, an answer in the interview, a request
 for a commit - stands in for it, and a run never skips it because the answer seems
 obvious. A diagram shown without the question, or a
-turn that ends on "Diagramm ist fertig" or on a list of findings, is a missed step. It is asked with
+turn that ends on "diagram is done" or on a list of findings, is a missed step. It is asked with
 `AskUserQuestion` - the interactive popup with the three options, as the call right after
-the picture - and never replaced by prose like "sag Bescheid, wenn ich rendern soll" or by
+the picture - and never replaced by prose like "let me know when I should render" or by
 the question written out as text; the three options are the `AskUserQuestion` options.
 Show the reviewed picture and the decision document's first section (what
 follows from their answers), name what is still `open:` and from whom, and ask one
-question. The block below is the German wording; it is asked in `context.language` - for
-`en`: "This is what the system looks like (infra/infra-diagram.drawio.png); what you
-decided is in infra/infra-decisions.md. Does this fit your requirements?" with *Yes, build
-it* / *Change something* / *Not yet*. The three options keep their meaning in any language:
-only the yes starts the render.
+question. The German and English blocks below are the wording; it is asked in
+`context.language`. The three options keep their meaning in any language: only the yes
+starts the render.
 
 ```
 So sieht das System aus (infra/infra-diagram.drawio.png); was ihr entschieden habt, steht
@@ -673,9 +753,17 @@ lesbar in infra/infra-decisions.md. Passt das so zu euren Anforderungen?
   - Noch nicht                -> stop here; the spec and the picture stay, the next run extends them
 ```
 
-"Etwas ändern" loops back to the spec, never into code: change the decision there, as
+```
+This is what the system looks like (infra/infra-diagram.drawio.png); what you decided is
+in infra/infra-decisions.md in readable form. Does this fit your requirements?
+  - Yes, build it             -> the picture is signed off; the code is generated next
+  - Change something         -> the user says what; change the spec, redraw, ask again
+  - Not yet                   -> stop here; the spec and the picture stay, the next run extends them
+```
+
+"Change something" ("Etwas ändern") loops back to the spec, never into code: change the decision there, as
 `overridden` where it replaces an answer, re-export the decision document, redraw, review
-again, ask again. An objection to the picture itself ("die Pfeile überlappen sich") is a
+again, ask again. An objection to the picture itself ("the arrows overlap" / "die Pfeile überlappen sich") is a
 review finding that the review missed: it goes to the diagram agent like any other
 `error`, and the customer sees the picture again only after the review passed. Stay in this loop as long as the person has objections - a round costs seconds
 here and a regenerated module later. Offer the decision document as Word once, in the
@@ -683,7 +771,7 @@ first round, as a side line and not an option: the `.docx` is a conversion
 (`pandoc infra-decisions.md -o infra-decisions.docx` where pandoc is on PATH; say so and
 leave the Markdown where it is not).
 
-**Only after "Ja, passt" does the render start** ([iac-rendering](../iac-rendering/SKILL.md)),
+**Only after "Yes, build it" ("Ja, passt") does the render start** ([iac-rendering](../iac-rendering/SKILL.md)),
 into the same directory, with its own loop of fmt, validate, tests and plan - Loop 2, in
 the working mode chosen above. It is the
 long step, and it runs on a picture the customer has agreed to, so nothing in it goes

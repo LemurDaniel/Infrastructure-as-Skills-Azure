@@ -33,7 +33,7 @@ replacing two parallel arms): the customer signs off on the picture, and the cod
 long, expensive loop - is rendered only from a spec whose picture they have agreed to. Loop
 1 is Phase 5 of `iac-authoring`; the diagram agent and the review agent iterate on the
 picture until it carries no real error, then the main agent shows it to the customer with
-the one question of Phase 5. "Etwas ändern" corrects the spec and redraws; "ja" starts
+the one question of Phase 5. "Change something" ("Etwas ändern") corrects the spec and redraws; "yes" ("Ja, passt") starts
 Loop 2. In the same session, Loop 1 is the same loop with the session in both roles:
 draw, then review the PNG against the checklist as a reader who has not seen the spec,
 fix every `error`, and only then show it. In Loop 2 the agents never read each other's

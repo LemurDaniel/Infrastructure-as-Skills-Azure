@@ -74,7 +74,7 @@ colour that reads too close to its neighbour. In this order:
    into the hand-over as a plugin todo, with the cell ids it hit, and fixed in a session of
    its own - never while a customer waits for the picture.
 
-Hand edits are **lost on regeneration**: if the spec changes after them ("etwas ändern"),
+Hand edits are **lost on regeneration**: if the spec changes after them ("change something" / "etwas ändern"),
 regenerate and redo the edits, so note them in the hand-over. Never hand-edit to silence
 `overlaps` or `does not fit` from the script - those are the script failing on its own
 draft and are reported as such.

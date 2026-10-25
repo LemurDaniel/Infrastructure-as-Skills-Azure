@@ -39,7 +39,7 @@ accounts in the portal — say what you changed rather than letting them discove
 
 **Data-plane objects are a separate decision from the account.** A container, share or
 queue inherits the account's network posture and auth model and cannot soften it. If a
-request mixes both — "ein Storage Account mit einem Container für Uploads" — resolve the
+request mixes both — "a storage account with a container for uploads" ("ein Storage Account mit einem Container für Uploads") — resolve the
 account first, then the child, and keep them in separate files so the account's lifecycle
 is not tied to a container's.
 

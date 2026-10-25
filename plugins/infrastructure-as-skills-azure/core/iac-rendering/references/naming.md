@@ -312,7 +312,7 @@ What it cannot know it says, per row, and the hand-over repeats it:
   module names inside itself.
 
 Hand the list over as a table in `context.language`: resource, name, action, note. Ask once
-whether the names fit ("Passen die Namen?"). A departure is **`naming.yaml`** (Terraform) or
+whether the names fit ("Do the names fit?" / "Passen die Namen?"). A departure is **`naming.yaml`** (Terraform) or
 the regenerated `var` block (Bicep) with `naming_convention: custom`, then a new list; never
 a literal in a template. A renamed resource is a destroy and a create - once deployed, a
 name stays. The names are not a spec decision and are not written to it.
