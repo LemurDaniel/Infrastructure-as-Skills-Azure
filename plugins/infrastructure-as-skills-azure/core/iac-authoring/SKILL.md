@@ -619,7 +619,11 @@ subagent, in the same session the session itself, with the same checklist) looks
 PNG, works through [the checklist](../iac-diagram/SKILL.md#the-review-checklist) edge by
 edge and reports a numbered list: a line through an icon or another line, overlapping or
 wrapped labels, a label in the wrong language, a legend that contradicts a colour, a
-number or a name that disagrees with the spec. Each finding carries a severity (`error`:
+number or a name that disagrees with the spec. **With Subagents the main session starts the
+review agent itself, as its own Agent call after the diagram agent has returned** - a
+subagent cannot start another, so a brief that tells the diagram agent to "use a review
+subagent" gets no independent review, and the agent that drew must never be the one that
+checks. Spec, decision document and draft may go to one agent; the review never does. Each finding carries a severity (`error`:
 wrong, misleading or unreadable; `polish`: only looks worse than it could) and a cause
 (`render`: the drawing; `spec`: the spec says it that way). An `error` with cause
 `render` goes back to the **diagram agent**, which fixes it **by hand in the `.drawio`**
