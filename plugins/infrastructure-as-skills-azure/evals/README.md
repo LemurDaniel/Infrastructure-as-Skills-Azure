@@ -20,13 +20,11 @@ grouping costs nothing; a case's `prompt.md` reaches the plugin with `plugins: [
 
 | Group | Grades | Cases |
 |---|---|---|
-| `spec/` | The interview's output, `infra/infra-spec.yaml` | `greenfield-telemetry`, `private-storage-on-platform`, `vague-public-dev`, `module-source-authored`, `requirements-stated` |
+| `spec/` | The interview's output, `infra/infra-spec.yaml` | `vague-public-dev`, `module-source-authored`, `requirements-stated` |
 | `diagram/` | What the spec carries for the picture | `diagram-*` |
 | `trigger/` | That a request triggers the plugin at all | `trigger-workload-request` |
-| `interview/` | The final message: what was asked | `interview-asks-no-context` |
 | `language/` | The language of the person is the language of everything said to them | `language-en-request`, `language-de-request`, `language-en-first-question` |
 | `process/` | The order of the run: after a change of the spec, diagram and sign-off come before any code | `diagram-before-code-after-change` |
-| `outcome/` | The IaC a user receives, with and without the plugin | `outcome-private-storage` (pilot) |
 
 ## The cases
 
@@ -35,16 +33,12 @@ most different situations rather than three variations of one:
 
 | Case | Target | Env | Exposure | Network | Workspace | Scenario |
 |---|---|---|---|---|---|---|
-| `private-storage-on-platform` | Terraform | production | private | **reference** | **reference** | Complete description, mandate, existing platform |
-| `greenfield-telemetry` | Bicep | staging | private | **create** | **create** | Three resources, given ranges, stated retention |
 | `vague-public-dev` | Terraform | development | public | none | reference | **Missing information** |
 | `module-source-authored` | Terraform | development | private | none | - | A stated departure from the AVM default: `module_source: authored`, no `implementation: avm` |
 | `requirements-stated` | Terraform | production | - | - | - | All five customer requirements in plain words, none at its default; the access tier derives |
-| `diagram-inputs-webshop` | Terraform | development | private | create | create | Three resources, three named calls: the spec records **who reaches what** |
 | `diagram-no-invented-lines` | Bicep | staging | - | - | - | Three resources, **no call named**: no line may be invented |
-| `diagram-external-and-optional` | Terraform | development | private | create | create | Outside parties become `external:` actors; **optional** is recorded |
 
-The three `diagram-*` cases test the half of the diagram a run can reach: the spec. The
+The `diagram-no-invented-lines` case tests the half of the diagram a run can reach: the spec. The
 picture is drawn from `wiring.access`, `wiring.purposes` and `wiring.optional` and from
 nothing else, so the cases grade that the spec carries what the request said and nothing
 it did not - an invented line in a picture the customer signs off on is a decision nobody

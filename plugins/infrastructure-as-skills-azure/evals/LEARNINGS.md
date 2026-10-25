@@ -14,18 +14,6 @@ fix is committed, and put the commit hash in once it exists.
 
 ## Entries
 
-### `interview-asks-no-context`, 2026-10-18
-
-- **Symptom:** A real interview asked for the workload short name, the subscription id and
-  whether the resource group exists, and called them "open, no defaults". No eval could see
-  it: they grade the spec, and the spec was fine.
-- **Cause:** The rule (parameterized context is never asked) lived in `deployment.yaml` and one
-  line of Phase 0, and was not stated where the questions are chosen. The skill text, not a
-  grader.
-- **Fix:** A never-asked paragraph at the head of Phase 3 in `iac-authoring/SKILL.md`; the new
-  case `interview-asks-no-context` grades the final message with an llm grader.
-- **After:** Not run yet.
-
 ### `diagram-external-and-optional`, 2026-10-18
 
 - **Symptom:** `no-invented-cache-call` failed, 1 of 1 runs. The spec carried

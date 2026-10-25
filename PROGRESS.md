@@ -172,7 +172,7 @@ the detail; this list says what was decided and why, so a session does not reope
 - **Examples are rendered, never applied, and the plugin never refers to them.** Three
   early examples were removed 2026-10-24 (owner's call); their eval cases are
   self-contained prompts and stay. The plugin's tests carry their own fixtures.
-- **Evals sit in groups** (`spec/`, `diagram/`, `interview/`, `outcome/`), reach the
+- **Evals sit in groups** (`spec/`, `diagram/`), reach the
   plugin with `plugins: ["../../.."]`, and the baseline is accepted only after reading a
   run. The 0-cost load check proves nothing; the first paid run is the check.
 
@@ -203,7 +203,7 @@ the detail; this list says what was decided and why, so a session does not reope
 - **Checks:** `check_repo_consistency.py`, `check_question_set.py`, `check_spec.py`,
   `check_render_coverage.py`, `check_pipeline.py` (+ 55 cases), `run_arm_tests.py`,
   `run_diagram_tests.py`, `run_png_tests.py`, `verify_diagram.py`, `drawio_png.py`.
-- **Eval baseline** (`evals/baseline.json`, 2026-10-18, $5.44): `greenfield-telemetry` and
+- **Eval baseline** (`evals/baseline.json`, 2026-10-18, $5.44): the dropped cases and
   `private-storage-on-platform` 3/3, `vague-public-dev` 78%. Four plugin rules came out
   of the three rounds. Plugin-vs-plain measured once as a pilot (1 run per arm): 17/17
   against 15/17, the difference AVM and tests.
