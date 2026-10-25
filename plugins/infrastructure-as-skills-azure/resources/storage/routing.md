@@ -9,7 +9,7 @@ this file routes to the right one and holds what is true across the family.
 | Request mentions | Question set | Notes |
 |---|---|---|
 | storage account, blob storage, ADLS Gen2, data lake, static website | `storage-account/questions.yaml` | [notes](storage-account/notes.md) |
-| container, blob container | `blob-container/questions.yaml` | [notes](blob-container/notes.md) - a child of an account; resolve the account first |
+| container, blob container | `blob-container/questions.yaml` | [notes](blob-container/notes.md) - a child of an account; resolve the account first; an encryption scope is set with its lock or not at all |
 | file share, Azure Files, SMB share, NFS share | `file-share/questions.yaml` | [notes](file-share/notes.md) - needs an account of the right kind; shared keys off changes how it mounts |
 | queue, storage queue | `queue/questions.yaml` | [notes](queue/notes.md) - not Service Bus; the set asks whether ordering or a dead-letter queue is needed |
 | table, Table storage | *not yet written* | - |
@@ -43,6 +43,12 @@ request mixes both — "ein Storage Account mit einem Container für Uploads" �
 account first, then the child, and keep them in separate files so the account's lifecycle
 is not tied to a container's.
 
+**A container's encryption scope is both properties or neither.** `defaultEncryptionScope` and
+`denyEncryptionScopeOverride` (Terraform: `default_encryption_scope` and
+`deny_encryption_scope_override`) are sent together; Azure refuses a container that carries one
+without the other (`ContainerOperationFailure`, missing `x-ms-default-encryption-scope` or
+`x-ms-deny-encryption-scope-override`). With no scope set - `encryption_scope_locked: false` is
+the default - the render writes neither, never `denyEncryptionScopeOverride: false` alone.
 **Nothing here creates shared infrastructure.** Private DNS zones, the Log Analytics
 workspace and the resource group are referenced, never created. Two deployments each
 creating `privatelink.blob.core.windows.net` is a conflict that only surfaces at apply
