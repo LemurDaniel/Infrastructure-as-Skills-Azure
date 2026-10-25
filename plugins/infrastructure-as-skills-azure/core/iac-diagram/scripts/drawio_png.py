@@ -195,9 +195,10 @@ def embed(path, drawio):
 def find_drawio():
     """draw.io desktop: PATH first, then the default install locations."""
     cands = [shutil.which("drawio"), shutil.which("draw.io")]
-    for env, sub in (("ProgramFiles", "draw.io"), ("LOCALAPPDATA", os.path.join("Programs", "draw.io"))):
-        if os.environ.get(env):
-            cands.append(os.path.join(os.environ[env], sub, "draw.io.exe"))
+    if os.environ.get("ProgramFiles"):
+        cands.append(os.path.join(os.environ["ProgramFiles"], "draw.io", "draw.io.exe"))
+    if os.environ.get("LOCALAPPDATA"):
+        cands.append(os.path.join(os.environ["LOCALAPPDATA"], "Programs", "draw.io", "draw.io.exe"))
     cands += ["/Applications/draw.io.app/Contents/MacOS/draw.io", "/usr/bin/drawio", "/opt/drawio/drawio"]
     return next((c for c in cands if c and os.path.isfile(c)), None)
 

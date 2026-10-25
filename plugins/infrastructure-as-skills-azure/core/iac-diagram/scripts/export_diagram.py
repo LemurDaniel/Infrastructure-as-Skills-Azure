@@ -85,11 +85,11 @@ def main():
     drawio = find_drawio()
     if not drawio:
         say('[skip] draw.io desktop not found - the .drawio file is the deliverable.', 'yellow')
-        print('       Install it from https://www.drawio.com or open the file at app.diagrams.net.')
+        print('       Install the draw.io desktop app, or open the .drawio file in draw.io.')
         return 2
 
-    env = dict(os.environ)
-    env.pop('ELECTRON_RUN_AS_NODE', None)
+    # With this set draw.io starts as plain Node and rejects every draw.io option.
+    os.environ.pop('ELECTRON_RUN_AS_NODE', None)
     # --embed-diagram keeps the XML inside the PNG.
     cmd = [drawio, '--export', '--format', 'png', '--scale', str(args.scale), '--border', str(args.border)]
     if not args.no_embed:
@@ -105,7 +105,7 @@ def main():
             say(f"[fail] {out} cannot be replaced ({e.strerror}) - is it open in another program?", 'red')
             return 1
     try:
-        proc = subprocess.run(cmd, env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        proc = subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         code = proc.returncode
     except OSError as e:
         say(f"[fail] could not start draw.io: {e}", 'red')
