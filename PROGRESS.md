@@ -197,7 +197,27 @@ the detail; this list says what was decided and why, so a session does not reope
 
 ## State
 
-- **25 resource sets in 10 families**, all with both rendering references, both checks
+- **25 more sets written 2026-10-25 (50 in all, 1,044 questions), checked, not exercised:** compute
+  virtual-machine, managed-disk, availability-set (the proximity placement group is a question
+  group of it), virtual-machine-scale-set, aks, static-web-app, container-instances; network
+  public-ip-address, private-endpoint, private-dns-zone, route-table, nat-gateway, azure-firewall,
+  load-balancer, bastion, virtual-network-peering; data sql-database, postgresql-flexible-server,
+  mysql-flexible-server, redis-cache (Azure Managed Redis only, not the older Azure Cache for Redis);
+  security role-assignment, key-vault-key, key-vault-secret, defender-for-cloud (renders nothing by
+  default: `defender_ownership: platform`). Each Terraform call passed `terraform validate` and each
+  Bicep call `bicep build` against the pinned module; no render, `terraform test`, ARM test or eval
+  covers them and nothing is applied. Open from the writing: diagnostic category names are not
+  checked against a live resource (each set says to check before a render); the Terraform modules of
+  firewall, firewall policy, public IP, load balancer, Bastion, VM, disk, route table, SQL, PostgreSQL,
+  MySQL, Static Web App, Container Instances and the key/secret submodules pin `azurerm` 4.x (a root
+  calling them cannot be on 5.x), AKS, private endpoint, private DNS zone, NAT gateway and Managed
+  Redis are AzAPI-only, and `avm.md`'s table does not list them yet; `privateDnsZones` got the
+  abbreviation `pdnsz` in `naming.default.yaml` (it was empty - check the provider derives no zone
+  name from it); `central_inspection` and `hub_gateway` (peering) are `platform` booleans missing
+  from `deployment.yaml`; the `resource_lock` list leaves out managed disks; the `azure-resources`
+  description is at the 2,000-character listing budget, the next family needs terms pruned; no new
+  set has a diagram icon or layout.
+- **State before that: 25 resource sets in 10 families**, all with both rendering references, both checks
   green: storage-account, blob-container, file-share, queue; virtual-network,
   network-security-group, application-gateway, front-door; app-service, function-app,
   container-apps, container-registry; cosmos-db; key-vault, user-assigned-identity;
@@ -316,8 +336,23 @@ per-family` in `check_spec.py` and the `chatbot` spec, and `references/private-d
 - **The sets from 2026-10-23 have no Bicep render** (`chatbot` is Terraform only) and
   `*.armtest.yaml` is still one file per example; the per-family Bicep shape is documented and the
   nested path checked on a toy compile, not on a render.
-- Missing sets: Container Apps session pools; a Table storage set; Logic Apps, Data Factory, SQL,
-  Redis (`azure-resources` says so out loud).
+- Missing sets: Container Apps session pools; a Table storage set; Logic Apps, Data Factory
+  (`azure-resources` says so out loud). The gap review of 2026-10-25 lists what is still pending
+  (no question set yet; the high-priority batch was written 2026-10-25, see State):
+  - **Medium:** network: public DNS Zone, Traffic Manager, Virtual WAN / VPN Gateway / ExpressRoute,
+    DDoS Protection, Network Watcher, Private Link Service; data: SQL Managed Instance, Data Factory,
+    Synapse, Databricks, Data Explorer, Fabric Capacity, Purview; observability: Diagnostic Settings
+    as a resource of its own, Azure Monitor (Action Group, alert rules, DCR/DCE), Managed Grafana,
+    Azure Monitor Workspace (Prometheus), Dashboards; messaging: Event Grid Namespace / System Topic,
+    Notification Hubs, SignalR / Web PubSub, Relay; integration: Logic Apps, Communication Services;
+    governance (new family): Policy definition / assignment, Management Group, Subscription /
+    Resource Group, Budgets, Locks, Automation Account, Maintenance Configuration; ai: Azure AI
+    Services (Speech, Vision, Language, Document Intelligence), Machine Learning Workspace, Bot Service.
+  - **Low:** storage: Table, Managed HSM, NetApp Files, Files Sync, Data Lake Gen2 as its own type;
+    compute: Batch, Service Fabric, App Service Environment, Spring Apps, Compute Gallery, Dedicated
+    Host, Virtual Desktop, Arc; security: Managed HSM, Sentinel, Confidential Ledger; data: Cosmos DB
+    for PostgreSQL, Time Series Insights, SQL VM; IoT Hub, DPS, Digital Twins; Maps, Load Testing,
+    DevCenter, Dev Box.
 - A container's throughput in Cosmos DB is one value for all; the NSG baseline rules per
   `subnet_purpose` are general knowledge, to be confirmed per service before a render; a closed
   Application Insights needs the platform's Azure Monitor Private Link Scope; the Key Vault modules'

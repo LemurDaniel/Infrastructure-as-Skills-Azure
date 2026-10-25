@@ -267,15 +267,15 @@ Early, and the shape matters more than the coverage. The eval baseline holds; th
 - [x] Deployment-wide question set, inherited by every resource via `from_deployment`
 - [x] The customer interview: requirements derived into decisions, `platform.yaml`, decision document in the customer's language
 - [x] Azure Verified Modules as the primary rendering, both targets, with the test contract
-- [x] 22 resources in 10 families
+- [x] 50 resources in 10 families (the 25 added last are checked against their AVM modules, not yet rendered or tested)
 - [x] Rendering: naming, layout, idiom and pipelines (GitHub, Azure DevOps, GitLab, local)
 - [x] Diagram from the spec, editable draw.io embedded in the PNG
 - [x] Checks: `check_spec.py`, `check_question_set.py`, `check_render_coverage.py`, `check_pipeline.py`
 - [x] Eval suite with a baseline
 - [ ] **Reference pattern skill.** `patterns/` is empty, so composition is specified but unproven
 - [x] **An applied render.** [`eval-agent/`](eval-agent/) - rendered Bicep from an `infra-spec.yaml`, what-if, approval and deploy through the rendered GitHub pipeline (OIDC, no secret). The first run found what the pipeline reference now says: a job without a checkout, a what-if that skips modules, immutable OIDC subjects. One spec override came from a quota, not from the interview. Terraform and the other pipelines are still unapplied
-- [ ] The complex example in Bicep; the sets added for it have no Bicep render yet
-- [ ] Remaining resources: blob container, file share, queue, resource lock, SQL, Redis, Logic Apps
+- [ ] The complex example in Bicep; the sets added for it and the 25 newest sets have no Bicep render yet
+- [ ] Remaining resources: Logic Apps, Data Factory, governance (policy, budgets), further network, data and AI services - listed in `PROGRESS.md`
 - [ ] AVM version drift check; cross-backend diff of one spec
 
 ## 🔁 Relation to `Infrastructure-by-Skill`

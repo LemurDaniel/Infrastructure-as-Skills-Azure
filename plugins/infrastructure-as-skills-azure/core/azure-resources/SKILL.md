@@ -1,6 +1,6 @@
 ---
 name: azure-resources
-description: Routes a request that names an Azure resource to the question set that decides it, for Terraform or Bicep. Storage (storage account, blob, data lake, file share), network (vnet, subnet, private endpoint, Application Gateway, WAF, Front Door), observability (Log Analytics, diagnostics), compute (App Service, function app, Container Apps, container registry), security (Key Vault, managed identity), data (Cosmos DB), ai (AI Foundry, Azure OpenAI, AI Search), messaging (Service Bus, Event Hubs, Event Grid), integration (API Management, API gateway), recovery (backup, Backup vault, Recovery Services vault). AVM (Azure Verified Modules) first. Use whenever one of these is created, changed, reviewed or ported between targets.
+description: Routes a request that names an Azure resource to the question set that decides it, for Terraform or Bicep. Storage (storage account, blob, file share), network (vnet, private endpoint, private DNS zone, public IP, peering, route table, NAT gateway, Azure Firewall, load balancer, Bastion, Application Gateway, WAF, Front Door), observability (Log Analytics), compute (VM, scale set, managed disk, AKS, App Service, function app, Container Apps, Container Instances, Static Web App, container registry), security (Key Vault, key, secret, managed identity, role assignment, RBAC, Defender), data (Cosmos DB, Azure SQL, PostgreSQL, MySQL, Redis), ai (AI Foundry, AI Search), messaging (Service Bus, Event Hubs, Event Grid), integration (API Management), recovery (Backup vault, Recovery Services vault). AVM first. Use whenever one is created, changed, reviewed or ported between targets.
 ---
 
 # Azure resources
@@ -24,21 +24,21 @@ request actually carries.
 | Family | Covers | Routing |
 |---|---|---|
 | storage | storage accounts; blob containers, file shares, queues | [resources/storage/routing.md](../../resources/storage/routing.md) |
-| network | virtual networks and subnets; network security groups; Application Gateway with WAF; Front Door; peering, route tables planned | [resources/network/routing.md](../../resources/network/routing.md) |
+| network | virtual networks and subnets; network security groups; Application Gateway with WAF; Front Door; peering; route tables; NAT gateway; Azure Firewall; load balancer; Bastion; public IP; private endpoint; private DNS zone | [resources/network/routing.md](../../resources/network/routing.md) |
 | observability | Log Analytics workspaces; Application Insights; alerts planned | [resources/observability/routing.md](../../resources/observability/routing.md) |
-| compute | App Service (plan and web app); function apps; Container Apps; Container Registry | [resources/compute/routing.md](../../resources/compute/routing.md) |
-| security | Key Vault; user-assigned managed identity | [resources/security/routing.md](../../resources/security/routing.md) |
+| compute | App Service (plan and web app); function apps; Container Apps; Container Registry; virtual machines, scale sets, managed disks, availability sets; AKS; Static Web Apps; Container Instances | [resources/compute/routing.md](../../resources/compute/routing.md) |
+| security | Key Vault, keys, secrets; user-assigned managed identity; role assignments; Defender for Cloud | [resources/security/routing.md](../../resources/security/routing.md) |
 | messaging | Service Bus; Event Hubs; Event Grid custom topics | [resources/messaging/routing.md](../../resources/messaging/routing.md) |
 | integration | API Management (the API gateway) | [resources/integration/routing.md](../../resources/integration/routing.md) |
 | recovery | Backup vault; Recovery Services vault | [resources/recovery/routing.md](../../resources/recovery/routing.md) |
-| data | Cosmos DB (API for NoSQL); SQL, PostgreSQL planned | [resources/data/routing.md](../../resources/data/routing.md) |
+| data | Cosmos DB (API for NoSQL); Azure SQL; PostgreSQL and MySQL flexible server; Managed Redis | [resources/data/routing.md](../../resources/data/routing.md) |
 | ai | AI Foundry / Azure OpenAI with model deployments; AI Search | [resources/ai/routing.md](../../resources/ai/routing.md) |
 
 Read the family's `routing.md`. It names the question set for the request, or says plainly
 that none exists yet.
 
-**A request for a family that is not in this table is said out loud.** SQL,
-Redis, Logic Apps, Data Factory — none have a family yet. Generating one from the guardrails
+**A request for a family that is not in this table is said out loud.** Logic Apps,
+Data Factory, Synapse, Databricks — none have a family yet. Generating one from the guardrails
 while this table implies coverage removes the one property that makes this plugin worth
 using, and does it silently. Say that no question set backs it, offer to generate from
 [the guardrails](../iac-authoring/references/guardrails.md) with that recorded in the spec,
