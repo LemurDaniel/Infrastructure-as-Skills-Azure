@@ -196,6 +196,12 @@ the detail; this list says what was decided and why, so a session does not reope
   dashboard files a ticket (`application.ticket_trigger`), the plugin source, models, the
   sign-in secret and the image push path. The old single identity `id-…-02` and, if the first
   render was deployed, its role assignments stay orphaned until deleted by hand.
+- **Names before the deploy** (2026-10-25): `list_names.py` derives every resource's name
+  from the spec and the convention, offline - no plan, no tool, no login is assumed; the
+  render's step 8 hands the table over and asks "Passen die Namen?". `<UNIQUE_ID_n>` prints
+  as `????`, global names are never reported free, private endpoints are not listed yet.
+  `foundry`/`search-service` in `examples/chatbot` are named `${workload}foundry` by hand,
+  the convention would give `aif-prod-chatbot-????`: one of the two is the rule.
 - **Three examples, Terraform only, nothing applied:** `chat-sandbox` (the first full run
   with a customer and both agent loops, authored, 118 decisions, 32 tests),
   `chatbot` (per-family AVM, 284 decisions, 79 asserted / 205 not-testable),

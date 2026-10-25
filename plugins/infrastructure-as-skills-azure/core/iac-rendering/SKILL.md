@@ -70,7 +70,12 @@ than inferring the shape from an example spec.
    the idiom file; `scripts/check_render_coverage.py` fails on an unasserted decision.
 8. **Validate before handing over.** Syntactically valid is not done — `fmt` →
    `validate` → `test` → `plan` / `what-if`, then say which diffs are service-affecting.
-   The commands are at the end of each idiom file.
+   The commands are at the end of each idiom file. **Then show the names**: run
+   `scripts/list_names.py <spec>` and hand over the table - every resource with the name it
+   will get, before anything is deployed. A name cannot be changed afterwards, and the
+   customer knows whether it fits. It works from the spec alone: no tool or login is
+   assumed, and no plan is read. What it cannot know is in
+   [naming.md](references/naming.md#names-before-the-deploy).
 9. **The diagram is the customer's; a render does not touch it.** They signed off on
    `infra-diagram.drawio.png` before this render started (iac-authoring Phase 5), and the
    code is rendered from the same spec the picture was drawn from, so the picture stays as
@@ -183,4 +188,5 @@ is spelled. A port that reads as a transliteration has usually lost one of them.
 | [../iac-authoring/references/guardrails.md](../iac-authoring/references/guardrails.md) | A value in the spec looks wrong and you need the rule behind it |
 | `scripts/run_arm_tests.py` | A Bicep render: its `tests/*.armtest.yaml` against the compiled ARM |
 | `scripts/check_pipeline.py` | After rendering a pipeline: the invariants of `pipelines.md`, per platform |
+| `scripts/list_names.py` | After rendering: the names every resource will get, offline from the spec; fails on a length, a character or a duplicate |
 | `scripts/check_render_coverage.py` | After rendering, either target: every spec decision asserted or marked, nothing stale |

@@ -283,3 +283,36 @@ This is a swap of the generated `var` block for two imports reading the same `na
 Bicep function takes the resource type *without* the `Azure::` prefix the Terraform
 provider needs). Keeping the assembly in one `var` block per deployment — not inlined into
 each resource's `name:` — is what makes that swap a small change.
+
+## Names before the deploy
+
+After the render and before the hand-over, list every resource with the name it will get.
+No tool and no login can be assumed - no `terraform`, no `bicep`, no `az` - so the list is
+**derived from the spec**, never read from a plan:
+
+```powershell
+python scripts/list_names.py infra-spec.yaml [--stage production] [--language de]
+```
+
+It needs the spec alone (and PyYAML): the type's pattern from the convention - the
+`naming.yaml` beside the spec when there is one, else [naming.default.yaml](naming.default.yaml)
+- filled from `context` (location, workload, stage), the abbreviation from the question set.
+An instance (`storage-account__host`) joins the workload in `<NAME>` (`stweprodshophost01`);
+`<SUBNAME>` is for sub-resources only. It lists the resource groups (a stated name verbatim,
+a created one from the pattern), each resource and the vnet's subnets, per stage, and exits 1
+on a name over its type's length, outside its characters, or used twice.
+
+What it cannot know it says, per row, and the hand-over repeats it:
+
+- **`<UNIQUE_ID_n>` is printed as `?`.** The seed (Terraform) and `uniqueString()` (Bicep)
+  decide it; a key vault, Cosmos DB, Search or Foundry name is final only at the deploy.
+- **A global name is never "free".** Storage, key vault, registry, App Service, Cosmos DB,
+  Search and the Foundry subdomain are marked `availability unchecked`; the check needs a login.
+- **Not listed:** private endpoints, diagnostic settings, role assignments and what an AVM
+  module names inside itself.
+
+Hand the list over as a table in `context.language`: resource, name, action, note. Ask once
+whether the names fit ("Passen die Namen?"). A departure is **`naming.yaml`** (Terraform) or
+the regenerated `var` block (Bicep) with `naming_convention: custom`, then a new list; never
+a literal in a template. A renamed resource is a destroy and a create - once deployed, a
+name stays. The names are not a spec decision and are not written to it.
