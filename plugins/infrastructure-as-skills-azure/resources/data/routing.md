@@ -6,9 +6,10 @@ skill. Routing table - the request picks the question set:
 | Request mentions | Question set | Notes |
 |---|---|---|
 | Cosmos DB, Cosmos, NoSQL, document database, conversation history store | `cosmos-db/questions.yaml` | [notes](cosmos-db/notes.md) - API for NoSQL only |
-| Azure SQL, SQL database, SQL Server | *not yet written* | - |
-| PostgreSQL, MySQL, flexible server | *not yet written* | - |
-| Redis, cache | *not yet written* | - |
+| Azure SQL, SQL database, SQL Server, Azure SQL Database, elastic pool, serverless SQL, TDE | `sql-database/questions.yaml` | [notes](sql-database/notes.md) - Azure SQL Database (logical server and databases); not Managed Instance |
+| PostgreSQL, Postgres, flexible server (Postgres) | `postgresql-flexible-server/questions.yaml` | [notes](postgresql-flexible-server/notes.md) |
+| MySQL, flexible server (MySQL) | `mysql-flexible-server/questions.yaml` | [notes](mysql-flexible-server/notes.md) |
+| Redis, cache, Managed Redis, session store | `redis-cache/questions.yaml` | [notes](redis-cache/notes.md) - Azure Managed Redis only; the older Azure Cache for Redis has no question set |
 | MongoDB, Cassandra, Gremlin, Table API | *not yet written* | Other Cosmos DB APIs decide differently; not covered by the NoSQL set |
 | Storage account, blob, data lake | see the [storage](../storage/routing.md) family | Not here |
 

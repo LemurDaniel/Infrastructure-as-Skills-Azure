@@ -1,0 +1,755 @@
+schema_version: 1
+
+resource: Microsoft.Sql/servers
+title: Azure SQL Database (logical server and databases)
+
+naming:
+  terraform: "Azure::Microsoft.Sql/servers"
+  bicep: "Microsoft.Sql/servers"
+  # Bicep assembles the name from vars - this is the prefix it renders. The server name is
+  # global, lowercase, 1-63 characters, and part of the endpoint <name>.database.windows.net.
+  abbreviation: "sql"
+
+boundaries:
+  - "Covers the Azure SQL Database logical server (`Microsoft.Sql/servers`) and its single or pooled databases. SQL Managed Instance (`Microsoft.Sql/managedInstances`), SQL Server on a VM and Synapse dedicated pools decide differently and have no question set."
+  - "Does not create the resource group. Expects one from the spec's context."
+  - "Does not create private DNS zones - shared infrastructure, owned by a pattern or the platform."
+  - "Does not create the Log Analytics workspace it routes diagnostics and audit logs to."
+  - "Does not create the Key Vault or the key a customer-managed TDE protector points at, nor the identity that unwraps it - those are the security family's."
+  - "Does not enable Microsoft Defender for SQL as a subscription plan (`Microsoft.Security/pricings`): that is subscription-wide and the platform's. This set only sets the server-level policy that uses it."
+  - "Does not create database users or grant database roles: that is T-SQL, not Azure Resource Manager. They are recorded as a decision and executed by a step after the deployment."
+  - "Does not create a failover group or a geo-secondary server. A second region is a second instance of this set plus the failover group; `critical` records it as an open entry."
+  - "Does not render long-term-retention immutability, ledger databases, Always Encrypted enclaves, elastic jobs, or a sample/import/restore create mode."
+
+groups:
+
+  # ---------------------------------------------------------------- placement
+  - id: placement
+    title: Placement
+    questions:
+      - id: environments
+        ask: Which stages is this deployed to?
+        type: list
+        plain:
+          en: "Deployed in the stages {value}."
+          de: "Wird in den Stufen {value} ausgerollt."
+        values: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
+        required: true
+        from_context: true
+        why: >
+          Drives the rendered name and the strictness of several defaults below.
+          Nothing sensible can be guessed.
+        renders: naming parameter `environment`, and the tag of that name where the repository uses one
+
+      - id: location
+        ask: Which Azure region?
+        type: string
+        plain:
+          en: "Runs in the Azure region {value}."
+          de: "Läuft in der Azure-Region {value}."
+        required: true
+        from_context: true
+        why: >
+          The server and its databases live in one region, and the region is part of the
+          rendered name. Zone redundancy and zone-redundant backup storage are not
+          available in every region, and a region short of capacity can refuse a new
+          server (provisioning restrictions are per subscription and region).
+        renders: location
+
+      - id: resource_group_name
+        ask: Which resource group?
+        type: ref
+        plain:
+          en: "Placed in the resource group {value}."
+          de: "Liegt in der Ressourcengruppe {value}."
+        ref: resource_group
+        required: true
+        from_context: true
+        per_environment: true
+        why: >
+          The server is placed into an existing group. Creating one here would make this
+          set own a lifecycle wider than the resource it describes.
+        renders: resource_group_name (AVM Terraform, azurerm-based) / implicit in Bicep scope
+
+  # ------------------------------------------------------------------- server
+  - id: database
+    title: Databases and compute
+    questions:
+      - id: databases
+        ask: Which databases should the server hold?
+        type: list
+        plain:
+          en: "The server holds the databases {value}."
+          de: "Der Server enthält die Datenbanken {value}."
+        required: true
+        why: >
+          Only the application knows its databases, so there is no default: with no
+          answer the decision is an `open:` entry owned by the workload owner, blocking
+          apply. Every database takes the compute, backup and resilience answers below as
+          its own; a departure per database is recorded. A database name is part of its
+          connection string and cannot be renamed in place.
+        renders: databases.<key>.name / databases[].name
+
+      - id: collation
+        ask: Which sort order and comparison rules should text use?
+        type: string
+        plain:
+          en: "Text is sorted and compared by the collation {value}."
+          de: "Text wird nach der Sortierung {value} sortiert und verglichen."
+        default: SQL_Latin1_General_CP1_CI_AS
+        why: >
+          **Fixed when the database is created** - it cannot be changed afterwards, only
+          by creating a new database and moving the data, and a database whose collation
+          differs from `tempdb`'s has the well-known cross-database comparison errors.
+          `SQL_Latin1_General_CP1_CI_AS` is the service default (case-insensitive,
+          accent-sensitive) and what most existing applications and imports assume; an
+          application that needs another (case-sensitive, UTF-8, a language) says so
+          and gets it written, never discovers it later.
+        renders: databases.<key>.collation / databases[].collation
+
+      - id: service_tier
+        ask: Which kind of database is needed - a balanced one, one for very low latency and read scale-out, or one for very large data?
+        type: enum
+        plain:
+          en: "The database is of the kind {value}."
+          de: "Die Datenbank ist von der Art {value}."
+        plain_values:
+          general_purpose: { en: "balanced - remote storage, the usual choice for business applications", de: "ausgewogen: entfernter Speicher, die übliche Wahl für Geschäftsanwendungen" }
+          business_critical: { en: "low latency with local storage and a built-in readable copy, at a higher price", de: "geringe Latenz mit lokalem Speicher und eingebauter lesbarer Kopie, zu höherem Preis" }
+          hyperscale: { en: "for very large data, up to 128 TB, with fast scaling and fast restore", de: "für sehr große Datenmengen bis 128 TB, mit schneller Skalierung und schneller Wiederherstellung" }
+        values: [general_purpose, business_critical, hyperscale]
+        default: general_purpose
+        confirm_in: [production]
+        why: >
+          General Purpose is the floor for a business application: zone redundancy is
+          available, the price is the lowest of the vCore tiers, and the latency is fine
+          for typical OLTP. Business Critical buys local SSD storage and a readable
+          replica for a multiple of the price; Hyperscale decouples storage from compute
+          for databases that outgrow 4 TB or need minutes-long restores, and **moving to
+          it is one-way for practical purposes** (a return to another tier is limited to
+          a short window after the move). The DTU purchasing model is not offered: the
+          vCore model is the one with zone redundancy, reserved capacity and serverless.
+        forced_when: >
+          `compute_tier: serverless` is available for General Purpose and Hyperscale
+          only; `business_critical` forces `provisioned`, recorded as forced with
+          `service_tier` as forced_by
+        renders: databases.<key>.sku_name (`GP_`, `BC_`, `HS_` prefix) / databases[].sku.tier and name
+
+      - id: compute_tier
+        ask: Is the compute reserved, or billed per second of use?
+        type: enum
+        plain:
+          en: "Compute is {value}."
+          de: "Die Rechenleistung ist {value}."
+        plain_values:
+          provisioned: { en: "reserved and billed around the clock, with a steady, guaranteed capacity", de: "reserviert und rund um die Uhr berechnet, mit gleichbleibender, garantierter Kapazität" }
+          serverless: { en: "scaled automatically between a minimum and a maximum, billed per second, and paused when idle", de: "automatisch zwischen Minimum und Maximum skaliert, sekundengenau berechnet und im Leerlauf pausiert" }
+        values: [provisioned, serverless]
+        default: provisioned
+        non_production_default: serverless
+        confirm_in: [production]
+        depends_on: { question: service_tier, not_equals: business_critical }
+        why: >
+          Serverless bills only compute that is used and pauses an idle database (the
+          storage is still billed), which suits a stage used in bursts. It costs a
+          cold-start delay of seconds to a minute after a pause, which a user-facing
+          production system must not have, and it is dearer per vCore-second under steady
+          load. The cost knob is the only reason a stage may differ; a development stage
+          on serverless does not rehearse the cold start of the provisioned one, which is
+          the price of the saving. Unlike a Cosmos DB capacity mode the tier can be
+          changed in place, with a brief disconnect.
+        forced_when: >
+          `service_tier: business_critical` forces `provisioned`, recorded as forced with
+          `service_tier` as forced_by
+        renders: databases.<key>.sku_name (`GP_S_Gen5_<n>` for serverless) / databases[].sku.name
+
+      - id: vcores
+        ask: How many virtual cores should the database have at most?
+        type: int
+        plain:
+          en: "The database may use up to {value} virtual cores."
+          de: "Die Datenbank darf bis zu {value} virtuelle Kerne nutzen."
+        default: 2
+        why: >
+          2 vCores is the smallest provisioned vCore size and the lowest cost; a database
+          that needs more says so by high CPU and waits, and resizing is an in-place
+          change with a brief disconnect. Starting low is deliberate: the cost of a number
+          that is too high is paid every hour, the cost of one that is too low is a visible,
+          fixable signal. For serverless this is the maximum; the minimum is `min_vcores`.
+        renders: databases.<key>.sku_name suffix and the capacity / databases[].sku.capacity
+
+      - id: min_vcores
+        ask: How many virtual cores should stay allocated while the database is awake?
+        type: string
+        plain:
+          en: "While running, at least {value} virtual cores stay allocated."
+          de: "Im Betrieb bleiben mindestens {value} virtuelle Kerne reserviert."
+        default: "0.5"
+        depends_on: { question: compute_tier, equals: serverless }
+        why: >
+          0.5 is the lowest serverless minimum and the lowest cost; the database scales
+          up from it within seconds, so a higher minimum only buys readiness for a sudden
+          load at an hourly price. A string, because the allowed values are fractions
+          (0.5, 0.75, 1, ...).
+        renders: databases.<key>.min_capacity / databases[].minCapacity
+
+      - id: auto_pause_delay_minutes
+        ask: After how many idle minutes should the database pause?
+        type: int
+        plain:
+          en: "An idle database pauses after {value} minutes (-1: never)."
+          de: "Eine ungenutzte Datenbank pausiert nach {value} Minuten (-1: nie)."
+        default: 60
+        depends_on: { question: compute_tier, equals: serverless }
+        why: >
+          60 minutes is the service default and keeps a database from pausing between two
+          requests of a working day; the minimum is 15, and `-1` disables pausing, which
+          turns serverless into provisioned billing with a minimum. A paused database
+          costs only storage, and the next connection pays the cold start.
+        renders: databases.<key>.auto_pause_delay_in_minutes / databases[].autoPauseDelay
+
+      - id: max_size_gb
+        ask: How large may each database grow?
+        type: int
+        plain:
+          en: "A database may grow to {value} GB."
+          de: "Eine Datenbank darf bis auf {value} GB wachsen."
+        default: 32
+        why: >
+          The maximum size is a ceiling, and storage is billed on what is allocated to it
+          in General Purpose and Business Critical: a ceiling far above the data is paid
+          for. 32 GB is a small default that is raised in place; a database that reaches
+          the ceiling stops accepting writes, which is the visible signal to raise it.
+        renders: databases.<key>.max_size_gb / databases[].maxSizeBytes (bytes)
+
+      - id: elastic_pool
+        ask: Should several databases share one pool of compute?
+        type: bool
+        plain:
+          en: "Databases {value} compute from a shared pool."
+          de: "Datenbanken {value} Rechenleistung aus einem gemeinsamen Pool."
+        plain_values:
+          true: { en: "share", de: "teilen sich" }
+          false: { en: "each have their own", de: "haben jeweils eigene" }
+        default: false
+        why: >
+          A pool pays off from several databases with load peaks at different times,
+          where one pool is cheaper than each database sized for its own peak. With one or
+          two databases, or databases that peak together, it is more expensive and hides
+          which database is the noisy one. Off until a pool is asked for; the pool's size
+          is then `pool_vcores`. The pool does not support serverless compute.
+        forced_when: >
+          `true` forces `compute_tier: provisioned` for the pooled databases, recorded as
+          forced with `elastic_pool` as forced_by
+        renders: elastic_pools.<key> and databases.<key>.elastic_pool_key / elasticPools[] and databases[].elasticPoolResourceId
+
+      - id: pool_vcores
+        ask: How many virtual cores should the pool have?
+        type: int
+        plain:
+          en: "The shared pool has {value} virtual cores."
+          de: "Der gemeinsame Pool hat {value} virtuelle Kerne."
+        default: 2
+        depends_on: { question: elastic_pool, equals: true }
+        why: >
+          The pool's capacity is shared by all databases in it, and the per-database
+          minimum and maximum bound each one. 2 is the smallest and is raised in place.
+        renders: elastic_pools.<key>.sku.capacity / elasticPools[].sku.capacity
+
+  # --------------------------------------------------------------- resilience
+  - id: resilience
+    title: Resilience
+    questions:
+      - id: zone_redundant
+        ask: Should the database survive the loss of an availability zone?
+        type: bool
+        plain:
+          en: "The database {value} survive the loss of one datacenter of the region."
+          de: "Die Datenbank {value} den Ausfall eines Rechenzentrums der Region."
+        plain_values:
+          true: { en: "does", de: "übersteht" }
+          false: { en: "does not", de: "übersteht nicht" }
+        derived_from:
+          question: outage_impact
+          map: { tolerable: false, disruptive: true, critical: true }
+        confirm_in: [production]
+        non_production_default: false
+        why: >
+          Derived from how bad an outage is. Zone redundancy keeps the replicas in three
+          zones with no change to the application; in General Purpose and Business
+          Critical it costs a premium on the compute, and in Hyperscale a zone-redundant
+          replica set is chosen at creation. It is not available in every region or tier,
+          and a database not created zone-redundant can be changed in place in General
+          Purpose and Business Critical but not in every Hyperscale case. The derivation is
+          production's; the non-production stages take `false` while non_production_savings
+          is enabled.
+        renders: databases.<key>.zone_redundant / databases[].zoneRedundant (and the pool's zone_redundant / zoneRedundant)
+
+      - id: geo_failover_region
+        ask: In which second region should the data be kept ready to take over?
+        type: string
+        plain:
+          en: "A second copy for a regional failure is kept in {value} (empty: none)."
+          de: "Eine zweite Kopie für den Ausfall einer ganzen Region liegt in {value} (leer: keine)."
+        default: ""
+        per_environment: true
+        why: >
+          A second region is what survives the loss of a whole region, and it is a second
+          server, a failover group and a doubled bill, so it is not defaulted. `critical`
+          from the deployment's `outage_impact` means one is wanted: with no region named,
+          the decision is an `open:` entry owned by the workload owner, naming the paired
+          region as the usual answer, and not a silent single region. The failover group
+          gives a read-write and a read-only listener endpoint that survive a failover;
+          without it an application connects to a server name that stops answering.
+        forced_when: >
+          `outage_impact: critical` requires a value here, or an `open:` entry; the region
+          must satisfy `data_residency` (`country`: the same country, `data_zone`: the same
+          data zone), and a region that does not is refused with the residency as the reason
+        renders: a second instance of this set in that region plus failover_group / failoverGroups[] (the second server and the group are rendered by the render skill, not by one module call)
+
+  # --------------------------------------------------------------- networking
+  - id: networking
+    title: Networking
+    questions:
+      - id: public_network_access
+        ask: Should this server depart from the deployment's exposure posture?
+        type: enum
+        plain:
+          en: "The server is {value}."
+          de: "Der Server ist {value}."
+        plain_values:
+          disabled: { en: "not reachable from the internet at all", de: "aus dem Internet überhaupt nicht erreichbar" }
+          enabled_with_firewall: { en: "reachable from the internet only from listed addresses", de: "aus dem Internet nur von gelisteten Adressen erreichbar" }
+          enabled: { en: "reachable from the internet", de: "aus dem Internet erreichbar" }
+        values: [disabled, enabled_with_firewall, enabled]
+        from_deployment: network_exposure
+        confirm_in: [production]
+        why: >
+          Asked only as a departure: exposure is a property of the system. `private` is
+          `disabled`, `public` is `enabled_with_firewall`, and a bare `enabled` - a server
+          with a firewall rule that admits everything - is a recorded departure. Both AVM
+          modules default to disabled; written anyway. With `disabled` the server answers
+          only through its private endpoint, which also takes the portal's query editor
+          away from anyone outside the network.
+        forced_when: >
+          `network_ownership: none` (a public deployment without a network) forces
+          `enabled`, recorded as forced with `network_ownership` as forced_by: the
+          deployment's own callers have no fixed outbound address, so a firewall with no
+          rule locks them out of this resource
+        renders: >
+          terraform: public_network_access_enabled (bool) and firewall rules;
+          bicep: publicNetworkAccess and firewallRules
+
+      - id: private_endpoint_subnet
+        ask: Which subnet should this server's private endpoint live in?
+        type: ref
+        resolved_by: platform
+        plain:
+          en: "Its private connection lands in subnet {value}."
+          de: "Seine private Anbindung landet im Subnetz {value}."
+        ref: subnet
+        from_deployment: private_endpoint_subnet
+        per_environment: true
+        why: >
+          One subnet carries the deployment's private endpoints, so this is inherited. The
+          sub-resource is `sqlServer`, the zone `privatelink.database.windows.net`, and one
+          endpoint reaches every database on the server.
+        renders: private_endpoints.<key>.subnet_resource_id / privateEndpoints[].subnetResourceId (service `sqlServer`)
+
+      - id: ip_rules
+        ask: Which public IP ranges may reach the server?
+        type: list
+        plain:
+          en: "Public addresses allowed to reach the server: {value}."
+          de: "Öffentliche Adressen, die den Server erreichen dürfen: {value}."
+        default: []
+        depends_on: { question: public_network_access, equals: enabled_with_firewall }
+        per_environment: true
+        why: >
+          An enumerated allowlist, each range one server firewall rule. An empty list with
+          the firewall on denies every public caller, which is valid and deliberate.
+          `0.0.0.0` - which SQL reads as "allow Azure services" - is not an allowlist and
+          is `allow_azure_services`' job, not this list's.
+        renders: firewall_rules / firewallRules
+
+      - id: allow_azure_services
+        ask: May any Azure service reach the server past its firewall?
+        type: bool
+        plain:
+          en: "Any Azure service, including those of other customers, {value} the server's firewall."
+          de: "Jeder Azure-Dienst, auch der anderer Kunden, {value} die Firewall des Servers."
+        plain_values:
+          true: { en: "passes", de: "passt" }
+          false: { en: "does not pass", de: "passt nicht durch" }
+        default: false
+        depends_on: { question: public_network_access, equals: enabled_with_firewall }
+        why: >
+          The "Allow Azure services and resources" switch is the firewall rule
+          0.0.0.0 - 0.0.0.0 and admits **any resource in Azure, in any tenant**, not only
+          this customer's; it defeats the firewall it sits in. Off by default; a consumer
+          that needs it is named and gets a specific rule, or a private endpoint.
+        renders: a firewall rule named `AllowAllWindowsAzureIps` with 0.0.0.0 as start and end / firewallRules[]
+
+      - id: minimum_tls_version
+        ask: Which is the oldest TLS version the server accepts?
+        type: enum
+        plain:
+          en: "Connections must use TLS {value} or newer."
+          de: "Verbindungen müssen TLS {value} oder neuer verwenden."
+        values: ["1.2", "1.3"]
+        default: "1.2"
+        why: >
+          TLS 1.2 is the floor of the guardrails and what every current driver speaks.
+          1.3 is accepted by the Bicep module, while the Terraform module fixes the
+          server at "1.2" and offers no input - so a stricter answer than the floor forces
+          the authored rendering for the server on that target; the answer is recorded
+          either way.
+        renders: minimal_tls_version (fixed "1.2" in the AVM Terraform module) / minimalTlsVersion
+
+  # ----------------------------------------------------------------- identity
+  - id: identity
+    title: Identity and access
+    questions:
+      - id: managed_identity
+        ask: Which managed identity should the server carry?
+        type: enum
+        plain:
+          en: "The server has {value}."
+          de: "Der Server hat {value}."
+        plain_values:
+          none: { en: "no identity of its own", de: "keine eigene Identität" }
+          system_assigned: { en: "its own identity", de: "eine eigene Identität" }
+          user_assigned: { en: "a separately managed identity", de: "eine separat verwaltete Identität" }
+        values: [none, system_assigned, user_assigned]
+        default: system_assigned
+        why: >
+          The server's identity is how it reaches other services: the Entra directory, to
+          resolve the groups and applications a database user is created from (it needs
+          the `Directory Readers` role or the Graph permissions for that, which is a tenant
+          decision the platform owns), storage for audit or vulnerability assessment, and
+          a Key Vault for a customer-managed TDE protector. System-assigned is the
+          guardrail default and the cheapest to run. A customer-managed protector needs the
+          identity to hold its role on the key before the key is set, which is why that
+          case is `user_assigned`.
+        forced_when: >
+          `key_management: customer_managed` forces `user_assigned`, recorded as forced
+          with `key_management` as forced_by
+        renders: managed_identities / managedIdentities (and primary_user_assigned_identity_id / primaryUserAssignedIdentityResourceId)
+
+      - id: user_assigned_identity_ids
+        ask: Which user-assigned identity?
+        type: list
+        plain:
+          en: "It uses the identity {value}."
+          de: "Es nutzt die Identität {value}."
+        ref: user_assigned_identity
+        required: true
+        depends_on: { question: managed_identity, equals: user_assigned }
+        per_environment: true
+        why: The identity must already exist; this set does not create it.
+        renders: managed_identities.user_assigned_resource_ids / managedIdentities.userAssignedResourceIds
+
+      - id: entra_admin
+        ask: Which Entra group administers the server?
+        type: ref
+        plain:
+          en: "The server is administered by the Entra group {value}."
+          de: "Der Server wird von der Entra-Gruppe {value} verwaltet."
+        ref: entra_group
+        required: true
+        per_environment: true
+        why: >
+          With SQL authentication off, the Entra administrator is the only account that can
+          sign in the first time, to create the database users, so a server without one is
+          unusable. A **group** and not a person: it survives staff changes and gives the
+          administrators an audit trail of their own. A server has exactly one; no answer
+          is an `open:` entry owned by the engineer, blocking apply.
+        renders: azuread_administrator { login_username, object_id } / administrators { login, sid, principalType }
+
+      - id: database_users
+        ask: Who needs to read or write the data?
+        type: list
+        plain:
+          en: "Access to the data itself granted to: {value}."
+          de: "Zugriff auf die Daten selbst vergeben an: {value}."
+        default: []
+        per_environment: true
+        why: >
+          **SQL's data access is its own role system**, inside each database, and no ARM
+          resource creates it: a user is `CREATE USER [name] FROM EXTERNAL PROVIDER` plus
+          `ALTER ROLE db_datareader ADD MEMBER`, run as the Entra administrator. An Azure
+          `Owner` reads not a single row. With SQL authentication off, nothing reads the
+          data until this is done, so an empty list is a working server nobody can use and
+          not an answer: with no consumer named, the decision is an `open:` entry owned by
+          the workload owner, blocking apply. Each entry is an identity and a database role,
+          least privilege first (`db_datareader`, `db_datawriter`, never `db_owner`). A
+          pattern fills this from the consumers it knows.
+        renders: >
+          not the module and not Azure Resource Manager - a T-SQL step after the deployment
+          (the deployment's pipeline, or a deployment script), recorded as such in the spec
+
+      - id: role_assignments
+        ask: Who may manage the server itself?
+        type: list
+        plain:
+          en: "Management rights on the server granted to: {value}."
+          de: "Verwaltungsrechte am Server vergeben an: {value}."
+        default: []
+        per_environment: true
+        why: >
+          Azure RBAC on the server - the control plane: creating databases, changing
+          firewall rules, reading the audit settings. Separate from the database roles on
+          purpose, and usually the deploying principal's alone, so empty is a normal answer.
+        renders: role_assignments / roleAssignments
+
+  # ----------------------------------------------------------------- security
+  - id: security
+    title: Security
+    questions:
+      - id: local_authentication_disabled
+        ask: May clients sign in with a SQL user name and password?
+        type: bool
+        plain:
+          en: "Signing in with a SQL password is {value}; access goes through company accounts."
+          de: "Die Anmeldung mit SQL-Kennwort ist {value}; der Zugriff läuft über Firmenkonten."
+        plain_values:
+          true: { en: "switched off", de: "abgeschaltet" }
+          false: { en: "possible", de: "möglich" }
+        from_deployment: local_auth
+        confirm_in: [production]
+        why: >
+          Inherited: `local_auth: disabled` renders as Entra-only authentication. A SQL
+          login is a password that does not expire, is shared, and is not attributable in
+          the audit log. With it off no administrator login or password is rendered at all,
+          so there is no secret to leak or rotate. Both modules accept it; written anyway.
+        renders: >
+          azuread_administrator.azuread_authentication_only (and no administrator_login) /
+          administrators.azureADOnlyAuthentication
+
+      - id: key_management
+        ask: Are the database's encryption keys platform-managed or customer-managed?
+        type: enum
+        plain:
+          en: "Encryption keys are {value}."
+          de: "Verschlüsselungsschlüssel sind {value}."
+        plain_values:
+          platform_managed: { en: "managed by Azure - encrypted, rotated, no effort on your side", de: "von Azure verwaltet: verschlüsselt, rotiert, kein Aufwand bei euch" }
+          customer_managed: { en: "your own, held in your key vault, so you can revoke them", de: "eure eigenen in eurem Schlüsseltresor, damit ihr sie zurückziehen könnt" }
+        values: [platform_managed, customer_managed]
+        from_deployment: key_management
+        confirm_in: [production]
+        why: >
+          Inherited. Transparent data encryption is on for every database and cannot be
+          turned off in this set - the data, the log and the backups are encrypted at rest
+          with a platform-managed key either way. `customer_managed` adds a TDE protector
+          in a Key Vault with purge protection, an identity that can wrap and unwrap it,
+          and a rotation story; a server that loses access to the key makes its databases
+          inaccessible within the hour.
+        renders: transparent_data_encryption_key_vault_key_id and the database-level equivalent / customerManagedKey
+
+      - id: cmk_key_vault_key_id
+        ask: Which Key Vault key should protect the databases?
+        type: ref
+        plain:
+          en: "Encrypted with your key {value}."
+          de: "Verschlüsselt mit eurem Schlüssel {value}."
+        ref: key_vault_key
+        required: true
+        depends_on: { question: key_management, equals: customer_managed }
+        per_environment: true
+        why: >
+          The key must exist, the vault must have soft delete and purge protection, and the
+          server's user-assigned identity must hold `Key Vault Crypto Service Encryption
+          User` on it before the server is created - an ordering that bites the first
+          attempt. The Terraform module takes the **versioned** key URL, the Bicep module
+          the key name with `autoRotationEnabled`; rotation reaches the server through the
+          Bicep form without a change here, and through a version bump in the Terraform one.
+        renders: transparent_data_encryption_key_vault_key_id (versioned URL) / customerManagedKey { keyVaultResourceId, keyName, autoRotationEnabled }
+
+      - id: threat_detection
+        ask: Should the server watch for attacks, such as SQL injection and unusual access?
+        type: bool
+        plain:
+          en: "Threat detection on the server is {value}."
+          de: "Die Angriffserkennung am Server ist {value}."
+        plain_values:
+          true: { en: "on", de: "an" }
+          false: { en: "off", de: "aus" }
+        default: true
+        why: >
+          The server-level policy that Microsoft Defender for SQL acts on: it raises alerts
+          for injection attempts, brute force and access from unusual places. Defender
+          itself is a subscription plan and the platform's; the policy here is what binds
+          this server to it, and an alert needs both. Security-shaped, so every stage
+          has it. It costs per server per month once the plan is on.
+        renders: azurerm_mssql_server_security_alert_policy (authored beside the module) / securityAlertPolicies[]
+
+      - id: vulnerability_assessment
+        ask: Should the server scan its databases for misconfigurations?
+        type: bool
+        plain:
+          en: "Scanning the databases for weak configuration is {value}."
+          de: "Das Prüfen der Datenbanken auf schwache Konfiguration ist {value}."
+        plain_values:
+          true: { en: "on", de: "an" }
+          false: { en: "off", de: "aus" }
+        default: true
+        why: >
+          The express configuration scans for missing firewall rules, excessive
+          permissions and unencrypted columns and needs no storage account. The classic
+          configuration needs one, with an identity and a role on it, and is not what this
+          set renders. Needs the Defender plan like the policy above.
+        renders: express_vulnerability_assessment_enabled / vulnerabilityAssessmentsObj (the classic form; the express form is the authored resource `Microsoft.Sql/servers/sqlVulnerabilityAssessments`)
+
+  # ---------------------------------------------------------- data protection
+  - id: data_protection
+    title: Backup and recovery
+    questions:
+      - id: short_term_retention_days
+        ask: How far back must a deletion or a bad write be undoable to the second?
+        type: int
+        plain:
+          en: "The database can be restored to any second of the last {value} days."
+          de: "Die Datenbank lässt sich auf jede Sekunde der letzten {value} Tage zurücksetzen."
+        derived_from:
+          question: data_loss_tolerance
+          map: { reproducible: 7, one_week: 7, one_month: 35, three_months: 35 }
+        why: >
+          Derived from how long a deletion must stay undoable. Point-in-time restore
+          creates a **new** database from the backups of the chosen second; the original
+          is not overwritten. 7 days is the service default and the guardrail default for
+          `one_week`; 35 is the longest there is, so `one_month` and `three_months` take it
+          and `three_months` adds long-term retention for the rest. `reproducible` still
+          gets 7: shorter retention saves almost nothing and a restore is cheap insurance.
+          Retention of a deleted database follows the same number.
+        renders: databases.<key>.short_term_retention_policy.retention_days / databases[].backupShortTermRetentionPolicy.retentionDays
+
+      - id: long_term_retention
+        ask: Must backups be kept beyond that, for weeks or years?
+        type: enum
+        plain:
+          en: "Beyond that, backups are kept {value}."
+          de: "Darüber hinaus werden Backups {value} aufbewahrt."
+        plain_values:
+          none: { en: "not at all", de: "nicht" }
+          three_months: { en: "weekly for three months", de: "wöchentlich für drei Monate" }
+          one_year: { en: "weekly for a year", de: "wöchentlich für ein Jahr" }
+        values: [none, three_months, one_year]
+        derived_from:
+          question: data_loss_tolerance
+          map: { reproducible: none, one_week: none, one_month: none, three_months: three_months }
+        why: >
+          Long-term retention copies a weekly full backup to separate storage and keeps it
+          for up to ten years; it is the answer to `three_months`, which point-in-time
+          restore (35 days at most) cannot reach. `one_year` is not derived - a retention
+          duty longer than the customer's own question is a mandate, and a `mandates` entry
+          names it. A restore from it is also a new database, and the copies are billed per
+          gigabyte for as long as they live.
+        renders: databases.<key>.long_term_retention_policy.weekly_retention (`P13W`, `P52W`) / databases[].backupLongTermRetentionPolicy.weeklyRetention
+
+      - id: backup_storage_redundancy
+        ask: Where are the backups kept?
+        type: enum
+        plain:
+          en: "Backups are kept {value}."
+          de: "Backups liegen {value}."
+        plain_values:
+          Local: { en: "three times in one datacenter", de: "dreifach in einem Rechenzentrum" }
+          Zone: { en: "across the zones of the region", de: "verteilt über die Zonen der Region" }
+          Geo: { en: "in a second region as well", de: "zusätzlich in einer zweiten Region" }
+          GeoZone: { en: "across the zones and in a second region", de: "verteilt über die Zonen und zusätzlich in einer zweiten Region" }
+        values: [Local, Zone, Geo, GeoZone]
+        derived_from:
+          question: outage_impact
+          map: { tolerable: Local, disruptive: Zone, critical: GeoZone }
+        non_production_default: Local
+        forced_when: >
+          `data_residency: country` with a paired region in another country forbids `Geo`
+          and `GeoZone`, recorded as forced with the residency as forced_by (`Zone` instead)
+        why: >
+          Derived like a storage account's replication: zones for `disruptive`, a second
+          region for `critical`. **The portal and the Terraform module default to `Geo`**,
+          which copies the backups to the paired region whether or not anyone asked, and
+          on a database the choice is made at creation: changing it afterwards means a new
+          database. Written on every call. A zone-redundant database wants at least `Zone`.
+        renders: databases.<key>.storage_account_type / databases[].requestedBackupStorageRedundancy
+
+  # ------------------------------------------------------------ observability
+  - id: observability
+    title: Observability
+    questions:
+      - id: diagnostic_workspace
+        ask: Which Log Analytics workspace should receive diagnostics and audit logs?
+        type: ref
+        resolved_by: platform
+        plain:
+          en: "Its logs go to {value}."
+          de: "Seine Logs gehen in {value}."
+        ref: log_analytics_workspace
+        from_deployment: diagnostics_destination
+        per_environment: true
+        why: >
+          Inherited: one deployment, one destination. Without a diagnostic setting the
+          database keeps no record of its errors, deadlocks and timeouts beyond what the
+          portal shows for a short while.
+        renders: diagnostic_settings / diagnosticSettings (on each database, and on `master` for the audit)
+
+      - id: auditing_enabled
+        ask: Should every sign-in and every change of data and schema be recorded?
+        type: bool
+        plain:
+          en: "The audit trail of sign-ins and changes is {value}."
+          de: "Das Audit-Protokoll der Anmeldungen und Änderungen ist {value}."
+        plain_values:
+          true: { en: "kept", de: "geführt" }
+          false: { en: "not kept", de: "nicht geführt" }
+        default: true
+        why: >
+          The server audit records sign-in successes and failures and the batch statements
+          against every database - the only record of who read what. It goes to the
+          workspace as the diagnostic category `SQLSecurityAuditEvents` of the `master`
+          database, which is a diagnostic setting in addition to the audit setting itself;
+          either alone records nothing. A storage destination is for long-term archival
+          and is not rendered. Security-shaped, so every stage has it. The volume has a
+          price in the workspace.
+        renders: azurerm_mssql_server_extended_auditing_policy plus a diagnostic setting on `master` (authored beside the module) / auditSettings { state, isAzureMonitorTargetEnabled } plus a diagnostic setting on `master`
+
+      - id: diagnostic_categories
+        ask: Which database logs should be collected?
+        type: list
+        plain:
+          en: "Logged: {value}."
+          de: "Geloggt wird: {value}."
+        plain_values:
+          Errors: { en: "errors raised by the database", de: "Fehler, die die Datenbank meldet" }
+          Timeouts: { en: "queries that ran into a timeout", de: "Abfragen, die in ein Zeitlimit liefen" }
+          Blocks: { en: "queries waiting on each other's locks", de: "Abfragen, die auf die Sperren anderer warten" }
+          Deadlocks: { en: "queries that blocked each other for good", de: "Abfragen, die sich gegenseitig dauerhaft blockiert haben" }
+          SQLInsights: { en: "performance figures per query for the intelligent insights", de: "Leistungswerte je Abfrage für die intelligenten Einblicke" }
+          QueryStoreRuntimeStatistics: { en: "how long each query ran and how often", de: "wie lange jede Abfrage lief und wie oft" }
+          QueryStoreWaitStatistics: { en: "what each query waited for", de: "worauf jede Abfrage wartete" }
+        values: [Errors, Timeouts, Blocks, Deadlocks, SQLInsights, QueryStoreRuntimeStatistics, QueryStoreWaitStatistics]
+        default: [Errors, Timeouts, Blocks, Deadlocks]
+        why: >
+          The four are the failures an operator needs and are cheap. The three others are
+          for tuning and are the volume lines; they are asked for, not defaulted. The
+          category names are the platform's and are checked against `az monitor
+          diagnostic-settings categories list --resource <database id>` before a render,
+          not remembered.
+        renders: databases.<key>.diagnostic_settings.<key>.log_categories / databases[].diagnosticSettings[].logCategoriesAndGroups[].category
+
+      - id: metrics_enabled
+        ask: Should the usage and performance figures be collected?
+        type: bool
+        plain:
+          en: "Usage and performance figures are {value}."
+          de: "Nutzungs- und Leistungswerte werden {value}."
+        plain_values:
+          true: { en: "collected", de: "erfasst" }
+          false: { en: "not collected", de: "nicht erfasst" }
+        default: true
+        why: >
+          CPU, storage and connection figures decide whether `vcores` was right, and they
+          are cheap. SQL databases do not offer the category `AllMetrics`; the category is
+          `Basic`, and a module default of `AllMetrics` fails the plan.
+        renders: databases.<key>.diagnostic_settings.<key>.metric_categories = ["Basic"] / databases[].diagnosticSettings[].metricCategories[].category = "Basic"

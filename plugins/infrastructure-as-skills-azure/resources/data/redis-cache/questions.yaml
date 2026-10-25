@@ -1,0 +1,505 @@
+schema_version: 1
+
+resource: Microsoft.Cache/redisEnterprise
+title: Azure Managed Redis
+
+naming:
+  terraform: "Azure::Microsoft.Cache/redisEnterprise"
+  bicep: "Microsoft.Cache/redisEnterprise"
+  # Bicep assembles the name from vars - this is the prefix it renders. The name is
+  # global, 1-60 characters, letters, digits and hyphens, and part of the endpoint
+  # <name>.<region>.redis.azure.net.
+  abbreviation: "amr"
+
+boundaries:
+  - "Covers **Azure Managed Redis** (`Microsoft.Cache/redisEnterprise`, one cluster with its single database `default`), the successor of Azure Cache for Redis. Azure Cache for Redis (`Microsoft.Cache/redis`: Basic, Standard, Premium) and Azure Cache for Redis Enterprise are on a retirement path and have no question set; a repository that already renders them keeps them, and `notes.md` says which AVM module and which inputs differ."
+  - "Does not create the resource group. Expects one from the spec's context."
+  - "Does not create private DNS zones - shared infrastructure, owned by a pattern or the platform."
+  - "Does not create the Log Analytics workspace it routes diagnostics to."
+  - "Does not create the Key Vault or the key a customer-managed key points at, nor the identity that unwraps it - those are the security family's."
+  - "Does not create a second cluster for active geo-replication; the decision is recorded and a replica is a second instance of this set."
+  - "Does not tune the cache: the maximum memory policy beyond `eviction_policy`, client output buffers, keyspace notifications and the Redis modules' own settings are application concerns."
+  - "Redis is not a system of record. Persistence is a restart-survival feature, not a backup, and `backup_isolation` has nothing to attach to here."
+
+groups:
+
+  # ---------------------------------------------------------------- placement
+  - id: placement
+    title: Placement
+    questions:
+      - id: environments
+        ask: Which stages is this deployed to?
+        type: list
+        plain:
+          en: "Deployed in the stages {value}."
+          de: "Wird in den Stufen {value} ausgerollt."
+        values: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
+        required: true
+        from_context: true
+        why: >
+          Drives the rendered name and the strictness of several defaults below.
+          Nothing sensible can be guessed.
+        renders: naming parameter `environment`, and the tag of that name where the repository uses one
+
+      - id: location
+        ask: Which Azure region?
+        type: string
+        plain:
+          en: "Runs in the Azure region {value}."
+          de: "Läuft in der Azure-Region {value}."
+        required: true
+        from_context: true
+        why: >
+          The cluster lives in one region and the region is part of the rendered name and
+          the endpoint. Azure Managed Redis is not offered in every region, nor every size in
+          every region, and zones differ; the region is checked against the service's
+          availability before a render, not assumed.
+        renders: location
+
+      - id: resource_group_name
+        ask: Which resource group?
+        type: ref
+        plain:
+          en: "Placed in the resource group {value}."
+          de: "Liegt in der Ressourcengruppe {value}."
+        ref: resource_group
+        required: true
+        from_context: true
+        per_environment: true
+        why: >
+          The cluster is placed into an existing group. Creating one here would make this
+          set own a lifecycle wider than the resource it describes.
+        renders: parent_id (the resource group's id; AVM Terraform, azapi-based) / implicit in Bicep scope
+
+  # -------------------------------------------------------------------- cache
+  - id: cache
+    title: Cache and capacity
+    questions:
+      - id: sku_name
+        ask: How much memory, and tuned for what?
+        type: string
+        plain:
+          en: "The cache has the size {value}."
+          de: "Der Cache hat die Größe {value}."
+        default: Balanced_B1
+        non_production_default: Balanced_B0
+        confirm_in: [production]
+        why: >
+          The name carries two decisions: the tuning (`Balanced`, `MemoryOptimized` for more
+          memory per core - from `M10` up, `ComputeOptimized` for more cores per gigabyte,
+          from `X3`, `FlashOptimized` for a large dataset on cheaper storage) and the memory
+          (`B0` 0.5 GB, `B1` 1 GB, `B3`, `B5`, `B10`, ...). The `Enterprise_*` names are the
+          older Redis Enterprise SKUs and are not offered. The data set decides the memory and the plugin cannot
+          guess it: 1 GB is a modest start whose size is raised in place by scaling up, with
+          a short disruption, and a cache too small shows as evictions - a visible,
+          fixable signal. Do not take the largest to be safe: the cost of a number that is
+          too high is paid every hour. A cost knob, which is the only reason a stage may
+          differ - a development stage on the smallest does not rehearse the throughput
+          of the production one. Sizes and tunings are not offered in every region.
+        renders: sku_name / skuName
+
+      - id: clustering_policy
+        ask: Which kind of client connection does the application use?
+        type: enum
+        plain:
+          en: "The cache is addressed {value}."
+          de: "Der Cache wird {value} angesprochen."
+        plain_values:
+          EnterpriseCluster: { en: "as one endpoint, however many shards sit behind it - works with every client", de: "als ein Endpunkt, egal wie viele Shards dahinter liegen - funktioniert mit jedem Client" }
+          OSSCluster: { en: "with the open-source cluster protocol, for the best throughput, with a cluster-aware client", de: "mit dem Open-Source-Cluster-Protokoll, für den besten Durchsatz, mit einem clusterfähigen Client" }
+          NoCluster: { en: "as one unsharded server, at most 25 GB, for applications that cannot talk to a cluster", de: "als ein einzelner Server ohne Sharding, höchstens 25 GB, für Anwendungen ohne Cluster-Unterstützung" }
+        values: [EnterpriseCluster, OSSCluster, NoCluster]
+        default: EnterpriseCluster
+        why: >
+          **Fixed when the database is created** - changing it is a new cache and a data
+          migration. `EnterpriseCluster` is the safe default: the application sees one
+          server and a client written for a single Redis keeps working, at a small
+          throughput cost from the proxy. `OSSCluster` removes the proxy and needs a client
+          that follows `MOVED` redirects, and every key in a multi-key command must hash to
+          one slot. `NoCluster` is the single-server shape for software that cannot be
+          changed, and it cannot use the RediSearch module. **The Terraform module offers
+          `NoEviction` where the API says `NoCluster`**, so that value is rendered by the
+          authored form on that target.
+        renders: clustering_policy / database.clusteringPolicy
+
+      - id: eviction_policy
+        ask: What should the cache do when it is full?
+        type: enum
+        plain:
+          en: "When the cache is full, it {value}."
+          de: "Ist der Cache voll, {value}."
+        plain_values:
+          AllKeysLRU: { en: "drops the entries used least recently", de: "wirft er die am längsten ungenutzten Einträge weg" }
+          AllKeysLFU: { en: "drops the entries used least often", de: "wirft er die am seltensten genutzten Einträge weg" }
+          AllKeysRandom: { en: "drops entries at random", de: "wirft er zufällige Einträge weg" }
+          VolatileLRU: { en: "drops the least recently used among entries that have an expiry time", de: "wirft er die am längsten ungenutzten unter den Einträgen mit Ablaufzeit weg" }
+          VolatileLFU: { en: "drops the least often used among entries that have an expiry time", de: "wirft er die am seltensten genutzten unter den Einträgen mit Ablaufzeit weg" }
+          VolatileRandom: { en: "drops entries with an expiry time at random", de: "wirft er zufällige Einträge mit Ablaufzeit weg" }
+          VolatileTTL: { en: "drops the entries closest to their expiry time", de: "wirft er die Einträge kurz vor dem Ablauf weg" }
+          NoEviction: { en: "refuses new writes with an error and drops nothing", de: "lehnt er neue Schreibvorgänge mit einem Fehler ab und wirft nichts weg" }
+        values: [AllKeysLRU, AllKeysLFU, AllKeysRandom, VolatileLRU, VolatileLFU, VolatileRandom, VolatileTTL, NoEviction]
+        default: AllKeysLRU
+        why: >
+          For a cache the right behaviour is to forget the old: `AllKeysLRU` keeps the hot
+          set and never turns a full cache into an outage. `NoEviction` is for Redis used as
+          a queue or a store whose entries must not vanish, and then a full cache is an
+          error the application must handle; the `Volatile` policies drop only keys that
+          have an expiry, and behave like `NoEviction` for the rest. A changeable setting,
+          but the application is written for one of them. The Terraform module's
+          validation does not accept the two LFU values.
+        renders: eviction_policy / database.evictionPolicy
+
+      - id: redis_modules
+        ask: Which Redis modules does the application use?
+        type: list
+        plain:
+          en: "Extra capabilities enabled on the cache: {value} (empty: none)."
+          de: "Zusätzliche Fähigkeiten im Cache: {value} (leer: keine)."
+        default: []
+        why: >
+          RediSearch (search and vector queries), RedisJSON, RedisBloom and RedisTimeSeries
+          are loaded **when the database is created and cannot be added or removed
+          afterwards**; a missing one is a new cache. Empty until an application names one.
+          RediSearch needs `EnterpriseCluster` or `OSSCluster` and an eviction policy of
+          `NoEviction`.
+        renders: redis_modules [{ name, args }] / database.modules
+
+  # --------------------------------------------------------------- resilience
+  - id: resilience
+    title: Resilience
+    questions:
+      - id: high_availability
+        ask: Should a replica take over by itself if a node fails?
+        type: bool
+        plain:
+          en: "If a node fails, {value}."
+          de: "Fällt ein Knoten aus, {value}."
+        plain_values:
+          true: { en: "a replica takes over, within moments, and the data survives", de: "übernimmt ein Replikat in Sekunden, und die Daten bleiben erhalten" }
+          false: { en: "the cache is gone until the node is replaced, and its content with it", de: "ist der Cache weg, bis der Knoten ersetzt ist, und sein Inhalt mit ihm" }
+        derived_from:
+          question: outage_impact
+          map: { tolerable: false, disruptive: true, critical: true }
+        confirm_in: [production]
+        non_production_default: false
+        why: >
+          Derived from how bad an outage is. High availability keeps a replica of every
+          shard on a second node, **at about twice the memory price**. Without it a node
+          failure empties the cache, and an application that treats the cache as optional
+          carries on slowly while a cold cache rebuilds; one that does not, stops. The
+          derivation is production's; the non-production stages take `false` while
+          non_production_savings is enabled. **The Bicep module defaults to `'Enabled'`;
+          the Terraform module leaves it to the API**, so the answer is written on every call.
+          Where the region has availability zones the service places the nodes of a
+          highly available Managed Redis cluster in different zones itself: there is no zone
+          decision to take, and the module's `zones` input applies to the Enterprise SKUs
+          only.
+        renders: high_availability / highAvailability ('Enabled' / 'Disabled')
+
+      - id: geo_replicas
+        ask: In which further regions should the cache be kept?
+        type: list
+        plain:
+          en: "The cache is also kept in {value} (empty: only in the main region)."
+          de: "Der Cache liegt zusätzlich in {value} (leer: nur in der Hauptregion)."
+        default: []
+        per_environment: true
+        why: >
+          Active geo-replication links caches in several regions so that each can be written
+          and read locally; it is a second cluster of the same size and a doubled bill, so it
+          is not defaulted. `critical` from the deployment's `outage_impact` means the
+          customer wants one: with no region named, the decision is an `open:` entry owned by
+          the workload owner, and not a silent single region. Redis is a cache first: the
+          replica is a warm copy, not a backup.
+        forced_when: >
+          `outage_impact: critical` requires at least one entry here, or an `open:` entry;
+          every region named must satisfy `data_residency` (`country`: the same country,
+          `data_zone`: the same data zone), and a region that does not is refused with the
+          residency as the reason
+        renders: a second instance of this set per region and azurerm_managed_redis_geo_replication / database.geoReplication { groupNickname, linkedDatabases } (the AVM Terraform module does not render it)
+
+  # --------------------------------------------------------------- networking
+  - id: networking
+    title: Networking
+    questions:
+      - id: public_network_access
+        ask: Should this cache depart from the deployment's exposure posture?
+        type: enum
+        plain:
+          en: "The cache is {value}."
+          de: "Der Cache ist {value}."
+        plain_values:
+          disabled: { en: "not reachable from the internet at all", de: "aus dem Internet überhaupt nicht erreichbar" }
+          enabled_with_firewall: { en: "reachable from the internet, with sign-in as the only gate", de: "aus dem Internet erreichbar, mit der Anmeldung als einziger Schranke" }
+          enabled: { en: "reachable from the internet", de: "aus dem Internet erreichbar" }
+        values: [disabled, enabled_with_firewall, enabled]
+        from_deployment: network_exposure
+        confirm_in: [production]
+        why: >
+          Asked only as a departure: exposure is a property of the system. `private` is
+          `disabled`. **Azure Managed Redis has no IP allowlist**: public access is on or
+          off, so `enabled_with_firewall` cannot be rendered as a firewall and is recorded
+          as `enabled` with `overridden` and the reason, so the person who reads the spec
+          sees that the only gate left is sign-in and TLS. Both AVM modules default to
+          disabled; written anyway. With `disabled` the cache answers only through its
+          private endpoint.
+        forced_when: >
+          `network_ownership: none` (a public deployment without a network) forces
+          `enabled`, recorded as forced with `network_ownership` as forced_by; and
+          `enabled_with_firewall` is rendered `enabled`, recorded `overridden`
+        renders: public_network_access ("Enabled" / "Disabled") / publicNetworkAccess
+
+      - id: private_endpoint_subnet
+        ask: Which subnet should this cache's private endpoint live in?
+        type: ref
+        resolved_by: platform
+        plain:
+          en: "Its private connection lands in subnet {value}."
+          de: "Seine private Anbindung landet im Subnetz {value}."
+        ref: subnet
+        from_deployment: private_endpoint_subnet
+        per_environment: true
+        why: >
+          One subnet carries the deployment's private endpoints, so this is inherited. The
+          sub-resource is `redisEnterprise` and the zone `privatelink.redis.azure.net`; the
+          endpoint is on the cluster, and the database `default` is reached through it. The
+          cluster has no virtual-network injection.
+        renders: private_endpoints.<key>.subnet_resource_id / privateEndpoints[].subnetResourceId (service `redisEnterprise`)
+
+  # ----------------------------------------------------------------- identity
+  - id: identity
+    title: Identity and access
+    questions:
+      - id: managed_identity
+        ask: Which managed identity should the cache carry?
+        type: enum
+        plain:
+          en: "The cache has {value}."
+          de: "Der Cache hat {value}."
+        plain_values:
+          none: { en: "no identity of its own", de: "keine eigene Identität" }
+          user_assigned: { en: "a separately managed identity", de: "eine separat verwaltete Identität" }
+        values: [none, user_assigned]
+        default: none
+        why: >
+          The cache's identity is used for one thing: reaching a Key Vault for a
+          customer-managed key. Clients reach the cache with their own identities, not the
+          cache's, so a cache without a customer-managed key carries none. The identity must
+          hold its role on the key before the cache is created, which is why it is
+          user-assigned and not system-assigned (the Bicep module offers no other).
+        forced_when: >
+          `key_management: customer_managed` forces `user_assigned`, recorded as forced
+          with `key_management` as forced_by
+        renders: managed_identities / managedIdentities
+
+      - id: user_assigned_identity_ids
+        ask: Which user-assigned identity?
+        type: list
+        plain:
+          en: "It uses the identity {value}."
+          de: "Es nutzt die Identität {value}."
+        ref: user_assigned_identity
+        required: true
+        depends_on: { question: managed_identity, equals: user_assigned }
+        per_environment: true
+        why: The identity must already exist; this set does not create it.
+        renders: managed_identities.user_assigned_resource_ids / managedIdentities.userAssignedResourceIds
+
+      - id: data_access_assignments
+        ask: Who needs to read or write the cache?
+        type: list
+        plain:
+          en: "Access to the data in the cache granted to: {value}."
+          de: "Zugriff auf die Daten im Cache vergeben an: {value}."
+        default: []
+        per_environment: true
+        why: >
+          **Redis' data access is its own system**, separate from Azure RBAC: an Entra
+          identity reads and writes only when it is assigned the database's **access policy**,
+          and Azure Managed Redis has one, `default`, which grants full access. An Azure
+          `Owner` reads not a single key. With access keys off, nothing reads the cache
+          until an identity is assigned, so an empty list is a working cache nobody can use
+          and not an answer: with no consumer named, the decision is an `open:` entry owned
+          by the workload owner, blocking apply. The object id is the identity's (a managed
+          identity's principal id, a group's object id). A pattern fills this from the
+          consumers it knows.
+        renders: access_policy_assignments { object_id, access_policy_name = "default" } / database.accessPolicyAssignments [{ userObjectId, accessPolicyName }]
+
+      - id: role_assignments
+        ask: Who may manage the cache itself?
+        type: list
+        plain:
+          en: "Management rights on the cache granted to: {value}."
+          de: "Verwaltungsrechte am Cache vergeben an: {value}."
+        default: []
+        per_environment: true
+        why: >
+          Azure RBAC on the cluster - the control plane: scaling, changing persistence,
+          reading the access keys if they were enabled. Separate from the data access
+          above on purpose, and usually the deploying principal's alone, so empty is a
+          normal answer.
+        renders: role_assignments / roleAssignments
+
+  # ----------------------------------------------------------------- security
+  - id: security
+    title: Security
+    questions:
+      - id: access_keys_authentication_disabled
+        ask: May clients sign in with the access keys?
+        type: bool
+        plain:
+          en: "Signing in with an access key is {value}; access goes through company accounts."
+          de: "Die Anmeldung mit Zugriffsschlüssel ist {value}; der Zugriff läuft über Firmenkonten."
+        plain_values:
+          true: { en: "switched off", de: "abgeschaltet" }
+          false: { en: "possible", de: "möglich" }
+        from_deployment: local_auth
+        confirm_in: [production]
+        why: >
+          Inherited: `local_auth: disabled` renders as access-key authentication disabled.
+          An access key is a password that every client shares, does not expire and is not
+          attributable. Clients then sign in with an Entra token, which expires after an
+          hour and needs a client library that refreshes it. **Neither the Terraform module
+          nor the API default is written for you**: the module has no input for the
+          database's `accessKeysAuthentication`, so the Terraform render sets it with an
+          update beside the module.
+        renders: azapi_update_resource accessKeysAuthentication = "Disabled" on the database (no module input) / database.accessKeysAuthentication
+
+      - id: encrypted_connections_only
+        ask: Must every connection be encrypted?
+        type: bool
+        plain:
+          en: "Connections are {value}."
+          de: "Verbindungen sind {value}."
+        plain_values:
+          true: { en: "encrypted only - the plain port is closed", de: "nur verschlüsselt - der unverschlüsselte Port ist geschlossen" }
+          false: { en: "also possible without encryption", de: "auch unverschlüsselt möglich" }
+        default: true
+        why: >
+          Encryption in transit is not negotiable (guardrail 4): the plain port 6379 stays
+          closed and the minimum TLS version is 1.2 - the only version the service accepts,
+          so there is no version question. A client that cannot do TLS is replaced, not
+          accommodated. The question exists because the modules expose the switch and
+          the departure must be recorded where someone makes it.
+        renders: enable_non_ssl_port = false, minimum_tls_version = "1.2" / database.clientProtocol = 'Encrypted', minimumTlsVersion = '1.2'
+
+      - id: key_management
+        ask: Are the cache's encryption keys platform-managed or customer-managed?
+        type: enum
+        plain:
+          en: "Encryption keys are {value}."
+          de: "Verschlüsselungsschlüssel sind {value}."
+        plain_values:
+          platform_managed: { en: "managed by Azure - encrypted, rotated, no effort on your side", de: "von Azure verwaltet: verschlüsselt, rotiert, kein Aufwand bei euch" }
+          customer_managed: { en: "your own, held in your key vault, so you can revoke them", de: "eure eigenen in eurem Schlüsseltresor, damit ihr sie zurückziehen könnt" }
+        values: [platform_managed, customer_managed]
+        from_deployment: key_management
+        confirm_in: [production]
+        why: >
+          Inherited. Data in memory and in persistence is encrypted at rest with a
+          platform-managed key either way; `customer_managed` adds a key of the customer's
+          in a Key Vault with purge protection, an identity that can wrap and unwrap it, and
+          a rotation story. **It is set at creation**, and a cache that loses access to the
+          key becomes unreadable.
+        renders: customer_managed_key_encryption / customerManagedKey
+
+      - id: cmk_key_vault_key_id
+        ask: Which Key Vault key should encrypt the cache?
+        type: ref
+        plain:
+          en: "Encrypted with your key {value}."
+          de: "Verschlüsselt mit eurem Schlüssel {value}."
+        ref: key_vault_key
+        required: true
+        depends_on: { question: key_management, equals: customer_managed }
+        per_environment: true
+        why: >
+          The key must exist, the vault must have soft delete and purge protection, and the
+          cache's user-assigned identity must hold `Key Vault Crypto Service Encryption
+          User` on it before the cache is created - an ordering that bites the first
+          attempt. The Terraform module takes the key URL (`key_encryption_key_url`), the
+          Bicep module the vault, the key name and the identity.
+        renders: customer_managed_key_encryption { key_encryption_key_url, identity_type, user_assigned_identity_resource_id } / customerManagedKey { keyVaultResourceId, keyName, userAssignedIdentityResourceId }
+
+  # ---------------------------------------------------------- data protection
+  - id: data_protection
+    title: Persistence
+    questions:
+      - id: persistence
+        ask: Must the cache's content survive a restart or a failure of all its nodes?
+        type: enum
+        plain:
+          en: "The cache's content {value}."
+          de: "Der Inhalt des Caches {value}."
+        plain_values:
+          disabled: { en: "is lost if all nodes go down - it is rebuilt from its source", de: "geht verloren, wenn alle Knoten ausfallen - er wird aus seiner Quelle neu aufgebaut" }
+          rdb_12h: { en: "is saved as a snapshot every twelve hours", de: "wird alle zwölf Stunden als Schnappschuss gesichert" }
+          rdb_6h: { en: "is saved as a snapshot every six hours", de: "wird alle sechs Stunden als Schnappschuss gesichert" }
+          rdb_1h: { en: "is saved as a snapshot every hour", de: "wird stündlich als Schnappschuss gesichert" }
+          aof_1s: { en: "is saved by writing every change, at most a second behind", de: "wird durch Mitschreiben jeder Änderung gesichert, höchstens eine Sekunde im Rückstand" }
+        values: [disabled, rdb_12h, rdb_6h, rdb_1h, aof_1s]
+        default: disabled
+        why: >
+          A cache holds a copy of data that lives elsewhere, so the default is that nothing
+          is saved: the content is rebuilt, and no storage and no write latency is spent on
+          it. Redis used as a primary store (sessions that must survive, a queue, a
+          leaderboard) says so, and then the loss it can take is the interval: a snapshot
+          loses up to its period, the append-only file up to a second, at a write-latency
+          price. **It is not a backup** - it lives with the cache, is lost with it and cannot
+          go back to an earlier day - so neither `data_loss_tolerance` nor `backup_isolation`
+          derives it; both are named in the decision document as not met by a cache. The
+          Terraform module has no input for it: the render sets it with an update beside the
+          module.
+        renders: azapi_update_resource persistence { rdbEnabled, rdbFrequency } or { aofEnabled, aofFrequency } on the database (no module input) / database.persistence { type, frequency }
+
+  # ------------------------------------------------------------ observability
+  - id: observability
+    title: Observability
+    questions:
+      - id: diagnostic_workspace
+        ask: Which Log Analytics workspace should receive diagnostics?
+        type: ref
+        resolved_by: platform
+        plain:
+          en: "Its logs go to {value}."
+          de: "Seine Logs gehen in {value}."
+        ref: log_analytics_workspace
+        from_deployment: diagnostics_destination
+        per_environment: true
+        why: >
+          Inherited: one deployment, one destination. Without a diagnostic setting the cache
+          keeps no record of who connected, and a client that fails to sign in leaves no
+          trace beyond its own log. The setting sits on the database, not the cluster.
+        renders: diagnostic_settings (an authored `azurerm_monitor_diagnostic_setting` in Terraform, the module has none) / database.diagnosticSettings
+
+      - id: diagnostic_categories
+        ask: Which log categories should be collected?
+        type: list
+        plain:
+          en: "Logged: {value}."
+          de: "Geloggt wird: {value}."
+        plain_values:
+          ConnectionEvents: { en: "who connected, from where, and who failed to", de: "wer sich verbunden hat, von wo, und wem es misslang" }
+        values: [ConnectionEvents]
+        default: [ConnectionEvents]
+        why: >
+          The one log category of the service, and the only record of connections and failed
+          authentication; it is cheap. The category name is the platform's and is checked
+          against `az monitor diagnostic-settings categories list --resource <database id>`
+          before a render, not remembered.
+        renders: diagnostic_settings.<key>.enabled_log.category / database.diagnosticSettings[].logCategoriesAndGroups[].category
+
+      - id: metrics_enabled
+        ask: Should all metrics be collected?
+        type: bool
+        plain:
+          en: "Usage and performance figures are {value}."
+          de: "Nutzungs- und Leistungswerte werden {value}."
+        plain_values:
+          true: { en: "collected", de: "erfasst" }
+          false: { en: "not collected", de: "nicht erfasst" }
+        default: true
+        why: >
+          Used memory, the evicted-key counter, the hit ratio and the server load decide
+          whether `sku_name` was right, and they are cheap.
+        renders: diagnostic_settings.<key>.metric.category = "AllMetrics" / diagnosticSettings[].metricCategories[].category = "AllMetrics" (on the cluster)

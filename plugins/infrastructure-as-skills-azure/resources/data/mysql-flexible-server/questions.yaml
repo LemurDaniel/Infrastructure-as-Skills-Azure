@@ -1,0 +1,676 @@
+schema_version: 1
+
+resource: Microsoft.DBforMySQL/flexibleServers
+title: Azure Database for MySQL - Flexible Server
+
+naming:
+  terraform: "Azure::Microsoft.DBforMySQL/flexibleServers"
+  bicep: "Microsoft.DBforMySQL/flexibleServers"
+  # Bicep assembles the name from vars - this is the prefix it renders. The name is
+  # global, lowercase, 3-63 characters, and part of the endpoint <name>.mysql.database.azure.com.
+  abbreviation: "mysql"
+
+boundaries:
+  - "Covers the Flexible Server deployment of Azure Database for MySQL. The retired Single Server (`Microsoft.DBforMySQL/servers`) and MariaDB decide differently and have no question set."
+  - "Does not create the resource group. Expects one from the spec's context."
+  - "Does not create private DNS zones - shared infrastructure, owned by a pattern or the platform."
+  - "Does not create the virtual network or the delegated subnet a VNet-integrated server lives in; it takes them from the network family."
+  - "Does not create the Log Analytics workspace it routes diagnostics to."
+  - "Does not create the Key Vault or the key a customer-managed key points at, nor the identity that unwraps it - those are the security family's. The user-assigned identity is created elsewhere too, and is always needed here: Entra authentication runs through it."
+  - "Does not enable Microsoft Defender for open-source relational databases as a subscription plan: that is subscription-wide and the platform's."
+  - "Does not create database users or grant privileges: that is SQL, not Azure Resource Manager. Entra users are recorded as a decision and created by a step after the deployment."
+  - "Does not render read replicas, data-in replication, import from Single Server, custom ports, or tuning of server parameters beyond the ones named in the questions - each carries decisions of its own."
+
+groups:
+
+  # ---------------------------------------------------------------- placement
+  - id: placement
+    title: Placement
+    questions:
+      - id: environments
+        ask: Which stages is this deployed to?
+        type: list
+        plain:
+          en: "Deployed in the stages {value}."
+          de: "Wird in den Stufen {value} ausgerollt."
+        values: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
+        required: true
+        from_context: true
+        why: >
+          Drives the rendered name and the strictness of several defaults below.
+          Nothing sensible can be guessed.
+        renders: naming parameter `environment`, and the tag of that name where the repository uses one
+
+      - id: location
+        ask: Which Azure region?
+        type: string
+        plain:
+          en: "Runs in the Azure region {value}."
+          de: "Läuft in der Azure-Region {value}."
+        required: true
+        from_context: true
+        why: >
+          The server lives in one region and the region is part of the rendered name.
+          Zone-redundant high availability is not offered in every region, and a region
+          short of capacity for a compute size can refuse a new server.
+        renders: location
+
+      - id: resource_group_name
+        ask: Which resource group?
+        type: ref
+        plain:
+          en: "Placed in the resource group {value}."
+          de: "Liegt in der Ressourcengruppe {value}."
+        ref: resource_group
+        required: true
+        from_context: true
+        per_environment: true
+        why: >
+          The server is placed into an existing group. Creating one here would make this
+          set own a lifecycle wider than the resource it describes.
+        renders: resource_group_name (AVM Terraform, azurerm-based) / implicit in Bicep scope
+
+  # ------------------------------------------------------------------- server
+  - id: server
+    title: Server and compute
+    questions:
+      - id: mysql_version
+        ask: Which MySQL version?
+        type: enum
+        plain:
+          en: "The server runs MySQL {value}."
+          de: "Der Server läuft mit MySQL {value}."
+        values: ["8.0.21", "8.4", "9.3"]
+        default: "8.4"
+        why: >
+          8.4 is the current long-term-support release of MySQL and the one with the longest
+          community and service support. 8.0 reached the end of community support in 2026
+          and is offered for existing applications only; 9.x are short-lived innovation
+          releases that are right for a team that upgrades each time. 5.7 is out of
+          support and not offered. An application written for an older one says so. The
+          version offered depends on the region and is checked with `az mysql flexible-server
+          list-skus` before a render, not remembered. A major upgrade (5.7 to 8.0) is in
+          place and one-way.
+        renders: mysql_version / version
+
+      - id: compute_tier
+        ask: Is the compute a burstable one, a balanced one or one with extra memory?
+        type: enum
+        plain:
+          en: "The compute is {value}."
+          de: "Die Rechenleistung ist {value}."
+        plain_values:
+          burstable: { en: "burstable - cheap, for a load that is mostly idle, without high availability", de: "burstfähig: günstig, für meist ungenutzte Last, ohne Hochverfügbarkeit" }
+          general_purpose: { en: "balanced - steady capacity, the usual choice for business applications", de: "ausgewogen: gleichbleibende Kapazität, die übliche Wahl für Geschäftsanwendungen" }
+          memory_optimized: { en: "with extra memory for each core, for large working sets", de: "mit zusätzlichem Speicher je Kern für große Arbeitsmengen" }
+        values: [burstable, general_purpose, memory_optimized]
+        default: general_purpose
+        non_production_default: burstable
+        confirm_in: [production]
+        why: >
+          Burstable cores accrue credits while idle and run out of them under steady load,
+          which makes a production database slow in a way that looks like a bug; they also
+          offer no high availability. General Purpose is the floor for a system that is
+          used. A cost knob, which is the only reason a stage may differ - but a
+          development stage on burstable does not rehearse the performance or the failover
+          of the production one, which is the price of the saving. The tier must agree with
+          the size name.
+        forced_when: >
+          `burstable` forces `high_availability: disabled`, recorded as forced with
+          `compute_tier` as forced_by
+        renders: sku_name prefix `B_`, `GP_`, `MO_` / tier
+
+      - id: sku_name
+        ask: Which compute size?
+        type: string
+        plain:
+          en: "The compute size is {value}."
+          de: "Die Rechengröße ist {value}."
+        default: Standard_D2ds_v4
+        non_production_default: Standard_B2s
+        why: >
+          Two cores is the smallest General Purpose size and the lowest cost; a server that
+          needs more says so by high CPU and refused connections, and resizing is an
+          in-place change with a restart. Starting low is deliberate: the cost of a number
+          that is too high is paid every hour, the cost of one that is too low is a visible,
+          fixable signal. The size must belong to `compute_tier` and be offered in the
+          region; both are checked, not assumed. The Terraform module takes the tier as a
+          prefix of the name (`GP_Standard_D2ds_v4`), the Bicep one as a separate `tier`.
+        renders: sku_name / skuName and tier
+
+      - id: storage_size_gb
+        ask: How much storage should the server start with?
+        type: int
+        plain:
+          en: "The server starts with {value} GB of storage."
+          de: "Der Server startet mit {value} GB Speicher."
+        default: 64
+        why: >
+          **Storage only grows**: it cannot be reduced afterwards, so a number that is too
+          high is paid for as long as the server lives, while a number that is too low is
+          raised in place. 64 GB is the module default and gives the baseline IOPS of a
+          small system; only the sizes the service lists are valid (20, 32, 64, 128, 256 ...
+          16384). Disk speed scales with size unless IOPS scaling is turned on.
+        renders: storage { size_gb } / storageSizeGB
+
+      - id: storage_auto_grow
+        ask: Should the storage grow by itself when it fills up?
+        type: bool
+        plain:
+          en: "Storage {value} when it fills up."
+          de: "Der Speicher {value}, wenn er sich füllt."
+        plain_values:
+          true: { en: "grows by itself", de: "wächst selbst" }
+          false: { en: "stays as it is, and the server turns read-only", de: "bleibt gleich, und der Server wird schreibgeschützt" }
+        default: true
+        why: >
+          A full disk makes the server read-only until someone enlarges it, which is an
+          outage with a manual fix at the worst moment. Auto-grow trades that for a bill
+          that grows with the data - and, because storage never shrinks, one that stays
+          grown. The Bicep module defaults to `Disabled`, so the answer is written on every
+          call. On, with the monitoring of storage use as the alert.
+        renders: storage { auto_grow_enabled } / storageAutoGrow
+
+      - id: databases
+        ask: Which databases should the server hold?
+        type: list
+        plain:
+          en: "The server holds the databases {value}."
+          de: "Der Server enthält die Datenbanken {value}."
+        required: true
+        why: >
+          Only the application knows its databases, so there is no default: with no answer
+          the decision is an `open:` entry owned by the workload owner, blocking apply.
+          The character set is `utf8mb4` and the collation `utf8mb4_0900_ai_ci` unless the
+          application names another - both are fixed when a database is created.
+        renders: databases.<key> (name, charset, collation) / databases[]
+
+  # --------------------------------------------------------------- resilience
+  - id: resilience
+    title: Resilience
+    questions:
+      - id: high_availability
+        ask: Should a standby copy take over by itself if the server fails?
+        type: enum
+        plain:
+          en: "If the server fails, {value}."
+          de: "Fällt der Server aus, {value}."
+        plain_values:
+          disabled: { en: "it is restored from backup, which takes time and loses the latest changes", de: "wird er aus dem Backup wiederhergestellt, das dauert und verliert die letzten Änderungen" }
+          same_zone: { en: "a standby in the same datacenter takes over", de: "übernimmt eine Reserve im selben Rechenzentrum" }
+          zone_redundant: { en: "a standby in another datacenter of the region takes over, with no loss of committed data", de: "übernimmt eine Reserve in einem anderen Rechenzentrum der Region, ohne Verlust bestätigter Daten" }
+        values: [disabled, same_zone, zone_redundant]
+        derived_from:
+          question: outage_impact
+          map: { tolerable: disabled, disruptive: zone_redundant, critical: zone_redundant }
+        confirm_in: [production]
+        non_production_default: disabled
+        why: >
+          Derived from how bad an outage is. High availability runs a second server with
+          its own compute and storage and replicates synchronously: it **doubles the
+          compute and storage price**, and in exchange a failure is a failover of one to two
+          minutes instead of a restore. Zone-redundant is the guardrail floor for anything
+          that is not scratch data; same-zone survives a server fault but not a datacenter
+          one, so the derivation does not offer it. It is not available on burstable
+          compute or in every region. A second region is not part of it: read replicas and
+          geo-restore are, and `critical` means a decision about a geo-replica that this
+          set records as an `open:` entry, not a silent single region. The derivation is
+          production's; the non-production stages take `disabled` while
+          non_production_savings is enabled.
+        forced_when: >
+          `compute_tier: burstable` forces `disabled`, recorded as forced with
+          `compute_tier` as forced_by; `outage_impact: critical` also requires an `open:`
+          entry for a geo-replica region, which must satisfy `data_residency`
+        renders: high_availability { mode } / highAvailability
+
+      - id: maintenance_window
+        ask: When may the server restart for maintenance?
+        type: string
+        plain:
+          en: "Planned maintenance happens {value}."
+          de: "Geplante Wartung findet {value} statt."
+        default: "Sunday 02:00 UTC"
+        why: >
+          Patching restarts the server, with a brief downtime that a standby shortens but
+          does not remove. The platform picks a time of its own unless one is set (the
+          Bicep module's default is empty, the Terraform one's day 0 at 00:00); a weekly
+          slot in the small hours of a weekend is the least harmful guess. A customer with
+          a business pattern says so.
+        renders: maintenance_window { day_of_week, start_hour, start_minute } / maintenanceWindow { customWindow, dayOfWeek, startHour, startMinute }
+
+  # --------------------------------------------------------------- networking
+  - id: networking
+    title: Networking
+    questions:
+      - id: private_connectivity
+        ask: How should the server be reached privately?
+        type: enum
+        plain:
+          en: "The server is reached {value}."
+          de: "Der Server wird {value} erreicht."
+        plain_values:
+          private_endpoint: { en: "through a private endpoint in a subnet of the network, and no public address is reachable", de: "über einen privaten Endpunkt in einem Subnetz des Netzes, und keine öffentliche Adresse ist erreichbar" }
+          vnet_integration: { en: "from inside a subnet of its own that belongs to the server, with no public address at all", de: "aus einem eigenen Subnetz, das dem Server gehört, ganz ohne öffentliche Adresse" }
+        values: [private_endpoint, vnet_integration]
+        default: private_endpoint
+        depends_on: { question: public_network_access, equals: disabled }
+        confirm_in: [production]
+        why: >
+          **Fixed when the server is created**: a server with public access and a private
+          endpoint cannot become a VNet-integrated one or the other way round - the
+          documented way is a point-in-time restore into a new server. The private
+          endpoint is the default because it is the deployment's one pattern for every
+          service - the same subnet, the same DNS handling, the same policy - and works
+          with peered networks and several consumers. VNet integration needs a subnet
+          delegated to the server alone and a private DNS zone linked to the network, and
+          allows no public access and no private endpoint later. Choose it where a platform
+          standard demands it.
+        renders: private_endpoints (and no delegated_subnet_id) / privateEndpoints; or delegated_subnet_id and private_dns_zone_id / delegatedSubnetResourceId and privateDnsZoneResourceId
+
+      - id: public_network_access
+        ask: Should this server depart from the deployment's exposure posture?
+        type: enum
+        plain:
+          en: "The server is {value}."
+          de: "Der Server ist {value}."
+        plain_values:
+          disabled: { en: "not reachable from the internet at all", de: "aus dem Internet überhaupt nicht erreichbar" }
+          enabled_with_firewall: { en: "reachable from the internet only from listed addresses", de: "aus dem Internet nur von gelisteten Adressen erreichbar" }
+          enabled: { en: "reachable from the internet", de: "aus dem Internet erreichbar" }
+        values: [disabled, enabled_with_firewall, enabled]
+        from_deployment: network_exposure
+        confirm_in: [production]
+        why: >
+          Asked only as a departure: exposure is a property of the system. `private` is
+          `disabled`, `public` is `enabled_with_firewall`, and a bare `enabled` - a server
+          with a firewall rule that admits every address - is a recorded departure. Both
+          AVM modules default to disabled; written anyway. A VNet-integrated server has no
+          public access at all.
+        forced_when: >
+          `network_ownership: none` (a public deployment without a network) forces
+          `enabled`, recorded as forced with `network_ownership` as forced_by: the
+          deployment's own callers have no fixed outbound address, so a firewall with no
+          rule locks them out of this resource
+        renders: >
+          terraform: public_network_access ("Disabled" / "Enabled", a string) and firewall_rules;
+          bicep: publicNetworkAccess and firewallRules
+
+      - id: private_endpoint_subnet
+        ask: Which subnet should this server's private endpoint live in?
+        type: ref
+        resolved_by: platform
+        plain:
+          en: "Its private connection lands in subnet {value}."
+          de: "Seine private Anbindung landet im Subnetz {value}."
+        ref: subnet
+        from_deployment: private_endpoint_subnet
+        depends_on: { question: private_connectivity, equals: private_endpoint }
+        per_environment: true
+        why: >
+          One subnet carries the deployment's private endpoints, so this is inherited. The
+          sub-resource is `mysqlServer`, the zone `privatelink.mysql.database.azure.com`.
+        renders: private_endpoints.<key>.subnet_resource_id / privateEndpoints[].subnetResourceId (service `mysqlServer`)
+
+      - id: delegated_subnet
+        ask: Which subnet is delegated to the server?
+        type: ref
+        resolved_by: platform
+        plain:
+          en: "The server lives in the subnet {value}, which belongs to it alone."
+          de: "Der Server liegt im Subnetz {value}, das ihm allein gehört."
+        ref: subnet
+        required: true
+        depends_on: { question: private_connectivity, equals: vnet_integration }
+        per_environment: true
+        why: >
+          The subnet must be delegated to `Microsoft.DBforMySQL/flexibleServers`, hold
+          nothing else, and cannot be resized or moved once the server is in it. It is not
+          the private-endpoint subnet. The network family creates it; no answer is an
+          `open:` entry owned by the platform team.
+        renders: delegated_subnet_id / delegatedSubnetResourceId
+
+      - id: private_dns_zone
+        ask: Which private DNS zone resolves the server's name?
+        type: ref
+        resolved_by: platform
+        plain:
+          en: "The server's name resolves through the private zone {value}."
+          de: "Der Name des Servers wird über die private Zone {value} aufgelöst."
+        ref: private_dns_zone
+        required: true
+        depends_on: { question: private_connectivity, equals: vnet_integration }
+        per_environment: true
+        why: >
+          A VNet-integrated server needs a zone ending in `.mysql.database.azure.com`
+          linked to the network, which the server writes its own record into. Shared
+          infrastructure: the platform's, referenced and never created here.
+        renders: private_dns_zone_id / privateDnsZoneResourceId
+
+      - id: ip_rules
+        ask: Which public IP ranges may reach the server?
+        type: list
+        plain:
+          en: "Public addresses allowed to reach the server: {value}."
+          de: "Öffentliche Adressen, die den Server erreichen dürfen: {value}."
+        default: []
+        depends_on: { question: public_network_access, equals: enabled_with_firewall }
+        per_environment: true
+        why: >
+          An enumerated allowlist, each range one server firewall rule. An empty list with
+          the firewall on denies every public caller, which is valid and deliberate.
+          `0.0.0.0` - which reads as "allow Azure services" - is not an allowlist and is
+          `allow_azure_services`' job, not this list's.
+        renders: firewall_rules / firewallRules
+
+      - id: allow_azure_services
+        ask: May any Azure service reach the server past its firewall?
+        type: bool
+        plain:
+          en: "Any Azure service, including those of other customers, {value} the server's firewall."
+          de: "Jeder Azure-Dienst, auch der anderer Kunden, {value} die Firewall des Servers."
+        plain_values:
+          true: { en: "passes", de: "passt" }
+          false: { en: "does not pass", de: "passt nicht durch" }
+        default: false
+        depends_on: { question: public_network_access, equals: enabled_with_firewall }
+        why: >
+          The "Allow public access from any Azure service" switch is the firewall rule
+          0.0.0.0 - 0.0.0.0 and admits **any resource in Azure, in any tenant**; it defeats
+          the firewall it sits in. Off by default; a consumer that needs it is named and
+          gets a specific rule, or a private endpoint.
+        renders: a firewall rule with 0.0.0.0 as start and end / firewallRules[]
+
+  # ----------------------------------------------------------------- identity
+  - id: identity
+    title: Identity and access
+    questions:
+      - id: user_assigned_identity_ids
+        ask: Which user-assigned identity should the server use for Entra authentication?
+        type: list
+        plain:
+          en: "The server signs people in through the identity {value}."
+          de: "Der Server meldet Personen über die Identität {value} an."
+        ref: user_assigned_identity
+        required: true
+        per_environment: true
+        why: >
+          **MySQL needs a user-assigned managed identity for Entra authentication** - it
+          reads the directory through it, and a system-assigned identity is not enough. The
+          identity needs the Graph permissions `User.Read.All`, `GroupMember.Read.All` and
+          `Application.Read.All`, which is a tenant decision the platform owns. It must
+          already exist; this set does not create it. The same identity unwraps a
+          customer-managed key. No answer is an `open:` entry owned by the engineer,
+          blocking apply.
+        renders: managed_identities.user_assigned_resource_ids / managedIdentities.userAssignedResourceIds
+
+      - id: entra_admin
+        ask: Which Entra group administers the server?
+        type: ref
+        plain:
+          en: "The server is administered by the Entra group {value}."
+          de: "Der Server wird von der Entra-Gruppe {value} verwaltet."
+        ref: entra_group
+        required: true
+        per_environment: true
+        why: >
+          With password authentication off, the Entra administrator is the only account that
+          can sign in the first time, to create the database users, so a server without one
+          is unusable. A **group** and not a person: it survives staff changes and gives the
+          administrators an audit trail of their own. A MySQL server has exactly one. No
+          answer is an `open:` entry owned by the engineer, blocking apply.
+        renders: active_directory_administrator { login, object_id, tenant_id, identity_id } / administrators[] { login, sid, identityResourceId }
+
+      - id: database_users
+        ask: Who needs to read or write the data?
+        type: list
+        plain:
+          en: "Access to the data itself granted to: {value}."
+          de: "Zugriff auf die Daten selbst vergeben an: {value}."
+        default: []
+        per_environment: true
+        why: >
+          **MySQL's data access is its own account system**, inside the server, and no ARM
+          resource creates it: an Entra user is `CREATE AADUSER 'name' IDENTIFIED BY
+          'identity-client-id'` followed by `GRANT`, run as the Entra administrator. An
+          Azure `Owner` reads not a single row. With password authentication off, nothing
+          reads the data until this is done, so an empty list is a working server nobody can
+          use and not an answer: with no consumer named, the decision is an `open:` entry
+          owned by the workload owner, blocking apply. Each entry is an identity and a
+          privilege, the least first (`SELECT`, then `INSERT`, `UPDATE`; never `ALL`).
+          A pattern fills this from the consumers it knows.
+        renders: >
+          not the module and not Azure Resource Manager - a SQL step after the deployment
+          (the deployment's pipeline, or a deployment script), recorded as such in the spec
+
+      - id: role_assignments
+        ask: Who may manage the server itself?
+        type: list
+        plain:
+          en: "Management rights on the server granted to: {value}."
+          de: "Verwaltungsrechte am Server vergeben an: {value}."
+        default: []
+        per_environment: true
+        why: >
+          Azure RBAC on the server - the control plane: scaling, restarting, changing
+          parameters. Separate from the database accounts on purpose, and usually the
+          deploying principal's alone, so empty is a normal answer.
+        renders: role_assignments / roleAssignments
+
+  # ----------------------------------------------------------------- security
+  - id: security
+    title: Security
+    questions:
+      - id: password_authentication_disabled
+        ask: May clients sign in with a user name and password?
+        type: bool
+        plain:
+          en: "Signing in with a password is {value}; access goes through company accounts."
+          de: "Die Anmeldung mit Kennwort ist {value}; der Zugriff läuft über Firmenkonten."
+        plain_values:
+          true: { en: "switched off", de: "abgeschaltet" }
+          false: { en: "possible", de: "möglich" }
+        from_deployment: local_auth
+        confirm_in: [production]
+        why: >
+          Inherited: `local_auth: disabled` renders as the server parameter `aad_auth_only`
+          set to `ON`. A database password does not expire, is shared, and is not
+          attributable. **MySQL still requires an administrator login and password when the
+          server is created**; with Entra-only they exist, are never used and must not be
+          kept: the password is generated for the one call - write-only in Terraform, a
+          secure parameter with a generated default in Bicep - and not stored or output.
+        renders: server_configuration `aad_auth_only` = `ON` / configurations[] `aad_auth_only`
+
+      - id: minimum_tls_version
+        ask: Which is the oldest TLS version the server accepts?
+        type: enum
+        plain:
+          en: "Connections must use {value} or newer."
+          de: "Verbindungen müssen {value} oder neuer verwenden."
+        values: [TLSv1.2, TLSv1.3]
+        default: TLSv1.2
+        why: >
+          TLS 1.2 is the floor of the guardrails and what every current driver speaks.
+          Encryption in transit is not a decision: `require_secure_transport` is always
+          `ON`. The protocol is the server parameter `tls_version`, which takes a list, not
+          a minimum: the answer `TLSv1.2` renders as `TLSv1.2,TLSv1.3`, and `TLSv1.3`
+          as `TLSv1.3`.
+        renders: server_configuration `tls_version` and `require_secure_transport` / configurations[]
+
+      - id: key_management
+        ask: Are the server's encryption keys platform-managed or customer-managed?
+        type: enum
+        plain:
+          en: "Encryption keys are {value}."
+          de: "Verschlüsselungsschlüssel sind {value}."
+        plain_values:
+          platform_managed: { en: "managed by Azure - encrypted, rotated, no effort on your side", de: "von Azure verwaltet: verschlüsselt, rotiert, kein Aufwand bei euch" }
+          customer_managed: { en: "your own, held in your key vault, so you can revoke them", de: "eure eigenen in eurem Schlüsseltresor, damit ihr sie zurückziehen könnt" }
+        values: [platform_managed, customer_managed]
+        from_deployment: key_management
+        confirm_in: [production]
+        why: >
+          Inherited. Data, backups and temporary files are encrypted at rest with a
+          platform-managed key either way; `customer_managed` adds a key of the customer's
+          in a Key Vault with purge protection, an identity that can wrap and unwrap it, and
+          a rotation story. **It is set at creation and cannot be removed**, and a server
+          that loses access to the key becomes inaccessible.
+        renders: customer_managed_key / customerManagedKey
+
+      - id: cmk_key_vault_key_id
+        ask: Which Key Vault key should encrypt the server?
+        type: ref
+        plain:
+          en: "Encrypted with your key {value}."
+          de: "Verschlüsselt mit eurem Schlüssel {value}."
+        ref: key_vault_key
+        required: true
+        depends_on: { question: key_management, equals: customer_managed }
+        per_environment: true
+        why: >
+          The key must exist, the vault must have soft delete and purge protection, and the
+          server's user-assigned identity must hold `Key Vault Crypto Service Encryption
+          User` on it before the server is created - an ordering that bites the first
+          attempt. Geo-redundant backups need a key in the paired region's vault as well.
+        renders: customer_managed_key { key_vault_key_id, primary_user_assigned_identity_id } / customerManagedKey { keyVaultResourceId, keyName, userAssignedIdentityResourceId }
+
+      - id: threat_protection
+        ask: Should the server watch for attacks, such as brute force and unusual access?
+        type: bool
+        plain:
+          en: "Threat detection on the server is {value}."
+          de: "Die Angriffserkennung am Server ist {value}."
+        plain_values:
+          true: { en: "on", de: "an" }
+          false: { en: "off", de: "aus" }
+        default: true
+        why: >
+          The server-level setting that Microsoft Defender for open-source relational
+          databases acts on. Defender itself is a subscription plan and the platform's; the
+          setting here is what binds this server to it, and an alert needs both.
+          Security-shaped, so every stage has it. It costs per server per month once the
+          plan is on.
+        renders: an authored `advancedThreatProtectionSettings` child (no input in the Terraform module) / advancedThreatProtection
+
+  # ---------------------------------------------------------- data protection
+  - id: data_protection
+    title: Backup and recovery
+    questions:
+      - id: backup_retention_days
+        ask: How far back must a deletion or a bad write be undoable to the second?
+        type: int
+        plain:
+          en: "The server can be restored to any second of the last {value} days."
+          de: "Der Server lässt sich auf jede Sekunde der letzten {value} Tage zurücksetzen."
+        derived_from:
+          question: data_loss_tolerance
+          map: { reproducible: 7, one_week: 7, one_month: 35, three_months: 35 }
+        why: >
+          Derived from how long a deletion must stay undoable. Point-in-time restore
+          creates a **new** server from the backups of the chosen second; the original is
+          not overwritten, and a single dropped table is recovered from that copy.
+          7 days is the service default and the guardrail default for `one_week`; 35 is
+          the longest there is, so `one_month` and `three_months` take it, and the
+          remainder for `three_months` is a logical dump the template does not own - the
+          decision document names the gap rather than pretending. `reproducible` still
+          gets 7: shorter retention saves almost nothing. The backups are kept by the
+          platform outside the server.
+        renders: backup_retention_days / backupRetentionDays
+
+      - id: geo_redundant_backup
+        ask: Should the backups also be kept in a second region?
+        type: bool
+        plain:
+          en: "Backups are {value} in a second region."
+          de: "Backups werden {value} in einer zweiten Region gehalten."
+        plain_values:
+          true: { en: "also kept", de: "zusätzlich" }
+          false: { en: "not kept", de: "nicht" }
+        derived_from:
+          question: outage_impact
+          map: { tolerable: false, disruptive: false, critical: true }
+        non_production_default: false
+        forced_when: >
+          `data_residency: country` with a paired region in another country forbids `true`,
+          recorded as forced with the residency as forced_by
+        why: >
+          Derived from how bad an outage is: a copy in the paired region is what survives
+          the loss of a whole region (restored there with geo-restore, which takes hours),
+          and it is a cost and a residency decision, so only `critical` has it. **It is set
+          at creation** and cannot be changed. **Both modules default to on** (Terraform
+          `true`, Bicep `'Enabled'`), which copies the data to the paired region whether or
+          not anyone asked - a residency finding waiting to happen - so the answer is
+          written on every call.
+        renders: geo_redundant_backup_enabled / geoRedundantBackup
+
+  # ------------------------------------------------------------ observability
+  - id: observability
+    title: Observability
+    questions:
+      - id: diagnostic_workspace
+        ask: Which Log Analytics workspace should receive diagnostics?
+        type: ref
+        resolved_by: platform
+        plain:
+          en: "Its logs go to {value}."
+          de: "Seine Logs gehen in {value}."
+        ref: log_analytics_workspace
+        from_deployment: diagnostics_destination
+        per_environment: true
+        why: >
+          Inherited: one deployment, one destination. Without a diagnostic setting the
+          server keeps no record of its connections and slow statements beyond what the
+          portal shows for a short while.
+        renders: diagnostic_settings / diagnosticSettings
+
+      - id: audit_logging
+        ask: Should every sign-in be recorded?
+        type: bool
+        plain:
+          en: "The audit trail of sign-ins is {value}."
+          de: "Das Audit-Protokoll der Anmeldungen ist {value}."
+        plain_values:
+          true: { en: "kept", de: "geführt" }
+          false: { en: "not kept", de: "nicht geführt" }
+        default: true
+        why: >
+          The audit log is a server parameter, `audit_log_enabled`, that writes events to
+          the diagnostic category `MySqlAuditLogs`; either alone records nothing. The event
+          class `CONNECTION` (sign-ins and failures) is the default and the floor; statement
+          classes (`DML`, `DDL`) are the volume lines and are not rendered. Security-shaped,
+          so every stage has it.
+        renders: server_configuration `audit_log_enabled` = `ON`, `audit_log_events` = `CONNECTION`, and the category `MySqlAuditLogs` / configurations[]
+
+      - id: diagnostic_categories
+        ask: Which log categories should be collected?
+        type: list
+        plain:
+          en: "Logged: {value}."
+          de: "Geloggt wird: {value}."
+        plain_values:
+          MySqlAuditLogs: { en: "who signed in and who failed to", de: "wer sich angemeldet hat und wem es misslang" }
+          MySqlSlowLogs: { en: "statements that ran longer than the slow-query limit", de: "Anweisungen, die länger als die Grenze für langsame Abfragen liefen" }
+        values: [MySqlAuditLogs, MySqlSlowLogs]
+        default: [MySqlAuditLogs]
+        why: >
+          The audit log is the only record of who connected. The slow log is for tuning, is
+          written only once `slow_query_log` is on, and is a volume line - it carries
+          statement text, which can hold personal data - so it is asked for, not defaulted.
+          The category names are the platform's and are checked against `az monitor
+          diagnostic-settings categories list --resource <server id>` before a render, not
+          remembered.
+        renders: diagnostic_settings.<key>.log_categories / diagnosticSettings[].logCategoriesAndGroups[].category
+
+      - id: metrics_enabled
+        ask: Should all metrics be collected?
+        type: bool
+        plain:
+          en: "Usage and performance figures are {value}."
+          de: "Nutzungs- und Leistungswerte werden {value}."
+        plain_values:
+          true: { en: "collected", de: "erfasst" }
+          false: { en: "not collected", de: "nicht erfasst" }
+        default: true
+        why: >
+          CPU, memory, storage use and connection counts decide whether the compute size
+          was right and warn before the disk fills, and they are cheap.
+        renders: diagnostic_settings.<key>.metric_categories = ["AllMetrics"] / diagnosticSettings[].metricCategories[].category = "AllMetrics"
