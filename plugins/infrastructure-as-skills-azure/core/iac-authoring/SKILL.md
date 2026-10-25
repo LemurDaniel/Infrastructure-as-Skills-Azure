@@ -502,10 +502,34 @@ argue with, and they can only do that if they see the chain.
 This is the step that keeps the plugin honest. Someone who disagrees with a default needs
 to see it to disagree with it, and the ones they never look at cost one glance.
 
-## Phase 5 — Write the spec, draw it, loop on the picture, then render
+## Phase 5 — Working mode, spec, diagram loop, then the code question
 
-Write `infra-spec.yaml` into the user's repository first — the IaC root, or `infra/` —
-and validate it with `check_spec.py`. Its shape is
+Phase 5 runs in this order, for a new spec and for the extension of an existing one alike:
+**working mode, spec, diagram loop, code question.** Nothing before the working mode is
+written or drawn, and nothing after the diagram loop is generated until the code question
+has been answered with a yes.
+
+**First, ask how the rest of the run works - once, as the first step of Phase 5, before
+the spec is written.** With the Agent tool available, ask through `AskUserQuestion`:
+**Subagents** (recommended) or **Same session**. The answer covers both loops that follow -
+the diagram loop below and the code loop of [iac-rendering](../iac-rendering/SKILL.md)
+after the yes - and it is a working mode, not a decision: it is not written to the spec.
+Say what it costs: agents check each other and work in the background, but each starts cold
+and spends its own tokens; the same session is cheaper and does the steps itself. Only a
+host without the Agent tool is not asked and runs in the same session. **A change or
+extension of an existing spec enters Phase 5 again** - this question (unless already
+answered in the session), spec, decision document, diagram loop, code question - it is not
+a shortcut past any of them.
+
+```
+Wie soll ich weiterarbeiten?
+  1. Mit Subagenten (empfohlen) - Ein Agent zeichnet, ein zweiter prüft das Bild, bevor du
+     es siehst; später rendert und testet je ein Agent den Code. Gründlicher, kostet mehr
+  2. In dieser Sitzung - Ich mache alles selbst, nacheinander. Günstiger, keine zweite Prüfung
+```
+
+**Then write the spec.** `infra-spec.yaml` goes into the user's repository — the IaC root,
+or `infra/` — and is validated with `check_spec.py`. Its shape is
 [references/spec.md](references/spec.md#shape), and that is the whole format: the plugin
 ships no sample spec to copy, and the scripts are tools, not documentation — run
 `check_spec.py`, `new_diagram.py` and `export_decisions.py`, never read their source to
@@ -557,27 +581,7 @@ artefact the person signs off on; the spec is for the engineer. The script reads
 question sets' `plain` lines and falls back to English where a line lacks the language,
 and says how many did — translate those in the conversation rather than editing the file.
 
-**Then ask how the rest of the run works - once, here, before anything is drawn.** With
-the Agent tool available and a spec that spans more than one resource family, ask through
-`AskUserQuestion`: **Subagents** (recommended) or **Same session**. The answer covers both
-loops that follow - the diagram loop below and the code loop of
-[iac-rendering](../iac-rendering/SKILL.md) after the sign-off - and it is a working mode,
-not a decision: it is not written to the spec. Say what it costs: agents check each other
-and work in the background, but each starts cold and spends its own tokens; the same
-session is cheaper and does the steps itself. Only a spec of a single resource family, or a
-host without the Agent tool, is not asked and runs in the same session. **A change or
-extension of an existing spec enters this phase again** - decision document, diagram,
-this question (unless already answered in the session), review - it is not a shortcut
-past it.
-
-```
-Wie soll ich weiterarbeiten?
-  1. Mit Subagenten (empfohlen) - Ein Agent zeichnet, ein zweiter prüft das Bild, bevor du
-     es siehst; später rendert und testet je ein Agent den Code. Gründlicher, kostet mehr
-  2. In dieser Sitzung - Ich mache alles selbst, nacheinander. Günstiger, keine zweite Prüfung
-```
-
-**Then draw it, without asking.** Nobody reads the spec; the customer reads the picture.
+**Then run the diagram loop, without asking.** Nobody reads the spec; the customer reads the picture.
 Run [iac-diagram](../iac-diagram/SKILL.md) on the spec as soon as it validates and put
 `infra-diagram.drawio.png` beside it - every run, for a single storage account as much as
 for twelve resources, because the picture is the thing the person signs off on and the
@@ -615,9 +619,12 @@ again. Every finding names the cells it concerns by their draw.io ids (`e-6`,
 the customer a picture with an error you have already seen** - that is what the loop is
 for.
 
-**The sign-off.** Every reviewed diagram ends in this question, in the same message that
-shows it - after the first draw, after every redraw in the loop, after a diagram-only
-request, after an extension of the spec. A diagram shown without the question, or a
+**The code question.** Every reviewed diagram ends in this question, in the same message
+that shows it - after the first draw, after every redraw in the loop, after a diagram-only
+request, after an extension of the spec. It is always asked: nothing the person said
+earlier - "dann schreib den Code", a stated target, an answer in the interview, a request
+for a commit - stands in for it, and a run never skips it because the answer seems
+obvious. A diagram shown without the question, or a
 turn that ends on "Diagramm ist fertig" or on a list of findings, is a missed step. It is asked with
 `AskUserQuestion` and never replaced by prose like "sag Bescheid, wenn ich rendern soll".
 Show the reviewed picture and the decision document's first section (what
@@ -652,9 +659,10 @@ the working mode chosen above. It is the
 long step, and it runs on a picture the customer has agreed to, so nothing in it goes
 back to the interview. Say that it takes a while and what will be there at the end.
 
-**A request for code is not the sign-off.** "Dann schreibe den Terraform-Code" in the same
+**An earlier statement is not the answer.** "Dann schreibe den Terraform-Code" in the same
 message as the spec, or a change of the spec the person asked for themselves, still goes
-spec, diagram, review, question - the code is what they sign off on, not what they ordered.
+working mode, spec, diagram, review, question - the code is what they sign off on, not
+what they ordered, and the question is put after the picture, never before it.
 A run in which nobody can answer (no `AskUserQuestion`) ends after the diagram with the
 sign-off question as the last message and writes no `.tf` or `.bicep`: a sign-off nobody
 gave is not one, and the code would be built on a picture nobody has seen.
