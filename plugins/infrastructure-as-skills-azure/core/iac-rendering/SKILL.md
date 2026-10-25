@@ -100,7 +100,8 @@ than inferring the shape from an example spec.
     none, else add or replace **only** the section between the two markers below, never
     the rest of the file (it is the customer's). The section names the spec as the source
     of truth, the rule that a change to the code is a change to the spec first (the value,
-    `source: overridden`, a `reason`), what is regenerated from it (decision document,
+    `source: overridden`, a `reason`) and that the render, not the editor, then changes the
+    code, the order for every change however small, what is regenerated from it (decision document,
     diagram, tests) and the checks that prove the two still agree.
 
     ```markdown
@@ -113,9 +114,12 @@ than inferring the shape from an example spec.
 
     - **A change to the infrastructure is a change to the spec first.** Changing a SKU, a
       retention, an access rule in the code alone makes the spec lie. Set the decision's
-      `value` in the spec, mark it `source: overridden` with a one-line `reason`, then change
-      the code and its `# decision:` test the same way - or re-render from the spec with the
-      plugin's `azure-resources` skill, which asks nothing it already knows.
+      `value` in the spec, mark it `source: overridden` with a one-line `reason`, then
+      **render again** with the plugin's `iac-rendering` skill: it changes what the spec says,
+      keeps the rest and asks nothing it already knows. Editing the rendered code and its
+      `# decision:` tests by hand is for a piece the render cannot produce (a part the spec
+      names as hand-rendered), never the shortcut for a change the render can make: a hand
+      edit is not checked against the reference and the next render contradicts it.
     - **A new resource or a removed one goes through the interview**, not through a new
       `.tf`/`.bicep` file: the spec gains or loses the resource, and the render follows.
     - **Start every infrastructure change with the plugin's `iac-authoring` skill**, even
@@ -128,6 +132,10 @@ than inferring the shape from an example spec.
     - **The order is fixed, also for a direct edit of the spec:** spec, `check_spec.py`,
       redraw the diagram (`iac-diagram`), sign-off, only then code and tests. A spec change
       without the redrawn diagram is unfinished; never start the Bicep/Terraform before it.
+    - **A change that looks small follows the order too.** A removed access line, one more
+      app setting, one more child resource each change the spec, the picture and the code;
+      "small" is no reason to write the code first or by hand. After the render, compare it
+      with the code it replaced and name every difference in the hand-over.
     - **After every change run**, in `<root>/`: `check_spec.py infra-spec.yaml`,
       `terraform test` (or `run_arm_tests.py infra-spec.yaml` for Bicep) and
       `check_render_coverage.py infra-spec.yaml` from the plugin's
