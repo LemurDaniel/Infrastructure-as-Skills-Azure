@@ -197,7 +197,7 @@ the detail; this list says what was decided and why, so a session does not reope
 
 ## State
 
-- **25 more sets written 2026-10-25 (50 in all, 1,044 questions), checked, not exercised:** compute
+- **24 more sets written 2026-10-25 (49 resource sets, 1,044 questions with the deployment set), checked, not exercised:** compute
   virtual-machine, managed-disk, availability-set (the proximity placement group is a question
   group of it), virtual-machine-scale-set, aks, static-web-app, container-instances; network
   public-ip-address, private-endpoint, private-dns-zone, route-table, nat-gateway, azure-firewall,

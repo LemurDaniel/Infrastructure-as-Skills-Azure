@@ -1,11 +1,13 @@
 # Infrastructure as Skills: Azure
 
+![Infrastructure as Skills for Azure: an interview turns the decisions each resource forces into a spec, rendered as Terraform or Bicep on Azure Verified Modules](docs/social-preview.png)
+
 > [!NOTE]
 > **AI disclaimer:** Yes, an AI helped write this, and yes, an AI is the one doing the interviewing. No, it does not get to `terraform apply`. Every decision it makes is written down with where it came from, and every render ships with a test per decision. 🤖
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-A Claude Code plugin that authors Azure infrastructure as **Terraform or Bicep** from the decisions a resource actually forces. Not a module library and not a template collection. The interview writes an `infra-spec.yaml`; the code, its tests, a diagram and a decision document are rendered from that, onto [Azure Verified Modules](https://azure.github.io/Azure-Verified-Modules/) first.
+A Claude Code plugin that authors Azure infrastructure as **Terraform or Bicep** from the decisions a resource actually forces - compute, network, data, security, messaging, AI and recovery, 49 resource types in ten families. Not a module library and not a template collection. The interview writes an `infra-spec.yaml`; the code, its tests, a diagram and a decision document are rendered from that, onto [Azure Verified Modules](https://azure.github.io/Azure-Verified-Modules/) first.
 
 ## 💡 The Idea
 
@@ -44,6 +46,28 @@ The plugin interviews you about the system, not about the HCL: which stages, who
 | `*.tf` / `*.bicep` + `tests/` | The render: AVM calls with every decision explicit, one test assert per decision |
 | `.github/workflows/` or `deploy.ps1` | The delivery: a pipeline per stage (GitHub, Azure DevOps, GitLab) or a local script |
 
+What a run leaves behind, from the [`chat-sandbox`](examples/chat-sandbox/) example - the picture the customer signs off before any code is written:
+
+![The architecture diagram of the chat-sandbox example, rendered from its infra-spec.yaml](examples/chat-sandbox/infra-diagram.drawio.png)
+
+and the spec it was drawn from, every decision with where it came from:
+
+```yaml
+deployment:
+  module_source:
+    value: authored
+    source: asked           # "Einzelne Ressourcen"
+  deploy_mechanism:
+    value: local
+    source: asked           # "Von Hand" - a script, no pipeline
+  outage_impact:
+    value: tolerable
+    source: asked
+  data_loss_tolerance:
+    value: one_week
+    source: asked
+```
+
 Complete runs, request to tests, live under [`examples/`](examples/README.md).
 
 ## Why This Plugin?
@@ -76,20 +100,26 @@ Complete runs, request to tests, live under [`examples/`](examples/README.md).
 | `resources/<family>/` | The knowledge. Not skills: one `routing.md` per family, one directory per resource. |
 | `patterns/` | Compositions of resources with the wiring between them. **Planned, not yet present.** |
 
-### Resource families
+### Resource coverage
+
+49 resource types in ten families. Each has a question set and both rendering references; a resource with an [Azure Verified Module](https://azure.github.io/Azure-Verified-Modules/) renders as a call to it.
 
 | Family | Resources |
 |---|---|
-| `storage` | storage-account |
-| `network` | virtual-network, network-security-group, application-gateway, front-door |
-| `compute` | app-service, function-app, container-apps, container-registry |
-| `data` | cosmos-db |
-| `security` | key-vault, user-assigned-identity |
-| `observability` | log-analytics-workspace, application-insights |
-| `ai` | foundry, search-service |
-| `messaging` | service-bus, event-hubs, event-grid-topic |
-| `integration` | api-management |
-| `recovery` | backup-vault, recovery-services-vault |
+| `compute` | virtual machine, VM scale set, managed disk, availability set and proximity placement group, AKS, App Service, function app, Container Apps, Container Instances, Static Web App, container registry |
+| `network` | virtual network, network security group, public IP, private endpoint, private DNS zone, route table, NAT gateway, Azure Firewall, load balancer, Bastion, VNet peering, Application Gateway with WAF, Front Door |
+| `data` | Azure SQL, PostgreSQL flexible server, MySQL flexible server, Azure Managed Redis, Cosmos DB (NoSQL) |
+| `storage` | storage account, blob container, file share, queue |
+| `security` | Key Vault, Key Vault key, Key Vault secret, user-assigned managed identity, role assignment (RBAC), Defender for Cloud |
+| `messaging` | Service Bus, Event Hubs, Event Grid topic |
+| `integration` | API Management |
+| `ai` | AI Foundry (Azure OpenAI), AI Search |
+| `observability` | Log Analytics workspace, Application Insights |
+| `recovery` | Backup vault, Recovery Services vault |
+
+Not covered yet: Logic Apps, Data Factory, governance (policy, budgets), further network, data and AI services. The list is in [`PROGRESS.md`](PROGRESS.md); a request for one of them is said out loud and never improvised.
+
+The directory names below are the paths under `resources/<family>/<resource>/`.
 
 Each resource directory holds four files:
 
@@ -267,7 +297,7 @@ Early, and the shape matters more than the coverage. The eval baseline holds; th
 - [x] Deployment-wide question set, inherited by every resource via `from_deployment`
 - [x] The customer interview: requirements derived into decisions, `platform.yaml`, decision document in the customer's language
 - [x] Azure Verified Modules as the primary rendering, both targets, with the test contract
-- [x] 50 resources in 10 families (the 25 added last are checked against their AVM modules, not yet rendered or tested)
+- [x] 49 resources in 10 families (the 24 added last are checked against their AVM modules, not yet rendered or tested)
 - [x] Rendering: naming, layout, idiom and pipelines (GitHub, Azure DevOps, GitLab, local)
 - [x] Diagram from the spec, editable draw.io embedded in the PNG
 - [x] Checks: `check_spec.py`, `check_question_set.py`, `check_render_coverage.py`, `check_pipeline.py`
