@@ -23,7 +23,10 @@ for Terraform and Bicep, as the spec is.
 **A diagram is never the last message.** Whoever exports one - first draw, redraw after a
 change, a diagram-only request - ends the turn with the sign-off question of
 [iac-authoring](../iac-authoring/SKILL.md) (Phase 5, "The code question"): does this fit - yes /
-change something / not yet. The wording follows `context.language` (German: *Passt das
+change something / not yet. **It is always asked through `AskUserQuestion`**, so the person
+gets the interactive popup with the three options; a question written as prose in the
+message is not a sign-off, and neither is a diagram message that merely mentions one. Only
+a host without `AskUserQuestion` falls back to the prose question. The wording follows `context.language` (German: *Passt das
 so? Ja, passt / Etwas ändern / Noch nicht*; English: *Does this fit your requirements?
 Yes, build it / Change something / Not yet*). The yes option is what starts the code
 render; without the question it never starts.

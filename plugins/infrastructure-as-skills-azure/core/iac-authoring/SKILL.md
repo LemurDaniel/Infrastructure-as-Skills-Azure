@@ -626,7 +626,9 @@ earlier - "dann schreib den Code", a stated target, an answer in the interview, 
 for a commit - stands in for it, and a run never skips it because the answer seems
 obvious. A diagram shown without the question, or a
 turn that ends on "Diagramm ist fertig" or on a list of findings, is a missed step. It is asked with
-`AskUserQuestion` and never replaced by prose like "sag Bescheid, wenn ich rendern soll".
+`AskUserQuestion` - the interactive popup with the three options, as the call right after
+the picture - and never replaced by prose like "sag Bescheid, wenn ich rendern soll" or by
+the question written out as text; the three options are the `AskUserQuestion` options.
 Show the reviewed picture and the decision document's first section (what
 follows from their answers), name what is still `open:` and from whom, and ask one
 question. The block below is the German wording; it is asked in `context.language` - for
