@@ -162,7 +162,7 @@ actionlint .github/workflows/*.yaml                       # GitHub
 # GitLab: the project's CI Lint (needs the project)
 
 # The files parse, and name every stage of the spec
-python3 -c "import yaml,sys; [yaml.safe_load(open(f)) for f in sys.argv[1:]]" <files>
+python3 <plugin>/core/iac-rendering/scripts/check_yaml_parse.py <files>
 ```
 
 and say what was not run. A pipeline that has only been read has not been tested - the

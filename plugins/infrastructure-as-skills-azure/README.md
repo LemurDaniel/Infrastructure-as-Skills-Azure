@@ -78,7 +78,9 @@ What happens in a session is done by Claude Code with your permission:
   tags, the Microsoft Container Registry tag list and the module READMEs, never recalled
   from memory.
 - **Never applied.** The plugin does not run `terraform apply` or `az deployment ... create`.
-  The pipelines it renders do that, in your CI, after your approval.
+  The pipelines it renders do that, in your CI, after your approval. Those pipelines sign in
+  with the platform's short-lived OIDC token (for example `ARM_OIDC_TOKEN` in a GitLab job);
+  the plugin itself never reads, stores or sends a credential.
 
 The interview collects no personal data; the spec contains the decisions you state and the
 values you give for names, regions and stages. Keep real secrets out of it: secret values are
