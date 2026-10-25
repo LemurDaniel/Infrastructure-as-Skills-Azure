@@ -1,0 +1,2406 @@
+# The interview's output for examples/orders-integration/request.md, run headless. Three stages
+# (the default stack), a standalone landing zone (own network, own private DNS zones, own workspace),
+# private with named exceptions: Front Door and the gateway in front of it are internet-facing by
+# design, the function app admits the Event Grid service tag, and the Standard tier of the Service Bus
+# keeps a firewalled endpoint in development and test (Standard has no private endpoint). Fourteen kinds
+# of resource, four of them more than once. Every role between them is a role_assignments entry on the
+# resource it is held on. What the request leaves open is in open:, nothing is assumed.
+schema_version: 1
+spec:
+  id: orders-integration
+  target: terraform
+  generated_by: infrastructure-as-skills-azure
+  skill: azure-resources
+  skill_version: 0.1
+  at: '2026-10-25T12:00:00Z'
+context:
+  language: de
+  environments:
+  - development
+  - test
+  - production
+  location: germanywestcentral
+  workload: orders
+  subscription_id:
+    development: 00000000-0000-0000-0000-00000000dev1
+    test: 00000000-0000-0000-0000-00000000tst1
+    production: 00000000-0000-0000-0000-00000000prd1
+  resource_group_name:
+    development: rg-orders-dev-gwc
+    test: rg-orders-test-gwc
+    production: rg-orders-prod-gwc
+  tags: {}
+deployment:
+  naming_convention:
+    value: default
+    source: default
+  naming_source:
+    value: provider
+    source: default
+  module_source:
+    value: avm
+    source: default
+  module_telemetry:
+    value: disabled
+    source: default
+  stage_isolation:
+    value: subscription
+    source: default
+  non_production_savings:
+    value: enabled
+    source: default
+  network_requirements:
+    value: free
+    source: default
+  outage_impact:
+    value: disruptive
+    source: default
+  data_loss_tolerance:
+    value: one_week
+    source: default
+  data_access_pattern:
+    value: active
+    source: default
+  backup_isolation:
+    value: immutable
+    source: stated
+  data_residency:
+    value: data_zone
+    source: default
+  landing_zone:
+    value: standalone
+    source: default
+  network_exposure:
+    value: private_with_exceptions
+    source: stated
+  local_auth:
+    value: disabled
+    source: stated
+  mandates:
+    value: []
+    source: default
+  key_protection:
+    value: software
+    source: default
+  key_management:
+    value: platform_managed
+    source: default
+  resource_lock:
+    value: production
+    source: default
+  network_ownership:
+    value: create
+    source: default
+  address_space:
+    value:
+      development: 10.100.0.0/23
+      test: 10.101.0.0/23
+      production: 10.102.0.0/23
+    source: asked
+  private_endpoint_subnet_prefix:
+    value:
+      development: 10.100.0.0/27
+      test: 10.101.0.0/27
+      production: 10.102.0.0/27
+    source: default
+  private_dns_ownership:
+    value: deployment
+    source: forced
+    forced_by: deployment.landing_zone
+  observability_ownership:
+    value: create
+    source: forced
+    forced_by: deployment.landing_zone
+  diagnostics_destination:
+    value:
+      development: log-analytics-workspace
+      test: log-analytics-workspace
+      production: log-analytics-workspace
+    source: forced
+    forced_by: deployment.observability_ownership
+  log_retention_days:
+    value:
+      development: 30
+      test: 30
+      production: 90
+    source: stated
+    non_production: stated
+  daily_quota_gb:
+    value: -1
+    source: default
+composition:
+  granularity: per-family
+  source: default
+  modules:
+  - id: observability
+    contains:
+    - log-analytics-workspace
+  - id: identity
+    contains:
+    - user-assigned-identity__func
+    - user-assigned-identity__gateway
+  - id: security
+    contains:
+    - key-vault
+    needs:
+    - observability
+  - id: data
+    contains:
+    - storage-account__orders
+    - storage-account__lake
+    - storage-account__host
+    - blob-container__orders
+    - blob-container__lake
+    needs:
+    - observability
+  - id: compute
+    contains:
+    - function-app
+    needs:
+    - data
+    - identity
+    - observability
+    - security
+  - id: integration
+    contains:
+    - api-management
+    needs:
+    - compute
+    - observability
+    - security
+  - id: messaging
+    contains:
+    - service-bus
+    - event-hubs
+    - event-grid-topic
+    needs:
+    - compute
+    - data
+    - observability
+  - id: recovery
+    contains:
+    - backup-vault
+    - recovery-services-vault
+    needs:
+    - data
+    - observability
+  - id: network
+    contains:
+    - virtual-network
+    - network-security-group__endpoints
+    - network-security-group__func
+    - network-security-group__gateway
+    - network-security-group__apim
+    - application-gateway
+    - front-door
+    needs:
+    - identity
+    - integration
+    - observability
+    - security
+resources:
+  log-analytics-workspace:
+    cost:
+      retention_days:
+        value:
+          development: 30
+          test: 30
+          production: 90
+        source: deployment
+      daily_quota_gb:
+        value: -1
+        source: deployment
+      sku:
+        value: PerGB2018
+        source: default
+    access:
+      public_network_access:
+        value: enabled
+        source: default
+      local_auth:
+        value: false
+        source: deployment
+      rbac_only_access:
+        value: true
+        source: default
+    data_protection:
+      immediate_purge_protection:
+        value: true
+        source: default
+      archive_to_storage:
+        value: false
+        source: default
+  virtual-network:
+    addressing:
+      address_space:
+        value:
+          development: 10.100.0.0/23
+          test: 10.101.0.0/23
+          production: 10.102.0.0/23
+        source: deployment
+      subnets:
+        value:
+          development:
+          - name: snet-endpoints
+            prefix: 10.100.0.0/27
+          - name: snet-apim
+            prefix: 10.100.0.32/27
+          - name: snet-func
+            prefix: 10.100.0.64/26
+          - name: snet-gateway
+            prefix: 10.100.1.0/24
+          test:
+          - name: snet-endpoints
+            prefix: 10.101.0.0/27
+          - name: snet-apim
+            prefix: 10.101.0.32/27
+          - name: snet-func
+            prefix: 10.101.0.64/26
+          - name: snet-gateway
+            prefix: 10.101.1.0/24
+          production:
+          - name: snet-endpoints
+            prefix: 10.102.0.0/27
+          - name: snet-apim
+            prefix: 10.102.0.32/27
+          - name: snet-func
+            prefix: 10.102.0.64/26
+          - name: snet-gateway
+            prefix: 10.102.1.0/24
+        source: stated
+      private_endpoint_subnet_prefix:
+        value:
+          development: 10.100.0.0/27
+          test: 10.101.0.0/27
+          production: 10.102.0.0/27
+        source: deployment
+      dns_servers:
+        value:
+          development: []
+          test: []
+          production: []
+        source: default
+    subnet_policy:
+      private_endpoint_network_policies:
+        value: Enabled
+        source: default
+      service_endpoints:
+        value: []
+        source: default
+      subnet_delegations:
+        value:
+        - subnet: snet-func
+          service: Microsoft.App/environments
+        source: forced
+        forced_by: resources.function-app.networking.integration_subnet
+    security:
+      ddos_protection:
+        value: false
+        source: default
+      subnets_expecting_nsg:
+        value:
+          development:
+          - snet-endpoints
+          - snet-apim
+          - snet-func
+          - snet-gateway
+          test:
+          - snet-endpoints
+          - snet-apim
+          - snet-func
+          - snet-gateway
+          production:
+          - snet-endpoints
+          - snet-apim
+          - snet-func
+          - snet-gateway
+        source: stated
+    observability:
+      diagnostic_workspace:
+        value:
+          development: log-analytics-workspace
+          test: log-analytics-workspace
+          production: log-analytics-workspace
+        source: deployment
+      flow_logs_enabled:
+        value: false
+        source: default
+  network-security-group__endpoints:
+    rules:
+      subnet_purpose:
+        value: private_endpoints
+        source: stated
+      default_inbound:
+        value: deny_all
+        source: default
+      default_outbound:
+        value: deny_internet
+        source: forced
+        forced_by: resources.network-security-group__endpoints.rules.subnet_purpose
+      rules:
+        value:
+          development:
+          - name: allow-apim-https
+            priority: 100
+            direction: Inbound
+            protocol: Tcp
+            source: 10.100.0.32/27
+            destination: 10.100.0.0/27
+            port: '443'
+            access: Allow
+          - name: allow-function-https
+            priority: 110
+            direction: Inbound
+            protocol: Tcp
+            source: 10.100.0.64/26
+            destination: 10.100.0.0/27
+            port: '443'
+            access: Allow
+          - name: allow-function-amqp
+            priority: 120
+            direction: Inbound
+            protocol: Tcp
+            source: 10.100.0.64/26
+            destination: 10.100.0.0/27
+            port: 5671-5672
+            access: Allow
+          test:
+          - name: allow-apim-https
+            priority: 100
+            direction: Inbound
+            protocol: Tcp
+            source: 10.101.0.32/27
+            destination: 10.101.0.0/27
+            port: '443'
+            access: Allow
+          - name: allow-function-https
+            priority: 110
+            direction: Inbound
+            protocol: Tcp
+            source: 10.101.0.64/26
+            destination: 10.101.0.0/27
+            port: '443'
+            access: Allow
+          - name: allow-function-amqp
+            priority: 120
+            direction: Inbound
+            protocol: Tcp
+            source: 10.101.0.64/26
+            destination: 10.101.0.0/27
+            port: 5671-5672
+            access: Allow
+          production:
+          - name: allow-apim-https
+            priority: 100
+            direction: Inbound
+            protocol: Tcp
+            source: 10.102.0.32/27
+            destination: 10.102.0.0/27
+            port: '443'
+            access: Allow
+          - name: allow-function-https
+            priority: 110
+            direction: Inbound
+            protocol: Tcp
+            source: 10.102.0.64/26
+            destination: 10.102.0.0/27
+            port: '443'
+            access: Allow
+          - name: allow-function-amqp
+            priority: 120
+            direction: Inbound
+            protocol: Tcp
+            source: 10.102.0.64/26
+            destination: 10.102.0.0/27
+            port: 5671-5672
+            access: Allow
+        source: stated
+    observability:
+      diagnostic_workspace:
+        value:
+          development: log-analytics-workspace
+          test: log-analytics-workspace
+          production: log-analytics-workspace
+        source: deployment
+      diagnostic_categories:
+        value:
+        - NetworkSecurityGroupEvent
+        - NetworkSecurityGroupRuleCounter
+        source: default
+  network-security-group__func:
+    rules:
+      subnet_purpose:
+        value: app_integration
+        source: stated
+      default_inbound:
+        value: deny_all
+        source: default
+      default_outbound:
+        value: azure_default
+        source: default
+      rules:
+        value:
+          development:
+          - name: allow-endpoints-https
+            priority: 100
+            direction: Outbound
+            protocol: Tcp
+            source: 10.100.0.64/26
+            destination: 10.100.0.0/27
+            port: '443'
+            access: Allow
+          - name: allow-endpoints-amqp
+            priority: 110
+            direction: Outbound
+            protocol: Tcp
+            source: 10.100.0.64/26
+            destination: 10.100.0.0/27
+            port: 5671-5672
+            access: Allow
+          test:
+          - name: allow-endpoints-https
+            priority: 100
+            direction: Outbound
+            protocol: Tcp
+            source: 10.101.0.64/26
+            destination: 10.101.0.0/27
+            port: '443'
+            access: Allow
+          - name: allow-endpoints-amqp
+            priority: 110
+            direction: Outbound
+            protocol: Tcp
+            source: 10.101.0.64/26
+            destination: 10.101.0.0/27
+            port: 5671-5672
+            access: Allow
+          production:
+          - name: allow-endpoints-https
+            priority: 100
+            direction: Outbound
+            protocol: Tcp
+            source: 10.102.0.64/26
+            destination: 10.102.0.0/27
+            port: '443'
+            access: Allow
+          - name: allow-endpoints-amqp
+            priority: 110
+            direction: Outbound
+            protocol: Tcp
+            source: 10.102.0.64/26
+            destination: 10.102.0.0/27
+            port: 5671-5672
+            access: Allow
+        source: stated
+    observability:
+      diagnostic_workspace:
+        value:
+          development: log-analytics-workspace
+          test: log-analytics-workspace
+          production: log-analytics-workspace
+        source: deployment
+      diagnostic_categories:
+        value:
+        - NetworkSecurityGroupEvent
+        - NetworkSecurityGroupRuleCounter
+        source: default
+  network-security-group__gateway:
+    rules:
+      subnet_purpose:
+        value: workload
+        source: stated
+      default_inbound:
+        value: deny_all
+        source: default
+      default_outbound:
+        value: deny_internet
+        source: stated
+      rules:
+        value:
+          development:
+          - name: allow-front-door-https
+            priority: 100
+            direction: Inbound
+            protocol: Tcp
+            source: AzureFrontDoor.Backend
+            destination: 10.100.1.0/24
+            port: '443'
+            access: Allow
+          - name: allow-gateway-manager
+            priority: 110
+            direction: Inbound
+            protocol: Tcp
+            source: GatewayManager
+            destination: 10.100.1.0/24
+            port: 65200-65535
+            access: Allow
+          - name: allow-load-balancer-probe
+            priority: 120
+            direction: Inbound
+            protocol: '*'
+            source: AzureLoadBalancer
+            destination: 10.100.1.0/24
+            port: '*'
+            access: Allow
+          - name: allow-apim-https
+            priority: 100
+            direction: Outbound
+            protocol: Tcp
+            source: 10.100.1.0/24
+            destination: 10.100.0.32/27
+            port: '443'
+            access: Allow
+          - name: allow-key-vault-https
+            priority: 110
+            direction: Outbound
+            protocol: Tcp
+            source: 10.100.1.0/24
+            destination: AzureKeyVault
+            port: '443'
+            access: Allow
+          test:
+          - name: allow-front-door-https
+            priority: 100
+            direction: Inbound
+            protocol: Tcp
+            source: AzureFrontDoor.Backend
+            destination: 10.101.1.0/24
+            port: '443'
+            access: Allow
+          - name: allow-gateway-manager
+            priority: 110
+            direction: Inbound
+            protocol: Tcp
+            source: GatewayManager
+            destination: 10.101.1.0/24
+            port: 65200-65535
+            access: Allow
+          - name: allow-load-balancer-probe
+            priority: 120
+            direction: Inbound
+            protocol: '*'
+            source: AzureLoadBalancer
+            destination: 10.101.1.0/24
+            port: '*'
+            access: Allow
+          - name: allow-apim-https
+            priority: 100
+            direction: Outbound
+            protocol: Tcp
+            source: 10.101.1.0/24
+            destination: 10.101.0.32/27
+            port: '443'
+            access: Allow
+          - name: allow-key-vault-https
+            priority: 110
+            direction: Outbound
+            protocol: Tcp
+            source: 10.101.1.0/24
+            destination: AzureKeyVault
+            port: '443'
+            access: Allow
+          production:
+          - name: allow-front-door-https
+            priority: 100
+            direction: Inbound
+            protocol: Tcp
+            source: AzureFrontDoor.Backend
+            destination: 10.102.1.0/24
+            port: '443'
+            access: Allow
+          - name: allow-gateway-manager
+            priority: 110
+            direction: Inbound
+            protocol: Tcp
+            source: GatewayManager
+            destination: 10.102.1.0/24
+            port: 65200-65535
+            access: Allow
+          - name: allow-load-balancer-probe
+            priority: 120
+            direction: Inbound
+            protocol: '*'
+            source: AzureLoadBalancer
+            destination: 10.102.1.0/24
+            port: '*'
+            access: Allow
+          - name: allow-apim-https
+            priority: 100
+            direction: Outbound
+            protocol: Tcp
+            source: 10.102.1.0/24
+            destination: 10.102.0.32/27
+            port: '443'
+            access: Allow
+          - name: allow-key-vault-https
+            priority: 110
+            direction: Outbound
+            protocol: Tcp
+            source: 10.102.1.0/24
+            destination: AzureKeyVault
+            port: '443'
+            access: Allow
+        source: stated
+    observability:
+      diagnostic_workspace:
+        value:
+          development: log-analytics-workspace
+          test: log-analytics-workspace
+          production: log-analytics-workspace
+        source: deployment
+      diagnostic_categories:
+        value:
+        - NetworkSecurityGroupEvent
+        - NetworkSecurityGroupRuleCounter
+        source: default
+  network-security-group__apim:
+    rules:
+      subnet_purpose:
+        value: workload
+        source: stated
+      default_inbound:
+        value: deny_all
+        source: default
+      default_outbound:
+        value: deny_internet
+        source: stated
+      rules:
+        value:
+          development:
+          - name: allow-gateway-https
+            priority: 100
+            direction: Inbound
+            protocol: Tcp
+            source: 10.100.1.0/24
+            destination: 10.100.0.32/27
+            port: '443'
+            access: Allow
+          - name: allow-apim-management
+            priority: 110
+            direction: Inbound
+            protocol: Tcp
+            source: ApiManagement
+            destination: 10.100.0.32/27
+            port: '3443'
+            access: Allow
+          - name: allow-load-balancer
+            priority: 120
+            direction: Inbound
+            protocol: Tcp
+            source: AzureLoadBalancer
+            destination: 10.100.0.32/27
+            port: '6390'
+            access: Allow
+          - name: allow-endpoints-https
+            priority: 100
+            direction: Outbound
+            protocol: Tcp
+            source: 10.100.0.32/27
+            destination: 10.100.0.0/27
+            port: '443'
+            access: Allow
+          - name: allow-storage
+            priority: 110
+            direction: Outbound
+            protocol: Tcp
+            source: 10.100.0.32/27
+            destination: Storage
+            port: '443'
+            access: Allow
+          - name: allow-sql
+            priority: 120
+            direction: Outbound
+            protocol: Tcp
+            source: 10.100.0.32/27
+            destination: Sql
+            port: '1433'
+            access: Allow
+          - name: allow-key-vault
+            priority: 130
+            direction: Outbound
+            protocol: Tcp
+            source: 10.100.0.32/27
+            destination: AzureKeyVault
+            port: '443'
+            access: Allow
+          - name: allow-monitor
+            priority: 140
+            direction: Outbound
+            protocol: Tcp
+            source: 10.100.0.32/27
+            destination: AzureMonitor
+            port: 443,1886
+            access: Allow
+          test:
+          - name: allow-gateway-https
+            priority: 100
+            direction: Inbound
+            protocol: Tcp
+            source: 10.101.1.0/24
+            destination: 10.101.0.32/27
+            port: '443'
+            access: Allow
+          - name: allow-apim-management
+            priority: 110
+            direction: Inbound
+            protocol: Tcp
+            source: ApiManagement
+            destination: 10.101.0.32/27
+            port: '3443'
+            access: Allow
+          - name: allow-load-balancer
+            priority: 120
+            direction: Inbound
+            protocol: Tcp
+            source: AzureLoadBalancer
+            destination: 10.101.0.32/27
+            port: '6390'
+            access: Allow
+          - name: allow-endpoints-https
+            priority: 100
+            direction: Outbound
+            protocol: Tcp
+            source: 10.101.0.32/27
+            destination: 10.101.0.0/27
+            port: '443'
+            access: Allow
+          - name: allow-storage
+            priority: 110
+            direction: Outbound
+            protocol: Tcp
+            source: 10.101.0.32/27
+            destination: Storage
+            port: '443'
+            access: Allow
+          - name: allow-sql
+            priority: 120
+            direction: Outbound
+            protocol: Tcp
+            source: 10.101.0.32/27
+            destination: Sql
+            port: '1433'
+            access: Allow
+          - name: allow-key-vault
+            priority: 130
+            direction: Outbound
+            protocol: Tcp
+            source: 10.101.0.32/27
+            destination: AzureKeyVault
+            port: '443'
+            access: Allow
+          - name: allow-monitor
+            priority: 140
+            direction: Outbound
+            protocol: Tcp
+            source: 10.101.0.32/27
+            destination: AzureMonitor
+            port: 443,1886
+            access: Allow
+          production:
+          - name: allow-gateway-https
+            priority: 100
+            direction: Inbound
+            protocol: Tcp
+            source: 10.102.1.0/24
+            destination: 10.102.0.32/27
+            port: '443'
+            access: Allow
+          - name: allow-apim-management
+            priority: 110
+            direction: Inbound
+            protocol: Tcp
+            source: ApiManagement
+            destination: 10.102.0.32/27
+            port: '3443'
+            access: Allow
+          - name: allow-load-balancer
+            priority: 120
+            direction: Inbound
+            protocol: Tcp
+            source: AzureLoadBalancer
+            destination: 10.102.0.32/27
+            port: '6390'
+            access: Allow
+          - name: allow-endpoints-https
+            priority: 100
+            direction: Outbound
+            protocol: Tcp
+            source: 10.102.0.32/27
+            destination: 10.102.0.0/27
+            port: '443'
+            access: Allow
+          - name: allow-storage
+            priority: 110
+            direction: Outbound
+            protocol: Tcp
+            source: 10.102.0.32/27
+            destination: Storage
+            port: '443'
+            access: Allow
+          - name: allow-sql
+            priority: 120
+            direction: Outbound
+            protocol: Tcp
+            source: 10.102.0.32/27
+            destination: Sql
+            port: '1433'
+            access: Allow
+          - name: allow-key-vault
+            priority: 130
+            direction: Outbound
+            protocol: Tcp
+            source: 10.102.0.32/27
+            destination: AzureKeyVault
+            port: '443'
+            access: Allow
+          - name: allow-monitor
+            priority: 140
+            direction: Outbound
+            protocol: Tcp
+            source: 10.102.0.32/27
+            destination: AzureMonitor
+            port: 443,1886
+            access: Allow
+        source: stated
+    observability:
+      diagnostic_workspace:
+        value:
+          development: log-analytics-workspace
+          test: log-analytics-workspace
+          production: log-analytics-workspace
+        source: deployment
+      diagnostic_categories:
+        value:
+        - NetworkSecurityGroupEvent
+        - NetworkSecurityGroupRuleCounter
+        source: default
+  user-assigned-identity__func:
+    identity:
+      purpose:
+        value: the function app, to keep its own state in the host storage account and to read secrets
+        source: stated
+      federated_credentials:
+        value: []
+        source: default
+      isolation_scope:
+        value: None
+        source: default
+      role_assignments:
+        value:
+          development: []
+          test: []
+          production: []
+        source: default
+  user-assigned-identity__gateway:
+    identity:
+      purpose:
+        value: the application gateway, to read its TLS certificates from the key vault
+        source: stated
+      federated_credentials:
+        value: []
+        source: default
+      isolation_scope:
+        value: None
+        source: default
+      role_assignments:
+        value:
+          development: []
+          test: []
+          production: []
+        source: default
+  key-vault:
+    vault:
+      sku:
+        value: standard
+        source: default
+      purge_protection:
+        value: true
+        source: default
+      soft_delete_retention_days:
+        value: 90
+        source: default
+      rbac_authorization:
+        value: true
+        source: deployment
+    networking:
+      public_network_access:
+        value: disabled
+        source: deployment
+      private_endpoint_subnet:
+        value:
+          development: snet-endpoints
+          test: snet-endpoints
+          production: snet-endpoints
+        source: forced
+        forced_by: deployment.network_ownership
+      network_acl_bypass:
+        value: None
+        source: default
+    identity:
+      role_assignments:
+        value:
+          development:
+          - principal: user-assigned-identity__gateway
+            role: Key Vault Secrets User
+          - principal: user-assigned-identity__func
+            role: Key Vault Secrets User
+          - principal: api-management
+            role: Key Vault Secrets User
+          test:
+          - principal: user-assigned-identity__gateway
+            role: Key Vault Secrets User
+          - principal: user-assigned-identity__func
+            role: Key Vault Secrets User
+          - principal: api-management
+            role: Key Vault Secrets User
+          production:
+          - principal: user-assigned-identity__gateway
+            role: Key Vault Secrets User
+          - principal: user-assigned-identity__func
+            role: Key Vault Secrets User
+          - principal: api-management
+            role: Key Vault Secrets User
+        source: stated
+    security:
+      enabled_for_services:
+        value: []
+        source: default
+      secret_placeholders:
+        value: []
+        source: default
+    keys:
+      key_management:
+        value: platform_managed
+        source: deployment
+    observability:
+      diagnostic_workspace:
+        value:
+          development: log-analytics-workspace
+          test: log-analytics-workspace
+          production: log-analytics-workspace
+        source: deployment
+      diagnostic_categories:
+        value:
+        - AuditEvent
+        - AzurePolicyEvaluationDetails
+        source: default
+      metrics_enabled:
+        value: true
+        source: default
+  storage-account__orders:
+    networking:
+      public_network_access:
+        value: disabled
+        source: deployment
+      private_endpoint_subnet:
+        value:
+          development: snet-endpoints
+          test: snet-endpoints
+          production: snet-endpoints
+        source: forced
+        forced_by: deployment.network_ownership
+      private_endpoint_subresources:
+        value:
+        - blob
+        source: default
+      allow_azure_services_bypass:
+        value: true
+        source: default
+    identity:
+      managed_identity:
+        value: system_assigned
+        source: default
+      role_assignments:
+        value:
+          development:
+          - principal: backup-vault
+            role: Storage Account Backup Contributor
+          - principal: event-grid-topic
+            role: Storage Blob Data Contributor
+          test:
+          - principal: backup-vault
+            role: Storage Account Backup Contributor
+          - principal: event-grid-topic
+            role: Storage Blob Data Contributor
+          production:
+          - principal: backup-vault
+            role: Storage Account Backup Contributor
+          - principal: event-grid-topic
+            role: Storage Blob Data Contributor
+        source: stated
+    security:
+      shared_access_key_enabled:
+        value: false
+        source: deployment
+      min_tls_version:
+        value: TLS1_2
+        source: default
+      https_traffic_only:
+        value: true
+        source: default
+      allow_blob_public_access:
+        value: false
+        source: default
+      infrastructure_encryption_enabled:
+        value: true
+        source: default
+      key_management:
+        value: platform_managed
+        source: deployment
+      sftp_enabled:
+        value: false
+        source: default
+    data_protection:
+      replication:
+        value:
+          development: LRS
+          test: LRS
+          production: ZRS
+        source: requirement
+        derived_from: deployment.outage_impact
+        non_production: default
+      access_tier:
+        value: Hot
+        source: requirement
+        derived_from: deployment.data_access_pattern
+      blob_soft_delete_days:
+        value: 7
+        source: requirement
+        derived_from: deployment.data_loss_tolerance
+      container_soft_delete_days:
+        value: 7
+        source: requirement
+        derived_from: deployment.data_loss_tolerance
+      versioning_enabled:
+        value: true
+        source: requirement
+        derived_from: deployment.data_loss_tolerance
+      change_feed_enabled:
+        value: false
+        source: default
+      point_in_time_restore_days:
+        value: 0
+        source: default
+      immutability:
+        value: none
+        source: default
+    observability:
+      diagnostic_workspace:
+        value:
+          development: log-analytics-workspace
+          test: log-analytics-workspace
+          production: log-analytics-workspace
+        source: deployment
+      diagnostic_categories:
+        value:
+        - audit
+        source: default
+      metrics_enabled:
+        value: true
+        source: default
+  storage-account__lake:
+    networking:
+      public_network_access:
+        value: disabled
+        source: deployment
+      private_endpoint_subnet:
+        value:
+          development: snet-endpoints
+          test: snet-endpoints
+          production: snet-endpoints
+        source: forced
+        forced_by: deployment.network_ownership
+      private_endpoint_subresources:
+        value:
+        - blob
+        - dfs
+        source: stated
+      allow_azure_services_bypass:
+        value: true
+        source: default
+    identity:
+      managed_identity:
+        value: system_assigned
+        source: default
+      role_assignments:
+        value:
+          development:
+          - principal: event-hubs
+            role: Storage Blob Data Contributor
+          test:
+          - principal: event-hubs
+            role: Storage Blob Data Contributor
+          production:
+          - principal: event-hubs
+            role: Storage Blob Data Contributor
+        source: stated
+    security:
+      shared_access_key_enabled:
+        value: false
+        source: deployment
+      min_tls_version:
+        value: TLS1_2
+        source: default
+      https_traffic_only:
+        value: true
+        source: default
+      allow_blob_public_access:
+        value: false
+        source: default
+      infrastructure_encryption_enabled:
+        value: true
+        source: default
+      key_management:
+        value: platform_managed
+        source: deployment
+      sftp_enabled:
+        value: false
+        source: default
+    data_protection:
+      replication:
+        value:
+          development: LRS
+          test: LRS
+          production: ZRS
+        source: requirement
+        derived_from: deployment.outage_impact
+        non_production: default
+      access_tier:
+        value: Hot
+        source: requirement
+        derived_from: deployment.data_access_pattern
+      blob_soft_delete_days:
+        value: 7
+        source: requirement
+        derived_from: deployment.data_loss_tolerance
+      container_soft_delete_days:
+        value: 7
+        source: requirement
+        derived_from: deployment.data_loss_tolerance
+      versioning_enabled:
+        value: true
+        source: requirement
+        derived_from: deployment.data_loss_tolerance
+      change_feed_enabled:
+        value: false
+        source: default
+      point_in_time_restore_days:
+        value: 0
+        source: default
+      immutability:
+        value: none
+        source: default
+    observability:
+      diagnostic_workspace:
+        value:
+          development: log-analytics-workspace
+          test: log-analytics-workspace
+          production: log-analytics-workspace
+        source: deployment
+      diagnostic_categories:
+        value:
+        - audit
+        source: default
+      metrics_enabled:
+        value: true
+        source: default
+  storage-account__host:
+    networking:
+      public_network_access:
+        value: disabled
+        source: deployment
+      private_endpoint_subnet:
+        value:
+          development: snet-endpoints
+          test: snet-endpoints
+          production: snet-endpoints
+        source: forced
+        forced_by: deployment.network_ownership
+      private_endpoint_subresources:
+        value:
+        - blob
+        source: default
+      allow_azure_services_bypass:
+        value: true
+        source: default
+    identity:
+      managed_identity:
+        value: system_assigned
+        source: default
+      role_assignments:
+        value:
+          development:
+          - principal: user-assigned-identity__func
+            role: Storage Blob Data Owner
+          test:
+          - principal: user-assigned-identity__func
+            role: Storage Blob Data Owner
+          production:
+          - principal: user-assigned-identity__func
+            role: Storage Blob Data Owner
+        source: stated
+    security:
+      shared_access_key_enabled:
+        value: false
+        source: deployment
+      min_tls_version:
+        value: TLS1_2
+        source: default
+      https_traffic_only:
+        value: true
+        source: default
+      allow_blob_public_access:
+        value: false
+        source: default
+      infrastructure_encryption_enabled:
+        value: true
+        source: default
+      key_management:
+        value: platform_managed
+        source: deployment
+      sftp_enabled:
+        value: false
+        source: default
+    data_protection:
+      replication:
+        value:
+          development: LRS
+          test: LRS
+          production: ZRS
+        source: requirement
+        derived_from: deployment.outage_impact
+        non_production: default
+      access_tier:
+        value: Hot
+        source: requirement
+        derived_from: deployment.data_access_pattern
+      blob_soft_delete_days:
+        value: 7
+        source: requirement
+        derived_from: deployment.data_loss_tolerance
+      container_soft_delete_days:
+        value: 7
+        source: requirement
+        derived_from: deployment.data_loss_tolerance
+      versioning_enabled:
+        value: true
+        source: requirement
+        derived_from: deployment.data_loss_tolerance
+      change_feed_enabled:
+        value: false
+        source: default
+      point_in_time_restore_days:
+        value: 0
+        source: default
+      immutability:
+        value: none
+        source: default
+    observability:
+      diagnostic_workspace:
+        value:
+          development: log-analytics-workspace
+          test: log-analytics-workspace
+          production: log-analytics-workspace
+        source: deployment
+      diagnostic_categories:
+        value:
+        - audit
+        source: default
+      metrics_enabled:
+        value: true
+        source: default
+  blob-container__orders:
+    containers:
+      container_names:
+        value:
+        - eventgrid-deadletter
+        source: default
+      public_access:
+        value: None
+        source: default
+      immutable_storage:
+        value:
+          development: false
+          test: false
+          production: true
+        source: requirement
+        derived_from: deployment.backup_isolation
+        non_production: default
+      encryption_scope_locked:
+        value: false
+        source: default
+    identity:
+      role_assignments:
+        value:
+          development: []
+          test: []
+          production: []
+        source: default
+  blob-container__lake:
+    containers:
+      container_names:
+        value:
+        - eventhub-capture
+        source: forced
+        forced_by: resources.event-hubs.entities.event_archive
+      public_access:
+        value: None
+        source: default
+      immutable_storage:
+        value:
+          development: false
+          test: false
+          production: true
+        source: requirement
+        derived_from: deployment.backup_isolation
+        non_production: default
+      encryption_scope_locked:
+        value: false
+        source: default
+    identity:
+      role_assignments:
+        value:
+          development: []
+          test: []
+          production: []
+        source: default
+  function-app:
+    hosting:
+      plan_type:
+        value: flex_consumption
+        source: default
+      zone_redundant:
+        value:
+          development: false
+          test: false
+          production: true
+        source: requirement
+        derived_from: deployment.outage_impact
+        non_production: default
+      max_instance_count:
+        value: 20
+        source: default
+      always_ready_instances:
+        value:
+          development: 0
+          test: 0
+          production: 1
+        source: requirement
+        derived_from: deployment.outage_impact
+        non_production: default
+      instance_memory_mb:
+        value: 2048
+        source: default
+    storage:
+      host_storage_account:
+        value:
+          development: storage-account__host
+          test: storage-account__host
+          production: storage-account__host
+        source: stated
+      host_storage_auth:
+        value: identity
+        source: deployment
+      deployment_container:
+        value: app-package
+        source: default
+    networking:
+      public_network_access:
+        value: enabled_with_firewall
+        source: overridden
+        reason: Event Grid delivers the blob events over the public path; the app admits the AzureEventGrid service tag and
+          nothing else, and its private endpoint serves the API Management backend route.
+      private_endpoint_subnet:
+        value:
+          development: snet-endpoints
+          test: snet-endpoints
+          production: snet-endpoints
+        source: forced
+        forced_by: deployment.network_ownership
+      vnet_integration:
+        value: true
+        source: default
+      integration_subnet:
+        value:
+          development: snet-func
+          test: snet-func
+          production: snet-func
+        source: forced
+        forced_by: deployment.network_ownership
+      vnet_route_all:
+        value: true
+        source: default
+      ip_restrictions:
+        value:
+          development:
+          - service_tag: AzureEventGrid
+          test:
+          - service_tag: AzureEventGrid
+          production:
+          - service_tag: AzureEventGrid
+        source: stated
+    identity:
+      managed_identity:
+        value: user_assigned
+        source: default
+      user_assigned_identity_ids:
+        value:
+          development:
+          - user-assigned-identity__func
+          test:
+          - user-assigned-identity__func
+          production:
+          - user-assigned-identity__func
+        source: stated
+      role_assignments:
+        value:
+          development: []
+          test: []
+          production: []
+        source: default
+    security:
+      https_only:
+        value: true
+        source: default
+      min_tls_version:
+        value: '1.2'
+        source: default
+      basic_auth_enabled:
+        value: false
+        source: deployment
+      application_insights:
+        value:
+          development: ''
+          test: ''
+          production: ''
+        source: default
+    observability:
+      diagnostic_workspace:
+        value:
+          development: log-analytics-workspace
+          test: log-analytics-workspace
+          production: log-analytics-workspace
+        source: deployment
+      diagnostic_categories:
+        value:
+        - FunctionAppLogs
+        - AppServiceAuditLogs
+        source: default
+      metrics_enabled:
+        value: true
+        source: default
+  api-management:
+    service:
+      sku:
+        value:
+          development: Developer
+          test: Developer
+          production: Premium
+        source: stated
+        non_production: stated
+      capacity:
+        value: 1
+        source: default
+      zone_redundant:
+        value: false
+        source: default
+      additional_regions:
+        value:
+          development: []
+          test: []
+          production: []
+        source: default
+      managed_identity:
+        value: system_assigned
+        source: stated
+    access:
+      caller_authentication:
+        value: entra_id_and_key
+        source: overridden
+        reason: 'Rate limiting per subscription needs the subscription as the caller key, so the gateway requires the Entra
+          token and the subscription key. The key is an API Management subscription key, not a resource key: deployment.local_auth
+          is about Azure resources.'
+      rate_limit_calls_per_minute:
+        value: 600
+        source: default
+      developer_portal:
+        value: false
+        source: default
+      apis:
+        value:
+        - name: orders
+          path: orders
+          backend: function-app
+        source: stated
+      products:
+        value: []
+        source: default
+    networking:
+      network_integration:
+        value: internal
+        source: stated
+      apim_subnet:
+        value:
+          development: snet-apim
+          test: snet-apim
+          production: snet-apim
+        source: forced
+        forced_by: deployment.network_ownership
+      public_ip_address:
+        value:
+          development: pip-apim
+          test: pip-apim
+          production: pip-apim
+        source: forced
+        forced_by: resources.api-management.networking.network_integration
+      public_network_access:
+        value: disabled
+        source: deployment
+      private_endpoint_subnet:
+        value:
+          development: snet-endpoints
+          test: snet-endpoints
+          production: snet-endpoints
+        source: forced
+        forced_by: deployment.network_ownership
+    identity:
+      role_assignments:
+        value:
+          development: []
+          test: []
+          production: []
+        source: default
+    security:
+      legacy_protocols_disabled:
+        value: true
+        source: default
+      client_certificate_required:
+        value: false
+        source: default
+    observability:
+      diagnostic_workspace:
+        value:
+          development: log-analytics-workspace
+          test: log-analytics-workspace
+          production: log-analytics-workspace
+        source: deployment
+      diagnostic_categories:
+        value:
+        - GatewayLogs
+        source: default
+      metrics_enabled:
+        value: true
+        source: default
+  service-bus:
+    namespace:
+      sku:
+        value:
+          development: Standard
+          test: Standard
+          production: Premium
+        source: overridden
+        reason: Premium in production as stated and as a closed namespace requires. The request names Standard for development
+          and test; Standard has no private endpoint, so those two stages are reached through the firewall (public_network_access,
+          overridden) instead of being raised to Premium.
+      capacity:
+        value: 1
+        source: default
+      zone_redundant:
+        value:
+          development: false
+          test: false
+          production: true
+        source: requirement
+        derived_from: deployment.outage_impact
+        non_production: default
+      premium_messaging_partitions:
+        value: 1
+        source: default
+      minimum_tls_version:
+        value: '1.2'
+        source: default
+      local_auth:
+        value: disabled
+        source: deployment
+      managed_identity:
+        value: none
+        source: default
+    entities:
+      queues:
+        value:
+        - name: payments
+        source: stated
+      topics:
+        value:
+        - name: orders
+          subscriptions:
+          - name: billing
+            filter: order type
+          - name: shipping
+            filter: order type
+          - name: audit
+            filter: order type
+        source: stated
+      message_ordering:
+        value: false
+        source: default
+      duplicate_protection:
+        value: true
+        source: stated
+      message_retention_days:
+        value: 14
+        source: default
+      dead_letter_on_expiry:
+        value: true
+        source: default
+      max_delivery_count:
+        value: 10
+        source: default
+      lock_duration_seconds:
+        value: 60
+        source: default
+      max_size_megabytes:
+        value: 1024
+        source: default
+    networking:
+      public_network_access:
+        value:
+          development: enabled_with_firewall
+          test: enabled_with_firewall
+          production: disabled
+        source: overridden
+        reason: Standard (development, test) cannot hold a private endpoint, so these stages keep a firewalled public endpoint
+          with the allowed addresses open. Production is closed.
+      private_endpoint_subnet:
+        value:
+          development: snet-endpoints
+          test: snet-endpoints
+          production: snet-endpoints
+        source: forced
+        forced_by: deployment.network_ownership
+    encryption:
+      key_management:
+        value: platform_managed
+        source: deployment
+    recovery:
+      geo_recovery:
+        value: none
+        source: requirement
+        derived_from: deployment.outage_impact
+    identity:
+      role_assignments:
+        value:
+          development: []
+          test: []
+          production: []
+        source: default
+    observability:
+      diagnostic_workspace:
+        value:
+          development: log-analytics-workspace
+          test: log-analytics-workspace
+          production: log-analytics-workspace
+        source: deployment
+      diagnostic_categories:
+        value:
+        - OperationalLogs
+        - VNetAndIPFilteringLogs
+        source: default
+      metrics_enabled:
+        value: true
+        source: default
+  event-hubs:
+    namespace:
+      sku:
+        value: Standard
+        source: default
+      capacity:
+        value: 1
+        source: default
+      auto_inflate:
+        value: false
+        source: default
+      minimum_tls_version:
+        value: '1.2'
+        source: default
+      local_auth:
+        value: disabled
+        source: deployment
+      managed_identity:
+        value: system_assigned
+        source: forced
+        forced_by: resources.event-hubs.entities.event_archive
+    entities:
+      event_hubs:
+        value:
+        - telemetry
+        source: stated
+      partition_count:
+        value: 4
+        source: stated
+      message_retention_days:
+        value: 7
+        source: stated
+      consumer_groups:
+        value: []
+        source: default
+      event_archive:
+        value: true
+        source: stated
+      archive_storage_account:
+        value:
+          development: storage-account__lake
+          test: storage-account__lake
+          production: storage-account__lake
+        source: stated
+      archive_container:
+        value: eventhub-capture
+        source: default
+      archive_interval_seconds:
+        value: 300
+        source: default
+    networking:
+      public_network_access:
+        value: disabled
+        source: deployment
+      private_endpoint_subnet:
+        value:
+          development: snet-endpoints
+          test: snet-endpoints
+          production: snet-endpoints
+        source: forced
+        forced_by: deployment.network_ownership
+    encryption:
+      key_management:
+        value: platform_managed
+        source: deployment
+    recovery:
+      zone_redundant:
+        value:
+          development: false
+          test: false
+          production: true
+        source: requirement
+        derived_from: deployment.outage_impact
+        non_production: default
+      geo_recovery:
+        value: none
+        source: requirement
+        derived_from: deployment.outage_impact
+    identity:
+      role_assignments:
+        value:
+          development: []
+          test: []
+          production: []
+        source: default
+    observability:
+      diagnostic_workspace:
+        value:
+          development: log-analytics-workspace
+          test: log-analytics-workspace
+          production: log-analytics-workspace
+        source: deployment
+      diagnostic_categories:
+        value:
+        - OperationalLogs
+        - EventHubVNetConnectionEvent
+        source: default
+      metrics_enabled:
+        value: true
+        source: default
+  event-grid-topic:
+    topic:
+      input_schema:
+        value: CloudEventSchemaV1_0
+        source: default
+      minimum_tls_version:
+        value: '1.2'
+        source: default
+      local_auth:
+        value: disabled
+        source: deployment
+      data_residency_boundary:
+        value: WithinGeopair
+        source: requirement
+        derived_from: deployment.data_residency
+      managed_identity:
+        value: system_assigned
+        source: stated
+    delivery:
+      event_subscriptions:
+        value:
+        - name: blob-created-to-function
+          target: function-app
+          filter: Microsoft.Storage.BlobCreated
+          delivery: managed_identity
+        source: stated
+      max_delivery_attempts:
+        value: 30
+        source: default
+      event_ttl_minutes:
+        value: 1440
+        source: default
+      keep_undeliverable_events:
+        value: true
+        source: default
+      dead_letter_storage_account:
+        value:
+          development: storage-account__orders
+          test: storage-account__orders
+          production: storage-account__orders
+        source: default
+      dead_letter_container:
+        value: eventgrid-deadletter
+        source: default
+    networking:
+      public_network_access:
+        value: disabled
+        source: deployment
+      private_endpoint_subnet:
+        value:
+          development: snet-endpoints
+          test: snet-endpoints
+          production: snet-endpoints
+        source: forced
+        forced_by: deployment.network_ownership
+    identity:
+      role_assignments:
+        value:
+          development: []
+          test: []
+          production: []
+        source: default
+    observability:
+      diagnostic_workspace:
+        value:
+          development: log-analytics-workspace
+          test: log-analytics-workspace
+          production: log-analytics-workspace
+        source: deployment
+      diagnostic_categories:
+        value:
+        - DeliveryFailures
+        - PublishFailures
+        source: default
+      metrics_enabled:
+        value: true
+        source: default
+  backup-vault:
+    vault:
+      storage_redundancy:
+        value:
+          development: LocallyRedundant
+          test: LocallyRedundant
+          production: GeoRedundant
+        source: stated
+        non_production: default
+      cross_region_restore:
+        value: true
+        source: stated
+      immutability:
+        value:
+          development: Unlocked
+          test: Unlocked
+          production: Locked
+        source: requirement
+        derived_from: deployment.backup_isolation
+        non_production: default
+      soft_delete_retention_days:
+        value: 14
+        source: requirement
+        derived_from: deployment.data_loss_tolerance
+      multi_user_authorization:
+        value:
+          development: false
+          test: false
+          production: true
+        source: requirement
+        derived_from: deployment.backup_isolation
+        non_production: default
+      infrastructure_encryption:
+        value: true
+        source: default
+      job_failure_alerts:
+        value: true
+        source: default
+    protection:
+      protected_resources:
+        value:
+        - resource: storage-account__orders
+          kind: storage_blobs
+        source: stated
+      backup_schedule:
+        value: daily
+        source: default
+      retention_days:
+        value:
+          development: 7
+          test: 7
+          production: 30
+        source: requirement
+        derived_from: deployment.data_loss_tolerance
+        non_production: default
+    encryption:
+      key_management:
+        value: platform_managed
+        source: deployment
+      managed_identity:
+        value: system_assigned
+        source: default
+    identity:
+      role_assignments:
+        value:
+          development: []
+          test: []
+          production: []
+        source: default
+    observability:
+      diagnostic_workspace:
+        value:
+          development: log-analytics-workspace
+          test: log-analytics-workspace
+          production: log-analytics-workspace
+        source: deployment
+      diagnostic_categories:
+        value:
+        - CoreAzureBackup
+        - AddonAzureBackupJobs
+        - AddonAzureBackupProtectedInstance
+        source: default
+      metrics_enabled:
+        value: true
+        source: default
+  recovery-services-vault:
+    vault:
+      storage_redundancy:
+        value:
+          development: LocallyRedundant
+          test: LocallyRedundant
+          production: GeoRedundant
+        source: stated
+        non_production: default
+      cross_region_restore:
+        value: true
+        source: stated
+      soft_delete:
+        value: AlwaysOn
+        source: requirement
+        derived_from: deployment.backup_isolation
+      soft_delete_retention_days:
+        value: 14
+        source: requirement
+        derived_from: deployment.data_loss_tolerance
+      immutability:
+        value:
+          development: Unlocked
+          test: Unlocked
+          production: Locked
+        source: requirement
+        derived_from: deployment.backup_isolation
+        non_production: default
+      multi_user_authorization:
+        value:
+          development: false
+          test: false
+          production: true
+        source: requirement
+        derived_from: deployment.backup_isolation
+        non_production: default
+      job_failure_alerts:
+        value: true
+        source: default
+    protection:
+      protected_resources:
+        value: []
+        source: default
+      backup_schedule:
+        value: daily
+        source: default
+      retention_days:
+        value:
+          development: 7
+          test: 7
+          production: 30
+        source: requirement
+        derived_from: deployment.data_loss_tolerance
+        non_production: default
+    networking:
+      public_network_access:
+        value: disabled
+        source: deployment
+      private_endpoint_subnet:
+        value:
+          development: snet-endpoints
+          test: snet-endpoints
+          production: snet-endpoints
+        source: forced
+        forced_by: deployment.network_ownership
+    encryption:
+      key_management:
+        value: platform_managed
+        source: deployment
+      managed_identity:
+        value: system_assigned
+        source: default
+    identity:
+      role_assignments:
+        value:
+          development: []
+          test: []
+          production: []
+        source: default
+    observability:
+      diagnostic_workspace:
+        value:
+          development: log-analytics-workspace
+          test: log-analytics-workspace
+          production: log-analytics-workspace
+        source: deployment
+      diagnostic_categories:
+        value:
+        - CoreAzureBackup
+        - AddonAzureBackupJobs
+        - AddonAzureBackupAlerts
+        - AddonAzureBackupProtectedInstance
+        source: default
+      metrics_enabled:
+        value: true
+        source: default
+  front-door:
+    profile:
+      sku:
+        value: Premium_AzureFrontDoor
+        source: stated
+      response_timeout_seconds:
+        value: 60
+        source: default
+      managed_identity:
+        value: none
+        source: default
+    delivery:
+      origins:
+        value:
+          development:
+          - origin: application-gateway
+            route: /*
+          test:
+          - origin: application-gateway
+            route: /*
+          production:
+          - origin: application-gateway
+            route: /*
+        source: stated
+      origin_connection:
+        value: public
+        source: overridden
+        reason: An Application Gateway cannot be a Private Link origin of Front Door. The gateway admits only the AzureFrontDoor.Backend
+          service tag and the render checks the X-Azure-FDID header against this profile.
+      forwarding_protocol:
+        value: HttpsOnly
+        source: default
+      https_redirect:
+        value: true
+        source: default
+      caching:
+        value: false
+        source: default
+      custom_domains:
+        value:
+          development: []
+          test: []
+          production: []
+        source: default
+    security:
+      waf_enabled:
+        value: true
+        source: default
+      waf_mode:
+        value: Prevention
+        source: default
+      waf_managed_rules:
+        value: true
+        source: default
+      waf_rate_limit_per_minute:
+        value: 1000
+        source: default
+    observability:
+      diagnostic_workspace:
+        value:
+          development: log-analytics-workspace
+          test: log-analytics-workspace
+          production: log-analytics-workspace
+        source: deployment
+      diagnostic_categories:
+        value:
+        - FrontDoorAccessLog
+        - FrontDoorHealthProbeLog
+        - FrontDoorWebApplicationFirewallLog
+        source: default
+      metrics_enabled:
+        value: true
+        source: default
+  application-gateway:
+    gateway:
+      waf_enabled:
+        value: true
+        source: default
+      waf_mode:
+        value: Prevention
+        source: default
+      waf_rule_set:
+        value: Microsoft_DefaultRuleSet_2.1
+        source: default
+      waf_bot_protection:
+        value: true
+        source: default
+      capacity_min:
+        value:
+          development: 1
+          test: 1
+          production: 2
+        source: requirement
+        derived_from: deployment.outage_impact
+        non_production: default
+      capacity_max:
+        value:
+          development: 2
+          test: 2
+          production: 10
+        source: default
+        non_production: default
+      zone_redundant:
+        value:
+          development: false
+          test: false
+          production: true
+        source: requirement
+        derived_from: deployment.outage_impact
+        non_production: default
+      gateway_subnet:
+        value:
+          development: snet-gateway
+          test: snet-gateway
+          production: snet-gateway
+        source: forced
+        forced_by: deployment.network_ownership
+      managed_identity:
+        value: user_assigned
+        source: default
+      user_assigned_identity_ids:
+        value:
+          development:
+          - user-assigned-identity__gateway
+          test:
+          - user-assigned-identity__gateway
+          production:
+          - user-assigned-identity__gateway
+        source: stated
+    networking:
+      frontend_exposure:
+        value: public
+        source: overridden
+        reason: Front Door reaches the gateway over its public frontend (no Private Link to a gateway); its network security
+          group admits only the AzureFrontDoor.Backend service tag.
+      public_ip_zone_redundant:
+        value: true
+        source: default
+      tls_policy:
+        value: AppGwSslPolicy20220101S
+        source: default
+      backend_protocol:
+        value: Https
+        source: default
+      redirect_http_to_https:
+        value: true
+        source: default
+      http2_enabled:
+        value: true
+        source: default
+    security:
+      waf_exclusions:
+        value: []
+        source: default
+    observability:
+      diagnostic_workspace:
+        value:
+          development: log-analytics-workspace
+          test: log-analytics-workspace
+          production: log-analytics-workspace
+        source: deployment
+      diagnostic_categories:
+        value:
+        - ApplicationGatewayAccessLog
+        - ApplicationGatewayFirewallLog
+        source: default
+      metrics_enabled:
+        value: true
+        source: default
+wiring:
+  private_dns_zones:
+    value:
+    - privatelink.blob.core.windows.net
+    - privatelink.dfs.core.windows.net
+    - privatelink.queue.core.windows.net
+    - privatelink.vaultcore.azure.net
+    - privatelink.azurewebsites.net
+    - scm.privatelink.azurewebsites.net
+    - privatelink.servicebus.windows.net
+    - privatelink.eventgrid.azure.net
+    - privatelink.gwc.backup.windowsazure.com
+    - azure-api.net
+    source: forced
+    forced_by: deployment.private_dns_ownership
+  access:
+    value:
+    - from: users
+      to: front-door
+      label: HTTPS 443
+    - from: front-door
+      to: application-gateway
+      label: AzureFrontDoor.Backend, X-Azure-FDID
+    - from: application-gateway
+      to: api-management
+      label: HTTPS 443
+    - from: api-management
+      to: external:entra-id
+      label: validate-jwt
+    - from: api-management
+      to: function-app
+      label: backend
+    - from: api-management
+      to: key-vault
+    - from: application-gateway
+      to: key-vault
+      label: TLS certificates
+    - from: function-app
+      to: storage-account__host
+    - from: storage-account__orders
+      to: event-grid-topic
+      label: blob events
+    - from: event-grid-topic
+      to: function-app
+      label: delivery as managed identity
+    - from: event-grid-topic
+      to: storage-account__orders
+      label: dead letters
+    - from: event-hubs
+      to: storage-account__lake
+      label: capture
+    - from: backup-vault
+      to: storage-account__orders
+      label: blob backup
+    source: stated
+  purposes:
+    value:
+      front-door: Entry point with web application firewall
+      application-gateway: Second firewall stage; reachable from Front Door only
+      api-management: 'API gateway: JWT validation, rate limit per subscription, routing'
+      function-app: Order API backend; receives the blob events
+      service-bus: 'Order messaging: topic orders, queue payments'
+      event-hubs: Telemetry stream, captured to the data lake
+      event-grid-topic: Delivers blob events to the function app
+      storage-account__orders: Order blobs; backed up. Kept apart from the data lake - blob backup does not take a hierarchical
+        namespace
+      storage-account__lake: Data lake (Data Lake Gen2) for the telemetry capture
+      storage-account__host: State of the function app
+      backup-vault: Blob backup of the orders account
+      recovery-services-vault: Backup of virtual machines
+      key-vault: Secrets and TLS certificates
+      log-analytics-workspace: Central workspace for every diagnostic setting
+      user-assigned-identity__func: Function app
+      user-assigned-identity__gateway: Application gateway
+      network-security-group__endpoints: Private endpoints subnet
+      network-security-group__func: Function integration subnet
+      network-security-group__gateway: Gateway subnet; Front Door in, API Management out
+      network-security-group__apim: API Management subnet
+    source: stated
+  optional:
+    value: []
+    source: default
+open:
+- key: deployment.deploy_mechanism
+  question: Where does the code live, and which system deploys it? The request names none, so no pipeline is rendered.
+  owner: workload owner
+  blocks: apply
+- key: context.tags
+  question: Which tag set does the organisation apply? Nothing in the request, no repository to read it from.
+  owner: workload owner
+  blocks: apply
+- key: resources.function-app.hosting.runtime_stack
+  question: Which runtime stack and version does the order function run (runtime_stack and runtime_version)?
+  owner: workload owner
+  blocks: apply
+- key: resources.api-management.service.publisher_name
+  question: 'Publisher name and e-mail of the API Management instance (publisher_name, publisher_email): the organisation,
+    not the project.'
+  owner: workload owner
+  blocks: apply
+- key: wiring.apim_jwt_validation
+  question: Entra tenant and the app registration (audience) that validate-jwt checks the token against. A directory object,
+    not an Azure resource - the identity team creates it.
+  owner: identity team
+  blocks: apply
+- key: resources.application-gateway.networking.listeners
+  question: Host name and TLS certificate of the listener, and the API Management gateway host name it forwards to. The certificate
+    is a key vault secret the gateway identity reads.
+  owner: workload owner
+  blocks: apply
+- key: resources.service-bus.entities.topics
+  question: Which order types do the subscriptions billing, shipping and audit filter on? The filter rule is rendered from
+    the values.
+  owner: workload owner
+  blocks: apply
+- key: resources.service-bus.networking.ip_rules
+  environments:
+  - development
+  - test
+  question: Which addresses may reach the firewalled namespaces of development and test? Empty denies every public caller.
+  owner: workload owner
+  blocks: apply
+- key: wiring.messaging_roles
+  question: Which identities send to and receive from the topic orders, the queue payments and the event hub telemetry? Data
+    Sender / Data Receiver per party; Owner is never granted.
+  owner: workload owner
+  blocks: apply
+- key: wiring.blob_events_to_topic
+  question: Blob events are emitted by a system topic on the storage account, which has no question set; the custom topic
+    requested receives them only from a forwarding publisher. Which path is meant? Not rendered.
+  owner: workload owner
+  blocks: apply
+- key: wiring.function_event_delivery_auth
+  question: Delivery of events to the function with a managed identity needs the Entra application settings on the function
+    app (audience of the event subscription). Not rendered.
+  owner: identity team
+  blocks: apply
+- key: resources.storage-account__lake.data_protection.hierarchical_namespace
+  question: Storage account with hierarchical namespace (Data Lake Gen2) - not a question in the storage account set, and
+    not convertible after creation. Decided with the render.
+  owner: engineer
+  blocks: apply
+- key: resources.blob-container__orders.containers.container_names
+  question: Which containers hold the order blobs? Only the dead-letter container is known.
+  owner: workload owner
+  blocks: apply
+- key: resources.backup-vault.vault.resource_guard
+  environments:
+  - production
+  question: 'Resource Guard for the production backup vault (multi-user authorization): the id of a guard in another subscription,
+    held by the security team.'
+  owner: security team
+  blocks: apply
+- key: resources.recovery-services-vault.vault.resource_guard
+  environments:
+  - production
+  question: Resource Guard for the production recovery services vault.
+  owner: security team
+  blocks: apply
+- key: resources.recovery-services-vault.protection.protected_resources
+  question: Which virtual machines does the vault protect? The request names no machine and the deployment has none.
+  owner: workload owner
+  blocks: apply
+- key: resources.front-door.delivery.data_residency
+  question: Front Door is a global service and cannot keep requests in the data zone. Does the data owner accept the edge
+    locations?
+  owner: data owner
+  blocks: apply
