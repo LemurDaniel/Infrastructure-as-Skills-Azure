@@ -1,7 +1,7 @@
 name: Release
 
 # A tag v<major>.<minor>.<patch>[-suffix] builds the plugin ZIP and publishes it as a
-# release. While the major version is 0 the release is marked as a prerelease.
+# release. A 0.0.x version or a -suffix marks it as a prerelease; 0.1.0 and later are stable.
 on:
   push:
     tags:
@@ -32,7 +32,7 @@ jobs:
             echo "::error::tag $GITHUB_REF_NAME does not match plugin.json version $manifest"
             exit 1
           fi
-          if [ "${version%%.*}" = "0" ] || [[ "$version" == *-* ]]; then
+          if [[ "$version" == 0.0.* ]] || [[ "$version" == *-* ]]; then
             echo "prerelease=true" >> "$GITHUB_OUTPUT"
           else
             echo "prerelease=false" >> "$GITHUB_OUTPUT"

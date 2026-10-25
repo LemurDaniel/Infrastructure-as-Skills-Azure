@@ -9,9 +9,9 @@ A release is a tag `v<version>` on `master`. `.github/workflows/release.yml` run
 tag, fails if the tag differs from `version` in
 `plugins/infrastructure-as-skills-azure/.claude-plugin/plugin.json`, runs the repository
 checks, zips the plugin directory (tracked files only, via `git archive`) and creates the
-GitHub release with a SHA-256 file. A major version of 0, or a `-suffix`, makes it a
-prerelease. The versions are `0.0.x` for now; `0.1.0` or `1.0.0` is the owner's call, never
-a default bump.
+GitHub release with a SHA-256 file. A `0.0.x` version, or a `-suffix`, makes it a
+prerelease; `0.1.0` and later are stable releases. `0.0.x` was the early line, `0.1.0` is
+the first stable release; a minor or major bump is the owner's call, never a default bump.
 
 ## Steps
 
