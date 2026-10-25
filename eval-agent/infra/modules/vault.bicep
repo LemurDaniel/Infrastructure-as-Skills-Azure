@@ -27,9 +27,6 @@ param diagnosticWorkspaceId string
 @description('Role assignments on the vault, as { principalId, roleDefinitionId, principalType } (per stage, from the stage file).')
 param roleAssignments array
 
-@description('Placeholder secrets that already exist; the pipeline fills this from a secret list before the deployment, so a placeholder never overwrites a real value with a new version.')
-param existingSecretNames array = []
-
 // decision: key-vault.security.secret_placeholders
 var secretPlaceholders = ['entra-client-secret', 'github-token', 'github-drift-token', 'github-tune-token']
 
@@ -74,10 +71,12 @@ resource vault 'Microsoft.KeyVault/vaults@2024-11-01' = {
 
 // decision: key-vault.keys.key_management - platform_managed: no keys are created in the vault.
 
-// A placeholder is created only while it does not exist yet. The secret is written through the
-// management plane, so it works although the vault is closed to the public network.
+// A placeholder is deployed once and never again over a value somebody set: @onlyIfNotExists, no
+// lookup of existing secrets. The secret is written through the management plane, so it works
+// although the vault is closed to the public network.
+@onlyIfNotExists()
 resource placeholder 'Microsoft.KeyVault/vaults/secrets@2024-11-01' = [
-  for secretName in secretPlaceholders: if (!contains(existingSecretNames, secretName)) {
+  for secretName in secretPlaceholders: {
     parent: vault
     name: secretName
     properties: {

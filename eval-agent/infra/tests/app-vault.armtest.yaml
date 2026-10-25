@@ -745,10 +745,15 @@
   path: resources.vault.properties.template.variables.secretPlaceholders
   equals: [entra-client-secret, github-token, github-drift-token, github-tune-token]
 
-# A placeholder is created only while the secret does not exist (the pipeline fills existingSecretNames).
-- deployment: secret_placeholder_does_not_overwrite
+# A placeholder is written once (@onlyIfNotExists): no lookup of existing secrets is left, neither as a
+# condition on the secret nor as a parameter.
+- deployment: secret_placeholder_has_no_lookup_condition
   path: resources.vault.properties.template.resources.placeholder.condition
-  matches: "not\\(contains\\(parameters\\('existingSecretNames'\\)"
+  absent: true
+
+- deployment: secret_placeholder_has_no_lookup_parameter
+  path: resources.vault.properties.template.parameters.existingSecretNames
+  absent: true
 
 - not_testable: key-vault.keys.key_management
   reason: platform_managed renders no key resource and no encryption property, so there is no path to assert; the absence of the vault's keys block is not observable

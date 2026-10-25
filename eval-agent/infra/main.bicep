@@ -122,9 +122,6 @@ param index int = 1
 @description('Tags applied to every resource. The spec carries no tag decision, so the default is empty.')
 param tags object = {}
 
-@description('Names of placeholder secrets that already exist in the vault; the pipeline fills this from a secret list before the deployment so a placeholder never overwrites a real value.')
-param existingSecretNames array = []
-
 // ---------------------------------------------------------------------------------------------
 // Names, assembled from naming.default.yaml (deployment.naming_convention: default)
 // ---------------------------------------------------------------------------------------------
@@ -347,7 +344,6 @@ module vault 'modules/vault.bicep' = {
     privateDnsZoneId: resourceId('Microsoft.Network/privateDnsZones', privateDnsZoneNames.vault)
     diagnosticWorkspaceId: observability.outputs.id
     roleAssignments: vaultRoleAssignments
-    existingSecretNames: existingSecretNames
   }
   dependsOn: [
     privateDnsZoneLinks

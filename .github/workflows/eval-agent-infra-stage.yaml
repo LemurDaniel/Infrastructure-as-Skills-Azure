@@ -60,35 +60,14 @@ jobs:
           tenant-id: ${{ vars.AZURE_TENANT_ID }}
           subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
 
-      # The vault is private (data plane unreachable from the runner): management plane only, no
-      # 'az keyvault secret list'. A missing resource group / vault counts as an empty list.
-      - name: Resolve existingSecretNames
-        run: |
-          set -euo pipefail
-          names=""
-          if [ "$(az group exists --subscription "$SUBSCRIPTION_ID" --name "$RESOURCE_GROUP")" = "true" ]; then
-            vaults=$(az resource list --subscription "$SUBSCRIPTION_ID" --resource-group "$RESOURCE_GROUP" \
-              --resource-type Microsoft.KeyVault/vaults --query "[].id" -o tsv | tr -d '\r')
-            for id in $vaults; do
-              names="$names"$'\n'"$(az rest --method get \
-                --url "https://management.azure.com${id}/secrets?api-version=2024-11-01" \
-                --query "value[].name" -o tsv | tr -d '\r')"
-            done
-          fi
-          list=""
-          for n in $(printf '%s\n' "$names" | grep -E '^[A-Za-z0-9-]+$' | sort -u || true); do
-            list="${list:+$list, }'$n'"
-          done
-          cp "main.${STAGE}.bicepparam" "main.${STAGE}.resolved.bicepparam"
-          printf '\nparam existingSecretNames = [%s]\n' "$list" >> "main.${STAGE}.resolved.bicepparam"
-          echo "existingSecretNames = [$list]"
-
       # The images belong to the separate image pipeline: keep what each web app runs now so this
       # deployment never rolls it back. Management plane only; empty on the first deployment.
       # The agent app is named app-...-agent-<index>, the dashboard is the other one.
       - name: Resolve existing linuxFxVersions
         run: |
           set -euo pipefail
+          # The resolved parameter file starts as a copy of the stage file.
+          cp "main.${STAGE}.bicepparam" "main.${STAGE}.resolved.bicepparam"
           dashboard_fx=""
           agent_fx=""
           if [ "$(az group exists --subscription "$SUBSCRIPTION_ID" --name "$RESOURCE_GROUP")" = "true" ]; then
