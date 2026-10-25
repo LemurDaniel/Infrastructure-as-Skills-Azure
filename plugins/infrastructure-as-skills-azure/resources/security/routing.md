@@ -9,7 +9,11 @@ skill. Routing table - the request picks the question set:
 | managed identity, user-assigned identity, MSI, federated credential | `user-assigned-identity/questions.yaml` | [notes](user-assigned-identity/notes.md) |
 | Entra app registration, service principal, enterprise application | *not written - not an Azure resource* | Directory objects (`azuread`, Graph), not ARM. Recorded as an `open:` entry owned by the identity team, never rendered |
 | Managed HSM | *not yet written* | `key_protection: hsm` selects Premium here; a single-tenant HSM is its own set |
-| Defender for Cloud, Sentinel, policy | *not yet written* | - |
+| role assignment, RBAC, role, grant access, "Rolle zuweisen", Zugriff vergeben, least privilege | `role-assignment/questions.yaml` | [notes](role-assignment/notes.md) - a resource's own `role_assignments` go through its module interface |
+| Key Vault key, signing key, CMK key, key rotation, Schlüssel | `key-vault-key/questions.yaml` | [notes](key-vault-key/notes.md) - a key with its own decisions; uniform CMK keys stay in the vault set |
+| Key Vault secret, connection string secret, secret expiry, Geheimnis | `key-vault-secret/questions.yaml` | [notes](key-vault-secret/notes.md) - a secret with its own decisions; bare slots stay `secret_placeholders` of the vault |
+| Defender for Cloud, Defender plan, Defender for Servers, Defender for Storage, security contact, CSPM | `defender-for-cloud/questions.yaml` | [notes](defender-for-cloud/notes.md) - subscription scope; nothing renders by default (`defender_ownership: platform`) |
+| Sentinel, policy | *not yet written* | - |
 
 When a question set does not exist yet, say so rather than improvising one. Fall back to
 [the guardrails](../../core/iac-authoring/references/guardrails.md), generate from those

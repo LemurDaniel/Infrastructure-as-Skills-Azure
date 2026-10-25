@@ -1,0 +1,249 @@
+schema_version: 1
+
+resource: Microsoft.KeyVault/vaults/keys
+title: Azure Key Vault key
+
+naming:
+  terraform: "Azure::Microsoft.KeyVault/vaults/keys"
+  bicep: "Microsoft.KeyVault/vaults/keys"
+  # Bicep assembles the name from vars - this is the prefix it renders. A key name is 1-127
+  # characters, letters, digits and hyphens, and is the key's identity inside the vault.
+  abbreviation: "key"
+
+boundaries:
+  - "Does not create the vault. It is a child of one (`key-vault`) and inherits its tier, purge protection, network posture and RBAC model; a key cannot soften them."
+  - "Does not decide the customer-managed keys of `deployment.key_management: customer_managed`. Those are the vault set's `customer_managed_keys` and share its `key_type`, `key_size`, `key_rotation_days` and `key_expiry_days`. This set is for a key whose decisions differ per key, or that is not a customer-managed key at all (signing, application-level envelope encryption). A key name appears in exactly one of the two."
+  - "Does not wire a consumer to the key. The consumer's identity gets its role on the key in the pattern that wires them, rendered as a `role-assignment`; `role_assignments` here is for the key's own readers."
+  - "Does not import key material (BYOK) or render secure key release policies (`release_policy`, a Premium vault with confidential-computing consumers). Both carry decisions of their own."
+  - "Does not wire the near-expiry notification to anything. The rotation policy's notify action raises an Event Grid event; the Event Grid subscription that turns it into a mail or a ticket has no question set yet."
+  - "Does not create Managed HSM keys. A Managed HSM is a separate resource."
+  - "Has no diagnostic settings: the vault's audit log records every use of the key."
+
+groups:
+
+  # ---------------------------------------------------------------- placement
+  - id: placement
+    title: Placement
+    questions:
+      - id: environments
+        ask: Which stages is this deployed to?
+        type: list
+        plain:
+          en: "Deployed in the stages {value}."
+          de: "Wird in den Stufen {value} ausgerollt."
+        values: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
+        required: true
+        from_context: true
+        why: >
+          One key per stage: key material is never shared between stages, a shared key would
+          let development decrypt production data.
+        renders: the stage file the vault reference comes from
+
+      - id: key_vault
+        ask: In which vault should the key live?
+        type: ref
+        ref: key_vault
+        plain:
+          en: "The key is kept in the vault {value}."
+          de: "Der Schlüssel liegt im Tresor {value}."
+        required: true
+        per_environment: true
+        why: >
+          The parent. The vault's tier decides whether the key may be HSM-backed, and its
+          network posture decides who can create the key at all - a closed vault accepts a
+          data-plane write only from inside the network (see `key-vault/notes.md`).
+        renders: key_vault_resource_id / keyVaultName
+
+      - id: purpose
+        ask: What is the key for?
+        type: enum
+        plain:
+          en: "The key is used for {value}."
+          de: "Der Schlüssel dient {value}."
+        plain_values:
+          encrypts_other_resources: { en: "encrypting the data of another Azure service with your own key", de: "der Verschlüsselung der Daten eines anderen Azure-Dienstes mit einem eigenen Schlüssel" }
+          signs: { en: "signing and verifying", de: "dem Signieren und Prüfen von Signaturen" }
+          encrypts_application_data: { en: "an application encrypting its own data", de: "der Verschlüsselung eigener Daten durch eine Anwendung" }
+        values: [encrypts_other_resources, signs, encrypts_application_data]
+        default: encrypts_other_resources
+        resolved_by: interview
+        why: >
+          Decides the operations the key may perform and, through them, the role its users
+          need. A key that may do everything is a key whose theft does everything; one for a
+          storage account's encryption only wraps and unwraps, one for signing only signs and
+          verifies. Not an Azure term in the question: the customer knows whether the key is
+          for their data at rest in a service, for signatures, or for their own application.
+        renders: key_opts / keyOps, and the role of the key's users (see `role_assignments`)
+
+  # ----------------------------------------------------------------- identity
+  - id: identity
+    title: Identity and access
+    questions:
+      - id: role_assignments
+        ask: Who needs which role on this key?
+        type: list
+        plain:
+          en: "Access rights on the key granted to: {value}."
+          de: "Zugriffsrechte auf den Schlüssel vergeben an: {value}."
+        default: []
+        per_environment: true
+        why: >
+          Scoped to the key (its versionless id), not the vault: `Key Vault Crypto Service
+          Encryption User` for a service that wraps and unwraps (storage, SQL, disks), `Key
+          Vault Crypto User` for an application that encrypts, decrypts, signs or verifies,
+          `Key Vault Crypto Officer` for the pipeline or person that creates and rotates it.
+          The consumer of a customer-managed key takes its identity here, and that identity
+          is user-assigned so the role exists before the consumer does. The module's own
+          interface is used for these; an assignment between two modules is a `role-assignment`.
+        renders: role_assignments / roleAssignments
+
+  # ----------------------------------------------------------------- security
+  - id: security
+    title: Key
+    questions:
+      - id: algorithm
+        ask: Which kind of key?
+        type: enum
+        plain:
+          en: "The key is an {value} key."
+          de: "Der Schlüssel ist ein {value}-Schlüssel."
+        values: [RSA, EC]
+        default: RSA
+        why: >
+          RSA is what Azure services wrap customer-managed keys with, and the only choice for
+          them: storage, SQL, disks and most encryption-at-rest integrations accept nothing
+          else. EC is for signing (ES256 and friends) where the verifier supports it: smaller
+          keys, faster signatures, no encryption or wrapping. The choice follows the
+          consumer, not taste, and a key cannot change its type.
+        forced_when: >
+          purpose: encrypts_other_resources forces `RSA`; purpose: signs allows either;
+          purpose: encrypts_application_data forces `RSA` (EC keys cannot encrypt or wrap)
+        renders: key_type / kty (RSA, RSA-HSM, EC or EC-HSM, with `protection`)
+
+      - id: protection
+        ask: Software-protected or hardware-protected?
+        type: enum
+        plain:
+          en: "The key is protected {value}."
+          de: "Der Schlüssel wird {value} geschützt."
+        plain_values:
+          software: { en: "in software", de: "in Software" }
+          hsm: { en: "by hardware security modules", de: "durch Hardware-Sicherheitsmodule" }
+        values: [software, hsm]
+        from_deployment: key_protection
+        why: >
+          Inherited: one answer per system. `hsm` renders `RSA-HSM` / `EC-HSM` and needs a
+          Premium vault, which the same deployment answer forces on the vault. A software key
+          cannot be turned into an HSM key later, so a spec that changes the answer creates a
+          new key and rotates the consumer to it.
+        renders: key_type / kty suffix `-HSM`
+
+      - id: key_operations
+        ask: What may the key be used for?
+        type: list
+        plain:
+          en: "The key may be used for: {value}."
+          de: "Der Schlüssel darf verwendet werden für: {value}."
+        plain_values:
+          wrapKey: { en: "wrapping other keys", de: "das Verpacken anderer Schlüssel" }
+          unwrapKey: { en: "unwrapping other keys", de: "das Entpacken anderer Schlüssel" }
+          encrypt: { en: "encrypting", de: "Verschlüsseln" }
+          decrypt: { en: "decrypting", de: "Entschlüsseln" }
+          sign: { en: "signing", de: "Signieren" }
+          verify: { en: "verifying signatures", de: "Signaturen prüfen" }
+        values: [wrapKey, unwrapKey, encrypt, decrypt, sign, verify]
+        default: [wrapKey, unwrapKey]
+        why: >
+          The least the purpose needs. A customer-managed key for a service needs exactly
+          `wrapKey` and `unwrapKey`; a signing key `sign` and `verify`; application
+          encryption `encrypt`, `decrypt`, `wrapKey`, `unwrapKey`. The modules disagree on
+          the default (the vault module `["sign", "verify"]`, the key module and the Bicep
+          module none, which means every operation the type allows), so it is always written.
+        forced_when: >
+          purpose: signs forces [sign, verify]; purpose: encrypts_application_data forces
+          [encrypt, decrypt, wrapKey, unwrapKey]
+        renders: key_opts / keyOps
+
+      - id: key_size
+        ask: How large should the key be?
+        type: enum
+        plain:
+          en: "The key is {value} bits long."
+          de: "Der Schlüssel ist {value} Bit lang."
+        values: [2048, 3072, 4096]
+        default: 3072
+        depends_on: { question: algorithm, equals: RSA }
+        why: >
+          The same reasoning and the same default as the vault's `key_size`: 2048 is the
+          minimum Azure accepts, 3072 the floor recommended for keys that live for years, 4096
+          slows every operation for no gain a consumer asks for. Fixed at creation - a larger
+          key is a rotation to a new key, not an edit.
+        renders: key_size / keySize
+
+      - id: curve
+        ask: Which curve?
+        type: enum
+        plain:
+          en: "The key uses the curve {value}."
+          de: "Der Schlüssel nutzt die Kurve {value}."
+        values: [P-256, P-384, P-521, P-256K]
+        default: P-256
+        depends_on: { question: algorithm, equals: EC }
+        why: >
+          `P-256` is what ES256 verifiers expect and the broadest support; `P-384` and `P-521`
+          for a verifier that demands them. `P-256K` is for blockchain-style interoperability
+          and is not accepted by most libraries - listed because the API allows it, never a
+          default. The Bicep key module defaults the type to **EC** and the curve to P-256;
+          written here either way.
+        renders: curve / curveName
+
+  # ---------------------------------------------------------------- lifetime
+  - id: data_protection
+    title: Lifetime and rotation
+    questions:
+      - id: rotation_days
+        ask: After how many days should the key rotate itself?
+        type: int
+        plain:
+          en: "The key is replaced automatically every {value} days."
+          de: "Der Schlüssel wird automatisch alle {value} Tage erneuert."
+        default: 90
+        why: >
+          The same default as the vault's `key_rotation_days`: a rotation policy that creates
+          a new version after the interval, so no version lives past it, and consumers that
+          follow the key's latest version pick the new one up without a change. A consumer
+          pinned to a version is the one that breaks. A signing key rotates too - verifiers
+          must trust every version still in use, so the old public key stays published until
+          the last signature made with it has expired. 0 disables rotation and is a recorded
+          departure; a key nobody rotates is a key nobody replaces after a leak.
+        renders: rotation_policy.automatic.time_after_creation / rotationPolicy.lifetimeActions[rotate].trigger.timeAfterCreate
+
+      - id: expiry_days
+        ask: After how many days does a key version expire?
+        type: int
+        plain:
+          en: "A key version expires after {value} days."
+          de: "Eine Schlüsselversion läuft nach {value} Tagen ab."
+        default: 365
+        why: >
+          The backstop for a rotation that silently stopped, and the same default as the
+          vault's `key_expiry_days`: much longer than the rotation interval so a failing
+          rotation is noticed before the old version dies. An expired customer-managed key
+          makes the data it protects unreadable, which is the reason the notification
+          below exists and the reason this is not shortened to match the rotation.
+        renders: rotation_policy.expire_after / rotationPolicy.attributes.expiryTime
+
+      - id: notify_days_before_expiry
+        ask: How many days before expiry should a warning be raised?
+        type: int
+        plain:
+          en: "A warning is raised {value} days before a key version expires."
+          de: "Eine Warnung wird {value} Tage vor Ablauf einer Schlüsselversion ausgelöst."
+        default: 30
+        why: >
+          The rotation policy's notify action publishes a near-expiry event on Event Grid; it
+          sends no mail by itself. 30 days leaves time for a human to act when the automatic
+          rotation has failed. Without a subscriber on the event the warning goes nowhere, and
+          that subscriber is an `open:` entry owned by the platform team, not part of this
+          set.
+        renders: rotation_policy.notify_before_expiry / rotationPolicy.lifetimeActions[notify].trigger.timeBeforeExpiry

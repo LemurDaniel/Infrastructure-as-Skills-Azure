@@ -1,0 +1,253 @@
+schema_version: 1
+
+resource: Microsoft.Security/pricings
+title: Microsoft Defender for Cloud
+
+naming:
+  terraform: "Azure::Microsoft.Security/pricings"
+  bicep: "Microsoft.Security/pricings"
+  # The names are fixed by Azure: a pricing is named after its plan (`VirtualMachines`,
+  # `StorageAccounts`) and the contact is always `default`. The identifier and the
+  # abbreviation are declared for the format; no name is built from them.
+  abbreviation: "mdc"
+
+boundaries:
+  - "**Subscription scope.** Every plan, the contact and the settings are properties of a subscription, not of a resource group or a resource. The render deploys at subscription scope (Bicep `targetScope = 'subscription'`, the `azurerm` provider's subscription), and a plan applies to every resource of its kind in that subscription - the workload's and everyone else's in it."
+  - "Does not build the platform's baseline. In a landing zone the platform assigns the Defender plans by policy (`DeployIfNotExists`) and owns the subscription's security contact; the workload never fights it (`defender_ownership`, guardrails section 0)."
+  - "Does not decide a resource's own Defender-adjacent settings (SQL vulnerability assessment, a storage account's 'advanced threat protection' flag, an app's diagnostic setting). Those are the resource's sets."
+  - "Does not render the agent. The Log Analytics (MMA) agent and its auto-provisioning setting are retired; what remains of 'auto-provisioning' is a plan's sub-plan and extensions (`servers_plan`, the storage extensions), which this set decides. The Azure Monitor agent and its data collection rules for servers are not covered."
+  - "Does not render continuous export to a workspace or Event Hub, governance rules, custom standards, regulatory-compliance assignments, alert suppression rules, Defender for IoT, or the CSPM extensions beyond what a plan below names. Each carries decisions of its own and has no question set."
+  - "Has no diagnostic settings: the resource is a subscription setting. Alerts reach a workspace through continuous export, which is not covered here."
+  - "Does not cover Microsoft Sentinel. It is a workspace solution with its own decisions and no question set yet."
+
+groups:
+
+  # ---------------------------------------------------------------- placement
+  - id: placement
+    title: Placement
+    questions:
+      - id: environments
+        ask: Which stages is this deployed to?
+        type: list
+        plain:
+          en: "Deployed in the stages {value}."
+          de: "Wird in den Stufen {value} ausgerollt."
+        values: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
+        required: true
+        from_context: true
+        why: >
+          The settings are per subscription, and the stages are separated by subscription
+          (guardrails, *Stages*): each stage's subscription gets its own set of plans. The
+          plans are the same in every stage - parity - but the bill follows the resources, so a
+          small development subscription costs little.
+        renders: the stage file the subscription comes from
+
+      - id: subscription_id
+        ask: Which subscription?
+        type: ref
+        ref: subscription
+        plain:
+          en: "Set for the subscription {value}."
+          de: "Gilt für die Subscription {value}."
+        required: true
+        from_context: true
+        per_environment: true
+        why: >
+          The target of the whole set. A stage file supplies it, and a plan enabled on the
+          wrong subscription is billed there from the next hour on.
+        renders: subscription_id (provider) / the deployment's target scope
+
+      - id: defender_ownership
+        ask: Who switches Defender plans on in this subscription?
+        type: enum
+        resolved_by: platform
+        plain:
+          en: "Defender plans are switched on by {value}."
+          de: "Defender-Pläne werden eingeschaltet von {value}."
+        plain_values:
+          platform: { en: "the platform team, by policy - this deployment leaves them alone", de: "dem Plattform-Team per Richtlinie, dieses Ausrollen lässt sie unberührt" }
+          deployment: { en: "this deployment", de: "diesem Ausrollen" }
+        values: [platform, deployment]
+        default: platform
+        why: >
+          In an application landing zone the platform assigns the Defender plans with a policy
+          that re-applies them, and owns the security contact (guardrails, section 0): a plan
+          the workload writes as well is a second writer - the plan drifts on every run, and
+          the policy turns off what the code turned on. So `platform` renders nothing and the
+          plans are an `open:` entry owned by the platform team when the workload needs one
+          that is not enabled. `deployment` is for a subscription without such a policy.
+        forced_when: >
+          landing_zone: standalone forces `deployment`: nothing assigns the plans, so the
+          generated code has to (recorded as forced with `landing_zone` as forced_by)
+        renders: whether the questions below render at all
+
+  # ----------------------------------------------------------------- identity
+  - id: identity
+    title: Who is told
+    questions:
+      - id: security_contact_emails
+        ask: Who should be told about security alerts?
+        type: list
+        resolved_by: interview
+        plain:
+          en: "Security alerts are mailed to {value}."
+          de: "Sicherheitsalarme gehen per Mail an {value}."
+        required: true
+        depends_on: { question: defender_ownership, equals: deployment }
+        why: >
+          Without a contact an alert is raised in the portal and read by nobody, which is the
+          usual state of a Defender deployment a year later. A distribution list or a ticket
+          mailbox, never a person - the person leaves, the alert stays. When nobody is named
+          the decision is an `open:` entry owned by the workload owner, blocking apply.
+        renders: properties.emails (azapi body in Terraform; azurerm_security_center_contact.email as the older alternative) / securityContactProperties.emails
+
+      - id: notify_subscription_owners
+        ask: Should the owners of the subscription be told as well?
+        type: bool
+        plain:
+          en: "The owners of the subscription {value}."
+          de: "Die Eigentümer der Subscription {value}."
+        plain_values:
+          true: { en: "are told about alerts as well", de: "werden ebenfalls über Alarme informiert" }
+          false: { en: "are not told", de: "werden nicht informiert" }
+        default: true
+        depends_on: { question: defender_ownership, equals: deployment }
+        why: >
+          The people accountable for the subscription see an attack on it. The cost is noise
+          for owners who are many (a role is held by whoever is assigned, eligible ones included
+          in some tenants), which is why the contact above is the primary and this is the
+          backstop.
+        renders: properties.notificationsByRole.state (`On`, roles `Owner`; azurerm_security_center_contact.alerts_to_admins as the older alternative) / notificationsByRole.state
+
+      - id: alert_minimum_severity
+        ask: From which severity should an alert be mailed?
+        type: enum
+        plain:
+          en: "Alerts of severity {value} and above are mailed."
+          de: "Alarme ab der Stufe {value} werden gemailt."
+        plain_values:
+          Low: { en: "low", de: "niedrig" }
+          Medium: { en: "medium", de: "mittel" }
+          High: { en: "high", de: "hoch" }
+        values: [Low, Medium, High]
+        default: Medium
+        depends_on: { question: defender_ownership, equals: deployment }
+        why: >
+          `High` alone mails only an attack in progress; `Medium` adds the reconnaissance and
+          the misuse that precede one, at a volume one mailbox can read. `Low` is informational
+          and trains people to ignore the list. The older `azurerm` contact resource has no
+          threshold - it mails every alert it is enabled for - so the Terraform render writes the
+          contact through `azapi` (see `terraform.md`).
+        renders: notificationsSources[Alert].minimalSeverity (azapi body in Terraform; not carried by azurerm_security_center_contact)
+
+  # ----------------------------------------------------------------- security
+  - id: security
+    title: Protection
+    questions:
+      - id: plans
+        ask: Which kinds of resources should be actively watched for attacks?
+        type: list
+        resolved_by: interview
+        plain:
+          en: "Attack detection (a paid service, billed per protected resource) is switched on for: {value} (empty: none)."
+          de: "Angriffserkennung (kostenpflichtig, abgerechnet je geschützter Ressource) ist eingeschaltet für: {value} (leer: keine)."
+        plain_values:
+          VirtualMachines: { en: "servers and virtual machines", de: "Server und virtuelle Maschinen" }
+          StorageAccounts: { en: "storage accounts", de: "Speicherkonten" }
+          KeyVaults: { en: "key vaults", de: "Schlüsseltresore" }
+          AppServices: { en: "web apps and function apps", de: "Web-Apps und Function-Apps" }
+          Containers: { en: "containers and Kubernetes", de: "Container und Kubernetes" }
+          SqlServers: { en: "SQL databases", de: "SQL-Datenbanken" }
+          OpenSourceRelationalDatabases: { en: "PostgreSQL, MySQL and MariaDB databases", de: "PostgreSQL-, MySQL- und MariaDB-Datenbanken" }
+          CosmosDbs: { en: "Cosmos DB databases", de: "Cosmos-DB-Datenbanken" }
+          Arm: { en: "changes to the Azure environment itself (management operations)", de: "Änderungen an der Azure-Umgebung selbst (Verwaltungsvorgänge)" }
+          Api: { en: "API gateways", de: "API-Gateways" }
+          CloudPosture: { en: "the paid posture analysis (attack paths, sensitive data)", de: "die kostenpflichtige Konfigurationsanalyse (Angriffspfade, sensible Daten)" }
+        values: [VirtualMachines, StorageAccounts, KeyVaults, AppServices, Containers, SqlServers, OpenSourceRelationalDatabases, CosmosDbs, Arm, Api, CloudPosture]
+        default: []
+        depends_on: { question: defender_ownership, equals: deployment }
+        why: >
+          Each entry is a **paid plan** (`Standard`) for every resource of that kind in the
+          subscription; unlisted plans are not touched, and are not set to `Free` either,
+          because writing `Free` over a plan somebody enabled turns it off. Empty is the
+          default on purpose: a plan is a monthly cost per protected resource with a different
+          meter each (per server, per storage account plus per transaction and per scanned GB,
+          per vault operation, per container vCore, per request unit), and a default that switches
+          them on would bill a team that never asked. The plans that fit the resources in the
+          spec are *proposed* by the pattern - `VirtualMachines` for a VM, `StorageAccounts`
+          for a storage account - and the person confirms the cost. The free foundational posture
+          management is on in every subscription and needs no entry. `Dns` is deprecated and not
+          offered; `Arm` and `KeyVaults` bill per operation and are cheap to start with.
+        renders: azurerm_security_center_subscription_pricing (tier `Standard`, one per plan) / defenderPlans[] (pricingTier `Standard`)
+
+      - id: servers_plan
+        ask: Which level of protection for servers?
+        type: enum
+        plain:
+          en: "Servers are protected at {value}."
+          de: "Server werden geschützt mit {value}."
+        plain_values:
+          P1: { en: "plan 1 - endpoint detection and response", de: "Plan 1 - Erkennung und Reaktion am Endpunkt" }
+          P2: { en: "plan 2 - plan 1 plus vulnerability scanning, just-in-time access and file integrity monitoring", de: "Plan 2 - Plan 1 plus Schwachstellenscan, Just-in-Time-Zugriff und Dateiintegritätsüberwachung" }
+        values: [P1, P2]
+        default: P1
+        depends_on: { question: plans, contains: VirtualMachines }
+        why: >
+          P1 is endpoint protection through Microsoft Defender for Endpoint at a lower monthly
+          price per server; P2 adds agentless scanning, just-in-time access and file integrity
+          monitoring at about three times that. P1 is the floor that gives detection;
+          P2 is chosen when a mandate names vulnerability management or just-in-time access.
+          The sub-plan is billed per server per hour, including a server that is stopped but not
+          deallocated.
+        renders: subplan / subPlan
+
+      - id: storage_malware_scanning
+        ask: Should files uploaded to storage accounts be scanned for malware?
+        type: bool
+        plain:
+          en: "Uploaded files {value}."
+          de: "Hochgeladene Dateien {value}."
+        plain_values:
+          true: { en: "are scanned for malware as they arrive (billed per GB scanned)", de: "werden beim Eingang auf Schadsoftware geprüft (Abrechnung je gescanntem GB)" }
+          false: { en: "are not scanned", de: "werden nicht geprüft" }
+        default: false
+        depends_on: { question: plans, contains: StorageAccounts }
+        why: >
+          The storage plan itself bills per account and per transaction; malware scanning is an
+          extension on top, billed **per GB scanned**, so a storage account that receives large
+          uploads costs in proportion. It is off until a workload accepts uploads from
+          people it does not control, and then it is paired with the monthly cap below.
+        renders: extension OnUploadMalwareScanning (isEnabled) / extensions[]
+
+      - id: storage_malware_scan_cap_gb
+        ask: How many GB per month may be scanned, at most, per storage account?
+        type: int
+        plain:
+          en: "At most {value} GB per month are scanned per storage account; above that, files are no longer scanned."
+          de: "Höchstens {value} GB pro Monat und Speicherkonto werden geprüft; darüber hinaus wird nicht mehr geprüft."
+        default: 1000
+        depends_on: { question: storage_malware_scanning, equals: true }
+        why: >
+          A ceiling on the per-GB bill, because scanning is paid for every byte uploaded and an
+          upload loop or a data load can cost more in a night than the account does in a year.
+          The ceiling stops the scanning, not the upload: files above it arrive unscanned, which
+          is the trade for a bounded cost, and the alert for reaching it is the person's to
+          watch. The portal offers a different default; this one is deliberately lower.
+        renders: extension OnUploadMalwareScanning, additional property `CapGBPerMonth` / extensions[].additionalExtensionProperties.CapGBPerMonth
+
+      - id: storage_sensitive_data_discovery
+        ask: Should storage accounts be searched for sensitive data?
+        type: bool
+        plain:
+          en: "Storage accounts {value}."
+          de: "Speicherkonten {value}."
+        plain_values:
+          true: { en: "are searched for sensitive data such as personal data and credentials", de: "werden nach sensiblen Daten wie personenbezogenen Daten und Zugangsdaten durchsucht" }
+          false: { en: "are not searched", de: "werden nicht durchsucht" }
+        default: false
+        depends_on: { question: plans, contains: StorageAccounts }
+        why: >
+          An extension on the storage plan that classifies blobs, billed on top of the plan and
+          meant for a data-protection duty (a register of where personal data lives), not for
+          threat detection. Off until a mandate asks for the classification.
+        renders: extension SensitiveDataDiscovery (isEnabled) / extensions[]

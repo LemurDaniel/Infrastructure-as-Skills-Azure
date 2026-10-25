@@ -1,0 +1,231 @@
+schema_version: 1
+
+resource: Microsoft.Authorization/roleAssignments
+title: Azure role assignment (standalone)
+
+naming:
+  terraform: "Azure::Microsoft.Authorization/roleAssignments"
+  bicep: "Microsoft.Authorization/roleAssignments"
+  # A role assignment's name is a GUID, not a convention name: the render derives it from
+  # scope, principal and role (`uuidv5` / `guid()`), so it is stable and never collides. The
+  # identifier and abbreviation are declared for the format; no name segment is built from them.
+  abbreviation: "ra"
+
+boundaries:
+  - "Does not replace the `role_assignments` decision of the other sets. A resource's own list (a vault's readers, a storage account's data roles) renders through that module's `role_assignments` interface; this set is for an assignment that has no such home - see `notes.md`, *Interface or standalone*."
+  - "Does not create the principal. A user-assigned identity is the `user-assigned-identity` set's; a user, group or app registration is a directory object (`azuread`, Graph), recorded as an `open:` entry owned by the identity team."
+  - "Does not define custom roles (`Microsoft.Authorization/roleDefinitions`): a custom role carries its own action list and assignable scopes. A role that is not built in is an `open:` entry until that set exists."
+  - "Does not render eligible (PIM) assignments, deny assignments, Azure Policy assignments or Entra directory roles. They are different resource types with different decisions."
+  - "Does not create the deploying principal's own rights. What the deployment itself must hold to write an assignment is recorded in `deployer_role`, and the platform grants it."
+  - "Does not assign across tenants (`delegatedManagedIdentityResourceId`)."
+
+groups:
+
+  # ---------------------------------------------------------------- placement
+  - id: placement
+    title: Placement
+    questions:
+      - id: environments
+        ask: Which stages is this deployed to?
+        type: list
+        plain:
+          en: "Deployed in the stages {value}."
+          de: "Wird in den Stufen {value} ausgerollt."
+        values: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
+        required: true
+        from_context: true
+        why: >
+          Each stage gets its own assignment: the scope and the principal are stage
+          resources, and an assignment that spans stages would give development the access of
+          production.
+        renders: the stage file the scope and principal values come from
+
+      - id: scope_kind
+        ask: How wide is the access?
+        type: enum
+        plain:
+          en: "The access covers {value}."
+          de: "Der Zugriff gilt für {value}."
+        plain_values:
+          resource: { en: "one resource", de: "eine einzelne Ressource" }
+          resource_group: { en: "everything in one resource group", de: "alles in einer Ressourcengruppe" }
+          subscription: { en: "the whole subscription", de: "die gesamte Subscription" }
+          management_group: { en: "all subscriptions below a management group", de: "alle Subscriptions unterhalb einer Management-Gruppe" }
+        values: [resource, resource_group, subscription, management_group]
+        default: resource
+        confirm_in: [production]
+        resolved_by: interview
+        why: >
+          As tight as the consumer allows (guardrails, section 3): the specific resource - or
+          the secret or key inside a vault - not the group around it. `resource_group` is for
+          a principal that works on many resources of one workload; `subscription` is a bug
+          unless the principal operates subscription-wide (a deployment identity, a policy
+          or cost reader), and `management_group` belongs to the platform, which is why the
+          set renders it only as an `open:` entry unless the platform file says the deployment
+          owns it. Wider scopes never come from a default: every step up is a recorded
+          departure that names the principal.
+        forced_when: >
+          A role whose data actions live on a sub-resource (a secret, a key, a container)
+          takes that sub-resource as the scope where the consumer reads only that one
+        renders: scope (azurerm_role_assignment.scope / the module's `scope` or `resourceId`)
+
+      - id: scope
+        ask: Which resource, group, subscription or management group?
+        type: ref
+        ref: azure_resource
+        plain:
+          en: "Granted on {value}."
+          de: "Vergeben auf {value}."
+        required: true
+        per_environment: true
+        why: >
+          The id the assignment is written on. In a composition it is the output of the module
+          that owns the resource, never a literal; a subscription id and a management group
+          name are stage values like the rest. A scope that does not exist yet at plan time is
+          what makes the assignment a root-level wiring entry and not a module input.
+        renders: scope / scope (resource id), `subscriptionId` + `resourceGroupName` + `managementGroupId` for the scope-level Bicep pattern module
+
+  # ----------------------------------------------------------------- identity
+  - id: identity
+    title: Principal and role
+    questions:
+      - id: principal
+        ask: Who or what gets the access?
+        type: ref
+        ref: principal
+        plain:
+          en: "Access is given to {value}."
+          de: "Der Zugriff wird {value} gegeben."
+        required: true
+        per_environment: true
+        why: >
+          A principal is named by the object id the template can see: a user-assigned identity's
+          `principal_id` output (always preferred, it exists in the same deployment), a group
+          id from the identity team, or an app's service principal id. A person is never the
+          answer for a workload - the access outlives them and cannot be rotated - and a
+          group is for people. A system-assigned identity is the consumer's own output and
+          only exists after the consumer, so the assignment follows it (see `notes.md`).
+        renders: principal_id / principalId
+
+      - id: principal_type
+        ask: What kind of principal is it?
+        type: enum
+        plain:
+          en: "The receiving principal is {value}."
+          de: "Der Empfänger ist {value}."
+        plain_values:
+          ServicePrincipal: { en: "a workload identity (managed identity or application)", de: "eine Workload-Identität (verwaltete Identität oder Anwendung)" }
+          User: { en: "a person", de: "eine Person" }
+          Group: { en: "a group of people", de: "eine Gruppe von Personen" }
+          ForeignGroup: { en: "a group from another tenant", de: "eine Gruppe aus einem anderen Mandanten" }
+        values: [ServicePrincipal, User, Group, ForeignGroup]
+        default: ServicePrincipal
+        why: >
+          Always written. With a type, Azure does not look the principal up in the directory
+          before writing the assignment, which removes the failure everyone meets once: an
+          identity created seconds earlier is not yet replicated and the assignment is
+          refused as `PrincipalNotFound`. **A managed identity is a `ServicePrincipal` here**
+          - there is no separate value for it in the API, and the AVM modules accept
+          `ServicePrincipal` for one. A wrong type is refused or silently ignored depending
+          on the API version; the type follows the principal.
+        renders: principal_type / principalType
+
+      - id: role
+        ask: Which role?
+        type: string
+        plain:
+          en: "With the role {value}."
+          de: "Mit der Rolle {value}."
+        required: true
+        why: >
+          By display name, built-in roles only, the narrowest that does the job: `Key Vault
+          Secrets User`, `Storage Blob Data Reader`, `AcrPull` - data-plane roles for a
+          workload, never `Contributor` or `Owner`, which a workload does not need to read
+          its own data and which cannot be taken back after an incident without breaking it.
+          `Owner`, `User Access Administrator`, `Role Based Access Control Administrator` and
+          `Contributor` on anything but a resource group of a single workload are departures
+          that name the principal and the reason. The Terraform module takes the name; the
+          Bicep pattern module and the authored resource take a role definition id - the
+          render resolves the name through a table checked against the live definitions, it
+          does not recall GUIDs.
+        renders: role_definition_name / roleDefinitionIdOrName (role_definition_id on the authored side)
+
+      - id: role_may_assign
+        ask: May the principal itself hand out access to others?
+        type: bool
+        plain:
+          en: "The principal {value} to others."
+          de: "Der Empfänger {value}."
+        plain_values:
+          true: { en: "may pass this access on", de: "darf diesen Zugriff an andere weitergeben" }
+          false: { en: "cannot pass this access on", de: "kann diesen Zugriff nicht weitergeben" }
+        default: false
+        confirm_in: [production]
+        why: >
+          True exactly when the role is `Owner`, `User Access Administrator` or `Role Based
+          Access Control Administrator`: the three that can write role assignments. Such a
+          principal can grant itself anything below the scope, so it is never a default, and
+          with `Role Based Access Control Administrator` it carries a condition (`condition`)
+          that limits which roles it may assign. The answer is recorded rather than derived
+          from the role name, so a custom role that can assign is declared too.
+        renders: gates `condition` - a True answer with no condition is refused
+
+  # ----------------------------------------------------------------- security
+  - id: security
+    title: Limits
+    questions:
+      - id: condition
+        ask: Under which condition does the access apply?
+        type: string
+        plain:
+          en: "The access applies only under this condition: {value} (empty: always)."
+          de: "Der Zugriff gilt nur unter dieser Bedingung: {value} (leer: immer)."
+        default: ""
+        why: >
+          An ABAC condition narrows the role: only blobs in one container, only these roles
+          assignable. Empty is the normal answer. Its one required use is the principal that
+          may assign roles (`role_may_assign`): `Role Based Access Control Administrator` with
+          a condition that names the assignable role definition ids is the least privilege
+          that lets a pipeline wire a deployment without being able to make itself an owner.
+          A condition is valid only for roles and resource types that support it, and is
+          written with `condition_version` `2.0`, which the render always sets beside it.
+        renders: condition + condition_version / condition + conditionVersion
+
+      - id: description
+        ask: What is the assignment for?
+        type: string
+        plain:
+          en: "Recorded reason: {value}."
+          de: "Vermerkter Grund: {value}."
+        default: ""
+        why: >
+          The one place an assignment explains itself; the portal shows a GUID and a role
+          name. Empty is allowed and the render falls back to "<principal> as <role> on
+          <scope>" generated from the spec, which tells a reviewer the same, not the reason.
+        renders: description
+
+      - id: deployer_role
+        ask: Which right does the deploying principal hold to write this assignment?
+        type: enum
+        resolved_by: platform
+        plain:
+          en: "The deployment is allowed to hand out access through {value}."
+          de: "Das Ausrollen darf Zugriffe vergeben über {value}."
+        plain_values:
+          rbac_administrator_conditioned: { en: "a role that may only assign the roles listed here", de: "eine Rolle, die nur die hier aufgeführten Rollen vergeben darf" }
+          rbac_administrator: { en: "a role that may assign any role below the scope", de: "eine Rolle, die jede Rolle unterhalb des Bereichs vergeben darf" }
+          user_access_administrator: { en: "the user access administrator role", de: "die Rolle Benutzerzugriffsadministrator" }
+          owner: { en: "the owner role", de: "die Eigentümerrolle" }
+        values: [rbac_administrator_conditioned, rbac_administrator, user_access_administrator, owner]
+        default: rbac_administrator_conditioned
+        why: >
+          `Contributor` cannot write role assignments - `Microsoft.Authorization/*/write` is
+          excluded from it - so the pipeline that deploys the workload needs a further right
+          at the assignment's scope (or above it), and it is not derived from `pipeline_auth`.
+          Least privilege is `Role Based Access Control Administrator` with a condition
+          listing the role definitions this spec assigns; an unconditioned one lets the
+          pipeline make anything an owner. `user_access_administrator` and `owner` are the
+          legacy shapes and a departure. The right belongs to the platform team, held by the
+          pipeline's identity at the scope, and the handover lists it with the roles and
+          scope it needs; the render never grants it to itself.
+        renders: the handover's list of rights the deploying identity needs - nothing in the template

@@ -1,0 +1,144 @@
+schema_version: 1
+
+resource: Microsoft.KeyVault/vaults/secrets
+title: Azure Key Vault secret
+
+naming:
+  terraform: "Azure::Microsoft.KeyVault/vaults/secrets"
+  bicep: "Microsoft.KeyVault/vaults/secrets"
+  # Bicep assembles the name from vars - this is the prefix it renders. A secret name is
+  # 1-127 characters, letters, digits and hyphens, and is what an app setting's
+  # `@Microsoft.KeyVault(SecretUri=...)` reference names, so it is chosen for the consumer.
+  abbreviation: "secret"
+
+boundaries:
+  - "Does not create the vault. It is a child of one (`key-vault`) and inherits its network posture, RBAC model and soft delete."
+  - "Does not render a secret's value. A secret is created as a **placeholder** whose real value is filled in afterwards, outside the template, or takes a value the deployment is handed as a secure input (`value_source`). A value is never a literal, a default or a spec field."
+  - "Is not the vault's `secret_placeholders`. That list creates bare slots - name only, no per-secret decision. A secret with any decision of its own (a content type, an expiry, a role on the secret) is an instance of this set, and its name is then **not** in `key-vault.secret_placeholders`: a name in both is two writers of one secret and the check refuses it."
+  - "Does not rotate secret values. Rotation of a value (a database password, a storage key) is an Event Grid or Functions workflow of its own and has no question set; `expiry_days` only dates the first version."
+  - "Does not wire a consumer to the secret. The consumer's identity gets `Key Vault Secrets User` on the secret in the pattern that wires them, rendered as a `role-assignment`; `role_assignments` here is for the secret's own readers and writers."
+  - "Does not create certificates. A certificate issuance also creates a secret and a key; certificates have decisions of their own (issuer, lifetime actions) and no question set yet."
+  - "Has no diagnostic settings: the vault's audit log records every read of the secret."
+
+groups:
+
+  # ---------------------------------------------------------------- placement
+  - id: placement
+    title: Placement
+    questions:
+      - id: environments
+        ask: Which stages is this deployed to?
+        type: list
+        plain:
+          en: "Deployed in the stages {value}."
+          de: "Wird in den Stufen {value} ausgerollt."
+        values: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
+        required: true
+        from_context: true
+        why: >
+          One secret per stage, each in that stage's vault: a secret shared across stages
+          gives development the credentials of production.
+        renders: the stage file the vault reference comes from
+
+      - id: key_vault
+        ask: In which vault should the secret live?
+        type: ref
+        ref: key_vault
+        plain:
+          en: "The secret is kept in the vault {value}."
+          de: "Das Geheimnis liegt im Tresor {value}."
+        required: true
+        per_environment: true
+        why: >
+          The parent. A closed vault accepts a data-plane write - a placeholder included -
+          only from inside the network, so the pipeline that creates the secret is a runner
+          in the network or the vault is created open and closed in a second step (see
+          `key-vault/notes.md`).
+        renders: key_vault_id / keyVaultName (parent)
+
+  # ----------------------------------------------------------------- identity
+  - id: identity
+    title: Identity and access
+    questions:
+      - id: role_assignments
+        ask: Who needs which role on this secret?
+        type: list
+        plain:
+          en: "Access rights on the secret granted to: {value}."
+          de: "Zugriffsrechte auf das Geheimnis vergeben an: {value}."
+        default: []
+        per_environment: true
+        why: >
+          Scoped to the secret (its versionless id), the narrowest scope RBAC offers:
+          `Key Vault Secrets User` for the application that reads it, `Key Vault Secrets
+          Officer` for the person or process that writes the real value into a placeholder.
+          The writer is the identity that makes the placeholder meaningful, and without it the
+          slot stays a dummy - when nobody is named, the list stays empty and the decision is
+          an `open:` entry owned by the workload owner. The module's interface is used for
+          these; an assignment between two modules is a `role-assignment`.
+        renders: role_assignments / roleAssignments
+
+  # ----------------------------------------------------------------- security
+  - id: security
+    title: The secret
+    questions:
+      - id: value_source
+        ask: Where does the secret's value come from?
+        type: enum
+        plain:
+          en: "The secret's value {value}."
+          de: "Der Wert des Geheimnisses {value}."
+        plain_values:
+          placeholder: { en: "is entered afterwards, by hand or by the application - the template only creates the empty slot", de: "wird danach von Hand oder von der Anwendung eingetragen, die Vorlage legt nur den leeren Platz an" }
+          secure_input: { en: "is handed to the deployment as a protected input and never appears in the code", de: "wird dem Ausrollen als geschützte Eingabe übergeben und steht nie im Code" }
+        values: [placeholder, secure_input]
+        default: placeholder
+        resolved_by: interview
+        why: >
+          `placeholder` is the answer for a secret a person or the workload fills in: a vendor
+          API key, a password somebody else owns. It is created with a dummy value, **once**,
+          and a later deployment must never overwrite what was put there - the Terraform
+          render guards it with `ignore_changes`, the Bicep render with `@onlyIfNotExists()`
+          (both as in `key-vault`, and neither AVM module does it). `secure_input` is for a
+          value the deployment itself produces or receives - a generated connection string, a
+          token from the pipeline's secret store: Terraform takes it as an ephemeral
+          write-only value that never reaches the state, Bicep as a `@secure()` parameter.
+          A secure input writes a new version on each Bicep deployment, and in Terraform when
+          `value_wo_version` is raised. Never a value in a spec, a default or a file.
+        renders: >
+          placeholder: azurerm_key_vault_secret with ignore_changes / Microsoft.KeyVault/vaults/secrets
+          with @onlyIfNotExists(); secure_input: value_wo + value_wo_version / a @secure() param to the module
+
+      - id: content_type
+        ask: What kind of value will it hold?
+        type: string
+        plain:
+          en: "The secret is labelled as {value}."
+          de: "Das Geheimnis ist gekennzeichnet als {value}."
+        default: text/plain
+        why: >
+          A label for the humans and tools that read the secret, not a format Azure checks:
+          `text/plain`, `application/x-pkcs12` (a certificate bundle), `application/json`, or
+          the kind (`connection-string`). It is what tells the next person that a secret
+          holding a connection string is not a password. The placeholder carries the same
+          label as the value that replaces it will; `key-vault.secret_placeholders` marks its
+          slots with `placeholder` instead, because those have no decision of their own.
+        renders: content_type / contentType
+
+      - id: expiry_days
+        ask: After how many days does the secret expire?
+        type: int
+        plain:
+          en: "The first version of the secret expires after {value} days."
+          de: "Die erste Version des Geheimnisses läuft nach {value} Tagen ab."
+        default: 365
+        why: >
+          A secret that never expires is one nobody replaces; the Azure Policy initiative
+          most landing zones assign even denies a secret without an expiry date. The date is
+          set when the secret is first created, relative to that day, and **it dates only the
+          first version**: whoever writes the real value into a placeholder writes a new version
+          with its own attributes, and the render does not reset them afterwards
+          (`ignore_changes`, `@onlyIfNotExists()`). For a `secure_input` each new version is
+          written with a new date, so the secret is renewed as often as the pipeline writes it. 0 means no expiry and is a recorded departure that names the policy it
+          conflicts with.
+        renders: expiration_date / attributes.exp (a date computed from the creation day)
