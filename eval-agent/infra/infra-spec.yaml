@@ -141,6 +141,11 @@ composition:
       implementation: authored
       source: deployment
       outputs: [id, principal_id, client_id]
+    - id: identity-drift
+      contains: [user-assigned-identity__drift]
+      implementation: authored
+      source: deployment
+      outputs: [id, principal_id, client_id]
     - id: registry
       contains: [container-registry]
       implementation: authored
@@ -166,12 +171,12 @@ composition:
       needs: [network, observability]
       outputs: [id, vault_uri]
     - id: app
-      # Two sites on one plan (the question set renders one site per plan; the shared plan is
+      # Three sites on one plan (the question set renders one site per plan; the shared plan is
       # rendered by hand, see resources.app-service__agent.hosting).
-      contains: [app-service__dashboard, app-service__agent]
+      contains: [app-service__dashboard, app-service__agent, app-service__drift]
       implementation: authored
       source: deployment
-      needs: [network, observability, identity-dashboard, identity-agent, registry, vault, ai, storage]
+      needs: [network, observability, identity-dashboard, identity-agent, identity-drift, registry, vault, ai, storage]
       outputs: [id, default_hostname]
 
 resources:
@@ -273,6 +278,25 @@ resources:
         source: default
 
   user-assigned-identity__agent:
+    identity:
+      purpose:
+        value: app-runtime
+        source: default
+      federated_credentials:
+        value: []
+        source: default
+      isolation_scope:
+        value: None
+        source: default
+      role_assignments:
+        value:
+          production: []
+        source: default
+
+  # The drift watcher reaches the AVM sources on the internet, so it gets its own identity: it
+  # shares no role with the agent (which runs plugin code) or the dashboard (which holds the
+  # sign-in secret).
+  user-assigned-identity__drift:
     identity:
       purpose:
         value: app-runtime
@@ -688,6 +712,101 @@ resources:
         value: true
         source: default
 
+  # The drift watcher compares the AVM versions pinned in the plugin with the current ones (MCR
+  # tag list, module repo tags, module READMEs), lets the Foundry model diff the inputs and opens
+  # a pull request that bumps the pin. It runs on a timer inside the app and on demand from the
+  # dashboard. It is not reachable from outside; its only write targets are the report in the
+  # storage account and the pull request. Azure is read-only to it: no role beyond the data roles
+  # in wiring.role_assignments.
+  app-service__drift:
+    hosting:
+      os_type:
+        value: Linux
+        source: forced
+        forced_by: resources.app-service__dashboard.hosting.os_type
+      sku:
+        value: B2
+        source: forced
+        forced_by: resources.app-service__dashboard.hosting.sku
+      zone_redundant:
+        value: false
+        source: forced
+        forced_by: resources.app-service__dashboard.hosting.zone_redundant
+      instance_count:
+        value: 1
+        source: forced
+        forced_by: resources.app-service__dashboard.hosting.instance_count
+    networking:
+      public_network_access:
+        value: disabled
+        source: overridden
+        reason: "Nothing outside the VNet calls the drift watcher: the dashboard starts a run from inside the VNet, through its private endpoint."
+      private_endpoint_subnet:
+        value: pe
+        source: deployment
+      vnet_integration:
+        value: true
+        source: default
+      integration_subnet:
+        value: app-integration
+        source: forced
+        forced_by: deployment.network_ownership
+      vnet_route_all:
+        value: false
+        source: overridden
+        reason: "The watcher reads the AVM sources on the internet (github.com, api.github.com, mcr.microsoft.com, registry.terraform.io). With all traffic routed into the VNet there is no outbound path without a NAT gateway; private endpoint addresses are RFC 1918 and still go through the VNet."
+    identity:
+      managed_identity:
+        value: user_assigned
+        source: overridden
+        reason: "Departs from system_assigned: AcrPull and the data roles must exist before the container first starts, which a system-assigned identity cannot have."
+      user_assigned_identity_ids:
+        value:
+          production: [user-assigned-identity__drift]
+        source: forced
+        forced_by: resources.app-service__drift.identity.managed_identity
+    security:
+      https_only:
+        value: true
+        source: default
+      min_tls_version:
+        value: "1.2"
+        source: default
+      ftps_state:
+        value: Disabled
+        source: default
+      basic_auth_enabled:
+        value: false
+        source: deployment
+    runtime:
+      runtime_stack:
+        value: container
+        source: stated
+      always_on:
+        value: true
+        source: default
+        # The schedule is a timer inside the app, so the site must not idle out.
+      health_check_path:
+        value: ""
+        source: default
+      http2_enabled:
+        value: true
+        source: default
+      container_image_owner:
+        value: image_pipeline
+        source: overridden
+        reason: "A separate pipeline builds, pushes and updates the image. This template sets the stage-file image only on the first deployment and keeps the running one afterwards."
+    observability:
+      diagnostic_workspace:
+        value: log-analytics-workspace
+        source: deployment
+      diagnostic_categories:
+        value: [AppServiceHTTPLogs, AppServiceAppLogs, AppServiceAuditLogs, AppServiceIPSecAuditLogs, AppServicePlatformLogs]
+        source: default
+      metrics_enabled:
+        value: true
+        source: default
+
   key-vault:
     vault:
       sku:
@@ -722,9 +841,9 @@ resources:
         value: []
         source: default
       secret_placeholders:
-        value: [entra-client-secret, github-token]
+        value: [entra-client-secret, github-token, github-drift-token]
         source: overridden
-        reason: "Departs from the default []: the dashboard reads the sign-in's client secret and the GitHub token (issues:write on this repository only) through Key Vault references and needs both to exist before its first start. The agent reads neither."
+        reason: "Departs from the default []: the dashboard reads the sign-in's client secret and the GitHub token (issues:write on this repository only) and the drift watcher reads its own GitHub token (contents and pull requests write on this repository only), all through Key Vault references that must exist before the first start. The agent reads none of them."
     keys:
       key_management:
         value: platform_managed
@@ -760,6 +879,10 @@ wiring:
       - { from: user-assigned-identity__agent, to: container-registry, role: AcrPull }
       - { from: user-assigned-identity__agent, to: storage-account, role: Storage Blob Data Contributor }
       - { from: user-assigned-identity__agent, to: foundry, role: Azure AI User }
+      - { from: user-assigned-identity__drift, to: container-registry, role: AcrPull }
+      - { from: user-assigned-identity__drift, to: storage-account, role: Storage Blob Data Contributor }
+      - { from: user-assigned-identity__drift, to: key-vault, role: Key Vault Secrets User }
+      - { from: user-assigned-identity__drift, to: foundry, role: Azure AI User }
     source: default
   access:
     value:
@@ -771,25 +894,44 @@ wiring:
       - { from: app-service__agent, to: foundry, label: "Modelle aufrufen" }
       - { from: app-service__agent, to: storage-account, label: "Ergebnisse schreiben" }
       - { from: app-service__agent, to: container-registry, label: "Image laden" }
+      - { from: app-service__dashboard, to: app-service__drift, label: "Prüfung jetzt starten" }
+      - { from: app-service__drift, to: foundry, label: "Modul-Änderungen bewerten" }
+      - { from: app-service__drift, to: storage-account, label: "Drift-Bericht schreiben" }
+      - { from: app-service__drift, to: key-vault, label: "GitHub-Token lesen" }
+      - { from: app-service__drift, to: container-registry, label: "Image laden" }
+      - { from: app-service__drift, to: external:AVM-Quellen, label: "Modulversionen und READMEs lesen" }
+      - { from: app-service__drift, to: external:github, label: "Pull Request öffnen" }
     source: stated
   purposes:
     value:
       app-service__dashboard: "Dashboard: zeigt Ergebnisse, legt Tickets an"
       app-service__agent: "Agent: führt die Evals aus"
-      container-registry: "Images von Dashboard und Agent"
-      foundry: "Sprachmodelle für Agent und Bewertung"
-      storage-account: "Eval-Ergebnisse"
-      key-vault: "Anmelde-Secret und GitHub-Token des Dashboards"
+      app-service__drift: "Drift-Watcher: prüft AVM-Versionen, öffnet Pull Requests"
+      container-registry: "Images von Dashboard, Agent und Drift-Watcher"
+      foundry: "Sprachmodelle für Agent, Bewertung und Drift-Watcher"
+      storage-account: "Eval-Ergebnisse und Drift-Berichte"
+      key-vault: "Anmelde-Secret und GitHub-Token von Dashboard und Drift-Watcher"
       virtual-network: "Privates Netz"
       log-analytics-workspace: "Logs aller Teile"
       user-assigned-identity__dashboard: "Zugriff des Dashboards ohne Schlüssel"
       user-assigned-identity__agent: "Zugriff des Agents ohne Schlüssel"
+      user-assigned-identity__drift: "Zugriff des Drift-Watchers ohne Schlüssel"
     source: stated
 
 open:
   - key: resources.foundry.models.model_deployments
     environments: [production]
     question: "Welche Modelle werden gebraucht (Agent und Bewertung)? Claude-Modelle sind in Foundry womöglich nur weltweit verarbeitet verfügbar, das widerspräche 'nur EU'."
+    owner: "Workload-Owner"
+    blocks: apply
+  - key: application.drift_internet_allowlist
+    environments: [production]
+    question: "Der Drift-Watcher darf nur an die AVM-Quellen (github.com, api.github.com, mcr.microsoft.com, registry.terraform.io). App Service filtert den Ausgang nicht; die Liste gilt nur im Code. Reicht das, oder soll der Ausgang im Netz erzwungen werden (Firewall oder NAT-Gateway mit Regeln, deutlich mehr Betrieb und Kosten)?"
+    owner: "Workload-Owner"
+    blocks: apply
+  - key: application.drift_schedule
+    environments: [production]
+    question: "In welchem Rhythmus prüft der Drift-Watcher (vermutlich wöchentlich)? Und wer legt das GitHub-Token 'github-drift-token' (nur dieses Repo, Contents + Pull requests schreiben) im Tresor ab?"
     owner: "Workload-Owner"
     blocks: apply
   - key: application.plugin_source
