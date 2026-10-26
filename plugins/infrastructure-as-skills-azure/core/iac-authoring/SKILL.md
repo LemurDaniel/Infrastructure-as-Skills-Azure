@@ -280,7 +280,13 @@ mapping:
   and nothing said about an exception; `outage_impact: tolerable` with `priority: protection`;
   `central_private_dns: yes` with `central_network: no` (zones in the platform resolve names only
   for networks linked to them, and a standalone network has no hub to be linked through: either
-  the platform team links it, or one of the two answers is wrong).
+  the platform team links it, or one of the two answers is wrong); `network_exposure: private`
+  with `network_requirements: free` when people use the system (the request names users, or an
+  actor reaches it in `wiring.access`): a private system in a network with no connection to the
+  company network is reachable by nobody - either the network is connected
+  (`network_requirements: corporate`), or the part people open is public behind the company
+  sign-in and the rest stays private (`network_exposure: private_with_exceptions`). A system
+  with no human user (a batch job, an API only other Azure services call) is not affected.
   Quote both halves in one question with the two ways out; never pick one silently.
 - **The description may add resources.** "…with logs to Log Analytics" ("…mit Logs nach Log Analytics") routes a second
   question set through [azure-resources](../azure-resources/SKILL.md) — the same request,
