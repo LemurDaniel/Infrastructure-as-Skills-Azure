@@ -1,7 +1,7 @@
 # The request
 
-The chatbot of [../chatbot/request.md](../chatbot/request.md), with one addition: the resource
-groups. Written for this example to play through the resource-group decisions; nothing here has
+An internal RAG chatbot on one production stage in a corp landing zone, with one addition: the
+resource groups. Written for this example to play through the resource-group decisions; nothing here has
 been applied.
 
 > Wie bei dem Chatbot, aber nicht alles in eine Ressourcengruppe. Das Netzwerk liegt in

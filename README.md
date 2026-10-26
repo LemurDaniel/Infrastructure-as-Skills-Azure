@@ -263,8 +263,7 @@ It sits beside `skills/`, not inside it, because the default scan cannot be swit
 | Example | What it shows |
 |---|---|
 | [`chat-sandbox/`](examples/chat-sandbox/) | The first full run with a customer in the conversation: a public, single-stage chat environment on authored Terraform with a local deploy script. 118 decisions. |
-| [`chatbot/`](examples/chatbot/) | The complex case: twelve kinds of resource in a spoke network, split into family modules, 16 AVM calls. 284 decisions across 20 resources. |
-| [`chatbot-rag/`](examples/chatbot-rag/) | A small RAG chat app on the default three-stage stack, private, authored resources, GitHub pipeline. |
+| [`order-platform/`](examples/order-platform/) | A full render as a customer repository: three stages, split into family modules, GitHub pipeline. 23 resources, 63 decisions. |
 
 An example is rendered and tested plan-only against mocked providers. **Nothing has been applied.**
 
@@ -283,8 +282,8 @@ python3 plugins/infrastructure-as-skills-azure/core/iac-authoring/scripts/check_
 python3 plugins/infrastructure-as-skills-azure/core/iac-authoring/scripts/check_spec.py <spec>
 
 # a rendered example: fmt, validate, plan-only tests, then every decision asserted or excused
-terraform -chdir=examples/chatbot init -backend=false && terraform -chdir=examples/chatbot test
-python3 plugins/infrastructure-as-skills-azure/core/iac-rendering/scripts/check_render_coverage.py examples/chatbot/infra-spec.yaml
+terraform -chdir=examples/order-platform/infra init -backend=false && terraform -chdir=examples/order-platform/infra test
+python3 plugins/infrastructure-as-skills-azure/core/iac-rendering/scripts/check_render_coverage.py examples/order-platform/infra/infra-spec.yaml
 
 # diagram, PNG round-trip and pipeline invariants
 python3 plugins/infrastructure-as-skills-azure/core/iac-diagram/tests/run_diagram_tests.py

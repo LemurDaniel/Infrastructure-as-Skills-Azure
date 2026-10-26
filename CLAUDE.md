@@ -78,10 +78,10 @@ python3 plugins/infrastructure-as-skills-azure/core/iac-authoring/scripts/export
 
 # A rendered example: fmt, validate, plan-only tests with a mocked platform.
 # Every decision in the spec asserted by those tests, or marked not-testable with a reason.
-# A per-family render (examples/chatbot): each family module carries its own tests, the root one wiring test.
-terraform -chdir=examples/chatbot/modules/ai init -backend=false && terraform -chdir=examples/chatbot/modules/ai test
-terraform -chdir=examples/chatbot init -backend=false && terraform -chdir=examples/chatbot test
-python plugins/infrastructure-as-skills-azure/core/iac-rendering/scripts/check_render_coverage.py examples/chatbot/infra-spec.yaml
+# A per-family render (examples/order-platform/infra): each family module carries its own tests, the root one wiring test.
+terraform -chdir=examples/order-platform/infra/modules/app init -backend=false && terraform -chdir=examples/order-platform/infra/modules/app test
+terraform -chdir=examples/order-platform/infra init -backend=false && terraform -chdir=examples/order-platform/infra test
+python plugins/infrastructure-as-skills-azure/core/iac-rendering/scripts/check_render_coverage.py examples/order-platform/infra/infra-spec.yaml
 # The eval dashboard app (eval-agent/dashboard, Node 22): endpoint tests, and the container
 # locally with generated data, no Azure and no GitHub (MOCK=1).
 npm --prefix eval-agent/dashboard test
