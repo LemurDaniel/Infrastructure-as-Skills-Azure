@@ -420,20 +420,40 @@ consequence, record it with the question that forced it, and say so in Phase 4 r
 putting a question whose answer is already determined to the user.
 **`stage_isolation: resource_group` forces every resource group to `existing`**, and
 `resource_groups_created` is then not asked: creating a group needs a role on the shared
-subscription, and a deploying identity with one reaches every stage. Say it to the person
-as soon as they choose it, and again in Phase 4 and the hand-over, in `context.language`:
-"Da sich alle Stufen eine Subscription teilen, trennen nur die Ressourcengruppen sie. Das
-hält nur, wenn jede Stufe mit einer eigenen Identität ausrollt, die ihre Rechte
-ausschließlich auf den Ressourcengruppen dieser Stufe hat. Eine Rollenzuweisung auf der
-Subscription hebt die Trennung auf: Die Entwicklungs-Pipeline könnte dann auch die
-Produktion ändern. Deshalb legt die Infrastruktur keine Ressourcengruppen an; sie werden
-vorab einmal angelegt." / "Because all stages share one subscription, only the resource
-groups separate them. That holds only while each stage deploys with an identity of its own
-whose roles are assigned on that stage's resource groups only. A role assignment on the
-subscription removes the separation: the development pipeline could then change
-production as well. So the infrastructure creates no resource groups; they are created
-once beforehand." `check_spec.py` fails on a `create` group or a `subscription`-scoped
-deployer role under it.
+subscription, and a deploying identity with one reaches every stage. The person confirms it
+through `AskUserQuestion` as soon as they choose it - its own call, before the next topic
+call, never a paragraph they scroll past - and it is said again in Phase 4 and the hand-over,
+in `context.language`:
+
+```
+Header: Trennung
+Frage: Alle Stufen teilen sich eine Subscription, also trennen nur die Ressourcengruppen sie.
+  Das hält nur, wenn jede Stufe mit einer eigenen Identität ausrollt, die Rechte ausschließlich
+  auf den Ressourcengruppen dieser Stufe hat - eine Rollenzuweisung auf der Subscription hebt
+  die Trennung auf. Deshalb legt die Infrastruktur keine Ressourcengruppen an; sie werden
+  vorab erstellt. Passt das?
+  1. Ja, so festhalten - Je Stufe eine Identität mit Rechten nur auf ihren Ressourcengruppen;
+     die Gruppen werden vorab angelegt
+  2. Doch eigene Subscription je Stufe - Die Stufen trennt dann die Subscription, und die
+     Infrastruktur darf Ressourcengruppen anlegen
+```
+
+```
+Header: Separation
+Question: All stages share one subscription, so only the resource groups separate them. That
+  holds only while each stage deploys with an identity of its own whose roles are on that
+  stage's resource groups only - a role assignment on the subscription removes the separation.
+  So the infrastructure creates no resource groups; they are created beforehand. Does that work?
+  1. Yes, record it - One identity per stage with roles on its own resource groups only; the
+     groups are created beforehand
+  2. A subscription per stage after all - The subscription separates the stages, and the
+     infrastructure may create resource groups
+```
+
+The second answer changes `stage_isolation` to `subscription`, and `resource_groups_created` is
+asked again. With `deploy_mechanism: local` one person's account deploys every stage, so the
+separation does not hold against a wrong stage file; the question then says so in its text.
+`check_spec.py` fails on a `create` group or a `subscription`-scoped deployer role under it.
 `deployment.deployer_roles` is such a value, written last, once every resource is resolved:
 the roles the deploying identity needs beyond `Contributor`, derived from `create` groups,
 role assignments and secret placeholders (`forced_when` in the deployment set).
