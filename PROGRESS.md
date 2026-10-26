@@ -198,6 +198,17 @@ the detail; this list says what was decided and why, so a session does not reope
 - **The batch is asked in topics, the security baseline is shown as a block** (2026-10-26): every interview question carries a `topic` (`platform`, `network`, `security`, `resilience`, `data`, `application`; the checker fails without one), Phase 3 asks topic by topic and cuts the `AskUserQuestion` call at the topic, not at four. Phase 4 shows the guardrail defaults of the `security` and `identity` groups as one block grouped by what they protect, with a sign-off option for a departure; `export_decisions.py` groups them the same way. Reason: the security questions never reach the customer, so the one place they can be seen is the list before the sign-off, and it had been one line. Not yet seen in a run; the interview evals predate it.
 - **`priority` moves cost and hardening, never the security floor** (2026-10-26): a seventh `requirements` question - `cost`, `balanced` (default, the guardrail baseline), `protection` - asked of the customer. `protection` forces `non_production_savings: disabled` and derives the records an investigation needs (storage change feed, network flow logs); `cost` equals `balanced` for the knobs wired so far, since the baseline is already lean there. A named requirement (outage impact, retention, a mandate) wins over it. Open: more knobs to wire, above all ones that make `cost` differ from `balanced` (SKU tiers, zone redundancy of plans, registry and search tiers); Key Vault has no cost knob worth a mapping, DDoS is a `platform` decision. Not seen in a run.
 
+- **The platform is asked, not read from a file** (2026-10-26; `platform.yaml` removed).
+  `landing_zone_exists` and `network_exposure` are interview questions; `landing_zone` is
+  derived (`corp` private, `online` public, `sandbox` from the stage answer, `standalone`
+  without a landing zone). Without one, `central_logging`, `central_private_dns` and
+  `central_network` each set their own ownership decision, and an explicit answer beats an
+  archetype's pre-answer; `central_backup` is asked beside them. Names behind a "yes" are
+  stage parameters or `open:` entries for the platform team. `resolved_by` is `interview`
+  or `derived` (never asked). `private_with_exceptions` asks `public_parts` and
+  `public_audience`; one list question, `resource_groups_created`, derives the per-role
+  modes the spec keeps.
+
 ## State
 
 - **18 more sets written 2026-10-26 (67 resource sets in 10 families, 1,442 questions with the deployment
@@ -651,6 +662,18 @@ regeneration from the spec loses them. All `render`:
   (replication, soft delete, infrastructure encryption, SFTP), ~$15-25, before it counts.
   `terraform validate` in an eval needs a Linux runner; the spec-graded cases cannot run
   without the plugin.
+
+### Landing-zone interview (2026-10-26)
+
+- `backup-vault` and `recovery-services-vault` always render their own vault; the
+  `backup_ownership: reference` case is not rendered yet.
+- `container_image` is still an `open:` entry; `central_private_dns`' text promises an open
+  zone location that `private_dns_records: policy` does not need.
+- No case for the sandbox path, `landing_zone_exists: yes` with the new exposure question, or
+  `public_parts` mapping a download area to a storage account. The `expected_load` maps
+  (App Service P1v3/P2v3/P3v3, SQL 2/4/8 vCores) are estimates, not measurements.
+- The contradiction list in `iac-authoring` is a skill rule, not a script check.
+- Idea: a cost estimate in Phase 4 (`ideas/cost-and-security-profiles.md`).
 
 ### Waiting on the owner
 
