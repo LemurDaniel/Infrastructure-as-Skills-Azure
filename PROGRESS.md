@@ -194,6 +194,7 @@ the detail; this list says what was decided and why, so a session does not reope
 - **Evals sit in groups** (`spec/`, `diagram/`), reach the
   plugin with `plugins: ["../../.."]`, and the baseline is accepted only after reading a
   run. The 0-cost load check proves nothing; the first paid run is the check.
+- **An identity exists only for an outward reach** (2026-10-26): the default of Foundry, AI Services, storage account and Communication Services is `none`, as the container registry's already was; their `why` said so and the default contradicted it. Callers use their own identities, so an unused system-assigned identity is a principal to track for nothing. Customer-managed keys still force `user_assigned`. The eval agent's Foundry and storage account were re-rendered without one (first seen there: the apps' roles are on the apps' identities, the accounts hold none).
 
 ## State
 
@@ -354,6 +355,7 @@ Grouped by where the fix lands. A module's README on `main` is ahead of its tag:
 first written from `main` and failed `terraform validate` on the pinned tag. Write and check
 a reference against the installed module, never against `main`. Each item is a finding from a run or a review, kept
 until it is fixed or decided against.
+- **The examples still carry `system_assigned` for Foundry, storage account and AI Services** (chat-sandbox, chatbot, chatbot-multi-rg, chatbot-rag): their specs, renders and tests predate the `none` default. Re-render them or leave them as the explicit value; either is valid, but a fresh interview now answers `none`. The Foundry project child keeps its own system-assigned identity (the API requires it); SQL database, search and API Management were left at `system_assigned` on purpose - their roles and data sources need it.
 
 ### Rendering references and question sets
 
