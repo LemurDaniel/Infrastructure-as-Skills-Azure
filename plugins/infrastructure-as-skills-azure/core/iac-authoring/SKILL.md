@@ -476,8 +476,7 @@ is designing and has no deployment target yet; what the description leaves out o
 `open:` entry with a placeholder (Phase 2), reported in Phase 4 like any other open item. The group's *name* is that kind of value; the
 `resource_groups` group of the deployment set is not. Two questions decide the split:
 `resource_group_layout` - one group per stage, or spread over several - and, only on `split`,
-`resource_group_scheme` - by responsibility (`concern`), by lifecycle (`lifecycle`) or one group
-per kind (`resource_type`). Which groups follow is **not asked**: `resource_group_split` is
+`resource_group_scheme` - by responsibility (`concern`) or by lifecycle (`lifecycle`). Which groups follow is **not asked**: `resource_group_split` is
 derived from the scheme's table in `resource-group-roles.yaml`, every role that at least one
 resource of the design belongs to (`forced`, `forced_by: deployment.resource_group_scheme`).
 The person sees the result as frames in the diagram and moves a resource or drops a group
@@ -487,10 +486,8 @@ per-role `resource_group_mode_<role>` are derived from it), with every group exi
 default. It reads the derived split, so it is asked in a call after the scheme, multi-select,
 with **one option per group** - each role of the split, named by the scheme's words (a split has
 no main group; a single layout asks for its one group),
-never folded into one option ("the areas you split off"). Up to eight groups go into two
-questions of the same call (the first four, the rest); more than eight
-(`resource_type` on a large design) turn it into one single choice - all created, all
-existing - and a group that differs is changed at the sign-off. Under `stage_isolation:
+never folded into one option ("the areas you split off"); five groups go into two questions of
+the same call (the first four, the rest). Under `stage_isolation:
 resource_group` it is not asked at all. Nor is the customer's language:
 it is the language the request and the answers are written in, and Phase 0 writes it to
 `context.language` (`en` or `de`) - the picture, the decision document and the

@@ -21,7 +21,6 @@ decision document and the name list read through `scripts/rg_roles.py`; change b
 |---|---|---|
 | `concern` (default) | `network`, `data`, `application`, `observability`, `security` - the table below | a resource of the design has that role |
 | `lifecycle` | `foundation` (network, monitoring, identities, messaging: built once), `state` (data stores, Key Vault, registry, search: outlives every redeploy, locked and backed up), `runtime` (compute, AI, integration: replaced freely) | same |
-| `resource_type` | one per set name (`key-vault`, `app-service`): the role is the kind | every kind in the design |
 
 Every resource set has a role in both tables, or is `attached` (a private endpoint and a role
 assignment go with the resource they serve, Defender for Cloud with the subscription);

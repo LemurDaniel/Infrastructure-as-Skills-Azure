@@ -25,7 +25,7 @@ Read-only. Checks what the contract in references/spec.md promises:
      is named by an open entry (`environments:`) for that key.
   8. Resource groups: `resource_group_split` lists known roles only (never
      `main`) of the scheme `resource_group_scheme` names (concern by default,
-     lifecycle, or resource_type: the set names in the design), and none under
+     or lifecycle), and none under
      `resource_group_layout: single`; a split makes `resource_group_mode_<role>` required for `main`
      and every listed role, and a mode or a `context.resource_group_name_<role>`
      for a role that is not split off is stale; a resource's
