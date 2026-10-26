@@ -60,6 +60,8 @@ MUTATIONS = [
     ('a split under a single layout', SPLIT, SPLIT + "  resource_group_layout: { value: single, source: asked }\n", 'resource_group_layout is single'),
     ('a created group under resource-group stage isolation', MODE_DATA, MODE_DATA + ISOLATION_RG, 'resource_group_mode_data is create under stage_isolation resource_group'),
     ('a subscription grant under resource-group stage isolation', MODE_DATA, MODE_DATA + ISOLATION_RG, 'grants Contributor on subscription under stage_isolation'),
+    ('a role granted to an identity the spec does not have', "            - { principal: app-service, role: Key Vault Secrets User }\n",
+     "            - { principal: user-assigned-identity__gone, role: Key Vault Secrets User }\n", "'user-assigned-identity__gone', which is not a resource"),
     ('a created group at resource-group scope', MODE_DATA, MODE_DATA + SCOPE_RG, 'resource_group_mode_data is create under deployment_scope resource_group'),
     ('subscription scope under resource-group stage isolation', MODE_DATA,
      MODE_DATA + ISOLATION_RG + SCOPE_RG.replace('resource_group,', 'subscription,'), 'deployment_scope is subscription under stage_isolation'),

@@ -441,6 +441,38 @@ def main():
             warnings.append(f"context.{key} has no value and no open entry - only right when every stage file already "
                             f"carries it; a run that was not told it writes an open entry and a placeholder")
 
+    # --- 9b. role assignments name resources that exist ------------------------
+    # A principal spelled like a resource key (a set name, `__instance` optional) must be one
+    # of the spec's resources; a group or a person by name is not checked.
+    set_names = {owner for owner, _ in questions if owner != 'deployment'}
+    res_keys = set((get(spec, 'resources') or {}).keys())
+
+    def principals(v):
+        if isinstance(v, dict):
+            if 'principal' in v:
+                yield v['principal']
+            else:
+                for x in v.values():
+                    yield from principals(x)
+        elif isinstance(v, list):
+            for x in v:
+                yield from principals(x)
+
+    for rkey, rnode in (get(spec, 'resources') or {}).items():
+        for gid, gnode in (rnode or {}).items() if isinstance(rnode, dict) else []:
+            ra_node = get(gnode, 'role_assignments')
+            if not isinstance(ra_node, dict):
+                continue
+            for p in sorted({str(p) for p in principals(ra_node.get('value'))}):
+                if p.split('__')[0] in set_names and p not in res_keys:
+                    errors.append(f"resources.{rkey}.{gid}.role_assignments grants a role to '{p}', which is not a resource "
+                                  f"of this spec - a renamed or removed identity leaves its grants behind")
+    for a in (get(get(spec, 'wiring'), 'role_assignments') or {}).get('value') or [] if isinstance(get(get(spec, 'wiring'), 'role_assignments'), dict) else []:
+        for side in ('from', 'to'):
+            p = str(get(a, side) or '')
+            if p.split('__')[0] in set_names and p not in res_keys:
+                errors.append(f"wiring.role_assignments names '{p}' ({side}), which is not a resource of this spec")
+
     # --- 10. deployer roles ------------------------------------------------
     def filled(v):
         """A list value, or a stage map of lists, that holds at least one entry."""
