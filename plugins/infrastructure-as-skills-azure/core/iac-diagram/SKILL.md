@@ -141,6 +141,25 @@ Exit codes, all scripts: `0` ok, `1` failed, `2` could not run.
   Chromium. A PNG without the embedded diagram is a picture the customer cannot correct;
   where no renderer at all is available, deliver the `.drawio` file (the one case where
   it is the deliverable).
+- **Tell the customer what exit 2 means, in `context.language`, not the script's two lines.**
+  Cover: the diagram is drawn and saved as `infra-diagram.drawio`; draw.io desktop is only the
+  exporter that turns it into the PNG; without the PNG the picture cannot go into a document
+  or chat, and the review of the picture (Loop 1) has nothing to look at; the options -
+  install draw.io desktop (`winget install JGraph.Draw`, `brew install --cask drawio`) and
+  run the export again, or open the `.drawio` at app.diagrams.net, or go on without the PNG.
+  Ask which; never pick the third silently.
+
+  > de: Das Diagramm ist gezeichnet und liegt als `infra-diagram.drawio` vor. Zum Export als
+  > PNG braucht das Plugin die draw.io-Desktop-App, und die finde ich auf diesem Rechner nicht.
+  > Ohne PNG lässt sich das Bild nicht in Dokumente oder Mails einbetten, und ich kann es nicht
+  > gegenprüfen. Optionen: 1) draw.io installieren (`winget install JGraph.Draw`) und ich
+  > exportiere erneut, 2) die `.drawio` unter app.diagrams.net öffnen, 3) ohne PNG weitermachen.
+  >
+  > en: The diagram is drawn and saved as `infra-diagram.drawio`. Exporting it as a PNG needs the
+  > draw.io desktop app, which I cannot find on this machine. Without the PNG the picture cannot
+  > go into documents or mails, and I cannot check it against the spec. Options: 1) install
+  > draw.io (`winget install JGraph.Draw`) and I export again, 2) open the `.drawio` at
+  > app.diagrams.net, 3) go on without the PNG.
 - `export_diagram.py` repairs and checks the PNG after an embedded export. The draw.io
   desktop CLI writes a bad zTXt CRC and no IEND chunk with `--embed-diagram`, every time:
   browsers still show it, strict decoders (and Claude's image reader) reject it. Never
