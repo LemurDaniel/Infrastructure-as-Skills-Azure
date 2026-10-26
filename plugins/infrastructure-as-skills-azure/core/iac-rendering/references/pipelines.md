@@ -147,6 +147,7 @@ names the stages that still hold placeholders. They cannot deploy - see invarian
 | `deployment.deploy_mechanism` | Which reference and which files |
 | `deployment.pipeline_auth` | The login mechanics of the platform file |
 | `deployment.pipeline_approvals` | Which stages have the gate: `production` - the last stage named `production`, or the last stage if none is; `every_stage`; `none` |
+| `deployment.resource_group_layout` | Bicep: the group the stage deploys into (`AZURE_RESOURCE_GROUP`, `-ResourceGroup`) is the main group, or under `split` the first group of `resource_group_split` - the root's modules reach the others by `scope:`. Terraform: nothing |
 | `deployment.stage_isolation` | `subscription`: one identity and one subscription per stage. `resource_group`: one subscription, so the identities differ by the role scope on the resource group - every role of a stage's identity is assigned on that stage's groups, never on the subscription, and the hand-over says that a subscription assignment removes the separation |
 | `deployment.deployer_roles` | The roles beyond `Contributor` in the hand-over list; nothing in a pipeline step |
 | `deployment.non_production_savings` | Nothing in the pipeline; the stage file carries it |

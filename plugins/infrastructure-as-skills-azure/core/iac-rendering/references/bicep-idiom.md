@@ -73,7 +73,10 @@ Four of these cost a deployment if ported naively from the Terraform side:
 - **`scope:` is a module property.** Deploying into another resource group or subscription
   is `scope: resourceGroup(otherSub, otherRg)` on the module, where Terraform needs a
   provider alias passed in. This is the asymmetry that makes a cross-scope spec render
-  cleanly here and awkwardly there.
+  cleanly here and awkwardly there. A split without a main group is rendered exactly so: one
+  root deployed into the first group of `resource_group_split`, every module scoped to its own
+  group, references between groups as module outputs
+  ([resource-groups.md](resource-groups.md#what-create-changes-elsewhere)).
 - **A module output is not secret.** It is readable in the deployment history, so a module
   never outputs a key or a connection string — pass a Key Vault reference instead.
 - **Loops are `for`, and ordering is not an output of the loop.** `[for sub in subs: {…}]`

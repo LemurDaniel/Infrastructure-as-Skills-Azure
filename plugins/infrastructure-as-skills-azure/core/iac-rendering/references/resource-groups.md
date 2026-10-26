@@ -7,9 +7,11 @@ with the answers.
 
 ## Roles
 
-`main` is `context.resource_group_name` and always exists. The other roles exist only when
-`resource_group_split` lists them. A resource belongs to the group of its role; a role that is
-not split off is part of `main`.
+`resource_group_layout: single` has one group per stage, `main` - `context.resource_group_name`.
+A split (`resource_group_layout: split`) has **no main group**: the roles of the scheme that a
+resource of the design belongs to are listed in `resource_group_split`, and every resource is in
+the group of its role. A spec written before the layout key keeps `main` beside its split roles,
+for whatever is not split off.
 
 The roles depend on `deployment.resource_group_scheme`; the tables below are the prose of
 [resource-group-roles.yaml](resource-group-roles.yaml), which the spec check, the diagram, the
@@ -21,9 +23,10 @@ decision document and the name list read through `scripts/rg_roles.py`; change b
 | `lifecycle` | `foundation` (network, monitoring, identities, messaging: built once), `state` (data stores, Key Vault, registry, search: outlives every redeploy, locked and backed up), `runtime` (compute, AI, integration: replaced freely) | same |
 | `resource_type` | one per set name (`key-vault`, `app-service`): the role is the kind | every kind in the design |
 
-A kind a scheme does not place stays in `main`. Under `lifecycle` and `resource_type` the main
-group can end up empty; it still exists as `context.resource_group_name`, the scope the root
-deploys from.
+Every resource set has a role in both tables, or is `attached` (a private endpoint and a role
+assignment go with the resource they serve, Defender for Cloud with the subscription);
+`check_repo_consistency.py` fails on a set in neither. The Bicep root of a split deploys into the
+first group of the split (see *What `create` changes elsewhere*).
 
 The `concern` table:
 
@@ -70,6 +73,18 @@ Versions are looked up live ([avm.md](avm.md)); the table there is a dated snaps
 - **Bicep scope.** One `create` anywhere makes the root `targetScope = 'subscription'`; each
   resource module takes `scope: resourceGroup(<name>)`. All-`existing` stays at resource-group
   scope with one `scope:` per module for the roles that differ.
+- **Bicep without a main group** (`resource_group_layout: split`, all groups `existing`): still
+  one root and one deployment per stage, at resource-group scope, deployed into the **first group
+  of `resource_group_split`** - the *deployment group*. It holds the deployment record, not
+  necessarily resources of its own. Every resource module takes `scope: resourceGroup(<its
+  group>)`, and a module that needs another group's resource takes the other module's output:
+  ARM orders the modules by those references across groups, so groups never need each other in
+  a circle - a diagnostic setting and a role assignment are edges between resources, not between
+  groups. The stage identity needs Contributor on each of its stage's groups (a module is a
+  deployment in its group) and nothing on the subscription, which is what keeps
+  `stage_isolation: resource_group` intact. What-if shortens a module that takes another
+  module's output (`NestedDeploymentShortCircuited`); invariant 2 of
+  [pipelines.md](pipelines.md) lists those modules under the plan.
 - **Pipeline.** A subscription-scope root deploys with `az deployment sub` instead of
   `az deployment group`, and the stage identity needs Contributor on the subscription (stage
   isolation `subscription`) — not on the group. The pipeline reference lists the role; see

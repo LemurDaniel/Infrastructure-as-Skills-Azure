@@ -267,8 +267,10 @@ chain then holds every stage behind it.
 
 ## Resource groups: roles, modes, names
 
-`context.resource_group_name` is the **main** group: where everything lands unless a concern is
-split off. Splitting is a deployment decision; the keys it leaves in the spec:
+`context.resource_group_name` is the **main** group of a single layout: one group per stage that
+holds everything. A split has no main group - every resource is in the group of its scheme's
+role, and the Bicep root deploys into the first of them. Splitting is a deployment decision; the
+keys it leaves in the spec:
 
 | Key | Holds | Notes |
 |---|---|---|
