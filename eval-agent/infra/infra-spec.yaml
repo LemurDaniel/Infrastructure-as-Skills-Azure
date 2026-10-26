@@ -11,607 +11,353 @@ spec:
 context:
   environments: [production]
   language: de
-  # location, workload, subscription_id and resource_group_name are parameterized: input
-  # parameters the stage file supplies, never asked and never baked into the spec.
 
+# location, workload, subscription_id and resource_group_name are parameterized: input
+# parameters the stage file supplies, never asked and never baked into the spec.
 deployment:
-  deploy_mechanism:
-    value: github
-    source: asked
-  pipeline_auth:
-    value: workload_identity
-    source: default
-  pipeline_approvals:
-    value: production
-    source: default
+  # --- context ---
+  stage_isolation: {value: subscription, source: default}
+  non_production_savings: {value: enabled, source: default}
+  naming_convention: {value: default, source: default}
 
-  module_source:
-    value: authored
-    source: asked
-  naming_convention:
-    value: default
-    source: default
+  # --- delivery ---
+  deploy_mechanism: {value: github, source: asked}
+  pipeline_auth: {value: workload_identity, source: default}
+  pipeline_approvals: {value: production, source: default}
 
-  stage_isolation:
-    value: subscription
-    source: default
-  non_production_savings:
-    value: enabled
-    source: default
+  # --- requirements ---
+  network_requirements: {value: free, source: asked}
+  outage_impact: {value: tolerable, source: asked}
+  data_loss_tolerance: {value: reproducible, source: asked}
+  data_access_pattern: {value: active, source: asked}
+  backup_isolation: {value: operational, source: asked}
+  data_residency: {value: data_zone, source: asked}
 
-  # requirements (the customer's answers)
-  network_requirements:
-    value: free
-    source: asked
-  outage_impact:
-    value: tolerable
-    source: asked
-  data_loss_tolerance:
-    value: reproducible
-    source: asked
-  data_access_pattern:
-    value: active
-    source: asked
-  backup_isolation:
-    value: operational
-    source: asked
-  data_residency:
-    value: data_zone
-    source: asked
+  # --- modules ---
+  module_source: {value: authored, source: asked}
 
-  # posture
-  landing_zone:
-    value: standalone
-    source: forced
-    forced_by: deployment.network_requirements
-  network_exposure:
-    value: private_with_exceptions
-    source: asked
-  local_auth:
-    value: disabled
-    source: default
-  mandates:
-    value: []
-    source: asked
-  key_protection:
-    value: software
-    source: default
-  key_management:
-    value: platform_managed
-    source: default
+  # --- posture ---
+  landing_zone: {value: standalone, source: forced, forced_by: deployment.network_requirements}
+  network_exposure: {value: private_with_exceptions, source: asked}
+  local_auth: {value: disabled, source: default}
 
-  # network
-  network_ownership:
-    value: create
-    source: forced
-    forced_by: deployment.landing_zone
-  address_space:
-    value:
-      production: 10.100.0.0/24
-    source: asked
+  # --- compliance ---
+  mandates: {value: [], source: asked}
+  key_protection: {value: software, source: default}
+  key_management: {value: platform_managed, source: default}
+
+  # --- network ---
+  network_ownership: {value: create, source: forced, forced_by: deployment.landing_zone}
+  address_space: {value: {production: 10.100.0.0/24}, source: asked}
   private_endpoint_subnet_prefix:
-    value:
-      production: 10.100.0.0/27
+    value: {production: 10.100.0.0/27}
     source: forced
     forced_by: deployment.network_requirements
 
-  # dns
-  private_dns_ownership:
-    value: deployment
-    source: forced
-    forced_by: deployment.landing_zone
+  # --- dns ---
+  private_dns_ownership: {value: deployment, source: forced, forced_by: deployment.landing_zone}
 
-  # observability
-  observability_ownership:
-    value: create
-    source: forced
-    forced_by: deployment.landing_zone
+  # --- observability ---
+  observability_ownership: {value: create, source: forced, forced_by: deployment.landing_zone}
   diagnostics_destination:
     value: log-analytics-workspace
     source: forced
     forced_by: deployment.observability_ownership
-  log_retention_days:
-    value: 30
-    source: asked
-  daily_quota_gb:
-    value: -1
-    source: default
+  log_retention_days: {value: 30, source: asked}
+  daily_quota_gb: {value: -1, source: default}
 
 composition:
   granularity: per-concern
   source: default
   modules:
-    - id: network
-      contains: [virtual-network]
-      implementation: authored
-      source: deployment
-      outputs: [id, integration_subnet_id, private_endpoint_subnet_id]
-    - id: observability
-      contains: [log-analytics-workspace]
-      implementation: authored
-      source: deployment
-      outputs: [id]
-    - id: identity-dashboard
-      contains: [user-assigned-identity__dashboard]
-      implementation: authored
-      source: deployment
-      outputs: [id, principal_id, client_id]
-    - id: identity-agent
-      contains: [user-assigned-identity__agent]
-      implementation: authored
-      source: deployment
-      outputs: [id, principal_id, client_id]
-    - id: identity-drift
-      contains: [user-assigned-identity__drift]
-      implementation: authored
-      source: deployment
-      outputs: [id, principal_id, client_id]
-    - id: identity-fuzz
-      contains: [user-assigned-identity__fuzz]
-      implementation: authored
-      source: deployment
-      outputs: [id, principal_id, client_id]
-    - id: identity-tune
-      contains: [user-assigned-identity__tune]
-      implementation: authored
-      source: deployment
-      outputs: [id, principal_id, client_id]
-    - id: registry
-      contains: [container-registry]
-      implementation: authored
-      source: deployment
-      needs: [network, observability]
-      outputs: [id, login_server]
-    - id: ai
-      contains: [foundry]
-      implementation: authored
-      source: deployment
-      needs: [network, observability]
-      outputs: [id, endpoint]
-    - id: storage
-      contains: [storage-account, blob-container]
-      implementation: authored
-      source: deployment
-      needs: [network, observability]
-      outputs: [id, name]
-    - id: vault
-      contains: [key-vault]
-      implementation: authored
-      source: deployment
-      needs: [network, observability]
-      outputs: [id, vault_uri]
-    - id: app
-      # Five sites on one plan (the question set renders one site per plan; the shared plan is
-      # rendered by hand, see resources.app-service__agent.hosting).
-      contains: [app-service__dashboard, app-service__agent, app-service__drift, app-service__fuzz, app-service__tune]
-      implementation: authored
-      source: deployment
-      needs: [network, observability, identity-dashboard, identity-agent, identity-drift, identity-fuzz, identity-tune, registry, vault, ai, storage]
-      outputs: [id, default_hostname]
+  - id: network
+    contains: [virtual-network]
+    implementation: authored
+    source: deployment
+    outputs: [id, integration_subnet_id, private_endpoint_subnet_id]
+  - id: observability
+    contains: [log-analytics-workspace]
+    implementation: authored
+    source: deployment
+    outputs: [id]
+  - id: identity-dashboard
+    contains: [user-assigned-identity__dashboard]
+    implementation: authored
+    source: deployment
+    outputs: [id, principal_id, client_id]
+  - id: identity-agent
+    contains: [user-assigned-identity__agent]
+    implementation: authored
+    source: deployment
+    outputs: [id, principal_id, client_id]
+  - id: identity-drift
+    contains: [user-assigned-identity__drift]
+    implementation: authored
+    source: deployment
+    outputs: [id, principal_id, client_id]
+  - id: identity-fuzz
+    contains: [user-assigned-identity__fuzz]
+    implementation: authored
+    source: deployment
+    outputs: [id, principal_id, client_id]
+  - id: identity-tune
+    contains: [user-assigned-identity__tune]
+    implementation: authored
+    source: deployment
+    outputs: [id, principal_id, client_id]
+  - id: registry
+    contains: [container-registry]
+    implementation: authored
+    source: deployment
+    needs: [network, observability]
+    outputs: [id, login_server]
+  - id: ai
+    contains: [foundry]
+    implementation: authored
+    source: deployment
+    needs: [network, observability]
+    outputs: [id, endpoint]
+  - id: storage
+    contains: [storage-account, blob-container]
+    implementation: authored
+    source: deployment
+    needs: [network, observability]
+    outputs: [id, name]
+  - id: vault
+    contains: [key-vault]
+    implementation: authored
+    source: deployment
+    needs: [network, observability]
+    outputs: [id, vault_uri]
+  - id: app
+    # Five sites on one plan (the question set renders one site per plan; the shared plan is
+    # rendered by hand, see resources.app-service__agent.hosting).
+    contains: [app-service__dashboard, app-service__agent, app-service__drift, app-service__fuzz, app-service__tune]
+    implementation: authored
+    source: deployment
+    needs:
+    - network
+    - observability
+    - identity-dashboard
+    - identity-agent
+    - identity-drift
+    - identity-fuzz
+    - identity-tune
+    - registry
+    - vault
+    - ai
+    - storage
+    outputs: [id, default_hostname]
 
 resources:
-
   virtual-network:
     addressing:
-      address_space:
-        value:
-          production: 10.100.0.0/24
-        source: deployment
+      address_space: {value: {production: 10.100.0.0/24}, source: deployment}
       subnets:
         value:
           production:
-            - { name: pe, prefix: 10.100.0.0/27 }
-            - { name: app-integration, prefix: 10.100.0.64/26 }
+          - {name: pe, prefix: 10.100.0.0/27}
+          - {name: app-integration, prefix: 10.100.0.64/26}
         source: default
-      private_endpoint_subnet_prefix:
-        value:
-          production: 10.100.0.0/27
-        source: deployment
-      dns_servers:
-        value: []
-        source: default
+      private_endpoint_subnet_prefix: {value: {production: 10.100.0.0/27}, source: deployment}
+      dns_servers: {value: [], source: default}
     subnet_policy:
-      private_endpoint_network_policies:
-        value: Enabled
-        source: default
-      service_endpoints:
-        value: []
-        source: default
+      private_endpoint_network_policies: {value: Enabled, source: default}
+      service_endpoints: {value: [], source: default}
       subnet_delegations:
         value:
-          - { subnet: app-integration, service: Microsoft.Web/serverFarms }
+        - {subnet: app-integration, service: Microsoft.Web/serverFarms}
         source: forced
         forced_by: resources.app-service__dashboard.networking.vnet_integration
     security:
-      ddos_protection:
-        value: false
-        source: default
-      subnets_expecting_nsg:
-        value:
-          production: []
-        source: default
+      ddos_protection: {value: false, source: default}
+      subnets_expecting_nsg: {value: {production: []}, source: default}
     observability:
-      diagnostic_workspace:
-        value: log-analytics-workspace
-        source: deployment
-      flow_logs_enabled:
-        value: false
-        source: default
+      diagnostic_workspace: {value: log-analytics-workspace, source: deployment}
+      flow_logs_enabled: {value: false, source: default}
 
   log-analytics-workspace:
     cost:
-      retention_days:
-        value: 30
-        source: deployment
-      daily_quota_gb:
-        value: -1
-        source: deployment
-      sku:
-        value: PerGB2018
-        source: default
+      retention_days: {value: 30, source: deployment}
+      daily_quota_gb: {value: -1, source: deployment}
+      sku: {value: PerGB2018, source: default}
     access:
-      public_network_access:
-        value: enabled
-        source: default
-      local_auth:
-        value: false
-        source: deployment
-      rbac_only_access:
-        value: true
-        source: default
+      public_network_access: {value: enabled, source: default}
+      local_auth: {value: false, source: deployment}
+      rbac_only_access: {value: true, source: default}
     data_protection:
-      immediate_purge_protection:
-        value: true
-        source: default
-      archive_to_storage:
-        value: false
-        source: default
+      immediate_purge_protection: {value: true, source: default}
+      archive_to_storage: {value: false, source: default}
 
   # One identity per app: the dashboard (internet-facing, holds the sign-in secret and the GitHub
   # token) and the agent (runs plugin code, holds no secret) share no role.
   user-assigned-identity__dashboard:
     identity:
-      purpose:
-        value: app-runtime
-        source: default
-        # AcrPull and the data roles must exist before the container first starts, which a
-        # system-assigned identity of the app cannot have.
-      federated_credentials:
-        value: []
-        source: default
-      isolation_scope:
-        value: None
-        source: default
-      role_assignments:
-        value:
-          production: []
-        source: default
+      purpose: {value: app-runtime, source: default}
+      # AcrPull and the data roles must exist before the container first starts, which a
+      # system-assigned identity of the app cannot have.
+      federated_credentials: {value: [], source: default}
+      isolation_scope: {value: None, source: default}
+      role_assignments: {value: {production: []}, source: default}
 
   user-assigned-identity__agent:
     identity:
-      purpose:
-        value: app-runtime
-        source: default
-      federated_credentials:
-        value: []
-        source: default
-      isolation_scope:
-        value: None
-        source: default
-      role_assignments:
-        value:
-          production: []
-        source: default
+      purpose: {value: app-runtime, source: default}
+      federated_credentials: {value: [], source: default}
+      isolation_scope: {value: None, source: default}
+      role_assignments: {value: {production: []}, source: default}
 
   # The drift watcher reaches the AVM sources on the internet, so it gets its own identity: it
   # shares no role with the agent (which runs plugin code) or the dashboard (which holds the
   # sign-in secret).
   user-assigned-identity__drift:
     identity:
-      purpose:
-        value: app-runtime
-        source: default
-      federated_credentials:
-        value: []
-        source: default
-      isolation_scope:
-        value: None
-        source: default
-      role_assignments:
-        value:
-          production: []
-        source: default
+      purpose: {value: app-runtime, source: default}
+      federated_credentials: {value: [], source: default}
+      isolation_scope: {value: None, source: default}
+      role_assignments: {value: {production: []}, source: default}
 
   # The fuzz agent runs plugin code and calls no model: it gets its own identity with the image
   # and data roles only, so it shares nothing with the agent, the drift watcher or the dashboard.
   user-assigned-identity__fuzz:
     identity:
-      purpose:
-        value: app-runtime
-        source: default
-      federated_credentials:
-        value: []
-        source: default
-      isolation_scope:
-        value: None
-        source: default
-      role_assignments:
-        value:
-          production: []
-        source: default
+      purpose: {value: app-runtime, source: default}
+      federated_credentials: {value: [], source: default}
+      isolation_scope: {value: None, source: default}
+      role_assignments: {value: {production: []}, source: default}
 
   # The tuner reads the fuzz report, lets the Foundry model draft a layout change and pushes it to
   # the tuning branch: it holds the one GitHub token for that and shares no role with the other apps.
   user-assigned-identity__tune:
     identity:
-      purpose:
-        value: app-runtime
-        source: default
-      federated_credentials:
-        value: []
-        source: default
-      isolation_scope:
-        value: None
-        source: default
-      role_assignments:
-        value:
-          production: []
-        source: default
+      purpose: {value: app-runtime, source: default}
+      federated_credentials: {value: [], source: default}
+      isolation_scope: {value: None, source: default}
+      role_assignments: {value: {production: []}, source: default}
 
   container-registry:
     registry:
-      sku:
-        value: Premium
-        source: forced
-        forced_by: deployment.network_exposure
-      zone_redundant:
-        value: false
-        source: requirement
-        derived_from: deployment.outage_impact
-      geo_replicas:
-        value:
-          production: []
-        source: default
-      retention_untagged_days:
-        value: 7
-        source: default
+      sku: {value: Premium, source: forced, forced_by: deployment.network_exposure}
+      zone_redundant: {value: false, source: requirement, derived_from: deployment.outage_impact}
+      geo_replicas: {value: {production: []}, source: default}
+      retention_untagged_days: {value: 7, source: default}
     networking:
-      public_network_access:
-        value: disabled
-        source: deployment
-      private_endpoint_subnet:
-        value: pe
-        source: deployment
-      network_rule_bypass:
-        value: None
-        source: default
-      export_policy_enabled:
-        value: false
-        source: default
+      public_network_access: {value: disabled, source: deployment}
+      private_endpoint_subnet: {value: pe, source: deployment}
+      network_rule_bypass: {value: None, source: default}
+      export_policy_enabled: {value: false, source: default}
       image_push_path:
         value: pipeline_opens_registry
         source: stated
-        reason: "The image pipeline opens the registry for the runner's address only (public access enabled, default action Deny, one IP rule), pushes, and closes it again in a step that always runs and verifies public access is Disabled. The steady state stays private; no agent pool, no self-hosted runner. The pipeline's identity needs AcrPush on the registry."
+        reason: The image pipeline opens the registry for the runner's address only (public access enabled, default action
+          Deny, one IP rule), pushes, and closes it again in a step that always runs and verifies public access is Disabled.
+          The steady state stays private; no agent pool, no self-hosted runner. The pipeline's identity needs AcrPush on the
+          registry.
     identity:
-      managed_identity:
-        value: none
-        source: default
-      role_assignments:
-        value:
-          production: []
-        source: default
+      managed_identity: {value: none, source: default}
+      role_assignments: {value: {production: []}, source: default}
     security:
-      admin_enabled:
-        value: false
-        source: deployment
-      anonymous_pull_enabled:
-        value: false
-        source: default
-      key_management:
-        value: platform_managed
-        source: deployment
+      admin_enabled: {value: false, source: deployment}
+      anonymous_pull_enabled: {value: false, source: default}
+      key_management: {value: platform_managed, source: deployment}
     observability:
-      diagnostic_workspace:
-        value: log-analytics-workspace
-        source: deployment
-      diagnostic_categories:
-        value: [ContainerRegistryRepositoryEvents, ContainerRegistryLoginEvents]
-        source: default
-      metrics_enabled:
-        value: true
-        source: default
+      diagnostic_workspace: {value: log-analytics-workspace, source: deployment}
+      diagnostic_categories: {value: [ContainerRegistryRepositoryEvents, ContainerRegistryLoginEvents], source: default}
+      metrics_enabled: {value: true, source: default}
 
   foundry:
     account:
-      kind:
-        value: AIServices
-        source: default
-      sku_name:
-        value: S0
-        source: default
-      project_management:
-        value: true
-        source: default
+      kind: {value: AIServices, source: default}
+      sku_name: {value: S0, source: default}
+      project_management: {value: true, source: default}
       projects:
         value: [eval]
         source: overridden
-        reason: "Departs from the default []: Foundry evaluations are scoped to a project."
+        reason: 'Departs from the default []: Foundry evaluations are scoped to a project.'
     models:
-      deployment_sku:
-        value: DataZoneStandard
-        source: requirement
-        derived_from: deployment.data_residency
-      deployment_capacity:
-        value: 10
-        source: default
-      version_upgrade_option:
-        value: OnceCurrentVersionExpired
-        source: default
-      content_filter:
-        value: Microsoft.DefaultV2
-        source: default
+      deployment_sku: {value: DataZoneStandard, source: requirement, derived_from: deployment.data_residency}
+      deployment_capacity: {value: 10, source: default}
+      version_upgrade_option: {value: OnceCurrentVersionExpired, source: default}
+      content_filter: {value: Microsoft.DefaultV2, source: default}
     networking:
-      public_network_access:
-        value: disabled
-        source: deployment
-      private_endpoint_subnet:
-        value: pe
-        source: deployment
-      restrict_outbound:
-        value: true
-        source: default
+      public_network_access: {value: disabled, source: deployment}
+      private_endpoint_subnet: {value: pe, source: deployment}
+      restrict_outbound: {value: true, source: default}
     identity:
-      managed_identity:
-        value: none
-        source: default
-      role_assignments:
-        value:
-          production: []
-        source: default
+      managed_identity: {value: none, source: default}
+      role_assignments: {value: {production: []}, source: default}
     security:
-      local_authentication_disabled:
-        value: true
-        source: deployment
-      key_management:
-        value: platform_managed
-        source: deployment
+      local_authentication_disabled: {value: true, source: deployment}
+      key_management: {value: platform_managed, source: deployment}
     observability:
-      diagnostic_workspace:
-        value: log-analytics-workspace
-        source: deployment
-      diagnostic_categories:
-        value: [Audit, RequestResponse, AzureOpenAIRequestUsage]
-        source: default
-      metrics_enabled:
-        value: true
-        source: default
+      diagnostic_workspace: {value: log-analytics-workspace, source: deployment}
+      diagnostic_categories: {value: [Audit, RequestResponse, AzureOpenAIRequestUsage], source: default}
+      metrics_enabled: {value: true, source: default}
 
   storage-account:
     networking:
-      public_network_access:
-        value: disabled
-        source: deployment
-      private_endpoint_subnet:
-        value: pe
-        source: deployment
-      private_endpoint_subresources:
-        value: [blob]
-        source: default
-      allow_azure_services_bypass:
-        value: true
-        source: default
+      public_network_access: {value: disabled, source: deployment}
+      private_endpoint_subnet: {value: pe, source: deployment}
+      private_endpoint_subresources: {value: [blob], source: default}
+      allow_azure_services_bypass: {value: true, source: default}
     identity:
-      managed_identity:
-        value: none
-        source: default
-      role_assignments:
-        value:
-          production: []
-        source: default
+      managed_identity: {value: none, source: default}
+      role_assignments: {value: {production: []}, source: default}
     security:
-      shared_access_key_enabled:
-        value: false
-        source: deployment
-      min_tls_version:
-        value: TLS1_2
-        source: default
-      https_traffic_only:
-        value: true
-        source: default
-      allow_blob_public_access:
-        value: false
-        source: default
-      infrastructure_encryption_enabled:
-        value: true
-        source: default
-      key_management:
-        value: platform_managed
-        source: deployment
-      sftp_enabled:
-        value: false
-        source: default
+      shared_access_key_enabled: {value: false, source: deployment}
+      min_tls_version: {value: TLS1_2, source: default}
+      https_traffic_only: {value: true, source: default}
+      allow_blob_public_access: {value: false, source: default}
+      infrastructure_encryption_enabled: {value: true, source: default}
+      key_management: {value: platform_managed, source: deployment}
+      sftp_enabled: {value: false, source: default}
     data_protection:
-      replication:
-        value: LRS
-        source: requirement
-        derived_from: deployment.outage_impact
-      access_tier:
-        value: Hot
-        source: requirement
-        derived_from: deployment.data_access_pattern
-      blob_soft_delete_days:
-        value: 0
-        source: requirement
-        derived_from: deployment.data_loss_tolerance
-      container_soft_delete_days:
-        value: 0
-        source: requirement
-        derived_from: deployment.data_loss_tolerance
-      versioning_enabled:
-        value: false
-        source: requirement
-        derived_from: deployment.data_loss_tolerance
-      change_feed_enabled:
-        value: false
-        source: default
-      point_in_time_restore_days:
-        value: 0
-        source: default
-      immutability:
-        value: none
-        source: default
+      replication: {value: LRS, source: requirement, derived_from: deployment.outage_impact}
+      access_tier: {value: Hot, source: requirement, derived_from: deployment.data_access_pattern}
+      blob_soft_delete_days: {value: 0, source: requirement, derived_from: deployment.data_loss_tolerance}
+      container_soft_delete_days: {value: 0, source: requirement, derived_from: deployment.data_loss_tolerance}
+      versioning_enabled: {value: false, source: requirement, derived_from: deployment.data_loss_tolerance}
+      change_feed_enabled: {value: false, source: default}
+      point_in_time_restore_days: {value: 0, source: default}
+      immutability: {value: none, source: default}
     observability:
-      diagnostic_workspace:
-        value: log-analytics-workspace
-        source: deployment
-      diagnostic_categories:
-        value: [audit]
-        source: default
-      metrics_enabled:
-        value: true
-        source: default
+      diagnostic_workspace: {value: log-analytics-workspace, source: deployment}
+      diagnostic_categories: {value: [audit], source: default}
+      metrics_enabled: {value: true, source: default}
 
   # The dashboard shows the eval results and files the tickets after a failed run. It is the
   # internet-facing part, so it is the one with the sign-in and the GitHub token, and it only reads
   # the results.
   app-service__dashboard:
     hosting:
-      os_type:
-        value: Linux
-        source: default
+      os_type: {value: Linux, source: default}
       sku:
         value: B2
         source: overridden
-        reason: "The subscription has no App Service quota in germanywestcentral (SubscriptionIsOverQuotaForSku for P1v3 and B1), so the stack runs in westeurope on B2. B2 is Basic: VNet integration, always on and the container run; no slots, no autoscale, no zone redundancy."
-      zone_redundant:
-        value: false
-        source: requirement
-        derived_from: deployment.outage_impact
-      instance_count:
-        value: 1
-        source: requirement
-        derived_from: deployment.outage_impact
+        reason: 'The subscription has no App Service quota in germanywestcentral (SubscriptionIsOverQuotaForSku for P1v3 and
+          B1), so the stack runs in westeurope on B2. B2 is Basic: VNet integration, always on and the container run; no slots,
+          no autoscale, no zone redundancy.'
+      zone_redundant: {value: false, source: requirement, derived_from: deployment.outage_impact}
+      instance_count: {value: 1, source: requirement, derived_from: deployment.outage_impact}
     networking:
       public_network_access:
         value: enabled
         source: overridden
-        reason: "The dashboard is the one internet-facing part (customer: reachable from the internet, sign-in with company accounts). Departs from the private baseline, which would map to disabled."
-      vnet_integration:
-        value: true
-        source: default
-      integration_subnet:
-        value: app-integration
-        source: forced
-        forced_by: deployment.network_ownership
+        reason: 'The dashboard is the one internet-facing part (customer: reachable from the internet, sign-in with company
+          accounts). Departs from the private baseline, which would map to disabled.'
+      vnet_integration: {value: true, source: default}
+      integration_subnet: {value: app-integration, source: forced, forced_by: deployment.network_ownership}
       vnet_route_all:
         value: false
         source: overridden
-        reason: "The agent needs the internet (plugin source, package installs). With all traffic routed into the VNet there is no outbound path without a NAT gateway; private endpoint addresses are RFC 1918 and still go through the VNet."
+        reason: The agent needs the internet (plugin source, package installs). With all traffic routed into the VNet there
+          is no outbound path without a NAT gateway; private endpoint addresses are RFC 1918 and still go through the VNet.
     identity:
       managed_identity:
         value: user_assigned
         source: overridden
-        reason: "Departs from system_assigned: AcrPull and the data roles must exist before the container first starts, which a system-assigned identity cannot have."
+        reason: 'Departs from system_assigned: AcrPull and the data roles must exist before the container first starts, which
+          a system-assigned identity cannot have.'
       user_assigned_identity_ids:
         value:
           production: [user-assigned-identity__dashboard]
@@ -629,45 +375,31 @@ resources:
         value: key_vault_reference
         source: stated
     security:
-      https_only:
-        value: true
-        source: default
-      min_tls_version:
-        value: "1.2"
-        source: default
-      ftps_state:
-        value: Disabled
-        source: default
-      basic_auth_enabled:
-        value: false
-        source: deployment
+      https_only: {value: true, source: default}
+      min_tls_version: {value: '1.2', source: default}
+      ftps_state: {value: Disabled, source: default}
+      basic_auth_enabled: {value: false, source: deployment}
     runtime:
-      runtime_stack:
-        value: container
-        source: stated
-      always_on:
-        value: true
-        source: default
-      health_check_path:
-        value: ""
-        source: default
-      http2_enabled:
-        value: true
-        source: default
+      runtime_stack: {value: container, source: stated}
+      always_on: {value: true, source: default}
+      health_check_path: {value: '', source: default}
+      http2_enabled: {value: true, source: default}
       container_image_owner:
         value: image_pipeline
         source: overridden
-        reason: "A separate pipeline builds, pushes and updates the image. This template sets the stage-file image only on the first deployment and keeps the running one afterwards."
+        reason: A separate pipeline builds, pushes and updates the image. This template sets the stage-file image only on
+          the first deployment and keeps the running one afterwards.
     observability:
-      diagnostic_workspace:
-        value: log-analytics-workspace
-        source: deployment
+      diagnostic_workspace: {value: log-analytics-workspace, source: deployment}
       diagnostic_categories:
-        value: [AppServiceHTTPLogs, AppServiceAppLogs, AppServiceAuditLogs, AppServiceIPSecAuditLogs, AppServicePlatformLogs]
+        value:
+        - AppServiceHTTPLogs
+        - AppServiceAppLogs
+        - AppServiceAuditLogs
+        - AppServiceIPSecAuditLogs
+        - AppServicePlatformLogs
         source: default
-      metrics_enabled:
-        value: true
-        source: default
+      metrics_enabled: {value: true, source: default}
 
   # The agent runs the evals (plugin code, model calls) and writes the results. It is not
   # reachable from outside and holds no secret: neither the sign-in secret nor the GitHub token.
@@ -676,91 +408,61 @@ resources:
       # The plan is shared with the dashboard: one B2 plan, two sites. The question set renders one
       # site per plan, so the plan is rendered once (from the dashboard's values) and the site of
       # the agent is rendered by hand; both decisions below follow the dashboard.
-      os_type:
-        value: Linux
-        source: forced
-        forced_by: resources.app-service__dashboard.hosting.os_type
-      sku:
-        value: B2
-        source: forced
-        forced_by: resources.app-service__dashboard.hosting.sku
-      zone_redundant:
-        value: false
-        source: forced
-        forced_by: resources.app-service__dashboard.hosting.zone_redundant
-      instance_count:
-        value: 1
-        source: forced
-        forced_by: resources.app-service__dashboard.hosting.instance_count
+      os_type: {value: Linux, source: forced, forced_by: resources.app-service__dashboard.hosting.os_type}
+      sku: {value: B2, source: forced, forced_by: resources.app-service__dashboard.hosting.sku}
+      zone_redundant: {value: false, source: forced, forced_by: resources.app-service__dashboard.hosting.zone_redundant}
+      instance_count: {value: 1, source: forced, forced_by: resources.app-service__dashboard.hosting.instance_count}
     networking:
       public_network_access:
         value: disabled
         source: overridden
-        reason: "Nothing outside the VNet calls the agent: the dashboard starts a run from inside the VNet, through the agent's private endpoint."
-      private_endpoint_subnet:
-        value: pe
-        source: deployment
-      vnet_integration:
-        value: true
-        source: default
-      integration_subnet:
-        value: app-integration
-        source: forced
-        forced_by: deployment.network_ownership
+        reason: 'Nothing outside the VNet calls the agent: the dashboard starts a run from inside the VNet, through the agent''s
+          private endpoint.'
+      private_endpoint_subnet: {value: pe, source: deployment}
+      vnet_integration: {value: true, source: default}
+      integration_subnet: {value: app-integration, source: forced, forced_by: deployment.network_ownership}
       vnet_route_all:
         value: false
         source: overridden
-        reason: "The agent needs the internet (plugin source, package installs). With all traffic routed into the VNet there is no outbound path without a NAT gateway; private endpoint addresses are RFC 1918 and still go through the VNet."
+        reason: The agent needs the internet (plugin source, package installs). With all traffic routed into the VNet there
+          is no outbound path without a NAT gateway; private endpoint addresses are RFC 1918 and still go through the VNet.
     identity:
       managed_identity:
         value: user_assigned
         source: overridden
-        reason: "Departs from system_assigned: AcrPull and the data roles must exist before the container first starts, which a system-assigned identity cannot have."
+        reason: 'Departs from system_assigned: AcrPull and the data roles must exist before the container first starts, which
+          a system-assigned identity cannot have.'
       user_assigned_identity_ids:
         value:
           production: [user-assigned-identity__agent]
         source: forced
         forced_by: resources.app-service__agent.identity.managed_identity
     security:
-      https_only:
-        value: true
-        source: default
-      min_tls_version:
-        value: "1.2"
-        source: default
-      ftps_state:
-        value: Disabled
-        source: default
-      basic_auth_enabled:
-        value: false
-        source: deployment
+      https_only: {value: true, source: default}
+      min_tls_version: {value: '1.2', source: default}
+      ftps_state: {value: Disabled, source: default}
+      basic_auth_enabled: {value: false, source: deployment}
     runtime:
-      runtime_stack:
-        value: container
-        source: stated
-      always_on:
-        value: true
-        source: default
-      health_check_path:
-        value: ""
-        source: default
-      http2_enabled:
-        value: true
-        source: default
+      runtime_stack: {value: container, source: stated}
+      always_on: {value: true, source: default}
+      health_check_path: {value: '', source: default}
+      http2_enabled: {value: true, source: default}
       container_image_owner:
         value: image_pipeline
         source: overridden
-        reason: "A separate pipeline builds, pushes and updates the image. This template sets the stage-file image only on the first deployment and keeps the running one afterwards."
+        reason: A separate pipeline builds, pushes and updates the image. This template sets the stage-file image only on
+          the first deployment and keeps the running one afterwards.
     observability:
-      diagnostic_workspace:
-        value: log-analytics-workspace
-        source: deployment
+      diagnostic_workspace: {value: log-analytics-workspace, source: deployment}
       diagnostic_categories:
-        value: [AppServiceHTTPLogs, AppServiceAppLogs, AppServiceAuditLogs, AppServiceIPSecAuditLogs, AppServicePlatformLogs]
+        value:
+        - AppServiceHTTPLogs
+        - AppServiceAppLogs
+        - AppServiceAuditLogs
+        - AppServiceIPSecAuditLogs
+        - AppServicePlatformLogs
         source: default
-      metrics_enabled:
-        value: true
-        source: default
+      metrics_enabled: {value: true, source: default}
 
   # The drift watcher compares the AVM versions pinned in the plugin with the current ones (MCR
   # tag list, module repo tags, module READMEs), lets the Foundry model diff the inputs and opens
@@ -770,92 +472,63 @@ resources:
   # in wiring.role_assignments.
   app-service__drift:
     hosting:
-      os_type:
-        value: Linux
-        source: forced
-        forced_by: resources.app-service__dashboard.hosting.os_type
-      sku:
-        value: B2
-        source: forced
-        forced_by: resources.app-service__dashboard.hosting.sku
-      zone_redundant:
-        value: false
-        source: forced
-        forced_by: resources.app-service__dashboard.hosting.zone_redundant
-      instance_count:
-        value: 1
-        source: forced
-        forced_by: resources.app-service__dashboard.hosting.instance_count
+      os_type: {value: Linux, source: forced, forced_by: resources.app-service__dashboard.hosting.os_type}
+      sku: {value: B2, source: forced, forced_by: resources.app-service__dashboard.hosting.sku}
+      zone_redundant: {value: false, source: forced, forced_by: resources.app-service__dashboard.hosting.zone_redundant}
+      instance_count: {value: 1, source: forced, forced_by: resources.app-service__dashboard.hosting.instance_count}
     networking:
       public_network_access:
         value: disabled
         source: overridden
-        reason: "Nothing outside the VNet calls the drift watcher: the dashboard starts a run from inside the VNet, through its private endpoint."
-      private_endpoint_subnet:
-        value: pe
-        source: deployment
-      vnet_integration:
-        value: true
-        source: default
-      integration_subnet:
-        value: app-integration
-        source: forced
-        forced_by: deployment.network_ownership
+        reason: 'Nothing outside the VNet calls the drift watcher: the dashboard starts a run from inside the VNet, through
+          its private endpoint.'
+      private_endpoint_subnet: {value: pe, source: deployment}
+      vnet_integration: {value: true, source: default}
+      integration_subnet: {value: app-integration, source: forced, forced_by: deployment.network_ownership}
       vnet_route_all:
         value: false
         source: overridden
-        reason: "The watcher reads the AVM sources on the internet (github.com, api.github.com, raw.githubusercontent.com, mcr.microsoft.com, azure.github.io). With all traffic routed into the VNet there is no outbound path without a NAT gateway; private endpoint addresses are RFC 1918 and still go through the VNet."
+        reason: The watcher reads the AVM sources on the internet (github.com, api.github.com, raw.githubusercontent.com,
+          mcr.microsoft.com, azure.github.io). With all traffic routed into the VNet there is no outbound path without a NAT
+          gateway; private endpoint addresses are RFC 1918 and still go through the VNet.
     identity:
       managed_identity:
         value: user_assigned
         source: overridden
-        reason: "Departs from system_assigned: AcrPull and the data roles must exist before the container first starts, which a system-assigned identity cannot have."
+        reason: 'Departs from system_assigned: AcrPull and the data roles must exist before the container first starts, which
+          a system-assigned identity cannot have.'
       user_assigned_identity_ids:
         value:
           production: [user-assigned-identity__drift]
         source: forced
         forced_by: resources.app-service__drift.identity.managed_identity
     security:
-      https_only:
-        value: true
-        source: default
-      min_tls_version:
-        value: "1.2"
-        source: default
-      ftps_state:
-        value: Disabled
-        source: default
-      basic_auth_enabled:
-        value: false
-        source: deployment
+      https_only: {value: true, source: default}
+      min_tls_version: {value: '1.2', source: default}
+      ftps_state: {value: Disabled, source: default}
+      basic_auth_enabled: {value: false, source: deployment}
     runtime:
-      runtime_stack:
-        value: container
-        source: stated
-      always_on:
-        value: true
-        source: default
-        # The schedule is a timer inside the app, so the site must not idle out.
-      health_check_path:
-        value: ""
-        source: default
-      http2_enabled:
-        value: true
-        source: default
+      runtime_stack: {value: container, source: stated}
+      always_on: {value: true, source: default}
+      # The schedule is a timer inside the app, so the site must not idle out.
+      health_check_path: {value: '', source: default}
+      http2_enabled: {value: true, source: default}
       container_image_owner:
         value: image_pipeline
         source: overridden
-        reason: "A separate pipeline builds, pushes and updates the image. This template sets the stage-file image only on the first deployment and keeps the running one afterwards."
+        reason: A separate pipeline builds, pushes and updates the image. This template sets the stage-file image only on
+          the first deployment and keeps the running one afterwards.
     observability:
-      diagnostic_workspace:
-        value: log-analytics-workspace
-        source: deployment
+      diagnostic_workspace: {value: log-analytics-workspace, source: deployment}
       diagnostic_categories:
-        value: [AppServiceHTTPLogs, AppServiceAppLogs, AppServiceAuditLogs, AppServiceIPSecAuditLogs, AppServicePlatformLogs]
+        value:
+        - AppServiceHTTPLogs
+        - AppServiceAppLogs
+        - AppServiceAuditLogs
+        - AppServiceIPSecAuditLogs
+        - AppServicePlatformLogs
         source: default
-      metrics_enabled:
-        value: true
-        source: default
+      metrics_enabled: {value: true, source: default}
 
   # The fuzz agent draws random valid specs with the plugin's diagram script from the tuning branch
   # and scores the layout (run_fuzz.py: Python and PyYAML only). It has no schedule of its own: it
@@ -865,92 +538,63 @@ resources:
   # the storage account; its only roles are the image and the data role in wiring.role_assignments.
   app-service__fuzz:
     hosting:
-      os_type:
-        value: Linux
-        source: forced
-        forced_by: resources.app-service__dashboard.hosting.os_type
-      sku:
-        value: B2
-        source: forced
-        forced_by: resources.app-service__dashboard.hosting.sku
-      zone_redundant:
-        value: false
-        source: forced
-        forced_by: resources.app-service__dashboard.hosting.zone_redundant
-      instance_count:
-        value: 1
-        source: forced
-        forced_by: resources.app-service__dashboard.hosting.instance_count
+      os_type: {value: Linux, source: forced, forced_by: resources.app-service__dashboard.hosting.os_type}
+      sku: {value: B2, source: forced, forced_by: resources.app-service__dashboard.hosting.sku}
+      zone_redundant: {value: false, source: forced, forced_by: resources.app-service__dashboard.hosting.zone_redundant}
+      instance_count: {value: 1, source: forced, forced_by: resources.app-service__dashboard.hosting.instance_count}
     networking:
       public_network_access:
         value: disabled
         source: overridden
-        reason: "Nothing outside the VNet calls the fuzz agent: the tuner starts a run from inside the VNet, through its private endpoint; the dashboard only reads its reports."
-      private_endpoint_subnet:
-        value: pe
-        source: deployment
-      vnet_integration:
-        value: true
-        source: default
-      integration_subnet:
-        value: app-integration
-        source: forced
-        forced_by: deployment.network_ownership
+        reason: 'Nothing outside the VNet calls the fuzz agent: the tuner starts a run from inside the VNet, through its private
+          endpoint; the dashboard only reads its reports.'
+      private_endpoint_subnet: {value: pe, source: deployment}
+      vnet_integration: {value: true, source: default}
+      integration_subnet: {value: app-integration, source: forced, forced_by: deployment.network_ownership}
       vnet_route_all:
         value: false
         source: overridden
-        reason: "The fuzz agent reads the plugin source from the tuning branch on github.com. With all traffic routed into the VNet there is no outbound path without a NAT gateway; private endpoint addresses are RFC 1918 and still go through the VNet."
+        reason: The fuzz agent reads the plugin source from the tuning branch on github.com. With all traffic routed into
+          the VNet there is no outbound path without a NAT gateway; private endpoint addresses are RFC 1918 and still go through
+          the VNet.
     identity:
       managed_identity:
         value: user_assigned
         source: overridden
-        reason: "Departs from system_assigned: AcrPull and the data roles must exist before the container first starts, which a system-assigned identity cannot have."
+        reason: 'Departs from system_assigned: AcrPull and the data roles must exist before the container first starts, which
+          a system-assigned identity cannot have.'
       user_assigned_identity_ids:
         value:
           production: [user-assigned-identity__fuzz]
         source: forced
         forced_by: resources.app-service__fuzz.identity.managed_identity
     security:
-      https_only:
-        value: true
-        source: default
-      min_tls_version:
-        value: "1.2"
-        source: default
-      ftps_state:
-        value: Disabled
-        source: default
-      basic_auth_enabled:
-        value: false
-        source: deployment
+      https_only: {value: true, source: default}
+      min_tls_version: {value: '1.2', source: default}
+      ftps_state: {value: Disabled, source: default}
+      basic_auth_enabled: {value: false, source: deployment}
     runtime:
-      runtime_stack:
-        value: container
-        source: stated
-      always_on:
-        value: true
-        source: default
-        # A run takes minutes and is started from outside, so the site must not idle out.
-      health_check_path:
-        value: ""
-        source: default
-      http2_enabled:
-        value: true
-        source: default
+      runtime_stack: {value: container, source: stated}
+      always_on: {value: true, source: default}
+      # A run takes minutes and is started from outside, so the site must not idle out.
+      health_check_path: {value: '', source: default}
+      http2_enabled: {value: true, source: default}
       container_image_owner:
         value: image_pipeline
         source: overridden
-        reason: "A separate pipeline builds, pushes and updates the image. This template sets the stage-file image only on the first deployment and keeps the running one afterwards."
+        reason: A separate pipeline builds, pushes and updates the image. This template sets the stage-file image only on
+          the first deployment and keeps the running one afterwards.
     observability:
-      diagnostic_workspace:
-        value: log-analytics-workspace
-        source: deployment
+      diagnostic_workspace: {value: log-analytics-workspace, source: deployment}
       diagnostic_categories:
-        value: [AppServiceHTTPLogs, AppServiceAppLogs, AppServiceAuditLogs, AppServiceIPSecAuditLogs, AppServicePlatformLogs]
+        value:
+        - AppServiceHTTPLogs
+        - AppServiceAppLogs
+        - AppServiceAuditLogs
+        - AppServiceIPSecAuditLogs
+        - AppServicePlatformLogs
         source: default
-      metrics_enabled:
-        value: true
-        source: default
+      metrics_enabled: {value: true, source: default}
 
   # The tuner improves the diagram layout on a branch of its own. On its timer it first asks the fuzz
   # agent whether a run is still going and does nothing if so. Otherwise it reads the newest fuzz
@@ -963,288 +607,239 @@ resources:
   # wiring.role_assignments.
   app-service__tune:
     hosting:
-      os_type:
-        value: Linux
-        source: forced
-        forced_by: resources.app-service__dashboard.hosting.os_type
-      sku:
-        value: B2
-        source: forced
-        forced_by: resources.app-service__dashboard.hosting.sku
-      zone_redundant:
-        value: false
-        source: forced
-        forced_by: resources.app-service__dashboard.hosting.zone_redundant
-      instance_count:
-        value: 1
-        source: forced
-        forced_by: resources.app-service__dashboard.hosting.instance_count
+      os_type: {value: Linux, source: forced, forced_by: resources.app-service__dashboard.hosting.os_type}
+      sku: {value: B2, source: forced, forced_by: resources.app-service__dashboard.hosting.sku}
+      zone_redundant: {value: false, source: forced, forced_by: resources.app-service__dashboard.hosting.zone_redundant}
+      instance_count: {value: 1, source: forced, forced_by: resources.app-service__dashboard.hosting.instance_count}
     networking:
       public_network_access:
         value: disabled
         source: overridden
-        reason: "Nothing outside the VNet calls the tuner: the dashboard starts a run from inside the VNet, through its private endpoint."
-      private_endpoint_subnet:
-        value: pe
-        source: deployment
-      vnet_integration:
-        value: true
-        source: default
-      integration_subnet:
-        value: app-integration
-        source: forced
-        forced_by: deployment.network_ownership
+        reason: 'Nothing outside the VNet calls the tuner: the dashboard starts a run from inside the VNet, through its private
+          endpoint.'
+      private_endpoint_subnet: {value: pe, source: deployment}
+      vnet_integration: {value: true, source: default}
+      integration_subnet: {value: app-integration, source: forced, forced_by: deployment.network_ownership}
       vnet_route_all:
         value: false
         source: overridden
-        reason: "The tuner reads the plugin source and pushes to the tuning branch on github.com and api.github.com. With all traffic routed into the VNet there is no outbound path without a NAT gateway; private endpoint addresses are RFC 1918 and still go through the VNet."
+        reason: The tuner reads the plugin source and pushes to the tuning branch on github.com and api.github.com. With all
+          traffic routed into the VNet there is no outbound path without a NAT gateway; private endpoint addresses are RFC
+          1918 and still go through the VNet.
     identity:
       managed_identity:
         value: user_assigned
         source: overridden
-        reason: "Departs from system_assigned: AcrPull and the data roles must exist before the container first starts, which a system-assigned identity cannot have."
+        reason: 'Departs from system_assigned: AcrPull and the data roles must exist before the container first starts, which
+          a system-assigned identity cannot have.'
       user_assigned_identity_ids:
         value:
           production: [user-assigned-identity__tune]
         source: forced
         forced_by: resources.app-service__tune.identity.managed_identity
     security:
-      https_only:
-        value: true
-        source: default
-      min_tls_version:
-        value: "1.2"
-        source: default
-      ftps_state:
-        value: Disabled
-        source: default
-      basic_auth_enabled:
-        value: false
-        source: deployment
+      https_only: {value: true, source: default}
+      min_tls_version: {value: '1.2', source: default}
+      ftps_state: {value: Disabled, source: default}
+      basic_auth_enabled: {value: false, source: deployment}
     runtime:
-      runtime_stack:
-        value: container
-        source: stated
-      always_on:
-        value: true
-        source: default
-        # The schedule is a timer inside the app, so the site must not idle out.
-      health_check_path:
-        value: ""
-        source: default
-      http2_enabled:
-        value: true
-        source: default
+      runtime_stack: {value: container, source: stated}
+      always_on: {value: true, source: default}
+      # The schedule is a timer inside the app, so the site must not idle out.
+      health_check_path: {value: '', source: default}
+      http2_enabled: {value: true, source: default}
       container_image_owner:
         value: image_pipeline
         source: overridden
-        reason: "A separate pipeline builds, pushes and updates the image. This template sets the stage-file image only on the first deployment and keeps the running one afterwards."
+        reason: A separate pipeline builds, pushes and updates the image. This template sets the stage-file image only on
+          the first deployment and keeps the running one afterwards.
     observability:
-      diagnostic_workspace:
-        value: log-analytics-workspace
-        source: deployment
+      diagnostic_workspace: {value: log-analytics-workspace, source: deployment}
       diagnostic_categories:
-        value: [AppServiceHTTPLogs, AppServiceAppLogs, AppServiceAuditLogs, AppServiceIPSecAuditLogs, AppServicePlatformLogs]
+        value:
+        - AppServiceHTTPLogs
+        - AppServiceAppLogs
+        - AppServiceAuditLogs
+        - AppServiceIPSecAuditLogs
+        - AppServicePlatformLogs
         source: default
-      metrics_enabled:
-        value: true
-        source: default
+      metrics_enabled: {value: true, source: default}
 
   blob-container:
     placement:
-      storage_account:
-        value:
-          production: storage-account
-        source: deployment
+      storage_account: {value: {production: storage-account}, source: deployment}
     containers:
       container_names:
         value: [results]
         source: stated
-        reason: "One container for everything the apps share: the eval runs (runs/<id>/aggregate-result.json), the fuzz reports (fuzz/<id>/report.json) and the tuner's runs (tune/<id>/run.json). The dashboard reads the prefixes, the agents write them; the roles on the account (data reader for the dashboard, data contributor for the writers) already separate the two sides."
-      public_access:
-        value: None
-        source: default
-      immutable_storage:
-        value: false
-        source: requirement
-        derived_from: deployment.backup_isolation
-      encryption_scope_locked:
-        value: false
-        source: default
+        reason: 'One container for everything the apps share: the eval runs (runs/<id>/aggregate-result.json), the fuzz reports
+          (fuzz/<id>/report.json) and the tuner''s runs (tune/<id>/run.json). The dashboard reads the prefixes, the agents
+          write them; the roles on the account (data reader for the dashboard, data contributor for the writers) already separate
+          the two sides.'
+      public_access: {value: None, source: default}
+      immutable_storage: {value: false, source: requirement, derived_from: deployment.backup_isolation}
+      encryption_scope_locked: {value: false, source: default}
     identity:
-      role_assignments:
-        value:
-          production: []
-        source: default
+      role_assignments: {value: {production: []}, source: default}
 
   key-vault:
     vault:
-      sku:
-        value: standard
-        source: default
-      purge_protection:
-        value: true
-        source: default
-      soft_delete_retention_days:
-        value: 90
-        source: default
-      rbac_authorization:
-        value: true
-        source: deployment
+      sku: {value: standard, source: default}
+      purge_protection: {value: true, source: default}
+      soft_delete_retention_days: {value: 90, source: default}
+      rbac_authorization: {value: true, source: deployment}
     networking:
-      public_network_access:
-        value: disabled
-        source: deployment
-      private_endpoint_subnet:
-        value: pe
-        source: deployment
-      network_acl_bypass:
-        value: None
-        source: default
+      public_network_access: {value: disabled, source: deployment}
+      private_endpoint_subnet: {value: pe, source: deployment}
+      network_acl_bypass: {value: None, source: default}
     identity:
-      role_assignments:
-        value:
-          production: []
-        source: default
+      role_assignments: {value: {production: []}, source: default}
     security:
-      enabled_for_services:
-        value: []
-        source: default
+      enabled_for_services: {value: [], source: default}
       secret_placeholders:
         value: [entra-client-secret, github-token, github-drift-token, github-tune-token]
         source: overridden
-        reason: "Departs from the default []: the dashboard reads the sign-in's client secret and the GitHub token (issues:write on this repository only), the drift watcher reads its own GitHub token (contents and pull requests write on this repository only) and the tuner reads its own (contents write on this repository; a branch rule keeps it off master), all through Key Vault references that must exist before the first start. The agent and the fuzz agent read none of them."
+        reason: 'Departs from the default []: the dashboard reads the sign-in''s client secret and the GitHub token (issues:write
+          on this repository only), the drift watcher reads its own GitHub token (contents and pull requests write on this
+          repository only) and the tuner reads its own (contents write on this repository; a branch rule keeps it off master),
+          all through Key Vault references that must exist before the first start. The agent and the fuzz agent read none
+          of them.'
     keys:
-      key_management:
-        value: platform_managed
-        source: deployment
+      key_management: {value: platform_managed, source: deployment}
     observability:
-      diagnostic_workspace:
-        value: log-analytics-workspace
-        source: deployment
-      diagnostic_categories:
-        value: [AuditEvent, AzurePolicyEvaluationDetails]
-        source: default
-      metrics_enabled:
-        value: true
-        source: default
+      diagnostic_workspace: {value: log-analytics-workspace, source: deployment}
+      diagnostic_categories: {value: [AuditEvent, AzurePolicyEvaluationDetails], source: default}
+      metrics_enabled: {value: true, source: default}
 
 wiring:
   private_dns_zones:
     value:
-      - privatelink.vaultcore.azure.net
-      - privatelink.blob.core.windows.net
-      - privatelink.azurecr.io
-      - privatelink.cognitiveservices.azure.com
-      - privatelink.openai.azure.com
-      - privatelink.services.ai.azure.com
-      - privatelink.azurewebsites.net
+    - privatelink.vaultcore.azure.net
+    - privatelink.blob.core.windows.net
+    - privatelink.azurecr.io
+    - privatelink.cognitiveservices.azure.com
+    - privatelink.openai.azure.com
+    - privatelink.services.ai.azure.com
+    - privatelink.azurewebsites.net
     source: forced
     forced_by: deployment.private_dns_ownership
   role_assignments:
     value:
-      - { from: user-assigned-identity__dashboard, to: container-registry, role: AcrPull }
-      - { from: user-assigned-identity__dashboard, to: storage-account, role: Storage Blob Data Reader }
-      - { from: user-assigned-identity__dashboard, to: key-vault, role: Key Vault Secrets User }
-      - { from: user-assigned-identity__agent, to: container-registry, role: AcrPull }
-      - { from: user-assigned-identity__agent, to: storage-account, role: Storage Blob Data Contributor }
-      - { from: user-assigned-identity__agent, to: foundry, role: Azure AI User }
-      - { from: user-assigned-identity__drift, to: container-registry, role: AcrPull }
-      - { from: user-assigned-identity__drift, to: storage-account, role: Storage Blob Data Contributor }
-      - { from: user-assigned-identity__drift, to: key-vault, role: Key Vault Secrets User }
-      - { from: user-assigned-identity__drift, to: foundry, role: Azure AI User }
-      - { from: user-assigned-identity__fuzz, to: container-registry, role: AcrPull }
-      - { from: user-assigned-identity__fuzz, to: storage-account, role: Storage Blob Data Contributor }
-      - { from: user-assigned-identity__tune, to: container-registry, role: AcrPull }
-      - { from: user-assigned-identity__tune, to: storage-account, role: Storage Blob Data Reader }
-      - { from: user-assigned-identity__tune, to: key-vault, role: Key Vault Secrets User }
-      - { from: user-assigned-identity__tune, to: foundry, role: Azure AI User }
+    - {from: user-assigned-identity__dashboard, to: container-registry, role: AcrPull}
+    - {from: user-assigned-identity__dashboard, to: storage-account, role: Storage Blob Data Reader}
+    - {from: user-assigned-identity__dashboard, to: key-vault, role: Key Vault Secrets User}
+    - {from: user-assigned-identity__agent, to: container-registry, role: AcrPull}
+    - {from: user-assigned-identity__agent, to: storage-account, role: Storage Blob Data Contributor}
+    - {from: user-assigned-identity__agent, to: foundry, role: Azure AI User}
+    - {from: user-assigned-identity__drift, to: container-registry, role: AcrPull}
+    - {from: user-assigned-identity__drift, to: storage-account, role: Storage Blob Data Contributor}
+    - {from: user-assigned-identity__drift, to: key-vault, role: Key Vault Secrets User}
+    - {from: user-assigned-identity__drift, to: foundry, role: Azure AI User}
+    - {from: user-assigned-identity__fuzz, to: container-registry, role: AcrPull}
+    - {from: user-assigned-identity__fuzz, to: storage-account, role: Storage Blob Data Contributor}
+    - {from: user-assigned-identity__tune, to: container-registry, role: AcrPull}
+    - {from: user-assigned-identity__tune, to: storage-account, role: Storage Blob Data Reader}
+    - {from: user-assigned-identity__tune, to: key-vault, role: Key Vault Secrets User}
+    - {from: user-assigned-identity__tune, to: foundry, role: Azure AI User}
     source: default
   access:
     value:
-      - { from: users, to: app-service__dashboard, label: "HTTPS 443, Anmeldung mit Firmenkonto" }
-      - { from: app-service__dashboard, to: storage-account, label: "Ergebnisse lesen" }
-      - { from: app-service__dashboard, to: key-vault, label: "Anmelde-Secret und GitHub-Token lesen" }
-      - { from: app-service__dashboard, to: container-registry, label: "Image laden" }
-      - { from: app-service__dashboard, to: app-service__agent, label: "Lauf starten" }
-      - { from: app-service__agent, to: foundry, label: "Modelle aufrufen" }
-      - { from: app-service__agent, to: storage-account, label: "Ergebnisse schreiben" }
-      - { from: app-service__agent, to: container-registry, label: "Image laden" }
-      - { from: app-service__dashboard, to: app-service__drift, label: "Prüfung jetzt starten" }
-      - { from: app-service__drift, to: foundry, label: "Modul-Änderungen bewerten" }
-      - { from: app-service__drift, to: storage-account, label: "Drift-Bericht schreiben" }
-      - { from: app-service__drift, to: key-vault, label: "GitHub-Token lesen" }
-      - { from: app-service__drift, to: container-registry, label: "Image laden" }
-      - { from: app-service__drift, to: external:AVM-Quellen, label: "Modulversionen und READMEs lesen" }
-      - { from: app-service__drift, to: external:github, label: "Pull Request öffnen" }
-      - { from: app-service__fuzz, to: storage-account, label: "Fuzz-Bericht schreiben" }
-      - { from: app-service__fuzz, to: container-registry, label: "Image laden" }
-      - { from: app-service__fuzz, to: external:github, label: "Plugin-Stand lesen" }
-      - { from: app-service__dashboard, to: app-service__tune, label: "Verbesserung starten" }
-      - { from: app-service__tune, to: storage-account, label: "Fuzz-Bericht lesen" }
-      - { from: app-service__tune, to: foundry, label: "Layout-Änderung entwerfen" }
-      - { from: app-service__tune, to: key-vault, label: "GitHub-Token lesen" }
-      - { from: app-service__tune, to: container-registry, label: "Image laden" }
-      - { from: app-service__tune, to: external:github, label: "Verbesserung auf Branch schreiben" }
-      - { from: app-service__tune, to: app-service__fuzz, label: "Läuft er? Neuen Lauf starten" }
+    - {from: users, to: app-service__dashboard, label: 'HTTPS 443, Anmeldung mit Firmenkonto'}
+    - {from: app-service__dashboard, to: storage-account, label: Ergebnisse lesen}
+    - {from: app-service__dashboard, to: key-vault, label: Anmelde-Secret und GitHub-Token lesen}
+    - {from: app-service__dashboard, to: container-registry, label: Image laden}
+    - {from: app-service__dashboard, to: app-service__agent, label: Lauf starten}
+    - {from: app-service__agent, to: foundry, label: Modelle aufrufen}
+    - {from: app-service__agent, to: storage-account, label: Ergebnisse schreiben}
+    - {from: app-service__agent, to: container-registry, label: Image laden}
+    - {from: app-service__dashboard, to: app-service__drift, label: Prüfung jetzt starten}
+    - {from: app-service__drift, to: foundry, label: Modul-Änderungen bewerten}
+    - {from: app-service__drift, to: storage-account, label: Drift-Bericht schreiben}
+    - {from: app-service__drift, to: key-vault, label: GitHub-Token lesen}
+    - {from: app-service__drift, to: container-registry, label: Image laden}
+    - {from: app-service__drift, to: 'external:AVM-Quellen', label: Modulversionen und READMEs lesen}
+    - {from: app-service__drift, to: 'external:github', label: Pull Request öffnen}
+    - {from: app-service__fuzz, to: storage-account, label: Fuzz-Bericht schreiben}
+    - {from: app-service__fuzz, to: container-registry, label: Image laden}
+    - {from: app-service__fuzz, to: 'external:github', label: Plugin-Stand lesen}
+    - {from: app-service__dashboard, to: app-service__tune, label: Verbesserung starten}
+    - {from: app-service__tune, to: storage-account, label: Fuzz-Bericht lesen}
+    - {from: app-service__tune, to: foundry, label: Layout-Änderung entwerfen}
+    - {from: app-service__tune, to: key-vault, label: GitHub-Token lesen}
+    - {from: app-service__tune, to: container-registry, label: Image laden}
+    - {from: app-service__tune, to: 'external:github', label: Verbesserung auf Branch schreiben}
+    - {from: app-service__tune, to: app-service__fuzz, label: 'Läuft er? Neuen Lauf starten'}
     source: stated
   purposes:
     value:
-      app-service__dashboard: "Dashboard: zeigt Ergebnisse, legt Tickets an"
-      app-service__agent: "Agent: führt die Evals aus"
-      app-service__drift: "Drift-Watcher: prüft AVM-Versionen, öffnet Pull Requests"
-      app-service__fuzz: "Fuzz-Agent: zeichnet Zufalls-Specs vom Branch, bewertet das Layout"
-      app-service__tune: "Tuner: verbessert das Layout auf einem Branch, stößt den Fuzz an"
-      container-registry: "Images aller fünf Apps"
-      foundry: "Sprachmodelle für Agent, Bewertung, Drift-Watcher und Tuner"
-      storage-account: "Eval-Ergebnisse, Drift- und Fuzz-Berichte"
-      key-vault: "Anmelde-Secret und GitHub-Token von Dashboard, Drift-Watcher und Tuner"
-      virtual-network: "Privates Netz"
-      log-analytics-workspace: "Logs aller Teile"
-      user-assigned-identity__dashboard: "Zugriff des Dashboards ohne Schlüssel"
-      user-assigned-identity__agent: "Zugriff des Agents ohne Schlüssel"
-      user-assigned-identity__drift: "Zugriff des Drift-Watchers ohne Schlüssel"
-      user-assigned-identity__fuzz: "Zugriff des Fuzz-Agents ohne Schlüssel"
-      user-assigned-identity__tune: "Zugriff des Tuners ohne Schlüssel"
+      app-service__dashboard: 'Dashboard: zeigt Ergebnisse, legt Tickets an'
+      app-service__agent: 'Agent: führt die Evals aus'
+      app-service__drift: 'Drift-Watcher: prüft AVM-Versionen, öffnet Pull Requests'
+      app-service__fuzz: 'Fuzz-Agent: zeichnet Zufalls-Specs vom Branch, bewertet das Layout'
+      app-service__tune: 'Tuner: verbessert das Layout auf einem Branch, stößt den Fuzz an'
+      container-registry: Images aller fünf Apps
+      foundry: Sprachmodelle für Agent, Bewertung, Drift-Watcher und Tuner
+      storage-account: Eval-Ergebnisse, Drift- und Fuzz-Berichte
+      key-vault: Anmelde-Secret und GitHub-Token von Dashboard, Drift-Watcher und Tuner
+      virtual-network: Privates Netz
+      log-analytics-workspace: Logs aller Teile
+      user-assigned-identity__dashboard: Zugriff des Dashboards ohne Schlüssel
+      user-assigned-identity__agent: Zugriff des Agents ohne Schlüssel
+      user-assigned-identity__drift: Zugriff des Drift-Watchers ohne Schlüssel
+      user-assigned-identity__fuzz: Zugriff des Fuzz-Agents ohne Schlüssel
+      user-assigned-identity__tune: Zugriff des Tuners ohne Schlüssel
     source: stated
 
 open:
-  - key: resources.foundry.models.model_deployments
-    environments: [production]
-    question: "Welche Modelle werden gebraucht (Agent und Bewertung)? Claude-Modelle sind in Foundry womöglich nur weltweit verarbeitet verfügbar, das widerspräche 'nur EU'."
-    owner: "Workload-Owner"
-    blocks: apply
-  - key: application.drift_internet_allowlist
-    environments: [production]
-    question: "Der Drift-Watcher darf nur an die AVM-Quellen (github.com, api.github.com, raw.githubusercontent.com, mcr.microsoft.com, azure.github.io). App Service filtert den Ausgang nicht; die Liste gilt nur im Code. Reicht das, oder soll der Ausgang im Netz erzwungen werden (Firewall oder NAT-Gateway mit Regeln, deutlich mehr Betrieb und Kosten)?"
-    owner: "Workload-Owner"
-    blocks: apply
-  - key: application.drift_github_token
-    environments: [production]
-    question: "Der Drift-Watcher prüft wöchentlich. Wer legt das GitHub-Token 'github-drift-token' (nur dieses Repo, Contents + Pull requests schreiben) im Tresor ab?"
-    owner: "Workload-Owner"
-    blocks: apply
-  - key: application.tune_github_token
-    environments: [production]
-    question: "Der Tuner schreibt Verbesserungen auf einen eigenen Branch (z. B. tune/layout). Wer legt das GitHub-Token 'github-tune-token' (nur dieses Repo, Contents schreiben) im Tresor ab, und wer richtet die Branch-Regel ein, die master für das Token sperrt?"
-    owner: "Workload-Owner"
-    blocks: apply
-  - key: application.tune_commit_limit
-    environments: [production]
-    question: "Der Tuner läuft alle 24 Stunden: läuft der Fuzz-Agent gerade, tut er nichts; sonst verbessert er, schreibt auf den Branch, stößt den Fuzz an und wartet auf den nächsten Lauf. Wie viele Verbesserungen darf er pro Lauf höchstens committen (z. B. eine)?"
-    owner: "Workload-Owner"
-    blocks: apply
-  - key: application.plugin_source
-    environments: [production]
-    question: "Woher holt der Agent das Claude-Plugin (Git-Repo, Speicher, oder im Image)? Fuzz-Agent und Tuner lesen es vom Tuning-Branch auf GitHub."
-    owner: "Workload-Owner"
-    blocks: apply
-  - key: application.ticket_trigger
-    environments: [production]
-    question: "Das Dashboard legt ein Ticket erst auf Klick an (entschieden); ein offenes Ticket zum selben Case bekommt einen Kommentar statt eines Duplikats. Wer legt das GitHub-Token (issues:write, nur dieses Repo) im Tresor als 'github-token' ab?"
-    owner: "Workload-Owner"
-    blocks: apply
-  - key: resources.app-service__dashboard.identity.entra_sign_in
-    question: "Die Anmeldung nutzt eure bestehende App-Registrierung samt Client Secret. Wer erzeugt das Secret und trägt es im Tresor ein (der Tresor ist nur aus dem Netz erreichbar), und wer trägt nach dem ersten Ausrollen die Weiterleitungsadresse der App ein (https://<App-Adresse>/.auth/login/aad/callback) und aktiviert an der Registrierung unter Authentifizierung die ID-Token (Implicit- und Hybrid-Flows)? Ohne sie scheitert die Anmeldung mit AADSTS700054."
-    owner: "Identitäts-Team"
-    blocks: apply
+- key: resources.foundry.models.model_deployments
+  environments: [production]
+  question: Welche Modelle werden gebraucht (Agent und Bewertung)? Claude-Modelle sind in Foundry womöglich nur weltweit verarbeitet
+    verfügbar, das widerspräche 'nur EU'.
+  owner: Workload-Owner
+  blocks: apply
+- key: application.drift_internet_allowlist
+  environments: [production]
+  question: Der Drift-Watcher darf nur an die AVM-Quellen (github.com, api.github.com, raw.githubusercontent.com, mcr.microsoft.com,
+    azure.github.io). App Service filtert den Ausgang nicht; die Liste gilt nur im Code. Reicht das, oder soll der Ausgang
+    im Netz erzwungen werden (Firewall oder NAT-Gateway mit Regeln, deutlich mehr Betrieb und Kosten)?
+  owner: Workload-Owner
+  blocks: apply
+- key: application.drift_github_token
+  environments: [production]
+  question: Der Drift-Watcher prüft wöchentlich. Wer legt das GitHub-Token 'github-drift-token' (nur dieses Repo, Contents
+    + Pull requests schreiben) im Tresor ab?
+  owner: Workload-Owner
+  blocks: apply
+- key: application.tune_github_token
+  environments: [production]
+  question: Der Tuner schreibt Verbesserungen auf einen eigenen Branch (z. B. tune/layout). Wer legt das GitHub-Token 'github-tune-token'
+    (nur dieses Repo, Contents schreiben) im Tresor ab, und wer richtet die Branch-Regel ein, die master für das Token sperrt?
+  owner: Workload-Owner
+  blocks: apply
+- key: application.tune_commit_limit
+  environments: [production]
+  question: 'Der Tuner läuft alle 24 Stunden: läuft der Fuzz-Agent gerade, tut er nichts; sonst verbessert er, schreibt auf
+    den Branch, stößt den Fuzz an und wartet auf den nächsten Lauf. Wie viele Verbesserungen darf er pro Lauf höchstens committen
+    (z. B. eine)?'
+  owner: Workload-Owner
+  blocks: apply
+- key: application.plugin_source
+  environments: [production]
+  question: Woher holt der Agent das Claude-Plugin (Git-Repo, Speicher, oder im Image)? Fuzz-Agent und Tuner lesen es vom
+    Tuning-Branch auf GitHub.
+  owner: Workload-Owner
+  blocks: apply
+- key: application.ticket_trigger
+  environments: [production]
+  question: Das Dashboard legt ein Ticket erst auf Klick an (entschieden); ein offenes Ticket zum selben Case bekommt einen
+    Kommentar statt eines Duplikats. Wer legt das GitHub-Token (issues:write, nur dieses Repo) im Tresor als 'github-token'
+    ab?
+  owner: Workload-Owner
+  blocks: apply
+- key: resources.app-service__dashboard.identity.entra_sign_in
+  question: Die Anmeldung nutzt eure bestehende App-Registrierung samt Client Secret. Wer erzeugt das Secret und trägt es
+    im Tresor ein (der Tresor ist nur aus dem Netz erreichbar), und wer trägt nach dem ersten Ausrollen die Weiterleitungsadresse
+    der App ein (https://<App-Adresse>/.auth/login/aad/callback) und aktiviert an der Registrierung unter Authentifizierung
+    die ID-Token (Implicit- und Hybrid-Flows)? Ohne sie scheitert die Anmeldung mit AADSTS700054.
+  owner: Identitäts-Team
+  blocks: apply

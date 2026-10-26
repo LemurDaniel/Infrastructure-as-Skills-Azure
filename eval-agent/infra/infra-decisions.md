@@ -29,7 +29,7 @@ Stand 2026-10-24. Spezifikation: `infra-spec.yaml`.
 - **Die Daten werden nur innerhalb des Wirtschaftsraums der Region, zum Beispiel der EU gespeichert und verarbeitet.** _(eure Antwort)_
   - daher, Azure AI Foundry (AI Services account with projects and model deployments): Anfragen an die Modelle werden überall innerhalb derselben Datenzone (zum Beispiel der EU) verarbeitet.
 - **Der Code wird aus einzeln ausgeschriebenen Ressourcen gebaut.** _(eure Antwort)_
-- **Der Zugang ist privat, mit benannten Ausnahmen hinter einer Firewall aus dem Internet erreichbar.** _(eure Antwort)_
+- **Der Zugang ist privat; nur die benannten Teile sind hinter einer Firewall aus dem Internet erreichbar, alles dahinter bleibt privat.** _(eure Antwort)_
 - **Einzuhaltende Vorgaben: keine.** _(eure Antwort)_
 - **Logs werden 30 Tage aufbewahrt.** _(eure Antwort)_
 
@@ -159,7 +159,7 @@ Die Sicherheitsvorgaben aller Teile an einer Stelle. Sie wurden nicht gefragt un
 
 ### Azure Container Registry
 
-- Die Registry hat die Stufe Premium, die als einzige per privater Anbindung abgeschottet und auf mehrere Regionen verteilt werden kann. — weil: Der Zugang ist privat, mit benannten Ausnahmen hinter einer Firewall aus dem Internet erreichbar.
+- Die Registry hat die Stufe Premium, die als einzige per privater Anbindung abgeschottet und auf mehrere Regionen verteilt werden kann. — weil: Der Zugang ist privat; nur die benannten Teile sind hinter einer Firewall aus dem Internet erreichbar, alles dahinter bleibt privat.
 - Die Images liegen zusätzlich in keine (leer: nur in der Hauptregion).
 - Images ohne Tag werden nach 7 Tagen gelöscht.
 - Die Registry ist aus dem Internet überhaupt nicht erreichbar. _(bitte bestätigen)_
@@ -344,19 +344,19 @@ Solange diese Punkte offen sind, wird nichts ausgerollt.
 
 | Schlüssel | Wert | Quelle |
 |---|---|---|
+| `deployment.stage_isolation` | subscription | Regel |
+| `deployment.non_production_savings` | enabled | Regel |
+| `deployment.naming_convention` | default | Regel |
 | `deployment.deploy_mechanism` | github | eure Antwort |
 | `deployment.pipeline_auth` | workload_identity | Regel |
 | `deployment.pipeline_approvals` | production | Regel |
-| `deployment.module_source` | authored | eure Antwort |
-| `deployment.naming_convention` | default | Regel |
-| `deployment.stage_isolation` | subscription | Regel |
-| `deployment.non_production_savings` | enabled | Regel |
 | `deployment.network_requirements` | free | eure Antwort |
 | `deployment.outage_impact` | tolerable | eure Antwort |
 | `deployment.data_loss_tolerance` | reproducible | eure Antwort |
 | `deployment.data_access_pattern` | active | eure Antwort |
 | `deployment.backup_isolation` | operational | eure Antwort |
 | `deployment.data_residency` | data_zone | eure Antwort |
+| `deployment.module_source` | authored | eure Antwort |
 | `deployment.landing_zone` | standalone | erzwungen |
 | `deployment.network_exposure` | private_with_exceptions | eure Antwort |
 | `deployment.local_auth` | disabled | Regel |
