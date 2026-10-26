@@ -181,15 +181,27 @@ Beyond the script:
 
 ## 5. Branch and push
 
-- The repo commits **directly to `master`**; no feature branches unless asked.
-  `master` matches four of the owner's five repos (`terraform-random-naming` is
-  the outlier on `main`).
-- **`origin/master` exists.** The branch question is settled; do not re-raise it.
-  Check how far ahead the local branch is with `git status -sb` before assuming
-  anything is published.
-- **Commit only when asked, push only when asked.** They are separate
-  instructions — "commit das" is not permission to push.
-- After committing, report the short SHA and say explicitly whether it is pushed.
+- **Never commit to `master`.** Every change goes through a branch and a pull
+  request into `master`, and **every merge is a release** (see the
+  [release skill](../release/SKILL.md)). The branch protection on `master`
+  enforces it; locally it is this rule.
+- **One branch per piece of work**, cut from a fresh `origin/master`
+  (`git fetch origin`, `git switch -c <name> origin/master`). Short kebab-case
+  names saying what it does, e.g. `network-family`, `fix-diagram-endpoints`. A
+  branch may carry several commits; the one-concern rule (section 3) still holds
+  per commit.
+- **Every branch raises the version in `plugin.json`**, in its own commit. The
+  PR check fails otherwise: a merge publishes that version.
+- **Commit only when asked; push and open the PR only when asked.** They are
+  separate instructions — "commit das" is not permission to push. A PR is
+  opened with `gh pr create --base master`: English title like a commit
+  subject, a body saying what and why, and no attribution line (section 1).
+- **Merge only when asked, and only as a rebase merge**
+  (`gh pr merge <n> --rebase`). It keeps the commits as they were split; a
+  squash would fold the one-concern commits into one. The merge publishes a
+  release.
+- After committing, report the short SHA, the branch, and whether it is
+  pushed; after a PR, its URL.
 
 ## 6. Never
 
