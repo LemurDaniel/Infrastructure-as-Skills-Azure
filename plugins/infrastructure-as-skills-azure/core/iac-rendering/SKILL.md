@@ -118,7 +118,12 @@ than inferring the shape from an example spec.
     alone and named. None of this fails a run: the script reports and exits 0.
     `<root>` is the IaC root relative to the repository root (`infra/`, or `.`). Say in
     the hand-over that the section was written or which rev replaced which.
-12. **Run it the way Phase 5 settled.** The working mode - **Subagents** or **Same
+12. **Complete the repository's `.gitignore`.** State, plans and local secrets must not
+    reach the repository, and the render is what creates them. Add only the missing lines
+    for the rendered target, never rewrite or remove; a pattern that ignores a file the
+    render needs committed is named, not edited. Procedure and entries:
+    [gitignore.md](references/gitignore.md).
+13. **Run it the way Phase 5 settled.** The working mode - **Subagents** or **Same
     session** - was asked once at the start of `iac-authoring` Phase 5, before the diagram
     loop, and holds for this loop too; ask it here only when this render starts in a run
     that never went through Phase 5 (a carried spec rendered on its own), with the Agent
@@ -179,6 +184,7 @@ is spelled. A port that reads as a transliteration has usually lost one of them.
 | [references/bicep-idiom.md](references/bicep-idiom.md) | Target is Bicep |
 | [references/pipelines.md](references/pipelines.md) | Always, after the code: the flow and invariants every pipeline shares |
 | [references/pipelines.github.md](references/pipelines.github.md), [.ado.md](references/pipelines.ado.md), [.gitlab.md](references/pipelines.gitlab.md), [.local.md](references/pipelines.local.md) | `deploy_mechanism` is that system |
+| [references/gitignore.md](references/gitignore.md) | After rendering: the lines the repository's `.gitignore` must have, added never rewritten |
 | [references/agents.md](references/agents.md) | The Agent tool is available and the spec spans several families: the two loops in sequence, the stop rules, the briefs |
 | [../iac-authoring/references/spec.md](../iac-authoring/references/spec.md) | Reading the spec you render from |
 | [../iac-authoring/references/guardrails.md](../iac-authoring/references/guardrails.md) | A value in the spec looks wrong and you need the rule behind it |
