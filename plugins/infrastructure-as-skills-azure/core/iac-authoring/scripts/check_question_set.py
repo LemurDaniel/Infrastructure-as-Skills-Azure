@@ -24,7 +24,7 @@ a regex cannot see - what references/question-set-format.md promises:
      deployment set knows; `derived_from` names an interview question in the
      deployment set and maps every one of its values to a value of this
      question's kind (and, for an enum, one of its values).
-  6. `resolved_by`, where present, is interview or platform; absent means the question
+  6. `resolved_by`, where present, is interview or derived; absent means the question
      is defaulted or derived and never asked. An interview question carries a `topic`
      (platform, network, security, resilience, data, application) and no other does.
   7. `plain` is present: a mapping of language code to one customer-language
@@ -38,16 +38,12 @@ a regex cannot see - what references/question-set-format.md promises:
      compliance or posture group - a cheaper stage is never a less secure one.
   9. Unknown fields are reported: a misspelt `default` is a question that is
      silently asked every run.
-  8. With --platform <file>: the platform profile's keys are deployment-set
-     questions with resolved_by platform, enum values are within `values`, and a
-     ref value is a name and resource group, not a resource id.
 
 Needs PyYAML (pip install pyyaml). Without it the script says so and exits 2
 rather than pretending the files are fine.
 
 Usage:
     python3 check_question_set.py <path>...
-    python3 check_question_set.py --platform ./platform.yaml
 
 A path is a questions.yaml, a resource directory, a family directory, the
 resources root, or the deployment set. Directories are searched for
@@ -66,7 +62,7 @@ PLUGIN = os.path.abspath(os.path.join(HERE, '..', '..', '..'))
 DEPLOYMENT_SET = os.path.join(HERE, '..', 'questions', 'deployment.yaml')
 
 TYPES = ['enum', 'bool', 'string', 'int', 'list', 'ref']
-RESOLVED_BY = ['interview', 'platform']
+RESOLVED_BY = ['interview', 'derived']
 TOPICS = ['platform', 'network', 'security', 'resilience', 'data', 'application']
 REVIEW_ORDER = ['placement', 'networking', 'identity', 'security', 'data_protection', 'observability']
 RESOLUTION_FIELDS = ['required', 'default', 'from_deployment', 'parameterized', 'derived_from']
@@ -450,65 +446,9 @@ def check_set(path, doc, deployment, rel):
     return errors, warnings, len(qs)
 
 
-PLATFORM_TOP = {'schema_version', 'platform'}
-
-
-def check_platform(doc, deployment, rel):
-    """A platform.yaml: keys are deployment-set questions with resolved_by platform."""
-    errors = []
-
-    def err(t): errors.append(f"{rel}: {t}")
-
-    if not isinstance(doc, dict):
-        err('does not parse as a mapping')
-        return errors
-    if deployment is None:
-        err('the deployment set did not load, so the keys cannot be checked')
-        return errors
-    if 'schema_version' not in doc:
-        err('schema_version is missing')
-    meta = doc.get('platform')
-    if not isinstance(meta, dict) or not meta.get('id'):
-        err("platform.id is missing - a wrong value needs an owner, and the spec names the profile")
-    dep = {q.get('id'): q for _, q in questions_of(deployment)}
-    for k, v in doc.items():
-        if k in PLATFORM_TOP:
-            continue
-        q = dep.get(k)
-        if q is None:
-            err(f"'{k}' is not a deployment-set question")
-            continue
-        if q.get('resolved_by') != 'platform':
-            err(f"'{k}' is not resolved_by platform - it is not the platform's to fix")
-            continue
-        t, values = q.get('type'), q.get('values')
-        stages = (dep.get('environments') or {}).get('values') or []
-        # A per-stage question may carry a map keyed by stage; check each stage's value.
-        if q.get('per_environment') and isinstance(v, dict) and v and all(s in stages for s in v):
-            items = list(v.values())
-        elif isinstance(v, dict) and any(s in stages for s in v):
-            err(f"'{k}' mixes stage names and other keys")
-            continue
-        else:
-            items = [v]
-        for item in items:
-            if t == 'enum' and isinstance(values, list) and item not in values:
-                err(f"'{k}': '{item}' is not in {values}")
-            elif t == 'ref':
-                if isinstance(item, str) and item.startswith('/subscriptions/'):
-                    err(f"'{k}' is a resource id; the deployment set takes a name and resource group, so no subscription is pinned")
-                elif isinstance(item, dict) and 'name' not in item and 'subscription_id' not in item:
-                    err(f"'{k}' names neither a name nor a subscription_id")
-            elif t in ('string', 'int', 'bool', 'list') and not kind_matches(t, item):
-                err(f"'{k}': {item!r} is not a {t}")
-    return errors
-
-
 def main():
     ap = argparse.ArgumentParser(description='Validate question sets against the question-set format.')
     ap.add_argument('paths', nargs='*', help='questions.yaml files or directories holding them; default: the whole plugin')
-    ap.add_argument('--platform', metavar='FILE',
-                    help='a platform.yaml to check against the deployment set instead of question sets')
     args = ap.parse_args()
 
     try:
@@ -530,27 +470,6 @@ def main():
             deployment = load(dep_path)
         except yaml.YAMLError:
             deployment = None
-
-    if args.platform:
-        if not os.path.isfile(args.platform):
-            bad(f"no such file: {args.platform}")
-            return 2
-        say(f"Platform profile check - {os.path.abspath(args.platform)}", 'cyan')
-        print('-' * 70)
-        try:
-            doc = load(args.platform)
-        except yaml.YAMLError as e:
-            bad(f"YAML does not parse: {e}")
-            return 1
-        errors = check_platform(doc, deployment, os.path.basename(args.platform))
-        if errors:
-            bad(f"{len(errors)} violation(s)")
-            for e in errors:
-                say(f"         {e}", 'gray')
-            return 1
-        n = len([k for k in doc if k not in PLATFORM_TOP])
-        say(f"{n} platform value(s), every one a deployment-set question the platform owns.", 'green')
-        return 0
 
     paths = args.paths or [PLUGIN]
     sets = find_sets(paths)

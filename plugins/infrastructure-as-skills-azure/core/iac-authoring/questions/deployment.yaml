@@ -71,7 +71,7 @@ groups:
       - id: stage_isolation
         ask: Are the stages separated by subscription, or do they share one subscription and differ by resource group?
         type: enum
-        resolved_by: platform
+        resolved_by: derived
         plain:
           en: "Each stage lives in {value}."
           de: "Jede Stufe liegt in {value}."
@@ -171,7 +171,7 @@ groups:
       - id: naming_convention
         ask: Should resource names follow the default convention, or does your organisation have its own?
         type: enum
-        resolved_by: platform
+        resolved_by: derived
         plain:
           en: "Resource names follow the {value} naming convention, so they are consistent to find and read."
           de: "Die Namen folgen der Namenskonvention „{value}“, damit sie einheitlich zu finden und zu lesen sind."
@@ -497,7 +497,7 @@ groups:
       - id: pipeline_auth
         ask: How does the pipeline sign in to Azure?
         type: enum
-        resolved_by: platform
+        resolved_by: derived
         plain:
           en: "The pipeline signs in to Azure {value}."
           de: "Die Pipeline meldet sich {value} bei Azure an."
@@ -595,8 +595,8 @@ groups:
           network standalone but makes the address space and the subnet prefixes open entries
           owned by the network team until they are given. `corporate` says a platform exists:
           the network is a spoke peered to the hub (landing_zone: corp) and reached from the
-          company network; the hub, the peering and the shared DNS come from platform.yaml, and
-          without a profile they are open entries owned by the platform team, never guessed.
+          company network; the hub, the peering and the shared DNS are open entries owned by
+          the platform team unless the request names them, never guessed.
           Asked first in the group because it decides the posture before any resource does. The
           first install test (2026-10-24) answered "Netz egal, wir brauchen kein VPN" and had no
           question to put that answer in.
@@ -604,8 +604,8 @@ groups:
           pre-answers landing_zone (free, assigned_ranges: standalone; corporate: corp) and
           through it network_ownership and network_exposure; assigned_ranges and corporate make
           address_space and private_endpoint_subnet_prefix open entries owned by the network
-          team unless the request states them. A platform.yaml value wins, and a contradiction
-          between the two is asked, not resolved
+          team unless the request states them. A contradiction with landing_zone_exists or
+          central_network is asked, not resolved
       - id: outage_impact
         ask: How bad is it if the system is unavailable for a day?
         type: enum
@@ -891,7 +891,7 @@ groups:
       - id: module_telemetry
         ask: May the Azure Verified Modules send their deployment telemetry to Microsoft?
         type: enum
-        resolved_by: platform
+        resolved_by: derived
         plain:
           en: "Usage telemetry to Microsoft is {value}: a count per deployment, none of your data."
           de: "Nutzungstelemetrie an Microsoft ist {value}: eine Zählung pro Ausrollen, keine eurer Daten."
@@ -920,10 +920,107 @@ groups:
   - id: posture
     title: Posture
     questions:
-      - id: landing_zone
-        ask: Is there a landing zone platform at all (standalone if not), and if so, which kind of landing zone does this workload go into - internal (corp), internet-facing (online) or a sandbox?
+      - id: landing_zone_exists
+        ask: Does your organisation have an Azure landing zone - a company platform with a hub network, central logging and shared name resolution that this system is placed into?
         type: enum
-        resolved_by: platform
+        resolved_by: interview
+        topic: platform
+        plain:
+          en: "There {value} an Azure landing zone to place the system into."
+          de: "Es {value} eine Azure Landing Zone, in die das System gestellt wird."
+        plain_values:
+          "yes": { en: "is", de: "gibt" }
+          "no": { en: "is no", de: "gibt keine" }
+        values: ["yes", "no"]
+        default: "no"
+        confirm_in: [production]
+        why: >
+          One plain question instead of a profile file: the customer knows whether the
+          company runs a landing zone, and nobody else can say. `no` is the default and
+          matches the old `standalone` default - a deployment that presumes a platform the
+          customer never heard of ends in an unmet assumption (a hub, shared DNS, a shared
+          workspace). `yes` presumes all three central parts at once: the hub network,
+          the central workspace and the platform-owned private DNS zones; the concrete
+          names behind them (hub, subnet, workspace, zone resource group) are never asked
+          here - they are parameters of the stage files or `open:` entries owned by the
+          platform team. `no` does not end the question: organisations without a full
+          landing zone often still have one central part, so the three questions below
+          ask for each.
+        renders: >
+          yes: landing_zone corp (public exposure or a stated sandbox: online / sandbox),
+          network_ownership create (a spoke), private_dns_ownership platform,
+          observability_ownership reference; no: the three central_* answers decide
+
+      - id: central_logging
+        ask: Is there a central Log Analytics workspace that all workloads log to?
+        type: enum
+        resolved_by: interview
+        topic: platform
+        plain:
+          en: "There {value} a central log workspace."
+          de: "Es {value} einen zentralen Log-Arbeitsbereich."
+        plain_values:
+          "yes": { en: "is", de: "gibt" }
+          "no": { en: "is none, so the system brings its own", de: "gibt keinen, das System bringt also einen eigenen mit" }
+        values: ["yes", "no"]
+        default: "no"
+        depends_on: { question: landing_zone_exists, equals: "no" }
+        why: >
+          A workspace either exists and is referenced, or this deployment creates and pays
+          for one. Only the customer knows which. Asked only without a landing zone: with
+          one, the central workspace is presumed.
+        renders: >
+          yes: observability_ownership reference, diagnostics_destination an `open:` entry
+          owned by the platform team unless the request names it; no:
+          observability_ownership create
+
+      - id: central_private_dns
+        ask: Is there a central place where the private DNS zones (privatelink.*) are kept for all workloads?
+        type: enum
+        resolved_by: interview
+        topic: platform
+        plain:
+          en: "There {value} a central place for private name zones."
+          de: "Es {value} einen zentralen Ort für private Namenszonen."
+        plain_values:
+          "yes": { en: "is", de: "gibt" }
+          "no": { en: "is none, so the system keeps its own zones", de: "gibt keinen, das System hält also eigene Zonen" }
+        values: ["yes", "no"]
+        default: "no"
+        depends_on: { question: landing_zone_exists, equals: "no" }
+        why: >
+          Two deployments each creating `privatelink.blob.core.windows.net` is a conflict
+          that only surfaces at apply time, so whether central zones exist decides who
+          creates them. Asked only without a landing zone.
+        renders: >
+          yes: private_dns_ownership platform, the zones' location an `open:` entry owned
+          by the platform team unless stated; no: private_dns_ownership deployment
+
+      - id: central_network
+        ask: Is there a central hub network that this system's network should be connected to?
+        type: enum
+        resolved_by: interview
+        topic: platform
+        plain:
+          en: "There {value} a central hub network."
+          de: "Es {value} ein zentrales Hub-Netz."
+        plain_values:
+          "yes": { en: "is", de: "gibt" }
+          "no": { en: "is none, so the system builds a network of its own", de: "gibt keines, das System baut also ein eigenes Netz" }
+        values: ["yes", "no"]
+        default: "no"
+        depends_on: { question: landing_zone_exists, equals: "no" }
+        why: >
+          A hub decides whether the network is a spoke peered to it or stands alone. It
+          overlaps with network_requirements (`corporate`): both say a hub exists, and a
+          contradiction between the two is asked, not resolved.
+        renders: >
+          yes: network_ownership create as a spoke, the hub and its peering `open:` entries
+          owned by the platform team unless stated; no: network_ownership create, standalone
+
+      - id: landing_zone
+        ask: Which kind of landing zone does this workload go into - internal (corp), internet-facing (online) or a sandbox - or none (standalone)?
+        type: enum
         plain:
           en: "The system lands in {value}."
           de: "Das System landet in {value}."
@@ -956,9 +1053,11 @@ groups:
           aus dem Firmennetz", "öffentlich erreichbar" or "wir haben keine
           Landing Zone" has usually answered it already.
         forced_when: >
-          network_requirements pre-answers it - free and assigned_ranges: standalone,
-          corporate: corp; a platform.yaml value wins, and a contradiction between the two is
-          asked, not resolved. A referenced platform part forces a platform archetype: a request that
+          Not asked: derived from landing_zone_exists and the central_* answers. `no` with
+          no central part: standalone; `yes`: corp, or online when network_exposure is
+          public, or sandbox when the request says so. network_requirements pre-answers it
+          as well - free and assigned_ranges: standalone, corporate: corp; a contradiction
+          between the two is asked, not resolved. A referenced platform part forces a platform archetype: a request that
           names an existing hub network, a shared private-endpoint subnet or a
           central workspace (network_ownership: reference, observability_ownership:
           reference) says a landing zone platform exists, so standalone is ruled
@@ -1105,7 +1204,7 @@ groups:
       - id: network_ownership
         ask: Should this deployment build its own virtual network, reference an existing one, or does it need none?
         type: enum
-        resolved_by: platform
+        resolved_by: derived
         plain:
           en: "The network is {value}."
           de: "Das Netz wird {value}."
@@ -1135,7 +1234,8 @@ groups:
         forced_when: >
           network_exposure in [private, private_with_exceptions] removes `none`;
           network_exposure: public makes `none` the default; landing_zone: corp
-          pre-answers `create` (a spoke), landing_zone: standalone pre-answers `create`
+          pre-answers `create` (a spoke; central_network: yes says the same without a
+          landing zone), landing_zone: standalone pre-answers `create`
           (standalone, no peering), online and sandbox pre-answer `none`. `none` in turn
           forces every resource's public_network_access to `enabled`: without a network
           the deployment's own callers have no fixed address a firewall could list
@@ -1146,7 +1246,7 @@ groups:
       - id: existing_vnet
         ask: Which existing virtual network should the deployment reference?
         type: ref
-        resolved_by: platform
+        resolved_by: derived
         plain:
           en: "The existing network {value} is used."
           de: "Das bestehende Netz {value} wird genutzt."
@@ -1163,7 +1263,7 @@ groups:
       - id: address_space
         ask: Which address space should the new virtual network use?
         type: string
-        resolved_by: platform
+        resolved_by: derived
         plain:
           en: "The new network uses the address range {value}."
           de: "Das neue Netz nutzt den Adressbereich {value}."
@@ -1195,7 +1295,7 @@ groups:
       - id: private_endpoint_subnet
         ask: Which existing subnet should private endpoints live in?
         type: ref
-        resolved_by: platform
+        resolved_by: derived
         plain:
           en: "Private connections land in the existing subnet {value}."
           de: "Private Anbindungen landen im bestehenden Subnetz {value}."
@@ -1211,7 +1311,7 @@ groups:
       - id: private_endpoint_subnet_prefix
         ask: Which prefix should the private endpoint subnet get?
         type: string
-        resolved_by: platform
+        resolved_by: derived
         plain:
           en: "Private connections get their own subnet, {value}."
           de: "Private Anbindungen bekommen ein eigenes Subnetz, {value}."
@@ -1237,7 +1337,7 @@ groups:
       - id: private_dns_ownership
         ask: Who owns the private DNS zones?
         type: enum
-        resolved_by: platform
+        resolved_by: derived
         plain:
           en: "Name resolution for private connections is handled by {value}."
           de: "Die Namensauflösung für private Anbindungen übernimmt {value}."
@@ -1249,7 +1349,8 @@ groups:
         forced_when: >
           landing_zone: standalone pre-answers `deployment` - there is no platform to
           own the zones, so the deployment creates them and writes their records
-          itself; private_dns_records and private_dns_zone_scope are then not
+          itself; central_private_dns answers it directly (yes: platform, no:
+          deployment) and landing_zone_exists: yes presumes `platform`; private_dns_records and private_dns_zone_scope are then not
           reached
         why: >
           Private DNS zones are shared infrastructure: two deployments each creating
@@ -1267,7 +1368,7 @@ groups:
       - id: private_dns_records
         ask: Does a platform policy create the DNS records for private endpoints, or does this deployment?
         type: enum
-        resolved_by: platform
+        resolved_by: derived
         plain:
           en: "The name entries for private connections are written by {value}."
           de: "Die Namenseinträge für private Anbindungen schreibt {value}."
@@ -1294,7 +1395,7 @@ groups:
       - id: private_dns_zone_scope
         ask: In which subscription and resource group does the platform keep the private DNS zones?
         type: ref
-        resolved_by: platform
+        resolved_by: derived
         plain:
           en: "The platform keeps the name zones in {value}."
           de: "Die Plattform hält die Namenszonen in {value}."
@@ -1321,7 +1422,7 @@ groups:
       - id: observability_ownership
         ask: Should this deployment build its own Log Analytics workspace, or reference an existing one?
         type: enum
-        resolved_by: platform
+        resolved_by: derived
         plain:
           en: "Logs go to {value}."
           de: "Logs gehen in {value}."
@@ -1332,7 +1433,8 @@ groups:
         default: reference
         forced_when: >
           landing_zone: standalone pre-answers `create` - without a platform there is
-          no central workspace to reference
+          no central workspace to reference; central_logging answers it directly
+          (yes: reference, no: create) and landing_zone_exists: yes presumes `reference`
         why: >
           The same shape as the network question, and for the same reason: a
           workspace either exists and is read, or it does not and something has to
@@ -1347,7 +1449,7 @@ groups:
       - id: diagnostics_destination
         ask: Which existing Log Analytics workspace should receive diagnostics?
         type: ref
-        resolved_by: platform
+        resolved_by: derived
         plain:
           en: "Logs are collected in {value}."
           de: "Logs werden in {value} gesammelt."

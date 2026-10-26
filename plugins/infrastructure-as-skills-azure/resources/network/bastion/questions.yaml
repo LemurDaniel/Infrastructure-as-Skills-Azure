@@ -174,7 +174,7 @@ groups:
       - id: bastion_subnet
         ask: Which subnet is reserved for the Bastion?
         type: ref
-        resolved_by: platform
+        resolved_by: derived
         plain:
           en: "The Bastion uses the subnet {value}."
           de: "Der Bastion nutzt das Subnetz {value}."
@@ -326,7 +326,7 @@ groups:
       - id: diagnostic_workspace
         ask: Which Log Analytics workspace should receive diagnostics?
         type: ref
-        resolved_by: platform
+        resolved_by: derived
         plain:
           en: "Its logs go to {value}."
           de: "Seine Logs gehen in {value}."

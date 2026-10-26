@@ -151,7 +151,7 @@ groups:
       - id: infrastructure_subnet
         ask: Which subnet should the environment's infrastructure live in?
         type: ref
-        resolved_by: platform
+        resolved_by: derived
         plain:
           en: "The environment's infrastructure lives in subnet {value}."
           de: "Die Infrastruktur der Umgebung liegt im Subnetz {value}."
@@ -453,7 +453,7 @@ groups:
       - id: diagnostic_workspace
         ask: Which Log Analytics workspace should receive the environment's logs?
         type: ref
-        resolved_by: platform
+        resolved_by: derived
         plain:
           en: "Its logs go to {value}."
           de: "Seine Logs gehen in {value}."

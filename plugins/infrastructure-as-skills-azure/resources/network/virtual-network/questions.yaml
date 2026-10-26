@@ -70,7 +70,7 @@ groups:
       - id: address_space
         ask: Which address range does the network use?
         type: string
-        resolved_by: platform
+        resolved_by: derived
         plain:
           en: "The network uses the address range {value}."
           de: "Das Netz nutzt den Adressbereich {value}."
@@ -104,7 +104,7 @@ groups:
       - id: private_endpoint_subnet_prefix
         ask: Which prefix carries the private endpoints?
         type: string
-        resolved_by: platform
+        resolved_by: derived
         plain:
           en: "Private connections get the subnet {value}."
           de: "Private Anbindungen bekommen das Subnetz {value}."
@@ -119,7 +119,7 @@ groups:
       - id: dns_servers
         ask: Which DNS servers should the network use?
         type: list
-        resolved_by: platform
+        resolved_by: derived
         plain:
           en: "Custom name servers: {value} (none: Azure's own)."
           de: "Eigene Namensserver: {value} (keine: Azures eigene)."
@@ -195,7 +195,7 @@ groups:
       - id: ddos_protection
         ask: Should the network use a DDoS protection plan?
         type: bool
-        resolved_by: platform
+        resolved_by: derived
         plain:
           en: "A paid DDoS protection plan is {value}; Azure's basic protection applies either way."
           de: "Ein kostenpflichtiger DDoS-Schutzplan wird {value}; Azures Basisschutz gilt ohnehin."
@@ -233,7 +233,7 @@ groups:
       - id: diagnostic_workspace
         ask: Which Log Analytics workspace should receive diagnostics?
         type: ref
-        resolved_by: platform
+        resolved_by: derived
         plain:
           en: "Network logs go to {value}."
           de: "Netzwerk-Logs gehen in {value}."

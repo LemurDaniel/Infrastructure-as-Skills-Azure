@@ -242,7 +242,7 @@ groups:
       - id: private_dns_zone
         ask: Where does the private cluster's API name live?
         type: enum
-        resolved_by: platform
+        resolved_by: derived
         plain:
           en: "The name of the cluster's private API is kept in {value}."
           de: "Der Name der privaten API des Clusters liegt in {value}."
@@ -258,8 +258,7 @@ groups:
           cluster's VNet only - fine for a standalone network, and a name nobody on the other
           side of a peering resolves. `custom` is the platform's zone in the connectivity
           subscription, which makes the cluster identity a **user-assigned** one that holds
-          `Private DNS Zone Contributor` on that zone before the cluster is created. Read from
-          the platform profile; without one, `system`.
+          `Private DNS Zone Contributor` on that zone before the cluster is created. An `open:` entry owned by the platform team unless the request names the zone; the default is `system`.
         forced_when: >
           `private_dns_zone: custom` forces `managed_identity: user_assigned` and requires
           `private_dns_zone_id`
@@ -268,7 +267,7 @@ groups:
       - id: private_dns_zone_id
         ask: Which private DNS zone holds the API name?
         type: ref
-        resolved_by: platform
+        resolved_by: derived
         plain:
           en: "Its API name is kept in the zone {value}."
           de: "Der Name seiner API liegt in der Zone {value}."
@@ -285,7 +284,7 @@ groups:
       - id: node_subnet
         ask: Which subnet should the nodes live in?
         type: ref
-        resolved_by: platform
+        resolved_by: derived
         plain:
           en: "The nodes live in subnet {value}."
           de: "Die Knoten liegen im Subnetz {value}."
@@ -420,7 +419,7 @@ groups:
       - id: outbound_type
         ask: How should the cluster reach the internet?
         type: enum
-        resolved_by: platform
+        resolved_by: derived
         plain:
           en: "Outbound traffic {value}."
           de: "Ausgehender Verkehr {value}."
@@ -435,10 +434,9 @@ groups:
           In a landing zone the platform's firewall is that way and the spoke's route table sends
           `0.0.0.0/0` to it - `userDefinedRouting`, which only works once the route table, the
           firewall rules and DNS exist, and otherwise the cluster never becomes healthy. The
-          other two create public addresses owned by the cluster. Read from the platform
-          profile; without one, `loadBalancer`. **Fixed at creation.**
+          other two create public addresses owned by the cluster. Named in the request or an `open:` entry owned by the platform team; the default is `loadBalancer`. **Fixed at creation.**
         forced_when: >
-          `landing_zone: corp` expects `userDefinedRouting` where the platform profile names a
+          `landing_zone: corp` expects `userDefinedRouting` where the request names a
           route table
         renders: network_profile.outbound_type / outboundType
 
@@ -924,7 +922,7 @@ groups:
       - id: diagnostic_workspace
         ask: Which Log Analytics workspace should receive diagnostics?
         type: ref
-        resolved_by: platform
+        resolved_by: derived
         plain:
           en: "Its logs go to {value}."
           de: "Seine Logs gehen in {value}."

@@ -45,7 +45,7 @@ groups:
       - id: management_group_ownership
         ask: Who creates management groups in this tenant?
         type: enum
-        resolved_by: platform
+        resolved_by: derived
         plain:
           en: "Management groups are created by {value}."
           de: "Management-Gruppen werden angelegt von {value}."
@@ -72,7 +72,7 @@ groups:
         ask: Under which management group should it sit?
         type: ref
         ref: management_group
-        resolved_by: platform
+        resolved_by: derived
         plain:
           en: "Placed under the management group {value}."
           de: "Hängt unter der Management-Gruppe {value}."

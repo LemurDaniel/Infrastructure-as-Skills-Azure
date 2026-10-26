@@ -26,7 +26,6 @@ idiom, a reviewer sees what `source:` buys.
   infra-decisions.md    # the spec as the customer reads it, rendered by export_decisions.py
   naming.yaml           # the convention, a full copy of naming.default.yaml - Terraform only
   environments/*.tfvars # one file per resolved stage (Terraform); bicep/main.<stage>.bicepparam (Bicep)
-  platform.yaml         # the platform profile the platform team would have written
   *.tf, *.tfvars        # the Terraform render, one concern per file
   tests/*.tftest.hcl    # plan-only, platform mocked, naming provider real - one
                         # assert per spec decision, checked by check_render_coverage.py

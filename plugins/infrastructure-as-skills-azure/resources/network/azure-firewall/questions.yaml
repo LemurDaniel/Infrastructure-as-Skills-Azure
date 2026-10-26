@@ -124,7 +124,7 @@ groups:
       - id: firewall_subnet
         ask: Which subnet is reserved for the firewall?
         type: ref
-        resolved_by: platform
+        resolved_by: derived
         plain:
           en: "The firewall uses the subnet {value}."
           de: "Die Firewall nutzt das Subnetz {value}."
@@ -184,7 +184,7 @@ groups:
       - id: management_subnet
         ask: Which subnet is reserved for the management traffic?
         type: ref
-        resolved_by: platform
+        resolved_by: derived
         plain:
           en: "The management traffic uses the subnet {value}."
           de: "Der Verwaltungsverkehr nutzt das Subnetz {value}."
@@ -220,7 +220,7 @@ groups:
       - id: dns_servers
         ask: Which DNS servers should the firewall forward to?
         type: list
-        resolved_by: platform
+        resolved_by: derived
         plain:
           en: "Forwarded to the name servers: {value} (none: Azure's own)."
           de: "Weitergeleitet an die Namensserver: {value} (keine: Azures eigene)."
@@ -396,7 +396,7 @@ groups:
       - id: diagnostic_workspace
         ask: Which Log Analytics workspace should receive diagnostics?
         type: ref
-        resolved_by: platform
+        resolved_by: derived
         plain:
           en: "Its logs go to {value}."
           de: "Seine Logs gehen in {value}."

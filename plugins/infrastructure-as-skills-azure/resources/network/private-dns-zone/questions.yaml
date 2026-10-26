@@ -65,7 +65,7 @@ groups:
       - id: ownership
         ask: Who owns the private DNS zones?
         type: enum
-        resolved_by: platform
+        resolved_by: derived
         plain:
           en: "Name resolution for private connections is handled by {value}."
           de: "Die Namensauflösung für private Anbindungen übernimmt {value}."

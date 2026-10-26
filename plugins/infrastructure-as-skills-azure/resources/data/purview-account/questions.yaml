@@ -75,7 +75,7 @@ groups:
       - id: ownership
         ask: Does the organisation already have a Purview account, or does this deployment create one?
         type: enum
-        resolved_by: platform
+        resolved_by: derived
         plain:
           en: "The data catalog is {value}."
           de: "Der Datenkatalog wird {value}."
@@ -98,7 +98,7 @@ groups:
       - id: existing_account_id
         ask: Which existing Purview account?
         type: ref
-        resolved_by: platform
+        resolved_by: derived
         plain:
           en: "Reports to the Purview account {value}."
           de: "Meldet an das Purview-Konto {value}."
@@ -107,7 +107,7 @@ groups:
         depends_on: { question: ownership, equals: platform }
         per_environment: true
         why: >
-          The account's resource id, read from the platform profile; it is what a Data
+          The account's resource id, named by the platform team; it is what a Data
           Factory's `purview_account` and a source's registration point at. With no answer
           the decision is an `open:` entry owned by the platform team.
         renders: a data source / `existing` reference; no resource
@@ -219,7 +219,7 @@ groups:
       - id: private_endpoint_subnet
         ask: Which subnet should this account's private endpoints live in?
         type: ref
-        resolved_by: platform
+        resolved_by: derived
         plain:
           en: "Its private connections land in subnet {value}."
           de: "Seine privaten Anbindungen landen im Subnetz {value}."
@@ -357,7 +357,7 @@ groups:
       - id: diagnostic_workspace
         ask: Which Log Analytics workspace should receive the scan and audit logs?
         type: ref
-        resolved_by: platform
+        resolved_by: derived
         plain:
           en: "Its logs go to {value}."
           de: "Seine Logs gehen in {value}."

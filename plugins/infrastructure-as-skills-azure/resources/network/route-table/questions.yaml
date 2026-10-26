@@ -115,7 +115,7 @@ groups:
       - id: firewall_private_ip
         ask: Which private address does the firewall have?
         type: string
-        resolved_by: platform
+        resolved_by: derived
         plain:
           en: "The firewall is reached at {value}."
           de: "Die Firewall ist unter {value} erreichbar."
@@ -123,7 +123,7 @@ groups:
         depends_on: { question: default_route, equals: firewall }
         per_environment: true
         why: >
-          The hub firewall's private address, an input from the platform (`platform.yaml`),
+          The hub firewall's private address, an input from the platform (an `open:` entry or a stage parameter),
           never guessed: a wrong address drops all egress of every subnet using the table,
           and the first symptom is a timeout in the application, not an error in the plan.
           Per stage, because each stage peers to its own hub where the stages are separated.

@@ -73,7 +73,7 @@ groups:
       - id: workspace
         ask: Which Log Analytics workspace stores the telemetry?
         type: ref
-        resolved_by: platform
+        resolved_by: derived
         plain:
           en: "Its telemetry is stored in {value}."
           de: "Seine Telemetrie wird in {value} gespeichert."
@@ -197,7 +197,7 @@ groups:
       - id: private_link_scope
         ask: Which private monitoring connection should the component belong to?
         type: ref
-        resolved_by: platform
+        resolved_by: derived
         plain:
           en: "Its private connection is the monitoring scope {value}."
           de: "Seine private Anbindung ist der Überwachungsbereich {value}."

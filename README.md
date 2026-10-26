@@ -80,7 +80,7 @@ Complete runs, request to tests, live under [`examples/`](examples/README.md).
 
 - **Decisions, not syntax.** Every decision is explicit in the render and recorded with where it came from, so a review happens at the level decisions are actually made.
 - **Secure by default, from written rules.** Defaults come from the [guardrails](plugins/infrastructure-as-skills-azure/core/iac-authoring/references/guardrails.md), not from the Azure portal and not from a module's default. The two diverge routinely, in the same direction.
-- **The customer sits alone in front of it.** Only questions marked `resolved_by: interview` reach the person; platform facts come from a `platform.yaml`; a question nobody can answer becomes an `open:` item instead of a guess.
+- **The customer sits alone in front of it.** Only questions marked `resolved_by: interview` reach the person; platform facts come from three plain landing-zone questions; a question nobody can answer becomes an `open:` item instead of a guess.
 - **AVM first.** A resource with an Azure Verified Module renders as a call to it, every decision an explicit input, the version looked up live and pinned. Authored resources are the fallback, and the spec says which one it took.
 - **One question set, two targets.** The questions are IaC-neutral; only `terraform.md` and `bicep.md` differ. Duplicating the decision knowledge per target is how two halves drift apart.
 - **The spec is the interface.** A review happens at the level decisions are made, a regeneration is a diff, and the same spec can go to a different backend.
@@ -301,7 +301,7 @@ Early, and the shape matters more than the coverage. The eval baseline holds; th
 
 - [x] Shared contract: spec format, question-set format, interview protocol, guardrails
 - [x] Deployment-wide question set, inherited by every resource via `from_deployment`
-- [x] The customer interview: requirements derived into decisions, `platform.yaml`, decision document in the customer's language
+- [x] The customer interview: requirements derived into decisions, landing-zone questions, decision document in the customer's language
 - [x] Azure Verified Modules as the primary rendering, both targets, with the test contract
 - [x] 67 resources in 10 families (the 42 added last are checked against their AVM modules, not yet rendered or tested)
 - [x] Rendering: naming, layout, idiom and pipelines (GitHub, Azure DevOps, GitLab, local)

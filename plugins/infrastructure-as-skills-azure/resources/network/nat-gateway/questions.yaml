@@ -205,7 +205,7 @@ groups:
       - id: diagnostic_workspace
         ask: Which Log Analytics workspace should receive diagnostics?
         type: ref
-        resolved_by: platform
+        resolved_by: derived
         plain:
           en: "Its metrics go to {value}."
           de: "Seine Messwerte gehen in {value}."

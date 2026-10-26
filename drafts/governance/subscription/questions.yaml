@@ -62,7 +62,7 @@ groups:
       - id: subscription_ownership
         ask: Does this run create the subscription, or does it already exist?
         type: enum
-        resolved_by: platform
+        resolved_by: derived
         plain:
           en: "The subscription is {value}."
           de: "Die Subscription wird {value}."
@@ -89,7 +89,7 @@ groups:
         ask: Under which management group should the subscription land?
         type: ref
         ref: management_group
-        resolved_by: platform
+        resolved_by: derived
         plain:
           en: "The subscription lands under the management group {value}."
           de: "Die Subscription landet unter der Management-Gruppe {value}."
@@ -114,7 +114,7 @@ groups:
         ask: Which billing account should the subscription be billed to?
         type: ref
         ref: billing_scope
-        resolved_by: platform
+        resolved_by: derived
         plain:
           en: "Billed to {value}."
           de: "Abgerechnet über {value}."

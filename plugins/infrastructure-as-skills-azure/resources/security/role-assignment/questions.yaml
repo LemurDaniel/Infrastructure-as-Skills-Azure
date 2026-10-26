@@ -208,7 +208,7 @@ groups:
       - id: deployer_role
         ask: Which right does the deploying principal hold to write this assignment?
         type: enum
-        resolved_by: platform
+        resolved_by: derived
         plain:
           en: "The deployment is allowed to hand out access through {value}."
           de: "Das Ausrollen darf Zugriffe vergeben über {value}."

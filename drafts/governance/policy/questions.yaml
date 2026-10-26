@@ -81,7 +81,7 @@ groups:
       - id: policy_ownership
         ask: Who assigns policies in this subscription?
         type: enum
-        resolved_by: platform
+        resolved_by: derived
         plain:
           en: "Policies are assigned by {value}."
           de: "Richtlinien werden zugewiesen von {value}."
@@ -138,7 +138,7 @@ groups:
         ask: Which management group?
         type: ref
         ref: management_group
-        resolved_by: platform
+        resolved_by: derived
         plain:
           en: "Assigned at the management group {value}."
           de: "Zugewiesen an der Management-Gruppe {value}."

@@ -82,7 +82,7 @@ groups:
       - id: ownership
         ask: Who provides the Network Watcher?
         type: enum
-        resolved_by: platform
+        resolved_by: derived
         plain:
           en: "The region's Network Watcher is {value}."
           de: "Der Network Watcher der Region wird {value}."
@@ -199,7 +199,7 @@ groups:
       - id: traffic_analytics_workspace
         ask: Which Log Analytics workspace should receive the analysis?
         type: ref
-        resolved_by: platform
+        resolved_by: derived
         plain:
           en: "The analysis goes to {value}."
           de: "Die Auswertung geht in {value}."

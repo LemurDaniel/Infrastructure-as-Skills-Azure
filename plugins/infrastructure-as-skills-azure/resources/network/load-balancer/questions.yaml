@@ -150,7 +150,7 @@ groups:
       - id: frontend_subnet
         ask: Which subnet carries the balancer's private address?
         type: ref
-        resolved_by: platform
+        resolved_by: derived
         plain:
           en: "The balancer's private address is in the subnet {value}."
           de: "Die private Adresse des Load Balancers liegt im Subnetz {value}."
@@ -187,7 +187,7 @@ groups:
       - id: private_ip_address
         ask: Which private address does the balancer take?
         type: string
-        resolved_by: platform
+        resolved_by: derived
         plain:
           en: "The balancer's private address is {value}."
           de: "Die private Adresse des Load Balancers ist {value}."
@@ -403,7 +403,7 @@ groups:
       - id: diagnostic_workspace
         ask: Which Log Analytics workspace should receive diagnostics?
         type: ref
-        resolved_by: platform
+        resolved_by: derived
         plain:
           en: "Its metrics go to {value}."
           de: "Seine Messwerte gehen in {value}."

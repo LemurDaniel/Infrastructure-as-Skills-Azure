@@ -55,7 +55,7 @@ because an invalid query that deploys is a rule that never fires.
 
 **The Service Health alert is subscription-scoped and should exist once per subscription.**
 Two deployments in one subscription each rendering one is two notifications per incident; the
-pattern checks the platform profile before adding it.
+pattern checks the existing deployment before adding it.
 
 **No logs and no metrics.** None of the three types has diagnostic categories or platform
 metrics; the set has no `observability` group. A rule's own health is read from the

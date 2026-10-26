@@ -272,7 +272,7 @@ groups:
       - id: private_endpoint_subnet
         ask: Which subnet should the bot's private endpoints live in?
         type: ref
-        resolved_by: platform
+        resolved_by: derived
         plain:
           en: "Its private connections land in subnet {value}."
           de: "Seine privaten Anbindungen landen im Subnetz {value}."
@@ -400,7 +400,7 @@ groups:
       - id: diagnostic_workspace
         ask: Which Log Analytics workspace should receive diagnostics?
         type: ref
-        resolved_by: platform
+        resolved_by: derived
         plain:
           en: "Its logs go to {value}."
           de: "Seine Logs gehen in {value}."

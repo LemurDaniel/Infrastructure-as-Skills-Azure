@@ -332,7 +332,7 @@ config file whose provenance has to be guessed.
 |---|---|
 | `stated` | The user said it in their request, before being asked |
 | `asked` | The user answered it in the interview |
-| `platform` | Read from the repository's [`platform.yaml`](platform.md), the profile the platform engineer wrote once |
+| `platform` | Derived from the landing-zone answers (`landing_zone_exists`, `central_*`), a platform-owned decision the customer was not asked |
 | `requirement` | Derived from a customer's answer in the deployment set's `requirements` group, with `derived_from: deployment.<id>` naming it |
 | `pattern` | A pattern skill pre-answered it |
 | `deployment` | Inherited from the deployment set, via the question's `from_deployment` |

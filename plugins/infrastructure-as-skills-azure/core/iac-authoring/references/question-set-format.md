@@ -88,7 +88,7 @@ groups:
 | `from_deployment` | no | The deployment-set question whose answer this one takes. Mutually exclusive with `default` and `required`. |
 | `forced_when` | no | Which answer elsewhere removes a value from `values`, or determines this one. Prose, because the conditions are not uniform enough to encode. Recorded as `forced` with `forced_by` in the spec. |
 | `from_context` | no | The value comes from the spec's `context:` rather than being asked per resource. |
-| `resolved_by` | no | `interview` (put to the customer) or `platform` (read from the platform profile); absent means defaulted or derived. See below. |
+| `resolved_by` | no | `interview` (put to the customer) or `derived` (never asked: derived, defaulted or an `open:` entry for the platform team); absent means defaulted or derived. See below. |
 | `topic` | for `interview` | The heading the question stands under in the interview: `platform`, `network`, `security`, `resilience`, `data` or `application`. Only on `resolved_by: interview`. See *The interview's topics*. |
 | `plain` | yes | One line per language (`en` required, `de` and others optional) saying what the decision means to the customer, with `{value}` where the value goes. Read by the decision document. See below. |
 | `plain_values` | no | For an enum, list or bool: the customer's words for each value, per language — what `{value}` becomes. Keys are the question's values. |
@@ -105,7 +105,7 @@ question is put to them only when it says so:
 | `resolved_by` | Resolved by | Example | When nobody is there |
 |---|---|---|---|
 | `interview` | The customer: what the system needs - who uses it, how bad an outage or a loss is, which rules apply, how long data lives | `environment`, `network_exposure`, `blob_soft_delete_days`, `mandates` | Asked - these are the questions the interview exists for |
-| `platform` | The organisation's platform, the same for every deployment on it | `landing_zone`, `existing_vnet`, `private_endpoint_subnet`, `private_dns_records`, `diagnostics_destination` | Read from [`platform.yaml`](platform.md); without one, defaulted where a default exists and otherwise an `open:` entry owned by the platform team |
+| `derived` | The organisation's platform, the same for every deployment on it | `network_ownership`, `existing_vnet`, `private_endpoint_subnet`, `private_dns_records`, `diagnostics_destination` | Never asked: derived from the landing-zone interview answers, defaulted where a default exists, otherwise an `open:` entry owned by the platform team |
 | *(absent)* | The default from the guardrails, or a derivation from an interview answer - a technical choice of the workload's engineer | `min_tls_version`, `private_endpoint_subresources`, `diagnostic_categories`, `key_management` | Defaulted and reported, never asked of a customer; a `required` one becomes an `open:` entry owned by the engineer |
 
 The field is optional: most questions have none. The test for `interview` is whether the
@@ -268,7 +268,6 @@ public access is disabled. Gate them rather than asking and discarding.
 ```powershell
 python3 <plugin>/core/iac-authoring/scripts/check_question_set.py                       # every set in the plugin
 python3 <plugin>/core/iac-authoring/scripts/check_question_set.py resources/storage      # one family, one resource, or one file
-python3 <plugin>/core/iac-authoring/scripts/check_question_set.py --platform ./platform.yaml   # a platform profile against the deployment set
 ```
 
 It parses the files (PyYAML) and checks what a regex cannot: the envelope and both
@@ -279,7 +278,7 @@ enum, a default within `values` and of the type's kind, `ref` on a ref question;
 of them present; `depends_on` naming a question in the set and a value it can take;
 `from_deployment` and `from_context` naming a deployment-set question; `confirm_in`
 naming known environments; `derived_from` naming an interview question in the deployment
-set with a map covering every answer; `resolved_by`, where present, one of `interview`, `platform`; and
+set with a map covering every answer; `resolved_by`, where present, one of `interview`, `derived`; and
 unknown fields, which is how a misspelt `default` turns into a question asked every run.
 Exit 0 clean, 1 violations, 2 could not check.
 

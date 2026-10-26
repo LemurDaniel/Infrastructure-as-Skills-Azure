@@ -29,7 +29,7 @@ rules, and record in the spec that no question set backed it.
 **The platform owns the scope above the workload.** Management groups, subscriptions and the
 policies assigned to them are the landing-zone hierarchy's; a workload deployment lands inside
 it and references what is there. Every set here opens with an ownership question
-(`resolved_by: platform`, default `platform`) that renders nothing, and only a platform run or a
+(`resolved_by: derived`, default `platform`) that renders nothing, and only a platform run or a
 `landing_zone: standalone` deployment answers `deployment`.
 
 **Scope, not resource group.** These resources deploy at tenant, management-group or

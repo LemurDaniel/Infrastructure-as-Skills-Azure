@@ -361,7 +361,7 @@ groups:
       - id: workload_subnet
         ask: Which subnet do the instances' network interfaces live in?
         type: ref
-        resolved_by: platform
+        resolved_by: derived
         plain:
           en: "Their network connection lands in subnet {value}."
           de: "Ihre Netzwerkanbindung landet im Subnetz {value}."
@@ -654,7 +654,7 @@ groups:
       - id: diagnostic_workspace
         ask: Which Log Analytics workspace should receive diagnostics?
         type: ref
-        resolved_by: platform
+        resolved_by: derived
         plain:
           en: "Its metrics go to {value}."
           de: "Seine Metriken gehen in {value}."

@@ -228,7 +228,7 @@ groups:
       - id: ddos_protection_mode
         ask: How should the address be protected against DDoS?
         type: enum
-        resolved_by: platform
+        resolved_by: derived
         plain:
           en: "DDoS protection for the address is {value}."
           de: "Der DDoS-Schutz für die Adresse ist {value}."
@@ -252,7 +252,7 @@ groups:
       - id: ddos_protection_plan
         ask: Which DDoS protection plan should protect the address?
         type: ref
-        resolved_by: platform
+        resolved_by: derived
         plain:
           en: "The protection plan is {value}."
           de: "Der Schutzplan ist {value}."
@@ -272,7 +272,7 @@ groups:
       - id: diagnostic_workspace
         ask: Which Log Analytics workspace should receive diagnostics?
         type: ref
-        resolved_by: platform
+        resolved_by: derived
         plain:
           en: "Its logs go to {value}."
           de: "Seine Logs gehen in {value}."

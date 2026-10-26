@@ -228,7 +228,7 @@ groups:
       - id: private_endpoint_subnet
         ask: Which subnet should the disk access resource's private endpoint live in?
         type: ref
-        resolved_by: platform
+        resolved_by: derived
         plain:
           en: "Its private connection lands in subnet {value}."
           de: "Seine private Anbindung landet im Subnetz {value}."

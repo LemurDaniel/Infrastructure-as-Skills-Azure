@@ -344,7 +344,7 @@ groups:
       - id: workspace
         ask: Which Log Analytics workspace should receive the data?
         type: ref
-        resolved_by: platform
+        resolved_by: derived
         plain:
           en: "The data goes to the log workspace {value}."
           de: "Die Daten gehen in den Log-Arbeitsbereich {value}."
@@ -479,7 +479,7 @@ groups:
       - id: endpoint_id
         ask: Which existing collection endpoint?
         type: ref
-        resolved_by: platform
+        resolved_by: derived
         plain:
           en: "Sends through the collection endpoint {value}."
           de: "Sendet über den Sammel-Endpunkt {value}."
@@ -555,7 +555,7 @@ groups:
       - id: private_link_scope
         ask: Which private monitoring connection should the endpoint belong to?
         type: ref
-        resolved_by: platform
+        resolved_by: derived
         plain:
           en: "Its private connection is the monitoring scope {value}."
           de: "Seine private Anbindung ist der Überwachungsbereich {value}."
@@ -624,7 +624,7 @@ groups:
       - id: diagnostic_workspace
         ask: Which Log Analytics workspace should receive the rule's own diagnostics?
         type: ref
-        resolved_by: platform
+        resolved_by: derived
         plain:
           en: "Its own error log goes to {value}."
           de: "Sein eigenes Fehlerprotokoll geht in {value}."

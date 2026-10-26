@@ -78,7 +78,7 @@ groups:
       - id: ownership
         ask: Who provides the DDoS protection plan?
         type: enum
-        resolved_by: platform
+        resolved_by: derived
         plain:
           en: "The DDoS protection plan comes from {value}."
           de: "Der DDoS-Schutzplan kommt von {value}."
@@ -103,7 +103,7 @@ groups:
       - id: existing_plan
         ask: Which existing DDoS protection plan should the networks use?
         type: ref
-        resolved_by: platform
+        resolved_by: derived
         plain:
           en: "The networks use the protection plan {value}."
           de: "Die Netze nutzen den Schutzplan {value}."

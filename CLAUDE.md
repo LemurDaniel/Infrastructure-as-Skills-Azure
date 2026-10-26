@@ -44,7 +44,6 @@ python plugins/infrastructure-as-skills-azure/core/iac-authoring/tests/run_spec_
 
 # Validates every question set (or the paths given) against the format: enum defaults,
 # depends_on / from_deployment targets, resolution fields, `resolved_by`, unknown fields.
-# --platform <platform.yaml> checks a platform profile against the deployment set instead.
 python3 plugins/infrastructure-as-skills-azure/core/iac-authoring/scripts/check_question_set.py
 
 # Renders fixture specs with the diagram script and asserts on the .drawio: zones, lines,
@@ -102,7 +101,7 @@ The full tree is in [README.md](README.md#layout). What is not obvious from it:
 | `.../core/iac-authoring/` | The entry point. Its description carries the target and workload terms a request says; the interview lives here |
 | `.../core/azure-resources/` | Routes every resource to its family and question set. Its description is the keyword surface for resource names |
 | `.../core/iac-authoring/questions/deployment.yaml` | The deployment-wide set, resolved before any resource |
-| `.../core/iac-authoring/references/{spec,question-set-format,guardrails,platform}.md` | The spec schema; how to author a `questions.yaml`; where every default comes from; the platform profile |
+| `.../core/iac-authoring/references/{spec,question-set-format,guardrails}.md` | The spec schema; how to author a `questions.yaml`; where every default comes from |
 | `.../core/iac-rendering/references/avm.md` | AVM first: which module, status, live version lookup, interfaces, provider requirements, gaps, the test contract |
 | `.../core/iac-rendering/references/{naming,terraform-idiom,bicep-idiom}.md` | Naming interfaces; layout, modules, tests per target |
 | `.../resources/<family>/routing.md` | Routing table: request → question set. **Not** a `SKILL.md` — see below |
@@ -188,8 +187,8 @@ are in [README.md](README.md#why-one-trigger-and-families-that-are-not-skills).
   stage file, never a literal in the template; `non_production_default` relaxes cost
   knobs outside production and is refused on anything security-shaped.
 - **Only `resolved_by: interview` questions reach the person.** There is no audience
-  field: a question is `interview`, `platform` (read from `platform.yaml`, which the
-  interview reads and never writes) or has no `resolved_by` and is defaulted or derived.
+  field: a question is `interview`, `platform` (never asked: derived from the
+  landing-zone answers, defaulted or an `open:` entry) or has no `resolved_by` and is defaulted or derived.
 - **A change to a rendered tree (`eval-agent/infra/`, `examples/`) goes spec, `check_spec.py`,
   diagram, sign-off, then the render by `iac-rendering` - never a hand edit of the `.bicep`/`.tf`.**
   Small changes follow it too (one app setting, one removed access line). A hand edit is for a

@@ -76,11 +76,11 @@ in `context.language` ("Das Plugin ist älter als der letzte Lauf in diesem Repo
 aktualisieren" / "The plugin is older than the last run in this repo - please update"), and
 carry on. It changes no code, so it is its own commit.
 
-Look for `platform.yaml` beside it in the same search. It is the platform engineer's
-profile — landing zone, hub network and subnet, DNS, workspace, telemetry — and every
-value in it answers a deployment-set question with `resolved_by: platform` before anyone is
-asked. Say in the first message whether one was found. Never write it from an interview:
-[references/platform.md](references/platform.md).
+There is no platform profile file. The platform is asked in the interview, in plain words:
+`landing_zone_exists`, and without a landing zone `central_logging`, `central_private_dns`
+and `central_network`. The names behind a "yes" (hub, subnet, workspace, zone resource
+group) are never asked: they are stage-file parameters or `open:` entries owned by the
+platform team.
 
 ## Who is in the interview — the customer, always
 
@@ -93,7 +93,7 @@ decides what happens to it:
 | `resolved_by` | What happens |
 |---|---|
 | `interview` | Put to the person: the module choice and the naming mechanism (asked first), the deployment set's context, posture, mandates and `requirements` group, and any resource question that carries it |
-| `platform` | Read from `platform.yaml`, else its default; a `required` one with no profile is an `open:` entry owned by the platform team |
+| `derived` | Never asked: derived from the landing-zone answers (`landing_zone_exists`, `central_*`), else its default; a `required` one is an `open:` entry owned by the platform team |
 | *(absent)* | Its default, or derived from a requirement; a `required` one nobody can default is an `open:` entry owned by the workload's engineer |
 
 Say so in the first message: "Ich frage dich nur, was das System braucht; die
@@ -374,10 +374,9 @@ For each question, the answer then comes from the first source that has one:
 |---|---|---|
 | 1 | What the user said — the request and the Phase 0 description | `stated`, or `overridden` where it changes a carried value |
 | 2 | The existing `infra-spec.yaml` | `carried` |
-| 3 | The repository's `platform.yaml` | `platform` |
-| 4 | A pattern skill's pre-answers | `pattern` |
-| 5 | The deployment set's answer: copied for a `from_deployment` question, mapped through the question's table for a `derived_from` one | `deployment`, or `requirement` with `derived_from: deployment.<id>` |
-| 6 | The question's `default` | `default` |
+| 3 | A pattern skill's pre-answers | `pattern` |
+| 4 | The deployment set's answer: copied for a `from_deployment` question, mapped through the question's table for a `derived_from` one | `deployment`, or `requirement` with `derived_from: deployment.<id>` |
+| 5 | The question's `default` | `default` |
 
 A carried value outranks a pattern and a default on purpose: it was decided, and quite
 possibly deployed. A re-run that let a pattern or a changed guardrail flip it would turn
@@ -388,7 +387,7 @@ re-derived from what they follow, not carried.
 A question with `required: true` has no default and no safe guess. It is the only kind you
 must ask. A question with `resolved_by: interview`
 ([question-set-format](references/question-set-format.md#who-resolves-it-resolved_by)) is
-put to the person; one with `resolved_by: platform`, or none, is never put to a customer —
+put to the person; one with `resolved_by: derived`, or none, is never put to a customer —
 it resolves from the profile or the default, and a
 `required` one nobody present can answer becomes an `open:` entry naming its owner.
 
@@ -456,8 +455,8 @@ nobody peers with - 10.100.0.0/24, /23, /22 - with the size that fits the descri
 marked recommended, because that recommendation is sizing the plugin derives from the
 system (compute subnets, private endpoints, a Container Apps environment), not a guess
 about the organisation; the rule and the sizes are on `address_space` in the deployment
-set, and each stage takes its own block of the chosen size. Nothing else is asked. A question without `resolved_by` takes its default; a `platform`
-question takes the profile's value or its default; a `required` question of either
+set, and each stage takes its own block of the chosen size. Nothing else is asked. A question without `resolved_by` takes its default; a `derived`
+question takes its derived value or its default; a `required` question of either
 kind that nothing answers becomes an `open:` entry with its owner named, and Phase 4
 says so. Put the batch in the customer's words — the `ask` texts of the `requirements`
 group are written for that — and never a decision's vocabulary (`ZRS`, `TLS1_2`, a
@@ -484,7 +483,7 @@ ask it; default it and say so in Phase 4, or open it with its owner.
 **Never invent a value nobody gave.** Grouped options work for an `enum`, where the
 values come from the question set. A `ref`, an address range, a subscription id, a
 workspace name — anything only the environment knows — is never offered as an option and
-never guessed: it comes from `platform.yaml`, from the stage file, or from the person's
+never guessed: it comes from the stage file or from the person's
 own prose in Phase 0, and otherwise it is an `open:` entry naming its owner. An
 unassigned address range is a blocker to say out loud, not a gap to fill with
 `10.0.0.0/16`; a workspace that does not exist yet is a boundary — something this run

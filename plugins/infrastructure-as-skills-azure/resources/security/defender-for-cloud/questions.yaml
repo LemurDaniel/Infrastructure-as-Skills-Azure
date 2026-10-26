@@ -60,7 +60,7 @@ groups:
       - id: defender_ownership
         ask: Who switches Defender plans on in this subscription?
         type: enum
-        resolved_by: platform
+        resolved_by: derived
         plain:
           en: "Defender plans are switched on by {value}."
           de: "Defender-Pläne werden eingeschaltet von {value}."

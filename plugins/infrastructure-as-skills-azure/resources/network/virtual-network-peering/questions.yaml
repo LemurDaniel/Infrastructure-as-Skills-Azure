@@ -119,7 +119,7 @@ groups:
       - id: remote_virtual_network
         ask: Which network should it be peered with (the remote side)?
         type: ref
-        resolved_by: platform
+        resolved_by: derived
         plain:
           en: "It is peered with the network {value}."
           de: "Es wird mit dem Netz {value} verbunden."
@@ -127,7 +127,7 @@ groups:
         required: true
         per_environment: true
         why: >
-          The hub of the platform, read from the platform profile and not guessed. Its address
+          The hub of the platform, named by the platform team and not guessed. Its address
           space must not overlap the local one - a peering is refused, at apply time, when it
           does - and the remote network may sit in another subscription; the
           pipeline's identity then needs rights there for the reverse side (below).
@@ -195,7 +195,7 @@ groups:
       - id: central_inspection
         ask: Does the hub send spoke traffic through a firewall or appliance?
         type: bool
-        resolved_by: platform
+        resolved_by: derived
         plain:
           en: "The hub inspects traffic between spokes and to the outside: {value}."
           de: "Der Hub prüft Verkehr zwischen Spokes und nach außen: {value}."
@@ -259,7 +259,7 @@ groups:
       - id: hub_gateway
         ask: Do the spokes reach on-premises through a VPN or ExpressRoute gateway in the hub?
         type: bool
-        resolved_by: platform
+        resolved_by: derived
         plain:
           en: "The spokes reach on-premises through a gateway in the hub: {value}."
           de: "Die Spokes erreichen das lokale Netz über ein Gateway im Hub: {value}."

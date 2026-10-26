@@ -146,7 +146,7 @@ groups:
       - id: subnet
         ask: Which subnet should the endpoint live in?
         type: ref
-        resolved_by: platform
+        resolved_by: derived
         plain:
           en: "Its private connection lands in subnet {value}."
           de: "Seine private Anbindung landet im Subnetz {value}."
@@ -183,7 +183,7 @@ groups:
       - id: dns_ownership
         ask: Who owns the private DNS zones?
         type: enum
-        resolved_by: platform
+        resolved_by: derived
         plain:
           en: "Name resolution for private connections is handled by {value}."
           de: "Die Namensauflösung für private Anbindungen übernimmt {value}."
@@ -200,7 +200,7 @@ groups:
       - id: dns_records
         ask: Does a platform policy create the DNS records for private endpoints, or does this deployment?
         type: enum
-        resolved_by: platform
+        resolved_by: derived
         plain:
           en: "The name entries for private connections are written by {value}."
           de: "Die Namenseinträge für private Anbindungen schreibt {value}."
@@ -255,7 +255,7 @@ groups:
       - id: dns_zone_scope
         ask: In which subscription and resource group does the platform keep the private DNS zones?
         type: ref
-        resolved_by: platform
+        resolved_by: derived
         plain:
           en: "The platform keeps the name zones in {value}."
           de: "Die Plattform hält die Namenszonen in {value}."

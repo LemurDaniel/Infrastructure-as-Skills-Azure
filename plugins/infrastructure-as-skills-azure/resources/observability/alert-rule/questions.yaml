@@ -387,7 +387,7 @@ groups:
       - id: workspace
         ask: Which Log Analytics workspace should the query run against?
         type: ref
-        resolved_by: platform
+        resolved_by: derived
         plain:
           en: "The query runs against the log workspace {value}."
           de: "Die Abfrage läuft gegen den Log-Arbeitsbereich {value}."

@@ -51,7 +51,7 @@ deployment:
     forced_by: deployment.environments   # a [sandbox] stack takes every non_production_default
   landing_zone:
     value: standalone
-    source: default         # no platform.yaml, nothing referenced
+    source: default         # no landing zone, nothing referenced
   network_exposure:
     value: public
     source: asked
