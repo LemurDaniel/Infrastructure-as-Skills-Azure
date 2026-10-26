@@ -420,7 +420,8 @@ def main():
         w(f"- {R.line(q, d.get('value'))}{note}")
     w('')
     overridden, assumed = [], []
-    security, blocks = [], []
+    security, blocks = {}, []   # security: kind title -> {line: [instances]}, in first-seen order
+    instances = {}              # kind -> every instance of it, for "all of them"
     for res, groups in resources.items():
         qset = sets.get(res, {})
         lines = []
@@ -442,7 +443,14 @@ def main():
                     continue
                 note = forced_note(d) if src == 'forced' else ''
                 if gid in SECURITY_GROUPS and not res.startswith('user-assigned-identity'):
-                    security.append(f"- {titles.get(res, res)}: {R.line(q, d.get('value'))}{note}")
+                    kind, _, inst = res.partition('__')
+                    title = titles.get(res, res)
+                    if inst and title.endswith(f' ({inst})'):
+                        title = title[:-len(inst) - 3]
+                    instances.setdefault(kind, [])
+                    if inst and inst not in instances[kind]:
+                        instances[kind].append(inst)
+                    security.setdefault((kind, title), {}).setdefault(f"{R.line(q, d.get('value'))}{note}", []).append(inst)
                     continue
                 lines.append(f"- {R.line(q, d.get('value'))}{note}")
         if lines:
@@ -452,7 +460,12 @@ def main():
         w('')
         w(L['security_intro'])
         w('')
-        out.extend(security)
+        for (kind, title), rows in security.items():
+            w(f"- **{title}**")
+            for text, who in rows.items():
+                every = len(who) == len(instances.get(kind, [])) and len(who) > 1
+                label = f" ({', '.join(who)})" if who[0] and not every else ''
+                w(f"  - {text}{label}")
         w('')
     for title, lines in blocks:
         w(f"### {title}")

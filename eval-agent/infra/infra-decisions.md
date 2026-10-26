@@ -57,56 +57,47 @@ Nichts davon wurde gefragt; jede Zeile folgt einer Regel oder einer der Antworte
 
 Die Sicherheitsvorgaben aller Teile an einer Stelle. Sie wurden nicht gefragt und sind in jeder Stufe gleich; sagt Bescheid, wenn eine nicht passt.
 
-- Azure Virtual Network: Ein kostenpflichtiger DDoS-Schutzplan wird nicht genutzt; Azures Basisschutz gilt ohnehin.
-- Azure Virtual Network: Subnetze, die eine Sicherheitsgruppe bekommen: keine.
-- Azure Container Registry: Die Registry hat keine eigene Identität.
-- Azure Container Registry: Zugriffsrechte auf die Registry vergeben an: keine.
-- Azure Container Registry: Das gemeinsame Admin-Konto ist abgeschaltet; der Zugriff läuft über Firmenkonten.
-- Azure Container Registry: Das Herunterladen von Images ohne Anmeldung ist nicht erlaubt.
-- Azure Container Registry: Verschlüsselungsschlüssel sind von Azure verwaltet: verschlüsselt, rotiert, kein Aufwand bei euch.
-- Azure AI Foundry (AI Services account with projects and model deployments): Das Konto hat keine eigene Identität.
-- Azure AI Foundry (AI Services account with projects and model deployments): Zugriffsrechte auf das Konto vergeben an: keine.
-- Azure AI Foundry (AI Services account with projects and model deployments): Die Anmeldung mit Kontoschlüsseln ist abgeschaltet; der Zugriff läuft über Firmenkonten.
-- Azure AI Foundry (AI Services account with projects and model deployments): Verschlüsselungsschlüssel sind von Azure verwaltet: verschlüsselt, rotiert, kein Aufwand bei euch.
-- Azure Storage Account: Der Speicher hat keine eigene Identität, um andere Dienste zu erreichen.
-- Azure Storage Account: Zugriffsrechte vergeben an: keine.
-- Azure Storage Account: Zugriff mit einem geteilten Schlüssel ist nicht möglich; der Zugriff läuft über Firmenkonten.
-- Azure Storage Account: Verbindungen müssen mindestens TLS 1.2-Verschlüsselung nutzen.
-- Azure Storage Account: Unverschlüsselte Verbindungen werden abgewiesen.
-- Azure Storage Account: Einzelne Ordner öffentlich lesbar zu machen ist nicht möglich.
-- Azure Storage Account: Eine zweite Verschlüsselungsschicht unterhalb des Dienstes ist eingeschaltet.
-- Azure Storage Account: Verschlüsselungsschlüssel sind von Azure verwaltet: verschlüsselt, rotiert, kein Aufwand bei euch.
-- Azure Storage Account: Dateiübertragung per SFTP ist ausgeschaltet.
-- Azure App Service (web app on an App Service plan) (dashboard): Sie nutzt die Identitäten user-assigned-identity__dashboard. — weil: `resources.app-service__dashboard.identity.managed_identity`
-- Azure App Service (web app on an App Service plan) (dashboard): `"existing_app_registration"`
-- Azure App Service (web app on an App Service plan) (dashboard): `"key_vault_reference"`
-- Azure App Service (web app on an App Service plan) (dashboard): Unverschlüsselte Verbindungen werden auf die verschlüsselte Adresse umgeleitet.
-- Azure App Service (web app on an App Service plan) (dashboard): Verbindungen müssen mindestens TLS 1.2-Verschlüsselung nutzen.
-- Azure App Service (web app on an App Service plan) (dashboard): Dateiupload per FTP ist abgeschaltet.
-- Azure App Service (web app on an App Service plan) (dashboard): Das Ausrollen mit Benutzername und Passwort ist nicht möglich; Rollouts laufen über Firmenkonten.
-- Azure App Service (web app on an App Service plan) (agent): Sie nutzt die Identitäten user-assigned-identity__agent. — weil: `resources.app-service__agent.identity.managed_identity`
-- Azure App Service (web app on an App Service plan) (agent): Unverschlüsselte Verbindungen werden auf die verschlüsselte Adresse umgeleitet.
-- Azure App Service (web app on an App Service plan) (agent): Verbindungen müssen mindestens TLS 1.2-Verschlüsselung nutzen.
-- Azure App Service (web app on an App Service plan) (agent): Dateiupload per FTP ist abgeschaltet.
-- Azure App Service (web app on an App Service plan) (agent): Das Ausrollen mit Benutzername und Passwort ist nicht möglich; Rollouts laufen über Firmenkonten.
-- Azure App Service (web app on an App Service plan) (drift): Sie nutzt die Identitäten user-assigned-identity__drift. — weil: `resources.app-service__drift.identity.managed_identity`
-- Azure App Service (web app on an App Service plan) (drift): Unverschlüsselte Verbindungen werden auf die verschlüsselte Adresse umgeleitet.
-- Azure App Service (web app on an App Service plan) (drift): Verbindungen müssen mindestens TLS 1.2-Verschlüsselung nutzen.
-- Azure App Service (web app on an App Service plan) (drift): Dateiupload per FTP ist abgeschaltet.
-- Azure App Service (web app on an App Service plan) (drift): Das Ausrollen mit Benutzername und Passwort ist nicht möglich; Rollouts laufen über Firmenkonten.
-- Azure App Service (web app on an App Service plan) (fuzz): Sie nutzt die Identitäten user-assigned-identity__fuzz. — weil: `resources.app-service__fuzz.identity.managed_identity`
-- Azure App Service (web app on an App Service plan) (fuzz): Unverschlüsselte Verbindungen werden auf die verschlüsselte Adresse umgeleitet.
-- Azure App Service (web app on an App Service plan) (fuzz): Verbindungen müssen mindestens TLS 1.2-Verschlüsselung nutzen.
-- Azure App Service (web app on an App Service plan) (fuzz): Dateiupload per FTP ist abgeschaltet.
-- Azure App Service (web app on an App Service plan) (fuzz): Das Ausrollen mit Benutzername und Passwort ist nicht möglich; Rollouts laufen über Firmenkonten.
-- Azure App Service (web app on an App Service plan) (tune): Sie nutzt die Identitäten user-assigned-identity__tune. — weil: `resources.app-service__tune.identity.managed_identity`
-- Azure App Service (web app on an App Service plan) (tune): Unverschlüsselte Verbindungen werden auf die verschlüsselte Adresse umgeleitet.
-- Azure App Service (web app on an App Service plan) (tune): Verbindungen müssen mindestens TLS 1.2-Verschlüsselung nutzen.
-- Azure App Service (web app on an App Service plan) (tune): Dateiupload per FTP ist abgeschaltet.
-- Azure App Service (web app on an App Service plan) (tune): Das Ausrollen mit Benutzername und Passwort ist nicht möglich; Rollouts laufen über Firmenkonten.
-- Azure Storage blob container: Zugriffsrechte vergeben an: keine.
-- Azure Key Vault: Zugriffsrechte auf den Tresor vergeben an: keine.
-- Azure Key Vault: Plattformdienste, die aus dem Tresor lesen dürfen: keine (leer: keine).
+- **Azure Virtual Network**
+  - Ein kostenpflichtiger DDoS-Schutzplan wird nicht genutzt; Azures Basisschutz gilt ohnehin.
+  - Subnetze, die eine Sicherheitsgruppe bekommen: keine.
+- **Azure Container Registry**
+  - Die Registry hat keine eigene Identität.
+  - Zugriffsrechte auf die Registry vergeben an: keine.
+  - Das gemeinsame Admin-Konto ist abgeschaltet; der Zugriff läuft über Firmenkonten.
+  - Das Herunterladen von Images ohne Anmeldung ist nicht erlaubt.
+  - Verschlüsselungsschlüssel sind von Azure verwaltet: verschlüsselt, rotiert, kein Aufwand bei euch.
+- **Azure AI Foundry (AI Services account with projects and model deployments)**
+  - Das Konto hat keine eigene Identität.
+  - Zugriffsrechte auf das Konto vergeben an: keine.
+  - Die Anmeldung mit Kontoschlüsseln ist abgeschaltet; der Zugriff läuft über Firmenkonten.
+  - Verschlüsselungsschlüssel sind von Azure verwaltet: verschlüsselt, rotiert, kein Aufwand bei euch.
+- **Azure Storage Account**
+  - Der Speicher hat keine eigene Identität, um andere Dienste zu erreichen.
+  - Zugriffsrechte vergeben an: keine.
+  - Zugriff mit einem geteilten Schlüssel ist nicht möglich; der Zugriff läuft über Firmenkonten.
+  - Verbindungen müssen mindestens TLS 1.2-Verschlüsselung nutzen.
+  - Unverschlüsselte Verbindungen werden abgewiesen.
+  - Einzelne Ordner öffentlich lesbar zu machen ist nicht möglich.
+  - Eine zweite Verschlüsselungsschicht unterhalb des Dienstes ist eingeschaltet.
+  - Verschlüsselungsschlüssel sind von Azure verwaltet: verschlüsselt, rotiert, kein Aufwand bei euch.
+  - Dateiübertragung per SFTP ist ausgeschaltet.
+- **Azure App Service (web app on an App Service plan)**
+  - Sie nutzt die Identitäten user-assigned-identity__dashboard. — weil: `resources.app-service__dashboard.identity.managed_identity` (dashboard)
+  - `"existing_app_registration"` (dashboard)
+  - `"key_vault_reference"` (dashboard)
+  - Unverschlüsselte Verbindungen werden auf die verschlüsselte Adresse umgeleitet.
+  - Verbindungen müssen mindestens TLS 1.2-Verschlüsselung nutzen.
+  - Dateiupload per FTP ist abgeschaltet.
+  - Das Ausrollen mit Benutzername und Passwort ist nicht möglich; Rollouts laufen über Firmenkonten.
+  - Sie nutzt die Identitäten user-assigned-identity__agent. — weil: `resources.app-service__agent.identity.managed_identity` (agent)
+  - Sie nutzt die Identitäten user-assigned-identity__drift. — weil: `resources.app-service__drift.identity.managed_identity` (drift)
+  - Sie nutzt die Identitäten user-assigned-identity__fuzz. — weil: `resources.app-service__fuzz.identity.managed_identity` (fuzz)
+  - Sie nutzt die Identitäten user-assigned-identity__tune. — weil: `resources.app-service__tune.identity.managed_identity` (tune)
+- **Azure Storage blob container**
+  - Zugriffsrechte vergeben an: keine.
+- **Azure Key Vault**
+  - Zugriffsrechte auf den Tresor vergeben an: keine.
+  - Plattformdienste, die aus dem Tresor lesen dürfen: keine (leer: keine).
 
 ### Azure Virtual Network
 
