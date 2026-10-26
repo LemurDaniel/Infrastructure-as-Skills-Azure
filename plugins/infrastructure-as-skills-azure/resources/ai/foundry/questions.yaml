@@ -57,7 +57,21 @@ groups:
           version and a deployment type are offered per region, and the region is the one
           decision that can make the model list in `model_deployments` impossible. Check the
           region's offer before the interview ends, not at apply.
-        renders: location
+          A model `context.location` lacks is resolved in this order. **The data zone
+          first**: under `data_residency: data_zone` or `unrestricted` the model may be
+          offered as `DataZoneStandard` in the region, and the account stays where
+          everything else is. Only then **another region for this account alone** - the
+          one resource that departs, because its catalogue is regional and nothing else's
+          is (Sweden Central is the usual one in the EU). The person names it, with the
+          model as the reason; the run proposes, never picks. One region for every stage,
+          inside the data zone; under `country` there is no departure - the model is a
+          named gap, or the customer revisits the residency. The private endpoint stays in
+          the network's region, which works across regions; agent network injection does
+          not (the account must be in the network's region) and rules the departure out.
+        renders: >
+          location - context.location, or `resources.<key>.placement.location` when it departs:
+          then its own variable `foundry_location` / param `foundryLocation`, one value in every
+          stage file; the private endpoint keeps context.location
 
       - id: resource_group_name
         ask: Which resource group?
