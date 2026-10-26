@@ -68,6 +68,21 @@ graders:
     pattern: '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}'
     match: not_contains
 
+  # The canonical form (spec.md#canonical-form): the requirements stand under their group
+  # comment, and nothing is an anchor. Without a shell the run lays it out by hand, so this
+  # grades that the form reaches the file, not that write_spec.py ran.
+  - name: canonical-requirements-group
+    type: regex
+    target: { source: file, path: infra/infra-spec.yaml }
+    pattern: '# --- requirements ---(?:(?!# ---)[\s\S])*?\boutage_impact:'
+
+  - name: canonical-no-anchors
+    type: regex
+    target: { source: file, path: infra/infra-spec.yaml }
+    pattern: ':\s+[&*][A-Za-z_][\w-]*(?:\s|$)'
+    flags: m
+    match: not_contains
+
   - name: no-code-before-confirmation
     type: file_exists
     path: '**/*.tf'
