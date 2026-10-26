@@ -557,7 +557,10 @@ marked recommended, because that recommendation is sizing the plugin derives fro
 system (the sum of its subnets: endpoints /27, an integrated app /26, a Container Apps
 environment), not a guess
 about the organisation; the rule and the sizes are on `address_space` in the deployment
-set, and each stage takes its own block of the chosen size. Nothing else is asked. A question without `resolved_by` takes its default; a `derived`
+set, and each stage takes its own block of the chosen size. **It is the last question of the
+interview**, after the application topic and after any contradiction is settled: the size is
+the sum of the subnets, and the subnets follow from the compute (`app_runtime`,
+`app_containers`) and from the exposure a contradiction may still change. Nothing else is asked. A question without `resolved_by` takes its default; a `derived`
 question takes its derived value or its default; a `required` question of either
 kind that nothing answers becomes an `open:` entry with its owner named, and Phase 4
 says so. Put the batch in the customer's words — the `ask` texts of the `requirements`
