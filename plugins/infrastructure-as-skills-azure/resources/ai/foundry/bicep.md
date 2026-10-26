@@ -109,6 +109,37 @@ The model name and version are an example of the shape; the real ones are looked
 the region's catalogue. Parameter and output spellings (`customerManagedKey`, `endpoint`)
 are read from the README of the pinned version.
 
+### Another region
+
+When the spec carries `resources.<key>.placement.location`, the account takes its own
+parameter, one value in every stage file. The module puts the private endpoint into its
+virtual network's region when the entry names none; the render writes it anyway, so the call
+says where each part runs. The names do not change - the account's pattern carries no region.
+
+```bicep
+// decision: foundry.placement.location - departs from location for the model catalogue
+@description('Region of the Foundry account, apart from location.')
+param foundryLocation string
+
+module foundry 'br/public:avm/res/cognitive-services/account:0.19.1' = {
+  params: {
+    location: foundryLocation
+    privateEndpoints: [
+      {
+        name: privateEndpointName
+        location: location // the subnet's region, never the account's
+        service: 'account'
+        subnetResourceId: privateEndpointSubnetId
+      }
+    ]
+    // ...
+  }
+}
+```
+
+The projects take `foundryLocation` too. The ARM test asserts the account on
+`foundryLocation` and the endpoint on `location`.
+
 ### Projects
 
 Not in the module; a child resource next to it, with its own identity:
