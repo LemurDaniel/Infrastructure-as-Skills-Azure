@@ -510,16 +510,27 @@ per-family` in `check_spec.py` and the `chatbot` spec, and `references/private-d
   dropped: fourteen groups for a chat app, owned and deleted by nobody as a unit); `resource_group_split` is
   derived from the scheme's table and the design, corrected at the diagram sign-off. One reader,
   `iac-rendering/scripts/rg_roles.py`, for check_spec, diagram, decision document and name list.
-  `resource_groups_created` offers one option per group, more than eight groups become one single
-  choice. Also from the interviews: `private` with `network_requirements: free` and users is a
+  `resource_groups_created` offers one option per group. Also from the interviews: `private` with `network_requirements: free` and users is a
   contradiction in the list. **A split has no main group**: every set has a role in both tables
   (or is `attached`), and Bicep renders one root per stage deployed into the first group of the
   split, modules scoped per group, references as module outputs - ordering whole groups ran into
   circles that do not exist between resources. The three tracked specs with a split predate
-  `resource_group_layout` and keep their main group (a warning). Open: no render, no diagram fixture and no eval case for the two new schemes (checked
-  end to end on a copy of `chatbot` only); option descriptions in the interview are written
-  freely from `plain_values`, no fixed pattern; the local-deploy gap under resource-group
-  isolation is a sentence in the question, not a rule.
+  `resource_group_layout` and keep their main group (a warning). Open: no render, no diagram
+  fixture and no eval case for the new schemes (checked end to end on a copy of `chatbot` only).
+- **The interview, as five test rounds with the owner left it** (2026-10-26/27): Phase 0 asks
+  target, module choice and `deployment_scope` (resource group / subscription), then naming for
+  Terraform; `stage_isolation` is derived from the scope, never asked. `app_runtime` (and
+  `app_containers` for a container) is asked before any compute set is chosen - code on App
+  Service, several containers on Container Apps, never Container Apps unasked. Every public app
+  gets `public_audience` with three fixed options, `waf` recommended; `public_entry` is Front Door
+  unless an Application Gateway is named. The address range is the last question, sized from the
+  subnets (/25 for an app and its endpoints). Options come from the question set (`values`, the
+  new `offer` field), an empty multi-select answer is an explicit option, "Other" is read, never
+  guessed. `check_spec.py` fails on a role granted to a resource the spec does not have. Open:
+  the container-apps set is one environment with one app, so two apps (a chat front end and an
+  import worker) render two environments and two subnets - it needs several apps per
+  environment; `central_backup` is asked before `backup_isolation` and so also when no copy
+  leaves the system; the round-5 spec and diagram live in a scratchpad only.
 - The diagrams of `chatbot-rag`, `chat-sandbox` and `orders-integration` were not redrawn
   after region/subscription became `open:` (2026-10-26); `chat-sandbox`'s carries hand edits
   a redraw would lose.
