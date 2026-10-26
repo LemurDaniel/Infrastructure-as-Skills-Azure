@@ -496,6 +496,12 @@ per-family` in `check_spec.py` and the `chatbot` spec, and `references/private-d
   it, derived by the rules and re-exported; the six pipeline fixtures under `tests/pipelines/`
   do not. Open: no rendered pipeline header lists the roles, and `check_pipeline.py` does not
   check the header against the spec.
+- **`stage_isolation` is asked** (2026-10-26), with a landing zone too (customers keep a
+  workload's stages in one vended subscription). `resource_group` forces every group to
+  `existing` and the person is told that each stage's identity holds roles on its own groups
+  only - a subscription assignment removes the separation; `check_spec.py` fails on a
+  `create` group or a `subscription`-scoped deployer role under it. Open: no example and no
+  eval case uses `resource_group`, and no pipeline render has scoped identities to groups.
 - The diagrams of `chatbot-rag`, `chat-sandbox` and `orders-integration` were not redrawn
   after region/subscription became `open:` (2026-10-26); `chat-sandbox`'s carries hand edits
   a redraw would lose.
