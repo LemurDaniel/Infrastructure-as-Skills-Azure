@@ -1,0 +1,868 @@
+schema_version: 1
+
+resource: Microsoft.Sql/managedInstances
+title: Azure SQL Managed Instance
+
+naming:
+  terraform: "Azure::Microsoft.Sql/managedInstances"
+  bicep: "Microsoft.Sql/managedInstances"
+  # Bicep assembles the name from vars - this is the prefix it renders. The instance name is
+  # global, lowercase, 1-63 characters, and part of the host <name>.<dnszone>.database.windows.net.
+  abbreviation: "sqlmi"
+
+boundaries:
+  - "Covers one SQL Managed Instance (`Microsoft.Sql/managedInstances`) and the instance databases it starts with. Azure SQL Database (`Microsoft.Sql/servers`) is the sql-database set; SQL Server on a VM and instance pools have no question set."
+  - "Does not create the resource group. Expects one from the spec's context."
+  - "Does not create the delegated subnet, its network security group or its route table: the instance needs all three, delegated to `Microsoft.Sql/managedInstances`, and they are the platform's or the network set's. The subnet is referenced."
+  - "Does not create private DNS zones - shared infrastructure, owned by a pattern or the platform."
+  - "Does not create the Log Analytics workspace it routes diagnostics and audit logs to."
+  - "Does not create the Key Vault or the key a customer-managed TDE protector points at, nor the identity that unwraps it - those are the security family's."
+  - "Does not enable Microsoft Defender for SQL as a subscription plan (`Microsoft.Security/pricings`): that is subscription-wide and the platform's. This set only sets the instance-level settings that use it."
+  - "Does not create logins, database users or grant database roles, and does not create the server audit: on a managed instance all of that is T-SQL, not Azure Resource Manager. They are recorded as decisions and executed by a step after the deployment."
+  - "Does not create a failover group or a secondary instance. A second region is a second instance of this set plus the failover group; `critical` records it as an open entry."
+  - "Does not render instance pools, the free offer, a restore or point-in-time create mode, Windows authentication for Entra principals, link to SQL Server, or the next-generation General Purpose variant."
+
+groups:
+
+  # ---------------------------------------------------------------- placement
+  - id: placement
+    title: Placement
+    questions:
+      - id: environments
+        ask: Which stages is this deployed to?
+        type: list
+        plain:
+          en: "Deployed in the stages {value}."
+          de: "Wird in den Stufen {value} ausgerollt."
+        values: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
+        required: true
+        from_context: true
+        why: >
+          Drives the rendered name and the strictness of several defaults below.
+          Nothing sensible can be guessed.
+        renders: naming parameter `environment`, and the tag of that name where the repository uses one
+
+      - id: location
+        ask: Which Azure region?
+        type: string
+        plain:
+          en: "Runs in the Azure region {value}."
+          de: "Läuft in der Azure-Region {value}."
+        required: true
+        from_context: true
+        why: >
+          The instance lives in the region of its subnet, and the region is part of the
+          rendered name. Zone redundancy, premium-series hardware and the maintenance
+          windows are not available in every region, and a region short of capacity can
+          refuse a new instance for hours.
+        renders: location
+
+      - id: resource_group_name
+        ask: Which resource group?
+        type: ref
+        plain:
+          en: "Placed in the resource group {value}."
+          de: "Liegt in der Ressourcengruppe {value}."
+        ref: resource_group
+        required: true
+        from_context: true
+        per_environment: true
+        why: >
+          The instance is placed into an existing group. Creating one here would make this
+          set own a lifecycle wider than the resource it describes.
+        renders: resource_group_name (AVM Terraform, azurerm-based) / implicit in Bicep scope
+
+  # ----------------------------------------------------------------- instance
+  - id: instance
+    title: Instance and compute
+    questions:
+      - id: service_tier
+        ask: Which kind of instance is needed - a balanced one, or one for very low latency with a built-in readable copy?
+        type: enum
+        plain:
+          en: "The instance is of the kind {value}."
+          de: "Die Instanz ist von der Art {value}."
+        plain_values:
+          GeneralPurpose: { en: "balanced - remote storage, the usual choice for migrated business applications", de: "ausgewogen: entfernter Speicher, die übliche Wahl für migrierte Geschäftsanwendungen" }
+          BusinessCritical: { en: "low latency with local storage, in-memory tables and a built-in readable copy, at several times the price", de: "geringe Latenz mit lokalem Speicher, In-Memory-Tabellen und eingebauter lesbarer Kopie, zum Mehrfachen des Preises" }
+        values: [GeneralPurpose, BusinessCritical]
+        default: GeneralPurpose
+        confirm_in: [production]
+        why: >
+          General Purpose is the floor: remote premium storage, zone redundancy available,
+          and the lowest price per vCore. Business Critical buys local SSD storage, an
+          Always On group of four replicas with one readable, and In-Memory OLTP - for a
+          multiple of the price, and the vCore minimum is the same. The tier can be changed
+          in place later; the change is a long operation (hours) with a short failover at
+          the end, during which connections drop.
+        renders: sku_name prefix (`GP_` / `BC_`) / skuTier and skuName
+
+      - id: hardware_family
+        ask: Which hardware generation should the instance run on?
+        type: enum
+        plain:
+          en: "The instance runs on {value}."
+          de: "Die Instanz läuft auf {value}."
+        plain_values:
+          standard_series: { en: "the standard hardware", de: "der Standard-Hardware" }
+          premium_series: { en: "newer, faster hardware with more memory per core", de: "neuerer, schnellerer Hardware mit mehr Speicher je Kern" }
+          premium_series_memory_optimized: { en: "newer hardware with the most memory per core", de: "neuerer Hardware mit dem meisten Speicher je Kern" }
+        values: [standard_series, premium_series, premium_series_memory_optimized]
+        default: standard_series
+        why: >
+          Standard-series (Gen5) is available everywhere and is what the service defaults
+          to. Premium-series gives about 1.4x the memory per vCore and newer CPUs at the
+          same vCore price where it is available, and the memory-optimized premium-series
+          roughly 2.7x, which is the answer to a workload that is memory-bound rather than
+          core-bound. A change of hardware generation is an in-place scale operation with
+          the same long duration as a tier change. The Terraform module spells it in
+          `sku_name` (`GP_Gen5`, `GP_Gen8IM`, `GP_Gen8IH`), the Bicep module in
+          `hardwareFamily` with the matching `skuName`.
+        renders: sku_name (`<tier>_Gen5` / `_Gen8IM` / `_Gen8IH`) / hardwareFamily (`Gen5`, `Gen8IM`, `Gen8IH`) and skuName
+
+      - id: vcores
+        ask: How many virtual cores should the instance have?
+        type: int
+        plain:
+          en: "The instance has {value} virtual cores."
+          de: "Die Instanz hat {value} virtuelle Kerne."
+        default: 4
+        non_production_default: 4
+        why: >
+          4 vCores is the smallest instance in every tier and hardware generation, and the
+          cost is paid around the clock for the instance whether it is busy or not - there
+          is no serverless or per-second billing for a managed instance. A number that is
+          too low shows up as CPU waits and is raised in place (a scale takes hours, the
+          connection drop at the end seconds); a number that is too high is paid every hour.
+          Allowed values are 4, 8, 16, 24, 32, 40, 64, 80 on standard-series and 4, 6, 8,
+          10, 12, 16, 20, 24, 32, 40, 48, 56, 64, 80, 96, 128 on premium-series; the render
+          refuses a number outside the list for the chosen hardware.
+        renders: vcores / vCores (and the sku capacity)
+
+      - id: storage_gb
+        ask: How much storage should the instance reserve?
+        type: int
+        plain:
+          en: "The instance reserves {value} GB of storage."
+          de: "Die Instanz reserviert {value} GB Speicher."
+        default: 256
+        non_production_default: 128
+        why: >
+          Reserved storage is billed per GB above the included allowance (32 GB per vCore in
+          General Purpose, so 128 GB are included with the smallest instance, which is the
+          non-production value), in steps of 32 GB, up to 16 TB in General Purpose and 1 to
+          5.5 TB in Business Critical depending on the vCores. 256 GB holds a migrated
+          application's databases with their log files; the value is raised in place
+          without a failover. In General Purpose the storage also decides the I/O
+          allowance per file, so an instance that is slow on disk is often one that is
+          short of reserved storage, not of cores.
+        renders: storage_size_in_gb / storageSizeInGB
+
+      - id: license_type
+        ask: Do you already own SQL Server licences with Software Assurance that you can bring, or should the licence be rented with the instance?
+        type: enum
+        resolved_by: interview
+        plain:
+          en: "The SQL Server licence is {value}."
+          de: "Die SQL-Server-Lizenz wird {value}."
+        plain_values:
+          LicenseIncluded: { en: "rented with the instance and part of its hourly price", de: "mit der Instanz gemietet und ist Teil des Stundenpreises" }
+          BasePrice: { en: "your own, brought in under Azure Hybrid Benefit for a lower hourly price", de: "als eigene Lizenz im Rahmen des Azure Hybrid Benefit eingebracht, zu einem niedrigeren Stundenpreis" }
+        values: [LicenseIncluded, BasePrice]
+        default: LicenseIncluded
+        confirm_in: [production]
+        why: >
+          The licence is up to about 40% of the hourly price of a General Purpose instance
+          and more of a Business Critical one. Azure Hybrid Benefit lets an organisation
+          that already pays for SQL Server Enterprise or Standard with Software Assurance
+          apply those cores here instead of paying twice; claiming it without the licences
+          is a compliance finding at the next audit, which is why the customer and not the
+          engineer answers. The value can be switched at any time without downtime. Both
+          modules take it; the Terraform module has no default and requires it.
+        renders: license_type / licenseType
+
+      - id: collation
+        ask: Which sort order and comparison rules should the instance use for text?
+        type: string
+        plain:
+          en: "Text is sorted and compared by the collation {value}."
+          de: "Text wird nach der Sortierung {value} sortiert und verglichen."
+        default: SQL_Latin1_General_CP1_CI_AS
+        why: >
+          **Fixed at creation** - the instance collation is the collation of `master`,
+          `tempdb` and the default of every new database, and it cannot be changed
+          afterwards; a different one is a new instance and a migration. Migrated
+          databases keep their own collation, but a database whose collation differs from
+          `tempdb`'s has the well-known cross-database comparison errors, so an estate on
+          another collation (a German or a case-sensitive one) says so and gets it written
+          here.
+        renders: collation / collation
+
+      - id: timezone
+        ask: In which time zone should the instance's clock run?
+        type: string
+        plain:
+          en: "The instance's clock runs in the time zone {value}."
+          de: "Die Uhr der Instanz läuft in der Zeitzone {value}."
+        default: "UTC"
+        why: >
+          **Fixed at creation.** Unlike Azure SQL Database, a managed instance has a time
+          zone of its own, because migrated applications and SQL Agent jobs use `GETDATE()`
+          and schedules in local time. UTC is the service default and the right answer for
+          a new application; an application migrated from a server that ran in
+          `W. Europe Standard Time` says so, or every schedule and timestamp shifts by an
+          hour or two after the move. Windows time zone ids, not IANA names.
+        renders: timezone_id / timezoneId
+
+      - id: maintenance_window
+        ask: When may the platform patch and restart the instance?
+        type: enum
+        plain:
+          en: "Planned maintenance happens {value}."
+          de: "Geplante Wartung findet {value} statt."
+        plain_values:
+          system_managed: { en: "at a time Azure picks, between 8 am and 5 pm local time on any day", de: "zu einer von Azure gewählten Zeit, zwischen 8 und 17 Uhr Ortszeit an jedem Tag" }
+          weekday_nights: { en: "on weekday nights, 10 pm to 6 am local time", de: "nachts an Wochentagen, 22 bis 6 Uhr Ortszeit" }
+          weekend_nights: { en: "on weekend nights, Friday 10 pm to Monday 6 am local time", de: "nachts am Wochenende, Freitag 22 Uhr bis Montag 6 Uhr Ortszeit" }
+        values: [system_managed, weekday_nights, weekend_nights]
+        default: weekday_nights
+        confirm_in: [production]
+        why: >
+          Maintenance restarts the instance: a planned failover of seconds that drops every
+          connection, several times a month. The service default places it in business
+          hours, which no production system wants; the two custom windows are a paid-for
+          feature in some regions and not available in every region, and the engineer
+          checks `az sql mi list-maintenance-configurations` for the region before the
+          render. Weekday nights are the default because weekend windows collide with the
+          batch jobs a migrated estate tends to run then; a customer with another pattern
+          says so. The window can be changed in place.
+        renders: >
+          maintenance_configuration_name (`SQL_Default`, `SQL_<Region>_MI_1`, `SQL_<Region>_MI_2`) /
+          maintenanceWindow (`SystemManaged`, `Custom1`, `Custom2`)
+
+      - id: databases
+        ask: Which databases should the instance start with?
+        type: list
+        plain:
+          en: "The instance starts with the databases {value}."
+          de: "Die Instanz startet mit den Datenbanken {value}."
+        default: []
+        why: >
+          A managed instance holds up to 100 databases and most of them arrive by
+          migration - a backup restored from a URL, the Database Migration Service, or
+          the link feature - not by creation from the template. Empty is a normal answer:
+          the instance is created and the databases follow. A database named here is
+          created empty, inherits the instance collation and takes the backup answers
+          below as its own. A database name is part of its connection string and cannot
+          be renamed in place.
+        renders: databases.<key>.name / databases[].name
+
+  # --------------------------------------------------------------- resilience
+  - id: resilience
+    title: Resilience
+    questions:
+      - id: zone_redundant
+        ask: Should the instance survive the loss of an availability zone?
+        type: bool
+        plain:
+          en: "The instance {value} survive the loss of one datacenter of the region."
+          de: "Die Instanz {value} den Ausfall eines Rechenzentrums der Region."
+        plain_values:
+          true: { en: "does", de: "übersteht" }
+          false: { en: "does not", de: "übersteht nicht" }
+        derived_from:
+          question: outage_impact
+          map: { tolerable: false, disruptive: true, critical: true }
+        confirm_in: [production]
+        non_production_default: false
+        why: >
+          Derived from how bad an outage is. Zone redundancy spreads the replicas (Business
+          Critical) or the compute and the zone-redundant storage (General Purpose) over
+          three zones with no change to the application, at a premium on the compute. It
+          is not available in every region, not with the next-generation General Purpose
+          variant, and switching it on an existing instance is a long in-place operation
+          with a failover. **The two modules disagree**: the Terraform module defaults to
+          `true`, the Bicep module to `false` - written on every call. The derivation is
+          production's; the non-production stages take `false` while non_production_savings
+          is enabled.
+        renders: zone_redundant_enabled / zoneRedundant
+
+      - id: geo_failover_region
+        ask: In which second region should a copy of the instance be kept ready to take over?
+        type: string
+        plain:
+          en: "A second instance for a regional failure is kept in {value} (empty: none)."
+          de: "Eine zweite Instanz für den Ausfall einer ganzen Region liegt in {value} (leer: keine)."
+        default: ""
+        per_environment: true
+        why: >
+          A second region is a second instance - a second subnet, a second four-to-six-hour
+          deployment and a doubled bill - and a failover group between the two, so it is not
+          defaulted. `critical` from the deployment's `outage_impact` means one is wanted:
+          with no region named, the decision is an `open:` entry owned by the workload
+          owner, naming the paired region as the usual answer, and not a silent single
+          region. The failover group gives a read-write and a read-only listener that
+          survive a failover; the two instances must share a DNS zone (`dns_zone_partner`),
+          which is set when the secondary is created and cannot be added later.
+        forced_when: >
+          `outage_impact: critical` requires a value here, or an `open:` entry; the region
+          must satisfy `data_residency` (`country`: the same country, `data_zone`: the same
+          data zone), and a region that does not is refused with the residency as the reason
+        renders: >
+          a second instance of this set in that region with dns_zone_partner_id /
+          dnsZonePartnerResourceId, plus failover_group (the second instance and the group are
+          rendered by the render skill, not by one module call)
+
+  # --------------------------------------------------------------- networking
+  - id: networking
+    title: Networking
+    questions:
+      - id: subnet
+        ask: Which subnet should the instance be placed in?
+        type: ref
+        resolved_by: platform
+        plain:
+          en: "The instance is placed in subnet {value}."
+          de: "Die Instanz liegt im Subnetz {value}."
+        ref: subnet
+        required: true
+        per_environment: true
+        why: >
+          A managed instance is injected into a dedicated subnet - delegated to
+          `Microsoft.Sql/managedInstances`, at least a /27 (a /26 for a production
+          estate), with a network security group and a route table attached that carry
+          the management rules the service adds and that the platform owns. The subnet
+          cannot be shared with anything else, and the delegation, the NSG and the route
+          table must exist before the instance; a subnet without them fails the
+          deployment after a long wait. **Fixed at creation**: moving the instance to
+          another subnet is a scale operation that takes as long as a new deployment.
+          Looked up from the platform or created by the network set.
+        renders: subnet_id / subnetResourceId
+
+      - id: public_data_endpoint
+        ask: Should this instance depart from the deployment's exposure posture?
+        type: enum
+        plain:
+          en: "The instance is {value}."
+          de: "Die Instanz ist {value}."
+        plain_values:
+          disabled: { en: "reachable only from inside the network", de: "nur aus dem Netzwerk heraus erreichbar" }
+          enabled_with_firewall: { en: "reachable from the internet only from listed addresses, through its public endpoint", de: "aus dem Internet nur von gelisteten Adressen erreichbar, über ihren öffentlichen Endpunkt" }
+          enabled: { en: "reachable from the internet through its public endpoint", de: "aus dem Internet über ihren öffentlichen Endpunkt erreichbar" }
+        values: [disabled, enabled_with_firewall, enabled]
+        from_deployment: network_exposure
+        confirm_in: [production]
+        why: >
+          Asked only as a departure: exposure is a property of the system. A managed
+          instance is private by construction - it answers on a private address inside
+          its subnet - and the public data endpoint (port 3342, through the gateway) is
+          the one way to reach it from outside the network. `disabled` leaves it off,
+          which both modules default to; written anyway. `enabled_with_firewall` turns it
+          on and admits only `ip_rules` on 3342 in the subnet's network security group;
+          `enabled` admits any source there and is a recorded departure. The endpoint is
+          switched in place without downtime.
+        forced_when: >
+          `network_ownership: none` cannot occur with this resource - an instance needs a
+          subnet - so no posture forces `enabled` here; `landing_zone: corp` denies the
+          public endpoint by policy, and `enabled` under it is refused with the policy as
+          the reason
+        renders: >
+          terraform: public_data_endpoint_enabled (bool) and an NSG rule for 3342 on the subnet's NSG;
+          bicep: publicDataEndpointEnabled and the same rule
+
+      - id: ip_rules
+        ask: Which public IP ranges may reach the public endpoint?
+        type: list
+        plain:
+          en: "Public addresses allowed to reach the instance: {value}."
+          de: "Öffentliche Adressen, die die Instanz erreichen dürfen: {value}."
+        default: []
+        depends_on: { question: public_data_endpoint, equals: enabled_with_firewall }
+        per_environment: true
+        why: >
+          An enumerated allowlist, rendered as one inbound rule for TCP 3342 in the subnet's
+          network security group - the instance has no firewall of its own. An empty list
+          with the endpoint on denies every public caller, which is valid and deliberate.
+          The NSG is the subnet owner's: with a platform-owned subnet the rule is an
+          `open:` entry owned by the platform team, not a resource of this deployment.
+        renders: an inbound security rule on the subnet's NSG (not an input of either module)
+
+      - id: private_endpoint
+        ask: Should callers outside this network reach the instance through a private endpoint?
+        type: bool
+        plain:
+          en: "A private connection for callers in other networks is {value}."
+          de: "Eine private Anbindung für Aufrufer aus anderen Netzen ist {value}."
+        plain_values:
+          true: { en: "created", de: "eingerichtet" }
+          false: { en: "not created", de: "nicht eingerichtet" }
+        default: false
+        why: >
+          Inside its own network and every peered one the instance is already reached on
+          its private address, so unlike a logical server it needs no private endpoint for
+          the deployment's own workloads. A private endpoint is for a caller in a network
+          that is not peered - another landing zone, a partner's network - and it costs an
+          endpoint and a DNS record. Off until such a caller is named.
+        renders: >
+          private_endpoints (Terraform module) / an authored `Microsoft.Network/privateEndpoints`
+          beside the Bicep module, which has no parameter for it
+
+      - id: private_endpoint_subnet
+        ask: Which subnet should this instance's private endpoint live in?
+        type: ref
+        resolved_by: platform
+        plain:
+          en: "Its private connection lands in subnet {value}."
+          de: "Seine private Anbindung landet im Subnetz {value}."
+        ref: subnet
+        from_deployment: private_endpoint_subnet
+        depends_on: { question: private_endpoint, equals: true }
+        per_environment: true
+        why: >
+          One subnet carries the deployment's private endpoints, so this is inherited. The
+          sub-resource is `managedInstance`, the zone `privatelink.database.windows.net`,
+          and the record is the instance's own host name (`<name>.<dnszone>`), not a bare
+          `<name>`. It is a different subnet from the delegated one, which can hold nothing
+          but the instance.
+        renders: private_endpoints.<key>.subnet_resource_id / the authored endpoint's subnet (service `managedInstance`)
+
+      - id: connection_type
+        ask: Should clients connect through the gateway, or be redirected to the node that holds their database?
+        type: enum
+        plain:
+          en: "Clients inside the network connect {value}."
+          de: "Clients im Netzwerk verbinden sich {value}."
+        plain_values:
+          Redirect: { en: "directly to the node after a first hop, for the lowest latency", de: "nach einem ersten Hop direkt mit dem Knoten, für die geringste Latenz" }
+          Proxy: { en: "through a gateway on a single port, with a little extra latency", de: "über ein Gateway auf einem einzigen Port, mit etwas mehr Latenz" }
+        values: [Redirect, Proxy]
+        default: Redirect
+        why: >
+          Redirect is the connection policy for a private client: after the first packet
+          the client talks to the node directly, which removes the gateway hop and its
+          latency and throughput limits, and is what the service recommends inside a
+          virtual network. It needs TCP 11000-11999 open from the clients to the subnet
+          in the NSG, which the platform's management rules allow; a client behind a
+          firewall that only passes 1433 needs `Proxy`. The public endpoint is always
+          proxied on 3342, whatever this says. **The modules default differently**
+          (`Default` in Terraform, `Proxy` in Bicep); written on every call.
+        renders: proxy_override / proxyOverride
+
+      - id: minimum_tls_version
+        ask: Which is the oldest TLS version the instance accepts?
+        type: enum
+        plain:
+          en: "Connections must use TLS {value} or newer."
+          de: "Verbindungen müssen TLS {value} oder neuer verwenden."
+        values: ["1.2"]
+        default: "1.2"
+        why: >
+          TLS 1.2 is the floor of the guardrails and the highest a managed instance lets
+          you require today - the modules also accept `1.0` and `1.1`, which exist for a
+          legacy driver and are not offered here. Written, because the service default
+          is `1.2` only for instances created recently.
+        renders: minimum_tls_version / minimalTlsVersion
+
+  # ----------------------------------------------------------------- identity
+  - id: identity
+    title: Identity and access
+    questions:
+      - id: managed_identity
+        ask: Which managed identity should the instance carry?
+        type: enum
+        plain:
+          en: "The instance has {value}."
+          de: "Die Instanz hat {value}."
+        plain_values:
+          system_assigned: { en: "its own identity", de: "eine eigene Identität" }
+          user_assigned: { en: "a separately managed identity", de: "eine separat verwaltete Identität" }
+        values: [system_assigned, user_assigned]
+        default: system_assigned
+        why: >
+          The identity is how the instance reaches the Entra directory - to resolve the
+          groups and applications a login is created from, which needs the `Directory
+          Readers` role or the Graph permissions, a tenant decision the platform owns - and
+          a Key Vault for a customer-managed TDE protector. An instance without one cannot
+          create an Entra login, so `none` is not offered. System-assigned is the guardrail
+          default and the cheapest to run; a customer-managed protector needs the identity
+          to hold its role on the key before the instance is created, which is why that
+          case is `user_assigned`.
+        forced_when: >
+          `key_management: customer_managed` forces `user_assigned`, recorded as forced
+          with `key_management` as forced_by
+        renders: managed_identities / managedIdentities (and primaryUserAssignedIdentityResourceId)
+
+      - id: user_assigned_identity_ids
+        ask: Which user-assigned identity?
+        type: list
+        plain:
+          en: "It uses the identity {value}."
+          de: "Es nutzt die Identität {value}."
+        ref: user_assigned_identity
+        required: true
+        depends_on: { question: managed_identity, equals: user_assigned }
+        per_environment: true
+        why: >
+          The identity must already exist; this set does not create it. The first one is
+          the primary identity the instance uses for the key vault and the directory.
+        renders: managed_identities.user_assigned_resource_ids / managedIdentities.userAssignedResourceIds and primaryUserAssignedIdentityResourceId
+
+      - id: entra_admin
+        ask: Which Entra group administers the instance?
+        type: ref
+        plain:
+          en: "The instance is administered by the Entra group {value}."
+          de: "Die Instanz wird von der Entra-Gruppe {value} verwaltet."
+        ref: entra_group
+        required: true
+        per_environment: true
+        why: >
+          With SQL authentication off, the Entra administrator is the only principal that
+          can sign in the first time - to create the logins, restore the first database,
+          configure the audit - so an instance without one is unusable. A **group** and
+          not a person: it survives staff changes and gives the administrators an audit
+          trail of their own. An instance has exactly one; no answer is an `open:` entry
+          owned by the identity team, blocking apply.
+        renders: >
+          active_directory_administrator { login_username, object_id, principal_type = "Group", tenant_id } /
+          administrators { login, sid, principalType: 'Group', tenantId }
+
+      - id: database_users
+        ask: Who needs to read or write the data?
+        type: list
+        plain:
+          en: "Access to the data itself granted to: {value}."
+          de: "Zugriff auf die Daten selbst vergeben an: {value}."
+        default: []
+        per_environment: true
+        why: >
+          **SQL's data access is its own role system** and no ARM resource creates it: on a
+          managed instance a consumer is a server login (`CREATE LOGIN [name] FROM EXTERNAL
+          PROVIDER`) and a user with a database role, run as a member of the administrator
+          group. An Azure `Owner` reads not a single row. With SQL authentication off,
+          nothing reads the data until this is done, so an empty list is a working
+          instance nobody can use and not an answer: with no consumer named, the decision
+          is an `open:` entry owned by the workload owner, blocking apply. Each entry is an
+          identity and a database role, least privilege first (`db_datareader`,
+          `db_datawriter`, never `sysadmin`). A pattern fills this from the consumers it
+          knows.
+        renders: >
+          not the module and not Azure Resource Manager - a T-SQL step after the deployment
+          from inside the network (the deployment's pipeline, or a deployment script),
+          recorded as such in the spec
+
+      - id: role_assignments
+        ask: Who may manage the instance itself?
+        type: list
+        plain:
+          en: "Management rights on the instance granted to: {value}."
+          de: "Verwaltungsrechte an der Instanz vergeben an: {value}."
+        default: []
+        per_environment: true
+        why: >
+          Azure RBAC on the instance - the control plane: scaling, the maintenance window,
+          the backup settings, reading the diagnostics. Separate from the logins and
+          database roles on purpose, and usually the deploying principal's alone, so empty
+          is a normal answer.
+        renders: role_assignments / roleAssignments
+
+  # ----------------------------------------------------------------- security
+  - id: security
+    title: Security
+    questions:
+      - id: local_authentication_disabled
+        ask: May clients sign in with a SQL user name and password?
+        type: bool
+        plain:
+          en: "Signing in with a SQL password is {value}; access goes through company accounts."
+          de: "Die Anmeldung mit SQL-Kennwort ist {value}; der Zugriff läuft über Firmenkonten."
+        plain_values:
+          true: { en: "switched off", de: "abgeschaltet" }
+          false: { en: "possible", de: "möglich" }
+        from_deployment: local_auth
+        confirm_in: [production]
+        why: >
+          Inherited: `local_auth: disabled` renders as Entra-only authentication. A SQL
+          login is a password that does not expire, is shared, and is not attributable in
+          the audit log. The Bicep module then takes no administrator login at all. **The
+          Terraform module requires `administrator_login` and a password even with
+          Entra-only on**, because the provider does: the render passes a generated,
+          never-stored password and the login is unusable while Entra-only is on - a
+          module gap, named in the handover, not a reason to leave SQL authentication on.
+          A migrated application that cannot use Entra yet is a recorded departure.
+        renders: >
+          active_directory_administrator.azuread_authentication_only_enabled /
+          administrators.azureADOnlyAuthentication
+
+      - id: key_management
+        ask: Are the instance's encryption keys platform-managed or customer-managed?
+        type: enum
+        plain:
+          en: "Encryption keys are {value}."
+          de: "Verschlüsselungsschlüssel sind {value}."
+        plain_values:
+          platform_managed: { en: "managed by Azure - encrypted, rotated, no effort on your side", de: "von Azure verwaltet: verschlüsselt, rotiert, kein Aufwand bei euch" }
+          customer_managed: { en: "your own, held in your key vault, so you can revoke them", de: "eure eigenen in eurem Schlüsseltresor, damit ihr sie zurückziehen könnt" }
+        values: [platform_managed, customer_managed]
+        from_deployment: key_management
+        confirm_in: [production]
+        why: >
+          Inherited. Transparent data encryption is on for every database and cannot be
+          turned off in this set - the data, the log and the backups are encrypted at rest
+          with a platform-managed key either way. `customer_managed` sets the instance's
+          TDE protector to a key in a Key Vault with purge protection, through an identity
+          that can wrap and unwrap it, and needs a rotation story; an instance that loses
+          access to the key makes every database inaccessible within the hour, and a
+          backup taken under a key that was later deleted cannot be restored.
+        renders: >
+          transparent_data_encryption { key_vault_key_id, auto_rotation_enabled } / keys[] and
+          encryptionProtector { serverKeyName, serverKeyType: 'AzureKeyVault', autoRotationEnabled }
+
+      - id: cmk_key_vault_key_id
+        ask: Which Key Vault key should protect the instance?
+        type: ref
+        plain:
+          en: "Encrypted with your key {value}."
+          de: "Verschlüsselt mit eurem Schlüssel {value}."
+        ref: key_vault_key
+        required: true
+        depends_on: { question: key_management, equals: customer_managed }
+        per_environment: true
+        why: >
+          The key must exist, the vault must have soft delete and purge protection, and the
+          instance's user-assigned identity must hold `Key Vault Crypto Service Encryption
+          User` on it before the instance is created - an ordering that bites the first
+          attempt and, on an instance, costs hours per retry. The Terraform module takes
+          the versioned key URL with auto-rotation; the Bicep module a key named
+          `<vault>_<key>_<version>` plus the protector with `autoRotationEnabled`.
+        renders: transparent_data_encryption.key_vault_key_id (versioned URL) / keys[].uri and encryptionProtector.serverKeyName
+
+      - id: threat_detection
+        ask: Should the instance watch for attacks, such as SQL injection and unusual access?
+        type: bool
+        plain:
+          en: "Threat detection on the instance is {value}."
+          de: "Die Angriffserkennung an der Instanz ist {value}."
+        plain_values:
+          true: { en: "on", de: "an" }
+          false: { en: "off", de: "aus" }
+        default: true
+        why: >
+          Advanced Threat Protection raises alerts for injection attempts, brute force and
+          access from unusual places. Defender for SQL itself is a subscription plan and
+          the platform's; the instance-level setting here is what binds this instance to
+          it, and an alert needs both. Security-shaped, so every stage has it. The
+          Terraform module sets it with `advanced_threat_protection_enabled`; the Bicep
+          module's `securityAlertPolicy` wants a storage account when enabled, so on that
+          target it is an authored `advancedThreatProtectionSettings/Default` child
+          without one.
+        renders: advanced_threat_protection_enabled / an authored `Microsoft.Sql/managedInstances/advancedThreatProtectionSettings` (state Enabled)
+
+      - id: vulnerability_assessment
+        ask: Should the instance scan its databases for misconfigurations?
+        type: bool
+        plain:
+          en: "Scanning the databases for weak configuration is {value}."
+          de: "Das Prüfen der Datenbanken auf schwache Konfiguration ist {value}."
+        plain_values:
+          true: { en: "on", de: "an" }
+          false: { en: "off", de: "aus" }
+        default: false
+        confirm_in: [production]
+        why: >
+          The assessment scans for excessive permissions, unencrypted columns and weak
+          settings. A managed instance has only the **classic** configuration: the results
+          go to a storage account the instance can reach, with its system-assigned
+          identity holding `Storage Blob Data Contributor` on it and the instance's subnet
+          admitted through the storage firewall - the storage account is the storage
+          family's and is not created here, which is why this is off until one is named
+          rather than a silent prerequisite. The express configuration without storage
+          exists for a logical server only. Needs the Defender plan like threat detection.
+        renders: >
+          storage_account_resource_id and vulnerability_assessment { storage_container_path, recurring_scans } /
+          vulnerabilityAssessment { name, storageAccountResourceId, createStorageRoleAssignment, recurringScans }
+
+      - id: vulnerability_assessment_storage_account
+        ask: Which storage account should hold the scan results?
+        type: ref
+        plain:
+          en: "Scan results are stored in {value}."
+          de: "Die Prüfergebnisse liegen in {value}."
+        ref: storage_account
+        required: true
+        depends_on: { question: vulnerability_assessment, equals: true }
+        per_environment: true
+        why: >
+          Must exist first, with public network access at least from selected networks
+          including the instance's subnet - a storage account closed to private endpoints
+          only cannot receive the results. The module grants the instance's identity its
+          role on it.
+        renders: storage_account_resource_id / vulnerabilityAssessment.storageAccountResourceId
+
+  # ---------------------------------------------------------- data protection
+  - id: data_protection
+    title: Backup and recovery
+    questions:
+      - id: short_term_retention_days
+        ask: How far back must a deletion or a bad write be undoable to the second?
+        type: int
+        plain:
+          en: "A database can be restored to any second of the last {value} days."
+          de: "Eine Datenbank lässt sich auf jede Sekunde der letzten {value} Tage zurücksetzen."
+        derived_from:
+          question: data_loss_tolerance
+          map: { reproducible: 7, one_week: 7, one_month: 35, three_months: 35 }
+        why: >
+          Derived from how long a deletion must stay undoable. Point-in-time restore
+          creates a **new** database on the same or another instance from the backups of
+          the chosen second; the original is not overwritten. 7 days is the service default
+          and the guardrail default for `one_week`; 35 is the longest there is, so
+          `one_month` and `three_months` take it and `three_months` adds long-term
+          retention for the rest. `reproducible` still gets 7: shorter retention saves
+          almost nothing and a restore is cheap insurance. Set per database, so a database
+          that arrives by migration takes the instance default of 7 until the step after
+          the migration sets it.
+        renders: databases.<key>.short_term_retention_days / databases[].backupShortTermRetentionPolicy.retentionDays
+
+      - id: long_term_retention
+        ask: Must backups be kept beyond that, for weeks or years?
+        type: enum
+        plain:
+          en: "Beyond that, backups are kept {value}."
+          de: "Darüber hinaus werden Backups {value} aufbewahrt."
+        plain_values:
+          none: { en: "not at all", de: "nicht" }
+          three_months: { en: "weekly for three months", de: "wöchentlich für drei Monate" }
+          one_year: { en: "weekly for a year", de: "wöchentlich für ein Jahr" }
+        values: [none, three_months, one_year]
+        derived_from:
+          question: data_loss_tolerance
+          map: { reproducible: none, one_week: none, one_month: none, three_months: three_months }
+        why: >
+          Long-term retention copies a weekly full backup to separate storage and keeps it
+          for up to ten years; it is the answer to `three_months`, which point-in-time
+          restore (35 days at most) cannot reach. `one_year` is not derived - a retention
+          duty longer than the customer's own question is a mandate, and a `mandates` entry
+          names it. A restore from it is also a new database, and the copies are billed per
+          gigabyte for as long as they live - and they outlive the instance.
+        renders: databases.<key>.long_term_retention_policy.weekly_retention (`P13W`, `P52W`) / databases[].backupLongTermRetentionPolicy.weeklyRetention
+
+      - id: backup_storage_redundancy
+        ask: Where are the backups kept?
+        type: enum
+        plain:
+          en: "Backups are kept {value}."
+          de: "Backups liegen {value}."
+        plain_values:
+          Local: { en: "three times in one datacenter", de: "dreifach in einem Rechenzentrum" }
+          Zone: { en: "across the zones of the region", de: "verteilt über die Zonen der Region" }
+          Geo: { en: "in a second region as well, out of reach of a regional failure", de: "zusätzlich in einer zweiten Region, außerhalb der Reichweite eines regionalen Ausfalls" }
+          GeoZone: { en: "across the zones and in a second region", de: "verteilt über die Zonen und zusätzlich in einer zweiten Region" }
+        values: [Local, Zone, Geo, GeoZone]
+        derived_from:
+          question: backup_isolation
+          map: { operational: Zone, isolated: GeoZone, immutable: GeoZone }
+        non_production_default: Local
+        forced_when: >
+          `data_residency: country` with a paired region in another country forbids `Geo`
+          and `GeoZone`, recorded as forced with the residency as forced_by (`Zone`
+          instead, and `isolated` becomes an `open:` entry naming a backup vault as the
+          way out); `immutable` is not something a managed instance's own backups can be,
+          so it keeps `GeoZone` here and records an `open:` entry for an immutable copy
+        why: >
+          Derived from how far the backups must be from the data. `operational` keeps them
+          in the region across its zones, which survives a zone loss with the instance;
+          `isolated` puts a copy in the paired region, where no failure of this region and
+          no operator of this instance reaches it, and lets a geo-restore rebuild the
+          instance there. **Both modules default to `Geo`** (the Terraform one spells it
+          `GRS`), copying every backup to the paired region whether or not anyone asked,
+          and on an instance **the choice is made at creation**: changing it afterwards is
+          a new instance. Written on every call. The Terraform module offers `LRS`, `ZRS`
+          and `GRS` only, so `GeoZone` on that target is recorded as forced to `GRS` with
+          the module as forced_by, or rendered authored.
+        renders: storage_account_type (`LRS`, `ZRS`, `GRS`) / requestedBackupStorageRedundancy (`Local`, `Zone`, `Geo`, `GeoZone`)
+
+  # ------------------------------------------------------------ observability
+  - id: observability
+    title: Observability
+    questions:
+      - id: diagnostic_workspace
+        ask: Which Log Analytics workspace should receive diagnostics and audit logs?
+        type: ref
+        resolved_by: platform
+        plain:
+          en: "Its logs go to {value}."
+          de: "Seine Logs gehen in {value}."
+        ref: log_analytics_workspace
+        from_deployment: diagnostics_destination
+        per_environment: true
+        why: >
+          Inherited: one deployment, one destination. Without a diagnostic setting the
+          instance keeps no record of its resource usage and audit events beyond what the
+          portal shows for a short while.
+        renders: diagnostic_settings / diagnosticSettings (on the instance)
+
+      - id: auditing_enabled
+        ask: Should every sign-in and every change of data and schema be recorded?
+        type: bool
+        plain:
+          en: "The audit trail of sign-ins and changes is {value}."
+          de: "Das Audit-Protokoll der Anmeldungen und Änderungen ist {value}."
+        plain_values:
+          true: { en: "kept", de: "geführt" }
+          false: { en: "not kept", de: "nicht geführt" }
+        default: true
+        why: >
+          The server audit records sign-in successes and failures and the batch statements
+          against every database - the only record of who read what. **On a managed
+          instance the audit is T-SQL, not Azure Resource Manager**: `CREATE SERVER AUDIT
+          ... TO EXTERNAL_MONITOR` and a server audit specification, run as the
+          administrator, plus the diagnostic category `SQLSecurityAuditEvents` on the
+          instance; either alone records nothing. Security-shaped, so every stage has it.
+          The volume has a price in the workspace.
+        renders: >
+          a T-SQL step after the deployment (server audit to EXTERNAL_MONITOR) plus
+          `SQLSecurityAuditEvents` in diagnostic_categories
+
+      - id: diagnostic_categories
+        ask: Which instance logs should be collected?
+        type: list
+        plain:
+          en: "Logged: {value}."
+          de: "Geloggt wird: {value}."
+        plain_values:
+          ResourceUsageStats: { en: "how much CPU, storage and I/O the instance uses", de: "wie viel CPU, Speicher und I/O die Instanz nutzt" }
+          SQLSecurityAuditEvents: { en: "the audit trail of sign-ins and statements", de: "das Audit-Protokoll der Anmeldungen und Anweisungen" }
+          DevOpsOperationsAudit: { en: "what Microsoft's own operators did on the instance", de: "was Microsofts eigene Betreiber an der Instanz getan haben" }
+        values: [ResourceUsageStats, SQLSecurityAuditEvents, DevOpsOperationsAudit]
+        default: [ResourceUsageStats, SQLSecurityAuditEvents, DevOpsOperationsAudit]
+        why: >
+          All three: the usage figures decide whether `vcores` and `storage_gb` were right,
+          the audit category is the destination of `auditing_enabled`, and the operations
+          audit is the record of Microsoft support access a regulated estate is asked for.
+          None is a volume line by itself; the audit's volume follows the application. The
+          category names are the platform's and are checked against `az monitor
+          diagnostic-settings categories list --resource <instance id>` before a render,
+          not remembered. Per-database errors, timeouts and deadlocks are not categories of
+          an instance; they are read from Query Store and the instance's extended events.
+        renders: diagnostic_settings.<key>.log_categories / diagnosticSettings[].logCategoriesAndGroups[].category
+
+      - id: metrics_enabled
+        ask: Should the usage and performance figures be collected?
+        type: bool
+        plain:
+          en: "Usage and performance figures are {value}."
+          de: "Nutzungs- und Leistungswerte werden {value}."
+        plain_values:
+          true: { en: "collected", de: "erfasst" }
+          false: { en: "not collected", de: "nicht erfasst" }
+        default: true
+        why: >
+          CPU, storage and I/O percentages as metrics beside the usage log, cheap, and what
+          an alert rule reads. The category is `AllMetrics` on an instance; checked with
+          the categories list before a render like the logs. The Bicep module's diagnostic
+          setting carries logs only, so on that target the metrics are a second, authored
+          diagnostic setting beside the module.
+        renders: >
+          diagnostic_settings.<key>.metric_categories = ["AllMetrics"] / an authored
+          `Microsoft.Insights/diagnosticSettings` with metrics `AllMetrics` (the module's setting has no metrics)

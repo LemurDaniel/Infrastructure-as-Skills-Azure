@@ -1,0 +1,563 @@
+schema_version: 1
+
+resource: Microsoft.DataFactory/factories
+title: Azure Data Factory
+
+naming:
+  terraform: "Azure::Microsoft.DataFactory/factories"
+  bicep: "Microsoft.DataFactory/factories"
+  # Bicep assembles the name from vars - this is the prefix it renders. The factory name is
+  # global, 3-63 characters, letters, digits and hyphens.
+  abbreviation: "adf"
+
+boundaries:
+  - "Covers the factory (`Microsoft.DataFactory/factories`), its managed virtual network, the Azure integration runtime inside it, the managed private endpoints to the sources, the git binding and the key of a self-hosted integration runtime. Pipelines, datasets, data flows, linked services, triggers and credentials are **content**: they change at the application's pace, live in the factory's git repository and are published by its own CI/CD, never rendered here."
+  - "Does not create the resource group. Expects one from the spec's context."
+  - "Does not create private DNS zones - shared infrastructure, owned by a pattern or the platform."
+  - "Does not create the Log Analytics workspace it routes diagnostics to."
+  - "Does not create the Key Vault or the key a customer-managed key points at, nor the user-assigned identity that unwraps it - those are the security family's."
+  - "Does not create the data stores the factory reads and writes, and does not grant the factory's identity its roles on them: that is wiring between this set and the source's, recorded as `source_access` and rendered by the pattern or the render skill beside the source."
+  - "Does not create the virtual machine of a self-hosted integration runtime, nor install the runtime on it: the VM is the compute family's; this set creates the runtime registration and its key."
+  - "Does not create the Purview account a factory reports lineage to; it references one."
+  - "Does not render Azure-SSIS integration runtimes, Airflow (Workflow Orchestration Manager), the Data Factory version 1 model, or the Fabric Data Factory."
+
+groups:
+
+  # ---------------------------------------------------------------- placement
+  - id: placement
+    title: Placement
+    questions:
+      - id: environments
+        ask: Which stages is this deployed to?
+        type: list
+        plain:
+          en: "Deployed in the stages {value}."
+          de: "Wird in den Stufen {value} ausgerollt."
+        values: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
+        required: true
+        from_context: true
+        why: >
+          Drives the rendered name and the strictness of several defaults below, and the
+          factory model is one factory per stage: the development factory is bound to git,
+          the others receive the published content from the pipeline. Nothing sensible can
+          be guessed.
+        renders: naming parameter `environment`, and the tag of that name where the repository uses one
+
+      - id: location
+        ask: Which Azure region?
+        type: string
+        plain:
+          en: "Runs in the Azure region {value}."
+          de: "Läuft in der Azure-Region {value}."
+        required: true
+        from_context: true
+        why: >
+          The factory's metadata and its managed virtual network live in this region, and
+          the region is part of the rendered name. The Azure integration runtime inside the
+          managed network resolves to this region as well, which decides where the data
+          moves through - a factory in another region than its sources pays egress and
+          latency on every copy.
+        renders: location
+
+      - id: resource_group_name
+        ask: Which resource group?
+        type: ref
+        plain:
+          en: "Placed in the resource group {value}."
+          de: "Liegt in der Ressourcengruppe {value}."
+        ref: resource_group
+        required: true
+        from_context: true
+        per_environment: true
+        why: >
+          The factory is placed into an existing group. Creating one here would make this
+          set own a lifecycle wider than the resource it describes.
+        renders: resource_group_name / implicit in Bicep scope
+
+  # ------------------------------------------------------------------ factory
+  - id: factory
+    title: Factory and integration runtimes
+    questions:
+      - id: managed_virtual_network
+        ask: Should the factory's own compute run inside a network of its own, reaching the sources privately?
+        type: bool
+        plain:
+          en: "The factory's compute {value}."
+          de: "Die Rechenleistung der Factory {value}."
+        plain_values:
+          true: { en: "runs in a managed private network and reaches the data stores through private connections", de: "läuft in einem verwalteten privaten Netz und erreicht die Datenspeicher über private Verbindungen" }
+          false: { en: "runs on the shared public runtime and reaches the data stores over their public endpoints", de: "läuft auf der gemeinsamen öffentlichen Laufzeit und erreicht die Datenspeicher über deren öffentliche Endpunkte" }
+        default: true
+        why: >
+          The managed virtual network is the only way an Azure integration runtime reaches a
+          source that has public access disabled: it runs inside a network Microsoft
+          operates, and `managed_private_endpoints` connect it to each store privately. With
+          it off, every copy goes over the source's public endpoint, which the deployment's
+          posture closed, so the pipelines fail at first run. It is **set at creation**
+          (switching it on later is possible, off is not) and costs a few minutes of
+          warm-up per activity unless time-to-live is set on the runtime, plus the managed
+          endpoints. Both modules default to off; written.
+        renders: >
+          managed_virtual_network_enabled plus an authored
+          `azurerm_data_factory_integration_runtime_azure` with virtual_network_enabled /
+          managedVirtualNetwork { name: 'default' } and integrationRuntimes[] { type: 'Managed',
+          managedVirtualNetworkName }
+
+      - id: managed_private_endpoints
+        ask: Which data stores should the factory reach through its private network?
+        type: list
+        plain:
+          en: "The factory connects privately to: {value}."
+          de: "Die Factory verbindet sich privat mit: {value}."
+        default: []
+        depends_on: { question: managed_virtual_network, equals: true }
+        per_environment: true
+        why: >
+          One managed private endpoint per source - a storage account's `blob` or `dfs`, a
+          SQL server's `sqlServer`, a Key Vault's `vault` - each an entry of name, target
+          resource id and sub-resource. Each creates a pending connection **the source's
+          owner must approve** (the render approves it with a deployment script or the
+          pipeline where this deployment owns the source); until then the linked service
+          cannot connect. Empty is a normal answer for a factory whose sources are still
+          being decided: the list is wiring that grows with the content, and a pattern
+          fills it from the stores it knows.
+        renders: >
+          an authored `azurerm_data_factory_managed_private_endpoint` per entry (not an input of
+          the Terraform module) / managedVirtualNetwork.managedPrivateEndpoints[] { name,
+          privateLinkResourceId, groupId, fqdns }
+
+      - id: self_hosted_integration_runtime
+        ask: Does the factory need to reach data that lives on-premises or in a network of its own?
+        type: enum
+        plain:
+          en: "For data outside Azure, the factory {value}."
+          de: "Für Daten außerhalb von Azure {value} die Factory."
+        plain_values:
+          none: { en: "has no runtime of its own; all sources are in Azure", de: "hat keine eigene Laufzeit; alle Quellen liegen in Azure" }
+          create_key_only: { en: "registers a self-hosted runtime that a machine in that network joins with the key", de: "registriert eine selbstgehostete Laufzeit, der eine Maschine in jenem Netz mit dem Schlüssel beitritt" }
+        values: [none, create_key_only]
+        default: none
+        why: >
+          A self-hosted integration runtime is a Windows service on a machine in the
+          network where the data is - on-premises, or a virtual network the managed network
+          cannot reach - and it is the only runtime that reaches such a source. This set
+          registers the runtime in the factory and yields its authentication key; the
+          machine is the compute family's, and joining it with the key is a step on that
+          machine, recorded in the handover. The key is a secret: it is read from the
+          runtime's resource at deploy time into the Key Vault, never into state outputs or
+          a parameter file.
+        renders: >
+          integration_runtime_self_hosted.<key> { name } / integrationRuntimes[] { name, type:
+          'SelfHosted' }; the key is read from `listAuthKeys` after the deployment
+
+      - id: global_parameters
+        ask: Which settings should every pipeline read as a factory-wide value?
+        type: list
+        plain:
+          en: "Factory-wide settings: {value}."
+          de: "Factory-weite Einstellungen: {value}."
+        default: []
+        per_environment: true
+        why: >
+          Global parameters are the one piece of factory content that belongs to the
+          infrastructure, because they are what makes the same pipelines run against a
+          different stage: the storage account name, the SQL server, the environment tag.
+          Each entry is a name, a type and a value; the value is per stage by nature. The
+          CI/CD of the content must be told to keep them (`includeFactoryTemplate` off, or
+          the parameters excluded from the ARM template), or the next publish overwrites
+          what the deployment set.
+        renders: >
+          global_parameters[] { name, type, value } / globalParameters { <name>: { type, value } }
+
+      - id: purview_account
+        ask: Which Purview account should receive the factory's lineage?
+        type: string
+        plain:
+          en: "Lineage is reported to the Purview account {value} (empty: none)."
+          de: "Die Datenherkunft wird an das Purview-Konto {value} gemeldet (leer: keines)."
+        default: ""
+        per_environment: true
+        why: >
+          With a Purview account connected, every copy and data-flow activity reports its
+          lineage to the catalog, which is what a governance programme asks the data
+          platform for. The connection is a property of the factory and the factory's
+          identity needs `Data Curator` on the account's root collection - a data-plane
+          role the Purview set records as `collection_roles`. Empty when the organisation
+          has no catalog; the purview-account set is the one to read when it is about to
+          get one.
+        renders: purview_id / purviewResourceId
+
+  # ----------------------------------------------------------- source control
+  - id: source_control
+    title: Source control
+    questions:
+      - id: git_provider
+        ask: Where should the pipeline definitions be versioned - nowhere, GitHub, or Azure DevOps?
+        type: enum
+        plain:
+          en: "The factory's pipeline definitions are versioned {value}."
+          de: "Die Pipeline-Definitionen der Factory werden {value} versioniert."
+        plain_values:
+          none: { en: "nowhere: the factory runs in live mode and every save is a publish", de: "nirgends: die Factory läuft im Live-Modus, jedes Speichern veröffentlicht" }
+          github: { en: "in a GitHub repository", de: "in einem GitHub-Repository" }
+          azure_devops: { en: "in an Azure DevOps repository", de: "in einem Azure-DevOps-Repository" }
+        values: [none, github, azure_devops]
+        default: none
+        per_environment: true
+        confirm_in: [development]
+        why: >
+          Only the **development** factory is bound to git; the other stages receive the
+          published content from the pipeline and must stay unbound, or a developer's save
+          in production is a deployment. That is why the value is per stage, defaults to
+          `none`, and is confirmed for the development stage: a development factory
+          without a repository works in live mode, where every save publishes and nothing
+          is reviewable, which is the state a team drifts into when nobody decides. The
+          repository itself is the team's and is not created here; its details follow.
+          Binding GitHub still needs an interactive sign-in in the authoring portal once.
+        renders: >
+          github_configuration / vsts_configuration (one of them) / gitConfiguration { type:
+          'FactoryGitHubConfiguration' | 'FactoryVSTSConfiguration', ... }
+
+      - id: git_account
+        ask: Which GitHub organisation or Azure DevOps organisation holds the repository?
+        type: string
+        plain:
+          en: "The repository belongs to the organisation {value}."
+          de: "Das Repository gehört der Organisation {value}."
+        required: true
+        depends_on: { question: git_provider, not_equals: none }
+        per_environment: true
+        why: >
+          The GitHub owner or the Azure DevOps organisation name. Only the team knows it;
+          with no answer the decision is an `open:` entry owned by the engineer, blocking
+          apply for the development stage.
+        renders: github_configuration.account_name / vsts_configuration.account_name / gitConfiguration.accountName
+
+      - id: git_repository
+        ask: Which repository?
+        type: string
+        plain:
+          en: "The repository is {value}."
+          de: "Das Repository ist {value}."
+        required: true
+        depends_on: { question: git_provider, not_equals: none }
+        per_environment: true
+        why: >
+          The repository name without the organisation. It must exist before the factory
+          binds to it; the factory does not create it. With no answer the decision is an
+          `open:` entry owned by the engineer.
+        renders: github_configuration.repository_name / vsts_configuration.repository_name / gitConfiguration.repositoryName
+
+      - id: git_project
+        ask: Which Azure DevOps project holds the repository?
+        type: string
+        plain:
+          en: "The repository lives in the Azure DevOps project {value}."
+          de: "Das Repository liegt im Azure-DevOps-Projekt {value}."
+        required: true
+        depends_on: { question: git_provider, equals: azure_devops }
+        per_environment: true
+        why: Azure DevOps scopes a repository to a project; GitHub has no equivalent.
+        renders: vsts_configuration.project_name / gitConfiguration.projectName
+
+      - id: git_collaboration_branch
+        ask: Which branch is published from?
+        type: string
+        plain:
+          en: "Published from the branch {value}."
+          de: "Veröffentlicht wird aus dem Branch {value}."
+        default: main
+        depends_on: { question: git_provider, not_equals: none }
+        why: >
+          The collaboration branch is where feature branches merge and from where the
+          factory publishes to its live mode (and, with automated publishing, where the
+          ARM template is generated into `adf_publish`). `main` is the convention; the
+          branching model around it - feature branches, pull requests, who may merge - is
+          the team's and is not rendered.
+        renders: github_configuration.branch_name / vsts_configuration.branch_name / gitConfiguration.collaborationBranch
+
+      - id: git_root_folder
+        ask: In which folder of the repository do the factory's files live?
+        type: string
+        plain:
+          en: "The factory's files live in the folder {value} of the repository."
+          de: "Die Dateien der Factory liegen im Ordner {value} des Repositories."
+        default: "/"
+        depends_on: { question: git_provider, not_equals: none }
+        why: >
+          `/` for a repository that holds the factory alone; a subfolder (`/adf`) for a
+          monorepo that also holds the application. Changing it later leaves the old
+          folder behind and starts the new one empty.
+        renders: github_configuration.root_folder / vsts_configuration.root_folder / gitConfiguration.rootFolder
+
+      - id: git_host
+        ask: Which GitHub host - github.com or an Enterprise Server?
+        type: string
+        plain:
+          en: "The GitHub host is {value}."
+          de: "Der GitHub-Host ist {value}."
+        default: "https://github.com"
+        depends_on: { question: git_provider, equals: github }
+        why: >
+          `https://github.com` for GitHub and GitHub Enterprise Cloud; a GitHub Enterprise
+          Server gives its own URL, which the factory must be able to reach - a server
+          behind the corporate firewall needs a rule for the factory's region.
+        renders: github_configuration.git_url / gitConfiguration.hostName
+
+  # --------------------------------------------------------------- networking
+  - id: networking
+    title: Networking
+    questions:
+      - id: public_network_access
+        ask: Should this factory depart from the deployment's exposure posture?
+        type: enum
+        plain:
+          en: "The factory's authoring and management endpoints are {value}."
+          de: "Die Entwicklungs- und Verwaltungsendpunkte der Factory sind {value}."
+        plain_values:
+          disabled: { en: "not reachable from the internet at all", de: "aus dem Internet überhaupt nicht erreichbar" }
+          enabled_with_firewall: { en: "reachable from the internet (the factory has no address allowlist, so this means reachable)", de: "aus dem Internet erreichbar (die Factory kennt keine Adressliste, also bedeutet dies erreichbar)" }
+          enabled: { en: "reachable from the internet", de: "aus dem Internet erreichbar" }
+        values: [disabled, enabled_with_firewall, enabled]
+        from_deployment: network_exposure
+        confirm_in: [production]
+        why: >
+          Asked only as a departure: exposure is a property of the system. `disabled`
+          closes the factory's own endpoints - the management API the pipelines and the
+          authoring portal call, and the portal itself - so authoring works only from a
+          machine that resolves the private endpoints (`dataFactory` and `portal`), and the
+          deployment pipeline's runner must be inside the network or the publish fails.
+          The setting is about reaching the **factory**; how the factory reaches the
+          **sources** is `managed_virtual_network`. A factory has no IP allowlist, so
+          `enabled_with_firewall` renders as `enabled` and is recorded as forced. The
+          Terraform module defaults to **enabled**, the Bicep module to disabled only when
+          private endpoints are passed; written on every call.
+        forced_when: >
+          `enabled_with_firewall` is rendered as `enabled`, recorded as forced with "no
+          firewall on a factory" as forced_by; `network_ownership: none` forces `enabled`,
+          recorded as forced with `network_ownership` as forced_by
+        renders: public_network_enabled (bool) / publicNetworkAccess ('Disabled' | 'Enabled')
+
+      - id: private_endpoint_subnet
+        ask: Which subnet should this factory's private endpoints live in?
+        type: ref
+        resolved_by: platform
+        plain:
+          en: "Its private connections land in subnet {value}."
+          de: "Seine privaten Anbindungen landen im Subnetz {value}."
+        ref: subnet
+        from_deployment: private_endpoint_subnet
+        per_environment: true
+        why: >
+          One subnet carries the deployment's private endpoints, so this is inherited. A
+          factory takes two: `dataFactory` (the management API, zone
+          `privatelink.datafactory.azure.net`) and `portal` (the authoring portal, zone
+          `privatelink.adf.azure.com`); without the second the portal loads but cannot
+          open the factory.
+        renders: private_endpoints.<key>.subnet_resource_id / privateEndpoints[].subnetResourceId
+
+      - id: private_endpoint_subresources
+        ask: Which of the factory's endpoints should be private?
+        type: list
+        plain:
+          en: "Private connections for: {value}."
+          de: "Private Anbindungen für: {value}."
+        plain_values:
+          dataFactory: { en: "the management interface the pipelines and tools call", de: "die Verwaltungsschnittstelle, die Pipelines und Werkzeuge aufrufen" }
+          portal: { en: "the authoring portal in the browser", de: "das Entwicklungsportal im Browser" }
+        values: [dataFactory, portal]
+        default: [dataFactory, portal]
+        why: >
+          Both: `dataFactory` alone makes the API private and leaves the authors unable to
+          open the portal from inside the network; `portal` alone is pointless. **The
+          Terraform module creates `dataFactory` endpoints only** - the sub-resource is
+          fixed in the module - so the `portal` endpoint is authored beside it on that
+          target. Each endpoint is one address and one DNS record.
+        renders: private_endpoints (dataFactory; the portal endpoint authored) / privateEndpoints[].service
+
+  # ----------------------------------------------------------------- identity
+  - id: identity
+    title: Identity and access
+    questions:
+      - id: managed_identity
+        ask: Which managed identity should the factory carry?
+        type: enum
+        plain:
+          en: "The factory has {value}."
+          de: "Die Factory hat {value}."
+        plain_values:
+          system_assigned: { en: "its own identity", de: "eine eigene Identität" }
+          user_assigned: { en: "its own identity and a separately managed one", de: "eine eigene und eine separat verwaltete Identität" }
+        values: [system_assigned, user_assigned]
+        default: system_assigned
+        why: >
+          The identity is how the factory signs in to every source - storage, SQL, Key
+          Vault - in place of connection strings, and how it reaches the Purview account.
+          System-assigned is created and deleted with the factory and is the guardrail
+          default; `user_assigned` **adds** a user-assigned identity beside it (the
+          system-assigned one stays, the portal and git binding need it) for a role that
+          must be granted before the factory exists or must survive a redeploy - and a
+          customer-managed key requires one, because the key is read at creation.
+        forced_when: >
+          `key_management: customer_managed` forces `user_assigned`, recorded as forced
+          with `key_management` as forced_by
+        renders: managed_identities { system_assigned, user_assigned_resource_ids } / managedIdentities { systemAssigned, userAssignedResourceIds }
+
+      - id: user_assigned_identity_ids
+        ask: Which user-assigned identity?
+        type: list
+        plain:
+          en: "It uses the identity {value}."
+          de: "Es nutzt die Identität {value}."
+        ref: user_assigned_identity
+        required: true
+        depends_on: { question: managed_identity, equals: user_assigned }
+        per_environment: true
+        why: The identity must already exist; this set does not create it.
+        renders: managed_identities.user_assigned_resource_ids / managedIdentities.userAssignedResourceIds
+
+      - id: source_access
+        ask: Which data stores should the factory read or write?
+        type: list
+        plain:
+          en: "The factory may use: {value}."
+          de: "Die Factory darf nutzen: {value}."
+        default: []
+        per_environment: true
+        why: >
+          Each entry is a store and a role for the factory's identity on it - `Storage Blob
+          Data Contributor` on a lake, `db_datareader` in a SQL database, `Key Vault Secrets
+          User` on the vault that holds the connection secrets. Without it a linked service
+          authenticates and is refused at the first read. The role assignment is a resource
+          of the **source**, which is why it is wiring: recorded here, rendered beside the
+          store by the pattern or the render skill, and every store named here that is
+          private also needs an entry in `managed_private_endpoints`. Empty is a working
+          factory with nothing to copy; a pattern fills it from the stores it knows.
+        renders: role assignments on the sources (not an input of either module)
+
+      - id: role_assignments
+        ask: Who may author and operate the factory?
+        type: list
+        plain:
+          en: "Rights on the factory granted to: {value}."
+          de: "Rechte an der Factory vergeben an: {value}."
+        default: []
+        per_environment: true
+        why: >
+          Azure RBAC on the factory - `Data Factory Contributor` for the authors of the
+          development factory (the portal needs it to save), `Reader` plus the monitoring
+          views for operators, and nothing for people on the other stages, which the
+          pipeline deploys. Empty is a normal answer for a factory the deploying principal
+          alone manages.
+        renders: role_assignments / roleAssignments
+
+  # ----------------------------------------------------------------- security
+  - id: security
+    title: Security
+    questions:
+      - id: key_management
+        ask: Are the factory's encryption keys platform-managed or customer-managed?
+        type: enum
+        plain:
+          en: "Encryption keys are {value}."
+          de: "Verschlüsselungsschlüssel sind {value}."
+        plain_values:
+          platform_managed: { en: "managed by Azure - encrypted, rotated, no effort on your side", de: "von Azure verwaltet: verschlüsselt, rotiert, kein Aufwand bei euch" }
+          customer_managed: { en: "your own, held in your key vault, so you can revoke them", de: "eure eigenen in eurem Schlüsseltresor, damit ihr sie zurückziehen könnt" }
+        values: [platform_managed, customer_managed]
+        from_deployment: key_management
+        confirm_in: [production]
+        why: >
+          Inherited. The factory's metadata - pipeline definitions, linked service
+          properties, the credentials it holds for sources without identity support - is
+          encrypted at rest with a platform-managed key either way. `customer_managed`
+          encrypts it with a key in a Key Vault with purge protection, read through the
+          user-assigned identity, **at creation**: a key cannot be added to an existing
+          factory. A factory that loses access to its key stops running pipelines.
+        renders: >
+          customer_managed_key_id and customer_managed_key_identity_id / customerManagedKey {
+          keyVaultResourceId, keyName, userAssignedIdentityResourceId, autoRotationEnabled }
+
+      - id: cmk_key_vault_key_id
+        ask: Which Key Vault key should protect the factory?
+        type: ref
+        plain:
+          en: "Encrypted with your key {value}."
+          de: "Verschlüsselt mit eurem Schlüssel {value}."
+        ref: key_vault_key
+        required: true
+        depends_on: { question: key_management, equals: customer_managed }
+        per_environment: true
+        why: >
+          The key must exist, the vault must have soft delete and purge protection, and the
+          user-assigned identity must hold `Key Vault Crypto Service Encryption User` on it
+          before the factory is created. The Terraform module takes the versioned key URL;
+          the Bicep module the vault id and the key name with auto-rotation.
+        renders: customer_managed_key_id (versioned URL) / customerManagedKey.keyName and keyVaultResourceId
+
+  # ------------------------------------------------------------ observability
+  - id: observability
+    title: Observability
+    questions:
+      - id: diagnostic_workspace
+        ask: Which Log Analytics workspace should receive the run logs?
+        type: ref
+        resolved_by: platform
+        plain:
+          en: "Its logs go to {value}."
+          de: "Seine Logs gehen in {value}."
+        ref: log_analytics_workspace
+        from_deployment: diagnostics_destination
+        per_environment: true
+        why: >
+          Inherited: one deployment, one destination. The factory's own monitoring view
+          keeps 45 days of run history; the workspace is where a failed run from last
+          quarter, an alert on a failed trigger and a cost report per pipeline come from.
+          The destination type is `Dedicated` (resource-specific tables such as
+          `ADFPipelineRun`), which both modules default to; `AzureDiagnostics` truncates
+          long activity outputs.
+        renders: diagnostic_settings / diagnosticSettings
+
+      - id: diagnostic_categories
+        ask: Which run logs should be collected?
+        type: list
+        plain:
+          en: "Logged: {value}."
+          de: "Geloggt wird: {value}."
+        plain_values:
+          PipelineRuns: { en: "every pipeline run with its outcome and duration", de: "jeder Pipeline-Lauf mit Ergebnis und Dauer" }
+          ActivityRuns: { en: "every activity inside a run, with its input and output", de: "jede Aktivität innerhalb eines Laufs, mit Eingabe und Ausgabe" }
+          TriggerRuns: { en: "every trigger firing, including the ones that failed to start a run", de: "jedes Auslösen eines Triggers, auch die, die keinen Lauf starten konnten" }
+          SandboxPipelineRuns: { en: "debug runs of pipelines from the authoring portal", de: "Debug-Läufe von Pipelines aus dem Entwicklungsportal" }
+          SandboxActivityRuns: { en: "debug runs of activities from the authoring portal", de: "Debug-Läufe von Aktivitäten aus dem Entwicklungsportal" }
+          SSISIntegrationRuntimeLogs: { en: "the logs of an SSIS runtime", de: "die Protokolle einer SSIS-Laufzeit" }
+          SSISPackageEventMessages: { en: "the event messages of SSIS package runs", de: "die Ereignismeldungen von SSIS-Paketläufen" }
+          SSISPackageExecutionDataStatistics: { en: "the row counts of SSIS package runs", de: "die Zeilenzahlen von SSIS-Paketläufen" }
+        values: [PipelineRuns, ActivityRuns, TriggerRuns, SandboxPipelineRuns, SandboxActivityRuns, SSISIntegrationRuntimeLogs, SSISPackageEventMessages, SSISPackageExecutionDataStatistics]
+        default: [PipelineRuns, ActivityRuns, TriggerRuns]
+        why: >
+          The three are what an operator needs - which run failed, in which activity, and
+          whether the trigger fired at all - and are the only categories free of export
+          cost. The sandbox categories record debug runs from the portal and are a volume
+          line for a busy development factory; the SSIS ones apply only to an SSIS runtime
+          this set does not render, and the Airflow ones to a feature it does not render,
+          so neither is defaulted. The category names are the platform's and are checked
+          against `az monitor diagnostic-settings categories list --resource <factory id>`
+          before a render, not remembered.
+        renders: diagnostic_settings.<key>.log_categories / diagnosticSettings[].logCategoriesAndGroups[].category
+
+      - id: metrics_enabled
+        ask: Should the run and runtime figures be collected?
+        type: bool
+        plain:
+          en: "Run and runtime figures are {value}."
+          de: "Lauf- und Laufzeitwerte werden {value}."
+        plain_values:
+          true: { en: "collected", de: "erfasst" }
+          false: { en: "not collected", de: "nicht erfasst" }
+        default: true
+        why: >
+          Succeeded and failed runs per pipeline, trigger and activity as numbers, plus the
+          integration runtimes' CPU, memory and queue length - cheap, and what an alert
+          rule on "a pipeline failed" reads. The category is `AllMetrics`.
+        renders: diagnostic_settings.<key>.metric_categories = ["AllMetrics"] / diagnosticSettings[].metricCategories[].category = "AllMetrics"

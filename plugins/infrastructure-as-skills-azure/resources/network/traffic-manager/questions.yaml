@@ -1,0 +1,385 @@
+schema_version: 1
+
+resource: Microsoft.Network/trafficManagerProfiles
+title: Azure Traffic Manager Profile
+
+naming:
+  terraform: "Azure::Microsoft.Network/trafficManagerProfiles"
+  bicep: "Microsoft.Network/trafficManagerProfiles"
+  # Bicep assembles the name from vars - this is the prefix it renders. The relative DNS name
+  # (`<name>.trafficmanager.net`) is global and unique; it defaults to the resource name.
+  abbreviation: "traf"
+
+boundaries:
+  - "Does not create the resource group. Expects one from the spec's context."
+  - "Does not create the endpoints it steers to. An App Service, a public IP, a Front Door or an external host is referenced by id or name; the endpoint must be publicly resolvable, because Traffic Manager is a DNS answer and never carries traffic."
+  - "Is not a layer-7 entry point. A request for a web application firewall, TLS termination, path routing, caching or private backends is Front Door's (`front-door` set); Traffic Manager steers DNS between regions or providers and is combined with a Front Door or an Application Gateway behind each endpoint, not instead of one."
+  - "Does not decide the public posture. A profile is reachable from the internet by nature (`<name>.trafficmanager.net`) and its endpoints must be; under `deployment.network_exposure: private` the resource is a contradiction to raise, not a value to render."
+  - "Does not create the customer's DNS record. The CNAME (or apex alias) from `www.example.com` to the profile is the `public-dns-zone` set's, in `wiring.dns_records`."
+  - "Does not create the Log Analytics workspace it routes diagnostics to."
+  - "Does not carry a resource lock: a profile is rebuilt from the spec in minutes and `deployment.resource_lock` does not list it. The relative DNS name is kept for recreation only if nobody else claims it in between; the handover says so."
+
+groups:
+
+  # ---------------------------------------------------------------- placement
+  - id: placement
+    title: Placement
+    questions:
+      - id: environments
+        ask: Which stages is this deployed to?
+        type: list
+        plain:
+          en: "Deployed in the stages {value}."
+          de: "Wird in den Stufen {value} ausgerollt."
+        values: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
+        required: true
+        from_context: true
+        why: >
+          Drives the rendered name and with it the relative DNS name, which is global: a
+          development profile and a production profile cannot share `shop.trafficmanager.net`,
+          so each stage renders its own profile over its own endpoints.
+        renders: naming parameter `environment`; the profile is rendered per stage over that stage's endpoints
+
+      - id: location
+        ask: Which Azure region?
+        type: string
+        plain:
+          en: "The profile is global; the DNS answers come from Traffic Manager's name servers worldwide."
+          de: "Das Profil ist global; die DNS-Antworten kommen weltweit von Traffic Managers Nameservern."
+        default: global
+        why: >
+          A Traffic Manager profile is a global resource: it is created as `global`, whatever the
+          context's region says. Not asked; the context's region still goes into the name and is
+          the region of the first endpoint, which is what `closest` routing measures against.
+        renders: location = "global" (Bicep; the Terraform module has no location input)
+
+      - id: resource_group_name
+        ask: Which resource group?
+        type: ref
+        plain:
+          en: "Placed in the resource group {value}."
+          de: "Liegt in der Ressourcengruppe {value}."
+        ref: resource_group
+        required: true
+        from_context: true
+        per_environment: true
+        why: >
+          A global resource still sits in a group - the one of the application it fronts, so the
+          people who own the endpoints own the steering between them.
+        renders: resource_group_name (both modules) / implicit in Bicep scope
+
+  # ------------------------------------------------------------------ profile
+  - id: profile
+    title: Profile
+    questions:
+      - id: traffic_goal
+        ask: What should the steering achieve - send everyone to one place and switch to a standby when it fails, send each user to the closest place, split the users across places, or route by the user's country?
+        type: enum
+        resolved_by: interview
+        plain:
+          en: "Users are steered {value}."
+          de: "Die Nutzer werden {value} geleitet."
+        plain_values:
+          failover: { en: "to one primary site, with a standby that takes over when the primary fails", de: "zu einem Hauptstandort, mit einem Ersatz, der bei Ausfall übernimmt" }
+          closest: { en: "each to the site that answers them fastest", de: "jeweils zu dem Standort, der ihnen am schnellsten antwortet" }
+          split: { en: "across the sites in fixed shares", de: "in festen Anteilen auf die Standorte" }
+          by_region: { en: "by the country or region they come from", de: "nach dem Land oder der Region, aus der sie kommen" }
+        values: [failover, closest, split, by_region]
+        default: failover
+        confirm_in: [production]
+        why: >
+          The one question only the customer can answer, in their words, and it decides the
+          routing method below. `failover` is the usual reason to have a profile at all - a
+          second region that takes over - and the default. `closest` is for a system deployed to
+          several regions with users in several places. `split` is for a canary, a migration or a
+          contract that shares load. `by_region` is for a legal or content reason to keep users
+          of a country on a site; it needs every region of the world mapped to an endpoint, or
+          those users get no answer.
+        renders: pre-answers routing_method; recorded so the review reads the intent, not the method
+
+      - id: routing_method
+        ask: Which routing method should the profile use?
+        type: enum
+        plain:
+          en: "The routing method is {value}."
+          de: "Die Routing-Methode ist {value}."
+        plain_values:
+          Priority: { en: "Priority: the first healthy endpoint in order", de: "Priority: der erste gesunde Endpunkt in der Reihenfolge" }
+          Performance: { en: "Performance: the endpoint with the lowest latency to the user", de: "Performance: der Endpunkt mit der geringsten Latenz zum Nutzer" }
+          Weighted: { en: "Weighted: endpoints in proportion to their weights", de: "Weighted: Endpunkte im Verhältnis ihrer Gewichte" }
+          Geographic: { en: "Geographic: by the user's geographic origin", de: "Geographic: nach der geografischen Herkunft des Nutzers" }
+          MultiValue: { en: "MultiValue: several healthy addresses in one answer", de: "MultiValue: mehrere gesunde Adressen in einer Antwort" }
+          Subnet: { en: "Subnet: by the user's source address range", de: "Subnet: nach dem Quelladressbereich des Nutzers" }
+        values: [Priority, Performance, Weighted, Geographic, MultiValue, Subnet]
+        default: Priority
+        forced_when: >
+          `traffic_goal` pre-answers it - failover: Priority, closest: Performance, split: Weighted,
+          by_region: Geographic. `MultiValue` (several A records per answer, IP endpoints only) and
+          `Subnet` (a fixed mapping of source ranges) are the engineer's choices for a stated
+          reason and never derive from the customer's answer
+        why: >
+          The method is the profile and cannot be mixed: a profile that needs failover *within*
+          closest-routing regions nests a Priority profile under a Performance one
+          (`endpoints` of type `nested`). The modules disagree on the default - Terraform has none
+          and requires it, Bicep defaults to `Performance` - so it is written on every call.
+        renders: traffic_routing_method / trafficRoutingMethod
+
+      - id: relative_dns_name
+        ask: Which name should the profile have under trafficmanager.net?
+        type: string
+        plain:
+          en: "The profile answers at {value}.trafficmanager.net (empty: the resource name)."
+          de: "Das Profil antwortet unter {value}.trafficmanager.net (leer: der Ressourcenname)."
+        default: ""
+        why: >
+          Globally unique across every Azure tenant and fixed at creation. Empty takes the
+          rendered resource name, which carries the workload and the stage and so rarely
+          collides; a name claimed by somebody else fails at apply, not at plan. The customer's
+          own name (`www.example.com`) is a CNAME to this one in the public zone and is the name
+          people see; nobody types the trafficmanager.net name.
+        renders: dns_config.relative_name / relativeName
+
+      - id: dns_ttl_seconds
+        ask: How long may clients cache the profile's answer?
+        type: int
+        plain:
+          en: "Clients may keep an answer for {value} seconds before asking again."
+          de: "Clients dürfen eine Antwort {value} Sekunden behalten, bevor sie erneut fragen."
+        default: 60
+        why: >
+          The TTL bounds the failover time from the client's side: after an endpoint is marked
+          down, a client keeps going there until its cached answer expires. 60 seconds is the
+          service default and the right floor for a failover profile; lower values multiply the
+          queries (billed per million) for little gain, since the probe interval below is the
+          other half of the delay. Higher values suit a split profile where nothing fails over.
+        renders: dns_config.ttl / ttl
+
+      - id: profile_status
+        ask: Should the profile answer queries?
+        type: enum
+        plain:
+          en: "The profile is {value}."
+          de: "Das Profil ist {value}."
+        plain_values:
+          Enabled: { en: "active and answering", de: "aktiv und antwortet" }
+          Disabled: { en: "switched off - the name resolves to nothing", de: "abgeschaltet, der Name löst zu nichts auf" }
+        values: [Enabled, Disabled]
+        default: Enabled
+        why: >
+          `Disabled` exists for a prepared profile whose DNS record is not yet pointed at it, or
+          for a maintenance window: the name returns NXDOMAIN. It is a decision somebody takes
+          during an incident, not a render default, and it is here so a profile rendered
+          disabled is visibly so.
+        renders: profile_status / profileStatus
+
+      - id: traffic_view
+        ask: Should Traffic Manager record where the users come from and how fast each endpoint answers them (Traffic View)?
+        type: bool
+        plain:
+          en: "A map of user locations and endpoint latencies is {value}."
+          de: "Eine Karte der Nutzerstandorte und Endpunkt-Latenzen wird {value}."
+        plain_values:
+          true: { en: "collected, at an extra charge per million queries", de: "erfasst, gegen Aufpreis pro Million Anfragen" }
+          false: { en: "not collected", de: "nicht erfasst" }
+        default: false
+        why: >
+          Traffic View is a paid add-on billed on the queries the profile answers, and it is
+          useful once - when choosing where the next region goes. Off by default; enable it for
+          a few weeks around that decision and turn it off again.
+        renders: traffic_view_enrollment_status / trafficViewEnrollmentStatus
+
+      - id: max_return
+        ask: How many healthy addresses should one answer contain?
+        type: int
+        plain:
+          en: "An answer lists up to {value} healthy addresses."
+          de: "Eine Antwort nennt bis zu {value} gesunde Adressen."
+        default: 1
+        depends_on: { question: routing_method, equals: MultiValue }
+        why: >
+          MultiValue only: the client gets several A records and retries on its own, which is
+          the point of the method. 1 to 10; 1 is the modules' default and makes MultiValue behave
+          like a health-checked round robin. Not reached for the other methods.
+        renders: max_return / maxReturn
+
+  # --------------------------------------------------------------- monitoring
+  - id: monitoring
+    title: Health monitoring
+    questions:
+      - id: monitor_protocol
+        ask: How should the endpoints be probed?
+        type: enum
+        plain:
+          en: "Endpoints are checked over {value}."
+          de: "Die Endpunkte werden per {value} geprüft."
+        plain_values:
+          HTTPS: { en: "HTTPS, with the certificate checked", de: "HTTPS, mit Zertifikatsprüfung" }
+          HTTP: { en: "plain HTTP", de: "unverschlüsseltem HTTP" }
+          TCP: { en: "a TCP connection only, without a request", de: "nur einem TCP-Verbindungsaufbau, ohne Anfrage" }
+        values: [HTTPS, HTTP, TCP]
+        default: HTTPS
+        why: >
+          HTTPS is what the users use, so a probe over it fails when they would - an expired
+          certificate included. HTTP exists for an endpoint that redirects every HTTP request
+          (which the probe counts as failure unless `expected_status_codes` allows 3xx). TCP
+          only proves a port is open and misses an application that answers 500 to everything.
+          The Bicep module's default is **lowercase `http` on port 80**; the value is written on
+          every call.
+        renders: monitor_config.protocol / monitorConfig.protocol
+
+      - id: monitor_port
+        ask: Which port should be probed?
+        type: int
+        plain:
+          en: "Probed on port {value}."
+          de: "Geprüft auf Port {value}."
+        default: 443
+        why: >
+          443 for HTTPS. A different port is the endpoint's choice, not the profile's, and it is
+          the same port users connect to - a management port that is up while the application is
+          down is the probe that never fails.
+        renders: monitor_config.port / monitorConfig.port
+
+      - id: monitor_path
+        ask: Which path should the probe request?
+        type: string
+        plain:
+          en: "The probe requests {value}."
+          de: "Die Prüfung ruft {value} ab."
+        default: "/health"
+        why: >
+          A dedicated health path that checks the application's own dependencies, so a region
+          whose database is gone is taken out of rotation; `/` is served by a static page long
+          after that. The path must answer anonymously and without a redirect. For `TCP` it is
+          ignored and the modules still take it.
+        renders: monitor_config.path / monitorConfig.path
+
+      - id: expected_status_codes
+        ask: Which response codes count as healthy?
+        type: list
+        plain:
+          en: "Healthy means a response in {value}."
+          de: "Gesund heißt eine Antwort in {value}."
+        default: ["200-299"]
+        why: >
+          200-299 by default. An endpoint behind a redirecting front (HTTP to HTTPS, a sign-in
+          redirect) answers 3xx to the probe and is marked down unless the range says so; a range
+          that includes 4xx or 5xx is a probe that never fails. Each entry is `min-max`.
+        renders: monitor_config.expected_status_code_ranges = [{ min, max }] / monitorConfig.expectedStatusCodeRanges
+
+      - id: probe_profile
+        ask: How quickly should a failed endpoint be taken out of rotation?
+        type: enum
+        plain:
+          en: "A failed site is taken out {value}."
+          de: "Ein ausgefallener Standort wird {value} herausgenommen."
+        plain_values:
+          standard: { en: "within about one and a half minutes (a probe every 30 seconds, three failures)", de: "innerhalb von etwa anderthalb Minuten (eine Prüfung alle 30 Sekunden, drei Fehlschläge)" }
+          fast: { en: "within about half a minute (a probe every 10 seconds, three failures), at a higher probe charge", de: "innerhalb von etwa einer halben Minute (eine Prüfung alle 10 Sekunden, drei Fehlschläge), gegen höhere Prüfgebühr" }
+        values: [standard, fast]
+        derived_from:
+          question: outage_impact
+          map: { tolerable: standard, disruptive: standard, critical: fast }
+        why: >
+          The probe interval and the tolerated failures together are the detection time, and
+          the DNS TTL adds to it on the client. `standard` is 30 seconds, timeout 10, three
+          failures - the service default and enough for a system whose outage is disruptive but
+          not business-stopping. `fast` is 10 seconds, timeout 9 (the ceiling for the fast
+          interval), three failures, billed as "fast interval" health checks per endpoint; it is
+          what a `critical` outage answer buys, and one failure instead of three is a flapping
+          profile, not a faster one.
+        renders: monitor_config.interval_in_seconds, timeout_in_seconds, tolerated_number_of_failures / monitorConfig.intervalInSeconds, timeoutInSeconds, toleratedNumberOfFailures
+
+  # ---------------------------------------------------------------- endpoints
+  - id: endpoints
+    title: Endpoints
+    questions:
+      - id: endpoints
+        ask: Which sites should the profile steer to, and in which order or shares?
+        type: list
+        plain:
+          en: "Sites: {value}."
+          de: "Standorte: {value}."
+        required: true
+        per_environment: true
+        why: >
+          Each entry is a name, a kind (`azure`: an Azure resource with a public address - App
+          Service, public IP, Front Door; `external`: a hostname or address anywhere; `nested`: a
+          child profile with its minimum healthy endpoints), the target, its region (needed for
+          `Performance` with external or nested endpoints), and the number the method reads:
+          `priority` (1 is primary) for Priority, `weight` (1-1000) for Weighted, the region list
+          for Geographic. Nothing sensible can be guessed - a profile without endpoints answers
+          nothing - and the targets differ per stage. A pattern that deploys the application to
+          two regions fills this list from its own outputs.
+        renders: azure_endpoints, external_endpoints, nested_endpoints (maps) / endpoints[] with `type` per entry
+
+  # ------------------------------------------------------------------- access
+  - id: access
+    title: Access
+    questions:
+      - id: role_assignments
+        ask: Who needs to operate the profile?
+        type: list
+        plain:
+          en: "Operating rights on the profile granted to: {value}."
+          de: "Betriebsrechte auf das Profil vergeben an: {value}."
+        default: []
+        per_environment: true
+        why: >
+          The identity that disables an endpoint during a planned failover or a release - a
+          pipeline, an operations group - holds `Traffic Manager Contributor` on the profile,
+          never Contributor on the group. Empty by default: a render changes the profile with
+          the deploying identity. A pattern fills it from the consumers it knows about.
+        renders: role_assignments / roleAssignments
+
+  # ------------------------------------------------------------ observability
+  - id: observability
+    title: Observability
+    questions:
+      - id: diagnostic_workspace
+        ask: Which Log Analytics workspace should receive diagnostics?
+        type: ref
+        resolved_by: platform
+        plain:
+          en: "Its logs go to {value}."
+          de: "Seine Logs gehen in {value}."
+        ref: log_analytics_workspace
+        from_deployment: diagnostics_destination
+        per_environment: true
+        why: >
+          Inherited: one deployment, one destination. The profile's log is the probe history -
+          when each endpoint went down and came back - which is the record an incident review
+          needs to say whether the failover happened and how long it took.
+        renders: diagnostic_settings / diagnosticSettings
+
+      - id: diagnostic_categories
+        ask: Which log categories should be collected?
+        type: list
+        plain:
+          en: "Logged: {value}."
+          de: "Geloggt wird: {value}."
+        plain_values:
+          ProbeHealthStatusEvents: { en: "every change of an endpoint's health", de: "jede Änderung des Gesundheitszustands eines Endpunkts" }
+        values: [ProbeHealthStatusEvents]
+        default: [ProbeHealthStatusEvents]
+        why: >
+          The type's one resource log, written only when a probe result changes, so it costs
+          nothing while everything is healthy. The name is the platform's and is checked against
+          `az monitor diagnostic-settings categories list --resource <profile id>` before a
+          render, not remembered.
+        renders: diagnostic_settings.<key>.log_categories / diagnosticSettings[].logCategoriesAndGroups[].category
+
+      - id: metrics_enabled
+        ask: Should all metrics be collected?
+        type: bool
+        plain:
+          en: "Query counts and endpoint health figures are {value}."
+          de: "Anfragezahlen und Endpunkt-Gesundheitswerte werden {value}."
+        plain_values:
+          true: { en: collected, de: erfasst }
+          false: { en: not collected, de: nicht erfasst }
+        default: true
+        why: >
+          Queries per endpoint and the endpoint status metric are what an alert on "the standby
+          is taking traffic" rests on, and `AllMetrics` is cheap.
+        renders: diagnostic_settings.<key>.metric_categories = ["AllMetrics"] / metricCategories[].category

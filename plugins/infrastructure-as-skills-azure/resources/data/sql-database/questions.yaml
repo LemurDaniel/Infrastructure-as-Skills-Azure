@@ -11,7 +11,7 @@ naming:
   abbreviation: "sql"
 
 boundaries:
-  - "Covers the Azure SQL Database logical server (`Microsoft.Sql/servers`) and its single or pooled databases. SQL Managed Instance (`Microsoft.Sql/managedInstances`), SQL Server on a VM and Synapse dedicated pools decide differently and have no question set."
+  - "Covers the Azure SQL Database logical server (`Microsoft.Sql/servers`) and its single or pooled databases. SQL Managed Instance (`Microsoft.Sql/managedInstances`) has the `sql-managed-instance` set; SQL Server on a VM and Synapse dedicated pools decide differently and have no question set."
   - "Does not create the resource group. Expects one from the spec's context."
   - "Does not create private DNS zones - shared infrastructure, owned by a pattern or the platform."
   - "Does not create the Log Analytics workspace it routes diagnostics and audit logs to."

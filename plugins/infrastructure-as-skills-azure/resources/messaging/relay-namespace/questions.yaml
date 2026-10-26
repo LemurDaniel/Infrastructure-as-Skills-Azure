@@ -1,0 +1,309 @@
+schema_version: 1
+
+resource: Microsoft.Relay/namespaces
+title: Azure Relay namespace
+
+naming:
+  terraform: "Azure::Microsoft.Relay/namespaces"
+  bicep: "Microsoft.Relay/namespaces"
+  # Bicep assembles the name from vars - this is the prefix it renders. The name is global (it is a hostname), 6-50 characters.
+  abbreviation: "rn"
+
+boundaries:
+  - "Does not create the resource group. Expects one from the spec's context."
+  - "Does not create private DNS zones - shared infrastructure, owned by a pattern or the platform (`privatelink.servicebus.windows.net`, shared with Service Bus and Event Hubs)."
+  - "Does not create the Log Analytics workspace it routes diagnostics to."
+  - "Does not create or run the listeners: a hybrid connection is a rendezvous point, and the process on the other side (an on-premises service, a Hybrid Connection Manager beside an App Service) is deployed by its owner. The App Service side of a hybrid connection (`Microsoft.Web/sites/hybridConnectionNamespaces/relays`) belongs to the web app's set."
+  - "Does not grant the listeners and senders their roles - that is wiring between resources, owned by a pattern. It records the namespace's own role assignments in `role_assignments`."
+  - "Does not render authorization rules or connection strings. The root rule the service creates by itself is left alone and never read; a listener or sender that cannot use Entra ID is a named departure and an `open:` entry, never a key in a template."
+  - "Has one tier (Standard) and no capacity knob, no managed identity, no customer-managed key, no zone-redundancy or TLS setting: the type exposes none. `key_management: customer_managed` is recorded as not applicable on this resource."
+  - "The resource lock follows `deployment.resource_lock`, which lists messaging namespaces; it is not asked again here."
+
+groups:
+
+  - id: placement
+    title: Placement
+    questions:
+      - id: environments
+        ask: Which stages is this deployed to?
+        type: list
+        plain:
+          en: "Deployed in the stages {value}."
+          de: "Wird in den Stufen {value} ausgerollt."
+        values: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
+        required: true
+        from_context: true
+        why: >
+          Drives the rendered name and the strictness of several defaults below. Nothing
+          sensible can be guessed.
+        renders: >
+          naming parameter `environment`, and the tag of that name where the repository uses
+          one
+
+      - id: location
+        ask: Which Azure region?
+        type: string
+        plain:
+          en: "Runs in the Azure region {value}."
+          de: "Läuft in der Azure-Region {value}."
+        required: true
+        from_context: true
+        why: >
+          Part of the rendered name and not inferable. A namespace is regional; the
+          listeners and senders can be anywhere that reaches it over 443, which is the
+          service's point.
+        renders: location
+
+      - id: resource_group_name
+        ask: Which resource group?
+        type: ref
+        plain:
+          en: "Placed in the resource group {value}."
+          de: "Liegt in der Ressourcengruppe {value}."
+        ref: resource_group
+        required: true
+        from_context: true
+        per_environment: true
+        why: >
+          The namespace is placed into an existing group. Creating one here would make this
+          set own a lifecycle wider than the resource it describes.
+        renders: resource_group_id (AVM Terraform, the group's id) / implicit in Bicep scope
+
+  - id: connections
+    title: Hybrid connections and relays
+    questions:
+      - id: hybrid_connections
+        ask: Which connections into the other network should exist?
+        type: list
+        plain:
+          en: "Hybrid connections: {value} (empty: none)."
+          de: "Hybridverbindungen: {value} (leer: keine)."
+        default: []
+        why: >
+          A hybrid connection is a named rendezvous point: a listener on the far side opens
+          an outbound WebSocket to it, a sender connects to the same name, and the relay
+          joins the two - no inbound port, no VPN. One connection per service reached (a
+          database host and port, an internal API). The names are the workload's contract
+          with both sides, so they are asked, not invented; each entry is a name and, as
+          metadata, what sits behind it (`host:port`), which the App Service Hybrid
+          Connection Manager reads.
+        renders: >
+          modules/hybrid-connection (one per entry, name, user_metadata) /
+          hybridConnections[] (name, userMetadata)
+
+      - id: client_authorization_required
+        ask: Must a sender prove who it is before it may connect?
+        type: bool
+        plain:
+          en: "Senders {value} before they are connected."
+          de: "Sender {value}, bevor sie verbunden werden."
+        plain_values:
+          true: { en: must identify themselves, de: müssen sich ausweisen }
+          false: { en: need not identify themselves, de: müssen sich nicht ausweisen }
+        default: true
+        why: >
+          Applies to every hybrid connection; a single one departs in its entry. With it on,
+          a sender needs a token (Entra ID or a SAS rule with `Send`) and the listener can
+          read who connected; with it off anyone who knows the name connects, and the
+          listener must authenticate on its own. Off is for a public rendezvous (a browser
+          WebSocket client) that cannot carry a token, and is a departure the spec records.
+          Both modules default to on; written anyway.
+        renders: >
+          requires_client_authorization / hybridConnections[].requiresClientAuthorization
+
+      - id: wcf_relays
+        ask: Which classic WCF relay endpoints should exist?
+        type: list
+        plain:
+          en: "WCF relays: {value} (empty: none)."
+          de: "WCF-Relays: {value} (leer: keine)."
+        default: []
+        why: >
+          The older face of the service, for a .NET Framework service that speaks WCF and
+          cannot be changed. Each entry is a name and its binding type (`NetTcp` or `Http`).
+          A WCF relay authenticates with SAS only - it has no Entra ID path - so every entry
+          is a named departure from `local_auth: disabled` for its listener and its senders.
+          New work is a hybrid connection; this exists for what already runs.
+        renders: wcfRelays[] (Bicep) / modules/wcf-relay (Terraform, one per entry)
+
+  - id: access
+    title: Access
+    questions:
+      - id: local_auth
+        ask: Should shared access signatures (keys and connection strings) work?
+        type: enum
+        plain:
+          en: "Access keys and connection strings are {value}."
+          de: "Zugriffsschlüssel und Verbindungszeichenfolgen sind {value}."
+        plain_values:
+          disabled: { en: switched off, de: abgeschaltet }
+          allowed_where_unavoidable: { en: allowed on this namespace, de: auf diesem Namensraum erlaubt }
+        values: [disabled, allowed_where_unavoidable]
+        from_deployment: local_auth
+        forced_when: >
+          The type has no switch: the service creates `RootManageSharedAccessKey` with every
+          namespace and nothing in the API turns SAS off. `disabled` is therefore recorded as
+          `forced` to `allowed_where_unavoidable` with the resource type as forced_by, and
+          what the posture still buys is kept: no authorization rule is rendered beyond the
+          one the service creates, no key is read, output or placed in a setting, and
+          listeners and senders hold `Azure Relay Listener` and `Azure Relay Sender` on the
+          connection they use. A WCF relay (`wcf_relays`) is SAS-only and a named departure
+          per entry.
+        why: >
+          Inherited: `local_auth: disabled` means every listener and sender signs in with
+          Entra ID and every connection is attributable. On this type it is a convention
+          the render keeps rather than a property it sets, which is why it is recorded as
+          forced and not as done. **The Bicep module declares the root rule by default** and
+          an empty `authorizationRules` keeps the template from owning it.
+        renders: >
+          no attribute - authorizationRules: [] (Bicep), no authorization-rule submodule
+          (Terraform), no `listKeys` output; data-plane access through `role_assignments` only
+
+  - id: networking
+    title: Networking
+    questions:
+      - id: public_network_access
+        ask: Should this namespace depart from the deployment's exposure posture?
+        type: enum
+        plain:
+          en: "The namespace is {value}."
+          de: "Der Dienst (namespace) ist {value}."
+        plain_values:
+          disabled: { en: not reachable from the internet at all, de: aus dem Internet überhaupt nicht erreichbar }
+          enabled_with_firewall: { en: reachable from the internet only from listed addresses, de: aus dem Internet nur von gelisteten Adressen erreichbar }
+          enabled: { en: reachable from the internet, de: aus dem Internet erreichbar }
+        values: [disabled, enabled_with_firewall, enabled]
+        from_deployment: network_exposure
+        confirm_in: [production]
+        forced_when: >
+          `network_ownership: none` (a public deployment without a network) forces
+          `enabled`, recorded as forced with `network_ownership` as forced_by. A listener
+          on premises or a sender in another cloud has no address in the virtual network
+          and reaches the namespace only over its public endpoint, so a relay whose far side
+          is outside Azure is the usual reason for `enabled_with_firewall` - with the far
+          side's egress addresses listed - or, where those are not fixed, `enabled`.
+        why: >
+          Asked only as a departure: exposure is a property of the system, the deployment
+          set already answered it. `private` is `disabled`, `public` is
+          `enabled_with_firewall`. The namespace supports a private endpoint on its one tier.
+          With `disabled` the service sets no firewall rules at all, which is why `ip_rules`
+          is gated. **Both modules default to `Enabled`**, so the value is written on every
+          call; the Terraform module writes it on the namespace, the Bicep module through
+          the `networkRuleSets` child.
+        renders: >
+          public_network_access (`Enabled`/`Disabled`, a string) and the network-rule-set
+          submodule / networkRuleSets.publicNetworkAccess, defaultAction and ipRules
+
+      - id: private_endpoint_subnet
+        ask: Which subnet should the namespace's private endpoint live in?
+        type: ref
+        resolved_by: platform
+        plain:
+          en: "Its private connection lands in subnet {value}."
+          de: "Seine private Anbindung landet im Subnetz {value}."
+        ref: subnet
+        from_deployment: private_endpoint_subnet
+        per_environment: true
+        why: >
+          One subnet carries the deployment's private endpoints, so this is inherited. The
+          sub-resource is `namespace`; there is no list to choose from. The zone is the one
+          Service Bus uses, because Relay shares its hostname suffix.
+        renders: >
+          private_endpoints.<key>.subnet_resource_id / privateEndpoints[].subnetResourceId
+
+      - id: ip_rules
+        ask: Which public IP ranges may reach the namespace?
+        type: list
+        plain:
+          en: "Public addresses allowed to reach the namespace: {value}."
+          de: "Öffentliche Adressen, die den Dienst erreichen dürfen: {value}."
+        default: []
+        depends_on: { question: public_network_access, equals: enabled_with_firewall }
+        per_environment: true
+        why: >
+          An enumerated allowlist with a default action of `Deny`. An empty list denies every
+          public caller, which is valid and deliberate - and on a relay it means the
+          listener's egress addresses must be in the list or nothing connects. `0.0.0.0/0`
+          is not an allowlist and is rejected by the guardrails; a single address takes
+          `/32`. The rule set has no virtual-network rules; a caller inside Azure uses the
+          private endpoint.
+        renders: >
+          modules/network-rule-set ip_rules = [{ ipMask, action = "Allow" }], default_action
+          = "Deny" / networkRuleSets.ipRules, defaultAction
+
+  - id: identity
+    title: Identity and access
+    questions:
+      - id: role_assignments
+        ask: Who needs which role on this namespace?
+        type: list
+        plain:
+          en: "Access rights on the namespace granted to: {value}."
+          de: "Zugriffsrechte vergeben an: {value}."
+        default: []
+        per_environment: true
+        why: >
+          Data-plane access is granted by role, never by key. A listener holds `Azure Relay
+          Listener`, a sender `Azure Relay Sender`, each scoped to the hybrid connection it
+          uses, never the subscription; `Azure Relay Owner` is for the deploying principal.
+          A pattern normally fills this from the two sides it knows about and grants a
+          consumer's role in the pattern, not here. An on-premises listener is a service
+          principal or a managed identity with Azure Arc; one that has neither is the named
+          departure to a SAS rule on that connection.
+        renders: role_assignments / roleAssignments
+
+  - id: observability
+    title: Observability
+    questions:
+      - id: diagnostic_workspace
+        ask: Which Log Analytics workspace should receive diagnostics?
+        type: ref
+        resolved_by: platform
+        plain:
+          en: "Its logs go to {value}."
+          de: "Seine Logs gehen in {value}."
+        ref: log_analytics_workspace
+        from_deployment: diagnostics_destination
+        per_environment: true
+        why: >
+          Inherited: one deployment, one destination. Without a diagnostic setting the
+          resource keeps no record anyone can query.
+        renders: diagnostic_settings / diagnosticSettings
+
+      - id: diagnostic_categories
+        ask: Which log categories should be collected?
+        type: list
+        plain:
+          en: "Logged: {value}."
+          de: "Geloggt wird: {value}."
+        plain_values:
+          HybridConnectionsEvent: { en: "listeners and senders connecting, disconnecting and failing", de: "Verbindungsaufbau, -abbau und Fehler von Empfängern und Sendern" }
+          VNetAndIPFilteringLogs: { en: connections blocked or allowed by the firewall, de: durch die Firewall blockierte oder erlaubte Verbindungen }
+        values: [HybridConnectionsEvent, VNetAndIPFilteringLogs]
+        default: [HybridConnectionsEvent, VNetAndIPFilteringLogs]
+        why: >
+          Both of the type's categories, and both cheap: connection events are how a
+          listener that silently dropped shows up, firewall decisions how a listener whose
+          egress address changed shows up. Both land in the shared `AzureDiagnostics` table.
+          The names are the platform's and are checked against `az monitor
+          diagnostic-settings categories list` for the resource before a render, not
+          remembered.
+        renders: >
+          diagnostic_settings.<key>.log_categories /
+          diagnosticSettings[].logCategoriesAndGroups[].category
+
+      - id: metrics_enabled
+        ask: Should all metrics be collected?
+        type: bool
+        plain:
+          en: "Usage and performance figures are {value}."
+          de: "Nutzungs- und Leistungswerte werden {value}."
+        plain_values:
+          true: { en: collected, de: erfasst }
+          false: { en: not collected, de: nicht erfasst }
+        default: true
+        why: >
+          Active connections, active listeners, listener-connection failures, bytes
+          transferred - an active-listener count that drops to zero is how a dead far side
+          shows up, and the one to alert on.
+        renders: metrics[].category = "AllMetrics" / metricCategories[].category

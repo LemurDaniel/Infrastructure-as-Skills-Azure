@@ -1,0 +1,168 @@
+schema_version: 1
+
+resource: Microsoft.Network/ddosProtectionPlans
+title: Azure DDoS Protection Plan
+
+naming:
+  terraform: "Azure::Microsoft.Network/ddosProtectionPlans"
+  bicep: "Microsoft.Network/ddosProtectionPlans"
+  # Bicep assembles the name from vars - this is the prefix it renders. The convention has no
+  # entry for the type; `ddos` is the CAF abbreviation.
+  abbreviation: "ddos"
+
+boundaries:
+  - "Does not create the resource group. Expects one from the spec's context."
+  - "Is reached for `ownership: deployment` only - a standalone deployment with no platform, or the platform's own connectivity deployment. In an Azure landing zone the plan is the connectivity subscription's: one plan per tenant, referenced by every network, never created by a workload. Two plans in one tenant are two fixed monthly fees for one protection."
+  - "Does not associate itself with a network. The association is the virtual network's (`virtual-network.security.ddos_protection` with the plan's id) and the public IP's (`public-ip-address.security.ddos_protection_mode`); this set only hands the id over, and a plan nobody references protects nothing and still bills."
+  - "Does not decide whether a network needs a plan. That is the network set's question, asked per network; this set decides where the plan comes from."
+  - "Does not render DDoS IP Protection, the per-address alternative (`public-ip-address.security.ddos_protection_mode: Enabled` without a plan is not it either - see notes). A deployment with a handful of public addresses and no plan is its case."
+  - "Does not render diagnostics: the plan has no logs and no metrics of its own. Attack notifications, mitigation flow logs and reports are categories of the **public IP** and are collected there."
+  - "Does not carry a resource lock: a plan is recreated from the spec in seconds, keeps nothing, and `deployment.resource_lock` does not list it; the networks that reference it are re-associated by their own render."
+
+groups:
+
+  # ---------------------------------------------------------------- placement
+  - id: placement
+    title: Placement
+    questions:
+      - id: environments
+        ask: Which stages is this deployed to?
+        type: list
+        plain:
+          en: "Deployed in the stages {value}."
+          de: "Wird in den Stufen {value} ausgerollt."
+        values: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
+        required: true
+        from_context: true
+        why: >
+          Drives the rendered name. Whether every stage gets a plan is `stages_with_plan` below:
+          a plan is a fixed monthly fee, and three of them for one workload's stages is the
+          cost finding this set exists to prevent.
+        renders: naming parameter `environment`; which stages render the plan is `stages_with_plan`
+
+      - id: location
+        ask: Which Azure region?
+        type: string
+        plain:
+          en: "Created in the Azure region {value}."
+          de: "Wird in der Azure-Region {value} angelegt."
+        required: true
+        from_context: true
+        why: >
+          The plan is a regional resource for placement only; it protects networks in **any**
+          region and any subscription of the tenant. Not asked: the context's region, which is
+          also what goes into the name.
+        renders: location
+
+      - id: resource_group_name
+        ask: Which resource group?
+        type: ref
+        plain:
+          en: "Placed in the resource group {value}."
+          de: "Liegt in der Ressourcengruppe {value}."
+        ref: resource_group
+        required: true
+        from_context: true
+        per_environment: true
+        why: >
+          The network group where one is split off, otherwise the main group: the plan belongs
+          with the network that references it and is read by every other network through its
+          id. For a plan that several subscriptions share, a group of the connectivity
+          subscription - and then the platform owns it, not this set.
+        renders: resource_group_name (both modules) / implicit in Bicep scope
+
+  # --------------------------------------------------------------------- plan
+  - id: plan
+    title: Plan
+    questions:
+      - id: ownership
+        ask: Who provides the DDoS protection plan?
+        type: enum
+        resolved_by: platform
+        plain:
+          en: "The DDoS protection plan comes from {value}."
+          de: "Der DDoS-Schutzplan kommt von {value}."
+        plain_values:
+          platform: { en: "the company platform, which runs one plan for every network of the tenant", de: "der Firmenplattform, die einen Plan für alle Netze des Mandanten betreibt" }
+          deployment: { en: "this deployment, which creates one of its own", de: "diesem Ausrollen, das einen eigenen anlegt" }
+        values: [platform, deployment]
+        default: platform
+        forced_when: >
+          `deployment.landing_zone: standalone` pre-answers `deployment` - there is no platform
+          to own a plan; `corp`, `online` and `sandbox` keep `platform`
+        why: >
+          One plan covers 100 public IP addresses across every subscription of the tenant for one
+          fixed monthly fee, and each address beyond that is a small surcharge - so the model is
+          one plan per tenant, owned by whoever owns the hub, and a workload references it. A
+          second plan is the same fee again for nothing. `platform` renders no plan: the
+          networks take `existing_plan`. `deployment` creates one and is right only where no
+          platform exists, which `landing_zone: standalone` says; a workload that wants a plan in
+          a landing zone asks the platform team for the id instead.
+        renders: whether the module is called (`deployment`) or only `existing_plan` is handed to the networks (`platform`)
+
+      - id: existing_plan
+        ask: Which existing DDoS protection plan should the networks use?
+        type: ref
+        resolved_by: platform
+        plain:
+          en: "The networks use the protection plan {value}."
+          de: "Die Netze nutzen den Schutzplan {value}."
+        ref: ddos_protection_plan
+        required: true
+        depends_on: { question: ownership, equals: platform }
+        per_environment: true
+        why: >
+          Read by name, resource group and subscription - the plan usually lives in the
+          connectivity subscription, so it is never assumed to be in the context's. A pattern
+          for a known platform supplies it; without a profile it is an `open:` entry owned by
+          the platform team, never guessed, because a wrong id fails at the network's apply.
+        renders: data "azurerm_network_ddos_protection_plan" / an `existing` resource with scope; the id goes to virtual-network.ddos_protection and public-ip-address.ddos_protection_plan
+
+      - id: stages_with_plan
+        ask: Should every stage get a plan of its own, or production only?
+        type: enum
+        plain:
+          en: "A protection plan exists {value}."
+          de: "Ein Schutzplan existiert {value}."
+        plain_values:
+          production: { en: "in production only; development and test rely on Azure's always-on basic protection", de: "nur in der Produktion; Entwicklung und Test verlassen sich auf Azures immer aktiven Basisschutz" }
+          all_stages: { en: "in every stage", de: "in jeder Stufe" }
+        values: [production, all_stages]
+        default: production
+        confirm_in: [production]
+        depends_on: { question: ownership, equals: deployment }
+        why: >
+          A plan per stage is the fixed fee per stage, and a development network under attack is
+          an inconvenience, not an outage of the business - Azure's infrastructure protection
+          applies to every public address regardless. So production only, decided here in the
+          open rather than through a cost relaxation, because less protection outside production
+          is a security-shaped choice a reviewer should see and confirm. `all_stages` is for a
+          test stage that rehearses production under load, or a stack whose stages sit in one
+          subscription and could share one plan - then one plan, created in production,
+          referenced by the others, is the cheaper form of `all_stages` and is what the render
+          does when `stage_isolation` is `resource_group`.
+        renders: >
+          the stages in which the module is called; in the other stages the networks render
+          without a plan (virtual-network.ddos_protection forced false), or with the
+          production plan's id when the stages share a subscription
+
+  # ------------------------------------------------------------------- access
+  - id: access
+    title: Access
+    questions:
+      - id: role_assignments
+        ask: Who needs to attach networks to the plan?
+        type: list
+        plain:
+          en: "Rights to use the plan granted to: {value}."
+          de: "Rechte zur Nutzung des Plans vergeben an: {value}."
+        default: []
+        per_environment: true
+        why: >
+          Associating a network with a plan in another subscription needs read access on the
+          plan for the identity deploying the network - `Network Contributor` on the plan is the
+          usual grant, and `Reader` is enough for the association alone. Empty by default: under
+          `deployment` the same identity deploys plan and networks. A plan that several
+          subscriptions share lists each subscription's deploying identity here, and that is the
+          platform's list, not a workload's.
+        renders: role_assignments / roleAssignments

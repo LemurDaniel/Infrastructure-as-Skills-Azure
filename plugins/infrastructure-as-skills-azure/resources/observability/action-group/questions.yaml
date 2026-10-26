@@ -1,0 +1,335 @@
+schema_version: 1
+
+resource: Microsoft.Insights/actionGroups
+title: Azure Monitor action group
+
+naming:
+  terraform: "Azure::Microsoft.Insights/actionGroups"
+  bicep: "Microsoft.Insights/actionGroups"
+  # Bicep assembles the name from vars - this is the prefix it renders. The short name
+  # (`groupShortName`, 12 characters) is a separate property and comes from the workload.
+  abbreviation: "ag"
+
+boundaries:
+  - "Does not create the resource group. Expects one from the spec's context."
+  - "Does not create alert rules. An action group is the *who* of an alert; the rules that invoke it are the alert-rule set, and a rule binds the group by reference (`action_group`)."
+  - "Does not create the receivers' targets: the Function App, Logic App, Event Hub, Automation runbook or ITSM connection a receiver calls exists before the group and is referenced by id. The receivers' secrets (function keys, callback URLs) are read from those resources at render, never written into the spec."
+  - "Does not grant Azure Monitor access to a secure webhook's Entra application - that consent is a Microsoft Graph operation outside the template (see the notes)."
+  - "Does not confirm e-mail or SMS receivers. Azure sends a confirmation to each address; until it is accepted the receiver is silent and nothing in the template says so."
+
+groups:
+
+  # ---------------------------------------------------------------- placement
+  - id: placement
+    title: Placement
+    questions:
+      - id: environments
+        ask: Which stages is this deployed to?
+        type: list
+        plain:
+          en: "Deployed in the stages {value}."
+          de: "Wird in den Stufen {value} ausgerollt."
+        values: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
+        required: true
+        from_context: true
+        why: >
+          Drives the rendered name and which stages notify whom: an action group exists per
+          stage so that a test alert never pages the on-call team.
+        renders: naming parameter `environment`
+
+      - id: location
+        ask: Which Azure region?
+        type: string
+        plain:
+          en: "A global resource, registered as {value}."
+          de: "Eine globale Ressource, registriert als {value}."
+        default: global
+        why: >
+          An action group is a global resource: its metadata is replicated and a regional
+          outage does not stop it notifying. `global` is written as the location and the
+          deployment's region is not used - a regional action group exists only for a
+          data-residency requirement on notification metadata and is a departure.
+        renders: "location = \"global\" / location: 'global'"
+
+      - id: resource_group_name
+        ask: Which resource group?
+        type: ref
+        plain:
+          en: "Placed in the resource group {value}."
+          de: "Liegt in der Ressourcengruppe {value}."
+        ref: resource_group
+        required: true
+        from_context: true
+        per_environment: true
+        why: >
+          The group is placed into an existing resource group, the observability one where
+          the deployment splits by role: it outlives any single workload resource that
+          alerts into it.
+        renders: parent_id (AVM Terraform, the group's id) / implicit in Bicep scope
+
+  # ----------------------------------------------------------------- receivers
+  - id: notification
+    title: Who is told, and how
+    questions:
+      - id: short_name
+        ask: Which short name should notifications carry as the sender?
+        type: string
+        plain:
+          en: "Notifications carry the sender name {value} (empty: the workload name, cut to 12 characters)."
+          de: "Benachrichtigungen tragen den Absendernamen {value} (leer: der Workload-Name, auf 12 Zeichen gekürzt)."
+        default: ""
+        why: >
+          `groupShortName` is required by the service, limited to 12 characters and shown as
+          the sender of SMS and push notifications and in the subject of e-mails. Empty
+          means derived: the render takes the first twelve characters of the `workload`
+          parameter, so every stage of one system is recognisable by the same prefix. A
+          stated value is for a name that collides within the subscription or a team that
+          wants its own prefix; it is cut to 12 characters either way.
+        renders: "short_name = coalesce(var.short_name, substr(var.workload, 0, 12)) / groupShortName: take(empty(shortName) ? workload : shortName, 12)"
+
+      - id: on_call_email
+        ask: Which shared mailbox should be told when the system is unhealthy?
+        type: string
+        resolved_by: interview
+        plain:
+          en: "Alerts go to the mailbox {value}."
+          de: "Alarme gehen an das Postfach {value}."
+        required: true
+        why: >
+          The one thing nobody can guess, and the receiver every alert of the deployment
+          lands on. A shared mailbox or a team's distribution list, never a person: the
+          person leaves and the alerts keep coming to nobody. Azure sends a confirmation to
+          the address and the receiver stays silent until it is accepted, so the mailbox
+          must be one somebody reads before the first alert, not after. Written as the
+          first entry of the e-mail receivers; further addresses go into `email_receivers`.
+        renders: email_receivers.oncall / emailReceivers[0]
+
+      - id: email_receivers
+        ask: Which further mailboxes should also be told?
+        type: list
+        plain:
+          en: "Also notified by e-mail: {value} (empty: only the on-call mailbox)."
+          de: "Zusätzlich per E-Mail informiert: {value} (leer: nur das Bereitschaftspostfach)."
+        default: []
+        per_environment: true
+        why: >
+          Each entry is a mailbox - a product owner's team list, a service desk inbox. Per
+          stage, because a development stage informs the team and production informs the
+          people who carry the pager. Empty is the common answer. A person's address is a
+          finding, for the reason given at `on_call_email`.
+        renders: email_receivers / emailReceivers
+
+      - id: sms_receivers
+        ask: Should anyone be woken by SMS?
+        type: list
+        plain:
+          en: "Notified by SMS: {value} (empty: nobody)."
+          de: "Per SMS informiert: {value} (leer: niemand)."
+        default: []
+        per_environment: true
+        why: >
+          Each entry is a country code and a number. SMS is the channel that works when the
+          mail server is part of the incident, and the one that pages at night - so it is a
+          production answer and a short list. Azure applies a rate limit per number (no more
+          than one SMS every five minutes) and sends a confirmation first. SMS receivers do
+          not get the common alert schema; the text is Azure's fixed format.
+        renders: sms_receivers / smsReceivers
+
+      - id: webhook_receivers
+        ask: Which chat channels or incident tools should receive the alert?
+        type: list
+        plain:
+          en: "Forwarded to the channels and tools {value} (empty: none)."
+          de: "Weitergeleitet an die Kanäle und Werkzeuge {value} (leer: keine)."
+        default: []
+        per_environment: true
+        why: >
+          Each entry is a name and an HTTPS address: a Teams or Slack incoming webhook, a
+          PagerDuty or OpsGenie integration, an internal incident tool. Per stage, because
+          a test channel and the production channel are different rooms. The URL often
+          carries a token, so it is read from a secret at render - the Terraform module
+          sends it write-only and keeps a hash in state, Bicep takes it as a `securestring`
+          - and never appears in the spec.
+        renders: webhook_receivers / webhookReceivers
+
+      - id: webhook_authentication
+        ask: How should a webhook target be able to trust that the call came from Azure Monitor?
+        type: enum
+        plain:
+          en: "A webhook target verifies the caller by {value}."
+          de: "Ein Webhook-Ziel prüft den Aufrufer über {value}."
+        plain_values:
+          entra_id: { en: "a signed company-directory token (secure webhook)", de: "ein signiertes Token des Firmenverzeichnisses (sicherer Webhook)" }
+          url_secret: { en: "a secret in the address only", de: "nur ein Geheimnis in der Adresse" }
+        values: [entra_id, url_secret]
+        default: entra_id
+        depends_on: { question: webhook_receivers, not_equals: [] }
+        why: >
+          `entra_id` is the secure webhook: Azure Monitor obtains a token for the target's
+          Entra application and the target rejects everything else - the only form in which
+          a leaked URL is not a way to inject alerts. It needs the target's application
+          object id and identifier URI per entry, and a one-time consent for Azure Monitor
+          on that application (notes). `url_secret` is the plain webhook with a token in
+          the address, which chat tools (Teams, Slack) offer and which cannot be upgraded:
+          a receiver pointing at one of those is recorded as `url_secret` per entry, the
+          rest stay `entra_id`.
+        renders: >
+          webhook_receivers.<key>.use_aad_auth + object_id + identifier_uri /
+          webhookReceivers[].useAadAuth + objectId + identifierUri
+
+      - id: azure_function_receivers
+        ask: Should a function run when the alert fires?
+        type: list
+        plain:
+          en: "Runs the functions {value} (empty: none)."
+          de: "Startet die Funktionen {value} (leer: keine)."
+        ref: function_app
+        default: []
+        per_environment: true
+        why: >
+          Each entry is a Function App of the deployment and a function name - the
+          auto-remediation hook: restart, scale, open a ticket. The HTTP trigger URL carries
+          the function key and is read from the app at render, never written down. The
+          function's own code is the workload's.
+        renders: azure_function_receivers / azureFunctionReceivers
+
+      - id: logic_app_receivers
+        ask: Should a workflow run when the alert fires?
+        type: list
+        plain:
+          en: "Starts the workflows {value} (empty: none)."
+          de: "Startet die Workflows {value} (leer: keine)."
+        ref: logic_app
+        default: []
+        per_environment: true
+        why: >
+          Each entry is a Logic App workflow with an HTTP trigger - the usual way to post an
+          adaptive card into Teams, enrich the alert or route it by severity. The callback
+          URL carries a shared access signature and is read from the workflow at render.
+        renders: logic_app_receivers / logicAppReceivers
+
+      - id: event_hub_receivers
+        ask: Should the alerts also be streamed to an event hub for another system to consume?
+        type: list
+        plain:
+          en: "Streamed to the event hubs {value} (empty: none)."
+          de: "In die Event Hubs {value} gestreamt (leer: keine)."
+        ref: event_hub
+        default: []
+        per_environment: true
+        why: >
+          Each entry is an Event Hub (namespace, hub, subscription) that a SIEM or a central
+          operations platform reads. Azure Monitor authenticates to the hub with its own
+          identity - no connection string is accepted - so the namespace must allow Entra
+          ID and the hub's role is wiring the pattern does.
+        renders: event_hub_receivers / eventHubReceivers
+
+      - id: arm_role_receivers
+        ask: Should everyone holding a role on the subscription be e-mailed as well?
+        type: list
+        plain:
+          en: "Also e-mailed: everyone holding the roles {value} (empty: nobody by role)."
+          de: "Zusätzlich per E-Mail: alle Inhaber der Rollen {value} (leer: niemand nach Rolle)."
+        plain_values:
+          Owner: { en: subscription owners, de: Abonnement-Besitzer }
+          Contributor: { en: subscription contributors, de: Abonnement-Mitwirkende }
+          "Monitoring Contributor": { en: monitoring contributors, de: Monitoring-Mitwirkende }
+          "Monitoring Reader": { en: monitoring readers, de: Monitoring-Leser }
+        values: [Owner, Contributor, "Monitoring Contributor", "Monitoring Reader"]
+        default: []
+        why: >
+          An ARM role receiver mails every *user* who holds the built-in role on the
+          subscription at the moment the alert fires - group members and service principals
+          are not reached. It is the receiver Azure's own Service Health alerts use and it
+          needs no address to maintain, which is also its weakness: who gets paged changes
+          with every role assignment. Empty by default; `Owner` is the common addition for a
+          Service Health alert. Only built-in roles are accepted, rendered by their GUID.
+        renders: arm_role_receivers.<key>.role_id (GUID) / armRoleReceivers[].roleId
+
+      - id: automation_runbook_receivers
+        ask: Should an Automation runbook run when the alert fires?
+        type: list
+        plain:
+          en: "Starts the runbooks {value} (empty: none)."
+          de: "Startet die Runbooks {value} (leer: keine)."
+        default: []
+        per_environment: true
+        why: >
+          Each entry names an Automation account, a runbook and its webhook - content of the
+          operations team that exists before this group. The webhook URI is a single-use
+          secret and is read at render, not written. Empty is the common answer; a Function
+          App receiver covers the same need without an Automation account.
+        renders: automation_runbook_receivers / automationRunbookReceivers
+
+      - id: itsm_receivers
+        ask: Should a ticket be opened in the ITSM tool?
+        type: list
+        plain:
+          en: "Opens tickets in {value} (empty: no ticketing)."
+          de: "Eröffnet Tickets in {value} (leer: kein Ticketing)."
+        default: []
+        per_environment: true
+        why: >
+          Each entry is an ITSM connection (ServiceNow, BMC) that lives in a Log Analytics
+          workspace, with the workspace id, the connection id, the region and a ticket
+          configuration document - content of the service-management team. The connection
+          is created in the portal or by that team's own automation, not here. ITSM receivers
+          do not get the common alert schema.
+        renders: itsm_receivers / itsmReceivers
+
+      - id: common_alert_schema
+        ask: Should every receiver get the alert in the one common format?
+        type: bool
+        plain:
+          en: "Alerts are delivered {value}."
+          de: "Alarme werden {value} zugestellt."
+        plain_values:
+          true: { en: "in the one common format, whatever kind of alert fired", de: "in dem einen gemeinsamen Format, egal welche Art Alarm ausgelöst hat" }
+          false: { en: "in a different format per kind of alert", de: "in einem je Alarmart anderen Format" }
+        default: true
+        why: >
+          Without it a metric alert, a log alert and an activity log alert each send a
+          payload of their own shape, and every webhook, function and workflow parses three
+          formats. With it the payload is the common schema (`essentials` + `alertContext`)
+          and a receiver written once handles every rule. **Both modules default to
+          `false`**, Azure's default, so it is written on every receiver that supports it
+          (e-mail, webhook, function, Logic App, runbook, Event Hub, ARM role); SMS, voice,
+          push and ITSM have no such switch.
+        renders: <receiver>.use_common_alert_schema on every receiver / <receiver>.useCommonAlertSchema
+
+      - id: enabled
+        ask: Should the group deliver notifications at all?
+        type: bool
+        plain:
+          en: "Notifications are {value}."
+          de: "Benachrichtigungen sind {value}."
+        plain_values:
+          true: { en: delivered, de: aktiv }
+          false: { en: "suppressed - the group exists but stays silent", de: "unterdrückt, die Gruppe existiert, bleibt aber stumm" }
+        default: true
+        why: >
+          The one switch that silences every receiver at once - for a planned migration or a
+          noisy week. It is a runtime state that the stage's parameter file flips, never a
+          literal in the template; a group left disabled is the classic reason an outage
+          went unnoticed, so the decision document shows it.
+        renders: enabled / enabled
+
+  # ----------------------------------------------------------------- identity
+  - id: identity
+    title: Identity and access
+    questions:
+      - id: role_assignments
+        ask: Who may change this group?
+        type: list
+        plain:
+          en: "Access rights on the group granted to: {value}."
+          de: "Zugriffsrechte auf die Gruppe vergeben an: {value}."
+        default: []
+        per_environment: true
+        why: >
+          Whoever can edit the group can redirect every alert of the deployment, so the
+          rights stay with the operations team: `Monitoring Contributor` to edit receivers,
+          `Monitoring Reader` to see them. Empty means the inherited rights of the resource
+          group apply, which is right where the observability group is the operations
+          team's. A pattern fills it; nothing here grants a role elsewhere.
+        renders: role_assignments / roleAssignments

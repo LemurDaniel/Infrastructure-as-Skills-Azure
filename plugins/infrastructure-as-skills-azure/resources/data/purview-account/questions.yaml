@@ -1,0 +1,411 @@
+schema_version: 1
+
+resource: Microsoft.Purview/accounts
+title: Microsoft Purview account (data governance)
+
+naming:
+  terraform: "Azure::Microsoft.Purview/accounts"
+  bicep: "Microsoft.Purview/accounts"
+  # Bicep assembles the name from vars - this is the prefix it renders. The account name is
+  # global, 3-63 characters, letters, digits and hyphens, and part of the portal URL.
+  abbreviation: "pview"
+
+boundaries:
+  - "Covers the Microsoft Purview account (`Microsoft.Purview/accounts`) - the data map, catalog and scanning service behind the unified Purview portal - with its managed resource group, managed storage and optional managed Event Hubs namespace. One account per tenant is the model; most deployments reference the organisation's account rather than create one, which is `ownership: platform`."
+  - "Does not create the resource group. Expects one from the spec's context."
+  - "Does not create private DNS zones - shared infrastructure, owned by a pattern or the platform. An account closed to the internet needs five of them."
+  - "Does not create the Log Analytics workspace it routes diagnostics to."
+  - "Does not register or scan data sources, create collections, classifications, glossaries or policies, and does not grant the collection roles (Collection admin, Data curator, Data reader, Data source admin): those are the data plane of the account, change at the programme's pace and are recorded as `collection_roles` and content, never rendered as Azure resources."
+  - "Does not create the self-hosted integration runtime a scan of on-premises sources needs; the VM is the compute family's."
+  - "Does not render Purview compliance and risk solutions (Microsoft 365), the Purview data security features licensed per user, or a customer-managed key - the account does not support one."
+
+groups:
+
+  # ---------------------------------------------------------------- placement
+  - id: placement
+    title: Placement
+    questions:
+      - id: environments
+        ask: Which stages is this deployed to?
+        type: list
+        plain:
+          en: "Deployed in the stages {value}."
+          de: "Wird in den Stufen {value} ausgerollt."
+        values: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
+        required: true
+        from_context: true
+        why: >
+          Drives the rendered name and the tags. A governance catalog is one per tenant,
+          so a deployment that creates one does so in one stage only and the others
+          reference it; the stage list is still the deployment's.
+        renders: naming parameter `environment`, and the tag of that name where the repository uses one
+
+      - id: location
+        ask: Which Azure region?
+        type: string
+        plain:
+          en: "Runs in the Azure region {value}."
+          de: "Läuft in der Azure-Region {value}."
+        required: true
+        from_context: true
+        why: >
+          **Fixed at creation**, and the region is where the catalog's metadata - the data
+          map, the classifications, the scan results - lives; it cannot be moved. Purview
+          is offered in a subset of regions, so a deployment region without it takes the
+          nearest one in the same geography and records the departure, and `data_residency:
+          country` is checked against that choice.
+        renders: location
+
+      - id: resource_group_name
+        ask: Which resource group?
+        type: ref
+        plain:
+          en: "Placed in the resource group {value}."
+          de: "Liegt in der Ressourcengruppe {value}."
+        ref: resource_group
+        required: true
+        from_context: true
+        per_environment: true
+        why: >
+          The account is placed into an existing group. Creating one here would make this
+          set own a lifecycle wider than the resource it describes; the account creates a
+          second, managed group of its own for its storage and Event Hubs.
+        renders: resource_group_name / implicit in Bicep scope
+
+      - id: ownership
+        ask: Does the organisation already have a Purview account, or does this deployment create one?
+        type: enum
+        resolved_by: platform
+        plain:
+          en: "The data catalog is {value}."
+          de: "Der Datenkatalog wird {value}."
+        plain_values:
+          platform: { en: "the company's existing one, which this deployment reports to", de: "der bestehende des Unternehmens, an den dieses Ausrollen meldet" }
+          deployment: { en: "created by this deployment", de: "von diesem Ausrollen angelegt" }
+        values: [platform, deployment]
+        default: platform
+        why: >
+          A Purview account is tenant-wide by design: one data map for every source in the
+          organisation, with collections as the hierarchy underneath. A second account
+          splits the lineage, doubles the (considerable) fixed cost of the managed
+          resources and the capacity units, and is what Microsoft advises against; a
+          deployment that needs governance registers its sources with the existing
+          account. `platform` renders nothing but the reference (`existing_account_id`) and
+          skips every question below; `deployment` creates the account and is the answer
+          only for the team that owns governance for the tenant.
+        renders: whether the account is created here or only referenced
+
+      - id: existing_account_id
+        ask: Which existing Purview account?
+        type: ref
+        resolved_by: platform
+        plain:
+          en: "Reports to the Purview account {value}."
+          de: "Meldet an das Purview-Konto {value}."
+        ref: purview_account
+        required: true
+        depends_on: { question: ownership, equals: platform }
+        per_environment: true
+        why: >
+          The account's resource id, read from the platform profile; it is what a Data
+          Factory's `purview_account` and a source's registration point at. With no answer
+          the decision is an `open:` entry owned by the platform team.
+        renders: a data source / `existing` reference; no resource
+
+  # ------------------------------------------------------------------ account
+  - id: account
+    title: Account and managed resources
+    questions:
+      - id: managed_resource_group_name
+        ask: What should the account's own resource group be called?
+        type: string
+        plain:
+          en: "The account's own storage lives in the resource group {value} (empty: the service's default name)."
+          de: "Der eigene Speicher des Kontos liegt in der Ressourcengruppe {value} (leer: der Standardname des Dienstes)."
+        default: ""
+        depends_on: { question: ownership, equals: deployment }
+        why: >
+          The account creates a managed resource group in the same subscription for its
+          storage account and, when enabled, its Event Hubs namespace. **Fixed at
+          creation.** Empty takes `managed-rg-<account name>`, which both modules default
+          to; an organisation whose naming policy denies that pattern names one here. The
+          group is deleted with the account, and a policy or a lock on it blocks the
+          account's own operations.
+        renders: managed_resource_group_name / managedResourceGroupName
+
+      - id: managed_event_hub
+        ask: Should the account publish change notifications that other systems can subscribe to?
+        type: bool
+        plain:
+          en: "Change notifications from the catalog are {value}."
+          de: "Änderungsbenachrichtigungen aus dem Katalog werden {value}."
+        plain_values:
+          true: { en: "published to a built-in Event Hubs namespace, which runs around the clock at a price", de: "an einen eingebauten Event-Hubs-Namespace veröffentlicht, der rund um die Uhr läuft und kostet" }
+          false: { en: "not published", de: "nicht veröffentlicht" }
+        default: false
+        depends_on: { question: ownership, equals: deployment }
+        why: >
+          The managed Event Hubs namespace carries the Atlas Kafka topics (`ATLAS_HOOK`,
+          `ATLAS_ENTITIES`) through which external systems push and receive catalog
+          changes. It is a Standard namespace billed every hour whether anything reads it,
+          and most catalogs never integrate that way. Off until an integration is named;
+          it can be switched on later. **Both modules default to on** (the Bicep module's
+          `managedEventHubState: 'Enabled'`, the provider's `managed_event_hub_enabled =
+          true`); written. With it off there is no `namespace` private endpoint to create.
+        renders: managed_event_hub_enabled / managedEventHubState ('Enabled' | 'Disabled')
+
+      - id: managed_resources_public_access
+        ask: May the account's own storage and Event Hubs be reached over the internet?
+        type: enum
+        plain:
+          en: "The account's own storage is {value}."
+          de: "Der eigene Speicher des Kontos ist {value}."
+        plain_values:
+          disabled: { en: "not reachable from the internet; ingestion goes through private connections", de: "aus dem Internet nicht erreichbar; die Aufnahme läuft über private Verbindungen" }
+          enabled: { en: "reachable from the internet", de: "aus dem Internet erreichbar" }
+        values: [disabled, enabled]
+        default: disabled
+        depends_on: { question: ownership, equals: deployment }
+        why: >
+          The managed storage account and namespace are where scan results are ingested.
+          Closing them is the second half of a private account: with them open, the
+          account's front door is private and its ingestion path is not. Closing them
+          requires the ingestion private endpoints (`blob`, `queue`, and `namespace` with
+          the Event Hubs on) and a self-hosted integration runtime for the scans, because
+          the Azure runtime cannot reach a closed ingestion path. The Bicep module carries
+          it; **the azurerm resource has no argument for it**, so the authored Terraform
+          sets it through an `azapi_update_resource`.
+        forced_when: >
+          `public_network_access: enabled` (a public deployment) forces `enabled` here,
+          recorded as forced with `public_network_access` as forced_by - a closed ingestion
+          path behind an open front door has no runtime that can scan
+        renders: >
+          an azapi_update_resource on properties.managedResourcesPublicNetworkAccess (azurerm has no
+          argument) / managedResourcesPublicNetworkAccess
+
+  # --------------------------------------------------------------- networking
+  - id: networking
+    title: Networking
+    questions:
+      - id: public_network_access
+        ask: Should this account depart from the deployment's exposure posture?
+        type: enum
+        plain:
+          en: "The catalog's portal and interfaces are {value}."
+          de: "Das Portal und die Schnittstellen des Katalogs sind {value}."
+        plain_values:
+          disabled: { en: "not reachable from the internet at all", de: "aus dem Internet überhaupt nicht erreichbar" }
+          enabled_with_firewall: { en: "reachable from the internet (the account has no address allowlist, so this means reachable)", de: "aus dem Internet erreichbar (das Konto kennt keine Adressliste, also bedeutet dies erreichbar)" }
+          enabled: { en: "reachable from the internet", de: "aus dem Internet erreichbar" }
+        values: [disabled, enabled_with_firewall, enabled]
+        from_deployment: network_exposure
+        depends_on: { question: ownership, equals: deployment }
+        confirm_in: [production]
+        why: >
+          Asked only as a departure: exposure is a property of the system. `disabled`
+          closes the account's API and the portal, so the catalog is used only from a
+          machine that resolves the `account` and `portal` private endpoints - which for a
+          tenant-wide catalog means every data steward works from inside the network or
+          through a private-access service. An account has no IP allowlist, so
+          `enabled_with_firewall` renders as `enabled` and is recorded as forced. The Bicep
+          module defaults to `NotSpecified` (the service decides: disabled when endpoints
+          are passed), the azurerm resource to **enabled**; written on every call.
+        forced_when: >
+          `enabled_with_firewall` is rendered as `enabled`, recorded as forced with "no
+          firewall on a Purview account" as forced_by; `network_ownership: none` forces
+          `enabled`, recorded as forced with `network_ownership` as forced_by
+        renders: public_network_enabled (bool) / publicNetworkAccess ('Disabled' | 'Enabled')
+
+      - id: private_endpoint_subnet
+        ask: Which subnet should this account's private endpoints live in?
+        type: ref
+        resolved_by: platform
+        plain:
+          en: "Its private connections land in subnet {value}."
+          de: "Seine privaten Anbindungen landen im Subnetz {value}."
+        ref: subnet
+        from_deployment: private_endpoint_subnet
+        depends_on: { question: ownership, equals: deployment }
+        per_environment: true
+        why: >
+          One subnet carries the deployment's private endpoints, so this is inherited. A
+          private account takes up to five endpoints: `account`
+          (`privatelink.purview.azure.com`), `portal` (`privatelink.purviewstudio.azure.com`),
+          and the ingestion trio on the managed resources - `blob`
+          (`privatelink.blob.core.windows.net`), `queue` (`privatelink.queue.core.windows.net`)
+          and `namespace` (`privatelink.servicebus.windows.net`).
+        renders: >
+          subnet_id of each authored private endpoint / accountPrivateEndpoints[],
+          portalPrivateEndpoints[], storageBlobPrivateEndpoints[], storageQueuePrivateEndpoints[],
+          eventHubPrivateEndpoints[] .subnetResourceId
+
+      - id: private_endpoint_subresources
+        ask: Which of the account's endpoints should be private?
+        type: list
+        plain:
+          en: "Private connections for: {value}."
+          de: "Private Anbindungen für: {value}."
+        plain_values:
+          account: { en: "the catalog's interfaces", de: "die Schnittstellen des Katalogs" }
+          portal: { en: "the portal in the browser", de: "das Portal im Browser" }
+          blob: { en: "the ingestion of scan results (storage)", de: "die Aufnahme von Scan-Ergebnissen (Speicher)" }
+          queue: { en: "the ingestion of scan results (queue)", de: "die Aufnahme von Scan-Ergebnissen (Warteschlange)" }
+          namespace: { en: "the change notifications (Event Hubs)", de: "die Änderungsbenachrichtigungen (Event Hubs)" }
+        values: [account, portal, blob, queue, namespace]
+        default: [account, portal, blob, queue]
+        depends_on: { question: ownership, equals: deployment }
+        why: >
+          `account` and `portal` are the front door and must come together - `account`
+          alone leaves the portal unable to open the catalog. `blob` and `queue` are the
+          ingestion path and are what `managed_resources_public_access: disabled` relies
+          on; they point at the **managed** storage account, whose id is an output of the
+          account, so they are created after it. `namespace` exists only with
+          `managed_event_hub` on. Each endpoint is one address and one DNS record in its
+          zone.
+        forced_when: >
+          `managed_event_hub: false` removes `namespace`; `managed_resources_public_access:
+          disabled` requires `blob` and `queue`, recorded as forced with it as forced_by
+        renders: >
+          one authored azurerm_private_endpoint per entry (account and portal on the account, blob
+          and queue on the managed storage account, namespace on the managed namespace) / the five
+          module parameters, one array each
+
+  # ----------------------------------------------------------------- identity
+  - id: identity
+    title: Identity and access
+    questions:
+      - id: managed_identity
+        ask: Which managed identity should the account carry?
+        type: enum
+        plain:
+          en: "The account has {value}."
+          de: "Das Konto hat {value}."
+        plain_values:
+          system_assigned: { en: "its own identity", de: "eine eigene Identität" }
+          user_assigned: { en: "its own identity and a separately managed one", de: "eine eigene und eine separat verwaltete Identität" }
+        values: [system_assigned, user_assigned]
+        default: system_assigned
+        depends_on: { question: ownership, equals: deployment }
+        why: >
+          The system-assigned identity is **mandatory**: the account scans sources as it
+          (`Storage Blob Data Reader` on a lake, `db_datareader` in a database, `Reader` on
+          the subscription for discovery) and reaches its managed resources with it, and
+          the ARM type refuses an account without one. `user_assigned` **adds** an identity
+          beside it, for a scan credential that must be granted before the account exists
+          or must survive a recreate; the system-assigned one stays. The provider spells the
+          pair `SystemAssigned, UserAssigned`.
+        renders: >
+          identity { type = "SystemAssigned" | "SystemAssigned, UserAssigned", identity_ids } /
+          managedIdentities { userAssignedResourceIds } (the module adds SystemAssigned by itself)
+
+      - id: user_assigned_identity_ids
+        ask: Which user-assigned identity?
+        type: list
+        plain:
+          en: "It uses the identity {value}."
+          de: "Es nutzt die Identität {value}."
+        ref: user_assigned_identity
+        required: true
+        depends_on: { question: managed_identity, equals: user_assigned }
+        per_environment: true
+        why: The identity must already exist; this set does not create it.
+        renders: identity.identity_ids / managedIdentities.userAssignedResourceIds
+
+      - id: collection_roles
+        ask: Who may administer the catalog, curate it, read it, or register sources?
+        type: list
+        plain:
+          en: "Catalog roles granted to: {value}."
+          de: "Katalogrollen vergeben an: {value}."
+        default: []
+        depends_on: { question: ownership, equals: deployment }
+        per_environment: true
+        why: >
+          **Purview's access is its own role system**, on collections inside the account:
+          Collection admins, Data source admins, Data curators, Data readers, and the
+          policy and insights roles. No ARM resource grants them - they are the data plane
+          (the Purview REST API or the portal), and an Azure `Owner` of the account opens
+          the portal and sees nothing. The creating principal becomes the first Collection
+          admin of the root collection, so an empty list is an account one service
+          principal can use; a pattern or the governance team fills it. Each entry is an
+          identity and a role on a collection, least privilege first, and a Data Factory
+          that reports lineage needs `Data curator` here.
+        renders: >
+          not the module and not Azure Resource Manager - a step after the deployment against the
+          account's metadata policy API, recorded as such in the spec
+
+      - id: role_assignments
+        ask: Who may manage the account itself?
+        type: list
+        plain:
+          en: "Management rights on the account granted to: {value}."
+          de: "Verwaltungsrechte am Konto vergeben an: {value}."
+        default: []
+        depends_on: { question: ownership, equals: deployment }
+        per_environment: true
+        why: >
+          Azure RBAC on the account - the control plane: networking, the managed resources,
+          diagnostics, deleting the account. Separate from the collection roles on purpose;
+          `Reader` on the account is also what a user needs before the portal lets them
+          sign in to it. Usually the deploying principal's plus the governance team's.
+        renders: role_assignments (authored azurerm_role_assignment) / roleAssignments
+
+  # ------------------------------------------------------------ observability
+  - id: observability
+    title: Observability
+    questions:
+      - id: diagnostic_workspace
+        ask: Which Log Analytics workspace should receive the scan and audit logs?
+        type: ref
+        resolved_by: platform
+        plain:
+          en: "Its logs go to {value}."
+          de: "Seine Logs gehen in {value}."
+        ref: log_analytics_workspace
+        from_deployment: diagnostics_destination
+        depends_on: { question: ownership, equals: deployment }
+        per_environment: true
+        why: >
+          Inherited: one deployment, one destination. Without a diagnostic setting there
+          is no record of which scans ran and failed, and no audit of who changed a
+          collection's roles beyond what the portal shows.
+        renders: azurerm_monitor_diagnostic_setting (authored) / diagnosticSettings
+
+      - id: diagnostic_categories
+        ask: Which account logs should be collected?
+        type: list
+        plain:
+          en: "Logged: {value}."
+          de: "Geloggt wird: {value}."
+        plain_values:
+          ScanStatusLogEvent: { en: "every scan's start, progress and outcome", de: "Start, Fortschritt und Ergebnis jedes Scans" }
+          DataSensitivityLogEvent: { en: "which assets were found to hold sensitive data", de: "welche Bestände sensible Daten enthalten" }
+          Security: { en: "the audit of role changes and other security events on the account", de: "das Protokoll von Rollenänderungen und anderen Sicherheitsereignissen am Konto" }
+        values: [ScanStatusLogEvent, DataSensitivityLogEvent, Security]
+        default: [ScanStatusLogEvent, DataSensitivityLogEvent, Security]
+        depends_on: { question: ownership, equals: deployment }
+        why: >
+          All three: the scan log is the operator's view, the sensitivity log is the
+          evidence a data protection officer asks for, and the security log is the audit
+          of the collection roles. The last two carry an export cost per gigabyte and
+          their volume follows the number of assets scanned. The category names are the
+          platform's and are checked against `az monitor diagnostic-settings categories
+          list --resource <account id>` before a render, not remembered.
+        renders: enabled_log { category } / diagnosticSettings[].logCategoriesAndGroups[].category
+
+      - id: metrics_enabled
+        ask: Should the usage figures be collected?
+        type: bool
+        plain:
+          en: "Usage figures are {value}."
+          de: "Nutzungswerte werden {value}."
+        plain_values:
+          true: { en: "collected", de: "erfasst" }
+          false: { en: "not collected", de: "nicht erfasst" }
+        default: true
+        depends_on: { question: ownership, equals: deployment }
+        why: >
+          The data map's capacity units and storage, and the scan cancellations - the
+          figures behind the account's bill, which is capacity-based. Cheap. The category
+          is `AllMetrics`.
+        renders: enabled_metric { category = "AllMetrics" } / diagnosticSettings[].metricCategories[].category = "AllMetrics"

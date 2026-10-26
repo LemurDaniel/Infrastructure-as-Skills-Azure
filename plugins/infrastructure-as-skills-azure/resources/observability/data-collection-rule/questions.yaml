@@ -1,0 +1,657 @@
+schema_version: 1
+
+resource: Microsoft.Insights/dataCollectionRules
+title: Azure Monitor data collection rule (with its data collection endpoint)
+
+naming:
+  terraform: "Azure::Microsoft.Insights/dataCollectionRules"
+  bicep: "Microsoft.Insights/dataCollectionRules"
+  # The endpoint this set creates with `endpoint: create` is Microsoft.Insights/dataCollectionEndpoints, abbreviation `dce`.
+  abbreviation: "dcr"
+
+boundaries:
+  - "Does not create the resource group. Expects one from the spec's context."
+  - "Does not create the Log Analytics workspace it sends to - the deployment's `diagnostics_destination` - nor the storage account or event hub of an additional destination."
+  - "Does not install the Azure Monitor agent. A rule collects only on machines where the agent runs; the extension is the virtual-machine set's or the policy's. The association of a machine to the rule is wiring this set records (`associations`) and the compute set or a pattern renders."
+  - "Does not create the Azure Monitor Private Link Scope (AMPLS) a closed endpoint joins - shared infrastructure, owned by the platform. `private_link_scope` references it."
+  - "Does not write the KQL of a transformation or the column list of a custom stream. Both are content, kept in files beside the template (`dcr/<name>.kql`, `dcr/<stream>.json`) and loaded at render; this set names them."
+  - "Does not create custom tables in the workspace. A custom stream (`Custom-<Table>_CL`) needs the table to exist first; that is a workspace operation (`tables` child of the workspace) the platform or the workspace set performs."
+  - "Does not render the Prometheus, Container Insights or VM Insights data sources beyond naming the extension: their settings are the product's JSON and are loaded from a file."
+
+groups:
+
+  # ---------------------------------------------------------------- placement
+  - id: placement
+    title: Placement
+    questions:
+      - id: environments
+        ask: Which stages is this deployed to?
+        type: list
+        plain:
+          en: "Deployed in the stages {value}."
+          de: "Wird in den Stufen {value} ausgerollt."
+        values: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
+        required: true
+        from_context: true
+        why: >
+          Drives the rendered name. A rule exists per stage, associated with that stage's
+          machines and sending to that stage's workspace.
+        renders: naming parameter `environment`
+
+      - id: location
+        ask: Which Azure region?
+        type: string
+        plain:
+          en: "Runs in the Azure region {value}."
+          de: "Läuft in der Azure-Region {value}."
+        required: true
+        from_context: true
+        why: >
+          A rule and its endpoint are regional, and the endpoint must be in the region of
+          the machines that call it; a rule may send to a workspace in another region, and
+          the machines it is associated with may be anywhere. One rule per region of
+          machines, not per workspace.
+        renders: location
+
+      - id: resource_group_name
+        ask: Which resource group?
+        type: ref
+        plain:
+          en: "Placed in the resource group {value}."
+          de: "Liegt in der Ressourcengruppe {value}."
+        ref: resource_group
+        required: true
+        from_context: true
+        per_environment: true
+        why: >
+          The rule is placed into an existing group - the observability one where the
+          deployment splits by role: it is shared by every machine of the stage and
+          outlives any one of them.
+        renders: parent_id (AVM Terraform, the group's id) / implicit in Bicep scope
+
+  # ----------------------------------------------------------------- the rule
+  - id: rule
+    title: The rule
+    questions:
+      - id: kind
+        ask: What feeds this rule - Linux machines, Windows machines, an application calling the ingestion API, or a transformation inside the workspace?
+        type: enum
+        plain:
+          en: "The rule collects {value}."
+          de: "Die Regel sammelt {value}."
+        plain_values:
+          Linux: { en: "from Linux machines through the monitoring agent", de: "von Linux-Maschinen über den Monitoring-Agenten" }
+          Windows: { en: "from Windows machines through the monitoring agent", de: "von Windows-Maschinen über den Monitoring-Agenten" }
+          AgentDirectToStore: { en: "from machines straight into a storage account or event hub, bypassing the workspace", de: "von Maschinen direkt in ein Speicherkonto oder einen Event Hub, am Arbeitsbereich vorbei" }
+          Direct: { en: "what an application sends to the ingestion API", de: "was eine Anwendung an die Ingestion-API schickt" }
+          WorkspaceTransforms: { en: "nothing - it rewrites data arriving in the workspace", de: "nichts, sie schreibt im Arbeitsbereich ankommende Daten um" }
+        values: [Linux, Windows, AgentDirectToStore, Direct, WorkspaceTransforms]
+        required: true
+        why: >
+          The kind decides which data sources exist and whether an endpoint is needed.
+          `Linux` and `Windows` are agent rules: performance counters, syslog or event
+          logs, text files, read by the Azure Monitor agent on associated machines - one
+          rule per operating system, the counters are spelled differently.
+          `AgentDirectToStore` is the agent writing to storage or an event hub without the
+          workspace, for raw archival. `Direct` is the Logs Ingestion API: an application
+          posts JSON to the endpoint and the rule declares the stream and the table.
+          `WorkspaceTransforms` is one rule per workspace that rewrites or drops rows at
+          ingestion for every source; it has no data sources and no associations. Nothing
+          can be guessed; a pattern pre-answers it.
+        renders: kind / dataCollectionRuleProperties.kind
+
+  # -------------------------------------------------------------- data sources
+  - id: data_sources
+    title: What is collected
+    questions:
+      - id: performance_counter_set
+        ask: Which performance figures should the machines report?
+        type: enum
+        plain:
+          en: "Performance figures: {value}."
+          de: "Leistungswerte: {value}."
+        plain_values:
+          none: { en: none, de: keine }
+          basic: { en: "processor, memory, disk and network totals", de: "Prozessor, Speicher, Platte und Netz als Gesamtwerte" }
+          extended: { en: "the basic set plus per-disk, per-interface and process figures", de: "der Basissatz plus Werte je Platte, je Schnittstelle und je Prozess" }
+        values: [none, basic, extended]
+        default: basic
+        why: >
+          Read for the agent kinds only (`Linux`, `Windows`). The set resolves to the
+          operating system's counter names at render - `Processor(*)\% Processor Time` on
+          Linux, `\Processor(_Total)\% Processor Time` on Windows - so one decision serves
+          both kinds. `basic` is a dozen counters and the floor for any machine someone
+          will be paged about: without it the first question in an incident ("was it
+          CPU?") has no answer. `extended` is the VM Insights-grade set and roughly five
+          times the volume; it is for machines whose per-disk or per-process behaviour is
+          the thing being watched. Additional counters go into `custom_performance_counters`.
+        renders: data_sources.performance_counters[].counter_specifiers / dataSources.performanceCounters[].counterSpecifiers
+
+      - id: custom_performance_counters
+        ask: Which further counters should be collected?
+        type: list
+        plain:
+          en: "Further counters: {value} (empty: none)."
+          de: "Weitere Zähler: {value} (leer: keine)."
+        default: []
+        depends_on: { question: performance_counter_set, not_equals: none }
+        why: >
+          Counter specifiers in the operating system's spelling (`\SQLServer:Buffer
+          Manager\Page life expectancy`, `Process(nginx)\Pct User Time`) for an
+          application-specific figure the sets do not carry. Each is a sampled time series
+          billed by volume; the names are checked with `typeperf -q` (Windows) or the
+          agent's documented Linux list before a render.
+        renders: data_sources.performance_counters[].counter_specifiers (appended) / dataSources.performanceCounters[].counterSpecifiers
+
+      - id: performance_sampling_seconds
+        ask: How often should the performance figures be sampled?
+        type: int
+        plain:
+          en: "Sampled every {value} seconds."
+          de: "Alle {value} Sekunden gemessen."
+        default: 60
+        depends_on: { question: performance_counter_set, not_equals: none }
+        why: >
+          The interval in seconds, 1 to 1800. Volume is inverse to it: 60 seconds is the
+          resolution a metric alert evaluates at and the cost most teams accept; 15 or 30
+          is for a machine whose spikes are shorter than a minute, and quadruples the
+          counter volume. Longer than 300 makes a five-minute alert window hold a single
+          sample.
+        renders: data_sources.performance_counters[].sampling_frequency_in_seconds / dataSources.performanceCounters[].samplingFrequencyInSeconds
+
+      - id: syslog_facilities
+        ask: Which syslog facilities should be collected?
+        type: list
+        plain:
+          en: "Syslog facilities collected: {value}."
+          de: "Gesammelte Syslog-Facilities: {value}."
+        values: [auth, authpriv, cron, daemon, kern, lpr, mail, mark, news, syslog, user, uucp, local0, local1, local2, local3, local4, local5, local6, local7]
+        default: [auth, authpriv, cron, daemon, kern, syslog, user]
+        depends_on: { question: kind, equals: Linux }
+        why: >
+          The facilities are the operating system's categories. The default is the system
+          itself - authentication, scheduled jobs, daemons, the kernel - which is what an
+          incident on a Linux machine is reconstructed from and what a security review
+          asks for (`auth`, `authpriv`). `local0`-`local7` carry application logs by
+          convention and are added when an application writes to them; `mail`, `news`,
+          `uucp`, `lpr` are legacy and noise on most machines.
+        renders: data_sources.syslog[].facility_names / dataSources.syslog[].facilityNames
+
+      - id: syslog_min_level
+        ask: From which severity up should syslog messages be collected?
+        type: enum
+        plain:
+          en: "Syslog messages of severity {value} and above are collected."
+          de: "Syslog-Meldungen ab Schweregrad {value} werden gesammelt."
+        plain_values:
+          Debug: { en: debug, de: Debug }
+          Info: { en: informational, de: Info }
+          Notice: { en: notice, de: Hinweis }
+          Warning: { en: warning, de: Warnung }
+          Error: { en: error, de: Fehler }
+          Critical: { en: critical, de: Kritisch }
+          Alert: { en: alert, de: Alarm }
+          Emergency: { en: emergency, de: Notfall }
+        values: [Debug, Info, Notice, Warning, Error, Critical, Alert, Emergency]
+        default: Warning
+        depends_on: { question: kind, equals: Linux }
+        why: >
+          Rendered as the list of levels from this one upwards. `Warning` keeps what
+          matters in an incident and drops the chatter that makes up most of a syslog
+          volume; `Info` is for `auth` and `authpriv` where a successful login is the
+          evidence - the render applies `Info` to those two facilities whenever they are
+          collected, so the default is two syslog data sources, not one. `Debug` on a
+          production machine is a bill, not a decision.
+        renders: data_sources.syslog[].log_levels / dataSources.syslog[].logLevels
+
+      - id: windows_event_logs
+        ask: Which Windows event logs should be collected, and at which level?
+        type: list
+        plain:
+          en: "Windows event logs collected: {value}."
+          de: "Gesammelte Windows-Ereignisprotokolle: {value}."
+        default: ["Application!*[System[(Level=1 or Level=2 or Level=3)]]", "System!*[System[(Level=1 or Level=2 or Level=3)]]"]
+        depends_on: { question: kind, equals: Windows }
+        why: >
+          Each entry is an XPath query over one log, the agent's native filter. The default
+          is the Application and System logs at Critical, Error and Warning (levels 1-3),
+          which is the incident record without the informational flood (level 4) that is
+          most of a Windows machine's events. An application's own log is added by name
+          (`MyApp!*`), a specific event by id (`System!*[System[EventID=6008]]`). The
+          Security log is its own decision below because of its volume.
+        renders: data_sources.windows_event_logs[].x_path_queries / dataSources.windowsEventLogs[].xPathQueries
+
+      - id: windows_security_events
+        ask: Should the Windows Security log be collected too?
+        type: enum
+        plain:
+          en: "The Security log is {value}."
+          de: "Das Sicherheitsprotokoll wird {value}."
+        plain_values:
+          none: { en: not collected, de: nicht gesammelt }
+          common: { en: "collected for logons, account changes and privilege use", de: "für Anmeldungen, Kontoänderungen und Rechtegebrauch gesammelt" }
+          all: { en: collected in full, de: vollständig gesammelt }
+        values: [none, common, all]
+        default: none
+        depends_on: { question: kind, equals: Windows }
+        why: >
+          The Security log is the largest log on a domain-joined machine and the one a SIEM
+          wants. `none` by default because the workload's monitoring rule is not the
+          security team's: where Sentinel or Defender for Servers is in place the platform
+          already collects it through its own rule, and a second copy doubles the bill.
+          `common` is the documented "common" event set (4624, 4625, 4648, 4672, 4720-4767,
+          ...) rendered as one XPath; `all` is `Security!*` and is a mandate, not a default.
+        renders: data_sources.windows_event_logs[] (a second entry on the Security log) / dataSources.windowsEventLogs[]
+
+      - id: iis_logs
+        ask: Should IIS web server logs be collected?
+        type: bool
+        plain:
+          en: "IIS web server logs are {value}."
+          de: "IIS-Webserver-Logs werden {value}."
+        plain_values:
+          true: { en: collected, de: gesammelt }
+          false: { en: not collected, de: nicht gesammelt }
+        default: false
+        depends_on: { question: kind, equals: Windows }
+        why: >
+          The W3C logs of IIS into the `W3CIISLog` table, from the default directory unless
+          directories are named. One row per request, so on a busy web server this is the
+          largest stream of the rule; on for a machine that serves HTTP, off everywhere
+          else. Requires the endpoint, like every file-based source.
+        renders: data_sources.iis_logs[] / dataSources.iisLogs[]
+
+      - id: custom_text_logs
+        ask: Which application log files should be collected?
+        type: list
+        plain:
+          en: "Log files collected: {value} (empty: none)."
+          de: "Gesammelte Logdateien: {value} (leer: keine)."
+        default: []
+        forced_when: >
+          A non-empty list forces `endpoint` away from `none` - file-based sources need
+          the endpoint - and adds the stream to `stream_declarations`.
+        why: >
+          Read for the agent kinds only. Each entry is a file pattern
+          (`/var/log/myapp/*.log`, `C:\logs\app-*.txt`) and the custom table it lands in
+          (`Custom-MyApp_CL`); the table must exist in the workspace first and its columns
+          are the stream's declaration. The agent tails the file and ships new lines, raw,
+          into a `RawData` column unless a transformation parses it. Empty is the common
+          answer: most applications on Azure log through a SDK, not a file.
+        renders: data_sources.log_files[] + stream_declarations / dataSources.logFiles[] + streamDeclarations
+
+      - id: extensions
+        ask: Which monitoring products should the agent also feed - VM Insights, Container Insights, Prometheus?
+        type: list
+        plain:
+          en: "Agent extensions: {value} (empty: none)."
+          de: "Agenten-Erweiterungen: {value} (leer: keine)."
+        plain_values:
+          DependencyAgent: { en: "VM Insights (processes and their connections)", de: "VM Insights (Prozesse und ihre Verbindungen)" }
+          ContainerInsights: { en: "Container Insights (Kubernetes logs and metrics)", de: "Container Insights (Kubernetes-Logs und -Metriken)" }
+          PrometheusForwarder: { en: "Prometheus metrics into a monitor workspace", de: "Prometheus-Metriken in einen Monitor-Arbeitsbereich" }
+        values: [DependencyAgent, ContainerInsights, PrometheusForwarder]
+        default: []
+        why: >
+          Each is a product with a data source of its own shape and a destination of its
+          own (`Microsoft-ServiceMap`, `Microsoft-ContainerInsights-Group-Default`, a
+          monitoring account for Prometheus). The settings are the product's JSON and are
+          loaded from `dcr/<extension>.json` at render; this set records which products
+          the rule serves so the destinations are rendered. Empty is right for a machine
+          that is not a Kubernetes node and not under VM Insights.
+        renders: data_sources.extensions[] / prometheus_forwarder[] / dataSources.extensions[], prometheusForwarder[]
+
+      - id: stream_declarations
+        ask: Which custom streams does the rule declare?
+        type: list
+        plain:
+          en: "Custom streams: {value} (empty: only the built-in ones)."
+          de: "Eigene Datenströme: {value} (leer: nur die eingebauten)."
+        default: []
+        forced_when: >
+          `kind: Direct` requires at least one - an ingestion-API rule without a stream
+          accepts nothing - and every custom text log adds its own.
+        why: >
+          Each entry is a stream name (`Custom-<Table>_CL`); its columns are content in
+          `dcr/<stream>.json` and loaded at render. A stream is the contract between
+          sender and table: the column names and types the API accepts, which the
+          transformation maps to the table's. Built-in streams (`Microsoft-Perf`,
+          `Microsoft-Syslog`, `Microsoft-Event`) are not declared.
+        renders: stream_declarations / dataCollectionRuleProperties.streamDeclarations
+
+      - id: transformations
+        ask: Should any stream be filtered or reshaped before it is stored?
+        type: list
+        plain:
+          en: "Transformations: {value} (empty: data is stored as it arrives)."
+          de: "Transformationen: {value} (leer: Daten werden gespeichert, wie sie ankommen)."
+        default: []
+        why: >
+          Each entry pairs a stream with a KQL file (`dcr/<name>.kql`) applied at
+          ingestion: drop the rows nobody queries (`where Level != "Debug"`), mask a
+          column, parse `RawData` into columns, route to another table. A transformation
+          is the one lever on the ingestion bill that does not lose the signal, and the
+          only way a custom text log becomes queryable columns. Empty is right until the
+          volume or the schema asks for it; a `WorkspaceTransforms` rule is nothing but
+          these. The KQL is validated by the service at deployment and transformations
+          beyond a free share of the volume are billed.
+        renders: data_flows[].transform_kql = file(...) + output_stream / dataFlows[].transformKql = loadTextContent(...) + outputStream
+
+  # -------------------------------------------------------------- destinations
+  - id: destinations
+    title: Where it goes
+    questions:
+      - id: workspace
+        ask: Which Log Analytics workspace should receive the data?
+        type: ref
+        resolved_by: platform
+        plain:
+          en: "The data goes to the log workspace {value}."
+          de: "Die Daten gehen in den Log-Arbeitsbereich {value}."
+        ref: log_analytics_workspace
+        from_deployment: diagnostics_destination
+        per_environment: true
+        why: >
+          Inherited: one deployment, one destination, so the agent's logs sit beside the
+          platform logs of the resources around it. A `WorkspaceTransforms` rule is bound
+          to exactly this workspace. For `AgentDirectToStore` the workspace is not a
+          destination and the value is recorded unused.
+        renders: destinations.log_analytics[].workspace_resource_id / destinations.logAnalytics[].workspaceResourceId
+
+      - id: azure_monitor_metrics
+        ask: Should the performance figures also be available as platform metrics?
+        type: bool
+        plain:
+          en: "Performance figures {value}."
+          de: "Leistungswerte {value}."
+        plain_values:
+          true: { en: "also become platform metrics, usable in metric alerts and charts", de: "werden auch Plattform-Metriken, nutzbar in Metrik-Alarmen und Diagrammen" }
+          false: { en: "go to the log workspace only", de: "gehen nur in den Log-Arbeitsbereich" }
+        default: true
+        depends_on: { question: performance_counter_set, not_equals: none }
+        why: >
+          The counters can flow to the workspace (`Microsoft-Perf`, queryable) and to
+          Azure Monitor Metrics (`Microsoft-InsightsMetrics`, free to store, the source a
+          metric alert on guest CPU or memory reads). Both is the default: the metric side
+          costs nothing and is what makes a near-real-time alert on a machine possible
+          without a log query rule. Off for a rule whose counters are an application's
+          and belong only in the logs.
+        renders: destinations.azure_monitor_metrics + a data flow on Microsoft-InsightsMetrics / destinations.azureMonitorMetrics
+
+      - id: archive_to_storage
+        ask: Should the collected data also be written to a storage account?
+        type: bool
+        plain:
+          en: "A raw copy in cheap storage is {value}."
+          de: "Eine Rohkopie in günstigem Speicher ist {value}."
+        plain_values:
+          true: { en: kept, de: vorgesehen }
+          false: { en: not kept, de: nicht vorgesehen }
+        default: false
+        depends_on: { question: kind, equals: AgentDirectToStore }
+        why: >
+          The agent writes blobs or table rows straight to a storage account - an archive
+          for a retention mandate the workspace price does not justify, not queryable with
+          KQL. The account is referenced, the container named per stream, and the rule's
+          identity needs `Storage Blob Data Contributor` on it, which is wiring.
+        renders: destinations.storage_blobs_direct[] / destinations.storageBlobsDirect[]
+
+      - id: storage_account
+        ask: Which storage account?
+        type: ref
+        plain:
+          en: "The raw copy goes to the storage account {value}."
+          de: "Die Rohkopie geht in das Speicherkonto {value}."
+        ref: storage_account
+        required: true
+        depends_on: { question: archive_to_storage, equals: true }
+        per_environment: true
+        why: >
+          An existing account of the deployment or the platform. Public access and shared
+          keys stay off; the agent authenticates with the rule's identity.
+        renders: destinations.storage_blobs_direct[].storage_account_resource_id / destinations.storageBlobsDirect[].storageAccountResourceId
+
+      - id: forward_to_event_hub
+        ask: Should the collected data also be streamed to an event hub?
+        type: bool
+        plain:
+          en: "Streaming to an event hub is {value}."
+          de: "Das Streamen in einen Event Hub ist {value}."
+        plain_values:
+          true: { en: "on", de: "eingeschaltet" }
+          false: { en: "off", de: "ausgeschaltet" }
+        default: false
+        depends_on: { question: kind, equals: AgentDirectToStore }
+        why: >
+          For a SIEM or a stream processor outside Azure Monitor that reads the agent's
+          data as it arrives. The hub is referenced; the rule's identity needs `Azure Event
+          Hubs Data Sender` on it, which is wiring.
+        renders: destinations.event_hubs_direct[] / destinations.eventHubsDirect[]
+
+      - id: event_hub
+        ask: Which event hub?
+        type: ref
+        plain:
+          en: "Streamed to the event hub {value}."
+          de: "Gestreamt in den Event Hub {value}."
+        ref: event_hub
+        required: true
+        depends_on: { question: forward_to_event_hub, equals: true }
+        per_environment: true
+        why: >
+          An existing hub in a namespace that allows Entra ID authentication; the rule
+          sends with its identity, never with a connection string.
+        renders: destinations.event_hubs_direct[].event_hub_resource_id / destinations.eventHubsDirect[].eventHubResourceId
+
+  # ------------------------------------------------------------------ endpoint
+  - id: endpoint
+    title: The collection endpoint
+    questions:
+      - id: endpoint
+        ask: Does the rule need its own collection endpoint, and should this deployment create it?
+        type: enum
+        plain:
+          en: "The collection endpoint is {value}."
+          de: "Der Sammel-Endpunkt wird {value}."
+        plain_values:
+          none: { en: "not needed - the agent uses the public service endpoints", de: "nicht gebraucht, der Agent nutzt die öffentlichen Dienst-Endpunkte" }
+          create: { en: "created by this deployment", de: "von diesem Ausrollen angelegt" }
+          reference: { en: "the platform's existing one", de: "der bestehende der Plattform" }
+        values: [none, create, reference]
+        default: none
+        confirm_in: [production]
+        forced_when: >
+          `kind: Direct`, a non-empty `custom_text_logs`, `iis_logs: true` and a
+          `private_link_scope` each force `create` where no platform endpoint is
+          referenced - the ingestion API, file-based sources and private link all go
+          through an endpoint. `kind: WorkspaceTransforms` forces `none`.
+        why: >
+          A data collection endpoint is the regional address an agent or an application
+          sends to and reads its configuration from. The built-in agent sources
+          (performance counters, syslog, event logs) do not need one; the ingestion API,
+          every file-based source and any private-link setup do. One endpoint serves
+          every rule in its region, so `reference` is right where the platform runs one;
+          `create` renders `Microsoft.Insights/dataCollectionEndpoints` beside the rule,
+          with the rule's kind as its kind (`Windows` for a Windows rule, `Linux`
+          otherwise).
+        renders: data_collection_endpoint_id + the endpoint module / dataCollectionEndpointResourceId + the endpoint module
+
+      - id: endpoint_id
+        ask: Which existing collection endpoint?
+        type: ref
+        resolved_by: platform
+        plain:
+          en: "Sends through the collection endpoint {value}."
+          de: "Sendet über den Sammel-Endpunkt {value}."
+        ref: data_collection_endpoint
+        required: true
+        depends_on: { question: endpoint, equals: reference }
+        per_environment: true
+        why: >
+          The platform's endpoint in the rule's region, already linked to the private link
+          scope where one exists. With no answer the decision is an `open:` entry owned by
+          the platform team.
+        renders: data_collection_endpoint_id / dataCollectionRuleProperties.dataCollectionEndpointResourceId
+
+  # -------------------------------------------------------------- associations
+  - id: associations
+    title: Which machines
+    questions:
+      - id: associations
+        ask: Which machines should this rule apply to?
+        type: list
+        plain:
+          en: "Applies to the machines {value} (empty: none yet - associated by the compute set or policy)."
+          de: "Gilt für die Maschinen {value} (leer: noch keine, zugeordnet durch das Compute-Set oder Policy)."
+        ref: resource
+        default: []
+        per_environment: true
+        why: >
+          A rule collects nothing until a machine is associated with it: a virtual machine,
+          a scale set or an Arc-enabled server, each with the Azure Monitor agent
+          installed. The association is a separate resource
+          (`dataCollectionRuleAssociations`) on the machine, rendered by whoever renders
+          the machine - the compute set from this list, or a platform policy for every
+          machine in scope. Per stage, because the machines are. An endpoint needs an
+          association of its own on the same machine (`configurationAccessEndpoint`),
+          which the render adds whenever `endpoint` is not `none`. A `WorkspaceTransforms`
+          or `Direct` rule has no associations.
+        renders: >
+          azurerm_monitor_data_collection_rule_association per machine (authored, in the
+          root) / Microsoft.Insights/dataCollectionRuleAssociations with scope: the
+          machine - not an input of either AVM module
+
+  # ---------------------------------------------------------------- networking
+  - id: networking
+    title: Networking
+    questions:
+      - id: endpoint_public_access
+        ask: Should the collection endpoint be reachable from the internet?
+        type: enum
+        plain:
+          en: "The collection endpoint is {value}."
+          de: "Der Sammel-Endpunkt ist {value}."
+        plain_values:
+          disabled: { en: "reachable only through the platform's private monitoring connection", de: "nur über die private Überwachungsanbindung der Plattform erreichbar" }
+          enabled: { en: "reachable from the internet, with company identities and encryption", de: "aus dem Internet erreichbar, mit Firmenidentitäten und Verschlüsselung" }
+        values: [disabled, enabled]
+        default: enabled
+        confirm_in: [production]
+        depends_on: { question: endpoint, equals: create }
+        forced_when: >
+          A `private_link_scope` forces `disabled`; `network_ownership: none` forces
+          `enabled`, recorded as forced with that question as forced_by.
+        why: >
+          Like the workspace, the endpoint does not simply inherit the private posture:
+          `disabled` is honoured only for traffic arriving through an Azure Monitor Private
+          Link Scope, and an endpoint closed without one accepts nothing from any machine
+          - the agent fails to fetch its configuration and the rule collects silently
+          nothing. The scope is the platform's, so `enabled` is the default where none is
+          referenced: every call is authenticated with the machine's identity and
+          encrypted. The two modules disagree on the default - **Terraform `Enabled`,
+          Bicep `Disabled`** - so it is always written.
+        renders: public_network_access (endpoint module, string) / publicNetworkAccess (endpoint module)
+
+      - id: private_link_scope
+        ask: Which private monitoring connection should the endpoint belong to?
+        type: ref
+        resolved_by: platform
+        plain:
+          en: "Its private connection is the monitoring scope {value}."
+          de: "Seine private Anbindung ist der Überwachungsbereich {value}."
+        ref: monitor_private_link_scope
+        required: true
+        depends_on: { question: endpoint_public_access, equals: disabled }
+        per_environment: true
+        why: >
+          A closed endpoint is reached through an **Azure Monitor Private Link Scope**
+          (AMPLS) the platform owns - one per network, with its private endpoint and the
+          `monitor`, `oms`, `ods`, `agentsvc` and blob DNS zones. The endpoint is added to
+          the scope as a scoped resource; the machines in the linked network resolve it
+          privately, and every other agent in that network does too, which is why a
+          deployment never creates the scope. With no answer the decision is an `open:`
+          entry owned by the platform team.
+        renders: a scoped resource on the AMPLS (wiring in the root) / Microsoft.Insights/privateLinkScopes/scopedResources
+
+  # ----------------------------------------------------------------- identity
+  - id: identity
+    title: Identity
+    questions:
+      - id: managed_identity
+        ask: Which managed identity should the rule carry?
+        type: enum
+        plain:
+          en: "The rule has {value}."
+          de: "Die Regel hat {value}."
+        plain_values:
+          none: { en: no identity of its own, de: keine eigene Identität }
+          system_assigned: { en: its own identity, de: eine eigene Identität }
+          user_assigned: { en: a separately managed identity, de: eine separat verwaltete Identität }
+        values: [none, system_assigned, user_assigned]
+        default: none
+        forced_when: >
+          `kind: AgentDirectToStore` forces `user_assigned` - the rule's identity is what
+          writes to the storage account or event hub.
+        why: >
+          An agent rule sending to a workspace needs no identity: the agent authenticates
+          as the machine. The rule's own identity exists for direct-to-store destinations,
+          where it must hold the data role on the account or hub *before* the first write
+          - which is why it is user-assigned, created by the identity set and granted its
+          roles as wiring. `Direct` rules need no identity either; the application posting
+          to the endpoint holds `Monitoring Metrics Publisher` on the rule, recorded as a
+          role assignment by the pattern.
+        renders: managed_identities / managedIdentities
+
+      - id: user_assigned_identity_id
+        ask: Which user-assigned identity?
+        type: ref
+        plain:
+          en: "It uses the identity {value}."
+          de: "Es nutzt die Identität {value}."
+        ref: user_assigned_identity
+        required: true
+        depends_on: { question: managed_identity, equals: user_assigned }
+        per_environment: true
+        why: >
+          The identity that holds the data roles on the destinations before the rule
+          exists. Created by the identity set.
+        renders: managed_identities.user_assigned_resource_ids / managedIdentities.userAssignedResourceIds
+
+  # ------------------------------------------------------------- observability
+  - id: observability
+    title: Observability
+    questions:
+      - id: diagnostic_workspace
+        ask: Which Log Analytics workspace should receive the rule's own diagnostics?
+        type: ref
+        resolved_by: platform
+        plain:
+          en: "Its own error log goes to {value}."
+          de: "Sein eigenes Fehlerprotokoll geht in {value}."
+        ref: log_analytics_workspace
+        from_deployment: diagnostics_destination
+        per_environment: true
+        why: >
+          Inherited. A rule fails quietly - a transformation that errors drops the row, a
+          stream whose schema drifted is rejected - and the rule's own diagnostic log is
+          the only place that says so. Usually the same workspace the data goes to.
+        renders: diagnostic_settings / diagnosticSettings (none on the Bicep module - see the notes)
+
+      - id: diagnostic_categories
+        ask: Which of the rule's own log categories should be collected?
+        type: list
+        plain:
+          en: "Logged about the rule itself: {value}."
+          de: "Über die Regel selbst geloggt: {value}."
+        plain_values:
+          LogErrors: { en: "rows the rule rejected or a transformation failed on", de: "Zeilen, die die Regel abgewiesen hat oder an denen eine Transformation scheiterte" }
+          LogTroubleshooting: { en: "detail for diagnosing the rule", de: "Details zur Fehlersuche an der Regel" }
+        values: [LogErrors, LogTroubleshooting]
+        default: [LogErrors]
+        why: >
+          The error log is small and is what answers "why is the table empty". The
+          troubleshooting category is verbose and switched on while a rule is being
+          debugged. The names are the platform's and are checked against `az monitor
+          diagnostic-settings categories list --resource <rule id>` before a render,
+          not remembered; the rule has no metrics.
+        renders: diagnostic_settings.<key>.log_categories / diagnosticSettings[].logCategoriesAndGroups[].category

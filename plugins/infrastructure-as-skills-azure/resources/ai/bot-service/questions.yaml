@@ -1,0 +1,444 @@
+schema_version: 1
+
+resource: Microsoft.BotService/botServices
+title: Azure Bot (Bot Service registration and channels)
+
+# The Azure Bot resource is the registration and channel connector in front of a bot
+# application that runs elsewhere (an App Service, a container app, a function app). It is
+# global; the application and its hosting are other sets' business.
+naming:
+  terraform: "Azure::Microsoft.BotService/botServices"
+  bicep: "Microsoft.BotService/botServices"
+  # Bicep assembles the name from vars - this is the prefix it renders. The name is global
+  # (the bot handle).
+  abbreviation: "bot"
+
+boundaries:
+  - "Does not create the bot application or its hosting - an App Service, container app or function app with a `/api/messages` endpoint, from its own set. `messaging_endpoint` references it."
+  - "Does not create the app registration a single- or multi-tenant bot authenticates with - app registrations are not rendered; the client id is an `open:` entry owned by the identity team. With `user_assigned_msi` the identity set creates the identity and no registration exists."
+  - "Does not create private DNS zones (`privatelink.directline.botframework.com`, `privatelink.token.botframework.com`) - shared infrastructure, owned by a pattern or the platform."
+  - "Does not configure channel content: the Teams app manifest and its publication, Direct Line secrets and their rotation, the Web Chat embed, Slack or e-mail credentials. `channels` names which channels exist; their settings are the application team's."
+  - "Does not create the Application Insights component the bot application reports to, nor the API key the bot resource's developer-insights fields take - the application carries its own connection string."
+  - "Does not create the Log Analytics workspace it routes diagnostics to."
+  - "Does not render the bot's language understanding, Foundry agent or knowledge sources - application content; a Foundry account is the foundry set's."
+
+groups:
+
+  # ---------------------------------------------------------------- placement
+  - id: placement
+    title: Placement
+    questions:
+      - id: environments
+        ask: Which stages is this deployed to?
+        type: list
+        plain:
+          en: "Deployed in the stages {value}."
+          de: "Wird in den Stufen {value} ausgerollt."
+        values: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
+        required: true
+        from_context: true
+        why: >
+          Drives the rendered name and the strictness of several defaults below. Nothing
+          sensible can be guessed.
+        renders: naming parameter `environment`, and the tag of that name where the repository uses one
+
+      - id: location
+        ask: Which Azure region?
+        type: string
+        plain:
+          en: "The bot registration is global; the bot application runs where its own hosting says."
+          de: "Die Bot-Registrierung ist global; die Bot-Anwendung läuft dort, wo ihr Hosting es sagt."
+        default: global
+        why: >
+          An Azure Bot is a global resource: `location` is the literal `global` (regional
+          bots exist for data residency in a few regions and are a named departure). The
+          channel traffic is processed by the Bot Framework service worldwide; what is
+          regional is the application behind `messaging_endpoint`.
+        renders: location = "global"
+
+      - id: resource_group_name
+        ask: Which resource group?
+        type: ref
+        plain:
+          en: "Placed in the resource group {value}."
+          de: "Liegt in der Ressourcengruppe {value}."
+        ref: resource_group
+        required: true
+        from_context: true
+        per_environment: true
+        why: >
+          The bot is placed into an existing group. Creating one here would make this set own
+          a lifecycle wider than the resource it describes.
+        renders: resource_group_name (AVM Terraform) / implicit in Bicep scope
+
+  # ---------------------------------------------------------------------- bot
+  - id: bot
+    title: The bot and its identity
+    questions:
+      - id: sku
+        ask: Which tier does the bot need?
+        type: enum
+        plain:
+          en: "The bot is on the {value} tier."
+          de: "Der Bot ist auf der Stufe {value}."
+        plain_values:
+          F0: { en: "free tier, no service guarantee, limited premium-channel messages per month", de: "kostenlose Stufe, ohne Verfügbarkeitszusage, begrenzte Premium-Kanal-Nachrichten pro Monat" }
+          S1: { en: "standard tier, with a service guarantee, billed per premium-channel message", de: "Standardstufe mit Verfügbarkeitszusage, abgerechnet je Premium-Kanal-Nachricht" }
+        values: [F0, S1]
+        derived_from:
+          question: outage_impact
+          map: { tolerable: F0, disruptive: S1, critical: S1 }
+        confirm_in: [production]
+        non_production_default: F0
+        why: >
+          Derived from how bad an outage is. F0 has no SLA and caps the messages on premium
+          channels (Direct Line, Web Chat) per month; standard channels (Teams) are free on
+          both tiers. S1 is the production tier and costs only what the premium channels
+          carry. `critical` has the same value as `disruptive`: the bot's availability is
+          the application's, behind this registration. The Terraform module defaults to F0,
+          which a production stage must never inherit - written. The tier can be changed in
+          place.
+        renders: sku / sku.name
+
+      - id: display_name
+        ask: What name should users see for the bot?
+        type: string
+        resolved_by: interview
+        plain:
+          en: "Users see the bot as {value} (empty: the resource name)."
+          de: "Nutzer sehen den Bot als {value} (leer: der Ressourcenname)."
+        default: ""
+        why: >
+          The name shown in Teams and Web Chat. It is the product's name in the customer's
+          words, not the resource name the convention renders; empty falls back to the
+          resource name, which a user should not see in production.
+        renders: display_name / properties.displayName
+
+      - id: messaging_endpoint
+        ask: Which URL does the bot application answer on?
+        type: string
+        plain:
+          en: "Channel messages are delivered to {value}."
+          de: "Kanalnachrichten werden an {value} zugestellt."
+        required: true
+        per_environment: true
+        why: >
+          The HTTPS URL the Bot Framework posts every message to, conventionally
+          `https://<app hostname>/api/messages`. It is the one wiring this resource exists
+          for and cannot be guessed: it comes from the application's set (an App Service's
+          default hostname, a container app's ingress) and differs per stage. A bot without
+          it registers and receives nothing. For a private bot the hostname must resolve for
+          the Bot Framework service through the private endpoint path, see the notes.
+        renders: endpoint / properties.endpoint
+
+      - id: app_identity_type
+        ask: How does the bot service authenticate to the bot application?
+        type: enum
+        plain:
+          en: "The bot authenticates {value}."
+          de: "Der Bot authentifiziert sich {value}."
+        plain_values:
+          user_assigned_msi: { en: "with a managed identity - no password, no registration to maintain", de: "mit einer verwalteten Identität - kein Passwort, keine Registrierung zu pflegen" }
+          single_tenant: { en: "with an app registration in your directory and its secret or certificate", de: "mit einer App-Registrierung in eurem Verzeichnis und deren Geheimnis oder Zertifikat" }
+          multi_tenant: { en: "with a multi-tenant app registration (legacy; no longer offered for new bots)", de: "mit einer mandantenübergreifenden App-Registrierung (veraltet; für neue Bots nicht mehr angeboten)" }
+        values: [user_assigned_msi, single_tenant, multi_tenant]
+        default: user_assigned_msi
+        confirm_in: [production]
+        why: >
+          The channel connector and the application authenticate each other with this app
+          identity. **A user-assigned managed identity has no secret**: nothing to store in
+          Key Vault, nothing that expires, and the identity set creates it. A single-tenant
+          registration needs a client secret or certificate in the application's settings
+          and a rotation story, and the registration itself is an `open:` entry for the
+          identity team; it is for an application framework that cannot use a managed
+          identity, or a bot hosted outside Azure. `multi_tenant` is refused for new bots by
+          the platform and stays for an existing one. **The type is fixed at creation**;
+          both modules default to `MultiTenant` - written.
+        renders: microsoft_app_type / properties.msaAppType
+
+      - id: bot_identity
+        ask: Which user-assigned identity is the bot's app identity?
+        type: ref
+        plain:
+          en: "The bot's identity is {value}."
+          de: "Die Identität des Bots ist {value}."
+        ref: user_assigned_identity
+        required: true
+        depends_on: { question: app_identity_type, equals: user_assigned_msi }
+        per_environment: true
+        why: >
+          The same identity is assigned to the bot application (its hosting set) and named
+          here: its client id becomes the bot's app id, its resource id the MSI reference,
+          its tenant the app tenant. Created before the bot, by the identity set.
+        renders: >
+          microsoft_app_id (client id), microsoft_app_msi_id, microsoft_app_tenant_id /
+          properties.msaAppId, msaAppMSIResourceId, msaAppTenantId
+
+      - id: app_registration_client_id
+        ask: Which app registration does the bot authenticate with?
+        type: string
+        plain:
+          en: "The bot uses the app registration {value}."
+          de: "Der Bot nutzt die App-Registrierung {value}."
+        required: true
+        depends_on: { question: app_identity_type, not_equals: user_assigned_msi }
+        per_environment: true
+        why: >
+          The application (client) id of the registration, created by the identity team
+          outside this template; its secret goes to the application's Key Vault, never
+          here. One registration per stage, because the id is fixed at creation and the
+          stages are separate bots.
+        renders: microsoft_app_id, microsoft_app_tenant_id / properties.msaAppId, msaAppTenantId
+
+      - id: channels
+        ask: Where should users talk to the bot?
+        type: list
+        resolved_by: interview
+        plain:
+          en: "Users reach the bot in: {value} (Web Chat is always present)."
+          de: "Nutzer erreichen den Bot in: {value} (Web Chat ist immer vorhanden)."
+        plain_values:
+          MsTeamsChannel: { en: "Microsoft Teams", de: "Microsoft Teams" }
+          DirectLineChannel: { en: "your own app or website through Direct Line", de: "eurer eigenen App oder Website über Direct Line" }
+          WebChatChannel: { en: "the embeddable Web Chat", de: "dem einbettbaren Web Chat" }
+          EmailChannel: { en: "e-mail (Microsoft 365 mailbox)", de: "E-Mail (Microsoft-365-Postfach)" }
+          SlackChannel: { en: "Slack", de: "Slack" }
+          M365Extensions: { en: "Microsoft 365 Copilot and Outlook", de: "Microsoft 365 Copilot und Outlook" }
+        values: [MsTeamsChannel, DirectLineChannel, WebChatChannel, EmailChannel, SlackChannel, M365Extensions]
+        default: []
+        why: >
+          The customer's answer about where the bot lives; each channel is a child resource
+          whose settings (the Teams calling options, the Direct Line sites and their
+          secrets, the Slack credentials) are the application team's and are rendered as
+          named entries only. Web Chat is created by the platform with every bot; Direct
+          Line is what a private bot uses and the only channel that can be reached through
+          a private endpoint. Teams and the other public channels reach the bot through the
+          public Bot Framework service, which is what `public_network_access` must allow.
+        renders: channels / Microsoft.BotService/botServices/channels (one per entry)
+
+      - id: streaming_endpoint
+        ask: Should the bot accept streaming (WebSocket) connections from Direct Line?
+        type: bool
+        plain:
+          en: "Streaming connections are {value}."
+          de: "Streaming-Verbindungen sind {value}."
+        plain_values:
+          true: { en: "enabled", de: "aktiviert" }
+          false: { en: "disabled", de: "deaktiviert" }
+        default: false
+        why: >
+          Direct Line Speech and streaming extensions keep a WebSocket open to the
+          application, which must support it; a bot that does not is a connection that
+          hangs. Off unless the application says so. The Terraform module defaults to `true`,
+          Bicep is authored - written.
+        renders: streaming_endpoint_enabled / properties.isStreamingSupported
+
+  # --------------------------------------------------------------- networking
+  - id: networking
+    title: Networking
+    questions:
+      - id: public_network_access
+        ask: Should this bot depart from the deployment's exposure posture?
+        type: enum
+        plain:
+          en: "The bot's channel endpoints are {value}."
+          de: "Die Kanal-Endpunkte des Bots sind {value}."
+        plain_values:
+          disabled: { en: "not reachable from the internet; only Direct Line through the private endpoint", de: "aus dem Internet nicht erreichbar; nur Direct Line über die private Anbindung" }
+          enabled_with_firewall: { en: "reachable from the internet (the service has no address firewall)", de: "aus dem Internet erreichbar (der Dienst hat keine Adress-Firewall)" }
+          enabled: { en: "reachable from the internet", de: "aus dem Internet erreichbar" }
+        values: [disabled, enabled_with_firewall, enabled]
+        from_deployment: network_exposure
+        confirm_in: [production]
+        forced_when: >
+          `channels` containing `MsTeamsChannel`, `EmailChannel`, `SlackChannel` or
+          `M365Extensions` forces `enabled` - those channels reach the bot through the
+          public service - recorded as forced with `channels` as forced_by;
+          `enabled_with_firewall` renders as `enabled` because the resource has no IP rules,
+          and the departure is recorded
+        why: >
+          Asked only as a departure: exposure is a property of the system, but this resource
+          is one where the channels decide. `disabled` is the Direct Line isolation model:
+          the Direct Line and token endpoints are served through private endpoints, the
+          application's outbound to the service goes the same way, and nothing public
+          exists - which works for a bot embedded in an internal web app and for nothing
+          in Teams. A bot in Teams is public by construction and records `enabled` here with
+          the posture's reason. The Terraform module defaults to on, the authored Bicep
+          writes it - always written.
+        renders: public_network_access / properties.publicNetworkAccess
+
+      - id: private_endpoint_subnet
+        ask: Which subnet should the bot's private endpoints live in?
+        type: ref
+        resolved_by: platform
+        plain:
+          en: "Its private connections land in subnet {value}."
+          de: "Seine privaten Anbindungen landen im Subnetz {value}."
+        ref: subnet
+        from_deployment: private_endpoint_subnet
+        depends_on: { question: public_network_access, equals: disabled }
+        per_environment: true
+        why: >
+          One subnet carries the deployment's private endpoints, so this is inherited. The
+          bot takes **two** endpoints, for the `Bot` and the `Token` sub-resources, with two
+          zones (`privatelink.directline.botframework.com`, `privatelink.token.botframework.com`);
+          the application's own private endpoint and VNet integration are its set's. The
+          endpoints are only useful with `disabled`.
+        renders: private_endpoints.<key>.subnet_resource_id / Microsoft.Network/privateEndpoints (authored Bicep)
+
+      - id: private_endpoint_subresources
+        ask: Which bot endpoints need a private connection?
+        type: list
+        plain:
+          en: "Private connections exist for: {value}."
+          de: "Private Anbindungen gibt es für: {value}."
+        plain_values:
+          Bot: { en: "the Direct Line channel endpoint", de: "den Direct-Line-Kanal-Endpunkt" }
+          Token: { en: "the token endpoint for Direct Line clients", de: "den Token-Endpunkt für Direct-Line-Clients" }
+        values: [Bot, Token]
+        default: [Bot, Token]
+        depends_on: { question: public_network_access, equals: disabled }
+        why: >
+          Both are needed for an isolated bot: `Bot` carries the messages, `Token` issues the
+          Direct Line tokens the client exchanges its secret for. One without the other is a
+          bot that connects but cannot authenticate its users, or the reverse. Each is its own
+          endpoint resource and zone.
+        renders: >
+          private_endpoints.<key>.subresource_name / privateEndpoints[].groupIds
+          (authored Bicep)
+
+  # ----------------------------------------------------------------- identity
+  - id: identity
+    title: Identity and access
+    questions:
+      - id: role_assignments
+        ask: Who needs which role on this bot?
+        type: list
+        plain:
+          en: "Access rights on the bot granted to: {value}."
+          de: "Zugriffsrechte auf den Bot vergeben an: {value}."
+        default: []
+        per_environment: true
+        why: >
+          The bot has no data plane to grant; roles here are for whoever edits the channels
+          (`Contributor` on the resource, scoped to it, for the application team's pipeline)
+          and reads the configuration (`Reader`). The application's identity needs no role
+          on the bot - it authenticates as the app identity, not through RBAC.
+        renders: role_assignments / Microsoft.Authorization/roleAssignments (authored Bicep)
+
+  # ----------------------------------------------------------------- security
+  - id: security
+    title: Security
+    questions:
+      - id: local_authentication_disabled
+        ask: May Direct Line clients connect with a channel secret?
+        type: bool
+        plain:
+          en: "Connecting with a channel secret is {value}; clients get a token from your application."
+          de: "Die Verbindung mit einem Kanalgeheimnis ist {value}; Clients bekommen ein Token von eurer Anwendung."
+        plain_values:
+          true: { en: "switched off", de: "abgeschaltet" }
+          false: { en: "possible", de: "möglich" }
+        from_deployment: local_auth
+        confirm_in: [production]
+        forced_when: >
+          A Direct Line client that cannot obtain a token through the application (a static
+          page without a backend) is `local_auth: allowed_where_unavoidable` for this bot
+          alone, named with the client
+        why: >
+          Inherited: `local_auth: disabled` renders as `true`. The Direct Line secret is a
+          bearer credential for the channel that ends up in a web page; with local
+          authentication off the client presents a token the application obtained with its
+          identity (the enhanced-authentication flow), and a leaked secret is useless. Both
+          modules leave it unset (on) - written.
+        renders: local_authentication_enabled (inverse) / properties.disableLocalAuth
+
+      - id: key_management
+        ask: Are the bot's encryption keys platform-managed or customer-managed?
+        type: enum
+        plain:
+          en: "Encryption keys are {value}."
+          de: "Verschlüsselungsschlüssel sind {value}."
+        plain_values:
+          platform_managed: { en: "managed by Azure - encrypted, rotated, no effort on your side", de: "von Azure verwaltet: verschlüsselt, rotiert, kein Aufwand bei euch" }
+          customer_managed: { en: "your own, held in your key vault, so you can revoke them", de: "eure eigenen in eurem Schlüsseltresor, damit ihr sie zurückziehen könnt" }
+        values: [platform_managed, customer_managed]
+        from_deployment: key_management
+        confirm_in: [production]
+        why: >
+          Inherited. It covers what the service stores for the bot - the channel
+          configuration and conversation transcripts the channels keep in transit. The
+          key is read by **Microsoft's `Bot Service CMEK Prod` service principal**, which
+          needs `Key Vault Crypto Service Encryption User` on the vault, not by an identity
+          of yours - the one case in this plugin where the vault's role list names a
+          Microsoft principal, and it is named in the handover. The vault needs soft delete
+          and purge protection.
+        renders: is_cmek_enabled + cmek_key_vault_url / properties.isCmekEnabled, cmekKeyVaultUrl
+
+      - id: cmk_key_vault_key_id
+        ask: Which Key Vault key should encrypt the bot?
+        type: ref
+        plain:
+          en: "Encrypted with your key {value}."
+          de: "Verschlüsselt mit eurem Schlüssel {value}."
+        ref: key_vault_key
+        required: true
+        depends_on: { question: key_management, equals: customer_managed }
+        per_environment: true
+        why: >
+          The key must exist and the Microsoft principal must hold its role on the vault
+          before the bot is created. The reference is the key's URL; the bot takes a
+          versioned or unversioned URL, and the unversioned one follows a rotation.
+        renders: cmek_key_vault_url / properties.cmekKeyVaultUrl
+
+  # ------------------------------------------------------------ observability
+  - id: observability
+    title: Observability
+    questions:
+      - id: diagnostic_workspace
+        ask: Which Log Analytics workspace should receive diagnostics?
+        type: ref
+        resolved_by: platform
+        plain:
+          en: "Its logs go to {value}."
+          de: "Seine Logs gehen in {value}."
+        ref: log_analytics_workspace
+        from_deployment: diagnostics_destination
+        per_environment: true
+        why: >
+          Inherited: one deployment, one destination. Without a diagnostic setting the only
+          record of a channel delivery failure is the user's complaint.
+        renders: diagnostic_settings / Microsoft.Insights/diagnosticSettings (authored Bicep)
+
+      - id: diagnostic_categories
+        ask: Which log categories should be collected?
+        type: list
+        plain:
+          en: "Logged: {value}."
+          de: "Geloggt wird: {value}."
+        plain_values:
+          BotRequest: { en: "every request the service made to the bot and to the channels, with its result", de: "jede Anfrage des Dienstes an den Bot und an die Kanäle, mit Ergebnis" }
+        values: [BotRequest]
+        default: [BotRequest]
+        why: >
+          The one category the resource has: the service's calls to the application and to
+          the channels, with status and latency - the record that says whether a message
+          that never arrived failed at the channel or at the application. The name is the
+          platform's and is checked against `az monitor diagnostic-settings categories list
+          --resource <bot id>` before a render, not remembered.
+        renders: diagnostic_settings.<key>.log_categories / logs[].category
+
+      - id: metrics_enabled
+        ask: Should all metrics be collected?
+        type: bool
+        plain:
+          en: "Usage and performance figures are {value}."
+          de: "Nutzungs- und Leistungswerte werden {value}."
+        plain_values:
+          true: { en: "collected", de: "erfasst" }
+          false: { en: "not collected", de: "nicht erfasst" }
+        default: true
+        why: >
+          Requests to the bot and their latency per channel - cheap, and the number to alert
+          on when a channel goes quiet.
+        renders: metrics[].category = "AllMetrics" / metrics[].category

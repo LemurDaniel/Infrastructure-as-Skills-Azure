@@ -197,6 +197,32 @@ the detail; this list says what was decided and why, so a session does not reope
 
 ## State
 
+- **18 more sets written 2026-10-26 (67 resource sets in 10 families, 1,442 questions with the deployment
+  set), checked, not exercised:** network public-dns-zone, traffic-manager, ddos-protection-plan, network-watcher (VNet flow logs only);
+  observability action-group, alert-rule (metric, log query and activity log by `kind`),
+  data-collection-rule (+ endpoint); messaging event-grid-namespace, event-grid-system-topic,
+  relay-namespace; data sql-managed-instance, data-factory, purview-account; integration logic-app
+  (Standard and Consumption by `hosting`), communication-services; ai ai-services (one kind per
+  account), machine-learning-workspace, bot-service. Written by six parallel agents from one brief,
+  each call validated with `terraform validate` against the pinned module (or authored azurerm 5.x
+  where none exists: system topic, metric and scheduled-query alerts, Purview, management group,
+  Communication Services) and `bicep build`; no render, test or eval covers them. Three governance sets (policy, management-group, subscription; ownership decision from the platform
+  profile, nothing rendered by default) were written the same day and **parked outside the plugin in
+  `drafts/governance/`** (owner's call: not shipped for now; they pass the format check and their calls
+  validated, nothing in the plugin refers to them). Shared tables are
+  updated: `avm.md` rows, `resource_lock` list (+ event-grid-namespace, sql-managed-instance,
+  purview-account, public-dns-zone), `resource-group-roles.yaml`, `naming.default.yaml` (ddos, dnsz, rn, ma, sqr, ala, bot default), `new_diagram.py` ICONS/TYPE_NAMES (paths checked
+  against the draw.io source tree; Purview, the Event Grid namespace, the system topic and the action
+  group borrow the nearest icon), the `azure-resources` description (1,700 of 2,000 listing budget,
+  85% - the next family's terms need pruning first). Open from the writing: `learn.microsoft.com` is
+  unreachable from a cloud session (proxy), so the diagnostic categories of the network, observability
+  and ACS sets come from the Azure Monitor docs source on GitHub or product knowledge and every set
+  says to check them live; the `virtual-network` set's `ddos_protection` bool has no plan reference
+  and its `flow_logs_enabled` should point at `network-watcher`; `data_location` of Communication
+  Services is a required open entry because a `derived_from` map cannot depend on the region; the
+  Terraform site module cannot render identity-based host storage for a Standard logic app; the
+  alert, DCR and flow-log kinds count as `MONITOR_KINDS` in the diagram but have no layout of their
+  own.
 - **Release 0.1.0 (2026-10-25), the first stable one** (owner's call): `release.yml` marks only `0.0.x` and
   suffixed versions as prereleases. The plugin folder has its own `README.md` (the directory reads it, with what the plugin
   runs and writes), `displayName` and new keywords are in `plugin.json`. Not done: the submission to Anthropic's plugin
@@ -350,18 +376,14 @@ per-family` in `check_spec.py` and the `chatbot` spec, and `references/private-d
 - **The sets from 2026-10-23 have no Bicep render** (`chatbot` is Terraform only) and
   `*.armtest.yaml` is still one file per example; the per-family Bicep shape is documented and the
   nested path checked on a toy compile, not on a render.
-- Missing sets: Container Apps session pools; a Table storage set; Logic Apps, Data Factory
-  (`azure-resources` says so out loud). The gap review of 2026-10-25 lists what is still pending
-  (no question set yet; the high-priority batch was written 2026-10-25, see State):
-  - **Medium:** network: public DNS Zone, Traffic Manager, Virtual WAN / VPN Gateway / ExpressRoute,
-    DDoS Protection, Network Watcher, Private Link Service; data: SQL Managed Instance, Data Factory,
-    Synapse, Databricks, Data Explorer, Fabric Capacity, Purview; observability: Diagnostic Settings
-    as a resource of its own, Azure Monitor (Action Group, alert rules, DCR/DCE), Managed Grafana,
-    Azure Monitor Workspace (Prometheus), Dashboards; messaging: Event Grid Namespace / System Topic,
-    Notification Hubs, SignalR / Web PubSub, Relay; integration: Logic Apps, Communication Services;
-    governance (new family): Policy definition / assignment, Management Group, Subscription /
-    Resource Group, Budgets, Locks, Automation Account, Maintenance Configuration; ai: Azure AI
-    Services (Speech, Vision, Language, Document Intelligence), Machine Learning Workspace, Bot Service.
+- Missing sets: Container Apps session pools; a Table storage set; Event Grid domain. The gap review of
+  2026-10-25 lists what is still pending (no question set yet; the high-priority batch was written
+  2026-10-25 and the first half of the Medium list 2026-10-26, see State):
+  - **Medium, still open:** network: Virtual WAN / VPN Gateway / ExpressRoute, Private Link Service;
+    data: Synapse, Databricks, Data Explorer, Fabric Capacity; observability: Diagnostic Settings as a
+    resource of its own, Managed Grafana, Azure Monitor Workspace (Prometheus), Dashboards; messaging:
+    Notification Hubs, SignalR / Web PubSub; governance (the family itself is parked in `drafts/`): Budgets, a standalone lock,
+    Automation Account, Maintenance Configuration (resource groups stay a deployment decision).
   - **Low:** storage: Table, Managed HSM, NetApp Files, Files Sync, Data Lake Gen2 as its own type;
     compute: Batch, Service Fabric, App Service Environment, Spring Apps, Compute Gallery, Dedicated
     Host, Virtual Desktop, Arc; security: Managed HSM, Sentinel, Confidential Ledger; data: Cosmos DB

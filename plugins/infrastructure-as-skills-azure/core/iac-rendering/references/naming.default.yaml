@@ -235,6 +235,7 @@ abbreviations:
     Microsoft.MachineLearningServices/workspaces::Project: proj
     Microsoft.MachineLearningServices/workspaces::default: mlw
     Microsoft.CognitiveServices/accounts::OpenAI: oai
+    Microsoft.BotService/botServices::default: bot
     Microsoft.BotService/botServices::azurebot: bot
     Microsoft.VideoIndexer/accounts::default: avi
 
@@ -413,6 +414,9 @@ abbreviations:
 
     Microsoft.Insights/components::default: appi
     Microsoft.Insights/actionGroups::default: ag
+    Microsoft.Insights/metricAlerts::default: ma
+    Microsoft.Insights/scheduledQueryRules::default: sqr
+    Microsoft.Insights/activityLogAlerts::default: ala
     Microsoft.Insights/dataCollectionRules::default: dcr
     Microsoft.Insights/dataCollectionEndpoints::default: dce
 
@@ -439,12 +443,14 @@ abbreviations:
 
     Microsoft.Network/ipGroups::default: ipg
     Microsoft.Network/connections::default: con
-    Microsoft.Network/dnsZones::default: 
+    Microsoft.Network/dnsZones::default: dnsz
+    Microsoft.Network/ddosProtectionPlans::default: ddos
     Microsoft.Network/dnsForwardingRulesets::default: dnsfrs
     Microsoft.Network/dnsResolvers::default: dnspr
     Microsoft.Network/dnsResolvers/inboundEndpoints::default: in
     Microsoft.Network/dnsResolvers/outboundEndpoints::default: out
     Microsoft.Network/privateDnsZones::default: pdnsz
+    Microsoft.Relay/namespaces::default: rn
     Microsoft.Network/azureFirewalls::default: afw
     Microsoft.Network/firewallPolicies::default: afwp
     Microsoft.Network/expressRouteCircuits::default: erc

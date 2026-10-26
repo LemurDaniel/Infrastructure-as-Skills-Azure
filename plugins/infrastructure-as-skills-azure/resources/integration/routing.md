@@ -8,8 +8,9 @@ skill. Routing table - the request picks the question set:
 | API Management, APIM, API gateway, API management gateway, developer portal, rate limiting, API policy | `api-management/questions.yaml` | [notes](api-management/notes.md) |
 | Application Gateway, WAF, web application firewall, layer-7 load balancer, ingress for a vnet | see the [network](../network/routing.md) family | Not here - it is a network resource |
 | Front Door, CDN, global load balancer, edge | see the [network](../network/routing.md) family | Not here |
-| Logic Apps, workflow, Power Automate | *not yet written* | - |
-| Data Factory, Synapse pipelines | *not yet written* | - |
+| Logic Apps, Logic App, workflow, Workflow Standard, Consumption logic app, Power Automate (as Logic Apps), Integrationsworkflow | `logic-app/questions.yaml` | [notes](logic-app/notes.md) - one set for Standard and Consumption; Standard is the plan+site modules, the Terraform site module cannot render identity-based host storage for a logic app |
+| Communication Services, ACS, Azure Communication, SMS, E-Mail-Versand, Email Communication Service, transactional e-mail, chat/calling SDK | `communication-services/questions.yaml` | [notes](communication-services/notes.md) - global resource with an immutable data location; no private endpoint, exposure is keys-off plus roles; the e-mail service and domain render beside it |
+| Data Factory, Synapse pipelines | see the [data](../data/routing.md) family | Not here - `data-factory` lives with the data resources; Synapse has no set yet |
 | Service Bus, Event Hubs, Event Grid | see the [messaging](../messaging/routing.md) family | Not here |
 
 When a question set does not exist yet, say so rather than improvising one. Fall back to

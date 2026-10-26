@@ -1,0 +1,701 @@
+schema_version: 1
+
+resource: Microsoft.Insights/metricAlerts
+title: Azure Monitor alert rule (metric, log query, activity log)
+
+naming:
+  terraform: "Azure::Microsoft.Insights/metricAlerts"
+  bicep: "Microsoft.Insights/metricAlerts"
+  # One set, three resource types, chosen by `kind`. The identifier above is the metric
+  # alert's; a log query rule renders as Microsoft.Insights/scheduledQueryRules, an activity
+  # log alert as Microsoft.Insights/activityLogAlerts. None of the three has an abbreviation
+  # in the naming convention yet - the proposals are `ma`, `sqr` and `ala`.
+  abbreviation: "ma"
+
+boundaries:
+  - "Does not create the resource group. Expects one from the spec's context."
+  - "Does not create the action group it notifies - that is the action-group set; the rule binds it by reference (`action_group`)."
+  - "Does not create the resources it watches: the scope of a metric alert, the workspace a log query runs against, the subscription an activity log alert reads are references."
+  - "Does not write the KQL of a log query rule. The query is content, kept in a file beside the template (`queries/<rule>.kql`) and loaded at render; this set names the file and the evaluation around it."
+  - "Does not grant the log query rule's identity its role on the workspace (`Log Analytics Reader`) - wiring, owned by the pattern that knows the workspace. It records which identity the rule runs as."
+  - "Does not create alert processing rules (suppression windows, routing by tag), smart detection, availability tests or Prometheus rule groups. Each is its own concern without a question set yet."
+  - "One rule per instance of this set. A deployment with five alerts answers it five times, with a pattern pre-answering most of it."
+
+groups:
+
+  # ---------------------------------------------------------------- placement
+  - id: placement
+    title: Placement
+    questions:
+      - id: environments
+        ask: Which stages is this deployed to?
+        type: list
+        plain:
+          en: "Deployed in the stages {value}."
+          de: "Wird in den Stufen {value} ausgerollt."
+        values: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
+        required: true
+        from_context: true
+        why: >
+          Drives the rendered name. A rule exists per stage, watching that stage's
+          resources and notifying that stage's action group.
+        renders: naming parameter `environment`
+
+      - id: location
+        ask: Which Azure region?
+        type: string
+        plain:
+          en: "Runs in the Azure region {value}."
+          de: "Läuft in der Azure-Region {value}."
+        required: true
+        from_context: true
+        forced_when: >
+          `kind: metric` and `kind: activity_log` are global resources and render
+          `global` regardless of this value, recorded as forced with `kind` as forced_by.
+          Only a log query rule is regional.
+        why: >
+          A log query rule is a regional resource and belongs in the region of the
+          workspace it queries - a rule in another region works and pays the cross-region
+          query. The metric alert and the activity log alert have no region; the two AVM
+          modules default them to `global` and the render writes that.
+        renders: location (scheduledQueryRules) / "global" for the other two kinds
+
+      - id: resource_group_name
+        ask: Which resource group?
+        type: ref
+        plain:
+          en: "Placed in the resource group {value}."
+          de: "Liegt in der Ressourcengruppe {value}."
+        ref: resource_group
+        required: true
+        from_context: true
+        per_environment: true
+        why: >
+          The rule is placed into an existing group - the observability one where the
+          deployment splits by role, beside the action group it notifies.
+        renders: parent_id (AVM Terraform) / resource_group_name (authored) / implicit in Bicep scope
+
+  # ---------------------------------------------------------------- the rule
+  - id: rule
+    title: The rule
+    questions:
+      - id: kind
+        ask: What does this rule watch - a measured value, the result of a log query, or an event in the subscription?
+        type: enum
+        plain:
+          en: "The rule watches {value}."
+          de: "Die Regel überwacht {value}."
+        plain_values:
+          metric: { en: "a measured value of a resource, such as CPU or failed requests", de: "einen Messwert einer Ressource, etwa CPU oder fehlgeschlagene Anfragen" }
+          log_query: { en: "the result of a query over the collected logs", de: "das Ergebnis einer Abfrage über die gesammelten Logs" }
+          activity_log: { en: "an event in the subscription, such as a service outage or a deleted resource", de: "ein Ereignis im Abonnement, etwa eine Dienststörung oder eine gelöschte Ressource" }
+        values: [metric, log_query, activity_log]
+        required: true
+        why: >
+          Three resource types with three evaluation models. A metric alert reads platform
+          metrics near real time at no charge per rule beyond a small monthly fee and is the
+          right tool for anything a resource measures itself. A log query rule runs KQL on a
+          schedule, can join and aggregate anything the workspace holds, costs per
+          evaluation and lags by the ingestion delay. An activity log alert fires on
+          control-plane events - Service Health, Resource Health, an administrative
+          operation - with no threshold at all. Nothing sensible can be guessed; the pattern
+          usually pre-answers it.
+        renders: >
+          Microsoft.Insights/metricAlerts / scheduledQueryRules / activityLogAlerts - the
+          module called and the set's naming identifier
+
+      - id: action_group
+        ask: Which action group should the rule notify?
+        type: ref
+        plain:
+          en: "When it fires, the action group {value} is notified."
+          de: "Löst sie aus, wird die Aktionsgruppe {value} benachrichtigt."
+        ref: action_group
+        required: true
+        per_environment: true
+        why: >
+          A rule without an action is a counter nobody looks at. The group is the
+          deployment's (the action-group set) and differs per stage so a test stage never
+          pages production's on-call. One group per rule here; a second group for a
+          different audience is a second rule or a processing rule.
+        renders: >
+          actions.<key>.action_group_id / action_groups / actions[] (metric, activity log),
+          actions.actionGroupResourceIds[] (log query)
+
+      - id: severity
+        ask: How serious is it when this rule fires?
+        type: int
+        plain:
+          en: "Severity {value} (0 is critical, 4 is verbose)."
+          de: "Schweregrad {value} (0 ist kritisch, 4 ist ausführlich)."
+        default: 2
+        confirm_in: [production]
+        why: >
+          0 to 4, 0 the most severe. The number routes: processing rules, the on-call tool
+          and the dashboards filter on it, so a rule at 0 that is not an outage trains
+          people to ignore 0. 2 (Warning) is the honest default for a single rule whose
+          impact nobody has stated; an outage-defining rule is 0 or 1 and says so. **Both
+          modules default to 3** (Informational), which is where an alert is filtered out
+          of most views, so the value is always written. Per rule, not derived from the
+          deployment's outage answer - the same system has rules of every severity.
+        renders: severity / severity
+
+      - id: enabled
+        ask: Should the rule evaluate at all?
+        type: bool
+        plain:
+          en: "The rule is {value}."
+          de: "Die Regel ist {value}."
+        plain_values:
+          true: { en: active, de: aktiv }
+          false: { en: "present but switched off", de: "vorhanden, aber abgeschaltet" }
+        default: true
+        why: >
+          A disabled rule is kept, billed at nothing and watched by nobody. The switch is a
+          runtime state for a maintenance window or a rule being tuned, flipped in the
+          stage's parameter file; a rule left disabled is a finding the decision document
+          shows.
+        renders: enabled / enabled
+
+      - id: auto_mitigate
+        ask: Should the alert resolve itself once the condition clears?
+        type: bool
+        plain:
+          en: "A fired alert {value}."
+          de: "Ein ausgelöster Alarm {value}."
+        plain_values:
+          true: { en: "resolves itself when the condition clears", de: "löst sich selbst auf, sobald die Bedingung nicht mehr gilt" }
+          false: { en: "stays open until someone closes it", de: "bleibt offen, bis ihn jemand schließt" }
+        default: true
+        depends_on: { question: kind, not_equals: activity_log }
+        forced_when: >
+          `mute_actions_duration` other than `none` on a log query rule forces `false` -
+          the service refuses both together.
+        why: >
+          With it on, the alert closes when the metric or query result drops back below the
+          threshold and the action group gets the *Resolved* notification; with it off every
+          firing is an open alert until a person closes it, which is how a page of stale
+          alerts hides the live one. An activity log alert is an event and has no state to
+          resolve.
+        renders: auto_mitigate / autoMitigate (metric); auto_mitigation_enabled / autoMitigate (log query)
+
+  # ------------------------------------------------------------------ metric
+  - id: metric
+    title: The measured value
+    questions:
+      - id: scopes
+        ask: Which resources should the rule watch?
+        type: list
+        plain:
+          en: "Watches the resources {value}."
+          de: "Überwacht die Ressourcen {value}."
+        ref: resource
+        required: true
+        depends_on: { question: kind, equals: metric }
+        per_environment: true
+        why: >
+          One resource, or several of the **same type in the same region** - a rule
+          over several resources evaluates each on its own and fires per resource, which
+          is one rule instead of twenty. The type and region are read off the ids at render
+          and written as the target type and region, which the multi-resource criteria
+          require. A resource of another type is another rule.
+        renders: scopes + target_resource_type + target_resource_location / scopes + targetResourceType + targetResourceRegion
+
+      - id: metric_name
+        ask: Which measured value?
+        type: string
+        plain:
+          en: "The measured value is {value}."
+          de: "Der Messwert ist {value}."
+        required: true
+        depends_on: { question: kind, equals: metric }
+        why: >
+          The metric's name as the platform lists it for the type (`Percentage CPU`,
+          `Http5xx`, `UsedCapacity`), looked up with `az monitor metrics
+          list-definitions --resource <id>` before a render, not remembered. The namespace
+          is the scope's resource type unless a custom metric namespace is named with it.
+          Nothing can be guessed; a pattern pre-answers the rules it ships.
+        renders: criteria.metric_name + metric_namespace / criteria.allof[].metricName + metricNamespace
+
+      - id: aggregation
+        ask: How should the value be aggregated over the window?
+        type: enum
+        plain:
+          en: "The value is taken as the {value} over the window."
+          de: "Der Wert wird als {value} über das Fenster genommen."
+        plain_values:
+          Average: { en: average, de: Durchschnitt }
+          Minimum: { en: minimum, de: Minimum }
+          Maximum: { en: maximum, de: Maximum }
+          Total: { en: sum, de: Summe }
+          Count: { en: number of samples, de: Anzahl der Messungen }
+        values: [Average, Minimum, Maximum, Total, Count]
+        default: Average
+        depends_on: { question: kind, equals: metric }
+        why: >
+          The metric defines which aggregations make sense: a percentage is averaged, a
+          count of failures is totalled, a queue depth is taken at its maximum. The wrong
+          one is silent - a totalled percentage over five minutes is a number above 100
+          that never crosses a threshold meant for one sample. Average is right for the
+          utilisation metrics most first rules watch.
+        renders: criteria.aggregation / criteria.allof[].timeAggregation
+
+      - id: operator
+        ask: Which comparison should fire the rule?
+        type: enum
+        plain:
+          en: "Fires when the value is {value} the threshold."
+          de: "Löst aus, wenn der Wert {value} dem Schwellwert ist."
+        plain_values:
+          GreaterThan: { en: above, de: über }
+          GreaterThanOrEqual: { en: at or above, de: gleich oder über }
+          LessThan: { en: below, de: unter }
+          LessThanOrEqual: { en: at or below, de: gleich oder unter }
+          Equals: { en: equal to, de: gleich }
+          GreaterOrLessThan: { en: "outside the learned band (dynamic only)", de: "außerhalb des gelernten Bandes (nur dynamisch)" }
+        values: [GreaterThan, GreaterThanOrEqual, LessThan, LessThanOrEqual, Equals, GreaterOrLessThan]
+        default: GreaterThan
+        depends_on: { question: kind, equals: metric }
+        why: >
+          Above is the shape of a utilisation or error rule, below of an availability or
+          throughput one (requests dropped to zero). `GreaterOrLessThan` exists only for
+          dynamic thresholds, where the band has two sides.
+        renders: criteria.operator / criteria.allof[].operator
+
+      - id: threshold_mode
+        ask: Should the threshold be a fixed number or learned from the resource's history?
+        type: enum
+        plain:
+          en: "The threshold is {value}."
+          de: "Der Schwellwert ist {value}."
+        plain_values:
+          static: { en: a fixed number, de: eine feste Zahl }
+          dynamic: { en: "learned from the resource's own history", de: "aus der eigenen Historie der Ressource gelernt" }
+        values: [static, dynamic]
+        default: static
+        depends_on: { question: kind, equals: metric }
+        why: >
+          A static threshold is a number somebody can defend (CPU above 80 %, more than
+          ten 5xx in five minutes). Dynamic thresholds learn a band from the metric's
+          history and fire on deviation - right for a metric with a daily pattern whose
+          normal level nobody knows, wrong for a new resource with no history (it needs
+          days of data before it fires at all) and for a limit that is a hard fact.
+        renders: criteria (static) vs dynamic_criteria / criterionType StaticThresholdCriterion vs DynamicThresholdCriterion
+
+      - id: threshold
+        ask: At which value should the rule fire?
+        type: int
+        plain:
+          en: "The threshold is {value}."
+          de: "Der Schwellwert liegt bei {value}."
+        required: true
+        depends_on: { question: threshold_mode, equals: static }
+        why: >
+          The number in the metric's own unit - percent, count, bytes, milliseconds. It
+          cannot be guessed, because it is the point where the people on the receiving end
+          want to be told; a threshold set by rule is one that is either never crossed or
+          crossed hourly. A pattern pre-answers it for the rules it ships.
+        renders: criteria.threshold / criteria.allof[].threshold
+
+      - id: dynamic_sensitivity
+        ask: How quickly should a deviation from the usual pattern fire?
+        type: enum
+        plain:
+          en: "Sensitivity {value}."
+          de: "Empfindlichkeit {value}."
+        plain_values:
+          Low: { en: "low - only a strong deviation fires", de: "niedrig, nur eine starke Abweichung löst aus" }
+          Medium: { en: "medium", de: "mittel" }
+          High: { en: "high - a small deviation fires", de: "hoch, schon eine kleine Abweichung löst aus" }
+        values: [Low, Medium, High]
+        default: Medium
+        depends_on: { question: threshold_mode, equals: dynamic }
+        why: >
+          The width of the learned band. High fires early and often; Low fires on what is
+          clearly abnormal. Medium is where a rule starts and is tuned after a week of
+          firings - the failure mode is a High rule that pages on every deployment.
+        renders: dynamic_criteria.alert_sensitivity / criteria.allof[].alertSensitivity
+
+      - id: window_size
+        ask: Over how long a window should the value be looked at?
+        type: enum
+        plain:
+          en: "Looks at the last {value}."
+          de: "Betrachtet die letzten {value}."
+        plain_values:
+          PT1M: { en: minute, de: Minute }
+          PT5M: { en: five minutes, de: fünf Minuten }
+          PT15M: { en: fifteen minutes, de: fünfzehn Minuten }
+          PT30M: { en: thirty minutes, de: dreißig Minuten }
+          PT1H: { en: hour, de: Stunde }
+          PT6H: { en: six hours, de: sechs Stunden }
+          PT12H: { en: twelve hours, de: zwölf Stunden }
+          P1D: { en: day, de: Tag }
+        values: [PT1M, PT5M, PT15M, PT30M, PT1H, PT6H, PT12H, P1D]
+        default: PT5M
+        depends_on: { question: kind, equals: metric }
+        why: >
+          The period the aggregation covers. Shorter catches a spike and fires on noise;
+          longer smooths it and delays the page. Five minutes is where most resource rules
+          sit; a one-minute window on a one-minute metric fires on a single sample. The
+          window must be at least the frequency. **The Bicep module defaults to fifteen
+          minutes**, the Terraform resource to five, so it is written.
+        renders: window_size / windowSize
+
+      - id: frequency
+        ask: How often should the rule be evaluated?
+        type: enum
+        plain:
+          en: "Evaluated every {value}."
+          de: "Ausgewertet alle {value}."
+        plain_values:
+          PT1M: { en: minute, de: Minute }
+          PT5M: { en: five minutes, de: fünf Minuten }
+          PT15M: { en: fifteen minutes, de: fünfzehn Minuten }
+          PT30M: { en: thirty minutes, de: dreißig Minuten }
+          PT1H: { en: hour, de: Stunde }
+        values: [PT1M, PT5M, PT15M, PT30M, PT1H]
+        default: PT1M
+        depends_on: { question: kind, equals: metric }
+        why: >
+          How often the window is re-evaluated; the time to detection is at most this plus
+          the metric's own delay. A metric alert costs the same at every frequency, so one
+          minute is the default and a slower one is for a metric that itself arrives
+          slowly (a daily quota, a storage capacity figure). Never longer than the window.
+        renders: frequency / evaluationFrequency
+
+      - id: dimensions
+        ask: Should the value be split by a dimension, such as per instance or per status code?
+        type: list
+        plain:
+          en: "Split by the dimensions {value} (empty: the resource as a whole)."
+          de: "Aufgeteilt nach den Dimensionen {value} (leer: die Ressource als Ganzes)."
+        default: []
+        depends_on: { question: kind, equals: metric }
+        why: >
+          Each entry is a dimension name, an operator and values (`Instance Include *`,
+          `StatusCode Include 5xx`). A dimension makes the rule fire per value - one alert
+          per unhealthy instance instead of one for the average that hides it. Empty is
+          right for a first rule; the dimension names are the metric's and are checked
+          against the metric definition before a render.
+        renders: criteria.dimension[] / criteria.allof[].dimensions[]
+
+  # --------------------------------------------------------------- log query
+  - id: log_query
+    title: The log query
+    questions:
+      - id: workspace
+        ask: Which Log Analytics workspace should the query run against?
+        type: ref
+        resolved_by: platform
+        plain:
+          en: "The query runs against the log workspace {value}."
+          de: "Die Abfrage läuft gegen den Log-Arbeitsbereich {value}."
+        ref: log_analytics_workspace
+        from_deployment: diagnostics_destination
+        depends_on: { question: kind, equals: log_query }
+        per_environment: true
+        why: >
+          Inherited: the logs a rule can query are the ones the deployment sends somewhere,
+          and that is the deployment's one destination. The workspace is the rule's scope;
+          a rule scoped to a resource instead queries that resource's own logs and is a
+          departure.
+        renders: "scopes = [workspace id] / scopes: [workspaceResourceId]"
+
+      - id: query_file
+        ask: Which query file holds the KQL?
+        type: string
+        plain:
+          en: "The query is the file {value}."
+          de: "Die Abfrage ist die Datei {value}."
+        required: true
+        depends_on: { question: kind, equals: log_query }
+        why: >
+          The query is content: it is edited and tested in the workspace by the people who
+          read the logs and changes at a pace of its own, so it lives in a file beside the
+          template (`queries/<rule>.kql`) that the render loads (`file()` /
+          `loadTextContent()`), never inline in the spec. The file is named here so that
+          the render and the test know what to load; a rule whose file is missing fails at
+          render, not at apply. The query is validated by the service at deployment, which
+          is where a typo surfaces.
+        renders: criteria.query = file(...) / criterias.allOf[].query = loadTextContent(...)
+
+      - id: time_aggregation
+        ask: What should be counted from the query result?
+        type: enum
+        plain:
+          en: "The rule looks at the {value} of the query result."
+          de: "Die Regel betrachtet {value} des Abfrageergebnisses."
+        plain_values:
+          Count: { en: number of rows, de: die Zahl der Zeilen }
+          Average: { en: average of a measured column, de: den Durchschnitt einer Messspalte }
+          Minimum: { en: minimum of a measured column, de: das Minimum einer Messspalte }
+          Maximum: { en: maximum of a measured column, de: das Maximum einer Messspalte }
+          Total: { en: sum of a measured column, de: die Summe einer Messspalte }
+        values: [Count, Average, Minimum, Maximum, Total]
+        default: Count
+        depends_on: { question: kind, equals: log_query }
+        why: >
+          `Count` fires on the number of rows the query returns - "any error in the last
+          five minutes" - and needs no column. The other four aggregate a numeric column
+          the query projects, named as the measure column in the query file's first
+          comment line (`// measure: AggregatedValue`) and rendered beside it; a query
+          that projects no such column fails the service's validation.
+        renders: criteria.time_aggregation_method + metric_measure_column / criterias.allOf[].timeAggregation + metricMeasureColumn
+
+      - id: log_operator
+        ask: Which comparison should fire the rule?
+        type: enum
+        plain:
+          en: "Fires when the result is {value} the threshold."
+          de: "Löst aus, wenn das Ergebnis {value} dem Schwellwert ist."
+        plain_values:
+          GreaterThan: { en: above, de: über }
+          GreaterThanOrEqual: { en: at or above, de: gleich oder über }
+          LessThan: { en: below, de: unter }
+          LessThanOrEqual: { en: at or below, de: gleich oder unter }
+          Equal: { en: equal to, de: gleich }
+        values: [GreaterThan, GreaterThanOrEqual, LessThan, LessThanOrEqual, Equal]
+        default: GreaterThan
+        depends_on: { question: kind, equals: log_query }
+        why: >
+          Above zero rows is the common rule. Below is the heartbeat shape - fewer than one
+          row means the thing that should log stopped logging - and the one place a log
+          rule beats a metric: it can fire on absence.
+        renders: criteria.operator / criterias.allOf[].operator
+
+      - id: log_threshold
+        ask: At which result should the rule fire?
+        type: int
+        plain:
+          en: "The threshold is {value}."
+          de: "Der Schwellwert liegt bei {value}."
+        default: 0
+        depends_on: { question: kind, equals: log_query }
+        why: >
+          With `Count` and `GreaterThan`, 0 fires on the first matching row, which is what
+          an error-pattern rule wants; a rule that tolerates a few rows raises it. For a
+          measured column it is the column's unit.
+        renders: criteria.threshold / criterias.allOf[].threshold
+
+      - id: evaluation_frequency
+        ask: How often should the query run?
+        type: enum
+        plain:
+          en: "The query runs every {value}."
+          de: "Die Abfrage läuft alle {value}."
+        plain_values:
+          PT1M: { en: minute, de: Minute }
+          PT5M: { en: five minutes, de: fünf Minuten }
+          PT10M: { en: ten minutes, de: zehn Minuten }
+          PT15M: { en: fifteen minutes, de: fünfzehn Minuten }
+          PT30M: { en: thirty minutes, de: dreißig Minuten }
+          PT1H: { en: hour, de: Stunde }
+          PT6H: { en: six hours, de: sechs Stunden }
+          PT12H: { en: twelve hours, de: zwölf Stunden }
+          P1D: { en: day, de: Tag }
+        values: [PT1M, PT5M, PT10M, PT15M, PT30M, PT1H, PT6H, PT12H, P1D]
+        default: PT5M
+        depends_on: { question: kind, equals: log_query }
+        why: >
+          Every run is a query the workspace executes and bills; a one-minute rule is a
+          premium rule in price and still lags by the ingestion delay of two to five
+          minutes, so it buys little. Five minutes is the floor for a rule that pages;
+          a daily rule is a report. The Bicep module has no default and requires it, the
+          Terraform resource requires it, so it is always written.
+        renders: evaluation_frequency / evaluationFrequency
+
+      - id: window_duration
+        ask: How far back should each run look?
+        type: enum
+        plain:
+          en: "Each run looks at the last {value}."
+          de: "Jeder Lauf betrachtet die letzten {value}."
+        plain_values:
+          PT5M: { en: five minutes, de: fünf Minuten }
+          PT10M: { en: ten minutes, de: zehn Minuten }
+          PT15M: { en: fifteen minutes, de: fünfzehn Minuten }
+          PT30M: { en: thirty minutes, de: dreißig Minuten }
+          PT1H: { en: hour, de: Stunde }
+          PT6H: { en: six hours, de: sechs Stunden }
+          PT12H: { en: twelve hours, de: zwölf Stunden }
+          P1D: { en: day, de: Tag }
+        values: [PT5M, PT10M, PT15M, PT30M, PT1H, PT6H, PT12H, P1D]
+        default: PT5M
+        depends_on: { question: kind, equals: log_query }
+        why: >
+          The time range the query sees on each run. Equal to the frequency means every row
+          is seen once; longer means a row can fire the rule on several runs in a row,
+          which is wanted for a condition that should keep alerting while it persists and
+          noise otherwise. Never shorter than the frequency, or rows fall between runs.
+        renders: window_duration / windowSize
+
+      - id: mute_actions_duration
+        ask: After it fires, how long should the rule stay quiet before it notifies again?
+        type: enum
+        plain:
+          en: "After firing, the rule stays quiet for {value}."
+          de: "Nach dem Auslösen bleibt die Regel {value} still."
+        plain_values:
+          none: { en: "no extra time - it notifies on every run that matches", de: "keine zusätzliche Zeit, sie meldet bei jedem passenden Lauf" }
+          PT30M: { en: thirty minutes, de: dreißig Minuten }
+          PT1H: { en: an hour, de: eine Stunde }
+          PT6H: { en: six hours, de: sechs Stunden }
+          P1D: { en: a day, de: einen Tag }
+        values: [none, PT30M, PT1H, PT6H, P1D]
+        default: none
+        depends_on: { question: kind, equals: log_query }
+        why: >
+          A persisting condition re-fires on every run, which is five notifications in
+          twenty-five minutes for one incident. Muting suppresses the actions for the
+          period; the alert itself stays open. The service refuses it together with
+          auto-mitigation, so a value here forces `auto_mitigate: false`, and a muted rule
+          then needs a person or a processing rule to close it - the reason `none` is the
+          default and the duplication is accepted.
+        renders: mute_actions_after_alert_duration / muteActionsDuration
+
+  # ------------------------------------------------------------ activity log
+  - id: activity_log
+    title: The subscription event
+    questions:
+      - id: category
+        ask: Which kind of event should the rule watch?
+        type: enum
+        plain:
+          en: "Watches {value}."
+          de: "Überwacht {value}."
+        plain_values:
+          ServiceHealth: { en: "Azure service incidents, planned maintenance and advisories affecting the subscription", de: "Azure-Dienststörungen, geplante Wartungen und Hinweise, die das Abonnement betreffen" }
+          ResourceHealth: { en: "the platform's health verdict on the deployment's own resources", de: "das Gesundheitsurteil der Plattform über die eigenen Ressourcen" }
+          Administrative: { en: "an administrative operation, such as a deletion", de: "einen Verwaltungsvorgang, etwa eine Löschung" }
+          Security: { en: "security events Defender for Cloud raises", de: "Sicherheitsereignisse, die Defender for Cloud meldet" }
+        values: [ServiceHealth, ResourceHealth, Administrative, Security]
+        default: ServiceHealth
+        depends_on: { question: kind, equals: activity_log }
+        why: >
+          One category per rule; the service refuses a rule without exactly one. The
+          Service Health alert is the standard case and the one every subscription should
+          carry: it is the only way Azure tells the team that the region is degraded
+          before their own rules do. Resource Health is the per-resource verdict
+          (Unavailable, Degraded) - the cheapest availability signal. Administrative
+          watches an operation, the classic being a resource group deletion. The scope is
+          the stage's subscription and is read from the context, not asked.
+        renders: condition.all_of[category] / conditions[].category; scopes = [subscription id]
+
+      - id: service_health_event_types
+        ask: Which kinds of service event should be reported?
+        type: list
+        plain:
+          en: "Reported: {value}."
+          de: "Gemeldet werden: {value}."
+        plain_values:
+          Incident: { en: "incidents - a service is impaired now", de: "Störungen, ein Dienst ist jetzt beeinträchtigt" }
+          Maintenance: { en: planned maintenance, de: geplante Wartungen }
+          Informational: { en: informational notices, de: Informationshinweise }
+          ActionRequired: { en: notices that require the team to act, de: "Hinweise, bei denen das Team handeln muss" }
+          Security: { en: security advisories, de: Sicherheitshinweise }
+        values: [Incident, Maintenance, Informational, ActionRequired, Security]
+        default: [Incident, ActionRequired, Security]
+        depends_on: { question: category, equals: ServiceHealth }
+        why: >
+          Incidents, action-required notices and security advisories are what a team
+          must see; planned maintenance and informational notices are a weekly digest
+          and a reason the Service Health alert gets muted when they page. Add
+          `Maintenance` for a workload whose single-instance components a maintenance
+          window reboots.
+        renders: condition.all_of[any_of properties.incidentType] / conditions[].anyOf[].properties.incidentType
+
+      - id: impacted_regions
+        ask: Which regions' service events matter?
+        type: list
+        plain:
+          en: "For the regions {value} (empty: the deployment's region and the global services)."
+          de: "Für die Regionen {value} (leer: die Region des Ausrollens und die globalen Dienste)."
+        default: []
+        depends_on: { question: category, equals: ServiceHealth }
+        why: >
+          A Service Health event names the regions it touches; without a filter the rule
+          reports every region in the world. Empty renders the deployment's region plus
+          `Global` (Entra ID, DNS, Front Door are global services), which is what a
+          single-region workload needs; a workload with a second region lists both. The
+          region is spelled as Azure's display name (`West Europe`), mapped from the
+          location at render.
+        renders: condition.all_of[contains_any properties.impactedServices[*].ImpactedRegions[*].RegionName] / conditions[].containsAny
+
+      - id: resource_health_statuses
+        ask: Which health states should be reported?
+        type: list
+        plain:
+          en: "Reported when a resource becomes {value}."
+          de: "Gemeldet, wenn eine Ressource {value} wird."
+        plain_values:
+          Unavailable: { en: unavailable, de: nicht verfügbar }
+          Degraded: { en: degraded, de: beeinträchtigt }
+        values: [Unavailable, Degraded]
+        default: [Unavailable, Degraded]
+        depends_on: { question: category, equals: ResourceHealth }
+        why: >
+          The platform's verdict on each resource in the subscription. Both states are
+          worth a notification; the rule also filters to platform-initiated events, so a
+          stop a person requested does not page. Scoped to the subscription, it covers
+          every resource the deployment creates later without another rule.
+        renders: condition.all_of[properties.currentHealthStatus, properties.cause = PlatformInitiated] / conditions[]
+
+      - id: operation_name
+        ask: Which administrative operation should be reported?
+        type: string
+        plain:
+          en: "Reported on the operation {value}."
+          de: "Gemeldet beim Vorgang {value}."
+        required: true
+        depends_on: { question: category, equals: Administrative }
+        why: >
+          The operation as the activity log names it
+          (`Microsoft.Resources/subscriptions/resourceGroups/delete`,
+          `Microsoft.Network/networkSecurityGroups/securityRules/write`); the rule fires on
+          its `Succeeded` status. Nothing can be guessed, so it is asked and the deletion
+          of a resource group is the one most teams start with. The operation names are
+          listed by `az provider operation show --namespace <ns>`.
+        renders: condition.all_of[operationName, status = Succeeded] / conditions[].operationName
+
+  # ----------------------------------------------------------------- identity
+  - id: identity
+    title: Identity
+    questions:
+      - id: query_identity
+        ask: Which identity should the log query run as?
+        type: enum
+        plain:
+          en: "The query runs as {value}."
+          de: "Die Abfrage läuft als {value}."
+        plain_values:
+          none: { en: "the person who created the rule", de: "die Person, die die Regel angelegt hat" }
+          system_assigned: { en: "an identity of the rule itself", de: "eine eigene Identität der Regel" }
+          user_assigned: { en: "a separately managed identity", de: "eine separat verwaltete Identität" }
+        values: [none, system_assigned, user_assigned]
+        default: user_assigned
+        depends_on: { question: kind, equals: log_query }
+        why: >
+          Without an identity the rule queries with the permissions of whoever deployed
+          it - a pipeline principal whose rights change, or a person who leaves, after
+          which the rule fails silently and stops alerting. A managed identity with `Log
+          Analytics Reader` on the workspace is stable. User-assigned, because the role
+          must exist before the rule's first evaluation and one identity serves every
+          rule of the deployment; the role assignment is wiring the pattern renders.
+          Neither module defaults to an identity, so it is written.
+        renders: identity { type, identity_ids } / managedIdentities
+
+      - id: user_assigned_identity_id
+        ask: Which user-assigned identity?
+        type: ref
+        plain:
+          en: "It uses the identity {value}."
+          de: "Es nutzt die Identität {value}."
+        ref: user_assigned_identity
+        required: true
+        depends_on: { question: query_identity, equals: user_assigned }
+        per_environment: true
+        why: >
+          The identity that holds `Log Analytics Reader` on the workspace before the rule
+          exists. Created by the identity set, shared by the deployment's log query rules.
+        renders: identity.identity_ids / managedIdentities.userAssignedResourceIds

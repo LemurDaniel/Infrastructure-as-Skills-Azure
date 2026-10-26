@@ -1,0 +1,689 @@
+schema_version: 1
+
+resource: Microsoft.Logic/workflows
+title: Azure Logic Apps (Standard or Consumption)
+
+# One set for both hosting models. `Microsoft.Logic/workflows` is the set's identity and
+# the Consumption resource; a Standard logic app is a `Microsoft.Web/sites` of kind
+# `functionapp,workflowapp` on a Workflow Standard plan (`Microsoft.Web/serverFarms`, WS1-WS3).
+# The site takes the `logic` abbreviation through this identifier; the plan is named with
+# `Azure::Microsoft.Web/serverFarms` (abbreviation `plan`).
+naming:
+  terraform: "Azure::Microsoft.Logic/workflows"
+  bicep: "Microsoft.Logic/workflows"
+  # Bicep assembles the name from vars - this is the prefix it renders. A Standard site name
+  # is global and is its hostname (`<name>.azurewebsites.net`).
+  abbreviation: "logic"
+
+boundaries:
+  - "Does not create the resource group. Expects one from the spec's context."
+  - "Does not render workflow definitions - triggers, actions, connections and their parameters are the integration team's content, deployed at their own pace (Standard: from the app's repository; Consumption: a definition file). `workflows` names them so the identity, the network and the role assignments have something to attach to."
+  - "Does not create API connections (`Microsoft.Web/connections`) or their authorisation - they are consent flows and secrets of the connector, not infrastructure."
+  - "Does not create the storage account a Standard app runs on, nor the Application Insights component - referenced, created by their own sets. The roles of the app's identity on that storage account are wiring, owned by a pattern."
+  - "Does not create private DNS zones (`privatelink.azurewebsites.net`) - shared infrastructure, owned by a pattern or the platform."
+  - "Does not create the VNet integration subnet (delegated to `Microsoft.Web/serverFarms`) or the private endpoint subnet - the platform's or the network set's."
+  - "Does not create an integration account (B2B, EDI) or an App Service Environment - each has decisions of its own and no question set."
+  - "Does not cover the Integration Service Environment: it is retired, and a request for one is answered with Standard hosting."
+
+groups:
+
+  - id: placement
+    title: Placement
+    questions:
+      - id: environments
+        ask: Which stages is this deployed to?
+        type: list
+        plain:
+          en: "Deployed in the stages {value}."
+          de: "Wird in den Stufen {value} ausgerollt."
+        values: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
+        required: true
+        from_context: true
+        why: >
+          Drives the rendered name and the strictness of several defaults below. Nothing
+          sensible can be guessed.
+        renders: >
+          naming parameter `environment`, and the tag of that name where the repository uses
+          one
+
+      - id: location
+        ask: Which Azure region?
+        type: string
+        plain:
+          en: "Runs in the Azure region {value}."
+          de: "Läuft in der Azure-Region {value}."
+        required: true
+        from_context: true
+        why: >
+          Part of the rendered name and not inferable. Both hosting models are regional; a
+          Standard plan with zone redundancy needs a region with availability zones.
+        renders: location
+
+      - id: resource_group_name
+        ask: Which resource group?
+        type: ref
+        plain:
+          en: "Placed in the resource group {value}."
+          de: "Liegt in der Ressourcengruppe {value}."
+        ref: resource_group
+        required: true
+        from_context: true
+        per_environment: true
+        why: >
+          The logic app is placed into an existing group. Creating one here would make this
+          set own a lifecycle wider than the resource it describes.
+        renders: >
+          resource_group_name (Consumption module) / parent_id (Standard site and plan modules,
+          AzAPI) / implicit in Bicep scope
+
+  - id: hosting
+    title: Hosting
+    questions:
+      - id: hosting
+        ask: Should the workflows run on dedicated capacity in the private network, or serverless per action?
+        type: enum
+        plain:
+          en: "The workflows run {value}."
+          de: "Die Workflows laufen {value}."
+        plain_values:
+          standard: { en: "on a dedicated plan inside the private network, billed for the plan", de: "auf einem eigenen Plan im privaten Netz, abgerechnet wird der Plan" }
+          consumption: { en: "serverless and billed per action, outside the private network", de: "serverlos und pro Aktion abgerechnet, außerhalb des privaten Netzes" }
+        values: [standard, consumption]
+        default: standard
+        confirm_in: [production]
+        forced_when: >
+          `network_exposure: private` with `network_ownership: create` or `reference` forces
+          `standard` - Consumption has no private endpoint and no VNet integration, so a
+          private deployment cannot host it; `network_ownership: none` leaves both open
+        why: >
+          **Standard** is a single-tenant runtime on a Workflow Standard plan (WS1-WS3): it
+          takes a private endpoint, integrates into the virtual network for its outgoing
+          calls, runs several workflows (stateful and stateless) in one app, keeps run history
+          in a storage account of yours, is developed locally and deployed from a repository,
+          and authenticates its own callers with Entra ID. **Consumption** is the multi-tenant
+          runtime: one workflow per resource, pay per action, nothing to size, and **no
+          private network at all** - every trigger URL is public and every outbound call
+          leaves through Microsoft's addresses. Consumption is right for a low-volume
+          workflow between public SaaS services; everything a private deployment touches is
+          Standard. The Integration Service Environment that once gave Consumption a network
+          is retired. **The hosting model is fixed at creation** - the two are different
+          resource types, and a move is a re-authoring of the workflows.
+        renders: >
+          standard: Microsoft.Web/serverFarms + Microsoft.Web/sites (kind
+          `functionapp,workflowapp`); consumption: Microsoft.Logic/workflows
+
+      - id: plan
+        ask: Should the app run on a plan of its own, or on another logic app's plan?
+        type: enum
+        plain:
+          en: "The app runs on {value}."
+          de: "Die App läuft auf {value}."
+        plain_values:
+          own: { en: "a Workflow Standard plan of its own", de: "einem eigenen Workflow-Standard-Plan" }
+          shared: { en: "the plan of another logic app, sharing its capacity", de: "dem Plan einer anderen Logic App und teilt sich dessen Kapazität" }
+        values: [own, shared]
+        default: own
+        depends_on: { question: hosting, equals: standard }
+        why: >
+          The plan is the machine the apps run on and is what is billed; two apps on one plan
+          pay once and compete for the same memory and cores. Own is the default because a
+          noisy neighbour - one workflow in a retry storm starving the others - is the harder
+          fault to find. Shared is right for small, related apps of one workload. **A Workflow
+          Standard plan hosts logic apps only**: web apps and function apps do not run on it,
+          so the plan is shared with another Standard logic app or with nothing. A shared plan
+          has one size, one zone setting, one instance count and one VNet integration subnet -
+          the owner's.
+        forced_when: >
+          `shared` removes `plan_sku`, `zone_redundant`, `instance_count` and
+          `max_instance_count` from this instance and forces `integration_subnet` to the
+          owner's, recorded as forced with `plan` as forced_by
+        renders: >
+          own: the plan resource is created with this app; shared: service_plan_resource_id /
+          serverFarmResourceId is the owner's plan id
+
+      - id: shared_plan_with
+        ask: Whose plan does the app run on?
+        type: ref
+        plain:
+          en: "It shares the plan of {value}."
+          de: "Es teilt sich den Plan von {value}."
+        ref: logic_app
+        required: true
+        depends_on: { question: plan, equals: shared }
+        per_environment: true
+        why: >
+          The other Standard logic app of the deployment whose plan this app joins. Its plan
+          decisions are the owner's and are not asked again here.
+        renders: service_plan_resource_id / serverFarmResourceId
+
+      - id: plan_sku
+        ask: Which plan size?
+        type: enum
+        plain:
+          en: "The plan is size {value}."
+          de: "Der Plan hat die Größe {value}."
+        plain_values:
+          WS1: { en: "WS1, one core and 3.5 GB, the usual size", de: "WS1, ein Kern und 3,5 GB, die übliche Größe" }
+          WS2: { en: "WS2, two cores and 7 GB", de: "WS2, zwei Kerne und 7 GB" }
+          WS3: { en: "WS3, four cores and 14 GB", de: "WS3, vier Kerne und 14 GB" }
+        values: [WS1, WS2, WS3]
+        default: WS1
+        depends_on: { question: plan, equals: own }
+        non_production_default: WS1
+        why: >
+          The Workflow Standard sizes are the only ones a Standard logic app runs on - a
+          Premium v3 or Elastic Premium plan is refused by the service. WS1 carries most
+          integration loads; a larger size is for a workflow that holds large messages in
+          memory, not for throughput, which scale-out handles. The size changes in place. It
+          is a cost knob, which is the only reason a stage may differ here.
+        renders: sku_name / skuName on the plan
+
+      - id: zone_redundant
+        ask: Should the plan survive the loss of an availability zone?
+        type: bool
+        plain:
+          en: "The app {value} survive the loss of one datacenter of the region."
+          de: "Die App {value} den Ausfall eines Rechenzentrums der Region."
+        plain_values:
+          true: { en: "does", de: "übersteht" }
+          false: { en: "does not", de: "übersteht nicht" }
+        derived_from:
+          question: outage_impact
+          map: { tolerable: false, disruptive: true, critical: true }
+        depends_on: { question: plan, equals: own }
+        confirm_in: [production]
+        non_production_default: false
+        why: >
+          Derived from how bad an outage is, answered once for the whole system. Zone
+          redundancy spreads the plan's instances over the region's zones; it needs a region
+          with zones and a minimum instance count the platform sets for Workflow Standard
+          plans (read it from the documentation before a render - it has been three), and
+          **it is set when the plan is created**. `critical` has the same value as
+          `disruptive` because a logic app has no cross-region mode: a second region is a
+          second deployment, a pattern. The non-production stages take `false` while
+          `non_production_savings` is enabled.
+        forced_when: >
+          `true` forces `instance_count` to the platform's minimum for a zone-redundant plan
+        renders: zone_balancing_enabled / zoneRedundant on the plan
+
+      - id: instance_count
+        ask: How many instances should always run?
+        type: int
+        plain:
+          en: "Instances always running: {value}."
+          de: "Immer laufende Instanzen: {value}."
+        derived_from:
+          question: outage_impact
+          map: { tolerable: 1, disruptive: 2, critical: 3 }
+        depends_on: { question: plan, equals: own }
+        non_production_default: 1
+        why: >
+          Derived from the same answer. The plan's always-on instances are billed around the
+          clock; one is a single point of failure that is restarted on every platform update,
+          two keeps workflows running through one, three puts one in each zone. The plan
+          scales out beyond this number on load, so this is the floor, not the ceiling.
+        renders: worker_count / skuCapacity on the plan
+
+      - id: max_instance_count
+        ask: Up to how many instances may the plan scale out?
+        type: int
+        plain:
+          en: "The plan scales out to at most {value} instances."
+          de: "Der Plan skaliert auf höchstens {value} Instanzen."
+        default: 20
+        depends_on: { question: plan, equals: own }
+        non_production_default: 5
+        why: >
+          A Workflow Standard plan adds instances on queue length and removes them when idle;
+          the ceiling is what a runaway trigger can cost before someone notices. 20 is the
+          platform's default ceiling and is written so a change is a decision; a workflow
+          that must never burst sets it to `instance_count`.
+        renders: maximum_elastic_worker_count / maximumElasticWorkerCount on the plan
+
+  - id: workflows
+    title: Workflows and callers
+    questions:
+      - id: workflows
+        ask: Which workflows should the app hold?
+        type: list
+        plain:
+          en: "Workflows: {value} (empty: none yet)."
+          de: "Workflows: {value} (leer: noch keine)."
+        default: []
+        why: >
+          Each entry is a name and one line of what the workflow does, its trigger (HTTP,
+          schedule, a queue, an event) and the systems it reaches. The definitions - the
+          actions, the connections, the parameters - are the integration team's content and
+          are deployed from their repository (Standard) or a definition file (Consumption);
+          naming them here is what lets the identity, the network and the roles be sized. A
+          Consumption deployment has **one resource per workflow**, so an entry here is a
+          resource. Empty is a valid first answer for a Standard app that is deployed to
+          later.
+        renders: >
+          standard: the app's workflow folders (content); consumption: one
+          Microsoft.Logic/workflows per entry, logic_app_definition / workflowTriggers +
+          workflowActions
+
+      - id: state
+        ask: Should the workflow start enabled?
+        type: enum
+        plain:
+          en: "After deployment the workflow is {value}."
+          de: "Nach dem Ausrollen ist der Workflow {value}."
+        plain_values:
+          Enabled: { en: "enabled and triggers run", de: "aktiv, Trigger laufen" }
+          Disabled: { en: "disabled until someone enables it", de: "deaktiviert, bis jemand ihn einschaltet" }
+        values: [Enabled, Disabled]
+        default: Enabled
+        depends_on: { question: hosting, equals: consumption }
+        why: >
+          A Consumption workflow whose trigger is a schedule or a polling connector starts
+          running the moment it is created - a template deployed into production with a
+          half-finished definition sends mails. `Disabled` is for a workflow deployed ahead
+          of its go-live; both modules default to `Enabled`, so it is written. A Standard
+          app's workflows are enabled per workflow in their own files.
+        renders: state / state
+
+      - id: trigger_authentication
+        ask: How do callers of a request trigger prove who they are?
+        type: enum
+        plain:
+          en: "Callers of the workflow sign in with {value}."
+          de: "Aufrufer des Workflows melden sich an mit {value}."
+        plain_values:
+          entra_id: { en: "their company account or an application identity", de: "ihrem Firmenkonto oder einer Anwendungsidentität" }
+          sas: { en: "a signed URL that anyone holding it may call", de: "einer signierten URL, die jeder Besitzer aufrufen darf" }
+        values: [entra_id, sas]
+        default: entra_id
+        confirm_in: [production]
+        forced_when: >
+          `local_auth: disabled` forces `entra_id`, recorded as forced with `local_auth` as
+          forced_by. A departure to `sas` names the workflow and the caller that cannot send
+          a token
+        why: >
+          A request trigger's URL carries a shared access signature: whoever has the URL can
+          start the workflow, and it leaks into logs, mails and tickets. `entra_id` requires
+          a bearer token and makes every run attributable to a caller; the SAS is then
+          switched off, so a leaked URL is harmless. `sas` stays for a SaaS webhook that
+          cannot send a token - and is a departure named per workflow. Consumption carries the
+          policy on the workflow (an open-authentication policy and the SAS switch), Standard
+          on the app (Easy Auth in front of the request triggers and the same switch in the
+          host settings); the exact property names are read from the documentation before a
+          render, because the SAS switch is new.
+        renders: >
+          consumption: access_control.triggers (open_authentication_policies, the SAS
+          authentication policy) / triggersAccessControlConfiguration; standard: the site's
+          auth_settings_v2 / configs.authsettingsV2 and the host setting that disables SAS on
+          request triggers, its name checked against the documentation before a render
+
+  - id: storage
+    title: Host storage (Standard)
+    questions:
+      - id: host_storage_account
+        ask: Which storage account should the app keep its run history and state in?
+        type: ref
+        plain:
+          en: "Run history and state are kept in the storage account {value}."
+          de: "Verlauf und Zustand liegen im Speicherkonto {value}."
+        ref: storage_account
+        required: true
+        depends_on: { question: hosting, equals: standard }
+        per_environment: true
+        why: >
+          A Standard app needs a storage account for its queues, tables and blobs (stateful
+          runs, trigger state, run history) and a file share for its content. It is a
+          dependency of the host, not an application store: a Standard app shares it with
+          nothing else, because the app's throughput is the account's, and it is referenced
+          here and created by the storage set - general-purpose v2, with a private endpoint
+          for **blob, queue, table and file** in a private deployment. A Consumption workflow
+          has no storage of its own.
+        renders: >
+          storage_account_name (+ the app settings the module derives) / configs.appsettings
+          (AzureWebJobsStorage*, WEBSITE_CONTENTAZUREFILECONNECTIONSTRING)
+
+      - id: host_storage_auth
+        ask: How does the app authenticate to its storage account?
+        type: enum
+        plain:
+          en: "The app reaches its storage {value}."
+          de: "Die App erreicht ihren Speicher {value}."
+        plain_values:
+          identity: { en: "with its own identity, without a stored key", de: "mit ihrer eigenen Identität, ohne hinterlegten Schlüssel" }
+          key: { en: "with the storage account's key", de: "mit dem Schlüssel des Speicherkontos" }
+        values: [identity, key]
+        default: identity
+        depends_on: { question: hosting, equals: standard }
+        why: >
+          The host's blob, queue and table connections take the app's managed identity, which
+          is what lets the storage account keep shared keys off for them. **The content file
+          share is the exception**: the platform mounts it with a connection string, so that
+          one setting holds a key - as a Key Vault reference resolved by the app's identity,
+          never a literal. `key` puts the key in every connection and needs shared-key access
+          on the account; it is for a repository that already renders that way. **The AVM
+          Terraform site module cannot render `identity` for a logic app** (it always writes
+          the key connection string), so that target renders the site authored and records the
+          departure - see the rendering reference.
+        renders: >
+          AzureWebJobsStorage__accountName, __credential, __clientId and
+          WEBSITE_CONTENTAZUREFILECONNECTIONSTRING in app_settings / configs.appsettings
+
+  - id: networking
+    title: Networking
+    questions:
+      - id: public_network_access
+        ask: Should this logic app depart from the deployment's exposure posture?
+        type: enum
+        plain:
+          en: "The logic app is {value}."
+          de: "Die Logic App ist {value}."
+        plain_values:
+          disabled: { en: not reachable from the internet at all, de: aus dem Internet überhaupt nicht erreichbar }
+          enabled_with_firewall: { en: reachable from the internet only from listed addresses, de: aus dem Internet nur von gelisteten Adressen erreichbar }
+          enabled: { en: reachable from the internet, de: aus dem Internet erreichbar }
+        values: [disabled, enabled_with_firewall, enabled]
+        from_deployment: network_exposure
+        confirm_in: [production]
+        forced_when: >
+          `hosting: consumption` forces `enabled` or `enabled_with_firewall` - the resource has
+          no switch for `disabled`, its triggers are public URLs - recorded as forced with
+          `hosting` as forced_by; `network_ownership: none` forces `enabled`
+        why: >
+          Asked only as a departure: exposure is a property of the system. A Standard app
+          with `disabled` answers its request triggers and its management endpoint only
+          through the private endpoint; a webhook from a public SaaS then needs an exception
+          here, named per workflow. The Terraform site module defaults to `false`, Bicep
+          leaves it unset and disables it only when private endpoints are given - written on
+          every call.
+        renders: >
+          standard: public_network_access_enabled (bool) and
+          site_config.ip_restriction_default_action / publicNetworkAccess and
+          siteConfig.ipSecurityRestrictionsDefaultAction; consumption:
+          access_control.triggers.allowed_caller_ip_address_range /
+          triggersAccessControlConfiguration
+
+      - id: allowed_caller_ip_ranges
+        ask: Which public IP ranges may call the workflows?
+        type: list
+        plain:
+          en: "Public addresses allowed to call the workflows: {value}."
+          de: "Öffentliche Adressen, die die Workflows aufrufen dürfen: {value}."
+        default: []
+        depends_on: { question: public_network_access, equals: enabled_with_firewall }
+        per_environment: true
+        why: >
+          An enumerated allowlist with a default action of deny. On Consumption it is the
+          trigger access control (the SaaS webhook's published ranges); on Standard it is the
+          site's IP restrictions, applied to the SCM site as well. An empty list denies every
+          public caller, which is valid and deliberate.
+        renders: >
+          consumption: access_control.triggers.allowed_caller_ip_address_range; standard:
+          site_config.ip_restriction / siteConfig.ipSecurityRestrictions
+
+      - id: private_endpoint_subnet
+        ask: Which subnet should the app's private endpoint live in?
+        type: ref
+        resolved_by: platform
+        plain:
+          en: "Its private connection lands in subnet {value}."
+          de: "Seine private Anbindung landet im Subnetz {value}."
+        ref: subnet
+        from_deployment: private_endpoint_subnet
+        depends_on: { question: hosting, equals: standard }
+        per_environment: true
+        why: >
+          One subnet carries the deployment's private endpoints, so this is inherited. The
+          sub-resource is `sites`; the endpoint serves the request triggers and the
+          designer's management calls alike, so the portal reaches a closed app only from
+          inside the network. Consumption has none.
+        renders: private_endpoints.sites.subnet_resource_id / privateEndpoints[].subnetResourceId
+
+      - id: vnet_integration
+        ask: Do the workflows call services that are only reachable privately?
+        type: bool
+        plain:
+          en: "The workflows' own outgoing traffic {value}."
+          de: "Der ausgehende Verkehr der Workflows {value}."
+        plain_values:
+          true: { en: "goes through the company network, so it can reach private services", de: "läuft durch das Firmennetz, so erreicht er private Dienste" }
+          false: { en: "goes out over the public internet", de: "geht über das öffentliche Internet raus" }
+        default: true
+        depends_on: { question: hosting, equals: standard }
+        forced_when: >
+          `network_ownership: none` forces `false` - there is no subnet to integrate into;
+          `plan: shared` forces the owner's value
+        why: >
+          The private endpoint is for calls *into* the app; the workflows' calls *out* - to a
+          service bus, a database, the storage account behind their own private endpoints,
+          and to the **host storage account itself** - need regional VNet integration. A
+          Standard app whose storage account is private and which is not integrated cannot
+          start, and the error says storage. True is the default because the posture is
+          private.
+        renders: virtual_network_subnet_id / virtualNetworkSubnetResourceId
+
+      - id: integration_subnet
+        ask: Which subnet does the workflows' outgoing traffic leave through?
+        type: ref
+        resolved_by: platform
+        plain:
+          en: "Outgoing traffic leaves through subnet {value}."
+          de: "Ausgehender Verkehr verlässt das Netz über Subnetz {value}."
+        ref: subnet
+        required: true
+        depends_on: { question: vnet_integration, equals: true }
+        per_environment: true
+        why: >
+          A subnet delegated to `Microsoft.Web/serverFarms`, used by one plan and nothing
+          else - not the private endpoint subnet. Sized for the plan's maximum instance
+          count (a /26 for a plan that scales to 20). Looked up from the platform or created
+          by the network set.
+        renders: virtual_network_subnet_id / virtualNetworkSubnetResourceId
+
+      - id: vnet_route_all
+        ask: Should all outgoing traffic go through the network, not only private addresses?
+        type: bool
+        plain:
+          en: "All outgoing traffic {value}."
+          de: "Der gesamte ausgehende Verkehr {value}."
+        plain_values:
+          true: { en: "goes through the company network and its firewall", de: "läuft durch das Firmennetz und dessen Firewall" }
+          false: { en: "to public addresses leaves directly", de: "zu öffentlichen Adressen geht direkt raus" }
+        default: true
+        depends_on: { question: vnet_integration, equals: true }
+        why: >
+          Without it only private-range traffic uses the integration; calls to a public
+          SaaS, and the content share's DNS lookup, bypass the network's firewall and
+          routes. True puts the workflows' SaaS calls behind the platform's egress and makes
+          private DNS resolution apply to every call, which is what a connector to a
+          privately-linked service needs.
+        renders: vnet_route_all_traffic / outboundVnetRouting.allTraffic
+
+  - id: identity
+    title: Identity and access
+    questions:
+      - id: managed_identity
+        ask: Which managed identity should the logic app carry?
+        type: enum
+        plain:
+          en: "The logic app has {value} for reaching other services."
+          de: "Die Logic App hat {value}, um andere Dienste zu erreichen."
+        plain_values:
+          system_assigned: { en: "its own identity", de: "eine eigene Identität" }
+          user_assigned: { en: "a separately managed identity", de: "eine separat verwaltete Identität" }
+        values: [system_assigned, user_assigned]
+        default: user_assigned
+        why: >
+          The identity is what the connections authenticate with (managed-identity
+          connections to Service Bus, Storage, SQL, Key Vault) and, on Standard, what the
+          host reads its storage account with as it starts. The host needs its blob, queue
+          and table roles **before the app exists**, which a system-assigned identity,
+          created with the app, cannot have; the symptom is an app that does not start. A
+          user-assigned identity with its roles granted first is the order that works, for
+          both hosting models, and the one a Key Vault reference needs. `none` is not
+          offered: a logic app without an identity authenticates with secrets.
+        renders: managed_identities / managedIdentities, and key_vault_reference_identity (Standard)
+
+      - id: user_assigned_identity_ids
+        ask: Which user-assigned identity?
+        type: list
+        plain:
+          en: "It uses the identity {value}."
+          de: "Es nutzt die Identität {value}."
+        ref: user_assigned_identity
+        required: true
+        depends_on: { question: managed_identity, equals: user_assigned }
+        per_environment: true
+        why: >
+          The identity that holds the roles on the host storage account and on the systems
+          the connections reach. It is created before the app, by the identity set.
+        renders: >
+          managed_identities.user_assigned_resource_ids /
+          managedIdentities.userAssignedResourceIds
+
+      - id: role_assignments
+        ask: Who needs which role on this logic app?
+        type: list
+        plain:
+          en: "Access rights on the logic app granted to: {value}."
+          de: "Zugriffsrechte auf die Logic App vergeben an: {value}."
+        default: []
+        per_environment: true
+        why: >
+          Who may edit, run and read the workflows: `Logic App Standard Developer` and `Logic
+          App Standard Operator` on a Standard app, `Logic App Contributor` and `Logic App
+          Operator` on Consumption; a reader of run history needs the operator role, not
+          Contributor on the group. Scope to the app. A pattern fills it from the teams it
+          knows; the app's own roles on storage, Key Vault and the systems it calls are
+          wiring, not listed here.
+        renders: role_assignments / roleAssignments
+
+  - id: security
+    title: Security
+    questions:
+      - id: https_only
+        ask: Should plain HTTP be refused?
+        type: bool
+        plain:
+          en: "Unencrypted connections are {value}."
+          de: "Unverschlüsselte Verbindungen werden {value}."
+        plain_values:
+          true: { en: "refused", de: "abgewiesen" }
+          false: { en: "accepted", de: "akzeptiert" }
+        default: true
+        depends_on: { question: hosting, equals: standard }
+        why: >
+          A request trigger called over HTTP sends its payload and its token in clear. Both
+          modules default to `true`; written. Consumption triggers are HTTPS only by the
+          platform.
+        renders: https_only / httpsOnly
+
+      - id: min_tls_version
+        ask: Which TLS version is the floor?
+        type: enum
+        plain:
+          en: "Callers must use at least TLS {value}."
+          de: "Aufrufer müssen mindestens TLS {value} verwenden."
+        values: ["1.2", "1.3"]
+        default: "1.2"
+        depends_on: { question: hosting, equals: standard }
+        why: >
+          1.2 is the floor the guardrails set and what every current caller speaks. 1.3
+          refuses a connector or an on-premises caller that has not caught up, which is a
+          decision to take with the caller list in hand. The Terraform site module defaults
+          to **1.3**, Bicep to 1.2 - written on both, for the SCM site too.
+        renders: site_config.minimum_tls_version, scm_minimum_tls_version / siteConfig.minTlsVersion, scmMinTlsVersion
+
+      - id: basic_auth_enabled
+        ask: May deployments use basic credentials (FTP, publishing profile)?
+        type: bool
+        plain:
+          en: "Deployment with a username and password is {value}."
+          de: "Das Ausrollen mit Benutzername und Passwort ist {value}."
+        plain_values:
+          true: { en: "possible", de: "möglich" }
+          false: { en: "switched off; deployments use company accounts", de: "abgeschaltet; ausgerollt wird mit Firmenkonten" }
+        default: false
+        depends_on: { question: hosting, equals: standard }
+        why: >
+          The publishing profile is a password with full write access to the workflows that
+          ends up in build logs. Off, the pipeline deploys with its workload identity. Two
+          separate switches (FTP and SCM); the Terraform module defaults SCM to **on** -
+          written.
+        renders: >
+          ftp_publish_basic_authentication_enabled, scm_publish_basic_authentication_enabled /
+          basicPublishingCredentialsPolicies
+
+      - id: application_insights
+        ask: Which Application Insights component should receive the app's telemetry?
+        type: ref
+        plain:
+          en: "Application telemetry goes to {value} (empty: none)."
+          de: "Anwendungstelemetrie geht an {value} (leer: keine)."
+        ref: application_insights
+        default: ""
+        depends_on: { question: hosting, equals: standard }
+        per_environment: true
+        why: >
+          A Standard app writes trigger and action telemetry to Application Insights through
+          a connection string, and the workflow designer's run view is complete only with it.
+          Referenced, never created here; empty means the app relies on run history alone,
+          which is a valid first answer. The connection string is written as a setting, never
+          an instrumentation key.
+        renders: application_insights_connection_string / configs.appsettings.APPLICATIONINSIGHTS_CONNECTION_STRING
+
+  - id: observability
+    title: Observability
+    questions:
+      - id: diagnostic_workspace
+        ask: Which Log Analytics workspace should receive diagnostics?
+        type: ref
+        resolved_by: platform
+        plain:
+          en: "Its logs go to {value}."
+          de: "Seine Logs gehen in {value}."
+        ref: log_analytics_workspace
+        from_deployment: diagnostics_destination
+        per_environment: true
+        why: >
+          Inherited: one deployment, one destination. Without a diagnostic setting the run
+          history is the only record, and it is kept on the app's own terms.
+        renders: diagnostic_settings / diagnosticSettings
+
+      - id: diagnostic_categories
+        ask: Which log categories should be collected?
+        type: list
+        plain:
+          en: "Logged: {value}."
+          de: "Geloggt wird: {value}."
+        plain_values:
+          WorkflowRuntime: { en: "every trigger and action run, with status and duration", de: "jeder Trigger- und Aktionslauf mit Status und Dauer" }
+          FunctionAppLogs: { en: "the host's own log (Standard)", de: "das Log des Hosts (Standard)" }
+          AppServiceAuditLogs: { en: "sign-ins to the deployment endpoints (Standard)", de: "Anmeldungen an den Deployment-Endpunkten (Standard)" }
+          AppServicePlatformLogs: { en: "platform operations on the app (Standard)", de: "Plattformvorgänge an der App (Standard)" }
+        values: [WorkflowRuntime, FunctionAppLogs, AppServiceAuditLogs, AppServicePlatformLogs]
+        default: [WorkflowRuntime]
+        why: >
+          The workflow runtime log is the record of every run and the one an incident review
+          needs; it is as large as the run count. A Consumption workflow has only this
+          category; a Standard app adds the host, audit and platform logs of a web site,
+          worth collecting where the deployment endpoints are a concern. The names are the
+          platform's and are checked against `az monitor diagnostic-settings categories list`
+          for the resource before a render, not remembered.
+        renders: >
+          diagnostic_settings.<key>.log_categories (Consumption) / .logs[].category
+          (Standard) / diagnosticSettings[].logCategoriesAndGroups[].category
+
+      - id: metrics_enabled
+        ask: Should all metrics be collected?
+        type: bool
+        plain:
+          en: "Usage and performance figures are {value}."
+          de: "Nutzungs- und Leistungswerte werden {value}."
+        plain_values:
+          true: { en: "collected", de: "erfasst" }
+          false: { en: "not collected", de: "nicht erfasst" }
+        default: true
+        why: >
+          Runs started, failed and throttled, action latency, and on Standard the plan's CPU
+          and memory - the numbers that decide whether `plan_sku` and `instance_count` were
+          right.
+        renders: metrics[].category = "AllMetrics" / metricCategories[].category
