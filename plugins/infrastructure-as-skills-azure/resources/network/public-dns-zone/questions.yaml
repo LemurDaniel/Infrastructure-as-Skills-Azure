@@ -1,0 +1,239 @@
+schema_version: 1
+
+resource: Microsoft.Network/dnsZones
+title: Azure Public DNS Zone
+
+naming:
+  terraform: "Azure::Microsoft.Network/dnsZones"
+  bicep: "Microsoft.Network/dnsZones"
+  # The zone's name IS the domain (example.com, dev.example.com): no generated name applies to
+  # it and the convention carries an empty entry for the type on purpose. The abbreviation here
+  # names nothing of the zone; it only prefixes the module/deployment names a render needs.
+  abbreviation: "dnsz"
+
+boundaries:
+  - "Does not create the resource group. Expects one from the spec's context."
+  - "Does not register the domain and does not change its name servers at the registrar. The zone's four name servers are outputs; entering them at the registrar (and the DS record for DNSSEC) is the domain owner's step, carried as an `open:` entry until it is done. Until then the zone answers nobody."
+  - "Does not own the records that other resources need to prove or serve a name: the TXT verification records of a custom domain (App Service `asuid`, Front Door `_dnsauth`, an Entra domain), the CNAME to a Front Door endpoint, the A record for a public IP. Those are wiring: the resource that needs them adds its rows to `wiring.dns_records`, and this set renders the list once. A record typed by hand beside a wired one is a second owner."
+  - "Does not model a zone as an application's live configuration. A record set that changes with every release (a blue/green CNAME, a canary weight) is content with a deploy pace of its own and is edited by the pipeline that releases, not rendered here."
+  - "Does not create private DNS zones or privatelink zones - the `private-dns-zone` set. A split-horizon domain (the same name public and private) is two zones in two sets."
+  - "Does not create Traffic Manager profiles, Front Door endpoints or certificates. An alias record may point at one of them; the target is another set's."
+  - "Does not render a diagnostic setting: the zone type has no resource logs and the modules expose no diagnostics interface for it. Its query metrics are platform metrics, visible without a setting."
+  - "Carries the `deployment.resource_lock` lock: a recreated zone gets a different name-server set, and every delegation and DS record pointing at the old one is broken until the registrar is updated."
+
+groups:
+
+  # ---------------------------------------------------------------- placement
+  - id: placement
+    title: Placement
+    questions:
+      - id: environments
+        ask: Which stages is this deployed to?
+        type: list
+        plain:
+          en: "Deployed in the stages {value}."
+          de: "Wird in den Stufen {value} ausgerollt."
+        values: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
+        required: true
+        from_context: true
+        why: >
+          A domain exists once, so the stages cannot each hold `example.com`: production holds
+          the apex and the other stages hold child zones (`dev.example.com`, `test.example.com`)
+          delegated from it. The zone name is per stage for that reason, and the apex's
+          delegation list names the children.
+        renders: the stage the zone is rendered in; the zone name and the delegations come from the stage's file
+
+      - id: location
+        ask: Which Azure region?
+        type: string
+        plain:
+          en: "The zone is global; records are served from Azure's name servers worldwide."
+          de: "Die Zone ist global; die Einträge werden weltweit von Azures Nameservern ausgeliefert."
+        default: global
+        why: >
+          A public DNS zone is a global resource: it is created as `global`, whatever the
+          context's region says, and served by four name servers in different networks. Not
+          asked; the context's region still names the resource group and the regional resources
+          the records point at.
+        renders: location = "global" (both modules; the Terraform module sets it itself)
+
+      - id: resource_group_name
+        ask: Which resource group?
+        type: ref
+        plain:
+          en: "Placed in the resource group {value}."
+          de: "Liegt in der Ressourcengruppe {value}."
+        ref: resource_group
+        required: true
+        from_context: true
+        per_environment: true
+        why: >
+          A global resource still sits in a group. Usually the network's, so the people who own
+          the public surface own what resolves to it; a dedicated DNS group when several
+          workloads share the domain, because every record writer needs rights on the zone and
+          a group-wide Contributor is more than a record writer should hold.
+        renders: resource_group_name (both modules) / implicit in Bicep scope
+
+  # --------------------------------------------------------------------- zone
+  - id: zone
+    title: Zone
+    questions:
+      - id: zone_name
+        ask: Which domain should the zone serve?
+        type: string
+        resolved_by: interview
+        plain:
+          en: "The zone serves the domain {value}."
+          de: "Die Zone bedient die Domäne {value}."
+        required: true
+        per_environment: true
+        why: >
+          The one thing nobody can guess: the customer's domain, as registered. Per stage,
+          because the apex belongs to production and the other stages get a child zone each
+          (`dev.example.com`) - a stage that shares the production zone shares its records, and a
+          development CNAME overwrites the production name. A zone is named after its domain
+          and cannot be renamed, only recreated with a new name-server set.
+        renders: name (both modules)
+
+      - id: registrar_owner
+        ask: Who holds the domain at the registrar and can change its name servers?
+        type: string
+        resolved_by: interview
+        plain:
+          en: "The name servers are entered at the registrar by {value}."
+          de: "Die Nameserver trägt {value} beim Registrar ein."
+        required: true
+        why: >
+          The zone answers nothing until the registrar's NS records point at its four name
+          servers, and that step happens outside Azure, by whoever controls the domain - a
+          marketing team, an agency, a hosting account someone opened years ago. The render
+          outputs the name servers and the handover carries the delegation as an `open:` entry
+          owned by this person; a zone deployed without it is a zone nobody reaches, and the
+          failure looks like a DNS problem elsewhere. For a child zone the same step is the
+          parent zone's NS record (`child_zone_delegations`), done by the apex's owner.
+        renders: the `open:` entry for the delegation in the handover; the name servers are the module's `name_servers` / `nameServers` output
+
+      - id: child_zone_delegations
+        ask: Which subdomains should be handed to a zone of their own?
+        type: list
+        plain:
+          en: "Subdomains delegated to their own zones: {value}."
+          de: "An eigene Zonen delegierte Subdomänen: {value}."
+        default: []
+        per_environment: true
+        why: >
+          Each entry is a label (`dev`, `test`) and the four name servers of the child zone; it
+          renders as an NS record set in this zone. Empty by default: a child zone is created
+          first, its name servers read, then the delegation written in the parent - two
+          deployments, and the second needs the first's output. In the default stack the
+          production zone lists the development and test zones; the children list nothing.
+          A delegation to name servers outside Azure (a subdomain run by another provider) is
+          the same record.
+        renders: ns_records / ns (one record set per entry)
+
+  # ------------------------------------------------------------------ records
+  - id: records
+    title: Records
+    questions:
+      - id: record_sets
+        ask: Which names should the zone answer?
+        type: list
+        plain:
+          en: "Names in the zone: {value}."
+          de: "Namen in der Zone: {value}."
+        default: []
+        per_environment: true
+        why: >
+          Each entry is a name (`@` for the apex, `www`), a type (A, AAAA, CNAME, TXT, MX, CAA),
+          a TTL and its values - or, for A, AAAA and CNAME, an Azure resource the record follows
+          (an alias to a public IP, a Traffic Manager profile or a Front Door endpoint), which is
+          the form that does not go stale when the address changes. Empty by default: the
+          records most deployments need come from `verification_records` and the wiring, and
+          a hand-listed address is a line nobody updates when the host moves. Listed here are
+          the fixed ones - mail (MX, SPF as TXT), the CAA record naming the certificate
+          authority, an apex alias. Addresses differ per stage.
+        renders: a_records, aaaa_records, cname_records, txt_records, mx_records, caa_records / a, aaaa, cname, txt, mx, caa
+
+      - id: verification_records
+        ask: Which proof-of-ownership entries do other services need in the zone?
+        type: list
+        plain:
+          en: "Verification entries for other services: {value}."
+          de: "Nachweis-Einträge für andere Dienste: {value}."
+        default: []
+        per_environment: true
+        why: >
+          TXT (and the occasional CNAME) records that another resource needs before it accepts
+          the domain: App Service's `asuid.<host>`, Front Door's `_dnsauth.<host>`, an Entra ID
+          domain, a mail provider's DKIM. Not typed by the customer: every resource with a
+          custom domain adds its row to `wiring.dns_records`, and this list is that wiring
+          rendered once, so the proof exists before the resource that checks it is deployed.
+          Listed apart from `record_sets` because a reviewer should see which records are
+          somebody else's requirement and which are the customer's names.
+        renders: txt_records, cname_records / txt, cname - from `wiring.dns_records`
+
+      - id: record_ttl_seconds
+        ask: How long may resolvers cache a record?
+        type: int
+        plain:
+          en: "Resolvers may cache an entry for {value} seconds."
+          de: "Auflöser dürfen einen Eintrag {value} Sekunden zwischenspeichern."
+        default: 3600
+        why: >
+          The TTL every record set takes unless its entry says otherwise. One hour is the usual
+          floor between query volume (billed per million) and how long a changed address keeps
+          being served from caches. A record that is about to move is lowered to 60 seconds a
+          day before and raised again after; that is an edit of the entry, not of this default.
+          An alias record ignores it for the target's health, not for caching.
+        renders: ttl on every record set (both modules); the Bicep module's default is 3600 as well
+
+  # ------------------------------------------------------------------- access
+  - id: access
+    title: Access
+    questions:
+      - id: role_assignments
+        ask: Who needs to write records in the zone?
+        type: list
+        plain:
+          en: "Record-writing rights on the zone granted to: {value}."
+          de: "Schreibrechte auf die Zone vergeben an: {value}."
+        default: []
+        per_environment: true
+        why: >
+          The identities that write records at run time: a certificate issuer solving ACME
+          DNS-01 challenges (cert-manager, an App Service managed certificate does not need it),
+          a pipeline that flips a CNAME on release, a mail provider's connector. The role is
+          `DNS Zone Contributor` on the zone, never Contributor on the group and never the
+          subscription. Empty by default: the records a render writes are written by the
+          deploying identity, which already has them. A pattern normally fills this from the
+          consumers it knows about.
+        renders: role_assignments / roleAssignments
+
+  # ----------------------------------------------------------------- security
+  - id: security
+    title: Security
+    questions:
+      - id: dnssec
+        ask: Should the zone's answers be signed (DNSSEC)?
+        type: bool
+        plain:
+          en: "The zone's answers are {value}."
+          de: "Die Antworten der Zone werden {value}."
+        plain_values:
+          true: { en: "cryptographically signed, so a forged answer is rejected by validating resolvers", de: "kryptografisch signiert, sodass prüfende Auflöser eine gefälschte Antwort verwerfen" }
+          false: { en: "not signed", de: "nicht signiert" }
+        default: true
+        confirm_in: [production]
+        why: >
+          Signing costs nothing in Azure and defeats cache poisoning for every resolver that
+          validates - which is most of the large public ones. The trade-off is procedural, not
+          technical: the chain of trust needs a DS record at the parent, which for an apex zone
+          means the registrar (not every registrar accepts one; the domain owner checks) and for
+          a child zone the parent zone's DS record set. Signed without a DS record the zone is
+          exactly as reachable as before; signed with one, the DS has to be removed at the
+          registrar **before** DNSSEC is switched off or the zone deleted, or the domain stops
+          resolving everywhere. That ordering is the handover's line, and why production
+          confirms it.
+        renders: >
+          enableDnsSec (Bicep) / an authored `Microsoft.Network/dnsZones/dnssecConfigs` child
+          beside the module (Terraform - not carried by the module, see terraform.md)

@@ -1,0 +1,257 @@
+schema_version: 1
+
+resource: Microsoft.Network/networkWatchers
+title: Azure Network Watcher and virtual network flow logs
+
+naming:
+  terraform: "Azure::Microsoft.Network/networkWatchers"
+  bicep: "Microsoft.Network/networkWatchers"
+  # Bicep assembles the name from vars - this is the prefix it renders, for the flow logs and a
+  # watcher this deployment creates. The auto-created watcher keeps Azure's own name
+  # (`NetworkWatcher_<region>` in `NetworkWatcherRG`) and is never renamed.
+  abbreviation: "nw"
+
+boundaries:
+  - "Does not create the resource group. Expects one from the spec's context - and under `ownership: platform` it renders into Azure's `NetworkWatcherRG`, which exists already."
+  - "Does not normally create the watcher. Azure creates one per region per subscription the first time a virtual network is deployed there (`NetworkWatcher_<region>` in `NetworkWatcherRG`), and a region holds at most one. `ownership: platform` references that one; `ownership: deployment` creates a watcher only where a policy has switched the auto-creation off, and then this deployment owns the region's single watcher for every workload in the subscription."
+  - "Renders **virtual network flow logs**, not NSG flow logs. NSG flow logs are retired for new deployments and are not offered: a request for them gets a VNet flow log on the network that holds the NSG, said out loud. An existing NSG flow log in a repository is carried, never recreated."
+  - "Does not create the storage account the flow logs land in, nor the Log Analytics workspace Traffic Analytics writes to. Both are referenced: the account from the spec's `storage-account` set (same region as the watcher, no hierarchical namespace), the workspace from `deployment.diagnostics_destination`."
+  - "Does not create the virtual networks it logs. A flow log names a network, a subnet or a network interface by reference; which networks are logged is the list, and a network not listed leaves no record."
+  - "Connection monitors are content, not infrastructure: the entries name what to test from where, and the render takes them as given. Packet captures, topology, next-hop and IP-flow-verify are on-demand tools of the watcher and are not rendered."
+  - "Does not render a diagnostic setting: the watcher has no resource logs and no metrics; the flow log *is* its output."
+  - "Does not carry a resource lock: a flow log is recreated from the spec and keeps nothing itself - the record is in the storage account and the workspace, which carry their own locks."
+
+groups:
+
+  # ---------------------------------------------------------------- placement
+  - id: placement
+    title: Placement
+    questions:
+      - id: environments
+        ask: Which stages is this deployed to?
+        type: list
+        plain:
+          en: "Deployed in the stages {value}."
+          de: "Wird in den Stufen {value} ausgerollt."
+        values: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
+        required: true
+        from_context: true
+        why: >
+          Each stage has its own networks and, by default, its own subscription with its own
+          auto-created watcher per region. The flow logs are rendered per stage over that
+          stage's networks; the retention differs per stage (`retention_days`).
+        renders: naming parameter `environment` for the flow log names; one flow log set per stage
+
+      - id: location
+        ask: Which Azure region?
+        type: string
+        plain:
+          en: "Created in the Azure region {value}."
+          de: "Wird in der Azure-Region {value} angelegt."
+        required: true
+        from_context: true
+        why: >
+          A watcher is regional and a flow log must be in the same region as the network it logs
+          and the storage account it writes to. The context's region names the auto-created
+          watcher (`NetworkWatcher_<region>`); a network in a second region needs that region's
+          watcher and its own flow log.
+        renders: location; the name of the auto-created watcher
+
+      - id: resource_group_name
+        ask: Which resource group?
+        type: ref
+        plain:
+          en: "Placed in the resource group {value}."
+          de: "Liegt in der Ressourcengruppe {value}."
+        ref: resource_group
+        required: true
+        from_context: true
+        per_environment: true
+        why: >
+          For a watcher this deployment creates (`ownership: deployment`): the network group
+          where one is split off, otherwise the main group. For the flow logs it is **not** this
+          value: a flow log is a child of the watcher and lives in the watcher's group, which
+          under `platform` is Azure's `NetworkWatcherRG` - the render deploys the flow logs there,
+          whatever the context says, and the deploying identity needs rights on that group.
+        renders: resource_group_name of a created watcher; the flow logs render into the watcher's group
+
+  # ------------------------------------------------------------------ watcher
+  - id: watcher
+    title: Watcher
+    questions:
+      - id: ownership
+        ask: Who provides the Network Watcher?
+        type: enum
+        resolved_by: platform
+        plain:
+          en: "The region's Network Watcher is {value}."
+          de: "Der Network Watcher der Region wird {value}."
+        plain_values:
+          platform: { en: "the one Azure created for the subscription, used as it is", de: "der von Azure für die Subscription angelegte, so genutzt wie er ist" }
+          deployment: { en: "created by this deployment, because automatic creation is switched off", de: "von diesem Ausrollen angelegt, weil die automatische Anlage abgeschaltet ist" }
+        values: [platform, deployment]
+        default: platform
+        why: >
+          Azure creates the watcher itself - one per region per subscription, in `NetworkWatcherRG`,
+          the first time a virtual network appears in that region - and a region cannot hold a
+          second one, so a deployment that creates one collides with the auto-created one at
+          apply. `platform` references it by its fixed name and renders the flow logs as its
+          children. `deployment` is for a subscription where a policy disabled the auto-creation
+          (`Microsoft.Network/DisableNetworkWatcherAutocreation`) and no watcher exists; the
+          created one is then the region's single watcher for every workload in the subscription,
+          which is why it is a platform answer and not a workload's.
+        renders: data source / `existing` reference to `NetworkWatcher_<region>` in `NetworkWatcherRG` (platform); the module creating the watcher (deployment)
+
+  # ---------------------------------------------------------------- flow_logs
+  - id: flow_logs
+    title: Flow logs
+    questions:
+      - id: flow_log_targets
+        ask: Which networks should have their traffic recorded?
+        type: list
+        plain:
+          en: "Traffic is recorded for the networks {value}."
+          de: "Der Verkehr wird für die Netze {value} aufgezeichnet."
+        required: true
+        per_environment: true
+        why: >
+          One flow log per entry, each naming a virtual network - or a subnet or a network
+          interface for a narrower scope, which is what VNet flow logs added over the NSG kind.
+          The whole network is the normal answer: it records every flow, allowed and denied,
+          including traffic through subnets that have no security group, and a network not
+          listed has no record when the investigation comes. The deployment's own network is
+          the entry a pattern fills; a referenced platform network is the platform's to log.
+        renders: flow_logs.<k>.target_resource_id / flowLogs[].targetResourceId (one child per entry)
+
+      - id: flow_log_storage_account
+        ask: Which storage account should the flow records be written to?
+        type: ref
+        plain:
+          en: "The flow records are written to the storage account {value}."
+          de: "Die Verkehrsaufzeichnungen landen im Speicherkonto {value}."
+        ref: storage_account
+        required: true
+        per_environment: true
+        why: >
+          Flow logs are written as JSON blobs to a storage account in the watcher's region;
+          there is no other sink, and the workspace below receives only the analysis. The
+          account must be a general-purpose v2 account **without** hierarchical namespace, in the
+          same region and subscription as the watcher; a pattern supplies the deployment's
+          logging account from the spec, and the account's own retention and lock are that
+          set's. The blobs can be large on a busy network: the storage bill is the flow log's
+          main cost, which is why `retention_days` is short.
+        renders: flow_logs.<k>.storage_account_id / flowLogs[].storageResourceId
+
+      - id: retention_days
+        ask: How long should the raw flow records be kept in storage?
+        type: int
+        plain:
+          en: "Raw flow records are kept for {value} days."
+          de: "Rohe Verkehrsaufzeichnungen werden {value} Tage aufbewahrt."
+        default: 30
+        non_production_default: 7
+        why: >
+          The raw records are the evidence an investigation reads and the bulk of the cost; 30
+          days matches the deployment's log retention and covers the window in which an incident
+          is usually noticed. 0 keeps them forever, which on a busy network is a storage bill
+          that only grows; 365 is the ceiling. Outside production a week is enough to debug a
+          connectivity problem, which is what a development stage's flow log is for; a stated
+          retention holds in every stage.
+        renders: flow_logs.<k>.retention_policy = { days, enabled = true } / flowLogs[].retentionInDays
+
+      - id: traffic_analytics
+        ask: Should the flow records be analysed into the log workspace (Traffic Analytics)?
+        type: bool
+        plain:
+          en: "The flow records are {value}."
+          de: "Die Verkehrsaufzeichnungen werden {value}."
+        plain_values:
+          true: { en: "aggregated into the log workspace, so they can be queried and show up in the network map", de: "in den Log-Arbeitsbereich verdichtet, sodass sie abfragbar sind und in der Netzwerkkarte erscheinen" }
+          false: { en: "kept as raw files only", de: "nur als Rohdateien aufbewahrt" }
+        default: true
+        why: >
+          Raw flow logs are files nobody opens; Traffic Analytics aggregates them into the
+          workspace (`NTANetAnalytics`), where a query answers "who talked to the database last
+          Tuesday" and the map shows the flows. It is billed per gigabyte processed on top of the
+          storage, and it is still the cheaper form of looking at the data than a person parsing
+          JSON. On by default because a flow log without it is collected and never read.
+        renders: flow_logs.<k>.traffic_analytics.enabled / flowLogs[].workspaceResourceId set (Bicep enables analytics by the workspace's presence)
+
+      - id: traffic_analytics_interval_minutes
+        ask: How often should the flow records be analysed?
+        type: enum
+        plain:
+          en: "The records are analysed every {value} minutes."
+          de: "Die Aufzeichnungen werden alle {value} Minuten ausgewertet."
+        plain_values:
+          60: { en: "60", de: "60" }
+          10: { en: "10", de: "10" }
+        values: [60, 10]
+        default: 60
+        depends_on: { question: traffic_analytics, equals: true }
+        why: >
+          Hourly is the default and the cheaper rate; every ten minutes is the "accelerated"
+          processing at a higher price per gigabyte and is for a network where the analysis
+          feeds alerts that have to fire within minutes. The two are the only values the service
+          accepts.
+        renders: flow_logs.<k>.traffic_analytics.interval_in_minutes / flowLogs[].trafficAnalyticsInterval
+
+      - id: traffic_analytics_workspace
+        ask: Which Log Analytics workspace should receive the analysis?
+        type: ref
+        resolved_by: platform
+        plain:
+          en: "The analysis goes to {value}."
+          de: "Die Auswertung geht in {value}."
+        ref: log_analytics_workspace
+        from_deployment: diagnostics_destination
+        per_environment: true
+        depends_on: { question: traffic_analytics, equals: true }
+        why: >
+          Inherited: one deployment, one destination, so the flow analysis lands beside the
+          resources' diagnostics and a query can join them. The workspace may be in any region;
+          the Terraform module needs its region and its workspace GUID beside the id, which the
+          data source provides.
+        renders: flow_logs.<k>.traffic_analytics.workspace_resource_id, workspace_id, workspace_region / flowLogs[].workspaceResourceId
+
+  # ----------------------------------------------------------------- monitors
+  - id: monitors
+    title: Connection monitors
+    questions:
+      - id: connection_monitors
+        ask: Which connections should be tested continuously?
+        type: list
+        plain:
+          en: "Continuously tested connections: {value}."
+          de: "Laufend geprüfte Verbindungen: {value}."
+        default: []
+        per_environment: true
+        why: >
+          Each entry is a source (a VM or scale set with the Network Watcher agent, or an Arc
+          machine), a destination (an address, a URL, an Azure resource), a test (TCP port,
+          HTTP(S) with expected status, ICMP) with its frequency and thresholds, and the
+          workspace the results go to. Empty by default: a connection monitor is a running
+          synthetic test that needs an agent on the source and costs per test, and it is content
+          an operations team edits - the render takes the list as given. The classic use is
+          "can the app subnet still reach the on-premises database", tested every 30 seconds.
+        renders: condition_monitor (Terraform module input name) / connectionMonitors
+
+  # ------------------------------------------------------------------- access
+  - id: access
+    title: Access
+    questions:
+      - id: role_assignments
+        ask: Who needs to run diagnostics with the watcher?
+        type: list
+        plain:
+          en: "Diagnostic rights on the watcher granted to: {value}."
+          de: "Diagnoserechte auf dem Watcher vergeben an: {value}."
+        default: []
+        per_environment: true
+        why: >
+          Packet capture, next hop, IP flow verify and the topology view are actions on the
+          watcher; an operations group that runs them without being Contributor on the
+          subscription holds `Network Contributor` on the watcher (there is no narrower built-in
+          role). Empty by default: under `platform` the watcher is Azure's and the platform's
+          RBAC applies; a pattern lists the operations identity when it knows one.
+        renders: role_assignments / roleAssignments
