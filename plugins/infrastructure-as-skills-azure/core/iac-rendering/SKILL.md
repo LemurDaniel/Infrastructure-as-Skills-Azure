@@ -1,6 +1,6 @@
 ---
 name: iac-rendering
-description: Turns an infra-spec.yaml into Terraform or Bicep — file and module layout, variables, naming, tagging, tests. Read when rendering a spec, when porting a configuration between the two targets, or when reviewing generated code for idiom.
+description: Renders an infra-spec.yaml as Terraform or Bicep (layout, naming, tests). Also for porting between the two targets and reviewing generated code for idiom.
 ---
 
 # Rendering a spec

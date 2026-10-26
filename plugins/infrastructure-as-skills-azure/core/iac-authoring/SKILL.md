@@ -1,6 +1,6 @@
 ---
 name: iac-authoring
-description: The entry point for Azure infrastructure as Terraform or Bicep. Use whenever someone wants something built, changed or reviewed in Azure, whether they name the workload (chat app, chatbot, RAG, web app, API, data platform, landing zone) or a resource, or ask for Azure Infrastruktur, Terraform-Code, Bicep-Code, an infra-spec.yaml, or why a default was chosen. Runs the interview that turns a question set into infra-spec.yaml, then hands the spec to iac-diagram and iac-rendering; azure-resources routes each resource to its question set. Read before authoring any Azure resource or pattern.
+description: The entry point for Azure infrastructure as Terraform or Bicep. Use whenever someone wants something built, changed or reviewed in Azure, whether they name the workload (chat app, chatbot, RAG, web app, API, data platform, landing zone) or a resource, or ask for Azure Infrastruktur, Terraform-Code, Bicep-Code, an infra-spec.yaml, or why a default was chosen. Read before authoring any Azure resource or pattern.
 ---
 
 # Authoring infrastructure from a question set

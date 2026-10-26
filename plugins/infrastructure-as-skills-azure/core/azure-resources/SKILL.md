@@ -1,6 +1,6 @@
 ---
 name: azure-resources
-description: Routes a request naming an Azure resource to the question set that decides it, for Terraform or Bicep. Storage (storage account, blob, file share), network (vnet, private endpoint, private DNS, public IP, peering, route table, NAT, firewall, load balancer, Bastion, Application Gateway, Front Door), observability (Log Analytics), compute (VM, scale set, disk, AKS, App Service, function app, Container Apps, ACI, Static Web App, registry), security (Key Vault, managed identity, RBAC, Defender), data (Cosmos DB, SQL, PostgreSQL, MySQL, Redis), ai (Foundry, AI Search), messaging (Service Bus, Event Hubs, Event Grid), API Management, backup (Backup vault, Recovery Services). AVM first. Use when one is created, changed, reviewed or ported.
+description: Routes an Azure resource to its question set (Terraform or Bicep). Storage (storage account, blob, file share), network (vnet, private endpoint, private DNS, public IP, peering, route table, NAT, firewall, load balancer, Bastion, Application Gateway, Front Door), observability (Log Analytics), compute (VM, scale set, disk, AKS, App Service, function app, Container Apps, ACI, Static Web App, registry), security (Key Vault, managed identity, RBAC, Defender), data (Cosmos DB, SQL, PostgreSQL, MySQL, Redis), ai (Foundry, AI Search), messaging (Service Bus, Event Hubs, Event Grid), API Management, backup (Backup vault, Recovery Services). AVM first. Use when one is created, changed, reviewed or ported.
 ---
 
 # Azure resources
@@ -11,13 +11,8 @@ thing: find the family, then the question set — for a request that names a res
 directly, and for every resource the interview reaches. It does not interview and it does
 not render — those are iac-authoring and [iac-rendering](../iac-rendering/SKILL.md).
 
-It exists as its own skill for a budget reason worth knowing before editing it. Every
-skill's description sits in a shared listing budget, and a description that overflows it
-is dropped silently — the skill stays installed and stops matching. A skill per family
-would have spent that budget by the sixth family. One description for all of them costs a
-fifth as much, and it is kept separate from iac-authoring so that the resource list
-growing here never crowds out the entry description — the workload and target terms a
-request actually carries.
+New resource terms go into this skill's description, never into the one of iac-authoring:
+all descriptions share one listing budget, and an overflow silently stops a skill matching.
 
 ## Families
 

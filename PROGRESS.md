@@ -220,9 +220,10 @@ the detail; this list says what was decided and why, so a session does not reope
   Redis are AzAPI-only, and `avm.md`'s table does not list them yet; `privateDnsZones` got the
   abbreviation `pdnsz` in `naming.default.yaml` (it was empty - check the provider derives no zone
   name from it); `central_inspection` and `hub_gateway` (peering) are `platform` booleans missing
-  from `deployment.yaml`; the `resource_lock` list leaves out managed disks; the `azure-resources`
-  description is at the 2,000-character listing budget, the next family needs terms pruned; no new
-  set has a diagram icon or layout.
+  from `deployment.yaml`; the `resource_lock` list leaves out managed disks; no new
+  set has a diagram icon or layout. The four plugin descriptions were shortened 2026-10-26 (1,847
+  to 1,477 characters, 74% of the 2,000 listing budget; the `iac-authoring` entry no longer
+  repeats the handoff to the other skills), so the next family's terms fit in `azure-resources`.
 - **State before that: 25 resource sets in 10 families**, all with both rendering references, both checks
   green: storage-account, blob-container, file-share, queue; virtual-network,
   network-security-group, application-gateway, front-door; app-service, function-app,

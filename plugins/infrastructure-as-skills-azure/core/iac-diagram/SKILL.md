@@ -1,6 +1,6 @@
 ---
 name: iac-diagram
-description: Draws an infra-spec.yaml as an editable draw.io diagram, exported as infra-diagram.drawio.png — what gets built, how it connects, what stays open. Read after a spec is written, or when asked for an architecture picture of one.
+description: Draws an infra-spec.yaml as an editable draw.io diagram (infra-diagram.drawio.png). Read after a spec is written, or for an architecture picture of one.
 ---
 
 # Drawing the spec
