@@ -431,7 +431,7 @@ Frage: Alle Stufen teilen sich eine Subscription, also trennen nur die Ressource
   Das hält nur, wenn jede Stufe mit einer eigenen Identität ausrollt, die Rechte ausschließlich
   auf den Ressourcengruppen dieser Stufe hat - eine Rollenzuweisung auf der Subscription hebt
   die Trennung auf. Deshalb legt die Infrastruktur keine Ressourcengruppen an; sie werden
-  vorab erstellt. Passt das?
+  vorab erstellt, und ausgerollt wird auf Ressourcengruppen-Ebene. Passt das?
   1. Ja, so festhalten - Je Stufe eine Identität mit Rechten nur auf ihren Ressourcengruppen;
      die Gruppen werden vorab angelegt
   2. Doch eigene Subscription je Stufe - Die Stufen trennt dann die Subscription, und die
@@ -443,7 +443,8 @@ Header: Separation
 Question: All stages share one subscription, so only the resource groups separate them. That
   holds only while each stage deploys with an identity of its own whose roles are on that
   stage's resource groups only - a role assignment on the subscription removes the separation.
-  So the infrastructure creates no resource groups; they are created beforehand. Does that work?
+  So the infrastructure creates no resource groups; they are created beforehand, and it deploys at
+  resource-group level. Does that work?
   1. Yes, record it - One identity per stage with roles on its own resource groups only; the
      groups are created beforehand
   2. A subscription per stage after all - The subscription separates the stages, and the
@@ -503,7 +504,10 @@ customer-facing text in the spec follow it.
 environment (four choices: the full stack of development, test and production; development and
 production; a sandbox; other, where the customer names the stages - a sandbox answers the landing
 zone and removes its questions), whether each stage gets an Azure subscription of its own or
-all share one (`stage_isolation`, asked with a landing zone too), who reaches it and from where, the mandates, and the `requirements` group
+all share one (`stage_isolation`, asked with a landing zone too), whether the infrastructure may
+create its resource groups - subscription level - or deploys into existing ones - resource-group
+level (`deployment_scope`, in the first platform call; `stage_isolation: resource_group` forces
+the second and the separation's confirmation names it), who reaches it and from where, the mandates, and the `requirements` group
 (network requirements - may the network be chosen freely, or are ranges assigned or a
 connection to the company network given -, outage impact, expected load, data-loss tolerance, access pattern, backup isolation, data
 residency, priority - cost, balanced or protection first, which moves cost and hardening

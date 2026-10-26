@@ -274,6 +274,7 @@ keys it leaves in the spec:
 
 | Key | Holds | Notes |
 |---|---|---|
+| `deployment.deployment_scope` | `resource_group` or `subscription` - asked, before the other group questions | `resource_group`: every group `existing`, `resource_groups_created` not asked. Forced to `resource_group` by `stage_isolation: resource_group` |
 | `deployment.resource_group_layout` | `single` or `split` - asked | `single` or absent: one group, nothing below is written |
 | `deployment.resource_group_scheme` | `concern` (`network`, `data`, `application`, `observability`, `security`), `lifecycle` (`foundation`, `state`, `runtime`), `protection` (`protected`, `standard`), `component` (`shared` and the parts) - asked on `split` | Absent means `concern`, which is what a spec written before the key holds |
 | `deployment.resource_group_components` | Under `component` only: the system's parts, short lowercase names (`chat`, `ingest`) | Derived by the run from the description and `wiring.purposes`, `forced_by: wiring.purposes`; every resource that is not shared names its part in `placement.resource_group` |

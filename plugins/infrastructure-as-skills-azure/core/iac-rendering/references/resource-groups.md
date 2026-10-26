@@ -75,7 +75,9 @@ Versions are looked up live ([avm.md](avm.md)); the table there is a dated snaps
 
 ## What `create` changes elsewhere
 
-- **Bicep scope.** One `create` anywhere makes the root `targetScope = 'subscription'`; each
+- **Bicep scope** follows `deployment_scope`, asked before the group questions: `subscription`
+  allows `create` and puts the root at `targetScope = 'subscription'`, `resource_group` keeps
+  every group `existing`. One `create` anywhere makes the root `targetScope = 'subscription'`; each
   resource module takes `scope: resourceGroup(<name>)`. All-`existing` stays at resource-group
   scope with one `scope:` per module for the roles that differ.
 - **Bicep without a main group** (`resource_group_layout: split`, all groups `existing`): still

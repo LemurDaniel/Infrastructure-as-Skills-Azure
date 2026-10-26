@@ -121,6 +121,36 @@ groups:
           resource_group_mode_<role> forced to existing, and the hand-over scopes each
           stage identity's roles to its own groups
 
+      - id: deployment_scope
+        ask: May the infrastructure create its own resource groups, or does it deploy only into resource groups that already exist?
+        type: enum
+        resolved_by: interview
+        topic: platform
+        plain:
+          en: "The infrastructure is deployed {value}."
+          de: "Die Infrastruktur wird {value} ausgerollt."
+        plain_values:
+          resource_group: { en: "into resource groups that exist beforehand, with rights on those groups only", de: "in Ressourcengruppen, die vorab existieren, mit Rechten nur auf diesen Gruppen" }
+          subscription: { en: "at subscription level, creating its resource groups itself", de: "auf Subscription-Ebene und legt ihre Ressourcengruppen selbst an" }
+        values: [resource_group, subscription]
+        default: resource_group
+        forced_when: >
+          stage_isolation resource_group forces resource_group (a role on the shared
+          subscription reaches every stage) and the question is not asked; the confirmation
+          of the separation says so.
+        why: >
+          Asked first among the group questions because everything below follows from it:
+          `subscription` lets the render create groups (resource_groups_created is asked),
+          deploys a Bicep root with targetScope subscription through `az deployment sub` and
+          needs the deploying identity to hold Contributor on the subscription;
+          `resource_group` keeps every group `existing`, deploys at resource-group scope through
+          `az deployment group` into the main group or the first group of a split, and needs
+          rights on the stage's groups only. resource_group is the default because it is the
+          narrower grant, and because a group usually carries more than this deployment.
+        renders: >
+          Bicep targetScope and the pipeline's az deployment group / sub; whether
+          resource_groups_created is asked; deployment.deployer_roles
+
       - id: non_production_savings
         ask: Should the non-production stages run cheaper than production?
         type: enum
@@ -412,6 +442,7 @@ groups:
           state: { en: "state", de: "Zustand" }
           runtime: { en: "runtime", de: "Laufzeit" }
         default: []
+        depends_on: { question: deployment_scope, equals: subscription }
         forced_when: >
           stage_isolation resource_group forces [] - creating a group needs a role on the
           shared subscription, which would reach every stage - and it is not asked; the
@@ -437,7 +468,7 @@ groups:
         resolved_by: derived
         forced_when: >
           Not asked: `create` when main is in resource_groups_created, otherwise `existing`;
-          always `existing` under stage_isolation resource_group (forced_by deployment.stage_isolation)
+          always `existing` under deployment_scope resource_group (forced_by deployment.deployment_scope)
         plain:
           en: "The main resource group {value}."
           de: "Die Hauptressourcengruppe {value}."
@@ -468,7 +499,7 @@ groups:
         resolved_by: derived
         forced_when: >
           Not asked: `create` when network is in resource_groups_created, otherwise `existing`;
-          always `existing` under stage_isolation resource_group (forced_by deployment.stage_isolation)
+          always `existing` under deployment_scope resource_group (forced_by deployment.deployment_scope)
         plain:
           en: "The network resource group {value}."
           de: "Die Ressourcengruppe für das Netzwerk {value}."
@@ -494,7 +525,7 @@ groups:
         resolved_by: derived
         forced_when: >
           Not asked: `create` when data is in resource_groups_created, otherwise `existing`;
-          always `existing` under stage_isolation resource_group (forced_by deployment.stage_isolation)
+          always `existing` under deployment_scope resource_group (forced_by deployment.deployment_scope)
         plain:
           en: "The data resource group {value}."
           de: "Die Ressourcengruppe für die Daten {value}."
@@ -518,7 +549,7 @@ groups:
         resolved_by: derived
         forced_when: >
           Not asked: `create` when application is in resource_groups_created, otherwise `existing`;
-          always `existing` under stage_isolation resource_group (forced_by deployment.stage_isolation)
+          always `existing` under deployment_scope resource_group (forced_by deployment.deployment_scope)
         plain:
           en: "The application resource group {value}."
           de: "Die Ressourcengruppe für die Anwendung {value}."
@@ -539,7 +570,7 @@ groups:
         resolved_by: derived
         forced_when: >
           Not asked: `create` when observability is in resource_groups_created, otherwise `existing`;
-          always `existing` under stage_isolation resource_group (forced_by deployment.stage_isolation)
+          always `existing` under deployment_scope resource_group (forced_by deployment.deployment_scope)
         plain:
           en: "The monitoring resource group {value}."
           de: "Die Ressourcengruppe für die Überwachung {value}."
@@ -563,7 +594,7 @@ groups:
         resolved_by: derived
         forced_when: >
           Not asked: `create` when security is in resource_groups_created, otherwise `existing`;
-          always `existing` under stage_isolation resource_group (forced_by deployment.stage_isolation)
+          always `existing` under deployment_scope resource_group (forced_by deployment.deployment_scope)
         plain:
           en: "The security resource group {value}."
           de: "Die Ressourcengruppe für die Sicherheit {value}."
@@ -584,7 +615,7 @@ groups:
         resolved_by: derived
         forced_when: >
           Not asked: `create` when foundation is in resource_groups_created, otherwise `existing`;
-          always `existing` under stage_isolation resource_group (forced_by deployment.stage_isolation)
+          always `existing` under deployment_scope resource_group (forced_by deployment.deployment_scope)
         plain:
           en: "The foundation resource group {value}."
           de: "Die Ressourcengruppe für das Fundament {value}."
@@ -605,7 +636,7 @@ groups:
         resolved_by: derived
         forced_when: >
           Not asked: `create` when state is in resource_groups_created, otherwise `existing`;
-          always `existing` under stage_isolation resource_group (forced_by deployment.stage_isolation)
+          always `existing` under deployment_scope resource_group (forced_by deployment.deployment_scope)
         plain:
           en: "The state resource group {value}."
           de: "Die Ressourcengruppe für den Zustand {value}."
@@ -626,7 +657,7 @@ groups:
         resolved_by: derived
         forced_when: >
           Not asked: `create` when runtime is in resource_groups_created, otherwise `existing`;
-          always `existing` under stage_isolation resource_group (forced_by deployment.stage_isolation)
+          always `existing` under deployment_scope resource_group (forced_by deployment.deployment_scope)
         plain:
           en: "The runtime resource group {value}."
           de: "Die Ressourcengruppe für die Laufzeit {value}."
@@ -647,7 +678,7 @@ groups:
         resolved_by: derived
         forced_when: >
           Not asked: `create` when protected is in resource_groups_created, otherwise `existing`;
-          always `existing` under stage_isolation resource_group (forced_by deployment.stage_isolation)
+          always `existing` under deployment_scope resource_group (forced_by deployment.deployment_scope)
         plain:
           en: "The protected resource group {value}."
           de: "Die Ressourcengruppe für Geschütztes {value}."
@@ -668,7 +699,7 @@ groups:
         resolved_by: derived
         forced_when: >
           Not asked: `create` when standard is in resource_groups_created, otherwise `existing`;
-          always `existing` under stage_isolation resource_group (forced_by deployment.stage_isolation)
+          always `existing` under deployment_scope resource_group (forced_by deployment.deployment_scope)
         plain:
           en: "The standard resource group {value}."
           de: "Die Ressourcengruppe für den Rest {value}."
@@ -689,7 +720,7 @@ groups:
         resolved_by: derived
         forced_when: >
           Not asked: `create` when shared is in resource_groups_created, otherwise `existing`;
-          always `existing` under stage_isolation resource_group (forced_by deployment.stage_isolation)
+          always `existing` under deployment_scope resource_group (forced_by deployment.deployment_scope)
         plain:
           en: "The shared resource group {value}."
           de: "Die Ressourcengruppe für das Gemeinsame {value}."
@@ -710,7 +741,7 @@ groups:
         resolved_by: derived
         forced_when: >
           Not asked: `create` when part is in resource_groups_created, otherwise `existing`;
-          always `existing` under stage_isolation resource_group (forced_by deployment.stage_isolation)
+          always `existing` under deployment_scope resource_group (forced_by deployment.deployment_scope)
         plain:
           en: "The part resource group {value}."
           de: "Die Ressourcengruppe eines Teils {value}."

@@ -109,6 +109,12 @@ reports as "not checkable" instead of passing them.
     local script); verify the `azapi_resource` branch against the AVM resource group
     module's plan before relying on it.
 
+13. **The deployment command matches `deployment_scope`.** Bicep only: `resource_group` deploys
+    with `az deployment group` into the stage's group (the main group, or the first group of a
+    split), `subscription` with `az deployment sub` and `--location`, the root at
+    `targetScope = 'subscription'` creating its groups. Both what-if and create use the same
+    command; a root at one scope deployed with the other fails at the first run.
+
 ## What the render hands over besides the files
 
 The pipeline cannot run until the platform side exists, so the render states it, in the
@@ -149,6 +155,7 @@ names the stages that still hold placeholders. They cannot deploy - see invarian
 | `deployment.deploy_mechanism` | Which reference and which files |
 | `deployment.pipeline_auth` | The login mechanics of the platform file |
 | `deployment.pipeline_approvals` | Which stages have the gate: `production` - the last stage named `production`, or the last stage if none is; `every_stage`; `none` |
+| `deployment.deployment_scope` | Bicep: `az deployment group` (`resource_group`) or `az deployment sub` with `--location` (`subscription`), invariant 13. Both targets: the stage identity's Contributor on its groups, or on the subscription |
 | `deployment.resource_group_layout` | Bicep: the group the stage deploys into (`AZURE_RESOURCE_GROUP`, `-ResourceGroup`) is the main group, or under `split` the first group of `resource_group_split` - the root's modules reach the others by `scope:`. Terraform: nothing |
 | `deployment.stage_isolation` | `subscription`: one identity and one subscription per stage. `resource_group`: one subscription, so the identities differ by the role scope on the resource group - every role of a stage's identity is assigned on that stage's groups, never on the subscription, and the hand-over says that a subscription assignment removes the separation |
 | `deployment.deployer_roles` | The roles beyond `Contributor` in the hand-over list; nothing in a pipeline step |

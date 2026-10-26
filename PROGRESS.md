@@ -540,10 +540,12 @@ per-family` in `check_spec.py` and the `chatbot` spec, and `references/private-d
   `export_decisions.py`, pipelines.md invariant 12 with a step in the four Terraform pipelines,
   `check_pipeline.py` and four mutations, and `examples/chatbot-multi-rg` (spec, diagram,
   decision document; not rendered). Open, in the order they block a `create` root:
-  - **Bicep pipelines deploy with `az deployment group`** (`pipelines.github.md`, `.ado.md`,
-    `.gitlab.md`, `.local.md`); a root with a `create` group has `targetScope = 'subscription'`
-    and needs `az deployment sub`, and the stage identity Contributor on the subscription. The
-    pipelines reference lists neither.
+  - **Deployment scope is asked** (2026-10-26): `deployment_scope` (`resource_group` /
+    `subscription`) before the group questions; `resource_group` keeps every group `existing`,
+    `subscription` deploys with `az deployment sub` and `--location` and needs Contributor on the
+    subscription (`deployer_roles`). Invariant 13 in `pipelines.md`, every platform file names the
+    swap, `check_pipeline.py` fails on a command at the wrong scope (two mutations). Open: no
+    fixture renders a subscription-scope Bicep pipeline end to end.
   - **No render of a split**: no example has Terraform or Bicep for it, so the Terraform
     `assert`s, `run_arm_tests.py` and `check_render_coverage.py` do not cover a group decision
     (`# decision: deployment.resource_group_mode_<role>`, `<resource>.placement.resource_group`).
