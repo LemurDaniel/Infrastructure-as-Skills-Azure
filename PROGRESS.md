@@ -502,6 +502,20 @@ per-family` in `check_spec.py` and the `chatbot` spec, and `references/private-d
   only - a subscription assignment removes the separation; `check_spec.py` fails on a
   `create` group or a `subscription`-scoped deployer role under it. Open: no example and no
   eval case uses `resource_group`, and no pipeline render has scoped identities to groups.
+  The consequence is confirmed through its own `AskUserQuestion` call with the way back.
+- **Resource groups: whether, then how** (2026-10-26, from two test interviews with the owner as
+  customer): `resource_group_layout` (single / split) and `resource_group_scheme` (concern,
+  lifecycle - foundation, state, runtime -, resource_type) are asked; `resource_group_split` is
+  derived from the scheme's table and the design, corrected at the diagram sign-off. One reader,
+  `iac-rendering/scripts/rg_roles.py`, for check_spec, diagram, decision document and name list.
+  `resource_groups_created` offers one option per group, more than eight groups become one single
+  choice. Also from the interviews: `private` with `network_requirements: free` and users is a
+  contradiction in the list. Open: under `lifecycle` and `resource_type` the main group is
+  empty and still required (the Bicep root's scope) - decide whether it holds something or
+  disappears; no render, no diagram fixture and no eval case for the two new schemes (checked
+  end to end on a copy of `chatbot` only); option descriptions in the interview are written
+  freely from `plain_values`, no fixed pattern; the local-deploy gap under resource-group
+  isolation is a sentence in the question, not a rule.
 - The diagrams of `chatbot-rag`, `chat-sandbox` and `orders-integration` were not redrawn
   after region/subscription became `open:` (2026-10-26); `chat-sandbox`'s carries hand edits
   a redraw would lose.
