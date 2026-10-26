@@ -217,8 +217,11 @@ carries the working rules — read it before committing. In short: commits are a
 **LemurDaniel \<landau.daniel.1998@gmail.com\>** (set repo-locally only in a tool-driven
 session whose identity starts as `Claude`; never touch a configured identity on the
 owner's machine); they carry **no attribution trailers** (no `Co-Authored-By`, no "Generated
-with Claude Code"); English imperative subject; one concern per commit; default branch is
-`master`; `PROGRESS.md` is rewritten before a session's last commit.
+with Claude Code"); English imperative subject; one concern per commit; never commit to `master` — every
+change is a branch and a pull request, and every merge into `master` is a release, so
+every branch raises the version in `plugin.json` (the PR check fails otherwise, see
+[.claude/skills/release/](.claude/skills/release/SKILL.md)); `PROGRESS.md` is rewritten
+before a session's last commit.
 
 `.claude/settings.json` pre-approves the read-only checks and denies force-push,
 `reset --hard`, `--no-verify` and `terraform apply`. Do not widen it from a session.
