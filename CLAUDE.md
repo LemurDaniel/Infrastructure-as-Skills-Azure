@@ -34,6 +34,12 @@ is `core/iac-rendering/references/avm.md`.
 # extension ships, and warns rather than passing quietly if it finds neither.
 python3 .claude/skills/git-commit-conventions/scripts/check_repo_consistency.py
 
+# Lays a spec out in canonical form, in place (order, deployment group comments, one-line
+# decisions, plugin_version); no value changes, every comment kept. --check writes nothing,
+# --no-stamp for a spec only reformatted. The test runs it on a messy spec and the fixtures.
+python3 plugins/infrastructure-as-skills-azure/core/iac-authoring/scripts/write_spec.py <spec>
+python plugins/infrastructure-as-skills-azure/core/iac-authoring/tests/run_write_spec_tests.py
+
 # Validates a generated spec. --require-applyable also fails on assumed values and
 # open items. Needs PyYAML (pip install pyyaml).
 python3 plugins/infrastructure-as-skills-azure/core/iac-authoring/scripts/check_spec.py <spec>

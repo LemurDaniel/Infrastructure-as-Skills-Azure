@@ -621,6 +621,39 @@ Three cases need care:
 - **`schema_version` is older than the question set's.** Say what changed before
   regenerating. Silently migrating a file whose purpose is auditability defeats the file.
 
+## Canonical form
+
+The run decides; `scripts/write_spec.py` lays the file out, in place, after every write. The
+same decisions then give the same file, and the git diff of a re-run shows what moved, not
+how it was typed:
+
+- the sections in the order of [Shape](#shape); a decision as `value`, `source`, then where
+  it came from (`derived_from`, `forced_by`, `non_production`, `reason`);
+- `deployment:` in the order of `questions/deployment.yaml`, a `# --- <group> ---` comment
+  above each group (`requirements`, `posture`, ...). The comment is layout only: the key
+  path stays `deployment.<id>`;
+- a resource's groups and questions in the order of its question set, a blank line between
+  resources. The resources keep the order the run wrote them in: the decision document, the
+  name list and the picture follow it, so the part that matters most comes first;
+- a decision on one line when it fits in 120 characters and holds no comment
+  (`min_tls_version: {value: TLS1_2, source: default}`), likewise a short list or stage map
+  (`[development, test, production]`); a longer one keeps its fields on lines of their own;
+  a stage map in the order of `context.environments`; no YAML anchors;
+- `spec.plugin_version` set to the installed plugin.
+
+It changes no value and loses no comment: a comment stays at the key it stood at (a quoted
+customer answer after a value, a note above a resource), and the file is written only if it
+reads back the same. A comment it cannot tie to a key stops it, with the file untouched.
+
+```powershell
+python3 <plugin>/core/iac-authoring/scripts/write_spec.py ./infra-spec.yaml
+# Whether a file is in canonical form, writing nothing (exit 1 when not):
+python3 <plugin>/core/iac-authoring/scripts/write_spec.py ./infra-spec.yaml --check
+```
+
+`--no-stamp` lays out a spec without claiming the installed plugin made its decisions - for
+a file only reformatted, never re-interviewed.
+
 ## Validate
 
 ```powershell

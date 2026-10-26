@@ -721,10 +721,11 @@ How should I continue?
 ```
 
 **Then write the spec.** `infra-spec.yaml` goes into the user's repository — the IaC root,
-or `infra/` — and is validated with `check_spec.py`. Its shape is
+or `infra/` — is laid out with `write_spec.py` (order, group comments, the plugin version;
+it changes no value and keeps every comment) and validated with `check_spec.py`. Its shape is
 [references/spec.md](references/spec.md#shape), and that is the whole format: the plugin
 ships no sample spec to copy, and the scripts are tools, not documentation — run
-`check_spec.py`, `new_diagram.py` and `export_decisions.py`, never read their source to
+`write_spec.py`, `check_spec.py`, `new_diagram.py` and `export_decisions.py`, never read their source to
 learn what a spec looks like. What `check_spec.py` rejects, it names.
 
 **For a Terraform target, write `naming.yaml` beside it in the same step**, when the
