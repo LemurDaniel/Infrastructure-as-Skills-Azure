@@ -2,7 +2,7 @@ schema_version: "1.1"
 name: review-agent-separate
 
 # The sandbox cannot draw, so the picture is not checked; what a run shows is who is started:
-# a review agent of its own, not a review folded into the diagram agent's brief.
+# a review agent of its own, not a review the main session or a fix agent does for itself.
 graders:
   - name: skill-fired
     type: tool_used
@@ -27,6 +27,6 @@ graders:
     focus: transcript
     criteria: |
       PASS if the main session started a review agent in an Agent call of its own, separate
-      from the agent that drew the diagram, and the review brief names the diagram and the spec.
-      FAIL if no Agent call is dedicated to the review, or if the diagram agent's brief only tells
-      it to "use a review subagent" or to review its own picture.
+      from whoever drew or edited the diagram, and the review brief names the diagram and the spec.
+      FAIL if no Agent call is dedicated to the review, or if a brief only tells an agent to
+      "use a review subagent" or to review its own picture.

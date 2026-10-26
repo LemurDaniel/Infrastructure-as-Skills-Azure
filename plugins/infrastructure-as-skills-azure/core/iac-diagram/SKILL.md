@@ -120,7 +120,7 @@ Everything the checklist does not name and that only looks worse than it could i
 that the line needs a better waypoint: re-slot the shapes (a column instead of a row, an
 icon moved, a container grown and everything below it shifted) until 1-3 and 7 are empty. Moving
 shapes is allowed here, as above; the pass ceiling limits the reviewer's findings, not what
-the diagram agent may change. Only when the same layout error survives a re-slot does the
+the fix agent may change. Only when the same layout error survives a re-slot does the
 customer see the picture with it, and then it is named in the sign-off message as an open
 `error`, never as "known" or "polish".
 

@@ -18,11 +18,13 @@ guardrails again. Without the Agent tool, do the same steps in the same order yo
 
 ```
  Loop 1 · Diagram and sign-off (iac-authoring, Phase 5)
-   infra-spec.yaml ─> diagram agent ─> review agent ─> errors? ──no──> customer: fits? ──yes──┐
-                            ^                            │ yes              │ change          │
-                            └──────── findings ──────────┘                  v                 │
-                                                                    spec corrected, redrawn   │
- Loop 2 · Code (iac-rendering) - starts only after the yes  <─────────────────────────────────┘
+   infra-spec.yaml ─> main session: script ─> review agent ─> errors? ──no──> customer: fits? ──yes──┐
+                              ^                     │ yes                          │ change          │
+                              │                     v                              v                 │
+                       fix agent (by hand) <─ findings (render)        spec corrected, script run     │
+                              │                                                                       │
+                              └──> review again (3 passes at most)                                    │
+ Loop 2 · Code (iac-rendering) - starts only after the yes  <────────────────────────────────────────┘
    code agent ─> pipeline agent ─> test agent ─> green? ──yes──> hand-over
         ^                                          │ no
         └──────────────── findings ────────────────┘
@@ -31,9 +33,9 @@ guardrails again. Without the Agent tool, do the same steps in the same order yo
 **The loops run one after the other, never in parallel** (owner's call, 2026-10-24,
 replacing two parallel arms): the customer signs off on the picture, and the code - the
 long, expensive loop - is rendered only from a spec whose picture they have agreed to. Loop
-1 is Phase 5 of `iac-authoring`; the diagram agent and the review agent iterate on the
-picture until it carries no real error, then the main agent shows it to the customer with
-the one question of Phase 5. "Change something" ("Etwas ändern") corrects the spec and redraws; "yes" ("Ja, passt") starts
+1 is Phase 5 of `iac-authoring`; the main session runs the diagram script, the review
+agent and the fix agent iterate on the picture - review, hand fix, review - until it carries no real error, then the
+main agent shows it to the customer with the one question of Phase 5. "Change something" ("Etwas ändern") corrects the spec and redraws; "yes" ("Ja, passt") starts
 Loop 2. In the same session, Loop 1 is the same loop with the session in both roles:
 draw, then review the PNG against the checklist as a reader who has not seen the spec,
 fix every `error`, and only then show it. In Loop 2 the agents never read each other's
@@ -46,7 +48,7 @@ the hand-over.
 | **Code** | Steps 1-7 of the order of work: AVM resolution, names, code, tests per decision | The render root only | Pipeline, diagram, `apply`, a commit |
 | **Pipeline** | Step 10, after the code agent has reported the layout (root, stage files, backend keys, working directory) | The pipeline files only | Code, tests |
 | **Test** | `fmt`, `validate`, `test`, `check_render_coverage.py`, `check_pipeline.py` | Nothing | Fixing what it finds |
-| **Diagram** | Loop 1 only: `iac-diagram` from the spec, then the review's findings fixed by hand in the `.drawio` | `infra-diagram.drawio.png` beside the spec | Code, pipeline, `new_diagram.py` |
+| **Fix** | Loop 1 only: the review's `error` findings fixed by hand in the `.drawio` the main session generated | `infra-diagram.drawio.png` beside the spec | Code, pipeline, `new_diagram.py`, a regenerated draft |
 | **Review** | Loop 1: reads the PNG and compares it with the spec | Nothing | Fixing what it finds |
 
 The test and review agents are read-only on purpose. The one that checks must not be the one
@@ -119,7 +121,10 @@ Each agent starts without this conversation. Its prompt carries:
 6. **The report**: what it produced, what it could not do or had to assume, the layout the
    next agent depends on (code agent), the findings list (test and review agent).
 
-Loop 1's two briefs carry, in addition:
+In Loop 1 the **main session itself** runs `new_diagram.py`, `verify_diagram.py` and
+`export_diagram.py --keep` for the first draft and again after every `spec` finding - a script
+run is deterministic and cheap, and an agent that starts cold would only read the same files
+again. Its two briefs carry, in addition:
 
 - **Review agent**: the PNG and the spec as its sources, the `.drawio` only for a
   coordinate; the checklist (`iac-diagram/SKILL.md#the-review-checklist`, worked through in
@@ -127,8 +132,8 @@ Loop 1's two briefs carry, in addition:
   first, one finding per fault, cell ids on every finding, no pixel
   sampling); on a later pass, the earlier passes' list and the cells the fix touched, and
   nothing else to look at.
-- **Diagram agent**: the review's `error` findings verbatim, with their cell ids; the path
-  of the draft to work on (regenerated by the main agent after any `spec` finding); the
+- **Fix agent**: the review's `error` findings verbatim, with their cell ids; the path
+  of the draft to work on (generated by the main session, again after any `spec` finding); the
   write boundary - the `.drawio` and the `.drawio.png` beside the spec, never
   `new_diagram.py`, never the repository; the export chain to run after every round:
   `verify_diagram.py`, `export_diagram.py` (or the substitute `iac-diagram/SKILL.md`

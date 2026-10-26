@@ -755,13 +755,16 @@ PNG, works through [the checklist](../iac-diagram/SKILL.md#the-review-checklist)
 edge and reports a numbered list: a line through an icon or another line, overlapping or
 wrapped labels, a label in the wrong language, a legend that contradicts a colour, a
 number or a name that disagrees with the spec. **With Subagents the main session starts the
-review agent itself, as its own Agent call after the diagram agent has returned** - a
-subagent cannot start another, so a brief that tells the diagram agent to "use a review
-subagent" gets no independent review, and the agent that drew must never be the one that
-checks. Spec, decision document and draft may go to one agent; the review never does. Each finding carries a severity (`error`:
+review agent itself, as its own Agent call after the draft exists** - with Subagents the
+**main session runs the script itself** (`new_diagram.py`, `verify_diagram.py`,
+`export_diagram.py --keep`: deterministic, seconds, nothing an agent that starts cold would do
+better), then starts the review agent, then - only when the review found an `error` with cause
+`render` - the **fix agent**. A subagent cannot start another, so a brief that tells one to "use a review
+subagent" gets no independent review, and whoever edited the picture must never be the one that
+checks. The review never shares an agent with the draft or the fix. Each finding carries a severity (`error`:
 wrong, misleading or unreadable; `polish`: only looks worse than it could) and a cause
 (`render`: the drawing; `spec`: the spec says it that way). An `error` with cause
-`render` goes back to the **diagram agent**, which fixes it **by hand in the `.drawio`**
+`render` goes to the **fix agent**, which fixes it **by hand in the `.drawio`**
 the way [iac-diagram](../iac-diagram/SKILL.md) says - the affected cells by id, a
 waypoint, a geometry, a label - verifies, exports, and the review runs again. The script
 is not touched in the loop: `new_diagram.py` exists to produce the first draft cheaply,
@@ -775,10 +778,10 @@ and opens the `.drawio` only for a coordinate it needs, never samples pixels, an
 once the list is full. A later pass reports only what the earlier passes named and what the
 fix broke - never a fresh sweep. An `error` with cause `spec` is the main agent's: correct the
 spec, re-export the decision document, regenerate the draft - **and do that before the
-diagram agent starts its hand edits**, because a regenerated draft loses them; the order
-of a pass is spec findings first, then the hand edits on the fresh draft, then the review
-again. Every finding names the cells it concerns by their draw.io ids (`e-6`,
-`res-key-vault`), so the diagram agent can act on it without re-deriving it. **Never show
+fix agent starts its hand edits**, because a regenerated draft loses them; the order
+of a pass is spec findings first (the main session corrects the spec and runs the script
+again), then the hand edits on the fresh draft, then the review again. Every finding names the cells it concerns by their draw.io ids (`e-6`,
+`res-key-vault`), so the fix agent can act on it without re-deriving it. **Never show
 the customer a picture with an error you have already seen** - that is what the loop is
 for.
 
@@ -817,7 +820,7 @@ in infra/infra-decisions.md in readable form. Does this fit your requirements?
 "Change something" ("Etwas ändern") loops back to the spec, never into code: change the decision there, as
 `overridden` where it replaces an answer, re-export the decision document, redraw, review
 again, ask again. An objection to the picture itself ("the arrows overlap" / "die Pfeile überlappen sich") is a
-review finding that the review missed: it goes to the diagram agent like any other
+review finding that the review missed: it goes to the fix agent like any other
 `error`, and the customer sees the picture again only after the review passed. Stay in this loop as long as the person has objections - a round costs seconds
 here and a regenerated module later. Offer the decision document as Word once, in the
 first round, as a side line and not an option: the `.docx` is a conversion

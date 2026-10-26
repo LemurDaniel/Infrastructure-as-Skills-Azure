@@ -1,6 +1,6 @@
 ---
-description: Working mode Subagents is chosen up front. Tests that the main session starts the review agent itself, as an Agent call of its own, and does not fold the review into the diagram agent's brief.
-expected_outcome: infra/infra-spec.yaml written, at least two Agent calls (diagram, review), the review brief names the PNG and the spec, no .tf written.
+description: Working mode Subagents is chosen up front. Tests that the main session runs the diagram script itself and starts the review agent as an Agent call of its own, not folded into a brief.
+expected_outcome: infra/infra-spec.yaml written, at least one Agent call, the review (a fix agent only if the review found an error), its brief names the PNG and the spec, no .tf written.
 tags: [terraform, development, process, diagram, subagents]
 plugins: ["../../.."]
 runs: 3
