@@ -179,6 +179,29 @@ ICONS = {
     'nat-gateway': 'img/lib/azure2/networking/NAT.svg',
     'aks': 'img/lib/azure2/containers/Kubernetes_Services.svg',
     'container-instances': 'img/lib/azure2/containers/Container_Instances.svg',
+    # Added with the governance, network, messaging, observability and data sets. draw.io has no
+    # icon of its own for Purview, the Event Grid namespace, the system topic or an action group.
+    'policy': 'img/lib/azure2/management_governance/Policy.svg',
+    'management-group': 'img/lib/azure2/general/Management_Groups.svg',
+    'subscription': 'img/lib/azure2/general/Subscriptions.svg',
+    'public-dns-zone': 'img/lib/azure2/networking/DNS_Zones.svg',
+    'traffic-manager': 'img/lib/azure2/networking/Traffic_Manager_Profiles.svg',
+    'ddos-protection-plan': 'img/lib/azure2/networking/DDoS_Protection_Plans.svg',
+    'network-watcher': 'img/lib/azure2/networking/Network_Watcher.svg',
+    'event-grid-namespace': 'img/lib/azure2/integration/Event_Grid_Domains.svg',
+    'event-grid-system-topic': 'img/lib/azure2/integration/Event_Grid_Subscriptions.svg',
+    'relay-namespace': 'img/lib/azure2/integration/Relays.svg',
+    'action-group': 'img/lib/azure2/management_governance/Alerts.svg',
+    'alert-rule': 'img/lib/azure2/management_governance/Alerts.svg',
+    'data-collection-rule': 'img/lib/azure2/management_governance/Monitor.svg',
+    'sql-managed-instance': 'img/lib/azure2/databases/SQL_Managed_Instance.svg',
+    'data-factory': 'img/lib/azure2/databases/Data_Factory.svg',
+    'purview-account': 'img/lib/azure2/management_governance/Compliance.svg',
+    'logic-app': 'img/lib/azure2/integration/Logic_Apps.svg',
+    'communication-services': 'img/lib/azure2/other/Azure_Communication_Services.svg',
+    'ai-services': 'img/lib/azure2/ai_machine_learning/Cognitive_Services.svg',
+    'machine-learning-workspace': 'img/lib/azure2/ai_machine_learning/Machine_Learning.svg',
+    'bot-service': 'img/lib/azure2/ai_machine_learning/Bot_Services.svg',
     'users': 'img/lib/azure2/identity/Users.svg',
     'entra-id': 'img/lib/azure2/identity/Azure_Active_Directory.svg',
 }
@@ -192,6 +215,14 @@ TYPE_NAMES = {
     'application-insights': 'Application Insights',
     'foundry': 'AI Foundry', 'search-service': 'AI Search', 'container-apps': 'Container App',
     'user-assigned-identity': 'Managed Identity', 'network-security-group': 'Network Security Group',
+    'policy': 'Policy Assignment', 'management-group': 'Management Group', 'subscription': 'Subscription',
+    'public-dns-zone': 'DNS Zone', 'traffic-manager': 'Traffic Manager', 'ddos-protection-plan': 'DDoS Protection Plan',
+    'network-watcher': 'Network Watcher', 'event-grid-namespace': 'Event Grid Namespace',
+    'event-grid-system-topic': 'Event Grid System Topic', 'relay-namespace': 'Relay',
+    'action-group': 'Action Group', 'alert-rule': 'Alert Rule', 'data-collection-rule': 'Data Collection Rule',
+    'sql-managed-instance': 'SQL Managed Instance', 'data-factory': 'Data Factory', 'purview-account': 'Purview',
+    'logic-app': 'Logic App', 'communication-services': 'Communication Services', 'ai-services': 'AI Services',
+    'machine-learning-workspace': 'Machine Learning Workspace', 'bot-service': 'Azure Bot',
 }
 
 ACTOR_TITLES = {'entra-id': 'Entra ID', 'sharepoint-online': 'SharePoint Online', 'm365': 'Microsoft 365',
@@ -200,7 +231,7 @@ ACTOR_TITLES = {'entra-id': 'Entra ID', 'sharepoint-online': 'SharePoint Online'
 # Compute is what runs code and integrates with a subnet; monitoring is what receives
 # the logs; everything else that is not the network is PaaS, reached through an endpoint.
 COMPUTE_KINDS = {'app-service', 'function-app', 'container-app', 'container-apps', 'container-apps-environment', 'virtual-machine', 'aks'}
-MONITOR_KINDS = {'log-analytics-workspace', 'application-insights'}
+MONITOR_KINDS = {'log-analytics-workspace', 'application-insights', 'action-group', 'alert-rule', 'data-collection-rule', 'network-watcher'}
 # Not services that are called: identities hold roles, security groups guard subnets. They get a
 # zone of their own so that no line to a service runs through them.
 SUPPORT_KINDS = {'user-assigned-identity', 'network-security-group'}

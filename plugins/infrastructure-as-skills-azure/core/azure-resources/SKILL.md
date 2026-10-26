@@ -19,21 +19,22 @@ all descriptions share one listing budget, and an overflow silently stops a skil
 | Family | Covers | Routing |
 |---|---|---|
 | storage | storage accounts; blob containers, file shares, queues | [resources/storage/routing.md](../../resources/storage/routing.md) |
-| network | virtual networks and subnets; network security groups; Application Gateway with WAF; Front Door; peering; route tables; NAT gateway; Azure Firewall; load balancer; Bastion; public IP; private endpoint; private DNS zone | [resources/network/routing.md](../../resources/network/routing.md) |
-| observability | Log Analytics workspaces; Application Insights; alerts planned | [resources/observability/routing.md](../../resources/observability/routing.md) |
+| network | virtual networks and subnets; network security groups; Application Gateway with WAF; Front Door; peering; route tables; NAT gateway; Azure Firewall; load balancer; Bastion; public IP; private endpoint; private DNS zone; public DNS zone; Traffic Manager; DDoS protection plan; Network Watcher and flow logs | [resources/network/routing.md](../../resources/network/routing.md) |
+| observability | Log Analytics workspaces; Application Insights; action groups; alert rules (metric, log query, activity log); data collection rules and endpoints | [resources/observability/routing.md](../../resources/observability/routing.md) |
 | compute | App Service (plan and web app); function apps; Container Apps; Container Registry; virtual machines, scale sets, managed disks, availability sets; AKS; Static Web Apps; Container Instances | [resources/compute/routing.md](../../resources/compute/routing.md) |
 | security | Key Vault, keys, secrets; user-assigned managed identity; role assignments; Defender for Cloud | [resources/security/routing.md](../../resources/security/routing.md) |
-| messaging | Service Bus; Event Hubs; Event Grid custom topics | [resources/messaging/routing.md](../../resources/messaging/routing.md) |
-| integration | API Management (the API gateway) | [resources/integration/routing.md](../../resources/integration/routing.md) |
+| messaging | Service Bus; Event Hubs; Event Grid custom topics, namespaces (MQTT, pull delivery) and system topics; Azure Relay | [resources/messaging/routing.md](../../resources/messaging/routing.md) |
+| integration | API Management (the API gateway); Logic Apps (Standard and Consumption); Communication Services | [resources/integration/routing.md](../../resources/integration/routing.md) |
 | recovery | Backup vault; Recovery Services vault | [resources/recovery/routing.md](../../resources/recovery/routing.md) |
-| data | Cosmos DB (API for NoSQL); Azure SQL; PostgreSQL and MySQL flexible server; Managed Redis | [resources/data/routing.md](../../resources/data/routing.md) |
-| ai | AI Foundry / Azure OpenAI with model deployments; AI Search | [resources/ai/routing.md](../../resources/ai/routing.md) |
+| data | Cosmos DB (API for NoSQL); Azure SQL; SQL Managed Instance; PostgreSQL and MySQL flexible server; Managed Redis; Data Factory; Purview | [resources/data/routing.md](../../resources/data/routing.md) |
+| ai | AI Foundry / Azure OpenAI with model deployments; AI Search; single-service AI accounts (Speech, Vision, Language, Document Intelligence); Machine Learning workspace; Azure Bot | [resources/ai/routing.md](../../resources/ai/routing.md) |
+| governance | policy assignments; management groups; subscription vending (resource groups are the deployment set's) | [resources/governance/routing.md](../../resources/governance/routing.md) |
 
 Read the family's `routing.md`. It names the question set for the request, or says plainly
 that none exists yet.
 
-**A request for a family that is not in this table is said out loud.** Logic Apps,
-Data Factory, Synapse, Databricks — none have a family yet. Generating one from the guardrails
+**A request for a family that is not in this table is said out loud.** Synapse, Databricks,
+Data Explorer, Fabric, Automation Accounts, budgets — none have a set yet. Generating one from the guardrails
 while this table implies coverage removes the one property that makes this plugin worth
 using, and does it silently. Say that no question set backs it, offer to generate from
 [the guardrails](../iac-authoring/references/guardrails.md) with that recorded in the spec,
