@@ -41,6 +41,9 @@ spec:
 context:
   environments: [development, test, production]
   language: de               # the customer's language (en | de): the picture, the decision document, the customer-facing text
+  # location, subscription_id and resource_group_name are never asked: what the request
+  # states is written here, what it does not is an open: entry and a placeholder in the
+  # stage file. A resource group the render creates needs no name here.
   location: westeurope
   workload: payments
   subscription_id:
@@ -289,10 +292,10 @@ resources:
   diagram and the decision document read it, the prose is
   [resource-groups.md](../../iac-rendering/references/resource-groups.md). A private endpoint is
   in the group of the resource it serves and has no row.
-- **A group's name is a parameter, never an open item** - as for the main group
-  (`deployment.yaml`, `resource_group_name`): an existing group's name comes from the stage file,
-  the run does not ask for it and does not invent one. A stage the spec's stage map leaves out
-  is the generic per-stage rule above.
+- **A group's name is a parameter, never asked and never invented** - as for the main group
+  (`deployment.yaml`, `resource_group_name`): a `create` group's name is computed by the render;
+  an `existing` group's name is stated or, per stage, an `open:` entry with `OPEN-resource-group`
+  in the stage file. A stage the spec's stage map leaves out is the generic per-stage rule above.
 - **A mode change is not an edit of a value.** `existing` <-> `create` creates, deletes or orphans
   a real group; the next run says so before it writes, and the pipeline refuses a Terraform plan
   that deletes one ([pipelines.md](../../iac-rendering/references/pipelines.md), invariant 12).

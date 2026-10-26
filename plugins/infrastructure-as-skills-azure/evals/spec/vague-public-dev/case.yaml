@@ -38,14 +38,35 @@ graders:
     target: { source: file, path: infra/infra-spec.yaml }
     pattern: 'observability_ownership:\s*(?:#[^\n]*\s*)*(?:\{\s*)?(?:value:\s*)?\W?create\b'
 
-  # Subscription, resource group and region are parameterized context: never asked, never
-  # open, never a value - the stage file supplies them. The two no-invented graders below
-  # catch a value; this one catches a spec that opened them as if they were questions.
-  - name: context-not-opened
+  # Subscription, resource group and region are parameterized context: never asked, and
+  # what the request does not state is an open entry - never a plausible value. The
+  # no-invented graders below catch a value; these catch a spec that left them silent.
+  - name: open-location
     type: regex
     weight: 2
     target: { source: file, path: infra/infra-spec.yaml }
-    pattern: '^open:[\s\S]*key:\s*context\.(subscription_id|resource_group_name|location)\b'
+    pattern: '^open:[\s\S]*key:\s*context\.location\b'
+    flags: m
+
+  - name: open-subscription
+    type: regex
+    weight: 2
+    target: { source: file, path: infra/infra-spec.yaml }
+    pattern: '^open:[\s\S]*key:\s*context\.subscription_id\b'
+    flags: m
+
+  - name: open-resource-group
+    type: regex
+    weight: 2
+    target: { source: file, path: infra/infra-spec.yaml }
+    pattern: '^open:[\s\S]*key:\s*context\.resource_group_name\b'
+    flags: m
+
+  - name: no-invented-location
+    type: regex
+    weight: 3
+    target: { source: file, path: infra/infra-spec.yaml }
+    pattern: '^\s+location:\s*\w'
     flags: m
     match: not_contains
 

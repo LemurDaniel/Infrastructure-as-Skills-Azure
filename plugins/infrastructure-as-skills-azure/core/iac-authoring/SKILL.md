@@ -354,10 +354,14 @@ resource, in two halves:
   the environment is asked. Region, workload, subscription and resource group are
   `parameterized`: never asked, rendered as input variables, supplied at deploy time —
   a user who is only designing has no deployment target yet. Use them from the
-  description if stated (as the variable's documentation/example, not a baked-in value).
-  **A parameterized value is never an `open:` entry**: a parameter without a value is
-  complete, and `open:` is for decisions nobody could make, not for inputs the stage file
-  supplies. A stage whose parameters are unknown simply has no stage file yet.
+  description if stated (`source: stated`; the stage file carries it, the template never
+  does). **Not stated is `open:`, never a plausible value**: region, subscription id and
+  the name of an existing resource group the description leaves out are each an `open:`
+  entry (workload owner, `blocks: apply`), and the stage file holds the placeholder
+  (`OPEN-location`, the all-zero GUID, `OPEN-resource-group`). A `westeurope` the run
+  picked reads as a decision a year later. A group the infrastructure creates needs no
+  name - the render computes it. The workload short name is taken from the description
+  or the system's name and is never open.
   The environment is `required`, because nothing can be guessed and everything downstream reads them. A
   resource question marked `from_context: true` points here; without this group that field
   pointed at nothing, and a run could reach the renderer with no region and therefore no
@@ -422,7 +426,8 @@ the description was not read.
 the subscription id, the resource group and the region.** They are `parameterized` context
 in the deployment set - input variables the stage file supplies, not decisions. A question
 about them, "there is no default for these" included, is a bug in the interview: the person
-is designing and has no deployment target yet. The group's *name* is that kind of value; the
+is designing and has no deployment target yet; what the description leaves out of them is an
+`open:` entry with a placeholder (Phase 2), reported in Phase 4 like any other open item. The group's *name* is that kind of value; the
 `resource_groups` group of the deployment set is not: whether areas get a group of their own
 (`resource_group_split`) and which groups the infrastructure creates
 (`resource_groups_created`, one list question; the per-role `resource_group_mode_<role>` are

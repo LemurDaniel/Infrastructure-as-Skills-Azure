@@ -12,7 +12,10 @@ title: Deployment-wide decisions
 # into the template: the rendered code takes it as an input variable (Terraform
 # `variable`, Bicep `param`) with no default. Whoever deploys supplies it. The
 # person is often only designing, and an interview that demands a subscription id
-# or a region before they have a deployment target overruns them.
+# or a region before they have a deployment target overruns them. Never asked is not
+# never known: a value the description states is recorded (`source: stated`) and goes
+# into the stage file; one it does not state is an `open:` entry and a placeholder in
+# the stage file - never a plausible value nobody chose.
 
 boundaries:
   - "Does not create the subscription; expects it from the context."
@@ -150,10 +153,13 @@ groups:
           de: "Alles läuft in der Azure-Region {value}."
         parameterized: true
         why: >
-          Always an input variable of the template, never asked and never an
-          open item: a parameter without a value is complete, the stage file
-          supplies it at deploy time, and a region demanded during design is a
-          value the user may not have chosen yet.
+          Always an input variable of the template and never asked: a region
+          demanded during design is a value the user may not have chosen yet.
+          Stated in the description, it is recorded and written into every
+          stage file; not stated, it is an `open:` entry (workload owner,
+          blocks apply) and `OPEN-location` in the stage files - a region the
+          run picked would deploy somewhere nobody decided, and data residency
+          is judged against it.
           It is still a naming input, so the region abbreviation in every name
           is computed from the variable at plan time, not at render time.
         renders: variable location / param location - and the region abbreviation in every name
@@ -211,9 +217,11 @@ groups:
         parameterized: true
         per_environment: true
         why: >
-          Always an input variable of the template, never asked, never guessed
-          and never an open item - the stage file supplies it. The same rendered
-          code deploys into any subscription without editing it.
+          Always an input variable of the template, never asked and never
+          guessed. The same rendered code deploys into any subscription without
+          editing it. A stage the description gives no id for is named by an
+          `open:` entry (workload owner, blocks apply), and its stage file
+          holds the all-zero GUID.
         renders: variable subscription_id (provider subscription_id) / the deployment's target scope
 
       - id: resource_group_name
@@ -226,9 +234,12 @@ groups:
         parameterized: true
         per_environment: true
         why: >
-          Always an input variable of the template, never asked and never an
-          open item - the stage file supplies it. Expected, not created - every
-          question set here declares that as a boundary. A
+          Always an input variable of the template, never asked and never
+          invented. A group the infrastructure creates (`resource_group_mode_main:
+          create`) needs no name from anyone - the render computes it from the
+          naming interface. An existing one does: a stage the description gives
+          no name for is named by an `open:` entry (workload owner, blocks apply),
+          and its stage file holds `OPEN-resource-group`. A
           network that belongs in a platform group is a separate, asked decision
           (network_ownership), not this value.
         renders: variable resource_group_name / param resourceGroupName / scope

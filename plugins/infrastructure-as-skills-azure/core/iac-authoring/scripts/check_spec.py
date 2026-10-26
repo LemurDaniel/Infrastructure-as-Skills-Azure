@@ -28,8 +28,12 @@ Read-only. Checks what the contract in references/spec.md promises:
      and every listed role, and a mode or a `context.resource_group_name_<role>`
      for a role that is not split off is stale; a resource's
      `placement.resource_group` names `main` or a split role;
-     `resource_group_lock` is a known value. A group's name is never required
-     here: like `resource_group_name` it is a parameter the stage file supplies.
+     `resource_group_lock` is a known value.
+  9. Context: `location` and `subscription_id`, and the name of every group
+     whose mode is not `create`, are a value or an open entry - never asked,
+     but never left to a value the run picks either. A warning, not an error:
+     a stage file someone filled in carries them without the spec. A `create`
+     group's name is computed by the render.
 
 Needs PyYAML (pip install pyyaml). Without it the script says so and exits 2
 rather than pretending the file is fine.
@@ -377,6 +381,17 @@ def main():
                           f"add the role to deployment.resource_group_split, or drop the placement (in play: {', '.join(in_play)})")
     if len(errors) == rg_errors and (split or placed):
         ok(f"resource groups - main and {len(split)} split role(s), {placed} placement(s)")
+
+    # --- 9. context: a value or an open entry ----------------------------------
+    open_keys = {str(get(o, 'key')) for o in (get(spec, 'open') or []) if get(o, 'key')}
+    required_ctx = ['location', 'subscription_id']
+    for r in in_play:
+        if dep_value(f'resource_group_mode_{r}') != 'create':
+            required_ctx.append('resource_group_name' if r == 'main' else f'resource_group_name_{r}')
+    for key in required_ctx:
+        if ctx_node.get(key) in (None, '', {}) and f"context.{key}" not in open_keys:
+            warnings.append(f"context.{key} has no value and no open entry - only right when every stage file already "
+                            f"carries it; a run that was not told it writes an open entry and a placeholder")
 
     # --- open: and assumed -------------------------------------------------
     blocking = []
