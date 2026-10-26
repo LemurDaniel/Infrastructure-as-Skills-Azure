@@ -43,6 +43,7 @@ One code base is deployed through these stages; everything not listed here is id
 
 ## What follows from your answers
 
+- **Each stage lives in its own subscription, so the stages cannot touch each other's resources, budgets or permissions.** _(not said, so the usual answer applies)_
 - **The system is deployed by GitHub Actions.** _(from your description)_
 - **A day's outage would be tolerable.** _(from your description)_
   - therefore, Azure Storage Account: The data is kept three times in one datacenter.
