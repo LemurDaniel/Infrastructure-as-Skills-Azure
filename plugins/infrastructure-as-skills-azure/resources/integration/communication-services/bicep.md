@@ -77,7 +77,8 @@ module communication 'br/public:avm/res/communication/communication-service:0.6.
     publicNetworkAccess: 'Enabled'
     // decision: communication-services.security.local_authentication_disabled
     disableLocalAuth: true
-    managedIdentities: { systemAssigned: true }
+    // decision: communication-services.identity.managed_identity - none; `{ systemAssigned: true }` for recordings in storage
+    managedIdentities: {}
     roleAssignments: roleAssignments
     diagnosticSettings: [
       {

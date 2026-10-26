@@ -259,13 +259,14 @@ groups:
           system_assigned: { en: "its own identity", de: "eine eigene Identität" }
           user_assigned: { en: "a separately managed identity", de: "eine separat verwaltete Identität" }
         values: [none, system_assigned, user_assigned]
-        default: system_assigned
+        default: none
         why: >
           The account's identity reaches what the account itself depends on: the storage
           account that holds training data, batch input and output (Document Intelligence,
           Speech batch transcription, Custom Vision) with `Storage Blob Data Contributor`, and
           a Key Vault for a customer-managed key. Callers use their own identities, not this
-          one. A customer-managed key needs the identity to hold its role on the key before
+          one, so an account that reaches nothing outward carries none; `system_assigned` is
+          for batch or training data in a storage account. A customer-managed key needs the identity to hold its role on the key before
           the key is set, which is why that case is `user_assigned`.
         forced_when: >
           `key_management: customer_managed` forces `user_assigned`, recorded as forced with

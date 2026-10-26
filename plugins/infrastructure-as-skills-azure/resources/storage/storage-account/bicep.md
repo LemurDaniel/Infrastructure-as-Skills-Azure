@@ -84,9 +84,9 @@ module storageAccount 'br/public:avm/res/storage/storage-account:0.33.1' = {
     // Settable only at creation.
     requireInfrastructureEncryption: true
 
-    managedIdentities: {
-      systemAssigned: true
-    }
+    // decision: storage-account.identity.managed_identity - none; `{ systemAssigned: true }` for a
+    // reach outward (customer-managed key, a role the account needs)
+    managedIdentities: {}
 
     // Soft delete, versioning and the change feed live on the blob service - the module
     // nests them, and the blob data-plane logs go with them.
@@ -226,9 +226,8 @@ resource storageAccount 'Microsoft.Storage/storageAccounts@2023-05-01' = {
     name: 'Standard_${replication}'
   }
 
-  identity: {
-    type: 'SystemAssigned'
-  }
+  // decision: storage-account.identity.managed_identity - none: no identity block;
+  // `identity: { type: 'SystemAssigned' }` for a reach outward
 
   properties: {
     minimumTlsVersion: 'TLS1_2'

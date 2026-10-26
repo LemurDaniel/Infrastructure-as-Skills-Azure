@@ -89,7 +89,8 @@ module "foundry" {
   # private_dns_records: policy - the platform policy writes the record
   private_endpoints_manage_dns_zone_group = false
 
-  managed_identities = { system_assigned = true }
+  # decision: foundry.identity.managed_identity - none; `{ system_assigned = true }` once it reaches storage or search
+  managed_identities = {}
 
   # decision: foundry.security.local_authentication_disabled - inverse input
   local_auth_enabled = false

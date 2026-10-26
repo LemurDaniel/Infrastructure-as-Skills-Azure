@@ -199,12 +199,14 @@ groups:
           user_assigned: { en: "a shared, separately managed identity", de: "eine gemeinsame, separat verwaltete Identität" }
           none: { en: "no identity of its own", de: "keine eigene Identität" }
         values: [system_assigned, user_assigned, none]
-        default: system_assigned
+        default: none
         why: >
           The account needs an identity of its own only when it reaches outward —
-          customer-managed keys being the usual case. System-assigned is the
-          cheaper default; user-assigned is for an identity that must outlive the
-          resource or be shared across several.
+          customer-managed keys being the usual case. Callers use their own identities,
+          so an account that reaches nothing carries none. `system_assigned` is for
+          an outward reach that needs no role first; user-assigned is for an identity
+          that must outlive the resource, be shared across several, or hold its role
+          before the account exists.
         renders: identity.type / identity
 
       - id: user_assigned_identity_ids

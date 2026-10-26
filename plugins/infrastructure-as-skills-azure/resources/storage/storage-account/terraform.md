@@ -110,9 +110,9 @@ module "storage" {
   # Settable only at creation. The module default is false.
   infrastructure_encryption_enabled = true
 
-  managed_identities = {
-    system_assigned = true
-  }
+  # decision: storage-account.identity.managed_identity - none; `{ system_assigned = true }` for a
+  # reach outward (customer-managed key, a role the account needs)
+  managed_identities = {}
 
   blob_properties = {
     versioning_enabled = true
@@ -299,9 +299,8 @@ resource "azurerm_storage_account" "this" {
   # Settable only at creation — changing it later replaces the account.
   infrastructure_encryption_enabled = true
 
-  identity {
-    type = "SystemAssigned"
-  }
+  # decision: storage-account.identity.managed_identity - none: no identity block;
+  # `identity { type = "SystemAssigned" }` for a reach outward
 
   blob_properties {
     versioning_enabled  = true
@@ -558,8 +557,8 @@ run "identity" {
 
   # decision: storage-account.identity.managed_identity
   assert {
-    condition     = azurerm_storage_account.this.identity[0].type == "SystemAssigned"
-    error_message = "System-assigned identity."
+    condition     = length(azurerm_storage_account.this.identity) == 0
+    error_message = "No identity of its own."
   }
 
   # decision: storage-account.identity.role_assignments

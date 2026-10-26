@@ -268,12 +268,13 @@ groups:
           system_assigned: { en: its own identity, de: eine eigene Identität }
           user_assigned: { en: a separately managed identity, de: eine separat verwaltete Identität }
         values: [none, system_assigned, user_assigned]
-        default: system_assigned
+        default: none
         why: >
           The resource's identity is what it reaches other resources with - a storage
           account for call recordings, a Key Vault for a bring-your-own certificate. The
           application's calls into the resource use the application's identity, not this
-          one. System-assigned is enough because nothing here needs a role before the
+          one, so a resource that reaches nothing outward carries none. `system_assigned` is
+          enough where it does, because nothing here needs a role before the
           resource exists; user-assigned is for an identity shared with the application.
         renders: managed_identities / managedIdentities
 

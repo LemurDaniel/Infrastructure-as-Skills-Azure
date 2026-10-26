@@ -89,7 +89,8 @@ resource "azapi_resource" "communication" {
   location  = "global"
   tags      = local.tags
 
-  identity { type = "SystemAssigned" } # decision: communication-services.identity.managed_identity
+  # decision: communication-services.identity.managed_identity - none: no identity block;
+  # `identity { type = "SystemAssigned" }` for recordings in storage
 
   body = {
     properties = {
