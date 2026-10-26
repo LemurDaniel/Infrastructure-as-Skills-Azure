@@ -1644,40 +1644,69 @@ groups:
           text on purpose, like `mandates`: the parts are the workload's own.
         renders: >
           public_network_access `enabled` on the mapped resources only, protected as
-          public_audience says (a front door, or an address allowlist); every other
+          public_audience says (an entry with a web application firewall, an address
+          allowlist, or nothing); every other
           resource stays `disabled` behind its private endpoint
 
       - id: public_audience
-        ask: Who may reach these parts from the internet - anyone, or only partners you know?
+        ask: How is the part reachable from the internet protected - an entry with a web application firewall in front, only certain address ranges, or the internet without a filter?
         type: enum
         resolved_by: interview
         topic: network
         plain:
-          en: "The parts reachable from the internet are open to {value}."
-          de: "Die aus dem Internet erreichbaren Teile stehen {value} offen."
+          en: "The parts reachable from the internet are {value}."
+          de: "Die aus dem Internet erreichbaren Teile sind {value}."
         plain_values:
-          anyone: { en: "anyone on the internet, protected by a filtering layer in front", de: "jedem im Internet, geschützt durch eine Filterschicht davor" }
-          known_partners: { en: "only the partners you know, through a list of their addresses", de: "nur den Partnern, die ihr kennt, über eine Liste ihrer Adressen" }
-        values: [anyone, known_partners]
-        default: anyone
-        depends_on: { question: network_exposure, equals: private_with_exceptions }
+          waf: { en: "reached through an entry with a web application firewall in front (Front Door or Application Gateway); the app itself stays private", de: "über einen Eingang mit Web Application Firewall davor erreichbar (Front Door oder Application Gateway); die App selbst bleibt privat" }
+          known_addresses: { en: "reachable only from certain address ranges, such as the company's sites", de: "nur aus bestimmten Adressbereichen erreichbar, etwa von den Firmenstandorten" }
+          unfiltered: { en: "reachable from the whole internet without a filter in front - only the sign-in protects them", de: "aus dem ganzen Internet ohne Filter davor erreichbar - nur die Anmeldung schützt sie" }
+        values: [waf, known_addresses, unfiltered]
+        default: waf
+        depends_on: { question: network_exposure, not_equals: private }
         why: >
-          "Behind a firewall" means two different things, and the customer decides which. A
-          website for consumers cannot list its visitors' addresses, so `anyone` puts a Front
-          Door with a web application firewall in front of the mapped resources - a resource
-          the customer never named and that costs money every month, which is why it is said
-          in Phase 4. A partner interface can list its callers, so `known_partners` keeps the
-          resource's own firewall with an address allowlist and adds nothing; the addresses
-          are an `open:` entry owned by the workload owner, never guessed. One answer for
-          every public part: a system with both kinds states the wider one, and a part
-          departing from it is a stated exception. `anyone` is the default because an
-          allowlist that is wrong locks real users out, while a filtering layer that is
-          not needed only costs money.
+          Asked for every application reachable from the internet, in these three options and
+          worded the same every run, because "reachable with a company sign-in" hides the
+          choice that matters: what stands between the internet and the sign-in page. `waf`
+          is the one option the interview marks recommended - a security recommendation, not
+          a guess about the organisation: an entry with a web application firewall filters
+          attacks before they reach the code, and the app behind it keeps its public access
+          disabled, reached over private link (public_entry decides which entry). It costs a
+          resource the customer never named and money every month, which is why Phase 4 says
+          so. `known_addresses` keeps the app's own access restrictions with an allowlist and
+          adds nothing; the ranges are an `open:` entry owned by the workload owner, never
+          guessed, and home office without a VPN is locked out. `unfiltered` exposes the app's
+          own endpoint to everyone; Phase 4 and the diagram mark it. One answer for every
+          public part; a part departing from it is a stated exception.
         renders: >
-          anyone: the `front-door` resource (with its web application firewall policy)
-          in front of the resources the public parts map to, which then accept traffic from
-          it only; known_partners: ip_restrictions / ipSecurityRestrictions or the resource's
-          own firewall rules on the mapped resources, the addresses an `open:` entry
+          waf: the public_entry resource with its web application firewall policy in front of
+          the mapped resources, which accept traffic from it only (private link origin, or the
+          gateway's subnet); known_addresses: ip_restrictions / ipSecurityRestrictions or the
+          resource's own firewall rules, the addresses an `open:` entry; unfiltered: the mapped
+          resources' public_network_access enabled with no restriction
+
+      - id: public_entry
+        ask: Which entry carries the web application firewall - Front Door or an Application Gateway?
+        type: enum
+        plain:
+          en: "The entry in front of the public parts is {value}."
+          de: "Der Eingang vor den öffentlichen Teilen ist {value}."
+        plain_values:
+          front_door: { en: "Azure Front Door with a web application firewall, reaching the app over private link", de: "Azure Front Door mit Web Application Firewall, die die App über eine private Verbindung erreicht" }
+          application_gateway: { en: "an Application Gateway with a web application firewall in the system's own network", de: "ein Application Gateway mit Web Application Firewall im eigenen Netz des Systems" }
+        values: [front_door, application_gateway]
+        default: front_door
+        depends_on: { question: public_audience, equals: waf }
+        forced_when: >
+          application_gateway when the request names it, or when network_requirements is
+          corporate and the traffic has to stay in the region's network; front_door otherwise.
+        why: >
+          Not asked: an engineer's choice the customer can state. Front Door is the default - a
+          managed global entry with no subnet and no instances to size, and with Premium's
+          private link origin the app keeps public access disabled. An Application Gateway sits
+          in the system's network, needs a subnet of its own (/26, counted in the address
+          range) and runs instances; it is the answer where traffic must not leave the region's
+          network or a platform already runs one.
+        renders: the front-door or application-gateway resource set, routed in addition to the app
 
       - id: local_auth
         ask: May resources keep key-based or connection-string auth?
