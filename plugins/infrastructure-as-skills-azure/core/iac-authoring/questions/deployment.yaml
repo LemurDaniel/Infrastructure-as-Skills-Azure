@@ -1524,6 +1524,12 @@ groups:
           en: "Rules to comply with: {value}."
           de: "Einzuhaltende Vorgaben: {value}."
         default: []
+        offer:
+          GDPR: { en: "GDPR - personal data of EU residents", de: "DSGVO - personenbezogene Daten aus der EU" }
+          BSI C5: { en: "BSI C5 - the German cloud security catalogue", de: "BSI C5 - Cloud-Anforderungskatalog des BSI" }
+          ISO 27001: { en: "ISO 27001 - information security management", de: "ISO 27001 - Informationssicherheits-Management" }
+        plain_values:
+          GDPR: { en: "GDPR", de: "DSGVO" }
         why: >
           Named here once so the decisions below can cite them, and so a reviewer
           sees why an expensive option was chosen. Free text on purpose - PCI DSS,
@@ -1860,6 +1866,11 @@ groups:
           de: "Logs werden {value} Tage aufbewahrt."
         default: 30
         non_production_default: 30
+        offer:
+          30: { en: "30 days - incident investigation; included in the ingestion price", de: "30 Tage - für die Fehlersuche; im Preis der Aufnahme enthalten" }
+          90: { en: "90 days - a quarter, for analysis and traceability", de: "90 Tage - ein Quartal, für Auswertungen und Nachvollziehbarkeit" }
+          180: { en: "180 days - half a year, where an audit looks back that far", de: "180 Tage - ein halbes Jahr, wenn eine Prüfung so weit zurückschaut" }
+          365: { en: "365 days - a year, where a mandate requires it; charged per GB and month", de: "365 Tage - ein Jahr, wenn eine Vorgabe es verlangt; kostet je GB und Monat" }
         depends_on: { question: observability_ownership, equals: create }
         why: >
           The cost guard, and therefore decided here rather than per workspace: a

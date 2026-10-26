@@ -482,8 +482,7 @@ derived from the scheme's table in `resource-group-roles.yaml`, every role that 
 resource of the design belongs to (`forced`, `forced_by: deployment.resource_group_scheme`).
 The person sees the result as frames in the diagram and moves a resource or drops a group
 at the sign-off - a `placement.resource_group` or a changed split, `overridden` with the
-reason. Never put "choose nothing for none" in a multi-select: an empty answer cannot be
-given, and it comes back as "Other". Then `resource_groups_created` (one list question; the
+reason. Then `resource_groups_created` (one list question; the
 per-role `resource_group_mode_<role>` are derived from it), with every group existing as the
 default. It reads the derived split, so it is asked in a call after the scheme, multi-select,
 with **one option per group** - each role of the split, named by the scheme's words (a split has
@@ -526,7 +525,13 @@ carries no number; small neighbouring topics
 share a call only when each of them is a single question. The first line of a call names the
 topic and the person's place ("Netzwerk - Frage 1-2, danach Sicherheit, Daten"), with
 nothing reasoned or reported between the calls - the batch is never trimmed to four to fit
-one call. **No option in the batch is marked recommended**: an interview question asks for a fact about the organisation - whether the
+one call. **The options come from the question set, never from the run**: an enum's `values`
+with their `plain_values`, an `int` or free `list` question's `offer` (`mandates`,
+`log_retention_days`) with its labels; "Other" is the tool's and takes the rest. A question with
+neither is asked in prose. **A multi-select whose empty answer is valid carries it as an explicit
+first option** - "Keine" / "None", "Alles in einer Gruppe" / "Everything in one group" - and
+never as "choose nothing": the tool cannot submit an empty selection, and the answer comes back
+as "Other" with no text. **No option in the batch is marked recommended**: an interview question asks for a fact about the organisation - whether the
 system joins the company network, how bad a day's outage is, where the data may live - and
 there is no better answer the plugin could know. The default is the guardrail's fallback for
 an answer nobody gave, not advice, and marking it steers the person towards the guess the

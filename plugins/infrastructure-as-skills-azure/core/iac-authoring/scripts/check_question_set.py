@@ -70,6 +70,7 @@ KNOWN_FIELDS = {
     'id', 'ask', 'type', 'values', 'default', 'required', 'parameterized', 'confirm_in',
     'why', 'renders', 'depends_on', 'ref', 'from_deployment', 'forced_when', 'from_context',
     'resolved_by', 'topic', 'plain', 'plain_values', 'derived_from', 'per_environment', 'non_production_default',
+    'offer',
 }
 # Groups whose decisions may never be relaxed for a non-production stage.
 NO_SAVINGS_GROUPS = {'security', 'networking', 'identity', 'access', 'dns', 'compliance', 'posture', 'modules', 'subnet_policy'}
@@ -416,12 +417,30 @@ def check_set(path, doc, deployment, rel):
                     err(f"{where}: plain.{lang} is not a two-letter language code")
                 elif not isinstance(text, str) or '\n' in text.strip():
                     err(f"{where}: plain.{lang} must be one line")
+        offer = q.get('offer')
+        if offer is not None:
+            if qtype == 'enum':
+                err(f"{where}: offer on an enum - its values are what the interview offers")
+            elif not isinstance(offer, dict) or not offer:
+                err(f"{where}: offer must be a mapping of option -> {{ en: ..., de: ... }}, the options the interview puts to the person")
+            else:
+                if q.get('resolved_by') != 'interview':
+                    wrn(f"{where}: offer on a question that is not asked; only resolved_by: interview reaches a person")
+                off = [o for o in offer if not kind_matches('list' if qtype == 'list' else qtype, [o] if qtype == 'list' else o)]
+                if off:
+                    err(f"{where}: offer option(s) {off} are not a {qtype}")
+                if any(not isinstance(v, dict) or not isinstance(v.get('en'), str) for v in offer.values()):
+                    err(f"{where}: every offer option needs a label mapping with at least en")
+                room = 3 if qtype == 'list' else 4   # a list keeps one option for the explicit empty answer
+                if len(offer) > room:
+                    err(f"{where}: offer holds {len(offer)} options; a question shows four"
+                        + (", and one of them is the empty answer" if qtype == 'list' else ''))
         pv = q.get('plain_values')
         if pv is not None:
             if not isinstance(pv, dict) or not pv:
                 err(f"{where}: plain_values must be a non-empty mapping of value -> {{ en: ..., ... }}")
             else:
-                allowed = values if isinstance(values, list) else ([True, False] if qtype == 'bool' else None)
+                allowed = values if isinstance(values, list) else ([True, False] if qtype == 'bool' else (list(offer) if isinstance(offer, dict) else None))
                 for k, v in pv.items():
                     if allowed is not None and k not in allowed:
                         err(f"{where}: plain_values names '{k}', which the question cannot take")
