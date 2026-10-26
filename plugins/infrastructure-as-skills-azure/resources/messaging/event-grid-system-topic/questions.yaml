@@ -1,0 +1,410 @@
+schema_version: 1
+
+resource: Microsoft.EventGrid/systemTopics
+title: Azure Event Grid system topic
+
+naming:
+  terraform: "Azure::Microsoft.EventGrid/systemTopics"
+  bicep: "Microsoft.EventGrid/systemTopics"
+  # Bicep assembles the name from vars - this is the prefix it renders. The name is regional, 3-128 characters.
+  abbreviation: "egst"
+
+boundaries:
+  - "Does not create the resource group. Expects one from the spec's context."
+  - "Does not create the source resource. A system topic is the event feed **of** an existing Azure resource (a storage account, a key vault, a resource group); the source is created by its own set first and referenced here."
+  - "Does not create the delivery targets (queues, event hubs, functions) nor the storage account that receives undeliverable events, nor the Log Analytics workspace it routes diagnostics to."
+  - "Does not grant the topic's identity its roles on the delivery targets - that is wiring between resources, owned by a pattern. It records the topic's own role assignments in `role_assignments`."
+  - "Has no network surface of its own: a system topic is a control-plane resource with no endpoint, no public access switch and no private endpoint. The publish path is the source resource's; the delivery path is the target's."
+  - "Does not render access keys: a system topic has none. Delivery authenticates with the topic's managed identity."
+  - "Subscription filters beyond the event types (subject prefix and suffix, advanced filters) and per-subscription delivery tuning are recorded in `event_subscriptions` as free text and rendered from the module README."
+  - "Does not carry a resource lock: `deployment.resource_lock` lists resources whose loss cannot be undone from the spec, and a system topic is recreated from it."
+
+groups:
+
+  - id: placement
+    title: Placement
+    questions:
+      - id: environments
+        ask: Which stages is this deployed to?
+        type: list
+        plain:
+          en: "Deployed in the stages {value}."
+          de: "Wird in den Stufen {value} ausgerollt."
+        values: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
+        required: true
+        from_context: true
+        why: >
+          Drives the rendered name and the strictness of several defaults below. Nothing
+          sensible can be guessed.
+        renders: >
+          naming parameter `environment`, and the tag of that name where the repository uses
+          one
+
+      - id: location
+        ask: Which Azure region?
+        type: string
+        plain:
+          en: "Runs in the Azure region {value}."
+          de: "Läuft in der Azure-Region {value}."
+        required: true
+        from_context: true
+        why: >
+          Part of the rendered name. **The topic's region follows its source**, not the
+          deployment's: a system topic must be in the source resource's region, and a source
+          without one (a subscription, a resource group - the `Microsoft.Resources.*` topic
+          types) takes `global`. The render reads the source's location and writes that;
+          the context value only names the stage.
+        renders: >
+          location - the source resource's region, `global` for `Microsoft.Resources.*`
+          topic types
+
+      - id: resource_group_name
+        ask: Which resource group?
+        type: ref
+        plain:
+          en: "Placed in the resource group {value}."
+          de: "Liegt in der Ressourcengruppe {value}."
+        ref: resource_group
+        required: true
+        from_context: true
+        per_environment: true
+        why: >
+          The topic is placed into an existing group, usually the source's own. Creating one
+          here would make this set own a lifecycle wider than the resource it describes.
+        renders: resource_group_name / implicit in Bicep scope
+
+  - id: source
+    title: The source
+    questions:
+      - id: source_resource
+        ask: Which resource emits the events?
+        type: ref
+        plain:
+          en: "Reports what happens to {value}."
+          de: "Meldet, was mit {value} geschieht."
+        ref: azure_resource
+        required: true
+        per_environment: true
+        why: >
+          The one thing nobody can guess: the storage account, key vault, container
+          registry or resource group whose events this topic carries. One source has at
+          most one system topic per topic type; a second deployment that creates one for the
+          same source fails, so a shared source (the subscription, a platform resource group)
+          is checked for an existing topic first. Fixed at creation.
+        renders: source_resource_id / source
+
+      - id: topic_type
+        ask: Which kind of resource is the source?
+        type: enum
+        plain:
+          en: "The source is {value}."
+          de: "Die Quelle ist {value}."
+        plain_values:
+          Microsoft.Storage.StorageAccounts: { en: a storage account, de: ein Speicherkonto }
+          Microsoft.KeyVault.vaults: { en: a key vault, de: ein Schlüsseltresor }
+          Microsoft.ContainerRegistry.Registries: { en: a container registry, de: eine Container-Registry }
+          Microsoft.Resources.ResourceGroups: { en: a resource group, de: eine Ressourcengruppe }
+          Microsoft.Resources.Subscriptions: { en: a subscription, de: ein Abonnement }
+          Microsoft.EventHub.Namespaces: { en: an Event Hubs namespace, de: ein Event-Hubs-Namensraum }
+          Microsoft.ServiceBus.Namespaces: { en: a Service Bus namespace, de: ein Service-Bus-Namensraum }
+          Microsoft.Devices.IoTHubs: { en: an IoT hub, de: ein IoT Hub }
+          Microsoft.AppConfiguration.ConfigurationStores: { en: an App Configuration store, de: ein App-Configuration-Speicher }
+          Microsoft.MachineLearningServices.Workspaces: { en: a machine learning workspace, de: ein Machine-Learning-Arbeitsbereich }
+          Microsoft.Communication.CommunicationServices: { en: a Communication Services resource, de: eine Communication-Services-Ressource }
+          Microsoft.Web.Sites: { en: a web app, de: eine Web-App }
+          Microsoft.HealthcareApis.Workspaces: { en: a health data workspace, de: ein Gesundheitsdaten-Arbeitsbereich }
+          Microsoft.Maintenance.MaintenanceConfigurations: { en: a maintenance configuration, de: eine Wartungskonfiguration }
+          Microsoft.ApiManagement.Service: { en: an API Management instance, de: eine API-Management-Instanz }
+        values: [Microsoft.Storage.StorageAccounts, Microsoft.KeyVault.vaults, Microsoft.ContainerRegistry.Registries, Microsoft.Resources.ResourceGroups, Microsoft.Resources.Subscriptions, Microsoft.EventHub.Namespaces, Microsoft.ServiceBus.Namespaces, Microsoft.Devices.IoTHubs, Microsoft.AppConfiguration.ConfigurationStores, Microsoft.MachineLearningServices.Workspaces, Microsoft.Communication.CommunicationServices, Microsoft.Web.Sites, Microsoft.HealthcareApis.Workspaces, Microsoft.Maintenance.MaintenanceConfigurations, Microsoft.ApiManagement.Service]
+        required: true
+        why: >
+          The topic type is determined by the source's resource type and is **fixed at
+          creation**; it is required because the set cannot read it from the reference. The
+          list holds the common types in their exact casing (`Microsoft.KeyVault.vaults` is
+          lower-case `vaults`, and the platform rejects a wrong case); a source of another
+          type takes its name from `az eventgrid topic-type list --query "[].name"`, which is
+          the authority, and is recorded as a departure from the list, not refused. The
+          event types a source can emit come from `az eventgrid topic-type list-event-types
+          --name <type>`.
+        renders: topic_type / topicType
+
+      - id: managed_identity
+        ask: Which managed identity should the topic deliver with?
+        type: enum
+        plain:
+          en: "The topic delivers {value}."
+          de: "Das Thema stellt {value} zu."
+        plain_values:
+          system_assigned: { en: with an identity of its own, de: mit einer eigenen Identität }
+          user_assigned: { en: with a separately managed identity, de: mit einer separat verwalteten Identität }
+          none: { en: without an identity - targets must accept a key or a public webhook, de: ohne Identität - Ziele müssen einen Schlüssel oder einen öffentlichen Webhook akzeptieren }
+        values: [system_assigned, user_assigned, none]
+        default: system_assigned
+        why: >
+          The identity is how a subscription authenticates to a queue, an event hub or a
+          storage container without a key in the subscription: it holds the data-plane role
+          on each target and on the dead-letter container. `system_assigned` is enough,
+          because the topic is the only thing that uses it and it dies with the topic;
+          `user_assigned` is for an identity that must hold its roles before the topic exists
+          (a pattern that grants first). `none` leaves only key-based destinations and
+          unauthenticated webhooks, which `local_auth: disabled` on the targets forbids - it
+          is a named departure. Targets are granted the identity's role in the pattern.
+        renders: identity / managedIdentities, and deliveryWithResourceIdentity on every subscription
+
+      - id: user_assigned_identity_ids
+        ask: Which user-assigned identity?
+        type: list
+        plain:
+          en: "It uses the identity {value}."
+          de: "Es nutzt die Identität {value}."
+        ref: user_assigned_identity
+        required: true
+        depends_on: { question: managed_identity, equals: user_assigned }
+        per_environment: true
+        why: >
+          The identity that holds the data-plane role on each delivery target and on the
+          dead-letter container. It is created before the topic, by the identity set.
+        renders: identity.identity_ids / managedIdentities.userAssignedResourceIds
+
+  - id: delivery
+    title: Subscriptions and delivery
+    questions:
+      - id: event_subscriptions
+        ask: Who receives the events, and where are they delivered to?
+        type: list
+        plain:
+          en: "Subscribers: {value} (empty: none yet)."
+          de: "Abonnenten: {value} (leer: noch keine)."
+        default: []
+        why: >
+          Each entry is a subscription: its name, the kind of target (from `destination_kind`
+          unless it departs), the target resource, and the filter that decides which events
+          it receives - the event types below and, as free text, a subject prefix or suffix
+          (`/blobServices/default/containers/uploads/`). A topic with no subscription is a
+          topic nobody listens to; the source still emits, nothing arrives. The targets are
+          other resources of the deployment, named here and wired by the pattern; a webhook
+          target is an `open:` entry owned by its operator because it must answer the
+          validation handshake.
+        renders: azurerm_eventgrid_system_topic_event_subscription (one per entry) / eventSubscriptions[]
+
+      - id: destination_kind
+        ask: What kind of target do the subscriptions deliver to?
+        type: enum
+        plain:
+          en: "Events are delivered to {value}."
+          de: "Ereignisse werden an {value} zugestellt."
+        plain_values:
+          service_bus_queue: { en: a Service Bus queue, de: eine Service-Bus-Warteschlange }
+          service_bus_topic: { en: a Service Bus topic, de: ein Service-Bus-Thema }
+          storage_queue: { en: a storage queue, de: eine Speicher-Warteschlange }
+          event_hub: { en: an event hub, de: einen Event Hub }
+          azure_function: { en: a function directly, de: direkt eine Funktion }
+          webhook: { en: a web address, de: eine Webadresse }
+          hybrid_connection: { en: a hybrid connection into another network, de: eine Hybridverbindung in ein anderes Netz }
+        values: [service_bus_queue, service_bus_topic, storage_queue, event_hub, azure_function, webhook, hybrid_connection]
+        default: service_bus_queue
+        why: >
+          The default kind for every subscription; a single one departs in its entry. A
+          queue between the source and the handler buffers bursts (a bulk upload emits
+          thousands of events in a second), gives the handler its own retries and
+          dead-letter queue, and lets it scale on queue length; a Service Bus queue also
+          keeps ordering by session where the handler needs it. `azure_function` delivers
+          straight into the function and is right for a handler that is idempotent and cheap
+          to rerun. `webhook` needs the validation handshake and, for a protected endpoint,
+          the Entra application settings on the subscription. Every kind except `webhook`
+          and `hybrid_connection` accepts delivery with the topic's identity.
+        renders: >
+          the endpoint block of azurerm_eventgrid_system_topic_event_subscription
+          (service_bus_queue_endpoint_id, storage_queue_endpoint, eventhub_endpoint_id,
+          azure_function_endpoint, webhook_endpoint, hybrid_connection_endpoint_id) /
+          eventSubscriptions[].deliveryWithResourceIdentity.destination.endpointType
+
+      - id: event_delivery_schema
+        ask: In which format do the subscribers receive the events?
+        type: enum
+        plain:
+          en: "Subscribers receive events in the {value} format."
+          de: "Abonnenten erhalten Ereignisse im Format {value}."
+        plain_values:
+          CloudEventSchemaV1_0: { en: open CloudEvents standard, de: offenen CloudEvents-Standard }
+          EventGridSchema: { en: "Azure's own Event Grid", de: Event-Grid-Format von Azure }
+        values: [CloudEventSchemaV1_0, EventGridSchema]
+        default: CloudEventSchemaV1_0
+        why: >
+          A system topic emits in Azure's own schema and converts per subscription.
+          **CloudEvents 1.0** is the open standard and the right choice for a handler that
+          may also receive from other systems; the Event Grid schema is what older SDK
+          samples and some built-in triggers expect. Written on every subscription, because
+          the platform defaults to the Event Grid schema.
+        renders: event_delivery_schema / eventSubscriptions[].eventDeliverySchema
+
+      - id: included_event_types
+        ask: Which kinds of events should be delivered?
+        type: list
+        plain:
+          en: "Delivered events: {value} (empty: every kind the source emits)."
+          de: "Zugestellte Ereignisse: {value} (leer: alle Arten, die die Quelle meldet)."
+        default: []
+        why: >
+          The first filter, and the cheap one: `Microsoft.Storage.BlobCreated` alone instead
+          of every blob, tier and policy event. An empty list delivers every event type of
+          the source, which is right for an audit feed and wrong for a handler that reacts
+          to one thing. Applies to every subscription; a single one departs in its entry.
+          The valid names per source come from `az eventgrid topic-type list-event-types`.
+        renders: included_event_types / eventSubscriptions[].filter.includedEventTypes
+
+      - id: max_delivery_attempts
+        ask: How often is a failed delivery retried?
+        type: int
+        plain:
+          en: "A failed delivery is retried up to {value} times."
+          de: "Eine fehlgeschlagene Zustellung wird bis zu {value} Mal wiederholt."
+        default: 30
+        why: >
+          Event Grid retries with growing intervals until the event expires or the attempts
+          run out, then the event is dead-lettered or dropped. 30 is the service default and
+          covers a target that is down for a day; fewer is right for a target where a late
+          event is worse than none. Applies to every subscription, a single one can depart.
+        renders: >
+          retry_policy.max_delivery_attempts / eventSubscriptions[].retryPolicy.maxDeliveryAttempts
+
+      - id: event_ttl_minutes
+        ask: How long may an event wait for delivery before it is stale?
+        type: int
+        resolved_by: interview
+        plain:
+          en: "An undelivered event expires after {value} minutes."
+          de: "Ein nicht zugestelltes Ereignis verfällt nach {value} Minuten."
+        default: 1440
+        why: >
+          The window in which Event Grid keeps retrying. 1440 minutes (one day) is the
+          service default and the maximum; a notification that is useless after an hour sets
+          it to 60. It works with the attempts: whichever runs out first ends the retry.
+        renders: >
+          retry_policy.event_time_to_live / eventSubscriptions[].retryPolicy.eventTimeToLiveInMinutes
+
+      - id: keep_undeliverable_events
+        ask: Should an event that could not be delivered be kept for inspection?
+        type: bool
+        resolved_by: interview
+        plain:
+          en: "An event that cannot be delivered is {value}."
+          de: "Ein Ereignis, das nicht zugestellt werden kann, wird {value}."
+        plain_values:
+          true: { en: kept in storage for inspection, de: zur Prüfung im Speicher aufbewahrt }
+          false: { en: discarded, de: verworfen }
+        default: true
+        why: >
+          Without a dead-letter destination an event whose retries ran out is gone and
+          nobody learns that a subscriber was down. With one it is written as a file to a
+          storage container where it can be read, repaired and resent. The price is the
+          storage and someone reading it; the reason to alert on `DeliveryFailures`.
+        renders: >
+          storage_blob_dead_letter_destination + dead_letter_identity /
+          eventSubscriptions[].deadLetterWithResourceIdentity
+
+      - id: dead_letter_storage_account
+        ask: Which storage account receives the undeliverable events?
+        type: ref
+        plain:
+          en: "Undeliverable events go to the storage account {value}."
+          de: "Nicht zustellbare Ereignisse gehen in das Speicherkonto {value}."
+        ref: storage_account
+        required: true
+        depends_on: { question: keep_undeliverable_events, equals: true }
+        per_environment: true
+        why: >
+          A storage account of the deployment, written by the topic's identity with `Storage
+          Blob Data Contributor` on the container (no key). It is **not the source account**
+          when the source is a storage account: dead-lettering into the account that emits
+          the events emits more events. A firewalled account must let Event Grid in through
+          the trusted-service path or a private endpoint.
+        renders: >
+          storage_blob_dead_letter_destination.storage_account_id /
+          deadLetterWithResourceIdentity.deadLetterDestination.properties.resourceId
+
+      - id: dead_letter_container
+        ask: In which container are they written?
+        type: string
+        plain:
+          en: "The files go to the container {value}."
+          de: "Die Dateien gehen in den Container {value}."
+        default: eventgrid-deadletter
+        depends_on: { question: keep_undeliverable_events, equals: true }
+        why: >
+          The container is created by the storage set (blob container); this names it.
+        renders: >
+          storage_blob_dead_letter_destination.storage_blob_container_name /
+          deadLetterWithResourceIdentity.deadLetterDestination.properties.blobContainerName
+
+  - id: identity
+    title: Identity and access
+    questions:
+      - id: role_assignments
+        ask: Who needs which role on this topic?
+        type: list
+        plain:
+          en: "Access rights on the topic granted to: {value}."
+          de: "Zugriffsrechte vergeben an: {value}."
+        default: []
+        per_environment: true
+        why: >
+          A system topic has no data plane of its own - nobody publishes to it - so the only
+          roles are control-plane ones: `EventGrid EventSubscription Contributor` for a team
+          that manages its own subscriptions on a shared topic, `EventGrid Contributor` for
+          the deploying principal. Nothing here grants the topic's identity anything; its
+          roles on the targets are granted in the pattern.
+        renders: azurerm_role_assignment on the topic / roleAssignments
+
+  - id: observability
+    title: Observability
+    questions:
+      - id: diagnostic_workspace
+        ask: Which Log Analytics workspace should receive diagnostics?
+        type: ref
+        resolved_by: platform
+        plain:
+          en: "Its logs go to {value}."
+          de: "Seine Logs gehen in {value}."
+        ref: log_analytics_workspace
+        from_deployment: diagnostics_destination
+        per_environment: true
+        why: >
+          Inherited: one deployment, one destination. Without a diagnostic setting the
+          resource keeps no record anyone can query.
+        renders: azurerm_monitor_diagnostic_setting / diagnosticSettings
+
+      - id: diagnostic_categories
+        ask: Which log categories should be collected?
+        type: list
+        plain:
+          en: "Logged: {value}."
+          de: "Geloggt wird: {value}."
+        plain_values:
+          DeliveryFailures: { en: "events that could not be delivered, and why", de: "Ereignisse, die nicht zugestellt werden konnten, und warum" }
+        values: [DeliveryFailures]
+        default: [DeliveryFailures]
+        why: >
+          The one category the type has, and the one anyone debugging a subscription needs:
+          it logs only the deliveries that went wrong, with the target's status code, so it is
+          cheap. There is no publish-failure category - the source publishes, not a client.
+          The name is the platform's and is checked against `az monitor diagnostic-settings
+          categories list` for the resource before a render, not remembered.
+        renders: >
+          enabled_log { category } / diagnosticSettings[].logCategoriesAndGroups[].category
+
+      - id: metrics_enabled
+        ask: Should all metrics be collected?
+        type: bool
+        plain:
+          en: "Usage and performance figures are {value}."
+          de: "Nutzungs- und Leistungswerte werden {value}."
+        plain_values:
+          true: { en: collected, de: erfasst }
+          false: { en: not collected, de: nicht erfasst }
+        default: true
+        why: >
+          Published, matched, delivered and dropped event counts and the dead-lettered count
+          - a delivered count that stops rising is how a dead subscriber shows up, and the
+          one to alert on.
+        renders: metric { category = "AllMetrics" } / metricCategories[].category

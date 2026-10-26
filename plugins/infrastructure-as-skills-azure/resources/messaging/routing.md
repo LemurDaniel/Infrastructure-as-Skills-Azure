@@ -8,8 +8,10 @@ skill. Routing table - the request picks the question set:
 | Service Bus, queue, topic, subscription, message broker, dead letter, enterprise messaging | `service-bus/questions.yaml` | [notes](service-bus/notes.md) |
 | Event Hubs, event hub, Kafka endpoint, telemetry stream, event streaming, capture | `event-hubs/questions.yaml` | [notes](event-hubs/notes.md) |
 | Event Grid, event grid topic, event routing, webhook delivery, system topic | `event-grid-topic/questions.yaml` | [notes](event-grid-topic/notes.md) - custom topics only |
-| Event Grid namespace, MQTT broker, pull delivery | *not yet written* | A separate resource type with clients, topic spaces and permission bindings |
-| Event Grid system topic, Event Grid domain | *not yet written* | System topics are created per source resource and belong to it; a domain is a multi-tenant topic collection |
+| Event Grid namespace, MQTT broker, MQTT, pull delivery, namespace topic, topic space, IoT devices publishing MQTT, Geräte per MQTT | `event-grid-namespace/questions.yaml` | [notes](event-grid-namespace/notes.md) - pull delivery and the MQTT broker; custom topics stay in event-grid-topic |
+| Event Grid system topic, system topic, blob created event, storage events, key vault events, resource group events, Ereignisse eines Speicherkontos | `event-grid-system-topic/questions.yaml` | [notes](event-grid-system-topic/notes.md) - the event feed of an existing Azure resource; one per source and type |
+| Event Grid domain | *not yet written* | A multi-tenant topic collection |
+| Azure Relay, Relay namespace, hybrid connection, Hybrid Connection Manager, WCF relay, on-premises service without VPN, Hybridverbindung | `relay-namespace/questions.yaml` | [notes](relay-namespace/notes.md) - a rendezvous over outbound 443, not a network; one connection per service reached |
 | Azure Queue Storage, storage queue | see the [storage](../storage/routing.md) family | Not here - a queue inside a storage account |
 | Notification Hubs, SignalR, Web PubSub | *not yet written* | - |
 
