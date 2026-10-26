@@ -308,10 +308,14 @@ the detail; this list says what was decided and why, so a session does not reope
   as `????`, global names are never reported free, private endpoints are not listed yet.
   `foundry`/`search-service` in `examples/chatbot` are named `${workload}foundry` by hand,
   the convention would give `aif-prod-chatbot-????`: one of the two is the rule.
-- **Three examples, Terraform only, nothing applied:** `chat-sandbox` (the first full run
-  with a customer and both agent loops, authored, 118 decisions, 32 tests),
-  `chatbot` (per-family AVM, 284 decisions, 79 asserted / 205 not-testable),
-  `chatbot-rag` (authored, three stages, GitHub pipeline, 151 decisions, 14 open).
+- **Six examples, Terraform only, nothing applied** (release 0.3.0 is out, 2026-10-26).
+  Rendered in full: `chat-sandbox` (the first full run with a customer and both agent
+  loops, authored, 118 decisions, 32 tests), `chatbot` (per-family AVM, 284 decisions, 79
+  asserted / 205 not-testable), `chatbot-rag` (authored, three stages, GitHub pipeline, 151
+  decisions, 14 open) and `order-platform` (2026-10-26: AVM, seven family modules plus a
+  wiring test and the GitHub pipeline, laid out as a customer repository, 23 resources, 63
+  decisions all covered, 6 open). Spec, diagram and decision document only:
+  `orders-integration` and `chatbot-multi-rg`. No example is rendered in Bicep.
 - **Checks:** `check_repo_consistency.py`, `check_question_set.py`, `check_spec.py`,
   `check_render_coverage.py`, `check_pipeline.py` (+ 55 cases), `run_arm_tests.py`,
   `run_diagram_tests.py`, `run_png_tests.py`, `verify_diagram.py`, `drawio_png.py`.
@@ -674,6 +678,12 @@ regeneration from the spec loses them. All `render`:
   (App Service P1v3/P2v3/P3v3, SQL 2/4/8 vCores) are estimates, not measurements.
 - The contradiction list in `iac-authoring` is a skill rule, not a script check.
 - Idea: a cost estimate in Phase 4 (`ideas/cost-and-security-profiles.md`).
+- `examples/order-platform`: `terraform init`, `validate` and `test` were not run when it was
+  added (only `check_spec`, `check_render_coverage`, `check_pipeline`); its spec says
+  `plugin_version: 0.1.0` and `language: de` for an English request, and it predates
+  exposure as a question, `public_parts`, `central_*` and `resource_groups_created`, so a
+  fresh interview would answer some decisions differently. Re-render it, or leave it as the
+  record of that run.
 
 ### Waiting on the owner
 
