@@ -487,10 +487,14 @@ per-family` in `check_spec.py` and the `chatbot` spec, and `references/private-d
 
 ### Interview and spec
 
-- The deployer's roles are not in the spec: a non-empty `key-vault.secret_placeholders`
-  needs Key Vault Secrets Officer, rendered role assignments need RBAC Administrator;
-  neither derives from `pipeline_auth`. The interview should add them, `pipelines.md`'s
-  hand-over list the data-plane roles.
+- **Deployer roles are in the spec** (2026-10-26): `deployment.deployer_roles`, derived
+  (`forced`), lists what the deploying identity needs beyond `Contributor` - `Contributor` on
+  `subscription` for a `create` group, `Role Based Access Control Administrator` for any role
+  assignment, `Key Vault Secrets Officer` per vault with placeholders. `check_spec.py` fails on
+  a missing one and warns on a spec without the key; `run_spec_tests.py` breaks each; the
+  hand-over in `pipelines.md` names them. Open: no tracked spec carries the key yet (every
+  example and `eval-agent/infra` warns), no rendered pipeline header lists it, and
+  `check_pipeline.py` does not check the header against it.
 - The diagrams of `chatbot-rag`, `chat-sandbox` and `orders-integration` were not redrawn
   after region/subscription became `open:` (2026-10-26); `chat-sandbox`'s carries hand edits
   a redraw would lose.
@@ -691,11 +695,8 @@ regeneration from the spec loses them. All `render`:
 
 ### Evals
 
-- No case covers triggering. The one failure a real run has shown is a workload-shaped
-  request ("eine Chatapp in Azure mit RAG", no resource named) that opened no interview;
-  a case with that prompt and an llm grader on the first message (interview opened, the
-  customer sentence said, no home-made questionnaire) is the regression test, and the
-  no-plugin baseline arm shows what it is measured against.
+- Triggering is covered by `trigger/trigger-workload-request` ("eine Chatapp in Azure mit
+  RAG", no resource named, must open the interview); it passes.
 - No grader checks `implementation` or `module_source`. No case for: the delivery
   questions; an engineer-flavoured request asserting no `engineer` question is asked;
   the whole `requirements` group reaching the customer (the gap of 2026-10-24); the
