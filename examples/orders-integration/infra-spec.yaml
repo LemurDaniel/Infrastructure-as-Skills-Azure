@@ -15,105 +15,122 @@ context:
   workload: orders
 
 deployment:
-  module_source: { value: avm, source: asked }
-  naming_source: { value: provider, source: asked }
-  deploy_mechanism: { value: github, source: asked }
-  pipeline_auth: { value: workload_identity, source: default }
-  pipeline_approvals: { value: production, source: default }
-  network_requirements: { value: free, source: asked }
-  network_exposure: { value: private_with_exceptions, source: stated }
-  local_auth: { value: disabled, source: stated }
-  outage_impact: { value: tolerable, source: asked }
-  data_loss_tolerance: { value: one_month, source: asked }
-  data_access_pattern: { value: active, source: asked }
-  data_residency: { value: data_zone, source: asked }
+  # --- resource_groups ---
+  resource_group_split: {value: [network, data, observability], source: asked}
+  resource_group_mode_main: {value: create, source: asked}
+  resource_group_mode_network: {value: create, source: asked}
+  resource_group_mode_data: {value: create, source: asked}
+  resource_group_mode_observability: {value: create, source: asked}
+  resource_lock: {value: production, source: asked}
+
+  # --- delivery ---
+  deploy_mechanism: {value: github, source: asked}
+  pipeline_auth: {value: workload_identity, source: default}
+  pipeline_approvals: {value: production, source: default}
+
+  # --- requirements ---
+  network_requirements: {value: free, source: asked}
+  outage_impact: {value: tolerable, source: asked}
+  data_loss_tolerance: {value: one_month, source: asked}
+  data_access_pattern: {value: active, source: asked}
   backup_isolation:
-    value: { development: isolated, test: isolated, production: immutable }
+    value: {development: isolated, test: isolated, production: immutable}
     source: overridden
     reason: Customer named the stage split explicitly - immutable in production, isolated in development and test.
-  mandates: { value: [], source: asked }
-  log_retention_days:
-    value: { development: 30, test: 30, production: 90 }
-    source: stated
-  resource_lock: { value: production, source: asked }
-  resource_group_split: { value: [network, data, observability], source: asked }
-  resource_group_mode_main: { value: create, source: asked }
-  resource_group_mode_network: { value: create, source: asked }
-  resource_group_mode_data: { value: create, source: asked }
-  resource_group_mode_observability: { value: create, source: asked }
+  data_residency: {value: data_zone, source: asked}
+
+  # --- modules ---
+  module_source: {value: avm, source: asked}
+  naming_source: {value: provider, source: asked}
+
+  # --- posture ---
+  network_exposure: {value: private_with_exceptions, source: stated}
+  local_auth: {value: disabled, source: stated}
+
+  # --- compliance ---
+  mandates: {value: [], source: asked}
+
+  # --- observability ---
+  log_retention_days: {value: {development: 30, test: 30, production: 90}, source: stated}
 
 composition:
   granularity: per-family
   source: default
   modules:
-    - { id: network, contains: [virtual-network, front-door, application-gateway] }
-    - { id: integration, contains: [api-management, function-app], needs: [network] }
-    - { id: messaging, contains: [service-bus, event-hubs, event-grid-topic], needs: [network, storage] }
-    - { id: storage, contains: [storage-account], needs: [network] }
-    - { id: recovery, contains: [backup-vault, recovery-services-vault], needs: [storage] }
-    - { id: observability, contains: [log-analytics-workspace] }
-    - { id: security, contains: [key-vault], needs: [network] }
+  - id: network
+    contains: [virtual-network, front-door, application-gateway]
+  - id: integration
+    contains: [api-management, function-app]
+    needs: [network]
+  - id: messaging
+    contains: [service-bus, event-hubs, event-grid-topic]
+    needs: [network, storage]
+  - id: storage
+    contains: [storage-account]
+    needs: [network]
+  - id: recovery
+    contains: [backup-vault, recovery-services-vault]
+    needs: [storage]
+  - id: observability
+    contains: [log-analytics-workspace]
+  - id: security
+    contains: [key-vault]
+    needs: [network]
 
 resources:
   front-door:
     placement:
-      sku:
-        value: Premium
-        source: stated
+      sku: {value: Premium, source: stated}
+    security:
+      waf_managed_rules: {value: true, source: stated}
     networking:
       origin_connection:
         value: public
         source: overridden
-        reason: Application Gateway has no Private Link origin; it is locked to the AzureFrontDoor.Backend tag and the X-Azure-FDID header.
-      origins:
-        value: [application-gateway]
-        source: stated
-    security:
-      waf_managed_rules: { value: true, source: stated }
+        reason: Application Gateway has no Private Link origin; it is locked to the AzureFrontDoor.Backend tag and the X-Azure-FDID
+          header.
+      origins: {value: [application-gateway], source: stated}
 
   application-gateway:
     placement:
-      sku: { value: WAF_v2, source: stated }
+      sku: {value: WAF_v2, source: stated}
     networking:
       frontend_exposure:
         value: public
         source: overridden
-        reason: Reached by Front Door over its public IP, restricted to the AzureFrontDoor.Backend service tag and the X-Azure-FDID header.
-      backends:
-        value: [api-management]
-        source: stated
+        reason: Reached by Front Door over its public IP, restricted to the AzureFrontDoor.Backend service tag and the X-Azure-FDID
+          header.
+      backends: {value: [api-management], source: stated}
 
   api-management:
     placement:
-      sku:
-        value: { development: Developer, test: Developer, production: Premium }
-        source: stated
+      sku: {value: {development: Developer, test: Developer, production: Premium}, source: stated}
     networking:
-      virtual_network_type: { value: Internal, source: stated }
+      virtual_network_type: {value: Internal, source: stated}
     identity:
-      system_assigned_identity: { value: true, source: stated }
+      system_assigned_identity: {value: true, source: stated}
     policies:
-      jwt_validation: { value: entra-id, source: stated }
-      rate_limit: { value: per-subscription, source: stated }
-      backend_routing: { value: function-app, source: stated }
+      jwt_validation: {value: entra-id, source: stated}
+      rate_limit: {value: per-subscription, source: stated}
+      backend_routing: {value: function-app, source: stated}
 
   function-app:
     networking:
-      public_network_access: { value: disabled, source: deployment }
+      public_network_access: {value: disabled, source: deployment}
 
   service-bus:
     placement:
       sku:
-        value: { development: Standard, test: Standard, production: Premium }
+        value: {development: Standard, test: Standard, production: Premium}
         source: overridden
         reason: Customer named the stage split explicitly - Premium in production, Standard otherwise.
     networking:
       public_network_access:
-        value: { development: firewalled, test: firewalled, production: disabled }
+        value: {development: firewalled, test: firewalled, production: disabled}
         source: overridden
         reason: Standard has no private endpoint; the customer chose a firewalled public endpoint in development and test.
     security:
-      local_auth: { value: disabled, source: stated }
+      local_auth: {value: disabled, source: stated}
     topics:
       orders:
         value:
@@ -121,85 +138,75 @@ resources:
           filter: order-type
         source: stated
     queues:
-      payments:
-        value: { dead_lettering: true, duplicate_detection: true }
-        source: stated
+      payments: {value: {dead_lettering: true, duplicate_detection: true}, source: stated}
 
   event-hubs:
     networking:
-      public_network_access: { value: disabled, source: deployment }
+      public_network_access: {value: disabled, source: deployment}
     data:
-      partitions: { value: 4, source: stated }
-      retention_days: { value: 7, source: stated }
-      capture: { value: storage-account, source: stated }
+      partitions: {value: 4, source: stated}
+      retention_days: {value: 7, source: stated}
+      capture: {value: storage-account, source: stated}
 
   event-grid-topic:
     identity:
-      delivery_auth: { value: managed_identity, source: stated }
+      delivery_auth: {value: managed_identity, source: stated}
     subscriptions:
-      blob-events:
-        value: { source: storage-account, destination: function-app }
-        source: stated
+      blob-events: {value: {source: storage-account, destination: function-app}, source: stated}
 
   storage-account:
     placement:
-      hierarchical_namespace: { value: true, source: stated }
+      hierarchical_namespace: {value: true, source: stated}
     networking:
-      public_network_access: { value: disabled, source: deployment }
+      public_network_access: {value: disabled, source: deployment}
     security:
-      shared_access_key_enabled: { value: false, source: deployment }
+      shared_access_key_enabled: {value: false, source: deployment}
 
   backup-vault:
     data_protection:
-      redundancy:
-        value: { development: LRS, test: LRS, production: GRS }
-        source: stated
+      redundancy: {value: {development: LRS, test: LRS, production: GRS}, source: stated}
       cross_region_restore:
-        value: { development: false, test: false, production: true }
+        value: {development: false, test: false, production: true}
         source: overridden
         reason: Customer asked for cross-region restore in production only.
-      soft_delete: { value: on, source: stated }
-      protects: { value: [storage-account], source: stated }
+      soft_delete: {value: true, source: stated}
+      protects: {value: [storage-account], source: stated}
 
   recovery-services-vault:
     data_protection:
-      redundancy:
-        value: { development: LRS, test: LRS, production: GRS }
-        source: stated
+      redundancy: {value: {development: LRS, test: LRS, production: GRS}, source: stated}
       cross_region_restore:
-        value: { development: false, test: false, production: true }
+        value: {development: false, test: false, production: true}
         source: overridden
         reason: Customer asked for cross-region restore in production only.
-      soft_delete: { value: on, source: stated }
+      soft_delete: {value: true, source: stated}
 
   log-analytics-workspace:
     data_protection:
-      retention_days:
-        value: { development: 30, test: 30, production: 90 }
-        source: stated
+      retention_days: {value: {development: 30, test: 30, production: 90}, source: stated}
 
   key-vault:
     security:
-      rbac_authorization: { value: true, source: deployment }
+      rbac_authorization: {value: true, source: deployment}
 
   virtual-network:
     networking:
       address_space:
-        value: { development: 10.100.0.0/22, test: 10.100.4.0/22, production: 10.100.8.0/22 }
+        value: {development: 10.100.0.0/22, test: 10.100.4.0/22, production: 10.100.8.0/22}
         source: asked
 
 wiring:
   access:
     value:
-      - { from: internet, to: front-door, label: HTTPS 443 }
-      - { from: front-door, to: application-gateway, label: "HTTPS, nur Front Door" }
-      - { from: application-gateway, to: api-management, label: HTTPS intern }
-      - { from: api-management, to: function-app, label: Backend-Routing }
-      - { from: function-app, to: service-bus, label: Entra-Login }
-      - { from: event-hubs, to: storage-account, label: Capture }
-      - { from: event-grid-topic, to: function-app, label: Blob-Events }
-      - { from: storage-account, to: event-grid-topic, label: Blob-Events }
-      - { from: backup-vault, to: storage-account, label: Blob-Backup }
+    - {from: internet, to: front-door, label: HTTPS 443}
+    - {from: front-door, to: application-gateway, label: 'HTTPS, nur Front Door'}
+    - {from: application-gateway, to: api-management, label: HTTPS intern}
+    - {from: api-management, to: function-app, label: Backend-Routing}
+    - {from: function-app, to: service-bus, label: Entra-Login}
+    - {from: event-hubs, to: storage-account, label: Capture}
+    - {from: event-grid-topic, to: function-app, label: Blob-Events}
+    - {from: storage-account, to: event-grid-topic, label: Blob-Events}
+    - {from: backup-vault, to: storage-account, label: Blob-Backup}
     source: stated
   purposes:
     value:
@@ -218,7 +225,7 @@ wiring:
     source: stated
 
 open:
-  - key: deployment.private_dns_ownership
-    question: Wem gehören die privaten DNS-Zonen, und gibt es zentrale?
-    owner: Plattform-Team
-    blocks: apply
+- key: deployment.private_dns_ownership
+  question: Wem gehören die privaten DNS-Zonen, und gibt es zentrale?
+  owner: Plattform-Team
+  blocks: apply

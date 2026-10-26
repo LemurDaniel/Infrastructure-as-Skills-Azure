@@ -11,461 +11,306 @@ spec:
 # One throwaway stage. location and workload are parameters of the template; the
 # values here are the documented example (EU region for data_residency: data_zone).
 context:
-  language: de
   environments: [sandbox]
+  language: de
   location: germanywestcentral
   workload: chat
   tags: {}
 
 deployment:
-  naming_convention:
-    value: default
-    source: default
-  module_source:
-    value: authored
-    source: asked           # "Einzelne Ressourcen"
-  naming_source:
-    value: provider
-    source: asked           # "Naming-Werkzeug des Plugins"
-  deploy_mechanism:
-    value: local
-    source: asked           # "Von Hand" - a script, no pipeline
-  outage_impact:
-    value: tolerable
-    source: asked
-  data_loss_tolerance:
-    value: one_week
-    source: asked
-  data_access_pattern:
-    value: active
-    source: asked
-  backup_isolation:
-    value: operational
-    source: asked
-  data_residency:
-    value: data_zone
-    source: asked           # "Nur in der EU"
+  # --- context ---
   non_production_savings:
     value: enabled
     source: forced
-    forced_by: deployment.environments   # a [sandbox] stack takes every non_production_default
+    forced_by: deployment.environments  # a [sandbox] stack takes every non_production_default
+  naming_convention: {value: default, source: default}
+
+  # --- delivery ---
+  deploy_mechanism:
+    value: local
+    source: asked  # "Von Hand" - a script, no pipeline
+
+  # --- requirements ---
+  outage_impact: {value: tolerable, source: asked}
+  data_loss_tolerance: {value: one_week, source: asked}
+  data_access_pattern: {value: active, source: asked}
+  backup_isolation: {value: operational, source: asked}
+  data_residency:
+    value: data_zone
+    source: asked  # "Nur in der EU"
+
+  # --- modules ---
+  module_source:
+    value: authored
+    source: asked  # "Einzelne Ressourcen"
+  naming_source:
+    value: provider
+    source: asked  # "Naming-Werkzeug des Plugins"
+
+  # --- posture ---
   landing_zone:
     value: standalone
-    source: default         # no landing zone, nothing referenced
-  network_exposure:
-    value: public
-    source: asked
-  local_auth:
-    value: disabled
-    source: default
-  mandates:
-    value: []
-    source: asked
-  key_protection:
-    value: software
-    source: default
-  key_management:
-    value: platform_managed
-    source: default
+    source: default  # no landing zone, nothing referenced
+  network_exposure: {value: public, source: asked}
+  local_auth: {value: disabled, source: default}
+
+  # --- compliance ---
+  mandates: {value: [], source: asked}
+  key_protection: {value: software, source: default}
+  key_management: {value: platform_managed, source: default}
+
+  # --- network ---
   network_ownership:
     value: none
     source: forced
-    forced_by: deployment.network_exposure   # public: nothing needs a subnet
+    forced_by: deployment.network_exposure  # public: nothing needs a subnet
+
+  # --- dns ---
   private_dns_ownership:
     value: deployment
     source: forced
-    forced_by: deployment.landing_zone       # standalone; no private endpoints, so no zones
+    forced_by: deployment.landing_zone  # standalone; no private endpoints, so no zones
+
+  # --- observability ---
   observability_ownership:
     value: create
     source: forced
-    forced_by: deployment.landing_zone       # standalone: no central workspace to reference
+    forced_by: deployment.landing_zone  # standalone: no central workspace to reference
   diagnostics_destination:
     value: log-analytics-workspace
     source: forced
     forced_by: deployment.observability_ownership
-  log_retention_days:
-    value: 30
-    source: asked
-  daily_quota_gb:
-    value: -1
-    source: default
+  log_retention_days: {value: 30, source: asked}
+  daily_quota_gb: {value: -1, source: default}
 
 composition:
   granularity: single
   source: default
   modules:
-    - id: root
-      contains: [app-service, foundry, search-service, storage-account, key-vault, log-analytics-workspace]
-      implementation: authored
+  - id: root
+    contains: [app-service, foundry, search-service, storage-account, key-vault, log-analytics-workspace]
+    implementation: authored
 
 resources:
   app-service:
     hosting:
-      os_type:
-        value: Linux
-        source: default
+      os_type: {value: Linux, source: default}
       sku:
         value: B1
         source: forced
-        forced_by: deployment.environments   # non_production_default; no production stage in a [sandbox] stack
-      zone_redundant:
-        value: false
-        source: requirement
-        derived_from: deployment.outage_impact
-      instance_count:
-        value: 1
-        source: requirement
-        derived_from: deployment.outage_impact
+        forced_by: deployment.environments  # non_production_default; no production stage in a [sandbox] stack
+      zone_redundant: {value: false, source: requirement, derived_from: deployment.outage_impact}
+      instance_count: {value: 1, source: requirement, derived_from: deployment.outage_impact}
     networking:
       public_network_access:
         value: enabled
         source: overridden
-        reason: departs from the deployment mapping public -> enabled_with_firewall; network_ownership is none, so the app's outbound addresses are public and change, and a firewall with no rules would lock the app out of its own backends
-      vnet_integration:
-        value: false
-        source: forced
-        forced_by: deployment.network_ownership
+        reason: departs from the deployment mapping public -> enabled_with_firewall; network_ownership is none, so the app's
+          outbound addresses are public and change, and a firewall with no rules would lock the app out of its own backends
+      vnet_integration: {value: false, source: forced, forced_by: deployment.network_ownership}
     identity:
-      managed_identity:
-        value: system_assigned
-        source: default
+      managed_identity: {value: system_assigned, source: default}
     security:
-      https_only:
-        value: true
-        source: default
-      min_tls_version:
-        value: '1.2'
-        source: default
-      ftps_state:
-        value: Disabled
-        source: default
-      basic_auth_enabled:
-        value: false
-        source: deployment
+      https_only: {value: true, source: default}
+      min_tls_version: {value: '1.2', source: default}
+      ftps_state: {value: Disabled, source: default}
+      basic_auth_enabled: {value: false, source: deployment}
     runtime:
       runtime_stack:
         value: container
-        source: stated          # "ein docker container mit einer kleinen Anwendung"
-      always_on:
-        value: true
-        source: default
-      health_check_path:
-        value: ''
-        source: default
-      http2_enabled:
-        value: true
-        source: default
+        source: stated  # "ein docker container mit einer kleinen Anwendung"
+      always_on: {value: true, source: default}
+      health_check_path: {value: '', source: default}
+      http2_enabled: {value: true, source: default}
     observability:
-      diagnostic_workspace:
-        value: { sandbox: log-analytics-workspace }
-        source: deployment
+      diagnostic_workspace: {value: {sandbox: log-analytics-workspace}, source: deployment}
       diagnostic_categories:
-        value: [AppServiceHTTPLogs, AppServiceAppLogs, AppServiceAuditLogs, AppServiceIPSecAuditLogs, AppServicePlatformLogs]
+        value:
+        - AppServiceHTTPLogs
+        - AppServiceAppLogs
+        - AppServiceAuditLogs
+        - AppServiceIPSecAuditLogs
+        - AppServicePlatformLogs
         source: default
-      metrics_enabled:
-        value: true
-        source: default
+      metrics_enabled: {value: true, source: default}
 
   foundry:
     account:
-      kind:
-        value: AIServices
-        source: default
-      sku_name:
-        value: S0
-        source: default
-      project_management:
-        value: true
-        source: default
+      kind: {value: AIServices, source: default}
+      sku_name: {value: S0, source: default}
+      project_management: {value: true, source: default}
       projects:
         value: [chat]
-        source: stated          # "eine kleine Chatumgebung mit Foundry"
+        source: stated  # "eine kleine Chatumgebung mit Foundry"
     models:
-      deployment_sku:
-        value: DataZoneStandard
-        source: requirement
-        derived_from: deployment.data_residency
-      deployment_capacity:
-        value: 10
-        source: default
-      version_upgrade_option:
-        value: OnceCurrentVersionExpired
-        source: default
-      content_filter:
-        value: Microsoft.DefaultV2
-        source: default
+      deployment_sku: {value: DataZoneStandard, source: requirement, derived_from: deployment.data_residency}
+      deployment_capacity: {value: 10, source: default}
+      version_upgrade_option: {value: OnceCurrentVersionExpired, source: default}
+      content_filter: {value: Microsoft.DefaultV2, source: default}
     networking:
       public_network_access:
         value: enabled
         source: overridden
-        reason: departs from the deployment mapping public -> enabled_with_firewall; network_ownership is none, so the app's outbound addresses are public and change, and a firewall with no rules would lock the app out of its own backends
-      restrict_outbound:
-        value: true
-        source: default
+        reason: departs from the deployment mapping public -> enabled_with_firewall; network_ownership is none, so the app's
+          outbound addresses are public and change, and a firewall with no rules would lock the app out of its own backends
+      restrict_outbound: {value: true, source: default}
     identity:
-      managed_identity:
-        value: system_assigned
-        source: default
+      managed_identity: {value: system_assigned, source: default}
       role_assignments:
         value:
           sandbox:
-            - { principal: app-service, role: Cognitive Services OpenAI User }
-            - { principal: search-service, role: Cognitive Services OpenAI User }
+          - {principal: app-service, role: Cognitive Services OpenAI User}
+          - {principal: search-service, role: Cognitive Services OpenAI User}
         source: forced
-        forced_by: wiring.access      # the app calls the models, the search service embeds with them
+        forced_by: wiring.access  # the app calls the models, the search service embeds with them
     security:
-      local_authentication_disabled:
-        value: true
-        source: deployment
-      key_management:
-        value: platform_managed
-        source: deployment
+      local_authentication_disabled: {value: true, source: deployment}
+      key_management: {value: platform_managed, source: deployment}
     observability:
-      diagnostic_workspace:
-        value: { sandbox: log-analytics-workspace }
-        source: deployment
-      diagnostic_categories:
-        value: [Audit, RequestResponse, AzureOpenAIRequestUsage]
-        source: default
-      metrics_enabled:
-        value: true
-        source: default
+      diagnostic_workspace: {value: {sandbox: log-analytics-workspace}, source: deployment}
+      diagnostic_categories: {value: [Audit, RequestResponse, AzureOpenAIRequestUsage], source: default}
+      metrics_enabled: {value: true, source: default}
 
   search-service:
     service:
       sku:
         value: basic
         source: forced
-        forced_by: deployment.environments   # non_production_default
-      replica_count:
-        value: 1
-        source: requirement
-        derived_from: deployment.outage_impact
-      partition_count:
-        value: 1
-        source: default
-      semantic_ranker:
-        value: free
-        source: default
+        forced_by: deployment.environments  # non_production_default
+      replica_count: {value: 1, source: requirement, derived_from: deployment.outage_impact}
+      partition_count: {value: 1, source: default}
+      semantic_ranker: {value: free, source: default}
     networking:
       public_network_access:
         value: enabled
         source: overridden
-        reason: departs from the deployment mapping public -> enabled_with_firewall; network_ownership is none, so the app's outbound addresses are public and change, and a firewall with no rules would lock the app out of its own backends
-      network_rule_bypass:
-        value: None
-        source: default
+        reason: departs from the deployment mapping public -> enabled_with_firewall; network_ownership is none, so the app's
+          outbound addresses are public and change, and a firewall with no rules would lock the app out of its own backends
+      network_rule_bypass: {value: None, source: default}
     identity:
-      managed_identity:
-        value: system_assigned
-        source: default
+      managed_identity: {value: system_assigned, source: default}
       role_assignments:
         value:
           sandbox:
-            - { principal: app-service, role: Search Index Data Reader }
+          - {principal: app-service, role: Search Index Data Reader}
         source: forced
-        forced_by: wiring.access      # the app queries the index
+        forced_by: wiring.access  # the app queries the index
     security:
-      local_authentication_disabled:
-        value: true
-        source: deployment
-      key_management:
-        value: platform_managed
-        source: deployment
+      local_authentication_disabled: {value: true, source: deployment}
+      key_management: {value: platform_managed, source: deployment}
     observability:
-      diagnostic_workspace:
-        value: { sandbox: log-analytics-workspace }
-        source: deployment
-      diagnostic_categories:
-        value: [OperationLogs]
-        source: default
-      metrics_enabled:
-        value: true
-        source: default
+      diagnostic_workspace: {value: {sandbox: log-analytics-workspace}, source: deployment}
+      diagnostic_categories: {value: [OperationLogs], source: default}
+      metrics_enabled: {value: true, source: default}
 
   storage-account:
     networking:
       public_network_access:
         value: enabled
         source: overridden
-        reason: departs from the deployment mapping public -> enabled_with_firewall; network_ownership is none, so the app's outbound addresses are public and change, and a firewall with no rules would lock the app out of its own backends
-      private_endpoint_subresources:
-        value: [blob]
-        source: default
-      allow_azure_services_bypass:
-        value: true
-        source: default
+        reason: departs from the deployment mapping public -> enabled_with_firewall; network_ownership is none, so the app's
+          outbound addresses are public and change, and a firewall with no rules would lock the app out of its own backends
+      private_endpoint_subresources: {value: [blob], source: default}
+      allow_azure_services_bypass: {value: true, source: default}
     identity:
-      managed_identity:
-        value: system_assigned
-        source: default
+      managed_identity: {value: system_assigned, source: default}
       role_assignments:
         value:
           sandbox:
-            - { principal: app-service, role: Storage Blob Data Contributor }
-            - { principal: search-service, role: Storage Blob Data Reader }
+          - {principal: app-service, role: Storage Blob Data Contributor}
+          - {principal: search-service, role: Storage Blob Data Reader}
         source: forced
-        forced_by: wiring.access      # the app keeps its data here, the search service indexes it
+        forced_by: wiring.access  # the app keeps its data here, the search service indexes it
     security:
-      shared_access_key_enabled:
-        value: false
-        source: deployment
-      min_tls_version:
-        value: TLS1_2
-        source: default
-      https_traffic_only:
-        value: true
-        source: default
-      allow_blob_public_access:
-        value: false
-        source: default
-      infrastructure_encryption_enabled:
-        value: true
-        source: default
-      key_management:
-        value: platform_managed
-        source: deployment
-      sftp_enabled:
-        value: false
-        source: default
+      shared_access_key_enabled: {value: false, source: deployment}
+      min_tls_version: {value: TLS1_2, source: default}
+      https_traffic_only: {value: true, source: default}
+      allow_blob_public_access: {value: false, source: default}
+      infrastructure_encryption_enabled: {value: true, source: default}
+      key_management: {value: platform_managed, source: deployment}
+      sftp_enabled: {value: false, source: default}
     data_protection:
-      replication:
-        value: LRS
-        source: requirement
-        derived_from: deployment.outage_impact
-      access_tier:
-        value: Hot
-        source: requirement
-        derived_from: deployment.data_access_pattern
-      blob_soft_delete_days:
-        value: 7
-        source: requirement
-        derived_from: deployment.data_loss_tolerance
-      container_soft_delete_days:
-        value: 7
-        source: requirement
-        derived_from: deployment.data_loss_tolerance
-      versioning_enabled:
-        value: true
-        source: requirement
-        derived_from: deployment.data_loss_tolerance
-      change_feed_enabled:
-        value: false
-        source: default
-      point_in_time_restore_days:
-        value: 0
-        source: default
-      immutability:
-        value: none
-        source: default
+      replication: {value: LRS, source: requirement, derived_from: deployment.outage_impact}
+      access_tier: {value: Hot, source: requirement, derived_from: deployment.data_access_pattern}
+      blob_soft_delete_days: {value: 7, source: requirement, derived_from: deployment.data_loss_tolerance}
+      container_soft_delete_days: {value: 7, source: requirement, derived_from: deployment.data_loss_tolerance}
+      versioning_enabled: {value: true, source: requirement, derived_from: deployment.data_loss_tolerance}
+      change_feed_enabled: {value: false, source: default}
+      point_in_time_restore_days: {value: 0, source: default}
+      immutability: {value: none, source: default}
     observability:
-      diagnostic_workspace:
-        value: { sandbox: log-analytics-workspace }
-        source: deployment
-      diagnostic_categories:
-        value: [audit]
-        source: default
-      metrics_enabled:
-        value: true
-        source: default
+      diagnostic_workspace: {value: {sandbox: log-analytics-workspace}, source: deployment}
+      diagnostic_categories: {value: [audit], source: default}
+      metrics_enabled: {value: true, source: default}
 
   key-vault:
     vault:
-      sku:
-        value: standard
-        source: default
+      sku: {value: standard, source: default}
       purge_protection:
         value: false
         source: overridden
-        reason: a throwaway sandbox is torn down and rebuilt; purge protection would reserve the vault name for the soft-delete window after every tear-down and cannot be switched off once on
+        reason: a throwaway sandbox is torn down and rebuilt; purge protection would reserve the vault name for the soft-delete
+          window after every tear-down and cannot be switched off once on
       soft_delete_retention_days:
         value: 7
         source: overridden
-        reason: the shortest window Azure allows, for the same reason - the name comes back after a week instead of a quarter; nothing in this vault is irreplaceable (one placeholder secret)
-      rbac_authorization:
-        value: true
-        source: deployment
+        reason: the shortest window Azure allows, for the same reason - the name comes back after a week instead of a quarter;
+          nothing in this vault is irreplaceable (one placeholder secret)
+      rbac_authorization: {value: true, source: deployment}
     networking:
       public_network_access:
         value: enabled
         source: overridden
-        reason: departs from the deployment mapping public -> enabled_with_firewall; network_ownership is none, so the app's outbound addresses are public and change, and a firewall with no rules would lock the app out of its own backends
-      network_acl_bypass:
-        value: None
-        source: default
+        reason: departs from the deployment mapping public -> enabled_with_firewall; network_ownership is none, so the app's
+          outbound addresses are public and change, and a firewall with no rules would lock the app out of its own backends
+      network_acl_bypass: {value: None, source: default}
     identity:
       role_assignments:
         value:
           sandbox:
-            - { principal: app-service, role: Key Vault Secrets User }
+          - {principal: app-service, role: Key Vault Secrets User}
         source: forced
-        forced_by: wiring.access      # the app reads the client secret at start
+        forced_by: wiring.access  # the app reads the client secret at start
     security:
-      enabled_for_services:
-        value: []
-        source: default
+      enabled_for_services: {value: [], source: default}
       secret_placeholders:
         value: [entra-client-secret]
-        source: stated          # "Der Login soll mit client secret über eine Entra ID App laufen"
+        source: stated  # "Der Login soll mit client secret über eine Entra ID App laufen"
     keys:
-      key_management:
-        value: platform_managed
-        source: deployment
+      key_management: {value: platform_managed, source: deployment}
     observability:
-      diagnostic_workspace:
-        value: { sandbox: log-analytics-workspace }
-        source: deployment
-      diagnostic_categories:
-        value: [AuditEvent, AzurePolicyEvaluationDetails]
-        source: default
-      metrics_enabled:
-        value: true
-        source: default
+      diagnostic_workspace: {value: {sandbox: log-analytics-workspace}, source: deployment}
+      diagnostic_categories: {value: [AuditEvent, AzurePolicyEvaluationDetails], source: default}
+      metrics_enabled: {value: true, source: default}
 
   log-analytics-workspace:
     cost:
-      retention_days:
-        value: 30
-        source: deployment
-      daily_quota_gb:
-        value: -1
-        source: deployment
-      sku:
-        value: PerGB2018
-        source: default
+      retention_days: {value: 30, source: deployment}
+      daily_quota_gb: {value: -1, source: deployment}
+      sku: {value: PerGB2018, source: default}
     access:
-      public_network_access:
-        value: enabled
-        source: default
-      local_auth:
-        value: disabled
-        source: deployment
-      rbac_only_access:
-        value: true
-        source: default
+      public_network_access: {value: enabled, source: default}
+      local_auth: {value: disabled, source: deployment}
+      rbac_only_access: {value: true, source: default}
     data_protection:
-      immediate_purge_protection:
-        value: true
-        source: default
-      archive_to_storage:
-        value: false
-        source: default
+      immediate_purge_protection: {value: true, source: default}
+      archive_to_storage: {value: false, source: default}
 
 wiring:
   private_dns_zones:
     value: []
     source: forced
-    forced_by: deployment.network_ownership   # no private endpoints, no zones
+    forced_by: deployment.network_ownership  # no private endpoints, no zones
   access:
     value:
-      - { from: users, to: app-service, label: HTTPS 443 }
-      - { from: app-service, to: external:entra-id, label: Anmeldung (Client Secret) }
-      - { from: app-service, to: foundry }
-      - { from: app-service, to: search-service, label: Suche }
-      - { from: app-service, to: storage-account }
-      - { from: search-service, to: storage-account, label: indexiert die Dokumente }
-      - { from: search-service, to: foundry, label: Embeddings }
-      - { from: app-service, to: key-vault, label: liest das Client Secret }
+    - {from: users, to: app-service, label: HTTPS 443}
+    - {from: app-service, to: 'external:entra-id', label: Anmeldung (Client Secret)}
+    - {from: app-service, to: foundry}
+    - {from: app-service, to: search-service, label: Suche}
+    - {from: app-service, to: storage-account}
+    - {from: search-service, to: storage-account, label: indexiert die Dokumente}
+    - {from: search-service, to: foundry, label: Embeddings}
+    - {from: app-service, to: key-vault, label: liest das Client Secret}
     source: stated
   purposes:
     value:
@@ -476,23 +321,24 @@ wiring:
       key-vault: Client Secret der Entra-App
       log-analytics-workspace: Protokolle aller Ressourcen
     source: stated
-  optional:
-    value: []
-    source: default
+  optional: {value: [], source: default}
 
 open:
-  - key: resources.app-service.runtime.container_image
-    question: Welches Container-Image läuft in der App - Registry, Repository und ein Tag, der nicht "latest" ist? Und aus welcher Registry darf die App es mit ihrer Identität ziehen?
-    owner: Workload-Team
-    environments: [sandbox]
-    blocks: apply
-  - key: resources.foundry.models.model_deployments
-    question: Welches Chat-Modell und welches Embedding-Modell, in welchen genauen Versionen, mit welchem Kontingent? Wird beim Rendern gegen den Katalog der Region als DataZoneStandard nachgeschlagen, nie aus dem Gedächtnis.
-    owner: Workload-Team
-    environments: [sandbox]
-    blocks: apply
-  - key: wiring.entra_app_registration
-    question: Die Entra-App-Registrierung und ihr Client Secret. Ein Verzeichnisobjekt, keine Azure-Ressource - das Identity-Team legt sie an; das Secret kommt in den Key-Vault-Platzhalter "entra-client-secret".
-    owner: Identity-Team
-    environments: [sandbox]
-    blocks: apply
+- key: resources.app-service.runtime.container_image
+  environments: [sandbox]
+  question: Welches Container-Image läuft in der App - Registry, Repository und ein Tag, der nicht "latest" ist? Und aus welcher
+    Registry darf die App es mit ihrer Identität ziehen?
+  owner: Workload-Team
+  blocks: apply
+- key: resources.foundry.models.model_deployments
+  environments: [sandbox]
+  question: Welches Chat-Modell und welches Embedding-Modell, in welchen genauen Versionen, mit welchem Kontingent? Wird beim
+    Rendern gegen den Katalog der Region als DataZoneStandard nachgeschlagen, nie aus dem Gedächtnis.
+  owner: Workload-Team
+  blocks: apply
+- key: wiring.entra_app_registration
+  environments: [sandbox]
+  question: Die Entra-App-Registrierung und ihr Client Secret. Ein Verzeichnisobjekt, keine Azure-Ressource - das Identity-Team
+    legt sie an; das Secret kommt in den Key-Vault-Platzhalter "entra-client-secret".
+  owner: Identity-Team
+  blocks: apply

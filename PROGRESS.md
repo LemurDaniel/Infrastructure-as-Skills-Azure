@@ -209,6 +209,18 @@ the detail; this list says what was decided and why, so a session does not reope
   `public_audience`; one list question, `resource_groups_created`, derives the per-role
   modes the spec keeps.
 
+- **The spec has a canonical form, laid out by a script** (2026-10-26): the run decides,
+  `write_spec.py` writes the layout - deployment keys in `deployment.yaml` order under a
+  `# --- <group> ---` comment per group (layout only, the path stays `deployment.<id>`), a
+  resource's questions in its set's order, a decision on one line when it fits in 120
+  characters, no anchors, `plugin_version` stamped. Resources keep the run's order: the
+  decision document, the name list and the picture follow it. No value changes and no
+  comment is lost (comments carry quoted customer answers and `overridden` reasons), or the
+  file is not written. Before, the model typed the file and every example looked different
+  (anchors in `chatbot`, maps vs. scalars, block vs. one-line entries). Learned from
+  comparing with github/spec-kit; nesting the deployment groups was rejected for the
+  hundreds of `deployment.<id>` references it would move.
+
 ## State
 
 - **18 more sets written 2026-10-26 (67 resource sets in 10 families, 1,442 questions with the deployment
@@ -373,6 +385,15 @@ first written from `main` and failed `terraform validate` on the pinned tag. Wri
 a reference against the installed module, never against `main`. Each item is a finding from a run or a review, kept
 until it is fixed or decided against.
 - **The examples still carry `system_assigned` for Foundry, storage account and AI Services** (chat-sandbox, chatbot, chatbot-multi-rg, chatbot-rag): their specs, renders and tests predate the `none` default. Re-render them or leave them as the explicit value; either is valid, but a fresh interview now answers `none`. The Foundry project child keeps its own system-assigned identity (the API requires it); SQL database, search and API Management were left at `system_assigned` on purpose - their roles and data sources need it.
+
+- **Canonical spec, follow-ups** (2026-10-26): the six example specs are laid out with
+  `write_spec.py --no-stamp` (the decisions were not re-made; every spec reader gave the same
+  output before and after, `export_decisions.py` and `check_render_coverage.py` in a new
+  order only). Open: every committed `infra-decisions.md` already differs from a fresh export
+  of its spec (20-200 lines, exporter changes since) - re-export in a commit of its own;
+  `eval-agent/infra/infra-spec.yaml` is not laid out (its hand-written group comments would
+  stand beside the generated ones); `check_repo_consistency.py` could run `write_spec.py
+  --check` on the examples; no eval asserts the run calls the script.
 
 ### Rendering references and question sets
 
