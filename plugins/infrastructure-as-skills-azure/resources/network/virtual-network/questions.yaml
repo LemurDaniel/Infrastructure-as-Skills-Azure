@@ -255,12 +255,15 @@ groups:
         plain_values:
           true: { en: "kept", de: "geführt" }
           false: { en: "not kept", de: "nicht geführt" }
-        default: false
+        derived_from:
+          question: priority
+          map: { cost: false, balanced: false, protection: true }
         confirm_in: [production]
         why: >
           Flow logs are the only record of which traffic was actually allowed or
           denied, so they are what a security investigation needs. They are also
           billed per gigabyte of flow data plus storage, and they require a
           Network Watcher and a storage account in the same region — enough moving
-          parts that enabling them silently is the wrong default.
+          parts that enabling them silently is the wrong default; they are on only when the
+          customer put protection first.
         renders: azurerm_network_watcher_flow_log / Microsoft.Network/networkWatchers/flowLogs

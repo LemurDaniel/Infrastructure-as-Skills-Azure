@@ -115,7 +115,9 @@ groups:
           non_production_default in every stage, recorded as forced with `environments`
           as forced_by - there is no production to be the baseline, and a sandbox that
           pays production prices (a P1v3 plan, ZRS) is the finding of the first dry run
-          (2026-10-24). The question is then not asked.
+          (2026-10-24). The question is then not asked. `priority: protection` forces
+          `disabled`, recorded as forced with `priority` as forced_by: every stage like
+          production is what that answer means.
         depends_on: { question: environments, not_equals: [sandbox] }
         why: >
           A development stage that keeps three copies of its data in three
@@ -766,6 +768,39 @@ groups:
           (a geo tier only where the paired region satisfies it), cosmos-db.geo_replicas
           and backup_storage_redundancy, container-registry.geo_replicas, and the
           `location` parameter of every stage
+
+      - id: priority
+        ask: Where should the money go - keep the running cost as low as it can be, balance cost and protection, or spend more wherever it makes the system safer and harder to take down?
+        type: enum
+        values: [cost, balanced, protection]
+        default: balanced
+        resolved_by: interview
+        topic: platform
+        plain:
+          en: "The system is built {value}."
+          de: "Das System wird {value} gebaut."
+        plain_values:
+          cost: { en: "for the lowest running cost the security baseline allows", de: "auf geringste laufende Kosten, soweit die Sicherheitsvorgaben es erlauben" }
+          balanced: { en: "balancing cost and protection", de: "mit Ausgewogenheit zwischen Kosten und Schutz" }
+          protection: { en: "for protection first: more records, every stage like production", de: "mit Schutz zuerst: mehr Aufzeichnung, jede Stufe wie die Produktion" }
+        confirm_in: [production]
+        why: >
+          The customer decides what an extra euro buys, because only they know what the
+          system is worth. It moves **cost and hardening knobs only, never the security
+          floor**: shared keys off, TLS, encryption, no public access for a private
+          system and the rules of `mandates` hold in all three, and the check that refuses
+          a relaxed security default in a non-production stage still applies. `cost` keeps
+          the non-production stages cheaper than production and turns on nothing that is
+          billed per gigabyte for a record nobody asked for. `balanced` is the guardrail
+          baseline: an unanswered priority changes nothing. `protection` builds every
+          stage like production and switches on the records an investigation needs
+          (storage change feed, network flow logs), which cost money every month. A value
+          the customer named - outage impact, data-loss tolerance, retention, a mandate -
+          wins over this one: it only decides where nobody said anything.
+        renders: >
+          forces non_production_savings to disabled on `protection`; derived by the
+          resource sets: storage-account.change_feed_enabled,
+          virtual-network.flow_logs_enabled
 
   - id: modules
     title: Modules

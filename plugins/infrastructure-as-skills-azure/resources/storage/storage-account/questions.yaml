@@ -507,11 +507,13 @@ groups:
         plain_values:
           true: { en: "kept", de: "geführt" }
           false: { en: "not kept", de: "nicht geführt" }
-        default: false
+        derived_from:
+          question: priority
+          map: { cost: false, balanced: false, protection: true }
         why: >
           An append-only log of blob changes. Useful for downstream processing and
           required for point-in-time restore, otherwise it is storage spent on a
-          log nobody reads.
+          log nobody reads. Off unless the customer put protection first.
         renders: blob_properties.change_feed_enabled / properties.changeFeed
 
       - id: point_in_time_restore_days

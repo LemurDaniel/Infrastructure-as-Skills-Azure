@@ -245,6 +245,8 @@ Beschreib kurz, was ihr braucht. Hilfreich ist alles davon, nichts davon ist Pfl
     ein gekapertes Admin-Konto)?
   - Wo dürfen die Daten liegen und verarbeitet werden: nur im Land, nur in der EU, egal?
   - Gibt es Vorgaben, die ihr nachweisen müsst (BSI C5, ISO 27001, DSGVO, interne Richtlinien)?
+  - Wohin soll das Geld gehen: möglichst niedrige Kosten, ausgewogen, oder Schutz zuerst
+    (mehr Aufzeichnung, jede Stufe wie die Produktion)? An der Sicherheit selbst ändert das nichts.
 ```
 
 ```
@@ -258,6 +260,8 @@ Briefly describe what you need. Everything here helps, none of it is required:
     admin account)?
   - Where may the data be stored and processed: only in the country, only in the EU, anywhere?
   - Are there requirements you must prove (BSI C5, ISO 27001, GDPR, internal policies)?
+  - Where should the money go: lowest running cost, balanced, or protection first (more
+    records, every stage like production)? The security baseline is the same in all three.
 ```
 
 Then map the answer onto the deployment set and every routed question set. Everything it
@@ -420,7 +424,8 @@ customer-facing text in the spec follow it.
 environment, who reaches it and from where, the mandates, and the `requirements` group
 (network requirements - may the network be chosen freely, or are ranges assigned or a
 connection to the company network given -, outage impact, data-loss tolerance, access pattern, backup isolation, data
-residency), fewer only where the description stated an answer. **The `requirements` group is asked in
+residency, priority - cost, balanced or protection first, which moves cost and hardening
+knobs and never the security floor), fewer only where the description stated an answer. **The `requirements` group is asked in
 full, every run**: a requirement that has a default is still asked, because the default
 is the guardrail's guess and the customer is the only one who knows - skipping one because
 the batch looks long is the failure this group exists to prevent. There is no cap on the
