@@ -26,6 +26,7 @@ FIXTURE = os.path.join(HERE, 'fixtures', 'resource-groups.yaml')
 
 SPLIT = "  resource_group_split: { value: [network, data, observability], source: stated }\n"
 MODE_DATA = "  resource_group_mode_data: { value: create, source: stated }\n"
+ISOLATION_RG = "  stage_isolation: { value: resource_group, source: asked }\n"
 GRANT_SUB = "      - { role: Contributor, scope: subscription, for: [deployment.resource_group_mode_main] }\n"
 GRANT_RBAC = "      - { role: Role Based Access Control Administrator, scope: resource_group, for: [resources.key-vault] }\n"
 GRANT_KV = "      - { role: Key Vault Secrets Officer, scope: key-vault, for: [resources.key-vault.security.secret_placeholders] }\n"
@@ -52,6 +53,8 @@ MUTATIONS = [
     ('a secret placeholder without the role to write it', GRANT_KV, '', 'no Key Vault Secrets Officer'),
     ('the secrets role on another vault', GRANT_KV, GRANT_KV.replace('scope: key-vault,', 'scope: key-vault__other,'), 'no Key Vault Secrets Officer'),
     ('a grant without a scope', GRANT_KV, GRANT_KV.replace(' scope: key-vault,', ''), 'not a list of { role, scope, for }'),
+    ('a created group under resource-group stage isolation', MODE_DATA, MODE_DATA + ISOLATION_RG, 'resource_group_mode_data is create under stage_isolation resource_group'),
+    ('a subscription grant under resource-group stage isolation', MODE_DATA, MODE_DATA + ISOLATION_RG, 'grants Contributor on subscription under stage_isolation'),
 ]
 
 # The same spec without a split: every resource group line and the placement taken out.
