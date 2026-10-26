@@ -1,14 +1,19 @@
 name: Release
 
-# A tag v<major>.<minor>.<patch>[-suffix] builds the plugin ZIP and publishes it as a
-# release. A 0.0.x version or a -suffix marks it as a prerelease; 0.1.0 and later are stable.
+# Every push to master - the merge of a pull request - publishes the version in plugin.json
+# as release v<version>; the tag is created here, on the merged commit. pull-request.yml has
+# made sure the version is new. A 0.0.x version or a -suffix marks it as a prerelease;
+# 0.1.0 and later are stable.
 on:
   push:
-    tags:
-      - "v[0-9]+.[0-9]+.[0-9]+*"
+    branches: [master]
 
 permissions:
   contents: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
 
 jobs:
   release:
@@ -18,18 +23,19 @@ jobs:
       PLUGIN_NAME: infrastructure-as-skills-azure
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
 
-      - name: Check the tag against the manifest
+      - name: Read the version from the manifest
         id: version
         run: |
-          version="${GITHUB_REF_NAME#v}"
-          manifest="$(python3 -c "import json; print(json.load(open('$PLUGIN_DIR/.claude-plugin/plugin.json'))['version'])")"
-          if [ "$version" != "$manifest" ]; then
-            echo "::error::tag $GITHUB_REF_NAME does not match plugin.json version $manifest"
+          version="$(python3 -c "import json; print(json.load(open('$PLUGIN_DIR/.claude-plugin/plugin.json'))['version'])")"
+          if git rev-parse -q --verify "refs/tags/v$version" >/dev/null; then
+            echo "::error::v$version is already released; a merge to master must raise the version in plugin.json"
             exit 1
           fi
           if [[ "$version" == 0.0.* ]] || [[ "$version" == *-* ]]; then
@@ -38,6 +44,7 @@ jobs:
             echo "prerelease=false" >> "$GITHUB_OUTPUT"
           fi
           echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "tag=v$version" >> "$GITHUB_OUTPUT"
 
       - name: Run the repository checks
         run: |
@@ -56,8 +63,9 @@ jobs:
       - name: Publish the release
         env:
           GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.version.outputs.tag }}
         run: |
           flags=""
           if [ "${{ steps.version.outputs.prerelease }}" = "true" ]; then flags="--prerelease"; fi
-          gh release create "$GITHUB_REF_NAME" "$ZIP_NAME" "$ZIP_NAME.sha256" \
-            --title "$GITHUB_REF_NAME" --generate-notes $flags
+          gh release create "$TAG" "$ZIP_NAME" "$ZIP_NAME.sha256" \
+            --target "$GITHUB_SHA" --title "$TAG" --generate-notes $flags
