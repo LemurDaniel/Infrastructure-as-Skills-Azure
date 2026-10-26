@@ -30,6 +30,15 @@ deployment type. Two deployments of one model in one subscription share it.
 offered per region and retired on a schedule. A version pinned in a spec expires; the
 `version_upgrade_option` decides whether that is an upgrade or an outage.
 
+**A Foundry account in another region keeps its endpoint at home.** When the account departs
+from `context.location` (`placement.location`), the private endpoint still sits in the
+network's subnet and region - a private endpoint reaches a resource in any region. The
+Terraform module places the endpoint in the *account's* region unless the entry names one, so
+the render writes it; Bicep takes the network's. The resource group, the workspace and the
+connected storage and search stay where they are; diagnostics and calls cross the region,
+which costs latency and a little egress, not a design change. Agent network injection is the
+exception: it requires the account in the network's region.
+
 **`GlobalStandard` is the portal's default and processes anywhere.** `DataZoneStandard` keeps
 processing in the data zone. For a mandate that names residency this is the decision that
 matters, and it is easy to take by clicking through.
