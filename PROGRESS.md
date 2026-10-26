@@ -492,9 +492,10 @@ per-family` in `check_spec.py` and the `chatbot` spec, and `references/private-d
   `subscription` for a `create` group, `Role Based Access Control Administrator` for any role
   assignment, `Key Vault Secrets Officer` per vault with placeholders. `check_spec.py` fails on
   a missing one and warns on a spec without the key; `run_spec_tests.py` breaks each; the
-  hand-over in `pipelines.md` names them. Open: no tracked spec carries the key yet (every
-  example and `eval-agent/infra` warns), no rendered pipeline header lists it, and
-  `check_pipeline.py` does not check the header against it.
+  hand-over in `pipelines.md` names them. Every example spec and `eval-agent/infra` carries
+  it, derived by the rules and re-exported; the six pipeline fixtures under `tests/pipelines/`
+  do not. Open: no rendered pipeline header lists the roles, and `check_pipeline.py` does not
+  check the header against the spec.
 - The diagrams of `chatbot-rag`, `chat-sandbox` and `orders-integration` were not redrawn
   after region/subscription became `open:` (2026-10-26); `chat-sandbox`'s carries hand edits
   a redraw would lose.
