@@ -228,6 +228,15 @@ the detail; this list says what was decided and why, so a session does not reope
   name. Before, the rule said "never an open item", and runs filled the gap with a plausible
   `westeurope` that read as a decision. `check_spec.py` warns (not errors) on a value that is
   neither: a filled-in stage file carries it without the spec.
+- **Only the Foundry account may run in another region** (2026-10-27, owner's call: an edge
+  case, not a general mechanism). A model `context.location` lacks is first tried as
+  `DataZoneStandard` there; only then `resources.foundry.placement.location` (Sweden Central
+  the usual one), named by the person with the model as the reason, one region for every
+  stage - regions per stage make no sense. Refused under `data_residency: country`. The
+  private endpoint stays in the network's region and is written explicitly: the Terraform
+  AVM module otherwise puts it in the account's region (checked in `main.privateendpoint.tf`).
+  Agent network injection needs the account in the VNet's region (Microsoft Learn), so it
+  rules the departure out. The names are unchanged: the account's pattern has no region.
 - **Every change is a branch and a PR; every merge into `master` is a release** (2026-10-26,
   owner's call). No `dev` branch: one person, and the marketplace reads `master`, so what is
   there is released anyway. `pull-request.yml` fails unless `plugin.json`'s version is newer
@@ -427,6 +436,11 @@ Premium `Microsoft.Web/serverFarms`), the Foundry project API version, `foundry.
 `app-service` `plan` decision (own or shared), the Bicep per-family shape, `granularity:
 per-family` in `check_spec.py` and the `chatbot` spec, and `references/private-dns-zones.md`.
 
+- **Foundry in another region is not rendered anywhere yet** (2026-10-27): `check_spec.py` and
+  `run_spec_tests.py` cover the spec side, `terraform.md`/`bicep.md` the shape; no example, eval
+  case or `terraform test` exercises `foundry_location` and the endpoint on `var.location`.
+  Under `data_zone` the departing region is not machine-checked against the zone - the same
+  region table the pipeline guard below needs would close it.
 - **Pipeline guard for `location` against `data_residency`**: not done. It needs a region -> country
   and data-zone table (`az account list-locations` carries `geographyGroup` and `geography`), an
   invariant 13 in `pipelines.md`, a step in the four platform files and the local script, a check
