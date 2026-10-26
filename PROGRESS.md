@@ -436,6 +436,11 @@ Premium `Microsoft.Web/serverFarms`), the Foundry project API version, `foundry.
 `app-service` `plan` decision (own or shared), the Bicep per-family shape, `granularity:
 per-family` in `check_spec.py` and the `chatbot` spec, and `references/private-dns-zones.md`.
 
+- **Revise `naming.yaml` and the naming** (2026-10-27, owner's todo): the convention
+  (`core/iac-rendering/references/naming.default.yaml`) and the naming interface
+  (`references/naming.md`) get a rework; the scope is the owner's to set before a session
+  starts on it. It came up with the Foundry region departure: the account's pattern carries
+  no `<LOCATION>` while most others do.
 - **Foundry in another region is not rendered anywhere yet** (2026-10-27): `check_spec.py` and
   `run_spec_tests.py` cover the spec side, `terraform.md`/`bicep.md` the shape; no example, eval
   case or `terraform test` exercises `foundry_location` and the endpoint on `var.location`.
