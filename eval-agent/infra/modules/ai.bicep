@@ -43,8 +43,7 @@ resource account 'Microsoft.CognitiveServices/accounts@2025-06-01' = {
   // decision: foundry.account.sku_name
   sku: { name: 'S0' }
 
-  // decision: foundry.identity.managed_identity
-  identity: { type: 'SystemAssigned' }
+  // decision: foundry.identity.managed_identity - none: no identity block
 
   properties: {
     // The subdomain is required for token authentication and private endpoints, and cannot be changed.

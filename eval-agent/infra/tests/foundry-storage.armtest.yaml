@@ -47,8 +47,8 @@
   equals: true
 
 - decision: foundry.identity.managed_identity
-  path: resources.ai.properties.template.resources.account.identity.type
-  equals: SystemAssigned
+  path: resources.ai.properties.template.resources.account.identity
+  absent: true
 
 - decision: foundry.identity.role_assignments
   stage: production
@@ -98,8 +98,8 @@
   equals: AzureServices
 
 - decision: storage-account.identity.managed_identity
-  path: resources.storage.properties.template.resources.storageAccount.identity.type
-  equals: SystemAssigned
+  path: resources.storage.properties.template.resources.storageAccount.identity
+  absent: true
 
 - decision: storage-account.identity.role_assignments
   stage: production

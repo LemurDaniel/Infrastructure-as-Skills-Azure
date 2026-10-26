@@ -44,8 +44,7 @@ resource storageAccount 'Microsoft.Storage/storageAccounts@2025-01-01' = {
     name: 'Standard_LRS'
   }
 
-  // decision: storage-account.identity.managed_identity
-  identity: { type: 'SystemAssigned' }
+  // decision: storage-account.identity.managed_identity - none: no identity block
 
   properties: {
     // decision: storage-account.security.min_tls_version

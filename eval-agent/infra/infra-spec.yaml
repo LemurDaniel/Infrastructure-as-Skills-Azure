@@ -462,7 +462,7 @@ resources:
         source: default
     identity:
       managed_identity:
-        value: system_assigned
+        value: none
         source: default
       role_assignments:
         value:
@@ -502,7 +502,7 @@ resources:
         source: default
     identity:
       managed_identity:
-        value: system_assigned
+        value: none
         source: default
       role_assignments:
         value:

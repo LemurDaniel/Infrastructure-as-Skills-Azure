@@ -143,7 +143,7 @@ Nichts davon wurde gefragt; jede Zeile folgt einer Regel oder einer der Antworte
 - Das Konto ist aus dem Internet überhaupt nicht erreichbar.
 - Seine private Anbindung landet im Subnetz pe.
 - Das Konto darf nur Adressen aufrufen, die ausdrücklich erlaubt sind.
-- Das Konto hat eine eigene Identität.
+- Das Konto hat keine eigene Identität.
 - Zugriffsrechte auf das Konto vergeben an: keine.
 - Die Anmeldung mit Kontoschlüsseln ist abgeschaltet; der Zugriff läuft über Firmenkonten.
 - Verschlüsselungsschlüssel sind von Azure verwaltet: verschlüsselt, rotiert, kein Aufwand bei euch.
@@ -157,7 +157,7 @@ Nichts davon wurde gefragt; jede Zeile folgt einer Regel oder einer der Antworte
 - Seine private Anbindung landet im Subnetz pe.
 - Private Anbindungen gibt es für: Dateien (Blob).
 - Azures eigene Dienste (Backup, Überwachung) dürfen am Firewall vorbei auf den Speicher zugreifen.
-- Der Speicher hat eine eigene Identität, um andere Dienste zu erreichen.
+- Der Speicher hat keine eigene Identität, um andere Dienste zu erreichen.
 - Zugriffsrechte vergeben an: keine.
 - Zugriff mit einem geteilten Schlüssel ist nicht möglich; der Zugriff läuft über Firmenkonten.
 - Verbindungen müssen mindestens TLS 1.2-Verschlüsselung nutzen.
@@ -442,7 +442,7 @@ Solange diese Punkte offen sind, wird nichts ausgerollt.
 | `foundry.networking.public_network_access` | disabled | übernommen |
 | `foundry.networking.private_endpoint_subnet` | pe | übernommen |
 | `foundry.networking.restrict_outbound` | true | Regel |
-| `foundry.identity.managed_identity` | system_assigned | Regel |
+| `foundry.identity.managed_identity` | none | Regel |
 | `foundry.identity.role_assignments` | {"production": []} | Regel |
 | `foundry.security.local_authentication_disabled` | true | übernommen |
 | `foundry.security.key_management` | platform_managed | übernommen |
@@ -453,7 +453,7 @@ Solange diese Punkte offen sind, wird nichts ausgerollt.
 | `storage-account.networking.private_endpoint_subnet` | pe | übernommen |
 | `storage-account.networking.private_endpoint_subresources` | ["blob"] | Regel |
 | `storage-account.networking.allow_azure_services_bypass` | true | Regel |
-| `storage-account.identity.managed_identity` | system_assigned | Regel |
+| `storage-account.identity.managed_identity` | none | Regel |
 | `storage-account.identity.role_assignments` | {"production": []} | Regel |
 | `storage-account.security.shared_access_key_enabled` | false | übernommen |
 | `storage-account.security.min_tls_version` | TLS1_2 | Regel |
