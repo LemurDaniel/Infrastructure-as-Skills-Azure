@@ -41,6 +41,7 @@ Nichts davon wurde gefragt; jede Zeile folgt einer Regel oder einer der Antworte
 
 - Die Pipeline meldet sich mit einem kurzlebigen Token pro Lauf, ohne irgendwo gespeichertes Passwort bei Azure an.
 - Eine Person gibt die Änderung frei, bevor sie ausgerollt wird: nur im Echtbetrieb.
+- Wer ausrollt, braucht neben dem Recht, die Ressourcen zu ändern: Role Based Access Control Administrator (resource_group), Key Vault Secrets Officer (key-vault). — weil: `wiring.role_assignments, resources.key-vault.security.secret_placeholders`
 - Das System landet in einer eigenen Umgebung: es gibt keine gemeinsame Plattform, also bringt es Netz, Namensauflösung und Logging selbst mit. — weil: Das Netz wird von diesem Ausrollen frei gewählt, ohne Verbindung zum Firmennetz und ohne VPN. _(bitte bestätigen)_
 - Passwörter und Zugriffsschlüssel sind abgeschaltet; der Zugriff läuft über Firmenkonten, damit jede Aktion zuordenbar ist. _(bitte bestätigen)_
 - Verschlüsselungsschlüssel sind in Software geschützt, der Standard, ausreichend ohne Vorgabe für Hardware.
@@ -350,6 +351,7 @@ Solange diese Punkte offen sind, wird nichts ausgerollt.
 | `deployment.deploy_mechanism` | github | eure Antwort |
 | `deployment.pipeline_auth` | workload_identity | Regel |
 | `deployment.pipeline_approvals` | production | Regel |
+| `deployment.deployer_roles` | [{"role": "Role Based Access Control Administrator", "scope": "resource_group", "for": ["wiring.role_assignments"]}, {"role": "Key Vault Secrets Officer", "scope": "key-vault", "for": ["resources.key-vault.security.secret_placeholders"]}] | erzwungen |
 | `deployment.network_requirements` | free | eure Antwort |
 | `deployment.outage_impact` | tolerable | eure Antwort |
 | `deployment.data_loss_tolerance` | reproducible | eure Antwort |
