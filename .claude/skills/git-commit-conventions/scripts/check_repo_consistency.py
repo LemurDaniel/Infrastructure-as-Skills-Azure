@@ -25,7 +25,8 @@ plugin repo whose content is Markdown and YAML:
      family's routing.md linked from core/azure-resources, and no row
      pointing at a missing file.
   7. No CLAUDE.md inside the plugin directory - it is not loaded as context
-     there and claude plugin validate warns about it.
+     there and claude plugin validate warns about it. Every tracked
+     infra-spec.yaml is in the canonical form write_spec.py lays out.
   8. Relative Markdown links resolve, and no tracked path contains a space.
   9. `claude plugin validate` on the plugin and on the marketplace. It is the
      only check that reads the manifest the way the loader does. If the CLI
@@ -486,6 +487,26 @@ def main():
             say('[fail] the CLAUDE.md block changed without a new rev', 'red')
             say(f"         {(p.stdout or p.stderr).strip()}", 'gray')
             errors.append('A customer repository only updates its CLAUDE.md section when rev rises. Bump rev in references/claude-md-block.md and write the line --verify-lock names into claude-md-block.lock.')
+
+    # --- 7d. every tracked spec is in canonical form ------------------------
+    write_spec = os.path.join(plugin_root, 'core', 'iac-authoring', 'scripts', 'write_spec.py')
+    specs = [t for t in tracked if os.path.basename(t) == 'infra-spec.yaml']
+    if os.path.isfile(write_spec) and specs:
+        loose = []
+        for t in specs:
+            p = subprocess.run([sys.executable, write_spec, os.path.join(repo, t), '--check'],
+                               capture_output=True, text=True)
+            if p.returncode == 1:
+                loose.append(t)
+            elif p.returncode != 0:
+                loose.append(f"{t} - {(p.stdout or p.stderr).strip().splitlines()[-1].split(': ', 1)[-1]}")
+        if not loose:
+            say(f"[ ok ] {len(specs)} tracked spec(s) in canonical form", 'green')
+        else:
+            say(f"[fail] {len(loose)} tracked spec(s) not in canonical form", 'red')
+            for h in loose:
+                say(f"         {h}", 'gray')
+            errors.append('A spec typed by hand diffs how it was typed, not what moved. Run core/iac-authoring/scripts/write_spec.py <spec> --no-stamp on it (without --no-stamp when its decisions were just made).')
 
     # --- 8. relative links + spaces in paths -------------------------------
     if args.skip_links:

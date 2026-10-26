@@ -132,6 +132,9 @@ It verifies, read-only:
   and no row pointing at a file that does not exist. Warning.
 - **no `CLAUDE.md` inside the plugin directory** — it is not loaded as context
   there and `claude plugin validate` warns about it. Error.
+- **every tracked `infra-spec.yaml` in canonical form** (`write_spec.py --check`):
+  a spec typed by hand diffs its typing, not its decisions. Error; fix with
+  `write_spec.py <spec> --no-stamp` for a spec only reformatted.
 - **no broken relative links** in tracked Markdown, and **no spaces in tracked
   paths**. Error.
 - **`claude plugin validate`**, on the plugin and on the marketplace. Error if
