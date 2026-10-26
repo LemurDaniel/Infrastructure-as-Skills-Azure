@@ -607,6 +607,38 @@ groups:
           the environment each apply job runs in, and the approval check the
           platform must hold on it; no job applies a plan another run produced
 
+      - id: deployer_roles
+        ask: Which roles does the identity that deploys need beyond its baseline?
+        type: list
+        resolved_by: derived
+        plain:
+          en: "Besides changing the resources themselves, whoever deploys needs: {value}."
+          de: "Wer ausrollt, braucht neben dem Recht, die Ressourcen zu ändern: {value}."
+        default: []
+        forced_when: >
+          Derived from the spec, never asked; each entry is `{ role, scope, for }`, `for`
+          naming the decisions that need it. Any `resource_group_mode_<role>: create` adds
+          `Contributor` on `subscription` (a group is created at subscription scope). A
+          non-empty `role_assignments` on any resource, or `wiring.role_assignments`, adds
+          `Role Based Access Control Administrator` on `resource_group`, conditioned to the
+          roles the spec assigns. A key vault with non-empty `secret_placeholders` adds
+          `Key Vault Secrets Officer` on that vault's resource key. Recorded as `forced`
+          with `forced_by` listing the decisions.
+        why: >
+          The deploying identity's baseline is `Contributor` on the groups it deploys into,
+          and that is control plane only. Three things in a spec need more, and each fails
+          in the middle of the first apply rather than at plan: writing a secret is data
+          plane (RBAC vaults give the creator no access), assigning a role needs
+          `Microsoft.Authorization/roleAssignments/write`, which `Contributor` lacks, and a
+          resource group is created one scope above the groups. `Role Based Access Control
+          Administrator` with a condition on the assigned roles is the narrow grant;
+          `Owner` or `User Access Administrator` would let the pipeline grant itself
+          anything. The identity and its grants are the platform's, created once; the spec
+          records what they must be so the hand-over can name them.
+        renders: >
+          the pipeline header's hand-over list and the reply (pipelines.md, "What the
+          render hands over"); nothing in the Terraform or Bicep
+
   # ---------------------------------------------------------------- requirements
   # What the customer can say about the system without knowing Azure. Each answer
   # derives technical decisions in the resource sets: a resource question carrying

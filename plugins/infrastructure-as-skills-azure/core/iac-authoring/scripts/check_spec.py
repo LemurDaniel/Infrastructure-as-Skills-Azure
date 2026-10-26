@@ -34,6 +34,12 @@ Read-only. Checks what the contract in references/spec.md promises:
      but never left to a value the run picks either. A warning, not an error:
      a stage file someone filled in carries them without the spec. A `create`
      group's name is computed by the render.
+ 10. Deployer roles: what the spec asks of the identity that deploys is in
+     `deployment.deployer_roles` - `Contributor` on `subscription` for a
+     `create` group, `Role Based Access Control Administrator` for any role
+     assignment, `Key Vault Secrets Officer` on each vault with secret
+     placeholders. A missing role is an error; a spec without the key is a
+     warning (written before the key existed).
 
 Needs PyYAML (pip install pyyaml). Without it the script says so and exits 2
 rather than pretending the file is fine.
@@ -67,6 +73,10 @@ PLUGIN = os.path.abspath(os.path.join(HERE, '..', '..', '..'))
 RG_ROLES_FILE = os.path.join(HERE, '..', '..', 'iac-rendering', 'references', 'resource-group-roles.yaml')
 RG_MODES = ['existing', 'create']
 RG_LOCKS = ['production', 'all_stages', 'none']
+# A role satisfies a need when it is the narrow one or broader; broader is the platform's call.
+ROLES_ASSIGN = ['Role Based Access Control Administrator', 'User Access Administrator', 'Owner']
+ROLES_SECRETS = ['Key Vault Secrets Officer', 'Key Vault Administrator', 'Owner']
+ROLES_CREATE_GROUP = ['Contributor', 'Owner']
 
 
 def load_question_index(yaml):
@@ -392,6 +402,52 @@ def main():
         if ctx_node.get(key) in (None, '', {}) and f"context.{key}" not in open_keys:
             warnings.append(f"context.{key} has no value and no open entry - only right when every stage file already "
                             f"carries it; a run that was not told it writes an open entry and a placeholder")
+
+    # --- 10. deployer roles ------------------------------------------------
+    def filled(v):
+        """A list value, or a stage map of lists, that holds at least one entry."""
+        if isinstance(v, dict):
+            return any(filled(x) for x in v.values())
+        return bool(v)
+
+    needs = []  # (what, accepted roles, accepted scopes, the decision that needs it)
+    creates = [f'deployment.resource_group_mode_{r}' for r in in_play if dep_value(f'resource_group_mode_{r}') == 'create']
+    if creates:
+        needs.append(('a resource group is created', ROLES_CREATE_GROUP, ['subscription'], creates))
+    assigning = []
+    for rkey, rnode in (get(spec, 'resources') or {}).items():
+        for gnode in (rnode or {}).values() if isinstance(rnode, dict) else []:
+            d = get(gnode, 'role_assignments')
+            if isinstance(d, dict) and filled(d.get('value')):
+                assigning.append(f'resources.{rkey}')
+        if str(rkey).split('__')[0] == 'key-vault':
+            d = get(get(rnode, 'security'), 'secret_placeholders')
+            if isinstance(d, dict) and filled(d.get('value')):
+                needs.append((f"'{rkey}' holds secret placeholders", ROLES_SECRETS, [rkey, 'resource_group', 'subscription'],
+                              [f'resources.{rkey}.security.secret_placeholders']))
+    d = get(get(spec, 'wiring'), 'role_assignments')
+    if isinstance(d, dict) and filled(d.get('value')):
+        assigning.append('wiring.role_assignments')
+    if assigning:
+        needs.insert(0, ('roles are assigned', ROLES_ASSIGN, ['resource_group', 'subscription'], assigning))
+
+    granted = dep_value('deployer_roles')
+    dr_errors = len(errors)
+    if granted is None:
+        if needs:
+            warnings.append("deployment.deployer_roles is missing - the spec needs "
+                            + '; '.join(f"{n[1][0]} ({n[0]})" for n in needs)
+                            + ". A run re-derives it; until then the hand-over cannot name them")
+    elif not isinstance(granted, list) or not all(isinstance(g, dict) and g.get('role') and g.get('scope') for g in granted):
+        errors.append("deployment.deployer_roles is not a list of { role, scope, for } entries")
+    else:
+        for what, roles, scopes, by in needs:
+            if not any(g['role'] in roles and g['scope'] in scopes for g in granted):
+                errors.append(f"deployment.deployer_roles has no {roles[0]} on {scopes[0]}, but {what} "
+                              f"({', '.join(by[:3])}{' +' + str(len(by) - 3) if len(by) > 3 else ''}) - "
+                              f"the first apply fails there")
+        if len(errors) == dr_errors:
+            ok(f"deployer roles - {len(granted)} grant(s) cover what the spec needs")
 
     # --- open: and assumed -------------------------------------------------
     blocking = []
