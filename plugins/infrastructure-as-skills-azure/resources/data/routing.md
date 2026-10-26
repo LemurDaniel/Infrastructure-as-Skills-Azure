@@ -6,10 +6,13 @@ skill. Routing table - the request picks the question set:
 | Request mentions | Question set | Notes |
 |---|---|---|
 | Cosmos DB, Cosmos, NoSQL, document database, conversation history store | `cosmos-db/questions.yaml` | [notes](cosmos-db/notes.md) - API for NoSQL only |
-| Azure SQL, SQL database, SQL Server, Azure SQL Database, elastic pool, serverless SQL, TDE | `sql-database/questions.yaml` | [notes](sql-database/notes.md) - Azure SQL Database (logical server and databases); not Managed Instance |
+| Azure SQL, SQL database, SQL Server, Azure SQL Database, elastic pool, serverless SQL, TDE | `sql-database/questions.yaml` | [notes](sql-database/notes.md) - Azure SQL Database (logical server and databases); not Managed Instance (own set below) |
 | PostgreSQL, Postgres, flexible server (Postgres) | `postgresql-flexible-server/questions.yaml` | [notes](postgresql-flexible-server/notes.md) |
 | MySQL, flexible server (MySQL) | `mysql-flexible-server/questions.yaml` | [notes](mysql-flexible-server/notes.md) |
 | Redis, cache, Managed Redis, session store | `redis-cache/questions.yaml` | [notes](redis-cache/notes.md) - Azure Managed Redis only; the older Azure Cache for Redis has no question set |
+| SQL Managed Instance, Managed Instance, SQL MI, managed SQL Server, SQL Agent, cross-database queries, lift-and-shift SQL Server, Instanz | `sql-managed-instance/questions.yaml` | [notes](sql-managed-instance/notes.md) - the instance in its delegated subnet; 4-6 h deployment; not Azure SQL Database |
+| Data Factory, ADF, data pipelines, ETL, ELT, copy activity, data flows, integration runtime, Datenintegration | `data-factory/questions.yaml` | [notes](data-factory/notes.md) - the factory and its runtimes; pipelines are content |
+| Purview, Microsoft Purview, data catalog, data governance, data map, lineage, Datenkatalog | `purview-account/questions.yaml` | [notes](purview-account/notes.md) - one account per tenant; default is to reference the platform's |
 | MongoDB, Cassandra, Gremlin, Table API | *not yet written* | Other Cosmos DB APIs decide differently; not covered by the NoSQL set |
 | Storage account, blob, data lake | see the [storage](../storage/routing.md) family | Not here |
 
