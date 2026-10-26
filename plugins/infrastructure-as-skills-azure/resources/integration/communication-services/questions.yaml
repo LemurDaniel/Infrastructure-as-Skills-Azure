@@ -1,0 +1,399 @@
+schema_version: 1
+
+resource: Microsoft.Communication/communicationServices
+title: Azure Communication Services (with an optional Email Communication Service)
+
+# The communication resource is global; its data location is a separate, immutable choice.
+# An Email Communication Service (`Microsoft.Communication/emailServices`, abbreviation
+# `acs` as well - CAF has no separate one) and its domain are rendered beside it when
+# `email` says so, and linked to it.
+naming:
+  terraform: "Azure::Microsoft.Communication/communicationServices"
+  bicep: "Microsoft.Communication/communicationServices"
+  # Bicep assembles the name from vars - this is the prefix it renders. The name is global
+  # (1-63 characters, letters, digits and hyphens) and is the endpoint hostname.
+  abbreviation: "acs"
+
+boundaries:
+  - "Does not create the resource group. Expects one from the spec's context."
+  - "Does not acquire phone numbers, short codes, alphanumeric sender IDs or Teams interoperability - purchases and tenant settings, done in the portal or by the application team, not infrastructure."
+  - "Does not create the public DNS records a custom e-mail domain needs (domain verification TXT, SPF, DKIM, DMARC) - the zone is the platform's or the customer's registrar's; the records are an `open:` entry owned by whoever holds the zone, and the domain stays unverified until they exist."
+  - "Does not create the Log Analytics workspace it logs to."
+  - "Does not create a network security perimeter - the only way to close the public endpoint, and a platform resource with a question set of its own."
+  - "Does not render identities for end users (the identity and token API), chat threads, rooms or call automation flows - application content."
+  - "Does not grant the application's identity its role on this resource - wiring between resources, owned by a pattern. It records this resource's own role assignments in `role_assignments`."
+
+groups:
+
+  - id: placement
+    title: Placement
+    questions:
+      - id: environments
+        ask: Which stages is this deployed to?
+        type: list
+        plain:
+          en: "Deployed in the stages {value}."
+          de: "Wird in den Stufen {value} ausgerollt."
+        values: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
+        required: true
+        from_context: true
+        why: >
+          Drives the rendered name and the strictness of several defaults below. Nothing
+          sensible can be guessed.
+        renders: >
+          naming parameter `environment`, and the tag of that name where the repository uses
+          one
+
+      - id: location
+        ask: Which Azure region?
+        type: string
+        plain:
+          en: "The resource is global; its data lives in the region group below."
+          de: "Die Ressource ist global; ihre Daten liegen in der unten genannten Regionengruppe."
+        default: global
+        why: >
+          A Communication Services resource and an Email Communication Service are global
+          resources: `location` is the literal `global`, and the deployment's region is not
+          used for them. Where the data rests is `data_location`, which is the decision that
+          matters.
+        renders: location = "global"
+
+      - id: resource_group_name
+        ask: Which resource group?
+        type: ref
+        plain:
+          en: "Placed in the resource group {value}."
+          de: "Liegt in der Ressourcengruppe {value}."
+        ref: resource_group
+        required: true
+        from_context: true
+        per_environment: true
+        why: >
+          The resource is placed into an existing group. Creating one here would make this set
+          own a lifecycle wider than the resource it describes.
+        renders: >
+          resource_group_name (authored Terraform) / parent_id (AVM Terraform email module) /
+          implicit in Bicep scope
+
+  - id: service
+    title: Data location and channels
+    questions:
+      - id: data_location
+        ask: In which geography must the communication data rest?
+        type: enum
+        plain:
+          en: "Messages, call records and e-mail data rest in {value}."
+          de: "Nachrichten, Anrufdaten und E-Mail-Daten liegen in {value}."
+        plain_values:
+          Africa: { en: "Africa", de: "Afrika" }
+          Asia Pacific: { en: "Asia Pacific", de: "Asien-Pazifik" }
+          Australia: { en: "Australia", de: "Australien" }
+          Brazil: { en: "Brazil", de: "Brasilien" }
+          Canada: { en: "Canada", de: "Kanada" }
+          Europe: { en: "Europe", de: "Europa" }
+          France: { en: "France", de: "Frankreich" }
+          Germany: { en: "Germany", de: "Deutschland" }
+          India: { en: "India", de: "Indien" }
+          Japan: { en: "Japan", de: "Japan" }
+          Korea: { en: "Korea", de: "Korea" }
+          Norway: { en: "Norway", de: "Norwegen" }
+          Switzerland: { en: "Switzerland", de: "die Schweiz" }
+          UAE: { en: "the United Arab Emirates", de: "den Vereinigten Arabischen Emiraten" }
+          UK: { en: "the United Kingdom", de: "dem Vereinigten Königreich" }
+          United States: { en: "the United States", de: "den USA" }
+        values: [Africa, Asia Pacific, Australia, Brazil, Canada, Europe, France, Germany, India, Japan, Korea, Norway, Switzerland, UAE, UK, United States]
+        required: true
+        confirm_in: [production]
+        forced_when: >
+          The engineer sets it from the deployment's `location` and the customer's
+          `data_residency`: `data_zone` takes the location's geography (`Europe` for an EU
+          region, `United States` for a US one); `country` takes the country's own entry
+          where one exists (`Germany`, `France`, `Switzerland`, `Norway`, `UK`) and otherwise
+          the geography, recorded as a departure that names the gap; `unrestricted` takes
+          the geography as well. Recorded as forced with `data_residency` as forced_by
+        why: >
+          The one decision of this resource that cannot be changed: **the data location is
+          fixed at creation**, and a different one is a new resource with new phone numbers
+          and a new endpoint. It decides where chat messages, call records, SMS and e-mail
+          data rest - processing may happen elsewhere - and it is the answer to a GDPR
+          question. It cannot be derived mechanically because it depends on the region as
+          well as the residency answer, so the engineer sets it by the rule in
+          `forced_when`, and the value is confirmed in production. The communication resource
+          and the e-mail service must share it, or the domain cannot be linked.
+        renders: data_location / dataLocation (both resources)
+
+      - id: email
+        ask: Will the system send e-mail, and from which kind of address?
+        type: enum
+        resolved_by: interview
+        plain:
+          en: "E-mail is sent {value}."
+          de: "E-Mails werden {value} versendet."
+        plain_values:
+          none: { en: "not at all - no e-mail service", de: "nicht - kein E-Mail-Dienst" }
+          azure_managed_domain: { en: "from an address on a Microsoft-provided domain, usable at once, for internal and test mail", de: "von einer Adresse auf einer von Microsoft gestellten Domain, sofort nutzbar, für interne und Testmails" }
+          custom_domain: { en: "from your own domain, after it is verified in your DNS", de: "von eurer eigenen Domain, nachdem sie in eurem DNS bestätigt wurde" }
+        values: [none, azure_managed_domain, custom_domain]
+        default: none
+        why: >
+          E-mail is a separate resource (an Email Communication Service with a domain) linked
+          to the communication resource. An **Azure-managed domain** (`<guid>.azurecomm.net`)
+          sends immediately but from an address no customer recognises, with a sending limit
+          meant for testing; a **custom domain** sends as the organisation, needs a
+          verification record, SPF, DKIM and DMARC in the organisation's DNS - owned by
+          whoever runs the zone, so the domain is created here and verified by them - and is
+          what production mail to customers needs. `none` renders no e-mail resources at all.
+        renders: >
+          email: Microsoft.Communication/emailServices + emailServices/domains
+          (domain_management = AzureManaged / CustomerManaged), linked through
+          linkedDomains on the communication resource
+
+      - id: custom_domain_name
+        ask: Which domain should the mail be sent from?
+        type: string
+        resolved_by: interview
+        plain:
+          en: "Mail is sent from the domain {value}."
+          de: "Mails werden von der Domain {value} versendet."
+        required: true
+        depends_on: { question: email, equals: custom_domain }
+        why: >
+          The sending domain (`mail.contoso.com`, not an address). A subdomain dedicated to
+          the service keeps its SPF and DKIM records apart from the organisation's mail
+          system, which is why a subdomain is the usual answer. The domain resource is named
+          after it, and the verification records it needs are reported as an `open:` entry
+          for the DNS owner.
+        renders: email_communication_service_domains.<key>.name / domains[].name
+
+      - id: sender_usernames
+        ask: Which sender names should exist on the domain?
+        type: list
+        plain:
+          en: "Sender addresses: {value} @ the domain."
+          de: "Absenderadressen: {value} @ der Domain."
+        default: [DoNotReply]
+        depends_on: { question: email, not_equals: none }
+        why: >
+          The local parts the application may send from (`DoNotReply`, `support`). A sender
+          that does not exist on the domain is refused at send time, not at deployment.
+          `DoNotReply` is the one Azure creates on a managed domain and the sensible first
+          answer; a reply-expecting address belongs to a mailbox the organisation reads,
+          which this service does not provide.
+        renders: >
+          email_communication_service_domain_sender_usernames /
+          domains[].senderUsernames[]
+
+      - id: user_engagement_tracking
+        ask: Should opens and link clicks in the mails be tracked?
+        type: bool
+        plain:
+          en: "Opens and clicks are {value}."
+          de: "Öffnungen und Klicks werden {value}."
+        plain_values:
+          true: { en: "tracked", de: "nachverfolgt" }
+          false: { en: "not tracked", de: "nicht nachverfolgt" }
+        default: false
+        depends_on: { question: email, not_equals: none }
+        why: >
+          Tracking rewrites links and adds a pixel; it is personal data processing that
+          needs a basis and a privacy notice, and it is off in both modules. Marketing mail
+          turns it on deliberately; transactional mail does not need it.
+        renders: user_engagement_tracking_enabled / domains[].userEngagementTracking
+
+  - id: networking
+    title: Networking
+    questions:
+      - id: public_network_access
+        ask: Should this resource depart from the deployment's exposure posture?
+        type: enum
+        plain:
+          en: "The communication endpoint is {value}."
+          de: "Der Kommunikations-Endpunkt ist {value}."
+        plain_values:
+          disabled: { en: not reachable from the internet at all, de: aus dem Internet überhaupt nicht erreichbar }
+          enabled_with_firewall: { en: reachable from the internet only from listed addresses, de: aus dem Internet nur von gelisteten Adressen erreichbar }
+          enabled: { en: reachable from the internet, de: aus dem Internet erreichbar }
+        values: [disabled, enabled_with_firewall, enabled]
+        from_deployment: network_exposure
+        confirm_in: [production]
+        forced_when: >
+          Without a `network_security_perimeter`, `disabled` and `enabled_with_firewall` are
+          forced to `enabled` and recorded as forced with `network_security_perimeter` as
+          forced_by - the resource has no private endpoint and no IP firewall of its own,
+          so the posture is enforced by keys off and roles (see `security`), not by the
+          network
+        why: >
+          Asked only as a departure: exposure is a property of the system. This resource is
+          different from most: **it has no private endpoint**, and its callers include the
+          browsers and phones of end users, which have no fixed address. The only network
+          control is a network security perimeter, which turns the switch to
+          `SecuredByPerimeter`; `Disabled` without one leaves nothing able to call.
+          Both modules leave the property unset, so it is written, and `enabled` with keys
+          off and Entra-only access is the honest posture for a deployment without a
+          perimeter.
+        renders: >
+          terraform: properties.publicNetworkAccess on the azapi resource (azurerm has no
+          argument); bicep: publicNetworkAccess
+
+      - id: network_security_perimeter
+        ask: Which network security perimeter should the resource join?
+        type: ref
+        resolved_by: platform
+        plain:
+          en: "Joined to the network security perimeter {value} (empty: none)."
+          de: "Dem Netzwerksicherheitsperimeter {value} zugeordnet (leer: keinem)."
+        ref: network_security_perimeter
+        default: ""
+        per_environment: true
+        why: >
+          The perimeter is the platform's: one per landing zone, with profiles that say which
+          resources may talk to which. Joining it is an association resource and is what makes
+          `public_network_access: disabled` enforceable. Empty - the common case today - leaves
+          the endpoint public and attributable.
+        renders: >
+          Microsoft.Network/networkSecurityPerimeters/resourceAssociations (authored, both
+          targets); publicNetworkAccess = SecuredByPerimeter
+
+  - id: identity
+    title: Identity and access
+    questions:
+      - id: managed_identity
+        ask: Which managed identity should the resource carry?
+        type: enum
+        plain:
+          en: "The resource has {value}."
+          de: "Die Ressource hat {value}."
+        plain_values:
+          none: { en: no identity of its own, de: keine eigene Identität }
+          system_assigned: { en: its own identity, de: eine eigene Identität }
+          user_assigned: { en: a separately managed identity, de: eine separat verwaltete Identität }
+        values: [none, system_assigned, user_assigned]
+        default: system_assigned
+        why: >
+          The resource's identity is what it reaches other resources with - a storage
+          account for call recordings, a Key Vault for a bring-your-own certificate. The
+          application's calls into the resource use the application's identity, not this
+          one. System-assigned is enough because nothing here needs a role before the
+          resource exists; user-assigned is for an identity shared with the application.
+        renders: managed_identities / managedIdentities
+
+      - id: user_assigned_identity_ids
+        ask: Which user-assigned identity?
+        type: list
+        plain:
+          en: "It uses the identity {value}."
+          de: "Es nutzt die Identität {value}."
+        ref: user_assigned_identity
+        required: true
+        depends_on: { question: managed_identity, equals: user_assigned }
+        per_environment: true
+        why: The identity must already exist; this set does not create it.
+        renders: managed_identities.user_assigned_resource_ids / managedIdentities.userAssignedResourceIds
+
+      - id: role_assignments
+        ask: Who needs which role on this resource?
+        type: list
+        plain:
+          en: "Access rights on the resource granted to: {value}."
+          de: "Zugriffsrechte auf die Ressource vergeben an: {value}."
+        default: []
+        per_environment: true
+        why: >
+          With keys off, an application sends a mail or issues a user token only through a
+          role on this resource, so an empty list is a working resource nobody can use. The
+          narrow role is `Communication and Email Service Owner` for the application that
+          sends and manages identities; `Contributor` is a departure that names a person. A
+          pattern fills this from the application it knows about.
+        renders: role_assignments / roleAssignments (communication resource and e-mail service)
+
+  - id: security
+    title: Security
+    questions:
+      - id: local_authentication_disabled
+        ask: May clients sign in with the access keys or the connection string?
+        type: bool
+        plain:
+          en: "Signing in with access keys is {value}; access goes through company accounts."
+          de: "Die Anmeldung mit Zugriffsschlüsseln ist {value}; der Zugriff läuft über Firmenkonten."
+        plain_values:
+          true: { en: "switched off", de: "abgeschaltet" }
+          false: { en: "possible", de: "möglich" }
+        from_deployment: local_auth
+        confirm_in: [production]
+        forced_when: >
+          `local_auth: allowed_where_unavoidable` is named for a client SDK or a connector
+          that offers no token credential - checked against the SDK before a render, because
+          the current SDKs all take one
+        why: >
+          Inherited: `local_auth: disabled` renders as `true`. The connection string is a
+          bearer credential for every channel on the resource - it sends mail and SMS as
+          the organisation and mints user tokens - and it is what ends up in an application
+          setting. With keys off the application authenticates with its managed identity and
+          a role; the resource's own user-token endpoint keeps working, because the tokens it
+          issues are not access keys. Neither module sets the property by default; written.
+        renders: >
+          terraform: properties.disableLocalAuth on the azapi resource (azurerm has no
+          argument); bicep: disableLocalAuth
+
+  - id: observability
+    title: Observability
+    questions:
+      - id: diagnostic_workspace
+        ask: Which Log Analytics workspace should receive diagnostics?
+        type: ref
+        resolved_by: platform
+        plain:
+          en: "Its logs go to {value}."
+          de: "Seine Logs gehen in {value}."
+        ref: log_analytics_workspace
+        from_deployment: diagnostics_destination
+        per_environment: true
+        why: >
+          Inherited: one deployment, one destination. Without a diagnostic setting nobody can
+          say which mails were sent, which calls failed or who minted a token.
+        renders: diagnostic_settings / diagnosticSettings
+
+      - id: diagnostic_categories
+        ask: Which log categories should be collected?
+        type: list
+        plain:
+          en: "Logged: {value}."
+          de: "Geloggt wird: {value}."
+        plain_values:
+          Usage: { en: "billable usage per channel", de: "abrechenbare Nutzung je Kanal" }
+          AuthOperational: { en: "token requests and their callers", de: "Token-Anfragen und ihre Aufrufer" }
+          ChatOperational: { en: "chat operations", de: "Chat-Vorgänge" }
+          SMSOperational: { en: "SMS sent and received", de: "gesendete und empfangene SMS" }
+          CallSummary: { en: "one record per call", de: "ein Eintrag je Anruf" }
+          CallDiagnostics: { en: "media quality per call leg", de: "Medienqualität je Anrufabschnitt" }
+          EmailSendMailOperational: { en: "every send request", de: "jede Sendeanfrage" }
+          EmailStatusUpdateOperational: { en: "delivery status of every mail", de: "Zustellstatus jeder Mail" }
+          EmailUserEngagementOperational: { en: "opens and clicks, where tracking is on", de: "Öffnungen und Klicks, wo Tracking an ist" }
+        values: [Usage, AuthOperational, ChatOperational, SMSOperational, CallSummary, CallDiagnostics, EmailSendMailOperational, EmailStatusUpdateOperational, EmailUserEngagementOperational]
+        default: [Usage, AuthOperational]
+        why: >
+          Usage and authentication are the record every deployment needs: what was billed
+          and who obtained tokens. The channel logs belong with the channel the application
+          uses - the e-mail send and status logs are what answers "did the mail go out" and
+          are added with `email`; call diagnostics are large and belong to a calling workload.
+          The names are the platform's, differ per channel release, and are checked against
+          `az monitor diagnostic-settings categories list --resource <id>` before a render,
+          not remembered.
+        renders: >
+          diagnostic_settings.<key>.log_categories /
+          diagnosticSettings[].logCategoriesAndGroups[].category
+
+      - id: metrics_enabled
+        ask: Should all metrics be collected?
+        type: bool
+        plain:
+          en: "Usage and performance figures are {value}."
+          de: "Nutzungs- und Leistungswerte werden {value}."
+        plain_values:
+          true: { en: "collected", de: "erfasst" }
+          false: { en: "not collected", de: "nicht erfasst" }
+        default: true
+        why: >
+          API request counts and results per operation, chat and SMS counts, and e-mail
+          delivery counts - cheap, and the only metric view of the channels.
+        renders: metrics[].category = "AllMetrics" / metricCategories[].category

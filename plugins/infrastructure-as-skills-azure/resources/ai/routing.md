@@ -7,8 +7,9 @@ skill. Routing table - the request picks the question set:
 |---|---|---|
 | AI Foundry, Azure OpenAI, OpenAI, model deployment, GPT, embedding model, AI Services | `foundry/questions.yaml` | [notes](foundry/notes.md) |
 | AI Search, Azure Search, Cognitive Search, vector search, search index | `search-service/questions.yaml` | [notes](search-service/notes.md) |
-| Document Intelligence, Speech, Vision, Language, Content Safety (standalone) | *not yet written* | Other Cognitive Services kinds decide differently |
-| Azure Machine Learning, ML workspace | *not yet written* | The account-based Foundry needs no hub |
+| Speech, Speech Services, Computer Vision, OCR, Language service, Text Analytics, Document Intelligence, Form Recognizer, Content Safety, Translator, Custom Vision, Face API (one service, standalone) | `ai-services/questions.yaml` | [notes](ai-services/notes.md) - one account per service, same resource provider as Foundry; several services on one account is the foundry set |
+| Azure Machine Learning, ML workspace, AML, Machine-Learning-Arbeitsbereich, training jobs, managed online endpoint, MLOps | `machine-learning-workspace/questions.yaml` | [notes](machine-learning-workspace/notes.md) - kind Default with referenced storage, vault, insights and registry; the Foundry hub/project kinds are the foundry set |
+| Azure Bot, Bot Service, Bot Framework, Teams bot, Direct Line, Web Chat, Chatbot-Registrierung | `bot-service/questions.yaml` | [notes](bot-service/notes.md) - the registration and channels in front of a bot application hosted elsewhere; Bicep is authored (module Proposed) |
 | agent, prompt flow, evaluation | *not written - application content* | Not infrastructure |
 
 When a question set does not exist yet, say so rather than improvising one. Fall back to
