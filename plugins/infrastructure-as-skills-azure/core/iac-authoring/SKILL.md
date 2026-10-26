@@ -121,7 +121,7 @@ translate the English one, with the same options and the same meaning. Never put
 text in front of someone who wrote English. Option labels and the `AskUserQuestion` header
 follow the same rule.
 
-Three structured questions open the interview, each through `AskUserQuestion`, each
+Four structured questions open the interview, each through `AskUserQuestion`, each
 skipped when the repository or the request already answers it; then one open question in
 prose. In this order, because each one decides how the next is worded.
 
@@ -178,8 +178,34 @@ is already answered**: the user said it ("without modules" / "ohne Module", "wit
 `infra-spec.yaml` has it. A resource whose type has no Azure Verified Module renders
 authored whatever the answer, recorded per module; say so when the person chose `avm`.
 
-**The third question, for a Terraform target only, is the naming
-mechanism**: `deployment.naming_source`. Ask it right after the module choice through
+**The third question is the deployment scope**: `deployment.deployment_scope` - may the
+infrastructure create its own resource groups (subscription level), or does it deploy only
+into groups that exist (resource-group level)? Ask it right after the module choice, in the
+same call when the target is already known, two options and none marked recommended - it is a
+fact about the rights the organisation hands out. It decides the stages' separation
+(`stage_isolation` is derived from it, never asked), whether `resource_groups_created` is asked,
+the Bicep root's scope and the deployer's roles:
+
+```
+Auf welcher Ebene wird ausgerollt?
+  1. Ressourcengruppen-Ebene - In Ressourcengruppen, die vorab existieren. Jede Stufe rollt
+     mit einer eigenen Identität aus, die nur auf den Ressourcengruppen ihrer Stufe Rechte hat;
+     keine Rechte auf der Subscription
+  2. Subscription-Ebene - Die Infrastruktur legt ihre Ressourcengruppen selbst an. Jede Stufe
+     braucht eine eigene Subscription und eine Identität mit Rechten auf dieser Subscription
+```
+
+```
+At which level is it deployed?
+  1. Resource-group level - Into resource groups that exist beforehand. Each stage deploys
+     with an identity of its own whose roles are on that stage's resource groups only; no rights
+     on the subscription
+  2. Subscription level - The infrastructure creates its resource groups itself. Each stage
+     needs a subscription of its own and an identity with rights on that subscription
+```
+
+**The fourth question, for a Terraform target only, is the naming
+mechanism**: `deployment.naming_source`. Ask it right after the scope through
 `AskUserQuestion`, with three options and **none marked recommended**: the
 `LemurDaniel/naming` provider, the `Azure/naming/azurerm` module, or a custom mechanism
 (the organisation's own locals or module). Word it like this, with the product names in
@@ -357,8 +383,8 @@ resource question set. It holds what is one decision per system rather than one 
 resource, in two halves:
 
 - **The context** — environment, region, workload, subscription, resource group. Only
-  the environment, and whether each stage gets a subscription of its own
-  (`stage_isolation`), are asked. Region, workload, subscription and resource group are
+  the environment is asked here; how the stages are separated (`stage_isolation`) follows
+  from the deployment scope of Phase 0. Region, workload, subscription and resource group are
   `parameterized`: never asked, rendered as input variables, supplied at deploy time —
   a user who is only designing has no deployment target yet. Use them from the
   description if stated (`source: stated`; the stage file carries it, the template never
@@ -418,43 +444,13 @@ it resolves from the profile or the default, and a
 Vault; `network_exposure: private` requires the private-endpoint subnet. Apply the
 consequence, record it with the question that forced it, and say so in Phase 4 rather than
 putting a question whose answer is already determined to the user.
-**`stage_isolation: resource_group` forces every resource group to `existing`**, and
-`resource_groups_created` is then not asked: creating a group needs a role on the shared
-subscription, and a deploying identity with one reaches every stage. The person confirms it
-through `AskUserQuestion` as soon as they choose it - its own call, before the next topic
-call, never a paragraph they scroll past - and it is said again in Phase 4 and the hand-over,
-in `context.language`:
-
-```
-Header: Trennung
-Frage: Alle Stufen teilen sich eine Subscription, also trennen nur die Ressourcengruppen sie.
-  Das hält nur, wenn jede Stufe mit einer eigenen Identität ausrollt, die Rechte ausschließlich
-  auf den Ressourcengruppen dieser Stufe hat - eine Rollenzuweisung auf der Subscription hebt
-  die Trennung auf. Deshalb legt die Infrastruktur keine Ressourcengruppen an; sie werden
-  vorab erstellt, und ausgerollt wird auf Ressourcengruppen-Ebene. Passt das?
-  1. Ja, so festhalten - Je Stufe eine Identität mit Rechten nur auf ihren Ressourcengruppen;
-     die Gruppen werden vorab angelegt
-  2. Doch eigene Subscription je Stufe - Die Stufen trennt dann die Subscription, und die
-     Infrastruktur darf Ressourcengruppen anlegen
-```
-
-```
-Header: Separation
-Question: All stages share one subscription, so only the resource groups separate them. That
-  holds only while each stage deploys with an identity of its own whose roles are on that
-  stage's resource groups only - a role assignment on the subscription removes the separation.
-  So the infrastructure creates no resource groups; they are created beforehand, and it deploys at
-  resource-group level. Does that work?
-  1. Yes, record it - One identity per stage with roles on its own resource groups only; the
-     groups are created beforehand
-  2. A subscription per stage after all - The subscription separates the stages, and the
-     infrastructure may create resource groups
-```
-
-The second answer changes `stage_isolation` to `subscription`, and `resource_groups_created` is
-asked again. With `deploy_mechanism: local` one person's account deploys every stage, so the
-separation does not hold against a wrong stage file; the question then says so in its text.
-`check_spec.py` fails on a `create` group or a `subscription`-scoped deployer role under it.
+**`deployment_scope: resource_group` keeps every resource group `existing`**, and
+`resource_groups_created` is then not asked: creating a group needs a role on the
+subscription, and a deploying identity with one reaches every stage. The consequence is in the
+option the person chose (Phase 0) and is said again in Phase 4 and the hand-over. With
+`deploy_mechanism: local` one person's account deploys every stage, so the separation does not
+hold against a wrong stage file; Phase 4 says so. `check_spec.py` fails on a `create` group or a
+`subscription`-scoped deployer role under it.
 `deployment.deployer_roles` is such a value, written last, once every resource is resolved:
 the roles the deploying identity needs beyond `Contributor`, derived from `create` groups,
 role assignments and secret placeholders (`forced_when` in the deployment set).
@@ -494,7 +490,7 @@ default. It reads the derived split, so it is asked in a call after the scheme, 
 with **one option per group** - each role of the split, named by the scheme's words (a split has
 no main group; a single layout asks for its one group),
 never folded into one option ("the areas you split off"); five groups go into two questions of
-the same call (the first four, the rest). Under `stage_isolation:
+the same call (the first four, the rest). Under `deployment_scope:
 resource_group` it is not asked at all. Nor is the customer's language:
 it is the language the request and the answers are written in, and Phase 0 writes it to
 `context.language` (`en` or `de`) - the picture, the decision document and the
@@ -503,11 +499,7 @@ customer-facing text in the spec follow it.
 **There is one batch**: the surviving interview questions — the
 environment (four choices: the full stack of development, test and production; development and
 production; a sandbox; other, where the customer names the stages - a sandbox answers the landing
-zone and removes its questions), whether each stage gets an Azure subscription of its own or
-all share one (`stage_isolation`, asked with a landing zone too), whether the infrastructure may
-create its resource groups - subscription level - or deploys into existing ones - resource-group
-level (`deployment_scope`, in the first platform call; `stage_isolation: resource_group` forces
-the second and the separation's confirmation names it), who reaches it and from where, the mandates, and the `requirements` group
+zone and removes its questions), who reaches it and from where, the mandates, and the `requirements` group
 (network requirements - may the network be chosen freely, or are ranges assigned or a
 connection to the company network given -, outage impact, expected load, data-loss tolerance, access pattern, backup isolation, data
 residency, priority - cost, balanced or protection first, which moves cost and hardening

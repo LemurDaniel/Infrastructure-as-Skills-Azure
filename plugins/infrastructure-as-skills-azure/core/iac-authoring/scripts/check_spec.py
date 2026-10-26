@@ -477,7 +477,12 @@ def main():
         for c in creates:
             errors.append(f"{c} is create under deployment_scope resource_group - the deployment only reaches groups that "
                           f"exist; creating one is deployment_scope subscription")
-    if scope == 'subscription' and dep_value('stage_isolation') == 'resource_group':
+    iso = dep_value('stage_isolation')
+    if scope and iso and iso != scope:
+        errors.append(f"deployment.stage_isolation is {iso}, but deployment_scope is {scope} - the isolation "
+                      f"follows the scope: subscription level needs a subscription per stage, resource-group level "
+                      f"separates the stages by the identities' role scope")
+    if scope == 'subscription' and iso == 'resource_group':
         errors.append("deployment.deployment_scope is subscription under stage_isolation resource_group - a role on the "
                       "shared subscription reaches every stage; the scope is resource_group")
     if dep_value('stage_isolation') == 'resource_group':

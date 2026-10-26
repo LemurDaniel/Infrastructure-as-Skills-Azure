@@ -274,7 +274,7 @@ keys it leaves in the spec:
 
 | Key | Holds | Notes |
 |---|---|---|
-| `deployment.deployment_scope` | `resource_group` or `subscription` - asked, before the other group questions | `resource_group`: every group `existing`, `resource_groups_created` not asked. Forced to `resource_group` by `stage_isolation: resource_group` |
+| `deployment.deployment_scope` | `resource_group` or `subscription` - asked in Phase 0, right after the module choice | `resource_group`: every group `existing`, `resource_groups_created` not asked. `stage_isolation` follows it (`forced_by: deployment.deployment_scope`) |
 | `deployment.resource_group_layout` | `single` or `split` - asked | `single` or absent: one group, nothing below is written |
 | `deployment.resource_group_scheme` | `concern` (`network`, `data`, `application`, `observability`, `security`), `lifecycle` (`foundation`, `state`, `runtime`), `protection` (`protected`, `standard`), `component` (`shared` and the parts) - asked on `split` | Absent means `concern`, which is what a spec written before the key holds |
 | `deployment.resource_group_components` | Under `component` only: the system's parts, short lowercase names (`chat`, `ingest`) | Derived by the run from the description and `wiring.purposes`, `forced_by: wiring.purposes`; every resource that is not shared names its part in `placement.resource_group` |
@@ -316,10 +316,11 @@ resources:
   (`deployment.yaml`, `resource_group_name`): a `create` group's name is computed by the render;
   an `existing` group's name is stated or, per stage, an `open:` entry with `OPEN-resource-group`
   in the stage file. A stage the spec's stage map leaves out is the generic per-stage rule above.
-- **Stage isolation by resource group forces `existing`.** Under `deployment.stage_isolation:
-  resource_group` every `resource_group_mode_<role>` is `existing` (`forced`, `forced_by:
-  deployment.stage_isolation`) and no deployer role is scoped to `subscription`: a role on the
-  shared subscription reaches every stage. Each stage's identity holds its roles on its own
+- **Resource-group scope forces `existing`.** Under `deployment.deployment_scope:
+  resource_group` (and the `stage_isolation: resource_group` it derives) every
+  `resource_group_mode_<role>` is `existing` (`forced`, `forced_by: deployment.deployment_scope`)
+  and no deployer role is scoped to `subscription`: a role on the subscription reaches every
+  stage in it. Each stage's identity holds its roles on its own
   groups; `check_spec.py` fails on either breach.
 - **A mode change is not an edit of a value.** `existing` <-> `create` creates, deletes or orphans
   a real group; the next run says so before it writes, and the pipeline refuses a Terraform plan
