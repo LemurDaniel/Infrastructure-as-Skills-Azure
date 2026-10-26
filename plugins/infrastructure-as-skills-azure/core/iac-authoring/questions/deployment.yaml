@@ -1697,15 +1697,16 @@ groups:
         default: front_door
         depends_on: { question: public_audience, equals: waf }
         forced_when: >
-          application_gateway when the request names it, or when network_requirements is
-          corporate and the traffic has to stay in the region's network; front_door otherwise.
+          application_gateway only when the request names it or the platform already runs one
+          the system joins (`stated`); front_door in every other case, a corporate network
+          included.
         why: >
           Not asked: an engineer's choice the customer can state. Front Door is the default - a
           managed global entry with no subnet and no instances to size, and with Premium's
           private link origin the app keeps public access disabled. An Application Gateway sits
           in the system's network, needs a subnet of its own (/26, counted in the address
-          range) and runs instances; it is the answer where traffic must not leave the region's
-          network or a platform already runs one.
+          range) and runs instances to size and patch. Front Door is preferred over it; the
+          gateway is never derived, only taken where someone names it.
         renders: the front-door or application-gateway resource set, routed in addition to the app
 
       - id: local_auth
