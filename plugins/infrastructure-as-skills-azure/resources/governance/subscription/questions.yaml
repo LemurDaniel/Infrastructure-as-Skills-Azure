@@ -1,0 +1,267 @@
+schema_version: 1
+
+resource: Microsoft.Subscription/aliases
+title: Azure subscription (vending)
+
+naming:
+  terraform: "Azure::Microsoft.Subscription/aliases"
+  bicep: "Microsoft.Subscription/aliases"
+  # The alias is the name under which the subscription is created and found again; the
+  # subscription itself gets a GUID. The render builds alias and display name from the
+  # abbreviation, the workload and the stage (`sub-payments-prod`): a subscription is per stage
+  # and has no region.
+  abbreviation: "sub"
+
+boundaries:
+  - "**Tenant scope, billing account behind it.** A subscription is created against a billing scope (an EA enrollment account, an MCA invoice section or an MPA customer) and placed under a management group; there is no resource group and no region. The render deploys at management group scope (Bicep `targetScope = 'managementGroup'`; Terraform with `azapi` and no subscription on the provider) and needs rights on the billing scope, which the platform holds."
+  - "Does not vend subscriptions for a workload deployment. A workload references its subscription (`deployment.subscription_id`, one per stage) and this set is used only by a platform run that creates them (`subscription_ownership: deployment`); `platform` renders nothing."
+  - "Does not render the network. The sub-vending pattern can create a spoke, peer it to a hub and add NSGs and route tables; here those are the `virtual-network` and `network-security-group` sets of the workload deployment that follows, so one source of truth owns the address space."
+  - "Does not render budgets, identities or resource groups through the pattern either: a budget is its own set when it exists, the identity is the `user-assigned-identity` set, resource groups are the deployment set's `resource_group_mode_<role>`. The pattern's switches for them are written `false`."
+  - "Does not create the management group it places the subscription under (`management-group` set) and does not assign policies to it (`policy` set); the platform's hierarchy already carries the policies the new subscription inherits."
+  - "Does not render Defender plans, the activity-log export or the security contact of the new subscription: Defender is its own set, the export is the platform's `deployIfNotExists`."
+  - "Has no diagnostic settings of the resource kind: an alias is a creation record. The subscription's activity log is exported by the platform's policy, not by this set."
+
+groups:
+
+  # ---------------------------------------------------------------- placement
+  - id: placement
+    title: Placement
+    questions:
+      - id: environments
+        ask: Which stages is this deployed to?
+        type: list
+        plain:
+          en: "Deployed in the stages {value}."
+          de: "Wird in den Stufen {value} ausgerollt."
+        values: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
+        required: true
+        from_context: true
+        why: >
+          One subscription per stage is the landing-zone shape (`stage_isolation: subscription`,
+          guardrails *Stages*): the platform run vends one alias per stage, each from its stage
+          file with its own billing workload type and management group. A `[sandbox]` stack is
+          one subscription.
+        renders: one alias per stage; the stage file carries the management group and the workload type
+
+      - id: location
+        ask: Which Azure region?
+        type: string
+        plain:
+          en: "The vending run's helper resources use the Azure region {value}."
+          de: "Die Hilfsressourcen des Anlegens nutzen die Azure-Region {value}."
+        required: true
+        from_context: true
+        why: >
+          A subscription has no region, but the vending pattern needs one for what it deploys
+          while vending: the deployment metadata, and in Bicep the deployment script that
+          registers resource providers (a script, a storage account and an identity that exist
+          for the run). The deployment's region is the right one; the resources are deleted
+          with the run's resource group when the platform cleans up.
+        renders: location (Terraform module) / deploymentScriptLocation and the nested deployments' location (Bicep module)
+
+      - id: subscription_ownership
+        ask: Does this run create the subscription, or does it already exist?
+        type: enum
+        resolved_by: platform
+        plain:
+          en: "The subscription is {value}."
+          de: "Die Subscription wird {value}."
+        plain_values:
+          platform: { en: "vended by the platform team and only referenced here - this deployment creates none", de: "vom Plattform-Team bereitgestellt und hier nur verwendet, dieses Ausrollen legt keine an" }
+          deployment: { en: "created by this run", de: "von diesem Lauf angelegt" }
+        values: [platform, deployment]
+        default: platform
+        why: >
+          Subscription vending is the platform's job (guardrails, section 0): the billing scope,
+          the management group and the resource-provider baseline are theirs, and a workload
+          deployment takes its subscription from `deployment.subscription_id` per stage. So
+          `platform` renders nothing and a missing subscription is an `open:` entry owned by
+          the platform team. `deployment` is the platform run itself - the pipeline that vends
+          subscriptions for the teams - or an organisation with a billing account and no
+          platform, where the person deploying holds the billing rights.
+        forced_when: >
+          A workload spec with a `subscription_id` in its context is `platform`: the
+          subscription exists. `landing_zone: standalone` does not force `deployment` - a
+          standalone deployment usually has its subscription already - and asks
+        renders: whether the questions below render at all
+
+      - id: management_group
+        ask: Under which management group should the subscription land?
+        type: ref
+        ref: management_group
+        resolved_by: platform
+        plain:
+          en: "The subscription lands under the management group {value}."
+          de: "Die Subscription landet unter der Management-Gruppe {value}."
+        required: true
+        per_environment: true
+        depends_on: { question: subscription_ownership, equals: deployment }
+        why: >
+          The group decides what the subscription inherits from its first minute: the ALZ
+          policies of *corp*, *online* or *sandbox* and the platform's role assignments. The
+          id, not the display name. Per stage, because production and development often land
+          under different groups (a production group with stricter policy, a sandbox group for
+          a `sandbox` stage). Without it a new subscription lands in the tenant's default
+          group, which in most tenants is the root - no policy, no baseline - and moving it
+          later re-evaluates everything.
+        renders: subscription_management_group_id + subscription_management_group_association_enabled = true / subscriptionManagementGroupId + subscriptionManagementGroupAssociationEnabled
+
+  # ---------------------------------------------------------------- billing
+  - id: billing
+    title: Billing
+    questions:
+      - id: billing_scope
+        ask: Which billing account should the subscription be billed to?
+        type: ref
+        ref: billing_scope
+        resolved_by: platform
+        plain:
+          en: "Billed to {value}."
+          de: "Abgerechnet über {value}."
+        required: true
+        per_environment: true
+        depends_on: { question: subscription_ownership, equals: deployment }
+        why: >
+          The billing scope is a resource id under `/providers/Microsoft.Billing/billingAccounts/`
+          whose shape depends on the agreement: an EA enrollment account
+          (`.../enrollmentAccounts/<id>`), an MCA invoice section
+          (`.../billingProfiles/<id>/invoiceSections/<id>`) or an MPA customer
+          (`.../customers/<id>`). It is case sensitive, held by the finance or platform team,
+          and the deploying identity needs `Enrollment account owner` (EA) or `Azure
+          subscription creator` on the invoice section (MCA) - rights nobody in a workload
+          team has. Per stage, because production and development are often billed to
+          different cost centres. Never guessed: a wrong scope bills the wrong department.
+        renders: subscription_billing_scope / subscriptionBillingScope (billing_scope_id on azurerm_subscription)
+
+      - id: workload_type
+        ask: Is the subscription for production or for development and test?
+        type: enum
+        plain:
+          en: "The subscription is billed as {value}."
+          de: "Die Subscription wird abgerechnet als {value}."
+        plain_values:
+          Production: { en: "a production subscription, at standard prices", de: "Produktions-Subscription zu Standardpreisen" }
+          DevTest: { en: "a dev/test subscription, at the reduced dev/test prices - no SLA, no production use", de: "Dev/Test-Subscription zu den günstigeren Dev/Test-Preisen, ohne SLA und ohne Produktionsnutzung" }
+        values: [Production, DevTest]
+        default: Production
+        non_production_default: DevTest
+        confirm_in: [production]
+        depends_on: { question: subscription_ownership, equals: deployment }
+        why: >
+          The offer type, fixed at creation and the one real cost knob of a subscription:
+          `DevTest` subscriptions get Microsoft's dev/test rates on compute and some services,
+          and in return carry no SLA and may not run production workloads - a term of the
+          agreement, not a technical limit. So production is `Production`, and every other
+          stage takes `DevTest` while `non_production_savings` is enabled. An EA or MCA with no
+          dev/test offer enabled refuses `DevTest`; the platform team knows, and the stage
+          file carries the value.
+        renders: subscription_workload / subscriptionWorkload (workload on azurerm_subscription)
+
+      - id: alias_name
+        ask: Under which alias should the subscription be created?
+        type: string
+        plain:
+          en: "Created under the alias {value} (empty: generated from the workload and stage)."
+          de: "Angelegt unter dem Alias {value} (leer: aus Workload und Stufe erzeugt)."
+        default: ""
+        depends_on: { question: subscription_ownership, equals: deployment }
+        why: >
+          The alias is the idempotency key: a second deployment with the same alias finds the
+          subscription instead of creating another one, and a changed alias creates a second
+          subscription with a second bill. Letters, digits, `-` and `_`, 63 characters at most,
+          tenant-unique. Empty generates `sub-<workload>-<stage>` from the naming convention,
+          which is the normal answer; a stated alias is for a subscription that already has one.
+        renders: subscription_alias_name / subscriptionAliasName (alias on azurerm_subscription)
+
+      - id: display_name
+        ask: What should the subscription be called?
+        type: string
+        plain:
+          en: "Shown as \"{value}\" (empty: the alias)."
+          de: "Angezeigt als „{value}“ (leer: der Alias)."
+        default: ""
+        depends_on: { question: subscription_ownership, equals: deployment }
+        why: >
+          What the portal, the bill and every pipeline log show; changeable later, unlike the
+          alias. Empty takes the alias, which keeps the two in step - the shape both modules
+          recommend. A stated name is for an organisation whose subscription names follow a
+          finance convention.
+        renders: subscription_display_name / subscriptionDisplayName (subscription_name on azurerm_subscription)
+
+  # ---------------------------------------------------------------- service
+  - id: service
+    title: Providers
+    questions:
+      - id: register_resource_providers
+        ask: Which resource providers should be registered in the new subscription?
+        type: list
+        plain:
+          en: "Registered in advance: {value} (empty: the providers register themselves on first use)."
+          de: "Vorab registriert: {value} (leer: die Provider registrieren sich bei der ersten Nutzung)."
+        default: []
+        depends_on: { question: subscription_ownership, equals: deployment }
+        why: >
+          A resource provider (`Microsoft.Storage`, `Microsoft.Web`) has to be registered in a
+          subscription before its first resource, and a pipeline identity with `Contributor`
+          on a resource group cannot register one - registration is a subscription-level
+          write. Registering in advance saves the first deployment's failure. Empty registers
+          nothing here and leaves it to the tools: the `azurerm` provider registers what it
+          needs on `apply`, `az` and Bicep register on first use when the identity may. **The
+          two modules default differently**: left out, the Bicep pattern registers a long
+          built-in list through a deployment script, the Terraform module registers nothing
+          unless enabled - so the list is always written, and `{}` / `false` when empty. The
+          providers of the resource families in the spec are proposed by the pattern.
+        renders: "subscription_register_resource_providers_enabled + subscription_register_resource_providers_and_features = { <ns> = [] } / resourceProviders: { <ns>: [] } (`{}` for none)"
+
+  # ----------------------------------------------------------------- identity
+  - id: identity
+    title: Access
+    questions:
+      - id: role_assignments
+        ask: Who should have which role on the new subscription?
+        type: list
+        plain:
+          en: "Access at the subscription: {value} (empty: inherited only)."
+          de: "Zugriff an der Subscription: {value} (leer: nur geerbt)."
+        default: []
+        depends_on: { question: subscription_ownership, equals: deployment }
+        why: >
+          The team's own access to its subscription - the owners' group as `Owner` or
+          `Contributor`, the deployment identity as `Contributor` plus a conditioned `Role
+          Based Access Control Administrator`, readers for the cost view - each a principal id
+          (group or service principal, never a person), a role and a description. Everything
+          else is inherited from the management group. Written at vending because the team
+          cannot grant itself its first role; the Terraform module takes a role **name** for the
+          common built-ins and a definition id otherwise, the Bicep module the same five names
+          (`Owner`, `Contributor`, `Reader`, `Role Based Access Control Administrator`, `User
+          Access Administrator`) or an id. Empty is a subscription nobody can enter but the
+          platform.
+        renders: "role_assignments = { <k> = { principal_id, definition, relative_scope = '' } } / roleAssignments: [ { principalId, definition, relativeScope: '' } ]"
+
+  # ---------------------------------------------------------- data_protection
+  - id: data_protection
+    title: Lifetime
+    questions:
+      - id: cancel_on_removal
+        ask: Should removing the subscription from the code cancel it?
+        type: bool
+        plain:
+          en: "Removing it from the code {value}."
+          de: "Das Entfernen aus dem Code {value}."
+        plain_values:
+          true: { en: "cancels the subscription, with everything in it", de: "kündigt die Subscription samt allem darin" }
+          false: { en: "leaves the subscription alone; cancelling is a separate, deliberate step", de: "lässt die Subscription unberührt; die Kündigung ist ein eigener, bewusster Schritt" }
+        default: false
+        confirm_in: [production]
+        depends_on: { question: subscription_ownership, equals: deployment }
+        why: >
+          A `destroy` of the vending root cancels the subscription in both Terraform shapes
+          (the module and `azurerm_subscription`), and a cancelled subscription is deleted with
+          every resource after ninety days. A subscription holds a team's whole system, so the
+          cancellation is a deliberate step and never a side effect of a removed block: `false`
+          renders `lifecycle { prevent_destroy = true }` on the authored resource and the
+          `prevent_cancellation_on_destroy` provider feature, and the handover names the module
+          call as one that must not be removed without a plan. Bicep never cancels - a resource
+          absent from a template is left - so the question records the intent there. `true` is
+          for a sandbox vending flow whose subscriptions are meant to be short-lived.
+        renders: lifecycle.prevent_destroy on azurerm_subscription and features.subscription.prevent_cancellation_on_destroy (Terraform); recorded only in Bicep; not carried by the Terraform module
