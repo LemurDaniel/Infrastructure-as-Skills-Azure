@@ -99,6 +99,7 @@ LABELS = {
         'rgs': 'Resource groups', 'rgNew': 'created', 'rgOld': 'existing', 'scope': 'Deployment',
         'rgRole_main': 'main', 'rgRole_network': 'network', 'rgRole_data': 'data', 'rgRole_application': 'application',
         'rgRole_observability': 'monitoring', 'rgRole_security': 'security',
+        'rgRole_foundation': 'foundation', 'rgRole_state': 'state', 'rgRole_runtime': 'runtime',
         'keyless': ' Access to the resources is by identity, no keys.',
         'aiNotice': 'AI-generated - please review',
         'dnsOpen': 'open - owner not decided', 'entry': 'Entry', 'children': 'Containers', 'children_file-share': 'File shares', 'children_queue': 'Queues',
@@ -125,6 +126,7 @@ LABELS = {
         'rgs': 'Ressourcengruppen', 'rgNew': 'angelegt', 'rgOld': 'vorhanden', 'scope': 'Bereitstellung',
         'rgRole_main': 'Haupt', 'rgRole_network': 'Netzwerk', 'rgRole_data': 'Daten', 'rgRole_application': 'Anwendung',
         'rgRole_observability': 'Überwachung', 'rgRole_security': 'Sicherheit',
+        'rgRole_foundation': 'Fundament', 'rgRole_state': 'Zustand', 'rgRole_runtime': 'Laufzeit',
         'keyless': ' Zugriffe auf die Ressourcen laufen über Identitäten, ohne Schlüssel.',
         'aiNotice': 'KI-generiert - bitte prüfen',
         'dnsOpen': 'offen - Zuständigkeit ungeklärt', 'entry': 'Eingang', 'children': 'Container', 'children_file-share': 'Dateifreigaben', 'children_queue': 'Warteschlangen',
@@ -242,8 +244,9 @@ SUBNET_HOSTED = {'application-gateway': ['gateway', 'gateway_subnet'], 'api-mana
 EDGE_KINDS = {'front-door'}
 # Children of a storage account: no icon of their own, their names go on the account's label.
 CHILD_KINDS = {'blob-container': 'container_names', 'file-share': 'share_names', 'queue': 'queue_names'}
-RG_ROLES_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', 'iac-rendering', 'references', 'resource-group-roles.yaml')
-RG_ROLE = {}   # kind -> role, read from RG_ROLES_FILE in main (it needs PyYAML)
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', 'iac-rendering', 'scripts'))
+import rg_roles  # noqa: E402 - the role table per scheme (deployment.resource_group_scheme)
+RG_TABLE = {}   # the role table, read in main (it needs PyYAML)
 DELEGATIONS = {'app-service': 'Microsoft.Web/serverFarms', 'function-app': 'Microsoft.Web/serverFarms',
                'container-apps-environment': 'Microsoft.App/environments', 'container-apps': 'Microsoft.App/environments'}
 
@@ -303,7 +306,12 @@ RG_COLORS = {   # role: (fill, stroke, font)
     'application': ('#F3EDFA', '#8764B8', '#5C2D91'),
     'observability': ('#EDF7ED', '#5BA55B', '#107C10'),
     'security': ('#FCEBEE', '#C4506A', '#8E2B43'),
+    'foundation': ('#EAF3FB', '#2B6CB0', '#1F4E86'),
+    'state': ('#FFF6E5', '#C98A1B', '#8A5A00'),
+    'runtime': ('#F3EDFA', '#8764B8', '#5C2D91'),
 }
+# resource_type: a group per kind, coloured in turn from the concern colours in the order met.
+RG_CYCLE = ['network', 'data', 'application', 'observability', 'security']
 PG_TOP, PG_BOT, PG_GAP, PG_MIN_W = 30, 38, 12, 250   # a group frame: the gutter above its first row, the title band below, the gap to the next
 # Azure's own resource group icon, inline in a label: it says what Azure means by the group, a
 # generic folder does not. The path is the one ICONS['resource-group'] holds.
@@ -451,12 +459,7 @@ def main():
         language = 'en'
     T = LABELS[language]
 
-    try:
-        with open(RG_ROLES_FILE, encoding='utf-8') as f:
-            for role, kinds in (yaml.safe_load(f).get('kinds') or {}).items():
-                RG_ROLE.update({k: role for k in kinds})
-    except (OSError, yaml.YAMLError, AttributeError) as e:
-        say(f"[warn] no resource group roles ({e}) - every resource is drawn in the main group", 'yellow')
+    RG_TABLE.update(rg_roles.load(yaml))
 
     # --- Read the spec -----------------------------------------------------
     ctx = get_at(spec, ['context']) or {}
@@ -475,7 +478,10 @@ def main():
     draw_vnet = has_vnet_res or net_ownership in ('create', 'reference')
     vnet_existing = (not has_vnet_res) and net_ownership == 'reference'
 
-    rg_split = [x for x in as_list(get_decision(dep, ['resource_group_split'])) if x in RG_ROLE.values()]
+    rg_scheme = rg_roles.scheme_of(dep)
+    rg_split = [x for x in as_list(get_decision(dep, ['resource_group_split'])) if x in rg_roles.roles(RG_TABLE, rg_scheme, resources.keys())]
+    for i, r in enumerate(x for x in rg_split if x not in RG_COLORS):
+        RG_COLORS[r] = RG_COLORS[RG_CYCLE[i % len(RG_CYCLE)]]
     rg_modes = {'main': s(get_decision(dep, ['resource_group_mode_main'])) or 'existing'}
     for r in rg_split:
         rg_modes[r] = s(get_decision(dep, [f'resource_group_mode_{r}'])) or 'existing'
@@ -486,11 +492,12 @@ def main():
             return k.split('.')[2]
         node = resources.get(k) if isinstance(resources.get(k), dict) else {}
         placed = s(get_decision(node, ['placement', 'resource_group']))
-        role = placed or RG_ROLE.get(base(k), 'main')
+        role = placed or rg_roles.role_of(RG_TABLE, rg_scheme, base(k))
         return role if role in rg_split else 'main'
 
     def rg_title(role):
-        return f"{T['rgRole_' + role]} ({T['rgNew'] if rg_modes[role] == 'create' else T['rgOld']})"
+        name = T.get('rgRole_' + role) or TYPE_NAMES.get(role, role)   # resource_type: the kind's name
+        return f"{name} ({T['rgNew'] if rg_modes[role] == 'create' else T['rgOld']})"
 
     def hosted_subnet(k):
         """The subnet the spec names for a hosted resource, else the one its kind usually gets."""

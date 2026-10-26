@@ -11,8 +11,21 @@ with the answers.
 `resource_group_split` lists them. A resource belongs to the group of its role; a role that is
 not split off is part of `main`.
 
-The table below is the prose of [resource-group-roles.yaml](resource-group-roles.yaml), which the
-diagram and the decision document read; change both together.
+The roles depend on `deployment.resource_group_scheme`; the tables below are the prose of
+[resource-group-roles.yaml](resource-group-roles.yaml), which the spec check, the diagram, the
+decision document and the name list read through `scripts/rg_roles.py`; change both together.
+
+| Scheme | Roles | Split off when |
+|---|---|---|
+| `concern` (default) | `network`, `data`, `application`, `observability`, `security` - the table below | a resource of the design has that role |
+| `lifecycle` | `foundation` (network, monitoring, identities, messaging: built once), `state` (data stores, Key Vault, registry, search: outlives every redeploy, locked and backed up), `runtime` (compute, AI, integration: replaced freely) | same |
+| `resource_type` | one per set name (`key-vault`, `app-service`): the role is the kind | every kind in the design |
+
+A kind a scheme does not place stays in `main`. Under `lifecycle` and `resource_type` the main
+group can end up empty; it still exists as `context.resource_group_name`, the scope the root
+deploys from.
+
+The `concern` table:
 
 | Role | Resources (default) |
 |---|---|

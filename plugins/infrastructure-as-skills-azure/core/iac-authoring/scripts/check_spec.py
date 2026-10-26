@@ -24,7 +24,9 @@ Read-only. Checks what the contract in references/spec.md promises:
      keyed by stage names uses only those stages, and a stage it leaves out
      is named by an open entry (`environments:`) for that key.
   8. Resource groups: `resource_group_split` lists known roles only (never
-     `main`); a split makes `resource_group_mode_<role>` required for `main`
+     `main`) of the scheme `resource_group_scheme` names (concern by default,
+     lifecycle, or resource_type: the set names in the design), and none under
+     `resource_group_layout: single`; a split makes `resource_group_mode_<role>` required for `main`
      and every listed role, and a mode or a `context.resource_group_name_<role>`
      for a role that is not split off is stale; a resource's
      `placement.resource_group` names `main` or a split role;
@@ -72,7 +74,8 @@ BACKEND_SPELLINGS = [
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 PLUGIN = os.path.abspath(os.path.join(HERE, '..', '..', '..'))
-RG_ROLES_FILE = os.path.join(HERE, '..', '..', 'iac-rendering', 'references', 'resource-group-roles.yaml')
+sys.path.insert(0, os.path.join(HERE, '..', '..', 'iac-rendering', 'scripts'))
+import rg_roles  # noqa: E402 - the role table per scheme, shared with the diagram and the documents
 RG_MODES = ['existing', 'create']
 RG_LOCKS = ['production', 'all_stages', 'none']
 # A role satisfies a need when it is the narrow one or broader; broader is the platform's call.
@@ -328,13 +331,9 @@ def main():
 
     # --- 8. resource groups ------------------------------------------------
     rg_errors = len(errors)
-    try:
-        with open(RG_ROLES_FILE, encoding='utf-8') as f:
-            all_roles = list((yaml.safe_load(f) or {}).get('roles') or [])
-    except (OSError, yaml.YAMLError):
-        all_roles = ['main', 'network', 'data', 'application', 'observability', 'security']
-    split_roles = [r for r in all_roles if r != 'main']
     dep_node = get(spec, 'deployment') or {}
+    scheme = rg_roles.scheme_of(dep_node)
+    split_roles = rg_roles.roles(rg_roles.load(yaml), scheme, (get(spec, 'resources') or {}).keys())
     ctx_node = get(spec, 'context') or {}
 
     def dep_value(qid):
@@ -351,13 +350,24 @@ def main():
         if r == 'main':
             errors.append("deployment.resource_group_split lists 'main' - the main group always exists; the list is the roles split off from it")
         elif r not in split_roles:
-            errors.append(f"deployment.resource_group_split lists '{r}', which is not one of {', '.join(split_roles)}")
+            errors.append(f"deployment.resource_group_split lists '{r}', which is not a role of the {scheme} scheme "
+                          f"({', '.join(split_roles) or 'no resources yet'})")
     if len(set(map(str, split))) != len(split):
         errors.append("deployment.resource_group_split lists a role twice")
+    layout = dep_value('resource_group_layout')
+    if layout == 'single' and split:
+        errors.append("deployment.resource_group_split lists roles, but resource_group_layout is single - one group per stage, nothing split off")
+    if layout == 'single' and dep_value('resource_group_scheme') is not None:
+        errors.append("deployment.resource_group_scheme is stale - resource_group_layout is single, so there is nothing to split")
     split = [r for r in split if r in split_roles]
     in_play = ['main'] + split
 
-    for r in all_roles:
+    # every role named anywhere: the scheme's, and any a mode or a name was written for
+    seen = set(split_roles) | {'main'}
+    seen |= {k[len('resource_group_mode_'):] for k in dep_node if str(k).startswith('resource_group_mode_')}
+    seen |= {k[len('resource_group_name_'):] for k in ctx_node if str(k).startswith('resource_group_name_')}
+    seen.discard('kind')  # the question that stands for the per-kind keys, never a key itself
+    for r in ['main'] + sorted(seen - {'main'}):
         mode = dep_value(f'resource_group_mode_{r}')
         mode_path = f'deployment.resource_group_mode_{r}'
         if mode is None:
