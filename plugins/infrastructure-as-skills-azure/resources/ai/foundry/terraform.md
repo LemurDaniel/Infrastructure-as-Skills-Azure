@@ -121,6 +121,37 @@ output "id" { value = module.foundry.resource_id }
 The model name and version above are an example of the shape; the real ones are looked up
 against the region's catalogue (`az cognitiveservices model list --location <region>`).
 
+### Another region
+
+When the spec carries `resources.<key>.placement.location`, the account takes its own
+variable, one value in every stage file. The private endpoint names the network's region: the
+module falls back to the **account's** `location`, and an endpoint outside its subnet's region
+fails at apply. The names do not change - the account's pattern carries no region, and the
+endpoint's region is `var.location`.
+
+```hcl
+# decision: foundry.placement.location - departs from var.location for the model catalogue
+variable "foundry_location" {
+  type        = string
+  description = "Region of the Foundry account, apart from var.location."
+}
+
+module "foundry" {
+  # ...
+  location = var.foundry_location
+  private_endpoints = {
+    account = {
+      name               = data.naming_name.foundry_private_endpoint.name
+      location           = var.location # the subnet's region, never the account's
+      subnet_resource_id = var.private_endpoint_subnet_id
+    }
+  }
+}
+```
+
+The projects take `var.foundry_location` too. The test asserts the account on
+`var.foundry_location` and the endpoint on `var.location`.
+
 ### Projects
 
 Neither this module nor the Bicep one creates a project. They are rendered next to it as
