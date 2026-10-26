@@ -386,14 +386,18 @@ a reference against the installed module, never against `main`. Each item is a f
 until it is fixed or decided against.
 - **The examples still carry `system_assigned` for Foundry, storage account and AI Services** (chat-sandbox, chatbot, chatbot-multi-rg, chatbot-rag): their specs, renders and tests predate the `none` default. Re-render them or leave them as the explicit value; either is valid, but a fresh interview now answers `none`. The Foundry project child keeps its own system-assigned identity (the API requires it); SQL database, search and API Management were left at `system_assigned` on purpose - their roles and data sources need it.
 
-- **Canonical spec, follow-ups** (2026-10-26): the six example specs are laid out with
-  `write_spec.py --no-stamp` (the decisions were not re-made; every spec reader gave the same
-  output before and after, `export_decisions.py` and `check_render_coverage.py` in a new
-  order only). Open: every committed `infra-decisions.md` already differs from a fresh export
-  of its spec (20-200 lines, exporter changes since) - re-export in a commit of its own;
-  `eval-agent/infra/infra-spec.yaml` is not laid out (its hand-written group comments would
-  stand beside the generated ones); `check_repo_consistency.py` could run `write_spec.py
-  --check` on the examples; no eval asserts the run calls the script.
+- **Canonical spec** (2026-10-26): every tracked `infra-spec.yaml` (six examples,
+  `eval-agent/infra`, six pipeline fixtures) is laid out with `write_spec.py --no-stamp`;
+  every spec reader gave the same result before and after (`export_decisions.py` and
+  `check_render_coverage.py` in a new order only), and the example and eval-agent decision
+  documents were re-exported. `check_repo_consistency.py` fails on a tracked spec that is
+  not laid out. Open: the `requirements-stated` graders `canonical-requirements-group` and
+  `canonical-no-anchors` are load-checked, not run - a run without a shell lays the form out
+  by hand, and whether it does is unmeasured. The diagram and spec-test fixtures are not
+  named `infra-spec.yaml` and not laid out; `run_spec_tests.py` edits its fixture as text.
+- **`evals/process/review-agent-separate` does not load** (seen 2026-10-26 in a zero-cost
+  load check): `graders.3.focus: Invalid input` - the current `claude plugin eval` schema
+  refuses a field the case uses. Untouched since; fix before the next paid run.
 
 ### Rendering references and question sets
 
