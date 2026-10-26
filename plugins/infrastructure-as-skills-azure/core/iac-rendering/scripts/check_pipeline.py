@@ -643,6 +643,31 @@ def check_stage_files(root, stages, target, open_stages):
 
 # ---------------------------------------------------------------- main
 
+def deployment_scope(spec):
+    """The spec's deployment_scope; a spec written before the key: subscription when a group is created."""
+    scope = sv(spec, 'deployment_scope')
+    if scope:
+        return scope
+    dep = spec.get('deployment') or {}
+    modes = [v.get('value') if isinstance(v, dict) else v for k, v in dep.items() if str(k).startswith('resource_group_mode_')]
+    return 'subscription' if 'create' in modes else 'resource_group'
+
+
+def check_scope(root, mech, scope):
+    """Bicep only: the deployment command matches deployment_scope (pipelines.md, invariant 13)."""
+    text = ''
+    for f in pipeline_files(root, mech):
+        with open(f, encoding='utf-8') as fh:
+            text += fh.read() + '\n'
+    used = set(re.findall(r'az deployment (group|sub) (?:what-if|create)', text))
+    want = 'sub' if scope == 'subscription' else 'group'
+    for verb in sorted(used - {want}):
+        err(f"deploys with `az deployment {verb}`, but deployment_scope is {scope} - the command is "
+            f"`az deployment {want}` (pipelines.md, invariant 13)")
+    if want == 'sub' and want in used and '--location' not in text:
+        err("`az deployment sub` without --location - a subscription-scope deployment names where its record lives")
+
+
 def main():
     ap = argparse.ArgumentParser(description='Check a rendered pipeline against the invariants of pipelines.md.')
     ap.add_argument('spec', help='the infra-spec.yaml')
@@ -695,6 +720,8 @@ def main():
     if target == 'terraform':
         check_backend(root)
         check_group_guard(root, mech)
+    else:
+        check_scope(root, mech, deployment_scope(spec))
 
     say(f"Pipeline check - {mech}, {target}, stages {', '.join(stages)}, gated {', '.join(gated) or 'none'}", 'cyan')
     say('-' * 70, 'gray')

@@ -254,6 +254,8 @@ Same parameters and stage skeleton; the jobs below replace the Terraform ones an
 `terraform-install.yml` template is not rendered. A root that is not the repository root
 (`bicep/`) puts `workingDirectory: <root>` on every step, `checkout` aside; the paths below
 are then relative to it. Variables `AZURE_SUBSCRIPTION_ID` and `AZURE_RESOURCE_GROUP` come from the group.
+A root at `deployment_scope: subscription` swaps `az deployment group` for `az deployment sub`
+and adds `--location`, in what-if and create alike (invariant 13).
 
 ```yaml
       - job: plan

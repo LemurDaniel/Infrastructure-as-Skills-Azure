@@ -174,7 +174,8 @@ other job's rule matches it, so no job holds the OIDC token.
 ## Bicep
 
 Replace the image and the plan/apply scripts; stages, `needs`, `resource_group`, rules and
-`id_tokens` are unchanged.
+`id_tokens` are unchanged. A root at `deployment_scope: subscription` swaps `az deployment group` for `az deployment sub`
+and adds `--location`, in what-if and create alike (invariant 13).
 
 ```yaml
 default:

@@ -79,6 +79,9 @@ finally { Remove-Item $plan -ErrorAction SilentlyContinue }
 
 ## `deploy.ps1` - Bicep
 
+A root at `deployment_scope: subscription` swaps `az deployment group` for `az deployment sub`
+and adds `--location`, in what-if and create alike (invariant 13).
+
 ```powershell
 #Requires -Version 7
 [CmdletBinding()]

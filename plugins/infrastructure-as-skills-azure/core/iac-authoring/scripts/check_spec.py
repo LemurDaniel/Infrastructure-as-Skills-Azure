@@ -41,7 +41,9 @@ Read-only. Checks what the contract in references/spec.md promises:
      `deployment.deployer_roles` - `Contributor` on `subscription` for a
      `create` group, `Role Based Access Control Administrator` for any role
      assignment, `Key Vault Secrets Officer` on each vault with secret
-     placeholders. A missing role is an error; a spec without the key is a
+     placeholders, `Contributor` on `subscription` too for deployment_scope
+     subscription. A `create` group under deployment_scope resource_group is an
+     error. A missing role is an error; a spec without the key is a
      warning (written before the key existed). Under `stage_isolation:
      resource_group` no group is `create` and no deployer role is scoped to
      `subscription`: either reaches every stage, and the separation is gone.
@@ -448,8 +450,10 @@ def main():
 
     needs = []  # (what, accepted roles, accepted scopes, the decision that needs it)
     creates = [f'deployment.resource_group_mode_{r}' for r in in_play if dep_value(f'resource_group_mode_{r}') == 'create']
-    if creates:
-        needs.append(('a resource group is created', ROLES_CREATE_GROUP, ['subscription'], creates))
+    scope = dep_value('deployment_scope')
+    if creates or scope == 'subscription':
+        needs.append(('a resource group is created' if creates else 'the deployment runs at subscription scope',
+                      ROLES_CREATE_GROUP, ['subscription'], creates or ['deployment.deployment_scope']))
     assigning = []
     for rkey, rnode in (get(spec, 'resources') or {}).items():
         for gnode in (rnode or {}).values() if isinstance(rnode, dict) else []:
@@ -469,6 +473,13 @@ def main():
 
     granted = dep_value('deployer_roles')
     dr_errors = len(errors)
+    if scope == 'resource_group':
+        for c in creates:
+            errors.append(f"{c} is create under deployment_scope resource_group - the deployment only reaches groups that "
+                          f"exist; creating one is deployment_scope subscription")
+    if scope == 'subscription' and dep_value('stage_isolation') == 'resource_group':
+        errors.append("deployment.deployment_scope is subscription under stage_isolation resource_group - a role on the "
+                      "shared subscription reaches every stage; the scope is resource_group")
     if dep_value('stage_isolation') == 'resource_group':
         for c in creates:
             errors.append(f"{c} is create under stage_isolation resource_group - creating a group needs a role on the "

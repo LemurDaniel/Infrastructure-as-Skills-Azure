@@ -272,8 +272,8 @@ jobs:
 ## Stage workflow - Bicep
 
 Same header, `concurrency`, `approve` job and `apply` condition as above; `plan` and
-`apply` differ. Deployment scope is a resource group; a subscription-scope root swaps
-`az deployment group` for `az deployment sub` and `--location`.
+`apply` differ. A root at `deployment_scope: subscription` swaps `az deployment group` for `az deployment sub`
+and adds `--location`, in what-if and create alike (invariant 13).
 
 ```yaml
 jobs:

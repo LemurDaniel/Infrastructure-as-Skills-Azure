@@ -28,7 +28,8 @@ FIXTURE = os.path.join(HERE, 'fixtures', 'resource-groups.yaml')
 SPLIT = "  resource_group_split: { value: [network, data, observability], source: stated }\n"
 MODE_DATA = "  resource_group_mode_data: { value: create, source: stated }\n"
 SCHEME_LIFECYCLE = "  resource_group_scheme: { value: lifecycle, source: asked }\n"
-ISOLATION_RG = "  stage_isolation: { value: resource_group, source: asked }\n"
+SCOPE_RG = "  deployment_scope: { value: resource_group, source: asked }\n"
+ISOLATION_RG ="  stage_isolation: { value: resource_group, source: asked }\n"
 GRANT_SUB = "      - { role: Contributor, scope: subscription, for: [deployment.resource_group_mode_main] }\n"
 GRANT_RBAC = "      - { role: Role Based Access Control Administrator, scope: resource_group, for: [resources.key-vault] }\n"
 GRANT_KV = "      - { role: Key Vault Secrets Officer, scope: key-vault, for: [resources.key-vault.security.secret_placeholders] }\n"
@@ -59,6 +60,9 @@ MUTATIONS = [
     ('a split under a single layout', SPLIT, SPLIT + "  resource_group_layout: { value: single, source: asked }\n", 'resource_group_layout is single'),
     ('a created group under resource-group stage isolation', MODE_DATA, MODE_DATA + ISOLATION_RG, 'resource_group_mode_data is create under stage_isolation resource_group'),
     ('a subscription grant under resource-group stage isolation', MODE_DATA, MODE_DATA + ISOLATION_RG, 'grants Contributor on subscription under stage_isolation'),
+    ('a created group at resource-group scope', MODE_DATA, MODE_DATA + SCOPE_RG, 'resource_group_mode_data is create under deployment_scope resource_group'),
+    ('subscription scope under resource-group stage isolation', MODE_DATA,
+     MODE_DATA + ISOLATION_RG + SCOPE_RG.replace('resource_group,', 'subscription,'), 'deployment_scope is subscription under stage_isolation'),
 ]
 
 # The same split by lifecycle: (find, replace) in order, every one must hit.
