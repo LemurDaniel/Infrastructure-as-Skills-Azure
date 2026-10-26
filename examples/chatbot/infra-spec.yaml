@@ -30,6 +30,33 @@ deployment:
   non_production_savings: {value: enabled, source: default}
   naming_convention: {value: default, source: default}
 
+  # --- delivery ---
+  deployer_roles:
+    value:
+    - role: Role Based Access Control Administrator
+      scope: resource_group
+      for:
+      - resources.application-insights.identity.role_assignments
+      - resources.key-vault.identity.role_assignments
+      - resources.storage-account__uploads.identity.role_assignments
+      - resources.storage-account__host.identity.role_assignments
+      - resources.foundry.identity.role_assignments
+      - resources.search-service.identity.role_assignments
+      - resources.container-registry.identity.role_assignments
+    - role: Key Vault Secrets Officer
+      scope: key-vault
+      for: [resources.key-vault.security.secret_placeholders]
+    source: forced
+    forced_by:
+    - resources.application-insights.identity.role_assignments
+    - resources.key-vault.identity.role_assignments
+    - resources.storage-account__uploads.identity.role_assignments
+    - resources.storage-account__host.identity.role_assignments
+    - resources.foundry.identity.role_assignments
+    - resources.search-service.identity.role_assignments
+    - resources.container-registry.identity.role_assignments
+    - resources.key-vault.security.secret_placeholders
+
   # --- requirements ---
   outage_impact: {value: disruptive, source: default}
   data_loss_tolerance: {value: one_week, source: default}

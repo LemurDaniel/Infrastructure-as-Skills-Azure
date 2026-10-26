@@ -52,6 +52,7 @@ Nothing here was asked; each follows a rule or one of the answers above. Say so 
 
 ### For the whole system
 
+- Besides changing the resources themselves, whoever deploys needs: Role Based Access Control Administrator (resource_group), Key Vault Secrets Officer (key-vault). — because: `resources.application-insights.identity.role_assignments, resources.key-vault.identity.role_assignments, resources.storage-account__uploads.identity.role_assignments, resources.storage-account__host.identity.role_assignments, resources.foundry.identity.role_assignments, resources.search-service.identity.role_assignments, resources.container-registry.identity.role_assignments, resources.key-vault.security.secret_placeholders`
 - Usage telemetry to Microsoft is on: a count per deployment, none of your data.
 - The system lands in the internal part of the company platform, connected to the company network. _(please confirm)_
 - Passwords and access keys are switched off; access goes through company accounts, so every action is attributable. _(please confirm)_
@@ -408,6 +409,7 @@ Nothing can be deployed until these are answered.
 | `deployment.stage_isolation` | subscription | rule |
 | `deployment.non_production_savings` | enabled | rule |
 | `deployment.naming_convention` | default | rule |
+| `deployment.deployer_roles` | [{"role": "Role Based Access Control Administrator", "scope": "resource_group", "for": ["resources.application-insights.identity.role_assignments", "resources.key-vault.identity.role_assignments", "resources.storage-account__uploads.identity.role_assignments", "resources.storage-account__host.identity.role_assignments", "resources.foundry.identity.role_assignments", "resources.search-service.identity.role_assignments", "resources.container-registry.identity.role_assignments"]}, {"role": "Key Vault Secrets Officer", "scope": "key-vault", "for": ["resources.key-vault.security.secret_placeholders"]}] | forced |
 | `deployment.outage_impact` | disruptive | rule |
 | `deployment.data_loss_tolerance` | one_week | rule |
 | `deployment.data_access_pattern` | active | rule |

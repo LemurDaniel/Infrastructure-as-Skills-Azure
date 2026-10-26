@@ -24,6 +24,16 @@ deployment:
   deploy_mechanism: {value: github, source: asked}
   pipeline_auth: {value: workload_identity, source: default}
   pipeline_approvals: {value: production, source: default}
+  deployer_roles:
+    value:
+    - role: Role Based Access Control Administrator
+      scope: resource_group
+      for: [wiring.role_assignments]
+    - role: Key Vault Secrets Officer
+      scope: key-vault
+      for: [resources.key-vault.security.secret_placeholders]
+    source: forced
+    forced_by: [wiring.role_assignments, resources.key-vault.security.secret_placeholders]
 
   # --- requirements ---
   network_requirements: {value: free, source: asked}

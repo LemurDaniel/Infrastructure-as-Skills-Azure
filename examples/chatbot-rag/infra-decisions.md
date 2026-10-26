@@ -71,6 +71,7 @@ Nothing here was asked; each follows a rule or one of the answers above. Say so 
 
 - The pipeline signs in to Azure with a short-lived token issued per run, no password stored anywhere.
 - A person approves the change before it is applied: in live operation only.
+- Besides changing the resources themselves, whoever deploys needs: Role Based Access Control Administrator (resource_group). — because: `resources.application-insights.identity.role_assignments, resources.storage-account.identity.role_assignments, resources.foundry.identity.role_assignments, resources.search-service.identity.role_assignments`
 - The system lands in its own environment: there is no shared platform, so it brings its own network, name resolution and logging. _(please confirm)_
 - Passwords and access keys are switched off; access goes through company accounts, so every action is attributable. _(please confirm)_
 - Encryption keys are protected in software - the standard, sufficient unless a mandate names hardware.
@@ -273,6 +274,7 @@ Values the run chose to keep going. They are not decisions yet.
 | `deployment.deploy_mechanism` | github | your description |
 | `deployment.pipeline_auth` | workload_identity | rule |
 | `deployment.pipeline_approvals` | production | rule |
+| `deployment.deployer_roles` | [{"role": "Role Based Access Control Administrator", "scope": "resource_group", "for": ["resources.application-insights.identity.role_assignments", "resources.storage-account.identity.role_assignments", "resources.foundry.identity.role_assignments", "resources.search-service.identity.role_assignments"]}] | forced |
 | `deployment.outage_impact` | tolerable | your description |
 | `deployment.data_loss_tolerance` | one_week | rule |
 | `deployment.data_access_pattern` | active | rule |

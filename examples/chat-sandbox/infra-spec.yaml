@@ -28,6 +28,25 @@ deployment:
   deploy_mechanism:
     value: local
     source: asked  # "Von Hand" - a script, no pipeline
+  deployer_roles:
+    value:
+    - role: Role Based Access Control Administrator
+      scope: resource_group
+      for:
+      - resources.foundry.identity.role_assignments
+      - resources.search-service.identity.role_assignments
+      - resources.storage-account.identity.role_assignments
+      - resources.key-vault.identity.role_assignments
+    - role: Key Vault Secrets Officer
+      scope: key-vault
+      for: [resources.key-vault.security.secret_placeholders]
+    source: forced
+    forced_by:
+    - resources.foundry.identity.role_assignments
+    - resources.search-service.identity.role_assignments
+    - resources.storage-account.identity.role_assignments
+    - resources.key-vault.identity.role_assignments
+    - resources.key-vault.security.secret_placeholders
 
   # --- requirements ---
   outage_impact: {value: tolerable, source: asked}

@@ -66,6 +66,7 @@ Nichts davon wurde gefragt; jede Zeile folgt einer Regel oder einer der Antworte
 - Die Ressourcengruppe für die Überwachung wird zusammen mit dem System angelegt.
 - Die Pipeline meldet sich mit einem kurzlebigen Token pro Lauf, ohne irgendwo gespeichertes Passwort bei Azure an.
 - Eine Person gibt die Änderung frei, bevor sie ausgerollt wird: nur im Echtbetrieb.
+- Wer ausrollt, braucht neben dem Recht, die Ressourcen zu ändern: Contributor (subscription). — weil: Die Hauptressourcengruppe wird zusammen mit dem System angelegt.
 - Passwörter und Zugriffsschlüssel sind abgeschaltet; der Zugriff läuft über Firmenkonten, damit jede Aktion zuordenbar ist. _(bitte bestätigen)_
 
 ### Sicherheit
@@ -177,6 +178,7 @@ Solange diese Punkte offen sind, wird nichts ausgerollt.
 | `deployment.deploy_mechanism` | github | eure Antwort |
 | `deployment.pipeline_auth` | workload_identity | Regel |
 | `deployment.pipeline_approvals` | production | Regel |
+| `deployment.deployer_roles` | [{"role": "Contributor", "scope": "subscription", "for": ["deployment.resource_group_mode_main", "deployment.resource_group_mode_network", "deployment.resource_group_mode_data", "deployment.resource_group_mode_observability"]}] | erzwungen |
 | `deployment.network_requirements` | free | eure Antwort |
 | `deployment.outage_impact` | tolerable | eure Antwort |
 | `deployment.data_loss_tolerance` | one_month | eure Antwort |

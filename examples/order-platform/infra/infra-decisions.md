@@ -79,6 +79,7 @@ Nichts davon wurde gefragt; jede Zeile folgt einer Regel oder einer der Antworte
 - Angelegte Ressourcengruppen tragen in der Produktion eine Löschsperre.
 - Die Pipeline meldet sich mit einem kurzlebigen Token pro Lauf, ohne irgendwo gespeichertes Passwort bei Azure an.
 - Eine Person gibt die Änderung frei, bevor sie ausgerollt wird: nur im Echtbetrieb.
+- Wer ausrollt, braucht neben dem Recht, die Ressourcen zu ändern: Contributor (subscription). — weil: Die Hauptressourcengruppe wird zusammen mit dem System angelegt.
 - Nutzungstelemetrie an Microsoft ist ausgeschaltet: eine Zählung pro Ausrollen, keine eurer Daten.
 - Das System landet in einer eigenen Umgebung: es gibt keine gemeinsame Plattform, also bringt es Netz, Namensauflösung und Logging selbst mit. _(bitte bestätigen)_
 - Passwörter und Zugriffsschlüssel sind abgeschaltet; der Zugriff läuft über Firmenkonten, damit jede Aktion zuordenbar ist. _(bitte bestätigen)_
@@ -234,6 +235,7 @@ Werte, die der Lauf angenommen hat, um weiterzukommen. Das sind noch keine Entsc
 | `deployment.deploy_mechanism` | github | eure Antwort |
 | `deployment.pipeline_auth` | workload_identity | Regel |
 | `deployment.pipeline_approvals` | production | Regel |
+| `deployment.deployer_roles` | [{"role": "Contributor", "scope": "subscription", "for": ["deployment.resource_group_mode_main", "deployment.resource_group_mode_network", "deployment.resource_group_mode_data", "deployment.resource_group_mode_application", "deployment.resource_group_mode_observability"]}] | erzwungen |
 | `deployment.network_requirements` | free | eure Antwort |
 | `deployment.outage_impact` | tolerable | eure Antwort |
 | `deployment.data_loss_tolerance` | reproducible | eure Antwort |

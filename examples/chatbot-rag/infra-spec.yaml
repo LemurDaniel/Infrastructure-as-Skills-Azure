@@ -29,6 +29,21 @@ deployment:
   deploy_mechanism: {value: github, source: stated}
   pipeline_auth: {value: workload_identity, source: default}
   pipeline_approvals: {value: production, source: default}
+  deployer_roles:
+    value:
+    - role: Role Based Access Control Administrator
+      scope: resource_group
+      for:
+      - resources.application-insights.identity.role_assignments
+      - resources.storage-account.identity.role_assignments
+      - resources.foundry.identity.role_assignments
+      - resources.search-service.identity.role_assignments
+    source: forced
+    forced_by:
+    - resources.application-insights.identity.role_assignments
+    - resources.storage-account.identity.role_assignments
+    - resources.foundry.identity.role_assignments
+    - resources.search-service.identity.role_assignments
 
   # --- requirements ---
   outage_impact: {value: tolerable, source: stated}

@@ -38,6 +38,7 @@ Nichts davon wurde gefragt; jede Zeile folgt einer Regel oder einer der Antworte
 
 ### Für das ganze System
 
+- Wer ausrollt, braucht neben dem Recht, die Ressourcen zu ändern: Role Based Access Control Administrator (resource_group), Key Vault Secrets Officer (key-vault). — weil: `resources.foundry.identity.role_assignments, resources.search-service.identity.role_assignments, resources.storage-account.identity.role_assignments, resources.key-vault.identity.role_assignments, resources.key-vault.security.secret_placeholders`
 - Das System landet in einer eigenen Umgebung: es gibt keine gemeinsame Plattform, also bringt es Netz, Namensauflösung und Logging selbst mit.
 - Passwörter und Zugriffsschlüssel sind abgeschaltet; der Zugriff läuft über Firmenkonten, damit jede Aktion zuordenbar ist.
 - Verschlüsselungsschlüssel sind in Software geschützt, der Standard, ausreichend ohne Vorgabe für Hardware.
@@ -180,6 +181,7 @@ Solange diese Punkte offen sind, wird nichts ausgerollt.
 | `deployment.non_production_savings` | enabled | erzwungen |
 | `deployment.naming_convention` | default | Regel |
 | `deployment.deploy_mechanism` | local | eure Antwort |
+| `deployment.deployer_roles` | [{"role": "Role Based Access Control Administrator", "scope": "resource_group", "for": ["resources.foundry.identity.role_assignments", "resources.search-service.identity.role_assignments", "resources.storage-account.identity.role_assignments", "resources.key-vault.identity.role_assignments"]}, {"role": "Key Vault Secrets Officer", "scope": "key-vault", "for": ["resources.key-vault.security.secret_placeholders"]}] | erzwungen |
 | `deployment.outage_impact` | tolerable | eure Antwort |
 | `deployment.data_loss_tolerance` | one_week | eure Antwort |
 | `deployment.data_access_pattern` | active | eure Antwort |

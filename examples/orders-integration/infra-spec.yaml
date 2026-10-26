@@ -27,6 +27,21 @@ deployment:
   deploy_mechanism: {value: github, source: asked}
   pipeline_auth: {value: workload_identity, source: default}
   pipeline_approvals: {value: production, source: default}
+  deployer_roles:
+    value:
+    - role: Contributor
+      scope: subscription
+      for:
+      - deployment.resource_group_mode_main
+      - deployment.resource_group_mode_network
+      - deployment.resource_group_mode_data
+      - deployment.resource_group_mode_observability
+    source: forced
+    forced_by:
+    - deployment.resource_group_mode_main
+    - deployment.resource_group_mode_network
+    - deployment.resource_group_mode_data
+    - deployment.resource_group_mode_observability
 
   # --- requirements ---
   network_requirements: {value: free, source: asked}
