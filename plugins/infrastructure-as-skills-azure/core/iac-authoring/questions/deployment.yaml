@@ -299,7 +299,7 @@ groups:
           split: resource_group_scheme decides the groups
 
       - id: resource_group_scheme
-        ask: How should the parts be spread - by what they are responsible for, by how long they live, or one group per kind of resource?
+        ask: How should the parts be spread - by what they are responsible for, or by how long they live?
         type: enum
         resolved_by: interview
         topic: platform
@@ -309,16 +309,17 @@ groups:
         plain_values:
           concern: { en: "by responsibility - network, data, application, monitoring, security", de: "nach Zuständigkeit - Netzwerk, Daten, Anwendung, Überwachung, Sicherheit" }
           lifecycle: { en: "by lifecycle - built once, data that outlives every redeploy, parts replaced freely", de: "nach Lebenszyklus - einmal aufgebaut, Daten, die jedes Neu-Ausrollen überleben, frei ersetzbare Teile" }
-          resource_type: { en: "by kind of resource - one group each", de: "nach Ressourcentyp - je eine Gruppe" }
-        values: [concern, lifecycle, resource_type]
+        values: [concern, lifecycle]
         default: concern
         depends_on: { question: resource_group_layout, equals: split }
         why: >
-          Three ways organisations split, each matching how they run things:
+          Two ways organisations split, each matching how they run things:
           `concern` when teams own areas (a network team, a data team), `lifecycle`
           when what matters is what may be torn down - the state group carries the
-          delete lock and the backups, the runtime group is rebuilt freely -, and
-          `resource_type` when a platform's conventions or cost reports go by kind.
+          delete lock and the backups, the runtime group is rebuilt freely. One group
+          per kind of resource is not offered: it yields a group per type (fourteen
+          for a chat app) that nobody owns or deletes as a unit, and cost by kind is a
+          tag, not a group.
           The scheme decides the roles; which resource belongs to which role is the
           table in iac-rendering/references/resource-group-roles.yaml, not a
           question per area. The person sees the result in the diagram and moves a
@@ -346,8 +347,7 @@ groups:
         forced_when: >
           Never asked; derived from resource_group_layout and resource_group_scheme.
           single: []. split: every role of the scheme that at least one resource of the
-          design belongs to, in the table's order - for resource_type every set name in
-          the design. Recorded as `forced` with `forced_by: deployment.resource_group_scheme`;
+          design belongs to, in the table's order. Recorded as `forced` with `forced_by: deployment.resource_group_scheme`;
           a role the person drops or adds after seeing the diagram is `overridden`.
         why: >
           The list the renderer, the diagram and the checks read: which groups exist
@@ -605,29 +605,6 @@ groups:
         why: See resource_group_mode_main; the runtime group is the one a workload most often owns, since nothing in it outlives a rebuild, but creating it still costs Contributor on the subscription.
         renders: >
           existing: variable resource_group_name_runtime per stage; create: the
-          AVM resource group module, named by the naming interface unless a name is stated
-
-      - id: resource_group_mode_kind
-        ask: Does the group of one kind of resource already exist, or should the infrastructure create it?
-        type: enum
-        resolved_by: derived
-        forced_when: >
-          Under resource_group_scheme resource_type only, and written per kind as
-          `resource_group_mode_<set name>` (resource_group_mode_key-vault), never under this
-          id: `create` when the kind is in resource_groups_created, otherwise `existing`;
-          always `existing` under stage_isolation resource_group
-        plain:
-          en: "The resource group of this kind {value}."
-          de: "Die Ressourcengruppe dieses Typs {value}."
-        plain_values:
-          existing: { en: "already exists and is only used", de: "existiert bereits und wird nur verwendet" }
-          create: { en: "is created together with the system", de: "wird zusammen mit dem System angelegt" }
-        values: [existing, create]
-        default: existing
-        depends_on: { question: resource_group_scheme, equals: resource_type }
-        why: See resource_group_mode_main. One entry here stands for the per-kind keys, because the kinds of a design are not known before it.
-        renders: >
-          existing: variable resource_group_name_<set name> per stage; create: the
           AVM resource group module, named by the naming interface unless a name is stated
 
       - id: resource_group_lock

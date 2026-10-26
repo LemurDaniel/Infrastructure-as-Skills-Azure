@@ -5,7 +5,7 @@
 # in the spec, never here.
 #
 # `roles` and `kinds` are the `concern` scheme (deployment.resource_group_scheme), the default.
-# `lifecycle` is the second scheme; `resource_type` needs no table - a kind's role is its set name.
+# `lifecycle` is the second scheme.
 # Under resource_group_layout split there is no main group, so every resource set is in both
 # tables or in `attached`; check_repo_consistency.py fails on one that is in neither.
 roles: [main, network, data, application, observability, security]

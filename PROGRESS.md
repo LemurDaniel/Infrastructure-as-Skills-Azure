@@ -505,7 +505,8 @@ per-family` in `check_spec.py` and the `chatbot` spec, and `references/private-d
   The consequence is confirmed through its own `AskUserQuestion` call with the way back.
 - **Resource groups: whether, then how** (2026-10-26, from two test interviews with the owner as
   customer): `resource_group_layout` (single / split) and `resource_group_scheme` (concern,
-  lifecycle - foundation, state, runtime -, resource_type) are asked; `resource_group_split` is
+  lifecycle - foundation, state, runtime) are asked (one group per resource type was tried and
+  dropped: fourteen groups for a chat app, owned and deleted by nobody as a unit); `resource_group_split` is
   derived from the scheme's table and the design, corrected at the diagram sign-off. One reader,
   `iac-rendering/scripts/rg_roles.py`, for check_spec, diagram, decision document and name list.
   `resource_groups_created` offers one option per group, more than eight groups become one single

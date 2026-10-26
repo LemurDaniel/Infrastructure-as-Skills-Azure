@@ -310,8 +310,6 @@ RG_COLORS = {   # role: (fill, stroke, font)
     'state': ('#FFF6E5', '#C98A1B', '#8A5A00'),
     'runtime': ('#F3EDFA', '#8764B8', '#5C2D91'),
 }
-# resource_type: a group per kind, coloured in turn from the concern colours in the order met.
-RG_CYCLE = ['network', 'data', 'application', 'observability', 'security']
 PG_TOP, PG_BOT, PG_GAP, PG_MIN_W = 30, 38, 12, 250   # a group frame: the gutter above its first row, the title band below, the gap to the next
 # Azure's own resource group icon, inline in a label: it says what Azure means by the group, a
 # generic folder does not. The path is the one ICONS['resource-group'] holds.
@@ -480,8 +478,6 @@ def main():
 
     rg_scheme = rg_roles.scheme_of(dep)
     rg_split = [x for x in as_list(get_decision(dep, ['resource_group_split'])) if x in rg_roles.roles(RG_TABLE, rg_scheme, resources.keys())]
-    for i, r in enumerate(x for x in rg_split if x not in RG_COLORS):
-        RG_COLORS[r] = RG_COLORS[RG_CYCLE[i % len(RG_CYCLE)]]
     # A split (resource_group_layout: split) has no main group; a spec written before the key keeps it.
     rg_main = ['main'] if rg_roles.has_main(dep) or not rg_split else []
     rg_modes = {'main': s(get_decision(dep, ['resource_group_mode_main'])) or 'existing'}
@@ -499,8 +495,7 @@ def main():
         return role if role in rg_split else (rg_main or rg_split)[0]
 
     def rg_title(role):
-        name = T.get('rgRole_' + role) or TYPE_NAMES.get(role, role)   # resource_type: the kind's name
-        return f"{name} ({T['rgNew'] if rg_modes[role] == 'create' else T['rgOld']})"
+        return f"{T['rgRole_' + role]} ({T['rgNew'] if rg_modes[role] == 'create' else T['rgOld']})"
 
     def hosted_subnet(k):
         """The subnet the spec names for a hosted resource, else the one its kind usually gets."""

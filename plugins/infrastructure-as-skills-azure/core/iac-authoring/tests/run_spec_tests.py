@@ -56,7 +56,6 @@ MUTATIONS = [
     ('the secrets role on another vault', GRANT_KV, GRANT_KV.replace('scope: key-vault,', 'scope: key-vault__other,'), 'no Key Vault Secrets Officer'),
     ('a grant without a scope', GRANT_KV, GRANT_KV.replace(' scope: key-vault,', ''), 'not a list of { role, scope, for }'),
     ('a concern role under the lifecycle scheme', SPLIT, SPLIT + SCHEME_LIFECYCLE, "'network', which is not a role of the lifecycle scheme"),
-    ('a kind not in the design under the resource_type scheme', SPLIT, "  resource_group_split: { value: [key-vault, cosmos-db], source: forced, forced_by: deployment.resource_group_scheme }\n  resource_group_scheme: { value: resource_type, source: asked }\n", "'cosmos-db', which is not a role of the resource_type scheme"),
     ('a split under a single layout', SPLIT, SPLIT + "  resource_group_layout: { value: single, source: asked }\n", 'resource_group_layout is single'),
     ('a created group under resource-group stage isolation', MODE_DATA, MODE_DATA + ISOLATION_RG, 'resource_group_mode_data is create under stage_isolation resource_group'),
     ('a subscription grant under resource-group stage isolation', MODE_DATA, MODE_DATA + ISOLATION_RG, 'grants Contributor on subscription under stage_isolation'),

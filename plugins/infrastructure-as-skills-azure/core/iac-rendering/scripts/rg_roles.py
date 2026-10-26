@@ -2,8 +2,7 @@
 
 One reader for the spec check, the diagram, the decision document and the name list, so a
 scheme means the same thing in all four. `deployment.resource_group_scheme` picks the scheme:
-`concern` (the default, and what a spec without the key means), `lifecycle`, or
-`resource_type`, where a kind's role is its set name and no table is needed.
+`concern` (the default, and what a spec without the key means) or `lifecycle`.
 
 Import it by path - the scripts live in different skills:
 
@@ -14,7 +13,7 @@ Import it by path - the scripts live in different skills:
 import os
 
 ROLES_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'references', 'resource-group-roles.yaml')
-SCHEMES = ['concern', 'lifecycle', 'resource_type']
+SCHEMES = ['concern', 'lifecycle']
 FALLBACK = {'roles': ['main', 'network', 'data', 'application', 'observability', 'security'], 'kinds': {}}
 
 
@@ -45,19 +44,14 @@ def scheme_of(deployment):
 
 
 def table(data, scheme):
-    """{role: [kinds]} of a scheme; empty for `resource_type`."""
+    """{role: [kinds]} of a scheme."""
     if scheme == 'lifecycle':
         return (data.get('lifecycle') or {}).get('kinds') or {}
-    if scheme == 'resource_type':
-        return {}
     return data.get('kinds') or {}
 
 
 def roles(data, scheme, resource_keys=()):
-    """The roles a scheme can split off (never `main`). `resource_type`: the set names present."""
-    if scheme == 'resource_type':
-        attached = data.get('attached') or []
-        return list(dict.fromkeys(k for k in (str(r).split('__')[0] for r in resource_keys) if k not in attached))
+    """The roles a scheme can split off (never `main`)."""
     listed = (data.get('lifecycle') or {}).get('roles') if scheme == 'lifecycle' else data.get('roles')
     return [r for r in (listed or list(table(data, scheme))) if r != 'main']
 
@@ -67,8 +61,6 @@ def role_of(data, scheme, kind):
     for a kind that is deployed with the resource it serves (`attached`)."""
     if kind in (data.get('attached') or []):
         return None
-    if scheme == 'resource_type':
-        return kind
     for role, kinds in table(data, scheme).items():
         if kind in (kinds or []):
             return role

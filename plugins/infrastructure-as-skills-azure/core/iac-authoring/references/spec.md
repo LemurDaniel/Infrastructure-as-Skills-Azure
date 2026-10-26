@@ -94,7 +94,7 @@ deployment:
     value: split                # single | split
     source: asked
   resource_group_scheme:
-    value: concern              # concern | lifecycle | resource_type
+    value: concern              # concern | lifecycle
     source: asked
   resource_group_split:         # derived from the scheme and the resources in the design
     value: [network, data]
@@ -275,7 +275,7 @@ keys it leaves in the spec:
 | Key | Holds | Notes |
 |---|---|---|
 | `deployment.resource_group_layout` | `single` or `split` - asked | `single` or absent: one group, nothing below is written |
-| `deployment.resource_group_scheme` | `concern` (`network`, `data`, `application`, `observability`, `security`), `lifecycle` (`foundation`, `state`, `runtime`), `resource_type` (one role per set name in the design) - asked on `split` | Absent means `concern`, which is what a spec written before the key holds |
+| `deployment.resource_group_scheme` | `concern` (`network`, `data`, `application`, `observability`, `security`), `lifecycle` (`foundation`, `state`, `runtime`) - asked on `split` | Absent means `concern`, which is what a spec written before the key holds |
 | `deployment.resource_group_split` | The roles with a group of their own, derived: every role of the scheme that a resource of the design belongs to | `forced` by the scheme; a group the person drops or adds at the sign-off is `overridden`. `check_spec.py` refuses a role of another scheme |
 | `deployment.resource_group_mode_<role>` | `existing` or `create`, for `main` and for every listed role | An unlisted role has no mode - it is part of `main` |
 | `deployment.resource_group_lock` | `production`, `all_stages`, `none` | Only groups in mode `create` get a lock |
