@@ -19,10 +19,10 @@ Eine Ressourcengruppe wird als Ganzes gelöscht, berechtigt und abgerechnet. Jed
 
 | Gruppe | Zustand | Name | Enthält |
 |---|---|---|---|
-| Haupt | wird mit dem System angelegt | nach der Namenskonvention benannt | Azure Private DNS Zone, Azure Public IP Address (appgw), Azure Storage blob container, Azure Virtual Machine, Azure user-assigned managed identity (appgw), Azure user-assigned managed identity (function) |
-| Netzwerk | wird mit dem System angelegt | nach der Namenskonvention benannt | Azure Application Gateway (v2) with web application firewall, Azure Front Door (Standard / Premium), Azure Network Security Group (apim), Azure Network Security Group (appgw), Azure Network Security Group (pe), Azure Network Security Group (workload), Azure Virtual Network |
-| Daten | wird mit dem System angelegt | nach der Namenskonvention benannt | Azure Backup vault, Azure Recovery Services vault, Azure Storage Account (datalake), Azure Storage Account (host) |
-| Anwendung | wird mit dem System angelegt | nach der Namenskonvention benannt | Azure API Management service, Azure Event Grid system topic, Azure Event Hubs namespace, Azure Functions (function app on Flex Consumption or Elastic Premium), Azure Service Bus namespace |
+| Haupt | wird mit dem System angelegt | nach der Namenskonvention benannt | Azure user-assigned managed identity (appgw), Azure user-assigned managed identity (function) |
+| Netzwerk | wird mit dem System angelegt | nach der Namenskonvention benannt | Azure Application Gateway (v2) with web application firewall, Azure Front Door (Standard / Premium), Azure Network Security Group (apim), Azure Network Security Group (appgw), Azure Network Security Group (pe), Azure Network Security Group (workload), Azure Private DNS Zone, Azure Public IP Address (appgw), Azure Virtual Network |
+| Daten | wird mit dem System angelegt | nach der Namenskonvention benannt | Azure Backup vault, Azure Recovery Services vault, Azure Storage Account (datalake), Azure Storage Account (host), Azure Storage blob container |
+| Anwendung | wird mit dem System angelegt | nach der Namenskonvention benannt | Azure API Management service, Azure Event Grid system topic, Azure Event Hubs namespace, Azure Functions (function app on Flex Consumption or Elastic Premium), Azure Service Bus namespace, Azure Virtual Machine |
 | Überwachung | wird mit dem System angelegt | nach der Namenskonvention benannt | Azure Log Analytics Workspace |
 
 ## Was sich zwischen den Stufen unterscheidet
