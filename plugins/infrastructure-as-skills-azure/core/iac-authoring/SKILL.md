@@ -493,7 +493,11 @@ rather than deciding it for them.
 
 A question may carry `confirm_in: [production]`. Its default still applies, but in that
 environment you surface it for confirmation rather than applying it silently — these are
-the values whose blast radius makes a silent default inappropriate.
+the values whose blast radius makes a silent default inappropriate. It is not a question
+and nothing is asked in Phase 3: the row appears in Phase 4's security block and in the
+decision document marked *bitte bestätigen* / *please confirm* where the spec has the stage
+named, and the sign-off option *Ja, aber bei der Sicherheit weicht etwas ab* is how the
+person changes it. A confirm row is never dropped to keep the block short.
 
 ## Phase 4 — Show the design, report what was defaulted, then ask once
 
