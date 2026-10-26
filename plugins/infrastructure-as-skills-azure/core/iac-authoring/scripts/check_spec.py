@@ -39,7 +39,9 @@ Read-only. Checks what the contract in references/spec.md promises:
      `create` group, `Role Based Access Control Administrator` for any role
      assignment, `Key Vault Secrets Officer` on each vault with secret
      placeholders. A missing role is an error; a spec without the key is a
-     warning (written before the key existed).
+     warning (written before the key existed). Under `stage_isolation:
+     resource_group` no group is `create` and no deployer role is scoped to
+     `subscription`: either reaches every stage, and the separation is gone.
 
 Needs PyYAML (pip install pyyaml). Without it the script says so and exits 2
 rather than pretending the file is fine.
@@ -433,6 +435,14 @@ def main():
 
     granted = dep_value('deployer_roles')
     dr_errors = len(errors)
+    if dep_value('stage_isolation') == 'resource_group':
+        for c in creates:
+            errors.append(f"{c} is create under stage_isolation resource_group - creating a group needs a role on the "
+                          f"shared subscription, which reaches every stage; the groups exist beforehand (existing)")
+        for g in granted if isinstance(granted, list) else []:
+            if isinstance(g, dict) and g.get('scope') == 'subscription':
+                errors.append(f"deployment.deployer_roles grants {g.get('role')} on subscription under stage_isolation "
+                              f"resource_group - each stage's identity holds roles on its own groups only")
     if granted is None:
         if needs:
             warnings.append("deployment.deployer_roles is missing - the spec needs "

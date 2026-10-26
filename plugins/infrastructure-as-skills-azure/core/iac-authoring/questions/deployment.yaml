@@ -86,7 +86,7 @@ groups:
           de: "Jede Stufe liegt in {value}."
         plain_values:
           subscription: { en: "its own subscription, so the stages cannot touch each other's resources, budgets or permissions", de: "einer eigenen Subscription; die Stufen können sich gegenseitig weder Ressourcen noch Budgets noch Berechtigungen anfassen" }
-          resource_group: { en: "its own resource group within one shared subscription", de: "einer eigenen Ressourcengruppe in einer gemeinsamen Subscription" }
+          resource_group: { en: "its own resource group within one shared subscription; each stage deploys with an identity of its own that holds roles on its stage's groups only, never on the subscription", de: "einer eigenen Ressourcengruppe in einer gemeinsamen Subscription; jede Stufe rollt mit einer eigenen Identität aus, die nur auf den Ressourcengruppen ihrer Stufe Rechte hat, nie auf der Subscription" }
         values: [subscription, resource_group]
         default: subscription
         depends_on: { question: environments, not_equals: [sandbox] }
@@ -105,11 +105,21 @@ groups:
           Either way the subscription and the resource group are per-stage values
           that the stage's parameter file carries; this decision says which of the
           two actually separates the stages, so a reviewer knows what a wrong
-          stage file can reach.
+          stage file can reach. `resource_group` holds only while no deploying
+          identity has a role on the shared subscription: one with Contributor
+          there reaches every stage's groups, and the separation is a naming
+          convention. So it forces every resource group to `existing` - creating
+          one needs a subscription-scope role - and each stage's identity gets its
+          roles assigned on that stage's groups only. The person is told both when
+          they choose it: the groups are created once beforehand, and the stages'
+          deploying identities are separated by resource-group role assignments,
+          because a subscription assignment removes the separation.
         renders: >
           terraform: subscription_id per environments/<stage>.tfvars and one state
           per stage; bicep: the deployment scope per stage on the command line;
-          both: the resource group name per stage
+          both: the resource group name per stage; resource_group: every
+          resource_group_mode_<role> forced to existing, and the hand-over scopes each
+          stage identity's roles to its own groups
 
       - id: non_production_savings
         ask: Should the non-production stages run cheaper than production?
@@ -306,6 +316,10 @@ groups:
           security: { en: "security", de: "Sicherheit" }
         values: [main, network, data, application, observability, security]
         default: []
+        forced_when: >
+          stage_isolation resource_group forces [] - creating a group needs a role on the
+          shared subscription, which would reach every stage - and it is not asked; the
+          person is told the groups are created beforehand.
         why: >
           One question instead of one per group: every role the customer split off used to
           cost its own existing-or-create answer, and a system with five split areas asked
@@ -326,7 +340,8 @@ groups:
         type: enum
         resolved_by: derived
         forced_when: >
-          Not asked: `create` when main is in resource_groups_created, otherwise `existing`
+          Not asked: `create` when main is in resource_groups_created, otherwise `existing`;
+          always `existing` under stage_isolation resource_group (forced_by deployment.stage_isolation)
         plain:
           en: "The main resource group {value}."
           de: "Die Hauptressourcengruppe {value}."
@@ -355,7 +370,8 @@ groups:
         type: enum
         resolved_by: derived
         forced_when: >
-          Not asked: `create` when network is in resource_groups_created, otherwise `existing`
+          Not asked: `create` when network is in resource_groups_created, otherwise `existing`;
+          always `existing` under stage_isolation resource_group (forced_by deployment.stage_isolation)
         plain:
           en: "The network resource group {value}."
           de: "Die Ressourcengruppe für das Netzwerk {value}."
@@ -380,7 +396,8 @@ groups:
         type: enum
         resolved_by: derived
         forced_when: >
-          Not asked: `create` when data is in resource_groups_created, otherwise `existing`
+          Not asked: `create` when data is in resource_groups_created, otherwise `existing`;
+          always `existing` under stage_isolation resource_group (forced_by deployment.stage_isolation)
         plain:
           en: "The data resource group {value}."
           de: "Die Ressourcengruppe für die Daten {value}."
@@ -403,7 +420,8 @@ groups:
         type: enum
         resolved_by: derived
         forced_when: >
-          Not asked: `create` when application is in resource_groups_created, otherwise `existing`
+          Not asked: `create` when application is in resource_groups_created, otherwise `existing`;
+          always `existing` under stage_isolation resource_group (forced_by deployment.stage_isolation)
         plain:
           en: "The application resource group {value}."
           de: "Die Ressourcengruppe für die Anwendung {value}."
@@ -423,7 +441,8 @@ groups:
         type: enum
         resolved_by: derived
         forced_when: >
-          Not asked: `create` when observability is in resource_groups_created, otherwise `existing`
+          Not asked: `create` when observability is in resource_groups_created, otherwise `existing`;
+          always `existing` under stage_isolation resource_group (forced_by deployment.stage_isolation)
         plain:
           en: "The monitoring resource group {value}."
           de: "Die Ressourcengruppe für die Überwachung {value}."
@@ -446,7 +465,8 @@ groups:
         type: enum
         resolved_by: derived
         forced_when: >
-          Not asked: `create` when security is in resource_groups_created, otherwise `existing`
+          Not asked: `create` when security is in resource_groups_created, otherwise `existing`;
+          always `existing` under stage_isolation resource_group (forced_by deployment.stage_isolation)
         plain:
           en: "The security resource group {value}."
           de: "Die Ressourcengruppe für die Sicherheit {value}."

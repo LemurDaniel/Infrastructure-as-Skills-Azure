@@ -301,6 +301,11 @@ resources:
   (`deployment.yaml`, `resource_group_name`): a `create` group's name is computed by the render;
   an `existing` group's name is stated or, per stage, an `open:` entry with `OPEN-resource-group`
   in the stage file. A stage the spec's stage map leaves out is the generic per-stage rule above.
+- **Stage isolation by resource group forces `existing`.** Under `deployment.stage_isolation:
+  resource_group` every `resource_group_mode_<role>` is `existing` (`forced`, `forced_by:
+  deployment.stage_isolation`) and no deployer role is scoped to `subscription`: a role on the
+  shared subscription reaches every stage. Each stage's identity holds its roles on its own
+  groups; `check_spec.py` fails on either breach.
 - **A mode change is not an edit of a value.** `existing` <-> `create` creates, deletes or orphans
   a real group; the next run says so before it writes, and the pipeline refuses a Terraform plan
   that deletes one ([pipelines.md](../../iac-rendering/references/pipelines.md), invariant 12).
