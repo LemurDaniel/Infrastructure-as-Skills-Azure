@@ -182,8 +182,8 @@ class Renderer:
                 return self.L['none']
             return ', '.join(self.value_words(q, v) for v in value)
         if isinstance(value, dict):
-            # a role granted to a principal, a subnet handed to a service: pairs read as "who (what)"
-            for who, what in (('principal', 'role'), ('subnet', 'service')):
+            # a role granted to a principal, a subnet handed to a service, a role on a scope: pairs read as "who (what)"
+            for who, what in (('principal', 'role'), ('subnet', 'service'), ('role', 'scope')):
                 if who in value and what in value:
                     return f"{value[who]} ({value[what]})"
             if 'name' in value:
@@ -400,7 +400,8 @@ def main():
 
     # --- set by the rules ------------------------------------------------------
     def forced_note(d):
-        fb = str(d.get('forced_by', ''))
+        fb = d.get('forced_by', '')
+        fb = ', '.join(map(str, fb)) if isinstance(fb, list) else str(fb)
         m = re.match(r'^deployment\.([a-z_]+)', fb)
         if m and m.group(1) in dep_q and m.group(1) in dep and isinstance(dep[m.group(1)], dict):
             return f" — {L['because']}: {R.line(dep_q[m.group(1)][1], dep[m.group(1)].get('value'))}"

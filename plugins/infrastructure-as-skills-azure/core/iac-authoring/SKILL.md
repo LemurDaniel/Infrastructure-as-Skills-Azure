@@ -411,6 +411,9 @@ it resolves from the profile or the default, and a
 Vault; `network_exposure: private` requires the private-endpoint subnet. Apply the
 consequence, record it with the question that forced it, and say so in Phase 4 rather than
 putting a question whose answer is already determined to the user.
+`deployment.deployer_roles` is such a value, written last, once every resource is resolved:
+the roles the deploying identity needs beyond `Contributor`, derived from `create` groups,
+role assignments and secret placeholders (`forced_when` in the deployment set).
 
 Defaults are not invented per resource — they come from
 [references/guardrails.md](references/guardrails.md), which is also where their reasoning

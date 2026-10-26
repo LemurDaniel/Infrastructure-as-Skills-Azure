@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
-"""Tests for the resource-group rules of scripts/check_spec.py.
+"""Tests for the resource-group and deployer-role rules of scripts/check_spec.py.
 
 tests/fixtures/resource-groups.yaml is a valid spec with a split. It must pass clean; so must
-the same spec with the split taken out (one group stays valid). Then each mutation breaks one rule
+the same spec with the split taken out (one group stays valid), and the same spec without
+`deployer_roles` (an older spec: a warning, not an error). Then each mutation breaks one rule
 in a copy - a role that does not exist, a mode missing, a placement into a group the deployment
-does not have - and the check must fail with the message that names it. A mutation whose text is no
+does not have, a deployer role the spec needs and does not grant - and the check must fail with
+the message that names it. A mutation whose text is no
 longer in the fixture fails the run: a test that cannot break anything proves nothing.
 
 Usage:
@@ -24,6 +26,9 @@ FIXTURE = os.path.join(HERE, 'fixtures', 'resource-groups.yaml')
 
 SPLIT = "  resource_group_split: { value: [network, data, observability], source: stated }\n"
 MODE_DATA = "  resource_group_mode_data: { value: create, source: stated }\n"
+GRANT_SUB = "      - { role: Contributor, scope: subscription, for: [deployment.resource_group_mode_main] }\n"
+GRANT_RBAC = "      - { role: Role Based Access Control Administrator, scope: resource_group, for: [resources.key-vault] }\n"
+GRANT_KV = "      - { role: Key Vault Secrets Officer, scope: key-vault, for: [resources.key-vault.security.secret_placeholders] }\n"
 
 # (name, find, replace, expected substring of the output; None = must pass)
 MUTATIONS = [
@@ -41,6 +46,12 @@ MUTATIONS = [
     ('a placement without its reason', ', reason: the vault is kept with the data it protects', '', 'overridden with no reason'),
     ('a lock value that does not exist', "  resource_group_lock: { value: production, source: default }\n", "  resource_group_lock: { value: forever, source: default }\n", "resource_group_lock 'forever'"),
     ('a resource lock value that does not exist', "  resource_group_lock: { value: production, source: default }\n", "  resource_group_lock: { value: production, source: default }\n  resource_lock: { value: forever, source: default }\n", "resource_lock 'forever'"),
+    ('a created group without Contributor on the subscription', GRANT_SUB, '', 'no Contributor on subscription'),
+    ('a created group with Contributor on the group only', GRANT_SUB, GRANT_SUB.replace('subscription,', 'resource_group,'), 'no Contributor on subscription'),
+    ('a role assignment without the role to assign it', GRANT_RBAC, '', 'no Role Based Access Control Administrator'),
+    ('a secret placeholder without the role to write it', GRANT_KV, '', 'no Key Vault Secrets Officer'),
+    ('the secrets role on another vault', GRANT_KV, GRANT_KV.replace('scope: key-vault,', 'scope: key-vault__other,'), 'no Key Vault Secrets Officer'),
+    ('a grant without a scope', GRANT_KV, GRANT_KV.replace(' scope: key-vault,', ''), 'not a list of { role, scope, for }'),
 ]
 
 # The same spec without a split: every resource group line and the placement taken out.
@@ -94,6 +105,13 @@ def main():
         rc, out = run(text)
         report(rc == 0 and 'resource groups' not in out.replace('Resource groups', ''), 'without a split, one group stays valid', out[-400:])
 
+    start, end = base.find('  deployer_roles:\n'), base.find('    forced_by: [deployment.resource_group_mode_main')
+    if start < 0 or end < 0:
+        report(False, 'an older spec without deployer_roles stays valid', 'the fixture no longer holds the deployer_roles block')
+    else:
+        rc, out = run(base[:start] + base[base.index('\n', end) + 1:])
+        report(rc == 0 and 'deployer_roles is missing' in out, 'an older spec without deployer_roles stays valid, with a warning', out[-400:])
+
     for name, find, replace, expected in MUTATIONS:
         if base.count(find) != 1:
             report(False, name, f"the mutation text is in the fixture {base.count(find)} times: {find[:60]!r}")
@@ -102,7 +120,7 @@ def main():
         report(rc == 1 and expected in out, f"breaks: {name}", f"expected exit 1 with {expected!r}; got exit {rc}:\n{out[-500:]}")
 
     print('-' * 70)
-    total = 2 + len(MUTATIONS)
+    total = 3 + len(MUTATIONS)
     print(f"{total - failed}/{total} passed")
     return 1 if failed else 0
 

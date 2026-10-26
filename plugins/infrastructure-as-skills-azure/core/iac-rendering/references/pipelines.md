@@ -115,8 +115,10 @@ The pipeline cannot run until the platform side exists, so the render states it,
 header comment of the entry file and in the reply, as a short list:
 
 - the identity per stage, and the federated-credential subject it must trust;
-- the roles that identity needs on the stage's subscription, and on the state account
-  (`Storage Blob Data Contributor`);
+- the roles that identity needs: `Contributor` on the stage's resource groups, every entry
+  of `deployment.deployer_roles` with its scope and the decisions it is for (`Role Based
+  Access Control Administrator` with a condition limiting it to the roles the spec assigns),
+  and `Storage Blob Data Contributor` on the state account;
 - the platform objects: GitHub environments, an Azure DevOps service connection and
   environments, GitLab protected environments and CI/CD variables;
 - the approval check on each gated stage's environment;
@@ -145,6 +147,7 @@ names the stages that still hold placeholders. They cannot deploy - see invarian
 | `deployment.pipeline_auth` | The login mechanics of the platform file |
 | `deployment.pipeline_approvals` | Which stages have the gate: `production` - the last stage named `production`, or the last stage if none is; `every_stage`; `none` |
 | `deployment.stage_isolation` | `subscription`: one identity and one subscription per stage. `resource_group`: one subscription, so the identities differ by the role scope on the resource group |
+| `deployment.deployer_roles` | The roles beyond `Contributor` in the hand-over list; nothing in a pipeline step |
 | `deployment.non_production_savings` | Nothing in the pipeline; the stage file carries it |
 | `target` | Terraform or Bicep column of the flow above |
 

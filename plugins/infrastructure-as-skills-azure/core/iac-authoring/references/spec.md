@@ -72,6 +72,11 @@ deployment:
   pipeline_approvals:
     value: production           # production | every_stage | none
     source: default
+  deployer_roles:               # derived, never asked: what the deploying identity needs beyond Contributor
+    value:
+      - { role: Key Vault Secrets Officer, scope: key-vault, for: [resources.key-vault.security.secret_placeholders] }
+    source: forced
+    forced_by: [resources.key-vault.security.secret_placeholders]
   network_exposure:
     value: private
     source: asked
@@ -302,7 +307,7 @@ resources:
 
 ## Delivery: the pipeline
 
-Three deployment keys say how the rendered code is deployed. They are a render output beside
+Four deployment keys say how the rendered code is deployed. They are a render output beside
 the Terraform or Bicep, drawn from the same spec; the files per system, the flow and the
 invariants are in [pipelines.md](../../iac-rendering/references/pipelines.md).
 
@@ -311,6 +316,7 @@ invariants are in [pipelines.md](../../iac-rendering/references/pipelines.md).
 | `deploy_mechanism` | `azure_devops`, `github`, `gitlab`, `local` | none - asked | `stated`, `asked`, or `carried` when the repository already holds `.github/workflows`, `azure-pipelines.yml` or `.gitlab-ci.yml` |
 | `pipeline_auth` | `workload_identity`, `client_secret` | `workload_identity` | `default`; `client_secret` only `stated` by the platform team, with the rotation as an `open:` entry |
 | `pipeline_approvals` | `production`, `every_stage`, `none` | `production` | `default`; `none` only `stated` |
+| `deployer_roles` | a list of `{ role, scope, for }` | `[]` | `forced`, `forced_by` listing the decisions; never asked |
 
 - `deploy_mechanism` is a `required` customer question. A run nobody can answer records an
   `open:` entry (`key: deployment.deploy_mechanism`, `owner: workload owner`,
@@ -323,8 +329,16 @@ invariants are in [pipelines.md](../../iac-rendering/references/pipelines.md).
   subscription per stage, or one subscription with role scopes), and `target`
   (Terraform plan/apply or Bicep what-if/create). Nothing about it is a resource decision, so
   none of it sits under `resources:`.
+- `deployer_roles` is what the spec asks of the deploying identity beyond `Contributor` on its
+  groups, re-derived on every run like any `forced` value. A `create` group adds `Contributor`
+  on `subscription`; any `role_assignments` (a resource's or `wiring.`) adds `Role Based Access
+  Control Administrator` on `resource_group`, conditioned to the roles the spec assigns; a key
+  vault with `secret_placeholders` adds `Key Vault Secrets Officer` on that vault's key. `for`
+  names the decisions behind each grant. It applies to `local` too - the person running the
+  script needs the same roles. `check_spec.py` fails on a needed role that is missing.
 - The platform side - identities, federated credentials, environments, approval checks,
-  state account - is not in the spec. The render lists it in the pipeline's header comment.
+  state account - is not in the spec. The render lists it in the pipeline's header comment,
+  with `deployer_roles` as the roles beyond the baseline.
 
 ## `source` is what makes it a spec rather than a settings dump
 
