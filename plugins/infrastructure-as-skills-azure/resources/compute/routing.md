@@ -31,12 +31,18 @@ rules, and record in the spec that no question set backed it.
 
 ## True for the whole family
 
+**Which set hosts the application is the deployment set's answer, not this family's.**
+`deployment.app_runtime` and `app_containers` route it: code -> `app-service` (event-driven
+parts -> `function-app` in the same language), one container -> `app-service` for containers,
+several -> `container-apps`. A request that names the service is `stated` and wins; otherwise no
+set is chosen before the technology is known.
+
 **Compute is where the other families' decisions land.** An app is reached through a
 private endpoint and reaches out through a network integration; it logs to the workspace;
 it holds an identity that other resources grant roles to. Almost every decision in an
 App Service set is inherited from the deployment set or derived from a requirement, and
-the few that are the app's own (runtime, size, health check) are an engineer's. A customer
-is asked nothing new by this family.
+the few that are the app's own (size, health check) are an engineer's. The runtime comes from
+`deployment.app_runtime`; a customer is asked nothing new by this family.
 
 **Inbound and outbound are separate features** with separate subnets: the private endpoint
 sits in the platform's endpoint subnet, the VNet integration in a subnet delegated to the

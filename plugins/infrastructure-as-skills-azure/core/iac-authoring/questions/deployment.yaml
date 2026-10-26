@@ -939,6 +939,67 @@ groups:
           the pipeline header's hand-over list and the reply (pipelines.md, "What the
           render hands over"); nothing in the Terraform or Bicep
 
+  # ---------------------------------------------------------------- application
+  # What the workload's own code is written in, and therefore what hosts it. Asked before any
+  # compute set is chosen: the service follows from the answer, never the other way round.
+  - id: application
+    title: Application
+    questions:
+      - id: app_runtime
+        ask: In which technology is the application written - .NET, Node.js, Python, Java, PHP, or delivered as a container?
+        type: enum
+        resolved_by: interview
+        topic: application
+        plain:
+          en: "The application is written in {value}."
+          de: "Die Anwendung ist geschrieben in {value}."
+        plain_values:
+          dotnet: { en: ".NET", de: ".NET" }
+          node: { en: "Node.js", de: "Node.js" }
+          python: { en: "Python", de: "Python" }
+          container: { en: "a container image that carries its own runtime", de: "einem Container-Image, das seine Laufzeit selbst mitbringt" }
+          java: { en: "Java", de: "Java" }
+          php: { en: "PHP", de: "PHP" }
+        values: [dotnet, node, python, container, java, php]
+        required: true
+        why: >
+          Asked whenever the design holds an application of the workload's own - a chat app,
+          a web front end, an API -, and before a compute set is chosen, because the service
+          follows from it: code (.NET, Node.js, Python, Java, PHP) runs on App Service, the
+          event-driven parts (an import on upload, a schedule) on a Function App in the same
+          language; a container runs on App Service for containers, or on Container Apps when
+          several containers run together (app_containers). Choosing the service first and
+          asking the stack afterwards is how a .NET team ends up with a container platform it
+          did not ask for. The values are ordered by how common they are: the interview shows
+          the first four and Java and PHP come through "Other". Nothing can default it - a
+          wrong stack deploys cleanly and fails at the first request; nobody answering makes it
+          an open entry owned by the workload owner, blocking apply.
+        renders: >
+          which compute set is routed to (app-service, function-app, container-apps) and their
+          runtime_stack
+
+      - id: app_containers
+        ask: Is it one container, or several that run together - a front end beside a worker, scheduled jobs?
+        type: enum
+        resolved_by: interview
+        topic: application
+        plain:
+          en: "The application runs as {value}."
+          de: "Die Anwendung läuft als {value}."
+        plain_values:
+          single: { en: "one container", de: "ein Container" }
+          several: { en: "several containers that run together", de: "mehrere Container, die zusammen laufen" }
+        values: [single, several]
+        default: single
+        depends_on: { question: app_runtime, equals: container }
+        why: >
+          One container is a web app with an image: App Service for containers carries it with
+          the same plan, network integration and slots as code. Several containers that call each
+          other, scale apart or run as jobs are what Container Apps is for - an environment, one
+          app per container, jobs beside them. Container Apps is never chosen without this answer
+          or the customer naming it.
+        renders: app-service (single) or container-apps (several)
+
   # ---------------------------------------------------------------- requirements
   # What the customer can say about the system without knowing Azure. Each answer
   # derives technical decisions in the resource sets: a resource question carrying

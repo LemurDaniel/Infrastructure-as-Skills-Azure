@@ -103,6 +103,8 @@ groups:
       - id: runtime_stack
         ask: Which language or runtime does the function app run?
         type: enum
+        resolved_by: interview
+        topic: application
         plain:
           en: "The function app is written for {value}."
           de: "Die Function App ist geschrieben für {value}."
@@ -117,8 +119,11 @@ groups:
         why: >
           The one decision here nothing can default: the plan does not care, the app does, and
           a wrong stack deploys cleanly and fails at the first trigger. The in-process .NET model
-          is not offered - it is retired. An engineer's question that becomes an `open:` entry
-          when nobody can answer, owned by the workload owner, blocking apply.
+          is not offered - it is retired. Taken from deployment.app_runtime where it maps (.NET
+          -> dotnet-isolated, Node.js, Python, Java), recorded `deployment`; asked only for a
+          function app in another language than the application, or when app_runtime is a
+          container or PHP. Nobody answering makes it an `open:` entry owned by the workload
+          owner, blocking apply.
         renders: fc1_runtime_name / functionAppConfig.runtime.name (and linuxFxVersion for Premium)
 
       - id: runtime_version

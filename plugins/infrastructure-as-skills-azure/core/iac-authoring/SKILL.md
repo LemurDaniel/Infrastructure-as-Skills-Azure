@@ -408,6 +408,15 @@ Resolve it once and every resource inherits it. A resource question carrying
 one run must not produce eight separate exposure answers, and a system is not private
 because seven of them are.
 
+**The compute service follows the application's technology, never the other way round.** A
+design with an application of the workload's own (a chat app, a web front end, an API) asks
+`app_runtime` - and, for a container, `app_containers` - and only then routes to a compute set:
+code runs on App Service, the event-driven parts in the same language on a Function App, one
+container on App Service for containers, several containers on Container Apps. Container Apps
+is never chosen without `app_containers: several` or the customer naming it. A design whose
+compute the request names ("auf Container Apps") records that as `stated` and still asks the
+technology where the set needs it.
+
 **Read every question set before Phase 3 asks anything.** That is the set of each resource
 the request names **plus** every resource a deployment decision forces into the design: a
 private network exposure brings the virtual network and its private-endpoint subnet, a
@@ -527,7 +536,14 @@ nothing reasoned or reported between the calls - the batch is never trimmed to f
 one call. **The options come from the question set, never from the run**: an enum's `values`
 with their `plain_values`, an `int` or free `list` question's `offer` (`mandates`,
 `log_retention_days`) with its labels; "Other" is the tool's and takes the rest. A question with
-neither is asked in prose. **A multi-select whose empty answer is valid carries it as an explicit
+neither is asked in prose. An enum with more than four values (`app_runtime`) shows its first
+four - the values are ordered by how common they are - and the description of the last one names
+the rest ("Java, PHP: über „Other“ eintragen"). **"Other" is the tool's and cannot be switched
+off**, so its answer is read, never guessed: a text that names a value of the question is that
+value (`Java` -> `java`); a text that is a question or an objection is answered and the question
+put again; a text naming something the question cannot take (`Pulumi`) is said to be outside the
+plugin and the question put again with its options; "Other" with no text is asked once more in
+prose, the options as a list. **A multi-select whose empty answer is valid carries it as an explicit
 first option** - "Keine" / "None", "Alles in einer Gruppe" / "Everything in one group" - and
 never as "choose nothing": the tool cannot submit an empty selection, and the answer comes back
 as "Other" with no text. **No option in the batch is marked recommended**: an interview question asks for a fact about the organisation - whether the

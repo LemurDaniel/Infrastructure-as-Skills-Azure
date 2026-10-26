@@ -512,8 +512,6 @@ groups:
       - id: runtime_stack
         ask: In which technology is the application written - .NET, Node.js, Python, Java, PHP, or delivered as a container?
         type: enum
-        resolved_by: interview
-        topic: application
         plain:
           en: "The app is written for {value}."
           de: "Die App ist geschrieben für {value}."
@@ -525,14 +523,12 @@ groups:
           php: { en: "PHP", de: "PHP" }
           container: { en: "a container image that carries its own runtime", de: "ein Container-Image, das seine Laufzeit selbst mitbringt" }
         values: [dotnet, node, python, java, php, container]
-        required: true
+        from_deployment: app_runtime
         why: >
-          The one decision here nothing can default: the plan does not care, the app
-          does, and a wrong stack deploys cleanly and fails at the first request. The
-          customer knows what the application is written in, so it is asked in those words;
-          it becomes an `open:` entry only when nobody can answer, owned by the workload
-          owner, blocking apply. `container` is the stack for
-          anything with a Dockerfile; it turns the version question into an image.
+          Inherited: the deployment set asks it once (app_runtime), before App Service is
+          chosen, because the stack decides the service. A second app in another stack departs
+          per instance (`overridden`). `container` is the stack for anything with a Dockerfile;
+          it turns the version question into an image.
         renders: >
           site_config.application_stack / siteConfig.linuxFxVersion (or windowsFxVersion
           for the .NET and Java families on a Windows plan)
