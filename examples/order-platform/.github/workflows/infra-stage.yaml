@@ -1,0 +1,134 @@
+# Wiederverwendbarer Ablauf einer Stage: plan -> approve -> apply (Voraussetzungen: siehe infra.yaml).
+name: Infrastructure stage
+
+on:
+  workflow_call:
+    inputs:
+      stage: { type: string, required: true }
+      gated: { type: boolean, required: true }
+
+permissions:
+  contents: read
+
+# Queue, nie abbrechen: ein halb abgebrochener Apply trennt State und Realitaet.
+concurrency:
+  group: infra-${{ inputs.stage }}
+  cancel-in-progress: false
+
+env:
+  STAGE: ${{ inputs.stage }}
+  ARM_USE_OIDC: "true"
+  ARM_USE_AZUREAD: "true"
+  ARM_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
+  ARM_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+  TF_IN_AUTOMATION: "true"
+  TF_STATE_KEY_PREFIX: orders        # context.workload
+
+defaults:
+  run:
+    working-directory: infra
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.stage }}
+    permissions: { contents: read, id-token: write }
+    outputs:
+      changes: ${{ steps.plan.outputs.changes }}
+    steps:
+      - uses: actions/checkout@v7
+      - name: Refuse placeholder values
+        run: |
+          f="environments/${STAGE}.tfvars"
+          [ -f "$f" ] || { echo "::error::$f is missing"; exit 1; }
+          if grep -Eq '00000000-0000-0000-0000-000000000000|OPEN-' "$f"; then
+            echo "::error file=infra/$f::Stage ${STAGE} still holds placeholder values - answer the open items (spec open:) first."
+            exit 1
+          fi
+      - uses: azure/login@v3
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.TF_STATE_SUBSCRIPTION_ID }}
+      - uses: hashicorp/setup-terraform@v4
+        with:
+          terraform_version: "~> 1.16.0"
+          terraform_wrapper: false      # der Wrapper schluckt den Exit-Code des Plans
+      - name: Init
+        run: |
+          terraform init -input=false \
+            -backend-config="subscription_id=${{ vars.TF_STATE_SUBSCRIPTION_ID }}" \
+            -backend-config="resource_group_name=${{ vars.TF_STATE_RESOURCE_GROUP }}" \
+            -backend-config="storage_account_name=${{ vars.TF_STATE_STORAGE_ACCOUNT }}" \
+            -backend-config="container_name=${{ vars.TF_STATE_CONTAINER }}" \
+            -backend-config="key=${TF_STATE_KEY_PREFIX}/${STAGE}.tfstate" \
+            -backend-config="use_oidc=true" \
+            -backend-config="use_azuread_auth=true"
+      - name: Plan
+        id: plan
+        run: |
+          set +e
+          terraform plan -input=false -detailed-exitcode \
+            -var-file="environments/${STAGE}.tfvars" -out=tfplan
+          code=$?
+          set -e
+          if [ "$code" -eq 1 ]; then exit 1; fi
+          echo "changes=$([ "$code" -eq 2 ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
+          { echo "### Plan: ${STAGE}"; echo '```'; terraform show -no-color tfplan; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+      - name: Refuse a plan that deletes a resource group
+        run: |
+          terraform show -json tfplan | jq -e '[.resource_changes[]? | select(.change.actions | index("delete")) | select(.type == "azurerm_resource_group" or (.type == "azapi_resource" and ((.change.before.type // "") | startswith("Microsoft.Resources/resourceGroups"))))] | length == 0' > /dev/null \
+            || { echo "::error::The plan deletes a resource group - a group is destroyed by hand, never by the pipeline."; exit 1; }
+      # Plan-Datei kann Klartext-Secrets enthalten: 1 Tag Aufbewahrung, nur der Apply-Job dieses Runs laedt sie.
+      - uses: actions/upload-artifact@v7
+        if: steps.plan.outputs.changes == 'true'
+        with:
+          name: tfplan-${{ inputs.stage }}
+          path: infra/tfplan
+          retention-days: 1
+
+  approve:
+    needs: plan
+    if: ${{ inputs.gated && needs.plan.outputs.changes == 'true' }}
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.stage }}-approval   # Required reviewers nur auf production-approval
+    defaults:
+      run:
+        working-directory: .      # kein Checkout in diesem Job
+    steps:
+      - run: echo "Approved for ${{ inputs.stage }}."
+
+  apply:
+    needs: [plan, approve]
+    # approve ist auf einer ungated Stage uebersprungen; !failure() laesst das durch, stoppt aber bei Ablehnung
+    if: ${{ !cancelled() && !failure() && needs.plan.outputs.changes == 'true' }}
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.stage }}
+    permissions: { contents: read, id-token: write }
+    steps:
+      - uses: actions/checkout@v7
+      - uses: azure/login@v3
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.TF_STATE_SUBSCRIPTION_ID }}
+      - uses: hashicorp/setup-terraform@v4
+        with:
+          terraform_version: "~> 1.16.0"
+          terraform_wrapper: false
+      - uses: actions/download-artifact@v8
+        with:
+          name: tfplan-${{ inputs.stage }}
+          path: infra
+      - name: Init
+        run: |
+          terraform init -input=false \
+            -backend-config="subscription_id=${{ vars.TF_STATE_SUBSCRIPTION_ID }}" \
+            -backend-config="resource_group_name=${{ vars.TF_STATE_RESOURCE_GROUP }}" \
+            -backend-config="storage_account_name=${{ vars.TF_STATE_STORAGE_ACCOUNT }}" \
+            -backend-config="container_name=${{ vars.TF_STATE_CONTAINER }}" \
+            -backend-config="key=${TF_STATE_KEY_PREFIX}/${STAGE}.tfstate" \
+            -backend-config="use_oidc=true" \
+            -backend-config="use_azuread_auth=true"
+      - name: Apply the approved plan
+        run: terraform apply -input=false tfplan
