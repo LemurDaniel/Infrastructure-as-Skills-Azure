@@ -5,6 +5,7 @@
 # spec's open: entries keep blocking apply. Fill the values in, structure stays.
 #
 # Open entries for this stage - owner in brackets:
+#   context.location                                             [workload owner]
 #   context.subscription_id                                      [workload owner]
 #   context.resource_group_name                                  [workload owner]
 #   context.tags                                                 [workload owner]
@@ -21,7 +22,7 @@
 # Context
 subscription_id     = "00000000-0000-0000-0000-000000000000"
 resource_group_name = "OPEN-resource-group"
-location            = "westeurope"
+location            = "OPEN-location"
 workload            = "chatrag"
 environment         = "production"
 tags                = {} # OPEN: context.tags - the organisation's tag set

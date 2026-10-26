@@ -7,7 +7,6 @@ As of 2026-10-24. Specification: `infra-spec.yaml`.
 ## The system
 
 - The system is deployed in these stages: development, test, live operation.
-- Everything runs in the Azure region westeurope.
 - "chatrag" is the name every part of the system carries.
 - Each stage lives in its own subscription, so the stages cannot touch each other's resources, budgets or permissions.
 
@@ -243,6 +242,7 @@ The security baseline of every part in one place. None of it was asked and it is
 
 Nothing can be deployed until these are answered.
 
+- Which Azure region does the system run in? It also decides the region code in every name. [development, test, live operation] _(needed from: workload owner)_ — blocks: apply
 - Which subscription does each stage deploy into? One per stage (stage_isolation: subscription). [development, test, live operation] _(needed from: workload owner)_ — blocks: apply
 - Which resource group does each stage deploy into? [development, test, live operation] _(needed from: workload owner)_ — blocks: apply
 - Which tag set does the organisation apply? Nothing stated, no repository to read it from. _(needed from: workload owner)_ — blocks: apply

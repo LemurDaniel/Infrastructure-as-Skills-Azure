@@ -225,6 +225,11 @@ wiring:
     source: stated
 
 open:
+- key: context.subscription_id
+  environments: [development, test, production]
+  question: In welche Subscription wird jede Stufe ausgerollt?
+  owner: Workload-Owner
+  blocks: apply
 - key: deployment.private_dns_ownership
   question: Wem gehören die privaten DNS-Zonen, und gibt es zentrale?
   owner: Plattform-Team

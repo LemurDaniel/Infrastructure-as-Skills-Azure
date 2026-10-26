@@ -8,12 +8,11 @@ spec:
   skill_version: 0.1
   at: '2026-10-24T15:00:00Z'
 
-# One throwaway stage. location and workload are parameters of the template; the
-# values here are the documented example (EU region for data_residency: data_zone).
+# One throwaway stage. location, subscription and resource group are parameters of the
+# template that nobody named: open entries, placeholders in the stage file.
 context:
   environments: [sandbox]
   language: de
-  location: germanywestcentral
   workload: chat
   tags: {}
 
@@ -324,6 +323,22 @@ wiring:
   optional: {value: [], source: default}
 
 open:
+- key: context.location
+  environments: [sandbox]
+  question: In welcher Azure-Region läuft das System? Sie bestimmt auch das Regionskürzel in jedem Namen und muss in der EU
+    liegen (data_residency).
+  owner: Workload-Team
+  blocks: apply
+- key: context.subscription_id
+  environments: [sandbox]
+  question: In welche Subscription wird die Sandbox ausgerollt?
+  owner: Workload-Team
+  blocks: apply
+- key: context.resource_group_name
+  environments: [sandbox]
+  question: In welche bestehende Ressourcengruppe wird die Sandbox ausgerollt?
+  owner: Workload-Team
+  blocks: apply
 - key: resources.app-service.runtime.container_image
   environments: [sandbox]
   question: Welches Container-Image läuft in der App - Registry, Repository und ein Tag, der nicht "latest" ist? Und aus welcher

@@ -161,6 +161,7 @@ Die Sicherheitsvorgaben aller Teile an einer Stelle. Sie wurden nicht gefragt un
 
 Solange diese Punkte offen sind, wird nichts ausgerollt.
 
+- In welche Subscription wird jede Stufe ausgerollt? [Entwicklung, Test, Echtbetrieb] _(gebraucht von: Workload-Owner)_ — blockiert: apply
 - Wem gehören die privaten DNS-Zonen, und gibt es zentrale? _(gebraucht von: Plattform-Team)_ — blockiert: apply
 
 ## Anhang: alle Entscheidungen

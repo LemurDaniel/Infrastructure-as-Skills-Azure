@@ -1,7 +1,7 @@
 # The interview's output for the chatbot-rag example: a small chat app on Azure AI Foundry with a RAG
 # system. Three stages (the default stack), standalone landing zone (own network, own private DNS zones,
-# own workspace), private, authored resources. Address ranges, models, runtime, subscriptions and groups
-# are open: entries - stage files hold placeholders until they are answered.
+# own workspace), private, authored resources. Region, address ranges, models, runtime, subscriptions and
+# groups are open: entries - stage files hold placeholders until they are answered.
 
 schema_version: 1
 
@@ -16,7 +16,6 @@ spec:
 context:
   environments: [development, test, production]
   language: en
-  location: westeurope
   workload: chatrag
   tags: {}
 
@@ -411,6 +410,11 @@ wiring:
   optional: {value: [], source: default}
 
 open:
+- key: context.location
+  environments: [development, test, production]
+  question: Which Azure region does the system run in? It also decides the region code in every name.
+  owner: workload owner
+  blocks: apply
 - key: context.subscription_id
   environments: [development, test, production]
   question: 'Which subscription does each stage deploy into? One per stage (stage_isolation: subscription).'

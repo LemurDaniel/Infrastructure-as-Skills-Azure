@@ -7,7 +7,6 @@ Stand 2026-10-24. Spezifikation: `infra-spec.yaml`.
 ## Das System
 
 - Das System wird in diesen Stufen ausgerollt: Sandbox, eine Wegwerf-Umgebung.
-- Alles läuft in der Azure-Region germanywestcentral.
 - „chat“ ist der Name, den jeder Teil des Systems trägt.
 
 ## Was aus euren Antworten folgt
@@ -167,6 +166,9 @@ Die Sicherheitsvorgaben aller Teile an einer Stelle. Sie wurden nicht gefragt un
 
 Solange diese Punkte offen sind, wird nichts ausgerollt.
 
+- In welcher Azure-Region läuft das System? Sie bestimmt auch das Regionskürzel in jedem Namen und muss in der EU liegen (data_residency). [Sandbox, eine Wegwerf-Umgebung] _(gebraucht von: Workload-Team)_ — blockiert: apply
+- In welche Subscription wird die Sandbox ausgerollt? [Sandbox, eine Wegwerf-Umgebung] _(gebraucht von: Workload-Team)_ — blockiert: apply
+- In welche bestehende Ressourcengruppe wird die Sandbox ausgerollt? [Sandbox, eine Wegwerf-Umgebung] _(gebraucht von: Workload-Team)_ — blockiert: apply
 - Welches Container-Image läuft in der App - Registry, Repository und ein Tag, der nicht "latest" ist? Und aus welcher Registry darf die App es mit ihrer Identität ziehen? [Sandbox, eine Wegwerf-Umgebung] _(gebraucht von: Workload-Team)_ — blockiert: apply
 - Welches Chat-Modell und welches Embedding-Modell, in welchen genauen Versionen, mit welchem Kontingent? Wird beim Rendern gegen den Katalog der Region als DataZoneStandard nachgeschlagen, nie aus dem Gedächtnis. [Sandbox, eine Wegwerf-Umgebung] _(gebraucht von: Workload-Team)_ — blockiert: apply
 - Die Entra-App-Registrierung und ihr Client Secret. Ein Verzeichnisobjekt, keine Azure-Ressource - das Identity-Team legt sie an; das Secret kommt in den Key-Vault-Platzhalter "entra-client-secret". [Sandbox, eine Wegwerf-Umgebung] _(gebraucht von: Identity-Team)_ — blockiert: apply
