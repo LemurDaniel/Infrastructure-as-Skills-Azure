@@ -56,7 +56,8 @@ def table(data, scheme):
 def roles(data, scheme, resource_keys=()):
     """The roles a scheme can split off (never `main`). `resource_type`: the set names present."""
     if scheme == 'resource_type':
-        return list(dict.fromkeys(str(k).split('__')[0] for k in resource_keys))
+        attached = data.get('attached') or []
+        return list(dict.fromkeys(k for k in (str(r).split('__')[0] for r in resource_keys) if k not in attached))
     listed = (data.get('lifecycle') or {}).get('roles') if scheme == 'lifecycle' else data.get('roles')
     return [r for r in (listed or list(table(data, scheme))) if r != 'main']
 

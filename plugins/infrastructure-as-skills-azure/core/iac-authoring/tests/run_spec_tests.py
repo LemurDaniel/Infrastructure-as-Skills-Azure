@@ -72,6 +72,27 @@ LIFECYCLE = [
     ('resource_group: { value: data,', 'resource_group: { value: state,'),
 ]
 
+# The same split under resource_group_layout split: no main group, application gets its own.
+SPLIT_NO_MAIN = ("  resource_group_layout: { value: split, source: asked }\n"
+                 "  resource_group_scheme: { value: concern, source: asked }\n"
+                 "  resource_group_split: { value: [network, data, application, observability], source: forced, forced_by: deployment.resource_group_scheme }\n")
+MODE_MAIN = "  resource_group_mode_main: { value: create, source: stated }\n"
+NAME_MAIN = "  resource_group_name:\n    production: rg-shop-prod-we\n"
+NO_MAIN = [
+    (SPLIT, SPLIT_NO_MAIN),
+    (MODE_MAIN, "  resource_group_mode_application: { value: create, source: stated }\n"),
+    (NAME_MAIN, ''),
+]
+# (name, find, replace, expected) applied to the no-main variant
+NO_MAIN_MUTATIONS = [
+    ('a main group mode under a split', MODE_DATA, MODE_DATA + MODE_MAIN, 'resource_group_mode_main is stale'),
+    ('a main group name under a split', "  resource_group_name_network:\n", NAME_MAIN + "  resource_group_name_network:\n", 'context.resource_group_name is stale'),
+    ('a resource whose role is not split off, with no main to fall into', SPLIT_NO_MAIN,
+     SPLIT_NO_MAIN.replace('[network, data, application, observability]', '[network, data, observability]'),
+     "resources.app-service belongs to 'application'"),
+    ('a split with no roles', SPLIT_NO_MAIN, SPLIT_NO_MAIN.replace('[network, data, application, observability]', '[]'), 'is empty under resource_group_layout split'),
+]
+
 # The same spec without a split: every resource group line and the placement taken out.
 NO_SPLIT = [
     SPLIT, "  resource_group_mode_main: { value: create, source: stated }\n",
@@ -133,6 +154,23 @@ def main():
         rc, out = run(text)
         report(rc == 0 and 'main and 2 split role(s)' in out, 'a split by lifecycle stays valid', out[-400:])
 
+    no_main = base
+    for find, replace in NO_MAIN:
+        if no_main.count(find) != 1:
+            report(False, 'a split without a main group stays valid', f"the fixture no longer holds once: {find!r}")
+            no_main = None
+            break
+        no_main = no_main.replace(find, replace)
+    if no_main is not None:
+        rc, out = run(no_main)
+        report(rc == 0 and 'no main group, 4 split role(s)' in out, 'a split without a main group stays valid', out[-400:])
+        for name, find, replace, expected in NO_MAIN_MUTATIONS:
+            if no_main.count(find) != 1:
+                report(False, name, f"the mutation text is in the variant {no_main.count(find)} times: {find[:60]!r}")
+                continue
+            rc, out = run(no_main.replace(find, replace))
+            report(rc == 1 and expected in out, f"breaks: {name}", f"expected exit 1 with {expected!r}; got exit {rc}:\n{out[-500:]}")
+
     start, end = base.find('  deployer_roles:\n'), base.find('    forced_by: [deployment.resource_group_mode_main')
     if start < 0 or end < 0:
         report(False, 'an older spec without deployer_roles stays valid', 'the fixture no longer holds the deployer_roles block')
@@ -148,7 +186,7 @@ def main():
         report(rc == 1 and expected in out, f"breaks: {name}", f"expected exit 1 with {expected!r}; got exit {rc}:\n{out[-500:]}")
 
     print('-' * 70)
-    total = 4 + len(MUTATIONS)
+    total = 5 + len(MUTATIONS) + len(NO_MAIN_MUTATIONS)
     print(f"{total - failed}/{total} passed")
     return 1 if failed else 0
 

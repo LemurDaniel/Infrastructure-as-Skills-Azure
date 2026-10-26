@@ -333,7 +333,9 @@ def main():
     rg_errors = len(errors)
     dep_node = get(spec, 'deployment') or {}
     scheme = rg_roles.scheme_of(dep_node)
-    split_roles = rg_roles.roles(rg_roles.load(yaml), scheme, (get(spec, 'resources') or {}).keys())
+    rg_table = rg_roles.load(yaml)
+    split_roles = rg_roles.roles(rg_table, scheme, (get(spec, 'resources') or {}).keys())
+    main_present = rg_roles.has_main(dep_node)
     ctx_node = get(spec, 'context') or {}
 
     def dep_value(qid):
@@ -348,7 +350,7 @@ def main():
         split = []
     for r in split:
         if r == 'main':
-            errors.append("deployment.resource_group_split lists 'main' - the main group always exists; the list is the roles split off from it")
+            errors.append("deployment.resource_group_split lists 'main' - the list holds the roles of the scheme; under a split there is no main group")
         elif r not in split_roles:
             errors.append(f"deployment.resource_group_split lists '{r}', which is not a role of the {scheme} scheme "
                           f"({', '.join(split_roles) or 'no resources yet'})")
@@ -359,8 +361,12 @@ def main():
         errors.append("deployment.resource_group_split lists roles, but resource_group_layout is single - one group per stage, nothing split off")
     if layout == 'single' and dep_value('resource_group_scheme') is not None:
         errors.append("deployment.resource_group_scheme is stale - resource_group_layout is single, so there is nothing to split")
+    if layout == 'split' and not split:
+        errors.append("deployment.resource_group_split is empty under resource_group_layout split - there is no main group, so the resources need the scheme's groups")
+    if layout is None and split:
+        warnings.append("deployment.resource_group_layout is missing - a spec written before it, read with a main group beside the split roles; a run re-derives the split without one")
     split = [r for r in split if r in split_roles]
-    in_play = ['main'] + split
+    in_play = (['main'] if main_present else []) + split
 
     # every role named anywhere: the scheme's, and any a mode or a name was written for
     seen = set(split_roles) | {'main'}
@@ -377,12 +383,24 @@ def main():
             if mode not in RG_MODES:
                 errors.append(f"{mode_path} '{mode}' is not existing or create")
             if r not in in_play:
-                errors.append(f"{mode_path} is stale - '{r}' is not split off, so it is part of the main group and has no group of its own")
+                errors.append(f"{mode_path} is stale - '{r}' has no group of its own"
+                              + (" (under a split there is no main group)" if r == 'main' else ", it is not split off"))
 
         name_key = 'resource_group_name' if r == 'main' else f'resource_group_name_{r}'
         name = ctx_node.get(name_key) if isinstance(ctx_node, dict) else None
-        if r != 'main' and name is not None and r not in in_play:
-            errors.append(f"context.{name_key} is stale - '{r}' is not split off, so it has no group of its own")
+        if name is not None and r not in in_play:
+            errors.append(f"context.{name_key} is stale - '{r}' has no group of its own"
+                          + (" (under a split there is no main group)" if r == 'main' else ", it is not split off"))
+
+    # under a split every resource needs a group of the scheme: there is no main to fall into
+    if not main_present:
+        for rkey, rnode in (get(spec, 'resources') or {}).items():
+            if get(get(rnode, 'placement'), 'resource_group') is not None:
+                continue  # a placement is checked below
+            role = rg_roles.role_of(rg_table, scheme, str(rkey).split('__')[0])
+            if role is not None and role not in split:
+                errors.append(f"resources.{rkey} belongs to '{role}', which resource_group_split does not list - under a split "
+                              f"there is no main group to fall back to; add the role, or place the resource with placement.resource_group")
 
     lock = dep_value('resource_group_lock')
     if lock is not None and lock not in RG_LOCKS:
@@ -402,7 +420,7 @@ def main():
             errors.append(f"resources.{rkey}.placement.resource_group '{role}' names a group the deployment does not have - "
                           f"add the role to deployment.resource_group_split, or drop the placement (in play: {', '.join(in_play)})")
     if len(errors) == rg_errors and (split or placed):
-        ok(f"resource groups - main and {len(split)} split role(s), {placed} placement(s)")
+        ok(f"resource groups - {'main and ' if main_present else 'no main group, '}{len(split)} split role(s), {placed} placement(s)")
 
     # --- 9. context: a value or an open entry ----------------------------------
     open_keys = {str(get(o, 'key')) for o in (get(spec, 'open') or []) if get(o, 'key')}
