@@ -1755,13 +1755,16 @@ groups:
         per_environment: true
         forced_when: >
           network_requirements decides who answers. `free`: the range is chosen with the
-          customer in the Phase 3 batch as a sizing choice - three ranges out of a private block
-          nobody peers with (10.100.0.0/24, /23, /22), the one that fits the described system
+          customer in the Phase 3 batch as a sizing choice - four ranges out of a private block
+          nobody peers with (10.100.0.0/25, /24, /23, /22), the one that fits the described system
           marked recommended, which is the one recommendation the batch allows because it is
-          sizing, not a guess about the organisation: /24 for a system of one or two compute
-          subnets and up to 27 private endpoints, /23 from three compute subnets or a Container
-          Apps environment with workload profiles, /22 for a consumption-only Container Apps
-          environment (its infrastructure subnet alone is a /23) or several environments; each
+          sizing, not a guess about the organisation. The size is the sum of the subnets, rounded
+          up to the next prefix: the private endpoint subnet (/27, /26 above 27 endpoints) plus each
+          compute subnet - App Service or Function App integration /26, a Container Apps
+          environment with workload profiles /27, consumption-only /23, a gateway or Bastion
+          /26. So /25 for one integrated app and its endpoints (/27 + /26 = 96 addresses), /24
+          for a second compute subnet, /23 for three or a Container Apps environment beside two,
+          /22 for a consumption-only Container Apps environment; each
           stage takes its own block of that size (10.100.0.0, 10.101.0.0, 10.102.0.0), so the
           stages could be peered later without renumbering. `assigned_ranges` and `corporate`:
           an open entry owned by the network team unless the request states the range; never
@@ -1804,7 +1807,8 @@ groups:
         forced_when: >
           network_requirements: free - cut from the chosen address space by the engineer, never
           asked: the first /27 of the range (the first /26 when the system has more than 27
-          private endpoints), the compute subnets after it. assigned_ranges and corporate: an
+          private endpoints), the compute subnets after it, each on a boundary of its own size
+          (in a /25: endpoints 10.100.0.0/27, App Service integration 10.100.0.64/26). assigned_ranges and corporate: an
           open entry owned by the network team together with the address space, unless stated.
         why: >
           With the deployment owning the network there is nothing to reference yet -

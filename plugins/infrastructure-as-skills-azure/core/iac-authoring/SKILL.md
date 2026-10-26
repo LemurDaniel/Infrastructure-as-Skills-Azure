@@ -539,10 +539,11 @@ system joins the company network, how bad a day's outage is, where the data may 
 there is no better answer the plugin could know. The default is the guardrail's fallback for
 an answer nobody gave, not advice, and marking it steers the person towards the guess the
 question exists to replace. **The one exception is the address range when the network is
-free** (`network_requirements: free`): the batch offers three ranges out of a private block
-nobody peers with - 10.100.0.0/24, /23, /22 - with the size that fits the described system
+free** (`network_requirements: free`): the batch offers four ranges out of a private block
+nobody peers with - 10.100.0.0/25, /24, /23, /22 - with the size that fits the described system
 marked recommended, because that recommendation is sizing the plugin derives from the
-system (compute subnets, private endpoints, a Container Apps environment), not a guess
+system (the sum of its subnets: endpoints /27, an integrated app /26, a Container Apps
+environment), not a guess
 about the organisation; the rule and the sizes are on `address_space` in the deployment
 set, and each stage takes its own block of the chosen size. Nothing else is asked. A question without `resolved_by` takes its default; a `derived`
 question takes its derived value or its default; a `required` question of either
@@ -612,7 +613,7 @@ Das würde ich bauen - bitte abhaken, was stimmt:
   [ ] Ein Suchindex über eure Dokumente (AI Search)
   [ ] Ein Speicher für die Dokumente und ein Datenbank für die Chatverläufe
   [ ] Ein Tresor für das eine Geheimnis, das die App braucht
-  [ ] Ein eigenes Netz, 10.100.0.0/24, in dem alles außer der App nur privat erreichbar ist
+  [ ] Ein eigenes Netz, 10.100.0.0/25, in dem alles außer der App nur privat erreichbar ist
   [ ] Logs aller Teile an einem Ort, 30 Tage
   Verbindungen: die App spricht mit Modellen, Suche, Speicher, Datenbank und Tresor; die
   Suche liest den Speicher und die Modelle. Nichts anderes spricht miteinander.
@@ -627,7 +628,7 @@ This is what I would build - please tick what is right:
   [ ] A search index over your documents (AI Search)
   [ ] A store for the documents and a database for the chat histories
   [ ] A vault for the one secret the app needs
-  [ ] A network of its own, 10.100.0.0/24, in which everything except the app is private only
+  [ ] A network of its own, 10.100.0.0/25, in which everything except the app is private only
   [ ] Logs of all parts in one place, 30 days
   Connections: the app talks to models, search, storage, database and vault; search reads
   the storage and the models. Nothing else talks to anything else.
