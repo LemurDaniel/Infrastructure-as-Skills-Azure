@@ -3,7 +3,7 @@
   "name": "infrastructure-as-skills-azure",
   "displayName": "Infrastructure as Skills: Azure",
   "description": "Author Azure infrastructure as Terraform or Bicep by answering the decisions each resource actually has. Each resource carries a grouped question set (placement, networking, identity, security, data protection, observability), and a deployment-wide set settles posture, network ownership and mandates once for everything in a deployment. Renders Azure Verified Modules first, authored resources as the fallback.",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "author": {
     "name": "LemurDaniel"
   },
