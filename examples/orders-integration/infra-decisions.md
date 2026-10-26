@@ -40,10 +40,6 @@ Ein Code wird durch diese Stufen ausgerollt; alles, was hier nicht steht, ist in
 ## Was aus euren Antworten folgt
 
 - **Diese Bereiche erhalten eine eigene Ressourcengruppe: Netzwerk, Daten, Überwachung. Alles andere liegt in der Hauptgruppe.** _(eure Antwort)_
-- **Die Hauptressourcengruppe wird zusammen mit dem System angelegt.** _(eure Antwort)_
-- **Die Ressourcengruppe für das Netzwerk wird zusammen mit dem System angelegt.** _(eure Antwort)_
-- **Die Ressourcengruppe für die Daten wird zusammen mit dem System angelegt.** _(eure Antwort)_
-- **Die Ressourcengruppe für die Überwachung wird zusammen mit dem System angelegt.** _(eure Antwort)_
 - **Ressourcen, die Daten halten, tragen in der Produktion eine Löschsperre.** _(eure Antwort)_
 - **Das System wird durch GitHub Actions ausgerollt.** _(eure Antwort)_
 - **Das Netz wird von diesem Ausrollen frei gewählt, ohne Verbindung zum Firmennetz und ohne VPN.** _(eure Antwort)_
@@ -54,7 +50,7 @@ Ein Code wird durch diese Stufen ausgerollt; alles, was hier nicht steht, ist in
 - **Die Daten werden nur innerhalb des Wirtschaftsraums der Region, zum Beispiel der EU gespeichert und verarbeitet.** _(eure Antwort)_
 - **Der Code wird aus Microsofts geprüften, getesteten Bausteinen (Azure Verified Modules) gebaut.** _(eure Antwort)_
 - **Die Ressourcennamen erzeugt das Naming-Werkzeug des Plugins, gesteuert über eine Namensdatei, die ihr anpassen könnt.** _(eure Antwort)_
-- **Der Zugang ist privat, mit benannten Ausnahmen hinter einer Firewall aus dem Internet erreichbar.** _(aus eurer Beschreibung)_
+- **Der Zugang ist privat; nur die benannten Teile sind hinter einer Firewall aus dem Internet erreichbar, alles dahinter bleibt privat.** _(aus eurer Beschreibung)_
 - **Einzuhaltende Vorgaben: keine.** _(eure Antwort)_
 - **Logs werden Entwicklung: 30; Test: 30; Echtbetrieb: 90 Tage aufbewahrt.** _(aus eurer Beschreibung)_
 
@@ -64,15 +60,35 @@ Nichts davon wurde gefragt; jede Zeile folgt einer Regel oder einer der Antworte
 
 ### Für das ganze System
 
+- Die Hauptressourcengruppe wird zusammen mit dem System angelegt.
+- Die Ressourcengruppe für das Netzwerk wird zusammen mit dem System angelegt.
+- Die Ressourcengruppe für die Daten wird zusammen mit dem System angelegt.
+- Die Ressourcengruppe für die Überwachung wird zusammen mit dem System angelegt.
 - Die Pipeline meldet sich mit einem kurzlebigen Token pro Lauf, ohne irgendwo gespeichertes Passwort bei Azure an.
 - Eine Person gibt die Änderung frei, bevor sie ausgerollt wird: nur im Echtbetrieb.
-- Passwörter und Zugriffsschlüssel sind abgeschaltet; der Zugriff läuft über Firmenkonten, damit jede Aktion zuordenbar ist.
+- Passwörter und Zugriffsschlüssel sind abgeschaltet; der Zugriff läuft über Firmenkonten, damit jede Aktion zuordenbar ist. _(bitte bestätigen)_
+
+### Sicherheit
+
+Die Sicherheitsvorgaben aller Teile an einer Stelle. Sie wurden nicht gefragt und sind in jeder Stufe gleich; sagt Bescheid, wenn eine nicht passt.
+
+- **Azure Front Door (Standard / Premium)**
+  - Gepflegte Firewall-Regeln sind angewandt.
+- **Azure API Management service**
+  - `true`
+- **Azure Service Bus namespace**
+  - Zugriffsschlüssel und Verbindungszeichenfolgen sind abgeschaltet.
+- **Azure Event Grid custom topic**
+  - `"managed_identity"`
+- **Azure Storage Account**
+  - Zugriff mit einem geteilten Schlüssel ist nicht möglich; der Zugriff läuft über Firmenkonten. _(bitte bestätigen)_
+- **Azure Key Vault**
+  - Der Zugriff auf den Inhalt des Tresors wird über Rollenzuweisungen, wie alles andere in Azure gesteuert.
 
 ### Azure Front Door (Standard / Premium)
 
-- Front Door ist die Stufe Premium.
+- Front Door ist die Stufe Premium. _(bitte bestätigen)_
 - Backends: application-gateway.
-- Gepflegte Firewall-Regeln sind angewandt.
 
 ### Azure Application Gateway (v2) with web application firewall
 
@@ -81,40 +97,36 @@ Nichts davon wurde gefragt; jede Zeile folgt einer Regel oder einer der Antworte
 
 ### Azure API Management service
 
-- Das Gateway ist die Stufe Entwicklung: eine Teststufe ohne Verfügbarkeitszusage; Test: eine Teststufe ohne Verfügbarkeitszusage; Echtbetrieb: Premium, mit Zonen, mehreren Regionen und Netzwerkeinbindung.
+- Das Gateway ist die Stufe Entwicklung: eine Teststufe ohne Verfügbarkeitszusage; Test: eine Teststufe ohne Verfügbarkeitszusage; Echtbetrieb: Premium, mit Zonen, mehreren Regionen und Netzwerkeinbindung. _(bitte bestätigen)_
 - `"Internal"`
-- `true`
 - `"entra-id"`
 - `"per-subscription"`
 - `"function-app"`
 
 ### Azure Functions (function app on Flex Consumption or Elastic Premium)
 
-- Die Function App ist aus dem Internet überhaupt nicht erreichbar.
+- Die Function App ist aus dem Internet überhaupt nicht erreichbar. _(bitte bestätigen)_
 
 ### Azure Service Bus namespace
 
-- Zugriffsschlüssel und Verbindungszeichenfolgen sind abgeschaltet.
 - `{"subscriptions": ["billing", "shipping", "audit"], "filter": "order-type"}`
 - `{"dead_lettering": true, "duplicate_detection": true}`
 
 ### Azure Event Hubs namespace
 
-- Der Dienst (namespace) ist aus dem Internet überhaupt nicht erreichbar.
+- Der Dienst (namespace) ist aus dem Internet überhaupt nicht erreichbar. _(bitte bestätigen)_
 - `4`
 - `7`
 - `"storage-account"`
 
 ### Azure Event Grid custom topic
 
-- `"managed_identity"`
 - `{"source": "storage-account", "destination": "function-app"}`
 
 ### Azure Storage Account
 
 - `true`
-- Der Speicher ist aus dem Internet überhaupt nicht erreichbar.
-- Zugriff mit einem geteilten Schlüssel ist nicht möglich; der Zugriff läuft über Firmenkonten.
+- Der Speicher ist aus dem Internet überhaupt nicht erreichbar. _(bitte bestätigen)_
 
 ### Azure Backup vault
 
@@ -125,15 +137,11 @@ Nichts davon wurde gefragt; jede Zeile folgt einer Regel oder einer der Antworte
 ### Azure Recovery Services vault
 
 - `{"development": "LRS", "test": "LRS", "production": "GRS"}`
-- Gelöschte Sicherungen werden ja.
+- Gelöschte Sicherungen werden ja. _(bitte bestätigen)_
 
 ### Azure Log Analytics Workspace
 
 - Logs werden Entwicklung: 30; Test: 30; Echtbetrieb: 90 Tage aufbewahrt.
-
-### Azure Key Vault
-
-- Der Zugriff auf den Inhalt des Tresors wird über Rollenzuweisungen, wie alles andere in Azure gesteuert.
 
 ### Azure Virtual Network
 
@@ -159,31 +167,31 @@ Solange diese Punkte offen sind, wird nichts ausgerollt.
 
 | Schlüssel | Wert | Quelle |
 |---|---|---|
-| `deployment.module_source` | avm | eure Antwort |
-| `deployment.naming_source` | provider | eure Antwort |
-| `deployment.deploy_mechanism` | github | eure Antwort |
-| `deployment.pipeline_auth` | workload_identity | Regel |
-| `deployment.pipeline_approvals` | production | Regel |
-| `deployment.network_requirements` | free | eure Antwort |
-| `deployment.network_exposure` | private_with_exceptions | eure Beschreibung |
-| `deployment.local_auth` | disabled | eure Beschreibung |
-| `deployment.outage_impact` | tolerable | eure Antwort |
-| `deployment.data_loss_tolerance` | one_month | eure Antwort |
-| `deployment.data_access_pattern` | active | eure Antwort |
-| `deployment.data_residency` | data_zone | eure Antwort |
-| `deployment.backup_isolation` | {"development": "isolated", "test": "isolated", "production": "immutable"} | eure Abweichung |
-| `deployment.mandates` | [] | eure Antwort |
-| `deployment.log_retention_days` | {"development": 30, "test": 30, "production": 90} | eure Beschreibung |
-| `deployment.resource_lock` | production | eure Antwort |
 | `deployment.resource_group_split` | ["network", "data", "observability"] | eure Antwort |
 | `deployment.resource_group_mode_main` | create | eure Antwort |
 | `deployment.resource_group_mode_network` | create | eure Antwort |
 | `deployment.resource_group_mode_data` | create | eure Antwort |
 | `deployment.resource_group_mode_observability` | create | eure Antwort |
+| `deployment.resource_lock` | production | eure Antwort |
+| `deployment.deploy_mechanism` | github | eure Antwort |
+| `deployment.pipeline_auth` | workload_identity | Regel |
+| `deployment.pipeline_approvals` | production | Regel |
+| `deployment.network_requirements` | free | eure Antwort |
+| `deployment.outage_impact` | tolerable | eure Antwort |
+| `deployment.data_loss_tolerance` | one_month | eure Antwort |
+| `deployment.data_access_pattern` | active | eure Antwort |
+| `deployment.backup_isolation` | {"development": "isolated", "test": "isolated", "production": "immutable"} | eure Abweichung |
+| `deployment.data_residency` | data_zone | eure Antwort |
+| `deployment.module_source` | avm | eure Antwort |
+| `deployment.naming_source` | provider | eure Antwort |
+| `deployment.network_exposure` | private_with_exceptions | eure Beschreibung |
+| `deployment.local_auth` | disabled | eure Beschreibung |
+| `deployment.mandates` | [] | eure Antwort |
+| `deployment.log_retention_days` | {"development": 30, "test": 30, "production": 90} | eure Beschreibung |
 | `front-door.placement.sku` | Premium | eure Beschreibung |
+| `front-door.security.waf_managed_rules` | true | eure Beschreibung |
 | `front-door.networking.origin_connection` | public | eure Abweichung |
 | `front-door.networking.origins` | ["application-gateway"] | eure Beschreibung |
-| `front-door.security.waf_managed_rules` | true | eure Beschreibung |
 | `application-gateway.placement.sku` | WAF_v2 | eure Beschreibung |
 | `application-gateway.networking.frontend_exposure` | public | eure Abweichung |
 | `application-gateway.networking.backends` | ["api-management"] | eure Beschreibung |

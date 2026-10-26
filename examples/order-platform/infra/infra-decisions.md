@@ -34,11 +34,6 @@ Ein Code wird durch diese Stufen ausgerollt; alles, was hier nicht steht, ist in
 ## Was aus euren Antworten folgt
 
 - **Diese Bereiche erhalten eine eigene Ressourcengruppe: Netzwerk, Daten, Anwendung, Überwachung. Alles andere liegt in der Hauptgruppe.** _(eure Antwort)_
-- **Die Hauptressourcengruppe wird zusammen mit dem System angelegt.** _(eure Antwort)_
-- **Die Ressourcengruppe für das Netzwerk wird zusammen mit dem System angelegt.** _(eure Antwort)_
-- **Die Ressourcengruppe für die Daten wird zusammen mit dem System angelegt.** _(eure Antwort)_
-- **Die Ressourcengruppe für die Anwendung wird zusammen mit dem System angelegt.** _(eure Antwort)_
-- **Die Ressourcengruppe für die Überwachung wird zusammen mit dem System angelegt.** _(eure Antwort)_
 - **Ressourcen, die Daten halten, tragen in der Produktion eine Löschsperre.** _(nicht gesagt, daher gilt die übliche Antwort)_
 - **Das System wird durch GitHub Actions ausgerollt.** _(eure Antwort)_
 - **Das Netz wird von diesem Ausrollen frei gewählt, ohne Verbindung zum Firmennetz und ohne VPN.** _(eure Antwort)_
@@ -66,7 +61,7 @@ Ein Code wird durch diese Stufen ausgerollt; alles, was hier nicht steht, ist in
 - **Das System wird mit Ausgewogenheit zwischen Kosten und Schutz gebaut.** _(eure Antwort)_
 - **Der Code wird aus Microsofts geprüften, getesteten Bausteinen (Azure Verified Modules) gebaut.** _(eure Antwort)_
 - **Die Ressourcennamen erzeugt Microsofts fertiges Naming-Modul.** _(eure Antwort)_
-- **Der Zugang ist privat, mit benannten Ausnahmen hinter einer Firewall aus dem Internet erreichbar.** _(eure Antwort)_
+- **Der Zugang ist privat; nur die benannten Teile sind hinter einer Firewall aus dem Internet erreichbar, alles dahinter bleibt privat.** _(eure Antwort)_
 - **Einzuhaltende Vorgaben: DSGVO.** _(eure Antwort)_
 - **Logs werden 30 Tage aufbewahrt.** _(nicht gesagt, daher gilt die übliche Antwort)_
 
@@ -76,6 +71,11 @@ Nichts davon wurde gefragt; jede Zeile folgt einer Regel oder einer der Antworte
 
 ### Für das ganze System
 
+- Die Hauptressourcengruppe wird zusammen mit dem System angelegt.
+- Die Ressourcengruppe für das Netzwerk wird zusammen mit dem System angelegt.
+- Die Ressourcengruppe für die Daten wird zusammen mit dem System angelegt.
+- Die Ressourcengruppe für die Anwendung wird zusammen mit dem System angelegt.
+- Die Ressourcengruppe für die Überwachung wird zusammen mit dem System angelegt.
 - Angelegte Ressourcengruppen tragen in der Produktion eine Löschsperre.
 - Die Pipeline meldet sich mit einem kurzlebigen Token pro Lauf, ohne irgendwo gespeichertes Passwort bei Azure an.
 - Eine Person gibt die Änderung frei, bevor sie ausgerollt wird: nur im Echtbetrieb.
@@ -84,7 +84,7 @@ Nichts davon wurde gefragt; jede Zeile folgt einer Regel oder einer der Antworte
 - Passwörter und Zugriffsschlüssel sind abgeschaltet; der Zugriff läuft über Firmenkonten, damit jede Aktion zuordenbar ist. _(bitte bestätigen)_
 - Verschlüsselungsschlüssel sind in Software geschützt, der Standard, ausreichend ohne Vorgabe für Hardware.
 - Verschlüsselungsschlüssel sind von Azure verwaltet: verschlüsselt, rotiert, kein Aufwand bei euch. _(bitte bestätigen)_
-- Das Netz wird von diesem Ausrollen selbst gebaut. — weil: Der Zugang ist privat, mit benannten Ausnahmen hinter einer Firewall aus dem Internet erreichbar.
+- Das Netz wird von diesem Ausrollen selbst gebaut. — weil: Der Zugang ist privat; nur die benannten Teile sind hinter einer Firewall aus dem Internet erreichbar, alles dahinter bleibt privat.
 - Das neue Netz nutzt den Adressbereich Entwicklung: 10.100.0.0/23; Test: 10.101.0.0/23; Echtbetrieb: 10.102.0.0/23.
 - Die Namensauflösung für private Anbindungen übernimmt dieses Ausrollen selbst. — weil: Das System landet in einer eigenen Umgebung: es gibt keine gemeinsame Plattform, also bringt es Netz, Namensauflösung und Logging selbst mit.
 - Logs gehen in einen Arbeitsbereich, den dieses Ausrollen anlegt und bezahlt. — weil: Das System landet in einer eigenen Umgebung: es gibt keine gemeinsame Plattform, also bringt es Netz, Namensauflösung und Logging selbst mit.
@@ -153,17 +153,17 @@ Die Sicherheitsvorgaben aller Teile an einer Stelle. Sie wurden nicht gefragt un
 
 ### Azure Storage Account (datalake)
 
-- Private Anbindungen gibt es für: Dateien (Blob), den Data Lake. — weil: Der Zugang ist privat, mit benannten Ausnahmen hinter einer Firewall aus dem Internet erreichbar.
+- Private Anbindungen gibt es für: Dateien (Blob), den Data Lake. — weil: Der Zugang ist privat; nur die benannten Teile sind hinter einer Firewall aus dem Internet erreichbar, alles dahinter bleibt privat.
 
 ### Azure Storage Account (host)
 
-- Private Anbindungen gibt es für: Dateien (Blob), Warteschlangen. — weil: Der Zugang ist privat, mit benannten Ausnahmen hinter einer Firewall aus dem Internet erreichbar.
+- Private Anbindungen gibt es für: Dateien (Blob), Warteschlangen. — weil: Der Zugang ist privat; nur die benannten Teile sind hinter einer Firewall aus dem Internet erreichbar, alles dahinter bleibt privat.
 
 ### Azure Service Bus namespace
 
-- Der Namensraum ist die Stufe Premium, dedizierte Kapazität mit privaten Anbindungen. — weil: Der Zugang ist privat, mit benannten Ausnahmen hinter einer Firewall aus dem Internet erreichbar. _(bitte bestätigen)_
-- Themen und ihre Abonnenten: orders subscriptions ['billing', 'shipping', 'audit'] (leer: keine).
+- Der Namensraum ist die Stufe Premium, dedizierte Kapazität mit privaten Anbindungen. — weil: Der Zugang ist privat; nur die benannten Teile sind hinter einer Firewall aus dem Internet erreichbar, alles dahinter bleibt privat. _(bitte bestätigen)_
 - Warteschlangen: payments (leer: keine).
+- Themen und ihre Abonnenten: orders subscriptions ['billing', 'shipping', 'audit'] (leer: keine).
 - Zusammengehörige Nachrichten müssen nicht der Reihenfolge nach bearbeitet werden.
 - Doppelt gesendete Nachrichten werden vom Broker verworfen.
 
@@ -176,8 +176,8 @@ Die Sicherheitsvorgaben aller Teile an einer Stelle. Sie wurden nicht gefragt un
 
 ### Azure Event Grid system topic
 
-- Die Quelle ist ein Speicherkonto.
 - Meldet, was mit storage-account__datalake geschieht.
+- Die Quelle ist ein Speicherkonto.
 - Ereignisse werden an direkt eine Funktion zugestellt.
 
 ### Azure Virtual Machine
@@ -221,41 +221,41 @@ Werte, die der Lauf angenommen hat, um weiterzukommen. Das sind noch keine Entsc
 
 | Schlüssel | Wert | Quelle |
 |---|---|---|
-| `deployment.module_source` | avm | eure Antwort |
-| `deployment.naming_source` | module | eure Antwort |
-| `deployment.module_telemetry` | disabled | Regel |
-| `deployment.deploy_mechanism` | github | eure Antwort |
-| `deployment.pipeline_auth` | workload_identity | Regel |
-| `deployment.pipeline_approvals` | production | Regel |
 | `deployment.stage_isolation` | subscription | Regel |
 | `deployment.non_production_savings` | enabled | Regel |
-| `deployment.priority` | balanced | eure Antwort |
-| `deployment.landing_zone` | standalone | abgeleitet aus eurer Antwort |
-| `deployment.network_requirements` | free | eure Antwort |
-| `deployment.network_exposure` | private_with_exceptions | eure Antwort |
-| `deployment.local_auth` | disabled | Regel |
-| `deployment.network_ownership` | create | erzwungen |
-| `deployment.address_space` | {"development": "10.100.0.0/23", "test": "10.101.0.0/23", "production": "10.102.0.0/23"} | eure Antwort |
-| `deployment.private_dns_ownership` | deployment | erzwungen |
-| `deployment.observability_ownership` | create | erzwungen |
-| `deployment.log_retention_days` | 30 | Regel |
-| `deployment.daily_quota_gb` | -1 | Regel |
-| `deployment.outage_impact` | tolerable | eure Antwort |
-| `deployment.data_loss_tolerance` | reproducible | eure Antwort |
-| `deployment.data_access_pattern` | active | eure Antwort |
-| `deployment.backup_isolation` | operational | eure Antwort |
-| `deployment.data_residency` | data_zone | eure Antwort |
-| `deployment.mandates` | ["DSGVO"] | eure Antwort |
-| `deployment.key_protection` | software | Regel |
-| `deployment.key_management` | platform_managed | Regel |
-| `deployment.resource_lock` | production | Regel |
-| `deployment.resource_group_lock` | production | Regel |
 | `deployment.resource_group_split` | ["network", "data", "application", "observability"] | eure Antwort |
 | `deployment.resource_group_mode_main` | create | eure Antwort |
 | `deployment.resource_group_mode_network` | create | eure Antwort |
 | `deployment.resource_group_mode_data` | create | eure Antwort |
 | `deployment.resource_group_mode_application` | create | eure Antwort |
 | `deployment.resource_group_mode_observability` | create | eure Antwort |
+| `deployment.resource_group_lock` | production | Regel |
+| `deployment.resource_lock` | production | Regel |
+| `deployment.deploy_mechanism` | github | eure Antwort |
+| `deployment.pipeline_auth` | workload_identity | Regel |
+| `deployment.pipeline_approvals` | production | Regel |
+| `deployment.network_requirements` | free | eure Antwort |
+| `deployment.outage_impact` | tolerable | eure Antwort |
+| `deployment.data_loss_tolerance` | reproducible | eure Antwort |
+| `deployment.data_access_pattern` | active | eure Antwort |
+| `deployment.backup_isolation` | operational | eure Antwort |
+| `deployment.data_residency` | data_zone | eure Antwort |
+| `deployment.priority` | balanced | eure Antwort |
+| `deployment.module_source` | avm | eure Antwort |
+| `deployment.naming_source` | module | eure Antwort |
+| `deployment.module_telemetry` | disabled | Regel |
+| `deployment.landing_zone` | standalone | abgeleitet aus eurer Antwort |
+| `deployment.network_exposure` | private_with_exceptions | eure Antwort |
+| `deployment.local_auth` | disabled | Regel |
+| `deployment.mandates` | ["DSGVO"] | eure Antwort |
+| `deployment.key_protection` | software | Regel |
+| `deployment.key_management` | platform_managed | Regel |
+| `deployment.network_ownership` | create | erzwungen |
+| `deployment.address_space` | {"development": "10.100.0.0/23", "test": "10.101.0.0/23", "production": "10.102.0.0/23"} | eure Antwort |
+| `deployment.private_dns_ownership` | deployment | erzwungen |
+| `deployment.observability_ownership` | create | erzwungen |
+| `deployment.log_retention_days` | 30 | Regel |
+| `deployment.daily_quota_gb` | -1 | Regel |
 | `virtual-network.addressing.subnets` | ["appgw", "apim", "function-integration", "workload", "private-endpoints"] | Regel |
 | `virtual-network.addressing.private_endpoint_subnet_prefix` | first /27 of each stage's range | Regel |
 | `virtual-network.security.subnets_expecting_nsg` | ["appgw", "apim", "function-integration", "workload", "private-endpoints"] | Regel |
@@ -271,8 +271,8 @@ Werte, die der Lauf angenommen hat, um weiterzukommen. Das sind noch keine Entsc
 | `application-gateway.networking.frontend_exposure` | public | eure Abweichung |
 | `application-gateway.networking.listeners` | [] | Regel |
 | `front-door.profile.sku` | Premium_AzureFrontDoor | Regel |
-| `front-door.delivery.caching` | true | eure Antwort |
 | `front-door.delivery.origin_connection` | public | eure Abweichung |
+| `front-door.delivery.caching` | true | eure Antwort |
 | `front-door.security.waf_enabled` | true | Regel |
 | `front-door.security.waf_mode` | Prevention | Regel |
 | `log-analytics-workspace.cost.retention_days` | 30 | übernommen |
@@ -285,19 +285,19 @@ Werte, die der Lauf angenommen hat, um weiterzukommen. Das sind noch keine Entsc
 | `function-app.hosting.zone_redundant` | false | abgeleitet aus eurer Antwort |
 | `function-app.hosting.always_ready_instances` | 0 | abgeleitet aus eurer Antwort |
 | `function-app.networking.public_network_access` | enabled_with_firewall | eure Abweichung |
+| `storage-account__datalake.networking.private_endpoint_subresources` | ["blob", "dfs"] | erzwungen |
 | `storage-account__datalake.data_protection.replication` | LRS | abgeleitet aus eurer Antwort |
 | `storage-account__datalake.data_protection.access_tier` | Hot | abgeleitet aus eurer Antwort |
 | `storage-account__datalake.data_protection.blob_soft_delete_days` | 0 | abgeleitet aus eurer Antwort |
 | `storage-account__datalake.data_protection.container_soft_delete_days` | 0 | abgeleitet aus eurer Antwort |
 | `storage-account__datalake.data_protection.versioning_enabled` | false | abgeleitet aus eurer Antwort |
-| `storage-account__datalake.networking.private_endpoint_subresources` | ["blob", "dfs"] | erzwungen |
-| `storage-account__host.data_protection.replication` | LRS | abgeleitet aus eurer Antwort |
 | `storage-account__host.networking.private_endpoint_subresources` | ["blob", "queue"] | erzwungen |
+| `storage-account__host.data_protection.replication` | LRS | abgeleitet aus eurer Antwort |
 | `blob-container.containers.container_names` | ["telemetry"] | Platzhalter |
 | `service-bus.namespace.sku` | Premium | erzwungen |
 | `service-bus.namespace.zone_redundant` | false | abgeleitet aus eurer Antwort |
-| `service-bus.entities.topics` | [{"name": "orders", "subscriptions": ["billing", "shipping", "audit"]}] | eure Beschreibung |
 | `service-bus.entities.queues` | ["payments"] | eure Beschreibung |
+| `service-bus.entities.topics` | [{"name": "orders", "subscriptions": ["billing", "shipping", "audit"]}] | eure Beschreibung |
 | `service-bus.entities.message_ordering` | false | eure Antwort |
 | `service-bus.entities.duplicate_protection` | true | eure Antwort |
 | `event-hubs.namespace.sku` | Standard | Regel |
@@ -305,16 +305,16 @@ Werte, die der Lauf angenommen hat, um weiterzukommen. Das sind noch keine Entsc
 | `event-hubs.entities.event_archive` | true | eure Beschreibung |
 | `event-hubs.entities.archive_storage_account` | storage-account__datalake | eure Beschreibung |
 | `event-hubs.recovery.zone_redundant` | false | abgeleitet aus eurer Antwort |
-| `event-grid-system-topic.source.topic_type` | Microsoft.Storage.StorageAccounts | eure Beschreibung |
 | `event-grid-system-topic.source.source_resource` | storage-account__datalake | eure Beschreibung |
+| `event-grid-system-topic.source.topic_type` | Microsoft.Storage.StorageAccounts | eure Beschreibung |
 | `event-grid-system-topic.delivery.destination_kind` | azure_function | eure Beschreibung |
 | `event-grid-system-topic.delivery.included_event_types` | ["Microsoft.Storage.BlobCreated"] | Platzhalter |
 | `virtual-machine.machine.os_type` | Linux | eure Antwort |
 | `virtual-machine.data_protection.backup_enabled` | true | eure Abweichung |
-| `backup-vault.protection.protected_resources` | ["storage-account__datalake"] | eure Beschreibung |
 | `backup-vault.vault.immutability` | Disabled | abgeleitet aus eurer Antwort |
 | `backup-vault.vault.multi_user_authorization` | false | abgeleitet aus eurer Antwort |
-| `recovery-services-vault.protection.protected_resources` | ["virtual-machine"] | eure Beschreibung |
+| `backup-vault.protection.protected_resources` | ["storage-account__datalake"] | eure Beschreibung |
 | `recovery-services-vault.vault.soft_delete` | Enabled | abgeleitet aus eurer Antwort |
+| `recovery-services-vault.protection.protected_resources` | ["virtual-machine"] | eure Beschreibung |
 | `wiring.access` | [{"from": "internet", "to": "front-door", "label": "HTTPS 443"}, {"from": "front-door", "to": "application-gateway", "label": "HTTPS"}, {"from": "application-gateway", "to": "api-management", "label": "HTTPS"}, {"from": "api-management", "to": "function-app", "label": "HTTPS"}, {"from": "function-app", "to": "service-bus", "label": "Bestellungen und Zahlungen senden"}, {"from": "service-bus", "to": "function-app", "label": "Billing, Shipping, Audit verarbeiten"}, {"from": "external:Telemetrie-Quellen", "to": "event-hubs", "label": "Telemetrie senden"}, {"from": "event-hubs", "to": "storage-account__datalake", "label": "Archiv (Capture)"}, {"from": "storage-account__datalake", "to": "event-grid-system-topic", "label": "Blob-Ereignisse"}, {"from": "event-grid-system-topic", "to": "function-app", "label": "Ereignisse zustellen"}, {"from": "backup-vault", "to": "storage-account__datalake", "label": "sichert"}, {"from": "recovery-services-vault", "to": "virtual-machine", "label": "sichert"}] | eure Beschreibung |
 | `wiring.purposes` | {"front-door": "Öffentlicher Eingang mit WAF", "application-gateway": "Zweite WAF, nimmt nur Front Door an", "api-management": "Bestell-API", "function-app": "Backend der API", "service-bus": "Bestellungen und Zahlungen", "event-hubs": "Telemetrie", "storage-account__datalake": "Telemetrie-Archiv", "event-grid-system-topic": "Blob-Ereignisse", "virtual-machine": "Virtuelle Maschinen", "backup-vault": "Sicherung Speicher", "recovery-services-vault": "Sicherung VMs"} | eure Beschreibung |

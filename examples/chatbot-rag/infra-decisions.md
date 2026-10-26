@@ -72,15 +72,54 @@ Nothing here was asked; each follows a rule or one of the answers above. Say so 
 
 - The pipeline signs in to Azure with a short-lived token issued per run, no password stored anywhere.
 - A person approves the change before it is applied: in live operation only.
-- The system lands in its own environment: there is no shared platform, so it brings its own network, name resolution and logging.
-- Passwords and access keys are switched off; access goes through company accounts, so every action is attributable.
+- The system lands in its own environment: there is no shared platform, so it brings its own network, name resolution and logging. _(please confirm)_
+- Passwords and access keys are switched off; access goes through company accounts, so every action is attributable. _(please confirm)_
 - Encryption keys are protected in software - the standard, sufficient unless a mandate names hardware.
-- Encryption keys are managed by Azure - encrypted, rotated, no effort on your side.
+- Encryption keys are managed by Azure - encrypted, rotated, no effort on your side. _(please confirm)_
 - The network is built by this deployment.
 - Name resolution for private connections is handled by this deployment itself. — because: The system lands in its own environment: there is no shared platform, so it brings its own network, name resolution and logging.
 - Logs go to a workspace this deployment creates and pays for. — because: The system lands in its own environment: there is no shared platform, so it brings its own network, name resolution and logging.
 - Logs are collected in development: log-analytics-workspace; test: log-analytics-workspace; live operation: log-analytics-workspace. — because: Logs go to a workspace this deployment creates and pays for.
-- Daily log intake cap: -1 GB (-1: no cap).
+- Daily log intake cap: -1 GB (-1: no cap). _(please confirm)_
+
+### Security
+
+The security baseline of every part in one place. None of it was asked and it is the same in every stage; say so if one does not fit.
+
+- **Azure Virtual Network**
+  - A paid DDoS protection plan is not used; Azure's basic protection applies either way. _(please confirm)_
+  - Subnets that will get a security group: development: snet-endpoints, snet-web; test: snet-endpoints, snet-web; live operation: snet-endpoints, snet-web. — because: `resources.network-security-group__endpoints.rules.subnet_purpose`
+- **Azure Application Insights (workspace-based)**
+  - Sending telemetry with only a key is switched off; applications sign in with company identities. _(please confirm)_
+- **Azure Key Vault**
+  - Platform services allowed to read from the vault: none (empty: none).
+  - Empty slots are created for the secrets none; their values are entered afterwards by hand or by the workload.
+- **Azure Storage Account**
+  - The storage has its own identity for reaching other services.
+  - Access rights granted to: development: search-service (Storage Blob Data Reader); test: search-service (Storage Blob Data Reader); live operation: search-service (Storage Blob Data Reader).
+  - Access with a shared key is not possible; access goes through company accounts. _(please confirm)_
+  - Connections must use at least TLS 1.2 encryption.
+  - Unencrypted connections are refused.
+  - Making individual folders publicly readable is not possible.
+  - A second encryption layer below the service is on.
+  - Encryption keys are managed by Azure - encrypted, rotated, no effort on your side.
+  - File transfer via SFTP is off.
+- **Azure AI Foundry (AI Services account with projects and model deployments)**
+  - The account has its own identity.
+  - Access rights on the account granted to: development: app-service (Cognitive Services OpenAI User), search-service (Cognitive Services OpenAI User); test: app-service (Cognitive Services OpenAI User), search-service (Cognitive Services OpenAI User); live operation: app-service (Cognitive Services OpenAI User), search-service (Cognitive Services OpenAI User).
+  - Signing in with account keys is switched off; access goes through company accounts. _(please confirm)_
+  - Encryption keys are managed by Azure - encrypted, rotated, no effort on your side. _(please confirm)_
+- **Azure AI Search service**
+  - The search service has its own identity.
+  - Access rights on the search service granted to: development: app-service (Search Index Data Reader); test: app-service (Search Index Data Reader); live operation: app-service (Search Index Data Reader).
+  - Signing in with API keys is switched off; access goes through company accounts. _(please confirm)_
+  - Encryption keys are managed by Azure - encrypted, rotated, no effort on your side. _(please confirm)_
+- **Azure App Service (web app on an App Service plan)**
+  - The app has its own identity for reaching other services.
+  - Unencrypted connections are redirected to the encrypted address.
+  - Connections must use at least TLS 1.2 encryption.
+  - File upload by FTP is switched off.
+  - Deploying with a user name and password is not possible; deployments run through company accounts. _(please confirm)_
 
 ### Azure Virtual Network
 
@@ -88,10 +127,8 @@ Nothing here was asked; each follows a rule or one of the answers above. Say so 
 - Network rules apply to private connections in their subnet.
 - Shortcuts to Azure services from the subnets: none.
 - Subnets handed to a service: snet-web (Microsoft.Web/serverFarms). — because: `resources.app-service.networking.integration_subnet`
-- A paid DDoS protection plan is not used; Azure's basic protection applies either way.
-- Subnets that will get a security group: development: snet-endpoints, snet-web; test: snet-endpoints, snet-web; live operation: snet-endpoints, snet-web. — because: `resources.network-security-group__endpoints.rules.subnet_purpose`
 - Network logs go to development: log-analytics-workspace; test: log-analytics-workspace; live operation: log-analytics-workspace.
-- A record of allowed and denied traffic is not kept.
+- A record of allowed and denied traffic is not kept. _(please confirm)_
 
 ### Azure Network Security Group (endpoints)
 
@@ -114,9 +151,9 @@ Nothing here was asked; each follows a rule or one of the answers above. Say so 
 ### Azure Log Analytics Workspace
 
 - Logs are kept for 30 days.
-- Daily log intake cap: -1 GB (-1: no cap).
+- Daily log intake cap: -1 GB (-1: no cap). _(please confirm)_
 - Billed per gigabyte, pay as you go.
-- The log workspace is reachable from the internet, with company accounts and encryption - there is no private link scope to go through.
+- The log workspace is reachable from the internet, with company accounts and encryption - there is no private link scope to go through. _(please confirm)_
 - Sending logs with the workspace key is not possible - agents use company identities.
 - Who may read logs is decided by the workspace's own permissions.
 - A deleted workspace can be recovered for 14 days.
@@ -127,10 +164,9 @@ Nothing here was asked; each follows a rule or one of the answers above. Say so 
 - Its telemetry is stored in development: log-analytics-workspace; test: log-analytics-workspace; live operation: log-analytics-workspace.
 - The component is set up for a web application or a service.
 - 100 percent of the telemetry is kept.
-- Daily telemetry cap for this component: 0 GB (0: no cap).
+- Daily telemetry cap for this component: 0 GB (0: no cap). _(please confirm)_
 - Visitors' IP addresses are masked and not stored.
-- The component is reachable only through the private monitoring connection, for sending and for reading.
-- Sending telemetry with only a key is switched off; applications sign in with company identities.
+- The component is reachable only through the private monitoring connection, for sending and for reading. _(please confirm)_
 
 ### Azure Key Vault
 
@@ -138,11 +174,9 @@ Nothing here was asked; each follows a rule or one of the answers above. Say so 
 - A deleted vault or secret cannot be wiped, not even by an administrator before its retention ends.
 - Deleted vault contents can be restored for 90 days.
 - Access to the vault's contents is controlled by role assignments, like everything else in Azure.
-- The vault is not reachable from the internet at all.
+- The vault is not reachable from the internet at all. _(please confirm)_
 - Its private connection lands in subnet development: snet-endpoints; test: snet-endpoints; live operation: snet-endpoints. — because: The network is built by this deployment.
 - Trusted Azure services may not pass past the vault's firewall.
-- Platform services allowed to read from the vault: none (empty: none).
-- Empty slots are created for the secrets none; their values are entered afterwards by hand or by the workload.
 - Encryption keys are managed by Azure - the vault holds none for encryption.
 - Its logs go to development: log-analytics-workspace; test: log-analytics-workspace; live operation: log-analytics-workspace.
 - Logged: every read, write and failed access to the vault, how policies judged the vault.
@@ -150,19 +184,10 @@ Nothing here was asked; each follows a rule or one of the answers above. Say so 
 
 ### Azure Storage Account
 
-- The storage is not reachable from the internet at all.
+- The storage is not reachable from the internet at all. _(please confirm)_
 - Its private connection lands in subnet development: snet-endpoints; test: snet-endpoints; live operation: snet-endpoints. — because: The network is built by this deployment.
 - Private connections exist for: files (blob).
 - Azure's own services (backup, monitoring) may reach the storage past the firewall.
-- The storage has its own identity for reaching other services.
-- Access rights granted to: development: search-service (Storage Blob Data Reader); test: search-service (Storage Blob Data Reader); live operation: search-service (Storage Blob Data Reader).
-- Access with a shared key is not possible; access goes through company accounts.
-- Connections must use at least TLS 1.2 encryption.
-- Unencrypted connections are refused.
-- Making individual folders publicly readable is not possible.
-- A second encryption layer below the service is on.
-- Encryption keys are managed by Azure - encrypted, rotated, no effort on your side.
-- File transfer via SFTP is off.
 - A log of every change is not kept.
 - The whole storage can be rewound 0 days (0: not at all).
 - Deletion protection by law or policy: none.
@@ -179,29 +204,21 @@ Nothing here was asked; each follows a rule or one of the answers above. Say so 
 - Each model may process up to 10 thousand tokens per minute.
 - When the model version expires, it moves to the new default version on that day.
 - Prompts and answers are checked by the content filter Microsoft.DefaultV2.
-- The account is not reachable from the internet at all.
+- The account is not reachable from the internet at all. _(please confirm)_
 - Its private connection lands in subnet development: snet-endpoints; test: snet-endpoints; live operation: snet-endpoints. — because: The network is built by this deployment.
 - The account may call out only to addresses that are explicitly allowed.
-- The account has its own identity.
-- Access rights on the account granted to: development: app-service (Cognitive Services OpenAI User), search-service (Cognitive Services OpenAI User); test: app-service (Cognitive Services OpenAI User), search-service (Cognitive Services OpenAI User); live operation: app-service (Cognitive Services OpenAI User), search-service (Cognitive Services OpenAI User).
-- Signing in with account keys is switched off; access goes through company accounts.
-- Encryption keys are managed by Azure - encrypted, rotated, no effort on your side.
 - Its logs go to development: log-analytics-workspace; test: log-analytics-workspace; live operation: log-analytics-workspace.
 - Logged: changes to the account and who made them, every request to the models, with its caller, size and result (not the text), the tokens each call used.
 - Usage and performance figures are collected.
 
 ### Azure AI Search service
 
-- The search service is the development: basic, small and cheap, one partition; test: basic, small and cheap, one partition; live operation: standard, the normal production tier tier.
+- The search service is the development: basic, small and cheap, one partition; test: basic, small and cheap, one partition; live operation: standard, the normal production tier tier. _(please confirm)_
 - The index data is spread over 1 partition(s).
 - Re-ranking of results by meaning is on, within a small free monthly allowance.
-- The search service is not reachable from the internet at all.
+- The search service is not reachable from the internet at all. _(please confirm)_
 - Its private connection lands in subnet development: snet-endpoints; test: snet-endpoints; live operation: snet-endpoints. — because: The network is built by this deployment.
 - Trusted Azure services may not pass past the search service's firewall.
-- The search service has its own identity.
-- Access rights on the search service granted to: development: app-service (Search Index Data Reader); test: app-service (Search Index Data Reader); live operation: app-service (Search Index Data Reader).
-- Signing in with API keys is switched off; access goes through company accounts.
-- Encryption keys are managed by Azure - encrypted, rotated, no effort on your side.
 - Its logs go to development: log-analytics-workspace; test: log-analytics-workspace; live operation: log-analytics-workspace.
 - Logged: every query and every change to indexes and indexers.
 - Usage and performance figures are collected.
@@ -209,17 +226,12 @@ Nothing here was asked; each follows a rule or one of the answers above. Say so 
 ### Azure App Service (web app on an App Service plan)
 
 - The app runs on Linux.
-- The hosting plan is size development: B1, small and cheap, no zone redundancy - for stages nobody depends on; test: B1, small and cheap, no zone redundancy - for stages nobody depends on; live operation: P1v3, premium, the normal production size.
-- The app is not reachable from the internet at all.
+- The hosting plan is size development: B1, small and cheap, no zone redundancy - for stages nobody depends on; test: B1, small and cheap, no zone redundancy - for stages nobody depends on; live operation: P1v3, premium, the normal production size. _(please confirm)_
+- The app is not reachable from the internet at all. _(please confirm)_
 - Its private connection lands in subnet development: snet-endpoints; test: snet-endpoints; live operation: snet-endpoints. — because: The network is built by this deployment.
 - The app's own outgoing traffic goes through the company network, so it can reach private services.
 - Outgoing traffic leaves through the subnet development: snet-web; test: snet-web; live operation: snet-web. — because: The network is built by this deployment.
 - Outgoing traffic is routed entirely through the company network, including to the internet.
-- The app has its own identity for reaching other services.
-- Unencrypted connections are redirected to the encrypted address.
-- Connections must use at least TLS 1.2 encryption.
-- File upload by FTP is switched off.
-- Deploying with a user name and password is not possible; deployments run through company accounts.
 - The app stays loaded and answers the first request at once when there is no traffic.
 - The platform checks the app's health at the path  (empty: not checked).
 - HTTP/2 is on.
@@ -255,18 +267,18 @@ Values the run chose to keep going. They are not decisions yet.
 
 | Key | Value | Source |
 |---|---|---|
+| `deployment.stage_isolation` | subscription | rule |
+| `deployment.non_production_savings` | enabled | rule |
 | `deployment.naming_convention` | default | rule |
-| `deployment.module_source` | authored | your answer |
 | `deployment.deploy_mechanism` | github | your description |
 | `deployment.pipeline_auth` | workload_identity | rule |
 | `deployment.pipeline_approvals` | production | rule |
-| `deployment.stage_isolation` | subscription | rule |
-| `deployment.non_production_savings` | enabled | rule |
 | `deployment.outage_impact` | tolerable | your description |
 | `deployment.data_loss_tolerance` | one_week | rule |
 | `deployment.data_access_pattern` | active | rule |
 | `deployment.backup_isolation` | operational | rule |
 | `deployment.data_residency` | data_zone | rule |
+| `deployment.module_source` | authored | your answer |
 | `deployment.landing_zone` | standalone | your description |
 | `deployment.network_exposure` | private | your description |
 | `deployment.local_auth` | disabled | rule |

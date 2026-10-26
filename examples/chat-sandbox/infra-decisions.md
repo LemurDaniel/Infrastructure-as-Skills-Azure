@@ -29,7 +29,7 @@ Stand 2026-10-24. Spezifikation: `infra-spec.yaml`.
   - daher, Azure AI Foundry (AI Services account with projects and model deployments): Anfragen an die Modelle werden überall innerhalb derselben Datenzone (zum Beispiel der EU) verarbeitet.
 - **Der Code wird aus einzeln ausgeschriebenen Ressourcen gebaut.** _(eure Antwort)_
 - **Die Ressourcennamen erzeugt das Naming-Werkzeug des Plugins, gesteuert über eine Namensdatei, die ihr anpassen könnt.** _(eure Antwort)_
-- **Der Zugang ist öffentlich, absichtlich aus dem Internet erreichbar.** _(eure Antwort)_
+- **Der Zugang ist öffentlich: jeder Teil, auch die Datenbanken, ist absichtlich aus dem Internet erreichbar.** _(eure Antwort)_
 - **Einzuhaltende Vorgaben: keine.** _(eure Antwort)_
 - **Logs werden 30 Tage aufbewahrt.** _(eure Antwort)_
 
@@ -43,22 +43,52 @@ Nichts davon wurde gefragt; jede Zeile folgt einer Regel oder einer der Antworte
 - Passwörter und Zugriffsschlüssel sind abgeschaltet; der Zugriff läuft über Firmenkonten, damit jede Aktion zuordenbar ist.
 - Verschlüsselungsschlüssel sind in Software geschützt, der Standard, ausreichend ohne Vorgabe für Hardware.
 - Verschlüsselungsschlüssel sind von Azure verwaltet: verschlüsselt, rotiert, kein Aufwand bei euch.
-- Das Netz wird nicht gebraucht, alles wird über öffentliche Endpunkte erreicht. — weil: Der Zugang ist öffentlich, absichtlich aus dem Internet erreichbar.
+- Das Netz wird nicht gebraucht, alles wird über öffentliche Endpunkte erreicht. — weil: Der Zugang ist öffentlich: jeder Teil, auch die Datenbanken, ist absichtlich aus dem Internet erreichbar.
 - Die Namensauflösung für private Anbindungen übernimmt dieses Ausrollen selbst. — weil: Das System landet in einer eigenen Umgebung: es gibt keine gemeinsame Plattform, also bringt es Netz, Namensauflösung und Logging selbst mit.
 - Logs gehen in einen Arbeitsbereich, den dieses Ausrollen anlegt und bezahlt. — weil: Das System landet in einer eigenen Umgebung: es gibt keine gemeinsame Plattform, also bringt es Netz, Namensauflösung und Logging selbst mit.
 - Logs werden in log-analytics-workspace gesammelt. — weil: Logs gehen in einen Arbeitsbereich, den dieses Ausrollen anlegt und bezahlt.
 - Tägliche Obergrenze für Logs: -1 GB (-1: keine).
+
+### Sicherheit
+
+Die Sicherheitsvorgaben aller Teile an einer Stelle. Sie wurden nicht gefragt und sind in jeder Stufe gleich; sagt Bescheid, wenn eine nicht passt.
+
+- **Azure App Service (web app on an App Service plan)**
+  - Die App hat eine eigene Identität, um andere Dienste zu erreichen.
+  - Unverschlüsselte Verbindungen werden auf die verschlüsselte Adresse umgeleitet.
+  - Verbindungen müssen mindestens TLS 1.2-Verschlüsselung nutzen.
+  - Dateiupload per FTP ist abgeschaltet.
+  - Das Ausrollen mit Benutzername und Passwort ist nicht möglich; Rollouts laufen über Firmenkonten.
+- **Azure AI Foundry (AI Services account with projects and model deployments)**
+  - Das Konto hat eine eigene Identität.
+  - Zugriffsrechte auf das Konto vergeben an: app-service (Cognitive Services OpenAI User), search-service (Cognitive Services OpenAI User). — weil: `wiring.access`
+  - Die Anmeldung mit Kontoschlüsseln ist abgeschaltet; der Zugriff läuft über Firmenkonten.
+  - Verschlüsselungsschlüssel sind von Azure verwaltet: verschlüsselt, rotiert, kein Aufwand bei euch.
+- **Azure AI Search service**
+  - Der Suchdienst hat eine eigene Identität.
+  - Zugriffsrechte auf den Suchdienst vergeben an: app-service (Search Index Data Reader). — weil: `wiring.access`
+  - Die Anmeldung mit API-Schlüsseln ist abgeschaltet; der Zugriff läuft über Firmenkonten.
+  - Verschlüsselungsschlüssel sind von Azure verwaltet: verschlüsselt, rotiert, kein Aufwand bei euch.
+- **Azure Storage Account**
+  - Der Speicher hat eine eigene Identität, um andere Dienste zu erreichen.
+  - Zugriffsrechte vergeben an: app-service (Storage Blob Data Contributor), search-service (Storage Blob Data Reader). — weil: `wiring.access`
+  - Zugriff mit einem geteilten Schlüssel ist nicht möglich; der Zugriff läuft über Firmenkonten.
+  - Verbindungen müssen mindestens TLS 1.2-Verschlüsselung nutzen.
+  - Unverschlüsselte Verbindungen werden abgewiesen.
+  - Einzelne Ordner öffentlich lesbar zu machen ist nicht möglich.
+  - Eine zweite Verschlüsselungsschicht unterhalb des Dienstes ist eingeschaltet.
+  - Verschlüsselungsschlüssel sind von Azure verwaltet: verschlüsselt, rotiert, kein Aufwand bei euch.
+  - Dateiübertragung per SFTP ist ausgeschaltet.
+- **Azure Key Vault**
+  - Zugriffsrechte auf den Tresor vergeben an: app-service (Key Vault Secrets User). — weil: `wiring.access`
+  - Plattformdienste, die aus dem Tresor lesen dürfen: keine (leer: keine).
+  - Für die Geheimnisse entra-client-secret werden leere Plätze angelegt; die Werte werden danach von Hand oder von der Anwendung eingetragen.
 
 ### Azure App Service (web app on an App Service plan)
 
 - Die App läuft auf Linux.
 - Der Hosting-Plan hat die Größe B1, klein und günstig, ohne Zonenredundanz, für Stufen von denen niemand abhängt. — weil: `deployment.environments`
 - Der ausgehende Verkehr der App geht über das öffentliche Internet raus. — weil: Das Netz wird nicht gebraucht, alles wird über öffentliche Endpunkte erreicht.
-- Die App hat eine eigene Identität, um andere Dienste zu erreichen.
-- Unverschlüsselte Verbindungen werden auf die verschlüsselte Adresse umgeleitet.
-- Verbindungen müssen mindestens TLS 1.2-Verschlüsselung nutzen.
-- Dateiupload per FTP ist abgeschaltet.
-- Das Ausrollen mit Benutzername und Passwort ist nicht möglich; Rollouts laufen über Firmenkonten.
 - Die App ist geschrieben für ein Container-Image, das seine Laufzeit selbst mitbringt.
 - Die App bleibt geladen und antwortet sofort auf die erste Anfrage, wenn kein Verkehr anliegt.
 - Die Plattform prüft die Gesundheit der App unter dem Pfad  (leer: keine Prüfung).
@@ -77,10 +107,6 @@ Nichts davon wurde gefragt; jede Zeile folgt einer Regel oder einer der Antworte
 - Läuft die Modellversion aus, wechselt sie an diesem Tag auf die neue Standardversion.
 - Anfragen und Antworten werden vom Inhaltsfilter Microsoft.DefaultV2 geprüft.
 - Das Konto darf nur Adressen aufrufen, die ausdrücklich erlaubt sind.
-- Das Konto hat eine eigene Identität.
-- Zugriffsrechte auf das Konto vergeben an: app-service (Cognitive Services OpenAI User), search-service (Cognitive Services OpenAI User). — weil: `wiring.access`
-- Die Anmeldung mit Kontoschlüsseln ist abgeschaltet; der Zugriff läuft über Firmenkonten.
-- Verschlüsselungsschlüssel sind von Azure verwaltet: verschlüsselt, rotiert, kein Aufwand bei euch.
 - Seine Logs gehen in log-analytics-workspace.
 - Geloggt wird: Änderungen am Konto und wer sie gemacht hat, jede Anfrage an die Modelle mit Aufrufer, Größe und Ergebnis (nicht der Text), die von jedem Aufruf verbrauchten Token.
 - Nutzungs- und Leistungswerte werden erfasst.
@@ -91,10 +117,6 @@ Nichts davon wurde gefragt; jede Zeile folgt einer Regel oder einer der Antworte
 - Die Indexdaten sind auf 1 Partition(en) verteilt.
 - Die Neubewertung der Ergebnisse nach Bedeutung ist an, im Rahmen eines kleinen kostenlosen Monatskontingents.
 - Vertrauenswürdige Azure-Dienste dürfen nicht an der Firewall des Suchdienstes vorbei.
-- Der Suchdienst hat eine eigene Identität.
-- Zugriffsrechte auf den Suchdienst vergeben an: app-service (Search Index Data Reader). — weil: `wiring.access`
-- Die Anmeldung mit API-Schlüsseln ist abgeschaltet; der Zugriff läuft über Firmenkonten.
-- Verschlüsselungsschlüssel sind von Azure verwaltet: verschlüsselt, rotiert, kein Aufwand bei euch.
 - Seine Logs gehen in log-analytics-workspace.
 - Geloggt wird: jede Abfrage und jede Änderung an Indizes und Indexern.
 - Nutzungs- und Leistungswerte werden erfasst.
@@ -103,15 +125,6 @@ Nichts davon wurde gefragt; jede Zeile folgt einer Regel oder einer der Antworte
 
 - Private Anbindungen gibt es für: Dateien (Blob).
 - Azures eigene Dienste (Backup, Überwachung) dürfen am Firewall vorbei auf den Speicher zugreifen.
-- Der Speicher hat eine eigene Identität, um andere Dienste zu erreichen.
-- Zugriffsrechte vergeben an: app-service (Storage Blob Data Contributor), search-service (Storage Blob Data Reader). — weil: `wiring.access`
-- Zugriff mit einem geteilten Schlüssel ist nicht möglich; der Zugriff läuft über Firmenkonten.
-- Verbindungen müssen mindestens TLS 1.2-Verschlüsselung nutzen.
-- Unverschlüsselte Verbindungen werden abgewiesen.
-- Einzelne Ordner öffentlich lesbar zu machen ist nicht möglich.
-- Eine zweite Verschlüsselungsschicht unterhalb des Dienstes ist eingeschaltet.
-- Verschlüsselungsschlüssel sind von Azure verwaltet: verschlüsselt, rotiert, kein Aufwand bei euch.
-- Dateiübertragung per SFTP ist ausgeschaltet.
 - Ein Log jeder Änderung wird nicht geführt.
 - Der ganze Speicher lässt sich 0 Tage zurückdrehen (0: gar nicht).
 - Löschschutz per Gesetz oder Richtlinie: keiner.
@@ -124,9 +137,6 @@ Nichts davon wurde gefragt; jede Zeile folgt einer Regel oder einer der Antworte
 - Der Tresor ist die Stufe Standard, Schlüssel in Software geschützt.
 - Der Zugriff auf den Inhalt des Tresors wird über Rollenzuweisungen, wie alles andere in Azure gesteuert.
 - Vertrauenswürdige Azure-Dienste dürfen nicht an der Firewall des Tresors vorbei.
-- Zugriffsrechte auf den Tresor vergeben an: app-service (Key Vault Secrets User). — weil: `wiring.access`
-- Plattformdienste, die aus dem Tresor lesen dürfen: keine (leer: keine).
-- Für die Geheimnisse entra-client-secret werden leere Plätze angelegt; die Werte werden danach von Hand oder von der Anwendung eingetragen.
 - Verschlüsselungsschlüssel sind von Azure verwaltet - der Tresor hält dafür keine.
 - Seine Logs gehen in log-analytics-workspace.
 - Geloggt wird: jeder Lese-, Schreib- und fehlgeschlagene Zugriff auf den Tresor, wie Richtlinien den Tresor bewertet haben.
@@ -165,16 +175,16 @@ Solange diese Punkte offen sind, wird nichts ausgerollt.
 
 | Schlüssel | Wert | Quelle |
 |---|---|---|
+| `deployment.non_production_savings` | enabled | erzwungen |
 | `deployment.naming_convention` | default | Regel |
-| `deployment.module_source` | authored | eure Antwort |
-| `deployment.naming_source` | provider | eure Antwort |
 | `deployment.deploy_mechanism` | local | eure Antwort |
 | `deployment.outage_impact` | tolerable | eure Antwort |
 | `deployment.data_loss_tolerance` | one_week | eure Antwort |
 | `deployment.data_access_pattern` | active | eure Antwort |
 | `deployment.backup_isolation` | operational | eure Antwort |
 | `deployment.data_residency` | data_zone | eure Antwort |
-| `deployment.non_production_savings` | enabled | erzwungen |
+| `deployment.module_source` | authored | eure Antwort |
+| `deployment.naming_source` | provider | eure Antwort |
 | `deployment.landing_zone` | standalone | Regel |
 | `deployment.network_exposure` | public | eure Antwort |
 | `deployment.local_auth` | disabled | Regel |
