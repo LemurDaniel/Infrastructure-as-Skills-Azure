@@ -305,11 +305,14 @@ def main():
     split = [r for r in (dval('resource_group_split') or []) if isinstance(r, str)]
     if split:
         rg_table, rg_scheme = rg_roles.load(yaml), rg_roles.scheme_of(dep)
-        members = {r: [] for r in ['main'] + split}
+        rg_groups = (['main'] if rg_roles.has_main(dep) else []) + split   # a split has no main group
+        members = {r: [] for r in rg_groups}
         for res, groups in resources.items():
             placed = ((groups or {}).get('placement') or {}).get('resource_group') if isinstance(groups, dict) else None
             role = (placed.get('value') if isinstance(placed, dict) else placed) or rg_roles.role_of(rg_table, rg_scheme, res.partition('__')[0])
-            members[role if role in members else 'main'].append(titles.get(res, res))
+            if role is None and not placed:
+                continue   # attached (a private endpoint, a role assignment): listed with what it serves
+            members[role if role in members else rg_groups[0]].append(titles.get(res, res))
 
         def group_name(role, state):
             if state != 'existing':
@@ -327,7 +330,7 @@ def main():
         w('')
         w(f"| {L['g_group']} | {L['g_state']} | {L['g_name']} | {L['g_contains']} |")
         w('|---|---|---|---|')
-        for role in ['main'] + split:
+        for role in rg_groups:
             state = dval(f'resource_group_mode_{role}') or 'existing'
             w(f"| {L['g_roles'].get(role) or titles.get(role, role)} | {L['g_created'] if state == 'create' else L['g_existing']} | "
               f"{group_name(role, state)} | {', '.join(sorted(members[role])) or '-'} |")

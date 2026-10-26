@@ -193,9 +193,11 @@ def main():
                 notes.append(t["global"])
             rows.append([resource, type_id, name, action, notes, check(type_id, name)])
 
-        # Resource groups: the main group and the split roles.
+        # Resource groups: the main group and the split roles; a split (resource_group_layout:
+        # split) has no main group.
         split = value(dep.get("resource_group_split")) or []
-        for role in ["main"] + list(split):
+        has_main = value(dep.get("resource_group_layout")) != "split"
+        for role in (["main"] if has_main else []) + list(split):
             key = "resource_group_name" + ("" if role == "main" else f"_{role}")
             mode = value(dep.get(f"resource_group_mode_{role}")) or "existing"
             stated = per_stage(ctx.get(key), stage)

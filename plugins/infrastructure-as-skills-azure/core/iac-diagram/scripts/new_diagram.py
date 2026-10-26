@@ -482,18 +482,21 @@ def main():
     rg_split = [x for x in as_list(get_decision(dep, ['resource_group_split'])) if x in rg_roles.roles(RG_TABLE, rg_scheme, resources.keys())]
     for i, r in enumerate(x for x in rg_split if x not in RG_COLORS):
         RG_COLORS[r] = RG_COLORS[RG_CYCLE[i % len(RG_CYCLE)]]
+    # A split (resource_group_layout: split) has no main group; a spec written before the key keeps it.
+    rg_main = ['main'] if rg_roles.has_main(dep) or not rg_split else []
     rg_modes = {'main': s(get_decision(dep, ['resource_group_mode_main'])) or 'existing'}
     for r in rg_split:
         rg_modes[r] = s(get_decision(dep, [f'resource_group_mode_{r}'])) or 'existing'
 
     def rg_role(k):
-        """The role whose group holds a resource: its own `placement`, else the kind's, else main."""
+        """The role whose group holds a resource: its own `placement`, else the kind's, else main
+        (without a main group, the first split role - check_spec.py refuses a spec that needs it)."""
         if k.startswith('bundle.'):
             return k.split('.')[2]
         node = resources.get(k) if isinstance(resources.get(k), dict) else {}
         placed = s(get_decision(node, ['placement', 'resource_group']))
         role = placed or rg_roles.role_of(RG_TABLE, rg_scheme, base(k))
-        return role if role in rg_split else 'main'
+        return role if role in rg_split else (rg_main or rg_split)[0]
 
     def rg_title(role):
         name = T.get('rgRole_' + role) or TYPE_NAMES.get(role, role)   # resource_type: the kind's name
@@ -536,7 +539,7 @@ def main():
     support = [k for k in res_keys if base(k) in SUPPORT_KINDS]
     # With a split, the services and the support resources stand group by group, each group in a
     # frame of its own; one group in a zone is only a tag. The order puts a group's resources together.
-    rg_order = ['main'] + rg_split
+    rg_order = rg_main + rg_split
     paas_grouped = len({rg_role(k) for k in paas}) > 1
     support_grouped = len({rg_role(k) for k in support}) > 1
     if paas_grouped:
@@ -1832,7 +1835,7 @@ def main():
     if net_ownership:
         lines.append(f"{T['network']}: {esc(net_ownership)}" + (f", {esc(vn_sub)}" if vn_sub else ''))
     if rg_split:
-        lines.append(f"{T['rgs']}: " + esc(', '.join(rg_title(r) for r in ['main'] + rg_split)))
+        lines.append(f"{T['rgs']}: " + esc(', '.join(rg_title(r) for r in rg_order)))
     mand = [m for m in as_list(get_decision(dep, ['mandates'])) if m]
     if mand:
         lines.append(f"{T['mandates']}: {esc(', '.join(s(m) for m in mand))}")

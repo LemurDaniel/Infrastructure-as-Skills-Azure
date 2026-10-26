@@ -255,15 +255,17 @@ groups:
           no name for is named by an `open:` entry (workload owner, blocks apply),
           and its stage file holds `OPEN-resource-group`. A
           network that belongs in a platform group is a separate, asked decision
-          (network_ownership), not this value.
+          (network_ownership), not this value. Under resource_group_layout split
+          there is no main group and this value is not written: each role's group
+          is resource_group_name_<role>.
         renders: variable resource_group_name / param resourceGroupName / scope
 
   # ------------------------------------------------------- resource groups
-  # `context.resource_group_name` above is the `main` group: where everything lands
-  # unless a concern is split off. A split-off concern is a role with a group of its
-  # own, and each group is either expected to exist or created by the render - the
-  # mode is per role, because a platform often owns `network` while the workload
-  # owns the rest. Which resource belongs to which role is
+  # `context.resource_group_name` above is the `main` group of a single layout: one
+  # group per stage. A split has no main group: every role of the scheme a resource
+  # belongs to has a group of its own, and each group is either expected to exist or
+  # created by the render - the mode is per role, because a platform often owns the
+  # network while the workload owns the rest. Which resource belongs to which role is
   # core/iac-rendering/references/resource-groups.md.
   - id: resource_groups
     title: Resource groups
@@ -410,6 +412,7 @@ groups:
           create: { en: "is created together with the system", de: "wird zusammen mit dem System angelegt" }
         values: [existing, create]
         default: existing
+        depends_on: { question: resource_group_layout, not_equals: split }
         why: >
           `existing` is the default because a group usually carries more than
           this deployment: RBAC, policy assignments, locks and the cost view are
