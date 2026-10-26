@@ -510,9 +510,11 @@ per-family` in `check_spec.py` and the `chatbot` spec, and `references/private-d
   `iac-rendering/scripts/rg_roles.py`, for check_spec, diagram, decision document and name list.
   `resource_groups_created` offers one option per group, more than eight groups become one single
   choice. Also from the interviews: `private` with `network_requirements: free` and users is a
-  contradiction in the list. Open: under `lifecycle` and `resource_type` the main group is
-  empty and still required (the Bicep root's scope) - decide whether it holds something or
-  disappears; no render, no diagram fixture and no eval case for the two new schemes (checked
+  contradiction in the list. **A split has no main group**: every set has a role in both tables
+  (or is `attached`), and Bicep renders one root per stage deployed into the first group of the
+  split, modules scoped per group, references as module outputs - ordering whole groups ran into
+  circles that do not exist between resources. The three tracked specs with a split predate
+  `resource_group_layout` and keep their main group (a warning). Open: no render, no diagram fixture and no eval case for the two new schemes (checked
   end to end on a copy of `chatbot` only); option descriptions in the interview are written
   freely from `plain_values`, no fixed pattern; the local-deploy gap under resource-group
   isolation is a sentence in the question, not a rule.
