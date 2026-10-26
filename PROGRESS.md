@@ -221,6 +221,14 @@ the detail; this list says what was decided and why, so a session does not reope
   comparing with github/spec-kit; nesting the deployment groups was rejected for the
   hundreds of `deployment.<id>` references it would move.
 
+- **Region, subscription and resource group: never asked, never invented** (2026-10-26).
+  Stated in the request, they are recorded and go into the stage file; not stated, each is an
+  `open:` entry (workload owner, `blocks: apply`) and a placeholder in the stage file
+  (`OPEN-location`, the all-zero GUID, `OPEN-resource-group`). A `create` group needs no
+  name. Before, the rule said "never an open item", and runs filled the gap with a plausible
+  `westeurope` that read as a decision. `check_spec.py` warns (not errors) on a value that is
+  neither: a filled-in stage file carries it without the spec.
+
 ## State
 
 - **18 more sets written 2026-10-26 (67 resource sets in 10 families, 1,442 questions with the deployment
@@ -476,8 +484,9 @@ per-family` in `check_spec.py` and the `chatbot` spec, and `references/private-d
   needs Key Vault Secrets Officer, rendered role assignments need RBAC Administrator;
   neither derives from `pipeline_auth`. The interview should add them, `pipelines.md`'s
   hand-over list the data-plane roles.
-- `chat-sandbox` has no `open:` entries for `subscription_id` and `resource_group_name`
-  although its stage file holds placeholders for them.
+- The diagrams of `chatbot-rag`, `chat-sandbox` and `orders-integration` were not redrawn
+  after region/subscription became `open:` (2026-10-26); `chat-sandbox`'s carries hand edits
+  a redraw would lose.
 - `wiring:` is validated by example only. (`check_spec.py` knows `granularity: per-family`
   since 2026-10-25 and the `chatbot` spec declares its seven family modules.)
 - `export_decisions.py` prints `reason` and `open:` texts untranslated; "1 Kopien der
@@ -686,7 +695,9 @@ regeneration from the spec loses them. All `render`:
   customer-question graders (question count, Azure vocabulary in the questions,
   readability).
 - `vague-public-dev` at 78%: both causes are plugin rules written after the baseline. The
-  next full run (~$5) should lift it; accept with `--update-baseline` after reading it.
+  next full run (~$5) should lift it; accept with `--update-baseline` after reading it. Its
+  `context-not-opened` grader became `open-location`/`-subscription`/`-resource-group` and
+  `no-invented-location` (2026-10-26), not yet run; the baseline still names the old one.
 - The plugin-vs-plain pilot needs 3 runs per arm and cases on the small decisions
   (replication, soft delete, infrastructure encryption, SFTP), ~$15-25, before it counts.
   `terraform validate` in an eval needs a Linux runner; the spec-graded cases cannot run
