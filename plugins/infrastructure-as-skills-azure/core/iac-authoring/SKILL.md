@@ -486,9 +486,10 @@ reason. Never put "choose nothing for none" in a multi-select: an empty answer c
 given, and it comes back as "Other". Then `resource_groups_created` (one list question; the
 per-role `resource_group_mode_<role>` are derived from it), with every group existing as the
 default. It reads the derived split, so it is asked in a call after the scheme, multi-select,
-with **one option per group** - the main group and each role, named by the scheme's words,
+with **one option per group** - each role of the split, named by the scheme's words (a split has
+no main group; a single layout asks for its one group),
 never folded into one option ("the areas you split off"). Up to eight groups go into two
-questions of the same call (the main group with the first roles, the rest); more than eight
+questions of the same call (the first four, the rest); more than eight
 (`resource_type` on a large design) turn it into one single choice - all created, all
 existing - and a group that differs is changed at the sign-off. Under `stage_isolation:
 resource_group` it is not asked at all. Nor is the customer's language:
