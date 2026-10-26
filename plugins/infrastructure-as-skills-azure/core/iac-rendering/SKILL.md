@@ -143,6 +143,25 @@ move, and exact spellings are not something to recall from memory.
 When neither is available, name the attribute you are unsure about instead of guessing. A
 named uncertainty is cheap to resolve; a wrong argument found at apply time is not.
 
+**A missing `terraform`, `bicep` or `az` does not stop the render, but it is said, in
+`context.language`.** Check once before the first check command (`terraform version`,
+`bicep --version`), not by letting the call fail. Rendering goes on; what changes is the
+hand-over: the code is marked **unverified** (no `fmt`, `validate`, `test` or `bicep build`
+ran, so attributes and tests are unchecked), the attributes in doubt are named, and the
+install is offered (`winget install Hashicorp.Terraform`, `winget install Microsoft.Bicep`,
+`brew install terraform bicep`). Never write "validated" or "tests pass" for a check that
+did not run.
+
+> de: `terraform` ist auf diesem Rechner nicht installiert. Ich rendere trotzdem, aber der
+> Code ist **ungeprüft**: weder `fmt` noch `validate` noch `terraform test` sind gelaufen.
+> Ungeprüft sind vor allem Argumentnamen und die Tests. Installation:
+> `winget install Hashicorp.Terraform`, danach prüfe ich nach.
+>
+> en: `terraform` is not installed on this machine. I render anyway, but the code is
+> **unverified**: `fmt`, `validate` and `terraform test` have not run. Argument names and
+> the tests are what is unchecked. Install it with `winget install Hashicorp.Terraform` and
+> I check again.
+
 ## Porting between the two targets
 
 A spec rendered twice should differ only where the platforms genuinely differ. The

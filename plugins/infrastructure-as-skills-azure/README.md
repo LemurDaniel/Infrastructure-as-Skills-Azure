@@ -15,6 +15,12 @@ Defaults come from written security guardrails, not from the Azure portal or a m
 default, and are reported rather than asked. Each rendered resource ships with a test per
 decision.
 
+> [!IMPORTANT]
+> **This plugin requires [draw.io desktop](https://github.com/jgraph/drawio-desktop/releases).** The architecture diagram is exported to `infra-diagram.drawio.png` with it (`winget install JGraph.Draw`, `brew install --cask drawio`). Without it you get the editable `.drawio` file only, no PNG, and the diagram review has nothing to look at.
+
+> [!NOTE]
+> **Terraform or Bicep is not required, but recommended.** The plugin writes the code without the CLI, but then it cannot run `fmt`, `validate`, `terraform test` or `bicep build` against it. The render is handed over marked as unverified.
+
 ## Skills
 
 | Skill | What it does |
