@@ -267,6 +267,7 @@ groups:
         ask: Must messages of one kind be handled in the order they were sent?
         type: bool
         resolved_by: interview
+        topic: application
         plain:
           en: "Related messages {value} be handled in order."
           de: "Zusammengehörige Nachrichten {value} der Reihenfolge nach bearbeitet werden."
@@ -288,6 +289,7 @@ groups:
         ask: Can the same message be sent twice by accident, and must the second be dropped?
         type: bool
         resolved_by: interview
+        topic: application
         plain:
           en: "Duplicate sends {value}."
           de: "Doppelt gesendete Nachrichten {value}."
@@ -307,6 +309,7 @@ groups:
         ask: How long may a message wait unprocessed before it is stale?
         type: int
         resolved_by: interview
+        topic: data
         plain:
           en: "A message that is not handled within {value} days expires."
           de: "Eine Nachricht, die nicht innerhalb von {value} Tagen bearbeitet wird, verfällt."

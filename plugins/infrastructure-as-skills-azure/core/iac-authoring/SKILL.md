@@ -425,10 +425,19 @@ full, every run**: a requirement that has a default is still asked, because the 
 is the guardrail's guess and the customer is the only one who knows - skipping one because
 the batch looks long is the failure this group exists to prevent. There is no cap on the
 number of customer questions: the customer answers multiple choice, and a tenth option
-row costs them less than a decision nobody asked them about. `AskUserQuestion` takes four
-questions per call: a batch of ten is three calls in a row, numbered for the person
-("Fragen 1-4 von 10"), with nothing reasoned or reported between them - the batch is never
-trimmed to four to fit one call. **No option in the batch is marked recommended**: an interview question asks for a fact about the organisation - whether the
+row costs them less than a decision nobody asked them about. **The batch is
+asked in topics, not as one list**: every interview question carries a `topic` (`platform`,
+`network`, `security`, `resilience`, `data`, `application` - the headings and their order are in
+[question-set-format.md](references/question-set-format.md#the-interviews-topics-topic)),
+the questions of a topic stand together, the topics in that order, and a topic with no
+surviving question is left out. The `AskUserQuestion` call is cut at the topic, not at a
+count: it takes four questions per call, so a topic of up to four is one call whose `header`
+is the topic's name (*Netzwerk*, *Sicherheit*, *Ausfall & Backup* / *Network*, *Security*,
+*Outage & backup*); a topic of more is several calls in a row; small neighbouring topics
+share a call only when each of them is a single question. The first line of a call names the
+topic and the person's place ("Netzwerk - Frage 1-2, danach Sicherheit, Daten"), with
+nothing reasoned or reported between the calls - the batch is never trimmed to four to fit
+one call. **No option in the batch is marked recommended**: an interview question asks for a fact about the organisation - whether the
 system joins the company network, how bad a day's outage is, where the data may live - and
 there is no better answer the plugin could know. The default is the guardrail's fallback for
 an answer nobody gave, not advice, and marking it steers the person towards the guess the
@@ -532,8 +541,39 @@ the customer's: "logs", not "logging pipeline" ("Logs", not "Protokollierung"); 
 for the documents", not "storage account with blob container" ("Speicher für die Dokumente",
 not "Storage Account mit Blob-Container").
 
+Before the question comes the **security baseline**, as a block of its own and grouped by
+what it protects, never as the one line it used to be: *Zugang* (keys and shared secrets
+off, company accounts only, no public access), *Verschlüsselung* (TLS floor, encryption at
+rest, infrastructure encryption), *Schutz vor Löschen* (soft delete, purge protection,
+locks), *Identitäten* (which part has which identity, and that the rest has none) and
+*Protokolle* (diagnostics, retention) / *Access*, *Encryption*, *Protection against deletion*,
+*Identities*, *Logs*. Every row is a decision of the spec - `source: default` or `forced` in a
+`security` or `identity` group - in the customer's words, and the block comes from the spec,
+not from memory. Nothing in it is asked; it is shown so that nobody finds it in the code.
+
+```
+Sicherheit - nach den Vorgaben gesetzt:
+  Zugang          Anmeldung nur mit Firmenkonten, keine Schlüssel, kein öffentlicher Zugang
+  Verschlüsselung mindestens TLS 1.2, Daten im Ruhezustand verschlüsselt, doppelt beim Speicher
+  Löschschutz     gelöschte Daten 7 Tage wiederherstellbar, Tresor gegen endgültiges Löschen geschützt
+  Identitäten     Apps haben je eine eigene, Konten und Registry haben keine
+  Protokolle      alle Teile schreiben in den zentralen Workspace, 30 Tage
+```
+
+```
+Security - set by the baseline:
+  Access          company accounts only, no keys, no public access
+  Encryption      TLS 1.2 or higher, data encrypted at rest, twice for the storage
+  Deletion        deleted data restorable for 7 days, vault protected against purging
+  Identities      each app has its own, accounts and registry have none
+  Logs            every part writes to the central workspace, 30 days
+```
+
 Close it with one `AskUserQuestion`: **Passt das Design?** / **Does the design fit?** - *Ja, so bauen* / *Yes, build it that way* (recommended
-when nothing is open) / *Etwas fehlt oder ist zu viel* / *Something is missing or too much* (the person says what; the spec is
+when nothing is open) / *Ja, aber bei der Sicherheit weicht etwas ab* / *Yes, but something in the security baseline differs* (the person names the rows; only those are
+opened, each recorded `source: overridden` with the reason, and the baseline stays as shown
+for the rest; a row the guardrails refuse to relax - anything security-shaped in a
+non-production stage - is said so, not applied) / *Etwas fehlt oder ist zu viel* / *Something is missing or too much* (the person says what; the spec is
 not written until the list is right). A part the customer strikes is removed, a part they
 add goes through `azure-resources` like any other request, and the account below is
 redone for the change.

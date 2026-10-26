@@ -130,6 +130,7 @@ groups:
         ask: Is the lowest possible network delay between the machines more important than spreading them apart?
         type: bool
         resolved_by: interview
+        topic: resilience
         plain:
           en: "The machines are placed physically close together: {value}."
           de: "Die Maschinen werden physisch nah beieinander platziert: {value}."

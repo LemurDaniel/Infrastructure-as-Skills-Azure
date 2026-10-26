@@ -57,6 +57,7 @@ groups:
         ask: Which file shares should the account hold?
         type: list
         resolved_by: interview
+        topic: data
         plain:
           en: "File shares: {value}."
           de: "Dateifreigaben: {value}."

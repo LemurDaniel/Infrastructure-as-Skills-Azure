@@ -67,6 +67,7 @@ groups:
         values: [encrypts_other_resources, signs, encrypts_application_data]
         default: encrypts_other_resources
         resolved_by: interview
+        topic: security
         why: >
           Decides the operations the key may perform and, through them, the role its users
           need. A key that may do everything is a key whose theft does everything; one for a

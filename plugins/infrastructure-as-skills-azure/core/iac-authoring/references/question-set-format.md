@@ -89,6 +89,7 @@ groups:
 | `forced_when` | no | Which answer elsewhere removes a value from `values`, or determines this one. Prose, because the conditions are not uniform enough to encode. Recorded as `forced` with `forced_by` in the spec. |
 | `from_context` | no | The value comes from the spec's `context:` rather than being asked per resource. |
 | `resolved_by` | no | `interview` (put to the customer) or `platform` (read from the platform profile); absent means defaulted or derived. See below. |
+| `topic` | for `interview` | The heading the question stands under in the interview: `platform`, `network`, `security`, `resilience`, `data` or `application`. Only on `resolved_by: interview`. See *The interview's topics*. |
 | `plain` | yes | One line per language (`en` required, `de` and others optional) saying what the decision means to the customer, with `{value}` where the value goes. Read by the decision document. See below. |
 | `plain_values` | no | For an enum, list or bool: the customer's words for each value, per language — what `{value}` becomes. Keys are the question's values. |
 | `per_environment` | no | `true` means the value differs per stage: it renders as a parameter whose value lives in each stage's parameter file, never as a literal in the template, and the spec holds a map keyed by stage. See *Stages*. |
@@ -118,6 +119,26 @@ Keep `interview` for what only the customer knows - a requirement of the system,
 words - and never for a technical choice with a safe default. There is no cap on their
 number: the customer answers multiple choice, and a question not asked is a guess recorded
 as their decision.
+
+## The interview's topics: `topic`
+
+The batch is shown in topics, never as one flat list: a customer who is asked about the network
+in one place and about the network again six questions later reads it as an interrogation.
+Every `interview` question names one; the order below is the order they are asked in.
+
+| `topic` | German | English | What belongs under it |
+|---|---|---|---|
+| `platform` | Rahmen | Setup | Stages, resource groups and locks, how it is deployed, module and naming source |
+| `network` | Netzwerk | Network | Who reaches it and from where, address ranges, DNS ownership, traffic routing |
+| `security` | Sicherheit | Security | Mandates, data residency, who may call or administer it, keys, secrets, roles |
+| `resilience` | Ausfall & Backup | Outage & backup | Outage impact, data-loss tolerance, backup isolation, undeliverable messages |
+| `data` | Daten | Data | Access pattern, retention, containers, shares, queues |
+| `application` | Anwendung | Application | What the workload does with the resource: OS, licence, publisher, channels, ordering |
+
+A question belongs under the topic whose conversation it would be had in, not under the
+group it sits in in the file: `data_residency` is a `requirements` question and a `security`
+topic. `check_question_set.py` fails on an interview question without one, and on a topic
+on a question that is not asked.
 
 ## The customer's line: `plain` and `plain_values`
 

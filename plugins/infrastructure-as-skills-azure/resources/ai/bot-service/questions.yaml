@@ -104,6 +104,7 @@ groups:
         ask: What name should users see for the bot?
         type: string
         resolved_by: interview
+        topic: application
         plain:
           en: "Users see the bot as {value} (empty: the resource name)."
           de: "Nutzer sehen den Bot als {value} (leer: der Ressourcenname)."
@@ -194,6 +195,7 @@ groups:
         ask: Where should users talk to the bot?
         type: list
         resolved_by: interview
+        topic: application
         plain:
           en: "Users reach the bot in: {value} (Web Chat is always present)."
           de: "Nutzer erreichen den Bot in: {value} (Web Chat ist immer vorhanden)."

@@ -76,6 +76,7 @@ groups:
         ask: Which organisation name should API consumers see?
         type: string
         resolved_by: interview
+        topic: application
         plain:
           en: "API consumers see the publisher name {value}."
           de: "API-Nutzer sehen den Herausgebernamen {value}."
@@ -91,6 +92,7 @@ groups:
         ask: Which contact address receives notifications from the service?
         type: string
         resolved_by: interview
+        topic: application
         plain:
           en: "Notifications go to {value}."
           de: "Benachrichtigungen gehen an {value}."
@@ -236,6 +238,7 @@ groups:
         ask: How do callers of the APIs prove who they are?
         type: enum
         resolved_by: interview
+        topic: security
         plain:
           en: "Callers sign in with {value}."
           de: "Aufrufer melden sich an mit {value}."
@@ -265,6 +268,7 @@ groups:
         ask: How many calls per minute may one caller make?
         type: int
         resolved_by: interview
+        topic: application
         plain:
           en: "One caller may make {value} calls per minute (0: no limit)."
           de: "Ein Aufrufer darf {value} Aufrufe pro Minute machen (0: keine Grenze)."
@@ -281,6 +285,7 @@ groups:
         ask: Do outside developers need a portal to read and try the APIs?
         type: bool
         resolved_by: interview
+        topic: application
         plain:
           en: "A developer portal is {value}."
           de: "Ein Entwicklerportal ist {value}."

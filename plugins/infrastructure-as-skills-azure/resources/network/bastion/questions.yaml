@@ -78,6 +78,7 @@ groups:
         ask: Can your administrators reach the virtual network over a private connection (VPN or ExpressRoute)?
         type: enum
         resolved_by: interview
+        topic: security
         plain:
           en: "Administrators connect to the Bastion {value}."
           de: "Administratoren verbinden sich mit dem Bastion {value}."

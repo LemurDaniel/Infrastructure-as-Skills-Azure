@@ -162,6 +162,7 @@ groups:
         ask: Do you already own SQL Server licences with Software Assurance that you can bring, or should the licence be rented with the instance?
         type: enum
         resolved_by: interview
+        topic: application
         plain:
           en: "The SQL Server licence is {value}."
           de: "Die SQL-Server-Lizenz wird {value}."

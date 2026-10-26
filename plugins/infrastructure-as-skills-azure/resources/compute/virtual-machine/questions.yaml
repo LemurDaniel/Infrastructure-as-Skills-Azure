@@ -82,6 +82,7 @@ groups:
         ask: Which operating system does the software run on?
         type: enum
         resolved_by: interview
+        topic: application
         plain:
           en: "The machine runs {value}."
           de: "Die Maschine läuft mit {value}."
@@ -163,6 +164,7 @@ groups:
         ask: Do you own Windows Server licences with Software Assurance that the machine may use?
         type: enum
         resolved_by: interview
+        topic: application
         plain:
           en: "The Windows licence is {value}."
           de: "Die Windows-Lizenz ist {value}."

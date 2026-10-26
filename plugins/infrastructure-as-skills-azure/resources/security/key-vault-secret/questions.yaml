@@ -94,6 +94,7 @@ groups:
         values: [placeholder, secure_input]
         default: placeholder
         resolved_by: interview
+        topic: security
         why: >
           `placeholder` is the answer for a secret a person or the workload fills in: a vendor
           API key, a password somebody else owns. It is created with a dummy value, **once**,

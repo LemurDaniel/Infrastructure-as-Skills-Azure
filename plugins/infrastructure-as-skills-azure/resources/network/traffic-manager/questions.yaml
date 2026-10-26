@@ -76,6 +76,7 @@ groups:
         ask: What should the steering achieve - send everyone to one place and switch to a standby when it fails, send each user to the closest place, split the users across places, or route by the user's country?
         type: enum
         resolved_by: interview
+        topic: network
         plain:
           en: "Users are steered {value}."
           de: "Die Nutzer werden {value} geleitet."

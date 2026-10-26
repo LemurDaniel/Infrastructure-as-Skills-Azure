@@ -126,6 +126,7 @@ groups:
         ask: Will the system send e-mail, and from which kind of address?
         type: enum
         resolved_by: interview
+        topic: application
         plain:
           en: "E-mail is sent {value}."
           de: "E-Mails werden {value} versendet."
@@ -152,6 +153,7 @@ groups:
         ask: Which domain should the mail be sent from?
         type: string
         resolved_by: interview
+        topic: application
         plain:
           en: "Mail is sent from the domain {value}."
           de: "Mails werden von der Domain {value} versendet."

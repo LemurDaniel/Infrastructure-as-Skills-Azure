@@ -245,6 +245,7 @@ groups:
         ask: How many readers must be able to process the stream in parallel?
         type: int
         resolved_by: interview
+        topic: application
         plain:
           en: "The stream can be processed by up to {value} readers at once."
           de: "Der Datenstrom kann von bis zu {value} Lesern gleichzeitig verarbeitet werden."
@@ -263,6 +264,7 @@ groups:
         ask: How long must events stay readable for a consumer that falls behind?
         type: int
         resolved_by: interview
+        topic: data
         plain:
           en: "Events stay readable for {value} day(s)."
           de: "Ereignisse bleiben {value} Tag(e) lesbar."
@@ -294,6 +296,7 @@ groups:
         ask: Must every event also be kept as a file for later analysis?
         type: bool
         resolved_by: interview
+        topic: data
         plain:
           en: "Every event is {value}."
           de: "Jedes Ereignis wird {value}."

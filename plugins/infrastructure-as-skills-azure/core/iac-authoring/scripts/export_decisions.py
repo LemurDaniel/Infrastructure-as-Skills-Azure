@@ -67,6 +67,8 @@ LABELS = {
         'derived': 'therefore', 'rules': 'Set by the rules',
         'rules_intro': 'Nothing here was asked; each follows a rule or one of the answers above. Say so if one is wrong.',
         'whole_system': 'For the whole system', 'because': 'because',
+        'security_rules': 'Security',
+        'security_intro': 'The security baseline of every part in one place. None of it was asked and it is the same in every stage; say so if one does not fit.',
         'overridden': 'Decided differently by you', 'reason': 'reason',
         'open': 'Still open', 'open_intro': 'Nothing can be deployed until these are answered.',
         'owner': 'needed from', 'blocks': 'blocks', 'assumed': 'Placeholders',
@@ -99,6 +101,8 @@ LABELS = {
         'derived': 'daher', 'rules': 'Nach den Vorgaben gesetzt',
         'rules_intro': 'Nichts davon wurde gefragt; jede Zeile folgt einer Regel oder einer der Antworten oben. Sagt Bescheid, wenn eine nicht passt.',
         'whole_system': 'Für das ganze System', 'because': 'weil',
+        'security_rules': 'Sicherheit',
+        'security_intro': 'Die Sicherheitsvorgaben aller Teile an einer Stelle. Sie wurden nicht gefragt und sind in jeder Stufe gleich; sagt Bescheid, wenn eine nicht passt.',
         'overridden': 'Von euch anders entschieden', 'reason': 'Grund',
         'open': 'Noch offen', 'open_intro': 'Solange diese Punkte offen sind, wird nichts ausgerollt.',
         'owner': 'gebraucht von', 'blocks': 'blockiert', 'assumed': 'Platzhalter',
@@ -113,6 +117,9 @@ LABELS = {
 }
 
 CUSTOMER_ANSWER_SOURCES = {'stated', 'asked', 'carried', 'overridden'}
+# Groups whose defaults are shown together, ahead of the per-resource lists (a managed
+# identity's own `identity` group describes the identity, not a baseline, and stays with it).
+SECURITY_GROUPS = {'security', 'identity'}
 
 
 def say(text):
@@ -413,6 +420,7 @@ def main():
         w(f"- {R.line(q, d.get('value'))}{note}")
     w('')
     overridden, assumed = [], []
+    security, blocks = [], []
     for res, groups in resources.items():
         qset = sets.get(res, {})
         lines = []
@@ -433,12 +441,24 @@ def main():
                 if src == 'requirement':
                     continue
                 note = forced_note(d) if src == 'forced' else ''
+                if gid in SECURITY_GROUPS and not res.startswith('user-assigned-identity'):
+                    security.append(f"- {titles.get(res, res)}: {R.line(q, d.get('value'))}{note}")
+                    continue
                 lines.append(f"- {R.line(q, d.get('value'))}{note}")
         if lines:
-            w(f"### {titles.get(res, res)}")
-            w('')
-            out.extend(lines)
-            w('')
+            blocks.append((titles.get(res, res), lines))
+    if security:
+        w(f"### {L['security_rules']}")
+        w('')
+        w(L['security_intro'])
+        w('')
+        out.extend(security)
+        w('')
+    for title, lines in blocks:
+        w(f"### {title}")
+        w('')
+        out.extend(lines)
+        w('')
 
     # --- overridden ------------------------------------------------------------
     for qid, d in dep.items():

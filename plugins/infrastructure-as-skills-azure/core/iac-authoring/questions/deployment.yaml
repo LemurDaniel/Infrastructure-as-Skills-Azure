@@ -28,6 +28,7 @@ groups:
         ask: Which stages does the system go through? The usual set is development, test and production; a sandbox is one throwaway environment.
         type: list
         resolved_by: interview
+        topic: platform
         plain:
           en: "The system is deployed in these stages: {value}."
           de: "Das System wird in diesen Stufen ausgerollt: {value}."
@@ -239,6 +240,7 @@ groups:
         ask: Should everything live in one resource group, or should some areas get a group of their own - network, data, application, monitoring, security?
         type: list
         resolved_by: interview
+        topic: platform
         plain:
           en: "These areas get a resource group of their own: {value}. Everything else shares the main group."
           de: "Diese Bereiche erhalten eine eigene Ressourcengruppe: {value}. Alles andere liegt in der Hauptgruppe."
@@ -269,6 +271,7 @@ groups:
         ask: Does the main resource group already exist, or should the infrastructure create it?
         type: enum
         resolved_by: interview
+        topic: platform
         plain:
           en: "The main resource group {value}."
           de: "Die Hauptressourcengruppe {value}."
@@ -296,6 +299,7 @@ groups:
         ask: Does the network resource group already exist, or should the infrastructure create it?
         type: enum
         resolved_by: interview
+        topic: platform
         plain:
           en: "The network resource group {value}."
           de: "Die Ressourcengruppe für das Netzwerk {value}."
@@ -319,6 +323,7 @@ groups:
         ask: Does the data resource group already exist, or should the infrastructure create it?
         type: enum
         resolved_by: interview
+        topic: platform
         plain:
           en: "The data resource group {value}."
           de: "Die Ressourcengruppe für die Daten {value}."
@@ -340,6 +345,7 @@ groups:
         ask: Does the application resource group already exist, or should the infrastructure create it?
         type: enum
         resolved_by: interview
+        topic: platform
         plain:
           en: "The application resource group {value}."
           de: "Die Ressourcengruppe für die Anwendung {value}."
@@ -358,6 +364,7 @@ groups:
         ask: Does the monitoring resource group already exist, or should the infrastructure create it?
         type: enum
         resolved_by: interview
+        topic: platform
         plain:
           en: "The monitoring resource group {value}."
           de: "Die Ressourcengruppe für die Überwachung {value}."
@@ -379,6 +386,7 @@ groups:
         ask: Does the security resource group already exist, or should the infrastructure create it?
         type: enum
         resolved_by: interview
+        topic: platform
         plain:
           en: "The security resource group {value}."
           de: "Die Ressourcengruppe für die Sicherheit {value}."
@@ -429,6 +437,7 @@ groups:
         values: [production, all_stages, none]
         default: production
         resolved_by: interview
+        topic: platform
         why: >
           A `CanNotDelete` lock on the resources whose loss cannot be undone from the
           spec - storage accounts, Cosmos DB accounts, key vaults, backup and recovery
@@ -457,6 +466,7 @@ groups:
         ask: Where does the code live, and what should deploy it - Azure DevOps, GitHub, GitLab, or by hand from a workstation?
         type: enum
         resolved_by: interview
+        topic: platform
         plain:
           en: "The system is deployed {value}."
           de: "Das System wird {value} ausgerollt."
@@ -556,6 +566,7 @@ groups:
         values: [free, assigned_ranges, corporate]
         default: free
         resolved_by: interview
+        topic: network
         plain:
           en: The network {value}.
           de: Das Netz {value}.
@@ -599,6 +610,7 @@ groups:
         values: [tolerable, disruptive, critical]
         default: disruptive
         resolved_by: interview
+        topic: resilience
         plain:
           en: "A day's outage would be {value}."
           de: "Ein Tag Ausfall wäre {value}."
@@ -627,6 +639,7 @@ groups:
         values: [reproducible, one_week, one_month, three_months]
         default: one_week
         resolved_by: interview
+        topic: resilience
         plain:
           en: "After a mistaken delete you must be able to go back {value}."
           de: "Nach einem versehentlichen Löschen müsst ihr {value} zurückkommen."
@@ -653,6 +666,7 @@ groups:
         values: [active, occasional, archive]
         default: active
         resolved_by: interview
+        topic: data
         plain:
           en: "The data is {value}."
           de: "Die Daten werden {value}."
@@ -679,6 +693,7 @@ groups:
         values: [operational, isolated, immutable]
         default: operational
         resolved_by: interview
+        topic: resilience
         plain:
           en: "Against deliberate destruction the data is {value}."
           de: "Gegen absichtliche Zerstörung sind die Daten {value}."
@@ -716,6 +731,7 @@ groups:
         values: [country, data_zone, unrestricted]
         default: data_zone
         resolved_by: interview
+        topic: security
         plain:
           en: "The data is stored and processed {value}."
           de: "Die Daten werden {value} gespeichert und verarbeitet."
@@ -758,6 +774,7 @@ groups:
         ask: Should the code be built from the building blocks Microsoft tests and maintains, or from resources written out one by one?
         type: enum
         resolved_by: interview
+        topic: platform
         plain:
           en: "The code is built from {value}."
           de: "Der Code wird aus {value} gebaut."
@@ -800,6 +817,7 @@ groups:
         ask: How should the resource names be generated - by a ready-made naming tool from the plugin, by Microsoft's naming module, or by a mechanism of your own?
         type: enum
         resolved_by: interview
+        topic: platform
         plain:
           en: "Resource names are generated by {value}."
           de: "Die Ressourcennamen erzeugt {value}."
@@ -924,6 +942,7 @@ groups:
         ask: Should this infrastructure be reachable from the internet?
         type: enum
         resolved_by: interview
+        topic: network
         plain:
           en: "Access is {value}."
           de: "Der Zugang ist {value}."
@@ -984,6 +1003,7 @@ groups:
         ask: Are there compliance or internal mandates this deployment has to satisfy?
         type: list
         resolved_by: interview
+        topic: security
         plain:
           en: "Rules to comply with: {value}."
           de: "Einzuhaltende Vorgaben: {value}."
@@ -1315,6 +1335,7 @@ groups:
         ask: How long should logs be retained?
         type: int
         resolved_by: interview
+        topic: data
         plain:
           en: "Logs are kept for {value} days."
           de: "Logs werden {value} Tage aufbewahrt."

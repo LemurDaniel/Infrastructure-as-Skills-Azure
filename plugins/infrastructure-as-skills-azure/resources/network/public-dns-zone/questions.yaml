@@ -82,6 +82,7 @@ groups:
         ask: Which domain should the zone serve?
         type: string
         resolved_by: interview
+        topic: network
         plain:
           en: "The zone serves the domain {value}."
           de: "Die Zone bedient die Domäne {value}."
@@ -99,6 +100,7 @@ groups:
         ask: Who holds the domain at the registrar and can change its name servers?
         type: string
         resolved_by: interview
+        topic: network
         plain:
           en: "The name servers are entered at the registrar by {value}."
           de: "Die Nameserver trägt {value} beim Registrar ein."

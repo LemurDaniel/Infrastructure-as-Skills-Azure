@@ -217,6 +217,7 @@ groups:
         ask: How long may an event wait for delivery before it is stale?
         type: int
         resolved_by: interview
+        topic: data
         plain:
           en: "An undelivered event expires after {value} minutes."
           de: "Ein nicht zugestelltes Ereignis verfällt nach {value} Minuten."
@@ -233,6 +234,7 @@ groups:
         ask: Should an event that could not be delivered be kept for inspection?
         type: bool
         resolved_by: interview
+        topic: resilience
         plain:
           en: "An event that cannot be delivered is {value}."
           de: "Ein Ereignis, das nicht zugestellt werden kann, wird {value}."

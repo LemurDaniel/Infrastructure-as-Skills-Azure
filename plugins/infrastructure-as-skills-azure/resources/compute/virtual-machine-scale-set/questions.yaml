@@ -105,6 +105,7 @@ groups:
         ask: Which operating system does the software run on?
         type: enum
         resolved_by: interview
+        topic: application
         plain:
           en: "The instances run {value}."
           de: "Die Instanzen laufen mit {value}."

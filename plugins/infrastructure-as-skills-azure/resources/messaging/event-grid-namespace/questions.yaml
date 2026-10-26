@@ -228,6 +228,7 @@ groups:
         ask: How long does a topic keep an event that nobody has pulled yet?
         type: int
         resolved_by: interview
+        topic: data
         plain:
           en: "An event waits for its receivers for up to {value} days."
           de: "Ein Ereignis wartet bis zu {value} Tage auf seine Empfänger."
@@ -319,6 +320,7 @@ groups:
         ask: Should an event that could not be delivered be kept for inspection?
         type: bool
         resolved_by: interview
+        topic: resilience
         plain:
           en: "An event that cannot be delivered is {value}."
           de: "Ein Ereignis, das nicht zugestellt werden kann, wird {value}."
@@ -375,6 +377,7 @@ groups:
         ask: Do devices or machines connect to it directly as MQTT clients?
         type: bool
         resolved_by: interview
+        topic: application
         plain:
           en: "Devices {value} directly over MQTT."
           de: "Geräte {value} direkt über MQTT."
@@ -460,6 +463,7 @@ groups:
         ask: Should the MQTT messages also reach applications as events?
         type: enum
         resolved_by: interview
+        topic: application
         plain:
           en: "MQTT messages are {value}."
           de: "MQTT-Nachrichten werden {value}."

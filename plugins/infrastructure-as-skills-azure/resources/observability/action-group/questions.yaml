@@ -91,6 +91,7 @@ groups:
         ask: Which shared mailbox should be told when the system is unhealthy?
         type: string
         resolved_by: interview
+        topic: application
         plain:
           en: "Alerts go to the mailbox {value}."
           de: "Alarme gehen an das Postfach {value}."

@@ -57,6 +57,7 @@ groups:
         ask: Which containers should the account hold?
         type: list
         resolved_by: interview
+        topic: data
         plain:
           en: "Containers: {value}."
           de: "Container: {value}."

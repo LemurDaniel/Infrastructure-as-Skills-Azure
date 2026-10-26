@@ -146,6 +146,7 @@ groups:
         ask: Does the workspace handle data whose exposure would be a serious incident?
         type: bool
         resolved_by: interview
+        topic: security
         plain:
           en: "The workspace is {value}."
           de: "Der Arbeitsbereich ist {value}."

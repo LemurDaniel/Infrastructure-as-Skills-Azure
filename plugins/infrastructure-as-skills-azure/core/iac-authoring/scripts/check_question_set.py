@@ -25,7 +25,8 @@ a regex cannot see - what references/question-set-format.md promises:
      deployment set and maps every one of its values to a value of this
      question's kind (and, for an enum, one of its values).
   6. `resolved_by`, where present, is interview or platform; absent means the question
-     is defaulted or derived and never asked.
+     is defaulted or derived and never asked. An interview question carries a `topic`
+     (platform, network, security, resilience, data, application) and no other does.
   7. `plain` is present: a mapping of language code to one customer-language
      line (`en` required, `{value}` optional), and `plain_values`, where
      present, maps every key to such a mapping and names only values the
@@ -66,12 +67,13 @@ DEPLOYMENT_SET = os.path.join(HERE, '..', 'questions', 'deployment.yaml')
 
 TYPES = ['enum', 'bool', 'string', 'int', 'list', 'ref']
 RESOLVED_BY = ['interview', 'platform']
+TOPICS = ['platform', 'network', 'security', 'resilience', 'data', 'application']
 REVIEW_ORDER = ['placement', 'networking', 'identity', 'security', 'data_protection', 'observability']
 RESOLUTION_FIELDS = ['required', 'default', 'from_deployment', 'parameterized', 'derived_from']
 KNOWN_FIELDS = {
     'id', 'ask', 'type', 'values', 'default', 'required', 'parameterized', 'confirm_in',
     'why', 'renders', 'depends_on', 'ref', 'from_deployment', 'forced_when', 'from_context',
-    'resolved_by', 'plain', 'plain_values', 'derived_from', 'per_environment', 'non_production_default',
+    'resolved_by', 'topic', 'plain', 'plain_values', 'derived_from', 'per_environment', 'non_production_default',
 }
 # Groups whose decisions may never be relaxed for a non-production stage.
 NO_SAVINGS_GROUPS = {'security', 'networking', 'identity', 'access', 'dns', 'compliance', 'posture', 'modules', 'subnet_policy'}
@@ -436,6 +438,14 @@ def check_set(path, doc, deployment, rel):
         rb = q.get('resolved_by')
         if rb is not None and rb not in RESOLVED_BY:
             err(f"{where}: resolved_by '{rb}' is not one of {', '.join(RESOLVED_BY)}")
+        # --- 6b. topic: the heading an interview question stands under in the batch
+        tp = q.get('topic')
+        if rb == 'interview' and tp is None:
+            err(f"{where}: an interview question needs a `topic` ({', '.join(TOPICS)})")
+        elif tp is not None and rb != 'interview':
+            err(f"{where}: `topic` belongs to interview questions only; this one is not asked")
+        elif tp is not None and tp not in TOPICS:
+            err(f"{where}: topic '{tp}' is not one of {', '.join(TOPICS)}")
 
     return errors, warnings, len(qs)
 

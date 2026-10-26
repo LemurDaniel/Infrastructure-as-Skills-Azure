@@ -55,6 +55,7 @@ groups:
         default: resource
         confirm_in: [production]
         resolved_by: interview
+        topic: security
         why: >
           As tight as the consumer allows (guardrails, section 3): the specific resource - or
           the secret or key inside a vault - not the group around it. `resource_group` is for

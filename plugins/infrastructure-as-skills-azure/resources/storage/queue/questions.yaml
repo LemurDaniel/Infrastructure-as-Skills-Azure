@@ -56,6 +56,7 @@ groups:
         ask: Which queues should the account hold?
         type: list
         resolved_by: interview
+        topic: data
         plain:
           en: "Queues: {value}."
           de: "Warteschlangen: {value}."
@@ -72,6 +73,7 @@ groups:
         ask: Must messages be delivered in order, or must a message that keeps failing be set aside automatically?
         type: bool
         resolved_by: interview
+        topic: resilience
         plain:
           en: "Ordering or automatic set-aside is {value}."
           de: "Reihenfolge oder automatisches Beiseitelegen ist {value}."

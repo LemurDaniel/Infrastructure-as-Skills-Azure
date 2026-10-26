@@ -89,6 +89,7 @@ groups:
         ask: Who should be told about security alerts?
         type: list
         resolved_by: interview
+        topic: security
         plain:
           en: "Security alerts are mailed to {value}."
           de: "Sicherheitsalarme gehen per Mail an {value}."
@@ -148,6 +149,7 @@ groups:
         ask: Which kinds of resources should be actively watched for attacks?
         type: list
         resolved_by: interview
+        topic: security
         plain:
           en: "Attack detection (a paid service, billed per protected resource) is switched on for: {value} (empty: none)."
           de: "Angriffserkennung (kostenpflichtig, abgerechnet je geschützter Ressource) ist eingeschaltet für: {value} (leer: keine)."
