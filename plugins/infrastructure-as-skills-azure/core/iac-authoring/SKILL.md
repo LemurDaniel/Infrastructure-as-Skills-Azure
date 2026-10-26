@@ -437,8 +437,12 @@ asked in topics, not as one list**: every interview question carries a `topic` (
 the questions of a topic stand together, the topics in that order, and a topic with no
 surviving question is left out. The `AskUserQuestion` call is cut at the topic, not at a
 count: it takes four questions per call, so a topic of up to four is one call whose `header`
-is the topic's name (*Netzwerk*, *Sicherheit*, *Ausfall & Backup* / *Network*, *Security*,
-*Outage & backup*); a topic of more is several calls in a row; small neighbouring topics
+is the topic's short name (*Rahmen*, *Netzwerk*, *Sicherheit*, *Ausfall*, *Daten*,
+*Anwendung* / *Setup*, *Network*, *Security*, *Outage*, *Data*, *Application*; the header
+chip holds twelve characters). A topic of more is several calls in a row, and then **every
+header is numbered** - *Rahmen 1/3*, *Rahmen 2/3*, *Rahmen 3/3* - so the same word never
+appears twice in a row without telling the person how far along they are; a topic of one call
+carries no number; small neighbouring topics
 share a call only when each of them is a single question. The first line of a call names the
 topic and the person's place ("Netzwerk - Frage 1-2, danach Sicherheit, Daten"), with
 nothing reasoned or reported between the calls - the batch is never trimmed to four to fit

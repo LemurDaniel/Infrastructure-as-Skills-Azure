@@ -131,7 +131,7 @@ Every `interview` question names one; the order below is the order they are aske
 | `platform` | Rahmen | Setup | Stages, resource groups and locks, how it is deployed, module and naming source |
 | `network` | Netzwerk | Network | Who reaches it and from where, address ranges, DNS ownership, traffic routing |
 | `security` | Sicherheit | Security | Mandates, data residency, who may call or administer it, keys, secrets, roles |
-| `resilience` | Ausfall & Backup | Outage & backup | Outage impact, data-loss tolerance, backup isolation, undeliverable messages |
+| `resilience` | Ausfall | Outage | Outage impact, data-loss tolerance, backup isolation, undeliverable messages |
 | `data` | Daten | Data | Access pattern, retention, containers, shares, queues |
 | `application` | Anwendung | Application | What the workload does with the resource: OS, licence, publisher, channels, ordering |
 
