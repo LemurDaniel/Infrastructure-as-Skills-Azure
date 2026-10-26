@@ -228,6 +228,13 @@ the detail; this list says what was decided and why, so a session does not reope
   name. Before, the rule said "never an open item", and runs filled the gap with a plausible
   `westeurope` that read as a decision. `check_spec.py` warns (not errors) on a value that is
   neither: a filled-in stage file carries it without the spec.
+- **Every change is a branch and a PR; every merge into `master` is a release** (2026-10-26,
+  owner's call). No `dev` branch: one person, and the marketplace reads `master`, so what is
+  there is released anyway. `pull-request.yml` fails unless `plugin.json`'s version is newer
+  than the last tag and `master` (`check_version_bump.py`), plus the repository checks;
+  `release.yml` runs on the push to `master` and creates tag and release itself. Rebase merge
+  only (keeps the one-concern commits); `master` is protected (PR, both checks, up to date,
+  linear history, admins included). No tag by hand.
 
 ## State
 
