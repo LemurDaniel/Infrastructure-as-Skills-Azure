@@ -77,9 +77,10 @@ groups:
           environment code in every name comes from the stage's file
 
       - id: stage_isolation
-        ask: Are the stages separated by subscription, or do they share one subscription and differ by resource group?
+        ask: Does each stage (development, test, production) get an Azure subscription of its own, or do all stages share one?
         type: enum
-        resolved_by: derived
+        resolved_by: interview
+        topic: platform
         plain:
           en: "Each stage lives in {value}."
           de: "Jede Stufe liegt in {value}."
@@ -98,10 +99,13 @@ groups:
           subscription with a resource group per stage is the lesser form, for an
           organisation that cannot get subscriptions vended - it keeps the
           resources apart and little else, since budgets, quotas and most
-          policies are subscription-scoped. Either way the subscription and the
-          resource group are per-stage values that the stage's parameter file
-          carries; this decision says which of the two actually separates the
-          stages, so a reviewer knows what a wrong stage file can reach.
+          policies are subscription-scoped. Asked in every case, a landing zone
+          included: an organisation with one often still keeps a workload's
+          stages in one vended subscription, and only the customer knows which.
+          Either way the subscription and the resource group are per-stage values
+          that the stage's parameter file carries; this decision says which of the
+          two actually separates the stages, so a reviewer knows what a wrong
+          stage file can reach.
         renders: >
           terraform: subscription_id per environments/<stage>.tfvars and one state
           per stage; bicep: the deployment scope per stage on the command line;
