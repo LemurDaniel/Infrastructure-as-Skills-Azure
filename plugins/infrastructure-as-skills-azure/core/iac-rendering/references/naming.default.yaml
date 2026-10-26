@@ -357,8 +357,6 @@ abbreviations:
     Microsoft.KeyVault/vaults/keys::default: key
     Microsoft.KeyVault/vaults/secrets::default: secret
     Microsoft.Authorization/roleAssignments::default: ra
-    Microsoft.Authorization/policyAssignments::default: pol
-    Microsoft.Subscription/aliases::default: sub
     Microsoft.Sql/servers::default: sql
     Microsoft.Sql/servers/databases::default: sqldb
     Microsoft.Sql/servers/jobAgents::default: sqlja

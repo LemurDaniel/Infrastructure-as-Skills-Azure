@@ -13,7 +13,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-A Claude Code plugin that authors Azure infrastructure as **Terraform or Bicep** from the decisions a resource actually forces - compute, network, data, security, messaging, integration, AI, governance and recovery, 70 resource types in eleven families. Not a module library and not a template collection. The interview writes an `infra-spec.yaml`; the code, its tests, a diagram and a decision document are rendered from that, onto [Azure Verified Modules](https://azure.github.io/Azure-Verified-Modules/) first.
+A Claude Code plugin that authors Azure infrastructure as **Terraform or Bicep** from the decisions a resource actually forces - compute, network, data, security, messaging, integration, AI and recovery, 67 resource types in ten families. Not a module library and not a template collection. The interview writes an `infra-spec.yaml`; the code, its tests, a diagram and a decision document are rendered from that, onto [Azure Verified Modules](https://azure.github.io/Azure-Verified-Modules/) first.
 
 ## 💡 The Idea
 
@@ -108,7 +108,7 @@ Complete runs, request to tests, live under [`examples/`](examples/README.md).
 
 ### Resource coverage
 
-70 resource types in eleven families. Each has a question set and both rendering references; a resource with an [Azure Verified Module](https://azure.github.io/Azure-Verified-Modules/) renders as a call to it.
+67 resource types in ten families. Each has a question set and both rendering references; a resource with an [Azure Verified Module](https://azure.github.io/Azure-Verified-Modules/) renders as a call to it.
 
 | Family | Resources |
 |---|---|
@@ -122,9 +122,8 @@ Complete runs, request to tests, live under [`examples/`](examples/README.md).
 | `ai` | AI Foundry (Azure OpenAI), AI Search, single-service AI accounts (Speech, Vision, Language, Document Intelligence, ...), Machine Learning workspace, Azure Bot |
 | `observability` | Log Analytics workspace, Application Insights, action group, alert rule (metric, log query, activity log), data collection rule and endpoint |
 | `recovery` | Backup vault, Recovery Services vault |
-| `governance` | policy assignment, management group, subscription vending |
 
-Not covered yet: Synapse, Databricks, Data Explorer, Fabric; VPN and ExpressRoute gateways, Virtual WAN, Private Link Service; Managed Grafana, Azure Monitor workspace, dashboards; Notification Hubs, SignalR and Web PubSub; budgets, Automation Accounts, Maintenance Configurations. The list is in [`PROGRESS.md`](PROGRESS.md); a request for one of them is said out loud and never improvised.
+Not covered yet: Synapse, Databricks, Data Explorer, Fabric; VPN and ExpressRoute gateways, Virtual WAN, Private Link Service; Managed Grafana, Azure Monitor workspace, dashboards; Notification Hubs, SignalR and Web PubSub; governance (policy, management groups, subscription vending are drafted under `drafts/governance/`, not shipped), budgets, Automation Accounts, Maintenance Configurations. The list is in [`PROGRESS.md`](PROGRESS.md); a request for one of them is said out loud and never improvised.
 
 The directory names below are the paths under `resources/<family>/<resource>/`.
 
@@ -304,7 +303,7 @@ Early, and the shape matters more than the coverage. The eval baseline holds; th
 - [x] Deployment-wide question set, inherited by every resource via `from_deployment`
 - [x] The customer interview: requirements derived into decisions, `platform.yaml`, decision document in the customer's language
 - [x] Azure Verified Modules as the primary rendering, both targets, with the test contract
-- [x] 70 resources in 11 families (the 45 added last are checked against their AVM modules, not yet rendered or tested)
+- [x] 67 resources in 10 families (the 42 added last are checked against their AVM modules, not yet rendered or tested)
 - [x] Rendering: naming, layout, idiom and pipelines (GitHub, Azure DevOps, GitLab, local)
 - [x] Diagram from the spec, editable draw.io embedded in the PNG
 - [x] Checks: `check_spec.py`, `check_question_set.py`, `check_render_coverage.py`, `check_pipeline.py`

@@ -2,7 +2,7 @@
 
 Mapping from the question set to the group, its subscriptions and its role assignments. General
 layout, parameters and naming are in
-[../../../core/iac-rendering/references/bicep-idiom.md](../../../core/iac-rendering/references/bicep-idiom.md).
+[../../../core/iac-rendering/references/bicep-idiom.md](../../../plugins/infrastructure-as-skills-azure/core/iac-rendering/references/bicep-idiom.md).
 Nothing here renders when `management_group_ownership` is `platform`.
 
 ```bash
@@ -20,7 +20,7 @@ The template's `targetScope` is `managementGroup` - the **parent** group, deploy
 | `br/public:avm/ptn/mgmt-groups/subscription-placement:<version>` | **0.3.0** | 2026-10-26 | Available (pattern) |
 
 Resolve the current version and re-read the README parameters before rendering, as
-[avm.md](../../../core/iac-rendering/references/avm.md) says. Pin the exact version. The
+[avm.md](../../../plugins/infrastructure-as-skills-azure/core/iac-rendering/references/avm.md) says. Pin the exact version. The
 hierarchy pattern `avm/ptn/alz/empty` is the boundary and is never called from here.
 
 **Two scopes.** The resource module deploys at `managementGroup` scope (its `parentId` defaults
@@ -95,7 +95,7 @@ scope function.
 A module call compiles to a nested deployment whose `properties.parameters.<param>.value` is the
 decision, so `name`, `displayName`, `parentId` and the placement's `parSubscriptionPlacement` are
 observable in `tests/*.armtest.yaml`
-([bicep-idiom.md](../../../core/iac-rendering/references/bicep-idiom.md#tests)).
+([bicep-idiom.md](../../../plugins/infrastructure-as-skills-azure/core/iac-rendering/references/bicep-idiom.md#tests)).
 `management_group_ownership` is `not-testable` as a check on the spec.
 
 ## Authored rendering

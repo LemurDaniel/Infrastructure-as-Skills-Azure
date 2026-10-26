@@ -179,11 +179,8 @@ ICONS = {
     'nat-gateway': 'img/lib/azure2/networking/NAT.svg',
     'aks': 'img/lib/azure2/containers/Kubernetes_Services.svg',
     'container-instances': 'img/lib/azure2/containers/Container_Instances.svg',
-    # Added with the governance, network, messaging, observability and data sets. draw.io has no
+    # Added with the network, messaging, observability and data sets. draw.io has no
     # icon of its own for Purview, the Event Grid namespace, the system topic or an action group.
-    'policy': 'img/lib/azure2/management_governance/Policy.svg',
-    'management-group': 'img/lib/azure2/general/Management_Groups.svg',
-    'subscription': 'img/lib/azure2/general/Subscriptions.svg',
     'public-dns-zone': 'img/lib/azure2/networking/DNS_Zones.svg',
     'traffic-manager': 'img/lib/azure2/networking/Traffic_Manager_Profiles.svg',
     'ddos-protection-plan': 'img/lib/azure2/networking/DDoS_Protection_Plans.svg',
@@ -215,7 +212,6 @@ TYPE_NAMES = {
     'application-insights': 'Application Insights',
     'foundry': 'AI Foundry', 'search-service': 'AI Search', 'container-apps': 'Container App',
     'user-assigned-identity': 'Managed Identity', 'network-security-group': 'Network Security Group',
-    'policy': 'Policy Assignment', 'management-group': 'Management Group', 'subscription': 'Subscription',
     'public-dns-zone': 'DNS Zone', 'traffic-manager': 'Traffic Manager', 'ddos-protection-plan': 'DDoS Protection Plan',
     'network-watcher': 'Network Watcher', 'event-grid-namespace': 'Event Grid Namespace',
     'event-grid-system-topic': 'Event Grid System Topic', 'relay-namespace': 'Relay',

@@ -2,7 +2,7 @@
 
 Mapping from the question set to the assignments, their definitions and exemptions. General
 layout, parameters and naming are in
-[../../../core/iac-rendering/references/bicep-idiom.md](../../../core/iac-rendering/references/bicep-idiom.md).
+[../../../core/iac-rendering/references/bicep-idiom.md](../../../plugins/infrastructure-as-skills-azure/core/iac-rendering/references/bicep-idiom.md).
 Nothing here renders when `policy_ownership` is `platform`.
 
 ```bash
@@ -168,7 +168,7 @@ managementGroup().name` instead of `subscriptionId`.
 
 A module call compiles to a nested deployment whose `properties.parameters.<param>.value` is the
 decision, so every parameter above is observable in `tests/*.armtest.yaml`
-([bicep-idiom.md](../../../core/iac-rendering/references/bicep-idiom.md#tests)): the definition
+([bicep-idiom.md](../../../plugins/infrastructure-as-skills-azure/core/iac-rendering/references/bicep-idiom.md#tests)): the definition
 id, `enforcementMode`, `parameters`, `identity`, `roleDefinitionIds`, the exemption's `expiresOn`.
 The authored definition's `policyRule` is the loaded file's content in the compiled template and
 is asserted by its `if.allOf[0].equals`. `policy_ownership` and `exemption_expiry_required` are

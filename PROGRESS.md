@@ -197,10 +197,8 @@ the detail; this list says what was decided and why, so a session does not reope
 
 ## State
 
-- **21 more sets written 2026-10-26 (70 resource sets in 11 families, 1,484 questions with the deployment
-  set), checked, not exercised:** governance (new family: policy, management-group, subscription - each
-  opens with an ownership decision read from the platform profile and renders nothing by default),
-  network public-dns-zone, traffic-manager, ddos-protection-plan, network-watcher (VNet flow logs only);
+- **18 more sets written 2026-10-26 (67 resource sets in 10 families, 1,442 questions with the deployment
+  set), checked, not exercised:** network public-dns-zone, traffic-manager, ddos-protection-plan, network-watcher (VNet flow logs only);
   observability action-group, alert-rule (metric, log query and activity log by `kind`),
   data-collection-rule (+ endpoint); messaging event-grid-namespace, event-grid-system-topic,
   relay-namespace; data sql-managed-instance, data-factory, purview-account; integration logic-app
@@ -208,13 +206,15 @@ the detail; this list says what was decided and why, so a session does not reope
   account), machine-learning-workspace, bot-service. Written by six parallel agents from one brief,
   each call validated with `terraform validate` against the pinned module (or authored azurerm 5.x
   where none exists: system topic, metric and scheduled-query alerts, Purview, management group,
-  Communication Services) and `bicep build`; no render, test or eval covers them. Shared tables are
+  Communication Services) and `bicep build`; no render, test or eval covers them. Three governance sets (policy, management-group, subscription; ownership decision from the platform
+  profile, nothing rendered by default) were written the same day and **parked outside the plugin in
+  `drafts/governance/`** (owner's call: not shipped for now; they pass the format check and their calls
+  validated, nothing in the plugin refers to them). Shared tables are
   updated: `avm.md` rows, `resource_lock` list (+ event-grid-namespace, sql-managed-instance,
-  purview-account, public-dns-zone), `resource-group-roles.yaml`, `naming.default.yaml` (pol, sub,
-  ddos, dnsz, rn, ma, sqr, ala, bot default), `new_diagram.py` ICONS/TYPE_NAMES (paths checked
+  purview-account, public-dns-zone), `resource-group-roles.yaml`, `naming.default.yaml` (ddos, dnsz, rn, ma, sqr, ala, bot default), `new_diagram.py` ICONS/TYPE_NAMES (paths checked
   against the draw.io source tree; Purview, the Event Grid namespace, the system topic and the action
-  group borrow the nearest icon), the `azure-resources` description (1,750 of 2,000 listing budget,
-  88% - the next family's terms need pruning first). Open from the writing: `learn.microsoft.com` is
+  group borrow the nearest icon), the `azure-resources` description (1,700 of 2,000 listing budget,
+  85% - the next family's terms need pruning first). Open from the writing: `learn.microsoft.com` is
   unreachable from a cloud session (proxy), so the diagnostic categories of the network, observability
   and ACS sets come from the Azure Monitor docs source on GitHub or product knowledge and every set
   says to check them live; the `virtual-network` set's `ddos_protection` bool has no plan reference
@@ -382,8 +382,8 @@ per-family` in `check_spec.py` and the `chatbot` spec, and `references/private-d
   - **Medium, still open:** network: Virtual WAN / VPN Gateway / ExpressRoute, Private Link Service;
     data: Synapse, Databricks, Data Explorer, Fabric Capacity; observability: Diagnostic Settings as a
     resource of its own, Managed Grafana, Azure Monitor Workspace (Prometheus), Dashboards; messaging:
-    Notification Hubs, SignalR / Web PubSub; governance: Budgets, a standalone lock, Automation
-    Account, Maintenance Configuration (resource groups stay a deployment decision).
+    Notification Hubs, SignalR / Web PubSub; governance (the family itself is parked in `drafts/`): Budgets, a standalone lock,
+    Automation Account, Maintenance Configuration (resource groups stay a deployment decision).
   - **Low:** storage: Table, Managed HSM, NetApp Files, Files Sync, Data Lake Gen2 as its own type;
     compute: Batch, Service Fabric, App Service Environment, Spring Apps, Compute Gallery, Dedicated
     Host, Virtual Desktop, Arc; security: Managed HSM, Sentinel, Confidential Ledger; data: Cosmos DB

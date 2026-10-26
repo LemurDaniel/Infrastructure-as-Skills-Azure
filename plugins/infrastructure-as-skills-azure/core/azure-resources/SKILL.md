@@ -1,6 +1,6 @@
 ---
 name: azure-resources
-description: Routes an Azure resource to its question set (Terraform or Bicep). Storage (storage account, blob, file share), network (vnet, private endpoint, private DNS, DNS zone, public IP, peering, route table, NAT, firewall, load balancer, Bastion, Application Gateway, Front Door, Traffic Manager, DDoS, Network Watcher), observability (Log Analytics, action group, alert, DCR), compute (VM, scale set, disk, AKS, App Service, function app, Container Apps, ACI, Static Web App, registry), security (Key Vault, managed identity, RBAC, Defender), data (Cosmos DB, SQL, SQL MI, PostgreSQL, MySQL, Redis, Data Factory, Purview), ai (Foundry, AI Search, Speech, Document Intelligence, ML workspace, Bot), messaging (Service Bus, Event Hubs, Event Grid, MQTT, Relay), integration (API Management, Logic Apps, Communication Services), governance (Policy, management group, subscription), backup (Backup vault, Recovery Services). AVM first. Use when one is created, changed, reviewed or ported.
+description: Routes an Azure resource to its question set (Terraform or Bicep). Storage (storage account, blob, file share), network (vnet, private endpoint, private DNS, DNS zone, public IP, peering, route table, NAT, firewall, load balancer, Bastion, Application Gateway, Front Door, Traffic Manager, DDoS, Network Watcher), observability (Log Analytics, action group, alert, DCR), compute (VM, scale set, disk, AKS, App Service, function app, Container Apps, ACI, Static Web App, registry), security (Key Vault, managed identity, RBAC, Defender), data (Cosmos DB, SQL, SQL MI, PostgreSQL, MySQL, Redis, Data Factory, Purview), ai (Foundry, AI Search, Speech, Document Intelligence, ML workspace, Bot), messaging (Service Bus, Event Hubs, Event Grid, MQTT, Relay), integration (API Management, Logic Apps, Communication Services), backup (Backup vault, Recovery Services). AVM first. Use when one is created, changed, reviewed or ported.
 ---
 
 # Azure resources
@@ -28,13 +28,12 @@ all descriptions share one listing budget, and an overflow silently stops a skil
 | recovery | Backup vault; Recovery Services vault | [resources/recovery/routing.md](../../resources/recovery/routing.md) |
 | data | Cosmos DB (API for NoSQL); Azure SQL; SQL Managed Instance; PostgreSQL and MySQL flexible server; Managed Redis; Data Factory; Purview | [resources/data/routing.md](../../resources/data/routing.md) |
 | ai | AI Foundry / Azure OpenAI with model deployments; AI Search; single-service AI accounts (Speech, Vision, Language, Document Intelligence); Machine Learning workspace; Azure Bot | [resources/ai/routing.md](../../resources/ai/routing.md) |
-| governance | policy assignments; management groups; subscription vending (resource groups are the deployment set's) | [resources/governance/routing.md](../../resources/governance/routing.md) |
 
 Read the family's `routing.md`. It names the question set for the request, or says plainly
 that none exists yet.
 
 **A request for a family that is not in this table is said out loud.** Synapse, Databricks,
-Data Explorer, Fabric, Automation Accounts, budgets — none have a set yet. Generating one from the guardrails
+Data Explorer, Fabric, policy, management groups, budgets — none have a set yet. Generating one from the guardrails
 while this table implies coverage removes the one property that makes this plugin worth
 using, and does it silently. Say that no question set backs it, offer to generate from
 [the guardrails](../iac-authoring/references/guardrails.md) with that recorded in the spec,

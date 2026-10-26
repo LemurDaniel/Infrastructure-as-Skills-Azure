@@ -2,7 +2,7 @@
 
 Mapping from the question set to the group, its subscriptions and its role assignments. General
 layout, variables and tagging are in
-[../../../core/iac-rendering/references/terraform-idiom.md](../../../core/iac-rendering/references/terraform-idiom.md).
+[../../../core/iac-rendering/references/terraform-idiom.md](../../../plugins/infrastructure-as-skills-azure/core/iac-rendering/references/terraform-idiom.md).
 Nothing here renders when `management_group_ownership` is `platform`.
 
 ## With the AVM module

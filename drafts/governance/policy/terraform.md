@@ -2,7 +2,7 @@
 
 Mapping from the question set to the assignments, their definitions and exemptions. General
 layout, variables and tagging are in
-[../../../core/iac-rendering/references/terraform-idiom.md](../../../core/iac-rendering/references/terraform-idiom.md).
+[../../../core/iac-rendering/references/terraform-idiom.md](../../../plugins/infrastructure-as-skills-azure/core/iac-rendering/references/terraform-idiom.md).
 Nothing here renders when `policy_ownership` is `platform`.
 
 ## With the AVM module
@@ -12,7 +12,7 @@ Nothing here renders when `policy_ownership` is `platform`.
 | `Azure/avm-ptn-policyassignment/azurerm` | **v0.2.2** | 2026-10-26 | Available (pattern) |
 
 Resolve the current version and re-read the README inputs before rendering, as
-[avm.md](../../../core/iac-rendering/references/avm.md) says. The pin is `~> 0.2.0`. There is no
+[avm.md](../../../plugins/infrastructure-as-skills-azure/core/iac-rendering/references/avm.md) says. The pin is `~> 0.2.0`. There is no
 resource module for `Microsoft.Authorization/policyAssignments` in the Terraform index; the
 pattern module is one assignment with its role assignments and exemptions, so one call per entry
 of `assignments` and per baseline control. A custom definition or initiative has no module in

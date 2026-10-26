@@ -2,7 +2,7 @@
 
 Mapping from the question set to the alias, its placement, providers and access. General layout,
 variables and tagging are in
-[../../../core/iac-rendering/references/terraform-idiom.md](../../../core/iac-rendering/references/terraform-idiom.md).
+[../../../core/iac-rendering/references/terraform-idiom.md](../../../plugins/infrastructure-as-skills-azure/core/iac-rendering/references/terraform-idiom.md).
 Nothing here renders when `subscription_ownership` is `platform`.
 
 ## With the AVM module
@@ -14,7 +14,7 @@ Nothing here renders when `subscription_ownership` is `platform`.
 The index names `avm-ptn-alz-sub-vending`, whose repository is not published; the registry
 coordinate that exists is `Azure/lz-vending/azurerm`, and the index's alternative name says they
 are the same module. Resolve the current version and re-read the README inputs before rendering,
-as [avm.md](../../../core/iac-rendering/references/avm.md) says. The pin is `~> 7.0` - the module
+as [avm.md](../../../plugins/infrastructure-as-skills-azure/core/iac-rendering/references/avm.md) says. The pin is `~> 7.0` - the module
 is past 1.0, so the major is the pin.
 
 **AzAPI only**: it requires `azapi ~> 2.5`, `time ~> 0.9` and Terraform `~> 1.10`, and **no

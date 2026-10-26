@@ -2,7 +2,7 @@
 
 Mapping from the question set to the alias, its placement, providers and access. General layout,
 parameters and naming are in
-[../../../core/iac-rendering/references/bicep-idiom.md](../../../core/iac-rendering/references/bicep-idiom.md).
+[../../../core/iac-rendering/references/bicep-idiom.md](../../../plugins/infrastructure-as-skills-azure/core/iac-rendering/references/bicep-idiom.md).
 Nothing here renders when `subscription_ownership` is `platform`.
 
 ```bash
@@ -19,7 +19,7 @@ The template's `targetScope` is `managementGroup`, deployed with `az deployment 
 | `br/public:avm/ptn/lz/sub-vending:<version>` | **0.8.0** | 2026-10-26 | Available (pattern) |
 
 Resolve the current version and re-read the README parameters before rendering, as
-[avm.md](../../../core/iac-rendering/references/avm.md) says. Pin the exact version. The module
+[avm.md](../../../plugins/infrastructure-as-skills-azure/core/iac-rendering/references/avm.md) says. Pin the exact version. The module
 is instantiated once per subscription; a stack renders one call per stage from the stage file.
 
 **Always write `resourceProviders`.** Left out, the module registers a long built-in list through a
@@ -104,7 +104,7 @@ what the workload's stage file receives.
 
 A module call compiles to a nested deployment whose `properties.parameters.<param>.value` is the
 decision, so every parameter above is observable in `tests/*.armtest.yaml`
-([bicep-idiom.md](../../../core/iac-rendering/references/bicep-idiom.md#tests)): the billing
+([bicep-idiom.md](../../../plugins/infrastructure-as-skills-azure/core/iac-rendering/references/bicep-idiom.md#tests)): the billing
 scope, the workload, the alias and display name, the management group, `resourceProviders`, the
 role assignments and `virtualNetworkEnabled`. `cancel_on_removal` and `subscription_ownership` are
 `not-testable` as records in the spec.
