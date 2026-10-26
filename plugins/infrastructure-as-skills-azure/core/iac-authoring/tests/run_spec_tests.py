@@ -7,7 +7,9 @@ by concern, and without
 `deployer_roles` (an older spec: a warning, not an error). Then each mutation breaks one rule
 in a copy - a role that does not exist, a mode missing, a placement into a group the deployment
 does not have, a deployer role the spec needs and does not grant - and the check must fail with
-the message that names it. A mutation whose text is no
+the message that names it. The same holds for a Foundry account in another region than
+`context.location`: valid as stated, broken by a region nobody named, a missing reason, a
+region per stage, another resource departing, or country residency. A mutation whose text is no
 longer in the fixture fails the run: a test that cannot break anything proves nothing.
 
 Usage:
@@ -65,6 +67,23 @@ MUTATIONS = [
     ('a created group at resource-group scope', MODE_DATA, MODE_DATA + SCOPE_RG, 'resource_group_mode_data is create under deployment_scope resource_group'),
     ('subscription scope under resource-group stage isolation', MODE_DATA,
      MODE_DATA + ISOLATION_RG + SCOPE_RG.replace('resource_group,', 'subscription,'), 'deployment_scope is subscription under stage_isolation'),
+]
+
+# The fixture with a Foundry account in another region than context.location: valid, and
+# each mutation breaks one rule of placement.location.
+FOUNDRY_LOCATION = "      location: { value: swedencentral, source: stated, reason: gpt-4.1 as DataZoneStandard is not offered in westeurope }\n"
+FOUNDRY = "  foundry:\n    placement:\n" + FOUNDRY_LOCATION
+LAW = "  log-analytics-workspace:\n"
+LOCAL_AUTH = "  local_auth: { value: disabled, source: default }\n"
+FOUNDRY_MUTATIONS = [
+    ('another region for a resource that is not the Foundry account', "  storage-account:\n",
+     "  storage-account:\n    placement:\n" + FOUNDRY_LOCATION, 'only the Foundry account departs'),
+    ('a region the run picked', 'source: stated, reason: gpt', 'source: assumed, reason: gpt', 'is assumed - a region nobody named'),
+    ('a region without its reason', ', reason: gpt-4.1 as DataZoneStandard is not offered in westeurope', '', 'carries no reason'),
+    ('a departure into context.location', 'value: swedencentral', 'value: westeurope', 'is context.location (westeurope)'),
+    ('a region per stage', 'value: swedencentral', 'value: { production: swedencentral }', 'is not one region'),
+    ('another region under country residency', LOCAL_AUTH, LOCAL_AUTH + "  data_residency: { value: country, source: asked }\n",
+     'under data_residency country'),
 ]
 
 # The same split by lifecycle: (find, replace) in order, every one must hit.
@@ -221,6 +240,19 @@ def main():
     else:
         rc, out = run(base[:start] + base[base.index('\n', end) + 1:])
         report(rc == 0 and 'deployer_roles is missing' in out, 'an older spec without deployer_roles stays valid, with a warning', out[-400:])
+
+    if base.count(LAW) != 1:
+        report(False, 'a Foundry account in another region stays valid', f"the fixture no longer holds once: {LAW!r}")
+    else:
+        foundry = base.replace(LAW, FOUNDRY + LAW)
+        rc, out = run(foundry)
+        report(rc == 0, 'a Foundry account in another region stays valid', out[-400:])
+        for name, find, replace, expected in FOUNDRY_MUTATIONS:
+            if foundry.count(find) != 1:
+                report(False, name, f"the mutation text is in the variant {foundry.count(find)} times: {find[:60]!r}")
+                continue
+            rc, out = run(foundry.replace(find, replace))
+            report(rc == 1 and expected in out, f"breaks: {name}", f"expected exit 1 with {expected!r}; got exit {rc}:\n{out[-500:]}")
 
     for name, find, replace, expected in MUTATIONS:
         if base.count(find) != 1:

@@ -36,7 +36,9 @@ Read-only. Checks what the contract in references/spec.md promises:
      whose mode is not `create`, are a value or an open entry - never asked,
      but never left to a value the run picks either. A warning, not an error:
      a stage file someone filled in carries them without the spec. A `create`
-     group's name is computed by the render.
+     group's name is computed by the render. A resource's `placement.location`
+     is the Foundry account's only: one region, named by a person with a
+     reason, not `context.location`, never under `data_residency: country`.
  10. Deployer roles: what the spec asks of the identity that deploys is in
      `deployment.deployer_roles` - `Contributor` on `subscription` for a
      `create` group, `Role Based Access Control Administrator` for any role
@@ -440,6 +442,34 @@ def main():
         if ctx_node.get(key) in (None, '', {}) and f"context.{key}" not in open_keys:
             warnings.append(f"context.{key} has no value and no open entry - only right when every stage file already "
                             f"carries it; a run that was not told it writes an open entry and a placeholder")
+
+    # --- 9a. a region apart from context.location ------------------------------
+    # Only the Foundry account departs, for a model its region's catalogue lacks: one region
+    # for every stage, named by a person with its reason, never under country residency.
+    region = ctx_node.get('location') if isinstance(ctx_node, dict) else None
+    for rkey, rnode in (get(spec, 'resources') or {}).items():
+        d = get(get(rnode, 'placement'), 'location')
+        if d is None:
+            continue
+        where = f"resources.{rkey}.placement.location"
+        if str(rkey).split('__')[0] != 'foundry':
+            errors.append(f"{where} - only the Foundry account departs from context.location; everything else runs there")
+            continue
+        value = d.get('value') if isinstance(d, dict) else d
+        if not isinstance(value, str) or not value:
+            errors.append(f"{where} is not one region - the departure holds for every stage, not a map per stage")
+            continue
+        src = d.get('source') if isinstance(d, dict) else None
+        if src not in ('stated', 'asked', 'overridden', 'carried'):
+            errors.append(f"{where} is {src} - a region nobody named is a deployment nobody decided; "
+                          f"the person states it or the model is an open entry")
+        if isinstance(d, dict) and not d.get('reason'):
+            errors.append(f"{where} carries no reason - name the model the region of context.location does not offer")
+        if region and value == region:
+            errors.append(f"{where} is context.location ({region}) - no departure, drop the key")
+        if dep_value('data_residency') == 'country':
+            errors.append(f"{where} '{value}' under data_residency country - the data stays in the country of "
+                          f"context.location; the model is a named gap, or the customer revisits the residency")
 
     # --- 9b. role assignments name resources that exist ------------------------
     # A principal spelled like a resource key (a set name, `__instance` optional) must be one

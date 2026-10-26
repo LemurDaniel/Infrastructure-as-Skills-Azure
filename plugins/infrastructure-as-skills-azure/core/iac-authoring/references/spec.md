@@ -284,6 +284,7 @@ keys it leaves in the spec:
 | `deployment.resource_lock` | `production`, `all_stages`, `none` | A `CanNotDelete` lock on each resource that holds data or state, in the stages named; see [avm.md](../../iac-rendering/references/avm.md#the-shared-interfaces) for which kinds |
 | `context.resource_group_name_<role>` | The name of the group, a stage map like `resource_group_name` | `main` keeps `context.resource_group_name`. Optional, like it: recorded when the customer or the platform stated it, otherwise a parameter the stage file supplies. For a `create` group a stated name is used verbatim; without one the render computes it from the naming interface. Never for a role that is not split off |
 | `resources.<key>.placement.resource_group` | One role, for a resource that departs from its kind's role | `source: overridden` with a `reason`; without the key the kind's role applies |
+| `resources.<key>.placement.location` | One region, for the Foundry account only, when `context.location` does not offer a model | Named by the person (`stated`, `asked`, `overridden`) with the model as the `reason`; the same in every stage; refused under `data_residency: country`. Without the key the account runs in `context.location` |
 
 ```yaml
 context:
