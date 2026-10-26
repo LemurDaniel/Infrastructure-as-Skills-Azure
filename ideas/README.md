@@ -11,7 +11,7 @@ taken up, `PROGRESS.md` records the decision and its file gets a pointer to it.
 | [Autonomous Terraform agent](autonomous-terraform-agent.md) - scheduled, tests on a real subscription, opens PRs | Sketch |
 | [AVM drift watch](avm-drift-watch.md) - light first step, bumps pins via PR | Sketch |
 | [Review agent](review-agent.md) - existing infra vs. guardrails | Sketch |
-| [Cost estimate and profiles](cost-and-security-profiles.md) - cost-first / security-first | Sketch |
+| [Cost estimate and profiles](cost-and-security-profiles.md) - a monthly estimate per stage in Phase 4; the profiles exist as `priority` | Sketch, the estimate is open |
 | [Eval dashboard](eval-dashboard.md) - runs over time | Sketch |
 | [Eval agent](eval-agent.md) - runs the evals on request, files tickets per cause | Sketch |
 | [Diagram fuzz](diagram-fuzz.md) - random specs drawn and scored on layout, on CI and on the eval agent | Sketch, fuzzer exists |
