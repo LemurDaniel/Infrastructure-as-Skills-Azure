@@ -488,6 +488,25 @@ def main():
             say(f"         {(p.stdout or p.stderr).strip()}", 'gray')
             errors.append('A customer repository only updates its CLAUDE.md section when rev rises. Bump rev in references/claude-md-block.md and write the line --verify-lock names into claude-md-block.lock.')
 
+    # --- 7c2. every resource set has a resource group role in each scheme ---
+    roles_file = os.path.join(plugin_root, 'core', 'iac-rendering', 'references', 'resource-group-roles.yaml')
+    if os.path.isfile(roles_file):
+        text = read(roles_file)
+        lc = text.index('\nlifecycle:') if '\nlifecycle:' in text else len(text)
+        listed = lambda part: {k.strip() for m in re.finditer(r'^\s+[a-z]+: \[([^\]]*)\]', part, re.M) for k in m.group(1).split(',')}
+        attached = {k.strip() for m in re.finditer(r'^attached: \[([^\]]*)\]', text, re.M) for k in m.group(1).split(',')}
+        concern, lifecycle = listed(text[:lc]) - {'main'}, listed(text[lc:]) - {'main'}
+        sets = {os.path.basename(os.path.dirname(q)) for q in find_files(os.path.join(plugin_root, 'resources'), 'questions.yaml')}
+        unplaced = sorted(f"{s} ({', '.join(n for n, t in (('concern', concern), ('lifecycle', lifecycle)) if s not in t)})"
+                          for s in sets - attached if s not in concern or s not in lifecycle)
+        if not unplaced:
+            say(f"[ ok ] {len(sets)} resource set(s) each have a resource group role in every scheme", 'green')
+        else:
+            say(f"[fail] {len(unplaced)} resource set(s) without a resource group role", 'red')
+            for h in unplaced:
+                say(f"         {h}", 'gray')
+            errors.append('A split has no main group, so a set without a role has no group to go into. Add it to resource-group-roles.yaml (concern and lifecycle), or to attached when it is deployed with another resource.')
+
     # --- 7d. every tracked spec is in canonical form ------------------------
     write_spec = os.path.join(plugin_root, 'core', 'iac-authoring', 'scripts', 'write_spec.py')
     specs = [t for t in tracked if os.path.basename(t) == 'infra-spec.yaml']

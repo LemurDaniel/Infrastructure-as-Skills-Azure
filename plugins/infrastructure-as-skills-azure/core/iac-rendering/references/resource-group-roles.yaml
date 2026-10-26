@@ -6,19 +6,25 @@
 #
 # `roles` and `kinds` are the `concern` scheme (deployment.resource_group_scheme), the default.
 # `lifecycle` is the second scheme; `resource_type` needs no table - a kind's role is its set name.
+# Under resource_group_layout split there is no main group, so every resource set is in both
+# tables or in `attached`; check_repo_consistency.py fails on one that is in neither.
 roles: [main, network, data, application, observability, security]
 kinds:
-  network: [virtual-network, network-security-group, application-gateway, front-door, public-dns-zone, ddos-protection-plan]
-  data: [storage-account, cosmos-db, sql-server, redis-cache, backup-vault, recovery-services-vault, sql-managed-instance, data-factory, purview-account]
-  application: [app-service, function-app, container-apps, container-registry, foundry, search-service, service-bus, event-hubs, event-grid-topic, api-management, traffic-manager, event-grid-namespace, event-grid-system-topic, relay-namespace, logic-app, communication-services, ai-services, machine-learning-workspace, bot-service]
+  network: [virtual-network, network-security-group, application-gateway, front-door, public-dns-zone, ddos-protection-plan, azure-firewall, bastion, load-balancer, nat-gateway, private-dns-zone, public-ip-address, route-table, virtual-network-peering]
+  data: [storage-account, cosmos-db, sql-server, redis-cache, backup-vault, recovery-services-vault, sql-managed-instance, data-factory, purview-account, mysql-flexible-server, postgresql-flexible-server, sql-database, blob-container, file-share, queue, managed-disk]
+  application: [app-service, function-app, container-apps, container-registry, foundry, search-service, service-bus, event-hubs, event-grid-topic, api-management, traffic-manager, event-grid-namespace, event-grid-system-topic, relay-namespace, logic-app, communication-services, ai-services, machine-learning-workspace, bot-service, aks, container-instances, static-web-app, virtual-machine, virtual-machine-scale-set, availability-set]
   observability: [log-analytics-workspace, application-insights, action-group, alert-rule, data-collection-rule, network-watcher]
-  security: [key-vault, user-assigned-identity]
+  security: [key-vault, user-assigned-identity, key-vault-key, key-vault-secret]
 
 # Split by how long a part lives: built once and rarely touched, holding what must outlive every
 # redeploy (locked, backed up), or replaced freely. A kind missing here is part of `main`.
 lifecycle:
   roles: [main, foundation, state, runtime]
   kinds:
-    foundation: [virtual-network, network-security-group, application-gateway, front-door, public-dns-zone, ddos-protection-plan, traffic-manager, network-watcher, log-analytics-workspace, application-insights, action-group, alert-rule, data-collection-rule, user-assigned-identity, service-bus, event-hubs, event-grid-topic, event-grid-namespace, event-grid-system-topic, relay-namespace]
-    state: [storage-account, cosmos-db, sql-server, sql-managed-instance, backup-vault, recovery-services-vault, key-vault, container-registry, search-service, machine-learning-workspace, purview-account]
-    runtime: [app-service, function-app, container-apps, foundry, ai-services, bot-service, api-management, logic-app, data-factory, communication-services, redis-cache]
+    foundation: [virtual-network, network-security-group, application-gateway, front-door, public-dns-zone, ddos-protection-plan, traffic-manager, network-watcher, log-analytics-workspace, application-insights, action-group, alert-rule, data-collection-rule, user-assigned-identity, service-bus, event-hubs, event-grid-topic, event-grid-namespace, event-grid-system-topic, relay-namespace, azure-firewall, bastion, load-balancer, nat-gateway, private-dns-zone, public-ip-address, route-table, virtual-network-peering, availability-set]
+    state: [storage-account, cosmos-db, sql-server, sql-managed-instance, backup-vault, recovery-services-vault, key-vault, container-registry, search-service, machine-learning-workspace, purview-account, mysql-flexible-server, postgresql-flexible-server, sql-database, blob-container, file-share, queue, managed-disk, key-vault-key, key-vault-secret]
+    runtime: [app-service, function-app, container-apps, foundry, ai-services, bot-service, api-management, logic-app, data-factory, communication-services, redis-cache, aks, container-instances, static-web-app, virtual-machine, virtual-machine-scale-set]
+
+# Never a group of their own, in any scheme: a private endpoint and a role assignment are
+# deployed with the resource they serve, Defender for Cloud is set on the subscription.
+attached: [private-endpoint, role-assignment, defender-for-cloud]

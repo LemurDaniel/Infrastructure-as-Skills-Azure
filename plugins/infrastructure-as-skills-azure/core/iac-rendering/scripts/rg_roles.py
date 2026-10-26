@@ -27,10 +27,20 @@ def load(yaml):
         return FALLBACK
 
 
+def value(deployment, key):
+    d = (deployment or {}).get(key) if isinstance(deployment, dict) else None
+    return d.get('value') if isinstance(d, dict) else d
+
+
+def has_main(deployment):
+    """Whether the deployment has a main group: always, unless resource_group_layout is split.
+    A spec written before the layout key keeps its main group beside the split roles."""
+    return value(deployment, 'resource_group_layout') != 'split'
+
+
 def scheme_of(deployment):
     """The scheme a spec's deployment block names; `concern` when it names none."""
-    d = (deployment or {}).get('resource_group_scheme') if isinstance(deployment, dict) else None
-    v = d.get('value') if isinstance(d, dict) else d
+    v = value(deployment, 'resource_group_scheme')
     return v if v in SCHEMES else 'concern'
 
 
@@ -52,7 +62,10 @@ def roles(data, scheme, resource_keys=()):
 
 
 def role_of(data, scheme, kind):
-    """The role a kind belongs to under a scheme; `main` when the scheme does not place it."""
+    """The role a kind belongs to under a scheme; `main` when the scheme does not place it, None
+    for a kind that is deployed with the resource it serves (`attached`)."""
+    if kind in (data.get('attached') or []):
+        return None
     if scheme == 'resource_type':
         return kind
     for role, kinds in table(data, scheme).items():
