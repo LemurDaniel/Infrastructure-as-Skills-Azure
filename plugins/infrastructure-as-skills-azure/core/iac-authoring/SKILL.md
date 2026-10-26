@@ -550,7 +550,10 @@ as "Other" with no text. **No option in the batch is marked recommended**: an in
 system joins the company network, how bad a day's outage is, where the data may live - and
 there is no better answer the plugin could know. The default is the guardrail's fallback for
 an answer nobody gave, not advice, and marking it steers the person towards the guess the
-question exists to replace. **The one exception is the address range when the network is
+question exists to replace. **Two exceptions.** `public_audience` marks `waf` recommended - an
+entry with a web application firewall in front of a public app is a security recommendation,
+not a guess about the organisation - and is worded the same every run, its three options from
+the question set; it is asked for every application reachable from the internet. The second is the address range when the network is
 free** (`network_requirements: free`): the batch offers four ranges out of a private block
 nobody peers with - 10.100.0.0/25, /24, /23, /22 - with the size that fits the described system
 marked recommended, because that recommendation is sizing the plugin derives from the
