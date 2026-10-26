@@ -43,7 +43,8 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 PLUGIN = os.path.abspath(os.path.join(HERE, '..', '..', '..'))
 DEPLOYMENT_SET = os.path.join(HERE, '..', 'questions', 'deployment.yaml')
 RESOURCES = os.path.join(PLUGIN, 'resources')
-RG_ROLES_FILE = os.path.join(HERE, '..', '..', 'iac-rendering', 'references', 'resource-group-roles.yaml')
+sys.path.insert(0, os.path.join(HERE, '..', '..', 'iac-rendering', 'scripts'))
+import rg_roles  # noqa: E402 - the role table per scheme (deployment.resource_group_scheme)
 
 LABELS = {
     'en': {
@@ -63,7 +64,8 @@ LABELS = {
         'g_created': 'created with the system', 'g_existing': 'exists, only used',
         'g_named': 'named by the naming convention',
         'g_roles': {'main': 'main', 'network': 'network', 'data': 'data', 'application': 'application',
-                    'observability': 'monitoring', 'security': 'security'},
+                    'observability': 'monitoring', 'security': 'security',
+                    'foundation': 'foundation', 'state': 'state', 'runtime': 'runtime'},
         'derived': 'therefore', 'rules': 'Set by the rules',
         'rules_intro': 'Nothing here was asked; each follows a rule or one of the answers above. Say so if one is wrong.',
         'whole_system': 'For the whole system', 'because': 'because',
@@ -98,7 +100,8 @@ LABELS = {
         'g_created': 'wird mit dem System angelegt', 'g_existing': 'existiert, wird nur verwendet',
         'g_named': 'nach der Namenskonvention benannt',
         'g_roles': {'main': 'Haupt', 'network': 'Netzwerk', 'data': 'Daten', 'application': 'Anwendung',
-                    'observability': 'Überwachung', 'security': 'Sicherheit'},
+                    'observability': 'Überwachung', 'security': 'Sicherheit',
+                    'foundation': 'Fundament', 'state': 'Zustand', 'runtime': 'Laufzeit'},
         'derived': 'daher', 'rules': 'Nach den Vorgaben gesetzt',
         'rules_intro': 'Nichts davon wurde gefragt; jede Zeile folgt einer Regel oder einer der Antworten oben. Sagt Bescheid, wenn eine nicht passt.',
         'whole_system': 'Für das ganze System', 'because': 'weil',
@@ -301,17 +304,11 @@ def main():
 
     split = [r for r in (dval('resource_group_split') or []) if isinstance(r, str)]
     if split:
-        role_of_kind = {}
-        try:
-            with open(RG_ROLES_FILE, encoding='utf-8') as f:
-                for role, kinds in (yaml.safe_load(f).get('kinds') or {}).items():
-                    role_of_kind.update({k: role for k in kinds})
-        except (OSError, yaml.YAMLError, AttributeError):
-            say('[warn] no resource group roles - every resource is listed under the main group')
+        rg_table, rg_scheme = rg_roles.load(yaml), rg_roles.scheme_of(dep)
         members = {r: [] for r in ['main'] + split}
         for res, groups in resources.items():
             placed = ((groups or {}).get('placement') or {}).get('resource_group') if isinstance(groups, dict) else None
-            role = (placed.get('value') if isinstance(placed, dict) else placed) or role_of_kind.get(res.partition('__')[0], 'main')
+            role = (placed.get('value') if isinstance(placed, dict) else placed) or rg_roles.role_of(rg_table, rg_scheme, res.partition('__')[0])
             members[role if role in members else 'main'].append(titles.get(res, res))
 
         def group_name(role, state):
@@ -332,7 +329,7 @@ def main():
         w('|---|---|---|---|')
         for role in ['main'] + split:
             state = dval(f'resource_group_mode_{role}') or 'existing'
-            w(f"| {L['g_roles'][role]} | {L['g_created'] if state == 'create' else L['g_existing']} | "
+            w(f"| {L['g_roles'].get(role) or titles.get(role, role)} | {L['g_created'] if state == 'create' else L['g_existing']} | "
               f"{group_name(role, state)} | {', '.join(sorted(members[role])) or '-'} |")
         w('')
 

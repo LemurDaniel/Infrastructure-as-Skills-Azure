@@ -1,8 +1,11 @@
 # Which resource group role a kind of resource belongs to when deployment.resource_group_split
-# names that role. A role not split off is part of `main`. One table, read by the diagram
-# (iac-diagram/scripts/new_diagram.py) and the decision document
-# (iac-authoring/scripts/export_decisions.py); the prose is resource-groups.md. A resource departs
-# with `placement.resource_group` in the spec, never here.
+# names that role. A role not split off is part of `main`. One table, read through
+# iac-rendering/scripts/rg_roles.py by the spec check, the diagram, the decision document and the
+# name list; the prose is resource-groups.md. A resource departs with `placement.resource_group`
+# in the spec, never here.
+#
+# `roles` and `kinds` are the `concern` scheme (deployment.resource_group_scheme), the default.
+# `lifecycle` is the second scheme; `resource_type` needs no table - a kind's role is its set name.
 roles: [main, network, data, application, observability, security]
 kinds:
   network: [virtual-network, network-security-group, application-gateway, front-door, public-dns-zone, ddos-protection-plan]
@@ -10,3 +13,12 @@ kinds:
   application: [app-service, function-app, container-apps, container-registry, foundry, search-service, service-bus, event-hubs, event-grid-topic, api-management, traffic-manager, event-grid-namespace, event-grid-system-topic, relay-namespace, logic-app, communication-services, ai-services, machine-learning-workspace, bot-service]
   observability: [log-analytics-workspace, application-insights, action-group, alert-rule, data-collection-rule, network-watcher]
   security: [key-vault, user-assigned-identity]
+
+# Split by how long a part lives: built once and rarely touched, holding what must outlive every
+# redeploy (locked, backed up), or replaced freely. A kind missing here is part of `main`.
+lifecycle:
+  roles: [main, foundation, state, runtime]
+  kinds:
+    foundation: [virtual-network, network-security-group, application-gateway, front-door, public-dns-zone, ddos-protection-plan, traffic-manager, network-watcher, log-analytics-workspace, application-insights, action-group, alert-rule, data-collection-rule, user-assigned-identity, service-bus, event-hubs, event-grid-topic, event-grid-namespace, event-grid-system-topic, relay-namespace]
+    state: [storage-account, cosmos-db, sql-server, sql-managed-instance, backup-vault, recovery-services-vault, key-vault, container-registry, search-service, machine-learning-workspace, purview-account]
+    runtime: [app-service, function-app, container-apps, foundry, ai-services, bot-service, api-management, logic-app, data-factory, communication-services, redis-cache]

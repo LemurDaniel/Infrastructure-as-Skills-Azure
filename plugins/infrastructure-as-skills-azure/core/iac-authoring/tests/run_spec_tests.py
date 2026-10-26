@@ -2,7 +2,8 @@
 """Tests for the resource-group and deployer-role rules of scripts/check_spec.py.
 
 tests/fixtures/resource-groups.yaml is a valid spec with a split. It must pass clean; so must
-the same spec with the split taken out (one group stays valid), and the same spec without
+the same spec with the split taken out (one group stays valid), split by lifecycle instead of
+by concern, and without
 `deployer_roles` (an older spec: a warning, not an error). Then each mutation breaks one rule
 in a copy - a role that does not exist, a mode missing, a placement into a group the deployment
 does not have, a deployer role the spec needs and does not grant - and the check must fail with
@@ -26,6 +27,7 @@ FIXTURE = os.path.join(HERE, 'fixtures', 'resource-groups.yaml')
 
 SPLIT = "  resource_group_split: { value: [network, data, observability], source: stated }\n"
 MODE_DATA = "  resource_group_mode_data: { value: create, source: stated }\n"
+SCHEME_LIFECYCLE = "  resource_group_scheme: { value: lifecycle, source: asked }\n"
 ISOLATION_RG = "  stage_isolation: { value: resource_group, source: asked }\n"
 GRANT_SUB = "      - { role: Contributor, scope: subscription, for: [deployment.resource_group_mode_main] }\n"
 GRANT_RBAC = "      - { role: Role Based Access Control Administrator, scope: resource_group, for: [resources.key-vault] }\n"
@@ -34,7 +36,7 @@ GRANT_KV = "      - { role: Key Vault Secrets Officer, scope: key-vault, for: [r
 # (name, find, replace, expected substring of the output; None = must pass)
 MUTATIONS = [
     ('the split names main', SPLIT, "  resource_group_split: { value: [main, network, data, observability], source: stated }\n", "lists 'main'"),
-    ('the split names a role that does not exist', SPLIT, "  resource_group_split: { value: [network, data, observability, frontend], source: stated }\n", "'frontend', which is not one of"),
+    ('the split names a role that does not exist', SPLIT, "  resource_group_split: { value: [network, data, observability, frontend], source: stated }\n", "'frontend', which is not a role of the concern scheme"),
     ('the split names a role twice', SPLIT, "  resource_group_split: { value: [network, data, data, observability], source: stated }\n", 'twice'),
     ('the split is not a list', SPLIT, "  resource_group_split: { value: network, source: stated }\n", 'not a list of roles'),
     ('a split role has no mode', MODE_DATA, '', 'resource_group_mode_data is missing'),
@@ -53,8 +55,21 @@ MUTATIONS = [
     ('a secret placeholder without the role to write it', GRANT_KV, '', 'no Key Vault Secrets Officer'),
     ('the secrets role on another vault', GRANT_KV, GRANT_KV.replace('scope: key-vault,', 'scope: key-vault__other,'), 'no Key Vault Secrets Officer'),
     ('a grant without a scope', GRANT_KV, GRANT_KV.replace(' scope: key-vault,', ''), 'not a list of { role, scope, for }'),
+    ('a concern role under the lifecycle scheme', SPLIT, SPLIT + SCHEME_LIFECYCLE, "'network', which is not a role of the lifecycle scheme"),
+    ('a kind not in the design under the resource_type scheme', SPLIT, "  resource_group_split: { value: [key-vault, cosmos-db], source: forced, forced_by: deployment.resource_group_scheme }\n  resource_group_scheme: { value: resource_type, source: asked }\n", "'cosmos-db', which is not a role of the resource_type scheme"),
+    ('a split under a single layout', SPLIT, SPLIT + "  resource_group_layout: { value: single, source: asked }\n", 'resource_group_layout is single'),
     ('a created group under resource-group stage isolation', MODE_DATA, MODE_DATA + ISOLATION_RG, 'resource_group_mode_data is create under stage_isolation resource_group'),
     ('a subscription grant under resource-group stage isolation', MODE_DATA, MODE_DATA + ISOLATION_RG, 'grants Contributor on subscription under stage_isolation'),
+]
+
+# The same split by lifecycle: (find, replace) in order, every one must hit.
+LIFECYCLE = [
+    (SPLIT, "  resource_group_split: { value: [foundation, state], source: forced, forced_by: deployment.resource_group_scheme }\n" + SCHEME_LIFECYCLE),
+    ("  resource_group_mode_network: { value: existing, source: stated }\n", "  resource_group_mode_foundation: { value: existing, source: stated }\n"),
+    (MODE_DATA, "  resource_group_mode_state: { value: create, source: stated }\n"),
+    ("  resource_group_mode_observability: { value: create, source: asked }\n", ''),
+    ("  resource_group_name_network:\n", "  resource_group_name_foundation:\n"),
+    ('resource_group: { value: data,', 'resource_group: { value: state,'),
 ]
 
 # The same spec without a split: every resource group line and the placement taken out.
@@ -108,6 +123,16 @@ def main():
         rc, out = run(text)
         report(rc == 0 and 'resource groups' not in out.replace('Resource groups', ''), 'without a split, one group stays valid', out[-400:])
 
+    text = base
+    for find, replace in LIFECYCLE:
+        if text.count(find) != 1:
+            report(False, 'a split by lifecycle stays valid', f"the fixture no longer holds once: {find!r}")
+            break
+        text = text.replace(find, replace)
+    else:
+        rc, out = run(text)
+        report(rc == 0 and 'main and 2 split role(s)' in out, 'a split by lifecycle stays valid', out[-400:])
+
     start, end = base.find('  deployer_roles:\n'), base.find('    forced_by: [deployment.resource_group_mode_main')
     if start < 0 or end < 0:
         report(False, 'an older spec without deployer_roles stays valid', 'the fixture no longer holds the deployer_roles block')
@@ -123,7 +148,7 @@ def main():
         report(rc == 1 and expected in out, f"breaks: {name}", f"expected exit 1 with {expected!r}; got exit {rc}:\n{out[-500:]}")
 
     print('-' * 70)
-    total = 3 + len(MUTATIONS)
+    total = 4 + len(MUTATIONS)
     print(f"{total - failed}/{total} passed")
     return 1 if failed else 0
 
