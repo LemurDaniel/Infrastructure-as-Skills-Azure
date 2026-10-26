@@ -452,7 +452,13 @@ is designing and has no deployment target yet; what the description leaves out o
 (`resource_group_split`) and which groups the infrastructure creates
 (`resource_groups_created`, one list question; the per-role `resource_group_mode_<role>` are
 derived from it) are interview questions, with no split and every group existing as the
-defaults. Nor is the customer's language:
+defaults. `resource_groups_created` reads the split, so it is asked in a call after the
+one holding `resource_group_split`, multi-select, with **one option per group that exists in
+the answer** - the main group and each role split off, named as the split named them, never
+folded into one option ("the areas you split off"): a folded option cannot be answered and
+comes back as "Other". With more than four groups the options go into two questions of the
+same call (the main group with the first roles, the rest). Under `stage_isolation:
+resource_group` it is not asked at all. Nor is the customer's language:
 it is the language the request and the answers are written in, and Phase 0 writes it to
 `context.language` (`en` or `de`) - the picture, the decision document and the
 customer-facing text in the spec follow it.
