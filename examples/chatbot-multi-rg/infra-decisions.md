@@ -25,7 +25,7 @@ A resource group is the unit that is deleted, permitted and costed as a whole. E
 
 ## What follows from your answers
 
-- **These areas get a resource group of their own: network, data, application, monitoring. Everything else shares the main group.** _(from your description)_
+- **Each stage lives in its own subscription, so the stages cannot touch each other's resources, budgets or permissions.** _(not said, so the usual answer applies)_
 - **A day's outage would be disruptive.** _(not said, so the usual answer applies)_
   - therefore, Azure Storage Account (uploads): The data is kept in three datacenters of the region, so one can fail.
   - therefore, Azure Storage Account (host): The data is kept in three datacenters of the region, so one can fail.
@@ -65,6 +65,7 @@ Nothing here was asked; each follows a rule or one of the answers above. Say so 
 
 ### For the whole system
 
+- These areas get a resource group of their own: network, data, application, monitoring. Everything else shares the main group.
 - The main resource group is created together with the system.
 - The network resource group already exists and is only used.
 - The data resource group is created together with the system.

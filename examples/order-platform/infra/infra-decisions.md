@@ -33,7 +33,7 @@ Ein Code wird durch diese Stufen ausgerollt; alles, was hier nicht steht, ist in
 
 ## Was aus euren Antworten folgt
 
-- **Diese Bereiche erhalten eine eigene Ressourcengruppe: Netzwerk, Daten, Anwendung, Überwachung. Alles andere liegt in der Hauptgruppe.** _(eure Antwort)_
+- **Jede Stufe liegt in einer eigenen Subscription; die Stufen können sich gegenseitig weder Ressourcen noch Budgets noch Berechtigungen anfassen.** _(nicht gesagt, daher gilt die übliche Antwort)_
 - **Ressourcen, die Daten halten, tragen in der Produktion eine Löschsperre.** _(nicht gesagt, daher gilt die übliche Antwort)_
 - **Das System wird durch GitHub Actions ausgerollt.** _(eure Antwort)_
 - **Das Netz wird von diesem Ausrollen frei gewählt, ohne Verbindung zum Firmennetz und ohne VPN.** _(eure Antwort)_
@@ -71,6 +71,7 @@ Nichts davon wurde gefragt; jede Zeile folgt einer Regel oder einer der Antworte
 
 ### Für das ganze System
 
+- Diese Bereiche erhalten eine eigene Ressourcengruppe: Netzwerk, Daten, Anwendung, Überwachung. Alles andere liegt in der Hauptgruppe.
 - Die Hauptressourcengruppe wird zusammen mit dem System angelegt.
 - Die Ressourcengruppe für das Netzwerk wird zusammen mit dem System angelegt.
 - Die Ressourcengruppe für die Daten wird zusammen mit dem System angelegt.

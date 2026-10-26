@@ -11,6 +11,7 @@ Stand 2026-10-24. Spezifikation: `infra-spec.yaml`.
 
 ## Was aus euren Antworten folgt
 
+- **Jede Stufe liegt in einer eigenen Subscription; die Stufen können sich gegenseitig weder Ressourcen noch Budgets noch Berechtigungen anfassen.** _(nicht gesagt, daher gilt die übliche Antwort)_
 - **Das System wird durch GitHub Actions ausgerollt.** _(eure Antwort)_
 - **Das Netz wird von diesem Ausrollen frei gewählt, ohne Verbindung zum Firmennetz und ohne VPN.** _(eure Antwort)_
 - **Ein Tag Ausfall wäre verkraftbar.** _(eure Antwort)_
