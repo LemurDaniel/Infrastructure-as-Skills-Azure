@@ -351,7 +351,8 @@ resource question set. It holds what is one decision per system rather than one 
 resource, in two halves:
 
 - **The context** — environment, region, workload, subscription, resource group. Only
-  the environment is asked. Region, workload, subscription and resource group are
+  the environment, and whether each stage gets a subscription of its own
+  (`stage_isolation`), are asked. Region, workload, subscription and resource group are
   `parameterized`: never asked, rendered as input variables, supplied at deploy time —
   a user who is only designing has no deployment target yet. Use them from the
   description if stated (`source: stated`; the stage file carries it, the template never
@@ -443,7 +444,8 @@ customer-facing text in the spec follow it.
 **There is one batch**: the surviving interview questions — the
 environment (four choices: the full stack of development, test and production; development and
 production; a sandbox; other, where the customer names the stages - a sandbox answers the landing
-zone and removes its questions), who reaches it and from where, the mandates, and the `requirements` group
+zone and removes its questions), whether each stage gets an Azure subscription of its own or
+all share one (`stage_isolation`, asked with a landing zone too), who reaches it and from where, the mandates, and the `requirements` group
 (network requirements - may the network be chosen freely, or are ranges assigned or a
 connection to the company network given -, outage impact, expected load, data-loss tolerance, access pattern, backup isolation, data
 residency, priority - cost, balanced or protection first, which moves cost and hardening
