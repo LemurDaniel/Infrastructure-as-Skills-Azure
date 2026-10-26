@@ -207,10 +207,10 @@ DEV_OPEN = 'subscription_id     = "00000000-0000-0000-0000-000000000000"'
 VARIANTS = [
     # approvals none: no stage gated, so the production gate must go
     ('approvals none, nothing gated', 'github-terraform',
-     [(SPEC, 'value: production\n    source: default', 'value: none\n    source: default'),
+     [(SPEC, 'pipeline_approvals: {value: production,', 'pipeline_approvals: {value: none,'),
       (GH, 'gated: true', 'gated: false')], 0, ''),
     ('approvals every_stage, only production gated is wrong', 'github-terraform',
-     [(SPEC, 'value: production\n    source: default', 'value: every_stage\n    source: default')], 1, 'pipeline_approvals says'),
+     [(SPEC, 'pipeline_approvals: {value: production,', 'pipeline_approvals: {value: every_stage,')], 1, 'pipeline_approvals says'),
     # an open stage keeps its job and its file, filled with placeholders
     ('open stage: job and placeholder file', 'github-terraform',
      [(SPEC, 'deployment:', OPEN_DEV + 'deployment:'), (DEV, DEV_REAL, DEV_OPEN)], 0, ''),

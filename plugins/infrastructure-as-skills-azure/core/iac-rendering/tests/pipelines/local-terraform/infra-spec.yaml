@@ -1,10 +1,11 @@
 spec:
   id: fixture
   target: terraform
+
 context:
   environments: [development, test, production]
   workload: payments
+
 deployment:
-  deploy_mechanism:
-    value: local
-    source: stated
+  # --- delivery ---
+  deploy_mechanism: {value: local, source: stated}

@@ -1,16 +1,13 @@
 spec:
   id: fixture
   target: terraform
+
 context:
   environments: [development, test, production]
   workload: payments
+
 deployment:
-  deploy_mechanism:
-    value: github
-    source: stated
-  pipeline_auth:
-    value: workload_identity
-    source: default
-  pipeline_approvals:
-    value: production
-    source: default
+  # --- delivery ---
+  deploy_mechanism: {value: github, source: stated}
+  pipeline_auth: {value: workload_identity, source: default}
+  pipeline_approvals: {value: production, source: default}
