@@ -476,7 +476,13 @@ is designing and has no deployment target yet; what the description leaves out o
 `open:` entry with a placeholder (Phase 2), reported in Phase 4 like any other open item. The group's *name* is that kind of value; the
 `resource_groups` group of the deployment set is not. Two questions decide the split:
 `resource_group_layout` - one group per stage, or spread over several - and, only on `split`,
-`resource_group_scheme` - by responsibility (`concern`) or by lifecycle (`lifecycle`). Which groups follow is **not asked**: `resource_group_split` is
+`resource_group_scheme` - by responsibility (`concern`), by lifecycle (`lifecycle`), by protection
+need (`protection`: data and secrets in a fenced group, the rest beside it) or by part of the
+system (`component`). Under `component` the run names the parts from the description and
+`wiring.purposes` (`resource_group_components`, short lowercase names: `chat`, `ingest`), puts
+what every part uses - network, monitoring, identities - into `shared`, and places every other
+resource in its part (`placement.resource_group`, `forced_by: wiring.purposes`); the person
+renames, merges or moves at the diagram sign-off. Which groups follow is **not asked**: `resource_group_split` is
 derived from the scheme's table in `resource-group-roles.yaml`, every role that at least one
 resource of the design belongs to (`forced`, `forced_by: deployment.resource_group_scheme`).
 The person sees the result as frames in the diagram and moves a resource or drops a group

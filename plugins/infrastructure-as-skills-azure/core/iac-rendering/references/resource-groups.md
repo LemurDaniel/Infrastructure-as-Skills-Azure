@@ -21,6 +21,8 @@ decision document and the name list read through `scripts/rg_roles.py`; change b
 |---|---|---|
 | `concern` (default) | `network`, `data`, `application`, `observability`, `security` - the table below | a resource of the design has that role |
 | `lifecycle` | `foundation` (network, monitoring, identities, messaging: built once), `state` (data stores, Key Vault, registry, search: outlives every redeploy, locked and backed up), `runtime` (compute, AI, integration: replaced freely) | same |
+| `protection` | `protected` (the `state` kinds: what holds data or secrets), `standard` (everything else) | same |
+| `component` | `shared` (the `foundation` kinds) and one group per part in `resource_group_components`; every other resource names its part in `placement.resource_group` | `shared` when a foundation kind is in the design; a part when it is named |
 
 Every resource set has a role in both tables, or is `attached` (a private endpoint and a role
 assignment go with the resource they serve, Defender for Cloud with the subscription);
@@ -40,6 +42,10 @@ The `concern` table:
 - A **private endpoint** lives in the group of the resource it serves, not in `network`: it is
   that resource's front door, and the consumer's RBAC reaches it that way. Its subnet is
   referenced across groups.
+- **The protected group** (`protection`) is fenced by its rights, not by the render: the hand-over
+  says that its administrators are granted on that group alone - a role on `standard` or on the
+  subscription reaches nothing in it - and that the workload's identities hold data-plane roles
+  there, never Contributor.
 - A resource may depart from the table; the spec records it as `placement.resource_group: <role>`
   on the resource, `source: overridden`, with the reason in a comment. Without the key the table
   applies.

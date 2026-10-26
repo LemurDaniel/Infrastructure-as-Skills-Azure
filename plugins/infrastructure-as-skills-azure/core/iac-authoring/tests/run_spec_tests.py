@@ -92,6 +92,28 @@ NO_MAIN_MUTATIONS = [
     ('a split with no roles', SPLIT_NO_MAIN, SPLIT_NO_MAIN.replace('[network, data, application, observability]', '[]'), 'is empty under resource_group_layout split'),
 ]
 
+# The no-main variant split by part of the system: the network and the workspace are shared,
+# the rest is the part `shop`, each resource placed in it.
+PLACE_APP = "  app-service:\n    placement:\n      resource_group: { value: shop, source: forced, forced_by: wiring.purposes }\n"
+COMPONENT = [
+    (SPLIT_NO_MAIN, "  resource_group_layout: { value: split, source: asked }\n"
+                    "  resource_group_scheme: { value: component, source: asked }\n"
+                    "  resource_group_components: { value: [shop], source: forced, forced_by: wiring.purposes }\n"
+                    "  resource_group_split: { value: [shared, shop], source: forced, forced_by: deployment.resource_group_scheme }\n"),
+    ("  resource_group_mode_application: { value: create, source: stated }\n", "  resource_group_mode_shop: { value: create, source: stated }\n"),
+    ("  resource_group_mode_network: { value: existing, source: stated }\n", "  resource_group_mode_shared: { value: existing, source: stated }\n"),
+    (MODE_DATA, ''),
+    ("  resource_group_mode_observability: { value: create, source: asked }\n", ''),
+    ("  resource_group_name_network:\n", "  resource_group_name_shared:\n"),
+    ('resource_group: { value: data,', 'resource_group: { value: shop,'),
+    ("  app-service:\n", PLACE_APP),
+    ("  storage-account:\n", "  storage-account:\n    placement:\n      resource_group: { value: shop, source: forced, forced_by: wiring.purposes }\n"),
+]
+COMPONENT_MUTATIONS = [
+    ('a resource with no part under the component scheme', PLACE_APP, "  app-service:\n", 'resources.app-service names no part'),
+    ('a placement into a part that is not named', PLACE_APP, PLACE_APP.replace('value: shop,', 'value: admin,'), 'names a group the deployment does not have'),
+]
+
 # The same spec without a split: every resource group line and the placement taken out.
 NO_SPLIT = [
     SPLIT, "  resource_group_mode_main: { value: create, source: stated }\n",
@@ -170,6 +192,23 @@ def main():
             rc, out = run(no_main.replace(find, replace))
             report(rc == 1 and expected in out, f"breaks: {name}", f"expected exit 1 with {expected!r}; got exit {rc}:\n{out[-500:]}")
 
+        component = no_main
+        for find, replace in COMPONENT:
+            if component.count(find) != 1:
+                report(False, 'a split by part of the system stays valid', f"the variant no longer holds once: {find!r}")
+                component = None
+                break
+            component = component.replace(find, replace)
+        if component is not None:
+            rc, out = run(component)
+            report(rc == 0 and 'no main group, 2 split role(s), 3 placement(s)' in out, 'a split by part of the system stays valid', out[-400:])
+            for name, find, replace, expected in COMPONENT_MUTATIONS:
+                if component.count(find) != 1:
+                    report(False, name, f"the mutation text is in the variant {component.count(find)} times: {find[:60]!r}")
+                    continue
+                rc, out = run(component.replace(find, replace))
+                report(rc == 1 and expected in out, f"breaks: {name}", f"expected exit 1 with {expected!r}; got exit {rc}:\n{out[-500:]}")
+
     start, end = base.find('  deployer_roles:\n'), base.find('    forced_by: [deployment.resource_group_mode_main')
     if start < 0 or end < 0:
         report(False, 'an older spec without deployer_roles stays valid', 'the fixture no longer holds the deployer_roles block')
@@ -185,7 +224,7 @@ def main():
         report(rc == 1 and expected in out, f"breaks: {name}", f"expected exit 1 with {expected!r}; got exit {rc}:\n{out[-500:]}")
 
     print('-' * 70)
-    total = 5 + len(MUTATIONS) + len(NO_MAIN_MUTATIONS)
+    total = 6 + len(MUTATIONS) + len(NO_MAIN_MUTATIONS) + len(COMPONENT_MUTATIONS)
     print(f"{total - failed}/{total} passed")
     return 1 if failed else 0
 

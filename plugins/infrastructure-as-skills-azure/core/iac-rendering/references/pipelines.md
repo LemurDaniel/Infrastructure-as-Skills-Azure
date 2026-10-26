@@ -120,6 +120,8 @@ header comment of the entry file and in the reply, as a short list:
   of `deployment.deployer_roles` with its scope and the decisions it is for (`Role Based
   Access Control Administrator` with a condition limiting it to the roles the spec assigns),
   and `Storage Blob Data Contributor` on the state account;
+- under `resource_group_scheme: protection`, that administrator rights on the protected group are
+  granted on that group alone ([resource-groups.md](resource-groups.md#roles));
 - the platform objects: GitHub environments, an Azure DevOps service connection and
   environments, GitLab protected environments and CI/CD variables;
 - the approval check on each gated stage's environment;
