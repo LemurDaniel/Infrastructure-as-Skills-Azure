@@ -53,6 +53,61 @@ Nichts davon wurde gefragt; jede Zeile folgt einer Regel oder einer der Antworte
 - Logs werden in log-analytics-workspace gesammelt. — weil: Logs gehen in einen Arbeitsbereich, den dieses Ausrollen anlegt und bezahlt.
 - Tägliche Obergrenze für Logs: -1 GB (-1: keine).
 
+### Sicherheit
+
+Die Sicherheitsvorgaben aller Teile an einer Stelle. Sie wurden nicht gefragt und sind in jeder Stufe gleich; sagt Bescheid, wenn eine nicht passt.
+
+- Azure Virtual Network: Ein kostenpflichtiger DDoS-Schutzplan wird nicht genutzt; Azures Basisschutz gilt ohnehin.
+- Azure Virtual Network: Subnetze, die eine Sicherheitsgruppe bekommen: keine.
+- Azure Container Registry: Die Registry hat keine eigene Identität.
+- Azure Container Registry: Zugriffsrechte auf die Registry vergeben an: keine.
+- Azure Container Registry: Das gemeinsame Admin-Konto ist abgeschaltet; der Zugriff läuft über Firmenkonten.
+- Azure Container Registry: Das Herunterladen von Images ohne Anmeldung ist nicht erlaubt.
+- Azure Container Registry: Verschlüsselungsschlüssel sind von Azure verwaltet: verschlüsselt, rotiert, kein Aufwand bei euch.
+- Azure AI Foundry (AI Services account with projects and model deployments): Das Konto hat keine eigene Identität.
+- Azure AI Foundry (AI Services account with projects and model deployments): Zugriffsrechte auf das Konto vergeben an: keine.
+- Azure AI Foundry (AI Services account with projects and model deployments): Die Anmeldung mit Kontoschlüsseln ist abgeschaltet; der Zugriff läuft über Firmenkonten.
+- Azure AI Foundry (AI Services account with projects and model deployments): Verschlüsselungsschlüssel sind von Azure verwaltet: verschlüsselt, rotiert, kein Aufwand bei euch.
+- Azure Storage Account: Der Speicher hat keine eigene Identität, um andere Dienste zu erreichen.
+- Azure Storage Account: Zugriffsrechte vergeben an: keine.
+- Azure Storage Account: Zugriff mit einem geteilten Schlüssel ist nicht möglich; der Zugriff läuft über Firmenkonten.
+- Azure Storage Account: Verbindungen müssen mindestens TLS 1.2-Verschlüsselung nutzen.
+- Azure Storage Account: Unverschlüsselte Verbindungen werden abgewiesen.
+- Azure Storage Account: Einzelne Ordner öffentlich lesbar zu machen ist nicht möglich.
+- Azure Storage Account: Eine zweite Verschlüsselungsschicht unterhalb des Dienstes ist eingeschaltet.
+- Azure Storage Account: Verschlüsselungsschlüssel sind von Azure verwaltet: verschlüsselt, rotiert, kein Aufwand bei euch.
+- Azure Storage Account: Dateiübertragung per SFTP ist ausgeschaltet.
+- Azure App Service (web app on an App Service plan) (dashboard): Sie nutzt die Identitäten user-assigned-identity__dashboard. — weil: `resources.app-service__dashboard.identity.managed_identity`
+- Azure App Service (web app on an App Service plan) (dashboard): `"existing_app_registration"`
+- Azure App Service (web app on an App Service plan) (dashboard): `"key_vault_reference"`
+- Azure App Service (web app on an App Service plan) (dashboard): Unverschlüsselte Verbindungen werden auf die verschlüsselte Adresse umgeleitet.
+- Azure App Service (web app on an App Service plan) (dashboard): Verbindungen müssen mindestens TLS 1.2-Verschlüsselung nutzen.
+- Azure App Service (web app on an App Service plan) (dashboard): Dateiupload per FTP ist abgeschaltet.
+- Azure App Service (web app on an App Service plan) (dashboard): Das Ausrollen mit Benutzername und Passwort ist nicht möglich; Rollouts laufen über Firmenkonten.
+- Azure App Service (web app on an App Service plan) (agent): Sie nutzt die Identitäten user-assigned-identity__agent. — weil: `resources.app-service__agent.identity.managed_identity`
+- Azure App Service (web app on an App Service plan) (agent): Unverschlüsselte Verbindungen werden auf die verschlüsselte Adresse umgeleitet.
+- Azure App Service (web app on an App Service plan) (agent): Verbindungen müssen mindestens TLS 1.2-Verschlüsselung nutzen.
+- Azure App Service (web app on an App Service plan) (agent): Dateiupload per FTP ist abgeschaltet.
+- Azure App Service (web app on an App Service plan) (agent): Das Ausrollen mit Benutzername und Passwort ist nicht möglich; Rollouts laufen über Firmenkonten.
+- Azure App Service (web app on an App Service plan) (drift): Sie nutzt die Identitäten user-assigned-identity__drift. — weil: `resources.app-service__drift.identity.managed_identity`
+- Azure App Service (web app on an App Service plan) (drift): Unverschlüsselte Verbindungen werden auf die verschlüsselte Adresse umgeleitet.
+- Azure App Service (web app on an App Service plan) (drift): Verbindungen müssen mindestens TLS 1.2-Verschlüsselung nutzen.
+- Azure App Service (web app on an App Service plan) (drift): Dateiupload per FTP ist abgeschaltet.
+- Azure App Service (web app on an App Service plan) (drift): Das Ausrollen mit Benutzername und Passwort ist nicht möglich; Rollouts laufen über Firmenkonten.
+- Azure App Service (web app on an App Service plan) (fuzz): Sie nutzt die Identitäten user-assigned-identity__fuzz. — weil: `resources.app-service__fuzz.identity.managed_identity`
+- Azure App Service (web app on an App Service plan) (fuzz): Unverschlüsselte Verbindungen werden auf die verschlüsselte Adresse umgeleitet.
+- Azure App Service (web app on an App Service plan) (fuzz): Verbindungen müssen mindestens TLS 1.2-Verschlüsselung nutzen.
+- Azure App Service (web app on an App Service plan) (fuzz): Dateiupload per FTP ist abgeschaltet.
+- Azure App Service (web app on an App Service plan) (fuzz): Das Ausrollen mit Benutzername und Passwort ist nicht möglich; Rollouts laufen über Firmenkonten.
+- Azure App Service (web app on an App Service plan) (tune): Sie nutzt die Identitäten user-assigned-identity__tune. — weil: `resources.app-service__tune.identity.managed_identity`
+- Azure App Service (web app on an App Service plan) (tune): Unverschlüsselte Verbindungen werden auf die verschlüsselte Adresse umgeleitet.
+- Azure App Service (web app on an App Service plan) (tune): Verbindungen müssen mindestens TLS 1.2-Verschlüsselung nutzen.
+- Azure App Service (web app on an App Service plan) (tune): Dateiupload per FTP ist abgeschaltet.
+- Azure App Service (web app on an App Service plan) (tune): Das Ausrollen mit Benutzername und Passwort ist nicht möglich; Rollouts laufen über Firmenkonten.
+- Azure Storage blob container: Zugriffsrechte vergeben an: keine.
+- Azure Key Vault: Zugriffsrechte auf den Tresor vergeben an: keine.
+- Azure Key Vault: Plattformdienste, die aus dem Tresor lesen dürfen: keine (leer: keine).
+
 ### Azure Virtual Network
 
 - Das Netz nutzt den Adressbereich 10.100.0.0/24.
@@ -62,8 +117,6 @@ Nichts davon wurde gefragt; jede Zeile folgt einer Regel oder einer der Antworte
 - Netzwerkregeln gelten für private Anbindungen in ihrem Subnetz.
 - Abkürzungen zu Azure-Diensten aus den Subnetzen: keine.
 - An einen Dienst übergebene Subnetze: app-integration (Microsoft.Web/serverFarms). — weil: `resources.app-service__dashboard.networking.vnet_integration`
-- Ein kostenpflichtiger DDoS-Schutzplan wird nicht genutzt; Azures Basisschutz gilt ohnehin.
-- Subnetze, die eine Sicherheitsgruppe bekommen: keine.
 - Netzwerk-Logs gehen in log-analytics-workspace.
 - Eine Aufzeichnung erlaubten und abgewiesenen Verkehrs wird nicht geführt.
 
@@ -123,11 +176,6 @@ Nichts davon wurde gefragt; jede Zeile folgt einer Regel oder einer der Antworte
 - Vertrauenswürdige Azure-Dienste dürfen nicht an der Firewall der Registry vorbei.
 - Das Herauskopieren von Images aus der Registry ist gesperrt.
 - `"pipeline_opens_registry"`
-- Die Registry hat keine eigene Identität.
-- Zugriffsrechte auf die Registry vergeben an: keine.
-- Das gemeinsame Admin-Konto ist abgeschaltet; der Zugriff läuft über Firmenkonten.
-- Das Herunterladen von Images ohne Anmeldung ist nicht erlaubt.
-- Verschlüsselungsschlüssel sind von Azure verwaltet: verschlüsselt, rotiert, kein Aufwand bei euch.
 - Seine Logs gehen in log-analytics-workspace.
 - Geloggt wird: jedes Hochladen, Herunterladen und Löschen eines Images, jede Anmeldung an der Registry.
 - Nutzungs- und Leistungswerte werden erfasst.
@@ -143,10 +191,6 @@ Nichts davon wurde gefragt; jede Zeile folgt einer Regel oder einer der Antworte
 - Das Konto ist aus dem Internet überhaupt nicht erreichbar.
 - Seine private Anbindung landet im Subnetz pe.
 - Das Konto darf nur Adressen aufrufen, die ausdrücklich erlaubt sind.
-- Das Konto hat keine eigene Identität.
-- Zugriffsrechte auf das Konto vergeben an: keine.
-- Die Anmeldung mit Kontoschlüsseln ist abgeschaltet; der Zugriff läuft über Firmenkonten.
-- Verschlüsselungsschlüssel sind von Azure verwaltet: verschlüsselt, rotiert, kein Aufwand bei euch.
 - Seine Logs gehen in log-analytics-workspace.
 - Geloggt wird: Änderungen am Konto und wer sie gemacht hat, jede Anfrage an die Modelle mit Aufrufer, Größe und Ergebnis (nicht der Text), die von jedem Aufruf verbrauchten Token.
 - Nutzungs- und Leistungswerte werden erfasst.
@@ -157,15 +201,6 @@ Nichts davon wurde gefragt; jede Zeile folgt einer Regel oder einer der Antworte
 - Seine private Anbindung landet im Subnetz pe.
 - Private Anbindungen gibt es für: Dateien (Blob).
 - Azures eigene Dienste (Backup, Überwachung) dürfen am Firewall vorbei auf den Speicher zugreifen.
-- Der Speicher hat keine eigene Identität, um andere Dienste zu erreichen.
-- Zugriffsrechte vergeben an: keine.
-- Zugriff mit einem geteilten Schlüssel ist nicht möglich; der Zugriff läuft über Firmenkonten.
-- Verbindungen müssen mindestens TLS 1.2-Verschlüsselung nutzen.
-- Unverschlüsselte Verbindungen werden abgewiesen.
-- Einzelne Ordner öffentlich lesbar zu machen ist nicht möglich.
-- Eine zweite Verschlüsselungsschicht unterhalb des Dienstes ist eingeschaltet.
-- Verschlüsselungsschlüssel sind von Azure verwaltet: verschlüsselt, rotiert, kein Aufwand bei euch.
-- Dateiübertragung per SFTP ist ausgeschaltet.
 - Ein Log jeder Änderung wird nicht geführt.
 - Der ganze Speicher lässt sich 0 Tage zurückdrehen (0: gar nicht).
 - Löschschutz per Gesetz oder Richtlinie: keiner.
@@ -178,13 +213,6 @@ Nichts davon wurde gefragt; jede Zeile folgt einer Regel oder einer der Antworte
 - Die App läuft auf Linux.
 - Der ausgehende Verkehr der App läuft durch das Firmennetz, so erreicht sie private Dienste.
 - Ausgehender Verkehr verlässt das Netz über das Subnetz app-integration. — weil: Das Netz wird von diesem Ausrollen selbst gebaut.
-- Sie nutzt die Identitäten user-assigned-identity__dashboard. — weil: `resources.app-service__dashboard.identity.managed_identity`
-- `"existing_app_registration"`
-- `"key_vault_reference"`
-- Unverschlüsselte Verbindungen werden auf die verschlüsselte Adresse umgeleitet.
-- Verbindungen müssen mindestens TLS 1.2-Verschlüsselung nutzen.
-- Dateiupload per FTP ist abgeschaltet.
-- Das Ausrollen mit Benutzername und Passwort ist nicht möglich; Rollouts laufen über Firmenkonten.
 - Die App ist geschrieben für ein Container-Image, das seine Laufzeit selbst mitbringt.
 - Die App bleibt geladen und antwortet sofort auf die erste Anfrage, wenn kein Verkehr anliegt.
 - Die Plattform prüft die Gesundheit der App unter dem Pfad  (leer: keine Prüfung).
@@ -202,11 +230,6 @@ Nichts davon wurde gefragt; jede Zeile folgt einer Regel oder einer der Antworte
 - Seine private Anbindung landet im Subnetz pe.
 - Der ausgehende Verkehr der App läuft durch das Firmennetz, so erreicht sie private Dienste.
 - Ausgehender Verkehr verlässt das Netz über das Subnetz app-integration. — weil: Das Netz wird von diesem Ausrollen selbst gebaut.
-- Sie nutzt die Identitäten user-assigned-identity__agent. — weil: `resources.app-service__agent.identity.managed_identity`
-- Unverschlüsselte Verbindungen werden auf die verschlüsselte Adresse umgeleitet.
-- Verbindungen müssen mindestens TLS 1.2-Verschlüsselung nutzen.
-- Dateiupload per FTP ist abgeschaltet.
-- Das Ausrollen mit Benutzername und Passwort ist nicht möglich; Rollouts laufen über Firmenkonten.
 - Die App ist geschrieben für ein Container-Image, das seine Laufzeit selbst mitbringt.
 - Die App bleibt geladen und antwortet sofort auf die erste Anfrage, wenn kein Verkehr anliegt.
 - Die Plattform prüft die Gesundheit der App unter dem Pfad  (leer: keine Prüfung).
@@ -224,11 +247,6 @@ Nichts davon wurde gefragt; jede Zeile folgt einer Regel oder einer der Antworte
 - Seine private Anbindung landet im Subnetz pe.
 - Der ausgehende Verkehr der App läuft durch das Firmennetz, so erreicht sie private Dienste.
 - Ausgehender Verkehr verlässt das Netz über das Subnetz app-integration. — weil: Das Netz wird von diesem Ausrollen selbst gebaut.
-- Sie nutzt die Identitäten user-assigned-identity__drift. — weil: `resources.app-service__drift.identity.managed_identity`
-- Unverschlüsselte Verbindungen werden auf die verschlüsselte Adresse umgeleitet.
-- Verbindungen müssen mindestens TLS 1.2-Verschlüsselung nutzen.
-- Dateiupload per FTP ist abgeschaltet.
-- Das Ausrollen mit Benutzername und Passwort ist nicht möglich; Rollouts laufen über Firmenkonten.
 - Die App ist geschrieben für ein Container-Image, das seine Laufzeit selbst mitbringt.
 - Die App bleibt geladen und antwortet sofort auf die erste Anfrage, wenn kein Verkehr anliegt.
 - Die Plattform prüft die Gesundheit der App unter dem Pfad  (leer: keine Prüfung).
@@ -246,11 +264,6 @@ Nichts davon wurde gefragt; jede Zeile folgt einer Regel oder einer der Antworte
 - Seine private Anbindung landet im Subnetz pe.
 - Der ausgehende Verkehr der App läuft durch das Firmennetz, so erreicht sie private Dienste.
 - Ausgehender Verkehr verlässt das Netz über das Subnetz app-integration. — weil: Das Netz wird von diesem Ausrollen selbst gebaut.
-- Sie nutzt die Identitäten user-assigned-identity__fuzz. — weil: `resources.app-service__fuzz.identity.managed_identity`
-- Unverschlüsselte Verbindungen werden auf die verschlüsselte Adresse umgeleitet.
-- Verbindungen müssen mindestens TLS 1.2-Verschlüsselung nutzen.
-- Dateiupload per FTP ist abgeschaltet.
-- Das Ausrollen mit Benutzername und Passwort ist nicht möglich; Rollouts laufen über Firmenkonten.
 - Die App ist geschrieben für ein Container-Image, das seine Laufzeit selbst mitbringt.
 - Die App bleibt geladen und antwortet sofort auf die erste Anfrage, wenn kein Verkehr anliegt.
 - Die Plattform prüft die Gesundheit der App unter dem Pfad  (leer: keine Prüfung).
@@ -268,11 +281,6 @@ Nichts davon wurde gefragt; jede Zeile folgt einer Regel oder einer der Antworte
 - Seine private Anbindung landet im Subnetz pe.
 - Der ausgehende Verkehr der App läuft durch das Firmennetz, so erreicht sie private Dienste.
 - Ausgehender Verkehr verlässt das Netz über das Subnetz app-integration. — weil: Das Netz wird von diesem Ausrollen selbst gebaut.
-- Sie nutzt die Identitäten user-assigned-identity__tune. — weil: `resources.app-service__tune.identity.managed_identity`
-- Unverschlüsselte Verbindungen werden auf die verschlüsselte Adresse umgeleitet.
-- Verbindungen müssen mindestens TLS 1.2-Verschlüsselung nutzen.
-- Dateiupload per FTP ist abgeschaltet.
-- Das Ausrollen mit Benutzername und Passwort ist nicht möglich; Rollouts laufen über Firmenkonten.
 - Die App ist geschrieben für ein Container-Image, das seine Laufzeit selbst mitbringt.
 - Die App bleibt geladen und antwortet sofort auf die erste Anfrage, wenn kein Verkehr anliegt.
 - Die Plattform prüft die Gesundheit der App unter dem Pfad  (leer: keine Prüfung).
@@ -287,7 +295,6 @@ Nichts davon wurde gefragt; jede Zeile folgt einer Regel oder einer der Antworte
 - Container: results.
 - Anonymes Lesen ist nicht erlaubt, jeder meldet sich an.
 - Absender, die einen anderen Schlüsselbereich wählen, werden erlaubt.
-- Zugriffsrechte vergeben an: keine.
 
 ### Azure Key Vault
 
@@ -298,8 +305,6 @@ Nichts davon wurde gefragt; jede Zeile folgt einer Regel oder einer der Antworte
 - Der Tresor ist aus dem Internet überhaupt nicht erreichbar.
 - Seine private Anbindung landet im Subnetz pe.
 - Vertrauenswürdige Azure-Dienste dürfen nicht an der Firewall des Tresors vorbei.
-- Zugriffsrechte auf den Tresor vergeben an: keine.
-- Plattformdienste, die aus dem Tresor lesen dürfen: keine (leer: keine).
 - Verschlüsselungsschlüssel sind von Azure verwaltet - der Tresor hält dafür keine.
 - Seine Logs gehen in log-analytics-workspace.
 - Geloggt wird: jeder Lese-, Schreib- und fehlgeschlagene Zugriff auf den Tresor, wie Richtlinien den Tresor bewertet haben.
