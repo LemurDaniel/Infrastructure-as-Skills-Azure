@@ -79,14 +79,18 @@ groups:
       - id: stage_isolation
         ask: Does each stage (development, test, production) get an Azure subscription of its own, or do all stages share one?
         type: enum
-        resolved_by: interview
-        topic: platform
+        resolved_by: derived
+        forced_when: >
+          Never asked; follows deployment_scope (forced_by deployment.deployment_scope):
+          subscription -> subscription, resource_group -> resource_group. At resource-group
+          level the identities' role scope separates the stages whether they share a
+          subscription or not, so the render needs no answer to that.
         plain:
           en: "Each stage lives in {value}."
           de: "Jede Stufe liegt in {value}."
         plain_values:
           subscription: { en: "its own subscription, so the stages cannot touch each other's resources, budgets or permissions", de: "einer eigenen Subscription; die Stufen können sich gegenseitig weder Ressourcen noch Budgets noch Berechtigungen anfassen" }
-          resource_group: { en: "its own resource group within one shared subscription; each stage deploys with an identity of its own that holds roles on its stage's groups only, never on the subscription", de: "einer eigenen Ressourcengruppe in einer gemeinsamen Subscription; jede Stufe rollt mit einer eigenen Identität aus, die nur auf den Ressourcengruppen ihrer Stufe Rechte hat, nie auf der Subscription" }
+          resource_group: { en: "resource groups of its own; each stage deploys with an identity of its own that holds roles on its stage's groups only, never on the subscription", de: "eigenen Ressourcengruppen; jede Stufe rollt mit einer eigenen Identität aus, die nur auf den Ressourcengruppen ihrer Stufe Rechte hat, nie auf der Subscription" }
         values: [subscription, resource_group]
         default: subscription
         depends_on: { question: environments, not_equals: [sandbox] }
@@ -99,9 +103,9 @@ groups:
           subscription with a resource group per stage is the lesser form, for an
           organisation that cannot get subscriptions vended - it keeps the
           resources apart and little else, since budgets, quotas and most
-          policies are subscription-scoped. Asked in every case, a landing zone
-          included: an organisation with one often still keeps a workload's
-          stages in one vended subscription, and only the customer knows which.
+          policies are subscription-scoped. Derived from deployment_scope rather
+          than asked: at subscription level each stage needs its own subscription,
+          at resource-group level the separation is the identities' role scope.
           Either way the subscription and the resource group are per-stage values
           that the stage's parameter file carries; this decision says which of the
           two actually separates the stages, so a reviewer knows what a wrong
@@ -134,12 +138,9 @@ groups:
           subscription: { en: "at subscription level, creating its resource groups itself", de: "auf Subscription-Ebene und legt ihre Ressourcengruppen selbst an" }
         values: [resource_group, subscription]
         default: resource_group
-        forced_when: >
-          stage_isolation resource_group forces resource_group (a role on the shared
-          subscription reaches every stage) and the question is not asked; the confirmation
-          of the separation says so.
         why: >
-          Asked first among the group questions because everything below follows from it:
+          Asked in Phase 0, right after the module choice, because everything below follows
+          from it - stage_isolation is derived from it:
           `subscription` lets the render create groups (resource_groups_created is asked),
           deploys a Bicep root with targetScope subscription through `az deployment sub` and
           needs the deploying identity to hold Contributor on the subscription;
