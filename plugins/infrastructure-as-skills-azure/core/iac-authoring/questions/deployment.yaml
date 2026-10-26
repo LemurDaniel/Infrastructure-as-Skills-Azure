@@ -1848,7 +1848,7 @@ groups:
         per_environment: true
         forced_when: >
           network_requirements decides who answers. `free`: the range is chosen with the
-          customer in the Phase 3 batch as a sizing choice - four ranges out of a private block
+          customer as the last question of the interview, once the compute is known - four ranges out of a private block
           nobody peers with (10.100.0.0/25, /24, /23, /22), the one that fits the described system
           marked recommended, which is the one recommendation the batch allows because it is
           sizing, not a guess about the organisation. The size is the sum of the subnets, rounded
