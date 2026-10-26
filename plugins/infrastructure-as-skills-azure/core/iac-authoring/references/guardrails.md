@@ -151,7 +151,9 @@ supports disabling local auth, disable it:
 | Cosmos DB | local auth disabled |
 | SQL | Entra-only authentication |
 
-System-assigned identity by default. Reach for user-assigned when an identity must outlive
+A resource carries an identity only when it reaches another resource outward (customer-managed
+key, storage, a data source, a backend); callers use their own identities, so a resource that
+reaches nothing carries none. Where it does, system-assigned by default. Reach for user-assigned when an identity must outlive
 a single resource or be shared across several — pre-assigning permissions before a resource
 exists is the usual legitimate reason.
 
