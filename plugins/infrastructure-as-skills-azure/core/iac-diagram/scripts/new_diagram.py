@@ -100,6 +100,7 @@ LABELS = {
         'rgRole_main': 'main', 'rgRole_network': 'network', 'rgRole_data': 'data', 'rgRole_application': 'application',
         'rgRole_observability': 'monitoring', 'rgRole_security': 'security',
         'rgRole_foundation': 'foundation', 'rgRole_state': 'state', 'rgRole_runtime': 'runtime',
+        'rgRole_protected': 'protected', 'rgRole_standard': 'standard', 'rgRole_shared': 'shared',
         'keyless': ' Access to the resources is by identity, no keys.',
         'aiNotice': 'AI-generated - please review',
         'dnsOpen': 'open - owner not decided', 'entry': 'Entry', 'children': 'Containers', 'children_file-share': 'File shares', 'children_queue': 'Queues',
@@ -127,6 +128,7 @@ LABELS = {
         'rgRole_main': 'Haupt', 'rgRole_network': 'Netzwerk', 'rgRole_data': 'Daten', 'rgRole_application': 'Anwendung',
         'rgRole_observability': 'Überwachung', 'rgRole_security': 'Sicherheit',
         'rgRole_foundation': 'Fundament', 'rgRole_state': 'Zustand', 'rgRole_runtime': 'Laufzeit',
+        'rgRole_protected': 'Geschützt', 'rgRole_standard': 'Standard', 'rgRole_shared': 'Gemeinsam',
         'keyless': ' Zugriffe auf die Ressourcen laufen über Identitäten, ohne Schlüssel.',
         'aiNotice': 'KI-generiert - bitte prüfen',
         'dnsOpen': 'offen - Zuständigkeit ungeklärt', 'entry': 'Eingang', 'children': 'Container', 'children_file-share': 'Dateifreigaben', 'children_queue': 'Warteschlangen',
@@ -309,7 +311,12 @@ RG_COLORS = {   # role: (fill, stroke, font)
     'foundation': ('#EAF3FB', '#2B6CB0', '#1F4E86'),
     'state': ('#FFF6E5', '#C98A1B', '#8A5A00'),
     'runtime': ('#F3EDFA', '#8764B8', '#5C2D91'),
+    'protected': ('#FCEBEE', '#C4506A', '#8E2B43'),
+    'standard': ('#F3EDFA', '#8764B8', '#5C2D91'),
+    'shared': ('#EAF3FB', '#2B6CB0', '#1F4E86'),
 }
+# component: the parts are named per design, coloured in turn in the order the split lists them.
+RG_CYCLE = ['application', 'data', 'observability', 'security']
 PG_TOP, PG_BOT, PG_GAP, PG_MIN_W = 30, 38, 12, 250   # a group frame: the gutter above its first row, the title band below, the gap to the next
 # Azure's own resource group icon, inline in a label: it says what Azure means by the group, a
 # generic folder does not. The path is the one ICONS['resource-group'] holds.
@@ -477,7 +484,9 @@ def main():
     vnet_existing = (not has_vnet_res) and net_ownership == 'reference'
 
     rg_scheme = rg_roles.scheme_of(dep)
-    rg_split = [x for x in as_list(get_decision(dep, ['resource_group_split'])) if x in rg_roles.roles(RG_TABLE, rg_scheme, resources.keys())]
+    rg_split = [x for x in as_list(get_decision(dep, ['resource_group_split'])) if x in rg_roles.roles(RG_TABLE, rg_scheme, resources.keys(), dep)]
+    for i, r in enumerate(x for x in rg_split if x not in RG_COLORS):
+        RG_COLORS[r] = RG_COLORS[RG_CYCLE[i % len(RG_CYCLE)]]
     # A split (resource_group_layout: split) has no main group; a spec written before the key keeps it.
     rg_main = ['main'] if rg_roles.has_main(dep) or not rg_split else []
     rg_modes = {'main': s(get_decision(dep, ['resource_group_mode_main'])) or 'existing'}
@@ -495,7 +504,7 @@ def main():
         return role if role in rg_split else (rg_main or rg_split)[0]
 
     def rg_title(role):
-        return f"{T['rgRole_' + role]} ({T['rgNew'] if rg_modes[role] == 'create' else T['rgOld']})"
+        return f"{T.get('rgRole_' + role, role)} ({T['rgNew'] if rg_modes[role] == 'create' else T['rgOld']})"
 
     def hosted_subnet(k):
         """The subnet the spec names for a hosted resource, else the one its kind usually gets."""

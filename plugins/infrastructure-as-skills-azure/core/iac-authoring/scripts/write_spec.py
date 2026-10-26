@@ -125,9 +125,12 @@ def canonical(spec, sets):
     dep = out.get('deployment')
     if isinstance(dep, dict):
         new = {}
+        known = {q for _, ids in sets['deployment'] for q in ids}
+        # resource_group_mode_part stands for the per-part keys of the component scheme
+        per_part = [k for k in dep if str(k).startswith('resource_group_mode_') and k not in known]
         for gid, ids in sets['deployment'] + [('not in deployment.yaml', list(dep))]:
             first = True
-            for q in ids:
+            for q in [x for q in ids for x in (per_part if q == 'resource_group_mode_part' else [q])]:
                 if q in dep and q not in new:
                     if first:
                         groups[('deployment', str(q))] = [f'# --- {gid} ---']

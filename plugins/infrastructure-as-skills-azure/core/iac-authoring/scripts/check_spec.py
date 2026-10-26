@@ -25,7 +25,8 @@ Read-only. Checks what the contract in references/spec.md promises:
      is named by an open entry (`environments:`) for that key.
   8. Resource groups: `resource_group_split` lists known roles only (never
      `main`) of the scheme `resource_group_scheme` names (concern by default,
-     or lifecycle), and none under
+     lifecycle, protection, or component: `shared` and the parts in
+     `resource_group_components`, every unshared resource placed in one), and none under
      `resource_group_layout: single`; a split makes `resource_group_mode_<role>` required for `main`
      and every listed role, and a mode or a `context.resource_group_name_<role>`
      for a role that is not split off is stale; a resource's
@@ -334,7 +335,7 @@ def main():
     dep_node = get(spec, 'deployment') or {}
     scheme = rg_roles.scheme_of(dep_node)
     rg_table = rg_roles.load(yaml)
-    split_roles = rg_roles.roles(rg_table, scheme, (get(spec, 'resources') or {}).keys())
+    split_roles = rg_roles.roles(rg_table, scheme, (get(spec, 'resources') or {}).keys(), dep_node)
     main_present = rg_roles.has_main(dep_node)
     ctx_node = get(spec, 'context') or {}
 
@@ -397,7 +398,12 @@ def main():
         for rkey, rnode in (get(spec, 'resources') or {}).items():
             if get(get(rnode, 'placement'), 'resource_group') is not None:
                 continue  # a placement is checked below
-            role = rg_roles.role_of(rg_table, scheme, str(rkey).split('__')[0])
+            kind = str(rkey).split('__')[0]
+            role = rg_roles.role_of(rg_table, scheme, kind)
+            if scheme == 'component' and role is None and kind not in (rg_table.get('attached') or []):
+                errors.append(f"resources.{rkey} names no part - under the component scheme every resource that is not "
+                              f"shared carries placement.resource_group with its part ({', '.join(split_roles[1:]) or 'none named'})")
+                continue
             if role is not None and role not in split:
                 errors.append(f"resources.{rkey} belongs to '{role}', which resource_group_split does not list - under a split "
                               f"there is no main group to fall back to; add the role, or place the resource with placement.resource_group")

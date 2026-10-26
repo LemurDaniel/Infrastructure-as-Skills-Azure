@@ -5,7 +5,7 @@
 # in the spec, never here.
 #
 # `roles` and `kinds` are the `concern` scheme (deployment.resource_group_scheme), the default.
-# `lifecycle` is the second scheme.
+# `lifecycle`, `protection` and `component` are the other schemes (deployment.resource_group_scheme).
 # Under resource_group_layout split there is no main group, so every resource set is in both
 # tables or in `attached`; check_repo_consistency.py fails on one that is in neither.
 roles: [main, network, data, application, observability, security]
@@ -24,6 +24,21 @@ lifecycle:
     foundation: [virtual-network, network-security-group, application-gateway, front-door, public-dns-zone, ddos-protection-plan, traffic-manager, network-watcher, log-analytics-workspace, application-insights, action-group, alert-rule, data-collection-rule, user-assigned-identity, service-bus, event-hubs, event-grid-topic, event-grid-namespace, event-grid-system-topic, relay-namespace, azure-firewall, bastion, load-balancer, nat-gateway, private-dns-zone, public-ip-address, route-table, virtual-network-peering, availability-set]
     state: [storage-account, cosmos-db, sql-server, sql-managed-instance, backup-vault, recovery-services-vault, key-vault, container-registry, search-service, machine-learning-workspace, purview-account, mysql-flexible-server, postgresql-flexible-server, sql-database, blob-container, file-share, queue, managed-disk, key-vault-key, key-vault-secret]
     runtime: [app-service, function-app, container-apps, foundry, ai-services, bot-service, api-management, logic-app, data-factory, communication-services, redis-cache, aks, container-instances, static-web-app, virtual-machine, virtual-machine-scale-set]
+
+# Split by protection need: what holds data or secrets in a fenced group whose administrator
+# rights are granted separately, everything else beside it. The state kinds of `lifecycle`.
+protection:
+  roles: [main, protected, standard]
+  kinds:
+    protected: [storage-account, cosmos-db, sql-server, sql-managed-instance, backup-vault, recovery-services-vault, key-vault, container-registry, search-service, machine-learning-workspace, purview-account, mysql-flexible-server, postgresql-flexible-server, sql-database, blob-container, file-share, queue, managed-disk, key-vault-key, key-vault-secret]
+    standard: [virtual-network, network-security-group, application-gateway, front-door, public-dns-zone, ddos-protection-plan, traffic-manager, network-watcher, log-analytics-workspace, application-insights, action-group, alert-rule, data-collection-rule, user-assigned-identity, service-bus, event-hubs, event-grid-topic, event-grid-namespace, event-grid-system-topic, relay-namespace, azure-firewall, bastion, load-balancer, nat-gateway, private-dns-zone, public-ip-address, route-table, virtual-network-peering, availability-set, app-service, function-app, container-apps, foundry, ai-services, bot-service, api-management, logic-app, data-factory, communication-services, redis-cache, aks, container-instances, static-web-app, virtual-machine, virtual-machine-scale-set]
+
+# Split by part of the system: the parts are the run's, named per design in
+# deployment.resource_group_components, so there is no table for them. What every part uses -
+# the foundation kinds of `lifecycle` - goes to `shared`; every other resource names its part in
+# placement.resource_group.
+component:
+  shared_from: foundation
 
 # Never a group of their own, in any scheme: a private endpoint and a role assignment are
 # deployed with the resource they serve, Defender for Cloud is set on the subscription.

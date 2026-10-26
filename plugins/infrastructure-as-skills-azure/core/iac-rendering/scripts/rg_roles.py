@@ -2,7 +2,10 @@
 
 One reader for the spec check, the diagram, the decision document and the name list, so a
 scheme means the same thing in all four. `deployment.resource_group_scheme` picks the scheme:
-`concern` (the default, and what a spec without the key means) or `lifecycle`.
+`concern` (the default, and what a spec without the key means), `lifecycle`, `protection`
+(fixed tables), or `component`, whose parts the run names per design in
+`deployment.resource_group_components`: the foundation kinds go to `shared`, every other
+resource names its part in `placement.resource_group`.
 
 Import it by path - the scripts live in different skills:
 
@@ -13,7 +16,7 @@ Import it by path - the scripts live in different skills:
 import os
 
 ROLES_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'references', 'resource-group-roles.yaml')
-SCHEMES = ['concern', 'lifecycle']
+SCHEMES = ['concern', 'lifecycle', 'protection', 'component']
 FALLBACK = {'roles': ['main', 'network', 'data', 'application', 'observability', 'security'], 'kinds': {}}
 
 
@@ -44,24 +47,32 @@ def scheme_of(deployment):
 
 
 def table(data, scheme):
-    """{role: [kinds]} of a scheme."""
-    if scheme == 'lifecycle':
-        return (data.get('lifecycle') or {}).get('kinds') or {}
+    """{role: [kinds]} of a scheme; for `component` only `shared` has kinds."""
+    if scheme in ('lifecycle', 'protection'):
+        return (data.get(scheme) or {}).get('kinds') or {}
+    if scheme == 'component':
+        source = ((data.get('component') or {}).get('shared_from')) or 'foundation'
+        return {'shared': ((data.get('lifecycle') or {}).get('kinds') or {}).get(source) or []}
     return data.get('kinds') or {}
 
 
-def roles(data, scheme, resource_keys=()):
-    """The roles a scheme can split off (never `main`)."""
-    listed = (data.get('lifecycle') or {}).get('roles') if scheme == 'lifecycle' else data.get('roles')
+def roles(data, scheme, resource_keys=(), deployment=None):
+    """The roles a scheme can split off (never `main`); `component`: `shared` and the parts the
+    deployment names."""
+    if scheme == 'component':
+        parts = value(deployment, 'resource_group_components') or []
+        return ['shared'] + [p for p in parts if isinstance(p, str) and p not in ('shared', 'main')]
+    listed = (data.get(scheme) or {}).get('roles') if scheme in ('lifecycle', 'protection') else data.get('roles')
     return [r for r in (listed or list(table(data, scheme))) if r != 'main']
 
 
 def role_of(data, scheme, kind):
     """The role a kind belongs to under a scheme; `main` when the scheme does not place it, None
-    for a kind that is deployed with the resource it serves (`attached`)."""
+    for a kind that is deployed with the resource it serves (`attached`) and, under `component`,
+    for a kind that is not shared - its part is the resource's placement."""
     if kind in (data.get('attached') or []):
         return None
     for role, kinds in table(data, scheme).items():
         if kind in (kinds or []):
             return role
-    return 'main'
+    return None if scheme == 'component' else 'main'
