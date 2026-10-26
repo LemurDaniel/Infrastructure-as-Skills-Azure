@@ -273,6 +273,15 @@ mapping:
   the text does not carry belongs to the normal resolution order, not to `stated`.
 - **A contradiction is asked, not resolved.** "Publicly reachable" ("Öffentlich erreichbar") next to
   "company network only" ("nur aus dem Firmennetz") is one question in Phase 3, quoting both halves.
+- **Answers that cannot both hold are asked, once, after the batch.** The pairs that are
+  known: `data_loss_tolerance: reproducible` with `backup_isolation: isolated` or
+  `immutable` (data that can be regenerated needs no protected copy, or the data is not
+  reproducible after all); `network_exposure: public` with `network_requirements: corporate`
+  and nothing said about an exception; `outage_impact: tolerable` with `priority: protection`;
+  `central_private_dns: yes` with `central_network: no` (zones in the platform resolve names only
+  for networks linked to them, and a standalone network has no hub to be linked through: either
+  the platform team links it, or one of the two answers is wrong).
+  Quote both halves in one question with the two ways out; never pick one silently.
 - **The description may add resources.** "…with logs to Log Analytics" ("…mit Logs nach Log Analytics") routes a second
   question set through [azure-resources](../azure-resources/SKILL.md) — the same request,
   one interview, one spec.
@@ -281,10 +290,13 @@ mapping:
   joining it rather than replacing it, and so does every other default in the sets. What
   the instruction forbids is inventing a value no default exists for — a range, a
   subscription, a name.
-- **A referenced platform part answers the landing zone.** A named hub network, shared
-  subnet or central workspace means a platform exists, so `landing_zone` is `corp` (private)
-  or `online` (public), recorded as `forced` by that reference — never `standalone`, and
-  never an open item, because the references are the answer.
+- **A referenced platform part answers its central question.** A named hub network or
+  shared private-endpoint subnet answers `central_network` as `yes`, a named central
+  workspace `central_logging` as `yes`, a named zone resource group `central_private_dns` as
+  `yes`, a named backup vault `central_backup` as `yes` - recorded `stated`, never an open item, because the reference is the answer. It does
+  not answer `landing_zone_exists`: only the customer saying there is a landing zone does,
+  and without one `landing_zone` stays `standalone` while each central answer sets its own
+  ownership decision. An explicit answer beats an archetype's pre-answer.
 - **A stated value holds in every stage, and posture is one per system.** "Publicly
   reachable is fine" ("Öffentlich erreichbar ist okay") said about the development stage is said about the system: the
   exposure is `public` in every stage, the network `none` in every stage. A run never
@@ -412,17 +424,20 @@ in the deployment set - input variables the stage file supplies, not decisions. 
 about them, "there is no default for these" included, is a bug in the interview: the person
 is designing and has no deployment target yet. The group's *name* is that kind of value; the
 `resource_groups` group of the deployment set is not: whether areas get a group of their own
-(`resource_group_split`) and whether each group exists or is created
-(`resource_group_mode_<role>`) are interview questions, with `existing` and no split as the
+(`resource_group_split`) and which groups the infrastructure creates
+(`resource_groups_created`, one list question; the per-role `resource_group_mode_<role>` are
+derived from it) are interview questions, with no split and every group existing as the
 defaults. Nor is the customer's language:
 it is the language the request and the answers are written in, and Phase 0 writes it to
 `context.language` (`en` or `de`) - the picture, the decision document and the
 customer-facing text in the spec follow it.
 
 **There is one batch**: the surviving interview questions — the
-environment, who reaches it and from where, the mandates, and the `requirements` group
+environment (four choices: the full stack of development, test and production; development and
+production; a sandbox; other, where the customer names the stages - a sandbox answers the landing
+zone and removes its questions), who reaches it and from where, the mandates, and the `requirements` group
 (network requirements - may the network be chosen freely, or are ranges assigned or a
-connection to the company network given -, outage impact, data-loss tolerance, access pattern, backup isolation, data
+connection to the company network given -, outage impact, expected load, data-loss tolerance, access pattern, backup isolation, data
 residency, priority - cost, balanced or protection first, which moves cost and hardening
 knobs and never the security floor), fewer only where the description stated an answer. **The `requirements` group is asked in
 full, every run**: a requirement that has a default is still asked, because the default
@@ -552,6 +567,25 @@ reads one line per part and ticks it, that is the whole point of the shape. The 
 the customer's: "logs", not "logging pipeline" ("Logs", not "Protokollierung"); "a store
 for the documents", not "storage account with blob container" ("Speicher für die Dokumente",
 not "Storage Account mit Blob-Container").
+
+**A system with `network_exposure: private_with_exceptions` shows how each public part was
+mapped**, as the lines of the list and nothing else: one line per part named in `public_parts`
+with the resource that serves it and who may reach it, and one line that everything else stays
+private. The mapping is the engine's reading of the customer's words, so it is the line the
+customer is most likely to correct; a part that maps to no single resource is shown as open,
+never to a guess. A mapped part is recorded with its `public_parts` entry as the reason.
+
+```
+  [ ] Die Webseite ist für jeden im Internet erreichbar, mit einem Schutzschild davor (Front Door)
+  [ ] Die Partner-Schnittstelle ist nur für eure Partner erreichbar, über eine Liste ihrer Adressen
+  [ ] Alles andere - Datenbanken, Nachrichten, Speicher, Tresor - ist nur privat erreichbar
+```
+
+```
+  [ ] The website is reachable by anyone on the internet, with a protective layer in front (Front Door)
+  [ ] The partner interface is reachable only by your partners, through a list of their addresses
+  [ ] Everything else - databases, messages, storage, vault - is reachable privately only
+```
 
 Before the question comes the **security baseline**, as a block of its own and grouped by
 what it protects, never as the one line it used to be: *Zugang* (keys and shared secrets

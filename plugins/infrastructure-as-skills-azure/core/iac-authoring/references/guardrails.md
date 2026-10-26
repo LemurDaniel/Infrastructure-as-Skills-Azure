@@ -30,14 +30,15 @@ That is where three defaults come from, and why they hold for every resource:
 workload, not the platform; a run does not read it as licence to build hub
 infrastructure.
 
-**The archetype decides the posture.** `landing_zone` in the deployment set is asked
-first, and its answer pre-answers exposure and network:
+**Exposure and platform decide the archetype.** `landing_zone_exists` and `network_exposure`
+are asked; `landing_zone` is derived from them (`corp` for a private workload, `online` for a
+public one) and pre-answers the network:
 
 | `landing_zone` | Meaning | Pre-answers |
 |---|---|---|
-| `standalone` | **No landing zone platform.** Nothing shared exists to reference | `network_exposure: private`, `network_ownership: create` (standalone, not a spoke), `private_dns_ownership: deployment` (zones and their records created here), `observability_ownership: create` |
-| `corp` | Internal workload, connected to the hub | `network_exposure: private`, `network_ownership: create` (spoke) |
-| `online` | Internet-facing workload, not connected to the hub | `network_exposure: public` with a firewall allowlist (§2, rung 3), `network_ownership: none` unless a private backend needs one |
+| `standalone` | **No landing zone** (`landing_zone_exists: no`). Central parts exist only where a `central_*` answer says so | per decision, unless its `central_*` answer is `yes`: `network_ownership: create` (standalone, not a spoke), `private_dns_ownership: deployment` (zones and their records created here), `observability_ownership: create`; a `yes` references that one part and leaves the rest as listed |
+| `corp` | Private workload (`network_exposure: private` or `private_with_exceptions`), connected to the hub | `network_ownership: create` (spoke) |
+| `online` | Internet-facing workload (`network_exposure: public`), not connected to the hub | a firewall allowlist (§2, rung 3), `network_ownership: none` unless a private backend needs one |
 | `sandbox` | Experiments, no hub, looser policy | `network_exposure: public` allowed, `network_ownership: none`; `environment: production` is refused |
 
 A user statement overrides a pre-answer, recorded as `overridden` — a corp workload with

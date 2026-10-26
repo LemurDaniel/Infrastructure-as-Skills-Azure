@@ -25,7 +25,7 @@ groups:
     title: Context
     questions:
       - id: environments
-        ask: Which stages does the system go through? The usual set is development, test and production; a sandbox is one throwaway environment.
+        ask: Which stages does the system go through - the full stack of development, test and production, only development and production, a sandbox as one throwaway environment, or other stages you name?
         type: list
         resolved_by: interview
         topic: platform
@@ -58,7 +58,12 @@ groups:
           a named stage never replaces the stack. Only the customer's own words
           shrink it - "nur prod", "nur eine Umgebung", "eine Sandbox zum
           Ausprobieren" - and `[sandbox]` is the other shape: one throwaway
-          environment, no stack. Every stage renders from the same code with its
+          environment, no stack. The interview offers four choices: the full stack
+          (development, test, production), development and production, sandbox, and other
+          (the customer names the stages; a named stage joins the stack as described above).
+          `[sandbox]` also answers the landing zone: `landing_zone: sandbox`, derived, with
+          landing_zone_exists and the central_* questions not asked - a throwaway
+          environment is not placed into a company platform. Every stage renders from the same code with its
           own parameter file (environments/<stage>.tfvars, main.<stage>.bicepparam)
           and its own state; a value that differs per stage (per_environment:
           true on its question) is a parameter whose value lives in that file,
@@ -269,11 +274,44 @@ groups:
           resource_groups.<role> per listed role; a resource's group is its role's
           group, or the main group when its role is not split off
 
+      - id: resource_groups_created
+        ask: Which of these resource groups do not exist yet, so that the infrastructure should create them - the main group and the areas you gave a group of their own?
+        type: list
+        resolved_by: interview
+        topic: platform
+        plain:
+          en: "The infrastructure creates these resource groups: {value}. Every other group already exists and is only used."
+          de: "Die Infrastruktur legt diese Ressourcengruppen an: {value}. Alle anderen existieren bereits und werden nur verwendet."
+        plain_values:
+          main: { en: "main group", de: "Hauptgruppe" }
+          network: { en: "network", de: "Netzwerk" }
+          data: { en: "data", de: "Daten" }
+          application: { en: "application", de: "Anwendung" }
+          observability: { en: "monitoring", de: "Überwachung" }
+          security: { en: "security", de: "Sicherheit" }
+        values: [main, network, data, application, observability, security]
+        default: []
+        why: >
+          One question instead of one per group: every role the customer split off used to
+          cost its own existing-or-create answer, and a system with five split areas asked
+          six near-identical questions. The answer is the list of groups that must be
+          created; every group not on it is expected to exist, which is the default
+          (`existing`) of the old per-role questions. Only `main` and the roles in
+          resource_group_split apply; a listed role that was not split off is ignored.
+          Why `existing` is the default, what `create` costs (Contributor on the
+          subscription, a destroy that takes the group with it) and why the platform
+          often owns the network group are the reasons given on the derived
+          resource_group_mode_<role> questions below.
+        renders: >
+          derives resource_group_mode_<role> for main and every split role: create for a
+          listed role, existing otherwise; the spec keeps one mode per role
+
       - id: resource_group_mode_main
         ask: Does the main resource group already exist, or should the infrastructure create it?
         type: enum
-        resolved_by: interview
-        topic: platform
+        resolved_by: derived
+        forced_when: >
+          Not asked: `create` when main is in resource_groups_created, otherwise `existing`
         plain:
           en: "The main resource group {value}."
           de: "Die Hauptressourcengruppe {value}."
@@ -300,8 +338,9 @@ groups:
       - id: resource_group_mode_network
         ask: Does the network resource group already exist, or should the infrastructure create it?
         type: enum
-        resolved_by: interview
-        topic: platform
+        resolved_by: derived
+        forced_when: >
+          Not asked: `create` when network is in resource_groups_created, otherwise `existing`
         plain:
           en: "The network resource group {value}."
           de: "Die Ressourcengruppe für das Netzwerk {value}."
@@ -324,8 +363,9 @@ groups:
       - id: resource_group_mode_data
         ask: Does the data resource group already exist, or should the infrastructure create it?
         type: enum
-        resolved_by: interview
-        topic: platform
+        resolved_by: derived
+        forced_when: >
+          Not asked: `create` when data is in resource_groups_created, otherwise `existing`
         plain:
           en: "The data resource group {value}."
           de: "Die Ressourcengruppe für die Daten {value}."
@@ -346,8 +386,9 @@ groups:
       - id: resource_group_mode_application
         ask: Does the application resource group already exist, or should the infrastructure create it?
         type: enum
-        resolved_by: interview
-        topic: platform
+        resolved_by: derived
+        forced_when: >
+          Not asked: `create` when application is in resource_groups_created, otherwise `existing`
         plain:
           en: "The application resource group {value}."
           de: "Die Ressourcengruppe für die Anwendung {value}."
@@ -365,8 +406,9 @@ groups:
       - id: resource_group_mode_observability
         ask: Does the monitoring resource group already exist, or should the infrastructure create it?
         type: enum
-        resolved_by: interview
-        topic: platform
+        resolved_by: derived
+        forced_when: >
+          Not asked: `create` when observability is in resource_groups_created, otherwise `existing`
         plain:
           en: "The monitoring resource group {value}."
           de: "Die Ressourcengruppe für die Überwachung {value}."
@@ -387,8 +429,9 @@ groups:
       - id: resource_group_mode_security
         ask: Does the security resource group already exist, or should the infrastructure create it?
         type: enum
-        resolved_by: interview
-        topic: platform
+        resolved_by: derived
+        forced_when: >
+          Not asked: `create` when security is in resource_groups_created, otherwise `existing`
         plain:
           en: "The security resource group {value}."
           de: "Die Ressourcengruppe für die Sicherheit {value}."
@@ -602,7 +645,7 @@ groups:
           question to put that answer in.
         renders: >
           pre-answers landing_zone (free, assigned_ranges: standalone; corporate: corp) and
-          through it network_ownership and network_exposure; assigned_ranges and corporate make
+          through it network_ownership; assigned_ranges and corporate make
           address_space and private_endpoint_subnet_prefix open entries owned by the network
           team unless the request states them. A contradiction with landing_zone_exists or
           central_network is asked, not resolved
@@ -634,6 +677,32 @@ groups:
         renders: >
           derived by the resource sets: storage-account.replication (LRS / ZRS / GZRS);
           later resources map it to their own zone-redundancy and SKU decisions
+
+      - id: expected_load
+        ask: How many people use the system at the same time, at its busiest?
+        type: enum
+        values: [small, medium, large]
+        default: small
+        resolved_by: interview
+        topic: application
+        plain:
+          en: "At its busiest the system is used by {value}."
+          de: "Zur Spitzenzeit wird das System genutzt von {value}."
+        plain_values:
+          small: { en: "a small group at the same time, up to about fifty people", de: "einer kleinen Gruppe gleichzeitig, bis etwa fünfzig Personen" }
+          medium: { en: "several hundred people at the same time", de: "einigen hundert Personen gleichzeitig" }
+          large: { en: "thousands of people at the same time, with peaks", de: "tausenden Personen gleichzeitig, mit Spitzen" }
+        confirm_in: [production]
+        why: >
+          The one question behind compute sizing, and only the customer knows it. It is a
+          starting point, not a capacity plan: every size derived from it can be changed in
+          place later, and a wrong low number is a visible, fixable signal while a wrong
+          high one is paid for every hour. `small` is the default and derives the
+          guardrail sizes, so an unanswered question changes nothing. It sizes the compute
+          of web apps and databases; it does not size storage, messaging or search.
+        renders: >
+          derived by the resource sets: app-service.sku, sql-database.vcores; later
+          resources map it to their own size decisions
 
       - id: data_loss_tolerance
         ask: If data is deleted or overwritten by mistake, how far back must you be able to go?
@@ -724,7 +793,7 @@ groups:
           Azure Files, SQL in a VM) with its soft delete, immutability and Resource Guard,
           and the container's `immutable_storage`; a deployment answering `isolated` or
           `immutable` is missing a protected resource without one of the vaults, and the
-          pattern adds the vault; cosmos-db meets `isolated` by itself (its backups live
+          pattern adds the vault (or references the central one when central_backup is `yes`); cosmos-db meets `isolated` by itself (its backups live
           outside the account) and names `immutable` as a gap
 
       - id: data_residency
@@ -934,6 +1003,7 @@ groups:
         values: ["yes", "no"]
         default: "no"
         confirm_in: [production]
+        depends_on: { question: environments, not_equals: [sandbox] }
         why: >
           One plain question instead of a profile file: the customer knows whether the
           company runs a landing zone, and nobody else can say. `no` is the default and
@@ -968,7 +1038,7 @@ groups:
         why: >
           A workspace either exists and is referenced, or this deployment creates and pays
           for one. Only the customer knows which. Asked only without a landing zone: with
-          one, the central workspace is presumed.
+          one, the central workspace is presumed. Not reached when environments is [sandbox].
         renders: >
           yes: observability_ownership reference, diagnostics_destination an `open:` entry
           owned by the platform team unless the request names it; no:
@@ -991,7 +1061,7 @@ groups:
         why: >
           Two deployments each creating `privatelink.blob.core.windows.net` is a conflict
           that only surfaces at apply time, so whether central zones exist decides who
-          creates them. Asked only without a landing zone.
+          creates them. Asked only without a landing zone; not reached when environments is [sandbox].
         renders: >
           yes: private_dns_ownership platform, the zones' location an `open:` entry owned
           by the platform team unless stated; no: private_dns_ownership deployment
@@ -1013,10 +1083,41 @@ groups:
         why: >
           A hub decides whether the network is a spoke peered to it or stands alone. It
           overlaps with network_requirements (`corporate`): both say a hub exists, and a
-          contradiction between the two is asked, not resolved.
+          contradiction between the two is asked, not resolved. Not reached when
+          environments is [sandbox].
         renders: >
           yes: network_ownership create as a spoke, the hub and its peering `open:` entries
           owned by the platform team unless stated; no: network_ownership create, standalone
+
+      - id: central_backup
+        ask: Is there a central backup store (a backup vault) that all workloads use for their protected copies?
+        type: enum
+        resolved_by: interview
+        topic: platform
+        plain:
+          en: "There {value} a central backup store."
+          de: "Es {value} einen zentralen Backup-Speicher."
+        plain_values:
+          "yes": { en: "is", de: "gibt" }
+          "no": { en: "is none, so the system brings its own", de: "gibt keinen, das System bringt also einen eigenen mit" }
+        values: ["yes", "no"]
+        default: "no"
+        depends_on: { question: environments, not_equals: [sandbox] }
+        why: >
+          Asked together with the other central services and in every run - with a landing
+          zone and without - because a landing zone does not presume a central backup store
+          the way it presumes a hub, a workspace and DNS zones: backup vaults are often kept
+          per workload, and a vault that is assumed but missing fails at the first backup.
+          The answer is used only when the customer wants a copy that survives deliberate
+          destruction (backup_isolation `isolated` or `immutable`); with `operational` no
+          vault is needed and the answer changes nothing, but it is still recorded. A
+          central vault is read and used, never created or reconfigured here: this
+          deployment adds its own backup instances and policies to it, which is a role on
+          the vault the platform team grants. Not reached when environments is [sandbox].
+        renders: >
+          yes: backup_ownership reference, backup_vault_destination an `open:` entry owned
+          by the platform team unless the request names it; no: backup_ownership create,
+          the vault `backup-vault` / `recovery-services-vault` is part of this deployment
 
       - id: landing_zone
         ask: Which kind of landing zone does this workload go into - internal (corp), internet-facing (online) or a sandbox - or none (standalone)?
@@ -1053,27 +1154,32 @@ groups:
           aus dem Firmennetz", "öffentlich erreichbar" or "wir haben keine
           Landing Zone" has usually answered it already.
         forced_when: >
-          Not asked: derived from landing_zone_exists and the central_* answers. `no` with
-          no central part: standalone; `yes`: corp, or online when network_exposure is
-          public, or sandbox when the request says so. network_requirements pre-answers it
-          as well - free and assigned_ranges: standalone, corporate: corp; a contradiction
-          between the two is asked, not resolved. A referenced platform part forces a platform archetype: a request that
-          names an existing hub network, a shared private-endpoint subnet or a
-          central workspace (network_ownership: reference, observability_ownership:
-          reference) says a landing zone platform exists, so standalone is ruled
-          out - corp when network_exposure is private, online when it is public,
-          recorded as forced with the referencing answer as forced_by. Never an
-          open item: the references are the answer. landing_zone: sandbox refuses
-          environments containing production - a production stage in a sandbox is
-          a contradiction to ask about, not a value to record
+          Not asked: derived from environments, landing_zone_exists and network_exposure.
+          `[sandbox]`: sandbox, whatever else is said. landing_zone_exists `yes`: corp when
+          network_exposure is private or private_with_exceptions, online when it is public.
+          landing_zone_exists `no`: standalone, whatever the central_* answers are - a lone
+          central workspace or hub does not make a landing zone, and the label must not
+          drag in the archetype's other pre-answers (a spoke, platform DNS) that the
+          customer answered "no" to. An explicit answer always beats an archetype's
+          pre-answer: each central_* answer sets its own ownership decision directly, and
+          the archetype's pre-answers apply only under `yes`. A request that names an
+          existing hub network or a shared private-endpoint subnet answers central_network
+          as `yes`, one that names a central workspace answers central_logging as `yes`
+          (source stated); it answers landing_zone_exists only where it says there is a
+          landing zone. network_requirements pre-answers it as well - free and
+          assigned_ranges: standalone, corporate: corp; a contradiction between the two is
+          asked, not resolved. landing_zone: sandbox refuses environments containing
+          production - a production stage in a sandbox is a contradiction to ask about, not
+          a value to record
         renders: >
-          pre-answers network_exposure and network_ownership, and under `standalone`
-          also private_dns_ownership and
-          observability_ownership (guardrails.md, section 0); recorded so a
-          reviewer sees which platform rules the deployment was written against
+          under `yes`, pre-answers network_ownership (create, as a spoke),
+          private_dns_ownership (platform) and observability_ownership (reference);
+          under `no` those three follow their central_* answers, and without one default to
+          create / deployment / create (guardrails.md, section 0); recorded so a reviewer
+          sees which platform rules the deployment was written against
 
       - id: network_exposure
-        ask: Should this infrastructure be reachable from the internet?
+        ask: Should this infrastructure be reachable from the internet - not at all, only named parts such as the website with everything behind it staying private, or all of it?
         type: enum
         resolved_by: interview
         topic: network
@@ -1082,23 +1188,26 @@ groups:
           de: "Der Zugang ist {value}."
         plain_values:
           private: { en: "private only - nothing is reachable from the internet", de: "nur privat, nichts ist aus dem Internet erreichbar" }
-          private_with_exceptions: { en: "private, with named exceptions reachable from the internet behind a firewall", de: "privat, mit benannten Ausnahmen hinter einer Firewall aus dem Internet erreichbar" }
-          public: { en: "public - reachable from the internet by design", de: "öffentlich, absichtlich aus dem Internet erreichbar" }
+          private_with_exceptions: { en: "private, with the named parts reachable from the internet behind a firewall; everything behind them stays private", de: "privat; nur die benannten Teile sind hinter einer Firewall aus dem Internet erreichbar, alles dahinter bleibt privat" }
+          public: { en: "public - every part, databases included, is reachable from the internet by design", de: "öffentlich: jeder Teil, auch die Datenbanken, ist absichtlich aus dem Internet erreichbar" }
         values: [private, private_with_exceptions, public]
         default: private
         confirm_in: [production]
-        forced_when: >
-          landing_zone pre-answers it - corp and standalone: private; online and sandbox: public.
-          A stated exception overrides the pre-answer (a corp workload with one
-          internet-facing endpoint is private_with_exceptions)
         why: >
-          The single decision most resource defaults hang off. `private` means every
+          Asked in every run, whatever the landing zone, and the input of `landing_zone`
+          rather than its consequence: with a platform, `private` and
+          `private_with_exceptions` place the workload in `corp`, `public` in `online`. A
+          system the customer wants reachable from the internet is not forced private by
+          the platform answer. The single decision most resource defaults hang off. `private` means every
           resource that supports a private endpoint gets one and has no public
           surface. `private_with_exceptions` is the same baseline with named
           resources allowed a firewalled public endpoint, each recorded as
           `overridden`. `public` is a deliberate posture for a system whose
           consumers genuinely live off-network - it is not the absence of a
-          decision, and the portal default being permissive is not a reason.
+          decision, and the portal default being permissive is not a reason. It is also
+          rarely what a system with a database wants: a shop's website faces the internet
+          and its database does not, which is `private_with_exceptions` with the website
+          named in `public_parts`, never `public`.
           One posture for every stage: a system is as exposed in production as
           the customer said it is, and "öffentlich ist okay" said while
           describing the development stage is said about the system, not about
@@ -1107,7 +1216,64 @@ groups:
           never split by the run.
         renders: >
           pre-answers public_network_access in every resource question set, and
-          decides whether private endpoints and DNS records are generated at all
+          decides whether private endpoints and DNS records are generated at all;
+          private_with_exceptions asks public_parts, and only the resources those parts
+          map to get a firewalled public endpoint
+
+      - id: public_parts
+        ask: Which parts must be reachable from the internet - for example the website, the interface for partners, a download area?
+        type: list
+        resolved_by: interview
+        topic: network
+        plain:
+          en: "Reachable from the internet: {value}. Everything else stays private."
+          de: "Aus dem Internet erreichbar: {value}. Alles andere bleibt privat."
+        depends_on: { question: network_exposure, equals: private_with_exceptions }
+        required: true
+        why: >
+          The exceptions of `private_with_exceptions`, named in the customer's words: the
+          engineer maps each part to the resource that serves it (the website to its web
+          app or front door, the partner interface to the API entry) and records that
+          resource's public_network_access as `overridden` with the part as the reason;
+          every resource no part maps to keeps the private baseline. An unmapped part is
+          an `open:` entry owned by the workload owner, never a public database. Free
+          text on purpose, like `mandates`: the parts are the workload's own.
+        renders: >
+          public_network_access `enabled` on the mapped resources only, protected as
+          public_audience says (a front door, or an address allowlist); every other
+          resource stays `disabled` behind its private endpoint
+
+      - id: public_audience
+        ask: Who may reach these parts from the internet - anyone, or only partners you know?
+        type: enum
+        resolved_by: interview
+        topic: network
+        plain:
+          en: "The parts reachable from the internet are open to {value}."
+          de: "Die aus dem Internet erreichbaren Teile stehen {value} offen."
+        plain_values:
+          anyone: { en: "anyone on the internet, protected by a filtering layer in front", de: "jedem im Internet, geschützt durch eine Filterschicht davor" }
+          known_partners: { en: "only the partners you know, through a list of their addresses", de: "nur den Partnern, die ihr kennt, über eine Liste ihrer Adressen" }
+        values: [anyone, known_partners]
+        default: anyone
+        depends_on: { question: network_exposure, equals: private_with_exceptions }
+        why: >
+          "Behind a firewall" means two different things, and the customer decides which. A
+          website for consumers cannot list its visitors' addresses, so `anyone` puts a Front
+          Door with a web application firewall in front of the mapped resources - a resource
+          the customer never named and that costs money every month, which is why it is said
+          in Phase 4. A partner interface can list its callers, so `known_partners` keeps the
+          resource's own firewall with an address allowlist and adds nothing; the addresses
+          are an `open:` entry owned by the workload owner, never guessed. One answer for
+          every public part: a system with both kinds states the wider one, and a part
+          departing from it is a stated exception. `anyone` is the default because an
+          allowlist that is wrong locks real users out, while a filtering layer that is
+          not needed only costs money.
+        renders: >
+          anyone: the `front-door` resource (with its web application firewall policy)
+          in front of the resources the public parts map to, which then accept traffic from
+          it only; known_partners: ip_restrictions / ipSecurityRestrictions or the resource's
+          own firewall rules on the mapped resources, the addresses an `open:` entry
 
       - id: local_auth
         ask: May resources keep key-based or connection-string auth?
@@ -1513,3 +1679,50 @@ groups:
           prefer an alert on ingestion volume; in a sandbox the cap is the cheaper
           protection. If a cap is wanted, the number is the answer - "yes" is not.
         renders: azurerm_log_analytics_workspace.daily_quota_gb / properties.workspaceCapping.dailyQuotaGb
+
+  - id: backup
+    title: Backup
+    questions:
+      - id: backup_ownership
+        ask: Should this deployment create its own backup vault, or use an existing one?
+        type: enum
+        resolved_by: derived
+        plain:
+          en: "Protected copies go to {value}."
+          de: "Geschützte Kopien gehen in {value}."
+        plain_values:
+          create: { en: "a backup store this deployment creates and pays for", de: "einen Backup-Speicher, den dieses Ausrollen anlegt und bezahlt" }
+          reference: { en: "the company's central backup store", de: "den zentralen Backup-Speicher der Firma" }
+        values: [create, reference]
+        default: create
+        depends_on: { question: backup_isolation, not_equals: operational }
+        forced_when: >
+          central_backup answers it directly: yes `reference`, no `create`. Not reached when
+          backup_isolation is `operational`
+        why: >
+          The same shape as the workspace question: a vault either exists and is used, or
+          this deployment creates it. `create` is the default because an assumed vault that
+          is missing fails at the first backup, and the deployment then owns the vault's
+          soft delete, immutability and Resource Guard. `reference` leaves those to the
+          platform team: this deployment adds backup instances and policies to the central
+          vault and does not manage the vault itself.
+        renders: >
+          backup-vault / recovery-services-vault resource vs. an existing reference; the
+          vault's own settings are rendered only under `create`
+
+      - id: backup_vault_destination
+        ask: Which existing backup vault should receive the protected copies?
+        type: ref
+        resolved_by: derived
+        plain:
+          en: "Protected copies are kept in {value}."
+          de: "Geschützte Kopien werden in {value} aufbewahrt."
+        ref: backup_vault
+        required: true
+        depends_on: { question: backup_ownership, equals: reference }
+        per_environment: true
+        why: >
+          Read by name and resource group, never by a hardcoded resource id, for the same
+          reason as the other referenced platform parts. Never asked of the customer: an
+          `open:` entry owned by the platform team until the request names it.
+        renders: data source / existing reference the backup instances are attached to

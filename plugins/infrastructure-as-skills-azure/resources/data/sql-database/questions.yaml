@@ -76,16 +76,18 @@ groups:
     title: Databases and compute
     questions:
       - id: databases
-        ask: Which databases should the server hold?
+        ask: Which separate databases does the application need - one per area such as orders or customers? Give each a short name.
         type: list
+        resolved_by: interview
+        topic: data
         plain:
           en: "The server holds the databases {value}."
           de: "Der Server enthält die Datenbanken {value}."
         required: true
         why: >
-          Only the application knows its databases, so there is no default: with no
-          answer the decision is an `open:` entry owned by the workload owner, blocking
-          apply. Every database takes the compute, backup and resilience answers below as
+          Only the application knows its databases, so there is no default: the customer
+          names them, and with no answer the decision is an `open:` entry owned by the
+          workload owner, blocking apply. Every database takes the compute, backup and resilience answers below as
           its own; a departure per database is recorded. A database name is part of its
           connection string and cannot be renamed in place.
         renders: databases.<key>.name / databases[].name
@@ -169,7 +171,9 @@ groups:
         plain:
           en: "The database may use up to {value} virtual cores."
           de: "Die Datenbank darf bis zu {value} virtuelle Kerne nutzen."
-        default: 2
+        derived_from:
+          question: expected_load
+          map: { small: 2, medium: 4, large: 8 }
         why: >
           2 vCores is the smallest provisioned vCore size and the lowest cost; a database
           that needs more says so by high CPU and waits, and resizing is an in-place
