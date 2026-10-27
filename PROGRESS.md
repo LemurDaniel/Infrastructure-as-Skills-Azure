@@ -761,9 +761,12 @@ regeneration from the spec loses them. All `render`:
 ### Evals
 
 - **CI (2026-10-27), not run yet**: `.github/workflows/plugin-evals.yml` runs the suite on
-  every plugin pull request on Haiku (1 run per case, no baseline arm, $3 ceiling, report
-  only), any model by hand; `record_eval_history.py` writes each run to `eval-history`. It
-  needs the secret `ANTHROPIC_API_KEY`. Unverified on a Linux runner: whether the eval
+  every plugin pull request on Haiku (3 runs per case in parallel, one case per call with
+  progress and remaining time in the log, no baseline arm, $8 ceiling, report only, `--scaffold`
+  for the sync cases), any model by hand; `record_eval_history.py` writes each run to
+  `eval-history` and the PR comment (link to the run via the repository variable
+  `EVAL_DASHBOARD_URL`). `review-agent-separate` never loaded before 2026-10-27 (`focus:
+  transcript` is not a value; `trace` is). It needs the secret `ANTHROPIC_API_KEY`. Unverified on a Linux runner: whether the eval
   sandbox needs bubblewrap there although no case grants a shell. Haiku has no baseline
   yet; its rates are compared with Haiku's own, never with `baseline.json`.
 - Triggering is covered by `trigger/trigger-workload-request` ("eine Chatapp in Azure mit
