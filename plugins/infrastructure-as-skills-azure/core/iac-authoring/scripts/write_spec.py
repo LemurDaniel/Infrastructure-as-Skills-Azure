@@ -17,7 +17,9 @@ a re-run is a diff of what moved, not of how it was typed.
     (`min_tls_version: {value: TLS1_2, source: default}`), and so a short list or map of
     plain values ([audit], {development: B1, test: B1, production: P1v3}); a longer one
     with its fields on lines of their own; never a YAML anchor;
-  - spec.plugin_version stamped with the installed plugin (--no-stamp leaves it as it is).
+  - spec.plugin_version stamped with the installed plugin (--no-stamp leaves it as it is);
+  - the root's naming.yaml written beside the spec when it has none, by
+    core/iac-rendering/scripts/write_naming.py (not with --check).
 
 Nothing else changes. Every comment stays at the key it stood at, and the file is written
 only if it reads back as the same content (plugin_version aside) with the same comments in
@@ -31,6 +33,7 @@ import argparse
 import datetime
 import json
 import re
+import subprocess
 import sys
 from pathlib import Path
 
@@ -44,6 +47,7 @@ HERE = Path(__file__).resolve().parent
 PLUGIN = HERE.parents[2]
 PLUGIN_JSON = PLUGIN / ".claude-plugin" / "plugin.json"
 DEPLOYMENT_SET = HERE.parent / "questions" / "deployment.yaml"
+WRITE_NAMING = PLUGIN / "core" / "iac-rendering" / "scripts" / "write_naming.py"
 
 SECTIONS = ['schema_version', 'spec', 'context', 'deployment', 'pattern', 'composition', 'resources', 'wiring', 'open']
 HEAD = ['id', 'target', 'generated_by', 'plugin_version', 'skill', 'skill_version', 'at']
@@ -409,7 +413,7 @@ def main():
 
     if new == text:
         print(f"{path}: canonical")
-        return 0
+        return write_naming(path, args.check)
     if args.check:
         print(f"{path}: not canonical - run write_spec.py on it")
         return 1
@@ -417,7 +421,16 @@ def main():
         f.write(new)
     kept = sum(len(c) for c in leading.values()) + len(trailing)
     print(f"{path}: written ({kept} comment(s) kept)")
-    return 0
+    return write_naming(path, args.check)
+
+
+def write_naming(path, check):
+    """The root's naming.yaml belongs with the spec: written here when missing, never replaced."""
+    if check:
+        return 0
+    p = subprocess.run([sys.executable, str(WRITE_NAMING), str(path)], capture_output=True, text=True)
+    print((p.stdout or p.stderr).rstrip())
+    return 0 if p.returncode == 0 else 2
 
 
 if __name__ == '__main__':
