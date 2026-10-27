@@ -12,6 +12,7 @@
 > **Terraform or Bicep is not required, but recommended.** The plugin writes the code without the CLI, but then it cannot run `fmt`, `validate`, `terraform test` or `bicep build` against it. The render is handed over marked as unverified.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Evals on Sonnet](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/LemurDaniel/Infrastructure-as-Skills-Azure/eval-history/badge-sonnet.json)](https://github.com/LemurDaniel/Infrastructure-as-Skills-Azure/blob/eval-history/README.md)
 
 A Claude Code plugin that authors Azure infrastructure as **Terraform or Bicep** from the decisions a resource actually forces - compute, network, data, security, messaging, integration, AI and recovery, 67 resource types in ten families. Not a module library and not a template collection. The interview writes an `infra-spec.yaml`; the code, its tests, a diagram and a decision document are rendered from that, onto [Azure Verified Modules](https://azure.github.io/Azure-Verified-Modules/) first.
 
@@ -296,7 +297,7 @@ claude plugin eval plugins/infrastructure-as-skills-azure --allow-tools Write Ed
 
 ## 🧪 Status
 
-Early, and the shape matters more than the coverage. The eval baseline holds; three specs are rendered to Terraform with plan-only tests, and one Bicep render, [`eval-agent/`](eval-agent/), has been deployed to a subscription through its own rendered GitHub pipeline.
+Early, and the shape matters more than the coverage. The eval suite runs on Sonnet before every merge - the badge above is its newest run, the [eval history](https://github.com/LemurDaniel/Infrastructure-as-Skills-Azure/blob/eval-history/README.md) every plugin version and model case by case; three specs are rendered to Terraform with plan-only tests, and one Bicep render, [`eval-agent/`](eval-agent/), has been deployed to a subscription through its own rendered GitHub pipeline.
 
 - [x] Shared contract: spec format, question-set format, interview protocol, guardrails
 - [x] Deployment-wide question set, inherited by every resource via `from_deployment`
