@@ -133,10 +133,12 @@ A first look — one run per case, no baseline arm, in parallel:
 & $claude plugin eval plugins/infrastructure-as-skills-azure --trust-plugin --no-publish --runs 1 --ablation none -j 3 --allow-tools Write Edit --keep-temp --json <scratch>/eval.json
 ```
 
-The full measurement is the default: 5 runs per case (each `prompt.md` sets `runs: 5`) and
-the no-plugin arm, so 9 cases × 5 runs × 2 arms = 90 agent runs; the run before a merge
-drops the arm (`--ablation none`), 45. Start it in the background and say what it costs
-before starting it.
+The full measurement is the default: each case's own `runs:` (4, and 2 for the four cases
+costing about $3 or more on Sonnet - the evals README names them) and the no-plugin arm,
+so 32 agent runs per arm for the 10 cases; the run before a merge drops the arm
+(`--ablation none`). Never pass `--runs` for it: it overrides every case's own value. A new
+case starts at `runs: 4` and drops to 2 only when a measured run shows it that costly.
+Start it in the background and say what it costs before starting it.
 
 Afterwards:
 

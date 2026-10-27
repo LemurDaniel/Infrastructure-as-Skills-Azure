@@ -3,7 +3,7 @@ description: "An English request with target and module stated. Tests that the l
 expected_outcome: "infra/infra-spec.yaml with context.language en, English labels in wiring, no German text anywhere in the spec, and a final message in English."
 tags: [terraform, language, en]
 plugins: ["../../.."]
-runs: 5
+runs: 2
 max_turns: 60
 timeout_seconds: 900
 allowed_tools: [Read, Glob, Grep, Skill, Write, Edit]

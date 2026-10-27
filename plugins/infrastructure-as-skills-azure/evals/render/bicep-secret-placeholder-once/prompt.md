@@ -3,7 +3,7 @@ description: A Key Vault with two secret placeholders, rendered as Bicep. Tests 
 expected_outcome: infra/main.bicep with a secret resource per placeholder under @onlyIfNotExists(), no existingSecretNames parameter, no condition on a lookup, no secret value in the file.
 tags: [bicep, development, key-vault, render]
 plugins: ["../../.."]
-runs: 5
+runs: 4
 max_turns: 80
 timeout_seconds: 1200
 allowed_tools: [Read, Glob, Grep, Skill, Write, Edit]
