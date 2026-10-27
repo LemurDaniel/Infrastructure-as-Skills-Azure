@@ -338,6 +338,14 @@ the detail; this list says what was decided and why, so a session does not reope
   the plugin (development tooling, not shipped; `ideas/diagram-fuzz.md`). Its zone check
   never fires on its own specs yet - only the `four-apps-one-subnet` fixture test guards the
   rule that a call inside one container stays in it.
+  **Since 2026-10-27 the agent app is gone** (spec, diagram, render, pipelines; not deployed):
+  the evals run in GitHub Actions instead (`plugin-evals.yml`), recorded on the `eval-history`
+  branch, and the dashboard only shows - eval history per plugin version and model, read from
+  that branch through the GitHub API without a token, plus the fuzz and tuner reports from
+  storage. No run start, no tickets, no `github-token` in the vault; drift and tune run on
+  their timers only. Why: an always-on site and a private endpoint for a job that runs a few
+  times a week, in a test subscription. The stage workflow's linuxFxVersion step had mapped
+  drift, fuzz and tune onto the dashboard's parameter; it maps per site now.
 - **Names before the deploy** (2026-10-25): `list_names.py` derives every resource's name
   from the spec and the convention, offline - no plan, no tool, no login is assumed; the
   render's step 8 hands the table over and asks "Passen die Namen?". `<UNIQUE_ID_n>` prints
@@ -752,6 +760,12 @@ regeneration from the spec loses them. All `render`:
 
 ### Evals
 
+- **CI (2026-10-27), not run yet**: `.github/workflows/plugin-evals.yml` runs the suite on
+  every plugin pull request on Haiku (1 run per case, no baseline arm, $3 ceiling, report
+  only), any model by hand; `record_eval_history.py` writes each run to `eval-history`. It
+  needs the secret `ANTHROPIC_API_KEY`. Unverified on a Linux runner: whether the eval
+  sandbox needs bubblewrap there although no case grants a shell. Haiku has no baseline
+  yet; its rates are compared with Haiku's own, never with `baseline.json`.
 - Triggering is covered by `trigger/trigger-workload-request` ("eine Chatapp in Azure mit
   RAG", no resource named, must open the interview); it passes.
 - No grader checks `implementation` or `module_source`. No case for: the delivery
@@ -795,6 +809,10 @@ regeneration from the spec loses them. All `render`:
   only (`ideas/pattern-skill.md`).
 - An AVM version drift check, read-only, scheduled (`ideas/avm-drift-watch.md`).
 - First run of the image pipeline (AcrPush is granted, 2026-10-25) and a check that its closing step really leaves the registry at `Disabled`. The dashboard's real mode (blob, GitHub, sign-in) has not run.
+- The repository secret `ANTHROPIC_API_KEY` for `plugin-evals.yml`.
+- If the agent site was ever deployed: delete by hand what the incremental Bicep deploy leaves
+  behind - the site `app-…-evalagent-agent-02`, its identity, private endpoint and role
+  assignments, and the vault secret `github-token`.
 
 ### Environment
 
