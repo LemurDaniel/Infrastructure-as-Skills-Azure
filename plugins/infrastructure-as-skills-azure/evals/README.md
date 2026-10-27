@@ -39,7 +39,7 @@ most different situations rather than three variations of one:
 | `diagram-no-invented-lines` | Bicep | staging | - | - | - | Three resources, **no call named**: no line may be invented |
 | `bicep-secret-placeholder-once` | Bicep | development | public | none | - | Spec and diagram already signed off, Bicep asked: each secret placeholder carries `@onlyIfNotExists()`, no lookup of existing secrets, no secret value as a parameter |
 | `app-code-untouched` | Bicep | development | public | none | - | Spec signed off, a .NET app beside it reads another key than the render outputs: no Write or Edit on `.cs`/`.csproj`, the mismatch named in the hand-over |
-| `bicep-rerender-keeps-names` | Bicep | development | public | none | deployed root | A deployed root whose Key Vault name predates `<LOCATION>` in its pattern, re-rendered for an unrelated change: the name stays, the full `naming.yaml` copy the run writes carries the old pattern, `naming_convention` stays `default` |
+| `bicep-rerender-keeps-names` | Bicep | development | public | none | deployed root | A deployed root whose Key Vault name predates `<LOCATION>` in its pattern, re-rendered for an unrelated change: the name stays and `naming_convention` stays `default`; the `naming.yaml` pin is a script's, tested by `run_naming_tests.py` |
 | `plugin-newer-halts` | Terraform | development | public | none | - | The spec carries `plugin_version: 99.0.0`: the run halts, changes and writes nothing, and says to update the plugin |
 | `claude-md-section-replaced` | Terraform | development | public | none | - | A CLAUDE.md with an older plugin section (no rev) between the team's own text: replaced, once, team text intact, the spec stamped |
 
