@@ -68,8 +68,17 @@ undersized for two, and the symptom is the second app's deploy slowing the first
 size is the owner's decision (`plan: own`); the second app's `plan: shared` names the owner and
 nothing else about hosting.
 
+**A slot is a copy of the app, not a stage.** It runs on the same plan, in the same network,
+with the same identity and against the same backends as production; only its host name and
+the code in it differ. That is what makes a swap safe - the slot was warmed up against the
+real dependencies - and what makes a slot a poor test stage: tests in it read and write
+production data. A request that names a slot as its test environment gets the slot and one
+line in Phase 4 saying so. The slot needs Premium v3, a shared user-assigned identity
+(identities are per slot and are not swapped), its own private endpoint (`sites-<slot>`),
+and the site's diagnostic setting again; who may open it is `slot_access`.
+
 ## Not covered here, and why
 
-Deployment slots, autoscale, custom domains and certificates, Easy Auth, backups and
+Autoscale, custom domains and certificates, Easy Auth, backups and
 Application Insights each carry decisions of their own. They are listed as boundaries
 and have no question set yet; a request for one is said out loud, not improvised.
