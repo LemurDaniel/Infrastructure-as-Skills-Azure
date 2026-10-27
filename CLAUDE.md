@@ -78,6 +78,10 @@ python3 plugins/infrastructure-as-skills-azure/core/iac-rendering/tests/run_clau
 # the run (exit 3) so the person is asked to update; older, equal or no version never blocks.
 python3 plugins/infrastructure-as-skills-azure/core/iac-authoring/tests/run_plugin_version_tests.py
 
+# Writes references/abbreviations.md (the readable abbreviation tables) from naming.default.yaml.
+# --check writes nothing; check_repo_consistency.py runs it and fails on a stale file.
+python3 plugins/infrastructure-as-skills-azure/core/iac-rendering/scripts/write_abbreviations.py
+
 # Renders a spec as the customer's decision document (infra-decisions.md beside it).
 python3 plugins/infrastructure-as-skills-azure/core/iac-authoring/scripts/export_decisions.py <spec> --language de
 

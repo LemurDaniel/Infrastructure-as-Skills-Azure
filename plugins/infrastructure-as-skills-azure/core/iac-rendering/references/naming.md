@@ -26,7 +26,8 @@ with `module` the convention is the module's own. Bicep ignores `naming_source`.
 
 [naming.default.yaml](naming.default.yaml) is the plugin's convention: the one the
 `LemurDaniel/naming` provider bundles as `default` — CAF abbreviations, AVM region codes,
-one pattern per type where Azure's limits demand it. It is the default the guardrails
+one pattern per type where Azure's limits demand it; its abbreviations as tables are in
+[abbreviations.md](abbreviations.md). It is the default the guardrails
 prescribe; see [guardrails.md](../../iac-authoring/references/guardrails.md#1-naming-and-tags).
 
 What it produces, with `location: westeurope`, `environment: production`,
@@ -245,7 +246,7 @@ var keyVaultName = 'kv-${env}-${workload}-${take(uniqueString(resourceGroup().id
 
 | Part | Source |
 |---|---|
-| Abbreviation (`st`, `vnet`, `kv`, `log`, …) | `abbreviations.Azure` in `naming.yaml`; the question set's `naming.abbreviation` mirrors the default |
+| Abbreviation (`st`, `vnet`, `kv`, `log`, …) | `abbreviations.Azure` in `naming.yaml`, every entry listed in [abbreviations.md](abbreviations.md); the question set's `naming.abbreviation` mirrors the default |
 | Pattern | `patterns.Azure.<type>` in `naming.yaml`, else `patterns.Azure.default` |
 | Location short code | `mappings.location` in `naming.yaml` |
 | Environment short code | `mappings.environment` in `naming.yaml` |
