@@ -529,7 +529,11 @@ per-family` in `check_spec.py` and the `chatbot` spec, and `references/private-d
   the only part people open. Deployment slots are a `slots` group of the App Service set
   (`slot_access` interview; slots force Premium v3 and one shared user-assigned identity),
   and Phase 4 says a slot named as a stage runs on production data. The sets are read
-  through `interview_digest.py` (a run's own extraction dropped `forced_when`). Open: no
+  through `interview_digest.py` (a run's own extraction dropped `forced_when`). The diagram
+  is shown as a draft first (draft question: are the parts and connections right?); Loop 1
+  polishes only a confirmed draft, and the code question follows the polish. Open: whether
+  Phase 4's "Passt das Design?" and the draft question confirm the same thing twice;
+  `docs/process.drawio.png` still shows the review before the customer. Open: no
   render, example or eval case with a slot; an `open:` entry may still name a resource the
   spec does not have (proposed: a `check_spec.py` rule); `offer` texts repeat the value
   their label already shows (`30 Tage - ...`); whether the progress line before each batch

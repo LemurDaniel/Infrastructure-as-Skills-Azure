@@ -18,13 +18,14 @@ guardrails again. Without the Agent tool, do the same steps in the same order yo
 
 ```
  Loop 1 · Diagram and sign-off (iac-authoring, Phase 5)
-   infra-spec.yaml ─> main session: script ─> review agent ─> errors? ──no──> customer: fits? ──yes──┐
-                              ^                     │ yes                          │ change          │
-                              │                     v                              v                 │
-                       fix agent (by hand) <─ findings (render)        spec corrected, script run     │
-                              │                                                                       │
-                              └──> review again (3 passes at most)                                    │
- Loop 2 · Code (iac-rendering) - starts only after the yes  <────────────────────────────────────────┘
+   infra-spec.yaml ─> main session: script ─> customer: content right? ──change──> spec corrected, script run
+                                                     │ yes                                  (draft shown again)
+                                                     v
+                              review agent ─> errors? ──no──> customer: generate the code? ──yes──┐
+                                   ^             │ yes                                            │
+                                   │             v                                                │
+                                   └── fix agent (by hand), review again (3 passes at most)       │
+ Loop 2 · Code (iac-rendering) - starts only after the yes  <─────────────────────────────────────┘
    code agent ─> pipeline agent ─> test agent ─> green? ──yes──> hand-over
         ^                                          │ no
         └──────────────── findings ────────────────┘
@@ -33,11 +34,13 @@ guardrails again. Without the Agent tool, do the same steps in the same order yo
 **The loops run one after the other, never in parallel** (owner's call, 2026-10-24,
 replacing two parallel arms): the customer signs off on the picture, and the code - the
 long, expensive loop - is rendered only from a spec whose picture they have agreed to. Loop
-1 is Phase 5 of `iac-authoring`; the main session runs the diagram script, the review
-agent and the fix agent iterate on the picture - review, hand fix, review - until it carries no real error, then the
-main agent shows it to the customer with the one question of Phase 5. "Change something" ("Etwas ändern") corrects the spec and redraws; "yes" ("Ja, passt") starts
-Loop 2. In the same session, Loop 1 is the same loop with the session in both roles:
-draw, then review the PNG against the checklist as a reader who has not seen the spec,
+1 is Phase 5 of `iac-authoring`; the main session runs the diagram script and shows the
+draft with the draft question. A content change corrects the spec and redraws, and the new
+draft is shown again; "content is right" ("Inhalt passt") starts the polish - the review
+agent and the fix agent iterate on the picture, review, hand fix, review, until it carries no
+real error - and the main agent shows the result with the code question. Its yes ("Ja, Code
+erzeugen") starts Loop 2. In the same session, the polish is the same loop with the session
+in both roles: review the PNG against the checklist as a reader who has not seen the spec,
 fix every `error`, and only then show it. In Loop 2 the agents never read each other's
 output, and none of them touches the picture: the code is rendered from the spec the customer saw drawn, so the diagram stays as
 signed off. The main agent starts the loops, counts the passes, routes findings and writes

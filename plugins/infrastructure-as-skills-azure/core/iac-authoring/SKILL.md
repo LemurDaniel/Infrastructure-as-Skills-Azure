@@ -70,7 +70,8 @@ in every run, in this order; the sections below carry the detail.
    `[development, test, production]` stays unless the customer named the stages.
 6. **Spec, diagram, sign-off, then code.** No `.tf` or `.bicep` before the customer's yes,
    also when the request already said "then write the code".
-7. **The turn ends on the sign-off question** - also when the diagram could not be drawn.
+7. **The turn ends on a question** - the draft question on the rough picture, the code
+   question on the polished one - also when the diagram could not be drawn.
 
 **Where `<plugin>` is.** Every `<plugin>/...` path in these skills is relative to the plugin's
 root: two levels above this skill's base directory, which is shown when the skill loads
@@ -88,7 +89,7 @@ grants no Bash) loses the tools, not the rules:
 - The version gate and the `CLAUDE.md` section are done by hand with Read and Edit, as their
   sections say; the spec is written in its canonical form by hand and called unvalidated.
 - The diagram cannot be drawn. Say so in one line, in `context.language`, with what would
-  draw it, and close with the sign-off question on the decisions instead of the picture
+  draw it, and close with the draft question on the decisions instead of the picture
   (the Phase 4 list, `infra-decisions.md` where it exists). No code before that yes either.
 - A subagent has the tools of the session that starts it: never hand it a script in the
   hope that it has a shell.
@@ -866,15 +867,17 @@ a shortcut past any of them.
 
 ```
 Wie soll ich weiterarbeiten?
-  1. Mit Subagenten (empfohlen) - Ein Agent zeichnet, ein zweiter prüft das Bild, bevor du
-     es siehst; später rendert und testet je ein Agent den Code. Gründlicher, kostet mehr
+  1. Mit Subagenten (empfohlen) - Du siehst zuerst einen Entwurf; passt der Inhalt, prüft ein
+     Agent das Bild und ein zweiter schleift es; später rendert und testet je ein Agent den
+     Code. Gründlicher, kostet mehr
   2. In dieser Sitzung - Ich mache alles selbst, nacheinander. Günstiger, keine zweite Prüfung
 ```
 
 ```
 How should I continue?
-  1. With subagents (recommended) - One agent draws, a second reviews the picture before you
-     see it; later one agent each renders and tests the code. More thorough, costs more
+  1. With subagents (recommended) - You see a draft first; once its content is right, one
+     agent reviews the picture and a second polishes it; later one agent each renders and
+     tests the code. More thorough, costs more
   2. In this session - I do everything myself, one step after the other. Cheaper, no second review
 ```
 
@@ -944,19 +947,43 @@ for twelve resources, because the picture is the thing the person signs off on a
 question "should I draw a diagram?" was a question nobody ever answered with no. Where the PNG cannot be exported (no draw.io CLI), hand over the
 `.drawio` and say so.
 
-**Review it before anyone sees it - Loop 1 of
-[agents.md](../iac-rendering/references/agents.md).** The picture is not shown to the
-customer as it comes out of the script. A **review agent** (read-only; with Subagents a
+**Show the draft first and ask about the content.** The main session runs the script itself
+(`new_diagram.py`, `verify_diagram.py`, `export_diagram.py --keep`: deterministic, seconds)
+and shows the draft as soon as `verify_diagram.py` passes - with the decision document's first
+section and the `open:` items - asking one question through `AskUserQuestion`: are the parts
+and connections right? The layout is not polished yet and the message says so; what is asked
+is the content. A content change is cheap here: correct the spec, re-export the decision
+document, regenerate, show the new draft, ask again - no review runs on a draft the customer
+may still change. An objection to the drawing itself ("the arrows overlap" / "die Pfeile
+überlappen sich") is answered with the polish that follows, and noted for the review.
+
+```
+Entwurf (infra/infra-diagram.drawio.png) - die Darstellung ist noch roh, den Feinschliff
+mache ich danach. Was ihr entschieden habt, steht in infra/infra-decisions.md.
+Stimmen die Teile und Verbindungen?
+  - Inhalt passt              -> Loop 1 polishes the picture; then the code question
+  - Etwas ändern              -> the user says what; change the spec, redraw, ask again
+  - Noch nicht                -> stop here; the spec and the draft stay, the next run extends them
+```
+
+```
+Draft (infra/infra-diagram.drawio.png) - the layout is still rough; I polish it next. What
+you decided is in infra/infra-decisions.md.
+Are the parts and connections right?
+  - Content is right          -> Loop 1 polishes the picture; then the code question
+  - Change something          -> the user says what; change the spec, redraw, ask again
+  - Not yet                   -> stop here; the spec and the draft stay, the next run extends them
+```
+
+**Then polish it - Loop 1 of [agents.md](../iac-rendering/references/agents.md)** - only after
+"Content is right" ("Inhalt passt"). A **review agent** (read-only; with Subagents a
 subagent, in the same session the session itself, with the same checklist) looks at the
 PNG, works through [the checklist](../iac-diagram/SKILL.md#the-review-checklist) edge by
 edge and reports a numbered list: a line through an icon or another line, overlapping or
 wrapped labels, a label in the wrong language, a legend that contradicts a colour, a
 number or a name that disagrees with the spec. **With Subagents the main session starts the
-review agent itself, as its own Agent call after the draft exists** - with Subagents the
-**main session runs the script itself** (`new_diagram.py`, `verify_diagram.py`,
-`export_diagram.py --keep`: deterministic, seconds, nothing an agent that starts cold would do
-better), then starts the review agent, then - only when the review found an `error` with cause
-`render` - the **fix agent**. A subagent cannot start another, so a brief that tells one to "use a review
+review agent itself, as its own Agent call on the confirmed draft** - and, only when the review
+found an `error` with cause `render`, the **fix agent**. A subagent cannot start another, so a brief that tells one to "use a review
 subagent" gets no independent review, and whoever edited the picture must never be the one that
 checks. The review never shares an agent with the draft or the fix. Each finding carries a severity (`error`:
 wrong, misleading or unreadable; `polish`: only looks worse than it could) and a cause
@@ -977,14 +1004,17 @@ fix broke - never a fresh sweep. An `error` with cause `spec` is the main agent'
 spec, re-export the decision document, regenerate the draft - **and do that before the
 fix agent starts its hand edits**, because a regenerated draft loses them; the order
 of a pass is spec findings first (the main session corrects the spec and runs the script
-again), then the hand edits on the fresh draft, then the review again. Every finding names the cells it concerns by their draw.io ids (`e-6`,
+again), then the hand edits on the fresh draft, then the review again. A spec finding that
+changes what the picture shows goes back to the draft question before the polish goes on: the
+customer confirmed the content, not a correction they have not seen. Every finding names the cells it concerns by their draw.io ids (`e-6`,
 `res-key-vault`), so the fix agent can act on it without re-deriving it. **Never show
-the customer a picture with an error you have already seen** - that is what the loop is
+the polished picture with an error you have already seen** - that is what the loop is
 for.
 
-**The code question.** Every reviewed diagram ends in this question, in the same message
-that shows it - after the first draw, after every redraw in the loop, after a diagram-only
-request, after an extension of the spec. It is always asked: nothing the person said
+**The code question.** Every polished diagram ends in this question, in the same message
+that shows it - after the first polish, after every redraw in the loop, after a diagram-only
+request, after an extension of the spec. The draft question never stands in for it: the
+customer confirmed the content of a rough picture, and the code is built on the finished one. It is always asked: nothing the person said
 earlier - "then write the code" / "dann schreib den Code", a stated target, an answer in the interview, a request
 for a commit - stands in for it, and a run never skips it because the answer seems
 obvious. A diagram shown without the question, or a
@@ -992,39 +1022,37 @@ turn that ends on "diagram is done" or on a list of findings, is a missed step. 
 `AskUserQuestion` - the interactive popup with the three options, as the call right after
 the picture - and never replaced by prose like "let me know when I should render" or by
 the question written out as text; the three options are the `AskUserQuestion` options.
-Show the reviewed picture and the decision document's first section (what
-follows from their answers), name what is still `open:` and from whom, and ask one
-question. The German and English blocks below are the wording; it is asked in
-`context.language`. The three options keep their meaning in any language: only the yes
-starts the render.
+Show the polished picture, name the review findings left open and what is still `open:` and
+from whom, and ask one question. The German and English blocks below are the wording; it is
+asked in `context.language`. The three options keep their meaning in any language: only the
+yes starts the render.
 
 ```
-So sieht das System aus (infra/infra-diagram.drawio.png); was ihr entschieden habt, steht
-lesbar in infra/infra-decisions.md. Passt das so zu euren Anforderungen?
-  - Ja, passt                 -> the picture is signed off; the code is generated next
-  - Etwas ändern              -> the user says what; change the spec, redraw, ask again
+Feinschliff fertig (infra/infra-diagram.drawio.png). Soll ich den Code erzeugen?
+  - Ja, Code erzeugen         -> the picture is signed off; the code is generated next
+  - Etwas ändern              -> the user says what; change the spec, back to the draft question
   - Noch nicht                -> stop here; the spec and the picture stay, the next run extends them
 ```
 
 ```
-This is what the system looks like (infra/infra-diagram.drawio.png); what you decided is
-in infra/infra-decisions.md in readable form. Does this fit your requirements?
-  - Yes, build it             -> the picture is signed off; the code is generated next
-  - Change something         -> the user says what; change the spec, redraw, ask again
+The picture is polished (infra/infra-diagram.drawio.png). Shall I generate the code?
+  - Yes, generate the code    -> the picture is signed off; the code is generated next
+  - Change something          -> the user says what; change the spec, back to the draft question
   - Not yet                   -> stop here; the spec and the picture stay, the next run extends them
 ```
 
 "Change something" ("Etwas ändern") loops back to the spec, never into code: change the decision there, as
-`overridden` where it replaces an answer, re-export the decision document, redraw, review
-again, ask again. An objection to the picture itself ("the arrows overlap" / "die Pfeile überlappen sich") is a
-review finding that the review missed: it goes to the fix agent like any other
-`error`, and the customer sees the picture again only after the review passed. Stay in this loop as long as the person has objections - a round costs seconds
+`overridden` where it replaces an answer, re-export the decision document, redraw, and show
+the new draft with the draft question. An objection to the polished picture itself ("the
+arrows overlap" / "die Pfeile überlappen sich") is a review finding that the review missed: it
+goes to the fix agent like any other `error`, and the customer sees the picture again only
+after the review passed. Stay in this loop as long as the person has objections - a round costs seconds
 here and a regenerated module later. Offer the decision document as Word once, in the
 first round, as a side line and not an option: the `.docx` is a conversion
 (`pandoc infra-decisions.md -o infra-decisions.docx` where pandoc is on PATH; say so and
 leave the Markdown where it is not).
 
-**Only after "Yes, build it" ("Ja, passt") does the render start** ([iac-rendering](../iac-rendering/SKILL.md)),
+**Only after "Yes, generate the code" ("Ja, Code erzeugen") does the render start** ([iac-rendering](../iac-rendering/SKILL.md)),
 into the same directory, with its own loop of fmt, validate, tests and plan - Loop 2, in
 the working mode chosen above. It is the
 long step, and it runs on a picture the customer has agreed to, so nothing in it goes
@@ -1032,15 +1060,15 @@ back to the interview. Say that it takes a while and what will be there at the e
 
 **An earlier statement is not the answer.** "Dann schreibe den Terraform-Code" in the same
 message as the spec, or a change of the spec the person asked for themselves, still goes
-working mode, spec, diagram, review, question - the code is what they sign off on, not
+working mode, spec, draft, polish, question - the code is what they sign off on, not
 what they ordered, and the question is put after the picture, never before it.
-A run in which nobody can answer (no `AskUserQuestion`) ends after the diagram with the
-sign-off question as the last message and writes no `.tf` or `.bicep`: a sign-off nobody
-gave is not one, and the code would be built on a picture nobody has seen.
+A run in which nobody can answer (no `AskUserQuestion`) ends after the draft with the
+draft question as the last message, polishes nothing and writes no `.tf` or `.bicep`: a
+sign-off nobody gave is not one, and the code would be built on a picture nobody has seen.
 
 Never present the render as already decided. If the spec still holds `open:` entries or
 `assumed` values, say so with the question — the code will then `plan` but not `apply` —
-rather than letting "Ja, passt" read as "ready to deploy".
+rather than letting "Ja, Code erzeugen" read as "ready to deploy".
 
 A spec extended by a later run goes through the same loop; the diagram and the code are
 regenerated from the whole spec, so the diff shows what the extension moved.

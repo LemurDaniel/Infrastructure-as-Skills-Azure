@@ -20,16 +20,18 @@ sign-off, while changing a decision is still one line in the spec, not a regener
 module. It also keeps the diagram identical
 for Terraform and Bicep, as the spec is.
 
-**A diagram is never the last message.** Whoever exports one - first draw, redraw after a
-change, a diagram-only request - ends the turn with the sign-off question of
-[iac-authoring](../iac-authoring/SKILL.md) (Phase 5, "The code question"): does this fit - yes /
-change something / not yet. **It is always asked through `AskUserQuestion`**, so the person
-gets the interactive popup with the three options; a question written as prose in the
-message is not a sign-off, and neither is a diagram message that merely mentions one. Only
-a host without `AskUserQuestion` falls back to the prose question. The wording follows `context.language` (German: *Passt das
-so? Ja, passt / Etwas ändern / Noch nicht*; English: *Does this fit your requirements?
-Yes, build it / Change something / Not yet*). The yes option is what starts the code
-render; without the question it never starts. **No diagram is no exception**: where the
+**A diagram is never the last message.** Whoever exports one ends the turn with a question of
+[iac-authoring](../iac-authoring/SKILL.md) Phase 5: the **draft question** on a fresh draft -
+first draw, redraw after a change, a diagram-only request (*Stimmen die Teile und
+Verbindungen? Inhalt passt / Etwas ändern / Noch nicht*; *Are the parts and connections
+right? Content is right / Change something / Not yet*) - and, once the confirmed draft is
+polished, the **code question** (*Soll ich den Code erzeugen? Ja, Code erzeugen / Etwas
+ändern / Noch nicht*; *Shall I generate the code? Yes, generate the code / Change something /
+Not yet*). **Both are always asked through `AskUserQuestion`**, so the person gets the
+interactive popup with the three options; a question written as prose in the message is not
+a sign-off, and neither is a diagram message that merely mentions one. Only a host without
+`AskUserQuestion` falls back to the prose question, in `context.language`. The code
+question's yes is what starts the code render; without it it never starts. **No diagram is no exception**: where the
 scripts cannot run (no shell, no Python), say that the picture is missing and why, and ask
 the same question on the decisions - [iac-authoring](../iac-authoring/SKILL.md#without-a-shell).
 
@@ -81,11 +83,13 @@ regenerate and redo the edits, so note them in the hand-over. Never hand-edit to
 `overlaps` or `does not fit` from the script - those are the script failing on its own
 draft and are reported as such.
 
-**The review is not optional.** Every generation or hand edit of the diagram ends in Loop 1
-of [iac-rendering/references/agents.md](../iac-rendering/references/agents.md), with the
-checklist and the ceiling of [iac-authoring](../iac-authoring/SKILL.md) Phase 5 - also when
-the spec was only extended or changed, and also when this skill was loaded on its own. Nobody
-sees the picture before it has been reviewed. If the working mode (Subagents or Same session)
+**The review is not optional, and it comes after the content.** A fresh draft is shown as
+soon as `verify_diagram.py` passes, with the draft question; the customer's "content is
+right" starts Loop 1 of [iac-rendering/references/agents.md](../iac-rendering/references/agents.md),
+with the checklist and the ceiling of [iac-authoring](../iac-authoring/SKILL.md) Phase 5 -
+also when the spec was only extended or changed, and also when this skill was loaded on its
+own. No polished picture reaches the code question unreviewed, and no review is spent on a
+draft whose content may still change. If the working mode (Subagents or Same session)
 has not been answered in this session, ask it through `AskUserQuestion` before drawing, as
 Phase 5 says; never review silently "by looking once" and call it done.
 
