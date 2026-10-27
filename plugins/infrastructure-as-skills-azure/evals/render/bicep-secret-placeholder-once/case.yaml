@@ -1,6 +1,11 @@
 schema_version: "1.1"
 name: bicep-secret-placeholder-once
 
+# The signed-off spec is a file under workspace/, copied into the run's working directory by
+# scaffold.sh, so every run starts from the same state.
+context:
+  scaffold_script: scaffold.sh
+
 # The eval sandbox has no shell, so nothing is compiled here; the graders read the Bicep the
 # run wrote. Whether the decorator compiles is the pipeline's latest Bicep to say, not this case.
 graders:

@@ -16,7 +16,8 @@ rg-secretdemo-dev-we. Zugriff öffentlich, kein Netzwerk.
 Im Tresor sollen zwei Platzhalter-Secrets liegen, "api-key" und "db-password". Die echten
 Werte trägt später jemand von Hand ein; ein erneutes Ausrollen darf sie nicht überschreiben.
 
-Die Spec und das Diagramm sind schon abgenommen: das Diagramm passt so. Schreibe jetzt den
+Die Spec und das Diagramm sind schon abgenommen: das Diagramm passt so. Die Spec liegt unter
+infra/infra-spec.yaml. Schreibe jetzt den
 Bicep-Code, alles in eine einzige Datei infra/main.bicep, ohne Module.
 
 Zum Ablauf: Es ist niemand da, der Rückfragen beantwortet. Was oben nicht steht, nimmst du
