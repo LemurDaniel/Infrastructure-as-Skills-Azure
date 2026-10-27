@@ -60,6 +60,13 @@ in every run, in this order; the sections below carry the detail.
    also when the request already said "then write the code".
 6. **The turn ends on the sign-off question** - also when the diagram could not be drawn.
 
+**Where `<plugin>` is.** Every `<plugin>/...` path in these skills is relative to the plugin's
+root: two levels above this skill's base directory, which is shown when the skill loads
+(`.../core/iac-authoring`). Read its files - `.claude-plugin/plugin.json`, the references, the
+question sets - by that absolute path. Never search for them with Glob from the working
+directory: the plugin is outside it, and a search there may be refused. A file that cannot be
+read is no reason to skip the step that needs it; say which step and why.
+
 ### Without a shell
 
 The scripts - `write_spec.py`, `check_spec.py`, `export_decisions.py`, the diagram scripts,
