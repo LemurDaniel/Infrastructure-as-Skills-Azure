@@ -760,9 +760,10 @@ regeneration from the spec loses them. All `render`:
 
 ### Evals
 
-- **Eval tiers (2026-10-27)**: a pull request runs the 5 cases tagged `pr` (spec decisions) on
-  Haiku, ~$1; the full suite runs on Sonnet (low effort, ~$15-25) before a merge, locally, by a
-  test agent (git-commit-conventions, section 5). First CI run on Haiku, 13 cases: 23:45 min,
+- **Evals before a merge, none on the pull request (2026-10-27)**: the full suite runs on Sonnet
+  (low effort, ~$15-25) before a merge, locally (git-commit-conventions, section 5);
+  `plugin-evals.yml` runs it by hand on Linux. The PR run on Haiku was removed: it measured
+  the model. First CI run on Haiku, 13 cases: 23:45 min,
   $2.18, 2/13 at 100%, 0% on every process, sync and render case - Haiku skips multi-step rules.
   `language-de-request` and `module-source-authored` removed (100% on Opus and Haiku).
   `iac-authoring/SKILL.md` is ~11,400 words, loaded on every run: the hard rules (no code before
@@ -775,12 +776,9 @@ regeneration from the spec loses them. All `render`:
   picture, the CLAUDE.md sync by hand, the stamp); a rule block at the top of the skill and a
   "Without a shell" section answer it, not re-measured yet. Those cases measure the plugin
   only with a shell: on a Linux runner with Bash granted.
-- **CI (2026-10-27), first run done**: `.github/workflows/plugin-evals.yml` runs the suite on
-  every plugin pull request on Haiku (3 runs per case in parallel, one case per call with
-  progress and remaining time in the log, no baseline arm, $8 ceiling, report only, `--scaffold`
-  for the sync cases), any model by hand; `record_eval_history.py` writes each run to
-  `eval-history` and the PR comment (link to the run via the repository variable
-  `EVAL_DASHBOARD_URL`). `review-agent-separate` never loaded before 2026-10-27 (`focus:
+- **CI by hand**: `.github/workflows/plugin-evals.yml` (`workflow_dispatch`, Sonnet/low by
+  default, one case per call with progress, `--scaffold`, report only);
+  `record_eval_history.py` writes each run to `eval-history`. `review-agent-separate` never loaded before 2026-10-27 (`focus:
   transcript` is not a value; `trace` is). It needs the secret `ANTHROPIC_API_KEY`. Unverified on a Linux runner: whether the eval
   sandbox needs bubblewrap there although no case grants a shell. Haiku has no baseline
   yet; its rates are compared with Haiku's own, never with `baseline.json`.
