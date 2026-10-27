@@ -39,11 +39,14 @@ graders:
     pattern: 'secrets@[^'']+''\s*=\s*(?:\[\s*for[^\n]*:\s*)?if\s*\('
     match: not_contains
 
+  # Both names in what the run wrote, wherever they are: a rendered spec turns the placeholder
+  # list into a parameter whose value lives in the stage file (main.<stage>.bicepparam), not in
+  # main.bicep. The decorator has its own grader above, so it is not required here twice.
   - name: both-placeholders-present
     type: regex
     weight: 2
-    target: { source: file, path: infra/main.bicep }
-    pattern: '(?=[\s\S]*api-key)(?=[\s\S]*db-password)[\s\S]*@onlyIfNotExists'
+    target: files
+    pattern: '(?=[\s\S]*api-key)(?=[\s\S]*db-password)'
 
   - name: no-secret-value-as-parameter
     type: regex
