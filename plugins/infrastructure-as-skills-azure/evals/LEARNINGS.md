@@ -14,6 +14,23 @@ fix is committed, and put the commit hash in once it exists.
 
 ## Entries
 
+### `trigger-workload-request` and three more, on Haiku, 2026-10-27
+
+- **Symptom:** `skill-fired` failed on Haiku in four cases: `trigger-workload-request` 2/4,
+  `language-en-first-question` 2/4, `requirements-stated` 3/4, `claude-md-section-replaced`
+  3/4. Sonnet fired 4/4 everywhere. A run that never loads the skill writes no spec, so the
+  spec graders fail behind it.
+- **Cause:** The `iac-authoring` description. It said what the skill is for ("the entry
+  point ... Use whenever ...") but not when to load it, and Haiku answered the request
+  directly - a prompt saying "your first message is graded" pushes that way.
+- **Fix:** The description now opens with "Load this FIRST, before your first reply", quotes
+  the request that once failed ("eine Chatapp in Azure mit RAG") and ends "never answer such
+  a request from memory". 479 characters, listing at 88% of its budget.
+- **After:** on Haiku the skill fired 14/14 in those four cases; `trigger-workload-request`
+  and `language-en-first-question` 100%. `requirements-stated` (0/2) and
+  `claude-md-section-replaced` (2/4) still fail inside the skill - the `requirements` group
+  and the CLAUDE.md sync are dropped - which is the size of `iac-authoring`, not its trigger.
+
 ### `diagram-before-code-after-change`, 2026-10-25
 
 - **Symptom:** The case never ran (invalid `case.yaml`: the `llm` grader used `target` and
