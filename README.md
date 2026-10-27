@@ -8,20 +8,21 @@ previous version on the same model; a rate is never compared across models.
 
 ## haiku
 
-![badge](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/LemurDaniel/Infrastructure-as-Skills-Azure/eval-history/badge-haiku.json) · newest: manual at `ee483e7`, 5 run(s) per case, 2026-10-27 · newest run per case; entry cases re-run after 4c05385, bicep after b340c1c
+![badge](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/LemurDaniel/Infrastructure-as-Skills-Azure/eval-history/badge-haiku.json) · newest: release at `591c4bf`, 5 run(s) per case, 2026-10-27 · Full suite, effort low, 4 runs per case, judge sonnet, before the 0.5.3 merge
 
-| Case | v0.5.2 |
-|---|---|
-| bicep-secret-placeholder-once | 🟡 80% |
-| claude-md-section-replaced | 🟡 20% |
-| diagram-no-invented-lines | 🟡 80% |
-| language-en-first-question | 100% |
-| language-en-request | 100% |
-| plugin-newer-halts | 100% |
-| requirements-stated | 🟡 20% |
-| trigger-workload-request | 🟡 20% |
-| vague-public-dev | 🟡 20% |
-| **cost** | $3.20 |
+| Case | v0.5.2 | v0.5.3 |
+|---|---|---|
+| app-code-untouched |  | 100% |
+| bicep-secret-placeholder-once | 🟡 80% | 🟡 25% ⬇ |
+| claude-md-section-replaced | 🟡 20% | 🟡 25% |
+| diagram-no-invented-lines | 🟡 80% | 🟡 50% ⬇ |
+| language-en-first-question | 100% | 🟡 25% ⬇ |
+| language-en-request | 100% | 100% |
+| plugin-newer-halts | 100% | 🟡 50% ⬇ |
+| requirements-stated | 🟡 20% | 🟡 25% |
+| trigger-workload-request | 🟡 20% | 🟡 50% ⬆ |
+| vague-public-dev | 🟡 20% | 🔴 0% ⬇ |
+| **cost** | $3.20 | $1.24 |
 
 ## sonnet
 
