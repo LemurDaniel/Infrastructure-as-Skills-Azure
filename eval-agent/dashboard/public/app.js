@@ -56,10 +56,14 @@ async function load() {
   const regressed = new Set(regressions.map((r) => r.runId));
   $('runs').innerHTML = runs.map((r) => {
     const rates = r.cases.map((c) => pct(c.passRate)).join(' · ');
-    return `<div class="row">${runChip(r, regressed)}
+    return `<div class="row" id="run-${esc(r.id)}">${runChip(r, regressed)}
       <span class="t">${esc(runLabel(r))}</span><span style="color:var(--muted)">${esc(rates)}</span>
       <span class="r">${esc(when(r.startedAt))} · $${(r.costUsd ?? 0).toFixed(2)} · ${r.durationSeconds}s</span></div>`;
   }).join('');
+
+  // A link from the pull request comment (#run-<id>) lands on its run once the list exists.
+  const target = location.hash.startsWith('#run-') && document.getElementById(location.hash.slice(1));
+  if (target) { target.classList.add('hit'); target.scrollIntoView({ block: 'center' }); }
 }
 
 load().catch((e) => { $('msg').textContent = `Fehler: ${e.message}`; });
