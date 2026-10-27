@@ -35,7 +35,8 @@ graders:
     target: { source: file, path: infra/main.bicep }
     pattern: 'toLower\(''st\$\{loc\}\$\{env\}\$\{workload\}\$\{idx\}''\)'
 
-  # The pin: naming.yaml is created by the run (the scaffold has none) and holds the old pattern.
+  # The pin: the root predates the copy, so the run writes naming.yaml (the scaffold has none) -
+  # a full copy, with the Key Vault pattern the root actually names, not today's default.
   - name: naming-yaml-written
     type: file_exists
     path: infra/naming.yaml
@@ -48,20 +49,20 @@ graders:
     pattern: 'Microsoft\.KeyVault/vaults"?:\s*(?:#[^\n]*\s*)*default:\s*["'']?<TYPE>-<ENVIRONMENT>-<NAME>-<UNIQUE_ID_4>["'']?\s*$'
     flags: m
 
-  # Departures only: a Bicep root gets no full copy of the convention.
-  - name: naming-yaml-is-not-a-full-copy
+  - name: naming-yaml-is-a-full-copy
     type: regex
     weight: 2
     target: { source: file, path: infra/naming.yaml }
-    pattern: '^\s*abbreviations:|Microsoft\.CognitiveServices/accounts::'
+    pattern: '(?=[\s\S]*^\s*abbreviations:)(?=[\s\S]*^\s*mappings:)(?=[\s\S]*Microsoft\.CognitiveServices/accounts::)'
     flags: m
-    match: not_contains
 
-  - name: spec-naming-convention-custom
+  # Pinning an older default is not a customer departure: the convention stays `default`.
+  - name: spec-naming-convention-not-custom
     type: regex
     weight: 2
     target: { source: file, path: infra/infra-spec.yaml }
     pattern: 'naming_convention:\s*(?:#[^\n]*\s*)*(?:\{\s*)?(?:value:\s*)?\W?custom\b'
+    match: not_contains
 
   # The change asked for, in both places.
   - name: spec-blob-soft-delete-14
