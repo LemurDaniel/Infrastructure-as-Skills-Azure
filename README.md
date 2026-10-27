@@ -8,7 +8,7 @@ previous version on the same model; a rate is never compared across models.
 
 ## haiku
 
-![badge](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/LemurDaniel/Infrastructure-as-Skills-Azure/eval-history/badge-haiku.json) · newest: manual, 5 run(s) per case, 2026-10-27 · newest run per case; entry cases re-run after 4c05385, bicep after b340c1c
+![badge](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/LemurDaniel/Infrastructure-as-Skills-Azure/eval-history/badge-haiku.json) · newest: manual at `ee483e7`, 5 run(s) per case, 2026-10-27 · newest run per case; entry cases re-run after 4c05385, bicep after b340c1c
 
 | Case | v0.5.2 |
 |---|---|
@@ -25,7 +25,7 @@ previous version on the same model; a rate is never compared across models.
 
 ## sonnet
 
-![badge](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/LemurDaniel/Infrastructure-as-Skills-Azure/eval-history/badge-sonnet.json) · newest: manual, 5 run(s) per case, 2026-10-27 · newest run per case; bicep-secret-placeholder-once re-run after b340c1c and the names-in-main.bicep rule
+![badge](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/LemurDaniel/Infrastructure-as-Skills-Azure/eval-history/badge-sonnet.json) · newest: manual at `ee483e7`, 5 run(s) per case, 2026-10-27 · newest run per case; bicep-secret-placeholder-once re-run after b340c1c and the names-in-main.bicep rule
 
 | Case | v0.5.2 |
 |---|---|
