@@ -201,9 +201,8 @@ Beyond the script:
   squash would fold the one-concern commits into one. The merge publishes a
   release.
 - **Before the merge, the full eval suite on Sonnet, run by a test agent.**
-  The pull request only runs the cases tagged `pr` on Haiku; the process,
-  sync and render cases need a model that follows a multi-step skill, and
-  every merge is a release. For a branch that touches `core/`, `resources/`
+  No eval runs on the pull request: the suite needs a model that follows a
+  multi-step skill, and every merge is a release. For a branch that touches `core/`, `resources/`
   or `evals/` of the plugin, before `gh pr merge`:
   1. Say what it costs (Sonnet, low effort: about $15-25 for the suite, 3
      runs per case) and start only on the owner's yes.

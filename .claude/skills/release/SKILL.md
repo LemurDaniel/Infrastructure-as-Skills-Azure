@@ -35,8 +35,8 @@ no separate release step.
    again after rebasing on `origin/master`; the PR check fails until it does.
 5. **Before the merge**, a branch that changes the plugin's skills, resources or evals gets
    the full eval suite on Sonnet, run locally by a test agent
-   ([git-commit-conventions](../git-commit-conventions/SKILL.md), section 5): the pull
-   request itself only runs the `pr` cases on Haiku.
+   ([git-commit-conventions](../git-commit-conventions/SKILL.md), section 5); the pull
+   request runs no eval.
 6. **After the merge, report** what the workflow did:
    `gh run list --workflow release.yml --limit 1`, then `gh release view v<version>`.
 

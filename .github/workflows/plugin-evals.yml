@@ -1,29 +1,25 @@
 name: Plugin evals
 
-# A pull request that changes the plugin runs the cases tagged `pr` - the spec decisions, where Haiku
-# measures the plugin rather than itself - on Haiku: three runs per case, run in parallel, so a
-# decision the plugin leaves to chance shows as unstable; no baseline arm, a hard cost ceiling. The
-# full suite runs on Sonnet before a merge, locally (git-commit-conventions, section 5). A release
-# measurement (or any other) is started by hand with the model it needs. Every run is recorded
-# on the eval-history branch, which the eval dashboard reads per plugin version and model.
+# Runs the eval suite by hand, on a Linux runner: the same suite as the run before a merge
+# (git-commit-conventions, section 5), there on Sonnet at low effort by default. There is no
+# pull-request trigger - a cheap model on the spec cases did not tell a plugin change from the
+# model's own noise, and the full suite is what a merge is judged on. Every run is recorded on
+# the eval-history branch, which the eval dashboard reads per plugin version and model.
 #
-# Report only: a failing case does not fail the pull request. Haiku scores lower than the model
-# the baseline was taken on, so a gate needs a Haiku baseline of its own first.
-#
-# Needs the repository secret ANTHROPIC_API_KEY. Pull requests from forks get no secrets and
-# are skipped.
+# Report only: a failing case does not fail the run. Needs the repository secret ANTHROPIC_API_KEY.
 on:
-  pull_request:
-    branches: [master]
-    types: [opened, synchronize, reopened, ready_for_review]
-    paths: ["plugins/infrastructure-as-skills-azure/**"]
   workflow_dispatch:
     inputs:
       model:
         description: Model the agent runs on
         type: choice
-        options: [haiku, sonnet, opus]
-        default: haiku
+        options: [sonnet, haiku, opus]
+        default: sonnet
+      effort:
+        description: Effort level of the agent (CLAUDE_CODE_EFFORT_LEVEL)
+        type: choice
+        options: [low, medium, high]
+        default: low
       trigger:
         description: What the run is recorded as
         type: choice
@@ -34,12 +30,12 @@ on:
         default: "3"
       max_cost_usd:
         description: Hard cost ceiling in USD
-        default: "8"
+        default: "25"
       case:
         description: Case name glob (empty = all)
         default: ""
       tag:
-        description: Only cases with this tag, e.g. pr (empty = all)
+        description: Only cases with this tag (empty = all)
         default: ""
 
 permissions:
@@ -48,22 +44,16 @@ permissions:
 jobs:
   eval:
     name: Eval suite
-    if: >-
-      github.event_name == 'workflow_dispatch' ||
-      (github.event.pull_request.head.repo.full_name == github.repository && !github.event.pull_request.draft)
     runs-on: ubuntu-latest
-    timeout-minutes: 60
-    # A new push to the same pull request makes the running measurement worthless: stop paying for it.
-    concurrency:
-      group: plugin-evals-${{ github.event.pull_request.number || github.run_id }}
-      cancel-in-progress: true
+    timeout-minutes: 90
     env:
       PLUGIN_DIR: plugins/infrastructure-as-skills-azure
-      MODEL: ${{ inputs.model || 'haiku' }}
-      RUNS: ${{ inputs.runs || '3' }}
-      MAX_COST_USD: ${{ inputs.max_cost_usd || '3' }}
+      MODEL: ${{ inputs.model }}
+      CLAUDE_CODE_EFFORT_LEVEL: ${{ inputs.effort }}
+      RUNS: ${{ inputs.runs }}
+      MAX_COST_USD: ${{ inputs.max_cost_usd }}
       CASE: ${{ inputs.case }}
-      TAG: ${{ github.event_name == 'pull_request' && 'pr' || inputs.tag }}
+      TAG: ${{ inputs.tag }}
     steps:
       - uses: actions/checkout@v4
 
@@ -170,23 +160,17 @@ jobs:
           retention-days: 14
 
   # Kept apart from the eval job: the job that runs plugin code holds the API key and a read-only
-  # token, the one that can push holds no key and runs no plugin code. On a pull request it also
-  # leaves one comment with the result and a link to the run in the dashboard (repository variable
-  # EVAL_DASHBOARD_URL), updated on every push instead of a new one each time.
+  # token, the one that can push holds no key and runs no plugin code.
   record:
     name: Record in eval-history
     needs: eval
     runs-on: ubuntu-latest
     permissions:
       contents: write
-      pull-requests: write
     env:
-      MODEL: ${{ inputs.model || 'haiku' }}
-      TRIGGER: ${{ github.event_name == 'pull_request' && 'pr' || inputs.trigger }}
-      PR: ${{ github.event.pull_request.number }}
-      COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
-      DASHBOARD_URL: ${{ vars.EVAL_DASHBOARD_URL }}
-      RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+      MODEL: ${{ inputs.model }}
+      TRIGGER: ${{ inputs.trigger }}
+      COMMIT: ${{ github.sha }}
     steps:
       - uses: actions/checkout@v4
 
@@ -204,8 +188,6 @@ jobs:
           HISTORY="$RUNNER_TEMP/history"
           git config --global user.name "github-actions[bot]"
           git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          pr_flag=()
-          if [ -n "$PR" ]; then pr_flag=(--pr "$PR"); fi
           # Another run may push in between: start again from the remote branch and record again
           # (recording is idempotent), never rebase a conflicting index.json.
           for attempt in 1 2 3 4 5; do
@@ -217,26 +199,12 @@ jobs:
               git -C "$HISTORY" rm -rf --quiet .
             fi
             python3 .claude/skills/plugin-evals/scripts/record_eval_history.py "$RUNNER_TEMP/eval/aggregate-result.json" \
-              --history-dir "$HISTORY" --model "$MODEL" --trigger "$TRIGGER" "${pr_flag[@]}" --commit "$COMMIT"               --markdown "$RUNNER_TEMP/comment.md" --dashboard-url "$DASHBOARD_URL" --run-url "$RUN_URL"
+              --history-dir "$HISTORY" --model "$MODEL" --trigger "$TRIGGER" --commit "$COMMIT"
             git -C "$HISTORY" add -A
-            git -C "$HISTORY" commit --quiet -m "Record eval run on $MODEL ($TRIGGER${PR:+ #$PR})"
+            git -C "$HISTORY" commit --quiet -m "Record eval run on $MODEL ($TRIGGER)"
             if git -C "$HISTORY" push --quiet origin eval-history; then exit 0; fi
             git worktree remove --force "$HISTORY"
             sleep $((attempt * 5))
           done
           echo "::error::could not push to eval-history after 5 attempts"
           exit 1
-
-      - name: Comment on the pull request
-        if: github.event_name == 'pull_request'
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          body="$RUNNER_TEMP/comment.md"
-          cat "$body" >> "$GITHUB_STEP_SUMMARY"
-          id=$(gh api "repos/$GITHUB_REPOSITORY/issues/$PR/comments" --paginate             --jq '.[] | select(.user.login == "github-actions[bot]" and (.body | startswith("<!-- plugin-evals -->"))) | .id' | head -1)
-          if [ -n "$id" ]; then
-            gh api -X PATCH "repos/$GITHUB_REPOSITORY/issues/comments/$id" -F body=@"$body" > /dev/null
-          else
-            gh api -X POST "repos/$GITHUB_REPOSITORY/issues/$PR/comments" -F body=@"$body" > /dev/null
-          fi
