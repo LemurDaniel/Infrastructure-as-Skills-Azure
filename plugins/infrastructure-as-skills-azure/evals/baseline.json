@@ -39,24 +39,6 @@
         "total": 3
       }
     },
-    "language-de-request": {
-      "skill-fired": {
-        "passed": 3,
-        "total": 3
-      },
-      "language-is-de": {
-        "passed": 3,
-        "total": 3
-      },
-      "german-customer-text": {
-        "passed": 3,
-        "total": 3
-      },
-      "final-message-german": {
-        "passed": 3,
-        "total": 3
-      }
-    },
     "language-en-first-question": {
       "skill-fired": {
         "passed": 3,
@@ -85,40 +67,6 @@
         "total": 3
       },
       "final-message-english": {
-        "passed": 3,
-        "total": 3
-      }
-    },
-    "module-source-authored": {
-      "skill-fired": {
-        "passed": 3,
-        "total": 3
-      },
-      "target-terraform": {
-        "passed": 3,
-        "total": 3
-      },
-      "module-source-authored": {
-        "passed": 3,
-        "total": 3
-      },
-      "module-source-not-avm": {
-        "passed": 3,
-        "total": 3
-      },
-      "no-avm-implementation": {
-        "passed": 3,
-        "total": 3
-      },
-      "exposure-private": {
-        "passed": 3,
-        "total": 3
-      },
-      "no-invented-subscription": {
-        "passed": 3,
-        "total": 3
-      },
-      "no-code-before-confirmation": {
         "passed": 3,
         "total": 3
       }

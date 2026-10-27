@@ -20,10 +20,10 @@ grouping costs nothing; a case's `prompt.md` reaches the plugin with `plugins: [
 
 | Group | Grades | Cases |
 |---|---|---|
-| `spec/` | The interview's output, `infra/infra-spec.yaml` | `vague-public-dev`, `module-source-authored`, `requirements-stated` |
+| `spec/` | The interview's output, `infra/infra-spec.yaml` | `vague-public-dev`, `requirements-stated` |
 | `diagram/` | What the spec carries for the picture | `diagram-*` |
 | `trigger/` | That a request triggers the plugin at all | `trigger-workload-request` |
-| `language/` | The language of the person is the language of everything said to them | `language-en-request`, `language-de-request`, `language-en-first-question` |
+| `language/` | The language of the person is the language of everything said to them | `language-en-request`, `language-en-first-question` |
 | `process/` | The order of the run: after a change of the spec, diagram and sign-off come before any code | `diagram-before-code-after-change` |
 | `sync/` | The version gate and the CLAUDE.md section in a repository that already holds a spec (scaffolded) | `plugin-newer-halts`, `claude-md-section-replaced` |
 | `render/` | The code the render writes, for the few rules a spec cannot show | `bicep-secret-placeholder-once` |
@@ -36,7 +36,6 @@ most different situations rather than three variations of one:
 | Case | Target | Env | Exposure | Network | Workspace | Scenario |
 |---|---|---|---|---|---|---|
 | `vague-public-dev` | Terraform | development | public | none | reference | **Missing information** |
-| `module-source-authored` | Terraform | development | private | none | - | A stated departure from the AVM default: `module_source: authored`, no `implementation: avm` |
 | `requirements-stated` | Terraform | production | - | - | - | All five customer requirements in plain words, none at its default; the access tier derives |
 | `diagram-no-invented-lines` | Bicep | staging | - | - | - | Three resources, **no call named**: no line may be invented |
 | `bicep-secret-placeholder-once` | Bicep | development | public | none | - | Spec and diagram already signed off, Bicep asked: each secret placeholder carries `@onlyIfNotExists()`, no lookup of existing secrets, no secret value as a parameter |
@@ -64,9 +63,9 @@ Fixture specs go in, assertions on the `.drawio` come out: zones, one bundled en
 line count and colour, no Python syntax in a label, solid rounded containers, the fallback box
 for a type without an icon. Run it after any change to `new_diagram.py`.
 
-The three `language/` cases test that `context.language` follows the request: the spec's
-customer-facing text, the final message and, in `language-en-first-question`, the very first
-interview question (the skill carries it as German wording). The English cases close with the
+The two `language/` cases test that `context.language` follows the request when it is not
+the German the skill's own wording is written in: the spec's customer-facing text, the final
+message and, in `language-en-first-question`, the very first interview question. The cases close with the
 English translation of the usual paragraph - a German paragraph would itself signal German -
 and `language-en-first-question` has only a one-line note, because its final message *is* the
 question that is graded.
@@ -151,3 +150,11 @@ Pick a combination the table does not have yet — a pattern skill once `pattern
 an extension run (a scaffolded repo that already holds a spec), a `custom` naming
 convention, a user who contradicts themselves. Write the prompt as a real user would,
 then one grader per decision the prompt settles and one per value it must not invent.
+
+## Removed cases
+
+A case that passes every run on every model measures nothing the others do not, and costs a
+run each time. Removed on 2026-10-27, both at 100% on Opus (baseline) and on Haiku (first CI
+run): `language-de-request` (the German default path, which every German case walks) and
+`module-source-authored` (`module_source: authored` stated in plain words). Bring one back
+when a change touches what it covered.
