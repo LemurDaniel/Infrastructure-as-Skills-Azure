@@ -162,6 +162,12 @@ except `out/` and `config/` may be agent-written: read files, never run git or a
 loads configuration from inside it, and remove the directories when done — the run prints
 the exact `Remove-Item` line.
 
+**In CI** `.github/workflows/plugin-evals.yml` runs the suite on a pull request on Haiku,
+one run per case, report only, and `record_eval_history.py` writes the run to the
+`eval-history` branch (version, model, trigger, pass rates; the full result beside it). A
+Haiku rate is never compared with a baseline taken on another model, and never accepted
+into `baseline.json`.
+
 ## 5. Reading results
 
 The method is in the README (Hamel Husain's critique shadowing). In practice:

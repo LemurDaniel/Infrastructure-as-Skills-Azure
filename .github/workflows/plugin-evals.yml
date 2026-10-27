@@ -1,0 +1,169 @@
+name: Plugin evals
+
+# A pull request that changes the plugin runs the eval suite on Haiku: one run per case, no
+# baseline arm, a hard cost ceiling - a smoke test at a fraction of a full measurement. A release
+# measurement (or any other) is started by hand with the model it needs. Every run is recorded
+# on the eval-history branch, which the eval dashboard reads per plugin version and model.
+#
+# Report only: a failing case does not fail the pull request. Haiku scores lower than the model
+# the baseline was taken on, so a gate needs a Haiku baseline of its own first.
+#
+# Needs the repository secret ANTHROPIC_API_KEY. Pull requests from forks get no secrets and
+# are skipped.
+on:
+  pull_request:
+    branches: [master]
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths: ["plugins/infrastructure-as-skills-azure/**"]
+  workflow_dispatch:
+    inputs:
+      model:
+        description: Model the agent runs on
+        type: choice
+        options: [haiku, sonnet, opus]
+        default: haiku
+      trigger:
+        description: What the run is recorded as
+        type: choice
+        options: [manual, release]
+        default: manual
+      runs:
+        description: Runs per case
+        default: "1"
+      max_cost_usd:
+        description: Hard cost ceiling in USD
+        default: "5"
+      case:
+        description: Case name glob (empty = all)
+        default: ""
+
+permissions:
+  contents: read
+
+jobs:
+  eval:
+    name: Eval suite
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.pull_request.head.repo.full_name == github.repository && !github.event.pull_request.draft)
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    # A new push to the same pull request makes the running measurement worthless: stop paying for it.
+    concurrency:
+      group: plugin-evals-${{ github.event.pull_request.number || github.run_id }}
+      cancel-in-progress: true
+    env:
+      PLUGIN_DIR: plugins/infrastructure-as-skills-azure
+      MODEL: ${{ inputs.model || 'haiku' }}
+      RUNS: ${{ inputs.runs || '1' }}
+      MAX_COST_USD: ${{ inputs.max_cost_usd || '3' }}
+      CASE: ${{ inputs.case }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Claude Code
+        run: npm install -g @anthropic-ai/claude-code@2.1.310
+
+      - name: Run the eval suite
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          OUT="$RUNNER_TEMP/eval"
+          if [ -z "$ANTHROPIC_API_KEY" ]; then echo "::error::the repository secret ANTHROPIC_API_KEY is not set"; exit 1; fi
+          mkdir -p "$OUT"
+          case_flag=()
+          if [ -n "$CASE" ]; then case_flag=(--case "$CASE"); fi
+          # --threshold 0: report only. Exit 2 is the cost ceiling - partial results, still recorded.
+          set +e
+          claude plugin eval "$PLUGIN_DIR" "${case_flag[@]}" \
+            --model "$MODEL" --runs "$RUNS" --ablation none --max-cost-usd "$MAX_COST_USD" \
+            --allow-tools Write Edit --trust-plugin --no-publish --threshold 0 \
+            --output-dir "$OUT" --json "$OUT/eval.json" --report "$OUT/report.html"
+          code=$?
+          set -e
+          if [ "$code" -ne 0 ] && [ "$code" -ne 2 ]; then exit "$code"; fi
+          test -f "$OUT/aggregate-result.json"
+
+      - name: Summarise
+        if: always()
+        run: |
+          OUT="$RUNNER_TEMP/eval"
+          if [ ! -f "$OUT/eval.json" ]; then exit 0; fi
+          pip install --quiet pyyaml
+          {
+            echo "### Plugin evals on \`$MODEL\` ($RUNS run(s) per case)"
+            echo '```'
+            NO_COLOR=1 python3 .claude/skills/plugin-evals/scripts/show_eval_result.py "$OUT/eval.json" || true
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: eval-result
+          path: |
+            ${{ runner.temp }}/eval/aggregate-result.json
+            ${{ runner.temp }}/eval/report.html
+          if-no-files-found: ignore
+          retention-days: 14
+
+  # Kept apart from the eval job: the job that runs plugin code holds the API key and a read-only
+  # token, the one that can push holds no key and runs no plugin code.
+  record:
+    name: Record in eval-history
+    needs: eval
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      MODEL: ${{ inputs.model || 'haiku' }}
+      TRIGGER: ${{ github.event_name == 'pull_request' && 'pr' || inputs.trigger }}
+      PR: ${{ github.event.pull_request.number }}
+      COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: eval-result
+          path: ${{ runner.temp }}/eval
+
+      - name: Record and push
+        run: |
+          HISTORY="$RUNNER_TEMP/history"
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          pr_flag=()
+          if [ -n "$PR" ]; then pr_flag=(--pr "$PR"); fi
+          # Another run may push in between: start again from the remote branch and record again
+          # (recording is idempotent), never rebase a conflicting index.json.
+          for attempt in 1 2 3 4 5; do
+            if git fetch --quiet origin eval-history 2>/dev/null; then
+              git worktree add --force -B eval-history "$HISTORY" FETCH_HEAD
+            else
+              git worktree add --force --detach "$HISTORY"
+              git -C "$HISTORY" checkout --quiet --orphan eval-history
+              git -C "$HISTORY" rm -rf --quiet .
+            fi
+            python3 .claude/skills/plugin-evals/scripts/record_eval_history.py "$RUNNER_TEMP/eval/aggregate-result.json" \
+              --history-dir "$HISTORY" --model "$MODEL" --trigger "$TRIGGER" "${pr_flag[@]}" --commit "$COMMIT"
+            git -C "$HISTORY" add -A
+            git -C "$HISTORY" commit --quiet -m "Record eval run on $MODEL ($TRIGGER${PR:+ #$PR})"
+            if git -C "$HISTORY" push --quiet origin eval-history; then exit 0; fi
+            git worktree remove --force "$HISTORY"
+            sleep $((attempt * 5))
+          done
+          echo "::error::could not push to eval-history after 5 attempts"
+          exit 1
