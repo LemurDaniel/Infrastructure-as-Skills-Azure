@@ -51,7 +51,12 @@ Each of these cost a run to discover.
   plugin. Without it the plugin may not resolve and the run has no with-arm.
 - **The workspace starts empty.** No IaC root, so the spec lands in `infra/` — which is
   why every path grader says `infra/...`. A case that needs an existing repository (an
-  extension run) needs a `context.scaffold_script` and `--scaffold`.
+  extension run) needs a `context.scaffold_script` and `--scaffold`. The starting state is
+  files under the case's `workspace/` (a spec through `write_spec.py`, so the check accepts
+  it), and `scaffold.sh` is the same one-liner in every case: it copies `workspace/` into the
+  run's directory and strips `.in` (`CLAUDE.md.in`; a `CLAUDE.md` may not sit in the plugin).
+  A prompt that says a spec or a diagram is already signed off without one staged is a case
+  that rewards skipping the rule "never render without a spec".
 - **No custom-code graders.** `regex`, `tool_used`, `tool_order`, `file_exists`, `llm`,
   `baseline` — nothing else.
 - **`file_exists` sees only files created during the run**, not files the scaffold made.
