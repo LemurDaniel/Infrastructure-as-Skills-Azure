@@ -19,25 +19,6 @@ previous version on the same model; a rate is never compared across models.
 | vague-public-dev | 🔴 0% |
 | **cost** | $0.84 |
 
-## opus
-
-![badge](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/LemurDaniel/Infrastructure-as-Skills-Azure/eval-history/badge-opus.json) · newest: baseline, 3 run(s) per case, 2026-10-25 · Seeded from evals/baseline.json (accepted pass counts per grader); case rate = its weakest grader.
-
-| Case | v0.0.2 |
-|---|---|
-| claude-md-section-replaced | 100% |
-| diagram-before-code-after-change | 🔴 0% |
-| diagram-no-invented-lines | 100% |
-| language-de-request | 100% |
-| language-en-first-question | 100% |
-| language-en-request | 100% |
-| module-source-authored | 100% |
-| plugin-newer-halts | 100% |
-| requirements-stated | 100% |
-| trigger-workload-request | 100% |
-| vague-public-dev | 100% |
-| **cost** | $0.00 |
-
 ## sonnet
 
 ![badge](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/LemurDaniel/Infrastructure-as-Skills-Azure/eval-history/badge-sonnet.json) · newest: manual, 3 run(s) per case, 2026-10-27 · composite: 6 cases from the 02:42 run, 3 re-tested at 02:58 after f338a96; drafts excluded
