@@ -96,8 +96,8 @@ a fraction of a cent per verdict; the agent runs are what a suite costs.
 
 ## In CI
 
-The suite is judged before a merge, on Sonnet at low effort (five runs per case, about
-$20-30; repo skill `git-commit-conventions`, section 5). `.github/workflows/plugin-evals.yml`
+The suite is judged before a merge, on Sonnet at low effort (four runs per case, about
+$15-25; repo skill `git-commit-conventions`, section 5). `.github/workflows/plugin-evals.yml`
 runs the same on a Linux runner, by hand (`workflow_dispatch`): one case per call, so the log
 says which case it is on and how long the rest will take, the results merged by
 `merge_eval_results.py`, report only. There is no pull-request run. One was tried on Haiku:
@@ -112,8 +112,9 @@ the same model.
 
 ## Keeping outputs good on the same scenarios
 
-`runs: 5` per case is the consistency measurement: a grader that passes in some runs but not
-all is a decision the plugin does not pin down. Three runs were too few - a case could only
+`runs: 5` per case is the consistency measurement, the default for Haiku; Sonnet runs 4
+(`--runs 4`): its answers vary less, and a Sonnet run costs about ten times a Haiku run. A
+grader that passes in some runs but not all is a decision the plugin does not pin down. Three runs were too few - a case could only
 read 0, 33, 67 or 100%, and one run decided between "unstable" and "fine". Read those first — they are where a
 question set lacks a default, a rule in `iac-authoring` is ambiguous, or the
 description-to-spec mapping in Phase 0 guesses.
