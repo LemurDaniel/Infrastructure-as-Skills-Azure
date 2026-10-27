@@ -171,15 +171,13 @@ except `out/` and `config/` may be agent-written: read files, never run git or a
 loads configuration from inside it, and remove the directories when done — the run prints
 the exact `Remove-Item` line.
 
-**In CI** `.github/workflows/plugin-evals.yml` runs the cases tagged `pr` (frontmatter
-`tags`, the spec decisions) on a pull request on Haiku, three runs per case in parallel, one case per call with progress in the log, report only,
-with one pull request comment updated per push, and `record_eval_history.py` writes the run to the
-`eval-history` branch (version, model, trigger, pass rates; the full result beside it). A
-Haiku rate is never compared with a baseline taken on another model, and never accepted
-into `baseline.json`. The process, sync and render cases are left to the full suite on Sonnet
-before a merge (git-commit-conventions, section 5): Haiku does not follow a multi-step skill,
-so there it measures itself, not the plugin. A new case gets `pr` only if it grades a spec
-decision.
+**In CI, by hand only** `.github/workflows/plugin-evals.yml` (`workflow_dispatch`, Sonnet at
+low effort by default) runs the suite on a Linux runner, one case per call with progress in
+the log, report only, and `record_eval_history.py` writes the run to the `eval-history`
+branch (version, model, trigger, pass rates; the full result beside it). There is no
+pull-request run: Haiku on the spec cases could not tell a plugin change from its own noise,
+and the suite a merge is judged on is the full one on Sonnet (git-commit-conventions,
+section 5). A rate is never compared with a baseline taken on another model.
 
 ## 5. Reading results
 
