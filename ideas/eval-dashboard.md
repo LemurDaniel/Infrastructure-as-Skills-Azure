@@ -1,6 +1,10 @@
 # Eval dashboard
 
-**Status:** sketch
+**Status:** built (`eval-agent/dashboard`), read-only. The open questions below are answered
+(2026-10-27): the runs are committed to the `eval-history` branch, a summary per run in
+`index.json` (plugin version, model, trigger, pass rate per case) and the raw result beside
+it; the dashboard reads `index.json` through the GitHub API without a token and compares a
+run only with an older plugin version on the same model.
 
 ## Idea
 
