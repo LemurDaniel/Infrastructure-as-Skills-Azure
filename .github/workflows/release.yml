@@ -46,6 +46,35 @@ jobs:
           echo "version=$version" >> "$GITHUB_OUTPUT"
           echo "tag=v$version" >> "$GITHUB_OUTPUT"
 
+      # Every pull request records its Sonnet eval run on the eval-history branch (git-commit-
+      # conventions, section 5), and the README badge shows the newest one with its version and
+      # commit. A release without a run for its version is published anyway, with a warning: the
+      # badge then still names an older version, and the run summary says so.
+      - name: Check for an eval run on this version
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          if ! git fetch --quiet origin eval-history 2>/dev/null; then
+            echo "::warning::no eval-history branch: v$VERSION is released without a recorded eval run"
+            exit 0
+          fi
+          git show FETCH_HEAD:index.json > "$RUNNER_TEMP/eval-index.json"
+          python3 - "$RUNNER_TEMP/eval-index.json" <<'EOF'
+          import json, os, sys
+          version = os.environ['VERSION']
+          runs = [r for r in json.load(open(sys.argv[1], encoding='utf-8')).get('runs', []) if r.get('model') == 'sonnet']
+          mine = [r for r in runs if r.get('version') == version]
+          if mine:
+              r = mine[-1]
+              full = sum(1 for c in r['cases'] if c.get('passRate') == 1)
+              print(f"eval run for v{version}: sonnet at {r.get('commit')}, {full}/{len(r['cases'])} cases at 100%")
+          else:
+              last = runs[-1] if runs else None
+              shown = f"v{last['version']} @ {(last.get('commit') or '')[:7]}" if last else 'nothing'
+              print(f"::warning::v{version} is released without a Sonnet eval run on eval-history; "
+                    f"the README badge still shows {shown}. Run the suite (git-commit-conventions, section 5).")
+          EOF
+
       - name: Run the repository checks
         run: |
           pip install pyyaml
