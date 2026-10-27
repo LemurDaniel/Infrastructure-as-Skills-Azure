@@ -480,6 +480,14 @@ deployment set first, then read all of the sets in one pass. A set read after th
 after Phase 5 has begun, means its interview questions could not be asked and its defaults
 are guesses.
 
+**Read them through the digest**: `python3 <plugin>/core/iac-authoring/scripts/interview_digest.py
+<family>/<resource>... --language <context.language>` prints the deployment set and every set
+named - each interview question with its values and `forced_when`, every question that is
+forced, derived, confirmed or required, and each set's boundaries - at a fifth of the files'
+size; `--why <id>` adds the reasoning where a default is justified. Never extract the
+questions with a script of the run's own: one that keeps `ask` and `values` drops
+`forced_when`, and a question a rule settles is asked anyway.
+
 For each question, the answer then comes from the first source that has one:
 
 | # | Source | `source` recorded as |
