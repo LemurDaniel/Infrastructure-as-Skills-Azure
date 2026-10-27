@@ -163,7 +163,8 @@ loads configuration from inside it, and remove the directories when done — the
 the exact `Remove-Item` line.
 
 **In CI** `.github/workflows/plugin-evals.yml` runs the suite on a pull request on Haiku,
-one run per case, report only, and `record_eval_history.py` writes the run to the
+three runs per case in parallel, one case per call with progress in the log, report only,
+with one pull request comment updated per push, and `record_eval_history.py` writes the run to the
 `eval-history` branch (version, model, trigger, pass rates; the full result beside it). A
 Haiku rate is never compared with a baseline taken on another model, and never accepted
 into `baseline.json`.
