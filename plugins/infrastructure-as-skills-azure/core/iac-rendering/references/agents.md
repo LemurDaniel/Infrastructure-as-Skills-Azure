@@ -45,11 +45,11 @@ the hand-over.
 
 | Agent | Does | May write | Never |
 |---|---|---|---|
-| **Code** | Steps 1-7 of the order of work: AVM resolution, names, code, tests per decision | The render root only | Pipeline, diagram, `apply`, a commit |
-| **Pipeline** | Step 10, after the code agent has reported the layout (root, stage files, backend keys, working directory) | The pipeline files only | Code, tests |
-| **Test** | `fmt`, `validate`, `test`, `check_render_coverage.py`, `check_pipeline.py` | Nothing | Fixing what it finds |
+| **Code** | Steps 1-7 of the order of work: AVM resolution, names, code, tests per decision | The Terraform or Bicep files of the render root ([the list](../SKILL.md#what-a-render-may-write)) | Application code, even inside the root; pipeline, diagram, `apply`, a commit |
+| **Pipeline** | Step 10, after the code agent has reported the layout (root, stage files, backend keys, working directory) | The pipeline files and the `*.ps1` they call | Application code, code, tests |
+| **Test** | `fmt`, `validate`, `test`, `check_render_coverage.py`, `check_pipeline.py` | Nothing | Fixing what it finds; a finding against application code |
 | **Fix** | Loop 1 only: the review's `error` findings fixed by hand in the `.drawio` the main session generated | `infra-diagram.drawio.png` beside the spec | Code, pipeline, `new_diagram.py`, a regenerated draft |
-| **Review** | Loop 1: reads the PNG and compares it with the spec | Nothing | Fixing what it finds |
+| **Review** | Loop 1: reads the PNG and compares it with the spec | Nothing | Fixing what it finds; a finding against application code |
 
 The test and review agents are read-only on purpose. The one that checks must not be the one
 that edits: two authors on one file overwrite each other, and a checker that fixes its own
@@ -70,7 +70,8 @@ The main agent routes by cause. A `render` finding goes back to the agent that m
 part, with the finding as the only new instruction. A `spec` finding is the main agent's:
 it corrects the spec (or the question set behind it) and goes back to Loop 1: the picture
 is redrawn, and when the correction changed it, the customer sees it again before Loop 2
-is restarted on the corrected spec. Loop 2 never redraws on its own.
+is restarted on the corrected spec. Loop 2 never redraws on its own. An `other` finding in
+application code goes into the hand-over and never to an agent: no agent may write there.
 
 ## Stopping
 
@@ -114,8 +115,10 @@ Each agent starts without this conversation. Its prompt carries:
 1. **The role**, one sentence, and its place in the graph.
 2. **Absolute paths**: the spec, the render root, the repository (read only).
 3. **What to read first**: the skill file for its job, by path, then its references.
-4. **The write boundary**: where it may write, and that it changes nothing else, does not
-   commit and does not run `apply`.
+4. **The write boundary**: which files it may write, by type
+   ([SKILL.md](../SKILL.md#what-a-render-may-write)), not only by directory; that application
+   code (`.js`, `.ts`, `.cs`, `.py`, `package.json`, `Dockerfile`) is out of bounds even inside
+   the render root; that it changes nothing else, does not commit and does not run `apply`.
 5. **What not to read**: an existing render of the same spec. Copying it passes the checks
    and measures nothing.
 6. **The report**: what it produced, what it could not do or had to assume, the layout the
