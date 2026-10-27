@@ -175,6 +175,51 @@
      "delta": null
     }
    ]
+  },
+  {
+   "id": "2026-10-27T02-21-01-536Z",
+   "version": "0.5.2",
+   "model": "haiku",
+   "trigger": "pr",
+   "pr": 10,
+   "commit": "7b06c751d2bf",
+   "startedAt": "2026-10-27T02:21:01.536Z",
+   "costUsd": 0.836359135,
+   "durationSeconds": 508,
+   "partial": false,
+   "runsPerCase": 3,
+   "cases": [
+    {
+     "name": "diagram-no-invented-lines",
+     "passRate": 0.6666666666666666,
+     "passRateWithout": null,
+     "delta": null
+    },
+    {
+     "name": "language-en-request",
+     "passRate": 1,
+     "passRateWithout": null,
+     "delta": null
+    },
+    {
+     "name": "requirements-stated",
+     "passRate": 0,
+     "passRateWithout": null,
+     "delta": null
+    },
+    {
+     "name": "trigger-workload-request",
+     "passRate": 0.3333333333333333,
+     "passRateWithout": null,
+     "delta": null
+    },
+    {
+     "name": "vague-public-dev",
+     "passRate": 0,
+     "passRateWithout": null,
+     "delta": null
+    }
+   ]
   }
  ]
 }

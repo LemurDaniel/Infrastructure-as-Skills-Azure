@@ -1,0 +1,2104 @@
+{
+ "schemaVersion": 1,
+ "claudeVersion": "2.1.310",
+ "startedAt": "2026-10-27T02:21:01.536Z",
+ "durationSeconds": 508,
+ "costUsd": 0.836359135,
+ "partial": false,
+ "suite": {
+  "root": "/home/runner/work/Infrastructure-as-Skills-Azure/Infrastructure-as-Skills-Azure/plugins/infrastructure-as-skills-azure",
+  "ablation": "none",
+  "modelOverride": "haiku",
+  "caseFilter": null,
+  "threshold": 0,
+  "concurrency": 3,
+  "plugins": [
+   {
+    "name": "infrastructure-as-skills-azure",
+    "version": "0.5.2",
+    "path": "/home/runner/work/Infrastructure-as-Skills-Azure/Infrastructure-as-Skills-Azure/plugins/infrastructure-as-skills-azure"
+   }
+  ]
+ },
+ "cases": [
+  {
+   "name": "diagram-no-invented-lines",
+   "dir": "evals/diagram/diagram-no-invented-lines",
+   "source": "mixed",
+   "promptMarkdown": "Für unsere neue Bestell-App brauchen wir in Bicep einen App Service, einen Storage Account\nund eine SQL-Datenbank. Region West Europe, Stufe Staging. Mehr steht noch nicht fest.\n\nZum Ablauf: Es ist niemand da, der Rückfragen beantwortet. Was oben nicht steht, nimmst du\nnicht an — Pflichtwerte ohne Antwort kommen als offene Punkte in die Spec, für alles andere\ngelten die Defaults. Kein Diagramm und noch keinen IaC-Code — nur die Spec.",
+   "runsPerCase": 3,
+   "timeoutSeconds": 1200,
+   "maxTurns": 80,
+   "graders": [
+    {
+     "name": "skill-fired",
+     "type": "tool_used",
+     "weight": 1,
+     "config": {
+      "tool": "Skill",
+      "input_match": "infrastructure-as-skills-azure"
+     }
+    },
+    {
+     "name": "target-bicep",
+     "type": "regex",
+     "weight": 1,
+     "config": {
+      "target": {
+       "source": "file",
+       "path": "infra/infra-spec.yaml"
+      },
+      "pattern": "target:\\s*(?:#[^\\n]*\\s*)*(?:\\{\\s*)?(?:value:\\s*)?\\W?bicep\\b",
+      "flags": "",
+      "match": "contains"
+     }
+    },
+    {
+     "name": "no-invented-calls",
+     "type": "regex",
+     "weight": 3,
+     "config": {
+      "target": {
+       "source": "file",
+       "path": "infra/infra-spec.yaml"
+      },
+      "pattern": "from:\\s*\\W?(?:app-service|storage-account|sql-server|sql-database)\\b",
+      "flags": "",
+      "match": "not_contains"
+     }
+    },
+    {
+     "name": "has-app-service",
+     "type": "regex",
+     "weight": 1,
+     "config": {
+      "target": {
+       "source": "file",
+       "path": "infra/infra-spec.yaml"
+      },
+      "pattern": "^\\s{2}app-service:",
+      "flags": "m",
+      "match": "contains"
+     }
+    },
+    {
+     "name": "has-storage-account",
+     "type": "regex",
+     "weight": 1,
+     "config": {
+      "target": {
+       "source": "file",
+       "path": "infra/infra-spec.yaml"
+      },
+      "pattern": "^\\s{2}storage-account:",
+      "flags": "m",
+      "match": "contains"
+     }
+    },
+    {
+     "name": "has-sql",
+     "type": "regex",
+     "weight": 1,
+     "config": {
+      "target": {
+       "source": "file",
+       "path": "infra/infra-spec.yaml"
+      },
+      "pattern": "sql-(?:database|server)\\b",
+      "flags": "",
+      "match": "contains"
+     }
+    },
+    {
+     "name": "no-invented-purposes",
+     "type": "regex",
+     "weight": 1,
+     "config": {
+      "target": {
+       "source": "file",
+       "path": "infra/infra-spec.yaml"
+      },
+      "pattern": "^\\s{2}purposes:\\s*(?:#[^\\n]*\\s*)*(?:\\{\\s*)?(?:value:\\s*)?\\{[^}]*\\b(?:storage-account|sql-[a-z]+)\\s*:",
+      "flags": "m",
+      "match": "not_contains"
+     }
+    },
+    {
+     "name": "no-code-before-confirmation",
+     "type": "file_exists",
+     "weight": 1,
+     "config": {
+      "path": "**/*.bicep",
+      "exists": false
+     }
+    },
+    {
+     "name": "no-hand-drawn-diagram",
+     "type": "file_exists",
+     "weight": 1,
+     "config": {
+      "path": "**/*.drawio*",
+      "exists": false
+     }
+    }
+   ],
+   "arms": {
+    "with": [
+     {
+      "score": 0.6363636363636364,
+      "passed": false,
+      "turns": 11,
+      "costUsd": 0.017582234999999998,
+      "judgeCostUsd": 0,
+      "durationSeconds": 58,
+      "startedAt": "2026-10-27T02:21:01.585Z",
+      "error": null,
+      "tracePath": "/tmp/claude-eval-gXV3D5/out/trace.jsonl",
+      "skippedPaidGraders": false,
+      "graders": [
+       {
+        "name": "skill-fired",
+        "passed": true,
+        "weight": 1,
+        "explanation": "Skill called 1x (expected 1..∞)",
+        "withOnly": false,
+        "scored": true
+       },
+       {
+        "name": "target-bicep",
+        "passed": true,
+        "weight": 1,
+        "explanation": "matched target:\\s*(?:#[^\\n]*\\s*)*(?:\\{\\s*)?(?:value:\\s*)?\\W?bicep\\b",
+        "withOnly": false,
+        "scored": true
+       },
+       {
+        "name": "no-invented-calls",
+        "passed": false,
+        "weight": 3,
+        "explanation": "pattern found (expected absent)",
+        "withOnly": false,
+        "scored": true
+       },
+       {
+        "name": "has-app-service",
+        "passed": true,
+        "weight": 1,
+        "explanation": "matched ^\\s{2}app-service:",
+        "withOnly": false,
+        "scored": true
+       },
+       {
+        "name": "has-storage-account",
+        "passed": true,
+        "weight": 1,
+        "explanation": "matched ^\\s{2}storage-account:",
+        "withOnly": false,
+        "scored": true
+       },
+       {
+        "name": "has-sql",
+        "passed": true,
+        "weight": 1,
+        "explanation": "matched sql-(?:database|server)\\b",
+        "withOnly": false,
+        "scored": true
+       },
+       {
+        "name": "no-invented-purposes",
+        "passed": false,
+        "weight": 1,
+        "explanation": "pattern found (expected absent)",
+        "withOnly": false,
+        "scored": true
+       },
+       {
+        "name": "no-code-before-confirmation",
+        "passed": true,
+        "weight": 1,
+        "explanation": "**/*.bicep absent as expected",
+        "withOnly": false,
+        "scored": true
+       },
+       {
+        "name": "no-hand-drawn-diagram",
+        "passed": true,
+        "weight": 1,
+        "explanation": "**/*.drawio* absent as expected",
+        "withOnly": false,
+        "scored": true
+       }
+      ]
+     },
+     {
+      "score": 1,
+      "passed": true,
+      "turns": 23,
+      "costUsd": 0.07797085499999999,
+      "judgeCostUsd": 0,
+      "durationSeconds": 101,
+      "startedAt": "2026-10-27T02:21:01.585Z",
+      "error": null,
+      "tracePath": "/tmp/claude-eval-SHZ1Vn/out/trace.jsonl",
+      "skippedPaidGraders": false,
+      "graders": [
+       {
+        "name": "skill-fired",
+        "passed": true,
+        "weight": 1,
+        "explanation": "Skill called 1x (expected 1..∞)",
+        "withOnly": false,
+        "scored": true
+       },
+       {
+        "name": "target-bicep",
+        "passed": true,
+        "weight": 1,
+        "explanation": "matched target:\\s*(?:#[^\\n]*\\s*)*(?:\\{\\s*)?(?:value:\\s*)?\\W?bicep\\b",
+        "withOnly": false,
+        "scored": true
+       },
+       {
+        "name": "no-invented-calls",
+        "passed": true,
+        "weight": 3,
+        "explanation": "pattern absent as expected",
+        "withOnly": false,
+        "scored": true
+       },
+       {
+        "name": "has-app-service",
+        "passed": true,
+        "weight": 1,
+        "explanation": "matched ^\\s{2}app-service:",
+        "withOnly": false,
+        "scored": true
+       },
+       {
+        "name": "has-storage-account",
+        "passed": true,
+        "weight": 1,
+        "explanation": "matched ^\\s{2}storage-account:",
+        "withOnly": false,
+        "scored": true
+       },
+       {
+        "name": "has-sql",
+        "passed": true,
+        "weight": 1,
+        "explanation": "matched sql-(?:database|server)\\b",
+        "withOnly": false,
+        "scored": true
+       },
+       {
+        "name": "no-invented-purposes",
+        "passed": true,
+        "weight": 1,
+        "explanation": "pattern absent as expected",
+        "withOnly": false,
+        "scored": true
+       },
+       {
+        "name": "no-code-before-confirmation",
+        "passed": true,
+        "weight": 1,
+        "explanation": "**/*.bicep absent as expected",
+        "withOnly": false,
+        "scored": true
+       },
+       {
+        "name": "no-hand-drawn-diagram",
+        "passed": true,
+        "weight": 1,
+        "explanation": "**/*.drawio* absent as expected",
+        "withOnly": false,
+        "scored": true
+       }
+      ]
+     },
+     {
+      "score": 1,
+      "passed": true,
+      "turns": 21,
+      "costUsd": 0.139893745,
+      "judgeCostUsd": 0,
+      "durationSeconds": 119,
+      "startedAt": "2026-10-27T02:21:01.585Z",
+      "error": null,
+      "tracePath": "/tmp/claude-eval-Uefyg6/out/trace.jsonl",
+      "skippedPaidGraders": false,
+      "graders": [
+       {
+        "name": "skill-fired",
+        "passed": true,
+        "weight": 1,
+        "explanation": "Skill called 1x (expected 1..∞)",
+        "withOnly": false,
+        "scored": true
+       },
+       {
+        "name": "target-bicep",
+        "passed": true,
+        "weight": 1,
+        "explanation": "matched target:\\s*(?:#[^\\n]*\\s*)*(?:\\{\\s*)?(?:value:\\s*)?\\W?bicep\\b",
+        "withOnly": false,
+        "scored": true
+       },
+       {
+        "name": "no-invented-calls",
+        "passed": true,
+        "weight": 3,
+        "explanation": "pattern absent as expected",
+        "withOnly": false,
+        "scored": true
+       },
+       {
+        "name": "has-app-service",
+        "passed": true,
+        "weight": 1,
+        "explanation": "matched ^\\s{2}app-service:",
+        "withOnly": false,
+        "scored": true
+       },
+       {
+        "name": "has-storage-account",
+        "passed": true,
+        "weight": 1,
+        "explanation": "matched ^\\s{2}storage-account:",
+        "withOnly": false,
+        "scored": true
+       },
+       {
+        "name": "has-sql",
+        "passed": true,
+        "weight": 1,
+        "explanation": "matched sql-(?:database|server)\\b",
+        "withOnly": false,
+        "scored": true
+       },
+       {
+        "name": "no-invented-purposes",
+        "passed": true,
+        "weight": 1,
+        "explanation": "pattern absent as expected",
+        "withOnly": false,
+        "scored": true
+       },
+       {
+        "name": "no-code-before-confirmation",
+        "passed": true,
+        "weight": 1,
+        "explanation": "**/*.bicep absent as expected",
+        "withOnly": false,
+        "scored": true
+       },
+       {
+        "name": "no-hand-drawn-diagram",
+        "passed": true,
+        "weight": 1,
+        "explanation": "**/*.drawio* absent as expected",
+        "withOnly": false,
+        "scored": true
+       }
+      ]
+     }
+    ]
+   },
+   "aggregates": {
+    "score": 0.8787878787878788,
+    "passRate": 0.6666666666666666
+   }
+  },
+  {
+   "name": "language-en-request",
+   "dir": "evals/language/language-en-request",
+   "source": "mixed",
+   "promptMarkdown": "We need a chat app for our support team: a web app (App Service) that talks to an MCP\nserver running in its own App Service, a storage account for the uploaded documents, and\nan Azure AI Foundry model for the answers. Terraform with AVM modules, development stage,\nonly reachable from the company network. Region Germany West Central. The pipeline\nsupplies subscription and resource group.\n\nHow this run works: nobody is here to answer follow-up questions. You do not assume what is not stated above — required values without an answer become open items in the spec, everything else takes the defaults. No diagram and no IaC code yet — only the spec.",
+   "runsPerCase": 3,
+   "timeoutSeconds": 900,
+   "maxTurns": 60,
+   "graders": [
+    {
+     "name": "skill-fired",
+     "type": "tool_used",
+     "weight": 1,
+     "config": {
+      "tool": "Skill",
+      "input_match": "infrastructure-as-skills-azure"
+     }
+    },
+    {
+     "name": "language-is-en",
+     "type": "regex",
+     "weight": 3,
+     "config": {
+      "target": {
+       "source": "file",
+       "path": "infra/infra-spec.yaml"
+      },
+      "pattern": "language:\\s*(?:#[^\\n]*\\s*)*['\"]?en\\b",
+      "flags": "",
+      "match": "contains"
+     }
+    },
+    {
+     "name": "no-german-in-spec",
+     "type": "regex",
+     "weight": 3,
+     "config": {
+      "target": {
+       "source": "file",
+       "path": "infra/infra-spec.yaml"
+      },
+      "pattern": "[äöüß]|\\b(zugriff|und|der|die|das|für|nicht|liest|schreibt|speicher|anwendung|benutzer|nachricht)\\b",
+      "flags": "i",
+      "match": "not_contains"
+     }
+    },
+    {
+     "name": "final-message-english",
+     "type": "llm",
+     "weight": 3,
+     "graderMarkdown": "The user wrote in English. PASS if the final message is written in English. FAIL\nif it, or any question or option text in it, is written in German or any other\nlanguage than English. Product names, resource types and code identifiers do\nnot count; formatting does not matter.\n",
+     "config": {
+      "criteria": "The user wrote in English. PASS if the final message is written in English. FAIL\nif it, or any question or option text in it, is written in German or any other\nlanguage than English. Product names, resource types and code identifiers do\nnot count; formatting does not matter.\n",
+      "focus": "last_message"
+     }
+    }
+   ],
+   "arms": {
+    "with": [
+     {
+      "score": 1,
+      "passed": true,
+      "turns": 29,
+      "costUsd": 0.173385905,
+      "judgeCostUsd": 0.00032760000000000016,
+      "durationSeconds": 137,
+      "startedAt": "2026-10-27T02:23:00.932Z",
+      "error": null,
+      "tracePath": "/tmp/claude-eval-y4bjDy/out/trace.jsonl",
+      "skippedPaidGraders": false,
+      "graders": [
+       {
+        "name": "skill-fired",
+        "passed": true,
+        "weight": 1,
+        "explanation": "Skill called 1x (expected 1..∞)",
+        "withOnly": false,
+        "scored": true
+       },
+       {
+        "name": "language-is-en",
+        "passed": true,
+        "weight": 3,
+        "explanation": "matched language:\\s*(?:#[^\\n]*\\s*)*['\"]?en\\b",
+        "withOnly": false,
+        "scored": true
+       },
+       {
+        "name": "no-german-in-spec",
+        "passed": true,
+        "weight": 3,
+        "explanation": "pattern absent as expected",
+        "withOnly": false,
+        "scored": true
+       },
+       {
+        "name": "final-message-english",
+        "passed": true,
+        "weight": 3,
+        "explanation": "judge votes: PASS PASS PASS",
+        "withOnly": false,
+        "scored": true,
+        "judgeVotes": [
+         true,
+         true,
+         true
+        ],
+        "evidence": "The spec is at `infra/infra-spec.yaml` under the working directory. It is spec only: no diagram, no Terraform, no `naming.yaml`. I could not validate it, because this session has no shell to run `check_spec.py` and the write/export scripts. Treat it as a hand-written draft until those have run.\n\n**What it describes**\n- Web app and MCP server, each on its own App Service plan, Linux, in private-only networking.\n- A storage account for uploaded documents, with public access, shared keys and anonymous blob access off.\n- An Azure AI Foundry account (AIServices, S0) with DataZoneStandard deployments, keys off.\n- A standalone virtual network and private endpoints, with Log Analytics for diagnostics.\n- Stated: Terraform, AVM modules, Germany West Central, private exposure, resource-group-level deployment (the pipeline supplies subscription and resource group, so they are not written into the spec).\n- Stages: development, test and production, the default stack with development included. Non-production stages take the cheaper defaults.\n\n**Open items (block apply)**\n1. `deploy_mechanism`: required, not answered. No pipeline is rendered until it is.\n2. `app_runtime`: required, not answered. Also the pinned `runtime_version` for each app.\n3. Network contradiction: \"reachable only from the company network\" versus the default `network_requirements: free`, which gives no connection to the company network. Either a connection via hub, VPN or ExpressRoute (platform team), or a public part behind company sign-in. I did not pick one.\n4. `model_deployments`: which models and versions. Germany West Central model availability is unchecked.\n5. Which application gets the model-caller role on Foundry.\n6. Which part reads the uploaded documents and calls the model. Only web app → storage (uploads) is in the spec, and that link is my reading of \"uploaded documents\".\n\n**Defaults applied, since you asked for no follow-ups**\n- Requirements: outage is \"disruptive\" (zone redundancy, 2 instances in production), data loss \"one week\", data residency \"data zone\", priority \"balanced\".\n- Logs retained 30 days. Landing zone \"no\". Address space /24 per stage (10.100–102.0.0/24).\n\n**Gaps**\n- The interview was not run, since I had no way to ask and you ruled out follow-ups. The question-set defaults were applied by hand; the spec lists the key decisions and not every default in every set.\n- The `virtual-network` and `log-analytics-workspace` set keys in `composition` are inferred names, not checked against the resource folders.\n- `naming.yaml` (needed for Terraform) and the decision document are not written."
+       }
+      ]
+     },
+     {
+      "score": 1,
+      "passed": true,
+      "turns": 17,
+      "costUsd": 0.024450395,
+      "judgeCostUsd": 0.0003045000000000001,
+      "durationSeconds": 91,
+      "startedAt": "2026-10-27T02:23:00.932Z",
+      "error": null,
+      "tracePath": "/tmp/claude-eval-mIZoyo/out/trace.jsonl",
+      "skippedPaidGraders": false,
+      "graders": [
+       {
+        "name": "skill-fired",
+        "passed": true,
+        "weight": 1,
+        "explanation": "Skill called 1x (expected 1..∞)",
+        "withOnly": false,
+        "scored": true
+       },
+       {
+        "name": "language-is-en",
+        "passed": true,
+        "weight": 3,
+        "explanation": "matched language:\\s*(?:#[^\\n]*\\s*)*['\"]?en\\b",
+        "withOnly": false,
+        "scored": true
+       },
+       {
+        "name": "no-german-in-spec",
+        "passed": true,
+        "weight": 3,
+        "explanation": "pattern absent as expected",
+        "withOnly": false,
+        "scored": true
+       },
+       {
+        "name": "final-message-english",
+        "passed": true,
+        "weight": 3,
+        "explanation": "judge votes: PASS PASS PASS",
+        "withOnly": false,
+        "scored": true,
+        "judgeVotes": [
+         true,
+         true,
+         true
+        ],
+        "evidence": "The spec is at `infra/infra-spec.yaml`. It is not validated: this session has no shell tool, so I could not run `check_spec.py`. No diagram, no code, and no `naming.yaml` were produced, as you asked.\n\n**What the spec records**\n- **Stated by you:** Terraform with AVM, `development` as the only stage, `germanywestcentral`, network exposure `private` with the network connected to the company network, and the component chain: web app → MCP server (App Service), storage for uploads, Azure AI Foundry for answers.\n- **Forced by private exposure:** public network access off for the web app, MCP app, storage and Foundry.\n- **Defaults:** TLS floor, shared keys off on storage, local auth off on Foundry, single resource group layout.\n- **Pipeline-supplied:** subscription and resource group are not values in the spec. They are placeholders for the development stage file.\n\n**Open items** (nine, each with an owner; all block apply):\n1. Deployment mechanism (Azure DevOps, GitHub, GitLab or local). No pipeline is rendered until this is answered.\n2. Deployment scope: subscription or resource-group level. Your pipeline supplying the group points to resource-group level, but I did not assume it.\n3. Naming mechanism for Terraform. This is why I did not write `naming.yaml`.\n4. Whether a landing zone exists. It decides who owns the network and DNS zones.\n5. The address range for the company-network connection (network/IPAM owner).\n6. Runtime or container image, and hosting plan, for the web app.\n7. Runtime or container image, and hosting plan, for the MCP server.\n8. The Foundry model deployment (name and version).\n9. Which component calls the model and which touch the document storage. Your request only names web app → MCP.\n\n**Choices I made that you may want to change**\n- Workload short name `supportchat`, taken from the system name.\n- The company-network requirement is read from \"only reachable from the company network\".\n- The requirements group (outage tolerance, data-loss tolerance, residency, priority) was not answered. I did not record values for it.\n\n**Not done, and why**\n- Only defaults I checked in the question sets are recorded. Other per-field defaults for storage and Foundry are not filled in, and the network and log-analytics resources are not resolved. The spec's trailing comment says so.\n- The skill's full interview and per-question validation were not run; a live run would ask the open items above."
+       }
+      ]
+     },
+     {
+      "score": 1,
+      "passed": true,
+      "turns": 17,
+      "costUsd": 0.023594689999999998,
+      "judgeCostUsd": 0.00028380000000000007,
+      "durationSeconds": 66,
+      "startedAt": "2026-10-27T02:23:00.932Z",
+      "error": null,
+      "tracePath": "/tmp/claude-eval-KDa2OS/out/trace.jsonl",
+      "skippedPaidGraders": false,
+      "graders": [
+       {
+        "name": "skill-fired",
+        "passed": true,
+        "weight": 1,
+        "explanation": "Skill called 1x (expected 1..∞)",
+        "withOnly": false,
+        "scored": true
+       },
+       {
+        "name": "language-is-en",
+        "passed": true,
+        "weight": 3,
+        "explanation": "matched language:\\s*(?:#[^\\n]*\\s*)*['\"]?en\\b",
+        "withOnly": false,
+        "scored": true
+       },
+       {
+        "name": "no-german-in-spec",
+        "passed": true,
+        "weight": 3,
+        "explanation": "pattern absent as expected",
+        "withOnly": false,
+        "scored": true
+       },
+       {
+        "name": "final-message-english",
+        "passed": true,
+        "weight": 3,
+        "explanation": "judge votes: PASS PASS PASS",
+        "withOnly": false,
+        "scored": true,
+        "judgeVotes": [
+         true,
+         true,
+         true
+        ],
+        "evidence": "The spec is written to `infra/infra-spec.yaml`. It is not validated: Bash was disabled and Grep was denied, so I couldn't run `check_spec.py` or confirm the question-set names. No diagram, no Terraform, no `naming.yaml`, no decision document.\n\n**What the spec records**\n- **Stated:** Terraform, AVM, region `germanywestcentral`, private exposure with a corporate network connection, two App Service components (web app and MCP server), a storage account for uploaded documents, and an AI Foundry model.\n- **Pipeline-supplied:** subscription and resource group are not written and raise no open item.\n- **Defaults:** resource-group deployment scope, the storage replication derived from the default outage impact (ZRS in production, LRS elsewhere), no local auth or shared keys, TLS 1.2, and 30-day log retention. Outage impact, expected load and priority were not asked and take their defaults.\n\n**Open items (all block apply)**\n- The deployment mechanism (Azure DevOps, GitHub, GitLab or local). No pipeline is rendered until it is answered.\n- The application runtime for the web app and for the MCP server.\n- The address ranges per stage, owned by the network / IPAM owner.\n- The platform connection (hub, peering, private DNS), owned by the platform team.\n\n**Readings to confirm**\n- **\"Development stage\":** I kept the default stack of development, test and production, with development named as a stage. If you meant development only, the environments list changes.\n- **\"Only reachable from the company network\":** I read it as needing a connection to the company network, which is what drives the platform open items. If it means no connection, the network answer changes.\n- **Storage wiring:** the web app writes uploads to the storage account. That is my inference from the request. No search or retrieval component was added because none was mentioned, so confirm whether the answers need one.\n\n**Not verified**\n- The resource keys (`foundry-account`, `log-analytics`, the `application` and `observability` groups) are my best names. I could not check them against the question sets.\n- The spec was written by hand, not with `write_spec.py`, so it may not be in canonical form.\n- The `at` timestamp is a placeholder (midnight UTC on the run date)."
+       }
+      ]
+     }
+    ]
+   },
+   "aggregates": {
+    "score": 1,
+    "passRate": 1
+   }
+  },
+  {
+   "name": "requirements-stated",
+   "dir": "evals/spec/requirements-stated",
+   "source": "mixed",
+   "promptMarkdown": "Ich brauch ein Storage Account für Terraform, Workload \"archive\", Produktion, standalone,\nGermany West Central. Das ist unser Revisionsarchiv für Rechnungen. Fällt es einen Tag aus,\nsteht die Buchhaltung — das wäre geschäftskritisch. Wird etwas versehentlich gelöscht oder\nüberschrieben, müssen wir bis zu drei Monate zurückkommen. Die Daten werden nach dem\nSchreiben fast nie gelesen, nur aufbewahrt, weil es das Gesetz verlangt. Es muss eine Kopie\ngeben, die auch ein Admin oder ein Angreifer nicht ändern oder löschen kann. Und die Daten\ndürfen Deutschland nicht verlassen.\n\nZum Ablauf: Es ist niemand da, der Rückfragen beantwortet. Was oben nicht steht, nimmst du\nnicht an — Pflichtwerte ohne Antwort kommen als offene Punkte in die Spec, für alles andere\ngelten die Defaults. Kein Diagramm und noch keinen IaC-Code — nur die Spec.",
+   "runsPerCase": 3,
+   "timeoutSeconds": 900,
+   "maxTurns": 60,
+   "graders": [
+    {
+     "name": "skill-fired",
+     "type": "tool_used",
+     "weight": 1,
+     "config": {
+      "tool": "Skill",
+      "input_match": "infrastructure-as-skills-azure"
+     }
+    },
+    {
+     "name": "outage-critical",
+     "type": "regex",
+     "weight": 2,
+     "config": {
+      "target": {
+       "source": "file",
+       "path": "infra/infra-spec.yaml"
+      },
+      "pattern": "outage_impact:\\s*(?:#[^\\n]*\\s*)*(?:\\{\\s*)?(?:value:\\s*)?\\W?critical\\b",
+      "flags": "",
+      "match": "contains"
+     }
+    },
+    {
+     "name": "loss-three-months",
+     "type": "regex",
+     "weight": 2,
+     "config": {
+      "target": {
+       "source": "file",
+       "path": "infra/infra-spec.yaml"
+      },
+      "pattern": "data_loss_tolerance:\\s*(?:#[^\\n]*\\s*)*(?:\\{\\s*)?(?:value:\\s*)?\\W?three_months\\b",
+      "flags": "",
+      "match": "contains"
+     }
+    },
+    {
+     "name": "access-archive",
+     "type": "regex",
+     "weight": 2,
+     "config": {
+      "target": {
+       "source": "file",
+       "path": "infra/infra-spec.yaml"
+      },
+      "pattern": "data_access_pattern:\\s*(?:#[^\\n]*\\s*)*(?:\\{\\s*)?(?:value:\\s*)?\\W?archive\\b",
+      "flags": "",
+      "match": "contains"
+     }
+    },
+    {
+     "name": "backup-immutable",
+     "type": "regex",
+     "weight": 2,
+     "config": {
+      "target": {
+       "source": "file",
+       "path": "infra/infra-spec.yaml"
+      },
+      "pattern": "backup_isolation:\\s*(?:#[^\\n]*\\s*)*(?:\\{\\s*)?(?:value:\\s*)?\\W?immutable\\b",
+      "flags": "",
+      "match": "contains"
+     }
+    },
+    {
+     "name": "residency-country",
+     "type": "regex",
+     "weight": 2,
+     "config": {
+      "target": {
+       "source": "file",
+       "path": "infra/infra-spec.yaml"
+      },
+      "pattern": "data_residency:\\s*(?:#[^\\n]*\\s*)*(?:\\{\\s*)?(?:value:\\s*)?\\W?country\\b",
+      "flags": "",
+      "match": "contains"
+     }
+    },
+    {
+     "name": "no-default-requirements",
+     "type": "regex",
+     "weight": 3,
+     "config": {
+      "target": {
+       "source": "file",
+       "path": "infra/infra-spec.yaml"
+      },
+      "pattern": "(?:outage_impact:\\s*(?:#[^\\n]*\\s*)*(?:\\{\\s*)?(?:value:\\s*)?\\W?disruptive|data_loss_tolerance:\\s*(?:#[^\\n]*\\s*)*(?:\\{\\s*)?(?:value:\\s*)?\\W?one_week|data_access_pattern:\\s*(?:#[^\\n]*\\s*)*(?:\\{\\s*)?(?:value:\\s*)?\\W?active|backup_isolation:\\s*(?:#[^\\n]*\\s*)*(?:\\{\\s*)?(?:value:\\s*)?\\W?operational|data_residency:\\s*(?:#[^\\n]*\\s*)*(?:\\{\\s*)?(?:value:\\s*)?\\W?data_zone)\\b",
+      "flags": "",
+      "match": "not_contains"
+     }
+    },
+    {
+     "name": "access-tier-cold",
+     "type": "regex",
+     "weight": 1,
+     "config": {
+      "target": {
+       "source": "file",
+       "path": "infra/infra-spec.yaml"
+      },
+      "pattern": "access_tier:\\s*(?:#[^\\n]*\\s*)*(?:\\{\\s*)?(?:value:\\s*)?\\W?Cold\\b",
+      "flags": "",
+      "match": "contains"
+     }
+    },
+    {
+     "name": "module-source-avm-default",
+     "type": "regex",
+     "weight": 1,
+     "config": {
+      "target": {
+       "source": "file",
+       "path": "infra/infra-spec.yaml"
+      },
+      "pattern": "module_source:\\s*(?:#[^\\n]*\\s*)*(?:\\{\\s*)?(?:value:\\s*)?\\W?avm\\b",
+      "flags": "",
+      "match": "contains"
+     }
+    },
+    {
+     "name": "no-invented-subscription",
+     "type": "regex",
+     "weight": 3,
+     "config": {
+      "target": {
+       "source": "file",
+       "path": "infra/infra-spec.yaml"
+      },
+      "pattern": "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}",
+      "flags": "",
+      "match": "not_contains"
+     }
+    },
+    {
+     "name": "canonical-requirements-group",
+     "type": "regex",
+     "weight": 1,
+     "config": {
+      "target": {
+       "source": "file",
+       "path": "infra/infra-spec.yaml"
+      },
+      "pattern": "# --- requirements ---(?:(?!# ---)[\\s\\S])*?\\boutage_impact:",
+      "flags": "",
+      "match": "contains"
+     }
+    },
+    {
+     "name": "canonical-no-anchors",
+     "type": "regex",
+     "weight": 1,
+     "config": {
+      "target": {
+       "source": "file",
+       "path": "infra/infra-spec.yaml"
+      },
+      "pattern": ":\\s+[&*][A-Za-z_][\\w-]*(?:\\s|$)",
+      "flags": "m",
+      "match": "not_contains"
+     }
+    },
+    {
+     "name": "no-code-before-confirmation",
+     "type": "file_exists",
+     "weight": 1,
+     "config": {
+      "path": "**/*.tf",
+      "exists": false
+     }
+    }
+   ],
+   "arms": {
+    "with": [
+     {
+      "score": 0.9090909090909091,
+      "passed": false,
+      "turns": 13,
+      "costUsd": 0.04863008,
+      "judgeCostUsd": 0,
+      "durationSeconds": 88,
+      "startedAt": "2026-10-27T02:25:18.999Z",
+      "error": null,
+      "tracePath": "/tmp/claude-eval-mZ99bZ/out/trace.jsonl",
+      "skippedPaidGraders": false,
+      "graders": [
+       {
+        "name": "skill-fired",
+        "passed": true,
+        "weight": 1,
+        "explanation": "Skill called 1x (expected 1..∞)",
+        "withOnly": false,
+        "scored": true
+       },
+       {
+        "name": "outage-critical",
+        "passed": true,
+        "weight": 2,
+        "explanation": "matched outage_impact:\\s*(?:#[^\\n]*\\s*)*(?:\\{\\s*)?(?:value:\\s*)?\\W?critical\\b",
+        "withOnly": false,
+        "scored": true
+       },
+       {
+        "name": "loss-three-months",
+        "passed": true,
+        "weight": 2,
+        "explanation": "matched data_loss_tolerance:\\s*(?:#[^\\n]*\\s*)*(?:\\{\\s*)?(?:value:\\s*)?\\W?three_months\\b",
+        "withOnly": false,
+        "scored": true
+       },
+       {
+        "name": "access-archive",
+        "passed": true,
+        "weight": 2,
+        "explanation": "matched data_access_pattern:\\s*(?:#[^\\n]*\\s*)*(?:\\{\\s*)?(?:value:\\s*)?\\W?archive\\b",
+        "withOnly": false,
+        "scored": true
+       },
+       {
+        "name": "backup-immutable",
+        "passed": true,
+        "weight": 2,
+        "explanation": "matched backup_isolation:\\s*(?:#[^\\n]*\\s*)*(?:\\{\\s*)?(?:value:\\s*)?\\W?immutable\\b",
+        "withOnly": false,
+        "scored": true
+       },
+       {
+        "name": "residency-country",
+        "passed": true,
+        "weight": 2,
+        "explanation": "matched data_residency:\\s*(?:#[^\\n]*\\s*)*(?:\\{\\s*)?(?:value:\\s*)?\\W?country\\b",
+        "withOnly": false,
+        "scored": true
+       },
+       {
+        "name": "no-default-requirements",
+        "passed": true,
+        "weight": 3,
+        "explanation": "pattern absent as expected",
+        "withOnly": false,
+        "scored": true
+       },
+       {
+        "name": "access-tier-cold",
+        "passed": true,
+        "weight": 1,
+        "explanation": "matched access_tier:\\s*(?:#[^\\n]*\\s*)*(?:\\{\\s*)?(?:value:\\s*)?\\W?Cold\\b",
+        "withOnly": false,
+        "scored": true
+       },
+       {
+        "name": "module-source-avm-default",
+        "passed": false,
+        "weight": 1,
+        "explanation": "pattern not found in file infra/infra-spec.yaml",
+        "withOnly": false,
+        "scored": true
+       },
+       {
+        "name": "no-invented-subscription",
+        "passed": true,
+        "weight": 3,
+        "explanation": "pattern absent as expected",
+        "withOnly": false,
+        "scored": true
+       },
+       {
+        "name": "canonical-requirements-group",
+        "passed": false,
+        "weight": 1,
+        "explanation": "pattern not found in file infra/infra-spec.yaml",
+        "withOnly": false,
+        "scored": true
+       },
+       {
+        "name": "canonical-no-anchors",
+        "passed": true,
+        "weight": 1,
+        "explanation": "pattern absent as expected",
+        "withOnly": false,
+        "scored": true
+       },
+       {
+        "name": "no-code-before-confirmation",
+        "passed": true,
+        "weight": 1,
+        "explanation": "**/*.tf absent as expected",
+        "withOnly": false,
+        "scored": true
+       }
+      ]
+     },
+     {
+      "score": 0.45454545454545453,
+      "passed": false,
+      "turns": 6,
+      "costUsd": 0.01313005,
+      "judgeCostUsd": 0,
+      "durationSeconds": 68,
+      "startedAt": "2026-10-27T02:25:18.999Z",
+      "error": null,
+      "tracePath": "/tmp/claude-eval-Yedm83/out/trace.jsonl",
+      "skippedPaidGraders": false,
+      "graders": [
+       {
+        "name": "skill-fired",
+        "passed": true,
+        "weight": 1,
+        "explanation": "Skill called 1x (expected 1..∞)",
+        "withOnly": false,
+        "scored": true
+       },
+       {
+        "name": "outage-critical",
+        "passed": false,
+        "weight": 2,
+        "explanation": "pattern not found in file infra/infra-spec.yaml",
+        "withOnly": false,
+        "scored": true
+       },
+       {
+        "name": "loss-three-months",
+        "passed": false,
+        "weight": 2,
+        "explanation": "pattern not found in file infra/infra-spec.yaml",
+        "withOnly": false,
+        "scored": true
+       },
+       {
+        "name": "access-archive",
+        "passed": false,
+        "weight": 2,
+        "explanation": "pattern not found in file infra/infra-spec.yaml",
+        "withOnly": false,
+        "scored": true
+       },
+       {
+        "name": "backup-immutable",
+        "passed": false,
+        "weight": 2,
+        "explanation": "pattern not found in file infra/infra-spec.yaml",
+        "withOnly": false,
+        "scored": true
+       },
+       {
+        "name": "residency-country",
+        "passed": false,
+        "weight": 2,
+        "explanation": "pattern not found in file infra/infra-spec.yaml",
+        "withOnly": false,
+        "scored": true
+       },
+       {
+        "name": "no-default-requirements",
+        "passed": true,
+        "weight": 3,
+        "explanation": "pattern absent as expected",
+        "withOnly": false,
+        "scored": true
+       },
+       {
+        "name": "access-tier-cold",
+        "passed": false,
+        "weight": 1,
+        "explanation": "pattern not found in file infra/infra-spec.yaml",
+        "withOnly": false,
+        "scored": true
+       },
+       {
+        "name": "module-source-avm-default",
+        "passed": true,
+        "weight": 1,
+        "explanation": "matched module_source:\\s*(?:#[^\\n]*\\s*)*(?:\\{\\s*)?(?:value:\\s*)?\\W?avm\\b",
+        "withOnly": false,
+        "scored": true
+       },
+       {
+        "name": "no-invented-subscription",
+        "passed": true,
+        "weight": 3,
+        "explanation": "pattern absent as expected",
+        "withOnly": false,
+        "scored": true
+       },
+       {
+        "name": "canonical-requirements-group",
+        "passed": false,
+        "weight": 1,
+        "explanation": "pattern not found in file infra/infra-spec.yaml",
+        "withOnly": false,
+        "scored": true
+       },
+       {
+        "name": "canonical-no-anchors",
+        "passed": true,
+        "weight": 1,
+        "explanation": "pattern absent as expected",
+        "withOnly": false,
+        "scored": true
+       },
+       {
+        "name": "no-code-before-confirmation",
+        "passed": true,
+        "weight": 1,
+        "explanation": "**/*.tf absent as expected",
+        "withOnly": false,
+        "scored": true
+       }
+      ]
+     },
+     {
+      "score": 0.5909090909090909,
+      "passed": false,
+      "turns": 14,
+      "costUsd": 0.024621515,
+      "judgeCostUsd": 0,
+      "durationSeconds": 81,
+      "startedAt": "2026-10-27T02:25:18.999Z",
+      "error": null,
+      "tracePath": "/tmp/claude-eval-yFKckd/out/trace.jsonl",
+      "skippedPaidGraders": false,
+      "graders": [
+       {
+        "name": "skill-fired",
+        "passed": true,
+        "weight": 1,
+        "explanation": "Skill called 1x (expected 1..∞)",
+        "withOnly": false,
+        "scored": true
+       },
+       {
+        "name": "outage-critical",
+        "passed": true,
+        "weight": 2,
+        "explanation": "matched outage_impact:\\s*(?:#[^\\n]*\\s*)*(?:\\{\\s*)?(?:value:\\s*)?\\W?critical\\b",
+        "withOnly": false,
+        "scored": true
+       },
+       {
+        "name": "loss-three-months",
+        "passed": false,
+        "weight": 2,
+        "explanation": "pattern not found in file infra/infra-spec.yaml",
+        "withOnly": false,
+        "scored": true
+       },
+       {
+        "name": "access-archive",
+        "passed": false,
+        "weight": 2,
+        "explanation": "pattern not found in file infra/infra-spec.yaml",
+        "withOnly": false,
+        "scored": true
+       },
+       {
+        "name": "backup-immutable",
+        "passed": true,
+        "weight": 2,
+        "explanation": "matched backup_isolation:\\s*(?:#[^\\n]*\\s*)*(?:\\{\\s*)?(?:value:\\s*)?\\W?immutable\\b",
+        "withOnly": false,
+        "scored": true
+       },
+       {
+        "name": "residency-country",
+        "passed": true,
+        "weight": 2,
+        "explanation": "matched data_residency:\\s*(?:#[^\\n]*\\s*)*(?:\\{\\s*)?(?:value:\\s*)?\\W?country\\b",
+        "withOnly": false,
+        "scored": true
+       },
+       {
+        "name": "no-default-requirements",
+        "passed": true,
+        "weight": 3,
+        "explanation": "pattern absent as expected",
+        "withOnly": false,
+        "scored": true
+       },
+       {
+        "name": "access-tier-cold",
+        "passed": false,
+        "weight": 1,
+        "explanation": "pattern not found in file infra/infra-spec.yaml",
+        "withOnly": false,
+        "scored": true
+       },
+       {
+        "name": "module-source-avm-default",
+        "passed": true,
+        "weight": 1,
+        "explanation": "matched module_source:\\s*(?:#[^\\n]*\\s*)*(?:\\{\\s*)?(?:value:\\s*)?\\W?avm\\b",
+        "withOnly": false,
+        "scored": true
+       },
+       {
+        "name": "no-invented-subscription",
+        "passed": false,
+        "weight": 3,
+        "explanation": "pattern found (expected absent)",
+        "withOnly": false,
+        "scored": true
+       },
+       {
+        "name": "canonical-requirements-group",
+        "passed": false,
+        "weight": 1,
+        "explanation": "pattern not found in file infra/infra-spec.yaml",
+        "withOnly": false,
+        "scored": true
+       },
+       {
+        "name": "canonical-no-anchors",
+        "passed": true,
+        "weight": 1,
+        "explanation": "pattern absent as expected",
+        "withOnly": false,
+        "scored": true
+       },
+       {
+        "name": "no-code-before-confirmation",
+        "passed": true,
+        "weight": 1,
+        "explanation": "**/*.tf absent as expected",
+        "withOnly": false,
+        "scored": true
+       }
+      ]
+     }
+    ]
+   },
+   "aggregates": {
+    "score": 0.6515151515151515,
+    "passRate": 0
+   }
+  },
+  {
+   "name": "trigger-workload-request",
+   "dir": "evals/trigger/trigger-workload-request",
+   "source": "mixed",
+   "promptMarkdown": "Ich brauche eine Chatapp in Azure mit RAG.\n\nEs ist niemand da, der Rückfragen beantwortet; deine erste Nachricht wird bewertet. Kein\nDiagramm und noch keinen IaC-Code.",
+   "runsPerCase": 3,
+   "timeoutSeconds": 900,
+   "maxTurns": 30,
+   "graders": [
+    {
+     "name": "skill-fired",
+     "type": "tool_used",
+     "weight": 3,
+     "config": {
+      "tool": "Skill",
+      "input_match": "infrastructure-as-skills-azure"
+     }
+    },
+    {
+     "name": "iac-authoring-fired",
+     "type": "tool_used",
+     "weight": 2,
+     "config": {
+      "tool": "Skill",
+      "input_match": "iac-authoring"
+     }
+    },
+    {
+     "name": "no-terraform-code",
+     "type": "file_exists",
+     "weight": 1,
+     "config": {
+      "path": "**/*.tf",
+      "exists": false
+     }
+    },
+    {
+     "name": "no-bicep-code",
+     "type": "file_exists",
+     "weight": 1,
+     "config": {
+      "path": "**/*.bicep",
+      "exists": false
+     }
+    },
+    {
+     "name": "treated-as-infra-task",
+     "type": "llm",
+     "weight": 1,
+     "graderMarkdown": "PASS if the final message treats the request as Azure infrastructure to be designed\nthrough an interview or a spec: it asks about the target (Terraform or Bicep), the\nmodule choice, or customer-level questions about the system (who uses it, what data,\nhow it must be protected), or it reports an infra-spec / open items.\nFAIL if it only gives generic architecture advice or a list of Azure services\nwithout asking or recording decisions, if it contains Terraform or Bicep code, or if\nit asks only for technical values such as SKUs, address ranges or the region.\nLanguage and formatting do not matter.\n",
+     "config": {
+      "criteria": "PASS if the final message treats the request as Azure infrastructure to be designed\nthrough an interview or a spec: it asks about the target (Terraform or Bicep), the\nmodule choice, or customer-level questions about the system (who uses it, what data,\nhow it must be protected), or it reports an infra-spec / open items.\nFAIL if it only gives generic architecture advice or a list of Azure services\nwithout asking or recording decisions, if it contains Terraform or Bicep code, or if\nit asks only for technical values such as SKUs, address ranges or the region.\nLanguage and formatting do not matter.\n",
+      "focus": "last_message"
+     }
+    }
+   ],
+   "arms": {
+    "with": [
+     {
+      "score": 0.25,
+      "passed": false,
+      "turns": 1,
+      "costUsd": 0.00422144,
+      "judgeCostUsd": 0.0012401,
+      "durationSeconds": 25,
+      "startedAt": "2026-10-27T02:28:51.929Z",
+      "error": null,
+      "tracePath": "/tmp/claude-eval-6q8Xii/out/trace.jsonl",
+      "skippedPaidGraders": false,
+      "graders": [
+       {
+        "name": "skill-fired",
+        "passed": false,
+        "weight": 3,
+        "explanation": "Skill called 0x (expected 1..∞)",
+        "withOnly": false,
+        "scored": true
+       },
+       {
+        "name": "iac-authoring-fired",
+        "passed": false,
+        "weight": 2,
+        "explanation": "Skill called 0x (expected 1..∞)",
+        "withOnly": false,
+        "scored": true
+       },
+       {
+        "name": "no-terraform-code",
+        "passed": true,
+        "weight": 1,
+        "explanation": "**/*.tf absent as expected",
+        "withOnly": false,
+        "scored": true
+       },
+       {
+        "name": "no-bicep-code",
+        "passed": true,
+        "weight": 1,
+        "explanation": "**/*.bicep absent as expected",
+        "withOnly": false,
+        "scored": true
+       },
+       {
+        "name": "treated-as-infra-task",
+        "passed": false,
+        "weight": 1,
+        "explanation": "judge votes: PASS FAIL FAIL",
+        "withOnly": false,
+        "scored": true,
+        "judgeVotes": [
+         true,
+         false,
+         false
+        ],
+        "evidence": "# Konzept: Chat-App mit RAG auf Azure\n\nIch habe keine Rückfragen gestellt und lege die Annahmen unten fest. Diagramm und IaC-Code sind bewusst nicht enthalten.\n\n## Annahmen\n\n- **Nutzer:** interne Mitarbeitende, Anmeldung über Microsoft Entra ID.\n- **Inhalte:** Firmendokumente (PDF, DOCX, MD), grob bis 10.000 Dokumente.\n- **Daten:** EU-Datenresidenz. Region Germany West Central, Ausweichregion Sweden Central. Die Modellverfügbarkeit in der gewählten Region ist vor der Umsetzung zu prüfen.\n- **Sprache:** Deutsch in UI und Antworten.\n- **Zugriffe:** Nutzer sehen nur Antworten aus Dokumenten, für die sie berechtigt sind (Gruppen aus Entra).\n\n## Architektur\n\n| Baustein | Azure-Dienst | Zweck |\n|---|---|---|\n| Frontend + API | **Azure Container Apps** (Frontend als Web-App, Backend als API, Streaming per SSE) | Chat-Oberfläche und Orchestrierung der RAG-Pipeline |\n| Login | **Microsoft Entra ID** (MSAL im Frontend, JWT-Validierung im Backend) | Authentifizierung, Gruppen für Berechtigungen |\n| LLM | **Azure OpenAI**: aktuelles Chat-Modell + `text-embedding-3-large` | Antwortgenerierung und Embeddings |\n| Suche / Vektor | **Azure AI Search** (Standard, Semantic Ranker) | Hybrid-Suche (Vektor + BM25) mit Reranking |\n| Dokumentablage | **Blob Storage** | Quelldokumente |\n| Ingestion | **Event Grid** → **Azure Functions** (oder Container Apps Job) | Parsen, Chunking, Embedding, Indexierung |\n| Layout-Parsing | **Document Intelligence** | Text und Struktur aus PDFs (Tabellen, Überschriften) |\n| Chatverlauf | **Cosmos DB** (serverless oder Autoscale) | Sitzungen und Nachrichten |\n| Monitoring | **Application Insights**, Log Analytics | Traces, Latenzen, Token-Verbrauch |\n| Schutz | **Azure AI Content Safety** | Filter für Ein- und Ausgaben |\n| Secrets | **Managed Identity** überall, Key Vault nur wo nötig | Keine Schlüssel im Code |\n\nAlle Dienste werden über Managed Identity mit RBAC angebunden. Private Endpoints für Search, OpenAI, Storage und Cosmos sind für Produktion vorgesehen, in Phase 1 aber optional, weil sie Kosten und Komplexität erhöhen.\n\n## RAG-Pipeline\n\n**Ingestion**\n1. Upload in Blob Storage löst ein Event Grid-Ereignis aus.\n2. Die Function lädt das Dokument und parst es mit Document Intelligence (Layout-Modus).\n3. Chunking: etwa 500–800 Tokens, 10–15 % Überlappung, entlang von Überschriften. Jeder Chunk trägt Metadaten: Dokument-ID, Titel, Seite, Quell-URL, Gruppen-IDs (ACL), Hash.\n4. Embeddings werden erzeugt und die Chunks in den Search-Index geschrieben.\n5. Bei Änderungen wird anhand des Hashes gezielt neu indexiert. Gelöschte Dokumente entfernen ihre Chunks.\n\n**Abfrage**\n1. Die Frage wird eingebettet. Optional formuliert das LLM sie vorab um (Query Rewriting).\n2. Hybrid-Suche mit Filter auf die Gruppen des Nutzers (Security Trimming), Top-20, danach Semantic Reranking auf etwa 5–8 Chunks.\n3. Der Prompt enthält die Chunks mit Nummern. Das Modell antwortet nur aus diesem Kontext, zitiert mit `[1]` und sagt klar, wenn die Quellen nicht reichen.\n4. Die Antwort wird gestreamt. Zitate verlinken auf das Quelldokument und die Seite.\n\n**Qualitätssicherung**\n- Goldene Frage-Antwort-Liste mit erwarteten Quellen als Regressionstest.\n- Metriken wie Groundedness, Relevanz und Zitiertreue mit dem Azure AI Evaluation SDK.\n- Nutzerfeedback (Daumen hoch/runter) wird in Cosmos gespeichert und fließt in die Auswertung ein.\n\n## Phasen\n\n**Phase 1 (MVP):** Entra-Login, Upload über Blob, Ingestion-Pipeline, Chat mit Streaming und Zitaten, Security Trimming nach Gruppen, Monitoring, Basis-Evaluation.\n\n**Phase 2 (Produktion):** Private Endpoints und VNet-Integration, weitere Quellen (z. B. SharePoint-Connector), Feedback-Loop, automatisierte Evaluation in der Pipeline, Content Safety, Kostenmonitoring und Budgetalarme.\n\n## Risiken\n\n- **Gruppen-ACLs:** Bei vielen Gruppen pro Nutzer wird der Suchfilter groß. Deshalb ist eine Obergrenze oder eine Gruppen-Zuordnung pro Dokument einzuplanen.\n- **Modellverfügbarkeit und Quoten:** Die Modellwahl hängt von Region und TPM-Kontingent ab. Ein Fallback-Modell sollte vorgesehen sein.\n- **Kosten:** Haupttreiber sind Token-Verbrauch des LLM, das Search-Tier und Document Intelligence bei großen Mengen.\n\n## Nächste Schritte\n\nDie Architektur ist damit festgelegt. Ein `infra-spec.yaml`, das Diagramm und der IaC-Code folgen erst, wenn du sie freigibst. Die Annahmen oben kannst du jederzeit korrigieren, z. B. Region, Dokumentquellen oder Nutzerkreis."
+       }
+      ]
+     },
+     {
+      "score": 1,
+      "passed": true,
+      "turns": 5,
+      "costUsd": 0.00987598,
+      "judgeCostUsd": 0.0008960999999999997,
+      "durationSeconds": 41,
+      "startedAt": "2026-10-27T02:28:51.929Z",
+      "error": null,
+      "tracePath": "/tmp/claude-eval-BCVgo1/out/trace.jsonl",
+      "skippedPaidGraders": false,
+      "graders": [
+       {
+        "name": "skill-fired",
+        "passed": true,
+        "weight": 3,
+        "explanation": "Skill called 1x (expected 1..∞)",
+        "withOnly": false,
+        "scored": true
+       },
+       {
+        "name": "iac-authoring-fired",
+        "passed": true,
+        "weight": 2,
+        "explanation": "Skill called 1x (expected 1..∞)",
+        "withOnly": false,
+        "scored": true
+       },
+       {
+        "name": "no-terraform-code",
+        "passed": true,
+        "weight": 1,
+        "explanation": "**/*.tf absent as expected",
+        "withOnly": false,
+        "scored": true
+       },
+       {
+        "name": "no-bicep-code",
+        "passed": true,
+        "weight": 1,
+        "explanation": "**/*.bicep absent as expected",
+        "withOnly": false,
+        "scored": true
+       },
+       {
+        "name": "treated-as-infra-task",
+        "passed": true,
+        "weight": 1,
+        "explanation": "judge votes: PASS PASS PASS",
+        "withOnly": false,
+        "scored": true,
+        "judgeVotes": [
+         true,
+         true,
+         true
+        ],
+        "evidence": "Ich habe einen Architekturentwurf für die Chatapp mit RAG geschrieben: `docs/chatapp-rag-architektur.md` im Arbeitsverzeichnis. Es gibt kein Diagramm und keinen IaC-Code, und es wurde keine `infra-spec.yaml` erzeugt.\n\nDa niemand Rückfragen beantwortet, habe ich die Entscheidungen selbst getroffen und als Annahmen A1–A8 im Dokument aufgeführt, jeweils mit der Konsequenz, falls sie sich ändern. Die wichtigsten:\n\n- **Nutzer:** Mitarbeitende mit Firmenkonten über Microsoft Entra ID.\n- **Region:** West Europe, Daten bleiben in der EU.\n- **Stufen:** Entwicklung und Produktion.\n- **Anfrage-Fluss:** App Service (Chat-Oberfläche und API), Hybridsuche in Azure AI Search mit Berechtigungsfiltern aus dem Entra-Token, Chatmodell und Embeddings über Azure AI Foundry.\n- **Ingestion:** Dokumente in Blob Storage, eine Azure Function (Blob-Trigger) extrahiert, zerlegt, vektorisiert und indexiert.\n- **Chatverlauf:** Cosmos DB (serverless), 90 Tage Aufbewahrung.\n- **Netz und Zugriff:** Nur die Chat-Oberfläche ist öffentlich und mit Anmeldung geschützt. Alle Datendienste haben private Endpunkte, lokale Schlüssel sind aus, Zugriff läuft über Managed Identities.\n\nDas Dokument enthält außerdem Komponententabelle, Rollenzuweisungen, Sicherheitsmaßnahmen, Betriebsaspekte und sieben offene Fragen für Menschen (u. a. Dokumentquellen, Berechtigungsmodell, Compliance-Vorgaben, Netzanbindung). Die Preise habe ich bewusst nicht geschätzt.\n\nDer Entwurf folgt nicht dem vollen Ablauf des `iac-authoring`-Skills (Interview, Spec, Diagramm-Freigabe). Die Spezifikation könnte ich als nächsten Schritt aus diesem Entwurf ableiten; das Diagramm und der Code bleiben, wie gewünscht, aus."
+       }
+      ]
+     },
+     {
+      "score": 0.25,
+      "passed": false,
+      "turns": 1,
+      "costUsd": 0.003618965,
+      "judgeCostUsd": 0.0007920000000000001,
+      "durationSeconds": 22,
+      "startedAt": "2026-10-27T02:28:51.929Z",
+      "error": null,
+      "tracePath": "/tmp/claude-eval-zerkqW/out/trace.jsonl",
+      "skippedPaidGraders": false,
+      "graders": [
+       {
+        "name": "skill-fired",
+        "passed": false,
+        "weight": 3,
+        "explanation": "Skill called 0x (expected 1..∞)",
+        "withOnly": false,
+        "scored": true
+       },
+       {
+        "name": "iac-authoring-fired",
+        "passed": false,
+        "weight": 2,
+        "explanation": "Skill called 0x (expected 1..∞)",
+        "withOnly": false,
+        "scored": true
+       },
+       {
+        "name": "no-terraform-code",
+        "passed": true,
+        "weight": 1,
+        "explanation": "**/*.tf absent as expected",
+        "withOnly": false,
+        "scored": true
+       },
+       {
+        "name": "no-bicep-code",
+        "passed": true,
+        "weight": 1,
+        "explanation": "**/*.bicep absent as expected",
+        "withOnly": false,
+        "scored": true
+       },
+       {
+        "name": "treated-as-infra-task",
+        "passed": false,
+        "weight": 1,
+        "explanation": "judge votes: FAIL FAIL FAIL",
+        "withOnly": false,
+        "scored": true,
+        "judgeVotes": [
+         false,
+         false,
+         false
+        ],
+        "evidence": "# Azure-RAG-Chatapp: Architekturvorschlag\n\nIch habe keine Rückfragen gestellt und die Annahmen unten selbst getroffen. Es gibt weder Diagramm noch IaC-Code. Wenn eine Annahme nicht stimmt, sag Bescheid, dann passe ich den Plan an.\n\n## Annahmen\n\n- **Nutzer:** interne Mitarbeitende, eine Entra-ID-Tenant, etwa 50 bis 200 Nutzer gleichzeitig.\n- **Daten:** einige tausend Dokumente (PDF, DOCX, Markdown), Deutsch und Englisch, Aktualisierung täglich oder seltener.\n- **Region:** EU, z. B. Sweden Central oder Germany West Central. Ob das gewünschte Chat- und Embedding-Modell dort verfügbar ist, muss vor der Umsetzung geprüft werden.\n- **Umfang:** Chat mit Quellenangaben, Chatverlauf pro Nutzer, keine Agenten-Funktionen, kein Fine-Tuning.\n\n## Komponenten\n\n| Bereich | Dienst | Zweck |\n|---|---|---|\n| Frontend | Azure Static Web Apps | Chat-UI (React oder Next.js), Auth über Entra ID |\n| Backend | Azure Container Apps | API mit Streaming (SSE), RAG-Orchestrierung |\n| LLM und Embeddings | Azure AI Foundry (Azure OpenAI-Modelle) | Chat-Modell und `text-embedding-3-large` |\n| Retrieval | Azure AI Search | Hybridsuche (Vektor + BM25) mit semantischem Reranker |\n| Dokumentablage | Azure Blob Storage | Quelldokumente, Ausgangspunkt der Ingestion |\n| Ingestion | Azure Functions (Blob-Trigger oder Event Grid) | Parsen, Chunking, Embedding, Indexierung |\n| Dokumentparsing | Azure AI Document Intelligence | Text und Layout aus PDFs, inkl. Tabellen |\n| Chatverlauf | Azure Cosmos DB (Serverless) | Sitzungen und Nachrichten pro Nutzer |\n| Sicherheit | Entra ID, Managed Identities, Key Vault | Authentifizierung ohne Schlüssel im Code |\n| Inhaltssicherheit | Azure AI Content Safety | Filter für Eingabe und Ausgabe |\n| Beobachtbarkeit | Application Insights, Log Analytics, Foundry-Tracing | Latenz, Token, Fehler, Retrieval-Qualität |\n\n## RAG-Ablauf zur Laufzeit\n\n1. Nutzer sendet eine Frage. Das Backend prüft die Identität aus dem Entra-Token.\n2. Optional wird die Frage zu einer eigenständigen Suchanfrage umformuliert, wenn Teile der Chathistorie darauf Bezug nehmen.\n3. Die Frage wird eingebettet und gegen den AI-Search-Index gesucht: Hybridsuche, Top-k etwa 20, danach semantischer Reranker, Ergebnis etwa 5 bis 8 Chunks.\n4. Der Index filtert nach Zugriffsrechten (Gruppen-ID pro Chunk). Nutzer sehen nur Inhalte, für die sie berechtigt sind.\n5. Der Prompt enthält nur die Chunks mit Quellen-IDs. Die Regeln lauten: nur aus den Quellen antworten, Quellen zitieren, bei fehlender Information klar sagen, dass sie fehlt.\n6. Die Antwort wird gestreamt. Am Ende kommen die Quellen mit Dokumentname, Seite und Link.\n7. Frage, Antwort und Quellen-IDs werden in Cosmos DB gespeichert.\n\n## Ingestion\n\n1. Neue oder geänderte Dokumente landen im Blob-Container.\n2. Ein Event Grid-Event startet die Function.\n3. Document Intelligence extrahiert Text, Tabellen und Seitenzahlen.\n4. Chunking mit Überlappung, etwa 500 bis 800 Token pro Chunk. Jeder Chunk erhält Metadaten: Quelle, Seite, Zugriffsgruppe, Sprache, Änderungsdatum.\n5. Embeddings werden erzeugt und der Index per Merge-or-Upload aktualisiert. Gelöschte Dokumente werden aus dem Index entfernt.\n\nAlternative: Der integrierte Indexer von AI Search mit Skillset ist weniger Code, bietet aber weniger Kontrolle über Chunking und Zugriffsmetadaten. Ich empfehle die eigene Function.\n\n## Sicherheit und Betrieb\n\n- Managed Identities und RBAC für alle Dienste, keine API-Schlüssel im Code.\n- Private Endpoints und VNet für AI Search, Foundry, Storage und Cosmos DB, öffentlicher Zugriff deaktiviert, wo möglich.\n- Entra-ID-Login im Frontend, Token-Prüfung im Backend, Zugriffsgruppen im Index.\n- Application Insights mit Trace-ID pro Anfrage, Log von Retrieval-Treffern und Token-Verbrauch (ohne Inhalte, falls Datenschutz das verlangt).\n- Zwei Umgebungen (dev, prod) mit getrennten Ressourcengruppen.\n\n## Qualitätssicherung\n\n- Ein Testset mit etwa 50 bis 100 Fragen und erwarteten Quellen.\n- Messung von Retrieval-Trefferquote, Grounding (Antwort durch Quellen gedeckt) und Zitattreue, z. B. mit Foundry-Evaluations oder `azure-ai-evaluation`.\n- Die Evaluation läuft bei jeder Änderung an Prompt, Chunking oder Modell.\n\n## Offene Punkte für die Umsetzung\n\n- Modellauswahl hängt von Verfügbarkeit und Kosten in der gewählten Region ab.\n- Falls Dokumente mehrere Mandanten oder Abteilungen mit unterschiedlichen Rechten haben, muss das Zugriffsmodell vor der Indexierung feststehen.\n\nWenn du mit diesem Plan einverstanden bist, ist der nächste Schritt die Infrastrukturbeschreibung als Spezifikation. Diagramm und IaC-Code kommen erst danach."
+       }
+      ]
+     }
+    ]
+   },
+   "aggregates": {
+    "score": 0.5,
+    "passRate": 0.3333333333333333
+   }
+  },
+  {
+   "name": "vague-public-dev",
+   "dir": "evals/spec/vague-public-dev",
+   "source": "mixed",
+   "promptMarkdown": "Ich brauch ein Storage Account für Terraform, für die Assets unserer Doku-Website\n(Workload \"docs\"), Entwicklungsumgebung. Öffentlich erreichbar ist okay, ist eh nur\nTestkram. Logs bitte nach Log Analytics.\n\nZum Ablauf: Es ist niemand da, der Rückfragen beantwortet. Was oben nicht steht, nimmst du\nnicht an — Pflichtwerte ohne Antwort kommen als offene Punkte in die Spec, für alles andere\ngelten die Defaults. Kein Diagramm und noch keinen IaC-Code — nur die Spec.",
+   "runsPerCase": 3,
+   "timeoutSeconds": 900,
+   "maxTurns": 60,
+   "graders": [
+    {
+     "name": "skill-fired",
+     "type": "tool_used",
+     "weight": 1,
+     "config": {
+      "tool": "Skill",
+      "input_match": "infrastructure-as-skills-azure"
+     }
+    },
+    {
+     "name": "exposure-public",
+     "type": "regex",
+     "weight": 2,
+     "config": {
+      "target": {
+       "source": "file",
+       "path": "infra/infra-spec.yaml"
+      },
+      "pattern": "network_exposure:\\s*(?:#[^\\n]*\\s*)*(?:\\{\\s*)?(?:value:\\s*)?\\W?public\\b",
+      "flags": "",
+      "match": "contains"
+     }
+    },
+    {
+     "name": "no-network",
+     "type": "regex",
+     "weight": 2,
+     "config": {
+      "target": {
+       "source": "file",
+       "path": "infra/infra-spec.yaml"
+      },
+      "pattern": "network_ownership:\\s*(?:#[^\\n]*\\s*)*(?:\\{\\s*)?(?:value:\\s*)?\\W?none\\b",
+      "flags": "",
+      "match": "contains"
+     }
+    },
+    {
+     "name": "stages-default-stack",
+     "type": "regex",
+     "weight": 1,
+     "config": {
+      "target": {
+       "source": "file",
+       "path": "infra/infra-spec.yaml"
+      },
+      "pattern": "environments:\\s*\\[(?=[^\\]]*\\bdevelopment\\b)(?=[^\\]]*\\bproduction\\b)[^\\]]*\\]",
+      "flags": "",
+      "match": "contains"
+     }
+    },
+    {
+     "name": "standalone-landing-zone",
+     "type": "regex",
+     "weight": 1,
+     "config": {
+      "target": {
+       "source": "file",
+       "path": "infra/infra-spec.yaml"
+      },
+      "pattern": "landing_zone:\\s*(?:#[^\\n]*\\s*)*(?:\\{\\s*)?(?:value:\\s*)?\\W?standalone\\b",
+      "flags": "",
+      "match": "contains"
+     }
+    },
+    {
+     "name": "workspace-created",
+     "type": "regex",
+     "weight": 2,
+     "config": {
+      "target": {
+       "source": "file",
+       "path": "infra/infra-spec.yaml"
+      },
+      "pattern": "observability_ownership:\\s*(?:#[^\\n]*\\s*)*(?:\\{\\s*)?(?:value:\\s*)?\\W?create\\b",
+      "flags": "",
+      "match": "contains"
+     }
+    },
+    {
+     "name": "open-location",
+     "type": "regex",
+     "weight": 2,
+     "config": {
+      "target": {
+       "source": "file",
+       "path": "infra/infra-spec.yaml"
+      },
+      "pattern": "^open:[\\s\\S]*key:\\s*context\\.location\\b",
+      "flags": "m",
+      "match": "contains"
+     }
+    },
+    {
+     "name": "open-subscription",
+     "type": "regex",
+     "weight": 2,
+     "config": {
+      "target": {
+       "source": "file",
+       "path": "infra/infra-spec.yaml"
+      },
+      "pattern": "^open:[\\s\\S]*key:\\s*context\\.subscription_id\\b",
+      "flags": "m",
+      "match": "contains"
+     }
+    },
+    {
+     "name": "open-resource-group",
+     "type": "regex",
+     "weight": 2,
+     "config": {
+      "target": {
+       "source": "file",
+       "path": "infra/infra-spec.yaml"
+      },
+      "pattern": "^open:[\\s\\S]*key:\\s*context\\.resource_group_name\\b",
+      "flags": "m",
+      "match": "contains"
+     }
+    },
+    {
+     "name": "no-invented-location",
+     "type": "regex",
+     "weight": 3,
+     "config": {
+      "target": {
+       "source": "file",
+       "path": "infra/infra-spec.yaml"
+      },
+      "pattern": "^\\s+location:\\s*\\w",
+      "flags": "m",
+      "match": "not_contains"
+     }
+    },
+    {
+     "name": "open-role-assignments",
+     "type": "regex",
+     "weight": 2,
+     "config": {
+      "target": {
+       "source": "file",
+       "path": "infra/infra-spec.yaml"
+      },
+      "pattern": "^open:[\\s\\S]*role_assignments",
+      "flags": "m",
+      "match": "contains"
+     }
+    },
+    {
+     "name": "no-invented-subscription",
+     "type": "regex",
+     "weight": 3,
+     "config": {
+      "target": {
+       "source": "file",
+       "path": "infra/infra-spec.yaml"
+      },
+      "pattern": "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}",
+      "flags": "",
+      "match": "not_contains"
+     }
+    },
+    {
+     "name": "no-invented-resource-group",
+     "type": "regex",
+     "weight": 3,
+     "config": {
+      "target": {
+       "source": "file",
+       "path": "infra/infra-spec.yaml"
+      },
+      "pattern": "value:\\W{0,3}rg-",
+      "flags": "",
+      "match": "not_contains"
+     }
+    },
+    {
+     "name": "no-vnet-resource",
+     "type": "regex",
+     "weight": 1,
+     "config": {
+      "target": {
+       "source": "file",
+       "path": "infra/infra-spec.yaml"
+      },
+      "pattern": "^\\s{2}virtual-network:",
+      "flags": "m",
+      "match": "not_contains"
+     }
+    },
+    {
+     "name": "no-code-before-confirmation",
+     "type": "file_exists",
+     "weight": 1,
+     "config": {
+      "path": "**/*.tf",
+      "exists": false
+     }
+    },
+    {
+     "name": "says-what-is-missing",
+     "type": "llm",
+     "weight": 1,
+     "graderMarkdown": "PASS if the final message tells the user that the spec cannot be deployed yet\n(or \"not applyable\", \"blockiert apply\", \"offene Punkte\", or equivalent) AND names\nat least one thing still needed from them (who gets access / role assignments,\nthe tag set, or the allowed addresses). FAIL if it presents the spec as ready to\ndeploy, or if it states a concrete subscription id or resource group name as\nchosen. Language and formatting do not matter; it is fine for the message to say\nthat the region, subscription and resource group are parameters supplied at\ndeploy time.\n",
+     "config": {
+      "criteria": "PASS if the final message tells the user that the spec cannot be deployed yet\n(or \"not applyable\", \"blockiert apply\", \"offene Punkte\", or equivalent) AND names\nat least one thing still needed from them (who gets access / role assignments,\nthe tag set, or the allowed addresses). FAIL if it presents the spec as ready to\ndeploy, or if it states a concrete subscription id or resource group name as\nchosen. Language and formatting do not matter; it is fine for the message to say\nthat the region, subscription and resource group are parameters supplied at\ndeploy time.\n",
+      "focus": "last_message"
+     }
+    }
+   ],
+   "arms": {
+    "with": [
+     {
+      "score": 0.9655172413793104,
+      "passed": false,
+      "turns": 20,
+      "costUsd": 0.09344697000000002,
+      "judgeCostUsd": 0.00044519999999999976,
+      "durationSeconds": 123,
+      "startedAt": "2026-10-27T02:26:47.984Z",
+      "error": null,
+      "tracePath": "/tmp/claude-eval-XTol4u/out/trace.jsonl",
+      "skippedPaidGraders": false,
+      "graders": [
+       {
+        "name": "skill-fired",
+        "passed": true,
+        "weight": 1,
+        "explanation": "Skill called 1x (expected 1..∞)",
+        "withOnly": false,
+        "scored": true
+       },
+       {
+        "name": "exposure-public",
+        "passed": true,
+        "weight": 2,
+        "explanation": "matched network_exposure:\\s*(?:#[^\\n]*\\s*)*(?:\\{\\s*)?(?:value:\\s*)?\\W?public\\b",
+        "withOnly": false,
+        "scored": true
+       },
+       {
+        "name": "no-network",
+        "passed": true,
+        "weight": 2,
+        "explanation": "matched network_ownership:\\s*(?:#[^\\n]*\\s*)*(?:\\{\\s*)?(?:value:\\s*)?\\W?none\\b",
+        "withOnly": false,
+        "scored": true
+       },
+       {
+        "name": "stages-default-stack",
+        "passed": false,
+        "weight": 1,
+        "explanation": "pattern not found in file infra/infra-spec.yaml",
+        "withOnly": false,
+        "scored": true
+       },
+       {
+        "name": "standalone-landing-zone",
+        "passed": true,
+        "weight": 1,
+        "explanation": "matched landing_zone:\\s*(?:#[^\\n]*\\s*)*(?:\\{\\s*)?(?:value:\\s*)?\\W?standalone\\b",
+        "withOnly": false,
+        "scored": true
+       },
+       {
+        "name": "workspace-created",
+        "passed": true,
+        "weight": 2,
+        "explanation": "matched observability_ownership:\\s*(?:#[^\\n]*\\s*)*(?:\\{\\s*)?(?:value:\\s*)?\\W?create\\b",
+        "withOnly": false,
+        "scored": true
+       },
+       {
+        "name": "open-location",
+        "passed": true,
+        "weight": 2,
+        "explanation": "matched ^open:[\\s\\S]*key:\\s*context\\.location\\b",
+        "withOnly": false,
+        "scored": true
+       },
+       {
+        "name": "open-subscription",
+        "passed": true,
+        "weight": 2,
+        "explanation": "matched ^open:[\\s\\S]*key:\\s*context\\.subscription_id\\b",
+        "withOnly": false,
+        "scored": true
+       },
+       {
+        "name": "open-resource-group",
+        "passed": true,
+        "weight": 2,
+        "explanation": "matched ^open:[\\s\\S]*key:\\s*context\\.resource_group_name\\b",
+        "withOnly": false,
+        "scored": true
+       },
+       {
+        "name": "no-invented-location",
+        "passed": true,
+        "weight": 3,
+        "explanation": "pattern absent as expected",
+        "withOnly": false,
+        "scored": true
+       },
+       {
+        "name": "open-role-assignments",
+        "passed": true,
+        "weight": 2,
+        "explanation": "matched ^open:[\\s\\S]*role_assignments",
+        "withOnly": false,
+        "scored": true
+       },
+       {
+        "name": "no-invented-subscription",
+        "passed": true,
+        "weight": 3,
+        "explanation": "pattern absent as expected",
+        "withOnly": false,
+        "scored": true
+       },
+       {
+        "name": "no-invented-resource-group",
+        "passed": true,
+        "weight": 3,
+        "explanation": "pattern absent as expected",
+        "withOnly": false,
+        "scored": true
+       },
+       {
+        "name": "no-vnet-resource",
+        "passed": true,
+        "weight": 1,
+        "explanation": "pattern absent as expected",
+        "withOnly": false,
+        "scored": true
+       },
+       {
+        "name": "no-code-before-confirmation",
+        "passed": true,
+        "weight": 1,
+        "explanation": "**/*.tf absent as expected",
+        "withOnly": false,
+        "scored": true
+       },
+       {
+        "name": "says-what-is-missing",
+        "passed": true,
+        "weight": 1,
+        "explanation": "judge votes: PASS PASS PASS",
+        "withOnly": false,
+        "scored": true,
+        "judgeVotes": [
+         true,
+         true,
+         true
+        ],
+        "evidence": "Die Spec liegt unter `infra/infra-spec.yaml` (im Arbeitsverzeichnis `cwd/`). Kein Diagramm, kein Terraform, keine `naming.yaml`.\n\n**Was ich festgelegt habe**\n\n- **Stufe:** nur `development`. \"Entwicklungsumgebung\" nenne ich als Stufe, deshalb habe ich den Standard-Stack (dev, test, prod) nicht angewendet. Wenn ihr Test und Produktion wollt, ist das eine Änderung in `context.environments`.\n- **Zugriff:** öffentlich erreichbar, wie gewünscht. Dadurch entfällt das Netz komplett (kein VNet, keine Private Endpoints, keine DNS-Zonen). Die Speicherkonten-Firewall bleibt offen.\n- **Logs:** Ohne Landing Zone gilt der Standard, also legt das Deployment seinen eigenen Log-Analytics-Workspace an (Aufbewahrung 30 Tage). Wenn es einen zentralen Workspace gibt, muss das auf \"Referenz\" umgestellt werden. Dafür brauche ich dessen Namen.\n- **Sicherheit:** Schlüssel-Zugriff aus, TLS 1.2, Infrastruktur-Verschlüsselung an, anonymer Blob-Zugriff aus, SFTP aus.\n- **Schutz:** Replikation LRS (Dev-Ersparnis), Soft Delete 7 Tage, Versionierung an, Hot-Tier.\n\n**Offene Punkte (blockieren das Apply)**\n\n1. Azure-Region\n2. Subscription-ID\n3. Name der bestehenden Ressourcengruppe\n4. Deployment-Weg: Azure DevOps, GitHub, GitLab oder von Hand. Ohne Antwort wird keine Pipeline gerendert.\n5. Datenrollen auf dem Speicher. Ohne Schlüssel kann niemand lesen, bis eine Rolle vergeben ist.\n\n**Was ihr vorher wissen solltet**\n\n- Mit den Defaults sind die Assets nicht anonym lesbar. Für eine öffentliche Doku-Seite braucht es eine Entscheidung: Static Website, anonymer Container-Zugriff oder ein Frontend davor. Ich habe das nicht entschieden, weil es nicht angegeben wurde.\n- Die Speicher-Aufbewahrung und die Log-Kategorien stehen auf Default (nur Audit-Logs, nicht alle Lese- und Schreibzugriffe).\n\n**Nicht gemacht bzw. nicht geprüft**\n\n- Ich habe keine Shell-Zugriffe, deshalb konnte ich `write_spec.py` und `check_spec.py` nicht laufen lassen. Die Datei ist von Hand im kanonischen Format geschrieben und nicht validiert.\n- Die Entscheidungsdatei `infra-decisions.md` wurde nicht erzeugt. Dafür braucht es `export_decisions.py`.\n- Ob `cwd/` im Git-Repo-Root liegt, konnte ich nicht prüfen. Der Git-Status deutet auf das übergeordnete `home/`. Wenn `infra/` dort hin soll, muss die Datei verschoben werden."
+       }
+      ]
+     },
+     {
+      "score": 0.7931034482758621,
+      "passed": false,
+      "turns": 19,
+      "costUsd": 0.07833214999999999,
+      "judgeCostUsd": 0.0007609,
+      "durationSeconds": 91,
+      "startedAt": "2026-10-27T02:26:47.984Z",
+      "error": null,
+      "tracePath": "/tmp/claude-eval-uFHIT2/out/trace.jsonl",
+      "skippedPaidGraders": false,
+      "graders": [
+       {
+        "name": "skill-fired",
+        "passed": true,
+        "weight": 1,
+        "explanation": "Skill called 1x (expected 1..∞)",
+        "withOnly": false,
+        "scored": true
+       },
+       {
+        "name": "exposure-public",
+        "passed": true,
+        "weight": 2,
+        "explanation": "matched network_exposure:\\s*(?:#[^\\n]*\\s*)*(?:\\{\\s*)?(?:value:\\s*)?\\W?public\\b",
+        "withOnly": false,
+        "scored": true
+       },
+       {
+        "name": "no-network",
+        "passed": true,
+        "weight": 2,
+        "explanation": "matched network_ownership:\\s*(?:#[^\\n]*\\s*)*(?:\\{\\s*)?(?:value:\\s*)?\\W?none\\b",
+        "withOnly": false,
+        "scored": true
+       },
+       {
+        "name": "stages-default-stack",
+        "passed": true,
+        "weight": 1,
+        "explanation": "matched environments:\\s*\\[(?=[^\\]]*\\bdevelopment\\b)(?=[^\\]]*\\bproduction\\b)[^\\]]*\\]",
+        "withOnly": false,
+        "scored": true
+       },
+       {
+        "name": "standalone-landing-zone",
+        "passed": true,
+        "weight": 1,
+        "explanation": "matched landing_zone:\\s*(?:#[^\\n]*\\s*)*(?:\\{\\s*)?(?:value:\\s*)?\\W?standalone\\b",
+        "withOnly": false,
+        "scored": true
+       },
+       {
+        "name": "workspace-created",
+        "passed": true,
+        "weight": 2,
+        "explanation": "matched observability_ownership:\\s*(?:#[^\\n]*\\s*)*(?:\\{\\s*)?(?:value:\\s*)?\\W?create\\b",
+        "withOnly": false,
+        "scored": true
+       },
+       {
+        "name": "open-location",
+        "passed": true,
+        "weight": 2,
+        "explanation": "matched ^open:[\\s\\S]*key:\\s*context\\.location\\b",
+        "withOnly": false,
+        "scored": true
+       },
+       {
+        "name": "open-subscription",
+        "passed": true,
+        "weight": 2,
+        "explanation": "matched ^open:[\\s\\S]*key:\\s*context\\.subscription_id\\b",
+        "withOnly": false,
+        "scored": true
+       },
+       {
+        "name": "open-resource-group",
+        "passed": true,
+        "weight": 2,
+        "explanation": "matched ^open:[\\s\\S]*key:\\s*context\\.resource_group_name\\b",
+        "withOnly": false,
+        "scored": true
+       },
+       {
+        "name": "no-invented-location",
+        "passed": false,
+        "weight": 3,
+        "explanation": "pattern found (expected absent)",
+        "withOnly": false,
+        "scored": true
+       },
+       {
+        "name": "open-role-assignments",
+        "passed": true,
+        "weight": 2,
+        "explanation": "matched ^open:[\\s\\S]*role_assignments",
+        "withOnly": false,
+        "scored": true
+       },
+       {
+        "name": "no-invented-subscription",
+        "passed": false,
+        "weight": 3,
+        "explanation": "pattern found (expected absent)",
+        "withOnly": false,
+        "scored": true
+       },
+       {
+        "name": "no-invented-resource-group",
+        "passed": true,
+        "weight": 3,
+        "explanation": "pattern absent as expected",
+        "withOnly": false,
+        "scored": true
+       },
+       {
+        "name": "no-vnet-resource",
+        "passed": true,
+        "weight": 1,
+        "explanation": "pattern absent as expected",
+        "withOnly": false,
+        "scored": true
+       },
+       {
+        "name": "no-code-before-confirmation",
+        "passed": true,
+        "weight": 1,
+        "explanation": "**/*.tf absent as expected",
+        "withOnly": false,
+        "scored": true
+       },
+       {
+        "name": "says-what-is-missing",
+        "passed": true,
+        "weight": 1,
+        "explanation": "judge votes: PASS PASS PASS",
+        "withOnly": false,
+        "scored": true,
+        "judgeVotes": [
+         true,
+         true,
+         true
+        ],
+        "evidence": "Die Spec liegt in `infra/infra-spec.yaml`. Das Repo hatte noch keinen IaC-Root, deshalb ist `infra/` neu angelegt. Diagramm, IaC-Code und `naming.yaml` sind nicht erstellt, wie gewünscht.\n\n**Nicht verifiziert:** Die Validatoren (`check_spec.py`, `write_spec.py`) konnte ich nicht laufen lassen, weil Bash in dieser Sitzung nicht verfügbar ist. Die Datei habe ich von Hand nach dem Spec-Format geschrieben und gegen die Question Sets gelesen. Vor dem Weiterarbeiten sollte jemand `check_spec.py` darüber laufen lassen. Außerdem ist `at` nur mit Datum gesetzt (`2026-10-27T00:00:00Z`), die Uhrzeit ist ein Platzhalter.\n\n**Offene Punkte** (blockieren `apply`):\n1. **Deployment-Mechanismus** (Pflichtwert): Azure DevOps, GitHub, GitLab oder von Hand? Ohne Antwort wird keine Pipeline gerendert.\n2. **Region** (`context.location`): Platzhalter `OPEN-location`.\n3. **Subscription je Stufe**: Platzhalter-GUIDs.\n4. **Ressourcengruppe je Stufe**: bestehend vorausgesetzt, Platzhalter `OPEN-resource-group`.\n5. **Rollen auf dem Speicher**: Schlüssel-Zugriff ist deaktiviert, also braucht die Pipeline-Identität und ggf. der Terraform-State eine Datenrolle. Wer genau, ist offen.\n\n**Entscheidungen, die ich getroffen habe** (in der Spec begründet, einzeln änderbar):\n- **Stufen:** Ich habe den Standard-Stack `development, test, production` gesetzt, weil nur „Entwicklungsumgebung“ genannt war. Test und Produktion tragen deshalb die offenen Punkte oben. Wenn nur Development gemeint ist, sag das, dann wird der Stack verkleinert.\n- **Öffentlicher Zugriff:** Ich habe `public_network_access: enabled` als Abweichung vom Standard festgelegt, weil du gesagt hast, öffentlich ist okay. Es gibt keine IP-Allowlist, weil keine genannt wurde.\n- **Netz:** Kein eigenes VNet (`network_ownership: none`), weil nichts privat angebunden werden muss.\n- **Log Analytics:** Ohne Landing Zone wird der Workspace in diesem Deployment mit angelegt, 30 Tage Aufbewahrung.\n- **Replikation:** Standard „störend“ ergibt LRS in Development und Test, ZRS in Produktion.\n- **Module und Naming:** AVM und der `LemurDaniel/naming`-Provider als Defaults.\n\n**Nicht erledigt:** Entscheidungsdokument, `naming.yaml`, Diagramm und Code. Die kommen, sobald die offenen Punkte beantwortet sind."
+       }
+      ]
+     },
+     {
+      "score": 0.9655172413793104,
+      "passed": false,
+      "turns": 24,
+      "costUsd": 0.10360415999999999,
+      "judgeCostUsd": 0.0007737000000000001,
+      "durationSeconds": 118,
+      "startedAt": "2026-10-27T02:26:47.984Z",
+      "error": null,
+      "tracePath": "/tmp/claude-eval-7NdgcV/out/trace.jsonl",
+      "skippedPaidGraders": false,
+      "graders": [
+       {
+        "name": "skill-fired",
+        "passed": true,
+        "weight": 1,
+        "explanation": "Skill called 2x (expected 1..∞)",
+        "withOnly": false,
+        "scored": true
+       },
+       {
+        "name": "exposure-public",
+        "passed": true,
+        "weight": 2,
+        "explanation": "matched network_exposure:\\s*(?:#[^\\n]*\\s*)*(?:\\{\\s*)?(?:value:\\s*)?\\W?public\\b",
+        "withOnly": false,
+        "scored": true
+       },
+       {
+        "name": "no-network",
+        "passed": true,
+        "weight": 2,
+        "explanation": "matched network_ownership:\\s*(?:#[^\\n]*\\s*)*(?:\\{\\s*)?(?:value:\\s*)?\\W?none\\b",
+        "withOnly": false,
+        "scored": true
+       },
+       {
+        "name": "stages-default-stack",
+        "passed": false,
+        "weight": 1,
+        "explanation": "pattern not found in file infra/infra-spec.yaml",
+        "withOnly": false,
+        "scored": true
+       },
+       {
+        "name": "standalone-landing-zone",
+        "passed": true,
+        "weight": 1,
+        "explanation": "matched landing_zone:\\s*(?:#[^\\n]*\\s*)*(?:\\{\\s*)?(?:value:\\s*)?\\W?standalone\\b",
+        "withOnly": false,
+        "scored": true
+       },
+       {
+        "name": "workspace-created",
+        "passed": true,
+        "weight": 2,
+        "explanation": "matched observability_ownership:\\s*(?:#[^\\n]*\\s*)*(?:\\{\\s*)?(?:value:\\s*)?\\W?create\\b",
+        "withOnly": false,
+        "scored": true
+       },
+       {
+        "name": "open-location",
+        "passed": true,
+        "weight": 2,
+        "explanation": "matched ^open:[\\s\\S]*key:\\s*context\\.location\\b",
+        "withOnly": false,
+        "scored": true
+       },
+       {
+        "name": "open-subscription",
+        "passed": true,
+        "weight": 2,
+        "explanation": "matched ^open:[\\s\\S]*key:\\s*context\\.subscription_id\\b",
+        "withOnly": false,
+        "scored": true
+       },
+       {
+        "name": "open-resource-group",
+        "passed": true,
+        "weight": 2,
+        "explanation": "matched ^open:[\\s\\S]*key:\\s*context\\.resource_group_name\\b",
+        "withOnly": false,
+        "scored": true
+       },
+       {
+        "name": "no-invented-location",
+        "passed": true,
+        "weight": 3,
+        "explanation": "pattern absent as expected",
+        "withOnly": false,
+        "scored": true
+       },
+       {
+        "name": "open-role-assignments",
+        "passed": true,
+        "weight": 2,
+        "explanation": "matched ^open:[\\s\\S]*role_assignments",
+        "withOnly": false,
+        "scored": true
+       },
+       {
+        "name": "no-invented-subscription",
+        "passed": true,
+        "weight": 3,
+        "explanation": "pattern absent as expected",
+        "withOnly": false,
+        "scored": true
+       },
+       {
+        "name": "no-invented-resource-group",
+        "passed": true,
+        "weight": 3,
+        "explanation": "pattern absent as expected",
+        "withOnly": false,
+        "scored": true
+       },
+       {
+        "name": "no-vnet-resource",
+        "passed": true,
+        "weight": 1,
+        "explanation": "pattern absent as expected",
+        "withOnly": false,
+        "scored": true
+       },
+       {
+        "name": "no-code-before-confirmation",
+        "passed": true,
+        "weight": 1,
+        "explanation": "**/*.tf absent as expected",
+        "withOnly": false,
+        "scored": true
+       },
+       {
+        "name": "says-what-is-missing",
+        "passed": true,
+        "weight": 1,
+        "explanation": "judge votes: PASS PASS PASS",
+        "withOnly": false,
+        "scored": true,
+        "judgeVotes": [
+         true,
+         true,
+         true
+        ],
+        "evidence": "Die Spec steht in `infra/infra-spec.yaml` im Arbeitsverzeichnis. Ich habe nur die Spec geschrieben, kein Diagramm und keinen Terraform-Code. Ich hatte keine Shell, deshalb konnte ich `check_spec.py` nicht laufen lassen; die Datei ist per Hand gegen das Schema geprüft, nicht maschinell validiert.\n\n**Festgelegt (gestellt von dir):**\n- Terraform als Zielsprache, Workload `docs`.\n- Nur die Stufe `development`, weil du \"Entwicklungsumgebung\" geschrieben hast. Der Standard-Stapel aus Dev, Test und Prod ist damit ersetzt. Falls ihr Test und Prod auch braucht, ist das eine Zeile in `context.environments`.\n- Öffentliche Erreichbarkeit: `network_exposure: public`. Daraus folgt kein eigenes Netz, und der Speicher ist öffentlich erreichbar, ohne Firewall-Regeln.\n- Logs gehen in einen Log-Analytics-Workspace, den das Ausrollen selbst anlegt. Das folgt aus dem Default `central_logging: no`.\n\n**Defaults (nicht beantwortet, also Standard):**\n- Shared Keys aus, TLS 1.2, Blob-Public-Access aus, Soft Delete 7 Tage, Versionierung an, Hot-Tier, 30 Tage Log-Aufbewahrung, Replikation LRS in dev (aus `outage_impact: disruptive` abgeleitet).\n- Wichtigster Default zur Prüfung: `allow_blob_public_access: false`. Wenn Besucher die Assets anonym direkt vom Blob-Endpunkt lesen, muss das für den Container auf `true`. Frag, wie die Seite die Dateien erreicht (direkt vom Speicher, über Front Door oder anders).\n\n**Offene Punkte (Pflicht ohne Antwort, `blocks: apply`):**\n1. `deploy_mechanism`: Wo liegt der Code, und was rollt ihn aus? Solange das offen ist, wird keine Pipeline gerendert.\n2. Region (`OPEN-location`).\n3. Subscription.\n4. Bestehende Ressourcengruppe. Das Ausrollen legt sie nicht an, weil der Default auf Ressourcengruppen-Ebene liegt.\n5. Rollen für Zugriff auf die Assets. Ohne Rolle kann niemand mit dem Speicher arbeiten, weil geteilte Schlüssel aus sind. Wer lädt hoch, wer liest?\n\n**Nicht gemacht:**\n- Keine `naming.yaml`. Die gehört zum Terraform-Lauf und ist in der Protokoll-Reihenfolge Teil des Spec-Schritts; sag Bescheid, wenn ich sie ergänzen soll.\n- Keine `infra-decisions.md`, kein Diagramm, kein Code.\n- Die Abfrage nach Arbeitsmodus und Freigabe habe ich weggelassen, weil niemand antwortet."
+       }
+      ]
+     }
+    ]
+   },
+   "aggregates": {
+    "score": 0.9080459770114944,
+    "passRate": 0
+   }
+  }
+ ],
+ "aggregates": {
+  "casesTotal": 5,
+  "casesPassed": 5,
+  "overallScore": 0.7876698014629049,
+  "overallPassRate": 0.39999999999999997
+ }
+}
