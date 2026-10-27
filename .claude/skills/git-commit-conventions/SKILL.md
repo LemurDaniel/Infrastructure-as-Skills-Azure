@@ -222,10 +222,13 @@ Beyond the script:
      eval-history` (a data branch, no PR), then `record_eval_history.py
      <scratch>/eval/aggregate-result.json --history-dir <scratch>/eh --model
      sonnet --trigger release --commit <head sha>`, commit, push, remove the
-     worktree. Every pull request does this, with the PR's head commit: the
-     README badge shows the version and that commit, so it is current only
-     while each merge brings its own run, and `release.yml` warns when a
-     release has none.
+     worktree. Every pull request does this, with the PR's head commit.
+     Then **pin the README badge to it**: in the `Evals on Sonnet` line of
+     `README.md`, replace the 40-character `eval-history` commit in both URLs
+     with the one just pushed (`git ls-remote origin refs/heads/eval-history`),
+     and commit that on the PR branch. The badge then shows the run this
+     version was merged with and never moves on its own; `release.yml` warns
+     when a release has no run, or the pinned badge names another version.
   4. **Write the result into the pull request description**, as its section
      `## Eval results (Sonnet, before merge)`, after every suite run on the
      branch - replacing the previous one, never a second section: model,

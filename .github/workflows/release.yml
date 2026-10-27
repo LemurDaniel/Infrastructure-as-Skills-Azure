@@ -74,6 +74,17 @@ jobs:
               print(f"::warning::v{version} is released without a Sonnet eval run on eval-history; "
                     f"the README badge still shows {shown}. Run the suite (git-commit-conventions, section 5).")
           EOF
+          # The README pins the badge to an eval-history commit; it must name this version.
+          pin=$(grep -oE 'Infrastructure-as-Skills-Azure/[0-9a-f]{40}/badge-sonnet\.json' README.md | grep -oE '[0-9a-f]{40}' | head -1)
+          if [ -z "$pin" ]; then
+            echo "::warning::the README badge is not pinned to an eval-history commit"
+          elif ! badge=$(git show "$pin:badge-sonnet.json" 2>/dev/null); then
+            echo "::warning::the README badge is pinned to $pin, which is not on eval-history"
+          elif ! printf '%s' "$badge" | grep -q "v$VERSION "; then
+            echo "::warning::the README badge is pinned to a run of another version ($(printf '%s' "$badge" | grep -oE 'v[0-9][^ ]*' | head -1)), not v$VERSION"
+          else
+            echo "README badge pinned to $pin: v$VERSION"
+          fi
 
       - name: Run the repository checks
         run: |
