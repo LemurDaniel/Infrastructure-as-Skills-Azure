@@ -5,7 +5,7 @@ skill. Routing table - the request picks the question set:
 
 | Request mentions | Question set | Notes |
 |---|---|---|
-| App Service, web app, App Service plan, webapp, azurewebsites | `app-service/questions.yaml` | [notes](app-service/notes.md) |
+| App Service, web app, App Service plan, webapp, azurewebsites, deployment slot, staging slot | `app-service/questions.yaml` | [notes](app-service/notes.md) - slots are its `slots` group |
 | function app, Azure Functions, Flex Consumption | `function-app/questions.yaml` | [notes](function-app/notes.md) - same module as App Service, `kind: functionapp` |
 | Container Apps, container app environment, containerapp | `container-apps/questions.yaml` | [notes](container-apps/notes.md) - environment and one app |
 | Container Registry, ACR, image registry | `container-registry/questions.yaml` | [notes](container-registry/notes.md) |
@@ -16,7 +16,7 @@ skill. Routing table - the request picks the question set:
 | managed disk, data disk, OS disk, disk encryption set, Premium SSD, ZRS disk | `managed-disk/questions.yaml` | [notes](managed-disk/notes.md) - a standalone disk; a machine's own disks are in the VM set |
 | availability set, fault domain, update domain, proximity placement group, PPG | `availability-set/questions.yaml` | [notes](availability-set/notes.md) - the PPG is a question group of this set |
 | scale set, VMSS, Flexible orchestration, instance repair, rolling upgrade | `virtual-machine-scale-set/questions.yaml` | [notes](virtual-machine-scale-set/notes.md) - Flexible by default |
-| deployment slot, autoscale, custom domain | *not yet written* | Decisions of an existing app; listed as boundaries of the App Service set |
+| autoscale, custom domain | *not yet written* | Decisions of an existing app; listed as boundaries of the App Service set |
 
 When a question set does not exist yet, say so rather than improvising one. Fall back to
 [the guardrails](../../core/iac-authoring/references/guardrails.md), generate from those

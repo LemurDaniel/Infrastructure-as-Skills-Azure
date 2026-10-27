@@ -18,7 +18,9 @@ boundaries:
   - "Does not create private DNS zones - shared infrastructure, owned by a pattern or the platform."
   - "Does not create the Log Analytics workspace it routes diagnostics to."
   - "Does not create the integration subnet when the network is referenced; under network_ownership: create the virtual-network set carries it."
-  - "Does not create Application Insights, deployment slots, custom domains, certificates, Easy Auth or backups. Each is a separate concern and has no question set yet."
+  - "Does not create Application Insights, custom domains, certificates, Easy Auth or backups. Each is a separate concern and has no question set yet."
+  - "Does not deploy code into a slot or swap it. Deploying and swapping are the application's release, not the infrastructure's; the `slots` group decides only what the slots are."
+  - "Does not create the user-assigned identity app and slots share. The user-assigned-identity set does, routed in addition when `deployment_slots` is not empty."
   - "Does not create function apps, Container Apps or an App Service Environment. They have sets of their own (`function-app`, `container-apps`) or none (App Service Environment)."
   - "Does not grant the app's identity roles on the services it calls - that is wiring between resources, owned by a pattern."
   - "Does not set application settings or connection strings. They are deployment configuration, and a secret never goes into a template (use a Key Vault reference)."
@@ -179,6 +181,10 @@ groups:
           one, which is the only reason a stage may differ here; it can be changed
           in place within a family, while changing family (B to P) restarts the app.
           Isolated v2 is an App Service Environment and has its own question set.
+        forced_when: >
+          `deployment_slots` not empty removes B1, B2 and B3 in every stage - a Basic plan has
+          no deployment slots - and with them `non_production_default`; the smallest size is
+          then P0v3, recorded as forced with `deployment_slots` as forced_by
         renders: sku_name / sku.name on the plan
 
       - id: zone_redundant
@@ -405,6 +411,14 @@ groups:
           several, or hold its roles before the app exists (a Key Vault reference in
           the app settings needs the role at the first start, which a system-assigned
           identity cannot have). `none` is for an app that calls nothing.
+        forced_when: >
+          `deployment_slots` not empty forces `user_assigned`, one identity carried by the app
+          and every slot, recorded as forced with `deployment_slots` as forced_by. A managed
+          identity belongs to the slot, not to the code, and is not swapped: with an identity
+          per slot every role is granted twice, and the code swapped into production runs as
+          the identity that was warmed up as the other slot. One shared identity holds its roles
+          before the first start and keeps them through every swap. `none` stays possible for an
+          app that calls nothing.
         renders: managed_identities / managedIdentities (identity.type on the site)
 
       - id: user_assigned_identity_ids
@@ -417,7 +431,10 @@ groups:
         required: true
         depends_on: { question: managed_identity, equals: user_assigned }
         per_environment: true
-        why: The identities must already exist; this set does not create them.
+        why: >
+          The identities must already exist; this set does not create them. Forced to the
+          identity of the user-assigned-identity set when `deployment_slots` forces
+          `user_assigned` - the design creates it, so it is wiring, never an open item.
         renders: managed_identities.user_assigned_resource_ids / managedIdentities.userAssignedResourceIds
 
   # ----------------------------------------------------------------- security
@@ -620,6 +637,126 @@ groups:
           it. The module default is `false`, which is why it is written. Off only for
           a backend behind a proxy that mishandles it.
         renders: site_config.http2_enabled / siteConfig.http20Enabled
+
+  # -------------------------------------------------------------------- slots
+  - id: slots
+    title: Deployment slots
+    questions:
+      - id: deployment_slots
+        ask: Should the app have deployment slots - a second running copy to deploy into and swap with?
+        type: list
+        plain:
+          en: "Deployment slots beside the app: {value}."
+          de: "Deployment-Slots neben der App: {value}."
+        default: []
+        why: >
+          Taken from the request ("mit einem Slot als Testing", "a staging slot"), never
+          proposed: a slot is a second live copy of the app on the **same plan**, with its own
+          host name, into which a release is deployed, warmed up and swapped with production
+          without a cold start. Each entry is a short lowercase name (`staging`, `test`). A slot
+          is not a stage: it shares the plan's cores, the network, the identity and every
+          backend the app calls, so a slot named as the test stage tests against production
+          data with production rights - Phase 4 says so in one line, and a separate test stage
+          is the answer where that is not acceptable. Slots need Premium v3 (Basic has none;
+          twenty per plan), and every decision of the site is written on each slot again: the
+          Terraform module gives a slot its own defaults rather than the site's (public access,
+          TLS 1.3, FTPS, no identity), and neither module carries the site's diagnostic
+          setting over.
+        renders: >
+          deployment_slots = { <name> = { ... } } (AVM Terraform) / slots: [ { name, ... } ]
+          (AVM Bicep), each slot carrying the site's networking, identity, security, runtime and
+          observability decisions
+
+      - id: slot_access
+        ask: Who should reach the deployment slots - the same way as the app, only from the system's private network, or only from certain addresses?
+        type: enum
+        resolved_by: interview
+        topic: network
+        plain:
+          en: "The deployment slots are {value}."
+          de: "Die Deployment-Slots sind {value}."
+        plain_values:
+          same_as_app: { en: "reachable the same way as the app, each under its own address", de: "genauso erreichbar wie die App, jeder unter einer eigenen Adresse" }
+          private: { en: "reachable only from the system's private network", de: "nur aus dem privaten Netz des Systems erreichbar" }
+          known_addresses: { en: "reachable only from certain address ranges, such as your team's", de: "nur aus bestimmten Adressbereichen erreichbar, etwa denen eures Teams" }
+        values: [same_as_app, private, known_addresses]
+        default: same_as_app
+        depends_on: { question: deployment_slots, not_equals: [] }
+        why: >
+          Asked, because the slot runs code nobody has accepted yet, and who may open it is the
+          customer's call rather than the app's posture copied. `same_as_app` gives each slot
+          what the app has: behind the deployment's entry (public_audience `waf`) a route and
+          host name of its own on the same entry, reaching the slot over its own private
+          endpoint; with the app's allowlist the same list. `private` leaves only the private
+          endpoint - in a network with no connection to the company network nobody reaches it,
+          which is the same contradiction as a private system with users and asked the same way.
+          `known_addresses` opens the slot's own address to an allowlist and nothing else, the
+          ranges an `open:` entry. Under `network_exposure: private` there is no public way to
+          offer, and `private` is forced.
+        forced_when: >
+          network_exposure `private` (deployment) forces `private`, recorded as forced with
+          `deployment.network_exposure` as forced_by, and the question is not asked
+        renders: >
+          same_as_app: the slot's private endpoint (subresource `sites-<slot>`) and an origin
+          group and route of the slot on the entry's endpoint, or the app's ip_restrictions on
+          the slot; private: the private endpoint only, public access disabled; known_addresses:
+          public access enabled with slot_ip_restrictions, default action Deny
+
+      - id: slot_ip_restrictions
+        ask: Which public IP ranges may reach the deployment slots?
+        type: list
+        plain:
+          en: "Public addresses allowed to reach the slots: {value}."
+          de: "Öffentliche Adressen, die die Slots erreichen dürfen: {value}."
+        required: true
+        depends_on: { question: slot_access, equals: known_addresses }
+        per_environment: true
+        why: >
+          The allowlist of `known_addresses`, with a default action of Deny on the slot and its
+          SCM site. Only the customer knows the ranges, so an unanswered list is an `open:`
+          entry owned by the workload owner, never `0.0.0.0/0`.
+        renders: >
+          deployment_slots.<name>.site_config.ip_restriction and scm_use_main_ip_restriction /
+          slots[].siteConfig.ipSecurityRestrictions and scmIpSecurityRestrictionsUseMain
+
+      - id: auto_swap
+        ask: Should a deployment into the slot swap into production automatically?
+        type: bool
+        plain:
+          en: "A release in the slot {value}."
+          de: "Ein Release im Slot {value}."
+        plain_values:
+          true: { en: "swaps into production on its own once it has started", de: "tauscht nach dem Start von selbst in die Produktion" }
+          false: { en: "stays in the slot until someone swaps it", de: "bleibt im Slot, bis jemand tauscht" }
+        default: false
+        depends_on: { question: deployment_slots, not_equals: [] }
+        why: >
+          Off, because a slot that swaps by itself is a deployment straight to production with
+          a warm-up in front: nothing is looked at before the users get it, which is the reason
+          a slot exists. The swap is the release's deliberate step - an approval in the
+          pipeline, or `az webapp deployment slot swap` by hand. On only for a slot that exists
+          purely for zero-downtime warm-up, and never on a slot used for testing.
+        renders: >
+          deployment_slots.<name>.site_config.auto_swap_slot_name / slots[].siteConfig.autoSwapSlotName
+          set to `production` only when true; omitted otherwise
+
+      - id: sticky_settings
+        ask: Which app settings stay with the slot when it is swapped?
+        type: list
+        plain:
+          en: "Settings that stay with their slot on a swap: {value}."
+          de: "Einstellungen, die beim Tausch bei ihrem Slot bleiben: {value}."
+        default: []
+        depends_on: { question: deployment_slots, not_equals: [] }
+        why: >
+          By name only - the settings themselves are deployment configuration this set does
+          not render. A swap moves every app setting with the code, except the ones named here:
+          a stage marker, a feature flag that must stay off in the slot, a connection to a test
+          backend. An empty list means production's settings travel back into the slot on every
+          swap, which is correct when slot and production are meant to be identical.
+        renders: >
+          sticky_settings = { app_setting_names = [...] } / configs: [ { name: 'slotConfigNames',
+          properties: { appSettingNames: [...] } } ]
 
   # ------------------------------------------------------------ observability
   - id: observability
