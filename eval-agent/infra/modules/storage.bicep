@@ -107,7 +107,8 @@ resource blobService 'Microsoft.Storage/storageAccounts/blobServices@2025-01-01'
 }
 
 // decision: blob-container.containers.container_names - one container for everything the apps share:
-// runs/<id>/ (the eval runs), fuzz/<id>/ (the fuzz reports), tune/<id>/ (the tuner's runs).
+// the drift reports, fuzz/<id>/ (the fuzz reports), tune/<id>/ (the tuner's runs). The eval runs are not
+// here: they live on the eval-history branch of the repository.
 // decision: blob-container.placement.storage_account - a child of the account of this module.
 var containerNames = ['results']
 

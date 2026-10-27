@@ -75,6 +75,11 @@ jobs:
           fi
           echo "SUBSCRIPTION_ID=$sub" >> "$GITHUB_ENV"
           echo "RESOURCE_GROUP=$rg" >> "$GITHUB_ENV"
+          # the dashboard's name ends in -<workload>-<index> (main.bicep; index defaults to 1)
+          workload=$(sed -nE "s/^param workload *= *'([^']+)'.*/\1/p" "$f")
+          index=$(sed -nE "s/^param index *= *([0-9]+).*/\1/p" "$f")
+          [ -n "$workload" ] || { echo "::error::workload not found in $f"; exit 1; }
+          printf 'DASHBOARD_SUFFIX=-%s-%02d\n' "$workload" "${index:-1}" >> "$GITHUB_ENV"
 
       - uses: azure/login@v3
         with:
@@ -83,13 +88,14 @@ jobs:
           subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
 
       # Registry and web app are found in the resource group, as the infra pipeline does; the dashboard is the
-      # site whose name carries none of the other apps' suffixes.
+      # site named app-...-<workload>-<index>: drift, fuzz and tune carry their suffix before the index, and a
+      # site Bicep no longer renders (incremental deployments never delete one) does not end that way.
       - name: Resolve registry and web app
         run: |
           set -euo pipefail
           registry=$(az acr list --subscription "$SUBSCRIPTION_ID" -g "$RESOURCE_GROUP" --query "[0].name" -o tsv | tr -d '\r')
           app=$(az webapp list --subscription "$SUBSCRIPTION_ID" -g "$RESOURCE_GROUP" \
-            --query "[?!contains(name,'-agent-') && !contains(name,'-drift-') && !contains(name,'-fuzz-') && !contains(name,'-tune-')].name | [0]" -o tsv | tr -d '\r')
+            --query "[?starts_with(name,'app-') && ends_with(name,'${DASHBOARD_SUFFIX}')].name | [0]" -o tsv | tr -d '\r')
           [ -n "$registry" ] && [ -n "$app" ] || { echo "::error::registry or dashboard web app not found in $RESOURCE_GROUP (deploy the infrastructure first)"; exit 1; }
           echo "REGISTRY=$registry" >> "$GITHUB_ENV"
           echo "APP=$app" >> "$GITHUB_ENV"

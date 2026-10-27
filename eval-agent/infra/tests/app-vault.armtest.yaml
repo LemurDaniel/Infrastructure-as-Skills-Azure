@@ -55,10 +55,15 @@
   path: resources.app.properties.template.resources.dashboard.properties.siteConfig.appSettings[0].value
   matches: "@Microsoft\\.KeyVault\\(SecretUri=\\{0\\}secrets/\\{1\\}/\\)"
 
-# The GitHub token is a Key Vault reference too, in the dashboard only.
-- deployment: dashboard_github_token_secret_name
+# The dashboard holds no GitHub token: the eval history is read from a public repository.
+- deployment: dashboard_has_no_github_token_secret_name
   path: resources.app.properties.template.variables.githubTokenSecretName
-  equals: github-token
+  absent: true
+
+# Four app settings and no fifth: no GITHUB_TOKEN and no hostname of another app (it starts nothing).
+- deployment: dashboard_has_no_further_app_settings
+  path: resources.app.properties.template.resources.dashboard.properties.siteConfig.appSettings[4]
+  absent: true
 
 - decision: app-service__dashboard.security.https_only
   path: resources.app.properties.template.resources.dashboard.properties.httpsOnly
@@ -123,122 +128,6 @@
 # Image pull with the managed identity, no registry credentials.
 - deployment: dashboard_image_pull_with_managed_identity
   path: resources.app.properties.template.resources.dashboard.properties.siteConfig.acrUseManagedIdentityCreds
-  equals: true
-
-# ---- app-service__agent --------------------------------------------------------------------------------
-
-- decision: app-service__agent.hosting.os_type
-  path: resources.app.properties.template.resources.plan.kind
-  equals: linux
-
-- decision: app-service__agent.hosting.sku
-  path: resources.app.properties.template.resources.plan.sku.name
-  equals: B2
-
-- decision: app-service__agent.hosting.zone_redundant
-  path: resources.app.properties.template.resources.plan.properties.zoneRedundant
-  equals: false
-
-- decision: app-service__agent.hosting.instance_count
-  path: resources.app.properties.template.resources.plan.sku.capacity
-  equals: 1
-
-- decision: app-service__agent.networking.public_network_access
-  path: resources.app.properties.template.resources.agent.properties.publicNetworkAccess
-  equals: Disabled
-
-- decision: app-service__agent.networking.private_endpoint_subnet
-  path: resources.app.properties.parameters.privateEndpointSubnetId.value
-  matches: "reference\\('network'\\)\\.outputs\\.privateEndpointSubnetId"
-
-# The endpoint is for the 'sites' sub-resource and lands in the zone privatelink.azurewebsites.net.
-- deployment: agent_private_endpoint_group
-  path: resources.app.properties.template.resources.agentPrivateEndpoint.properties.privateLinkServiceConnections[0].properties.groupIds
-  equals: [sites]
-
-- decision: app-service__agent.networking.vnet_integration
-  path: resources.app.properties.template.resources.agent.properties.virtualNetworkSubnetId
-  matches: "parameters\\('integrationSubnetId'\\)"
-
-- decision: app-service__agent.networking.integration_subnet
-  path: resources.app.properties.parameters.integrationSubnetId.value
-  matches: "reference\\('network'\\)\\.outputs\\.integrationSubnetId"
-
-- decision: app-service__agent.networking.vnet_route_all
-  path: resources.app.properties.template.resources.agent.properties.outboundVnetRouting.allTraffic
-  equals: false
-
-- decision: app-service__agent.identity.managed_identity
-  path: resources.app.properties.template.resources.agent.identity.type
-  equals: UserAssigned
-
-- decision: app-service__agent.identity.user_assigned_identity_ids
-  path: resources.app.properties.parameters.agentIdentityId.value
-  matches: "reference\\('identityAgent'\\)\\.outputs\\.id"
-
-- decision: app-service__agent.security.https_only
-  path: resources.app.properties.template.resources.agent.properties.httpsOnly
-  equals: true
-
-- decision: app-service__agent.security.min_tls_version
-  path: resources.app.properties.template.resources.agent.properties.siteConfig.minTlsVersion
-  equals: "1.2"
-
-- decision: app-service__agent.security.ftps_state
-  path: resources.app.properties.template.resources.agent.properties.siteConfig.ftpsState
-  equals: Disabled
-
-# FTP and SCM are two switches; the decision is asserted on FTP, SCM has its own entry below.
-- decision: app-service__agent.security.basic_auth_enabled
-  path: resources.app.properties.template.resources.agentBasicAuthFtp.properties.allow
-  equals: false
-
-- deployment: agent_basic_auth_scm_disabled
-  path: resources.app.properties.template.resources.agentBasicAuthScm.properties.allow
-  equals: false
-
-- decision: app-service__agent.runtime.runtime_stack
-  path: resources.app.properties.template.resources.agent.kind
-  equals: app,linux,container
-
-# The running image wins over the bootstrap one: the template keeps existingAgentLinuxFxVersion when set.
-- decision: app-service__agent.runtime.container_image_owner
-  path: resources.app.properties.template.resources.agent.properties.siteConfig.linuxFxVersion
-  matches: 'if\(not\(empty\(parameters\(''existingAgentLinuxFxVersion''\)\)\), parameters\(''existingAgentLinuxFxVersion''\), format\(''DOCKER\|\{0\}/\{1\}'''
-
-- decision: app-service__agent.runtime.always_on
-  path: resources.app.properties.template.resources.agent.properties.siteConfig.alwaysOn
-  equals: true
-
-- decision: app-service__agent.runtime.health_check_path
-  path: resources.app.properties.template.resources.agent.properties.siteConfig.healthCheckPath
-  absent: true
-
-- decision: app-service__agent.runtime.http2_enabled
-  path: resources.app.properties.template.resources.agent.properties.siteConfig.http20Enabled
-  equals: true
-
-- decision: app-service__agent.observability.diagnostic_workspace
-  path: resources.app.properties.parameters.diagnosticWorkspaceId.value
-  matches: "reference\\('observability'\\)\\.outputs\\.id"
-
-- decision: app-service__agent.observability.diagnostic_categories
-  path: resources.app.properties.template.resources.agentDiagnostics.properties.logs
-  equals:
-    - { category: AppServiceHTTPLogs, enabled: true }
-    - { category: AppServiceAppLogs, enabled: true }
-    - { category: AppServiceAuditLogs, enabled: true }
-    - { category: AppServiceIPSecAuditLogs, enabled: true }
-    - { category: AppServicePlatformLogs, enabled: true }
-
-- decision: app-service__agent.observability.metrics_enabled
-  path: resources.app.properties.template.resources.agentDiagnostics.properties.metrics
-  equals:
-    - { category: AllMetrics, enabled: true }
-
-# Image pull with the managed identity, no registry credentials.
-- deployment: agent_image_pull_with_managed_identity
-  path: resources.app.properties.template.resources.agent.properties.siteConfig.acrUseManagedIdentityCreds
   equals: true
 
 # ---- app-service__drift --------------------------------------------------------------------------------
@@ -743,7 +632,7 @@
 
 - decision: key-vault.security.secret_placeholders
   path: resources.vault.properties.template.variables.secretPlaceholders
-  equals: [entra-client-secret, github-token, github-drift-token, github-tune-token]
+  equals: [entra-client-secret, github-drift-token, github-tune-token]
 
 # A placeholder is written once (@onlyIfNotExists): no lookup of existing secrets is left, neither as a
 # condition on the secret nor as a parameter.
@@ -790,33 +679,16 @@
   path: resources.acrPullDashboardAssignment.properties.roleDefinitionId
   matches: "roleDefinitionIds'\\)\\.AcrPull"
 
-- wiring: role_assignments.acr_pull_agent
-  path: resources.acrPullAgentAssignment.properties.roleDefinitionId
-  matches: "roleDefinitionIds'\\)\\.AcrPull"
-
 - wiring: role_assignments.storage_blob_data_reader_dashboard
   path: resources.storageBlobReaderDashboardAssignment.properties.roleDefinitionId
   matches: "Storage Blob Data Reader"
-
-- wiring: role_assignments.storage_blob_data_contributor_agent
-  path: resources.storageBlobContributorAgentAssignment.properties.roleDefinitionId
-  matches: "Storage Blob Data Contributor"
-
-# Role shown as "Foundry User" in the tenant now; the GUID (53ca6127-...) is unchanged, the map key in main.bicep keeps the old name.
-- wiring: role_assignments.azure_ai_user_agent
-  path: resources.foundryUserAgentAssignment.properties.roleDefinitionId
-  matches: "Azure AI User"
 
 - wiring: role_assignments.key_vault_secrets_user_dashboard
   path: resources.keyVaultSecretsDashboardAssignment.properties.roleDefinitionId
   matches: "Key Vault Secrets User"
 
-# The separation itself: the agent, which runs plugin code, gets no role on the vault, and the
-# dashboard, which is internet-facing, gets none on the models and cannot write the results.
-- wiring: agent_has_no_vault_role
-  path: resources.keyVaultSecretsAgentAssignment
-  absent: true
-
+# The separation itself: the dashboard, which is internet-facing, gets no role on the models and
+# cannot write to the storage account (the fuzz agent, which runs plugin code, is asserted below).
 - wiring: dashboard_has_no_foundry_role
   path: resources.foundryUserDashboardAssignment
   absent: true
@@ -825,38 +697,16 @@
   path: resources.storageBlobContributorDashboardAssignment
   absent: true
 
-# The agent holds no Key Vault reference: no identity to resolve one with.
-- deployment: agent_has_no_key_vault_reference_identity
-  path: resources.app.properties.template.resources.agent.properties.keyVaultReferenceIdentity
-  absent: true
-
 # The apps start only after their roles exist.
 - wiring: dashboard_waits_for_roles
   path: resources.app.dependsOn
   contains: acrPullDashboardAssignment
 
-- wiring: agent_waits_for_roles
-  path: resources.app.dependsOn
-  contains: foundryUserAgentAssignment
-
 # ---- app settings: the targets the apps need (values come from module outputs) -----------------
 
-- deployment: agent_setting_foundry_endpoint
-  path: resources.app.properties.template.resources.agent.properties.siteConfig.appSettings[3]
-  matches: '"name": "FOUNDRY_ENDPOINT", "value": "\[parameters\(''foundryEndpoint''\)\]"'
-
-- deployment: agent_setting_storage_account_name
-  path: resources.app.properties.template.resources.agent.properties.siteConfig.appSettings[4]
-  matches: '"name": "STORAGE_ACCOUNT_NAME", "value": "\[parameters\(''storageAccountName''\)\]"'
-
 - deployment: dashboard_setting_storage_account_name
-  path: resources.app.properties.template.resources.dashboard.properties.siteConfig.appSettings[4]
+  path: resources.app.properties.template.resources.dashboard.properties.siteConfig.appSettings[3]
   matches: '"name": "STORAGE_ACCOUNT_NAME", "value": "\[parameters\(''storageAccountName''\)\]"'
-
-# The dashboard reaches the tuner by its default hostname (the only agent it starts).
-- deployment: dashboard_setting_tune_app_hostname
-  path: resources.app.properties.template.resources.dashboard.properties.siteConfig.appSettings[5]
-  matches: 'TUNE_APP_HOSTNAME'
 
 - wiring: app_foundry_endpoint_from_ai_output
   path: resources.app.properties.parameters.foundryEndpoint.value
@@ -868,13 +718,7 @@
 
 # Image pull of the platform goes through the VNet integration (registry has only a private endpoint).
 - deployment: dashboard_image_pull_over_vnet
-  path: resources.app.properties.template.resources.dashboard.properties.siteConfig.appSettings[3]
-  equals:
-    name: WEBSITE_PULL_IMAGE_OVER_VNET
-    value: "true"
-
-- deployment: agent_image_pull_over_vnet
-  path: resources.app.properties.template.resources.agent.properties.siteConfig.appSettings[2]
+  path: resources.app.properties.template.resources.dashboard.properties.siteConfig.appSettings[2]
   equals:
     name: WEBSITE_PULL_IMAGE_OVER_VNET
     value: "true"
@@ -893,6 +737,7 @@
   path: resources.keyVaultSecretsDriftAssignment.properties.roleDefinitionId
   matches: "Key Vault Secrets User"
 
+# Role shown as "Foundry User" in the tenant now; the GUID (53ca6127-...) is unchanged, the map key in main.bicep keeps the old name.
 - wiring: role_assignments.azure_ai_user_drift
   path: resources.foundryUserDriftAssignment.properties.roleDefinitionId
   matches: "Azure AI User"
@@ -931,6 +776,11 @@
 
 - wiring: fuzz_has_no_foundry_role
   path: resources.foundryUserFuzzAssignment
+  absent: true
+
+# The fuzz agent holds no Key Vault reference: no identity to resolve one with.
+- deployment: fuzz_has_no_key_vault_reference_identity
+  path: resources.app.properties.template.resources.fuzz.properties.keyVaultReferenceIdentity
   absent: true
 
 - wiring: fuzz_waits_for_roles

@@ -6,9 +6,8 @@
 // deploys: the pipeline refuses it. Replace each one, then the stage can be deployed.
 //
 //   location, workload, subscriptionId, resourceGroupName  parameterized in the spec, never asked
-//   dashboardContainerImage, agentContainerImage, driftContainerImage, fuzzContainerImage, tuneContainerImage  open: resources.app-service__*.runtime.container_image
+//   dashboardContainerImage, driftContainerImage, fuzzContainerImage, tuneContainerImage  open: resources.app-service__*.runtime.container_image
 //   modelDeployments                                      open: resources.foundry.models.model_deployments
-//   pluginSource                                          open: application.plugin_source
 //   entraClientId, entraTenantId                          existing app registration, open: resources.app-service__dashboard.identity.entra_sign_in
 
 using './main.bicep'
@@ -46,7 +45,6 @@ param vaultRoleAssignments = []
 // Bootstrap image (name:tag, without the registry; not latest), used only while the web app has
 // no image. The separate image pipeline owns the image afterwards; the pipeline keeps what runs.
 param dashboardContainerImage = 'eval-dashboard:0.0.1'
-param agentContainerImage = 'eval-agent:0.0.1'
 param driftContainerImage = 'eval-drift:0.0.1'
 param fuzzContainerImage = 'eval-fuzz:0.0.1'
 param tuneContainerImage = 'eval-tune:0.0.1'
@@ -57,7 +55,6 @@ param tuneSchedule = 'every-24h'
 // Models of the Foundry account, e.g. { name: 'chat', model: { format: 'OpenAI', name: '<model>', version: '<version>' } }.
 // Empty until the workload owner names them; no deployment is created from an empty list.
 param modelDeployments = []
-param pluginSource = 'https://github.com/LemurDaniel/Infrastructure-as-Skills-Azure'
 // Client id of the existing Entra app registration and the tenant id (all-zero GUID until known).
 param entraClientId = '2a1028db-7ae1-4eff-b842-3d639a9afcf1'
 param entraTenantId = 'a910deee-8c06-4a0a-a458-8b347c88c614'
