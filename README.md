@@ -25,17 +25,18 @@ previous version on the same model; a rate is never compared across models.
 
 ## sonnet
 
-![badge](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/LemurDaniel/Infrastructure-as-Skills-Azure/eval-history/badge-sonnet.json) · newest: manual at `ee483e7`, 5 run(s) per case, 2026-10-27 · newest run per case; bicep-secret-placeholder-once re-run after b340c1c and the names-in-main.bicep rule
+![badge](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/LemurDaniel/Infrastructure-as-Skills-Azure/eval-history/badge-sonnet.json) · newest: release at `591c4bf`, 5 run(s) per case, 2026-10-27 · Full suite, effort low, 4 runs per case, before the 0.5.3 merge
 
-| Case | v0.5.2 |
-|---|---|
-| bicep-secret-placeholder-once | 100% |
-| claude-md-section-replaced | 100% |
-| diagram-no-invented-lines | 100% |
-| language-en-first-question | 100% |
-| language-en-request | 100% |
-| plugin-newer-halts | 100% |
-| requirements-stated | 100% |
-| trigger-workload-request | 100% |
-| vague-public-dev | 100% |
-| **cost** | $15.62 |
+| Case | v0.5.2 | v0.5.3 |
+|---|---|---|
+| app-code-untouched |  | 100% |
+| bicep-secret-placeholder-once | 100% | 100% |
+| claude-md-section-replaced | 100% | 100% |
+| diagram-no-invented-lines | 100% | 100% |
+| language-en-first-question | 100% | 100% |
+| language-en-request | 100% | 100% |
+| plugin-newer-halts | 100% | 100% |
+| requirements-stated | 100% | 100% |
+| trigger-workload-request | 100% | 100% |
+| vague-public-dev | 100% | 100% |
+| **cost** | $15.62 | $20.75 |
