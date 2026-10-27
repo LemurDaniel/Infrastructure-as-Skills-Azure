@@ -91,8 +91,8 @@ and composition — runs on the produced specs after the suite, not inside it.
 
 `llm` graders only where a regex cannot see it - the language of the final message, the
 order of a run, a halt that is said rather than written - each on the short final message
-only, with concrete PASS and FAIL conditions. The judge is Haiku (`--judge-model`) and costs
-a fraction of a cent per verdict; the agent runs are what a suite costs.
+only, with concrete PASS and FAIL conditions. The judge is Sonnet (`--judge-model sonnet`; the CLI's default is Haiku, which failed fully English
+messages as German) and costs about half a cent per verdict; the agent runs are what a suite costs.
 
 ## In CI
 
