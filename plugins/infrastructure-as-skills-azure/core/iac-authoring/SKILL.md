@@ -883,7 +883,10 @@ what the request says — the diagram draws exactly this and nothing else
 ([spec.md](references/spec.md)). `wiring.access` is one `{ from, to, label }` per call the
 request names ("the web app reads from the storage" / "die Web-App liest aus dem Storage" is `app-service` → `storage-account`),
 with `users`, `internet` and `external:<name>` as the actors outside the deployment;
-`wiring.purposes` is a few words per resource in the user's own terms ("Produktbilder");
+`wiring.purposes` is a few words per resource in the user's own terms ("Produktbilder"), and
+only for a resource whose purpose the request says - one it names without saying what it is
+for gets none, never a restatement of its type ("Speicher der App", "the app's database"),
+which the picture already shows as the type;
 `wiring.optional` lists what the user called optional. Never infer a call from the
 resource types: two resources side by side say nothing about who talks to whom, and an
 invented line in a picture the customer signs off on is a decision nobody made. A call
