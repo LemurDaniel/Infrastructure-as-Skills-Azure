@@ -162,10 +162,7 @@ run): `language-de-request` (the German default path, which every German case wa
 `module-source-authored` (`module_source: authored` stated in plain words). Bring one back
 when a change touches what it covered.
 
-## Draft cases
-
-`../evals-draft/` holds cases the runner does not load (it reads `evals/**/case.yaml` only):
-`process/diagram-before-code-after-change` and `process/review-agent-separate`. Both grade a step
-that needs a shell - the diagram script, and the review of the picture it draws - and the eval
-sandbox on Windows has none, so without one they measure the missing shell, not the plugin.
-They come back into `evals/` with `Bash` in their `allowed_tools`, run on Linux.
+The two draft cases `process/diagram-before-code-after-change` and `process/review-agent-separate`
+were removed on 2026-10-27: both grade a step that needs a shell, which the Windows eval
+sandbox does not grant, so their 0% measured the missing shell; and both steps - the diagram before code after a change,
+a review agent of its own - hold reliably in the owner's own test runs. The git history has them.
