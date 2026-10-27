@@ -43,6 +43,17 @@ def main():
     merged['durationSeconds'] = sum(r.get('durationSeconds') or 0 for r in runs)
     merged['partial'] = args.partial or any(r.get('partial') for r in runs)
     merged['cases'] = [c for r in runs for c in r.get('cases', [])]
+    # The suite totals are recomputed, never taken from the first input: weighted by the cases
+    # each input carried, so a merged run reads like one run of all of them.
+    aggs = [(r.get('aggregates') or {}) for r in runs]
+    total = sum(a.get('casesTotal') or 0 for a in aggs)
+    weighted = lambda key: (sum((a.get(key) or 0) * (a.get('casesTotal') or 0) for a in aggs) / total) if total else 0
+    merged['aggregates'] = {
+        'casesTotal': total,
+        'casesPassed': sum(a.get('casesPassed') or 0 for a in aggs),
+        'overallScore': weighted('overallScore'),
+        'overallPassRate': weighted('overallPassRate'),
+    }
 
     with open(args.out, 'w', encoding='utf-8', newline='\n') as f:
         json.dump(merged, f, indent=1, ensure_ascii=False)
