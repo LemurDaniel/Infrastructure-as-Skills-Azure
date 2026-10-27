@@ -127,7 +127,7 @@ Complete runs, request to tests, live under [`examples/`](examples/README.md).
 | `observability` | Log Analytics workspace, Application Insights, action group, alert rule (metric, log query, activity log), data collection rule and endpoint |
 | `recovery` | Backup vault, Recovery Services vault |
 
-Not covered yet: Synapse, Databricks, Data Explorer, Fabric; VPN and ExpressRoute gateways, Virtual WAN, Private Link Service; Managed Grafana, Azure Monitor workspace, dashboards; Notification Hubs, SignalR and Web PubSub; governance (policy, management groups, subscription vending are drafted under `drafts/governance/`, not shipped), budgets, Automation Accounts, Maintenance Configurations. The list is in [`PROGRESS.md`](PROGRESS.md); a request for one of them is said out loud and never improvised.
+Not covered yet: Synapse, Databricks, Data Explorer, Fabric; VPN and ExpressRoute gateways, Virtual WAN, Private Link Service; Managed Grafana, Azure Monitor workspace, dashboards; Notification Hubs, SignalR and Web PubSub; governance (policy, management groups, subscription vending: landing-zone topics, out of scope), budgets, Automation Accounts, Maintenance Configurations. The list is in [`PROGRESS.md`](PROGRESS.md); a request for one of them is said out loud and never improvised.
 
 The directory names below are the paths under `resources/<family>/<resource>/`.
 
