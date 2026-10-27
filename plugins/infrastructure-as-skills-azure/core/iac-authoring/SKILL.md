@@ -51,8 +51,15 @@ in every run, in this order; the sections below carry the detail.
    the request is only a small change. A run that writes the first spec writes no
    `CLAUDE.md`: the render does, after the sign-off. Either way the section goes into the
    working directory the run was started in, never into a repository root found above it.
+   **Without a shell, by hand** - no shell is never a reason to skip it:
+   1. Read `<plugin>/core/iac-rendering/references/claude-md-block.md`; its text is the section.
+   2. In `CLAUDE.md`, replace everything from the line starting
+      `<!-- infrastructure-as-skills: begin` through the line
+      `<!-- infrastructure-as-skills: end -->` with that text. Without such a section, append it.
+      A section whose `rev=` is higher than the block's is left as it is.
+   3. Leave every line outside the two markers exactly as it was.
 3. **Every spec this run writes or changes carries `spec.plugin_version`** - the installed
-   version.
+   version, under the `spec:` key at the top, never under `deployment:`.
 4. **No value nobody gave.** Region, subscription, resource group, address range: `open:`
    with a placeholder, never a plausible value. A default is not a guess: the stage stack
    `[development, test, production]` stays unless the customer named the stages.
