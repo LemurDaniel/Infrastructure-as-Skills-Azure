@@ -46,9 +46,11 @@ in every run, in this order; the sections below carry the detail.
 
 1. **An existing spec: the version gate first** - a spec from a newer plugin stops the run
    before anything is asked or written.
-2. **The repository's `CLAUDE.md` section is brought up to date before the first question**,
-   with the script or, without a shell, by hand. It is not skipped because the request is
-   only a small change.
+2. **An existing spec: the repository's `CLAUDE.md` section is brought up to date before the
+   first question**, with the script or, without a shell, by hand. It is not skipped because
+   the request is only a small change. A run that writes the first spec writes no
+   `CLAUDE.md`: the render does, after the sign-off. Either way the section goes into the
+   working directory the run was started in, never into a repository root found above it.
 3. **Every spec this run writes or changes carries `spec.plugin_version`** - the installed
    version.
 4. **No value nobody gave.** Region, subscription, resource group, address range: `open:`
