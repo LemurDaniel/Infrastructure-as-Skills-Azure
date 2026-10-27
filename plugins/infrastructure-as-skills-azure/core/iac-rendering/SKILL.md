@@ -58,8 +58,11 @@ than inferring the shape from an example spec.
    resource authored.
 3. **Read the target idiom** — [terraform-idiom](references/terraform-idiom.md) or
    [bicep-idiom](references/bicep-idiom.md), not both.
-4. **Read the resource's own rendering reference**, `resources/<family>/<resource>/{terraform,bicep}.md`.
-   It opens with the decision → module input mapping and the rendered call, and holds
+4. **Read the resource's own rendering reference**, `<plugin>/resources/<family>/<resource>/{terraform,bicep}.md`.
+   `<plugin>` is two levels above this skill's base directory (shown when it loads,
+   `.../core/iac-rendering`); `resources/` sits beside `core/`, not inside it. Read it by that
+   absolute path. A reference that cannot be read is said in the hand-over, never replaced
+   by a rendering of your own: it holds what the spec cannot. It opens with the decision → module input mapping and the rendered call, and holds
    what the spec cannot: which decisions are fixed at creation, which the module does not
    expose, the shape differences between the two targets. The authored rendering follows
    it, for the fallback case and for reading what the module does inside.
