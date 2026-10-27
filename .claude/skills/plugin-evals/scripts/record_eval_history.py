@@ -73,7 +73,10 @@ def badge(run):
     full = sum(1 for r in rates if r == 1)
     failed = sum(1 for r in rates if r == 0)
     unstable = sum(1 for r in rates if r is not None and 0 < r < 1)
-    parts = [f"v{run['version']}", f'{full}/{len(rates)}']
+    # The version and the commit the run measured: the badge is read where nothing else says
+    # which code it belongs to, and a newer push without a run must not borrow it.
+    pinned = f"v{run['version']}" + (f" @ {run['commit'][:7]}" if run.get('commit') else '')
+    parts = [pinned, f'{full}/{len(rates)}']
     if unstable:
         parts.append(f'{unstable} unstable')
     if failed:
@@ -101,7 +104,7 @@ def overview(runs):
         out += [f"## {model}", '',
                 f"![badge](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/"
                 f"LemurDaniel/Infrastructure-as-Skills-Azure/eval-history/badge-{model}.json) "
-                f"· newest: {last['trigger']}, {last.get('runsPerCase') or '?'} run(s) per case, "
+                f"· newest: {last['trigger']}" + (f" at `{last['commit'][:7]}`" if last.get('commit') else '') + f", {last.get('runsPerCase') or '?'} run(s) per case, "
                 f"{last['startedAt'][:10]}" + (f" · {last['note']}" if last.get('note') else ''), '',
                 '| Case | ' + ' | '.join(f"v{r['version']}" for r in cols) + ' |',
                 '|---|' + '---|' * len(cols)]

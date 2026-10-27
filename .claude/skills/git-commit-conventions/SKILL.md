@@ -222,7 +222,10 @@ Beyond the script:
      eval-history` (a data branch, no PR), then `record_eval_history.py
      <scratch>/eval/aggregate-result.json --history-dir <scratch>/eh --model
      sonnet --trigger release --commit <head sha>`, commit, push, remove the
-     worktree.
+     worktree. Every pull request does this, with the PR's head commit: the
+     README badge shows the version and that commit, so it is current only
+     while each merge brings its own run, and `release.yml` warns when a
+     release has none.
   4. **Write the result into the pull request description**, as its section
      `## Eval results (Sonnet, before merge)`, after every suite run on the
      branch - replacing the previous one, never a second section: model,
