@@ -223,7 +223,15 @@ Beyond the script:
      <scratch>/eval/aggregate-result.json --history-dir <scratch>/eh --model
      sonnet --trigger release --commit <head sha>`, commit, push, remove the
      worktree.
-  4. Hand the report to the owner. A failed or UNSTABLE grader is read
+  4. **Write the result into the pull request description**, as its section
+     `## Eval results (Sonnet, before merge)`, after every suite run on the
+     branch - replacing the previous one, never a second section: model,
+     effort, runs per case, the commit it ran on, cases at 100% and the cost;
+     one row per case with its pass rate and the graders that failed in a
+     run; a line on what to read before merging; a link to `eval-history`.
+     A run composed of a full run and a re-test says so. The reviewer reads
+     the PR, not the session.
+  5. Hand the report to the owner. A failed or UNSTABLE grader is read
      (`plugin-evals`, section 5) before anything is merged; the merge stays
      the owner's call. Accepting the run into `baseline.json` is a separate
      step, after reading it, never in the same breath.
