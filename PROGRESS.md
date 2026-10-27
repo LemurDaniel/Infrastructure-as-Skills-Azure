@@ -768,6 +768,13 @@ regeneration from the spec loses them. All `render`:
   `iac-authoring/SKILL.md` is ~11,400 words, loaded on every run: the hard rules (no code before
   the sign-off, invent nothing, the default stack) are spread through it - a candidate for a
   short rule block at the top.
+- **Sonnet, full suite (2026-10-27, local, effort low)**: 6:17 min with 8 runs in parallel,
+  $17.43, 5/11 at 100% - every spec case green. 0% on diagram-before-code-after-change,
+  review-agent-separate and claude-md-section-replaced: all three ran without a shell (no Bash
+  in the Windows sandbox) and dropped a rule buried in `iac-authoring` (sign-off without a
+  picture, the CLAUDE.md sync by hand, the stamp); a rule block at the top of the skill and a
+  "Without a shell" section answer it, not re-measured yet. Those cases measure the plugin
+  only with a shell: on a Linux runner with Bash granted.
 - **CI (2026-10-27), first run done**: `.github/workflows/plugin-evals.yml` runs the suite on
   every plugin pull request on Haiku (3 runs per case in parallel, one case per call with
   progress and remaining time in the log, no baseline arm, $8 ceiling, report only, `--scaffold`
