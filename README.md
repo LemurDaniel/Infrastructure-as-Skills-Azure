@@ -21,7 +21,7 @@ previous version on the same model; a rate is never compared across models.
 
 ## opus
 
-![badge](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/LemurDaniel/Infrastructure-as-Skills-Azure/eval-history/badge-opus.json) · newest: baseline, 3 run(s) per case, 2026-10-25
+![badge](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/LemurDaniel/Infrastructure-as-Skills-Azure/eval-history/badge-opus.json) · newest: baseline, 3 run(s) per case, 2026-10-25 · Seeded from evals/baseline.json (accepted pass counts per grader); case rate = its weakest grader.
 
 | Case | v0.0.2 |
 |---|---|
@@ -40,19 +40,17 @@ previous version on the same model; a rate is never compared across models.
 
 ## sonnet
 
-![badge](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/LemurDaniel/Infrastructure-as-Skills-Azure/eval-history/badge-sonnet.json) · newest: manual, 3 run(s) per case, 2026-10-27
+![badge](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/LemurDaniel/Infrastructure-as-Skills-Azure/eval-history/badge-sonnet.json) · newest: manual, 3 run(s) per case, 2026-10-27 · composite: 6 cases from the 02:42 run, 3 re-tested at 02:58 after f338a96; drafts excluded
 
 | Case | v0.5.2 |
 |---|---|
 | bicep-secret-placeholder-once | 🟡 67% |
-| claude-md-section-replaced | 🟡 33% |
-| diagram-before-code-after-change | 🔴 0% |
+| claude-md-section-replaced | 🟡 67% |
 | diagram-no-invented-lines | 🟡 67% |
 | language-en-first-question | 🟡 67% |
 | language-en-request | 100% |
 | plugin-newer-halts | 100% |
-| requirements-stated | 🟡 67% |
-| review-agent-separate | 🔴 0% |
+| requirements-stated | 100% |
 | trigger-workload-request | 100% |
-| vague-public-dev | 🟡 67% |
-| **cost** | $18.03 |
+| vague-public-dev | 100% |
+| **cost** | $14.25 |
