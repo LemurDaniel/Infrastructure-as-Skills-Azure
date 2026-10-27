@@ -200,12 +200,12 @@ Beyond the script:
   (`gh pr merge <n> --rebase`). It keeps the commits as they were split; a
   squash would fold the one-concern commits into one. The merge publishes a
   release.
-- **Before the merge, the full eval suite on Sonnet, run by a test agent.**
+- **Before the merge, the full eval suite on Sonnet and on Haiku, each run by a test agent.**
   No eval runs on the pull request: the suite needs a model that follows a
   multi-step skill, and every merge is a release. For a branch that touches `core/`, `resources/`
   or `evals/` of the plugin, before `gh pr merge`:
-  1. Say what it costs (Sonnet, low effort: about $15-25 for the suite, 4
-     runs per case) and start only on the owner's yes.
+  1. Say what it costs (low effort, 4 runs per case: Sonnet about $15-25,
+     Haiku about $1-3) and start only on the owner's yes.
   2. Start a **test agent** (Agent tool, background) with the run as its whole
      brief. It runs, from the repo root, with `$claude` the CLI (on the
      owner's machine the VS Code binary, as in `plugin-evals`):
@@ -218,11 +218,22 @@ Beyond the script:
      It reports per case the failing and UNSTABLE graders with their
      explanation, and changes nothing: no fix, no case, no `baseline.json`.
      The one that runs the suite is never the one that edits the plugin.
+
+     **Haiku runs the same suite beside it**, in a second test agent: the
+     command with `--model haiku --max-cost-usd 5 --output-dir <scratch>/eval-haiku`,
+     the judge staying `sonnet` so the verdicts are judged alike. It is the
+     floor: a rule that holds on Haiku is written plainly enough, a rule
+     that drops there is a candidate for moving up in its skill. It never
+     blocks a merge on its own - a Haiku failure the Sonnet run does not
+     share measures the model as much as the plugin - and its rates are
+     compared only with earlier Haiku runs on `eval-history`, never with
+     `baseline.json` (Sonnet), so its REGRESS lines are cross-model noise.
   3. Record the run on `eval-history`: `git worktree add <scratch>/eh
      eval-history` (a data branch, no PR), then `record_eval_history.py
      <scratch>/eval/aggregate-result.json --history-dir <scratch>/eh --model
-     sonnet --trigger release --commit <head sha>`, commit, push, remove the
-     worktree. Every pull request does this, with the PR's head commit.
+     sonnet --trigger release --commit <head sha>`, and the same for the
+     Haiku run with `--model haiku`; commit, push, remove the worktree.
+     Every pull request does this, with the PR's head commit.
      Then **pin the README badge to it**: in the `Evals on Sonnet` line of
      `README.md`, replace the 40-character `eval-history` commit in both URLs
      with the one just pushed (`git ls-remote origin refs/heads/eval-history`),
@@ -230,11 +241,12 @@ Beyond the script:
      version was merged with and never moves on its own; `release.yml` warns
      when a release has no run, or the pinned badge names another version.
   4. **Write the result into the pull request description**, as its section
-     `## Eval results (Sonnet, before merge)`, after every suite run on the
-     branch - replacing the previous one, never a second section: model,
-     effort, runs per case, the commit it ran on, cases at 100% and the cost;
-     one row per case with its pass rate and the graders that failed in a
-     run; a line on what to read before merging; a link to `eval-history`.
+     `## Eval results (before merge)`, after every suite run on the
+     branch - replacing the previous one, never a second section: per model
+     the effort, runs per case, the commit it ran on, cases at 100% and the
+     cost; one row per case with its pass rate on Sonnet and on Haiku and the
+     graders that failed in a run; a line on what to read before merging; a
+     link to `eval-history`.
      A run composed of a full run and a re-test says so. The reviewer reads
      the PR, not the session.
   5. Hand the report to the owner. A failed or UNSTABLE grader is read
