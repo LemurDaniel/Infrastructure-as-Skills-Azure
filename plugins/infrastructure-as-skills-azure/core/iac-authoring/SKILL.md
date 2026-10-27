@@ -506,7 +506,10 @@ it resolves from the profile or the default, and a
 **A forced value is pre-answered, not asked.** `key_protection: hsm` requires a Premium Key
 Vault; `network_exposure: private` requires the private-endpoint subnet. Apply the
 consequence, record it with the question that forced it, and say so in Phase 4 rather than
-putting a question whose answer is already determined to the user.
+putting a question whose answer is already determined to the user. `public_parts` is such a
+value when the design has one application people open: it is that application (its slots
+are not parts of their own), and Phase 4's line is where the customer corrects it - asking "probably the app?"
+is asking an answer back.
 **`deployment_scope: resource_group` keeps every resource group `existing`**, and
 `resource_groups_created` is then not asked: creating a group needs a role on the
 subscription, and a deploying identity with one reaches every stage. The consequence is in the
