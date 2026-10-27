@@ -891,10 +891,11 @@ ships no sample spec to copy, and the scripts are tools, not documentation — r
 `write_spec.py`, `check_spec.py`, `new_diagram.py` and `export_decisions.py`, never read their source to
 learn what a spec looks like. What `check_spec.py` rejects, it names.
 
-**Write `naming.yaml` beside it in the same step**, for either target, when the directory
-has none: a full copy of
-[naming.default.yaml](../iac-rendering/references/naming.default.yaml), with any departure
-the user stated applied to it. Terraform's provider reads it at plan time, Bicep's name
+**`naming.yaml` lands beside it in the same step**, for either target, when the directory
+has none: `write_spec.py` writes a full copy of
+[naming.default.yaml](../iac-rendering/references/naming.default.yaml) (through
+`core/iac-rendering/scripts/write_naming.py`); a departure the user stated is then an edit to
+that copy. Terraform's provider reads it at plan time, Bicep's name
 `var`s are generated from it, so it belongs to the spec, not to the code — the names in the
 diagram and every later render come from it, and a run that stops after the spec (the user
 says "not yet" / "noch nicht") must still leave the convention in the repository. An

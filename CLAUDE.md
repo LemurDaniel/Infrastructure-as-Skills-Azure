@@ -78,6 +78,11 @@ python3 plugins/infrastructure-as-skills-azure/core/iac-rendering/tests/run_clau
 # the run (exit 3) so the person is asked to update; older, equal or no version never blocks.
 python3 plugins/infrastructure-as-skills-azure/core/iac-authoring/tests/run_plugin_version_tests.py
 
+# Writes the root's naming.yaml beside a spec when it has none: a full copy of the convention,
+# with the patterns an existing Bicep root already names pinned (write_spec.py runs it too).
+python3 plugins/infrastructure-as-skills-azure/core/iac-rendering/scripts/write_naming.py <spec>
+python plugins/infrastructure-as-skills-azure/core/iac-rendering/tests/run_naming_tests.py
+
 # Renders a spec as the customer's decision document (infra-decisions.md beside it).
 python3 plugins/infrastructure-as-skills-azure/core/iac-authoring/scripts/export_decisions.py <spec> --language de
 

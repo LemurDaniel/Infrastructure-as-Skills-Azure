@@ -59,9 +59,11 @@ A full copy rather than an empty override file, for two reasons:
   five hundred it is merged over.
 
 **A Bicep root from before the copy** has name `var`s and no `naming.yaml`. Its first
-re-render writes the copy from what the root names, not from today's default: where a
-name `var` follows another pattern than the current default gives its type - the root was
-rendered from an older one - that old pattern goes into the copy. The names stay, the diff
+re-render writes the copy from what the root names, not from today's default:
+`scripts/write_naming.py <spec>` reads each name `var` back into a pattern, and where it
+differs from what the current default gives its type - the root was rendered from an older
+one - that old pattern goes into the copy, marked `# Pinned`. A name it cannot read back (a
+literal sub-name, an abbreviation two types share) it reports; check that one by hand. The names stay, the diff
 in the template is empty, and `naming_convention` stays as it was: the convention is pinned,
 not changed by the customer.
 

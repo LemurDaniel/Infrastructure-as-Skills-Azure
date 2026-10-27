@@ -70,9 +70,10 @@ than inferring the shape from an example spec.
    Terraform provider resolves them; in Bicep they are assembled from vars because the
    naming modules are not shipped. Both read the root's `naming.yaml`, never the plugin's
    default, so a re-render keeps every name the root already has. **A root without one gets
-   it first, before any name is rendered**, even for a one-line change: a full copy of the
-   default, and where the root already names resources, each type's pattern as the root
-   names it, not as today's default would.
+   it first, before any name is rendered**, even for a one-line change:
+   `python <plugin>/core/iac-rendering/scripts/write_naming.py <spec>` writes the full copy,
+   with each type's pattern as an existing Bicep root names it (`write_spec.py` runs it too).
+   Never copy the file by hand; a name it reports as not read back is checked by hand.
 6. **Write the secure value explicitly**, even where it matches the provider or API
    default. A default can move between versions and an absent attribute is invisible in
    review.
