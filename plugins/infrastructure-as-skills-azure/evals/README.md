@@ -24,7 +24,6 @@ grouping costs nothing; a case's `prompt.md` reaches the plugin with `plugins: [
 | `diagram/` | What the spec carries for the picture | `diagram-*` |
 | `trigger/` | That a request triggers the plugin at all | `trigger-workload-request` |
 | `language/` | The language of the person is the language of everything said to them | `language-en-request`, `language-en-first-question` |
-| `process/` | The order of the run: after a change of the spec, diagram and sign-off come before any code | `diagram-before-code-after-change` |
 | `sync/` | The version gate and the CLAUDE.md section in a repository that already holds a spec (scaffolded) | `plugin-newer-halts`, `claude-md-section-replaced` |
 | `render/` | The code the render writes, for the few rules a spec cannot show | `bicep-secret-placeholder-once` |
 
@@ -155,3 +154,11 @@ run each time. Removed on 2026-10-27, both at 100% on Opus (baseline) and on Hai
 run): `language-de-request` (the German default path, which every German case walks) and
 `module-source-authored` (`module_source: authored` stated in plain words). Bring one back
 when a change touches what it covered.
+
+## Draft cases
+
+`../evals-draft/` holds cases the runner does not load (it reads `evals/**/case.yaml` only):
+`process/diagram-before-code-after-change` and `process/review-agent-separate`. Both grade a step
+that needs a shell - the diagram script, and the review of the picture it draws - and the eval
+sandbox on Windows has none, so without one they measure the missing shell, not the plugin.
+They come back into `evals/` with `Bash` in their `allowed_tools`, run on Linux.
