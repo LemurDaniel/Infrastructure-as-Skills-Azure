@@ -1,6 +1,6 @@
 ---
-description: A deployed Bicep root whose Key Vault name predates the <LOCATION> in its pattern, re-rendered for an unrelated change. Tests that the render keeps the deployed name - the old pattern becomes a departure in naming.yaml under naming_convention custom - instead of renaming the vault to the current default.
-expected_outcome: infra/main.bicep with keyVaultName unchanged ('kv-${env}-${workload}-${uid4}'), blob soft delete at 14 days, infra/naming.yaml holding the old Key Vault pattern as its departure, the spec at naming_convention custom and blob_soft_delete_days 14.
+description: A deployed Bicep root whose Key Vault name predates the <LOCATION> in its pattern, re-rendered for an unrelated change. Tests that the render keeps the deployed name - the full naming.yaml copy it writes for the root carries the old pattern - instead of renaming the vault to the current default.
+expected_outcome: infra/main.bicep with keyVaultName unchanged ('kv-${env}-${workload}-${uid4}'), blob soft delete at 14 days, infra/naming.yaml as a full copy of the convention with the old Key Vault pattern, naming_convention not custom, blob_soft_delete_days 14 in the spec.
 tags: [bicep, development, key-vault, storage, render, naming]
 plugins: ["../../.."]
 runs: 4
