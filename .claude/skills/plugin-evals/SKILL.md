@@ -181,9 +181,10 @@ the exact `Remove-Item` line.
 low effort by default) runs the suite on a Linux runner, one case per call with progress in
 the log, report only, and `record_eval_history.py` writes the run to the `eval-history`
 branch (version, model, trigger, pass rates; the full result beside it). There is no
-pull-request run: Haiku on the spec cases could not tell a plugin change from its own noise,
-and the suite a merge is judged on is the full one on Sonnet (git-commit-conventions,
-section 5). A rate is never compared with a baseline taken on another model.
+pull-request run: Haiku on the spec cases could not tell a plugin change from its own noise.
+The suite a merge is judged on is the full one on Sonnet; Haiku runs beside it before every
+merge as the floor, reported, never blocking on its own (git-commit-conventions, section 5).
+A rate is never compared with a baseline taken on another model.
 
 ## 5. Reading results
 

@@ -770,7 +770,9 @@ regeneration from the spec loses them. All `render`:
 ### Evals
 
 - **Evals before a merge, none on the pull request (2026-10-27)**: the full suite runs on Sonnet
-  (low effort, 5 runs per case, ~$20-30) before a merge, locally (git-commit-conventions, section 5);
+  (low effort, 4 runs per case, ~$15-25) before a merge, locally (git-commit-conventions, section 5);
+  Haiku runs beside it every time (owner's call, ~$1-3) as the floor - reported, compared only
+  with earlier Haiku runs, never blocking a merge on its own;
   `plugin-evals.yml` runs it by hand on Linux. The PR run on Haiku was removed: it measured
   the model. First CI run on Haiku, 13 cases: 23:45 min,
   $2.18, 2/13 at 100%, 0% on every process, sync and render case - Haiku skips multi-step rules.
