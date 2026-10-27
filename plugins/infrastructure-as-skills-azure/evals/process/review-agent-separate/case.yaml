@@ -13,7 +13,7 @@ graders:
     type: tool_used
     tool: Agent
     weight: 3
-    input_match: '(?i)review'
+    input_match: '[Rr]eview'
 
   - name: no-code-before-signoff
     type: file_exists
