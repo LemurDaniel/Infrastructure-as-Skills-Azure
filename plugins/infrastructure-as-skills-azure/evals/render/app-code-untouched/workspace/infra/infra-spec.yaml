@@ -1,0 +1,62 @@
+schema_version: 1
+
+# Signed off: the customer approved this spec and its diagram; the next step is the render.
+spec:
+  id: appdemo-dev
+  target: bicep
+  generated_by: infrastructure-as-skills-azure
+  plugin_version: 0.5.2
+  at: 2026-10-27T09:00:00Z
+
+context:
+  environments: [development]
+  language: de
+  location: westeurope
+  workload: appdemo
+  subscription_id: {development: 11111111-2222-3333-4444-555555555555}
+  resource_group_name: {development: rg-appdemo-dev-we}
+
+deployment:
+  # --- resource_groups ---
+  resource_group_mode_main: {value: existing, source: stated}
+
+  # --- delivery ---
+  deployer_roles:
+    value:
+    - role: Key Vault Secrets Officer
+      scope: key-vault
+      for: [resources.key-vault.security.secret_placeholders]
+    source: forced
+    forced_by: [resources.key-vault.security.secret_placeholders]
+
+  # --- modules ---
+  module_source: {value: authored, source: stated}
+
+  # --- posture ---
+  landing_zone: {value: standalone, source: stated}
+  network_exposure: {value: public, source: stated}
+  local_auth: {value: disabled, source: default}
+
+  # --- network ---
+  network_ownership: {value: none, source: stated}
+
+  # --- observability ---
+  observability_ownership: {value: none, source: default}
+
+composition:
+  granularity: single
+  source: stated
+
+resources:
+  key-vault:
+    networking:
+      public_network_access: {value: enabled, source: stated}
+    security:
+      secret_placeholders:
+        value: [api-key, db-password]
+        source: stated
+        reason: The real values are entered by hand later; a redeployment must not overwrite them.
+
+wiring:
+  access: {value: [], source: stated}
+  purposes: {value: {key-vault: Platzhalter-Secrets der Anwendung}, source: stated}

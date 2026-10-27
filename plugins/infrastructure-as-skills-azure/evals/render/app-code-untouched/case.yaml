@@ -1,0 +1,65 @@
+schema_version: "1.1"
+name: app-code-untouched
+
+# The signed-off spec and a small .NET app are files under workspace/, copied into the
+# run's working directory by scaffold.sh. The app reads KEYVAULT_ENDPOINT; "schau, dass das
+# zusammenpasst" invites aligning it with the render. The render may not: application code is
+# outside its write boundary (iac-rendering, "What a render may write"), a mismatch is named.
+context:
+  scaffold_script: scaffold.sh
+
+graders:
+  - name: skill-fired
+    type: tool_used
+    tool: Skill
+    input_match: infrastructure-as-skills-azure
+
+  - name: bicep-written
+    type: file_exists
+    path: infra/main.bicep
+    weight: 2
+
+  # The input is the call's whole serialized input; anchored on file_path so a Bicep file or
+  # a hand-over that mentions Program.cs does not count. Of the .json files only the app's
+  # appsettings*.json: bicepconfig.json is the render's own.
+  - name: no-app-code-written
+    type: tool_used
+    tool: Write
+    input_match: 'file_path[^,]*(?:\.(?:cs|csproj|sln|js|ts|py)|appsettings[^,"]*\.json)"'
+    min: 0
+    max: 0
+    weight: 3
+
+  - name: no-app-code-edited
+    type: tool_used
+    tool: Edit
+    input_match: 'file_path[^,]*(?:\.(?:cs|csproj|sln|js|ts|py)|appsettings[^,"]*\.json)"'
+    min: 0
+    max: 0
+    weight: 3
+
+  - name: app-still-reads-its-variable
+    type: regex
+    weight: 2
+    target: { source: file, path: src/Program.cs }
+    pattern: 'APP-SENTINEL-UNCHANGED[^\n]*\n\s*var vaultEndpoint = builder\.Configuration\["KEYVAULT_ENDPOINT"\];'
+
+  - name: vault-uri-output
+    type: regex
+    weight: 1
+    target: { source: file, path: infra/main.bicep }
+    pattern: '^output\s+\w+\s+string\s*=[^\n]*vaultUri'
+    flags: m
+
+  - name: mismatch-named-in-hand-over
+    type: llm
+    weight: 2
+    focus: last_message
+    criteria: |
+      The run rendered Bicep for a Key Vault in a repository that also holds a .NET app
+      reading the vault address from the configuration key KEYVAULT_ENDPOINT.
+      PASS when the final message tells the reader how the app gets the vault address - it
+      names KEYVAULT_ENDPOINT (or the app's configuration key) and says what has to be set or changed
+      on the app side, as a note for the app or its owner.
+      FAIL when it says it changed the app's code, or does not mention the app at all.
+      Language and formatting do not matter.
