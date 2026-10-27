@@ -189,6 +189,70 @@ in `wiring.private_dns_zones` ([private-dns-zones.md](../../../core/iac-renderin
 The assertions for the plan's decisions stay with the owner's file; this instance's tests assert
 `service_plan_resource_id` and the site's own decisions.
 
+### Deployment slots
+
+`deployment_slots` is a map on the site call, one entry per slot, key and `name` the slot's
+name. **A slot inherits nothing from the site**: the slot submodule has its own defaults -
+`public_network_access_enabled = false`, `minimum_tls_version = "1.3"`, `ftps_state =
+"FtpsOnly"`, `http2_enabled = false`, `ip_restriction_default_action = "Allow"`, no identity,
+and `docker_image_tag = "latest"` - so every site decision is written on each slot again,
+from the same variables as the site. Checked against v0.24.1 (2026-10-27).
+
+| Decision | Input | Note |
+|---|---|---|
+| `deployment_slots` | `deployment_slots = { <name> = { name = "<name>", ... } }` | Premium v3 plan; Basic rejects it at apply |
+| `slot_access: same_as_app` / `private` | `deployment_slots.<name>.private_endpoints = { sites = { subnet_resource_id } }` | `subresource_name` defaults to `sites-<slot>`, the slot's own private link group |
+| `slot_access: same_as_app` (waf) | an origin group and route of the slot on the Front Door call, origin `<app>-<slot>.azurewebsites.net` over private link to `sites-<slot>` | The route's own endpoint host name is the slot's address |
+| `slot_access: known_addresses`, `slot_ip_restrictions` | `public_network_access_enabled = true`, `site_config.ip_restriction`, `ip_restriction_default_action = "Deny"`, `scm_use_main_ip_restriction = true` | |
+| `managed_identity` (forced `user_assigned`) | `deployment_slots.<name>.managed_identities = { user_assigned_resource_ids = [...] }` and the same on the site | One identity, written twice |
+| `auto_swap` | `deployment_slots.<name>.site_config.auto_swap_slot_name = "production"` | Omitted while `false` |
+| `sticky_settings` | `sticky_settings = { names = { app_setting_names = [...] } }` on the **site** | Not on the slot; the setting names, not their values |
+| diagnostics | an `azapi_resource` of type `Microsoft.Insights/diagnosticSettings` with `parent_id` the slot's id | **Gap**: the slot object has no `diagnostic_settings`; same categories as the site |
+
+```hcl
+  # decision: app-service.slots.deployment_slots
+  deployment_slots = {
+    test = {
+      name                                     = "test"
+      public_network_access_enabled            = false
+      virtual_network_subnet_id                = var.integration_subnet_id
+      vnet_route_all_traffic                   = true
+      https_only                               = true
+      ftp_publish_basic_authentication_enabled = false
+      # the slot's SCM switch is the WebDeploy one
+      webdeploy_publish_basic_authentication_enabled = false
+      managed_identities = { user_assigned_resource_ids = [module.identity.resource_id] }
+
+      # decision: app-service.slots.slot_access - same_as_app behind the entry
+      private_endpoints = {
+        sites = {
+          name               = data.naming_name.app_slot_private_endpoint.name
+          subnet_resource_id = var.private_endpoint_subnet_id
+        }
+      }
+
+      site_config = {
+        always_on                     = true
+        http2_enabled                 = true
+        ftps_state                    = "Disabled"
+        minimum_tls_version           = "1.2"
+        scm_minimum_tls_version       = "1.2"
+        ip_restriction_default_action = "Deny"
+        scm_use_main_ip_restriction   = true
+        application_stack = {
+          python = { python_version = "3.13" }
+        }
+        # decision: app-service.slots.auto_swap - false, no auto_swap_slot_name
+      }
+    }
+  }
+```
+
+The slot's ids are in `module.app.deployment_slots["<name>"].resource_id`. The slot
+submodule exposes no body, so the slot's decisions are not observable from the root:
+`deployment_slots` is asserted on the output's keys, the others carry
+`# not-testable: app-service.slots.<key> - set on the slot submodule, which exposes only name and id`.
+
 ### Tests
 
 The site module's `resource` output is the `azapi_resource` of the site, so with `azapi`
