@@ -760,7 +760,15 @@ regeneration from the spec loses them. All `render`:
 
 ### Evals
 
-- **CI (2026-10-27), not run yet**: `.github/workflows/plugin-evals.yml` runs the suite on
+- **Eval tiers (2026-10-27)**: a pull request runs the 5 cases tagged `pr` (spec decisions) on
+  Haiku, ~$1; the full suite runs on Sonnet (low effort, ~$15-25) before a merge, locally, by a
+  test agent (git-commit-conventions, section 5). First CI run on Haiku, 13 cases: 23:45 min,
+  $2.18, 2/13 at 100%, 0% on every process, sync and render case - Haiku skips multi-step rules.
+  `language-de-request` and `module-source-authored` removed (100% on Opus and Haiku).
+  `iac-authoring/SKILL.md` is ~11,400 words, loaded on every run: the hard rules (no code before
+  the sign-off, invent nothing, the default stack) are spread through it - a candidate for a
+  short rule block at the top.
+- **CI (2026-10-27), first run done**: `.github/workflows/plugin-evals.yml` runs the suite on
   every plugin pull request on Haiku (3 runs per case in parallel, one case per call with
   progress and remaining time in the log, no baseline arm, $8 ceiling, report only, `--scaffold`
   for the sync cases), any model by hand; `record_eval_history.py` writes each run to
