@@ -91,8 +91,24 @@ run, costs nothing, and its failure says exactly which decision went wrong. Each
 `check_spec.py` — the contract check covering sources, enums, backend attribute spellings
 and composition — runs on the produced specs after the suite, not inside it.
 
-One `llm` grader, in `vague-public-dev`, on the short final message only, with concrete
-PASS and FAIL conditions.
+`llm` graders only where a regex cannot see it - the language of the final message, the
+order of a run, a halt that is said rather than written - each on the short final message
+only, with concrete PASS and FAIL conditions. The judge is Haiku (`--judge-model`) and costs
+a fraction of a cent per verdict; the agent runs are what a suite costs.
+
+## In CI
+
+`.github/workflows/plugin-evals.yml` runs the suite on every pull request that changes the
+plugin: on Haiku (`--model haiku`, about a fortieth of the Opus price per token), one run
+per case, no baseline arm, a cost ceiling. It reports and does not gate: Haiku scores lower
+than the model `baseline.json` was taken on, so its rates are compared with Haiku's own. A
+release measurement is started by hand (`workflow_dispatch`) with the model it needs.
+
+Every run is recorded on the `eval-history` branch by `record_eval_history.py` (repo skill
+`plugin-evals`): `index.json` with one summary per run - plugin version, model, trigger,
+pass rate per case - and the full result beside it. The eval dashboard
+(`eval-agent/dashboard`) reads it and compares a run only with an older plugin version on
+the same model.
 
 ## Keeping outputs good on the same scenarios
 
