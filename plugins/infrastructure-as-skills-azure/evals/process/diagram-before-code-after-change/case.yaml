@@ -15,6 +15,23 @@ graders:
     weight: 2
     input_match: iac-diagram
 
+  # The picture is drawn from the spec, so the spec exists before the diagram skill is read.
+  # tool_order compares the first call of each and fails when the "after" call never happens,
+  # which is why it is not used for "no code before the sign-off": a good run writes no code.
+  - name: spec-before-diagram
+    type: tool_order
+    weight: 2
+    before: { tool: Write, input_match: 'file_path[^,]*infra-spec\.yaml' }
+    after: { tool: Skill, input_match: iac-diagram }
+
+  - name: no-code-write-attempted
+    type: tool_used
+    tool: Write
+    input_match: 'file_path[^,]*\.(tf|bicep)\b'
+    min: 0
+    max: 0
+    weight: 2
+
   - name: change-is-in-the-spec
     type: regex
     target: { source: file, path: infra/infra-spec.yaml }
