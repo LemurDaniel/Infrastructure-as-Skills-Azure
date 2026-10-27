@@ -59,22 +59,23 @@ patterns:
       default: "<TYPE>-<LOCATION>-<ENVIRONMENT>-<NAME>-<INDEX;%02s>"
 
     # ----- Security --------------------------------------------------------
-    # Key Vault: 3-24 chars, must start with letter, alphanumeric + hyphens.
+    # Key Vault: 3-24 chars, must start with letter, alphanumeric + hyphens. With location and
+    # suffix 14-21 chars are fixed, leaving 3-10 for the workload name - list_names.py flags a longer one.
     Microsoft.KeyVault/vaults:
-      default: "<TYPE>-<ENVIRONMENT>-<NAME>-<UNIQUE_ID_4>"
+      default: "<TYPE>-<LOCATION>-<ENVIRONMENT>-<NAME>-<UNIQUE_ID_4>"
 
     # Cosmos DB account (NoSQL): 3-44 chars, lowercase letters, digits, hyphens; global.
     Microsoft.DocumentDB/databaseAccounts:
-      default: "<TYPE>-<ENVIRONMENT>-<NAME>-<UNIQUE_ID_4>"
+      default: "<TYPE>-<LOCATION>-<ENVIRONMENT>-<NAME>-<UNIQUE_ID_4>"
 
     # Cognitive Services / AI Foundry account: 2-64 chars, alphanumerics and hyphens; the name is the
     # custom subdomain, so it is global.
     Microsoft.CognitiveServices/accounts:
-      default: "<TYPE>-<ENVIRONMENT>-<NAME>-<UNIQUE_ID_4>"
+      default: "<TYPE>-<LOCATION>-<ENVIRONMENT>-<NAME>-<UNIQUE_ID_4>"
 
     # Azure AI Search: 2-60 chars, lowercase letters, digits, hyphens; global.
     Microsoft.Search/searchServices:
-      default: "<TYPE>-<ENVIRONMENT>-<NAME>-<UNIQUE_ID_4>"
+      default: "<TYPE>-<LOCATION>-<ENVIRONMENT>-<NAME>-<UNIQUE_ID_4>"
 
     # ----- Storage ---------------------------------------------------------
     # Storage account: 3-24 chars, alphanumeric only (no hyphens), lowercase.

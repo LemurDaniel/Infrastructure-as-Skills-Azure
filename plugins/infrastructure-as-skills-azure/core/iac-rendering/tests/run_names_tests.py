@@ -46,7 +46,7 @@ def main():
 
     code, out = run(SPEC, "--stage", "production")
     results.append(case("valid spec exits 0", code == 0, out))
-    for expected in ("`stweprodshophost01`", "`stweprodshopuploads01`", "`kv-prod-shop-????`",
+    for expected in ("`stweprodshophost01`", "`stweprodshopuploads01`", "`kv-we-prod-shop-????`",
                      "`vnet-we-prod-shop-01`", "`snet-a`", "`rg-x-prod`"):
         results.append(case(f"names {expected}", expected in out, out))
     results.append(case("global name is never reported free", "availability unchecked" in out, out))

@@ -40,7 +40,7 @@ What it produces, with `location: westeurope`, `environment: production`,
 | Subnet | `<TYPE>-<ENVIRONMENT>-<NAME>-<INDEX>` | `snet-prod-payments-01` |
 | Log Analytics | Azure default, `<?SUBNAME;-%s>` optional | `log-we-prod-payments-01` |
 | Storage account | `<TYPE><LOCATION><ENVIRONMENT><NAME><INDEX>`, lowercase | `stweprodpayments01` |
-| Key vault | `<TYPE>-<ENVIRONMENT>-<NAME>-<UNIQUE_ID_4>` | `kv-prod-payments-a1b2` |
+| Key vault, Cosmos DB, Foundry, AI Search | `<TYPE>-<LOCATION>-<ENVIRONMENT>-<NAME>-<UNIQUE_ID_4>` | `kv-we-prod-payments-a1b2` |
 
 ### `naming.yaml` in the user's repository — Terraform only
 
@@ -238,8 +238,8 @@ var storageAccountName = toLower('st${loc}${env}${workload}${idx}')
 // <TYPE>-<LOCATION>-<ENVIRONMENT>-<NAME>-<INDEX>  ->  vnet-we-dev-objects-01
 var virtualNetworkName = 'vnet-${loc}-${env}-${workload}-${idx}'
 
-// <TYPE>-<ENVIRONMENT>-<NAME>-<UNIQUE_ID_4>  ->  kv-dev-objects-a1b2
-var keyVaultName = 'kv-${env}-${workload}-${take(uniqueString(resourceGroup().id), 4)}'
+// <TYPE>-<LOCATION>-<ENVIRONMENT>-<NAME>-<UNIQUE_ID_4>  ->  kv-we-dev-objects-a1b2
+var keyVaultName = 'kv-${loc}-${env}-${workload}-${take(uniqueString(resourceGroup().id), 4)}'
 ```
 
 ### The parts

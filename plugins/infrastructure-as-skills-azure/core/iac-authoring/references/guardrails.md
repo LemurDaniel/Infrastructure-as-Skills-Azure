@@ -92,7 +92,7 @@ Never hardcode a resource name, and never hand-write a tag per resource.
 convention is [naming.default.yaml](../../iac-rendering/references/naming.default.yaml) —
 CAF abbreviations, AVM region codes, `<TYPE>-<LOCATION>-<ENVIRONMENT>-<NAME>-<INDEX>` with
 per-type patterns where Azure's limits force them (`stweprodpayments01`,
-`kv-prod-payments-a1b2`). A Terraform root gets a full copy as `naming.yaml` beside the
+`kv-we-prod-payments-a1b2`). A Terraform root gets a full copy as `naming.yaml` beside the
 spec on the first run, because the provider reads it; a Bicep root gets its name `var`s
 generated from the convention and no copy. From then on the convention is what the
 repository holds:
