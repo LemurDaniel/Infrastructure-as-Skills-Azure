@@ -26,7 +26,7 @@ on:
         options: [manual, release]
         default: manual
       runs:
-        description: Runs per case, run in parallel up to 8 (empty = 4 on Sonnet and Opus, 5 on Haiku)
+        description: Runs for every case, run in parallel up to 8 (empty = each case's own runs, 4 or 2 for the costly ones)
         default: ""
       max_cost_usd:
         description: Hard cost ceiling in USD
@@ -50,7 +50,7 @@ jobs:
       PLUGIN_DIR: plugins/infrastructure-as-skills-azure
       MODEL: ${{ inputs.model }}
       CLAUDE_CODE_EFFORT_LEVEL: ${{ inputs.effort }}
-      RUNS: ${{ inputs.runs || (inputs.model == 'haiku' && '5' || '4') }}
+      RUNS: ${{ inputs.runs }}
       MAX_COST_USD: ${{ inputs.max_cost_usd }}
       CASE: ${{ inputs.case }}
       TAG: ${{ inputs.tag }}
@@ -80,7 +80,10 @@ jobs:
           if [ -z "$ANTHROPIC_API_KEY" ]; then echo "::error::the repository secret ANTHROPIC_API_KEY is not set"; exit 1; fi
           mkdir -p "$OUT/cases"
           fmt() { printf '%dm%02ds' $(($1 / 60)) $(($1 % 60)); }
-          parallel=$((RUNS < 8 ? RUNS : 8))
+          # Without an input each case runs its own `runs:` from prompt.md; --runs would override them all.
+          runs_args=()
+          parallel=8
+          if [ -n "$RUNS" ]; then runs_args=(--runs "$RUNS"); parallel=$((RUNS < 8 ? RUNS : 8)); fi
           cost_of() { python3 -c "import json,sys; print(json.load(open(sys.argv[1])).get('costUsd') or 0)" "$1"; }
 
           cases=()
@@ -93,7 +96,7 @@ jobs:
           done < <(find "$PLUGIN_DIR/evals" -name case.yaml -not -path '*/results/*' -printf '%h\n' | sort)
           total=${#cases[@]}
           [ "$total" -gt 0 ] || { echo "::error::no case matches case '${CASE}' and tag '${TAG}'"; exit 1; }
-          echo "$total case(s)${TAG:+ tagged $TAG} on $MODEL, $RUNS run(s) each, ceiling \$$MAX_COST_USD: ${cases[*]}"
+          echo "$total case(s)${TAG:+ tagged $TAG} on $MODEL, ${RUNS:-the case's own} run(s) each, ceiling \$$MAX_COST_USD: ${cases[*]}"
 
           start=$(date +%s)
           spent=0
@@ -115,7 +118,7 @@ jobs:
             set +e
             # --threshold 0: report only. Exit 2 is the cost ceiling - partial results, still recorded.
             claude plugin eval "$PLUGIN_DIR" --case "$name" \
-              --model "$MODEL" --judge-model sonnet --runs "$RUNS" -j "$parallel" --ablation none --max-cost-usd "$budget" \
+              --model "$MODEL" --judge-model sonnet "${runs_args[@]}" -j "$parallel" --ablation none --max-cost-usd "$budget" \
               --allow-tools Write Edit --trust-plugin --scaffold --no-publish --threshold 0 \
               --output-dir "$OUT/cases/$name" --report "$OUT/cases/$name/report.html"
             code=$?
@@ -143,7 +146,7 @@ jobs:
           if [ ! -f "$OUT/aggregate-result.json" ]; then exit 0; fi
           pip install --quiet pyyaml
           {
-            echo "### Plugin evals on \`$MODEL\` ($RUNS run(s) per case)"
+            echo "### Plugin evals on \`$MODEL\` (${RUNS:-each case's own} run(s) per case)"
             echo '```'
             NO_COLOR=1 python3 .claude/skills/plugin-evals/scripts/show_eval_result.py "$OUT/aggregate-result.json" || true
             echo '```'

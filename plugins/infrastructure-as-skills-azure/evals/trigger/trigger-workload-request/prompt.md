@@ -3,7 +3,7 @@ description: A workload-shaped request that names no resource and no target. Tes
 expected_outcome: the iac-authoring skill fires, the run treats the request as an Azure infrastructure task (interview, spec) and writes no IaC code or generic architecture advice.
 tags: [trigger, interview]
 plugins: ["../../.."]
-runs: 5
+runs: 4
 max_turns: 30
 timeout_seconds: 900
 allowed_tools: [Read, Glob, Grep, Skill, Write, Edit]

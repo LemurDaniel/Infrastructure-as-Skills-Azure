@@ -204,14 +204,15 @@ Beyond the script:
   No eval runs on the pull request: the suite needs a model that follows a
   multi-step skill, and every merge is a release. For a branch that touches `core/`, `resources/`
   or `evals/` of the plugin, before `gh pr merge`:
-  1. Say what it costs (low effort, 4 runs per case: Sonnet about $15-25,
-     Haiku about $1-3) and start only on the owner's yes.
+  1. Say what it costs (low effort, each case's own `runs:` - 4, the four
+     costliest 2: Sonnet about $12-18, Haiku about $1-3) and start only on
+     the owner's yes.
   2. Start a **test agent** (Agent tool, background) with the run as its whole
      brief. It runs, from the repo root, with `$claude` the CLI (on the
      owner's machine the VS Code binary, as in `plugin-evals`):
      ```
      CLAUDE_CODE_EFFORT_LEVEL=low $claude plugin eval plugins/infrastructure-as-skills-azure \
-       --model sonnet --judge-model sonnet --runs 4 -j 8 --ablation none --scaffold --allow-tools Write Edit \
+       --model sonnet --judge-model sonnet -j 8 --ablation none --scaffold --allow-tools Write Edit \
        --trust-plugin --no-publish --threshold 0 --max-cost-usd 30 --output-dir <scratch>/eval
      python3 .claude/skills/plugin-evals/scripts/show_eval_result.py <scratch>/eval/aggregate-result.json
      ```

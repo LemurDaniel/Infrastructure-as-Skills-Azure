@@ -113,8 +113,11 @@ the same model.
 
 ## Keeping outputs good on the same scenarios
 
-`runs: 5` per case is the consistency measurement, the default for Haiku; Sonnet runs 4
-(`--runs 4`): its answers vary less, and a Sonnet run costs about ten times a Haiku run. A
+`runs:` in each case's `prompt.md` is the consistency measurement, the same on every model:
+4 per case, and 2 for the four cases that cost about $3 or more per suite on Sonnet
+(`diagram-no-invented-lines`, `language-en-request`, `requirements-stated`,
+`vague-public-dev`) - halved for cost, accepting that they can only read 0, 50 or 100%. No
+`--runs` on the command line: it overrides every case's own value. A
 grader that passes in some runs but not all is a decision the plugin does not pin down. Three runs were too few - a case could only
 read 0, 33, 67 or 100%, and one run decided between "unstable" and "fine". Read those first — they are where a
 question set lacks a default, a rule in `iac-authoring` is ambiguous, or the

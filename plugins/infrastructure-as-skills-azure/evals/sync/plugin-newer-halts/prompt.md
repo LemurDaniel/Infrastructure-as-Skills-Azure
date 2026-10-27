@@ -3,7 +3,7 @@ description: The spec in the repository was written by a newer plugin (plugin_ve
 expected_outcome: infra/infra-spec.yaml untouched with plugin_version 99.0.0 still in it, no CLAUDE.md written, the final message says the plugin is older than the spec and offers the update.
 tags: [terraform, development, process, version, extension]
 plugins: ["../../.."]
-runs: 5
+runs: 4
 max_turns: 40
 timeout_seconds: 600
 allowed_tools: [Read, Glob, Grep, Skill, Write, Edit]

@@ -3,7 +3,7 @@ description: A signed-off Key Vault spec rendered as Bicep in a repository that 
 expected_outcome: infra/main.bicep written; no Write or Edit on a .cs, .csproj or other application file; src/Program.cs still reads KEYVAULT_ENDPOINT; the hand-over names the app's key as something for the app's owner.
 tags: [bicep, development, key-vault, render, write-boundary]
 plugins: ["../../.."]
-runs: 5
+runs: 4
 max_turns: 80
 timeout_seconds: 1200
 allowed_tools: [Read, Glob, Grep, Skill, Write, Edit]
