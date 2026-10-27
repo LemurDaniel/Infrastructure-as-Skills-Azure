@@ -586,10 +586,11 @@ chip holds twelve characters). A topic of more is several calls in a row, and th
 header is numbered** - *Rahmen 1/3*, *Rahmen 2/3*, *Rahmen 3/3* - so the same word never
 appears twice in a row without telling the person how far along they are; a topic of one call
 carries no number; small neighbouring topics
-share a call only when each of them is a single question. The first line of a call names the
-topic and the person's place ("Netzwerk - Frage 1-2, danach Sicherheit, Daten"), with
-nothing reasoned or reported between the calls - the batch is never trimmed to four to fit
-one call. **The options come from the question set, never from the run**: an enum's `values`
+share a call only when each of them is a single question. Before each call one line of
+plain text names the topic and the person's place ("Netzwerk - Frage 1-2, danach Sicherheit,
+Daten"); it is a message of its own, never part of a `question` text, which holds the question
+and nothing else. Nothing reasoned or reported stands between the calls - the batch is never
+trimmed to four to fit one call. **The options come from the question set, never from the run**: an enum's `values`
 with their `plain_values`, an `int` or free `list` question's `offer` (`mandates`,
 `log_retention_days`) with its labels; "Other" is the tool's and takes the rest. A question with
 neither is asked in prose. An enum with more than four values (`app_runtime`) shows its first
