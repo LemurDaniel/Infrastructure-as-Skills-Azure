@@ -1,8 +1,9 @@
 name: Plugin evals
 
-# A pull request that changes the plugin runs the eval suite on Haiku: three runs per case, run in
-# parallel, so a decision the plugin leaves to chance shows as unstable; no baseline arm, a hard cost
-# ceiling - at a fraction of the price of a measurement on the default model. A release
+# A pull request that changes the plugin runs the cases tagged `pr` - the spec decisions, where Haiku
+# measures the plugin rather than itself - on Haiku: three runs per case, run in parallel, so a
+# decision the plugin leaves to chance shows as unstable; no baseline arm, a hard cost ceiling. The
+# full suite runs on Sonnet before a merge, locally (git-commit-conventions, section 5). A release
 # measurement (or any other) is started by hand with the model it needs. Every run is recorded
 # on the eval-history branch, which the eval dashboard reads per plugin version and model.
 #
@@ -37,6 +38,9 @@ on:
       case:
         description: Case name glob (empty = all)
         default: ""
+      tag:
+        description: Only cases with this tag, e.g. pr (empty = all)
+        default: ""
 
 permissions:
   contents: read
@@ -57,8 +61,9 @@ jobs:
       PLUGIN_DIR: plugins/infrastructure-as-skills-azure
       MODEL: ${{ inputs.model || 'haiku' }}
       RUNS: ${{ inputs.runs || '3' }}
-      MAX_COST_USD: ${{ inputs.max_cost_usd || '8' }}
+      MAX_COST_USD: ${{ inputs.max_cost_usd || '3' }}
       CASE: ${{ inputs.case }}
+      TAG: ${{ github.event_name == 'pull_request' && 'pr' || inputs.tag }}
     steps:
       - uses: actions/checkout@v4
 
@@ -89,12 +94,16 @@ jobs:
           cost_of() { python3 -c "import json,sys; print(json.load(open(sys.argv[1])).get('costUsd') or 0)" "$1"; }
 
           cases=()
-          while read -r name; do
-            if [ -z "$CASE" ] || [[ "$name" == $CASE ]]; then cases+=("$name"); fi
-          done < <(find "$PLUGIN_DIR/evals" -name case.yaml -not -path '*/results/*' -printf '%h\n' | xargs -n1 basename | sort)
+          while read -r dir; do
+            name=$(basename "$dir")
+            if [ -n "$CASE" ] && [[ "$name" != $CASE ]]; then continue; fi
+            # The tags are in the prompt.md frontmatter: tags: [pr, terraform, ...]
+            if [ -n "$TAG" ] && ! grep -qE "^tags:.*[[ ,]${TAG}[],]" "$dir/prompt.md"; then continue; fi
+            cases+=("$name")
+          done < <(find "$PLUGIN_DIR/evals" -name case.yaml -not -path '*/results/*' -printf '%h\n' | sort)
           total=${#cases[@]}
-          [ "$total" -gt 0 ] || { echo "::error::no case matches '${CASE}'"; exit 1; }
-          echo "$total case(s) on $MODEL, $RUNS run(s) each, ceiling \$$MAX_COST_USD: ${cases[*]}"
+          [ "$total" -gt 0 ] || { echo "::error::no case matches case '${CASE}' and tag '${TAG}'"; exit 1; }
+          echo "$total case(s)${TAG:+ tagged $TAG} on $MODEL, $RUNS run(s) each, ceiling \$$MAX_COST_USD: ${cases[*]}"
 
           start=$(date +%s)
           spent=0

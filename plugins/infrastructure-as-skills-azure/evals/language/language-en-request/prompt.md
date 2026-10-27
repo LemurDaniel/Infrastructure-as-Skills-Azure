@@ -1,7 +1,7 @@
 ---
 description: "An English request with target and module stated. Tests that the language is taken from the request: context.language is en, the customer-facing text of the spec is English, and the final message is English."
 expected_outcome: "infra/infra-spec.yaml with context.language en, English labels in wiring, no German text anywhere in the spec, and a final message in English."
-tags: [terraform, language, en]
+tags: [pr, terraform, language, en]
 plugins: ["../../.."]
 runs: 3
 max_turns: 60

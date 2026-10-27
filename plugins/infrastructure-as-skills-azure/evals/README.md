@@ -97,9 +97,12 @@ a fraction of a cent per verdict; the agent runs are what a suite costs.
 
 ## In CI
 
-`.github/workflows/plugin-evals.yml` runs the suite on every pull request that changes the
-plugin: on Haiku (`--model haiku`, about a fortieth of the Opus price per token), three runs
-per case in parallel so that an unstable decision shows, no baseline arm, an $8 ceiling. It
+`.github/workflows/plugin-evals.yml` runs the cases tagged `pr` - the five that grade spec
+decisions - on every pull request that changes the plugin: on Haiku (`--model haiku`, about
+a twentieth of the Sonnet price per token), three runs per case in parallel so that an
+unstable decision shows, no baseline arm, a $3 ceiling. The rest - process, sync, render -
+runs with the whole suite on Sonnet before a merge, locally, since Haiku does not follow a
+multi-step skill (first CI run: 0% on all four process and render cases). It
 runs one case per call, so the log says which case it is on and how long the rest will take,
 and merges the results (`merge_eval_results.py`). It reports and does not gate: Haiku scores
 lower than the model `baseline.json` was taken on, so its rates are compared with Haiku's

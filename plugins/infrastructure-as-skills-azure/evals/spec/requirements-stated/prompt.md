@@ -1,7 +1,7 @@
 ---
 description: A request that states all five customer requirements in plain words. Tests that each lands in the deployment requirements group with the right value and that the resource decisions derive from them.
 expected_outcome: infra/infra-spec.yaml with outage_impact critical, data_loss_tolerance three_months, data_access_pattern archive, backup_isolation immutable and data_residency country, and an access tier derived from the access pattern.
-tags: [terraform, production, requirements]
+tags: [pr, terraform, production, requirements]
 plugins: ["../../.."]
 runs: 3
 max_turns: 60
