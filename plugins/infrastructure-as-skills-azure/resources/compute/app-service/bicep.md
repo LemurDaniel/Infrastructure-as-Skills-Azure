@@ -167,6 +167,64 @@ module webMcp 'br/public:avm/res/web/site:0.24.0' = {
 The private endpoint and the `privatelink.azurewebsites.net` record are per app; the zone is already
 in `wiring.private_dns_zones` ([private-dns-zones.md](../../../core/iac-rendering/references/private-dns-zones.md)).
 
+### Deployment slots
+
+`slots` is an array on the site call. **A Bicep slot inherits most of the site** -
+`siteConfig`, `managedIdentities`, `virtualNetworkSubnetResourceId`, `outboundVnetRouting`,
+`basicPublishingCredentialsPolicies`, `httpsOnly`, `lock`, `configs` - but not its
+`privateEndpoints` (default `[]`) or its `diagnosticSettings`, and `publicNetworkAccess`
+falls back to `Disabled` only when the slot or the site has a private endpoint. Write
+`privateEndpoints`, `diagnosticSettings` and `publicNetworkAccess` on each slot; leave the
+inherited ones inherited so that the slot cannot drift from the site. Checked against
+0.24.0 (2026-10-27).
+
+| Decision | Parameter | Note |
+|---|---|---|
+| `deployment_slots` | `slots: [ { name: '<name>', ... } ]` | Premium v3 plan |
+| `slot_access: same_as_app` / `private` | `slots[].privateEndpoints: [ { service: 'sites-<name>', subnetResourceId } ]` | The slot's own private link group |
+| `slot_access: same_as_app` (waf) | an origin group and route of the slot on the Front Door call, over private link to `sites-<name>` | |
+| `slot_access: known_addresses`, `slot_ip_restrictions` | `slots[].publicNetworkAccess: 'Enabled'`, `slots[].siteConfig` with `ipSecurityRestrictions`, `ipSecurityRestrictionsDefaultAction: 'Deny'`, `scmIpSecurityRestrictionsUseMain: true` | A slot `siteConfig` **replaces** the site's: write the whole object |
+| `managed_identity` (forced `user_assigned`) | `managedIdentities: { userAssignedResourceIds: [...] }` on the site | Inherited by the slot |
+| `auto_swap` | `slots[].siteConfig.autoSwapSlotName: 'production'` | Omitted while `false`; needs the whole `siteConfig` on the slot |
+| `sticky_settings` | `configs: [ { name: 'slotConfigNames', properties: { appSettingNames: [...] } } ]` on the site | **Set `configs: []` on each slot** - the slot inherits the site's `configs`, and `slotConfigNames` is not available for slots |
+| diagnostics | `slots[].diagnosticSettings` | Same categories as the site |
+
+```bicep
+    // decision: app-service.slots.deployment_slots
+    slots: [
+      {
+        name: 'test'
+        // decision: app-service.slots.slot_access - same_as_app behind the entry
+        publicNetworkAccess: 'Disabled'
+        privateEndpoints: [
+          {
+            name: slotPrivateEndpointName
+            service: 'sites-test'
+            subnetResourceId: privateEndpointSubnetId
+          }
+        ]
+        // the site's slotConfigNames must not reach the slot
+        configs: []
+        diagnosticSettings: [
+          {
+            workspaceResourceId: diagnosticWorkspaceId
+            logCategoriesAndGroups: [
+              { category: 'AppServiceHTTPLogs' }
+              { category: 'AppServiceAppLogs' }
+              { category: 'AppServiceAuditLogs' }
+              { category: 'AppServiceIPSecAuditLogs' }
+              { category: 'AppServicePlatformLogs' }
+            ]
+            metricCategories: [ { category: 'AllMetrics' } ]
+          }
+        ]
+      }
+    ]
+```
+
+`slots` compiles into the site's nested deployment as one parameter, so every slot
+decision is observable in `tests/*.armtest.yaml` as a member of `slots.value[<i>]`.
+
 ### Tests
 
 A module call compiles to a nested deployment whose `properties.parameters.<param>.value`
