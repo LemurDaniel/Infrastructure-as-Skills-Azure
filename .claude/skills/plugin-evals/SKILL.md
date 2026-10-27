@@ -92,6 +92,15 @@ matches the YAML's actual shape fails every run and says nothing about the plugi
 python -I -c "import re,sys; s=open(sys.argv[1],encoding='utf-8').read(); print(bool(re.search(sys.argv[2], s, re.M)))" <spec> '<pattern>'
 ```
 
+**Calls, not only files.** `tool_used` with `min: 0` and `max: 0` asserts a call never
+happened (`min` defaults to 1, so without it the grader cannot pass); `tool_order` compares
+the *first* matching call of `before` and `after` and fails when `after` never happens - use
+it for an order a good run always shows (spec written, then the diagram skill), never for
+"no code before the sign-off", where a good run writes no code. `input_match` is a regex over
+the call's whole serialized input, file content included: anchor a path check on
+`file_path[^,]*` so a spec that mentions `main.tf` does not count as code. `focus` and
+`target` take `last_message`, `trace`, `files`, `mock_calls` or `{source: file, path}`.
+
 **Per case, one grader on the process:** `tool_used` on `Skill` with
 `input_match: iac-authoring`. It is an indicator, excluded from the score against the
 no-plugin arm.

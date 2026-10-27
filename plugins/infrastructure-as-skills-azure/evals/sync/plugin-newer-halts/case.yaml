@@ -22,6 +22,22 @@ graders:
     target: { source: file, path: infra/infra-spec.yaml }
     pattern: 'plugin_version:\s*\W?99\.0\.0'
 
+  # The version gate halts before anything is written: not a file the scaffold left, not a new
+  # one. A changed file shows in the regexes only when its content changed; a call does not hide.
+  - name: nothing-written
+    type: tool_used
+    tool: Write
+    min: 0
+    max: 0
+    weight: 3
+
+  - name: nothing-edited
+    type: tool_used
+    tool: Edit
+    min: 0
+    max: 0
+    weight: 3
+
   - name: no-claude-md-written
     type: file_exists
     path: CLAUDE.md
