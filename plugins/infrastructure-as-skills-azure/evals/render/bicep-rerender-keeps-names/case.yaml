@@ -1,0 +1,77 @@
+schema_version: "1.1"
+name: bicep-rerender-keeps-names
+
+# The deployed root - spec, main.bicep, parameter file - is a file set under workspace/, copied into
+# the run's working directory by scaffold.sh. Its Key Vault name is the pattern before <LOCATION>
+# entered it; a re-render that follows the current default renames a deployed, global vault.
+context:
+  scaffold_script: scaffold.sh
+
+graders:
+  - name: skill-fired
+    type: tool_used
+    tool: Skill
+    input_match: infrastructure-as-skills-azure
+
+  # The point of the case: the deployed name stays, in its old shape and without the location.
+  # The suffix var may be renamed or inlined; the order before it may not.
+  - name: key-vault-name-kept
+    type: regex
+    weight: 3
+    target: { source: file, path: infra/main.bicep }
+    pattern: '''kv-\$\{env\}-\$\{workload\}-\$\{'
+
+  - name: key-vault-not-renamed-to-the-default
+    type: regex
+    weight: 3
+    target: { source: file, path: infra/main.bicep }
+    pattern: '''kv-\$\{loc'
+    match: not_contains
+
+  # The storage name already follows the current default and must not move either.
+  - name: storage-name-kept
+    type: regex
+    weight: 2
+    target: { source: file, path: infra/main.bicep }
+    pattern: 'toLower\(''st\$\{loc\}\$\{env\}\$\{workload\}\$\{idx\}''\)'
+
+  # The pin: naming.yaml is created by the run (the scaffold has none) and holds the old pattern.
+  - name: naming-yaml-written
+    type: file_exists
+    path: infra/naming.yaml
+    weight: 2
+
+  - name: naming-yaml-pins-the-old-key-vault-pattern
+    type: regex
+    weight: 3
+    target: { source: file, path: infra/naming.yaml }
+    pattern: 'Microsoft\.KeyVault/vaults"?:\s*(?:#[^\n]*\s*)*default:\s*["'']?<TYPE>-<ENVIRONMENT>-<NAME>-<UNIQUE_ID_4>["'']?\s*$'
+    flags: m
+
+  # Departures only: a Bicep root gets no full copy of the convention.
+  - name: naming-yaml-is-not-a-full-copy
+    type: regex
+    weight: 2
+    target: { source: file, path: infra/naming.yaml }
+    pattern: '^\s*abbreviations:|Microsoft\.CognitiveServices/accounts::'
+    flags: m
+    match: not_contains
+
+  - name: spec-naming-convention-custom
+    type: regex
+    weight: 2
+    target: { source: file, path: infra/infra-spec.yaml }
+    pattern: 'naming_convention:\s*(?:#[^\n]*\s*)*(?:\{\s*)?(?:value:\s*)?\W?custom\b'
+
+  # The change asked for, in both places.
+  - name: spec-blob-soft-delete-14
+    type: regex
+    weight: 2
+    target: { source: file, path: infra/infra-spec.yaml }
+    pattern: 'blob_soft_delete_days:\s*(?:#[^\n]*\s*)*(?:\{\s*)?(?:value:\s*)?14\b'
+
+  - name: bicep-blob-soft-delete-14
+    type: regex
+    weight: 2
+    target: { source: file, path: infra/main.bicep }
+    pattern: 'deleteRetentionPolicy:\s*\{[^}]*days:\s*14\b'
