@@ -56,6 +56,13 @@ a second place for the convention to drift. A Bicep root carries a `naming.yaml`
 `deployment.naming_convention` is `custom`: then it holds the departures, and only the
 departures, as the source the `var` block is regenerated from.
 
+**A re-render never renames what the root already names.** Before regenerating the `var`
+block of an existing Bicep root, compare each name `var` with the pattern the current
+default gives its type. Where they differ - the root was rendered from an older default -
+write that type's old pattern into the root's `naming.yaml` as a departure, set
+`naming_convention: custom` and render from that. The names stay, and the diff in the
+template is empty. Terraform needs none of this: its full copy already pins the convention.
+
 A full copy on the Terraform side rather than an empty override file, for two reasons:
 
 - **Names are part of the deployed state.** Most Azure resources cannot be renamed — a
