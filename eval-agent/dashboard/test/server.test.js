@@ -1,23 +1,66 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createApp } from '../src/server.js';
-import { mockStore } from '../src/stores.js';
-import { mockGithub } from '../src/github.js';
-import { mockAgents } from '../src/agents.js';
+import { historyStore, mockStore } from '../src/stores.js';
+import { compareVersions, findRegressions } from '../src/results.js';
 
 async function start(userOf = () => 'tester') {
-  const github = mockGithub();
-  const app = createApp({ store: mockStore(), github, agents: mockAgents(), commit: 'abc12345', userOf, repoUrl: 'https://example/repo', mock: true });
+  const app = createApp({ store: mockStore(), commit: 'abc12345', userOf, mock: true });
   const server = await new Promise((r) => { const s = app.listen(0, () => r(s)); });
-  return { base: `http://127.0.0.1:${server.address().port}`, server, github };
+  return { base: `http://127.0.0.1:${server.address().port}`, server };
 }
 
-test('runs endpoint reports the mocked regression', async () => {
+const run = (version, model, rate) => ({ id: `${version}-${model}`, version, model, cases: [{ name: 'c', passRate: rate }] });
+
+test('runs endpoint reports the mocked regression against the older version on the same model', async () => {
   const { base, server } = await start();
   const body = await (await fetch(`${base}/api/runs`)).json();
   server.close();
   assert.equal(body.runs.length, 6);
-  assert.deepEqual(body.regressions.map((r) => r.case), ['language-de-request']);
+  assert.deepEqual(body.regressions.map((r) => [r.case, r.fromVersion, r.toVersion, r.model]),
+    [['language-de-request', '0.5.1', '0.5.2', 'haiku']]);
+});
+
+test('history has one table per model, versions oldest first', async () => {
+  const { base, server } = await start();
+  const { history } = await (await fetch(`${base}/api/runs`)).json();
+  server.close();
+  const byModel = Object.fromEntries(history.map((h) => [h.model, h.versions.map((v) => v.version)]));
+  assert.deepEqual(byModel, { haiku: ['0.5.0', '0.5.1', '0.5.2'], opus: ['0.4.0', '0.5.0', '0.5.1'] });
+});
+
+test('a run is never measured against another model or the same version', () => {
+  // newest first: a Haiku run below an Opus run of an older version is no regression
+  assert.deepEqual(findRegressions([run('0.5.2', 'haiku', 0.5), run('0.5.1', 'opus', 1)]), []);
+  // a second push to the same pull request (same version) is no regression of the first
+  assert.deepEqual(findRegressions([run('0.5.2', 'haiku', 0.5), run('0.5.2', 'haiku', 1)]), []);
+  assert.equal(findRegressions([run('0.5.2', 'haiku', 0.5), run('0.5.1', 'haiku', 1)]).length, 1);
+});
+
+test('versions compare as numbers, a prerelease before its release', () => {
+  assert.equal(compareVersions('0.10.0', '0.9.9'), 1);
+  assert.equal(compareVersions('0.6.0-rc1', '0.6.0'), -1);
+  assert.equal(compareVersions('0.5.1', '0.5.1'), 0);
+});
+
+test('the history store reads index.json once per interval and keeps it when GitHub fails', async () => {
+  let calls = 0;
+  let fail = false;
+  const fetchImpl = async () => {
+    calls++;
+    if (fail) return { ok: false, status: 403, json: async () => ({}) };
+    return { ok: true, status: 200, json: async () => ({ runs: [run('0.5.0', 'opus', 1), run('0.5.1', 'opus', 1)] }) };
+  };
+  const store = historyStore({ repo: 'o/r', ttlMs: 0, fetchImpl });
+  assert.deepEqual((await store.listRuns()).map((r) => r.version), ['0.5.1', '0.5.0']); // newest first
+  fail = true;
+  assert.equal((await store.listRuns()).length, 2);
+  assert.equal(calls, 2);
+});
+
+test('no history yet is an empty list, not an error', async () => {
+  const store = historyStore({ repo: 'o/r', fetchImpl: async () => ({ ok: false, status: 404 }) });
+  assert.deepEqual(await store.listRuns(), []);
 });
 
 test('unauthenticated request is refused', async () => {
@@ -27,27 +70,12 @@ test('unauthenticated request is refused', async () => {
   assert.equal(res.status, 401);
 });
 
-test('ticket is created once, then commented', async () => {
-  const { base, server, github } = await start();
-  const post = () => fetch(`${base}/api/tickets`, {
-    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ case: 'language-de-request' }),
-  }).then((r) => r.json());
-  const first = await post();
-  const second = await post();
-  server.close();
-  assert.equal(first.created, true);
-  assert.equal(second.created, false);
-  assert.equal(github.issues[0].comments.length, 1);
-});
-
-test('foreign origin and unknown case are refused', async () => {
+test('the dashboard has no write route', async () => {
   const { base, server } = await start();
-  const h = { 'Content-Type': 'application/json' };
-  const foreign = await fetch(`${base}/api/tickets`, { method: 'POST', headers: { ...h, Origin: 'https://evil.example' }, body: '{"case":"language-de-request"}' });
-  const unknown = await fetch(`${base}/api/tickets`, { method: 'POST', headers: h, body: '{"case":"nope"}' });
+  const statuses = await Promise.all(['/api/tickets', '/api/agents/tune/start'].map(
+    async (p) => (await fetch(`${base}${p}`, { method: 'POST' })).status));
   server.close();
-  assert.equal(foreign.status, 403);
-  assert.equal(unknown.status, 404);
+  assert.ok(statuses.every((s) => s === 404), `got ${statuses}`);
 });
 
 test('agents endpoint reports fuzz history and the last tuner run', async () => {
@@ -58,20 +86,6 @@ test('agents endpoint reports fuzz history and the last tuner run', async () => 
   assert.equal(body.fuzz[2].hardFailures, 1);
   assert.equal(body.tune.length, 5);
   assert.equal(body.tune[0].outcome, 'committed');
-});
-
-test('an agent is started once, a second start while it runs gets 409', async () => {
-  const { base, server } = await start();
-  const start_ = (n) => fetch(`${base}/api/agents/${n}/start`, { method: 'POST' });
-  const first = await start_('tune');
-  const second = await start_('tune');
-  const unknown = await start_('fuzz');
-  const foreign = await fetch(`${base}/api/agents/tune/start`, { method: 'POST', headers: { Origin: 'https://evil.example' } });
-  server.close();
-  assert.equal(first.status, 202);
-  assert.equal(second.status, 409);
-  assert.equal(unknown.status, 404);
-  assert.equal(foreign.status, 403);
 });
 
 test('the commit the image was built from is reported', async () => {
