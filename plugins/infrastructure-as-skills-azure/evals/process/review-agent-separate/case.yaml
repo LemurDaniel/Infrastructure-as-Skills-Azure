@@ -24,7 +24,7 @@ graders:
   - name: review-is-its-own-call
     type: llm
     weight: 3
-    focus: transcript
+    focus: trace
     criteria: |
       PASS if the main session started a review agent in an Agent call of its own, separate
       from whoever drew or edited the diagram, and the review brief names the diagram and the spec.
