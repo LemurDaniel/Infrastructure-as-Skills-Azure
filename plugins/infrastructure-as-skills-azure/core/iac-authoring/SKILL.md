@@ -296,11 +296,12 @@ Then the interview opens with one open question, not with the question set. Let 
 describe what they are building, and let that description answer as much as it can.
 Only what it leaves open is asked afterwards.
 
-The reason is the order of cost. A paragraph of prose is cheap to write and typically
-settles the environment, the region, what the thing is for, who reaches it and from where,
-and whether a mandate applies — half the deployment set, before a single structured
-question. Starting with the question set instead asks those things one field at a time,
-and asks some that the user would have answered in passing.
+The reason is what options cannot carry. What the system is for and who reaches it from
+where are told in a sentence and are clumsy as options - and they decide which questions
+the batch asks at all. Everything with fixed answers (stages, outage, recovery, residency,
+mandates, cost) is the batch's, with its options; the opening question never announces a
+default for one of them. What the description happens to settle there is `stated` and
+drops out of the batch.
 
 **Skip it when the request already is that description.** "Storage for the accounting
 department's invoice archive, prod in West Europe, company network only, BSI C5" (German:
@@ -310,39 +311,29 @@ account for terraform" (German: "ich brauch ein storage account für terraform")
 description; it names the resource and nothing about the system around it.
 
 Ask in plain text, not through `AskUserQuestion`: the point is free prose, and options
-would turn it back into the structured interview it precedes. Give the user a short list
-of what is worth mentioning, so the description lands on the questions that matter. The
-list is the `requirements` group in prose and nothing technical:
+would turn it back into the structured interview it precedes. Two points and nothing
+else - the rest comes as questions with options:
 
 ```
-Beschreib kurz, was ihr braucht. Hilfreich ist alles davon, nichts davon ist Pflicht:
-  - Wofür ist es da? Es gibt eine Entwicklungs-, eine Test- und eine Produktionsstufe,
-    außer ihr sagt etwas anderes (nur eine Sandbox zum Ausprobieren, eine Stufe mehr)
+Beschreib kurz, was ihr braucht:
+  - Wofür ist es da?
   - Wer arbeitet damit, und von wo (nur Mitarbeiter im Firmennetz, Partner, das Internet)?
-  - Wie schlimm wäre es, wenn es einen Tag nicht erreichbar ist?
-  - Wie weit zurück müsst ihr kommen, wenn jemand versehentlich etwas löscht?
-  - Muss eine Kopie überleben, wenn jemand die Daten absichtlich zerstört (Ransomware,
-    ein gekapertes Admin-Konto)?
-  - Wo dürfen die Daten liegen und verarbeitet werden: nur im Land, nur in der EU, egal?
-  - Gibt es Vorgaben, die ihr nachweisen müsst (BSI C5, ISO 27001, DSGVO, interne Richtlinien)?
-  - Wohin soll das Geld gehen: möglichst niedrige Kosten, ausgewogen, oder Schutz zuerst
-    (mehr Aufzeichnung, jede Stufe wie die Produktion)? An der Sicherheit selbst ändert das nichts.
+Den Rest frage ich gleich mit Antwortmöglichkeiten ab.
 ```
 
 ```
-Briefly describe what you need. Everything here helps, none of it is required:
-  - What is it for? There is a development, a test and a production stage, unless you say
-    otherwise (a sandbox only to try things out, one more stage)
+Briefly describe what you need:
+  - What is it for?
   - Who works with it, and from where (only staff on the company network, partners, the internet)?
-  - How bad would it be if it were unreachable for a day?
-  - How far back do you need to get if someone deletes something by accident?
-  - Must a copy survive if someone destroys the data on purpose (ransomware, a hijacked
-    admin account)?
-  - Where may the data be stored and processed: only in the country, only in the EU, anywhere?
-  - Are there requirements you must prove (BSI C5, ISO 27001, GDPR, internal policies)?
-  - Where should the money go: lowest running cost, balanced, or protection first (more
-    records, every stage like production)? The security baseline is the same in all three.
+I will ask the rest next, with options to choose from.
 ```
+
+A point the request already answers is left out; a request that answers both skips the
+question. The list is not extended for the request. A question about the system's parts - "is it only
+the App Service, or also a language model, a database?" ("nur der App Service, oder auch ein
+Sprachmodell, eine Datenbank?") - is not a requirement: what the request names is the design,
+and what is missing is the customer's to add at Phase 4's list, which is where they see the
+parts. A request that names its parts ("1 App Service") is not asked about others.
 
 Then map the answer onto the deployment set and every routed question set. Everything it
 settles is recorded with `source: stated` and is not asked again. Three rules for the
@@ -396,7 +387,7 @@ mapping:
   of a context value is the deployment set's, under `deployment:`.
 
 What remains open goes into Phase 3's batches. The description does not replace them; it
-shrinks them, and usually to the `required` questions nobody mentions unprompted.
+shrinks them by what it happened to settle.
 
 ## Phase 1 — Establish the layout
 
