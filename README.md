@@ -8,16 +8,20 @@ previous version on the same model; a rate is never compared across models.
 
 ## haiku
 
-![badge](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/LemurDaniel/Infrastructure-as-Skills-Azure/eval-history/badge-haiku.json) · newest: pr, 3 run(s) per case, 2026-10-27
+![badge](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/LemurDaniel/Infrastructure-as-Skills-Azure/eval-history/badge-haiku.json) · newest: manual, 5 run(s) per case, 2026-10-27
 
 | Case | v0.5.2 |
 |---|---|
-| diagram-no-invented-lines | 🟡 67% |
+| bicep-secret-placeholder-once | 🔴 0% |
+| claude-md-section-replaced | 🔴 0% |
+| diagram-no-invented-lines | 100% |
+| language-en-first-question | 100% |
 | language-en-request | 100% |
-| requirements-stated | 🔴 0% |
-| trigger-workload-request | 🟡 33% |
-| vague-public-dev | 🔴 0% |
-| **cost** | $0.84 |
+| plugin-newer-halts | 🟡 80% |
+| requirements-stated | 🟡 20% |
+| trigger-workload-request | 🟡 40% |
+| vague-public-dev | 🟡 20% |
+| **cost** | $2.14 |
 
 ## sonnet
 
