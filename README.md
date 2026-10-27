@@ -313,7 +313,7 @@ Early, and the shape matters more than the coverage. The eval suite runs on Sonn
 - [x] Eval suite with a baseline
 - [ ] **Reference pattern skill.** `patterns/` is empty, so composition is specified but unproven
 - [x] **An applied render.** [`eval-agent/`](eval-agent/) - rendered Bicep from an `infra-spec.yaml`, what-if, approval and deploy through the rendered GitHub pipeline (OIDC, no secret). The first run found what the pipeline reference now says: a job without a checkout, a what-if that skips modules, immutable OIDC subjects. One spec override came from a quota, not from the interview. Terraform and the other pipelines are still unapplied
-- [ ] The complex example in Bicep; the sets added for it and the 25 newest sets have no Bicep render yet
+- [x] A complex case in Bicep: a chat app with RAG (Front Door with WAF, App Service with a slot, Foundry, AI Search, storage, private endpoints), every decision covered by ARM tests, beside [`eval-agent/`](eval-agent/)
 - [ ] Remaining resources: Logic Apps, Data Factory, governance (policy, budgets), further network, data and AI services - listed in `PROGRESS.md`
 - [ ] AVM version drift check; cross-backend diff of one spec
 
