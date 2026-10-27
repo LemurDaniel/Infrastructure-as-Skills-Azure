@@ -52,6 +52,11 @@ python plugins/infrastructure-as-skills-azure/core/iac-authoring/tests/run_spec_
 # depends_on / from_deployment targets, resolution fields, `resolved_by`, unknown fields.
 python3 plugins/infrastructure-as-skills-azure/core/iac-authoring/scripts/check_question_set.py
 
+# What the interview reads instead of the 2,000-line sets: interview questions, forced_when,
+# derived/confirmed/required questions, boundaries. The test asserts it drops none of them.
+python3 plugins/infrastructure-as-skills-azure/core/iac-authoring/scripts/interview_digest.py compute/app-service --language de
+python3 plugins/infrastructure-as-skills-azure/core/iac-authoring/tests/run_interview_digest_tests.py
+
 # Renders fixture specs with the diagram script and asserts on the .drawio: zones, lines,
 # colours, the bundled endpoint icon. The evals cannot draw, so this is where it is tested.
 python3 plugins/infrastructure-as-skills-azure/core/iac-diagram/tests/run_diagram_tests.py
