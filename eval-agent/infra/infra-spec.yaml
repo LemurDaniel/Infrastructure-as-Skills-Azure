@@ -4,6 +4,7 @@ spec:
   id: claude-plugin-eval-agent
   target: bicep
   generated_by: infrastructure-as-skills-azure
+  plugin_version: 0.5.1
   skill: iac-authoring
   skill_version: 0.1.0
   at: 2026-10-24T12:00:00Z
@@ -95,11 +96,6 @@ composition:
     implementation: authored
     source: deployment
     outputs: [id, principal_id, client_id]
-  - id: identity-agent
-    contains: [user-assigned-identity__agent]
-    implementation: authored
-    source: deployment
-    outputs: [id, principal_id, client_id]
   - id: identity-drift
     contains: [user-assigned-identity__drift]
     implementation: authored
@@ -140,16 +136,15 @@ composition:
     needs: [network, observability]
     outputs: [id, vault_uri]
   - id: app
-    # Five sites on one plan (the question set renders one site per plan; the shared plan is
-    # rendered by hand, see resources.app-service__agent.hosting).
-    contains: [app-service__dashboard, app-service__agent, app-service__drift, app-service__fuzz, app-service__tune]
+    # Four sites on one plan (the question set renders one site per plan; the shared plan is
+    # rendered by hand, see resources.app-service__drift.hosting).
+    contains: [app-service__dashboard, app-service__drift, app-service__fuzz, app-service__tune]
     implementation: authored
     source: deployment
     needs:
     - network
     - observability
     - identity-dashboard
-    - identity-agent
     - identity-drift
     - identity-fuzz
     - identity-tune
@@ -199,8 +194,8 @@ resources:
       immediate_purge_protection: {value: true, source: default}
       archive_to_storage: {value: false, source: default}
 
-  # One identity per app: the dashboard (internet-facing, holds the sign-in secret and the GitHub
-  # token) and the agent (runs plugin code, holds no secret) share no role.
+  # One identity per app: the dashboard (internet-facing, holds the sign-in secret) shares no
+  # role with the apps that run plugin code or hold a GitHub token.
   user-assigned-identity__dashboard:
     identity:
       purpose: {value: app-runtime, source: default}
@@ -210,15 +205,8 @@ resources:
       isolation_scope: {value: None, source: default}
       role_assignments: {value: {production: []}, source: default}
 
-  user-assigned-identity__agent:
-    identity:
-      purpose: {value: app-runtime, source: default}
-      federated_credentials: {value: [], source: default}
-      isolation_scope: {value: None, source: default}
-      role_assignments: {value: {production: []}, source: default}
-
   # The drift watcher reaches the AVM sources on the internet, so it gets its own identity: it
-  # shares no role with the agent (which runs plugin code) or the dashboard (which holds the
+  # shares no role with the fuzz agent (which runs plugin code) or the dashboard (which holds the
   # sign-in secret).
   user-assigned-identity__drift:
     identity:
@@ -228,7 +216,7 @@ resources:
       role_assignments: {value: {production: []}, source: default}
 
   # The fuzz agent runs plugin code and calls no model: it gets its own identity with the image
-  # and data roles only, so it shares nothing with the agent, the drift watcher or the dashboard.
+  # and data roles only, so it shares nothing with the drift watcher, the tuner or the dashboard.
   user-assigned-identity__fuzz:
     identity:
       purpose: {value: app-runtime, source: default}
@@ -335,9 +323,10 @@ resources:
       diagnostic_categories: {value: [audit], source: default}
       metrics_enabled: {value: true, source: default}
 
-  # The dashboard shows the eval results and files the tickets after a failed run. It is the
-  # internet-facing part, so it is the one with the sign-in and the GitHub token, and it only reads
-  # the results.
+  # The dashboard only shows: the eval history per plugin version and model from the eval-history
+  # branch of the public repository (read without a token), and the drift, fuzz and tuner reports
+  # from the storage account. It starts no run and files no ticket. It is the internet-facing part,
+  # so it is the one with the sign-in, and it writes nothing.
   app-service__dashboard:
     hosting:
       os_type: {value: Linux, source: default}
@@ -360,8 +349,9 @@ resources:
       vnet_route_all:
         value: false
         source: overridden
-        reason: The agent needs the internet (plugin source, package installs). With all traffic routed into the VNet there
-          is no outbound path without a NAT gateway; private endpoint addresses are RFC 1918 and still go through the VNet.
+        reason: The dashboard reads the eval history from github.com and api.github.com. With all traffic routed into the
+          VNet there is no outbound path without a NAT gateway; private endpoint addresses are RFC 1918 and still go through
+          the VNet.
     identity:
       managed_identity:
         value: user_assigned
@@ -411,77 +401,16 @@ resources:
         source: default
       metrics_enabled: {value: true, source: default}
 
-  # The agent runs the evals (plugin code, model calls) and writes the results. It is not
-  # reachable from outside and holds no secret: neither the sign-in secret nor the GitHub token.
-  app-service__agent:
-    hosting:
-      # The plan is shared with the dashboard: one B2 plan, two sites. The question set renders one
-      # site per plan, so the plan is rendered once (from the dashboard's values) and the site of
-      # the agent is rendered by hand; both decisions below follow the dashboard.
-      os_type: {value: Linux, source: forced, forced_by: resources.app-service__dashboard.hosting.os_type}
-      sku: {value: B2, source: forced, forced_by: resources.app-service__dashboard.hosting.sku}
-      zone_redundant: {value: false, source: forced, forced_by: resources.app-service__dashboard.hosting.zone_redundant}
-      instance_count: {value: 1, source: forced, forced_by: resources.app-service__dashboard.hosting.instance_count}
-    networking:
-      public_network_access:
-        value: disabled
-        source: overridden
-        reason: 'Nothing outside the VNet calls the agent: the dashboard starts a run from inside the VNet, through the agent''s
-          private endpoint.'
-      private_endpoint_subnet: {value: pe, source: deployment}
-      vnet_integration: {value: true, source: default}
-      integration_subnet: {value: app-integration, source: forced, forced_by: deployment.network_ownership}
-      vnet_route_all:
-        value: false
-        source: overridden
-        reason: The agent needs the internet (plugin source, package installs). With all traffic routed into the VNet there
-          is no outbound path without a NAT gateway; private endpoint addresses are RFC 1918 and still go through the VNet.
-    identity:
-      managed_identity:
-        value: user_assigned
-        source: overridden
-        reason: 'Departs from system_assigned: AcrPull and the data roles must exist before the container first starts, which
-          a system-assigned identity cannot have.'
-      user_assigned_identity_ids:
-        value:
-          production: [user-assigned-identity__agent]
-        source: forced
-        forced_by: resources.app-service__agent.identity.managed_identity
-    security:
-      https_only: {value: true, source: default}
-      min_tls_version: {value: '1.2', source: default}
-      ftps_state: {value: Disabled, source: default}
-      basic_auth_enabled: {value: false, source: deployment}
-    runtime:
-      runtime_stack: {value: container, source: stated}
-      always_on: {value: true, source: default}
-      health_check_path: {value: '', source: default}
-      http2_enabled: {value: true, source: default}
-      container_image_owner:
-        value: image_pipeline
-        source: overridden
-        reason: A separate pipeline builds, pushes and updates the image. This template sets the stage-file image only on
-          the first deployment and keeps the running one afterwards.
-    observability:
-      diagnostic_workspace: {value: log-analytics-workspace, source: deployment}
-      diagnostic_categories:
-        value:
-        - AppServiceHTTPLogs
-        - AppServiceAppLogs
-        - AppServiceAuditLogs
-        - AppServiceIPSecAuditLogs
-        - AppServicePlatformLogs
-        source: default
-      metrics_enabled: {value: true, source: default}
-
   # The drift watcher compares the AVM versions pinned in the plugin with the current ones (MCR
   # tag list, module repo tags, module READMEs), lets the Foundry model diff the inputs and opens
-  # a pull request that bumps the pin. It runs on a timer inside the app and on demand from the
-  # dashboard. It is not reachable from outside; its only write targets are the report in the
-  # storage account and the pull request. Azure is read-only to it: no role beyond the data roles
-  # in wiring.role_assignments.
+  # a pull request that bumps the pin. It runs on a timer inside the app. It is not reachable from
+  # outside; its only write targets are the report in the storage account and the pull request.
+  # Azure is read-only to it: no role beyond the data roles in wiring.role_assignments.
   app-service__drift:
     hosting:
+      # The plan is shared with the dashboard: one B2 plan, four sites. The question set renders one
+      # site per plan, so the plan is rendered once (from the dashboard's values) and the sites of
+      # drift, fuzz and tune are rendered by hand; the hosting decisions follow the dashboard.
       os_type: {value: Linux, source: forced, forced_by: resources.app-service__dashboard.hosting.os_type}
       sku: {value: B2, source: forced, forced_by: resources.app-service__dashboard.hosting.sku}
       zone_redundant: {value: false, source: forced, forced_by: resources.app-service__dashboard.hosting.zone_redundant}
@@ -490,8 +419,8 @@ resources:
       public_network_access:
         value: disabled
         source: overridden
-        reason: 'Nothing outside the VNet calls the drift watcher: the dashboard starts a run from inside the VNet, through
-          its private endpoint.'
+        reason: 'Nothing calls the drift watcher: it runs on its own timer, and the dashboard only reads its reports from
+          the storage account.'
       private_endpoint_subnet: {value: pe, source: deployment}
       vnet_integration: {value: true, source: default}
       integration_subnet: {value: app-integration, source: forced, forced_by: deployment.network_ownership}
@@ -542,8 +471,8 @@ resources:
 
   # The fuzz agent draws random valid specs with the plugin's diagram script from the tuning branch
   # and scores the layout (run_fuzz.py: Python and PyYAML only). It has no schedule of its own: it
-  # runs on demand from the dashboard and after every tuner run, which starts it and asks first
-  # whether it is still running. It is not reachable from outside, calls no model and holds no
+  # runs after every tuner run, which starts it and asks first whether it is still running. It
+  # is not reachable from outside, calls no model and holds no
   # secret: it reads the branch (a public repository) and writes the report and the worst cases to
   # the storage account; its only roles are the image and the data role in wiring.role_assignments.
   app-service__fuzz:
@@ -625,8 +554,8 @@ resources:
       public_network_access:
         value: disabled
         source: overridden
-        reason: 'Nothing outside the VNet calls the tuner: the dashboard starts a run from inside the VNet, through its private
-          endpoint.'
+        reason: 'Nothing calls the tuner: it runs on its own timer, and the dashboard only reads its runs from the storage
+          account.'
       private_endpoint_subnet: {value: pe, source: deployment}
       vnet_integration: {value: true, source: default}
       integration_subnet: {value: app-integration, source: forced, forced_by: deployment.network_ownership}
@@ -682,10 +611,10 @@ resources:
       container_names:
         value: [results]
         source: stated
-        reason: 'One container for everything the apps share: the eval runs (runs/<id>/aggregate-result.json), the fuzz reports
-          (fuzz/<id>/report.json) and the tuner''s runs (tune/<id>/run.json). The dashboard reads the prefixes, the agents
-          write them; the roles on the account (data reader for the dashboard, data contributor for the writers) already separate
-          the two sides.'
+        reason: 'One container for everything the apps share: the drift reports, the fuzz reports (fuzz/<id>/report.json)
+          and the tuner''s runs (tune/<id>/run.json). The eval runs are not here: they live on the eval-history branch of
+          the repository. The dashboard reads the prefixes, the apps write them; the roles on the account (data reader for
+          the dashboard, data contributor for the writers) already separate the two sides.'
       public_access: {value: None, source: default}
       immutable_storage: {value: false, source: requirement, derived_from: deployment.backup_isolation}
       encryption_scope_locked: {value: false, source: default}
@@ -707,13 +636,12 @@ resources:
     security:
       enabled_for_services: {value: [], source: default}
       secret_placeholders:
-        value: [entra-client-secret, github-token, github-drift-token, github-tune-token]
+        value: [entra-client-secret, github-drift-token, github-tune-token]
         source: overridden
-        reason: 'Departs from the default []: the dashboard reads the sign-in''s client secret and the GitHub token (issues:write
-          on this repository only), the drift watcher reads its own GitHub token (contents and pull requests write on this
-          repository only) and the tuner reads its own (contents write on this repository; a branch rule keeps it off master),
-          all through Key Vault references that must exist before the first start. The agent and the fuzz agent read none
-          of them.'
+        reason: 'Departs from the default []: the dashboard reads the sign-in''s client secret, the drift watcher its own
+          GitHub token (contents and pull requests write on this repository only) and the tuner its own (contents write on
+          this repository; a branch rule keeps it off master), all through Key Vault references that must exist before the
+          first start. The fuzz agent reads none of them; the dashboard holds no GitHub token, the eval history is public.'
     keys:
       key_management: {value: platform_managed, source: deployment}
     observability:
@@ -738,9 +666,6 @@ wiring:
     - {from: user-assigned-identity__dashboard, to: container-registry, role: AcrPull}
     - {from: user-assigned-identity__dashboard, to: storage-account, role: Storage Blob Data Reader}
     - {from: user-assigned-identity__dashboard, to: key-vault, role: Key Vault Secrets User}
-    - {from: user-assigned-identity__agent, to: container-registry, role: AcrPull}
-    - {from: user-assigned-identity__agent, to: storage-account, role: Storage Blob Data Contributor}
-    - {from: user-assigned-identity__agent, to: foundry, role: Azure AI User}
     - {from: user-assigned-identity__drift, to: container-registry, role: AcrPull}
     - {from: user-assigned-identity__drift, to: storage-account, role: Storage Blob Data Contributor}
     - {from: user-assigned-identity__drift, to: key-vault, role: Key Vault Secrets User}
@@ -755,14 +680,10 @@ wiring:
   access:
     value:
     - {from: users, to: app-service__dashboard, label: 'HTTPS 443, Anmeldung mit Firmenkonto'}
-    - {from: app-service__dashboard, to: storage-account, label: Ergebnisse lesen}
-    - {from: app-service__dashboard, to: key-vault, label: Anmelde-Secret und GitHub-Token lesen}
+    - {from: app-service__dashboard, to: storage-account, label: Berichte lesen}
+    - {from: app-service__dashboard, to: key-vault, label: Anmelde-Secret lesen}
     - {from: app-service__dashboard, to: container-registry, label: Image laden}
-    - {from: app-service__dashboard, to: app-service__agent, label: Lauf starten}
-    - {from: app-service__agent, to: foundry, label: Modelle aufrufen}
-    - {from: app-service__agent, to: storage-account, label: Ergebnisse schreiben}
-    - {from: app-service__agent, to: container-registry, label: Image laden}
-    - {from: app-service__dashboard, to: app-service__drift, label: Prüfung jetzt starten}
+    - {from: app-service__dashboard, to: 'external:github', label: Eval-Verlauf lesen}
     - {from: app-service__drift, to: foundry, label: Modul-Änderungen bewerten}
     - {from: app-service__drift, to: storage-account, label: Drift-Bericht schreiben}
     - {from: app-service__drift, to: key-vault, label: GitHub-Token lesen}
@@ -772,7 +693,6 @@ wiring:
     - {from: app-service__fuzz, to: storage-account, label: Fuzz-Bericht schreiben}
     - {from: app-service__fuzz, to: container-registry, label: Image laden}
     - {from: app-service__fuzz, to: 'external:github', label: Plugin-Stand lesen}
-    - {from: app-service__dashboard, to: app-service__tune, label: Verbesserung starten}
     - {from: app-service__tune, to: storage-account, label: Fuzz-Bericht lesen}
     - {from: app-service__tune, to: foundry, label: Layout-Änderung entwerfen}
     - {from: app-service__tune, to: key-vault, label: GitHub-Token lesen}
@@ -782,19 +702,17 @@ wiring:
     source: stated
   purposes:
     value:
-      app-service__dashboard: 'Dashboard: zeigt Ergebnisse, legt Tickets an'
-      app-service__agent: 'Agent: führt die Evals aus'
+      app-service__dashboard: 'Dashboard: zeigt Eval-Verlauf und Berichte an'
       app-service__drift: 'Drift-Watcher: prüft AVM-Versionen, öffnet Pull Requests'
       app-service__fuzz: 'Fuzz-Agent: zeichnet Zufalls-Specs vom Branch, bewertet das Layout'
       app-service__tune: 'Tuner: verbessert das Layout auf einem Branch, stößt den Fuzz an'
-      container-registry: Images aller fünf Apps
-      foundry: Sprachmodelle für Agent, Bewertung, Drift-Watcher und Tuner
-      storage-account: Eval-Ergebnisse, Drift- und Fuzz-Berichte
-      key-vault: Anmelde-Secret und GitHub-Token von Dashboard, Drift-Watcher und Tuner
+      container-registry: Images aller vier Apps
+      foundry: Sprachmodelle für Drift-Watcher und Tuner
+      storage-account: Drift-, Fuzz- und Tuner-Berichte
+      key-vault: Anmelde-Secret des Dashboards, GitHub-Token von Drift-Watcher und Tuner
       virtual-network: Privates Netz
       log-analytics-workspace: Logs aller Teile
       user-assigned-identity__dashboard: Zugriff des Dashboards ohne Schlüssel
-      user-assigned-identity__agent: Zugriff des Agents ohne Schlüssel
       user-assigned-identity__drift: Zugriff des Drift-Watchers ohne Schlüssel
       user-assigned-identity__fuzz: Zugriff des Fuzz-Agents ohne Schlüssel
       user-assigned-identity__tune: Zugriff des Tuners ohne Schlüssel
@@ -803,8 +721,8 @@ wiring:
 open:
 - key: resources.foundry.models.model_deployments
   environments: [production]
-  question: Welche Modelle werden gebraucht (Agent und Bewertung)? Claude-Modelle sind in Foundry womöglich nur weltweit verarbeitet
-    verfügbar, das widerspräche 'nur EU'.
+  question: Welche Modelle werden gebraucht (Drift-Watcher und Tuner)? Claude-Modelle sind in Foundry womöglich nur weltweit
+    verarbeitet verfügbar, das widerspräche 'nur EU'.
   owner: Workload-Owner
   blocks: apply
 - key: application.drift_internet_allowlist
@@ -831,19 +749,6 @@ open:
   question: 'Der Tuner läuft alle 24 Stunden: läuft der Fuzz-Agent gerade, tut er nichts; sonst verbessert er, schreibt auf
     den Branch, stößt den Fuzz an und wartet auf den nächsten Lauf. Wie viele Verbesserungen darf er pro Lauf höchstens committen
     (z. B. eine)?'
-  owner: Workload-Owner
-  blocks: apply
-- key: application.plugin_source
-  environments: [production]
-  question: Woher holt der Agent das Claude-Plugin (Git-Repo, Speicher, oder im Image)? Fuzz-Agent und Tuner lesen es vom
-    Tuning-Branch auf GitHub.
-  owner: Workload-Owner
-  blocks: apply
-- key: application.ticket_trigger
-  environments: [production]
-  question: Das Dashboard legt ein Ticket erst auf Klick an (entschieden); ein offenes Ticket zum selben Case bekommt einen
-    Kommentar statt eines Duplikats. Wer legt das GitHub-Token (issues:write, nur dieses Repo) im Tresor als 'github-token'
-    ab?
   owner: Workload-Owner
   blocks: apply
 - key: resources.app-service__dashboard.identity.entra_sign_in
