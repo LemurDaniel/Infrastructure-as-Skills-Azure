@@ -9,7 +9,7 @@
 > **This plugin requires [draw.io desktop](https://github.com/jgraph/drawio-desktop/releases).** The architecture diagram is exported to `infra-diagram.drawio.png` with it (`winget install JGraph.Draw`, `brew install --cask drawio`). Without it you get the editable `.drawio` file only, no PNG, and the diagram review has nothing to look at.
 
 > [!TIP]
-> **Use Sonnet or higher.** The plugin follows a multi-step protocol - interview, spec, diagram, sign-off, render - and its eval suite is measured on Sonnet. Haiku gets the spec decisions right less than half the time, skips the interview for a workload request and builds the application instead, and often does not load the plugin at all ([eval history](https://github.com/LemurDaniel/Infrastructure-as-Skills-Azure/blob/eval-history/README.md)).
+> **Use Sonnet or higher.** The plugin follows a multi-step protocol - interview, spec, diagram, sign-off, render - and its eval suite is measured on Sonnet. Haiku loads the plugin, but drops the multi-step rules inside it: the spec comes out incomplete, a stated requirement goes missing, the `CLAUDE.md` section is not updated - 6 of 10 eval cases pass on Haiku against 10 of 10 on Sonnet ([eval history](https://github.com/LemurDaniel/Infrastructure-as-Skills-Azure/blob/eval-history/README.md)).
 
 > [!NOTE]
 > **Terraform or Bicep is not required, but recommended.** The plugin writes the code without the CLI, but then it cannot run `fmt`, `validate`, `terraform test` or `bicep build` against it. The render is handed over marked as unverified.
