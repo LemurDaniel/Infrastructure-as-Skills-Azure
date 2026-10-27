@@ -337,6 +337,24 @@ resource storageAccount 'Microsoft.Storage/storageAccounts@2023-05-01' = {
 }
 ```
 
+### Secret placeholders: `@onlyIfNotExists()`
+
+A Key Vault secret whose value is entered later (`secret_placeholders`, `value_source:
+placeholder`) is a `Microsoft.KeyVault/vaults/secrets` resource with the `@onlyIfNotExists()`
+decorator, so a redeployment never overwrites the value somebody set. Never an `if` condition
+or a "seed" parameter, never a lookup of the secrets that exist, never the value as a
+parameter - each of them overwrites, or leaks, on a redeployment. The full block, with its
+decisions: `<plugin>/resources/security/key-vault-secret/bicep.md`.
+
+```bicep
+@onlyIfNotExists()
+resource placeholder 'Microsoft.KeyVault/vaults/secrets@2024-11-01' = [for name in secretPlaceholders: {
+  parent: vault
+  name: name
+  properties: { value: 'placeholder - replace after deployment' }
+}]
+```
+
 ## API versions
 
 Reuse the API version already used elsewhere in the repository for that resource type. A
