@@ -245,8 +245,10 @@ Beyond the script:
      branch - replacing the previous one, never a second section: per model
      the effort, runs per case, the commit it ran on, cases at 100% and the
      cost; one row per case with its pass rate and its cost on Sonnet and on
-     Haiku and the graders that failed in a run, and a total row; a line on
-     what to read before merging; a
+     Haiku and the graders that failed in a run, and a total row, each rate
+     marked with an icon and a legend under the table (✅ 100%, ⚠️ some runs
+     failed, ❌ 0%, ⏳ running, 🆕 new case); a line on what to read before
+     merging; a
      link to `eval-history`.
      A run composed of a full run and a re-test says so. The reviewer reads
      the PR, not the session.
