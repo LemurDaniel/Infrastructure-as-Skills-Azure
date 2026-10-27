@@ -138,6 +138,14 @@ the detail; this list says what was decided and why, so a session does not reope
   the diagram loop first, then the code loop (code agent, pipeline agent, read-only test
   agent, three passes, later passes re-run only the tests a fix can reach). Findings carry
   a severity and a cause; `polish` never goes back.
+- **A render writes infrastructure only** (2026-10-27, `iac-rendering/SKILL.md`, "What a
+  render may write"): Terraform/Bicep with tests and stage files, the spec's render fields,
+  pipeline files and the `.ps1` they call, `.gitignore`, the `CLAUDE.md` section. Application
+  code (`.js`, `.ts`, `.cs`, `.py`, `package.json`, `Dockerfile`, app config) is never
+  touched, also inside the render root; a mismatch is named in the hand-over. The boundary is
+  by file type, not by directory: a run's code agent, briefed with "the render root only",
+  edited Node.js code that lay inside it. Same session and every agent; the review and test
+  agents route an app-code finding to the hand-over only. Not enforced by a hook - text only.
 - **The render leaves a `CLAUDE.md` section in the customer's repository** (rule 11,
   2026-10-24): the spec is the source of truth, a code change is a spec change first,
   what regenerates from it, which checks prove the two agree; written between two markers,
@@ -148,7 +156,8 @@ the detail; this list says what was decided and why, so a session does not reope
   higher one never overwritten (no downgrade) and the person told the plugin is old; a damaged
   marker pair is left alone; the script always exits 0. `claude-md-block.lock` pins rev and
   text hash so the plugin repo cannot change the text without a new rev (`check_repo_consistency.py`).
-  `iac-authoring` runs the sync before its first question where a spec exists.
+  `iac-authoring` runs the sync before its first question where a spec exists. rev 2
+  (2026-10-27) adds the write boundary for later infrastructure changes in the customer repo.
 - **`spec.plugin_version` halts an older plugin** (2026-10-25): the plugin that last wrote a spec
   stamps its version; a plugin older than that renders nothing, writes nothing and asks once
   (AskUserQuestion) to update with `claude plugin update`, restart required; there is no way on
@@ -782,6 +791,11 @@ regeneration from the spec loses them. All `render`:
   transcript` is not a value; `trace` is). It needs the secret `ANTHROPIC_API_KEY`. Unverified on a Linux runner: whether the eval
   sandbox needs bubblewrap there although no case grants a shell. Haiku has no baseline
   yet; its rates are compared with Haiku's own, never with `baseline.json`.
+- `render/app-code-untouched` (2026-10-27): a signed-off Key Vault spec beside a .NET app
+  whose configuration key does not match the render; no Write/Edit on app files, the
+  mismatch named in the hand-over. A C# fixture without credential calls, not JavaScript:
+  the Claude plugin scanner complains about a `.js` file in the plugin directory. First
+  measured in the run before the 0.5.3 merge.
 - Triggering is covered by `trigger/trigger-workload-request` ("eine Chatapp in Azure mit
   RAG", no resource named, must open the interview); it passes.
 - No grader checks `implementation` or `module_source`. No case for: the delivery
