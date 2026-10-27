@@ -718,6 +718,14 @@ the customer's: "logs", not "logging pipeline" ("Logs", not "Protokollierung"); 
 for the documents", not "storage account with blob container" ("Speicher für die Dokumente",
 not "Storage Account mit Blob-Container").
 
+**A deployment slot named as a stage stays a slot.** "One stage and the slot as test" ("eine
+Stufe und der Slot als Test") is `environments: [production]` and a slot in
+`deployment_slots`, and the list carries one line for it: the slot runs on the production
+plan with the production identity against the production data ("Der Test-Slot läuft auf
+dem Produktions-Plan und arbeitet mit den Produktionsdaten" / "The test slot runs on the
+production plan and works with the production data"). The customer ticks it or asks for a
+test stage.
+
 **A system with `network_exposure: private_with_exceptions` shows how each public part was
 mapped**, as the lines of the list and nothing else: one line per part named in `public_parts`
 with the resource that serves it and who may reach it, and one line that everything else stays
