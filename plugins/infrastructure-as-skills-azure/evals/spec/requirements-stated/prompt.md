@@ -3,7 +3,7 @@ description: A request that states all five customer requirements in plain words
 expected_outcome: infra/infra-spec.yaml with outage_impact critical, data_loss_tolerance three_months, data_access_pattern archive, backup_isolation immutable and data_residency country, and an access tier derived from the access pattern.
 tags: [terraform, production, requirements]
 plugins: ["../../.."]
-runs: 3
+runs: 5
 max_turns: 60
 timeout_seconds: 900
 allowed_tools: [Read, Glob, Grep, Skill, Write, Edit]

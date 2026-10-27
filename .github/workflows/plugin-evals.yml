@@ -27,10 +27,10 @@ on:
         default: manual
       runs:
         description: Runs per case (run in parallel, up to 8)
-        default: "3"
+        default: "5"
       max_cost_usd:
         description: Hard cost ceiling in USD
-        default: "25"
+        default: "35"
       case:
         description: Case name glob (empty = all)
         default: ""

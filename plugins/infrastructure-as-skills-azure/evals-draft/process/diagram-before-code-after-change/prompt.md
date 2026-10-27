@@ -3,7 +3,7 @@ description: A spec is written, then changed in the same request, and code is as
 expected_outcome: infra/infra-spec.yaml with the changed decision, the iac-diagram skill fired, no .tf written, the final message asks for the diagram's sign-off.
 tags: [terraform, development, process, diagram, extension]
 plugins: ["../../.."]
-runs: 3
+runs: 5
 max_turns: 60
 timeout_seconds: 900
 allowed_tools: [Read, Glob, Grep, Skill, Write, Edit]
