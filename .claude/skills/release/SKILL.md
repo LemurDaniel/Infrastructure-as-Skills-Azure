@@ -33,7 +33,11 @@ no separate release step.
    `check_question_set.py`, `run_diagram_tests.py`; commands in CLAUDE.md).
 4. **A branch that was overtaken** - another PR merged with the same version - bumps
    again after rebasing on `origin/master`; the PR check fails until it does.
-5. **After the merge, report** what the workflow did:
+5. **Before the merge**, a branch that changes the plugin's skills, resources or evals gets
+   the full eval suite on Sonnet, run locally by a test agent
+   ([git-commit-conventions](../git-commit-conventions/SKILL.md), section 5): the pull
+   request itself only runs the `pr` cases on Haiku.
+6. **After the merge, report** what the workflow did:
    `gh run list --workflow release.yml --limit 1`, then `gh release view v<version>`.
 
 ## Never

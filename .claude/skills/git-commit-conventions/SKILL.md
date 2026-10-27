@@ -200,6 +200,34 @@ Beyond the script:
   (`gh pr merge <n> --rebase`). It keeps the commits as they were split; a
   squash would fold the one-concern commits into one. The merge publishes a
   release.
+- **Before the merge, the full eval suite on Sonnet, run by a test agent.**
+  The pull request only runs the cases tagged `pr` on Haiku; the process,
+  sync and render cases need a model that follows a multi-step skill, and
+  every merge is a release. For a branch that touches `core/`, `resources/`
+  or `evals/` of the plugin, before `gh pr merge`:
+  1. Say what it costs (Sonnet, low effort: about $15-25 for the suite, 3
+     runs per case) and start only on the owner's yes.
+  2. Start a **test agent** (Agent tool, background) with the run as its whole
+     brief. It runs, from the repo root, with `$claude` the CLI (on the
+     owner's machine the VS Code binary, as in `plugin-evals`):
+     ```
+     CLAUDE_CODE_EFFORT_LEVEL=low $claude plugin eval plugins/infrastructure-as-skills-azure \
+       --model sonnet --runs 3 -j 3 --ablation none --scaffold --allow-tools Write Edit \
+       --trust-plugin --no-publish --threshold 0 --max-cost-usd 25 --output-dir <scratch>/eval
+     python3 .claude/skills/plugin-evals/scripts/show_eval_result.py <scratch>/eval/aggregate-result.json
+     ```
+     It reports per case the failing and UNSTABLE graders with their
+     explanation, and changes nothing: no fix, no case, no `baseline.json`.
+     The one that runs the suite is never the one that edits the plugin.
+  3. Record the run on `eval-history`: `git worktree add <scratch>/eh
+     eval-history` (a data branch, no PR), then `record_eval_history.py
+     <scratch>/eval/aggregate-result.json --history-dir <scratch>/eh --model
+     sonnet --trigger release --commit <head sha>`, commit, push, remove the
+     worktree.
+  4. Hand the report to the owner. A failed or UNSTABLE grader is read
+     (`plugin-evals`, section 5) before anything is merged; the merge stays
+     the owner's call. Accepting the run into `baseline.json` is a separate
+     step, after reading it, never in the same breath.
 - After committing, report the short SHA, the branch, and whether it is
   pushed; after a PR, its URL.
 
