@@ -102,7 +102,7 @@ def overview(runs):
                 f"![badge](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/"
                 f"LemurDaniel/Infrastructure-as-Skills-Azure/eval-history/badge-{model}.json) "
                 f"· newest: {last['trigger']}, {last.get('runsPerCase') or '?'} run(s) per case, "
-                f"{last['startedAt'][:10]}", '',
+                f"{last['startedAt'][:10]}" + (f" · {last['note']}" if last.get('note') else ''), '',
                 '| Case | ' + ' | '.join(f"v{r['version']}" for r in cols) + ' |',
                 '|---|' + '---|' * len(cols)]
         for name in cases:
@@ -141,6 +141,7 @@ def main():
                     help='record nothing; rewrite README.md and the badges from index.json')
     ap.add_argument('--pr', type=int, default=None)
     ap.add_argument('--commit', default=None)
+    ap.add_argument('--note', default=None, help='a line kept with the entry, e.g. how a run was composed')
     args = ap.parse_args()
 
     if args.overview_only:
@@ -167,6 +168,8 @@ def main():
     meta = {'version': version, 'model': args.model, 'trigger': args.trigger, 'pr': args.pr,
             'commit': (args.commit or '')[:12] or None}
     entry = summarize(result, meta)
+    if args.note:
+        entry['note'] = args.note
 
     run_dir = os.path.join(args.history_dir, 'runs', version, f"{entry['id']}-{args.model}")
     os.makedirs(run_dir, exist_ok=True)
