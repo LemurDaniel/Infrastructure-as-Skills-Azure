@@ -1,7 +1,7 @@
 ---
 description: A workload-shaped request that names no resource and no target. Tests that the plugin triggers on what the system does, not only on resource names.
 expected_outcome: the iac-authoring skill fires, the run treats the request as an Azure infrastructure task (interview, spec) and writes no IaC code or generic architecture advice.
-tags: [trigger, interview]
+tags: [pr, trigger, interview]
 plugins: ["../../.."]
 runs: 3
 max_turns: 30

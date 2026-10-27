@@ -1,7 +1,7 @@
 ---
 description: Three resources and no word about who talks to whom. Tests that the spec does not invent a call - an invented line in a picture the customer signs off on is a decision nobody made.
 expected_outcome: infra/infra-spec.yaml with the three resources and no wiring.access entry and no role assignment between them; SQL Server, which has no question set, is not silently improvised; no Bicep written.
-tags: [bicep, staging, diagram, wiring, missing-info]
+tags: [pr, bicep, staging, diagram, wiring, missing-info]
 plugins: ["../../.."]
 runs: 3
 max_turns: 80
