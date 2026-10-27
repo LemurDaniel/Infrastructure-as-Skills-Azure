@@ -719,6 +719,146 @@
     }
    ],
    "note": "newest run per case; entry cases re-run after 4c05385 with the Sonnet judge; bicep re-graded after 6f280d0"
+  },
+  {
+   "id": "2026-10-27T04-14-37-625Z",
+   "version": "0.5.2",
+   "model": "sonnet",
+   "trigger": "manual",
+   "pr": null,
+   "commit": "ee483e7",
+   "startedAt": "2026-10-27T04:14:37.625Z",
+   "costUsd": 15.62,
+   "durationSeconds": 573,
+   "partial": false,
+   "runsPerCase": 5,
+   "cases": [
+    {
+     "name": "bicep-secret-placeholder-once",
+     "passRate": 1,
+     "passRateWithout": null,
+     "delta": null
+    },
+    {
+     "name": "claude-md-section-replaced",
+     "passRate": 1,
+     "passRateWithout": null,
+     "delta": null
+    },
+    {
+     "name": "diagram-no-invented-lines",
+     "passRate": 1,
+     "passRateWithout": null,
+     "delta": null
+    },
+    {
+     "name": "language-en-first-question",
+     "passRate": 1,
+     "passRateWithout": null,
+     "delta": null
+    },
+    {
+     "name": "language-en-request",
+     "passRate": 1,
+     "passRateWithout": null,
+     "delta": null
+    },
+    {
+     "name": "plugin-newer-halts",
+     "passRate": 1,
+     "passRateWithout": null,
+     "delta": null
+    },
+    {
+     "name": "requirements-stated",
+     "passRate": 1,
+     "passRateWithout": null,
+     "delta": null
+    },
+    {
+     "name": "trigger-workload-request",
+     "passRate": 1,
+     "passRateWithout": null,
+     "delta": null
+    },
+    {
+     "name": "vague-public-dev",
+     "passRate": 1,
+     "passRateWithout": null,
+     "delta": null
+    }
+   ],
+   "note": "newest run per case; bicep-secret-placeholder-once re-run after b340c1c and the names-in-main.bicep rule"
+  },
+  {
+   "id": "2026-10-27T04-14-37-659Z",
+   "version": "0.5.2",
+   "model": "haiku",
+   "trigger": "manual",
+   "pr": null,
+   "commit": "ee483e7",
+   "startedAt": "2026-10-27T04:14:37.659Z",
+   "costUsd": 3.2,
+   "durationSeconds": 482,
+   "partial": false,
+   "runsPerCase": 5,
+   "cases": [
+    {
+     "name": "bicep-secret-placeholder-once",
+     "passRate": 0.8,
+     "passRateWithout": null,
+     "delta": null
+    },
+    {
+     "name": "claude-md-section-replaced",
+     "passRate": 0.2,
+     "passRateWithout": null,
+     "delta": null
+    },
+    {
+     "name": "diagram-no-invented-lines",
+     "passRate": 0.8,
+     "passRateWithout": null,
+     "delta": null
+    },
+    {
+     "name": "language-en-first-question",
+     "passRate": 1,
+     "passRateWithout": null,
+     "delta": null
+    },
+    {
+     "name": "language-en-request",
+     "passRate": 1,
+     "passRateWithout": null,
+     "delta": null
+    },
+    {
+     "name": "plugin-newer-halts",
+     "passRate": 1,
+     "passRateWithout": null,
+     "delta": null
+    },
+    {
+     "name": "requirements-stated",
+     "passRate": 0.2,
+     "passRateWithout": null,
+     "delta": null
+    },
+    {
+     "name": "trigger-workload-request",
+     "passRate": 0.2,
+     "passRateWithout": null,
+     "delta": null
+    },
+    {
+     "name": "vague-public-dev",
+     "passRate": 0.2,
+     "passRateWithout": null,
+     "delta": null
+    }
+   ],
+   "note": "newest run per case; entry cases re-run after 4c05385, bicep after b340c1c"
   }
  ]
 }
