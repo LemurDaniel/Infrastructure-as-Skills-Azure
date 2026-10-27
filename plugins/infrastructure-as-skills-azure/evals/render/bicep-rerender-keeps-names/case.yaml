@@ -35,26 +35,9 @@ graders:
     target: { source: file, path: infra/main.bicep }
     pattern: 'toLower\(''st\$\{loc\}\$\{env\}\$\{workload\}\$\{idx\}''\)'
 
-  # The pin: the root predates the copy, so the run writes naming.yaml (the scaffold has none) -
-  # a full copy, with the Key Vault pattern the root actually names, not today's default.
-  - name: naming-yaml-written
-    type: file_exists
-    path: infra/naming.yaml
-    weight: 2
-
-  - name: naming-yaml-pins-the-old-key-vault-pattern
-    type: regex
-    weight: 3
-    target: { source: file, path: infra/naming.yaml }
-    pattern: 'Microsoft\.KeyVault/vaults"?:\s*(?:#[^\n]*\s*)*default:\s*["'']?<TYPE>-<ENVIRONMENT>-<NAME>-<UNIQUE_ID_4>["'']?\s*$'
-    flags: m
-
-  - name: naming-yaml-is-a-full-copy
-    type: regex
-    weight: 2
-    target: { source: file, path: infra/naming.yaml }
-    pattern: '(?=[\s\S]*^\s*abbreviations:)(?=[\s\S]*^\s*mappings:)(?=[\s\S]*Microsoft\.CognitiveServices/accounts::)'
-    flags: m
+  # The naming.yaml the root gets is written by write_naming.py (through write_spec.py), which
+  # this sandbox cannot run; core/iac-rendering/tests/run_naming_tests.py tests it. The case
+  # grades what the model decides: no rename, and no pin dressed up as a customer departure.
 
   # Pinning an older default is not a customer departure: the convention stays `default`.
   - name: spec-naming-convention-not-custom
