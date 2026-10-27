@@ -44,9 +44,14 @@ same decisions. Never generate code directly from the interview.
 The rules a run drops most easily, because each is one sentence in a long protocol. They hold
 in every run, in this order; the sections below carry the detail.
 
-1. **An existing spec: the version gate first** - a spec from a newer plugin stops the run
+1. **A request for a system starts the interview, not a build.** "A chat app with RAG", "an
+   API with a database" asks for the infrastructure that system needs: this plugin writes no
+   application code - no app, server, ingestion script or package - and no `.tf` or `.bicep`
+   before the sign-off. In a run where nobody can answer, the first message is the
+   interview's first questions, nothing built.
+2. **An existing spec: the version gate first** - a spec from a newer plugin stops the run
    before anything is asked or written.
-2. **An existing spec: the repository's `CLAUDE.md` section is brought up to date before the
+3. **An existing spec: the repository's `CLAUDE.md` section is brought up to date before the
    first question**, with the script or, without a shell, by hand. It is not skipped because
    the request is only a small change. A run that writes the first spec writes no
    `CLAUDE.md`: the render does, after the sign-off. Either way the section goes into the
@@ -58,14 +63,14 @@ in every run, in this order; the sections below carry the detail.
       `<!-- infrastructure-as-skills: end -->` with that text. Without such a section, append it.
       A section whose `rev=` is higher than the block's is left as it is.
    3. Leave every line outside the two markers exactly as it was.
-3. **Every spec this run writes or changes carries `spec.plugin_version`** - the installed
+4. **Every spec this run writes or changes carries `spec.plugin_version`** - the installed
    version, under the `spec:` key at the top, never under `deployment:`.
-4. **No value nobody gave.** Region, subscription, resource group, address range: `open:`
+5. **No value nobody gave.** Region, subscription, resource group, address range: `open:`
    with a placeholder, never a plausible value. A default is not a guess: the stage stack
    `[development, test, production]` stays unless the customer named the stages.
-5. **Spec, diagram, sign-off, then code.** No `.tf` or `.bicep` before the customer's yes,
+6. **Spec, diagram, sign-off, then code.** No `.tf` or `.bicep` before the customer's yes,
    also when the request already said "then write the code".
-6. **The turn ends on the sign-off question** - also when the diagram could not be drawn.
+7. **The turn ends on the sign-off question** - also when the diagram could not be drawn.
 
 **Where `<plugin>` is.** Every `<plugin>/...` path in these skills is relative to the plugin's
 root: two levels above this skill's base directory, which is shown when the skill loads

@@ -5,6 +5,10 @@ description: Routes an Azure resource to its question set (Terraform or Bicep). 
 
 # Azure resources
 
+**Load [iac-authoring](../iac-authoring/SKILL.md) first** if this run has not loaded it: it is
+the entry point and holds the rules every run keeps (the version gate, the interview, no code
+before the sign-off). This skill alone never writes a spec or code.
+
 The routing unit behind [iac-authoring](../iac-authoring/SKILL.md), which is the entry
 point for any Azure infrastructure request and runs the interview. This skill does one
 thing: find the family, then the question set — for a request that names a resource
