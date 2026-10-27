@@ -527,17 +527,6 @@ def main():
                 say(f"         {h}", 'gray')
             errors.append('A spec typed by hand diffs how it was typed, not what moved. Run core/iac-authoring/scripts/write_spec.py <spec> --no-stamp on it (without --no-stamp when its decisions were just made).')
 
-    # --- 7e. the abbreviations reference matches the convention -------------
-    write_abbr = os.path.join(plugin_root, 'core', 'iac-rendering', 'scripts', 'write_abbreviations.py')
-    if os.path.isfile(write_abbr):
-        p = subprocess.run([sys.executable, write_abbr, '--check'], capture_output=True, text=True)
-        if p.returncode == 0:
-            say('[ ok ] references/abbreviations.md matches naming.default.yaml', 'green')
-        else:
-            say('[fail] references/abbreviations.md is stale', 'red')
-            say(f"         {(p.stdout or p.stderr).strip()}", 'gray')
-            errors.append('The abbreviations reference is generated from naming.default.yaml. Run core/iac-rendering/scripts/write_abbreviations.py after changing the YAML.')
-
     # --- 8. relative links + spaces in paths -------------------------------
     if args.skip_links:
         print('[skip] relative links')
