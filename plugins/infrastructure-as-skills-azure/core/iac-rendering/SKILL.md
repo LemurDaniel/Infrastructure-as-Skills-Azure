@@ -138,6 +138,28 @@ than inferring the shape from an example spec.
     is not written to the spec. A small spec, or a host without the Agent tool, is not
     asked - it is rendered in sequence.
 
+## What a render may write
+
+A render writes infrastructure and nothing else. Whoever renders - the same session or the
+code, pipeline or fix agent of [agents.md](references/agents.md) - writes only these files:
+
+| What | Files |
+|---|---|
+| The code and its tests | Terraform: `*.tf`, `*.tftest.hcl`, `*.tfvars`, `.terraform.lock.hcl`. Bicep: `*.bicep`, `*.bicepparam`, `bicepconfig.json`, `tests/*.armtest.yaml` |
+| The spec | `infra-spec.yaml`: `plugin_version` and what the render records (`implementation: authored`) |
+| The pipeline | The files of `deploy_mechanism` (step 10) |
+| Scripts | `*.ps1` the pipeline or the deployment calls |
+| Repository files | `.gitignore` (step 12), the marked section of `CLAUDE.md` (step 11) |
+
+**Application code is never touched**: no `.js`, `.ts`, `.cs`, `.py`, `package.json`,
+`Dockerfile` or app configuration - not when it lies inside the render root, not when a
+check fails on it, not when the fix is one line. The application belongs to its owner, and a
+render that edits it changes behaviour nobody asked the infrastructure to change. When the
+code and the infrastructure disagree (an app setting name, a port, a connection string the
+app reads), the render follows the spec and names the mismatch in the hand-over. A review or
+test agent keeps the same boundary: a finding in application code is cause `other`, goes
+into the hand-over and is never routed to an agent to fix.
+
 ## Do not invent attributes
 
 A plausible-looking argument that does not exist is worse than asking. Provider schemas
