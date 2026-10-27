@@ -229,6 +229,11 @@ Beyond the script:
      share measures the model as much as the plugin - and its rates are
      compared only with earlier Haiku runs on `eval-history`, never with
      `baseline.json` (Sonnet), so its REGRESS lines are cross-model noise.
+     The plugin recommends Sonnet or higher (README), so Haiku is **not
+     optimised towards 100%**: a Haiku failure is worked on only when it
+     can hit any model - the skill not loading, a rule worded so it can be
+     read two ways. A multi-step rule Haiku drops inside the skill is
+     recorded, not chased.
   3. Record the run on `eval-history`: `git worktree add <scratch>/eh
      eval-history` (a data branch, no PR), then `record_eval_history.py
      <scratch>/eval/aggregate-result.json --history-dir <scratch>/eh --model
