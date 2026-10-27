@@ -2098,9 +2098,9 @@ groups:
         non_production_default: 30
         offer:
           30: { en: "30 days - incident investigation; included in the ingestion price", de: "30 Tage - für die Fehlersuche; im Preis der Aufnahme enthalten" }
-          90: { en: "90 days - a quarter, for analysis and traceability", de: "90 Tage - ein Quartal, für Auswertungen und Nachvollziehbarkeit" }
-          180: { en: "180 days - half a year, where an audit looks back that far", de: "180 Tage - ein halbes Jahr, wenn eine Prüfung so weit zurückschaut" }
-          365: { en: "365 days - a year, where a mandate requires it; charged per GB and month", de: "365 Tage - ein Jahr, wenn eine Vorgabe es verlangt; kostet je GB und Monat" }
+          90: { en: "90 days - a quarter, for analysis; extra cost per GB and month, about three times the stored logs", de: "90 Tage - ein Quartal, für Auswertungen; kostet extra je GB und Monat, etwa dreimal so viel gespeicherte Logs" }
+          180: { en: "180 days - where an audit looks back that far; extra cost per GB and month, about six times the stored logs", de: "180 Tage - wenn eine Prüfung so weit zurückschaut; kostet extra je GB und Monat, etwa sechsmal so viel gespeicherte Logs" }
+          365: { en: "365 days - only where a mandate requires it; extra cost per GB and month, about twelve times the stored logs", de: "365 Tage - nur wenn eine Vorgabe es verlangt; kostet extra je GB und Monat, etwa zwölfmal so viel gespeicherte Logs" }
         depends_on: { question: observability_ownership, equals: create }
         why: >
           The cost guard, and therefore decided here rather than per workspace: a
