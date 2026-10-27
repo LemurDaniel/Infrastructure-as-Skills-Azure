@@ -49,6 +49,10 @@ patterns:
     Microsoft.Network/virtualNetworks:
       default: "<TYPE>-<LOCATION>-<ENVIRONMENT>-<NAME>-<INDEX;%02s>"
 
+    # Front Door WAF policy: 1-128 chars, letters and digits only, must start with a letter.
+    Microsoft.Network/frontdoorWebApplicationFirewallPolicies:
+      default: "<TYPE><LOCATION><ENVIRONMENT><NAME><INDEX;%02s>"
+
     Microsoft.Network/virtualNetworks/subnets:
       default: "<TYPE>-<ENVIRONMENT>-<NAME>-<INDEX;%02s>"
 
