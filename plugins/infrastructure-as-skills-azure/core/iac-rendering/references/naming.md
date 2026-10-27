@@ -41,7 +41,7 @@ What it produces, with `location: westeurope`, `environment: production`,
 | Storage account | `<TYPE><LOCATION><ENVIRONMENT><NAME><INDEX>`, lowercase | `stweprodpayments01` |
 | Key vault, Cosmos DB, Foundry, AI Search | `<TYPE>-<LOCATION>-<ENVIRONMENT>-<NAME>-<UNIQUE_ID_4>` | `kv-we-prod-payments-a1b2` |
 
-### `naming.yaml` in the user's repository — Terraform only
+### `naming.yaml` in the user's repository — full in Terraform, departures in Bicep
 
 For a **Terraform** target the first run writes a **full copy** of the default as
 `naming.yaml` next to `infra-spec.yaml`: the provider reads it at plan time, so the file is
@@ -270,26 +270,20 @@ with `@export()`ed vars if more than two modules need them — and pass the rend
 down as a parameter rather than repeating the maps per module. When `naming.yaml` changes,
 regenerate the block.
 
-### The rules the engine used to enforce
+### Character rules
 
-Assembling by hand means the per-type character rules are now the author's problem. State
-them where they bite:
+Nothing checks a name assembled from `var`s, so the per-type rules are the render's to keep:
 
 - **Storage accounts, container registries**: lowercase alphanumeric only, no separators,
   3–24 characters. `toLower()` and no `-`.
-- **Key vaults**: 3–24 characters, hyphens allowed, must start with a letter.
+- **Key vaults**: 3–24 characters, hyphens allowed, must start with a letter; with location
+  and suffix that leaves 3–10 for the workload name.
 - **Most others**: hyphens are conventional (`vnet-we-dev-myapp-01`).
 
-Every resource's `bicep.md` states its own limit. If a workload name
-can push the rendered name past the limit, say so rather than letting the deployment fail
-at creation.
-
-### When the engine ships
-
-This is a swap of the generated `var` block for two imports reading the same `naming.yaml`, with the identifier form changing (the
-Bicep function takes the resource type *without* the `Azure::` prefix the Terraform
-provider needs). Keeping the assembly in one `var` block per deployment — not inlined into
-each resource's `name:` — is what makes that swap a small change.
+Every resource's `bicep.md` states its own limit. If a workload name can push the rendered
+name past the limit, say so rather than letting the deployment fail at creation. The
+assembly stays in one `var` block per deployment, never inlined into a resource's `name:`,
+so a later swap to a naming module is a change in one place.
 
 ## Names before the deploy
 

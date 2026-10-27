@@ -902,7 +902,7 @@ convention in the repository. An existing `naming.yaml` is left untouched.
 **For a Bicep target, write none** — nothing in a Bicep deployment reads it; the names are
 `var`s generated into the template from the plugin's convention. Only a stated departure
 (`naming_convention: custom`) is written, as a `naming.yaml` holding the departures alone.
-The rules are in [naming.md](../iac-rendering/references/naming.md#namingyaml-in-the-users-repository--terraform-only).
+The rules are in [naming.md](../iac-rendering/references/naming.md#namingyaml-in-the-users-repository--full-in-terraform-departures-in-bicep).
 
 **Record who reaches what in `wiring:`** when the spec holds more than one resource, from
 what the request says — the diagram draws exactly this and nothing else
