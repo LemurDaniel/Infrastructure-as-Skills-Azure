@@ -1,7 +1,8 @@
 name: Plugin evals
 
-# A pull request that changes the plugin runs the eval suite on Haiku: one run per case, no
-# baseline arm, a hard cost ceiling - a smoke test at a fraction of a full measurement. A release
+# A pull request that changes the plugin runs the eval suite on Haiku: three runs per case, run in
+# parallel, so a decision the plugin leaves to chance shows as unstable; no baseline arm, a hard cost
+# ceiling - at a fraction of the price of a measurement on the default model. A release
 # measurement (or any other) is started by hand with the model it needs. Every run is recorded
 # on the eval-history branch, which the eval dashboard reads per plugin version and model.
 #
@@ -28,11 +29,11 @@ on:
         options: [manual, release]
         default: manual
       runs:
-        description: Runs per case
-        default: "1"
+        description: Runs per case (run in parallel, up to 8)
+        default: "3"
       max_cost_usd:
         description: Hard cost ceiling in USD
-        default: "5"
+        default: "8"
       case:
         description: Case name glob (empty = all)
         default: ""
@@ -55,8 +56,8 @@ jobs:
     env:
       PLUGIN_DIR: plugins/infrastructure-as-skills-azure
       MODEL: ${{ inputs.model || 'haiku' }}
-      RUNS: ${{ inputs.runs || '1' }}
-      MAX_COST_USD: ${{ inputs.max_cost_usd || '3' }}
+      RUNS: ${{ inputs.runs || '3' }}
+      MAX_COST_USD: ${{ inputs.max_cost_usd || '8' }}
       CASE: ${{ inputs.case }}
     steps:
       - uses: actions/checkout@v4
@@ -75,33 +76,77 @@ jobs:
       - name: Run the eval suite
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        # One case per call, so the log says which case runs, how far along the suite is and
+        # how long the rest will take (the average of the cases so far); the CLI itself prints
+        # only the final table. Each call gets what is left of the cost ceiling. --scaffold: the
+        # sync cases stage a repository first, and this is our own suite.
         run: |
           OUT="$RUNNER_TEMP/eval"
           if [ -z "$ANTHROPIC_API_KEY" ]; then echo "::error::the repository secret ANTHROPIC_API_KEY is not set"; exit 1; fi
-          mkdir -p "$OUT"
-          case_flag=()
-          if [ -n "$CASE" ]; then case_flag=(--case "$CASE"); fi
-          # --threshold 0: report only. Exit 2 is the cost ceiling - partial results, still recorded.
-          set +e
-          claude plugin eval "$PLUGIN_DIR" "${case_flag[@]}" \
-            --model "$MODEL" --runs "$RUNS" --ablation none --max-cost-usd "$MAX_COST_USD" \
-            --allow-tools Write Edit --trust-plugin --no-publish --threshold 0 \
-            --output-dir "$OUT" --json "$OUT/eval.json" --report "$OUT/report.html"
-          code=$?
-          set -e
-          if [ "$code" -ne 0 ] && [ "$code" -ne 2 ]; then exit "$code"; fi
-          test -f "$OUT/aggregate-result.json"
+          mkdir -p "$OUT/cases"
+          fmt() { printf '%dm%02ds' $(($1 / 60)) $(($1 % 60)); }
+          parallel=$((RUNS < 8 ? RUNS : 8))
+          cost_of() { python3 -c "import json,sys; print(json.load(open(sys.argv[1])).get('costUsd') or 0)" "$1"; }
+
+          cases=()
+          while read -r name; do
+            if [ -z "$CASE" ] || [[ "$name" == $CASE ]]; then cases+=("$name"); fi
+          done < <(find "$PLUGIN_DIR/evals" -name case.yaml -not -path '*/results/*' -printf '%h\n' | xargs -n1 basename | sort)
+          total=${#cases[@]}
+          [ "$total" -gt 0 ] || { echo "::error::no case matches '${CASE}'"; exit 1; }
+          echo "$total case(s) on $MODEL, $RUNS run(s) each, ceiling \$$MAX_COST_USD: ${cases[*]}"
+
+          start=$(date +%s)
+          spent=0
+          partial=()
+          for i in "${!cases[@]}"; do
+            name=${cases[$i]}
+            n=$((i + 1))
+            elapsed=$(($(date +%s) - start))
+            eta="first case"
+            if [ "$i" -gt 0 ]; then eta="about $(fmt $((elapsed / i * (total - i)))) left"; fi
+            budget=$(python3 -c "print(round(max(0.0, $MAX_COST_USD - $spent), 2))")
+            if python3 -c "import sys; sys.exit(0 if $budget > 0 else 1)"; then :; else
+              echo "::warning::cost ceiling \$$MAX_COST_USD reached after $i of $total case(s); the rest is skipped"
+              partial=(--partial)
+              break
+            fi
+            echo "::group::[$n/$total] $name - $(fmt "$elapsed") elapsed, $eta, \$$spent spent"
+            case_start=$(date +%s)
+            set +e
+            # --threshold 0: report only. Exit 2 is the cost ceiling - partial results, still recorded.
+            claude plugin eval "$PLUGIN_DIR" --case "$name" \
+              --model "$MODEL" --runs "$RUNS" -j "$parallel" --ablation none --max-cost-usd "$budget" \
+              --allow-tools Write Edit --trust-plugin --scaffold --no-publish --threshold 0 \
+              --output-dir "$OUT/cases/$name" --report "$OUT/cases/$name/report.html"
+            code=$?
+            set -e
+            echo "::endgroup::"
+            result="$OUT/cases/$name/aggregate-result.json"
+            if [ ! -f "$result" ]; then
+              echo "::error::[$n/$total] $name produced no result (exit $code)"
+              continue
+            fi
+            spent=$(python3 -c "print(round($spent + $(cost_of "$result"), 2))")
+            echo "[$n/$total] $name done in $(fmt $(($(date +%s) - case_start))), exit $code, \$$spent spent so far"
+          done
+
+          shopt -s nullglob
+          results=("$OUT"/cases/*/aggregate-result.json)
+          [ "${#results[@]}" -gt 0 ] || { echo "::error::no case produced a result"; exit 1; }
+          python3 .claude/skills/plugin-evals/scripts/merge_eval_results.py "${results[@]}" --out "$OUT/aggregate-result.json" "${partial[@]}"
+          echo "suite done in $(fmt $(($(date +%s) - start))), \$$spent"
 
       - name: Summarise
         if: always()
         run: |
           OUT="$RUNNER_TEMP/eval"
-          if [ ! -f "$OUT/eval.json" ]; then exit 0; fi
+          if [ ! -f "$OUT/aggregate-result.json" ]; then exit 0; fi
           pip install --quiet pyyaml
           {
             echo "### Plugin evals on \`$MODEL\` ($RUNS run(s) per case)"
             echo '```'
-            NO_COLOR=1 python3 .claude/skills/plugin-evals/scripts/show_eval_result.py "$OUT/eval.json" || true
+            NO_COLOR=1 python3 .claude/skills/plugin-evals/scripts/show_eval_result.py "$OUT/aggregate-result.json" || true
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
 
@@ -111,23 +156,28 @@ jobs:
           name: eval-result
           path: |
             ${{ runner.temp }}/eval/aggregate-result.json
-            ${{ runner.temp }}/eval/report.html
+            ${{ runner.temp }}/eval/cases/*/report.html
           if-no-files-found: ignore
           retention-days: 14
 
   # Kept apart from the eval job: the job that runs plugin code holds the API key and a read-only
-  # token, the one that can push holds no key and runs no plugin code.
+  # token, the one that can push holds no key and runs no plugin code. On a pull request it also
+  # leaves one comment with the result and a link to the run in the dashboard (repository variable
+  # EVAL_DASHBOARD_URL), updated on every push instead of a new one each time.
   record:
     name: Record in eval-history
     needs: eval
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      pull-requests: write
     env:
       MODEL: ${{ inputs.model || 'haiku' }}
       TRIGGER: ${{ github.event_name == 'pull_request' && 'pr' || inputs.trigger }}
       PR: ${{ github.event.pull_request.number }}
       COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
+      DASHBOARD_URL: ${{ vars.EVAL_DASHBOARD_URL }}
+      RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
     steps:
       - uses: actions/checkout@v4
 
@@ -158,7 +208,7 @@ jobs:
               git -C "$HISTORY" rm -rf --quiet .
             fi
             python3 .claude/skills/plugin-evals/scripts/record_eval_history.py "$RUNNER_TEMP/eval/aggregate-result.json" \
-              --history-dir "$HISTORY" --model "$MODEL" --trigger "$TRIGGER" "${pr_flag[@]}" --commit "$COMMIT"
+              --history-dir "$HISTORY" --model "$MODEL" --trigger "$TRIGGER" "${pr_flag[@]}" --commit "$COMMIT"               --markdown "$RUNNER_TEMP/comment.md" --dashboard-url "$DASHBOARD_URL" --run-url "$RUN_URL"
             git -C "$HISTORY" add -A
             git -C "$HISTORY" commit --quiet -m "Record eval run on $MODEL ($TRIGGER${PR:+ #$PR})"
             if git -C "$HISTORY" push --quiet origin eval-history; then exit 0; fi
@@ -167,3 +217,17 @@ jobs:
           done
           echo "::error::could not push to eval-history after 5 attempts"
           exit 1
+
+      - name: Comment on the pull request
+        if: github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          body="$RUNNER_TEMP/comment.md"
+          cat "$body" >> "$GITHUB_STEP_SUMMARY"
+          id=$(gh api "repos/$GITHUB_REPOSITORY/issues/$PR/comments" --paginate             --jq '.[] | select(.user.login == "github-actions[bot]" and (.body | startswith("<!-- plugin-evals -->"))) | .id' | head -1)
+          if [ -n "$id" ]; then
+            gh api -X PATCH "repos/$GITHUB_REPOSITORY/issues/comments/$id" -F body=@"$body" > /dev/null
+          else
+            gh api -X POST "repos/$GITHUB_REPOSITORY/issues/$PR/comments" -F body=@"$body" > /dev/null
+          fi

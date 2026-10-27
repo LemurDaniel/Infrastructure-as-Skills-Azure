@@ -99,10 +99,15 @@ a fraction of a cent per verdict; the agent runs are what a suite costs.
 ## In CI
 
 `.github/workflows/plugin-evals.yml` runs the suite on every pull request that changes the
-plugin: on Haiku (`--model haiku`, about a fortieth of the Opus price per token), one run
-per case, no baseline arm, a cost ceiling. It reports and does not gate: Haiku scores lower
-than the model `baseline.json` was taken on, so its rates are compared with Haiku's own. A
-release measurement is started by hand (`workflow_dispatch`) with the model it needs.
+plugin: on Haiku (`--model haiku`, about a fortieth of the Opus price per token), three runs
+per case in parallel so that an unstable decision shows, no baseline arm, an $8 ceiling. It
+runs one case per call, so the log says which case it is on and how long the rest will take,
+and merges the results (`merge_eval_results.py`). It reports and does not gate: Haiku scores
+lower than the model `baseline.json` was taken on, so its rates are compared with Haiku's
+own. The pull request gets one comment, updated on every push: pass rate per case, unstable
+cases, the change against the previous version on the same model, a link to the run in the
+dashboard. A release measurement is started by hand (`workflow_dispatch`) with the model it
+needs.
 
 Every run is recorded on the `eval-history` branch by `record_eval_history.py` (repo skill
 `plugin-evals`): `index.json` with one summary per run - plugin version, model, trigger,
