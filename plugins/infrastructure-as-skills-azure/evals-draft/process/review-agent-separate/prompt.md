@@ -3,7 +3,7 @@ description: Working mode Subagents is chosen up front. Tests that the main sess
 expected_outcome: infra/infra-spec.yaml written, at least one Agent call, the review (a fix agent only if the review found an error), its brief names the PNG and the spec, no .tf written.
 tags: [terraform, development, process, diagram, subagents]
 plugins: ["../../.."]
-runs: 3
+runs: 5
 max_turns: 60
 timeout_seconds: 900
 allowed_tools: [Read, Glob, Grep, Skill, Write, Edit, Agent]

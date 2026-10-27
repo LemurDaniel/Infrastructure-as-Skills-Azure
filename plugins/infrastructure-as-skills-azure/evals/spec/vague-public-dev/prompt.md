@@ -3,7 +3,7 @@ description: A short, underspecified request - dev, public, no subscription, no 
 expected_outcome: infra/infra-spec.yaml with public exposure and no network, open entries for subscription, resource group, region and the diagnostics workspace, no invented ids or names; the final message says the spec is not applyable yet.
 tags: [terraform, development, public, missing-info]
 plugins: ["../../.."]
-runs: 3
+runs: 5
 max_turns: 60
 timeout_seconds: 900
 allowed_tools: [Read, Glob, Grep, Skill, Write, Edit]

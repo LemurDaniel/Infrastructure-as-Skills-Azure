@@ -3,7 +3,7 @@ description: "An English request that leaves the target and the module choice op
 expected_outcome: "a first message that asks Terraform or Bicep (and how the code is built) in English, with no German sentence or option text in it."
 tags: [language, en, interview]
 plugins: ["../../.."]
-runs: 3
+runs: 5
 max_turns: 30
 timeout_seconds: 900
 allowed_tools: [Read, Glob, Grep, Skill, Write, Edit]

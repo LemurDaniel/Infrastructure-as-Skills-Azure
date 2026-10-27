@@ -3,7 +3,7 @@ description: Three resources and no word about who talks to whom. Tests that the
 expected_outcome: infra/infra-spec.yaml with the three resources and no wiring.access entry and no role assignment between them; SQL Server, which has no question set, is not silently improvised; no Bicep written.
 tags: [bicep, staging, diagram, wiring, missing-info]
 plugins: ["../../.."]
-runs: 3
+runs: 5
 max_turns: 80
 timeout_seconds: 1200
 allowed_tools: [Read, Glob, Grep, Skill, Write, Edit]

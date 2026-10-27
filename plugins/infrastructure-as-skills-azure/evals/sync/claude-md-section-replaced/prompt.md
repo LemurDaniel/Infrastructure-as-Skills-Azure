@@ -3,7 +3,7 @@ description: The repository's CLAUDE.md holds a section of an older plugin (no r
 expected_outcome: CLAUDE.md with exactly one current section (rev=...), the old sentinel gone, the team's lines before and after intact; the spec changed and its plugin_version no longer 0.0.1.
 tags: [terraform, development, process, claude-md, extension]
 plugins: ["../../.."]
-runs: 3
+runs: 5
 max_turns: 40
 timeout_seconds: 600
 allowed_tools: [Read, Glob, Grep, Skill, Write, Edit]
