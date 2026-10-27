@@ -193,28 +193,6 @@
         "total": 3
       }
     },
-    "diagram-before-code-after-change": {
-      "skill-fired": {
-        "passed": 3,
-        "total": 3
-      },
-      "diagram-skill-fired": {
-        "passed": 0,
-        "total": 3
-      },
-      "change-is-in-the-spec": {
-        "passed": 3,
-        "total": 3
-      },
-      "no-code-before-signoff": {
-        "passed": 3,
-        "total": 3
-      },
-      "asks-for-signoff": {
-        "passed": 3,
-        "total": 3
-      }
-    },
     "claude-md-section-replaced": {
       "skill-fired": {
         "passed": 1,
