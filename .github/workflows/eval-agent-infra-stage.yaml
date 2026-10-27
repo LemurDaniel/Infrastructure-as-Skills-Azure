@@ -62,14 +62,20 @@ jobs:
 
       # The images belong to the separate image pipeline: keep what each web app runs now so this
       # deployment never rolls it back. Management plane only; empty on the first deployment.
-      # The agent app is named app-...-agent-<index>, the dashboard is the other one.
+      # Site names (main.bicep): app-<loc>-<env>-<workload>-<index> is the dashboard, the others carry
+      # -drift-, -fuzz-, -tune- before the index. Matched on the whole name: the workload itself may
+      # contain any of these words.
       - name: Resolve existing linuxFxVersions
         run: |
           set -euo pipefail
           # The resolved parameter file starts as a copy of the stage file.
           cp "main.${STAGE}.bicepparam" "main.${STAGE}.resolved.bicepparam"
+          workload=$(sed -nE "s/^param workload *= *'([^']+)'.*/\1/p" "main.${STAGE}.bicepparam")
+          [ -n "$workload" ] || { echo "::error file=eval-agent/infra/main.${STAGE}.bicepparam::workload not found"; exit 1; }
           dashboard_fx=""
-          agent_fx=""
+          drift_fx=""
+          fuzz_fx=""
+          tune_fx=""
           if [ "$(az group exists --subscription "$SUBSCRIPTION_ID" --name "$RESOURCE_GROUP")" = "true" ]; then
             sites=$(az resource list --subscription "$SUBSCRIPTION_ID" --resource-group "$RESOURCE_GROUP" \
               --resource-type Microsoft.Web/sites --query "[].[id,name]" -o tsv | tr -d '\r' | tr '\t' ';')
@@ -81,17 +87,24 @@ jobs:
                 --query "properties.linuxFxVersion" -o tsv | tr -d '\r')
               case "$fx" in 'DOCKER|'*) ;; *) fx="" ;; esac
               case "$name" in
-                *-agent-*) agent_fx="$fx" ;;
-                *) dashboard_fx="$fx" ;;
+                app-*-"$workload"-drift-[0-9][0-9]) drift_fx="$fx" ;;
+                app-*-"$workload"-fuzz-[0-9][0-9]) fuzz_fx="$fx" ;;
+                app-*-"$workload"-tune-[0-9][0-9]) tune_fx="$fx" ;;
+                app-*-"$workload"-[0-9][0-9]) dashboard_fx="$fx" ;;
+                *) echo "::warning::site $name matches no app of main.bicep - its linuxFxVersion is not kept" ;;
               esac
             done
           fi
           {
             printf "\nparam existingDashboardLinuxFxVersion = '%s'\n" "$dashboard_fx"
-            printf "param existingAgentLinuxFxVersion = '%s'\n" "$agent_fx"
+            printf "param existingDriftLinuxFxVersion = '%s'\n" "$drift_fx"
+            printf "param existingFuzzLinuxFxVersion = '%s'\n" "$fuzz_fx"
+            printf "param existingTuneLinuxFxVersion = '%s'\n" "$tune_fx"
           } >> "main.${STAGE}.resolved.bicepparam"
           echo "existingDashboardLinuxFxVersion = '$dashboard_fx'"
-          echo "existingAgentLinuxFxVersion = '$agent_fx'"
+          echo "existingDriftLinuxFxVersion = '$drift_fx'"
+          echo "existingFuzzLinuxFxVersion = '$fuzz_fx'"
+          echo "existingTuneLinuxFxVersion = '$tune_fx'"
 
       - name: What-if
         id: whatif

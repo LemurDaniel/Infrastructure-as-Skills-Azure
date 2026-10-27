@@ -19,25 +19,6 @@
   path: parameters.identityRoleAssignments.value
   equals: []
 
-# ---- user-assigned-identity__agent -----------------------------------------------------------------
-
-- decision: user-assigned-identity__agent.identity.purpose
-  path: resources.identityAgent.properties.template.resources.identity.tags
-  matches: "createObject\\('purpose', 'app-runtime'\\)"
-
-- decision: user-assigned-identity__agent.identity.federated_credentials
-  path: resources.identityAgent.properties.template.variables.federatedCredentials
-  equals: []
-
-- decision: user-assigned-identity__agent.identity.isolation_scope
-  path: resources.identityAgent.properties.template.resources.identity.properties.isolationScope
-  equals: None
-
-- decision: user-assigned-identity__agent.identity.role_assignments
-  stage: production
-  path: parameters.identityRoleAssignments.value
-  equals: []
-
 # ---- user-assigned-identity__drift -----------------------------------------------------------------
 
 - decision: user-assigned-identity__drift.identity.purpose

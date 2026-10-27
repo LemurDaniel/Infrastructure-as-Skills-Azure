@@ -45,7 +45,7 @@ param privateEndpointSubnetPrefix string
 @description('Additional registry regions as { location }.')
 param registryGeoReplicas array
 
-@description('Role assignments on the user-assigned identities themselves (dashboard, agent, drift watcher, fuzz agent and tuner), as { principalId, roleDefinitionId, principalType }.')
+@description('Role assignments on the user-assigned identities themselves (dashboard, drift watcher, fuzz agent and tuner), as { principalId, roleDefinitionId, principalType }.')
 param identityRoleAssignments array
 
 @description('Role assignments on the registry, as { principalId, roleDefinitionId, principalType }.')
@@ -67,9 +67,6 @@ param vaultRoleAssignments array
 @description('Bootstrap image of the dashboard as name:tag without the registry, no latest; used only on the first deployment, the image pipeline owns the image afterwards (spec: resources.app-service__dashboard.runtime.container_image_owner).')
 param dashboardContainerImage string
 
-@description('Bootstrap image of the agent as name:tag without the registry, no latest; used only on the first deployment, the image pipeline owns the image afterwards (spec: resources.app-service__agent.runtime.container_image_owner).')
-param agentContainerImage string
-
 @description('Bootstrap image of the drift watcher as name:tag without the registry, no latest; used only on the first deployment, the image pipeline owns the image afterwards (spec: resources.app-service__drift.runtime.container_image_owner).')
 param driftContainerImage string
 
@@ -81,9 +78,6 @@ param tuneContainerImage string
 
 @description('linuxFxVersion the dashboard runs now; the pipeline fills this from the live web app before the deployment so the image is never rolled back. Empty on the first deployment.')
 param existingDashboardLinuxFxVersion string = ''
-
-@description('linuxFxVersion the agent runs now; the pipeline fills this from the live web app before the deployment so the image is never rolled back. Empty on the first deployment.')
-param existingAgentLinuxFxVersion string = ''
 
 @description('linuxFxVersion the drift watcher runs now; the pipeline fills this from the live web app before the deployment so the image is never rolled back. Empty on the first deployment.')
 param existingDriftLinuxFxVersion string = ''
@@ -102,9 +96,6 @@ param tuneSchedule string
 
 @description('Model deployments as { name, model: { format, name, version } } (spec open: resources.foundry.models.model_deployments).')
 param modelDeployments array
-
-@description('Where the agent fetches the Claude plugin from (spec open: application.plugin_source).')
-param pluginSource string
 
 @description('Client id of the existing Entra app registration used for the sign-in.')
 param entraClientId string
@@ -149,7 +140,6 @@ var unique4 = take(uniqueString(subscriptionId, resourceGroupName, idx), 4)
 var virtualNetworkName = 'vnet-${loc}-${env}-${workload}-${idx}'
 var workspaceName = 'log-${loc}-${env}-${workload}-${idx}'
 var identityDashboardName = 'id-${loc}-${env}-${workload}-dashboard-${idx}'
-var identityAgentName = 'id-${loc}-${env}-${workload}-agent-${idx}'
 var identityDriftName = 'id-${loc}-${env}-${workload}-drift-${idx}'
 var identityFuzzName = 'id-${loc}-${env}-${workload}-fuzz-${idx}'
 var identityTuneName = 'id-${loc}-${env}-${workload}-tune-${idx}'
@@ -157,7 +147,6 @@ var planName = 'plan-${loc}-${env}-${workload}-${idx}'
 // The dashboard keeps the name of the single app that came before the split: it is the public
 // hostname, and the Entra redirect URI is registered for it.
 var dashboardAppName = 'app-${loc}-${env}-${workload}-${idx}'
-var agentAppName = 'app-${loc}-${env}-${workload}-agent-${idx}'
 var driftAppName = 'app-${loc}-${env}-${workload}-drift-${idx}'
 var fuzzAppName = 'app-${loc}-${env}-${workload}-fuzz-${idx}'
 var tuneAppName = 'app-${loc}-${env}-${workload}-tune-${idx}'
@@ -172,7 +161,6 @@ var privateEndpointNamePrefix = 'pep-${loc}-${env}-${workload}'
 var registryPrivateEndpointName = '${privateEndpointNamePrefix}-registry-${idx}'
 var foundryPrivateEndpointName = '${privateEndpointNamePrefix}-account-${idx}'
 var vaultPrivateEndpointName = '${privateEndpointNamePrefix}-vault-${idx}'
-var agentPrivateEndpointName = '${privateEndpointNamePrefix}-agent-${idx}'
 var driftPrivateEndpointName = '${privateEndpointNamePrefix}-drift-${idx}'
 var fuzzPrivateEndpointName = '${privateEndpointNamePrefix}-fuzz-${idx}'
 var tunePrivateEndpointName = '${privateEndpointNamePrefix}-tune-${idx}'
@@ -226,16 +214,6 @@ module identityDashboard 'modules/identity.bicep' = {
   name: 'identity-dashboard'
   params: {
     name: identityDashboardName
-    location: location
-    tags: tags
-    roleAssignments: identityRoleAssignments
-  }
-}
-
-module identityAgent 'modules/identity.bicep' = {
-  name: 'identity-agent'
-  params: {
-    name: identityAgentName
     location: location
     tags: tags
     roleAssignments: identityRoleAssignments
@@ -355,7 +333,6 @@ module app 'modules/app.bicep' = {
   params: {
     planName: planName
     dashboardAppName: dashboardAppName
-    agentAppName: agentAppName
     driftAppName: driftAppName
     fuzzAppName: fuzzAppName
     tuneAppName: tuneAppName
@@ -363,7 +340,6 @@ module app 'modules/app.bicep' = {
     tags: tags
     integrationSubnetId: network.outputs.integrationSubnetId
     privateEndpointSubnetId: network.outputs.privateEndpointSubnetId
-    agentPrivateEndpointName: agentPrivateEndpointName
     driftPrivateEndpointName: driftPrivateEndpointName
     fuzzPrivateEndpointName: fuzzPrivateEndpointName
     tunePrivateEndpointName: tunePrivateEndpointName
@@ -371,8 +347,6 @@ module app 'modules/app.bicep' = {
     diagnosticWorkspaceId: observability.outputs.id
     dashboardIdentityId: identityDashboard.outputs.id
     dashboardIdentityClientId: identityDashboard.outputs.clientId
-    agentIdentityId: identityAgent.outputs.id
-    agentIdentityClientId: identityAgent.outputs.clientId
     driftIdentityId: identityDrift.outputs.id
     driftIdentityClientId: identityDrift.outputs.clientId
     fuzzIdentityId: identityFuzz.outputs.id
@@ -384,31 +358,25 @@ module app 'modules/app.bicep' = {
     foundryEndpoint: ai.outputs.endpoint
     storageAccountName: storage.outputs.name
     dashboardContainerImage: dashboardContainerImage
-    agentContainerImage: agentContainerImage
     driftContainerImage: driftContainerImage
     fuzzContainerImage: fuzzContainerImage
     tuneContainerImage: tuneContainerImage
     existingDashboardLinuxFxVersion: existingDashboardLinuxFxVersion
-    existingAgentLinuxFxVersion: existingAgentLinuxFxVersion
     existingDriftLinuxFxVersion: existingDriftLinuxFxVersion
     existingFuzzLinuxFxVersion: existingFuzzLinuxFxVersion
     existingTuneLinuxFxVersion: existingTuneLinuxFxVersion
     driftSchedule: driftSchedule
     tuneSchedule: tuneSchedule
-    pluginSource: pluginSource
     entraClientId: entraClientId
     entraTenantId: entraTenantId
   }
   dependsOn: [
     // The roles must be effective before the container first starts (image pull, secret reference).
     // Bicep cannot see this: the app module takes no output of the role assignments.
-    // The zone group of the agent's, the drift watcher's, the fuzz agent's and the tuner's private endpoints needs the zone (and its link) to exist.
+    // The zone group of the drift watcher's, the fuzz agent's and the tuner's private endpoints needs the zone (and its link) to exist.
     privateDnsZoneLinks
     acrPullDashboardAssignment
-    acrPullAgentAssignment
     storageBlobReaderDashboardAssignment
-    storageBlobContributorAgentAssignment
-    foundryUserAgentAssignment
     keyVaultSecretsDashboardAssignment
     acrPullDriftAssignment
     storageBlobContributorDriftAssignment
@@ -484,10 +452,6 @@ resource identityDashboardRef 'Microsoft.ManagedIdentity/userAssignedIdentities@
   name: identityDashboardName
 }
 
-resource identityAgentRef 'Microsoft.ManagedIdentity/userAssignedIdentities@2024-11-30' existing = {
-  name: identityAgentName
-}
-
 resource identityDriftRef 'Microsoft.ManagedIdentity/userAssignedIdentities@2024-11-30' existing = {
   name: identityDriftName
 }
@@ -515,20 +479,6 @@ resource acrPullDashboardAssignment 'Microsoft.Authorization/roleAssignments@202
   ]
 }
 
-// wiring.role_assignments: user-assigned-identity__agent -> container-registry, AcrPull
-resource acrPullAgentAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  name: guid(registryRef.id, identityAgentRef.id, roleDefinitionIds.AcrPull)
-  scope: registryRef
-  properties: {
-    principalId: identityAgent.outputs.principalId
-    principalType: 'ServicePrincipal'
-    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', roleDefinitionIds.AcrPull)
-  }
-  dependsOn: [
-    registry
-  ]
-}
-
 // wiring.role_assignments: user-assigned-identity__dashboard -> storage-account, Storage Blob Data Reader
 resource storageBlobReaderDashboardAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
   name: guid(storageAccountRef.id, identityDashboardRef.id, roleDefinitionIds['Storage Blob Data Reader'])
@@ -543,41 +493,6 @@ resource storageBlobReaderDashboardAssignment 'Microsoft.Authorization/roleAssig
   }
   dependsOn: [
     storage
-  ]
-}
-
-// wiring.role_assignments: user-assigned-identity__agent -> storage-account, Storage Blob Data Contributor
-resource storageBlobContributorAgentAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  name: guid(storageAccountRef.id, identityAgentRef.id, roleDefinitionIds['Storage Blob Data Contributor'])
-  scope: storageAccountRef
-  properties: {
-    principalId: identityAgent.outputs.principalId
-    principalType: 'ServicePrincipal'
-    roleDefinitionId: subscriptionResourceId(
-      'Microsoft.Authorization/roleDefinitions',
-      roleDefinitionIds['Storage Blob Data Contributor']
-    )
-  }
-  dependsOn: [
-    storage
-  ]
-}
-
-// wiring.role_assignments: user-assigned-identity__agent -> foundry, Azure AI User (the tenant now
-// calls this role 'Foundry User'; the role definition GUID is the same)
-resource foundryUserAgentAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  name: guid(foundryRef.id, identityAgentRef.id, roleDefinitionIds['Azure AI User'])
-  scope: foundryRef
-  properties: {
-    principalId: identityAgent.outputs.principalId
-    principalType: 'ServicePrincipal'
-    roleDefinitionId: subscriptionResourceId(
-      'Microsoft.Authorization/roleDefinitions',
-      roleDefinitionIds['Azure AI User']
-    )
-  }
-  dependsOn: [
-    ai
   ]
 }
 
@@ -629,7 +544,8 @@ resource storageBlobContributorDriftAssignment 'Microsoft.Authorization/roleAssi
   ]
 }
 
-// wiring.role_assignments: user-assigned-identity__drift -> foundry, Azure AI User
+// wiring.role_assignments: user-assigned-identity__drift -> foundry, Azure AI User (the tenant now
+// calls this role 'Foundry User'; the role definition GUID is the same)
 resource foundryUserDriftAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
   name: guid(foundryRef.id, identityDriftRef.id, roleDefinitionIds['Azure AI User'])
   scope: foundryRef
@@ -795,7 +711,6 @@ resource virtualNetworkDiagnostics 'Microsoft.Insights/diagnosticSettings@2021-0
 
 output dashboardId string = app.outputs.dashboardId
 output dashboardDefaultHostname string = app.outputs.dashboardDefaultHostname
-output agentId string = app.outputs.agentId
 output driftId string = app.outputs.driftId
 output fuzzId string = app.outputs.fuzzId
 output tuneId string = app.outputs.tuneId
