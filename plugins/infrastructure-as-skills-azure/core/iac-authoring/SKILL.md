@@ -39,6 +39,39 @@ The spec in the middle is the load-bearing part. It is the handover interface, n
 by-product: a backend renders *from* it, and the same spec gives Terraform and Bicep the
 same decisions. Never generate code directly from the interview.
 
+## Every run, whatever else it skips
+
+The rules a run drops most easily, because each is one sentence in a long protocol. They hold
+in every run, in this order; the sections below carry the detail.
+
+1. **An existing spec: the version gate first** - a spec from a newer plugin stops the run
+   before anything is asked or written.
+2. **The repository's `CLAUDE.md` section is brought up to date before the first question**,
+   with the script or, without a shell, by hand. It is not skipped because the request is
+   only a small change.
+3. **Every spec this run writes or changes carries `spec.plugin_version`** - the installed
+   version.
+4. **No value nobody gave.** Region, subscription, resource group, address range: `open:`
+   with a placeholder, never a plausible value. A default is not a guess: the stage stack
+   `[development, test, production]` stays unless the customer named the stages.
+5. **Spec, diagram, sign-off, then code.** No `.tf` or `.bicep` before the customer's yes,
+   also when the request already said "then write the code".
+6. **The turn ends on the sign-off question** - also when the diagram could not be drawn.
+
+### Without a shell
+
+The scripts - `write_spec.py`, `check_spec.py`, `export_decisions.py`, the diagram scripts,
+`sync_claude_md.py` - need Python and a shell. A session without one (a sandbox, a host that
+grants no Bash) loses the tools, not the rules:
+
+- The version gate and the `CLAUDE.md` section are done by hand with Read and Edit, as their
+  sections say; the spec is written in its canonical form by hand and called unvalidated.
+- The diagram cannot be drawn. Say so in one line, in `context.language`, with what would
+  draw it, and close with the sign-off question on the decisions instead of the picture
+  (the Phase 4 list, `infra-decisions.md` where it exists). No code before that yes either.
+- A subagent has the tools of the session that starts it: never hand it a script in the
+  hope that it has a shell.
+
 ## Before anything — find an existing spec
 
 Search the repository for `**/infra-spec.yaml` first — the customer's repository, never

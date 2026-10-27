@@ -29,7 +29,9 @@ message is not a sign-off, and neither is a diagram message that merely mentions
 a host without `AskUserQuestion` falls back to the prose question. The wording follows `context.language` (German: *Passt das
 so? Ja, passt / Etwas ändern / Noch nicht*; English: *Does this fit your requirements?
 Yes, build it / Change something / Not yet*). The yes option is what starts the code
-render; without the question it never starts.
+render; without the question it never starts. **No diagram is no exception**: where the
+scripts cannot run (no shell, no Python), say that the picture is missing and why, and ask
+the same question on the decisions - [iac-authoring](../iac-authoring/SKILL.md#without-a-shell).
 
 ## Run it
 
