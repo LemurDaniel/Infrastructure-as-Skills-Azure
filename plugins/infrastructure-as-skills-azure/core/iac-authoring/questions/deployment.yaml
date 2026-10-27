@@ -1634,6 +1634,14 @@ groups:
           de: "Aus dem Internet erreichbar: {value}. Alles andere bleibt privat."
         depends_on: { question: network_exposure, equals: private_with_exceptions }
         required: true
+        forced_when: >
+          Not asked when the design has exactly one part people open - one application of the
+          workload's own (a web app, a container app, a static web app) and nothing else a
+          person reaches: the public part is that application, recorded `forced` with
+          `forced_by: deployment.network_exposure` and shown in Phase 4 as the line the
+          customer ticks. Its deployment slots follow their app and are not parts of their
+          own. Asked when the design has two or more such parts, or a part only the customer
+          can name (a partner interface, a download area).
         why: >
           The exceptions of `private_with_exceptions`, named in the customer's words: the
           engineer maps each part to the resource that serves it (the website to its web
