@@ -23,9 +23,20 @@ graders:
     pattern: '[äöüß]|\b(zugriff|und|der|die|das|für|nicht|liest|schreibt|speicher|anwendung|benutzer|nachricht)\b'
     match: not_contains
 
+  # German function words and umlauts in the final message: deterministic, free, and a failure
+  # names the word. Checked on 194 kept messages: every German one hit, every English one clean -
+  # including the three the llm judge below had failed. The judge stays as a second opinion.
+  - name: no-german-words
+    type: regex
+    weight: 5
+    target: last_message
+    flags: i
+    pattern: '\b(?:und|oder|nicht|bitte|welche[rsmn]?|soll(?:en|te)?|werden|wird|ihr|eure?[rsmn]?|euch|Sie|wir|ist|sind|mit|für|über|keine?[nrms]?)\b|[äöüß]'
+    match: not_contains
+
   - name: final-message-english
     type: llm
-    weight: 3
+    weight: 2
     focus: last_message
     criteria: |
       The user wrote in English. PASS if the final message is written in English. FAIL
