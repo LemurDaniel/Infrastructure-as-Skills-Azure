@@ -15,6 +15,9 @@ Defaults come from written security guardrails, not from the Azure portal or a m
 default, and are reported rather than asked. Each rendered resource ships with a test per
 decision.
 
+> [!TIP]
+> **Use Sonnet or higher.** The plugin follows a multi-step protocol - interview, spec, diagram, sign-off, render - and its eval suite is measured on Sonnet. Haiku gets the spec decisions right less than half the time, skips the interview for a workload request and builds the application instead, and often does not load the plugin at all ([eval history](https://github.com/LemurDaniel/Infrastructure-as-Skills-Azure/blob/eval-history/README.md)).
+
 > [!IMPORTANT]
 > **This plugin requires [draw.io desktop](https://github.com/jgraph/drawio-desktop/releases).** The architecture diagram is exported to `infra-diagram.drawio.png` with it (`winget install JGraph.Draw`, `brew install --cask drawio`). Without it you get the editable `.drawio` file only, no PNG, and the diagram review has nothing to look at.
 
