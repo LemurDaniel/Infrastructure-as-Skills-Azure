@@ -26,11 +26,11 @@ on:
         options: [manual, release]
         default: manual
       runs:
-        description: Runs per case (run in parallel, up to 8)
-        default: "5"
+        description: Runs per case, run in parallel up to 8 (empty = 4 on Sonnet and Opus, 5 on Haiku)
+        default: ""
       max_cost_usd:
         description: Hard cost ceiling in USD
-        default: "35"
+        default: "30"
       case:
         description: Case name glob (empty = all)
         default: ""
@@ -50,7 +50,7 @@ jobs:
       PLUGIN_DIR: plugins/infrastructure-as-skills-azure
       MODEL: ${{ inputs.model }}
       CLAUDE_CODE_EFFORT_LEVEL: ${{ inputs.effort }}
-      RUNS: ${{ inputs.runs }}
+      RUNS: ${{ inputs.runs || (inputs.model == 'haiku' && '5' || '4') }}
       MAX_COST_USD: ${{ inputs.max_cost_usd }}
       CASE: ${{ inputs.case }}
       TAG: ${{ inputs.tag }}
