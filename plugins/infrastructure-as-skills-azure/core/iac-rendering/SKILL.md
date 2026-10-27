@@ -69,7 +69,10 @@ than inferring the shape from an example spec.
 5. **Render names from the right mechanism** — [naming.md](references/naming.md). The
    Terraform provider resolves them; in Bicep they are assembled from vars because the
    naming modules are not shipped. Both read the root's `naming.yaml`, never the plugin's
-   default, so a re-render keeps every name the root already has.
+   default, so a re-render keeps every name the root already has. **A root without one gets
+   it first, before any name is rendered**, even for a one-line change: a full copy of the
+   default, and where the root already names resources, each type's pattern as the root
+   names it, not as today's default would.
 6. **Write the secure value explicitly**, even where it matches the provider or API
    default. A default can move between versions and an absent attribute is invisible in
    review.
@@ -148,6 +151,7 @@ code, pipeline or fix agent of [agents.md](references/agents.md) - writes only t
 |---|---|
 | The code and its tests | Terraform: `*.tf`, `*.tftest.hcl`, `*.tfvars`, `.terraform.lock.hcl`. Bicep: `*.bicep`, `*.bicepparam`, `bicepconfig.json`, `tests/*.armtest.yaml` |
 | The spec | `infra-spec.yaml`: `plugin_version` and what the render records (`implementation: authored`) |
+| The naming convention | `naming.yaml`, only when the root has none (step 5); an existing one is never changed |
 | The pipeline | The files of `deploy_mechanism` (step 10) |
 | Scripts | `*.ps1` the pipeline or the deployment calls |
 | Repository files | `.gitignore` (step 12), the marked section of `CLAUDE.md` (step 11) |
