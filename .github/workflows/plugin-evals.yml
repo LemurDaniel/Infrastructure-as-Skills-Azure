@@ -115,7 +115,7 @@ jobs:
             set +e
             # --threshold 0: report only. Exit 2 is the cost ceiling - partial results, still recorded.
             claude plugin eval "$PLUGIN_DIR" --case "$name" \
-              --model "$MODEL" --runs "$RUNS" -j "$parallel" --ablation none --max-cost-usd "$budget" \
+              --model "$MODEL" --judge-model sonnet --runs "$RUNS" -j "$parallel" --ablation none --max-cost-usd "$budget" \
               --allow-tools Write Edit --trust-plugin --scaffold --no-publish --threshold 0 \
               --output-dir "$OUT/cases/$name" --report "$OUT/cases/$name/report.html"
             code=$?

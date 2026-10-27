@@ -211,7 +211,7 @@ Beyond the script:
      owner's machine the VS Code binary, as in `plugin-evals`):
      ```
      CLAUDE_CODE_EFFORT_LEVEL=low $claude plugin eval plugins/infrastructure-as-skills-azure \
-       --model sonnet --runs 4 -j 8 --ablation none --scaffold --allow-tools Write Edit \
+       --model sonnet --judge-model sonnet --runs 4 -j 8 --ablation none --scaffold --allow-tools Write Edit \
        --trust-plugin --no-publish --threshold 0 --max-cost-usd 30 --output-dir <scratch>/eval
      python3 .claude/skills/plugin-evals/scripts/show_eval_result.py <scratch>/eval/aggregate-result.json
      ```
