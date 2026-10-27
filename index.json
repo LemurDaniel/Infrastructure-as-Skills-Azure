@@ -1011,6 +1011,158 @@
     }
    ],
    "note": "Full suite, effort low, 4 runs per case, judge sonnet, before the 0.5.3 merge"
+  },
+  {
+   "id": "2026-10-27T09-01-34-572Z",
+   "version": "0.5.3",
+   "model": "sonnet",
+   "trigger": "release",
+   "pr": 11,
+   "commit": "82ea823f1871",
+   "startedAt": "2026-10-27T09:01:34.572Z",
+   "costUsd": 14.8951773,
+   "durationSeconds": 399,
+   "partial": false,
+   "runsPerCase": 2,
+   "cases": [
+    {
+     "name": "diagram-no-invented-lines",
+     "passRate": 1,
+     "passRateWithout": null,
+     "delta": null
+    },
+    {
+     "name": "language-en-first-question",
+     "passRate": 1,
+     "passRateWithout": null,
+     "delta": null
+    },
+    {
+     "name": "language-en-request",
+     "passRate": 1,
+     "passRateWithout": null,
+     "delta": null
+    },
+    {
+     "name": "app-code-untouched",
+     "passRate": 1,
+     "passRateWithout": null,
+     "delta": null
+    },
+    {
+     "name": "bicep-secret-placeholder-once",
+     "passRate": 1,
+     "passRateWithout": null,
+     "delta": null
+    },
+    {
+     "name": "requirements-stated",
+     "passRate": 1,
+     "passRateWithout": null,
+     "delta": null
+    },
+    {
+     "name": "vague-public-dev",
+     "passRate": 1,
+     "passRateWithout": null,
+     "delta": null
+    },
+    {
+     "name": "claude-md-section-replaced",
+     "passRate": 1,
+     "passRateWithout": null,
+     "delta": null
+    },
+    {
+     "name": "plugin-newer-halts",
+     "passRate": 1,
+     "passRateWithout": null,
+     "delta": null
+    },
+    {
+     "name": "trigger-workload-request",
+     "passRate": 1,
+     "passRateWithout": null,
+     "delta": null
+    }
+   ],
+   "note": "Full suite, effort low, each case's own runs (4, the four costliest 2), before the 0.5.3 merge"
+  },
+  {
+   "id": "2026-10-27T09-01-37-822Z",
+   "version": "0.5.3",
+   "model": "haiku",
+   "trigger": "release",
+   "pr": 11,
+   "commit": "82ea823f1871",
+   "startedAt": "2026-10-27T09:01:37.822Z",
+   "costUsd": 0.9431128299999998,
+   "durationSeconds": 145,
+   "partial": false,
+   "runsPerCase": 2,
+   "cases": [
+    {
+     "name": "diagram-no-invented-lines",
+     "passRate": 1,
+     "passRateWithout": null,
+     "delta": null
+    },
+    {
+     "name": "language-en-first-question",
+     "passRate": 1,
+     "passRateWithout": null,
+     "delta": null
+    },
+    {
+     "name": "language-en-request",
+     "passRate": 1,
+     "passRateWithout": null,
+     "delta": null
+    },
+    {
+     "name": "app-code-untouched",
+     "passRate": 1,
+     "passRateWithout": null,
+     "delta": null
+    },
+    {
+     "name": "bicep-secret-placeholder-once",
+     "passRate": 0.25,
+     "passRateWithout": null,
+     "delta": null
+    },
+    {
+     "name": "requirements-stated",
+     "passRate": 0,
+     "passRateWithout": null,
+     "delta": null
+    },
+    {
+     "name": "vague-public-dev",
+     "passRate": 0,
+     "passRateWithout": null,
+     "delta": null
+    },
+    {
+     "name": "claude-md-section-replaced",
+     "passRate": 0.25,
+     "passRateWithout": null,
+     "delta": null
+    },
+    {
+     "name": "plugin-newer-halts",
+     "passRate": 1,
+     "passRateWithout": null,
+     "delta": null
+    },
+    {
+     "name": "trigger-workload-request",
+     "passRate": 1,
+     "passRateWithout": null,
+     "delta": null
+    }
+   ],
+   "note": "Full suite, effort low, each case's own runs, judge sonnet, before the 0.5.3 merge"
   }
  ]
 }

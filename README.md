@@ -8,25 +8,25 @@ previous version on the same model; a rate is never compared across models.
 
 ## haiku
 
-![badge](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/LemurDaniel/Infrastructure-as-Skills-Azure/eval-history/badge-haiku.json) · newest: release at `591c4bf`, 5 run(s) per case, 2026-10-27 · Full suite, effort low, 4 runs per case, judge sonnet, before the 0.5.3 merge
+![badge](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/LemurDaniel/Infrastructure-as-Skills-Azure/eval-history/badge-haiku.json) · newest: release at `82ea823`, 2 run(s) per case, 2026-10-27 · Full suite, effort low, each case's own runs, judge sonnet, before the 0.5.3 merge
 
 | Case | v0.5.2 | v0.5.3 |
 |---|---|---|
 | app-code-untouched |  | 100% |
 | bicep-secret-placeholder-once | 🟡 80% | 🟡 25% ⬇ |
 | claude-md-section-replaced | 🟡 20% | 🟡 25% |
-| diagram-no-invented-lines | 🟡 80% | 🟡 50% ⬇ |
-| language-en-first-question | 100% | 🟡 25% ⬇ |
+| diagram-no-invented-lines | 🟡 80% | 100% ⬆ |
+| language-en-first-question | 100% | 100% |
 | language-en-request | 100% | 100% |
-| plugin-newer-halts | 100% | 🟡 50% ⬇ |
-| requirements-stated | 🟡 20% | 🟡 25% |
-| trigger-workload-request | 🟡 20% | 🟡 50% ⬆ |
+| plugin-newer-halts | 100% | 100% |
+| requirements-stated | 🟡 20% | 🔴 0% ⬇ |
+| trigger-workload-request | 🟡 20% | 100% ⬆ |
 | vague-public-dev | 🟡 20% | 🔴 0% ⬇ |
-| **cost** | $3.20 | $1.24 |
+| **cost** | $3.20 | $0.94 |
 
 ## sonnet
 
-![badge](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/LemurDaniel/Infrastructure-as-Skills-Azure/eval-history/badge-sonnet.json) · newest: release at `591c4bf`, 5 run(s) per case, 2026-10-27 · Full suite, effort low, 4 runs per case, before the 0.5.3 merge
+![badge](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/LemurDaniel/Infrastructure-as-Skills-Azure/eval-history/badge-sonnet.json) · newest: release at `82ea823`, 2 run(s) per case, 2026-10-27 · Full suite, effort low, each case's own runs (4, the four costliest 2), before the 0.5.3 merge
 
 | Case | v0.5.2 | v0.5.3 |
 |---|---|---|
@@ -40,4 +40,4 @@ previous version on the same model; a rate is never compared across models.
 | requirements-stated | 100% | 100% |
 | trigger-workload-request | 100% | 100% |
 | vague-public-dev | 100% | 100% |
-| **cost** | $15.62 | $20.75 |
+| **cost** | $15.62 | $14.90 |
