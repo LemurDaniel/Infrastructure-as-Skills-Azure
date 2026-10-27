@@ -1,0 +1,9 @@
+{
+ "version": "0.0.2",
+ "model": "opus",
+ "trigger": "baseline",
+ "pr": null,
+ "commit": "69b869a",
+ "id": "2026-10-25T17-04-58-412Z",
+ "source": "plugins/infrastructure-as-skills-azure/evals/baseline.json"
+}

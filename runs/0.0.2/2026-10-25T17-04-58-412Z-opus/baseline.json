@@ -1,0 +1,331 @@
+{
+  "startedAt": "2026-10-25T17:04:58.412Z",
+  "cases": {
+    "diagram-no-invented-lines": {
+      "skill-fired": {
+        "passed": 3,
+        "total": 3
+      },
+      "target-bicep": {
+        "passed": 3,
+        "total": 3
+      },
+      "no-invented-calls": {
+        "passed": 3,
+        "total": 3
+      },
+      "has-app-service": {
+        "passed": 3,
+        "total": 3
+      },
+      "has-storage-account": {
+        "passed": 3,
+        "total": 3
+      },
+      "has-sql": {
+        "passed": 3,
+        "total": 3
+      },
+      "no-invented-purposes": {
+        "passed": 3,
+        "total": 3
+      },
+      "no-code-before-confirmation": {
+        "passed": 3,
+        "total": 3
+      },
+      "no-hand-drawn-diagram": {
+        "passed": 3,
+        "total": 3
+      }
+    },
+    "language-de-request": {
+      "skill-fired": {
+        "passed": 3,
+        "total": 3
+      },
+      "language-is-de": {
+        "passed": 3,
+        "total": 3
+      },
+      "german-customer-text": {
+        "passed": 3,
+        "total": 3
+      },
+      "final-message-german": {
+        "passed": 3,
+        "total": 3
+      }
+    },
+    "language-en-first-question": {
+      "skill-fired": {
+        "passed": 3,
+        "total": 3
+      },
+      "target-question-asked": {
+        "passed": 3,
+        "total": 3
+      },
+      "no-german-question": {
+        "passed": 3,
+        "total": 3
+      }
+    },
+    "language-en-request": {
+      "skill-fired": {
+        "passed": 3,
+        "total": 3
+      },
+      "language-is-en": {
+        "passed": 3,
+        "total": 3
+      },
+      "no-german-in-spec": {
+        "passed": 3,
+        "total": 3
+      },
+      "final-message-english": {
+        "passed": 3,
+        "total": 3
+      }
+    },
+    "module-source-authored": {
+      "skill-fired": {
+        "passed": 3,
+        "total": 3
+      },
+      "target-terraform": {
+        "passed": 3,
+        "total": 3
+      },
+      "module-source-authored": {
+        "passed": 3,
+        "total": 3
+      },
+      "module-source-not-avm": {
+        "passed": 3,
+        "total": 3
+      },
+      "no-avm-implementation": {
+        "passed": 3,
+        "total": 3
+      },
+      "exposure-private": {
+        "passed": 3,
+        "total": 3
+      },
+      "no-invented-subscription": {
+        "passed": 3,
+        "total": 3
+      },
+      "no-code-before-confirmation": {
+        "passed": 3,
+        "total": 3
+      }
+    },
+    "requirements-stated": {
+      "skill-fired": {
+        "passed": 3,
+        "total": 3
+      },
+      "outage-critical": {
+        "passed": 3,
+        "total": 3
+      },
+      "loss-three-months": {
+        "passed": 3,
+        "total": 3
+      },
+      "access-archive": {
+        "passed": 3,
+        "total": 3
+      },
+      "backup-immutable": {
+        "passed": 3,
+        "total": 3
+      },
+      "residency-country": {
+        "passed": 3,
+        "total": 3
+      },
+      "no-default-requirements": {
+        "passed": 3,
+        "total": 3
+      },
+      "access-tier-cold": {
+        "passed": 3,
+        "total": 3
+      },
+      "module-source-avm-default": {
+        "passed": 3,
+        "total": 3
+      },
+      "no-invented-subscription": {
+        "passed": 3,
+        "total": 3
+      },
+      "no-code-before-confirmation": {
+        "passed": 3,
+        "total": 3
+      }
+    },
+    "vague-public-dev": {
+      "skill-fired": {
+        "passed": 3,
+        "total": 3
+      },
+      "exposure-public": {
+        "passed": 3,
+        "total": 3
+      },
+      "no-network": {
+        "passed": 3,
+        "total": 3
+      },
+      "stages-default-stack": {
+        "passed": 3,
+        "total": 3
+      },
+      "standalone-landing-zone": {
+        "passed": 3,
+        "total": 3
+      },
+      "workspace-created": {
+        "passed": 3,
+        "total": 3
+      },
+      "context-not-opened": {
+        "passed": 3,
+        "total": 3
+      },
+      "open-role-assignments": {
+        "passed": 3,
+        "total": 3
+      },
+      "no-invented-subscription": {
+        "passed": 3,
+        "total": 3
+      },
+      "no-invented-resource-group": {
+        "passed": 3,
+        "total": 3
+      },
+      "no-vnet-resource": {
+        "passed": 3,
+        "total": 3
+      },
+      "no-code-before-confirmation": {
+        "passed": 3,
+        "total": 3
+      },
+      "says-what-is-missing": {
+        "passed": 3,
+        "total": 3
+      }
+    },
+    "trigger-workload-request": {
+      "skill-fired": {
+        "passed": 3,
+        "total": 3
+      },
+      "iac-authoring-fired": {
+        "passed": 3,
+        "total": 3
+      },
+      "no-terraform-code": {
+        "passed": 3,
+        "total": 3
+      },
+      "no-bicep-code": {
+        "passed": 3,
+        "total": 3
+      },
+      "treated-as-infra-task": {
+        "passed": 3,
+        "total": 3
+      }
+    },
+    "diagram-before-code-after-change": {
+      "skill-fired": {
+        "passed": 3,
+        "total": 3
+      },
+      "diagram-skill-fired": {
+        "passed": 0,
+        "total": 3
+      },
+      "change-is-in-the-spec": {
+        "passed": 3,
+        "total": 3
+      },
+      "no-code-before-signoff": {
+        "passed": 3,
+        "total": 3
+      },
+      "asks-for-signoff": {
+        "passed": 3,
+        "total": 3
+      }
+    },
+    "claude-md-section-replaced": {
+      "skill-fired": {
+        "passed": 1,
+        "total": 1
+      },
+      "change-is-in-the-spec": {
+        "passed": 1,
+        "total": 1
+      },
+      "section-is-current": {
+        "passed": 1,
+        "total": 1
+      },
+      "old-section-gone": {
+        "passed": 1,
+        "total": 1
+      },
+      "one-section-only": {
+        "passed": 1,
+        "total": 1
+      },
+      "team-text-before-kept": {
+        "passed": 1,
+        "total": 1
+      },
+      "team-text-after-kept": {
+        "passed": 1,
+        "total": 1
+      },
+      "spec-stamped": {
+        "passed": 1,
+        "total": 1
+      }
+    },
+    "plugin-newer-halts": {
+      "skill-fired": {
+        "passed": 1,
+        "total": 1
+      },
+      "spec-untouched": {
+        "passed": 1,
+        "total": 1
+      },
+      "version-not-lowered": {
+        "passed": 1,
+        "total": 1
+      },
+      "no-claude-md-written": {
+        "passed": 1,
+        "total": 1
+      },
+      "no-code": {
+        "passed": 1,
+        "total": 1
+      },
+      "asks-for-update": {
+        "passed": 1,
+        "total": 1
+      }
+    }
+  }
+}
