@@ -10,52 +10,55 @@ async function api(path, init) {
   return body;
 }
 
-async function ticket(button, caseName) {
-  button.disabled = true;
-  $('msg').textContent = 'Ticket wird angelegt …';
-  try {
-    const r = await api('/api/tickets', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ case: caseName }),
-    });
-    $('msg').textContent = `${r.created ? 'Ticket angelegt' : 'Kommentar an offenes Ticket'}: ${r.url}`;
-  } catch (e) {
-    $('msg').textContent = `Fehler: ${e.message}`;
-  }
-  button.disabled = false;
-}
-
 function runChip(run, regressedIds) {
   if (run.partial) return '<span class="chip warn">partial</span>';
   if (regressedIds.has(run.id)) return '<span class="chip bad">Regression</span>';
   return '<span class="chip ok">stabil</span>';
 }
 
+const TRIGGER = { pr: 'PR', release: 'Release', manual: 'manuell' };
+const runLabel = (r) => `v${r.version} · ${r.model} · ${TRIGGER[r.trigger] ?? r.trigger}${r.pr ? ` #${r.pr}` : ''}`;
+const rateCls = (v) => (v == null ? '' : v >= 0.999 ? 'ok' : v >= 0.75 ? 'warn' : 'bad');
+
+// One table per model: a row per case, a column per plugin version (its newest run).
+function historyTable({ model, cases, versions }) {
+  const head = versions.map((v) => `<th title="${esc(when(v.startedAt))} · $${v.costUsd.toFixed(2)}">v${esc(v.version)}</th>`).join('');
+  const rows = cases.map((c) => `<tr><td>${esc(c)}</td>${versions.map((v) => {
+    const rate = v.rates[c];
+    return `<td class="${rateCls(rate)}">${pct(rate)}</td>`;
+  }).join('')}</tr>`).join('');
+  return `<div class="card hist"><h3>${esc(model)}</h3>
+    <div class="scroll"><table><thead><tr><th>Case</th>${head}</tr></thead><tbody>${rows}</tbody></table></div></div>`;
+}
+
 async function load() {
-  const [me, { runs, regressions }] = await Promise.all([api('/api/me'), api('/api/runs')]);
+  const [me, { runs, regressions, history }] = await Promise.all([api('/api/me'), api('/api/runs')]);
   $('who').innerHTML = esc(me.user) + (me.mock ? '<span class="mock">MOCK</span>' : '');
   $('ver').textContent = `eval-dashboard · ${me.commit}` + (me.mock ? ' · Mock-Daten' : '');
 
   const latest = runs[0];
+  $('latest').textContent = latest ? runLabel(latest) : '';
   $('cases').innerHTML = (latest?.cases ?? [])
     .map((c) => `<div class="case"><span>${esc(c.name)}</span><small>${pct(c.passRate)}</small></div>`).join('');
 
   $('regressions').innerHTML = regressions.length
     ? regressions.map((r) => `<div class="card reg">
-        <div><div class="ico">📉</div><div><b>${esc(r.case)}</b><span class="meta">vorher ${pct(r.from)}</span></div></div>
-        <div style="text-align:right"><div class="big" style="color:var(--bad)">${pct(r.to)}</div>
-          <button data-case="${esc(r.case)}">Ticket</button></div></div>`).join('')
-    : '<div class="card"><p>Keine Regression gegenüber dem vorigen Lauf. 👍</p></div>';
-  document.querySelectorAll('button[data-case]').forEach((b) => b.addEventListener('click', () => ticket(b, b.dataset.case)));
+        <div><div class="ico">📉</div><div><b>${esc(r.case)}</b>
+          <span class="meta">v${esc(r.fromVersion)} ${pct(r.from)} → v${esc(r.toVersion)} · ${esc(r.model)}</span></div></div>
+        <div style="text-align:right"><div class="big" style="color:var(--bad)">${pct(r.to)}</div></div></div>`).join('')
+    : '<div class="card"><p>Keine Regression gegenüber der vorigen Version auf demselben Modell. 👍</p></div>';
+
+  $('history').innerHTML = history.length
+    ? history.map(historyTable).join('')
+    : '<div class="card"><p>Noch kein Lauf auf dem Branch <code>eval-history</code>.</p></div>';
 
   // Only the latest run can carry the regressions the API reports.
   const regressed = new Set(regressions.map((r) => r.runId));
   $('runs').innerHTML = runs.map((r) => {
     const rates = r.cases.map((c) => pct(c.passRate)).join(' · ');
     return `<div class="row">${runChip(r, regressed)}
-      <span class="t">${esc(when(r.startedAt))}</span><span style="color:var(--muted)">${esc(rates)}</span>
-      <span class="r">$${r.costUsd.toFixed(2)} · ${r.durationSeconds}s</span></div>`;
+      <span class="t">${esc(runLabel(r))}</span><span style="color:var(--muted)">${esc(rates)}</span>
+      <span class="r">${esc(when(r.startedAt))} · $${(r.costUsd ?? 0).toFixed(2)} · ${r.durationSeconds}s</span></div>`;
   }).join('');
 }
 
@@ -95,8 +98,7 @@ function renderAgents() {
 
   const card = (name, icon, title, chipHtml, body) => `<div class="sub${selected === name ? ' sel' : ''}" role="button" tabindex="0"
       aria-pressed="${selected === name}" data-agent="${name}"><div class="ico">${icon}</div>
-      <div><h4>${title} ${chipHtml}</h4>${body}
-      ${name === 'tune' ? `<div class="actions"><button data-start="tune">Jetzt starten</button></div>` : ''}</div></div>`;
+      <div><h4>${title} ${chipHtml}</h4>${body}</div></div>`;
   $('pair').innerHTML =
     card('fuzz', '🎲', 'Fuzz-Agent', fuzzChip, fuzzBlock) + card('tune', '🎚️', 'Tuner', t ? chip(cls, label) : '', tuneBlock);
 
@@ -110,23 +112,8 @@ function renderAgents() {
         <span class="r">${esc(when(r.startedAt))}</span></div>`; }).join('');
 }
 
-async function startAgent(button, name) {
-  button.disabled = true;
-  $('msg').textContent = 'Start wird angefordert …';
-  try {
-    await api(`/api/agents/${name}/start`, { method: 'POST' });
-    $('msg').textContent = 'Tuner gestartet – er stößt den Fuzz-Agent selbst an.';
-  } catch (e) {
-    $('msg').textContent = e.message === 'Conflict' || /already|running/i.test(e.message)
-      ? 'Läuft bereits.' : `Fehler: ${e.message}`;
-  }
-  button.disabled = false;
-}
-
-// Clicks on the cards: the start button starts, the rest of the card selects its history.
+// A click on a card selects its history.
 $('pair').addEventListener('click', (ev) => {
-  const start = ev.target.closest('button[data-start]');
-  if (start) return startAgent(start, start.dataset.start);
   const card = ev.target.closest('[data-agent]');
   if (card) { selected = card.dataset.agent; renderAgents(); }
 });

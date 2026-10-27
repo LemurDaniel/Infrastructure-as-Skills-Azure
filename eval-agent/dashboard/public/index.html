@@ -59,7 +59,12 @@
     .sub:hover { border-color:var(--accent); }
     .sub.sel { border-color:var(--accent); background:var(--pill); }
     .sub:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
-    .actions { margin-top:12px; text-align:right; }
+    .hist { margin:16px 0; }
+    .hist .scroll { overflow-x:auto; margin-top:8px; }
+    .hist table { border-collapse:collapse; width:100%; font-variant-numeric:tabular-nums; }
+    .hist th, .hist td { padding:6px 10px; border-top:1px solid var(--line); text-align:right; white-space:nowrap; }
+    .hist th:first-child, .hist td:first-child { text-align:left; }
+    .hist td.ok { color:var(--ok); } .hist td.warn { color:var(--warn); } .hist td.bad { color:var(--bad); font-weight:700; }
     .sub > div:last-child { flex:1; min-width:0; }
     .sub h4 { margin:0 0 8px; font-size:16px; display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap; }
     .reg > div:first-child { display:flex; gap:14px; align-items:center; }
@@ -117,7 +122,7 @@
     <div id="view-agents" hidden>
       <section class="card">
         <h3>Tune &amp; Fuzz</h3>
-        <p>Der Fuzz-Agent zeichnet zufällige Specs mit dem Diagramm-Skript und bewertet das Layout (niedriger ist besser). Der Tuner liest den neuesten Fuzz-Report und committet einen Änderungsvorschlag auf einen Tuning-Branch, wenn der Score sinkt und die Tests bestehen – nie auf <code>master</code>.</p>
+        <p>Der Fuzz-Agent zeichnet zufällige Specs mit dem Diagramm-Skript und bewertet das Layout (niedriger ist besser). Der Tuner läuft alle 24 Stunden, liest den neuesten Fuzz-Report und committet einen Änderungsvorschlag auf einen Tuning-Branch, wenn der Score sinkt und die Tests bestehen – nie auf <code>master</code>.</p>
         <div class="pair" id="pair"></div>
       </section>
       <h2 class="sec" id="historyTitle">Letzte Läufe</h2>
@@ -126,10 +131,12 @@
     <div id="view-overview">
     <section class="card">
       <h3>Eval Dashboard</h3>
-      <p>Zeigt die Läufe der Eval-Suite mit Pass-Rate je Case, Kosten und Dauer. Fällt ein Case gegenüber dem vorigen Lauf ab, kann hier ein Ticket angelegt werden – offene Tickets zum selben Case bekommen stattdessen einen Kommentar. Baseline, Cases und Skills fasst das Dashboard nicht an.</p>
+      <p>Zeigt den Verlauf der Eval-Suite je Plugin-Version und Modell, aus dem Branch <code>eval-history</code>. Die Läufe kommen aus GitHub Actions: Pull Requests auf Haiku, Releases auf dem Standardmodell. Verglichen wird nur innerhalb eines Modells, gegen die vorige Version. Das Dashboard zeigt nur an.</p>
     </section>
-    <h2 class="sec">Regressionen im letzten Lauf</h2>
+    <h2 class="sec">Regressionen im letzten Lauf <small id="latest" style="color:var(--muted);font-weight:500"></small></h2>
     <div class="grid" id="regressions"></div>
+    <h2 class="sec">Verlauf je Version</h2>
+    <div id="history"></div>
     <h2 class="sec">Letzte Läufe</h2>
     <div id="runs"></div>
     </div>

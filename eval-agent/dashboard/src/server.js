@@ -1,14 +1,15 @@
 import express from 'express';
 import { fileURLToPath } from 'node:url';
-import { summarizeRun, summarizeFuzz, findRegressions, ticketText } from './results.js';
+import { summarizeFuzz, findRegressions, versionHistory } from './results.js';
 
 const publicDir = fileURLToPath(new URL('../public', import.meta.url));
 
+// Read-only: the dashboard shows the eval history and the fuzz and tuner reports. It starts no
+// run and files no ticket, so there is no write route.
 // userOf(req) -> name or null. Real: the App Service sign-in header. Mock: a fixed name.
-export function createApp({ store, github, agents, userOf, repoUrl, mock = false, commit = 'unknown' }) {
+export function createApp({ store, userOf, mock = false, commit = 'unknown' }) {
   const app = express();
   app.disable('x-powered-by');
-  app.use(express.json());
 
   app.get('/healthz', (_req, res) => res.json({ ok: true, mock }));
 
@@ -24,8 +25,8 @@ export function createApp({ store, github, agents, userOf, repoUrl, mock = false
 
   app.get('/api/runs', async (_req, res, next) => {
     try {
-      const summaries = (await store.listRuns()).map(({ id, run }) => summarizeRun(id, run));
-      res.json({ runs: summaries, regressions: findRegressions(summaries) });
+      const runs = await store.listRuns();
+      res.json({ runs, regressions: findRegressions(runs), history: versionHistory(runs) });
     } catch (e) { next(e); }
   });
 
@@ -33,29 +34,6 @@ export function createApp({ store, github, agents, userOf, repoUrl, mock = false
     try {
       const fuzz = (await store.listFuzz()).map(({ id, report }) => summarizeFuzz(id, report));
       res.json({ fuzz, tune: await store.listTune() });
-    } catch (e) { next(e); }
-  });
-
-  // The sign-in cookie rides along on cross-site posts: only accept our own origin.
-  const foreignOrigin = (req) => { const o = req.get('origin'); return !!o && new URL(o).host !== req.get('host'); };
-
-  app.post('/api/agents/:name/start', async (req, res, next) => {
-    try {
-      if (foreignOrigin(req)) return res.status(403).json({ error: 'bad origin' });
-      if (req.params.name !== 'tune') return res.status(404).json({ error: 'unknown agent' });
-      const r = await agents.start(req.params.name);
-      res.status(r.alreadyRunning ? 409 : 202).json(r);
-    } catch (e) { next(e); }
-  });
-
-  app.post('/api/tickets', async (req, res, next) => {
-    try {
-      if (foreignOrigin(req)) return res.status(403).json({ error: 'bad origin' });
-
-      const summaries = (await store.listRuns()).map(({ id, run }) => summarizeRun(id, run));
-      const reg = findRegressions(summaries).find((r) => r.case === req.body?.case);
-      if (!reg) return res.status(404).json({ error: 'no regression for that case in the latest run' });
-      res.json(await github.fileTicket(ticketText(reg, repoUrl)));
     } catch (e) { next(e); }
   });
 
