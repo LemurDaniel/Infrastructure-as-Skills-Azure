@@ -523,6 +523,17 @@ per-family` in `check_spec.py` and the `chatbot` spec, and `references/private-d
 
 ### Interview and spec
 
+- **A chat-app test with a slot as the test stage** (2026-10-27, 0.5.4) left: Phase 0 asks two
+  points in prose (what for, who from where) and announces no default; stages and every
+  fixed-answer requirement are the batch's. `public_parts` is forced when one application is
+  the only part people open. Deployment slots are a `slots` group of the App Service set
+  (`slot_access` interview; slots force Premium v3 and one shared user-assigned identity),
+  and Phase 4 says a slot named as a stage runs on production data. The sets are read
+  through `interview_digest.py` (a run's own extraction dropped `forced_when`). Open: no
+  render, example or eval case with a slot; an `open:` entry may still name a resource the
+  spec does not have (proposed: a `check_spec.py` rule); `offer` texts repeat the value
+  their label already shows (`30 Tage - ...`); whether the progress line before each batch
+  call stays at all; the eval suite has not run on this branch.
 - **Deployer roles are in the spec** (2026-10-26): `deployment.deployer_roles`, derived
   (`forced`), lists what the deploying identity needs beyond `Contributor` - `Contributor` on
   `subscription` for a `create` group, `Role Based Access Control Administrator` for any role
