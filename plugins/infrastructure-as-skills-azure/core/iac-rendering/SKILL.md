@@ -68,8 +68,8 @@ than inferring the shape from an example spec.
    it, for the fallback case and for reading what the module does inside.
 5. **Render names from the right mechanism** — [naming.md](references/naming.md). The
    Terraform provider resolves them; in Bicep they are assembled from vars because the
-   naming modules are not shipped. A re-render keeps every name the root already has: in
-   Bicep an older pattern becomes a departure in `naming.yaml`, never a rename.
+   naming modules are not shipped. Both read the root's `naming.yaml`, never the plugin's
+   default, so a re-render keeps every name the root already has.
 6. **Write the secure value explicitly**, even where it matches the provider or API
    default. A default can move between versions and an absent attribute is invisible in
    review.

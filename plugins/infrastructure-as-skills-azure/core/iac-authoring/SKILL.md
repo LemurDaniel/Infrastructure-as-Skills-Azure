@@ -891,18 +891,15 @@ ships no sample spec to copy, and the scripts are tools, not documentation — r
 `write_spec.py`, `check_spec.py`, `new_diagram.py` and `export_decisions.py`, never read their source to
 learn what a spec looks like. What `check_spec.py` rejects, it names.
 
-**For a Terraform target, write `naming.yaml` beside it in the same step**, when the
-directory has none: a full copy of
+**Write `naming.yaml` beside it in the same step**, for either target, when the directory
+has none: a full copy of
 [naming.default.yaml](../iac-rendering/references/naming.default.yaml), with any departure
-the user stated applied to it. The provider reads it at plan time, so it belongs to the
-spec, not to the code — the names in the diagram and every later render come from it, and
-a run that stops after the spec (the user says "not yet" / "noch nicht") must still leave the
-convention in the repository. An existing `naming.yaml` is left untouched.
-
-**For a Bicep target, write none** — nothing in a Bicep deployment reads it; the names are
-`var`s generated into the template from the plugin's convention. Only a stated departure
-(`naming_convention: custom`) is written, as a `naming.yaml` holding the departures alone.
-The rules are in [naming.md](../iac-rendering/references/naming.md#namingyaml-in-the-users-repository--full-in-terraform-departures-in-bicep).
+the user stated applied to it. Terraform's provider reads it at plan time, Bicep's name
+`var`s are generated from it, so it belongs to the spec, not to the code — the names in the
+diagram and every later render come from it, and a run that stops after the spec (the user
+says "not yet" / "noch nicht") must still leave the convention in the repository. An
+existing `naming.yaml` is left untouched. The rules are in
+[naming.md](../iac-rendering/references/naming.md#namingyaml-in-the-users-repository--a-full-copy-both-targets).
 
 **Record who reaches what in `wiring:`** when the spec holds more than one resource, from
 what the request says — the diagram draws exactly this and nothing else

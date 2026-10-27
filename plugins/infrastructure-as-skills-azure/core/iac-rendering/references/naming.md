@@ -19,8 +19,9 @@ this file describes `provider`, the default. One mechanism per configuration, ne
 | `module` | `module "naming" { source = "Azure/naming/azurerm" }` and its outputs (`module.naming.storage_account.name`); look up the version live and pin the minor. The module has no `naming.yaml`: a departure from its pattern is a `custom` decision, not a patch |
 | `custom` | The repository's own mechanism, carried as it is - locals, an in-house module. Do not add a pattern the repository does not have |
 
-`naming.yaml` is written only for `provider`. The spec still records `naming_convention`;
-with `module` the convention is the module's own. Bicep ignores `naming_source`.
+`naming.yaml` is written for `provider` and for every Bicep root; with `module` and `custom`
+the convention is the module's or the repository's own. The spec still records
+`naming_convention`. Bicep ignores `naming_source`.
 
 ## The convention
 
@@ -41,34 +42,28 @@ What it produces, with `location: westeurope`, `environment: production`,
 | Storage account | `<TYPE><LOCATION><ENVIRONMENT><NAME><INDEX>`, lowercase | `stweprodpayments01` |
 | Key vault, Cosmos DB, Foundry, AI Search | `<TYPE>-<LOCATION>-<ENVIRONMENT>-<NAME>-<UNIQUE_ID_4>` | `kv-we-prod-payments-a1b2` |
 
-### `naming.yaml` in the user's repository — full in Terraform, departures in Bicep
+### `naming.yaml` in the user's repository — a full copy, both targets
 
-For a **Terraform** target the first run writes a **full copy** of the default as
-`naming.yaml` next to `infra-spec.yaml`: the provider reads it at plan time, so the file is
-part of the deployed configuration. From then on that file is the user's convention: they
-edit it, every later run reads it, and **no run overwrites it**.
+The first run writes a **full copy** of the default as `naming.yaml` next to
+`infra-spec.yaml`, whatever the target. Terraform's provider reads it at plan time; Bicep's
+name `var` block is generated from it. From then on that file is the user's convention:
+they edit it, every later run reads it - never the plugin's default - and **no run
+overwrites it**.
 
-A **Bicep** target gets no copy. Nothing in a Bicep deployment reads the file — the names
-are `var`s generated into the template from the plugin's default convention
-([below](#bicep-names-from-vars)) — so a copy would be five hundred lines nobody reads and
-a second place for the convention to drift. A Bicep root carries a `naming.yaml` only when
-`deployment.naming_convention` is `custom`: then it holds the departures, and only the
-departures, as the source the `var` block is regenerated from.
-
-**A re-render never renames what the root already names.** Before regenerating the `var`
-block of an existing Bicep root, compare each name `var` with the pattern the current
-default gives its type. Where they differ - the root was rendered from an older default -
-write that type's old pattern into the root's `naming.yaml` as a departure, set
-`naming_convention: custom` and render from that. The names stay, and the diff in the
-template is empty. Terraform needs none of this: its full copy already pins the convention.
-
-A full copy on the Terraform side rather than an empty override file, for two reasons:
+A full copy rather than an empty override file, for two reasons:
 
 - **Names are part of the deployed state.** Most Azure resources cannot be renamed — a
   changed name is a destroy and a create. A convention that silently followed the plugin's
   or the provider's default would rename resources on an upgrade. The copy pins it.
 - **The user can see what they are editing.** An override file of three lines hides the
   five hundred it is merged over.
+
+**A Bicep root from before the copy** has name `var`s and no `naming.yaml`. Its first
+re-render writes the copy from what the root names, not from today's default: where a
+name `var` follows another pattern than the current default gives its type - the root was
+rendered from an older one - that old pattern goes into the copy. The names stay, the diff
+in the template is empty, and `naming_convention` stays as it was: the convention is pinned,
+not changed by the customer.
 
 When the user states a departure — a different pattern, their own abbreviation, an
 environment the convention lacks — it goes **into `naming.yaml`**, never into a template
@@ -200,8 +195,7 @@ it.** It is not ready to ship, and a template importing it is a template that br
 its interface moves. Never import `utility/naming/*`, never call `genName` or `genNameId`.
 
 Assemble the name from `var`s instead, **generated from the convention** — the plugin's
-[naming.default.yaml](naming.default.yaml), with the repository's `naming.yaml` merged over
-it where one exists (`naming_convention: custom`) — never typed from memory, or the two
+`naming.yaml` beside the spec, the full copy above — never typed from memory, or the two
 targets name the same resource differently:
 
 - the two maps hold exactly the `mappings.location` and `mappings.environment` entries the
@@ -313,7 +307,7 @@ What it cannot know it says, per row, and the hand-over repeats it:
   module names inside itself.
 
 Hand the list over as a table in `context.language`: resource, name, action, note. Ask once
-whether the names fit ("Do the names fit?" / "Passen die Namen?"). A departure is **`naming.yaml`** (Terraform) or
-the regenerated `var` block (Bicep) with `naming_convention: custom`, then a new list; never
+whether the names fit ("Do the names fit?" / "Passen die Namen?"). A departure is an edit to **`naming.yaml`**
+(and in Bicep the `var` block regenerated from it) with `naming_convention: custom`, then a new list; never
 a literal in a template. A renamed resource is a destroy and a create - once deployed, a
 name stays. The names are not a spec decision and are not written to it.

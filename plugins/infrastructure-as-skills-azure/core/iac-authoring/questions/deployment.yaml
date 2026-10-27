@@ -236,13 +236,12 @@ groups:
         why: >
           The plugin's convention (core/iac-rendering/references/naming.default.yaml:
           CAF abbreviations, AVM region codes, per-type patterns where Azure's
-          limits force them) is the convention. A Terraform root gets a full copy
-          as naming.yaml beside the spec, because the provider reads it at plan
-          time; a Bicep root gets none, its name vars are generated from the
-          convention. `custom` means the user stated a departure - a pattern, an
-          abbreviation, an environment code - and it is written into naming.yaml
-          (for Bicep: a file holding the departures alone), never into a
-          template. An existing naming.yaml or naming provider block in the
+          limits force them) is the convention. Every root gets a full copy as
+          naming.yaml beside the spec: Terraform's provider reads it at plan
+          time, Bicep's name vars are generated from it, and the copy pins the
+          names against a later default. `custom` means the user stated a
+          departure - a pattern, an abbreviation, an environment code - and it
+          is written into naming.yaml, never into a template. An existing naming.yaml or naming provider block in the
           repository is carried and never replaced. Not asked
           unless the user raises it: a convention is a deployment-wide decision,
           and most names cannot change after creation, so a run that offered it
