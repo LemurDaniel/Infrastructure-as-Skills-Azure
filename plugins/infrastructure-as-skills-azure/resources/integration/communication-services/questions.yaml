@@ -29,12 +29,14 @@ groups:
     title: Placement
     questions:
       - id: environments
-        ask: Which stages is this deployed to?
+        ask:
+          en: "Which stages is this deployed to?"
+          de: "In welche Stufen wird das ausgerollt?"
         type: list
         plain:
           en: "Deployed in the stages {value}."
           de: "Wird in den Stufen {value} ausgerollt."
-        values: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
+        accepts: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
         required: true
         from_context: true
         why: >
@@ -45,7 +47,9 @@ groups:
           one
 
       - id: location
-        ask: Which Azure region?
+        ask:
+          en: "Which Azure region?"
+          de: "Welche Azure-Region?"
         type: string
         plain:
           en: "The resource is global; its data lives in the region group below."
@@ -59,12 +63,14 @@ groups:
         renders: location = "global"
 
       - id: resource_group_name
-        ask: Which resource group?
-        type: ref
+        ask:
+          en: "Which resource group?"
+          de: "Welche Ressourcengruppe?"
+        type: string
         plain:
           en: "Placed in the resource group {value}."
           de: "Liegt in der Ressourcengruppe {value}."
-        ref: resource_group
+        accepts: { ref: resource_group }
         required: true
         from_context: true
         per_environment: true
@@ -79,7 +85,9 @@ groups:
     title: Data location and channels
     questions:
       - id: data_location
-        ask: In which geography must the communication data rest?
+        ask:
+          en: "In which geography must the communication data rest?"
+          de: "In welcher Geografie müssen die Kommunikationsdaten liegen?"
         type: enum
         plain:
           en: "Messages, call records and e-mail data rest in {value}."
@@ -101,9 +109,8 @@ groups:
           UAE: { en: "the United Arab Emirates", de: "den Vereinigten Arabischen Emiraten" }
           UK: { en: "the United Kingdom", de: "dem Vereinigten Königreich" }
           United States: { en: "the United States", de: "den USA" }
-        values: [Africa, Asia Pacific, Australia, Brazil, Canada, Europe, France, Germany, India, Japan, Korea, Norway, Switzerland, UAE, UK, United States]
+        accepts: [Africa, Asia Pacific, Australia, Brazil, Canada, Europe, France, Germany, India, Japan, Korea, Norway, Switzerland, UAE, UK, United States]
         required: true
-        confirm_in: [production]
         forced_when: >
           The engineer sets it from the deployment's `location` and the customer's
           `data_residency`: `data_zone` takes the location's geography (`Europe` for an EU
@@ -117,13 +124,15 @@ groups:
           and a new endpoint. It decides where chat messages, call records, SMS and e-mail
           data rest - processing may happen elsewhere - and it is the answer to a GDPR
           question. It cannot be derived mechanically because it depends on the region as
-          well as the residency answer, so the engineer sets it by the rule in
-          `forced_when`, and the value is confirmed in production. The communication resource
+          well as the residency answer, so it is set by the rule in
+          `forced_when`. The communication resource
           and the e-mail service must share it, or the domain cannot be linked.
         renders: data_location / dataLocation (both resources)
 
       - id: email
-        ask: Will the system send e-mail, and from which kind of address?
+        ask:
+          en: "Will the system send e-mail, and from which kind of address?"
+          de: "Wird das System E-Mails versenden, und von welcher Art Adresse?"
         type: enum
         resolved_by: interview
         topic: application
@@ -134,7 +143,7 @@ groups:
           none: { en: "not at all - no e-mail service", de: "nicht - kein E-Mail-Dienst" }
           azure_managed_domain: { en: "from an address on a Microsoft-provided domain, usable at once, for internal and test mail", de: "von einer Adresse auf einer von Microsoft gestellten Domain, sofort nutzbar, für interne und Testmails" }
           custom_domain: { en: "from your own domain, after it is verified in your DNS", de: "von eurer eigenen Domain, nachdem sie in eurem DNS bestätigt wurde" }
-        values: [none, azure_managed_domain, custom_domain]
+        accepts: [none, azure_managed_domain, custom_domain]
         default: none
         why: >
           E-mail is a separate resource (an Email Communication Service with a domain) linked
@@ -150,7 +159,9 @@ groups:
           linkedDomains on the communication resource
 
       - id: custom_domain_name
-        ask: Which domain should the mail be sent from?
+        ask:
+          en: "Which domain should the mail be sent from?"
+          de: "Von welcher Domain sollen die Mails versendet werden?"
         type: string
         resolved_by: interview
         topic: application
@@ -168,7 +179,9 @@ groups:
         renders: email_communication_service_domains.<key>.name / domains[].name
 
       - id: sender_usernames
-        ask: Which sender names should exist on the domain?
+        ask:
+          en: "Which sender names should exist on the domain?"
+          de: "Welche Absendernamen soll es auf der Domain geben?"
         type: list
         plain:
           en: "Sender addresses: {value} @ the domain."
@@ -186,7 +199,9 @@ groups:
           domains[].senderUsernames[]
 
       - id: user_engagement_tracking
-        ask: Should opens and link clicks in the mails be tracked?
+        ask:
+          en: "Should opens and link clicks in the mails be tracked?"
+          de: "Sollen Öffnungen und Link-Klicks in den Mails erfasst werden?"
         type: bool
         plain:
           en: "Opens and clicks are {value}."
@@ -206,7 +221,9 @@ groups:
     title: Networking
     questions:
       - id: public_network_access
-        ask: Should this resource depart from the deployment's exposure posture?
+        ask:
+          en: "Should this resource depart from the deployment's exposure posture?"
+          de: "Soll diese Ressource von der Erreichbarkeit des Deployments abweichen?"
         type: enum
         plain:
           en: "The communication endpoint is {value}."
@@ -215,9 +232,8 @@ groups:
           disabled: { en: not reachable from the internet at all, de: aus dem Internet überhaupt nicht erreichbar }
           enabled_with_firewall: { en: reachable from the internet only from listed addresses, de: aus dem Internet nur von gelisteten Adressen erreichbar }
           enabled: { en: reachable from the internet, de: aus dem Internet erreichbar }
-        values: [disabled, enabled_with_firewall, enabled]
+        accepts: [disabled, enabled_with_firewall, enabled]
         from_deployment: network_exposure
-        confirm_in: [production]
         forced_when: >
           Without a `network_security_perimeter`, `disabled` and `enabled_with_firewall` are
           forced to `enabled` and recorded as forced with `network_security_perimeter` as
@@ -238,13 +254,15 @@ groups:
           argument); bicep: publicNetworkAccess
 
       - id: network_security_perimeter
-        ask: Which network security perimeter should the resource join?
-        type: ref
+        ask:
+          en: "Which network security perimeter should the resource join?"
+          de: "Welchem Network Security Perimeter soll die Ressource beitreten?"
+        type: string
         resolved_by: derived
         plain:
           en: "Joined to the network security perimeter {value} (empty: none)."
           de: "Dem Netzwerksicherheitsperimeter {value} zugeordnet (leer: keinem)."
-        ref: network_security_perimeter
+        accepts: { ref: network_security_perimeter }
         default: ""
         per_environment: true
         why: >
@@ -260,7 +278,9 @@ groups:
     title: Identity and access
     questions:
       - id: managed_identity
-        ask: Which managed identity should the resource carry?
+        ask:
+          en: "Which managed identity should the resource carry?"
+          de: "Welche Managed Identity soll die Ressource tragen?"
         type: enum
         plain:
           en: "The resource has {value}."
@@ -269,7 +289,7 @@ groups:
           none: { en: no identity of its own, de: keine eigene Identität }
           system_assigned: { en: its own identity, de: eine eigene Identität }
           user_assigned: { en: a separately managed identity, de: eine separat verwaltete Identität }
-        values: [none, system_assigned, user_assigned]
+        accepts: [none, system_assigned, user_assigned]
         default: none
         why: >
           The resource's identity is what it reaches other resources with - a storage
@@ -281,12 +301,14 @@ groups:
         renders: managed_identities / managedIdentities
 
       - id: user_assigned_identity_ids
-        ask: Which user-assigned identity?
+        ask:
+          en: "Which user-assigned identity?"
+          de: "Welche User-Assigned Identity?"
         type: list
         plain:
           en: "It uses the identity {value}."
           de: "Es nutzt die Identität {value}."
-        ref: user_assigned_identity
+        accepts: { ref: user_assigned_identity }
         required: true
         depends_on: { question: managed_identity, equals: user_assigned }
         per_environment: true
@@ -294,7 +316,9 @@ groups:
         renders: managed_identities.user_assigned_resource_ids / managedIdentities.userAssignedResourceIds
 
       - id: role_assignments
-        ask: Who needs which role on this resource?
+        ask:
+          en: "Who needs which role on this resource?"
+          de: "Wer braucht welche Rolle auf dieser Ressource?"
         type: list
         plain:
           en: "Access rights on the resource granted to: {value}."
@@ -313,7 +337,9 @@ groups:
     title: Security
     questions:
       - id: local_authentication_disabled
-        ask: May clients sign in with the access keys or the connection string?
+        ask:
+          en: "May clients sign in with the access keys or the connection string?"
+          de: "Dürfen sich Clients mit den Zugriffsschlüsseln oder dem Connection String anmelden?"
         type: bool
         plain:
           en: "Signing in with access keys is {value}; access goes through company accounts."
@@ -322,7 +348,6 @@ groups:
           true: { en: "switched off", de: "abgeschaltet" }
           false: { en: "possible", de: "möglich" }
         from_deployment: local_auth
-        confirm_in: [production]
         forced_when: >
           `local_auth: allowed_where_unavoidable` is named for a client SDK or a connector
           that offers no token credential - checked against the SDK before a render, because
@@ -342,13 +367,15 @@ groups:
     title: Observability
     questions:
       - id: diagnostic_workspace
-        ask: Which Log Analytics workspace should receive diagnostics?
-        type: ref
+        ask:
+          en: "Which Log Analytics workspace should receive diagnostics?"
+          de: "Welcher Log Analytics Workspace soll die Diagnosedaten erhalten?"
+        type: string
         resolved_by: derived
         plain:
           en: "Its logs go to {value}."
           de: "Seine Logs gehen in {value}."
-        ref: log_analytics_workspace
+        accepts: { ref: log_analytics_workspace }
         from_deployment: diagnostics_destination
         per_environment: true
         why: >
@@ -357,7 +384,9 @@ groups:
         renders: diagnostic_settings / diagnosticSettings
 
       - id: diagnostic_categories
-        ask: Which log categories should be collected?
+        ask:
+          en: "Which log categories should be collected?"
+          de: "Welche Log-Kategorien sollen erfasst werden?"
         type: list
         plain:
           en: "Logged: {value}."
@@ -372,7 +401,7 @@ groups:
           EmailSendMailOperational: { en: "every send request", de: "jede Sendeanfrage" }
           EmailStatusUpdateOperational: { en: "delivery status of every mail", de: "Zustellstatus jeder Mail" }
           EmailUserEngagementOperational: { en: "opens and clicks, where tracking is on", de: "Öffnungen und Klicks, wo Tracking an ist" }
-        values: [Usage, AuthOperational, ChatOperational, SMSOperational, CallSummary, CallDiagnostics, EmailSendMailOperational, EmailStatusUpdateOperational, EmailUserEngagementOperational]
+        accepts: [Usage, AuthOperational, ChatOperational, SMSOperational, CallSummary, CallDiagnostics, EmailSendMailOperational, EmailStatusUpdateOperational, EmailUserEngagementOperational]
         default: [Usage, AuthOperational]
         why: >
           Usage and authentication are the record every deployment needs: what was billed
@@ -387,7 +416,9 @@ groups:
           diagnosticSettings[].logCategoriesAndGroups[].category
 
       - id: metrics_enabled
-        ask: Should all metrics be collected?
+        ask:
+          en: "Should all metrics be collected?"
+          de: "Sollen alle Metriken erfasst werden?"
         type: bool
         plain:
           en: "Usage and performance figures are {value}."

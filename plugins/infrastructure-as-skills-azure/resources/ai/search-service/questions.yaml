@@ -26,12 +26,14 @@ groups:
     title: Placement
     questions:
       - id: environments
-        ask: Which stages is this deployed to?
+        ask:
+          en: "Which stages is this deployed to?"
+          de: "In welche Stufen wird das ausgerollt?"
         type: list
         plain:
           en: "Deployed in the stages {value}."
           de: "Wird in den Stufen {value} ausgerollt."
-        values: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
+        accepts: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
         required: true
         from_context: true
         why: >
@@ -40,7 +42,9 @@ groups:
         renders: naming parameter `environment`, and the tag of that name where the repository uses one
 
       - id: location
-        ask: Which Azure region?
+        ask:
+          en: "Which Azure region?"
+          de: "Welche Azure-Region?"
         type: string
         plain:
           en: "Runs in the Azure region {value}."
@@ -54,12 +58,14 @@ groups:
         renders: location
 
       - id: resource_group_name
-        ask: Which resource group?
-        type: ref
+        ask:
+          en: "Which resource group?"
+          de: "Welche Ressourcengruppe?"
+        type: string
         plain:
           en: "Placed in the resource group {value}."
           de: "Liegt in der Ressourcengruppe {value}."
-        ref: resource_group
+        accepts: { ref: resource_group }
         required: true
         from_context: true
         per_environment: true
@@ -73,7 +79,9 @@ groups:
     title: Service tier and capacity
     questions:
       - id: sku
-        ask: Which service tier?
+        ask:
+          en: "Which service tier?"
+          de: "Welcher Diensttarif?"
         type: enum
         plain:
           en: "The search service is the {value} tier."
@@ -83,10 +91,9 @@ groups:
           standard: { en: "standard, the normal production tier", de: "Standard, die übliche Produktionsstufe" }
           standard2: { en: "standard 2, four times the capacity of standard", de: "Standard 2, die vierfache Kapazität von Standard" }
           standard3: { en: "standard 3, eight times the capacity of standard", de: "Standard 3, die achtfache Kapazität von Standard" }
-        values: [basic, standard, standard2, standard3]
+        accepts: [basic, standard, standard2, standard3]
         default: standard
         non_production_default: basic
-        confirm_in: [production]
         why: >
           Free is left out on purpose: it has no private endpoint, no replicas and is shared.
           **The tier is fixed at creation** - a service cannot move between tiers, it is
@@ -99,7 +106,9 @@ groups:
         renders: sku / sku.name
 
       - id: replica_count
-        ask: How many copies of the index should serve queries?
+        ask:
+          en: "How many copies of the index should serve queries?"
+          de: "Wie viele Kopien des Index sollen Abfragen beantworten?"
         type: int
         plain:
           en: "{value} copies of the index answer queries."
@@ -108,7 +117,6 @@ groups:
           question: outage_impact
           map: { tolerable: 1, disruptive: 2, critical: 3 }
         non_production_default: 1
-        confirm_in: [production]
         why: >
           Derived from how bad an outage is. One replica is a single point of failure that is
           also unavailable during platform updates; **two keep queries running, three keep
@@ -119,7 +127,9 @@ groups:
         renders: replica_count / replicaCount
 
       - id: partition_count
-        ask: How many partitions should the index be spread over?
+        ask:
+          en: "How many partitions should the index be spread over?"
+          de: "Auf wie viele Partitionen soll der Index verteilt werden?"
         type: int
         plain:
           en: "The index data is spread over {value} partition(s)."
@@ -134,7 +144,9 @@ groups:
         renders: partition_count / partitionCount
 
       - id: semantic_ranker
-        ask: Should results be re-ranked by meaning?
+        ask:
+          en: "Should results be re-ranked by meaning?"
+          de: "Sollen Ergebnisse nach Bedeutung neu gereiht werden?"
         type: enum
         plain:
           en: "Re-ranking of results by meaning is {value}."
@@ -143,7 +155,7 @@ groups:
           disabled: { en: "off", de: "aus" }
           free: { en: "on, within a small free monthly allowance", de: "an, im Rahmen eines kleinen kostenlosen Monatskontingents" }
           standard: { en: "on, billed per thousand queries", de: "an, abgerechnet pro tausend Anfragen" }
-        values: [disabled, free, standard]
+        accepts: [disabled, free, standard]
         default: free
         why: >
           The semantic ranker is what makes retrieval for a chat application noticeably
@@ -157,7 +169,9 @@ groups:
     title: Networking
     questions:
       - id: public_network_access
-        ask: Should this service depart from the deployment's exposure posture?
+        ask:
+          en: "Should this service depart from the deployment's exposure posture?"
+          de: "Soll dieser Dienst von der Erreichbarkeit des Deployments abweichen?"
         type: enum
         plain:
           en: "The search service is {value}."
@@ -166,9 +180,8 @@ groups:
           disabled: { en: "not reachable from the internet at all", de: "aus dem Internet überhaupt nicht erreichbar" }
           enabled_with_firewall: { en: "reachable from the internet only from listed addresses", de: "aus dem Internet nur von gelisteten Adressen erreichbar" }
           enabled: { en: "reachable from the internet", de: "aus dem Internet erreichbar" }
-        values: [disabled, enabled_with_firewall, enabled]
+        accepts: [disabled, enabled_with_firewall, enabled]
         from_deployment: network_exposure
-        confirm_in: [production]
         why: >
           Asked only as a departure: exposure is a property of the system. `private` is
           `disabled`, `public` is `enabled_with_firewall`. **Both modules default to public
@@ -186,13 +199,15 @@ groups:
           bicep: publicNetworkAccess and networkRuleSet.ipRules
 
       - id: private_endpoint_subnet
-        ask: Which subnet should this service's private endpoint live in?
-        type: ref
+        ask:
+          en: "Which subnet should this service's private endpoint live in?"
+          de: "In welchem Subnetz soll der Private Endpoint dieses Dienstes liegen?"
+        type: string
         resolved_by: derived
         plain:
           en: "Its private connection lands in subnet {value}."
           de: "Seine private Anbindung landet im Subnetz {value}."
-        ref: subnet
+        accepts: { ref: subnet }
         from_deployment: private_endpoint_subnet
         per_environment: true
         why: >
@@ -201,7 +216,9 @@ groups:
         renders: private_endpoints.<key>.subnet_resource_id / privateEndpoints[].subnetResourceId (service `searchService`)
 
       - id: ip_rules
-        ask: Which public IP ranges may reach the service?
+        ask:
+          en: "Which public IP ranges may reach the service?"
+          de: "Welche öffentlichen IP-Bereiche dürfen den Dienst erreichen?"
         type: list
         plain:
           en: "Public addresses allowed to reach the search service: {value}."
@@ -216,7 +233,9 @@ groups:
         renders: allowed_ips / networkRuleSet.ipRules
 
       - id: network_rule_bypass
-        ask: May trusted Azure services reach the service past its firewall?
+        ask:
+          en: "May trusted Azure services reach the service past its firewall?"
+          de: "Dürfen vertrauenswürdige Azure-Dienste den Dienst an seiner Firewall vorbei erreichen?"
         type: enum
         plain:
           en: "Trusted Azure services {value} past the search service's firewall."
@@ -224,7 +243,7 @@ groups:
         plain_values:
           None: { en: "may not pass", de: "dürfen nicht" }
           AzureServices: { en: "may pass", de: "dürfen" }
-        values: [None, AzureServices]
+        accepts: [None, AzureServices]
         default: None
         why: >
           The bypass lets Microsoft services that call the service as themselves (an Azure
@@ -238,7 +257,9 @@ groups:
     title: Identity and access
     questions:
       - id: managed_identity
-        ask: Which managed identity should the service carry?
+        ask:
+          en: "Which managed identity should the service carry?"
+          de: "Welche Managed Identity soll der Dienst tragen?"
         type: enum
         plain:
           en: "The search service has {value}."
@@ -247,7 +268,7 @@ groups:
           none: { en: "no identity of its own", de: "keine eigene Identität" }
           system_assigned: { en: "its own identity", de: "eine eigene Identität" }
           user_assigned: { en: "a separately managed identity", de: "eine separat verwaltete Identität" }
-        values: [none, system_assigned, user_assigned]
+        accepts: [none, system_assigned, user_assigned]
         default: system_assigned
         why: >
           With keys off, an indexer reads its data source - storage, Cosmos DB - and a skillset
@@ -258,12 +279,14 @@ groups:
         renders: managed_identities / managedIdentities
 
       - id: user_assigned_identity_ids
-        ask: Which user-assigned identity?
+        ask:
+          en: "Which user-assigned identity?"
+          de: "Welche User-Assigned Identity?"
         type: list
         plain:
           en: "It uses the identity {value}."
           de: "Es nutzt die Identität {value}."
-        ref: user_assigned_identity
+        accepts: { ref: user_assigned_identity }
         required: true
         depends_on: { question: managed_identity, equals: user_assigned }
         per_environment: true
@@ -271,7 +294,9 @@ groups:
         renders: managed_identities.user_assigned_resource_ids / managedIdentities.userAssignedResourceIds
 
       - id: role_assignments
-        ask: Who needs which role on this service?
+        ask:
+          en: "Who needs which role on this service?"
+          de: "Wer braucht welche Rolle auf diesem Dienst?"
         type: list
         plain:
           en: "Access rights on the search service granted to: {value}."
@@ -293,7 +318,9 @@ groups:
     title: Security
     questions:
       - id: local_authentication_disabled
-        ask: May clients sign in with API keys?
+        ask:
+          en: "May clients sign in with API keys?"
+          de: "Dürfen sich Clients mit API-Schlüsseln anmelden?"
         type: bool
         plain:
           en: "Signing in with API keys is {value}; access goes through company accounts."
@@ -302,7 +329,6 @@ groups:
           true: { en: "switched off", de: "abgeschaltet" }
           false: { en: "possible", de: "möglich" }
         from_deployment: local_auth
-        confirm_in: [production]
         why: >
           Inherited: `local_auth: disabled` renders as `true`. An admin key can read, change
           and delete every index and cannot be attributed. **The modules disagree**: the Bicep
@@ -312,7 +338,9 @@ groups:
         renders: local_authentication_enabled (inverse) / disableLocalAuth
 
       - id: key_management
-        ask: Are the service's encryption keys platform-managed or customer-managed?
+        ask:
+          en: "Are the service's encryption keys platform-managed or customer-managed?"
+          de: "Werden die Schlüssel des Dienstes von der Plattform verwaltet oder vom Kunden?"
         type: enum
         plain:
           en: "Encryption keys are {value}."
@@ -320,9 +348,8 @@ groups:
         plain_values:
           platform_managed: { en: "managed by Azure - encrypted, rotated, no effort on your side", de: "von Azure verwaltet: verschlüsselt, rotiert, kein Aufwand bei euch" }
           customer_managed: { en: "your own, held in your key vault, so you can revoke them", de: "eure eigenen in eurem Schlüsseltresor, damit ihr sie zurückziehen könnt" }
-        values: [platform_managed, customer_managed]
+        accepts: [platform_managed, customer_managed]
         from_deployment: key_management
-        confirm_in: [production]
         why: >
           Inherited. Search encrypts per object (each index, synonym map, indexer with its own
           key from the application), not per service, so `customer_managed` is expressed here
@@ -332,7 +359,9 @@ groups:
         renders: whether `cmk_enforcement` is asked at all
 
       - id: cmk_enforcement
-        ask: Should the service refuse objects that are not encrypted with a customer key?
+        ask:
+          en: "Should the service refuse objects that are not encrypted with a customer key?"
+          de: "Soll der Dienst Objekte ablehnen, die nicht mit einem Kundenschlüssel verschlüsselt sind?"
         type: bool
         plain:
           en: "Objects not encrypted with your own key are {value}."
@@ -354,13 +383,15 @@ groups:
     title: Observability
     questions:
       - id: diagnostic_workspace
-        ask: Which Log Analytics workspace should receive diagnostics?
-        type: ref
+        ask:
+          en: "Which Log Analytics workspace should receive diagnostics?"
+          de: "Welcher Log Analytics Workspace soll die Diagnosedaten erhalten?"
+        type: string
         resolved_by: derived
         plain:
           en: "Its logs go to {value}."
           de: "Seine Logs gehen in {value}."
-        ref: log_analytics_workspace
+        accepts: { ref: log_analytics_workspace }
         from_deployment: diagnostics_destination
         per_environment: true
         why: >
@@ -369,14 +400,16 @@ groups:
         renders: diagnostic_settings / diagnosticSettings
 
       - id: diagnostic_categories
-        ask: Which log categories should be collected?
+        ask:
+          en: "Which log categories should be collected?"
+          de: "Welche Log-Kategorien sollen erfasst werden?"
         type: list
         plain:
           en: "Logged: {value}."
           de: "Geloggt wird: {value}."
         plain_values:
           OperationLogs: { en: "every query and every change to indexes and indexers", de: "jede Abfrage und jede Änderung an Indizes und Indexern" }
-        values: [OperationLogs]
+        accepts: [OperationLogs]
         default: [OperationLogs]
         why: >
           The service has one log category and it is the audit and the query log in one: who
@@ -387,7 +420,9 @@ groups:
         renders: diagnostic_settings.<key>.logs[].category / diagnosticSettings[].logCategoriesAndGroups[].category
 
       - id: metrics_enabled
-        ask: Should all metrics be collected?
+        ask:
+          en: "Should all metrics be collected?"
+          de: "Sollen alle Metriken erfasst werden?"
         type: bool
         plain:
           en: "Usage and performance figures are {value}."

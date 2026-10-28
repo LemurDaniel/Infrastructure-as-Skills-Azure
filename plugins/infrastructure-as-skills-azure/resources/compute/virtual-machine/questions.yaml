@@ -31,12 +31,14 @@ groups:
     title: Placement
     questions:
       - id: environments
-        ask: Which stages is this deployed to?
+        ask:
+          en: "Which stages is this deployed to?"
+          de: "In welche Stufen wird das ausgerollt?"
         type: list
         plain:
           en: "Deployed in the stages {value}."
           de: "Wird in den Stufen {value} ausgerollt."
-        values: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
+        accepts: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
         required: true
         from_context: true
         why: >
@@ -46,7 +48,9 @@ groups:
         renders: naming parameter `environment`, and the tag of that name where the repository uses one
 
       - id: location
-        ask: Which Azure region?
+        ask:
+          en: "Which Azure region?"
+          de: "Welche Azure-Region?"
         type: string
         plain:
           en: "Runs in the Azure region {value}."
@@ -60,12 +64,14 @@ groups:
         renders: location
 
       - id: resource_group_name
-        ask: Which resource group?
-        type: ref
+        ask:
+          en: "Which resource group?"
+          de: "Welche Ressourcengruppe?"
+        type: string
         plain:
           en: "Placed in the resource group {value}."
           de: "Liegt in der Ressourcengruppe {value}."
-        ref: resource_group
+        accepts: { ref: resource_group }
         required: true
         from_context: true
         per_environment: true
@@ -79,7 +85,9 @@ groups:
     title: The machine
     questions:
       - id: os_type
-        ask: Which operating system does the software run on?
+        ask:
+          en: "Which operating system does the software run on?"
+          de: "Auf welchem Betriebssystem läuft die Software?"
         type: enum
         resolved_by: interview
         topic: application
@@ -89,7 +97,7 @@ groups:
         plain_values:
           Linux: { en: "Linux", de: "Linux" }
           Windows: { en: "Windows Server, whose licence is part of the price", de: "Windows Server, dessen Lizenz im Preis enthalten ist" }
-        values: [Linux, Windows]
+        accepts: [Linux, Windows]
         default: Linux
         why: >
           Only the customer knows what the software needs. Linux is the default: no licence in
@@ -101,7 +109,9 @@ groups:
         renders: os_type / osType (`Linux`, `Windows`)
 
       - id: image
-        ask: Which operating system image?
+        ask:
+          en: "Which operating system image?"
+          de: "Welches Betriebssystem-Image?"
         type: enum
         plain:
           en: "Built from the image {value}."
@@ -111,9 +121,8 @@ groups:
           windows_server_2022: { en: "Windows Server 2022 Datacenter", de: "Windows Server 2022 Datacenter" }
           windows_server_2025: { en: "Windows Server 2025 Datacenter", de: "Windows Server 2025 Datacenter" }
           gallery_image: { en: "your own image from a compute gallery", de: "euer eigenes Image aus einer Compute Gallery" }
-        values: [ubuntu_24_04, windows_server_2022, windows_server_2025, gallery_image]
+        accepts: [ubuntu_24_04, windows_server_2022, windows_server_2025, gallery_image]
         default: ubuntu_24_04
-        confirm_in: [production]
         why: >
           Always a **generation 2** image: trusted launch, encryption at host and the current
           sizes all need it, and a generation 1 image cannot be converted. `latest` as the
@@ -129,12 +138,14 @@ groups:
           source_image_resource_id) / imageReference
 
       - id: gallery_image_id
-        ask: Which compute gallery image version?
-        type: ref
+        ask:
+          en: "Which compute gallery image version?"
+          de: "Welche Image-Version aus der Compute Gallery?"
+        type: string
         plain:
           en: "The image comes from {value}."
           de: "Das Image stammt aus {value}."
-        ref: gallery_image
+        accepts: { ref: gallery_image }
         required: true
         depends_on: { question: image, equals: gallery_image }
         per_environment: true
@@ -144,13 +155,14 @@ groups:
         renders: source_image_resource_id / imageReference.id
 
       - id: size
-        ask: Which machine size?
+        ask:
+          en: "Which machine size?"
+          de: "Welche Maschinengröße?"
         type: string
         plain:
           en: "The machine size is {value}."
           de: "Die Maschinengröße ist {value}."
         default: Standard_D2ds_v5
-        confirm_in: [production]
         why: >
           A starting size, not a sizing: 2 vCPUs and 8 GiB of memory with a local temporary
           disk, generation 2, premium storage and encryption at host capable - and the module's
@@ -161,7 +173,9 @@ groups:
         renders: sku_size / vmSize
 
       - id: license_type
-        ask: Do you own Windows Server licences with Software Assurance that the machine may use?
+        ask:
+          en: "Do you own Windows Server licences with Software Assurance that the machine may use?"
+          de: "Besitzt ihr Windows-Server-Lizenzen mit Software Assurance, die die Maschine nutzen darf?"
         type: enum
         resolved_by: interview
         topic: application
@@ -171,7 +185,7 @@ groups:
         plain_values:
           included: { en: "included in the price", de: "im Preis enthalten" }
           azure_hybrid_benefit: { en: "your own, which lowers the price", de: "eure eigene, was den Preis senkt" }
-        values: [included, azure_hybrid_benefit]
+        accepts: [included, azure_hybrid_benefit]
         default: included
         depends_on: { question: os_type, equals: Windows }
         why: >
@@ -180,7 +194,9 @@ groups:
         renders: license_type (`Windows_Server`) / licenseType
 
       - id: availability
-        ask: How should the machine be placed against a datacenter failure?
+        ask:
+          en: "How should the machine be placed against a datacenter failure?"
+          de: "Wie soll die Maschine gegen den Ausfall eines Rechenzentrums platziert werden?"
         type: enum
         plain:
           en: "The machine is placed {value}."
@@ -189,7 +205,7 @@ groups:
           zone: { en: "in one availability zone, which you name", de: "in einer Verfügbarkeitszone, die ihr benennt" }
           availability_set: { en: "in an availability set, spread over separate racks of one datacenter", de: "in einer Verfügbarkeitsgruppe, verteilt auf getrennte Racks eines Rechenzentrums" }
           none: { en: "nowhere in particular", de: "ohne besondere Platzierung" }
-        values: [zone, availability_set, none]
+        accepts: [zone, availability_set, none]
         default: zone
         why: >
           **One machine in a zone is not redundant** - it fixes where the machine runs, so its
@@ -206,12 +222,14 @@ groups:
           or -1) and availabilitySetResourceId
 
       - id: zone
-        ask: In which availability zone?
+        ask:
+          en: "In which availability zone?"
+          de: "In welcher Verfügbarkeitszone?"
         type: enum
         plain:
           en: "Placed in zone {value}."
           de: "Platziert in Zone {value}."
-        values: ["1", "2", "3"]
+        accepts: ["1", "2", "3"]
         default: "1"
         depends_on: { question: availability, equals: zone }
         why: >
@@ -221,12 +239,14 @@ groups:
         renders: zone / availabilityZone
 
       - id: availability_set_id
-        ask: Which availability set?
-        type: ref
+        ask:
+          en: "Which availability set?"
+          de: "Welches Availability Set?"
+        type: string
         plain:
           en: "Placed in the availability set {value}."
           de: "Platziert in der Verfügbarkeitsgruppe {value}."
-        ref: availability_set
+        accepts: { ref: availability_set }
         required: true
         depends_on: { question: availability, equals: availability_set }
         why: >
@@ -235,7 +255,9 @@ groups:
         renders: availability_set_resource_id / availabilitySetResourceId
 
       - id: os_disk_storage
-        ask: Which disk type should the system disk have?
+        ask:
+          en: "Which disk type should the system disk have?"
+          de: "Welchen Disk-Typ soll die System-Disk haben?"
         type: enum
         plain:
           en: "The system disk is {value}."
@@ -245,11 +267,10 @@ groups:
           Premium_ZRS: { en: "premium SSD, kept in three datacenters of the region so one can fail", de: "Premium-SSD, in drei Rechenzentren der Region, eines darf ausfallen" }
           StandardSSD_LRS: { en: "standard SSD, kept three times in one datacenter", de: "Standard-SSD, dreifach in einem Rechenzentrum" }
           StandardSSD_ZRS: { en: "standard SSD, kept in three datacenters of the region", de: "Standard-SSD, in drei Rechenzentren der Region" }
-        values: [Premium_LRS, Premium_ZRS, StandardSSD_LRS, StandardSSD_ZRS]
+        accepts: [Premium_LRS, Premium_ZRS, StandardSSD_LRS, StandardSSD_ZRS]
         derived_from:
           question: outage_impact
           map: { tolerable: Premium_LRS, disruptive: Premium_ZRS, critical: Premium_ZRS }
-        confirm_in: [production]
         non_production_default: Premium_LRS
         why: >
           Derived from how bad an outage is: a ZRS disk survives the loss of a zone, which an
@@ -265,7 +286,9 @@ groups:
         renders: os_disk.storage_account_type / osDisk.managedDisk.storageAccountType
 
       - id: os_disk_size_gb
-        ask: How large should the system disk be, in GiB?
+        ask:
+          en: "How large should the system disk be, in GiB?"
+          de: "Wie groß soll die System-Disk sein, in GiB?"
         type: int
         plain:
           en: "The system disk is {value} GiB."
@@ -281,7 +304,9 @@ groups:
         renders: os_disk.disk_size_gb / osDisk.diskSizeGB
 
       - id: data_disks
-        ask: Which data disks does the machine carry?
+        ask:
+          en: "Which data disks does the machine carry?"
+          de: "Welche Daten-Disks trägt die Maschine?"
         type: list
         plain:
           en: "Data disks: {value} (empty: none)."
@@ -300,13 +325,15 @@ groups:
     title: Networking
     questions:
       - id: workload_subnet
-        ask: Which subnet does the machine's network interface live in?
-        type: ref
+        ask:
+          en: "Which subnet does the machine's network interface live in?"
+          de: "In welchem Subnetz liegt die Netzwerkschnittstelle der Maschine?"
+        type: string
         resolved_by: derived
         plain:
           en: "Its network connection lands in subnet {value}."
           de: "Seine Netzwerkanbindung landet im Subnetz {value}."
-        ref: subnet
+        accepts: { ref: subnet }
         required: true
         per_environment: true
         why: >
@@ -321,7 +348,9 @@ groups:
         renders: network_interfaces.<key>.ip_configurations.<key>.private_ip_subnet_resource_id / nicConfigurations[].ipConfigurations[].subnetResourceId
 
       - id: public_ip
-        ask: Should the machine have its own public address?
+        ask:
+          en: "Should the machine have its own public address?"
+          de: "Soll die Maschine eine eigene öffentliche Adresse haben?"
         type: bool
         plain:
           en: "The machine {value} a public address."
@@ -330,7 +359,6 @@ groups:
           true: { en: "has", de: "hat" }
           false: { en: "has no", de: "hat keine" }
         default: false
-        confirm_in: [production]
         why: >
           A public IP on a machine is a management port on the internet within minutes of
           creation. People reach it through Bastion or the private network, and traffic from
@@ -340,7 +368,9 @@ groups:
         renders: network_interfaces.<key>.ip_configurations.<key>.create_public_ip_address / nicConfigurations[].ipConfigurations[].pipConfiguration (absent)
 
       - id: private_ip_allocation
-        ask: Should the machine keep the same private address for good?
+        ask:
+          en: "Should the machine keep the same private address for good?"
+          de: "Soll die Maschine ihre private Adresse dauerhaft behalten?"
         type: enum
         plain:
           en: "The private address is {value}."
@@ -348,7 +378,7 @@ groups:
         plain_values:
           Dynamic: { en: "assigned by the network and kept while the machine exists", de: "vom Netz vergeben und behalten, solange die Maschine existiert" }
           Static: { en: "fixed, a number you choose", de: "fest, eine Nummer, die ihr wählt" }
-        values: [Dynamic, Static]
+        accepts: [Dynamic, Static]
         default: Dynamic
         why: >
           A dynamic address is kept for the life of the network interface; it changes only if
@@ -359,7 +389,9 @@ groups:
         renders: private_ip_address_allocation, private_ip_address / ipConfigurations[].privateIPAllocationMethod, privateIPAddress
 
       - id: accelerated_networking
-        ask: Should the network interface use accelerated networking?
+        ask:
+          en: "Should the network interface use accelerated networking?"
+          de: "Soll die Netzwerkschnittstelle beschleunigten Netzwerkbetrieb nutzen?"
         type: bool
         plain:
           en: "Accelerated networking is {value}."
@@ -383,7 +415,9 @@ groups:
     title: Identity and access
     questions:
       - id: system_assigned_identity
-        ask: Should the machine carry an identity of its own?
+        ask:
+          en: "Should the machine carry an identity of its own?"
+          de: "Soll die Maschine eine eigene Identität tragen?"
         type: bool
         plain:
           en: "The machine {value} an identity of its own."
@@ -402,12 +436,14 @@ groups:
         renders: managed_identities.system_assigned / managedIdentities.systemAssigned
 
       - id: user_assigned_identity_ids
-        ask: Which user-assigned identities should the machine carry?
+        ask:
+          en: "Which user-assigned identities should the machine carry?"
+          de: "Welche User-Assigned Identities soll die Maschine tragen?"
         type: list
         plain:
           en: "It also uses the identities {value} (empty: none)."
           de: "Es nutzt zusätzlich die Identitäten {value} (leer: keine)."
-        ref: user_assigned_identity
+        accepts: { ref: user_assigned_identity }
         default: []
         per_environment: true
         why: >
@@ -418,7 +454,9 @@ groups:
         renders: managed_identities.user_assigned_resource_ids / managedIdentities.userAssignedResourceIds
 
       - id: entra_login
-        ask: Should people sign in to the machine with their company account?
+        ask:
+          en: "Should people sign in to the machine with their company account?"
+          de: "Sollen sich Personen mit ihrem Firmenkonto an der Maschine anmelden?"
         type: bool
         plain:
           en: "People sign in with their company account: {value}."
@@ -438,7 +476,9 @@ groups:
           extensionAadJoinConfig.enabled
 
       - id: role_assignments
-        ask: Who may sign in to this machine, and as administrator or as user?
+        ask:
+          en: "Who may sign in to this machine, and as administrator or as user?"
+          de: "Wer darf sich an dieser Maschine anmelden, und als Administrator oder als Benutzer?"
         type: list
         plain:
           en: "Sign-in rights on the machine granted to: {value}."
@@ -459,7 +499,9 @@ groups:
     title: Security
     questions:
       - id: trusted_launch
-        ask: Should the machine start with secure boot and a virtual security chip?
+        ask:
+          en: "Should the machine start with secure boot and a virtual security chip?"
+          de: "Soll die Maschine mit Secure Boot und einem virtuellen Sicherheitschip starten?"
         type: bool
         plain:
           en: "Trusted launch - secure boot and virtual TPM - is {value}."
@@ -468,7 +510,6 @@ groups:
           true: { en: "on, so a tampered boot loader or rootkit is refused", de: "an, damit ein manipulierter Bootloader oder ein Rootkit abgewiesen wird" }
           false: { en: "off", de: "aus" }
         default: true
-        confirm_in: [production]
         why: >
           Secure boot, a virtual TPM and boot integrity monitoring, at no cost, on every
           generation 2 image and size that supports it. It is chosen at creation and cannot be
@@ -483,7 +524,9 @@ groups:
           secureBootEnabled, vTpmEnabled
 
       - id: encryption_at_host
-        ask: Should every disk of the machine, including the temporary one, be encrypted at the host?
+        ask:
+          en: "Should every disk of the machine, including the temporary one, be encrypted at the host?"
+          de: "Soll jede Disk der Maschine, auch die temporäre, auf dem Host verschlüsselt werden?"
         type: bool
         plain:
           en: "Encryption at the host, covering the temporary disk and caches too, is {value}."
@@ -492,7 +535,6 @@ groups:
           true: { en: "on", de: "an" }
           false: { en: "off", de: "aus" }
         default: true
-        confirm_in: [production]
         why: >
           The only encryption that covers the temporary disk and the disk cache and reaches the
           data before it leaves the host. **The modules disagree**: Terraform defaults it to on,
@@ -502,7 +544,9 @@ groups:
         renders: encryption_at_host_enabled / encryptionAtHost
 
       - id: key_management
-        ask: Are the disk encryption keys platform-managed or customer-managed?
+        ask:
+          en: "Are the disk encryption keys platform-managed or customer-managed?"
+          de: "Werden die Disk-Schlüssel von der Plattform verwaltet oder vom Kunden?"
         type: enum
         plain:
           en: "Encryption keys are {value}."
@@ -510,9 +554,8 @@ groups:
         plain_values:
           platform_managed: { en: "managed by Azure - encrypted, rotated, no effort on your side", de: "von Azure verwaltet: verschlüsselt, rotiert, kein Aufwand bei euch" }
           customer_managed: { en: "your own, held in your key vault, so you can revoke them", de: "eure eigenen in eurem Schlüsseltresor, damit ihr sie zurückziehen könnt" }
-        values: [platform_managed, customer_managed]
+        accepts: [platform_managed, customer_managed]
         from_deployment: key_management
-        confirm_in: [production]
         why: >
           Inherited. Disks are encrypted at rest with a platform key either way;
           `customer_managed` encrypts the system disk and the data disks with a key in the
@@ -522,12 +565,14 @@ groups:
         renders: os_disk.disk_encryption_set_id, data disks' disk_encryption_set_resource_id / osDisk.managedDisk.diskEncryptionSetResourceId
 
       - id: disk_encryption_set_id
-        ask: Which disk encryption set should encrypt the disks?
-        type: ref
+        ask:
+          en: "Which disk encryption set should encrypt the disks?"
+          de: "Welches Disk Encryption Set soll die Disks verschlüsseln?"
+        type: string
         plain:
           en: "Disks are encrypted with your set {value}."
           de: "Platten werden mit eurem Set {value} verschlüsselt."
-        ref: disk_encryption_set
+        accepts: { ref: disk_encryption_set }
         required: true
         depends_on: { question: key_management, equals: customer_managed }
         per_environment: true
@@ -538,7 +583,9 @@ groups:
         renders: os_disk.disk_encryption_set_id / osDisk.managedDisk.diskEncryptionSetResourceId
 
       - id: admin_username
-        ask: What should the local administrator account be called?
+        ask:
+          en: "What should the local administrator account be called?"
+          de: "Wie soll das lokale Administratorkonto heißen?"
         type: string
         plain:
           en: "The local administrator account is called {value}."
@@ -551,7 +598,9 @@ groups:
         renders: account_credentials.admin_credentials.username / adminUsername
 
       - id: password_authentication
-        ask: May people sign in with a password?
+        ask:
+          en: "May people sign in with a password?"
+          de: "Dürfen sich Personen mit einem Passwort anmelden?"
         type: bool
         plain:
           en: "Signing in with a password is {value}."
@@ -561,7 +610,6 @@ groups:
           false: { en: "not allowed; keys and company accounts only", de: "nicht erlaubt; nur Schlüssel und Firmenkonten" }
         from_deployment: local_auth
         depends_on: { question: os_type, equals: Linux }
-        confirm_in: [production]
         why: >
           Inherited, inverted: `local_auth: disabled` renders as `false`. SSH with a key or
           with Entra replaces the password on Linux; a password on a machine with a private
@@ -571,7 +619,9 @@ groups:
         renders: account_credentials.password_authentication_disabled (inverted) / disablePasswordAuthentication (inverted)
 
       - id: ssh_public_key
-        ask: Which SSH public key may sign in?
+        ask:
+          en: "Which SSH public key may sign in?"
+          de: "Welcher öffentliche SSH-Schlüssel darf sich anmelden?"
         type: string
         plain:
           en: "The SSH public key {value} may sign in."
@@ -588,12 +638,14 @@ groups:
         renders: account_credentials.admin_credentials.ssh_keys / publicKeys
 
       - id: credential_key_vault
-        ask: Which Key Vault holds the administrator password?
-        type: ref
+        ask:
+          en: "Which Key Vault holds the administrator password?"
+          de: "Welcher Key Vault hält das Administrator-Passwort?"
+        type: string
         plain:
           en: "The administrator password is kept in the key vault {value}."
           de: "Das Administratorpasswort liegt im Schlüsseltresor {value}."
-        ref: key_vault
+        accepts: { ref: key_vault }
         required: true
         depends_on: { question: os_type, equals: Windows }
         per_environment: true
@@ -610,7 +662,9 @@ groups:
     title: Data protection
     questions:
       - id: backup_enabled
-        ask: Should the machine be backed up?
+        ask:
+          en: "Should the machine be backed up?"
+          de: "Soll die Maschine gesichert werden?"
         type: bool
         plain:
           en: "The machine is backed up: {value}."
@@ -621,7 +675,6 @@ groups:
         derived_from:
           question: data_loss_tolerance
           map: { reproducible: false, one_week: true, one_month: true, three_months: true }
-        confirm_in: [production]
         non_production_default: false
         why: >
           Derived from how far back a mistake must be recoverable: a machine whose disks hold
@@ -634,12 +687,14 @@ groups:
         renders: azure_backup_configurations / backupVaultName and backupPolicyName
 
       - id: backup_vault_id
-        ask: Which Recovery Services vault should hold the backups?
-        type: ref
+        ask:
+          en: "Which Recovery Services vault should hold the backups?"
+          de: "Welcher Recovery Services Vault soll die Sicherungen halten?"
+        type: string
         plain:
           en: "Backups go to the vault {value}."
           de: "Die Sicherungen gehen in den Tresor {value}."
-        ref: recovery_services_vault
+        accepts: { ref: recovery_services_vault }
         required: true
         depends_on: { question: backup_enabled, equals: true }
         per_environment: true
@@ -650,12 +705,14 @@ groups:
         renders: azure_backup_configurations.<key>.recovery_vault_resource_id / backupVaultName, backupVaultResourceGroup
 
       - id: backup_policy_id
-        ask: Which backup policy applies?
-        type: ref
+        ask:
+          en: "Which backup policy applies?"
+          de: "Welche Sicherungsrichtlinie gilt?"
+        type: string
         plain:
           en: "The backup policy is {value}."
           de: "Die Sicherungsrichtlinie ist {value}."
-        ref: backup_policy
+        accepts: { ref: backup_policy }
         required: true
         depends_on: { question: backup_enabled, equals: true }
         per_environment: true
@@ -671,7 +728,9 @@ groups:
     title: Patching and running hours
     questions:
       - id: patch_mode
-        ask: How should operating system updates be installed?
+        ask:
+          en: "How should operating system updates be installed?"
+          de: "Wie sollen Betriebssystem-Updates installiert werden?"
         type: enum
         plain:
           en: "Operating system updates are {value}."
@@ -679,9 +738,8 @@ groups:
         plain_values:
           AutomaticByPlatform: { en: "installed by Azure on its own schedule, after checking the region's health", de: "von Azure nach eigenem Plan eingespielt, nachdem die Gesundheit der Region geprüft wurde" }
           ImageDefault: { en: "left to the operating system's own updater", de: "dem Updater des Betriebssystems selbst überlassen" }
-        values: [AutomaticByPlatform, ImageDefault]
+        accepts: [AutomaticByPlatform, ImageDefault]
         default: AutomaticByPlatform
-        confirm_in: [production]
         why: >
           Platform orchestration patches one zone at a time, backs off on regional health and
           reports compliance, which the guest updater does not. `ImageDefault` leaves Ubuntu's
@@ -692,7 +750,9 @@ groups:
         renders: patch_mode, patch_assessment_mode / patchMode, patchAssessmentMode
 
       - id: auto_shutdown
-        ask: Should the machine shut itself down every evening?
+        ask:
+          en: "Should the machine shut itself down every evening?"
+          de: "Soll sich die Maschine jeden Abend selbst herunterfahren?"
         type: bool
         plain:
           en: "The machine shuts down every evening: {value}."
@@ -711,7 +771,9 @@ groups:
         renders: shutdown_schedules / autoShutdownConfig
 
       - id: auto_shutdown_time
-        ask: At what time should it shut down?
+        ask:
+          en: "At what time should it shut down?"
+          de: "Zu welcher Uhrzeit soll sie herunterfahren?"
         type: string
         plain:
           en: "It shuts down at {value} (HHmm)."
@@ -724,7 +786,9 @@ groups:
         renders: shutdown_schedules.<key>.daily_recurrence_time / autoShutdownConfig.dailyRecurrenceTime
 
       - id: auto_shutdown_timezone
-        ask: In which time zone?
+        ask:
+          en: "In which time zone?"
+          de: "In welcher Zeitzone?"
         type: string
         plain:
           en: "Time zone of the shutdown: {value}."
@@ -742,7 +806,9 @@ groups:
     title: Observability
     questions:
       - id: boot_diagnostics
-        ask: Should the machine keep boot screenshots and its serial console output?
+        ask:
+          en: "Should the machine keep boot screenshots and its serial console output?"
+          de: "Soll die Maschine Boot-Screenshots und die Ausgabe ihrer seriellen Konsole aufbewahren?"
         type: bool
         plain:
           en: "Boot screenshots and console output are {value}."
@@ -760,13 +826,15 @@ groups:
         renders: boot_diagnostics (true means managed storage) / bootDiagnostics
 
       - id: diagnostic_workspace
-        ask: Which Log Analytics workspace should receive diagnostics?
-        type: ref
+        ask:
+          en: "Which Log Analytics workspace should receive diagnostics?"
+          de: "Welcher Log Analytics Workspace soll die Diagnosedaten erhalten?"
+        type: string
         resolved_by: derived
         plain:
           en: "Its metrics go to {value}."
           de: "Seine Metriken gehen in {value}."
-        ref: log_analytics_workspace
+        accepts: { ref: log_analytics_workspace }
         from_deployment: diagnostics_destination
         per_environment: true
         why: >
@@ -776,7 +844,9 @@ groups:
         renders: diagnostic_settings / diagnosticSettings (on the network interface in Bicep)
 
       - id: metrics_enabled
-        ask: Should all metrics be collected?
+        ask:
+          en: "Should all metrics be collected?"
+          de: "Sollen alle Metriken erfasst werden?"
         type: bool
         plain:
           en: "Usage and performance figures are {value}."

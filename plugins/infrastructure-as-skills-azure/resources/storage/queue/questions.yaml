@@ -21,12 +21,14 @@ groups:
     title: Placement
     questions:
       - id: environments
-        ask: Which stages is this deployed to?
+        ask:
+          en: "Which stages is this deployed to?"
+          de: "In welche Stufen wird das ausgerollt?"
         type: list
         plain:
           en: "Deployed in the stages {value}."
           de: "Wird in den Stufen {value} ausgerollt."
-        values: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
+        accepts: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
         required: true
         from_context: true
         why: >
@@ -34,12 +36,14 @@ groups:
         renders: tag of the environment where the repository uses one
 
       - id: storage_account
-        ask: In which storage account should it live?
-        type: ref
+        ask:
+          en: "In which storage account should it live?"
+          de: "In welchem Speicherkonto soll es liegen?"
+        type: string
         plain:
           en: "It is created in the storage account {value}."
           de: "Es wird im Speicherkonto {value} angelegt."
-        ref: storage_account
+        accepts: { ref: storage_account }
         required: true
         per_environment: true
         why: >
@@ -53,7 +57,9 @@ groups:
     title: The queues
     questions:
       - id: queue_names
-        ask: Which queues should the account hold?
+        ask:
+          en: "Which queues should the account hold?"
+          de: "Welche Queues soll das Konto enthalten?"
         type: list
         resolved_by: interview
         topic: data
@@ -70,7 +76,9 @@ groups:
         renders: queues / queueServices.queues
 
       - id: needs_dead_letter_or_ordering
-        ask: Must messages be delivered in order, or must a message that keeps failing be set aside automatically?
+        ask:
+          en: "Must messages be delivered in order, or must a message that keeps failing be set aside automatically?"
+          de: "Müssen Nachrichten in Reihenfolge zugestellt werden, oder muss eine Nachricht, die immer wieder fehlschlägt, automatisch beiseitegelegt werden?"
         type: bool
         resolved_by: interview
         topic: resilience
@@ -92,7 +100,9 @@ groups:
         renders: selects service-bus instead of this set when true
 
       - id: metadata
-        ask: Should the queues carry labels?
+        ask:
+          en: "Should the queues carry labels?"
+          de: "Sollen die Queues Labels tragen?"
         type: list
         plain:
           en: "Queue labels: {value} (empty: none)."
@@ -107,7 +117,9 @@ groups:
     title: Identity and access
     questions:
       - id: role_assignments
-        ask: Who needs which role on this queue?
+        ask:
+          en: "Who needs which role on this queue?"
+          de: "Wer braucht welche Rolle auf dieser Queue?"
         type: list
         plain:
           en: "Access rights on the queue granted to: {value}."

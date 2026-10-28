@@ -23,12 +23,14 @@ groups:
     title: Placement
     questions:
       - id: environments
-        ask: Which stages is this deployed to?
+        ask:
+          en: "Which stages is this deployed to?"
+          de: "In welche Stufen wird das ausgerollt?"
         type: list
         plain:
           en: "Deployed in the stages {value}."
           de: "Wird in den Stufen {value} ausgerollt."
-        values: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
+        accepts: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
         required: true
         from_context: true
         why: >
@@ -39,7 +41,9 @@ groups:
           one
 
       - id: location
-        ask: Which Azure region?
+        ask:
+          en: "Which Azure region?"
+          de: "Welche Azure-Region?"
         type: string
         plain:
           en: "Runs in the Azure region {value}."
@@ -53,12 +57,14 @@ groups:
         renders: location
 
       - id: resource_group_name
-        ask: Which resource group?
-        type: ref
+        ask:
+          en: "Which resource group?"
+          de: "Welche Ressourcengruppe?"
+        type: string
         plain:
           en: "Placed in the resource group {value}."
           de: "Liegt in der Ressourcengruppe {value}."
-        ref: resource_group
+        accepts: { ref: resource_group }
         required: true
         from_context: true
         per_environment: true
@@ -71,7 +77,9 @@ groups:
     title: The namespace
     questions:
       - id: sku
-        ask: Which tier does the namespace need?
+        ask:
+          en: "Which tier does the namespace need?"
+          de: "Welchen Tarif braucht der Namespace?"
         type: enum
         plain:
           en: "The namespace is the {value} tier."
@@ -80,9 +88,8 @@ groups:
           Basic: { en: "basic, queues only", de: "Basic, nur Warteschlangen" }
           Standard: { en: "standard, queues and topics on shared capacity", de: "Standard, Warteschlangen und Themen auf geteilter Kapazität" }
           Premium: { en: "premium, dedicated capacity with private connections", de: "Premium, dedizierte Kapazität mit privaten Anbindungen" }
-        values: [Basic, Standard, Premium]
+        accepts: [Basic, Standard, Premium]
         default: Standard
-        confirm_in: [production]
         forced_when: >
           `network_exposure: private` (`public_network_access: disabled`), `key_management:
           customer_managed`, `zone_redundant: true` and `geo_recovery: paired_namespace`
@@ -100,12 +107,14 @@ groups:
           sku.name / skuObject.name (`Basic`, `Standard`, `Premium`)
 
       - id: capacity
-        ask: How many messaging units does a Premium namespace reserve?
+        ask:
+          en: "How many messaging units does a Premium namespace reserve?"
+          de: "Wie viele Messaging-Einheiten reserviert ein Premium-Namespace?"
         type: enum
         plain:
           en: "The namespace reserves {value} messaging unit(s)."
           de: "Der Namensraum reserviert {value} Messaging-Einheit(en)."
-        values: [1, 2, 4, 8, 16]
+        accepts: [1, 2, 4, 8, 16]
         default: 1
         depends_on: { question: sku, equals: Premium }
         non_production_default: 1
@@ -118,7 +127,9 @@ groups:
         renders: capacity / skuObject.capacity
 
       - id: zone_redundant
-        ask: Should the namespace survive the loss of one datacenter of its region?
+        ask:
+          en: "Should the namespace survive the loss of one datacenter of its region?"
+          de: "Soll der Namespace den Ausfall eines Rechenzentrums seiner Region überstehen?"
         type: bool
         plain:
           en: "The messaging survives the loss of a datacenter: {value}."
@@ -142,12 +153,14 @@ groups:
           a zonal region
 
       - id: premium_messaging_partitions
-        ask: Over how many partitions should a Premium namespace spread its entities?
+        ask:
+          en: "Over how many partitions should a Premium namespace spread its entities?"
+          de: "Auf wie viele Partitionen soll ein Premium-Namespace seine Entitäten verteilen?"
         type: enum
         plain:
           en: "Entities are spread over {value} partition(s)."
           de: "Entitäten werden auf {value} Partition(en) verteilt."
-        values: [1, 2, 4]
+        accepts: [1, 2, 4]
         default: 1
         depends_on: { question: sku, equals: Premium }
         why: >
@@ -158,12 +171,14 @@ groups:
         renders: premium_messaging_partitions / premiumMessagingPartitions
 
       - id: minimum_tls_version
-        ask: Which TLS version is the lowest a client may use?
+        ask:
+          en: "Which TLS version is the lowest a client may use?"
+          de: "Welche ist die niedrigste TLS-Version, die ein Client verwenden darf?"
         type: enum
         plain:
           en: "Clients must use at least TLS {value}."
           de: "Clients müssen mindestens TLS {value} verwenden."
-        values: ["1.0", "1.1", "1.2"]
+        accepts: ["1.0", "1.1", "1.2"]
         default: "1.2"
         why: >
           1.2 is the guardrails' floor, and both modules default to it. Written anyway: a
@@ -173,7 +188,9 @@ groups:
         renders: minimum_tls_version / minimumTlsVersion
 
       - id: local_auth
-        ask: Should shared access signatures (keys and connection strings) work?
+        ask:
+          en: "Should shared access signatures (keys and connection strings) work?"
+          de: "Sollen Shared Access Signatures (Schlüssel und Connection Strings) funktionieren?"
         type: enum
         plain:
           en: "Access keys and connection strings are {value}."
@@ -181,7 +198,7 @@ groups:
         plain_values:
           disabled: { en: switched off, de: abgeschaltet }
           allowed_where_unavoidable: { en: allowed on this namespace, de: auf diesem Namensraum erlaubt }
-        values: [disabled, allowed_where_unavoidable]
+        accepts: [disabled, allowed_where_unavoidable]
         from_deployment: local_auth
         why: >
           Inherited: `local_auth: disabled` renders as local authentication off, so every
@@ -192,7 +209,9 @@ groups:
         renders: local_auth_enabled (inverse) / disableLocalAuth
 
       - id: managed_identity
-        ask: Which managed identity should the namespace carry?
+        ask:
+          en: "Which managed identity should the namespace carry?"
+          de: "Welche Managed Identity soll der Namespace tragen?"
         type: enum
         plain:
           en: "The namespace has {value}."
@@ -201,7 +220,7 @@ groups:
           none: { en: no identity of its own, de: keine eigene Identität }
           system_assigned: { en: its own identity, de: eine eigene Identität }
           user_assigned: { en: a separately managed identity, de: eine separat verwaltete Identität }
-        values: [none, system_assigned, user_assigned]
+        accepts: [none, system_assigned, user_assigned]
         default: none
         forced_when: >
           `key_management: customer_managed` forces `user_assigned`, recorded as forced with
@@ -215,12 +234,14 @@ groups:
         renders: managed_identities / managedIdentities
 
       - id: user_assigned_identity_ids
-        ask: Which user-assigned identity?
+        ask:
+          en: "Which user-assigned identity?"
+          de: "Welche User-Assigned Identity?"
         type: list
         plain:
           en: "It uses the identity {value}."
           de: "Es nutzt die Identität {value}."
-        ref: user_assigned_identity
+        accepts: { ref: user_assigned_identity }
         required: true
         depends_on: { question: managed_identity, equals: user_assigned }
         per_environment: true
@@ -235,7 +256,9 @@ groups:
     title: Queues and topics
     questions:
       - id: queues
-        ask: Which queues should the namespace hold?
+        ask:
+          en: "Which queues should the namespace hold?"
+          de: "Welche Queues soll der Namespace enthalten?"
         type: list
         plain:
           en: "Queues: {value} (empty: none)."
@@ -250,7 +273,9 @@ groups:
         renders: queues / queues[]
 
       - id: topics
-        ask: Which topics should the namespace hold, and who subscribes?
+        ask:
+          en: "Which topics should the namespace hold, and who subscribes?"
+          de: "Welche Topics soll der Namespace enthalten, und wer abonniert sie?"
         type: list
         plain:
           en: "Topics and their subscribers: {value} (empty: none)."
@@ -264,7 +289,9 @@ groups:
         renders: topics.<key>.subscriptions / topics[].subscriptions
 
       - id: message_ordering
-        ask: Must messages of one kind be handled in the order they were sent?
+        ask:
+          en: "Must messages of one kind be handled in the order they were sent?"
+          de: "Müssen Nachrichten einer Art in der Reihenfolge verarbeitet werden, in der sie gesendet wurden?"
         type: bool
         resolved_by: interview
         topic: application
@@ -286,7 +313,9 @@ groups:
           queues.<key>.requires_session / queues[].requiresSession, and subscriptions
 
       - id: duplicate_protection
-        ask: Can the same message be sent twice by accident, and must the second be dropped?
+        ask:
+          en: "Can the same message be sent twice by accident, and must the second be dropped?"
+          de: "Kann dieselbe Nachricht versehentlich zweimal gesendet werden, und muss die zweite verworfen werden?"
         type: bool
         resolved_by: interview
         topic: application
@@ -306,7 +335,9 @@ groups:
         renders: requires_duplicate_detection / requiresDuplicateDetection
 
       - id: message_retention_days
-        ask: How long may a message wait unprocessed before it is stale?
+        ask:
+          en: "How long may a message wait unprocessed before it is stale?"
+          de: "Wie lange darf eine Nachricht unverarbeitet warten, bevor sie veraltet ist?"
         type: int
         resolved_by: interview
         topic: data
@@ -325,7 +356,9 @@ groups:
           default_message_ttl / defaultMessageTimeToLive (ISO 8601 `P14D`)
 
       - id: dead_letter_on_expiry
-        ask: Should an expired message be kept for inspection instead of vanishing?
+        ask:
+          en: "Should an expired message be kept for inspection instead of vanishing?"
+          de: "Soll eine abgelaufene Nachricht zur Prüfung aufbewahrt werden, statt zu verschwinden?"
         type: bool
         plain:
           en: "An expired message is {value}."
@@ -344,7 +377,9 @@ groups:
           dead_lettering_on_message_expiration / deadLetteringOnMessageExpiration
 
       - id: max_delivery_count
-        ask: After how many failed attempts is a message set aside?
+        ask:
+          en: "After how many failed attempts is a message set aside?"
+          de: "Nach wie vielen fehlgeschlagenen Versuchen wird eine Nachricht beiseitegelegt?"
         type: int
         plain:
           en: "A message is set aside after {value} failed attempts."
@@ -359,7 +394,9 @@ groups:
         renders: max_delivery_count / maxDeliveryCount
 
       - id: lock_duration_seconds
-        ask: How long may a receiver work on one message before it is offered to another?
+        ask:
+          en: "How long may a receiver work on one message before it is offered to another?"
+          de: "Wie lange darf ein Empfänger an einer Nachricht arbeiten, bevor sie einem anderen angeboten wird?"
         type: int
         plain:
           en: "A receiver has {value} seconds per message."
@@ -375,12 +412,14 @@ groups:
           lock_duration / lockDuration (ISO 8601 `PT1M`)
 
       - id: max_size_megabytes
-        ask: How much may one queue or topic hold?
+        ask:
+          en: "How much may one queue or topic hold?"
+          de: "Wie viel darf eine Queue oder ein Topic aufnehmen?"
         type: enum
         plain:
           en: "One queue or topic holds at most {value} MB."
           de: "Eine Warteschlange oder ein Thema fasst höchstens {value} MB."
-        values: [1024, 2048, 3072, 4096, 5120, 10240, 20480, 40960, 81920]
+        accepts: [1024, 2048, 3072, 4096, 5120, 10240, 20480, 40960, 81920]
         default: 1024
         why: >
           The cap on an entity's backlog. It is a safety valve: when a receiver stops the
@@ -393,7 +432,9 @@ groups:
     title: Networking
     questions:
       - id: public_network_access
-        ask: Should this namespace depart from the deployment's exposure posture?
+        ask:
+          en: "Should this namespace depart from the deployment's exposure posture?"
+          de: "Soll dieser Namespace von der Erreichbarkeit des Deployments abweichen?"
         type: enum
         plain:
           en: "The namespace is {value}."
@@ -402,9 +443,8 @@ groups:
           disabled: { en: not reachable from the internet at all, de: aus dem Internet überhaupt nicht erreichbar }
           enabled_with_firewall: { en: reachable from the internet only from listed addresses, de: aus dem Internet nur von gelisteten Adressen erreichbar }
           enabled: { en: reachable from the internet, de: aus dem Internet erreichbar }
-        values: [disabled, enabled_with_firewall, enabled]
+        accepts: [disabled, enabled_with_firewall, enabled]
         from_deployment: network_exposure
-        confirm_in: [production]
         forced_when: >
           `network_ownership: none` (a public deployment without a network) forces
           `enabled`, recorded as forced with `network_ownership` as forced_by: the
@@ -421,13 +461,15 @@ groups:
           module's network rules; bicep: publicNetworkAccess and the network rule set
 
       - id: private_endpoint_subnet
-        ask: Which subnet should the namespace's private endpoint live in?
-        type: ref
+        ask:
+          en: "Which subnet should the namespace's private endpoint live in?"
+          de: "In welchem Subnetz soll der Private Endpoint des Namespace liegen?"
+        type: string
         resolved_by: derived
         plain:
           en: "Its private connection lands in subnet {value}."
           de: "Seine private Anbindung landet im Subnetz {value}."
-        ref: subnet
+        accepts: { ref: subnet }
         from_deployment: private_endpoint_subnet
         per_environment: true
         why: >
@@ -437,7 +479,9 @@ groups:
           private_endpoints.<key>.subnet_resource_id / privateEndpoints[].subnetResourceId
 
       - id: ip_rules
-        ask: Which public IP ranges may reach the namespace?
+        ask:
+          en: "Which public IP ranges may reach the namespace?"
+          de: "Welche öffentlichen IP-Bereiche dürfen den Namespace erreichen?"
         type: list
         plain:
           en: "Public addresses allowed to reach the namespace: {value}."
@@ -452,7 +496,9 @@ groups:
         renders: network_rule_config.cidr_or_ip_rules / networkRuleSets.ipRules
 
       - id: trusted_service_bypass
-        ask: May trusted Azure services reach the namespace past its firewall?
+        ask:
+          en: "May trusted Azure services reach the namespace past its firewall?"
+          de: "Dürfen vertrauenswürdige Azure-Dienste den Namespace an seiner Firewall vorbei erreichen?"
         type: bool
         plain:
           en: "Trusted Azure services {value} past the firewall."
@@ -476,7 +522,9 @@ groups:
     title: Encryption
     questions:
       - id: key_management
-        ask: Platform-managed or customer-managed encryption keys?
+        ask:
+          en: "Platform-managed or customer-managed encryption keys?"
+          de: "Schlüssel von der Plattform oder vom Kunden verwaltet?"
         type: enum
         plain:
           en: "Encryption keys are {value}."
@@ -484,7 +532,7 @@ groups:
         plain_values:
           platform_managed: { en: "managed by Azure - encrypted, rotated, no effort on your side", de: "von Azure verwaltet: verschlüsselt, rotiert, kein Aufwand bei euch" }
           customer_managed: { en: "your own, held in your key vault, so you can revoke them", de: "eure eigenen in eurem Schlüsseltresor, damit ihr sie zurückziehen könnt" }
-        values: [platform_managed, customer_managed]
+        accepts: [platform_managed, customer_managed]
         from_deployment: key_management
         why: >
           Inherited: one answer per system. Service Bus encrypts at rest with a platform key
@@ -495,12 +543,14 @@ groups:
           whether `customer_managed_key` is rendered at all
 
       - id: cmk_key_vault_key_id
-        ask: Which Key Vault key should encrypt the namespace?
-        type: ref
+        ask:
+          en: "Which Key Vault key should encrypt the namespace?"
+          de: "Welcher Key-Vault-Schlüssel soll den Namespace verschlüsseln?"
+        type: string
         plain:
           en: "Encrypted with your key {value}."
           de: "Verschlüsselt mit eurem Schlüssel {value}."
-        ref: key_vault_key
+        accepts: { ref: key_vault_key }
         required: true
         depends_on: { question: key_management, equals: customer_managed }
         per_environment: true
@@ -513,7 +563,9 @@ groups:
           customerManagedKey.keyVaultResourceId + keyName
 
       - id: infrastructure_encryption
-        ask: Should the data be encrypted twice?
+        ask:
+          en: "Should the data be encrypted twice?"
+          de: "Sollen die Daten doppelt verschlüsselt werden?"
         type: bool
         plain:
           en: "Double encryption is {value}."
@@ -534,7 +586,9 @@ groups:
     title: Recovery
     questions:
       - id: geo_recovery
-        ask: Is a second region on standby for a regional outage?
+        ask:
+          en: "Is a second region on standby for a regional outage?"
+          de: "Steht eine zweite Region für einen regionalen Ausfall bereit?"
         type: enum
         plain:
           en: "For a regional outage there is {value}."
@@ -542,11 +596,10 @@ groups:
         plain_values:
           none: { en: no standby region, de: keine Ausweichregion }
           paired_namespace: { en: "a paired namespace in a second region, with the same queues and topics", de: ein gekoppelter Namensraum in einer zweiten Region mit denselben Warteschlangen und Themen }
-        values: [none, paired_namespace]
+        accepts: [none, paired_namespace]
         derived_from:
           question: outage_impact
           map: { tolerable: none, disruptive: none, critical: paired_namespace }
-        confirm_in: [production]
         non_production_default: none
         why: >
           Derived from how bad an outage is. Geo-disaster recovery pairs the namespace with
@@ -558,12 +611,14 @@ groups:
         renders: disaster_recovery_config / disasterRecoveryConfig
 
       - id: partner_namespace
-        ask: Which namespace is the partner?
-        type: ref
+        ask:
+          en: "Which namespace is the partner?"
+          de: "Welcher Namespace ist der Partner?"
+        type: string
         plain:
           en: "The partner namespace is {value}."
           de: "Der Partner-Namensraum ist {value}."
-        ref: service_bus_namespace
+        accepts: { ref: service_bus_namespace }
         required: true
         depends_on: { question: geo_recovery, equals: paired_namespace }
         per_environment: true
@@ -579,7 +634,9 @@ groups:
     title: Identity and access
     questions:
       - id: role_assignments
-        ask: Who needs which role on this namespace?
+        ask:
+          en: "Who needs which role on this namespace?"
+          de: "Wer braucht welche Rolle auf diesem Namespace?"
         type: list
         plain:
           en: "Access rights on the namespace granted to: {value}."
@@ -600,13 +657,15 @@ groups:
     title: Observability
     questions:
       - id: diagnostic_workspace
-        ask: Which Log Analytics workspace should receive diagnostics?
-        type: ref
+        ask:
+          en: "Which Log Analytics workspace should receive diagnostics?"
+          de: "Welcher Log Analytics Workspace soll die Diagnosedaten erhalten?"
+        type: string
         resolved_by: derived
         plain:
           en: "Its logs go to {value}."
           de: "Seine Logs gehen in {value}."
-        ref: log_analytics_workspace
+        accepts: { ref: log_analytics_workspace }
         from_deployment: diagnostics_destination
         per_environment: true
         why: >
@@ -615,7 +674,9 @@ groups:
         renders: diagnostic_settings / diagnosticSettings
 
       - id: diagnostic_categories
-        ask: Which log categories should be collected?
+        ask:
+          en: "Which log categories should be collected?"
+          de: "Welche Log-Kategorien sollen erfasst werden?"
         type: list
         plain:
           en: "Logged: {value}."
@@ -626,7 +687,7 @@ groups:
           ApplicationMetricsLogs: { en: message counts and sizes per entity, de: Anzahl und Größe der Nachrichten je Entität }
           VNetAndIPFilteringLogs: { en: connections blocked or allowed by the firewall, de: durch die Firewall blockierte oder erlaubte Verbindungen }
           DiagnosticErrorLogs: { en: errors the service reports, de: vom Dienst gemeldete Fehler }
-        values: [OperationalLogs, RuntimeAuditLogs, ApplicationMetricsLogs, VNetAndIPFilteringLogs, DiagnosticErrorLogs]
+        accepts: [OperationalLogs, RuntimeAuditLogs, ApplicationMetricsLogs, VNetAndIPFilteringLogs, DiagnosticErrorLogs]
         default: [OperationalLogs, VNetAndIPFilteringLogs]
         why: >
           Management operations and firewall decisions are the baseline and cheap.
@@ -645,7 +706,9 @@ groups:
           diagnosticSettings[].logCategoriesAndGroups[].category
 
       - id: metrics_enabled
-        ask: Should all metrics be collected?
+        ask:
+          en: "Should all metrics be collected?"
+          de: "Sollen alle Metriken erfasst werden?"
         type: bool
         plain:
           en: "Usage and performance figures are {value}."

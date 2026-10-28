@@ -30,12 +30,14 @@ groups:
     title: Placement
     questions:
       - id: environments
-        ask: Which stages is this deployed to?
+        ask:
+          en: "Which stages is this deployed to?"
+          de: "In welche Stufen wird das ausgerollt?"
         type: list
         plain:
           en: "Deployed in the stages {value}."
           de: "Wird in den Stufen {value} ausgerollt."
-        values: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
+        accepts: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
         required: true
         from_context: true
         why: >
@@ -44,7 +46,9 @@ groups:
         renders: naming parameter `environment`, and the tag of that name where the repository uses one
 
       - id: location
-        ask: Which Azure region?
+        ask:
+          en: "Which Azure region?"
+          de: "Welche Azure-Region?"
         type: string
         plain:
           en: "Runs in the Azure region {value}."
@@ -58,12 +62,14 @@ groups:
         renders: location
 
       - id: resource_group_name
-        ask: Which resource group?
-        type: ref
+        ask:
+          en: "Which resource group?"
+          de: "Welche Ressourcengruppe?"
+        type: string
         plain:
           en: "Placed in the resource group {value}."
           de: "Liegt in der Ressourcengruppe {value}."
-        ref: resource_group
+        accepts: { ref: resource_group }
         required: true
         from_context: true
         per_environment: true
@@ -78,7 +84,9 @@ groups:
     title: The scale set
     questions:
       - id: orchestration_mode
-        ask: Should the scale set manage identical instances as one unit or as individual virtual machines?
+        ask:
+          en: "Should the scale set manage identical instances as one unit or as individual virtual machines?"
+          de: "Soll das Scale Set gleiche Instanzen als eine Einheit verwalten oder als einzelne virtuelle Maschinen?"
         type: enum
         plain:
           en: "The scale set manages its instances {value}."
@@ -86,9 +94,8 @@ groups:
         plain_values:
           Flexible: { en: "as ordinary virtual machines that it adds and removes, spread over zones and racks", de: "als gewöhnliche virtuelle Maschinen, die sie hinzufügt und entfernt, verteilt auf Zonen und Racks" }
           Uniform: { en: "as identical copies of one model, the older way", de: "als identische Kopien eines Modells, die ältere Art" }
-        values: [Flexible, Uniform]
+        accepts: [Flexible, Uniform]
         default: Flexible
-        confirm_in: [production]
         why: >
           **Flexible is the current model** and the one Azure recommends for new work: each
           instance is a real virtual machine in the resource group, zones and fault domains are
@@ -102,7 +109,9 @@ groups:
         renders: orchestrationMode `Flexible` / `Uniform` (the Terraform module renders Flexible only; the Uniform set is the authored `azurerm_linux_virtual_machine_scale_set` / `azurerm_windows_virtual_machine_scale_set`)
 
       - id: os_type
-        ask: Which operating system does the software run on?
+        ask:
+          en: "Which operating system does the software run on?"
+          de: "Auf welchem Betriebssystem läuft die Software?"
         type: enum
         resolved_by: interview
         topic: application
@@ -112,7 +121,7 @@ groups:
         plain_values:
           Linux: { en: "Linux", de: "Linux" }
           Windows: { en: "Windows Server, whose licence is part of the price", de: "Windows Server, dessen Lizenz im Preis enthalten ist" }
-        values: [Linux, Windows]
+        accepts: [Linux, Windows]
         default: Linux
         why: >
           Only the customer knows what the software needs. Linux is the default: no licence in
@@ -122,7 +131,9 @@ groups:
         renders: os_profile.linux_configuration / windows_configuration; osType
 
       - id: image
-        ask: Which operating system image?
+        ask:
+          en: "Which operating system image?"
+          de: "Welches Betriebssystem-Image?"
         type: enum
         plain:
           en: "Instances are built from the image {value}."
@@ -132,9 +143,8 @@ groups:
           windows_server_2022: { en: "Windows Server 2022 Datacenter", de: "Windows Server 2022 Datacenter" }
           windows_server_2025: { en: "Windows Server 2025 Datacenter", de: "Windows Server 2025 Datacenter" }
           gallery_image: { en: "your own image from a compute gallery", de: "euer eigenes Image aus einer Compute Gallery" }
-        values: [ubuntu_24_04, windows_server_2022, windows_server_2025, gallery_image]
+        accepts: [ubuntu_24_04, windows_server_2022, windows_server_2025, gallery_image]
         default: ubuntu_24_04
-        confirm_in: [production]
         why: >
           Always **generation 2**: trusted launch, encryption at host and the current sizes need
           it. An instance is a copy of the image at the time it is added, so with `latest` a
@@ -150,12 +160,14 @@ groups:
           source_image_reference { publisher, offer, sku, version = "latest" } (a gallery image: source_image_id) / imageReference
 
       - id: gallery_image_id
-        ask: Which compute gallery image version?
-        type: ref
+        ask:
+          en: "Which compute gallery image version?"
+          de: "Welche Image-Version aus der Compute Gallery?"
+        type: string
         plain:
           en: "The image comes from {value}."
           de: "Das Image stammt aus {value}."
-        ref: gallery_image
+        accepts: { ref: gallery_image }
         required: true
         depends_on: { question: image, equals: gallery_image }
         per_environment: true
@@ -165,13 +177,14 @@ groups:
         renders: source_image_id / imageReference.id
 
       - id: size
-        ask: Which instance size?
+        ask:
+          en: "Which instance size?"
+          de: "Welche Instanzgröße?"
         type: string
         plain:
           en: "The instance size is {value}."
           de: "Die Instanzgröße ist {value}."
         default: Standard_D2ds_v5
-        confirm_in: [production]
         why: >
           A starting size, not a sizing: 2 vCPUs and 8 GiB of memory with a local temporary
           disk, generation 2, premium storage and encryption at host capable. The right size
@@ -181,7 +194,9 @@ groups:
         renders: sku_name / skuName
 
       - id: instances
-        ask: How many instances should the scale set start with?
+        ask:
+          en: "How many instances should the scale set start with?"
+          de: "Mit wie vielen Instanzen soll das Scale Set starten?"
         type: int
         plain:
           en: "The scale set starts with {value} instances."
@@ -189,7 +204,6 @@ groups:
         derived_from:
           question: outage_impact
           map: { tolerable: 1, disruptive: 2, critical: 3 }
-        confirm_in: [production]
         non_production_default: 1
         why: >
           Derived from how bad an outage is: two instances in two zones survive the loss of one,
@@ -200,12 +214,14 @@ groups:
         renders: instances / skuCapacity
 
       - id: zones
-        ask: In which availability zones should the instances be spread?
+        ask:
+          en: "In which availability zones should the instances be spread?"
+          de: "Auf welche Verfügbarkeitszonen sollen die Instanzen verteilt werden?"
         type: list
         plain:
           en: "Instances are spread over the zones {value} (empty: no zones)."
           de: "Die Instanzen werden auf die Zonen {value} verteilt (leer: keine Zonen)."
-        values: ["1", "2", "3"]
+        accepts: ["1", "2", "3"]
         default: ["1", "2", "3"]
         why: >
           All three: the platform places new instances in the zones named, so losing one zone
@@ -218,7 +234,9 @@ groups:
         renders: zones / availabilityZones
 
       - id: zone_balance
-        ask: Must the instances stay evenly spread over the zones?
+        ask:
+          en: "Must the instances stay evenly spread over the zones?"
+          de: "Müssen die Instanzen gleichmäßig über die Zonen verteilt bleiben?"
         type: bool
         plain:
           en: "Even spread over the zones is {value}."
@@ -235,7 +253,9 @@ groups:
         renders: zone_balance / zoneBalance
 
       - id: fault_domain_count
-        ask: Over how many racks should the instances be spread inside a zone?
+        ask:
+          en: "Over how many racks should the instances be spread inside a zone?"
+          de: "Auf wie viele Racks sollen die Instanzen innerhalb einer Zone verteilt werden?"
         type: int
         plain:
           en: "Inside a zone the instances are spread over {value} racks."
@@ -253,7 +273,9 @@ groups:
         renders: platform_fault_domain_count / scaleSetFaultDomain
 
       - id: os_disk_storage
-        ask: Which disk type should the instances' system disks have?
+        ask:
+          en: "Which disk type should the instances' system disks have?"
+          de: "Welchen Disk-Typ sollen die System-Disks der Instanzen haben?"
         type: enum
         plain:
           en: "The system disks are {value}."
@@ -262,7 +284,7 @@ groups:
           Premium_LRS: { en: "premium SSD, kept three times in one datacenter", de: "Premium-SSD, dreifach in einem Rechenzentrum" }
           Premium_ZRS: { en: "premium SSD, kept in three datacenters of the region", de: "Premium-SSD, in drei Rechenzentren der Region" }
           StandardSSD_LRS: { en: "standard SSD, kept three times in one datacenter", de: "Standard-SSD, dreifach in einem Rechenzentrum" }
-        values: [Premium_LRS, Premium_ZRS, StandardSSD_LRS]
+        accepts: [Premium_LRS, Premium_ZRS, StandardSSD_LRS]
         default: Premium_LRS
         why: >
           An instance is replaceable: if its zone fails, the platform adds one in another zone,
@@ -273,7 +295,9 @@ groups:
         renders: os_disk.storage_account_type / osDisk.managedDisk.storageAccountType
 
       - id: os_disk_size_gb
-        ask: How large should each system disk be, in GiB?
+        ask:
+          en: "How large should each system disk be, in GiB?"
+          de: "Wie groß soll jede System-Disk sein, in GiB?"
         type: int
         plain:
           en: "Each system disk is {value} GiB."
@@ -288,7 +312,9 @@ groups:
         renders: os_disk.disk_size_gb / osDisk.diskSizeGB
 
       - id: upgrade_mode
-        ask: How should a change to the instance model reach the running instances?
+        ask:
+          en: "How should a change to the instance model reach the running instances?"
+          de: "Wie soll eine Änderung am Instanzmodell die laufenden Instanzen erreichen?"
         type: enum
         plain:
           en: "A new model reaches running instances {value}."
@@ -297,9 +323,8 @@ groups:
           Manual: { en: "only when you update them yourself; new instances get the new model", de: "nur, wenn ihr sie selbst aktualisiert; neue Instanzen bekommen das neue Modell" }
           Rolling: { en: "in batches, with a health check between batches", de: "in Batches, mit einer Gesundheitsprüfung zwischen den Batches" }
           Automatic: { en: "all at once", de: "alle auf einmal" }
-        values: [Manual, Rolling, Automatic]
+        accepts: [Manual, Rolling, Automatic]
         default: Manual
-        confirm_in: [production]
         why: >
           `Manual` is both modules' default and changes nothing under a running workload: the
           model moves forward, existing instances keep the old one until the pipeline replaces
@@ -311,7 +336,9 @@ groups:
         renders: upgrade_policy.upgrade_mode / upgradePolicyMode
 
       - id: health_check_port
-        ask: On which port does the software answer a health check?
+        ask:
+          en: "On which port does the software answer a health check?"
+          de: "Auf welchem Port beantwortet die Software einen Health Check?"
         type: int
         plain:
           en: "The platform checks health on port {value}."
@@ -325,7 +352,9 @@ groups:
         renders: extension (`ApplicationHealthLinux` / `ApplicationHealthWindows`).settings.port / extensionHealthConfig.port
 
       - id: health_check_path
-        ask: On which path does the software answer a health check?
+        ask:
+          en: "On which path does the software answer a health check?"
+          de: "Unter welchem Pfad beantwortet die Software einen Health Check?"
         type: string
         plain:
           en: "The health check asks {value}."
@@ -338,7 +367,9 @@ groups:
         renders: extension.settings.requestPath / extensionHealthConfig.requestPath
 
       - id: instance_repair
-        ask: Should the platform replace an instance that stops answering its health check?
+        ask:
+          en: "Should the platform replace an instance that stops answering its health check?"
+          de: "Soll die Plattform eine Instanz ersetzen, die ihren Health Check nicht mehr beantwortet?"
         type: bool
         plain:
           en: "A failing instance is replaced automatically: {value}."
@@ -359,13 +390,15 @@ groups:
     title: Networking
     questions:
       - id: workload_subnet
-        ask: Which subnet do the instances' network interfaces live in?
-        type: ref
+        ask:
+          en: "Which subnet do the instances' network interfaces live in?"
+          de: "In welchem Subnetz liegen die Netzwerkschnittstellen der Instanzen?"
+        type: string
         resolved_by: derived
         plain:
           en: "Their network connection lands in subnet {value}."
           de: "Ihre Netzwerkanbindung landet im Subnetz {value}."
-        ref: subnet
+        accepts: { ref: subnet }
         required: true
         per_environment: true
         why: >
@@ -379,7 +412,9 @@ groups:
         renders: network_interface.ip_configuration.subnet_id / nicConfigurations[].ipConfigurations[].properties.subnet.id
 
       - id: public_ip
-        ask: Should each instance have its own public address?
+        ask:
+          en: "Should each instance have its own public address?"
+          de: "Soll jede Instanz eine eigene öffentliche Adresse haben?"
         type: bool
         plain:
           en: "Each instance {value} a public address."
@@ -388,7 +423,6 @@ groups:
           true: { en: "has", de: "hat" }
           false: { en: "has no", de: "hat keine" }
         default: false
-        confirm_in: [production]
         why: >
           Instances are replaced at will, so a public address per instance is a management port
           that appears and disappears with the scale. Traffic reaches the set through whatever
@@ -397,12 +431,14 @@ groups:
         renders: network_interface.ip_configuration.public_ip_address (absent) / ipConfigurations[].properties.publicIPAddressConfiguration (absent)
 
       - id: load_balancer_backend_pool_ids
-        ask: Which load balancer or Application Gateway backend pools should receive the instances?
+        ask:
+          en: "Which load balancer or Application Gateway backend pools should receive the instances?"
+          de: "Welche Backend-Pools eines Load Balancers oder Application Gateways sollen die Instanzen aufnehmen?"
         type: list
         plain:
           en: "Instances join the backend pools {value} (empty: nothing in front)."
           de: "Instanzen treten den Backend-Pools {value} bei (leer: nichts davor)."
-        ref: load_balancer_backend_pool
+        accepts: { ref: load_balancer_backend_pool }
         default: []
         per_environment: true
         why: >
@@ -413,7 +449,9 @@ groups:
         renders: network_interface.ip_configuration.load_balancer_backend_address_pool_ids, application_gateway_backend_address_pool_ids / ipConfigurations[].properties.loadBalancerBackendAddressPools
 
       - id: accelerated_networking
-        ask: Should the instances' network interfaces use accelerated networking?
+        ask:
+          en: "Should the instances' network interfaces use accelerated networking?"
+          de: "Sollen die Netzwerkschnittstellen der Instanzen beschleunigten Netzwerkbetrieb nutzen?"
         type: bool
         plain:
           en: "Accelerated networking is {value}."
@@ -435,12 +473,14 @@ groups:
     title: Identity and access
     questions:
       - id: user_assigned_identity_ids
-        ask: Which user-assigned identity do the instances share?
+        ask:
+          en: "Which user-assigned identity do the instances share?"
+          de: "Welche User-Assigned Identity teilen sich die Instanzen?"
         type: list
         plain:
           en: "The instances use the identity {value}."
           de: "Die Instanzen nutzen die Identität {value}."
-        ref: user_assigned_identity
+        accepts: { ref: user_assigned_identity }
         default: []
         per_environment: true
         why: >
@@ -452,7 +492,9 @@ groups:
         renders: managed_identities.user_assigned_resource_ids / managedIdentities.userAssignedResourceIds
 
       - id: role_assignments
-        ask: Who needs which role on this scale set?
+        ask:
+          en: "Who needs which role on this scale set?"
+          de: "Wer braucht welche Rolle auf diesem Scale Set?"
         type: list
         plain:
           en: "Access rights on the scale set granted to: {value} (empty: none)."
@@ -472,7 +514,9 @@ groups:
     title: Security
     questions:
       - id: trusted_launch
-        ask: Should the instances start with secure boot and a virtual security chip?
+        ask:
+          en: "Should the instances start with secure boot and a virtual security chip?"
+          de: "Sollen die Instanzen mit Secure Boot und einem virtuellen Sicherheitschip starten?"
         type: bool
         plain:
           en: "Trusted launch - secure boot and virtual TPM - is {value}."
@@ -481,7 +525,6 @@ groups:
           true: { en: "on, so a tampered boot loader or rootkit is refused", de: "an, damit ein manipulierter Bootloader oder ein Rootkit abgewiesen wird" }
           false: { en: "off", de: "aus" }
         default: true
-        confirm_in: [production]
         why: >
           Secure boot, a virtual TPM and boot integrity monitoring, at no cost, on every
           generation 2 image and size that supports it; it cannot be added to a set that
@@ -496,7 +539,9 @@ groups:
           module input (authored: secure_boot_enabled, vtpm_enabled)
 
       - id: encryption_at_host
-        ask: Should every disk of the instances, including the temporary one, be encrypted at the host?
+        ask:
+          en: "Should every disk of the instances, including the temporary one, be encrypted at the host?"
+          de: "Soll jede Disk der Instanzen, auch die temporäre, auf dem Host verschlüsselt werden?"
         type: bool
         plain:
           en: "Encryption at the host, covering the temporary disk and caches too, is {value}."
@@ -505,7 +550,6 @@ groups:
           true: { en: "on", de: "an" }
           false: { en: "off", de: "aus" }
         default: true
-        confirm_in: [production]
         why: >
           The only encryption that covers the temporary disk and the disk cache and reaches the
           data before it leaves the host. **The modules disagree**: the Bicep module defaults to
@@ -514,7 +558,9 @@ groups:
         renders: encryption_at_host_enabled / encryptionAtHost
 
       - id: key_management
-        ask: Are the disk encryption keys platform-managed or customer-managed?
+        ask:
+          en: "Are the disk encryption keys platform-managed or customer-managed?"
+          de: "Werden die Disk-Schlüssel von der Plattform verwaltet oder vom Kunden?"
         type: enum
         plain:
           en: "Encryption keys are {value}."
@@ -522,9 +568,8 @@ groups:
         plain_values:
           platform_managed: { en: "managed by Azure - encrypted, rotated, no effort on your side", de: "von Azure verwaltet: verschlüsselt, rotiert, kein Aufwand bei euch" }
           customer_managed: { en: "your own, held in your key vault, so you can revoke them", de: "eure eigenen in eurem Schlüsseltresor, damit ihr sie zurückziehen könnt" }
-        values: [platform_managed, customer_managed]
+        accepts: [platform_managed, customer_managed]
         from_deployment: key_management
-        confirm_in: [production]
         why: >
           Inherited. Disks are encrypted at rest with a platform key either way;
           `customer_managed` wraps them with a key in the customer's Key Vault through a disk
@@ -533,12 +578,14 @@ groups:
         renders: os_disk.disk_encryption_set_id / osDisk.managedDisk.diskEncryptionSet.id
 
       - id: disk_encryption_set_id
-        ask: Which disk encryption set should encrypt the instances' disks?
-        type: ref
+        ask:
+          en: "Which disk encryption set should encrypt the instances' disks?"
+          de: "Welches Disk Encryption Set soll die Disks der Instanzen verschlüsseln?"
+        type: string
         plain:
           en: "Disks are encrypted with your set {value}."
           de: "Platten werden mit eurem Set {value} verschlüsselt."
-        ref: disk_encryption_set
+        accepts: { ref: disk_encryption_set }
         required: true
         depends_on: { question: key_management, equals: customer_managed }
         per_environment: true
@@ -548,7 +595,9 @@ groups:
         renders: os_disk.disk_encryption_set_id / osDisk.managedDisk.diskEncryptionSet.id
 
       - id: admin_username
-        ask: What should the local administrator account be called?
+        ask:
+          en: "What should the local administrator account be called?"
+          de: "Wie soll das lokale Administratorkonto heißen?"
         type: string
         plain:
           en: "The local administrator account is called {value}."
@@ -561,7 +610,9 @@ groups:
         renders: os_profile.linux_configuration.admin_username / adminUsername
 
       - id: password_authentication
-        ask: May people sign in with a password?
+        ask:
+          en: "May people sign in with a password?"
+          de: "Dürfen sich Personen mit einem Passwort anmelden?"
         type: bool
         plain:
           en: "Signing in with a password is {value}."
@@ -571,7 +622,6 @@ groups:
           false: { en: "not allowed; keys only", de: "nicht erlaubt; nur Schlüssel" }
         from_deployment: local_auth
         depends_on: { question: os_type, equals: Linux }
-        confirm_in: [production]
         why: >
           Inherited, inverted: `local_auth: disabled` renders as `false`. A scale set's
           instances share one credential, so a password is one password on every instance.
@@ -579,7 +629,9 @@ groups:
         renders: os_profile.linux_configuration.disable_password_authentication (inverted) / disablePasswordAuthentication (inverted)
 
       - id: ssh_public_key
-        ask: Which SSH public key may sign in?
+        ask:
+          en: "Which SSH public key may sign in?"
+          de: "Welcher öffentliche SSH-Schlüssel darf sich anmelden?"
         type: string
         plain:
           en: "The SSH public key {value} may sign in."
@@ -594,12 +646,14 @@ groups:
         renders: admin_ssh_keys, os_profile.linux_configuration.admin_ssh_key_id / publicKeys
 
       - id: admin_password_secret
-        ask: Which Key Vault secret holds the administrator password?
-        type: ref
+        ask:
+          en: "Which Key Vault secret holds the administrator password?"
+          de: "Welches Key-Vault-Secret hält das Administrator-Passwort?"
+        type: string
         plain:
           en: "The administrator password is the secret {value}."
           de: "Das Administratorpasswort ist das Geheimnis {value}."
-        ref: key_vault_secret
+        accepts: { ref: key_vault_secret }
         required: true
         depends_on: { question: os_type, equals: Windows }
         per_environment: true
@@ -612,7 +666,9 @@ groups:
         renders: admin_password (sensitive variable) / adminPassword from a Key Vault reference
 
       - id: patch_mode
-        ask: How should operating system updates be installed?
+        ask:
+          en: "How should operating system updates be installed?"
+          de: "Wie sollen Betriebssystem-Updates installiert werden?"
         type: enum
         plain:
           en: "Operating system updates are {value}."
@@ -620,9 +676,8 @@ groups:
         plain_values:
           AutomaticByPlatform: { en: "installed by Azure on its own schedule, after checking the region's health", de: "von Azure nach eigenem Plan eingespielt, nachdem die Gesundheit der Region geprüft wurde" }
           ImageDefault: { en: "left to the operating system's own updater", de: "dem Updater des Betriebssystems selbst überlassen" }
-        values: [AutomaticByPlatform, ImageDefault]
+        accepts: [AutomaticByPlatform, ImageDefault]
         default: AutomaticByPlatform
-        confirm_in: [production]
         why: >
           Both modules default to platform orchestration. It needs the application health
           extension (`health_check_port`) and the VM agent in the image; it patches one zone and
@@ -636,7 +691,9 @@ groups:
     title: Observability
     questions:
       - id: boot_diagnostics
-        ask: Should the instances keep boot screenshots and serial console output?
+        ask:
+          en: "Should the instances keep boot screenshots and serial console output?"
+          de: "Sollen die Instanzen Boot-Screenshots und die Ausgabe der seriellen Konsole aufbewahren?"
         type: bool
         plain:
           en: "Boot screenshots and console output are {value}."
@@ -652,13 +709,15 @@ groups:
         renders: boot_diagnostics = {} (an empty object is the managed account) / bootDiagnosticEnabled
 
       - id: diagnostic_workspace
-        ask: Which Log Analytics workspace should receive diagnostics?
-        type: ref
+        ask:
+          en: "Which Log Analytics workspace should receive diagnostics?"
+          de: "Welcher Log Analytics Workspace soll die Diagnosedaten erhalten?"
+        type: string
         resolved_by: derived
         plain:
           en: "Its metrics go to {value}."
           de: "Seine Metriken gehen in {value}."
-        ref: log_analytics_workspace
+        accepts: { ref: log_analytics_workspace }
         from_deployment: diagnostics_destination
         per_environment: true
         why: >
@@ -670,7 +729,9 @@ groups:
         renders: diagnostic_settings (authored) / diagnosticSettings
 
       - id: metrics_enabled
-        ask: Should all metrics be collected?
+        ask:
+          en: "Should all metrics be collected?"
+          de: "Sollen alle Metriken erfasst werden?"
         type: bool
         plain:
           en: "Usage and performance figures are {value}."

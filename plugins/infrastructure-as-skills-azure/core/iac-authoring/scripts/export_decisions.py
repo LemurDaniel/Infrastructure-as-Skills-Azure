@@ -15,7 +15,7 @@ question sets:
   3. Decided differently by you - `overridden` values with their reason.
   4. Still open - the `open:` entries with their owner, and `assumed` values.
   5. Appendix - every decision with its key, value and source, for the
-     engineer reading beside the customer.
+     technical reader beside the customer.
 
 Fixed labels come in `en` and `de`; the per-decision lines come from the
 question sets, which carry `en` and may carry others. A line missing in the
@@ -50,7 +50,7 @@ LABELS = {
     'en': {
         'title': 'Decisions for "{workload}"',
         'intro': 'What will be built, decided from your answers and the rules behind the defaults. '
-                 'Every line is one decision; the key in the appendix is where an engineer finds it in the specification.',
+                 'Every line is one decision; the key in the appendix is where it stands in the specification.',
         'as_of': 'As of {date}. Specification: `{spec}`.',
         'context': 'The system', 'stages': 'What differs between the stages',
         'stages_intro': 'One code base is deployed through these stages; everything not listed here is identical in every stage.',
@@ -70,7 +70,6 @@ LABELS = {
         'derived': 'therefore', 'rules': 'Set by the rules',
         'rules_intro': 'Nothing here was asked; each follows a rule or one of the answers above. Say so if one is wrong.',
         'whole_system': 'For the whole system', 'because': 'because',
-        'confirm': 'please confirm',
         'security_rules': 'Security',
         'security_intro': 'The security baseline of every part in one place. None of it was asked and it is the same in every stage; say so if one does not fit.',
         'overridden': 'Decided differently by you', 'reason': 'reason',
@@ -87,7 +86,7 @@ LABELS = {
     'de': {
         'title': 'Entscheidungen für „{workload}“',
         'intro': 'Was gebaut wird, entschieden aus euren Antworten und den Regeln hinter den Vorgaben. '
-                 'Jede Zeile ist eine Entscheidung; der Schlüssel im Anhang ist, wo ein Engineer sie in der Spezifikation findet.',
+                 'Jede Zeile ist eine Entscheidung; der Schlüssel im Anhang zeigt, wo sie in der Spezifikation steht.',
         'as_of': 'Stand {date}. Spezifikation: `{spec}`.',
         'context': 'Das System', 'stages': 'Was sich zwischen den Stufen unterscheidet',
         'stages_intro': 'Ein Code wird durch diese Stufen ausgerollt; alles, was hier nicht steht, ist in jeder Stufe gleich.',
@@ -107,7 +106,6 @@ LABELS = {
         'derived': 'daher', 'rules': 'Nach den Vorgaben gesetzt',
         'rules_intro': 'Nichts davon wurde gefragt; jede Zeile folgt einer Regel oder einer der Antworten oben. Sagt Bescheid, wenn eine nicht passt.',
         'whole_system': 'Für das ganze System', 'because': 'weil',
-        'confirm': 'bitte bestätigen',
         'security_rules': 'Sicherheit',
         'security_intro': 'Die Sicherheitsvorgaben aller Teile an einer Stelle. Sie wurden nicht gefragt und sind in jeder Stufe gleich; sagt Bescheid, wenn eine nicht passt.',
         'overridden': 'Von euch anders entschieden', 'reason': 'Grund',
@@ -409,11 +407,6 @@ def main():
             return f" — {L['because']}: {R.line(dep_q[m.group(1)][1], dep[m.group(1)].get('value'))}"
         return f" — {L['because']}: `{fb}`" if fb else ''
 
-    def confirm_note(q):
-        # A default the question set wants confirmed in a stage that exists in this spec.
-        ci = (q or {}).get('confirm_in') or []
-        return f" _({L['confirm']})_" if set(ci) & set(R.environments) else ''
-
     w(f"## {L['rules']}")
     w('')
     w(L['rules_intro'])
@@ -427,7 +420,7 @@ def main():
         if not isinstance(d, dict) or d.get('source') in ('overridden', 'assumed'):
             continue
         note = forced_note(d) if d.get('source') == 'forced' else ''
-        w(f"- {R.line(q, d.get('value'))}{note}{confirm_note(q)}")
+        w(f"- {R.line(q, d.get('value'))}{note}")
     w('')
     overridden, assumed = [], []
     security, blocks = {}, []   # security: kind title -> {line: [instances]}, in first-seen order
@@ -451,7 +444,7 @@ def main():
                     continue
                 if src == 'requirement':
                     continue
-                note = (forced_note(d) if src == 'forced' else '') + confirm_note(q)
+                note = forced_note(d) if src == 'forced' else ''
                 if gid in SECURITY_GROUPS and not res.startswith('user-assigned-identity'):
                     kind, _, inst = res.partition('__')
                     title = titles.get(res, res)

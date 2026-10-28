@@ -21,12 +21,14 @@ groups:
     title: Placement
     questions:
       - id: environments
-        ask: Which stages is this deployed to?
+        ask:
+          en: "Which stages is this deployed to?"
+          de: "In welche Stufen wird das ausgerollt?"
         type: list
         plain:
           en: "Deployed in the stages {value}."
           de: "Wird in den Stufen {value} ausgerollt."
-        values: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
+        accepts: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
         required: true
         from_context: true
         why: >
@@ -34,7 +36,9 @@ groups:
         renders: naming parameter `environment`
 
       - id: location
-        ask: Which Azure region?
+        ask:
+          en: "Which Azure region?"
+          de: "Welche Azure-Region?"
         type: string
         plain:
           en: "Runs in the Azure region {value}."
@@ -48,12 +52,14 @@ groups:
         renders: location
 
       - id: resource_group_name
-        ask: Which resource group?
-        type: ref
+        ask:
+          en: "Which resource group?"
+          de: "Welche Ressourcengruppe?"
+        type: string
         plain:
           en: "Placed in the resource group {value}."
           de: "Liegt in der Ressourcengruppe {value}."
-        ref: resource_group
+        accepts: { ref: resource_group }
         required: true
         from_context: true
         per_environment: true
@@ -68,7 +74,9 @@ groups:
     title: Addressing
     questions:
       - id: address_space
-        ask: Which address range does the network use?
+        ask:
+          en: "Which address range does the network use?"
+          de: "Welchen Adressbereich verwendet das Netz?"
         type: string
         resolved_by: derived
         plain:
@@ -85,7 +93,9 @@ groups:
         renders: address_space / properties.addressSpace.addressPrefixes
 
       - id: subnets
-        ask: Which subnets does the network need, and with which prefixes?
+        ask:
+          en: "Which subnets does the network need, and with which prefixes?"
+          de: "Welche Subnetze braucht das Netz, und mit welchen Präfixen?"
         type: list
         plain:
           en: "Subnets: {value}."
@@ -102,7 +112,9 @@ groups:
         renders: azurerm_subnet / properties.subnets
 
       - id: private_endpoint_subnet_prefix
-        ask: Which prefix carries the private endpoints?
+        ask:
+          en: "Which prefix carries the private endpoints?"
+          de: "Welches Präfix trägt die Private Endpoints?"
         type: string
         resolved_by: derived
         plain:
@@ -117,7 +129,9 @@ groups:
         renders: the subnet the private endpoints in every other module attach to
 
       - id: dns_servers
-        ask: Which DNS servers should the network use?
+        ask:
+          en: "Which DNS servers should the network use?"
+          de: "Welche DNS-Server soll das Netz verwenden?"
         type: list
         resolved_by: derived
         plain:
@@ -138,7 +152,9 @@ groups:
     title: Subnet policy
     questions:
       - id: private_endpoint_network_policies
-        ask: Should network policies apply to private endpoints in their subnet?
+        ask:
+          en: "Should network policies apply to private endpoints in their subnet?"
+          de: "Sollen Network Policies für Private Endpoints in ihrem Subnetz gelten?"
         type: enum
         plain:
           en: "Network rules {value} to private connections in their subnet."
@@ -148,7 +164,7 @@ groups:
           Disabled: { en: "do not apply", de: "gelten nicht" }
           NetworkSecurityGroupEnabled: { en: "apply for security groups only", de: "gelten nur für Sicherheitsgruppen" }
           RouteTableEnabled: { en: "apply for routes only", de: "gelten nur für Routen" }
-        values: [Disabled, Enabled, NetworkSecurityGroupEnabled, RouteTableEnabled]
+        accepts: [Disabled, Enabled, NetworkSecurityGroupEnabled, RouteTableEnabled]
         default: Enabled
         why: >
           Historically this had to be `Disabled` for an endpoint to work at all,
@@ -159,12 +175,14 @@ groups:
         renders: private_endpoint_network_policies / properties.privateEndpointNetworkPolicies
 
       - id: service_endpoints
-        ask: Which service endpoints should the subnets carry?
+        ask:
+          en: "Which service endpoints should the subnets carry?"
+          de: "Welche Service Endpoints sollen die Subnetze tragen?"
         type: list
         plain:
           en: "Shortcuts to Azure services from the subnets: {value}."
           de: "Abkürzungen zu Azure-Diensten aus den Subnetzen: {value}."
-        values: [Microsoft.Storage, Microsoft.KeyVault, Microsoft.Sql, Microsoft.ServiceBus, Microsoft.EventHub, Microsoft.Web]
+        accepts: [Microsoft.Storage, Microsoft.KeyVault, Microsoft.Sql, Microsoft.ServiceBus, Microsoft.EventHub, Microsoft.Web]
         default: []
         why: >
           Empty by default, because a service endpoint is the weaker posture: the
@@ -174,7 +192,9 @@ groups:
         renders: service_endpoints / properties.serviceEndpoints
 
       - id: subnet_delegations
-        ask: Which subnets are delegated to a service?
+        ask:
+          en: "Which subnets are delegated to a service?"
+          de: "Welche Subnetze sind an einen Dienst delegiert?"
         type: list
         plain:
           en: "Subnets handed to a service: {value}."
@@ -193,7 +213,9 @@ groups:
     title: Security
     questions:
       - id: ddos_protection
-        ask: Should the network use a DDoS protection plan?
+        ask:
+          en: "Should the network use a DDoS protection plan?"
+          de: "Soll das Netz einen DDoS-Schutzplan verwenden?"
         type: bool
         resolved_by: derived
         plain:
@@ -203,7 +225,6 @@ groups:
           true: { en: "used", de: "genutzt" }
           false: { en: "not used", de: "nicht genutzt" }
         default: false
-        confirm_in: [production]
         why: >
           Azure protects its infrastructure at the platform layer for free. A
           protection plan adds per-network mitigation tuning and attack reporting,
@@ -212,7 +233,9 @@ groups:
         renders: ddos_protection_plan / properties.enableDdosProtection
 
       - id: subnets_expecting_nsg
-        ask: Which subnets will have a network security group attached?
+        ask:
+          en: "Which subnets will have a network security group attached?"
+          de: "An welche Subnetze wird eine Network Security Group angehängt?"
         type: list
         plain:
           en: "Subnets that will get a security group: {value}."
@@ -231,13 +254,15 @@ groups:
     title: Observability
     questions:
       - id: diagnostic_workspace
-        ask: Which Log Analytics workspace should receive diagnostics?
-        type: ref
+        ask:
+          en: "Which Log Analytics workspace should receive diagnostics?"
+          de: "Welcher Log Analytics Workspace soll die Diagnosedaten erhalten?"
+        type: string
         resolved_by: derived
         plain:
           en: "Network logs go to {value}."
           de: "Netzwerk-Logs gehen in {value}."
-        ref: log_analytics_workspace
+        accepts: { ref: log_analytics_workspace }
         from_deployment: diagnostics_destination
         per_environment: true
         why: >
@@ -247,7 +272,9 @@ groups:
         renders: azurerm_monitor_diagnostic_setting / Microsoft.Insights/diagnosticSettings
 
       - id: flow_logs_enabled
-        ask: Should NSG flow logs be collected?
+        ask:
+          en: "Should NSG flow logs be collected?"
+          de: "Sollen NSG-Flow-Logs erfasst werden?"
         type: bool
         plain:
           en: "A record of allowed and denied traffic is {value}."
@@ -258,7 +285,6 @@ groups:
         derived_from:
           question: priority
           map: { cost: false, balanced: false, protection: true }
-        confirm_in: [production]
         why: >
           Flow logs are the only record of which traffic was actually allowed or
           denied, so they are what a security investigation needs. They are also

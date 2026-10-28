@@ -22,12 +22,14 @@ groups:
     title: Placement
     questions:
       - id: environments
-        ask: Which stages is this deployed to?
+        ask:
+          en: "Which stages is this deployed to?"
+          de: "In welche Stufen wird das ausgerollt?"
         type: list
         plain:
           en: "Deployed in the stages {value}."
           de: "Wird in den Stufen {value} ausgerollt."
-        values: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
+        accepts: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
         required: true
         from_context: true
         why: >
@@ -35,12 +37,14 @@ groups:
         renders: tag of the environment where the repository uses one
 
       - id: storage_account
-        ask: In which storage account should it live?
-        type: ref
+        ask:
+          en: "In which storage account should it live?"
+          de: "In welchem Speicherkonto soll es liegen?"
+        type: string
         plain:
           en: "It is created in the storage account {value}."
           de: "Es wird im Speicherkonto {value} angelegt."
-        ref: storage_account
+        accepts: { ref: storage_account }
         required: true
         per_environment: true
         why: >
@@ -54,7 +58,9 @@ groups:
     title: The containers
     questions:
       - id: container_names
-        ask: Which containers should the account hold?
+        ask:
+          en: "Which containers should the account hold?"
+          de: "Welche Container soll das Konto enthalten?"
         type: list
         resolved_by: interview
         topic: data
@@ -71,7 +77,9 @@ groups:
         renders: containers / blobServices.containers
 
       - id: public_access
-        ask: May anyone on the internet read blobs in these containers without signing in?
+        ask:
+          en: "May anyone on the internet read blobs in these containers without signing in?"
+          de: "Darf jeder im Internet Blobs in diesen Containern ohne Anmeldung lesen?"
         type: enum
         plain:
           en: "Anonymous reading is {value}."
@@ -80,9 +88,8 @@ groups:
           None: { en: "not allowed, everyone signs in", de: "nicht erlaubt, jeder meldet sich an" }
           Blob: { en: allowed for single files with the link, de: für einzelne Dateien mit dem Link erlaubt }
           Container: { en: "allowed, including the file listing", de: "erlaubt, einschließlich der Dateiliste" }
-        values: [None, Blob, Container]
+        accepts: [None, Blob, Container]
         default: None
-        confirm_in: [production]
         why: >
           `None` is the guardrails' answer and the only one that is private: every request
           authenticates. `Blob` and `Container` publish the content (a single blob by URL,
@@ -93,7 +100,9 @@ groups:
         renders: containers.<k>.public_access / blobServices.containers[].publicAccess
 
       - id: immutable_storage
-        ask: Must a stored file be impossible to change or delete once written?
+        ask:
+          en: "Must a stored file be impossible to change or delete once written?"
+          de: "Muss eine gespeicherte Datei nach dem Schreiben unveränderlich und unlöschbar sein?"
         type: bool
         plain:
           en: "Stored files are {value}."
@@ -104,7 +113,6 @@ groups:
         derived_from:
           question: backup_isolation
           map: { operational: false, isolated: false, immutable: true }
-        confirm_in: [production]
         non_production_default: false
         forced_when: >
           `true` makes the account's `versioning_enabled` `true` and
@@ -123,7 +131,9 @@ groups:
           blobServices.containers[].immutableStorageWithVersioningEnabled
 
       - id: encryption_scope_locked
-        ask: Must every file be encrypted with the container's own key scope?
+        ask:
+          en: "Must every file be encrypted with the container's own key scope?"
+          de: "Muss jede Datei mit dem eigenen Verschlüsselungsbereich des Containers verschlüsselt werden?"
         type: bool
         plain:
           en: "Writers choosing another key scope are {value}."
@@ -145,7 +155,9 @@ groups:
     title: Identity and access
     questions:
       - id: role_assignments
-        ask: Who needs which role on this container?
+        ask:
+          en: "Who needs which role on this container?"
+          de: "Wer braucht welche Rolle auf diesem Container?"
         type: list
         plain:
           en: "Access rights on the container granted to: {value}."

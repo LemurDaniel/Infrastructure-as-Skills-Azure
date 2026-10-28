@@ -25,12 +25,14 @@ groups:
     title: Placement
     questions:
       - id: environments
-        ask: Which stages is this deployed to?
+        ask:
+          en: "Which stages is this deployed to?"
+          de: "In welche Stufen wird das ausgerollt?"
         type: list
         plain:
           en: "Deployed in the stages {value}."
           de: "Wird in den Stufen {value} ausgerollt."
-        values: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
+        accepts: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
         required: true
         from_context: true
         why: >
@@ -40,7 +42,9 @@ groups:
         renders: naming parameter `environment`, and the tag of that name where the repository uses one
 
       - id: location
-        ask: Which Azure region?
+        ask:
+          en: "Which Azure region?"
+          de: "Welche Azure-Region?"
         type: string
         plain:
           en: "Runs in the Azure region {value}."
@@ -54,12 +58,14 @@ groups:
         renders: location
 
       - id: resource_group_name
-        ask: Which resource group?
-        type: ref
+        ask:
+          en: "Which resource group?"
+          de: "Welche Ressourcengruppe?"
+        type: string
         plain:
           en: "Placed in the resource group {value}."
           de: "Liegt in der Ressourcengruppe {value}."
-        ref: resource_group
+        accepts: { ref: resource_group }
         required: true
         from_context: true
         per_environment: true
@@ -73,7 +79,9 @@ groups:
     title: The registry
     questions:
       - id: sku
-        ask: Which registry tier?
+        ask:
+          en: "Which registry tier?"
+          de: "Welcher Registry-Tarif?"
         type: enum
         plain:
           en: "The registry is the {value} tier."
@@ -82,7 +90,7 @@ groups:
           Basic: { en: "basic, small and cheap, reachable from the internet only", de: "Basic, klein und günstig, nur aus dem Internet erreichbar" }
           Standard: { en: "standard, more storage and throughput, reachable from the internet only", de: "Standard, mehr Speicher und Durchsatz, nur aus dem Internet erreichbar" }
           Premium: { en: "premium, which alone can be closed off with a private connection and spread over several regions", de: "Premium, die als einzige per privater Anbindung abgeschottet und auf mehrere Regionen verteilt werden kann" }
-        values: [Basic, Standard, Premium]
+        accepts: [Basic, Standard, Premium]
         default: Premium
         why: >
           **Private endpoints, network rules, zone redundancy, geo-replication, the retention
@@ -99,7 +107,9 @@ groups:
         renders: sku / acrSku
 
       - id: zone_redundant
-        ask: Should the registry survive the loss of an availability zone?
+        ask:
+          en: "Should the registry survive the loss of an availability zone?"
+          de: "Soll die Registry den Ausfall einer Verfügbarkeitszone überstehen?"
         type: bool
         plain:
           en: "The registry {value} survive the loss of one datacenter of the region."
@@ -110,7 +120,6 @@ groups:
         derived_from:
           question: outage_impact
           map: { tolerable: false, disruptive: true, critical: true }
-        confirm_in: [production]
         non_production_default: false
         depends_on: { question: sku, equals: Premium }
         why: >
@@ -123,7 +132,9 @@ groups:
         renders: zone_redundancy_enabled / zoneRedundancy (`Enabled`, `Disabled`)
 
       - id: geo_replicas
-        ask: In which further regions should the images be kept?
+        ask:
+          en: "In which further regions should the images be kept?"
+          de: "In welchen weiteren Regionen sollen die Images vorgehalten werden?"
         type: list
         plain:
           en: "The images are also kept in {value} (empty: only in the main region)."
@@ -144,7 +155,9 @@ groups:
         renders: georeplications / replications
 
       - id: retention_untagged_days
-        ask: After how many days should untagged images be deleted?
+        ask:
+          en: "After how many days should untagged images be deleted?"
+          de: "Nach wie vielen Tagen sollen Images ohne Tag gelöscht werden?"
         type: int
         plain:
           en: "Untagged images are deleted after {value} days."
@@ -165,7 +178,9 @@ groups:
     title: Networking
     questions:
       - id: public_network_access
-        ask: Should this registry depart from the deployment's exposure posture?
+        ask:
+          en: "Should this registry depart from the deployment's exposure posture?"
+          de: "Soll diese Registry von der Erreichbarkeit des Deployments abweichen?"
         type: enum
         plain:
           en: "The registry is {value}."
@@ -174,9 +189,8 @@ groups:
           disabled: { en: "not reachable from the internet at all", de: "aus dem Internet überhaupt nicht erreichbar" }
           enabled_with_firewall: { en: "reachable from the internet only from listed addresses", de: "aus dem Internet nur von gelisteten Adressen erreichbar" }
           enabled: { en: "reachable from the internet", de: "aus dem Internet erreichbar" }
-        values: [disabled, enabled_with_firewall, enabled]
+        accepts: [disabled, enabled_with_firewall, enabled]
         from_deployment: network_exposure
-        confirm_in: [production]
         why: >
           Asked only as a departure: exposure is a property of the system. `private` is
           `disabled`, `public` is `enabled_with_firewall`. **Terraform's module defaults to
@@ -195,13 +209,15 @@ groups:
           bicep: publicNetworkAccess and networkRuleSetIpRules
 
       - id: private_endpoint_subnet
-        ask: Which subnet should this registry's private endpoint live in?
-        type: ref
+        ask:
+          en: "Which subnet should this registry's private endpoint live in?"
+          de: "In welchem Subnetz soll der Private Endpoint dieser Registry liegen?"
+        type: string
         resolved_by: derived
         plain:
           en: "Its private connection lands in subnet {value}."
           de: "Seine private Anbindung landet im Subnetz {value}."
-        ref: subnet
+        accepts: { ref: subnet }
         from_deployment: private_endpoint_subnet
         per_environment: true
         why: >
@@ -212,7 +228,9 @@ groups:
         renders: private_endpoints.<key>.subnet_resource_id / privateEndpoints[].subnetResourceId (service `registry`)
 
       - id: ip_rules
-        ask: Which public IP ranges may reach the registry?
+        ask:
+          en: "Which public IP ranges may reach the registry?"
+          de: "Welche öffentlichen IP-Bereiche dürfen die Registry erreichen?"
         type: list
         plain:
           en: "Public addresses allowed to reach the registry: {value}."
@@ -226,7 +244,9 @@ groups:
         renders: network_rule_set.ip_rule / networkRuleSetIpRules
 
       - id: network_rule_bypass
-        ask: May trusted Azure services reach the registry past its firewall?
+        ask:
+          en: "May trusted Azure services reach the registry past its firewall?"
+          de: "Dürfen vertrauenswürdige Azure-Dienste die Registry an ihrer Firewall vorbei erreichen?"
         type: enum
         plain:
           en: "Trusted Azure services {value} past the registry's firewall."
@@ -234,7 +254,7 @@ groups:
         plain_values:
           None: { en: "may not pass", de: "dürfen nicht" }
           AzureServices: { en: "may pass", de: "dürfen" }
-        values: [None, AzureServices]
+        accepts: [None, AzureServices]
         default: None
         why: >
           Lets Microsoft services such as Defender scanning and Azure Container Instances pull
@@ -244,7 +264,9 @@ groups:
         renders: network_rule_bypass_option / networkRuleBypassOptions
 
       - id: export_policy_enabled
-        ask: May images be exported out of the registry's network?
+        ask:
+          en: "May images be exported out of the registry's network?"
+          de: "Dürfen Images aus dem Netz der Registry heraus exportiert werden?"
         type: bool
         plain:
           en: "Copying images out of the registry to elsewhere is {value}."
@@ -267,7 +289,9 @@ groups:
     title: Identity and access
     questions:
       - id: managed_identity
-        ask: Which managed identity should the registry carry?
+        ask:
+          en: "Which managed identity should the registry carry?"
+          de: "Welche Managed Identity soll die Registry tragen?"
         type: enum
         plain:
           en: "The registry has {value}."
@@ -276,7 +300,7 @@ groups:
           none: { en: "no identity of its own", de: "keine eigene Identität" }
           system_assigned: { en: "its own identity", de: "eine eigene Identität" }
           user_assigned: { en: "a separately managed identity", de: "eine separat verwaltete Identität" }
-        values: [none, system_assigned, user_assigned]
+        accepts: [none, system_assigned, user_assigned]
         default: none
         why: >
           The registry's own identity is used for a customer-managed key and for tasks that
@@ -290,12 +314,14 @@ groups:
         renders: managed_identities / managedIdentities
 
       - id: user_assigned_identity_ids
-        ask: Which user-assigned identity?
+        ask:
+          en: "Which user-assigned identity?"
+          de: "Welche User-Assigned Identity?"
         type: list
         plain:
           en: "It uses the identity {value}."
           de: "Es nutzt die Identität {value}."
-        ref: user_assigned_identity
+        accepts: { ref: user_assigned_identity }
         required: true
         depends_on: { question: managed_identity, equals: user_assigned }
         per_environment: true
@@ -303,7 +329,9 @@ groups:
         renders: managed_identities.user_assigned_resource_ids / managedIdentities.userAssignedResourceIds
 
       - id: role_assignments
-        ask: Who needs which role on this registry?
+        ask:
+          en: "Who needs which role on this registry?"
+          de: "Wer braucht welche Rolle auf dieser Registry?"
         type: list
         plain:
           en: "Access rights on the registry granted to: {value}."
@@ -326,7 +354,9 @@ groups:
     title: Security
     questions:
       - id: admin_enabled
-        ask: May clients sign in with the registry's shared admin account?
+        ask:
+          en: "May clients sign in with the registry's shared admin account?"
+          de: "Dürfen sich Clients mit dem gemeinsamen Admin-Konto der Registry anmelden?"
         type: bool
         plain:
           en: "The shared admin account is {value}; access goes through company accounts."
@@ -335,7 +365,6 @@ groups:
           true: { en: "switched on", de: "eingeschaltet" }
           false: { en: "switched off", de: "abgeschaltet" }
         from_deployment: local_auth
-        confirm_in: [production]
         why: >
           Inherited, inverted: `local_auth: disabled` renders as `false`. The admin user is
           one username and password with push and pull on the whole registry, shared by
@@ -345,7 +374,9 @@ groups:
         renders: admin_enabled / acrAdminUserEnabled
 
       - id: anonymous_pull_enabled
-        ask: May anyone pull images without signing in?
+        ask:
+          en: "May anyone pull images without signing in?"
+          de: "Darf jemand Images ohne Anmeldung abrufen?"
         type: bool
         plain:
           en: "Pulling images without signing in is {value}."
@@ -362,7 +393,9 @@ groups:
         renders: anonymous_pull_enabled / anonymousPullEnabled
 
       - id: key_management
-        ask: Are the registry's encryption keys platform-managed or customer-managed?
+        ask:
+          en: "Are the registry's encryption keys platform-managed or customer-managed?"
+          de: "Werden die Schlüssel der Registry von der Plattform verwaltet oder vom Kunden?"
         type: enum
         plain:
           en: "Encryption keys are {value}."
@@ -370,9 +403,8 @@ groups:
         plain_values:
           platform_managed: { en: "managed by Azure - encrypted, rotated, no effort on your side", de: "von Azure verwaltet: verschlüsselt, rotiert, kein Aufwand bei euch" }
           customer_managed: { en: "your own, held in your key vault, so you can revoke them", de: "eure eigenen in eurem Schlüsseltresor, damit ihr sie zurückziehen könnt" }
-        values: [platform_managed, customer_managed]
+        accepts: [platform_managed, customer_managed]
         from_deployment: key_management
-        confirm_in: [production]
         why: >
           Inherited. Images are encrypted at rest with a platform key either way;
           `customer_managed` (Premium) adds the customer's key in a Key Vault with purge
@@ -381,12 +413,14 @@ groups:
         renders: customer_managed_key / customerManagedKey
 
       - id: cmk_key_vault_key_id
-        ask: Which Key Vault key should encrypt the registry?
-        type: ref
+        ask:
+          en: "Which Key Vault key should encrypt the registry?"
+          de: "Welcher Key-Vault-Schlüssel soll die Registry verschlüsseln?"
+        type: string
         plain:
           en: "Encrypted with your key {value}."
           de: "Verschlüsselt mit eurem Schlüssel {value}."
-        ref: key_vault_key
+        accepts: { ref: key_vault_key }
         required: true
         depends_on: { question: key_management, equals: customer_managed }
         per_environment: true
@@ -402,13 +436,15 @@ groups:
     title: Observability
     questions:
       - id: diagnostic_workspace
-        ask: Which Log Analytics workspace should receive diagnostics?
-        type: ref
+        ask:
+          en: "Which Log Analytics workspace should receive diagnostics?"
+          de: "Welcher Log Analytics Workspace soll die Diagnosedaten erhalten?"
+        type: string
         resolved_by: derived
         plain:
           en: "Its logs go to {value}."
           de: "Seine Logs gehen in {value}."
-        ref: log_analytics_workspace
+        accepts: { ref: log_analytics_workspace }
         from_deployment: diagnostics_destination
         per_environment: true
         why: >
@@ -417,7 +453,9 @@ groups:
         renders: diagnostic_settings / diagnosticSettings
 
       - id: diagnostic_categories
-        ask: Which log categories should be collected?
+        ask:
+          en: "Which log categories should be collected?"
+          de: "Welche Log-Kategorien sollen erfasst werden?"
         type: list
         plain:
           en: "Logged: {value}."
@@ -425,7 +463,7 @@ groups:
         plain_values:
           ContainerRegistryRepositoryEvents: { en: "every push, pull and delete of an image", de: "jedes Hochladen, Herunterladen und Löschen eines Images" }
           ContainerRegistryLoginEvents: { en: "every sign-in to the registry", de: "jede Anmeldung an der Registry" }
-        values: [ContainerRegistryRepositoryEvents, ContainerRegistryLoginEvents]
+        accepts: [ContainerRegistryRepositoryEvents, ContainerRegistryLoginEvents]
         default: [ContainerRegistryRepositoryEvents, ContainerRegistryLoginEvents]
         why: >
           Both are the audit: who signed in, and what they did to which repository. The volume
@@ -436,7 +474,9 @@ groups:
         renders: diagnostic_settings.<key>.logs[].category / diagnosticSettings[].logCategoriesAndGroups[].category
 
       - id: metrics_enabled
-        ask: Should all metrics be collected?
+        ask:
+          en: "Should all metrics be collected?"
+          de: "Sollen alle Metriken erfasst werden?"
         type: bool
         plain:
           en: "Usage and performance figures are {value}."

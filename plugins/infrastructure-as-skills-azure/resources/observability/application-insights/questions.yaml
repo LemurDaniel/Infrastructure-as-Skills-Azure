@@ -25,12 +25,14 @@ groups:
     title: Placement
     questions:
       - id: environments
-        ask: Which stages is this deployed to?
+        ask:
+          en: "Which stages is this deployed to?"
+          de: "In welche Stufen wird das ausgerollt?"
         type: list
         plain:
           en: "Deployed in the stages {value}."
           de: "Wird in den Stufen {value} ausgerollt."
-        values: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
+        accepts: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
         required: true
         from_context: true
         why: >
@@ -39,7 +41,9 @@ groups:
         renders: naming parameter `environment`, and the tag of that name where the repository uses one
 
       - id: location
-        ask: Which Azure region?
+        ask:
+          en: "Which Azure region?"
+          de: "Welche Azure-Region?"
         type: string
         plain:
           en: "Runs in the Azure region {value}."
@@ -53,12 +57,14 @@ groups:
         renders: location
 
       - id: resource_group_name
-        ask: Which resource group?
-        type: ref
+        ask:
+          en: "Which resource group?"
+          de: "Welche Ressourcengruppe?"
+        type: string
         plain:
           en: "Placed in the resource group {value}."
           de: "Liegt in der Ressourcengruppe {value}."
-        ref: resource_group
+        accepts: { ref: resource_group }
         required: true
         from_context: true
         per_environment: true
@@ -72,13 +78,15 @@ groups:
     title: The component
     questions:
       - id: workspace
-        ask: Which Log Analytics workspace stores the telemetry?
-        type: ref
+        ask:
+          en: "Which Log Analytics workspace stores the telemetry?"
+          de: "Welcher Log Analytics Workspace speichert die Telemetrie?"
+        type: string
         resolved_by: derived
         plain:
           en: "Its telemetry is stored in {value}."
           de: "Seine Telemetrie wird in {value} gespeichert."
-        ref: log_analytics_workspace
+        accepts: { ref: log_analytics_workspace }
         from_deployment: diagnostics_destination
         per_environment: true
         why: >
@@ -91,7 +99,9 @@ groups:
         renders: workspace_id / workspaceResourceId
 
       - id: application_type
-        ask: Which kind of application sends telemetry?
+        ask:
+          en: "Which kind of application sends telemetry?"
+          de: "Welche Art von Anwendung sendet Telemetrie?"
         type: enum
         plain:
           en: "The component is set up for {value}."
@@ -99,7 +109,7 @@ groups:
         plain_values:
           web: { en: "a web application or a service", de: "eine Webanwendung oder einen Dienst" }
           other: { en: "something that is neither (a job, a script, a function)", de: "etwas, das keines von beidem ist (ein Job, ein Skript, eine Funktion)" }
-        values: [web, other]
+        accepts: [web, other]
         default: web
         why: >
           The type only changes how the portal presents the data and which views are offered; it
@@ -110,7 +120,9 @@ groups:
         renders: application_type / applicationType
 
       - id: sampling_percentage
-        ask: What share of the telemetry should be kept?
+        ask:
+          en: "What share of the telemetry should be kept?"
+          de: "Welcher Anteil der Telemetrie soll behalten werden?"
         type: int
         plain:
           en: "{value} percent of the telemetry is kept."
@@ -126,13 +138,14 @@ groups:
         renders: sampling_percentage / samplingPercentage
 
       - id: daily_cap_gb
-        ask: Should this component's intake be capped per day?
+        ask:
+          en: "Should this component's intake be capped per day?"
+          de: "Soll die Datenaufnahme dieser Komponente pro Tag begrenzt werden?"
         type: int
         plain:
           en: "Daily telemetry cap for this component: {value} GB (0: no cap)."
           de: "Tägliche Obergrenze für die Telemetrie dieser Komponente: {value} GB (0: keine)."
         default: 0
-        confirm_in: [production]
         why: >
           The guard against a logger in a loop. A cap does it by **dropping telemetry for the
           rest of the day** once hit - a blind spot that arrives exactly when something
@@ -142,7 +155,9 @@ groups:
         renders: daily_data_cap_in_gb / the component's `DailyDataCap` (a billing feature, not a template property in Bicep)
 
       - id: store_client_ip
-        ask: Should the visitor's IP address be stored with the telemetry?
+        ask:
+          en: "Should the visitor's IP address be stored with the telemetry?"
+          de: "Soll die IP-Adresse des Besuchers mit der Telemetrie gespeichert werden?"
         type: bool
         plain:
           en: "Visitors' IP addresses are {value}."
@@ -166,7 +181,9 @@ groups:
     title: Networking
     questions:
       - id: public_network_access
-        ask: Should this component depart from the deployment's exposure posture?
+        ask:
+          en: "Should this component depart from the deployment's exposure posture?"
+          de: "Soll diese Komponente von der Erreichbarkeit des Deployments abweichen?"
         type: enum
         plain:
           en: "The component is {value}."
@@ -174,9 +191,8 @@ groups:
         plain_values:
           disabled: { en: "reachable only through the private monitoring connection, for sending and for reading", de: "nur über die private Überwachungsanbindung erreichbar, zum Senden und zum Lesen" }
           enabled: { en: "reachable from the internet, for sending and for reading", de: "aus dem Internet erreichbar, zum Senden und zum Lesen" }
-        values: [disabled, enabled]
+        accepts: [disabled, enabled]
         from_deployment: network_exposure
-        confirm_in: [production]
         why: >
           Asked only as a departure: exposure is a property of the system. `private` is
           `disabled` for **both** ingestion and query, `public` is `enabled`; there is no
@@ -196,13 +212,15 @@ groups:
           bicep: publicNetworkAccessForIngestion and publicNetworkAccessForQuery
 
       - id: private_link_scope
-        ask: Which private monitoring connection should the component belong to?
-        type: ref
+        ask:
+          en: "Which private monitoring connection should the component belong to?"
+          de: "Zu welcher privaten Monitoring-Verbindung soll die Komponente gehören?"
+        type: string
         resolved_by: derived
         plain:
           en: "Its private connection is the monitoring scope {value}."
           de: "Seine private Anbindung ist der Überwachungsbereich {value}."
-        ref: monitor_private_link_scope
+        accepts: { ref: monitor_private_link_scope }
         required: true
         depends_on: { question: public_network_access, equals: disabled }
         per_environment: true
@@ -220,7 +238,9 @@ groups:
     title: Identity and access
     questions:
       - id: role_assignments
-        ask: Who needs which role on this component?
+        ask:
+          en: "Who needs which role on this component?"
+          de: "Wer braucht welche Rolle auf dieser Komponente?"
         type: list
         plain:
           en: "Access rights on the component granted to: {value}."
@@ -246,7 +266,9 @@ groups:
     title: Security
     questions:
       - id: local_authentication_disabled
-        ask: May applications send telemetry with the instrumentation key alone?
+        ask:
+          en: "May applications send telemetry with the instrumentation key alone?"
+          de: "Dürfen Anwendungen Telemetrie allein mit dem Instrumentation Key senden?"
         type: bool
         plain:
           en: "Sending telemetry with only a key is {value}; applications sign in with company identities."
@@ -255,7 +277,6 @@ groups:
           true: { en: "switched off", de: "abgeschaltet" }
           false: { en: "possible", de: "möglich" }
         from_deployment: local_auth
-        confirm_in: [production]
         why: >
           Inherited: `local_auth: disabled` renders as `true`. The instrumentation key is
           embedded in the connection string, sits in every app setting and every browser that

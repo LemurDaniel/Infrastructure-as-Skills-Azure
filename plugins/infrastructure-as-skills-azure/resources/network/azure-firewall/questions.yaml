@@ -27,12 +27,14 @@ groups:
     title: Placement
     questions:
       - id: environments
-        ask: Which stages is this deployed to?
+        ask:
+          en: "Which stages is this deployed to?"
+          de: "In welche Stufen wird das ausgerollt?"
         type: list
         plain:
           en: "Deployed in the stages {value}."
           de: "Wird in den Stufen {value} ausgerollt."
-        values: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
+        accepts: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
         required: true
         from_context: true
         why: >
@@ -43,7 +45,9 @@ groups:
           one
 
       - id: location
-        ask: Which Azure region?
+        ask:
+          en: "Which Azure region?"
+          de: "Welche Azure-Region?"
         type: string
         plain:
           en: "Runs in the Azure region {value}."
@@ -57,12 +61,14 @@ groups:
         renders: location
 
       - id: resource_group_name
-        ask: Which resource group?
-        type: ref
+        ask:
+          en: "Which resource group?"
+          de: "Welche Ressourcengruppe?"
+        type: string
         plain:
           en: "Placed in the resource group {value}."
           de: "Liegt in der Ressourcengruppe {value}."
-        ref: resource_group
+        accepts: { ref: resource_group }
         required: true
         from_context: true
         per_environment: true
@@ -76,7 +82,9 @@ groups:
     title: The firewall
     questions:
       - id: sku_tier
-        ask: Which firewall tier?
+        ask:
+          en: "Which firewall tier?"
+          de: "Welcher Firewall-Tarif?"
         type: enum
         plain:
           en: "The firewall is the {value} tier."
@@ -85,9 +93,8 @@ groups:
           Basic: { en: "Basic (small workloads, up to 250 Mbit/s)", de: "Basic (kleine Lasten, bis 250 Mbit/s)" }
           Standard: { en: "Standard (filtering by address, name and threat reputation)", de: "Standard (Filter nach Adresse, Name und Bedrohungsreputation)" }
           Premium: { en: "Premium (adds inspection of encrypted traffic and intrusion prevention)", de: "Premium (zusätzlich Prüfung verschlüsselten Verkehrs und Einbruchserkennung)" }
-        values: [Basic, Standard, Premium]
+        accepts: [Basic, Standard, Premium]
         default: Standard
-        confirm_in: [production]
         why: >
           Standard filters on addresses, ports, FQDNs and FQDN tags and applies threat
           intelligence; Premium adds TLS inspection, the intrusion detection and prevention
@@ -100,7 +107,9 @@ groups:
         renders: firewall_sku_tier, firewall_policy_sku / azureSkuTier, tier (policy)
 
       - id: zone_redundant
-        ask: Should the firewall survive the loss of one datacenter of its region?
+        ask:
+          en: "Should the firewall survive the loss of one datacenter of its region?"
+          de: "Soll die Firewall den Ausfall eines Rechenzentrums ihrer Region überstehen?"
         type: bool
         plain:
           en: "The firewall survives the loss of a datacenter: {value}."
@@ -122,13 +131,15 @@ groups:
         renders: firewall_zones / availabilityZones
 
       - id: firewall_subnet
-        ask: Which subnet is reserved for the firewall?
-        type: ref
+        ask:
+          en: "Which subnet is reserved for the firewall?"
+          de: "Welches Subnetz ist für die Firewall reserviert?"
+        type: string
         resolved_by: derived
         plain:
           en: "The firewall uses the subnet {value}."
           de: "Die Firewall nutzt das Subnetz {value}."
-        ref: subnet
+        accepts: { ref: subnet }
         required: true
         per_environment: true
         why: >
@@ -140,7 +151,9 @@ groups:
           subnet by its fixed name)
 
       - id: public_ip_count
-        ask: How many public addresses should the firewall have for outbound traffic?
+        ask:
+          en: "How many public addresses should the firewall have for outbound traffic?"
+          de: "Wie viele öffentliche Adressen soll die Firewall für ausgehenden Verkehr haben?"
         type: int
         plain:
           en: "The firewall has {value} public address(es) for outbound traffic."
@@ -160,7 +173,9 @@ groups:
     title: Networking
     questions:
       - id: forced_tunneling
-        ask: Should all internet-bound traffic be sent on to another network instead of straight out?
+        ask:
+          en: "Should all internet-bound traffic be sent on to another network instead of straight out?"
+          de: "Soll aller Verkehr ins Internet an ein anderes Netz weitergeleitet werden, statt direkt hinauszugehen?"
         type: bool
         plain:
           en: "Internet-bound traffic is {value}."
@@ -182,13 +197,15 @@ groups:
         renders: firewall_management_ip_configuration / enableManagementNic, managementIPAddressObject
 
       - id: management_subnet
-        ask: Which subnet is reserved for the management traffic?
-        type: ref
+        ask:
+          en: "Which subnet is reserved for the management traffic?"
+          de: "Welches Subnetz ist für den Management-Verkehr reserviert?"
+        type: string
         resolved_by: derived
         plain:
           en: "The management traffic uses the subnet {value}."
           de: "Der Verwaltungsverkehr nutzt das Subnetz {value}."
-        ref: subnet
+        accepts: { ref: subnet }
         required: true
         depends_on: { question: forced_tunneling, equals: true }
         per_environment: true
@@ -199,7 +216,9 @@ groups:
         renders: firewall_management_ip_configuration.subnet_id / the subnet the module finds by name
 
       - id: dns_proxy
-        ask: Should the firewall answer DNS queries for the networks behind it?
+        ask:
+          en: "Should the firewall answer DNS queries for the networks behind it?"
+          de: "Soll die Firewall DNS-Anfragen für die Netze hinter ihr beantworten?"
         type: bool
         plain:
           en: "The firewall answers name lookups for the networks behind it: {value}."
@@ -218,7 +237,9 @@ groups:
         renders: firewall_policy_dns.proxy_enabled / policy enableProxy (the firewall's additionalProperties `Network.DNS.EnableProxy` with no policy)
 
       - id: dns_servers
-        ask: Which DNS servers should the firewall forward to?
+        ask:
+          en: "Which DNS servers should the firewall forward to?"
+          de: "An welche DNS-Server soll die Firewall weiterleiten?"
         type: list
         resolved_by: derived
         plain:
@@ -235,7 +256,9 @@ groups:
         renders: firewall_policy_dns.servers / policy servers
 
       - id: snat_private_ranges
-        ask: Which destination ranges count as private, so that the firewall does not translate the source address?
+        ask:
+          en: "Which destination ranges count as private, so that the firewall does not translate the source address?"
+          de: "Welche Zielbereiche gelten als privat, sodass die Firewall die Quelladresse nicht übersetzt?"
         type: list
         plain:
           en: "Traffic to {value} keeps its source address."
@@ -255,7 +278,9 @@ groups:
     title: Identity
     questions:
       - id: policy_identity
-        ask: Which managed identity should the firewall policy carry?
+        ask:
+          en: "Which managed identity should the firewall policy carry?"
+          de: "Welche Managed Identity soll die Firewall Policy tragen?"
         type: enum
         plain:
           en: "The firewall policy has {value}."
@@ -263,7 +288,7 @@ groups:
         plain_values:
           none: { en: no identity of its own, de: keine eigene Identität }
           user_assigned: { en: a separately managed identity, de: eine separat verwaltete Identität }
-        values: [none, user_assigned]
+        accepts: [none, user_assigned]
         default: none
         forced_when: >
           `tls_inspection: true` forces `user_assigned`.
@@ -274,12 +299,14 @@ groups:
         renders: firewall_policy_identity / managedIdentities
 
       - id: user_assigned_identity_ids
-        ask: Which user-assigned identity?
+        ask:
+          en: "Which user-assigned identity?"
+          de: "Welche User-Assigned Identity?"
         type: list
         plain:
           en: "It uses the identity {value}."
           de: "Sie nutzt die Identität {value}."
-        ref: user_assigned_identity
+        accepts: { ref: user_assigned_identity }
         required: true
         depends_on: { question: policy_identity, equals: user_assigned }
         per_environment: true
@@ -293,7 +320,9 @@ groups:
     title: Security
     questions:
       - id: threat_intelligence_mode
-        ask: Should the firewall block traffic to and from known malicious addresses?
+        ask:
+          en: "Should the firewall block traffic to and from known malicious addresses?"
+          de: "Soll die Firewall Verkehr von und zu bekannten schädlichen Adressen blockieren?"
         type: enum
         plain:
           en: "Traffic to and from known malicious addresses is {value}."
@@ -302,9 +331,8 @@ groups:
           Deny: { en: blocked and logged, de: blockiert und protokolliert }
           Alert: { en: only logged, de: nur protokolliert }
           "Off": { en: not checked, de: nicht geprüft }
-        values: [Deny, Alert, "Off"]
+        accepts: [Deny, Alert, "Off"]
         default: Deny
-        confirm_in: [production]
         forced_when: >
           `sku_tier: Basic` removes `Deny` from `values`: Basic filters on threat intelligence
           in alert mode only.
@@ -317,7 +345,9 @@ groups:
         renders: firewall_policy_threat_intelligence_mode / policy threatIntelMode
 
       - id: idps_mode
-        ask: Should the firewall detect and stop intrusion attempts in traffic?
+        ask:
+          en: "Should the firewall detect and stop intrusion attempts in traffic?"
+          de: "Soll die Firewall Angriffsversuche im Verkehr erkennen und stoppen?"
         type: enum
         plain:
           en: "Intrusion attempts are {value}."
@@ -326,10 +356,9 @@ groups:
           Deny: { en: detected and blocked, de: erkannt und blockiert }
           Alert: { en: only detected and logged, de: nur erkannt und protokolliert }
           "Off": { en: not looked for, de: nicht gesucht }
-        values: [Deny, Alert, "Off"]
+        accepts: [Deny, Alert, "Off"]
         default: Deny
         depends_on: { question: sku_tier, equals: Premium }
-        confirm_in: [production]
         why: >
           The intrusion detection and prevention system matches traffic against signatures,
           including in encrypted traffic when TLS inspection is on. `Deny` is the default for
@@ -339,7 +368,9 @@ groups:
         renders: firewall_policy_intrusion_detection.mode / policy intrusionDetection.mode
 
       - id: tls_inspection
-        ask: Should the firewall decrypt and inspect outbound encrypted traffic?
+        ask:
+          en: "Should the firewall decrypt and inspect outbound encrypted traffic?"
+          de: "Soll die Firewall ausgehenden verschlüsselten Verkehr entschlüsseln und prüfen?"
         type: bool
         plain:
           en: "Outbound encrypted traffic is {value}."
@@ -358,12 +389,14 @@ groups:
         renders: firewall_policy_tls_certificate, firewall_policy_identity / policy certificateName, keyVaultSecretId, managedIdentities
 
       - id: tls_certificate_secret_id
-        ask: Which Key Vault secret holds the inspection certificate?
-        type: ref
+        ask:
+          en: "Which Key Vault secret holds the inspection certificate?"
+          de: "Welches Key-Vault-Secret hält das Zertifikat für die Prüfung?"
+        type: string
         plain:
           en: "The inspection certificate is {value}."
           de: "Das Prüfzertifikat ist {value}."
-        ref: key_vault_secret
+        accepts: { ref: key_vault_secret }
         required: true
         depends_on: { question: tls_inspection, equals: true }
         per_environment: true
@@ -374,7 +407,9 @@ groups:
         renders: firewall_policy_tls_certificate.key_vault_secret_id / policy keyVaultSecretId
 
       - id: rule_collection_groups
-        ask: Which traffic does the firewall allow, and where does each rule go?
+        ask:
+          en: "Which traffic does the firewall allow, and where does each rule go?"
+          de: "Welchen Verkehr lässt die Firewall zu, und wohin geht jede Regel?"
         type: list
         plain:
           en: "Rules: {value} (all other traffic is denied)."
@@ -394,13 +429,15 @@ groups:
     title: Observability
     questions:
       - id: diagnostic_workspace
-        ask: Which Log Analytics workspace should receive diagnostics?
-        type: ref
+        ask:
+          en: "Which Log Analytics workspace should receive diagnostics?"
+          de: "Welcher Log Analytics Workspace soll die Diagnosedaten erhalten?"
+        type: string
         resolved_by: derived
         plain:
           en: "Its logs go to {value}."
           de: "Seine Logs gehen in {value}."
-        ref: log_analytics_workspace
+        accepts: { ref: log_analytics_workspace }
         from_deployment: diagnostics_destination
         per_environment: true
         why: >
@@ -410,7 +447,9 @@ groups:
         renders: diagnostic_settings / diagnosticSettings
 
       - id: diagnostic_categories
-        ask: Which log categories should be collected?
+        ask:
+          en: "Which log categories should be collected?"
+          de: "Welche Log-Kategorien sollen erfasst werden?"
         type: list
         plain:
           en: "Logged: {value}."
@@ -423,7 +462,7 @@ groups:
           AZFWIdpsSignature: { en: "every intrusion signature hit", de: "jeder Treffer einer Einbruchssignatur" }
           AZFWDnsQuery: { en: "every name lookup the firewall answered", de: "jede Namensauflösung, die die Firewall beantwortet hat" }
           AZFWFqdnResolveFailure: { en: "names the firewall could not resolve", de: "Namen, die die Firewall nicht auflösen konnte" }
-        values: [AZFWNetworkRule, AZFWApplicationRule, AZFWNatRule, AZFWThreatIntel, AZFWIdpsSignature, AZFWDnsQuery, AZFWFqdnResolveFailure, AZFWFlowTrace, AZFWFatFlow, AZFWNetworkRuleAggregation, AZFWApplicationRuleAggregation, AZFWNatRuleAggregation, AZFWInternalFqdnResolutionFailure]
+        accepts: [AZFWNetworkRule, AZFWApplicationRule, AZFWNatRule, AZFWThreatIntel, AZFWIdpsSignature, AZFWDnsQuery, AZFWFqdnResolveFailure, AZFWFlowTrace, AZFWFatFlow, AZFWNetworkRuleAggregation, AZFWApplicationRuleAggregation, AZFWNatRuleAggregation, AZFWInternalFqdnResolutionFailure]
         default: [AZFWNetworkRule, AZFWApplicationRule, AZFWNatRule, AZFWThreatIntel, AZFWDnsQuery, AZFWFqdnResolveFailure]
         why: >
           The structured (resource-specific) categories, not the legacy `AzureFirewall*Rule`
@@ -439,7 +478,9 @@ groups:
           diagnosticSettings[].logCategoriesAndGroups[].category
 
       - id: metrics_enabled
-        ask: Should all metrics be collected?
+        ask:
+          en: "Should all metrics be collected?"
+          de: "Sollen alle Metriken erfasst werden?"
         type: bool
         plain:
           en: "Usage and performance figures are {value}."

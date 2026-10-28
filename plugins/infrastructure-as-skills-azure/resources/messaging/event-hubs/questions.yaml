@@ -23,12 +23,14 @@ groups:
     title: Placement
     questions:
       - id: environments
-        ask: Which stages is this deployed to?
+        ask:
+          en: "Which stages is this deployed to?"
+          de: "In welche Stufen wird das ausgerollt?"
         type: list
         plain:
           en: "Deployed in the stages {value}."
           de: "Wird in den Stufen {value} ausgerollt."
-        values: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
+        accepts: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
         required: true
         from_context: true
         why: >
@@ -39,7 +41,9 @@ groups:
           one
 
       - id: location
-        ask: Which Azure region?
+        ask:
+          en: "Which Azure region?"
+          de: "Welche Azure-Region?"
         type: string
         plain:
           en: "Runs in the Azure region {value}."
@@ -53,12 +57,14 @@ groups:
         renders: location
 
       - id: resource_group_name
-        ask: Which resource group?
-        type: ref
+        ask:
+          en: "Which resource group?"
+          de: "Welche Ressourcengruppe?"
+        type: string
         plain:
           en: "Placed in the resource group {value}."
           de: "Liegt in der Ressourcengruppe {value}."
-        ref: resource_group
+        accepts: { ref: resource_group }
         required: true
         from_context: true
         per_environment: true
@@ -71,7 +77,9 @@ groups:
     title: The namespace
     questions:
       - id: sku
-        ask: Which tier does the event stream need?
+        ask:
+          en: "Which tier does the event stream need?"
+          de: "Welchen Tarif braucht der Ereignisstrom?"
         type: enum
         plain:
           en: "The namespace is the {value} tier."
@@ -80,9 +88,8 @@ groups:
           Basic: { en: "basic, one reader group and a day of history", de: "Basic, eine Lesergruppe und ein Tag Historie" }
           Standard: { en: "standard, several reader groups, up to a week of history and private connections", de: "Standard, mehrere Lesergruppen, bis zu einer Woche Historie und private Anbindung" }
           Premium: { en: "premium, dedicated capacity with the strongest isolation", de: "Premium, dedizierte Kapazität mit der stärksten Isolation" }
-        values: [Basic, Standard, Premium]
+        accepts: [Basic, Standard, Premium]
         default: Standard
-        confirm_in: [production]
         forced_when: >
           `network_exposure: private`, `event_archive: true`, `message_retention_days` above
           1 and `key_management: customer_managed` each force at least `Standard`, recorded
@@ -99,7 +106,9 @@ groups:
           sku / skuName (`Basic`, `Standard`, `Premium`)
 
       - id: capacity
-        ask: How many throughput units (Standard) or processing units (Premium) does the namespace reserve?
+        ask:
+          en: "How many throughput units (Standard) or processing units (Premium) does the namespace reserve?"
+          de: "Wie viele Durchsatzeinheiten (Standard) oder Verarbeitungseinheiten (Premium) reserviert der Namespace?"
         type: int
         plain:
           en: "The namespace reserves {value} capacity unit(s)."
@@ -115,7 +124,9 @@ groups:
         renders: capacity / skuCapacity
 
       - id: auto_inflate
-        ask: Should the namespace add capacity itself when the load grows?
+        ask:
+          en: "Should the namespace add capacity itself when the load grows?"
+          de: "Soll der Namespace selbst Kapazität hinzufügen, wenn die Last wächst?"
         type: bool
         plain:
           en: "Capacity {value} when the load grows."
@@ -135,7 +146,9 @@ groups:
           maximumThroughputUnits
 
       - id: maximum_throughput_units
-        ask: What is the ceiling for automatic growth?
+        ask:
+          en: "What is the ceiling for automatic growth?"
+          de: "Wo liegt die Obergrenze für das automatische Wachstum?"
         type: int
         plain:
           en: "Automatic growth stops at {value} throughput units."
@@ -149,12 +162,14 @@ groups:
         renders: maximum_throughput_units / maximumThroughputUnits
 
       - id: minimum_tls_version
-        ask: Which TLS version is the lowest a client may use?
+        ask:
+          en: "Which TLS version is the lowest a client may use?"
+          de: "Welche ist die niedrigste TLS-Version, die ein Client verwenden darf?"
         type: enum
         plain:
           en: "Clients must use at least TLS {value}."
           de: "Clients müssen mindestens TLS {value} verwenden."
-        values: ["1.0", "1.1", "1.2"]
+        accepts: ["1.0", "1.1", "1.2"]
         default: "1.2"
         why: >
           1.2 is the guardrails' floor. The Bicep module defaults to it; **the Terraform
@@ -165,7 +180,9 @@ groups:
         renders: minimumTlsVersion (Bicep); no input in the Terraform module
 
       - id: local_auth
-        ask: Should shared access signatures (keys and connection strings) work?
+        ask:
+          en: "Should shared access signatures (keys and connection strings) work?"
+          de: "Sollen Shared Access Signatures (Schlüssel und Connection Strings) funktionieren?"
         type: enum
         plain:
           en: "Access keys and connection strings are {value}."
@@ -173,7 +190,7 @@ groups:
         plain_values:
           disabled: { en: switched off, de: abgeschaltet }
           allowed_where_unavoidable: { en: allowed on this namespace, de: auf diesem Namensraum erlaubt }
-        values: [disabled, allowed_where_unavoidable]
+        accepts: [disabled, allowed_where_unavoidable]
         from_deployment: local_auth
         why: >
           Inherited: `local_auth: disabled` renders as local authentication off, so every
@@ -184,7 +201,9 @@ groups:
         renders: local_authentication_enabled (inverse) / disableLocalAuth
 
       - id: managed_identity
-        ask: Which managed identity should the namespace carry?
+        ask:
+          en: "Which managed identity should the namespace carry?"
+          de: "Welche Managed Identity soll der Namespace tragen?"
         type: enum
         plain:
           en: "The namespace has {value}."
@@ -193,7 +212,7 @@ groups:
           none: { en: no identity of its own, de: keine eigene Identität }
           system_assigned: { en: its own identity, de: eine eigene Identität }
           user_assigned: { en: a separately managed identity, de: eine separat verwaltete Identität }
-        values: [none, system_assigned, user_assigned]
+        accepts: [none, system_assigned, user_assigned]
         default: none
         forced_when: >
           `key_management: customer_managed` forces `user_assigned`, recorded as forced with
@@ -207,12 +226,14 @@ groups:
         renders: managed_identities / managedIdentities
 
       - id: user_assigned_identity_ids
-        ask: Which user-assigned identity?
+        ask:
+          en: "Which user-assigned identity?"
+          de: "Welche User-Assigned Identity?"
         type: list
         plain:
           en: "It uses the identity {value}."
           de: "Es nutzt die Identität {value}."
-        ref: user_assigned_identity
+        accepts: { ref: user_assigned_identity }
         required: true
         depends_on: { question: managed_identity, equals: user_assigned }
         per_environment: true
@@ -228,7 +249,9 @@ groups:
     title: Event hubs
     questions:
       - id: event_hubs
-        ask: Which event hubs (streams) should the namespace hold?
+        ask:
+          en: "Which event hubs (streams) should the namespace hold?"
+          de: "Welche Event Hubs (Ströme) soll der Namespace enthalten?"
         type: list
         plain:
           en: "Event hubs: {value}."
@@ -242,7 +265,9 @@ groups:
         renders: event_hubs / eventhubs
 
       - id: partition_count
-        ask: How many readers must be able to process the stream in parallel?
+        ask:
+          en: "How many readers must be able to process the stream in parallel?"
+          de: "Wie viele Leser müssen den Strom parallel verarbeiten können?"
         type: int
         resolved_by: interview
         topic: application
@@ -261,7 +286,9 @@ groups:
         renders: partition_count / partitionCount
 
       - id: message_retention_days
-        ask: How long must events stay readable for a consumer that falls behind?
+        ask:
+          en: "How long must events stay readable for a consumer that falls behind?"
+          de: "Wie lange müssen Ereignisse für einen Konsumenten lesbar bleiben, der in Rückstand gerät?"
         type: int
         resolved_by: interview
         topic: data
@@ -278,7 +305,9 @@ groups:
         renders: message_retention / messageRetentionInDays
 
       - id: consumer_groups
-        ask: Which independent readers need their own view of the stream?
+        ask:
+          en: "Which independent readers need their own view of the stream?"
+          de: "Welche unabhängigen Leser brauchen eine eigene Sicht auf den Strom?"
         type: list
         plain:
           en: "Reader groups: {value} (empty: the default group only)."
@@ -293,7 +322,9 @@ groups:
         renders: consumergroups
 
       - id: event_archive
-        ask: Must every event also be kept as a file for later analysis?
+        ask:
+          en: "Must every event also be kept as a file for later analysis?"
+          de: "Muss jedes Ereignis zusätzlich als Datei für spätere Analysen aufbewahrt werden?"
         type: bool
         resolved_by: interview
         topic: data
@@ -314,12 +345,14 @@ groups:
         renders: capture_description / captureDescription
 
       - id: archive_storage_account
-        ask: Which storage account receives the archive?
-        type: ref
+        ask:
+          en: "Which storage account receives the archive?"
+          de: "Welches Speicherkonto erhält das Archiv?"
+        type: string
         plain:
           en: "The archive goes to the storage account {value}."
           de: "Das Archiv geht in das Speicherkonto {value}."
-        ref: storage_account
+        accepts: { ref: storage_account }
         required: true
         depends_on: { question: event_archive, equals: true }
         per_environment: true
@@ -333,7 +366,9 @@ groups:
           captureDescription.destination.properties.storageAccountResourceId
 
       - id: archive_container
-        ask: In which container are the archive files written?
+        ask:
+          en: "In which container are the archive files written?"
+          de: "In welchen Container werden die Archivdateien geschrieben?"
         type: string
         plain:
           en: "Archive files go to the container {value}."
@@ -348,7 +383,9 @@ groups:
           captureDescription.destination.properties.blobContainerName
 
       - id: archive_interval_seconds
-        ask: How often is the archive file written?
+        ask:
+          en: "How often is the archive file written?"
+          de: "Wie oft wird die Archivdatei geschrieben?"
         type: int
         plain:
           en: "A file is written every {value} seconds."
@@ -366,7 +403,9 @@ groups:
     title: Networking
     questions:
       - id: public_network_access
-        ask: Should this namespace depart from the deployment's exposure posture?
+        ask:
+          en: "Should this namespace depart from the deployment's exposure posture?"
+          de: "Soll dieser Namespace von der Erreichbarkeit des Deployments abweichen?"
         type: enum
         plain:
           en: "The namespace is {value}."
@@ -375,9 +414,8 @@ groups:
           disabled: { en: not reachable from the internet at all, de: aus dem Internet überhaupt nicht erreichbar }
           enabled_with_firewall: { en: reachable from the internet only from listed addresses, de: aus dem Internet nur von gelisteten Adressen erreichbar }
           enabled: { en: reachable from the internet, de: aus dem Internet erreichbar }
-        values: [disabled, enabled_with_firewall, enabled]
+        accepts: [disabled, enabled_with_firewall, enabled]
         from_deployment: network_exposure
-        confirm_in: [production]
         forced_when: >
           `network_ownership: none` (a public deployment without a network) forces
           `enabled`, recorded as forced with `network_ownership` as forced_by: the
@@ -394,13 +432,15 @@ groups:
           module's network rules; bicep: publicNetworkAccess and the network rule set
 
       - id: private_endpoint_subnet
-        ask: Which subnet should the namespace's private endpoint live in?
-        type: ref
+        ask:
+          en: "Which subnet should the namespace's private endpoint live in?"
+          de: "In welchem Subnetz soll der Private Endpoint des Namespace liegen?"
+        type: string
         resolved_by: derived
         plain:
           en: "Its private connection lands in subnet {value}."
           de: "Seine private Anbindung landet im Subnetz {value}."
-        ref: subnet
+        accepts: { ref: subnet }
         from_deployment: private_endpoint_subnet
         per_environment: true
         why: >
@@ -410,7 +450,9 @@ groups:
           private_endpoints.<key>.subnet_resource_id / privateEndpoints[].subnetResourceId
 
       - id: ip_rules
-        ask: Which public IP ranges may reach the namespace?
+        ask:
+          en: "Which public IP ranges may reach the namespace?"
+          de: "Welche öffentlichen IP-Bereiche dürfen den Namespace erreichen?"
         type: list
         plain:
           en: "Public addresses allowed to reach the namespace: {value}."
@@ -425,7 +467,9 @@ groups:
         renders: network_rulesets.ip_rules / networkRuleSets.ipRules
 
       - id: trusted_service_bypass
-        ask: May trusted Azure services reach the namespace past its firewall?
+        ask:
+          en: "May trusted Azure services reach the namespace past its firewall?"
+          de: "Dürfen vertrauenswürdige Azure-Dienste den Namespace an seiner Firewall vorbei erreichen?"
         type: bool
         plain:
           en: "Trusted Azure services {value} past the firewall."
@@ -449,7 +493,9 @@ groups:
     title: Encryption
     questions:
       - id: key_management
-        ask: Platform-managed or customer-managed encryption keys?
+        ask:
+          en: "Platform-managed or customer-managed encryption keys?"
+          de: "Schlüssel von der Plattform oder vom Kunden verwaltet?"
         type: enum
         plain:
           en: "Encryption keys are {value}."
@@ -457,7 +503,7 @@ groups:
         plain_values:
           platform_managed: { en: "managed by Azure - encrypted, rotated, no effort on your side", de: "von Azure verwaltet: verschlüsselt, rotiert, kein Aufwand bei euch" }
           customer_managed: { en: "your own, held in your key vault, so you can revoke them", de: "eure eigenen in eurem Schlüsseltresor, damit ihr sie zurückziehen könnt" }
-        values: [platform_managed, customer_managed]
+        accepts: [platform_managed, customer_managed]
         from_deployment: key_management
         why: >
           Inherited: one answer per system. Event Hubs encrypts at rest with a platform key
@@ -468,12 +514,14 @@ groups:
           whether `customer_managed_key` is rendered at all
 
       - id: cmk_key_vault_key_id
-        ask: Which Key Vault key should encrypt the namespace?
-        type: ref
+        ask:
+          en: "Which Key Vault key should encrypt the namespace?"
+          de: "Welcher Key-Vault-Schlüssel soll den Namespace verschlüsseln?"
+        type: string
         plain:
           en: "Encrypted with your key {value}."
           de: "Verschlüsselt mit eurem Schlüssel {value}."
-        ref: key_vault_key
+        accepts: { ref: key_vault_key }
         required: true
         depends_on: { question: key_management, equals: customer_managed }
         per_environment: true
@@ -486,7 +534,9 @@ groups:
           customerManagedKey.keyVaultResourceId + keyName
 
       - id: infrastructure_encryption
-        ask: Should the data be encrypted twice?
+        ask:
+          en: "Should the data be encrypted twice?"
+          de: "Sollen die Daten doppelt verschlüsselt werden?"
         type: bool
         plain:
           en: "Double encryption is {value}."
@@ -507,7 +557,9 @@ groups:
     title: Recovery
     questions:
       - id: zone_redundant
-        ask: Should the namespace survive the loss of one datacenter of its region?
+        ask:
+          en: "Should the namespace survive the loss of one datacenter of its region?"
+          de: "Soll der Namespace den Ausfall eines Rechenzentrums seiner Region überstehen?"
         type: bool
         plain:
           en: "The event stream survives the loss of a datacenter: {value}."
@@ -527,7 +579,9 @@ groups:
         renders: zoneRedundant (Bicep); no Terraform input
 
       - id: geo_recovery
-        ask: Is a second region on standby for a regional outage?
+        ask:
+          en: "Is a second region on standby for a regional outage?"
+          de: "Steht eine zweite Region für einen regionalen Ausfall bereit?"
         type: enum
         plain:
           en: "For a regional outage there is {value}."
@@ -535,11 +589,10 @@ groups:
         plain_values:
           none: { en: no standby region, de: keine Ausweichregion }
           paired_namespace: { en: a paired namespace in a second region, de: ein gekoppelter Namensraum in einer zweiten Region }
-        values: [none, paired_namespace]
+        accepts: [none, paired_namespace]
         derived_from:
           question: outage_impact
           map: { tolerable: none, disruptive: none, critical: paired_namespace }
-        confirm_in: [production]
         non_production_default: none
         why: >
           Derived from how bad an outage is. Geo-disaster recovery pairs the namespace with
@@ -550,12 +603,14 @@ groups:
         renders: disaster_recovery_config / disasterRecoveryConfig
 
       - id: partner_namespace
-        ask: Which namespace is the partner?
-        type: ref
+        ask:
+          en: "Which namespace is the partner?"
+          de: "Welcher Namespace ist der Partner?"
+        type: string
         plain:
           en: "The partner namespace is {value}."
           de: "Der Partner-Namensraum ist {value}."
-        ref: event_hubs_namespace
+        accepts: { ref: event_hubs_namespace }
         required: true
         depends_on: { question: geo_recovery, equals: paired_namespace }
         per_environment: true
@@ -571,7 +626,9 @@ groups:
     title: Identity and access
     questions:
       - id: role_assignments
-        ask: Who needs which role on this namespace?
+        ask:
+          en: "Who needs which role on this namespace?"
+          de: "Wer braucht welche Rolle auf diesem Namespace?"
         type: list
         plain:
           en: "Access rights on the namespace granted to: {value}."
@@ -593,13 +650,15 @@ groups:
     title: Observability
     questions:
       - id: diagnostic_workspace
-        ask: Which Log Analytics workspace should receive diagnostics?
-        type: ref
+        ask:
+          en: "Which Log Analytics workspace should receive diagnostics?"
+          de: "Welcher Log Analytics Workspace soll die Diagnosedaten erhalten?"
+        type: string
         resolved_by: derived
         plain:
           en: "Its logs go to {value}."
           de: "Seine Logs gehen in {value}."
-        ref: log_analytics_workspace
+        accepts: { ref: log_analytics_workspace }
         from_deployment: diagnostics_destination
         per_environment: true
         why: >
@@ -608,7 +667,9 @@ groups:
         renders: diagnostic_settings / diagnosticSettings
 
       - id: diagnostic_categories
-        ask: Which log categories should be collected?
+        ask:
+          en: "Which log categories should be collected?"
+          de: "Welche Log-Kategorien sollen erfasst werden?"
         type: list
         plain:
           en: "Logged: {value}."
@@ -622,7 +683,7 @@ groups:
           ApplicationMetricsLogs: { en: event counts and sizes per hub, de: Anzahl und Größe der Ereignisse je Hub }
           KafkaUserErrorLogs: { en: errors made by Kafka clients, de: Fehler von Kafka-Clients }
           KafkaCoordinatorLogs: { en: Kafka consumer group coordination, de: Koordination der Kafka-Lesergruppen }
-        values: [OperationalLogs, EventHubVNetConnectionEvent, AutoScaleLogs, ArchiveLogs, RuntimeAuditLogs, ApplicationMetricsLogs, KafkaUserErrorLogs, KafkaCoordinatorLogs]
+        accepts: [OperationalLogs, EventHubVNetConnectionEvent, AutoScaleLogs, ArchiveLogs, RuntimeAuditLogs, ApplicationMetricsLogs, KafkaUserErrorLogs, KafkaCoordinatorLogs]
         default: [OperationalLogs, EventHubVNetConnectionEvent]
         why: >
           Management operations and firewall decisions are the baseline and cheap.
@@ -637,7 +698,9 @@ groups:
           diagnosticSettings[].logCategoriesAndGroups[].category
 
       - id: metrics_enabled
-        ask: Should all metrics be collected?
+        ask:
+          en: "Should all metrics be collected?"
+          de: "Sollen alle Metriken erfasst werden?"
         type: bool
         plain:
           en: "Usage and performance figures are {value}."

@@ -25,12 +25,14 @@ groups:
     title: Placement
     questions:
       - id: environments
-        ask: Which stages is this deployed to?
+        ask:
+          en: "Which stages is this deployed to?"
+          de: "In welche Stufen wird das ausgerollt?"
         type: list
         plain:
           en: "Deployed in the stages {value}."
           de: "Wird in den Stufen {value} ausgerollt."
-        values: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
+        accepts: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
         required: true
         from_context: true
         why: >
@@ -41,7 +43,9 @@ groups:
           one
 
       - id: location
-        ask: Which Azure region?
+        ask:
+          en: "Which Azure region?"
+          de: "Welche Azure-Region?"
         type: string
         plain:
           en: "Runs in the Azure region {value}."
@@ -55,12 +59,14 @@ groups:
         renders: location
 
       - id: resource_group_name
-        ask: Which resource group?
-        type: ref
+        ask:
+          en: "Which resource group?"
+          de: "Welche Ressourcengruppe?"
+        type: string
         plain:
           en: "Placed in the resource group {value}."
           de: "Liegt in der Ressourcengruppe {value}."
-        ref: resource_group
+        accepts: { ref: resource_group }
         required: true
         from_context: true
         per_environment: true
@@ -73,7 +79,9 @@ groups:
     title: Hybrid connections and relays
     questions:
       - id: hybrid_connections
-        ask: Which connections into the other network should exist?
+        ask:
+          en: "Which connections into the other network should exist?"
+          de: "Welche Verbindungen in das andere Netz soll es geben?"
         type: list
         plain:
           en: "Hybrid connections: {value} (empty: none)."
@@ -92,7 +100,9 @@ groups:
           hybridConnections[] (name, userMetadata)
 
       - id: client_authorization_required
-        ask: Must a sender prove who it is before it may connect?
+        ask:
+          en: "Must a sender prove who it is before it may connect?"
+          de: "Muss ein Sender nachweisen, wer er ist, bevor er sich verbinden darf?"
         type: bool
         plain:
           en: "Senders {value} before they are connected."
@@ -112,7 +122,9 @@ groups:
           requires_client_authorization / hybridConnections[].requiresClientAuthorization
 
       - id: wcf_relays
-        ask: Which classic WCF relay endpoints should exist?
+        ask:
+          en: "Which classic WCF relay endpoints should exist?"
+          de: "Welche klassischen WCF-Relay-Endpunkte soll es geben?"
         type: list
         plain:
           en: "WCF relays: {value} (empty: none)."
@@ -130,7 +142,9 @@ groups:
     title: Access
     questions:
       - id: local_auth
-        ask: Should shared access signatures (keys and connection strings) work?
+        ask:
+          en: "Should shared access signatures (keys and connection strings) work?"
+          de: "Sollen Shared Access Signatures (Schlüssel und Connection Strings) funktionieren?"
         type: enum
         plain:
           en: "Access keys and connection strings are {value}."
@@ -138,7 +152,7 @@ groups:
         plain_values:
           disabled: { en: switched off, de: abgeschaltet }
           allowed_where_unavoidable: { en: allowed on this namespace, de: auf diesem Namensraum erlaubt }
-        values: [disabled, allowed_where_unavoidable]
+        accepts: [disabled, allowed_where_unavoidable]
         from_deployment: local_auth
         forced_when: >
           The type has no switch: the service creates `RootManageSharedAccessKey` with every
@@ -163,7 +177,9 @@ groups:
     title: Networking
     questions:
       - id: public_network_access
-        ask: Should this namespace depart from the deployment's exposure posture?
+        ask:
+          en: "Should this namespace depart from the deployment's exposure posture?"
+          de: "Soll dieser Namespace von der Erreichbarkeit des Deployments abweichen?"
         type: enum
         plain:
           en: "The namespace is {value}."
@@ -172,9 +188,8 @@ groups:
           disabled: { en: not reachable from the internet at all, de: aus dem Internet überhaupt nicht erreichbar }
           enabled_with_firewall: { en: reachable from the internet only from listed addresses, de: aus dem Internet nur von gelisteten Adressen erreichbar }
           enabled: { en: reachable from the internet, de: aus dem Internet erreichbar }
-        values: [disabled, enabled_with_firewall, enabled]
+        accepts: [disabled, enabled_with_firewall, enabled]
         from_deployment: network_exposure
-        confirm_in: [production]
         forced_when: >
           `network_ownership: none` (a public deployment without a network) forces
           `enabled`, recorded as forced with `network_ownership` as forced_by. A listener
@@ -195,13 +210,15 @@ groups:
           submodule / networkRuleSets.publicNetworkAccess, defaultAction and ipRules
 
       - id: private_endpoint_subnet
-        ask: Which subnet should the namespace's private endpoint live in?
-        type: ref
+        ask:
+          en: "Which subnet should the namespace's private endpoint live in?"
+          de: "In welchem Subnetz soll der Private Endpoint des Namespace liegen?"
+        type: string
         resolved_by: derived
         plain:
           en: "Its private connection lands in subnet {value}."
           de: "Seine private Anbindung landet im Subnetz {value}."
-        ref: subnet
+        accepts: { ref: subnet }
         from_deployment: private_endpoint_subnet
         per_environment: true
         why: >
@@ -212,7 +229,9 @@ groups:
           private_endpoints.<key>.subnet_resource_id / privateEndpoints[].subnetResourceId
 
       - id: ip_rules
-        ask: Which public IP ranges may reach the namespace?
+        ask:
+          en: "Which public IP ranges may reach the namespace?"
+          de: "Welche öffentlichen IP-Bereiche dürfen den Namespace erreichen?"
         type: list
         plain:
           en: "Public addresses allowed to reach the namespace: {value}."
@@ -235,7 +254,9 @@ groups:
     title: Identity and access
     questions:
       - id: role_assignments
-        ask: Who needs which role on this namespace?
+        ask:
+          en: "Who needs which role on this namespace?"
+          de: "Wer braucht welche Rolle auf diesem Namespace?"
         type: list
         plain:
           en: "Access rights on the namespace granted to: {value}."
@@ -256,13 +277,15 @@ groups:
     title: Observability
     questions:
       - id: diagnostic_workspace
-        ask: Which Log Analytics workspace should receive diagnostics?
-        type: ref
+        ask:
+          en: "Which Log Analytics workspace should receive diagnostics?"
+          de: "Welcher Log Analytics Workspace soll die Diagnosedaten erhalten?"
+        type: string
         resolved_by: derived
         plain:
           en: "Its logs go to {value}."
           de: "Seine Logs gehen in {value}."
-        ref: log_analytics_workspace
+        accepts: { ref: log_analytics_workspace }
         from_deployment: diagnostics_destination
         per_environment: true
         why: >
@@ -271,7 +294,9 @@ groups:
         renders: diagnostic_settings / diagnosticSettings
 
       - id: diagnostic_categories
-        ask: Which log categories should be collected?
+        ask:
+          en: "Which log categories should be collected?"
+          de: "Welche Log-Kategorien sollen erfasst werden?"
         type: list
         plain:
           en: "Logged: {value}."
@@ -279,7 +304,7 @@ groups:
         plain_values:
           HybridConnectionsEvent: { en: "listeners and senders connecting, disconnecting and failing", de: "Verbindungsaufbau, -abbau und Fehler von Empfängern und Sendern" }
           VNetAndIPFilteringLogs: { en: connections blocked or allowed by the firewall, de: durch die Firewall blockierte oder erlaubte Verbindungen }
-        values: [HybridConnectionsEvent, VNetAndIPFilteringLogs]
+        accepts: [HybridConnectionsEvent, VNetAndIPFilteringLogs]
         default: [HybridConnectionsEvent, VNetAndIPFilteringLogs]
         why: >
           Both of the type's categories, and both cheap: connection events are how a
@@ -293,7 +318,9 @@ groups:
           diagnosticSettings[].logCategoriesAndGroups[].category
 
       - id: metrics_enabled
-        ask: Should all metrics be collected?
+        ask:
+          en: "Should all metrics be collected?"
+          de: "Sollen alle Metriken erfasst werden?"
         type: bool
         plain:
           en: "Usage and performance figures are {value}."

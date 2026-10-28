@@ -29,12 +29,14 @@ groups:
     title: Placement
     questions:
       - id: environments
-        ask: Which stages is this deployed to?
+        ask:
+          en: "Which stages is this deployed to?"
+          de: "In welche Stufen wird das ausgerollt?"
         type: list
         plain:
           en: "Deployed in the stages {value}."
           de: "Wird in den Stufen {value} ausgerollt."
-        values: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
+        accepts: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
         required: true
         from_context: true
         why: >
@@ -43,7 +45,9 @@ groups:
         renders: naming parameter `environment`, and the tag of that name where the repository uses one
 
       - id: location
-        ask: Which Azure region?
+        ask:
+          en: "Which Azure region?"
+          de: "Welche Azure-Region?"
         type: string
         plain:
           en: "Runs in the Azure region {value}."
@@ -56,12 +60,14 @@ groups:
         renders: location
 
       - id: resource_group_name
-        ask: Which resource group?
-        type: ref
+        ask:
+          en: "Which resource group?"
+          de: "Welche Ressourcengruppe?"
+        type: string
         plain:
           en: "Placed in the resource group {value}."
           de: "Liegt in der Ressourcengruppe {value}."
-        ref: resource_group
+        accepts: { ref: resource_group }
         required: true
         from_context: true
         per_environment: true
@@ -76,7 +82,9 @@ groups:
     title: The disk
     questions:
       - id: create_option
-        ask: Should the disk start empty or as a copy?
+        ask:
+          en: "Should the disk start empty or as a copy?"
+          de: "Soll die Disk leer starten oder als Kopie?"
         type: enum
         plain:
           en: "The disk starts {value}."
@@ -84,7 +92,7 @@ groups:
         plain_values:
           Empty: { en: "empty", de: "leer" }
           Copy: { en: "as a copy of a snapshot or another disk", de: "als Kopie eines Snapshots oder einer anderen Platte" }
-        values: [Empty, Copy]
+        accepts: [Empty, Copy]
         default: Empty
         why: >
           Empty is the normal case: the workload formats and fills it. A copy restores a
@@ -95,12 +103,14 @@ groups:
         renders: create_option / createOption
 
       - id: source_resource_id
-        ask: Which snapshot or disk is the copy of?
-        type: ref
+        ask:
+          en: "Which snapshot or disk is the copy of?"
+          de: "Wovon ist die Disk eine Kopie - von welchem Snapshot oder welcher Disk?"
+        type: string
         plain:
           en: "The disk is a copy of {value}."
           de: "Die Platte ist eine Kopie von {value}."
-        ref: snapshot
+        accepts: { ref: snapshot }
         required: true
         depends_on: { question: create_option, equals: Copy }
         per_environment: true
@@ -111,7 +121,9 @@ groups:
         renders: source_resource_id / sourceResourceId
 
       - id: sku
-        ask: Which disk type should it be?
+        ask:
+          en: "Which disk type should it be?"
+          de: "Welcher Disk-Typ soll es sein?"
         type: enum
         plain:
           en: "The disk is {value}."
@@ -122,11 +134,10 @@ groups:
           StandardSSD_LRS: { en: "standard SSD, kept three times in one datacenter", de: "Standard-SSD, dreifach in einem Rechenzentrum" }
           StandardSSD_ZRS: { en: "standard SSD, kept in three datacenters of the region", de: "Standard-SSD, in drei Rechenzentren der Region" }
           Standard_LRS: { en: "standard HDD, the slowest and cheapest, kept three times in one datacenter", de: "Standard-HDD, die langsamste und günstigste, dreifach in einem Rechenzentrum" }
-        values: [Premium_LRS, Premium_ZRS, StandardSSD_LRS, StandardSSD_ZRS, Standard_LRS]
+        accepts: [Premium_LRS, Premium_ZRS, StandardSSD_LRS, StandardSSD_ZRS, Standard_LRS]
         derived_from:
           question: outage_impact
           map: { tolerable: Premium_LRS, disruptive: Premium_ZRS, critical: Premium_ZRS }
-        confirm_in: [production]
         non_production_default: Premium_LRS
         why: >
           Derived from how bad an outage is: a ZRS disk survives the loss of a zone, which an
@@ -142,7 +153,9 @@ groups:
         renders: storage_account_type / sku
 
       - id: size_gb
-        ask: How large should the disk be, in GiB?
+        ask:
+          en: "How large should the disk be, in GiB?"
+          de: "Wie groß soll die Disk sein, in GiB?"
         type: int
         plain:
           en: "The disk is {value} GiB."
@@ -156,7 +169,9 @@ groups:
         renders: disk_size_gb / diskSizeGB
 
       - id: zone
-        ask: In which availability zone should the disk be?
+        ask:
+          en: "In which availability zone should the disk be?"
+          de: "In welcher Verfügbarkeitszone soll die Disk liegen?"
         type: enum
         plain:
           en: "The disk is placed in zone {value}."
@@ -165,7 +180,7 @@ groups:
           "1": { en: "1", de: "1" }
           "2": { en: "2", de: "2" }
           "3": { en: "3", de: "3" }
-        values: ["1", "2", "3"]
+        accepts: ["1", "2", "3"]
         default: "1"
         why: >
           A locally redundant disk lives in one zone and can be attached only to a machine in
@@ -184,7 +199,9 @@ groups:
     title: Networking
     questions:
       - id: network_access
-        ask: How may the disk be reached for export and import over the network?
+        ask:
+          en: "How may the disk be reached for export and import over the network?"
+          de: "Wie darf die Disk für Export und Import über das Netz erreicht werden?"
         type: enum
         plain:
           en: "Exporting or importing the disk over the network is {value}."
@@ -193,9 +210,8 @@ groups:
           deny_all: { en: "not possible at all", de: "überhaupt nicht möglich" }
           allow_private: { en: "possible only over a private connection", de: "nur über eine private Anbindung möglich" }
           allow_all: { en: "possible over the internet with a time-limited link", de: "über das Internet mit einem zeitlich begrenzten Link möglich" }
-        values: [deny_all, allow_private, allow_all]
+        accepts: [deny_all, allow_private, allow_all]
         default: deny_all
-        confirm_in: [production]
         why: >
           Exposure is a property of the system, but a disk is never the front door: the only
           reason to reach it over the network is an export or an import (a shared access
@@ -209,12 +225,14 @@ groups:
           networkAccessPolicy and publicNetworkAccess (`Disabled`, `Enabled`)
 
       - id: disk_access_id
-        ask: Which disk access resource carries the private connection?
-        type: ref
+        ask:
+          en: "Which disk access resource carries the private connection?"
+          de: "Welche Disk-Access-Ressource trägt die private Anbindung?"
+        type: string
         plain:
           en: "Private access goes through {value}."
           de: "Der private Zugriff läuft über {value}."
-        ref: disk_access
+        accepts: { ref: disk_access }
         required: true
         depends_on: { question: network_access, equals: allow_private }
         per_environment: true
@@ -226,13 +244,15 @@ groups:
         renders: disk_access_id / not a module parameter in Bicep (property `diskAccessId`)
 
       - id: private_endpoint_subnet
-        ask: Which subnet should the disk access resource's private endpoint live in?
-        type: ref
+        ask:
+          en: "Which subnet should the disk access resource's private endpoint live in?"
+          de: "In welchem Subnetz soll der Private Endpoint der Disk-Access-Ressource liegen?"
+        type: string
         resolved_by: derived
         plain:
           en: "Its private connection lands in subnet {value}."
           de: "Seine private Anbindung landet im Subnetz {value}."
-        ref: subnet
+        accepts: { ref: subnet }
         from_deployment: private_endpoint_subnet
         depends_on: { question: network_access, equals: allow_private }
         per_environment: true
@@ -248,7 +268,9 @@ groups:
     title: Identity and access
     questions:
       - id: role_assignments
-        ask: Who needs which role on this disk?
+        ask:
+          en: "Who needs which role on this disk?"
+          de: "Wer braucht welche Rolle auf dieser Disk?"
         type: list
         plain:
           en: "Access rights on the disk granted to: {value} (empty: none)."
@@ -269,7 +291,9 @@ groups:
     title: Security
     questions:
       - id: key_management
-        ask: Are the disk's encryption keys platform-managed or customer-managed?
+        ask:
+          en: "Are the disk's encryption keys platform-managed or customer-managed?"
+          de: "Werden die Schlüssel der Disk von der Plattform verwaltet oder vom Kunden?"
         type: enum
         plain:
           en: "Encryption keys are {value}."
@@ -277,9 +301,8 @@ groups:
         plain_values:
           platform_managed: { en: "managed by Azure - encrypted, rotated, no effort on your side", de: "von Azure verwaltet: verschlüsselt, rotiert, kein Aufwand bei euch" }
           customer_managed: { en: "your own, held in your key vault, so you can revoke them", de: "eure eigenen in eurem Schlüsseltresor, damit ihr sie zurückziehen könnt" }
-        values: [platform_managed, customer_managed]
+        accepts: [platform_managed, customer_managed]
         from_deployment: key_management
-        confirm_in: [production]
         why: >
           Inherited. A managed disk is encrypted at rest with a platform key either way (server
           side); `customer_managed` adds a disk encryption set that wraps the disk's key with
@@ -289,12 +312,14 @@ groups:
         renders: disk_encryption_set_id / diskEncryptionSetResourceId
 
       - id: disk_encryption_set_id
-        ask: Which disk encryption set should encrypt the disk?
-        type: ref
+        ask:
+          en: "Which disk encryption set should encrypt the disk?"
+          de: "Welches Disk Encryption Set soll die Disk verschlüsseln?"
+        type: string
         plain:
           en: "The disk is encrypted with your set {value}."
           de: "Die Platte wird mit eurem Set {value} verschlüsselt."
-        ref: disk_encryption_set
+        accepts: { ref: disk_encryption_set }
         required: true
         depends_on: { question: key_management, equals: customer_managed }
         per_environment: true

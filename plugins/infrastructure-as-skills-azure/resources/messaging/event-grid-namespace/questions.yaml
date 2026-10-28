@@ -26,12 +26,14 @@ groups:
     title: Placement
     questions:
       - id: environments
-        ask: Which stages is this deployed to?
+        ask:
+          en: "Which stages is this deployed to?"
+          de: "In welche Stufen wird das ausgerollt?"
         type: list
         plain:
           en: "Deployed in the stages {value}."
           de: "Wird in den Stufen {value} ausgerollt."
-        values: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
+        accepts: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
         required: true
         from_context: true
         why: >
@@ -42,7 +44,9 @@ groups:
           one
 
       - id: location
-        ask: Which Azure region?
+        ask:
+          en: "Which Azure region?"
+          de: "Welche Azure-Region?"
         type: string
         plain:
           en: "Runs in the Azure region {value}."
@@ -55,12 +59,14 @@ groups:
         renders: location
 
       - id: resource_group_name
-        ask: Which resource group?
-        type: ref
+        ask:
+          en: "Which resource group?"
+          de: "Welche Ressourcengruppe?"
+        type: string
         plain:
           en: "Placed in the resource group {value}."
           de: "Liegt in der Ressourcengruppe {value}."
-        ref: resource_group
+        accepts: { ref: resource_group }
         required: true
         from_context: true
         per_environment: true
@@ -73,13 +79,14 @@ groups:
     title: The namespace
     questions:
       - id: capacity
-        ask: How many throughput units does the namespace reserve?
+        ask:
+          en: "How many throughput units does the namespace reserve?"
+          de: "Wie viele Durchsatzeinheiten reserviert der Namespace?"
         type: int
         plain:
           en: "The namespace reserves {value} throughput unit(s)."
           de: "Der Namensraum reserviert {value} Durchsatzeinheit(en)."
         default: 1
-        confirm_in: [production]
         non_production_default: 1
         why: >
           The namespace has one tier (Standard) and is sized in throughput units: one unit is
@@ -94,12 +101,14 @@ groups:
           sku.capacity authored
 
       - id: minimum_tls_version
-        ask: Which TLS version is the lowest a publisher may use?
+        ask:
+          en: "Which TLS version is the lowest a publisher may use?"
+          de: "Welche ist die niedrigste TLS-Version, die ein Publisher verwenden darf?"
         type: enum
         plain:
           en: "Publishers must use at least TLS {value}."
           de: "Absender müssen mindestens TLS {value} verwenden."
-        values: ["1.0", "1.1", "1.2"]
+        accepts: ["1.0", "1.1", "1.2"]
         default: "1.2"
         why: >
           1.2 is the guardrails' floor and the only value the namespace accepts today: the
@@ -111,7 +120,9 @@ groups:
           or authored
 
       - id: local_auth
-        ask: Should access keys and shared access signatures work?
+        ask:
+          en: "Should access keys and shared access signatures work?"
+          de: "Sollen Zugriffsschlüssel und Shared Access Signatures funktionieren?"
         type: enum
         plain:
           en: "Access keys are {value}."
@@ -119,7 +130,7 @@ groups:
         plain_values:
           disabled: { en: switched off, de: abgeschaltet }
           allowed_where_unavoidable: { en: allowed on this namespace, de: auf diesem Namensraum erlaubt }
-        values: [disabled, allowed_where_unavoidable]
+        accepts: [disabled, allowed_where_unavoidable]
         from_deployment: local_auth
         forced_when: >
           The type has no switch: every namespace topic carries two keys the service creates
@@ -139,7 +150,9 @@ groups:
           through `role_assignments` only
 
       - id: zone_redundant
-        ask: Should the namespace survive the loss of one datacenter of its region?
+        ask:
+          en: "Should the namespace survive the loss of one datacenter of its region?"
+          de: "Soll der Namespace den Ausfall eines Rechenzentrums seiner Region überstehen?"
         type: bool
         plain:
           en: "The namespace {value} the loss of a datacenter."
@@ -163,7 +176,9 @@ groups:
           regional default, authored to depart
 
       - id: managed_identity
-        ask: Which managed identity should the namespace carry?
+        ask:
+          en: "Which managed identity should the namespace carry?"
+          de: "Welche Managed Identity soll der Namespace tragen?"
         type: enum
         plain:
           en: "The namespace has {value}."
@@ -172,7 +187,7 @@ groups:
           none: { en: no identity of its own, de: keine eigene Identität }
           system_assigned: { en: its own identity, de: eine eigene Identität }
           user_assigned: { en: a separately managed identity, de: eine separat verwaltete Identität }
-        values: [none, system_assigned, user_assigned]
+        accepts: [none, system_assigned, user_assigned]
         default: system_assigned
         forced_when: >
           `mqtt_routing: event_grid_topic` and any push subscription force at least
@@ -189,12 +204,14 @@ groups:
         renders: managed_identities / managedIdentities
 
       - id: user_assigned_identity_ids
-        ask: Which user-assigned identity?
+        ask:
+          en: "Which user-assigned identity?"
+          de: "Welche User-Assigned Identity?"
         type: list
         plain:
           en: "It uses the identity {value}."
           de: "Es nutzt die Identität {value}."
-        ref: user_assigned_identity
+        accepts: { ref: user_assigned_identity }
         required: true
         depends_on: { question: managed_identity, equals: user_assigned }
         per_environment: true
@@ -210,7 +227,9 @@ groups:
     title: Namespace topics and pull delivery
     questions:
       - id: namespace_topics
-        ask: Which topics should the namespace hold?
+        ask:
+          en: "Which topics should the namespace hold?"
+          de: "Welche Topics soll der Namespace enthalten?"
         type: list
         plain:
           en: "Topics: {value} (empty: none)."
@@ -225,7 +244,9 @@ groups:
         renders: namespace_topics / topics[]
 
       - id: event_retention_days
-        ask: How long does a topic keep an event that nobody has pulled yet?
+        ask:
+          en: "How long does a topic keep an event that nobody has pulled yet?"
+          de: "Wie lange hält ein Topic ein Ereignis, das noch niemand abgeholt hat?"
         type: int
         resolved_by: interview
         topic: data
@@ -245,7 +266,9 @@ groups:
           eventSubscriptions[].deliveryConfiguration.queue.eventTimeToLive
 
       - id: topic_subscriptions
-        ask: Who receives the events of each topic, and how?
+        ask:
+          en: "Who receives the events of each topic, and how?"
+          de: "Wer empfängt die Ereignisse jedes Topics, und wie?"
         type: list
         plain:
           en: "Subscribers: {value} (empty: none yet)."
@@ -262,7 +285,9 @@ groups:
         renders: topic_event_subscriptions / topics[].eventSubscriptions[]
 
       - id: delivery_mode
-        ask: Do receivers fetch events themselves, or does the namespace deliver them?
+        ask:
+          en: "Do receivers fetch events themselves, or does the namespace deliver them?"
+          de: "Holen Empfänger die Ereignisse selbst ab, oder stellt der Namespace sie zu?"
         type: enum
         plain:
           en: "Receivers {value}."
@@ -270,7 +295,7 @@ groups:
         plain_values:
           queue: { en: "fetch events themselves, at their own pace, and confirm each one", de: "holen Ereignisse selbst in ihrem Tempo ab und bestätigen jedes einzeln" }
           push: { en: "have events delivered to them by the namespace", de: "bekommen Ereignisse vom Namensraum zugestellt" }
-        values: [queue, push]
+        accepts: [queue, push]
         default: queue
         why: >
           The default for every subscription; a single one departs in its entry. Pull
@@ -284,7 +309,9 @@ groups:
           eventSubscriptions[].deliveryConfiguration.deliveryMode
 
       - id: max_delivery_count
-        ask: After how many failed deliveries is an event set aside?
+        ask:
+          en: "After how many failed deliveries is an event set aside?"
+          de: "Nach wie vielen fehlgeschlagenen Zustellungen wird ein Ereignis beiseitegelegt?"
         type: int
         plain:
           en: "An event is set aside after {value} failed deliveries."
@@ -301,7 +328,9 @@ groups:
           eventSubscriptions[].deliveryConfiguration.queue.maxDeliveryCount
 
       - id: receive_lock_duration_seconds
-        ask: How long may a receiver work on a pulled event before it is offered again?
+        ask:
+          en: "How long may a receiver work on a pulled event before it is offered again?"
+          de: "Wie lange darf ein Empfänger an einem abgeholten Ereignis arbeiten, bevor es erneut angeboten wird?"
         type: int
         plain:
           en: "A receiver has {value} seconds per event."
@@ -317,7 +346,9 @@ groups:
           eventSubscriptions[].deliveryConfiguration.queue.receiveLockDurationInSeconds
 
       - id: keep_undeliverable_events
-        ask: Should an event that could not be delivered be kept for inspection?
+        ask:
+          en: "Should an event that could not be delivered be kept for inspection?"
+          de: "Soll ein Ereignis, das nicht zugestellt werden konnte, zur Prüfung aufbewahrt werden?"
         type: bool
         resolved_by: interview
         topic: resilience
@@ -339,12 +370,14 @@ groups:
           eventSubscriptions[].deliveryConfiguration.<mode>.deadLetterDestinationWithResourceIdentity
 
       - id: dead_letter_storage_account
-        ask: Which storage account receives the undeliverable events?
-        type: ref
+        ask:
+          en: "Which storage account receives the undeliverable events?"
+          de: "Welches Speicherkonto erhält die nicht zustellbaren Ereignisse?"
+        type: string
         plain:
           en: "Undeliverable events go to the storage account {value}."
           de: "Nicht zustellbare Ereignisse gehen in das Speicherkonto {value}."
-        ref: storage_account
+        accepts: { ref: storage_account }
         required: true
         depends_on: { question: keep_undeliverable_events, equals: true }
         per_environment: true
@@ -357,7 +390,9 @@ groups:
           deadLetterDestinationWithResourceIdentity.deadLetterDestination.properties.resourceId
 
       - id: dead_letter_container
-        ask: In which container are they written?
+        ask:
+          en: "In which container are they written?"
+          de: "In welchen Container werden sie geschrieben?"
         type: string
         plain:
           en: "The files go to the container {value}."
@@ -374,7 +409,9 @@ groups:
     title: MQTT broker
     questions:
       - id: mqtt_broker
-        ask: Do devices or machines connect to it directly as MQTT clients?
+        ask:
+          en: "Do devices or machines connect to it directly as MQTT clients?"
+          de: "Verbinden sich Geräte oder Maschinen direkt als MQTT-Clients?"
         type: bool
         resolved_by: interview
         topic: application
@@ -398,7 +435,9 @@ groups:
           authored
 
       - id: topic_spaces
-        ask: Which groups of MQTT topics should exist?
+        ask:
+          en: "Which groups of MQTT topics should exist?"
+          de: "Welche Gruppen von MQTT-Topics soll es geben?"
         type: list
         plain:
           en: "MQTT topic spaces: {value}."
@@ -413,7 +452,9 @@ groups:
         renders: topic_spaces / topicSpaces[]
 
       - id: clients
-        ask: Which MQTT clients are registered up front?
+        ask:
+          en: "Which MQTT clients are registered up front?"
+          de: "Welche MQTT-Clients werden vorab registriert?"
         type: list
         plain:
           en: "Registered MQTT clients: {value}."
@@ -429,7 +470,9 @@ groups:
         renders: clients / clients[]
 
       - id: client_groups
-        ask: How are clients grouped for permissions?
+        ask:
+          en: "How are clients grouped for permissions?"
+          de: "Wie werden Clients für Berechtigungen gruppiert?"
         type: list
         plain:
           en: "Client groups: {value}."
@@ -444,7 +487,9 @@ groups:
         renders: client_groups / clientGroups[]
 
       - id: permission_bindings
-        ask: Which group may publish or subscribe on which topic space?
+        ask:
+          en: "Which group may publish or subscribe on which topic space?"
+          de: "Welche Gruppe darf in welchem Topic Space veröffentlichen oder abonnieren?"
         type: list
         plain:
           en: "MQTT permissions: {value}."
@@ -460,7 +505,9 @@ groups:
         renders: permission_bindings / permissionBindings[]
 
       - id: mqtt_routing
-        ask: Should the MQTT messages also reach applications as events?
+        ask:
+          en: "Should the MQTT messages also reach applications as events?"
+          de: "Sollen die MQTT-Nachrichten Anwendungen zusätzlich als Ereignisse erreichen?"
         type: enum
         resolved_by: interview
         topic: application
@@ -470,7 +517,7 @@ groups:
         plain_values:
           none: { en: exchanged between the devices only, de: nur zwischen den Geräten ausgetauscht }
           event_grid_topic: { en: also handed to applications as events, de: zusätzlich als Ereignisse an Anwendungen weitergereicht }
-        values: [none, event_grid_topic]
+        accepts: [none, event_grid_topic]
         default: none
         depends_on: { question: mqtt_broker, equals: true }
         why: >
@@ -485,12 +532,14 @@ groups:
           routingIdentityInfo
 
       - id: mqtt_routing_topic
-        ask: Which custom topic receives the routed messages?
-        type: ref
+        ask:
+          en: "Which custom topic receives the routed messages?"
+          de: "Welches Custom Topic erhält die weitergeleiteten Nachrichten?"
+        type: string
         plain:
           en: "Routed to the topic {value}."
           de: "Weitergeleitet an das Thema {value}."
-        ref: event_grid_topic
+        accepts: { ref: event_grid_topic }
         required: true
         depends_on: { question: mqtt_routing, equals: event_grid_topic }
         per_environment: true
@@ -504,7 +553,9 @@ groups:
     title: Networking
     questions:
       - id: public_network_access
-        ask: Should this namespace depart from the deployment's exposure posture?
+        ask:
+          en: "Should this namespace depart from the deployment's exposure posture?"
+          de: "Soll dieser Namespace von der Erreichbarkeit des Deployments abweichen?"
         type: enum
         plain:
           en: "The namespace is {value}."
@@ -513,9 +564,8 @@ groups:
           disabled: { en: not reachable from the internet at all, de: aus dem Internet überhaupt nicht erreichbar }
           enabled_with_firewall: { en: reachable from the internet only from listed addresses, de: aus dem Internet nur von gelisteten Adressen erreichbar }
           enabled: { en: reachable from the internet, de: aus dem Internet erreichbar }
-        values: [disabled, enabled_with_firewall, enabled]
+        accepts: [disabled, enabled_with_firewall, enabled]
         from_deployment: network_exposure
-        confirm_in: [production]
         forced_when: >
           `network_ownership: none` (a public deployment without a network) forces
           `enabled`, recorded as forced with `network_ownership` as forced_by: the
@@ -534,13 +584,15 @@ groups:
           publicNetworkAccess and inboundIpRules
 
       - id: private_endpoint_subnet
-        ask: Which subnet should the namespace's private endpoint live in?
-        type: ref
+        ask:
+          en: "Which subnet should the namespace's private endpoint live in?"
+          de: "In welchem Subnetz soll der Private Endpoint des Namespace liegen?"
+        type: string
         resolved_by: derived
         plain:
           en: "Its private connection lands in subnet {value}."
           de: "Seine private Anbindung landet im Subnetz {value}."
-        ref: subnet
+        accepts: { ref: subnet }
         from_deployment: private_endpoint_subnet
         per_environment: true
         why: >
@@ -551,7 +603,9 @@ groups:
           private_endpoints.<key>.subnet_resource_id / privateEndpoints[].subnetResourceId
 
       - id: ip_rules
-        ask: Which public IP ranges may reach the namespace?
+        ask:
+          en: "Which public IP ranges may reach the namespace?"
+          de: "Welche öffentlichen IP-Bereiche dürfen den Namespace erreichen?"
         type: list
         plain:
           en: "Public addresses allowed to reach the namespace: {value}."
@@ -569,7 +623,9 @@ groups:
     title: Identity and access
     questions:
       - id: role_assignments
-        ask: Who needs which role on this namespace?
+        ask:
+          en: "Who needs which role on this namespace?"
+          de: "Wer braucht welche Rolle auf diesem Namespace?"
         type: list
         plain:
           en: "Access rights on the namespace granted to: {value}."
@@ -589,13 +645,15 @@ groups:
     title: Observability
     questions:
       - id: diagnostic_workspace
-        ask: Which Log Analytics workspace should receive diagnostics?
-        type: ref
+        ask:
+          en: "Which Log Analytics workspace should receive diagnostics?"
+          de: "Welcher Log Analytics Workspace soll die Diagnosedaten erhalten?"
+        type: string
         resolved_by: derived
         plain:
           en: "Its logs go to {value}."
           de: "Seine Logs gehen in {value}."
-        ref: log_analytics_workspace
+        accepts: { ref: log_analytics_workspace }
         from_deployment: diagnostics_destination
         per_environment: true
         why: >
@@ -604,7 +662,9 @@ groups:
         renders: diagnostic_settings / diagnosticSettings
 
       - id: diagnostic_categories
-        ask: Which log categories should be collected?
+        ask:
+          en: "Which log categories should be collected?"
+          de: "Welche Log-Kategorien sollen erfasst werden?"
         type: list
         plain:
           en: "Logged: {value}."
@@ -618,7 +678,7 @@ groups:
           FailedMqttPublishedMessages: { en: device messages that were refused, de: abgewiesene Gerätenachrichten }
           FailedMqttSubscriptionOperations: { en: device subscriptions that were refused, de: abgewiesene Geräte-Abonnements }
           AutoscaleLogs: { en: the service's own scaling events, de: die Skalierungsereignisse des Dienstes }
-        values: [FailedHttpDataPlaneOperations, SuccessfulHttpDataPlaneOperations, FailedMqttConnections, SuccessfulMqttConnections, MqttDisconnections, FailedMqttPublishedMessages, FailedMqttSubscriptionOperations, AutoscaleLogs]
+        accepts: [FailedHttpDataPlaneOperations, SuccessfulHttpDataPlaneOperations, FailedMqttConnections, SuccessfulMqttConnections, MqttDisconnections, FailedMqttPublishedMessages, FailedMqttSubscriptionOperations, AutoscaleLogs]
         default: [FailedHttpDataPlaneOperations, FailedMqttConnections, FailedMqttPublishedMessages, MqttDisconnections]
         why: >
           The failures are what anyone debugging a namespace needs and are cheap - they log
@@ -633,7 +693,9 @@ groups:
           diagnosticSettings[].logCategoriesAndGroups[].category
 
       - id: metrics_enabled
-        ask: Should all metrics be collected?
+        ask:
+          en: "Should all metrics be collected?"
+          de: "Sollen alle Metriken erfasst werden?"
         type: bool
         plain:
           en: "Usage and performance figures are {value}."

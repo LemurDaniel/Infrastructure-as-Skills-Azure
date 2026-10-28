@@ -25,12 +25,14 @@ groups:
     title: Placement
     questions:
       - id: environments
-        ask: Which stages is this deployed to?
+        ask:
+          en: "Which stages is this deployed to?"
+          de: "In welche Stufen wird das ausgerollt?"
         type: list
         plain:
           en: "Deployed in the stages {value}."
           de: "Wird in den Stufen {value} ausgerollt."
-        values: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
+        accepts: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
         required: true
         from_context: true
         why: >
@@ -41,7 +43,9 @@ groups:
           one
 
       - id: location
-        ask: Which Azure region?
+        ask:
+          en: "Which Azure region?"
+          de: "Welche Azure-Region?"
         type: string
         plain:
           en: "Runs in the Azure region {value}."
@@ -55,12 +59,14 @@ groups:
         renders: location
 
       - id: resource_group_name
-        ask: Which resource group?
-        type: ref
+        ask:
+          en: "Which resource group?"
+          de: "Welche Ressourcengruppe?"
+        type: string
         plain:
           en: "Placed in the resource group {value}."
           de: "Liegt in der Ressourcengruppe {value}."
-        ref: resource_group
+        accepts: { ref: resource_group }
         required: true
         from_context: true
         per_environment: true
@@ -73,7 +79,9 @@ groups:
     title: The service
     questions:
       - id: publisher_name
-        ask: Which organisation name should API consumers see?
+        ask:
+          en: "Which organisation name should API consumers see?"
+          de: "Welchen Organisationsnamen sollen die Nutzer der APIs sehen?"
         type: string
         resolved_by: interview
         topic: application
@@ -89,7 +97,9 @@ groups:
         renders: publisher_name / publisherName
 
       - id: publisher_email
-        ask: Which contact address receives notifications from the service?
+        ask:
+          en: "Which contact address receives notifications from the service?"
+          de: "An welche Kontaktadresse schickt der Dienst Benachrichtigungen?"
         type: string
         resolved_by: interview
         topic: application
@@ -105,7 +115,9 @@ groups:
         renders: publisher_email / publisherEmail
 
       - id: sku
-        ask: Which tier does the gateway need?
+        ask:
+          en: "Which tier does the gateway need?"
+          de: "Welchen Tarif braucht das Gateway?"
         type: enum
         plain:
           en: "The gateway is the {value} tier."
@@ -119,11 +131,10 @@ groups:
           BasicV2: { en: basic on the faster v2 platform, de: Basic auf der schnelleren v2-Plattform }
           StandardV2: { en: "standard on the faster v2 platform, with private connections", de: "Standard auf der schnelleren v2-Plattform, mit privaten Anbindungen" }
           PremiumV2: { en: premium on the v2 platform with zones and isolation, de: Premium auf der v2-Plattform mit Zonen und Isolation }
-        values: [Consumption, Developer, Basic, Standard, Premium, BasicV2, StandardV2, PremiumV2]
+        accepts: [Consumption, Developer, Basic, Standard, Premium, BasicV2, StandardV2, PremiumV2]
         derived_from:
           question: outage_impact
           map: { tolerable: Developer, disruptive: StandardV2, critical: PremiumV2 }
-        confirm_in: [production]
         non_production_default: Developer
         forced_when: >
           `zone_redundant: true` forces `Premium` or `PremiumV2`; `additional_regions`
@@ -144,7 +155,9 @@ groups:
           sku_name (`<Tier>_<capacity>`, `Developer_1`) / sku + skuCapacity
 
       - id: capacity
-        ask: How many scale units does the instance reserve?
+        ask:
+          en: "How many scale units does the instance reserve?"
+          de: "Wie viele Skalierungseinheiten reserviert die Instanz?"
         type: int
         plain:
           en: "The instance reserves {value} scale unit(s)."
@@ -159,7 +172,9 @@ groups:
         renders: sku_name suffix / skuCapacity
 
       - id: zone_redundant
-        ask: Should the gateway survive the loss of one datacenter of its region?
+        ask:
+          en: "Should the gateway survive the loss of one datacenter of its region?"
+          de: "Soll das Gateway den Ausfall eines Rechenzentrums seiner Region überstehen?"
         type: bool
         plain:
           en: "The gateway survives the loss of a datacenter: {value}."
@@ -177,7 +192,9 @@ groups:
         renders: zones / availabilityZones
 
       - id: additional_regions
-        ask: In which further regions should the gateway also run?
+        ask:
+          en: "In which further regions should the gateway also run?"
+          de: "In welchen weiteren Regionen soll das Gateway zusätzlich laufen?"
         type: list
         plain:
           en: "Also running in the regions {value} (empty: none)."
@@ -194,7 +211,9 @@ groups:
         renders: additional_location / additionalLocations
 
       - id: managed_identity
-        ask: Which managed identity should the instance carry?
+        ask:
+          en: "Which managed identity should the instance carry?"
+          de: "Welche Managed Identity soll die Instanz tragen?"
         type: enum
         plain:
           en: "The instance has {value}."
@@ -203,7 +222,7 @@ groups:
           none: { en: no identity of its own, de: keine eigene Identität }
           system_assigned: { en: its own identity, de: eine eigene Identität }
           user_assigned: { en: a separately managed identity, de: eine separat verwaltete Identität }
-        values: [none, system_assigned, user_assigned]
+        accepts: [none, system_assigned, user_assigned]
         default: system_assigned
         why: >
           The instance's identity authenticates it to backends (`authentication-managed-
@@ -215,12 +234,14 @@ groups:
         renders: managed_identities / managedIdentities
 
       - id: user_assigned_identity_ids
-        ask: Which user-assigned identity?
+        ask:
+          en: "Which user-assigned identity?"
+          de: "Welche User-Assigned Identity?"
         type: list
         plain:
           en: "It uses the identity {value}."
           de: "Es nutzt die Identität {value}."
-        ref: user_assigned_identity
+        accepts: { ref: user_assigned_identity }
         required: true
         depends_on: { question: managed_identity, equals: user_assigned }
         per_environment: true
@@ -235,7 +256,9 @@ groups:
     title: Callers and APIs
     questions:
       - id: caller_authentication
-        ask: How do callers of the APIs prove who they are?
+        ask:
+          en: "How do callers of the APIs prove who they are?"
+          de: "Wie weisen Aufrufer der APIs nach, wer sie sind?"
         type: enum
         resolved_by: interview
         topic: security
@@ -247,9 +270,8 @@ groups:
           subscription_key: { en: a personal access key, de: einem persönlichen Zugriffsschlüssel }
           entra_id_and_key: { en: their company account and an access key, de: ihrem Firmenkonto und einem Zugriffsschlüssel }
           open: { en: nothing - anyone may call, de: "nichts, jeder darf aufrufen" }
-        values: [entra_id, subscription_key, entra_id_and_key, open]
+        accepts: [entra_id, subscription_key, entra_id_and_key, open]
         default: entra_id
-        confirm_in: [production]
         forced_when: >
           `local_auth: disabled` forces `entra_id`, recorded as forced with `local_auth` as
           forced_by. A departure to `subscription_key` or `open` names the API it applies
@@ -265,7 +287,9 @@ groups:
           policy.xml_content (validate-jwt) and products[].subscriptionRequired / policies
 
       - id: rate_limit_calls_per_minute
-        ask: How many calls per minute may one caller make?
+        ask:
+          en: "How many calls per minute may one caller make?"
+          de: "Wie viele Aufrufe pro Minute darf ein Aufrufer machen?"
         type: int
         resolved_by: interview
         topic: application
@@ -282,7 +306,9 @@ groups:
         renders: policy.xml_content (rate-limit-by-key)
 
       - id: developer_portal
-        ask: Do outside developers need a portal to read and try the APIs?
+        ask:
+          en: "Do outside developers need a portal to read and try the APIs?"
+          de: "Brauchen externe Entwickler ein Portal, um die APIs zu lesen und auszuprobieren?"
         type: bool
         resolved_by: interview
         topic: application
@@ -304,7 +330,9 @@ groups:
           enabled through `sign_in` / `sign_up` and `delegation`
 
       - id: apis
-        ask: Which APIs should the gateway expose?
+        ask:
+          en: "Which APIs should the gateway expose?"
+          de: "Welche APIs soll das Gateway bereitstellen?"
         type: list
         plain:
           en: "APIs: {value} (empty: none yet)."
@@ -320,7 +348,9 @@ groups:
         renders: apis / apis
 
       - id: products
-        ask: Which groups of consumers should be set apart, each with its own limits?
+        ask:
+          en: "Which groups of consumers should be set apart, each with its own limits?"
+          de: "Welche Gruppen von Nutzern sollen getrennt werden, jede mit eigenen Limits?"
         type: list
         plain:
           en: "Consumer groups: {value} (empty: none)."
@@ -337,7 +367,9 @@ groups:
     title: Networking
     questions:
       - id: network_integration
-        ask: How should the gateway sit in the private network?
+        ask:
+          en: "How should the gateway sit in the private network?"
+          de: "Wie soll das Gateway im privaten Netz sitzen?"
         type: enum
         plain:
           en: "The gateway is {value}."
@@ -346,9 +378,8 @@ groups:
           none: { en: outside the private network, de: außerhalb des privaten Netzes }
           external: { en: "public, but able to reach services inside the network", de: "öffentlich, aber mit Zugriff auf Dienste im Netz" }
           internal: { en: inside the private network only, de: nur im privaten Netz }
-        values: [none, external, internal]
+        accepts: [none, external, internal]
         default: internal
-        confirm_in: [production]
         forced_when: >
           `network_exposure: public` makes it `external` where the deployment has a network
           and `none` where it has none; `network_ownership: none` forces `none`. `sku:
@@ -366,13 +397,15 @@ groups:
           subnetResourceId
 
       - id: apim_subnet
-        ask: Which subnet should the gateway use?
-        type: ref
+        ask:
+          en: "Which subnet should the gateway use?"
+          de: "Welches Subnetz soll das Gateway verwenden?"
+        type: string
         resolved_by: derived
         plain:
           en: "The gateway is placed in subnet {value}."
           de: "Das Gateway liegt im Subnetz {value}."
-        ref: subnet
+        accepts: { ref: subnet }
         required: true
         depends_on: { question: network_integration, not_equals: none }
         per_environment: true
@@ -385,12 +418,14 @@ groups:
         renders: virtual_network_subnet_id / subnetResourceId
 
       - id: public_ip_address
-        ask: Which public IP address does an injected gateway use?
-        type: ref
+        ask:
+          en: "Which public IP address does an injected gateway use?"
+          de: "Welche öffentliche IP-Adresse verwendet ein eingebundenes Gateway?"
+        type: string
         plain:
           en: "The gateway uses the public address {value}."
           de: "Das Gateway nutzt die öffentliche Adresse {value}."
-        ref: public_ip_address
+        accepts: { ref: public_ip_address }
         required: true
         depends_on: { question: network_integration, not_equals: none }
         per_environment: true
@@ -401,7 +436,9 @@ groups:
         renders: public_ip_address_id / publicIpAddressResourceId
 
       - id: public_network_access
-        ask: Should this gateway depart from the deployment's exposure posture?
+        ask:
+          en: "Should this gateway depart from the deployment's exposure posture?"
+          de: "Soll dieses Gateway von der Erreichbarkeit des Deployments abweichen?"
         type: enum
         plain:
           en: "The gateway is {value}."
@@ -410,9 +447,8 @@ groups:
           disabled: { en: not reachable from the internet at all, de: aus dem Internet überhaupt nicht erreichbar }
           enabled_with_firewall: { en: reachable from the internet only from listed addresses, de: aus dem Internet nur von gelisteten Adressen erreichbar }
           enabled: { en: reachable from the internet, de: aus dem Internet erreichbar }
-        values: [disabled, enabled_with_firewall, enabled]
+        accepts: [disabled, enabled_with_firewall, enabled]
         from_deployment: network_exposure
-        confirm_in: [production]
         forced_when: >
           `network_integration: external` forces `enabled`; `network_ownership: none` forces
           `enabled`, recorded as forced with that question as forced_by.
@@ -426,13 +462,15 @@ groups:
         renders: public_network_access_enabled (bool) / publicNetworkAccess
 
       - id: private_endpoint_subnet
-        ask: Which subnet should the instance's private endpoint live in?
-        type: ref
+        ask:
+          en: "Which subnet should the instance's private endpoint live in?"
+          de: "In welchem Subnetz soll der Private Endpoint der Instanz liegen?"
+        type: string
         resolved_by: derived
         plain:
           en: "Its private connection lands in subnet {value}."
           de: "Seine private Anbindung landet im Subnetz {value}."
-        ref: subnet
+        accepts: { ref: subnet }
         from_deployment: private_endpoint_subnet
         per_environment: true
         why: >
@@ -447,7 +485,9 @@ groups:
     title: Identity and access
     questions:
       - id: role_assignments
-        ask: Who needs which role on this instance?
+        ask:
+          en: "Who needs which role on this instance?"
+          de: "Wer braucht welche Rolle auf dieser Instanz?"
         type: list
         plain:
           en: "Access rights on the instance granted to: {value}."
@@ -468,7 +508,9 @@ groups:
     title: Security
     questions:
       - id: legacy_protocols_disabled
-        ask: Should old TLS versions and weak ciphers be refused?
+        ask:
+          en: "Should old TLS versions and weak ciphers be refused?"
+          de: "Sollen alte TLS-Versionen und schwache Verschlüsselungsverfahren abgelehnt werden?"
         type: bool
         plain:
           en: "Old encryption protocols are {value}."
@@ -487,7 +529,9 @@ groups:
           customProperties[Microsoft.WindowsAzure.ApiManagement.Gateway.Security.*]
 
       - id: client_certificate_required
-        ask: Must every caller present a client certificate?
+        ask:
+          en: "Must every caller present a client certificate?"
+          de: "Muss jeder Aufrufer ein Client-Zertifikat vorlegen?"
         type: bool
         plain:
           en: "Client certificates are {value}."
@@ -507,13 +551,15 @@ groups:
     title: Observability
     questions:
       - id: diagnostic_workspace
-        ask: Which Log Analytics workspace should receive diagnostics?
-        type: ref
+        ask:
+          en: "Which Log Analytics workspace should receive diagnostics?"
+          de: "Welcher Log Analytics Workspace soll die Diagnosedaten erhalten?"
+        type: string
         resolved_by: derived
         plain:
           en: "Its logs go to {value}."
           de: "Seine Logs gehen in {value}."
-        ref: log_analytics_workspace
+        accepts: { ref: log_analytics_workspace }
         from_deployment: diagnostics_destination
         per_environment: true
         why: >
@@ -522,7 +568,9 @@ groups:
         renders: diagnostic_settings / diagnosticSettings
 
       - id: diagnostic_categories
-        ask: Which log categories should be collected?
+        ask:
+          en: "Which log categories should be collected?"
+          de: "Welche Log-Kategorien sollen erfasst werden?"
         type: list
         plain:
           en: "Logged: {value}."
@@ -532,7 +580,7 @@ groups:
           WebSocketConnectionLogs: { en: WebSocket connections, de: WebSocket-Verbindungen }
           DeveloperPortalAuditLogs: { en: actions in the developer portal, de: Aktionen im Entwicklerportal }
           GatewayLlmLogs: { en: "calls to language-model backends, with token counts", de: "Aufrufe an Sprachmodell-Backends, mit Tokenzahlen" }
-        values: [GatewayLogs, WebSocketConnectionLogs, DeveloperPortalAuditLogs, GatewayLlmLogs]
+        accepts: [GatewayLogs, WebSocketConnectionLogs, DeveloperPortalAuditLogs, GatewayLlmLogs]
         default: [GatewayLogs]
         why: >
           The gateway log is the record of every call and is what an incident review needs;
@@ -546,7 +594,9 @@ groups:
           diagnosticSettings[].logCategoriesAndGroups[].category
 
       - id: metrics_enabled
-        ask: Should all metrics be collected?
+        ask:
+          en: "Should all metrics be collected?"
+          de: "Sollen alle Metriken erfasst werden?"
         type: bool
         plain:
           en: "Usage and performance figures are {value}."

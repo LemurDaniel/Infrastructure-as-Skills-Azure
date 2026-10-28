@@ -25,12 +25,14 @@ groups:
     title: Placement
     questions:
       - id: environments
-        ask: Which stages is this deployed to?
+        ask:
+          en: "Which stages is this deployed to?"
+          de: "In welche Stufen wird das ausgerollt?"
         type: list
         plain:
           en: "Deployed in the stages {value}."
           de: "Wird in den Stufen {value} ausgerollt."
-        values: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
+        accepts: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
         required: true
         from_context: true
         why: >
@@ -40,7 +42,9 @@ groups:
         renders: naming parameter `environment`, and the tag of that name where the repository uses one
 
       - id: location
-        ask: Which Azure region?
+        ask:
+          en: "Which Azure region?"
+          de: "Welche Azure-Region?"
         type: string
         plain:
           en: "Runs in the Azure region {value}."
@@ -56,12 +60,14 @@ groups:
         renders: location
 
       - id: resource_group_name
-        ask: Which resource group?
-        type: ref
+        ask:
+          en: "Which resource group?"
+          de: "Welche Ressourcengruppe?"
+        type: string
         plain:
           en: "Placed in the resource group {value}."
           de: "Liegt in der Ressourcengruppe {value}."
-        ref: resource_group
+        accepts: { ref: resource_group }
         required: true
         from_context: true
         per_environment: true
@@ -75,7 +81,9 @@ groups:
     title: The app
     questions:
       - id: sku
-        ask: Which plan?
+        ask:
+          en: "Which plan?"
+          de: "Welcher Plan?"
         type: enum
         plain:
           en: "The app is on the {value} plan."
@@ -83,11 +91,10 @@ groups:
         plain_values:
           Free: { en: "free, for a hobby or a prototype - no uptime guarantee, no private connection, no custom login providers, small limits", de: "kostenlos, für Hobby oder Prototyp - keine Verfügbarkeitszusage, keine private Anbindung, keine eigenen Login-Anbieter, kleine Grenzen" }
           Standard: { en: "standard, with an uptime guarantee, a private connection, custom login providers and larger limits", de: "Standard, mit Verfügbarkeitszusage, privater Anbindung, eigenen Login-Anbietern und größeren Grenzen" }
-        values: [Free, Standard]
+        accepts: [Free, Standard]
         derived_from:
           question: outage_impact
           map: { tolerable: Free, disruptive: Standard, critical: Standard }
-        confirm_in: [production]
         why: >
           Derived from how bad an outage is: `Standard` carries the 99.95% SLA and is billed per
           app per month; `Free` has none and a bandwidth cap that ends in a throttled site, not a
@@ -102,7 +109,9 @@ groups:
         renders: sku_tier and sku_size / sku
 
       - id: preview_environments_enabled
-        ask: Should every pull request get a temporary copy of the site?
+        ask:
+          en: "Should every pull request get a temporary copy of the site?"
+          de: "Soll jeder Pull Request eine temporäre Kopie der Seite bekommen?"
         type: bool
         plain:
           en: "Temporary preview copies of the site for pull requests are {value}."
@@ -125,7 +134,9 @@ groups:
     title: Networking
     questions:
       - id: public_network_access
-        ask: Should this app depart from the deployment's exposure posture?
+        ask:
+          en: "Should this app depart from the deployment's exposure posture?"
+          de: "Soll diese App von der Erreichbarkeit des Deployments abweichen?"
         type: enum
         plain:
           en: "The app is {value}."
@@ -133,9 +144,8 @@ groups:
         plain_values:
           disabled: { en: "not reachable from the internet at all, only through a private connection", de: "aus dem Internet überhaupt nicht erreichbar, nur über eine private Anbindung" }
           enabled: { en: "reachable from the internet", de: "aus dem Internet erreichbar" }
-        values: [disabled, enabled]
+        accepts: [disabled, enabled]
         from_deployment: network_exposure
-        confirm_in: [production]
         why: >
           Asked only as a departure: exposure is a property of the system. `private` is
           `disabled`, `public` is `enabled`; there is no firewall allowlist on a Static Web App,
@@ -152,13 +162,15 @@ groups:
         renders: public_network_access_enabled (bool) / publicNetworkAccess
 
       - id: private_endpoint_subnet
-        ask: Which subnet should this app's private endpoint live in?
-        type: ref
+        ask:
+          en: "Which subnet should this app's private endpoint live in?"
+          de: "In welchem Subnetz soll der Private Endpoint dieser App liegen?"
+        type: string
         resolved_by: derived
         plain:
           en: "Its private connection lands in subnet {value}."
           de: "Seine private Anbindung landet im Subnetz {value}."
-        ref: subnet
+        accepts: { ref: subnet }
         from_deployment: private_endpoint_subnet
         per_environment: true
         why: >
@@ -177,7 +189,9 @@ groups:
     title: Identity and access
     questions:
       - id: managed_identity
-        ask: Which managed identity should the app carry?
+        ask:
+          en: "Which managed identity should the app carry?"
+          de: "Welche Managed Identity soll die App tragen?"
         type: enum
         plain:
           en: "The app has {value}."
@@ -186,7 +200,7 @@ groups:
           none: { en: "no identity of its own", de: "keine eigene Identität" }
           system_assigned: { en: "its own identity", de: "eine eigene Identität" }
           user_assigned: { en: "a separately managed identity", de: "eine separat verwaltete Identität" }
-        values: [none, system_assigned, user_assigned]
+        accepts: [none, system_assigned, user_assigned]
         default: none
         why: >
           A static site has no server code to hold an identity. The identity is for the app's
@@ -197,12 +211,14 @@ groups:
         renders: managed_identities / managedIdentities
 
       - id: user_assigned_identity_ids
-        ask: Which user-assigned identity?
+        ask:
+          en: "Which user-assigned identity?"
+          de: "Welche User-Assigned Identity?"
         type: list
         plain:
           en: "It uses the identity {value}."
           de: "Es nutzt die Identität {value}."
-        ref: user_assigned_identity
+        accepts: { ref: user_assigned_identity }
         required: true
         depends_on: { question: managed_identity, equals: user_assigned }
         per_environment: true
@@ -210,7 +226,9 @@ groups:
         renders: managed_identities.user_assigned_resource_ids / managedIdentities.userAssignedResourceIds
 
       - id: role_assignments
-        ask: Who may manage the app?
+        ask:
+          en: "Who may manage the app?"
+          de: "Wer darf die App verwalten?"
         type: list
         plain:
           en: "Management rights on the app granted to: {value}."

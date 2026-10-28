@@ -26,12 +26,14 @@ groups:
     title: Placement
     questions:
       - id: environments
-        ask: Which stages is this deployed to?
+        ask:
+          en: "Which stages is this deployed to?"
+          de: "In welche Stufen wird das ausgerollt?"
         type: list
         plain:
           en: "Deployed in the stages {value}."
           de: "Wird in den Stufen {value} ausgerollt."
-        values: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
+        accepts: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
         required: true
         from_context: true
         why: >
@@ -40,9 +42,11 @@ groups:
         renders: the stage file the vault reference comes from
 
       - id: key_vault
-        ask: In which vault should the key live?
-        type: ref
-        ref: key_vault
+        ask:
+          en: "In which vault should the key live?"
+          de: "In welchem Vault soll der Schlüssel liegen?"
+        type: string
+        accepts: { ref: key_vault }
         plain:
           en: "The key is kept in the vault {value}."
           de: "Der Schlüssel liegt im Tresor {value}."
@@ -55,7 +59,9 @@ groups:
         renders: key_vault_resource_id / keyVaultName
 
       - id: purpose
-        ask: What is the key for?
+        ask:
+          en: "What is the key for?"
+          de: "Wofür ist der Schlüssel?"
         type: enum
         plain:
           en: "The key is used for {value}."
@@ -64,7 +70,7 @@ groups:
           encrypts_other_resources: { en: "encrypting the data of another Azure service with your own key", de: "der Verschlüsselung der Daten eines anderen Azure-Dienstes mit einem eigenen Schlüssel" }
           signs: { en: "signing and verifying", de: "dem Signieren und Prüfen von Signaturen" }
           encrypts_application_data: { en: "an application encrypting its own data", de: "der Verschlüsselung eigener Daten durch eine Anwendung" }
-        values: [encrypts_other_resources, signs, encrypts_application_data]
+        accepts: [encrypts_other_resources, signs, encrypts_application_data]
         default: encrypts_other_resources
         resolved_by: interview
         topic: security
@@ -81,7 +87,9 @@ groups:
     title: Identity and access
     questions:
       - id: role_assignments
-        ask: Who needs which role on this key?
+        ask:
+          en: "Who needs which role on this key?"
+          de: "Wer braucht welche Rolle auf diesem Schlüssel?"
         type: list
         plain:
           en: "Access rights on the key granted to: {value}."
@@ -103,12 +111,14 @@ groups:
     title: Key
     questions:
       - id: algorithm
-        ask: Which kind of key?
+        ask:
+          en: "Which kind of key?"
+          de: "Welche Art von Schlüssel?"
         type: enum
         plain:
           en: "The key is an {value} key."
           de: "Der Schlüssel ist ein {value}-Schlüssel."
-        values: [RSA, EC]
+        accepts: [RSA, EC]
         default: RSA
         why: >
           RSA is what Azure services wrap customer-managed keys with, and the only choice for
@@ -122,7 +132,9 @@ groups:
         renders: key_type / kty (RSA, RSA-HSM, EC or EC-HSM, with `protection`)
 
       - id: protection
-        ask: Software-protected or hardware-protected?
+        ask:
+          en: "Software-protected or hardware-protected?"
+          de: "Software-geschützt oder Hardware-geschützt?"
         type: enum
         plain:
           en: "The key is protected {value}."
@@ -130,7 +142,7 @@ groups:
         plain_values:
           software: { en: "in software", de: "in Software" }
           hsm: { en: "by hardware security modules", de: "durch Hardware-Sicherheitsmodule" }
-        values: [software, hsm]
+        accepts: [software, hsm]
         from_deployment: key_protection
         why: >
           Inherited: one answer per system. `hsm` renders `RSA-HSM` / `EC-HSM` and needs a
@@ -140,7 +152,9 @@ groups:
         renders: key_type / kty suffix `-HSM`
 
       - id: key_operations
-        ask: What may the key be used for?
+        ask:
+          en: "What may the key be used for?"
+          de: "Wofür darf der Schlüssel verwendet werden?"
         type: list
         plain:
           en: "The key may be used for: {value}."
@@ -152,7 +166,7 @@ groups:
           decrypt: { en: "decrypting", de: "Entschlüsseln" }
           sign: { en: "signing", de: "Signieren" }
           verify: { en: "verifying signatures", de: "Signaturen prüfen" }
-        values: [wrapKey, unwrapKey, encrypt, decrypt, sign, verify]
+        accepts: [wrapKey, unwrapKey, encrypt, decrypt, sign, verify]
         default: [wrapKey, unwrapKey]
         why: >
           The least the purpose needs. A customer-managed key for a service needs exactly
@@ -166,12 +180,14 @@ groups:
         renders: key_opts / keyOps
 
       - id: key_size
-        ask: How large should the key be?
+        ask:
+          en: "How large should the key be?"
+          de: "Wie groß soll der Schlüssel sein?"
         type: enum
         plain:
           en: "The key is {value} bits long."
           de: "Der Schlüssel ist {value} Bit lang."
-        values: [2048, 3072, 4096]
+        accepts: [2048, 3072, 4096]
         default: 3072
         depends_on: { question: algorithm, equals: RSA }
         why: >
@@ -182,12 +198,14 @@ groups:
         renders: key_size / keySize
 
       - id: curve
-        ask: Which curve?
+        ask:
+          en: "Which curve?"
+          de: "Welche Kurve?"
         type: enum
         plain:
           en: "The key uses the curve {value}."
           de: "Der Schlüssel nutzt die Kurve {value}."
-        values: [P-256, P-384, P-521, P-256K]
+        accepts: [P-256, P-384, P-521, P-256K]
         default: P-256
         depends_on: { question: algorithm, equals: EC }
         why: >
@@ -203,7 +221,9 @@ groups:
     title: Lifetime and rotation
     questions:
       - id: rotation_days
-        ask: After how many days should the key rotate itself?
+        ask:
+          en: "After how many days should the key rotate itself?"
+          de: "Nach wie vielen Tagen soll sich der Schlüssel selbst rotieren?"
         type: int
         plain:
           en: "The key is replaced automatically every {value} days."
@@ -220,7 +240,9 @@ groups:
         renders: rotation_policy.automatic.time_after_creation / rotationPolicy.lifetimeActions[rotate].trigger.timeAfterCreate
 
       - id: expiry_days
-        ask: After how many days does a key version expire?
+        ask:
+          en: "After how many days does a key version expire?"
+          de: "Nach wie vielen Tagen läuft eine Schlüsselversion ab?"
         type: int
         plain:
           en: "A key version expires after {value} days."
@@ -235,7 +257,9 @@ groups:
         renders: rotation_policy.expire_after / rotationPolicy.attributes.expiryTime
 
       - id: notify_days_before_expiry
-        ask: How many days before expiry should a warning be raised?
+        ask:
+          en: "How many days before expiry should a warning be raised?"
+          de: "Wie viele Tage vor dem Ablauf soll eine Warnung ausgelöst werden?"
         type: int
         plain:
           en: "A warning is raised {value} days before a key version expires."

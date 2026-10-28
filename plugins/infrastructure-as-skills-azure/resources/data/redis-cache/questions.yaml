@@ -28,12 +28,14 @@ groups:
     title: Placement
     questions:
       - id: environments
-        ask: Which stages is this deployed to?
+        ask:
+          en: "Which stages is this deployed to?"
+          de: "In welche Stufen wird das ausgerollt?"
         type: list
         plain:
           en: "Deployed in the stages {value}."
           de: "Wird in den Stufen {value} ausgerollt."
-        values: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
+        accepts: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
         required: true
         from_context: true
         why: >
@@ -42,7 +44,9 @@ groups:
         renders: naming parameter `environment`, and the tag of that name where the repository uses one
 
       - id: location
-        ask: Which Azure region?
+        ask:
+          en: "Which Azure region?"
+          de: "Welche Azure-Region?"
         type: string
         plain:
           en: "Runs in the Azure region {value}."
@@ -57,12 +61,14 @@ groups:
         renders: location
 
       - id: resource_group_name
-        ask: Which resource group?
-        type: ref
+        ask:
+          en: "Which resource group?"
+          de: "Welche Ressourcengruppe?"
+        type: string
         plain:
           en: "Placed in the resource group {value}."
           de: "Liegt in der Ressourcengruppe {value}."
-        ref: resource_group
+        accepts: { ref: resource_group }
         required: true
         from_context: true
         per_environment: true
@@ -76,14 +82,15 @@ groups:
     title: Cache and capacity
     questions:
       - id: sku_name
-        ask: How much memory, and tuned for what?
+        ask:
+          en: "How much memory, and tuned for what?"
+          de: "Wie viel Arbeitsspeicher, und wofür optimiert?"
         type: string
         plain:
           en: "The cache has the size {value}."
           de: "Der Cache hat die Größe {value}."
         default: Balanced_B1
         non_production_default: Balanced_B0
-        confirm_in: [production]
         why: >
           The name carries two decisions: the tuning (`Balanced`, `MemoryOptimized` for more
           memory per core - from `M10` up, `ComputeOptimized` for more cores per gigabyte,
@@ -99,7 +106,9 @@ groups:
         renders: sku_name / skuName
 
       - id: clustering_policy
-        ask: Which kind of client connection does the application use?
+        ask:
+          en: "Which kind of client connection does the application use?"
+          de: "Welche Art von Client-Verbindung verwendet die Anwendung?"
         type: enum
         plain:
           en: "The cache is addressed {value}."
@@ -108,7 +117,7 @@ groups:
           EnterpriseCluster: { en: "as one endpoint, however many shards sit behind it - works with every client", de: "als ein Endpunkt, egal wie viele Shards dahinter liegen - funktioniert mit jedem Client" }
           OSSCluster: { en: "with the open-source cluster protocol, for the best throughput, with a cluster-aware client", de: "mit dem Open-Source-Cluster-Protokoll, für den besten Durchsatz, mit einem clusterfähigen Client" }
           NoCluster: { en: "as one unsharded server, at most 25 GB, for applications that cannot talk to a cluster", de: "als ein einzelner Server ohne Sharding, höchstens 25 GB, für Anwendungen ohne Cluster-Unterstützung" }
-        values: [EnterpriseCluster, OSSCluster, NoCluster]
+        accepts: [EnterpriseCluster, OSSCluster, NoCluster]
         default: EnterpriseCluster
         why: >
           **Fixed when the database is created** - changing it is a new cache and a data
@@ -123,7 +132,9 @@ groups:
         renders: clustering_policy / database.clusteringPolicy
 
       - id: eviction_policy
-        ask: What should the cache do when it is full?
+        ask:
+          en: "What should the cache do when it is full?"
+          de: "Was soll der Cache tun, wenn er voll ist?"
         type: enum
         plain:
           en: "When the cache is full, it {value}."
@@ -137,7 +148,7 @@ groups:
           VolatileRandom: { en: "drops entries with an expiry time at random", de: "wirft er zufällige Einträge mit Ablaufzeit weg" }
           VolatileTTL: { en: "drops the entries closest to their expiry time", de: "wirft er die Einträge kurz vor dem Ablauf weg" }
           NoEviction: { en: "refuses new writes with an error and drops nothing", de: "lehnt er neue Schreibvorgänge mit einem Fehler ab und wirft nichts weg" }
-        values: [AllKeysLRU, AllKeysLFU, AllKeysRandom, VolatileLRU, VolatileLFU, VolatileRandom, VolatileTTL, NoEviction]
+        accepts: [AllKeysLRU, AllKeysLFU, AllKeysRandom, VolatileLRU, VolatileLFU, VolatileRandom, VolatileTTL, NoEviction]
         default: AllKeysLRU
         why: >
           For a cache the right behaviour is to forget the old: `AllKeysLRU` keeps the hot
@@ -150,7 +161,9 @@ groups:
         renders: eviction_policy / database.evictionPolicy
 
       - id: redis_modules
-        ask: Which Redis modules does the application use?
+        ask:
+          en: "Which Redis modules does the application use?"
+          de: "Welche Redis-Module verwendet die Anwendung?"
         type: list
         plain:
           en: "Extra capabilities enabled on the cache: {value} (empty: none)."
@@ -169,7 +182,9 @@ groups:
     title: Resilience
     questions:
       - id: high_availability
-        ask: Should a replica take over by itself if a node fails?
+        ask:
+          en: "Should a replica take over by itself if a node fails?"
+          de: "Soll ein Replikat von selbst übernehmen, wenn ein Knoten ausfällt?"
         type: bool
         plain:
           en: "If a node fails, {value}."
@@ -180,7 +195,6 @@ groups:
         derived_from:
           question: outage_impact
           map: { tolerable: false, disruptive: true, critical: true }
-        confirm_in: [production]
         non_production_default: false
         why: >
           Derived from how bad an outage is. High availability keeps a replica of every
@@ -197,7 +211,9 @@ groups:
         renders: high_availability / highAvailability ('Enabled' / 'Disabled')
 
       - id: geo_replicas
-        ask: In which further regions should the cache be kept?
+        ask:
+          en: "In which further regions should the cache be kept?"
+          de: "In welchen weiteren Regionen soll der Cache vorgehalten werden?"
         type: list
         plain:
           en: "The cache is also kept in {value} (empty: only in the main region)."
@@ -223,7 +239,9 @@ groups:
     title: Networking
     questions:
       - id: public_network_access
-        ask: Should this cache depart from the deployment's exposure posture?
+        ask:
+          en: "Should this cache depart from the deployment's exposure posture?"
+          de: "Soll dieser Cache von der Erreichbarkeit des Deployments abweichen?"
         type: enum
         plain:
           en: "The cache is {value}."
@@ -232,9 +250,8 @@ groups:
           disabled: { en: "not reachable from the internet at all", de: "aus dem Internet überhaupt nicht erreichbar" }
           enabled_with_firewall: { en: "reachable from the internet, with sign-in as the only gate", de: "aus dem Internet erreichbar, mit der Anmeldung als einziger Schranke" }
           enabled: { en: "reachable from the internet", de: "aus dem Internet erreichbar" }
-        values: [disabled, enabled_with_firewall, enabled]
+        accepts: [disabled, enabled_with_firewall, enabled]
         from_deployment: network_exposure
-        confirm_in: [production]
         why: >
           Asked only as a departure: exposure is a property of the system. `private` is
           `disabled`. **Azure Managed Redis has no IP allowlist**: public access is on or
@@ -250,13 +267,15 @@ groups:
         renders: public_network_access ("Enabled" / "Disabled") / publicNetworkAccess
 
       - id: private_endpoint_subnet
-        ask: Which subnet should this cache's private endpoint live in?
-        type: ref
+        ask:
+          en: "Which subnet should this cache's private endpoint live in?"
+          de: "In welchem Subnetz soll der Private Endpoint dieses Caches liegen?"
+        type: string
         resolved_by: derived
         plain:
           en: "Its private connection lands in subnet {value}."
           de: "Seine private Anbindung landet im Subnetz {value}."
-        ref: subnet
+        accepts: { ref: subnet }
         from_deployment: private_endpoint_subnet
         per_environment: true
         why: >
@@ -271,7 +290,9 @@ groups:
     title: Identity and access
     questions:
       - id: managed_identity
-        ask: Which managed identity should the cache carry?
+        ask:
+          en: "Which managed identity should the cache carry?"
+          de: "Welche Managed Identity soll der Cache tragen?"
         type: enum
         plain:
           en: "The cache has {value}."
@@ -279,7 +300,7 @@ groups:
         plain_values:
           none: { en: "no identity of its own", de: "keine eigene Identität" }
           user_assigned: { en: "a separately managed identity", de: "eine separat verwaltete Identität" }
-        values: [none, user_assigned]
+        accepts: [none, user_assigned]
         default: none
         why: >
           The cache's identity is used for one thing: reaching a Key Vault for a
@@ -293,12 +314,14 @@ groups:
         renders: managed_identities / managedIdentities
 
       - id: user_assigned_identity_ids
-        ask: Which user-assigned identity?
+        ask:
+          en: "Which user-assigned identity?"
+          de: "Welche User-Assigned Identity?"
         type: list
         plain:
           en: "It uses the identity {value}."
           de: "Es nutzt die Identität {value}."
-        ref: user_assigned_identity
+        accepts: { ref: user_assigned_identity }
         required: true
         depends_on: { question: managed_identity, equals: user_assigned }
         per_environment: true
@@ -306,7 +329,9 @@ groups:
         renders: managed_identities.user_assigned_resource_ids / managedIdentities.userAssignedResourceIds
 
       - id: data_access_assignments
-        ask: Who needs to read or write the cache?
+        ask:
+          en: "Who needs to read or write the cache?"
+          de: "Wer muss den Cache lesen oder schreiben?"
         type: list
         plain:
           en: "Access to the data in the cache granted to: {value}."
@@ -326,7 +351,9 @@ groups:
         renders: access_policy_assignments { object_id, access_policy_name = "default" } / database.accessPolicyAssignments [{ userObjectId, accessPolicyName }]
 
       - id: role_assignments
-        ask: Who may manage the cache itself?
+        ask:
+          en: "Who may manage the cache itself?"
+          de: "Wer darf den Cache selbst verwalten?"
         type: list
         plain:
           en: "Management rights on the cache granted to: {value}."
@@ -345,7 +372,9 @@ groups:
     title: Security
     questions:
       - id: access_keys_authentication_disabled
-        ask: May clients sign in with the access keys?
+        ask:
+          en: "May clients sign in with the access keys?"
+          de: "Dürfen sich Clients mit den Zugriffsschlüsseln anmelden?"
         type: bool
         plain:
           en: "Signing in with an access key is {value}; access goes through company accounts."
@@ -354,7 +383,6 @@ groups:
           true: { en: "switched off", de: "abgeschaltet" }
           false: { en: "possible", de: "möglich" }
         from_deployment: local_auth
-        confirm_in: [production]
         why: >
           Inherited: `local_auth: disabled` renders as access-key authentication disabled.
           An access key is a password that every client shares, does not expire and is not
@@ -366,7 +394,9 @@ groups:
         renders: azapi_update_resource accessKeysAuthentication = "Disabled" on the database (no module input) / database.accessKeysAuthentication
 
       - id: encrypted_connections_only
-        ask: Must every connection be encrypted?
+        ask:
+          en: "Must every connection be encrypted?"
+          de: "Muss jede Verbindung verschlüsselt sein?"
         type: bool
         plain:
           en: "Connections are {value}."
@@ -384,7 +414,9 @@ groups:
         renders: enable_non_ssl_port = false, minimum_tls_version = "1.2" / database.clientProtocol = 'Encrypted', minimumTlsVersion = '1.2'
 
       - id: key_management
-        ask: Are the cache's encryption keys platform-managed or customer-managed?
+        ask:
+          en: "Are the cache's encryption keys platform-managed or customer-managed?"
+          de: "Werden die Schlüssel des Caches von der Plattform verwaltet oder vom Kunden?"
         type: enum
         plain:
           en: "Encryption keys are {value}."
@@ -392,9 +424,8 @@ groups:
         plain_values:
           platform_managed: { en: "managed by Azure - encrypted, rotated, no effort on your side", de: "von Azure verwaltet: verschlüsselt, rotiert, kein Aufwand bei euch" }
           customer_managed: { en: "your own, held in your key vault, so you can revoke them", de: "eure eigenen in eurem Schlüsseltresor, damit ihr sie zurückziehen könnt" }
-        values: [platform_managed, customer_managed]
+        accepts: [platform_managed, customer_managed]
         from_deployment: key_management
-        confirm_in: [production]
         why: >
           Inherited. Data in memory and in persistence is encrypted at rest with a
           platform-managed key either way; `customer_managed` adds a key of the customer's
@@ -404,12 +435,14 @@ groups:
         renders: customer_managed_key_encryption / customerManagedKey
 
       - id: cmk_key_vault_key_id
-        ask: Which Key Vault key should encrypt the cache?
-        type: ref
+        ask:
+          en: "Which Key Vault key should encrypt the cache?"
+          de: "Welcher Key-Vault-Schlüssel soll den Cache verschlüsseln?"
+        type: string
         plain:
           en: "Encrypted with your key {value}."
           de: "Verschlüsselt mit eurem Schlüssel {value}."
-        ref: key_vault_key
+        accepts: { ref: key_vault_key }
         required: true
         depends_on: { question: key_management, equals: customer_managed }
         per_environment: true
@@ -426,7 +459,9 @@ groups:
     title: Persistence
     questions:
       - id: persistence
-        ask: Must the cache's content survive a restart or a failure of all its nodes?
+        ask:
+          en: "Must the cache's content survive a restart or a failure of all its nodes?"
+          de: "Muss der Inhalt des Caches einen Neustart oder den Ausfall aller seiner Knoten überstehen?"
         type: enum
         plain:
           en: "The cache's content {value}."
@@ -437,7 +472,7 @@ groups:
           rdb_6h: { en: "is saved as a snapshot every six hours", de: "wird alle sechs Stunden als Schnappschuss gesichert" }
           rdb_1h: { en: "is saved as a snapshot every hour", de: "wird stündlich als Schnappschuss gesichert" }
           aof_1s: { en: "is saved by writing every change, at most a second behind", de: "wird durch Mitschreiben jeder Änderung gesichert, höchstens eine Sekunde im Rückstand" }
-        values: [disabled, rdb_12h, rdb_6h, rdb_1h, aof_1s]
+        accepts: [disabled, rdb_12h, rdb_6h, rdb_1h, aof_1s]
         default: disabled
         why: >
           A cache holds a copy of data that lives elsewhere, so the default is that nothing
@@ -457,13 +492,15 @@ groups:
     title: Observability
     questions:
       - id: diagnostic_workspace
-        ask: Which Log Analytics workspace should receive diagnostics?
-        type: ref
+        ask:
+          en: "Which Log Analytics workspace should receive diagnostics?"
+          de: "Welcher Log Analytics Workspace soll die Diagnosedaten erhalten?"
+        type: string
         resolved_by: derived
         plain:
           en: "Its logs go to {value}."
           de: "Seine Logs gehen in {value}."
-        ref: log_analytics_workspace
+        accepts: { ref: log_analytics_workspace }
         from_deployment: diagnostics_destination
         per_environment: true
         why: >
@@ -473,14 +510,16 @@ groups:
         renders: diagnostic_settings (an authored `azurerm_monitor_diagnostic_setting` in Terraform, the module has none) / database.diagnosticSettings
 
       - id: diagnostic_categories
-        ask: Which log categories should be collected?
+        ask:
+          en: "Which log categories should be collected?"
+          de: "Welche Log-Kategorien sollen erfasst werden?"
         type: list
         plain:
           en: "Logged: {value}."
           de: "Geloggt wird: {value}."
         plain_values:
           ConnectionEvents: { en: "who connected, from where, and who failed to", de: "wer sich verbunden hat, von wo, und wem es misslang" }
-        values: [ConnectionEvents]
+        accepts: [ConnectionEvents]
         default: [ConnectionEvents]
         why: >
           The one log category of the service, and the only record of connections and failed
@@ -490,7 +529,9 @@ groups:
         renders: diagnostic_settings.<key>.enabled_log.category / database.diagnosticSettings[].logCategoriesAndGroups[].category
 
       - id: metrics_enabled
-        ask: Should all metrics be collected?
+        ask:
+          en: "Should all metrics be collected?"
+          de: "Sollen alle Metriken erfasst werden?"
         type: bool
         plain:
           en: "Usage and performance figures are {value}."

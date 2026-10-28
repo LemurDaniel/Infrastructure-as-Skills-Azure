@@ -25,12 +25,14 @@ groups:
     title: Placement
     questions:
       - id: environments
-        ask: Which stages is this deployed to?
+        ask:
+          en: "Which stages is this deployed to?"
+          de: "In welche Stufen wird das ausgerollt?"
         type: list
         plain:
           en: "Deployed in the stages {value}."
           de: "Wird in den Stufen {value} ausgerollt."
-        values: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
+        accepts: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
         required: true
         from_context: true
         why: >
@@ -39,7 +41,9 @@ groups:
         renders: naming parameter `environment`
 
       - id: location
-        ask: Which Azure region?
+        ask:
+          en: "Which Azure region?"
+          de: "Welche Azure-Region?"
         type: string
         plain:
           en: "Runs in the Azure region {value}."
@@ -54,12 +58,14 @@ groups:
         renders: location
 
       - id: resource_group_name
-        ask: Which resource group?
-        type: ref
+        ask:
+          en: "Which resource group?"
+          de: "Welche Ressourcengruppe?"
+        type: string
         plain:
           en: "Placed in the resource group {value}."
           de: "Liegt in der Ressourcengruppe {value}."
-        ref: resource_group
+        accepts: { ref: resource_group }
         required: true
         from_context: true
         per_environment: true
@@ -74,7 +80,9 @@ groups:
     title: The rule
     questions:
       - id: kind
-        ask: What feeds this rule - Linux machines, Windows machines, an application calling the ingestion API, or a transformation inside the workspace?
+        ask:
+          en: "What feeds this rule - Linux machines, Windows machines, an application calling the ingestion API, or a transformation inside the workspace?"
+          de: "Was speist diese Regel - Linux-Maschinen, Windows-Maschinen, eine Anwendung, die die Ingestion-API aufruft, oder eine Transformation innerhalb des Workspace?"
         type: enum
         plain:
           en: "The rule collects {value}."
@@ -85,7 +93,7 @@ groups:
           AgentDirectToStore: { en: "from machines straight into a storage account or event hub, bypassing the workspace", de: "von Maschinen direkt in ein Speicherkonto oder einen Event Hub, am Arbeitsbereich vorbei" }
           Direct: { en: "what an application sends to the ingestion API", de: "was eine Anwendung an die Ingestion-API schickt" }
           WorkspaceTransforms: { en: "nothing - it rewrites data arriving in the workspace", de: "nichts, sie schreibt im Arbeitsbereich ankommende Daten um" }
-        values: [Linux, Windows, AgentDirectToStore, Direct, WorkspaceTransforms]
+        accepts: [Linux, Windows, AgentDirectToStore, Direct, WorkspaceTransforms]
         required: true
         why: >
           The kind decides which data sources exist and whether an endpoint is needed.
@@ -105,7 +113,9 @@ groups:
     title: What is collected
     questions:
       - id: performance_counter_set
-        ask: Which performance figures should the machines report?
+        ask:
+          en: "Which performance figures should the machines report?"
+          de: "Welche Leistungskennzahlen sollen die Maschinen melden?"
         type: enum
         plain:
           en: "Performance figures: {value}."
@@ -114,7 +124,7 @@ groups:
           none: { en: none, de: keine }
           basic: { en: "processor, memory, disk and network totals", de: "Prozessor, Speicher, Platte und Netz als Gesamtwerte" }
           extended: { en: "the basic set plus per-disk, per-interface and process figures", de: "der Basissatz plus Werte je Platte, je Schnittstelle und je Prozess" }
-        values: [none, basic, extended]
+        accepts: [none, basic, extended]
         default: basic
         why: >
           Read for the agent kinds only (`Linux`, `Windows`). The set resolves to the
@@ -128,7 +138,9 @@ groups:
         renders: data_sources.performance_counters[].counter_specifiers / dataSources.performanceCounters[].counterSpecifiers
 
       - id: custom_performance_counters
-        ask: Which further counters should be collected?
+        ask:
+          en: "Which further counters should be collected?"
+          de: "Welche weiteren Leistungsindikatoren sollen erfasst werden?"
         type: list
         plain:
           en: "Further counters: {value} (empty: none)."
@@ -144,7 +156,9 @@ groups:
         renders: data_sources.performance_counters[].counter_specifiers (appended) / dataSources.performanceCounters[].counterSpecifiers
 
       - id: performance_sampling_seconds
-        ask: How often should the performance figures be sampled?
+        ask:
+          en: "How often should the performance figures be sampled?"
+          de: "Wie oft sollen die Leistungskennzahlen abgetastet werden?"
         type: int
         plain:
           en: "Sampled every {value} seconds."
@@ -160,12 +174,14 @@ groups:
         renders: data_sources.performance_counters[].sampling_frequency_in_seconds / dataSources.performanceCounters[].samplingFrequencyInSeconds
 
       - id: syslog_facilities
-        ask: Which syslog facilities should be collected?
+        ask:
+          en: "Which syslog facilities should be collected?"
+          de: "Welche Syslog-Facilities sollen erfasst werden?"
         type: list
         plain:
           en: "Syslog facilities collected: {value}."
           de: "Gesammelte Syslog-Facilities: {value}."
-        values: [auth, authpriv, cron, daemon, kern, lpr, mail, mark, news, syslog, user, uucp, local0, local1, local2, local3, local4, local5, local6, local7]
+        accepts: [auth, authpriv, cron, daemon, kern, lpr, mail, mark, news, syslog, user, uucp, local0, local1, local2, local3, local4, local5, local6, local7]
         default: [auth, authpriv, cron, daemon, kern, syslog, user]
         depends_on: { question: kind, equals: Linux }
         why: >
@@ -178,7 +194,9 @@ groups:
         renders: data_sources.syslog[].facility_names / dataSources.syslog[].facilityNames
 
       - id: syslog_min_level
-        ask: From which severity up should syslog messages be collected?
+        ask:
+          en: "From which severity up should syslog messages be collected?"
+          de: "Ab welchem Schweregrad sollen Syslog-Meldungen erfasst werden?"
         type: enum
         plain:
           en: "Syslog messages of severity {value} and above are collected."
@@ -192,7 +210,7 @@ groups:
           Critical: { en: critical, de: Kritisch }
           Alert: { en: alert, de: Alarm }
           Emergency: { en: emergency, de: Notfall }
-        values: [Debug, Info, Notice, Warning, Error, Critical, Alert, Emergency]
+        accepts: [Debug, Info, Notice, Warning, Error, Critical, Alert, Emergency]
         default: Warning
         depends_on: { question: kind, equals: Linux }
         why: >
@@ -205,7 +223,9 @@ groups:
         renders: data_sources.syslog[].log_levels / dataSources.syslog[].logLevels
 
       - id: windows_event_logs
-        ask: Which Windows event logs should be collected, and at which level?
+        ask:
+          en: "Which Windows event logs should be collected, and at which level?"
+          de: "Welche Windows-Ereignisprotokolle sollen erfasst werden, und ab welcher Stufe?"
         type: list
         plain:
           en: "Windows event logs collected: {value}."
@@ -222,7 +242,9 @@ groups:
         renders: data_sources.windows_event_logs[].x_path_queries / dataSources.windowsEventLogs[].xPathQueries
 
       - id: windows_security_events
-        ask: Should the Windows Security log be collected too?
+        ask:
+          en: "Should the Windows Security log be collected too?"
+          de: "Soll auch das Windows-Sicherheitsprotokoll erfasst werden?"
         type: enum
         plain:
           en: "The Security log is {value}."
@@ -231,7 +253,7 @@ groups:
           none: { en: not collected, de: nicht gesammelt }
           common: { en: "collected for logons, account changes and privilege use", de: "für Anmeldungen, Kontoänderungen und Rechtegebrauch gesammelt" }
           all: { en: collected in full, de: vollständig gesammelt }
-        values: [none, common, all]
+        accepts: [none, common, all]
         default: none
         depends_on: { question: kind, equals: Windows }
         why: >
@@ -244,7 +266,9 @@ groups:
         renders: data_sources.windows_event_logs[] (a second entry on the Security log) / dataSources.windowsEventLogs[]
 
       - id: iis_logs
-        ask: Should IIS web server logs be collected?
+        ask:
+          en: "Should IIS web server logs be collected?"
+          de: "Sollen die Logs des IIS-Webservers erfasst werden?"
         type: bool
         plain:
           en: "IIS web server logs are {value}."
@@ -262,7 +286,9 @@ groups:
         renders: data_sources.iis_logs[] / dataSources.iisLogs[]
 
       - id: custom_text_logs
-        ask: Which application log files should be collected?
+        ask:
+          en: "Which application log files should be collected?"
+          de: "Welche Logdateien von Anwendungen sollen erfasst werden?"
         type: list
         plain:
           en: "Log files collected: {value} (empty: none)."
@@ -281,7 +307,9 @@ groups:
         renders: data_sources.log_files[] + stream_declarations / dataSources.logFiles[] + streamDeclarations
 
       - id: extensions
-        ask: Which monitoring products should the agent also feed - VM Insights, Container Insights, Prometheus?
+        ask:
+          en: "Which monitoring products should the agent also feed - VM Insights, Container Insights, Prometheus?"
+          de: "Welche Monitoring-Produkte soll der Agent zusätzlich beliefern - VM Insights, Container Insights, Prometheus?"
         type: list
         plain:
           en: "Agent extensions: {value} (empty: none)."
@@ -290,7 +318,7 @@ groups:
           DependencyAgent: { en: "VM Insights (processes and their connections)", de: "VM Insights (Prozesse und ihre Verbindungen)" }
           ContainerInsights: { en: "Container Insights (Kubernetes logs and metrics)", de: "Container Insights (Kubernetes-Logs und -Metriken)" }
           PrometheusForwarder: { en: "Prometheus metrics into a monitor workspace", de: "Prometheus-Metriken in einen Monitor-Arbeitsbereich" }
-        values: [DependencyAgent, ContainerInsights, PrometheusForwarder]
+        accepts: [DependencyAgent, ContainerInsights, PrometheusForwarder]
         default: []
         why: >
           Each is a product with a data source of its own shape and a destination of its
@@ -302,7 +330,9 @@ groups:
         renders: data_sources.extensions[] / prometheus_forwarder[] / dataSources.extensions[], prometheusForwarder[]
 
       - id: stream_declarations
-        ask: Which custom streams does the rule declare?
+        ask:
+          en: "Which custom streams does the rule declare?"
+          de: "Welche benutzerdefinierten Streams deklariert die Regel?"
         type: list
         plain:
           en: "Custom streams: {value} (empty: only the built-in ones)."
@@ -320,7 +350,9 @@ groups:
         renders: stream_declarations / dataCollectionRuleProperties.streamDeclarations
 
       - id: transformations
-        ask: Should any stream be filtered or reshaped before it is stored?
+        ask:
+          en: "Should any stream be filtered or reshaped before it is stored?"
+          de: "Soll ein Stream vor dem Speichern gefiltert oder umgeformt werden?"
         type: list
         plain:
           en: "Transformations: {value} (empty: data is stored as it arrives)."
@@ -342,13 +374,15 @@ groups:
     title: Where it goes
     questions:
       - id: workspace
-        ask: Which Log Analytics workspace should receive the data?
-        type: ref
+        ask:
+          en: "Which Log Analytics workspace should receive the data?"
+          de: "Welcher Log Analytics Workspace soll die Daten erhalten?"
+        type: string
         resolved_by: derived
         plain:
           en: "The data goes to the log workspace {value}."
           de: "Die Daten gehen in den Log-Arbeitsbereich {value}."
-        ref: log_analytics_workspace
+        accepts: { ref: log_analytics_workspace }
         from_deployment: diagnostics_destination
         per_environment: true
         why: >
@@ -359,7 +393,9 @@ groups:
         renders: destinations.log_analytics[].workspace_resource_id / destinations.logAnalytics[].workspaceResourceId
 
       - id: azure_monitor_metrics
-        ask: Should the performance figures also be available as platform metrics?
+        ask:
+          en: "Should the performance figures also be available as platform metrics?"
+          de: "Sollen die Leistungskennzahlen auch als Plattformmetriken verfügbar sein?"
         type: bool
         plain:
           en: "Performance figures {value}."
@@ -379,7 +415,9 @@ groups:
         renders: destinations.azure_monitor_metrics + a data flow on Microsoft-InsightsMetrics / destinations.azureMonitorMetrics
 
       - id: archive_to_storage
-        ask: Should the collected data also be written to a storage account?
+        ask:
+          en: "Should the collected data also be written to a storage account?"
+          de: "Sollen die erfassten Daten zusätzlich in ein Speicherkonto geschrieben werden?"
         type: bool
         plain:
           en: "A raw copy in cheap storage is {value}."
@@ -397,12 +435,14 @@ groups:
         renders: destinations.storage_blobs_direct[] / destinations.storageBlobsDirect[]
 
       - id: storage_account
-        ask: Which storage account?
-        type: ref
+        ask:
+          en: "Which storage account?"
+          de: "Welches Speicherkonto?"
+        type: string
         plain:
           en: "The raw copy goes to the storage account {value}."
           de: "Die Rohkopie geht in das Speicherkonto {value}."
-        ref: storage_account
+        accepts: { ref: storage_account }
         required: true
         depends_on: { question: archive_to_storage, equals: true }
         per_environment: true
@@ -412,7 +452,9 @@ groups:
         renders: destinations.storage_blobs_direct[].storage_account_resource_id / destinations.storageBlobsDirect[].storageAccountResourceId
 
       - id: forward_to_event_hub
-        ask: Should the collected data also be streamed to an event hub?
+        ask:
+          en: "Should the collected data also be streamed to an event hub?"
+          de: "Sollen die erfassten Daten zusätzlich an einen Event Hub gestreamt werden?"
         type: bool
         plain:
           en: "Streaming to an event hub is {value}."
@@ -429,12 +471,14 @@ groups:
         renders: destinations.event_hubs_direct[] / destinations.eventHubsDirect[]
 
       - id: event_hub
-        ask: Which event hub?
-        type: ref
+        ask:
+          en: "Which event hub?"
+          de: "Welcher Event Hub?"
+        type: string
         plain:
           en: "Streamed to the event hub {value}."
           de: "Gestreamt in den Event Hub {value}."
-        ref: event_hub
+        accepts: { ref: event_hub }
         required: true
         depends_on: { question: forward_to_event_hub, equals: true }
         per_environment: true
@@ -448,7 +492,9 @@ groups:
     title: The collection endpoint
     questions:
       - id: endpoint
-        ask: Does the rule need its own collection endpoint, and should this deployment create it?
+        ask:
+          en: "Does the rule need its own collection endpoint, and should this deployment create it?"
+          de: "Braucht die Regel einen eigenen Datensammlungsendpunkt, und soll dieses Deployment ihn anlegen?"
         type: enum
         plain:
           en: "The collection endpoint is {value}."
@@ -457,9 +503,8 @@ groups:
           none: { en: "not needed - the agent uses the public service endpoints", de: "nicht gebraucht, der Agent nutzt die öffentlichen Dienst-Endpunkte" }
           create: { en: "created by this deployment", de: "von diesem Ausrollen angelegt" }
           reference: { en: "the platform's existing one", de: "der bestehende der Plattform" }
-        values: [none, create, reference]
+        accepts: [none, create, reference]
         default: none
-        confirm_in: [production]
         forced_when: >
           `kind: Direct`, a non-empty `custom_text_logs`, `iis_logs: true` and a
           `private_link_scope` each force `create` where no platform endpoint is
@@ -477,13 +522,15 @@ groups:
         renders: data_collection_endpoint_id + the endpoint module / dataCollectionEndpointResourceId + the endpoint module
 
       - id: endpoint_id
-        ask: Which existing collection endpoint?
-        type: ref
+        ask:
+          en: "Which existing collection endpoint?"
+          de: "Welcher bestehende Datensammlungsendpunkt?"
+        type: string
         resolved_by: derived
         plain:
           en: "Sends through the collection endpoint {value}."
           de: "Sendet über den Sammel-Endpunkt {value}."
-        ref: data_collection_endpoint
+        accepts: { ref: data_collection_endpoint }
         required: true
         depends_on: { question: endpoint, equals: reference }
         per_environment: true
@@ -498,12 +545,14 @@ groups:
     title: Which machines
     questions:
       - id: associations
-        ask: Which machines should this rule apply to?
+        ask:
+          en: "Which machines should this rule apply to?"
+          de: "Auf welche Maschinen soll diese Regel angewendet werden?"
         type: list
         plain:
           en: "Applies to the machines {value} (empty: none yet - associated by the compute set or policy)."
           de: "Gilt für die Maschinen {value} (leer: noch keine, zugeordnet durch das Compute-Set oder Policy)."
-        ref: resource
+        accepts: { ref: resource }
         default: []
         per_environment: true
         why: >
@@ -526,7 +575,9 @@ groups:
     title: Networking
     questions:
       - id: endpoint_public_access
-        ask: Should the collection endpoint be reachable from the internet?
+        ask:
+          en: "Should the collection endpoint be reachable from the internet?"
+          de: "Soll der Datensammlungsendpunkt aus dem Internet erreichbar sein?"
         type: enum
         plain:
           en: "The collection endpoint is {value}."
@@ -534,9 +585,8 @@ groups:
         plain_values:
           disabled: { en: "reachable only through the platform's private monitoring connection", de: "nur über die private Überwachungsanbindung der Plattform erreichbar" }
           enabled: { en: "reachable from the internet, with company identities and encryption", de: "aus dem Internet erreichbar, mit Firmenidentitäten und Verschlüsselung" }
-        values: [disabled, enabled]
+        accepts: [disabled, enabled]
         default: enabled
-        confirm_in: [production]
         depends_on: { question: endpoint, equals: create }
         forced_when: >
           A `private_link_scope` forces `disabled`; `network_ownership: none` forces
@@ -553,13 +603,15 @@ groups:
         renders: public_network_access (endpoint module, string) / publicNetworkAccess (endpoint module)
 
       - id: private_link_scope
-        ask: Which private monitoring connection should the endpoint belong to?
-        type: ref
+        ask:
+          en: "Which private monitoring connection should the endpoint belong to?"
+          de: "Zu welcher privaten Monitoring-Verbindung soll der Endpunkt gehören?"
+        type: string
         resolved_by: derived
         plain:
           en: "Its private connection is the monitoring scope {value}."
           de: "Seine private Anbindung ist der Überwachungsbereich {value}."
-        ref: monitor_private_link_scope
+        accepts: { ref: monitor_private_link_scope }
         required: true
         depends_on: { question: endpoint_public_access, equals: disabled }
         per_environment: true
@@ -578,7 +630,9 @@ groups:
     title: Identity
     questions:
       - id: managed_identity
-        ask: Which managed identity should the rule carry?
+        ask:
+          en: "Which managed identity should the rule carry?"
+          de: "Welche Managed Identity soll die Regel tragen?"
         type: enum
         plain:
           en: "The rule has {value}."
@@ -587,7 +641,7 @@ groups:
           none: { en: no identity of its own, de: keine eigene Identität }
           system_assigned: { en: its own identity, de: eine eigene Identität }
           user_assigned: { en: a separately managed identity, de: eine separat verwaltete Identität }
-        values: [none, system_assigned, user_assigned]
+        accepts: [none, system_assigned, user_assigned]
         default: none
         forced_when: >
           `kind: AgentDirectToStore` forces `user_assigned` - the rule's identity is what
@@ -603,12 +657,14 @@ groups:
         renders: managed_identities / managedIdentities
 
       - id: user_assigned_identity_id
-        ask: Which user-assigned identity?
-        type: ref
+        ask:
+          en: "Which user-assigned identity?"
+          de: "Welche User-Assigned Identity?"
+        type: string
         plain:
           en: "It uses the identity {value}."
           de: "Es nutzt die Identität {value}."
-        ref: user_assigned_identity
+        accepts: { ref: user_assigned_identity }
         required: true
         depends_on: { question: managed_identity, equals: user_assigned }
         per_environment: true
@@ -622,13 +678,15 @@ groups:
     title: Observability
     questions:
       - id: diagnostic_workspace
-        ask: Which Log Analytics workspace should receive the rule's own diagnostics?
-        type: ref
+        ask:
+          en: "Which Log Analytics workspace should receive the rule's own diagnostics?"
+          de: "Welcher Log Analytics Workspace soll die eigenen Diagnosedaten der Regel erhalten?"
+        type: string
         resolved_by: derived
         plain:
           en: "Its own error log goes to {value}."
           de: "Sein eigenes Fehlerprotokoll geht in {value}."
-        ref: log_analytics_workspace
+        accepts: { ref: log_analytics_workspace }
         from_deployment: diagnostics_destination
         per_environment: true
         why: >
@@ -638,7 +696,9 @@ groups:
         renders: diagnostic_settings / diagnosticSettings (none on the Bicep module - see the notes)
 
       - id: diagnostic_categories
-        ask: Which of the rule's own log categories should be collected?
+        ask:
+          en: "Which of the rule's own log categories should be collected?"
+          de: "Welche der eigenen Log-Kategorien der Regel sollen erfasst werden?"
         type: list
         plain:
           en: "Logged about the rule itself: {value}."
@@ -646,7 +706,7 @@ groups:
         plain_values:
           LogErrors: { en: "rows the rule rejected or a transformation failed on", de: "Zeilen, die die Regel abgewiesen hat oder an denen eine Transformation scheiterte" }
           LogTroubleshooting: { en: "detail for diagnosing the rule", de: "Details zur Fehlersuche an der Regel" }
-        values: [LogErrors, LogTroubleshooting]
+        accepts: [LogErrors, LogTroubleshooting]
         default: [LogErrors]
         why: >
           The error log is small and is what answers "why is the table empty". The

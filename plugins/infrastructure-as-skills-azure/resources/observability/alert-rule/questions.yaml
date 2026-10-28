@@ -28,12 +28,14 @@ groups:
     title: Placement
     questions:
       - id: environments
-        ask: Which stages is this deployed to?
+        ask:
+          en: "Which stages is this deployed to?"
+          de: "In welche Stufen wird das ausgerollt?"
         type: list
         plain:
           en: "Deployed in the stages {value}."
           de: "Wird in den Stufen {value} ausgerollt."
-        values: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
+        accepts: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
         required: true
         from_context: true
         why: >
@@ -42,7 +44,9 @@ groups:
         renders: naming parameter `environment`
 
       - id: location
-        ask: Which Azure region?
+        ask:
+          en: "Which Azure region?"
+          de: "Welche Azure-Region?"
         type: string
         plain:
           en: "Runs in the Azure region {value}."
@@ -61,12 +65,14 @@ groups:
         renders: location (scheduledQueryRules) / "global" for the other two kinds
 
       - id: resource_group_name
-        ask: Which resource group?
-        type: ref
+        ask:
+          en: "Which resource group?"
+          de: "Welche Ressourcengruppe?"
+        type: string
         plain:
           en: "Placed in the resource group {value}."
           de: "Liegt in der Ressourcengruppe {value}."
-        ref: resource_group
+        accepts: { ref: resource_group }
         required: true
         from_context: true
         per_environment: true
@@ -80,7 +86,9 @@ groups:
     title: The rule
     questions:
       - id: kind
-        ask: What does this rule watch - a measured value, the result of a log query, or an event in the subscription?
+        ask:
+          en: "What does this rule watch - a measured value, the result of a log query, or an event in the subscription?"
+          de: "Was überwacht diese Regel - einen gemessenen Wert, das Ergebnis einer Log-Abfrage oder ein Ereignis in der Subscription?"
         type: enum
         plain:
           en: "The rule watches {value}."
@@ -89,7 +97,7 @@ groups:
           metric: { en: "a measured value of a resource, such as CPU or failed requests", de: "einen Messwert einer Ressource, etwa CPU oder fehlgeschlagene Anfragen" }
           log_query: { en: "the result of a query over the collected logs", de: "das Ergebnis einer Abfrage über die gesammelten Logs" }
           activity_log: { en: "an event in the subscription, such as a service outage or a deleted resource", de: "ein Ereignis im Abonnement, etwa eine Dienststörung oder eine gelöschte Ressource" }
-        values: [metric, log_query, activity_log]
+        accepts: [metric, log_query, activity_log]
         required: true
         why: >
           Three resource types with three evaluation models. A metric alert reads platform
@@ -105,12 +113,14 @@ groups:
           module called and the set's naming identifier
 
       - id: action_group
-        ask: Which action group should the rule notify?
-        type: ref
+        ask:
+          en: "Which action group should the rule notify?"
+          de: "Welche Aktionsgruppe soll die Regel benachrichtigen?"
+        type: string
         plain:
           en: "When it fires, the action group {value} is notified."
           de: "Löst sie aus, wird die Aktionsgruppe {value} benachrichtigt."
-        ref: action_group
+        accepts: { ref: action_group }
         required: true
         per_environment: true
         why: >
@@ -123,13 +133,14 @@ groups:
           actions.actionGroupResourceIds[] (log query)
 
       - id: severity
-        ask: How serious is it when this rule fires?
+        ask:
+          en: "How serious is it when this rule fires?"
+          de: "Wie ernst ist es, wenn diese Regel auslöst?"
         type: int
         plain:
           en: "Severity {value} (0 is critical, 4 is verbose)."
           de: "Schweregrad {value} (0 ist kritisch, 4 ist ausführlich)."
         default: 2
-        confirm_in: [production]
         why: >
           0 to 4, 0 the most severe. The number routes: processing rules, the on-call tool
           and the dashboards filter on it, so a rule at 0 that is not an outage trains
@@ -141,7 +152,9 @@ groups:
         renders: severity / severity
 
       - id: enabled
-        ask: Should the rule evaluate at all?
+        ask:
+          en: "Should the rule evaluate at all?"
+          de: "Soll die Regel überhaupt ausgewertet werden?"
         type: bool
         plain:
           en: "The rule is {value}."
@@ -158,7 +171,9 @@ groups:
         renders: enabled / enabled
 
       - id: auto_mitigate
-        ask: Should the alert resolve itself once the condition clears?
+        ask:
+          en: "Should the alert resolve itself once the condition clears?"
+          de: "Soll sich der Alert von selbst auflösen, sobald die Bedingung nicht mehr besteht?"
         type: bool
         plain:
           en: "A fired alert {value}."
@@ -184,12 +199,14 @@ groups:
     title: The measured value
     questions:
       - id: scopes
-        ask: Which resources should the rule watch?
+        ask:
+          en: "Which resources should the rule watch?"
+          de: "Welche Ressourcen soll die Regel überwachen?"
         type: list
         plain:
           en: "Watches the resources {value}."
           de: "Überwacht die Ressourcen {value}."
-        ref: resource
+        accepts: { ref: resource }
         required: true
         depends_on: { question: kind, equals: metric }
         per_environment: true
@@ -202,7 +219,9 @@ groups:
         renders: scopes + target_resource_type + target_resource_location / scopes + targetResourceType + targetResourceRegion
 
       - id: metric_name
-        ask: Which measured value?
+        ask:
+          en: "Which measured value?"
+          de: "Welcher gemessene Wert?"
         type: string
         plain:
           en: "The measured value is {value}."
@@ -218,7 +237,9 @@ groups:
         renders: criteria.metric_name + metric_namespace / criteria.allof[].metricName + metricNamespace
 
       - id: aggregation
-        ask: How should the value be aggregated over the window?
+        ask:
+          en: "How should the value be aggregated over the window?"
+          de: "Wie soll der Wert über das Zeitfenster aggregiert werden?"
         type: enum
         plain:
           en: "The value is taken as the {value} over the window."
@@ -229,7 +250,7 @@ groups:
           Maximum: { en: maximum, de: Maximum }
           Total: { en: sum, de: Summe }
           Count: { en: number of samples, de: Anzahl der Messungen }
-        values: [Average, Minimum, Maximum, Total, Count]
+        accepts: [Average, Minimum, Maximum, Total, Count]
         default: Average
         depends_on: { question: kind, equals: metric }
         why: >
@@ -241,7 +262,9 @@ groups:
         renders: criteria.aggregation / criteria.allof[].timeAggregation
 
       - id: operator
-        ask: Which comparison should fire the rule?
+        ask:
+          en: "Which comparison should fire the rule?"
+          de: "Welcher Vergleich soll die Regel auslösen?"
         type: enum
         plain:
           en: "Fires when the value is {value} the threshold."
@@ -253,7 +276,7 @@ groups:
           LessThanOrEqual: { en: at or below, de: gleich oder unter }
           Equals: { en: equal to, de: gleich }
           GreaterOrLessThan: { en: "outside the learned band (dynamic only)", de: "außerhalb des gelernten Bandes (nur dynamisch)" }
-        values: [GreaterThan, GreaterThanOrEqual, LessThan, LessThanOrEqual, Equals, GreaterOrLessThan]
+        accepts: [GreaterThan, GreaterThanOrEqual, LessThan, LessThanOrEqual, Equals, GreaterOrLessThan]
         default: GreaterThan
         depends_on: { question: kind, equals: metric }
         why: >
@@ -263,7 +286,9 @@ groups:
         renders: criteria.operator / criteria.allof[].operator
 
       - id: threshold_mode
-        ask: Should the threshold be a fixed number or learned from the resource's history?
+        ask:
+          en: "Should the threshold be a fixed number or learned from the resource's history?"
+          de: "Soll der Schwellenwert eine feste Zahl sein oder aus dem Verlauf der Ressource gelernt werden?"
         type: enum
         plain:
           en: "The threshold is {value}."
@@ -271,7 +296,7 @@ groups:
         plain_values:
           static: { en: a fixed number, de: eine feste Zahl }
           dynamic: { en: "learned from the resource's own history", de: "aus der eigenen Historie der Ressource gelernt" }
-        values: [static, dynamic]
+        accepts: [static, dynamic]
         default: static
         depends_on: { question: kind, equals: metric }
         why: >
@@ -283,7 +308,9 @@ groups:
         renders: criteria (static) vs dynamic_criteria / criterionType StaticThresholdCriterion vs DynamicThresholdCriterion
 
       - id: threshold
-        ask: At which value should the rule fire?
+        ask:
+          en: "At which value should the rule fire?"
+          de: "Bei welchem Wert soll die Regel auslösen?"
         type: int
         plain:
           en: "The threshold is {value}."
@@ -298,7 +325,9 @@ groups:
         renders: criteria.threshold / criteria.allof[].threshold
 
       - id: dynamic_sensitivity
-        ask: How quickly should a deviation from the usual pattern fire?
+        ask:
+          en: "How quickly should a deviation from the usual pattern fire?"
+          de: "Wie schnell soll eine Abweichung vom üblichen Muster auslösen?"
         type: enum
         plain:
           en: "Sensitivity {value}."
@@ -307,7 +336,7 @@ groups:
           Low: { en: "low - only a strong deviation fires", de: "niedrig, nur eine starke Abweichung löst aus" }
           Medium: { en: "medium", de: "mittel" }
           High: { en: "high - a small deviation fires", de: "hoch, schon eine kleine Abweichung löst aus" }
-        values: [Low, Medium, High]
+        accepts: [Low, Medium, High]
         default: Medium
         depends_on: { question: threshold_mode, equals: dynamic }
         why: >
@@ -317,7 +346,9 @@ groups:
         renders: dynamic_criteria.alert_sensitivity / criteria.allof[].alertSensitivity
 
       - id: window_size
-        ask: Over how long a window should the value be looked at?
+        ask:
+          en: "Over how long a window should the value be looked at?"
+          de: "Über welches Zeitfenster soll der Wert betrachtet werden?"
         type: enum
         plain:
           en: "Looks at the last {value}."
@@ -331,7 +362,7 @@ groups:
           PT6H: { en: six hours, de: sechs Stunden }
           PT12H: { en: twelve hours, de: zwölf Stunden }
           P1D: { en: day, de: Tag }
-        values: [PT1M, PT5M, PT15M, PT30M, PT1H, PT6H, PT12H, P1D]
+        accepts: [PT1M, PT5M, PT15M, PT30M, PT1H, PT6H, PT12H, P1D]
         default: PT5M
         depends_on: { question: kind, equals: metric }
         why: >
@@ -343,7 +374,9 @@ groups:
         renders: window_size / windowSize
 
       - id: frequency
-        ask: How often should the rule be evaluated?
+        ask:
+          en: "How often should the rule be evaluated?"
+          de: "Wie oft soll die Regel ausgewertet werden?"
         type: enum
         plain:
           en: "Evaluated every {value}."
@@ -354,7 +387,7 @@ groups:
           PT15M: { en: fifteen minutes, de: fünfzehn Minuten }
           PT30M: { en: thirty minutes, de: dreißig Minuten }
           PT1H: { en: hour, de: Stunde }
-        values: [PT1M, PT5M, PT15M, PT30M, PT1H]
+        accepts: [PT1M, PT5M, PT15M, PT30M, PT1H]
         default: PT1M
         depends_on: { question: kind, equals: metric }
         why: >
@@ -365,7 +398,9 @@ groups:
         renders: frequency / evaluationFrequency
 
       - id: dimensions
-        ask: Should the value be split by a dimension, such as per instance or per status code?
+        ask:
+          en: "Should the value be split by a dimension, such as per instance or per status code?"
+          de: "Soll der Wert nach einer Dimension aufgeteilt werden, etwa pro Instanz oder pro Statuscode?"
         type: list
         plain:
           en: "Split by the dimensions {value} (empty: the resource as a whole)."
@@ -385,13 +420,15 @@ groups:
     title: The log query
     questions:
       - id: workspace
-        ask: Which Log Analytics workspace should the query run against?
-        type: ref
+        ask:
+          en: "Which Log Analytics workspace should the query run against?"
+          de: "Gegen welchen Log Analytics Workspace soll die Abfrage laufen?"
+        type: string
         resolved_by: derived
         plain:
           en: "The query runs against the log workspace {value}."
           de: "Die Abfrage läuft gegen den Log-Arbeitsbereich {value}."
-        ref: log_analytics_workspace
+        accepts: { ref: log_analytics_workspace }
         from_deployment: diagnostics_destination
         depends_on: { question: kind, equals: log_query }
         per_environment: true
@@ -403,7 +440,9 @@ groups:
         renders: "scopes = [workspace id] / scopes: [workspaceResourceId]"
 
       - id: query_file
-        ask: Which query file holds the KQL?
+        ask:
+          en: "Which query file holds the KQL?"
+          de: "Welche Abfragedatei enthält das KQL?"
         type: string
         plain:
           en: "The query is the file {value}."
@@ -421,7 +460,9 @@ groups:
         renders: criteria.query = file(...) / criterias.allOf[].query = loadTextContent(...)
 
       - id: time_aggregation
-        ask: What should be counted from the query result?
+        ask:
+          en: "What should be counted from the query result?"
+          de: "Was soll aus dem Abfrageergebnis gezählt werden?"
         type: enum
         plain:
           en: "The rule looks at the {value} of the query result."
@@ -432,7 +473,7 @@ groups:
           Minimum: { en: minimum of a measured column, de: das Minimum einer Messspalte }
           Maximum: { en: maximum of a measured column, de: das Maximum einer Messspalte }
           Total: { en: sum of a measured column, de: die Summe einer Messspalte }
-        values: [Count, Average, Minimum, Maximum, Total]
+        accepts: [Count, Average, Minimum, Maximum, Total]
         default: Count
         depends_on: { question: kind, equals: log_query }
         why: >
@@ -444,7 +485,9 @@ groups:
         renders: criteria.time_aggregation_method + metric_measure_column / criterias.allOf[].timeAggregation + metricMeasureColumn
 
       - id: log_operator
-        ask: Which comparison should fire the rule?
+        ask:
+          en: "Which comparison should fire the rule?"
+          de: "Welcher Vergleich soll die Regel auslösen?"
         type: enum
         plain:
           en: "Fires when the result is {value} the threshold."
@@ -455,7 +498,7 @@ groups:
           LessThan: { en: below, de: unter }
           LessThanOrEqual: { en: at or below, de: gleich oder unter }
           Equal: { en: equal to, de: gleich }
-        values: [GreaterThan, GreaterThanOrEqual, LessThan, LessThanOrEqual, Equal]
+        accepts: [GreaterThan, GreaterThanOrEqual, LessThan, LessThanOrEqual, Equal]
         default: GreaterThan
         depends_on: { question: kind, equals: log_query }
         why: >
@@ -465,7 +508,9 @@ groups:
         renders: criteria.operator / criterias.allOf[].operator
 
       - id: log_threshold
-        ask: At which result should the rule fire?
+        ask:
+          en: "At which result should the rule fire?"
+          de: "Bei welchem Ergebnis soll die Regel auslösen?"
         type: int
         plain:
           en: "The threshold is {value}."
@@ -479,7 +524,9 @@ groups:
         renders: criteria.threshold / criterias.allOf[].threshold
 
       - id: evaluation_frequency
-        ask: How often should the query run?
+        ask:
+          en: "How often should the query run?"
+          de: "Wie oft soll die Abfrage laufen?"
         type: enum
         plain:
           en: "The query runs every {value}."
@@ -494,7 +541,7 @@ groups:
           PT6H: { en: six hours, de: sechs Stunden }
           PT12H: { en: twelve hours, de: zwölf Stunden }
           P1D: { en: day, de: Tag }
-        values: [PT1M, PT5M, PT10M, PT15M, PT30M, PT1H, PT6H, PT12H, P1D]
+        accepts: [PT1M, PT5M, PT10M, PT15M, PT30M, PT1H, PT6H, PT12H, P1D]
         default: PT5M
         depends_on: { question: kind, equals: log_query }
         why: >
@@ -506,7 +553,9 @@ groups:
         renders: evaluation_frequency / evaluationFrequency
 
       - id: window_duration
-        ask: How far back should each run look?
+        ask:
+          en: "How far back should each run look?"
+          de: "Wie weit zurück soll jeder Lauf schauen?"
         type: enum
         plain:
           en: "Each run looks at the last {value}."
@@ -520,7 +569,7 @@ groups:
           PT6H: { en: six hours, de: sechs Stunden }
           PT12H: { en: twelve hours, de: zwölf Stunden }
           P1D: { en: day, de: Tag }
-        values: [PT5M, PT10M, PT15M, PT30M, PT1H, PT6H, PT12H, P1D]
+        accepts: [PT5M, PT10M, PT15M, PT30M, PT1H, PT6H, PT12H, P1D]
         default: PT5M
         depends_on: { question: kind, equals: log_query }
         why: >
@@ -531,7 +580,9 @@ groups:
         renders: window_duration / windowSize
 
       - id: mute_actions_duration
-        ask: After it fires, how long should the rule stay quiet before it notifies again?
+        ask:
+          en: "After it fires, how long should the rule stay quiet before it notifies again?"
+          de: "Wie lange soll die Regel nach dem Auslösen ruhig bleiben, bevor sie erneut benachrichtigt?"
         type: enum
         plain:
           en: "After firing, the rule stays quiet for {value}."
@@ -542,7 +593,7 @@ groups:
           PT1H: { en: an hour, de: eine Stunde }
           PT6H: { en: six hours, de: sechs Stunden }
           P1D: { en: a day, de: einen Tag }
-        values: [none, PT30M, PT1H, PT6H, P1D]
+        accepts: [none, PT30M, PT1H, PT6H, P1D]
         default: none
         depends_on: { question: kind, equals: log_query }
         why: >
@@ -559,7 +610,9 @@ groups:
     title: The subscription event
     questions:
       - id: category
-        ask: Which kind of event should the rule watch?
+        ask:
+          en: "Which kind of event should the rule watch?"
+          de: "Welche Art von Ereignis soll die Regel überwachen?"
         type: enum
         plain:
           en: "Watches {value}."
@@ -569,7 +622,7 @@ groups:
           ResourceHealth: { en: "the platform's health verdict on the deployment's own resources", de: "das Gesundheitsurteil der Plattform über die eigenen Ressourcen" }
           Administrative: { en: "an administrative operation, such as a deletion", de: "einen Verwaltungsvorgang, etwa eine Löschung" }
           Security: { en: "security events Defender for Cloud raises", de: "Sicherheitsereignisse, die Defender for Cloud meldet" }
-        values: [ServiceHealth, ResourceHealth, Administrative, Security]
+        accepts: [ServiceHealth, ResourceHealth, Administrative, Security]
         default: ServiceHealth
         depends_on: { question: kind, equals: activity_log }
         why: >
@@ -583,7 +636,9 @@ groups:
         renders: condition.all_of[category] / conditions[].category; scopes = [subscription id]
 
       - id: service_health_event_types
-        ask: Which kinds of service event should be reported?
+        ask:
+          en: "Which kinds of service event should be reported?"
+          de: "Welche Arten von Dienstereignissen sollen gemeldet werden?"
         type: list
         plain:
           en: "Reported: {value}."
@@ -594,7 +649,7 @@ groups:
           Informational: { en: informational notices, de: Informationshinweise }
           ActionRequired: { en: notices that require the team to act, de: "Hinweise, bei denen das Team handeln muss" }
           Security: { en: security advisories, de: Sicherheitshinweise }
-        values: [Incident, Maintenance, Informational, ActionRequired, Security]
+        accepts: [Incident, Maintenance, Informational, ActionRequired, Security]
         default: [Incident, ActionRequired, Security]
         depends_on: { question: category, equals: ServiceHealth }
         why: >
@@ -606,7 +661,9 @@ groups:
         renders: condition.all_of[any_of properties.incidentType] / conditions[].anyOf[].properties.incidentType
 
       - id: impacted_regions
-        ask: Which regions' service events matter?
+        ask:
+          en: "Which regions' service events matter?"
+          de: "Die Dienstereignisse welcher Regionen sind relevant?"
         type: list
         plain:
           en: "For the regions {value} (empty: the deployment's region and the global services)."
@@ -623,7 +680,9 @@ groups:
         renders: condition.all_of[contains_any properties.impactedServices[*].ImpactedRegions[*].RegionName] / conditions[].containsAny
 
       - id: resource_health_statuses
-        ask: Which health states should be reported?
+        ask:
+          en: "Which health states should be reported?"
+          de: "Welche Integritätszustände sollen gemeldet werden?"
         type: list
         plain:
           en: "Reported when a resource becomes {value}."
@@ -631,7 +690,7 @@ groups:
         plain_values:
           Unavailable: { en: unavailable, de: nicht verfügbar }
           Degraded: { en: degraded, de: beeinträchtigt }
-        values: [Unavailable, Degraded]
+        accepts: [Unavailable, Degraded]
         default: [Unavailable, Degraded]
         depends_on: { question: category, equals: ResourceHealth }
         why: >
@@ -642,7 +701,9 @@ groups:
         renders: condition.all_of[properties.currentHealthStatus, properties.cause = PlatformInitiated] / conditions[]
 
       - id: operation_name
-        ask: Which administrative operation should be reported?
+        ask:
+          en: "Which administrative operation should be reported?"
+          de: "Welcher administrative Vorgang soll gemeldet werden?"
         type: string
         plain:
           en: "Reported on the operation {value}."
@@ -663,7 +724,9 @@ groups:
     title: Identity
     questions:
       - id: query_identity
-        ask: Which identity should the log query run as?
+        ask:
+          en: "Which identity should the log query run as?"
+          de: "Unter welcher Identität soll die Log-Abfrage laufen?"
         type: enum
         plain:
           en: "The query runs as {value}."
@@ -672,7 +735,7 @@ groups:
           none: { en: "the person who created the rule", de: "die Person, die die Regel angelegt hat" }
           system_assigned: { en: "an identity of the rule itself", de: "eine eigene Identität der Regel" }
           user_assigned: { en: "a separately managed identity", de: "eine separat verwaltete Identität" }
-        values: [none, system_assigned, user_assigned]
+        accepts: [none, system_assigned, user_assigned]
         default: user_assigned
         depends_on: { question: kind, equals: log_query }
         why: >
@@ -686,12 +749,14 @@ groups:
         renders: identity { type, identity_ids } / managedIdentities
 
       - id: user_assigned_identity_id
-        ask: Which user-assigned identity?
-        type: ref
+        ask:
+          en: "Which user-assigned identity?"
+          de: "Welche User-Assigned Identity?"
+        type: string
         plain:
           en: "It uses the identity {value}."
           de: "Es nutzt die Identität {value}."
-        ref: user_assigned_identity
+        accepts: { ref: user_assigned_identity }
         required: true
         depends_on: { question: query_identity, equals: user_assigned }
         per_environment: true

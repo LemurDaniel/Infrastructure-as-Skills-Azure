@@ -26,12 +26,14 @@ groups:
     title: Placement
     questions:
       - id: environments
-        ask: Which stages is this deployed to?
+        ask:
+          en: "Which stages is this deployed to?"
+          de: "In welche Stufen wird das ausgerollt?"
         type: list
         plain:
           en: "Deployed in the stages {value}."
           de: "Wird in den Stufen {value} ausgerollt."
-        values: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
+        accepts: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
         required: true
         from_context: true
         why: >
@@ -41,7 +43,9 @@ groups:
         renders: naming parameter `environment`, and the tag of that name where the repository uses one
 
       - id: location
-        ask: Which Azure region?
+        ask:
+          en: "Which Azure region?"
+          de: "Welche Azure-Region?"
         type: string
         plain:
           en: "Runs in the Azure region {value}."
@@ -57,12 +61,14 @@ groups:
         renders: location
 
       - id: resource_group_name
-        ask: Which resource group?
-        type: ref
+        ask:
+          en: "Which resource group?"
+          de: "Welche Ressourcengruppe?"
+        type: string
         plain:
           en: "Placed in the resource group {value}."
           de: "Liegt in der Ressourcengruppe {value}."
-        ref: resource_group
+        accepts: { ref: resource_group }
         required: true
         from_context: true
         per_environment: true
@@ -73,7 +79,9 @@ groups:
         renders: resource_group_name / implicit in Bicep scope
 
       - id: ownership
-        ask: Does the organisation already have a Purview account, or does this deployment create one?
+        ask:
+          en: "Does the organisation already have a Purview account, or does this deployment create one?"
+          de: "Hat die Organisation schon ein Purview-Konto, oder legt dieses Deployment eines an?"
         type: enum
         resolved_by: derived
         plain:
@@ -82,7 +90,7 @@ groups:
         plain_values:
           platform: { en: "the company's existing one, which this deployment reports to", de: "der bestehende des Unternehmens, an den dieses Ausrollen meldet" }
           deployment: { en: "created by this deployment", de: "von diesem Ausrollen angelegt" }
-        values: [platform, deployment]
+        accepts: [platform, deployment]
         default: platform
         why: >
           A Purview account is tenant-wide by design: one data map for every source in the
@@ -96,13 +104,15 @@ groups:
         renders: whether the account is created here or only referenced
 
       - id: existing_account_id
-        ask: Which existing Purview account?
-        type: ref
+        ask:
+          en: "Which existing Purview account?"
+          de: "Welches bestehende Purview-Konto?"
+        type: string
         resolved_by: derived
         plain:
           en: "Reports to the Purview account {value}."
           de: "Meldet an das Purview-Konto {value}."
-        ref: purview_account
+        accepts: { ref: purview_account }
         required: true
         depends_on: { question: ownership, equals: platform }
         per_environment: true
@@ -117,7 +127,9 @@ groups:
     title: Account and managed resources
     questions:
       - id: managed_resource_group_name
-        ask: What should the account's own resource group be called?
+        ask:
+          en: "What should the account's own resource group be called?"
+          de: "Wie soll die eigene Ressourcengruppe des Kontos heißen?"
         type: string
         plain:
           en: "The account's own storage lives in the resource group {value} (empty: the service's default name)."
@@ -134,7 +146,9 @@ groups:
         renders: managed_resource_group_name / managedResourceGroupName
 
       - id: managed_event_hub
-        ask: Should the account publish change notifications that other systems can subscribe to?
+        ask:
+          en: "Should the account publish change notifications that other systems can subscribe to?"
+          de: "Soll das Konto Änderungsbenachrichtigungen veröffentlichen, die andere Systeme abonnieren können?"
         type: bool
         plain:
           en: "Change notifications from the catalog are {value}."
@@ -155,7 +169,9 @@ groups:
         renders: managed_event_hub_enabled / managedEventHubState ('Enabled' | 'Disabled')
 
       - id: managed_resources_public_access
-        ask: May the account's own storage and Event Hubs be reached over the internet?
+        ask:
+          en: "May the account's own storage and Event Hubs be reached over the internet?"
+          de: "Dürfen der eigene Speicher und die Event Hubs des Kontos über das Internet erreicht werden?"
         type: enum
         plain:
           en: "The account's own storage is {value}."
@@ -163,7 +179,7 @@ groups:
         plain_values:
           disabled: { en: "not reachable from the internet; ingestion goes through private connections", de: "aus dem Internet nicht erreichbar; die Aufnahme läuft über private Verbindungen" }
           enabled: { en: "reachable from the internet", de: "aus dem Internet erreichbar" }
-        values: [disabled, enabled]
+        accepts: [disabled, enabled]
         default: disabled
         depends_on: { question: ownership, equals: deployment }
         why: >
@@ -188,7 +204,9 @@ groups:
     title: Networking
     questions:
       - id: public_network_access
-        ask: Should this account depart from the deployment's exposure posture?
+        ask:
+          en: "Should this account depart from the deployment's exposure posture?"
+          de: "Soll dieses Konto von der Erreichbarkeit des Deployments abweichen?"
         type: enum
         plain:
           en: "The catalog's portal and interfaces are {value}."
@@ -197,10 +215,9 @@ groups:
           disabled: { en: "not reachable from the internet at all", de: "aus dem Internet überhaupt nicht erreichbar" }
           enabled_with_firewall: { en: "reachable from the internet (the account has no address allowlist, so this means reachable)", de: "aus dem Internet erreichbar (das Konto kennt keine Adressliste, also bedeutet dies erreichbar)" }
           enabled: { en: "reachable from the internet", de: "aus dem Internet erreichbar" }
-        values: [disabled, enabled_with_firewall, enabled]
+        accepts: [disabled, enabled_with_firewall, enabled]
         from_deployment: network_exposure
         depends_on: { question: ownership, equals: deployment }
-        confirm_in: [production]
         why: >
           Asked only as a departure: exposure is a property of the system. `disabled`
           closes the account's API and the portal, so the catalog is used only from a
@@ -217,13 +234,15 @@ groups:
         renders: public_network_enabled (bool) / publicNetworkAccess ('Disabled' | 'Enabled')
 
       - id: private_endpoint_subnet
-        ask: Which subnet should this account's private endpoints live in?
-        type: ref
+        ask:
+          en: "Which subnet should this account's private endpoints live in?"
+          de: "In welchem Subnetz sollen die Private Endpoints dieses Kontos liegen?"
+        type: string
         resolved_by: derived
         plain:
           en: "Its private connections land in subnet {value}."
           de: "Seine privaten Anbindungen landen im Subnetz {value}."
-        ref: subnet
+        accepts: { ref: subnet }
         from_deployment: private_endpoint_subnet
         depends_on: { question: ownership, equals: deployment }
         per_environment: true
@@ -240,7 +259,9 @@ groups:
           eventHubPrivateEndpoints[] .subnetResourceId
 
       - id: private_endpoint_subresources
-        ask: Which of the account's endpoints should be private?
+        ask:
+          en: "Which of the account's endpoints should be private?"
+          de: "Welche Endpunkte des Kontos sollen privat sein?"
         type: list
         plain:
           en: "Private connections for: {value}."
@@ -251,7 +272,7 @@ groups:
           blob: { en: "the ingestion of scan results (storage)", de: "die Aufnahme von Scan-Ergebnissen (Speicher)" }
           queue: { en: "the ingestion of scan results (queue)", de: "die Aufnahme von Scan-Ergebnissen (Warteschlange)" }
           namespace: { en: "the change notifications (Event Hubs)", de: "die Änderungsbenachrichtigungen (Event Hubs)" }
-        values: [account, portal, blob, queue, namespace]
+        accepts: [account, portal, blob, queue, namespace]
         default: [account, portal, blob, queue]
         depends_on: { question: ownership, equals: deployment }
         why: >
@@ -275,7 +296,9 @@ groups:
     title: Identity and access
     questions:
       - id: managed_identity
-        ask: Which managed identity should the account carry?
+        ask:
+          en: "Which managed identity should the account carry?"
+          de: "Welche Managed Identity soll das Konto tragen?"
         type: enum
         plain:
           en: "The account has {value}."
@@ -283,7 +306,7 @@ groups:
         plain_values:
           system_assigned: { en: "its own identity", de: "eine eigene Identität" }
           user_assigned: { en: "its own identity and a separately managed one", de: "eine eigene und eine separat verwaltete Identität" }
-        values: [system_assigned, user_assigned]
+        accepts: [system_assigned, user_assigned]
         default: system_assigned
         depends_on: { question: ownership, equals: deployment }
         why: >
@@ -299,12 +322,14 @@ groups:
           managedIdentities { userAssignedResourceIds } (the module adds SystemAssigned by itself)
 
       - id: user_assigned_identity_ids
-        ask: Which user-assigned identity?
+        ask:
+          en: "Which user-assigned identity?"
+          de: "Welche User-Assigned Identity?"
         type: list
         plain:
           en: "It uses the identity {value}."
           de: "Es nutzt die Identität {value}."
-        ref: user_assigned_identity
+        accepts: { ref: user_assigned_identity }
         required: true
         depends_on: { question: managed_identity, equals: user_assigned }
         per_environment: true
@@ -312,7 +337,9 @@ groups:
         renders: identity.identity_ids / managedIdentities.userAssignedResourceIds
 
       - id: collection_roles
-        ask: Who may administer the catalog, curate it, read it, or register sources?
+        ask:
+          en: "Who may administer the catalog, curate it, read it, or register sources?"
+          de: "Wer darf den Katalog administrieren, pflegen, lesen oder Quellen registrieren?"
         type: list
         plain:
           en: "Catalog roles granted to: {value}."
@@ -335,7 +362,9 @@ groups:
           account's metadata policy API, recorded as such in the spec
 
       - id: role_assignments
-        ask: Who may manage the account itself?
+        ask:
+          en: "Who may manage the account itself?"
+          de: "Wer darf das Konto selbst verwalten?"
         type: list
         plain:
           en: "Management rights on the account granted to: {value}."
@@ -355,13 +384,15 @@ groups:
     title: Observability
     questions:
       - id: diagnostic_workspace
-        ask: Which Log Analytics workspace should receive the scan and audit logs?
-        type: ref
+        ask:
+          en: "Which Log Analytics workspace should receive the scan and audit logs?"
+          de: "Welcher Log Analytics Workspace soll die Scan- und Audit-Logs erhalten?"
+        type: string
         resolved_by: derived
         plain:
           en: "Its logs go to {value}."
           de: "Seine Logs gehen in {value}."
-        ref: log_analytics_workspace
+        accepts: { ref: log_analytics_workspace }
         from_deployment: diagnostics_destination
         depends_on: { question: ownership, equals: deployment }
         per_environment: true
@@ -372,7 +403,9 @@ groups:
         renders: azurerm_monitor_diagnostic_setting (authored) / diagnosticSettings
 
       - id: diagnostic_categories
-        ask: Which account logs should be collected?
+        ask:
+          en: "Which account logs should be collected?"
+          de: "Welche Logs des Kontos sollen erfasst werden?"
         type: list
         plain:
           en: "Logged: {value}."
@@ -381,7 +414,7 @@ groups:
           ScanStatusLogEvent: { en: "every scan's start, progress and outcome", de: "Start, Fortschritt und Ergebnis jedes Scans" }
           DataSensitivityLogEvent: { en: "which assets were found to hold sensitive data", de: "welche Bestände sensible Daten enthalten" }
           Security: { en: "the audit of role changes and other security events on the account", de: "das Protokoll von Rollenänderungen und anderen Sicherheitsereignissen am Konto" }
-        values: [ScanStatusLogEvent, DataSensitivityLogEvent, Security]
+        accepts: [ScanStatusLogEvent, DataSensitivityLogEvent, Security]
         default: [ScanStatusLogEvent, DataSensitivityLogEvent, Security]
         depends_on: { question: ownership, equals: deployment }
         why: >
@@ -394,7 +427,9 @@ groups:
         renders: enabled_log { category } / diagnosticSettings[].logCategoriesAndGroups[].category
 
       - id: metrics_enabled
-        ask: Should the usage figures be collected?
+        ask:
+          en: "Should the usage figures be collected?"
+          de: "Sollen die Nutzungskennzahlen erfasst werden?"
         type: bool
         plain:
           en: "Usage figures are {value}."

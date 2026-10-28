@@ -28,12 +28,14 @@ groups:
     title: Placement
     questions:
       - id: environments
-        ask: Which stages is this deployed to?
+        ask:
+          en: "Which stages is this deployed to?"
+          de: "In welche Stufen wird das ausgerollt?"
         type: list
         plain:
           en: "Deployed in the stages {value}."
           de: "Wird in den Stufen {value} ausgerollt."
-        values: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
+        accepts: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
         required: true
         from_context: true
         why: >
@@ -42,7 +44,9 @@ groups:
         renders: naming parameter `environment`, and the tag of that name where the repository uses one
 
       - id: location
-        ask: Which Azure region?
+        ask:
+          en: "Which Azure region?"
+          de: "Welche Azure-Region?"
         type: string
         plain:
           en: "Runs in the Azure region {value}."
@@ -57,12 +61,14 @@ groups:
         renders: location
 
       - id: resource_group_name
-        ask: Which resource group?
-        type: ref
+        ask:
+          en: "Which resource group?"
+          de: "Welche Ressourcengruppe?"
+        type: string
         plain:
           en: "Placed in the resource group {value}."
           de: "Liegt in der Ressourcengruppe {value}."
-        ref: resource_group
+        accepts: { ref: resource_group }
         required: true
         from_context: true
         per_environment: true
@@ -76,12 +82,14 @@ groups:
     title: The workspace and its dependencies
     questions:
       - id: storage_account
-        ask: Which storage account should hold the workspace's data, notebooks and artefacts?
-        type: ref
+        ask:
+          en: "Which storage account should hold the workspace's data, notebooks and artefacts?"
+          de: "Welches Speicherkonto soll die Daten, Notebooks und Artefakte des Workspace halten?"
+        type: string
         plain:
           en: "Data, notebooks and model files live in the storage account {value}."
           de: "Daten, Notebooks und Modelldateien liegen im Speicherkonto {value}."
-        ref: storage_account
+        accepts: { ref: storage_account }
         required: true
         per_environment: true
         why: >
@@ -94,12 +102,14 @@ groups:
         renders: storage_account.resource_id / associatedStorageAccountResourceId
 
       - id: key_vault
-        ask: Which key vault should hold the workspace's secrets?
-        type: ref
+        ask:
+          en: "Which key vault should hold the workspace's secrets?"
+          de: "Welcher Key Vault soll die Secrets des Workspace halten?"
+        type: string
         plain:
           en: "The workspace's secrets live in the key vault {value}."
           de: "Die Geheimnisse des Arbeitsbereichs liegen im Schlüsseltresor {value}."
-        ref: key_vault
+        accepts: { ref: key_vault }
         required: true
         per_environment: true
         why: >
@@ -109,12 +119,14 @@ groups:
         renders: key_vault.resource_id / associatedKeyVaultResourceId
 
       - id: application_insights
-        ask: Which Application Insights component should receive endpoint and job telemetry?
-        type: ref
+        ask:
+          en: "Which Application Insights component should receive endpoint and job telemetry?"
+          de: "Welche Application-Insights-Komponente soll die Telemetrie von Endpunkten und Jobs erhalten?"
+        type: string
         plain:
           en: "Endpoint and job telemetry goes to {value}."
           de: "Telemetrie der Endpunkte und Jobs geht an {value}."
-        ref: application_insights
+        accepts: { ref: application_insights }
         required: true
         per_environment: true
         why: >
@@ -125,12 +137,14 @@ groups:
         renders: application_insights.resource_id / associatedApplicationInsightsResourceId
 
       - id: container_registry
-        ask: Which container registry should hold the environment images?
-        type: ref
+        ask:
+          en: "Which container registry should hold the environment images?"
+          de: "Welche Container Registry soll die Umgebungs-Images halten?"
+        type: string
         plain:
           en: "Environment images are kept in the registry {value} (empty: none until the first image build)."
           de: "Umgebungs-Images liegen in der Registry {value} (leer: keine, bis zum ersten Image-Build)."
-        ref: container_registry
+        accepts: { ref: container_registry }
         default: ""
         per_environment: true
         why: >
@@ -143,7 +157,9 @@ groups:
         renders: container_registry.resource_id / associatedContainerRegistryResourceId
 
       - id: hbi_workspace
-        ask: Does the workspace handle data whose exposure would be a serious incident?
+        ask:
+          en: "Does the workspace handle data whose exposure would be a serious incident?"
+          de: "Verarbeitet der Workspace Daten, deren Offenlegung ein schwerer Vorfall wäre?"
         type: bool
         resolved_by: interview
         topic: security
@@ -154,7 +170,6 @@ groups:
           true: { en: "marked as handling sensitive data: less telemetry is collected and scratch disks are encrypted", de: "als Arbeitsbereich mit sensiblen Daten markiert: weniger Telemetrie wird erfasst, temporäre Datenträger werden verschlüsselt" }
           false: { en: "not marked as handling sensitive data", de: "nicht als Arbeitsbereich mit sensiblen Daten markiert" }
         default: false
-        confirm_in: [production]
         why: >
           The high-business-impact flag reduces the diagnostic data Microsoft collects from
           the workspace, encrypts the local scratch disks of compute, and is **fixed at
@@ -164,7 +179,9 @@ groups:
         renders: hbi_workspace / hbiWorkspace
 
       - id: v1_legacy_mode
-        ask: Must the workspace keep the legacy v1 API behaviour?
+        ask:
+          en: "Must the workspace keep the legacy v1 API behaviour?"
+          de: "Muss der Workspace das alte Verhalten der v1-API beibehalten?"
         type: bool
         plain:
           en: "The legacy v1 API mode is {value}."
@@ -185,7 +202,9 @@ groups:
           authored resource
 
       - id: image_build_compute
-        ask: Which compute should build the environment images when the registry is private?
+        ask:
+          en: "Which compute should build the environment images when the registry is private?"
+          de: "Welche Compute-Ressource soll die Umgebungs-Images bauen, wenn die Registry privat ist?"
         type: string
         plain:
           en: "Environment images are built on the compute {value} (empty: by the registry's build service)."
@@ -200,7 +219,9 @@ groups:
         renders: image_build_compute / imageBuildCompute
 
       - id: computes
-        ask: Which compute should the workspace have?
+        ask:
+          en: "Which compute should the workspace have?"
+          de: "Welche Compute-Ressourcen soll der Workspace haben?"
         type: list
         plain:
           en: "Compute: {value} (empty: none yet; serverless compute is always available)."
@@ -222,7 +243,9 @@ groups:
     title: Networking
     questions:
       - id: managed_network_isolation
-        ask: How far may jobs and endpoints in the workspace reach out?
+        ask:
+          en: "How far may jobs and endpoints in the workspace reach out?"
+          de: "Wie weit dürfen Jobs und Endpunkte im Workspace nach außen greifen?"
         type: enum
         plain:
           en: "Jobs and endpoints may reach {value}."
@@ -231,9 +254,8 @@ groups:
           allow_only_approved_outbound: { en: "only the named Azure services and addresses; everything else is blocked", de: "nur die benannten Azure-Dienste und Adressen; alles andere ist blockiert" }
           allow_internet_outbound: { en: "the internet, from a network Azure manages", de: "das Internet, aus einem von Azure verwalteten Netz" }
           disabled: { en: "whatever your own network allows (no managed network)", de: "was euer eigenes Netz erlaubt (kein verwaltetes Netz)" }
-        values: [allow_only_approved_outbound, allow_internet_outbound, disabled]
+        accepts: [allow_only_approved_outbound, allow_internet_outbound, disabled]
         default: allow_only_approved_outbound
-        confirm_in: [production]
         forced_when: >
           `network_exposure: public` with `network_ownership: none` forces
           `allow_internet_outbound` - there is no private backend to approve - recorded as
@@ -253,7 +275,9 @@ groups:
         renders: workspace_managed_network.isolation_mode / managedNetworkSettings.isolationMode
 
       - id: outbound_fqdns
-        ask: Which internet addresses may jobs reach from the approved-outbound network?
+        ask:
+          en: "Which internet addresses may jobs reach from the approved-outbound network?"
+          de: "Welche Internetadressen dürfen Jobs aus dem Netz mit freigegebenem Ausgang erreichen?"
         type: list
         plain:
           en: "Jobs may additionally reach: {value} (empty: nothing on the internet)."
@@ -273,7 +297,9 @@ groups:
           managedNetworkSettings.outboundRules (type FQDN)
 
       - id: provision_network_now
-        ask: Should the managed network be built with the workspace rather than on first use?
+        ask:
+          en: "Should the managed network be built with the workspace rather than on first use?"
+          de: "Soll das verwaltete Netz mit dem Workspace angelegt werden statt bei der ersten Nutzung?"
         type: bool
         plain:
           en: "The managed network is built {value}."
@@ -292,7 +318,9 @@ groups:
         renders: provision_network_now_enabled / provisionNetworkNow
 
       - id: public_network_access
-        ask: Should this workspace depart from the deployment's exposure posture?
+        ask:
+          en: "Should this workspace depart from the deployment's exposure posture?"
+          de: "Soll dieser Workspace von der Erreichbarkeit des Deployments abweichen?"
         type: enum
         plain:
           en: "The workspace is {value}."
@@ -301,9 +329,8 @@ groups:
           disabled: { en: "not reachable from the internet at all", de: "aus dem Internet überhaupt nicht erreichbar" }
           enabled_with_firewall: { en: "reachable from the internet only from listed addresses", de: "aus dem Internet nur von gelisteten Adressen erreichbar" }
           enabled: { en: "reachable from the internet", de: "aus dem Internet erreichbar" }
-        values: [disabled, enabled_with_firewall, enabled]
+        accepts: [disabled, enabled_with_firewall, enabled]
         from_deployment: network_exposure
-        confirm_in: [production]
         forced_when: >
           `network_ownership: none` forces `enabled`, recorded as forced with
           `network_ownership` as forced_by
@@ -315,7 +342,9 @@ groups:
         renders: public_network_access_enabled (bool) and ip_allowlist / publicNetworkAccess and ipAllowlist
 
       - id: ip_allowlist
-        ask: Which public IP ranges may reach the studio and the API?
+        ask:
+          en: "Which public IP ranges may reach the studio and the API?"
+          de: "Welche öffentlichen IP-Bereiche dürfen das Studio und die API erreichen?"
         type: list
         plain:
           en: "Public addresses allowed to reach the workspace: {value}."
@@ -330,13 +359,15 @@ groups:
         renders: ip_allowlist / ipAllowlist
 
       - id: private_endpoint_subnet
-        ask: Which subnet should the workspace's private endpoint live in?
-        type: ref
+        ask:
+          en: "Which subnet should the workspace's private endpoint live in?"
+          de: "In welchem Subnetz soll der Private Endpoint des Workspace liegen?"
+        type: string
         resolved_by: derived
         plain:
           en: "Its private connection lands in subnet {value}."
           de: "Seine private Anbindung landet im Subnetz {value}."
-        ref: subnet
+        accepts: { ref: subnet }
         from_deployment: private_endpoint_subnet
         per_environment: true
         why: >
@@ -347,7 +378,9 @@ groups:
         renders: private_endpoints.<key>.subnet_resource_id / privateEndpoints[].subnetResourceId (service `amlworkspace`)
 
       - id: serverless_compute_no_public_ip
-        ask: Should serverless compute nodes run without public IP addresses?
+        ask:
+          en: "Should serverless compute nodes run without public IP addresses?"
+          de: "Sollen Serverless-Compute-Knoten ohne öffentliche IP-Adressen laufen?"
         type: bool
         plain:
           en: "Serverless compute nodes {value}."
@@ -369,7 +402,9 @@ groups:
     title: Identity and access
     questions:
       - id: managed_identity
-        ask: Which managed identity should the workspace carry?
+        ask:
+          en: "Which managed identity should the workspace carry?"
+          de: "Welche Managed Identity soll der Workspace tragen?"
         type: enum
         plain:
           en: "The workspace has {value}."
@@ -377,7 +412,7 @@ groups:
         plain_values:
           system_assigned: { en: "its own identity, which the service authorises on its dependencies itself", de: "eine eigene Identität, die der Dienst auf den abhängigen Ressourcen selbst berechtigt" }
           user_assigned: { en: "a separately managed identity, authorised before the workspace exists", de: "eine separat verwaltete Identität, die vor dem Arbeitsbereich berechtigt wird" }
-        values: [system_assigned, user_assigned]
+        accepts: [system_assigned, user_assigned]
         default: system_assigned
         why: >
           The workspace identity reads and writes the storage account, the vault, the
@@ -398,12 +433,14 @@ groups:
         renders: managed_identities and primary_user_assigned_identity / managedIdentities and primaryUserAssignedIdentity
 
       - id: user_assigned_identity_ids
-        ask: Which user-assigned identity?
+        ask:
+          en: "Which user-assigned identity?"
+          de: "Welche User-Assigned Identity?"
         type: list
         plain:
           en: "It uses the identity {value}."
           de: "Es nutzt die Identität {value}."
-        ref: user_assigned_identity
+        accepts: { ref: user_assigned_identity }
         required: true
         depends_on: { question: managed_identity, equals: user_assigned }
         per_environment: true
@@ -415,7 +452,9 @@ groups:
           managedIdentities.userAssignedResourceIds and primaryUserAssignedIdentity
 
       - id: role_assignments
-        ask: Who needs which role on this workspace?
+        ask:
+          en: "Who needs which role on this workspace?"
+          de: "Wer braucht welche Rolle auf diesem Workspace?"
         type: list
         plain:
           en: "Access rights on the workspace granted to: {value}."
@@ -436,7 +475,9 @@ groups:
     title: Security
     questions:
       - id: storage_datastore_auth
-        ask: How should the workspace reach its storage account?
+        ask:
+          en: "How should the workspace reach its storage account?"
+          de: "Wie soll der Workspace sein Speicherkonto erreichen?"
         type: enum
         plain:
           en: "The workspace reaches its storage account {value}."
@@ -444,7 +485,7 @@ groups:
         plain_values:
           identity: { en: "with its identity, so the account keeps its keys switched off", de: "mit seiner Identität, so bleiben die Schlüssel des Kontos abgeschaltet" }
           access_key: { en: "with the storage account's key", de: "mit dem Schlüssel des Speicherkontos" }
-        values: [identity, access_key]
+        accepts: [identity, access_key]
         default: identity
         why: >
           The default datastores authenticate with the account key unless told otherwise,
@@ -457,7 +498,9 @@ groups:
         renders: storage_access_type / systemDatastoresAuthMode
 
       - id: key_management
-        ask: Are the workspace's encryption keys platform-managed or customer-managed?
+        ask:
+          en: "Are the workspace's encryption keys platform-managed or customer-managed?"
+          de: "Werden die Schlüssel des Workspace von der Plattform verwaltet oder vom Kunden?"
         type: enum
         plain:
           en: "Encryption keys are {value}."
@@ -465,9 +508,8 @@ groups:
         plain_values:
           platform_managed: { en: "managed by Azure - encrypted, rotated, no effort on your side", de: "von Azure verwaltet: verschlüsselt, rotiert, kein Aufwand bei euch" }
           customer_managed: { en: "your own, held in your key vault, so you can revoke them", de: "eure eigenen in eurem Schlüsseltresor, damit ihr sie zurückziehen könnt" }
-        values: [platform_managed, customer_managed]
+        accepts: [platform_managed, customer_managed]
         from_deployment: key_management
-        confirm_in: [production]
         why: >
           Inherited, and **fixed at creation** for this resource. It covers the metadata the
           service stores for the workspace (run history, metrics, model registry entries); the
@@ -477,12 +519,14 @@ groups:
         renders: customer_managed_key / customerManagedKey
 
       - id: cmk_key_vault_key_id
-        ask: Which Key Vault key should encrypt the workspace?
-        type: ref
+        ask:
+          en: "Which Key Vault key should encrypt the workspace?"
+          de: "Welcher Key-Vault-Schlüssel soll den Workspace verschlüsseln?"
+        type: string
         plain:
           en: "Encrypted with your key {value}."
           de: "Verschlüsselt mit eurem Schlüssel {value}."
-        ref: key_vault_key
+        accepts: { ref: key_vault_key }
         required: true
         depends_on: { question: key_management, equals: customer_managed }
         per_environment: true
@@ -493,7 +537,9 @@ groups:
         renders: customer_managed_key.key_name and key_vault_resource_id / customerManagedKey.keyName and keyVaultResourceId
 
       - id: service_side_cmk
-        ask: Should the service keep the customer-key-encrypted metadata on its own side?
+        ask:
+          en: "Should the service keep the customer-key-encrypted metadata on its own side?"
+          de: "Soll der Dienst die mit dem Kundenschlüssel verschlüsselten Metadaten auf seiner eigenen Seite halten?"
         type: bool
         plain:
           en: "Metadata encrypted with your key is kept {value}."
@@ -517,13 +563,15 @@ groups:
     title: Observability
     questions:
       - id: diagnostic_workspace
-        ask: Which Log Analytics workspace should receive diagnostics?
-        type: ref
+        ask:
+          en: "Which Log Analytics workspace should receive diagnostics?"
+          de: "Welcher Log Analytics Workspace soll die Diagnosedaten erhalten?"
+        type: string
         resolved_by: derived
         plain:
           en: "Its logs go to {value}."
           de: "Seine Logs gehen in {value}."
-        ref: log_analytics_workspace
+        accepts: { ref: log_analytics_workspace }
         from_deployment: diagnostics_destination
         per_environment: true
         why: >
@@ -532,7 +580,9 @@ groups:
         renders: diagnostic_settings / diagnosticSettings
 
       - id: diagnostic_categories
-        ask: Which log categories should be collected?
+        ask:
+          en: "Which log categories should be collected?"
+          de: "Welche Log-Kategorien sollen erfasst werden?"
         type: list
         plain:
           en: "Logged: {value}."
@@ -550,7 +600,7 @@ groups:
           DataSetChangeEvent: { en: "data assets created, changed or deleted", de: "angelegte, geänderte oder gelöschte Datenbestände" }
           EnvironmentChangeEvent: { en: "environments created, changed or deleted", de: "angelegte, geänderte oder gelöschte Umgebungen" }
           ManagedNetworkEvent: { en: "managed network provisioning and rule changes", de: "Aufbau des verwalteten Netzes und Regeländerungen" }
-        values: [AmlComputeClusterEvent, AmlComputeJobEvent, AmlRunStatusChangedEvent, AmlComputeCpuGpuUtilization, ComputeInstanceEvent, ModelsChangeEvent, ModelsReadEvent, DeploymentReadEvent, DataStoreChangeEvent, DataSetChangeEvent, EnvironmentChangeEvent, ManagedNetworkEvent]
+        accepts: [AmlComputeClusterEvent, AmlComputeJobEvent, AmlRunStatusChangedEvent, AmlComputeCpuGpuUtilization, ComputeInstanceEvent, ModelsChangeEvent, ModelsReadEvent, DeploymentReadEvent, DataStoreChangeEvent, DataSetChangeEvent, EnvironmentChangeEvent, ManagedNetworkEvent]
         default: [AmlComputeClusterEvent, AmlComputeJobEvent, AmlRunStatusChangedEvent, ModelsChangeEvent, DataStoreChangeEvent, ManagedNetworkEvent]
         why: >
           The cluster, job and run events are the operational record - who ran what, where,
@@ -564,7 +614,9 @@ groups:
         renders: diagnostic_settings.<key>.log_categories / diagnosticSettings[].logCategoriesAndGroups[].category
 
       - id: metrics_enabled
-        ask: Should all metrics be collected?
+        ask:
+          en: "Should all metrics be collected?"
+          de: "Sollen alle Metriken erfasst werden?"
         type: bool
         plain:
           en: "Usage and performance figures are {value}."

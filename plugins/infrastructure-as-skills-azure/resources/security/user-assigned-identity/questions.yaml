@@ -23,12 +23,14 @@ groups:
     title: Placement
     questions:
       - id: environments
-        ask: Which stages is this deployed to?
+        ask:
+          en: "Which stages is this deployed to?"
+          de: "In welche Stufen wird das ausgerollt?"
         type: list
         plain:
           en: "Deployed in the stages {value}."
           de: "Wird in den Stufen {value} ausgerollt."
-        values: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
+        accepts: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
         required: true
         from_context: true
         why: >
@@ -37,7 +39,9 @@ groups:
         renders: naming parameter `environment`, and the tag of that name where the repository uses one
 
       - id: location
-        ask: Which Azure region?
+        ask:
+          en: "Which Azure region?"
+          de: "Welche Azure-Region?"
         type: string
         plain:
           en: "Created in the Azure region {value}."
@@ -51,12 +55,14 @@ groups:
         renders: location
 
       - id: resource_group_name
-        ask: Which resource group?
-        type: ref
+        ask:
+          en: "Which resource group?"
+          de: "Welche Ressourcengruppe?"
+        type: string
         plain:
           en: "Placed in the resource group {value}."
           de: "Liegt in der Ressourcengruppe {value}."
-        ref: resource_group
+        accepts: { ref: resource_group }
         required: true
         from_context: true
         per_environment: true
@@ -71,7 +77,9 @@ groups:
     title: Identity
     questions:
       - id: purpose
-        ask: What does this identity exist for?
+        ask:
+          en: "What does this identity exist for?"
+          de: "Wofür gibt es diese Identität?"
         type: string
         plain:
           en: "This identity exists for {value}."
@@ -87,7 +95,9 @@ groups:
         renders: tag `purpose`, and the workload part of the rendered name
 
       - id: federated_credentials
-        ask: Which external systems may sign in as this identity without a secret?
+        ask:
+          en: "Which external systems may sign in as this identity without a secret?"
+          de: "Welche externen Systeme dürfen sich ohne Secret als diese Identität anmelden?"
         type: list
         plain:
           en: "External systems trusted to act as this identity: {value} (empty: none)."
@@ -105,7 +115,9 @@ groups:
         renders: federated_identity_credentials / federatedIdentityCredentials
 
       - id: isolation_scope
-        ask: Should the identity be restricted to its own region?
+        ask:
+          en: "Should the identity be restricted to its own region?"
+          de: "Soll die Identität auf ihre eigene Region beschränkt sein?"
         type: enum
         plain:
           en: "The identity can be used {value}."
@@ -113,7 +125,7 @@ groups:
         plain_values:
           None: { en: "from resources in any region", de: "von Ressourcen in jeder Region aus" }
           Regional: { en: "only from resources in its own region", de: "nur von Ressourcen in der eigenen Region aus" }
-        values: [None, Regional]
+        accepts: [None, Regional]
         default: None
         why: >
           `Regional` restricts where the identity's data is held and where it can be
@@ -123,7 +135,9 @@ groups:
         renders: isolation_scope / isolationScope
 
       - id: role_assignments
-        ask: Who may manage or assign this identity?
+        ask:
+          en: "Who may manage or assign this identity?"
+          de: "Wer darf diese Identität verwalten oder zuweisen?"
         type: list
         plain:
           en: "Rights on the identity itself granted to: {value}."

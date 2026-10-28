@@ -22,12 +22,14 @@ groups:
     title: Placement
     questions:
       - id: environments
-        ask: Which stages is this deployed to?
+        ask:
+          en: "Which stages is this deployed to?"
+          de: "In welche Stufen wird das ausgerollt?"
         type: list
         plain:
           en: "Deployed in the stages {value}."
           de: "Wird in den Stufen {value} ausgerollt."
-        values: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
+        accepts: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
         required: true
         from_context: true
         why: >
@@ -35,12 +37,14 @@ groups:
         renders: tag of the environment where the repository uses one
 
       - id: storage_account
-        ask: In which storage account should it live?
-        type: ref
+        ask:
+          en: "In which storage account should it live?"
+          de: "In welchem Speicherkonto soll es liegen?"
+        type: string
         plain:
           en: "It is created in the storage account {value}."
           de: "Es wird im Speicherkonto {value} angelegt."
-        ref: storage_account
+        accepts: { ref: storage_account }
         required: true
         per_environment: true
         why: >
@@ -54,7 +58,9 @@ groups:
     title: The shares
     questions:
       - id: share_names
-        ask: Which file shares should the account hold?
+        ask:
+          en: "Which file shares should the account hold?"
+          de: "Welche Dateifreigaben soll das Konto enthalten?"
         type: list
         resolved_by: interview
         topic: data
@@ -70,7 +76,9 @@ groups:
         renders: shares / fileServices.shares
 
       - id: protocol
-        ask: Which protocol do the machines that use the share speak?
+        ask:
+          en: "Which protocol do the machines that use the share speak?"
+          de: "Welches Protokoll sprechen die Maschinen, die die Freigabe nutzen?"
         type: enum
         plain:
           en: "The share is reached over {value}."
@@ -78,7 +86,7 @@ groups:
         plain_values:
           SMB: { en: "SMB, the usual file-share protocol", de: "SMB, dem üblichen Protokoll für Dateifreigaben" }
           NFS: { en: "NFS, for Linux machines that need file permissions", de: "NFS, für Linux-Rechner mit Dateiberechtigungen" }
-        values: [SMB, NFS]
+        accepts: [SMB, NFS]
         default: SMB
         forced_when: >
           `NFS` forces a Premium FileStorage account and `public_network_access: disabled`
@@ -91,7 +99,9 @@ groups:
         renders: shares.<k>.enabled_protocol / fileServices.shares[].enabledProtocols
 
       - id: quota_gb
-        ask: How large may the share grow?
+        ask:
+          en: "How large may the share grow?"
+          de: "Wie groß darf die Freigabe werden?"
         type: int
         plain:
           en: "The share holds at most {value} GB."
@@ -106,7 +116,9 @@ groups:
         renders: shares.<k>.quota / fileServices.shares[].shareQuota
 
       - id: access_tier
-        ask: How is the share used?
+        ask:
+          en: "How is the share used?"
+          de: "Wie wird die Freigabe genutzt?"
         type: enum
         plain:
           en: "The share is tuned for {value}."
@@ -116,7 +128,7 @@ groups:
           Hot: { en: everyday file sharing, de: alltägliches Teilen von Dateien }
           Cool: { en: data that is read now and then, de: "Daten, die nur gelegentlich gelesen werden" }
           Premium: { en: fast SSD storage billed for its full size, de: "schneller SSD-Speicher, der für die volle Größe berechnet wird" }
-        values: [TransactionOptimized, Hot, Cool, Premium]
+        accepts: [TransactionOptimized, Hot, Cool, Premium]
         derived_from:
           question: data_access_pattern
           map: { active: TransactionOptimized, occasional: Cool, archive: Cool }
@@ -133,7 +145,9 @@ groups:
         renders: shares.<k>.access_tier / fileServices.shares[].accessTier
 
       - id: root_squash
-        ask: Should the root user of a client be mapped to an unprivileged user?
+        ask:
+          en: "Should the root user of a client be mapped to an unprivileged user?"
+          de: "Soll der Root-Benutzer eines Clients auf einen Benutzer ohne Rechte abgebildet werden?"
         type: enum
         plain:
           en: "On an NFS share, root is {value}."
@@ -142,7 +156,7 @@ groups:
           RootSquash: { en: mapped to an unprivileged user, de: auf einen unprivilegierten Benutzer abgebildet }
           AllSquash: { en: every user mapped to an unprivileged one, de: jeder Benutzer auf einen unprivilegierten abgebildet }
           NoRootSquash: { en: trusted as on the client, de: wie auf dem Client vertraut }
-        values: [RootSquash, AllSquash, NoRootSquash]
+        accepts: [RootSquash, AllSquash, NoRootSquash]
         default: RootSquash
         depends_on: { question: protocol, equals: NFS }
         why: >
@@ -156,7 +170,9 @@ groups:
     title: Identity and access
     questions:
       - id: role_assignments
-        ask: Who needs which role on this share?
+        ask:
+          en: "Who needs which role on this share?"
+          de: "Wer braucht welche Rolle auf dieser Freigabe?"
         type: list
         plain:
           en: "Access rights on the share granted to: {value}."

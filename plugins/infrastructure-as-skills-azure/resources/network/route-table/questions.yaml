@@ -26,12 +26,14 @@ groups:
     title: Placement
     questions:
       - id: environments
-        ask: Which stages is this deployed to?
+        ask:
+          en: "Which stages is this deployed to?"
+          de: "In welche Stufen wird das ausgerollt?"
         type: list
         plain:
           en: "Deployed in the stages {value}."
           de: "Wird in den Stufen {value} ausgerollt."
-        values: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
+        accepts: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
         required: true
         from_context: true
         why: >
@@ -41,7 +43,9 @@ groups:
         renders: naming parameter `environment`, and the tag of that name where the repository uses one
 
       - id: location
-        ask: Which Azure region?
+        ask:
+          en: "Which Azure region?"
+          de: "Welche Azure-Region?"
         type: string
         plain:
           en: "Created in the Azure region {value}."
@@ -54,12 +58,14 @@ groups:
         renders: location
 
       - id: resource_group_name
-        ask: Which resource group?
-        type: ref
+        ask:
+          en: "Which resource group?"
+          de: "Welche Ressourcengruppe?"
+        type: string
         plain:
           en: "Placed in the resource group {value}."
           de: "Liegt in der Ressourcengruppe {value}."
-        ref: resource_group
+        accepts: { ref: resource_group }
         required: true
         from_context: true
         per_environment: true
@@ -73,7 +79,9 @@ groups:
     title: Networking
     questions:
       - id: subnets
-        ask: Which subnets should use this route table?
+        ask:
+          en: "Which subnets should use this route table?"
+          de: "Welche Subnetze sollen diese Routentabelle verwenden?"
         type: list
         plain:
           en: "Subnets that follow these routes: {value}."
@@ -89,7 +97,9 @@ groups:
         renders: virtual-network subnets.<k>.route_table.id / routeTableResourceId
 
       - id: default_route
-        ask: Where should traffic to the internet and to unknown networks go?
+        ask:
+          en: "Where should traffic to the internet and to unknown networks go?"
+          de: "Wohin soll Verkehr ins Internet und in unbekannte Netze gehen?"
         type: enum
         plain:
           en: "Traffic to unknown destinations goes {value}."
@@ -97,7 +107,7 @@ groups:
         plain_values:
           firewall: { en: "through the company firewall", de: "über die Firmen-Firewall" }
           none: { en: "by Azure's own routes, with no default route of ours", de: "nach Azures eigenen Routen, ohne eigene Standardroute" }
-        values: [firewall, none]
+        accepts: [firewall, none]
         default: firewall
         forced_when: >
           `landing_zone: standalone`, `online` and `sandbox` have no platform firewall to point
@@ -113,7 +123,9 @@ groups:
         renders: routes entry `0.0.0.0/0`, next hop `VirtualAppliance` / properties.routes
 
       - id: firewall_private_ip
-        ask: Which private address does the firewall have?
+        ask:
+          en: "Which private address does the firewall have?"
+          de: "Welche private Adresse hat die Firewall?"
         type: string
         resolved_by: derived
         plain:
@@ -131,7 +143,9 @@ groups:
         renders: next_hop_in_ip_address / nextHopIpAddress
 
       - id: routes
-        ask: Which further routes should the table hold?
+        ask:
+          en: "Which further routes should the table hold?"
+          de: "Welche weiteren Routen soll die Tabelle enthalten?"
         type: list
         plain:
           en: "Further routes: {value}."
@@ -150,7 +164,9 @@ groups:
         renders: routes / properties.routes
 
       - id: bgp_route_propagation
-        ask: Should routes learned from a gateway be added to the subnet's routes?
+        ask:
+          en: "Should routes learned from a gateway be added to the subnet's routes?"
+          de: "Sollen von einem Gateway gelernte Routen zu den Routen des Subnetzes hinzugefügt werden?"
         type: enum
         plain:
           en: "Routes learned from gateways are {value}."
@@ -158,7 +174,7 @@ groups:
         plain_values:
           disabled: { en: "ignored - only our routes apply", de: "ignoriert, nur unsere Routen gelten" }
           enabled: { en: "added to the subnet's routes", de: "den Routen des Subnetzes hinzugefügt" }
-        values: [disabled, enabled]
+        accepts: [disabled, enabled]
         default: disabled
         forced_when: >
           A table on `GatewaySubnet` keeps `enabled`: the gateway needs the routes it learns,

@@ -26,12 +26,14 @@ groups:
     title: Placement
     questions:
       - id: environments
-        ask: Which stages is this deployed to?
+        ask:
+          en: "Which stages is this deployed to?"
+          de: "In welche Stufen wird das ausgerollt?"
         type: list
         plain:
           en: "Deployed in the stages {value}."
           de: "Wird in den Stufen {value} ausgerollt."
-        values: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
+        accepts: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
         required: true
         from_context: true
         why: >
@@ -40,7 +42,9 @@ groups:
         renders: naming parameter `environment`, and the tag of that name where the repository uses one
 
       - id: location
-        ask: Which Azure region?
+        ask:
+          en: "Which Azure region?"
+          de: "Welche Azure-Region?"
         type: string
         plain:
           en: "Runs in the Azure region {value}."
@@ -54,12 +58,14 @@ groups:
         renders: location, and the failover location with priority 0
 
       - id: resource_group_name
-        ask: Which resource group?
-        type: ref
+        ask:
+          en: "Which resource group?"
+          de: "Welche Ressourcengruppe?"
+        type: string
         plain:
           en: "Placed in the resource group {value}."
           de: "Liegt in der Ressourcengruppe {value}."
-        ref: resource_group
+        accepts: { ref: resource_group }
         required: true
         from_context: true
         per_environment: true
@@ -73,7 +79,9 @@ groups:
     title: Account and capacity
     questions:
       - id: capacity_mode
-        ask: Is the throughput reserved, or paid per request?
+        ask:
+          en: "Is the throughput reserved, or paid per request?"
+          de: "Wird der Durchsatz reserviert oder pro Anfrage bezahlt?"
         type: enum
         plain:
           en: "Capacity is {value}."
@@ -81,10 +89,9 @@ groups:
         plain_values:
           provisioned: { en: "reserved up front and billed by the hour, with a guaranteed rate", de: "vorab reserviert und stundenweise berechnet, mit garantierter Rate" }
           serverless: { en: "billed per request, nothing when idle, with a lower rate ceiling", de: "pro Anfrage berechnet, nichts im Leerlauf, mit niedrigerer Obergrenze" }
-        values: [provisioned, serverless]
+        accepts: [provisioned, serverless]
         default: provisioned
         non_production_default: serverless
-        confirm_in: [production]
         why: >
           Serverless costs nothing while idle and suits a stage that is used in bursts;
           it has a per-container ceiling, a single region and no autoscale, so it is the
@@ -101,7 +108,9 @@ groups:
         renders: capabilities (`EnableServerless`) / capacityMode
 
       - id: throughput_mode
-        ask: Should the throughput follow the load, or stay at a fixed rate?
+        ask:
+          en: "Should the throughput follow the load, or stay at a fixed rate?"
+          de: "Soll der Durchsatz der Last folgen oder bei einer festen Rate bleiben?"
         type: enum
         plain:
           en: "Throughput {value}."
@@ -109,7 +118,7 @@ groups:
         plain_values:
           autoscale: { en: "follows the load between a tenth of the ceiling and the ceiling", de: "folgt der Last zwischen einem Zehntel der Obergrenze und der Obergrenze" }
           manual: { en: "stays at a fixed rate that is paid for around the clock", de: "bleibt auf einer festen Rate, die rund um die Uhr bezahlt wird" }
-        values: [autoscale, manual]
+        accepts: [autoscale, manual]
         default: autoscale
         depends_on: { question: capacity_mode, equals: provisioned }
         why: >
@@ -122,7 +131,9 @@ groups:
         renders: autoscale_settings / autoscaleSettings, or throughput
 
       - id: max_throughput
-        ask: What is the highest throughput the data may use?
+        ask:
+          en: "What is the highest throughput the data may use?"
+          de: "Wie hoch ist der höchste Durchsatz, den die Daten nutzen dürfen?"
         type: int
         plain:
           en: "Throughput is capped at {value} request units per second per container."
@@ -138,7 +149,9 @@ groups:
         renders: autoscale_settings.max_throughput / autoscaleSettings.maxThroughput, or throughput (manual)
 
       - id: total_throughput_limit
-        ask: Should the whole account have a throughput ceiling?
+        ask:
+          en: "Should the whole account have a throughput ceiling?"
+          de: "Soll das ganze Konto eine Obergrenze für den Durchsatz haben?"
         type: int
         plain:
           en: "The account as a whole may use at most {value} request units per second (-1: no limit)."
@@ -153,7 +166,9 @@ groups:
         renders: capacity.total_throughput_limit / totalThroughputLimit
 
       - id: free_tier
-        ask: Should the account use the free tier?
+        ask:
+          en: "Should the account use the free tier?"
+          de: "Soll das Konto den kostenlosen Tarif nutzen?"
         type: bool
         plain:
           en: "The monthly free allowance of throughput and storage is {value}."
@@ -174,7 +189,9 @@ groups:
     title: Resilience
     questions:
       - id: zone_redundant
-        ask: Should the primary region survive the loss of an availability zone?
+        ask:
+          en: "Should the primary region survive the loss of an availability zone?"
+          de: "Soll die primäre Region den Ausfall einer Verfügbarkeitszone überstehen?"
         type: bool
         plain:
           en: "The data {value} survive the loss of one datacenter of the region."
@@ -185,7 +202,6 @@ groups:
         derived_from:
           question: outage_impact
           map: { tolerable: false, disruptive: true, critical: true }
-        confirm_in: [production]
         non_production_default: false
         why: >
           Derived from how bad an outage is. Zone redundancy keeps synchronous copies in
@@ -198,7 +214,9 @@ groups:
         renders: geo_locations[].zone_redundant / failoverLocations[].isZoneRedundant (zoneRedundant for one region)
 
       - id: geo_replicas
-        ask: In which further regions should the data be kept?
+        ask:
+          en: "In which further regions should the data be kept?"
+          de: "In welchen weiteren Regionen sollen die Daten vorgehalten werden?"
         type: list
         plain:
           en: "The data is also kept in {value} (empty: only in the main region)."
@@ -223,7 +241,9 @@ groups:
         renders: geo_locations[] (failover_priority 1..n) / failoverLocations[]
 
       - id: automatic_failover
-        ask: Should the account fail over to a replica by itself?
+        ask:
+          en: "Should the account fail over to a replica by itself?"
+          de: "Soll das Konto von selbst auf ein Replikat umschalten?"
         type: bool
         plain:
           en: "If the main region fails, the account {value}."
@@ -239,7 +259,9 @@ groups:
         renders: automatic_failover_enabled / enableAutomaticFailover
 
       - id: consistency_level
-        ask: How up to date must a read be after a write?
+        ask:
+          en: "How up to date must a read be after a write?"
+          de: "Wie aktuell muss ein Lesevorgang nach einem Schreibvorgang sein?"
         type: enum
         plain:
           en: "A read sees {value}."
@@ -250,7 +272,7 @@ groups:
           Session: { en: "its own writes at once and, for others, a slightly older state", de: "die eigenen Schreibvorgänge sofort, bei anderen einen leicht älteren Stand" }
           ConsistentPrefix: { en: "writes in the right order, but maybe not the latest", de: "Schreibvorgänge in der richtigen Reihenfolge, aber eventuell nicht die letzten" }
           Eventual: { en: "whatever has arrived, in no promised order", de: "was angekommen ist, ohne zugesagte Reihenfolge" }
-        values: [Strong, BoundedStaleness, Session, ConsistentPrefix, Eventual]
+        accepts: [Strong, BoundedStaleness, Session, ConsistentPrefix, Eventual]
         default: Session
         why: >
           Session is the default of Cosmos DB for a reason: a user always reads their own
@@ -267,7 +289,9 @@ groups:
     title: Networking
     questions:
       - id: public_network_access
-        ask: Should this account depart from the deployment's exposure posture?
+        ask:
+          en: "Should this account depart from the deployment's exposure posture?"
+          de: "Soll dieses Konto von der Erreichbarkeit des Deployments abweichen?"
         type: enum
         plain:
           en: "The account is {value}."
@@ -276,9 +300,8 @@ groups:
           disabled: { en: "not reachable from the internet at all", de: "aus dem Internet überhaupt nicht erreichbar" }
           enabled_with_firewall: { en: "reachable from the internet only from listed addresses", de: "aus dem Internet nur von gelisteten Adressen erreichbar" }
           enabled: { en: "reachable from the internet", de: "aus dem Internet erreichbar" }
-        values: [disabled, enabled_with_firewall, enabled]
+        accepts: [disabled, enabled_with_firewall, enabled]
         from_deployment: network_exposure
-        confirm_in: [production]
         why: >
           Asked only as a departure: exposure is a property of the system. `private` is
           `disabled`, `public` is `enabled_with_firewall`, and a bare `enabled` - an
@@ -297,13 +320,15 @@ groups:
           bicep: networkRestrictions.publicNetworkAccess
 
       - id: private_endpoint_subnet
-        ask: Which subnet should this account's private endpoint live in?
-        type: ref
+        ask:
+          en: "Which subnet should this account's private endpoint live in?"
+          de: "In welchem Subnetz soll der Private Endpoint dieses Kontos liegen?"
+        type: string
         resolved_by: derived
         plain:
           en: "Its private connection lands in subnet {value}."
           de: "Seine private Anbindung landet im Subnetz {value}."
-        ref: subnet
+        accepts: { ref: subnet }
         from_deployment: private_endpoint_subnet
         per_environment: true
         why: >
@@ -312,7 +337,9 @@ groups:
         renders: private_endpoints.<key>.subnet_resource_id / privateEndpoints[].subnetResourceId (service `Sql`)
 
       - id: ip_rules
-        ask: Which public IP ranges may reach the account?
+        ask:
+          en: "Which public IP ranges may reach the account?"
+          de: "Welche öffentlichen IP-Bereiche dürfen das Konto erreichen?"
         type: list
         plain:
           en: "Public addresses allowed to reach the account: {value}."
@@ -328,7 +355,9 @@ groups:
         renders: ip_range_filter / networkRestrictions.ipRules
 
       - id: network_acl_bypass
-        ask: May trusted Azure services reach the account past its firewall?
+        ask:
+          en: "May trusted Azure services reach the account past its firewall?"
+          de: "Dürfen vertrauenswürdige Azure-Dienste das Konto an seiner Firewall vorbei erreichen?"
         type: bool
         plain:
           en: "Trusted Azure services {value} past the account's firewall."
@@ -349,7 +378,9 @@ groups:
     title: Identity and access
     questions:
       - id: managed_identity
-        ask: Which managed identity should the account carry?
+        ask:
+          en: "Which managed identity should the account carry?"
+          de: "Welche Managed Identity soll das Konto tragen?"
         type: enum
         plain:
           en: "The account has {value}."
@@ -358,7 +389,7 @@ groups:
           none: { en: "no identity of its own", de: "keine eigene Identität" }
           system_assigned: { en: "its own identity", de: "eine eigene Identität" }
           user_assigned: { en: "a separately managed identity", de: "eine separat verwaltete Identität" }
-        values: [none, system_assigned, user_assigned]
+        accepts: [none, system_assigned, user_assigned]
         default: none
         why: >
           The account's identity is used for one thing: reaching a Key Vault for a
@@ -373,12 +404,14 @@ groups:
         renders: managed_identities / managedIdentities
 
       - id: user_assigned_identity_ids
-        ask: Which user-assigned identity?
+        ask:
+          en: "Which user-assigned identity?"
+          de: "Welche User-Assigned Identity?"
         type: list
         plain:
           en: "It uses the identity {value}."
           de: "Es nutzt die Identität {value}."
-        ref: user_assigned_identity
+        accepts: { ref: user_assigned_identity }
         required: true
         depends_on: { question: managed_identity, equals: user_assigned }
         per_environment: true
@@ -386,7 +419,9 @@ groups:
         renders: managed_identities.user_assigned_resource_ids / managedIdentities.userAssignedResourceIds
 
       - id: data_plane_role_assignments
-        ask: Who needs to read or write the data?
+        ask:
+          en: "Who needs to read or write the data?"
+          de: "Wer muss die Daten lesen oder schreiben?"
         type: list
         plain:
           en: "Access to the data itself granted to: {value}."
@@ -408,7 +443,9 @@ groups:
           bicep: sqlRoleAssignments (built-in role ids ending 0001 reader, 0002 contributor)
 
       - id: role_assignments
-        ask: Who may manage the account itself?
+        ask:
+          en: "Who may manage the account itself?"
+          de: "Wer darf das Konto selbst verwalten?"
         type: list
         plain:
           en: "Management rights on the account granted to: {value}."
@@ -427,7 +464,9 @@ groups:
     title: Security
     questions:
       - id: local_authentication_disabled
-        ask: May clients sign in with the account keys?
+        ask:
+          en: "May clients sign in with the account keys?"
+          de: "Dürfen sich Clients mit den Kontoschlüsseln anmelden?"
         type: bool
         plain:
           en: "Signing in with account keys is {value}; access goes through company accounts."
@@ -436,7 +475,6 @@ groups:
           true: { en: "switched off", de: "abgeschaltet" }
           false: { en: "possible", de: "möglich" }
         from_deployment: local_auth
-        confirm_in: [production]
         why: >
           Inherited: `local_auth: disabled` renders as `true`. An account key is a root
           credential for every database in the account, does not expire and is not
@@ -448,7 +486,9 @@ groups:
           local_authentication_disabled / disableLocalAuthentication
 
       - id: key_based_metadata_writes
-        ask: May account keys change databases and containers?
+        ask:
+          en: "May account keys change databases and containers?"
+          de: "Dürfen Kontoschlüssel Datenbanken und Container ändern?"
         type: bool
         plain:
           en: "Creating or changing databases, containers and throughput with account keys is {value}."
@@ -466,7 +506,9 @@ groups:
         renders: access_key_metadata_writes_enabled (inverse) / disableKeyBasedMetadataWriteAccess
 
       - id: key_management
-        ask: Are the account's encryption keys platform-managed or customer-managed?
+        ask:
+          en: "Are the account's encryption keys platform-managed or customer-managed?"
+          de: "Werden die Schlüssel des Kontos von der Plattform verwaltet oder vom Kunden?"
         type: enum
         plain:
           en: "Encryption keys are {value}."
@@ -474,9 +516,8 @@ groups:
         plain_values:
           platform_managed: { en: "managed by Azure - encrypted, rotated, no effort on your side", de: "von Azure verwaltet: verschlüsselt, rotiert, kein Aufwand bei euch" }
           customer_managed: { en: "your own, held in your key vault, so you can revoke them", de: "eure eigenen in eurem Schlüsseltresor, damit ihr sie zurückziehen könnt" }
-        values: [platform_managed, customer_managed]
+        accepts: [platform_managed, customer_managed]
         from_deployment: key_management
-        confirm_in: [production]
         why: >
           Inherited. Data is encrypted at rest with a platform-managed key either way;
           `customer_managed` adds a key of the customer's in a Key Vault with purge
@@ -486,12 +527,14 @@ groups:
         renders: customer_managed_key / customerManagedKey
 
       - id: cmk_key_vault_key_id
-        ask: Which Key Vault key should encrypt the account?
-        type: ref
+        ask:
+          en: "Which Key Vault key should encrypt the account?"
+          de: "Welcher Key-Vault-Schlüssel soll das Konto verschlüsseln?"
+        type: string
         plain:
           en: "Encrypted with your key {value}."
           de: "Verschlüsselt mit eurem Schlüssel {value}."
-        ref: key_vault_key
+        accepts: { ref: key_vault_key }
         required: true
         depends_on: { question: key_management, equals: customer_managed }
         per_environment: true
@@ -508,7 +551,9 @@ groups:
     title: Backup and recovery
     questions:
       - id: backup_policy
-        ask: How far back must a deletion or a bad write be undoable?
+        ask:
+          en: "How far back must a deletion or a bad write be undoable?"
+          de: "Wie weit zurück muss ein Löschen oder ein fehlerhafter Schreibvorgang rückgängig zu machen sein?"
         type: enum
         plain:
           en: "Backups allow going back {value}."
@@ -517,7 +562,7 @@ groups:
           periodic: { en: "to one of a few snapshots taken a few hours apart, kept for a day or two", de: "auf einen von wenigen Schnappschüssen im Abstand von Stunden, ein bis zwei Tage aufbewahrt" }
           continuous_7_days: { en: "to any second of the last seven days", de: "auf jede Sekunde der letzten sieben Tage" }
           continuous_30_days: { en: "to any second of the last thirty days", de: "auf jede Sekunde der letzten dreißig Tage" }
-        values: [periodic, continuous_7_days, continuous_30_days]
+        accepts: [periodic, continuous_7_days, continuous_30_days]
         derived_from:
           question: data_loss_tolerance
           map: { reproducible: periodic, one_week: continuous_7_days, one_month: continuous_30_days, three_months: continuous_30_days }
@@ -540,7 +585,9 @@ groups:
           (`Continuous7Days`, `Continuous30Days`)
 
       - id: backup_storage_redundancy
-        ask: Where are periodic backups kept?
+        ask:
+          en: "Where are periodic backups kept?"
+          de: "Wo werden die regelmäßigen Sicherungen aufbewahrt?"
         type: enum
         plain:
           en: "Periodic backups are kept {value}."
@@ -549,7 +596,7 @@ groups:
           Local: { en: "in one datacenter", de: "in einem Rechenzentrum" }
           Zone: { en: "across the zones of the region", de: "verteilt über die Zonen der Region" }
           Geo: { en: "in a second region as well", de: "zusätzlich in einer zweiten Region" }
-        values: [Local, Zone, Geo]
+        accepts: [Local, Zone, Geo]
         default: Zone
         depends_on: { question: backup_policy, equals: periodic }
         forced_when: >
@@ -563,7 +610,9 @@ groups:
         renders: backup.storage_redundancy / backupStorageRedundancy
 
       - id: analytical_storage
-        ask: Should the data also be kept in a column store for analytics?
+        ask:
+          en: "Should the data also be kept in a column store for analytics?"
+          de: "Sollen die Daten zusätzlich in einem Spaltenspeicher für Analysen gehalten werden?"
         type: bool
         plain:
           en: "A column store for analytics beside the data is {value}."
@@ -583,7 +632,9 @@ groups:
     title: Databases and containers
     questions:
       - id: databases
-        ask: Which databases and containers should the account hold?
+        ask:
+          en: "Which databases and containers should the account hold?"
+          de: "Welche Datenbanken und Container soll das Konto enthalten?"
         type: list
         plain:
           en: "The account holds the databases and containers {value}."
@@ -607,13 +658,15 @@ groups:
     title: Observability
     questions:
       - id: diagnostic_workspace
-        ask: Which Log Analytics workspace should receive diagnostics?
-        type: ref
+        ask:
+          en: "Which Log Analytics workspace should receive diagnostics?"
+          de: "Welcher Log Analytics Workspace soll die Diagnosedaten erhalten?"
+        type: string
         resolved_by: derived
         plain:
           en: "Its logs go to {value}."
           de: "Seine Logs gehen in {value}."
-        ref: log_analytics_workspace
+        accepts: { ref: log_analytics_workspace }
         from_deployment: diagnostics_destination
         per_environment: true
         why: >
@@ -623,7 +676,9 @@ groups:
         renders: diagnostic_settings / diagnosticSettings
 
       - id: diagnostic_categories
-        ask: Which log categories should be collected?
+        ask:
+          en: "Which log categories should be collected?"
+          de: "Welche Log-Kategorien sollen erfasst werden?"
         type: list
         plain:
           en: "Logged: {value}."
@@ -634,7 +689,7 @@ groups:
           QueryRuntimeStatistics: { en: "the text and runtime of queries", de: "Text und Laufzeit von Abfragen" }
           PartitionKeyStatistics: { en: "how data spreads over the partition keys", de: "wie sich die Daten auf die Partitionsschlüssel verteilen" }
           PartitionKeyRUConsumption: { en: "which partition keys use the throughput", de: "welche Partitionsschlüssel den Durchsatz verbrauchen" }
-        values: [ControlPlaneRequests, DataPlaneRequests, QueryRuntimeStatistics, PartitionKeyStatistics, PartitionKeyRUConsumption]
+        accepts: [ControlPlaneRequests, DataPlaneRequests, QueryRuntimeStatistics, PartitionKeyStatistics, PartitionKeyRUConsumption]
         default: [ControlPlaneRequests, DataPlaneRequests]
         why: >
           Control-plane requests are the audit of who changed the account; data-plane
@@ -648,7 +703,9 @@ groups:
         renders: diagnostic_settings.<key>.logs[].category / diagnosticSettings[].logCategoriesAndGroups[].category
 
       - id: metrics_enabled
-        ask: Should all metrics be collected?
+        ask:
+          en: "Should all metrics be collected?"
+          de: "Sollen alle Metriken erfasst werden?"
         type: bool
         plain:
           en: "Usage and performance figures are {value}."

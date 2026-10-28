@@ -27,12 +27,14 @@ groups:
     title: Placement
     questions:
       - id: environments
-        ask: Which stages is this deployed to?
+        ask:
+          en: "Which stages is this deployed to?"
+          de: "In welche Stufen wird das ausgerollt?"
         type: list
         plain:
           en: "Deployed in the stages {value}."
           de: "Wird in den Stufen {value} ausgerollt."
-        values: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
+        accepts: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
         required: true
         from_context: true
         why: >
@@ -41,9 +43,11 @@ groups:
         renders: the stage file the vault reference comes from
 
       - id: key_vault
-        ask: In which vault should the secret live?
-        type: ref
-        ref: key_vault
+        ask:
+          en: "In which vault should the secret live?"
+          de: "In welchem Vault soll das Secret liegen?"
+        type: string
+        accepts: { ref: key_vault }
         plain:
           en: "The secret is kept in the vault {value}."
           de: "Das Geheimnis liegt im Tresor {value}."
@@ -61,7 +65,9 @@ groups:
     title: Identity and access
     questions:
       - id: role_assignments
-        ask: Who needs which role on this secret?
+        ask:
+          en: "Who needs which role on this secret?"
+          de: "Wer braucht welche Rolle auf diesem Secret?"
         type: list
         plain:
           en: "Access rights on the secret granted to: {value}."
@@ -83,7 +89,9 @@ groups:
     title: The secret
     questions:
       - id: value_source
-        ask: Where does the secret's value come from?
+        ask:
+          en: "Where does the secret's value come from?"
+          de: "Woher kommt der Wert des Secrets?"
         type: enum
         plain:
           en: "The secret's value {value}."
@@ -91,7 +99,7 @@ groups:
         plain_values:
           placeholder: { en: "is entered afterwards, by hand or by the application - the template only creates the empty slot", de: "wird danach von Hand oder von der Anwendung eingetragen, die Vorlage legt nur den leeren Platz an" }
           secure_input: { en: "is handed to the deployment as a protected input and never appears in the code", de: "wird dem Ausrollen als geschützte Eingabe übergeben und steht nie im Code" }
-        values: [placeholder, secure_input]
+        accepts: [placeholder, secure_input]
         default: placeholder
         resolved_by: interview
         topic: security
@@ -111,7 +119,9 @@ groups:
           with @onlyIfNotExists(); secure_input: value_wo + value_wo_version / a @secure() param to the module
 
       - id: content_type
-        ask: What kind of value will it hold?
+        ask:
+          en: "What kind of value will it hold?"
+          de: "Welche Art von Wert wird es enthalten?"
         type: string
         plain:
           en: "The secret is labelled as {value}."
@@ -127,7 +137,9 @@ groups:
         renders: content_type / contentType
 
       - id: expiry_days
-        ask: After how many days does the secret expire?
+        ask:
+          en: "After how many days does the secret expire?"
+          de: "Nach wie vielen Tagen läuft das Secret ab?"
         type: int
         plain:
           en: "The first version of the secret expires after {value} days."

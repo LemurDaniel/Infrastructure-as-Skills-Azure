@@ -8,15 +8,15 @@ interview questions with an ad-hoc script loses the rules that decide whether th
 is the one shortcut that keeps them. For the deployment set (always) and every set given:
 
   1. Interview questions (`resolved_by: interview`), by topic: id, type, ask, the values
-     with their customer wording in the chosen language, default, required, depends_on,
-     confirm_in, and `forced_when` in full.
-  2. Every other question a run must act on: `forced_when`, `derived_from`, `confirm_in`,
+     with their customer wording in the chosen language, default, required, depends_on
+     and `forced_when` in full.
+  2. Every other question a run must act on: `forced_when`, `derived_from`,
      `non_production_default` or `required` - one entry each, never asked, but each one a
      consequence to apply, an open item or a Phase 4 row.
   3. A resource set's boundaries: what it does not create, said out loud rather than
      improvised.
 
-A question with `options_from` also prints the newest generally available entries of
+A question with `accepts: { catalogue: ... }` also prints the newest generally available entries of
 that catalogue (the Foundry models), so the options come from it and not from memory.
 
 `why` is left out; `--why <id>` prints it for the questions named, when a default must be
@@ -40,7 +40,7 @@ PLUGIN = os.path.abspath(os.path.join(HERE, '..', '..', '..'))
 DEPLOYMENT_SET = os.path.abspath(os.path.join(HERE, '..', 'questions', 'deployment.yaml'))
 RESOURCES = os.path.join(PLUGIN, 'resources')
 TOPICS = ['platform', 'network', 'security', 'resilience', 'data', 'application']
-ACTED_ON = ['forced_when', 'derived_from', 'confirm_in', 'non_production_default', 'required']
+ACTED_ON = ['forced_when', 'derived_from', 'non_production_default', 'required']
 
 
 def resolve(arg):
@@ -72,27 +72,31 @@ def wording(entry, language):
 
 def values_line(q, language):
     labels = q.get('plain_values') or {}
-    if q.get('values') is not None:
+    accepts = q.get('accepts')
+    if isinstance(accepts, list):
         return '; '.join(
             f"{v} = {flat(wording(labels.get(v, labels.get(str(v), '')), language))}".rstrip(' =')
-            for v in q['values'])
+            for v in accepts)
+    if isinstance(accepts, dict) and accepts.get('ref'):
+        return f"a reference to a {accepts['ref']}"
     if q.get('offer'):
         return '; '.join(f"{k} = {flat(wording(v, language))}" for k, v in q['offer'].items())
     return ''
 
 
 def catalogue_lines(set_path, q, per_family=6):
-    """An `options_from` catalogue as the interview offers it: per kind, one line per
+    """An `accepts` catalogue as the interview offers it: per kind, one line per
     family (the catalogue's `format`, most models first) with the deployment types it
     comes in, then its newest generally available models, one version each."""
     import yaml
-    src = os.path.join(PLUGIN, os.path.dirname(set_path), str(q['options_from']))
+    name = q['accepts']['catalogue']
+    src = os.path.join(PLUGIN, os.path.dirname(set_path), str(name))
     try:
         with open(src, encoding='utf-8') as f:
             cat = yaml.safe_load(f) or {}
     except OSError:
-        return [f"   options_from: {q['options_from']} - missing; offer no model, the question stays open"]
-    lines = [f"   options_from: {q['options_from']} (retrieved {cat.get('retrieved')}) - offer only these, never one from memory"]
+        return [f"   catalogue: {name} - missing; offer no model, the question stays open"]
+    lines = [f"   catalogue: {name} (retrieved {cat.get('retrieved')}) - offer only these, never one from memory"]
     families = {}
     for m in cat.get('models') or []:
         if m.get('lifecycle') != 'GenerallyAvailable':
@@ -136,17 +140,15 @@ def digest(name, doc, language, why_ids, out):
             if q.get('required'):
                 head += '  required'
             out.append(head)
-            out.append(f"   ask: {flat(q.get('ask', ''))}")
+            out.append(f"   ask: {flat(wording(q.get('ask', ''), language))}")
             vals = values_line(q, language)
             if vals:
                 out.append(f"   values: {vals}")
             if q.get('depends_on'):
                 out.append(f"   only if: {condition(q['depends_on'])}")
-            if q.get('confirm_in'):
-                out.append(f"   confirm_in: {q['confirm_in']}")
             if q.get('forced_when'):
                 out.append(f"   forced_when: {flat(q['forced_when'])}")
-            if q.get('options_from'):
+            if isinstance(q.get('accepts'), dict) and q['accepts'].get('catalogue'):
                 out.extend(catalogue_lines(name, q))
             if q['id'] in why_ids:
                 out.append(f"   why: {flat(q.get('why', ''))}")
@@ -162,14 +164,12 @@ def digest(name, doc, language, why_ids, out):
                 parts.append(f"derived_from {d.get('question')} {d.get('map')}")
             if 'non_production_default' in q:
                 parts.append(f"non_production_default={q['non_production_default']}")
-            if q.get('confirm_in'):
-                parts.append(f"confirm_in={q['confirm_in']}")
             if q.get('depends_on'):
                 parts.append(f"only if {condition(q['depends_on'])}")
             out.append('  ' + '  '.join(parts))
             if q.get('forced_when'):
                 out.append(f"   forced_when: {flat(q['forced_when'])}")
-            if q.get('options_from'):
+            if isinstance(q.get('accepts'), dict) and q['accepts'].get('catalogue'):
                 out.extend(catalogue_lines(name, q))
             if q['id'] in why_ids:
                 out.append(f"   why: {flat(q.get('why', ''))}")

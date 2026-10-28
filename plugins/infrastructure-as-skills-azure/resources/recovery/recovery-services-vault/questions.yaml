@@ -24,12 +24,14 @@ groups:
     title: Placement
     questions:
       - id: environments
-        ask: Which stages is this deployed to?
+        ask:
+          en: "Which stages is this deployed to?"
+          de: "In welche Stufen wird das ausgerollt?"
         type: list
         plain:
           en: "Deployed in the stages {value}."
           de: "Wird in den Stufen {value} ausgerollt."
-        values: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
+        accepts: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
         required: true
         from_context: true
         why: >
@@ -40,7 +42,9 @@ groups:
           one
 
       - id: location
-        ask: Which Azure region?
+        ask:
+          en: "Which Azure region?"
+          de: "Welche Azure-Region?"
         type: string
         plain:
           en: "Runs in the Azure region {value}."
@@ -54,12 +58,14 @@ groups:
         renders: location
 
       - id: resource_group_name
-        ask: Which resource group?
-        type: ref
+        ask:
+          en: "Which resource group?"
+          de: "Welche Ressourcengruppe?"
+        type: string
         plain:
           en: "Placed in the resource group {value}."
           de: "Liegt in der Ressourcengruppe {value}."
-        ref: resource_group
+        accepts: { ref: resource_group }
         required: true
         from_context: true
         per_environment: true
@@ -74,7 +80,9 @@ groups:
     title: The vault
     questions:
       - id: storage_redundancy
-        ask: How many copies of the backups are kept, and where?
+        ask:
+          en: "How many copies of the backups are kept, and where?"
+          de: "Wie viele Kopien der Sicherungen werden aufbewahrt, und wo?"
         type: enum
         plain:
           en: "The backups are kept {value}."
@@ -83,7 +91,7 @@ groups:
           LocallyRedundant: { en: "in one datacenter, three times", de: dreifach in einem Rechenzentrum }
           ZoneRedundant: { en: in three datacenters of the region, de: in drei Rechenzentren der Region }
           GeoRedundant: { en: also in a second region, de: zusätzlich in einer zweiten Region }
-        values: [LocallyRedundant, ZoneRedundant, GeoRedundant]
+        accepts: [LocallyRedundant, ZoneRedundant, GeoRedundant]
         derived_from:
           question: outage_impact
           map: { tolerable: LocallyRedundant, disruptive: ZoneRedundant, critical: GeoRedundant }
@@ -100,7 +108,9 @@ groups:
         renders: storage_mode_type / redundancySettings.standardTierStorageRedundancy
 
       - id: cross_region_restore
-        ask: May a backup be restored in the second region if the first is lost?
+        ask:
+          en: "May a backup be restored in the second region if the first is lost?"
+          de: "Darf eine Sicherung in der zweiten Region wiederhergestellt werden, wenn die erste verloren geht?"
         type: bool
         plain:
           en: "Restoring in the paired region is {value}."
@@ -118,7 +128,9 @@ groups:
         renders: cross_region_restore_enabled / redundancySettings.crossRegionRestore
 
       - id: soft_delete
-        ask: Can a deleted backup be recovered, and can that be switched off?
+        ask:
+          en: "Can a deleted backup be recovered, and can that be switched off?"
+          de: "Kann eine gelöschte Sicherung wiederhergestellt werden, und lässt sich das abschalten?"
         type: enum
         plain:
           en: "Deleted backups are {value}."
@@ -127,11 +139,10 @@ groups:
           Enabled: { en: "kept for a time and recoverable, but administrators can switch that off", de: "eine Zeit lang aufbewahrt und wiederherstellbar, Administratoren können das aber abschalten" }
           AlwaysOn: { en: "kept for a time and recoverable, and nobody can switch that off", de: "eine Zeit lang aufbewahrt und wiederherstellbar, und niemand kann das abschalten" }
           Disabled: { en: deleted for good at once, de: sofort endgültig gelöscht }
-        values: [Enabled, AlwaysOn, Disabled]
+        accepts: [Enabled, AlwaysOn, Disabled]
         derived_from:
           question: backup_isolation
           map: { operational: Enabled, isolated: AlwaysOn, immutable: AlwaysOn }
-        confirm_in: [production]
         why: >
           Soft delete keeps a deleted backup recoverable for the retention below. `Enabled`
           can be turned off by an administrator; `AlwaysOn` cannot be reverted by anyone,
@@ -143,7 +154,9 @@ groups:
           soft_delete_enabled / softDeleteSettings.softDeleteState (`AlwaysON`)
 
       - id: soft_delete_retention_days
-        ask: How long can a deleted backup still be recovered?
+        ask:
+          en: "How long can a deleted backup still be recovered?"
+          de: "Wie lange kann eine gelöschte Sicherung noch wiederhergestellt werden?"
         type: int
         plain:
           en: "A deleted backup can be recovered for {value} days."
@@ -161,7 +174,9 @@ groups:
           Terraform, set with the soft-delete state
 
       - id: immutability
-        ask: Can a backup be changed or deleted before it expires?
+        ask:
+          en: "Can a backup be changed or deleted before it expires?"
+          de: "Kann eine Sicherung vor ihrem Ablauf geändert oder gelöscht werden?"
         type: enum
         plain:
           en: "Backups are {value}."
@@ -170,11 +185,10 @@ groups:
           Disabled: { en: ordinary - an administrator can delete them, de: "gewöhnlich: ein Administrator kann sie löschen" }
           Unlocked: { en: "protected from change, but the protection can still be turned off", de: "vor Änderung geschützt, der Schutz lässt sich aber noch abschalten" }
           Locked: { en: "protected until they expire, for everyone, for good", de: bis zum Ablauf für alle endgültig geschützt }
-        values: [Disabled, Unlocked, Locked]
+        accepts: [Disabled, Unlocked, Locked]
         derived_from:
           question: backup_isolation
           map: { operational: Disabled, isolated: Unlocked, immutable: Locked }
-        confirm_in: [production]
         non_production_default: Unlocked
         why: >
           Derived from who must not be able to destroy the copies. `Disabled` leaves the
@@ -187,7 +201,9 @@ groups:
         renders: immutability / immutabilitySettingState
 
       - id: multi_user_authorization
-        ask: Must a second person from another team approve deleting backups?
+        ask:
+          en: "Must a second person from another team approve deleting backups?"
+          de: "Muss eine zweite Person aus einem anderen Team dem Löschen von Sicherungen zustimmen?"
         type: bool
         plain:
           en: "Deleting backups {value}."
@@ -198,7 +214,6 @@ groups:
         derived_from:
           question: backup_isolation
           map: { operational: false, isolated: true, immutable: true }
-        confirm_in: [production]
         non_production_default: false
         why: >
           A Resource Guard in a different subscription owned by a security team: a critical
@@ -210,12 +225,14 @@ groups:
           resourceGuardOperationRequests
 
       - id: resource_guard
-        ask: Which Resource Guard protects the vault?
-        type: ref
+        ask:
+          en: "Which Resource Guard protects the vault?"
+          de: "Welcher Resource Guard schützt den Vault?"
+        type: string
         plain:
           en: "The approving guard is {value}."
           de: "Die freigebende Schutzinstanz ist {value}."
-        ref: resource_guard
+        accepts: { ref: resource_guard }
         required: true
         depends_on: { question: multi_user_authorization, equals: true }
         per_environment: true
@@ -226,7 +243,9 @@ groups:
         renders: resource_guard_id / resourceGuardOperationRequests
 
       - id: job_failure_alerts
-        ask: Should a failed backup raise an alert?
+        ask:
+          en: "Should a failed backup raise an alert?"
+          de: "Soll eine fehlgeschlagene Sicherung einen Alert auslösen?"
         type: bool
         plain:
           en: "A failed backup {value}."
@@ -246,7 +265,9 @@ groups:
     title: What is protected
     questions:
       - id: protected_resources
-        ask: Which machines or file shares should the vault back up?
+        ask:
+          en: "Which machines or file shares should the vault back up?"
+          de: "Welche Maschinen oder Dateifreigaben soll der Vault sichern?"
         type: list
         plain:
           en: "Backed up: {value} (empty: nothing yet)."
@@ -259,7 +280,9 @@ groups:
         renders: backup_protected_vm, backup_protected_file_share / protectedItems
 
       - id: backup_schedule
-        ask: How often should a backup be taken?
+        ask:
+          en: "How often should a backup be taken?"
+          de: "Wie oft soll eine Sicherung erstellt werden?"
         type: enum
         plain:
           en: "A backup is taken {value}."
@@ -267,7 +290,7 @@ groups:
         plain_values:
           daily: { en: every day, de: täglich }
           weekly: { en: every week, de: wöchentlich }
-        values: [daily, weekly]
+        accepts: [daily, weekly]
         default: daily
         why: >
           The recovery point objective in the vault's terms. Daily is the default and what
@@ -278,7 +301,9 @@ groups:
           vm_backup_policy.<k>.frequency / backupPolicies[].properties.schedulePolicy
 
       - id: retention_days
-        ask: How long must a backup be kept?
+        ask:
+          en: "How long must a backup be kept?"
+          de: "Wie lange muss eine Sicherung aufbewahrt werden?"
         type: int
         plain:
           en: "A backup is kept for {value} days."
@@ -300,7 +325,9 @@ groups:
     title: Networking
     questions:
       - id: public_network_access
-        ask: Should this vault depart from the deployment's exposure posture?
+        ask:
+          en: "Should this vault depart from the deployment's exposure posture?"
+          de: "Soll dieser Vault von der Erreichbarkeit des Deployments abweichen?"
         type: enum
         plain:
           en: "The vault is {value}."
@@ -309,9 +336,8 @@ groups:
           disabled: { en: not reachable from the internet at all, de: aus dem Internet überhaupt nicht erreichbar }
           enabled_with_firewall: { en: reachable from the internet only from listed addresses, de: aus dem Internet nur von gelisteten Adressen erreichbar }
           enabled: { en: reachable from the internet, de: aus dem Internet erreichbar }
-        values: [disabled, enabled_with_firewall, enabled]
+        accepts: [disabled, enabled_with_firewall, enabled]
         from_deployment: network_exposure
-        confirm_in: [production]
         forced_when: >
           `network_ownership: none` (a public deployment without a network) forces
           `enabled`, recorded as forced with `network_ownership` as forced_by: the
@@ -329,13 +355,15 @@ groups:
           terraform: public_network_access_enabled (bool); bicep: publicNetworkAccess
 
       - id: private_endpoint_subnet
-        ask: Which subnet should the vault's private endpoint live in?
-        type: ref
+        ask:
+          en: "Which subnet should the vault's private endpoint live in?"
+          de: "In welchem Subnetz soll der Private Endpoint des Vault liegen?"
+        type: string
         resolved_by: derived
         plain:
           en: "Its private connection lands in subnet {value}."
           de: "Seine private Anbindung landet im Subnetz {value}."
-        ref: subnet
+        accepts: { ref: subnet }
         from_deployment: private_endpoint_subnet
         per_environment: true
         why: >
@@ -348,7 +376,9 @@ groups:
     title: Encryption
     questions:
       - id: key_management
-        ask: Platform-managed or customer-managed encryption keys?
+        ask:
+          en: "Platform-managed or customer-managed encryption keys?"
+          de: "Schlüssel von der Plattform oder vom Kunden verwaltet?"
         type: enum
         plain:
           en: "Encryption keys are {value}."
@@ -356,7 +386,7 @@ groups:
         plain_values:
           platform_managed: { en: "managed by Azure - encrypted, rotated, no effort on your side", de: "von Azure verwaltet: verschlüsselt, rotiert, kein Aufwand bei euch" }
           customer_managed: { en: "your own, held in your key vault, so you can revoke them", de: "eure eigenen in eurem Schlüsseltresor, damit ihr sie zurückziehen könnt" }
-        values: [platform_managed, customer_managed]
+        accepts: [platform_managed, customer_managed]
         from_deployment: key_management
         why: >
           Inherited: one answer per system. `customer_managed` points the vault at a key in
@@ -365,12 +395,14 @@ groups:
         renders: customerManagedKey (Bicep); a vault property in Terraform
 
       - id: cmk_key_vault_key_id
-        ask: Which Key Vault key should encrypt the vault?
-        type: ref
+        ask:
+          en: "Which Key Vault key should encrypt the vault?"
+          de: "Welcher Key-Vault-Schlüssel soll den Vault verschlüsseln?"
+        type: string
         plain:
           en: "Encrypted with your key {value}."
           de: "Verschlüsselt mit eurem Schlüssel {value}."
-        ref: key_vault_key
+        accepts: { ref: key_vault_key }
         required: true
         depends_on: { question: key_management, equals: customer_managed }
         per_environment: true
@@ -381,7 +413,9 @@ groups:
         renders: customerManagedKey.keyName + keyVaultResourceId
 
       - id: managed_identity
-        ask: Which managed identity should the vault carry?
+        ask:
+          en: "Which managed identity should the vault carry?"
+          de: "Welche Managed Identity soll der Vault tragen?"
         type: enum
         plain:
           en: "The vault has {value}."
@@ -390,7 +424,7 @@ groups:
           none: { en: no identity of its own, de: keine eigene Identität }
           system_assigned: { en: its own identity, de: eine eigene Identität }
           user_assigned: { en: a separately managed identity, de: eine separat verwaltete Identität }
-        values: [none, system_assigned, user_assigned]
+        accepts: [none, system_assigned, user_assigned]
         default: system_assigned
         forced_when: >
           `key_management: customer_managed` forces `user_assigned`, or `system_assigned`
@@ -411,7 +445,9 @@ groups:
     title: Identity and access
     questions:
       - id: role_assignments
-        ask: Who needs which role on this vault?
+        ask:
+          en: "Who needs which role on this vault?"
+          de: "Wer braucht welche Rolle auf diesem Vault?"
         type: list
         plain:
           en: "Access rights on the vault granted to: {value}."
@@ -433,13 +469,15 @@ groups:
     title: Observability
     questions:
       - id: diagnostic_workspace
-        ask: Which Log Analytics workspace should receive diagnostics?
-        type: ref
+        ask:
+          en: "Which Log Analytics workspace should receive diagnostics?"
+          de: "Welcher Log Analytics Workspace soll die Diagnosedaten erhalten?"
+        type: string
         resolved_by: derived
         plain:
           en: "Its logs go to {value}."
           de: "Seine Logs gehen in {value}."
-        ref: log_analytics_workspace
+        accepts: { ref: log_analytics_workspace }
         from_deployment: diagnostics_destination
         per_environment: true
         why: >
@@ -448,7 +486,9 @@ groups:
         renders: diagnostic_settings / diagnosticSettings
 
       - id: diagnostic_categories
-        ask: Which log categories should be collected?
+        ask:
+          en: "Which log categories should be collected?"
+          de: "Welche Log-Kategorien sollen erfasst werden?"
         type: list
         plain:
           en: "Logged: {value}."
@@ -459,7 +499,7 @@ groups:
           AddonAzureBackupAlerts: { en: alerts the service raises, de: vom Dienst ausgelöste Warnungen }
           AddonAzureBackupPolicy: { en: the backup policies in force, de: die geltenden Sicherungsrichtlinien }
           AddonAzureBackupProtectedInstance: { en: which resources are protected and in which state, de: welche Ressourcen geschützt sind und in welchem Zustand }
-        values: [CoreAzureBackup, AddonAzureBackupJobs, AddonAzureBackupAlerts, AddonAzureBackupPolicy, AddonAzureBackupProtectedInstance]
+        accepts: [CoreAzureBackup, AddonAzureBackupJobs, AddonAzureBackupAlerts, AddonAzureBackupPolicy, AddonAzureBackupProtectedInstance]
         default: [CoreAzureBackup, AddonAzureBackupJobs, AddonAzureBackupAlerts, AddonAzureBackupProtectedInstance]
         why: >
           Job results are the record that a backup ran - the one thing nobody checks until a
@@ -473,7 +513,9 @@ groups:
           diagnosticSettings[].logCategoriesAndGroups[].category
 
       - id: metrics_enabled
-        ask: Should all metrics be collected?
+        ask:
+          en: "Should all metrics be collected?"
+          de: "Sollen alle Metriken erfasst werden?"
         type: bool
         plain:
           en: "Usage and performance figures are {value}."

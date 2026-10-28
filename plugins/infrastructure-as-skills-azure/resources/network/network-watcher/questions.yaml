@@ -28,12 +28,14 @@ groups:
     title: Placement
     questions:
       - id: environments
-        ask: Which stages is this deployed to?
+        ask:
+          en: "Which stages is this deployed to?"
+          de: "In welche Stufen wird das ausgerollt?"
         type: list
         plain:
           en: "Deployed in the stages {value}."
           de: "Wird in den Stufen {value} ausgerollt."
-        values: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
+        accepts: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
         required: true
         from_context: true
         why: >
@@ -43,7 +45,9 @@ groups:
         renders: naming parameter `environment` for the flow log names; one flow log set per stage
 
       - id: location
-        ask: Which Azure region?
+        ask:
+          en: "Which Azure region?"
+          de: "Welche Azure-Region?"
         type: string
         plain:
           en: "Created in the Azure region {value}."
@@ -58,12 +62,14 @@ groups:
         renders: location; the name of the auto-created watcher
 
       - id: resource_group_name
-        ask: Which resource group?
-        type: ref
+        ask:
+          en: "Which resource group?"
+          de: "Welche Ressourcengruppe?"
+        type: string
         plain:
           en: "Placed in the resource group {value}."
           de: "Liegt in der Ressourcengruppe {value}."
-        ref: resource_group
+        accepts: { ref: resource_group }
         required: true
         from_context: true
         per_environment: true
@@ -80,7 +86,9 @@ groups:
     title: Watcher
     questions:
       - id: ownership
-        ask: Who provides the Network Watcher?
+        ask:
+          en: "Who provides the Network Watcher?"
+          de: "Wer stellt den Network Watcher bereit?"
         type: enum
         resolved_by: derived
         plain:
@@ -89,7 +97,7 @@ groups:
         plain_values:
           platform: { en: "the one Azure created for the subscription, used as it is", de: "der von Azure für die Subscription angelegte, so genutzt wie er ist" }
           deployment: { en: "created by this deployment, because automatic creation is switched off", de: "von diesem Ausrollen angelegt, weil die automatische Anlage abgeschaltet ist" }
-        values: [platform, deployment]
+        accepts: [platform, deployment]
         default: platform
         why: >
           Azure creates the watcher itself - one per region per subscription, in `NetworkWatcherRG`,
@@ -107,7 +115,9 @@ groups:
     title: Flow logs
     questions:
       - id: flow_log_targets
-        ask: Which networks should have their traffic recorded?
+        ask:
+          en: "Which networks should have their traffic recorded?"
+          de: "Bei welchen Netzen soll der Verkehr aufgezeichnet werden?"
         type: list
         plain:
           en: "Traffic is recorded for the networks {value}."
@@ -124,12 +134,14 @@ groups:
         renders: flow_logs.<k>.target_resource_id / flowLogs[].targetResourceId (one child per entry)
 
       - id: flow_log_storage_account
-        ask: Which storage account should the flow records be written to?
-        type: ref
+        ask:
+          en: "Which storage account should the flow records be written to?"
+          de: "In welches Speicherkonto sollen die Flow-Logs geschrieben werden?"
+        type: string
         plain:
           en: "The flow records are written to the storage account {value}."
           de: "Die Verkehrsaufzeichnungen landen im Speicherkonto {value}."
-        ref: storage_account
+        accepts: { ref: storage_account }
         required: true
         per_environment: true
         why: >
@@ -143,7 +155,9 @@ groups:
         renders: flow_logs.<k>.storage_account_id / flowLogs[].storageResourceId
 
       - id: retention_days
-        ask: How long should the raw flow records be kept in storage?
+        ask:
+          en: "How long should the raw flow records be kept in storage?"
+          de: "Wie lange sollen die rohen Flow-Logs im Speicher aufbewahrt werden?"
         type: int
         plain:
           en: "Raw flow records are kept for {value} days."
@@ -160,7 +174,9 @@ groups:
         renders: flow_logs.<k>.retention_policy = { days, enabled = true } / flowLogs[].retentionInDays
 
       - id: traffic_analytics
-        ask: Should the flow records be analysed into the log workspace (Traffic Analytics)?
+        ask:
+          en: "Should the flow records be analysed into the log workspace (Traffic Analytics)?"
+          de: "Sollen die Flow-Logs in den Log Analytics Workspace hinein ausgewertet werden (Traffic Analytics)?"
         type: bool
         plain:
           en: "The flow records are {value}."
@@ -178,7 +194,9 @@ groups:
         renders: flow_logs.<k>.traffic_analytics.enabled / flowLogs[].workspaceResourceId set (Bicep enables analytics by the workspace's presence)
 
       - id: traffic_analytics_interval_minutes
-        ask: How often should the flow records be analysed?
+        ask:
+          en: "How often should the flow records be analysed?"
+          de: "Wie oft sollen die Flow-Logs ausgewertet werden?"
         type: enum
         plain:
           en: "The records are analysed every {value} minutes."
@@ -186,7 +204,7 @@ groups:
         plain_values:
           60: { en: "60", de: "60" }
           10: { en: "10", de: "10" }
-        values: [60, 10]
+        accepts: [60, 10]
         default: 60
         depends_on: { question: traffic_analytics, equals: true }
         why: >
@@ -197,13 +215,15 @@ groups:
         renders: flow_logs.<k>.traffic_analytics.interval_in_minutes / flowLogs[].trafficAnalyticsInterval
 
       - id: traffic_analytics_workspace
-        ask: Which Log Analytics workspace should receive the analysis?
-        type: ref
+        ask:
+          en: "Which Log Analytics workspace should receive the analysis?"
+          de: "Welcher Log Analytics Workspace soll die Auswertung erhalten?"
+        type: string
         resolved_by: derived
         plain:
           en: "The analysis goes to {value}."
           de: "Die Auswertung geht in {value}."
-        ref: log_analytics_workspace
+        accepts: { ref: log_analytics_workspace }
         from_deployment: diagnostics_destination
         per_environment: true
         depends_on: { question: traffic_analytics, equals: true }
@@ -219,7 +239,9 @@ groups:
     title: Connection monitors
     questions:
       - id: connection_monitors
-        ask: Which connections should be tested continuously?
+        ask:
+          en: "Which connections should be tested continuously?"
+          de: "Welche Verbindungen sollen laufend getestet werden?"
         type: list
         plain:
           en: "Continuously tested connections: {value}."
@@ -241,7 +263,9 @@ groups:
     title: Access
     questions:
       - id: role_assignments
-        ask: Who needs to run diagnostics with the watcher?
+        ask:
+          en: "Who needs to run diagnostics with the watcher?"
+          de: "Wer muss mit dem Watcher Diagnosen ausführen?"
         type: list
         plain:
           en: "Diagnostic rights on the watcher granted to: {value}."

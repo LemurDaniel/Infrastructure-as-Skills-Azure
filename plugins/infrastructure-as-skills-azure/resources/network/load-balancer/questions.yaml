@@ -27,12 +27,14 @@ groups:
     title: Placement
     questions:
       - id: environments
-        ask: Which stages is this deployed to?
+        ask:
+          en: "Which stages is this deployed to?"
+          de: "In welche Stufen wird das ausgerollt?"
         type: list
         plain:
           en: "Deployed in the stages {value}."
           de: "Wird in den Stufen {value} ausgerollt."
-        values: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
+        accepts: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
         required: true
         from_context: true
         why: >
@@ -43,7 +45,9 @@ groups:
           one
 
       - id: location
-        ask: Which Azure region?
+        ask:
+          en: "Which Azure region?"
+          de: "Welche Azure-Region?"
         type: string
         plain:
           en: "Runs in the Azure region {value}."
@@ -56,12 +60,14 @@ groups:
         renders: location
 
       - id: resource_group_name
-        ask: Which resource group?
-        type: ref
+        ask:
+          en: "Which resource group?"
+          de: "Welche Ressourcengruppe?"
+        type: string
         plain:
           en: "Placed in the resource group {value}."
           de: "Liegt in der Ressourcengruppe {value}."
-        ref: resource_group
+        accepts: { ref: resource_group }
         required: true
         from_context: true
         per_environment: true
@@ -75,14 +81,16 @@ groups:
     title: The balancer
     questions:
       - id: sku
-        ask: Which balancer SKU?
+        ask:
+          en: "Which balancer SKU?"
+          de: "Welche Load-Balancer-SKU?"
         type: enum
         plain:
           en: "The balancer is the {value} SKU."
           de: "Der Load Balancer ist die SKU {value}."
         plain_values:
           Standard: { en: Standard, de: Standard }
-        values: [Standard]
+        accepts: [Standard]
         default: Standard
         why: >
           Standard is the only one: the Basic SKU was retired on 30 September 2025, and the
@@ -94,7 +102,9 @@ groups:
         renders: sku / skuName
 
       - id: zone_redundant
-        ask: Should the balancer survive the loss of one datacenter of its region?
+        ask:
+          en: "Should the balancer survive the loss of one datacenter of its region?"
+          de: "Soll der Load Balancer den Ausfall eines Rechenzentrums seiner Region überstehen?"
         type: bool
         plain:
           en: "The balancer survives the loss of a datacenter: {value}."
@@ -120,7 +130,9 @@ groups:
     title: Networking
     questions:
       - id: frontend_exposure
-        ask: On which side of the network does the balancer take traffic?
+        ask:
+          en: "On which side of the network does the balancer take traffic?"
+          de: "Auf welcher Seite des Netzes nimmt der Load Balancer Verkehr an?"
         type: enum
         plain:
           en: "The balancer takes traffic {value}."
@@ -128,9 +140,8 @@ groups:
         plain_values:
           public: { en: from the internet, de: aus dem Internet }
           private: { en: only from inside the private network, de: nur aus dem privaten Netz }
-        values: [public, private]
+        accepts: [public, private]
         default: private
-        confirm_in: [production]
         forced_when: >
           `network_exposure: public` forces `public`; `private_with_exceptions` makes this
           balancer the exception and records `public` as overridden. `network_ownership: none`
@@ -148,13 +159,15 @@ groups:
           publicIPAddressConfiguration
 
       - id: frontend_subnet
-        ask: Which subnet carries the balancer's private address?
-        type: ref
+        ask:
+          en: "Which subnet carries the balancer's private address?"
+          de: "Welches Subnetz trägt die private Adresse des Load Balancers?"
+        type: string
         resolved_by: derived
         plain:
           en: "The balancer's private address is in the subnet {value}."
           de: "Die private Adresse des Load Balancers liegt im Subnetz {value}."
-        ref: subnet
+        accepts: { ref: subnet }
         required: true
         depends_on: { question: frontend_exposure, equals: private }
         per_environment: true
@@ -166,7 +179,9 @@ groups:
         renders: frontend_ip_configurations.<k>.frontend_private_ip_subnet_resource_id / frontendIPConfigurations[].subnetResourceId
 
       - id: private_ip_allocation
-        ask: Should the private address be fixed or handed out by the network?
+        ask:
+          en: "Should the private address be fixed or handed out by the network?"
+          de: "Soll die private Adresse fest sein oder vom Netz vergeben werden?"
         type: enum
         plain:
           en: "The private address is {value}."
@@ -174,7 +189,7 @@ groups:
         plain_values:
           Static: { en: fixed, de: fest vergeben }
           Dynamic: { en: handed out by the network, de: vom Netz vergeben }
-        values: [Static, Dynamic]
+        accepts: [Static, Dynamic]
         default: Static
         depends_on: { question: frontend_exposure, equals: private }
         why: >
@@ -185,7 +200,9 @@ groups:
         renders: frontend_ip_configurations.<k>.frontend_private_ip_address_allocation / frontendIPConfigurations[].privateIPAllocationMethod (the Bicep module infers it from `privateIPAddress`)
 
       - id: private_ip_address
-        ask: Which private address does the balancer take?
+        ask:
+          en: "Which private address does the balancer take?"
+          de: "Welche private Adresse bekommt der Load Balancer?"
         type: string
         resolved_by: derived
         plain:
@@ -201,7 +218,9 @@ groups:
         renders: frontend_ip_configurations.<k>.frontend_private_ip_address / frontendIPConfigurations[].privateIPAddress
 
       - id: public_ip_zone_redundant
-        ask: Should the public address be zone-redundant?
+        ask:
+          en: "Should the public address be zone-redundant?"
+          de: "Soll die öffentliche Adresse zonenredundant sein?"
         type: bool
         plain:
           en: "The public address is zone-redundant: {value}."
@@ -217,7 +236,9 @@ groups:
         renders: public IP zones / publicIPAddressConfiguration.availabilityZones
 
       - id: backend_pools
-        ask: Which backends does the balancer serve?
+        ask:
+          en: "Which backends does the balancer serve?"
+          de: "Welche Backends bedient der Load Balancer?"
         type: list
         plain:
           en: "Backends: {value}."
@@ -232,7 +253,9 @@ groups:
         renders: backend_address_pools, backend_address_pool_addresses / backendAddressPools
 
       - id: health_probe_protocol
-        ask: How should the balancer check that a backend is healthy?
+        ask:
+          en: "How should the balancer check that a backend is healthy?"
+          de: "Wie soll der Load Balancer prüfen, ob ein Backend gesund ist?"
         type: enum
         plain:
           en: "A backend counts as healthy when {value}."
@@ -241,7 +264,7 @@ groups:
           Tcp: { en: "its port accepts a connection", de: "sein Port eine Verbindung annimmt" }
           Http: { en: "its health page answers with success over HTTP", de: "seine Statusseite per HTTP erfolgreich antwortet" }
           Https: { en: "its health page answers with success over HTTPS", de: "seine Statusseite per HTTPS erfolgreich antwortet" }
-        values: [Tcp, Http, Https]
+        accepts: [Tcp, Http, Https]
         default: Tcp
         why: >
           A TCP probe says the port is open, not that the application behind it works; an HTTP
@@ -253,7 +276,9 @@ groups:
         renders: lb_probes.<k>.protocol, request_path / probes[].protocol, requestPath
 
       - id: health_probe_interval_seconds
-        ask: How often should the balancer check each backend?
+        ask:
+          en: "How often should the balancer check each backend?"
+          de: "Wie oft soll der Load Balancer jedes Backend prüfen?"
         type: int
         plain:
           en: "Each backend is checked every {value} seconds."
@@ -267,7 +292,9 @@ groups:
         renders: lb_probes.<k>.interval_in_seconds / probes[].intervalInSeconds
 
       - id: health_probe_unhealthy_threshold
-        ask: How many failed checks take a backend out of service?
+        ask:
+          en: "How many failed checks take a backend out of service?"
+          de: "Nach wie vielen fehlgeschlagenen Prüfungen wird ein Backend aus dem Betrieb genommen?"
         type: int
         plain:
           en: "A backend is taken out after {value} failed checks."
@@ -279,7 +306,9 @@ groups:
         renders: lb_probes.<k>.number_of_probes_before_removal / probes[].numberOfProbes
 
       - id: tcp_reset
-        ask: Should the balancer reset a connection that ran into the idle timeout?
+        ask:
+          en: "Should the balancer reset a connection that ran into the idle timeout?"
+          de: "Soll der Load Balancer eine Verbindung zurücksetzen, die in das Leerlauf-Timeout gelaufen ist?"
         type: bool
         plain:
           en: "A connection that sat idle too long is {value}."
@@ -296,7 +325,9 @@ groups:
         renders: lb_rules.<k>.enable_tcp_reset / loadBalancingRules[].enableTcpReset
 
       - id: load_distribution
-        ask: Should one client keep reaching the same backend?
+        ask:
+          en: "Should one client keep reaching the same backend?"
+          de: "Soll ein Client immer dasselbe Backend erreichen?"
         type: enum
         plain:
           en: "Connections are spread {value}."
@@ -305,7 +336,7 @@ groups:
           Default: { en: "evenly, whichever backend is next", de: "gleichmäßig auf das jeweils nächste Ziel" }
           SourceIP: { en: "so that one client address keeps reaching the same backend", de: "so, dass eine Client-Adresse immer dasselbe Ziel erreicht" }
           SourceIPProtocol: { en: "so that one client address and protocol keep reaching the same backend", de: "so, dass eine Client-Adresse mit Protokoll immer dasselbe Ziel erreicht" }
-        values: [Default, SourceIP, SourceIPProtocol]
+        accepts: [Default, SourceIP, SourceIPProtocol]
         default: Default
         why: >
           The default hashes five values (addresses, ports, protocol) and spreads connections
@@ -315,7 +346,9 @@ groups:
         renders: lb_rules.<k>.load_distribution / loadBalancingRules[].loadDistribution
 
       - id: floating_ip
-        ask: Should the backends answer on the balancer's own address (floating IP)?
+        ask:
+          en: "Should the backends answer on the balancer's own address (floating IP)?"
+          de: "Sollen die Backends auf der eigenen Adresse des Load Balancers antworten (Floating IP)?"
         type: bool
         plain:
           en: "Backends answer on the balancer's own address: {value}."
@@ -331,7 +364,9 @@ groups:
         renders: lb_rules.<k>.enable_floating_ip / loadBalancingRules[].enableFloatingIP
 
       - id: rules
-        ask: Which ports does the balancer forward, and to which pool?
+        ask:
+          en: "Which ports does the balancer forward, and to which pool?"
+          de: "Welche Ports leitet der Load Balancer weiter, und an welchen Pool?"
         type: list
         plain:
           en: "Forwarded: {value}."
@@ -347,7 +382,9 @@ groups:
         renders: lb_rules / loadBalancingRules
 
       - id: inbound_nat_rules
-        ask: Should individual machines behind the balancer be reachable on their own ports from outside?
+        ask:
+          en: "Should individual machines behind the balancer be reachable on their own ports from outside?"
+          de: "Sollen einzelne Maschinen hinter dem Load Balancer von außen über eigene Ports erreichbar sein?"
         type: list
         plain:
           en: "Direct ports to single machines: {value} (none: administration goes through Bastion)."
@@ -361,7 +398,9 @@ groups:
         renders: lb_nat_rules / inboundNatRules
 
       - id: outbound_snat
-        ask: Should the balancer provide outbound internet access for its backends?
+        ask:
+          en: "Should the balancer provide outbound internet access for its backends?"
+          de: "Soll der Load Balancer seinen Backends ausgehenden Internetzugang bereitstellen?"
         type: enum
         plain:
           en: "Outbound internet access for the backends is {value}."
@@ -369,7 +408,7 @@ groups:
         plain_values:
           none: { en: "not provided by the balancer", de: "nicht über den Load Balancer" }
           outbound_rule: { en: "through an explicit outbound rule on the balancer's public address", de: "über eine ausdrückliche Ausgangsregel auf der öffentlichen Adresse des Load Balancers" }
-        values: [none, outbound_rule]
+        accepts: [none, outbound_rule]
         default: none
         depends_on: { question: frontend_exposure, equals: public }
         why: >
@@ -382,7 +421,9 @@ groups:
         renders: lb_outbound_rules and lb_rules.<k>.disable_outbound_snat / outboundRules and loadBalancingRules[].disableOutboundSnat
 
       - id: outbound_allocated_ports
-        ask: How many outbound ports should each backend get?
+        ask:
+          en: "How many outbound ports should each backend get?"
+          de: "Wie viele ausgehende Ports soll jedes Backend bekommen?"
         type: int
         plain:
           en: "Each backend gets {value} outbound ports."
@@ -401,13 +442,15 @@ groups:
     title: Observability
     questions:
       - id: diagnostic_workspace
-        ask: Which Log Analytics workspace should receive diagnostics?
-        type: ref
+        ask:
+          en: "Which Log Analytics workspace should receive diagnostics?"
+          de: "Welcher Log Analytics Workspace soll die Diagnosedaten erhalten?"
+        type: string
         resolved_by: derived
         plain:
           en: "Its metrics go to {value}."
           de: "Seine Messwerte gehen in {value}."
-        ref: log_analytics_workspace
+        accepts: { ref: log_analytics_workspace }
         from_deployment: diagnostics_destination
         per_environment: true
         why: >
@@ -417,7 +460,9 @@ groups:
         renders: diagnostic_settings / diagnosticSettings
 
       - id: metrics_enabled
-        ask: Should all metrics be collected?
+        ask:
+          en: "Should all metrics be collected?"
+          de: "Sollen alle Metriken erfasst werden?"
         type: bool
         plain:
           en: "Usage and performance figures are {value}."

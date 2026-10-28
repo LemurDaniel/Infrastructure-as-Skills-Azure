@@ -13,22 +13,24 @@ a regex cannot see - what references/question-set-format.md promises:
      groups (placement, networking, identity, security, data_protection,
      observability) in that relative order.
   3. Questions: unique ids; id, ask, type, why and renders present; a known
-     type; `values` for an enum; a default within `values` (enum) or a subset
-     of them (list); a default of the type's kind; `ref` on a ref question.
+     type; `accepts` - a list of values (required on an enum, optional on a
+     list) or `{ ref: <kind> }` (on a string or a list); a default within the
+     accepted values (enum) or a subset of them (list); a default of the type's kind.
   4. Resolution: `required`, `default`, `from_deployment` and `parameterized`
      are mutually exclusive, and a question carries one of them - a question
      with none has no answer path.
   5. References: `depends_on` names a question in the same set and, for an
      enum, a value it can take; `from_deployment` and `from_context` name a
-     question in the deployment set; `confirm_in` names environments the
-     deployment set knows; `derived_from` names an interview question in the
+     question in the deployment set; `derived_from` names an interview question in the
      deployment set and maps every one of its values to a value of this
      question's kind (and, for an enum, one of its values).
   6. `resolved_by`, where present, is interview or derived; absent means the question
      is defaulted or derived and never asked. An interview question carries a `topic`
      (platform, network, security, resilience, data, application) and no other does.
-  7. `plain` is present: a mapping of language code to one customer-language
-     line (`en` required, `{value}` optional), and `plain_values`, where
+     A question that inherits its answer (from_deployment, from_context) is never interview, and
+     is derived exactly where the deployment question it inherits from is.
+  7. `ask` and `plain` are mappings of language code to one line (`en`
+     required; `{value}` optional in `plain`), and `plain_values`, where
      present, maps every key to such a mapping and names only values the
      question can take - the decision document reads both.
   8. Stages: `per_environment` is a bool, and a question inheriting a
@@ -61,16 +63,16 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 PLUGIN = os.path.abspath(os.path.join(HERE, '..', '..', '..'))
 DEPLOYMENT_SET = os.path.join(HERE, '..', 'questions', 'deployment.yaml')
 
-TYPES = ['enum', 'bool', 'string', 'int', 'list', 'ref']
+TYPES = ['enum', 'bool', 'string', 'int', 'list']
 RESOLVED_BY = ['interview', 'derived']
 TOPICS = ['platform', 'network', 'security', 'resilience', 'data', 'application']
 REVIEW_ORDER = ['placement', 'networking', 'identity', 'security', 'data_protection', 'observability']
 RESOLUTION_FIELDS = ['required', 'default', 'from_deployment', 'parameterized', 'derived_from']
 KNOWN_FIELDS = {
-    'id', 'ask', 'type', 'values', 'default', 'required', 'parameterized', 'confirm_in',
-    'why', 'renders', 'depends_on', 'ref', 'from_deployment', 'forced_when', 'from_context',
+    'id', 'ask', 'type', 'accepts', 'default', 'required', 'parameterized',
+    'why', 'renders', 'depends_on', 'from_deployment', 'forced_when', 'from_context',
     'resolved_by', 'topic', 'plain', 'plain_values', 'derived_from', 'per_environment', 'non_production_default',
-    'offer', 'options_from',
+    'offer',
 }
 # Groups whose decisions may never be relaxed for a non-production stage.
 NO_SAVINGS_GROUPS = {'security', 'networking', 'identity', 'access', 'dns', 'compliance', 'posture', 'modules', 'subnet_policy'}
@@ -125,12 +127,21 @@ def questions_of(doc):
     return out
 
 
+def accepted(q):
+    """The values a question accepts, or None for a free value or a reference."""
+    a = q.get('accepts')
+    return a if isinstance(a, list) else None
+
+
+ACCEPTS_FORMS = ({'ref'}, {'catalogue'})
+
+
 def kind_matches(qtype, value):
     if qtype == 'bool':
         return isinstance(value, bool)
     if qtype == 'int':
         return isinstance(value, int) and not isinstance(value, bool)
-    if qtype in ('string', 'ref'):
+    if qtype == 'string':
         return isinstance(value, str)
     if qtype == 'enum':
         return isinstance(value, (str, int, bool))
@@ -228,9 +239,6 @@ def check_set(path, doc, deployment, rel):
 
     dep_ids = {q.get('id'): q for _, q in questions_of(deployment)} if deployment else {}
     dep_context = {q.get('id') for g, q in questions_of(deployment) if g == 'context'} if deployment else set()
-    env_values = []
-    if deployment and 'environment' in dep_ids:
-        env_values = dep_ids['environment'].get('values') or []
 
     for gid, q in qs:
         qid = q.get('id') or '<no id>'
@@ -250,21 +258,21 @@ def check_set(path, doc, deployment, rel):
         if qtype and qtype not in TYPES:
             err(f"{where}: type '{qtype}' is not one of {', '.join(TYPES)}")
 
-        values = q.get('values')
-        if qtype == 'enum':
-            if not isinstance(values, list) or not values:
-                err(f"{where}: an enum needs a non-empty values list")
-        elif values is not None and qtype != 'list':
-            wrn(f"{where}: values on a {qtype} question is not read; only enum and list use it")
-        if values is not None and isinstance(values, list):
+        acc = q.get('accepts')
+        values = accepted(q)
+        if acc is not None and not (isinstance(acc, list) and acc) and not (
+                isinstance(acc, dict) and set(acc) in ACCEPTS_FORMS and all(isinstance(v, str) and v for v in acc.values())):
+            err(f"{where}: accepts must be a non-empty list of values, {{ ref: <kind> }} or {{ catalogue: <file> }}")
+        elif qtype == 'enum' and values is None:
+            err(f"{where}: an enum needs accepts: [<value>, ...]")
+        elif isinstance(acc, dict) and qtype not in ('string', 'list'):
+            err(f"{where}: accepts: {{ {next(iter(acc))}: ... }} on a {qtype} question; it takes a string or a list")
+        elif values is not None and qtype not in ('enum', 'list'):
+            wrn(f"{where}: accepts on a {qtype} question is not read; only enum and list take a value list")
+        if values is not None:
             vd = sorted({str(v) for v in values if values.count(v) > 1})
             if vd:
                 err(f"{where}: duplicate value(s): {', '.join(vd)}")
-
-        if qtype == 'ref' and not q.get('ref'):
-            err(f"{where}: a ref question names what it points at (ref: subnet, log_analytics_workspace, ...)")
-        if q.get('ref') and qtype not in ('ref', 'list'):
-            wrn(f"{where}: ref on a {qtype} question; the format uses it on ref and list")
 
         # --- 4. resolution
         # `default: false` is a default; `required: false` is not a requirement.
@@ -286,11 +294,11 @@ def check_set(path, doc, deployment, rel):
             if not kind_matches(qtype, d):
                 err(f"{where}: default {d!r} is not a {qtype}")
             if qtype == 'enum' and isinstance(values, list) and d not in values:
-                err(f"{where}: default '{d}' is not in values {values}")
+                err(f"{where}: default '{d}' is not in accepts {values}")
             if qtype == 'list' and isinstance(values, list) and isinstance(d, list):
                 off = [x for x in d if x not in values]
                 if off:
-                    err(f"{where}: default item(s) not in values: {off}")
+                    err(f"{where}: default item(s) not in accepts: {off}")
 
         # --- 5. references
         dep = q.get('depends_on')
@@ -311,14 +319,14 @@ def check_set(path, doc, deployment, rel):
                     err(f"{where}: depends_on '{target}', which is not a question in this set")
                 elif cond:
                     tq = by_id[target]
-                    tv = tq.get('values')
+                    tv = accepted(tq)
                     v = dep[cond[0]]
                     if cond[0] == 'contains' and tq.get('type') != 'list':
                         err(f"{where}: depends_on contains needs a list question, but {target} is {tq.get('type')}")
                     if tq.get('type') == 'enum' and isinstance(tv, list) and v not in tv:
-                        err(f"{where}: depends_on {target} {cond[0]} '{v}', which {target} cannot take (values {tv})")
+                        err(f"{where}: depends_on {target} {cond[0]} '{v}', which {target} cannot take (accepts {tv})")
                     if cond[0] == 'contains' and isinstance(tv, list) and v not in tv:
-                        err(f"{where}: depends_on {target} contains '{v}', which {target} cannot hold (values {tv})")
+                        err(f"{where}: depends_on {target} contains '{v}', which {target} cannot hold (accepts {tv})")
                     if tq.get('type') == 'bool' and not isinstance(v, bool):
                         err(f"{where}: depends_on {target} {cond[0]} {v!r}, but {target} is a bool")
 
@@ -333,7 +341,7 @@ def check_set(path, doc, deployment, rel):
             else:
                 tq = dep_ids[fd]
                 if qtype == 'enum' and tq.get('type') == 'enum' and isinstance(values, list):
-                    tv = tq.get('values') or []
+                    tv = accepted(tq) or []
                     if set(map(str, tv)) == set(map(str, values)):
                         pass  # same vocabulary, inherited as-is
                     # different vocabularies are mapped in `why`; nothing to check mechanically
@@ -352,7 +360,7 @@ def check_set(path, doc, deployment, rel):
                 tq = dep_ids[dv['question']]
                 if tq.get('resolved_by') != 'interview':
                     err(f"{where}: derived_from '{dv['question']}', which the interview does not ask - a derivation answers an interview question; otherwise use from_deployment")
-                tv = tq.get('values') if tq.get('type') == 'enum' else None
+                tv = accepted(tq) if tq.get('type') == 'enum' else None
                 m = dv['map']
                 if not isinstance(m, dict) or not m:
                     err(f"{where}: derived_from.map must be a non-empty mapping")
@@ -368,22 +376,13 @@ def check_set(path, doc, deployment, rel):
                         if qtype and not kind_matches(qtype, v):
                             err(f"{where}: derived_from.map[{k!r}] = {v!r} is not a {qtype}")
                         if qtype == 'enum' and isinstance(values, list) and v not in values:
-                            err(f"{where}: derived_from.map[{k!r}] = '{v}' is not in values {values}")
+                            err(f"{where}: derived_from.map[{k!r}] = '{v}' is not in accepts {values}")
 
         if q.get('from_context'):
             if scope == 'deployment':
                 err(f"{where}: from_context inside the deployment set")
             elif deployment is not None and qid not in dep_context:
                 err(f"{where}: from_context, but the deployment set's context group has no '{qid}'")
-
-        ci = q.get('confirm_in')
-        if ci is not None:
-            if not isinstance(ci, list) or not ci:
-                err(f"{where}: confirm_in must be a non-empty list of environments")
-            elif env_values:
-                off = [e for e in ci if e not in env_values]
-                if off:
-                    err(f"{where}: confirm_in names environment(s) the deployment set does not know: {off}")
 
         # --- 8. stages
         pe = q.get('per_environment')
@@ -401,22 +400,24 @@ def check_set(path, doc, deployment, rel):
             if qtype and not kind_matches(qtype, npd):
                 err(f"{where}: non_production_default {npd!r} is not a {qtype}")
             if qtype == 'enum' and isinstance(values, list) and npd not in values:
-                err(f"{where}: non_production_default '{npd}' is not in values {values}")
+                err(f"{where}: non_production_default '{npd}' is not in accepts {values}")
             if pe:
                 err(f"{where}: non_production_default on a per_environment question - the stage file carries the value, not a default")
 
-        # --- 7. plain
-        pl = q.get('plain')
-        if pl is None:
-            err(f"{where}: plain is missing - the one customer-language line the decision document reads")
-        elif not isinstance(pl, dict) or not isinstance(pl.get('en'), str) or not pl['en'].strip():
-            err(f"{where}: plain must be a mapping with at least en: <one line>")
-        else:
-            for lang, text in pl.items():
-                if not re.match(r'^[a-z]{2}$', str(lang)):
-                    err(f"{where}: plain.{lang} is not a two-letter language code")
-                elif not isinstance(text, str) or '\n' in text.strip():
-                    err(f"{where}: plain.{lang} must be one line")
+        # --- 7. ask and plain: one line per language, en required
+        for field in ('ask', 'plain'):
+            pl = q.get(field)
+            if pl is None:
+                if field == 'plain':
+                    err(f"{where}: plain is missing - the one customer-language line the decision document reads")
+            elif not isinstance(pl, dict) or not isinstance(pl.get('en'), str) or not pl['en'].strip():
+                err(f"{where}: {field} must be a mapping with at least en: <one line>")
+            else:
+                for lang, text in pl.items():
+                    if not re.match(r'^[a-z]{2}$', str(lang)):
+                        err(f"{where}: {field}.{lang} is not a two-letter language code")
+                    elif not isinstance(text, str) or '\n' in text.strip():
+                        err(f"{where}: {field}.{lang} must be one line")
         offer = q.get('offer')
         if offer is not None:
             if qtype == 'enum':
@@ -435,11 +436,11 @@ def check_set(path, doc, deployment, rel):
                 if len(offer) > room:
                     err(f"{where}: offer holds {len(offer)} options; a question shows four"
                         + (", and one of them is the empty answer" if qtype == 'list' else ''))
-        src = q.get('options_from')
+        src = acc.get('catalogue') if isinstance(acc, dict) else None
         if src is not None:
             full = os.path.join(os.path.dirname(path), str(src))
             if not os.path.isfile(full):
-                err(f"{where}: options_from '{src}' does not exist beside the set")
+                err(f"{where}: accepts catalogue '{src}' does not exist beside the set")
             else:
                 try:
                     import yaml
@@ -447,10 +448,10 @@ def check_set(path, doc, deployment, rel):
                         cat = yaml.safe_load(f)
                 except Exception as e:
                     cat = None
-                    err(f"{where}: options_from '{src}' does not parse: {e}")
+                    err(f"{where}: accepts catalogue '{src}' does not parse: {e}")
                 if cat is not None and (not isinstance(cat, dict) or not cat.get('retrieved')
                                         or not isinstance(cat.get('models'), list) or not cat['models']):
-                    err(f"{where}: options_from '{src}' needs retrieved: <date> and a non-empty models list")
+                    err(f"{where}: accepts catalogue '{src}' needs retrieved: <date> and a non-empty models list")
         pv = q.get('plain_values')
         if pv is not None:
             if not isinstance(pv, dict) or not pv:
@@ -469,6 +470,17 @@ def check_set(path, doc, deployment, rel):
         rb = q.get('resolved_by')
         if rb is not None and rb not in RESOLVED_BY:
             err(f"{where}: resolved_by '{rb}' is not one of {', '.join(RESOLVED_BY)}")
+        # a question that inherits its answer is never asked again; it repeats `derived` from its source
+        if (fd is not None or q.get('from_context')) and rb == 'interview':
+            err(f"{where}: a question that inherits its answer (from_deployment, from_context) "
+                f"is never `interview` - the deployment set asks it once")
+        if fd is not None and deployment is not None and fd in dep_ids:
+            src = dep_ids[fd].get('resolved_by')
+            if src == 'derived' and rb != 'derived':
+                err(f"{where}: from_deployment '{fd}' is `derived`, so this one is too - "
+                    f"an open value goes to the platform team")
+            elif src != 'derived' and rb == 'derived':
+                err(f"{where}: `derived`, but from_deployment '{fd}' is not")
         # --- 6b. topic: the heading an interview question stands under in the batch
         tp = q.get('topic')
         if rb == 'interview' and tp is None:

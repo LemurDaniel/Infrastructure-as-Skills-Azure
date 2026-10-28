@@ -26,12 +26,14 @@ groups:
     title: Placement
     questions:
       - id: environments
-        ask: Which stages is this deployed to?
+        ask:
+          en: "Which stages is this deployed to?"
+          de: "In welche Stufen wird das ausgerollt?"
         type: list
         plain:
           en: "Deployed in the stages {value}."
           de: "Wird in den Stufen {value} ausgerollt."
-        values: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
+        accepts: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
         required: true
         from_context: true
         why: >
@@ -41,7 +43,9 @@ groups:
         renders: naming parameter `environment`; the profile is rendered per stage over that stage's endpoints
 
       - id: location
-        ask: Which Azure region?
+        ask:
+          en: "Which Azure region?"
+          de: "Welche Azure-Region?"
         type: string
         plain:
           en: "The profile is global; the DNS answers come from Traffic Manager's name servers worldwide."
@@ -54,12 +58,14 @@ groups:
         renders: location = "global" (Bicep; the Terraform module has no location input)
 
       - id: resource_group_name
-        ask: Which resource group?
-        type: ref
+        ask:
+          en: "Which resource group?"
+          de: "Welche Ressourcengruppe?"
+        type: string
         plain:
           en: "Placed in the resource group {value}."
           de: "Liegt in der Ressourcengruppe {value}."
-        ref: resource_group
+        accepts: { ref: resource_group }
         required: true
         from_context: true
         per_environment: true
@@ -73,7 +79,9 @@ groups:
     title: Profile
     questions:
       - id: traffic_goal
-        ask: What should the steering achieve - send everyone to one place and switch to a standby when it fails, send each user to the closest place, split the users across places, or route by the user's country?
+        ask:
+          en: "What should the steering achieve - send everyone to one place and switch to a standby when it fails, send each user to the closest place, split the users across places, or route by the user's country?"
+          de: "Was soll die Steuerung erreichen - alle an einen Ort schicken und bei einem Ausfall auf eine Reserve umschalten, jeden Benutzer an den nächstgelegenen Ort schicken, die Benutzer auf mehrere Orte aufteilen, oder nach dem Land des Benutzers leiten?"
         type: enum
         resolved_by: interview
         topic: network
@@ -85,9 +93,8 @@ groups:
           closest: { en: "each to the site that answers them fastest", de: "jeweils zu dem Standort, der ihnen am schnellsten antwortet" }
           split: { en: "across the sites in fixed shares", de: "in festen Anteilen auf die Standorte" }
           by_region: { en: "by the country or region they come from", de: "nach dem Land oder der Region, aus der sie kommen" }
-        values: [failover, closest, split, by_region]
+        accepts: [failover, closest, split, by_region]
         default: failover
-        confirm_in: [production]
         why: >
           The one question only the customer can answer, in their words, and it decides the
           routing method below. `failover` is the usual reason to have a profile at all - a
@@ -99,7 +106,9 @@ groups:
         renders: pre-answers routing_method; recorded so the review reads the intent, not the method
 
       - id: routing_method
-        ask: Which routing method should the profile use?
+        ask:
+          en: "Which routing method should the profile use?"
+          de: "Welche Routing-Methode soll das Profil verwenden?"
         type: enum
         plain:
           en: "The routing method is {value}."
@@ -111,7 +120,7 @@ groups:
           Geographic: { en: "Geographic: by the user's geographic origin", de: "Geographic: nach der geografischen Herkunft des Nutzers" }
           MultiValue: { en: "MultiValue: several healthy addresses in one answer", de: "MultiValue: mehrere gesunde Adressen in einer Antwort" }
           Subnet: { en: "Subnet: by the user's source address range", de: "Subnet: nach dem Quelladressbereich des Nutzers" }
-        values: [Priority, Performance, Weighted, Geographic, MultiValue, Subnet]
+        accepts: [Priority, Performance, Weighted, Geographic, MultiValue, Subnet]
         default: Priority
         forced_when: >
           `traffic_goal` pre-answers it - failover: Priority, closest: Performance, split: Weighted,
@@ -126,7 +135,9 @@ groups:
         renders: traffic_routing_method / trafficRoutingMethod
 
       - id: relative_dns_name
-        ask: Which name should the profile have under trafficmanager.net?
+        ask:
+          en: "Which name should the profile have under trafficmanager.net?"
+          de: "Welchen Namen soll das Profil unter trafficmanager.net haben?"
         type: string
         plain:
           en: "The profile answers at {value}.trafficmanager.net (empty: the resource name)."
@@ -141,7 +152,9 @@ groups:
         renders: dns_config.relative_name / relativeName
 
       - id: dns_ttl_seconds
-        ask: How long may clients cache the profile's answer?
+        ask:
+          en: "How long may clients cache the profile's answer?"
+          de: "Wie lange dürfen Clients die Antwort des Profils zwischenspeichern?"
         type: int
         plain:
           en: "Clients may keep an answer for {value} seconds before asking again."
@@ -156,7 +169,9 @@ groups:
         renders: dns_config.ttl / ttl
 
       - id: profile_status
-        ask: Should the profile answer queries?
+        ask:
+          en: "Should the profile answer queries?"
+          de: "Soll das Profil Anfragen beantworten?"
         type: enum
         plain:
           en: "The profile is {value}."
@@ -164,7 +179,7 @@ groups:
         plain_values:
           Enabled: { en: "active and answering", de: "aktiv und antwortet" }
           Disabled: { en: "switched off - the name resolves to nothing", de: "abgeschaltet, der Name löst zu nichts auf" }
-        values: [Enabled, Disabled]
+        accepts: [Enabled, Disabled]
         default: Enabled
         why: >
           `Disabled` exists for a prepared profile whose DNS record is not yet pointed at it, or
@@ -174,7 +189,9 @@ groups:
         renders: profile_status / profileStatus
 
       - id: traffic_view
-        ask: Should Traffic Manager record where the users come from and how fast each endpoint answers them (Traffic View)?
+        ask:
+          en: "Should Traffic Manager record where the users come from and how fast each endpoint answers them (Traffic View)?"
+          de: "Soll Traffic Manager aufzeichnen, woher die Benutzer kommen und wie schnell jeder Endpoint ihnen antwortet (Traffic View)?"
         type: bool
         plain:
           en: "A map of user locations and endpoint latencies is {value}."
@@ -190,7 +207,9 @@ groups:
         renders: traffic_view_enrollment_status / trafficViewEnrollmentStatus
 
       - id: max_return
-        ask: How many healthy addresses should one answer contain?
+        ask:
+          en: "How many healthy addresses should one answer contain?"
+          de: "Wie viele gesunde Adressen soll eine Antwort enthalten?"
         type: int
         plain:
           en: "An answer lists up to {value} healthy addresses."
@@ -208,7 +227,9 @@ groups:
     title: Health monitoring
     questions:
       - id: monitor_protocol
-        ask: How should the endpoints be probed?
+        ask:
+          en: "How should the endpoints be probed?"
+          de: "Wie sollen die Endpoints geprüft werden?"
         type: enum
         plain:
           en: "Endpoints are checked over {value}."
@@ -217,7 +238,7 @@ groups:
           HTTPS: { en: "HTTPS, with the certificate checked", de: "HTTPS, mit Zertifikatsprüfung" }
           HTTP: { en: "plain HTTP", de: "unverschlüsseltem HTTP" }
           TCP: { en: "a TCP connection only, without a request", de: "nur einem TCP-Verbindungsaufbau, ohne Anfrage" }
-        values: [HTTPS, HTTP, TCP]
+        accepts: [HTTPS, HTTP, TCP]
         default: HTTPS
         why: >
           HTTPS is what the users use, so a probe over it fails when they would - an expired
@@ -229,7 +250,9 @@ groups:
         renders: monitor_config.protocol / monitorConfig.protocol
 
       - id: monitor_port
-        ask: Which port should be probed?
+        ask:
+          en: "Which port should be probed?"
+          de: "Welcher Port soll geprüft werden?"
         type: int
         plain:
           en: "Probed on port {value}."
@@ -242,7 +265,9 @@ groups:
         renders: monitor_config.port / monitorConfig.port
 
       - id: monitor_path
-        ask: Which path should the probe request?
+        ask:
+          en: "Which path should the probe request?"
+          de: "Welchen Pfad soll die Prüfung abfragen?"
         type: string
         plain:
           en: "The probe requests {value}."
@@ -256,7 +281,9 @@ groups:
         renders: monitor_config.path / monitorConfig.path
 
       - id: expected_status_codes
-        ask: Which response codes count as healthy?
+        ask:
+          en: "Which response codes count as healthy?"
+          de: "Welche Antwortcodes gelten als gesund?"
         type: list
         plain:
           en: "Healthy means a response in {value}."
@@ -269,7 +296,9 @@ groups:
         renders: monitor_config.expected_status_code_ranges = [{ min, max }] / monitorConfig.expectedStatusCodeRanges
 
       - id: probe_profile
-        ask: How quickly should a failed endpoint be taken out of rotation?
+        ask:
+          en: "How quickly should a failed endpoint be taken out of rotation?"
+          de: "Wie schnell soll ein ausgefallener Endpoint aus der Rotation genommen werden?"
         type: enum
         plain:
           en: "A failed site is taken out {value}."
@@ -277,7 +306,7 @@ groups:
         plain_values:
           standard: { en: "within about one and a half minutes (a probe every 30 seconds, three failures)", de: "innerhalb von etwa anderthalb Minuten (eine Prüfung alle 30 Sekunden, drei Fehlschläge)" }
           fast: { en: "within about half a minute (a probe every 10 seconds, three failures), at a higher probe charge", de: "innerhalb von etwa einer halben Minute (eine Prüfung alle 10 Sekunden, drei Fehlschläge), gegen höhere Prüfgebühr" }
-        values: [standard, fast]
+        accepts: [standard, fast]
         derived_from:
           question: outage_impact
           map: { tolerable: standard, disruptive: standard, critical: fast }
@@ -296,7 +325,9 @@ groups:
     title: Endpoints
     questions:
       - id: endpoints
-        ask: Which sites should the profile steer to, and in which order or shares?
+        ask:
+          en: "Which sites should the profile steer to, and in which order or shares?"
+          de: "Zu welchen Standorten soll das Profil leiten, und in welcher Reihenfolge oder mit welchen Anteilen?"
         type: list
         plain:
           en: "Sites: {value}."
@@ -319,7 +350,9 @@ groups:
     title: Access
     questions:
       - id: role_assignments
-        ask: Who needs to operate the profile?
+        ask:
+          en: "Who needs to operate the profile?"
+          de: "Wer muss das Profil betreiben?"
         type: list
         plain:
           en: "Operating rights on the profile granted to: {value}."
@@ -338,13 +371,15 @@ groups:
     title: Observability
     questions:
       - id: diagnostic_workspace
-        ask: Which Log Analytics workspace should receive diagnostics?
-        type: ref
+        ask:
+          en: "Which Log Analytics workspace should receive diagnostics?"
+          de: "Welcher Log Analytics Workspace soll die Diagnosedaten erhalten?"
+        type: string
         resolved_by: derived
         plain:
           en: "Its logs go to {value}."
           de: "Seine Logs gehen in {value}."
-        ref: log_analytics_workspace
+        accepts: { ref: log_analytics_workspace }
         from_deployment: diagnostics_destination
         per_environment: true
         why: >
@@ -354,14 +389,16 @@ groups:
         renders: diagnostic_settings / diagnosticSettings
 
       - id: diagnostic_categories
-        ask: Which log categories should be collected?
+        ask:
+          en: "Which log categories should be collected?"
+          de: "Welche Log-Kategorien sollen erfasst werden?"
         type: list
         plain:
           en: "Logged: {value}."
           de: "Geloggt wird: {value}."
         plain_values:
           ProbeHealthStatusEvents: { en: "every change of an endpoint's health", de: "jede Änderung des Gesundheitszustands eines Endpunkts" }
-        values: [ProbeHealthStatusEvents]
+        accepts: [ProbeHealthStatusEvents]
         default: [ProbeHealthStatusEvents]
         why: >
           The type's one resource log, written only when a probe result changes, so it costs
@@ -371,7 +408,9 @@ groups:
         renders: diagnostic_settings.<key>.log_categories / diagnosticSettings[].logCategoriesAndGroups[].category
 
       - id: metrics_enabled
-        ask: Should all metrics be collected?
+        ask:
+          en: "Should all metrics be collected?"
+          de: "Sollen alle Metriken erfasst werden?"
         type: bool
         plain:
           en: "Query counts and endpoint health figures are {value}."
