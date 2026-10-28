@@ -251,7 +251,7 @@ the detail; this list says what was decided and why, so a session does not reope
   is written by `.github/scripts/update_foundry_models.py` from the EU regions' catalogue and
   refreshed monthly by `foundry-models.yml` (identity of the `production` environment, a PR
   with a patch bump when it changed); no CLI in the user's session. The question field
-  `options_from` carries it into the digest. The interview asks family first (multi-select),
+  `accepts: { catalogue: models.yaml }` carries it into the digest. The interview asks family first (multi-select),
   then per family its three newest models (multi-select, "Noch offen" first), the embedding
   model as a single choice; a family outside the residency answer is put back, never widened.
 - **Application telemetry goes to Application Insights by default** (2026-10-28, owner's call).
@@ -270,6 +270,15 @@ the detail; this list says what was decided and why, so a session does not reope
   `release.yml` runs on the push to `master` and creates tag and release itself. Rebase merge
   only (keeps the one-concern commits); `master` is protected (PR, both checks, up to date,
   linear history, admins included). No tag by hand.
+- **The question-set format, revised** (2026-10-28, branch `restructure-core`):
+  `accepts` is the one field for what an answer may be - a value list, `{ ref: <kind> }` or
+  `{ catalogue: <file> }`; `values`, `ref`, `options_from` and `type: ref` are gone, the type
+  says one or many. `ask` carries `en` and `de` like `plain`, so the interview reads the
+  customer's question instead of translating it anew each run. `confirm_in` is gone: a
+  "please confirm" in a document the customer skims changes nothing - what the customer can
+  judge is asked or derived from a requirement. A question that inherits its answer is never
+  `interview` and repeats `derived` from its source (checked). There is no engineer role:
+  open items belong to the workload owner or the platform team.
 
 ## State
 
@@ -540,6 +549,22 @@ per-family` in `check_spec.py` and the `chatbot` spec, and `references/private-d
 
 ### Interview and spec
 
+- **Wire the former `confirm_in` defaults to requirements** (2026-10-28): `confirm_in` was
+  removed - a marker in a document nobody reads changes nothing. Defaults the customer can
+  judge get a `derived_from` instead: `outage_impact` → `compute_tier`/`service_tier` (SQL,
+  MySQL, PostgreSQL), the Service Bus and Event Hubs `sku`, Redis `sku_name`;
+  `expected_load` → VM/VMSS `size`, Search `sku`, Cosmos `capacity_mode`, Event Grid
+  namespace `capacity`; `priority: protection` → AKS `defender_enabled`, SQL MI
+  `vulnerability_assessment`, VNet `ddos_protection`, DDoS `stages_with_plan`, Firewall
+  `sku_tier`/`idps_mode`/`threat_intelligence_mode`. Each with a map and the guardrail check.
+- **SQL MI `license_type` asks what only the customer knows** ("Do you already own SQL
+  Server licences …?") and is not an interview question.
+- **"engineer" in the resource sets** (2026-10-28): removed from `core/`, still in 19
+  question sets under `resources/` (`why` texts, e.g. communication-services
+  `data_location`). There is no engineer role; rephrase.
+- **The decision document prints raw values** (2026-10-28, `examples/orders-integration`):
+  `true`, `7`, `"storage-account"`, `{"development": "LRS", …}` and "Gelöschte Sicherungen
+  werden ja." - questions without `plain` / `plain_values`, or a lookup that misses.
 - **A public app "without a filter" has no sign-in** (seen 2026-10-28 in a TEMP3 run): the
   `public_audience: unfiltered` option says only the sign-in protects the app, but the App
   Service set excludes Easy Auth. Whether the application signs people in is the app's, not
@@ -903,6 +928,12 @@ regeneration from the spec loses them. All `render`:
   `~/.local/bin` itself. No Linux in WSL on the owner's machine.
 
 ## Next
+
+**On `restructure-core` first:** finish the owner's review of `question-set-format.md`
+(reached the field table through `offer`; `forced_when` is next - count how many of its 211
+uses are a plain "X = A forces B" that could be structured and checked by `check_spec.py`),
+then Stages, Requirements and the rules. Then the eval run before the merge: the format
+change touches every set and the digest.
 
 **The pattern skill** (`ideas/pattern-skill.md`): the wiring that `chatbot` and
 `chatbot-rag` carry by hand — roles between resources, the private link, the order
