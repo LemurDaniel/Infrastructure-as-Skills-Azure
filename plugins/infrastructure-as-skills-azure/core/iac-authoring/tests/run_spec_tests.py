@@ -10,7 +10,9 @@ does not have, a deployer role the spec needs and does not grant - and the check
 the message that names it. The same holds for a Foundry account in another region than
 `context.location`: valid as stated, broken by a region nobody named, a missing reason, a
 region per stage, another resource departing, or country residency. Application monitoring
-enabled with an app and no application-insights resource fails; with the component it passes. A mutation whose text is no
+enabled with an app and no application-insights resource fails; with the component it passes.
+`observability_ownership: create` without a log-analytics-workspace resource fails, and so does
+the workspace written as `{}`. A mutation whose text is no
 longer in the fixture fails the run: a test that cannot break anything proves nothing.
 
 Usage:
@@ -38,6 +40,7 @@ GRANT_RBAC = "      - { role: Role Based Access Control Administrator, scope: re
 GRANT_KV = "      - { role: Key Vault Secrets Officer, scope: key-vault, for: [resources.key-vault.security.secret_placeholders] }\n"
 LOCAL_AUTH_LINE = "  local_auth: { value: disabled, source: default }\n"
 MONITORING = "  application_monitoring: { value: enabled, source: default }\n"
+WORKSPACE = "  log-analytics-workspace:\n    cost:\n      retention_days: { value: 30, source: default }\n"
 
 # (name, find, replace, expected substring of the output; None = must pass)
 MUTATIONS = [
@@ -71,12 +74,16 @@ MUTATIONS = [
     ('subscription scope under resource-group stage isolation', MODE_DATA,
      MODE_DATA + ISOLATION_RG + SCOPE_RG.replace('resource_group,', 'subscription,'), 'deployment_scope is subscription under stage_isolation'),
     ('application monitoring with an app and no component', LOCAL_AUTH_LINE, LOCAL_AUTH_LINE + MONITORING, 'but no application-insights resource'),
+    ('a created workspace that is no resource', WORKSPACE, '',
+     'but the spec has no log-analytics-workspace resource'),
+    ('a created workspace with no decisions', WORKSPACE, "  log-analytics-workspace: {}\n",
+     'resources.log-analytics-workspace records no decision'),
 ]
 
 # The fixture with application monitoring and its component: (find, replace), both must hit.
 WITH_COMPONENT = [
     (LOCAL_AUTH_LINE, LOCAL_AUTH_LINE + MONITORING),
-    ("  log-analytics-workspace:\n", "  application-insights: {}\n  log-analytics-workspace:\n"),
+    ("  log-analytics-workspace:\n", "  application-insights:\n    networking:\n      public_network_access: { value: enabled, source: default }\n  log-analytics-workspace:\n"),
 ]
 
 # The fixture with a Foundry account in another region than context.location: valid, and

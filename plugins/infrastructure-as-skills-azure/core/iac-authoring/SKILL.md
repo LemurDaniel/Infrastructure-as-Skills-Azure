@@ -465,8 +465,10 @@ technology where the set needs it.
 
 **Read every question set before Phase 3 asks anything.** That is the set of each resource
 the request names **plus** every resource a deployment decision forces into the design: a
-private network exposure brings the virtual network and its private-endpoint subnet, a
-diagnostics or retention decision brings the Log Analytics workspace, `application_monitoring:
+private network exposure brings the virtual network and its private-endpoint subnet,
+`observability_ownership: create` brings a `log-analytics-workspace` resource whose set is
+resolved and written like any other - its access and authentication decisions live there, not
+in the deployment set - `application_monitoring:
 enabled` with an application (App Service, Function App, Container Apps) brings one
 `application-insights` component that every application's `application_insights` names - its
 connection and authentication settings and its `Monitoring Metrics Publisher` role are rendered

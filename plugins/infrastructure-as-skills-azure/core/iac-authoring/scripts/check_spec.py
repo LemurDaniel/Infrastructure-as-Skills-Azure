@@ -512,6 +512,24 @@ def main():
             errors.append(f"deployment.application_monitoring is enabled and the spec has {', '.join(apps)}, "
                           f"but no application-insights resource - the applications have nowhere to send telemetry")
 
+    # --- 9d. a resource carries its decisions ------------------------------------
+    # `observability_ownership: create` makes the workspace this deployment's; its own set
+    # (public access, local auth) is only decided when it is a resource of the spec. A resource
+    # written as `{}` whose set asks or confirms something was never interviewed - a renderer
+    # and the diagram would read the posture where the set has a default of its own.
+    if dep_value('observability_ownership') == 'create' and 'log-analytics-workspace' not in res_keys:
+        errors.append("deployment.observability_ownership is create, but the spec has no log-analytics-workspace "
+                      "resource - the workspace's own decisions (public access, local auth) were never made")
+    for rkey, rnode in (get(spec, 'resources') or {}).items():
+        groups = rnode if isinstance(rnode, dict) else {}
+        if any(isinstance(g, dict) and g for g in groups.values()):
+            continue
+        decided = sorted(qid for (owner, qid), q in questions.items() if owner == rkey.split('__')[0]
+                         and not q.get('depends_on') and (q.get('confirm_in') or q.get('resolved_by') == 'interview'))
+        if decided:
+            errors.append(f"resources.{rkey} records no decision, but its set decides {', '.join(decided)} - "
+                          f"resolve the set and write its values, defaults included")
+
     # --- 10. deployer roles ------------------------------------------------
     def filled(v):
         """A list value, or a stage map of lists, that holds at least one entry."""
