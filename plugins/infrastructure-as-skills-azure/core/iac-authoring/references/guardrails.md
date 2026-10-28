@@ -9,12 +9,17 @@ They are **not** the Azure portal's defaults. The two diverge routinely and in t
 direction — public network access, shared-key auth and anonymous blob access all ship
 enabled — so inheriting the portal's posture is how an exposure finding happens.
 
-## 0. Platform model: Azure landing zone
+## 0. Platform model: with or without a landing zone
 
-The plugin authors a **workload into an application landing zone** — one subscription
+The plugin authors a **workload**, never the platform around it. Whether such a platform
+exists is the customer's answer (`landing_zone_exists`), and the default is that it does
+not: `landing_zone: standalone` - the deployment owns its network, its private DNS zones and
+its Log Analytics workspace, and is private all the same.
+
+Where there is one, the workload goes into an **application landing zone** - one subscription
 under the *Landing zones* management group of the Cloud Adoption Framework's
 [Azure landing zone](https://learn.microsoft.com/azure/cloud-adoption-framework/ready/landing-zone/)
-architecture. The platform around it already exists and belongs to someone else:
+architecture - and the platform around it belongs to someone else:
 
 | Platform part | Where it lives | What the plugin does with it |
 |---|---|---|
@@ -24,9 +29,10 @@ architecture. The platform around it already exists and belongs to someone else:
 | Management groups, policy and role assignments | Tenant root and below | Works within them — never assigns them |
 | Subscriptions | Subscription vending | Expects one — never creates it |
 
-That is where three defaults come from, and why they hold for every resource:
-`network_ownership: create` builds a **spoke**, `private_dns_ownership: platform`, and
-`observability_ownership: reference`. "Nothing exists yet" from a user describes their
+There the platform settles three things for every resource: `network_ownership: create`
+builds a **spoke**, `private_dns_ownership: platform`, and `observability_ownership:
+reference` - the values `deployment.yaml` holds for a landing zone, which `standalone`
+pre-answers otherwise (below). "Nothing exists yet" from a user describes their
 workload, not the platform; a run does not read it as licence to build hub
 infrastructure.
 
@@ -39,7 +45,7 @@ public one) and pre-answers the network:
 | `standalone` | **No landing zone** (`landing_zone_exists: no`). Central parts exist only where a `central_*` answer says so | per decision, unless its `central_*` answer is `yes`: `network_ownership: create` (standalone, not a spoke), `private_dns_ownership: deployment` (zones and their records created here), `observability_ownership: create`; a `yes` references that one part and leaves the rest as listed |
 | `corp` | Private workload (`network_exposure: private` or `private_with_exceptions`), connected to the hub | `network_ownership: create` (spoke) |
 | `online` | Internet-facing workload (`network_exposure: public`), not connected to the hub | a firewall allowlist (§2, rung 3), `network_ownership: none` unless a private backend needs one |
-| `sandbox` | Experiments, no hub, looser policy | `network_exposure: public` allowed, `network_ownership: none`; `environment: production` is refused |
+| `sandbox` | Experiments, no hub, looser policy | `network_exposure: public` allowed, `network_ownership: none`; `environments` containing `production` is refused |
 
 A user statement overrides a pre-answer, recorded as `overridden` — a corp workload with
 one internet-facing endpoint is `private_with_exceptions`, not `online`.
@@ -78,8 +84,9 @@ the subscription, the resource group, a referenced hub or workspace — is a par
 its value in the stage's file, never a literal in the template.
 
 Decisions are the same in every stage: parity is what the stack exists for. The one
-relaxation is cost — replication and log retention take a cheaper value in every stage
-but production while `non_production_savings` is enabled — and it never touches
+relaxation is cost: a question's `non_production_default` - a smaller SKU, no zone
+redundancy, fewer instances, cheaper replication, shorter log retention - applies in every
+stage but production while `non_production_savings` is enabled, and it never touches
 security, exposure, identity, DNS or compliance, because a development stage that is less
 secure than production is where the breach happens. A customer who wants the stages
 identical says so.
@@ -108,9 +115,11 @@ Rendering per target is in [naming.md](../../iac-rendering/references/naming.md)
 
 **Tags prescribe no content.** Which tags exist is an organisation's decision, not this plugin's. Take the set from the
 repository — an existing `locals.tags`, a `var tags` in `main.bicep`, what the resources
-already carry — and apply the same one. Where the repository has none and the user has not
-said, ask once and record the answer in the spec's `context.tags`, which is then what every
-resource gets. A tag set invented by a generator is a tag set nobody queries.
+already carry — and apply the same one. What the request names goes
+into the spec's `context.tags`, which is then what every resource gets. Where neither the
+repository nor the request has one, the tags stay empty: the render passes an empty set and
+Phase 4 says so - not asked, not an open item, never invented. A tag set invented by a
+generator is a tag set nobody queries.
 
 The applying is the mechanical part: one merged local or variable, passed everywhere. A
 resource with its own tag literal drifts from its siblings the first time the set changes.
@@ -195,8 +204,8 @@ worse. So exceptions are allowed, and the cost is recording them:
 
 - The spec records the value with `source: overridden` and a comment stating the reason.
 - Generated code carries a comment at the departing attribute pointing at that reason.
-- In `production`, the exception is confirmed explicitly during the interview rather than
-  applied from a previous spec.
+- An exception in an earlier spec keeps its reason when the spec is extended, and is listed
+  again at the sign-off - never applied silently because it was there before.
 
 What is not allowed is a silent exception. If a generated resource departs from these rules
 and nothing says why, that is the defect — not the departure.
