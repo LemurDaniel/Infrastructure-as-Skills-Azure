@@ -277,7 +277,8 @@ the detail; this list says what was decided and why, so a session does not reope
   customer's question instead of translating it anew each run. `confirm_in` is gone: a
   "please confirm" in a document the customer skims changes nothing - what the customer can
   judge is asked or derived from a requirement. A question that inherits its answer is never
-  `interview` and repeats `derived` from its source (checked). There is no engineer role:
+  `interview` and repeats `derived` from its source (checked). `answer` is the one field for an
+  inherited value - `{ deployment }`, `{ context }` or `{ question, map }`. There is no engineer role:
   open items belong to the workload owner or the platform team.
 
 ## State
@@ -564,6 +565,12 @@ per-family` in `check_spec.py` and the `chatbot` spec, and `references/private-d
   does not work, since most of these questions have none and one answer path is the rule.
   Look at it together with `priority: cost`, which equals `balanced` for every knob wired
   so far.
+- **`check_spec.py` does not resolve `forced_by`** (2026-10-28): a forced value must name
+  its cause, but a typo in the key (`deployment.key_managment`) passes. Check that it names a
+  key present in the spec. `forced_when` itself stays prose: of its 211 uses about 60 are a
+  single condition and perhaps 30-40 a plain "X = A forces B"; the rest carry minimums,
+  removed options, several conditions or facts no set holds (a paired region in another
+  country) - a schema for a fifth of them would be a second mechanism, not a simpler one.
 - **SQL MI `license_type` asks what only the customer knows** ("Do you already own SQL
   Server licences …?") and is not an interview question.
 - **"engineer" in the resource sets** (2026-10-28): removed from `core/`, still in 19
@@ -937,9 +944,8 @@ regeneration from the spec loses them. All `render`:
 ## Next
 
 **On `restructure-core` first:** finish the owner's review of `question-set-format.md`
-(reached the field table through `offer`; `forced_when` is next - count how many of its 211
-uses are a plain "X = A forces B" that could be structured and checked by `check_spec.py`),
-then Stages, Requirements and the rules. Then the eval run before the merge: the format
+(done: files, answer paths, fields, types, scopes, requirements, rules, validate; left:
+`resolved_by`, topics, `plain`, Stages). Then the eval run before the merge: the format
 change touches every set and the digest.
 
 **The pattern skill** (`ideas/pattern-skill.md`): the wiring that `chatbot` and

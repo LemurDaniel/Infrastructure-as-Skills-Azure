@@ -77,8 +77,11 @@ states one. `check_question_set.py` fails on a question with none, and on one wi
 | `parameterized: true` | An input of the rendered code (Terraform `variable`, Bicep `param`), filled per stage from that stage's parameter file (`.tfvars`, `.bicepparam`) |
 | `required: true` | Nowhere: someone has to state it, or it becomes an `open:` entry |
 
-Whether a question is put to the customer is a different matter, decided by `resolved_by`
-alone.
+`depends_on` and `forced_when` are not answer paths: they apply on top of one, whatever it
+is. When another answer holds, `depends_on` drops the question altogether, and
+`forced_when` settles its value or removes some of its options - the default, the derivation
+or the customer's answer then gives way. Whether a question is put to the customer is a
+different matter again, decided by `resolved_by` alone.
 
 ## Question fields
 
