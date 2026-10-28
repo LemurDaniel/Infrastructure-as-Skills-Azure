@@ -821,3 +821,26 @@ groups:
           memory of the plan are what decides whether the plan size above was right.
           Applies to the plan and the site, which each have their own metrics.
         renders: metrics[].category = "AllMetrics" / metricCategories[].category
+
+      - id: application_insights
+        ask: Which Application Insights component should receive the app's telemetry?
+        type: ref
+        plain:
+          en: "Its application telemetry goes to {value} (empty: none)."
+          de: "Seine Anwendungstelemetrie geht an {value} (leer: keine)."
+        ref: application_insights
+        default: ""
+        per_environment: true
+        forced_when: >
+          `application_monitoring: enabled` sets it to the deployment's application-insights
+          component, recorded as forced with `application_monitoring` as forced_by
+        why: >
+          The diagnostic setting above carries what the platform sees of the app; requests,
+          exceptions and slow dependencies from inside the app go to Application Insights, and
+          the app finds its component through the `APPLICATIONINSIGHTS_CONNECTION_STRING`
+          setting. The connection string, not the instrumentation key, which is being retired.
+          Every slot gets the same setting: a slot inherits nothing from the site. Empty only
+          under `application_monitoring: disabled`.
+        renders: >
+          application_insights_connection_string (and on every slot) /
+          the APPLICATIONINSIGHTS_CONNECTION_STRING setting in configs appsettings

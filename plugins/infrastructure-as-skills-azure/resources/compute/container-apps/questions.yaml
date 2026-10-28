@@ -506,3 +506,26 @@ groups:
           Replica count, CPU, memory and request counts are what decide whether the size and
           the replica bounds above were right, and they are cheap.
         renders: metrics[].category = "AllMetrics" / metricCategories[].category
+
+      - id: application_insights
+        ask: Which Application Insights component should receive the app's telemetry?
+        type: ref
+        plain:
+          en: "Its application telemetry goes to {value} (empty: none)."
+          de: "Seine Anwendungstelemetrie geht an {value} (leer: keine)."
+        ref: application_insights
+        default: ""
+        per_environment: true
+        forced_when: >
+          `application_monitoring: enabled` sets it to the deployment's application-insights
+          component, recorded as forced with `application_monitoring` as forced_by
+        why: >
+          The environment's logs carry the containers' console output; requests, exceptions
+          and slow dependencies from inside the app go to Application Insights, and the app
+          finds its component through the `APPLICATIONINSIGHTS_CONNECTION_STRING` environment
+          variable on its container. A plain value, not a secret reference: the connection
+          string only lets the app send to the component. Empty only under
+          `application_monitoring: disabled`.
+        renders: >
+          template.containers[].env = [{ name = "APPLICATIONINSIGHTS_CONNECTION_STRING", value }] /
+          containers[].env: [ { name: 'APPLICATIONINSIGHTS_CONNECTION_STRING', value } ]

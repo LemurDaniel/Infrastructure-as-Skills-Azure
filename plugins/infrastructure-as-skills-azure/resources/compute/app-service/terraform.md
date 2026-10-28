@@ -48,6 +48,7 @@ Entra ID. The root's provider set is the union with the other modules in the dep
 | `http2_enabled` | site | `site_config.http2_enabled` | Module default `false` |
 | `diagnostic_workspace`, `diagnostic_categories`, `metrics_enabled` | site | `diagnostic_settings = { workspace = { workspace_resource_id, logs = [{ category }], metrics = [{ category = "AllMetrics" }] } }` | Per-category, not `category_group` |
 | `metrics_enabled` | plan | `diagnostic_settings` | The plan has metrics only |
+| `application_insights` | site | `application_insights_connection_string` | Becomes the `APPLICATIONINSIGHTS_CONNECTION_STRING` app setting; the component is external, the module creates none (v0.24.1). Omitted while empty |
 | `deployment.module_telemetry` | both | `enable_telemetry` | |
 | `context.tags` | both | `tags = local.tags` | |
 
@@ -149,6 +150,10 @@ module "app" {
     }
   }
 
+  # decision: app-service.observability.application_insights
+  # not-testable: app-service.observability.application_insights - the connection string is the component's output, known after apply
+  application_insights_connection_string = var.application_insights_connection_string
+
   enable_telemetry = true
   tags             = local.tags
 }
@@ -207,6 +212,7 @@ from the same variables as the site. Checked against v0.24.1 (2026-10-27).
 | `managed_identity` (forced `user_assigned`) | `deployment_slots.<name>.managed_identities = { user_assigned_resource_ids = [...] }` and the same on the site | One identity, written twice |
 | `auto_swap` | `deployment_slots.<name>.site_config.auto_swap_slot_name = "production"` | Omitted while `false` |
 | `sticky_settings` | `sticky_settings = { names = { app_setting_names = [...] } }` on the **site** | Not on the slot; the setting names, not their values |
+| `application_insights` | `deployment_slots.<name>.site_config.application_insights_connection_string` | The slot's own input; the same component as the site |
 | diagnostics | an `azapi_resource` of type `Microsoft.Insights/diagnosticSettings` with `parent_id` the slot's id | **Gap**: the slot object has no `diagnostic_settings`; same categories as the site |
 
 ```hcl
@@ -265,8 +271,10 @@ error message states the expected value in words.
 **The plan module exposes only `name` and `resource_id`.** No body reaches an output, so
 `sku`, `zone_redundant`, `instance_count` and `os_type` on the plan are not observable
 from the root; they carry `# not-testable: app-service.hosting.<key> - set through the
-plan module's <input>; the module's own tests cover the mapping`. That is 3 of the 28
-decisions. Read the call, not the plan, to check them.
+plan module's <input>; the module's own tests cover the mapping`. That is 3 of the 29
+decisions. Read the call, not the plan, to check them. The fourth is `application_insights`:
+the connection string is the component's output, unknown until apply, so the plan has no
+value to compare.
 
 ```hcl
 run "security" {
