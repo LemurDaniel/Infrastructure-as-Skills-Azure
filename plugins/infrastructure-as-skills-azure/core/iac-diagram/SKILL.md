@@ -96,8 +96,10 @@ Phase 5 says; never review silently "by looking once" and call it done.
 ### The review checklist
 
 The reviewer works through this list, in this order, and reports every hit with the cell ids.
-A hit in 1-3 or 7 is an `error` with cause `render`, always: a customer cannot read a line that
-runs through something, whatever the spec says.
+**Every hit is an `error`** - the reviewer does not grade one down to `polish`. In 1-3 and 7
+the cause is always `render`: a customer cannot read a line that runs through something,
+whatever the spec says. In 4-6 it is `spec` where the spec says it that way (an English label
+in a German spec) and `render` otherwise.
 
 1. **Trace every edge from its source to its target**, segment by segment, and for each
    segment ask what it crosses. A segment that passes through the icon, the label or the
@@ -111,7 +113,9 @@ runs through something, whatever the spec says.
    sits on a container border so that the border reads as part of the text. A label on its
    own edge's line with a white background is normal.
 4. **Text**: wrapped after single words, cut off, in the wrong language, a name that
-   disagrees with the spec (`Avm Quellen` for `AVM-Quellen`).
+   disagrees with the spec (`Avm Quellen` for `AVM-Quellen`), or a spec key or internal name
+   where the customer's word belongs (`user-assigned-identity__function` under an identity
+   instead of what it is for).
 5. **Spec fidelity**: every resource, number and range in the picture is in the spec and the
    other way round; the legend's colours match the edges.
 6. **Arrow direction** matches the call (who initiates), not the data flow.

@@ -1003,15 +1003,17 @@ found an `error` with cause `render`, the **fix agent**. A subagent cannot start
 subagent" gets no independent review, and whoever edited the picture must never be the one that
 checks. The review never shares an agent with the draft or the fix. Each finding carries a severity (`error`:
 wrong, misleading or unreadable; `polish`: only looks worse than it could) and a cause
-(`render`: the drawing; `spec`: the spec says it that way). An `error` with cause
+(`render`: the drawing; `spec`: the spec says it that way); a hit of the checklist is always
+an `error`, never graded down to `polish`. An `error` with cause
 `render` goes to the **fix agent**, which fixes it **by hand in the `.drawio`**
 the way [iac-diagram](../iac-diagram/SKILL.md) says - the affected cells by id, a
 waypoint, a geometry, a label - verifies, exports, and the review runs again. The script
 is not touched in the loop: `new_diagram.py` exists to produce the first draft cheaply,
 and the picture the customer signs off on is finished by hand. A fault the script would
 repeat on the next spec is noted in the hand-over as a plugin todo, not fixed now. Three passes, then the customer
-sees the picture as it is, with the open findings named. `polish` findings never go back;
-they go into the hand-over. **The review has ceilings**, because a reviewer always finds
+sees the picture as it is, with the open findings named. `polish` findings never start a pass:
+the fix agent, running for an `error` anyway, takes them along and fixes those that are a
+small edit of the cells they name; the rest go into the hand-over. **The review has ceilings**, because a reviewer always finds
 more: at most **8 `error` and 3 `polish` findings per pass, errors first**; the same
 fault on several cells is one finding that lists the cells; it reads the PNG and the spec
 and opens the `.drawio` only for a coordinate it needs, and never samples pixels. When the

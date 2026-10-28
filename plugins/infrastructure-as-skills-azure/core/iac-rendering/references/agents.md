@@ -83,8 +83,11 @@ application code goes into the hand-over and never to an agent: no agent may wri
 | 1: Diagram | 3 | `error` findings only | The same finding in two passes in a row *after a re-slot of the shapes* (checklist in `iac-diagram/SKILL.md`); the customer then sees the picture with the error named as open |
 | 2: Code | 3 | `error` findings, to the agent that made the part | The same message in two passes in a row |
 
-`polish` findings from the review never go back: a reviewer always finds something, so
-feeding them back means the loop never ends. They go into the hand-over. For the same
+`polish` findings never start a pass: a reviewer always finds something, so a pass for
+polish alone means the loop never ends. When the fix agent runs for an `error` anyway, it
+takes the pass's polish findings along and fixes those that are a small edit of the cells
+they name; the next pass sees them only as cells the fix touched. What is left goes into the
+hand-over. For the same
 reason the review is capped, with a ceiling per kind: **at most 8 `error` and 3 `polish`
 findings per pass**, errors first, one finding per fault even when it hits several cells, the
 PNG and the spec as its sources and the `.drawio` only for a coordinate, no pixel sampling.
@@ -151,8 +154,8 @@ again. Its two briefs carry, in addition:
   `new_diagram.py`, never the repository; the export chain to run after every round:
   `verify_diagram.py`, `export_diagram.py` (or the substitute `iac-diagram/SKILL.md`
   allows where draw.io is missing), `drawio_png.py check`, then look at the PNG itself;
-  the `polish` findings it is told not to fix, so it can say which are script faults for
-  the hand-over.
+  the pass's `polish` findings, to fix where a small edit of the named cells does it and to
+  leave otherwise - either way saying which are script faults for the hand-over.
 
 Run the agents in the background; the main agent never repeats an agent's work while it
 runs, and never starts Loop 2 before the customer's yes. The brief of a later pass names the files the fix
@@ -162,5 +165,5 @@ changed, so the test agent can filter.
 
 The main agent's closing message is the explained plan, unchanged from the order of work:
 code, tests, the signed-off diagram, pipeline, open items and which changes are service-affecting. Add the
-open findings of a loop that stopped without green, the `polish` findings of the review, and
+open findings of a loop that stopped without green, the `polish` findings left open, and
 which agents ran in how many passes.
