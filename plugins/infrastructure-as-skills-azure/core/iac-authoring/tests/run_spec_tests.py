@@ -6,8 +6,8 @@ the same spec with the split taken out (one group stays valid), split by lifecyc
 by concern, and without
 `deployer_roles` (an older spec: a warning, not an error). Then each mutation breaks one rule
 in a copy - a role that does not exist, a mode missing, a placement into a group the deployment
-does not have, a deployer role the spec needs and does not grant - and the check must fail with
-the message that names it. The same holds for a Foundry account in another region than
+does not have, a deployer role the spec needs and does not grant, a `forced_by` naming a key the spec does not
+have - and the check must fail with the message that names it. The same holds for a Foundry account in another region than
 `context.location`: valid as stated, broken by a region nobody named, a missing reason, a
 region per stage, another resource departing, or country residency. Application monitoring
 enabled with an app and no application-insights resource fails; with the component it passes.
@@ -55,6 +55,8 @@ MUTATIONS = [
     ('a name for a role that is not split off', "  resource_group_name_network:\n", "  resource_group_name_security:\n    production: rg-sec-prod-we\n  resource_group_name_network:\n", 'resource_group_name_security is stale'),
     ('a placement into a role that is not split off', 'resource_group: { value: data,', 'resource_group: { value: security,', 'names a group the deployment does not have'),
     ('a placement into a group that does not exist', 'resource_group: { value: data,', 'resource_group: { value: frontend,', 'names a group the deployment does not have'),
+    ('forced_by names a key the spec does not have', 'forced_by: deployment.address_space }', 'forced_by: deployment.adress_space }', "forced_by 'deployment.adress_space', which is neither a key in this spec"),
+    ('forced_by lists a key the spec does not have', 'resources.key-vault.identity.role_assignments,', 'resources.key-vault.identity.role_asignments,', "forced_by 'resources.key-vault.identity.role_asignments'"),
     ('a placement without its reason', ', reason: the vault is kept with the data it protects', '', 'overridden with no reason'),
     ('a lock value that does not exist', "  resource_group_lock: { value: production, source: default }\n", "  resource_group_lock: { value: forever, source: default }\n", "resource_group_lock 'forever'"),
     ('a resource lock value that does not exist', "  resource_group_lock: { value: production, source: default }\n", "  resource_group_lock: { value: production, source: default }\n  resource_lock: { value: forever, source: default }\n", "resource_lock 'forever'"),

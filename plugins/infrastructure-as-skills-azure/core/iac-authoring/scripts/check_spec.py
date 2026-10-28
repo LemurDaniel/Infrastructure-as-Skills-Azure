@@ -7,7 +7,10 @@ Read-only. Checks what the contract in references/spec.md promises:
      spec.target.
   2. Every decision value carries a known `source`. A value without one is a
      settings dump entry, not a recorded decision.
-  3. `overridden` carries a reason, `forced` carries `forced_by`, and
+  3. `overridden` carries a reason, `forced` carries `forced_by` - and where
+     that names a key (`deployment.<id>`, `resources.<key>.<group>.<id>`,
+     `context.<id>`, `wiring.<part>`), the key exists in this spec or names a
+     question of the sets - and
      `requirement` carries `derived_from: deployment.<id>`. An undocumented
      exception reads as an accident a year later; a derived value without its
      requirement cannot be explained to the customer.
@@ -214,6 +217,31 @@ def main():
     decisions = 0
     assumed = []
 
+    def names_question(key):
+        # deployment.<id> or resources.<key>.<group>.<id> naming a question of the sets,
+        # recorded in this spec or not (a default the spec leaves out still forces).
+        parts = key.split('.')
+        if parts[0] == 'deployment' and len(parts) == 2:
+            return ('deployment', parts[1]) in questions
+        if parts[0] == 'resources' and len(parts) == 4:
+            return (parts[1].split('__')[0], parts[3]) in questions
+        return False
+
+    def resolves(key):
+        # A dotted spec key, walked from the root: resources.app-service__web.identity.managed_identity.
+        # A deployment-set question of the context group is recorded under context:, so
+        # deployment.environments names context.environments.
+        if names_question(key):
+            return True
+        if key.startswith('deployment.') and resolves('context.' + key[len('deployment.'):]):
+            return True
+        node = spec
+        for part in key.split('.'):
+            if not isinstance(node, dict) or part not in node:
+                return False
+            node = node[part]
+        return True
+
     def walk(node, path):
         nonlocal decisions, stage_maps
         # A decision is a map carrying a `value`. Anything else is a container.
@@ -249,6 +277,11 @@ def main():
             elif src == 'forced':
                 if 'forced_by' not in node:
                     errors.append(f"{path} is forced with no forced_by. The chain is the point - what forced it?")
+                else:
+                    fb = node['forced_by']
+                    for key in (fb if isinstance(fb, list) else [fb]):
+                        if re.match(r'^(deployment|context|resources|wiring)\.', str(key)) and not resolves(str(key)):
+                            errors.append(f"{path} is forced_by '{key}', which is neither a key in this spec nor a question of the sets - a chain that points nowhere explains nothing")
             elif src == 'requirement':
                 if not str(node.get('derived_from', '')).startswith('deployment.'):
                     errors.append(f"{path} is a requirement-derived value with no derived_from: deployment.<id>. The customer's answer is the point - which one?")
