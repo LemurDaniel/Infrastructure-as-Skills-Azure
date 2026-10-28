@@ -468,7 +468,9 @@ the request names **plus** every resource a deployment decision forces into the 
 private network exposure brings the virtual network and its private-endpoint subnet, a
 diagnostics or retention decision brings the Log Analytics workspace, `application_monitoring:
 enabled` with an application (App Service, Function App, Container Apps) brings one
-`application-insights` component that every application's `application_insights` names, a registry or
+`application-insights` component that every application's `application_insights` names - its
+connection and authentication settings and its `Monitoring Metrics Publisher` role are rendered
+with the application, they are infrastructure, not application code - a registry or
 identity requirement brings its own resource. Work out the full resource list from the
 deployment set first, then read all of the sets in one pass. A set read after the batch, or
 after Phase 5 has begun, means its interview questions could not be asked and its defaults
