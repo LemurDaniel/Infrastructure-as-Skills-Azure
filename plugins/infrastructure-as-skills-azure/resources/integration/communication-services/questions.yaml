@@ -37,8 +37,7 @@ groups:
           en: "Deployed in the stages {value}."
           de: "Wird in den Stufen {value} ausgerollt."
         accepts: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
-        required: true
-        from_context: true
+        answer: { context: environments }
         why: >
           Drives the rendered name and the strictness of several defaults below. Nothing
           sensible can be guessed.
@@ -71,8 +70,7 @@ groups:
           en: "Placed in the resource group {value}."
           de: "Liegt in der Ressourcengruppe {value}."
         accepts: { ref: resource_group }
-        required: true
-        from_context: true
+        answer: { context: resource_group_name }
         per_environment: true
         why: >
           The resource is placed into an existing group. Creating one here would make this set
@@ -233,7 +231,7 @@ groups:
           enabled_with_firewall: { en: reachable from the internet only from listed addresses, de: aus dem Internet nur von gelisteten Adressen erreichbar }
           enabled: { en: reachable from the internet, de: aus dem Internet erreichbar }
         accepts: [disabled, enabled_with_firewall, enabled]
-        from_deployment: network_exposure
+        answer: { deployment: network_exposure }
         forced_when: >
           Without a `network_security_perimeter`, `disabled` and `enabled_with_firewall` are
           forced to `enabled` and recorded as forced with `network_security_perimeter` as
@@ -347,7 +345,7 @@ groups:
         plain_values:
           true: { en: "switched off", de: "abgeschaltet" }
           false: { en: "possible", de: "möglich" }
-        from_deployment: local_auth
+        answer: { deployment: local_auth }
         forced_when: >
           `local_auth: allowed_where_unavoidable` is named for a client SDK or a connector
           that offers no token credential - checked against the SDK before a render, because
@@ -376,7 +374,7 @@ groups:
           en: "Its logs go to {value}."
           de: "Seine Logs gehen in {value}."
         accepts: { ref: log_analytics_workspace }
-        from_deployment: diagnostics_destination
+        answer: { deployment: diagnostics_destination }
         per_environment: true
         why: >
           Inherited: one deployment, one destination. Without a diagnostic setting nobody can

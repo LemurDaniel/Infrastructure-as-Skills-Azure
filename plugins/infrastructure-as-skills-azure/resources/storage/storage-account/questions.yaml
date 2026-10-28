@@ -30,8 +30,7 @@ groups:
           en: "Deployed in the stages {value}."
           de: "Wird in den Stufen {value} ausgerollt."
         accepts: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
-        required: true
-        from_context: true
+        answer: { context: environments }
         why: >
           Drives the rendered name and the strictness of several defaults below.
           Nothing sensible can be guessed.
@@ -45,8 +44,7 @@ groups:
         plain:
           en: "Runs in the Azure region {value}."
           de: "Läuft in der Azure-Region {value}."
-        required: true
-        from_context: true
+        answer: { context: location }
         why: >
           Part of the rendered name and not inferable. Note that replication
           choice and region interact: ZRS is unavailable in regions without
@@ -62,8 +60,7 @@ groups:
           en: "Placed in the resource group {value}."
           de: "Liegt in der Ressourcengruppe {value}."
         accepts: { ref: resource_group }
-        required: true
-        from_context: true
+        answer: { context: resource_group_name }
         per_environment: true
         why: >
           The account is placed into an existing group. Creating one here would
@@ -87,7 +84,7 @@ groups:
           enabled_with_firewall: { en: "reachable from the internet only from listed addresses", de: "aus dem Internet nur von gelisteten Adressen erreichbar" }
           enabled: { en: "reachable from the internet", de: "aus dem Internet erreichbar" }
         accepts: [disabled, enabled_with_firewall, enabled]
-        from_deployment: network_exposure
+        answer: { deployment: network_exposure }
         why: >
           Asked only as a departure, because exposure is a property of the system
           and not of one account - the deployment set already answered it. The
@@ -115,7 +112,7 @@ groups:
           en: "Its private connection lands in subnet {value}."
           de: "Seine private Anbindung landet im Subnetz {value}."
         accepts: { ref: subnet }
-        from_deployment: private_endpoint_subnet
+        answer: { deployment: private_endpoint_subnet }
         per_environment: true
         why: >
           One subnet carries the deployment's private endpoints, so this is
@@ -279,7 +276,7 @@ groups:
         plain_values:
           true: { en: "possible", de: "möglich" }
           false: { en: "not possible", de: "nicht möglich" }
-        from_deployment: local_auth
+        answer: { deployment: local_auth }
         why: >
           Inherited: `local_auth: disabled` renders as `false` here. An account key
           is a bearer credential with full data-plane rights, it does not expire,
@@ -378,7 +375,7 @@ groups:
           platform_managed: { en: "managed by Azure - encrypted, rotated, no effort on your side", de: "von Azure verwaltet: verschlüsselt, rotiert, kein Aufwand bei euch" }
           customer_managed: { en: "your own, held in your key vault, so you can revoke them", de: "eure eigenen in eurem Schlüsseltresor, damit ihr sie zurückziehen könnt" }
         accepts: [platform_managed, customer_managed]
-        from_deployment: key_management
+        answer: { deployment: key_management }
         why: >
           Inherited, because a deployment where one account uses customer-managed
           keys and the next does not has a key strategy nobody can state. The
@@ -442,7 +439,7 @@ groups:
           GRS: { en: "in one datacenter plus a copy in a second region", de: "in einem Rechenzentrum plus einer Kopie in einer zweiten Region" }
           GZRS: { en: "in three datacenters of the region plus a copy in a second region", de: "in drei Rechenzentren der Region plus einer Kopie in einer zweiten Region" }
         accepts: [LRS, ZRS, GRS, GZRS]
-        derived_from:
+        answer:
           question: outage_impact
           map: { tolerable: LRS, disruptive: ZRS, critical: GZRS }
         non_production_default: LRS
@@ -478,7 +475,7 @@ groups:
           Cool: { en: "cool - cheaper to keep, a small charge per read", de: "Cool: günstiger im Aufbewahren, kleiner Aufpreis beim Lesen" }
           Cold: { en: "cold - cheapest to keep, expensive to read back", de: "Cold: am günstigsten im Aufbewahren, teuer beim Zurücklesen" }
         accepts: [Hot, Cool, Cold]
-        derived_from:
+        answer:
           question: data_access_pattern
           map: { active: Hot, occasional: Cool, archive: Cold }
         why: >
@@ -497,7 +494,7 @@ groups:
         plain:
           en: "Deleted files can be restored for {value} days (0: not at all)."
           de: "Gelöschte Dateien sind {value} Tage wiederherstellbar (0: gar nicht)."
-        derived_from:
+        answer:
           question: data_loss_tolerance
           map: { reproducible: 0, one_week: 7, one_month: 30, three_months: 90 }
         why: >
@@ -515,7 +512,7 @@ groups:
         plain:
           en: "Deleted folders can be restored for {value} days (0: not at all)."
           de: "Gelöschte Ordner sind {value} Tage wiederherstellbar (0: gar nicht)."
-        derived_from:
+        answer:
           question: data_loss_tolerance
           map: { reproducible: 0, one_week: 7, one_month: 30, three_months: 90 }
         why: >
@@ -535,7 +532,7 @@ groups:
         plain_values:
           true: { en: "kept", de: "aufgehoben" }
           false: { en: "not kept", de: "nicht aufgehoben" }
-        derived_from:
+        answer:
           question: data_loss_tolerance
           map: { reproducible: false, one_week: true, one_month: true, three_months: true }
         why: >
@@ -556,7 +553,7 @@ groups:
         plain_values:
           true: { en: "kept", de: "geführt" }
           false: { en: "not kept", de: "nicht geführt" }
-        derived_from:
+        answer:
           question: priority
           map: { cost: false, balanced: false, protection: true }
         why: >
@@ -619,7 +616,7 @@ groups:
           en: "Its logs go to {value}."
           de: "Seine Logs gehen in {value}."
         accepts: { ref: log_analytics_workspace }
-        from_deployment: diagnostics_destination
+        answer: { deployment: diagnostics_destination }
         per_environment: true
         why: >
           Inherited: one deployment, one destination, or correlating an incident

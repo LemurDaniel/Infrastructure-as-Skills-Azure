@@ -33,8 +33,7 @@ groups:
           en: "Deployed in the stages {value}."
           de: "Wird in den Stufen {value} ausgerollt."
         accepts: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
-        required: true
-        from_context: true
+        answer: { context: environments }
         why: >
           Drives the rendered name. One component per stage: telemetry of two stages in one
           component cannot be told apart in a dashboard or an alert.
@@ -48,8 +47,7 @@ groups:
         plain:
           en: "Runs in the Azure region {value}."
           de: "Läuft in der Azure-Region {value}."
-        required: true
-        from_context: true
+        answer: { context: location }
         why: >
           Part of the rendered name. The component lives in the workspace's region in
           practice, since its data is stored there; a component in another region than its
@@ -65,8 +63,7 @@ groups:
           en: "Placed in the resource group {value}."
           de: "Liegt in der Ressourcengruppe {value}."
         accepts: { ref: resource_group }
-        required: true
-        from_context: true
+        answer: { context: resource_group_name }
         per_environment: true
         why: >
           The component is placed into an existing group, with the application that sends to
@@ -87,7 +84,7 @@ groups:
           en: "Its telemetry is stored in {value}."
           de: "Seine Telemetrie wird in {value} gespeichert."
         accepts: { ref: log_analytics_workspace }
-        from_deployment: diagnostics_destination
+        answer: { deployment: diagnostics_destination }
         per_environment: true
         why: >
           Inherited: one deployment, one destination, so application telemetry sits beside the
@@ -192,7 +189,7 @@ groups:
           disabled: { en: "reachable only through the private monitoring connection, for sending and for reading", de: "nur über die private Überwachungsanbindung erreichbar, zum Senden und zum Lesen" }
           enabled: { en: "reachable from the internet, for sending and for reading", de: "aus dem Internet erreichbar, zum Senden und zum Lesen" }
         accepts: [disabled, enabled]
-        from_deployment: network_exposure
+        answer: { deployment: network_exposure }
         why: >
           Asked only as a departure: exposure is a property of the system. `private` is
           `disabled` for **both** ingestion and query, `public` is `enabled`; there is no
@@ -276,7 +273,7 @@ groups:
         plain_values:
           true: { en: "switched off", de: "abgeschaltet" }
           false: { en: "possible", de: "möglich" }
-        from_deployment: local_auth
+        answer: { deployment: local_auth }
         why: >
           Inherited: `local_auth: disabled` renders as `true`. The instrumentation key is
           embedded in the connection string, sits in every app setting and every browser that

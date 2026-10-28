@@ -16,25 +16,26 @@ a regex cannot see - what references/question-set-format.md promises:
      type; `accepts` - a list of values (required on an enum, optional on a
      list) or `{ ref: <kind> }` (on a string or a list); a default within the
      accepted values (enum) or a subset of them (list); a default of the type's kind.
-  4. Resolution: `required`, `default`, `from_deployment` and `parameterized`
-     are mutually exclusive, and a question carries one of them - a question
-     with none has no answer path.
+  4. Resolution: `required`, `default`, `answer` and `parameterized` are
+     mutually exclusive, and a question carries one of them - a question with
+     none has no answer path. `answer` is `{ deployment: <id> }`,
+     `{ context: <id> }` or `{ question: <id>, map: {...} }`.
   5. References: `depends_on` names a question in the same set and, for an
-     enum, a value it can take; `from_deployment` and `from_context` name a
-     question in the deployment set; `derived_from` names an interview question in the
+     enum, a value it can take; `answer.deployment` and `answer.context` name a
+     question in the deployment set (its context group for the latter); `answer.question` names an interview question in the
      deployment set and maps every one of its values to a value of this
      question's kind (and, for an enum, one of its values).
   6. `resolved_by`, where present, is interview or derived; absent means the question
      is defaulted or derived and never asked. An interview question carries a `topic`
      (platform, network, security, resilience, data, application) and no other does.
-     A question that inherits its answer (from_deployment, from_context) is never interview, and
+     A question that inherits its answer (answer.deployment, answer.context) is never interview, and
      is derived exactly where the deployment question it inherits from is.
   7. `ask` and `plain` are mappings of language code to one line (`en`
      required; `{value}` optional in `plain`), and `plain_values`, where
      present, maps every key to such a mapping and names only values the
      question can take - the decision document reads both.
   8. Stages: `per_environment` is a bool, and a question inheriting a
-     per-stage deployment question through `from_deployment` is per-stage
+     per-stage deployment question through `answer.deployment` is per-stage
      too; `non_production_default` is of the question's kind, within its
      values, and never in a security, networking, identity, access, DNS,
      compliance or posture group - a cheaper stage is never a less secure one.
@@ -67,16 +68,17 @@ TYPES = ['enum', 'bool', 'string', 'int', 'list']
 RESOLVED_BY = ['interview', 'derived']
 TOPICS = ['platform', 'network', 'security', 'resilience', 'data', 'application']
 REVIEW_ORDER = ['placement', 'networking', 'identity', 'security', 'data_protection', 'observability']
-RESOLUTION_FIELDS = ['required', 'default', 'from_deployment', 'parameterized', 'derived_from']
+RESOLUTION_FIELDS = ['required', 'default', 'answer', 'parameterized']
 KNOWN_FIELDS = {
     'id', 'ask', 'type', 'accepts', 'default', 'required', 'parameterized',
-    'why', 'renders', 'depends_on', 'from_deployment', 'forced_when', 'from_context',
-    'resolved_by', 'topic', 'plain', 'plain_values', 'derived_from', 'per_environment', 'non_production_default',
+    'why', 'renders', 'depends_on', 'answer', 'forced_when',
+    'resolved_by', 'topic', 'plain', 'plain_values', 'per_environment', 'non_production_default',
     'offer',
 }
 # Groups whose decisions may never be relaxed for a non-production stage.
 NO_SAVINGS_GROUPS = {'security', 'networking', 'identity', 'access', 'dns', 'compliance', 'posture', 'modules', 'subnet_policy'}
 DERIVED_KEYS = {'question', 'map'}
+ANSWER_FORMS = ({'deployment'}, {'context'}, DERIVED_KEYS)
 KNOWN_TOP = {'schema_version', 'scope', 'resource', 'title', 'naming', 'boundaries', 'groups'}
 
 COLORS = {'cyan': '36', 'green': '32', 'red': '31', 'yellow': '33', 'gray': '90'}
@@ -274,14 +276,22 @@ def check_set(path, doc, deployment, rel):
             if vd:
                 err(f"{where}: duplicate value(s): {', '.join(vd)}")
 
-        # --- 4. resolution
+        # --- 4. resolution: one answer path; `answer` names where an inherited one comes from
+        ans = q.get('answer')
+        fd = ctx = dv = None
+        if ans is not None:
+            if not isinstance(ans, dict) or set(ans) not in ANSWER_FORMS:
+                err(f"{where}: answer must be {{ deployment: <id> }}, {{ context: <id> }} or {{ question: <id>, map: {{...}} }}")
+            else:
+                fd, ctx = ans.get('deployment'), ans.get('context')
+                dv = ans if 'question' in ans else None
         # `default: false` is a default; `required: false` is not a requirement.
         present = [f for f in RESOLUTION_FIELDS if q.get(f) is not None
                    and not (f in ('required', 'parameterized') and q[f] is False)]
         if len(present) > 1:
             err(f"{where}: {' and '.join(present)} together; they are mutually exclusive")
-        if not present and not q.get('from_context'):
-            err(f"{where}: no required, default, from_deployment or parameterized - the question has no answer path")
+        if not present:
+            err(f"{where}: no required, default, answer or parameterized - the question has no answer path")
         if 'required' in q and not isinstance(q['required'], bool):
             err(f"{where}: required must be true or false")
         if 'parameterized' in q and not isinstance(q['parameterized'], bool):
@@ -330,14 +340,13 @@ def check_set(path, doc, deployment, rel):
                     if tq.get('type') == 'bool' and not isinstance(v, bool):
                         err(f"{where}: depends_on {target} {cond[0]} {v!r}, but {target} is a bool")
 
-        fd = q.get('from_deployment')
         if fd is not None:
             if scope == 'deployment':
-                err(f"{where}: from_deployment inside the deployment set")
+                err(f"{where}: answer.deployment inside the deployment set")
             elif deployment is None:
-                wrn(f"{where}: from_deployment '{fd}' not checked - the deployment set did not load")
+                wrn(f"{where}: answer.deployment '{fd}' not checked - the deployment set did not load")
             elif fd not in dep_ids:
-                err(f"{where}: from_deployment '{fd}', which the deployment set does not have")
+                err(f"{where}: answer.deployment '{fd}', which the deployment set does not have")
             else:
                 tq = dep_ids[fd]
                 if qtype == 'enum' and tq.get('type') == 'enum' and isinstance(values, list):
@@ -346,43 +355,40 @@ def check_set(path, doc, deployment, rel):
                         pass  # same vocabulary, inherited as-is
                     # different vocabularies are mapped in `why`; nothing to check mechanically
 
-        dv = q.get('derived_from')
         if dv is not None:
             if scope == 'deployment':
-                err(f"{where}: derived_from inside the deployment set")
-            elif not isinstance(dv, dict) or set(dv) != DERIVED_KEYS:
-                err(f"{where}: derived_from must be {{ question: <deployment id>, map: {{ <answer>: <value> }} }}")
+                err(f"{where}: answer.question inside the deployment set")
             elif deployment is None:
-                wrn(f"{where}: derived_from '{dv.get('question')}' not checked - the deployment set did not load")
+                wrn(f"{where}: answer.question '{dv.get('question')}' not checked - the deployment set did not load")
             elif dv['question'] not in dep_ids:
-                err(f"{where}: derived_from '{dv['question']}', which the deployment set does not have")
+                err(f"{where}: answer.question '{dv['question']}', which the deployment set does not have")
             else:
                 tq = dep_ids[dv['question']]
                 if tq.get('resolved_by') != 'interview':
-                    err(f"{where}: derived_from '{dv['question']}', which the interview does not ask - a derivation answers an interview question; otherwise use from_deployment")
+                    err(f"{where}: answer.question '{dv['question']}', which the interview does not ask - a derivation answers an interview question; otherwise use answer.deployment")
                 tv = accepted(tq) if tq.get('type') == 'enum' else None
                 m = dv['map']
                 if not isinstance(m, dict) or not m:
-                    err(f"{where}: derived_from.map must be a non-empty mapping")
+                    err(f"{where}: answer.map must be a non-empty mapping")
                 else:
                     if tv is not None:
                         missing = [v for v in tv if v not in m]
                         extra = [k for k in m if k not in tv]
                         if missing:
-                            err(f"{where}: derived_from.map has no entry for {missing} - every answer to {dv['question']} must derive a value")
+                            err(f"{where}: answer.map has no entry for {missing} - every answer to {dv['question']} must derive a value")
                         if extra:
-                            err(f"{where}: derived_from.map names answer(s) {extra} that {dv['question']} cannot take")
+                            err(f"{where}: answer.map names answer(s) {extra} that {dv['question']} cannot take")
                     for k, v in m.items():
                         if qtype and not kind_matches(qtype, v):
-                            err(f"{where}: derived_from.map[{k!r}] = {v!r} is not a {qtype}")
+                            err(f"{where}: answer.map[{k!r}] = {v!r} is not a {qtype}")
                         if qtype == 'enum' and isinstance(values, list) and v not in values:
-                            err(f"{where}: derived_from.map[{k!r}] = '{v}' is not in accepts {values}")
+                            err(f"{where}: answer.map[{k!r}] = '{v}' is not in accepts {values}")
 
-        if q.get('from_context'):
+        if ctx is not None:
             if scope == 'deployment':
-                err(f"{where}: from_context inside the deployment set")
-            elif deployment is not None and qid not in dep_context:
-                err(f"{where}: from_context, but the deployment set's context group has no '{qid}'")
+                err(f"{where}: answer.context inside the deployment set")
+            elif deployment is not None and ctx not in dep_context:
+                err(f"{where}: answer.context '{ctx}', which the deployment set's context group does not have")
 
         # --- 8. stages
         pe = q.get('per_environment')
@@ -471,16 +477,16 @@ def check_set(path, doc, deployment, rel):
         if rb is not None and rb not in RESOLVED_BY:
             err(f"{where}: resolved_by '{rb}' is not one of {', '.join(RESOLVED_BY)}")
         # a question that inherits its answer is never asked again; it repeats `derived` from its source
-        if (fd is not None or q.get('from_context')) and rb == 'interview':
-            err(f"{where}: a question that inherits its answer (from_deployment, from_context) "
+        if (fd is not None or ctx is not None) and rb == 'interview':
+            err(f"{where}: a question that inherits its answer (answer.deployment, answer.context) "
                 f"is never `interview` - the deployment set asks it once")
         if fd is not None and deployment is not None and fd in dep_ids:
             src = dep_ids[fd].get('resolved_by')
             if src == 'derived' and rb != 'derived':
-                err(f"{where}: from_deployment '{fd}' is `derived`, so this one is too - "
+                err(f"{where}: answer.deployment '{fd}' is `derived`, so this one is too - "
                     f"an open value goes to the platform team")
             elif src != 'derived' and rb == 'derived':
-                err(f"{where}: `derived`, but from_deployment '{fd}' is not")
+                err(f"{where}: `derived`, but answer.deployment '{fd}' is not")
         # --- 6b. topic: the heading an interview question stands under in the batch
         tp = q.get('topic')
         if rb == 'interview' and tp is None:

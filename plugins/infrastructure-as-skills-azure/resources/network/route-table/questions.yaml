@@ -34,8 +34,7 @@ groups:
           en: "Deployed in the stages {value}."
           de: "Wird in den Stufen {value} ausgerollt."
         accepts: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
-        required: true
-        from_context: true
+        answer: { context: environments }
         why: >
           Drives the rendered name. One route table per subnet role per stage: the routes are
           the same in every stage, only the addresses differ, and a stage whose traffic skips
@@ -50,8 +49,7 @@ groups:
         plain:
           en: "Created in the Azure region {value}."
           de: "Wird in der Azure-Region {value} angelegt."
-        required: true
-        from_context: true
+        answer: { context: location }
         why: >
           A route table is regional and associates only with subnets of virtual networks in
           its own region - the one constraint on where it goes.
@@ -66,8 +64,7 @@ groups:
           en: "Placed in the resource group {value}."
           de: "Liegt in der Ressourcengruppe {value}."
         accepts: { ref: resource_group }
-        required: true
-        from_context: true
+        answer: { context: resource_group_name }
         per_environment: true
         why: >
           Placed into an existing group, usually the network's, so the people who own the

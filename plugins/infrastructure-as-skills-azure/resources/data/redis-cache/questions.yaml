@@ -36,8 +36,7 @@ groups:
           en: "Deployed in the stages {value}."
           de: "Wird in den Stufen {value} ausgerollt."
         accepts: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
-        required: true
-        from_context: true
+        answer: { context: environments }
         why: >
           Drives the rendered name and the strictness of several defaults below.
           Nothing sensible can be guessed.
@@ -51,8 +50,7 @@ groups:
         plain:
           en: "Runs in the Azure region {value}."
           de: "Läuft in der Azure-Region {value}."
-        required: true
-        from_context: true
+        answer: { context: location }
         why: >
           The cluster lives in one region and the region is part of the rendered name and
           the endpoint. Azure Managed Redis is not offered in every region, nor every size in
@@ -69,8 +67,7 @@ groups:
           en: "Placed in the resource group {value}."
           de: "Liegt in der Ressourcengruppe {value}."
         accepts: { ref: resource_group }
-        required: true
-        from_context: true
+        answer: { context: resource_group_name }
         per_environment: true
         why: >
           The cluster is placed into an existing group. Creating one here would make this
@@ -192,7 +189,7 @@ groups:
         plain_values:
           true: { en: "a replica takes over, within moments, and the data survives", de: "übernimmt ein Replikat in Sekunden, und die Daten bleiben erhalten" }
           false: { en: "the cache is gone until the node is replaced, and its content with it", de: "ist der Cache weg, bis der Knoten ersetzt ist, und sein Inhalt mit ihm" }
-        derived_from:
+        answer:
           question: outage_impact
           map: { tolerable: false, disruptive: true, critical: true }
         non_production_default: false
@@ -251,7 +248,7 @@ groups:
           enabled_with_firewall: { en: "reachable from the internet, with sign-in as the only gate", de: "aus dem Internet erreichbar, mit der Anmeldung als einziger Schranke" }
           enabled: { en: "reachable from the internet", de: "aus dem Internet erreichbar" }
         accepts: [disabled, enabled_with_firewall, enabled]
-        from_deployment: network_exposure
+        answer: { deployment: network_exposure }
         why: >
           Asked only as a departure: exposure is a property of the system. `private` is
           `disabled`. **Azure Managed Redis has no IP allowlist**: public access is on or
@@ -276,7 +273,7 @@ groups:
           en: "Its private connection lands in subnet {value}."
           de: "Seine private Anbindung landet im Subnetz {value}."
         accepts: { ref: subnet }
-        from_deployment: private_endpoint_subnet
+        answer: { deployment: private_endpoint_subnet }
         per_environment: true
         why: >
           One subnet carries the deployment's private endpoints, so this is inherited. The
@@ -382,7 +379,7 @@ groups:
         plain_values:
           true: { en: "switched off", de: "abgeschaltet" }
           false: { en: "possible", de: "möglich" }
-        from_deployment: local_auth
+        answer: { deployment: local_auth }
         why: >
           Inherited: `local_auth: disabled` renders as access-key authentication disabled.
           An access key is a password that every client shares, does not expire and is not
@@ -425,7 +422,7 @@ groups:
           platform_managed: { en: "managed by Azure - encrypted, rotated, no effort on your side", de: "von Azure verwaltet: verschlüsselt, rotiert, kein Aufwand bei euch" }
           customer_managed: { en: "your own, held in your key vault, so you can revoke them", de: "eure eigenen in eurem Schlüsseltresor, damit ihr sie zurückziehen könnt" }
         accepts: [platform_managed, customer_managed]
-        from_deployment: key_management
+        answer: { deployment: key_management }
         why: >
           Inherited. Data in memory and in persistence is encrypted at rest with a
           platform-managed key either way; `customer_managed` adds a key of the customer's
@@ -501,7 +498,7 @@ groups:
           en: "Its logs go to {value}."
           de: "Seine Logs gehen in {value}."
         accepts: { ref: log_analytics_workspace }
-        from_deployment: diagnostics_destination
+        answer: { deployment: diagnostics_destination }
         per_environment: true
         why: >
           Inherited: one deployment, one destination. Without a diagnostic setting the cache

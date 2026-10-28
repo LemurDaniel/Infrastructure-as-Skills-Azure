@@ -39,8 +39,7 @@ groups:
           en: "Deployed in the stages {value}."
           de: "Wird in den Stufen {value} ausgerollt."
         accepts: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
-        required: true
-        from_context: true
+        answer: { context: environments }
         why: >
           Drives the rendered name and the strictness of several defaults below.
           Nothing sensible can be guessed.
@@ -54,8 +53,7 @@ groups:
         plain:
           en: "Runs in the Azure region {value}."
           de: "Läuft in der Azure-Region {value}."
-        required: true
-        from_context: true
+        answer: { context: location }
         why: >
           **Which models exist depends on the region**, and so does their quota: a model, a
           version and a deployment type are offered per region, and the region is the one
@@ -86,8 +84,7 @@ groups:
           en: "Placed in the resource group {value}."
           de: "Liegt in der Ressourcengruppe {value}."
         accepts: { ref: resource_group }
-        required: true
-        from_context: true
+        answer: { context: resource_group_name }
         per_environment: true
         why: >
           The account is placed into an existing group. Creating one here would make this set
@@ -223,7 +220,7 @@ groups:
           DataZoneStandard: { en: "anywhere inside the same data zone (for example the EU)", de: "überall innerhalb derselben Datenzone (zum Beispiel der EU)" }
           GlobalStandard: { en: "anywhere in the world, with the largest quota and the newest models", de: "irgendwo auf der Welt, mit dem größten Kontingent und den neuesten Modellen" }
         accepts: [Standard, DataZoneStandard, GlobalStandard]
-        derived_from:
+        answer:
           question: data_residency
           map: { country: Standard, data_zone: DataZoneStandard, unrestricted: GlobalStandard }
         why: >
@@ -323,7 +320,7 @@ groups:
           enabled_with_firewall: { en: "reachable from the internet only from listed addresses", de: "aus dem Internet nur von gelisteten Adressen erreichbar" }
           enabled: { en: "reachable from the internet", de: "aus dem Internet erreichbar" }
         accepts: [disabled, enabled_with_firewall, enabled]
-        from_deployment: network_exposure
+        answer: { deployment: network_exposure }
         why: >
           Asked only as a departure: exposure is a property of the system. `private` is
           `disabled`, `public` is `enabled_with_firewall`. **Terraform's module defaults to
@@ -352,7 +349,7 @@ groups:
           en: "Its private connection lands in subnet {value}."
           de: "Seine private Anbindung landet im Subnetz {value}."
         accepts: { ref: subnet }
-        from_deployment: private_endpoint_subnet
+        answer: { deployment: private_endpoint_subnet }
         per_environment: true
         why: >
           One subnet carries the deployment's private endpoints, so this is inherited. The
@@ -502,7 +499,7 @@ groups:
         plain_values:
           true: { en: "switched off", de: "abgeschaltet" }
           false: { en: "possible", de: "möglich" }
-        from_deployment: local_auth
+        answer: { deployment: local_auth }
         why: >
           Inherited: `local_auth: disabled` renders as `true`. A key is a bearer credential
           for every model on the account, is not attributable and pays for whatever it
@@ -524,7 +521,7 @@ groups:
           platform_managed: { en: "managed by Azure - encrypted, rotated, no effort on your side", de: "von Azure verwaltet: verschlüsselt, rotiert, kein Aufwand bei euch" }
           customer_managed: { en: "your own, held in your key vault, so you can revoke them", de: "eure eigenen in eurem Schlüsseltresor, damit ihr sie zurückziehen könnt" }
         accepts: [platform_managed, customer_managed]
-        from_deployment: key_management
+        answer: { deployment: key_management }
         why: >
           Inherited. It applies to what the account stores - fine-tuned models, uploaded
           files, project data - not to the prompts passing through, which are not stored.
@@ -565,7 +562,7 @@ groups:
           en: "Its logs go to {value}."
           de: "Seine Logs gehen in {value}."
         accepts: { ref: log_analytics_workspace }
-        from_deployment: diagnostics_destination
+        answer: { deployment: diagnostics_destination }
         per_environment: true
         why: >
           Inherited: one deployment, one destination. Without a diagnostic setting nobody can

@@ -10,7 +10,7 @@ is the one shortcut that keeps them. For the deployment set (always) and every s
   1. Interview questions (`resolved_by: interview`), by topic: id, type, ask, the values
      with their customer wording in the chosen language, default, required, depends_on
      and `forced_when` in full.
-  2. Every other question a run must act on: `forced_when`, `derived_from`,
+  2. Every other question a run must act on: `forced_when`, a derived `answer`,
      `non_production_default` or `required` - one entry each, never asked, but each one a
      consequence to apply, an open item or a Phase 4 row.
   3. A resource set's boundaries: what it does not create, said out loud rather than
@@ -40,7 +40,13 @@ PLUGIN = os.path.abspath(os.path.join(HERE, '..', '..', '..'))
 DEPLOYMENT_SET = os.path.abspath(os.path.join(HERE, '..', 'questions', 'deployment.yaml'))
 RESOURCES = os.path.join(PLUGIN, 'resources')
 TOPICS = ['platform', 'network', 'security', 'resilience', 'data', 'application']
-ACTED_ON = ['forced_when', 'derived_from', 'non_production_default', 'required']
+ACTED_ON = ['forced_when', 'non_production_default', 'required']
+
+
+def acted_on(q):
+    """A question a run acts on without asking: a consequence, a derivation, an open item."""
+    ans = q.get('answer')
+    return any(k in q for k in ACTED_ON) or (isinstance(ans, dict) and 'question' in ans)
 
 
 def resolve(arg):
@@ -128,7 +134,7 @@ def digest(name, doc, language, why_ids, out):
     out.append(f"== {name}")
     interview = [(g, q) for g, q in questions_of(doc) if q.get('resolved_by') == 'interview']
     acted = [(g, q) for g, q in questions_of(doc)
-             if q.get('resolved_by') != 'interview' and any(k in q for k in ACTED_ON)]
+             if q.get('resolved_by') != 'interview' and acted_on(q)]
 
     if interview:
         out.append('-- interview (put to the customer, unless forced_when settles it)')
@@ -159,9 +165,9 @@ def digest(name, doc, language, why_ids, out):
             parts = [f"{g}.{q['id']}"]
             if q.get('required'):
                 parts.append('required (unanswered: an open item with its owner)')
-            if q.get('derived_from'):
-                d = q['derived_from']
-                parts.append(f"derived_from {d.get('question')} {d.get('map')}")
+            ans = q.get('answer')
+            if isinstance(ans, dict) and 'question' in ans:
+                parts.append(f"derived from {ans.get('question')} {ans.get('map')}")
             if 'non_production_default' in q:
                 parts.append(f"non_production_default={q['non_production_default']}")
             if q.get('depends_on'):
@@ -176,7 +182,7 @@ def digest(name, doc, language, why_ids, out):
 
     others = [q for _, q in questions_of(doc)
               if q['id'] in why_ids and q.get('resolved_by') != 'interview'
-              and not any(k in q for k in ACTED_ON)]
+              and not acted_on(q)]
     for q in others:
         out.append(f"  {q['id']}  why: {flat(q.get('why', ''))}")
 

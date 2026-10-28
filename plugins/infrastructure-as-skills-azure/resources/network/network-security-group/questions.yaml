@@ -32,8 +32,7 @@ groups:
           en: "Deployed in the stages {value}."
           de: "Wird in den Stufen {value} ausgerollt."
         accepts: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
-        required: true
-        from_context: true
+        answer: { context: environments }
         why: >
           Drives the rendered name. One NSG per subnet role per stage: rules that differ
           between stages by accident are the finding a review looks for, and the parity rule
@@ -48,8 +47,7 @@ groups:
         plain:
           en: "Created in the Azure region {value}."
           de: "Wird in der Azure-Region {value} angelegt."
-        required: true
-        from_context: true
+        answer: { context: location }
         why: >
           An NSG is regional and can only be associated with subnets of its own region, which
           is the one constraint on where it goes.
@@ -64,8 +62,7 @@ groups:
           en: "Placed in the resource group {value}."
           de: "Liegt in der Ressourcengruppe {value}."
         accepts: { ref: resource_group }
-        required: true
-        from_context: true
+        answer: { context: resource_group_name }
         per_environment: true
         why: >
           The NSG is placed into an existing group, usually the network's, so the people who
@@ -186,7 +183,7 @@ groups:
           en: "Its logs go to {value}."
           de: "Seine Logs gehen in {value}."
         accepts: { ref: log_analytics_workspace }
-        from_deployment: diagnostics_destination
+        answer: { deployment: diagnostics_destination }
         per_environment: true
         why: >
           Inherited: one deployment, one destination. The NSG's own log records rule *changes*

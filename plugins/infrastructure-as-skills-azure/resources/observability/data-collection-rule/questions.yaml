@@ -33,8 +33,7 @@ groups:
           en: "Deployed in the stages {value}."
           de: "Wird in den Stufen {value} ausgerollt."
         accepts: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
-        required: true
-        from_context: true
+        answer: { context: environments }
         why: >
           Drives the rendered name. A rule exists per stage, associated with that stage's
           machines and sending to that stage's workspace.
@@ -48,8 +47,7 @@ groups:
         plain:
           en: "Runs in the Azure region {value}."
           de: "Läuft in der Azure-Region {value}."
-        required: true
-        from_context: true
+        answer: { context: location }
         why: >
           A rule and its endpoint are regional, and the endpoint must be in the region of
           the machines that call it; a rule may send to a workspace in another region, and
@@ -66,8 +64,7 @@ groups:
           en: "Placed in the resource group {value}."
           de: "Liegt in der Ressourcengruppe {value}."
         accepts: { ref: resource_group }
-        required: true
-        from_context: true
+        answer: { context: resource_group_name }
         per_environment: true
         why: >
           The rule is placed into an existing group - the observability one where the
@@ -383,7 +380,7 @@ groups:
           en: "The data goes to the log workspace {value}."
           de: "Die Daten gehen in den Log-Arbeitsbereich {value}."
         accepts: { ref: log_analytics_workspace }
-        from_deployment: diagnostics_destination
+        answer: { deployment: diagnostics_destination }
         per_environment: true
         why: >
           Inherited: one deployment, one destination, so the agent's logs sit beside the
@@ -687,7 +684,7 @@ groups:
           en: "Its own error log goes to {value}."
           de: "Sein eigenes Fehlerprotokoll geht in {value}."
         accepts: { ref: log_analytics_workspace }
-        from_deployment: diagnostics_destination
+        answer: { deployment: diagnostics_destination }
         per_environment: true
         why: >
           Inherited. A rule fails quietly - a transformation that errors drops the row, a

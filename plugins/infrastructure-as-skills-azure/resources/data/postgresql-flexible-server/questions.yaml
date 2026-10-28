@@ -36,8 +36,7 @@ groups:
           en: "Deployed in the stages {value}."
           de: "Wird in den Stufen {value} ausgerollt."
         accepts: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
-        required: true
-        from_context: true
+        answer: { context: environments }
         why: >
           Drives the rendered name and the strictness of several defaults below.
           Nothing sensible can be guessed.
@@ -51,8 +50,7 @@ groups:
         plain:
           en: "Runs in the Azure region {value}."
           de: "Läuft in der Azure-Region {value}."
-        required: true
-        from_context: true
+        answer: { context: location }
         why: >
           The server lives in one region and the region is part of the rendered name.
           Zone-redundant high availability is not offered in every region, and a region
@@ -68,8 +66,7 @@ groups:
           en: "Placed in the resource group {value}."
           de: "Liegt in der Ressourcengruppe {value}."
         accepts: { ref: resource_group }
-        required: true
-        from_context: true
+        answer: { context: resource_group_name }
         per_environment: true
         why: >
           The server is placed into an existing group. Creating one here would make this
@@ -217,7 +214,7 @@ groups:
           same_zone: { en: "a standby in the same datacenter takes over", de: "übernimmt eine Reserve im selben Rechenzentrum" }
           zone_redundant: { en: "a standby in another datacenter of the region takes over, with no loss of committed data", de: "übernimmt eine Reserve in einem anderen Rechenzentrum der Region, ohne Verlust bestätigter Daten" }
         accepts: [disabled, same_zone, zone_redundant]
-        derived_from:
+        answer:
           question: outage_impact
           map: { tolerable: disabled, disruptive: zone_redundant, critical: zone_redundant }
         non_production_default: disabled
@@ -298,7 +295,7 @@ groups:
           enabled_with_firewall: { en: "reachable from the internet only from listed addresses", de: "aus dem Internet nur von gelisteten Adressen erreichbar" }
           enabled: { en: "reachable from the internet", de: "aus dem Internet erreichbar" }
         accepts: [disabled, enabled_with_firewall, enabled]
-        from_deployment: network_exposure
+        answer: { deployment: network_exposure }
         why: >
           Asked only as a departure: exposure is a property of the system. `private` is
           `disabled`, `public` is `enabled_with_firewall`, and a bare `enabled` - a server
@@ -326,7 +323,7 @@ groups:
           en: "Its private connection lands in subnet {value}."
           de: "Seine private Anbindung landet im Subnetz {value}."
         accepts: { ref: subnet }
-        from_deployment: private_endpoint_subnet
+        answer: { deployment: private_endpoint_subnet }
         depends_on: { question: private_connectivity, equals: private_endpoint }
         per_environment: true
         why: >
@@ -530,7 +527,7 @@ groups:
         plain_values:
           true: { en: "switched off", de: "abgeschaltet" }
           false: { en: "possible", de: "möglich" }
-        from_deployment: local_auth
+        answer: { deployment: local_auth }
         why: >
           Inherited: `local_auth: disabled` renders as Entra authentication on and password
           authentication off. A database password does not expire, is shared, and is not
@@ -571,7 +568,7 @@ groups:
           platform_managed: { en: "managed by Azure - encrypted, rotated, no effort on your side", de: "von Azure verwaltet: verschlüsselt, rotiert, kein Aufwand bei euch" }
           customer_managed: { en: "your own, held in your key vault, so you can revoke them", de: "eure eigenen in eurem Schlüsseltresor, damit ihr sie zurückziehen könnt" }
         accepts: [platform_managed, customer_managed]
-        from_deployment: key_management
+        answer: { deployment: key_management }
         why: >
           Inherited. Data, backups and temporary files are encrypted at rest with a
           platform-managed key either way; `customer_managed` adds a key of the customer's
@@ -631,7 +628,7 @@ groups:
         plain:
           en: "The server can be restored to any second of the last {value} days."
           de: "Der Server lässt sich auf jede Sekunde der letzten {value} Tage zurücksetzen."
-        derived_from:
+        answer:
           question: data_loss_tolerance
           map: { reproducible: 7, one_week: 7, one_month: 35, three_months: 35 }
         why: >
@@ -657,7 +654,7 @@ groups:
         plain_values:
           true: { en: "also kept", de: "zusätzlich" }
           false: { en: "not kept", de: "nicht" }
-        derived_from:
+        answer:
           question: outage_impact
           map: { tolerable: false, disruptive: false, critical: true }
         non_production_default: false
@@ -687,7 +684,7 @@ groups:
           en: "Its logs go to {value}."
           de: "Seine Logs gehen in {value}."
         accepts: { ref: log_analytics_workspace }
-        from_deployment: diagnostics_destination
+        answer: { deployment: diagnostics_destination }
         per_environment: true
         why: >
           Inherited: one deployment, one destination. Without a diagnostic setting the

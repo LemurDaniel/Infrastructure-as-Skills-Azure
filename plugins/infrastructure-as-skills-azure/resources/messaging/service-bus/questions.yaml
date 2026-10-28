@@ -31,8 +31,7 @@ groups:
           en: "Deployed in the stages {value}."
           de: "Wird in den Stufen {value} ausgerollt."
         accepts: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
-        required: true
-        from_context: true
+        answer: { context: environments }
         why: >
           Drives the rendered name and the strictness of several defaults below. Nothing
           sensible can be guessed.
@@ -48,8 +47,7 @@ groups:
         plain:
           en: "Runs in the Azure region {value}."
           de: "Läuft in der Azure-Region {value}."
-        required: true
-        from_context: true
+        answer: { context: location }
         why: >
           Part of the rendered name and not inferable. A namespace is regional, and so is
           the data it holds; a second region is a geo-recovery pairing (`geo_recovery`), not
@@ -65,8 +63,7 @@ groups:
           en: "Placed in the resource group {value}."
           de: "Liegt in der Ressourcengruppe {value}."
         accepts: { ref: resource_group }
-        required: true
-        from_context: true
+        answer: { context: resource_group_name }
         per_environment: true
         why: >
           The namespace is placed into an existing group. Creating one here would make this
@@ -137,7 +134,7 @@ groups:
         plain_values:
           true: { en: do, de: überstehen }
           false: { en: do not, de: überstehen nicht }
-        derived_from:
+        answer:
           question: outage_impact
           map: { tolerable: false, disruptive: true, critical: true }
         depends_on: { question: sku, equals: Premium }
@@ -199,7 +196,7 @@ groups:
           disabled: { en: switched off, de: abgeschaltet }
           allowed_where_unavoidable: { en: allowed on this namespace, de: auf diesem Namensraum erlaubt }
         accepts: [disabled, allowed_where_unavoidable]
-        from_deployment: local_auth
+        answer: { deployment: local_auth }
         why: >
           Inherited: `local_auth: disabled` renders as local authentication off, so every
           sender and receiver signs in with Entra ID and every action is attributable. The
@@ -444,7 +441,7 @@ groups:
           enabled_with_firewall: { en: reachable from the internet only from listed addresses, de: aus dem Internet nur von gelisteten Adressen erreichbar }
           enabled: { en: reachable from the internet, de: aus dem Internet erreichbar }
         accepts: [disabled, enabled_with_firewall, enabled]
-        from_deployment: network_exposure
+        answer: { deployment: network_exposure }
         forced_when: >
           `network_ownership: none` (a public deployment without a network) forces
           `enabled`, recorded as forced with `network_ownership` as forced_by: the
@@ -470,7 +467,7 @@ groups:
           en: "Its private connection lands in subnet {value}."
           de: "Seine private Anbindung landet im Subnetz {value}."
         accepts: { ref: subnet }
-        from_deployment: private_endpoint_subnet
+        answer: { deployment: private_endpoint_subnet }
         per_environment: true
         why: >
           One subnet carries the deployment's private endpoints, so this is inherited. The
@@ -533,7 +530,7 @@ groups:
           platform_managed: { en: "managed by Azure - encrypted, rotated, no effort on your side", de: "von Azure verwaltet: verschlüsselt, rotiert, kein Aufwand bei euch" }
           customer_managed: { en: "your own, held in your key vault, so you can revoke them", de: "eure eigenen in eurem Schlüsseltresor, damit ihr sie zurückziehen könnt" }
         accepts: [platform_managed, customer_managed]
-        from_deployment: key_management
+        answer: { deployment: key_management }
         why: >
           Inherited: one answer per system. Service Bus encrypts at rest with a platform key
           either way; `customer_managed` points the namespace at a key in the customer's
@@ -597,7 +594,7 @@ groups:
           none: { en: no standby region, de: keine Ausweichregion }
           paired_namespace: { en: "a paired namespace in a second region, with the same queues and topics", de: ein gekoppelter Namensraum in einer zweiten Region mit denselben Warteschlangen und Themen }
         accepts: [none, paired_namespace]
-        derived_from:
+        answer:
           question: outage_impact
           map: { tolerable: none, disruptive: none, critical: paired_namespace }
         non_production_default: none
@@ -666,7 +663,7 @@ groups:
           en: "Its logs go to {value}."
           de: "Seine Logs gehen in {value}."
         accepts: { ref: log_analytics_workspace }
-        from_deployment: diagnostics_destination
+        answer: { deployment: diagnostics_destination }
         per_environment: true
         why: >
           Inherited: one deployment, one destination. Without a diagnostic setting the

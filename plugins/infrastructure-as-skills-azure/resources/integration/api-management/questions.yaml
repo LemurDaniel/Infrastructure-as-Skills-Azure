@@ -33,8 +33,7 @@ groups:
           en: "Deployed in the stages {value}."
           de: "Wird in den Stufen {value} ausgerollt."
         accepts: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
-        required: true
-        from_context: true
+        answer: { context: environments }
         why: >
           Drives the rendered name and the strictness of several defaults below. Nothing
           sensible can be guessed.
@@ -50,8 +49,7 @@ groups:
         plain:
           en: "Runs in the Azure region {value}."
           de: "Läuft in der Azure-Region {value}."
-        required: true
-        from_context: true
+        answer: { context: location }
         why: >
           Part of the rendered name and not inferable. An instance is regional; an
           additional region is a Premium feature (`additional_regions`), not a property of
@@ -67,8 +65,7 @@ groups:
           en: "Placed in the resource group {value}."
           de: "Liegt in der Ressourcengruppe {value}."
         accepts: { ref: resource_group }
-        required: true
-        from_context: true
+        answer: { context: resource_group_name }
         per_environment: true
         why: >
           The instance is placed into an existing group. Creating one here would make this
@@ -132,7 +129,7 @@ groups:
           StandardV2: { en: "standard on the faster v2 platform, with private connections", de: "Standard auf der schnelleren v2-Plattform, mit privaten Anbindungen" }
           PremiumV2: { en: premium on the v2 platform with zones and isolation, de: Premium auf der v2-Plattform mit Zonen und Isolation }
         accepts: [Consumption, Developer, Basic, Standard, Premium, BasicV2, StandardV2, PremiumV2]
-        derived_from:
+        answer:
           question: outage_impact
           map: { tolerable: Developer, disruptive: StandardV2, critical: PremiumV2 }
         non_production_default: Developer
@@ -448,7 +445,7 @@ groups:
           enabled_with_firewall: { en: reachable from the internet only from listed addresses, de: aus dem Internet nur von gelisteten Adressen erreichbar }
           enabled: { en: reachable from the internet, de: aus dem Internet erreichbar }
         accepts: [disabled, enabled_with_firewall, enabled]
-        from_deployment: network_exposure
+        answer: { deployment: network_exposure }
         forced_when: >
           `network_integration: external` forces `enabled`; `network_ownership: none` forces
           `enabled`, recorded as forced with that question as forced_by.
@@ -471,7 +468,7 @@ groups:
           en: "Its private connection lands in subnet {value}."
           de: "Seine private Anbindung landet im Subnetz {value}."
         accepts: { ref: subnet }
-        from_deployment: private_endpoint_subnet
+        answer: { deployment: private_endpoint_subnet }
         per_environment: true
         why: >
           One subnet carries the deployment's private endpoints, so this is inherited. The
@@ -560,7 +557,7 @@ groups:
           en: "Its logs go to {value}."
           de: "Seine Logs gehen in {value}."
         accepts: { ref: log_analytics_workspace }
-        from_deployment: diagnostics_destination
+        answer: { deployment: diagnostics_destination }
         per_environment: true
         why: >
           Inherited: one deployment, one destination. Without a diagnostic setting the

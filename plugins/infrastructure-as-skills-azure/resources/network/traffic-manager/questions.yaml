@@ -34,8 +34,7 @@ groups:
           en: "Deployed in the stages {value}."
           de: "Wird in den Stufen {value} ausgerollt."
         accepts: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
-        required: true
-        from_context: true
+        answer: { context: environments }
         why: >
           Drives the rendered name and with it the relative DNS name, which is global: a
           development profile and a production profile cannot share `shop.trafficmanager.net`,
@@ -66,8 +65,7 @@ groups:
           en: "Placed in the resource group {value}."
           de: "Liegt in der Ressourcengruppe {value}."
         accepts: { ref: resource_group }
-        required: true
-        from_context: true
+        answer: { context: resource_group_name }
         per_environment: true
         why: >
           A global resource still sits in a group - the one of the application it fronts, so the
@@ -307,7 +305,7 @@ groups:
           standard: { en: "within about one and a half minutes (a probe every 30 seconds, three failures)", de: "innerhalb von etwa anderthalb Minuten (eine Prüfung alle 30 Sekunden, drei Fehlschläge)" }
           fast: { en: "within about half a minute (a probe every 10 seconds, three failures), at a higher probe charge", de: "innerhalb von etwa einer halben Minute (eine Prüfung alle 10 Sekunden, drei Fehlschläge), gegen höhere Prüfgebühr" }
         accepts: [standard, fast]
-        derived_from:
+        answer:
           question: outage_impact
           map: { tolerable: standard, disruptive: standard, critical: fast }
         why: >
@@ -380,7 +378,7 @@ groups:
           en: "Its logs go to {value}."
           de: "Seine Logs gehen in {value}."
         accepts: { ref: log_analytics_workspace }
-        from_deployment: diagnostics_destination
+        answer: { deployment: diagnostics_destination }
         per_environment: true
         why: >
           Inherited: one deployment, one destination. The profile's log is the probe history -

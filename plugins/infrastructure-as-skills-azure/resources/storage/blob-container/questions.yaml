@@ -30,8 +30,7 @@ groups:
           en: "Deployed in the stages {value}."
           de: "Wird in den Stufen {value} ausgerollt."
         accepts: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
-        required: true
-        from_context: true
+        answer: { context: environments }
         why: >
           Drives the strictness of several defaults below. Nothing sensible can be guessed.
         renders: tag of the environment where the repository uses one
@@ -110,7 +109,7 @@ groups:
         plain_values:
           true: { en: locked against change and deletion, de: gegen Änderung und Löschen gesperrt }
           false: { en: changeable like any other file, de: wie jede andere Datei änderbar }
-        derived_from:
+        answer:
           question: backup_isolation
           map: { operational: false, isolated: false, immutable: true }
         non_production_default: false

@@ -36,8 +36,7 @@ groups:
           en: "Deployed in the stages {value}."
           de: "Wird in den Stufen {value} ausgerollt."
         accepts: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
-        required: true
-        from_context: true
+        answer: { context: environments }
         why: >
           A domain exists once, so the stages cannot each hold `example.com`: production holds
           the apex and the other stages hold child zones (`dev.example.com`, `test.example.com`)
@@ -70,8 +69,7 @@ groups:
           en: "Placed in the resource group {value}."
           de: "Liegt in der Ressourcengruppe {value}."
         accepts: { ref: resource_group }
-        required: true
-        from_context: true
+        answer: { context: resource_group_name }
         per_environment: true
         why: >
           A global resource still sits in a group. Usually the network's, so the people who own

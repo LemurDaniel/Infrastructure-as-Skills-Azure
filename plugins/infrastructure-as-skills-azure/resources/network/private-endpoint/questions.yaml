@@ -35,8 +35,7 @@ groups:
           en: "Deployed in the stages {value}."
           de: "Wird in den Stufen {value} ausgerollt."
         accepts: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
-        required: true
-        from_context: true
+        answer: { context: environments }
         why: >
           Drives the rendered name. One endpoint per stage and per target: a target of another
           stage is reached through its own endpoint, never through a shared one.
@@ -50,8 +49,7 @@ groups:
         plain:
           en: "Created in the Azure region {value}."
           de: "Wird in der Azure-Region {value} angelegt."
-        required: true
-        from_context: true
+        answer: { context: location }
         why: >
           The endpoint lives in the region of the virtual network its subnet belongs to, not
           in the target's: a target in another region is reached by an endpoint here, which is
@@ -67,8 +65,7 @@ groups:
           en: "Placed in the resource group {value}."
           de: "Liegt in der Ressourcengruppe {value}."
         accepts: { ref: resource_group }
-        required: true
-        from_context: true
+        answer: { context: resource_group_name }
         per_environment: true
         why: >
           Placed into an existing group - the consumer's or the network's. The endpoint's
@@ -167,7 +164,7 @@ groups:
           en: "Its private connection lands in subnet {value}."
           de: "Seine private Anbindung landet im Subnetz {value}."
         accepts: { ref: subnet }
-        from_deployment: private_endpoint_subnet
+        answer: { deployment: private_endpoint_subnet }
         per_environment: true
         why: >
           One subnet carries the deployment's private endpoints, so this is inherited rather
@@ -211,7 +208,7 @@ groups:
           platform: { en: "the company platform", de: "die Firmenplattform" }
           deployment: { en: "this deployment itself", de: "dieses Ausrollen selbst" }
         accepts: [platform, deployment]
-        from_deployment: private_dns_ownership
+        answer: { deployment: private_dns_ownership }
         why: >
           Inherited: one answer per deployment. It decides where the zone comes from - the
           platform's hub or the `private-dns-zone` set - and nothing else here.
@@ -230,7 +227,7 @@ groups:
           policy: { en: "a platform rule, automatically", de: "eine Plattformregel, automatisch" }
           deployment: { en: "this deployment", de: "dieses Ausrollen" }
         accepts: [policy, deployment]
-        from_deployment: private_dns_records
+        answer: { deployment: private_dns_records }
         why: >
           Inherited. With `policy` a DeployIfNotExists policy attaches the endpoint to the
           platform's zone and writes the record; a zone group written here as well means two
@@ -288,7 +285,7 @@ groups:
           en: "The platform keeps the name zones in {value}."
           de: "Die Plattform hält die Namenszonen in {value}."
         accepts: { ref: resource_group }
-        from_deployment: private_dns_zone_scope
+        answer: { deployment: private_dns_zone_scope }
         depends_on: { question: dns_zone_group, equals: attached }
         per_environment: true
         why: >

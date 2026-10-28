@@ -35,8 +35,7 @@ groups:
           en: "Deployed in the stages {value}."
           de: "Wird in den Stufen {value} ausgerollt."
         accepts: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
-        required: true
-        from_context: true
+        answer: { context: environments }
         why: >
           The settings are per subscription, and the stages are separated by subscription
           (guardrails, *Stages*): each stage's subscription gets its own set of plans. The
@@ -53,8 +52,7 @@ groups:
         plain:
           en: "Set for the subscription {value}."
           de: "Gilt für die Subscription {value}."
-        required: true
-        from_context: true
+        answer: { context: subscription_id }
         per_environment: true
         why: >
           The target of the whole set. A stage file supplies it, and a plan enabled on the

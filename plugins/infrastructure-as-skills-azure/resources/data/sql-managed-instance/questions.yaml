@@ -37,8 +37,7 @@ groups:
           en: "Deployed in the stages {value}."
           de: "Wird in den Stufen {value} ausgerollt."
         accepts: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
-        required: true
-        from_context: true
+        answer: { context: environments }
         why: >
           Drives the rendered name and the strictness of several defaults below.
           Nothing sensible can be guessed.
@@ -52,8 +51,7 @@ groups:
         plain:
           en: "Runs in the Azure region {value}."
           de: "Läuft in der Azure-Region {value}."
-        required: true
-        from_context: true
+        answer: { context: location }
         why: >
           The instance lives in the region of its subnet, and the region is part of the
           rendered name. Zone redundancy, premium-series hardware and the maintenance
@@ -70,8 +68,7 @@ groups:
           en: "Placed in the resource group {value}."
           de: "Liegt in der Ressourcengruppe {value}."
         accepts: { ref: resource_group }
-        required: true
-        from_context: true
+        answer: { context: resource_group_name }
         per_environment: true
         why: >
           The instance is placed into an existing group. Creating one here would make this
@@ -294,7 +291,7 @@ groups:
         plain_values:
           true: { en: "does", de: "übersteht" }
           false: { en: "does not", de: "übersteht nicht" }
-        derived_from:
+        answer:
           question: outage_impact
           map: { tolerable: false, disruptive: true, critical: true }
         non_production_default: false
@@ -379,7 +376,7 @@ groups:
           enabled_with_firewall: { en: "reachable from the internet only from listed addresses, through its public endpoint", de: "aus dem Internet nur von gelisteten Adressen erreichbar, über ihren öffentlichen Endpunkt" }
           enabled: { en: "reachable from the internet through its public endpoint", de: "aus dem Internet über ihren öffentlichen Endpunkt erreichbar" }
         accepts: [disabled, enabled_with_firewall, enabled]
-        from_deployment: network_exposure
+        answer: { deployment: network_exposure }
         why: >
           Asked only as a departure: exposure is a property of the system. A managed
           instance is private by construction - it answers on a private address inside
@@ -449,7 +446,7 @@ groups:
           en: "Its private connection lands in subnet {value}."
           de: "Seine private Anbindung landet im Subnetz {value}."
         accepts: { ref: subnet }
-        from_deployment: private_endpoint_subnet
+        answer: { deployment: private_endpoint_subnet }
         depends_on: { question: private_endpoint, equals: true }
         per_environment: true
         why: >
@@ -629,7 +626,7 @@ groups:
         plain_values:
           true: { en: "switched off", de: "abgeschaltet" }
           false: { en: "possible", de: "möglich" }
-        from_deployment: local_auth
+        answer: { deployment: local_auth }
         why: >
           Inherited: `local_auth: disabled` renders as Entra-only authentication. A SQL
           login is a password that does not expire, is shared, and is not attributable in
@@ -655,7 +652,7 @@ groups:
           platform_managed: { en: "managed by Azure - encrypted, rotated, no effort on your side", de: "von Azure verwaltet: verschlüsselt, rotiert, kein Aufwand bei euch" }
           customer_managed: { en: "your own, held in your key vault, so you can revoke them", de: "eure eigenen in eurem Schlüsseltresor, damit ihr sie zurückziehen könnt" }
         accepts: [platform_managed, customer_managed]
-        from_deployment: key_management
+        answer: { deployment: key_management }
         why: >
           Inherited. Transparent data encryption is on for every database and cannot be
           turned off in this set - the data, the log and the backups are encrypted at rest
@@ -768,7 +765,7 @@ groups:
         plain:
           en: "A database can be restored to any second of the last {value} days."
           de: "Eine Datenbank lässt sich auf jede Sekunde der letzten {value} Tage zurücksetzen."
-        derived_from:
+        answer:
           question: data_loss_tolerance
           map: { reproducible: 7, one_week: 7, one_month: 35, three_months: 35 }
         why: >
@@ -796,7 +793,7 @@ groups:
           three_months: { en: "weekly for three months", de: "wöchentlich für drei Monate" }
           one_year: { en: "weekly for a year", de: "wöchentlich für ein Jahr" }
         accepts: [none, three_months, one_year]
-        derived_from:
+        answer:
           question: data_loss_tolerance
           map: { reproducible: none, one_week: none, one_month: none, three_months: three_months }
         why: >
@@ -822,7 +819,7 @@ groups:
           Geo: { en: "in a second region as well, out of reach of a regional failure", de: "zusätzlich in einer zweiten Region, außerhalb der Reichweite eines regionalen Ausfalls" }
           GeoZone: { en: "across the zones and in a second region", de: "verteilt über die Zonen und zusätzlich in einer zweiten Region" }
         accepts: [Local, Zone, Geo, GeoZone]
-        derived_from:
+        answer:
           question: backup_isolation
           map: { operational: Zone, isolated: GeoZone, immutable: GeoZone }
         non_production_default: Local
@@ -859,7 +856,7 @@ groups:
           en: "Its logs go to {value}."
           de: "Seine Logs gehen in {value}."
         accepts: { ref: log_analytics_workspace }
-        from_deployment: diagnostics_destination
+        answer: { deployment: diagnostics_destination }
         per_environment: true
         why: >
           Inherited: one deployment, one destination. Without a diagnostic setting the

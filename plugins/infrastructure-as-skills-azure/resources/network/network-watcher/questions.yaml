@@ -36,8 +36,7 @@ groups:
           en: "Deployed in the stages {value}."
           de: "Wird in den Stufen {value} ausgerollt."
         accepts: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
-        required: true
-        from_context: true
+        answer: { context: environments }
         why: >
           Each stage has its own networks and, by default, its own subscription with its own
           auto-created watcher per region. The flow logs are rendered per stage over that
@@ -52,8 +51,7 @@ groups:
         plain:
           en: "Created in the Azure region {value}."
           de: "Wird in der Azure-Region {value} angelegt."
-        required: true
-        from_context: true
+        answer: { context: location }
         why: >
           A watcher is regional and a flow log must be in the same region as the network it logs
           and the storage account it writes to. The context's region names the auto-created
@@ -70,8 +68,7 @@ groups:
           en: "Placed in the resource group {value}."
           de: "Liegt in der Ressourcengruppe {value}."
         accepts: { ref: resource_group }
-        required: true
-        from_context: true
+        answer: { context: resource_group_name }
         per_environment: true
         why: >
           For a watcher this deployment creates (`ownership: deployment`): the network group
@@ -224,7 +221,7 @@ groups:
           en: "The analysis goes to {value}."
           de: "Die Auswertung geht in {value}."
         accepts: { ref: log_analytics_workspace }
-        from_deployment: diagnostics_destination
+        answer: { deployment: diagnostics_destination }
         per_environment: true
         depends_on: { question: traffic_analytics, equals: true }
         why: >

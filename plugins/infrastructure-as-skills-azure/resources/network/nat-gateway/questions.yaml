@@ -35,8 +35,7 @@ groups:
           en: "Deployed in the stages {value}."
           de: "Wird in den Stufen {value} ausgerollt."
         accepts: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
-        required: true
-        from_context: true
+        answer: { context: environments }
         why: >
           Drives the rendered name. One NAT gateway per network and stage: a gateway shared
           across stages shares its addresses, and a partner's allowlist then trusts the
@@ -51,8 +50,7 @@ groups:
         plain:
           en: "Created in the Azure region {value}."
           de: "Wird in der Azure-Region {value} angelegt."
-        required: true
-        from_context: true
+        answer: { context: location }
         why: >
           A NAT gateway is regional and serves subnets of virtual networks in its own region
           only; another region means another gateway.
@@ -67,8 +65,7 @@ groups:
           en: "Placed in the resource group {value}."
           de: "Liegt in der Ressourcengruppe {value}."
         accepts: { ref: resource_group }
-        required: true
-        from_context: true
+        answer: { context: resource_group_name }
         per_environment: true
         why: >
           Placed into an existing group, usually the network's, together with the addresses it
@@ -109,7 +106,7 @@ groups:
           Standard: { en: "Standard (held in one zone or none)", de: "Standard (in einer Zone oder keiner gehalten)" }
           StandardV2: { en: "Standard V2 (zone-redundant by design)", de: "Standard V2 (von Haus aus zonenredundant)" }
         accepts: [Standard, StandardV2]
-        derived_from:
+        answer:
           question: outage_impact
           map: { tolerable: Standard, disruptive: StandardV2, critical: StandardV2 }
         why: >
@@ -231,7 +228,7 @@ groups:
           en: "Its metrics go to {value}."
           de: "Seine Messwerte gehen in {value}."
         accepts: { ref: log_analytics_workspace }
-        from_deployment: diagnostics_destination
+        answer: { deployment: diagnostics_destination }
         per_environment: true
         why: >
           Inherited: one deployment, one destination. A NAT gateway has no logs, but its

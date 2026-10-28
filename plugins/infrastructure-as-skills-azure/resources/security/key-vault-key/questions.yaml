@@ -34,8 +34,7 @@ groups:
           en: "Deployed in the stages {value}."
           de: "Wird in den Stufen {value} ausgerollt."
         accepts: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
-        required: true
-        from_context: true
+        answer: { context: environments }
         why: >
           One key per stage: key material is never shared between stages, a shared key would
           let development decrypt production data.
@@ -143,7 +142,7 @@ groups:
           software: { en: "in software", de: "in Software" }
           hsm: { en: "by hardware security modules", de: "durch Hardware-Sicherheitsmodule" }
         accepts: [software, hsm]
-        from_deployment: key_protection
+        answer: { deployment: key_protection }
         why: >
           Inherited: one answer per system. `hsm` renders `RSA-HSM` / `EC-HSM` and needs a
           Premium vault, which the same deployment answer forces on the vault. A software key

@@ -39,8 +39,7 @@ groups:
           en: "Deployed in the stages {value}."
           de: "Wird in den Stufen {value} ausgerollt."
         accepts: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
-        required: true
-        from_context: true
+        answer: { context: environments }
         why: >
           Drives the rendered name and the strictness of several defaults below. Nothing
           sensible can be guessed. A machine is one per stage: it is not shared, and its disks
@@ -55,8 +54,7 @@ groups:
         plain:
           en: "Runs in the Azure region {value}."
           de: "Läuft in der Azure-Region {value}."
-        required: true
-        from_context: true
+        answer: { context: location }
         why: >
           Part of the rendered name and the home of the machine and its disks. The size is
           offered per region and per zone, and a region without availability zones changes the
@@ -72,8 +70,7 @@ groups:
           en: "Placed in the resource group {value}."
           de: "Liegt in der Ressourcengruppe {value}."
         accepts: { ref: resource_group }
-        required: true
-        from_context: true
+        answer: { context: resource_group_name }
         per_environment: true
         why: >
           The machine is placed into an existing group. Creating one here would make this set
@@ -268,7 +265,7 @@ groups:
           StandardSSD_LRS: { en: "standard SSD, kept three times in one datacenter", de: "Standard-SSD, dreifach in einem Rechenzentrum" }
           StandardSSD_ZRS: { en: "standard SSD, kept in three datacenters of the region", de: "Standard-SSD, in drei Rechenzentren der Region" }
         accepts: [Premium_LRS, Premium_ZRS, StandardSSD_LRS, StandardSSD_ZRS]
-        derived_from:
+        answer:
           question: outage_impact
           map: { tolerable: Premium_LRS, disruptive: Premium_ZRS, critical: Premium_ZRS }
         non_production_default: Premium_LRS
@@ -555,7 +552,7 @@ groups:
           platform_managed: { en: "managed by Azure - encrypted, rotated, no effort on your side", de: "von Azure verwaltet: verschlüsselt, rotiert, kein Aufwand bei euch" }
           customer_managed: { en: "your own, held in your key vault, so you can revoke them", de: "eure eigenen in eurem Schlüsseltresor, damit ihr sie zurückziehen könnt" }
         accepts: [platform_managed, customer_managed]
-        from_deployment: key_management
+        answer: { deployment: key_management }
         why: >
           Inherited. Disks are encrypted at rest with a platform key either way;
           `customer_managed` encrypts the system disk and the data disks with a key in the
@@ -608,7 +605,7 @@ groups:
         plain_values:
           true: { en: "allowed", de: "erlaubt" }
           false: { en: "not allowed; keys and company accounts only", de: "nicht erlaubt; nur Schlüssel und Firmenkonten" }
-        from_deployment: local_auth
+        answer: { deployment: local_auth }
         depends_on: { question: os_type, equals: Linux }
         why: >
           Inherited, inverted: `local_auth: disabled` renders as `false`. SSH with a key or
@@ -672,7 +669,7 @@ groups:
         plain_values:
           true: { en: "yes", de: "ja" }
           false: { en: "no", de: "nein" }
-        derived_from:
+        answer:
           question: data_loss_tolerance
           map: { reproducible: false, one_week: true, one_month: true, three_months: true }
         non_production_default: false
@@ -835,7 +832,7 @@ groups:
           en: "Its metrics go to {value}."
           de: "Seine Metriken gehen in {value}."
         accepts: { ref: log_analytics_workspace }
-        from_deployment: diagnostics_destination
+        answer: { deployment: diagnostics_destination }
         per_environment: true
         why: >
           Inherited: one deployment, one destination. A machine's platform diagnostic setting

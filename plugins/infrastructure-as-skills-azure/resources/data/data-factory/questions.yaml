@@ -36,8 +36,7 @@ groups:
           en: "Deployed in the stages {value}."
           de: "Wird in den Stufen {value} ausgerollt."
         accepts: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
-        required: true
-        from_context: true
+        answer: { context: environments }
         why: >
           Drives the rendered name and the strictness of several defaults below, and the
           factory model is one factory per stage: the development factory is bound to git,
@@ -53,8 +52,7 @@ groups:
         plain:
           en: "Runs in the Azure region {value}."
           de: "Läuft in der Azure-Region {value}."
-        required: true
-        from_context: true
+        answer: { context: location }
         why: >
           The factory's metadata and its managed virtual network live in this region, and
           the region is part of the rendered name. The Azure integration runtime inside the
@@ -72,8 +70,7 @@ groups:
           en: "Placed in the resource group {value}."
           de: "Liegt in der Ressourcengruppe {value}."
         accepts: { ref: resource_group }
-        required: true
-        from_context: true
+        answer: { context: resource_group_name }
         per_environment: true
         why: >
           The factory is placed into an existing group. Creating one here would make this
@@ -350,7 +347,7 @@ groups:
           enabled_with_firewall: { en: "reachable from the internet (the factory has no address allowlist, so this means reachable)", de: "aus dem Internet erreichbar (die Factory kennt keine Adressliste, also bedeutet dies erreichbar)" }
           enabled: { en: "reachable from the internet", de: "aus dem Internet erreichbar" }
         accepts: [disabled, enabled_with_firewall, enabled]
-        from_deployment: network_exposure
+        answer: { deployment: network_exposure }
         why: >
           Asked only as a departure: exposure is a property of the system. `disabled`
           closes the factory's own endpoints - the management API the pipelines and the
@@ -378,7 +375,7 @@ groups:
           en: "Its private connections land in subnet {value}."
           de: "Seine privaten Anbindungen landen im Subnetz {value}."
         accepts: { ref: subnet }
-        from_deployment: private_endpoint_subnet
+        answer: { deployment: private_endpoint_subnet }
         per_environment: true
         why: >
           One subnet carries the deployment's private endpoints, so this is inherited. A
@@ -509,7 +506,7 @@ groups:
           platform_managed: { en: "managed by Azure - encrypted, rotated, no effort on your side", de: "von Azure verwaltet: verschlüsselt, rotiert, kein Aufwand bei euch" }
           customer_managed: { en: "your own, held in your key vault, so you can revoke them", de: "eure eigenen in eurem Schlüsseltresor, damit ihr sie zurückziehen könnt" }
         accepts: [platform_managed, customer_managed]
-        from_deployment: key_management
+        answer: { deployment: key_management }
         why: >
           Inherited. The factory's metadata - pipeline definitions, linked service
           properties, the credentials it holds for sources without identity support - is
@@ -554,7 +551,7 @@ groups:
           en: "Its logs go to {value}."
           de: "Seine Logs gehen in {value}."
         accepts: { ref: log_analytics_workspace }
-        from_deployment: diagnostics_destination
+        answer: { deployment: diagnostics_destination }
         per_environment: true
         why: >
           Inherited: one deployment, one destination. The factory's own monitoring view

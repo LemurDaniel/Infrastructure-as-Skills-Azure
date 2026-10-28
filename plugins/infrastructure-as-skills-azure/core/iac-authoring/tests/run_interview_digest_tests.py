@@ -2,7 +2,7 @@
 """Tests for scripts/interview_digest.py: the digest drops nothing a run acts on.
 
 For every question set in the plugin the digest of that set must carry each interview
-question, each `forced_when` in full, each question with `derived_from`,
+question, each `forced_when` in full, each question with a derived `answer`,
 `non_production_default` or `required`, and each boundary. A digest that loses one of
 them is the ad-hoc extraction it replaces: a question asked that a rule settles. Then
 `--why` must print the reasoning of the question named, `--language de` the German value
@@ -51,7 +51,7 @@ def main():
                 checked += 1
                 if f"] {q['id']}  " not in text:
                     failures.append(f"{rel}: interview question {q['id']} missing")
-            elif any(k in q for k in d.ACTED_ON):
+            elif d.acted_on(q):
                 checked += 1
                 if f"{g}.{q['id']}" not in text:
                     failures.append(f"{rel}: {g}.{q['id']} missing")

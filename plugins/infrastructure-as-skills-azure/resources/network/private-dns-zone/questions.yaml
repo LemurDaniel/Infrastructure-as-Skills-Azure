@@ -36,8 +36,7 @@ groups:
           en: "Deployed in the stages {value}."
           de: "Wird in den Stufen {value} ausgerollt."
         accepts: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
-        required: true
-        from_context: true
+        answer: { context: environments }
         why: >
           A zone is created once per stage that owns its resolution. Two stages sharing a
           zone share its records, so a development endpoint overwrites the production
@@ -53,8 +52,7 @@ groups:
           en: "Placed in the resource group {value}."
           de: "Liegt in der Ressourcengruppe {value}."
         accepts: { ref: resource_group }
-        required: true
-        from_context: true
+        answer: { context: resource_group_name }
         per_environment: true
         why: >
           A zone is a global resource and has no region; it still sits in a group. Usually
@@ -79,7 +77,7 @@ groups:
           platform: { en: "the company platform", de: "die Firmenplattform" }
           deployment: { en: "this deployment itself", de: "dieses Ausrollen selbst" }
         accepts: [platform, deployment]
-        from_deployment: private_dns_ownership
+        answer: { deployment: private_dns_ownership }
         why: >
           Inherited: one answer per deployment. `platform` renders nothing for the privatelink
           zones - they are referenced - and only an `internal_domain` zone of this deployment

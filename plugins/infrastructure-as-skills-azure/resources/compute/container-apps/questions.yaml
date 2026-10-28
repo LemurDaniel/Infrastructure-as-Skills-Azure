@@ -38,8 +38,7 @@ groups:
           en: "Deployed in the stages {value}."
           de: "Wird in den Stufen {value} ausgerollt."
         accepts: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
-        required: true
-        from_context: true
+        answer: { context: environments }
         why: >
           Drives the rendered name and the strictness of several defaults below.
           Nothing sensible can be guessed.
@@ -53,8 +52,7 @@ groups:
         plain:
           en: "Runs in the Azure region {value}."
           de: "Läuft in der Azure-Region {value}."
-        required: true
-        from_context: true
+        answer: { context: location }
         why: >
           Part of the rendered name. Zone redundancy and the dedicated workload profiles
           are not available in every region, so the region constrains the environment
@@ -70,8 +68,7 @@ groups:
           en: "Placed in the resource group {value}."
           de: "Liegt in der Ressourcengruppe {value}."
         accepts: { ref: resource_group }
-        required: true
-        from_context: true
+        answer: { context: resource_group_name }
         per_environment: true
         why: >
           The environment and the app are placed into an existing group. The platform also
@@ -120,7 +117,7 @@ groups:
         plain_values:
           true: { en: "does", de: "übersteht" }
           false: { en: "does not", de: "übersteht nicht" }
-        derived_from:
+        answer:
           question: outage_impact
           map: { tolerable: false, disruptive: true, critical: true }
         non_production_default: false
@@ -149,7 +146,7 @@ groups:
         plain_values:
           true: { en: "reachable only from inside the company network, through an internal load balancer", de: "nur aus dem Firmennetz erreichbar, über einen internen Lastverteiler" }
           false: { en: "given a public address of its own", de: "mit einer eigenen öffentlichen Adresse versehen" }
-        from_deployment: network_exposure
+        answer: { deployment: network_exposure }
         why: >
           Inherited: `private` renders as `true`, `public` as `false`. An internal environment
           has no public IP at all and is reached through an address in the infrastructure
@@ -195,7 +192,7 @@ groups:
           disabled: { en: "closed to all public traffic", de: "für jeden öffentlichen Verkehr gesperrt" }
           enabled: { en: "open to public traffic", de: "für öffentlichen Verkehr geöffnet" }
         accepts: [disabled, enabled]
-        from_deployment: network_exposure
+        answer: { deployment: network_exposure }
         why: >
           The platform switch for all public traffic to the environment, beside `internal`.
           `private` is `disabled`, `public` is `enabled`; the firewalling of a public app is
@@ -285,7 +282,7 @@ groups:
         plain:
           en: "At least {value} copies of the app are always running."
           de: "Mindestens {value} Kopien der App laufen immer."
-        derived_from:
+        answer:
           question: outage_impact
           map: { tolerable: 0, disruptive: 2, critical: 3 }
         non_production_default: 1
@@ -497,7 +494,7 @@ groups:
           en: "Its logs go to {value}."
           de: "Seine Logs gehen in {value}."
         accepts: { ref: log_analytics_workspace }
-        from_deployment: diagnostics_destination
+        answer: { deployment: diagnostics_destination }
         per_environment: true
         why: >
           Inherited: one deployment, one destination. **The environment sends its logs through

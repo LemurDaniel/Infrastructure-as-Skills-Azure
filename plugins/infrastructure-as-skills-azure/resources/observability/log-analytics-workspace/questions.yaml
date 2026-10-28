@@ -29,8 +29,7 @@ groups:
           en: "Deployed in the stages {value}."
           de: "Wird in den Stufen {value} ausgerollt."
         accepts: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
-        required: true
-        from_context: true
+        answer: { context: environments }
         why: >
           Drives the rendered name and the retention and access defaults below.
         renders: naming parameter `environment`
@@ -43,8 +42,7 @@ groups:
         plain:
           en: "Runs in the Azure region {value}."
           de: "Läuft in der Azure-Region {value}."
-        required: true
-        from_context: true
+        answer: { context: location }
         why: >
           Logs are stored in the workspace's region, which is a data-residency
           statement as much as a latency one. Cross-region ingestion works and
@@ -60,8 +58,7 @@ groups:
           en: "Placed in the resource group {value}."
           de: "Liegt in der Ressourcengruppe {value}."
         accepts: { ref: resource_group }
-        required: true
-        from_context: true
+        answer: { context: resource_group_name }
         per_environment: true
         why: >
           A workspace normally outlives the workloads reporting into it, which
@@ -81,7 +78,7 @@ groups:
         plain:
           en: "Logs are kept for {value} days."
           de: "Logs werden {value} Tage aufbewahrt."
-        from_deployment: log_retention_days
+        answer: { deployment: log_retention_days }
         non_production_default: 30
         why: >
           Inherited from the deployment set, per stage: a stated retention holds in
@@ -101,7 +98,7 @@ groups:
         plain:
           en: "Daily log intake cap: {value} GB (-1: no cap)."
           de: "Tägliche Obergrenze für Logs: {value} GB (-1: keine)."
-        from_deployment: daily_quota_gb
+        answer: { deployment: daily_quota_gb }
         why: >
           Inherited, next to retention: both are the cost screws on this
           workspace, and a deployment that owns its logging owns the bill. Asked a
@@ -176,7 +173,7 @@ groups:
         plain_values:
           true: { en: "possible", de: "möglich" }
           false: { en: "not possible - agents use company identities", de: "nicht möglich, Agenten nutzen Firmenidentitäten" }
-        from_deployment: local_auth
+        answer: { deployment: local_auth }
         why: >
           The shared key is a bearer credential with ingestion rights and no
           expiry. Disabling it forces Entra ID, which the modern agents use

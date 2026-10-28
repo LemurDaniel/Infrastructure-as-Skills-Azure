@@ -5,7 +5,7 @@ title: Deployment-wide decisions
 
 # The decisions that hold for everything in one deployment. Resolved once, before
 # any resource question set, and recorded under `deployment:` in the spec. A
-# resource question marked `from_deployment` reads its answer from here instead of
+# resource question with `answer: { deployment: <id> }` reads its answer from here instead of
 # asking again - the posture of a system is one decision, not one per resource.
 
 # `parameterized: true` marks a context value that is never asked and never written
@@ -1072,7 +1072,7 @@ groups:
   # ---------------------------------------------------------------- requirements
   # What the customer can say about the system without knowing Azure. Each answer
   # derives technical decisions in the resource sets: a resource question carrying
-  # `derived_from: <id>` maps the answer through its own table and records the value
+  # `answer: { question: <id>, map }` maps the answer through its own table and records the value
   # with `source: requirement`. The default answer derives the guardrail default, so an
   # unanswered requirement changes nothing - it only lets the customer change things.
   - id: requirements

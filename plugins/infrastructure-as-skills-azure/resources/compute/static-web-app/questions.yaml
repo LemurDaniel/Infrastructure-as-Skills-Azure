@@ -33,8 +33,7 @@ groups:
           en: "Deployed in the stages {value}."
           de: "Wird in den Stufen {value} ausgerollt."
         accepts: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
-        required: true
-        from_context: true
+        answer: { context: environments }
         why: >
           Drives the rendered name and the strictness of several defaults below. Nothing
           sensible can be guessed. One Static Web App is one site with its own preview
@@ -49,8 +48,7 @@ groups:
         plain:
           en: "Runs in the Azure region {value}."
           de: "Läuft in der Azure-Region {value}."
-        required: true
-        from_context: true
+        answer: { context: location }
         why: >
           **Only a handful of regions are offered** (West US 2, Central US, East US 2, West
           Europe and East Asia at the time of writing; read from the module README or `az
@@ -68,8 +66,7 @@ groups:
           en: "Placed in the resource group {value}."
           de: "Liegt in der Ressourcengruppe {value}."
         accepts: { ref: resource_group }
-        required: true
-        from_context: true
+        answer: { context: resource_group_name }
         per_environment: true
         why: >
           The app is placed into an existing group. Creating one here would make this set own a
@@ -92,7 +89,7 @@ groups:
           Free: { en: "free, for a hobby or a prototype - no uptime guarantee, no private connection, no custom login providers, small limits", de: "kostenlos, für Hobby oder Prototyp - keine Verfügbarkeitszusage, keine private Anbindung, keine eigenen Login-Anbieter, kleine Grenzen" }
           Standard: { en: "standard, with an uptime guarantee, a private connection, custom login providers and larger limits", de: "Standard, mit Verfügbarkeitszusage, privater Anbindung, eigenen Login-Anbietern und größeren Grenzen" }
         accepts: [Free, Standard]
-        derived_from:
+        answer:
           question: outage_impact
           map: { tolerable: Free, disruptive: Standard, critical: Standard }
         why: >
@@ -145,7 +142,7 @@ groups:
           disabled: { en: "not reachable from the internet at all, only through a private connection", de: "aus dem Internet überhaupt nicht erreichbar, nur über eine private Anbindung" }
           enabled: { en: "reachable from the internet", de: "aus dem Internet erreichbar" }
         accepts: [disabled, enabled]
-        from_deployment: network_exposure
+        answer: { deployment: network_exposure }
         why: >
           Asked only as a departure: exposure is a property of the system. `private` is
           `disabled`, `public` is `enabled`; there is no firewall allowlist on a Static Web App,
@@ -171,7 +168,7 @@ groups:
           en: "Its private connection lands in subnet {value}."
           de: "Seine private Anbindung landet im Subnetz {value}."
         accepts: { ref: subnet }
-        from_deployment: private_endpoint_subnet
+        answer: { deployment: private_endpoint_subnet }
         per_environment: true
         why: >
           One subnet carries the deployment's private endpoints, so this is inherited. The app has

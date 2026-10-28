@@ -30,8 +30,7 @@ groups:
           en: "Deployed in the stages {value}."
           de: "Wird in den Stufen {value} ausgerollt."
         accepts: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
-        required: true
-        from_context: true
+        answer: { context: environments }
         why: >
           Drives the strictness of several defaults below. Nothing sensible can be guessed.
         renders: tag of the environment where the repository uses one
@@ -129,7 +128,7 @@ groups:
           Cool: { en: data that is read now and then, de: "Daten, die nur gelegentlich gelesen werden" }
           Premium: { en: fast SSD storage billed for its full size, de: "schneller SSD-Speicher, der für die volle Größe berechnet wird" }
         accepts: [TransactionOptimized, Hot, Cool, Premium]
-        derived_from:
+        answer:
           question: data_access_pattern
           map: { active: TransactionOptimized, occasional: Cool, archive: Cool }
         forced_when: >

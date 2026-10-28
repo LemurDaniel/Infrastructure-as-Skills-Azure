@@ -36,8 +36,7 @@ groups:
           en: "Deployed in the stages {value}."
           de: "Wird in den Stufen {value} ausgerollt."
         accepts: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
-        required: true
-        from_context: true
+        answer: { context: environments }
         why: >
           Drives the rendered name. A rule exists per stage, watching that stage's
           resources and notifying that stage's action group.
@@ -51,8 +50,7 @@ groups:
         plain:
           en: "Runs in the Azure region {value}."
           de: "Läuft in der Azure-Region {value}."
-        required: true
-        from_context: true
+        answer: { context: location }
         forced_when: >
           `kind: metric` and `kind: activity_log` are global resources and render
           `global` regardless of this value, recorded as forced with `kind` as forced_by.
@@ -73,8 +71,7 @@ groups:
           en: "Placed in the resource group {value}."
           de: "Liegt in der Ressourcengruppe {value}."
         accepts: { ref: resource_group }
-        required: true
-        from_context: true
+        answer: { context: resource_group_name }
         per_environment: true
         why: >
           The rule is placed into an existing group - the observability one where the
@@ -429,7 +426,7 @@ groups:
           en: "The query runs against the log workspace {value}."
           de: "Die Abfrage läuft gegen den Log-Arbeitsbereich {value}."
         accepts: { ref: log_analytics_workspace }
-        from_deployment: diagnostics_destination
+        answer: { deployment: diagnostics_destination }
         depends_on: { question: kind, equals: log_query }
         per_environment: true
         why: >

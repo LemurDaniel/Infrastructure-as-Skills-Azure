@@ -37,8 +37,7 @@ groups:
           en: "Deployed in the stages {value}."
           de: "Wird in den Stufen {value} ausgerollt."
         accepts: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
-        required: true
-        from_context: true
+        answer: { context: environments }
         why: >
           Drives the rendered name and the strictness of several defaults below. Nothing
           sensible can be guessed. A disk is one per stage: it holds the stage's data.
@@ -52,8 +51,7 @@ groups:
         plain:
           en: "Runs in the Azure region {value}."
           de: "Läuft in der Azure-Region {value}."
-        required: true
-        from_context: true
+        answer: { context: location }
         why: >
           Part of the rendered name and the home of the disk. A disk can only be attached to a
           machine of the same region, and the disk types offered differ per region.
@@ -68,8 +66,7 @@ groups:
           en: "Placed in the resource group {value}."
           de: "Liegt in der Ressourcengruppe {value}."
         accepts: { ref: resource_group }
-        required: true
-        from_context: true
+        answer: { context: resource_group_name }
         per_environment: true
         why: >
           The disk is placed into an existing group. Creating one here would make this set own
@@ -135,7 +132,7 @@ groups:
           StandardSSD_ZRS: { en: "standard SSD, kept in three datacenters of the region", de: "Standard-SSD, in drei Rechenzentren der Region" }
           Standard_LRS: { en: "standard HDD, the slowest and cheapest, kept three times in one datacenter", de: "Standard-HDD, die langsamste und günstigste, dreifach in einem Rechenzentrum" }
         accepts: [Premium_LRS, Premium_ZRS, StandardSSD_LRS, StandardSSD_ZRS, Standard_LRS]
-        derived_from:
+        answer:
           question: outage_impact
           map: { tolerable: Premium_LRS, disruptive: Premium_ZRS, critical: Premium_ZRS }
         non_production_default: Premium_LRS
@@ -253,7 +250,7 @@ groups:
           en: "Its private connection lands in subnet {value}."
           de: "Seine private Anbindung landet im Subnetz {value}."
         accepts: { ref: subnet }
-        from_deployment: private_endpoint_subnet
+        answer: { deployment: private_endpoint_subnet }
         depends_on: { question: network_access, equals: allow_private }
         per_environment: true
         why: >
@@ -302,7 +299,7 @@ groups:
           platform_managed: { en: "managed by Azure - encrypted, rotated, no effort on your side", de: "von Azure verwaltet: verschlüsselt, rotiert, kein Aufwand bei euch" }
           customer_managed: { en: "your own, held in your key vault, so you can revoke them", de: "eure eigenen in eurem Schlüsseltresor, damit ihr sie zurückziehen könnt" }
         accepts: [platform_managed, customer_managed]
-        from_deployment: key_management
+        answer: { deployment: key_management }
         why: >
           Inherited. A managed disk is encrypted at rest with a platform key either way (server
           side); `customer_managed` adds a disk encryption set that wraps the disk's key with

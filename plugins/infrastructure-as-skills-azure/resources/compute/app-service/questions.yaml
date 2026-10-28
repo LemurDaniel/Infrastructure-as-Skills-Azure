@@ -41,8 +41,7 @@ groups:
           en: "Deployed in the stages {value}."
           de: "Wird in den Stufen {value} ausgerollt."
         accepts: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
-        required: true
-        from_context: true
+        answer: { context: environments }
         why: >
           Drives the rendered name and the strictness of several defaults below.
           Nothing sensible can be guessed.
@@ -56,8 +55,7 @@ groups:
         plain:
           en: "Runs in the Azure region {value}."
           de: "Läuft in der Azure-Region {value}."
-        required: true
-        from_context: true
+        answer: { context: location }
         why: >
           Part of the rendered name and not inferable. Zone redundancy and the
           Premium v3 SKUs are not available in every region, so the region
@@ -73,8 +71,7 @@ groups:
           en: "Placed in the resource group {value}."
           de: "Liegt in der Ressourcengruppe {value}."
         accepts: { ref: resource_group }
-        required: true
-        from_context: true
+        answer: { context: resource_group_name }
         per_environment: true
         why: >
           The plan and the app are placed into an existing group. Creating one here
@@ -178,7 +175,7 @@ groups:
           P2mv3: { en: "P2mv3, premium with extra memory, twice P1mv3", de: "P2mv3, Premium mit mehr Arbeitsspeicher, doppelt so groß wie P1mv3" }
           P3mv3: { en: "P3mv3, premium with extra memory, four times P1mv3", de: "P3mv3, Premium mit mehr Arbeitsspeicher, viermal so groß wie P1mv3" }
         accepts: [B1, B2, B3, P0v3, P1v3, P2v3, P3v3, P1mv3, P2mv3, P3mv3]
-        derived_from:
+        answer:
           question: expected_load
           map: { small: P1v3, medium: P2v3, large: P3v3 }
         depends_on: { question: plan, equals: own }
@@ -212,7 +209,7 @@ groups:
         plain_values:
           true: { en: "does", de: "übersteht" }
           false: { en: "does not", de: "übersteht nicht" }
-        derived_from:
+        answer:
           question: outage_impact
           map: { tolerable: false, disruptive: true, critical: true }
         depends_on: { question: plan, equals: own }
@@ -242,7 +239,7 @@ groups:
         plain:
           en: "Copies of the app running at the same time: {value}."
           de: "Gleichzeitig laufende Kopien der App: {value}."
-        derived_from:
+        answer:
           question: outage_impact
           map: { tolerable: 1, disruptive: 2, critical: 3 }
         depends_on: { question: plan, equals: own }
@@ -273,7 +270,7 @@ groups:
           enabled_with_firewall: { en: "reachable from the internet only from listed addresses", de: "aus dem Internet nur von gelisteten Adressen erreichbar" }
           enabled: { en: "reachable from the internet", de: "aus dem Internet erreichbar" }
         accepts: [disabled, enabled_with_firewall, enabled]
-        from_deployment: network_exposure
+        answer: { deployment: network_exposure }
         why: >
           Asked only as a departure, because exposure is a property of the system and
           not of one app - the deployment set already answered it. The mapping is
@@ -304,7 +301,7 @@ groups:
           en: "Its private connection lands in subnet {value}."
           de: "Seine private Anbindung landet im Subnetz {value}."
         accepts: { ref: subnet }
-        from_deployment: private_endpoint_subnet
+        answer: { deployment: private_endpoint_subnet }
         per_environment: true
         why: >
           One subnet carries the deployment's private endpoints, so this is inherited
@@ -546,7 +543,7 @@ groups:
         plain_values:
           true: { en: "possible", de: "möglich" }
           false: { en: "not possible", de: "nicht möglich" }
-        from_deployment: local_auth
+        answer: { deployment: local_auth }
         why: >
           Inherited: `local_auth: disabled` renders as `false` here. The publishing
           profile is a shared username and password for the Kudu site and for FTP, it
@@ -581,7 +578,7 @@ groups:
           php: { en: "PHP", de: "PHP" }
           container: { en: "a container image that carries its own runtime", de: "ein Container-Image, das seine Laufzeit selbst mitbringt" }
         accepts: [dotnet, node, python, java, php, container]
-        from_deployment: app_runtime
+        answer: { deployment: app_runtime }
         why: >
           Inherited: the deployment set asks it once (app_runtime), before App Service is
           chosen, because the stack decides the service. A second app in another stack departs
@@ -833,7 +830,7 @@ groups:
           en: "Its logs go to {value}."
           de: "Seine Logs gehen in {value}."
         accepts: { ref: log_analytics_workspace }
-        from_deployment: diagnostics_destination
+        answer: { deployment: diagnostics_destination }
         per_environment: true
         why: >
           Inherited: one deployment, one destination, or correlating an incident across
