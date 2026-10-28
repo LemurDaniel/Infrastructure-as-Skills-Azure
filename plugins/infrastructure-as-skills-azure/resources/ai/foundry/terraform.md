@@ -64,9 +64,9 @@ module "foundry" {
     chat = {
       name = "chat"
       model = {
-        format  = "OpenAI"
-        name    = "gpt-4.1"
-        version = "2025-04-14"
+        format  = "<format from models.yaml>"
+        name    = "<model from models.yaml>"
+        version = "<its version from models.yaml>"
       }
       scale = {
         type     = "DataZoneStandard"
@@ -118,8 +118,9 @@ module "foundry" {
 output "id" { value = module.foundry.resource_id }
 ```
 
-The model name and version above are an example of the shape; the real ones are looked up
-against the region's catalogue (`az cognitiveservices model list --location <region>`).
+The model name and version are the spec's `model_deployments`, chosen from
+[models.yaml](models.yaml) - the catalogue of the EU regions, regenerated monthly. Neither is
+written from memory; `format` is the entry's `format`.
 
 ### Another region
 

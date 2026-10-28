@@ -61,7 +61,8 @@ module foundry 'br/public:avm/res/cognitive-services/account:0.19.1' = {
     deployments: [
       {
         name: 'chat'
-        model: { format: 'OpenAI', name: 'gpt-4.1', version: '2025-04-14' }
+        // name, version and format from the spec's model_deployments, chosen from models.yaml
+        model: { format: '<format>', name: '<model>', version: '<version>' }
         sku: { name: 'DataZoneStandard', capacity: 10 }
         versionUpgradeOption: 'OnceCurrentVersionExpired'
         raiPolicyName: 'Microsoft.DefaultV2'
