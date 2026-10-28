@@ -1,6 +1,6 @@
 # Entscheidungen für „claude-plugin-eval-agent“
 
-Was gebaut wird, entschieden aus euren Antworten und den Regeln hinter den Vorgaben. Jede Zeile ist eine Entscheidung; der Schlüssel im Anhang ist, wo ein Engineer sie in der Spezifikation findet.
+Was gebaut wird, entschieden aus euren Antworten und den Regeln hinter den Vorgaben. Jede Zeile ist eine Entscheidung; der Schlüssel im Anhang zeigt, wo sie in der Spezifikation steht.
 
 Stand 2026-10-24. Spezifikation: `infra-spec.yaml`.
 
@@ -42,40 +42,40 @@ Nichts davon wurde gefragt; jede Zeile folgt einer Regel oder einer der Antworte
 - Die Pipeline meldet sich mit einem kurzlebigen Token pro Lauf, ohne irgendwo gespeichertes Passwort bei Azure an.
 - Eine Person gibt die Änderung frei, bevor sie ausgerollt wird: nur im Echtbetrieb.
 - Wer ausrollt, braucht neben dem Recht, die Ressourcen zu ändern: Role Based Access Control Administrator (resource_group), Key Vault Secrets Officer (key-vault). — weil: `wiring.role_assignments, resources.key-vault.security.secret_placeholders`
-- Das System landet in einer eigenen Umgebung: es gibt keine gemeinsame Plattform, also bringt es Netz, Namensauflösung und Logging selbst mit. — weil: Das Netz wird von diesem Ausrollen frei gewählt, ohne Verbindung zum Firmennetz und ohne VPN. _(bitte bestätigen)_
-- Passwörter und Zugriffsschlüssel sind abgeschaltet; der Zugriff läuft über Firmenkonten, damit jede Aktion zuordenbar ist. _(bitte bestätigen)_
+- Das System landet in einer eigenen Umgebung: es gibt keine gemeinsame Plattform, also bringt es Netz, Namensauflösung und Logging selbst mit. — weil: Das Netz wird von diesem Ausrollen frei gewählt, ohne Verbindung zum Firmennetz und ohne VPN.
+- Passwörter und Zugriffsschlüssel sind abgeschaltet; der Zugriff läuft über Firmenkonten, damit jede Aktion zuordenbar ist.
 - Verschlüsselungsschlüssel sind in Software geschützt, der Standard, ausreichend ohne Vorgabe für Hardware.
-- Verschlüsselungsschlüssel sind von Azure verwaltet: verschlüsselt, rotiert, kein Aufwand bei euch. _(bitte bestätigen)_
+- Verschlüsselungsschlüssel sind von Azure verwaltet: verschlüsselt, rotiert, kein Aufwand bei euch.
 - Das Netz wird von diesem Ausrollen selbst gebaut. — weil: Das System landet in einer eigenen Umgebung: es gibt keine gemeinsame Plattform, also bringt es Netz, Namensauflösung und Logging selbst mit.
 - Das neue Netz nutzt den Adressbereich 10.100.0.0/24.
 - Private Anbindungen bekommen ein eigenes Subnetz, 10.100.0.0/27. — weil: Das Netz wird von diesem Ausrollen frei gewählt, ohne Verbindung zum Firmennetz und ohne VPN.
 - Die Namensauflösung für private Anbindungen übernimmt dieses Ausrollen selbst. — weil: Das System landet in einer eigenen Umgebung: es gibt keine gemeinsame Plattform, also bringt es Netz, Namensauflösung und Logging selbst mit.
 - Logs gehen in einen Arbeitsbereich, den dieses Ausrollen anlegt und bezahlt. — weil: Das System landet in einer eigenen Umgebung: es gibt keine gemeinsame Plattform, also bringt es Netz, Namensauflösung und Logging selbst mit.
 - Logs werden in log-analytics-workspace gesammelt. — weil: Logs gehen in einen Arbeitsbereich, den dieses Ausrollen anlegt und bezahlt.
-- Tägliche Obergrenze für Logs: -1 GB (-1: keine). _(bitte bestätigen)_
+- Tägliche Obergrenze für Logs: -1 GB (-1: keine).
 
 ### Sicherheit
 
 Die Sicherheitsvorgaben aller Teile an einer Stelle. Sie wurden nicht gefragt und sind in jeder Stufe gleich; sagt Bescheid, wenn eine nicht passt.
 
 - **Azure Virtual Network**
-  - Ein kostenpflichtiger DDoS-Schutzplan wird nicht genutzt; Azures Basisschutz gilt ohnehin. _(bitte bestätigen)_
+  - Ein kostenpflichtiger DDoS-Schutzplan wird nicht genutzt; Azures Basisschutz gilt ohnehin.
   - Subnetze, die eine Sicherheitsgruppe bekommen: keine.
 - **Azure Container Registry**
   - Die Registry hat keine eigene Identität.
   - Zugriffsrechte auf die Registry vergeben an: keine.
-  - Das gemeinsame Admin-Konto ist abgeschaltet; der Zugriff läuft über Firmenkonten. _(bitte bestätigen)_
+  - Das gemeinsame Admin-Konto ist abgeschaltet; der Zugriff läuft über Firmenkonten.
   - Das Herunterladen von Images ohne Anmeldung ist nicht erlaubt.
-  - Verschlüsselungsschlüssel sind von Azure verwaltet: verschlüsselt, rotiert, kein Aufwand bei euch. _(bitte bestätigen)_
+  - Verschlüsselungsschlüssel sind von Azure verwaltet: verschlüsselt, rotiert, kein Aufwand bei euch.
 - **Azure AI Foundry (AI Services account with projects and model deployments)**
   - Das Konto hat keine eigene Identität.
   - Zugriffsrechte auf das Konto vergeben an: keine.
-  - Die Anmeldung mit Kontoschlüsseln ist abgeschaltet; der Zugriff läuft über Firmenkonten. _(bitte bestätigen)_
-  - Verschlüsselungsschlüssel sind von Azure verwaltet: verschlüsselt, rotiert, kein Aufwand bei euch. _(bitte bestätigen)_
+  - Die Anmeldung mit Kontoschlüsseln ist abgeschaltet; der Zugriff läuft über Firmenkonten.
+  - Verschlüsselungsschlüssel sind von Azure verwaltet: verschlüsselt, rotiert, kein Aufwand bei euch.
 - **Azure Storage Account**
   - Der Speicher hat keine eigene Identität, um andere Dienste zu erreichen.
   - Zugriffsrechte vergeben an: keine.
-  - Zugriff mit einem geteilten Schlüssel ist nicht möglich; der Zugriff läuft über Firmenkonten. _(bitte bestätigen)_
+  - Zugriff mit einem geteilten Schlüssel ist nicht möglich; der Zugriff läuft über Firmenkonten.
   - Verbindungen müssen mindestens TLS 1.2-Verschlüsselung nutzen.
   - Unverschlüsselte Verbindungen werden abgewiesen.
   - Einzelne Ordner öffentlich lesbar zu machen ist nicht möglich.
@@ -89,7 +89,7 @@ Die Sicherheitsvorgaben aller Teile an einer Stelle. Sie wurden nicht gefragt un
   - Unverschlüsselte Verbindungen werden auf die verschlüsselte Adresse umgeleitet.
   - Verbindungen müssen mindestens TLS 1.2-Verschlüsselung nutzen.
   - Dateiupload per FTP ist abgeschaltet.
-  - Das Ausrollen mit Benutzername und Passwort ist nicht möglich; Rollouts laufen über Firmenkonten. _(bitte bestätigen)_
+  - Das Ausrollen mit Benutzername und Passwort ist nicht möglich; Rollouts laufen über Firmenkonten.
   - Sie nutzt die Identitäten user-assigned-identity__drift. — weil: `resources.app-service__drift.identity.managed_identity` (drift)
   - Sie nutzt die Identitäten user-assigned-identity__fuzz. — weil: `resources.app-service__fuzz.identity.managed_identity` (fuzz)
   - Sie nutzt die Identitäten user-assigned-identity__tune. — weil: `resources.app-service__tune.identity.managed_identity` (tune)
@@ -109,14 +109,14 @@ Die Sicherheitsvorgaben aller Teile an einer Stelle. Sie wurden nicht gefragt un
 - Abkürzungen zu Azure-Diensten aus den Subnetzen: keine.
 - An einen Dienst übergebene Subnetze: app-integration (Microsoft.Web/serverFarms). — weil: `resources.app-service__dashboard.networking.vnet_integration`
 - Netzwerk-Logs gehen in log-analytics-workspace.
-- Eine Aufzeichnung erlaubten und abgewiesenen Verkehrs wird nicht geführt. _(bitte bestätigen)_
+- Eine Aufzeichnung erlaubten und abgewiesenen Verkehrs wird nicht geführt.
 
 ### Azure Log Analytics Workspace
 
 - Logs werden 30 Tage aufbewahrt.
-- Tägliche Obergrenze für Logs: -1 GB (-1: keine). _(bitte bestätigen)_
+- Tägliche Obergrenze für Logs: -1 GB (-1: keine).
 - Abgerechnet pro Gigabyte, nach Verbrauch.
-- Der Log-Arbeitsbereich ist aus dem Internet erreichbar, mit Firmenkonten und Verschlüsselung; einen privaten Zugang dafür gibt es nicht. _(bitte bestätigen)_
+- Der Log-Arbeitsbereich ist aus dem Internet erreichbar, mit Firmenkonten und Verschlüsselung; einen privaten Zugang dafür gibt es nicht.
 - Logs mit dem Arbeitsbereichs-Schlüssel zu senden ist nicht möglich, Agenten nutzen Firmenidentitäten.
 - Wer Logs lesen darf, entscheiden die Berechtigungen des Arbeitsbereichs selbst.
 - Ein gelöschter Arbeitsbereich kann 14 Tage lang wiederhergestellt werden.
@@ -155,7 +155,7 @@ Die Sicherheitsvorgaben aller Teile an einer Stelle. Sie wurden nicht gefragt un
 - Die Registry hat die Stufe Premium, die als einzige per privater Anbindung abgeschottet und auf mehrere Regionen verteilt werden kann. — weil: Der Zugang ist privat; nur die benannten Teile sind hinter einer Firewall aus dem Internet erreichbar, alles dahinter bleibt privat.
 - Die Images liegen zusätzlich in keine (leer: nur in der Hauptregion).
 - Images ohne Tag werden nach 7 Tagen gelöscht.
-- Die Registry ist aus dem Internet überhaupt nicht erreichbar. _(bitte bestätigen)_
+- Die Registry ist aus dem Internet überhaupt nicht erreichbar.
 - Seine private Anbindung landet im Subnetz pe.
 - Vertrauenswürdige Azure-Dienste dürfen nicht an der Firewall der Registry vorbei.
 - Das Herauskopieren von Images aus der Registry ist gesperrt.
@@ -172,7 +172,7 @@ Die Sicherheitsvorgaben aller Teile an einer Stelle. Sie wurden nicht gefragt un
 - Jedes Modell darf bis zu 10 Tausend Token pro Minute verarbeiten.
 - Läuft die Modellversion aus, wechselt sie an diesem Tag auf die neue Standardversion.
 - Anfragen und Antworten werden vom Inhaltsfilter Microsoft.DefaultV2 geprüft.
-- Das Konto ist aus dem Internet überhaupt nicht erreichbar. _(bitte bestätigen)_
+- Das Konto ist aus dem Internet überhaupt nicht erreichbar.
 - Seine private Anbindung landet im Subnetz pe.
 - Das Konto darf nur Adressen aufrufen, die ausdrücklich erlaubt sind.
 - Seine Logs gehen in log-analytics-workspace.
@@ -181,7 +181,7 @@ Die Sicherheitsvorgaben aller Teile an einer Stelle. Sie wurden nicht gefragt un
 
 ### Azure Storage Account
 
-- Der Speicher ist aus dem Internet überhaupt nicht erreichbar. _(bitte bestätigen)_
+- Der Speicher ist aus dem Internet überhaupt nicht erreichbar.
 - Seine private Anbindung landet im Subnetz pe.
 - Private Anbindungen gibt es für: Dateien (Blob).
 - Azures eigene Dienste (Backup, Überwachung) dürfen am Firewall vorbei auf den Speicher zugreifen.
@@ -208,8 +208,8 @@ Die Sicherheitsvorgaben aller Teile an einer Stelle. Sie wurden nicht gefragt un
 ### Azure App Service (web app on an App Service plan) (drift)
 
 - Die App läuft auf Linux. — weil: `resources.app-service__dashboard.hosting.os_type`
-- Der Hosting-Plan hat die Größe B2, Basic, zwei Kerne. — weil: `resources.app-service__dashboard.hosting.sku` _(bitte bestätigen)_
-- Die App übersteht nicht den Ausfall eines Rechenzentrums der Region. — weil: `resources.app-service__dashboard.hosting.zone_redundant` _(bitte bestätigen)_
+- Der Hosting-Plan hat die Größe B2, Basic, zwei Kerne. — weil: `resources.app-service__dashboard.hosting.sku`
+- Die App übersteht nicht den Ausfall eines Rechenzentrums der Region. — weil: `resources.app-service__dashboard.hosting.zone_redundant`
 - Gleichzeitig laufende Kopien der App: 1. — weil: `resources.app-service__dashboard.hosting.instance_count`
 - Seine private Anbindung landet im Subnetz pe.
 - Der ausgehende Verkehr der App läuft durch das Firmennetz, so erreicht sie private Dienste.
@@ -225,8 +225,8 @@ Die Sicherheitsvorgaben aller Teile an einer Stelle. Sie wurden nicht gefragt un
 ### Azure App Service (web app on an App Service plan) (fuzz)
 
 - Die App läuft auf Linux. — weil: `resources.app-service__dashboard.hosting.os_type`
-- Der Hosting-Plan hat die Größe B2, Basic, zwei Kerne. — weil: `resources.app-service__dashboard.hosting.sku` _(bitte bestätigen)_
-- Die App übersteht nicht den Ausfall eines Rechenzentrums der Region. — weil: `resources.app-service__dashboard.hosting.zone_redundant` _(bitte bestätigen)_
+- Der Hosting-Plan hat die Größe B2, Basic, zwei Kerne. — weil: `resources.app-service__dashboard.hosting.sku`
+- Die App übersteht nicht den Ausfall eines Rechenzentrums der Region. — weil: `resources.app-service__dashboard.hosting.zone_redundant`
 - Gleichzeitig laufende Kopien der App: 1. — weil: `resources.app-service__dashboard.hosting.instance_count`
 - Seine private Anbindung landet im Subnetz pe.
 - Der ausgehende Verkehr der App läuft durch das Firmennetz, so erreicht sie private Dienste.
@@ -242,8 +242,8 @@ Die Sicherheitsvorgaben aller Teile an einer Stelle. Sie wurden nicht gefragt un
 ### Azure App Service (web app on an App Service plan) (tune)
 
 - Die App läuft auf Linux. — weil: `resources.app-service__dashboard.hosting.os_type`
-- Der Hosting-Plan hat die Größe B2, Basic, zwei Kerne. — weil: `resources.app-service__dashboard.hosting.sku` _(bitte bestätigen)_
-- Die App übersteht nicht den Ausfall eines Rechenzentrums der Region. — weil: `resources.app-service__dashboard.hosting.zone_redundant` _(bitte bestätigen)_
+- Der Hosting-Plan hat die Größe B2, Basic, zwei Kerne. — weil: `resources.app-service__dashboard.hosting.sku`
+- Die App übersteht nicht den Ausfall eines Rechenzentrums der Region. — weil: `resources.app-service__dashboard.hosting.zone_redundant`
 - Gleichzeitig laufende Kopien der App: 1. — weil: `resources.app-service__dashboard.hosting.instance_count`
 - Seine private Anbindung landet im Subnetz pe.
 - Der ausgehende Verkehr der App läuft durch das Firmennetz, so erreicht sie private Dienste.
@@ -260,7 +260,7 @@ Die Sicherheitsvorgaben aller Teile an einer Stelle. Sie wurden nicht gefragt un
 
 - Es wird im Speicherkonto storage-account angelegt.
 - Container: results.
-- Anonymes Lesen ist nicht erlaubt, jeder meldet sich an. _(bitte bestätigen)_
+- Anonymes Lesen ist nicht erlaubt, jeder meldet sich an.
 - Absender, die einen anderen Schlüsselbereich wählen, werden erlaubt.
 
 ### Azure Key Vault
@@ -269,7 +269,7 @@ Die Sicherheitsvorgaben aller Teile an einer Stelle. Sie wurden nicht gefragt un
 - Ein gelöschter Tresor oder ein gelöschtes Geheimnis lässt sich nicht endgültig löschen, auch nicht von einem Administrator, bevor die Aufbewahrungszeit endet.
 - Gelöschte Inhalte des Tresors lassen sich 90 Tage lang wiederherstellen.
 - Der Zugriff auf den Inhalt des Tresors wird über Rollenzuweisungen, wie alles andere in Azure gesteuert.
-- Der Tresor ist aus dem Internet überhaupt nicht erreichbar. _(bitte bestätigen)_
+- Der Tresor ist aus dem Internet überhaupt nicht erreichbar.
 - Seine private Anbindung landet im Subnetz pe.
 - Vertrauenswürdige Azure-Dienste dürfen nicht an der Firewall des Tresors vorbei.
 - Verschlüsselungsschlüssel sind von Azure verwaltet - der Tresor hält dafür keine.

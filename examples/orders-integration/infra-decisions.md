@@ -1,6 +1,6 @@
 # Entscheidungen für „orders“
 
-Was gebaut wird, entschieden aus euren Antworten und den Regeln hinter den Vorgaben. Jede Zeile ist eine Entscheidung; der Schlüssel im Anhang ist, wo ein Engineer sie in der Spezifikation findet.
+Was gebaut wird, entschieden aus euren Antworten und den Regeln hinter den Vorgaben. Jede Zeile ist eine Entscheidung; der Schlüssel im Anhang zeigt, wo sie in der Spezifikation steht.
 
 Stand 2026-10-25. Spezifikation: `infra-spec.yaml`.
 
@@ -67,7 +67,7 @@ Nichts davon wurde gefragt; jede Zeile folgt einer Regel oder einer der Antworte
 - Die Pipeline meldet sich mit einem kurzlebigen Token pro Lauf, ohne irgendwo gespeichertes Passwort bei Azure an.
 - Eine Person gibt die Änderung frei, bevor sie ausgerollt wird: nur im Echtbetrieb.
 - Wer ausrollt, braucht neben dem Recht, die Ressourcen zu ändern: Contributor (subscription). — weil: Die Hauptressourcengruppe wird zusammen mit dem System angelegt.
-- Passwörter und Zugriffsschlüssel sind abgeschaltet; der Zugriff läuft über Firmenkonten, damit jede Aktion zuordenbar ist. _(bitte bestätigen)_
+- Passwörter und Zugriffsschlüssel sind abgeschaltet; der Zugriff läuft über Firmenkonten, damit jede Aktion zuordenbar ist.
 
 ### Sicherheit
 
@@ -82,13 +82,13 @@ Die Sicherheitsvorgaben aller Teile an einer Stelle. Sie wurden nicht gefragt un
 - **Azure Event Grid custom topic**
   - `"managed_identity"`
 - **Azure Storage Account**
-  - Zugriff mit einem geteilten Schlüssel ist nicht möglich; der Zugriff läuft über Firmenkonten. _(bitte bestätigen)_
+  - Zugriff mit einem geteilten Schlüssel ist nicht möglich; der Zugriff läuft über Firmenkonten.
 - **Azure Key Vault**
   - Der Zugriff auf den Inhalt des Tresors wird über Rollenzuweisungen, wie alles andere in Azure gesteuert.
 
 ### Azure Front Door (Standard / Premium)
 
-- Front Door ist die Stufe Premium. _(bitte bestätigen)_
+- Front Door ist die Stufe Premium.
 - Backends: application-gateway.
 
 ### Azure Application Gateway (v2) with web application firewall
@@ -98,7 +98,7 @@ Die Sicherheitsvorgaben aller Teile an einer Stelle. Sie wurden nicht gefragt un
 
 ### Azure API Management service
 
-- Das Gateway ist die Stufe Entwicklung: eine Teststufe ohne Verfügbarkeitszusage; Test: eine Teststufe ohne Verfügbarkeitszusage; Echtbetrieb: Premium, mit Zonen, mehreren Regionen und Netzwerkeinbindung. _(bitte bestätigen)_
+- Das Gateway ist die Stufe Entwicklung: eine Teststufe ohne Verfügbarkeitszusage; Test: eine Teststufe ohne Verfügbarkeitszusage; Echtbetrieb: Premium, mit Zonen, mehreren Regionen und Netzwerkeinbindung.
 - `"Internal"`
 - `"entra-id"`
 - `"per-subscription"`
@@ -106,7 +106,7 @@ Die Sicherheitsvorgaben aller Teile an einer Stelle. Sie wurden nicht gefragt un
 
 ### Azure Functions (function app on Flex Consumption or Elastic Premium)
 
-- Die Function App ist aus dem Internet überhaupt nicht erreichbar. _(bitte bestätigen)_
+- Die Function App ist aus dem Internet überhaupt nicht erreichbar.
 
 ### Azure Service Bus namespace
 
@@ -115,7 +115,7 @@ Die Sicherheitsvorgaben aller Teile an einer Stelle. Sie wurden nicht gefragt un
 
 ### Azure Event Hubs namespace
 
-- Der Dienst (namespace) ist aus dem Internet überhaupt nicht erreichbar. _(bitte bestätigen)_
+- Der Dienst (namespace) ist aus dem Internet überhaupt nicht erreichbar.
 - `4`
 - `7`
 - `"storage-account"`
@@ -127,7 +127,7 @@ Die Sicherheitsvorgaben aller Teile an einer Stelle. Sie wurden nicht gefragt un
 ### Azure Storage Account
 
 - `true`
-- Der Speicher ist aus dem Internet überhaupt nicht erreichbar. _(bitte bestätigen)_
+- Der Speicher ist aus dem Internet überhaupt nicht erreichbar.
 
 ### Azure Backup vault
 
@@ -138,7 +138,7 @@ Die Sicherheitsvorgaben aller Teile an einer Stelle. Sie wurden nicht gefragt un
 ### Azure Recovery Services vault
 
 - `{"development": "LRS", "test": "LRS", "production": "GRS"}`
-- Gelöschte Sicherungen werden ja. _(bitte bestätigen)_
+- Gelöschte Sicherungen werden ja.
 
 ### Azure Log Analytics Workspace
 

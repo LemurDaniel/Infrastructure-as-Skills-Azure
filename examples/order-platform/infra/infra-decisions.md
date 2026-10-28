@@ -1,6 +1,6 @@
 # Entscheidungen für „orders“
 
-Was gebaut wird, entschieden aus euren Antworten und den Regeln hinter den Vorgaben. Jede Zeile ist eine Entscheidung; der Schlüssel im Anhang ist, wo ein Engineer sie in der Spezifikation findet.
+Was gebaut wird, entschieden aus euren Antworten und den Regeln hinter den Vorgaben. Jede Zeile ist eine Entscheidung; der Schlüssel im Anhang zeigt, wo sie in der Spezifikation steht.
 
 Stand 2026-10-26. Spezifikation: `infra-spec.yaml`.
 
@@ -81,15 +81,15 @@ Nichts davon wurde gefragt; jede Zeile folgt einer Regel oder einer der Antworte
 - Eine Person gibt die Änderung frei, bevor sie ausgerollt wird: nur im Echtbetrieb.
 - Wer ausrollt, braucht neben dem Recht, die Ressourcen zu ändern: Contributor (subscription). — weil: Die Hauptressourcengruppe wird zusammen mit dem System angelegt.
 - Nutzungstelemetrie an Microsoft ist ausgeschaltet: eine Zählung pro Ausrollen, keine eurer Daten.
-- Das System landet in einer eigenen Umgebung: es gibt keine gemeinsame Plattform, also bringt es Netz, Namensauflösung und Logging selbst mit. _(bitte bestätigen)_
-- Passwörter und Zugriffsschlüssel sind abgeschaltet; der Zugriff läuft über Firmenkonten, damit jede Aktion zuordenbar ist. _(bitte bestätigen)_
+- Das System landet in einer eigenen Umgebung: es gibt keine gemeinsame Plattform, also bringt es Netz, Namensauflösung und Logging selbst mit.
+- Passwörter und Zugriffsschlüssel sind abgeschaltet; der Zugriff läuft über Firmenkonten, damit jede Aktion zuordenbar ist.
 - Verschlüsselungsschlüssel sind in Software geschützt, der Standard, ausreichend ohne Vorgabe für Hardware.
-- Verschlüsselungsschlüssel sind von Azure verwaltet: verschlüsselt, rotiert, kein Aufwand bei euch. _(bitte bestätigen)_
+- Verschlüsselungsschlüssel sind von Azure verwaltet: verschlüsselt, rotiert, kein Aufwand bei euch.
 - Das Netz wird von diesem Ausrollen selbst gebaut. — weil: Der Zugang ist privat; nur die benannten Teile sind hinter einer Firewall aus dem Internet erreichbar, alles dahinter bleibt privat.
 - Das neue Netz nutzt den Adressbereich Entwicklung: 10.100.0.0/23; Test: 10.101.0.0/23; Echtbetrieb: 10.102.0.0/23.
 - Die Namensauflösung für private Anbindungen übernimmt dieses Ausrollen selbst. — weil: Das System landet in einer eigenen Umgebung: es gibt keine gemeinsame Plattform, also bringt es Netz, Namensauflösung und Logging selbst mit.
 - Logs gehen in einen Arbeitsbereich, den dieses Ausrollen anlegt und bezahlt. — weil: Das System landet in einer eigenen Umgebung: es gibt keine gemeinsame Plattform, also bringt es Netz, Namensauflösung und Logging selbst mit.
-- Tägliche Obergrenze für Logs: -1 GB (-1: keine). _(bitte bestätigen)_
+- Tägliche Obergrenze für Logs: -1 GB (-1: keine).
 
 ### Sicherheit
 
@@ -98,8 +98,8 @@ Die Sicherheitsvorgaben aller Teile an einer Stelle. Sie wurden nicht gefragt un
 - **Azure Virtual Network**
   - Subnetze, die eine Sicherheitsgruppe bekommen: appgw, apim, function-integration, workload, private-endpoints.
 - **Azure Front Door (Standard / Premium)**
-  - Eine Web Application Firewall am Rand ist von einer Web Application Firewall geprüft. _(bitte bestätigen)_
-  - Die Firewall blockiert Anfragen, die es für bösartig hält. _(bitte bestätigen)_
+  - Eine Web Application Firewall am Rand ist von einer Web Application Firewall geprüft.
+  - Die Firewall blockiert Anfragen, die es für bösartig hält.
 
 ### Azure Virtual Network
 
@@ -128,13 +128,13 @@ Die Sicherheitsvorgaben aller Teile an einer Stelle. Sie wurden nicht gefragt un
 
 ### Azure Application Gateway (v2) with web application firewall
 
-- Eine Web Application Firewall ist von einer Web Application Firewall geprüft. _(bitte bestätigen)_
-- Die Firewall blockiert Anfragen, die es für bösartig hält. _(bitte bestätigen)_
+- Eine Web Application Firewall ist von einer Web Application Firewall geprüft.
+- Die Firewall blockiert Anfragen, die es für bösartig hält.
 - Seiten: keine.
 
 ### Azure Front Door (Standard / Premium)
 
-- Front Door ist die Stufe Premium, mit verwalteten Firewall-Regeln und privaten Verbindungen zu den Backends. _(bitte bestätigen)_
+- Front Door ist die Stufe Premium, mit verwalteten Firewall-Regeln und privaten Verbindungen zu den Backends.
 - Antworten werden am Rand zwischengespeichert.
 
 ### Azure Log Analytics Workspace
@@ -143,10 +143,10 @@ Die Sicherheitsvorgaben aller Teile an einer Stelle. Sie wurden nicht gefragt un
 
 ### Azure API Management service
 
-- Aufrufer melden sich an mit einem persönlichen Zugriffsschlüssel. _(bitte bestätigen)_
+- Aufrufer melden sich an mit einem persönlichen Zugriffsschlüssel.
 - Ein Aufrufer darf 600 Aufrufe pro Minute machen (0: keine Grenze).
 - Ein Entwicklerportal ist nicht bereitgestellt.
-- Das Gateway ist nur im privaten Netz. _(bitte bestätigen)_
+- Das Gateway ist nur im privaten Netz.
 
 ### Azure Functions (function app on Flex Consumption or Elastic Premium)
 
@@ -162,7 +162,7 @@ Die Sicherheitsvorgaben aller Teile an einer Stelle. Sie wurden nicht gefragt un
 
 ### Azure Service Bus namespace
 
-- Der Namensraum ist die Stufe Premium, dedizierte Kapazität mit privaten Anbindungen. — weil: Der Zugang ist privat; nur die benannten Teile sind hinter einer Firewall aus dem Internet erreichbar, alles dahinter bleibt privat. _(bitte bestätigen)_
+- Der Namensraum ist die Stufe Premium, dedizierte Kapazität mit privaten Anbindungen. — weil: Der Zugang ist privat; nur die benannten Teile sind hinter einer Firewall aus dem Internet erreichbar, alles dahinter bleibt privat.
 - Warteschlangen: payments (leer: keine).
 - Themen und ihre Abonnenten: orders subscriptions ['billing', 'shipping', 'audit'] (leer: keine).
 - Zusammengehörige Nachrichten müssen nicht der Reihenfolge nach bearbeitet werden.
@@ -170,7 +170,7 @@ Die Sicherheitsvorgaben aller Teile an einer Stelle. Sie wurden nicht gefragt un
 
 ### Azure Event Hubs namespace
 
-- Der Namensraum ist die Stufe Standard, mehrere Lesergruppen, bis zu einer Woche Historie und private Anbindung. _(bitte bestätigen)_
+- Der Namensraum ist die Stufe Standard, mehrere Lesergruppen, bis zu einer Woche Historie und private Anbindung.
 - Event Hubs: telemetry.
 - Jedes Ereignis wird zusätzlich als Dateien im Speicher archiviert.
 - Das Archiv geht in das Speicherkonto storage-account__datalake.
