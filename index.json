@@ -1401,10 +1401,10 @@
    "model": "sonnet",
    "trigger": "release",
    "pr": 13,
-   "commit": "dd7368f",
+   "commit": "d0fbd4a",
    "startedAt": "2026-10-28T15:39:02.863Z",
-   "costUsd": 14.8897797,
-   "durationSeconds": 340,
+   "costUsd": 18.832933699999998,
+   "durationSeconds": 547,
    "partial": false,
    "runsPerCase": 2,
    "cases": [
@@ -1422,7 +1422,7 @@
     },
     {
      "name": "language-en-request",
-     "passRate": 0.5,
+     "passRate": 1,
      "passRateWithout": null,
      "delta": null
     },

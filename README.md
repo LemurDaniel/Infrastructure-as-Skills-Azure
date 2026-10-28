@@ -27,7 +27,7 @@ previous version on the same model; a rate is never compared across models.
 
 ## sonnet
 
-![badge](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/LemurDaniel/Infrastructure-as-Skills-Azure/eval-history/badge-sonnet.json) · newest: release at `dd7368f`, 2 run(s) per case, 2026-10-28
+![badge](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/LemurDaniel/Infrastructure-as-Skills-Azure/eval-history/badge-sonnet.json) · newest: release at `d0fbd4a`, 2 run(s) per case, 2026-10-28
 
 | Case | v0.5.2 | v0.5.3 | v0.5.4 | v0.5.5 |
 |---|---|---|---|---|
@@ -37,9 +37,9 @@ previous version on the same model; a rate is never compared across models.
 | claude-md-section-replaced | 100% | 100% | 100% | 100% |
 | diagram-no-invented-lines | 100% | 100% | 100% | 100% |
 | language-en-first-question | 100% | 100% | 100% | 100% |
-| language-en-request | 100% | 100% | 100% | 🟡 50% ⬇ |
+| language-en-request | 100% | 100% | 100% | 100% |
 | plugin-newer-halts | 100% | 100% | 100% | 100% |
 | requirements-stated | 100% | 100% | 100% | 100% |
 | trigger-workload-request | 100% | 100% | 100% | 100% |
 | vague-public-dev | 100% | 100% | 100% | 100% |
-| **cost** | $15.62 | $14.90 | $14.56 | $14.89 |
+| **cost** | $15.62 | $14.90 | $14.56 | $18.83 |
