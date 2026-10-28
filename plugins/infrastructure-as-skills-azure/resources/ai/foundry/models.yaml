@@ -3,7 +3,8 @@
 #
 # The interview offers models from this file only (`options_from` on
 # models.model_deployments): generally available ones first, newest first, never a model
-# from memory. `lifecycle` other than GenerallyAvailable is named when offered; `retires`
+# from memory. Each model appears once, in its newest version; Legacy and Deprecating ones
+# are left out. A Preview `lifecycle` is named when offered; `retires`
 # is the date the version stops answering. `deployment_types` maps each type to the
 # regions that offer it - a model missing from the derived type is not deployed there.
 
@@ -49,25 +50,7 @@ models:
     DataZoneStandard: [francecentral, germanywestcentral, italynorth, polandcentral, spaincentral, swedencentral, westeurope]
     GlobalStandard: [francecentral, germanywestcentral, italynorth, polandcentral, spaincentral, swedencentral, westeurope]
 - name: claude-haiku-5-5
-  version: '1'
-  format: Anthropic
-  kind: chat
-  lifecycle: GenerallyAvailable
-  released: '2026-09-28'
-  retires: '2027-09-29'
-  deployment_types:
-    GlobalStandard: [swedencentral]
-- name: claude-haiku-5-5
   version: '2'
-  format: Anthropic
-  kind: chat
-  lifecycle: GenerallyAvailable
-  released: '2026-09-28'
-  retires: '2027-09-29'
-  deployment_types:
-    GlobalStandard: [swedencentral]
-- name: claude-sonnet-5-5
-  version: '1'
   format: Anthropic
   kind: chat
   lifecycle: GenerallyAvailable
@@ -104,15 +87,6 @@ models:
   deployment_types:
     DataZoneStandard: [francecentral, germanywestcentral, italynorth, polandcentral, spaincentral, swedencentral, westeurope]
     GlobalStandard: [francecentral, germanywestcentral, italynorth, polandcentral, spaincentral, swedencentral, westeurope]
-- name: claude-opus-5-5
-  version: '1'
-  format: Anthropic
-  kind: chat
-  lifecycle: GenerallyAvailable
-  released: '2026-09-17'
-  retires: '2027-09-18'
-  deployment_types:
-    GlobalStandard: [swedencentral]
 - name: claude-opus-5-5
   version: '2'
   format: Anthropic
@@ -163,15 +137,6 @@ models:
     DataZoneStandard: [francecentral, germanywestcentral, italynorth, polandcentral, spaincentral, swedencentral, westeurope]
     GlobalStandard: [francecentral, germanywestcentral, italynorth, polandcentral, spaincentral, swedencentral, westeurope]
 - name: claude-opus-5
-  version: '1'
-  format: Anthropic
-  kind: chat
-  lifecycle: GenerallyAvailable
-  released: '2026-07-07'
-  retires: '2027-07-08'
-  deployment_types:
-    GlobalStandard: [swedencentral]
-- name: claude-opus-5
   version: '2'
   format: Anthropic
   kind: chat
@@ -181,30 +146,12 @@ models:
   deployment_types:
     GlobalStandard: [swedencentral]
 - name: claude-sonnet-5
-  version: '1'
-  format: Anthropic
-  kind: chat
-  lifecycle: GenerallyAvailable
-  released: '2026-06-24'
-  retires: '2027-06-30'
-  deployment_types:
-    GlobalStandard: [swedencentral]
-- name: claude-sonnet-5
   version: '2'
   format: Anthropic
   kind: chat
   lifecycle: GenerallyAvailable
   released: '2026-06-24'
   retires: '2027-06-30'
-  deployment_types:
-    GlobalStandard: [swedencentral]
-- name: claude-opus-4-8
-  version: '1'
-  format: Anthropic
-  kind: chat
-  lifecycle: GenerallyAvailable
-  released: '2026-05-26'
-  retires: '2027-09-01'
   deployment_types:
     GlobalStandard: [swedencentral]
 - name: claude-opus-4-8
@@ -449,24 +396,6 @@ models:
   retires: '2027-04-07'
   deployment_types:
     GlobalStandard: [francecentral, germanywestcentral, italynorth, polandcentral, spaincentral, swedencentral, westeurope]
-- name: gpt-audio-mini
-  version: '2025-10-06'
-  format: OpenAI
-  kind: chat
-  lifecycle: GenerallyAvailable
-  released: '2025-10-06'
-  retires: '2027-04-06'
-  deployment_types:
-    GlobalStandard: [swedencentral]
-- name: claude-haiku-4-5
-  version: '20251001'
-  format: Anthropic
-  kind: chat
-  lifecycle: GenerallyAvailable
-  released: '2025-10-01'
-  retires: '2026-11-15'
-  deployment_types:
-    GlobalStandard: [swedencentral]
 - name: gpt-5-codex
   version: '2025-09-15'
   format: OpenAI
@@ -552,51 +481,6 @@ models:
   deployment_types:
     GlobalStandard: [francecentral, germanywestcentral, italynorth, polandcentral, spaincentral, swedencentral, westeurope]
 - name: Llama-3.3-70B-Instruct
-  version: '1'
-  format: Meta
-  kind: chat
-  lifecycle: GenerallyAvailable
-  released: '2024-10-01'
-  retires: '2099-12-31'
-  deployment_types:
-    GlobalStandard: [francecentral, germanywestcentral, italynorth, polandcentral, spaincentral, swedencentral, westeurope]
-- name: Llama-3.3-70B-Instruct
-  version: '2'
-  format: Meta
-  kind: chat
-  lifecycle: GenerallyAvailable
-  released: '2024-10-01'
-  retires: '2099-12-31'
-  deployment_types:
-    GlobalStandard: [francecentral, germanywestcentral, italynorth, polandcentral, spaincentral, swedencentral, westeurope]
-- name: Llama-3.3-70B-Instruct
-  version: '3'
-  format: Meta
-  kind: chat
-  lifecycle: GenerallyAvailable
-  released: '2024-10-01'
-  retires: '2099-12-31'
-  deployment_types:
-    GlobalStandard: [francecentral, germanywestcentral, italynorth, polandcentral, spaincentral, swedencentral, westeurope]
-- name: Llama-3.3-70B-Instruct
-  version: '4'
-  format: Meta
-  kind: chat
-  lifecycle: GenerallyAvailable
-  released: '2024-10-01'
-  retires: '2099-12-31'
-  deployment_types:
-    GlobalStandard: [francecentral, germanywestcentral, italynorth, polandcentral, spaincentral, swedencentral, westeurope]
-- name: Llama-3.3-70B-Instruct
-  version: '5'
-  format: Meta
-  kind: chat
-  lifecycle: GenerallyAvailable
-  released: '2024-10-01'
-  retires: '2099-12-31'
-  deployment_types:
-    GlobalStandard: [francecentral, germanywestcentral, italynorth, polandcentral, spaincentral, swedencentral, westeurope]
-- name: Llama-3.3-70B-Instruct
   version: '9'
   format: Meta
   kind: chat
@@ -645,51 +529,6 @@ models:
 - name: Mistral-large
   version: '1'
   format: Mistral AI
-  kind: chat
-  lifecycle: GenerallyAvailable
-  released: '2024-10-01'
-  retires: '2099-12-31'
-  deployment_types:
-    GlobalStandard: [francecentral, germanywestcentral, italynorth, polandcentral, spaincentral, swedencentral, westeurope]
-- name: Phi-4
-  version: '2'
-  format: Microsoft
-  kind: chat
-  lifecycle: GenerallyAvailable
-  released: '2024-10-01'
-  retires: '2099-12-31'
-  deployment_types:
-    GlobalStandard: [francecentral, germanywestcentral, italynorth, polandcentral, spaincentral, swedencentral, westeurope]
-- name: Phi-4
-  version: '3'
-  format: Microsoft
-  kind: chat
-  lifecycle: GenerallyAvailable
-  released: '2024-10-01'
-  retires: '2099-12-31'
-  deployment_types:
-    GlobalStandard: [francecentral, germanywestcentral, italynorth, polandcentral, spaincentral, swedencentral, westeurope]
-- name: Phi-4
-  version: '4'
-  format: Microsoft
-  kind: chat
-  lifecycle: GenerallyAvailable
-  released: '2024-10-01'
-  retires: '2099-12-31'
-  deployment_types:
-    GlobalStandard: [francecentral, germanywestcentral, italynorth, polandcentral, spaincentral, swedencentral, westeurope]
-- name: Phi-4
-  version: '5'
-  format: Microsoft
-  kind: chat
-  lifecycle: GenerallyAvailable
-  released: '2024-10-01'
-  retires: '2099-12-31'
-  deployment_types:
-    GlobalStandard: [francecentral, germanywestcentral, italynorth, polandcentral, spaincentral, swedencentral, westeurope]
-- name: Phi-4
-  version: '6'
-  format: Microsoft
   kind: chat
   lifecycle: GenerallyAvailable
   released: '2024-10-01'
@@ -840,15 +679,6 @@ models:
   retires: '2026-12-15'
   deployment_types:
     GlobalStandard: [swedencentral]
-- name: gpt-chat-latest
-  version: '2026-08-06'
-  format: OpenAI
-  kind: chat
-  lifecycle: Preview
-  released: '2026-08-06'
-  retires: '2027-01-12'
-  deployment_types:
-    GlobalStandard: [francecentral, germanywestcentral, italynorth, polandcentral, spaincentral, swedencentral, westeurope]
 - name: DeepSeek-V4-Flash-0731
   version: '2026-07-31'
   format: DeepSeek
@@ -858,15 +688,6 @@ models:
   retires: '2026-12-03'
   deployment_types:
     GlobalStandard: [francecentral, germanywestcentral, italynorth, polandcentral, spaincentral, swedencentral, westeurope]
-- name: gpt-chat-latest
-  version: '2026-06-24'
-  format: OpenAI
-  kind: chat
-  lifecycle: Preview
-  released: '2026-06-24'
-  retires: '2026-11-17'
-  deployment_types:
-    GlobalStandard: [polandcentral, swedencentral]
 - name: mistral-medium-3-5
   version: '1'
   format: Mistral AI
@@ -913,15 +734,6 @@ models:
   retires: '2026-11-04'
   deployment_types:
     GlobalStandard: [francecentral, germanywestcentral, italynorth, polandcentral, spaincentral, swedencentral, westeurope]
-- name: gpt-chat-latest
-  version: '2026-05-28'
-  format: OpenAI
-  kind: chat
-  lifecycle: Preview
-  released: '2026-05-28'
-  retires: '2026-12-08'
-  deployment_types:
-    GlobalStandard: [polandcentral, swedencentral]
 - name: grok-4.3
   version: '1'
   format: xAI
@@ -931,15 +743,6 @@ models:
   retires: '2027-05-12'
   deployment_types:
     GlobalStandard: [francecentral, germanywestcentral, italynorth, polandcentral, spaincentral, swedencentral, westeurope]
-- name: gpt-chat-latest
-  version: '2026-05-05'
-  format: OpenAI
-  kind: chat
-  lifecycle: Preview
-  released: '2026-05-05'
-  retires: '2026-11-17'
-  deployment_types:
-    GlobalStandard: [francecentral, germanywestcentral, italynorth, northeurope, polandcentral, spaincentral, swedencentral, westeurope]
 - name: Kimi-K2.6
   version: '2026-04-20'
   format: MoonshotAI
@@ -976,163 +779,6 @@ models:
   retires: '2027-01-26'
   deployment_types:
     GlobalStandard: [francecentral, germanywestcentral, italynorth, polandcentral, spaincentral, swedencentral, westeurope]
-- name: claude-sonnet-4-5
-  version: '20250929'
-  format: Anthropic
-  kind: chat
-  lifecycle: Deprecating
-  released: '2025-09-29'
-  retires: '2026-11-30'
-  deployment_types:
-    GlobalStandard: [swedencentral]
-- name: model-router
-  version: '2025-08-07'
-  format: OpenAI
-  kind: chat
-  lifecycle: Preview
-  released: '2025-08-07'
-  retires: '2026-10-31'
-  deployment_types:
-    DataZoneStandard: [francecentral, germanywestcentral, italynorth, polandcentral, spaincentral, swedencentral, westeurope]
-    GlobalStandard: [francecentral, germanywestcentral, italynorth, northeurope, polandcentral, spaincentral, swedencentral, westeurope]
-- name: model-router
-  version: '2025-05-19'
-  format: OpenAI
-  kind: chat
-  lifecycle: Preview
-  released: '2025-05-19'
-  retires: '2026-10-31'
-  deployment_types:
-    DataZoneStandard: [francecentral, germanywestcentral, italynorth, polandcentral, spaincentral, swedencentral, westeurope]
-    GlobalStandard: [francecentral, germanywestcentral, italynorth, northeurope, polandcentral, spaincentral, swedencentral, westeurope]
-- name: codex-mini
-  version: '2025-05-16'
-  format: OpenAI
-  kind: chat
-  lifecycle: Deprecating
-  released: '2025-05-16'
-  retires: '2026-11-15'
-  deployment_types:
-    GlobalStandard: [swedencentral]
-- name: o3
-  version: '2025-04-16'
-  format: OpenAI
-  kind: chat
-  lifecycle: Deprecating
-  released: '2025-04-16'
-  retires: '2026-11-19'
-  deployment_types:
-    DataZoneStandard: [francecentral, germanywestcentral, italynorth, polandcentral, spaincentral, swedencentral, westeurope]
-    GlobalStandard: [francecentral, germanywestcentral, italynorth, polandcentral, spaincentral, swedencentral, westeurope]
-- name: o4-mini
-  version: '2025-04-16'
-  format: OpenAI
-  kind: chat
-  lifecycle: Deprecating
-  released: '2025-04-16'
-  retires: '2026-11-19'
-  deployment_types:
-    Standard: [swedencentral]
-    DataZoneStandard: [francecentral, germanywestcentral, italynorth, polandcentral, spaincentral, swedencentral, westeurope]
-    GlobalStandard: [francecentral, germanywestcentral, italynorth, polandcentral, spaincentral, swedencentral, westeurope]
-- name: gpt-4.1
-  version: '2025-04-14'
-  format: OpenAI
-  kind: chat
-  lifecycle: Legacy
-  released: '2025-04-14'
-  retires: '2027-04-14'
-  deployment_types:
-    Standard: [swedencentral]
-    DataZoneStandard: [francecentral, germanywestcentral, italynorth, polandcentral, spaincentral, swedencentral, westeurope]
-    GlobalStandard: [francecentral, germanywestcentral, italynorth, polandcentral, spaincentral, swedencentral, westeurope]
-- name: gpt-4.1-mini
-  version: '2025-04-14'
-  format: OpenAI
-  kind: chat
-  lifecycle: Legacy
-  released: '2025-04-14'
-  retires: '2027-04-14'
-  deployment_types:
-    Standard: [francecentral, swedencentral, westeurope]
-    DataZoneStandard: [francecentral, germanywestcentral, italynorth, polandcentral, spaincentral, swedencentral, westeurope]
-    GlobalStandard: [francecentral, germanywestcentral, italynorth, polandcentral, spaincentral, swedencentral, westeurope]
-- name: gpt-4.1-nano
-  version: '2025-04-14'
-  format: OpenAI
-  kind: chat
-  lifecycle: Legacy
-  released: '2025-04-14'
-  retires: '2027-04-14'
-  deployment_types:
-    Standard: [swedencentral]
-    DataZoneStandard: [francecentral, germanywestcentral, italynorth, polandcentral, spaincentral, swedencentral, westeurope]
-    GlobalStandard: [francecentral, germanywestcentral, italynorth, polandcentral, spaincentral, swedencentral, westeurope]
-- name: o3-mini
-  version: '2025-01-31'
-  format: OpenAI
-  kind: chat
-  lifecycle: Deprecating
-  released: '2025-01-31'
-  retires: '2026-11-19'
-  deployment_types:
-    DataZoneStandard: [francecentral, germanywestcentral, italynorth, polandcentral, spaincentral, swedencentral, westeurope]
-    GlobalStandard: [francecentral, germanywestcentral, italynorth, polandcentral, spaincentral, swedencentral, westeurope]
-- name: o1
-  version: '2024-12-17'
-  format: OpenAI
-  kind: chat
-  lifecycle: Deprecating
-  released: '2024-12-17'
-  retires: '2026-11-19'
-  deployment_types:
-    Standard: [swedencentral]
-    DataZoneStandard: [francecentral, germanywestcentral, italynorth, polandcentral, spaincentral, swedencentral, westeurope]
-    GlobalStandard: [francecentral, germanywestcentral, italynorth, polandcentral, spaincentral, swedencentral, westeurope]
-- name: gpt-4o
-  version: '2024-11-20'
-  format: OpenAI
-  kind: chat
-  lifecycle: Legacy
-  released: '2024-11-20'
-  retires: '2027-04-14'
-  deployment_types:
-    Standard: [francecentral, swedencentral]
-    DataZoneStandard: [francecentral, germanywestcentral, italynorth, polandcentral, spaincentral, swedencentral, westeurope]
-    GlobalStandard: [francecentral, germanywestcentral, italynorth, polandcentral, spaincentral, swedencentral, westeurope]
-- name: gpt-4o
-  version: '2024-08-06'
-  format: OpenAI
-  kind: chat
-  lifecycle: Deprecating
-  released: '2024-08-06'
-  retires: '2027-04-14'
-  deployment_types:
-    Standard: [swedencentral]
-    DataZoneStandard: [francecentral, germanywestcentral, polandcentral, spaincentral, swedencentral, westeurope]
-    GlobalStandard: [francecentral, germanywestcentral, italynorth, polandcentral, spaincentral, swedencentral, westeurope]
-- name: gpt-4o-mini
-  version: '2024-07-18'
-  format: OpenAI
-  kind: chat
-  lifecycle: Deprecating
-  released: '2024-07-18'
-  retires: '2027-04-14'
-  deployment_types:
-    Standard: [swedencentral]
-    DataZoneStandard: [francecentral, germanywestcentral, italynorth, polandcentral, spaincentral, swedencentral, westeurope]
-    GlobalStandard: [francecentral, germanywestcentral, italynorth, polandcentral, spaincentral, swedencentral, westeurope]
-- name: gpt-4o
-  version: '2024-05-13'
-  format: OpenAI
-  kind: chat
-  lifecycle: Deprecating
-  released: '2024-05-13'
-  retires: '2026-12-09'
-  deployment_types:
-    Standard: [swedencentral]
-    DataZoneStandard: [francecentral, germanywestcentral, polandcentral, spaincentral, swedencentral, westeurope]
-    GlobalStandard: [francecentral, germanywestcentral, polandcentral, spaincentral, swedencentral, westeurope]
 - name: Cohere-embed-v3-english
   version: '1'
   format: Cohere
