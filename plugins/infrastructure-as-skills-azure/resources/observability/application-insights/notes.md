@@ -14,7 +14,11 @@ The workspace, then the component, then (for a closed component) its entry in th
 Azure Monitor Private Link Scope, then the role assignments, then the applications that send to
 it. The application gets the **connection string** as an output of the component, passed as an
 app setting (`APPLICATIONINSIGHTS_CONNECTION_STRING`) - a reference, not a secret in the
-template; with local authentication off the string alone is not enough to send.
+template; with local authentication off the string alone is not enough to send: the
+application's identity holds `Monitoring Metrics Publisher` on the component and its
+`APPLICATIONINSIGHTS_AUTHENTICATION_STRING` is `Authorization=AAD` (system-assigned) or
+`Authorization=AAD;ClientId=<client id>` (user-assigned). Settings and role are rendered with
+the application; only the code that reads them is the application's.
 
 ## Pitfalls
 

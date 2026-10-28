@@ -37,7 +37,7 @@ Resolve the current versions and re-read the README parameters before rendering,
 | `managed_identity` | site | `managedIdentities: { userAssignedResourceIds }`, `keyVaultAccessIdentityResourceId` | |
 | `https_only`, `min_tls_version` | site | `httpsOnly`, `siteConfig.minTlsVersion`, `scmMinTlsVersion` | |
 | `basic_auth_enabled` | site | `basicPublishingCredentialsPolicies: [ { name: 'ftp', allow: false }, { name: 'scm', allow: false } ]` | |
-| `application_insights` | site | the `APPLICATIONINSIGHTS_CONNECTION_STRING` setting through `configs` | Omitted while empty |
+| `application_insights` | site | the `APPLICATIONINSIGHTS_CONNECTION_STRING` setting through `configs`, and `APPLICATIONINSIGHTS_AUTHENTICATION_STRING` (`Authorization=AAD`, `;ClientId=<client id>` user-assigned) while local auth is off | Omitted while empty |
 | `diagnostic_*`, `metrics_enabled` | both | `diagnosticSettings: [ { workspaceResourceId, logCategoriesAndGroups, metricCategories } ]` | The plan has metrics only |
 | `deployment.module_telemetry` | both | `enableTelemetry` | |
 | `context.tags` | both | `tags` | |

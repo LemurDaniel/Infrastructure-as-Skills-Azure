@@ -39,7 +39,7 @@ of the App Service reference.
 | `managed_identity`, `user_assigned_identity_ids` | site | `managed_identities = { user_assigned_resource_ids }`, `key_vault_reference_identity` | |
 | `https_only`, `min_tls_version` | site | `https_only`, `site_config.minimum_tls_version`, `scm_minimum_tls_version` | Module TLS default is **1.3**; written |
 | `basic_auth_enabled` | site | `ftp_publish_basic_authentication_enabled`, `scm_publish_basic_authentication_enabled` | SCM default is **true** |
-| `application_insights` | site | `application_insights_connection_string` | Omitted while empty |
+| `application_insights` | site | `application_insights_connection_string`, and `app_settings.APPLICATIONINSIGHTS_AUTHENTICATION_STRING = "Authorization=AAD"` (`;ClientId=<client id>` user-assigned) while local auth is off | Omitted while empty |
 | `diagnostic_*`, `metrics_enabled` | both | `diagnostic_settings = { workspace = { workspace_resource_id, logs, metrics } }` | The plan has metrics only |
 | `deployment.module_telemetry` | both | `enable_telemetry` | |
 | `context.tags` | both | `tags = local.tags` | |

@@ -36,7 +36,7 @@ provider set is the union with the other modules.
 | `diagnostic_workspace` | env | `app_logs_configuration = { destination = "azure-monitor" }` | Omit it and app logs are off; **not** `log_analytics_workspace` (shared key) |
 | `diagnostic_*`, `metrics_enabled` | env | `diagnostic_settings = { workspace = { workspace_resource_id, log_categories = [...], log_groups = [], metric_categories = ["AllMetrics"] } }` | `log_groups` defaults to `["allLogs"]`: set it empty when `log_categories` names the categories, or every log is collected beside them |
 | `container_image`, `container_size` | app | `template = { containers = [{ name, image, cpu, memory }] }` | cpu and memory are the pair, e.g. `0.5` and `"1Gi"` |
-| `application_insights` | app | `template.containers[].env = [{ name = "APPLICATIONINSIGHTS_CONNECTION_STRING", value }]` | The component's connection string as a plain value; omitted while empty |
+| `application_insights` | app | `template.containers[].env = [{ name = "APPLICATIONINSIGHTS_CONNECTION_STRING", value }, { name = "APPLICATIONINSIGHTS_AUTHENTICATION_STRING", value = "Authorization=AAD;ClientId=<client id>" }]` | The connection string as a plain value; the second while local auth is off, with the app's user-assigned identity; omitted while empty |
 | `min_replicas`, `max_replicas` | app | `template.min_replicas`, `template.max_replicas` | |
 | `revision_mode` | app | `revision_mode` | Default `Single`; written |
 | `ingress`, `target_port`, `allow_insecure` | app | `ingress = { external_enabled, target_port, allow_insecure_connections, transport }` | **Omit `ingress` for `none`.** Module default `external_enabled = false`, insecure `false`; written |
@@ -110,10 +110,17 @@ module "app" {
       memory = "1Gi"
       # decision: container-apps.observability.application_insights
       # not-testable: container-apps.observability.application_insights - the connection string is the component's output, known after apply
-      env = [{
-        name  = "APPLICATIONINSIGHTS_CONNECTION_STRING"
-        value = var.application_insights_connection_string
-      }]
+      env = [
+        {
+          name  = "APPLICATIONINSIGHTS_CONNECTION_STRING"
+          value = var.application_insights_connection_string
+        },
+        {
+          # local authentication is off on the component: the agent signs in with the app's identity
+          name  = "APPLICATIONINSIGHTS_AUTHENTICATION_STRING"
+          value = "Authorization=AAD;ClientId=${var.identity_client_id}"
+        },
+      ]
     }]
   }
 

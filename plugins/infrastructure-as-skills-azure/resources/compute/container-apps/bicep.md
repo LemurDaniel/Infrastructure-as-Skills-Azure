@@ -33,7 +33,7 @@ Resolve the current versions and re-read the README parameters before rendering,
 | `diagnostic_workspace` | env | `appLogsConfiguration: { destination: 'azure-monitor' }` | Not `log-analytics` (shared key) |
 | `diagnostic_*`, `metrics_enabled` | env | `diagnosticSettings: [ { workspaceResourceId, logCategoriesAndGroups: [ { category } ], metricCategories: [ { category: 'AllMetrics' } ] } ]` | |
 | `container_image`, `container_size` | app | `containers: [ { name, image, resources: { cpu, memory } } ]` | `cpu` is a `json('0.5')` |
-| `application_insights` | app | `containers[].env: [ { name: 'APPLICATIONINSIGHTS_CONNECTION_STRING', value } ]` | The component's connection string as a plain value; omitted while empty |
+| `application_insights` | app | `containers[].env: [ { name: 'APPLICATIONINSIGHTS_CONNECTION_STRING', value }, { name: 'APPLICATIONINSIGHTS_AUTHENTICATION_STRING', value: 'Authorization=AAD;ClientId=<client id>' } ]` | The second while local auth is off, with the app's user-assigned identity; omitted while empty |
 | `min_replicas`, `max_replicas` | app | `scaleSettings: { minReplicas, maxReplicas }` | |
 | `revision_mode` | app | `activeRevisionsMode` | Default `'Single'`; written |
 | `ingress` | app | `disableIngress` (for `none`), `ingressExternal` | **`ingressExternal` defaults to `true`**; written |
@@ -103,6 +103,7 @@ module app 'br/public:avm/res/app/container-app:0.23.0' = {
         // decision: container-apps.observability.application_insights
         env: [
           { name: 'APPLICATIONINSIGHTS_CONNECTION_STRING', value: applicationInsightsConnectionString }
+          { name: 'APPLICATIONINSIGHTS_AUTHENTICATION_STRING', value: 'Authorization=AAD;ClientId=${identityClientId}' }
         ]
       }
     ]
