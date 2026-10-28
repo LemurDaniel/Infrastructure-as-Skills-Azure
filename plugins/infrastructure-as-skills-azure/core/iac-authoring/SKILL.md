@@ -670,8 +670,8 @@ environment you surface it for confirmation rather than applying it silently —
 the values whose blast radius makes a silent default inappropriate. It is not a question
 and nothing is asked in Phase 3: the row appears in Phase 4's security block and in the
 decision document marked *bitte bestätigen* / *please confirm* where the spec has the stage
-named, and the sign-off option *Ja, aber bei der Sicherheit weicht etwas ab* is how the
-person changes it. A confirm row is never dropped to keep the block short.
+named, and the person changes it by naming the row in the free answer of the sign-off
+question. A confirm row is never dropped to keep the block short.
 
 ## Phase 4 — Show the design, report what was defaulted, then ask once
 
@@ -774,14 +774,21 @@ Security - set by the baseline:
   Logs            every part writes to the central workspace, 30 days
 ```
 
+**The list, the security block and the account below are written as text of the message,
+before the question is asked.** Thinking never reaches the person, and a dialog can cover
+the text above it: a "Passt das Design?" / "Does the design fit?" with no design on screen
+asks for a yes to something nobody has seen, and that yes is no sign-off. The tick list goes
+into the dialog a second time, as the `preview` of the option *Ja, so bauen* / *Yes, build
+it that way*, so it is in front of the person while they answer.
+
 Close it with one `AskUserQuestion`: **Passt das Design?** / **Does the design fit?** - *Ja, so bauen* / *Yes, build it that way* (recommended
-when nothing is open) / *Ja, aber bei der Sicherheit weicht etwas ab* / *Yes, but something in the security baseline differs* (the person names the rows; only those are
-opened, each recorded `source: overridden` with the reason, and the baseline stays as shown
-for the rest; a row the guardrails refuse to relax - anything security-shaped in a
-non-production stage - is said so, not applied) / *Etwas fehlt oder ist zu viel* / *Something is missing or too much* (the person says what; the spec is
+when nothing is open) / *Etwas fehlt oder ist zu viel* / *Something is missing or too much* (the person says what; the spec is
 not written until the list is right). A part the customer strikes is removed, a part they
 add goes through `azure-resources` like any other request, and the account below is
-redone for the change.
+redone for the change. A security row the person wants different comes through the
+dialog's free answer: only that row is opened and recorded `source: overridden` with the
+reason, the baseline stays as shown for the rest, and a row the guardrails refuse to relax -
+anything security-shaped in a non-production stage - is said so, not applied.
 
 **Then the account of what was decided for them.** Compact - not forty rows, group it. It
 opens with what the person's answers decided, in their words and their language, and
