@@ -179,15 +179,19 @@ groups:
           en: "The account serves the models {value}."
           de: "Das Konto stellt die Modelle {value} bereit."
         required: true
+        resolved_by: interview
+        topic: application
+        options_from: models.yaml
         why: >
           Each entry is a deployment name, a **model, an exact model version** and the
           capacity in the next question - for example a chat model and an embedding model
           for a retrieval workload. The plugin cannot choose: the model is the application's
-          design, the available versions move every few months and are looked up against the
-          region's catalogue at render time (`az cognitiveservices model list`), never
-          remembered. A version is pinned, never left to a default, for the reason a runtime
-          version is. With no answer the decision is an `open:` entry owned by the workload
-          owner, blocking apply.
+          design. Models and versions move every few weeks, so they come from `models.yaml`,
+          the catalogue of the EU regions regenerated monthly - never remembered: a model
+          from memory is one the catalogue has already moved past. A model not in the
+          derived deployment type or the chosen region is named as a gap. A version is
+          pinned, never left to a default, for the reason a runtime version is. With no
+          answer the decision is an `open:` entry owned by the workload owner, blocking apply.
         renders: cognitive_deployments / deployments[]
 
       - id: deployment_sku
