@@ -1011,12 +1011,15 @@ is not touched in the loop: `new_diagram.py` exists to produce the first draft c
 and the picture the customer signs off on is finished by hand. A fault the script would
 repeat on the next spec is noted in the hand-over as a plugin todo, not fixed now. Three passes, then the customer
 sees the picture as it is, with the open findings named. `polish` findings never go back;
-they go into the hand-over. **The review has a ceiling**, because a reviewer always finds
-more: at most **8 findings per pass, errors first**; the same
+they go into the hand-over. **The review has ceilings**, because a reviewer always finds
+more: at most **8 `error` and 3 `polish` findings per pass, errors first**; the same
 fault on several cells is one finding that lists the cells; it reads the PNG and the spec
-and opens the `.drawio` only for a coordinate it needs, never samples pixels, and stops
-once the list is full. A later pass reports only what the earlier passes named and what the
-fix broke - never a fresh sweep. An `error` with cause `spec` is the main agent's: correct the
+and opens the `.drawio` only for a coordinate it needs, and never samples pixels. When the
+error list is full it stops and says where - the checklist item, and inside item 1 the last
+edge traced. A later pass re-checks what the earlier passes named and what the fix touched,
+then continues the checklist from that point - never a fresh sweep from the start, and never
+done before the checklist has run to its end once. Three passes that do not finish it show
+the picture with "reviewed up to item N" named as open. An `error` with cause `spec` is the main agent's: correct the
 spec, re-export the decision document, regenerate the draft - **and do that before the
 fix agent starts its hand edits**, because a regenerated draft loses them; the order
 of a pass is spec findings first (the main session corrects the spec and runs the script
