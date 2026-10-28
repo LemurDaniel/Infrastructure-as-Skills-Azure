@@ -594,7 +594,19 @@ and nothing else. Nothing reasoned or reported stands between the calls - the ba
 trimmed to four to fit one call. **The options come from the question set, never from the run**: an enum's `values`
 with their `plain_values`, an `int` or free `list` question's `offer` (`mandates`,
 `log_retention_days`) with its labels; "Other" is the tool's and takes the rest. A question with
-neither is asked in prose. An enum with more than four values (`app_runtime`) shows its first
+`options_from` (the Foundry models) offers only the catalogue entries the digest prints and says
+the catalogue's date; a model, a version or a family from memory is never an option, since it is
+one the catalogue has already moved past. The models are asked in two steps. First the family, a
+multi-select of the three families with the most models, each option saying whether it runs in
+the deployment type `data_residency` derives ("in der EU-Datenzone verfügbar" / "nur mit
+weltweiter Verarbeitung"); a family not in the catalogue (Gemini) is said to be unavailable in
+Azure and the question put again. A chosen family the derived type does not offer is put back
+once, before the models: another family, or the residency answer changed to worldwide by the
+person - never widened silently. Then one multi-select per chosen family, in one call: its three
+newest models in the derived type, with *Noch offen* / *Still open* as the first option, each
+chosen model one deployment. The embedding model, where retrieval needs one, is a single choice
+of three: an index holds one. A question with neither `values`, `offer` nor `options_from` is
+asked in prose. An enum with more than four values (`app_runtime`) shows its first
 four - the values are ordered by how common they are - and the description of the last one names
 the rest ("Java, PHP: über „Other“ eintragen"). **"Other" is the tool's and cannot be switched
 off**, so its answer is read, never guessed: a text that names a value of the question is that
