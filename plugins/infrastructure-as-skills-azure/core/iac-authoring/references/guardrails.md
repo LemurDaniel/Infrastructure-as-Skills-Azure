@@ -5,9 +5,9 @@ two restate them differently. A resource's `questions.yaml` sets its defaults
 *from* these rules; this file is where the reasoning lives. Read it before choosing a
 default, before justifying one, and when a resource seems to need an exception.
 
-They are **not** the Azure portal's defaults. The two diverge routinely and in the same
-direction — public network access, shared-key auth and anonymous blob access all ship
-enabled — so inheriting the portal's posture is how an exposure finding happens.
+They are **not** the Azure portal's defaults: the portal ships public network access,
+shared-key auth and anonymous blob access enabled, and inheriting that posture is how an
+exposure finding happens.
 
 ## 0. Platform model: with or without a landing zone
 
