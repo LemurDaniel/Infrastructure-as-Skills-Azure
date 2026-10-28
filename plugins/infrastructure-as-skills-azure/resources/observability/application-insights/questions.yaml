@@ -14,7 +14,8 @@ boundaries:
   - "Does not create the Log Analytics workspace it stores its data in - the component is workspace-based, always; the classic standalone form is retired and not offered. The workspace is the deployment's `diagnostics_destination`."
   - "Does not create the Azure Monitor Private Link Scope (AMPLS) a closed component is reached through - shared infrastructure, owned by the platform. `private_link_scope` references it."
   - "Does not instrument the application. The SDK or agent, its sampling in code and the connection string setting are the workload's; this set renders the component and hands the connection string to whoever sets it."
-  - "Does not create alerts, action groups, availability tests, workbooks or dashboards. Each is a separate concern and has no question set yet."
+  - "Does not create alerts or action groups - their own sets (observability/alert-rule, observability/action-group)."
+  - "Does not create availability tests, workbooks or dashboards. Each is a separate concern and has no question set yet."
   - "Does not render the profiler and debugger storage (`linked_storage_account`)."
 
 groups:
