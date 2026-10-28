@@ -840,8 +840,13 @@ groups:
           exceptions and slow dependencies from inside the app go to Application Insights, and
           the app finds its component through the `APPLICATIONINSIGHTS_CONNECTION_STRING`
           setting. The connection string, not the instrumentation key, which is being retired.
-          Every slot gets the same setting: a slot inherits nothing from the site. Empty only
+          With the component's local authentication off (the default) the string alone is
+          refused: the app also gets `APPLICATIONINSIGHTS_AUTHENTICATION_STRING` =
+          `Authorization=AAD` (`;ClientId=<client id>` for a user-assigned identity) and its
+          identity `Monitoring Metrics Publisher` on the component. Settings and role are
+          infrastructure and always rendered; only the code that reads them is the app's.
+          Every slot gets the same settings: a slot inherits nothing from the site. Empty only
           under `application_monitoring: disabled`.
         renders: >
-          application_insights_connection_string (and on every slot) /
-          the APPLICATIONINSIGHTS_CONNECTION_STRING setting in configs appsettings
+          application_insights_connection_string and app_settings.APPLICATIONINSIGHTS_AUTHENTICATION_STRING
+          (and on every slot) / both settings in configs appsettings

@@ -13,7 +13,7 @@ boundaries:
   - "Does not create the resource group. Expects one from the spec's context."
   - "Does not create the Log Analytics workspace it stores its data in - the component is workspace-based, always; the classic standalone form is retired and not offered. The workspace is the deployment's `diagnostics_destination`."
   - "Does not create the Azure Monitor Private Link Scope (AMPLS) a closed component is reached through - shared infrastructure, owned by the platform. `private_link_scope` references it."
-  - "Does not instrument the application. The SDK or agent, its sampling in code and the connection string setting are the workload's; this set renders the component and hands the connection string to whoever sets it."
+  - "Does not instrument the application's code - the SDK or agent and its sampling are the application's. The settings that point the application at the component (`APPLICATIONINSIGHTS_CONNECTION_STRING`, and `APPLICATIONINSIGHTS_AUTHENTICATION_STRING` with local authentication off) and the application's `Monitoring Metrics Publisher` role are infrastructure: the application's own set renders them through its `application_insights` question."
   - "Does not create alerts or action groups - their own sets (observability/alert-rule, observability/action-group)."
   - "Does not create availability tests, workbooks or dashboards. Each is a separate concern and has no question set yet."
   - "Does not render the profiler and debugger storage (`linked_storage_account`)."
@@ -227,10 +227,15 @@ groups:
           de: "Zugriffsrechte auf die Komponente vergeben an: {value}."
         default: []
         per_environment: true
+        forced_when: >
+          `application_monitoring: enabled` with `local_authentication_disabled: true` grants every
+          application whose `application_insights` names this component `Monitoring Metrics
+          Publisher` on it, recorded as forced with `application_monitoring` as forced_by
         why: >
           With local authentication off, an application sends telemetry only with an Entra
-          token, so its identity needs `Monitoring Metrics Publisher` on the component - and the
-          SDK must be configured to use it; an application still on the instrumentation key
+          token, so its identity needs `Monitoring Metrics Publisher` on the component, and its
+          `APPLICATIONINSIGHTS_AUTHENTICATION_STRING` setting tells the agent to use that
+          identity; an application still on the instrumentation key
           loses its telemetry the moment the switch is turned. People who read the data need
           `Monitoring Reader` or a role on the workspace. A pattern fills this from the
           consumers it knows.

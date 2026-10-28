@@ -46,7 +46,7 @@ Resolve the current versions and re-read the README parameters before rendering,
 | `health_check_path` | site | `siteConfig.healthCheckPath` | Omitted while empty |
 | `http2_enabled` | site | `siteConfig.http20Enabled` | |
 | diagnostics | both | `diagnosticSettings: [ { workspaceResourceId, logCategoriesAndGroups: [ { category } ], metricCategories: [ { category: 'AllMetrics' } ] } ]` | The plan has metrics only |
-| `application_insights` | site | `configs: [ { name: 'appsettings', properties: { APPLICATIONINSIGHTS_CONNECTION_STRING } } ]` | The component's `connectionString` output; omitted while empty |
+| `application_insights` | site | `configs: [ { name: 'appsettings', properties: { APPLICATIONINSIGHTS_CONNECTION_STRING, APPLICATIONINSIGHTS_AUTHENTICATION_STRING } } ]` | The component's `connectionString` output; the second is `Authorization=AAD` (`;ClientId=<client id>` user-assigned) while local auth is off; omitted while empty |
 | `deployment.module_telemetry` | both | `enableTelemetry` | |
 | `context.tags` | both | `tags` | |
 
@@ -143,6 +143,7 @@ module app 'br/public:avm/res/web/site:0.24.0' = {
         name: 'appsettings'
         properties: {
           APPLICATIONINSIGHTS_CONNECTION_STRING: applicationInsightsConnectionString
+          APPLICATIONINSIGHTS_AUTHENTICATION_STRING: 'Authorization=AAD'
         }
       }
     ]
@@ -197,7 +198,7 @@ inherited ones inherited so that the slot cannot drift from the site. Checked ag
 | `managed_identity` (forced `user_assigned`) | `managedIdentities: { userAssignedResourceIds: [...] }` on the site | Inherited by the slot |
 | `auto_swap` | `slots[].siteConfig.autoSwapSlotName: 'production'` | Omitted while `false`; needs the whole `siteConfig` on the slot |
 | `sticky_settings` | `configs: [ { name: 'slotConfigNames', properties: { appSettingNames: [...] } } ]` on the site | **Write `configs` on each slot** - the slot inherits the site's `configs`, and `slotConfigNames` is not available for slots: the slot's list holds its `appsettings` only (`[]` when it has none) |
-| `application_insights` | `slots[].configs: [ { name: 'appsettings', properties: { APPLICATIONINSIGHTS_CONNECTION_STRING } } ]` | The same component as the site |
+| `application_insights` | `slots[].configs: [ { name: 'appsettings', properties: { APPLICATIONINSIGHTS_CONNECTION_STRING, APPLICATIONINSIGHTS_AUTHENTICATION_STRING } } ]` | The same component as the site |
 | diagnostics | `slots[].diagnosticSettings` | Same categories as the site |
 
 ```bicep
@@ -220,6 +221,7 @@ inherited ones inherited so that the slot cannot drift from the site. Checked ag
             name: 'appsettings'
             properties: {
               APPLICATIONINSIGHTS_CONNECTION_STRING: applicationInsightsConnectionString
+              APPLICATIONINSIGHTS_AUTHENTICATION_STRING: 'Authorization=AAD'
             }
           }
         ]

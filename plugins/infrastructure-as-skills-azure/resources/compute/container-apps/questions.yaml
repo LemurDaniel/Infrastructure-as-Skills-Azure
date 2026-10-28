@@ -524,8 +524,12 @@ groups:
           and slow dependencies from inside the app go to Application Insights, and the app
           finds its component through the `APPLICATIONINSIGHTS_CONNECTION_STRING` environment
           variable on its container. A plain value, not a secret reference: the connection
-          string only lets the app send to the component. Empty only under
-          `application_monitoring: disabled`.
+          string only lets the app send to the component. With the component's local
+          authentication off (the default) the container also gets
+          `APPLICATIONINSIGHTS_AUTHENTICATION_STRING` = `Authorization=AAD;ClientId=<client id>`
+          of its user-assigned identity, which holds `Monitoring Metrics Publisher` on the
+          component. Variables and role are infrastructure and always rendered; only the code
+          that reads them is the app's. Empty only under `application_monitoring: disabled`.
         renders: >
-          template.containers[].env = [{ name = "APPLICATIONINSIGHTS_CONNECTION_STRING", value }] /
-          containers[].env: [ { name: 'APPLICATIONINSIGHTS_CONNECTION_STRING', value } ]
+          template.containers[].env = [{ name = "APPLICATIONINSIGHTS_CONNECTION_STRING", value },
+          { name = "APPLICATIONINSIGHTS_AUTHENTICATION_STRING", value }] / the same two in containers[].env

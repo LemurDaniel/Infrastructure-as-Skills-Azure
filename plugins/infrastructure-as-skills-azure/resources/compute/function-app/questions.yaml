@@ -540,10 +540,14 @@ groups:
           Application Insights is where a function's invocations, failures and dependencies are
           read; without it the host's own log is the only trace. The deployment's
           `application_monitoring` brings the component and sets this; empty only when it is
-          disabled, and a function app with no component still logs to the diagnostic setting below. The
+          disabled, and a function app with no component still logs to the diagnostic setting below.
+          With the component's local authentication off (the default) the app also gets
+          `APPLICATIONINSIGHTS_AUTHENTICATION_STRING` = `Authorization=AAD` (`;ClientId=<client id>`
+          for a user-assigned identity) and its identity `Monitoring Metrics Publisher` on the
+          component - infrastructure, always rendered. The
           component is workspace-based, and the connection string - not the instrumentation key -
           is the setting, because the key is being retired.
-        renders: application_insights_connection_string / the APPLICATIONINSIGHTS_CONNECTION_STRING setting
+        renders: application_insights_connection_string and app_settings.APPLICATIONINSIGHTS_AUTHENTICATION_STRING / both settings
 
   # ------------------------------------------------------------ observability
   - id: observability
