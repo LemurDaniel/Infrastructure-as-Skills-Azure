@@ -100,7 +100,7 @@ def load_question_index(yaml):
         for g in (doc.get('groups') or []) if isinstance(doc, dict) else []:
             for q in (g.get('questions') or []):
                 if isinstance(q, dict) and q.get('id'):
-                    index[(owner, q['id'])] = q
+                    index[(owner, q['id'])] = dict(q, _group=g.get('id'))
     dep = os.path.join(HERE, '..', 'questions', 'deployment.yaml')
     if os.path.isfile(dep):
         with open(dep, encoding='utf-8') as f:
@@ -548,8 +548,11 @@ def main():
     # --- 9d. a resource carries its decisions ------------------------------------
     # `observability_ownership: create` makes the workspace this deployment's; its own set
     # (public access, local auth) is only decided when it is a resource of the spec. A resource
-    # written as `{}` whose set asks or confirms something was never interviewed - a renderer
-    # and the diagram would read the posture where the set has a default of its own.
+    # written as `{}` whose set decides something of its own was never resolved through its set:
+    # a renderer and the diagram would read the posture where the set has a default of its own.
+    # Deciding means a question that always applies (no depends_on) and is asked, inherits a
+    # deployment decision, or defaults a networking or security setting. A bare identity, whose
+    # set holds nothing of the kind, stays valid.
     if dep_value('observability_ownership') == 'create' and 'log-analytics-workspace' not in res_keys:
         errors.append("deployment.observability_ownership is create, but the spec has no log-analytics-workspace "
                       "resource - the workspace's own decisions (public access, local auth) were never made")
@@ -558,9 +561,13 @@ def main():
         if any(isinstance(g, dict) and g for g in groups.values()):
             continue
         decided = sorted(qid for (owner, qid), q in questions.items() if owner == rkey.split('__')[0]
-                         and not q.get('depends_on') and (q.get('confirm_in') or q.get('resolved_by') == 'interview'))
+                         and not q.get('depends_on') and (
+                             q.get('resolved_by') == 'interview'
+                             or 'deployment' in (q.get('answer') or {})
+                             or (q.get('_group') in ('networking', 'security') and q.get('default') is not None)))
         if decided:
-            errors.append(f"resources.{rkey} records no decision, but its set decides {', '.join(decided)} - "
+            shown = ', '.join(decided[:5]) + (f" and {len(decided) - 5} more" if len(decided) > 5 else '')
+            errors.append(f"resources.{rkey} records no decision, but its set decides {shown} - "
                           f"resolve the set and write its values, defaults included")
 
     # --- 10. deployer roles ------------------------------------------------
