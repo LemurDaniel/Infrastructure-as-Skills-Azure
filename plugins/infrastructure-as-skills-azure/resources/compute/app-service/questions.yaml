@@ -887,12 +887,14 @@ groups:
         renders: metrics[].category = "AllMetrics" / metricCategories[].category
 
       - id: application_insights
-        ask: Which Application Insights component should receive the app's telemetry?
-        type: ref
+        ask:
+          en: "Which Application Insights component should receive the app's telemetry?"
+          de: "Welche Application-Insights-Komponente soll die Telemetrie der App erhalten?"
+        type: string
         plain:
           en: "Its application telemetry goes to {value} (empty: none)."
           de: "Seine Anwendungstelemetrie geht an {value} (leer: keine)."
-        ref: application_insights
+        accepts: { ref: application_insights }
         default: ""
         per_environment: true
         forced_when: >

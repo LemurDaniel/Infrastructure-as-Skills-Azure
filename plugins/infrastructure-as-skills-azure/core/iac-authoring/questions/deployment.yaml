@@ -2269,7 +2269,9 @@ groups:
         renders: azurerm_log_analytics_workspace.daily_quota_gb / properties.workspaceCapping.dailyQuotaGb
 
       - id: application_monitoring
-        ask: Should the applications send their telemetry - requests, failures, dependencies, traces - to Application Insights?
+        ask:
+          en: "Should the applications send their telemetry - requests, failures, dependencies, traces - to Application Insights?"
+          de: "Sollen die Anwendungen ihre Telemetrie - Anfragen, Fehler, Abhängigkeiten, Traces - an Application Insights senden?"
         type: enum
         plain:
           en: "Application telemetry {value}."
@@ -2277,7 +2279,7 @@ groups:
         plain_values:
           enabled: { en: "goes to one Application Insights component of this deployment, stored in its log workspace", de: "geht an eine Application-Insights-Komponente dieses Ausrollens, gespeichert in seinem Log-Arbeitsbereich" }
           disabled: { en: "is not collected; only the platform's diagnostic logs are", de: "wird nicht erfasst, nur die Diagnose-Logs der Plattform" }
-        values: [enabled, disabled]
+        accepts: [enabled, disabled]
         default: enabled
         why: >
           The diagnostic setting carries what the platform sees of an app - HTTP requests,
