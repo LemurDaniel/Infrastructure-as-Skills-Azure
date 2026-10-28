@@ -8,8 +8,9 @@ JSON per region into the list; the monthly workflow `.github/workflows/foundry-m
 fetches the JSON and runs it.
 
 Kept: models an `AIServices` account deploys, with a chat or embedding capability, not
-`Deprecated`, offered in at least one deployment type the question set renders
-(Standard, DataZoneStandard, GlobalStandard). Newest first within each kind.
+`Legacy`, `Deprecating` or `Deprecated`, offered in at least one deployment type the
+question set renders (Standard, DataZoneStandard, GlobalStandard) - and of each model
+only its newest version. Newest first within each kind.
 
 Usage:
     python3 update_foundry_models.py <dir with <region>.json files> [--out <models.yaml>]
@@ -30,6 +31,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 DEFAULT_OUT = os.path.join(HERE, '..', '..', 'plugins', 'infrastructure-as-skills-azure',
                            'resources', 'ai', 'foundry', 'models.yaml')
 DEPLOYMENT_TYPES = ['Standard', 'DataZoneStandard', 'GlobalStandard']
+RETIRING = {'Legacy', 'Deprecating', 'Deprecated'}
 KINDS = ['chat', 'embedding']
 
 HEADER = """\
@@ -38,7 +40,8 @@ HEADER = """\
 #
 # The interview offers models from this file only (`options_from` on
 # models.model_deployments): generally available ones first, newest first, never a model
-# from memory. `lifecycle` other than GenerallyAvailable is named when offered; `retires`
+# from memory. Each model appears once, in its newest version; Legacy and Deprecating ones
+# are left out. A Preview `lifecycle` is named when offered; `retires`
 # is the date the version stops answering. `deployment_types` maps each type to the
 # regions that offer it - a model missing from the derived type is not deployed there.
 """
@@ -78,7 +81,7 @@ def collect(files):
             if e.get('kind') != 'AIServices':
                 continue
             m = e.get('model') or {}
-            if m.get('lifecycleStatus') == 'Deprecated':
+            if m.get('lifecycleStatus') in RETIRING:
                 continue
             kind = kind_of(m)
             if not kind:
@@ -101,6 +104,19 @@ def collect(files):
             for t in types:
                 entry['deployment_types'].setdefault(t, set()).add(region)
     return regions, models
+
+
+def newest_only(models):
+    """One entry per model: the newest version, by release date, then by version."""
+    def rank(e):
+        v = e['version']
+        return (e['released'], (1, int(v), '') if v.isdigit() else (0, 0, v))
+    best = {}
+    for e in models.values():
+        key = (e['format'], e['name'])
+        if key not in best or rank(e) > rank(best[key]):
+            best[key] = e
+    return {(e['format'], e['name'], e['version']): e for e in best.values()}
 
 
 def ordered(models):
@@ -134,6 +150,7 @@ def main():
         print(f'no <region>.json in {args.dir}', file=sys.stderr)
         return 2
     regions, models = collect(files)
+    models = newest_only(models)
     if not models:
         print('the catalogue held no chat or embedding model - refusing to write an empty list', file=sys.stderr)
         return 2
