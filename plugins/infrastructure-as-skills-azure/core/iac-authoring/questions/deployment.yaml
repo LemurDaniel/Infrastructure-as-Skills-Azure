@@ -2136,6 +2136,33 @@ groups:
           protection. If a cap is wanted, the number is the answer - "yes" is not.
         renders: azurerm_log_analytics_workspace.daily_quota_gb / properties.workspaceCapping.dailyQuotaGb
 
+      - id: application_monitoring
+        ask: Should the applications send their telemetry - requests, failures, dependencies, traces - to Application Insights?
+        type: enum
+        plain:
+          en: "Application telemetry {value}."
+          de: "Die Anwendungstelemetrie {value}."
+        plain_values:
+          enabled: { en: "goes to one Application Insights component of this deployment, stored in its log workspace", de: "geht an eine Application-Insights-Komponente dieses Ausrollens, gespeichert in seinem Log-Arbeitsbereich" }
+          disabled: { en: "is not collected; only the platform's diagnostic logs are", de: "wird nicht erfasst, nur die Diagnose-Logs der Plattform" }
+        values: [enabled, disabled]
+        default: enabled
+        why: >
+          The diagnostic setting carries what the platform sees of an app - HTTP requests,
+          platform messages, who deployed. What the application does inside - which request
+          failed with which exception, which dependency was slow - only Application Insights
+          receives, and without a component the app has nowhere to send it. So a design with
+          an application (App Service, Function App, Container Apps) gets one workspace-based
+          component per stage, in the deployment's Log Analytics workspace, and every
+          application gets its connection string; one component for the whole system, so a
+          request is traced across its apps. The component bills on ingestion like any log,
+          which is why it is a default the person sees in Phase 4 and can turn off, not a
+          question. A design with no application ignores it. Instrumenting the code is the
+          application's.
+        renders: >
+          an application-insights resource in the spec, and each application's
+          application_insights pointing at it
+
   - id: backup
     title: Backup
     questions:

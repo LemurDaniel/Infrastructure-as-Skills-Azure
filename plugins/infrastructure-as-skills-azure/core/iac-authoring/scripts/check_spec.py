@@ -503,6 +503,15 @@ def main():
             if p.split('__')[0] in set_names and p not in res_keys:
                 errors.append(f"wiring.role_assignments names '{p}' ({side}), which is not a resource of this spec")
 
+    # --- 9c. application monitoring brings its component ------------------------
+    # `application_monitoring: enabled` with an application means one application-insights
+    # resource; a spec without the key predates it and is not held to it.
+    apps = sorted(k for k in res_keys if k.split('__')[0] in ('app-service', 'function-app', 'container-apps'))
+    if dep_value('application_monitoring') == 'enabled' and apps:
+        if not any(k.split('__')[0] == 'application-insights' for k in res_keys):
+            errors.append(f"deployment.application_monitoring is enabled and the spec has {', '.join(apps)}, "
+                          f"but no application-insights resource - the applications have nowhere to send telemetry")
+
     # --- 10. deployer roles ------------------------------------------------
     def filled(v):
         """A list value, or a stage map of lists, that holds at least one entry."""
