@@ -148,14 +148,14 @@ decides what happens to it:
 | `resolved_by` | What happens |
 |---|---|
 | `interview` | Put to the person: the module choice and the naming mechanism (asked first), the deployment set's context, posture, mandates and `requirements` group, and any resource question that carries it |
-| `derived` | Never asked: derived from the landing-zone answers (`landing_zone_exists`, `central_*`), else its default; a `required` one is an `open:` entry owned by the platform team |
-| *(absent)* | Its default, or derived from a requirement; a `required` one nobody can default is an `open:` entry owned by the workload's engineer |
+| `derived` | Never asked: follows from the interview's answers (`landing_zone_exists`, `central_*`, `deployment_scope`, `deploy_mechanism`, `network_requirements`, …), else its default; a `required` one is an `open:` entry owned by the platform team |
+| *(absent)* | Its default, or derived from a requirement; a `required` one nobody can default is an `open:` entry owned by the workload owner |
 
 Say so in the first message: "Ich frage dich nur, was das System braucht; die
 technischen Entscheidungen setze ich nach den Vorgaben und zeige sie dir am Ende." / "I only
 ask what the system needs; I set the technical decisions from the baseline and show them to
-you at the end." An
-engineer in front of the plugin gets the same questions. What they know beyond them they
+you at the end." There is
+no second set of questions for someone technical. What the person knows beyond them they
 say in prose - "ZRS", "subnet snet-pe-01", "TLS 1.2 is enough" ("TLS 1.2 reicht") - and Phase 0 records it as
 `stated`, which outranks every default; what they want changed afterwards is an
 `overridden` value in the spec, not a second interview.
@@ -481,9 +481,9 @@ are guesses.
 **Read them through the digest**: `python3 <plugin>/core/iac-authoring/scripts/interview_digest.py
 <family>/<resource>... --language <context.language>` prints the deployment set and every set
 named - each interview question with its values and `forced_when`, every question that is
-forced, derived, confirmed or required, and each set's boundaries - at a fifth of the files'
+forced, derived or required, and each set's boundaries - at a fifth of the files'
 size; `--why <id>` adds the reasoning where a default is justified. Never extract the
-questions with a script of the run's own: one that keeps `ask` and `values` drops
+questions with a script of the run's own: one that keeps `ask` and `accepts` drops
 `forced_when`, and a question a rule settles is asked anyway.
 
 For each question, the answer then comes from the first source that has one:
@@ -597,10 +597,10 @@ share a call only when each of them is a single question. Before each call one l
 plain text names the topic and the person's place ("Netzwerk - Frage 1-2, danach Sicherheit,
 Daten"); it is a message of its own, never part of a `question` text, which holds the question
 and nothing else. Nothing reasoned or reported stands between the calls - the batch is never
-trimmed to four to fit one call. **The options come from the question set, never from the run**: an enum's `values`
+trimmed to four to fit one call. **The options come from the question set, never from the run**: an enum's `accepts`
 with their `plain_values`, an `int` or free `list` question's `offer` (`mandates`,
 `log_retention_days`) with its labels; "Other" is the tool's and takes the rest. A question with
-`options_from` (the Foundry models) offers only the catalogue entries the digest prints and says
+`accepts: { catalogue: ... }` (the Foundry models) offers only the catalogue entries the digest prints and says
 the catalogue's date; a model, a version or a family from memory is never an option, since it is
 one the catalogue has already moved past. The models are asked in two steps. First the family, a
 multi-select of the three families with the most models, each option saying whether it runs in
@@ -611,7 +611,7 @@ once, before the models: another family, or the residency answer changed to worl
 person - never widened silently. Then one multi-select per chosen family, in one call: its three
 newest models in the derived type, with *Noch offen* / *Still open* as the first option, each
 chosen model one deployment. The embedding model, where retrieval needs one, is a single choice
-of three: an index holds one. A question with neither `values`, `offer` nor `options_from` is
+of three: an index holds one. A question with neither an `accepts` list or catalogue nor an `offer` is
 asked in prose. An enum with more than four values (`app_runtime`) shows its first
 four - the values are ordered by how common they are - and the description of the last one names
 the rest ("Java, PHP: über „Other“ eintragen"). **"Other" is the tool's and cannot be switched
@@ -665,7 +665,7 @@ is asking a thing that should have a default, a platform value or an `open:` ent
 ask it; default it and say so in Phase 4, or open it with its owner.
 
 **Never invent a value nobody gave.** Grouped options work for an `enum`, where the
-values come from the question set. A `ref`, an address range, a subscription id, a
+values come from the question set. A reference (`accepts: { ref: ... }`), an address range, a subscription id, a
 workspace name — anything only the environment knows — is never offered as an option and
 never guessed: it comes from the stage file or from the person's
 own prose in Phase 0, and otherwise it is an `open:` entry naming its owner. An
@@ -674,22 +674,15 @@ unassigned address range is a blocker to say out loud, not a gap to fill with
 does not create — and the honest answer is to record it as missing rather than to
 reference a name nobody has.
 
-**Ask in the user's language; keep the artefacts in English.** The question sets are
-written in English, but a question put to someone who wrote their request in German is
-translated — including the trade-off in the options, which is the part that earns the
+**Ask in the user's language; keep the artefacts in English.** A question's `ask`,
+`plain`, `plain_values` and `offer` carry the customer's wording per language: put the
+line in `context.language` as it stands, and translate only where that language is
+missing - including the trade-off in the options, which is the part that earns the
 question. What stays English regardless: `infra-spec.yaml`, its `why` entries, code
 comments, variable names and commit messages. They are the interface other backends,
 reviewers and tools read, and a spec that is half German is a spec nobody can diff. Where
 the user wants the reasoning in their language too, that is their call to make — ask once
 rather than deciding it for them.
-
-A question may carry `confirm_in: [production]`. Its default still applies, but in that
-environment you surface it for confirmation rather than applying it silently — these are
-the values whose blast radius makes a silent default inappropriate. It is not a question
-and nothing is asked in Phase 3: the row appears in Phase 4's security block and in the
-decision document marked *bitte bestätigen* / *please confirm* where the spec has the stage
-named, and the person changes it by naming the row in the free answer of the sign-off
-question. A confirm row is never dropped to keep the block short.
 
 ## Phase 4 — Show the design, report what was defaulted, then ask once
 
@@ -810,7 +803,7 @@ anything security-shaped in a non-production stage - is said so, not applied.
 
 **Then the account of what was decided for them.** Compact - not forty rows, group it. It
 opens with what the person's answers decided, in their words and their language, and
-keeps the technical rows for the engineer section below it:
+keeps the technical rows for the section below it:
 
 ```
 Was aus euren Antworten folgt:
@@ -840,7 +833,7 @@ Open (needs someone from the platform team):
   Which application accesses it and needs which permissions?
 ```
 
-The engineer's view follows, as before:
+The technical rows follow:
 
 ```
 Deployment-wide:
@@ -959,7 +952,7 @@ It renders every decision in the spec as one line in the customer's words
 decisions derived from each; what the rules set; what they decided differently; what is
 still open and from whom. It is the Phase 4 account as a file someone can send, and it is
 regenerated from the spec on every later run like the diagram. It is the
-artefact the person signs off on; the spec is for the engineer. The script reads the
+artefact the person signs off on; the spec is what the render reads. The script reads the
 question sets' `plain` lines and falls back to English where a line lacks the language,
 and says how many did — translate those in the conversation rather than editing the file.
 

@@ -203,7 +203,7 @@ are in [README.md](README.md#why-one-trigger-and-families-that-are-not-skills).
   stage file, never a literal in the template; `non_production_default` relaxes cost
   knobs outside production and is refused on anything security-shaped.
 - **Only `resolved_by: interview` questions reach the person.** There is no audience
-  field: a question is `interview`, `platform` (never asked: derived from the
+  field: a question is `interview`, `derived` (never asked: follows from the
   landing-zone answers, defaulted or an `open:` entry) or has no `resolved_by` and is defaulted or derived.
 - **A change to a rendered tree (`eval-agent/infra/`, `examples/`) goes spec, `check_spec.py`,
   diagram, sign-off, then the render by `iac-rendering` - never a hand edit of the `.bicep`/`.tf`.**
@@ -217,7 +217,7 @@ are in [README.md](README.md#why-one-trigger-and-families-that-are-not-skills).
   against the compiled ARM (`run_arm_tests.py`; symbolic names via `bicepconfig.json`).
   `check_render_coverage.py` fails on anything else, per target.
 - **`check_question_set.py` parses; `check_repo_consistency.py` greps.** Run both before
-  a commit that touches a question set: the first finds a default outside `values` or a
+  a commit that touches a question set: the first finds a default outside `accepts` or a
   `depends_on` pointing nowhere, the second finds a routing row pointing nowhere.
 
 ## Repository Conventions

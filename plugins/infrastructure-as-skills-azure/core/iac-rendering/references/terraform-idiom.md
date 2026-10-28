@@ -269,7 +269,7 @@ variable "environment" {
 }
 ```
 
-Validate what the question set constrained. An `enum` question with four `values` becomes a
+Validate what the question set constrained. An `enum` question with four values in `accepts` becomes a
 `contains()` validation — otherwise the constraint existed only during the interview and
 the code accepts anything.
 

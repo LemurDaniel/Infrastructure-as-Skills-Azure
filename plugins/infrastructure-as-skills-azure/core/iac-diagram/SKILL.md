@@ -195,7 +195,7 @@ infrastructure and has to say whether this is what they meant. Their picture has
 names, file paths, variable names, module versions or Terraform internals, and no process
 commentary. It is phrased for their tenant, not for how it is built.
 
-An **engineer** reviewing the render also wants the AVM module and version behind each
+Someone **reviewing the render** also wants the AVM module and version behind each
 resource and the spec keys. That is a different picture from a different question; say so
 and offer it, rather than putting module versions on the customer's.
 

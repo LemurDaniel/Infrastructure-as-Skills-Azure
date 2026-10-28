@@ -705,8 +705,7 @@ python3 <plugin>/core/iac-authoring/scripts/check_spec.py ./infra-spec.yaml --re
 Needs PyYAML (`pip install pyyaml`). Without it the script exits 2
 and says so rather than reporting a file it could not read as fine.
 
-Checks that every value carries a known `source`, that referenced skills exist, that enum
-values are within the question set's `values`, that no `required` question is missing or
+Checks that every value carries a known `source`, that referenced skills exist, that no `required` question is missing or
 defaulted, and that no decision key uses a backend's attribute spelling.
 
 For `composition`: module ids unique, every resource in `resources:` contained by exactly
