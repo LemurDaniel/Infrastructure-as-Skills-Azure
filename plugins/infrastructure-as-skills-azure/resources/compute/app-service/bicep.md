@@ -46,6 +46,7 @@ Resolve the current versions and re-read the README parameters before rendering,
 | `health_check_path` | site | `siteConfig.healthCheckPath` | Omitted while empty |
 | `http2_enabled` | site | `siteConfig.http20Enabled` | |
 | diagnostics | both | `diagnosticSettings: [ { workspaceResourceId, logCategoriesAndGroups: [ { category } ], metricCategories: [ { category: 'AllMetrics' } ] } ]` | The plan has metrics only |
+| `application_insights` | site | `configs: [ { name: 'appsettings', properties: { APPLICATIONINSIGHTS_CONNECTION_STRING } } ]` | The component's `connectionString` output; omitted while empty |
 | `deployment.module_telemetry` | both | `enableTelemetry` | |
 | `context.tags` | both | `tags` | |
 
@@ -136,6 +137,15 @@ module app 'br/public:avm/res/web/site:0.24.0' = {
         metricCategories: [ { category: 'AllMetrics' } ]
       }
     ]
+    // decision: app-service.observability.application_insights
+    configs: [
+      {
+        name: 'appsettings'
+        properties: {
+          APPLICATIONINSIGHTS_CONNECTION_STRING: applicationInsightsConnectionString
+        }
+      }
+    ]
     enableTelemetry: true
   }
 }
@@ -186,7 +196,8 @@ inherited ones inherited so that the slot cannot drift from the site. Checked ag
 | `slot_access: known_addresses`, `slot_ip_restrictions` | `slots[].publicNetworkAccess: 'Enabled'`, `slots[].siteConfig` with `ipSecurityRestrictions`, `ipSecurityRestrictionsDefaultAction: 'Deny'`, `scmIpSecurityRestrictionsUseMain: true` | A slot `siteConfig` **replaces** the site's: write the whole object |
 | `managed_identity` (forced `user_assigned`) | `managedIdentities: { userAssignedResourceIds: [...] }` on the site | Inherited by the slot |
 | `auto_swap` | `slots[].siteConfig.autoSwapSlotName: 'production'` | Omitted while `false`; needs the whole `siteConfig` on the slot |
-| `sticky_settings` | `configs: [ { name: 'slotConfigNames', properties: { appSettingNames: [...] } } ]` on the site | **Set `configs: []` on each slot** - the slot inherits the site's `configs`, and `slotConfigNames` is not available for slots |
+| `sticky_settings` | `configs: [ { name: 'slotConfigNames', properties: { appSettingNames: [...] } } ]` on the site | **Write `configs` on each slot** - the slot inherits the site's `configs`, and `slotConfigNames` is not available for slots: the slot's list holds its `appsettings` only (`[]` when it has none) |
+| `application_insights` | `slots[].configs: [ { name: 'appsettings', properties: { APPLICATIONINSIGHTS_CONNECTION_STRING } } ]` | The same component as the site |
 | diagnostics | `slots[].diagnosticSettings` | Same categories as the site |
 
 ```bicep
@@ -203,8 +214,15 @@ inherited ones inherited so that the slot cannot drift from the site. Checked ag
             subnetResourceId: privateEndpointSubnetId
           }
         ]
-        // the site's slotConfigNames must not reach the slot
-        configs: []
+        // the site's slotConfigNames must not reach the slot; its app settings are its own
+        configs: [
+          {
+            name: 'appsettings'
+            properties: {
+              APPLICATIONINSIGHTS_CONNECTION_STRING: applicationInsightsConnectionString
+            }
+          }
+        ]
         diagnosticSettings: [
           {
             workspaceResourceId: diagnosticWorkspaceId
@@ -231,7 +249,9 @@ A module call compiles to a nested deployment whose `properties.parameters.<para
 is the decision ([bicep-idiom.md](../../../core/iac-rendering/references/bicep-idiom.md#tests)),
 so every decision above is observable in `tests/*.armtest.yaml` - including the plan's,
 which the Terraform side cannot see. `siteConfig` is one object parameter; its members
-are matched inside it.
+are matched inside it. `application_insights` is the `APPLICATIONINSIGHTS_CONNECTION_STRING`
+key of the `appsettings` entry in `configs`; its value is the component's output, an
+expression in the compiled template, so the test matches the key, not the value.
 
 ## Authored rendering
 

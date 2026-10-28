@@ -33,6 +33,7 @@ Resolve the current versions and re-read the README parameters before rendering,
 | `diagnostic_workspace` | env | `appLogsConfiguration: { destination: 'azure-monitor' }` | Not `log-analytics` (shared key) |
 | `diagnostic_*`, `metrics_enabled` | env | `diagnosticSettings: [ { workspaceResourceId, logCategoriesAndGroups: [ { category } ], metricCategories: [ { category: 'AllMetrics' } ] } ]` | |
 | `container_image`, `container_size` | app | `containers: [ { name, image, resources: { cpu, memory } } ]` | `cpu` is a `json('0.5')` |
+| `application_insights` | app | `containers[].env: [ { name: 'APPLICATIONINSIGHTS_CONNECTION_STRING', value } ]` | The component's connection string as a plain value; omitted while empty |
 | `min_replicas`, `max_replicas` | app | `scaleSettings: { minReplicas, maxReplicas }` | |
 | `revision_mode` | app | `activeRevisionsMode` | Default `'Single'`; written |
 | `ingress` | app | `disableIngress` (for `none`), `ingressExternal` | **`ingressExternal` defaults to `true`**; written |
@@ -99,6 +100,10 @@ module app 'br/public:avm/res/app/container-app:0.23.0' = {
         name: 'app'
         image: containerImage // a tag or digest, never latest
         resources: { cpu: json('0.5'), memory: '1Gi' }
+        // decision: container-apps.observability.application_insights
+        env: [
+          { name: 'APPLICATIONINSIGHTS_CONNECTION_STRING', value: applicationInsightsConnectionString }
+        ]
       }
     ]
     scaleSettings: { minReplicas: 2, maxReplicas: 10 }
@@ -132,6 +137,8 @@ are granted before either module is deployed, outside these calls.
 A module call compiles to a nested deployment whose `properties.parameters.<param>.value` is
 the decision, so every decision above is observable in `tests/*.armtest.yaml`
 ([bicep-idiom.md](../../../core/iac-rendering/references/bicep-idiom.md#tests)).
+`application_insights` is matched by the `env` entry's name; its value is the component's
+output, an expression in the compiled template.
 
 ## Authored rendering
 

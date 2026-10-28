@@ -36,6 +36,7 @@ provider set is the union with the other modules.
 | `diagnostic_workspace` | env | `app_logs_configuration = { destination = "azure-monitor" }` | Omit it and app logs are off; **not** `log_analytics_workspace` (shared key) |
 | `diagnostic_*`, `metrics_enabled` | env | `diagnostic_settings = { workspace = { workspace_resource_id, log_categories = [...], log_groups = [], metric_categories = ["AllMetrics"] } }` | `log_groups` defaults to `["allLogs"]`: set it empty when `log_categories` names the categories, or every log is collected beside them |
 | `container_image`, `container_size` | app | `template = { containers = [{ name, image, cpu, memory }] }` | cpu and memory are the pair, e.g. `0.5` and `"1Gi"` |
+| `application_insights` | app | `template.containers[].env = [{ name = "APPLICATIONINSIGHTS_CONNECTION_STRING", value }]` | The component's connection string as a plain value; omitted while empty |
 | `min_replicas`, `max_replicas` | app | `template.min_replicas`, `template.max_replicas` | |
 | `revision_mode` | app | `revision_mode` | Default `Single`; written |
 | `ingress`, `target_port`, `allow_insecure` | app | `ingress = { external_enabled, target_port, allow_insecure_connections, transport }` | **Omit `ingress` for `none`.** Module default `external_enabled = false`, insecure `false`; written |
@@ -107,6 +108,12 @@ module "app" {
       image  = var.container_image # a tag or digest, never latest
       cpu    = 0.5
       memory = "1Gi"
+      # decision: container-apps.observability.application_insights
+      # not-testable: container-apps.observability.application_insights - the connection string is the component's output, known after apply
+      env = [{
+        name  = "APPLICATIONINSIGHTS_CONNECTION_STRING"
+        value = var.application_insights_connection_string
+      }]
     }]
   }
 
@@ -150,8 +157,9 @@ so asserts target the environment's and the app's `body.properties.*` at plan ti
 replica bounds), as for the storage module
 ([avm.md](../../../core/iac-rendering/references/avm.md#tests-with-a-module-in-the-middle)).
 The environment module also needs `azurerm` mocked. What the modules build in child resources -
-the diagnostic setting, role assignments - is `# not-testable:` with a reason. The exact paths
-are read off a first `terraform test` run on the pinned version.
+the diagnostic setting, role assignments - is `# not-testable:` with a reason, and so is
+`application_insights`: the connection string is the component's output, unknown until apply.
+The exact paths are read off a first `terraform test` run on the pinned version.
 
 ## Authored rendering
 
