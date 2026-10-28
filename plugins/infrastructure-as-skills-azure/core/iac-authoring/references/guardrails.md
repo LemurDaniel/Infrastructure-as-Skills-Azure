@@ -44,7 +44,7 @@ public one) and pre-answers the network:
 |---|---|---|
 | `standalone` | **No landing zone** (`landing_zone_exists: no`). Central parts exist only where a `central_*` answer says so | per decision, unless its `central_*` answer is `yes`: `network_ownership: create` (standalone, not a spoke), `private_dns_ownership: deployment` (zones and their records created here), `observability_ownership: create`; a `yes` references that one part and leaves the rest as listed |
 | `corp` | Private workload (`network_exposure: private` or `private_with_exceptions`), connected to the hub | `network_ownership: create` (spoke) |
-| `online` | Internet-facing workload (`network_exposure: public`), not connected to the hub | a firewall allowlist (§2, rung 3), `network_ownership: none` unless a private backend needs one |
+| `online` | Internet-facing workload (`network_exposure: public`), not connected to the hub | public with a firewall allowlist (step 3 of the [posture ladder](#2-network-exposure)), `network_ownership: none` unless a private backend needs one |
 | `sandbox` | Experiments, no hub, looser policy | `network_exposure: public` allowed, `network_ownership: none`; `environments` containing `production` is refused |
 
 A user statement overrides a pre-answer, recorded as `overridden` — a corp workload with
@@ -142,9 +142,12 @@ The posture ladder, in order of preference:
 4. **Public, unrestricted** — only with a stated reason recorded in the spec as
    `overridden`.
 
-Private DNS zones are shared infrastructure. No resource question set creates one — the
-platform owns them (§0), because two deployments each creating
-`privatelink.blob.core.windows.net` is a conflict that only shows up at apply time.
+Private DNS zones are shared infrastructure. No resource that needs one creates it: in a
+landing zone the platform owns them, without one the deployment creates each zone once, as a
+`private-dns-zone` resource of its own (`private_dns_ownership`, [platform
+model](#0-platform-model-with-or-without-a-landing-zone)) - two resources, or two
+deployments, each creating `privatelink.blob.core.windows.net` is a conflict that only shows
+up at apply time.
 
 ## 3. Identity over keys
 
@@ -194,8 +197,11 @@ invisible exactly when someone needs to see it.
   handling regulated data; be deliberate in production where volume has a price.
 - **Metrics**: `AllMetrics`, which is cheap.
 
-The workspace is shared infrastructure, like DNS zones — the platform's, in the management
-subscription (§0), referenced and not created by a resource question set.
+The workspace is shared infrastructure, like DNS zones: in a landing zone the platform's, in
+the management subscription, and referenced; without one created once by the deployment, as a
+`log-analytics-workspace` resource of its own (`observability_ownership`, [platform
+model](#0-platform-model-with-or-without-a-landing-zone)). No resource that sends diagnostics
+creates it.
 
 ## 6. Exceptions
 
