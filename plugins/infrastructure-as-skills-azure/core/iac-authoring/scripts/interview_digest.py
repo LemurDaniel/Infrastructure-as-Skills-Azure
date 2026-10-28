@@ -16,6 +16,9 @@ is the one shortcut that keeps them. For the deployment set (always) and every s
   3. A resource set's boundaries: what it does not create, said out loud rather than
      improvised.
 
+A question with `options_from` also prints the newest generally available entries of
+that catalogue (the Foundry models), so the options come from it and not from memory.
+
 `why` is left out; `--why <id>` prints it for the questions named, when a default must be
 justified or an answer read against its reasoning.
 
@@ -78,6 +81,36 @@ def values_line(q, language):
     return ''
 
 
+def catalogue_lines(set_path, q, per_family=6):
+    """An `options_from` catalogue as the interview offers it: per kind, one line per
+    family (the catalogue's `format`, most models first) with the deployment types it
+    comes in, then its newest generally available models, one version each."""
+    import yaml
+    src = os.path.join(PLUGIN, os.path.dirname(set_path), str(q['options_from']))
+    try:
+        with open(src, encoding='utf-8') as f:
+            cat = yaml.safe_load(f) or {}
+    except OSError:
+        return [f"   options_from: {q['options_from']} - missing; offer no model, the question stays open"]
+    lines = [f"   options_from: {q['options_from']} (retrieved {cat.get('retrieved')}) - offer only these, never one from memory"]
+    families = {}
+    for m in cat.get('models') or []:
+        if m.get('lifecycle') != 'GenerallyAvailable':
+            continue
+        fam = families.setdefault((m.get('kind'), m.get('format')), {'types': set(), 'models': {}})
+        fam['types'].update(m.get('deployment_types') or {})
+        fam['models'].setdefault(m.get('name'), m)
+    for kind in sorted({k for k, _ in families}):
+        ranked = sorted(((f, v) for (k, f), v in families.items() if k == kind),
+                        key=lambda fv: (-len(fv[1]['models']), str(fv[0])))
+        for fmt, fam in ranked:
+            lines.append(f"     {kind} {fmt} [{','.join(sorted(fam['types']))}]")
+            for m in list(fam['models'].values())[:per_family]:
+                types = ','.join(m.get('deployment_types') or {})
+                lines.append(f"       {m.get('name')} {m.get('version')} {types}")
+    return lines
+
+
 def condition(dep):
     if not isinstance(dep, dict):
         return str(dep)
@@ -113,6 +146,8 @@ def digest(name, doc, language, why_ids, out):
                 out.append(f"   confirm_in: {q['confirm_in']}")
             if q.get('forced_when'):
                 out.append(f"   forced_when: {flat(q['forced_when'])}")
+            if q.get('options_from'):
+                out.extend(catalogue_lines(name, q))
             if q['id'] in why_ids:
                 out.append(f"   why: {flat(q.get('why', ''))}")
 
@@ -134,6 +169,8 @@ def digest(name, doc, language, why_ids, out):
             out.append('  ' + '  '.join(parts))
             if q.get('forced_when'):
                 out.append(f"   forced_when: {flat(q['forced_when'])}")
+            if q.get('options_from'):
+                out.extend(catalogue_lines(name, q))
             if q['id'] in why_ids:
                 out.append(f"   why: {flat(q.get('why', ''))}")
 

@@ -70,7 +70,7 @@ KNOWN_FIELDS = {
     'id', 'ask', 'type', 'values', 'default', 'required', 'parameterized', 'confirm_in',
     'why', 'renders', 'depends_on', 'ref', 'from_deployment', 'forced_when', 'from_context',
     'resolved_by', 'topic', 'plain', 'plain_values', 'derived_from', 'per_environment', 'non_production_default',
-    'offer',
+    'offer', 'options_from',
 }
 # Groups whose decisions may never be relaxed for a non-production stage.
 NO_SAVINGS_GROUPS = {'security', 'networking', 'identity', 'access', 'dns', 'compliance', 'posture', 'modules', 'subnet_policy'}
@@ -435,6 +435,22 @@ def check_set(path, doc, deployment, rel):
                 if len(offer) > room:
                     err(f"{where}: offer holds {len(offer)} options; a question shows four"
                         + (", and one of them is the empty answer" if qtype == 'list' else ''))
+        src = q.get('options_from')
+        if src is not None:
+            full = os.path.join(os.path.dirname(path), str(src))
+            if not os.path.isfile(full):
+                err(f"{where}: options_from '{src}' does not exist beside the set")
+            else:
+                try:
+                    import yaml
+                    with open(full, encoding='utf-8') as f:
+                        cat = yaml.safe_load(f)
+                except Exception as e:
+                    cat = None
+                    err(f"{where}: options_from '{src}' does not parse: {e}")
+                if cat is not None and (not isinstance(cat, dict) or not cat.get('retrieved')
+                                        or not isinstance(cat.get('models'), list) or not cat['models']):
+                    err(f"{where}: options_from '{src}' needs retrieved: <date> and a non-empty models list")
         pv = q.get('plain_values')
         if pv is not None:
             if not isinstance(pv, dict) or not pv:

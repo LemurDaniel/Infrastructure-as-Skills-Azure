@@ -57,6 +57,10 @@ def main():
                     failures.append(f"{rel}: {g}.{q['id']} missing")
             if q.get('forced_when') and d.flat(q['forced_when']) not in text:
                 failures.append(f"{rel}: forced_when of {q['id']} missing")
+            if q.get('options_from'):
+                checked += 1
+                if f"options_from: {q['options_from']} (retrieved" not in text:
+                    failures.append(f"{rel}: options_from of {q['id']} missing or its catalogue unread")
         for b in doc.get('boundaries') or []:
             checked += 1
             if d.flat(b) not in text:
