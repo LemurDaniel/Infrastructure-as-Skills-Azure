@@ -15,7 +15,7 @@
 > **Terraform or Bicep is not required, but recommended.** The plugin writes the code without the CLI, but then it cannot run `fmt`, `validate`, `terraform test` or `bicep build` against it. The render is handed over marked as unverified.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Evals on Sonnet](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/LemurDaniel/Infrastructure-as-Skills-Azure/a29cc927e5537713f4c66b7fac73ea64e02525b6/badge-sonnet.json)](https://github.com/LemurDaniel/Infrastructure-as-Skills-Azure/blob/a29cc927e5537713f4c66b7fac73ea64e02525b6/README.md)
+[![Evals on Sonnet](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/LemurDaniel/Infrastructure-as-Skills-Azure/423b44ec7b0440dee3ff9a60d4779302524a777f/badge-sonnet.json)](https://github.com/LemurDaniel/Infrastructure-as-Skills-Azure/blob/423b44ec7b0440dee3ff9a60d4779302524a777f/README.md)
 
 A Claude Code plugin that authors Azure infrastructure as **Terraform or Bicep** from the decisions a resource actually forces - compute, network, data, security, messaging, integration, AI and recovery, 67 resource types in ten families. Not a module library and not a template collection. The interview writes an `infra-spec.yaml`; the code, its tests, a diagram and a decision document are rendered from that, onto [Azure Verified Modules](https://azure.github.io/Azure-Verified-Modules/) first.
 
