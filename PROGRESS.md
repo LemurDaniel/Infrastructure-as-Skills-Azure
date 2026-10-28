@@ -605,6 +605,14 @@ per-family` in `check_spec.py` and the `chatbot` spec, and `references/private-d
   options, several conditions or facts no set holds (a paired region in another country) - a
   schema for a fifth of them would be a second mechanism, not a simpler one. What is
   checked: `check_spec.py` resolves a `forced_by` key against the spec and the sets.
+- **`allLogs` outside production** (guardrails §5, owner's call 2026-10-29: implement, not
+  drop): the guardrail says audit categories always and `allLogs` in non-production, but every
+  set's `diagnostic_categories` default is one list for all stages. Give the category
+  questions a `non_production_default` (observability is not a refused group) and check the
+  renders; part of the savings revision, since it costs the other way round.
+- **Phase 4 lists an exception from an earlier spec again** (guardrails §6, 2026-10-29): the
+  rule is written; whether a carried `overridden` value reaches the sign-off and the decision
+  document's "decided differently" section is not verified.
 - **SQL MI `license_type` asks what only the customer knows** ("Do you already own SQL
   Server licences …?") and is not an interview question.
 - **"engineer" in the resource sets** (2026-10-28): removed from `core/`, still in 19
