@@ -9,7 +9,8 @@ in a copy - a role that does not exist, a mode missing, a placement into a group
 does not have, a deployer role the spec needs and does not grant - and the check must fail with
 the message that names it. The same holds for a Foundry account in another region than
 `context.location`: valid as stated, broken by a region nobody named, a missing reason, a
-region per stage, another resource departing, or country residency. A mutation whose text is no
+region per stage, another resource departing, or country residency. Application monitoring
+enabled with an app and no application-insights resource fails; with the component it passes. A mutation whose text is no
 longer in the fixture fails the run: a test that cannot break anything proves nothing.
 
 Usage:
@@ -35,6 +36,8 @@ ISOLATION_RG ="  stage_isolation: { value: resource_group, source: asked }\n"
 GRANT_SUB = "      - { role: Contributor, scope: subscription, for: [deployment.resource_group_mode_main] }\n"
 GRANT_RBAC = "      - { role: Role Based Access Control Administrator, scope: resource_group, for: [resources.key-vault] }\n"
 GRANT_KV = "      - { role: Key Vault Secrets Officer, scope: key-vault, for: [resources.key-vault.security.secret_placeholders] }\n"
+LOCAL_AUTH_LINE = "  local_auth: { value: disabled, source: default }\n"
+MONITORING = "  application_monitoring: { value: enabled, source: default }\n"
 
 # (name, find, replace, expected substring of the output; None = must pass)
 MUTATIONS = [
@@ -67,6 +70,13 @@ MUTATIONS = [
     ('a created group at resource-group scope', MODE_DATA, MODE_DATA + SCOPE_RG, 'resource_group_mode_data is create under deployment_scope resource_group'),
     ('subscription scope under resource-group stage isolation', MODE_DATA,
      MODE_DATA + ISOLATION_RG + SCOPE_RG.replace('resource_group,', 'subscription,'), 'deployment_scope is subscription under stage_isolation'),
+    ('application monitoring with an app and no component', LOCAL_AUTH_LINE, LOCAL_AUTH_LINE + MONITORING, 'but no application-insights resource'),
+]
+
+# The fixture with application monitoring and its component: (find, replace), both must hit.
+WITH_COMPONENT = [
+    (LOCAL_AUTH_LINE, LOCAL_AUTH_LINE + MONITORING),
+    ("  log-analytics-workspace:\n", "  application-insights: {}\n  log-analytics-workspace:\n"),
 ]
 
 # The fixture with a Foundry account in another region than context.location: valid, and
@@ -261,8 +271,18 @@ def main():
         rc, out = run(base.replace(find, replace))
         report(rc == 1 and expected in out, f"breaks: {name}", f"expected exit 1 with {expected!r}; got exit {rc}:\n{out[-500:]}")
 
+    text = base
+    for find, replace in WITH_COMPONENT:
+        if text.count(find) != 1:
+            report(False, 'application monitoring with its component stays valid', f"the fixture no longer holds once: {find!r}")
+            break
+        text = text.replace(find, replace)
+    else:
+        rc, out = run(text)
+        report(rc == 0, 'application monitoring with its component stays valid', out[-400:])
+
     print('-' * 70)
-    total = 6 + len(MUTATIONS) + len(NO_MAIN_MUTATIONS) + len(COMPONENT_MUTATIONS)
+    total = 7 + len(MUTATIONS) + len(NO_MAIN_MUTATIONS) + len(COMPONENT_MUTATIONS)
     print(f"{total - failed}/{total} passed")
     return 1 if failed else 0
 
