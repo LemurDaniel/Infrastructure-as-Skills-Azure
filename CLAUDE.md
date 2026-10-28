@@ -49,7 +49,7 @@ python3 plugins/infrastructure-as-skills-azure/core/iac-authoring/scripts/check_
 python plugins/infrastructure-as-skills-azure/core/iac-authoring/tests/run_spec_tests.py
 
 # Validates every question set (or the paths given) against the format: enum defaults,
-# depends_on / from_deployment targets, resolution fields, `resolved_by`, unknown fields.
+# depends_on / answer targets, resolution fields, `resolved_by`, unknown fields.
 python3 plugins/infrastructure-as-skills-azure/core/iac-authoring/scripts/check_question_set.py
 
 # What the interview reads instead of the 2,000-line sets: interview questions, forced_when,
@@ -195,7 +195,7 @@ are in [README.md](README.md#why-one-trigger-and-families-that-are-not-skills).
 - **Defaults come from the guardrails, not from the Azure portal.** They diverge routinely
   and in the same direction.
 - **A decision that holds for more than one resource belongs in the deployment set.** A
-  resource question that re-asks one carries `from_deployment` instead of a `default`.
+  resource question that re-asks one carries `answer: { deployment: <id> }` instead of a `default`.
 - **A missing question set is said out loud, never improvised.**
 - **The stack is the default.** `context.environments` is `[development, test, production]`
   unless the customer says otherwise; one root, one parameter file and one state (backend

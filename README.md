@@ -153,10 +153,12 @@ groups:
   - id: networking
     questions:
       - id: public_network_access
-        ask: Should this account depart from the deployment's exposure posture?
+        ask:
+          en: "Should this account depart from the deployment's exposure posture?"
+          de: "Soll dieses Konto von der Erreichbarkeit des Deployments abweichen?"
         type: enum
-        values: [enabled, disabled]
-        from_deployment: network_exposure
+        accepts: [enabled, disabled]
+        answer: { deployment: network_exposure }
         why: >
           One posture per system. A resource that re-asks it carries the
           deployment's answer instead of a default of its own.
@@ -172,7 +174,7 @@ groups:
 | Data protection | retention, soft delete, versioning, immutability |
 | Observability | diagnostic settings, which log categories, destination |
 
-A decision that holds for more than one resource lives in the deployment-wide set and is inherited via `from_deployment`. The format is specified in [`question-set-format.md`](plugins/infrastructure-as-skills-azure/core/iac-authoring/references/question-set-format.md).
+A decision that holds for more than one resource lives in the deployment-wide set and is inherited via `answer: { deployment: <id> }`. The format is specified in [`question-set-format.md`](plugins/infrastructure-as-skills-azure/core/iac-authoring/references/question-set-format.md).
 
 ## 📐 The Spec
 
@@ -303,7 +305,7 @@ claude plugin eval plugins/infrastructure-as-skills-azure --allow-tools Write Ed
 Early, and the shape matters more than the coverage. The eval suite runs on Sonnet before every merge - the badge above is the run this version was merged with, pinned to its commit on the eval-history branch; the [eval history](https://github.com/LemurDaniel/Infrastructure-as-Skills-Azure/blob/eval-history/README.md) every plugin version and model case by case; three specs are rendered to Terraform with plan-only tests, and one Bicep render, [`eval-agent/`](eval-agent/), has been deployed to a subscription through its own rendered GitHub pipeline.
 
 - [x] Shared contract: spec format, question-set format, interview protocol, guardrails
-- [x] Deployment-wide question set, inherited by every resource via `from_deployment`
+- [x] Deployment-wide question set, inherited by every resource via `answer: { deployment: <id> }`
 - [x] The customer interview: requirements derived into decisions, landing-zone questions, decision document in the customer's language
 - [x] Azure Verified Modules as the primary rendering, both targets, with the test contract
 - [x] 67 resources in 10 families (the 42 added last are checked against their AVM modules, not yet rendered or tested)

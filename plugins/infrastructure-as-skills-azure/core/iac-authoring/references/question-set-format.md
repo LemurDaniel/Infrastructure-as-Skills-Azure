@@ -71,14 +71,14 @@ states one. `check_question_set.py` fails on a question with none, and on one wi
 | Answer path | The value comes from |
 |---|---|
 | `default` | The question itself |
-| `from_deployment: <id>` | The answer to the deployment-set question with id `<id>` |
-| `derived_from` | A customer's answer in the deployment set's `requirements` group, through a map |
+| `answer: { deployment: <id> }` | The answer to the deployment-set question with id `<id>`, taken unchanged |
+| `answer: { context: <id> }` | The spec's `context.<id>`: `environments`, `location`, `subscription_id`, `resource_group_name`. Missing, it becomes an `open:` entry |
+| `answer: { question: <id>, map: {...} }` | A customer's answer to a `requirements` question of the deployment set, translated through the map |
 | `parameterized: true` | An input of the rendered code (Terraform `variable`, Bicep `param`), filled per stage from that stage's parameter file (`.tfvars`, `.bicepparam`) |
 | `required: true` | Nowhere: someone has to state it, or it becomes an `open:` entry |
 
-`from_context: true` reads the spec's `context:` and stands beside `required: true` where
-the context value must exist. Whether a question is put to the customer is a different
-matter, decided by `resolved_by` alone.
+Whether a question is put to the customer is a different matter, decided by `resolved_by`
+alone.
 
 ## Question fields
 
@@ -91,12 +91,11 @@ matter, decided by `resolved_by` alone.
 | `default` | no | The value taken when nobody states another, from the [guardrails](guardrails.md). It does not decide whether the question is asked - `resolved_by` does; on an `interview` question it is the answer preselected for the customer. |
 | `required` | no | `true`: no safe value exists and none can be guessed. An `interview` question is asked; any other becomes an `open:` entry with a placeholder, owned by the platform team (`derived`) or the workload owner. |
 | `parameterized` | no | `true` means the value is never asked and never rendered as a literal: the template takes it as an input variable (Terraform `variable`, Bicep `param`) without a default. Used for deployment context that is supplied at deploy time. |
+| `answer` | no | Where an inherited answer comes from, in one of three forms: `{ deployment: <id> }` takes a deployment-set answer unchanged; `{ context: <id> }` reads the spec's `context:`; `{ question: <id>, map: { <answer>: <value> } }` translates a customer requirement through a map covering every one of its answers (`outage_impact: disruptive` → `replication: ZRS`). See *Where the value comes from* and *Requirements*. |
 | `why` | yes | The reasoning. This is what a reviewer reads and what justifies the default. |
 | `renders` | yes | Which attribute(s) the answer drives, per target where they differ. Lets a review skill map code back to a decision. |
-| `depends_on` | no | `{ question: <id>, equals: <value> }`, `not_equals`, or `contains` (a `list` question holds the value) — skip unless the condition holds. |
-| `from_deployment` | no | The deployment-set question whose answer this one takes. |
-| `forced_when` | no | Which answer elsewhere removes a value from `accepts`, or determines this one. Prose, because the conditions are not uniform enough to encode. Recorded as `forced` with `forced_by` in the spec. |
-| `from_context` | no | `true`: the value is read from the spec's `context:` under the same id - `environments`, `location`, `subscription_id`, `resource_group_name`. Never asked per resource. With `required: true` beside it, a missing context value becomes an `open:` entry. |
+| `depends_on` | no | `{ question: <id>, equals: <value> }`, `not_equals`, or `contains` (a `list` question holds the value) — skip unless the condition holds. Gates a question that would be dead otherwise: firewall rules mean nothing while public access is disabled, so they are not asked and discarded. |
+| `forced_when` | no | Which answer elsewhere removes a value from `accepts`, or determines this one: `key_protection: hsm` requires Key Vault Premium, and a software key cannot be converted later. The forced value is set, not asked, and recorded as `forced` with `forced_by` in the spec - a value determined silently is worse than one asked, so the spec always names what drove it. Prose, because the conditions are not uniform enough to encode. |
 | `resolved_by` | no | Who supplies the value. `interview`: the customer is asked. `derived`: never asked - it follows from interview answers, else its default, else an `open:` entry for the platform team. Absent: never asked - its default or derivation applies, else an `open:` entry for the workload owner. See *Who resolves it*. |
 | `topic` | for `interview` | The heading the question stands under in the interview: `platform`, `network`, `security`, `resilience`, `data` or `application`. Only on `resolved_by: interview`. See *The interview's topics*. |
 | `plain` | yes | The decision as one sentence in the customer's words, per language (`en` required, `de` and others optional), with `{value}` where the answer goes: "The data is kept {value}." The decision document and the Phase 4 account print every decision through it. See *The customer's line*. |
@@ -104,7 +103,6 @@ matter, decided by `resolved_by` alone.
 | `offer` | no | Suggestions, not a restriction: on an `interview` question whose answer stays open (an `int`, a free `list`), the options the interview shows, `<option>: { en, de }` with their labels. Any other answer remains valid through "Other" - `mandates` offers GDPR, BSI C5 and ISO 27001 and still takes PCI DSS. Four at most, three for a `list`, whose fourth option is the explicit empty answer. Without it each run invents its own options. Where only the listed answers are valid, it is an `enum` with `accepts` instead. |
 | `per_environment` | no | `true` means the value differs per stage: it renders as a parameter whose value lives in each stage's parameter file, never as a literal in the template, and the spec holds a map keyed by stage. See *Stages*. |
 | `non_production_default` | no | The value every stage but production takes while `deployment.non_production_savings` is enabled. Cost knobs only: refused in the security, networking, identity, access, DNS, compliance and posture groups. |
-| `derived_from` | no | `{ question: <deployment id>, map: { <answer>: <value> } }` — the value follows from a customer's answer in the deployment set's `requirements` group, mapped through this table. See below. |
 
 ### Types
 
@@ -134,21 +132,28 @@ offers only those, never one from memory. A workflow regenerates the file, never
 | 2 | `resource` (default) | `resources/<family>/<resource>/questions.yaml` | One resource's decisions |
 
 The deployment set's questions are asked first and never restated on a resource. A
-resource question covering the same decision declares `from_deployment: <id>` instead of
-a `default` and takes the deployment's answer. A resource that needs a different value
+resource question covering the same decision declares `answer: { deployment: <id> }`
+instead of a `default` and takes the deployment's answer. A resource that needs a different value
 departs from it, recorded `overridden` with a `reason`.
+
+Which scope a decision belongs to: could two resources of one system sensibly answer it
+differently? Exposure, network ownership, key protection and the diagnostics destination
+cannot - one answer per system, so the deployment set. Replication, access tier and
+soft-delete windows can, so they stay with the resource; where the customer's requirement
+behind them is one per system, the resource question derives its value from it (see
+*Requirements*).
 
 The deployment set's `context` group is the exception: its answers are facts, not
 decisions — which stages, which region, which subscription and resource group — and the
 spec records them under `context:` as bare values, beside `workload`, `language` and
 `tags`, with no `source`. Naming, the pipeline and the decision document read them there.
 Everything else in the set is a decision and lands under `deployment:` with its `value`
-and `source`. A resource question inherits a fact with `from_context: true` and a
-decision with `from_deployment: <id>`.
+and `source`. A resource question inherits a fact with `answer: { context: <id> }`
+and a decision with `answer: { deployment: <id> }`.
 
 A deployment set declares `scope: deployment` and names no resource, so it carries no
-`resource:` and no `naming:` block, and its groups keep no review order. `from_deployment`
-and `derived_from` are refused inside it; `parameterized` belongs only there. Everything
+`resource:` and no `naming:` block, and its groups keep no review order. `answer` is
+refused inside it; `parameterized` belongs only there. Everything
 else — groups, ids, `why`, `renders`, `depends_on` — is the same in both scopes.
 
 ## Who resolves it: `resolved_by`
@@ -167,7 +172,7 @@ question can be put in the customer's own words with no Azure vocabulary in it. 
 must deleted data stay restorable?" passes; "Which subnet should the private endpoint live
 in?" does not, however it is phrased - it is `derived`.
 
-A question that inherits its answer (`from_deployment`, `from_context`) is never asked
+A question that inherits its answer (`answer: { deployment }`, `answer: { context }`) is never asked
 again: it takes the deployment's answer. It is never `interview`; it repeats `derived` where the question
 it inherits from is `derived`, so an open value still goes to the platform team, and
 carries none otherwise. A departure on one resource is recorded `overridden` with a
@@ -233,7 +238,7 @@ own parameter file with its own state. Two fields say how a decision behaves acr
   workspace. It is never a literal in the template. The render makes it a parameter and
   writes each stage's value into that stage's file; the spec holds the values as a map
   keyed by stage, and a stage nobody could answer for is an `open:` entry naming the stage.
-  A question inheriting a per-stage deployment question through `from_deployment` is
+  A question inheriting a per-stage deployment question through `answer: { deployment }` is
   per-stage too, and the check says so.
 - **`non_production_default`** is the value every stage but production takes while
   `deployment.non_production_savings` is enabled (the default): `replication: LRS`,
@@ -245,82 +250,79 @@ own parameter file with its own state. Two fields say how a decision behaves acr
 
 A value the customer states holds in every stage unless they say which stage they mean —
 the savings relax defaults and derived values, never a stated one. A derived value
-(`derived_from`) is production's, and the non-production stages take the savings default
+(`answer: { question, map }`) is production's, and the non-production stages take the savings default
 where one exists.
 
-## Requirements, and `derived_from`
+## Requirements, and derived answers
 
-A resource question whose answer the customer could give — how much redundancy, how far
-back a delete must be recoverable, how the data is used — is not asked per resource and
-not asked in the resource's vocabulary. The deployment set's `requirements` group asks it
-once, in the customer's terms (`outage_impact`, `data_loss_tolerance`,
-`data_access_pattern`, `backup_isolation`, `data_residency`), and the resource question
-**derives** its value:
+Some resource decisions follow from something only the customer can say - how bad an
+outage would be, how far back a delete must be recoverable, how the data is used. The
+customer is not asked them per resource, nor in the resource's vocabulary ("LRS or ZRS?").
+The deployment set's `requirements` group asks once, in the customer's words
+(`outage_impact`, `data_loss_tolerance`, `data_access_pattern`, `backup_isolation`,
+`data_residency`), and each resource question **derives** its value from that answer:
 
 ```yaml
+# deployment.yaml - asked of the customer
+      - id: outage_impact
+        type: enum
+        accepts: [tolerable, disruptive, critical]
+        default: disruptive
+        resolved_by: interview
+
+# storage-account/questions.yaml - derived, never asked
       - id: replication
         type: enum
         accepts: [LRS, ZRS, GRS, GZRS]
-        derived_from:
+        answer:
           question: outage_impact
           map: { tolerable: LRS, disruptive: ZRS, critical: GZRS }
 ```
 
-The map lives on the resource question, not on the requirement: the resource knows its
-own vocabulary, and a new resource derives from an existing requirement without editing
-the deployment set. The spec records the value with `source: requirement` and
-`derived_from: deployment.outage_impact`, which is what lets the decision document say
-"because you said an outage would be disruptive, the data is kept in three datacenters".
+`question` names the requirement; `map` is the translation table, one row per answer the
+customer can give and the value this question takes for it. The customer says
+`disruptive`, the storage account gets `ZRS`.
+
+The map sits on the resource question, not on the requirement: the resource knows its own
+values (`ZRS`), the requirement only the customer's (`disruptive`), and a new resource
+derives from an existing requirement without touching the deployment set. The spec records
+the result as `source: requirement` with `derived_from: deployment.outage_impact`; the
+decision document turns that into "because you said an outage would be disruptive, the
+data is kept in three datacenters".
 
 Three rules:
 
-- **Every answer maps.** The map covers every value the requirement can take; the check
-  fails on a gap. A value the map cannot reach (`GRS` above) is a departure, recorded
-  `overridden`.
-- **The default answer derives the guardrail default.** `disruptive` → `ZRS`,
-  `one_week` → 7 days, `active` → `Hot`. An unanswered requirement changes nothing; it
-  only lets the customer change things. A map whose default-answer row departs from
-  [guardrails.md](guardrails.md) is a bug in one of the two.
-- **A derived question has no `resolved_by`**: the customer answered the
-  requirement; a per-resource departure from the derivation is recorded `overridden`.
+- **Every answer maps.** The map has a row for every answer the requirement can take; the
+  check fails on a missing one. A value no row reaches (`GRS` above) can still be chosen, as
+  a departure recorded `overridden`.
+- **Silence changes nothing.** The requirement's default answer maps to the guardrail
+  default (`disruptive` → `ZRS`, `one_week` → 7 days, `active` → `Hot`), so a customer who
+  says nothing gets the baseline. If the map and [guardrails.md](guardrails.md) disagree
+  there, one of them is wrong.
+- **The derived question is not asked.** The customer answered the requirement, so the
+  resource question carries no `resolved_by`.
 
-What cannot be mapped mechanically stays a question with a default and is named as a
-consequence in Phase 4 — `immutability` follows a mandate, but a mandate is free text, so
-the consequence is named rather than mapped.
+Where no table can do the mapping - a mandate is free text, so "GoBD → immutable blobs"
+cannot be a map - the question keeps a default and Phase 4 names the consequence instead.
 
 ## Rules that matter
 
-**Default to the secure value, not the portal default.** They diverge, routinely and in
-the same direction. `public_network_access` and `shared_access_key_enabled` are the classic
-pair: Azure ships them permissive, and inheriting that as a baseline means every resource
-this plugin generates starts from the wrong end.
-
-**A decision that holds for more than one resource belongs in the deployment set.** The
-test is whether two resources could sensibly answer it differently. Posture, network
-ownership, key protection and the diagnostics destination fail that test — they are one
-answer per system. Replication, access tier and soft-delete windows pass it, and stay with
-the resource.
-
-**One answer may force another.** `key_protection: hsm` is not a flag; it requires Key
-Vault Premium, and a software key cannot be converted in place later. Where that happens,
-the forced value is pre-answered rather than asked, and the question that forced it is
-named in the spec. A question whose answer is already determined is noise, but a *silently*
-determined one is worse — say which mandate drove it.
+**Default to the secure value, not the portal default.** Azure ships public network access
+and shared keys enabled; the defaults come from [guardrails.md](guardrails.md), which
+inverts them, never from the portal.
 
 **`why` is not decoration.** It is the only artefact that survives into review. "Secure
 default" is not a `why`; the `why` is what breaks if the other value is chosen, or what it
 costs. If you cannot write one, the question probably does not belong in the set.
 
-**Keep `required` scarce.** Every required question is paid on every run forever. In
-practice a resource has two or three genuinely un-guessable decisions — environment,
-region, and what it connects to. The rest can default.
+**Keep `required` for what nobody can guess.** A `required` question that is not asked
+becomes an `open:` entry that blocks the apply until someone answers it. Use it for what only
+the environment knows - the subnet, the workspace, the key it connects to - never for a
+choice with a safe default.
 
 **Group order is review order.** placement → networking → identity → security →
 data_protection → observability. Keep it, because a reviewer reading three different
 resources should not have to relearn the layout each time.
-
-**`depends_on` instead of asking dead questions.** Firewall rules are meaningless when
-public access is disabled. Gate them rather than asking and discarding.
 
 ## Validate
 
@@ -329,20 +331,6 @@ python3 <plugin>/core/iac-authoring/scripts/check_question_set.py               
 python3 <plugin>/core/iac-authoring/scripts/check_question_set.py resources/storage      # one family, one resource, or one file
 ```
 
-It parses the files (PyYAML) and checks what a regex cannot: the envelope and both
-naming identifiers agreeing; unique group and question ids; the review-order groups in
-order; `id`, `ask`, `type`, `why`, `renders` present; a known `type`, `accepts` as a value list
-(required on an enum), `{ ref: <kind> }` or `{ catalogue: <file> }` (on a string or a
-list, the catalogue existing and parsing), a default within the
-accepted values and of the type's kind;
-`required`, `default`, `from_deployment`, `derived_from` and `parameterized` mutually
-exclusive and one of them present; `depends_on` naming a question in the set and a value it can take;
-`from_deployment` and `from_context` naming a deployment-set question; `derived_from` naming an interview question in the deployment
-set with a map covering every answer; `resolved_by`, where present, one of `interview`, `derived`;
-a `topic` on every interview question and on no other; a question that inherits its answer
-never `interview`, and `derived` exactly where its `from_deployment` source is; and
-unknown fields, which is how a misspelt `default` turns into a question asked every run.
-Exit 0 clean, 1 violations, 2 could not check.
-
-The repo's `check_repo_consistency.py` still runs its regex subset before every commit and
-adds what this script does not: routing reachability and the listing budget.
+It parses every set and checks the rules of this document; the full list is in the
+script's docstring. Unknown fields are reported too - a misspelt `default` is a question
+with no answer path. Exit 0 clean, 1 violations, 2 could not check.

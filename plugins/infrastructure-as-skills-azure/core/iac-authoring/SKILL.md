@@ -442,7 +442,7 @@ resource, in two halves:
   name - the render computes it. The workload short name is taken from the description
   or the system's name and is never open.
   The environment is `required`, because nothing can be guessed and everything downstream reads them. A
-  resource question marked `from_context: true` points here; without this group that field
+  resource question with `answer: { context: <id> }` points here; without this group that field
   pointed at nothing, and a run could reach the renderer with no region and therefore no
   name.
 - **The deployment decisions** — network exposure, local auth, who owns the virtual
@@ -450,7 +450,7 @@ resource, in two halves:
   the ingestion cap.
 
 Resolve it once and every resource inherits it. A resource question carrying
-`from_deployment: <id>` is answered from there and never asked again — eight resources in
+`answer: { deployment: <id> }` is answered from there and never asked again — eight resources in
 one run must not produce eight separate exposure answers, and a system is not private
 because seven of them are.
 
@@ -493,7 +493,7 @@ For each question, the answer then comes from the first source that has one:
 | 1 | What the user said — the request and the Phase 0 description | `stated`, or `overridden` where it changes a carried value |
 | 2 | The existing `infra-spec.yaml` | `carried` |
 | 3 | A pattern skill's pre-answers | `pattern` |
-| 4 | The deployment set's answer: copied for a `from_deployment` question, mapped through the question's table for a `derived_from` one | `deployment`, or `requirement` with `derived_from: deployment.<id>` |
+| 4 | The deployment set's answer: copied for an `answer: { deployment }` question, mapped through the question's table for an `answer: { question, map }` one | `deployment`, or `requirement` with `derived_from: deployment.<id>` |
 | 5 | The question's `default` | `default` |
 
 A carried value outranks a pattern and a default on purpose: it was decided, and quite
@@ -1178,7 +1178,7 @@ family:
    there, never here — resource terms are its job, workload and target terms are this
    description's, and this one stays short so the entry is never what gets pruned.
 9. Validate with `scripts/check_question_set.py <resource-directory>` — enum defaults,
-   `depends_on` and `from_deployment` targets, the resolution fields, unknown fields —
+   `depends_on` and `answer` targets, the resolution fields, unknown fields —
    and with the repo's `check_repo_consistency.py` for routing reachability.
 
 A genuinely new family gets a directory under `resources/` with a `routing.md`, and a row in

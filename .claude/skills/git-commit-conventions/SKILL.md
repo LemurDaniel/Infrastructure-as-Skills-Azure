@@ -124,7 +124,7 @@ It verifies, read-only:
   path fails to load the plugin.
 - **question sets**: `naming.terraform`, `naming.bicep` and `naming.abbreviation`
   declared, the Bicep identifier without an `Azure::` prefix, unique question
-  ids, `required`/`default`/`from_deployment` not combined, and `why`/`renders`
+  ids, `required`/`default`/`answer` not combined, and `why`/`renders`
   present. Error on the naming rules, warning on the rest. A `scope: deployment`
   set names no resource and is exempt from the naming checks.
 - **routing table coverage**: every resource's `questions.yaml` reachable from its

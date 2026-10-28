@@ -374,7 +374,7 @@ config file whose provenance has to be guessed.
 | `platform` | Derived from the landing-zone answers (`landing_zone_exists`, `central_*`), a platform-owned decision the customer was not asked |
 | `requirement` | Derived from a customer's answer in the deployment set's `requirements` group, with `derived_from: deployment.<id>` naming it |
 | `pattern` | A pattern skill pre-answered it |
-| `deployment` | Inherited from the deployment set, via the question's `from_deployment` |
+| `deployment` | Inherited from the deployment set, via the question's `answer: { deployment: <id> }` |
 | `forced` | Determined by another answer, with `forced_by` naming it |
 | `assumed` | The run chose a value to keep going. Valid for `plan`, never for `apply` |
 | `default` | The question set's opinionated default applied |
