@@ -254,6 +254,15 @@ the detail; this list says what was decided and why, so a session does not reope
   `options_from` carries it into the digest. The interview asks family first (multi-select),
   then per family its three newest models (multi-select, "Noch offen" first), the embedding
   model as a single choice; a family outside the residency answer is put back, never widened.
+- **Application telemetry goes to Application Insights by default** (2026-10-28, owner's call).
+  `deployment.application_monitoring` (default `enabled`, not asked, a Phase 4 row) brings one
+  workspace-based component per stage for the whole system when there is an App Service,
+  Function App or Container Apps; each application's `application_insights` is forced to it
+  (app setting or container env). `check_spec.py` fails on `enabled` with an app and no component.
+- **The plugin owns the infrastructure, not the application** (2026-10-28, owner's call). What
+  the code does - sign-in implemented in a container, the Application Insights SDK - is not
+  asked, flagged or opened; platform features (a component, a connection string, Easy Auth if
+  ever wanted) are the plugin's.
 - **Every change is a branch and a PR; every merge into `master` is a release** (2026-10-26,
   owner's call). No `dev` branch: one person, and the marketplace reads `master`, so what is
   there is released anyway. `pull-request.yml` fails unless `plugin.json`'s version is newer
@@ -533,8 +542,9 @@ per-family` in `check_spec.py` and the `chatbot` spec, and `references/private-d
 
 - **A public app "without a filter" has no sign-in** (seen 2026-10-28 in a TEMP3 run): the
   `public_audience: unfiltered` option says only the sign-in protects the app, but the App
-  Service set excludes Easy Auth, so the render leaves it open to the internet. At least an
-  `open:` entry and a Phase 4 line; better a question set for the sign-in.
+  Service set excludes Easy Auth. Whether the application signs people in is the app's, not
+  the plugin's; what is left is the option's wording, which promises a sign-in the
+  infrastructure does not provide.
 - **`check_spec.py` passes unknown keys in `wiring.access`** (same run): an unquoted
   `label: Mitarbeiter, HTTPS` became `label: Mitarbeiter` plus a key `HTTPS: null`, and the
   contract said ok.
