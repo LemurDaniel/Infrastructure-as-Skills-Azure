@@ -246,6 +246,14 @@ the detail; this list says what was decided and why, so a session does not reope
   AVM module otherwise puts it in the account's region (checked in `main.privateendpoint.tf`).
   Agent network injection needs the account in the VNet's region (Microsoft Learn), so it
   rules the departure out. The names are unchanged: the account's pattern has no region.
+- **Foundry models come from a generated catalogue, never from memory** (2026-10-28, owner's
+  call). A run offered gpt-4.1 (Legacy) while gpt-6 was GA. `resources/ai/foundry/models.yaml`
+  is written by `.github/scripts/update_foundry_models.py` from the EU regions' catalogue and
+  refreshed monthly by `foundry-models.yml` (identity of the `production` environment, a PR
+  with a patch bump when it changed); no CLI in the user's session. The question field
+  `options_from` carries it into the digest. The interview asks family first (multi-select),
+  then per family its three newest models (multi-select, "Noch offen" first), the embedding
+  model as a single choice; a family outside the residency answer is put back, never widened.
 - **Every change is a branch and a PR; every merge into `master` is a release** (2026-10-26,
   owner's call). No `dev` branch: one person, and the marketplace reads `master`, so what is
   there is released anyway. `pull-request.yml` fails unless `plugin.json`'s version is newer
@@ -522,6 +530,17 @@ per-family` in `check_spec.py` and the `chatbot` spec, and `references/private-d
   - `run_arm_tests.py` and the other scripts are run with `python -I`; the skills do not say so.
 
 ### Interview and spec
+
+- **A public app "without a filter" has no sign-in** (seen 2026-10-28 in a TEMP3 run): the
+  `public_audience: unfiltered` option says only the sign-in protects the app, but the App
+  Service set excludes Easy Auth, so the render leaves it open to the internet. At least an
+  `open:` entry and a Phase 4 line; better a question set for the sign-in.
+- **`check_spec.py` passes unknown keys in `wiring.access`** (same run): an unquoted
+  `label: Mitarbeiter, HTTPS` became `label: Mitarbeiter` plus a key `HTTPS: null`, and the
+  contract said ok.
+- **Phase 4 is shown as text before "Passt das Design?"** (2026-10-28): a run had written the
+  list only in its thinking. Fixed in the skill, the tick list also goes into the dialog as a
+  preview; not yet seen in a fresh interview with the dialog.
 
 - **A chat-app test with a slot as the test stage** (2026-10-27, 0.5.4) left: Phase 0 asks two
   points in prose (what for, who from where) and announces no default; stages and every
@@ -859,6 +878,10 @@ regeneration from the spec loses them. All `render`:
 - An AVM version drift check, read-only, scheduled (`ideas/avm-drift-watch.md`).
 - First run of the image pipeline (AcrPush is granted, 2026-10-25) and a check that its closing step really leaves the registry at `Disabled`. The dashboard's real mode (blob, GitHub, sign-in) has not run.
 - The repository secret `ANTHROPIC_API_KEY` for `plugin-evals.yml`.
+- A first manual run of `foundry-models.yml` after the merge: whether the `production`
+  identity (Contributor on its resource group) may read the model catalogue at subscription
+  scope, else Reader on the subscription; and "Allow GitHub Actions to create and approve
+  pull requests" switched on.
 - If the agent site was ever deployed: delete by hand what the incremental Bicep deploy leaves
   behind - the site `app-…-evalagent-agent-02`, its identity, private endpoint and role
   assignments, and the vault secret `github-token`.
