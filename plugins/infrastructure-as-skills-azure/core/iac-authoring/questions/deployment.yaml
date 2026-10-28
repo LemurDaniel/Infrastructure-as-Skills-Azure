@@ -2157,8 +2157,9 @@ groups:
           application gets its connection string; one component for the whole system, so a
           request is traced across its apps. The component bills on ingestion like any log,
           which is why it is a default the person sees in Phase 4 and can turn off, not a
-          question. A design with no application ignores it. Instrumenting the code is the
-          application's.
+          question. A design with no application ignores it. The app settings that point an
+          application at the component and its `Monitoring Metrics Publisher` role are rendered
+          with the application; only the code that reads them is the application's.
         renders: >
           an application-insights resource in the spec, and each application's
           application_insights pointing at it
