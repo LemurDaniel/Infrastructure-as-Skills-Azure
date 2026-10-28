@@ -445,6 +445,39 @@ the detail; this list says what was decided and why, so a session does not reope
   process pair was rendered headless in a cloud session and wants one open in draw.io on
   the owner's machine to confirm it still edits.
 
+## Road to 1.0.0
+
+1.0.0 means stable formats (owner's call, 2026-10-29): the spec format and the question-set
+format are frozen - a breaking change waits for 2.0, an older customer spec keeps working
+through `plugin_version` and the version gate - the known customer-facing faults are fixed,
+composition is proven by a pattern skill, and Terraform has been applied once. Full coverage
+of the 67 resources is not part of it; it continues in 1.x.
+
+Must:
+- **Freeze the formats.** Merge the format revision (#15), then name in `spec.md` and
+  `question-set-format.md` what is the stable interface, and how a spec from an older plugin
+  is carried forward.
+- **The pattern skill** (`ideas/pattern-skill.md`): `patterns/` is empty; composition is
+  proven by two hand-wired examples only.
+- **A Terraform render applied** through one rendered pipeline, as `eval-agent/` did for Bicep
+  (needs the fenced sandbox subscription, waiting on the owner).
+- **The decision document prints raw values** (see *Interview and spec*).
+- **A public app "without a filter" has no sign-in** (see *Interview and spec*).
+- **`check_spec.py` passes unknown keys in `wiring.access`** and does not check enum values.
+- **Phase 4 shown as text before "Passt das Design?"**, confirmed in a fresh interview.
+- **`evals/process/review-agent-separate` loads again**, and the suite runs green on Sonnet
+  before the release.
+
+Should:
+- The AVM version drift check (`ideas/avm-drift-watch.md`).
+- The former `confirm_in` defaults wired to requirements; the savings concept; SQL MI
+  `license_type` asked.
+- The naming revision (owner's todo).
+- The diagram generator faults listed under *Diagram generator*.
+
+After 1.0: rendering and testing the 42 resources checked only against their modules, the
+cross-backend diff of one spec, the remaining resources, "engineer" in the resource sets.
+
 ## Open
 
 Grouped by where the fix lands. A module's README on `main` is ahead of its tag: Event Grid topic
