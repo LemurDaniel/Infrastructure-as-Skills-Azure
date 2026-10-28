@@ -1,7 +1,7 @@
 # Which resource group role a kind of resource belongs to when deployment.resource_group_split
 # names that role. A role not split off is part of `main`. One table, read through
-# iac-rendering/scripts/rg_roles.py by the spec check, the diagram, the decision document and the
-# name list; the prose is resource-groups.md. A resource departs with `placement.resource_group`
+# iac-rendering/scripts/rg_roles.py by the spec check, the diagram and the decision document; the
+# prose is resource-groups.md. A resource departs with `placement.resource_group`
 # in the spec, never here.
 #
 # `roles` and `kinds` are the `concern` scheme (deployment.resource_group_scheme), the default.

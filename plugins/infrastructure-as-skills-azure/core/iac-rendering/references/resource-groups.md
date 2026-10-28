@@ -14,8 +14,8 @@ the group of its role. A spec written before the layout key keeps `main` beside 
 for whatever is not split off.
 
 The roles depend on `deployment.resource_group_scheme`; the tables below are the prose of
-[resource-group-roles.yaml](resource-group-roles.yaml), which the spec check, the diagram, the
-decision document and the name list read through `scripts/rg_roles.py`; change both together.
+[resource-group-roles.yaml](resource-group-roles.yaml), which the spec check, the diagram and
+the decision document read through `scripts/rg_roles.py`; change both together.
 
 | Scheme | Roles | Split off when |
 |---|---|---|

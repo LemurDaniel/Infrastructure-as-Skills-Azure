@@ -579,7 +579,7 @@ per-family` in `check_spec.py` and the `chatbot` spec, and `references/private-d
   and the parts the run names in `resource_group_components`) are asked (one group per resource type was tried and
   dropped: fourteen groups for a chat app, owned and deleted by nobody as a unit); `resource_group_split` is
   derived from the scheme's table and the design, corrected at the diagram sign-off. One reader,
-  `iac-rendering/scripts/rg_roles.py`, for check_spec, diagram, decision document and name list.
+  `iac-rendering/scripts/rg_roles.py`, for check_spec, diagram and decision document (`list_names.py` reads the split from the spec itself).
   `resource_groups_created` offers one option per group. Also from the interviews: `private` with `network_requirements: free` and users is a
   contradiction in the list. **A split has no main group**: every set has a role in both tables
   (or is `attached`), and Bicep renders one root per stage deployed into the first group of the

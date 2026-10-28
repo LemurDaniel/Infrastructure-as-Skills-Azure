@@ -1,7 +1,7 @@
 """Resource group roles per scheme, read from references/resource-group-roles.yaml.
 
-One reader for the spec check, the diagram, the decision document and the name list, so a
-scheme means the same thing in all four. `deployment.resource_group_scheme` picks the scheme:
+One reader for the spec check, the diagram and the decision document, so a scheme means the
+same thing in all three. `deployment.resource_group_scheme` picks the scheme:
 `concern` (the default, and what a spec without the key means), `lifecycle`, `protection`
 (fixed tables), or `component`, whose parts the run names per design in
 `deployment.resource_group_components`: the foundation kinds go to `shared`, every other
