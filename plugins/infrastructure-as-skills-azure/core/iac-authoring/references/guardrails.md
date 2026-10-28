@@ -193,8 +193,10 @@ invisible exactly when someone needs to see it.
 
 - **Destination**: a Log Analytics workspace by default. A storage account only for
   long-retention archival, and then alongside the workspace, not instead of it.
-- **Categories**: audit categories always. `allLogs` in non-production and for anything
-  handling regulated data; be deliberate in production where volume has a price.
+- **Categories**: audit categories always, in every stage - small, and what an
+  investigation needs. `allLogs` only where something asks for it - a mandate, or `priority:
+  protection` - because the workspace bills by the gigabyte and `allLogs` is every read and
+  write; a test stage under load can produce more of it than production.
 - **Metrics**: `AllMetrics`, which is cheap.
 
 The workspace is shared infrastructure, like DNS zones: in a landing zone the platform's, in
