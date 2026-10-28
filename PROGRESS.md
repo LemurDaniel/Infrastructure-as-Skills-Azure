@@ -557,6 +557,13 @@ per-family` in `check_spec.py` and the `chatbot` spec, and `references/private-d
   namespace `capacity`; `priority: protection` → AKS `defender_enabled`, SQL MI
   `vulnerability_assessment`, VNet `ddos_protection`, DDoS `stages_with_plan`, Firewall
   `sku_tier`/`idps_mode`/`threat_intelligence_mode`. Each with a map and the guardrail check.
+- **Revise the savings concept as a whole** (owner's todo, 2026-10-28):
+  `deployment.non_production_savings` and the per-question `non_production_default` (72
+  questions, about 60 of them beside a `derived_from`, the rest beside a `default`). The
+  name is unwieldy and the field reads like a second default; folding it into `default`
+  does not work, since most of these questions have none and one answer path is the rule.
+  Look at it together with `priority: cost`, which equals `balanced` for every knob wired
+  so far.
 - **SQL MI `license_type` asks what only the customer knows** ("Do you already own SQL
   Server licences …?") and is not an interview question.
 - **"engineer" in the resource sets** (2026-10-28): removed from `core/`, still in 19
