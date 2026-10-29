@@ -25,14 +25,15 @@ groups:
     title: Placement
     questions:
       - id: environments
-        ask: Which stages is this deployed to?
+        ask:
+          en: "Which stages is this deployed to?"
+          de: "In welche Stufen wird das ausgerollt?"
         type: list
         plain:
           en: "Deployed in the stages {value}."
           de: "Wird in den Stufen {value} ausgerollt."
-        values: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
-        required: true
-        from_context: true
+        accepts: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
+        answer: { context: environments }
         why: >
           Drives the rendered name and the strictness of several defaults below. Nothing
           sensible can be guessed.
@@ -41,13 +42,14 @@ groups:
           one
 
       - id: location
-        ask: Which Azure region?
+        ask:
+          en: "Which Azure region?"
+          de: "Welche Azure-Region?"
         type: string
         plain:
           en: "Runs in the Azure region {value}."
           de: "Läuft in der Azure-Region {value}."
-        required: true
-        from_context: true
+        answer: { context: location }
         why: >
           Part of the rendered name. **The topic's region follows its source**, not the
           deployment's: a system topic must be in the source resource's region, and a source
@@ -59,14 +61,15 @@ groups:
           topic types
 
       - id: resource_group_name
-        ask: Which resource group?
-        type: ref
+        ask:
+          en: "Which resource group?"
+          de: "Welche Ressourcengruppe?"
+        type: string
         plain:
           en: "Placed in the resource group {value}."
           de: "Liegt in der Ressourcengruppe {value}."
-        ref: resource_group
-        required: true
-        from_context: true
+        accepts: { ref: resource_group }
+        answer: { context: resource_group_name }
         per_environment: true
         why: >
           The topic is placed into an existing group, usually the source's own. Creating one
@@ -77,12 +80,14 @@ groups:
     title: The source
     questions:
       - id: source_resource
-        ask: Which resource emits the events?
-        type: ref
+        ask:
+          en: "Which resource emits the events?"
+          de: "Welche Ressource sendet die Ereignisse?"
+        type: string
         plain:
           en: "Reports what happens to {value}."
           de: "Meldet, was mit {value} geschieht."
-        ref: azure_resource
+        accepts: { ref: azure_resource }
         required: true
         per_environment: true
         why: >
@@ -94,7 +99,9 @@ groups:
         renders: source_resource_id / source
 
       - id: topic_type
-        ask: Which kind of resource is the source?
+        ask:
+          en: "Which kind of resource is the source?"
+          de: "Welche Art von Ressource ist die Quelle?"
         type: enum
         plain:
           en: "The source is {value}."
@@ -115,7 +122,7 @@ groups:
           Microsoft.HealthcareApis.Workspaces: { en: a health data workspace, de: ein Gesundheitsdaten-Arbeitsbereich }
           Microsoft.Maintenance.MaintenanceConfigurations: { en: a maintenance configuration, de: eine Wartungskonfiguration }
           Microsoft.ApiManagement.Service: { en: an API Management instance, de: eine API-Management-Instanz }
-        values: [Microsoft.Storage.StorageAccounts, Microsoft.KeyVault.vaults, Microsoft.ContainerRegistry.Registries, Microsoft.Resources.ResourceGroups, Microsoft.Resources.Subscriptions, Microsoft.EventHub.Namespaces, Microsoft.ServiceBus.Namespaces, Microsoft.Devices.IoTHubs, Microsoft.AppConfiguration.ConfigurationStores, Microsoft.MachineLearningServices.Workspaces, Microsoft.Communication.CommunicationServices, Microsoft.Web.Sites, Microsoft.HealthcareApis.Workspaces, Microsoft.Maintenance.MaintenanceConfigurations, Microsoft.ApiManagement.Service]
+        accepts: [Microsoft.Storage.StorageAccounts, Microsoft.KeyVault.vaults, Microsoft.ContainerRegistry.Registries, Microsoft.Resources.ResourceGroups, Microsoft.Resources.Subscriptions, Microsoft.EventHub.Namespaces, Microsoft.ServiceBus.Namespaces, Microsoft.Devices.IoTHubs, Microsoft.AppConfiguration.ConfigurationStores, Microsoft.MachineLearningServices.Workspaces, Microsoft.Communication.CommunicationServices, Microsoft.Web.Sites, Microsoft.HealthcareApis.Workspaces, Microsoft.Maintenance.MaintenanceConfigurations, Microsoft.ApiManagement.Service]
         required: true
         why: >
           The topic type is determined by the source's resource type and is **fixed at
@@ -129,7 +136,9 @@ groups:
         renders: topic_type / topicType
 
       - id: managed_identity
-        ask: Which managed identity should the topic deliver with?
+        ask:
+          en: "Which managed identity should the topic deliver with?"
+          de: "Mit welcher Managed Identity soll das Topic zustellen?"
         type: enum
         plain:
           en: "The topic delivers {value}."
@@ -138,7 +147,7 @@ groups:
           system_assigned: { en: with an identity of its own, de: mit einer eigenen Identität }
           user_assigned: { en: with a separately managed identity, de: mit einer separat verwalteten Identität }
           none: { en: without an identity - targets must accept a key or a public webhook, de: ohne Identität - Ziele müssen einen Schlüssel oder einen öffentlichen Webhook akzeptieren }
-        values: [system_assigned, user_assigned, none]
+        accepts: [system_assigned, user_assigned, none]
         default: system_assigned
         why: >
           The identity is how a subscription authenticates to a queue, an event hub or a
@@ -152,12 +161,14 @@ groups:
         renders: identity / managedIdentities, and deliveryWithResourceIdentity on every subscription
 
       - id: user_assigned_identity_ids
-        ask: Which user-assigned identity?
+        ask:
+          en: "Which user-assigned identity?"
+          de: "Welche User-Assigned Identity?"
         type: list
         plain:
           en: "It uses the identity {value}."
           de: "Es nutzt die Identität {value}."
-        ref: user_assigned_identity
+        accepts: { ref: user_assigned_identity }
         required: true
         depends_on: { question: managed_identity, equals: user_assigned }
         per_environment: true
@@ -170,7 +181,9 @@ groups:
     title: Subscriptions and delivery
     questions:
       - id: event_subscriptions
-        ask: Who receives the events, and where are they delivered to?
+        ask:
+          en: "Who receives the events, and where are they delivered to?"
+          de: "Wer empfängt die Ereignisse, und wohin werden sie zugestellt?"
         type: list
         plain:
           en: "Subscribers: {value} (empty: none yet)."
@@ -188,7 +201,9 @@ groups:
         renders: azurerm_eventgrid_system_topic_event_subscription (one per entry) / eventSubscriptions[]
 
       - id: destination_kind
-        ask: What kind of target do the subscriptions deliver to?
+        ask:
+          en: "What kind of target do the subscriptions deliver to?"
+          de: "An welche Art von Ziel stellen die Abonnements zu?"
         type: enum
         plain:
           en: "Events are delivered to {value}."
@@ -201,7 +216,7 @@ groups:
           azure_function: { en: a function directly, de: direkt eine Funktion }
           webhook: { en: a web address, de: eine Webadresse }
           hybrid_connection: { en: a hybrid connection into another network, de: eine Hybridverbindung in ein anderes Netz }
-        values: [service_bus_queue, service_bus_topic, storage_queue, event_hub, azure_function, webhook, hybrid_connection]
+        accepts: [service_bus_queue, service_bus_topic, storage_queue, event_hub, azure_function, webhook, hybrid_connection]
         default: service_bus_queue
         why: >
           The default kind for every subscription; a single one departs in its entry. A
@@ -220,7 +235,9 @@ groups:
           eventSubscriptions[].deliveryWithResourceIdentity.destination.endpointType
 
       - id: event_delivery_schema
-        ask: In which format do the subscribers receive the events?
+        ask:
+          en: "In which format do the subscribers receive the events?"
+          de: "In welchem Format erhalten die Abonnenten die Ereignisse?"
         type: enum
         plain:
           en: "Subscribers receive events in the {value} format."
@@ -228,7 +245,7 @@ groups:
         plain_values:
           CloudEventSchemaV1_0: { en: open CloudEvents standard, de: offenen CloudEvents-Standard }
           EventGridSchema: { en: "Azure's own Event Grid", de: Event-Grid-Format von Azure }
-        values: [CloudEventSchemaV1_0, EventGridSchema]
+        accepts: [CloudEventSchemaV1_0, EventGridSchema]
         default: CloudEventSchemaV1_0
         why: >
           A system topic emits in Azure's own schema and converts per subscription.
@@ -239,7 +256,9 @@ groups:
         renders: event_delivery_schema / eventSubscriptions[].eventDeliverySchema
 
       - id: included_event_types
-        ask: Which kinds of events should be delivered?
+        ask:
+          en: "Which kinds of events should be delivered?"
+          de: "Welche Arten von Ereignissen sollen zugestellt werden?"
         type: list
         plain:
           en: "Delivered events: {value} (empty: every kind the source emits)."
@@ -254,7 +273,9 @@ groups:
         renders: included_event_types / eventSubscriptions[].filter.includedEventTypes
 
       - id: max_delivery_attempts
-        ask: How often is a failed delivery retried?
+        ask:
+          en: "How often is a failed delivery retried?"
+          de: "Wie oft wird eine fehlgeschlagene Zustellung wiederholt?"
         type: int
         plain:
           en: "A failed delivery is retried up to {value} times."
@@ -269,7 +290,9 @@ groups:
           retry_policy.max_delivery_attempts / eventSubscriptions[].retryPolicy.maxDeliveryAttempts
 
       - id: event_ttl_minutes
-        ask: How long may an event wait for delivery before it is stale?
+        ask:
+          en: "How long may an event wait for delivery before it is stale?"
+          de: "Wie lange darf ein Ereignis auf die Zustellung warten, bevor es veraltet ist?"
         type: int
         resolved_by: interview
         topic: data
@@ -285,7 +308,9 @@ groups:
           retry_policy.event_time_to_live / eventSubscriptions[].retryPolicy.eventTimeToLiveInMinutes
 
       - id: keep_undeliverable_events
-        ask: Should an event that could not be delivered be kept for inspection?
+        ask:
+          en: "Should an event that could not be delivered be kept for inspection?"
+          de: "Soll ein Ereignis, das nicht zugestellt werden konnte, zur Prüfung aufbewahrt werden?"
         type: bool
         resolved_by: interview
         topic: resilience
@@ -306,12 +331,14 @@ groups:
           eventSubscriptions[].deadLetterWithResourceIdentity
 
       - id: dead_letter_storage_account
-        ask: Which storage account receives the undeliverable events?
-        type: ref
+        ask:
+          en: "Which storage account receives the undeliverable events?"
+          de: "Welches Speicherkonto erhält die nicht zustellbaren Ereignisse?"
+        type: string
         plain:
           en: "Undeliverable events go to the storage account {value}."
           de: "Nicht zustellbare Ereignisse gehen in das Speicherkonto {value}."
-        ref: storage_account
+        accepts: { ref: storage_account }
         required: true
         depends_on: { question: keep_undeliverable_events, equals: true }
         per_environment: true
@@ -326,7 +353,9 @@ groups:
           deadLetterWithResourceIdentity.deadLetterDestination.properties.resourceId
 
       - id: dead_letter_container
-        ask: In which container are they written?
+        ask:
+          en: "In which container are they written?"
+          de: "In welchen Container werden sie geschrieben?"
         type: string
         plain:
           en: "The files go to the container {value}."
@@ -343,7 +372,9 @@ groups:
     title: Identity and access
     questions:
       - id: role_assignments
-        ask: Who needs which role on this topic?
+        ask:
+          en: "Who needs which role on this topic?"
+          de: "Wer braucht welche Rolle auf diesem Topic?"
         type: list
         plain:
           en: "Access rights on the topic granted to: {value}."
@@ -362,14 +393,16 @@ groups:
     title: Observability
     questions:
       - id: diagnostic_workspace
-        ask: Which Log Analytics workspace should receive diagnostics?
-        type: ref
+        ask:
+          en: "Which Log Analytics workspace should receive diagnostics?"
+          de: "Welcher Log Analytics Workspace soll die Diagnosedaten erhalten?"
+        type: string
         resolved_by: derived
         plain:
           en: "Its logs go to {value}."
           de: "Seine Logs gehen in {value}."
-        ref: log_analytics_workspace
-        from_deployment: diagnostics_destination
+        accepts: { ref: log_analytics_workspace }
+        answer: { deployment: diagnostics_destination }
         per_environment: true
         why: >
           Inherited: one deployment, one destination. Without a diagnostic setting the
@@ -377,14 +410,16 @@ groups:
         renders: azurerm_monitor_diagnostic_setting / diagnosticSettings
 
       - id: diagnostic_categories
-        ask: Which log categories should be collected?
+        ask:
+          en: "Which log categories should be collected?"
+          de: "Welche Log-Kategorien sollen erfasst werden?"
         type: list
         plain:
           en: "Logged: {value}."
           de: "Geloggt wird: {value}."
         plain_values:
           DeliveryFailures: { en: "events that could not be delivered, and why", de: "Ereignisse, die nicht zugestellt werden konnten, und warum" }
-        values: [DeliveryFailures]
+        accepts: [DeliveryFailures]
         default: [DeliveryFailures]
         why: >
           The one category the type has, and the one anyone debugging a subscription needs:
@@ -396,7 +431,9 @@ groups:
           enabled_log { category } / diagnosticSettings[].logCategoriesAndGroups[].category
 
       - id: metrics_enabled
-        ask: Should all metrics be collected?
+        ask:
+          en: "Should all metrics be collected?"
+          de: "Sollen alle Metriken erfasst werden?"
         type: bool
         plain:
           en: "Usage and performance figures are {value}."

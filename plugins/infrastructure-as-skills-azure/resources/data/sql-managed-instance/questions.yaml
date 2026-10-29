@@ -29,27 +29,29 @@ groups:
     title: Placement
     questions:
       - id: environments
-        ask: Which stages is this deployed to?
+        ask:
+          en: "Which stages is this deployed to?"
+          de: "In welche Stufen wird das ausgerollt?"
         type: list
         plain:
           en: "Deployed in the stages {value}."
           de: "Wird in den Stufen {value} ausgerollt."
-        values: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
-        required: true
-        from_context: true
+        accepts: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
+        answer: { context: environments }
         why: >
           Drives the rendered name and the strictness of several defaults below.
           Nothing sensible can be guessed.
         renders: naming parameter `environment`, and the tag of that name where the repository uses one
 
       - id: location
-        ask: Which Azure region?
+        ask:
+          en: "Which Azure region?"
+          de: "Welche Azure-Region?"
         type: string
         plain:
           en: "Runs in the Azure region {value}."
           de: "Läuft in der Azure-Region {value}."
-        required: true
-        from_context: true
+        answer: { context: location }
         why: >
           The instance lives in the region of its subnet, and the region is part of the
           rendered name. Zone redundancy, premium-series hardware and the maintenance
@@ -58,14 +60,15 @@ groups:
         renders: location
 
       - id: resource_group_name
-        ask: Which resource group?
-        type: ref
+        ask:
+          en: "Which resource group?"
+          de: "Welche Ressourcengruppe?"
+        type: string
         plain:
           en: "Placed in the resource group {value}."
           de: "Liegt in der Ressourcengruppe {value}."
-        ref: resource_group
-        required: true
-        from_context: true
+        accepts: { ref: resource_group }
+        answer: { context: resource_group_name }
         per_environment: true
         why: >
           The instance is placed into an existing group. Creating one here would make this
@@ -77,7 +80,9 @@ groups:
     title: Instance and compute
     questions:
       - id: service_tier
-        ask: Which kind of instance is needed - a balanced one, or one for very low latency with a built-in readable copy?
+        ask:
+          en: "Which kind of instance is needed - a balanced one, or one for very low latency with a built-in readable copy?"
+          de: "Welche Art von Instanz wird gebraucht - eine ausgewogene, oder eine für sehr geringe Latenz mit eingebauter lesbarer Kopie?"
         type: enum
         plain:
           en: "The instance is of the kind {value}."
@@ -85,9 +90,8 @@ groups:
         plain_values:
           GeneralPurpose: { en: "balanced - remote storage, the usual choice for migrated business applications", de: "ausgewogen: entfernter Speicher, die übliche Wahl für migrierte Geschäftsanwendungen" }
           BusinessCritical: { en: "low latency with local storage, in-memory tables and a built-in readable copy, at several times the price", de: "geringe Latenz mit lokalem Speicher, In-Memory-Tabellen und eingebauter lesbarer Kopie, zum Mehrfachen des Preises" }
-        values: [GeneralPurpose, BusinessCritical]
+        accepts: [GeneralPurpose, BusinessCritical]
         default: GeneralPurpose
-        confirm_in: [production]
         why: >
           General Purpose is the floor: remote premium storage, zone redundancy available,
           and the lowest price per vCore. Business Critical buys local SSD storage, an
@@ -98,7 +102,9 @@ groups:
         renders: sku_name prefix (`GP_` / `BC_`) / skuTier and skuName
 
       - id: hardware_family
-        ask: Which hardware generation should the instance run on?
+        ask:
+          en: "Which hardware generation should the instance run on?"
+          de: "Auf welcher Hardware-Generation soll die Instanz laufen?"
         type: enum
         plain:
           en: "The instance runs on {value}."
@@ -107,7 +113,7 @@ groups:
           standard_series: { en: "the standard hardware", de: "der Standard-Hardware" }
           premium_series: { en: "newer, faster hardware with more memory per core", de: "neuerer, schnellerer Hardware mit mehr Speicher je Kern" }
           premium_series_memory_optimized: { en: "newer hardware with the most memory per core", de: "neuerer Hardware mit dem meisten Speicher je Kern" }
-        values: [standard_series, premium_series, premium_series_memory_optimized]
+        accepts: [standard_series, premium_series, premium_series_memory_optimized]
         default: standard_series
         why: >
           Standard-series (Gen5) is available everywhere and is what the service defaults
@@ -121,7 +127,9 @@ groups:
         renders: sku_name (`<tier>_Gen5` / `_Gen8IM` / `_Gen8IH`) / hardwareFamily (`Gen5`, `Gen8IM`, `Gen8IH`) and skuName
 
       - id: vcores
-        ask: How many virtual cores should the instance have?
+        ask:
+          en: "How many virtual cores should the instance have?"
+          de: "Wie viele virtuelle Kerne soll die Instanz haben?"
         type: int
         plain:
           en: "The instance has {value} virtual cores."
@@ -140,7 +148,9 @@ groups:
         renders: vcores / vCores (and the sku capacity)
 
       - id: storage_gb
-        ask: How much storage should the instance reserve?
+        ask:
+          en: "How much storage should the instance reserve?"
+          de: "Wie viel Speicher soll die Instanz reservieren?"
         type: int
         plain:
           en: "The instance reserves {value} GB of storage."
@@ -159,7 +169,9 @@ groups:
         renders: storage_size_in_gb / storageSizeInGB
 
       - id: license_type
-        ask: Do you already own SQL Server licences with Software Assurance that you can bring, or should the licence be rented with the instance?
+        ask:
+          en: "Do you already own SQL Server licences with Software Assurance that you can bring, or should the licence be rented with the instance?"
+          de: "Besitzt ihr schon SQL-Server-Lizenzen mit Software Assurance, die ihr einbringen könnt, oder soll die Lizenz mit der Instanz gemietet werden?"
         type: enum
         resolved_by: interview
         topic: application
@@ -169,9 +181,8 @@ groups:
         plain_values:
           LicenseIncluded: { en: "rented with the instance and part of its hourly price", de: "mit der Instanz gemietet und ist Teil des Stundenpreises" }
           BasePrice: { en: "your own, brought in under Azure Hybrid Benefit for a lower hourly price", de: "als eigene Lizenz im Rahmen des Azure Hybrid Benefit eingebracht, zu einem niedrigeren Stundenpreis" }
-        values: [LicenseIncluded, BasePrice]
+        accepts: [LicenseIncluded, BasePrice]
         default: LicenseIncluded
-        confirm_in: [production]
         why: >
           The licence is up to about 40% of the hourly price of a General Purpose instance
           and more of a Business Critical one. Azure Hybrid Benefit lets an organisation
@@ -183,7 +194,9 @@ groups:
         renders: license_type / licenseType
 
       - id: collation
-        ask: Which sort order and comparison rules should the instance use for text?
+        ask:
+          en: "Which sort order and comparison rules should the instance use for text?"
+          de: "Welche Sortierung und welche Vergleichsregeln soll die Instanz für Text verwenden?"
         type: string
         plain:
           en: "Text is sorted and compared by the collation {value}."
@@ -200,7 +213,9 @@ groups:
         renders: collation / collation
 
       - id: timezone
-        ask: In which time zone should the instance's clock run?
+        ask:
+          en: "In which time zone should the instance's clock run?"
+          de: "In welcher Zeitzone soll die Uhr der Instanz laufen?"
         type: string
         plain:
           en: "The instance's clock runs in the time zone {value}."
@@ -216,7 +231,9 @@ groups:
         renders: timezone_id / timezoneId
 
       - id: maintenance_window
-        ask: When may the platform patch and restart the instance?
+        ask:
+          en: "When may the platform patch and restart the instance?"
+          de: "Wann darf die Plattform die Instanz patchen und neu starten?"
         type: enum
         plain:
           en: "Planned maintenance happens {value}."
@@ -225,9 +242,8 @@ groups:
           system_managed: { en: "at a time Azure picks, between 8 am and 5 pm local time on any day", de: "zu einer von Azure gewählten Zeit, zwischen 8 und 17 Uhr Ortszeit an jedem Tag" }
           weekday_nights: { en: "on weekday nights, 10 pm to 6 am local time", de: "nachts an Wochentagen, 22 bis 6 Uhr Ortszeit" }
           weekend_nights: { en: "on weekend nights, Friday 10 pm to Monday 6 am local time", de: "nachts am Wochenende, Freitag 22 Uhr bis Montag 6 Uhr Ortszeit" }
-        values: [system_managed, weekday_nights, weekend_nights]
+        accepts: [system_managed, weekday_nights, weekend_nights]
         default: weekday_nights
-        confirm_in: [production]
         why: >
           Maintenance restarts the instance: a planned failover of seconds that drops every
           connection, several times a month. The service default places it in business
@@ -242,7 +258,9 @@ groups:
           maintenanceWindow (`SystemManaged`, `Custom1`, `Custom2`)
 
       - id: databases
-        ask: Which databases should the instance start with?
+        ask:
+          en: "Which databases should the instance start with?"
+          de: "Mit welchen Datenbanken soll die Instanz starten?"
         type: list
         plain:
           en: "The instance starts with the databases {value}."
@@ -263,7 +281,9 @@ groups:
     title: Resilience
     questions:
       - id: zone_redundant
-        ask: Should the instance survive the loss of an availability zone?
+        ask:
+          en: "Should the instance survive the loss of an availability zone?"
+          de: "Soll die Instanz den Ausfall einer Verfügbarkeitszone überstehen?"
         type: bool
         plain:
           en: "The instance {value} survive the loss of one datacenter of the region."
@@ -271,10 +291,9 @@ groups:
         plain_values:
           true: { en: "does", de: "übersteht" }
           false: { en: "does not", de: "übersteht nicht" }
-        derived_from:
+        answer:
           question: outage_impact
           map: { tolerable: false, disruptive: true, critical: true }
-        confirm_in: [production]
         non_production_default: false
         why: >
           Derived from how bad an outage is. Zone redundancy spreads the replicas (Business
@@ -289,7 +308,9 @@ groups:
         renders: zone_redundant_enabled / zoneRedundant
 
       - id: geo_failover_region
-        ask: In which second region should a copy of the instance be kept ready to take over?
+        ask:
+          en: "In which second region should a copy of the instance be kept ready to take over?"
+          de: "In welcher zweiten Region soll eine Kopie der Instanz zur Übernahme bereitgehalten werden?"
         type: string
         plain:
           en: "A second instance for a regional failure is kept in {value} (empty: none)."
@@ -319,13 +340,15 @@ groups:
     title: Networking
     questions:
       - id: subnet
-        ask: Which subnet should the instance be placed in?
-        type: ref
+        ask:
+          en: "Which subnet should the instance be placed in?"
+          de: "In welchem Subnetz soll die Instanz platziert werden?"
+        type: string
         resolved_by: derived
         plain:
           en: "The instance is placed in subnet {value}."
           de: "Die Instanz liegt im Subnetz {value}."
-        ref: subnet
+        accepts: { ref: subnet }
         required: true
         per_environment: true
         why: >
@@ -341,7 +364,9 @@ groups:
         renders: subnet_id / subnetResourceId
 
       - id: public_data_endpoint
-        ask: Should this instance depart from the deployment's exposure posture?
+        ask:
+          en: "Should this instance depart from the deployment's exposure posture?"
+          de: "Soll diese Instanz von der Erreichbarkeit des Deployments abweichen?"
         type: enum
         plain:
           en: "The instance is {value}."
@@ -350,9 +375,8 @@ groups:
           disabled: { en: "reachable only from inside the network", de: "nur aus dem Netzwerk heraus erreichbar" }
           enabled_with_firewall: { en: "reachable from the internet only from listed addresses, through its public endpoint", de: "aus dem Internet nur von gelisteten Adressen erreichbar, über ihren öffentlichen Endpunkt" }
           enabled: { en: "reachable from the internet through its public endpoint", de: "aus dem Internet über ihren öffentlichen Endpunkt erreichbar" }
-        values: [disabled, enabled_with_firewall, enabled]
-        from_deployment: network_exposure
-        confirm_in: [production]
+        accepts: [disabled, enabled_with_firewall, enabled]
+        answer: { deployment: network_exposure }
         why: >
           Asked only as a departure: exposure is a property of the system. A managed
           instance is private by construction - it answers on a private address inside
@@ -372,7 +396,9 @@ groups:
           bicep: publicDataEndpointEnabled and the same rule
 
       - id: ip_rules
-        ask: Which public IP ranges may reach the public endpoint?
+        ask:
+          en: "Which public IP ranges may reach the public endpoint?"
+          de: "Welche öffentlichen IP-Bereiche dürfen den öffentlichen Endpunkt erreichen?"
         type: list
         plain:
           en: "Public addresses allowed to reach the instance: {value}."
@@ -389,7 +415,9 @@ groups:
         renders: an inbound security rule on the subnet's NSG (not an input of either module)
 
       - id: private_endpoint
-        ask: Should callers outside this network reach the instance through a private endpoint?
+        ask:
+          en: "Should callers outside this network reach the instance through a private endpoint?"
+          de: "Sollen Aufrufer außerhalb dieses Netzes die Instanz über einen Private Endpoint erreichen?"
         type: bool
         plain:
           en: "A private connection for callers in other networks is {value}."
@@ -409,14 +437,16 @@ groups:
           beside the Bicep module, which has no parameter for it
 
       - id: private_endpoint_subnet
-        ask: Which subnet should this instance's private endpoint live in?
-        type: ref
+        ask:
+          en: "Which subnet should this instance's private endpoint live in?"
+          de: "In welchem Subnetz soll der Private Endpoint dieser Instanz liegen?"
+        type: string
         resolved_by: derived
         plain:
           en: "Its private connection lands in subnet {value}."
           de: "Seine private Anbindung landet im Subnetz {value}."
-        ref: subnet
-        from_deployment: private_endpoint_subnet
+        accepts: { ref: subnet }
+        answer: { deployment: private_endpoint_subnet }
         depends_on: { question: private_endpoint, equals: true }
         per_environment: true
         why: >
@@ -428,7 +458,9 @@ groups:
         renders: private_endpoints.<key>.subnet_resource_id / the authored endpoint's subnet (service `managedInstance`)
 
       - id: connection_type
-        ask: Should clients connect through the gateway, or be redirected to the node that holds their database?
+        ask:
+          en: "Should clients connect through the gateway, or be redirected to the node that holds their database?"
+          de: "Sollen sich Clients über das Gateway verbinden oder an den Knoten umgeleitet werden, der ihre Datenbank hält?"
         type: enum
         plain:
           en: "Clients inside the network connect {value}."
@@ -436,7 +468,7 @@ groups:
         plain_values:
           Redirect: { en: "directly to the node after a first hop, for the lowest latency", de: "nach einem ersten Hop direkt mit dem Knoten, für die geringste Latenz" }
           Proxy: { en: "through a gateway on a single port, with a little extra latency", de: "über ein Gateway auf einem einzigen Port, mit etwas mehr Latenz" }
-        values: [Redirect, Proxy]
+        accepts: [Redirect, Proxy]
         default: Redirect
         why: >
           Redirect is the connection policy for a private client: after the first packet
@@ -450,12 +482,14 @@ groups:
         renders: proxy_override / proxyOverride
 
       - id: minimum_tls_version
-        ask: Which is the oldest TLS version the instance accepts?
+        ask:
+          en: "Which is the oldest TLS version the instance accepts?"
+          de: "Welche ist die älteste TLS-Version, die die Instanz annimmt?"
         type: enum
         plain:
           en: "Connections must use TLS {value} or newer."
           de: "Verbindungen müssen TLS {value} oder neuer verwenden."
-        values: ["1.2"]
+        accepts: ["1.2"]
         default: "1.2"
         why: >
           TLS 1.2 is the floor of the guardrails and the highest a managed instance lets
@@ -469,7 +503,9 @@ groups:
     title: Identity and access
     questions:
       - id: managed_identity
-        ask: Which managed identity should the instance carry?
+        ask:
+          en: "Which managed identity should the instance carry?"
+          de: "Welche Managed Identity soll die Instanz tragen?"
         type: enum
         plain:
           en: "The instance has {value}."
@@ -477,7 +513,7 @@ groups:
         plain_values:
           system_assigned: { en: "its own identity", de: "eine eigene Identität" }
           user_assigned: { en: "a separately managed identity", de: "eine separat verwaltete Identität" }
-        values: [system_assigned, user_assigned]
+        accepts: [system_assigned, user_assigned]
         default: system_assigned
         why: >
           The identity is how the instance reaches the Entra directory - to resolve the
@@ -494,12 +530,14 @@ groups:
         renders: managed_identities / managedIdentities (and primaryUserAssignedIdentityResourceId)
 
       - id: user_assigned_identity_ids
-        ask: Which user-assigned identity?
+        ask:
+          en: "Which user-assigned identity?"
+          de: "Welche User-Assigned Identity?"
         type: list
         plain:
           en: "It uses the identity {value}."
           de: "Es nutzt die Identität {value}."
-        ref: user_assigned_identity
+        accepts: { ref: user_assigned_identity }
         required: true
         depends_on: { question: managed_identity, equals: user_assigned }
         per_environment: true
@@ -509,12 +547,14 @@ groups:
         renders: managed_identities.user_assigned_resource_ids / managedIdentities.userAssignedResourceIds and primaryUserAssignedIdentityResourceId
 
       - id: entra_admin
-        ask: Which Entra group administers the instance?
-        type: ref
+        ask:
+          en: "Which Entra group administers the instance?"
+          de: "Welche Entra-Gruppe administriert die Instanz?"
+        type: string
         plain:
           en: "The instance is administered by the Entra group {value}."
           de: "Die Instanz wird von der Entra-Gruppe {value} verwaltet."
-        ref: entra_group
+        accepts: { ref: entra_group }
         required: true
         per_environment: true
         why: >
@@ -529,7 +569,9 @@ groups:
           administrators { login, sid, principalType: 'Group', tenantId }
 
       - id: database_users
-        ask: Who needs to read or write the data?
+        ask:
+          en: "Who needs to read or write the data?"
+          de: "Wer muss die Daten lesen oder schreiben?"
         type: list
         plain:
           en: "Access to the data itself granted to: {value}."
@@ -553,7 +595,9 @@ groups:
           recorded as such in the spec
 
       - id: role_assignments
-        ask: Who may manage the instance itself?
+        ask:
+          en: "Who may manage the instance itself?"
+          de: "Wer darf die Instanz selbst verwalten?"
         type: list
         plain:
           en: "Management rights on the instance granted to: {value}."
@@ -572,7 +616,9 @@ groups:
     title: Security
     questions:
       - id: local_authentication_disabled
-        ask: May clients sign in with a SQL user name and password?
+        ask:
+          en: "May clients sign in with a SQL user name and password?"
+          de: "Dürfen sich Clients mit einem SQL-Benutzernamen und Passwort anmelden?"
         type: bool
         plain:
           en: "Signing in with a SQL password is {value}; access goes through company accounts."
@@ -580,8 +626,7 @@ groups:
         plain_values:
           true: { en: "switched off", de: "abgeschaltet" }
           false: { en: "possible", de: "möglich" }
-        from_deployment: local_auth
-        confirm_in: [production]
+        answer: { deployment: local_auth }
         why: >
           Inherited: `local_auth: disabled` renders as Entra-only authentication. A SQL
           login is a password that does not expire, is shared, and is not attributable in
@@ -596,7 +641,9 @@ groups:
           administrators.azureADOnlyAuthentication
 
       - id: key_management
-        ask: Are the instance's encryption keys platform-managed or customer-managed?
+        ask:
+          en: "Are the instance's encryption keys platform-managed or customer-managed?"
+          de: "Werden die Schlüssel der Instanz von der Plattform verwaltet oder vom Kunden?"
         type: enum
         plain:
           en: "Encryption keys are {value}."
@@ -604,9 +651,8 @@ groups:
         plain_values:
           platform_managed: { en: "managed by Azure - encrypted, rotated, no effort on your side", de: "von Azure verwaltet: verschlüsselt, rotiert, kein Aufwand bei euch" }
           customer_managed: { en: "your own, held in your key vault, so you can revoke them", de: "eure eigenen in eurem Schlüsseltresor, damit ihr sie zurückziehen könnt" }
-        values: [platform_managed, customer_managed]
-        from_deployment: key_management
-        confirm_in: [production]
+        accepts: [platform_managed, customer_managed]
+        answer: { deployment: key_management }
         why: >
           Inherited. Transparent data encryption is on for every database and cannot be
           turned off in this set - the data, the log and the backups are encrypted at rest
@@ -620,12 +666,14 @@ groups:
           encryptionProtector { serverKeyName, serverKeyType: 'AzureKeyVault', autoRotationEnabled }
 
       - id: cmk_key_vault_key_id
-        ask: Which Key Vault key should protect the instance?
-        type: ref
+        ask:
+          en: "Which Key Vault key should protect the instance?"
+          de: "Welcher Key-Vault-Schlüssel soll die Instanz schützen?"
+        type: string
         plain:
           en: "Encrypted with your key {value}."
           de: "Verschlüsselt mit eurem Schlüssel {value}."
-        ref: key_vault_key
+        accepts: { ref: key_vault_key }
         required: true
         depends_on: { question: key_management, equals: customer_managed }
         per_environment: true
@@ -639,7 +687,9 @@ groups:
         renders: transparent_data_encryption.key_vault_key_id (versioned URL) / keys[].uri and encryptionProtector.serverKeyName
 
       - id: threat_detection
-        ask: Should the instance watch for attacks, such as SQL injection and unusual access?
+        ask:
+          en: "Should the instance watch for attacks, such as SQL injection and unusual access?"
+          de: "Soll die Instanz auf Angriffe achten, etwa SQL Injection und ungewöhnliche Zugriffe?"
         type: bool
         plain:
           en: "Threat detection on the instance is {value}."
@@ -660,7 +710,9 @@ groups:
         renders: advanced_threat_protection_enabled / an authored `Microsoft.Sql/managedInstances/advancedThreatProtectionSettings` (state Enabled)
 
       - id: vulnerability_assessment
-        ask: Should the instance scan its databases for misconfigurations?
+        ask:
+          en: "Should the instance scan its databases for misconfigurations?"
+          de: "Soll die Instanz ihre Datenbanken auf Fehlkonfigurationen prüfen?"
         type: bool
         plain:
           en: "Scanning the databases for weak configuration is {value}."
@@ -669,7 +721,6 @@ groups:
           true: { en: "on", de: "an" }
           false: { en: "off", de: "aus" }
         default: false
-        confirm_in: [production]
         why: >
           The assessment scans for excessive permissions, unencrypted columns and weak
           settings. A managed instance has only the **classic** configuration: the results
@@ -684,12 +735,14 @@ groups:
           vulnerabilityAssessment { name, storageAccountResourceId, createStorageRoleAssignment, recurringScans }
 
       - id: vulnerability_assessment_storage_account
-        ask: Which storage account should hold the scan results?
-        type: ref
+        ask:
+          en: "Which storage account should hold the scan results?"
+          de: "Welches Speicherkonto soll die Scan-Ergebnisse halten?"
+        type: string
         plain:
           en: "Scan results are stored in {value}."
           de: "Die Prüfergebnisse liegen in {value}."
-        ref: storage_account
+        accepts: { ref: storage_account }
         required: true
         depends_on: { question: vulnerability_assessment, equals: true }
         per_environment: true
@@ -705,12 +758,14 @@ groups:
     title: Backup and recovery
     questions:
       - id: short_term_retention_days
-        ask: How far back must a deletion or a bad write be undoable to the second?
+        ask:
+          en: "How far back must a deletion or a bad write be undoable to the second?"
+          de: "Wie weit zurück muss ein Löschen oder ein fehlerhafter Schreibvorgang sekundengenau rückgängig zu machen sein?"
         type: int
         plain:
           en: "A database can be restored to any second of the last {value} days."
           de: "Eine Datenbank lässt sich auf jede Sekunde der letzten {value} Tage zurücksetzen."
-        derived_from:
+        answer:
           question: data_loss_tolerance
           map: { reproducible: 7, one_week: 7, one_month: 35, three_months: 35 }
         why: >
@@ -726,7 +781,9 @@ groups:
         renders: databases.<key>.short_term_retention_days / databases[].backupShortTermRetentionPolicy.retentionDays
 
       - id: long_term_retention
-        ask: Must backups be kept beyond that, for weeks or years?
+        ask:
+          en: "Must backups be kept beyond that, for weeks or years?"
+          de: "Müssen Sicherungen darüber hinaus aufbewahrt werden, für Wochen oder Jahre?"
         type: enum
         plain:
           en: "Beyond that, backups are kept {value}."
@@ -735,8 +792,8 @@ groups:
           none: { en: "not at all", de: "nicht" }
           three_months: { en: "weekly for three months", de: "wöchentlich für drei Monate" }
           one_year: { en: "weekly for a year", de: "wöchentlich für ein Jahr" }
-        values: [none, three_months, one_year]
-        derived_from:
+        accepts: [none, three_months, one_year]
+        answer:
           question: data_loss_tolerance
           map: { reproducible: none, one_week: none, one_month: none, three_months: three_months }
         why: >
@@ -749,7 +806,9 @@ groups:
         renders: databases.<key>.long_term_retention_policy.weekly_retention (`P13W`, `P52W`) / databases[].backupLongTermRetentionPolicy.weeklyRetention
 
       - id: backup_storage_redundancy
-        ask: Where are the backups kept?
+        ask:
+          en: "Where are the backups kept?"
+          de: "Wo werden die Sicherungen aufbewahrt?"
         type: enum
         plain:
           en: "Backups are kept {value}."
@@ -759,8 +818,8 @@ groups:
           Zone: { en: "across the zones of the region", de: "verteilt über die Zonen der Region" }
           Geo: { en: "in a second region as well, out of reach of a regional failure", de: "zusätzlich in einer zweiten Region, außerhalb der Reichweite eines regionalen Ausfalls" }
           GeoZone: { en: "across the zones and in a second region", de: "verteilt über die Zonen und zusätzlich in einer zweiten Region" }
-        values: [Local, Zone, Geo, GeoZone]
-        derived_from:
+        accepts: [Local, Zone, Geo, GeoZone]
+        answer:
           question: backup_isolation
           map: { operational: Zone, isolated: GeoZone, immutable: GeoZone }
         non_production_default: Local
@@ -788,14 +847,16 @@ groups:
     title: Observability
     questions:
       - id: diagnostic_workspace
-        ask: Which Log Analytics workspace should receive diagnostics and audit logs?
-        type: ref
+        ask:
+          en: "Which Log Analytics workspace should receive diagnostics and audit logs?"
+          de: "Welcher Log Analytics Workspace soll Diagnose- und Audit-Logs erhalten?"
+        type: string
         resolved_by: derived
         plain:
           en: "Its logs go to {value}."
           de: "Seine Logs gehen in {value}."
-        ref: log_analytics_workspace
-        from_deployment: diagnostics_destination
+        accepts: { ref: log_analytics_workspace }
+        answer: { deployment: diagnostics_destination }
         per_environment: true
         why: >
           Inherited: one deployment, one destination. Without a diagnostic setting the
@@ -804,7 +865,9 @@ groups:
         renders: diagnostic_settings / diagnosticSettings (on the instance)
 
       - id: auditing_enabled
-        ask: Should every sign-in and every change of data and schema be recorded?
+        ask:
+          en: "Should every sign-in and every change of data and schema be recorded?"
+          de: "Soll jede Anmeldung und jede Änderung an Daten und Schema aufgezeichnet werden?"
         type: bool
         plain:
           en: "The audit trail of sign-ins and changes is {value}."
@@ -826,7 +889,9 @@ groups:
           `SQLSecurityAuditEvents` in diagnostic_categories
 
       - id: diagnostic_categories
-        ask: Which instance logs should be collected?
+        ask:
+          en: "Which instance logs should be collected?"
+          de: "Welche Logs der Instanz sollen erfasst werden?"
         type: list
         plain:
           en: "Logged: {value}."
@@ -835,7 +900,7 @@ groups:
           ResourceUsageStats: { en: "how much CPU, storage and I/O the instance uses", de: "wie viel CPU, Speicher und I/O die Instanz nutzt" }
           SQLSecurityAuditEvents: { en: "the audit trail of sign-ins and statements", de: "das Audit-Protokoll der Anmeldungen und Anweisungen" }
           DevOpsOperationsAudit: { en: "what Microsoft's own operators did on the instance", de: "was Microsofts eigene Betreiber an der Instanz getan haben" }
-        values: [ResourceUsageStats, SQLSecurityAuditEvents, DevOpsOperationsAudit]
+        accepts: [ResourceUsageStats, SQLSecurityAuditEvents, DevOpsOperationsAudit]
         default: [ResourceUsageStats, SQLSecurityAuditEvents, DevOpsOperationsAudit]
         why: >
           All three: the usage figures decide whether `vcores` and `storage_gb` were right,
@@ -849,7 +914,9 @@ groups:
         renders: diagnostic_settings.<key>.log_categories / diagnosticSettings[].logCategoriesAndGroups[].category
 
       - id: metrics_enabled
-        ask: Should the usage and performance figures be collected?
+        ask:
+          en: "Should the usage and performance figures be collected?"
+          de: "Sollen die Nutzungs- und Leistungskennzahlen erfasst werden?"
         type: bool
         plain:
           en: "Usage and performance figures are {value}."

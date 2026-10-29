@@ -25,41 +25,44 @@ groups:
     title: Placement
     questions:
       - id: environments
-        ask: Which stages is this deployed to?
+        ask:
+          en: "Which stages is this deployed to?"
+          de: "In welche Stufen wird das ausgerollt?"
         type: list
         plain:
           en: "Deployed in the stages {value}."
           de: "Wird in den Stufen {value} ausgerollt."
-        values: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
-        required: true
-        from_context: true
+        accepts: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
+        answer: { context: environments }
         why: >
           Drives the rendered name and the strictness of several defaults below.
           Nothing sensible can be guessed.
         renders: naming parameter `environment`, and the tag of that name where the repository uses one
 
       - id: location
-        ask: Which Azure region?
+        ask:
+          en: "Which Azure region?"
+          de: "Welche Azure-Region?"
         type: string
         plain:
           en: "Runs in the Azure region {value}."
           de: "Läuft in der Azure-Region {value}."
-        required: true
-        from_context: true
+        answer: { context: location }
         why: >
           Part of the rendered name and not inferable. A vault is regional and its
           soft-deleted state stays in the region.
         renders: location
 
       - id: resource_group_name
-        ask: Which resource group?
-        type: ref
+        ask:
+          en: "Which resource group?"
+          de: "Welche Ressourcengruppe?"
+        type: string
         plain:
           en: "Placed in the resource group {value}."
           de: "Liegt in der Ressourcengruppe {value}."
-        ref: resource_group
-        required: true
-        from_context: true
+        accepts: { ref: resource_group }
+        answer: { context: resource_group_name }
         per_environment: true
         why: >
           The vault is placed into an existing group. Creating one here would make this
@@ -71,7 +74,9 @@ groups:
     title: The vault
     questions:
       - id: sku
-        ask: Which vault tier?
+        ask:
+          en: "Which vault tier?"
+          de: "Welcher Vault-Tarif?"
         type: enum
         plain:
           en: "The vault is the {value} tier."
@@ -79,7 +84,7 @@ groups:
         plain_values:
           standard: { en: "standard, keys protected in software", de: "Standard, Schlüssel in Software geschützt" }
           premium: { en: "premium, which also offers hardware-protected keys", de: "Premium, die zusätzlich hardwaregeschützte Schlüssel bietet" }
-        values: [standard, premium]
+        accepts: [standard, premium]
         default: standard
         why: >
           Premium exists for exactly one thing: HSM-backed keys. Without a mandate that
@@ -93,7 +98,9 @@ groups:
         renders: sku_name / sku.name (`standard`, `premium`)
 
       - id: purge_protection
-        ask: Should deleted items be impossible to purge during their retention?
+        ask:
+          en: "Should deleted items be impossible to purge during their retention?"
+          de: "Soll das endgültige Löschen gelöschter Elemente während ihrer Aufbewahrung unmöglich sein?"
         type: bool
         plain:
           en: "A deleted vault or secret {value} before its retention ends."
@@ -115,7 +122,9 @@ groups:
         renders: purge_protection_enabled / enablePurgeProtection
 
       - id: soft_delete_retention_days
-        ask: How many days stay deleted items recoverable?
+        ask:
+          en: "How many days stay deleted items recoverable?"
+          de: "Wie viele Tage bleiben gelöschte Elemente wiederherstellbar?"
         type: int
         plain:
           en: "Deleted vault contents can be restored for {value} days."
@@ -132,7 +141,9 @@ groups:
         renders: soft_delete_retention_days / softDeleteRetentionInDays
 
       - id: rbac_authorization
-        ask: Should access be granted by role assignments instead of access policies?
+        ask:
+          en: "Should access be granted by role assignments instead of access policies?"
+          de: "Soll der Zugriff über Rollenzuweisungen statt über Zugriffsrichtlinien vergeben werden?"
         type: bool
         plain:
           en: "Access to the vault's contents is controlled by {value}."
@@ -140,7 +151,7 @@ groups:
         plain_values:
           true: { en: "role assignments, like everything else in Azure", de: "Rollenzuweisungen, wie alles andere in Azure" }
           false: { en: "the vault's own access list, which sits outside the normal access model", de: "die eigene Zugriffsliste des Tresors, die außerhalb des üblichen Zugriffsmodells liegt" }
-        from_deployment: local_auth
+        answer: { deployment: local_auth }
         why: >
           Inherited: `local_auth: disabled` renders as `true`. Access policies are a second
           permission system per vault that cannot be scoped to one secret, is not visible
@@ -157,7 +168,9 @@ groups:
     title: Networking
     questions:
       - id: public_network_access
-        ask: Should this vault depart from the deployment's exposure posture?
+        ask:
+          en: "Should this vault depart from the deployment's exposure posture?"
+          de: "Soll dieser Vault von der Erreichbarkeit des Deployments abweichen?"
         type: enum
         plain:
           en: "The vault is {value}."
@@ -166,9 +179,8 @@ groups:
           disabled: { en: "not reachable from the internet at all", de: "aus dem Internet überhaupt nicht erreichbar" }
           enabled_with_firewall: { en: "reachable from the internet only from listed addresses", de: "aus dem Internet nur von gelisteten Adressen erreichbar" }
           enabled: { en: "reachable from the internet", de: "aus dem Internet erreichbar" }
-        values: [disabled, enabled_with_firewall, enabled]
-        from_deployment: network_exposure
-        confirm_in: [production]
+        accepts: [disabled, enabled_with_firewall, enabled]
+        answer: { deployment: network_exposure }
         why: >
           Asked only as a departure: exposure is a property of the system, the deployment
           set already answered it. `private` is `disabled`, `public` is
@@ -188,14 +200,16 @@ groups:
           `enabled`); bicep: publicNetworkAccess and networkAcls.defaultAction
 
       - id: private_endpoint_subnet
-        ask: Which subnet should this vault's private endpoint live in?
-        type: ref
+        ask:
+          en: "Which subnet should this vault's private endpoint live in?"
+          de: "In welchem Subnetz soll der Private Endpoint dieses Vault liegen?"
+        type: string
         resolved_by: derived
         plain:
           en: "Its private connection lands in subnet {value}."
           de: "Seine private Anbindung landet im Subnetz {value}."
-        ref: subnet
-        from_deployment: private_endpoint_subnet
+        accepts: { ref: subnet }
+        answer: { deployment: private_endpoint_subnet }
         per_environment: true
         why: >
           One subnet carries the deployment's private endpoints, so this is inherited. The
@@ -203,7 +217,9 @@ groups:
         renders: private_endpoints.<key>.subnet_resource_id / privateEndpoints[].subnetResourceId
 
       - id: network_acl_bypass
-        ask: May trusted Azure services reach the vault past its firewall?
+        ask:
+          en: "May trusted Azure services reach the vault past its firewall?"
+          de: "Dürfen vertrauenswürdige Azure-Dienste den Vault an seiner Firewall vorbei erreichen?"
         type: enum
         plain:
           en: "Trusted Azure services {value} past the vault's firewall."
@@ -211,7 +227,7 @@ groups:
         plain_values:
           None: { en: "may not pass", de: "dürfen nicht" }
           AzureServices: { en: "may pass", de: "dürfen" }
-        values: [None, AzureServices]
+        accepts: [None, AzureServices]
         default: None
         why: >
           `AzureServices` lets a short list of Microsoft's own services (storage with a
@@ -227,7 +243,9 @@ groups:
         renders: network_acls.bypass / networkAcls.bypass
 
       - id: ip_rules
-        ask: Which public IP ranges may reach the vault?
+        ask:
+          en: "Which public IP ranges may reach the vault?"
+          de: "Welche öffentlichen IP-Bereiche dürfen den Vault erreichen?"
         type: list
         plain:
           en: "Public addresses allowed to reach the vault: {value}."
@@ -246,7 +264,9 @@ groups:
     title: Identity and access
     questions:
       - id: role_assignments
-        ask: Who needs which role on this vault?
+        ask:
+          en: "Who needs which role on this vault?"
+          de: "Wer braucht welche Rolle auf diesem Vault?"
         type: list
         plain:
           en: "Access rights on the vault granted to: {value}."
@@ -271,7 +291,9 @@ groups:
     title: Security
     questions:
       - id: enabled_for_services
-        ask: Which Azure services may fetch secrets or certificates from this vault on their own?
+        ask:
+          en: "Which Azure services may fetch secrets or certificates from this vault on their own?"
+          de: "Welche Azure-Dienste dürfen Secrets oder Zertifikate selbstständig aus diesem Vault abrufen?"
         type: list
         plain:
           en: "Platform services allowed to read from the vault: {value} (empty: none)."
@@ -280,7 +302,7 @@ groups:
           vm_deployment: { en: "virtual machines at deployment", de: "virtuelle Maschinen beim Ausrollen" }
           disk_encryption: { en: "disk encryption", de: "Festplattenverschlüsselung" }
           template_deployment: { en: "template deployments", de: "Template-Deployments" }
-        values: [vm_deployment, disk_encryption, template_deployment]
+        accepts: [vm_deployment, disk_encryption, template_deployment]
         default: []
         why: >
           Three legacy switches that let a platform service read the vault without an
@@ -295,7 +317,9 @@ groups:
           enableVaultForDeployment, enableVaultForDiskEncryption, enableVaultForTemplateDeployment
 
       - id: secret_placeholders
-        ask: Which secrets should exist in the vault, to be filled in later?
+        ask:
+          en: "Which secrets should exist in the vault, to be filled in later?"
+          de: "Welche Secrets soll es im Vault geben, um sie später zu befüllen?"
         type: list
         plain:
           en: "Empty slots are created for the secrets {value}; their values are entered afterwards by hand or by the workload."
@@ -322,7 +346,9 @@ groups:
     title: Customer-managed keys
     questions:
       - id: key_management
-        ask: Does this vault hold keys that encrypt other resources?
+        ask:
+          en: "Does this vault hold keys that encrypt other resources?"
+          de: "Hält dieser Vault Schlüssel, die andere Ressourcen verschlüsseln?"
         type: enum
         plain:
           en: "Encryption keys are {value}."
@@ -330,8 +356,8 @@ groups:
         plain_values:
           platform_managed: { en: "managed by Azure - the vault holds none for encryption", de: "von Azure verwaltet - der Tresor hält dafür keine" }
           customer_managed: { en: "your own, held in this vault, so you can revoke them", de: "eure eigenen in diesem Tresor, damit ihr sie zurückziehen könnt" }
-        values: [platform_managed, customer_managed]
-        from_deployment: key_management
+        accepts: [platform_managed, customer_managed]
+        answer: { deployment: key_management }
         why: >
           Inherited: one answer per system. `customer_managed` is what makes the vault a
           dependency of the others, and pulls in purge protection, the trusted-service
@@ -339,7 +365,9 @@ groups:
         renders: whether the keys below are rendered at all
 
       - id: customer_managed_keys
-        ask: Which keys should the vault hold for customer-managed encryption?
+        ask:
+          en: "Which keys should the vault hold for customer-managed encryption?"
+          de: "Welche Schlüssel soll der Vault für die kundenseitig verwaltete Verschlüsselung halten?"
         type: list
         plain:
           en: "The vault holds the encryption keys {value}."
@@ -354,7 +382,9 @@ groups:
         renders: keys / keys[]
 
       - id: key_type
-        ask: Which key type?
+        ask:
+          en: "Which key type?"
+          de: "Welcher Schlüsseltyp?"
         type: enum
         plain:
           en: "The keys are {value}."
@@ -362,7 +392,7 @@ groups:
         plain_values:
           RSA: { en: "software-protected RSA keys", de: "softwaregeschützte RSA-Schlüssel" }
           RSA-HSM: { en: "RSA keys protected by hardware security modules", de: "RSA-Schlüssel, geschützt durch Hardware-Sicherheitsmodule" }
-        values: [RSA, RSA-HSM]
+        accepts: [RSA, RSA-HSM]
         default: RSA
         depends_on: { question: key_management, equals: customer_managed }
         why: >
@@ -374,12 +404,14 @@ groups:
         renders: keys.<key>.key_type / keys[].kty
 
       - id: key_size
-        ask: How large should the keys be?
+        ask:
+          en: "How large should the keys be?"
+          de: "Wie groß sollen die Schlüssel sein?"
         type: enum
         plain:
           en: "The keys are {value} bits long."
           de: "Die Schlüssel sind {value} Bit lang."
-        values: [2048, 3072, 4096]
+        accepts: [2048, 3072, 4096]
         default: 3072
         depends_on: { question: key_management, equals: customer_managed }
         why: >
@@ -390,7 +422,9 @@ groups:
         renders: keys.<key>.key_size / keys[].keySize
 
       - id: key_rotation_days
-        ask: After how many days should a key rotate itself?
+        ask:
+          en: "After how many days should a key rotate itself?"
+          de: "Nach wie vielen Tagen soll sich ein Schlüssel selbst rotieren?"
         type: int
         plain:
           en: "Keys are replaced automatically every {value} days."
@@ -406,7 +440,9 @@ groups:
         renders: keys.<key>.rotation_policy.automatic.time_after_creation / keys[].rotationPolicy.lifetimeActions
 
       - id: key_expiry_days
-        ask: After how many days does a key expire?
+        ask:
+          en: "After how many days does a key expire?"
+          de: "Nach wie vielen Tagen läuft ein Schlüssel ab?"
         type: int
         plain:
           en: "A key version expires after {value} days."
@@ -424,14 +460,16 @@ groups:
     title: Observability
     questions:
       - id: diagnostic_workspace
-        ask: Which Log Analytics workspace should receive diagnostics?
-        type: ref
+        ask:
+          en: "Which Log Analytics workspace should receive diagnostics?"
+          de: "Welcher Log Analytics Workspace soll die Diagnosedaten erhalten?"
+        type: string
         resolved_by: derived
         plain:
           en: "Its logs go to {value}."
           de: "Seine Logs gehen in {value}."
-        ref: log_analytics_workspace
-        from_deployment: diagnostics_destination
+        accepts: { ref: log_analytics_workspace }
+        answer: { deployment: diagnostics_destination }
         per_environment: true
         why: >
           Inherited: one deployment, one destination. For a vault the audit log is the
@@ -440,7 +478,9 @@ groups:
         renders: diagnostic_settings / diagnosticSettings
 
       - id: diagnostic_categories
-        ask: Which log categories should be collected?
+        ask:
+          en: "Which log categories should be collected?"
+          de: "Welche Log-Kategorien sollen erfasst werden?"
         type: list
         plain:
           en: "Logged: {value}."
@@ -448,7 +488,7 @@ groups:
         plain_values:
           AuditEvent: { en: "every read, write and failed access to the vault", de: "jeder Lese-, Schreib- und fehlgeschlagene Zugriff auf den Tresor" }
           AzurePolicyEvaluationDetails: { en: "how policies judged the vault", de: "wie Richtlinien den Tresor bewertet haben" }
-        values: [AuditEvent, AzurePolicyEvaluationDetails]
+        accepts: [AuditEvent, AzurePolicyEvaluationDetails]
         default: [AuditEvent, AzurePolicyEvaluationDetails]
         why: >
           Audit logs are the guardrail's baseline and for a vault they are the whole point.
@@ -459,7 +499,9 @@ groups:
         renders: diagnostic_settings.<key>.logs[].category / diagnosticSettings[].logCategoriesAndGroups[].category
 
       - id: metrics_enabled
-        ask: Should all metrics be collected?
+        ask:
+          en: "Should all metrics be collected?"
+          de: "Sollen alle Metriken erfasst werden?"
         type: bool
         plain:
           en: "Usage and performance figures are {value}."

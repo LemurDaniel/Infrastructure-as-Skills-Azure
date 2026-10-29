@@ -28,14 +28,15 @@ groups:
     title: Placement
     questions:
       - id: environments
-        ask: Which stages is this deployed to?
+        ask:
+          en: "Which stages is this deployed to?"
+          de: "In welche Stufen wird das ausgerollt?"
         type: list
         plain:
           en: "Deployed in the stages {value}."
           de: "Wird in den Stufen {value} ausgerollt."
-        values: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
-        required: true
-        from_context: true
+        accepts: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
+        answer: { context: environments }
         why: >
           A domain exists once, so the stages cannot each hold `example.com`: production holds
           the apex and the other stages hold child zones (`dev.example.com`, `test.example.com`)
@@ -44,7 +45,9 @@ groups:
         renders: the stage the zone is rendered in; the zone name and the delegations come from the stage's file
 
       - id: location
-        ask: Which Azure region?
+        ask:
+          en: "Which Azure region?"
+          de: "Welche Azure-Region?"
         type: string
         plain:
           en: "The zone is global; records are served from Azure's name servers worldwide."
@@ -58,14 +61,15 @@ groups:
         renders: location = "global" (both modules; the Terraform module sets it itself)
 
       - id: resource_group_name
-        ask: Which resource group?
-        type: ref
+        ask:
+          en: "Which resource group?"
+          de: "Welche Ressourcengruppe?"
+        type: string
         plain:
           en: "Placed in the resource group {value}."
           de: "Liegt in der Ressourcengruppe {value}."
-        ref: resource_group
-        required: true
-        from_context: true
+        accepts: { ref: resource_group }
+        answer: { context: resource_group_name }
         per_environment: true
         why: >
           A global resource still sits in a group. Usually the network's, so the people who own
@@ -79,7 +83,9 @@ groups:
     title: Zone
     questions:
       - id: zone_name
-        ask: Which domain should the zone serve?
+        ask:
+          en: "Which domain should the zone serve?"
+          de: "Welche Domain soll die Zone bedienen?"
         type: string
         resolved_by: interview
         topic: network
@@ -97,7 +103,9 @@ groups:
         renders: name (both modules)
 
       - id: registrar_owner
-        ask: Who holds the domain at the registrar and can change its name servers?
+        ask:
+          en: "Who holds the domain at the registrar and can change its name servers?"
+          de: "Wer hält die Domain beim Registrar und kann ihre Nameserver ändern?"
         type: string
         resolved_by: interview
         topic: network
@@ -116,7 +124,9 @@ groups:
         renders: the `open:` entry for the delegation in the handover; the name servers are the module's `name_servers` / `nameServers` output
 
       - id: child_zone_delegations
-        ask: Which subdomains should be handed to a zone of their own?
+        ask:
+          en: "Which subdomains should be handed to a zone of their own?"
+          de: "Welche Subdomains sollen an eine eigene Zone übergeben werden?"
         type: list
         plain:
           en: "Subdomains delegated to their own zones: {value}."
@@ -138,7 +148,9 @@ groups:
     title: Records
     questions:
       - id: record_sets
-        ask: Which names should the zone answer?
+        ask:
+          en: "Which names should the zone answer?"
+          de: "Welche Namen soll die Zone beantworten?"
         type: list
         plain:
           en: "Names in the zone: {value}."
@@ -157,7 +169,9 @@ groups:
         renders: a_records, aaaa_records, cname_records, txt_records, mx_records, caa_records / a, aaaa, cname, txt, mx, caa
 
       - id: verification_records
-        ask: Which proof-of-ownership entries do other services need in the zone?
+        ask:
+          en: "Which proof-of-ownership entries do other services need in the zone?"
+          de: "Welche Einträge zum Eigentumsnachweis brauchen andere Dienste in der Zone?"
         type: list
         plain:
           en: "Verification entries for other services: {value}."
@@ -175,7 +189,9 @@ groups:
         renders: txt_records, cname_records / txt, cname - from `wiring.dns_records`
 
       - id: record_ttl_seconds
-        ask: How long may resolvers cache a record?
+        ask:
+          en: "How long may resolvers cache a record?"
+          de: "Wie lange dürfen Resolver einen Eintrag zwischenspeichern?"
         type: int
         plain:
           en: "Resolvers may cache an entry for {value} seconds."
@@ -194,7 +210,9 @@ groups:
     title: Access
     questions:
       - id: role_assignments
-        ask: Who needs to write records in the zone?
+        ask:
+          en: "Who needs to write records in the zone?"
+          de: "Wer muss Einträge in die Zone schreiben?"
         type: list
         plain:
           en: "Record-writing rights on the zone granted to: {value}."
@@ -216,7 +234,9 @@ groups:
     title: Security
     questions:
       - id: dnssec
-        ask: Should the zone's answers be signed (DNSSEC)?
+        ask:
+          en: "Should the zone's answers be signed (DNSSEC)?"
+          de: "Sollen die Antworten der Zone signiert werden (DNSSEC)?"
         type: bool
         plain:
           en: "The zone's answers are {value}."
@@ -225,7 +245,6 @@ groups:
           true: { en: "cryptographically signed, so a forged answer is rejected by validating resolvers", de: "kryptografisch signiert, sodass prüfende Auflöser eine gefälschte Antwort verwerfen" }
           false: { en: "not signed", de: "nicht signiert" }
         default: true
-        confirm_in: [production]
         why: >
           Signing costs nothing in Azure and defeats cache poisoning for every resolver that
           validates - which is most of the large public ones. The trade-off is procedural, not

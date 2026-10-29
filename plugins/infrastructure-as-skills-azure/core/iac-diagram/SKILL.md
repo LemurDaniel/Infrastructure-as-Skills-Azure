@@ -96,8 +96,10 @@ Phase 5 says; never review silently "by looking once" and call it done.
 ### The review checklist
 
 The reviewer works through this list, in this order, and reports every hit with the cell ids.
-A hit in 1-3 or 7 is an `error` with cause `render`, always: a customer cannot read a line that
-runs through something, whatever the spec says.
+**Every hit is an `error`** - the reviewer does not grade one down to `polish`. In 1-3 and 7
+the cause is always `render`: a customer cannot read a line that runs through something,
+whatever the spec says. In 4-6 it is `spec` where the spec says it that way (an English label
+in a German spec) and `render` otherwise.
 
 1. **Trace every edge from its source to its target**, segment by segment, and for each
    segment ask what it crosses. A segment that passes through the icon, the label or the
@@ -111,7 +113,9 @@ runs through something, whatever the spec says.
    sits on a container border so that the border reads as part of the text. A label on its
    own edge's line with a white background is normal.
 4. **Text**: wrapped after single words, cut off, in the wrong language, a name that
-   disagrees with the spec (`Avm Quellen` for `AVM-Quellen`).
+   disagrees with the spec (`Avm Quellen` for `AVM-Quellen`), or a spec key or internal name
+   where the customer's word belongs (`user-assigned-identity__function` under an identity
+   instead of what it is for).
 5. **Spec fidelity**: every resource, number and range in the picture is in the spec and the
    other way round; the legend's colours match the edges.
 6. **Arrow direction** matches the call (who initiates), not the data flow.
@@ -195,7 +199,7 @@ infrastructure and has to say whether this is what they meant. Their picture has
 names, file paths, variable names, module versions or Terraform internals, and no process
 commentary. It is phrased for their tenant, not for how it is built.
 
-An **engineer** reviewing the render also wants the AVM module and version behind each
+Someone **reviewing the render** also wants the AVM module and version behind each
 resource and the spec keys. That is a different picture from a different question; say so
 and offer it, rather than putting module versions on the customer's.
 
@@ -221,16 +225,15 @@ lines are access, not plumbing.
 | `blob-container`, `file-share`, `queue` | No icon: the names are a line on the label of the storage account they belong to |
 | A `wiring.access` line from a service into compute (a topic delivering to a function) | No line - no route to compute stays clear of the icons between them. A purple `<- service: label` on the target's label, as a role is |
 | `user-assigned-identity`, `network-security-group` | Not services that are called: a zone of their own below the PaaS zone (*Identities and network baseline*), so that no line to a service runs through them |
-| A second resource of one kind (`app-service__web`, `app-service__mcp`) | Read as the set before the `__` for icon, title and question set; labelled with its `wiring.purposes` entry, else the instance name |
-| `deployment.resource_group_split` (+ `resource_group_scheme`, `resource_group_mode_<role>`, `placement.resource_group`) | **A frame per group**, its roles those of the scheme where resources stand together, in the group's colour: solid when the group is created, dashed when it exists. The *Azure PaaS* zone holds one frame per group (stacked in the hub layout, side by side in the compact one, up to eight services), the *Identities and network baseline* zone one per group, the virtual network is the network group's frame, the *Monitoring* title names its group. There is no frame around everything - it would name no group and only add a line; the region and the stages stand as small grey text at the top. A resource inside a frame carries no tag; compute, which sits in the network's subnets and belongs to another group, carries Azure's resource group icon and `<role> (created\|existing)`. The legend lists the groups, the decisions panel gives their modes. A private endpoint carries none - it lives with the resource it serves |
+| A second resource of one kind (`app-service__web`, `app-service__mcp`) | Read as the set before the `__` for icon, title and question set; labelled with its `meta.purpose`, else the instance name |
+| `deployment.resource_group_layout: split` (+ `resource_group_scheme`, `resource_groups_created`, `placement.resource_group`) | **A frame per group** - the groups derived from the scheme and each resource's role, its roles those of the scheme where resources stand together, in the group's colour: solid when the group is created, dashed when it exists. The *Azure PaaS* zone holds one frame per group (stacked in the hub layout, side by side in the compact one, up to eight services), the *Identities and network baseline* zone one per group, the virtual network is the network group's frame, the *Monitoring* title names its group. There is no frame around everything - it would name no group and only add a line; the region and the stages stand as small grey text at the top. A resource inside a frame carries no tag; compute, which sits in the network's subnets and belongs to another group, carries Azure's resource group icon and `<role> (created\|existing)`. The legend lists the groups, the decisions panel gives their modes. A private endpoint carries none - it lives with the resource it serves |
 | Private endpoints | **One** bundled icon in the endpoint subnet (`9× app-service, function-app +7`), not one per resource |
 | `subnet_policy.subnet_delegations` | The delegation printed on each subnet; the kind's usual delegation only where the spec says none |
 | `wiring.access` | The lines: `{ from, to, label }`. `from` and `to` are resource keys or actors - `internet`, `users`, `external:<name>` - which sit in the *Internet and external services* zone. A line to a PaaS service runs on a shared track and splits on a bus lane, like a tree |
 | `wiring.role_assignments` | `← principal: role` in purple on the target's label, **no line of its own** (lines without waypoints ran through icons and titles); an actor as the principal, who has no label to carry it, still gets one. A pair that `wiring.access` draws keeps its line |
 | `deployment.network_exposure: public` | An *Internet* actor with an orange line to each compute resource (or PaaS service if there is no compute) |
 | Blue and orange lines | Blue: private path, no public route. Orange: from or over the internet, or to a target whose public access is not disabled |
-| `wiring.purposes` | What a resource is for, under its type (`Storage Account · Product images`); without one, the spec key |
-| `wiring.optional` | The listed resources marked *optional* and faded; the legend says so |
+| `resources.<key>.meta.purpose` | What a resource is for, under its type (`Storage Account · Product images`); without one, the spec key |
 | A resource type with no icon | A box with the type's name, marked as having no question set; the script warns |
 | Diagnostics | **Not** a line per resource: a *Monitoring* zone with the workspace and the note *Diagnostic settings of all resources* |
 | Private DNS zones | One bundled icon in a *Name resolution* zone (`8× privatelink.*`). With private endpoints and no answer on who owns the zones (`deployment.private_dns_ownership`) the icon is drawn anyway, red and marked *open* - leaving it out would read as "no name resolution needed" |
@@ -260,7 +263,7 @@ is a layout bug in the script, not something to move by hand.
 AI Foundry and Container Apps have no icon of their own in draw.io's library; the nearest are
 used (Cognitive Services, Container Instances) and the label carries the real type. Lines run
 from compute to PaaS and from actors; a PaaS-to-PaaS line (a search service reading a storage
-account) is not routed, so say it in `wiring.purposes` instead.
+account) is not routed, so say it in `meta.purpose` instead.
 
 A legend at the bottom lists only what the picture uses.
 
@@ -282,7 +285,7 @@ the customer this run builds it. The grey styling is the boundary this run stops
 
 1. `verify_diagram.py` checks the file against the spec: every resource in `resources:`
    drawn exactly once, nothing drawn that the spec does not contain, every `open:` entry in
-   the picture, every `wiring.optional` resource faded. In German it also fails
+   the picture. In German it also fails
    on transliterated umlauts (`ueber`, `oeffentlich`) in any label. The network and the
    workspace are drawn even when the spec only references them, and application insights
    next to the workspace; those are not extras.

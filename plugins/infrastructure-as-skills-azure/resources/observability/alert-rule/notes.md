@@ -65,7 +65,7 @@ notifications.
 **Terraform has no AVM module for two of the three kinds.** Metric alerts and scheduled query
 rules are `Proposed` in the Terraform index; they render authored on `azurerm` 5.x
 (`azurerm_monitor_metric_alert`, `azurerm_monitor_scheduled_query_rules_alert_v2`) and the spec
-records `implementation: authored`, `source: forced`, `forced_by: no AVM module for <type>`. The
+records `implementation: authored`, `source: { forced_by: no AVM module for <type> }`. The
 activity log alert has one, AzAPI-only, which the Terraform root mixes with the two authored
 resources in one module.
 

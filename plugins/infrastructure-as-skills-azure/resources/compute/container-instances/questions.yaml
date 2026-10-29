@@ -30,27 +30,29 @@ groups:
     title: Placement
     questions:
       - id: environments
-        ask: Which stages is this deployed to?
+        ask:
+          en: "Which stages is this deployed to?"
+          de: "In welche Stufen wird das ausgerollt?"
         type: list
         plain:
           en: "Deployed in the stages {value}."
           de: "Wird in den Stufen {value} ausgerollt."
-        values: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
-        required: true
-        from_context: true
+        accepts: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
+        answer: { context: environments }
         why: >
           Drives the rendered name and the strictness of several defaults below. Nothing
           sensible can be guessed.
         renders: naming parameter `environment`, and the tag of that name where the repository uses one
 
       - id: location
-        ask: Which Azure region?
+        ask:
+          en: "Which Azure region?"
+          de: "Welche Azure-Region?"
         type: string
         plain:
           en: "Runs in the Azure region {value}."
           de: "Läuft in der Azure-Region {value}."
-        required: true
-        from_context: true
+        answer: { context: location }
         why: >
           Part of the rendered name and where the group runs. Availability zones, CPU and memory
           limits and the features of a VNet-injected group differ by region, and the group sits
@@ -58,14 +60,15 @@ groups:
         renders: location
 
       - id: resource_group_name
-        ask: Which resource group?
-        type: ref
+        ask:
+          en: "Which resource group?"
+          de: "Welche Ressourcengruppe?"
+        type: string
         plain:
           en: "Placed in the resource group {value}."
           de: "Liegt in der Ressourcengruppe {value}."
-        ref: resource_group
-        required: true
-        from_context: true
+        accepts: { ref: resource_group }
+        answer: { context: resource_group_name }
         per_environment: true
         why: >
           The group is placed into an existing resource group. Creating one here would make this
@@ -77,7 +80,9 @@ groups:
     title: The container group
     questions:
       - id: container_image
-        ask: Which container image should run?
+        ask:
+          en: "Which container image should run?"
+          de: "Welches Container-Image soll laufen?"
         type: string
         plain:
           en: "The group runs the container image {value}."
@@ -94,7 +99,9 @@ groups:
         renders: containers[].image / containers[].properties.image
 
       - id: cpu
-        ask: How many CPU cores should the container get?
+        ask:
+          en: "How many CPU cores should the container get?"
+          de: "Wie viele CPU-Kerne soll der Container bekommen?"
         type: int
         plain:
           en: "The container gets {value} CPU cores."
@@ -109,7 +116,9 @@ groups:
         renders: cpu / containers[].resources.cpu / containers[].properties.resources.requests.cpu
 
       - id: memory_in_gb
-        ask: How much memory should the container get, in gigabytes?
+        ask:
+          en: "How much memory should the container get, in gigabytes?"
+          de: "Wie viel Arbeitsspeicher soll der Container bekommen, in Gigabyte?"
         type: int
         plain:
           en: "The container gets {value} GB of memory."
@@ -123,7 +132,9 @@ groups:
         renders: memory / containers[].resources.memory / containers[].properties.resources.requests.memoryInGB
 
       - id: restart_policy
-        ask: Should the container be restarted when it ends?
+        ask:
+          en: "Should the container be restarted when it ends?"
+          de: "Soll der Container neu gestartet werden, wenn er endet?"
         type: enum
         plain:
           en: "{value}."
@@ -132,7 +143,7 @@ groups:
           Always: { en: "The container is restarted whenever it ends, however it ended - a service that should never stop", de: "Der Container wird neu gestartet, sobald er endet, egal wie - ein Dienst, der nie enden soll" }
           OnFailure: { en: "The container is restarted only when it ends with an error; a clean finish ends the group", de: "Der Container wird nur bei einem Fehler neu gestartet; ein sauberes Ende beendet die Gruppe" }
           Never: { en: "The container runs once and the group stops when it ends", de: "Der Container läuft einmal und die Gruppe hält an, wenn er endet" }
-        values: [Always, OnFailure, Never]
+        accepts: [Always, OnFailure, Never]
         default: OnFailure
         why: >
           Container Instances is where a job runs, and **a stopped group costs nothing while a
@@ -144,7 +155,9 @@ groups:
         renders: restart_policy / restartPolicy
 
       - id: availability_zone
-        ask: In which availability zone should the group run?
+        ask:
+          en: "In which availability zone should the group run?"
+          de: "In welcher Verfügbarkeitszone soll die Gruppe laufen?"
         type: enum
         plain:
           en: "The group runs {value}."
@@ -154,7 +167,7 @@ groups:
           "1": { en: "in zone 1 of the region", de: "in Zone 1 der Region" }
           "2": { en: "in zone 2 of the region", de: "in Zone 2 der Region" }
           "3": { en: "in zone 3 of the region", de: "in Zone 3 der Region" }
-        values: [none, "1", "2", "3"]
+        accepts: [none, "1", "2", "3"]
         default: none
         why: >
           A container group lives in **one** zone and cannot be spread, so no requirement maps to
@@ -169,7 +182,9 @@ groups:
     title: Networking
     questions:
       - id: ip_address_type
-        ask: Should this group depart from the deployment's exposure posture?
+        ask:
+          en: "Should this group depart from the deployment's exposure posture?"
+          de: "Soll diese Gruppe von der Erreichbarkeit des Deployments abweichen?"
         type: enum
         plain:
           en: "The group has {value}."
@@ -177,9 +192,8 @@ groups:
         plain_values:
           private: { en: "an address inside the company network only", de: "nur eine Adresse im Firmennetz" }
           public: { en: "an address on the internet", de: "eine Adresse im Internet" }
-        values: [private, public]
-        from_deployment: network_exposure
-        confirm_in: [production]
+        accepts: [private, public]
+        answer: { deployment: network_exposure }
         why: >
           Asked only as a departure: exposure is a property of the system. `private` is a group
           **injected into a delegated subnet** with a private address, so its outbound traffic
@@ -196,13 +210,15 @@ groups:
         renders: ip_address.type and subnet_ids / ipAddress.type and subnets
 
       - id: subnet_id
-        ask: Which subnet should the group be injected into?
-        type: ref
+        ask:
+          en: "Which subnet should the group be injected into?"
+          de: "In welches Subnetz soll die Gruppe eingebunden werden?"
+        type: string
         resolved_by: derived
         plain:
           en: "The group lives in subnet {value}."
           de: "Die Gruppe liegt im Subnetz {value}."
-        ref: subnet
+        accepts: { ref: subnet }
         required: true
         depends_on: { question: ip_address_type, equals: private }
         per_environment: true
@@ -219,7 +235,9 @@ groups:
         renders: subnet_ids / subnets[].subnetResourceId
 
       - id: exposed_ports
-        ask: Which ports should the group accept connections on?
+        ask:
+          en: "Which ports should the group accept connections on?"
+          de: "Auf welchen Ports soll die Gruppe Verbindungen annehmen?"
         type: list
         plain:
           en: "The group accepts connections on: {value} (empty: none, it only makes outbound calls)."
@@ -238,7 +256,9 @@ groups:
     title: Identity and access
     questions:
       - id: managed_identity
-        ask: Which managed identity should the group carry?
+        ask:
+          en: "Which managed identity should the group carry?"
+          de: "Welche Managed Identity soll die Gruppe tragen?"
         type: enum
         plain:
           en: "The group has {value} for reaching other services."
@@ -247,7 +267,7 @@ groups:
           user_assigned: { en: "a shared, separately managed identity", de: "eine gemeinsame, separat verwaltete Identität" }
           system_assigned: { en: "its own identity", de: "eine eigene Identität" }
           none: { en: "no identity of its own", de: "keine eigene Identität" }
-        values: [user_assigned, system_assigned, none]
+        accepts: [user_assigned, system_assigned, none]
         default: user_assigned
         why: >
           **Differs from App Service's default, for one concrete reason.** The group pulls its
@@ -264,12 +284,14 @@ groups:
         renders: managed_identities / managedIdentities
 
       - id: user_assigned_identity_ids
-        ask: Which user-assigned identity?
+        ask:
+          en: "Which user-assigned identity?"
+          de: "Welche User-Assigned Identity?"
         type: list
         plain:
           en: "It uses the identity {value}."
           de: "Es nutzt die Identität {value}."
-        ref: user_assigned_identity
+        accepts: { ref: user_assigned_identity }
         required: true
         depends_on: { question: managed_identity, equals: user_assigned }
         per_environment: true
@@ -279,7 +301,9 @@ groups:
         renders: managed_identities.user_assigned_resource_ids / managedIdentities.userAssignedResourceIds
 
       - id: registry_login_server
-        ask: Which container registry does the image come from?
+        ask:
+          en: "Which container registry does the image come from?"
+          de: "Aus welcher Container Registry kommt das Image?"
         type: string
         plain:
           en: "The image is pulled from the registry {value} (empty: a public image)."
@@ -294,7 +318,9 @@ groups:
         renders: image_registry_credential.server and user_assigned_identity_id / imageRegistryCredentials[].server and identity
 
       - id: role_assignments
-        ask: Who may manage the group?
+        ask:
+          en: "Who may manage the group?"
+          de: "Wer darf die Gruppe verwalten?"
         type: list
         plain:
           en: "Management rights on the group granted to: {value}."
@@ -313,7 +339,9 @@ groups:
     title: Security
     questions:
       - id: key_management
-        ask: Is the group's data encrypted with platform-managed or customer-managed keys?
+        ask:
+          en: "Is the group's data encrypted with platform-managed or customer-managed keys?"
+          de: "Werden die Daten der Gruppe mit Schlüsseln der Plattform oder des Kunden verschlüsselt?"
         type: enum
         plain:
           en: "Encryption keys for the group's data are {value}."
@@ -321,9 +349,8 @@ groups:
         plain_values:
           platform_managed: { en: "managed by Azure - encrypted, rotated, no effort on your side", de: "von Azure verwaltet: verschlüsselt, rotiert, kein Aufwand bei euch" }
           customer_managed: { en: "your own, held in your key vault, so you can revoke them", de: "eure eigenen in eurem Schlüsseltresor, damit ihr sie zurückziehen könnt" }
-        values: [platform_managed, customer_managed]
-        from_deployment: key_management
-        confirm_in: [production]
+        accepts: [platform_managed, customer_managed]
+        answer: { deployment: key_management }
         why: >
           Inherited. What is stored is the group's definition - the environment variables,
           including the secure ones, and the logs of the running container - encrypted with a
@@ -334,12 +361,14 @@ groups:
         renders: key_vault_key_id / customerManagedKey
 
       - id: cmk_key_vault_key_id
-        ask: Which Key Vault key should encrypt the group's data?
-        type: ref
+        ask:
+          en: "Which Key Vault key should encrypt the group's data?"
+          de: "Welcher Key-Vault-Schlüssel soll die Daten der Gruppe verschlüsseln?"
+        type: string
         plain:
           en: "Encrypted with your key {value}."
           de: "Verschlüsselt mit eurem Schlüssel {value}."
-        ref: key_vault_key
+        accepts: { ref: key_vault_key }
         required: true
         depends_on: { question: key_management, equals: customer_managed }
         per_environment: true
@@ -354,14 +383,16 @@ groups:
     title: Observability
     questions:
       - id: diagnostic_workspace
-        ask: Which Log Analytics workspace should receive the container's logs?
-        type: ref
+        ask:
+          en: "Which Log Analytics workspace should receive the container's logs?"
+          de: "Welcher Log Analytics Workspace soll die Logs des Containers erhalten?"
+        type: string
         resolved_by: derived
         plain:
           en: "Its logs go to {value}."
           de: "Seine Logs gehen in {value}."
-        ref: log_analytics_workspace
-        from_deployment: diagnostics_destination
+        accepts: { ref: log_analytics_workspace }
+        answer: { deployment: diagnostics_destination }
         per_environment: true
         why: >
           Inherited: one deployment, one destination. **A container group sends its logs through
@@ -374,7 +405,9 @@ groups:
         renders: diagnostics_log_analytics.workspace_id and workspace_key / logAnalytics.workspaceResourceId
 
       - id: log_type
-        ask: Which kind of logs should be collected?
+        ask:
+          en: "Which kind of logs should be collected?"
+          de: "Welche Art von Logs soll erfasst werden?"
         type: enum
         plain:
           en: "Collected: {value}."
@@ -382,7 +415,7 @@ groups:
         plain_values:
           ContainerInstanceLogs: { en: "what the container writes to its console, and the group's events", de: "was der Container auf seine Konsole schreibt, und die Ereignisse der Gruppe" }
           ContainerInsights: { en: "the same as a record format that Container insights dashboards read", de: "dasselbe im Satzformat, das die Dashboards von Container insights lesen" }
-        values: [ContainerInstanceLogs, ContainerInsights]
+        accepts: [ContainerInstanceLogs, ContainerInsights]
         default: ContainerInstanceLogs
         why: >
           `ContainerInstanceLogs` is the console output and the group's events, which is what a job

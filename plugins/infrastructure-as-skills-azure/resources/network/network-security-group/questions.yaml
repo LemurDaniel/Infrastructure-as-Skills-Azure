@@ -24,14 +24,15 @@ groups:
     title: Placement
     questions:
       - id: environments
-        ask: Which stages is this deployed to?
+        ask:
+          en: "Which stages is this deployed to?"
+          de: "In welche Stufen wird das ausgerollt?"
         type: list
         plain:
           en: "Deployed in the stages {value}."
           de: "Wird in den Stufen {value} ausgerollt."
-        values: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
-        required: true
-        from_context: true
+        accepts: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
+        answer: { context: environments }
         why: >
           Drives the rendered name. One NSG per subnet role per stage: rules that differ
           between stages by accident are the finding a review looks for, and the parity rule
@@ -39,27 +40,29 @@ groups:
         renders: naming parameter `environment`, and the tag of that name where the repository uses one
 
       - id: location
-        ask: Which Azure region?
+        ask:
+          en: "Which Azure region?"
+          de: "Welche Azure-Region?"
         type: string
         plain:
           en: "Created in the Azure region {value}."
           de: "Wird in der Azure-Region {value} angelegt."
-        required: true
-        from_context: true
+        answer: { context: location }
         why: >
           An NSG is regional and can only be associated with subnets of its own region, which
           is the one constraint on where it goes.
         renders: location
 
       - id: resource_group_name
-        ask: Which resource group?
-        type: ref
+        ask:
+          en: "Which resource group?"
+          de: "Welche Ressourcengruppe?"
+        type: string
         plain:
           en: "Placed in the resource group {value}."
           de: "Liegt in der Ressourcengruppe {value}."
-        ref: resource_group
-        required: true
-        from_context: true
+        accepts: { ref: resource_group }
+        answer: { context: resource_group_name }
         per_environment: true
         why: >
           The NSG is placed into an existing group, usually the network's, so the people who
@@ -71,7 +74,9 @@ groups:
     title: Rules
     questions:
       - id: subnet_purpose
-        ask: What does the subnet this group guards carry?
+        ask:
+          en: "What does the subnet this group guards carry?"
+          de: "Was trägt das Subnetz, das diese Gruppe schützt?"
         type: enum
         plain:
           en: "The group guards a subnet for {value}."
@@ -81,7 +86,7 @@ groups:
           app_integration: { en: "the outgoing traffic of web and function apps", de: "den ausgehenden Verkehr von Web- und Function-Apps" }
           container_apps: { en: "the infrastructure of a container environment", de: "die Infrastruktur einer Container-Umgebung" }
           workload: { en: "workload machines or services", de: "Workload-Maschinen oder -Dienste" }
-        values: [private_endpoints, app_integration, container_apps, workload]
+        accepts: [private_endpoints, app_integration, container_apps, workload]
         required: true
         why: >
           The rules follow from what is in the subnet, and the plugin cannot guess it: a subnet
@@ -95,7 +100,9 @@ groups:
         renders: the NSG's name part and the baseline rule set
 
       - id: default_inbound
-        ask: What should happen to inbound traffic that no rule allows?
+        ask:
+          en: "What should happen to inbound traffic that no rule allows?"
+          de: "Was soll mit eingehendem Verkehr passieren, den keine Regel zulässt?"
         type: enum
         plain:
           en: "Inbound traffic that no rule allows is {value}."
@@ -103,7 +110,7 @@ groups:
         plain_values:
           deny_all: { en: "refused, including traffic from other machines in the same network", de: "abgelehnt, auch von anderen Maschinen im selben Netz" }
           azure_default: { en: "left to Azure's built-in rules, which let every machine in the network and the load balancer in", de: "den eingebauten Azure-Regeln überlassen, die alle Maschinen im Netz und den Lastverteiler hereinlassen" }
-        values: [deny_all, azure_default]
+        accepts: [deny_all, azure_default]
         default: deny_all
         why: >
           Azure's built-in inbound rules at priority 65000-65500 **allow everything from the
@@ -116,7 +123,9 @@ groups:
         renders: security_rules / securityRules (a Deny rule, priority 4096, inbound, any to any)
 
       - id: default_outbound
-        ask: What should happen to outbound traffic to the internet that no rule allows?
+        ask:
+          en: "What should happen to outbound traffic to the internet that no rule allows?"
+          de: "Was soll mit ausgehendem Verkehr ins Internet passieren, den keine Regel zulässt?"
         type: enum
         plain:
           en: "Outbound traffic to the internet that no rule allows is {value}."
@@ -124,7 +133,7 @@ groups:
         plain_values:
           azure_default: { en: "left to Azure's built-in rules, which let it out", de: "den eingebauten Azure-Regeln überlassen, die ihn hinauslassen" }
           deny_internet: { en: "refused; what must go out goes through the company firewall", de: "abgelehnt; was hinaus muss, läuft über die Firmen-Firewall" }
-        values: [azure_default, deny_internet]
+        accepts: [azure_default, deny_internet]
         default: azure_default
         why: >
           Azure's built-in outbound rule allows the internet. Denying it is the right posture
@@ -140,7 +149,9 @@ groups:
         renders: security_rules / securityRules (a Deny rule to the `Internet` tag, priority 4096, outbound)
 
       - id: rules
-        ask: Which traffic should be allowed explicitly?
+        ask:
+          en: "Which traffic should be allowed explicitly?"
+          de: "Welcher Verkehr soll ausdrücklich erlaubt werden?"
         type: list
         plain:
           en: "Traffic allowed explicitly: {value}."
@@ -163,14 +174,16 @@ groups:
     title: Observability
     questions:
       - id: diagnostic_workspace
-        ask: Which Log Analytics workspace should receive diagnostics?
-        type: ref
+        ask:
+          en: "Which Log Analytics workspace should receive diagnostics?"
+          de: "Welcher Log Analytics Workspace soll die Diagnosedaten erhalten?"
+        type: string
         resolved_by: derived
         plain:
           en: "Its logs go to {value}."
           de: "Seine Logs gehen in {value}."
-        ref: log_analytics_workspace
-        from_deployment: diagnostics_destination
+        accepts: { ref: log_analytics_workspace }
+        answer: { deployment: diagnostics_destination }
         per_environment: true
         why: >
           Inherited: one deployment, one destination. The NSG's own log records rule *changes*
@@ -179,7 +192,9 @@ groups:
         renders: diagnostic_settings / diagnosticSettings
 
       - id: diagnostic_categories
-        ask: Which log categories should be collected?
+        ask:
+          en: "Which log categories should be collected?"
+          de: "Welche Log-Kategorien sollen erfasst werden?"
         type: list
         plain:
           en: "Logged: {value}."
@@ -187,7 +202,7 @@ groups:
         plain_values:
           NetworkSecurityGroupEvent: { en: "which rule was applied to which machine", de: "welche Regel auf welche Maschine angewendet wurde" }
           NetworkSecurityGroupRuleCounter: { en: "how often each rule matched", de: "wie oft jede Regel gegriffen hat" }
-        values: [NetworkSecurityGroupEvent, NetworkSecurityGroupRuleCounter]
+        accepts: [NetworkSecurityGroupEvent, NetworkSecurityGroupRuleCounter]
         default: [NetworkSecurityGroupEvent, NetworkSecurityGroupRuleCounter]
         why: >
           The rule counter tells which rules are dead - a rule that never matches is either

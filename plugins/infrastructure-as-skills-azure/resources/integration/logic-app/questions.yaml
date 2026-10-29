@@ -31,14 +31,15 @@ groups:
     title: Placement
     questions:
       - id: environments
-        ask: Which stages is this deployed to?
+        ask:
+          en: "Which stages is this deployed to?"
+          de: "In welche Stufen wird das ausgerollt?"
         type: list
         plain:
           en: "Deployed in the stages {value}."
           de: "Wird in den Stufen {value} ausgerollt."
-        values: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
-        required: true
-        from_context: true
+        accepts: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
+        answer: { context: environments }
         why: >
           Drives the rendered name and the strictness of several defaults below. Nothing
           sensible can be guessed.
@@ -47,27 +48,29 @@ groups:
           one
 
       - id: location
-        ask: Which Azure region?
+        ask:
+          en: "Which Azure region?"
+          de: "Welche Azure-Region?"
         type: string
         plain:
           en: "Runs in the Azure region {value}."
           de: "Läuft in der Azure-Region {value}."
-        required: true
-        from_context: true
+        answer: { context: location }
         why: >
           Part of the rendered name and not inferable. Both hosting models are regional; a
           Standard plan with zone redundancy needs a region with availability zones.
         renders: location
 
       - id: resource_group_name
-        ask: Which resource group?
-        type: ref
+        ask:
+          en: "Which resource group?"
+          de: "Welche Ressourcengruppe?"
+        type: string
         plain:
           en: "Placed in the resource group {value}."
           de: "Liegt in der Ressourcengruppe {value}."
-        ref: resource_group
-        required: true
-        from_context: true
+        accepts: { ref: resource_group }
+        answer: { context: resource_group_name }
         per_environment: true
         why: >
           The logic app is placed into an existing group. Creating one here would make this
@@ -80,7 +83,9 @@ groups:
     title: Hosting
     questions:
       - id: hosting
-        ask: Should the workflows run on dedicated capacity in the private network, or serverless per action?
+        ask:
+          en: "Should the workflows run on dedicated capacity in the private network, or serverless per action?"
+          de: "Sollen die Workflows auf dedizierter Kapazität im privaten Netz laufen oder serverless pro Aktion?"
         type: enum
         plain:
           en: "The workflows run {value}."
@@ -88,9 +93,8 @@ groups:
         plain_values:
           standard: { en: "on a dedicated plan inside the private network, billed for the plan", de: "auf einem eigenen Plan im privaten Netz, abgerechnet wird der Plan" }
           consumption: { en: "serverless and billed per action, outside the private network", de: "serverlos und pro Aktion abgerechnet, außerhalb des privaten Netzes" }
-        values: [standard, consumption]
+        accepts: [standard, consumption]
         default: standard
-        confirm_in: [production]
         forced_when: >
           `network_exposure: private` with `network_ownership: create` or `reference` forces
           `standard` - Consumption has no private endpoint and no VNet integration, so a
@@ -113,7 +117,9 @@ groups:
           `functionapp,workflowapp`); consumption: Microsoft.Logic/workflows
 
       - id: plan
-        ask: Should the app run on a plan of its own, or on another logic app's plan?
+        ask:
+          en: "Should the app run on a plan of its own, or on another logic app's plan?"
+          de: "Soll die App auf einem eigenen Plan laufen oder auf dem Plan einer anderen Logic App?"
         type: enum
         plain:
           en: "The app runs on {value}."
@@ -121,7 +127,7 @@ groups:
         plain_values:
           own: { en: "a Workflow Standard plan of its own", de: "einem eigenen Workflow-Standard-Plan" }
           shared: { en: "the plan of another logic app, sharing its capacity", de: "dem Plan einer anderen Logic App und teilt sich dessen Kapazität" }
-        values: [own, shared]
+        accepts: [own, shared]
         default: own
         depends_on: { question: hosting, equals: standard }
         why: >
@@ -142,12 +148,14 @@ groups:
           serverFarmResourceId is the owner's plan id
 
       - id: shared_plan_with
-        ask: Whose plan does the app run on?
-        type: ref
+        ask:
+          en: "Whose plan does the app run on?"
+          de: "Auf wessen Plan läuft die App?"
+        type: string
         plain:
           en: "It shares the plan of {value}."
           de: "Es teilt sich den Plan von {value}."
-        ref: logic_app
+        accepts: { ref: logic_app }
         required: true
         depends_on: { question: plan, equals: shared }
         per_environment: true
@@ -157,7 +165,9 @@ groups:
         renders: service_plan_resource_id / serverFarmResourceId
 
       - id: plan_sku
-        ask: Which plan size?
+        ask:
+          en: "Which plan size?"
+          de: "Welche Plan-Größe?"
         type: enum
         plain:
           en: "The plan is size {value}."
@@ -166,7 +176,7 @@ groups:
           WS1: { en: "WS1, one core and 3.5 GB, the usual size", de: "WS1, ein Kern und 3,5 GB, die übliche Größe" }
           WS2: { en: "WS2, two cores and 7 GB", de: "WS2, zwei Kerne und 7 GB" }
           WS3: { en: "WS3, four cores and 14 GB", de: "WS3, vier Kerne und 14 GB" }
-        values: [WS1, WS2, WS3]
+        accepts: [WS1, WS2, WS3]
         default: WS1
         depends_on: { question: plan, equals: own }
         non_production_default: WS1
@@ -179,7 +189,9 @@ groups:
         renders: sku_name / skuName on the plan
 
       - id: zone_redundant
-        ask: Should the plan survive the loss of an availability zone?
+        ask:
+          en: "Should the plan survive the loss of an availability zone?"
+          de: "Soll der Plan den Ausfall einer Verfügbarkeitszone überstehen?"
         type: bool
         plain:
           en: "The app {value} survive the loss of one datacenter of the region."
@@ -187,11 +199,10 @@ groups:
         plain_values:
           true: { en: "does", de: "übersteht" }
           false: { en: "does not", de: "übersteht nicht" }
-        derived_from:
+        answer:
           question: outage_impact
           map: { tolerable: false, disruptive: true, critical: true }
         depends_on: { question: plan, equals: own }
-        confirm_in: [production]
         non_production_default: false
         why: >
           Derived from how bad an outage is, answered once for the whole system. Zone
@@ -207,12 +218,14 @@ groups:
         renders: zone_balancing_enabled / zoneRedundant on the plan
 
       - id: instance_count
-        ask: How many instances should always run?
+        ask:
+          en: "How many instances should always run?"
+          de: "Wie viele Instanzen sollen immer laufen?"
         type: int
         plain:
           en: "Instances always running: {value}."
           de: "Immer laufende Instanzen: {value}."
-        derived_from:
+        answer:
           question: outage_impact
           map: { tolerable: 1, disruptive: 2, critical: 3 }
         depends_on: { question: plan, equals: own }
@@ -225,7 +238,9 @@ groups:
         renders: worker_count / skuCapacity on the plan
 
       - id: max_instance_count
-        ask: Up to how many instances may the plan scale out?
+        ask:
+          en: "Up to how many instances may the plan scale out?"
+          de: "Auf bis zu wie viele Instanzen darf der Plan skalieren?"
         type: int
         plain:
           en: "The plan scales out to at most {value} instances."
@@ -244,7 +259,9 @@ groups:
     title: Workflows and callers
     questions:
       - id: workflows
-        ask: Which workflows should the app hold?
+        ask:
+          en: "Which workflows should the app hold?"
+          de: "Welche Workflows soll die App enthalten?"
         type: list
         plain:
           en: "Workflows: {value} (empty: none yet)."
@@ -265,7 +282,9 @@ groups:
           workflowActions
 
       - id: state
-        ask: Should the workflow start enabled?
+        ask:
+          en: "Should the workflow start enabled?"
+          de: "Soll der Workflow aktiviert starten?"
         type: enum
         plain:
           en: "After deployment the workflow is {value}."
@@ -273,7 +292,7 @@ groups:
         plain_values:
           Enabled: { en: "enabled and triggers run", de: "aktiv, Trigger laufen" }
           Disabled: { en: "disabled until someone enables it", de: "deaktiviert, bis jemand ihn einschaltet" }
-        values: [Enabled, Disabled]
+        accepts: [Enabled, Disabled]
         default: Enabled
         depends_on: { question: hosting, equals: consumption }
         why: >
@@ -285,7 +304,9 @@ groups:
         renders: state / state
 
       - id: trigger_authentication
-        ask: How do callers of a request trigger prove who they are?
+        ask:
+          en: "How do callers of a request trigger prove who they are?"
+          de: "Wie weisen Aufrufer eines Request-Triggers nach, wer sie sind?"
         type: enum
         plain:
           en: "Callers of the workflow sign in with {value}."
@@ -293,9 +314,8 @@ groups:
         plain_values:
           entra_id: { en: "their company account or an application identity", de: "ihrem Firmenkonto oder einer Anwendungsidentität" }
           sas: { en: "a signed URL that anyone holding it may call", de: "einer signierten URL, die jeder Besitzer aufrufen darf" }
-        values: [entra_id, sas]
+        accepts: [entra_id, sas]
         default: entra_id
-        confirm_in: [production]
         forced_when: >
           `local_auth: disabled` forces `entra_id`, recorded as forced with `local_auth` as
           forced_by. A departure to `sas` names the workflow and the caller that cannot send
@@ -320,12 +340,14 @@ groups:
     title: Host storage (Standard)
     questions:
       - id: host_storage_account
-        ask: Which storage account should the app keep its run history and state in?
-        type: ref
+        ask:
+          en: "Which storage account should the app keep its run history and state in?"
+          de: "In welchem Speicherkonto soll die App ihren Ausführungsverlauf und Zustand halten?"
+        type: string
         plain:
           en: "Run history and state are kept in the storage account {value}."
           de: "Verlauf und Zustand liegen im Speicherkonto {value}."
-        ref: storage_account
+        accepts: { ref: storage_account }
         required: true
         depends_on: { question: hosting, equals: standard }
         per_environment: true
@@ -342,7 +364,9 @@ groups:
           (AzureWebJobsStorage*, WEBSITE_CONTENTAZUREFILECONNECTIONSTRING)
 
       - id: host_storage_auth
-        ask: How does the app authenticate to its storage account?
+        ask:
+          en: "How does the app authenticate to its storage account?"
+          de: "Wie authentifiziert sich die App an ihrem Speicherkonto?"
         type: enum
         plain:
           en: "The app reaches its storage {value}."
@@ -350,7 +374,7 @@ groups:
         plain_values:
           identity: { en: "with its own identity, without a stored key", de: "mit ihrer eigenen Identität, ohne hinterlegten Schlüssel" }
           key: { en: "with the storage account's key", de: "mit dem Schlüssel des Speicherkontos" }
-        values: [identity, key]
+        accepts: [identity, key]
         default: identity
         depends_on: { question: hosting, equals: standard }
         why: >
@@ -371,7 +395,9 @@ groups:
     title: Networking
     questions:
       - id: public_network_access
-        ask: Should this logic app depart from the deployment's exposure posture?
+        ask:
+          en: "Should this logic app depart from the deployment's exposure posture?"
+          de: "Soll diese Logic App von der Erreichbarkeit des Deployments abweichen?"
         type: enum
         plain:
           en: "The logic app is {value}."
@@ -380,9 +406,8 @@ groups:
           disabled: { en: not reachable from the internet at all, de: aus dem Internet überhaupt nicht erreichbar }
           enabled_with_firewall: { en: reachable from the internet only from listed addresses, de: aus dem Internet nur von gelisteten Adressen erreichbar }
           enabled: { en: reachable from the internet, de: aus dem Internet erreichbar }
-        values: [disabled, enabled_with_firewall, enabled]
-        from_deployment: network_exposure
-        confirm_in: [production]
+        accepts: [disabled, enabled_with_firewall, enabled]
+        answer: { deployment: network_exposure }
         forced_when: >
           `hosting: consumption` forces `enabled` or `enabled_with_firewall` - the resource has
           no switch for `disabled`, its triggers are public URLs - recorded as forced with
@@ -402,7 +427,9 @@ groups:
           triggersAccessControlConfiguration
 
       - id: allowed_caller_ip_ranges
-        ask: Which public IP ranges may call the workflows?
+        ask:
+          en: "Which public IP ranges may call the workflows?"
+          de: "Welche öffentlichen IP-Bereiche dürfen die Workflows aufrufen?"
         type: list
         plain:
           en: "Public addresses allowed to call the workflows: {value}."
@@ -420,14 +447,16 @@ groups:
           site_config.ip_restriction / siteConfig.ipSecurityRestrictions
 
       - id: private_endpoint_subnet
-        ask: Which subnet should the app's private endpoint live in?
-        type: ref
+        ask:
+          en: "Which subnet should the app's private endpoint live in?"
+          de: "In welchem Subnetz soll der Private Endpoint der App liegen?"
+        type: string
         resolved_by: derived
         plain:
           en: "Its private connection lands in subnet {value}."
           de: "Seine private Anbindung landet im Subnetz {value}."
-        ref: subnet
-        from_deployment: private_endpoint_subnet
+        accepts: { ref: subnet }
+        answer: { deployment: private_endpoint_subnet }
         depends_on: { question: hosting, equals: standard }
         per_environment: true
         why: >
@@ -438,7 +467,9 @@ groups:
         renders: private_endpoints.sites.subnet_resource_id / privateEndpoints[].subnetResourceId
 
       - id: vnet_integration
-        ask: Do the workflows call services that are only reachable privately?
+        ask:
+          en: "Do the workflows call services that are only reachable privately?"
+          de: "Rufen die Workflows Dienste auf, die nur privat erreichbar sind?"
         type: bool
         plain:
           en: "The workflows' own outgoing traffic {value}."
@@ -461,13 +492,15 @@ groups:
         renders: virtual_network_subnet_id / virtualNetworkSubnetResourceId
 
       - id: integration_subnet
-        ask: Which subnet does the workflows' outgoing traffic leave through?
-        type: ref
+        ask:
+          en: "Which subnet does the workflows' outgoing traffic leave through?"
+          de: "Über welches Subnetz verlässt der ausgehende Verkehr der Workflows das Netz?"
+        type: string
         resolved_by: derived
         plain:
           en: "Outgoing traffic leaves through subnet {value}."
           de: "Ausgehender Verkehr verlässt das Netz über Subnetz {value}."
-        ref: subnet
+        accepts: { ref: subnet }
         required: true
         depends_on: { question: vnet_integration, equals: true }
         per_environment: true
@@ -479,7 +512,9 @@ groups:
         renders: virtual_network_subnet_id / virtualNetworkSubnetResourceId
 
       - id: vnet_route_all
-        ask: Should all outgoing traffic go through the network, not only private addresses?
+        ask:
+          en: "Should all outgoing traffic go through the network, not only private addresses?"
+          de: "Soll der gesamte ausgehende Verkehr durch das Netz gehen, nicht nur der an private Adressen?"
         type: bool
         plain:
           en: "All outgoing traffic {value}."
@@ -501,7 +536,9 @@ groups:
     title: Identity and access
     questions:
       - id: managed_identity
-        ask: Which managed identity should the logic app carry?
+        ask:
+          en: "Which managed identity should the logic app carry?"
+          de: "Welche Managed Identity soll die Logic App tragen?"
         type: enum
         plain:
           en: "The logic app has {value} for reaching other services."
@@ -509,7 +546,7 @@ groups:
         plain_values:
           system_assigned: { en: "its own identity", de: "eine eigene Identität" }
           user_assigned: { en: "a separately managed identity", de: "eine separat verwaltete Identität" }
-        values: [system_assigned, user_assigned]
+        accepts: [system_assigned, user_assigned]
         default: user_assigned
         why: >
           The identity is what the connections authenticate with (managed-identity
@@ -523,12 +560,14 @@ groups:
         renders: managed_identities / managedIdentities, and key_vault_reference_identity (Standard)
 
       - id: user_assigned_identity_ids
-        ask: Which user-assigned identity?
+        ask:
+          en: "Which user-assigned identity?"
+          de: "Welche User-Assigned Identity?"
         type: list
         plain:
           en: "It uses the identity {value}."
           de: "Es nutzt die Identität {value}."
-        ref: user_assigned_identity
+        accepts: { ref: user_assigned_identity }
         required: true
         depends_on: { question: managed_identity, equals: user_assigned }
         per_environment: true
@@ -540,7 +579,9 @@ groups:
           managedIdentities.userAssignedResourceIds
 
       - id: role_assignments
-        ask: Who needs which role on this logic app?
+        ask:
+          en: "Who needs which role on this logic app?"
+          de: "Wer braucht welche Rolle auf dieser Logic App?"
         type: list
         plain:
           en: "Access rights on the logic app granted to: {value}."
@@ -560,7 +601,9 @@ groups:
     title: Security
     questions:
       - id: https_only
-        ask: Should plain HTTP be refused?
+        ask:
+          en: "Should plain HTTP be refused?"
+          de: "Soll unverschlüsseltes HTTP abgelehnt werden?"
         type: bool
         plain:
           en: "Unencrypted connections are {value}."
@@ -577,12 +620,14 @@ groups:
         renders: https_only / httpsOnly
 
       - id: min_tls_version
-        ask: Which TLS version is the floor?
+        ask:
+          en: "Which TLS version is the floor?"
+          de: "Welche TLS-Version ist mindestens erforderlich?"
         type: enum
         plain:
           en: "Callers must use at least TLS {value}."
           de: "Aufrufer müssen mindestens TLS {value} verwenden."
-        values: ["1.2", "1.3"]
+        accepts: ["1.2", "1.3"]
         default: "1.2"
         depends_on: { question: hosting, equals: standard }
         why: >
@@ -593,7 +638,9 @@ groups:
         renders: site_config.minimum_tls_version, scm_minimum_tls_version / siteConfig.minTlsVersion, scmMinTlsVersion
 
       - id: basic_auth_enabled
-        ask: May deployments use basic credentials (FTP, publishing profile)?
+        ask:
+          en: "May deployments use basic credentials (FTP, publishing profile)?"
+          de: "Dürfen Deployments einfache Anmeldedaten verwenden (FTP, Veröffentlichungsprofil)?"
         type: bool
         plain:
           en: "Deployment with a username and password is {value}."
@@ -613,12 +660,14 @@ groups:
           basicPublishingCredentialsPolicies
 
       - id: application_insights
-        ask: Which Application Insights component should receive the app's telemetry?
-        type: ref
+        ask:
+          en: "Which Application Insights component should receive the app's telemetry?"
+          de: "Welche Application-Insights-Komponente soll die Telemetrie der App erhalten?"
+        type: string
         plain:
           en: "Application telemetry goes to {value} (empty: none)."
           de: "Anwendungstelemetrie geht an {value} (leer: keine)."
-        ref: application_insights
+        accepts: { ref: application_insights }
         default: ""
         depends_on: { question: hosting, equals: standard }
         per_environment: true
@@ -634,14 +683,16 @@ groups:
     title: Observability
     questions:
       - id: diagnostic_workspace
-        ask: Which Log Analytics workspace should receive diagnostics?
-        type: ref
+        ask:
+          en: "Which Log Analytics workspace should receive diagnostics?"
+          de: "Welcher Log Analytics Workspace soll die Diagnosedaten erhalten?"
+        type: string
         resolved_by: derived
         plain:
           en: "Its logs go to {value}."
           de: "Seine Logs gehen in {value}."
-        ref: log_analytics_workspace
-        from_deployment: diagnostics_destination
+        accepts: { ref: log_analytics_workspace }
+        answer: { deployment: diagnostics_destination }
         per_environment: true
         why: >
           Inherited: one deployment, one destination. Without a diagnostic setting the run
@@ -649,7 +700,9 @@ groups:
         renders: diagnostic_settings / diagnosticSettings
 
       - id: diagnostic_categories
-        ask: Which log categories should be collected?
+        ask:
+          en: "Which log categories should be collected?"
+          de: "Welche Log-Kategorien sollen erfasst werden?"
         type: list
         plain:
           en: "Logged: {value}."
@@ -659,7 +712,7 @@ groups:
           FunctionAppLogs: { en: "the host's own log (Standard)", de: "das Log des Hosts (Standard)" }
           AppServiceAuditLogs: { en: "sign-ins to the deployment endpoints (Standard)", de: "Anmeldungen an den Deployment-Endpunkten (Standard)" }
           AppServicePlatformLogs: { en: "platform operations on the app (Standard)", de: "Plattformvorgänge an der App (Standard)" }
-        values: [WorkflowRuntime, FunctionAppLogs, AppServiceAuditLogs, AppServicePlatformLogs]
+        accepts: [WorkflowRuntime, FunctionAppLogs, AppServiceAuditLogs, AppServicePlatformLogs]
         default: [WorkflowRuntime]
         why: >
           The workflow runtime log is the record of every run and the one an incident review
@@ -673,7 +726,9 @@ groups:
           (Standard) / diagnosticSettings[].logCategoriesAndGroups[].category
 
       - id: metrics_enabled
-        ask: Should all metrics be collected?
+        ask:
+          en: "Should all metrics be collected?"
+          de: "Sollen alle Metriken erfasst werden?"
         type: bool
         plain:
           en: "Usage and performance figures are {value}."

@@ -1,25 +1,29 @@
 # `infra-spec.yaml` — the handover interface
 
-The interview does not produce code. It produces a **spec**, and the spec is what a backend
-renders. Keeping that boundary sharp is the most load-bearing decision in this design.
+The interview does not produce code. It produces a **spec**, and the spec is what gets
+rendered as Terraform or Bicep code. Keeping that boundary sharp is the most important
+decision in this design. Never render code from the interview.
+
+```
+interview => spec => terraform / bicep
+```
 
 ## Why a spec and not direct generation
 
 Three things fall out of it that direct generation cannot give you:
 
-**It is the contract between backends.** The same spec can be rendered as Terraform or as
-Bicep. Without a spec in the middle, each backend grows its own private notion of what was
+**It is code-agnostic.** The same spec can be rendered as Terraform or as Bicep, and it
+stays the record of what was decided and designed. Without a spec in the middle, each backend grows its own private notion of what was
 decided, and there is nothing to compare. With one, sending a single spec through both
 backends and diffing the result is a test you can actually run.
 
 **It is reviewable at the level decisions are made.** HCL records the *result* of a
 decision and never the decision itself. `public_network_access_enabled = false` tells you
-the value and nothing about whether anyone chose it. That gap is where infrastructure
-review turns into archaeology.
+the value and nothing about whether anyone chose it.
 
-**It makes regeneration a diff.** Re-running against an existing spec normally asks
-nothing and changes nothing, so the diff shows precisely what moved — rather than a
-rewrite nobody can audit.
+**It renders code by diffs, without reviewing the whole code base again.** The same spec always renders the same code. A change is made
+in the spec - one decision added or changed - and the code is rendered again, so the git
+diff shows only what that decision changed, not a rewrite of the whole code.
 
 ## Shape
 
@@ -27,12 +31,10 @@ rewrite nobody can audit.
 schema_version: 1
 
 spec:
-  id: payments-api-prod
-  target: terraform          # terraform | bicep
+  id: payments-api
+  target: terraform  # terraform | bicep
   generated_by: infrastructure-as-skills-azure
-  plugin_version: 0.0.2      # the plugin that last wrote this file; an older plugin halts on it
-  skill: private-webapp
-  skill_version: 0.1.0
+  plugin_version: 0.5.7  # the plugin that last wrote this file; an older plugin halts on it
   at: 2026-10-17T09:14:00Z
 
 # Values every resource inherits. Resolved once, not per resource. The system is
@@ -40,21 +42,19 @@ spec:
 # map keyed by stage, rendered as a parameter whose value lives in the stage's file.
 context:
   environments: [development, test, production]
-  language: de               # the customer's language (en | de): the picture, the decision document, the customer-facing text
+  language: de  # the customer's language (en | de): the picture, the decision document, the customer-facing text
   # location, subscription_id and resource_group_name are never asked: what the request
   # states is written here, what it does not is an open: entry and a placeholder in the
   # stage file. A resource group the render creates needs no name here.
   location: westeurope
   workload: payments
-  subscription_id:
+  subscription_id:  # production is not known yet - see open: below
     development: 00000000-0000-0000-0000-00000000dev1
     test: 00000000-0000-0000-0000-00000000tst1
-    production: 00000000-0000-0000-0000-00000000prd1
-  resource_group_name:
+  resource_group_name:  # main exists: the platform handed the groups out
     development: rg-we-dev-payments-01
     test: rg-we-tst-payments-01
     production: rg-we-prod-payments-01
-
   # The tag set this repository uses, taken from it rather than prescribed here.
   tags:
     cost_center: CC-4711
@@ -62,152 +62,269 @@ context:
 
 # The deployment set's answers. Resolved once; every resource inherits them.
 deployment:
+  # --- context ---
+  stage_isolation:
+    value: resource_group
+    source:
+      forced_by: deployment.deployment_scope
+  deployment_scope:
+    value: resource_group  # every group existing, the deployer's roles on its stage's groups only
+    source: default
+  non_production_savings:
+    value: enabled
+    source: default
+
+  # --- resource_groups ---
+  resource_group_layout:
+    value: single  # single | split
+    source: asked
+  resource_groups_created:
+    value: []
+    source:
+      forced_by: deployment.deployment_scope
+  resource_lock:
+    value: production
+    source: default
+
+  # --- delivery ---
   # How the code reaches Azure - see "Delivery: the pipeline" below.
   deploy_mechanism:
-    value: github               # azure_devops | github | gitlab | local
+    value: github  # azure_devops | github | gitlab | local
     source: stated
   pipeline_auth:
-    value: workload_identity    # not written when deploy_mechanism is local
+    value: workload_identity  # not written when deploy_mechanism is local
     source: default
   pipeline_approvals:
-    value: production           # production | every_stage | none
+    value: production  # production | every_stage | none
     source: default
-  deployer_roles:               # derived, never asked: what the deploying identity needs beyond Contributor
+  deployer_roles:  # derived, never asked: what the deploying identity needs beyond Contributor
     value:
-      - { role: Key Vault Secrets Officer, scope: key-vault, for: [resources.key-vault.security.secret_placeholders] }
-    source: forced
-    forced_by: [resources.key-vault.security.secret_placeholders]
+    - role: Role Based Access Control Administrator
+      scope: resource_group
+      for: [wiring.role_assignments]
+    - role: Key Vault Secrets Officer
+      scope: key-vault
+      for: [resources.key-vault.security.secret_placeholders]
+    source:
+      forced_by: [wiring.role_assignments, resources.key-vault.security.secret_placeholders]
+
+  # --- requirements ---
+  network_requirements:
+    value: assigned_ranges
+    source: asked
+  outage_impact:
+    value: disruptive
+    source: asked
+
+  # --- modules ---
+  module_source:
+    value: avm
+    source: asked
+  module_telemetry:
+    value: disabled
+    source: default
+
+  # --- posture ---
   network_exposure:
     value: private
     source: asked
   local_auth:
     value: disabled
     source: default
-  network_ownership:
-    value: create
-    source: asked
-  # Resource groups: `context.resource_group_name` is the `main` group. A listed role
-  # is a group of its own; each group is `existing` (name from the stage file) or
-  # `create` (the render makes it). Per resource: `placement.resource_group: <role>`
-  # departs from the role table in iac-rendering/references/resource-groups.md.
-  resource_group_layout:
-    value: split                # single | split
-    source: asked
-  resource_group_scheme:
-    value: concern              # concern | lifecycle | protection | component
-    source: asked
-  resource_group_split:         # derived from the scheme and the resources in the design
-    value: [network, data]
-    source: forced
-    forced_by: deployment.resource_group_scheme
-  resource_group_mode_main:
-    value: create
-    source: asked
-  resource_group_mode_network:
-    value: existing
-    source: default
-  resource_group_mode_data:
-    value: create
-    source: asked
-  address_space:
-    # per_environment: one value per stage, never a literal in the template. A stage
-    # nobody could answer for is missing here and named in open: below.
-    value:
-      development: 10.42.0.0/16
-      test: 10.43.0.0/16
-      production: 10.44.0.0/16
-    source: asked
-  private_endpoint_subnet:
-    value: snet-data-prod-01
-    source: asked
-  private_dns_ownership:
-    value: platform
-    source: default
+
+  # --- compliance ---
   mandates:
     value: [BSI C5]
     source: stated
   key_protection:
     value: hsm
     source: stated
-    forces:                      # what this answer determined elsewhere
-      - key-vault.sku: premium
+    forces: [resources.key-vault.vault.sku]  # what this answer determined elsewhere
 
-# Present only when a pattern drove the run.
-pattern:
-  id: private-webapp
-  resources: [app-service, storage-account, key-vault]
+  # --- network ---
+  network_ownership:
+    value: create
+    source: default
+  address_space:
+    # per_environment: one value per stage, never a literal in the template. A stage
+    # nobody could answer for is missing here and named in open: below.
+    value:
+      development: 10.42.0.0/24
+      test: 10.43.0.0/24
+      production: 10.44.0.0/24
+    source: asked
+  private_endpoint_subnet_prefix:
+    value:
+      development: 10.42.0.0/27
+      test: 10.43.0.0/27
+      production: 10.44.0.0/27
+    source: asked
 
-# How the rendered code is split. Both targets have a module concept, so the split
-# is decided once here rather than twice in two renderers.
+  # --- dns ---
+  private_dns_ownership:
+    value: platform
+    source: default
+
+  # --- observability ---
+  observability_ownership:
+    value: none
+    source: asked
+
+# The split of the rendered code into modules: which module holds which resources, what
+# it takes in and gives out, and which other modules it needs. Decided once here, so
+# Terraform and Bicep render the same modules.
 composition:
-  granularity: per-concern     # single | per-concern | per-resource
+  granularity: per-family  # single | per-concern | per-resource | per-family
   source: default
-
   modules:
-    - id: storage
-      contains: [storage-account]
-      inputs: [environment, location, workload, resource_group_name]
-      outputs: [id, name, principal_id]
+  - id: network
+    contains: [virtual-network]
+    inputs: [environment, location, workload, resource_group_name]
+    outputs: [id, private_endpoint_subnet_id, integration_subnet_id]
+  - id: compute
+    contains: [app-service]
+    needs: [network]  # consumes network.integration_subnet_id
+    inputs: [environment, location, workload, resource_group_name]
+    outputs: [id, principal_id]
+  - id: storage
+    contains: [storage-account]
+    needs: [network]
+    inputs: [environment, location, workload, resource_group_name]
+    outputs: [id, name]
+  - id: security
+    contains: [key-vault]
+    needs: [network]
+    inputs: [environment, location, workload, resource_group_name]
+    outputs: [id, uri]
 
-    - id: storage-network
-      contains: [private-endpoint, private-dns-record]
-      needs: [storage]         # consumes storage.id
-      inputs: [subnet_id, dns_zone_id]
-      outputs: [private_endpoint_ip]
-
+# Every resource's decisions, under the groups of its question set. `meta` comes first and
+# describes rather than decides: what the resource is for, in the customer's words.
 resources:
-  storage-account:
+  virtual-network:
+    addressing:
+      address_space:
+        value:
+          development: 10.42.0.0/24
+          test: 10.43.0.0/24
+          production: 10.44.0.0/24
+        source: deployment
+      private_endpoint_subnet_prefix:
+        value:
+          development: 10.42.0.0/27
+          test: 10.43.0.0/27
+          production: 10.44.0.0/27
+        source: deployment
+
+  app-service:
+    meta:
+      purpose:
+        value: Zahlungs-API
+        source: stated
+    hosting:
+      sku:
+        value:
+          development: B1
+          test: B1
+          production: P1v3
+        source: default
     networking:
       public_network_access:
         value: disabled
-        source: pattern
-      private_endpoint_subnet:
-        value: snet-data-prod-01
-        source: asked
+        source: deployment
+    identity:
+      managed_identity:
+        value: system_assigned
+        source: default
+
+  storage-account:
+    meta:
+      purpose:
+        value: Belege
+        source: stated
+    networking:
+      public_network_access:
+        value: disabled
+        source: deployment
     security:
       shared_access_key_enabled:
         value: false
-        source: pattern
+        source: deployment
       min_tls_version:
         value: TLS1_2
         source: default
     data_protection:
+      replication:
+        value:
+          development: LRS
+          test: LRS
+          production: ZRS
+        source:
+          derived_from: deployment.outage_impact
       blob_soft_delete_days:
         value: 7
         source: default
 
-# Decisions that belong to no single resource. The pattern owns these.
+  key-vault:
+    meta:
+      purpose:
+        value: API-Schlüssel
+        source: stated
+    vault:
+      sku:
+        value: premium
+        source:  # hsm, from mandate BSI C5
+          forced_by: deployment.key_protection
+    networking:
+      public_network_access:
+        value: disabled
+        source: deployment
+    security:
+      secret_placeholders:
+        value: [payment-api-key]
+        source: stated
+
+# Decisions that belong to no single resource; the root holds them.
 wiring:
   # Which zone belongs to which endpoint: iac-rendering/references/private-dns-zones.md
   private_dns_zones:
     value: [privatelink.blob.core.windows.net, privatelink.vaultcore.azure.net]
-    source: pattern
+    source:
+      forced_by: deployment.network_exposure
   role_assignments:
     value:
-      - from: app-service
-        to: storage-account
-        role: Storage Blob Data Contributor
-    source: pattern
-  # Read by the diagram (core/iac-diagram), optional: who reaches what, what a
-  # resource is for, and what is optional. `from`/`to` are resource keys or actors
-  # (internet, users, external:<name>).
+    - from: app-service
+      to: storage-account
+      role: Storage Blob Data Contributor
+    - from: app-service
+      to: key-vault
+      role: Key Vault Secrets User
+    source: stated
+  # Read by the diagram (core/iac-diagram): who reaches what. `from`/`to` are resource keys
+  # or actors (internet, users, external:<name>).
   access:
     value:
-      - { from: users, to: app-service, label: HTTPS 443 }
-      - { from: app-service, to: storage-account }
+    - from: users
+      to: app-service
+      label: HTTPS 443
+    - from: app-service
+      to: storage-account
+    - from: app-service
+      to: key-vault
     source: stated
-  purposes:
-    value: { app-service: Webshop frontend, storage-account: Product images }
-    source: stated
-  optional:
-    value: [redis-cache]
-    source: stated
+
+# What nothing could resolve, each with who has to answer it. Applying waits for it.
+open:
+- key: context.subscription_id
+  environments: [production]
+  question: In welche Subscription wird die Produktion ausgerollt?
+  owner: Plattform-Team
+  blocks: apply
 ```
 
 ## Language
 
 `context.language` is the customer's language, `en` or `de`: the fixed labels of the picture,
-the decision document and every customer-facing text in the spec (`wiring.purposes`,
+the decision document and every customer-facing text in the spec (`meta.purpose`,
 `wiring.access[].label`, the `owner` and `question` of an `open:` entry) are written in it.
 Phase 0 sets it from the language the request and the answers are written in; it is never
 asked. The scripts read it (`new_diagram.py`, `verify_diagram.py`, `export_decisions.py`) and
@@ -223,20 +340,40 @@ object) or **a map keyed by stage**:
 
 ```yaml
       replication:
-        value: { development: LRS, test: LRS, production: ZRS }
-        source: requirement
-        derived_from: deployment.outage_impact
-        non_production: default     # dev and test took the question's non_production_default
+        value:
+          development: LRS
+          test: LRS
+          production: ZRS
+        source:
+          derived_from: deployment.outage_impact
 ```
 
-A map is required for a `per_environment` question (the value differs per stage by
-nature: ranges, subscriptions, referenced platform parts) and allowed for any other where
-a stage departs — a cost saving (`non_production_default`), or a departure the user named
-for that stage, recorded `overridden`. A posture decision is never a map otherwise: one
-posture per system, and `check_spec.py` refuses a stage split on a question that is neither
-`per_environment` nor a cost knob unless its source is `overridden`. Its keys are a
-subset of `context.environments`; a stage missing from the map is an `open:` entry that
-names the stage:
+When a map, when one value:
+
+- **Always a map:** a `per_environment` value from outside the spec - an address range, an
+  id, a subscription, a platform resource. Even when every stage has the same value: one
+  value would end up hard-coded in the template.
+- **One value:** a `per_environment` value that only names parts of this spec - a resource
+  key (`storage-account__datalake`), subnet names, or `[]`. It is the same in every stage;
+  the render finds that stage's resource.
+- **A map if a stage departs:** a cost knob that takes its cheaper `non_production_default`
+  outside production, or a departure the user named for one stage (`{ overridden: <reason> }`).
+- **Never a map:** everything else. A posture holds for the whole system.
+
+`check_spec.py` enforces all four. A map's keys are stages of `context.environments`.
+
+The renderer reads a map as a parameter and writes each stage's value into that stage's
+parameter file; one value is a literal in the template. A reference object
+(`{ name, resource_group_name }`) is told apart from a stage map by its keys, which are never
+stage names.
+
+Which stages took the cheaper `non_production_default` is not recorded: it follows from the
+question, `deployment.non_production_savings` and the values, and the decision document
+derives it from them. A stage the user set differently says so in the source.
+
+### A stage nobody could answer for
+
+A stage missing from a map is not guessed. It is an `open:` entry that names the stage:
 
 ```yaml
 open:
@@ -246,13 +383,6 @@ open:
     owner: network / IPAM owner
     blocks: apply
 ```
-
-`non_production: default` marks the stages that took the question's
-`non_production_default` under `deployment.non_production_savings`; a stage the user set
-differently carries `non_production: stated`. The renderer reads a map as a parameter
-and writes each stage's value into that stage's parameter file; a scalar is a literal in
-the template. A reference object (`{ name, resource_group_name }`) is told apart from a
-stage map by its keys, which are never stage names.
 
 **An open stage is still rendered, with placeholders.** A stage named in an `open:` entry
 gets its parameter file (`environments/<stage>.tfvars`, `main.<stage>.bicepparam`) and its
@@ -269,43 +399,48 @@ chain then holds every stage behind it.
 
 `context.resource_group_name` is the **main** group of a single layout: one group per stage that
 holds everything. A split has no main group - every resource is in the group of its scheme's
-role, and the Bicep root deploys into the first of them. Splitting is a deployment decision; the
-keys it leaves in the spec:
+role, and the Bicep root deploys into the first of them. **Which groups exist is not written
+down:** every role a resource is in gets one, derived from the scheme, the role table and the
+placements. A group the person does not want goes by moving its resources elsewhere
+(`placement.resource_group`). Splitting is a deployment decision; the keys it leaves in the spec:
 
 | Key | Holds | Notes |
 |---|---|---|
-| `deployment.deployment_scope` | `resource_group` or `subscription` - asked in Phase 0, right after the module choice | `resource_group`: every group `existing`, `resource_groups_created` not asked. `stage_isolation` follows it (`forced_by: deployment.deployment_scope`) |
-| `deployment.resource_group_layout` | `single` or `split` - asked | `single` or absent: one group, nothing below is written |
-| `deployment.resource_group_scheme` | `concern` (`network`, `data`, `application`, `observability`, `security`), `lifecycle` (`foundation`, `state`, `runtime`), `protection` (`protected`, `standard`), `component` (`shared` and the parts) - asked on `split` | Absent means `concern`, which is what a spec written before the key holds |
-| `deployment.resource_group_components` | Under `component` only: the system's parts, short lowercase names (`chat`, `ingest`) | Derived by the run from the description and `wiring.purposes`, `forced_by: wiring.purposes`; every resource that is not shared names its part in `placement.resource_group` |
-| `deployment.resource_group_split` | The roles with a group of their own, derived: every role of the scheme that a resource of the design belongs to | `forced` by the scheme; a group the person drops or adds at the sign-off is `overridden`. `check_spec.py` refuses a role of another scheme |
-| `deployment.resource_group_mode_<role>` | `existing` or `create`, for `main` and for every listed role | An unlisted role has no mode - it is part of `main` |
-| `deployment.resource_group_lock` | `production`, `all_stages`, `none` | Only groups in mode `create` get a lock |
+| `deployment.deployment_scope` | `resource_group` or `subscription` - asked in Phase 0, right after the module choice | `resource_group`: every group `existing`, `resource_groups_created` not asked. `stage_isolation` follows it (`source: { forced_by: deployment.deployment_scope }`) |
+| `deployment.resource_group_layout` + `deployment.resource_group_scheme` | `single`, or `split` with a scheme: `concern` (`network`, `data`, `application`, `observability`, `security`), `lifecycle` (`foundation`, `state`, `runtime`), `protection` (`protected`, `standard`), `component` (`shared` and the parts) | Asked as two questions: one group or several, then how - five options do not fit one question. `single` or absent: one group, no scheme, nothing below is written. A split without a scheme means `concern`, which is what a spec written before the key holds |
+| `deployment.resource_groups_created` | The groups the render creates: `main` under `single`, groups of the split under `split` - asked under `deployment_scope: subscription` | **The one record of it:** a group on the list is created, every other one exists beforehand; no mode per group is written. `[]` by default. Not asked, and `[]`, under `deployment_scope: resource_group` |
+| `deployment.resource_group_lock` | `production`, `all_stages`, `none` | Only groups the render creates get a lock |
 | `deployment.resource_lock` | `production`, `all_stages`, `none` | A `CanNotDelete` lock on each resource that holds data or state, in the stages named; see [avm.md](../../iac-rendering/references/avm.md#the-shared-interfaces) for which kinds |
-| `context.resource_group_name_<role>` | The name of the group, a stage map like `resource_group_name` | `main` keeps `context.resource_group_name`. Optional, like it: recorded when the customer or the platform stated it, otherwise a parameter the stage file supplies. For a `create` group a stated name is used verbatim; without one the render computes it from the naming interface. Never for a role that is not split off |
-| `resources.<key>.placement.resource_group` | One role, for a resource that departs from its kind's role | `source: overridden` with a `reason`; without the key the kind's role applies |
-| `resources.<key>.placement.location` | One region, for the Foundry account only, when `context.location` does not offer a model | Named by the person (`stated`, `asked`, `overridden`) with the model as the `reason`; the same in every stage; refused under `data_residency: country`. Without the key the account runs in `context.location` |
+| `context.resource_group_name_<role>` | The name of the group, a stage map like `resource_group_name` | `main` keeps `context.resource_group_name`, which a split does not write. Optional, like it: recorded when the customer or the platform stated it, otherwise a parameter the stage file supplies. For a `create` group a stated name is used verbatim; without one the render computes it from the naming interface. Never for a role no resource is in |
+| `resources.<key>.placement.resource_group` | One role, for a resource that departs from its kind's role | `source: { overridden: <reason> }`; without the key the kind's role applies |
+| `resources.<key>.placement.location` | One region, for the Foundry account only, when `context.location` does not offer a model | A departure the person names: `source: { overridden: <the model> }`; the same in every stage; refused under `data_residency: country`. Without the key the account runs in `context.location` |
 
 ```yaml
 context:
-  resource_group_name:                  # main, mode create: the name is a parameter of the stage
-    production: rg-chatbot-prod-we
-  resource_group_name_network:          # network, mode existing: the platform handed it out
+  # No resource_group_name: a split has no main group. The created groups' names are
+  # computed by the render; only the existing one is named.
+  resource_group_name_network:  # network exists: the platform handed it out
     production: rg-spoke-chatbot-prod-we
 deployment:
-  resource_group_layout: { value: split, source: asked }
-  resource_group_scheme: { value: concern, source: asked }
-  resource_group_split: { value: [network, data], source: overridden, reason: application and security stay in main }
-  resource_group_mode_main: { value: create, source: asked }
-  resource_group_mode_network: { value: existing, source: asked }
-  resource_group_mode_data: { value: create, source: asked }
+  deployment_scope:
+    value: subscription
+    source: asked
+  resource_group_layout:
+    value: split
+    source: asked
+  resource_group_scheme:
+    value: concern
+    source: asked
+  resource_groups_created:  # network is not on it: it exists
+    value: [data, application]
+    source: asked
 resources:
   storage-account__host:
     placement:
       resource_group:
-        value: data
-        source: overridden
-        reason: The Function App's own state is kept with the data, not with the app.
+        value: application
+        source:
+          overridden: The Function App's own state lives and goes with the app, not with the data.
 ```
 
 - **Which kind belongs to which role** is one table,
@@ -317,14 +452,14 @@ resources:
   (`deployment.yaml`, `resource_group_name`): a `create` group's name is computed by the render;
   an `existing` group's name is stated or, per stage, an `open:` entry with `OPEN-resource-group`
   in the stage file. A stage the spec's stage map leaves out is the generic per-stage rule above.
-- **Resource-group scope forces `existing`.** Under `deployment.deployment_scope:
-  resource_group` (and the `stage_isolation: resource_group` it derives) every
-  `resource_group_mode_<role>` is `existing` (`forced`, `forced_by: deployment.deployment_scope`)
+- **Resource-group scope creates nothing.** Under `deployment.deployment_scope:
+  resource_group` (and the `stage_isolation: resource_group` it derives)
+  `resource_groups_created` is `[]` (`source: { forced_by: deployment.deployment_scope }`)
   and no deployer role is scoped to `subscription`: a role on the subscription reaches every
   stage in it. Each stage's identity holds its roles on its own
   groups; `check_spec.py` fails on either breach.
-- **A mode change is not an edit of a value.** `existing` <-> `create` creates, deletes or orphans
-  a real group; the next run says so before it writes, and the pipeline refuses a Terraform plan
+- **A group put on or taken off `resource_groups_created` is not an edit of a value.** It
+  creates, deletes or orphans a real group; the next run says so before it writes, and the pipeline refuses a Terraform plan
   that deletes one ([pipelines.md](../../iac-rendering/references/pipelines.md), invariant 12).
 
 ## Delivery: the pipeline
@@ -338,57 +473,78 @@ invariants are in [pipelines.md](../../iac-rendering/references/pipelines.md).
 | `deploy_mechanism` | `azure_devops`, `github`, `gitlab`, `local` | none - asked | `stated`, `asked`, or `carried` when the repository already holds `.github/workflows`, `azure-pipelines.yml` or `.gitlab-ci.yml` |
 | `pipeline_auth` | `workload_identity`, `client_secret` | `workload_identity` | `default`; `client_secret` only `stated` by the platform team, with the rotation as an `open:` entry |
 | `pipeline_approvals` | `production`, `every_stage`, `none` | `production` | `default`; `none` only `stated` |
-| `deployer_roles` | a list of `{ role, scope, for }` | `[]` | `forced`, `forced_by` listing the decisions; never asked |
+| `deployer_roles` | a list of `{ role, scope, for }` | `[]` | `{ forced_by: [...] }` listing the decisions; never asked |
 
-- `deploy_mechanism` is a `required` customer question. A run nobody can answer records an
-  `open:` entry (`key: deployment.deploy_mechanism`, `owner: workload owner`,
-  `blocks: apply`) and **renders no pipeline** - the reply says so. It is never `assumed`: a
-  guessed pipeline is a file in the wrong directory for the wrong system.
-- `local` renders a script and no pipeline; `pipeline_auth` and `pipeline_approvals` are then
-  not written.
-- The pipeline reads `context.environments` (the stage blocks, in order),
-  `context.workload` (the state key), `deployment.stage_isolation` (one identity and one
-  subscription per stage, or one subscription with role scopes), and `target`
-  (Terraform plan/apply or Bicep what-if/create). Nothing about it is a resource decision, so
-  none of it sits under `resources:`.
-- `deployer_roles` is what the spec asks of the deploying identity beyond `Contributor` on its
-  groups, re-derived on every run like any `forced` value. A `create` group adds `Contributor`
-  on `subscription`; any `role_assignments` (a resource's or `wiring.`) adds `Role Based Access
-  Control Administrator` on `resource_group`, conditioned to the roles the spec assigns; a key
-  vault with `secret_placeholders` adds `Key Vault Secrets Officer` on that vault's key. `for`
-  names the decisions behind each grant. It applies to `local` too - the person running the
-  script needs the same roles. `check_spec.py` fails on a needed role that is missing.
-- The platform side - identities, federated credentials, environments, approval checks,
-  state account - is not in the spec. The render lists it in the pipeline's header comment,
-  with `deployer_roles` as the roles beyond the baseline.
+**Which system.** `deploy_mechanism` is a `required` customer question and never `assumed`: a
+guessed pipeline is a file in the wrong directory for the wrong system. If nobody can answer
+it, the spec gets an `open:` entry (`key: deployment.deploy_mechanism`, `owner: workload
+owner`, `blocks: apply`), no pipeline is rendered, and the reply says so. `local` renders a
+deploy script instead of a pipeline; `pipeline_auth` and `pipeline_approvals` are then not
+written.
+
+**What else the pipeline reads.** No key of its own beyond the four - it takes the rest from
+the spec:
+
+| Key | Gives the pipeline |
+|---|---|
+| `context.environments` | The stage blocks, in order |
+| `context.workload` | The state key |
+| `deployment.stage_isolation` | One identity and subscription per stage, or one subscription with role scopes |
+| `spec.target` | Terraform plan/apply, or Bicep what-if/create |
+
+**What the deploying identity needs.** `deployer_roles` lists the roles beyond `Contributor`
+on its groups. It is derived, never asked, and recomputed on every run:
+
+| When the spec has | The identity needs |
+|---|---|
+| A group in `resource_groups_created` | `Contributor` on the subscription |
+| Any `role_assignments` (a resource's or `wiring.`) | `Role Based Access Control Administrator` on the resource group, limited to the roles the spec assigns |
+| A key vault with `secret_placeholders` | `Key Vault Secrets Officer` on that vault |
+
+`for` names the decisions behind each grant. The same holds for `local` - whoever runs the
+script needs the same roles. `check_spec.py` fails when a needed role is missing.
+
+**What is not in the spec.** The platform side - identities, federated credentials, pipeline
+environments, approval checks, the state storage account. The render lists it in the
+pipeline's header comment, `deployer_roles` included.
 
 ## `source` is what makes it a spec rather than a settings dump
 
 Every value carries where it came from. Strip that field and the file degrades into a
 config file whose provenance has to be guessed.
 
+`source` is a word, or - where the origin points at something - a map of one key that says
+both what kind of source it is and where it points:
+
 | `source` | Meaning |
 |---|---|
 | `stated` | The user said it in their request, before being asked |
 | `asked` | The user answered it in the interview |
 | `platform` | Derived from the landing-zone answers (`landing_zone_exists`, `central_*`), a platform-owned decision the customer was not asked |
-| `requirement` | Derived from a customer's answer in the deployment set's `requirements` group, with `derived_from: deployment.<id>` naming it |
 | `pattern` | A pattern skill pre-answered it |
-| `deployment` | Inherited from the deployment set, via the question's `from_deployment` |
-| `forced` | Determined by another answer, with `forced_by` naming it |
-| `assumed` | The run chose a value to keep going. Valid for `plan`, never for `apply` |
+| `deployment` | Inherited from the deployment set, via the question's `answer: { deployment: <id> }` |
 | `default` | The question set's opinionated default applied |
-| `carried` | Taken unchanged from a previous spec |
-| `overridden` | The user contradicted a pattern pre-answer or a previous value |
+| `carried` | Taken from what the repository already holds without a spec - an existing pipeline, an existing `modules/` layout. A value of this spec keeps its own source on a re-run |
+| `assumed` | The run chose a value to keep going. Rendered as a stage-file parameter marked `ASSUMED:`: valid for `plan`, refused by the pipeline for `apply` |
+| `{ derived_from: deployment.<id> }` | A requirement: mapped from a customer's answer in the deployment set's `requirements` group |
+| `{ forced_by: <key> }` | Forced: determined by another answer; a list where several did |
+| `{ overridden: <reason> }` | The user departed from a default, a derived value or a previous answer, and why |
 
-`overridden` carries a comment on the same key saying what it departed from. It is the one
-source that marks a deliberate exception, and an undocumented exception reads as an
-accident a year later.
+Nothing else sits beside `value` and `source` but `forces` (a note naming what this answer
+determined elsewhere). `check_spec.py` fails on a pointer written beside the source
+(`forced_by:`, `reason:`), on `forced`, `requirement` or `overridden` written as a word, and
+on `non_production`, which is derived.
+
+An override carries its reason. It is the one source that marks a deliberate exception, and
+an undocumented exception reads as an accident a year later; `check_spec.py` fails on one
+without it.
 
 `assumed` and the `open:` block are the two ways a spec stays honest about what it does not
 know. An `assumed` value lets a run finish and be reviewed — the alternative is no artefact
 at all — but it is a placeholder with a value-shaped hole in it, so the rule is hard:
-**a spec containing `assumed` renders and plans, and does not apply.** `open:` is the
+**a spec containing `assumed` renders and plans, and does not apply.** The render puts the
+value into every stage file with an `ASSUMED:` marker, and the pipeline refuses a file that
+holds one, as it refuses an open placeholder. `open:` is the
 list of prerequisites nothing could resolve, each with who has to answer it:
 
 ```yaml
@@ -405,22 +561,42 @@ open:
 Neither is a defect in the spec. A run that invents a resource group to avoid an empty
 field is the defect, and it is invisible until someone deploys it.
 
-`requirement` carries `derived_from`, and that is what the customer reads back: the
-decision document turns `replication: ZRS, derived_from: deployment.outage_impact` into
+A requirement names the answer it came from, and that is what the customer reads back: the
+decision document turns `replication: ZRS, source: { derived_from: deployment.outage_impact }` into
 "because an outage would be disruptive, the data is kept in three datacenters". A derived
 value without its requirement is a value the customer cannot recognise as theirs.
 
-`forced` carries `forced_by`, and that chain is the point: a Premium Key Vault is a
+A forced value names what forced it, and that chain is the point: a Premium Key Vault is a
 recurring cost, and "because the mandate requires HSM keys" is the difference between a
 reviewer accepting it and reopening the decision from scratch.
 
 ```yaml
   key-vault:
-    security:
+    vault:
       sku:
         value: premium
-        source: forced
-        forced_by: deployment.key_protection   # hsm, from mandate BSI C5
+        source:
+          forced_by: deployment.key_protection  # hsm, from mandate BSI C5
+```
+
+## `meta`: what a resource is for
+
+`resources.<key>.meta` holds what describes a resource rather than decides it, and no
+question set asks it. Today that is `purpose`: a few words in the customer's language
+(`context.language`), for a resource whose purpose the request says - the picture prints it
+under the type (`Storage Account · Belege`), and the `component` resource-group scheme
+derives its parts from it
+(`source: { forced_by: meta.purpose }`). A resource the request names without saying what it
+is for gets none, never a restatement of its type. `meta` is written first in a resource,
+before the groups of its set.
+
+```yaml
+resources:
+  storage-account:
+    meta:
+      purpose:
+        value: Belege
+        source: stated
 ```
 
 ## Several of a kind
@@ -467,16 +643,16 @@ six Bicep files — at which point diffing the two outputs measures the renderer
 the decisions.
 
 It is a decision like any other, so it carries a `source`. Usually `default`; `carried`
-when an existing spec already fixed the layout; `stated` when the user asked for a
-particular split.
+when an existing `modules/` directory fixed the layout; `stated` when the user asked for a
+particular split. An existing spec's `composition` is kept with the source it has.
 
 ### `granularity`
 
 | Value | Meaning | When |
 |---|---|---|
 | `single` | One root, no modules | A single resource, a throwaway, or a repository that has no `modules/` |
-| `per-concern` | A module per concern — the resource, its networking, its observability | Default. Mirrors the one-concern-per-file rule a level up |
-| `per-resource` | A module per resource | A pattern with many resources whose parts are reused separately |
+| `per-concern` | A module per concern — the resource, its networking, its observability | Default for authored code, or AVM with one family. Mirrors the one-concern-per-file rule a level up |
+| `per-resource` | A module per resource | Many resources whose parts are reused separately |
 | `per-family` | A module per resource family (`network`, `security`, `ai`, ...), each holding that family's AVM calls | Default under AVM when the spec has more than one family, in both targets ([Terraform](../../iac-rendering/references/terraform-idiom.md#grouped-avm-calls-modulesfamily), [Bicep](../../iac-rendering/references/bicep-idiom.md#grouped-avm-calls-modulesfamilybicep)); the root then holds one call per family and the wiring between them |
 
 Do not ask for it when the repository answers it. An existing `modules/` directory, or an
@@ -487,7 +663,7 @@ existing spec, decides this before the interview starts.
 | Field | Meaning |
 |---|---|
 | `id` | Stable, backend-neutral. Becomes a directory in Terraform and a file in Bicep |
-| `contains` | Resource keys from `resources:`, or wiring parts a pattern owns. Every resource belongs to exactly one module |
+| `contains` | Resource keys from `resources:`. Every resource belongs to exactly one module |
 | `inputs` | Context keys and values the caller passes in. Not the full decision set — the decisions stay in `resources:` |
 | `outputs` | What other modules or the caller may consume. Nothing secret |
 | `needs` | Other module ids it consumes outputs from. The dependency is declared here, never discovered from the rendered code |
@@ -519,7 +695,7 @@ the spec. *Which* published module, and how it is addressed, is not:
 | Value | Meaning |
 |---|---|
 | `avm` | **Default.** A call to the resource's Azure Verified Module, in whichever target renders. Follows `deployment.module_source: avm`; not written per module unless it departs |
-| `authored` | Resources written out from the resource's own rendering reference. The fallback when no AVM module exists for the type — then `source: forced`, `forced_by: no AVM module for <type>` — or the deployment chose it |
+| `authored` | Resources written out from the resource's own rendering reference. The fallback when no AVM module exists for the type — then `source: { forced_by: no AVM module for <type> }` — or the deployment chose it |
 | `reuse` | A published module that is not AVM, named by the user. The coordinate goes into `_target_overrides` with a comment |
 
 The coordinate stays in the renderer, because it is target knowledge with target rules
@@ -608,12 +784,13 @@ Extension is the normal case after the first run, and the spec is shaped for it:
 decision is a separate key with its own `source`, so adding to it is adding keys.
 
 **What is carried and what is re-derived.** Values whose `source` is `stated`, `asked`,
-`pattern`, `platform`, `default`, `overridden` or `carried` are carried as they are —
-they were decided. Values whose `source` is `deployment`, `requirement` or `forced` are
-consequences, so they are re-derived from what they follow: if `network_exposure` changes
-in this run, every resource inheriting it follows; if the customer now says an outage
-would be critical, every `requirement` value derived from `outage_impact` is remapped;
-and every `forced` value is recomputed from its `forced_by`.
+`pattern`, `platform`, `default`, `carried` or `{ overridden }` are kept as they are, source
+included — they were decided, and `asked` read back as `carried` would lose who decided.
+Values whose source is `deployment`, `{ derived_from }` or `{ forced_by }` are consequences,
+so they are re-derived from what they follow: if `network_exposure` changes in this run,
+every resource inheriting it follows; if the customer now says an outage would be critical,
+every value derived from `outage_impact` is remapped; and every forced value is recomputed
+from what forced it.
 
 **The opening question changes.** Phase 0 asks what should be added or changed, not what is
 being built — the system is already described. List what the spec holds, so the user
@@ -626,7 +803,7 @@ changed, not the whole spec again.
 | Change | In the spec |
 |---|---|
 | A resource added | New key under `resources:`, a `composition.modules` entry or an existing module's `contains` extended, `wiring:` entries if it connects to something |
-| A decision changed | The new value with `source: overridden` and a comment naming the old value. Consequences re-derived |
+| A decision changed | The new value with `source: { overridden: <reason> }`, the reason naming the old value. Consequences re-derived |
 | A resource removed | Its key, its `contains` entry and every `wiring:` entry naming it are deleted. Say before rendering that the plan will **destroy** it — a removal in the spec is a deletion in Azure |
 | A stage added or removed | `context.environments` changes; every map gains or loses the key, a gained stage's per-stage values are asked or opened, and a removed stage's state is destroyed — say so before rendering |
 | The deploy mechanism added or changed | `deployment.deploy_mechanism` with its source (`stated` when the user said it in this run). The new system's pipeline files are rendered; a replaced system's are **removed**, not left beside them - two pipelines applying one state race for its lock. Say so before rendering |
@@ -637,16 +814,18 @@ Never rewrite a value the user did not touch. Reformatting, reordering keys or
 "normalising" an old answer turns the git diff of the spec — the one review this design
 promises — into noise.
 
-Update `spec.at`, `skill_version` and `generated_by` on every write; the history of the
-decisions is the spec's git log, which is why it is committed.
+Update `spec.at` and `generated_by` on every write; `write_spec.py` sets
+`spec.plugin_version`. The history of the decisions is the
+spec's git log, which is why it is committed.
 
 Then regenerate both the diagram and the code from the whole spec, and let the diff show
 what moved.
 
 ## Reading one back
 
-When a spec exists, load it before interviewing. Its values enter resolution as `carried`,
-so a re-run that changes nothing asks nothing.
+When a spec exists, load it before interviewing. Its values enter resolution as decided,
+each with the source it has, so a re-run that changes nothing asks nothing and writes
+nothing new.
 
 Three cases need care:
 
@@ -666,18 +845,19 @@ The run decides; `scripts/write_spec.py` lays the file out, in place, after ever
 same decisions then give the same file, and the git diff of a re-run shows what moved, not
 how it was typed:
 
-- the sections in the order of [Shape](#shape); a decision as `value`, `source`, then where
-  it came from (`derived_from`, `forced_by`, `non_production`, `reason`);
+- the sections in the order of [Shape](#shape), `open:` last; a decision as `value`, `source`, then `forces` - the
+  decisions this answer determined elsewhere, a note for the reader; the checks read the
+  `forced_by` on the other side;
 - `deployment:` in the order of `questions/deployment.yaml`, a `# --- <group> ---` comment
   above each group (`requirements`, `posture`, ...). The comment is layout only: the key
   path stays `deployment.<id>`;
 - a resource's groups and questions in the order of its question set, a blank line between
   resources. The resources keep the order the run wrote them in: the decision document, the
   name list and the picture follow it, so the part that matters most comes first;
-- a decision on one line when it fits in 120 characters and holds no comment
-  (`min_tls_version: {value: TLS1_2, source: default}`), likewise a short list or stage map
-  (`[development, test, production]`); a longer one keeps its fields on lines of their own;
-  a stage map in the order of `context.environments`; no YAML anchors;
+- every map in block style, one key per line - a decision, a stage map (in the order of
+  `context.environments`), a source, an item of a list - so every key reads down the page at
+  its own indent; only a short list of plain values stays on one line
+  (`[development, test, production]`); no YAML anchors;
 - `spec.plugin_version` set to the installed plugin.
 
 It changes no value and loses no comment: a comment stays at the key it stood at (a quoted
@@ -705,11 +885,12 @@ python3 <plugin>/core/iac-authoring/scripts/check_spec.py ./infra-spec.yaml --re
 Needs PyYAML (`pip install pyyaml`). Without it the script exits 2
 and says so rather than reporting a file it could not read as fine.
 
-Checks that every value carries a known `source`, that referenced skills exist, that enum
-values are within the question set's `values`, that no `required` question is missing or
-defaulted, and that no decision key uses a backend's attribute spelling.
+What it checks is the contract of this file: provenance (a known `source`, an override with
+its reason, a `forced_by` that exists, a `derived_from` naming a deployment answer), the
+key paths and enum values against the question sets, no backend attribute spelling,
+`composition`, stage maps, resource groups and their modes, the context a stage file needs,
+`deployer_roles` and the shape of `wiring.access`. The numbered list in the script's
+docstring is the complete one; it is kept there so it cannot drift from the code.
 
-For `composition`: module ids unique, every resource in `resources:` contained by exactly
-one module, `contains` and `needs` pointing at things that exist, `needs` acyclic, and
-`implementation` being `avm`, `authored` or `reuse` rather than a module path that belongs in the
-renderer.
+The Shape example above is tested: `tests/run_spec_tests.py` lifts it out of this file and
+fails unless `check_spec.py` passes it and `write_spec.py --check` finds it canonical.

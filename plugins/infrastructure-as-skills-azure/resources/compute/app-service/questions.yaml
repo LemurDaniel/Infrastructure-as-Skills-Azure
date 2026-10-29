@@ -19,7 +19,7 @@ boundaries:
   - "Does not create the Log Analytics workspace it routes diagnostics to."
   - "Does not create the integration subnet when the network is referenced; under network_ownership: create the virtual-network set carries it."
   - "Does not create the Application Insights component - its own set (observability/application-insights), brought in by the deployment's application_monitoring; `application_insights` below wires the app to it."
-  - "Does not create custom domains, certificates, Easy Auth or backups. Each is a separate concern and has no question set yet."
+  - "Does not create custom domains, certificates or backups. Each is a separate concern and has no question set yet. Easy Auth with an existing app registration is `entra_sign_in`; the registration itself is never created here."
   - "Does not deploy code into a slot or swap it. Deploying and swapping are the application's release, not the infrastructure's; the `slots` group decides only what the slots are."
   - "Does not create the user-assigned identity app and slots share. The user-assigned-identity set does, routed in addition when `deployment_slots` is not empty."
   - "Does not create function apps, Container Apps or an App Service Environment. They have sets of their own (`function-app`, `container-apps`) or none (App Service Environment)."
@@ -33,27 +33,29 @@ groups:
     title: Placement
     questions:
       - id: environments
-        ask: Which stages is this deployed to?
+        ask:
+          en: "Which stages is this deployed to?"
+          de: "In welche Stufen wird das ausgerollt?"
         type: list
         plain:
           en: "Deployed in the stages {value}."
           de: "Wird in den Stufen {value} ausgerollt."
-        values: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
-        required: true
-        from_context: true
+        accepts: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
+        answer: { context: environments }
         why: >
           Drives the rendered name and the strictness of several defaults below.
           Nothing sensible can be guessed.
         renders: naming parameter `environment`, and the tag of that name where the repository uses one
 
       - id: location
-        ask: Which Azure region?
+        ask:
+          en: "Which Azure region?"
+          de: "Welche Azure-Region?"
         type: string
         plain:
           en: "Runs in the Azure region {value}."
           de: "Läuft in der Azure-Region {value}."
-        required: true
-        from_context: true
+        answer: { context: location }
         why: >
           Part of the rendered name and not inferable. Zone redundancy and the
           Premium v3 SKUs are not available in every region, so the region
@@ -61,14 +63,15 @@ groups:
         renders: location (plan and site)
 
       - id: resource_group_name
-        ask: Which resource group?
-        type: ref
+        ask:
+          en: "Which resource group?"
+          de: "Welche Ressourcengruppe?"
+        type: string
         plain:
           en: "Placed in the resource group {value}."
           de: "Liegt in der Ressourcengruppe {value}."
-        ref: resource_group
-        required: true
-        from_context: true
+        accepts: { ref: resource_group }
+        answer: { context: resource_group_name }
         per_environment: true
         why: >
           The plan and the app are placed into an existing group. Creating one here
@@ -80,7 +83,9 @@ groups:
     title: Hosting plan
     questions:
       - id: plan
-        ask: Should the app run on a hosting plan of its own, or on another app's plan?
+        ask:
+          en: "Should the app run on a hosting plan of its own, or on another app's plan?"
+          de: "Soll die App auf einem eigenen Hosting-Plan laufen oder auf dem Plan einer anderen App?"
         type: enum
         plain:
           en: "The app runs on {value}."
@@ -88,7 +93,7 @@ groups:
         plain_values:
           own: { en: "a hosting plan of its own", de: "einem eigenen Hosting-Plan" }
           shared: { en: "the hosting plan of another app, sharing its capacity", de: "dem Hosting-Plan einer anderen App und teilt sich dessen Kapazität" }
-        values: [own, shared]
+        accepts: [own, shared]
         default: own
         why: >
           A plan is the machine the apps run on and is what is billed: two apps on one plan
@@ -111,12 +116,14 @@ groups:
           serverFarmResourceId is the owner's plan id
 
       - id: shared_plan_with
-        ask: Whose hosting plan does the app run on?
-        type: ref
+        ask:
+          en: "Whose hosting plan does the app run on?"
+          de: "Auf wessen Hosting-Plan läuft die App?"
+        type: string
         plain:
           en: "It shares the plan of {value}."
           de: "Es teilt sich den Plan von {value}."
-        ref: app_service
+        accepts: { ref: app_service }
         required: true
         depends_on: { question: plan, equals: shared }
         why: >
@@ -128,7 +135,9 @@ groups:
           the owner's plan
 
       - id: os_type
-        ask: Linux or Windows hosting?
+        ask:
+          en: "Linux or Windows hosting?"
+          de: "Linux- oder Windows-Hosting?"
         type: enum
         plain:
           en: "The app runs on {value}."
@@ -136,7 +145,7 @@ groups:
         plain_values:
           Linux: { en: "Linux", de: "Linux" }
           Windows: { en: "Windows", de: "Windows" }
-        values: [Linux, Windows]
+        accepts: [Linux, Windows]
         default: Linux
         depends_on: { question: plan, equals: own }
         why: >
@@ -147,7 +156,9 @@ groups:
         renders: os_type / kind and reserved on the plan
 
       - id: sku
-        ask: Which plan size?
+        ask:
+          en: "Which plan size?"
+          de: "Welche Plan-Größe?"
         type: enum
         plain:
           en: "The hosting plan is size {value}."
@@ -163,13 +174,12 @@ groups:
           P1mv3: { en: "P1mv3, premium with extra memory", de: "P1mv3, Premium mit mehr Arbeitsspeicher" }
           P2mv3: { en: "P2mv3, premium with extra memory, twice P1mv3", de: "P2mv3, Premium mit mehr Arbeitsspeicher, doppelt so groß wie P1mv3" }
           P3mv3: { en: "P3mv3, premium with extra memory, four times P1mv3", de: "P3mv3, Premium mit mehr Arbeitsspeicher, viermal so groß wie P1mv3" }
-        values: [B1, B2, B3, P0v3, P1v3, P2v3, P3v3, P1mv3, P2mv3, P3mv3]
-        derived_from:
+        accepts: [B1, B2, B3, P0v3, P1v3, P2v3, P3v3, P1mv3, P2mv3, P3mv3]
+        answer:
           question: expected_load
           map: { small: P1v3, medium: P2v3, large: P3v3 }
         depends_on: { question: plan, equals: own }
         non_production_default: B1
-        confirm_in: [production]
         why: >
           Premium v3 is the floor for production: it is the family that supports
           zone redundancy, VNet integration with private endpoints at full speed, and
@@ -189,7 +199,9 @@ groups:
         renders: sku_name / sku.name on the plan
 
       - id: zone_redundant
-        ask: Should the plan survive the loss of an availability zone?
+        ask:
+          en: "Should the plan survive the loss of an availability zone?"
+          de: "Soll der Plan den Ausfall einer Verfügbarkeitszone überstehen?"
         type: bool
         plain:
           en: "The app {value} survive the loss of one datacenter of the region."
@@ -197,11 +209,10 @@ groups:
         plain_values:
           true: { en: "does", de: "übersteht" }
           false: { en: "does not", de: "übersteht nicht" }
-        derived_from:
+        answer:
           question: outage_impact
           map: { tolerable: false, disruptive: true, critical: true }
         depends_on: { question: plan, equals: own }
-        confirm_in: [production]
         non_production_default: false
         why: >
           Derived from how bad an outage is, answered once for the whole system.
@@ -221,12 +232,14 @@ groups:
         renders: zone_redundant / zoneRedundant / zone_balancing_enabled on the plan
 
       - id: instance_count
-        ask: How many instances should run?
+        ask:
+          en: "How many instances should run?"
+          de: "Wie viele Instanzen sollen laufen?"
         type: int
         plain:
           en: "Copies of the app running at the same time: {value}."
           de: "Gleichzeitig laufende Kopien der App: {value}."
-        derived_from:
+        answer:
           question: outage_impact
           map: { tolerable: 1, disruptive: 2, critical: 3 }
         depends_on: { question: plan, equals: own }
@@ -245,7 +258,9 @@ groups:
     title: Networking
     questions:
       - id: public_network_access
-        ask: Should this app depart from the deployment's exposure posture?
+        ask:
+          en: "Should this app depart from the deployment's exposure posture?"
+          de: "Soll diese App von der Erreichbarkeit des Deployments abweichen?"
         type: enum
         plain:
           en: "The app is {value}."
@@ -254,9 +269,8 @@ groups:
           disabled: { en: "not reachable from the internet at all", de: "aus dem Internet überhaupt nicht erreichbar" }
           enabled_with_firewall: { en: "reachable from the internet only from listed addresses", de: "aus dem Internet nur von gelisteten Adressen erreichbar" }
           enabled: { en: "reachable from the internet", de: "aus dem Internet erreichbar" }
-        values: [disabled, enabled_with_firewall, enabled]
-        from_deployment: network_exposure
-        confirm_in: [production]
+        accepts: [disabled, enabled_with_firewall, enabled]
+        answer: { deployment: network_exposure }
         why: >
           Asked only as a departure, because exposure is a property of the system and
           not of one app - the deployment set already answered it. The mapping is
@@ -278,14 +292,16 @@ groups:
           bicep: publicNetworkAccess and siteConfig.ipSecurityRestrictionsDefaultAction
 
       - id: private_endpoint_subnet
-        ask: Which subnet should this app's private endpoint live in?
-        type: ref
+        ask:
+          en: "Which subnet should this app's private endpoint live in?"
+          de: "In welchem Subnetz soll der Private Endpoint dieser App liegen?"
+        type: string
         resolved_by: derived
         plain:
           en: "Its private connection lands in subnet {value}."
           de: "Seine private Anbindung landet im Subnetz {value}."
-        ref: subnet
-        from_deployment: private_endpoint_subnet
+        accepts: { ref: subnet }
+        answer: { deployment: private_endpoint_subnet }
         per_environment: true
         why: >
           One subnet carries the deployment's private endpoints, so this is inherited
@@ -295,7 +311,9 @@ groups:
         renders: private_endpoints.<key>.subnet_resource_id / privateEndpoints[].subnetResourceId
 
       - id: vnet_integration
-        ask: Does the app call services that are only reachable privately?
+        ask:
+          en: "Does the app call services that are only reachable privately?"
+          de: "Ruft die App Dienste auf, die nur privat erreichbar sind?"
         type: bool
         plain:
           en: "The app's own outgoing traffic {value}."
@@ -320,13 +338,15 @@ groups:
           terraform: virtual_network_subnet_id; bicep: virtualNetworkSubnetResourceId
 
       - id: integration_subnet
-        ask: Which subnet does the app's outgoing traffic leave through?
-        type: ref
+        ask:
+          en: "Which subnet does the app's outgoing traffic leave through?"
+          de: "Über welches Subnetz verlässt der ausgehende Verkehr der App das Netz?"
+        type: string
         resolved_by: derived
         plain:
           en: "Outgoing traffic leaves through the subnet {value}."
           de: "Ausgehender Verkehr verlässt das Netz über das Subnetz {value}."
-        ref: subnet
+        accepts: { ref: subnet }
         required: true
         depends_on: { question: vnet_integration, equals: true }
         per_environment: true
@@ -345,7 +365,9 @@ groups:
           terraform: virtual_network_subnet_id; bicep: virtualNetworkSubnetResourceId
 
       - id: vnet_route_all
-        ask: Should all outgoing traffic go through the network, or only traffic to private addresses?
+        ask:
+          en: "Should all outgoing traffic go through the network, or only traffic to private addresses?"
+          de: "Soll der gesamte ausgehende Verkehr durch das Netz gehen oder nur der Verkehr an private Adressen?"
         type: bool
         plain:
           en: "Outgoing traffic is routed {value}."
@@ -369,7 +391,9 @@ groups:
           form is the older spelling); bicep: outboundVnetRouting.allTraffic
 
       - id: ip_restrictions
-        ask: Which public IP ranges may reach the app?
+        ask:
+          en: "Which public IP ranges may reach the app?"
+          de: "Welche öffentlichen IP-Bereiche dürfen die App erreichen?"
         type: list
         plain:
           en: "Public addresses allowed to reach the app: {value}."
@@ -393,7 +417,9 @@ groups:
     title: Identity and access
     questions:
       - id: managed_identity
-        ask: Which managed identity should the app carry?
+        ask:
+          en: "Which managed identity should the app carry?"
+          de: "Welche Managed Identity soll die App tragen?"
         type: enum
         plain:
           en: "The app has {value} for reaching other services."
@@ -402,7 +428,7 @@ groups:
           system_assigned: { en: "its own identity", de: "eine eigene Identität" }
           user_assigned: { en: "a shared, separately managed identity", de: "eine gemeinsame, separat verwaltete Identität" }
           none: { en: "no identity of its own", de: "keine eigene Identität" }
-        values: [system_assigned, user_assigned, none]
+        accepts: [system_assigned, user_assigned, none]
         default: system_assigned
         why: >
           A web app almost always reaches out - to a database, a vault, a storage
@@ -423,12 +449,14 @@ groups:
         renders: managed_identities / managedIdentities (identity.type on the site)
 
       - id: user_assigned_identity_ids
-        ask: Which user-assigned identities?
+        ask:
+          en: "Which user-assigned identities?"
+          de: "Welche User-Assigned Identities?"
         type: list
         plain:
           en: "It uses the identities {value}."
           de: "Sie nutzt die Identitäten {value}."
-        ref: user_assigned_identity
+        accepts: { ref: user_assigned_identity }
         required: true
         depends_on: { question: managed_identity, equals: user_assigned }
         per_environment: true
@@ -438,12 +466,62 @@ groups:
           `user_assigned` - the design creates it, so it is wiring, never an open item.
         renders: managed_identities.user_assigned_resource_ids / managedIdentities.userAssignedResourceIds
 
+      - id: entra_sign_in
+        ask:
+          en: "Should App Service itself require a company sign-in before a request reaches the app?"
+          de: "Soll App Service selbst eine Anmeldung mit dem Firmenkonto verlangen, bevor eine Anfrage die App erreicht?"
+        type: enum
+        plain:
+          en: "Sign-in in front of the app: {value}."
+          de: "Anmeldung vor der App: {value}."
+        plain_values:
+          none: { en: "none from the platform - whether anyone signs in is up to the application", de: "keine von der Plattform; ob jemand sich anmeldet, entscheidet die Anwendung" }
+          existing_app_registration: { en: "App Service sends every visitor to the company sign-in first, with your existing app registration", de: "App Service schickt jeden Besucher zuerst zur Firmenanmeldung, mit eurer bestehenden App-Registrierung" }
+        accepts: [none, existing_app_registration]
+        default: none
+        why: >
+          App Service Authentication answers every request without a valid session with a
+          redirect to Entra ID, before the code runs - a platform feature, so it is this
+          set's; a sign-in the application implements itself is not. The app registration is
+          not a resource of the deployment: it exists, its client id and tenant are stage
+          parameters, and its redirect URI (`https://<host>/.auth/login/aad/callback`) is an
+          `open:` entry for whoever owns the registration, because the host name exists only
+          after the first deployment.
+        renders: >
+          auth_settings_v2 { require_authentication, unauthenticated_action = "RedirectToLoginPage",
+          active_directory_v2 } / Microsoft.Web/sites/config 'authsettingsV2'
+
+      - id: entra_client_secret
+        ask:
+          en: "Where does the sign-in's client secret come from?"
+          de: "Woher kommt das Client Secret der Anmeldung?"
+        type: enum
+        plain:
+          en: "The sign-in's client secret is {value}."
+          de: "Das Client Secret der Anmeldung wird {value}."
+        plain_values:
+          key_vault_reference: { en: "read from the key vault through an app setting, never written into the code", de: "über eine App-Einstellung aus dem Tresor gelesen und nie in den Code geschrieben" }
+        accepts: [key_vault_reference]
+        default: key_vault_reference
+        depends_on: { question: entra_sign_in, equals: existing_app_registration }
+        why: >
+          The sign-in redeems its code with the registration's client secret. The secret is
+          a credential: it lives in the key vault, an app setting holds the Key Vault
+          reference, and the authentication settings name that setting - the template never
+          carries the value. Who creates the secret and writes it into the vault is an
+          `open:` entry with the registration's owner.
+        renders: >
+          active_directory_v2.client_secret_setting_name / registration.clientSecretSettingName,
+          plus the app setting with @Microsoft.KeyVault(SecretUri=...)
+
   # ----------------------------------------------------------------- security
   - id: security
     title: Security
     questions:
       - id: https_only
-        ask: Should the app refuse plain HTTP?
+        ask:
+          en: "Should the app refuse plain HTTP?"
+          de: "Soll die App unverschlüsseltes HTTP ablehnen?"
         type: bool
         plain:
           en: "Unencrypted connections are {value}."
@@ -460,7 +538,9 @@ groups:
         renders: https_only / httpsOnly
 
       - id: min_tls_version
-        ask: What is the minimum TLS version?
+        ask:
+          en: "What is the minimum TLS version?"
+          de: "Welche TLS-Version ist mindestens erforderlich?"
         type: enum
         plain:
           en: "Connections must use at least {value} encryption."
@@ -468,7 +548,7 @@ groups:
         plain_values:
           "1.2": { en: "TLS 1.2", de: "TLS 1.2" }
           "1.3": { en: "TLS 1.3", de: "TLS 1.3" }
-        values: ["1.2", "1.3"]
+        accepts: ["1.2", "1.3"]
         default: "1.2"
         why: >
           1.2 is the floor and non-negotiable. 1.3 is preferable where every client
@@ -479,7 +559,9 @@ groups:
         renders: site_config.minimum_tls_version and scm_minimum_tls_version / siteConfig.minTlsVersion and scmMinTlsVersion
 
       - id: ftps_state
-        ask: How may files be uploaded by FTP?
+        ask:
+          en: "How may files be uploaded by FTP?"
+          de: "Wie dürfen Dateien per FTP hochgeladen werden?"
         type: enum
         plain:
           en: "File upload by FTP is {value}."
@@ -488,7 +570,7 @@ groups:
           Disabled: { en: "switched off", de: "abgeschaltet" }
           FtpsOnly: { en: "possible only encrypted (FTPS)", de: "nur verschlüsselt (FTPS) möglich" }
           AllAllowed: { en: "possible, also unencrypted", de: "möglich, auch unverschlüsselt" }
-        values: [Disabled, FtpsOnly, AllAllowed]
+        accepts: [Disabled, FtpsOnly, AllAllowed]
         default: Disabled
         why: >
           Deployments go through the Kudu zip/OneDeploy endpoint, a pipeline or a
@@ -499,7 +581,9 @@ groups:
         renders: site_config.ftps_state / siteConfig.ftpsState
 
       - id: basic_auth_enabled
-        ask: Should publishing with a username and password stay possible?
+        ask:
+          en: "Should publishing with a username and password stay possible?"
+          de: "Soll das Veröffentlichen mit Benutzername und Passwort möglich bleiben?"
         type: bool
         plain:
           en: "Deploying with a user name and password is {value}; deployments run through company accounts."
@@ -507,8 +591,7 @@ groups:
         plain_values:
           true: { en: "possible", de: "möglich" }
           false: { en: "not possible", de: "nicht möglich" }
-        from_deployment: local_auth
-        confirm_in: [production]
+        answer: { deployment: local_auth }
         why: >
           Inherited: `local_auth: disabled` renders as `false` here. The publishing
           profile is a shared username and password for the Kudu site and for FTP, it
@@ -528,7 +611,9 @@ groups:
     title: Runtime
     questions:
       - id: runtime_stack
-        ask: In which technology is the application written - .NET, Node.js, Python, Java, PHP, or delivered as a container?
+        ask:
+          en: "In which technology is the application written - .NET, Node.js, Python, Java, PHP, or delivered as a container?"
+          de: "In welcher Technik ist die Anwendung geschrieben - .NET, Node.js, Python, Java, PHP, oder wird sie als Container geliefert?"
         type: enum
         plain:
           en: "The app is written for {value}."
@@ -540,8 +625,8 @@ groups:
           java: { en: "Java", de: "Java" }
           php: { en: "PHP", de: "PHP" }
           container: { en: "a container image that carries its own runtime", de: "ein Container-Image, das seine Laufzeit selbst mitbringt" }
-        values: [dotnet, node, python, java, php, container]
-        from_deployment: app_runtime
+        accepts: [dotnet, node, python, java, php, container]
+        answer: { deployment: app_runtime }
         why: >
           Inherited: the deployment set asks it once (app_runtime), before App Service is
           chosen, because the stack decides the service. A second app in another stack departs
@@ -552,7 +637,9 @@ groups:
           for the .NET and Java families on a Windows plan)
 
       - id: runtime_version
-        ask: Which version of the runtime?
+        ask:
+          en: "Which version of the runtime?"
+          de: "Welche Version der Laufzeit?"
         type: string
         plain:
           en: "Runtime version {value}."
@@ -571,7 +658,9 @@ groups:
           siteConfig.linuxFxVersion (`PYTHON|3.13`, `NODE|22-lts`, `DOTNETCORE|9.0`)
 
       - id: container_image
-        ask: Which container image?
+        ask:
+          en: "Which container image?"
+          de: "Welches Container-Image?"
         type: string
         plain:
           en: "The app runs the container image {value}."
@@ -588,8 +677,34 @@ groups:
           site_config.application_stack.docker / siteConfig.linuxFxVersion
           (`DOCKER|<image>`) with acrUseManagedIdentityCreds
 
+      - id: container_image_owner
+        ask:
+          en: "Who updates the image the app runs - this deployment, or a pipeline of its own?"
+          de: "Wer aktualisiert das Image, das die App ausführt - dieses Ausrollen oder eine eigene Pipeline?"
+        type: enum
+        plain:
+          en: "The running image is set by {value}."
+          de: "Das laufende Image setzt {value}."
+        plain_values:
+          deployment: { en: "this deployment, on every run", de: "dieses Ausrollen, bei jedem Lauf" }
+          image_pipeline: { en: "a separate image pipeline; this deployment sets it only the first time", de: "eine eigene Image-Pipeline; dieses Ausrollen setzt es nur beim ersten Mal" }
+        accepts: [deployment, image_pipeline]
+        default: deployment
+        depends_on: { question: runtime_stack, equals: container }
+        why: >
+          When the application's own pipeline builds and rolls out the image, an
+          infrastructure run that writes `container_image` again rolls the app back to the
+          tag in the stage file. `image_pipeline` sets the image on the first deployment
+          only and keeps the running one afterwards; `container_image` becomes the
+          bootstrap image.
+        renders: >
+          lifecycle { ignore_changes = [site_config[0].application_stack[0].docker_image_name] } /
+          the existing site's linuxFxVersion read before the deployment and passed back in
+
       - id: always_on
-        ask: Should the app stay loaded when nobody is calling it?
+        ask:
+          en: "Should the app stay loaded when nobody is calling it?"
+          de: "Soll die App geladen bleiben, wenn niemand sie aufruft?"
         type: bool
         plain:
           en: "The app {value} when there is no traffic."
@@ -607,7 +722,9 @@ groups:
         renders: site_config.always_on / siteConfig.alwaysOn
 
       - id: health_check_path
-        ask: Which path reports whether the app is healthy?
+        ask:
+          en: "Which path reports whether the app is healthy?"
+          de: "Unter welchem Pfad meldet die App, ob sie gesund ist?"
         type: string
         plain:
           en: "The platform checks the app's health at the path {value} (empty: not checked)."
@@ -624,7 +741,9 @@ groups:
         renders: site_config.health_check_path / siteConfig.healthCheckPath
 
       - id: http2_enabled
-        ask: Should HTTP/2 be enabled?
+        ask:
+          en: "Should HTTP/2 be enabled?"
+          de: "Soll HTTP/2 aktiviert sein?"
         type: bool
         plain:
           en: "HTTP/2 is {value}."
@@ -644,7 +763,9 @@ groups:
     title: Deployment slots
     questions:
       - id: deployment_slots
-        ask: Should the app have deployment slots - a second running copy to deploy into and swap with?
+        ask:
+          en: "Should the app have deployment slots - a second running copy to deploy into and swap with?"
+          de: "Soll die App Deployment-Slots haben - eine zweite laufende Kopie, in die deployt und mit der getauscht wird?"
         type: list
         plain:
           en: "Deployment slots beside the app: {value}."
@@ -669,7 +790,9 @@ groups:
           observability decisions
 
       - id: slot_access
-        ask: Who should reach the deployment slots - the same way as the app, only from the system's private network, or only from certain addresses?
+        ask:
+          en: "Who should reach the deployment slots - the same way as the app, only from the system's private network, or only from certain addresses?"
+          de: "Wer soll die Deployment-Slots erreichen - genauso wie die App, nur aus dem privaten Netz des Systems, oder nur von bestimmten Adressen?"
         type: enum
         resolved_by: interview
         topic: network
@@ -680,7 +803,7 @@ groups:
           same_as_app: { en: "reachable the same way as the app, each under its own address", de: "genauso erreichbar wie die App, jeder unter einer eigenen Adresse" }
           private: { en: "reachable only from the system's private network", de: "nur aus dem privaten Netz des Systems erreichbar" }
           known_addresses: { en: "reachable only from certain address ranges, such as your team's", de: "nur aus bestimmten Adressbereichen erreichbar, etwa denen eures Teams" }
-        values: [same_as_app, private, known_addresses]
+        accepts: [same_as_app, private, known_addresses]
         default: same_as_app
         depends_on: { question: deployment_slots, not_equals: [] }
         why: >
@@ -704,7 +827,9 @@ groups:
           public access enabled with slot_ip_restrictions, default action Deny
 
       - id: slot_ip_restrictions
-        ask: Which public IP ranges may reach the deployment slots?
+        ask:
+          en: "Which public IP ranges may reach the deployment slots?"
+          de: "Welche öffentlichen IP-Bereiche dürfen die Deployment-Slots erreichen?"
         type: list
         plain:
           en: "Public addresses allowed to reach the slots: {value}."
@@ -721,7 +846,9 @@ groups:
           slots[].siteConfig.ipSecurityRestrictions and scmIpSecurityRestrictionsUseMain
 
       - id: auto_swap
-        ask: Should a deployment into the slot swap into production automatically?
+        ask:
+          en: "Should a deployment into the slot swap into production automatically?"
+          de: "Soll ein Deployment in den Slot automatisch in die Produktion getauscht werden?"
         type: bool
         plain:
           en: "A release in the slot {value}."
@@ -742,7 +869,9 @@ groups:
           set to `production` only when true; omitted otherwise
 
       - id: sticky_settings
-        ask: Which app settings stay with the slot when it is swapped?
+        ask:
+          en: "Which app settings stay with the slot when it is swapped?"
+          de: "Welche App-Einstellungen bleiben beim Tausch am Slot?"
         type: list
         plain:
           en: "Settings that stay with their slot on a swap: {value}."
@@ -764,14 +893,16 @@ groups:
     title: Observability
     questions:
       - id: diagnostic_workspace
-        ask: Which Log Analytics workspace should receive diagnostics?
-        type: ref
+        ask:
+          en: "Which Log Analytics workspace should receive diagnostics?"
+          de: "Welcher Log Analytics Workspace soll die Diagnosedaten erhalten?"
+        type: string
         resolved_by: derived
         plain:
           en: "Its logs go to {value}."
           de: "Seine Logs gehen in {value}."
-        ref: log_analytics_workspace
-        from_deployment: diagnostics_destination
+        accepts: { ref: log_analytics_workspace }
+        answer: { deployment: diagnostics_destination }
         per_environment: true
         why: >
           Inherited: one deployment, one destination, or correlating an incident across
@@ -781,7 +912,9 @@ groups:
         renders: diagnostic_settings / diagnosticSettings (site and plan)
 
       - id: diagnostic_categories
-        ask: Which log categories should be collected?
+        ask:
+          en: "Which log categories should be collected?"
+          de: "Welche Log-Kategorien sollen erfasst werden?"
         type: list
         plain:
           en: "Logged: {value}."
@@ -793,7 +926,7 @@ groups:
           AppServiceAuditLogs: { en: "who signed in to deploy or manage the app", de: "wer sich zum Ausrollen oder Verwalten angemeldet hat" }
           AppServiceIPSecAuditLogs: { en: "changes to the access restrictions", de: "Änderungen an den Zugriffsbeschränkungen" }
           AppServicePlatformLogs: { en: "the platform's own messages about the app", de: "die eigenen Meldungen der Plattform zur App" }
-        values: [AppServiceHTTPLogs, AppServiceConsoleLogs, AppServiceAppLogs, AppServiceAuditLogs, AppServiceIPSecAuditLogs, AppServicePlatformLogs]
+        accepts: [AppServiceHTTPLogs, AppServiceConsoleLogs, AppServiceAppLogs, AppServiceAuditLogs, AppServiceIPSecAuditLogs, AppServicePlatformLogs]
         default: [AppServiceHTTPLogs, AppServiceAppLogs, AppServiceAuditLogs, AppServiceIPSecAuditLogs, AppServicePlatformLogs]
         why: >
           Departs from "audit categories only" on purpose: for a web app the audit logs
@@ -802,13 +935,15 @@ groups:
           Console logs are left out because they mostly duplicate the app logs and are
           the bulk of the ingestion bill; add them when the app writes to stdout and not
           through a logger. HTTP logs are the volume line on a busy site, so in
-          production they are a choice to confirm, not a thing to forget. The category
+          production they are a choice to make, not a thing to forget. The category
           names are the platform's and are checked against the resource's supported
           categories before a render, not remembered.
         renders: diagnostic_settings.<key>.logs[].category / diagnosticSettings[].logCategoriesAndGroups[].category
 
       - id: metrics_enabled
-        ask: Should all metrics be collected?
+        ask:
+          en: "Should all metrics be collected?"
+          de: "Sollen alle Metriken erfasst werden?"
         type: bool
         plain:
           en: "Usage and performance figures are {value}."
@@ -824,12 +959,14 @@ groups:
         renders: metrics[].category = "AllMetrics" / metricCategories[].category
 
       - id: application_insights
-        ask: Which Application Insights component should receive the app's telemetry?
-        type: ref
+        ask:
+          en: "Which Application Insights component should receive the app's telemetry?"
+          de: "Welche Application-Insights-Komponente soll die Telemetrie der App erhalten?"
+        type: string
         plain:
           en: "Its application telemetry goes to {value} (empty: none)."
           de: "Seine Anwendungstelemetrie geht an {value} (leer: keine)."
-        ref: application_insights
+        accepts: { ref: application_insights }
         default: ""
         per_environment: true
         forced_when: >

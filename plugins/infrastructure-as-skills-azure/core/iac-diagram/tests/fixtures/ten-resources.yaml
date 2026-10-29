@@ -80,21 +80,6 @@ wiring:
       - { from: function-app, to: storage-account }
       - { from: function-app, to: external:sharepoint-online, label: Graph 443 }
     source: stated
-  purposes:
-    value:
-      app-service: Webshop frontend
-      function-app: Order worker
-      storage-account: Product images
-      key-vault: all secrets
-      sql-server: Orders and customers
-      redis-cache: Session and cart cache
-      service-bus: Order events
-      container-registry: Images of all apps
-      cosmos-db: Catalog
-    source: stated
-  optional:
-    value: [redis-cache]
-    source: stated
   private_dns_zones:
     - privatelink.blob.core.windows.net
     - privatelink.vaultcore.azure.net
@@ -127,19 +112,27 @@ resources:
             - { name: snet-agents, prefix: 10.40.4.0/27 }
         source: assumed
   storage-account:
+    meta:
+      purpose: { value: Product images, source: stated }
     networking:
       public_network_access: { value: disabled, source: deployment }
       private_endpoint_subnet: { value: { production: snet-privatelink }, source: deployment }
   key-vault:
+    meta:
+      purpose: { value: all secrets, source: stated }
     networking:
       public_network_access: { value: disabled, source: deployment }
       private_endpoint_subnet: { value: { production: snet-privatelink }, source: deployment }
   app-service:
+    meta:
+      purpose: { value: Webshop frontend, source: stated }
     networking:
       integration_subnet: { value: { production: virtual-network.snet-app-integration }, source: stated }   # a reference with the resource key in front
       public_network_access: { value: disabled, source: deployment }
       private_endpoint_subnet: { value: { production: snet-privatelink }, source: deployment }
   function-app:
+    meta:
+      purpose: { value: Order worker, source: stated }
     networking:
       public_network_access: { value: disabled, source: deployment }
       private_endpoint_subnet: { value: { production: snet-privatelink }, source: deployment }
@@ -148,18 +141,28 @@ resources:
     observability:
       sampling: { value: 100, source: default }
   sql-server:
+    meta:
+      purpose: { value: Orders and customers, source: stated }
     networking:
       public_network_access: { value: disabled, source: deployment }
   service-bus:
+    meta:
+      purpose: { value: Order events, source: stated }
     networking:
       public_network_access: { value: disabled, source: deployment }
   container-registry:
+    meta:
+      purpose: { value: Images of all apps, source: stated }
     networking:
       public_network_access: { value: disabled, source: deployment }
   redis-cache:
+    meta:
+      purpose: { value: Session and cart cache, source: stated }
     networking:
       public_network_access: { value: disabled, source: deployment }
   cosmos-db:
+    meta:
+      purpose: { value: Catalog, source: stated }
     networking:
       public_network_access: { value: disabled, source: deployment }
   event-grid:

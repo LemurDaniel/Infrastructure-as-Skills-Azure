@@ -49,7 +49,7 @@ python3 plugins/infrastructure-as-skills-azure/core/iac-authoring/scripts/check_
 python plugins/infrastructure-as-skills-azure/core/iac-authoring/tests/run_spec_tests.py
 
 # Validates every question set (or the paths given) against the format: enum defaults,
-# depends_on / from_deployment targets, resolution fields, `resolved_by`, unknown fields.
+# depends_on / answer targets, resolution fields, `resolved_by`, unknown fields.
 python3 plugins/infrastructure-as-skills-azure/core/iac-authoring/scripts/check_question_set.py
 
 # What the interview reads instead of the 2,000-line sets: interview questions, forced_when,
@@ -88,10 +88,8 @@ python3 plugins/infrastructure-as-skills-azure/core/iac-authoring/scripts/export
 
 # A rendered example: fmt, validate, plan-only tests with a mocked platform.
 # Every decision in the spec asserted by those tests, or marked not-testable with a reason.
-# A per-family render (examples/order-platform/infra): each family module carries its own tests, the root one wiring test.
-terraform -chdir=examples/order-platform/infra/modules/app init -backend=false && terraform -chdir=examples/order-platform/infra/modules/app test
-terraform -chdir=examples/order-platform/infra init -backend=false && terraform -chdir=examples/order-platform/infra test
-python plugins/infrastructure-as-skills-azure/core/iac-rendering/scripts/check_render_coverage.py examples/order-platform/infra/infra-spec.yaml
+terraform -chdir=examples/chat-sandbox init -backend=false && terraform -chdir=examples/chat-sandbox test
+python plugins/infrastructure-as-skills-azure/core/iac-rendering/scripts/check_render_coverage.py examples/chat-sandbox/infra-spec.yaml
 # The eval dashboard app (eval-agent/dashboard, Node 22): endpoint tests, and the container
 # locally with generated data, no Azure and no GitHub (MOCK=1).
 npm --prefix eval-agent/dashboard test
@@ -176,6 +174,11 @@ are in [README.md](README.md#why-one-trigger-and-families-that-are-not-skills).
   inputs against the module README rather than memory.
 - **A `CLAUDE.md` inside the plugin directory is not loaded as context.** Instructions that
   must reach Claude belong in a skill. This file is at the repo root and does load.
+- **GitHub Copilot CLI loads this plugin from the same manifests.** It reads
+  `.claude-plugin/marketplace.json` and `.claude-plugin/plugin.json` as its legacy format,
+  `"skills": ["./core/"]` included. An Agent Plugins 1.0 root `plugin.json` would take
+  precedence and fixes skills to `skills/`; adding one means moving `core/`. Check with
+  `copilot skill list` after a change to a manifest.
 - **Frontmatter `name` must equal the skill's directory name.**
 - **Skills carry the rule and its lasting reason, never its history.** No dates, "owner's
   call" or "missed on ..." in a `SKILL.md`: every line is loaded on every use. The
@@ -195,7 +198,7 @@ are in [README.md](README.md#why-one-trigger-and-families-that-are-not-skills).
 - **Defaults come from the guardrails, not from the Azure portal.** They diverge routinely
   and in the same direction.
 - **A decision that holds for more than one resource belongs in the deployment set.** A
-  resource question that re-asks one carries `from_deployment` instead of a `default`.
+  resource question that re-asks one carries `answer: { deployment: <id> }` instead of a `default`.
 - **A missing question set is said out loud, never improvised.**
 - **The stack is the default.** `context.environments` is `[development, test, production]`
   unless the customer says otherwise; one root, one parameter file and one state (backend
@@ -203,7 +206,7 @@ are in [README.md](README.md#why-one-trigger-and-families-that-are-not-skills).
   stage file, never a literal in the template; `non_production_default` relaxes cost
   knobs outside production and is refused on anything security-shaped.
 - **Only `resolved_by: interview` questions reach the person.** There is no audience
-  field: a question is `interview`, `platform` (never asked: derived from the
+  field: a question is `interview`, `derived` (never asked: follows from the
   landing-zone answers, defaulted or an `open:` entry) or has no `resolved_by` and is defaulted or derived.
 - **A change to a rendered tree (`eval-agent/infra/`, `examples/`) goes spec, `check_spec.py`,
   diagram, sign-off, then the render by `iac-rendering` - never a hand edit of the `.bicep`/`.tf`.**
@@ -217,7 +220,7 @@ are in [README.md](README.md#why-one-trigger-and-families-that-are-not-skills).
   against the compiled ARM (`run_arm_tests.py`; symbolic names via `bicepconfig.json`).
   `check_render_coverage.py` fails on anything else, per target.
 - **`check_question_set.py` parses; `check_repo_consistency.py` greps.** Run both before
-  a commit that touches a question set: the first finds a default outside `values` or a
+  a commit that touches a question set: the first finds a default outside `accepts` or a
   `depends_on` pointing nowhere, the second finds a routing row pointing nowhere.
 
 ## Repository Conventions

@@ -353,18 +353,18 @@ def main():
                     q_warnings.append(f"{r} - '{qid}' has no ask, so there is no question to put to the user")
                 has_default = re.search(r'^\s+default:', b, re.M) is not None
                 has_required = re.search(r'^\s+required:\s*true', b, re.M) is not None
-                # Inherited from the deployment set (copied, or derived through a map),
-                # so it needs no default of its own.
-                has_inherit = re.search(r'^\s+(from_deployment|derived_from):', b, re.M) is not None
+                # Inherited (`answer`: from the deployment set, the context, or derived
+                # through a map), so it needs no default of its own.
+                has_inherit = re.search(r'^\s+answer:[ \t]*(\{|$)', b, re.M) is not None
                 # Supplied at deploy time as an input variable, so it is never asked either.
                 if re.search(r'^\s+parameterized:\s*true', b, re.M):
                     has_inherit = True
                 if has_default and has_required:
                     q_errors.append(f"{r} - '{qid}' sets both required: true and a default. A required question is one with no safe default.")
                 if has_inherit and (has_default or has_required):
-                    q_errors.append(f"{r} - '{qid}' sets from_deployment or derived_from together with a default or required. The deployment answer is the default; a second one here is the ambiguity this field exists to remove.")
+                    q_errors.append(f"{r} - '{qid}' sets answer together with a default or required. The inherited answer is the default; a second one here is the ambiguity this field exists to remove.")
                 if not has_default and not has_required and not has_inherit:
-                    q_warnings.append(f"{r} - '{qid}' has neither a default, required: true, from_deployment nor derived_from, so it is unclear whether it gets asked")
+                    q_warnings.append(f"{r} - '{qid}' has neither a default, required: true nor an answer, so it is unclear whether it gets asked")
                 if not re.search(r'^\s+why:', b, re.M):
                     q_warnings.append(f"{r} - '{qid}' has no why. It is the only artefact that survives into a review.")
                 if not re.search(r'^\s+renders:', b, re.M):

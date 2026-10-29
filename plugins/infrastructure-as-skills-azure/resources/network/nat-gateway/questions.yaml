@@ -27,14 +27,15 @@ groups:
     title: Placement
     questions:
       - id: environments
-        ask: Which stages is this deployed to?
+        ask:
+          en: "Which stages is this deployed to?"
+          de: "In welche Stufen wird das ausgerollt?"
         type: list
         plain:
           en: "Deployed in the stages {value}."
           de: "Wird in den Stufen {value} ausgerollt."
-        values: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
-        required: true
-        from_context: true
+        accepts: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
+        answer: { context: environments }
         why: >
           Drives the rendered name. One NAT gateway per network and stage: a gateway shared
           across stages shares its addresses, and a partner's allowlist then trusts the
@@ -42,27 +43,29 @@ groups:
         renders: naming parameter `environment`, and the tag of that name where the repository uses one
 
       - id: location
-        ask: Which Azure region?
+        ask:
+          en: "Which Azure region?"
+          de: "Welche Azure-Region?"
         type: string
         plain:
           en: "Created in the Azure region {value}."
           de: "Wird in der Azure-Region {value} angelegt."
-        required: true
-        from_context: true
+        answer: { context: location }
         why: >
           A NAT gateway is regional and serves subnets of virtual networks in its own region
           only; another region means another gateway.
         renders: location
 
       - id: resource_group_name
-        ask: Which resource group?
-        type: ref
+        ask:
+          en: "Which resource group?"
+          de: "Welche Ressourcengruppe?"
+        type: string
         plain:
           en: "Placed in the resource group {value}."
           de: "Liegt in der Ressourcengruppe {value}."
-        ref: resource_group
-        required: true
-        from_context: true
+        accepts: { ref: resource_group }
+        answer: { context: resource_group_name }
         per_environment: true
         why: >
           Placed into an existing group, usually the network's, together with the addresses it
@@ -74,7 +77,9 @@ groups:
     title: Gateway
     questions:
       - id: subnets
-        ask: Which subnets should send their outbound traffic through the gateway?
+        ask:
+          en: "Which subnets should send their outbound traffic through the gateway?"
+          de: "Welche Subnetze sollen ihren ausgehenden Verkehr über das Gateway schicken?"
         type: list
         plain:
           en: "Subnets that go out through the gateway: {value}."
@@ -90,7 +95,9 @@ groups:
         renders: virtual-network subnets.<k>.nat_gateway.id / natGatewayResourceId
 
       - id: sku
-        ask: Which generation of NAT gateway should it be?
+        ask:
+          en: "Which generation of NAT gateway should it be?"
+          de: "Welche Generation von NAT Gateway soll es sein?"
         type: enum
         plain:
           en: "The NAT gateway is of the type {value}."
@@ -98,11 +105,10 @@ groups:
         plain_values:
           Standard: { en: "Standard (held in one zone or none)", de: "Standard (in einer Zone oder keiner gehalten)" }
           StandardV2: { en: "Standard V2 (zone-redundant by design)", de: "Standard V2 (von Haus aus zonenredundant)" }
-        values: [Standard, StandardV2]
-        derived_from:
+        accepts: [Standard, StandardV2]
+        answer:
           question: outage_impact
           map: { tolerable: Standard, disruptive: StandardV2, critical: StandardV2 }
-        confirm_in: [production]
         why: >
           Standard is zonal: it sits in one zone or in none, and the loss of that zone ends
           the outbound connectivity of every subnet behind it. StandardV2 spans the zones of
@@ -114,14 +120,16 @@ groups:
         renders: sku_name / natGatewaySku
 
       - id: zone
-        ask: In which zone should the gateway be held?
+        ask:
+          en: "In which zone should the gateway be held?"
+          de: "In welcher Zone soll das Gateway gehalten werden?"
         type: enum
         plain:
           en: "The gateway is held in zone {value}."
           de: "Das Gateway liegt in Zone {value}."
         plain_values:
           none: { en: "no fixed zone - Azure places it", de: "keine feste Zone - Azure platziert es" }
-        values: [none, "1", "2", "3"]
+        accepts: [none, "1", "2", "3"]
         default: none
         depends_on: { question: sku, equals: Standard }
         why: >
@@ -134,7 +142,9 @@ groups:
         renders: zones / availabilityZone (-1 for none)
 
       - id: public_ip_source
-        ask: Should the gateway create its own public addresses?
+        ask:
+          en: "Should the gateway create its own public addresses?"
+          de: "Soll das Gateway seine eigenen öffentlichen Adressen anlegen?"
         type: enum
         plain:
           en: "The outbound addresses are {value}."
@@ -142,7 +152,7 @@ groups:
         plain_values:
           with_gateway: { en: "created together with the gateway", de: "zusammen mit dem Gateway angelegt" }
           separate: { en: "taken from addresses managed on their own", de: "aus eigens verwalteten Adressen genommen" }
-        values: [with_gateway, separate]
+        accepts: [with_gateway, separate]
         default: with_gateway
         why: >
           The gateway's modules create the addresses they need - Static, in the SKU that
@@ -154,7 +164,9 @@ groups:
         renders: public_ips + public_ip_configuration / publicIPAddresses (with_gateway), public_ip_resource_ids / publicIpResourceIds (separate)
 
       - id: public_ip_count
-        ask: How many outbound addresses should the gateway have?
+        ask:
+          en: "How many outbound addresses should the gateway have?"
+          de: "Wie viele ausgehende Adressen soll das Gateway haben?"
         type: int
         plain:
           en: "The gateway has {value} outbound address(es)."
@@ -170,12 +182,14 @@ groups:
         renders: public_ips (one map entry per address) / publicIPAddresses (one array entry per address)
 
       - id: public_ip_prefix_ids
-        ask: Which public IP prefixes should the gateway use?
+        ask:
+          en: "Which public IP prefixes should the gateway use?"
+          de: "Welche öffentlichen IP-Präfixe soll das Gateway verwenden?"
         type: list
         plain:
           en: "Outbound address ranges the customer holds: {value}."
           de: "Ausgangs-Adressbereiche des Kunden: {value}."
-        ref: public_ip_prefix
+        accepts: { ref: public_ip_prefix }
         default: []
         per_environment: true
         why: >
@@ -185,7 +199,9 @@ groups:
         renders: public_ip_prefix_resource_ids / publicIPPrefixResourceIds
 
       - id: idle_timeout_minutes
-        ask: After how many minutes of silence should an idle connection be dropped?
+        ask:
+          en: "After how many minutes of silence should an idle connection be dropped?"
+          de: "Nach wie vielen Minuten Stille soll eine Verbindung im Leerlauf getrennt werden?"
         type: int
         plain:
           en: "Connections that stay silent for {value} minutes are dropped."
@@ -203,14 +219,16 @@ groups:
     title: Observability
     questions:
       - id: diagnostic_workspace
-        ask: Which Log Analytics workspace should receive diagnostics?
-        type: ref
+        ask:
+          en: "Which Log Analytics workspace should receive diagnostics?"
+          de: "Welcher Log Analytics Workspace soll die Diagnosedaten erhalten?"
+        type: string
         resolved_by: derived
         plain:
           en: "Its metrics go to {value}."
           de: "Seine Messwerte gehen in {value}."
-        ref: log_analytics_workspace
-        from_deployment: diagnostics_destination
+        accepts: { ref: log_analytics_workspace }
+        answer: { deployment: diagnostics_destination }
         per_environment: true
         why: >
           Inherited: one deployment, one destination. A NAT gateway has no logs, but its
@@ -219,7 +237,9 @@ groups:
         renders: diagnostic_settings (Terraform) / a diagnostic setting on the gateway (authored; the Bicep module has none)
 
       - id: metrics_enabled
-        ask: Should all metrics be collected?
+        ask:
+          en: "Should all metrics be collected?"
+          de: "Sollen alle Metriken erfasst werden?"
         type: bool
         plain:
           en: "Usage and performance figures are {value}."

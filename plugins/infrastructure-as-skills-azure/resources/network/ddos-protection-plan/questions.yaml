@@ -26,14 +26,15 @@ groups:
     title: Placement
     questions:
       - id: environments
-        ask: Which stages is this deployed to?
+        ask:
+          en: "Which stages is this deployed to?"
+          de: "In welche Stufen wird das ausgerollt?"
         type: list
         plain:
           en: "Deployed in the stages {value}."
           de: "Wird in den Stufen {value} ausgerollt."
-        values: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
-        required: true
-        from_context: true
+        accepts: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
+        answer: { context: environments }
         why: >
           Drives the rendered name. Whether every stage gets a plan is `stages_with_plan` below:
           a plan is a fixed monthly fee, and three of them for one workload's stages is the
@@ -41,13 +42,14 @@ groups:
         renders: naming parameter `environment`; which stages render the plan is `stages_with_plan`
 
       - id: location
-        ask: Which Azure region?
+        ask:
+          en: "Which Azure region?"
+          de: "Welche Azure-Region?"
         type: string
         plain:
           en: "Created in the Azure region {value}."
           de: "Wird in der Azure-Region {value} angelegt."
-        required: true
-        from_context: true
+        answer: { context: location }
         why: >
           The plan is a regional resource for placement only; it protects networks in **any**
           region and any subscription of the tenant. Not asked: the context's region, which is
@@ -55,14 +57,15 @@ groups:
         renders: location
 
       - id: resource_group_name
-        ask: Which resource group?
-        type: ref
+        ask:
+          en: "Which resource group?"
+          de: "Welche Ressourcengruppe?"
+        type: string
         plain:
           en: "Placed in the resource group {value}."
           de: "Liegt in der Ressourcengruppe {value}."
-        ref: resource_group
-        required: true
-        from_context: true
+        accepts: { ref: resource_group }
+        answer: { context: resource_group_name }
         per_environment: true
         why: >
           The network group where one is split off, otherwise the main group: the plan belongs
@@ -76,7 +79,9 @@ groups:
     title: Plan
     questions:
       - id: ownership
-        ask: Who provides the DDoS protection plan?
+        ask:
+          en: "Who provides the DDoS protection plan?"
+          de: "Wer stellt den DDoS-Schutzplan bereit?"
         type: enum
         resolved_by: derived
         plain:
@@ -85,7 +90,7 @@ groups:
         plain_values:
           platform: { en: "the company platform, which runs one plan for every network of the tenant", de: "der Firmenplattform, die einen Plan für alle Netze des Mandanten betreibt" }
           deployment: { en: "this deployment, which creates one of its own", de: "diesem Ausrollen, das einen eigenen anlegt" }
-        values: [platform, deployment]
+        accepts: [platform, deployment]
         default: platform
         forced_when: >
           `deployment.landing_zone: standalone` pre-answers `deployment` - there is no platform
@@ -101,13 +106,15 @@ groups:
         renders: whether the module is called (`deployment`) or only `existing_plan` is handed to the networks (`platform`)
 
       - id: existing_plan
-        ask: Which existing DDoS protection plan should the networks use?
-        type: ref
+        ask:
+          en: "Which existing DDoS protection plan should the networks use?"
+          de: "Welchen bestehenden DDoS-Schutzplan sollen die Netze verwenden?"
+        type: string
         resolved_by: derived
         plain:
           en: "The networks use the protection plan {value}."
           de: "Die Netze nutzen den Schutzplan {value}."
-        ref: ddos_protection_plan
+        accepts: { ref: ddos_protection_plan }
         required: true
         depends_on: { question: ownership, equals: platform }
         per_environment: true
@@ -119,7 +126,9 @@ groups:
         renders: data "azurerm_network_ddos_protection_plan" / an `existing` resource with scope; the id goes to virtual-network.ddos_protection and public-ip-address.ddos_protection_plan
 
       - id: stages_with_plan
-        ask: Should every stage get a plan of its own, or production only?
+        ask:
+          en: "Should every stage get a plan of its own, or production only?"
+          de: "Soll jede Stufe einen eigenen Plan bekommen, oder nur die Produktion?"
         type: enum
         plain:
           en: "A protection plan exists {value}."
@@ -127,16 +136,15 @@ groups:
         plain_values:
           production: { en: "in production only; development and test rely on Azure's always-on basic protection", de: "nur in der Produktion; Entwicklung und Test verlassen sich auf Azures immer aktiven Basisschutz" }
           all_stages: { en: "in every stage", de: "in jeder Stufe" }
-        values: [production, all_stages]
+        accepts: [production, all_stages]
         default: production
-        confirm_in: [production]
         depends_on: { question: ownership, equals: deployment }
         why: >
           A plan per stage is the fixed fee per stage, and a development network under attack is
           an inconvenience, not an outage of the business - Azure's infrastructure protection
           applies to every public address regardless. So production only, decided here in the
           open rather than through a cost relaxation, because less protection outside production
-          is a security-shaped choice a reviewer should see and confirm. `all_stages` is for a
+          is a security-shaped choice a reviewer should see. `all_stages` is for a
           test stage that rehearses production under load, or a stack whose stages sit in one
           subscription and could share one plan - then one plan, created in production,
           referenced by the others, is the cheaper form of `all_stages` and is what the render
@@ -151,7 +159,9 @@ groups:
     title: Access
     questions:
       - id: role_assignments
-        ask: Who needs to attach networks to the plan?
+        ask:
+          en: "Who needs to attach networks to the plan?"
+          de: "Wer muss Netze an den Plan anbinden?"
         type: list
         plain:
           en: "Rights to use the plan granted to: {value}."

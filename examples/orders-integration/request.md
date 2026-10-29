@@ -47,7 +47,7 @@ What the spec records beyond the words:
   and Event Grid stay in the main group.
 - **Service Bus Standard in development and test has no private endpoint.** The request asks for
   Standard there and for no public access with a private endpoint. Standard stays, those two
-  stages keep a firewalled endpoint (`public_network_access`, `source: overridden`); production is
+  stages keep a firewalled endpoint (`public_network_access`, overridden); production is
   Premium and closed.
 - **Front Door cannot reach a gateway over Private Link.** `origin_connection: public`, the
   gateway's frontend public, both `overridden`; the gateway admits only the `AzureFrontDoor.Backend`

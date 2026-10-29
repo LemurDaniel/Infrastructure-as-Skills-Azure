@@ -124,6 +124,7 @@ def main():
         return 1
 
     # Every map carrying a `value` under resources: is a decision; its key path is its id.
+    # A resource's `meta` describes it and renders nothing, so no test covers it.
     decisions = []
 
     def find(node, path):
@@ -133,7 +134,7 @@ def main():
             decisions.append(path)
             return
         for k in node:
-            if str(k).startswith('_'):
+            if str(k).startswith('_') or (k == 'meta' and path.count('.') == 0 and path):
                 continue
             find(node[k], f"{path}.{k}" if path else str(k))
 

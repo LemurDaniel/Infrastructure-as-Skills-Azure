@@ -35,6 +35,7 @@ resource group as `parent_id`. It does not use `azurerm` at all.
 | `allow_blob_public_access` | `allow_nested_items_to_be_public` | |
 | `infrastructure_encryption_enabled` | `infrastructure_encryption_enabled` | Module default `false` — the guardrail says `true`; the one input that must not be left to the module |
 | `sftp_enabled` | `sftp_enabled` (+ `is_hns_enabled = true`) | |
+| `hierarchical_namespace` | `is_hns_enabled` | |
 | `replication`, `access_tier` | `account_sku_name = "Standard_ZRS"`, `access_tier` | **Trap:** `account_sku_name` defaults to `Standard_ZRS` and overrides `account_tier` + `account_replication_type` unless set to `null`. Render the SKU name, as Bicep does; leave the pair alone |
 | `managed_identity` | `managed_identities = { system_assigned = true }` | |
 | `key_management: customer_managed` | `customer_managed_key = { key_vault_resource_id, key_name, user_assigned_identity = { resource_id } }` | The module applies it after creation (`azapi_update_resource`), so a system-assigned identity works too; the user-assigned one is still preferred for the wrap/unwrap grant to exist first |
@@ -107,6 +108,8 @@ module "storage" {
   # Access is via Entra ID and RBAC; the module itself never uses a key.
   shared_access_key_enabled = false
   sftp_enabled              = false
+  # decision: storage-account.data_protection.hierarchical_namespace - set at creation
+  is_hns_enabled = false
   # Settable only at creation. The module default is false.
   infrastructure_encryption_enabled = true
 
@@ -255,6 +258,7 @@ this way, or reading what the module does inside.
 | `change_feed_enabled` | `blob_properties.change_feed_enabled` |
 | `point_in_time_restore_days` | `blob_properties.restore_policy.days` |
 | `sftp_enabled` | `sftp_enabled` (requires `is_hns_enabled = true`) |
+| `hierarchical_namespace` | `is_hns_enabled` |
 
 `account_tier` is not a question — it follows from `replication` and `access_tier`. Standard
 unless the answers call for premium block blob.
@@ -295,6 +299,7 @@ resource "azurerm_storage_account" "this" {
   # attributable in the audit log.
   shared_access_key_enabled = false
   sftp_enabled              = false
+  is_hns_enabled            = false
 
   # Settable only at creation — changing it later replaces the account.
   infrastructure_encryption_enabled = true
@@ -611,6 +616,12 @@ run "security" {
   assert {
     condition     = azurerm_storage_account.this.sftp_enabled == false
     error_message = "SFTP brings local users - credentials outside Entra ID."
+  }
+
+  # decision: storage-account.data_protection.hierarchical_namespace
+  assert {
+    condition     = azurerm_storage_account.this.is_hns_enabled == false
+    error_message = "Plain blob storage: no hierarchical namespace unless the account is a data lake."
   }
 }
 

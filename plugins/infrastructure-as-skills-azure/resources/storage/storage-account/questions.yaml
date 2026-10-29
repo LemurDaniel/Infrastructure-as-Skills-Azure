@@ -22,27 +22,29 @@ groups:
     title: Placement
     questions:
       - id: environments
-        ask: Which stages is this deployed to?
+        ask:
+          en: "Which stages is this deployed to?"
+          de: "In welche Stufen wird das ausgerollt?"
         type: list
         plain:
           en: "Deployed in the stages {value}."
           de: "Wird in den Stufen {value} ausgerollt."
-        values: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
-        required: true
-        from_context: true
+        accepts: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
+        answer: { context: environments }
         why: >
           Drives the rendered name and the strictness of several defaults below.
           Nothing sensible can be guessed.
         renders: naming parameter `environment`, and the tag of that name where the repository uses one
 
       - id: location
-        ask: Which Azure region?
+        ask:
+          en: "Which Azure region?"
+          de: "Welche Azure-Region?"
         type: string
         plain:
           en: "Runs in the Azure region {value}."
           de: "Läuft in der Azure-Region {value}."
-        required: true
-        from_context: true
+        answer: { context: location }
         why: >
           Part of the rendered name and not inferable. Note that replication
           choice and region interact: ZRS is unavailable in regions without
@@ -50,14 +52,15 @@ groups:
         renders: azurerm_storage_account.location / resource.location
 
       - id: resource_group_name
-        ask: Which resource group?
-        type: ref
+        ask:
+          en: "Which resource group?"
+          de: "Welche Ressourcengruppe?"
+        type: string
         plain:
           en: "Placed in the resource group {value}."
           de: "Liegt in der Ressourcengruppe {value}."
-        ref: resource_group
-        required: true
-        from_context: true
+        accepts: { ref: resource_group }
+        answer: { context: resource_group_name }
         per_environment: true
         why: >
           The account is placed into an existing group. Creating one here would
@@ -69,7 +72,9 @@ groups:
     title: Networking
     questions:
       - id: public_network_access
-        ask: Should this account depart from the deployment's exposure posture?
+        ask:
+          en: "Should this account depart from the deployment's exposure posture?"
+          de: "Soll dieses Konto von der Erreichbarkeit des Deployments abweichen?"
         type: enum
         plain:
           en: "The storage is {value}."
@@ -78,9 +83,8 @@ groups:
           disabled: { en: "not reachable from the internet at all", de: "aus dem Internet überhaupt nicht erreichbar" }
           enabled_with_firewall: { en: "reachable from the internet only from listed addresses", de: "aus dem Internet nur von gelisteten Adressen erreichbar" }
           enabled: { en: "reachable from the internet", de: "aus dem Internet erreichbar" }
-        values: [disabled, enabled_with_firewall, enabled]
-        from_deployment: network_exposure
-        confirm_in: [production]
+        accepts: [disabled, enabled_with_firewall, enabled]
+        answer: { deployment: network_exposure }
         why: >
           Asked only as a departure, because exposure is a property of the system
           and not of one account - the deployment set already answered it. The
@@ -99,14 +103,16 @@ groups:
           bicep: properties.publicNetworkAccess, properties.networkAcls.defaultAction
 
       - id: private_endpoint_subnet
-        ask: Which subnet should this account's private endpoint live in?
-        type: ref
+        ask:
+          en: "Which subnet should this account's private endpoint live in?"
+          de: "In welchem Subnetz soll der Private Endpoint dieses Kontos liegen?"
+        type: string
         resolved_by: derived
         plain:
           en: "Its private connection lands in subnet {value}."
           de: "Seine private Anbindung landet im Subnetz {value}."
-        ref: subnet
-        from_deployment: private_endpoint_subnet
+        accepts: { ref: subnet }
+        answer: { deployment: private_endpoint_subnet }
         per_environment: true
         why: >
           One subnet carries the deployment's private endpoints, so this is
@@ -116,7 +122,9 @@ groups:
         renders: azurerm_private_endpoint.subnet_id / Microsoft.Network/privateEndpoints
 
       - id: private_endpoint_subresources
-        ask: Which storage services need an endpoint?
+        ask:
+          en: "Which storage services need an endpoint?"
+          de: "Welche Speicherdienste brauchen einen Endpunkt?"
         type: list
         plain:
           en: "Private connections exist for: {value}."
@@ -128,7 +136,7 @@ groups:
           table: { en: "tables", de: "Tabellen" }
           dfs: { en: "the data lake", de: "den Data Lake" }
           web: { en: "the static website", de: "die statische Website" }
-        values: [blob, file, queue, table, dfs, web]
+        accepts: [blob, file, queue, table, dfs, web]
         default: [blob]
         depends_on: { question: public_network_access, not_equals: enabled }
         why: >
@@ -137,7 +145,9 @@ groups:
         renders: azurerm_private_endpoint.private_service_connection.subresource_names
 
       - id: firewall_ip_rules
-        ask: Which public IP ranges may reach the account?
+        ask:
+          en: "Which public IP ranges may reach the account?"
+          de: "Welche öffentlichen IP-Bereiche dürfen das Konto erreichen?"
         type: list
         plain:
           en: "Public addresses allowed through the firewall: {value}."
@@ -152,12 +162,14 @@ groups:
         renders: network_rules.ip_rules / networkAcls.ipRules
 
       - id: firewall_subnet_rules
-        ask: Which subnets may reach the account via service endpoint?
+        ask:
+          en: "Which subnets may reach the account via service endpoint?"
+          de: "Welche Subnetze dürfen das Konto über einen Service Endpoint erreichen?"
         type: list
         plain:
           en: "Networks allowed through the firewall: {value}."
           de: "Durch die Firewall erlaubte Netze: {value}."
-        ref: subnet
+        accepts: { ref: subnet }
         default: []
         depends_on: { question: public_network_access, equals: enabled_with_firewall }
         per_environment: true
@@ -168,7 +180,9 @@ groups:
         renders: network_rules.virtual_network_subnet_ids / networkAcls.virtualNetworkRules
 
       - id: allow_azure_services_bypass
-        ask: Should trusted Azure services bypass the firewall?
+        ask:
+          en: "Should trusted Azure services bypass the firewall?"
+          de: "Sollen vertrauenswürdige Azure-Dienste die Firewall umgehen dürfen?"
         type: bool
         plain:
           en: "Azure's own services (backup, monitoring) {value} reach the storage past the firewall."
@@ -189,7 +203,9 @@ groups:
     title: Identity and access
     questions:
       - id: managed_identity
-        ask: Which managed identity should the account carry?
+        ask:
+          en: "Which managed identity should the account carry?"
+          de: "Welche Managed Identity soll das Konto tragen?"
         type: enum
         plain:
           en: "The storage has {value} for reaching other services."
@@ -198,7 +214,7 @@ groups:
           system_assigned: { en: "its own identity", de: "eine eigene Identität" }
           user_assigned: { en: "a shared, separately managed identity", de: "eine gemeinsame, separat verwaltete Identität" }
           none: { en: "no identity of its own", de: "keine eigene Identität" }
-        values: [system_assigned, user_assigned, none]
+        accepts: [system_assigned, user_assigned, none]
         default: none
         why: >
           The account needs an identity of its own only when it reaches outward —
@@ -210,12 +226,14 @@ groups:
         renders: identity.type / identity
 
       - id: user_assigned_identity_ids
-        ask: Which user-assigned identities?
+        ask:
+          en: "Which user-assigned identities?"
+          de: "Welche User-Assigned Identities?"
         type: list
         plain:
           en: "It uses the identities {value}."
           de: "Er nutzt die Identitäten {value}."
-        ref: user_assigned_identity
+        accepts: { ref: user_assigned_identity }
         required: true
         depends_on: { question: managed_identity, equals: user_assigned }
         per_environment: true
@@ -223,7 +241,9 @@ groups:
         renders: identity.identity_ids / identity.userAssignedIdentities
 
       - id: role_assignments
-        ask: Who needs which data-plane role on this account?
+        ask:
+          en: "Who needs which data-plane role on this account?"
+          de: "Wer braucht welche Rolle auf Datenebene auf diesem Konto?"
         type: list
         plain:
           en: "Access rights granted to: {value}."
@@ -246,7 +266,9 @@ groups:
     title: Security
     questions:
       - id: shared_access_key_enabled
-        ask: Should shared key (account key) authentication stay enabled?
+        ask:
+          en: "Should shared key (account key) authentication stay enabled?"
+          de: "Soll die Anmeldung mit Shared Key (Kontoschlüssel) aktiviert bleiben?"
         type: bool
         plain:
           en: "Access with a shared key is {value}; access goes through company accounts."
@@ -254,8 +276,7 @@ groups:
         plain_values:
           true: { en: "possible", de: "möglich" }
           false: { en: "not possible", de: "nicht möglich" }
-        from_deployment: local_auth
-        confirm_in: [production]
+        answer: { deployment: local_auth }
         why: >
           Inherited: `local_auth: disabled` renders as `false` here. An account key
           is a bearer credential with full data-plane rights, it does not expire,
@@ -267,7 +288,9 @@ groups:
         renders: shared_access_key_enabled / properties.allowSharedKeyAccess
 
       - id: min_tls_version
-        ask: What is the minimum TLS version?
+        ask:
+          en: "What is the minimum TLS version?"
+          de: "Welche TLS-Version ist mindestens erforderlich?"
         type: enum
         plain:
           en: "Connections must use at least {value} encryption."
@@ -275,7 +298,7 @@ groups:
         plain_values:
           TLS1_2: { en: "TLS 1.2", de: "TLS 1.2" }
           TLS1_3: { en: "TLS 1.3", de: "TLS 1.3" }
-        values: [TLS1_2, TLS1_3]
+        accepts: [TLS1_2, TLS1_3]
         default: TLS1_2
         why: >
           1.2 is the floor and non-negotiable. 1.3 is preferable where every
@@ -284,7 +307,9 @@ groups:
         renders: min_tls_version / properties.minimumTlsVersion
 
       - id: https_traffic_only
-        ask: Should the account refuse plain HTTP?
+        ask:
+          en: "Should the account refuse plain HTTP?"
+          de: "Soll das Konto unverschlüsseltes HTTP ablehnen?"
         type: bool
         plain:
           en: "Unencrypted connections are {value}."
@@ -300,7 +325,9 @@ groups:
         renders: https_traffic_only_enabled / properties.supportsHttpsTrafficOnly
 
       - id: allow_blob_public_access
-        ask: May individual containers be made publicly readable?
+        ask:
+          en: "May individual containers be made publicly readable?"
+          de: "Dürfen einzelne Container öffentlich lesbar gemacht werden?"
         type: bool
         plain:
           en: "Making individual folders publicly readable is {value}."
@@ -318,7 +345,9 @@ groups:
         renders: allow_nested_items_to_be_public / properties.allowBlobPublicAccess
 
       - id: infrastructure_encryption_enabled
-        ask: Should infrastructure (double) encryption be enabled?
+        ask:
+          en: "Should infrastructure (double) encryption be enabled?"
+          de: "Soll die Infrastrukturverschlüsselung (doppelte Verschlüsselung) aktiviert werden?"
         type: bool
         plain:
           en: "A second encryption layer below the service is {value}."
@@ -335,7 +364,9 @@ groups:
         renders: infrastructure_encryption_enabled / properties.encryption.requireInfrastructureEncryption
 
       - id: key_management
-        ask: Platform-managed or customer-managed encryption keys?
+        ask:
+          en: "Platform-managed or customer-managed encryption keys?"
+          de: "Schlüssel von der Plattform oder vom Kunden verwaltet?"
         type: enum
         plain:
           en: "Encryption keys are {value}."
@@ -343,8 +374,8 @@ groups:
         plain_values:
           platform_managed: { en: "managed by Azure - encrypted, rotated, no effort on your side", de: "von Azure verwaltet: verschlüsselt, rotiert, kein Aufwand bei euch" }
           customer_managed: { en: "your own, held in your key vault, so you can revoke them", de: "eure eigenen in eurem Schlüsseltresor, damit ihr sie zurückziehen könnt" }
-        values: [platform_managed, customer_managed]
-        from_deployment: key_management
+        accepts: [platform_managed, customer_managed]
+        answer: { deployment: key_management }
         why: >
           Inherited, because a deployment where one account uses customer-managed
           keys and the next does not has a key strategy nobody can state. The
@@ -354,12 +385,14 @@ groups:
         renders: customer_managed_key / properties.encryption.keySource
 
       - id: cmk_key_vault_key_id
-        ask: Which Key Vault key should encrypt the account?
-        type: ref
+        ask:
+          en: "Which Key Vault key should encrypt the account?"
+          de: "Welcher Key-Vault-Schlüssel soll das Konto verschlüsseln?"
+        type: string
         plain:
           en: "Encrypted with your key {value}."
           de: "Verschlüsselt mit eurem Schlüssel {value}."
-        ref: key_vault_key
+        accepts: { ref: key_vault_key }
         required: true
         depends_on: { question: key_management, equals: customer_managed }
         per_environment: true
@@ -370,7 +403,9 @@ groups:
         renders: customer_managed_key.key_vault_key_id / properties.encryption.keyvaultproperties
 
       - id: sftp_enabled
-        ask: Should the SFTP endpoint be enabled?
+        ask:
+          en: "Should the SFTP endpoint be enabled?"
+          de: "Soll der SFTP-Endpunkt aktiviert werden?"
         type: bool
         plain:
           en: "File transfer via SFTP is {value}."
@@ -391,7 +426,9 @@ groups:
     title: Data protection
     questions:
       - id: replication
-        ask: Which replication does the data need?
+        ask:
+          en: "Which replication does the data need?"
+          de: "Welche Replikation brauchen die Daten?"
         type: enum
         plain:
           en: "The data is kept {value}."
@@ -401,11 +438,10 @@ groups:
           ZRS: { en: "in three datacenters of the region, so one can fail", de: "in drei Rechenzentren der Region, eines darf ausfallen" }
           GRS: { en: "in one datacenter plus a copy in a second region", de: "in einem Rechenzentrum plus einer Kopie in einer zweiten Region" }
           GZRS: { en: "in three datacenters of the region plus a copy in a second region", de: "in drei Rechenzentren der Region plus einer Kopie in einer zweiten Region" }
-        values: [LRS, ZRS, GRS, GZRS]
-        derived_from:
+        accepts: [LRS, ZRS, GRS, GZRS]
+        answer:
           question: outage_impact
           map: { tolerable: LRS, disruptive: ZRS, critical: GZRS }
-        confirm_in: [production]
         non_production_default: LRS
         why: >
           Derived from how bad an outage is, which the customer answered once for
@@ -427,7 +463,9 @@ groups:
         renders: account_replication_type / sku.name
 
       - id: access_tier
-        ask: Which default access tier?
+        ask:
+          en: "Which default access tier?"
+          de: "Welche Standard-Zugriffsebene?"
         type: enum
         plain:
           en: "Stored in the {value} class."
@@ -436,8 +474,8 @@ groups:
           Hot: { en: "standard - cheap to read, for data in use", de: "Standard: günstig beim Lesen, für Daten in Nutzung" }
           Cool: { en: "cool - cheaper to keep, a small charge per read", de: "Cool: günstiger im Aufbewahren, kleiner Aufpreis beim Lesen" }
           Cold: { en: "cold - cheapest to keep, expensive to read back", de: "Cold: am günstigsten im Aufbewahren, teuer beim Zurücklesen" }
-        values: [Hot, Cool, Cold]
-        derived_from:
+        accepts: [Hot, Cool, Cold]
+        answer:
           question: data_access_pattern
           map: { active: Hot, occasional: Cool, archive: Cold }
         why: >
@@ -448,13 +486,35 @@ groups:
           default.
         renders: access_tier / properties.accessTier
 
+      - id: hierarchical_namespace
+        ask:
+          en: "Is the account a data lake, with real folders that analytics tools read?"
+          de: "Ist das Konto ein Data Lake, mit echten Ordnern, die Analysewerkzeuge lesen?"
+        type: bool
+        plain:
+          en: "The account is {value}."
+          de: "Das Konto ist {value}."
+        plain_values:
+          true: { en: "a data lake with real folders (Data Lake Storage Gen2)", de: "ein Data Lake mit echten Ordnern (Data Lake Storage Gen2)" }
+          false: { en: "plain blob storage without folders", de: "ein einfacher Blob-Speicher ohne Ordner" }
+        default: false
+        why: >
+          The hierarchical namespace turns blob paths into real directories with their own
+          access lists, which Spark, Synapse, Fabric and Event Hubs capture expect of a data
+          lake. Set at creation: an existing account can be upgraded once, never reverted.
+          Off by default because it costs blob features an ordinary account keeps, among them
+          point-in-time restore; SFTP needs it on.
+        renders: is_hns_enabled / properties.isHnsEnabled
+
       - id: blob_soft_delete_days
-        ask: How many days should deleted blobs stay restorable?
+        ask:
+          en: "How many days should deleted blobs stay restorable?"
+          de: "Wie viele Tage sollen gelöschte Blobs wiederherstellbar bleiben?"
         type: int
         plain:
           en: "Deleted files can be restored for {value} days (0: not at all)."
           de: "Gelöschte Dateien sind {value} Tage wiederherstellbar (0: gar nicht)."
-        derived_from:
+        answer:
           question: data_loss_tolerance
           map: { reproducible: 0, one_week: 7, one_month: 30, three_months: 90 }
         why: >
@@ -465,12 +525,14 @@ groups:
         renders: blob_properties.delete_retention_policy.days / properties.deleteRetentionPolicy
 
       - id: container_soft_delete_days
-        ask: How many days should deleted containers stay restorable?
+        ask:
+          en: "How many days should deleted containers stay restorable?"
+          de: "Wie viele Tage sollen gelöschte Container wiederherstellbar bleiben?"
         type: int
         plain:
           en: "Deleted folders can be restored for {value} days (0: not at all)."
           de: "Gelöschte Ordner sind {value} Tage wiederherstellbar (0: gar nicht)."
-        derived_from:
+        answer:
           question: data_loss_tolerance
           map: { reproducible: 0, one_week: 7, one_month: 30, three_months: 90 }
         why: >
@@ -480,7 +542,9 @@ groups:
         renders: blob_properties.container_delete_retention_policy.days / properties.containerDeleteRetentionPolicy
 
       - id: versioning_enabled
-        ask: Should blob versioning be enabled?
+        ask:
+          en: "Should blob versioning be enabled?"
+          de: "Soll die Blob-Versionierung aktiviert werden?"
         type: bool
         plain:
           en: "Earlier versions of overwritten files are {value}."
@@ -488,7 +552,7 @@ groups:
         plain_values:
           true: { en: "kept", de: "aufgehoben" }
           false: { en: "not kept", de: "nicht aufgehoben" }
-        derived_from:
+        answer:
           question: data_loss_tolerance
           map: { reproducible: false, one_week: true, one_month: true, three_months: true }
         why: >
@@ -499,7 +563,9 @@ groups:
         renders: blob_properties.versioning_enabled / properties.isVersioningEnabled
 
       - id: change_feed_enabled
-        ask: Should the change feed be enabled?
+        ask:
+          en: "Should the change feed be enabled?"
+          de: "Soll der Änderungsfeed aktiviert werden?"
         type: bool
         plain:
           en: "A log of every change is {value}."
@@ -507,7 +573,7 @@ groups:
         plain_values:
           true: { en: "kept", de: "geführt" }
           false: { en: "not kept", de: "nicht geführt" }
-        derived_from:
+        answer:
           question: priority
           map: { cost: false, balanced: false, protection: true }
         why: >
@@ -517,7 +583,9 @@ groups:
         renders: blob_properties.change_feed_enabled / properties.changeFeed
 
       - id: point_in_time_restore_days
-        ask: How many days of point-in-time restore?
+        ask:
+          en: "How many days of point-in-time restore?"
+          de: "Wie viele Tage Point-in-Time-Wiederherstellung?"
         type: int
         plain:
           en: "The whole storage can be rewound {value} days (0: not at all)."
@@ -532,7 +600,9 @@ groups:
         renders: blob_properties.restore_policy.days / properties.restorePolicy
 
       - id: immutability
-        ask: Does the data need immutability (WORM)?
+        ask:
+          en: "Does the data need immutability (WORM)?"
+          de: "Brauchen die Daten Unveränderlichkeit (WORM)?"
         type: enum
         plain:
           en: "Deletion protection by law or policy: {value}."
@@ -541,7 +611,7 @@ groups:
           none: { en: "none", de: "keiner" }
           account_level: { en: "the whole storage, locked", de: "der ganze Speicher, gesperrt" }
           container_level: { en: "per folder", de: "pro Ordner" }
-        values: [none, account_level, container_level]
+        accepts: [none, account_level, container_level]
         default: none
         why: >
           A legal-hold or time-based retention regime that even an account owner
@@ -557,14 +627,16 @@ groups:
     title: Observability
     questions:
       - id: diagnostic_workspace
-        ask: Which Log Analytics workspace should receive diagnostics?
-        type: ref
+        ask:
+          en: "Which Log Analytics workspace should receive diagnostics?"
+          de: "Welcher Log Analytics Workspace soll die Diagnosedaten erhalten?"
+        type: string
         resolved_by: derived
         plain:
           en: "Its logs go to {value}."
           de: "Seine Logs gehen in {value}."
-        ref: log_analytics_workspace
-        from_deployment: diagnostics_destination
+        accepts: { ref: log_analytics_workspace }
+        answer: { deployment: diagnostics_destination }
         per_environment: true
         why: >
           Inherited: one deployment, one destination, or correlating an incident
@@ -575,7 +647,9 @@ groups:
         renders: azurerm_monitor_diagnostic_setting / Microsoft.Insights/diagnosticSettings
 
       - id: diagnostic_categories
-        ask: Which log categories should be collected?
+        ask:
+          en: "Which log categories should be collected?"
+          de: "Welche Log-Kategorien sollen erfasst werden?"
         type: list
         plain:
           en: "Logged: {value}."
@@ -586,7 +660,7 @@ groups:
           StorageRead: { en: "reads", de: "Lesezugriffe" }
           StorageWrite: { en: "writes", de: "Schreibzugriffe" }
           StorageDelete: { en: "deletes", de: "Löschungen" }
-        values: [audit, allLogs, StorageRead, StorageWrite, StorageDelete]
+        accepts: [audit, allLogs, StorageRead, StorageWrite, StorageDelete]
         default: [audit]
         why: >
           Audit categories always. `allLogs` is right in non-production and for
@@ -596,7 +670,9 @@ groups:
         renders: enabled_log.category_group / logs.categoryGroup
 
       - id: metrics_enabled
-        ask: Should all metrics be collected?
+        ask:
+          en: "Should all metrics be collected?"
+          de: "Sollen alle Metriken erfasst werden?"
         type: bool
         plain:
           en: "Usage and performance figures are {value}."

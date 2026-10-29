@@ -14,8 +14,8 @@ bicep build --stdout modules/bot-service.bicep
 | `br/public:avm/res/bot-service/bot-service` | **Proposed** in the index, not published (no tags on MCR) | 2026-10-26 |
 
 Per [avm.md](../../../core/iac-rendering/references/avm.md), a `Proposed` module renders authored
-code and the spec records `implementation: authored`, `source: forced`, `forced_by: no AVM module
-for Microsoft.BotService/botServices`. Check the index before a render; when the module is
+code and the spec records `implementation: authored`, `source: { forced_by: no AVM module
+for Microsoft.BotService/botServices }`. Check the index before a render; when the module is
 `Available`, this reference is rewritten against it.
 
 ### Decision -> ARM property

@@ -21,7 +21,7 @@ deployment:
   landing_zone: { value: online, source: stated }
   network_exposure: { value: public, source: stated }
   network_ownership: { value: none, source: stated }
-  observability_ownership: { value: create, source: forced, forced_by: deployment.landing_zone }
+  observability_ownership: { value: create, source: { forced_by: deployment.landing_zone } }
   private_dns_ownership: { value: deployment, source: default }
   local_auth: { value: disabled, source: default }
 
@@ -32,20 +32,23 @@ wiring:
       - { from: app-service, to: key-vault }
       - { from: app-service, to: redis-cache }   # not a resource here: must not become an actor
     source: stated
-  purposes:
-    value: { app-service: Shop frontend, storage-account: Product images, key-vault: Secrets }
-    source: stated
 
 resources:
   app-service:
+    meta:
+      purpose: { value: Shop frontend, source: stated }
     networking:
       public_network_access: { value: enabled_with_firewall, source: deployment }
   storage-account:
+    meta:
+      purpose: { value: Product images, source: stated }
     networking:
       public_network_access: { value: enabled_with_firewall, source: deployment }
   key-vault:
+    meta:
+      purpose: { value: Secrets, source: stated }
     networking:
-      public_network_access: { value: disabled, source: overridden, reason: the vault is only called by the app }
+      public_network_access: { value: disabled, source: { overridden: the vault is only called by the app } }
   log-analytics-workspace:
     cost:
       retention_days: { value: 30, source: default }

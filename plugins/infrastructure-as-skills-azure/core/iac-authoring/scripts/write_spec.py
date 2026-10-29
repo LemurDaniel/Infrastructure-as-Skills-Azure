@@ -7,16 +7,15 @@ The run decides, this script lays the file out: the same decisions give the same
 a re-run is a diff of what moved, not of how it was typed.
 
   - sections in a fixed order (spec, context, deployment, pattern, composition, resources,
-    wiring, open); a decision's fields as value, source, then where it came from;
+    wiring, open); a decision's fields as value, source, forces;
   - deployment keys in the order of questions/deployment.yaml under one `# --- <group> ---`
     comment per group; a resource's groups and questions in the order of its question set,
     one blank line between resources; a stage map in the order of context.environments.
     The resources themselves keep the order the run wrote them in: the decision document,
     the name list and the picture follow it, and the run puts what matters most first;
-  - a decision on one line when it fits in 120 characters and holds no comment
-    (`min_tls_version: {value: TLS1_2, source: default}`), and so a short list or map of
-    plain values ([audit], {development: B1, test: B1, production: P1v3}); a longer one
-    with its fields on lines of their own; never a YAML anchor;
+  - every map in block style, one key per line - a decision, a stage map, a source; only a
+    short list of plain values on one line ([audit], [development, test, production]);
+    never a YAML anchor;
   - spec.plugin_version stamped with the installed plugin (--no-stamp leaves it as it is);
   - the root's naming.yaml written beside the spec when it has none, by
     core/iac-rendering/scripts/write_naming.py (not with --check).
@@ -52,9 +51,9 @@ WRITE_NAMING = PLUGIN / "core" / "iac-rendering" / "scripts" / "write_naming.py"
 SECTIONS = ['schema_version', 'spec', 'context', 'deployment', 'pattern', 'composition', 'resources', 'wiring', 'open']
 HEAD = ['id', 'target', 'generated_by', 'plugin_version', 'skill', 'skill_version', 'at']
 CONTEXT = ['environments', 'language', 'location', 'workload', 'subscription_id', 'resource_group_name', 'tags']
-ENTRY = ['value', 'source', 'derived_from', 'forced_by', 'non_production', 'reason', 'forces']
+ENTRY = ['value', 'source', 'forces']
 COMPOSITION = ['granularity', 'source', 'modules']
-WIRING = ['private_dns_zones', 'role_assignments', 'access', 'purposes', 'optional']
+WIRING = ['private_dns_zones', 'role_assignments', 'access']
 OPEN = ['key', 'environments', 'question', 'owner', 'blocks']
 WIDTH = 120
 GROUP_COMMENT = re.compile(r'^# --- .+ ---$')
@@ -105,10 +104,12 @@ def canonical(spec, sets):
         return e
 
     def by_set(d, set_groups):
-        """A resource's groups and questions in the order of its question set."""
+        """A resource's groups and questions in the order of its question set, `meta` first."""
         if not isinstance(d, dict):
             return d
         out = {}
+        if isinstance(d.get('meta'), dict):
+            out['meta'] = {q: entry(v) for q, v in d['meta'].items()}
         for gid, ids in set_groups:
             g = d.get(gid)
             if isinstance(g, dict):
@@ -129,12 +130,9 @@ def canonical(spec, sets):
     dep = out.get('deployment')
     if isinstance(dep, dict):
         new = {}
-        known = {q for _, ids in sets['deployment'] for q in ids}
-        # resource_group_mode_part stands for the per-part keys of the component scheme
-        per_part = [k for k in dep if str(k).startswith('resource_group_mode_') and k not in known]
         for gid, ids in sets['deployment'] + [('not in deployment.yaml', list(dep))]:
             first = True
-            for q in [x for q in ids for x in (per_part if q == 'resource_group_mode_part' else [q])]:
+            for q in ids:
                 if q in dep and q not in new:
                     if first:
                         groups[('deployment', str(q))] = [f'# --- {gid} ---']
@@ -291,23 +289,13 @@ def emit(spec, leading, trailing, groups):
     def has_notes(path):
         return any(len(p) > len(path) and p[:len(path)] == path for p in noted)
 
-    def is_plain(v, depth=0):
-        if isinstance(v, (dict, list)):
-            items = v.values() if isinstance(v, dict) else v
-            return not v or (depth == 0 and all(is_plain(i, 1) for i in items))
-        return True
-
     def one_line(v, path, used):
-        """Whether a collection goes on one line: no comment inside, at least two levels down,
-        short, and plain values only - or a decision whose value is a short list or map."""
-        if not isinstance(v, (dict, list)) or not v or len(path) < 2 or has_notes(path):
+        """Whether a collection goes on one line: a short list of plain values with no comment
+        inside, at least two levels down. A map never - a decision, a stage map, a source -
+        so every key reads down the page at its own indent."""
+        if not isinstance(v, list) or not v or len(path) < 2 or has_notes(path):
             return False
-        items = v.values() if isinstance(v, dict) else v
-        if isinstance(v, dict) and 'source' in v:
-            ok = all(is_plain(i) for i in items)
-        else:
-            ok = all(not isinstance(i, (dict, list)) or not i for i in items)
-        return ok and used + len(flat(v)) <= WIDTH
+        return all(not isinstance(i, (dict, list)) for i in v) and used + len(flat(v)) <= WIDTH
 
     def above(path, ind):
         for c in groups.get(path, []):
@@ -399,6 +387,7 @@ def main():
     if unplaced:
         print(f"{path}: not written - a comment stands where no key can carry it: {unplaced[:3]}")
         return 2
+    onto_first_key(data, leading, trailing)
     new = emit(data, leading, trailing, groups)
 
     if yaml.safe_load(new) != spec:
@@ -422,6 +411,30 @@ def main():
     kept = sum(len(c) for c in leading.values()) + len(trailing)
     print(f"{path}: written ({kept} comment(s) kept)")
     return write_naming(path, args.check)
+
+
+def onto_first_key(data, leading, trailing):
+    """A comment on a list item that is a map - `- { from: a, to: b }  # note` - moves to the
+    item's first key: the item is written as a block, and its first line is that key's."""
+    def at(p):
+        node = data
+        for k in p:
+            try:
+                node = node[k]
+            except (KeyError, IndexError, TypeError):
+                return None
+        return node
+
+    for notes in (leading, trailing):
+        for p in [p for p in notes if p and isinstance(p[-1], int)]:
+            item = at(p)
+            if isinstance(item, dict) and item:
+                target = p + (str(next(iter(item))),)
+                if notes is trailing:
+                    if target not in trailing:
+                        trailing[target] = trailing.pop(p)
+                else:
+                    leading[target] = leading.pop(p) + leading.get(target, [])
 
 
 def write_naming(path, check):

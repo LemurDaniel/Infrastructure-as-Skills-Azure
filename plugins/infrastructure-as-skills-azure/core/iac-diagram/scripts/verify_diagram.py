@@ -10,7 +10,6 @@ The second argument may also be the infra-diagram.drawio.png; the XML is read fr
 
   - every key under `resources:` is drawn exactly once, and nothing else is drawn as a resource
   - the open entries are counted in the panel, and a resource one of them points at is drawn red
-  - every `wiring.optional` resource is marked optional
   - with --language de: no ae/oe/ue/ss transliterations in the fixed labels ("ueber", "oeffentlich")
 
 Exit 0 consistent, 1 a mismatch, 2 could not run.
@@ -77,12 +76,6 @@ def verify(spec, cells, language):
                 c = cells.get(f"res-{r}")
                 if c and '#D13438' not in c['style']:
                     bad.append(f"open entry on '{r}', but the resource is not drawn red")
-
-    optional = (spec.get('wiring') or {}).get('optional') or []
-    for k in optional:
-        c = cells.get(f'res-{k}')
-        if c and 'opacity=' not in c['style']:
-            bad.append(f"optional resource '{k}' is not faded")
 
     if language == 'de':
         for cid, v in cells.items():

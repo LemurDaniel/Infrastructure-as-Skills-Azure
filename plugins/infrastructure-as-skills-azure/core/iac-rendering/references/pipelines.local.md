@@ -47,7 +47,7 @@ $env:ARM_USE_AZUREAD = 'true'
 # A placeholder never deploys: a stage whose open items are unanswered stops here.
 $stageFile = "environments/$Stage.tfvars"
 if (-not (Test-Path $stageFile)) { throw "$stageFile is missing" }
-if (Select-String -Path $stageFile -Pattern '00000000-0000-0000-0000-000000000000|OPEN-' -Quiet) {
+if (Select-String -Path $stageFile -Pattern '00000000-0000-0000-0000-000000000000|OPEN-|ASSUMED:' -Quiet) {
   throw "Stage $Stage still holds placeholder values in $stageFile - answer the open items first."
 }
 
@@ -96,7 +96,7 @@ $params = "main.$Stage.bicepparam"
 
 # A placeholder never deploys: a stage whose open items are unanswered stops here.
 if (-not (Test-Path $params)) { throw "$params is missing" }
-if (Select-String -Path $params -Pattern '00000000-0000-0000-0000-000000000000|OPEN-' -Quiet) {
+if (Select-String -Path $params -Pattern '00000000-0000-0000-0000-000000000000|OPEN-|ASSUMED:' -Quiet) {
   throw "Stage $Stage still holds placeholder values in $params - answer the open items first."
 }
 

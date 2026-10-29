@@ -2,7 +2,7 @@ schema_version: 1
 
 # Hand-written fixture for run_spec_tests.py, never a starting spec or a template: a private
 # deployment whose resource groups are split - network (existing, handed out by the platform),
-# data and observability (created), the rest in the main group (created). The key vault departs
+# data, application and observability (created); a split has no main group. The key vault departs
 # from its role and sits with the data, grants a role and holds a secret placeholder, so the
 # deployer needs all three extra roles. The tests break one rule of it at a time.
 spec:
@@ -17,8 +17,6 @@ context:
   workload: shop
   subscription_id:
     production: 11111111-2222-3333-4444-555555555555
-  resource_group_name:
-    production: rg-shop-prod-we
   resource_group_name_network:
     production: rg-spoke-shop-prod-we
 
@@ -30,19 +28,16 @@ deployment:
   observability_ownership: { value: create, source: default }
   private_dns_ownership: { value: deployment, source: default }
   local_auth: { value: disabled, source: default }
-  resource_group_split: { value: [network, data, observability], source: stated }
-  resource_group_mode_main: { value: create, source: stated }
-  resource_group_mode_network: { value: existing, source: stated }
-  resource_group_mode_data: { value: create, source: stated }
-  resource_group_mode_observability: { value: create, source: asked }
+  resource_group_layout: { value: split, source: asked }
+  resource_group_scheme: { value: concern, source: asked }
+  resource_groups_created: { value: [application, data, observability], source: stated }
   resource_group_lock: { value: production, source: default }
   deployer_roles:
     value:
-      - { role: Contributor, scope: subscription, for: [deployment.resource_group_mode_main] }
+      - { role: Contributor, scope: subscription, for: [deployment.resource_groups_created] }
       - { role: Role Based Access Control Administrator, scope: resource_group, for: [resources.key-vault] }
       - { role: Key Vault Secrets Officer, scope: key-vault, for: [resources.key-vault.security.secret_placeholders] }
-    source: forced
-    forced_by: [deployment.resource_group_mode_main, resources.key-vault.identity.role_assignments, resources.key-vault.security.secret_placeholders]
+    source: { forced_by: [deployment.resource_groups_created, resources.key-vault.identity.role_assignments, resources.key-vault.security.secret_placeholders] }
 
 wiring:
   access:
@@ -51,23 +46,26 @@ wiring:
       - { from: app-service, to: storage-account }
       - { from: app-service, to: key-vault }
     source: stated
-  purposes:
-    value: { app-service: Shop frontend, storage-account: Product images, key-vault: Secrets }
-    source: stated
 
 resources:
   virtual-network:
     addressing:
-      address_space: { value: 10.30.0.0/16, source: forced, forced_by: deployment.address_space }
+      address_space: { value: 10.30.0.0/16, source: { forced_by: deployment.address_space } }
   app-service:
+    meta:
+      purpose: { value: Shop frontend, source: stated }
     networking:
       public_network_access: { value: disabled, source: deployment }
   storage-account:
+    meta:
+      purpose: { value: Product images, source: stated }
     networking:
       public_network_access: { value: disabled, source: deployment }
   key-vault:
+    meta:
+      purpose: { value: Secrets, source: stated }
     placement:
-      resource_group: { value: data, source: overridden, reason: the vault is kept with the data it protects }
+      resource_group: { value: data, source: { overridden: the vault is kept with the data it protects } }
     networking:
       public_network_access: { value: disabled, source: deployment }
     identity:

@@ -15,4 +15,4 @@ been applied.
 What the spec records: `deployment.resource_group_split`, one `resource_group_mode_<role>` per
 role (the network group `existing`, the others `create`), the network group's name as
 `context.resource_group_name_network`, and `storage-account__host` placed in `application`
-(`source: overridden`).
+(overridden).

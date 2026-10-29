@@ -251,7 +251,7 @@ the detail; this list says what was decided and why, so a session does not reope
   is written by `.github/scripts/update_foundry_models.py` from the EU regions' catalogue and
   refreshed monthly by `foundry-models.yml` (identity of the `production` environment, a PR
   with a patch bump when it changed); no CLI in the user's session. The question field
-  `options_from` carries it into the digest. The interview asks family first (multi-select),
+  `accepts: { catalogue: models.yaml }` carries it into the digest. The interview asks family first (multi-select),
   then per family its three newest models (multi-select, "Noch offen" first), the embedding
   model as a single choice; a family outside the residency answer is put back, never widened.
 - **Application telemetry goes to Application Insights by default** (2026-10-28, owner's call).
@@ -259,6 +259,12 @@ the detail; this list says what was decided and why, so a session does not reope
   workspace-based component per stage for the whole system when there is an App Service,
   Function App or Container Apps; each application's `application_insights` is forced to it
   (app setting or container env). `check_spec.py` fails on `enabled` with an app and no component.
+- **Application Insights is reachable from the internet by default, like its workspace**
+  (2026-10-29, owner's call). It inherited `network_exposure`, so a private deployment closed
+  it - but a closed component needs an Azure Monitor Private Link Scope, which a standalone
+  deployment never has, and received no telemetry behind an `open:` entry blocking apply. Now
+  `public_network_access` defaults to `enabled` (ingestion authenticated by Entra ID); `disabled`
+  only for a stated AMPLS. Seen in a diagram: the workspace marked public, the component not.
 - **The plugin owns the infrastructure, not the application** (2026-10-28, owner's call). What
   the code does - sign-in implemented in a container, the Application Insights SDK - is not
   asked, flagged or opened; platform features (a component, a connection string, Easy Auth if
@@ -267,9 +273,49 @@ the detail; this list says what was decided and why, so a session does not reope
   owner's call). No `dev` branch: one person, and the marketplace reads `master`, so what is
   there is released anyway. `pull-request.yml` fails unless `plugin.json`'s version is newer
   than the last tag and `master` (`check_version_bump.py`), plus the repository checks;
-  `release.yml` runs on the push to `master` and creates tag and release itself. Rebase merge
-  only (keeps the one-concern commits); `master` is protected (PR, both checks, up to date,
+  `release.yml` runs on the push to `master` and creates tag and release itself. Squash merge
+  only (2026-10-29, owner's call; was rebase merge), one commit per PR on `master`; `master` is protected (PR, both checks, up to date,
   linear history, admins included). No tag by hand.
+- **The question-set format, revised** (2026-10-28, branch `restructure-core`):
+  `accepts` is the one field for what an answer may be - a value list, `{ ref: <kind> }` or
+  `{ catalogue: <file> }`; `values`, `ref`, `options_from` and `type: ref` are gone, the type
+  says one or many. `ask` carries `en` and `de` like `plain`, so the interview reads the
+  customer's question instead of translating it anew each run. `confirm_in` is gone: a
+  "please confirm" in a document the customer skims changes nothing - what the customer can
+  judge is asked or derived from a requirement. A question that inherits its answer is never
+  `interview` and repeats `derived` from its source (checked). `answer` is the one field for an
+  inherited value - `{ deployment }`, `{ context }` or `{ question, map }`. There is no engineer role:
+  open items belong to the workload owner or the platform team.
+- **The spec format, revised: what is derived is not written** (2026-10-29, branch
+  `restructure-core`, owner's review of `spec.md`). No migration path - nobody but the owner
+  uses the plugin; the repo's specs were moved over, `check_spec.py` refuses the old forms.
+  - `source` is a word or a map of one key that names the kind and its pointer:
+    `{ forced_by: ... }`, `{ derived_from: deployment.<id> }`, `{ overridden: <reason> }`;
+    no `forced_by:`/`derived_from:`/`reason:` beside it. One field says where a value came from.
+  - Every map in block style, a stage map one stage per line; only a short list of plain
+    values stays on one line - the one-liners with nested braces were unreadable.
+  - `resources.<key>.meta.purpose` replaces `wiring.purposes`: a purpose belongs to its
+    resource, and `meta` holds what describes rather than decides. `wiring.optional` is gone:
+    a part nobody decided on is an `open:` entry, a resource in the spec is built.
+  - `non_production` is gone: which stages took the cheaper default follows from the
+    question, `non_production_savings` and the values; the decision document derives it.
+  - Resource groups: `resource_group_split`, `resource_group_components` and every
+    `resource_group_mode_<role>` are gone. The groups follow from layout, scheme and each
+    resource's role (`rg_roles.groups`); a split has no main group (the partial split with
+    `main` beside listed roles is gone); `resource_groups_created` is the one record of what
+    the render creates. A group nobody wants goes by placing its resources elsewhere.
+  - A `per_environment` value from outside the spec (range, id, platform part) must be a
+    stage map even when the stages agree; one naming only the spec's own parts stays one value.
+  - An `assumed` value renders as a stage-file parameter with its working value and an
+    `ASSUMED: <key>` marker; the placeholder guard (invariant 11) refuses it, so `plan` runs
+    and `apply` does not - before, nothing technically stopped an assumed value deploying.
+  - The Shape example of `spec.md` is tested: it must pass `check_spec.py` and be canonical.
+- **GitHub Copilot CLI is the second host, Codex is not** (2026-10-29): Copilot reads the
+  `.claude-plugin/` manifests as its legacy format, `"skills": ["./core/"]` included - all
+  four skills load and the interview asks through its own question tool, with no change to
+  the plugin. Azure customers sit on Copilot licences; Codex reaches few of them and has no
+  eval harness here. An Agent Plugins 1.0 root `plugin.json` would serve both, but fixes
+  skills to `skills/` - not worth moving `core/` for until a host needs it.
 
 ## State
 
@@ -341,9 +387,7 @@ the detail; this list says what was decided and why, so a session does not reope
 - **First applied render (2026-10-25): `eval-agent/`**, Bicep, one stage, deployed through its
   own rendered GitHub pipeline (what-if, approval, deploy; OIDC). The first run fed three
   fixes back into `pipelines.github.md` and `check_pipeline.py` (job without checkout,
-  partial what-if, immutable OIDC subject). Not yet in the plugin: an image owned by a
-  separate pipeline (`existingLinuxFxVersion`, spec decision `container_image_owner`), and
-  the instance number in the unique-name seed. Terraform and the other pipelines have not run.
+  partial what-if, immutable OIDC subject). Not yet in the plugin: the instance number in the unique-name seed. Terraform and the other pipelines have not run.
   Since 2026-10-25 the spec and the render (not yet deployed) split it in two: a public
   dashboard (sign-in, reads the results, holds the GitHub token) and an agent behind a private
   endpoint (runs plugin code, writes the results, no secret), on one B2 plan, one user-assigned
@@ -435,6 +479,51 @@ the detail; this list says what was decided and why, so a session does not reope
   process pair was rendered headless in a cloud session and wants one open in draw.io on
   the owner's machine to confirm it still edits.
 
+## Road to 1.0.0
+
+1.0.0 means stable formats (owner's call, 2026-10-29): the spec format and the question-set
+format are frozen - a breaking change waits for 2.0, an older customer spec keeps working
+through `plugin_version` and the version gate - the known customer-facing faults are fixed,
+composition is proven by a pattern skill, and Terraform has been applied once. Full coverage
+of the 67 resources is not part of it; it continues in 1.x.
+
+Must:
+- **Freeze the formats.** Merge the format revision (#15), then name in `spec.md` and
+  `question-set-format.md` what is the stable interface, and how a spec from an older plugin
+  is carried forward.
+- **The pattern skill** (`ideas/pattern-skill.md`): `patterns/` is empty; composition is
+  proven by two hand-wired examples only.
+- ~~**A Terraform render applied** through one rendered pipeline, as `eval-agent/` did for Bicep~~
+  - done (owner, 2026-10-29).
+- ~~**The decision document prints raw values**~~ - done (2026-10-29). Every question has a
+  `plain`; the raw values came from spec keys the sets do not have (`orders-integration`
+  had ~30). `check_spec.py` now fails on a resource key that is no question of its set or
+  sits in another group; `orders-integration`, `order-platform` and `eval-agent` were moved
+  onto the sets, which gained `storage-account.hierarchical_namespace`,
+  `virtual-machine.instance_count`, `app-service.container_image_owner`, `entra_sign_in`,
+  `entra_client_secret` and `container-registry.image_push_path`. Nested list entries read
+  as words, not Python. In `order-platform` only the `# decision:` names were renamed; in
+  `eval-agent` the Bicep still calls the sign-in hand-rendered.
+- ~~**A public app "without a filter" has no sign-in** (see *Interview and spec*)~~ - done
+  (2026-10-29): the option no longer promises a sign-in, it notes that the application decides.
+- ~~**`check_spec.py` does not check enum values**~~ - done (2026-10-29): an enum value, or a
+  list item where `accepts` is a list, outside its question's `accepts` fails, per stage;
+  unknown keys in `wiring.access` fail too.
+- ~~**Phase 4 shown as text before "Passt das Design?"**, confirmed in a fresh interview~~ -
+  done (owner, 2026-10-29, tested in another repository).
+- ~~**The suite runs green on Sonnet** before the release~~ - done for 0.6.0 (2026-10-29):
+  11/11, composed with a re-test of `diagram-no-invented-lines` after a grader fix (see *Evals*).
+  Holds for every release from here on, not once.
+
+Should:
+- The AVM version drift check (`ideas/avm-drift-watch.md`).
+- The former `confirm_in` defaults wired to requirements; the savings concept.
+- The naming revision (owner's todo).
+- The diagram generator faults listed under *Diagram generator*.
+
+After 1.0: rendering and testing the 42 resources checked only against their modules, the
+cross-backend diff of one spec, the remaining resources, "engineer" in the resource sets.
+
 ## Open
 
 Grouped by where the fix lands. A module's README on `main` is ahead of its tag: Event Grid topic
@@ -453,9 +542,6 @@ until it is fixed or decided against.
   `canonical-no-anchors` are load-checked, not run - a run without a shell lays the form out
   by hand, and whether it does is unmeasured. The diagram and spec-test fixtures are not
   named `infra-spec.yaml` and not laid out; `run_spec_tests.py` edits its fixture as text.
-- **`evals/process/review-agent-separate` does not load** (seen 2026-10-26 in a zero-cost
-  load check): `graders.3.focus: Invalid input` - the current `claude plugin eval` schema
-  refuses a field the case uses. Untouched since; fix before the next paid run.
 
 ### Rendering references and question sets
 
@@ -502,8 +588,7 @@ per-family` in `check_spec.py` and the `chatbot` spec, and `references/private-d
     for PostgreSQL, Time Series Insights, SQL VM; IoT Hub, DPS, Digital Twins; Maps, Load Testing,
     DevCenter, Dev Box.
 - A container's throughput in Cosmos DB is one value for all; the NSG baseline rules per
-  `subnet_purpose` are general knowledge, to be confirmed per service before a render; a closed
-  Application Insights needs the platform's Azure Monitor Private Link Scope; the Key Vault modules'
+  `subnet_purpose` are general knowledge, to be confirmed per service before a render; the Key Vault modules'
   `keys` member names are read from the README at render time.
 - New sets, known gaps in the modules: Service Bus (the Terraform module refuses
   `DiagnosticErrorLogs`; no input for zone redundancy or geo recovery), Event Hubs (no Terraform
@@ -540,17 +625,41 @@ per-family` in `check_spec.py` and the `chatbot` spec, and `references/private-d
 
 ### Interview and spec
 
-- **A public app "without a filter" has no sign-in** (seen 2026-10-28 in a TEMP3 run): the
-  `public_audience: unfiltered` option says only the sign-in protects the app, but the App
-  Service set excludes Easy Auth. Whether the application signs people in is the app's, not
-  the plugin's; what is left is the option's wording, which promises a sign-in the
-  infrastructure does not provide.
-- **`check_spec.py` passes unknown keys in `wiring.access`** (same run): an unquoted
-  `label: Mitarbeiter, HTTPS` became `label: Mitarbeiter` plus a key `HTTPS: null`, and the
-  contract said ok.
-- **Phase 4 is shown as text before "Passt das Design?"** (2026-10-28): a run had written the
-  list only in its thinking. Fixed in the skill, the tick list also goes into the dialog as a
-  preview; not yet seen in a fresh interview with the dialog.
+- **Wire the former `confirm_in` defaults to requirements** (2026-10-28): `confirm_in` was
+  removed - a marker in a document nobody reads changes nothing. Defaults the customer can
+  judge get a `derived_from` instead: `outage_impact` → `compute_tier`/`service_tier` (SQL,
+  MySQL, PostgreSQL), the Service Bus and Event Hubs `sku`, Redis `sku_name`;
+  `expected_load` → VM/VMSS `size`, Search `sku`, Cosmos `capacity_mode`, Event Grid
+  namespace `capacity`; `priority: protection` → AKS `defender_enabled`, SQL MI
+  `vulnerability_assessment`, VNet `ddos_protection`, DDoS `stages_with_plan`, Firewall
+  `sku_tier`/`idps_mode`/`threat_intelligence_mode`. Each with a map and the guardrail check.
+- **Revise the savings concept as a whole** (owner's todo, 2026-10-28):
+  `deployment.non_production_savings` and the per-question `non_production_default` (72
+  questions, about 60 of them beside a `derived_from`, the rest beside a `default`). The
+  name is unwieldy and the field reads like a second default; folding it into `default`
+  does not work, since most of these questions have none and one answer path is the rule.
+  Look at it together with `priority: cost`, which equals `balanced` for every knob wired
+  so far.
+- **`forced_when` stays prose** (2026-10-28): of its 211 uses about 60 are a single
+  condition and perhaps 30-40 a plain "X = A forces B"; the rest carry minimums, removed
+  options, several conditions or facts no set holds (a paired region in another country) - a
+  schema for a fifth of them would be a second mechanism, not a simpler one. What is
+  checked: `check_spec.py` resolves a `forced_by` key against the spec and the sets.
+- **`allLogs` on request only** (guardrails §5, owner's call 2026-10-29): audit categories
+  always, `allLogs` only when a mandate or `priority: protection` asks - the guardrail says
+  so now; the sets do not yet. Derive the category questions from `priority` (as change feed
+  and flow logs already are) and name the mandate case. Outside production, give
+  `daily_quota_gb` a `non_production_default` (its default is `-1`, no cap) - part of the
+  savings revision.
+- **Phase 4 lists an exception from an earlier spec again** (guardrails §6, 2026-10-29): the
+  rule is written; whether a carried `overridden` value reaches the sign-off and the decision
+  document's "decided differently" section is not verified.
+- **"engineer" in the resource sets** (2026-10-28): removed from `core/`, still in 19
+  question sets under `resources/` (`why` texts, e.g. communication-services
+  `data_location`). There is no engineer role; rephrase.
+- **Every list question's `plain` ends in "(empty: none)"**, also when the list is not empty
+  ("Queues: payments (…) (leer: keine)"). Seen 2026-10-29 in `orders-integration`; the
+  wording of the sets, or the decision document drops the clause for a non-empty value.
 
 - **A chat-app test with a slot as the test stage** (2026-10-27, 0.5.4) left: Phase 0 asks two
   points in prose (what for, who from where) and announces no default; stages and every
@@ -616,8 +725,7 @@ per-family` in `check_spec.py` and the `chatbot` spec, and `references/private-d
   a redraw would lose.
 - `wiring:` is validated by example only. (`check_spec.py` knows `granularity: per-family`
   since 2026-10-25 and the `chatbot` spec declares its seven family modules.)
-- `export_decisions.py` prints `reason` and `open:` texts untranslated; "1 Kopien der
-  App" needs a singular form. `infra-decisions.docx` is missing everywhere (no `pandoc`).
+- `export_decisions.py` prints `reason` and `open:` texts untranslated. `infra-decisions.docx` is missing everywhere (no `pandoc`).
 - The extension run that writes a further stage's file once its `open:` entries are
   answered has not been exercised.
 - **Resource groups: the contract stands, the render does not** (2026-10-25). Done: the
@@ -833,6 +941,16 @@ regeneration from the spec loses them. All `render`:
   picture, the CLAUDE.md sync by hand, the stamp); a rule block at the top of the skill and a
   "Without a shell" section answer it, not re-measured yet. Those cases measure the plugin
   only with a shell: on a Linux runner with Bash granted.
+- **0.6.0 before the merge of #15 (2026-10-29, local, effort low)**: full run on `2ddb25d`,
+  Sonnet $15.62 10/11, Haiku $1.69 6/11. The one Sonnet failure, `diagram-no-invented-lines` /
+  `no-invented-calls` (0/2, REGRESS against 3/3), was the grader: it matched the derived
+  `Monitoring Metrics Publisher` from the app on Application Insights that
+  `application_monitoring` adds since 0.5.6. Fixed in `07f1aa0` (entry in `LEARNINGS.md`);
+  re-test Sonnet 2/2, Haiku 0/2 (real invented lines and purposes, 8-11 turns, not chased).
+  Recorded on `eval-history` as 0.6.0 (`ffbb421`), composed, the badge pinned to it.
+  The composed Sonnet run is `baseline.json` since (owner's call): 11 cases, every grader at
+  its full rate. Haiku keeps failing the same rules as on 0.5.4/0.5.5: invented subscription and
+  region, the default stack, `@onlyIfNotExists()`, the CLAUDE.md sync in one of four runs.
 - **CI by hand**: `.github/workflows/plugin-evals.yml` (`workflow_dispatch`, Sonnet/low by
   default, one case per call with progress, `--scaffold`, report only);
   `record_eval_history.py` writes each run to `eval-history`. `review-agent-separate` never loaded before 2026-10-27 (`focus:
@@ -871,12 +989,25 @@ regeneration from the spec loses them. All `render`:
   (App Service P1v3/P2v3/P3v3, SQL 2/4/8 vCores) are estimates, not measurements.
 - The contradiction list in `iac-authoring` is a skill rule, not a script check.
 - Idea: a cost estimate in Phase 4 (`ideas/cost-and-security-profiles.md`).
-- `examples/order-platform`: `terraform init`, `validate` and `test` were not run when it was
-  added (only `check_spec`, `check_render_coverage`, `check_pipeline`); its spec says
-  `plugin_version: 0.1.0` and `language: de` for an English request, and it predates
-  exposure as a question, `public_parts`, `central_*` and `resource_groups_created`, so a
-  fresh interview would answer some decisions differently. Re-render it, or leave it as the
-  record of that run.
+- `examples/order-platform` was deleted (2026-10-29, owner's call): it predated the spec
+  revision and was to be regenerated anyway. It was the only per-family and pipeline render;
+  `chat-sandbox` is now the rendered example the `CLAUDE.md` commands test.
+
+### After the spec revision (2026-10-29)
+
+- `chatbot-multi-rg` and `orders-integration` were moved to a full split (no main group):
+  the roles that lived in main (`security`, and `application` in `orders-integration`) are
+  groups of their own now. `chatbot-multi-rg`'s diagram and decision document were
+  regenerated with the Application Insights change (2026-10-29); `orders-integration`'s and
+  the other examples' `infra-decisions.md` are still behind their specs - regenerate them.
+- `.github/workflows/eval-agent-infra-stage.yaml` and `examples/chat-sandbox/deploy.ps1` are
+  rendered with the old guard line (no `ASSUMED:`); neither spec assumes anything, the next
+  render brings the line.
+- The six pipeline fixtures (`core/iac-rendering/tests/pipelines/*/infra-spec.yaml`) carry no
+  `schema_version`, so `check_spec.py` fails on them; `check_pipeline.py` does not mind.
+- `wiring.private_dns_zones` stays in `wiring` (a zone serves an endpoint kind, not one
+  resource); it duplicates `private-dns-zone.zone.zone_names` when the deployment owns the
+  zones, and its `forced_by: deployment.network_exposure` is loose. Left until it diverges.
 
 ### Waiting on the owner
 
@@ -903,6 +1034,10 @@ regeneration from the spec loses them. All `render`:
   `~/.local/bin` itself. No Linux in WSL on the owner's machine.
 
 ## Next
+
+**Merge #15 (0.6.0)**: pushed, ready for review, evals run, recorded and accepted as the
+baseline (see *Evals*). Left: the owner's squash merge. After it, regenerate the remaining examples against the revised spec, and freeze the
+formats (*Road to 1.0.0*).
 
 **The pattern skill** (`ideas/pattern-skill.md`): the wiring that `chatbot` and
 `chatbot-rag` carry by hand — roles between resources, the private link, the order

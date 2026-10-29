@@ -31,14 +31,15 @@ groups:
     title: Placement
     questions:
       - id: environments
-        ask: Which stages is this deployed to?
+        ask:
+          en: "Which stages is this deployed to?"
+          de: "In welche Stufen wird das ausgerollt?"
         type: list
         plain:
           en: "Deployed in the stages {value}."
           de: "Wird in den Stufen {value} ausgerollt."
-        values: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
-        required: true
-        from_context: true
+        accepts: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
+        answer: { context: environments }
         why: >
           Drives the rendered name and the strictness of several defaults below. Nothing
           sensible can be guessed. A cluster per stage is the rule; a namespace per stage in
@@ -46,13 +47,14 @@ groups:
         renders: naming parameter `environment`, and the tag of that name where the repository uses one
 
       - id: location
-        ask: Which Azure region?
+        ask:
+          en: "Which Azure region?"
+          de: "Welche Azure-Region?"
         type: string
         plain:
           en: "Runs in the Azure region {value}."
           de: "Läuft in der Azure-Region {value}."
-        required: true
-        from_context: true
+        answer: { context: location }
         why: >
           Part of the rendered name and the home region of the control plane and the nodes.
           Zones, VM sizes and Kubernetes versions differ by region, and a cluster far from the
@@ -60,14 +62,15 @@ groups:
         renders: location
 
       - id: resource_group_name
-        ask: Which resource group?
-        type: ref
+        ask:
+          en: "Which resource group?"
+          de: "Welche Ressourcengruppe?"
+        type: string
         plain:
           en: "Placed in the resource group {value}."
           de: "Liegt in der Ressourcengruppe {value}."
-        ref: resource_group
-        required: true
-        from_context: true
+        accepts: { ref: resource_group }
+        answer: { context: resource_group_name }
         per_environment: true
         why: >
           The cluster is placed into an existing group. Creating one here would make this set
@@ -80,7 +83,9 @@ groups:
     title: The cluster
     questions:
       - id: sku_tier
-        ask: Which cluster tier?
+        ask:
+          en: "Which cluster tier?"
+          de: "Welcher Cluster-Tarif?"
         type: enum
         plain:
           en: "The cluster is the {value} tier."
@@ -89,11 +94,10 @@ groups:
           Free: { en: "free, without an uptime guarantee for the control plane and limited to small clusters", de: "kostenlos, ohne Verfügbarkeitszusage für die Steuerungsebene und nur für kleine Cluster" }
           Standard: { en: "standard, with a financially backed uptime guarantee for the control plane", de: "Standard, mit finanziell abgesicherter Verfügbarkeitszusage für die Steuerungsebene" }
           Premium: { en: "premium, standard plus two years of support for each Kubernetes version", de: "Premium, Standard plus zwei Jahre Support je Kubernetes-Version" }
-        values: [Free, Standard, Premium]
-        derived_from:
+        accepts: [Free, Standard, Premium]
+        answer:
           question: outage_impact
           map: { tolerable: Free, disruptive: Standard, critical: Standard }
-        confirm_in: [production]
         non_production_default: Free
         why: >
           Derived from how bad an outage is. The tier is the control plane's uptime SLA (with
@@ -106,7 +110,9 @@ groups:
         renders: sku.tier / skuTier
 
       - id: kubernetes_version
-        ask: Which Kubernetes version?
+        ask:
+          en: "Which Kubernetes version?"
+          de: "Welche Kubernetes-Version?"
         type: string
         plain:
           en: "The cluster starts on Kubernetes {value}."
@@ -122,7 +128,9 @@ groups:
         renders: kubernetes_version / kubernetesVersion
 
       - id: upgrade_channel
-        ask: How should the cluster be upgraded?
+        ask:
+          en: "How should the cluster be upgraded?"
+          de: "Wie soll der Cluster aktualisiert werden?"
         type: enum
         plain:
           en: "Upgrades: {value}."
@@ -132,7 +140,7 @@ groups:
           patch: { en: "security fixes of the chosen Kubernetes version are applied automatically, a new version only on request", de: "Sicherheitskorrekturen der gewählten Kubernetes-Version werden automatisch eingespielt, eine neue Version nur auf Anforderung" }
           stable: { en: "the cluster follows the second newest Kubernetes version automatically", de: "der Cluster folgt automatisch der zweitneuesten Kubernetes-Version" }
           rapid: { en: "the cluster follows the newest Kubernetes version automatically", de: "der Cluster folgt automatisch der neuesten Kubernetes-Version" }
-        values: [none, patch, stable, rapid]
+        accepts: [none, patch, stable, rapid]
         default: patch
         why: >
           `patch` applies the security fixes to the minor the cluster is on and never changes
@@ -145,7 +153,9 @@ groups:
         renders: auto_upgrade_profile.upgrade_channel / autoUpgradeProfile.upgradeChannel
 
       - id: node_os_upgrade_channel
-        ask: How should the nodes' operating system be kept up to date?
+        ask:
+          en: "How should the nodes' operating system be kept up to date?"
+          de: "Wie soll das Betriebssystem der Knoten aktuell gehalten werden?"
         type: enum
         plain:
           en: "Node operating systems: {value}."
@@ -155,7 +165,7 @@ groups:
           Unmanaged: { en: "updated by the operating system itself, without a reboot unless a patch needs one", de: "vom Betriebssystem selbst aktualisiert, ohne Neustart außer ein Patch verlangt ihn" }
           SecurityPatch: { en: "security patches are applied to the node image as they are released", de: "Sicherheitspatches werden am Knoten-Image eingespielt, sobald sie erscheinen" }
           NodeImage: { en: "nodes are replaced with the newest node image, weekly", de: "Knoten werden wöchentlich durch das neueste Knoten-Image ersetzt" }
-        values: [None, Unmanaged, SecurityPatch, NodeImage]
+        accepts: [None, Unmanaged, SecurityPatch, NodeImage]
         default: NodeImage
         why: >
           Nodes are cattle: a new image per week replaces the node instead of patching it, so
@@ -166,7 +176,9 @@ groups:
         renders: auto_upgrade_profile.node_os_upgrade_channel / autoUpgradeProfile.nodeOSUpgradeChannel
 
       - id: zone_redundant
-        ask: Should the cluster survive the loss of an availability zone?
+        ask:
+          en: "Should the cluster survive the loss of an availability zone?"
+          de: "Soll der Cluster den Ausfall einer Verfügbarkeitszone überstehen?"
         type: bool
         plain:
           en: "The cluster {value} survive the loss of one datacenter of the region."
@@ -174,10 +186,9 @@ groups:
         plain_values:
           true: { en: "does", de: "übersteht" }
           false: { en: "does not", de: "übersteht nicht" }
-        derived_from:
+        answer:
           question: outage_impact
           map: { tolerable: false, disruptive: true, critical: true }
-        confirm_in: [production]
         non_production_default: false
         why: >
           Derived from how bad an outage is. The node pools are spread over zones 1, 2 and 3 and
@@ -195,7 +206,9 @@ groups:
     title: Networking
     questions:
       - id: public_network_access
-        ask: Should the cluster depart from the deployment's exposure posture?
+        ask:
+          en: "Should the cluster depart from the deployment's exposure posture?"
+          de: "Soll der Cluster von der Erreichbarkeit des Deployments abweichen?"
         type: enum
         plain:
           en: "The cluster's API is {value}."
@@ -204,9 +217,8 @@ groups:
           disabled: { en: "reachable only from inside the company network", de: "nur aus dem Firmennetz erreichbar" }
           enabled_with_firewall: { en: "reachable from the internet only from listed addresses", de: "aus dem Internet nur von gelisteten Adressen erreichbar" }
           enabled: { en: "reachable from the internet", de: "aus dem Internet erreichbar" }
-        values: [disabled, enabled_with_firewall, enabled]
-        from_deployment: network_exposure
-        confirm_in: [production]
+        accepts: [disabled, enabled_with_firewall, enabled]
+        answer: { deployment: network_exposure }
         why: >
           Asked only as a departure: exposure is a property of the system. It is about the
           **Kubernetes API server**, the thing `kubectl` and the pipeline talk to - the apps
@@ -224,7 +236,9 @@ groups:
           apiServerAccessProfile.enablePrivateCluster and publicNetworkAccess
 
       - id: authorized_ip_ranges
-        ask: Which public IP ranges may reach the cluster's API?
+        ask:
+          en: "Which public IP ranges may reach the cluster's API?"
+          de: "Welche öffentlichen IP-Bereiche dürfen die API des Clusters erreichen?"
         type: list
         plain:
           en: "Public addresses allowed to reach the cluster's API: {value}."
@@ -240,7 +254,9 @@ groups:
         renders: api_server_access_profile.authorized_ip_ranges / apiServerAccessProfile.authorizedIPRanges
 
       - id: private_dns_zone
-        ask: Where does the private cluster's API name live?
+        ask:
+          en: "Where does the private cluster's API name live?"
+          de: "Wo liegt der API-Name des privaten Clusters?"
         type: enum
         resolved_by: derived
         plain:
@@ -249,7 +265,7 @@ groups:
         plain_values:
           system: { en: "a zone AKS creates next to the nodes, which only this network can resolve", de: "einer Zone, die AKS neben den Knoten anlegt und die nur dieses Netz auflösen kann" }
           custom: { en: "a zone of the platform, which the whole network, including the company network, resolves", de: "einer Zone der Plattform, die das ganze Netz einschließlich Firmennetz auflöst" }
-        values: [system, custom]
+        accepts: [system, custom]
         default: system
         depends_on: { question: public_network_access, equals: disabled }
         why: >
@@ -265,13 +281,15 @@ groups:
         renders: api_server_access_profile.private_dns_zone / apiServerAccessProfile.privateDNSZone (`system`, or the zone's id)
 
       - id: private_dns_zone_id
-        ask: Which private DNS zone holds the API name?
-        type: ref
+        ask:
+          en: "Which private DNS zone holds the API name?"
+          de: "Welche private DNS-Zone hält den API-Namen?"
+        type: string
         resolved_by: derived
         plain:
           en: "Its API name is kept in the zone {value}."
           de: "Der Name seiner API liegt in der Zone {value}."
-        ref: private_dns_zone
+        accepts: { ref: private_dns_zone }
         required: true
         depends_on: { question: private_dns_zone, equals: custom }
         per_environment: true
@@ -282,13 +300,15 @@ groups:
         renders: api_server_access_profile.private_dns_zone / apiServerAccessProfile.privateDNSZone
 
       - id: node_subnet
-        ask: Which subnet should the nodes live in?
-        type: ref
+        ask:
+          en: "Which subnet should the nodes live in?"
+          de: "In welchem Subnetz sollen die Knoten liegen?"
+        type: string
         resolved_by: derived
         plain:
           en: "The nodes live in subnet {value}."
           de: "Die Knoten liegen im Subnetz {value}."
-        ref: subnet
+        accepts: { ref: subnet }
         required: true
         per_environment: true
         why: >
@@ -304,7 +324,9 @@ groups:
         renders: vnet_subnet_id on both pools / vnetSubnetResourceId on both pool profiles
 
       - id: network_plugin_mode
-        ask: How should the pods get their network addresses?
+        ask:
+          en: "How should the pods get their network addresses?"
+          de: "Wie sollen die Pods ihre Netzwerkadressen bekommen?"
         type: enum
         plain:
           en: "Pods {value}."
@@ -312,7 +334,7 @@ groups:
         plain_values:
           overlay: { en: "get addresses from a private range of their own that exists only inside the cluster, so the company network is not used up by pods", de: "bekommen Adressen aus einem eigenen privaten Bereich, der nur im Cluster existiert, das Firmennetz wird nicht von Pods aufgebraucht" }
           vnet: { en: "get addresses from the same subnet as the nodes, so they are directly reachable from the company network", de: "bekommen Adressen aus demselben Subnetz wie die Knoten und sind direkt aus dem Firmennetz erreichbar" }
-        values: [overlay, vnet]
+        accepts: [overlay, vnet]
         default: overlay
         why: >
           Azure CNI Overlay is the default for a cluster that is not required to hand pods
@@ -328,7 +350,9 @@ groups:
         renders: network_profile.network_plugin = azure and network_plugin_mode / networkPlugin = azure and networkPluginMode
 
       - id: network_dataplane
-        ask: Which pod networking engine should run?
+        ask:
+          en: "Which pod networking engine should run?"
+          de: "Welche Netzwerk-Engine soll für die Pods laufen?"
         type: enum
         plain:
           en: "The network engine is {value}."
@@ -336,7 +360,7 @@ groups:
         plain_values:
           cilium: { en: "Cilium (eBPF), the current engine, which also enforces network policies", de: "Cilium (eBPF), die aktuelle Engine, die auch Netzwerkrichtlinien durchsetzt" }
           azure: { en: "the older Azure engine", de: "die ältere Azure-Engine" }
-        values: [cilium, azure]
+        accepts: [cilium, azure]
         default: cilium
         why: >
           Azure CNI powered by Cilium is the engine Microsoft builds on; Azure Network Policy
@@ -345,7 +369,9 @@ groups:
         renders: network_profile.network_dataplane / networkDataplane
 
       - id: network_policy
-        ask: Should network policies restrict the traffic between pods?
+        ask:
+          en: "Should network policies restrict the traffic between pods?"
+          de: "Sollen Network Policies den Verkehr zwischen Pods einschränken?"
         type: enum
         plain:
           en: "Pod-to-pod traffic restriction: {value}."
@@ -355,7 +381,7 @@ groups:
           calico: { en: "enforced by Calico", de: "von Calico durchgesetzt" }
           azure: { en: "enforced by the older Azure engine", de: "von der älteren Azure-Engine durchgesetzt" }
           none: { en: "not available - every pod may talk to every pod", de: "nicht verfügbar, jeder Pod darf mit jedem Pod sprechen" }
-        values: [cilium, calico, azure, none]
+        accepts: [cilium, calico, azure, none]
         default: cilium
         why: >
           With no engine, a `NetworkPolicy` object is accepted and silently does nothing - the
@@ -368,7 +394,9 @@ groups:
         renders: network_profile.network_policy / networkPolicy
 
       - id: pod_cidr
-        ask: Which private range should the pods use?
+        ask:
+          en: "Which private range should the pods use?"
+          de: "Welchen privaten Adressbereich sollen die Pods nutzen?"
         type: string
         plain:
           en: "Pods use the private range {value}."
@@ -387,7 +415,9 @@ groups:
         renders: network_profile.pod_cidr / podCidr
 
       - id: service_cidr
-        ask: Which private range should the cluster's services use?
+        ask:
+          en: "Which private range should the cluster's services use?"
+          de: "Welchen privaten Adressbereich sollen die Services des Clusters nutzen?"
         type: string
         plain:
           en: "Cluster services use the private range {value}."
@@ -404,7 +434,9 @@ groups:
         renders: network_profile.service_cidr / serviceCidr
 
       - id: dns_service_ip
-        ask: Which address should the cluster's DNS service take?
+        ask:
+          en: "Which address should the cluster's DNS service take?"
+          de: "Welche Adresse soll der DNS-Dienst des Clusters bekommen?"
         type: string
         plain:
           en: "The cluster's DNS service has the address {value}."
@@ -417,7 +449,9 @@ groups:
         renders: network_profile.dns_service_ip / dnsServiceIP
 
       - id: outbound_type
-        ask: How should the cluster reach the internet?
+        ask:
+          en: "How should the cluster reach the internet?"
+          de: "Wie soll der Cluster das Internet erreichen?"
         type: enum
         resolved_by: derived
         plain:
@@ -427,7 +461,7 @@ groups:
           loadBalancer: { en: "leaves through public addresses of the cluster's own load balancer", de: "verlässt das Netz über öffentliche Adressen des clustereigenen Lastverteilers" }
           managedNATGateway: { en: "leaves through a NAT gateway AKS creates, with fixed addresses", de: "verlässt das Netz über ein von AKS angelegtes NAT-Gateway mit festen Adressen" }
           userDefinedRouting: { en: "is routed by the network's own route table, usually through the company firewall", de: "wird von der Routentabelle des Netzes geleitet, in der Regel über die Firmen-Firewall" }
-        values: [loadBalancer, managedNATGateway, userDefinedRouting]
+        accepts: [loadBalancer, managedNATGateway, userDefinedRouting]
         default: loadBalancer
         why: >
           A node pulls images, reaches the API and fetches packages: there must be a way out.
@@ -445,7 +479,9 @@ groups:
     title: Node pools
     questions:
       - id: system_pool_vm_size
-        ask: Which VM size should the system pool use?
+        ask:
+          en: "Which VM size should the system pool use?"
+          de: "Welche VM-Größe soll der System-Pool verwenden?"
         type: string
         plain:
           en: "The system nodes are of the size {value}."
@@ -462,16 +498,17 @@ groups:
         renders: default_agent_pool.vm_size / primaryAgentPoolProfiles[].vmSize
 
       - id: system_pool_min_count
-        ask: How many system nodes must always be running?
+        ask:
+          en: "How many system nodes must always be running?"
+          de: "Wie viele System-Knoten müssen immer laufen?"
         type: int
         plain:
           en: "At least {value} system nodes are always running."
           de: "Mindestens {value} System-Knoten laufen immer."
-        derived_from:
+        answer:
           question: outage_impact
           map: { tolerable: 1, disruptive: 3, critical: 3 }
         non_production_default: 1
-        confirm_in: [production]
         why: >
           Derived from how bad an outage is. One node is a single point of failure for DNS and
           every add-on; three keeps one in each zone through the loss of a node or a zone and
@@ -483,7 +520,9 @@ groups:
         renders: default_agent_pool.min_count and count_of / primaryAgentPoolProfiles[].minCount and count
 
       - id: system_pool_max_count
-        ask: How many system nodes may the pool scale out to?
+        ask:
+          en: "How many system nodes may the pool scale out to?"
+          de: "Auf wie viele System-Knoten darf der Pool skalieren?"
         type: int
         plain:
           en: "The system pool may grow to at most {value} nodes."
@@ -495,7 +534,9 @@ groups:
         renders: default_agent_pool.max_count / primaryAgentPoolProfiles[].maxCount
 
       - id: system_pool_dedicated
-        ask: Should the system pool run only the cluster's own components?
+        ask:
+          en: "Should the system pool run only the cluster's own components?"
+          de: "Soll der System-Pool nur die eigenen Komponenten des Clusters ausführen?"
         type: bool
         plain:
           en: "The system pool {value} workloads."
@@ -512,7 +553,9 @@ groups:
         renders: default_agent_pool.node_taints / primaryAgentPoolProfiles[].nodeTaints
 
       - id: user_pool_vm_size
-        ask: Which VM size should the workload nodes use?
+        ask:
+          en: "Which VM size should the workload nodes use?"
+          de: "Welche VM-Größe sollen die Workload-Knoten verwenden?"
         type: string
         plain:
           en: "The workload nodes are of the size {value}."
@@ -528,16 +571,17 @@ groups:
         renders: agent_pools.user.vm_size / agentPools[].vmSize
 
       - id: user_pool_min_count
-        ask: How many workload nodes must always be running?
+        ask:
+          en: "How many workload nodes must always be running?"
+          de: "Wie viele Workload-Knoten müssen immer laufen?"
         type: int
         plain:
           en: "At least {value} workload nodes are always running."
           de: "Mindestens {value} Workload-Knoten laufen immer."
-        derived_from:
+        answer:
           question: outage_impact
           map: { tolerable: 1, disruptive: 3, critical: 3 }
         non_production_default: 1
-        confirm_in: [production]
         depends_on: { question: system_pool_dedicated, equals: true }
         why: >
           Derived from how bad an outage is, like the system pool: one node per zone keeps the
@@ -549,7 +593,9 @@ groups:
         renders: agent_pools.user.min_count and count_of / agentPools[].minCount and count
 
       - id: user_pool_max_count
-        ask: How many workload nodes may the pool scale out to?
+        ask:
+          en: "How many workload nodes may the pool scale out to?"
+          de: "Auf wie viele Workload-Knoten darf der Pool skalieren?"
         type: int
         plain:
           en: "The workload pool may grow to at most {value} nodes."
@@ -563,7 +609,9 @@ groups:
         renders: agent_pools.user.max_count / agentPools[].maxCount
 
       - id: os_sku
-        ask: Which operating system should the nodes run?
+        ask:
+          en: "Which operating system should the nodes run?"
+          de: "Welches Betriebssystem sollen die Knoten haben?"
         type: enum
         plain:
           en: "The nodes run {value}."
@@ -571,7 +619,7 @@ groups:
         plain_values:
           AzureLinux: { en: "Azure Linux, Microsoft's slim container host", de: "Azure Linux, Microsofts schlankem Container-Host" }
           Ubuntu: { en: "Ubuntu", de: "Ubuntu" }
-        values: [AzureLinux, Ubuntu]
+        accepts: [AzureLinux, Ubuntu]
         default: AzureLinux
         why: >
           Azure Linux is a minimal image with a smaller attack surface and the fewer packages to
@@ -582,7 +630,9 @@ groups:
         renders: default_agent_pool.os_sku and agent_pools.user.os_sku / primaryAgentPoolProfiles[].osSKU and agentPools[].osSKU
 
       - id: os_disk_type
-        ask: Where should the nodes' operating system disks live?
+        ask:
+          en: "Where should the nodes' operating system disks live?"
+          de: "Wo sollen die Betriebssystem-Disks der Knoten liegen?"
         type: enum
         plain:
           en: "Node system disks are {value}."
@@ -590,7 +640,7 @@ groups:
         plain_values:
           Ephemeral: { en: "on the node's local storage, fast, free and gone with the node", de: "auf dem lokalen Speicher des Knotens, schnell, kostenlos und mit dem Knoten weg" }
           Managed: { en: "network disks, billed and surviving the node", de: "Netzwerkplatten, kostenpflichtig und den Knoten überlebend" }
-        values: [Ephemeral, Managed]
+        accepts: [Ephemeral, Managed]
         default: Ephemeral
         why: >
           Nodes are replaced, never repaired, so nothing on the OS disk is worth keeping;
@@ -604,7 +654,9 @@ groups:
     title: Identity and access
     questions:
       - id: managed_identity
-        ask: Which managed identity should the cluster carry?
+        ask:
+          en: "Which managed identity should the cluster carry?"
+          de: "Welche Managed Identity soll der Cluster tragen?"
         type: enum
         plain:
           en: "The cluster uses {value} to manage Azure resources for itself."
@@ -612,7 +664,7 @@ groups:
         plain_values:
           system_assigned: { en: "its own identity", de: "eine eigene Identität" }
           user_assigned: { en: "a separately managed identity", de: "eine separat verwaltete Identität" }
-        values: [system_assigned, user_assigned]
+        accepts: [system_assigned, user_assigned]
         default: user_assigned
         why: >
           The cluster identity creates the load balancer, the disks and - in a node subnet it
@@ -628,12 +680,14 @@ groups:
         renders: managed_identities / managedIdentities (identity.type on the cluster)
 
       - id: user_assigned_identity_ids
-        ask: Which user-assigned identity?
+        ask:
+          en: "Which user-assigned identity?"
+          de: "Welche User-Assigned Identity?"
         type: list
         plain:
           en: "It uses the identity {value}."
           de: "Es nutzt die Identität {value}."
-        ref: user_assigned_identity
+        accepts: { ref: user_assigned_identity }
         required: true
         depends_on: { question: managed_identity, equals: user_assigned }
         per_environment: true
@@ -643,7 +697,9 @@ groups:
         renders: managed_identities.user_assigned_resource_ids / managedIdentities.userAssignedResourceIds
 
       - id: entra_integration
-        ask: Should people sign in to the cluster with their company accounts?
+        ask:
+          en: "Should people sign in to the cluster with their company accounts?"
+          de: "Sollen sich Personen mit ihren Firmenkonten am Cluster anmelden?"
         type: bool
         plain:
           en: "Signing in to the cluster with company accounts is {value}."
@@ -660,7 +716,9 @@ groups:
         renders: aad_profile.managed / aadProfile.managed
 
       - id: azure_rbac_enabled
-        ask: Should Azure role assignments decide what people may do inside Kubernetes?
+        ask:
+          en: "Should Azure role assignments decide what people may do inside Kubernetes?"
+          de: "Sollen Azure-Rollenzuweisungen entscheiden, was Personen in Kubernetes tun dürfen?"
         type: bool
         plain:
           en: "What people may do inside the cluster is decided by {value}."
@@ -679,12 +737,14 @@ groups:
         renders: aad_profile.enable_azure_rbac / aadProfile.enableAzureRBAC
 
       - id: admin_group_object_ids
-        ask: Which Entra group administers the cluster?
+        ask:
+          en: "Which Entra group administers the cluster?"
+          de: "Welche Entra-Gruppe administriert den Cluster?"
         type: list
         plain:
           en: "The cluster is administered by the group {value}."
           de: "Der Cluster wird von der Gruppe {value} verwaltet."
-        ref: entra_group
+        accepts: { ref: entra_group }
         required: true
         depends_on: { question: entra_integration, equals: true }
         per_environment: true
@@ -696,7 +756,9 @@ groups:
         renders: aad_profile.admin_group_object_ids / aadProfile.adminGroupObjectIDs
 
       - id: local_accounts_disabled
-        ask: May anyone use the cluster's built-in administrator certificate?
+        ask:
+          en: "May anyone use the cluster's built-in administrator certificate?"
+          de: "Darf jemand das eingebaute Administrator-Zertifikat des Clusters verwenden?"
         type: bool
         plain:
           en: "The built-in administrator certificate is {value}."
@@ -704,8 +766,7 @@ groups:
         plain_values:
           true: { en: "switched off", de: "abgeschaltet" }
           false: { en: "available to anyone who can list the cluster's credentials", de: "für jeden verfügbar, der die Zugangsdaten des Clusters auflisten darf" }
-        from_deployment: local_auth
-        confirm_in: [production]
+        answer: { deployment: local_auth }
         why: >
           Inherited, inverted: `local_auth: disabled` renders as `true`. A static admin
           kubeconfig is a long-lived, unattributable credential with `cluster-admin`; with it off,
@@ -715,7 +776,9 @@ groups:
         renders: disable_local_accounts / disableLocalAccounts
 
       - id: oidc_issuer_enabled
-        ask: Should the cluster publish an identity issuer for its workloads?
+        ask:
+          en: "Should the cluster publish an identity issuer for its workloads?"
+          de: "Soll der Cluster einen Identitätsaussteller für seine Workloads veröffentlichen?"
         type: bool
         plain:
           en: "The cluster {value} an identity issuer that Azure can trust."
@@ -735,7 +798,9 @@ groups:
         renders: oidc_issuer_profile.enabled / enableOidcIssuerProfile
 
       - id: workload_identity_enabled
-        ask: Should pods reach Azure services with their own identity instead of a secret?
+        ask:
+          en: "Should pods reach Azure services with their own identity instead of a secret?"
+          de: "Sollen Pods Azure-Dienste mit ihrer eigenen Identität statt mit einem Secret erreichen?"
         type: bool
         plain:
           en: "Pods reaching Azure services {value}."
@@ -753,12 +818,14 @@ groups:
         renders: security_profile.workload_identity.enabled / securityProfile.workloadIdentity.enabled
 
       - id: acr_pull_registry_ids
-        ask: Which container registries does the cluster pull images from?
+        ask:
+          en: "Which container registries does the cluster pull images from?"
+          de: "Aus welchen Container Registries bezieht der Cluster Images?"
         type: list
         plain:
           en: "The cluster may pull images from: {value}."
           de: "Der Cluster darf Images beziehen aus: {value}."
-        ref: container_registry
+        accepts: { ref: container_registry }
         default: []
         per_environment: true
         why: >
@@ -771,7 +838,9 @@ groups:
         renders: role assignment (`AcrPull`, principal = the kubelet identity) on each registry, rendered in the root
 
       - id: role_assignments
-        ask: Who may manage the cluster, and who may use it?
+        ask:
+          en: "Who may manage the cluster, and who may use it?"
+          de: "Wer darf den Cluster verwalten und wer darf ihn nutzen?"
         type: list
         plain:
           en: "Access rights on the cluster granted to: {value}."
@@ -791,7 +860,9 @@ groups:
     title: Security
     questions:
       - id: defender_enabled
-        ask: Should Microsoft Defender watch the cluster for threats?
+        ask:
+          en: "Should Microsoft Defender watch the cluster for threats?"
+          de: "Soll Microsoft Defender den Cluster auf Bedrohungen überwachen?"
         type: bool
         plain:
           en: "Threat detection on the cluster is {value}."
@@ -800,7 +871,6 @@ groups:
           true: { en: "on, with alerts for suspicious activity in the cluster and on the nodes", de: "an, mit Warnungen bei verdächtigen Vorgängen im Cluster und auf den Knoten" }
           false: { en: "off", de: "aus" }
         default: true
-        confirm_in: [production]
         why: >
           Defender for Containers scans images and watches the runtime and the audit log; it is
           billed per vCPU of the cluster and **may already be switched on for the whole
@@ -811,7 +881,9 @@ groups:
         renders: security_profile.defender / securityProfile.defender
 
       - id: azure_policy_enabled
-        ask: Should Azure Policy be able to check and enforce rules inside the cluster?
+        ask:
+          en: "Should Azure Policy be able to check and enforce rules inside the cluster?"
+          de: "Soll Azure Policy Regeln im Cluster prüfen und durchsetzen können?"
         type: bool
         plain:
           en: "Azure Policy rules inside the cluster are {value}."
@@ -828,7 +900,9 @@ groups:
         renders: addon_profile_azure_policy.enabled / azurePolicyEnabled
 
       - id: keyvault_secrets_provider_enabled
-        ask: Should pods be able to mount secrets straight from a key vault?
+        ask:
+          en: "Should pods be able to mount secrets straight from a key vault?"
+          de: "Sollen Pods Secrets direkt aus einem Key Vault einbinden können?"
         type: bool
         plain:
           en: "Mounting key vault secrets into pods is {value}."
@@ -846,7 +920,9 @@ groups:
         renders: addon_profile_key_vault_secrets_provider / enableKeyvaultSecretsProvider and enableSecretRotation
 
       - id: image_cleaner_enabled
-        ask: Should unused container images be removed from the nodes?
+        ask:
+          en: "Should unused container images be removed from the nodes?"
+          de: "Sollen ungenutzte Container-Images von den Knoten entfernt werden?"
         type: bool
         plain:
           en: "Old, unused images on the nodes are {value}."
@@ -862,7 +938,9 @@ groups:
         renders: security_profile.image_cleaner / securityProfile.imageCleaner (enabled, intervalHours = 168)
 
       - id: encryption_at_host
-        ask: Should data on the nodes be encrypted on the host as well?
+        ask:
+          en: "Should data on the nodes be encrypted on the host as well?"
+          de: "Sollen Daten auf den Knoten zusätzlich auf dem Host verschlüsselt werden?"
         type: bool
         plain:
           en: "Encryption of node disks and caches on the host itself is {value}."
@@ -880,7 +958,9 @@ groups:
         renders: default_agent_pool.enable_encryption_at_host and agent_pools.user.enable_encryption_at_host / primaryAgentPoolProfiles[].enableEncryptionAtHost and agentPools[].enableEncryptionAtHost
 
       - id: key_management
-        ask: Are the nodes' disk encryption keys platform-managed or customer-managed?
+        ask:
+          en: "Are the nodes' disk encryption keys platform-managed or customer-managed?"
+          de: "Werden die Disk-Schlüssel der Knoten von der Plattform verwaltet oder vom Kunden?"
         type: enum
         plain:
           en: "Encryption keys for node disks are {value}."
@@ -888,9 +968,8 @@ groups:
         plain_values:
           platform_managed: { en: "managed by Azure - encrypted, rotated, no effort on your side", de: "von Azure verwaltet: verschlüsselt, rotiert, kein Aufwand bei euch" }
           customer_managed: { en: "your own, held in your key vault, so you can revoke them", de: "eure eigenen in eurem Schlüsseltresor, damit ihr sie zurückziehen könnt" }
-        values: [platform_managed, customer_managed]
-        from_deployment: key_management
-        confirm_in: [production]
+        accepts: [platform_managed, customer_managed]
+        answer: { deployment: key_management }
         why: >
           Inherited. Disks are encrypted at rest with a platform key either way; `customer_managed`
           means a **disk encryption set** over the customer's Key Vault key, with purge protection
@@ -900,12 +979,14 @@ groups:
         renders: disk_encryption_set_id / diskEncryptionSetResourceId
 
       - id: disk_encryption_set_id
-        ask: Which disk encryption set should encrypt the node disks?
-        type: ref
+        ask:
+          en: "Which disk encryption set should encrypt the node disks?"
+          de: "Welches Disk Encryption Set soll die Knoten-Disks verschlüsseln?"
+        type: string
         plain:
           en: "Node disks are encrypted with your key set {value}."
           de: "Knoten-Platten werden mit eurem Schlüsselsatz {value} verschlüsselt."
-        ref: disk_encryption_set
+        accepts: { ref: disk_encryption_set }
         required: true
         depends_on: { question: key_management, equals: customer_managed }
         per_environment: true
@@ -920,14 +1001,16 @@ groups:
     title: Observability
     questions:
       - id: diagnostic_workspace
-        ask: Which Log Analytics workspace should receive diagnostics?
-        type: ref
+        ask:
+          en: "Which Log Analytics workspace should receive diagnostics?"
+          de: "Welcher Log Analytics Workspace soll die Diagnosedaten erhalten?"
+        type: string
         resolved_by: derived
         plain:
           en: "Its logs go to {value}."
           de: "Seine Logs gehen in {value}."
-        ref: log_analytics_workspace
-        from_deployment: diagnostics_destination
+        accepts: { ref: log_analytics_workspace }
+        answer: { deployment: diagnostics_destination }
         per_environment: true
         why: >
           Inherited: one deployment, one destination. The cluster's control-plane logs, the
@@ -936,7 +1019,9 @@ groups:
         renders: diagnostic_settings / diagnosticSettings
 
       - id: diagnostic_categories
-        ask: Which control-plane log categories should be collected?
+        ask:
+          en: "Which control-plane log categories should be collected?"
+          de: "Welche Log-Kategorien der Steuerungsebene sollen erfasst werden?"
         type: list
         plain:
           en: "Logged: {value}."
@@ -950,7 +1035,7 @@ groups:
           kube-scheduler: { en: "the decisions about which node a pod lands on", de: "die Entscheidungen, auf welchem Knoten ein Pod landet" }
           cluster-autoscaler: { en: "why nodes were added or removed", de: "warum Knoten hinzugefügt oder entfernt wurden" }
           cloud-controller-manager: { en: "the cluster's calls to Azure for load balancers and routes", de: "die Aufrufe des Clusters an Azure für Lastverteiler und Routen" }
-        values: [kube-audit-admin, kube-audit, guard, kube-apiserver, kube-controller-manager, kube-scheduler, cluster-autoscaler, cloud-controller-manager]
+        accepts: [kube-audit-admin, kube-audit, guard, kube-apiserver, kube-controller-manager, kube-scheduler, cluster-autoscaler, cloud-controller-manager]
         default: [kube-audit-admin, guard, cluster-autoscaler]
         why: >
           `kube-audit-admin` is the audit: it records changes and leaves out the reads that make
@@ -962,7 +1047,9 @@ groups:
         renders: diagnostic_settings.<key>.log_categories / diagnosticSettings[].logCategoriesAndGroups[].category
 
       - id: metrics_enabled
-        ask: Should all metrics be collected?
+        ask:
+          en: "Should all metrics be collected?"
+          de: "Sollen alle Metriken erfasst werden?"
         type: bool
         plain:
           en: "Usage and performance figures are {value}."
@@ -977,7 +1064,9 @@ groups:
         renders: diagnostic_settings.<key>.metric_categories = ["AllMetrics"] / metricCategories[].category
 
       - id: container_insights_enabled
-        ask: Should the cluster report how its nodes and containers perform?
+        ask:
+          en: "Should the cluster report how its nodes and containers perform?"
+          de: "Soll der Cluster melden, wie seine Knoten und Container laufen?"
         type: bool
         plain:
           en: "Performance and log data from nodes and containers is {value}."
@@ -986,7 +1075,6 @@ groups:
           true: { en: "collected in the workspace", de: "im Workspace gesammelt" }
           false: { en: "not collected", de: "nicht gesammelt" }
         default: true
-        confirm_in: [production]
         why: >
           Container insights is the agent that ships the containers' console output, the node and
           pod metrics and the Kubernetes events to the workspace - the only place a crashed pod's

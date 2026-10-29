@@ -8,6 +8,12 @@ context:
 
 deployment:
   # --- delivery ---
-  deploy_mechanism: {value: gitlab, source: stated}
-  pipeline_auth: {value: workload_identity, source: default}
-  pipeline_approvals: {value: production, source: default}
+  deploy_mechanism:
+    value: gitlab
+    source: stated
+  pipeline_auth:
+    value: workload_identity
+    source: default
+  pipeline_approvals:
+    value: production
+    source: default

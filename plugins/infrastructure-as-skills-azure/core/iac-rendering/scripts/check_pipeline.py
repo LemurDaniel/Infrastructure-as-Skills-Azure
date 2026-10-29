@@ -25,7 +25,8 @@ renders under the root, and checks what a reviewer would otherwise check by eye:
  10. Terraform: the root holds `backend "azurerm" {}`. `init -backend-config`
      without a backend block is ignored without an error - local state.
  11. A placeholder never deploys: the pipeline has a step that fails on a stage
-     file holding a marker, before any login.
+     file holding a marker (the all-zero GUID, `OPEN-`, `ASSUMED:`), before any
+     login. Every stage file marks each assumed value of the spec, and no other.
  12. Terraform: a plan that deletes a resource group does not reach apply - the
      plan job reads `terraform show -json` and fails on a `delete` of a group.
      Bicep deploys incrementally and never deletes, so there is nothing to refuse.
@@ -575,6 +576,25 @@ def check_backend(root):
 
 ZERO_GUID = '00000000-0000-0000-0000-000000000000'
 MARKER_RE = re.compile(ZERO_GUID + r'|OPEN-')
+# An assumed value is a parameter whose working value stands in every stage file, marked with the
+# decision it stands for: `vm_instance_count = 3  # ASSUMED: resources.virtual-machine.machine.instance_count`.
+ASSUMED_RE = re.compile(r'ASSUMED:\s*([A-Za-z0-9_.\-]+)')
+
+
+def assumed_keys(spec):
+    # Every decision of the spec whose source is assumed, by its key path.
+    out = set()
+
+    def walk(node, path):
+        if isinstance(node, dict):
+            if 'value' in node and node.get('source') == 'assumed':
+                out.add(path)
+                return
+            for k, v in node.items():
+                walk(v, f"{path}.{k}" if path else str(k))
+    for section in ('deployment', 'resources', 'wiring'):
+        walk(spec.get(section), section)
+    return out
 
 
 def pipeline_files(root, mech):
@@ -593,9 +613,9 @@ def check_guard(root, mech):
         with open(f, encoding='utf-8') as fh:
             text += fh.read() + '\n'
     searches = 'grep' in text or 'Select-String' in text
-    if not (ZERO_GUID in text and 'OPEN-' in text and searches):
-        err("no step that refuses placeholder values - a stage file holding the all-zero GUID or `OPEN-` "
-            "must fail before any login (pipelines.md, invariant 11)")
+    if not (ZERO_GUID in text and 'OPEN-' in text and 'ASSUMED:' in text and searches):
+        err("no step that refuses placeholder values - a stage file holding the all-zero GUID, `OPEN-` or an "
+            "`ASSUMED:` value must fail before any login (pipelines.md, invariant 11)")
 
 
 def check_group_guard(root, mech):
@@ -610,8 +630,9 @@ def check_group_guard(root, mech):
             "(pipelines.md, invariant 12)")
 
 
-def check_stage_files(root, stages, target, open_stages):
-    """Every stage has its file; an open stage's file holds placeholders, a resolved stage's none."""
+def check_stage_files(root, stages, target, open_stages, assumed=frozenset()):
+    """Every stage has its file; an open stage's file holds placeholders, a resolved stage's none;
+    every file marks each assumed value of the spec, and nothing else, as ASSUMED."""
     code = root
     if target == 'terraform':
         names = {s: os.path.join('environments', f'{s}.tfvars') for s in stages}
@@ -633,7 +654,14 @@ def check_stage_files(root, stages, target, open_stages):
             err(f"{os.path.relpath(path, root)}: missing - every stage gets its file, with placeholders while its values are open")
             continue
         with open(path, encoding='utf-8') as f:
-            has = bool(MARKER_RE.search(f.read()))
+            text = f.read()
+        has = bool(MARKER_RE.search(text))
+        marked = set(ASSUMED_RE.findall(text))
+        for k in sorted(assumed - marked):
+            err(f"{names[s]}: {k} is assumed in the spec but not marked here - an assumed value is a parameter "
+                f"in every stage file with `ASSUMED: {k}` beside it, so the pipeline refuses it")
+        for k in sorted(marked - assumed):
+            err(f"{names[s]}: marks {k} as ASSUMED, but the spec does not assume it - drop the marker")
         if s in open_stages and not has:
             err(f"{names[s]}: stage {s} is open in the spec but its file holds no placeholder - "
                 f"either the values were given (drop the open: entries) or they were guessed")
@@ -649,8 +677,9 @@ def deployment_scope(spec):
     if scope:
         return scope
     dep = spec.get('deployment') or {}
-    modes = [v.get('value') if isinstance(v, dict) else v for k, v in dep.items() if str(k).startswith('resource_group_mode_')]
-    return 'subscription' if 'create' in modes else 'resource_group'
+    created = (dep.get('resource_groups_created') or {})
+    created = created.get('value') if isinstance(created, dict) else created
+    return 'subscription' if created else 'resource_group'
 
 
 def check_scope(root, mech, scope):
@@ -716,7 +745,7 @@ def main():
         return 2
     fns[mech](root, stages, target, auth, gated, set())
     check_guard(root, mech)
-    check_stage_files(root, stages, target, open_stages)
+    check_stage_files(root, stages, target, open_stages, assumed_keys(spec))
     if target == 'terraform':
         check_backend(root)
         check_group_guard(root, mech)

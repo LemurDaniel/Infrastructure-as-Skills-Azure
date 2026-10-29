@@ -124,7 +124,7 @@ It verifies, read-only:
   path fails to load the plugin.
 - **question sets**: `naming.terraform`, `naming.bicep` and `naming.abbreviation`
   declared, the Bicep identifier without an `Azure::` prefix, unique question
-  ids, `required`/`default`/`from_deployment` not combined, and `why`/`renders`
+  ids, `required`/`default`/`answer` not combined, and `why`/`renders`
   present. Error on the naming rules, warning on the rest. A `scope: deployment`
   set names no resource and is exempt from the naming checks.
 - **routing table coverage**: every resource's `questions.yaml` reachable from its
@@ -196,10 +196,11 @@ Beyond the script:
   separate instructions — "commit das" is not permission to push. A PR is
   opened with `gh pr create --base master`: English title like a commit
   subject, a body saying what and why, and no attribution line (section 1).
-- **Merge only when asked, and only as a rebase merge**
-  (`gh pr merge <n> --rebase`). It keeps the commits as they were split; a
-  squash would fold the one-concern commits into one. The merge publishes a
-  release.
+- **Merge only when asked, and only as a squash merge**
+  (`gh pr merge <n> --squash`). The PR becomes one commit on `master`: its
+  title is that commit's subject (section 2), its body carries no attribution
+  (section 1). The branch commits stay split by concern (section 3) for the
+  review. The merge publishes a release.
 - **Before the merge, the full eval suite on Sonnet and on Haiku, each run by a test agent.**
   No eval runs on the pull request: the suite needs a model that follows a
   multi-step skill, and every merge is a release. For a branch that touches `core/`, `resources/`

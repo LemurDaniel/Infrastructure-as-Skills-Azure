@@ -28,6 +28,7 @@ Resolve the current version and re-read the README parameters before rendering, 
 | `ip_rules` | `networkRuleSetIpRules`, `networkRuleSetDefaultAction: 'Deny'` | Default action `Deny` |
 | `network_rule_bypass` | `networkRuleBypassOptions: 'None'` / `'AzureServices'` | Default **`'AzureServices'`** (Terraform: `None`); written |
 | `export_policy_enabled` | `exportPolicyStatus: 'enabled'` / `'disabled'` | Default `'disabled'`; written |
+| `image_push_path` | nothing on the registry | The image pipeline's steps and the AcrPush assignment for its identity; with `pipeline_opens_registry` the registry's public access is the pipeline's between its steps, so the render keeps `'Disabled'` |
 | `private_endpoint_subnet` | `privateEndpoints: [ { subnetResourceId, service: 'registry' } ]` | |
 | `deployment.private_dns_records: policy` | no `privateDnsZoneGroup` on the endpoint | |
 | `managed_identity` | `managedIdentities: { systemAssigned, userAssignedResourceIds }` | |

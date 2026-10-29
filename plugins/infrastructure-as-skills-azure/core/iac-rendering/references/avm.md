@@ -61,7 +61,7 @@ The index carries a status per module. Read it before rendering:
 |---|---|
 | `Available` | Use it. The default path |
 | `Orphaned` | Published and working, but without an owner: use it, and say so in the handover — the next fix may be slow. The Terraform Key Vault module is in this state today |
-| `Proposed` | Not published. Render authored code for that resource and record `implementation: authored` with `source: forced`, `forced_by: no AVM module for <type>` |
+| `Proposed` | Not published. Render authored code for that resource and record `implementation: authored` with `source: { forced_by: no AVM module for <type> }` |
 | `Deprecated` | Do not use. As `Proposed` |
 | Not in the index | As `Proposed`. Say out loud that no module exists; do not guess a coordinate |
 
@@ -89,7 +89,7 @@ current one before rendering (next section).
 | Function App | `avm-res-web-site` v0.24.1 (`kind = "functionapp"`, `function_app_uses_fc1`) | `avm/res/web/site` 0.24.0 (`kind: 'functionapp,linux'`, `functionAppConfig`) | Same module as App Service. Plan `FC1` zone redundancy needs the `FCZONEREDUNDANCY` capability. Looked up 2026-10-23 |
 | Application Insights | `avm-res-insights-component` v0.5.0 | `avm/res/insights/component` 0.8.0 | Terraform module AzAPI only (`azapi`, `time`). Modules disagree: IP masking (`false` / `true` stores IPs), retention (90 / 365); both default public ingestion/query on and local auth off. Looked up 2026-10-23 |
 | Network security group | `avm-res-network-networksecuritygroup` v0.6.0 | `avm/res/network/network-security-group` 0.5.4 | Terraform module AzAPI only. Looked up 2026-10-23 |
-| Resource group | `avm-res-resources-resourcegroup` v0.4.0 | `avm/res/resources/resource-group` 0.4.4 | Rendered per role whose `resource_group_mode_<role>` is `create`; an `existing` group is only read. See [resource-groups.md](resource-groups.md) |
+| Resource group | `avm-res-resources-resourcegroup` v0.4.0 | `avm/res/resources/resource-group` 0.4.4 | Rendered per group in `resource_groups_created`; every other group is only read. See [resource-groups.md](resource-groups.md) |
 | Service Bus namespace | `avm-res-servicebus-namespace` 0.4.0 | `avm/res/service-bus/namespace` 0.17.1 | Terraform module `azurerm`-based (`~> 4.14`, no `azapi`). **Modules disagree on defaults:** SAS local auth (on / off), trusted-service bypass (off / on), public access (on / unset); both default to Premium and double encryption. No Terraform input for zone redundancy or geo-recovery. Looked up 2026-10-25 |
 | Event Hubs namespace | `avm-res-eventhub-namespace` 0.1.1 | `avm/res/event-hub/namespace` 0.15.2 | Terraform module AzAPI with `azurerm ~> 4.0`; no input for TLS minimum, double encryption, zone redundancy, consumer groups or geo pairing, and `network_rulesets` is documented as Premium-only. Bicep zone redundancy defaults to true. Looked up 2026-10-25 |
 | Event Grid topic | `avm-res-eventgrid-topic` 0.1.1 | `avm/res/event-grid/topic` 0.10.0 | Terraform module AzAPI with `azurerm ~> 4.0`. Modules disagree on public access (`Disabled` / unset). Looked up 2026-10-25 |
@@ -247,7 +247,7 @@ A module swallows a decision in one of three ways. Each has a rule:
 | The module… | Rule |
 |---|---|
 | **Has no input for it** (e.g. a question the module's authors did not think worth exposing) | Name it in the handover as *not carried by the module*, keep the decision in the spec, and if it matters for the deployment either add the attribute through the module's escape hatch (`_target_overrides`, with the module's `azapi` `ignore_body_changes` / `resource_types` where it has one) or render that resource authored. Never silently drop it |
-| **Fixes it the other way** (a default the module does not let you change) | A finding for the question set, not for the render: either the guardrail is wrong or the module is, and the spec records the value actually deployed with `source: forced`, `forced_by: <module>` |
+| **Fixes it the other way** (a default the module does not let you change) | A finding for the question set, not for the render: either the guardrail is wrong or the module is, and the spec records the value actually deployed with `source: { forced_by: <module> }` |
 | **Exposes it under a different shape** (bool for a string, days-without-enabled, a nested object) | Normal rendering. The resource reference maps it, the test asserts the spec's value through the module's shape |
 
 The check is mechanical: walk the resource's spec decisions against the module's input

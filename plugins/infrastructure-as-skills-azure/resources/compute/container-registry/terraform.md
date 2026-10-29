@@ -28,6 +28,7 @@ Terraform `>= 1.8`. The root's provider set is the union with the other modules.
 | `ip_rules` | `network_rule_set = { default_action = "Deny", ip_rule = [{ ip_range }] }` | Premium only; member names from the README |
 | `network_rule_bypass` | `network_rule_bypass_option` | `None` / `AzureServices`; default `None`; written |
 | `export_policy_enabled` | `export_policy_enabled` | Default `true`; `false` needs public access off |
+| `image_push_path` | nothing on the registry | The image pipeline's steps and the AcrPush assignment for its identity; with `pipeline_opens_registry` the registry's public access is the pipeline's between its steps, so the render keeps `disabled` |
 | `private_endpoint_subnet` | `private_endpoints = { registry = { subnet_resource_id } }` | `subresource_name` defaults to `registry` |
 | `deployment.private_dns_records` | `private_endpoints_manage_dns_zone_group` | `false` under `policy` |
 | `managed_identity`, `user_assigned_identity_ids` | `managed_identities = { system_assigned, user_assigned_resource_ids }` | |
@@ -62,6 +63,7 @@ module "registry" {
   public_network_access_enabled = false
   network_rule_bypass_option    = "None"
   export_policy_enabled         = false
+  # not-testable: container-registry.networking.image_push_path - the image pipeline's steps, not a registry argument
   private_endpoints = {
     registry = {
       name               = data.naming_name.registry_private_endpoint.name

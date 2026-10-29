@@ -5,7 +5,7 @@ title: Deployment-wide decisions
 
 # The decisions that hold for everything in one deployment. Resolved once, before
 # any resource question set, and recorded under `deployment:` in the spec. A
-# resource question marked `from_deployment` reads its answer from here instead of
+# resource question with `answer: { deployment: <id> }` reads its answer from here instead of
 # asking again - the posture of a system is one decision, not one per resource.
 
 # `parameterized: true` marks a context value that is never asked and never written
@@ -28,7 +28,9 @@ groups:
     title: Context
     questions:
       - id: environments
-        ask: Which stages does the system go through - the full stack of development, test and production, only development and production, a sandbox as one throwaway environment, or other stages you name?
+        ask:
+          en: "Which stages does the system go through - the full stack of development, test and production, only development and production, a sandbox as one throwaway environment, or other stages you name?"
+          de: "Welche Stufen durchläuft das System - die volle Kette aus Entwicklung, Test und Produktion, nur Entwicklung und Produktion, eine Sandbox als einzelne Wegwerf-Umgebung, oder andere Stufen, die ihr benennt?"
         type: list
         resolved_by: interview
         topic: platform
@@ -47,7 +49,7 @@ groups:
           sandbox: { en: "sandbox, one throwaway environment", de: "Sandbox, eine Wegwerf-Umgebung" }
           demo: { en: "demo", de: "Demo" }
           hotfix: { en: "hotfix", de: "Hotfix" }
-        values: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
+        accepts: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
         default: [development, test, production]
         why: >
           The first decision of any run, and the one most often left unsaid: one
@@ -77,7 +79,9 @@ groups:
           environment code in every name comes from the stage's file
 
       - id: stage_isolation
-        ask: Does each stage (development, test, production) get an Azure subscription of its own, or do all stages share one?
+        ask:
+          en: "Does each stage (development, test, production) get an Azure subscription of its own, or do all stages share one?"
+          de: "Bekommt jede Stufe (Entwicklung, Test, Produktion) eine eigene Azure-Subscription, oder teilen sich alle Stufen eine?"
         type: enum
         resolved_by: derived
         forced_when: >
@@ -91,7 +95,7 @@ groups:
         plain_values:
           subscription: { en: "its own subscription, so the stages cannot touch each other's resources, budgets or permissions", de: "einer eigenen Subscription; die Stufen können sich gegenseitig weder Ressourcen noch Budgets noch Berechtigungen anfassen" }
           resource_group: { en: "resource groups of its own; each stage deploys with an identity of its own that holds roles on its stage's groups only, never on the subscription", de: "eigenen Ressourcengruppen; jede Stufe rollt mit einer eigenen Identität aus, die nur auf den Ressourcengruppen ihrer Stufe Rechte hat, nie auf der Subscription" }
-        values: [subscription, resource_group]
+        accepts: [subscription, resource_group]
         default: subscription
         depends_on: { question: environments, not_equals: [sandbox] }
         why: >
@@ -121,12 +125,14 @@ groups:
         renders: >
           terraform: subscription_id per environments/<stage>.tfvars and one state
           per stage; bicep: the deployment scope per stage on the command line;
-          both: the resource group name per stage; resource_group: every
-          resource_group_mode_<role> forced to existing, and the hand-over scopes each
+          both: the resource group name per stage; resource_group: resource_groups_created
+          forced to [] - every group exists - and the hand-over scopes each
           stage identity's roles to its own groups
 
       - id: deployment_scope
-        ask: May the infrastructure create its own resource groups, or does it deploy only into resource groups that already exist?
+        ask:
+          en: "May the infrastructure create its own resource groups, or does it deploy only into resource groups that already exist?"
+          de: "Darf die Infrastruktur ihre eigenen Ressourcengruppen anlegen, oder wird nur in bereits bestehende Ressourcengruppen ausgerollt?"
         type: enum
         resolved_by: interview
         topic: platform
@@ -136,7 +142,7 @@ groups:
         plain_values:
           resource_group: { en: "into resource groups that exist beforehand, with rights on those groups only", de: "in Ressourcengruppen, die vorab existieren, mit Rechten nur auf diesen Gruppen" }
           subscription: { en: "at subscription level, creating its resource groups itself", de: "auf Subscription-Ebene und legt ihre Ressourcengruppen selbst an" }
-        values: [resource_group, subscription]
+        accepts: [resource_group, subscription]
         default: resource_group
         why: >
           Asked in Phase 0, right after the module choice, because everything below follows
@@ -153,7 +159,9 @@ groups:
           resource_groups_created is asked; deployment.deployer_roles
 
       - id: non_production_savings
-        ask: Should the non-production stages run cheaper than production?
+        ask:
+          en: "Should the non-production stages run cheaper than production?"
+          de: "Sollen die Stufen außerhalb der Produktion günstiger laufen als die Produktion?"
         type: enum
         plain:
           en: "Development and test stages {value}."
@@ -161,7 +169,7 @@ groups:
         plain_values:
           enabled: { en: "run cheaper than production: less redundancy, shorter log retention - never less security", de: "laufen günstiger als die Produktion: weniger Redundanz, kürzere Log-Aufbewahrung, nie weniger Sicherheit" }
           disabled: { en: "are built identically to production", de: "werden identisch zur Produktion gebaut" }
-        values: [enabled, disabled]
+        accepts: [enabled, disabled]
         default: enabled
         forced_when: >
           A stack without a production stage (`[sandbox]`) takes every
@@ -182,7 +190,7 @@ groups:
           development stage that is less secure than production is where the
           breach happens and where the parity the stack exists for breaks. A
           customer who wants the stages identical says so, and that statement
-          wins here as everywhere; `disabled` is also the engineer's answer for a
+          wins here as everywhere; `disabled` is also the answer for a
           stage used as a production-like rehearsal.
         renders: >
           per stage: the question's non_production_default in every stage but
@@ -191,7 +199,9 @@ groups:
           value map
 
       - id: location
-        ask: Which Azure region?
+        ask:
+          en: "Which Azure region?"
+          de: "Welche Azure-Region?"
         type: string
         plain:
           en: "Everything runs in the Azure region {value}."
@@ -210,7 +220,9 @@ groups:
         renders: variable location / param location - and the region abbreviation in every name
 
       - id: workload
-        ask: Which workload is this for? (short name, goes into every resource name)
+        ask:
+          en: "Which workload is this for? (short name, goes into every resource name)"
+          de: "Für welchen Workload ist das? (Kurzname, geht in jeden Ressourcennamen ein)"
         type: string
         plain:
           en: "\"{value}\" is the name every part of the system carries."
@@ -225,13 +237,15 @@ groups:
         renders: variable workload / param workload - and the name of every resource
 
       - id: naming_convention
-        ask: Should resource names follow the default convention, or does your organisation have its own?
+        ask:
+          en: "Should resource names follow the default convention, or does your organisation have its own?"
+          de: "Sollen die Ressourcennamen der Standardkonvention folgen, oder hat eure Organisation eine eigene?"
         type: enum
         resolved_by: derived
         plain:
           en: "Resource names follow the {value} naming convention, so they are consistent to find and read."
           de: "Die Namen folgen der Namenskonvention „{value}“, damit sie einheitlich zu finden und zu lesen sind."
-        values: [default, custom]
+        accepts: [default, custom]
         default: default
         why: >
           The plugin's convention (core/iac-rendering/references/naming.default.yaml:
@@ -252,12 +266,14 @@ groups:
           name vars
 
       - id: subscription_id
-        ask: Which subscription does this deploy into?
-        type: ref
+        ask:
+          en: "Which subscription does this deploy into?"
+          de: "In welche Subscription wird das ausgerollt?"
+        type: string
         plain:
           en: "The system is deployed into subscription {value}."
           de: "Das System wird in die Subscription {value} ausgerollt."
-        ref: subscription
+        accepts: { ref: subscription }
         parameterized: true
         per_environment: true
         why: >
@@ -269,18 +285,20 @@ groups:
         renders: variable subscription_id (provider subscription_id) / the deployment's target scope
 
       - id: resource_group_name
-        ask: Which resource group?
-        type: ref
+        ask:
+          en: "Which resource group?"
+          de: "Welche Ressourcengruppe?"
+        type: string
         plain:
           en: "All parts are placed into the existing resource group {value}."
           de: "Alle Teile liegen in der bestehenden Ressourcengruppe {value}."
-        ref: resource_group
+        accepts: { ref: resource_group }
         parameterized: true
         per_environment: true
         why: >
           Always an input variable of the template, never asked and never
-          invented. A group the infrastructure creates (`resource_group_mode_main:
-          create`) needs no name from anyone - the render computes it from the
+          invented. A group the infrastructure creates (`main` in
+          `resource_groups_created`) needs no name from anyone - the render computes it from the
           naming interface. An existing one does: a stage the description gives
           no name for is named by an `open:` entry (workload owner, blocks apply),
           and its stage file holds `OPEN-resource-group`. A
@@ -301,7 +319,9 @@ groups:
     title: Resource groups
     questions:
       - id: resource_group_layout
-        ask: Should each stage's parts live together in one resource group, or be spread over several?
+        ask:
+          en: "Should each stage's parts live together in one resource group, or be spread over several?"
+          de: "Sollen die Teile jeder Stufe gemeinsam in einer Ressourcengruppe liegen oder auf mehrere verteilt werden?"
         type: enum
         resolved_by: interview
         topic: platform
@@ -311,7 +331,7 @@ groups:
         plain_values:
           single: { en: "together in one resource group", de: "zusammen in einer Ressourcengruppe" }
           split: { en: "spread over several resource groups", de: "verteilt auf mehrere Ressourcengruppen" }
-        values: [single, split]
+        accepts: [single, split]
         default: single
         why: >
           One group per workload and stage is the simplest thing that works, and
@@ -325,11 +345,13 @@ groups:
           first, and how to split second, because a list of areas cannot be left
           empty in a multiple-choice answer and "none" was answered as "other".
         renders: >
-          single: resource_group_split is [] and resource_group_scheme is not asked;
-          split: resource_group_scheme decides the groups
+          single: one group, resource_group_scheme is not asked; split: the scheme and
+          the resources decide the groups - derived by the scripts, never recorded
 
       - id: resource_group_scheme
-        ask: How should the parts be spread - by who is responsible for them, by how long they live, by how much protection their data needs, or by part of the system?
+        ask:
+          en: "How should the parts be spread - by who is responsible for them, by how long they live, by how much protection their data needs, or by part of the system?"
+          de: "Wie sollen die Teile verteilt werden - nach Verantwortlichkeit, nach Lebensdauer, nach Schutzbedarf ihrer Daten oder nach Teil des Systems?"
         type: enum
         resolved_by: interview
         topic: platform
@@ -341,7 +363,7 @@ groups:
           lifecycle: { en: "by lifecycle - built once, data that outlives every redeploy, parts replaced freely", de: "nach Lebenszyklus - einmal aufgebaut, Daten, die jedes Neu-Ausrollen überleben, frei ersetzbare Teile" }
           protection: { en: "by protection need - data and secrets in a fenced group, the rest beside it", de: "nach Schutzbedarf - Daten und Geheimnisse in einer abgeschotteten Gruppe, der Rest daneben" }
           component: { en: "by part of the system - one group per part, plus one for what all parts share", de: "nach Systembestandteil - je Teil eine Gruppe, dazu eine für das Gemeinsame" }
-        values: [concern, lifecycle, protection, component]
+        accepts: [concern, lifecycle, protection, component]
         default: concern
         depends_on: { question: resource_group_layout, equals: split }
         why: >
@@ -353,8 +375,12 @@ groups:
           the system - the protected group's rights are granted separately -, and
           `component` when parts of the system have their own team or release pace,
           the shared foundation (network, monitoring, identities) in a group of its
-          own. The first three are tables; the parts of `component` are the design's,
-          named in resource_group_components. One group
+          own. The first three are tables; the parts of `component` are the design's:
+          the run names them from the description and the resources' meta.purpose - a
+          short lowercase name each (chat, ingest, admin) - and places every resource
+          that is not shared in one with placement.resource_group (`source: { forced_by:
+          meta.purpose }`); the person renames, merges or splits parts at the diagram
+          sign-off. `shared` is never a part: it is the group of what every part uses. One group
           per kind of resource is not offered: it yields a group per type (fourteen
           for a chat app) that nobody owns or deletes as a unit, and cost by kind is a
           tag, not a group.
@@ -363,68 +389,13 @@ groups:
           question per area. The person sees the result in the diagram and moves a
           resource there, recorded as `placement.resource_group` (overridden).
         renders: >
-          derives resource_group_split from the scheme's table and the resources
-          in the design
-
-      - id: resource_group_components
-        ask: Which parts does the system consist of?
-        type: list
-        plain:
-          en: "The system's parts, each with a resource group of its own: {value}."
-          de: "Die Teile des Systems, jeder mit einer eigenen Ressourcengruppe: {value}."
-        default: []
-        depends_on: { question: resource_group_scheme, equals: component }
-        forced_when: >
-          Never asked; the run names the parts from the description and wiring.purposes - a
-          short lowercase name each (chat, ingest, admin) - and places every resource that is
-          not shared in one of them with placement.resource_group (forced, forced_by
-          wiring.purposes). Recorded as `forced` with `forced_by: wiring.purposes`; the person
-          renames, merges or splits parts at the diagram sign-off (`overridden`).
-        why: >
-          The parts are what the system is built from in the customer's eyes - the chat, the
-          document import, the admin portal - and no table can know them. Derived rather than
-          asked, because a person describing a chat app names its parts in passing and would
-          not name them as a list; the diagram is where they see and correct them. `shared`
-          is never a part: it is the group of what every part uses.
-        renders: resource_groups.<part> per part, beside resource_groups.shared
-
-      - id: resource_group_split
-        ask: Which roles get a resource group of their own?
-        type: list
-        plain:
-          en: "These areas get a resource group of their own: {value}. Everything else shares the main group."
-          de: "Diese Bereiche erhalten eine eigene Ressourcengruppe: {value}. Alles andere liegt in der Hauptgruppe."
-        plain_values:
-          network: { en: "network", de: "Netzwerk" }
-          data: { en: "data", de: "Daten" }
-          application: { en: "application", de: "Anwendung" }
-          observability: { en: "monitoring", de: "Überwachung" }
-          security: { en: "security", de: "Sicherheit" }
-          foundation: { en: "foundation", de: "Fundament" }
-          state: { en: "state", de: "Zustand" }
-          runtime: { en: "runtime", de: "Laufzeit" }
-          protected: { en: "protected", de: "geschützt" }
-          standard: { en: "standard", de: "Standard" }
-          shared: { en: "shared", de: "gemeinsam" }
-        default: []
-        forced_when: >
-          Never asked; derived from resource_group_layout and resource_group_scheme.
-          single: []. split: every role of the scheme that at least one resource of the
-          design belongs to, in the table's order; component: shared and the parts in
-          resource_group_components. Recorded as `forced` with `forced_by: deployment.resource_group_scheme`;
-          a role the person drops or adds after seeing the diagram is `overridden`.
-        why: >
-          The list the renderer, the diagram and the checks read: which groups exist
-          besides the main group. Derived so that no person has to pick areas from a
-          list longer than a multiple-choice question holds; a role with nothing in
-          it is not split off, because an empty group is a name and a role scope with
-          no purpose.
-        renders: >
-          resource_groups.<role> per listed role; a resource's group is its role's
-          group, or the main group when its role is not split off
+          the groups: every role of the scheme that a resource of the design is in
+          (rg_roles.groups), never written into the spec
 
       - id: resource_groups_created
-        ask: Which of these resource groups do not exist yet, so that the infrastructure should create them - the main group and the areas you gave a group of their own?
+        ask:
+          en: "Which of these resource groups do not exist yet, so that the infrastructure should create them - the main group and the areas you gave a group of their own?"
+          de: "Welche dieser Ressourcengruppen gibt es noch nicht, sodass die Infrastruktur sie anlegen soll - die Hauptgruppe und die Bereiche, denen ihr eine eigene Gruppe gegeben habt?"
         type: list
         resolved_by: interview
         topic: platform
@@ -452,312 +423,28 @@ groups:
           cost its own existing-or-create answer, and a system with five split areas asked
           six near-identical questions. The answer is the list of groups that must be
           created; every group not on it is expected to exist, which is the default
-          (`existing`) of the old per-role questions. Only `main` and the roles in
-          resource_group_split apply; a listed role that was not split off is ignored.
-          Why `existing` is the default, what `create` costs (Contributor on the
-          subscription, a destroy that takes the group with it) and why the platform
-          often owns the network group are the reasons given on the derived
-          resource_group_mode_<role> questions below.
+          (`existing`). Only `main` and the groups the split yields apply.
+          `existing` is the default because a group usually carries more than this
+          deployment: RBAC, policy assignments, locks and the cost view are set by
+          whoever hands it out, and a render that creates the group owns a lifecycle
+          wider than its resources - a destroy would delete the group and with it
+          anything else in it. `create` is right for a workload that has its own
+          subscription or a sandbox, where nobody hands groups out. It costs a wider
+          deployment right: creating a group needs Contributor on the subscription, not
+          on the group, so a Bicep root deploys at subscription scope. Decided per group
+          because the platform often owns one and the workload the others: the network
+          group is the one most often handed out, with the address plan, the hub peering
+          and the DNS zones; a data group split off to keep its lifecycle and its lock
+          apart is the one most worth creating with the system, so the lock comes with it.
         renders: >
-          derives resource_group_mode_<role> for main and every split role: create for a
-          listed role, existing otherwise; the spec keeps one mode per role
-
-      - id: resource_group_mode_main
-        ask: Does the main resource group already exist, or should the infrastructure create it?
-        type: enum
-        resolved_by: derived
-        forced_when: >
-          Not asked: `create` when main is in resource_groups_created, otherwise `existing`;
-          always `existing` under deployment_scope resource_group (forced_by deployment.deployment_scope)
-        plain:
-          en: "The main resource group {value}."
-          de: "Die Hauptressourcengruppe {value}."
-        plain_values:
-          existing: { en: "already exists and is only used", de: "existiert bereits und wird nur verwendet" }
-          create: { en: "is created together with the system", de: "wird zusammen mit dem System angelegt" }
-        values: [existing, create]
-        default: existing
-        depends_on: { question: resource_group_layout, not_equals: split }
-        why: >
-          `existing` is the default because a group usually carries more than
-          this deployment: RBAC, policy assignments, locks and the cost view are
-          set by whoever hands it out, and a render that creates the group owns
-          a lifecycle wider than its resources - a destroy would delete the group
-          and with it anything else in it. `create` is right for a workload that
-          has its own subscription or a sandbox, where nobody hands groups out.
-          It costs a wider deployment right: creating a group needs
-          Contributor on the subscription, not on the group, so a Bicep root
-          deploys at subscription scope. Decided per group because the platform
-          often owns one and the workload the others.
-        renders: >
-          existing: variable resource_group_name per stage; create: the AVM
-          resource group module, named by the naming interface unless a name is stated
-
-      - id: resource_group_mode_network
-        ask: Does the network resource group already exist, or should the infrastructure create it?
-        type: enum
-        resolved_by: derived
-        forced_when: >
-          Not asked: `create` when network is in resource_groups_created, otherwise `existing`;
-          always `existing` under deployment_scope resource_group (forced_by deployment.deployment_scope)
-        plain:
-          en: "The network resource group {value}."
-          de: "Die Ressourcengruppe für das Netzwerk {value}."
-        plain_values:
-          existing: { en: "already exists and is only used", de: "existiert bereits und wird nur verwendet" }
-          create: { en: "is created together with the system", de: "wird zusammen mit dem System angelegt" }
-        values: [existing, create]
-        default: existing
-        depends_on: { question: resource_group_split, contains: network }
-        why: >
-          A network group is the one most often handed out by a platform team
-          that also owns the address plan, the hub peering and the DNS zones, so
-          `existing` is the default; see resource_group_mode_main for what
-          `create` costs. A workload that builds its own network creates its own
-          group.
-        renders: >
-          existing: variable resource_group_name_network per stage; create: the
-          AVM resource group module, named by the naming interface unless a name is stated
-
-      - id: resource_group_mode_data
-        ask: Does the data resource group already exist, or should the infrastructure create it?
-        type: enum
-        resolved_by: derived
-        forced_when: >
-          Not asked: `create` when data is in resource_groups_created, otherwise `existing`;
-          always `existing` under deployment_scope resource_group (forced_by deployment.deployment_scope)
-        plain:
-          en: "The data resource group {value}."
-          de: "Die Ressourcengruppe für die Daten {value}."
-        plain_values:
-          existing: { en: "already exists and is only used", de: "existiert bereits und wird nur verwendet" }
-          create: { en: "is created together with the system", de: "wird zusammen mit dem System angelegt" }
-        values: [existing, create]
-        default: existing
-        depends_on: { question: resource_group_split, contains: data }
-        why: >
-          See resource_group_mode_main. A data group is split off to keep its
-          lifecycle and its lock apart from the application, which is the reason
-          to create it with the system as well: the lock then comes with it.
-        renders: >
-          existing: variable resource_group_name_data per stage; create: the AVM
-          resource group module, named by the naming interface unless a name is stated
-
-      - id: resource_group_mode_application
-        ask: Does the application resource group already exist, or should the infrastructure create it?
-        type: enum
-        resolved_by: derived
-        forced_when: >
-          Not asked: `create` when application is in resource_groups_created, otherwise `existing`;
-          always `existing` under deployment_scope resource_group (forced_by deployment.deployment_scope)
-        plain:
-          en: "The application resource group {value}."
-          de: "Die Ressourcengruppe für die Anwendung {value}."
-        plain_values:
-          existing: { en: "already exists and is only used", de: "existiert bereits und wird nur verwendet" }
-          create: { en: "is created together with the system", de: "wird zusammen mit dem System angelegt" }
-        values: [existing, create]
-        default: existing
-        depends_on: { question: resource_group_split, contains: application }
-        why: See resource_group_mode_main; the rule is the same for every role, only the owner differs.
-        renders: >
-          existing: variable resource_group_name_application per stage; create:
-          the AVM resource group module, named by the naming interface unless a name is stated
-
-      - id: resource_group_mode_observability
-        ask: Does the monitoring resource group already exist, or should the infrastructure create it?
-        type: enum
-        resolved_by: derived
-        forced_when: >
-          Not asked: `create` when observability is in resource_groups_created, otherwise `existing`;
-          always `existing` under deployment_scope resource_group (forced_by deployment.deployment_scope)
-        plain:
-          en: "The monitoring resource group {value}."
-          de: "Die Ressourcengruppe für die Überwachung {value}."
-        plain_values:
-          existing: { en: "already exists and is only used", de: "existiert bereits und wird nur verwendet" }
-          create: { en: "is created together with the system", de: "wird zusammen mit dem System angelegt" }
-        values: [existing, create]
-        default: existing
-        depends_on: { question: resource_group_split, contains: observability }
-        why: >
-          See resource_group_mode_main. A central monitoring group usually
-          belongs to the platform, which collects the logs of many workloads in
-          it - a workload that creates it owns a workspace nobody else feeds.
-        renders: >
-          existing: variable resource_group_name_observability per stage; create:
-          the AVM resource group module, named by the naming interface unless a name is stated
-
-      - id: resource_group_mode_security
-        ask: Does the security resource group already exist, or should the infrastructure create it?
-        type: enum
-        resolved_by: derived
-        forced_when: >
-          Not asked: `create` when security is in resource_groups_created, otherwise `existing`;
-          always `existing` under deployment_scope resource_group (forced_by deployment.deployment_scope)
-        plain:
-          en: "The security resource group {value}."
-          de: "Die Ressourcengruppe für die Sicherheit {value}."
-        plain_values:
-          existing: { en: "already exists and is only used", de: "existiert bereits und wird nur verwendet" }
-          create: { en: "is created together with the system", de: "wird zusammen mit dem System angelegt" }
-        values: [existing, create]
-        default: existing
-        depends_on: { question: resource_group_split, contains: security }
-        why: See resource_group_mode_main; keys and secrets groups are often fenced by their own RBAC, which is a reason to expect it from outside.
-        renders: >
-          existing: variable resource_group_name_security per stage; create: the
-          AVM resource group module, named by the naming interface unless a name is stated
-
-      - id: resource_group_mode_foundation
-        ask: Does the foundation resource group already exist, or should the infrastructure create it?
-        type: enum
-        resolved_by: derived
-        forced_when: >
-          Not asked: `create` when foundation is in resource_groups_created, otherwise `existing`;
-          always `existing` under deployment_scope resource_group (forced_by deployment.deployment_scope)
-        plain:
-          en: "The foundation resource group {value}."
-          de: "Die Ressourcengruppe für das Fundament {value}."
-        plain_values:
-          existing: { en: "already exists and is only used", de: "existiert bereits und wird nur verwendet" }
-          create: { en: "is created together with the system", de: "wird zusammen mit dem System angelegt" }
-        values: [existing, create]
-        default: existing
-        depends_on: { question: resource_group_split, contains: foundation }
-        why: See resource_group_mode_main; the network and monitoring in it are often handed out by a platform team.
-        renders: >
-          existing: variable resource_group_name_foundation per stage; create: the
-          AVM resource group module, named by the naming interface unless a name is stated
-
-      - id: resource_group_mode_state
-        ask: Does the state resource group already exist, or should the infrastructure create it?
-        type: enum
-        resolved_by: derived
-        forced_when: >
-          Not asked: `create` when state is in resource_groups_created, otherwise `existing`;
-          always `existing` under deployment_scope resource_group (forced_by deployment.deployment_scope)
-        plain:
-          en: "The state resource group {value}."
-          de: "Die Ressourcengruppe für den Zustand {value}."
-        plain_values:
-          existing: { en: "already exists and is only used", de: "existiert bereits und wird nur verwendet" }
-          create: { en: "is created together with the system", de: "wird zusammen mit dem System angelegt" }
-        values: [existing, create]
-        default: existing
-        depends_on: { question: resource_group_split, contains: state }
-        why: See resource_group_mode_main; the group holding the data is the one whose deletion is the most expensive mistake, so it is the strongest case for existing.
-        renders: >
-          existing: variable resource_group_name_state per stage; create: the
-          AVM resource group module, named by the naming interface unless a name is stated
-
-      - id: resource_group_mode_runtime
-        ask: Does the runtime resource group already exist, or should the infrastructure create it?
-        type: enum
-        resolved_by: derived
-        forced_when: >
-          Not asked: `create` when runtime is in resource_groups_created, otherwise `existing`;
-          always `existing` under deployment_scope resource_group (forced_by deployment.deployment_scope)
-        plain:
-          en: "The runtime resource group {value}."
-          de: "Die Ressourcengruppe für die Laufzeit {value}."
-        plain_values:
-          existing: { en: "already exists and is only used", de: "existiert bereits und wird nur verwendet" }
-          create: { en: "is created together with the system", de: "wird zusammen mit dem System angelegt" }
-        values: [existing, create]
-        default: existing
-        depends_on: { question: resource_group_split, contains: runtime }
-        why: See resource_group_mode_main; the runtime group is the one a workload most often owns, since nothing in it outlives a rebuild, but creating it still costs Contributor on the subscription.
-        renders: >
-          existing: variable resource_group_name_runtime per stage; create: the
-          AVM resource group module, named by the naming interface unless a name is stated
-
-      - id: resource_group_mode_protected
-        ask: Does the protected resource group already exist, or should the infrastructure create it?
-        type: enum
-        resolved_by: derived
-        forced_when: >
-          Not asked: `create` when protected is in resource_groups_created, otherwise `existing`;
-          always `existing` under deployment_scope resource_group (forced_by deployment.deployment_scope)
-        plain:
-          en: "The protected resource group {value}."
-          de: "Die Ressourcengruppe für Geschütztes {value}."
-        plain_values:
-          existing: { en: "already exists and is only used", de: "existiert bereits und wird nur verwendet" }
-          create: { en: "is created together with the system", de: "wird zusammen mit dem System angelegt" }
-        values: [existing, create]
-        default: existing
-        depends_on: { question: resource_group_split, contains: protected }
-        why: See resource_group_mode_main; the group holding data and secrets is the strongest case for existing - its administrator rights are set by whoever hands it out.
-        renders: >
-          existing: variable resource_group_name_protected per stage; create: the
-          AVM resource group module, named by the naming interface unless a name is stated
-
-      - id: resource_group_mode_standard
-        ask: Does the standard resource group already exist, or should the infrastructure create it?
-        type: enum
-        resolved_by: derived
-        forced_when: >
-          Not asked: `create` when standard is in resource_groups_created, otherwise `existing`;
-          always `existing` under deployment_scope resource_group (forced_by deployment.deployment_scope)
-        plain:
-          en: "The standard resource group {value}."
-          de: "Die Ressourcengruppe für den Rest {value}."
-        plain_values:
-          existing: { en: "already exists and is only used", de: "existiert bereits und wird nur verwendet" }
-          create: { en: "is created together with the system", de: "wird zusammen mit dem System angelegt" }
-        values: [existing, create]
-        default: existing
-        depends_on: { question: resource_group_split, contains: standard }
-        why: See resource_group_mode_main; nothing in it holds data, so it is the group a workload most often owns, but creating it still costs Contributor on the subscription.
-        renders: >
-          existing: variable resource_group_name_standard per stage; create: the
-          AVM resource group module, named by the naming interface unless a name is stated
-
-      - id: resource_group_mode_shared
-        ask: Does the shared resource group already exist, or should the infrastructure create it?
-        type: enum
-        resolved_by: derived
-        forced_when: >
-          Not asked: `create` when shared is in resource_groups_created, otherwise `existing`;
-          always `existing` under deployment_scope resource_group (forced_by deployment.deployment_scope)
-        plain:
-          en: "The shared resource group {value}."
-          de: "Die Ressourcengruppe für das Gemeinsame {value}."
-        plain_values:
-          existing: { en: "already exists and is only used", de: "existiert bereits und wird nur verwendet" }
-          create: { en: "is created together with the system", de: "wird zusammen mit dem System angelegt" }
-        values: [existing, create]
-        default: existing
-        depends_on: { question: resource_group_split, contains: shared }
-        why: See resource_group_mode_main; the network and monitoring every part uses are often handed out by a platform team.
-        renders: >
-          existing: variable resource_group_name_shared per stage; create: the
-          AVM resource group module, named by the naming interface unless a name is stated
-
-      - id: resource_group_mode_part
-        ask: Does the part resource group already exist, or should the infrastructure create it?
-        type: enum
-        resolved_by: derived
-        forced_when: >
-          Not asked: `create` when part is in resource_groups_created, otherwise `existing`;
-          always `existing` under deployment_scope resource_group (forced_by deployment.deployment_scope)
-        plain:
-          en: "The part resource group {value}."
-          de: "Die Ressourcengruppe eines Teils {value}."
-        plain_values:
-          existing: { en: "already exists and is only used", de: "existiert bereits und wird nur verwendet" }
-          create: { en: "is created together with the system", de: "wird zusammen mit dem System angelegt" }
-        values: [existing, create]
-        default: existing
-        depends_on: { question: resource_group_scheme, equals: component }
-        why: See resource_group_mode_main. One entry here stands for the per-part keys (resource_group_mode_chat), because a design's parts are not known before it.
-        renders: >
-          existing: variable resource_group_name_part per stage; create: the
-          AVM resource group module, named by the naming interface unless a name is stated
+          per group: listed - the AVM resource group module, named by the naming interface
+          unless a name is stated; not listed - a variable resource_group_name[_<role>] per
+          stage. The spec keeps this list and no mode per group
 
       - id: resource_group_lock
-        ask: Should created resource groups be protected against deletion?
+        ask:
+          en: "Should created resource groups be protected against deletion?"
+          de: "Sollen angelegte Ressourcengruppen gegen Löschen geschützt werden?"
         type: enum
         plain:
           en: "Created resource groups {value}."
@@ -766,7 +453,7 @@ groups:
           production: { en: "carry a delete lock in production", de: "tragen in der Produktion eine Löschsperre" }
           all_stages: { en: "carry a delete lock in every stage", de: "tragen in jeder Stufe eine Löschsperre" }
           none: { en: "carry no lock", de: "tragen keine Sperre" }
-        values: [production, all_stages, none]
+        accepts: [production, all_stages, none]
         default: production
         why: >
           A group created by the render is deleted by a careless destroy or a
@@ -780,7 +467,9 @@ groups:
           AVM resource group module's lock input
 
       - id: resource_lock
-        ask: Should resources that hold data or state be protected against deletion?
+        ask:
+          en: "Should resources that hold data or state be protected against deletion?"
+          de: "Sollen Ressourcen, die Daten oder Zustand halten, gegen Löschen geschützt werden?"
         type: enum
         plain:
           en: "Resources that hold data {value}."
@@ -789,7 +478,7 @@ groups:
           production: { en: "carry a delete lock in production", de: "tragen in der Produktion eine Löschsperre" }
           all_stages: { en: "carry a delete lock in every stage", de: "tragen in jeder Stufe eine Löschsperre" }
           none: { en: "carry no lock", de: "tragen keine Sperre" }
-        values: [production, all_stages, none]
+        accepts: [production, all_stages, none]
         default: production
         resolved_by: interview
         topic: platform
@@ -818,7 +507,9 @@ groups:
     title: Delivery
     questions:
       - id: deploy_mechanism
-        ask: Where does the code live, and what should deploy it - Azure DevOps, GitHub, GitLab, or by hand from a workstation?
+        ask:
+          en: "Where does the code live, and what should deploy it - Azure DevOps, GitHub, GitLab, or by hand from a workstation?"
+          de: "Wo liegt der Code, und was soll ihn ausrollen - Azure DevOps, GitHub, GitLab, oder von Hand von einem Arbeitsplatzrechner?"
         type: enum
         resolved_by: interview
         topic: platform
@@ -830,7 +521,7 @@ groups:
           github: { en: "by GitHub Actions", de: "durch GitHub Actions" }
           gitlab: { en: "by a GitLab CI pipeline", de: "durch eine GitLab-CI-Pipeline" }
           local: { en: "by hand from a workstation, without a pipeline", de: "von Hand von einem Arbeitsplatz, ohne Pipeline" }
-        values: [azure_devops, github, gitlab, local]
+        accepts: [azure_devops, github, gitlab, local]
         required: true
         why: >
           No default exists: the answer is a fact about the customer's tooling,
@@ -848,7 +539,9 @@ groups:
           .github/workflows, azure-pipelines.yml, .gitlab-ci.yml, or deploy.ps1 / deploy.sh
 
       - id: pipeline_auth
-        ask: How does the pipeline sign in to Azure?
+        ask:
+          en: "How does the pipeline sign in to Azure?"
+          de: "Wie meldet sich die Pipeline bei Azure an?"
         type: enum
         resolved_by: derived
         plain:
@@ -857,7 +550,7 @@ groups:
         plain_values:
           workload_identity: { en: "with a short-lived token issued per run, no password stored anywhere", de: "mit einem kurzlebigen Token pro Lauf, ohne irgendwo gespeichertes Passwort" }
           client_secret: { en: "with a stored password that has to be rotated", de: "mit einem gespeicherten Passwort, das rotiert werden muss" }
-        values: [workload_identity, client_secret]
+        accepts: [workload_identity, client_secret]
         default: workload_identity
         depends_on: { question: deploy_mechanism, not_equals: local }
         why: >
@@ -878,7 +571,9 @@ groups:
           terraform: ARM_USE_OIDC; never a secret in the template
 
       - id: pipeline_approvals
-        ask: Which stages need a person to approve before anything is changed?
+        ask:
+          en: "Which stages need a person to approve before anything is changed?"
+          de: "Bei welchen Stufen muss eine Person zustimmen, bevor etwas geändert wird?"
         type: enum
         plain:
           en: "A person approves the change before it is applied: {value}."
@@ -887,7 +582,7 @@ groups:
           production: { en: "in live operation only", de: "nur im Echtbetrieb" }
           every_stage: { en: "in every stage", de: "in jeder Stufe" }
           none: { en: "in no stage - changes roll out unattended", de: "in keiner Stufe - Änderungen laufen unbeaufsichtigt durch" }
-        values: [production, every_stage, none]
+        accepts: [production, every_stage, none]
         default: production
         depends_on: { question: deploy_mechanism, not_equals: local }
         why: >
@@ -907,7 +602,9 @@ groups:
           platform must hold on it; no job applies a plan another run produced
 
       - id: deployer_roles
-        ask: Which roles does the identity that deploys need beyond its baseline?
+        ask:
+          en: "Which roles does the identity that deploys need beyond its baseline?"
+          de: "Welche Rollen braucht die ausrollende Identität über ihre Grundausstattung hinaus?"
         type: list
         resolved_by: derived
         plain:
@@ -916,7 +613,7 @@ groups:
         default: []
         forced_when: >
           Derived from the spec, never asked; each entry is `{ role, scope, for }`, `for`
-          naming the decisions that need it. Any `resource_group_mode_<role>: create` adds
+          naming the decisions that need it. A non-empty `resource_groups_created` adds
           `Contributor` on `subscription` (a group is created at subscription scope). A
           non-empty `role_assignments` on any resource, or `wiring.role_assignments`, adds
           `Role Based Access Control Administrator` on `resource_group`, conditioned to the
@@ -945,7 +642,9 @@ groups:
     title: Application
     questions:
       - id: app_runtime
-        ask: In which technology is the application written - .NET, Node.js, Python, Java, PHP, or delivered as a container?
+        ask:
+          en: "In which technology is the application written - .NET, Node.js, Python, Java, PHP, or delivered as a container?"
+          de: "In welcher Technik ist die Anwendung geschrieben - .NET, Node.js, Python, Java, PHP, oder wird sie als Container geliefert?"
         type: enum
         resolved_by: interview
         topic: application
@@ -959,7 +658,7 @@ groups:
           container: { en: "a container image that carries its own runtime", de: "einem Container-Image, das seine Laufzeit selbst mitbringt" }
           java: { en: "Java", de: "Java" }
           php: { en: "PHP", de: "PHP" }
-        values: [dotnet, node, python, container, java, php]
+        accepts: [dotnet, node, python, container, java, php]
         required: true
         why: >
           Asked whenever the design holds an application of the workload's own - a chat app,
@@ -978,7 +677,9 @@ groups:
           runtime_stack
 
       - id: app_containers
-        ask: Is it one container, or several that run together - a front end beside a worker, scheduled jobs?
+        ask:
+          en: "Is it one container, or several that run together - a front end beside a worker, scheduled jobs?"
+          de: "Ist es ein Container, oder mehrere, die zusammen laufen - ein Frontend neben einem Worker, zeitgesteuerte Jobs?"
         type: enum
         resolved_by: interview
         topic: application
@@ -988,7 +689,7 @@ groups:
         plain_values:
           single: { en: "one container", de: "ein Container" }
           several: { en: "several containers that run together", de: "mehrere Container, die zusammen laufen" }
-        values: [single, several]
+        accepts: [single, several]
         default: single
         depends_on: { question: app_runtime, equals: container }
         why: >
@@ -1002,16 +703,18 @@ groups:
   # ---------------------------------------------------------------- requirements
   # What the customer can say about the system without knowing Azure. Each answer
   # derives technical decisions in the resource sets: a resource question carrying
-  # `derived_from: <id>` maps the answer through its own table and records the value
-  # with `source: requirement`. The default answer derives the guardrail default, so an
+  # `answer: { question: <id>, map }` maps the answer through its own table and records the value
+  # with `source: { derived_from: deployment.<id> }`. The default answer derives the guardrail default, so an
   # unanswered requirement changes nothing - it only lets the customer change things.
   - id: requirements
     title: Requirements
     questions:
       - id: network_requirements
-        ask: May the network be chosen freely - this deployment picks its address ranges, no connection to your company network, no VPN - or are there network requirements, either address ranges your network team assigns, or a connection to the company network over a hub, VPN or ExpressRoute?
+        ask:
+          en: "May the network be chosen freely - this deployment picks its address ranges, no connection to your company network, no VPN - or are there network requirements, either address ranges your network team assigns, or a connection to the company network over a hub, VPN or ExpressRoute?"
+          de: "Darf das Netz frei gewählt werden - dieses Deployment wählt seine Adressbereiche selbst, keine Verbindung zu eurem Firmennetz, kein VPN - oder gibt es Vorgaben an das Netz, entweder Adressbereiche, die euer Netzwerkteam vergibt, oder eine Verbindung ins Firmennetz über einen Hub, VPN oder ExpressRoute?"
         type: enum
-        values: [free, assigned_ranges, corporate]
+        accepts: [free, assigned_ranges, corporate]
         default: free
         resolved_by: interview
         topic: network
@@ -1028,14 +731,13 @@ groups:
           corporate:
             en: is connected to your company network over the company platform's hub
             de: ist über den Hub der Firmenplattform mit dem Firmennetz verbunden
-        confirm_in: [production]
         why: >
           The one question behind the landing-zone archetype, the network's ownership and its
           addressing, and the customer is the only one who can answer it: whether the network
           may be chosen freely or follows requirements - ranges from an IPAM, a connection to
-          the company network, a hub, a VPN - is a fact about the organisation, not an
-          engineering choice. An engineer who guesses picks a range that collides at the first
-          peering, builds a standalone network for a workload meant to be a spoke, or asks for
+          the company network, a hub, a VPN - is a fact about the organisation, not a
+          technical choice. A guessed range collides at the first
+          peering, a guess builds a standalone network for a workload meant to be a spoke, or asks for
           a hub nobody has. `free` is the default and matches landing_zone's `standalone`: the
           deployment brings its own network and picks its ranges. `assigned_ranges` keeps the
           network standalone but makes the address space and the subnet prefixes open entries
@@ -1053,9 +755,11 @@ groups:
           team unless the request states them. A contradiction with landing_zone_exists or
           central_network is asked, not resolved
       - id: outage_impact
-        ask: How bad is it if the system is unavailable for a day?
+        ask:
+          en: "How bad is it if the system is unavailable for a day?"
+          de: "Wie schlimm ist es, wenn das System einen Tag lang nicht verfügbar ist?"
         type: enum
-        values: [tolerable, disruptive, critical]
+        accepts: [tolerable, disruptive, critical]
         default: disruptive
         resolved_by: interview
         topic: resilience
@@ -1066,7 +770,6 @@ groups:
           tolerable: { en: "tolerable", de: "verkraftbar" }
           disruptive: { en: "disruptive", de: "störend" }
           critical: { en: "business-critical", de: "geschäftskritisch" }
-        confirm_in: [production]
         why: >
           The one question behind every redundancy decision, and the customer is the
           only one who can answer it. `tolerable` is a system people can do without
@@ -1082,9 +785,11 @@ groups:
           later resources map it to their own zone-redundancy and SKU decisions
 
       - id: expected_load
-        ask: How many people use the system at the same time, at its busiest?
+        ask:
+          en: "How many people use the system at the same time, at its busiest?"
+          de: "Wie viele Personen nutzen das System gleichzeitig, wenn am meisten los ist?"
         type: enum
-        values: [small, medium, large]
+        accepts: [small, medium, large]
         default: small
         resolved_by: interview
         topic: application
@@ -1095,7 +800,6 @@ groups:
           small: { en: "a small group at the same time, up to about fifty people", de: "einer kleinen Gruppe gleichzeitig, bis etwa fünfzig Personen" }
           medium: { en: "several hundred people at the same time", de: "einigen hundert Personen gleichzeitig" }
           large: { en: "thousands of people at the same time, with peaks", de: "tausenden Personen gleichzeitig, mit Spitzen" }
-        confirm_in: [production]
         why: >
           The one question behind compute sizing, and only the customer knows it. It is a
           starting point, not a capacity plan: every size derived from it can be changed in
@@ -1108,9 +812,11 @@ groups:
           resources map it to their own size decisions
 
       - id: data_loss_tolerance
-        ask: If data is deleted or overwritten by mistake, how far back must you be able to go?
+        ask:
+          en: "If data is deleted or overwritten by mistake, how far back must you be able to go?"
+          de: "Wenn Daten versehentlich gelöscht oder überschrieben werden, wie weit zurück müsst ihr gehen können?"
         type: enum
-        values: [reproducible, one_week, one_month, three_months]
+        accepts: [reproducible, one_week, one_month, three_months]
         default: one_week
         resolved_by: interview
         topic: resilience
@@ -1135,9 +841,11 @@ groups:
           container_soft_delete_days, versioning_enabled, point_in_time_restore_days
 
       - id: data_access_pattern
-        ask: How is the data used - worked with all the time, read rarely once written, or kept only because something requires it?
+        ask:
+          en: "How is the data used - worked with all the time, read rarely once written, or kept only because something requires it?"
+          de: "Wie werden die Daten genutzt - ständig damit gearbeitet, nach dem Schreiben nur selten gelesen, oder nur aufbewahrt, weil etwas es verlangt?"
         type: enum
-        values: [active, occasional, archive]
+        accepts: [active, occasional, archive]
         default: active
         resolved_by: interview
         topic: data
@@ -1162,9 +870,11 @@ groups:
           derived by the resource sets: storage-account.access_tier (Hot / Cool / Cold)
 
       - id: backup_isolation
-        ask: Must a copy of the data survive if someone destroys it on purpose or with administrator rights - ransomware, a compromised account, a deleted storage account?
+        ask:
+          en: "Must a copy of the data survive if someone destroys it on purpose or with administrator rights - ransomware, a compromised account, a deleted storage account?"
+          de: "Muss eine Kopie der Daten überstehen, wenn jemand sie absichtlich oder mit Administratorrechten zerstört - Ransomware, ein kompromittiertes Konto, ein gelöschtes Speicherkonto?"
         type: enum
-        values: [operational, isolated, immutable]
+        accepts: [operational, isolated, immutable]
         default: operational
         resolved_by: interview
         topic: resilience
@@ -1175,7 +885,6 @@ groups:
           operational: { en: "protected only inside the system itself - whoever can delete the system can delete the copies", de: "nur innerhalb des Systems selbst geschützt; wer das System löschen kann, kann auch die Kopien löschen" }
           isolated: { en: "also kept in a separate backup store that the system's own administrators cannot delete", de: "zusätzlich in einem getrennten Backup-Speicher, den die Administratoren des Systems nicht löschen können" }
           immutable: { en: "also kept in a separate backup store where nobody can change or delete a copy before it expires", de: "zusätzlich in einem getrennten Backup-Speicher, in dem niemand eine Kopie vor ihrem Ablauf ändern oder löschen kann" }
-        confirm_in: [production]
         why: >
           The question `data_loss_tolerance` does not ask. Soft delete, versioning and
           point-in-time restore undo a mistake, but they live inside the resource they
@@ -1200,9 +909,11 @@ groups:
           outside the account) and names `immutable` as a gap
 
       - id: data_residency
-        ask: Where may the data be stored and processed - only in the country of the chosen region, anywhere in the same economic area such as the EU, or anywhere in the world?
+        ask:
+          en: "Where may the data be stored and processed - only in the country of the chosen region, anywhere in the same economic area such as the EU, or anywhere in the world?"
+          de: "Wo dürfen die Daten gespeichert und verarbeitet werden - nur im Land der gewählten Region, irgendwo im selben Wirtschaftsraum wie der EU, oder überall auf der Welt?"
         type: enum
-        values: [country, data_zone, unrestricted]
+        accepts: [country, data_zone, unrestricted]
         default: data_zone
         resolved_by: interview
         topic: security
@@ -1213,12 +924,11 @@ groups:
           country: { en: "only in the country of the chosen region", de: "nur im Land der gewählten Region" }
           data_zone: { en: "only inside the region's economic area, for example the EU", de: "nur innerhalb des Wirtschaftsraums der Region, zum Beispiel der EU" }
           unrestricted: { en: "anywhere in the world", de: "irgendwo auf der Welt" }
-        confirm_in: [production]
         why: >
           The one question behind every decision that puts data somewhere other than
           the chosen region, and the customer is the only one who can answer it: a
           data-protection officer, a works council or a contract says where the data
-          may be, and the engineer cannot infer it. Three places move data out of the
+          may be, and it cannot be inferred. Three places move data out of the
           region without anyone choosing to: a geo-redundant copy goes to Azure's
           **paired region**, which is in the same country for most European regions
           (Germany West Central - Germany North, Switzerland North - Switzerland West)
@@ -1242,9 +952,11 @@ groups:
           `location` parameter of every stage
 
       - id: priority
-        ask: Where should the money go - keep the running cost as low as it can be, balance cost and protection, or spend more wherever it makes the system safer and harder to take down?
+        ask:
+          en: "Where should the money go - keep the running cost as low as it can be, balance cost and protection, or spend more wherever it makes the system safer and harder to take down?"
+          de: "Wohin soll das Geld gehen - die laufenden Kosten so niedrig wie möglich halten, Kosten und Schutz abwägen, oder mehr ausgeben, wo immer es das System sicherer und schwerer angreifbar macht?"
         type: enum
-        values: [cost, balanced, protection]
+        accepts: [cost, balanced, protection]
         default: balanced
         resolved_by: interview
         topic: platform
@@ -1255,7 +967,6 @@ groups:
           cost: { en: "for the lowest running cost the security baseline allows", de: "auf geringste laufende Kosten, soweit die Sicherheitsvorgaben es erlauben" }
           balanced: { en: "balancing cost and protection", de: "mit Ausgewogenheit zwischen Kosten und Schutz" }
           protection: { en: "for protection first: more records, every stage like production", de: "mit Schutz zuerst: mehr Aufzeichnung, jede Stufe wie die Produktion" }
-        confirm_in: [production]
         why: >
           The customer decides what an extra euro buys, because only they know what the
           system is worth. It moves **cost and hardening knobs only, never the security
@@ -1278,7 +989,9 @@ groups:
     title: Modules
     questions:
       - id: module_source
-        ask: Should the code be built from the building blocks Microsoft tests and maintains, or from resources written out one by one?
+        ask:
+          en: "Should the code be built from the building blocks Microsoft tests and maintains, or from resources written out one by one?"
+          de: "Soll der Code aus den Bausteinen gebaut werden, die Microsoft testet und pflegt, oder aus einzeln ausgeschriebenen Ressourcen?"
         type: enum
         resolved_by: interview
         topic: platform
@@ -1288,7 +1001,7 @@ groups:
         plain_values:
           avm: { en: "Microsoft's verified, tested building blocks (Azure Verified Modules)", de: "Microsofts geprüften, getesteten Bausteinen (Azure Verified Modules)" }
           authored: { en: "resources written out individually", de: "einzeln ausgeschriebenen Ressourcen" }
-        values: [avm, authored]
+        accepts: [avm, authored]
         default: avm
         why: >
           Azure Verified Modules (AVM) are Microsoft's published, tested and
@@ -1305,7 +1018,7 @@ groups:
           resources written out and under their own review.
           A resource whose type has no `Available` module in the AVM index
           renders authored either way, recorded per module with
-          `source: forced` - the index is checked at render time, not
+          `source: { forced_by: no AVM module for <type> }` - the index is checked at render time, not
           remembered. Asked first, before the description
           and before any resource question: it decides what every later
           decision renders to, and it is the one choice a person can make
@@ -1321,7 +1034,9 @@ groups:
           vs. resource declarations - see core/iac-rendering/references/avm.md
 
       - id: naming_source
-        ask: How should the resource names be generated - by a ready-made naming tool from the plugin, by Microsoft's naming module, or by a mechanism of your own?
+        ask:
+          en: "How should the resource names be generated - by a ready-made naming tool from the plugin, by Microsoft's naming module, or by a mechanism of your own?"
+          de: "Wie sollen die Ressourcennamen erzeugt werden - mit einem fertigen Naming-Werkzeug aus dem Plugin, mit Microsofts Naming-Modul, oder mit einem eigenen Mechanismus?"
         type: enum
         resolved_by: interview
         topic: platform
@@ -1332,7 +1047,7 @@ groups:
           provider: { en: "the plugin's naming tool, driven by a naming file you can edit", de: "das Naming-Werkzeug des Plugins, gesteuert über eine Namensdatei, die ihr anpassen könnt" }
           module: { en: "Microsoft's ready-made naming module", de: "Microsofts fertiges Naming-Modul" }
           custom: { en: "the mechanism your organisation already uses", de: "der Mechanismus, den eure Organisation schon nutzt" }
-        values: [provider, module, custom]
+        accepts: [provider, module, custom]
         default: provider
         why: >
           Three ways to get a name out of a convention in Terraform, and none
@@ -1361,7 +1076,9 @@ groups:
           bicep
 
       - id: module_telemetry
-        ask: May the Azure Verified Modules send their deployment telemetry to Microsoft?
+        ask:
+          en: "May the Azure Verified Modules send their deployment telemetry to Microsoft?"
+          de: "Dürfen die Azure Verified Modules ihre Deployment-Telemetrie an Microsoft senden?"
         type: enum
         resolved_by: derived
         plain:
@@ -1370,7 +1087,7 @@ groups:
         plain_values:
           enabled: { en: "on", de: "eingeschaltet" }
           disabled: { en: "off", de: "ausgeschaltet" }
-        values: [enabled, disabled]
+        accepts: [enabled, disabled]
         default: disabled
         depends_on: { question: module_source, equals: avm }
         why: >
@@ -1393,7 +1110,9 @@ groups:
     title: Posture
     questions:
       - id: landing_zone_exists
-        ask: Does your organisation have an Azure landing zone - a company platform with a hub network, central logging and shared name resolution that this system is placed into?
+        ask:
+          en: "Does your organisation have an Azure landing zone - a company platform with a hub network, central logging and shared name resolution that this system is placed into?"
+          de: "Hat eure Organisation eine Azure Landing Zone - eine Unternehmensplattform mit Hub-Netz, zentralem Logging und gemeinsamer Namensauflösung, in die dieses System eingebettet wird?"
         type: enum
         resolved_by: interview
         topic: platform
@@ -1403,9 +1122,8 @@ groups:
         plain_values:
           "yes": { en: "is", de: "gibt" }
           "no": { en: "is no", de: "gibt keine" }
-        values: ["yes", "no"]
+        accepts: ["yes", "no"]
         default: "no"
-        confirm_in: [production]
         depends_on: { question: environments, not_equals: [sandbox] }
         why: >
           One plain question instead of a profile file: the customer knows whether the
@@ -1425,7 +1143,9 @@ groups:
           observability_ownership reference; no: the three central_* answers decide
 
       - id: central_logging
-        ask: Is there a central Log Analytics workspace that all workloads log to?
+        ask:
+          en: "Is there a central Log Analytics workspace that all workloads log to?"
+          de: "Gibt es einen zentralen Log Analytics Workspace, in den alle Workloads loggen?"
         type: enum
         resolved_by: interview
         topic: platform
@@ -1435,7 +1155,7 @@ groups:
         plain_values:
           "yes": { en: "is", de: "gibt" }
           "no": { en: "is none, so the system brings its own", de: "gibt keinen, das System bringt also einen eigenen mit" }
-        values: ["yes", "no"]
+        accepts: ["yes", "no"]
         default: "no"
         depends_on: { question: landing_zone_exists, equals: "no" }
         why: >
@@ -1448,7 +1168,9 @@ groups:
           observability_ownership create
 
       - id: central_private_dns
-        ask: Is there a central place where the private DNS zones (privatelink.*) are kept for all workloads?
+        ask:
+          en: "Is there a central place where the private DNS zones (privatelink.*) are kept for all workloads?"
+          de: "Gibt es einen zentralen Ort, an dem die privaten DNS-Zonen (privatelink.*) für alle Workloads gehalten werden?"
         type: enum
         resolved_by: interview
         topic: platform
@@ -1458,7 +1180,7 @@ groups:
         plain_values:
           "yes": { en: "is", de: "gibt" }
           "no": { en: "is none, so the system keeps its own zones", de: "gibt keinen, das System hält also eigene Zonen" }
-        values: ["yes", "no"]
+        accepts: ["yes", "no"]
         default: "no"
         depends_on: { question: landing_zone_exists, equals: "no" }
         why: >
@@ -1470,7 +1192,9 @@ groups:
           by the platform team unless stated; no: private_dns_ownership deployment
 
       - id: central_network
-        ask: Is there a central hub network that this system's network should be connected to?
+        ask:
+          en: "Is there a central hub network that this system's network should be connected to?"
+          de: "Gibt es ein zentrales Hub-Netz, mit dem das Netz dieses Systems verbunden werden soll?"
         type: enum
         resolved_by: interview
         topic: platform
@@ -1480,7 +1204,7 @@ groups:
         plain_values:
           "yes": { en: "is", de: "gibt" }
           "no": { en: "is none, so the system builds a network of its own", de: "gibt keines, das System baut also ein eigenes Netz" }
-        values: ["yes", "no"]
+        accepts: ["yes", "no"]
         default: "no"
         depends_on: { question: landing_zone_exists, equals: "no" }
         why: >
@@ -1493,7 +1217,9 @@ groups:
           owned by the platform team unless stated; no: network_ownership create, standalone
 
       - id: central_backup
-        ask: Is there a central backup store (a backup vault) that all workloads use for their protected copies?
+        ask:
+          en: "Is there a central backup store (a backup vault) that all workloads use for their protected copies?"
+          de: "Gibt es einen zentralen Sicherungsspeicher (einen Backup Vault), den alle Workloads für ihre geschützten Kopien nutzen?"
         type: enum
         resolved_by: interview
         topic: platform
@@ -1503,7 +1229,7 @@ groups:
         plain_values:
           "yes": { en: "is", de: "gibt" }
           "no": { en: "is none, so the system brings its own", de: "gibt keinen, das System bringt also einen eigenen mit" }
-        values: ["yes", "no"]
+        accepts: ["yes", "no"]
         default: "no"
         depends_on: { question: environments, not_equals: [sandbox] }
         why: >
@@ -1523,7 +1249,9 @@ groups:
           the vault `backup-vault` / `recovery-services-vault` is part of this deployment
 
       - id: landing_zone
-        ask: Which kind of landing zone does this workload go into - internal (corp), internet-facing (online) or a sandbox - or none (standalone)?
+        ask:
+          en: "Which kind of landing zone does this workload go into - internal (corp), internet-facing (online) or a sandbox - or none (standalone)?"
+          de: "In welche Art von Landing Zone kommt dieser Workload - intern (Corp), aus dem Internet erreichbar (Online) oder eine Sandbox - oder in keine (eigenständig)?"
         type: enum
         plain:
           en: "The system lands in {value}."
@@ -1533,9 +1261,8 @@ groups:
           corp: { en: "the internal part of the company platform, connected to the company network", de: "dem internen Teil der Firmenplattform, verbunden mit dem Firmennetz" }
           online: { en: "the internet-facing part of the company platform", de: "dem internetseitigen Teil der Firmenplattform" }
           sandbox: { en: "a sandbox for experiments, never for real operation", de: "einer Sandbox zum Ausprobieren, nie für den Echtbetrieb" }
-        values: [standalone, corp, online, sandbox]
+        accepts: [standalone, corp, online, sandbox]
         default: standalone
-        confirm_in: [production]
         why: >
           `standalone` is the default and listed first: it needs no knowledge of
           landing zones and builds everything the deployment needs itself, while
@@ -1582,7 +1309,9 @@ groups:
           sees which platform rules the deployment was written against
 
       - id: network_exposure
-        ask: Should this infrastructure be reachable from the internet - not at all, only named parts such as the website with everything behind it staying private, or all of it?
+        ask:
+          en: "Should this infrastructure be reachable from the internet - not at all, only named parts such as the website with everything behind it staying private, or all of it?"
+          de: "Soll diese Infrastruktur aus dem Internet erreichbar sein - gar nicht, nur benannte Teile wie die Website, während alles dahinter privat bleibt, oder vollständig?"
         type: enum
         resolved_by: interview
         topic: network
@@ -1593,9 +1322,8 @@ groups:
           private: { en: "private only - nothing is reachable from the internet", de: "nur privat, nichts ist aus dem Internet erreichbar" }
           private_with_exceptions: { en: "private, with the named parts reachable from the internet behind a firewall; everything behind them stays private", de: "privat; nur die benannten Teile sind hinter einer Firewall aus dem Internet erreichbar, alles dahinter bleibt privat" }
           public: { en: "public - every part, databases included, is reachable from the internet by design", de: "öffentlich: jeder Teil, auch die Datenbanken, ist absichtlich aus dem Internet erreichbar" }
-        values: [private, private_with_exceptions, public]
+        accepts: [private, private_with_exceptions, public]
         default: private
-        confirm_in: [production]
         why: >
           Asked in every run, whatever the landing zone, and the input of `landing_zone`
           rather than its consequence: with a platform, `private` and
@@ -1624,7 +1352,9 @@ groups:
           map to get a firewalled public endpoint
 
       - id: public_parts
-        ask: Which parts must be reachable from the internet - for example the website, the interface for partners, a download area?
+        ask:
+          en: "Which parts must be reachable from the internet - for example the website, the interface for partners, a download area?"
+          de: "Welche Teile müssen aus dem Internet erreichbar sein - zum Beispiel die Website, die Schnittstelle für Partner, ein Download-Bereich?"
         type: list
         resolved_by: interview
         topic: network
@@ -1636,16 +1366,16 @@ groups:
         forced_when: >
           Not asked when the design has exactly one part people open - one application of the
           workload's own (a web app, a container app, a static web app) and nothing else a
-          person reaches: the public part is that application, recorded `forced` with
-          `forced_by: deployment.network_exposure` and shown in Phase 4 as the line the
+          person reaches: the public part is that application, recorded
+          `source: { forced_by: deployment.network_exposure }` and shown in Phase 4 as the line the
           customer ticks. Its deployment slots follow their app and are not parts of their
           own. Asked when the design has two or more such parts, or a part only the customer
           can name (a partner interface, a download area).
         why: >
-          The exceptions of `private_with_exceptions`, named in the customer's words: the
-          engineer maps each part to the resource that serves it (the website to its web
-          app or front door, the partner interface to the API entry) and records that
-          resource's public_network_access as `overridden` with the part as the reason;
+          The exceptions of `private_with_exceptions`, named in the customer's words: each
+          part is mapped to the resource that serves it (the website to its web
+          app or front door, the partner interface to the API entry), and that
+          resource's public_network_access is recorded `overridden` with the part as the reason;
           every resource no part maps to keeps the private baseline. An unmapped part is
           an `open:` entry owned by the workload owner, never a public database. Free
           text on purpose, like `mandates`: the parts are the workload's own.
@@ -1656,7 +1386,9 @@ groups:
           resource stays `disabled` behind its private endpoint
 
       - id: public_audience
-        ask: How is the part reachable from the internet protected - an entry with a web application firewall in front, only certain address ranges, or the internet without a filter?
+        ask:
+          en: "How is the part reachable from the internet protected - an entry with a web application firewall in front, only certain address ranges, or the internet without a filter?"
+          de: "Wie ist der aus dem Internet erreichbare Teil geschützt - ein Zugang mit vorgeschalteter Web Application Firewall, nur bestimmte Adressbereiche, oder das Internet ohne Filter?"
         type: enum
         resolved_by: interview
         topic: network
@@ -1666,8 +1398,8 @@ groups:
         plain_values:
           waf: { en: "reached through an entry with a web application firewall in front (Front Door or Application Gateway); the app itself stays private", de: "über einen Eingang mit Web Application Firewall davor erreichbar (Front Door oder Application Gateway); die App selbst bleibt privat" }
           known_addresses: { en: "reachable only from certain address ranges, such as the company's sites", de: "nur aus bestimmten Adressbereichen erreichbar, etwa von den Firmenstandorten" }
-          unfiltered: { en: "reachable from the whole internet without a filter in front - only the sign-in protects them", de: "aus dem ganzen Internet ohne Filter davor erreichbar - nur die Anmeldung schützt sie" }
-        values: [waf, known_addresses, unfiltered]
+          unfiltered: { en: "reachable from the whole internet without a filter in front (note: whether anyone has to sign in is up to the application alone)", de: "aus dem ganzen Internet ohne Filter davor erreichbar (Hinweis: ob jemand sich anmelden muss, entscheidet allein die Anwendung)" }
+        accepts: [waf, known_addresses, unfiltered]
         default: waf
         depends_on: { question: network_exposure, not_equals: private }
         why: >
@@ -1692,7 +1424,9 @@ groups:
           resources' public_network_access enabled with no restriction
 
       - id: public_entry
-        ask: Which entry carries the web application firewall - Front Door or an Application Gateway?
+        ask:
+          en: "Which entry carries the web application firewall - Front Door or an Application Gateway?"
+          de: "Welcher Zugang trägt die Web Application Firewall - Front Door oder ein Application Gateway?"
         type: enum
         plain:
           en: "The entry in front of the public parts is {value}."
@@ -1700,7 +1434,7 @@ groups:
         plain_values:
           front_door: { en: "Azure Front Door with a web application firewall, reaching the app over private link", de: "Azure Front Door mit Web Application Firewall, die die App über eine private Verbindung erreicht" }
           application_gateway: { en: "an Application Gateway with a web application firewall in the system's own network", de: "ein Application Gateway mit Web Application Firewall im eigenen Netz des Systems" }
-        values: [front_door, application_gateway]
+        accepts: [front_door, application_gateway]
         default: front_door
         depends_on: { question: public_audience, equals: waf }
         forced_when: >
@@ -1708,7 +1442,7 @@ groups:
           the system joins (`stated`); front_door in every other case, a corporate network
           included.
         why: >
-          Not asked: an engineer's choice the customer can state. Front Door is the default - a
+          Not asked: a technical choice the customer can state. Front Door is the default - a
           managed global entry with no subnet and no instances to size, and with Premium's
           private link origin the app keeps public access disabled. An Application Gateway sits
           in the system's network, needs a subnet of its own (/26, counted in the address
@@ -1717,7 +1451,9 @@ groups:
         renders: the front-door or application-gateway resource set, routed in addition to the app
 
       - id: local_auth
-        ask: May resources keep key-based or connection-string auth?
+        ask:
+          en: "May resources keep key-based or connection-string auth?"
+          de: "Dürfen Ressourcen die Anmeldung per Schlüssel oder Connection String behalten?"
         type: enum
         plain:
           en: "Passwords and access keys are {value}; access goes through company accounts, so every action is attributable."
@@ -1725,9 +1461,8 @@ groups:
         plain_values:
           disabled: { en: "switched off", de: "abgeschaltet" }
           allowed_where_unavoidable: { en: "allowed only where a consumer cannot do otherwise", de: "nur erlaubt, wo ein Nutzer nicht anders kann" }
-        values: [disabled, allowed_where_unavoidable]
+        accepts: [disabled, allowed_where_unavoidable]
         default: disabled
-        confirm_in: [production]
         why: >
           Entra ID and RBAC are the baseline; a key bypasses both and is not
           attributable in the audit log. `allowed_where_unavoidable` exists for a
@@ -1741,7 +1476,9 @@ groups:
     title: Mandates
     questions:
       - id: mandates
-        ask: Are there compliance or internal mandates this deployment has to satisfy?
+        ask:
+          en: "Are there compliance or internal mandates this deployment has to satisfy?"
+          de: "Gibt es Compliance-Vorgaben oder interne Richtlinien, die dieses Deployment erfüllen muss?"
         type: list
         resolved_by: interview
         topic: security
@@ -1766,7 +1503,9 @@ groups:
           decision it forces
 
       - id: key_protection
-        ask: Do keys have to be HSM-protected?
+        ask:
+          en: "Do keys have to be HSM-protected?"
+          de: "Müssen Schlüssel durch ein HSM geschützt sein?"
         type: enum
         plain:
           en: "Encryption keys are {value}."
@@ -1774,7 +1513,7 @@ groups:
         plain_values:
           software: { en: "protected in software - the standard, sufficient unless a mandate names hardware", de: "in Software geschützt, der Standard, ausreichend ohne Vorgabe für Hardware" }
           hsm: { en: "protected by hardware security modules, as a mandate requires; that costs the premium vault", de: "durch Hardware-Sicherheitsmodule geschützt, wie eine Vorgabe verlangt; das kostet den Premium-Tresor" }
-        values: [software, hsm]
+        accepts: [software, hsm]
         default: software
         why: >
           The usual mandate with a hard technical consequence. HSM-backed keys are
@@ -1789,7 +1528,9 @@ groups:
           selects Managed HSM where a mandate requires a single-tenant boundary
 
       - id: key_management
-        ask: Platform-managed keys, or customer-managed?
+        ask:
+          en: "Platform-managed keys, or customer-managed?"
+          de: "Schlüssel von der Plattform verwaltet oder vom Kunden?"
         type: enum
         plain:
           en: "Encryption keys are {value}."
@@ -1797,9 +1538,8 @@ groups:
         plain_values:
           platform_managed: { en: "managed by Azure - encrypted, rotated, no effort on your side", de: "von Azure verwaltet: verschlüsselt, rotiert, kein Aufwand bei euch" }
           customer_managed: { en: "your own, held in your key vault, so you can revoke them", de: "eure eigenen in eurem Schlüsseltresor, damit ihr sie zurückziehen könnt" }
-        values: [platform_managed, customer_managed]
+        accepts: [platform_managed, customer_managed]
         default: platform_managed
-        confirm_in: [production]
         why: >
           Platform-managed is not a compromise - encrypted, rotated, free, no
           operational burden. Customer-managed keys are warranted when a mandate
@@ -1815,7 +1555,9 @@ groups:
     title: Network
     questions:
       - id: network_ownership
-        ask: Should this deployment build its own virtual network, reference an existing one, or does it need none?
+        ask:
+          en: "Should this deployment build its own virtual network, reference an existing one, or does it need none?"
+          de: "Soll dieses Deployment ein eigenes virtuelles Netzwerk aufbauen, ein bestehendes referenzieren, oder braucht es keines?"
         type: enum
         resolved_by: derived
         plain:
@@ -1825,7 +1567,7 @@ groups:
           create: { en: "built by this deployment", de: "von diesem Ausrollen selbst gebaut" }
           reference: { en: "the existing one, used and never changed here", de: "das bestehende, hier genutzt und nie verändert" }
           none: { en: "not needed - everything is reached over public endpoints", de: "nicht gebraucht, alles wird über öffentliche Endpunkte erreicht" }
-        values: [create, reference, none]
+        accepts: [create, reference, none]
         default: create
         why: >
           Not a free choice: `private` and `private_with_exceptions` make a network
@@ -1857,13 +1599,15 @@ groups:
           bicep: Microsoft.Network/virtualNetworks resource vs. an `existing` reference
 
       - id: existing_vnet
-        ask: Which existing virtual network should the deployment reference?
-        type: ref
+        ask:
+          en: "Which existing virtual network should the deployment reference?"
+          de: "Welches bestehende virtuelle Netzwerk soll das Deployment referenzieren?"
+        type: string
         resolved_by: derived
         plain:
           en: "The existing network {value} is used."
           de: "Das bestehende Netz {value} wird genutzt."
-        ref: virtual_network
+        accepts: { ref: virtual_network }
         required: true
         depends_on: { question: network_ownership, equals: reference }
         per_environment: true
@@ -1874,7 +1618,9 @@ groups:
         renders: data source / existing reference the subnets are resolved from
 
       - id: address_space
-        ask: Which address space should the new virtual network use?
+        ask:
+          en: "Which address space should the new virtual network use?"
+          de: "Welchen Adressraum soll das neue virtuelle Netzwerk verwenden?"
         type: string
         resolved_by: derived
         plain:
@@ -1909,13 +1655,15 @@ groups:
         renders: azurerm_virtual_network.address_space / properties.addressSpace.addressPrefixes
 
       - id: private_endpoint_subnet
-        ask: Which existing subnet should private endpoints live in?
-        type: ref
+        ask:
+          en: "Which existing subnet should private endpoints live in?"
+          de: "In welchem bestehenden Subnetz sollen die Private Endpoints liegen?"
+        type: string
         resolved_by: derived
         plain:
           en: "Private connections land in the existing subnet {value}."
           de: "Private Anbindungen landen im bestehenden Subnetz {value}."
-        ref: subnet
+        accepts: { ref: subnet }
         required: true
         depends_on: { question: network_ownership, equals: reference }
         per_environment: true
@@ -1925,7 +1673,9 @@ groups:
         renders: private endpoint subnet_id in every resource that generates one
 
       - id: private_endpoint_subnet_prefix
-        ask: Which prefix should the private endpoint subnet get?
+        ask:
+          en: "Which prefix should the private endpoint subnet get?"
+          de: "Welches Präfix soll das Subnetz für die Private Endpoints bekommen?"
         type: string
         resolved_by: derived
         plain:
@@ -1935,7 +1685,7 @@ groups:
         depends_on: { question: network_ownership, equals: create }
         per_environment: true
         forced_when: >
-          network_requirements: free - cut from the chosen address space by the engineer, never
+          network_requirements: free - cut from the chosen address space, never
           asked: the first /27 of the range (the first /26 when the system has more than 27
           private endpoints), the compute subnets after it, each on a boundary of its own size
           (in a /25: endpoints 10.100.0.0/27, App Service integration 10.100.0.64/26). assigned_ranges and corporate: an
@@ -1952,7 +1702,9 @@ groups:
     title: DNS
     questions:
       - id: private_dns_ownership
-        ask: Who owns the private DNS zones?
+        ask:
+          en: "Who owns the private DNS zones?"
+          de: "Wem gehören die privaten DNS-Zonen?"
         type: enum
         resolved_by: derived
         plain:
@@ -1961,7 +1713,7 @@ groups:
         plain_values:
           platform: { en: "the company platform", de: "die Firmenplattform" }
           deployment: { en: "this deployment itself", de: "dieses Ausrollen selbst" }
-        values: [platform, deployment]
+        accepts: [platform, deployment]
         default: platform
         forced_when: >
           landing_zone: standalone pre-answers `deployment` - there is no platform to
@@ -1983,7 +1735,9 @@ groups:
           every private endpoint either way
 
       - id: private_dns_records
-        ask: Does a platform policy create the DNS records for private endpoints, or does this deployment?
+        ask:
+          en: "Does a platform policy create the DNS records for private endpoints, or does this deployment?"
+          de: "Legt eine Plattform-Policy die DNS-Einträge für Private Endpoints an, oder dieses Deployment?"
         type: enum
         resolved_by: derived
         plain:
@@ -1992,7 +1746,7 @@ groups:
         plain_values:
           policy: { en: "a platform rule, automatically", de: "eine Plattformregel, automatisch" }
           deployment: { en: "this deployment", de: "dieses Ausrollen" }
-        values: [policy, deployment]
+        accepts: [policy, deployment]
         default: policy
         depends_on: { question: private_dns_ownership, equals: platform }
         why: >
@@ -2010,13 +1764,15 @@ groups:
           (bicep) is rendered on every private endpoint
 
       - id: private_dns_zone_scope
-        ask: In which subscription and resource group does the platform keep the private DNS zones?
-        type: ref
+        ask:
+          en: "In which subscription and resource group does the platform keep the private DNS zones?"
+          de: "In welcher Subscription und Ressourcengruppe hält die Plattform die privaten DNS-Zonen?"
+        type: string
         resolved_by: derived
         plain:
           en: "The platform keeps the name zones in {value}."
           de: "Die Plattform hält die Namenszonen in {value}."
-        ref: resource_group
+        accepts: { ref: resource_group }
         required: true
         depends_on: { question: private_dns_records, equals: deployment }
         per_environment: true
@@ -2037,7 +1793,9 @@ groups:
     title: Observability
     questions:
       - id: observability_ownership
-        ask: Should this deployment build its own Log Analytics workspace, or reference an existing one?
+        ask:
+          en: "Should this deployment build its own Log Analytics workspace, or reference an existing one?"
+          de: "Soll dieses Deployment einen eigenen Log Analytics Workspace aufbauen oder einen bestehenden referenzieren?"
         type: enum
         resolved_by: derived
         plain:
@@ -2046,7 +1804,8 @@ groups:
         plain_values:
           create: { en: "a workspace this deployment creates and pays for", de: "einen Arbeitsbereich, den dieses Ausrollen anlegt und bezahlt" }
           reference: { en: "the company's central log workspace", de: "den zentralen Log-Arbeitsbereich der Firma" }
-        values: [create, reference]
+          none: { en: "no workspace - nothing is collected centrally", de: "keinen Arbeitsbereich, es wird nichts zentral gesammelt" }
+        accepts: [create, reference, none]
         default: reference
         forced_when: >
           landing_zone: standalone pre-answers `create` - without a platform there is
@@ -2058,19 +1817,24 @@ groups:
           create it. `reference` is right almost everywhere - a workspace per
           deployment fragments exactly the correlation an incident needs. `create`
           is for an isolated environment with no platform workspace to point at,
-          and makes the workspace this deployment's to own and pay for.
+          and makes the workspace this deployment's to own and pay for. `none` is a
+          deployment that sends no diagnostics anywhere, a small or throwaway one;
+          never derived, only stated.
         renders: >
           azurerm_log_analytics_workspace resource vs. data source;
-          Microsoft.OperationalInsights/workspaces resource vs. existing reference
+          Microsoft.OperationalInsights/workspaces resource vs. existing reference;
+          none: neither, and no diagnostic settings
 
       - id: diagnostics_destination
-        ask: Which existing Log Analytics workspace should receive diagnostics?
-        type: ref
+        ask:
+          en: "Which existing Log Analytics workspace should receive diagnostics?"
+          de: "Welcher bestehende Log Analytics Workspace soll die Diagnosedaten erhalten?"
+        type: string
         resolved_by: derived
         plain:
           en: "Logs are collected in {value}."
           de: "Logs werden in {value} gesammelt."
-        ref: log_analytics_workspace
+        accepts: { ref: log_analytics_workspace }
         required: true
         depends_on: { question: observability_ownership, equals: reference }
         per_environment: true
@@ -2086,7 +1850,9 @@ groups:
         renders: the diagnostic setting attached to every resource that supports one
 
       - id: log_retention_days
-        ask: How long should logs be retained?
+        ask:
+          en: "How long should logs be retained?"
+          de: "Wie lange sollen Logs aufbewahrt werden?"
         type: int
         resolved_by: interview
         topic: data
@@ -2117,13 +1883,14 @@ groups:
         renders: azurerm_log_analytics_workspace.retention_in_days / properties.retentionInDays
 
       - id: daily_quota_gb
-        ask: Should ingestion be capped per day?
+        ask:
+          en: "Should ingestion be capped per day?"
+          de: "Soll die Datenaufnahme pro Tag begrenzt werden?"
         type: int
         plain:
           en: "Daily log intake cap: {value} GB (-1: no cap)."
           de: "Tägliche Obergrenze für Logs: {value} GB (-1: keine)."
         default: -1
-        confirm_in: [production]
         depends_on: { question: observability_ownership, equals: create }
         why: >
           The second cost screw on the same workspace, so it belongs beside the
@@ -2137,7 +1904,9 @@ groups:
         renders: azurerm_log_analytics_workspace.daily_quota_gb / properties.workspaceCapping.dailyQuotaGb
 
       - id: application_monitoring
-        ask: Should the applications send their telemetry - requests, failures, dependencies, traces - to Application Insights?
+        ask:
+          en: "Should the applications send their telemetry - requests, failures, dependencies, traces - to Application Insights?"
+          de: "Sollen die Anwendungen ihre Telemetrie - Anfragen, Fehler, Abhängigkeiten, Traces - an Application Insights senden?"
         type: enum
         plain:
           en: "Application telemetry {value}."
@@ -2145,7 +1914,7 @@ groups:
         plain_values:
           enabled: { en: "goes to one Application Insights component of this deployment, stored in its log workspace", de: "geht an eine Application-Insights-Komponente dieses Ausrollens, gespeichert in seinem Log-Arbeitsbereich" }
           disabled: { en: "is not collected; only the platform's diagnostic logs are", de: "wird nicht erfasst, nur die Diagnose-Logs der Plattform" }
-        values: [enabled, disabled]
+        accepts: [enabled, disabled]
         default: enabled
         why: >
           The diagnostic setting carries what the platform sees of an app - HTTP requests,
@@ -2168,7 +1937,9 @@ groups:
     title: Backup
     questions:
       - id: backup_ownership
-        ask: Should this deployment create its own backup vault, or use an existing one?
+        ask:
+          en: "Should this deployment create its own backup vault, or use an existing one?"
+          de: "Soll dieses Deployment einen eigenen Backup Vault anlegen oder einen bestehenden verwenden?"
         type: enum
         resolved_by: derived
         plain:
@@ -2177,7 +1948,7 @@ groups:
         plain_values:
           create: { en: "a backup store this deployment creates and pays for", de: "einen Backup-Speicher, den dieses Ausrollen anlegt und bezahlt" }
           reference: { en: "the company's central backup store", de: "den zentralen Backup-Speicher der Firma" }
-        values: [create, reference]
+        accepts: [create, reference]
         default: create
         depends_on: { question: backup_isolation, not_equals: operational }
         forced_when: >
@@ -2195,13 +1966,15 @@ groups:
           vault's own settings are rendered only under `create`
 
       - id: backup_vault_destination
-        ask: Which existing backup vault should receive the protected copies?
-        type: ref
+        ask:
+          en: "Which existing backup vault should receive the protected copies?"
+          de: "Welcher bestehende Backup Vault soll die geschützten Kopien erhalten?"
+        type: string
         resolved_by: derived
         plain:
           en: "Protected copies are kept in {value}."
           de: "Geschützte Kopien werden in {value} aufbewahrt."
-        ref: backup_vault
+        accepts: { ref: backup_vault }
         required: true
         depends_on: { question: backup_ownership, equals: reference }
         per_environment: true

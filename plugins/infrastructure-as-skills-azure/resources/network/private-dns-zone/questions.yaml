@@ -28,14 +28,15 @@ groups:
     title: Placement
     questions:
       - id: environments
-        ask: Which stages is this deployed to?
+        ask:
+          en: "Which stages is this deployed to?"
+          de: "In welche Stufen wird das ausgerollt?"
         type: list
         plain:
           en: "Deployed in the stages {value}."
           de: "Wird in den Stufen {value} ausgerollt."
-        values: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
-        required: true
-        from_context: true
+        accepts: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
+        answer: { context: environments }
         why: >
           A zone is created once per stage that owns its resolution. Two stages sharing a
           zone share its records, so a development endpoint overwrites the production
@@ -43,14 +44,15 @@ groups:
         renders: the stage the zone is rendered in; naming parameter `environment` for the link names
 
       - id: resource_group_name
-        ask: Which resource group?
-        type: ref
+        ask:
+          en: "Which resource group?"
+          de: "Welche Ressourcengruppe?"
+        type: string
         plain:
           en: "Placed in the resource group {value}."
           de: "Liegt in der Ressourcengruppe {value}."
-        ref: resource_group
-        required: true
-        from_context: true
+        accepts: { ref: resource_group }
+        answer: { context: resource_group_name }
         per_environment: true
         why: >
           A zone is a global resource and has no region; it still sits in a group. Usually
@@ -63,7 +65,9 @@ groups:
     title: Zone
     questions:
       - id: ownership
-        ask: Who owns the private DNS zones?
+        ask:
+          en: "Who owns the private DNS zones?"
+          de: "Wem gehören die privaten DNS-Zonen?"
         type: enum
         resolved_by: derived
         plain:
@@ -72,8 +76,8 @@ groups:
         plain_values:
           platform: { en: "the company platform", de: "die Firmenplattform" }
           deployment: { en: "this deployment itself", de: "dieses Ausrollen selbst" }
-        values: [platform, deployment]
-        from_deployment: private_dns_ownership
+        accepts: [platform, deployment]
+        answer: { deployment: private_dns_ownership }
         why: >
           Inherited: one answer per deployment. `platform` renders nothing for the privatelink
           zones - they are referenced - and only an `internal_domain` zone of this deployment
@@ -81,7 +85,9 @@ groups:
         renders: whether the privatelink zones are created here or only referenced
 
       - id: zone_kind
-        ask: Is this a privatelink zone for endpoints, or a domain of its own?
+        ask:
+          en: "Is this a privatelink zone for endpoints, or a domain of its own?"
+          de: "Ist das eine privatelink-Zone für Endpoints oder eine eigene Domain?"
         type: enum
         plain:
           en: "The zone is {value}."
@@ -89,7 +95,7 @@ groups:
         plain_values:
           privatelink: { en: "one of Azure's fixed names for private connections", de: "einer von Azures festen Namen für private Anbindungen" }
           internal_domain: { en: "an internal domain of the company, resolvable only inside its networks", de: "eine interne Domäne des Unternehmens, nur in seinen Netzen auflösbar" }
-        values: [privatelink, internal_domain]
+        accepts: [privatelink, internal_domain]
         default: privatelink
         why: >
           The two behave differently. A privatelink zone is filled by endpoints and never
@@ -100,7 +106,9 @@ groups:
         renders: which of the questions below are reached
 
       - id: zone_names
-        ask: Which zones should be created?
+        ask:
+          en: "Which zones should be created?"
+          de: "Welche Zonen sollen angelegt werden?"
         type: list
         plain:
           en: "Zones: {value}."
@@ -120,7 +128,9 @@ groups:
     title: Networking
     questions:
       - id: vnet_links
-        ask: Which networks should resolve names in the zone?
+        ask:
+          en: "Which networks should resolve names in the zone?"
+          de: "Welche Netze sollen Namen in der Zone auflösen?"
         type: list
         plain:
           en: "The zone can be resolved from the networks {value}."
@@ -137,7 +147,9 @@ groups:
         renders: virtual_network_links / virtualNetworkLinks
 
       - id: auto_registration
-        ask: Should machines register their names in the zone by themselves?
+        ask:
+          en: "Should machines register their names in the zone by themselves?"
+          de: "Sollen Maschinen ihre Namen selbst in der Zone registrieren?"
         type: bool
         plain:
           en: "Machines register their own names in the zone: {value}."
@@ -156,7 +168,9 @@ groups:
         renders: virtual_network_links.<k>.registration_enabled / virtualNetworkLinks[].registrationEnabled
 
       - id: resolution_policy
-        ask: What should happen when the zone has no record for a name?
+        ask:
+          en: "What should happen when the zone has no record for a name?"
+          de: "Was soll passieren, wenn die Zone keinen Eintrag für einen Namen hat?"
         type: enum
         plain:
           en: "A name the zone does not know is {value}."
@@ -164,7 +178,7 @@ groups:
         plain_values:
           Default: { en: "reported as not existing", de: "als nicht vorhanden gemeldet" }
           NxDomainRedirect: { en: "looked up in public DNS instead", de: "stattdessen im öffentlichen DNS gesucht" }
-        values: [Default, NxDomainRedirect]
+        accepts: [Default, NxDomainRedirect]
         default: Default
         depends_on: { question: zone_kind, equals: privatelink }
         why: >
@@ -182,7 +196,9 @@ groups:
     title: Records
     questions:
       - id: static_records
-        ask: Which fixed names should the zone contain?
+        ask:
+          en: "Which fixed names should the zone contain?"
+          de: "Welche festen Namen soll die Zone enthalten?"
         type: list
         plain:
           en: "Fixed names in the zone: {value}."

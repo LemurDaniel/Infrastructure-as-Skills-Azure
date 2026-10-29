@@ -1,6 +1,6 @@
 # Decisions for "chatbot"
 
-What will be built, decided from your answers and the rules behind the defaults. Every line is one decision; the key in the appendix is where an engineer finds it in the specification.
+What will be built, decided from your answers and the rules behind the defaults. Every line is one decision; the key in the appendix is where it stands in the specification.
 
 As of 2026-10-23. Specification: `infra-spec.yaml`.
 
@@ -17,14 +17,16 @@ A resource group is the unit that is deleted, permitted and costed as a whole. E
 
 | Group | State | Name | Contains |
 |---|---|---|---|
-| main | created with the system | named by the naming convention | Azure Key Vault, Azure user-assigned managed identity (connector), Azure user-assigned managed identity (runner), Azure user-assigned managed identity (web) |
 | network | exists, only used | `rg-spoke-chatbot-prod-we` | Azure Network Security Group (containerapps), Azure Network Security Group (endpoints), Azure Network Security Group (integration), Azure Virtual Network |
 | data | created with the system | named by the naming convention | Azure Cosmos DB account (API for NoSQL), Azure Storage Account (uploads) |
 | application | created with the system | named by the naming convention | Azure AI Foundry (AI Services account with projects and model deployments), Azure AI Search service, Azure App Service (web app on an App Service plan) (mcp), Azure App Service (web app on an App Service plan) (web), Azure Container Apps (environment and one container app), Azure Container Registry, Azure Functions (function app on Flex Consumption or Elastic Premium), Azure Storage Account (host) |
 | monitoring | created with the system | named by the naming convention | Azure Application Insights (workspace-based), Azure Log Analytics Workspace |
+| security | created with the system | named by the naming convention | Azure Key Vault, Azure user-assigned managed identity (connector), Azure user-assigned managed identity (runner), Azure user-assigned managed identity (web) |
 
 ## What follows from your answers
 
+- **Each stage's parts live spread over several resource groups.** _(from your description)_
+- **The infrastructure creates these resource groups: data, application, monitoring, security. Every other group already exists and is only used.** _(from your description)_
 - **A day's outage would be disruptive.** _(not said, so the usual answer applies)_
   - therefore, Azure Storage Account (uploads): The data is kept in three datacenters of the region, so one can fail.
   - therefore, Azure Storage Account (host): The data is kept in three datacenters of the region, so one can fail.
@@ -32,7 +34,7 @@ A resource group is the unit that is deleted, permitted and costed as a whole. E
   - therefore, Azure AI Search service: 2 copies of the index answer queries.
   - therefore, Azure Container Registry: The registry does survive the loss of one datacenter of the region.
   - therefore, Azure Container Apps (environment and one container app): The environment does survive the loss of one datacenter of the region.
-  - therefore, Azure Container Apps (environment and one container app): At least 2 copies of the app are always running.
+  - therefore, Azure Container Apps (environment and one container app): Copies of the app always running, at least: 2.
   - therefore, Azure Functions (function app on Flex Consumption or Elastic Premium): The function app does survive the loss of one datacenter of the region.
   - therefore, Azure Functions (function app on Flex Consumption or Elastic Premium): 1 instance(s) are kept warm so the first call does not wait.
   - therefore, Azure App Service (web app on an App Service plan) (web): The app does survive the loss of one datacenter of the region.
@@ -64,19 +66,13 @@ Nothing here was asked; each follows a rule or one of the answers above. Say so 
 
 ### For the whole system
 
-- These areas get a resource group of their own: network, data, application, monitoring. Everything else shares the main group.
-- The main resource group is created together with the system.
-- The network resource group already exists and is only used.
-- The data resource group is created together with the system.
-- The application resource group is created together with the system.
-- The monitoring resource group is created together with the system.
 - Created resource groups carry a delete lock in production.
-- Besides changing the resources themselves, whoever deploys needs: Contributor (subscription), Role Based Access Control Administrator (resource_group), Key Vault Secrets Officer (key-vault). — because: The main resource group is created together with the system.
+- Besides changing the resources themselves, whoever deploys needs: Contributor (subscription), Role Based Access Control Administrator (resource_group), Key Vault Secrets Officer (key-vault). — because: The infrastructure creates these resource groups: data, application, monitoring, security. Every other group already exists and is only used.
 - Usage telemetry to Microsoft is on: a count per deployment, none of your data.
-- The system lands in the internal part of the company platform, connected to the company network. _(please confirm)_
-- Passwords and access keys are switched off; access goes through company accounts, so every action is attributable. _(please confirm)_
+- The system lands in the internal part of the company platform, connected to the company network.
+- Passwords and access keys are switched off; access goes through company accounts, so every action is attributable.
 - Encryption keys are protected in software - the standard, sufficient unless a mandate names hardware.
-- Encryption keys are managed by Azure - encrypted, rotated, no effort on your side. _(please confirm)_
+- Encryption keys are managed by Azure - encrypted, rotated, no effort on your side.
 - The network is built by this deployment.
 - The new network uses the address range 10.20.0.0/16.
 - Private connections get their own subnet, 10.20.0.0/27.
@@ -84,18 +80,18 @@ Nothing here was asked; each follows a rule or one of the answers above. Say so 
 - The name entries for private connections are written by a platform rule, automatically.
 - Logs go to a workspace this deployment creates and pays for.
 - Logs are collected in log-analytics-workspace. — because: Logs go to a workspace this deployment creates and pays for.
-- Daily log intake cap: -1 GB (-1: no cap). _(please confirm)_
+- Daily log intake cap: -1 GB (-1: no cap).
 
 ### Security
 
 The security baseline of every part in one place. None of it was asked and it is the same in every stage; say so if one does not fit.
 
 - **Azure Virtual Network**
-  - A paid DDoS protection plan is not used; Azure's basic protection applies either way. _(please confirm)_
+  - A paid DDoS protection plan is not used; Azure's basic protection applies either way.
   - Subnets that will get a security group: snet-endpoints, snet-web, snet-mcp, snet-func, snet-aca.
 - **Azure Application Insights (workspace-based)**
   - Access rights on the component granted to: user-assigned-identity__connector (Monitoring Metrics Publisher).
-  - Sending telemetry with only a key is switched off; applications sign in with company identities. _(please confirm)_
+  - Sending telemetry with only a key is switched off; applications sign in with company identities.
 - **Azure Key Vault**
   - Access rights on the vault granted to: user-assigned-identity__web (Key Vault Secrets User), user-assigned-identity__connector (Key Vault Secrets User).
   - Platform services allowed to read from the vault: none (empty: none).
@@ -103,7 +99,7 @@ The security baseline of every part in one place. None of it was asked and it is
 - **Azure Storage Account**
   - The storage has its own identity for reaching other services.
   - Access rights granted to: user-assigned-identity__web (Storage Blob Data Contributor), search-service (Storage Blob Data Reader). (uploads)
-  - Access with a shared key is not possible; access goes through company accounts. _(please confirm)_
+  - Access with a shared key is not possible; access goes through company accounts.
   - Connections must use at least TLS 1.2 encryption.
   - Unencrypted connections are refused.
   - Making individual folders publicly readable is not possible.
@@ -115,25 +111,25 @@ The security baseline of every part in one place. None of it was asked and it is
   - The account has no identity of its own.
   - Access to the data itself granted to: user-assigned-identity__web (Cosmos DB Built-in Data Contributor).
   - Management rights on the account granted to: none.
-  - Signing in with account keys is switched off; access goes through company accounts. _(please confirm)_
+  - Signing in with account keys is switched off; access goes through company accounts.
   - Creating or changing databases, containers and throughput with account keys is switched off.
-  - Encryption keys are managed by Azure - encrypted, rotated, no effort on your side. _(please confirm)_
+  - Encryption keys are managed by Azure - encrypted, rotated, no effort on your side.
 - **Azure AI Foundry (AI Services account with projects and model deployments)**
   - The account has its own identity.
   - Access rights on the account granted to: user-assigned-identity__web (Cognitive Services OpenAI User), user-assigned-identity__connector (Cognitive Services OpenAI User), search-service (Cognitive Services OpenAI User).
-  - Signing in with account keys is switched off; access goes through company accounts. _(please confirm)_
-  - Encryption keys are managed by Azure - encrypted, rotated, no effort on your side. _(please confirm)_
+  - Signing in with account keys is switched off; access goes through company accounts.
+  - Encryption keys are managed by Azure - encrypted, rotated, no effort on your side.
 - **Azure AI Search service**
   - The search service has its own identity.
   - Access rights on the search service granted to: user-assigned-identity__web (Search Index Data Reader), user-assigned-identity__connector (Search Index Data Contributor).
-  - Signing in with API keys is switched off; access goes through company accounts. _(please confirm)_
-  - Encryption keys are managed by Azure - encrypted, rotated, no effort on your side. _(please confirm)_
+  - Signing in with API keys is switched off; access goes through company accounts.
+  - Encryption keys are managed by Azure - encrypted, rotated, no effort on your side.
 - **Azure Container Registry**
   - The registry has no identity of its own.
   - Access rights on the registry granted to: user-assigned-identity__runner (AcrPull).
-  - The shared admin account is switched off; access goes through company accounts. _(please confirm)_
+  - The shared admin account is switched off; access goes through company accounts.
   - Pulling images without signing in is not allowed.
-  - Encryption keys are managed by Azure - encrypted, rotated, no effort on your side. _(please confirm)_
+  - Encryption keys are managed by Azure - encrypted, rotated, no effort on your side.
 - **Azure Container Apps (environment and one container app)**
   - The app has a shared, separately managed identity for reaching other services.
   - It uses the identity user-assigned-identity__runner.
@@ -145,7 +141,7 @@ The security baseline of every part in one place. None of it was asked and it is
   - Management rights on the function app granted to: none.
   - Unencrypted connections are redirected to the encrypted address.
   - Connections must use at least TLS 1.2 encryption.
-  - Deploying with a user name and password is not possible; deployments run through company accounts. _(please confirm)_
+  - Deploying with a user name and password is not possible; deployments run through company accounts.
   - Its application telemetry goes to application-insights (empty: none).
 - **Azure App Service (web app on an App Service plan)**
   - The app has a shared, separately managed identity for reaching other services.
@@ -153,7 +149,7 @@ The security baseline of every part in one place. None of it was asked and it is
   - Unencrypted connections are redirected to the encrypted address.
   - Connections must use at least TLS 1.2 encryption.
   - File upload by FTP is switched off.
-  - Deploying with a user name and password is not possible; deployments run through company accounts. _(please confirm)_
+  - Deploying with a user name and password is not possible; deployments run through company accounts.
 
 ### Azure Virtual Network
 
@@ -165,7 +161,7 @@ The security baseline of every part in one place. None of it was asked and it is
 - Shortcuts to Azure services from the subnets: none.
 - Subnets handed to a service: snet-web (Microsoft.Web/serverFarms), snet-mcp (Microsoft.Web/serverFarms), snet-func (Microsoft.App/environments), snet-aca (Microsoft.App/environments). — because: `resources.app-service__web.networking.integration_subnet`
 - Network logs go to log-analytics-workspace.
-- A record of allowed and denied traffic is not kept. _(please confirm)_
+- A record of allowed and denied traffic is not kept.
 
 ### Azure Network Security Group (endpoints)
 
@@ -197,9 +193,9 @@ The security baseline of every part in one place. None of it was asked and it is
 ### Azure Log Analytics Workspace
 
 - Logs are kept for 30 days.
-- Daily log intake cap: -1 GB (-1: no cap). _(please confirm)_
+- Daily log intake cap: -1 GB (-1: no cap).
 - Billed per gigabyte, pay as you go.
-- The log workspace is reachable from the internet, with company accounts and encryption - there is no private link scope to go through. _(please confirm)_
+- The log workspace is reachable from the internet, with company accounts and encryption - there is no private link scope to go through.
 - Sending logs with the workspace key is not possible - agents use company identities.
 - Who may read logs is decided by the workspace's own permissions.
 - A deleted workspace can be recovered for 14 days.
@@ -210,9 +206,9 @@ The security baseline of every part in one place. None of it was asked and it is
 - Its telemetry is stored in log-analytics-workspace.
 - The component is set up for a web application or a service.
 - 100 percent of the telemetry is kept.
-- Daily telemetry cap for this component: 0 GB (0: no cap). _(please confirm)_
+- Daily telemetry cap for this component: 0 GB (0: no cap).
 - Visitors' IP addresses are masked and not stored.
-- The component is reachable only through the private monitoring connection, for sending and for reading. _(please confirm)_
+- The component is reachable from the internet, for sending and for reading, with company accounts and encryption - there is no private monitoring connection to go through.
 
 ### Azure Key Vault
 
@@ -220,7 +216,7 @@ The security baseline of every part in one place. None of it was asked and it is
 - A deleted vault or secret cannot be wiped, not even by an administrator before its retention ends.
 - Deleted vault contents can be restored for 90 days.
 - Access to the vault's contents is controlled by role assignments, like everything else in Azure.
-- The vault is not reachable from the internet at all. _(please confirm)_
+- The vault is not reachable from the internet at all.
 - Its private connection lands in subnet snet-endpoints. — because: The network is built by this deployment.
 - Trusted Azure services may not pass past the vault's firewall.
 - Encryption keys are managed by Azure - the vault holds none for encryption.
@@ -251,7 +247,7 @@ The security baseline of every part in one place. None of it was asked and it is
 
 ### Azure Storage Account (uploads)
 
-- The storage is not reachable from the internet at all. _(please confirm)_
+- The storage is not reachable from the internet at all.
 - Its private connection lands in subnet snet-endpoints. — because: The network is built by this deployment.
 - Private connections exist for: files (blob).
 - Azure's own services (backup, monitoring) may reach the storage past the firewall.
@@ -264,7 +260,7 @@ The security baseline of every part in one place. None of it was asked and it is
 
 ### Azure Storage Account (host)
 
-- The storage is not reachable from the internet at all. _(please confirm)_
+- The storage is not reachable from the internet at all.
 - Its private connection lands in subnet snet-endpoints. — because: The network is built by this deployment.
 - Private connections exist for: files (blob), queues, tables. — because: `resources.function-app.storage.host_storage_account`
 - Azure's own services (backup, monitoring) may reach the storage past the firewall.
@@ -277,7 +273,7 @@ The security baseline of every part in one place. None of it was asked and it is
 
 ### Azure Cosmos DB account (API for NoSQL)
 
-- Capacity is reserved up front and billed by the hour, with a guaranteed rate. _(please confirm)_
+- Capacity is reserved up front and billed by the hour, with a guaranteed rate.
 - Throughput follows the load between a tenth of the ceiling and the ceiling.
 - Throughput is capped at 1000 request units per second per container.
 - The account as a whole may use at most -1 request units per second (-1: no limit).
@@ -285,11 +281,11 @@ The security baseline of every part in one place. None of it was asked and it is
 - The data is also kept in none (empty: only in the main region).
 - If the main region fails, the account switches to a replica region on its own.
 - A read sees its own writes at once and, for others, a slightly older state.
-- The account is not reachable from the internet at all. _(please confirm)_
+- The account is not reachable from the internet at all.
 - Its private connection lands in subnet snet-endpoints. — because: The network is built by this deployment.
 - Trusted Azure services may not pass past the account's firewall.
 - A column store for analytics beside the data is not kept.
-- The account holds the databases and containers chatbot containers [{'name': 'conversations', 'partition_key_paths': ['/userId']}].
+- The account holds the databases and containers chatbot (containers: conversations (partition_key_paths: /userId)).
 - Its logs go to log-analytics-workspace.
 - Logged: every change to the account, its databases and containers, every request to the data, with its cost and result.
 - Usage and performance figures are collected.
@@ -300,11 +296,11 @@ The security baseline of every part in one place. None of it was asked and it is
 - The account uses the pricing tier S0, the standard paid tier - the only one that has projects and private endpoints in production.
 - The account holds Foundry projects, as containers for access, data and cost.
 - The account holds the projects chatbot.
-- The account serves the models chat format OpenAI, model gpt-4.1, version 2025-04-14, embeddings format OpenAI, model text-embedding-3-large, version 1.
+- The account serves the models chat (format: OpenAI, model: gpt-4.1, version: 2025-04-14), embeddings (format: OpenAI, model: text-embedding-3-large, version: 1).
 - Each model may process up to 10 thousand tokens per minute.
 - When the model version expires, it moves to the new default version on that day.
 - Prompts and answers are checked by the content filter Microsoft.DefaultV2.
-- The account is not reachable from the internet at all. _(please confirm)_
+- The account is not reachable from the internet at all.
 - Its private connection lands in subnet snet-endpoints. — because: The network is built by this deployment.
 - The account may call out only to addresses that are explicitly allowed.
 - Its logs go to log-analytics-workspace.
@@ -313,10 +309,10 @@ The security baseline of every part in one place. None of it was asked and it is
 
 ### Azure AI Search service
 
-- The search service is the standard, the normal production tier tier. _(please confirm)_
+- The search service is the standard, the normal production tier tier.
 - The index data is spread over 1 partition(s).
 - Re-ranking of results by meaning is on, within a small free monthly allowance.
-- The search service is not reachable from the internet at all. _(please confirm)_
+- The search service is not reachable from the internet at all.
 - Its private connection lands in subnet snet-endpoints. — because: The network is built by this deployment.
 - Trusted Azure services may not pass past the search service's firewall.
 - Its logs go to log-analytics-workspace.
@@ -328,7 +324,7 @@ The security baseline of every part in one place. None of it was asked and it is
 - The registry is the premium, which alone can be closed off with a private connection and spread over several regions tier. — because: Access is private only - nothing is reachable from the internet.
 - The images are also kept in none (empty: only in the main region).
 - Untagged images are deleted after 7 days.
-- The registry is not reachable from the internet at all. _(please confirm)_
+- The registry is not reachable from the internet at all.
 - Its private connection lands in subnet snet-endpoints. — because: The network is built by this deployment.
 - Trusted Azure services may not pass past the registry's firewall.
 - Copying images out of the registry to elsewhere is blocked.
@@ -339,15 +335,15 @@ The security baseline of every part in one place. None of it was asked and it is
 ### Azure Container Apps (environment and one container app)
 
 - The app runs on shared capacity that is billed per use and scales to nothing.
-- The environment is reachable only from inside the company network, through an internal load balancer. _(please confirm)_
+- The environment is reachable only from inside the company network, through an internal load balancer.
 - The environment's infrastructure lives in subnet snet-aca. — because: The network is built by this deployment.
-- The environment is closed to all public traffic. _(please confirm)_
+- The environment is closed to all public traffic.
 - Traffic between the apps inside the environment is encrypted.
 - The app runs the container image container-registry/code-runner:1.0.0.
 - Each copy of the app gets half a core and one gigabyte.
 - The app may scale out to at most 10 copies.
 - Only the newest version of the app runs; a new one replaces it.
-- The app is callable only by other apps in its environment. _(please confirm)_
+- The app is callable only by other apps in its environment.
 - The app listens on port 8080.
 - Unencrypted connections to the app are redirected to the encrypted address.
 - Its logs go to log-analytics-workspace.
@@ -362,9 +358,9 @@ The security baseline of every part in one place. None of it was asked and it is
 - The function app may scale out to at most 20 instances.
 - Each instance gets 2048 MB of memory.
 - The function app keeps its own state in the storage account storage-account__host.
-- The function app signs in to its storage with its managed identity, with no secret stored. _(please confirm)_
+- The function app signs in to its storage with its managed identity, with no secret stored.
 - The deployed code is kept in the container app-package.
-- The function app is not reachable from the internet at all. _(please confirm)_
+- The function app is not reachable from the internet at all.
 - Its private connection lands in subnet snet-endpoints. — because: The network is built by this deployment.
 - The function app's own outgoing traffic goes through the company network, so it can reach private services.
 - Outgoing traffic leaves through the subnet snet-func. — because: The network is built by this deployment.
@@ -376,8 +372,8 @@ The security baseline of every part in one place. None of it was asked and it is
 ### Azure App Service (web app on an App Service plan) (web)
 
 - The app runs on Linux.
-- The hosting plan is size P1v3, premium, the normal production size. _(please confirm)_
-- The app is not reachable from the internet at all. _(please confirm)_
+- The hosting plan is size P1v3, premium, the normal production size.
+- The app is not reachable from the internet at all.
 - Its private connection lands in subnet snet-endpoints. — because: The network is built by this deployment.
 - The app's own outgoing traffic goes through the company network, so it can reach private services.
 - Outgoing traffic leaves through the subnet snet-web. — because: The network is built by this deployment.
@@ -394,8 +390,8 @@ The security baseline of every part in one place. None of it was asked and it is
 ### Azure App Service (web app on an App Service plan) (mcp)
 
 - The app runs on Linux.
-- The hosting plan is size P1v3, premium, the normal production size. _(please confirm)_
-- The app is not reachable from the internet at all. _(please confirm)_
+- The hosting plan is size P1v3, premium, the normal production size.
+- The app is not reachable from the internet at all.
 - Its private connection lands in subnet snet-endpoints. — because: The network is built by this deployment.
 - The app's own outgoing traffic goes through the company network, so it can reach private services.
 - Outgoing traffic leaves through the subnet snet-mcp. — because: The network is built by this deployment.
@@ -417,7 +413,6 @@ The security baseline of every part in one place. None of it was asked and it is
 
 Nothing can be deployed until these are answered.
 
-- Which private monitoring connection should the component belong to? _(needed from: platform team)_ — blocks: apply
 - Where does the code live, and which system deploys it? The request names none, so no pipeline is rendered. _(needed from: workload owner)_ — blocks: apply
 - Which tag set does the organisation apply? Nothing in the request, no repository to read it from. _(needed from: workload owner)_ — blocks: apply
 - The Entra app registration and its client secret. A directory object, not an Azure resource - the identity team creates it; the secret goes into the key vault placeholder `entra-client-secret`. _(needed from: identity team)_ — blocks: apply
@@ -432,14 +427,10 @@ Nothing can be deployed until these are answered.
 | `deployment.stage_isolation` | subscription | rule |
 | `deployment.non_production_savings` | enabled | rule |
 | `deployment.naming_convention` | default | rule |
-| `deployment.resource_group_split` | ["network", "data", "application", "observability"] | your description |
-| `deployment.resource_group_mode_main` | create | your description |
-| `deployment.resource_group_mode_network` | existing | your description |
-| `deployment.resource_group_mode_data` | create | your description |
-| `deployment.resource_group_mode_application` | create | your description |
-| `deployment.resource_group_mode_observability` | create | your answer |
+| `deployment.resource_group_layout` | split | your description |
+| `deployment.resource_groups_created` | ["data", "application", "observability", "security"] | your description |
 | `deployment.resource_group_lock` | production | rule |
-| `deployment.deployer_roles` | [{"role": "Contributor", "scope": "subscription", "for": ["deployment.resource_group_mode_main", "deployment.resource_group_mode_data", "deployment.resource_group_mode_application", "deployment.resource_group_mode_observability"]}, {"role": "Role Based Access Control Administrator", "scope": "resource_group", "for": ["resources.application-insights.identity.role_assignments", "resources.key-vault.identity.role_assignments", "resources.storage-account__uploads.identity.role_assignments", "resources.storage-account__host.identity.role_assignments", "resources.foundry.identity.role_assignments", "resources.search-service.identity.role_assignments", "resources.container-registry.identity.role_assignments"]}, {"role": "Key Vault Secrets Officer", "scope": "key-vault", "for": ["resources.key-vault.security.secret_placeholders"]}] | forced |
+| `deployment.deployer_roles` | [{"role": "Contributor", "scope": "subscription", "for": ["deployment.resource_groups_created"]}, {"role": "Role Based Access Control Administrator", "scope": "resource_group", "for": ["resources.application-insights.identity.role_assignments", "resources.key-vault.identity.role_assignments", "resources.storage-account__uploads.identity.role_assignments", "resources.storage-account__host.identity.role_assignments", "resources.foundry.identity.role_assignments", "resources.search-service.identity.role_assignments", "resources.container-registry.identity.role_assignments"]}, {"role": "Key Vault Secrets Officer", "scope": "key-vault", "for": ["resources.key-vault.security.secret_placeholders"]}] | forced |
 | `deployment.outage_impact` | disruptive | rule |
 | `deployment.data_loss_tolerance` | one_week | rule |
 | `deployment.data_access_pattern` | active | rule |
@@ -473,18 +464,21 @@ Nothing can be deployed until these are answered.
 | `virtual-network.security.subnets_expecting_nsg` | {"production": ["snet-endpoints", "snet-web", "snet-mcp", "snet-func", "snet-aca"]} | your description |
 | `virtual-network.observability.diagnostic_workspace` | {"production": "log-analytics-workspace"} | inherited |
 | `virtual-network.observability.flow_logs_enabled` | false | rule |
+| `network-security-group__endpoints.meta.purpose` | Private endpoints subnet | your description |
 | `network-security-group__endpoints.rules.subnet_purpose` | private_endpoints | your description |
 | `network-security-group__endpoints.rules.default_inbound` | deny_all | rule |
 | `network-security-group__endpoints.rules.default_outbound` | deny_internet | forced |
 | `network-security-group__endpoints.rules.rules` | {"production": []} | rule |
 | `network-security-group__endpoints.observability.diagnostic_workspace` | {"production": "log-analytics-workspace"} | inherited |
 | `network-security-group__endpoints.observability.diagnostic_categories` | ["NetworkSecurityGroupEvent", "NetworkSecurityGroupRuleCounter"] | rule |
+| `network-security-group__integration.meta.purpose` | App integration subnets | your description |
 | `network-security-group__integration.rules.subnet_purpose` | app_integration | your description |
 | `network-security-group__integration.rules.default_inbound` | deny_all | rule |
 | `network-security-group__integration.rules.default_outbound` | azure_default | rule |
 | `network-security-group__integration.rules.rules` | {"production": []} | rule |
 | `network-security-group__integration.observability.diagnostic_workspace` | {"production": "log-analytics-workspace"} | inherited |
 | `network-security-group__integration.observability.diagnostic_categories` | ["NetworkSecurityGroupEvent", "NetworkSecurityGroupRuleCounter"] | rule |
+| `network-security-group__containerapps.meta.purpose` | Container Apps subnet | your description |
 | `network-security-group__containerapps.rules.subnet_purpose` | container_apps | your description |
 | `network-security-group__containerapps.rules.default_inbound` | deny_all | rule |
 | `network-security-group__containerapps.rules.default_outbound` | azure_default | rule |
@@ -499,14 +493,16 @@ Nothing can be deployed until these are answered.
 | `log-analytics-workspace.access.rbac_only_access` | true | rule |
 | `log-analytics-workspace.data_protection.immediate_purge_protection` | true | rule |
 | `log-analytics-workspace.data_protection.archive_to_storage` | false | rule |
+| `application-insights.meta.purpose` | Application telemetry | your description |
 | `application-insights.component.workspace` | {"production": "log-analytics-workspace"} | inherited |
 | `application-insights.component.application_type` | web | rule |
 | `application-insights.component.sampling_percentage` | 100 | rule |
 | `application-insights.component.daily_cap_gb` | 0 | rule |
 | `application-insights.component.store_client_ip` | false | rule |
-| `application-insights.networking.public_network_access` | disabled | inherited |
+| `application-insights.networking.public_network_access` | enabled | rule |
 | `application-insights.identity.role_assignments` | {"production": [{"principal": "user-assigned-identity__connector", "role": "Monitoring Metrics Publisher"}]} | your description |
 | `application-insights.security.local_authentication_disabled` | true | inherited |
+| `key-vault.meta.purpose` | Secrets | your description |
 | `key-vault.vault.sku` | standard | rule |
 | `key-vault.vault.purge_protection` | true | rule |
 | `key-vault.vault.soft_delete_retention_days` | 90 | rule |
@@ -521,18 +517,22 @@ Nothing can be deployed until these are answered.
 | `key-vault.observability.diagnostic_workspace` | {"production": "log-analytics-workspace"} | inherited |
 | `key-vault.observability.diagnostic_categories` | ["AuditEvent", "AzurePolicyEvaluationDetails"] | rule |
 | `key-vault.observability.metrics_enabled` | true | rule |
+| `user-assigned-identity__web.meta.purpose` | Web app and MCP server | your description |
 | `user-assigned-identity__web.identity.purpose` | the web app and the MCP server, to reach models, search, data and secrets | your description |
 | `user-assigned-identity__web.identity.federated_credentials` | [] | rule |
 | `user-assigned-identity__web.identity.isolation_scope` | None | rule |
 | `user-assigned-identity__web.identity.role_assignments` | {"production": []} | rule |
+| `user-assigned-identity__connector.meta.purpose` | Connector function | your description |
 | `user-assigned-identity__connector.identity.purpose` | the document connector function, to index documents and keep its own state | your description |
 | `user-assigned-identity__connector.identity.federated_credentials` | [] | rule |
 | `user-assigned-identity__connector.identity.isolation_scope` | None | rule |
 | `user-assigned-identity__connector.identity.role_assignments` | {"production": []} | rule |
+| `user-assigned-identity__runner.meta.purpose` | Code interpreter | your description |
 | `user-assigned-identity__runner.identity.purpose` | the code interpreter container app, to pull its image | your description |
 | `user-assigned-identity__runner.identity.federated_credentials` | [] | rule |
 | `user-assigned-identity__runner.identity.isolation_scope` | None | rule |
 | `user-assigned-identity__runner.identity.role_assignments` | {"production": []} | rule |
+| `storage-account__uploads.meta.purpose` | Uploaded files | your description |
 | `storage-account__uploads.networking.public_network_access` | disabled | inherited |
 | `storage-account__uploads.networking.private_endpoint_subnet` | {"production": "snet-endpoints"} | forced |
 | `storage-account__uploads.networking.private_endpoint_subresources` | ["blob"] | rule |
@@ -557,6 +557,7 @@ Nothing can be deployed until these are answered.
 | `storage-account__uploads.observability.diagnostic_workspace` | {"production": "log-analytics-workspace"} | inherited |
 | `storage-account__uploads.observability.diagnostic_categories` | ["audit"] | rule |
 | `storage-account__uploads.observability.metrics_enabled` | true | rule |
+| `storage-account__host.meta.purpose` | State of the connector function | your description |
 | `storage-account__host.placement.resource_group` | application | your departure |
 | `storage-account__host.networking.public_network_access` | disabled | inherited |
 | `storage-account__host.networking.private_endpoint_subnet` | {"production": "snet-endpoints"} | forced |
@@ -582,6 +583,7 @@ Nothing can be deployed until these are answered.
 | `storage-account__host.observability.diagnostic_workspace` | {"production": "log-analytics-workspace"} | inherited |
 | `storage-account__host.observability.diagnostic_categories` | ["audit"] | rule |
 | `storage-account__host.observability.metrics_enabled` | true | rule |
+| `cosmos-db.meta.purpose` | Conversation history | your description |
 | `cosmos-db.account.capacity_mode` | provisioned | rule |
 | `cosmos-db.account.throughput_mode` | autoscale | rule |
 | `cosmos-db.account.max_throughput` | 1000 | rule |
@@ -606,6 +608,7 @@ Nothing can be deployed until these are answered.
 | `cosmos-db.observability.diagnostic_workspace` | {"production": "log-analytics-workspace"} | inherited |
 | `cosmos-db.observability.diagnostic_categories` | ["ControlPlaneRequests", "DataPlaneRequests"] | rule |
 | `cosmos-db.observability.metrics_enabled` | true | rule |
+| `foundry.meta.purpose` | Chat and embedding models | your description |
 | `foundry.account.kind` | AIServices | rule |
 | `foundry.account.sku_name` | S0 | rule |
 | `foundry.account.project_management` | true | rule |
@@ -625,6 +628,7 @@ Nothing can be deployed until these are answered.
 | `foundry.observability.diagnostic_workspace` | {"production": "log-analytics-workspace"} | inherited |
 | `foundry.observability.diagnostic_categories` | ["Audit", "RequestResponse", "AzureOpenAIRequestUsage"] | rule |
 | `foundry.observability.metrics_enabled` | true | rule |
+| `search-service.meta.purpose` | Search; indexes the uploads, embeds with the models | your description |
 | `search-service.service.sku` | standard | rule |
 | `search-service.service.replica_count` | 2 | derived from your answer |
 | `search-service.service.partition_count` | 1 | rule |
@@ -639,6 +643,7 @@ Nothing can be deployed until these are answered.
 | `search-service.observability.diagnostic_workspace` | {"production": "log-analytics-workspace"} | inherited |
 | `search-service.observability.diagnostic_categories` | ["OperationLogs"] | rule |
 | `search-service.observability.metrics_enabled` | true | rule |
+| `container-registry.meta.purpose` | Images of all apps | your description |
 | `container-registry.registry.sku` | Premium | forced |
 | `container-registry.registry.zone_redundant` | true | derived from your answer |
 | `container-registry.registry.geo_replicas` | {"production": []} | rule |
@@ -655,6 +660,7 @@ Nothing can be deployed until these are answered.
 | `container-registry.observability.diagnostic_workspace` | {"production": "log-analytics-workspace"} | inherited |
 | `container-registry.observability.diagnostic_categories` | ["ContainerRegistryRepositoryEvents", "ContainerRegistryLoginEvents"] | rule |
 | `container-registry.observability.metrics_enabled` | true | rule |
+| `container-apps.meta.purpose` | Code interpreter | your description |
 | `container-apps.environment.workload_profile` | Consumption | rule |
 | `container-apps.environment.zone_redundant` | true | derived from your answer |
 | `container-apps.environment.internal` | true | inherited |
@@ -676,6 +682,7 @@ Nothing can be deployed until these are answered.
 | `container-apps.observability.diagnostic_workspace` | {"production": "log-analytics-workspace"} | inherited |
 | `container-apps.observability.diagnostic_categories` | ["ContainerAppConsoleLogs", "ContainerAppSystemLogs"] | rule |
 | `container-apps.observability.metrics_enabled` | true | rule |
+| `function-app.meta.purpose` | Connector to the document store | your description |
 | `function-app.hosting.plan_type` | flex_consumption | rule |
 | `function-app.hosting.runtime_stack` | python | your description |
 | `function-app.hosting.runtime_version` | 3.12 | your description |
@@ -701,6 +708,7 @@ Nothing can be deployed until these are answered.
 | `function-app.observability.diagnostic_workspace` | {"production": "log-analytics-workspace"} | inherited |
 | `function-app.observability.diagnostic_categories` | ["FunctionAppLogs", "AppServiceAuditLogs"] | rule |
 | `function-app.observability.metrics_enabled` | true | rule |
+| `app-service__web.meta.purpose` | Chat front end and back end | your description |
 | `app-service__web.hosting.os_type` | Linux | rule |
 | `app-service__web.hosting.sku` | P1v3 | rule |
 | `app-service__web.hosting.zone_redundant` | true | derived from your answer |
@@ -724,6 +732,7 @@ Nothing can be deployed until these are answered.
 | `app-service__web.observability.diagnostic_workspace` | {"production": "log-analytics-workspace"} | inherited |
 | `app-service__web.observability.diagnostic_categories` | ["AppServiceHTTPLogs", "AppServiceAppLogs", "AppServiceAuditLogs", "AppServiceIPSecAuditLogs", "AppServicePlatformLogs"] | rule |
 | `app-service__web.observability.metrics_enabled` | true | rule |
+| `app-service__mcp.meta.purpose` | MCP tool server | your description |
 | `app-service__mcp.hosting.os_type` | Linux | rule |
 | `app-service__mcp.hosting.sku` | P1v3 | rule |
 | `app-service__mcp.hosting.zone_redundant` | true | derived from your answer |
@@ -748,5 +757,3 @@ Nothing can be deployed until these are answered.
 | `app-service__mcp.observability.diagnostic_categories` | ["AppServiceHTTPLogs", "AppServiceAppLogs", "AppServiceAuditLogs", "AppServiceIPSecAuditLogs", "AppServicePlatformLogs"] | rule |
 | `app-service__mcp.observability.metrics_enabled` | true | rule |
 | `wiring.access` | [{"from": "users", "to": "app-service__web", "label": "HTTPS 443"}, {"from": "app-service__web", "to": "external:entra-id", "label": "sign-in"}, {"from": "app-service__web", "to": "app-service__mcp"}, {"from": "app-service__web", "to": "foundry"}, {"from": "app-service__web", "to": "search-service"}, {"from": "app-service__web", "to": "cosmos-db"}, {"from": "app-service__web", "to": "storage-account__uploads"}, {"from": "app-service__web", "to": "key-vault"}, {"from": "app-service__mcp", "to": "container-apps"}, {"from": "app-service__mcp", "to": "foundry"}, {"from": "function-app", "to": "search-service"}, {"from": "function-app", "to": "foundry"}, {"from": "function-app", "to": "key-vault"}, {"from": "function-app", "to": "storage-account__host"}, {"from": "function-app", "to": "application-insights"}, {"from": "container-apps", "to": "container-registry", "label": "pulls its image"}] | your description |
-| `wiring.purposes` | {"app-service__web": "Chat front end and back end", "app-service__mcp": "MCP tool server", "function-app": "Connector to the document store", "container-apps": "Code interpreter", "foundry": "Chat and embedding models", "search-service": "Search; indexes the uploads, embeds with the models", "cosmos-db": "Conversation history", "storage-account__uploads": "Uploaded files", "storage-account__host": "State of the connector function", "key-vault": "Secrets", "user-assigned-identity__web": "Web app and MCP server", "user-assigned-identity__connector": "Connector function", "user-assigned-identity__runner": "Code interpreter", "network-security-group__endpoints": "Private endpoints subnet", "network-security-group__integration": "App integration subnets", "network-security-group__containerapps": "Container Apps subnet", "container-registry": "Images of all apps", "application-insights": "Application telemetry"} | your description |
-| `wiring.optional` | [] | rule |

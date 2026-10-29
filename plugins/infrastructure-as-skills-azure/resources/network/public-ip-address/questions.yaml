@@ -26,14 +26,15 @@ groups:
     title: Placement
     questions:
       - id: environments
-        ask: Which stages is this deployed to?
+        ask:
+          en: "Which stages is this deployed to?"
+          de: "In welche Stufen wird das ausgerollt?"
         type: list
         plain:
           en: "Deployed in the stages {value}."
           de: "Wird in den Stufen {value} ausgerollt."
-        values: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
-        required: true
-        from_context: true
+        accepts: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
+        answer: { context: environments }
         why: >
           Drives the rendered name. An address is allocated per stage and per consumer:
           a development stage that shares the production address shares its allowlist
@@ -41,27 +42,29 @@ groups:
         renders: naming parameter `environment`, and the tag of that name where the repository uses one
 
       - id: location
-        ask: Which Azure region?
+        ask:
+          en: "Which Azure region?"
+          de: "Welche Azure-Region?"
         type: string
         plain:
           en: "Created in the Azure region {value}."
           de: "Wird in der Azure-Region {value} angelegt."
-        required: true
-        from_context: true
+        answer: { context: location }
         why: >
           A regional address can be attached only to a resource of its own region, and
           the zones it spans are that region's.
         renders: location
 
       - id: resource_group_name
-        ask: Which resource group?
-        type: ref
+        ask:
+          en: "Which resource group?"
+          de: "Welche Ressourcengruppe?"
+        type: string
         plain:
           en: "Placed in the resource group {value}."
           de: "Liegt in der Ressourcengruppe {value}."
-        ref: resource_group
-        required: true
-        from_context: true
+        accepts: { ref: resource_group }
+        answer: { context: resource_group_name }
         per_environment: true
         why: >
           Placed into an existing group, normally that of the resource that uses the
@@ -73,7 +76,9 @@ groups:
     title: Address
     questions:
       - id: purpose
-        ask: What is the address for?
+        ask:
+          en: "What is the address for?"
+          de: "Wofür ist die Adresse?"
         type: enum
         plain:
           en: "The address is for {value}."
@@ -86,7 +91,7 @@ groups:
           load_balancer: { en: "a load balancer", de: "einen Lastverteiler" }
           vpn_gateway: { en: "a VPN gateway", de: "ein VPN-Gateway" }
           other: { en: "something else, named in the spec", de: "etwas anderes, im Spec benannt" }
-        values: [nat_gateway, application_gateway, firewall, bastion, load_balancer, vpn_gateway, other]
+        accepts: [nat_gateway, application_gateway, firewall, bastion, load_balancer, vpn_gateway, other]
         required: true
         forced_when: >
           `deployment.network_exposure: private` accepts `nat_gateway` (outbound only),
@@ -101,7 +106,9 @@ groups:
         renders: the `name` parameter of the naming convention (`<workload>-<purpose>`) and the SKU decision
 
       - id: sku
-        ask: Which SKU should the address have?
+        ask:
+          en: "Which SKU should the address have?"
+          de: "Welche SKU soll die Adresse haben?"
         type: enum
         plain:
           en: "The address is of the type {value}."
@@ -109,7 +116,7 @@ groups:
         plain_values:
           Standard: { en: "Standard (static, zone-aware, closed to inbound traffic until a rule opens it)", de: "Standard (statisch, zonenfähig, für eingehenden Verkehr zu, bis eine Regel öffnet)" }
           StandardV2: { en: "Standard V2 (zone-redundant by design, only for a NAT gateway of the same generation)", de: "Standard V2 (von Haus aus zonenredundant, nur für ein NAT-Gateway derselben Generation)" }
-        values: [Standard, StandardV2]
+        accepts: [Standard, StandardV2]
         default: Standard
         forced_when: >
           A NAT gateway of SKU `StandardV2` takes only `StandardV2` addresses and a `Standard`
@@ -125,7 +132,9 @@ groups:
         renders: azurerm_public_ip.sku / properties (sku.name) - `sku` (AVM Terraform), `skuName` (AVM Bicep)
 
       - id: sku_tier
-        ask: Should the address be regional or global?
+        ask:
+          en: "Should the address be regional or global?"
+          de: "Soll die Adresse regional oder global sein?"
         type: enum
         plain:
           en: "The address is {value}."
@@ -133,7 +142,7 @@ groups:
         plain_values:
           Regional: { en: "tied to one region", de: "an eine Region gebunden" }
           Global: { en: "global (front end of a cross-region load balancer)", de: "global (Front-End eines regionsübergreifenden Lastverteilers)" }
-        values: [Regional, Global]
+        accepts: [Regional, Global]
         default: Regional
         why: >
           `Global` is only for the front end of a cross-region load balancer; every other
@@ -142,7 +151,9 @@ groups:
         renders: sku_tier / sku.tier
 
       - id: allocation_method
-        ask: Should the address stay the same for its whole life?
+        ask:
+          en: "Should the address stay the same for its whole life?"
+          de: "Soll die Adresse über ihre ganze Lebensdauer gleich bleiben?"
         type: enum
         plain:
           en: "The address is {value}."
@@ -150,7 +161,7 @@ groups:
         plain_values:
           Static: { en: "fixed - it stays the same, also when the consumer is restarted", de: "fest - sie bleibt gleich, auch wenn der Verbraucher neu startet" }
           Dynamic: { en: "assigned when first used and then fixed until released", de: "bei erster Nutzung vergeben und bis zur Freigabe fest" }
-        values: [Static, Dynamic]
+        accepts: [Static, Dynamic]
         default: Static
         forced_when: "`sku: Standard` and `StandardV2` take only `Static`; `Dynamic` belongs to the retired Basic SKU"
         why: >
@@ -161,12 +172,14 @@ groups:
         renders: allocation_method / properties.publicIPAllocationMethod
 
       - id: ip_version
-        ask: Which IP version should the address have?
+        ask:
+          en: "Which IP version should the address have?"
+          de: "Welche IP-Version soll die Adresse haben?"
         type: enum
         plain:
           en: "The address is of version {value}."
           de: "Die Adresse hat die Version {value}."
-        values: [IPv4, IPv6]
+        accepts: [IPv4, IPv6]
         default: IPv4
         why: >
           IPv4 is what every partner allowlist and most consumers expect. IPv6 is chosen when
@@ -175,12 +188,14 @@ groups:
         renders: ip_version / properties.publicIPAddressVersion
 
       - id: zones
-        ask: Which availability zones should the address span?
+        ask:
+          en: "Which availability zones should the address span?"
+          de: "Über welche Verfügbarkeitszonen soll sich die Adresse erstrecken?"
         type: list
         plain:
           en: "The address is held in zones {value}."
           de: "Die Adresse liegt in den Zonen {value}."
-        values: [1, 2, 3]
+        accepts: [1, 2, 3]
         default: [1, 2, 3]
         why: >
           All three zones make the address zone-redundant: it survives the loss of a zone at
@@ -192,7 +207,9 @@ groups:
         renders: zones / availabilityZones / zones[]
 
       - id: idle_timeout_minutes
-        ask: After how many minutes of silence should an idle connection through the address be dropped?
+        ask:
+          en: "After how many minutes of silence should an idle connection through the address be dropped?"
+          de: "Nach wie vielen Minuten Stille soll eine Verbindung im Leerlauf über die Adresse getrennt werden?"
         type: int
         plain:
           en: "Connections that stay silent for {value} minutes are dropped."
@@ -207,7 +224,9 @@ groups:
         renders: idle_timeout_in_minutes / idleTimeoutInMinutes
 
       - id: dns_label
-        ask: Should the address get a name under Azure's public domain?
+        ask:
+          en: "Should the address get a name under Azure's public domain?"
+          de: "Soll die Adresse einen Namen unter der öffentlichen Domain von Azure bekommen?"
         type: string
         plain:
           en: "Public name label: {value} (empty: none)."
@@ -226,7 +245,9 @@ groups:
     title: Security
     questions:
       - id: ddos_protection_mode
-        ask: How should the address be protected against DDoS?
+        ask:
+          en: "How should the address be protected against DDoS?"
+          de: "Wie soll die Adresse gegen DDoS geschützt werden?"
         type: enum
         resolved_by: derived
         plain:
@@ -236,9 +257,8 @@ groups:
           VirtualNetworkInherited: { en: "taken from the network the consumer sits in", de: "vom Netz übernommen, in dem der Verbraucher steht" }
           Enabled: { en: "a paid protection plan set on the address itself", de: "ein kostenpflichtiger Schutzplan direkt an der Adresse" }
           Disabled: { en: "off - Azure's basic protection applies either way", de: "aus - Azures Basisschutz gilt ohnehin" }
-        values: [VirtualNetworkInherited, Enabled, Disabled]
+        accepts: [VirtualNetworkInherited, Enabled, Disabled]
         default: VirtualNetworkInherited
-        confirm_in: [production]
         why: >
           Inherited is the default and does the right thing: if the virtual network of the
           consumer has a DDoS plan (`virtual-network.ddos_protection`) the address is covered,
@@ -250,13 +270,15 @@ groups:
         renders: ddos_protection_mode / ddosSettings.protectionMode (Bicep - omitted for inherited)
 
       - id: ddos_protection_plan
-        ask: Which DDoS protection plan should protect the address?
-        type: ref
+        ask:
+          en: "Which DDoS protection plan should protect the address?"
+          de: "Welcher DDoS-Schutzplan soll die Adresse schützen?"
+        type: string
         resolved_by: derived
         plain:
           en: "The protection plan is {value}."
           de: "Der Schutzplan ist {value}."
-        ref: ddos_protection_plan
+        accepts: { ref: ddos_protection_plan }
         required: true
         depends_on: { question: ddos_protection_mode, equals: Enabled }
         per_environment: true
@@ -270,14 +292,16 @@ groups:
     title: Observability
     questions:
       - id: diagnostic_workspace
-        ask: Which Log Analytics workspace should receive diagnostics?
-        type: ref
+        ask:
+          en: "Which Log Analytics workspace should receive diagnostics?"
+          de: "Welcher Log Analytics Workspace soll die Diagnosedaten erhalten?"
+        type: string
         resolved_by: derived
         plain:
           en: "Its logs go to {value}."
           de: "Seine Logs gehen in {value}."
-        ref: log_analytics_workspace
-        from_deployment: diagnostics_destination
+        accepts: { ref: log_analytics_workspace }
+        answer: { deployment: diagnostics_destination }
         per_environment: true
         why: >
           Inherited: one deployment, one destination. The address's logs are DDoS
@@ -286,7 +310,9 @@ groups:
         renders: diagnostic_settings / diagnosticSettings
 
       - id: diagnostic_categories
-        ask: Which log categories should be collected?
+        ask:
+          en: "Which log categories should be collected?"
+          de: "Welche Log-Kategorien sollen erfasst werden?"
         type: list
         plain:
           en: "Logged: {value}."
@@ -295,7 +321,7 @@ groups:
           DDoSProtectionNotifications: { en: "when an attack starts and stops", de: "wann ein Angriff beginnt und endet" }
           DDoSMitigationFlowLogs: { en: "which traffic was dropped during an attack", de: "welcher Verkehr während eines Angriffs verworfen wurde" }
           DDoSMitigationReports: { en: "the summary of each mitigated attack", de: "die Zusammenfassung jedes abgewehrten Angriffs" }
-        values: [DDoSProtectionNotifications, DDoSMitigationFlowLogs, DDoSMitigationReports]
+        accepts: [DDoSProtectionNotifications, DDoSMitigationFlowLogs, DDoSMitigationReports]
         default: [DDoSProtectionNotifications, DDoSMitigationFlowLogs, DDoSMitigationReports]
         why: >
           All three are written only while an attack is mitigated, so they cost nothing the
@@ -305,7 +331,9 @@ groups:
         renders: diagnostic_settings.<key>.log_categories / diagnosticSettings[].logCategoriesAndGroups[].category
 
       - id: metrics_enabled
-        ask: Should all metrics be collected?
+        ask:
+          en: "Should all metrics be collected?"
+          de: "Sollen alle Metriken erfasst werden?"
         type: bool
         plain:
           en: "Usage and performance figures are {value}."

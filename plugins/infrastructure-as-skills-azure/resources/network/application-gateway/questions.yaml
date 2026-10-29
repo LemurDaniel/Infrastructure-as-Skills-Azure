@@ -24,14 +24,15 @@ groups:
     title: Placement
     questions:
       - id: environments
-        ask: Which stages is this deployed to?
+        ask:
+          en: "Which stages is this deployed to?"
+          de: "In welche Stufen wird das ausgerollt?"
         type: list
         plain:
           en: "Deployed in the stages {value}."
           de: "Wird in den Stufen {value} ausgerollt."
-        values: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
-        required: true
-        from_context: true
+        accepts: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
+        answer: { context: environments }
         why: >
           Drives the rendered name and the strictness of several defaults below. Nothing
           sensible can be guessed.
@@ -40,13 +41,14 @@ groups:
           one
 
       - id: location
-        ask: Which Azure region?
+        ask:
+          en: "Which Azure region?"
+          de: "Welche Azure-Region?"
         type: string
         plain:
           en: "Runs in the Azure region {value}."
           de: "Läuft in der Azure-Region {value}."
-        required: true
-        from_context: true
+        answer: { context: location }
         why: >
           Part of the rendered name and not inferable. A gateway is regional and sits in the
           same region as the network it routes into; for several regions the answer is Front
@@ -54,14 +56,15 @@ groups:
         renders: location
 
       - id: resource_group_name
-        ask: Which resource group?
-        type: ref
+        ask:
+          en: "Which resource group?"
+          de: "Welche Ressourcengruppe?"
+        type: string
         plain:
           en: "Placed in the resource group {value}."
           de: "Liegt in der Ressourcengruppe {value}."
-        ref: resource_group
-        required: true
-        from_context: true
+        accepts: { ref: resource_group }
+        answer: { context: resource_group_name }
         per_environment: true
         why: >
           The gateway is placed into an existing group. In a split deployment it belongs to
@@ -72,16 +75,17 @@ groups:
     title: The gateway
     questions:
       - id: waf_enabled
-        ask: Should a web application firewall inspect the requests?
+        ask:
+          en: "Should a web application firewall inspect the requests?"
+          de: "Soll eine Web Application Firewall die Anfragen prüfen?"
         type: bool
         plain:
-          en: "A web application firewall is {value}."
-          de: "Eine Web Application Firewall ist {value}."
+          en: "Requests are {value}."
+          de: "Die Anfragen werden {value}."
         plain_values:
           true: { en: inspected by a web application firewall, de: von einer Web Application Firewall geprüft }
           false: { en: not inspected by a firewall, de: nicht von einer Firewall geprüft }
         default: true
-        confirm_in: [production]
         why: >
           A layer-7 load balancer in front of web applications is the place an internet-
           facing system takes its attacks, and the firewall is what inspects them
@@ -96,7 +100,9 @@ groups:
           `Standard_v2`)
 
       - id: waf_mode
-        ask: Should the firewall block what it judges malicious, or only record it?
+        ask:
+          en: "Should the firewall block what it judges malicious, or only record it?"
+          de: "Soll die Firewall blockieren, was sie als schädlich einstuft, oder es nur protokollieren?"
         type: enum
         plain:
           en: "The firewall {value}."
@@ -104,10 +110,9 @@ groups:
         plain_values:
           Prevention: { en: blocks the requests it judges malicious, de: "blockiert Anfragen, die es für bösartig hält" }
           Detection: { en: only records the requests it judges malicious, de: "protokolliert Anfragen, die es für bösartig hält, nur" }
-        values: [Prevention, Detection]
+        accepts: [Prevention, Detection]
         default: Prevention
         depends_on: { question: waf_enabled, equals: true }
-        confirm_in: [production]
         why: >
           `Prevention` blocks, `Detection` records and lets through. Detection is the mode
           to *learn* in - a new rule set blocks legitimate requests that look odd, and the
@@ -117,7 +122,9 @@ groups:
         renders: firewall policy policy_settings.mode / policySettings.mode
 
       - id: waf_rule_set
-        ask: Which rule set should the firewall apply?
+        ask:
+          en: "Which rule set should the firewall apply?"
+          de: "Welchen Regelsatz soll die Firewall anwenden?"
         type: enum
         plain:
           en: "The firewall applies the rule set {value}."
@@ -125,7 +132,7 @@ groups:
         plain_values:
           Microsoft_DefaultRuleSet_2.1: { en: "Microsoft's maintained default rules", de: die gepflegten Standardregeln von Microsoft }
           OWASP_3.2: { en: the older OWASP rules, de: die älteren OWASP-Regeln }
-        values: [Microsoft_DefaultRuleSet_2.1, OWASP_3.2]
+        accepts: [Microsoft_DefaultRuleSet_2.1, OWASP_3.2]
         default: Microsoft_DefaultRuleSet_2.1
         depends_on: { question: waf_enabled, equals: true }
         why: >
@@ -137,7 +144,9 @@ groups:
         renders: managed_rules.managed_rule_set / managedRules.managedRuleSets
 
       - id: waf_bot_protection
-        ask: Should known malicious bots be blocked?
+        ask:
+          en: "Should known malicious bots be blocked?"
+          de: "Sollen bekannte schädliche Bots blockiert werden?"
         type: bool
         plain:
           en: "Known malicious bots are {value}."
@@ -156,12 +165,14 @@ groups:
           managedRules.managedRuleSets
 
       - id: capacity_min
-        ask: How many instances should always be running?
+        ask:
+          en: "How many instances should always be running?"
+          de: "Wie viele Instanzen sollen immer laufen?"
         type: int
         plain:
           en: "At least {value} instance(s) are always running."
           de: "Mindestens {value} Instanz(en) laufen immer."
-        derived_from:
+        answer:
           question: outage_impact
           map: { tolerable: 1, disruptive: 2, critical: 2 }
         non_production_default: 1
@@ -174,7 +185,9 @@ groups:
         renders: autoscale_configuration.min_capacity / autoscaleMinCapacity
 
       - id: capacity_max
-        ask: How many instances may it grow to under load?
+        ask:
+          en: "How many instances may it grow to under load?"
+          de: "Auf wie viele Instanzen darf es unter Last wachsen?"
         type: int
         plain:
           en: "It grows to at most {value} instances."
@@ -189,7 +202,9 @@ groups:
         renders: autoscale_configuration.max_capacity / autoscaleMaxCapacity
 
       - id: zone_redundant
-        ask: Should the gateway survive the loss of one datacenter of its region?
+        ask:
+          en: "Should the gateway survive the loss of one datacenter of its region?"
+          de: "Soll das Gateway den Ausfall eines Rechenzentrums seiner Region überstehen?"
         type: bool
         plain:
           en: "The gateway survives the loss of a datacenter: {value}."
@@ -197,7 +212,7 @@ groups:
         plain_values:
           true: { en: do, de: überstehen }
           false: { en: do not, de: überstehen nicht }
-        derived_from:
+        answer:
           question: outage_impact
           map: { tolerable: false, disruptive: true, critical: true }
         non_production_default: false
@@ -209,13 +224,15 @@ groups:
         renders: zones / availabilityZones
 
       - id: gateway_subnet
-        ask: Which subnet is reserved for the gateway?
-        type: ref
+        ask:
+          en: "Which subnet is reserved for the gateway?"
+          de: "Welches Subnetz ist für das Gateway reserviert?"
+        type: string
         resolved_by: derived
         plain:
           en: "The gateway uses the subnet {value}."
           de: "Das Gateway nutzt das Subnetz {value}."
-        ref: subnet
+        accepts: { ref: subnet }
         required: true
         per_environment: true
         why: >
@@ -229,7 +246,9 @@ groups:
           gateway_ip_configurations.subnet_id / gatewayIPConfigurations[].properties.subnet
 
       - id: managed_identity
-        ask: Which managed identity should the gateway carry?
+        ask:
+          en: "Which managed identity should the gateway carry?"
+          de: "Welche Managed Identity soll das Gateway tragen?"
         type: enum
         plain:
           en: "The gateway has {value}."
@@ -237,7 +256,7 @@ groups:
         plain_values:
           none: { en: no identity of its own, de: keine eigene Identität }
           user_assigned: { en: a separately managed identity, de: eine separat verwaltete Identität }
-        values: [none, user_assigned]
+        accepts: [none, user_assigned]
         default: user_assigned
         why: >
           The gateway reads its TLS certificates from Key Vault with an identity, and only a
@@ -247,12 +266,14 @@ groups:
         renders: identity / managedIdentities
 
       - id: user_assigned_identity_ids
-        ask: Which user-assigned identity?
+        ask:
+          en: "Which user-assigned identity?"
+          de: "Welche User-Assigned Identity?"
         type: list
         plain:
           en: "It uses the identity {value}."
           de: "Es nutzt die Identität {value}."
-        ref: user_assigned_identity
+        accepts: { ref: user_assigned_identity }
         required: true
         depends_on: { question: managed_identity, equals: user_assigned }
         per_environment: true
@@ -265,7 +286,9 @@ groups:
     title: Networking
     questions:
       - id: frontend_exposure
-        ask: On which side of the network does the gateway take requests?
+        ask:
+          en: "On which side of the network does the gateway take requests?"
+          de: "Auf welcher Seite des Netzes nimmt das Gateway Anfragen an?"
         type: enum
         plain:
           en: "The gateway takes requests {value}."
@@ -273,9 +296,8 @@ groups:
         plain_values:
           public: { en: from the internet, de: aus dem Internet }
           private: { en: only from inside the private network, de: nur aus dem privaten Netz }
-        values: [public, private]
+        accepts: [public, private]
         default: private
-        confirm_in: [production]
         forced_when: >
           `network_exposure: public` forces `public`; `private_with_exceptions` makes this
           gateway the exception and records `public` as overridden. `network_ownership:
@@ -292,7 +314,9 @@ groups:
           (module-created) / the public IP
 
       - id: public_ip_zone_redundant
-        ask: Should the public address be zone-redundant?
+        ask:
+          en: "Should the public address be zone-redundant?"
+          de: "Soll die öffentliche Adresse zonenredundant sein?"
         type: bool
         plain:
           en: "The public address is zone-redundant: {value}."
@@ -308,7 +332,9 @@ groups:
         renders: public_ip_addresses.<k>.zones / the public IP resource zones
 
       - id: tls_policy
-        ask: Which TLS versions and ciphers may clients use?
+        ask:
+          en: "Which TLS versions and ciphers may clients use?"
+          de: "Welche TLS-Versionen und Verschlüsselungsverfahren dürfen Clients verwenden?"
         type: enum
         plain:
           en: "Clients connect with the policy {value}."
@@ -316,7 +342,7 @@ groups:
         plain_values:
           AppGwSslPolicy20220101: { en: TLS 1.2 or newer with a broad cipher list, de: TLS 1.2 oder neuer mit breiter Chiffrenliste }
           AppGwSslPolicy20220101S: { en: TLS 1.2 or newer with strong ciphers only, de: TLS 1.2 oder neuer nur mit starken Chiffren }
-        values: [AppGwSslPolicy20220101, AppGwSslPolicy20220101S]
+        accepts: [AppGwSslPolicy20220101, AppGwSslPolicy20220101S]
         default: AppGwSslPolicy20220101S
         why: >
           A predefined policy, so the list does not rot. Both set TLS 1.2 as the floor; the
@@ -327,7 +353,9 @@ groups:
         renders: ssl_policy / sslPolicyName, sslPolicyType
 
       - id: backend_protocol
-        ask: Should the gateway talk to the services behind it encrypted?
+        ask:
+          en: "Should the gateway talk to the services behind it encrypted?"
+          de: "Soll das Gateway mit den Diensten dahinter verschlüsselt sprechen?"
         type: enum
         plain:
           en: "The gateway talks to the services behind it over {value}."
@@ -335,7 +363,7 @@ groups:
         plain_values:
           Https: { en: an encrypted connection, de: eine verschlüsselte Verbindung }
           Http: { en: an unencrypted connection, de: eine unverschlüsselte Verbindung }
-        values: [Https, Http]
+        accepts: [Https, Http]
         default: Https
         why: >
           End-to-end TLS keeps the traffic encrypted inside the network, which the
@@ -348,7 +376,9 @@ groups:
           backendHttpSettingsCollection[].properties.protocol
 
       - id: redirect_http_to_https
-        ask: Should plain HTTP requests be redirected to HTTPS?
+        ask:
+          en: "Should plain HTTP requests be redirected to HTTPS?"
+          de: "Sollen Anfragen über unverschlüsseltes HTTP auf HTTPS umgeleitet werden?"
         type: bool
         plain:
           en: "Plain HTTP requests are {value}."
@@ -365,7 +395,9 @@ groups:
           requestRoutingRules
 
       - id: http2_enabled
-        ask: Should HTTP/2 be offered to clients?
+        ask:
+          en: "Should HTTP/2 be offered to clients?"
+          de: "Soll Clients HTTP/2 angeboten werden?"
         type: bool
         plain:
           en: "HTTP/2 is {value}."
@@ -380,7 +412,9 @@ groups:
         renders: enable_http2 / enableHttp2
 
       - id: listeners
-        ask: Which sites does the gateway serve, and where does each go?
+        ask:
+          en: "Which sites does the gateway serve, and where does each go?"
+          de: "Welche Sites bedient das Gateway, und wohin geht jede?"
         type: list
         plain:
           en: "Sites: {value}."
@@ -401,7 +435,9 @@ groups:
     title: Security
     questions:
       - id: waf_exclusions
-        ask: Which request parts must the firewall not inspect?
+        ask:
+          en: "Which request parts must the firewall not inspect?"
+          de: "Welche Teile einer Anfrage darf die Firewall nicht prüfen?"
         type: list
         plain:
           en: "Exempt from inspection: {value} (empty: nothing)."
@@ -420,14 +456,16 @@ groups:
     title: Observability
     questions:
       - id: diagnostic_workspace
-        ask: Which Log Analytics workspace should receive diagnostics?
-        type: ref
+        ask:
+          en: "Which Log Analytics workspace should receive diagnostics?"
+          de: "Welcher Log Analytics Workspace soll die Diagnosedaten erhalten?"
+        type: string
         resolved_by: derived
         plain:
           en: "Its logs go to {value}."
           de: "Seine Logs gehen in {value}."
-        ref: log_analytics_workspace
-        from_deployment: diagnostics_destination
+        accepts: { ref: log_analytics_workspace }
+        answer: { deployment: diagnostics_destination }
         per_environment: true
         why: >
           Inherited: one deployment, one destination. Without a diagnostic setting the
@@ -435,7 +473,9 @@ groups:
         renders: diagnostic_settings / diagnosticSettings
 
       - id: diagnostic_categories
-        ask: Which log categories should be collected?
+        ask:
+          en: "Which log categories should be collected?"
+          de: "Welche Log-Kategorien sollen erfasst werden?"
         type: list
         plain:
           en: "Logged: {value}."
@@ -444,7 +484,7 @@ groups:
           ApplicationGatewayAccessLog: { en: "every request: client, host, status, time", de: "jede Anfrage: Client, Host, Status, Dauer" }
           ApplicationGatewayPerformanceLog: { en: instance throughput and health (v1 only), de: Durchsatz und Zustand der Instanzen (nur v1) }
           ApplicationGatewayFirewallLog: { en: "what the firewall matched, blocked or let through", de: "was die Firewall erkannt, blockiert oder durchgelassen hat" }
-        values: [ApplicationGatewayAccessLog, ApplicationGatewayPerformanceLog, ApplicationGatewayFirewallLog]
+        accepts: [ApplicationGatewayAccessLog, ApplicationGatewayPerformanceLog, ApplicationGatewayFirewallLog]
         default: [ApplicationGatewayAccessLog, ApplicationGatewayFirewallLog]
         why: >
           The access log is the record of every request and the firewall log is the record
@@ -458,7 +498,9 @@ groups:
           diagnosticSettings[].logCategoriesAndGroups[].category
 
       - id: metrics_enabled
-        ask: Should all metrics be collected?
+        ask:
+          en: "Should all metrics be collected?"
+          de: "Sollen alle Metriken erfasst werden?"
         type: bool
         plain:
           en: "Usage and performance figures are {value}."

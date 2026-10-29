@@ -24,21 +24,24 @@ groups:
     title: Placement
     questions:
       - id: environments
-        ask: Which stages is this deployed to?
+        ask:
+          en: "Which stages is this deployed to?"
+          de: "In welche Stufen wird das ausgerollt?"
         type: list
         plain:
           en: "Deployed in the stages {value}."
           de: "Wird in den Stufen {value} ausgerollt."
-        values: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
-        required: true
-        from_context: true
+        accepts: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
+        answer: { context: environments }
         why: >
           Drives the rendered name and which stages notify whom: an action group exists per
           stage so that a test alert never pages the on-call team.
         renders: naming parameter `environment`
 
       - id: location
-        ask: Which Azure region?
+        ask:
+          en: "Which Azure region?"
+          de: "Welche Azure-Region?"
         type: string
         plain:
           en: "A global resource, registered as {value}."
@@ -52,14 +55,15 @@ groups:
         renders: "location = \"global\" / location: 'global'"
 
       - id: resource_group_name
-        ask: Which resource group?
-        type: ref
+        ask:
+          en: "Which resource group?"
+          de: "Welche Ressourcengruppe?"
+        type: string
         plain:
           en: "Placed in the resource group {value}."
           de: "Liegt in der Ressourcengruppe {value}."
-        ref: resource_group
-        required: true
-        from_context: true
+        accepts: { ref: resource_group }
+        answer: { context: resource_group_name }
         per_environment: true
         why: >
           The group is placed into an existing resource group, the observability one where
@@ -72,7 +76,9 @@ groups:
     title: Who is told, and how
     questions:
       - id: short_name
-        ask: Which short name should notifications carry as the sender?
+        ask:
+          en: "Which short name should notifications carry as the sender?"
+          de: "Welchen Kurznamen sollen Benachrichtigungen als Absender tragen?"
         type: string
         plain:
           en: "Notifications carry the sender name {value} (empty: the workload name, cut to 12 characters)."
@@ -88,7 +94,9 @@ groups:
         renders: "short_name = coalesce(var.short_name, substr(var.workload, 0, 12)) / groupShortName: take(empty(shortName) ? workload : shortName, 12)"
 
       - id: on_call_email
-        ask: Which shared mailbox should be told when the system is unhealthy?
+        ask:
+          en: "Which shared mailbox should be told when the system is unhealthy?"
+          de: "Welches gemeinsame Postfach soll benachrichtigt werden, wenn das System nicht gesund ist?"
         type: string
         resolved_by: interview
         topic: application
@@ -106,7 +114,9 @@ groups:
         renders: email_receivers.oncall / emailReceivers[0]
 
       - id: email_receivers
-        ask: Which further mailboxes should also be told?
+        ask:
+          en: "Which further mailboxes should also be told?"
+          de: "Welche weiteren Postfächer sollen ebenfalls benachrichtigt werden?"
         type: list
         plain:
           en: "Also notified by e-mail: {value} (empty: only the on-call mailbox)."
@@ -121,7 +131,9 @@ groups:
         renders: email_receivers / emailReceivers
 
       - id: sms_receivers
-        ask: Should anyone be woken by SMS?
+        ask:
+          en: "Should anyone be woken by SMS?"
+          de: "Soll jemand per SMS geweckt werden?"
         type: list
         plain:
           en: "Notified by SMS: {value} (empty: nobody)."
@@ -137,7 +149,9 @@ groups:
         renders: sms_receivers / smsReceivers
 
       - id: webhook_receivers
-        ask: Which chat channels or incident tools should receive the alert?
+        ask:
+          en: "Which chat channels or incident tools should receive the alert?"
+          de: "Welche Chat-Kanäle oder Incident-Tools sollen den Alert erhalten?"
         type: list
         plain:
           en: "Forwarded to the channels and tools {value} (empty: none)."
@@ -154,7 +168,9 @@ groups:
         renders: webhook_receivers / webhookReceivers
 
       - id: webhook_authentication
-        ask: How should a webhook target be able to trust that the call came from Azure Monitor?
+        ask:
+          en: "How should a webhook target be able to trust that the call came from Azure Monitor?"
+          de: "Wie soll ein Webhook-Ziel sicher sein können, dass der Aufruf von Azure Monitor kam?"
         type: enum
         plain:
           en: "A webhook target verifies the caller by {value}."
@@ -162,7 +178,7 @@ groups:
         plain_values:
           entra_id: { en: "a signed company-directory token (secure webhook)", de: "ein signiertes Token des Firmenverzeichnisses (sicherer Webhook)" }
           url_secret: { en: "a secret in the address only", de: "nur ein Geheimnis in der Adresse" }
-        values: [entra_id, url_secret]
+        accepts: [entra_id, url_secret]
         default: entra_id
         depends_on: { question: webhook_receivers, not_equals: [] }
         why: >
@@ -179,12 +195,14 @@ groups:
           webhookReceivers[].useAadAuth + objectId + identifierUri
 
       - id: azure_function_receivers
-        ask: Should a function run when the alert fires?
+        ask:
+          en: "Should a function run when the alert fires?"
+          de: "Soll eine Funktion laufen, wenn der Alert auslöst?"
         type: list
         plain:
           en: "Runs the functions {value} (empty: none)."
           de: "Startet die Funktionen {value} (leer: keine)."
-        ref: function_app
+        accepts: { ref: function_app }
         default: []
         per_environment: true
         why: >
@@ -195,12 +213,14 @@ groups:
         renders: azure_function_receivers / azureFunctionReceivers
 
       - id: logic_app_receivers
-        ask: Should a workflow run when the alert fires?
+        ask:
+          en: "Should a workflow run when the alert fires?"
+          de: "Soll ein Workflow laufen, wenn der Alert auslöst?"
         type: list
         plain:
           en: "Starts the workflows {value} (empty: none)."
           de: "Startet die Workflows {value} (leer: keine)."
-        ref: logic_app
+        accepts: { ref: logic_app }
         default: []
         per_environment: true
         why: >
@@ -210,12 +230,14 @@ groups:
         renders: logic_app_receivers / logicAppReceivers
 
       - id: event_hub_receivers
-        ask: Should the alerts also be streamed to an event hub for another system to consume?
+        ask:
+          en: "Should the alerts also be streamed to an event hub for another system to consume?"
+          de: "Sollen die Alerts zusätzlich an einen Event Hub gestreamt werden, damit ein anderes System sie verarbeitet?"
         type: list
         plain:
           en: "Streamed to the event hubs {value} (empty: none)."
           de: "In die Event Hubs {value} gestreamt (leer: keine)."
-        ref: event_hub
+        accepts: { ref: event_hub }
         default: []
         per_environment: true
         why: >
@@ -226,7 +248,9 @@ groups:
         renders: event_hub_receivers / eventHubReceivers
 
       - id: arm_role_receivers
-        ask: Should everyone holding a role on the subscription be e-mailed as well?
+        ask:
+          en: "Should everyone holding a role on the subscription be e-mailed as well?"
+          de: "Sollen alle, die eine Rolle auf der Subscription haben, ebenfalls per E-Mail benachrichtigt werden?"
         type: list
         plain:
           en: "Also e-mailed: everyone holding the roles {value} (empty: nobody by role)."
@@ -236,7 +260,7 @@ groups:
           Contributor: { en: subscription contributors, de: Abonnement-Mitwirkende }
           "Monitoring Contributor": { en: monitoring contributors, de: Monitoring-Mitwirkende }
           "Monitoring Reader": { en: monitoring readers, de: Monitoring-Leser }
-        values: [Owner, Contributor, "Monitoring Contributor", "Monitoring Reader"]
+        accepts: [Owner, Contributor, "Monitoring Contributor", "Monitoring Reader"]
         default: []
         why: >
           An ARM role receiver mails every *user* who holds the built-in role on the
@@ -248,7 +272,9 @@ groups:
         renders: arm_role_receivers.<key>.role_id (GUID) / armRoleReceivers[].roleId
 
       - id: automation_runbook_receivers
-        ask: Should an Automation runbook run when the alert fires?
+        ask:
+          en: "Should an Automation runbook run when the alert fires?"
+          de: "Soll ein Automation-Runbook laufen, wenn der Alert auslöst?"
         type: list
         plain:
           en: "Starts the runbooks {value} (empty: none)."
@@ -263,7 +289,9 @@ groups:
         renders: automation_runbook_receivers / automationRunbookReceivers
 
       - id: itsm_receivers
-        ask: Should a ticket be opened in the ITSM tool?
+        ask:
+          en: "Should a ticket be opened in the ITSM tool?"
+          de: "Soll im ITSM-Tool ein Ticket eröffnet werden?"
         type: list
         plain:
           en: "Opens tickets in {value} (empty: no ticketing)."
@@ -279,7 +307,9 @@ groups:
         renders: itsm_receivers / itsmReceivers
 
       - id: common_alert_schema
-        ask: Should every receiver get the alert in the one common format?
+        ask:
+          en: "Should every receiver get the alert in the one common format?"
+          de: "Soll jeder Empfänger den Alert im einheitlichen gemeinsamen Format bekommen?"
         type: bool
         plain:
           en: "Alerts are delivered {value}."
@@ -299,7 +329,9 @@ groups:
         renders: <receiver>.use_common_alert_schema on every receiver / <receiver>.useCommonAlertSchema
 
       - id: enabled
-        ask: Should the group deliver notifications at all?
+        ask:
+          en: "Should the group deliver notifications at all?"
+          de: "Soll die Gruppe überhaupt Benachrichtigungen zustellen?"
         type: bool
         plain:
           en: "Notifications are {value}."
@@ -320,7 +352,9 @@ groups:
     title: Identity and access
     questions:
       - id: role_assignments
-        ask: Who may change this group?
+        ask:
+          en: "Who may change this group?"
+          de: "Wer darf diese Gruppe ändern?"
         type: list
         plain:
           en: "Access rights on the group granted to: {value}."

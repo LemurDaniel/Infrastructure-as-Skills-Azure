@@ -24,8 +24,7 @@ because a PaaS service is not in the VNet, its endpoint is. The lines are access
 wiring.access (who calls whom), plus a line per role assignment, plus the
 internet when the deployment is public. Diagnostics are one note in the
 monitoring zone, not a line per resource. Referenced (existing) things are grey
-and dashed; wiring.optional marks optional parts faded; wiring.purposes puts
-what a resource is for on its label.
+and dashed; a resource's meta.purpose puts what it is for on its label.
 
 Needs PyYAML (pip install pyyaml). Without it the script exits 2.
 
@@ -85,10 +84,10 @@ LABELS = {
         'arch': 'Architecture', 'ext': 'Internet and external services', 'monitoring': 'Monitoring',
         'diagNote': 'Diagnostic settings of all resources', 'nameRes': 'Name resolution',
         'peBundle': 'Private Endpoints', 'paas': 'Azure PaaS', 'paasPrivate': 'public access disabled', 'support': 'Identities and network baseline',
-        'compute': 'Compute', 'computeSubnet': 'snet-compute', 'delegated': 'delegated to', 'optional': 'optional',
+        'compute': 'Compute', 'computeSubnet': 'snet-compute', 'delegated': 'delegated to',
         'legend': 'Legend', 'legCallers': 'a caller on its way to the private endpoints - one colour per caller', 'legPE': 'from the private endpoints to the service, no public path', 'legPrivateAny': 'private access, no public path', 'legPrivate': 'access over a private endpoint, no public path',
         'legPublic': 'access from or over the internet', 'legExisting': 'existing, not created here',
-        'legOptional': 'optional component', 'legOpen': 'open or assumed decision',
+        'legOpen': 'open or assumed decision',
         'subPrivate': 'No service is reachable from the internet: access runs over private endpoints.',
         'subExc': 'Private by default; the named exceptions are reachable from the internet behind a firewall.',
         'subPublic': 'The system is reachable from the internet by design.',
@@ -113,10 +112,10 @@ LABELS = {
         'arch': 'Architektur', 'ext': 'Internet und externe Dienste', 'monitoring': 'Monitoring',
         'diagNote': 'Diagnose-Einstellungen aller Ressourcen', 'nameRes': 'Namensauflösung',
         'peBundle': 'Private Endpoints', 'paas': 'Azure PaaS', 'paasPrivate': 'öffentlicher Zugriff deaktiviert', 'support': 'Identitäten und Netzwerkgrundlage',
-        'compute': 'Compute', 'computeSubnet': 'snet-compute', 'delegated': 'delegiert an', 'optional': 'optional',
+        'compute': 'Compute', 'computeSubnet': 'snet-compute', 'delegated': 'delegiert an',
         'legend': 'Legende', 'legCallers': 'Aufrufer auf dem Weg zu den Private Endpoints - eine Farbe je Aufrufer', 'legPE': 'von den Private Endpoints zum Dienst, kein öffentlicher Weg', 'legPrivateAny': 'privater Zugriff, kein öffentlicher Weg', 'legPrivate': 'Zugriff über Private Endpoint, kein öffentlicher Weg',
         'legPublic': 'Zugriff aus dem oder über das Internet', 'legExisting': 'vorhanden, wird hier nicht erstellt',
-        'legOptional': 'optionales Bauteil', 'legOpen': 'offene oder angenommene Entscheidung',
+        'legOpen': 'offene oder angenommene Entscheidung',
         'subPrivate': 'Kein Dienst ist aus dem Internet erreichbar: Zugriffe laufen über Private Endpoints.',
         'subExc': 'Standardmäßig privat; die benannten Ausnahmen sind hinter einer Firewall aus dem Internet erreichbar.',
         'subPublic': 'Das System ist absichtlich aus dem Internet erreichbar.',
@@ -235,8 +234,8 @@ MONITOR_KINDS = {'log-analytics-workspace', 'application-insights', 'action-grou
 # Not services that are called: identities hold roles, security groups guard subnets. They get a
 # zone of their own so that no line to a service runs through them.
 SUPPORT_KINDS = {'user-assigned-identity', 'network-security-group'}
-# The resource group role of a kind (iac-rendering/references/resource-groups.md). A role that is
-# not split off (deployment.resource_group_split) is part of `main`; a resource may depart with
+# The resource group role of a kind (iac-rendering/references/resource-groups.md). Under a split
+# every role a resource is in has a group (rg_roles.groups); a resource may depart with
 # `placement.resource_group`.
 # Resources that stand in a subnet of the network without being compute: the decision that names
 # the subnet, per kind. Drawn like compute, in that subnet, and without a private endpoint.
@@ -484,14 +483,14 @@ def main():
     vnet_existing = (not has_vnet_res) and net_ownership == 'reference'
 
     rg_scheme = rg_roles.scheme_of(dep)
-    rg_split = [x for x in as_list(get_decision(dep, ['resource_group_split'])) if x in rg_roles.roles(RG_TABLE, rg_scheme, resources.keys(), dep)]
+    rg_split = rg_roles.groups(RG_TABLE, dep, resources)
     for i, r in enumerate(x for x in rg_split if x not in RG_COLORS):
         RG_COLORS[r] = RG_COLORS[RG_CYCLE[i % len(RG_CYCLE)]]
-    # A split (resource_group_layout: split) has no main group; a spec written before the key keeps it.
+    # A split (resource_group_layout: split) has no main group.
     rg_main = ['main'] if rg_roles.has_main(dep) or not rg_split else []
-    rg_modes = {'main': s(get_decision(dep, ['resource_group_mode_main'])) or 'existing'}
+    rg_modes = {'main': rg_roles.mode(dep, 'main')}
     for r in rg_split:
-        rg_modes[r] = s(get_decision(dep, [f'resource_group_mode_{r}'])) or 'existing'
+        rg_modes[r] = rg_roles.mode(dep, r)
 
     def rg_role(k):
         """The role whose group holds a resource: its own `placement`, else the kind's, else main
@@ -632,9 +631,8 @@ def main():
 
     roles = [r for r in as_list(get_decision(spec, ['wiring', 'role_assignments'])) if isinstance(r, dict)]
     zones = [z for z in as_list(get_decision(spec, ['wiring', 'private_dns_zones'])) if z]
-    optional = {s(k) for k in as_list(get_decision(spec, ['wiring', 'optional']))}
-    purposes = get_decision(spec, ['wiring', 'purposes'])
-    purposes = purposes if isinstance(purposes, dict) else {}
+    purposes = {k: get_decision(r, ['meta', 'purpose']) for k, r in (spec.get('resources') or {}).items()
+                if isinstance(r, dict)}
     diag_ref = split_ref(get_decision(dep, ['diagnostics_destination']))
     diag_target = diag_ref['name']
     vnet_ref = split_ref(get_decision(dep, ['existing_vnet']))
@@ -909,7 +907,7 @@ def main():
             return label
         kind_title = TYPE_NAMES.get(base(k), base(k).replace('-', ' ').title())
         sub = s(purposes.get(k)) or (k.partition('__')[2] or k)
-        note = ' · '.join(n for n in (T['noSet'] if not has_question_set(base(k)) else '', T['optional'] if k in optional else '') if n)
+        note = T['noSet'] if not has_question_set(base(k)) else ''
         label = format_label(kind_title, sub, note)
         if rg_split and k not in framed and not (k == 'application-insights' and rg_role(k) == rg_role('log-analytics-workspace')):
             label += f"<br><font style='font-size:12px' color='{RG_COLORS[rg_role(k)][1]}'>{RG_IMG_TAG} {esc(rg_title(rg_role(k)))}</font>"
@@ -1206,7 +1204,7 @@ def main():
         for r, row in enumerate(rows_of(keys, cols)):
             rh = max(pitch[k] for k in row)
             for c, k in enumerate(row):
-                add_icon(f"res-{k}", parent, gx + c * (SLOT_W + col_gap) + (stagger if r % 2 else 0), y, base(k), labels[k], flagged(k), k in optional, slot_h=rh)
+                add_icon(f"res-{k}", parent, gx + c * (SLOT_W + col_gap) + (stagger if r % 2 else 0), y, base(k), labels[k], flagged(k), slot_h=rh)
             y += rh + gutter
 
     def place_groups(zx, zy, col_gap, stagger):
@@ -1218,7 +1216,7 @@ def main():
         for row, ry, rh, grid_row, role, rx in paas_rows:
             for c, k in enumerate(row):
                 add_icon(f"res-{k}", f"rg-{role}", zx + rx + c * (SLOT_W + col_gap) + (stagger if grid_row % 2 else 0), zy + ry,
-                         base(k), labels[k], flagged(k), k in optional, slot_h=rh)
+                         base(k), labels[k], flagged(k), slot_h=rh)
 
     def add_text(cid, parent, x, y, w, h, value, style):
         icons.append({'id': cid, 'parent': parent, 'x': x, 'y': y, 'w': w, 'h': h, 'style': style, 'value': value})
@@ -1250,7 +1248,7 @@ def main():
             sx, sh = zx + (ZONE_W - SLOT_W) / 2, vn_h - (slot_y0 - main_y) - 6
             if name in edge_res:
                 actor_ids[name] = f"res-{name}"
-                add_icon(f"res-{name}", zid, sx, slot_y0, base(name), labels[name], flagged(name), name in optional, slot_h=sh)
+                add_icon(f"res-{name}", zid, sx, slot_y0, base(name), labels[name], flagged(name), slot_h=sh)
             else:
                 cid = f"act-{re.sub('[^a-z0-9]+', '-', name.lower())}"
                 actor_ids[name] = cid
@@ -1276,7 +1274,7 @@ def main():
             if name in edge_res:
                 cid = f"res-{name}"
                 actor_ids[name] = cid
-                add_icon(cid, 'z-ext', slot_x, slot_y, base(name), labels[name], flagged(name), name in optional, slot_h=actor_h(name))
+                add_icon(cid, 'z-ext', slot_x, slot_y, base(name), labels[name], flagged(name), slot_h=actor_h(name))
             elif actor_base(name) == 'internet':
                 icons.append({'id': cid, 'parent': 'z-ext', 'x': slot_x + (SLOT_W - 64) / 2, 'y': slot_y + 8, 'w': 64, 'h': 44,
                               'style': 'ellipse;shape=cloud;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#605E5C;verticalLabelPosition=bottom;verticalAlign=top;labelBackgroundColor=none;',
@@ -1816,8 +1814,6 @@ def main():
         legend.append(f"<font color='{PUBLIC_COLOR}'><b>&#9473;&#9473;&#9654;</b></font> {esc(T['legPublic'])}")
     if vnet_existing or law_existing or ((zones or dns_ownership) and dns_existing):
         legend.append(f"<font color='#999999'>&#9477;&#9477;&#9477;</font> {esc(T['legExisting'])}")
-    if optional:
-        legend.append(f"<font color='#999999'>&#9679;</font> {esc(T['legOptional'])}")
     if open_items or assumed:
         # open items are drawn as red text (a flagged label, the panel list), not as a marker
         legend.append(f"<font color='#D13438'>{esc(T['legOpen'])}</font>")

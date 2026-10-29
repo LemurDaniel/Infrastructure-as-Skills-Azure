@@ -16,57 +16,86 @@ context:
 
 deployment:
   # --- resource_groups ---
-  resource_group_split: {value: [network, data, observability], source: asked}
-  resource_group_mode_main: {value: create, source: asked}
-  resource_group_mode_network: {value: create, source: asked}
-  resource_group_mode_data: {value: create, source: asked}
-  resource_group_mode_observability: {value: create, source: asked}
-  resource_lock: {value: production, source: asked}
+  resource_group_layout:
+    value: split
+    source: stated
+  resource_groups_created:
+    value: [network, data, application, observability, security]
+    source: asked
+  resource_lock:
+    value: production
+    source: asked
 
   # --- delivery ---
-  deploy_mechanism: {value: github, source: asked}
-  pipeline_auth: {value: workload_identity, source: default}
-  pipeline_approvals: {value: production, source: default}
+  deploy_mechanism:
+    value: github
+    source: asked
+  pipeline_auth:
+    value: workload_identity
+    source: default
+  pipeline_approvals:
+    value: production
+    source: default
   deployer_roles:
     value:
     - role: Contributor
       scope: subscription
-      for:
-      - deployment.resource_group_mode_main
-      - deployment.resource_group_mode_network
-      - deployment.resource_group_mode_data
-      - deployment.resource_group_mode_observability
-    source: forced
-    forced_by:
-    - deployment.resource_group_mode_main
-    - deployment.resource_group_mode_network
-    - deployment.resource_group_mode_data
-    - deployment.resource_group_mode_observability
+      for: [deployment.resource_groups_created]
+    source:
+      forced_by: [deployment.resource_groups_created]
 
   # --- requirements ---
-  network_requirements: {value: free, source: asked}
-  outage_impact: {value: tolerable, source: asked}
-  data_loss_tolerance: {value: one_month, source: asked}
-  data_access_pattern: {value: active, source: asked}
+  network_requirements:
+    value: free
+    source: asked
+  outage_impact:
+    value: tolerable
+    source: asked
+  data_loss_tolerance:
+    value: one_month
+    source: asked
+  data_access_pattern:
+    value: active
+    source: asked
   backup_isolation:
-    value: {development: isolated, test: isolated, production: immutable}
-    source: overridden
-    reason: Customer named the stage split explicitly - immutable in production, isolated in development and test.
-  data_residency: {value: data_zone, source: asked}
+    value:
+      development: isolated
+      test: isolated
+      production: immutable
+    source:
+      overridden: Customer named the stage split explicitly - immutable in production, isolated in development and test.
+  data_residency:
+    value: data_zone
+    source: asked
 
   # --- modules ---
-  module_source: {value: avm, source: asked}
-  naming_source: {value: provider, source: asked}
+  module_source:
+    value: avm
+    source: asked
+  naming_source:
+    value: provider
+    source: asked
 
   # --- posture ---
-  network_exposure: {value: private_with_exceptions, source: stated}
-  local_auth: {value: disabled, source: stated}
+  network_exposure:
+    value: private_with_exceptions
+    source: stated
+  local_auth:
+    value: disabled
+    source: stated
 
   # --- compliance ---
-  mandates: {value: [], source: asked}
+  mandates:
+    value: []
+    source: asked
 
   # --- observability ---
-  log_retention_days: {value: {development: 30, test: 30, production: 90}, source: stated}
+  log_retention_days:
+    value:
+      development: 30
+      test: 30
+      production: 90
+    source: stated
 
 composition:
   granularity: per-family
@@ -94,149 +123,291 @@ composition:
 
 resources:
   front-door:
-    placement:
-      sku: {value: Premium, source: stated}
-    security:
-      waf_managed_rules: {value: true, source: stated}
-    networking:
+    meta:
+      purpose:
+        value: Öffentlicher Eingang mit WAF
+        source: stated
+    profile:
+      sku:
+        value: Premium_AzureFrontDoor
+        source: stated
+    delivery:
+      origins:
+        value: [application-gateway]
+        source: stated
       origin_connection:
         value: public
-        source: overridden
-        reason: Application Gateway has no Private Link origin; it is locked to the AzureFrontDoor.Backend tag and the X-Azure-FDID
-          header.
-      origins: {value: [application-gateway], source: stated}
+        source:
+          overridden: Application Gateway has no Private Link origin; it is locked to the AzureFrontDoor.Backend tag and the
+            X-Azure-FDID header.
+    security:
+      waf_managed_rules:
+        value: true
+        source: stated
 
   application-gateway:
-    placement:
-      sku: {value: WAF_v2, source: stated}
+    meta:
+      purpose:
+        value: WAF vor APIM
+        source: stated
+    gateway:
+      waf_enabled:
+        value: true
+        source: stated
     networking:
       frontend_exposure:
         value: public
-        source: overridden
-        reason: Reached by Front Door over its public IP, restricted to the AzureFrontDoor.Backend service tag and the X-Azure-FDID
-          header.
-      backends: {value: [api-management], source: stated}
+        source:
+          overridden: Reached by Front Door over its public IP, restricted to the AzureFrontDoor.Backend service tag and the
+            X-Azure-FDID header.
 
   api-management:
-    placement:
-      sku: {value: {development: Developer, test: Developer, production: Premium}, source: stated}
+    meta:
+      purpose:
+        value: API-Schicht
+        source: stated
+    service:
+      sku:
+        value:
+          development: Developer
+          test: Developer
+          production: Premium
+        source: stated
+      managed_identity:
+        value: system_assigned
+        source: stated
+    access:
+      caller_authentication:
+        value: entra_id
+        source: stated
+      apis:
+        value:
+        - name: orders
+          backend: function-app
+        source: stated
     networking:
-      virtual_network_type: {value: Internal, source: stated}
-    identity:
-      system_assigned_identity: {value: true, source: stated}
-    policies:
-      jwt_validation: {value: entra-id, source: stated}
-      rate_limit: {value: per-subscription, source: stated}
-      backend_routing: {value: function-app, source: stated}
+      network_integration:
+        value: internal
+        source: stated
 
   function-app:
-    networking:
-      public_network_access: {value: disabled, source: deployment}
-
-  service-bus:
-    placement:
-      sku:
-        value: {development: Standard, test: Standard, production: Premium}
-        source: overridden
-        reason: Customer named the stage split explicitly - Premium in production, Standard otherwise.
+    meta:
+      purpose:
+        value: Bestell-Backend
+        source: stated
     networking:
       public_network_access:
-        value: {development: firewalled, test: firewalled, production: disabled}
-        source: overridden
-        reason: Standard has no private endpoint; the customer chose a firewalled public endpoint in development and test.
-    security:
-      local_auth: {value: disabled, source: stated}
-    topics:
-      orders:
+        value: disabled
+        source: deployment
+
+  service-bus:
+    meta:
+      purpose:
+        value: Bestellnachrichten
+        source: stated
+    namespace:
+      sku:
         value:
+          development: Standard
+          test: Standard
+          production: Premium
+        source:
+          overridden: Customer named the stage split explicitly - Premium in production, Standard otherwise.
+      local_auth:
+        value: disabled
+        source: stated
+    entities:
+      queues:
+        value:
+        - name: payments
+          dead_lettering: true
+          duplicate_detection: true
+        source: stated
+      topics:
+        value:
+        - name: orders
           subscriptions: [billing, shipping, audit]
           filter: order-type
         source: stated
-    queues:
-      payments: {value: {dead_lettering: true, duplicate_detection: true}, source: stated}
+    networking:
+      public_network_access:
+        value:
+          development: enabled_with_firewall
+          test: enabled_with_firewall
+          production: disabled
+        source:
+          overridden: Standard has no private endpoint; the customer chose a firewalled public endpoint in development and
+            test.
 
   event-hubs:
+    meta:
+      purpose:
+        value: Telemetrie
+        source: stated
+    entities:
+      partition_count:
+        value: 4
+        source: stated
+      message_retention_days:
+        value: 7
+        source: stated
+      event_archive:
+        value: true
+        source: stated
+      archive_storage_account:
+        value: storage-account
+        source: stated
     networking:
-      public_network_access: {value: disabled, source: deployment}
-    data:
-      partitions: {value: 4, source: stated}
-      retention_days: {value: 7, source: stated}
-      capture: {value: storage-account, source: stated}
+      public_network_access:
+        value: disabled
+        source: deployment
 
   event-grid-topic:
-    identity:
-      delivery_auth: {value: managed_identity, source: stated}
-    subscriptions:
-      blob-events: {value: {source: storage-account, destination: function-app}, source: stated}
+    meta:
+      purpose:
+        value: Blob-Events
+        source: stated
+    topic:
+      managed_identity:
+        value: system_assigned
+        source: stated
+    delivery:
+      event_subscriptions:
+        value:
+        - name: blob-events
+          source: storage-account
+          target: function-app
+        source: stated
 
   storage-account:
-    placement:
-      hierarchical_namespace: {value: true, source: stated}
+    meta:
+      purpose:
+        value: Telemetrie-Ablage
+        source: stated
     networking:
-      public_network_access: {value: disabled, source: deployment}
+      public_network_access:
+        value: disabled
+        source: deployment
     security:
-      shared_access_key_enabled: {value: false, source: deployment}
+      shared_access_key_enabled:
+        value: false
+        source: deployment
+    data_protection:
+      hierarchical_namespace:
+        value: true
+        source: stated
 
   backup-vault:
-    data_protection:
-      redundancy: {value: {development: LRS, test: LRS, production: GRS}, source: stated}
+    meta:
+      purpose:
+        value: Blob-Backup
+        source: stated
+    vault:
+      storage_redundancy:
+        value:
+          development: LocallyRedundant
+          test: LocallyRedundant
+          production: GeoRedundant
+        source: stated
       cross_region_restore:
-        value: {development: false, test: false, production: true}
-        source: overridden
-        reason: Customer asked for cross-region restore in production only.
-      soft_delete: {value: true, source: stated}
-      protects: {value: [storage-account], source: stated}
+        value:
+          development: false
+          test: false
+          production: true
+        source:
+          overridden: Customer asked for cross-region restore in production only.
+    protection:
+      protected_resources:
+        value:
+        - name: storage-account
+          kind: blob
+        source: stated
 
   recovery-services-vault:
-    data_protection:
-      redundancy: {value: {development: LRS, test: LRS, production: GRS}, source: stated}
+    meta:
+      purpose:
+        value: VM-Backup
+        source: stated
+    vault:
+      storage_redundancy:
+        value:
+          development: LocallyRedundant
+          test: LocallyRedundant
+          production: GeoRedundant
+        source: stated
       cross_region_restore:
-        value: {development: false, test: false, production: true}
-        source: overridden
-        reason: Customer asked for cross-region restore in production only.
-      soft_delete: {value: true, source: stated}
+        value:
+          development: false
+          test: false
+          production: true
+        source:
+          overridden: Customer asked for cross-region restore in production only.
+      soft_delete:
+        value: Enabled
+        source: stated
 
   log-analytics-workspace:
-    data_protection:
-      retention_days: {value: {development: 30, test: 30, production: 90}, source: stated}
+    meta:
+      purpose:
+        value: Zentrale Logs
+        source: stated
+    cost:
+      retention_days:
+        value:
+          development: 30
+          test: 30
+          production: 90
+        source: stated
 
   key-vault:
-    security:
-      rbac_authorization: {value: true, source: deployment}
+    meta:
+      purpose:
+        value: Secrets
+        source: stated
+    vault:
+      rbac_authorization:
+        value: true
+        source: deployment
 
   virtual-network:
-    networking:
+    addressing:
       address_space:
-        value: {development: 10.100.0.0/22, test: 10.100.4.0/22, production: 10.100.8.0/22}
+        value:
+          development: 10.100.0.0/22
+          test: 10.100.4.0/22
+          production: 10.100.8.0/22
         source: asked
 
 wiring:
   access:
     value:
-    - {from: internet, to: front-door, label: HTTPS 443}
-    - {from: front-door, to: application-gateway, label: 'HTTPS, nur Front Door'}
-    - {from: application-gateway, to: api-management, label: HTTPS intern}
-    - {from: api-management, to: function-app, label: Backend-Routing}
-    - {from: function-app, to: service-bus, label: Entra-Login}
-    - {from: event-hubs, to: storage-account, label: Capture}
-    - {from: event-grid-topic, to: function-app, label: Blob-Events}
-    - {from: storage-account, to: event-grid-topic, label: Blob-Events}
-    - {from: backup-vault, to: storage-account, label: Blob-Backup}
-    source: stated
-  purposes:
-    value:
-      front-door: Öffentlicher Eingang mit WAF
-      application-gateway: WAF vor APIM
-      api-management: API-Schicht
-      function-app: Bestell-Backend
-      service-bus: Bestellnachrichten
-      event-hubs: Telemetrie
-      event-grid-topic: Blob-Events
-      storage-account: Telemetrie-Ablage
-      backup-vault: Blob-Backup
-      recovery-services-vault: VM-Backup
-      log-analytics-workspace: Zentrale Logs
-      key-vault: Secrets
+    - from: internet
+      to: front-door
+      label: HTTPS 443
+    - from: front-door
+      to: application-gateway
+      label: HTTPS, nur Front Door
+    - from: application-gateway
+      to: api-management
+      label: HTTPS intern
+    - from: api-management
+      to: function-app
+      label: Backend-Routing
+    - from: function-app
+      to: service-bus
+      label: Entra-Login
+    - from: event-hubs
+      to: storage-account
+      label: Capture
+    - from: event-grid-topic
+      to: function-app
+      label: Blob-Events
+    - from: storage-account
+      to: event-grid-topic
+      label: Blob-Events
+    - from: backup-vault
+      to: storage-account
+      label: Blob-Backup
     source: stated
 
 open:

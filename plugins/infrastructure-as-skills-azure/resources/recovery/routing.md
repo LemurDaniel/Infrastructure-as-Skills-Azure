@@ -35,7 +35,7 @@ resource that needs it, and the vault's identity is granted its role on each.
 
 **Backup is the one thing that must outlive the thing it protects.** The vault belongs in a
 resource group, and where possible a subscription, that the workload's administrators cannot
-delete: `deployment.resource_group_split` with the `security` role is the minimum, a
+delete: the `security` group of a split (`deployment.resource_group_layout: split`) is the minimum, a
 subscription of its own the better answer. Redundancy and residency are decided per vault and
 fixed once items are protected.
 

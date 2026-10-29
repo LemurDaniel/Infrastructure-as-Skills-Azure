@@ -148,14 +148,14 @@ decides what happens to it:
 | `resolved_by` | What happens |
 |---|---|
 | `interview` | Put to the person: the module choice and the naming mechanism (asked first), the deployment set's context, posture, mandates and `requirements` group, and any resource question that carries it |
-| `derived` | Never asked: derived from the landing-zone answers (`landing_zone_exists`, `central_*`), else its default; a `required` one is an `open:` entry owned by the platform team |
-| *(absent)* | Its default, or derived from a requirement; a `required` one nobody can default is an `open:` entry owned by the workload's engineer |
+| `derived` | Never asked: follows from the interview's answers (`landing_zone_exists`, `central_*`, `deployment_scope`, `deploy_mechanism`, `network_requirements`, …), else its default; a `required` one is an `open:` entry owned by the platform team |
+| *(absent)* | Its default, or derived from a requirement; a `required` one nobody can default is an `open:` entry owned by the workload owner |
 
 Say so in the first message: "Ich frage dich nur, was das System braucht; die
 technischen Entscheidungen setze ich nach den Vorgaben und zeige sie dir am Ende." / "I only
 ask what the system needs; I set the technical decisions from the baseline and show them to
-you at the end." An
-engineer in front of the plugin gets the same questions. What they know beyond them they
+you at the end." There is
+no second set of questions for someone technical. What the person knows beyond them they
 say in prose - "ZRS", "subnet snet-pe-01", "TLS 1.2 is enough" ("TLS 1.2 reicht") - and Phase 0 records it as
 `stated`, which outranks every default; what they want changed afterwards is an
 `overridden` value in the spec, not a second interview.
@@ -407,8 +407,9 @@ settles how the code is split, which the spec records under `composition.granula
   stages; everything else is identical, which is what the stack is for. A value the
   customer stated holds in every stage unless they said which stage; the savings relax
   defaults and derived values only.
-- An existing `infra-spec.yaml` → its `composition` is `carried`; do not re-decide it
+- An existing `infra-spec.yaml` → its `composition` is kept as it is; do not re-decide it
 - A flat repository, or a single resource → `single`
+- AVM with resources of more than one family → `per-family`
 - Otherwise → `per-concern`
 
 Deciding this before the interview matters because it is the one thing both backends must
@@ -442,7 +443,7 @@ resource, in two halves:
   name - the render computes it. The workload short name is taken from the description
   or the system's name and is never open.
   The environment is `required`, because nothing can be guessed and everything downstream reads them. A
-  resource question marked `from_context: true` points here; without this group that field
+  resource question with `answer: { context: <id> }` points here; without this group that field
   pointed at nothing, and a run could reach the renderer with no region and therefore no
   name.
 - **The deployment decisions** — network exposure, local auth, who owns the virtual
@@ -450,7 +451,7 @@ resource, in two halves:
   the ingestion cap.
 
 Resolve it once and every resource inherits it. A resource question carrying
-`from_deployment: <id>` is answered from there and never asked again — eight resources in
+`answer: { deployment: <id> }` is answered from there and never asked again — eight resources in
 one run must not produce eight separate exposure answers, and a system is not private
 because seven of them are.
 
@@ -481,9 +482,9 @@ are guesses.
 **Read them through the digest**: `python3 <plugin>/core/iac-authoring/scripts/interview_digest.py
 <family>/<resource>... --language <context.language>` prints the deployment set and every set
 named - each interview question with its values and `forced_when`, every question that is
-forced, derived, confirmed or required, and each set's boundaries - at a fifth of the files'
+forced, derived or required, and each set's boundaries - at a fifth of the files'
 size; `--why <id>` adds the reasoning where a default is justified. Never extract the
-questions with a script of the run's own: one that keeps `ask` and `values` drops
+questions with a script of the run's own: one that keeps `ask` and `accepts` drops
 `forced_when`, and a question a rule settles is asked anyway.
 
 For each question, the answer then comes from the first source that has one:
@@ -491,9 +492,9 @@ For each question, the answer then comes from the first source that has one:
 | # | Source | `source` recorded as |
 |---|---|---|
 | 1 | What the user said — the request and the Phase 0 description | `stated`, or `overridden` where it changes a carried value |
-| 2 | The existing `infra-spec.yaml` | `carried` |
+| 2 | The existing `infra-spec.yaml` | The source it already has; `carried` only for what the repository holds without one (a pipeline, a `modules/` layout) |
 | 3 | A pattern skill's pre-answers | `pattern` |
-| 4 | The deployment set's answer: copied for a `from_deployment` question, mapped through the question's table for a `derived_from` one | `deployment`, or `requirement` with `derived_from: deployment.<id>` |
+| 4 | The deployment set's answer: copied for an `answer: { deployment }` question, mapped through the question's table for an `answer: { question, map }` one | `deployment`, or `{ derived_from: deployment.<id> }` |
 | 5 | The question's `default` | `default` |
 
 A carried value outranks a pattern and a default on purpose: it was decided, and quite
@@ -548,17 +549,16 @@ is designing and has no deployment target yet; what the description leaves out o
 `resource_group_scheme` - by responsibility (`concern`), by lifecycle (`lifecycle`), by protection
 need (`protection`: data and secrets in a fenced group, the rest beside it) or by part of the
 system (`component`). Under `component` the run names the parts from the description and
-`wiring.purposes` (`resource_group_components`, short lowercase names: `chat`, `ingest`), puts
-what every part uses - network, monitoring, identities - into `shared`, and places every other
-resource in its part (`placement.resource_group`, `forced_by: wiring.purposes`); the person
-renames, merges or moves at the diagram sign-off. Which groups follow is **not asked**: `resource_group_split` is
-derived from the scheme's table in `resource-group-roles.yaml`, every role that at least one
-resource of the design belongs to (`forced`, `forced_by: deployment.resource_group_scheme`).
+`meta.purpose` (short lowercase names: `chat`, `ingest`), puts what every part uses - network,
+monitoring, identities - into `shared`, and places every other resource in its part
+(`placement.resource_group`, `source: { forced_by: meta.purpose }`); the person renames, merges
+or moves at the diagram sign-off. Which groups follow is **not asked and not written**: every
+role of the scheme that a resource of the design is in - its placement, else its kind's role in
+`resource-group-roles.yaml` - gets a group; the scripts derive it.
 The person sees the result as frames in the diagram and moves a resource or drops a group
-at the sign-off - a `placement.resource_group` or a changed split, `overridden` with the
-reason. Then `resource_groups_created` (one list question; the
-per-role `resource_group_mode_<role>` are derived from it), with every group existing as the
-default. It reads the derived split, so it is asked in a call after the scheme, multi-select,
+at the sign-off - a `placement.resource_group` or a changed split, `source: { overridden: <reason> }`. Then `resource_groups_created` (one list question, and the only record of it: a group on the
+list is created, every other one exists; no mode per group is written), with every group
+existing as the default. It reads the derived split, so it is asked in a call after the scheme, multi-select,
 with **one option per group** - each role of the split, named by the scheme's words (a split has
 no main group; a single layout asks for its one group),
 never folded into one option ("the areas you split off"); five groups go into two questions of
@@ -597,10 +597,10 @@ share a call only when each of them is a single question. Before each call one l
 plain text names the topic and the person's place ("Netzwerk - Frage 1-2, danach Sicherheit,
 Daten"); it is a message of its own, never part of a `question` text, which holds the question
 and nothing else. Nothing reasoned or reported stands between the calls - the batch is never
-trimmed to four to fit one call. **The options come from the question set, never from the run**: an enum's `values`
+trimmed to four to fit one call. **The options come from the question set, never from the run**: an enum's `accepts`
 with their `plain_values`, an `int` or free `list` question's `offer` (`mandates`,
 `log_retention_days`) with its labels; "Other" is the tool's and takes the rest. A question with
-`options_from` (the Foundry models) offers only the catalogue entries the digest prints and says
+`accepts: { catalogue: ... }` (the Foundry models) offers only the catalogue entries the digest prints and says
 the catalogue's date; a model, a version or a family from memory is never an option, since it is
 one the catalogue has already moved past. The models are asked in two steps. First the family, a
 multi-select of the three families with the most models, each option saying whether it runs in
@@ -611,7 +611,7 @@ once, before the models: another family, or the residency answer changed to worl
 person - never widened silently. Then one multi-select per chosen family, in one call: its three
 newest models in the derived type, with *Noch offen* / *Still open* as the first option, each
 chosen model one deployment. The embedding model, where retrieval needs one, is a single choice
-of three: an index holds one. A question with neither `values`, `offer` nor `options_from` is
+of three: an index holds one. A question with neither an `accepts` list or catalogue nor an `offer` is
 asked in prose. An enum with more than four values (`app_runtime`) shows its first
 four - the values are ordered by how common they are - and the description of the last one names
 the rest ("Java, PHP: über „Other“ eintragen"). **"Other" is the tool's and cannot be switched
@@ -665,7 +665,7 @@ is asking a thing that should have a default, a platform value or an `open:` ent
 ask it; default it and say so in Phase 4, or open it with its owner.
 
 **Never invent a value nobody gave.** Grouped options work for an `enum`, where the
-values come from the question set. A `ref`, an address range, a subscription id, a
+values come from the question set. A reference (`accepts: { ref: ... }`), an address range, a subscription id, a
 workspace name — anything only the environment knows — is never offered as an option and
 never guessed: it comes from the stage file or from the person's
 own prose in Phase 0, and otherwise it is an `open:` entry naming its owner. An
@@ -674,22 +674,15 @@ unassigned address range is a blocker to say out loud, not a gap to fill with
 does not create — and the honest answer is to record it as missing rather than to
 reference a name nobody has.
 
-**Ask in the user's language; keep the artefacts in English.** The question sets are
-written in English, but a question put to someone who wrote their request in German is
-translated — including the trade-off in the options, which is the part that earns the
+**Ask in the user's language; keep the artefacts in English.** A question's `ask`,
+`plain`, `plain_values` and `offer` carry the customer's wording per language: put the
+line in `context.language` as it stands, and translate only where that language is
+missing - including the trade-off in the options, which is the part that earns the
 question. What stays English regardless: `infra-spec.yaml`, its `why` entries, code
 comments, variable names and commit messages. They are the interface other backends,
 reviewers and tools read, and a spec that is half German is a spec nobody can diff. Where
 the user wants the reasoning in their language too, that is their call to make — ask once
 rather than deciding it for them.
-
-A question may carry `confirm_in: [production]`. Its default still applies, but in that
-environment you surface it for confirmation rather than applying it silently — these are
-the values whose blast radius makes a silent default inappropriate. It is not a question
-and nothing is asked in Phase 3: the row appears in Phase 4's security block and in the
-decision document marked *bitte bestätigen* / *please confirm* where the spec has the stage
-named, and the person changes it by naming the row in the free answer of the sign-off
-question. A confirm row is never dropped to keep the block short.
 
 ## Phase 4 — Show the design, report what was defaulted, then ask once
 
@@ -770,7 +763,7 @@ off, company accounts only, no public access), *Verschlüsselung* (TLS floor, en
 rest, infrastructure encryption), *Schutz vor Löschen* (soft delete, purge protection,
 locks), *Identitäten* (which part has which identity, and that the rest has none) and
 *Protokolle* (diagnostics, retention) / *Access*, *Encryption*, *Protection against deletion*,
-*Identities*, *Logs*. Every row is a decision of the spec - `source: default` or `forced` in a
+*Identities*, *Logs*. Every row is a decision of the spec - `source: default` or `{ forced_by: ... }` in a
 `security` or `identity` group - in the customer's words, and the block comes from the spec,
 not from memory. Nothing in it is asked; it is shown so that nobody finds it in the code.
 
@@ -804,13 +797,13 @@ when nothing is open) / *Etwas fehlt oder ist zu viel* / *Something is missing o
 not written until the list is right). A part the customer strikes is removed, a part they
 add goes through `azure-resources` like any other request, and the account below is
 redone for the change. A security row the person wants different comes through the
-dialog's free answer: only that row is opened and recorded `source: overridden` with the
-reason, the baseline stays as shown for the rest, and a row the guardrails refuse to relax -
+dialog's free answer: only that row is opened and recorded
+`source: { overridden: <reason> }`, the baseline stays as shown for the rest, and a row the guardrails refuse to relax -
 anything security-shaped in a non-production stage - is said so, not applied.
 
 **Then the account of what was decided for them.** Compact - not forty rows, group it. It
 opens with what the person's answers decided, in their words and their language, and
-keeps the technical rows for the engineer section below it:
+keeps the technical rows for the section below it:
 
 ```
 Was aus euren Antworten folgt:
@@ -840,7 +833,7 @@ Open (needs someone from the platform team):
   Which application accesses it and needs which permissions?
 ```
 
-The engineer's view follows, as before:
+The technical rows follow:
 
 ```
 Deployment-wide:
@@ -932,18 +925,20 @@ what the request says — the diagram draws exactly this and nothing else
 ([spec.md](references/spec.md)). `wiring.access` is one `{ from, to, label }` per call the
 request names ("the web app reads from the storage" / "die Web-App liest aus dem Storage" is `app-service` → `storage-account`),
 with `users`, `internet` and `external:<name>` as the actors outside the deployment;
-`wiring.purposes` is a few words per resource in the user's own terms ("Produktbilder"), and
+`resources.<key>.meta.purpose` is a few words per resource in the user's own terms ("Produktbilder"), and
 only for a resource whose purpose the request says - one it names without saying what it is
 for gets none, never a restatement of its type ("Speicher der App", "the app's database"),
 which the picture already shows as the type;
-`wiring.optional` lists what the user called optional. Never infer a call from the
+A part the user calls optional is not built on spec: it is an `open:` entry ("Soll der Redis-Cache
+gebaut werden?" / "Should the Redis cache be built?", `blocks: apply`) until someone decides,
+then a resource or nothing. Never infer a call from the
 resource types: two resources side by side say nothing about who talks to whom, and an
 invented line in a picture the customer signs off on is a decision nobody made. A call
 the request leaves out is an `open:` entry only where the spec cannot work without it;
 otherwise the line is simply absent.
 
 **Customer-facing text in the spec is written in the customer's language**, the one
-`context.language` names - the one exception to the English spec: `wiring.access[].label`, `wiring.purposes` and the
+`context.language` names - the one exception to the English spec: `wiring.access[].label`, `meta.purpose` and the
 `owner` of every `open:` entry are printed verbatim into the picture, the `question` into
 the decision document (the picture counts the open entries by owner and points at the
 document), so an English label there is a `spec` finding of the review. Keys, values, `why`, `reason` stay English.
@@ -959,7 +954,7 @@ It renders every decision in the spec as one line in the customer's words
 decisions derived from each; what the rules set; what they decided differently; what is
 still open and from whom. It is the Phase 4 account as a file someone can send, and it is
 regenerated from the spec on every later run like the diagram. It is the
-artefact the person signs off on; the spec is for the engineer. The script reads the
+artefact the person signs off on; the spec is what the render reads. The script reads the
 question sets' `plain` lines and falls back to English where a line lacks the language,
 and says how many did — translate those in the conversation rather than editing the file.
 
@@ -1010,20 +1005,25 @@ found an `error` with cause `render`, the **fix agent**. A subagent cannot start
 subagent" gets no independent review, and whoever edited the picture must never be the one that
 checks. The review never shares an agent with the draft or the fix. Each finding carries a severity (`error`:
 wrong, misleading or unreadable; `polish`: only looks worse than it could) and a cause
-(`render`: the drawing; `spec`: the spec says it that way). An `error` with cause
+(`render`: the drawing; `spec`: the spec says it that way); a hit of the checklist is always
+an `error`, never graded down to `polish`. An `error` with cause
 `render` goes to the **fix agent**, which fixes it **by hand in the `.drawio`**
 the way [iac-diagram](../iac-diagram/SKILL.md) says - the affected cells by id, a
 waypoint, a geometry, a label - verifies, exports, and the review runs again. The script
 is not touched in the loop: `new_diagram.py` exists to produce the first draft cheaply,
 and the picture the customer signs off on is finished by hand. A fault the script would
 repeat on the next spec is noted in the hand-over as a plugin todo, not fixed now. Three passes, then the customer
-sees the picture as it is, with the open findings named. `polish` findings never go back;
-they go into the hand-over. **The review has a ceiling**, because a reviewer always finds
-more: at most **8 findings per pass, errors first**; the same
+sees the picture as it is, with the open findings named. `polish` findings never start a pass:
+the fix agent, running for an `error` anyway, takes them along and fixes those that are a
+small edit of the cells they name; the rest go into the hand-over. **The review has ceilings**, because a reviewer always finds
+more: at most **8 `error` and 3 `polish` findings per pass, errors first**; the same
 fault on several cells is one finding that lists the cells; it reads the PNG and the spec
-and opens the `.drawio` only for a coordinate it needs, never samples pixels, and stops
-once the list is full. A later pass reports only what the earlier passes named and what the
-fix broke - never a fresh sweep. An `error` with cause `spec` is the main agent's: correct the
+and opens the `.drawio` only for a coordinate it needs, and never samples pixels. When the
+error list is full it stops and says where - the checklist item, and inside item 1 the last
+edge traced. A later pass re-checks what the earlier passes named and what the fix touched,
+then continues the checklist from that point - never a fresh sweep from the start, and never
+done before the checklist has run to its end once. Three passes that do not finish it show
+the picture with "reviewed up to item N" named as open. An `error` with cause `spec` is the main agent's: correct the
 spec, re-export the decision document, regenerate the draft - **and do that before the
 fix agent starts its hand edits**, because a regenerated draft loses them; the order
 of a pass is spec findings first (the main session corrects the spec and runs the script
@@ -1185,7 +1185,7 @@ family:
    there, never here — resource terms are its job, workload and target terms are this
    description's, and this one stays short so the entry is never what gets pruned.
 9. Validate with `scripts/check_question_set.py <resource-directory>` — enum defaults,
-   `depends_on` and `from_deployment` targets, the resolution fields, unknown fields —
+   `depends_on` and `answer` targets, the resolution fields, unknown fields —
    and with the repo's `check_repo_consistency.py` for routing reachability.
 
 A genuinely new family gets a directory under `resources/` with a `routing.md`, and a row in

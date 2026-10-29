@@ -27,14 +27,15 @@ groups:
     title: Placement
     questions:
       - id: environments
-        ask: Which stages is this deployed to?
+        ask:
+          en: "Which stages is this deployed to?"
+          de: "In welche Stufen wird das ausgerollt?"
         type: list
         plain:
           en: "Deployed in the stages {value}."
           de: "Wird in den Stufen {value} ausgerollt."
-        values: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
-        required: true
-        from_context: true
+        accepts: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
+        answer: { context: environments }
         why: >
           Drives the rendered name and the strictness of several defaults below. Nothing
           sensible can be guessed. Each stage is peered to its own stage's hub (or to the one
@@ -44,13 +45,14 @@ groups:
           one
 
       - id: location
-        ask: Which Azure region?
+        ask:
+          en: "Which Azure region?"
+          de: "Welche Azure-Region?"
         type: string
         plain:
           en: "Runs in the Azure region {value}."
           de: "Läuft in der Azure-Region {value}."
-        required: true
-        from_context: true
+        answer: { context: location }
         why: >
           The region of the local network. A remote network in another region makes it a
           global peering: it works, is billed for the data crossing regions at both ends,
@@ -59,14 +61,15 @@ groups:
         renders: naming parameter `location` (a peering is a child of the network and carries no location)
 
       - id: resource_group_name
-        ask: Which resource group?
-        type: ref
+        ask:
+          en: "Which resource group?"
+          de: "Welche Ressourcengruppe?"
+        type: string
         plain:
           en: "Placed in the resource group {value}."
           de: "Liegt in der Ressourcengruppe {value}."
-        ref: resource_group
-        required: true
-        from_context: true
+        accepts: { ref: resource_group }
+        answer: { context: resource_group_name }
         per_environment: true
         why: >
           The group of the local network - a peering is a child of it and lives where it
@@ -78,7 +81,9 @@ groups:
     title: The peering
     questions:
       - id: peering_role
-        ask: Is the local network a spoke that connects to a hub, or the hub itself?
+        ask:
+          en: "Is the local network a spoke that connects to a hub, or the hub itself?"
+          de: "Ist das lokale Netz ein Spoke, der sich mit einem Hub verbindet, oder der Hub selbst?"
         type: enum
         plain:
           en: "The local network is {value}."
@@ -86,7 +91,7 @@ groups:
         plain_values:
           spoke: { en: "a spoke connecting to a central hub", de: "ein Spoke, der sich mit einem zentralen Hub verbindet" }
           hub: { en: "the central hub the spokes connect to", de: "der zentrale Hub, mit dem sich die Spokes verbinden" }
-        values: [spoke, hub]
+        accepts: [spoke, hub]
         default: spoke
         forced_when: >
           `landing_zone: corp` and `network_ownership: create` make the created network a
@@ -102,12 +107,14 @@ groups:
         renders: decides which of the local and reverse switches below is the spoke's
 
       - id: local_virtual_network
-        ask: Which network is being peered (the local side)?
-        type: ref
+        ask:
+          en: "Which network is being peered (the local side)?"
+          de: "Welches Netz wird gepeert (die lokale Seite)?"
+        type: string
         plain:
           en: "The local network is {value}."
           de: "Das lokale Netz ist {value}."
-        ref: virtual_network
+        accepts: { ref: virtual_network }
         required: true
         per_environment: true
         why: >
@@ -117,13 +124,15 @@ groups:
         renders: parent_id / localVnetName (the name of the parent network)
 
       - id: remote_virtual_network
-        ask: Which network should it be peered with (the remote side)?
-        type: ref
+        ask:
+          en: "Which network should it be peered with (the remote side)?"
+          de: "Mit welchem Netz soll es gepeert werden (die Remote-Seite)?"
+        type: string
         resolved_by: derived
         plain:
           en: "It is peered with the network {value}."
           de: "Es wird mit dem Netz {value} verbunden."
-        ref: virtual_network
+        accepts: { ref: virtual_network }
         required: true
         per_environment: true
         why: >
@@ -134,7 +143,9 @@ groups:
         renders: remote_virtual_network_id / remoteVirtualNetworkResourceId
 
       - id: both_directions
-        ask: Should this deployment create the peering on both networks?
+        ask:
+          en: "Should this deployment create the peering on both networks?"
+          de: "Soll dieses Deployment das Peering auf beiden Netzen anlegen?"
         type: bool
         plain:
           en: "The connection is created from {value}."
@@ -154,7 +165,9 @@ groups:
         renders: create_reverse_peering / a second peering module call scoped to the remote network
 
       - id: allow_virtual_network_access
-        ask: Should machines in the local network be able to reach machines in the remote one?
+        ask:
+          en: "Should machines in the local network be able to reach machines in the remote one?"
+          de: "Sollen Maschinen im lokalen Netz Maschinen im Remote-Netz erreichen können?"
         type: bool
         plain:
           en: "The local network reaches the remote network: {value}."
@@ -172,7 +185,9 @@ groups:
         renders: allow_virtual_network_access / allowVirtualNetworkAccess
 
       - id: reverse_allow_virtual_network_access
-        ask: Should machines in the remote network be able to reach machines in the local one?
+        ask:
+          en: "Should machines in the remote network be able to reach machines in the local one?"
+          de: "Sollen Maschinen im Remote-Netz Maschinen im lokalen Netz erreichen können?"
         type: bool
         plain:
           en: "The remote network reaches the local network: {value}."
@@ -193,7 +208,9 @@ groups:
     title: Traffic through the hub
     questions:
       - id: central_inspection
-        ask: Does the hub send spoke traffic through a firewall or appliance?
+        ask:
+          en: "Does the hub send spoke traffic through a firewall or appliance?"
+          de: "Schickt der Hub den Spoke-Verkehr durch eine Firewall oder Appliance?"
         type: bool
         resolved_by: derived
         plain:
@@ -203,7 +220,6 @@ groups:
           true: { en: "yes", de: ja }
           false: { en: "no", de: nein }
         default: true
-        confirm_in: [production]
         why: >
           In a landing zone the hub holds the firewall and every spoke routes through it, which
           is what makes the forwarded-traffic switches below necessary: traffic that enters a
@@ -213,7 +229,9 @@ groups:
         renders: decides allow_forwarded_traffic and reverse_allow_forwarded_traffic
 
       - id: allow_forwarded_traffic
-        ask: Should the local network accept traffic that the remote network forwards from elsewhere?
+        ask:
+          en: "Should the local network accept traffic that the remote network forwards from elsewhere?"
+          de: "Soll das lokale Netz Verkehr annehmen, den das Remote-Netz von anderswo weiterleitet?"
         type: bool
         plain:
           en: "The local network accepts traffic forwarded by the remote one: {value}."
@@ -235,7 +253,9 @@ groups:
         renders: allow_forwarded_traffic / allowForwardedTraffic
 
       - id: reverse_allow_forwarded_traffic
-        ask: Should the remote network accept traffic that the local network forwards from elsewhere?
+        ask:
+          en: "Should the remote network accept traffic that the local network forwards from elsewhere?"
+          de: "Soll das Remote-Netz Verkehr annehmen, den das lokale Netz von anderswo weiterleitet?"
         type: bool
         plain:
           en: "The remote network accepts traffic forwarded by the local one: {value}."
@@ -257,7 +277,9 @@ groups:
         renders: reverse_allow_forwarded_traffic / allowForwardedTraffic (reverse module call)
 
       - id: hub_gateway
-        ask: Do the spokes reach on-premises through a VPN or ExpressRoute gateway in the hub?
+        ask:
+          en: "Do the spokes reach on-premises through a VPN or ExpressRoute gateway in the hub?"
+          de: "Erreichen die Spokes on-premises über ein VPN- oder ExpressRoute-Gateway im Hub?"
         type: bool
         resolved_by: derived
         plain:
@@ -276,7 +298,9 @@ groups:
         renders: decides allow_gateway_transit, use_remote_gateways and reverse_allow_gateway_transit
 
       - id: allow_gateway_transit
-        ask: Should the remote network be allowed to use the local network's gateway?
+        ask:
+          en: "Should the remote network be allowed to use the local network's gateway?"
+          de: "Soll das Remote-Netz das Gateway des lokalen Netzes verwenden dürfen?"
         type: bool
         plain:
           en: "The remote network may use a gateway of the local one: {value}."
@@ -295,7 +319,9 @@ groups:
         renders: allow_gateway_transit / allowGatewayTransit
 
       - id: use_remote_gateways
-        ask: Should the local network use the remote network's gateway?
+        ask:
+          en: "Should the local network use the remote network's gateway?"
+          de: "Soll das lokale Netz das Gateway des Remote-Netzes verwenden?"
         type: bool
         plain:
           en: "The local network uses a gateway of the remote one: {value}."
@@ -313,7 +339,9 @@ groups:
         renders: use_remote_gateways / useRemoteGateways
 
       - id: reverse_allow_gateway_transit
-        ask: Should the remote network offer its gateway to the local network?
+        ask:
+          en: "Should the remote network offer its gateway to the local network?"
+          de: "Soll das Remote-Netz sein Gateway dem lokalen Netz anbieten?"
         type: bool
         plain:
           en: "The remote network offers its gateway: {value}."
@@ -332,7 +360,9 @@ groups:
         renders: reverse_allow_gateway_transit / allowGatewayTransit (reverse module call)
 
       - id: verify_remote_gateways
-        ask: Should the peering check that the remote network really has a gateway before it is created?
+        ask:
+          en: "Should the peering check that the remote network really has a gateway before it is created?"
+          de: "Soll das Peering vor dem Anlegen prüfen, ob das Remote-Netz wirklich ein Gateway hat?"
         type: bool
         plain:
           en: "The remote gateway is checked on creation: {value}."

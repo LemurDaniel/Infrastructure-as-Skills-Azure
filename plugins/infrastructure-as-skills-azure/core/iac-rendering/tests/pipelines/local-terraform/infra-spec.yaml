@@ -8,4 +8,6 @@ context:
 
 deployment:
   # --- delivery ---
-  deploy_mechanism: {value: local, source: stated}
+  deploy_mechanism:
+    value: local
+    source: stated

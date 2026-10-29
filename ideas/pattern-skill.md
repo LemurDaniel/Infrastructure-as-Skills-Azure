@@ -19,9 +19,9 @@ Requirements choose the pattern: "a web application with a database, internal" s
 - The composition contract is specified: `spec.md` has `wiring:`, `patterns/` is named in
   `README.md` and the plugin manifest knows the convention (`./patterns/` enters
   `plugin.json` in the same commit as its first skill).
-- The wiring of `examples/order-platform` - roles between resources, the shared private
-  link, the order identity -> vault -> consumer - is what a pattern would own. It was
-  written by hand.
+- The wiring of an order platform (the former `examples/order-platform`, removed 2026-10-29) -
+  roles between resources, the shared private link, the order identity -> vault -> consumer -
+  is what a pattern would own. It was written by hand.
 - AVM pattern modules (`private-link-private-dns-zones`, `hub-networking`) are candidates
   for what a pattern wraps rather than re-implements.
 

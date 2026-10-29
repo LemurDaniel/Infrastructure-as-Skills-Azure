@@ -9,13 +9,13 @@ question sets:
 
   1. What follows from your answers - the interview-resolved deployment
      decisions (environment, exposure, mandates, the requirements) with the
-     decisions derived from each (`source: requirement`, `derived_from`).
+     decisions derived from each (`source: {derived_from: deployment.<id>}`).
   2. Set by the rules - everything defaulted, inherited or forced, per
      resource, a forced value with the decision that forced it.
   3. Decided differently by you - `overridden` values with their reason.
   4. Still open - the `open:` entries with their owner, and `assumed` values.
   5. Appendix - every decision with its key, value and source, for the
-     engineer reading beside the customer.
+     technical reader beside the customer.
 
 Fixed labels come in `en` and `de`; the per-decision lines come from the
 question sets, which carry `en` and may carry others. A line missing in the
@@ -45,12 +45,14 @@ DEPLOYMENT_SET = os.path.join(HERE, '..', 'questions', 'deployment.yaml')
 RESOURCES = os.path.join(PLUGIN, 'resources')
 sys.path.insert(0, os.path.join(HERE, '..', '..', 'iac-rendering', 'scripts'))
 import rg_roles  # noqa: E402 - the role table per scheme (deployment.resource_group_scheme)
+sys.path.insert(0, HERE)
+import spec_source  # noqa: E402 - a source as a word or {forced_by | derived_from | overridden: ...}
 
 LABELS = {
     'en': {
         'title': 'Decisions for "{workload}"',
         'intro': 'What will be built, decided from your answers and the rules behind the defaults. '
-                 'Every line is one decision; the key in the appendix is where an engineer finds it in the specification.',
+                 'Every line is one decision; the key in the appendix is where it stands in the specification.',
         'as_of': 'As of {date}. Specification: `{spec}`.',
         'context': 'The system', 'stages': 'What differs between the stages',
         'stages_intro': 'One code base is deployed through these stages; everything not listed here is identical in every stage.',
@@ -70,7 +72,6 @@ LABELS = {
         'derived': 'therefore', 'rules': 'Set by the rules',
         'rules_intro': 'Nothing here was asked; each follows a rule or one of the answers above. Say so if one is wrong.',
         'whole_system': 'For the whole system', 'because': 'because',
-        'confirm': 'please confirm',
         'security_rules': 'Security',
         'security_intro': 'The security baseline of every part in one place. None of it was asked and it is the same in every stage; say so if one does not fit.',
         'overridden': 'Decided differently by you', 'reason': 'reason',
@@ -87,7 +88,7 @@ LABELS = {
     'de': {
         'title': 'Entscheidungen für „{workload}“',
         'intro': 'Was gebaut wird, entschieden aus euren Antworten und den Regeln hinter den Vorgaben. '
-                 'Jede Zeile ist eine Entscheidung; der Schlüssel im Anhang ist, wo ein Engineer sie in der Spezifikation findet.',
+                 'Jede Zeile ist eine Entscheidung; der Schlüssel im Anhang zeigt, wo sie in der Spezifikation steht.',
         'as_of': 'Stand {date}. Spezifikation: `{spec}`.',
         'context': 'Das System', 'stages': 'Was sich zwischen den Stufen unterscheidet',
         'stages_intro': 'Ein Code wird durch diese Stufen ausgerollt; alles, was hier nicht steht, ist in jeder Stufe gleich.',
@@ -107,7 +108,6 @@ LABELS = {
         'derived': 'daher', 'rules': 'Nach den Vorgaben gesetzt',
         'rules_intro': 'Nichts davon wurde gefragt; jede Zeile folgt einer Regel oder einer der Antworten oben. Sagt Bescheid, wenn eine nicht passt.',
         'whole_system': 'Für das ganze System', 'because': 'weil',
-        'confirm': 'bitte bestätigen',
         'security_rules': 'Sicherheit',
         'security_intro': 'Die Sicherheitsvorgaben aller Teile an einer Stelle. Sie wurden nicht gefragt und sind in jeder Stufe gleich; sagt Bescheid, wenn eine nicht passt.',
         'overridden': 'Von euch anders entschieden', 'reason': 'Grund',
@@ -136,6 +136,23 @@ def say(text):
 def load_yaml(path, yaml):
     with open(path, encoding='utf-8') as f:
         return yaml.safe_load(f)
+
+
+def flat_sources(node):
+    # Every decision's source as its kind, the pointer beside it under its old name
+    # (forced_by, derived_from, reason): the sections below read the kind.
+    if isinstance(node, dict):
+        if 'value' in node and isinstance(node.get('source'), dict):
+            kind, ref = spec_source.kind(node['source'])
+            if kind:
+                node['source'] = kind
+                node[{'forced': 'forced_by', 'requirement': 'derived_from', 'overridden': 'reason'}[kind]] = ref
+        for v in node.values():
+            flat_sources(v)
+    elif isinstance(node, list):
+        for v in node:
+            flat_sources(v)
+    return node
 
 
 def questions_of(doc):
@@ -195,7 +212,7 @@ class Renderer:
                 detail = value.get('resource_group_name') or value.get('prefix')
                 base = str(value['name']) + (f" ({detail})" if detail else '')
                 extra = {k: v for k, v in value.items() if k not in ('name', 'resource_group_name', 'prefix', 'purpose')}
-                return base + (' ' + ', '.join(f"{k} {v}" for k, v in extra.items()) if extra else '')
+                return base + (' (' + ', '.join(f"{k}: {self.value_words(None, v)}" for k, v in extra.items()) + ')' if extra else '')
             return ', '.join(f"{k}: {self.value_words(None, v)}" for k, v in value.items())
         try:
             if value in pv:
@@ -239,7 +256,7 @@ def main():
         R = Renderer(lang, L)
 
     try:
-        spec = load_yaml(args.spec, yaml)
+        spec = flat_sources(load_yaml(args.spec, yaml))
         deployment = load_yaml(DEPLOYMENT_SET, yaml)
     except (yaml.YAMLError, OSError) as e:
         say(f"[fail] could not read: {e}")
@@ -304,9 +321,9 @@ def main():
         d = dep.get(qid)
         return d.get('value') if isinstance(d, dict) else None
 
-    split = [r for r in (dval('resource_group_split') or []) if isinstance(r, str)]
+    rg_table, rg_scheme = rg_roles.load(yaml), rg_roles.scheme_of(dep)
+    split = rg_roles.groups(rg_table, dep, resources)
     if split:
-        rg_table, rg_scheme = rg_roles.load(yaml), rg_roles.scheme_of(dep)
         rg_groups = (['main'] if rg_roles.has_main(dep) else []) + split   # a split has no main group
         members = {r: [] for r in rg_groups}
         for res, groups in resources.items():
@@ -333,19 +350,30 @@ def main():
         w(f"| {L['g_group']} | {L['g_state']} | {L['g_name']} | {L['g_contains']} |")
         w('|---|---|---|---|')
         for role in rg_groups:
-            state = dval(f'resource_group_mode_{role}') or 'existing'
+            state = rg_roles.mode(dep, role)
             w(f"| {L['g_roles'].get(role) or titles.get(role, role)} | {L['g_created'] if state == 'create' else L['g_existing']} | "
               f"{group_name(role, state)} | {', '.join(sorted(members[role])) or '-'} |")
         w('')
 
     # --- what differs between the stages ---------------------------------------
+    # A cost saving is derived, never recorded: the question has a non_production_default,
+    # the deployment saves outside production, and every other stage holds that default.
+    savings_on = str((dep.get('non_production_savings') or {}).get('value', 'enabled')) == 'enabled' \
+        if isinstance(dep.get('non_production_savings'), dict) else True
+
+    def saved(q, v):
+        if not (savings_on and isinstance(q, dict) and 'non_production_default' in q):
+            return False
+        others = [s for s in v if s != 'production']
+        return bool(others) and all(str(v[s]) == str(q['non_production_default']) for s in others)
+
     stage_lines = []
     for key, v in ctx.items():
         if R.is_stage_map(v) and key in dep_q:
             stage_lines.append(R.line(dep_q[key][1], v))
     for qid, d in dep.items():
         if isinstance(d, dict) and R.is_stage_map(d.get('value')) and qid in dep_q:
-            note = f" _({L['savings']})_" if d.get('non_production') == 'default' else ''
+            note = f" _({L['savings']})_" if saved(dep_q[qid][1], d['value']) else ''
             stage_lines.append(R.line(dep_q[qid][1], d['value']) + note)
     for res, groups in resources.items():
         qset = sets.get(res, {})
@@ -355,7 +383,7 @@ def main():
             for qid, d in qs.items():
                 if isinstance(d, dict) and R.is_stage_map(d.get('value')):
                     q = qset.get(qid, (None, None))[1]
-                    note = f" _({L['savings']})_" if d.get('non_production') == 'default' else ''
+                    note = f" _({L['savings']})_" if saved(q, d['value']) else ''
                     stage_lines.append(f"{titles.get(res, res)}: {R.line(q, d['value'])}{note}")
     if len(R.environments) > 1:
         w(f"## {L['stages']}")
@@ -409,11 +437,6 @@ def main():
             return f" — {L['because']}: {R.line(dep_q[m.group(1)][1], dep[m.group(1)].get('value'))}"
         return f" — {L['because']}: `{fb}`" if fb else ''
 
-    def confirm_note(q):
-        # A default the question set wants confirmed in a stage that exists in this spec.
-        ci = (q or {}).get('confirm_in') or []
-        return f" _({L['confirm']})_" if set(ci) & set(R.environments) else ''
-
     w(f"## {L['rules']}")
     w('')
     w(L['rules_intro'])
@@ -427,7 +450,7 @@ def main():
         if not isinstance(d, dict) or d.get('source') in ('overridden', 'assumed'):
             continue
         note = forced_note(d) if d.get('source') == 'forced' else ''
-        w(f"- {R.line(q, d.get('value'))}{note}{confirm_note(q)}")
+        w(f"- {R.line(q, d.get('value'))}{note}")
     w('')
     overridden, assumed = [], []
     security, blocks = {}, []   # security: kind title -> {line: [instances]}, in first-seen order
@@ -436,8 +459,8 @@ def main():
         qset = sets.get(res, {})
         lines = []
         for gid, qs in (groups or {}).items():
-            if not isinstance(qs, dict) or str(gid).startswith('_'):
-                continue
+            if not isinstance(qs, dict) or str(gid).startswith('_') or gid == 'meta':
+                continue  # meta describes the resource; only the appendix lists it
             for qid, d in qs.items():
                 if not isinstance(d, dict):
                     continue
@@ -451,7 +474,7 @@ def main():
                     continue
                 if src == 'requirement':
                     continue
-                note = (forced_note(d) if src == 'forced' else '') + confirm_note(q)
+                note = forced_note(d) if src == 'forced' else ''
                 if gid in SECURITY_GROUPS and not res.startswith('user-assigned-identity'):
                     kind, _, inst = res.partition('__')
                     title = titles.get(res, res)

@@ -7,7 +7,7 @@ the Terraform under `./` is rendered from it, so are `infra-decisions.md`,
 
 - **A change to the infrastructure is a change to the spec first.** Changing a SKU, a
   retention, an access rule in the code alone makes the spec lie. Set the decision's
-  `value` in the spec, mark it `source: overridden` with a one-line `reason`, then
+  `value` in the spec, record why as `source: { overridden: <one line> }`, then
   **render again** with the plugin's `iac-rendering` skill: it changes what the spec says,
   keeps the rest and asks nothing it already knows. Editing the rendered code and its
   `# decision:` tests by hand is for a piece the render cannot produce (a part the spec

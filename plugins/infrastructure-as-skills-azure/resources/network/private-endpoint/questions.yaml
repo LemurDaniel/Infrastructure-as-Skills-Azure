@@ -27,27 +27,29 @@ groups:
     title: Placement
     questions:
       - id: environments
-        ask: Which stages is this deployed to?
+        ask:
+          en: "Which stages is this deployed to?"
+          de: "In welche Stufen wird das ausgerollt?"
         type: list
         plain:
           en: "Deployed in the stages {value}."
           de: "Wird in den Stufen {value} ausgerollt."
-        values: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
-        required: true
-        from_context: true
+        accepts: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
+        answer: { context: environments }
         why: >
           Drives the rendered name. One endpoint per stage and per target: a target of another
           stage is reached through its own endpoint, never through a shared one.
         renders: naming parameter `environment`, and the tag of that name where the repository uses one
 
       - id: location
-        ask: Which Azure region?
+        ask:
+          en: "Which Azure region?"
+          de: "Welche Azure-Region?"
         type: string
         plain:
           en: "Created in the Azure region {value}."
           de: "Wird in der Azure-Region {value} angelegt."
-        required: true
-        from_context: true
+        answer: { context: location }
         why: >
           The endpoint lives in the region of the virtual network its subnet belongs to, not
           in the target's: a target in another region is reached by an endpoint here, which is
@@ -55,14 +57,15 @@ groups:
         renders: location
 
       - id: resource_group_name
-        ask: Which resource group?
-        type: ref
+        ask:
+          en: "Which resource group?"
+          de: "Welche Ressourcengruppe?"
+        type: string
         plain:
           en: "Placed in the resource group {value}."
           de: "Liegt in der Ressourcengruppe {value}."
-        ref: resource_group
-        required: true
-        from_context: true
+        accepts: { ref: resource_group }
+        answer: { context: resource_group_name }
         per_environment: true
         why: >
           Placed into an existing group - the consumer's or the network's. The endpoint's
@@ -74,12 +77,14 @@ groups:
     title: Target
     questions:
       - id: target_resource
-        ask: Which resource should the endpoint connect to?
-        type: ref
+        ask:
+          en: "Which resource should the endpoint connect to?"
+          de: "Mit welcher Ressource soll sich der Endpoint verbinden?"
+        type: string
         plain:
           en: "The private connection leads to {value}."
           de: "Die private Anbindung führt zu {value}."
-        ref: private_link_resource
+        accepts: { ref: private_link_resource }
         required: true
         per_environment: true
         why: >
@@ -91,7 +96,9 @@ groups:
         renders: private_connection_resource_id / privateLinkServiceConnections[].properties.privateLinkServiceId
 
       - id: subresource
-        ask: Which part of the target should the endpoint reach?
+        ask:
+          en: "Which part of the target should the endpoint reach?"
+          de: "Welchen Teil des Ziels soll der Endpoint erreichen?"
         type: string
         plain:
           en: "The endpoint reaches the {value} service of the target."
@@ -107,7 +114,9 @@ groups:
         renders: subresource_names / privateLinkServiceConnections[].properties.groupIds
 
       - id: connection_approval
-        ask: Is the connection approved automatically?
+        ask:
+          en: "Is the connection approved automatically?"
+          de: "Wird die Verbindung automatisch genehmigt?"
         type: enum
         plain:
           en: "The connection is approved {value}."
@@ -115,7 +124,7 @@ groups:
         plain_values:
           automatic: { en: "automatically, because this deployment has the right to do so on the target", de: "automatisch, weil dieses Ausrollen das Recht dazu am Ziel hat" }
           manual: { en: "by the owner of the target, who has to confirm the request", de: "vom Eigentümer des Ziels, der die Anfrage bestätigen muss" }
-        values: [automatic, manual]
+        accepts: [automatic, manual]
         default: automatic
         why: >
           `automatic` is right for a target in the same subscription or one the deploying
@@ -126,7 +135,9 @@ groups:
         renders: private_service_connection.is_manual_connection / manualPrivateLinkServiceConnections (instead of privateLinkServiceConnections)
 
       - id: approval_message
-        ask: Which message should the request to the owner carry?
+        ask:
+          en: "Which message should the request to the owner carry?"
+          de: "Welche Nachricht soll die Anfrage an den Besitzer enthalten?"
         type: string
         plain:
           en: "The request tells the owner: {value}."
@@ -144,14 +155,16 @@ groups:
     title: Networking
     questions:
       - id: subnet
-        ask: Which subnet should the endpoint live in?
-        type: ref
+        ask:
+          en: "Which subnet should the endpoint live in?"
+          de: "In welchem Subnetz soll der Endpoint liegen?"
+        type: string
         resolved_by: derived
         plain:
           en: "Its private connection lands in subnet {value}."
           de: "Seine private Anbindung landet im Subnetz {value}."
-        ref: subnet
-        from_deployment: private_endpoint_subnet
+        accepts: { ref: subnet }
+        answer: { deployment: private_endpoint_subnet }
         per_environment: true
         why: >
           One subnet carries the deployment's private endpoints, so this is inherited rather
@@ -162,7 +175,9 @@ groups:
         renders: subnet_resource_id / subnetResourceId
 
       - id: private_ip_address
-        ask: Which fixed address should the endpoint take?
+        ask:
+          en: "Which fixed address should the endpoint take?"
+          de: "Welche feste Adresse soll der Endpoint bekommen?"
         type: string
         plain:
           en: "Fixed address: {value} (empty: assigned by Azure)."
@@ -181,7 +196,9 @@ groups:
     title: Name resolution
     questions:
       - id: dns_ownership
-        ask: Who owns the private DNS zones?
+        ask:
+          en: "Who owns the private DNS zones?"
+          de: "Wem gehören die privaten DNS-Zonen?"
         type: enum
         resolved_by: derived
         plain:
@@ -190,15 +207,17 @@ groups:
         plain_values:
           platform: { en: "the company platform", de: "die Firmenplattform" }
           deployment: { en: "this deployment itself", de: "dieses Ausrollen selbst" }
-        values: [platform, deployment]
-        from_deployment: private_dns_ownership
+        accepts: [platform, deployment]
+        answer: { deployment: private_dns_ownership }
         why: >
           Inherited: one answer per deployment. It decides where the zone comes from - the
           platform's hub or the `private-dns-zone` set - and nothing else here.
         renders: whether the zone is referenced or created, and so where its id comes from
 
       - id: dns_records
-        ask: Does a platform policy create the DNS records for private endpoints, or does this deployment?
+        ask:
+          en: "Does a platform policy create the DNS records for private endpoints, or does this deployment?"
+          de: "Legt eine Plattform-Policy die DNS-Einträge für Private Endpoints an, oder dieses Deployment?"
         type: enum
         resolved_by: derived
         plain:
@@ -207,8 +226,8 @@ groups:
         plain_values:
           policy: { en: "a platform rule, automatically", de: "eine Plattformregel, automatisch" }
           deployment: { en: "this deployment", de: "dieses Ausrollen" }
-        values: [policy, deployment]
-        from_deployment: private_dns_records
+        accepts: [policy, deployment]
+        answer: { deployment: private_dns_records }
         why: >
           Inherited. With `policy` a DeployIfNotExists policy attaches the endpoint to the
           platform's zone and writes the record; a zone group written here as well means two
@@ -217,7 +236,9 @@ groups:
         renders: whether private_dns_zone_group / privateDnsZoneGroup is rendered at all
 
       - id: dns_zone_group
-        ask: Should the endpoint carry its own DNS zone group?
+        ask:
+          en: "Should the endpoint carry its own DNS zone group?"
+          de: "Soll der Endpoint eine eigene DNS-Zonengruppe tragen?"
         type: enum
         plain:
           en: "The endpoint's name entry is {value}."
@@ -225,7 +246,7 @@ groups:
         plain_values:
           attached: { en: "written by this deployment, into the zone named below", de: "von diesem Ausrollen in die unten genannte Zone geschrieben" }
           left_to_policy: { en: "left to the platform, which writes it itself", de: "der Plattform überlassen, die ihn selbst schreibt" }
-        values: [attached, left_to_policy]
+        accepts: [attached, left_to_policy]
         default: left_to_policy
         forced_when: >
           `dns_ownership: deployment` forces `attached` (there is no platform to write it), and
@@ -238,7 +259,9 @@ groups:
         renders: private_dns_zone_resource_ids / privateDnsZoneGroup (present or absent)
 
       - id: dns_zones
-        ask: Which private DNS zones should the endpoint be attached to?
+        ask:
+          en: "Which private DNS zones should the endpoint be attached to?"
+          de: "An welche privaten DNS-Zonen soll der Endpoint angebunden werden?"
         type: list
         plain:
           en: "Attached to the name zones: {value}."
@@ -253,14 +276,16 @@ groups:
         renders: private_dns_zone_resource_ids / privateDnsZoneGroup.privateDnsZoneGroupConfigs[].privateDnsZoneResourceId
 
       - id: dns_zone_scope
-        ask: In which subscription and resource group does the platform keep the private DNS zones?
-        type: ref
+        ask:
+          en: "In which subscription and resource group does the platform keep the private DNS zones?"
+          de: "In welcher Subscription und Ressourcengruppe hält die Plattform die privaten DNS-Zonen?"
+        type: string
         resolved_by: derived
         plain:
           en: "The platform keeps the name zones in {value}."
           de: "Die Plattform hält die Namenszonen in {value}."
-        ref: resource_group
-        from_deployment: private_dns_zone_scope
+        accepts: { ref: resource_group }
+        answer: { deployment: private_dns_zone_scope }
         depends_on: { question: dns_zone_group, equals: attached }
         per_environment: true
         why: >

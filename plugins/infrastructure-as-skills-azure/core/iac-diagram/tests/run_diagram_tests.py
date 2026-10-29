@@ -130,8 +130,8 @@ def case_ten_resources(cells):
         bad.append('the box does not say it has no question set')
     if 'App Service: AcrPull' not in cells.get('res-container-registry', {}).get('value', ''):
         bad.append('the role is not on the target label')
-    if 'opacity=60' not in cells.get('res-redis-cache', {}).get('style', '') or 'optional' not in cells.get('res-redis-cache', {}).get('value', ''):
-        bad.append('the optional resource is not faded and marked')
+    if 'opacity=' in cells.get('res-redis-cache', {}).get('style', '') or 'optional' in cells.get('res-redis-cache', {}).get('value', ''):
+        bad.append('a resource of the spec is drawn faded or marked optional - it is built like any other')
     if 'public access disabled' not in cells.get('z-paas', {}).get('value', ''):
         bad.append('the PaaS zone does not say public access is disabled')
     if cells.get('z-monitoring', {}).get('parent') != '1' or cells.get('z-dnszones', {}).get('parent') != '1':
@@ -305,8 +305,8 @@ def inside(cells, child, frame):
 
 def case_resource_groups_split(cells):
     """With a split the services stand group by group, each group in a frame of its colour: solid
-    when the group is created, dashed when it exists. Five services in two groups (data, and main
-    - application is not split off) give the side layout. A framed resource carries no tag (the frame says it), compute in the subnets does; the
+    when the group is created, dashed when it exists. Five services in two groups (data and
+    application) give the side layout. A framed resource carries no tag (the frame says it), compute in the subnets does; the
     network is the network group's frame, the support zone has a frame per group, the monitoring
     zone's title names its group, and nothing is framed around everything."""
     bad = []
@@ -317,8 +317,8 @@ def case_resource_groups_split(cells):
         bad.append("a frame is drawn around everything with a split")
     if 'rg-icon' in cells:
         bad.append("the outer frame carries the resource group icon - the deployment would be mistaken for a group")
-    for frame, tag, dashed in (('rg-data', 'data (created)', False), ('rg-main', 'main (created)', False),
-                               ('rg-network-support', 'network (existing)', True), ('rg-main-support', 'main (created)', False)):
+    for frame, tag, dashed in (('rg-data', 'data (created)', False), ('rg-application', 'application (created)', False),
+                               ('rg-network-support', 'network (existing)', True), ('rg-security-support', 'security (created)', False)):
         c = cells.get(frame)
         if c is None:
             bad.append(f"no frame {frame}")
@@ -328,7 +328,7 @@ def case_resource_groups_split(cells):
         if ('dashed=1' in c['style']) != dashed:
             bad.append(f"{frame} is {'dashed' if 'dashed=1' in c['style'] else 'solid'}, a group that is {tag.split('(')[1][:-1]}")
     for res, frame in (('storage-account', 'rg-data'), ('cosmos-db', 'rg-data'), ('key-vault', 'rg-data'),   # key-vault: placement departs
-                       ('container-registry', 'rg-main'), ('search-service', 'rg-main')):   # application is not split off
+                       ('container-registry', 'rg-application'), ('search-service', 'rg-application')):
         c = cells.get(f'res-{res}')
         if c is None:
             bad.append(f"{res} is not drawn")
@@ -337,17 +337,17 @@ def case_resource_groups_split(cells):
             bad.append(f"{res} is not inside {frame} (parent {c['parent']})")
         if FOLDER in label_of(cells, f'res-{res}', f'res-{res}-icon'):
             bad.append(f"{res} repeats its group as a tag inside the frame that names it")
-    for res, frame in (('network-security-group', 'rg-network-support'), ('user-assigned-identity', 'rg-main-support')):
+    for res, frame in (('network-security-group', 'rg-network-support'), ('user-assigned-identity', 'rg-security-support')):
         if cells.get(f'res-{res}', {}).get('parent') != frame:
             bad.append(f"{res} is not in {frame}")
-    if FOLDER not in label_of(cells, 'res-app-service', 'res-app-service-icon') or 'main (created)' not in label_of(cells, 'res-app-service', 'res-app-service-icon'):
-        bad.append("compute is not tagged 'main (created)'")
+    if FOLDER not in label_of(cells, 'res-app-service', 'res-app-service-icon') or 'application (created)' not in label_of(cells, 'res-app-service', 'res-app-service-icon'):
+        bad.append("compute is not tagged 'application (created)'")
     vnet = cells.get('vnet', {})
     if 'network (existing)' not in vnet.get('value', '') or 'dashed=1' not in vnet.get('style', ''):
         bad.append(f"the network is not the dashed frame of its existing group: {vnet.get('value', '')!r}")
     if 'monitoring (created)' not in cells.get('z-monitoring', {}).get('value', ''):
         bad.append(f"the monitoring zone's title does not name its group: {cells.get('z-monitoring', {}).get('value', '')!r}")
-    for part in ('Resource groups:', 'main (created)', 'network (existing)', 'data (created)', 'monitoring (created)'):
+    for part in ('Resource groups:', 'application (created)', 'network (existing)', 'data (created)', 'monitoring (created)'):
         if part not in ' '.join(v['value'] for k, v in cells.items() if k.startswith('panel')):
             bad.append(f"the decisions panel lacks '{part}'")
     legend = cells.get('legend', {}).get('value', '')
@@ -362,7 +362,7 @@ def case_resource_groups_small(cells):
     """The compact layout: three services in three groups stand side by side in one row, each in
     its frame, and every service sits inside its own."""
     bad = []
-    want = {'rg-main': 'key-vault', 'rg-data': 'storage-account', 'rg-application': 'container-registry'}
+    want = {'rg-security': 'key-vault', 'rg-data': 'storage-account', 'rg-application': 'container-registry'}
     ys = set()
     for frame, res in want.items():
         c = cells.get(frame)

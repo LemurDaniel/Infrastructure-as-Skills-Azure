@@ -24,14 +24,15 @@ groups:
     title: Placement
     questions:
       - id: environments
-        ask: Which stages is this deployed to?
+        ask:
+          en: "Which stages is this deployed to?"
+          de: "In welche Stufen wird das ausgerollt?"
         type: list
         plain:
           en: "Deployed in the stages {value}."
           de: "Wird in den Stufen {value} ausgerollt."
-        values: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
-        required: true
-        from_context: true
+        accepts: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
+        answer: { context: environments }
         why: >
           Drives the rendered name and the strictness of several defaults below. Nothing
           sensible can be guessed.
@@ -40,13 +41,14 @@ groups:
           one
 
       - id: location
-        ask: Which Azure region?
+        ask:
+          en: "Which Azure region?"
+          de: "Welche Azure-Region?"
         type: string
         plain:
           en: "Created in the Azure region {value}."
           de: "Wird in der Azure-Region {value} angelegt."
-        required: true
-        from_context: true
+        answer: { context: location }
         why: >
           Front Door is a global resource and ignores the region for its traffic; the
           profile object itself is created as `global`. The context's region still goes into
@@ -56,14 +58,15 @@ groups:
           location (`global` on the profile)
 
       - id: resource_group_name
-        ask: Which resource group?
-        type: ref
+        ask:
+          en: "Which resource group?"
+          de: "Welche Ressourcengruppe?"
+        type: string
         plain:
           en: "Placed in the resource group {value}."
           de: "Liegt in der Ressourcengruppe {value}."
-        ref: resource_group
-        required: true
-        from_context: true
+        accepts: { ref: resource_group }
+        answer: { context: resource_group_name }
         per_environment: true
         why: >
           The profile is placed into an existing group. In a split deployment it belongs to
@@ -74,7 +77,9 @@ groups:
     title: The profile
     questions:
       - id: sku
-        ask: Which Front Door tier does the system need?
+        ask:
+          en: "Which Front Door tier does the system need?"
+          de: "Welchen Front-Door-Tarif braucht das System?"
         type: enum
         plain:
           en: "Front Door is the {value} tier."
@@ -82,9 +87,8 @@ groups:
         plain_values:
           Standard_AzureFrontDoor: { en: "standard, with basic firewall rules", de: "Standard, mit einfachen Firewall-Regeln" }
           Premium_AzureFrontDoor: { en: "premium, with managed firewall rules and private connections to the backends", de: "Premium, mit verwalteten Firewall-Regeln und privaten Verbindungen zu den Backends" }
-        values: [Standard_AzureFrontDoor, Premium_AzureFrontDoor]
+        accepts: [Standard_AzureFrontDoor, Premium_AzureFrontDoor]
         default: Premium_AzureFrontDoor
-        confirm_in: [production]
         non_production_default: Standard_AzureFrontDoor
         forced_when: >
           `origin_connection: private_link` and `waf_managed_rules: true` each force
@@ -100,7 +104,9 @@ groups:
           sku / sku.name (`Standard_AzureFrontDoor`, `Premium_AzureFrontDoor`)
 
       - id: response_timeout_seconds
-        ask: How long may a backend take to answer before the edge gives up?
+        ask:
+          en: "How long may a backend take to answer before the edge gives up?"
+          de: "Wie lange darf ein Backend für eine Antwort brauchen, bevor der Edge aufgibt?"
         type: int
         plain:
           en: "The edge waits at most {value} seconds for a backend."
@@ -114,7 +120,9 @@ groups:
         renders: response_timeout_seconds / originResponseTimeoutSeconds
 
       - id: managed_identity
-        ask: Which managed identity should the profile carry?
+        ask:
+          en: "Which managed identity should the profile carry?"
+          de: "Welche Managed Identity soll das Profil tragen?"
         type: enum
         plain:
           en: "The profile has {value}."
@@ -123,7 +131,7 @@ groups:
           none: { en: no identity of its own, de: keine eigene Identität }
           system_assigned: { en: its own identity, de: eine eigene Identität }
           user_assigned: { en: a separately managed identity, de: eine separat verwaltete Identität }
-        values: [none, system_assigned, user_assigned]
+        accepts: [none, system_assigned, user_assigned]
         default: none
         why: >
           A profile reads a customer certificate from Key Vault. Front Door can do it
@@ -133,12 +141,14 @@ groups:
         renders: managed_identities / identity
 
       - id: user_assigned_identity_ids
-        ask: Which user-assigned identity?
+        ask:
+          en: "Which user-assigned identity?"
+          de: "Welche User-Assigned Identity?"
         type: list
         plain:
           en: "It uses the identity {value}."
           de: "Es nutzt die Identität {value}."
-        ref: user_assigned_identity
+        accepts: { ref: user_assigned_identity }
         required: true
         depends_on: { question: managed_identity, equals: user_assigned }
         per_environment: true
@@ -153,7 +163,9 @@ groups:
     title: Delivery
     questions:
       - id: origins
-        ask: Which backends does Front Door route to?
+        ask:
+          en: "Which backends does Front Door route to?"
+          de: "Zu welchen Backends leitet Front Door weiter?"
         type: list
         plain:
           en: "Backends: {value}."
@@ -171,7 +183,9 @@ groups:
           afdEndpoints
 
       - id: origin_connection
-        ask: How does Front Door reach the backends?
+        ask:
+          en: "How does Front Door reach the backends?"
+          de: "Wie erreicht Front Door die Backends?"
         type: enum
         plain:
           en: "Front Door reaches the backends over {value}."
@@ -179,9 +193,8 @@ groups:
         plain_values:
           public: { en: "the backends' public addresses", de: die öffentlichen Adressen der Backends }
           private_link: { en: "a private connection, so the backends stay closed to the internet", de: "eine private Verbindung, sodass die Backends für das Internet geschlossen bleiben" }
-        values: [public, private_link]
+        accepts: [public, private_link]
         default: private_link
-        confirm_in: [production]
         forced_when: >
           `network_exposure: public` makes it `public`; a backend that cannot take a private
           endpoint (an external host name) forces `public` for that origin, recorded as
@@ -198,7 +211,9 @@ groups:
           originGroups[].origins[].sharedPrivateLinkResource
 
       - id: forwarding_protocol
-        ask: Should Front Door talk to the backends over HTTPS only?
+        ask:
+          en: "Should Front Door talk to the backends over HTTPS only?"
+          de: "Soll Front Door mit den Backends nur über HTTPS sprechen?"
         type: enum
         plain:
           en: "Front Door talks to the backends over {value}."
@@ -206,7 +221,7 @@ groups:
         plain_values:
           HttpsOnly: { en: an encrypted connection only, de: nur eine verschlüsselte Verbindung }
           MatchRequest: { en: whatever the visitor used, de: was der Besucher benutzt hat }
-        values: [HttpsOnly, MatchRequest]
+        accepts: [HttpsOnly, MatchRequest]
         default: HttpsOnly
         why: >
           `HttpsOnly` keeps the leg between the edge and the backend encrypted;
@@ -216,7 +231,9 @@ groups:
           front_door_routes.<k>.forwarding_protocol / routes[].forwardingProtocol
 
       - id: https_redirect
-        ask: Should plain HTTP requests be redirected to HTTPS?
+        ask:
+          en: "Should plain HTTP requests be redirected to HTTPS?"
+          de: "Sollen Anfragen über unverschlüsseltes HTTP auf HTTPS umgeleitet werden?"
         type: bool
         plain:
           en: "Plain HTTP requests are {value}."
@@ -232,7 +249,9 @@ groups:
         renders: front_door_routes.<k>.https_redirect_enabled / routes[].httpsRedirect
 
       - id: caching
-        ask: Should Front Door keep copies of responses at the edge?
+        ask:
+          en: "Should Front Door keep copies of responses at the edge?"
+          de: "Soll Front Door Kopien der Antworten am Edge vorhalten?"
         type: bool
         resolved_by: interview
         topic: application
@@ -252,7 +271,9 @@ groups:
         renders: front_door_routes.<k>.cache / routes[].cacheConfiguration
 
       - id: custom_domains
-        ask: Which host names should Front Door answer for?
+        ask:
+          en: "Which host names should Front Door answer for?"
+          de: "Für welche Hostnamen soll Front Door antworten?"
         type: list
         plain:
           en: "Host names: {value} (empty: only the generated *.azurefd.net name)."
@@ -267,7 +288,9 @@ groups:
         renders: front_door_custom_domains / customDomains
 
       - id: certificate_source
-        ask: Who provides the certificate for the host names?
+        ask:
+          en: "Who provides the certificate for the host names?"
+          de: "Wer stellt das Zertifikat für die Hostnamen bereit?"
         type: enum
         plain:
           en: "The certificate is {value}."
@@ -275,7 +298,7 @@ groups:
         plain_values:
           managed: { en: issued and renewed by Front Door itself, de: von Front Door selbst ausgestellt und erneuert }
           customer: { en: "your own, held in your key vault", de: "euer eigenes, im Schlüsseltresor" }
-        values: [managed, customer]
+        accepts: [managed, customer]
         default: managed
         depends_on: { question: custom_domains, not_equals: [] }
         why: >
@@ -288,7 +311,9 @@ groups:
           customDomains[].certificateType (`ManagedCertificate`, `CustomerCertificate`)
 
       - id: minimum_tls_version
-        ask: Which TLS version is the lowest a visitor may use?
+        ask:
+          en: "Which TLS version is the lowest a visitor may use?"
+          de: "Welche ist die niedrigste TLS-Version, die ein Besucher verwenden darf?"
         type: enum
         plain:
           en: "Visitors must use at least TLS {value}."
@@ -296,7 +321,7 @@ groups:
         plain_values:
           TLS10: { en: "1.0", de: "1.0" }
           TLS12: { en: "1.2", de: "1.2" }
-        values: [TLS10, TLS12]
+        accepts: [TLS10, TLS12]
         default: TLS12
         depends_on: { question: custom_domains, not_equals: [] }
         why: >
@@ -311,7 +336,9 @@ groups:
     title: Security
     questions:
       - id: waf_enabled
-        ask: Should a web application firewall inspect the requests at the edge?
+        ask:
+          en: "Should a web application firewall inspect the requests at the edge?"
+          de: "Soll eine Web Application Firewall die Anfragen am Edge prüfen?"
         type: bool
         plain:
           en: "A web application firewall at the edge is {value}."
@@ -320,7 +347,6 @@ groups:
           true: { en: inspected by a web application firewall, de: von einer Web Application Firewall geprüft }
           false: { en: not inspected by a firewall, de: nicht von einer Firewall geprüft }
         default: true
-        confirm_in: [production]
         why: >
           A firewall policy attached to the endpoint through a security policy inspects
           every request before it reaches the backend, at the nearest edge. On by default
@@ -331,7 +357,9 @@ groups:
           + securityPolicies
 
       - id: waf_mode
-        ask: Should the firewall block what it judges malicious, or only record it?
+        ask:
+          en: "Should the firewall block what it judges malicious, or only record it?"
+          de: "Soll die Firewall blockieren, was sie als schädlich einstuft, oder es nur protokollieren?"
         type: enum
         plain:
           en: "The firewall {value}."
@@ -339,10 +367,9 @@ groups:
         plain_values:
           Prevention: { en: blocks the requests it judges malicious, de: "blockiert Anfragen, die es für bösartig hält" }
           Detection: { en: only records the requests it judges malicious, de: "protokolliert Anfragen, die es für bösartig hält, nur" }
-        values: [Prevention, Detection]
+        accepts: [Prevention, Detection]
         default: Prevention
         depends_on: { question: waf_enabled, equals: true }
-        confirm_in: [production]
         why: >
           `Prevention` blocks, `Detection` records and lets through. Detection is the mode
           to *learn* in, not to run in; moving there is a recorded, temporary departure with
@@ -350,7 +377,9 @@ groups:
         renders: front_door_firewall_policies.<k>.mode / policySettings.mode
 
       - id: waf_managed_rules
-        ask: Should the firewall apply Microsoft's maintained rule sets?
+        ask:
+          en: "Should the firewall apply Microsoft's maintained rule sets?"
+          de: "Soll die Firewall die von Microsoft gepflegten Regelsätze anwenden?"
         type: bool
         plain:
           en: "Maintained firewall rules are {value}."
@@ -369,7 +398,9 @@ groups:
           front_door_firewall_policies.<k>.managed_rules / managedRules.managedRuleSets
 
       - id: waf_rate_limit_per_minute
-        ask: How many requests per minute may one visitor address make?
+        ask:
+          en: "How many requests per minute may one visitor address make?"
+          de: "Wie viele Anfragen pro Minute darf eine Besucheradresse stellen?"
         type: int
         plain:
           en: "One address may make {value} requests per minute (0: no limit)."
@@ -388,14 +419,16 @@ groups:
     title: Observability
     questions:
       - id: diagnostic_workspace
-        ask: Which Log Analytics workspace should receive diagnostics?
-        type: ref
+        ask:
+          en: "Which Log Analytics workspace should receive diagnostics?"
+          de: "Welcher Log Analytics Workspace soll die Diagnosedaten erhalten?"
+        type: string
         resolved_by: derived
         plain:
           en: "Its logs go to {value}."
           de: "Seine Logs gehen in {value}."
-        ref: log_analytics_workspace
-        from_deployment: diagnostics_destination
+        accepts: { ref: log_analytics_workspace }
+        answer: { deployment: diagnostics_destination }
         per_environment: true
         why: >
           Inherited: one deployment, one destination. Without a diagnostic setting the
@@ -403,7 +436,9 @@ groups:
         renders: diagnostic_settings / diagnosticSettings
 
       - id: diagnostic_categories
-        ask: Which log categories should be collected?
+        ask:
+          en: "Which log categories should be collected?"
+          de: "Welche Log-Kategorien sollen erfasst werden?"
         type: list
         plain:
           en: "Logged: {value}."
@@ -412,7 +447,7 @@ groups:
           FrontDoorAccessLog: { en: "every request: client, host, route, status, cache result", de: "jede Anfrage: Client, Host, Route, Status, Cache-Ergebnis" }
           FrontDoorHealthProbeLog: { en: the health probes to each backend and their result, de: die Gesundheitsprüfungen je Backend und ihr Ergebnis }
           FrontDoorWebApplicationFirewallLog: { en: "what the firewall matched, blocked or let through", de: "was die Firewall erkannt, blockiert oder durchgelassen hat" }
-        values: [FrontDoorAccessLog, FrontDoorHealthProbeLog, FrontDoorWebApplicationFirewallLog]
+        accepts: [FrontDoorAccessLog, FrontDoorHealthProbeLog, FrontDoorWebApplicationFirewallLog]
         default: [FrontDoorAccessLog, FrontDoorHealthProbeLog, FrontDoorWebApplicationFirewallLog]
         why: >
           The access log, the probe log and the firewall log are the three records an
@@ -425,7 +460,9 @@ groups:
           diagnosticSettings[].logCategoriesAndGroups[].category
 
       - id: metrics_enabled
-        ask: Should all metrics be collected?
+        ask:
+          en: "Should all metrics be collected?"
+          de: "Sollen alle Metriken erfasst werden?"
         type: bool
         plain:
           en: "Usage and performance figures are {value}."

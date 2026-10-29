@@ -32,27 +32,29 @@ groups:
     title: Placement
     questions:
       - id: environments
-        ask: Which stages is this deployed to?
+        ask:
+          en: "Which stages is this deployed to?"
+          de: "In welche Stufen wird das ausgerollt?"
         type: list
         plain:
           en: "Deployed in the stages {value}."
           de: "Wird in den Stufen {value} ausgerollt."
-        values: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
-        required: true
-        from_context: true
+        accepts: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
+        answer: { context: environments }
         why: >
           Drives the rendered name and the strictness of several defaults below.
           Nothing sensible can be guessed.
         renders: naming parameter `environment`, and the tag of that name where the repository uses one
 
       - id: location
-        ask: Which Azure region?
+        ask:
+          en: "Which Azure region?"
+          de: "Welche Azure-Region?"
         type: string
         plain:
           en: "Runs in the Azure region {value}."
           de: "Läuft in der Azure-Region {value}."
-        required: true
-        from_context: true
+        answer: { context: location }
         why: >
           Part of the rendered name. **Flex Consumption is not offered in every region**, and
           neither are zone redundancy and the larger instance sizes, so the region constrains
@@ -60,14 +62,15 @@ groups:
         renders: location (plan and site)
 
       - id: resource_group_name
-        ask: Which resource group?
-        type: ref
+        ask:
+          en: "Which resource group?"
+          de: "Welche Ressourcengruppe?"
+        type: string
         plain:
           en: "Placed in the resource group {value}."
           de: "Liegt in der Ressourcengruppe {value}."
-        ref: resource_group
-        required: true
-        from_context: true
+        accepts: { ref: resource_group }
+        answer: { context: resource_group_name }
         per_environment: true
         why: >
           The plan and the app are placed into an existing group. Creating one here would make
@@ -79,7 +82,9 @@ groups:
     title: Hosting plan
     questions:
       - id: plan_type
-        ask: How should the function app be hosted?
+        ask:
+          en: "How should the function app be hosted?"
+          de: "Wie soll die Function App gehostet werden?"
         type: enum
         plain:
           en: "The function app runs on {value}."
@@ -87,7 +92,7 @@ groups:
         plain_values:
           flex_consumption: { en: "capacity that scales from zero and is billed by use, with a private network and optional warm instances", de: "Kapazität, die von null aus skaliert und nach Nutzung abgerechnet wird, mit privatem Netz und optional vorgewärmten Instanzen" }
           elastic_premium: { en: "reserved warm instances that also scale out, billed for what is reserved", de: "reservierten, vorgewärmten Instanzen, die zusätzlich skalieren, abgerechnet wird die Reservierung" }
-        values: [flex_consumption, elastic_premium]
+        accepts: [flex_consumption, elastic_premium]
         default: flex_consumption
         why: >
           Flex Consumption is the current serverless plan and the one that fits a private
@@ -101,7 +106,9 @@ groups:
         renders: kind and sku (FC1 / EP1..EP3) on the plan, `function_app_uses_fc1` on the module
 
       - id: runtime_stack
-        ask: Which language or runtime does the function app run?
+        ask:
+          en: "Which language or runtime does the function app run?"
+          de: "Welche Sprache oder Laufzeit verwendet die Function App?"
         type: enum
         resolved_by: interview
         topic: application
@@ -114,7 +121,7 @@ groups:
           python: { en: "Python", de: "Python" }
           java: { en: "Java", de: "Java" }
           powershell: { en: "PowerShell", de: "PowerShell" }
-        values: [dotnet-isolated, node, python, java, powershell]
+        accepts: [dotnet-isolated, node, python, java, powershell]
         required: true
         why: >
           The one decision here nothing can default: the plan does not care, the app does, and
@@ -127,7 +134,9 @@ groups:
         renders: fc1_runtime_name / functionAppConfig.runtime.name (and linuxFxVersion for Premium)
 
       - id: runtime_version
-        ask: Which version of the runtime?
+        ask:
+          en: "Which version of the runtime?"
+          de: "Welche Version der Laufzeit?"
         type: string
         plain:
           en: "Runtime version {value}."
@@ -142,7 +151,9 @@ groups:
         renders: fc1_runtime_version / functionAppConfig.runtime.version
 
       - id: zone_redundant
-        ask: Should the plan survive the loss of an availability zone?
+        ask:
+          en: "Should the plan survive the loss of an availability zone?"
+          de: "Soll der Plan den Ausfall einer Verfügbarkeitszone überstehen?"
         type: bool
         plain:
           en: "The function app {value} survive the loss of one datacenter of the region."
@@ -150,10 +161,9 @@ groups:
         plain_values:
           true: { en: "does", de: "übersteht" }
           false: { en: "does not", de: "übersteht nicht" }
-        derived_from:
+        answer:
           question: outage_impact
           map: { tolerable: false, disruptive: true, critical: true }
-        confirm_in: [production]
         non_production_default: false
         why: >
           Derived from how bad an outage is. Zone redundancy spreads the instances over zones;
@@ -168,7 +178,9 @@ groups:
         renders: zone_redundant on the plan (zone_balancing_enabled / zoneRedundant)
 
       - id: max_instance_count
-        ask: How many instances may the function app scale out to?
+        ask:
+          en: "How many instances may the function app scale out to?"
+          de: "Auf wie viele Instanzen darf die Function App skalieren?"
         type: int
         plain:
           en: "The function app may scale out to at most {value} instances."
@@ -183,12 +195,14 @@ groups:
         renders: maximum_instance_count / scaleAndConcurrency.maximumInstanceCount
 
       - id: always_ready_instances
-        ask: How many instances should stay warm?
+        ask:
+          en: "How many instances should stay warm?"
+          de: "Wie viele Instanzen sollen warm bleiben?"
         type: int
         plain:
           en: "{value} instance(s) are kept warm so the first call does not wait."
           de: "{value} Instanz(en) werden vorgewärmt gehalten, damit der erste Aufruf nicht wartet."
-        derived_from:
+        answer:
           question: outage_impact
           map: { tolerable: 0, disruptive: 1, critical: 2 }
         non_production_default: 0
@@ -204,12 +218,14 @@ groups:
         renders: always_ready / scaleAndConcurrency.alwaysReady (Flex), worker_count / skuCapacity (Premium)
 
       - id: instance_memory_mb
-        ask: How much memory should each instance get?
+        ask:
+          en: "How much memory should each instance get?"
+          de: "Wie viel Arbeitsspeicher soll jede Instanz bekommen?"
         type: enum
         plain:
           en: "Each instance gets {value} MB of memory."
           de: "Jede Instanz bekommt {value} MB Arbeitsspeicher."
-        values: [2048, 4096]
+        accepts: [2048, 4096]
         default: 2048
         depends_on: { question: plan_type, equals: flex_consumption }
         why: >
@@ -223,12 +239,14 @@ groups:
     title: Host storage
     questions:
       - id: host_storage_account
-        ask: Which storage account does the Functions host use?
-        type: ref
+        ask:
+          en: "Which storage account does the Functions host use?"
+          de: "Welches Speicherkonto verwendet der Functions-Host?"
+        type: string
         plain:
           en: "The function app keeps its own state in the storage account {value}."
           de: "Die Function App hält ihren eigenen Zustand im Speicherkonto {value}."
-        ref: storage_account
+        accepts: { ref: storage_account }
         required: true
         per_environment: true
         why: >
@@ -242,7 +260,9 @@ groups:
         renders: storage_account_name / AzureWebJobsStorage__accountName and the deployment storage
 
       - id: host_storage_auth
-        ask: How does the function app sign in to its storage account?
+        ask:
+          en: "How does the function app sign in to its storage account?"
+          de: "Wie meldet sich die Function App an ihrem Speicherkonto an?"
         type: enum
         plain:
           en: "The function app signs in to its storage with {value}."
@@ -250,9 +270,8 @@ groups:
         plain_values:
           identity: { en: "its managed identity, with no secret stored", de: "ihrer verwalteten Identität, ohne gespeichertes Geheimnis" }
           connection_string: { en: "a connection string holding the storage key", de: "einer Verbindungszeichenfolge mit dem Speicherschlüssel" }
-        values: [identity, connection_string]
-        from_deployment: local_auth
-        confirm_in: [production]
+        accepts: [identity, connection_string]
+        answer: { deployment: local_auth }
         why: >
           Inherited: `local_auth: disabled` renders as `identity`. A storage key in an app
           setting is a long-lived secret with full access to the account, visible to anyone with
@@ -267,7 +286,9 @@ groups:
           bicep: AzureWebJobsStorage__accountName and functionAppConfig.deployment.storage.authentication
 
       - id: deployment_container
-        ask: In which container is the deployment package kept?
+        ask:
+          en: "In which container is the deployment package kept?"
+          de: "In welchem Container liegt das Deployment-Paket?"
         type: string
         plain:
           en: "The deployed code is kept in the container {value}."
@@ -286,7 +307,9 @@ groups:
     title: Networking
     questions:
       - id: public_network_access
-        ask: Should this function app depart from the deployment's exposure posture?
+        ask:
+          en: "Should this function app depart from the deployment's exposure posture?"
+          de: "Soll diese Function App von der Erreichbarkeit des Deployments abweichen?"
         type: enum
         plain:
           en: "The function app is {value}."
@@ -295,9 +318,8 @@ groups:
           disabled: { en: "not reachable from the internet at all", de: "aus dem Internet überhaupt nicht erreichbar" }
           enabled_with_firewall: { en: "reachable from the internet only from listed addresses", de: "aus dem Internet nur von gelisteten Adressen erreichbar" }
           enabled: { en: "reachable from the internet", de: "aus dem Internet erreichbar" }
-        values: [disabled, enabled_with_firewall, enabled]
-        from_deployment: network_exposure
-        confirm_in: [production]
+        accepts: [disabled, enabled_with_firewall, enabled]
+        answer: { deployment: network_exposure }
         why: >
           Asked only as a departure: exposure is a property of the system. `private` is
           `disabled`, `public` is `enabled_with_firewall`. A function with an HTTP trigger is
@@ -316,14 +338,16 @@ groups:
           bicep: publicNetworkAccess and siteConfig.ipSecurityRestrictionsDefaultAction
 
       - id: private_endpoint_subnet
-        ask: Which subnet should this function app's private endpoint live in?
-        type: ref
+        ask:
+          en: "Which subnet should this function app's private endpoint live in?"
+          de: "In welchem Subnetz soll der Private Endpoint dieser Function App liegen?"
+        type: string
         resolved_by: derived
         plain:
           en: "Its private connection lands in subnet {value}."
           de: "Seine private Anbindung landet im Subnetz {value}."
-        ref: subnet
-        from_deployment: private_endpoint_subnet
+        accepts: { ref: subnet }
+        answer: { deployment: private_endpoint_subnet }
         per_environment: true
         why: >
           One subnet carries the deployment's private endpoints, so this is inherited. The app
@@ -331,7 +355,9 @@ groups:
         renders: private_endpoints.<key>.subnet_resource_id / privateEndpoints[].subnetResourceId
 
       - id: vnet_integration
-        ask: Does the function call services that are only reachable privately?
+        ask:
+          en: "Does the function call services that are only reachable privately?"
+          de: "Ruft die Function Dienste auf, die nur privat erreichbar sind?"
         type: bool
         plain:
           en: "The function app's own outgoing traffic {value}."
@@ -353,13 +379,15 @@ groups:
           terraform: virtual_network_subnet_id; bicep: virtualNetworkSubnetResourceId
 
       - id: integration_subnet
-        ask: Which subnet does the function app's outgoing traffic leave through?
-        type: ref
+        ask:
+          en: "Which subnet does the function app's outgoing traffic leave through?"
+          de: "Über welches Subnetz verlässt der ausgehende Verkehr der Function App das Netz?"
+        type: string
         resolved_by: derived
         plain:
           en: "Outgoing traffic leaves through the subnet {value}."
           de: "Ausgehender Verkehr verlässt das Netz über das Subnetz {value}."
-        ref: subnet
+        accepts: { ref: subnet }
         required: true
         depends_on: { question: vnet_integration, equals: true }
         per_environment: true
@@ -378,7 +406,9 @@ groups:
           terraform: virtual_network_subnet_id; bicep: virtualNetworkSubnetResourceId
 
       - id: vnet_route_all
-        ask: Should all outgoing traffic go through the network, or only traffic to private addresses?
+        ask:
+          en: "Should all outgoing traffic go through the network, or only traffic to private addresses?"
+          de: "Soll der gesamte ausgehende Verkehr durch das Netz gehen oder nur der Verkehr an private Adressen?"
         type: bool
         plain:
           en: "Outgoing traffic is routed {value}."
@@ -398,7 +428,9 @@ groups:
           terraform: vnet_route_all_traffic; bicep: outboundVnetRouting.allTraffic
 
       - id: ip_restrictions
-        ask: Which public IP ranges may reach the function app?
+        ask:
+          en: "Which public IP ranges may reach the function app?"
+          de: "Welche öffentlichen IP-Bereiche dürfen die Function App erreichen?"
         type: list
         plain:
           en: "Public addresses allowed to reach the function app: {value}."
@@ -417,7 +449,9 @@ groups:
     title: Identity and access
     questions:
       - id: managed_identity
-        ask: Which managed identity should the function app carry?
+        ask:
+          en: "Which managed identity should the function app carry?"
+          de: "Welche Managed Identity soll die Function App tragen?"
         type: enum
         plain:
           en: "The function app has {value} for reaching other services."
@@ -425,7 +459,7 @@ groups:
         plain_values:
           system_assigned: { en: "its own identity", de: "eine eigene Identität" }
           user_assigned: { en: "a shared, separately managed identity", de: "eine gemeinsame, separat verwaltete Identität" }
-        values: [system_assigned, user_assigned]
+        accepts: [system_assigned, user_assigned]
         default: user_assigned
         why: >
           **Differs from App Service's default, and for the same reason as Container Apps.** The
@@ -439,12 +473,14 @@ groups:
         renders: managed_identities / managedIdentities, and key_vault_reference_identity
 
       - id: user_assigned_identity_ids
-        ask: Which user-assigned identity?
+        ask:
+          en: "Which user-assigned identity?"
+          de: "Welche User-Assigned Identity?"
         type: list
         plain:
           en: "It uses the identity {value}."
           de: "Es nutzt die Identität {value}."
-        ref: user_assigned_identity
+        accepts: { ref: user_assigned_identity }
         required: true
         depends_on: { question: managed_identity, equals: user_assigned }
         per_environment: true
@@ -454,7 +490,9 @@ groups:
         renders: managed_identities.user_assigned_resource_ids / managedIdentities.userAssignedResourceIds
 
       - id: role_assignments
-        ask: Who may manage the function app?
+        ask:
+          en: "Who may manage the function app?"
+          de: "Wer darf die Function App verwalten?"
         type: list
         plain:
           en: "Management rights on the function app granted to: {value}."
@@ -471,7 +509,9 @@ groups:
     title: Security
     questions:
       - id: https_only
-        ask: Should the function app refuse plain HTTP?
+        ask:
+          en: "Should the function app refuse plain HTTP?"
+          de: "Soll die Function App unverschlüsseltes HTTP ablehnen?"
         type: bool
         plain:
           en: "Unencrypted connections are {value}."
@@ -487,7 +527,9 @@ groups:
         renders: https_only / httpsOnly
 
       - id: min_tls_version
-        ask: What is the minimum TLS version?
+        ask:
+          en: "What is the minimum TLS version?"
+          de: "Welche TLS-Version ist mindestens erforderlich?"
         type: enum
         plain:
           en: "Connections must use at least {value} encryption."
@@ -495,7 +537,7 @@ groups:
         plain_values:
           "1.2": { en: "TLS 1.2", de: "TLS 1.2" }
           "1.3": { en: "TLS 1.3", de: "TLS 1.3" }
-        values: ["1.2", "1.3"]
+        accepts: ["1.2", "1.3"]
         default: "1.2"
         why: >
           1.2 is the floor and non-negotiable; 1.3 is preferable where every client supports it,
@@ -504,7 +546,9 @@ groups:
         renders: site_config.minimum_tls_version / siteConfig.minTlsVersion
 
       - id: basic_auth_enabled
-        ask: Should publishing with a username and password stay possible?
+        ask:
+          en: "Should publishing with a username and password stay possible?"
+          de: "Soll das Veröffentlichen mit Benutzername und Passwort möglich bleiben?"
         type: bool
         plain:
           en: "Deploying with a user name and password is {value}; deployments run through company accounts."
@@ -512,8 +556,7 @@ groups:
         plain_values:
           true: { en: "possible", de: "möglich" }
           false: { en: "not possible", de: "nicht möglich" }
-        from_deployment: local_auth
-        confirm_in: [production]
+        answer: { deployment: local_auth }
         why: >
           Inherited: `local_auth: disabled` renders as `false`. The publishing profile is a
           shared password for the Kudu site and FTP, does not expire and is not attributable.
@@ -525,12 +568,14 @@ groups:
           scm_publish_basic_authentication_enabled; bicep: basicPublishingCredentialsPolicies
 
       - id: application_insights
-        ask: Which Application Insights component should receive the function app's telemetry?
-        type: ref
+        ask:
+          en: "Which Application Insights component should receive the function app's telemetry?"
+          de: "Welche Application-Insights-Komponente soll die Telemetrie der Function App erhalten?"
+        type: string
         plain:
           en: "Its application telemetry goes to {value} (empty: none)."
           de: "Seine Anwendungstelemetrie geht an {value} (leer: keine)."
-        ref: application_insights
+        accepts: { ref: application_insights }
         default: ""
         per_environment: true
         forced_when: >
@@ -554,14 +599,16 @@ groups:
     title: Observability
     questions:
       - id: diagnostic_workspace
-        ask: Which Log Analytics workspace should receive diagnostics?
-        type: ref
+        ask:
+          en: "Which Log Analytics workspace should receive diagnostics?"
+          de: "Welcher Log Analytics Workspace soll die Diagnosedaten erhalten?"
+        type: string
         resolved_by: derived
         plain:
           en: "Its logs go to {value}."
           de: "Seine Logs gehen in {value}."
-        ref: log_analytics_workspace
-        from_deployment: diagnostics_destination
+        accepts: { ref: log_analytics_workspace }
+        answer: { deployment: diagnostics_destination }
         per_environment: true
         why: >
           Inherited: one deployment, one destination. A function with no diagnostic setting
@@ -570,7 +617,9 @@ groups:
         renders: diagnostic_settings / diagnosticSettings (site and plan)
 
       - id: diagnostic_categories
-        ask: Which log categories should be collected?
+        ask:
+          en: "Which log categories should be collected?"
+          de: "Welche Log-Kategorien sollen erfasst werden?"
         type: list
         plain:
           en: "Logged: {value}."
@@ -579,7 +628,7 @@ groups:
           FunctionAppLogs: { en: "what the functions write to their log", de: "was die Funktionen in ihr Log schreiben" }
           AppServiceAuditLogs: { en: "who signed in to deploy or manage the app", de: "wer sich zum Ausrollen oder Verwalten angemeldet hat" }
           AppServiceHTTPLogs: { en: "every web request", de: "jede Web-Anfrage" }
-        values: [FunctionAppLogs, AppServiceAuditLogs, AppServiceHTTPLogs]
+        accepts: [FunctionAppLogs, AppServiceAuditLogs, AppServiceHTTPLogs]
         default: [FunctionAppLogs, AppServiceAuditLogs]
         why: >
           The function log is the only way to see what a function did and why it failed. The
@@ -590,7 +639,9 @@ groups:
         renders: diagnostic_settings.<key>.logs[].category / diagnosticSettings[].logCategoriesAndGroups[].category
 
       - id: metrics_enabled
-        ask: Should all metrics be collected?
+        ask:
+          en: "Should all metrics be collected?"
+          de: "Sollen alle Metriken erfasst werden?"
         type: bool
         plain:
           en: "Usage and performance figures are {value}."

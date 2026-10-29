@@ -26,14 +26,15 @@ groups:
     title: Placement
     questions:
       - id: environments
-        ask: Which stages is this deployed to?
+        ask:
+          en: "Which stages is this deployed to?"
+          de: "In welche Stufen wird das ausgerollt?"
         type: list
         plain:
           en: "Deployed in the stages {value}."
           de: "Wird in den Stufen {value} ausgerollt."
-        values: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
-        required: true
-        from_context: true
+        accepts: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
+        answer: { context: environments }
         why: >
           Each stage gets its own assignment: the scope and the principal are stage
           resources, and an assignment that spans stages would give development the access of
@@ -41,7 +42,9 @@ groups:
         renders: the stage file the scope and principal values come from
 
       - id: scope_kind
-        ask: How wide is the access?
+        ask:
+          en: "How wide is the access?"
+          de: "Wie weit reicht der Zugriff?"
         type: enum
         plain:
           en: "The access covers {value}."
@@ -51,9 +54,8 @@ groups:
           resource_group: { en: "everything in one resource group", de: "alles in einer Ressourcengruppe" }
           subscription: { en: "the whole subscription", de: "die gesamte Subscription" }
           management_group: { en: "all subscriptions below a management group", de: "alle Subscriptions unterhalb einer Management-Gruppe" }
-        values: [resource, resource_group, subscription, management_group]
+        accepts: [resource, resource_group, subscription, management_group]
         default: resource
-        confirm_in: [production]
         resolved_by: interview
         topic: security
         why: >
@@ -71,9 +73,11 @@ groups:
         renders: scope (azurerm_role_assignment.scope / the module's `scope` or `resourceId`)
 
       - id: scope
-        ask: Which resource, group, subscription or management group?
-        type: ref
-        ref: azure_resource
+        ask:
+          en: "Which resource, group, subscription or management group?"
+          de: "Welche Ressource, Gruppe, Subscription oder Management Group?"
+        type: string
+        accepts: { ref: azure_resource }
         plain:
           en: "Granted on {value}."
           de: "Vergeben auf {value}."
@@ -91,9 +95,11 @@ groups:
     title: Principal and role
     questions:
       - id: principal
-        ask: Who or what gets the access?
-        type: ref
-        ref: principal
+        ask:
+          en: "Who or what gets the access?"
+          de: "Wer oder was bekommt den Zugriff?"
+        type: string
+        accepts: { ref: principal }
         plain:
           en: "Access is given to {value}."
           de: "Der Zugriff wird {value} gegeben."
@@ -109,7 +115,9 @@ groups:
         renders: principal_id / principalId
 
       - id: principal_type
-        ask: What kind of principal is it?
+        ask:
+          en: "What kind of principal is it?"
+          de: "Welche Art von Principal ist es?"
         type: enum
         plain:
           en: "The receiving principal is {value}."
@@ -119,7 +127,7 @@ groups:
           User: { en: "a person", de: "eine Person" }
           Group: { en: "a group of people", de: "eine Gruppe von Personen" }
           ForeignGroup: { en: "a group from another tenant", de: "eine Gruppe aus einem anderen Mandanten" }
-        values: [ServicePrincipal, User, Group, ForeignGroup]
+        accepts: [ServicePrincipal, User, Group, ForeignGroup]
         default: ServicePrincipal
         why: >
           Always written. With a type, Azure does not look the principal up in the directory
@@ -132,7 +140,9 @@ groups:
         renders: principal_type / principalType
 
       - id: role
-        ask: Which role?
+        ask:
+          en: "Which role?"
+          de: "Welche Rolle?"
         type: string
         plain:
           en: "With the role {value}."
@@ -152,7 +162,9 @@ groups:
         renders: role_definition_name / roleDefinitionIdOrName (role_definition_id on the authored side)
 
       - id: role_may_assign
-        ask: May the principal itself hand out access to others?
+        ask:
+          en: "May the principal itself hand out access to others?"
+          de: "Darf der Principal selbst Zugriff an andere vergeben?"
         type: bool
         plain:
           en: "The principal {value} to others."
@@ -161,7 +173,6 @@ groups:
           true: { en: "may pass this access on", de: "darf diesen Zugriff an andere weitergeben" }
           false: { en: "cannot pass this access on", de: "kann diesen Zugriff nicht weitergeben" }
         default: false
-        confirm_in: [production]
         why: >
           True exactly when the role is `Owner`, `User Access Administrator` or `Role Based
           Access Control Administrator`: the three that can write role assignments. Such a
@@ -176,7 +187,9 @@ groups:
     title: Limits
     questions:
       - id: condition
-        ask: Under which condition does the access apply?
+        ask:
+          en: "Under which condition does the access apply?"
+          de: "Unter welcher Bedingung gilt der Zugriff?"
         type: string
         plain:
           en: "The access applies only under this condition: {value} (empty: always)."
@@ -193,7 +206,9 @@ groups:
         renders: condition + condition_version / condition + conditionVersion
 
       - id: description
-        ask: What is the assignment for?
+        ask:
+          en: "What is the assignment for?"
+          de: "Wofür ist die Zuweisung?"
         type: string
         plain:
           en: "Recorded reason: {value}."
@@ -206,7 +221,9 @@ groups:
         renders: description
 
       - id: deployer_role
-        ask: Which right does the deploying principal hold to write this assignment?
+        ask:
+          en: "Which right does the deploying principal hold to write this assignment?"
+          de: "Welches Recht hat der ausrollende Principal, um diese Zuweisung zu schreiben?"
         type: enum
         resolved_by: derived
         plain:
@@ -217,7 +234,7 @@ groups:
           rbac_administrator: { en: "a role that may assign any role below the scope", de: "eine Rolle, die jede Rolle unterhalb des Bereichs vergeben darf" }
           user_access_administrator: { en: "the user access administrator role", de: "die Rolle Benutzerzugriffsadministrator" }
           owner: { en: "the owner role", de: "die Eigentümerrolle" }
-        values: [rbac_administrator_conditioned, rbac_administrator, user_access_administrator, owner]
+        accepts: [rbac_administrator_conditioned, rbac_administrator, user_access_administrator, owner]
         default: rbac_administrator_conditioned
         why: >
           `Contributor` cannot write role assignments - `Microsoft.Authorization/*/write` is

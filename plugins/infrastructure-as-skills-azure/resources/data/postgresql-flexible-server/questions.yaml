@@ -28,27 +28,29 @@ groups:
     title: Placement
     questions:
       - id: environments
-        ask: Which stages is this deployed to?
+        ask:
+          en: "Which stages is this deployed to?"
+          de: "In welche Stufen wird das ausgerollt?"
         type: list
         plain:
           en: "Deployed in the stages {value}."
           de: "Wird in den Stufen {value} ausgerollt."
-        values: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
-        required: true
-        from_context: true
+        accepts: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
+        answer: { context: environments }
         why: >
           Drives the rendered name and the strictness of several defaults below.
           Nothing sensible can be guessed.
         renders: naming parameter `environment`, and the tag of that name where the repository uses one
 
       - id: location
-        ask: Which Azure region?
+        ask:
+          en: "Which Azure region?"
+          de: "Welche Azure-Region?"
         type: string
         plain:
           en: "Runs in the Azure region {value}."
           de: "Läuft in der Azure-Region {value}."
-        required: true
-        from_context: true
+        answer: { context: location }
         why: >
           The server lives in one region and the region is part of the rendered name.
           Zone-redundant high availability is not offered in every region, and a region
@@ -56,14 +58,15 @@ groups:
         renders: location
 
       - id: resource_group_name
-        ask: Which resource group?
-        type: ref
+        ask:
+          en: "Which resource group?"
+          de: "Welche Ressourcengruppe?"
+        type: string
         plain:
           en: "Placed in the resource group {value}."
           de: "Liegt in der Ressourcengruppe {value}."
-        ref: resource_group
-        required: true
-        from_context: true
+        accepts: { ref: resource_group }
+        answer: { context: resource_group_name }
         per_environment: true
         why: >
           The server is placed into an existing group. Creating one here would make this
@@ -75,12 +78,14 @@ groups:
     title: Server and compute
     questions:
       - id: postgres_version
-        ask: Which PostgreSQL major version?
+        ask:
+          en: "Which PostgreSQL major version?"
+          de: "Welche PostgreSQL-Hauptversion?"
         type: enum
         plain:
           en: "The server runs PostgreSQL {value}."
           de: "Der Server läuft mit PostgreSQL {value}."
-        values: ["14", "15", "16", "17", "18"]
+        accepts: ["14", "15", "16", "17", "18"]
         default: "17"
         why: >
           A major version is supported for five years by the community and a little less
@@ -93,7 +98,9 @@ groups:
         renders: server_version / version
 
       - id: compute_tier
-        ask: Is the compute a burstable one, a balanced one or one with extra memory?
+        ask:
+          en: "Is the compute a burstable one, a balanced one or one with extra memory?"
+          de: "Ist die Compute-Ressource burstfähig, ausgewogen oder mit zusätzlichem Arbeitsspeicher?"
         type: enum
         plain:
           en: "The compute is {value}."
@@ -102,10 +109,9 @@ groups:
           burstable: { en: "burstable - cheap, for a load that is mostly idle, without high availability", de: "burstfähig: günstig, für meist ungenutzte Last, ohne Hochverfügbarkeit" }
           general_purpose: { en: "balanced - steady capacity, the usual choice for business applications", de: "ausgewogen: gleichbleibende Kapazität, die übliche Wahl für Geschäftsanwendungen" }
           memory_optimized: { en: "with extra memory for each core, for large working sets", de: "mit zusätzlichem Speicher je Kern für große Arbeitsmengen" }
-        values: [burstable, general_purpose, memory_optimized]
+        accepts: [burstable, general_purpose, memory_optimized]
         default: general_purpose
         non_production_default: burstable
-        confirm_in: [production]
         why: >
           Burstable cores accrue credits while idle and run out of them under steady load,
           which makes a production database slow in a way that looks like a bug; they also
@@ -120,7 +126,9 @@ groups:
         renders: sku_name prefix `B_`, `GP_`, `MO_` / tier
 
       - id: sku_name
-        ask: Which compute size?
+        ask:
+          en: "Which compute size?"
+          de: "Welche Compute-Größe?"
         type: string
         plain:
           en: "The compute size is {value}."
@@ -139,7 +147,9 @@ groups:
         renders: sku_name / skuName and tier
 
       - id: storage_size_gb
-        ask: How much storage should the server start with?
+        ask:
+          en: "How much storage should the server start with?"
+          de: "Mit wie viel Speicher soll der Server starten?"
         type: int
         plain:
           en: "The server starts with {value} GB of storage."
@@ -153,7 +163,9 @@ groups:
         renders: storage_mb (megabytes) / storageSizeGB
 
       - id: storage_auto_grow
-        ask: Should the storage grow by itself when it fills up?
+        ask:
+          en: "Should the storage grow by itself when it fills up?"
+          de: "Soll der Speicher von selbst wachsen, wenn er voll wird?"
         type: bool
         plain:
           en: "Storage {value} when it fills up."
@@ -170,7 +182,9 @@ groups:
         renders: auto_grow_enabled / autoGrow
 
       - id: databases
-        ask: Which databases should the server hold?
+        ask:
+          en: "Which databases should the server hold?"
+          de: "Welche Datenbanken soll der Server enthalten?"
         type: list
         plain:
           en: "The server holds the databases {value}."
@@ -188,7 +202,9 @@ groups:
     title: Resilience
     questions:
       - id: high_availability
-        ask: Should a standby copy take over by itself if the server fails?
+        ask:
+          en: "Should a standby copy take over by itself if the server fails?"
+          de: "Soll eine Standby-Kopie von selbst übernehmen, wenn der Server ausfällt?"
         type: enum
         plain:
           en: "If the server fails, {value}."
@@ -197,11 +213,10 @@ groups:
           disabled: { en: "it is restored from backup, which takes time and loses the latest changes", de: "wird er aus dem Backup wiederhergestellt, das dauert und verliert die letzten Änderungen" }
           same_zone: { en: "a standby in the same datacenter takes over", de: "übernimmt eine Reserve im selben Rechenzentrum" }
           zone_redundant: { en: "a standby in another datacenter of the region takes over, with no loss of committed data", de: "übernimmt eine Reserve in einem anderen Rechenzentrum der Region, ohne Verlust bestätigter Daten" }
-        values: [disabled, same_zone, zone_redundant]
-        derived_from:
+        accepts: [disabled, same_zone, zone_redundant]
+        answer:
           question: outage_impact
           map: { tolerable: disabled, disruptive: zone_redundant, critical: zone_redundant }
-        confirm_in: [production]
         non_production_default: disabled
         why: >
           Derived from how bad an outage is. High availability runs a second server with
@@ -222,7 +237,9 @@ groups:
         renders: high_availability { mode } / highAvailability
 
       - id: maintenance_window
-        ask: When may the server restart for maintenance?
+        ask:
+          en: "When may the server restart for maintenance?"
+          de: "Wann darf der Server zur Wartung neu starten?"
         type: string
         plain:
           en: "Planned maintenance happens {value}."
@@ -241,7 +258,9 @@ groups:
     title: Networking
     questions:
       - id: private_connectivity
-        ask: How should the server be reached privately?
+        ask:
+          en: "How should the server be reached privately?"
+          de: "Wie soll der Server privat erreicht werden?"
         type: enum
         plain:
           en: "The server is reached {value}."
@@ -249,10 +268,9 @@ groups:
         plain_values:
           private_endpoint: { en: "through a private endpoint in a subnet of the network, and no public address is reachable", de: "über einen privaten Endpunkt in einem Subnetz des Netzes, und keine öffentliche Adresse ist erreichbar" }
           vnet_integration: { en: "from inside a subnet of its own that belongs to the server, with no public address at all", de: "aus einem eigenen Subnetz, das dem Server gehört, ganz ohne öffentliche Adresse" }
-        values: [private_endpoint, vnet_integration]
+        accepts: [private_endpoint, vnet_integration]
         default: private_endpoint
         depends_on: { question: public_network_access, equals: disabled }
-        confirm_in: [production]
         why: >
           **Fixed when the server is created**: a server with a private endpoint cannot
           become a VNet-integrated one or the other way round without a restore into a new
@@ -265,7 +283,9 @@ groups:
         renders: private_endpoints (and no delegated_subnet_id) / privateEndpoints; or delegated_subnet_id and private_dns_zone_id / delegatedSubnetResourceId and privateDnsZoneArmResourceId
 
       - id: public_network_access
-        ask: Should this server depart from the deployment's exposure posture?
+        ask:
+          en: "Should this server depart from the deployment's exposure posture?"
+          de: "Soll dieser Server von der Erreichbarkeit des Deployments abweichen?"
         type: enum
         plain:
           en: "The server is {value}."
@@ -274,9 +294,8 @@ groups:
           disabled: { en: "not reachable from the internet at all", de: "aus dem Internet überhaupt nicht erreichbar" }
           enabled_with_firewall: { en: "reachable from the internet only from listed addresses", de: "aus dem Internet nur von gelisteten Adressen erreichbar" }
           enabled: { en: "reachable from the internet", de: "aus dem Internet erreichbar" }
-        values: [disabled, enabled_with_firewall, enabled]
-        from_deployment: network_exposure
-        confirm_in: [production]
+        accepts: [disabled, enabled_with_firewall, enabled]
+        answer: { deployment: network_exposure }
         why: >
           Asked only as a departure: exposure is a property of the system. `private` is
           `disabled`, `public` is `enabled_with_firewall`, and a bare `enabled` - a server
@@ -295,14 +314,16 @@ groups:
           bicep: publicNetworkAccess and firewallRules
 
       - id: private_endpoint_subnet
-        ask: Which subnet should this server's private endpoint live in?
-        type: ref
+        ask:
+          en: "Which subnet should this server's private endpoint live in?"
+          de: "In welchem Subnetz soll der Private Endpoint dieses Servers liegen?"
+        type: string
         resolved_by: derived
         plain:
           en: "Its private connection lands in subnet {value}."
           de: "Seine private Anbindung landet im Subnetz {value}."
-        ref: subnet
-        from_deployment: private_endpoint_subnet
+        accepts: { ref: subnet }
+        answer: { deployment: private_endpoint_subnet }
         depends_on: { question: private_connectivity, equals: private_endpoint }
         per_environment: true
         why: >
@@ -311,13 +332,15 @@ groups:
         renders: private_endpoints.<key>.subnet_resource_id / privateEndpoints[].subnetResourceId (service `postgresqlServer`)
 
       - id: delegated_subnet
-        ask: Which subnet is delegated to the server?
-        type: ref
+        ask:
+          en: "Which subnet is delegated to the server?"
+          de: "Welches Subnetz wird an den Server delegiert?"
+        type: string
         resolved_by: derived
         plain:
           en: "The server lives in the subnet {value}, which belongs to it alone."
           de: "Der Server liegt im Subnetz {value}, das ihm allein gehört."
-        ref: subnet
+        accepts: { ref: subnet }
         required: true
         depends_on: { question: private_connectivity, equals: vnet_integration }
         per_environment: true
@@ -329,13 +352,15 @@ groups:
         renders: delegated_subnet_id / delegatedSubnetResourceId
 
       - id: private_dns_zone
-        ask: Which private DNS zone resolves the server's name?
-        type: ref
+        ask:
+          en: "Which private DNS zone resolves the server's name?"
+          de: "Welche private DNS-Zone löst den Namen des Servers auf?"
+        type: string
         resolved_by: derived
         plain:
           en: "The server's name resolves through the private zone {value}."
           de: "Der Name des Servers wird über die private Zone {value} aufgelöst."
-        ref: private_dns_zone
+        accepts: { ref: private_dns_zone }
         required: true
         depends_on: { question: private_connectivity, equals: vnet_integration }
         per_environment: true
@@ -346,7 +371,9 @@ groups:
         renders: private_dns_zone_id / privateDnsZoneArmResourceId
 
       - id: ip_rules
-        ask: Which public IP ranges may reach the server?
+        ask:
+          en: "Which public IP ranges may reach the server?"
+          de: "Welche öffentlichen IP-Bereiche dürfen den Server erreichen?"
         type: list
         plain:
           en: "Public addresses allowed to reach the server: {value}."
@@ -362,7 +389,9 @@ groups:
         renders: firewall_rules / firewallRules
 
       - id: allow_azure_services
-        ask: May any Azure service reach the server past its firewall?
+        ask:
+          en: "May any Azure service reach the server past its firewall?"
+          de: "Darf jeder Azure-Dienst den Server an seiner Firewall vorbei erreichen?"
         type: bool
         plain:
           en: "Any Azure service, including those of other customers, {value} the server's firewall."
@@ -384,7 +413,9 @@ groups:
     title: Identity and access
     questions:
       - id: managed_identity
-        ask: Which managed identity should the server carry?
+        ask:
+          en: "Which managed identity should the server carry?"
+          de: "Welche Managed Identity soll der Server tragen?"
         type: enum
         plain:
           en: "The server has {value}."
@@ -393,7 +424,7 @@ groups:
           none: { en: "no identity of its own", de: "keine eigene Identität" }
           system_assigned: { en: "its own identity", de: "eine eigene Identität" }
           user_assigned: { en: "a separately managed identity", de: "eine separat verwaltete Identität" }
-        values: [none, system_assigned, user_assigned]
+        accepts: [none, system_assigned, user_assigned]
         default: none
         why: >
           The server's identity is used for one thing: reaching a Key Vault for a
@@ -407,12 +438,14 @@ groups:
         renders: managed_identities / managedIdentities
 
       - id: user_assigned_identity_ids
-        ask: Which user-assigned identity?
+        ask:
+          en: "Which user-assigned identity?"
+          de: "Welche User-Assigned Identity?"
         type: list
         plain:
           en: "It uses the identity {value}."
           de: "Es nutzt die Identität {value}."
-        ref: user_assigned_identity
+        accepts: { ref: user_assigned_identity }
         required: true
         depends_on: { question: managed_identity, equals: user_assigned }
         per_environment: true
@@ -420,12 +453,14 @@ groups:
         renders: managed_identities.user_assigned_resource_ids / managedIdentities.userAssignedResourceIds
 
       - id: entra_admins
-        ask: Which Entra group administers the server?
+        ask:
+          en: "Which Entra group administers the server?"
+          de: "Welche Entra-Gruppe administriert den Server?"
         type: list
         plain:
           en: "The server is administered by the Entra group {value}."
           de: "Der Server wird von der Entra-Gruppe {value} verwaltet."
-        ref: entra_group
+        accepts: { ref: entra_group }
         required: true
         per_environment: true
         why: >
@@ -438,7 +473,9 @@ groups:
         renders: ad_administrator { object_id, principal_name, principal_type, tenant_id } / administrators[] { objectId, principalName, principalType, tenantId }
 
       - id: database_roles
-        ask: Who needs to read or write the data?
+        ask:
+          en: "Who needs to read or write the data?"
+          de: "Wer muss die Daten lesen oder schreiben?"
         type: list
         plain:
           en: "Access to the data itself granted to: {value}."
@@ -460,7 +497,9 @@ groups:
           (the deployment's pipeline, or a deployment script), recorded as such in the spec
 
       - id: role_assignments
-        ask: Who may manage the server itself?
+        ask:
+          en: "Who may manage the server itself?"
+          de: "Wer darf den Server selbst verwalten?"
         type: list
         plain:
           en: "Management rights on the server granted to: {value}."
@@ -478,7 +517,9 @@ groups:
     title: Security
     questions:
       - id: password_authentication_disabled
-        ask: May clients sign in with a user name and password?
+        ask:
+          en: "May clients sign in with a user name and password?"
+          de: "Dürfen sich Clients mit Benutzername und Passwort anmelden?"
         type: bool
         plain:
           en: "Signing in with a password is {value}; access goes through company accounts."
@@ -486,8 +527,7 @@ groups:
         plain_values:
           true: { en: "switched off", de: "abgeschaltet" }
           false: { en: "possible", de: "möglich" }
-        from_deployment: local_auth
-        confirm_in: [production]
+        answer: { deployment: local_auth }
         why: >
           Inherited: `local_auth: disabled` renders as Entra authentication on and password
           authentication off. A database password does not expire, is shared, and is not
@@ -500,12 +540,14 @@ groups:
           authConfig { activeDirectoryAuth: 'Enabled', passwordAuth: 'Disabled', tenantId }
 
       - id: minimum_tls_version
-        ask: Which is the oldest TLS version the server accepts?
+        ask:
+          en: "Which is the oldest TLS version the server accepts?"
+          de: "Welche ist die älteste TLS-Version, die der Server annimmt?"
         type: enum
         plain:
           en: "Connections must use {value} or newer."
           de: "Verbindungen müssen {value} oder neuer verwenden."
-        values: [TLSv1.2, TLSv1.3]
+        accepts: [TLSv1.2, TLSv1.3]
         default: TLSv1.2
         why: >
           TLS 1.2 is the floor of the guardrails and what every current driver speaks.
@@ -515,7 +557,9 @@ groups:
         renders: server_configuration `ssl_min_protocol_version` and `require_secure_transport` / configurations[]
 
       - id: key_management
-        ask: Are the server's encryption keys platform-managed or customer-managed?
+        ask:
+          en: "Are the server's encryption keys platform-managed or customer-managed?"
+          de: "Werden die Schlüssel des Servers von der Plattform verwaltet oder vom Kunden?"
         type: enum
         plain:
           en: "Encryption keys are {value}."
@@ -523,9 +567,8 @@ groups:
         plain_values:
           platform_managed: { en: "managed by Azure - encrypted, rotated, no effort on your side", de: "von Azure verwaltet: verschlüsselt, rotiert, kein Aufwand bei euch" }
           customer_managed: { en: "your own, held in your key vault, so you can revoke them", de: "eure eigenen in eurem Schlüsseltresor, damit ihr sie zurückziehen könnt" }
-        values: [platform_managed, customer_managed]
-        from_deployment: key_management
-        confirm_in: [production]
+        accepts: [platform_managed, customer_managed]
+        answer: { deployment: key_management }
         why: >
           Inherited. Data, backups and temporary files are encrypted at rest with a
           platform-managed key either way; `customer_managed` adds a key of the customer's
@@ -535,12 +578,14 @@ groups:
         renders: customer_managed_key / customerManagedKey
 
       - id: cmk_key_vault_key_id
-        ask: Which Key Vault key should encrypt the server?
-        type: ref
+        ask:
+          en: "Which Key Vault key should encrypt the server?"
+          de: "Welcher Key-Vault-Schlüssel soll den Server verschlüsseln?"
+        type: string
         plain:
           en: "Encrypted with your key {value}."
           de: "Verschlüsselt mit eurem Schlüssel {value}."
-        ref: key_vault_key
+        accepts: { ref: key_vault_key }
         required: true
         depends_on: { question: key_management, equals: customer_managed }
         per_environment: true
@@ -552,7 +597,9 @@ groups:
         renders: customer_managed_key { key_vault_key_id, primary_user_assigned_identity_id } / customerManagedKey { keyVaultResourceId, keyName, autoRotationEnabled }
 
       - id: threat_protection
-        ask: Should the server watch for attacks, such as brute force and unusual access?
+        ask:
+          en: "Should the server watch for attacks, such as brute force and unusual access?"
+          de: "Soll der Server auf Angriffe achten, etwa Brute Force und ungewöhnliche Zugriffe?"
         type: bool
         plain:
           en: "Threat detection on the server is {value}."
@@ -574,12 +621,14 @@ groups:
     title: Backup and recovery
     questions:
       - id: backup_retention_days
-        ask: How far back must a deletion or a bad write be undoable to the second?
+        ask:
+          en: "How far back must a deletion or a bad write be undoable to the second?"
+          de: "Wie weit zurück muss ein Löschen oder ein fehlerhafter Schreibvorgang sekundengenau rückgängig zu machen sein?"
         type: int
         plain:
           en: "The server can be restored to any second of the last {value} days."
           de: "Der Server lässt sich auf jede Sekunde der letzten {value} Tage zurücksetzen."
-        derived_from:
+        answer:
           question: data_loss_tolerance
           map: { reproducible: 7, one_week: 7, one_month: 35, three_months: 35 }
         why: >
@@ -595,7 +644,9 @@ groups:
         renders: backup_retention_days / backupRetentionDays
 
       - id: geo_redundant_backup
-        ask: Should the backups also be kept in a second region?
+        ask:
+          en: "Should the backups also be kept in a second region?"
+          de: "Sollen die Sicherungen zusätzlich in einer zweiten Region aufbewahrt werden?"
         type: bool
         plain:
           en: "Backups are {value} in a second region."
@@ -603,7 +654,7 @@ groups:
         plain_values:
           true: { en: "also kept", de: "zusätzlich" }
           false: { en: "not kept", de: "nicht" }
-        derived_from:
+        answer:
           question: outage_impact
           map: { tolerable: false, disruptive: false, critical: true }
         non_production_default: false
@@ -624,14 +675,16 @@ groups:
     title: Observability
     questions:
       - id: diagnostic_workspace
-        ask: Which Log Analytics workspace should receive diagnostics?
-        type: ref
+        ask:
+          en: "Which Log Analytics workspace should receive diagnostics?"
+          de: "Welcher Log Analytics Workspace soll die Diagnosedaten erhalten?"
+        type: string
         resolved_by: derived
         plain:
           en: "Its logs go to {value}."
           de: "Seine Logs gehen in {value}."
-        ref: log_analytics_workspace
-        from_deployment: diagnostics_destination
+        accepts: { ref: log_analytics_workspace }
+        answer: { deployment: diagnostics_destination }
         per_environment: true
         why: >
           Inherited: one deployment, one destination. Without a diagnostic setting the
@@ -640,7 +693,9 @@ groups:
         renders: diagnostic_settings / diagnosticSettings
 
       - id: diagnostic_categories
-        ask: Which log categories should be collected?
+        ask:
+          en: "Which log categories should be collected?"
+          de: "Welche Log-Kategorien sollen erfasst werden?"
         type: list
         plain:
           en: "Logged: {value}."
@@ -652,7 +707,7 @@ groups:
           PostgreSQLFlexQueryStoreWaitStats: { en: "what each query waited for", de: "worauf jede Abfrage wartete" }
           PostgreSQLFlexTableStats: { en: "how tables are used", de: "wie Tabellen genutzt werden" }
           PostgreSQLFlexDatabaseXacts: { en: "transaction counts per database", de: "Transaktionszahlen je Datenbank" }
-        values: [PostgreSQLLogs, PostgreSQLFlexSessions, PostgreSQLFlexQueryStoreRuntime, PostgreSQLFlexQueryStoreWaitStats, PostgreSQLFlexTableStats, PostgreSQLFlexDatabaseXacts]
+        accepts: [PostgreSQLLogs, PostgreSQLFlexSessions, PostgreSQLFlexQueryStoreRuntime, PostgreSQLFlexQueryStoreWaitStats, PostgreSQLFlexTableStats, PostgreSQLFlexDatabaseXacts]
         default: [PostgreSQLLogs, PostgreSQLFlexSessions]
         why: >
           The server log is the record of errors and of connections that failed to
@@ -666,7 +721,9 @@ groups:
         renders: diagnostic_settings.<key>.log_categories / diagnosticSettings[].logCategoriesAndGroups[].category
 
       - id: metrics_enabled
-        ask: Should all metrics be collected?
+        ask:
+          en: "Should all metrics be collected?"
+          de: "Sollen alle Metriken erfasst werden?"
         type: bool
         plain:
           en: "Usage and performance figures are {value}."

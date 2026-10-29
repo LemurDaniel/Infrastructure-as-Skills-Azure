@@ -15,7 +15,7 @@
 > **Terraform or Bicep is not required, but recommended.** The plugin writes the code without the CLI, but then it cannot run `fmt`, `validate`, `terraform test` or `bicep build` against it. The render is handed over marked as unverified.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Evals on Sonnet](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/LemurDaniel/Infrastructure-as-Skills-Azure/423b44ec7b0440dee3ff9a60d4779302524a777f/badge-sonnet.json)](https://github.com/LemurDaniel/Infrastructure-as-Skills-Azure/blob/423b44ec7b0440dee3ff9a60d4779302524a777f/README.md)
+[![Evals on Sonnet](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/LemurDaniel/Infrastructure-as-Skills-Azure/ffbb421a338376bb5ed336ca97e5cacb9b54ebb7/badge-sonnet.json)](https://github.com/LemurDaniel/Infrastructure-as-Skills-Azure/blob/ffbb421a338376bb5ed336ca97e5cacb9b54ebb7/README.md)
 
 A Claude Code plugin that authors Azure infrastructure as **Terraform or Bicep** from the decisions a resource actually forces - compute, network, data, security, messaging, integration, AI and recovery, 67 resource types in ten families. Not a module library and not a template collection. The interview writes an `infra-spec.yaml`; the code, its tests, a diagram and a decision document are rendered from that, onto [Azure Verified Modules](https://azure.github.io/Azure-Verified-Modules/) first.
 
@@ -27,20 +27,29 @@ So the knowledge in this repo is shaped as a **question set**, not as a template
 
 ## 🚀 Quick Start
 
-On Claude Code 2.1.275 or later, one step:
+### 1. Get the plugin
 
-```
-/plugin install infrastructure-as-skills-azure --marketplace LemurDaniel/Infrastructure-as-Skills-Azure
-```
-
-Before that, the marketplace is added first:
+**Claude Code**
 
 ```
 /plugin marketplace add LemurDaniel/Infrastructure-as-Skills-Azure
 /plugin install infrastructure-as-skills-azure
 ```
 
-Then say what you need, in your own words and language:
+On 2.1.275 or later in one step: `/plugin install infrastructure-as-skills-azure --marketplace LemurDaniel/Infrastructure-as-Skills-Azure`. A third-party marketplace does not update by default; switch auto-update on for it under `/plugin` → *Marketplaces*.
+
+**GitHub Copilot CLI**
+
+```
+copilot plugin marketplace add LemurDaniel/Infrastructure-as-Skills-Azure
+copilot plugin install infrastructure-as-skills-azure@infrastructure-as-skills-azure
+```
+
+Update with `copilot plugin update infrastructure-as-skills-azure`.
+
+### 2. Ask for what you need
+
+In your own words and language:
 
 ```
 Ich brauch ein Storage Account für die Buchhaltung, Prod, nur Firmennetz. Terraform.
@@ -153,10 +162,12 @@ groups:
   - id: networking
     questions:
       - id: public_network_access
-        ask: Should this account depart from the deployment's exposure posture?
+        ask:
+          en: "Should this account depart from the deployment's exposure posture?"
+          de: "Soll dieses Konto von der Erreichbarkeit des Deployments abweichen?"
         type: enum
-        values: [enabled, disabled]
-        from_deployment: network_exposure
+        accepts: [enabled, disabled]
+        answer: { deployment: network_exposure }
         why: >
           One posture per system. A resource that re-asks it carries the
           deployment's answer instead of a default of its own.
@@ -172,7 +183,7 @@ groups:
 | Data protection | retention, soft delete, versioning, immutability |
 | Observability | diagnostic settings, which log categories, destination |
 
-A decision that holds for more than one resource lives in the deployment-wide set and is inherited via `from_deployment`. The format is specified in [`question-set-format.md`](plugins/infrastructure-as-skills-azure/core/iac-authoring/references/question-set-format.md).
+A decision that holds for more than one resource lives in the deployment-wide set and is inherited via `answer: { deployment: <id> }`. The format is specified in [`question-set-format.md`](plugins/infrastructure-as-skills-azure/core/iac-authoring/references/question-set-format.md).
 
 ## 📐 The Spec
 
@@ -267,7 +278,6 @@ It sits beside `skills/`, not inside it, because the default scan cannot be swit
 | Example | What it shows |
 |---|---|
 | [`chat-sandbox/`](examples/chat-sandbox/) | The first full run with a customer in the conversation: a public, single-stage chat environment on authored Terraform with a local deploy script. 118 decisions. |
-| [`order-platform/`](examples/order-platform/) | A full render as a customer repository: three stages, split into family modules, GitHub pipeline. 23 resources, 63 decisions. |
 
 An example is rendered and tested plan-only against mocked providers. **Nothing has been applied.**
 
@@ -286,8 +296,8 @@ python3 plugins/infrastructure-as-skills-azure/core/iac-authoring/scripts/check_
 python3 plugins/infrastructure-as-skills-azure/core/iac-authoring/scripts/check_spec.py <spec>
 
 # a rendered example: fmt, validate, plan-only tests, then every decision asserted or excused
-terraform -chdir=examples/order-platform/infra init -backend=false && terraform -chdir=examples/order-platform/infra test
-python3 plugins/infrastructure-as-skills-azure/core/iac-rendering/scripts/check_render_coverage.py examples/order-platform/infra/infra-spec.yaml
+terraform -chdir=examples/chat-sandbox init -backend=false && terraform -chdir=examples/chat-sandbox test
+python3 plugins/infrastructure-as-skills-azure/core/iac-rendering/scripts/check_render_coverage.py examples/chat-sandbox/infra-spec.yaml
 
 # diagram, PNG round-trip and pipeline invariants
 python3 plugins/infrastructure-as-skills-azure/core/iac-diagram/tests/run_diagram_tests.py
@@ -303,7 +313,7 @@ claude plugin eval plugins/infrastructure-as-skills-azure --allow-tools Write Ed
 Early, and the shape matters more than the coverage. The eval suite runs on Sonnet before every merge - the badge above is the run this version was merged with, pinned to its commit on the eval-history branch; the [eval history](https://github.com/LemurDaniel/Infrastructure-as-Skills-Azure/blob/eval-history/README.md) every plugin version and model case by case; three specs are rendered to Terraform with plan-only tests, and one Bicep render, [`eval-agent/`](eval-agent/), has been deployed to a subscription through its own rendered GitHub pipeline.
 
 - [x] Shared contract: spec format, question-set format, interview protocol, guardrails
-- [x] Deployment-wide question set, inherited by every resource via `from_deployment`
+- [x] Deployment-wide question set, inherited by every resource via `answer: { deployment: <id> }`
 - [x] The customer interview: requirements derived into decisions, landing-zone questions, decision document in the customer's language
 - [x] Azure Verified Modules as the primary rendering, both targets, with the test contract
 - [x] 67 resources in 10 families (the 42 added last are checked against their AVM modules, not yet rendered or tested)

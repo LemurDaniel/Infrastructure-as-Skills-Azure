@@ -40,20 +40,20 @@ resources:
         value: &subnets
           production: snet-pe
           development: snet-pe
-        source: forced
-        forced_by: deployment.network_ownership
+        source:
+          forced_by: deployment.network_ownership
     data_protection:
       blob_soft_delete_days:
         value: 7
-        source: overridden
-        reason: The customer keeps deleted documents for a week, longer than the requirement derives for this stack.
+        source:
+          overridden: The customer keeps deleted documents for a week, longer than the requirement derives for this stack.
   # The vault holds the app's secrets.
   key-vault:
     networking:
       private_endpoint_subnet:
         value: *subnets
-        source: forced
-        forced_by: deployment.network_ownership
+        source:
+          forced_by: deployment.network_ownership
 deployment:
   local_auth:
     value: disabled
@@ -153,10 +153,11 @@ def main():
     results.append(case("a resource's groups in the order of its question set",
                         present == sorted(present, key=storage_groups.index), present))
 
-    results.append(case("a short decision on one line",
-                        "      min_tls_version: {value: TLS1_2, source: default}" in lines, new))
-    results.append(case("a stage map in the order of context.environments",
-                        "{development: snet-pe, production: snet-pe}" in new, new))
+    results.append(case("a short decision in block style, one field per line",
+                        "      min_tls_version:\n        value: TLS1_2\n        source: default\n" in new, new))
+    results.append(case("no map on one line", not re.search(r":\s*\{", new), new))
+    results.append(case("a stage map in the order of context.environments, one stage per line",
+                        "          development: snet-pe\n          production: snet-pe\n" in new, new))
     results.append(case("a decision too long for one line keeps its fields on lines of their own",
                         any(l == "      blob_soft_delete_days:" for l in lines), new))
 

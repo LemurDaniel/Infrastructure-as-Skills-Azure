@@ -21,26 +21,28 @@ groups:
     title: Placement
     questions:
       - id: environments
-        ask: Which stages is this deployed to?
+        ask:
+          en: "Which stages is this deployed to?"
+          de: "In welche Stufen wird das ausgerollt?"
         type: list
         plain:
           en: "Deployed in the stages {value}."
           de: "Wird in den Stufen {value} ausgerollt."
-        values: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
-        required: true
-        from_context: true
+        accepts: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
+        answer: { context: environments }
         why: >
           Drives the rendered name and the retention and access defaults below.
         renders: naming parameter `environment`
 
       - id: location
-        ask: Which Azure region?
+        ask:
+          en: "Which Azure region?"
+          de: "Welche Azure-Region?"
         type: string
         plain:
           en: "Runs in the Azure region {value}."
           de: "Läuft in der Azure-Region {value}."
-        required: true
-        from_context: true
+        answer: { context: location }
         why: >
           Logs are stored in the workspace's region, which is a data-residency
           statement as much as a latency one. Cross-region ingestion works and
@@ -48,14 +50,15 @@ groups:
         renders: location
 
       - id: resource_group_name
-        ask: Which resource group?
-        type: ref
+        ask:
+          en: "Which resource group?"
+          de: "Welche Ressourcengruppe?"
+        type: string
         plain:
           en: "Placed in the resource group {value}."
           de: "Liegt in der Ressourcengruppe {value}."
-        ref: resource_group
-        required: true
-        from_context: true
+        accepts: { ref: resource_group }
+        answer: { context: resource_group_name }
         per_environment: true
         why: >
           A workspace normally outlives the workloads reporting into it, which
@@ -68,12 +71,14 @@ groups:
     title: Retention and cost
     questions:
       - id: retention_days
-        ask: How long should logs be retained?
+        ask:
+          en: "How long should logs be retained?"
+          de: "Wie lange sollen Logs aufbewahrt werden?"
         type: int
         plain:
           en: "Logs are kept for {value} days."
           de: "Logs werden {value} Tage aufbewahrt."
-        from_deployment: log_retention_days
+        answer: { deployment: log_retention_days }
         non_production_default: 30
         why: >
           Inherited from the deployment set, per stage: a stated retention holds in
@@ -86,13 +91,14 @@ groups:
         renders: retention_in_days / properties.retentionInDays
 
       - id: daily_quota_gb
-        ask: Should ingestion be capped per day?
+        ask:
+          en: "Should ingestion be capped per day?"
+          de: "Soll die Datenaufnahme pro Tag begrenzt werden?"
         type: int
         plain:
           en: "Daily log intake cap: {value} GB (-1: no cap)."
           de: "Tägliche Obergrenze für Logs: {value} GB (-1: keine)."
-        from_deployment: daily_quota_gb
-        confirm_in: [production]
+        answer: { deployment: daily_quota_gb }
         why: >
           Inherited, next to retention: both are the cost screws on this
           workspace, and a deployment that owns its logging owns the bill. Asked a
@@ -101,7 +107,9 @@ groups:
         renders: daily_quota_gb / properties.workspaceCapping.dailyQuotaGb
 
       - id: sku
-        ask: Which pricing tier?
+        ask:
+          en: "Which pricing tier?"
+          de: "Welcher Tarif?"
         type: enum
         plain:
           en: "Billed {value}."
@@ -109,7 +117,7 @@ groups:
         plain_values:
           PerGB2018: { en: "per gigabyte, pay as you go", de: "pro Gigabyte, nach Verbrauch" }
           CapacityReservation: { en: "at a reserved daily volume, cheaper at high volume", de: "zu einem reservierten Tagesvolumen, günstiger bei hohem Volumen" }
-        values: [PerGB2018, CapacityReservation]
+        accepts: [PerGB2018, CapacityReservation]
         default: PerGB2018
         why: >
           PerGB2018 is pay-as-you-go and correct until the volume is predictable. A
@@ -123,7 +131,9 @@ groups:
     title: Access
     questions:
       - id: public_network_access
-        ask: Should the workspace be reachable from the internet?
+        ask:
+          en: "Should the workspace be reachable from the internet?"
+          de: "Soll der Workspace aus dem Internet erreichbar sein?"
         type: enum
         plain:
           en: "The log workspace is {value}."
@@ -131,9 +141,8 @@ groups:
         plain_values:
           disabled: { en: "reachable only through the platform's private link scope", de: "nur über den privaten Zugang der Plattform erreichbar" }
           enabled: { en: "reachable from the internet, with company accounts and encryption - there is no private link scope to go through", de: "aus dem Internet erreichbar, mit Firmenkonten und Verschlüsselung; einen privaten Zugang dafür gibt es nicht" }
-        values: [disabled, enabled]
+        accepts: [disabled, enabled]
         default: enabled
-        confirm_in: [production]
         why: >
           The one resource that does not simply inherit the private posture.
           `disabled` needs an Azure Monitor Private Link Scope (AMPLS) - not a
@@ -154,7 +163,9 @@ groups:
           properties.publicNetworkAccessForIngestion and ...ForQuery
 
       - id: local_auth
-        ask: Should workspace keys be usable for ingestion?
+        ask:
+          en: "Should workspace keys be usable for ingestion?"
+          de: "Sollen Workspace-Schlüssel für die Datenaufnahme nutzbar sein?"
         type: bool
         plain:
           en: "Sending logs with the workspace key is {value}."
@@ -162,7 +173,7 @@ groups:
         plain_values:
           true: { en: "possible", de: "möglich" }
           false: { en: "not possible - agents use company identities", de: "nicht möglich, Agenten nutzen Firmenidentitäten" }
-        from_deployment: local_auth
+        answer: { deployment: local_auth }
         why: >
           The shared key is a bearer credential with ingestion rights and no
           expiry. Disabling it forces Entra ID, which the modern agents use
@@ -171,7 +182,9 @@ groups:
         renders: local_authentication_enabled (inverse) / properties.features.disableLocalAuth
 
       - id: rbac_only_access
-        ask: Should data access be governed only by Azure RBAC?
+        ask:
+          en: "Should data access be governed only by Azure RBAC?"
+          de: "Soll der Datenzugriff ausschließlich über Azure RBAC geregelt werden?"
         type: bool
         plain:
           en: "Who may read logs is decided {value}."
@@ -194,7 +207,9 @@ groups:
     title: Data protection
     questions:
       - id: immediate_purge_protection
-        ask: Should the workspace keep its 14-day soft delete?
+        ask:
+          en: "Should the workspace keep its 14-day soft delete?"
+          de: "Soll der Workspace sein 14-tägiges Soft Delete behalten?"
         type: bool
         plain:
           en: "A deleted workspace {value} be recovered for 14 days."
@@ -213,7 +228,9 @@ groups:
           bicep: the forceDelete query parameter on deletion, not a template property
 
       - id: archive_to_storage
-        ask: Should logs also be archived to a storage account?
+        ask:
+          en: "Should logs also be archived to a storage account?"
+          de: "Sollen Logs zusätzlich in einem Speicherkonto archiviert werden?"
         type: bool
         plain:
           en: "Long-term archiving to cheap storage is {value}."

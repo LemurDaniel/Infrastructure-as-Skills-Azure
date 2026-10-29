@@ -91,8 +91,9 @@ def generate(rng, docs, blocks, seed):
             a.pop('label', None)
     wiring = spec.setdefault('wiring', {})
     wiring['access'] = {'value': access, 'source': 'stated'}
-    wiring['purposes'] = {'value': {k: f'Purpose of {k}' for k in res if rng.random() < 0.6}, 'source': 'stated'}
-    wiring['optional'] = {'value': [k for k in targets if rng.random() < 0.15], 'source': 'stated'}
+    for k in res:
+        if rng.random() < 0.6 and isinstance(res[k], dict):
+            res[k]['meta'] = {'purpose': {'value': f'Purpose of {k}', 'source': 'stated'}}
     wiring.pop('role_assignments', None)
     spec['context']['language'] = rng.choice(['en', 'de'])
     spec['context']['environments'] = rng.choice([['production'], ['test', 'production'], ['development', 'test', 'production']])

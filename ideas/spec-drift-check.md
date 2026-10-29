@@ -24,7 +24,7 @@ disagree:
 One line per drifted decision: key, spec value, test value, planned value, and which of the
 three is the odd one out - usually the spec. Exit 1 on any drift, so it can sit in the
 pipeline's validate step next to `check_render_coverage.py`. A second mode proposes the spec
-edit (`value`, `source: overridden`, an empty `reason` to fill in) so the fix is a review, not
+edit (`value`, `source: { overridden: '' }` to fill in) so the fix is a review, not
 archaeology.
 
 ## Open questions

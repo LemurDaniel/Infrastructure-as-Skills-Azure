@@ -27,14 +27,15 @@ groups:
     title: Placement
     questions:
       - id: environments
-        ask: Which stages is this deployed to?
+        ask:
+          en: "Which stages is this deployed to?"
+          de: "In welche Stufen wird das ausgerollt?"
         type: list
         plain:
           en: "Deployed in the stages {value}."
           de: "Wird in den Stufen {value} ausgerollt."
-        values: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
-        required: true
-        from_context: true
+        accepts: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
+        answer: { context: environments }
         why: >
           The settings are per subscription, and the stages are separated by subscription
           (guardrails, *Stages*): each stage's subscription gets its own set of plans. The
@@ -43,14 +44,15 @@ groups:
         renders: the stage file the subscription comes from
 
       - id: subscription_id
-        ask: Which subscription?
-        type: ref
-        ref: subscription
+        ask:
+          en: "Which subscription?"
+          de: "Welche Subscription?"
+        type: string
+        accepts: { ref: subscription }
         plain:
           en: "Set for the subscription {value}."
           de: "Gilt für die Subscription {value}."
-        required: true
-        from_context: true
+        answer: { context: subscription_id }
         per_environment: true
         why: >
           The target of the whole set. A stage file supplies it, and a plan enabled on the
@@ -58,7 +60,9 @@ groups:
         renders: subscription_id (provider) / the deployment's target scope
 
       - id: defender_ownership
-        ask: Who switches Defender plans on in this subscription?
+        ask:
+          en: "Who switches Defender plans on in this subscription?"
+          de: "Wer schaltet in dieser Subscription Defender-Pläne ein?"
         type: enum
         resolved_by: derived
         plain:
@@ -67,7 +71,7 @@ groups:
         plain_values:
           platform: { en: "the platform team, by policy - this deployment leaves them alone", de: "dem Plattform-Team per Richtlinie, dieses Ausrollen lässt sie unberührt" }
           deployment: { en: "this deployment", de: "diesem Ausrollen" }
-        values: [platform, deployment]
+        accepts: [platform, deployment]
         default: platform
         why: >
           In an application landing zone the platform assigns the Defender plans with a policy
@@ -86,7 +90,9 @@ groups:
     title: Who is told
     questions:
       - id: security_contact_emails
-        ask: Who should be told about security alerts?
+        ask:
+          en: "Who should be told about security alerts?"
+          de: "Wer soll über Sicherheitswarnungen informiert werden?"
         type: list
         resolved_by: interview
         topic: security
@@ -103,7 +109,9 @@ groups:
         renders: properties.emails (azapi body in Terraform; azurerm_security_center_contact.email as the older alternative) / securityContactProperties.emails
 
       - id: notify_subscription_owners
-        ask: Should the owners of the subscription be told as well?
+        ask:
+          en: "Should the owners of the subscription be told as well?"
+          de: "Sollen die Besitzer der Subscription ebenfalls informiert werden?"
         type: bool
         plain:
           en: "The owners of the subscription {value}."
@@ -121,7 +129,9 @@ groups:
         renders: properties.notificationsByRole.state (`On`, roles `Owner`; azurerm_security_center_contact.alerts_to_admins as the older alternative) / notificationsByRole.state
 
       - id: alert_minimum_severity
-        ask: From which severity should an alert be mailed?
+        ask:
+          en: "From which severity should an alert be mailed?"
+          de: "Ab welchem Schweregrad soll eine Warnung per E-Mail verschickt werden?"
         type: enum
         plain:
           en: "Alerts of severity {value} and above are mailed."
@@ -130,7 +140,7 @@ groups:
           Low: { en: "low", de: "niedrig" }
           Medium: { en: "medium", de: "mittel" }
           High: { en: "high", de: "hoch" }
-        values: [Low, Medium, High]
+        accepts: [Low, Medium, High]
         default: Medium
         depends_on: { question: defender_ownership, equals: deployment }
         why: >
@@ -146,7 +156,9 @@ groups:
     title: Protection
     questions:
       - id: plans
-        ask: Which kinds of resources should be actively watched for attacks?
+        ask:
+          en: "Which kinds of resources should be actively watched for attacks?"
+          de: "Welche Arten von Ressourcen sollen aktiv auf Angriffe überwacht werden?"
         type: list
         resolved_by: interview
         topic: security
@@ -165,7 +177,7 @@ groups:
           Arm: { en: "changes to the Azure environment itself (management operations)", de: "Änderungen an der Azure-Umgebung selbst (Verwaltungsvorgänge)" }
           Api: { en: "API gateways", de: "API-Gateways" }
           CloudPosture: { en: "the paid posture analysis (attack paths, sensitive data)", de: "die kostenpflichtige Konfigurationsanalyse (Angriffspfade, sensible Daten)" }
-        values: [VirtualMachines, StorageAccounts, KeyVaults, AppServices, Containers, SqlServers, OpenSourceRelationalDatabases, CosmosDbs, Arm, Api, CloudPosture]
+        accepts: [VirtualMachines, StorageAccounts, KeyVaults, AppServices, Containers, SqlServers, OpenSourceRelationalDatabases, CosmosDbs, Arm, Api, CloudPosture]
         default: []
         depends_on: { question: defender_ownership, equals: deployment }
         why: >
@@ -183,7 +195,9 @@ groups:
         renders: azurerm_security_center_subscription_pricing (tier `Standard`, one per plan) / defenderPlans[] (pricingTier `Standard`)
 
       - id: servers_plan
-        ask: Which level of protection for servers?
+        ask:
+          en: "Which level of protection for servers?"
+          de: "Welche Schutzstufe für Server?"
         type: enum
         plain:
           en: "Servers are protected at {value}."
@@ -191,7 +205,7 @@ groups:
         plain_values:
           P1: { en: "plan 1 - endpoint detection and response", de: "Plan 1 - Erkennung und Reaktion am Endpunkt" }
           P2: { en: "plan 2 - plan 1 plus vulnerability scanning, just-in-time access and file integrity monitoring", de: "Plan 2 - Plan 1 plus Schwachstellenscan, Just-in-Time-Zugriff und Dateiintegritätsüberwachung" }
-        values: [P1, P2]
+        accepts: [P1, P2]
         default: P1
         depends_on: { question: plans, contains: VirtualMachines }
         why: >
@@ -204,7 +218,9 @@ groups:
         renders: subplan / subPlan
 
       - id: storage_malware_scanning
-        ask: Should files uploaded to storage accounts be scanned for malware?
+        ask:
+          en: "Should files uploaded to storage accounts be scanned for malware?"
+          de: "Sollen Dateien, die in Speicherkonten hochgeladen werden, auf Malware gescannt werden?"
         type: bool
         plain:
           en: "Uploaded files {value}."
@@ -222,7 +238,9 @@ groups:
         renders: extension OnUploadMalwareScanning (isEnabled) / extensions[]
 
       - id: storage_malware_scan_cap_gb
-        ask: How many GB per month may be scanned, at most, per storage account?
+        ask:
+          en: "How many GB per month may be scanned, at most, per storage account?"
+          de: "Wie viele GB pro Monat dürfen höchstens pro Speicherkonto gescannt werden?"
         type: int
         plain:
           en: "At most {value} GB per month are scanned per storage account; above that, files are no longer scanned."
@@ -238,7 +256,9 @@ groups:
         renders: extension OnUploadMalwareScanning, additional property `CapGBPerMonth` / extensions[].additionalExtensionProperties.CapGBPerMonth
 
       - id: storage_sensitive_data_discovery
-        ask: Should storage accounts be searched for sensitive data?
+        ask:
+          en: "Should storage accounts be searched for sensitive data?"
+          de: "Sollen Speicherkonten nach sensiblen Daten durchsucht werden?"
         type: bool
         plain:
           en: "Storage accounts {value}."
