@@ -259,6 +259,12 @@ the detail; this list says what was decided and why, so a session does not reope
   workspace-based component per stage for the whole system when there is an App Service,
   Function App or Container Apps; each application's `application_insights` is forced to it
   (app setting or container env). `check_spec.py` fails on `enabled` with an app and no component.
+- **Application Insights is reachable from the internet by default, like its workspace**
+  (2026-10-29, owner's call). It inherited `network_exposure`, so a private deployment closed
+  it - but a closed component needs an Azure Monitor Private Link Scope, which a standalone
+  deployment never has, and received no telemetry behind an `open:` entry blocking apply. Now
+  `public_network_access` defaults to `enabled` (ingestion authenticated by Entra ID); `disabled`
+  only for a stated AMPLS. Seen in a diagram: the workspace marked public, the component not.
 - **The plugin owns the infrastructure, not the application** (2026-10-28, owner's call). What
   the code does - sign-in implemented in a container, the Application Insights SDK - is not
   asked, flagged or opened; platform features (a component, a connection string, Easy Auth if
@@ -505,8 +511,9 @@ Must:
   unknown keys in `wiring.access` fail too.
 - ~~**Phase 4 shown as text before "Passt das Design?"**, confirmed in a fresh interview~~ -
   done (owner, 2026-10-29, tested in another repository).
-- **The suite runs green on Sonnet** before the release. (`review-agent-separate` left the
-  suite on 2026-10-27; nothing to load.)
+- ~~**The suite runs green on Sonnet** before the release~~ - done for 0.6.0 (2026-10-29):
+  11/11, composed with a re-test of `diagram-no-invented-lines` after a grader fix (see *Evals*).
+  Holds for every release from here on, not once.
 
 Should:
 - The AVM version drift check (`ideas/avm-drift-watch.md`).
@@ -581,8 +588,7 @@ per-family` in `check_spec.py` and the `chatbot` spec, and `references/private-d
     for PostgreSQL, Time Series Insights, SQL VM; IoT Hub, DPS, Digital Twins; Maps, Load Testing,
     DevCenter, Dev Box.
 - A container's throughput in Cosmos DB is one value for all; the NSG baseline rules per
-  `subnet_purpose` are general knowledge, to be confirmed per service before a render; a closed
-  Application Insights needs the platform's Azure Monitor Private Link Scope; the Key Vault modules'
+  `subnet_purpose` are general knowledge, to be confirmed per service before a render; the Key Vault modules'
   `keys` member names are read from the README at render time.
 - New sets, known gaps in the modules: Service Bus (the Terraform module refuses
   `DiagnosticErrorLogs`; no input for zone redundancy or geo recovery), Event Hubs (no Terraform
@@ -935,6 +941,16 @@ regeneration from the spec loses them. All `render`:
   picture, the CLAUDE.md sync by hand, the stamp); a rule block at the top of the skill and a
   "Without a shell" section answer it, not re-measured yet. Those cases measure the plugin
   only with a shell: on a Linux runner with Bash granted.
+- **0.6.0 before the merge of #15 (2026-10-29, local, effort low)**: full run on `2ddb25d`,
+  Sonnet $15.62 10/11, Haiku $1.69 6/11. The one Sonnet failure, `diagram-no-invented-lines` /
+  `no-invented-calls` (0/2, REGRESS against 3/3), was the grader: it matched the derived
+  `Monitoring Metrics Publisher` from the app on Application Insights that
+  `application_monitoring` adds since 0.5.6. Fixed in `07f1aa0` (entry in `LEARNINGS.md`);
+  re-test Sonnet 2/2, Haiku 0/2 (real invented lines and purposes, 8-11 turns, not chased).
+  Recorded on `eval-history` as 0.6.0 (`ffbb421`), composed, the badge pinned to it.
+  **`baseline.json` is not updated yet** (still 2026-10-25): accept the composed run after
+  reading it. Haiku keeps failing the same rules as on 0.5.4/0.5.5: invented subscription and
+  region, the default stack, `@onlyIfNotExists()`, the CLAUDE.md sync in one of four runs.
 - **CI by hand**: `.github/workflows/plugin-evals.yml` (`workflow_dispatch`, Sonnet/low by
   default, one case per call with progress, `--scaffold`, report only);
   `record_eval_history.py` writes each run to `eval-history`. `review-agent-separate` never loaded before 2026-10-27 (`focus:
@@ -981,8 +997,9 @@ regeneration from the spec loses them. All `render`:
 
 - `chatbot-multi-rg` and `orders-integration` were moved to a full split (no main group):
   the roles that lived in main (`security`, and `application` in `orders-integration`) are
-  groups of their own now. Their diagrams and decision documents, and every example's
-  `infra-decisions.md`, are behind their specs - regenerate the examples.
+  groups of their own now. `chatbot-multi-rg`'s diagram and decision document were
+  regenerated with the Application Insights change (2026-10-29); `orders-integration`'s and
+  the other examples' `infra-decisions.md` are still behind their specs - regenerate them.
 - `.github/workflows/eval-agent-infra-stage.yaml` and `examples/chat-sandbox/deploy.ps1` are
   rendered with the old guard line (no `ASSUMED:`); neither spec assumes anything, the next
   render brings the line.
@@ -1018,10 +1035,10 @@ regeneration from the spec loses them. All `render`:
 
 ## Next
 
-**On `restructure-core` first:** the format review of `question-set-format.md` (2026-10-28)
-and of `spec.md` (2026-10-29) are done. Left before the merge: push, PR, and the eval run on
-Sonnet and Haiku - the format changes touch every set, the digest and every spec the
-interview writes. Then regenerate the examples against the revised spec.
+**Merge #15 (0.6.0)**: pushed, ready for review, evals run and recorded (see *Evals*).
+Left: read the composed run and accept it into `baseline.json`, then the owner's squash
+merge. After it, regenerate the remaining examples against the revised spec, and freeze the
+formats (*Road to 1.0.0*).
 
 **The pattern skill** (`ideas/pattern-skill.md`): the wiring that `chatbot` and
 `chatbot-rag` carry by hand — roles between resources, the private link, the order
