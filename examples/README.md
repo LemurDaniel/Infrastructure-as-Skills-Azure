@@ -9,7 +9,6 @@ idiom, a reviewer sees what `source:` buys.
 |---|---|---|---|
 | [`chat-sandbox/`](chat-sandbox/) | Terraform | A small chat environment for development on one `[sandbox]` stage, public, deployed by hand: a containerised web app on App Service, models in AI Foundry, AI Search for retrieval, a storage account, a key vault holding the Entra app's client secret as a placeholder, its own Log Analytics workspace; `landing_zone: standalone`, no network | The first run of the whole flow with a customer in the conversation and both loops with subagents (`request.md` tells it). Authored Terraform (`module_source: authored`), the naming provider, `deploy.ps1` as the local delivery with the placeholder refusal; the three open items (image, models, the Entra app) as placeholders in the stage file. 118 decisions, 92 under `resources:` all asserted or marked (83 / 9), 32 test files. The run found the firewall trap (`public` + no network) and the sandbox cost rule, both written into the sets the same day; the diagram was finished by hand after the review |
 | [`orders-integration/`](orders-integration/) | Terraform (spec only) | An order platform on the default three stages in Germany West Central, **split over four resource groups** (main, network, data, observability - all created): Front Door Premium with WAF, an Application Gateway WAF_v2 and API Management (internal, Premium in production, Developer elsewhere) in front of a function app; Service Bus, Event Hubs with capture to a data lake and an Event Grid topic, all keyless; a Backup vault and a Recovery Services vault; one workspace, one key vault | The edge, messaging and recovery sets together. `private_with_exceptions`: every departure (public gateway origin, firewalled Service Bus Standard in development and test, the Event Grid service tag on the function app, subscription keys for the rate limit) is `overridden` with its reason, and the request's contradictions are written into `request.md`. 22 resource entries, 17 `open:` items, nothing assumed. Spec, decision document and diagram; no render, nothing applied |
-| [`order-platform/`](order-platform/) | Terraform | An order platform on the default three stages in Germany West Central, **rendered as a customer repository**: `CLAUDE.md` and `.github/workflows/` at the root, everything else under `infra/`. `private_with_exceptions` with Front Door as the only public surface and an Application Gateway, API Management, a function app and a virtual machine behind it; Service Bus, Event Hubs and an Event Grid system topic; two storage accounts; a Backup vault and a Recovery Services vault; its own network, DNS zones and workspace (`landing_zone: standalone`), `deploy_mechanism: github` | A full render as a customer repository, with a family split (seven modules: app, data, messaging, network, observability, recovery, security, each with its own test file, plus a wiring test) and the pipeline. 23 resource entries, 6 `open:` items rendered as `OPEN-` placeholders in the stage files, 63 decisions all covered by `check_render_coverage.py`, `check_spec.py` and `check_pipeline.py` clean. `request.md` holds the request verbatim (English, unlike `orders-integration/`). The Terraform tests and `validate` were not run when it was added; nothing applied |
 
 
 ## What each directory holds
@@ -37,18 +36,14 @@ idiom, a reviewer sees what `source:` buys.
 ## Running one
 
 ```powershell
-cd examples/order-platform/infra
-terraform init -backend=false   # the root holds an empty backend "azurerm" {}; the pipeline passes
-                                # -backend-config="key=<workload>/<stage>.tfstate" and the rest
+cd examples/chat-sandbox
+terraform init -backend=false
 terraform fmt -check -recursive
-terraform validate      # terraform plan -var-file=environments/production.tfvars needs credentials
+terraform validate      # terraform plan -var-file=<the stage file> needs credentials
 terraform test
-python3 ../../../plugins/infrastructure-as-skills-azure/core/iac-rendering/scripts/check_render_coverage.py ./infra-spec.yaml
-python3 ../../../plugins/infrastructure-as-skills-azure/core/iac-authoring/scripts/export_decisions.py ./infra-spec.yaml --language de
+python3 ../../plugins/infrastructure-as-skills-azure/core/iac-rendering/scripts/check_render_coverage.py ./infra-spec.yaml
+python3 ../../plugins/infrastructure-as-skills-azure/core/iac-authoring/scripts/export_decisions.py ./infra-spec.yaml --language de
 ```
-
-`order-platform/` is split into family modules: `terraform init -backend=false && terraform test` in
-each `modules/<family>`, then in the root for the wiring test.
 
 Needs the `azurerm`, `azapi`, `modtm`, `random` and `LemurDaniel/naming` providers from the
 registry. No credentials: the tests mock `azurerm`, `azapi` and `modtm`, and nothing plans

@@ -278,7 +278,6 @@ It sits beside `skills/`, not inside it, because the default scan cannot be swit
 | Example | What it shows |
 |---|---|
 | [`chat-sandbox/`](examples/chat-sandbox/) | The first full run with a customer in the conversation: a public, single-stage chat environment on authored Terraform with a local deploy script. 118 decisions. |
-| [`order-platform/`](examples/order-platform/) | A full render as a customer repository: three stages, split into family modules, GitHub pipeline. 23 resources, 63 decisions. |
 
 An example is rendered and tested plan-only against mocked providers. **Nothing has been applied.**
 
@@ -297,8 +296,8 @@ python3 plugins/infrastructure-as-skills-azure/core/iac-authoring/scripts/check_
 python3 plugins/infrastructure-as-skills-azure/core/iac-authoring/scripts/check_spec.py <spec>
 
 # a rendered example: fmt, validate, plan-only tests, then every decision asserted or excused
-terraform -chdir=examples/order-platform/infra init -backend=false && terraform -chdir=examples/order-platform/infra test
-python3 plugins/infrastructure-as-skills-azure/core/iac-rendering/scripts/check_render_coverage.py examples/order-platform/infra/infra-spec.yaml
+terraform -chdir=examples/chat-sandbox init -backend=false && terraform -chdir=examples/chat-sandbox test
+python3 plugins/infrastructure-as-skills-azure/core/iac-rendering/scripts/check_render_coverage.py examples/chat-sandbox/infra-spec.yaml
 
 # diagram, PNG round-trip and pipeline invariants
 python3 plugins/infrastructure-as-skills-azure/core/iac-diagram/tests/run_diagram_tests.py
