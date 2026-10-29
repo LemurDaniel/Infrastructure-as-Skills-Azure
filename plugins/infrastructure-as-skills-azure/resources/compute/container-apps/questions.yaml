@@ -280,8 +280,8 @@ groups:
           de: "Wie viele Kopien der App müssen immer laufen?"
         type: int
         plain:
-          en: "At least {value} copies of the app are always running."
-          de: "Mindestens {value} Kopien der App laufen immer."
+          en: "Copies of the app always running, at least: {value}."
+          de: "Immer laufende Kopien der App, mindestens: {value}."
         answer:
           question: outage_impact
           map: { tolerable: 0, disruptive: 2, critical: 3 }

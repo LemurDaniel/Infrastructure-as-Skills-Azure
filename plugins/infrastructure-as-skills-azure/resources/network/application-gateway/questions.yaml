@@ -80,8 +80,8 @@ groups:
           de: "Soll eine Web Application Firewall die Anfragen prüfen?"
         type: bool
         plain:
-          en: "A web application firewall is {value}."
-          de: "Eine Web Application Firewall ist {value}."
+          en: "Requests are {value}."
+          de: "Die Anfragen werden {value}."
         plain_values:
           true: { en: inspected by a web application firewall, de: von einer Web Application Firewall geprüft }
           false: { en: not inspected by a firewall, de: nicht von einer Firewall geprüft }
