@@ -1475,6 +1475,170 @@
      "delta": null
     }
    ]
+  },
+  {
+   "id": "2026-10-29T21-08-04-477Z",
+   "version": "0.6.0",
+   "model": "haiku",
+   "trigger": "release",
+   "pr": 15,
+   "commit": "5213cca",
+   "startedAt": "2026-10-29T21:08:04.477Z",
+   "costUsd": 1.0423414500000001,
+   "durationSeconds": 271,
+   "partial": false,
+   "runsPerCase": 4,
+   "cases": [
+    {
+     "name": "language-en-first-question",
+     "passRate": 1,
+     "passRateWithout": null,
+     "delta": null
+    },
+    {
+     "name": "language-en-request",
+     "passRate": 1,
+     "passRateWithout": null,
+     "delta": null
+    },
+    {
+     "name": "app-code-untouched",
+     "passRate": 1,
+     "passRateWithout": null,
+     "delta": null
+    },
+    {
+     "name": "bicep-rerender-keeps-names",
+     "passRate": 1,
+     "passRateWithout": null,
+     "delta": null
+    },
+    {
+     "name": "bicep-secret-placeholder-once",
+     "passRate": 0,
+     "passRateWithout": null,
+     "delta": null
+    },
+    {
+     "name": "requirements-stated",
+     "passRate": 0,
+     "passRateWithout": null,
+     "delta": null
+    },
+    {
+     "name": "vague-public-dev",
+     "passRate": 0,
+     "passRateWithout": null,
+     "delta": null
+    },
+    {
+     "name": "claude-md-section-replaced",
+     "passRate": 0.75,
+     "passRateWithout": null,
+     "delta": null
+    },
+    {
+     "name": "plugin-newer-halts",
+     "passRate": 1,
+     "passRateWithout": null,
+     "delta": null
+    },
+    {
+     "name": "trigger-workload-request",
+     "passRate": 1,
+     "passRateWithout": null,
+     "delta": null
+    },
+    {
+     "name": "diagram-no-invented-lines",
+     "passRate": 0,
+     "passRateWithout": null,
+     "delta": null
+    }
+   ],
+   "note": "Full run on 2ddb25d (0.5.7), diagram-no-invented-lines re-tested on 07f1aa0 with the fixed grader; recorded as 0.6.0, since head 5213cca adds only the version bump and the redrawn example diagram"
+  },
+  {
+   "id": "2026-10-29T21-08-04-869Z",
+   "version": "0.6.0",
+   "model": "sonnet",
+   "trigger": "release",
+   "pr": 15,
+   "commit": "5213cca",
+   "startedAt": "2026-10-29T21:08:04.869Z",
+   "costUsd": 14.7968555,
+   "durationSeconds": 655,
+   "partial": false,
+   "runsPerCase": 4,
+   "cases": [
+    {
+     "name": "language-en-first-question",
+     "passRate": 1,
+     "passRateWithout": null,
+     "delta": null
+    },
+    {
+     "name": "language-en-request",
+     "passRate": 1,
+     "passRateWithout": null,
+     "delta": null
+    },
+    {
+     "name": "app-code-untouched",
+     "passRate": 1,
+     "passRateWithout": null,
+     "delta": null
+    },
+    {
+     "name": "bicep-rerender-keeps-names",
+     "passRate": 1,
+     "passRateWithout": null,
+     "delta": null
+    },
+    {
+     "name": "bicep-secret-placeholder-once",
+     "passRate": 1,
+     "passRateWithout": null,
+     "delta": null
+    },
+    {
+     "name": "requirements-stated",
+     "passRate": 1,
+     "passRateWithout": null,
+     "delta": null
+    },
+    {
+     "name": "vague-public-dev",
+     "passRate": 1,
+     "passRateWithout": null,
+     "delta": null
+    },
+    {
+     "name": "claude-md-section-replaced",
+     "passRate": 1,
+     "passRateWithout": null,
+     "delta": null
+    },
+    {
+     "name": "plugin-newer-halts",
+     "passRate": 1,
+     "passRateWithout": null,
+     "delta": null
+    },
+    {
+     "name": "trigger-workload-request",
+     "passRate": 1,
+     "passRateWithout": null,
+     "delta": null
+    },
+    {
+     "name": "diagram-no-invented-lines",
+     "passRate": 1,
+     "passRateWithout": null,
+     "delta": null
+    }
+   ],
+   "note": "Full run on 2ddb25d (0.5.7), diagram-no-invented-lines re-tested on 07f1aa0 with the fixed grader; recorded as 0.6.0, since head 5213cca adds only the version bump and the redrawn example diagram"
   }
  ]
 }
