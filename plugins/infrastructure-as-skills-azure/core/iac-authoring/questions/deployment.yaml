@@ -1767,7 +1767,7 @@ groups:
         plain_values:
           waf: { en: "reached through an entry with a web application firewall in front (Front Door or Application Gateway); the app itself stays private", de: "über einen Eingang mit Web Application Firewall davor erreichbar (Front Door oder Application Gateway); die App selbst bleibt privat" }
           known_addresses: { en: "reachable only from certain address ranges, such as the company's sites", de: "nur aus bestimmten Adressbereichen erreichbar, etwa von den Firmenstandorten" }
-          unfiltered: { en: "reachable from the whole internet without a filter in front - only the sign-in protects them", de: "aus dem ganzen Internet ohne Filter davor erreichbar - nur die Anmeldung schützt sie" }
+          unfiltered: { en: "reachable from the whole internet without a filter in front (note: whether anyone has to sign in is up to the application alone)", de: "aus dem ganzen Internet ohne Filter davor erreichbar (Hinweis: ob jemand sich anmelden muss, entscheidet allein die Anwendung)" }
         accepts: [waf, known_addresses, unfiltered]
         default: waf
         depends_on: { question: network_exposure, not_equals: private }
