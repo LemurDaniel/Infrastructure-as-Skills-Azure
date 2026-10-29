@@ -17,6 +17,11 @@ Read-only. Checks what the contract in references/spec.md promises:
   4. `assumed` values and `open:` entries are reported, with what they block.
      A spec holding either is valid - it is not applyable, which is the
      distinction the exit code makes.
+  4a. A resource decision is resources.<resource>.<group>.<question>, naming a
+     question of the resource's set in that group (placement.resource_group and
+     placement.location are every resource's).
+  4b. An `enum` value, or each item of a `list` whose `accepts` is a list, is one
+     its question accepts - per stage where the value is split by stage.
   5. No decision key uses a backend's attribute spelling
      (public_network_access_enabled, allowBlobPublicAccess, ...). The spec
      names decisions; one backend's vocabulary in it breaks the others.
@@ -48,7 +53,7 @@ Read-only. Checks what the contract in references/spec.md promises:
      assignment, `Key Vault Secrets Officer` on each vault with secret
      placeholders, `Contributor` on `subscription` too for deployment_scope
      subscription. A `create` group under deployment_scope resource_group is an
-     error. A missing role is an error; a spec without the key is a
+     error. A `wiring.access` line is { from, to, label? } and nothing else. A missing role is an error; a spec without the key is a
      warning (written before the key existed). Under `stage_isolation:
      resource_group` no group is `create` and no deployer role is scoped to
      `subscription`: either reaches every stage, and the separation is gone.
@@ -84,6 +89,8 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 PLUGIN = os.path.abspath(os.path.join(HERE, '..', '..', '..'))
 sys.path.insert(0, os.path.join(HERE, '..', '..', 'iac-rendering', 'scripts'))
 import rg_roles  # noqa: E402 - the role table per scheme, shared with the diagram and the documents
+# Resource keys every resource may carry without its set asking them (spec.md: placement).
+BUILTIN_RESOURCE_KEYS = {('placement', 'resource_group'), ('placement', 'location')}
 RG_MODES = ['existing', 'create']
 RG_LOCKS = ['production', 'all_stages', 'none']
 # A role satisfies a need when it is the narrow one or broader; broader is the platform's call.
@@ -242,6 +249,53 @@ def main():
             node = node[part]
         return True
 
+    owners = {o for o, _ in questions}
+
+    def check_known(path):
+        # A resource decision is resources.<key>.<group>.<id> naming a question of the
+        # resource's set in that group. An invented key renders as raw JSON in the decision
+        # document and reaches no renderer. A resource without a set is said out loud elsewhere.
+        parts = path.split('.')
+        if parts[0] != 'resources' or len(parts) < 2 or parts[1].split('__')[0] not in owners:
+            return
+        res = parts[1].split('__')[0]
+        if len(parts) != 4:
+            errors.append(f"{path} is not resources.<resource>.<group>.<question> - a decision sits under a group, one level deep")
+            return
+        if tuple(parts[2:]) in BUILTIN_RESOURCE_KEYS:
+            return
+        q = questions.get((res, parts[3]))
+        if q is None:
+            errors.append(f"{path} names no question of the {res} set - an invented key reaches no renderer")
+        elif q.get('_group') != parts[2]:
+            errors.append(f"{path} is in group '{parts[2]}', but the {res} set asks {parts[3]} in '{q.get('_group')}'")
+
+    def check_accepts(path, v):
+        # An enum's value, or each item of a list with a list `accepts`, is one the set
+        # offers - per stage where the value is split by stage.
+        parts = path.split('.')
+        if parts[0] == 'deployment' and len(parts) == 2:
+            q = questions.get(('deployment', parts[1]))
+        elif parts[0] == 'resources' and len(parts) == 4:
+            q = questions.get((parts[1].split('__')[0], parts[3]))
+            if q is not None and q.get('_group') != parts[2]:
+                q = None
+        else:
+            return
+        acc = (q or {}).get('accepts')
+        if not isinstance(acc, list) or q.get('type') not in ('enum', 'list'):
+            return
+        allowed = {str(a).lower() for a in acc}
+        staged = v.items() if environments and isinstance(v, dict) and v and all(k in environments for k in v) else [(None, v)]
+        for stage, sv in staged:
+            items = sv if q['type'] == 'list' and isinstance(sv, list) else [sv]
+            for item in items:
+                if item is None or isinstance(item, (dict, list)):
+                    continue
+                if str(item).lower() not in allowed:
+                    where = f" (stage {stage})" if stage else ''
+                    errors.append(f"{path}{where} is '{item}', which is not one of its question's accepts: {', '.join(str(a) for a in acc)}")
+
     def walk(node, path):
         nonlocal decisions, stage_maps
         # A decision is a map carrying a `value`. Anything else is a container.
@@ -267,6 +321,8 @@ def main():
                     errors.append(f"{path} is split by stage, but its question is neither per_environment nor a cost knob - one value for every stage, or the user's departure recorded as overridden")
             elif environments and isinstance(v, dict) and any(k in environments for k in v):
                 errors.append(f"{path} mixes stage names and other keys in its value")
+            check_known(path)
+            check_accepts(path, v)
             if not src:
                 errors.append(f"{path} has a value but no source. Strip provenance and the spec is a settings dump.")
             elif src not in KNOWN_SOURCES:
@@ -535,6 +591,24 @@ def main():
             p = str(get(a, side) or '')
             if p.split('__')[0] in set_names and p not in res_keys:
                 errors.append(f"wiring.role_assignments names '{p}' ({side}), which is not a resource of this spec")
+
+    # --- 9b. an access line is { from, to, label? } ------------------------------
+    # An unquoted `label: Users, HTTPS` parses as a label plus a key `HTTPS: null`; the
+    # diagram reads only from, to and label, so anything else is a parse accident.
+    access = get(get(spec, 'wiring'), 'access')
+    for i, a in enumerate((access.get('value') or []) if isinstance(access, dict) else []):
+        if not isinstance(a, dict):
+            errors.append(f"wiring.access[{i}] is not a mapping {{ from, to, label }}")
+            continue
+        extra = sorted(str(k) for k in a if k not in ('from', 'to', 'label'))
+        if extra:
+            errors.append(f"wiring.access[{i}] ({a.get('from')} -> {a.get('to')}) has unknown key(s) {', '.join(extra)} - "
+                          f"a label with a comma must be quoted")
+        for side in ('from', 'to'):
+            if not isinstance(a.get(side), str) or not a.get(side):
+                errors.append(f"wiring.access[{i}] has no '{side}'")
+        if 'label' in a and not isinstance(a['label'], str):
+            errors.append(f"wiring.access[{i}] label is not text")
 
     # --- 9c. application monitoring brings its component ------------------------
     # `application_monitoring: enabled` with an application means one application-insights

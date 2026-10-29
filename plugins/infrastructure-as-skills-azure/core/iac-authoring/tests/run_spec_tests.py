@@ -12,7 +12,10 @@ have - and the check must fail with the message that names it. The same holds fo
 region per stage, another resource departing, or country residency. Application monitoring
 enabled with an app and no application-insights resource fails; with the component it passes.
 `observability_ownership: create` without a log-analytics-workspace resource fails, and so does
-the workspace written as `{}`. A mutation whose text is no
+the workspace written as `{}`. An access line with a key other than from, to and label (an
+unquoted comma in the label) or without its target fails, and so does an enum value outside its
+question's `accepts`, on a resource and on the deployment, and a resource key that is no
+question of its set, sits in another group, or sits directly under the resource. A mutation whose text is no
 longer in the fixture fails the run: a test that cannot break anything proves nothing.
 
 Usage:
@@ -80,6 +83,25 @@ MUTATIONS = [
      'but the spec has no log-analytics-workspace resource'),
     ('a created workspace with no decisions', WORKSPACE, "  log-analytics-workspace: {}\n",
      'resources.log-analytics-workspace records no decision'),
+    ('an access label with an unquoted comma', 'label: HTTPS 443 }', 'label: Users, HTTPS 443 }',
+     "wiring.access[0] (users -> app-service) has unknown key(s) HTTPS 443"),
+    ('an access line without its target', '{ from: app-service, to: key-vault }', '{ from: app-service }',
+     "wiring.access[2] has no 'to'"),
+    ('an enum value its question does not accept', "  storage-account:\n    networking:\n      public_network_access: { value: disabled,",
+     "  storage-account:\n    networking:\n      public_network_access: { value: firewalled,",
+     "resources.storage-account.networking.public_network_access is 'firewalled', which is not one of its question's accepts"),
+    ('a resource key its set does not ask', "  storage-account:\n    networking:\n",
+     "  storage-account:\n    placement:\n      hierarchical_storage: { value: true, source: stated }\n    networking:\n",
+     "resources.storage-account.placement.hierarchical_storage names no question of the storage-account set"),
+    ('a question in the wrong group', "  storage-account:\n    networking:\n",
+     "  storage-account:\n    security:\n      replication: { value: LRS, source: stated }\n    networking:\n",
+     "resources.storage-account.security.replication is in group 'security', but the storage-account set asks replication in 'data_protection'"),
+    ('a decision directly under a resource', "  storage-account:\n    networking:\n",
+     "  storage-account:\n    storage_kind: { value: data_lake, source: stated }\n    networking:\n",
+     "resources.storage-account.storage_kind is not resources.<resource>.<group>.<question>"),
+    ('a deployment value its question does not accept', "  resource_group_lock: { value: production, source: default }\n",
+     "  resource_group_lock: { value: production, source: default }\n  observability_ownership: { value: central, source: stated }\n",
+     "deployment.observability_ownership is 'central', which is not one of its question's accepts"),
 ]
 
 # The fixture with application monitoring and its component: (find, replace), both must hit.
