@@ -486,6 +486,26 @@ groups:
           default.
         renders: access_tier / properties.accessTier
 
+      - id: hierarchical_namespace
+        ask:
+          en: "Is the account a data lake, with real folders that analytics tools read?"
+          de: "Ist das Konto ein Data Lake, mit echten Ordnern, die Analysewerkzeuge lesen?"
+        type: bool
+        plain:
+          en: "The account is {value}."
+          de: "Das Konto ist {value}."
+        plain_values:
+          true: { en: "a data lake with real folders (Data Lake Storage Gen2)", de: "ein Data Lake mit echten Ordnern (Data Lake Storage Gen2)" }
+          false: { en: "plain blob storage without folders", de: "ein einfacher Blob-Speicher ohne Ordner" }
+        default: false
+        why: >
+          The hierarchical namespace turns blob paths into real directories with their own
+          access lists, which Spark, Synapse, Fabric and Event Hubs capture expect of a data
+          lake. Set at creation: an existing account can be upgraded once, never reverted.
+          Off by default because it costs blob features an ordinary account keeps, among them
+          point-in-time restore; SFTP needs it on.
+        renders: is_hns_enabled / properties.isHnsEnabled
+
       - id: blob_soft_delete_days
         ask:
           en: "How many days should deleted blobs stay restorable?"

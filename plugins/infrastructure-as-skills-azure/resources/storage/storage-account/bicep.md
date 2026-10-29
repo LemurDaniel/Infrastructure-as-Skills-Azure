@@ -32,6 +32,7 @@ version and re-read its README parameters before rendering, as
 | `allow_blob_public_access` | `allowBlobPublicAccess` | |
 | `infrastructure_encryption_enabled` | `requireInfrastructureEncryption` | Module default `true`; written anyway |
 | `sftp_enabled` | `enableSftp` (+ `enableHierarchicalNamespace: true`) | |
+| `hierarchical_namespace` | `enableHierarchicalNamespace` | |
 | `replication`, `access_tier` | `skuName: 'Standard_ZRS'`, `accessTier` | Module default is **`Standard_GRS`** — the guardrail says ZRS; must be written |
 | `managed_identity` | `managedIdentities: { systemAssigned: true }` | |
 | `key_management: customer_managed` | `customerManagedKey: { keyVaultResourceId, keyName, userAssignedIdentityResourceId }` | |
@@ -166,6 +167,7 @@ this way, or reading what the module does inside.
 | `access_tier` | `properties.accessTier` |
 | `infrastructure_encryption_enabled` | `properties.encryption.requireInfrastructureEncryption` |
 | `sftp_enabled` | `properties.isSftpEnabled` (requires `isHnsEnabled: true`) |
+| `hierarchical_namespace` | `properties.isHnsEnabled` |
 
 Note the shape difference from Terraform: replication is not its own property but encoded
 into the SKU name together with the tier, so `Standard` + `ZRS` becomes `Standard_ZRS`.
