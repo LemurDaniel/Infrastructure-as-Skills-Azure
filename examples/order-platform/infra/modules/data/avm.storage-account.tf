@@ -38,7 +38,7 @@ module "storage_datalake" {
   location  = var.location
   parent_id = var.resource_groups["data"].id
 
-  # decision: storage-account__datalake.storage_kind - a data lake: StorageV2 with the hierarchical namespace
+  # decision: storage-account__datalake.data_protection.hierarchical_namespace - a data lake: StorageV2 with the hierarchical namespace
   account_kind   = "StorageV2"
   is_hns_enabled = true
 

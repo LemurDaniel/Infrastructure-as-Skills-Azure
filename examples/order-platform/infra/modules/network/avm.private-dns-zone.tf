@@ -5,7 +5,7 @@ module "private_dns_zone" {
   source  = "Azure/avm-res-network-privatednszone/azurerm"
   version = "~> 0.5.0"
 
-  # decision: private-dns-zone.zones
+  # decision: private-dns-zone.zone.zone_names
   for_each = toset(local.private_dns_zones)
 
   domain_name = each.key

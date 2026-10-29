@@ -1,7 +1,7 @@
 data "azurerm_client_config" "current" {}
 
 locals {
-  # decision: virtual-machine.instances - 3, assumed ("a few VMs")
+  # decision: virtual-machine.machine.instance_count - 3, assumed ("a few VMs")
   vm_instances = 3
   vm_keys      = [for i in range(local.vm_instances) : tostring(i + 1)]
 }

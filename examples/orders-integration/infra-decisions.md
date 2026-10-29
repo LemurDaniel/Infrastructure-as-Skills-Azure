@@ -29,10 +29,10 @@ Ein Code wird durch diese Stufen ausgerollt; alles, was hier nicht steht, ist in
 - Logs werden Entwicklung: 30; Test: 30; Echtbetrieb: 90 Tage aufbewahrt.
 - Azure API Management service: Das Gateway ist die Stufe Entwicklung: eine Teststufe ohne Verfügbarkeitszusage; Test: eine Teststufe ohne Verfügbarkeitszusage; Echtbetrieb: Premium, mit Zonen, mehreren Regionen und Netzwerkeinbindung.
 - Azure Service Bus namespace: Der Namensraum ist die Stufe Entwicklung: Standard, Warteschlangen und Themen auf geteilter Kapazität; Test: Standard, Warteschlangen und Themen auf geteilter Kapazität; Echtbetrieb: Premium, dedizierte Kapazität mit privaten Anbindungen.
-- Azure Service Bus namespace: Der Dienst (namespace) ist Entwicklung: firewalled; Test: firewalled; Echtbetrieb: aus dem Internet überhaupt nicht erreichbar.
-- Azure Backup vault: `{"development": "LRS", "test": "LRS", "production": "GRS"}`
+- Azure Service Bus namespace: Der Dienst (namespace) ist Entwicklung: aus dem Internet nur von gelisteten Adressen erreichbar; Test: aus dem Internet nur von gelisteten Adressen erreichbar; Echtbetrieb: aus dem Internet überhaupt nicht erreichbar.
+- Azure Backup vault: Die Sicherungen werden Entwicklung: dreifach in einem Rechenzentrum; Test: dreifach in einem Rechenzentrum; Echtbetrieb: zusätzlich in einer zweiten Region aufbewahrt.
 - Azure Backup vault: Wiederherstellung in der Partnerregion ist Entwicklung: nicht möglich; Test: nicht möglich; Echtbetrieb: möglich.
-- Azure Recovery Services vault: `{"development": "LRS", "test": "LRS", "production": "GRS"}`
+- Azure Recovery Services vault: Die Sicherungen werden Entwicklung: dreifach in einem Rechenzentrum; Test: dreifach in einem Rechenzentrum; Echtbetrieb: zusätzlich in einer zweiten Region aufbewahrt.
 - Azure Recovery Services vault: Wiederherstellung in der Partnerregion ist Entwicklung: nicht möglich; Test: nicht möglich; Echtbetrieb: möglich.
 - Azure Log Analytics Workspace: Logs werden Entwicklung: 30; Test: 30; Echtbetrieb: 90 Tage aufbewahrt.
 - Azure Virtual Network: Das Netz nutzt den Adressbereich Entwicklung: 10.100.0.0/22; Test: 10.100.4.0/22; Echtbetrieb: 10.100.8.0/22.
@@ -75,34 +75,25 @@ Die Sicherheitsvorgaben aller Teile an einer Stelle. Sie wurden nicht gefragt un
 
 - **Azure Front Door (Standard / Premium)**
   - Gepflegte Firewall-Regeln sind angewandt.
-- **Azure API Management service**
-  - `true`
-- **Azure Service Bus namespace**
-  - Zugriffsschlüssel und Verbindungszeichenfolgen sind abgeschaltet.
-- **Azure Event Grid custom topic**
-  - `"managed_identity"`
 - **Azure Storage Account**
   - Zugriff mit einem geteilten Schlüssel ist nicht möglich; der Zugriff läuft über Firmenkonten.
-- **Azure Key Vault**
-  - Der Zugriff auf den Inhalt des Tresors wird über Rollenzuweisungen, wie alles andere in Azure gesteuert.
 
 ### Azure Front Door (Standard / Premium)
 
-- Front Door ist die Stufe Premium.
+- Front Door ist die Stufe Premium, mit verwalteten Firewall-Regeln und privaten Verbindungen zu den Backends.
 - Backends: application-gateway.
 
 ### Azure Application Gateway (v2) with web application firewall
 
-- `"WAF_v2"`
-- `["api-management"]`
+- Die Anfragen werden von einer Web Application Firewall geprüft.
 
 ### Azure API Management service
 
 - Das Gateway ist die Stufe Entwicklung: eine Teststufe ohne Verfügbarkeitszusage; Test: eine Teststufe ohne Verfügbarkeitszusage; Echtbetrieb: Premium, mit Zonen, mehreren Regionen und Netzwerkeinbindung.
-- `"Internal"`
-- `"entra-id"`
-- `"per-subscription"`
-- `"function-app"`
+- Die Instanz hat eine eigene Identität.
+- Das Gateway ist nur im privaten Netz.
+- Aufrufer melden sich an mit ihrem Firmenkonto.
+- APIs: orders (backend: function-app) (leer: noch keine).
 
 ### Azure Functions (function app on Flex Consumption or Elastic Premium)
 
@@ -110,39 +101,45 @@ Die Sicherheitsvorgaben aller Teile an einer Stelle. Sie wurden nicht gefragt un
 
 ### Azure Service Bus namespace
 
-- `{"subscriptions": ["billing", "shipping", "audit"], "filter": "order-type"}`
-- `{"dead_lettering": true, "duplicate_detection": true}`
+- Zugriffsschlüssel und Verbindungszeichenfolgen sind abgeschaltet.
+- Themen und ihre Abonnenten: orders (subscriptions: billing, shipping, audit, filter: order-type) (leer: keine).
+- Warteschlangen: payments (dead_lettering: ja, duplicate_detection: ja) (leer: keine).
 
 ### Azure Event Hubs namespace
 
 - Der Dienst (namespace) ist aus dem Internet überhaupt nicht erreichbar.
-- `4`
-- `7`
-- `"storage-account"`
+- Der Datenstrom kann von bis zu 4 Lesern gleichzeitig verarbeitet werden.
+- Ereignisse bleiben 7 Tag(e) lesbar.
+- Jedes Ereignis wird zusätzlich als Dateien im Speicher archiviert.
+- Das Archiv geht in das Speicherkonto storage-account.
 
 ### Azure Event Grid custom topic
 
-- `{"source": "storage-account", "destination": "function-app"}`
+- Das Thema hat eine eigene Identität.
+- Abonnenten: blob-events (source: storage-account, target: function-app) (leer: noch keine).
 
 ### Azure Storage Account
 
-- `true`
 - Der Speicher ist aus dem Internet überhaupt nicht erreichbar.
+- Das Konto ist ein Data Lake mit echten Ordnern (Data Lake Storage Gen2).
 
 ### Azure Backup vault
 
-- `{"development": "LRS", "test": "LRS", "production": "GRS"}`
-- `true`
-- `["storage-account"]`
+- Die Sicherungen werden Entwicklung: dreifach in einem Rechenzentrum; Test: dreifach in einem Rechenzentrum; Echtbetrieb: zusätzlich in einer zweiten Region aufbewahrt.
+- Gesichert werden: storage-account (kind: blob) (leer: noch nichts).
 
 ### Azure Recovery Services vault
 
-- `{"development": "LRS", "test": "LRS", "production": "GRS"}`
-- Gelöschte Sicherungen werden ja.
+- Die Sicherungen werden Entwicklung: dreifach in einem Rechenzentrum; Test: dreifach in einem Rechenzentrum; Echtbetrieb: zusätzlich in einer zweiten Region aufbewahrt.
+- Gelöschte Sicherungen werden eine Zeit lang aufbewahrt und wiederherstellbar, Administratoren können das aber abschalten.
 
 ### Azure Log Analytics Workspace
 
 - Logs werden Entwicklung: 30; Test: 30; Echtbetrieb: 90 Tage aufbewahrt.
+
+### Azure Key Vault
+
+- Der Zugriff auf den Inhalt des Tresors wird über Rollenzuweisungen, wie alles andere in Azure gesteuert.
 
 ### Azure Virtual Network
 
@@ -154,7 +151,7 @@ Die Sicherheitsvorgaben aller Teile an einer Stelle. Sie wurden nicht gefragt un
 - Azure Front Door (Standard / Premium): Front Door erreicht die Backends über die öffentlichen Adressen der Backends. _(Grund: Application Gateway has no Private Link origin; it is locked to the AzureFrontDoor.Backend tag and the X-Azure-FDID header.)_
 - Azure Application Gateway (v2) with web application firewall: Das Gateway nimmt Anfragen aus dem Internet entgegen. _(Grund: Reached by Front Door over its public IP, restricted to the AzureFrontDoor.Backend service tag and the X-Azure-FDID header.)_
 - Azure Service Bus namespace: Der Namensraum ist die Stufe Entwicklung: Standard, Warteschlangen und Themen auf geteilter Kapazität; Test: Standard, Warteschlangen und Themen auf geteilter Kapazität; Echtbetrieb: Premium, dedizierte Kapazität mit privaten Anbindungen. _(Grund: Customer named the stage split explicitly - Premium in production, Standard otherwise.)_
-- Azure Service Bus namespace: Der Dienst (namespace) ist Entwicklung: firewalled; Test: firewalled; Echtbetrieb: aus dem Internet überhaupt nicht erreichbar. _(Grund: Standard has no private endpoint; the customer chose a firewalled public endpoint in development and test.)_
+- Azure Service Bus namespace: Der Dienst (namespace) ist Entwicklung: aus dem Internet nur von gelisteten Adressen erreichbar; Test: aus dem Internet nur von gelisteten Adressen erreichbar; Echtbetrieb: aus dem Internet überhaupt nicht erreichbar. _(Grund: Standard has no private endpoint; the customer chose a firewalled public endpoint in development and test.)_
 - Azure Backup vault: Wiederherstellung in der Partnerregion ist Entwicklung: nicht möglich; Test: nicht möglich; Echtbetrieb: möglich. _(Grund: Customer asked for cross-region restore in production only.)_
 - Azure Recovery Services vault: Wiederherstellung in der Partnerregion ist Entwicklung: nicht möglich; Test: nicht möglich; Echtbetrieb: möglich. _(Grund: Customer asked for cross-region restore in production only.)_
 
@@ -191,43 +188,41 @@ Solange diese Punkte offen sind, wird nichts ausgerollt.
 | `deployment.local_auth` | disabled | eure Beschreibung |
 | `deployment.mandates` | [] | eure Antwort |
 | `deployment.log_retention_days` | {"development": 30, "test": 30, "production": 90} | eure Beschreibung |
-| `front-door.placement.sku` | Premium | eure Beschreibung |
+| `front-door.profile.sku` | Premium_AzureFrontDoor | eure Beschreibung |
 | `front-door.security.waf_managed_rules` | true | eure Beschreibung |
-| `front-door.networking.origin_connection` | public | eure Abweichung |
-| `front-door.networking.origins` | ["application-gateway"] | eure Beschreibung |
-| `application-gateway.placement.sku` | WAF_v2 | eure Beschreibung |
+| `front-door.delivery.origin_connection` | public | eure Abweichung |
+| `front-door.delivery.origins` | ["application-gateway"] | eure Beschreibung |
+| `application-gateway.gateway.waf_enabled` | true | eure Beschreibung |
 | `application-gateway.networking.frontend_exposure` | public | eure Abweichung |
-| `application-gateway.networking.backends` | ["api-management"] | eure Beschreibung |
-| `api-management.placement.sku` | {"development": "Developer", "test": "Developer", "production": "Premium"} | eure Beschreibung |
-| `api-management.networking.virtual_network_type` | Internal | eure Beschreibung |
-| `api-management.identity.system_assigned_identity` | true | eure Beschreibung |
-| `api-management.policies.jwt_validation` | entra-id | eure Beschreibung |
-| `api-management.policies.rate_limit` | per-subscription | eure Beschreibung |
-| `api-management.policies.backend_routing` | function-app | eure Beschreibung |
+| `api-management.service.sku` | {"development": "Developer", "test": "Developer", "production": "Premium"} | eure Beschreibung |
+| `api-management.service.managed_identity` | system_assigned | eure Beschreibung |
+| `api-management.networking.network_integration` | internal | eure Beschreibung |
+| `api-management.access.caller_authentication` | entra_id | eure Beschreibung |
+| `api-management.access.apis` | [{"name": "orders", "backend": "function-app"}] | eure Beschreibung |
 | `function-app.networking.public_network_access` | disabled | übernommen |
-| `service-bus.placement.sku` | {"development": "Standard", "test": "Standard", "production": "Premium"} | eure Abweichung |
-| `service-bus.networking.public_network_access` | {"development": "firewalled", "test": "firewalled", "production": "disabled"} | eure Abweichung |
-| `service-bus.security.local_auth` | disabled | eure Beschreibung |
-| `service-bus.topics.orders` | {"subscriptions": ["billing", "shipping", "audit"], "filter": "order-type"} | eure Beschreibung |
-| `service-bus.queues.payments` | {"dead_lettering": true, "duplicate_detection": true} | eure Beschreibung |
+| `service-bus.namespace.sku` | {"development": "Standard", "test": "Standard", "production": "Premium"} | eure Abweichung |
+| `service-bus.namespace.local_auth` | disabled | eure Beschreibung |
+| `service-bus.networking.public_network_access` | {"development": "enabled_with_firewall", "test": "enabled_with_firewall", "production": "disabled"} | eure Abweichung |
+| `service-bus.entities.topics` | [{"name": "orders", "subscriptions": ["billing", "shipping", "audit"], "filter": "order-type"}] | eure Beschreibung |
+| `service-bus.entities.queues` | [{"name": "payments", "dead_lettering": true, "duplicate_detection": true}] | eure Beschreibung |
 | `event-hubs.networking.public_network_access` | disabled | übernommen |
-| `event-hubs.data.partitions` | 4 | eure Beschreibung |
-| `event-hubs.data.retention_days` | 7 | eure Beschreibung |
-| `event-hubs.data.capture` | storage-account | eure Beschreibung |
-| `event-grid-topic.identity.delivery_auth` | managed_identity | eure Beschreibung |
-| `event-grid-topic.subscriptions.blob-events` | {"source": "storage-account", "destination": "function-app"} | eure Beschreibung |
-| `storage-account.placement.hierarchical_namespace` | true | eure Beschreibung |
+| `event-hubs.entities.partition_count` | 4 | eure Beschreibung |
+| `event-hubs.entities.message_retention_days` | 7 | eure Beschreibung |
+| `event-hubs.entities.event_archive` | true | eure Beschreibung |
+| `event-hubs.entities.archive_storage_account` | storage-account | eure Beschreibung |
+| `event-grid-topic.topic.managed_identity` | system_assigned | eure Beschreibung |
+| `event-grid-topic.delivery.event_subscriptions` | [{"name": "blob-events", "source": "storage-account", "target": "function-app"}] | eure Beschreibung |
 | `storage-account.networking.public_network_access` | disabled | übernommen |
 | `storage-account.security.shared_access_key_enabled` | false | übernommen |
-| `backup-vault.data_protection.redundancy` | {"development": "LRS", "test": "LRS", "production": "GRS"} | eure Beschreibung |
-| `backup-vault.data_protection.cross_region_restore` | {"development": false, "test": false, "production": true} | eure Abweichung |
-| `backup-vault.data_protection.soft_delete` | true | eure Beschreibung |
-| `backup-vault.data_protection.protects` | ["storage-account"] | eure Beschreibung |
-| `recovery-services-vault.data_protection.redundancy` | {"development": "LRS", "test": "LRS", "production": "GRS"} | eure Beschreibung |
-| `recovery-services-vault.data_protection.cross_region_restore` | {"development": false, "test": false, "production": true} | eure Abweichung |
-| `recovery-services-vault.data_protection.soft_delete` | true | eure Beschreibung |
-| `log-analytics-workspace.data_protection.retention_days` | {"development": 30, "test": 30, "production": 90} | eure Beschreibung |
-| `key-vault.security.rbac_authorization` | true | übernommen |
-| `virtual-network.networking.address_space` | {"development": "10.100.0.0/22", "test": "10.100.4.0/22", "production": "10.100.8.0/22"} | eure Antwort |
+| `storage-account.data_protection.hierarchical_namespace` | true | eure Beschreibung |
+| `backup-vault.vault.storage_redundancy` | {"development": "LocallyRedundant", "test": "LocallyRedundant", "production": "GeoRedundant"} | eure Beschreibung |
+| `backup-vault.vault.cross_region_restore` | {"development": false, "test": false, "production": true} | eure Abweichung |
+| `backup-vault.protection.protected_resources` | [{"name": "storage-account", "kind": "blob"}] | eure Beschreibung |
+| `recovery-services-vault.vault.storage_redundancy` | {"development": "LocallyRedundant", "test": "LocallyRedundant", "production": "GeoRedundant"} | eure Beschreibung |
+| `recovery-services-vault.vault.cross_region_restore` | {"development": false, "test": false, "production": true} | eure Abweichung |
+| `recovery-services-vault.vault.soft_delete` | Enabled | eure Beschreibung |
+| `log-analytics-workspace.cost.retention_days` | {"development": 30, "test": 30, "production": 90} | eure Beschreibung |
+| `key-vault.vault.rbac_authorization` | true | übernommen |
+| `virtual-network.addressing.address_space` | {"development": "10.100.0.0/22", "test": "10.100.4.0/22", "production": "10.100.8.0/22"} | eure Antwort |
 | `wiring.access` | [{"from": "internet", "to": "front-door", "label": "HTTPS 443"}, {"from": "front-door", "to": "application-gateway", "label": "HTTPS, nur Front Door"}, {"from": "application-gateway", "to": "api-management", "label": "HTTPS intern"}, {"from": "api-management", "to": "function-app", "label": "Backend-Routing"}, {"from": "function-app", "to": "service-bus", "label": "Entra-Login"}, {"from": "event-hubs", "to": "storage-account", "label": "Capture"}, {"from": "event-grid-topic", "to": "function-app", "label": "Blob-Events"}, {"from": "storage-account", "to": "event-grid-topic", "label": "Blob-Events"}, {"from": "backup-vault", "to": "storage-account", "label": "Blob-Backup"}] | eure Beschreibung |
 | `wiring.purposes` | {"front-door": "Öffentlicher Eingang mit WAF", "application-gateway": "WAF vor APIM", "api-management": "API-Schicht", "function-app": "Bestell-Backend", "service-bus": "Bestellnachrichten", "event-hubs": "Telemetrie", "event-grid-topic": "Blob-Events", "storage-account": "Telemetrie-Ablage", "backup-vault": "Blob-Backup", "recovery-services-vault": "VM-Backup", "log-analytics-workspace": "Zentrale Logs", "key-vault": "Secrets"} | eure Beschreibung |

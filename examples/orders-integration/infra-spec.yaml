@@ -94,118 +94,131 @@ composition:
 
 resources:
   front-door:
-    placement:
-      sku: {value: Premium, source: stated}
-    security:
-      waf_managed_rules: {value: true, source: stated}
-    networking:
+    profile:
+      sku: {value: Premium_AzureFrontDoor, source: stated}
+    delivery:
+      origins: {value: [application-gateway], source: stated}
       origin_connection:
         value: public
         source: overridden
         reason: Application Gateway has no Private Link origin; it is locked to the AzureFrontDoor.Backend tag and the X-Azure-FDID
           header.
-      origins: {value: [application-gateway], source: stated}
+    security:
+      waf_managed_rules: {value: true, source: stated}
 
   application-gateway:
-    placement:
-      sku: {value: WAF_v2, source: stated}
+    gateway:
+      waf_enabled: {value: true, source: stated}
     networking:
       frontend_exposure:
         value: public
         source: overridden
         reason: Reached by Front Door over its public IP, restricted to the AzureFrontDoor.Backend service tag and the X-Azure-FDID
           header.
-      backends: {value: [api-management], source: stated}
 
   api-management:
-    placement:
+    service:
       sku: {value: {development: Developer, test: Developer, production: Premium}, source: stated}
+      managed_identity: {value: system_assigned, source: stated}
+    access:
+      caller_authentication: {value: entra_id, source: stated}
+      apis:
+        value:
+        - {name: orders, backend: function-app}
+        source: stated
     networking:
-      virtual_network_type: {value: Internal, source: stated}
-    identity:
-      system_assigned_identity: {value: true, source: stated}
-    policies:
-      jwt_validation: {value: entra-id, source: stated}
-      rate_limit: {value: per-subscription, source: stated}
-      backend_routing: {value: function-app, source: stated}
+      network_integration: {value: internal, source: stated}
 
   function-app:
     networking:
       public_network_access: {value: disabled, source: deployment}
 
   service-bus:
-    placement:
+    namespace:
       sku:
         value: {development: Standard, test: Standard, production: Premium}
         source: overridden
         reason: Customer named the stage split explicitly - Premium in production, Standard otherwise.
-    networking:
-      public_network_access:
-        value: {development: firewalled, test: firewalled, production: disabled}
-        source: overridden
-        reason: Standard has no private endpoint; the customer chose a firewalled public endpoint in development and test.
-    security:
       local_auth: {value: disabled, source: stated}
-    topics:
-      orders:
+    entities:
+      queues:
         value:
+        - {name: payments, dead_lettering: true, duplicate_detection: true}
+        source: stated
+      topics:
+        value:
+        - name: orders
           subscriptions: [billing, shipping, audit]
           filter: order-type
         source: stated
-    queues:
-      payments: {value: {dead_lettering: true, duplicate_detection: true}, source: stated}
+    networking:
+      public_network_access:
+        value: {development: enabled_with_firewall, test: enabled_with_firewall, production: disabled}
+        source: overridden
+        reason: Standard has no private endpoint; the customer chose a firewalled public endpoint in development and test.
 
   event-hubs:
+    entities:
+      partition_count: {value: 4, source: stated}
+      message_retention_days: {value: 7, source: stated}
+      event_archive: {value: true, source: stated}
+      archive_storage_account: {value: storage-account, source: stated}
     networking:
       public_network_access: {value: disabled, source: deployment}
-    data:
-      partitions: {value: 4, source: stated}
-      retention_days: {value: 7, source: stated}
-      capture: {value: storage-account, source: stated}
 
   event-grid-topic:
-    identity:
-      delivery_auth: {value: managed_identity, source: stated}
-    subscriptions:
-      blob-events: {value: {source: storage-account, destination: function-app}, source: stated}
+    topic:
+      managed_identity: {value: system_assigned, source: stated}
+    delivery:
+      event_subscriptions:
+        value:
+        - {name: blob-events, source: storage-account, target: function-app}
+        source: stated
 
   storage-account:
-    placement:
-      hierarchical_namespace: {value: true, source: stated}
     networking:
       public_network_access: {value: disabled, source: deployment}
     security:
       shared_access_key_enabled: {value: false, source: deployment}
+    data_protection:
+      hierarchical_namespace: {value: true, source: stated}
 
   backup-vault:
-    data_protection:
-      redundancy: {value: {development: LRS, test: LRS, production: GRS}, source: stated}
+    vault:
+      storage_redundancy:
+        value: {development: LocallyRedundant, test: LocallyRedundant, production: GeoRedundant}
+        source: stated
       cross_region_restore:
         value: {development: false, test: false, production: true}
         source: overridden
         reason: Customer asked for cross-region restore in production only.
-      soft_delete: {value: true, source: stated}
-      protects: {value: [storage-account], source: stated}
+    protection:
+      protected_resources:
+        value:
+        - {name: storage-account, kind: blob}
+        source: stated
 
   recovery-services-vault:
-    data_protection:
-      redundancy: {value: {development: LRS, test: LRS, production: GRS}, source: stated}
+    vault:
+      storage_redundancy:
+        value: {development: LocallyRedundant, test: LocallyRedundant, production: GeoRedundant}
+        source: stated
       cross_region_restore:
         value: {development: false, test: false, production: true}
         source: overridden
         reason: Customer asked for cross-region restore in production only.
-      soft_delete: {value: true, source: stated}
+      soft_delete: {value: Enabled, source: stated}
 
   log-analytics-workspace:
-    data_protection:
+    cost:
       retention_days: {value: {development: 30, test: 30, production: 90}, source: stated}
 
   key-vault:
-    security:
+    vault:
       rbac_authorization: {value: true, source: deployment}
 
   virtual-network:
-    networking:
+    addressing:
       address_space:
         value: {development: 10.100.0.0/22, test: 10.100.4.0/22, production: 10.100.8.0/22}
         source: asked

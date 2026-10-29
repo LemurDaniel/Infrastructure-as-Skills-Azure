@@ -143,7 +143,7 @@ run "function_app" {
 run "virtual_machine" {
   command = plan
 
-  # decision: virtual-machine.instances
+  # decision: virtual-machine.machine.instance_count
   assert {
     condition     = jsonencode(sort(keys(module.virtual_machine))) == jsonencode(["1", "2", "3"])
     error_message = "Three machines (assumed)."

@@ -364,8 +364,7 @@ resources:
         source: forced
         forced_by: resources.app-service__dashboard.identity.managed_identity
       entra_sign_in:
-        # No question set covers App Service authentication; this decision is rendered by hand
-        # (authsettingsV2: sign-in required, redirect to login). The registration exists already;
+        # authsettingsV2: sign-in required, redirect to login. The registration exists already;
         # its client id and the tenant id are stage-file parameters.
         value: existing_app_registration
         source: stated
@@ -381,14 +380,14 @@ resources:
       basic_auth_enabled: {value: false, source: deployment}
     runtime:
       runtime_stack: {value: container, source: stated}
-      always_on: {value: true, source: default}
-      health_check_path: {value: '', source: default}
-      http2_enabled: {value: true, source: default}
       container_image_owner:
         value: image_pipeline
         source: overridden
         reason: A separate pipeline builds, pushes and updates the image. This template sets the stage-file image only on
           the first deployment and keeps the running one afterwards.
+      always_on: {value: true, source: default}
+      health_check_path: {value: '', source: default}
+      http2_enabled: {value: true, source: default}
     observability:
       diagnostic_workspace: {value: log-analytics-workspace, source: deployment}
       diagnostic_categories:
@@ -448,15 +447,15 @@ resources:
       basic_auth_enabled: {value: false, source: deployment}
     runtime:
       runtime_stack: {value: container, source: stated}
-      always_on: {value: true, source: default}
-      # The schedule is a timer inside the app, so the site must not idle out.
-      health_check_path: {value: '', source: default}
-      http2_enabled: {value: true, source: default}
       container_image_owner:
         value: image_pipeline
         source: overridden
         reason: A separate pipeline builds, pushes and updates the image. This template sets the stage-file image only on
           the first deployment and keeps the running one afterwards.
+      always_on: {value: true, source: default}
+      # The schedule is a timer inside the app, so the site must not idle out.
+      health_check_path: {value: '', source: default}
+      http2_enabled: {value: true, source: default}
     observability:
       diagnostic_workspace: {value: log-analytics-workspace, source: deployment}
       diagnostic_categories:
@@ -514,15 +513,15 @@ resources:
       basic_auth_enabled: {value: false, source: deployment}
     runtime:
       runtime_stack: {value: container, source: stated}
-      always_on: {value: true, source: default}
-      # A run takes minutes and is started from outside, so the site must not idle out.
-      health_check_path: {value: '', source: default}
-      http2_enabled: {value: true, source: default}
       container_image_owner:
         value: image_pipeline
         source: overridden
         reason: A separate pipeline builds, pushes and updates the image. This template sets the stage-file image only on
           the first deployment and keeps the running one afterwards.
+      always_on: {value: true, source: default}
+      # A run takes minutes and is started from outside, so the site must not idle out.
+      health_check_path: {value: '', source: default}
+      http2_enabled: {value: true, source: default}
     observability:
       diagnostic_workspace: {value: log-analytics-workspace, source: deployment}
       diagnostic_categories:
@@ -583,15 +582,15 @@ resources:
       basic_auth_enabled: {value: false, source: deployment}
     runtime:
       runtime_stack: {value: container, source: stated}
-      always_on: {value: true, source: default}
-      # The schedule is a timer inside the app, so the site must not idle out.
-      health_check_path: {value: '', source: default}
-      http2_enabled: {value: true, source: default}
       container_image_owner:
         value: image_pipeline
         source: overridden
         reason: A separate pipeline builds, pushes and updates the image. This template sets the stage-file image only on
           the first deployment and keeps the running one afterwards.
+      always_on: {value: true, source: default}
+      # The schedule is a timer inside the app, so the site must not idle out.
+      health_check_path: {value: '', source: default}
+      http2_enabled: {value: true, source: default}
     observability:
       diagnostic_workspace: {value: log-analytics-workspace, source: deployment}
       diagnostic_categories:

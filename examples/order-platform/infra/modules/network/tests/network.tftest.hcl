@@ -157,7 +157,7 @@ run "public_ip" {
 run "private_dns" {
   command = plan
 
-  # decision: private-dns-zone.zones
+  # decision: private-dns-zone.zone.zone_names
   assert {
     condition = jsonencode(sort(keys(module.private_dns_zone))) == jsonencode(sort([
       "privatelink.blob.core.windows.net",

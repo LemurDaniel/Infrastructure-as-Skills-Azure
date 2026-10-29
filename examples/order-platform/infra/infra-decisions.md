@@ -126,9 +126,13 @@ Die Sicherheitsvorgaben aller Teile an einer Stelle. Sie wurden nicht gefragt un
 
 - Die Adresse ist für den Eingang eines Web-Gateways.
 
+### Azure Private DNS Zone
+
+- Zonen: privatelink.blob.core.windows.net, privatelink.dfs.core.windows.net, privatelink.queue.core.windows.net, privatelink.azurewebsites.net, privatelink.servicebus.windows.net, privatelink.azure-api.net. — weil: Die Namensauflösung für private Anbindungen übernimmt dieses Ausrollen selbst.
+
 ### Azure Application Gateway (v2) with web application firewall
 
-- Eine Web Application Firewall ist von einer Web Application Firewall geprüft.
+- Die Anfragen werden von einer Web Application Firewall geprüft.
 - Die Firewall blockiert Anfragen, die es für bösartig hält.
 - Seiten: keine.
 
@@ -155,6 +159,7 @@ Die Sicherheitsvorgaben aller Teile an einer Stelle. Sie wurden nicht gefragt un
 ### Azure Storage Account (datalake)
 
 - Private Anbindungen gibt es für: Dateien (Blob), den Data Lake. — weil: Der Zugang ist privat; nur die benannten Teile sind hinter einer Firewall aus dem Internet erreichbar, alles dahinter bleibt privat.
+- Das Konto ist ein Data Lake mit echten Ordnern (Data Lake Storage Gen2).
 
 ### Azure Storage Account (host)
 
@@ -164,7 +169,7 @@ Die Sicherheitsvorgaben aller Teile an einer Stelle. Sie wurden nicht gefragt un
 
 - Der Namensraum ist die Stufe Premium, dedizierte Kapazität mit privaten Anbindungen. — weil: Der Zugang ist privat; nur die benannten Teile sind hinter einer Firewall aus dem Internet erreichbar, alles dahinter bleibt privat.
 - Warteschlangen: payments (leer: keine).
-- Themen und ihre Abonnenten: orders subscriptions ['billing', 'shipping', 'audit'] (leer: keine).
+- Themen und ihre Abonnenten: orders (subscriptions: billing, shipping, audit) (leer: keine).
 - Zusammengehörige Nachrichten müssen nicht der Reihenfolge nach bearbeitet werden.
 - Doppelt gesendete Nachrichten werden vom Broker verworfen.
 
@@ -217,6 +222,7 @@ Werte, die der Lauf angenommen hat, um weiterzukommen. Das sind noch keine Entsc
 
 - Container: telemetry. (`resources.blob-container.containers.container_names`)
 - Zugestellte Ereignisse: Microsoft.Storage.BlobCreated (leer: alle Arten, die die Quelle meldet). (`resources.event-grid-system-topic.delivery.included_event_types`)
+- Gleiche Maschinen dieser Art: 3. (`resources.virtual-machine.machine.instance_count`)
 
 ## Anhang: alle Entscheidungen
 
@@ -266,6 +272,7 @@ Werte, die der Lauf angenommen hat, um weiterzukommen. Das sind noch keine Entsc
 | `network-security-group__workload.rules.subnet_purpose` | workload | Regel |
 | `network-security-group__pe.rules.subnet_purpose` | private_endpoints | Regel |
 | `public-ip-address__appgw.address.purpose` | application_gateway | Regel |
+| `private-dns-zone.zone.zone_names` | ["privatelink.blob.core.windows.net", "privatelink.dfs.core.windows.net", "privatelink.queue.core.windows.net", "privatelink.azurewebsites.net", "privatelink.servicebus.windows.net", "privatelink.azure-api.net"] | erzwungen |
 | `application-gateway.gateway.waf_enabled` | true | Regel |
 | `application-gateway.gateway.waf_mode` | Prevention | Regel |
 | `application-gateway.gateway.capacity_min` | 1 | abgeleitet aus eurer Antwort |
@@ -293,6 +300,7 @@ Werte, die der Lauf angenommen hat, um weiterzukommen. Das sind noch keine Entsc
 | `storage-account__datalake.data_protection.blob_soft_delete_days` | 0 | abgeleitet aus eurer Antwort |
 | `storage-account__datalake.data_protection.container_soft_delete_days` | 0 | abgeleitet aus eurer Antwort |
 | `storage-account__datalake.data_protection.versioning_enabled` | false | abgeleitet aus eurer Antwort |
+| `storage-account__datalake.data_protection.hierarchical_namespace` | true | eure Beschreibung |
 | `storage-account__host.networking.private_endpoint_subresources` | ["blob", "queue"] | erzwungen |
 | `storage-account__host.data_protection.replication` | LRS | abgeleitet aus eurer Antwort |
 | `blob-container.containers.container_names` | ["telemetry"] | Platzhalter |
@@ -312,6 +320,7 @@ Werte, die der Lauf angenommen hat, um weiterzukommen. Das sind noch keine Entsc
 | `event-grid-system-topic.delivery.destination_kind` | azure_function | eure Beschreibung |
 | `event-grid-system-topic.delivery.included_event_types` | ["Microsoft.Storage.BlobCreated"] | Platzhalter |
 | `virtual-machine.machine.os_type` | Linux | eure Antwort |
+| `virtual-machine.machine.instance_count` | 3 | Platzhalter |
 | `virtual-machine.data_protection.backup_enabled` | true | eure Abweichung |
 | `backup-vault.vault.immutability` | Disabled | abgeleitet aus eurer Antwort |
 | `backup-vault.vault.multi_user_authorization` | false | abgeleitet aus eurer Antwort |

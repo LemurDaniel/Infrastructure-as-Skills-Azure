@@ -64,7 +64,7 @@ run "naming_non_production_stage" {
 run "datalake" {
   command = plan
 
-  # decision: storage-account__datalake.storage_kind
+  # decision: storage-account__datalake.data_protection.hierarchical_namespace
   assert {
     condition     = module.storage_datalake.resource.body.kind == "StorageV2" && module.storage_datalake.resource.body.properties.isHnsEnabled == true
     error_message = "A data lake is a StorageV2 account with the hierarchical namespace."

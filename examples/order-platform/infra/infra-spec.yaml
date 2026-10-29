@@ -163,16 +163,17 @@ resources:
       purpose: {value: application_gateway, source: default}
 
   private-dns-zone:
-    zones:
-      value:
-      - privatelink.blob.core.windows.net
-      - privatelink.dfs.core.windows.net
-      - privatelink.queue.core.windows.net
-      - privatelink.azurewebsites.net
-      - privatelink.servicebus.windows.net
-      - privatelink.azure-api.net
-      source: forced
-      forced_by: deployment.private_dns_ownership
+    zone:
+      zone_names:
+        value:
+        - privatelink.blob.core.windows.net
+        - privatelink.dfs.core.windows.net
+        - privatelink.queue.core.windows.net
+        - privatelink.azurewebsites.net
+        - privatelink.servicebus.windows.net
+        - privatelink.azure-api.net
+        source: forced
+        forced_by: deployment.private_dns_ownership
 
   application-gateway:
     gateway:
@@ -237,10 +238,10 @@ resources:
     data_protection:
       replication: {value: LRS, source: requirement, derived_from: deployment.outage_impact}
       access_tier: {value: Hot, source: requirement, derived_from: deployment.data_access_pattern}
+      hierarchical_namespace: {value: true, source: stated}
       blob_soft_delete_days: {value: 0, source: requirement, derived_from: deployment.data_loss_tolerance}
       container_soft_delete_days: {value: 0, source: requirement, derived_from: deployment.data_loss_tolerance}
       versioning_enabled: {value: false, source: requirement, derived_from: deployment.data_loss_tolerance}
-    storage_kind: {value: data_lake, source: stated}
 
   storage-account__host:
     networking:
@@ -290,12 +291,12 @@ resources:
   virtual-machine:
     machine:
       os_type: {value: Linux, source: asked}
+      instance_count: {value: 3, source: assumed}  # "a few VMs"
     data_protection:
       backup_enabled:
         value: true
         source: overridden
         reason: The customer asked for VM backup; the derived value from data_loss_tolerance "reproducible" would be false.
-    instances: {value: 3, source: assumed}  # "a few VMs"
 
   backup-vault:
     vault:
