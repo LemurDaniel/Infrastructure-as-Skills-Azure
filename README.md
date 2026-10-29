@@ -27,20 +27,29 @@ So the knowledge in this repo is shaped as a **question set**, not as a template
 
 ## 🚀 Quick Start
 
-On Claude Code 2.1.275 or later, one step:
+### 1. Get the plugin
 
-```
-/plugin install infrastructure-as-skills-azure --marketplace LemurDaniel/Infrastructure-as-Skills-Azure
-```
-
-Before that, the marketplace is added first:
+**Claude Code**
 
 ```
 /plugin marketplace add LemurDaniel/Infrastructure-as-Skills-Azure
 /plugin install infrastructure-as-skills-azure
 ```
 
-Then say what you need, in your own words and language:
+On 2.1.275 or later in one step: `/plugin install infrastructure-as-skills-azure --marketplace LemurDaniel/Infrastructure-as-Skills-Azure`. A third-party marketplace does not update by default; switch auto-update on for it under `/plugin` → *Marketplaces*.
+
+**GitHub Copilot CLI**
+
+```
+copilot plugin marketplace add LemurDaniel/Infrastructure-as-Skills-Azure
+copilot plugin install infrastructure-as-skills-azure@infrastructure-as-skills-azure
+```
+
+Update with `copilot plugin update infrastructure-as-skills-azure`.
+
+### 2. Ask for what you need
+
+In your own words and language:
 
 ```
 Ich brauch ein Storage Account für die Buchhaltung, Prod, nur Firmennetz. Terraform.

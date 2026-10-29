@@ -280,6 +280,12 @@ the detail; this list says what was decided and why, so a session does not reope
   `interview` and repeats `derived` from its source (checked). `answer` is the one field for an
   inherited value - `{ deployment }`, `{ context }` or `{ question, map }`. There is no engineer role:
   open items belong to the workload owner or the platform team.
+- **GitHub Copilot CLI is the second host, Codex is not** (2026-10-29): Copilot reads the
+  `.claude-plugin/` manifests as its legacy format, `"skills": ["./core/"]` included - all
+  four skills load and the interview asks through its own question tool, with no change to
+  the plugin. Azure customers sit on Copilot licences; Codex reaches few of them and has no
+  eval harness here. An Agent Plugins 1.0 root `plugin.json` would serve both, but fixes
+  skills to `skills/` - not worth moving `core/` for until a host needs it.
 
 ## State
 

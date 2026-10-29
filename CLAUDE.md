@@ -176,6 +176,11 @@ are in [README.md](README.md#why-one-trigger-and-families-that-are-not-skills).
   inputs against the module README rather than memory.
 - **A `CLAUDE.md` inside the plugin directory is not loaded as context.** Instructions that
   must reach Claude belong in a skill. This file is at the repo root and does load.
+- **GitHub Copilot CLI loads this plugin from the same manifests.** It reads
+  `.claude-plugin/marketplace.json` and `.claude-plugin/plugin.json` as its legacy format,
+  `"skills": ["./core/"]` included. An Agent Plugins 1.0 root `plugin.json` would take
+  precedence and fixes skills to `skills/`; adding one means moving `core/`. Check with
+  `copilot skill list` after a change to a manifest.
 - **Frontmatter `name` must equal the skill's directory name.**
 - **Skills carry the rule and its lasting reason, never its history.** No dates, "owner's
   call" or "missed on ..." in a `SKILL.md`: every line is loaded on every use. The
