@@ -351,9 +351,7 @@ the detail; this list says what was decided and why, so a session does not reope
 - **First applied render (2026-10-25): `eval-agent/`**, Bicep, one stage, deployed through its
   own rendered GitHub pipeline (what-if, approval, deploy; OIDC). The first run fed three
   fixes back into `pipelines.github.md` and `check_pipeline.py` (job without checkout,
-  partial what-if, immutable OIDC subject). Not yet in the plugin: an image owned by a
-  separate pipeline (`existingLinuxFxVersion`, spec decision `container_image_owner`), and
-  the instance number in the unique-name seed. Terraform and the other pipelines have not run.
+  partial what-if, immutable OIDC subject). Not yet in the plugin: the instance number in the unique-name seed. Terraform and the other pipelines have not run.
   Since 2026-10-25 the spec and the render (not yet deployed) split it in two: a public
   dashboard (sign-in, reads the results, holds the GitHub token) and an agent behind a private
   endpoint (runs plugin code, writes the results, no secret), on one B2 plan, one user-assigned
@@ -459,19 +457,30 @@ Must:
   is carried forward.
 - **The pattern skill** (`ideas/pattern-skill.md`): `patterns/` is empty; composition is
   proven by two hand-wired examples only.
-- **A Terraform render applied** through one rendered pipeline, as `eval-agent/` did for Bicep
-  (needs the fenced sandbox subscription, waiting on the owner).
-- **The decision document prints raw values** (see *Interview and spec*).
-- **A public app "without a filter" has no sign-in** (see *Interview and spec*).
-- **`check_spec.py` passes unknown keys in `wiring.access`** and does not check enum values.
-- **Phase 4 shown as text before "Passt das Design?"**, confirmed in a fresh interview.
-- **`evals/process/review-agent-separate` loads again**, and the suite runs green on Sonnet
-  before the release.
+- ~~**A Terraform render applied** through one rendered pipeline, as `eval-agent/` did for Bicep~~
+  - done (owner, 2026-10-29).
+- ~~**The decision document prints raw values**~~ - done (2026-10-29). Every question has a
+  `plain`; the raw values came from spec keys the sets do not have (`orders-integration`
+  had ~30). `check_spec.py` now fails on a resource key that is no question of its set or
+  sits in another group; `orders-integration`, `order-platform` and `eval-agent` were moved
+  onto the sets, which gained `storage-account.hierarchical_namespace`,
+  `virtual-machine.instance_count`, `app-service.container_image_owner`, `entra_sign_in`,
+  `entra_client_secret` and `container-registry.image_push_path`. Nested list entries read
+  as words, not Python. In `order-platform` only the `# decision:` names were renamed; in
+  `eval-agent` the Bicep still calls the sign-in hand-rendered.
+- ~~**A public app "without a filter" has no sign-in** (see *Interview and spec*)~~ - done
+  (2026-10-29): the option no longer promises a sign-in, it notes that the application decides.
+- ~~**`check_spec.py` does not check enum values**~~ - done (2026-10-29): an enum value, or a
+  list item where `accepts` is a list, outside its question's `accepts` fails, per stage;
+  unknown keys in `wiring.access` fail too.
+- ~~**Phase 4 shown as text before "Passt das Design?"**, confirmed in a fresh interview~~ -
+  done (owner, 2026-10-29, tested in another repository).
+- **The suite runs green on Sonnet** before the release. (`review-agent-separate` left the
+  suite on 2026-10-27; nothing to load.)
 
 Should:
 - The AVM version drift check (`ideas/avm-drift-watch.md`).
-- The former `confirm_in` defaults wired to requirements; the savings concept; SQL MI
-  `license_type` asked.
+- The former `confirm_in` defaults wired to requirements; the savings concept.
 - The naming revision (owner's todo).
 - The diagram generator faults listed under *Diagram generator*.
 
@@ -496,9 +505,6 @@ until it is fixed or decided against.
   `canonical-no-anchors` are load-checked, not run - a run without a shell lays the form out
   by hand, and whether it does is unmeasured. The diagram and spec-test fixtures are not
   named `infra-spec.yaml` and not laid out; `run_spec_tests.py` edits its fixture as text.
-- **`evals/process/review-agent-separate` does not load** (seen 2026-10-26 in a zero-cost
-  load check): `graders.3.focus: Invalid input` - the current `claude plugin eval` schema
-  refuses a field the case uses. Untouched since; fix before the next paid run.
 
 ### Rendering references and question sets
 
@@ -598,8 +604,6 @@ per-family` in `check_spec.py` and the `chatbot` spec, and `references/private-d
   does not work, since most of these questions have none and one answer path is the rule.
   Look at it together with `priority: cost`, which equals `balanced` for every knob wired
   so far.
-- **`check_spec.py` does not check enum values against the question set** (2026-10-28):
-  spec.md claimed it did; the claim is removed, the check is still missing.
 - **`forced_when` stays prose** (2026-10-28): of its 211 uses about 60 are a single
   condition and perhaps 30-40 a plain "X = A forces B"; the rest carry minimums, removed
   options, several conditions or facts no set holds (a paired region in another country) - a
@@ -614,25 +618,12 @@ per-family` in `check_spec.py` and the `chatbot` spec, and `references/private-d
 - **Phase 4 lists an exception from an earlier spec again** (guardrails §6, 2026-10-29): the
   rule is written; whether a carried `overridden` value reaches the sign-off and the decision
   document's "decided differently" section is not verified.
-- **SQL MI `license_type` asks what only the customer knows** ("Do you already own SQL
-  Server licences …?") and is not an interview question.
 - **"engineer" in the resource sets** (2026-10-28): removed from `core/`, still in 19
   question sets under `resources/` (`why` texts, e.g. communication-services
   `data_location`). There is no engineer role; rephrase.
-- **The decision document prints raw values** (2026-10-28, `examples/orders-integration`):
-  `true`, `7`, `"storage-account"`, `{"development": "LRS", …}` and "Gelöschte Sicherungen
-  werden ja." - questions without `plain` / `plain_values`, or a lookup that misses.
-- **A public app "without a filter" has no sign-in** (seen 2026-10-28 in a TEMP3 run): the
-  `public_audience: unfiltered` option says only the sign-in protects the app, but the App
-  Service set excludes Easy Auth. Whether the application signs people in is the app's, not
-  the plugin's; what is left is the option's wording, which promises a sign-in the
-  infrastructure does not provide.
-- **`check_spec.py` passes unknown keys in `wiring.access`** (same run): an unquoted
-  `label: Mitarbeiter, HTTPS` became `label: Mitarbeiter` plus a key `HTTPS: null`, and the
-  contract said ok.
-- **Phase 4 is shown as text before "Passt das Design?"** (2026-10-28): a run had written the
-  list only in its thinking. Fixed in the skill, the tick list also goes into the dialog as a
-  preview; not yet seen in a fresh interview with the dialog.
+- **Every list question's `plain` ends in "(empty: none)"**, also when the list is not empty
+  ("Queues: payments (…) (leer: keine)"). Seen 2026-10-29 in `orders-integration`; the
+  wording of the sets, or the decision document drops the clause for a non-empty value.
 
 - **A chat-app test with a slot as the test stage** (2026-10-27, 0.5.4) left: Phase 0 asks two
   points in prose (what for, who from where) and announces no default; stages and every
@@ -698,8 +689,7 @@ per-family` in `check_spec.py` and the `chatbot` spec, and `references/private-d
   a redraw would lose.
 - `wiring:` is validated by example only. (`check_spec.py` knows `granularity: per-family`
   since 2026-10-25 and the `chatbot` spec declares its seven family modules.)
-- `export_decisions.py` prints `reason` and `open:` texts untranslated; "1 Kopien der
-  App" needs a singular form. `infra-decisions.docx` is missing everywhere (no `pandoc`).
+- `export_decisions.py` prints `reason` and `open:` texts untranslated. `infra-decisions.docx` is missing everywhere (no `pandoc`).
 - The extension run that writes a further stage's file once its `open:` entries are
   answered has not been exercised.
 - **Resource groups: the contract stands, the render does not** (2026-10-25). Done: the
