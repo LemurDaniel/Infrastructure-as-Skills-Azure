@@ -19,7 +19,7 @@ boundaries:
   - "Does not create the Log Analytics workspace it routes diagnostics to."
   - "Does not create the integration subnet when the network is referenced; under network_ownership: create the virtual-network set carries it."
   - "Does not create the Application Insights component - its own set (observability/application-insights), brought in by the deployment's application_monitoring; `application_insights` below wires the app to it."
-  - "Does not create custom domains, certificates, Easy Auth or backups. Each is a separate concern and has no question set yet."
+  - "Does not create custom domains, certificates or backups. Each is a separate concern and has no question set yet. Easy Auth with an existing app registration is `entra_sign_in`; the registration itself is never created here."
   - "Does not deploy code into a slot or swap it. Deploying and swapping are the application's release, not the infrastructure's; the `slots` group decides only what the slots are."
   - "Does not create the user-assigned identity app and slots share. The user-assigned-identity set does, routed in addition when `deployment_slots` is not empty."
   - "Does not create function apps, Container Apps or an App Service Environment. They have sets of their own (`function-app`, `container-apps`) or none (App Service Environment)."
@@ -466,6 +466,54 @@ groups:
           `user_assigned` - the design creates it, so it is wiring, never an open item.
         renders: managed_identities.user_assigned_resource_ids / managedIdentities.userAssignedResourceIds
 
+      - id: entra_sign_in
+        ask:
+          en: "Should App Service itself require a company sign-in before a request reaches the app?"
+          de: "Soll App Service selbst eine Anmeldung mit dem Firmenkonto verlangen, bevor eine Anfrage die App erreicht?"
+        type: enum
+        plain:
+          en: "Sign-in in front of the app: {value}."
+          de: "Anmeldung vor der App: {value}."
+        plain_values:
+          none: { en: "none from the platform - whether anyone signs in is up to the application", de: "keine von der Plattform; ob jemand sich anmeldet, entscheidet die Anwendung" }
+          existing_app_registration: { en: "App Service sends every visitor to the company sign-in first, with your existing app registration", de: "App Service schickt jeden Besucher zuerst zur Firmenanmeldung, mit eurer bestehenden App-Registrierung" }
+        accepts: [none, existing_app_registration]
+        default: none
+        why: >
+          App Service Authentication answers every request without a valid session with a
+          redirect to Entra ID, before the code runs - a platform feature, so it is this
+          set's; a sign-in the application implements itself is not. The app registration is
+          not a resource of the deployment: it exists, its client id and tenant are stage
+          parameters, and its redirect URI (`https://<host>/.auth/login/aad/callback`) is an
+          `open:` entry for whoever owns the registration, because the host name exists only
+          after the first deployment.
+        renders: >
+          auth_settings_v2 { require_authentication, unauthenticated_action = "RedirectToLoginPage",
+          active_directory_v2 } / Microsoft.Web/sites/config 'authsettingsV2'
+
+      - id: entra_client_secret
+        ask:
+          en: "Where does the sign-in's client secret come from?"
+          de: "Woher kommt das Client Secret der Anmeldung?"
+        type: enum
+        plain:
+          en: "The sign-in's client secret is {value}."
+          de: "Das Client Secret der Anmeldung wird {value}."
+        plain_values:
+          key_vault_reference: { en: "read from the key vault through an app setting, never written into the code", de: "über eine App-Einstellung aus dem Tresor gelesen und nie in den Code geschrieben" }
+        accepts: [key_vault_reference]
+        default: key_vault_reference
+        depends_on: { question: entra_sign_in, equals: existing_app_registration }
+        why: >
+          The sign-in redeems its code with the registration's client secret. The secret is
+          a credential: it lives in the key vault, an app setting holds the Key Vault
+          reference, and the authentication settings name that setting - the template never
+          carries the value. Who creates the secret and writes it into the vault is an
+          `open:` entry with the registration's owner.
+        renders: >
+          active_directory_v2.client_secret_setting_name / registration.clientSecretSettingName,
+          plus the app setting with @Microsoft.KeyVault(SecretUri=...)
+
   # ----------------------------------------------------------------- security
   - id: security
     title: Security
@@ -628,6 +676,30 @@ groups:
         renders: >
           site_config.application_stack.docker / siteConfig.linuxFxVersion
           (`DOCKER|<image>`) with acrUseManagedIdentityCreds
+
+      - id: container_image_owner
+        ask:
+          en: "Who updates the image the app runs - this deployment, or a pipeline of its own?"
+          de: "Wer aktualisiert das Image, das die App ausführt - dieses Ausrollen oder eine eigene Pipeline?"
+        type: enum
+        plain:
+          en: "The running image is set by {value}."
+          de: "Das laufende Image setzt {value}."
+        plain_values:
+          deployment: { en: "this deployment, on every run", de: "dieses Ausrollen, bei jedem Lauf" }
+          image_pipeline: { en: "a separate image pipeline; this deployment sets it only the first time", de: "eine eigene Image-Pipeline; dieses Ausrollen setzt es nur beim ersten Mal" }
+        accepts: [deployment, image_pipeline]
+        default: deployment
+        depends_on: { question: runtime_stack, equals: container }
+        why: >
+          When the application's own pipeline builds and rolls out the image, an
+          infrastructure run that writes `container_image` again rolls the app back to the
+          tag in the stage file. `image_pipeline` sets the image on the first deployment
+          only and keeps the running one afterwards; `container_image` becomes the
+          bootstrap image.
+        renders: >
+          lifecycle { ignore_changes = [site_config[0].application_stack[0].docker_image_name] } /
+          the existing site's linuxFxVersion read before the deployment and passed back in
 
       - id: always_on
         ask:

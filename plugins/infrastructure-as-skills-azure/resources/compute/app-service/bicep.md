@@ -42,6 +42,8 @@ Resolve the current versions and re-read the README parameters before rendering,
 | `ftps_state` | site | `siteConfig.ftpsState` | |
 | `basic_auth_enabled` | site | `basicPublishingCredentialsPolicies: [ { name: 'ftp', allow: false }, { name: 'scm', allow: false } ]` | |
 | `runtime_*` | site | `siteConfig.linuxFxVersion` (`PYTHON\|3.13`) or `windowsFxVersion` | |
+| `container_image_owner: image_pipeline` | site | `siteConfig.linuxFxVersion` from a parameter holding the running site's value (read by the pipeline before the deployment), `DOCKER\|<container_image>` while it is empty | Bicep cannot read a property of a resource it deploys; the pipeline reads it |
+| `entra_sign_in`, `entra_client_secret` | site | `configs: [ { name: 'authsettingsV2', properties: { ... } } ]` as below, and the app setting holding the Key Vault reference | Parameter shape from the module README of the version pinned |
 | `always_on` | site | `siteConfig.alwaysOn` | |
 | `health_check_path` | site | `siteConfig.healthCheckPath` | Omitted while empty |
 | `http2_enabled` | site | `siteConfig.http20Enabled` | |
@@ -272,6 +274,8 @@ way, or reading what the modules do inside.
 | `https_only` | `properties.httpsOnly` |
 | `min_tls_version` | `properties.siteConfig.minTlsVersion` |
 | `basic_auth_enabled` | child resources `basicPublishingCredentialsPolicies/ftp` and `/scm`, `properties.allow` |
+| `container_image_owner: image_pipeline` | `properties.siteConfig.linuxFxVersion` from a parameter with the running value, the bootstrap image while it is empty |
+| `entra_sign_in`, `entra_client_secret` | child `Microsoft.Web/sites/config` `authsettingsV2`: `globalValidation { requireAuthentication: true, unauthenticatedClientAction: 'RedirectToLoginPage' }`, `identityProviders.azureActiveDirectory.registration { openIdIssuer, clientId, clientSecretSettingName }` |
 
 ```bicep
 resource plan 'Microsoft.Web/serverfarms@2024-04-01' = {

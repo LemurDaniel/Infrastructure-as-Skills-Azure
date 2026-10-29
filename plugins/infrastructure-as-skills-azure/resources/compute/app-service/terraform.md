@@ -43,6 +43,8 @@ Entra ID. The root's provider set is the union with the other modules in the dep
 | `ftps_state` | site | `site_config.ftps_state` | Module default `FtpsOnly` |
 | `basic_auth_enabled` | site | `ftp_publish_basic_authentication_enabled`, `scm_publish_basic_authentication_enabled` | SCM module default is **`true`** |
 | `runtime_stack`, `runtime_version`, `container_image` | site | `site_config.application_stack` | One of `dotnet`, `node`, `python`, `java`, `php`, `docker` |
+| `container_image_owner: image_pipeline` | site | `site_config.application_stack.docker_image_name` from a `data "azurerm_linux_web_app"` of the running site, `container_image` on the first run | A module call takes no `lifecycle`; the running image is read and passed back |
+| `entra_sign_in`, `entra_client_secret` | site | `auth_settings_v2` (require authentication, redirect to login, `active_directory_v2` with client id, tenant endpoint and `client_secret_setting_name`) and the app setting holding the Key Vault reference | Input names from the module README of the version pinned |
 | `always_on` | site | `site_config.always_on` | |
 | `health_check_path` | site | `site_config.health_check_path` | Omitted while empty |
 | `http2_enabled` | site | `site_config.http2_enabled` | Module default `false` |
@@ -151,6 +153,8 @@ module "app" {
     }
   }
 
+  # not-testable: app-service.runtime.container_image_owner - which image runs after the image pipeline is a property of the live site, not of the plan
+  # decision: app-service.identity.entra_sign_in / entra_client_secret - none by default: no auth_settings_v2
   # decision: app-service.observability.application_insights
   # not-testable: app-service.observability.application_insights - the connection string is the component's output, known after apply
   application_insights_connection_string = var.application_insights_connection_string
@@ -328,6 +332,8 @@ way, or reading what the modules do inside. Targets `azurerm` **5.x**.
 | `ftps_state` | `site_config.ftps_state` |
 | `basic_auth_enabled` | `ftp_publish_basic_authentication_enabled`, `webdeploy_publish_basic_authentication_enabled` (the SCM switch is the WebDeploy one on the provider) |
 | `runtime_*` | `site_config.application_stack` |
+| `container_image_owner: image_pipeline` | `lifecycle { ignore_changes = [site_config[0].application_stack[0].docker_image_name] }` |
+| `entra_sign_in`, `entra_client_secret` | `auth_settings_v2 { auth_enabled, require_authentication, unauthenticated_action = "RedirectToLoginPage", active_directory_v2 { client_id, tenant_auth_endpoint, client_secret_setting_name } login {} }` |
 | diagnostics | `azurerm_monitor_diagnostic_setting` with `enabled_log { category }` |
 
 ```hcl
