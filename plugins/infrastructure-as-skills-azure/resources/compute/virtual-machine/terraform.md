@@ -24,6 +24,7 @@ a **required** input: `null` for a region without zones.
 | `os_type` | `os_type` | `"Linux"` / `"Windows"`; module default **`Windows`**; written |
 | `image` | `source_image_reference = { publisher, offer, sku, version = "latest" }` | Module default is Windows Server 2022 `2022-datacenter-g2`. Ubuntu 24.04: `Canonical` / `ubuntu-24_04-lts` / `server`. Windows 2025 values are looked up with `az vm image list`, not remembered. A gallery image: `source_image_resource_id` and no reference |
 | `size` | `sku_size` | Module default `Standard_D2ds_v5`; written |
+| `instance_count` | `for_each` on the module call over the instance numbers (`"1"`..`"n"`) | Each name from the naming provider with the instance number; one machine is still a `for_each` of one, so a second one is not a state move |
 | `license_type` | `license_type` | `"Windows_Server"` for Hybrid Benefit, `null` otherwise |
 | `availability`, `zone` | `zone = "1"`; `null` for a set or a region without zones | A set: `availability_set_resource_id`, and `zone = null` |
 | `os_disk_storage`, `os_disk_size_gb`, `disk_encryption_set_id` | `os_disk = { caching = "ReadWrite", storage_account_type, disk_size_gb, disk_encryption_set_id }` | Module default `Premium_LRS`; written |
@@ -50,8 +51,10 @@ a **required** input: `null` for a region without zones.
 module "vm" {
   source  = "Azure/avm-res-compute-virtualmachine/azurerm"
   version = "~> 0.21.0"
+  # decision: virtual-machine.machine.instance_count - one call per machine; a single machine is a for_each of one
+  for_each = toset([for i in range(var.instance_count) : tostring(i + 1)])
 
-  name                = data.naming_name.vm.name
+  name                = data.naming_name.vm[each.key].name
   location            = var.location
   resource_group_name = var.resource_group_name
   # decision: virtual-machine.machine.availability - one machine in a zone is placement, not redundancy
@@ -77,7 +80,7 @@ module "vm" {
 
   network_interfaces = {
     primary = {
-      name                           = "${data.naming_name.vm.name}-nic"
+      name                           = "${data.naming_name.vm[each.key].name}-nic"
       accelerated_networking_enabled = true
       ip_configurations = {
         primary = {

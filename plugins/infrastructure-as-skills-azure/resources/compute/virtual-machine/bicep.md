@@ -22,6 +22,7 @@ Resolve the current version and re-read the README parameters before rendering, 
 |---|---|---|
 | `os_type` | `osType: 'Linux'` / `'Windows'` | Required |
 | `image` | `imageReference: { publisher, offer, sku, version: 'latest' }` | A gallery image: `imageReference: { id }` |
+| `instance_count` | a module loop `[for i in range(1, count): ...]` | Each name with the instance number |
 | `size` | `vmSize` | Required; written |
 | `license_type` | `licenseType: 'Windows_Server'` | |
 | `availability`, `zone` | `availabilityZone: 1` (`-1` for none), `availabilitySetResourceId` | `availabilityZone` is **required**; `-1` when a set or no zone |

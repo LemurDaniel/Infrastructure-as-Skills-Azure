@@ -190,6 +190,24 @@ groups:
           without the licences is a compliance finding, not a saving, so it is never defaulted.
         renders: license_type (`Windows_Server`) / licenseType
 
+      - id: instance_count
+        ask:
+          en: "How many identical machines of this kind?"
+          de: "Wie viele gleiche Maschinen dieser Art?"
+        type: int
+        plain:
+          en: "Identical machines of this kind: {value}."
+          de: "Gleiche Maschinen dieser Art: {value}."
+        default: 1
+        why: >
+          Machines that differ in nothing but their number are one decision, not several
+          resources: same image, size, disks and network, named with the instance number. A
+          machine that differs in anything is its own resource (`virtual-machine__<name>`).
+          Several machines are not a scale set - each is created, patched and replaced on
+          its own, and nothing adds or removes them under load (use
+          `virtual-machine-scale-set` for that).
+        renders: one module call per machine (for_each over the instance numbers) / a module loop
+
       - id: availability
         ask:
           en: "How should the machine be placed against a datacenter failure?"
