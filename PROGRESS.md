@@ -948,8 +948,8 @@ regeneration from the spec loses them. All `render`:
   `application_monitoring` adds since 0.5.6. Fixed in `07f1aa0` (entry in `LEARNINGS.md`);
   re-test Sonnet 2/2, Haiku 0/2 (real invented lines and purposes, 8-11 turns, not chased).
   Recorded on `eval-history` as 0.6.0 (`ffbb421`), composed, the badge pinned to it.
-  **`baseline.json` is not updated yet** (still 2026-10-25): accept the composed run after
-  reading it. Haiku keeps failing the same rules as on 0.5.4/0.5.5: invented subscription and
+  The composed Sonnet run is `baseline.json` since (owner's call): 11 cases, every grader at
+  its full rate. Haiku keeps failing the same rules as on 0.5.4/0.5.5: invented subscription and
   region, the default stack, `@onlyIfNotExists()`, the CLAUDE.md sync in one of four runs.
 - **CI by hand**: `.github/workflows/plugin-evals.yml` (`workflow_dispatch`, Sonnet/low by
   default, one case per call with progress, `--scaffold`, report only);
@@ -1035,9 +1035,8 @@ regeneration from the spec loses them. All `render`:
 
 ## Next
 
-**Merge #15 (0.6.0)**: pushed, ready for review, evals run and recorded (see *Evals*).
-Left: read the composed run and accept it into `baseline.json`, then the owner's squash
-merge. After it, regenerate the remaining examples against the revised spec, and freeze the
+**Merge #15 (0.6.0)**: pushed, ready for review, evals run, recorded and accepted as the
+baseline (see *Evals*). Left: the owner's squash merge. After it, regenerate the remaining examples against the revised spec, and freeze the
 formats (*Road to 1.0.0*).
 
 **The pattern skill** (`ideas/pattern-skill.md`): the wiring that `chatbot` and
