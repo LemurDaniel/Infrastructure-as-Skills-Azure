@@ -281,6 +281,32 @@ groups:
           **The modules disagree**: Terraform defaults to enabled, Bicep to disabled.
         renders: export_policy_enabled / exportPolicyStatus
 
+      - id: image_push_path
+        ask:
+          en: "How does the build pipeline push images into the closed registry?"
+          de: "Wie schiebt die Build-Pipeline Images in die geschlossene Registry?"
+        type: enum
+        plain:
+          en: "Images reach the registry {value}."
+          de: "Images kommen {value} in die Registry."
+        plain_values:
+          private_runner: { en: "from a build runner inside the network", de: "von einem Build-Runner im eigenen Netz" }
+          pipeline_opens_registry: { en: "from a hosted runner: the pipeline opens the registry for that runner's address only, pushes and closes it again", de: "von einem gehosteten Runner: die Pipeline öffnet die Registry nur für dessen Adresse, schiebt und schließt sie wieder" }
+        accepts: [private_runner, pipeline_opens_registry]
+        default: private_runner
+        depends_on: { question: public_network_access, equals: disabled }
+        why: >
+          A registry without public access takes pushes from inside the network only, and a
+          hosted runner is not inside it. `private_runner` keeps the registry closed at all
+          times and needs a runner in the network. `pipeline_opens_registry` leaves the
+          registry briefly reachable from one address: the pipeline sets public access to
+          enabled with a deny-by-default rule and the runner's IP, pushes, and closes it in a
+          step that always runs and checks the result. Either way the pipeline identity needs
+          AcrPush, and the infrastructure render must not reopen what the pipeline closed.
+        renders: >
+          nothing on the registry itself; the image pipeline's steps and the AcrPush role
+          assignment for its identity
+
   # ----------------------------------------------------------------- identity
   - id: identity
     title: Identity and access
