@@ -80,10 +80,41 @@ default). The user overrides a pre-answer and is told what the departure implies
    constraint: `patterns/` is not declared), `spec.md` (`deployment.pattern`),
    `PROGRESS.md`.
 
+## AVM pattern modules
+
+Read 2026-10-29 from the
+[Terraform](https://azure.github.io/Azure-Verified-Modules/indexes/terraform/tf-pattern-modules/)
+and [Bicep](https://azure.github.io/Azure-Verified-Modules/indexes/bicep/bicep-pattern-modules/)
+pattern indexes (pages dated 2026-09-22; Terraform 34 available, Bicep 38). Versions are a
+snapshot - looked up live before a render, as every AVM version.
+
+| Our pattern | Terraform | Bicep |
+|---|---|---|
+| `ai-chat-rag` | `avm-ptn-aiml-ai-foundry` 0.12.0, `avm-ptn-aiml-landing-zone` 0.5.3; proposed: `openai-e2e-baseline`, `openai-cognitivesearch` | `ai-ml/ai-foundry` 0.7.0, `ai-platform/baseline` 0.8.0, `sa/customer-chatbot` 0.2.0 |
+| `private-webapp` | `avm-ptn-app-service-landing-zone` 0.1.0, `function-app-storage-private-endpoints` 0.3.0 | `app-service-lza/hosting-environment` 0.2.0, `app/function-app` 0.1.0 |
+| `event-integration` | none | parts only: `azd/apim-api` 0.1.2, `app/function-app` 0.1.0 |
+| `container-microservices` | `avm-ptn-aca-lza-hosting-environment` 0.1.0 | `aca-lza/hosting-environment` 0.6.3, `azd/container-apps-stack` 0.4.0 |
+| across all | `network-private-link-private-dns-zones` 0.23.2; proposed: `monitor-private-link-scope` | `network/private-link-private-dns-zones` 0.7.3 |
+
+**Decided (owner's call, 2026-10-29):**
+
+- **Our patterns stay the decision layer.** The AVM patterns are mostly landing-zone
+  accelerators with defaults of their own (hub, firewall, jump box, their own networks); this
+  plugin writes every decision on the call, and a module default is not a guardrail default.
+  A pattern does not wrap an accelerator as a whole.
+- **`private-link-private-dns-zones` is a building block**: where a pattern's deployment owns
+  its private DNS zones (`private_dns_ownership: create`), the zones and their VNet links
+  render through it in both targets instead of one `private-dns-zone` call per zone. Its
+  inputs (zone list, links, resource group as `parent_id` or scope) are read from the README
+  of the pinned version; the rendering references of `private-dns-zone` say when it is used.
+- **Compared, not called**: the LZA hosting environments (App Service, Container Apps) and
+  `ai-ml/ai-foundry` are read for wiring our patterns lack; whether `ai-ml/ai-foundry` gives
+  enough control over its inputs to call it from `ai-chat-rag` is checked against its README
+  while writing the pattern.
+
 ## Open, decided on the way
 
 - Whether a pattern can be combined with resources outside it ("Chatapp mit RAG plus eine
   Event-Hub-Anbindung") - probably yes, the extra resource is interviewed as today.
-- AVM pattern modules (`private-link-private-dns-zones`) wrapped by a pattern or not.
 - The diagram at pattern scale: grouped by tier, identity edges on their own track.
 - Whether `examples/chat-sandbox` is regenerated from `ai-chat-rag` on this branch or after.
