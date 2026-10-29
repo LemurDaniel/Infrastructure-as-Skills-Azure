@@ -2173,7 +2173,8 @@ groups:
         plain_values:
           create: { en: "a workspace this deployment creates and pays for", de: "einen Arbeitsbereich, den dieses Ausrollen anlegt und bezahlt" }
           reference: { en: "the company's central log workspace", de: "den zentralen Log-Arbeitsbereich der Firma" }
-        accepts: [create, reference]
+          none: { en: "no workspace - nothing is collected centrally", de: "keinen Arbeitsbereich, es wird nichts zentral gesammelt" }
+        accepts: [create, reference, none]
         default: reference
         forced_when: >
           landing_zone: standalone pre-answers `create` - without a platform there is
@@ -2185,10 +2186,13 @@ groups:
           create it. `reference` is right almost everywhere - a workspace per
           deployment fragments exactly the correlation an incident needs. `create`
           is for an isolated environment with no platform workspace to point at,
-          and makes the workspace this deployment's to own and pay for.
+          and makes the workspace this deployment's to own and pay for. `none` is a
+          deployment that sends no diagnostics anywhere, a small or throwaway one;
+          never derived, only stated.
         renders: >
           azurerm_log_analytics_workspace resource vs. data source;
-          Microsoft.OperationalInsights/workspaces resource vs. existing reference
+          Microsoft.OperationalInsights/workspaces resource vs. existing reference;
+          none: neither, and no diagnostic settings
 
       - id: diagnostics_destination
         ask:
