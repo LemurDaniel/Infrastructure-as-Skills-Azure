@@ -14,12 +14,14 @@ graders:
 
   # Nothing in the request says who calls whom, so no line starts at any of the three -
   # neither an access entry nor a role assignment. An invented line in the picture the
-  # customer signs off on is a decision nobody made.
+  # customer signs off on is a decision nobody made. The app's `Monitoring Metrics Publisher`
+  # on Application Insights is not one: `application_monitoring` derives it by default, so an
+  # entry naming either within its next three lines is excluded.
   - name: no-invented-calls
     type: regex
     weight: 3
     target: { source: file, path: infra/infra-spec.yaml }
-    pattern: 'from:\s*\W?(?:app-service|storage-account|sql-server|sql-database)\b'
+    pattern: 'from:\s*\W?(?:app-service|storage-account|sql-server|sql-database)\b(?![^\n]*(?:\n[ \t]+(?!- )[^\n]*){0,3}?(?:application-insights|Monitoring Metrics Publisher))'
     match: not_contains
 
   # The spec holds all three resources. Azure SQL has no question set yet, so it is a module

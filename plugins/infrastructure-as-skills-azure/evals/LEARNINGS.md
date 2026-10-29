@@ -14,6 +14,20 @@ fix is committed, and put the commit hash in once it exists.
 
 ## Entries
 
+### `diagram-no-invented-lines`, 2026-10-29
+
+- **Symptom:** `no-invented-calls` failed 0/2 on Sonnet (baseline 3/3) and 1/2 on Haiku, a
+  REGRESS on the branch revising the spec format; a re-run with `--keep-temp` failed 0/2 again.
+- **Cause:** The grader, too broad. Both kept specs held one `from: app-service` entry:
+  `Monitoring Metrics Publisher` on `application-insights`, `forced_by:
+  deployment.application_monitoring` - the role #14 derives for every app that sends telemetry
+  with local authentication off. No call between app, storage and SQL was written; one run
+  said so in a comment. The baseline predates #14.
+- **Fix:** The pattern skips a `from:` entry that names `application-insights` or
+  `Monitoring Metrics Publisher` within its next three lines; tested against both kept specs
+  (no match) and three invented calls (match).
+- **After:** both kept specs pass; the next suite run confirms.
+
 ### `trigger-workload-request` and three more, on Haiku, 2026-10-27
 
 - **Symptom:** `skill-fired` failed on Haiku in four cases: `trigger-workload-request` 2/4,
