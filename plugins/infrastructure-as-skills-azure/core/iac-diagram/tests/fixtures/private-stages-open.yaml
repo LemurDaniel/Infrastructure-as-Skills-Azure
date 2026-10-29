@@ -254,8 +254,8 @@ resources:
         source: default
     networking:
       public_network_access:
-        value: disabled
-        source: deployment
+        value: enabled
+        source: default
     identity:
       role_assignments:
         value:
@@ -753,11 +753,6 @@ open:
   blocks: apply
 - key: resources.app-service.runtime.runtime_stack
   question: Which runtime stack and version does the web app run (runtime_stack and runtime_version)?
-  owner: workload owner
-  blocks: apply
-- key: resources.application-insights.networking.private_link_scope
-  question: 'Which Azure Monitor Private Link Scope should the component belong to? Standalone: none exists, so it is built
-    or the component stays open.'
   owner: workload owner
   blocks: apply
 - key: resources.key-vault.identity.role_assignments

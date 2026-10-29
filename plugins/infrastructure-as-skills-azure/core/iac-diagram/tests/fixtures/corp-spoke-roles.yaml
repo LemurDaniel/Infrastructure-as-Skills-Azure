@@ -288,8 +288,8 @@ resources:
         source: default
     networking:
       public_network_access:
-        value: disabled
-        source: deployment
+        value: enabled
+        source: default
     identity:
       role_assignments:
         value:
@@ -1268,10 +1268,6 @@ wiring:
       label: pulls its image
     source: stated
 open:
-- key: resources.application-insights.networking.private_link_scope
-  question: Which private monitoring connection should the component belong to?
-  owner: platform team
-  blocks: apply
 - key: deployment.deploy_mechanism
   question: Where does the code live, and which system deploys it? The request names none, so no pipeline is rendered.
   owner: workload owner

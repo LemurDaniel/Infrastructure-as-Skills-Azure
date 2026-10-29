@@ -179,31 +179,30 @@ groups:
     questions:
       - id: public_network_access
         ask:
-          en: "Should this component depart from the deployment's exposure posture?"
-          de: "Soll diese Komponente von der Erreichbarkeit des Deployments abweichen?"
+          en: "Should the component be reachable from the internet?"
+          de: "Soll die Komponente aus dem Internet erreichbar sein?"
         type: enum
         plain:
           en: "The component is {value}."
           de: "Die Komponente ist {value}."
         plain_values:
-          disabled: { en: "reachable only through the private monitoring connection, for sending and for reading", de: "nur über die private Überwachungsanbindung erreichbar, zum Senden und zum Lesen" }
-          enabled: { en: "reachable from the internet, for sending and for reading", de: "aus dem Internet erreichbar, zum Senden und zum Lesen" }
+          disabled: { en: "reachable only through the platform's private monitoring connection, for sending and for reading", de: "nur über die private Überwachungsanbindung der Plattform erreichbar, zum Senden und zum Lesen" }
+          enabled: { en: "reachable from the internet, for sending and for reading, with company accounts and encryption - there is no private monitoring connection to go through", de: "aus dem Internet erreichbar, zum Senden und zum Lesen, mit Firmenkonten und Verschlüsselung; eine private Überwachungsanbindung gibt es nicht" }
         accepts: [disabled, enabled]
-        answer: { deployment: network_exposure }
+        default: enabled
         why: >
-          Asked only as a departure: exposure is a property of the system. `private` is
-          `disabled` for **both** ingestion and query, `public` is `enabled`; there is no
-          per-address firewall on a component, the control is the private link scope. Both
-          modules default both to enabled, so the posture is always written. **Disabling
-          ingestion means every application that sends to it must reach the scope**: a
-          function or an app on a network that cannot reach the private monitoring endpoint
-          silently loses its telemetry, and nothing at apply says so.
-        forced_when: >
-          `network_ownership: none` (a public deployment without a network) forces
-          `enabled`, recorded as forced with `network_ownership` as forced_by: the
-          deployment's own callers have no fixed outbound address, so a firewall with no
-          rule locks them out of this resource - the first dry run (2026-10-24) hit it on
-          five resources at once
+          Like the workspace, the component does not simply inherit the private posture.
+          `disabled` closes **both** ingestion and query, and a closed component is reached
+          only through an Azure Monitor Private Link Scope (AMPLS) - there is no private
+          endpoint on the component and no per-address firewall. An AMPLS is tenant-wide
+          infrastructure a landing zone platform owns and a deployment never creates, so in
+          the standalone case none exists and `disabled` is a component that receives no
+          telemetry at all: the SDK sends nothing and reports nothing, and nothing at apply
+          says so. So `enabled` is the default, with ingestion authenticated by Entra ID
+          (`local_authentication_disabled`) and encrypted. `disabled` is for a stated AMPLS
+          the component joins (`private_link_scope`), and then every application that sends
+          to it must reach that scope. Both modules default both switches to enabled, so the
+          value is always written.
         renders: >
           terraform: internet_ingestion_enabled and internet_query_enabled;
           bicep: publicNetworkAccessForIngestion and publicNetworkAccessForQuery
