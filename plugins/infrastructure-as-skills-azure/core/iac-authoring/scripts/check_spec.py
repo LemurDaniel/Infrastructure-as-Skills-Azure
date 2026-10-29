@@ -5,13 +5,14 @@ Read-only. Checks what the contract in references/spec.md promises:
 
   1. The file parses as YAML, and carries schema_version, spec.id and
      spec.target.
-  2. Every decision value carries a known `source`. A value without one is a
-     settings dump entry, not a recorded decision.
-  3. `overridden` carries a reason, `forced` carries `forced_by` - and where
-     that names a key (`deployment.<id>`, `resources.<key>.<group>.<id>`,
+  2. Every decision value carries a known `source`: a word (spec_source.WORDS) or
+     a map of one key. A value without one is a settings dump entry, not a
+     recorded decision.
+  3. `{overridden: <reason>}` carries a reason, `{forced_by: ...}` a pointer - and
+     where that names a key (`deployment.<id>`, `resources.<key>.<group>.<id>`,
      `context.<id>`, `wiring.<part>`), the key exists in this spec or names a
-     question of the sets - and
-     `requirement` carries `derived_from: deployment.<id>`. An undocumented
+     question of the sets - and `{derived_from: deployment.<id>}` the customer's
+     answer. A pointer beside the source (`forced_by:`, `reason:`) fails. An undocumented
      exception reads as an accident a year later; a derived value without its
      requirement cannot be explained to the customer.
   4. `assumed` values and `open:` entries are reported, with what they block.
@@ -30,15 +31,20 @@ Read-only. Checks what the contract in references/spec.md promises:
      being avm|authored|reuse rather than a module path.
   7. Stages: context.environments is a non-empty list; a value that is a map
      keyed by stage names uses only those stages, and a stage it leaves out
-     is named by an open entry (`environments:`) for that key.
-  8. Resource groups: `resource_group_split` lists known roles only (never
-     `main`) of the scheme `resource_group_scheme` names (concern by default,
-     lifecycle, protection, or component: `shared` and the parts in
-     `resource_group_components`, every unshared resource placed in one), and none under
-     `resource_group_layout: single`; a split makes `resource_group_mode_<role>` required for `main`
-     and every listed role, and a mode or a `context.resource_group_name_<role>`
-     for a role that is not split off is stale; a resource's
-     `placement.resource_group` names `main` or a split role;
+     is named by an open entry (`environments:`) for that key. A per_environment
+     question with more than one stage is a map unless its value names only
+     what the spec defines (a resource key, names of its parts, nothing).
+  8. Resource groups: the groups are derived (rg_roles.groups) - one, `main`, unless
+     `resource_group_layout` is split; under a split every role of the scheme
+     (`resource_group_scheme`: concern by default, lifecycle, protection, or component:
+     `shared` and the parts the resources are placed in) that a resource is in, and no
+     main group. `resource_group_split`, `resource_group_components` and every
+     `resource_group_mode_<role>` are refused - `resource_groups_created` alone says which
+     groups the render creates, and it names only groups that exist in the spec; a
+     scheme without a split is stale; under a split every resource has a role (a kind
+     the scheme does not place, and under component an unshared one, carries
+     placement.resource_group), a placement names a role of the scheme; a
+     `context.resource_group_name_<role>` for a group that does not exist is stale;
      `resource_group_lock` is a known value.
   9. Context: `location` and `subscription_id`, and the name of every group
      whose mode is not `create`, are a value or an open entry - never asked,
@@ -73,7 +79,6 @@ import os
 import re
 import sys
 
-KNOWN_SOURCES = ['stated', 'asked', 'platform', 'pattern', 'requirement', 'deployment', 'forced', 'assumed', 'default', 'carried', 'overridden']
 KNOWN_BLOCKS = ['render', 'plan', 'apply']
 
 # Attribute spellings that belong to a backend, not to a decision. Matched
@@ -89,9 +94,10 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 PLUGIN = os.path.abspath(os.path.join(HERE, '..', '..', '..'))
 sys.path.insert(0, os.path.join(HERE, '..', '..', 'iac-rendering', 'scripts'))
 import rg_roles  # noqa: E402 - the role table per scheme, shared with the diagram and the documents
-# Resource keys every resource may carry without its set asking them (spec.md: placement).
-BUILTIN_RESOURCE_KEYS = {('placement', 'resource_group'), ('placement', 'location')}
-RG_MODES = ['existing', 'create']
+sys.path.insert(0, HERE)
+import spec_source  # noqa: E402 - a source as a word or {forced_by | derived_from | overridden: ...}
+# Resource keys every resource may carry without its set asking them (spec.md: placement, meta).
+BUILTIN_RESOURCE_KEYS = {('placement', 'resource_group'), ('placement', 'location'), ('meta', 'purpose')}
 RG_LOCKS = ['production', 'all_stages', 'none']
 # A role satisfies a need when it is the narrow one or broader; broader is the platform's call.
 ROLES_ASSIGN = ['Role Based Access Control Administrator', 'User Access Administrator', 'Owner']
@@ -296,6 +302,19 @@ def main():
                     where = f" (stage {stage})" if stage else ''
                     errors.append(f"{path}{where} is '{item}', which is not one of its question's accepts: {', '.join(str(a) for a in acc)}")
 
+    resource_keys = {str(k) for k in (get(spec, 'resources') or {})}
+
+    def names_this_spec(v):
+        # Empty, a resource key of this spec, or a list of resource keys and plain names of
+        # parts the spec defines (subnets) - the same in every stage by construction.
+        if v in (None, '', [], {}):
+            return True
+        if isinstance(v, str):
+            return v in resource_keys
+        if isinstance(v, list):
+            return all(isinstance(i, str) and (i in resource_keys or re.match(r'^[a-z][a-z0-9-]*$', i)) for i in v)
+        return False
+
     def walk(node, path):
         nonlocal decisions, stage_maps
         # A decision is a map carrying a `value`. Anything else is a container.
@@ -303,7 +322,7 @@ def main():
             return
         if 'value' in node:
             decisions += 1
-            src = node.get('source')
+            src, ref = spec_source.kind(node.get('source'))
             v = node['value']
             if environments and isinstance(v, dict) and v and all(k in environments for k in v):
                 stage_maps += 1
@@ -311,9 +330,6 @@ def main():
                 for e in missing:
                     if e not in open_stages.get(path, set()):
                         errors.append(f"{path} has no value for stage '{e}' and no open entry naming it")
-                np = node.get('non_production')
-                if np is not None and np not in ('default', 'stated'):
-                    errors.append(f"{path}.non_production '{np}' is not default or stated")
                 parts = path.split('.')
                 owner = 'deployment' if parts[0] == 'deployment' else (parts[1].split('__')[0] if parts[0] == 'resources' and len(parts) > 1 else None)  # <set>__<instance>: a second one of a kind
                 q = questions.get((owner, parts[-1]))
@@ -321,25 +337,46 @@ def main():
                     errors.append(f"{path} is split by stage, but its question is neither per_environment nor a cost knob - one value for every stage, or the user's departure recorded as overridden")
             elif environments and isinstance(v, dict) and any(k in environments for k in v):
                 errors.append(f"{path} mixes stage names and other keys in its value")
+            elif len(environments) > 1 and not names_this_spec(v):
+                # per_environment: what lies outside the spec (a range, an id, a platform
+                # part) is a parameter from the stage file, a map even where the stages agree -
+                # one value would render as a literal. A resource key of this spec, or names of
+                # parts it defines, is the same in every stage; the render resolves it per stage.
+                parts = path.split('.')
+                owner = 'deployment' if parts[0] == 'deployment' else (parts[1].split('__')[0] if parts[0] == 'resources' and len(parts) > 1 else None)
+                q = questions.get((owner, parts[-1]))
+                if q is not None and q.get('per_environment'):
+                    errors.append(f"{path} is one value, but its question is per_environment and the value lies outside "
+                                  f"this spec - a map keyed by stage ({', '.join(environments)}), a stage nobody could "
+                                  f"answer for named in an open entry")
             check_known(path)
             check_accepts(path, v)
-            if not src:
+            if 'non_production' in node:
+                errors.append(f"{path} carries non_production - a cost saving is derived from the question's "
+                              f"non_production_default and deployment.non_production_savings, never recorded")
+            stray = [k for k in ('forced_by', 'derived_from', 'reason', 'note', 'departs_from') if k in node]
+            if stray:
+                errors.append(f"{path} carries {', '.join(stray)} beside its source - the pointer is the source: "
+                              f"source: {{forced_by | derived_from | overridden: ...}}")
+            raw = node.get('source')
+            if raw in (None, '', {}):
                 errors.append(f"{path} has a value but no source. Strip provenance and the spec is a settings dump.")
-            elif src not in KNOWN_SOURCES:
-                errors.append(f"{path} has source '{src}', which is not one of: {', '.join(KNOWN_SOURCES)}")
+            elif src is None:
+                key = next((k for k, v in spec_source.POINTERS.items() if v == raw), None)
+                errors.append(f"{path} has source {raw!r}, which is not one of {', '.join(spec_source.WORDS)} "
+                              f"or a map of one key ({', '.join(spec_source.POINTERS)})"
+                              + (f" - write source: {{{key}: ...}}" if key else ''))
             elif src == 'overridden':
-                if not any(k in node for k in ('reason', 'note', 'departs_from')):
+                if not str(ref or '').strip():
                     errors.append(f"{path} is overridden with no reason. An undocumented exception reads as an accident later.")
             elif src == 'forced':
-                if 'forced_by' not in node:
-                    errors.append(f"{path} is forced with no forced_by. The chain is the point - what forced it?")
-                else:
-                    fb = node['forced_by']
-                    for key in (fb if isinstance(fb, list) else [fb]):
-                        if re.match(r'^(deployment|context|resources|wiring)\.', str(key)) and not resolves(str(key)):
-                            errors.append(f"{path} is forced_by '{key}', which is neither a key in this spec nor a question of the sets - a chain that points nowhere explains nothing")
+                for key in (ref if isinstance(ref, list) else [ref]):
+                    if not str(key or '').strip():
+                        errors.append(f"{path} is forced with no forced_by. The chain is the point - what forced it?")
+                    elif re.match(r'^(deployment|context|resources|wiring)\.', str(key)) and not resolves(str(key)):
+                        errors.append(f"{path} is forced_by '{key}', which is neither a key in this spec nor a question of the sets - a chain that points nowhere explains nothing")
             elif src == 'requirement':
-                if not str(node.get('derived_from', '')).startswith('deployment.'):
+                if not str(ref or '').startswith('deployment.'):
                     errors.append(f"{path} is a requirement-derived value with no derived_from: deployment.<id>. The customer's answer is the point - which one?")
             elif src == 'assumed':
                 assumed.append(path)
@@ -428,7 +465,8 @@ def main():
     dep_node = get(spec, 'deployment') or {}
     scheme = rg_roles.scheme_of(dep_node)
     rg_table = rg_roles.load(yaml)
-    split_roles = rg_roles.roles(rg_table, scheme, (get(spec, 'resources') or {}).keys(), dep_node)
+    rg_resources = get(spec, 'resources') or {}
+    split_roles = rg_roles.roles(rg_table, scheme, rg_resources)
     main_present = rg_roles.has_main(dep_node)
     ctx_node = get(spec, 'context') or {}
 
@@ -436,55 +474,41 @@ def main():
         d = get(dep_node, qid)
         return d.get('value') if isinstance(d, dict) else None
 
-    split = dep_value('resource_group_split')
-    if split is None:
-        split = []
-    if not isinstance(split, list):
-        errors.append("deployment.resource_group_split is not a list of roles")
-        split = []
-    for r in split:
-        if r == 'main':
-            errors.append("deployment.resource_group_split lists 'main' - the list holds the roles of the scheme; under a split there is no main group")
-        elif r not in split_roles:
-            errors.append(f"deployment.resource_group_split lists '{r}', which is not a role of the {scheme} scheme "
-                          f"({', '.join(split_roles) or 'no resources yet'})")
-    if len(set(map(str, split))) != len(split):
-        errors.append("deployment.resource_group_split lists a role twice")
+    # Which groups exist is derived (rg_roles.groups): the layout, the scheme, and the role of
+    # each resource - its placement, else its kind's. Nothing records the list.
+    for key in ('resource_group_split', 'resource_group_components'):
+        if get(dep_node, key) is not None:
+            errors.append(f"deployment.{key} is no longer written - the groups follow from resource_group_layout, "
+                          f"resource_group_scheme and each resource's role (placement.resource_group to move one)")
     layout = dep_value('resource_group_layout')
-    if layout == 'single' and split:
-        errors.append("deployment.resource_group_split lists roles, but resource_group_layout is single - one group per stage, nothing split off")
-    if layout == 'single' and dep_value('resource_group_scheme') is not None:
-        errors.append("deployment.resource_group_scheme is stale - resource_group_layout is single, so there is nothing to split")
-    if layout == 'split' and not split:
-        errors.append("deployment.resource_group_split is empty under resource_group_layout split - there is no main group, so the resources need the scheme's groups")
-    if layout is None and split:
-        warnings.append("deployment.resource_group_layout is missing - a spec written before it, read with a main group beside the split roles; a run re-derives the split without one")
-    split = [r for r in split if r in split_roles]
+    if layout != 'split' and dep_value('resource_group_scheme') is not None:
+        errors.append("deployment.resource_group_scheme is stale - resource_group_layout is not split, so there is nothing to split")
+    split = rg_roles.groups(rg_table, dep_node, rg_resources)
     in_play = (['main'] if main_present else []) + split
 
-    # every role named anywhere: the scheme's, and any a mode or a name was written for
-    seen = set(split_roles) | {'main'}
-    seen |= {k[len('resource_group_mode_'):] for k in dep_node if str(k).startswith('resource_group_mode_')}
-    seen |= {k[len('resource_group_name_'):] for k in ctx_node if str(k).startswith('resource_group_name_')}
-    seen.discard('kind')  # the question that stands for the per-kind keys, never a key itself
-    for r in ['main'] + sorted(seen - {'main'}):
-        mode = dep_value(f'resource_group_mode_{r}')
-        mode_path = f'deployment.resource_group_mode_{r}'
-        if mode is None:
-            if split and r in in_play:
-                errors.append(f"{mode_path} is missing - with a split every group says whether it exists or is created")
-        else:
-            if mode not in RG_MODES:
-                errors.append(f"{mode_path} '{mode}' is not existing or create")
-            if r not in in_play:
-                errors.append(f"{mode_path} is stale - '{r}' has no group of its own"
-                              + (" (under a split there is no main group)" if r == 'main' else ", it is not split off"))
+    # Whether a group exists or is created is resource_groups_created alone: a group on it is
+    # created, every other one exists. No mode per group is written.
+    for k in dep_node:
+        if str(k).startswith('resource_group_mode_'):
+            errors.append(f"deployment.{k} is no longer written - resource_groups_created lists the groups the render "
+                          f"creates, every other group exists")
+    created_raw = dep_value('resource_groups_created')
+    if created_raw is not None and not isinstance(created_raw, list):
+        errors.append("deployment.resource_groups_created is not a list of groups")
+    for r in rg_roles.created(dep_node):
+        if r not in in_play:
+            errors.append(f"deployment.resource_groups_created lists '{r}', which has no group"
+                          + (" (under a split there is no main group)" if r == 'main' else ", no resource of the spec is in it"))
 
+    # every role a name was written for: the scheme's, and any other
+    seen = set(split_roles) | {'main'}
+    seen |= {k[len('resource_group_name_'):] for k in ctx_node if str(k).startswith('resource_group_name_')}
+    for r in ['main'] + sorted(seen - {'main'}):
         name_key = 'resource_group_name' if r == 'main' else f'resource_group_name_{r}'
         name = ctx_node.get(name_key) if isinstance(ctx_node, dict) else None
         if name is not None and r not in in_play:
             errors.append(f"context.{name_key} is stale - '{r}' has no group of its own"
-                          + (" (under a split there is no main group)" if r == 'main' else ", it is not split off"))
+                          + (" (under a split there is no main group)" if r == 'main' else ", no resource of the spec is in it"))
 
     # under a split every resource needs a group of the scheme: there is no main to fall into
     if not main_present:
@@ -495,11 +519,11 @@ def main():
             role = rg_roles.role_of(rg_table, scheme, kind)
             if scheme == 'component' and role is None and kind not in (rg_table.get('attached') or []):
                 errors.append(f"resources.{rkey} names no part - under the component scheme every resource that is not "
-                              f"shared carries placement.resource_group with its part ({', '.join(split_roles[1:]) or 'none named'})")
+                              f"shared carries placement.resource_group with its part ({', '.join(split_roles[1:]) or 'none placed yet'})")
                 continue
-            if role is not None and role not in split:
-                errors.append(f"resources.{rkey} belongs to '{role}', which resource_group_split does not list - under a split "
-                              f"there is no main group to fall back to; add the role, or place the resource with placement.resource_group")
+            if role == 'main':
+                errors.append(f"resources.{rkey} has no role in the {scheme} scheme - under a split there is no main group "
+                              f"to fall back to; place it with placement.resource_group ({', '.join(split_roles)})")
 
     lock = dep_value('resource_group_lock')
     if lock is not None and lock not in RG_LOCKS:
@@ -515,9 +539,12 @@ def main():
             continue
         placed += 1
         role = d.get('value') if isinstance(d, dict) else d
-        if role not in in_play:
-            errors.append(f"resources.{rkey}.placement.resource_group '{role}' names a group the deployment does not have - "
-                          f"add the role to deployment.resource_group_split, or drop the placement (in play: {', '.join(in_play)})")
+        if main_present and role != 'main':
+            errors.append(f"resources.{rkey}.placement.resource_group '{role}' - resource_group_layout is not split, so the "
+                          f"deployment has one group; drop the placement or split")
+        elif not main_present and role not in split_roles:
+            errors.append(f"resources.{rkey}.placement.resource_group '{role}' is not a role of the {scheme} scheme "
+                          f"({', '.join(split_roles)})")
     if len(errors) == rg_errors and (split or placed):
         ok(f"resource groups - {'main and ' if main_present else 'no main group, '}{len(split)} split role(s), {placed} placement(s)")
 
@@ -525,7 +552,7 @@ def main():
     open_keys = {str(get(o, 'key')) for o in (get(spec, 'open') or []) if get(o, 'key')}
     required_ctx = ['location', 'subscription_id']
     for r in in_play:
-        if dep_value(f'resource_group_mode_{r}') != 'create':
+        if rg_roles.mode(dep_node, r) != 'create':
             required_ctx.append('resource_group_name' if r == 'main' else f'resource_group_name_{r}')
     for key in required_ctx:
         if ctx_node.get(key) in (None, '', {}) and f"context.{key}" not in open_keys:
@@ -548,11 +575,11 @@ def main():
         if not isinstance(value, str) or not value:
             errors.append(f"{where} is not one region - the departure holds for every stage, not a map per stage")
             continue
-        src = d.get('source') if isinstance(d, dict) else None
-        if src not in ('stated', 'asked', 'overridden', 'carried'):
-            errors.append(f"{where} is {src} - a region nobody named is a deployment nobody decided; "
-                          f"the person states it or the model is an open entry")
-        if isinstance(d, dict) and not d.get('reason'):
+        src, reason = spec_source.kind(d.get('source')) if isinstance(d, dict) else (None, None)
+        if src != 'overridden':
+            errors.append(f"{where} is {src} - a region apart from context.location is a departure a person names: "
+                          f"source: {{overridden: <the model context.location does not offer>}}, or the model is an open entry")
+        elif not str(reason or '').strip():
             errors.append(f"{where} carries no reason - name the model the region of context.location does not offer")
         if region and value == region:
             errors.append(f"{where} is context.location ({region}) - no departure, drop the key")
@@ -591,6 +618,14 @@ def main():
             p = str(get(a, side) or '')
             if p.split('__')[0] in set_names and p not in res_keys:
                 errors.append(f"wiring.role_assignments names '{p}' ({side}), which is not a resource of this spec")
+
+    # A purpose belongs to its resource, not to the wiring between resources.
+    if get(get(spec, 'wiring'), 'purposes') is not None:
+        errors.append("wiring.purposes is no longer read - a resource's purpose is resources.<key>.meta.purpose")
+    # A resource is in the spec and built, or it is not decided yet and an open entry.
+    if get(get(spec, 'wiring'), 'optional') is not None:
+        errors.append("wiring.optional is no longer read - a part nobody has decided on is an open: entry "
+                      "(\"Soll der Redis-Cache gebaut werden?\", blocks: apply), a resource in the spec is built")
 
     # --- 9b. an access line is { from, to, label? } ------------------------------
     # An unquoted `label: Users, HTTPS` parses as a label plus a key `HTTPS: null`; the
@@ -652,11 +687,11 @@ def main():
         return bool(v)
 
     needs = []  # (what, accepted roles, accepted scopes, the decision that needs it)
-    creates = [f'deployment.resource_group_mode_{r}' for r in in_play if dep_value(f'resource_group_mode_{r}') == 'create']
+    creates = [r for r in in_play if rg_roles.mode(dep_node, r) == 'create']
     scope = dep_value('deployment_scope')
     if creates or scope == 'subscription':
         needs.append(('a resource group is created' if creates else 'the deployment runs at subscription scope',
-                      ROLES_CREATE_GROUP, ['subscription'], creates or ['deployment.deployment_scope']))
+                      ROLES_CREATE_GROUP, ['subscription'], ['deployment.resource_groups_created'] if creates else ['deployment.deployment_scope']))
     assigning = []
     for rkey, rnode in (get(spec, 'resources') or {}).items():
         for gnode in (rnode or {}).values() if isinstance(rnode, dict) else []:
@@ -678,8 +713,8 @@ def main():
     dr_errors = len(errors)
     if scope == 'resource_group':
         for c in creates:
-            errors.append(f"{c} is create under deployment_scope resource_group - the deployment only reaches groups that "
-                          f"exist; creating one is deployment_scope subscription")
+            errors.append(f"resource group '{c}' is created (resource_groups_created) under deployment_scope resource_group - "
+                          f"the deployment only reaches groups that exist; creating one is deployment_scope subscription")
     iso = dep_value('stage_isolation')
     if scope and iso and iso != scope:
         errors.append(f"deployment.stage_isolation is {iso}, but deployment_scope is {scope} - the isolation "
@@ -690,8 +725,9 @@ def main():
                       "shared subscription reaches every stage; the scope is resource_group")
     if dep_value('stage_isolation') == 'resource_group':
         for c in creates:
-            errors.append(f"{c} is create under stage_isolation resource_group - creating a group needs a role on the "
-                          f"shared subscription, which reaches every stage; the groups exist beforehand (existing)")
+            errors.append(f"resource group '{c}' is created (resource_groups_created) under stage_isolation resource_group - "
+                          f"creating a group needs a role on the shared subscription, which reaches every stage; the groups "
+                          f"exist beforehand")
         for g in granted if isinstance(granted, list) else []:
             if isinstance(g, dict) and g.get('scope') == 'subscription':
                 errors.append(f"deployment.deployer_roles grants {g.get('role')} on subscription under stage_isolation "

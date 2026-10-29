@@ -13,26 +13,42 @@ context:
   language: de
   location: westeurope
   workload: keepnames
-  subscription_id: {development: 11111111-2222-3333-4444-555555555555}
-  resource_group_name: {development: rg-keepnames-dev-we}
+  subscription_id:
+    development: 11111111-2222-3333-4444-555555555555
+  resource_group_name:
+    development: rg-keepnames-dev-we
 
 deployment:
   # --- resource_groups ---
-  resource_group_mode_main: {value: existing, source: stated}
+  resource_groups_created:
+    value: []
+    source: default
 
   # --- modules ---
-  module_source: {value: authored, source: stated}
+  module_source:
+    value: authored
+    source: stated
 
   # --- posture ---
-  landing_zone: {value: standalone, source: stated}
-  network_exposure: {value: public, source: stated}
-  local_auth: {value: disabled, source: default}
+  landing_zone:
+    value: standalone
+    source: stated
+  network_exposure:
+    value: public
+    source: stated
+  local_auth:
+    value: disabled
+    source: default
 
   # --- network ---
-  network_ownership: {value: none, source: stated}
+  network_ownership:
+    value: none
+    source: stated
 
   # --- observability ---
-  observability_ownership: {value: none, source: default}
+  observability_ownership:
+    value: none
+    source: default
 
 composition:
   granularity: single
@@ -40,15 +56,30 @@ composition:
 
 resources:
   key-vault:
+    meta:
+      purpose:
+        value: Secrets der Anwendung
+        source: stated
     networking:
-      public_network_access: {value: enabled, source: stated}
+      public_network_access:
+        value: enabled
+        source: stated
 
   storage-account:
+    meta:
+      purpose:
+        value: Uploads der Anwendung
+        source: stated
     networking:
-      public_network_access: {value: enabled, source: stated}
+      public_network_access:
+        value: enabled
+        source: stated
     data_protection:
-      blob_soft_delete_days: {value: 7, source: default}
+      blob_soft_delete_days:
+        value: 7
+        source: default
 
 wiring:
-  access: {value: [], source: stated}
-  purposes: {value: {key-vault: Secrets der Anwendung, storage-account: Uploads der Anwendung}, source: stated}
+  access:
+    value: []
+    source: stated

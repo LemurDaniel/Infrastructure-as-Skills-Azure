@@ -10,8 +10,8 @@ Nothing here renders when `defender_ownership` is `platform`.
 **There is none.** The AVM index has no Terraform module for Defender for Cloud (`Microsoft.Security/pricings`)
 - neither a resource nor a pattern module (looked up 2026-10-25, in the same index as
 [avm.md](../../../core/iac-rendering/references/avm.md)). It is treated as `Proposed`: the render is
-authored, with `implementation: authored` and `source: forced`, `forced_by: no AVM module for
-Microsoft.Security/pricings`. The Bicep side has a pattern module (see `bicep.md`).
+authored, with `implementation: authored` and `source: { forced_by: no AVM module for
+Microsoft.Security/pricings }`. The Bicep side has a pattern module (see `bicep.md`).
 
 ## Authored rendering
 

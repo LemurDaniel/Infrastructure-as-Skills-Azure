@@ -125,8 +125,8 @@ groups:
         renders: >
           terraform: subscription_id per environments/<stage>.tfvars and one state
           per stage; bicep: the deployment scope per stage on the command line;
-          both: the resource group name per stage; resource_group: every
-          resource_group_mode_<role> forced to existing, and the hand-over scopes each
+          both: the resource group name per stage; resource_group: resource_groups_created
+          forced to [] - every group exists - and the hand-over scopes each
           stage identity's roles to its own groups
 
       - id: deployment_scope
@@ -297,8 +297,8 @@ groups:
         per_environment: true
         why: >
           Always an input variable of the template, never asked and never
-          invented. A group the infrastructure creates (`resource_group_mode_main:
-          create`) needs no name from anyone - the render computes it from the
+          invented. A group the infrastructure creates (`main` in
+          `resource_groups_created`) needs no name from anyone - the render computes it from the
           naming interface. An existing one does: a stage the description gives
           no name for is named by an `open:` entry (workload owner, blocks apply),
           and its stage file holds `OPEN-resource-group`. A
@@ -345,8 +345,8 @@ groups:
           first, and how to split second, because a list of areas cannot be left
           empty in a multiple-choice answer and "none" was answered as "other".
         renders: >
-          single: resource_group_split is [] and resource_group_scheme is not asked;
-          split: resource_group_scheme decides the groups
+          single: one group, resource_group_scheme is not asked; split: the scheme and
+          the resources decide the groups - derived by the scripts, never recorded
 
       - id: resource_group_scheme
         ask:
@@ -375,8 +375,12 @@ groups:
           the system - the protected group's rights are granted separately -, and
           `component` when parts of the system have their own team or release pace,
           the shared foundation (network, monitoring, identities) in a group of its
-          own. The first three are tables; the parts of `component` are the design's,
-          named in resource_group_components. One group
+          own. The first three are tables; the parts of `component` are the design's:
+          the run names them from the description and the resources' meta.purpose - a
+          short lowercase name each (chat, ingest, admin) - and places every resource
+          that is not shared in one with placement.resource_group (`source: { forced_by:
+          meta.purpose }`); the person renames, merges or splits parts at the diagram
+          sign-off. `shared` is never a part: it is the group of what every part uses. One group
           per kind of resource is not offered: it yields a group per type (fourteen
           for a chat app) that nobody owns or deletes as a unit, and cost by kind is a
           tag, not a group.
@@ -385,69 +389,8 @@ groups:
           question per area. The person sees the result in the diagram and moves a
           resource there, recorded as `placement.resource_group` (overridden).
         renders: >
-          derives resource_group_split from the scheme's table and the resources
-          in the design
-
-      - id: resource_group_components
-        ask:
-          en: "Which parts does the system consist of?"
-          de: "Aus welchen Teilen besteht das System?"
-        type: list
-        plain:
-          en: "The system's parts, each with a resource group of its own: {value}."
-          de: "Die Teile des Systems, jeder mit einer eigenen Ressourcengruppe: {value}."
-        default: []
-        depends_on: { question: resource_group_scheme, equals: component }
-        forced_when: >
-          Never asked; the run names the parts from the description and wiring.purposes - a
-          short lowercase name each (chat, ingest, admin) - and places every resource that is
-          not shared in one of them with placement.resource_group (forced, forced_by
-          wiring.purposes). Recorded as `forced` with `forced_by: wiring.purposes`; the person
-          renames, merges or splits parts at the diagram sign-off (`overridden`).
-        why: >
-          The parts are what the system is built from in the customer's eyes - the chat, the
-          document import, the admin portal - and no table can know them. Derived rather than
-          asked, because a person describing a chat app names its parts in passing and would
-          not name them as a list; the diagram is where they see and correct them. `shared`
-          is never a part: it is the group of what every part uses.
-        renders: resource_groups.<part> per part, beside resource_groups.shared
-
-      - id: resource_group_split
-        ask:
-          en: "Which roles get a resource group of their own?"
-          de: "Welche Rollen bekommen eine eigene Ressourcengruppe?"
-        type: list
-        plain:
-          en: "These areas get a resource group of their own: {value}. Everything else shares the main group."
-          de: "Diese Bereiche erhalten eine eigene Ressourcengruppe: {value}. Alles andere liegt in der Hauptgruppe."
-        plain_values:
-          network: { en: "network", de: "Netzwerk" }
-          data: { en: "data", de: "Daten" }
-          application: { en: "application", de: "Anwendung" }
-          observability: { en: "monitoring", de: "Überwachung" }
-          security: { en: "security", de: "Sicherheit" }
-          foundation: { en: "foundation", de: "Fundament" }
-          state: { en: "state", de: "Zustand" }
-          runtime: { en: "runtime", de: "Laufzeit" }
-          protected: { en: "protected", de: "geschützt" }
-          standard: { en: "standard", de: "Standard" }
-          shared: { en: "shared", de: "gemeinsam" }
-        default: []
-        forced_when: >
-          Never asked; derived from resource_group_layout and resource_group_scheme.
-          single: []. split: every role of the scheme that at least one resource of the
-          design belongs to, in the table's order; component: shared and the parts in
-          resource_group_components. Recorded as `forced` with `forced_by: deployment.resource_group_scheme`;
-          a role the person drops or adds after seeing the diagram is `overridden`.
-        why: >
-          The list the renderer, the diagram and the checks read: which groups exist
-          besides the main group. Derived so that no person has to pick areas from a
-          list longer than a multiple-choice question holds; a role with nothing in
-          it is not split off, because an empty group is a name and a role scope with
-          no purpose.
-        renders: >
-          resource_groups.<role> per listed role; a resource's group is its role's
-          group, or the main group when its role is not split off
+          the groups: every role of the scheme that a resource of the design is in
+          (rg_roles.groups), never written into the spec
 
       - id: resource_groups_created
         ask:
@@ -480,335 +423,23 @@ groups:
           cost its own existing-or-create answer, and a system with five split areas asked
           six near-identical questions. The answer is the list of groups that must be
           created; every group not on it is expected to exist, which is the default
-          (`existing`) of the old per-role questions. Only `main` and the roles in
-          resource_group_split apply; a listed role that was not split off is ignored.
-          Why `existing` is the default, what `create` costs (Contributor on the
-          subscription, a destroy that takes the group with it) and why the platform
-          often owns the network group are the reasons given on the derived
-          resource_group_mode_<role> questions below.
+          (`existing`). Only `main` and the groups the split yields apply.
+          `existing` is the default because a group usually carries more than this
+          deployment: RBAC, policy assignments, locks and the cost view are set by
+          whoever hands it out, and a render that creates the group owns a lifecycle
+          wider than its resources - a destroy would delete the group and with it
+          anything else in it. `create` is right for a workload that has its own
+          subscription or a sandbox, where nobody hands groups out. It costs a wider
+          deployment right: creating a group needs Contributor on the subscription, not
+          on the group, so a Bicep root deploys at subscription scope. Decided per group
+          because the platform often owns one and the workload the others: the network
+          group is the one most often handed out, with the address plan, the hub peering
+          and the DNS zones; a data group split off to keep its lifecycle and its lock
+          apart is the one most worth creating with the system, so the lock comes with it.
         renders: >
-          derives resource_group_mode_<role> for main and every split role: create for a
-          listed role, existing otherwise; the spec keeps one mode per role
-
-      - id: resource_group_mode_main
-        ask:
-          en: "Does the main resource group already exist, or should the infrastructure create it?"
-          de: "Gibt es die Haupt-Ressourcengruppe schon, oder soll die Infrastruktur sie anlegen?"
-        type: enum
-        resolved_by: derived
-        forced_when: >
-          Not asked: `create` when main is in resource_groups_created, otherwise `existing`;
-          always `existing` under deployment_scope resource_group (forced_by deployment.deployment_scope)
-        plain:
-          en: "The main resource group {value}."
-          de: "Die Hauptressourcengruppe {value}."
-        plain_values:
-          existing: { en: "already exists and is only used", de: "existiert bereits und wird nur verwendet" }
-          create: { en: "is created together with the system", de: "wird zusammen mit dem System angelegt" }
-        accepts: [existing, create]
-        default: existing
-        depends_on: { question: resource_group_layout, not_equals: split }
-        why: >
-          `existing` is the default because a group usually carries more than
-          this deployment: RBAC, policy assignments, locks and the cost view are
-          set by whoever hands it out, and a render that creates the group owns
-          a lifecycle wider than its resources - a destroy would delete the group
-          and with it anything else in it. `create` is right for a workload that
-          has its own subscription or a sandbox, where nobody hands groups out.
-          It costs a wider deployment right: creating a group needs
-          Contributor on the subscription, not on the group, so a Bicep root
-          deploys at subscription scope. Decided per group because the platform
-          often owns one and the workload the others.
-        renders: >
-          existing: variable resource_group_name per stage; create: the AVM
-          resource group module, named by the naming interface unless a name is stated
-
-      - id: resource_group_mode_network
-        ask:
-          en: "Does the network resource group already exist, or should the infrastructure create it?"
-          de: "Gibt es die Netzwerk-Ressourcengruppe schon, oder soll die Infrastruktur sie anlegen?"
-        type: enum
-        resolved_by: derived
-        forced_when: >
-          Not asked: `create` when network is in resource_groups_created, otherwise `existing`;
-          always `existing` under deployment_scope resource_group (forced_by deployment.deployment_scope)
-        plain:
-          en: "The network resource group {value}."
-          de: "Die Ressourcengruppe für das Netzwerk {value}."
-        plain_values:
-          existing: { en: "already exists and is only used", de: "existiert bereits und wird nur verwendet" }
-          create: { en: "is created together with the system", de: "wird zusammen mit dem System angelegt" }
-        accepts: [existing, create]
-        default: existing
-        depends_on: { question: resource_group_split, contains: network }
-        why: >
-          A network group is the one most often handed out by a platform team
-          that also owns the address plan, the hub peering and the DNS zones, so
-          `existing` is the default; see resource_group_mode_main for what
-          `create` costs. A workload that builds its own network creates its own
-          group.
-        renders: >
-          existing: variable resource_group_name_network per stage; create: the
-          AVM resource group module, named by the naming interface unless a name is stated
-
-      - id: resource_group_mode_data
-        ask:
-          en: "Does the data resource group already exist, or should the infrastructure create it?"
-          de: "Gibt es die Daten-Ressourcengruppe schon, oder soll die Infrastruktur sie anlegen?"
-        type: enum
-        resolved_by: derived
-        forced_when: >
-          Not asked: `create` when data is in resource_groups_created, otherwise `existing`;
-          always `existing` under deployment_scope resource_group (forced_by deployment.deployment_scope)
-        plain:
-          en: "The data resource group {value}."
-          de: "Die Ressourcengruppe für die Daten {value}."
-        plain_values:
-          existing: { en: "already exists and is only used", de: "existiert bereits und wird nur verwendet" }
-          create: { en: "is created together with the system", de: "wird zusammen mit dem System angelegt" }
-        accepts: [existing, create]
-        default: existing
-        depends_on: { question: resource_group_split, contains: data }
-        why: >
-          See resource_group_mode_main. A data group is split off to keep its
-          lifecycle and its lock apart from the application, which is the reason
-          to create it with the system as well: the lock then comes with it.
-        renders: >
-          existing: variable resource_group_name_data per stage; create: the AVM
-          resource group module, named by the naming interface unless a name is stated
-
-      - id: resource_group_mode_application
-        ask:
-          en: "Does the application resource group already exist, or should the infrastructure create it?"
-          de: "Gibt es die Anwendungs-Ressourcengruppe schon, oder soll die Infrastruktur sie anlegen?"
-        type: enum
-        resolved_by: derived
-        forced_when: >
-          Not asked: `create` when application is in resource_groups_created, otherwise `existing`;
-          always `existing` under deployment_scope resource_group (forced_by deployment.deployment_scope)
-        plain:
-          en: "The application resource group {value}."
-          de: "Die Ressourcengruppe für die Anwendung {value}."
-        plain_values:
-          existing: { en: "already exists and is only used", de: "existiert bereits und wird nur verwendet" }
-          create: { en: "is created together with the system", de: "wird zusammen mit dem System angelegt" }
-        accepts: [existing, create]
-        default: existing
-        depends_on: { question: resource_group_split, contains: application }
-        why: See resource_group_mode_main; the rule is the same for every role, only the owner differs.
-        renders: >
-          existing: variable resource_group_name_application per stage; create:
-          the AVM resource group module, named by the naming interface unless a name is stated
-
-      - id: resource_group_mode_observability
-        ask:
-          en: "Does the monitoring resource group already exist, or should the infrastructure create it?"
-          de: "Gibt es die Monitoring-Ressourcengruppe schon, oder soll die Infrastruktur sie anlegen?"
-        type: enum
-        resolved_by: derived
-        forced_when: >
-          Not asked: `create` when observability is in resource_groups_created, otherwise `existing`;
-          always `existing` under deployment_scope resource_group (forced_by deployment.deployment_scope)
-        plain:
-          en: "The monitoring resource group {value}."
-          de: "Die Ressourcengruppe für die Überwachung {value}."
-        plain_values:
-          existing: { en: "already exists and is only used", de: "existiert bereits und wird nur verwendet" }
-          create: { en: "is created together with the system", de: "wird zusammen mit dem System angelegt" }
-        accepts: [existing, create]
-        default: existing
-        depends_on: { question: resource_group_split, contains: observability }
-        why: >
-          See resource_group_mode_main. A central monitoring group usually
-          belongs to the platform, which collects the logs of many workloads in
-          it - a workload that creates it owns a workspace nobody else feeds.
-        renders: >
-          existing: variable resource_group_name_observability per stage; create:
-          the AVM resource group module, named by the naming interface unless a name is stated
-
-      - id: resource_group_mode_security
-        ask:
-          en: "Does the security resource group already exist, or should the infrastructure create it?"
-          de: "Gibt es die Sicherheits-Ressourcengruppe schon, oder soll die Infrastruktur sie anlegen?"
-        type: enum
-        resolved_by: derived
-        forced_when: >
-          Not asked: `create` when security is in resource_groups_created, otherwise `existing`;
-          always `existing` under deployment_scope resource_group (forced_by deployment.deployment_scope)
-        plain:
-          en: "The security resource group {value}."
-          de: "Die Ressourcengruppe für die Sicherheit {value}."
-        plain_values:
-          existing: { en: "already exists and is only used", de: "existiert bereits und wird nur verwendet" }
-          create: { en: "is created together with the system", de: "wird zusammen mit dem System angelegt" }
-        accepts: [existing, create]
-        default: existing
-        depends_on: { question: resource_group_split, contains: security }
-        why: See resource_group_mode_main; keys and secrets groups are often fenced by their own RBAC, which is a reason to expect it from outside.
-        renders: >
-          existing: variable resource_group_name_security per stage; create: the
-          AVM resource group module, named by the naming interface unless a name is stated
-
-      - id: resource_group_mode_foundation
-        ask:
-          en: "Does the foundation resource group already exist, or should the infrastructure create it?"
-          de: "Gibt es die Basis-Ressourcengruppe schon, oder soll die Infrastruktur sie anlegen?"
-        type: enum
-        resolved_by: derived
-        forced_when: >
-          Not asked: `create` when foundation is in resource_groups_created, otherwise `existing`;
-          always `existing` under deployment_scope resource_group (forced_by deployment.deployment_scope)
-        plain:
-          en: "The foundation resource group {value}."
-          de: "Die Ressourcengruppe für das Fundament {value}."
-        plain_values:
-          existing: { en: "already exists and is only used", de: "existiert bereits und wird nur verwendet" }
-          create: { en: "is created together with the system", de: "wird zusammen mit dem System angelegt" }
-        accepts: [existing, create]
-        default: existing
-        depends_on: { question: resource_group_split, contains: foundation }
-        why: See resource_group_mode_main; the network and monitoring in it are often handed out by a platform team.
-        renders: >
-          existing: variable resource_group_name_foundation per stage; create: the
-          AVM resource group module, named by the naming interface unless a name is stated
-
-      - id: resource_group_mode_state
-        ask:
-          en: "Does the state resource group already exist, or should the infrastructure create it?"
-          de: "Gibt es die State-Ressourcengruppe schon, oder soll die Infrastruktur sie anlegen?"
-        type: enum
-        resolved_by: derived
-        forced_when: >
-          Not asked: `create` when state is in resource_groups_created, otherwise `existing`;
-          always `existing` under deployment_scope resource_group (forced_by deployment.deployment_scope)
-        plain:
-          en: "The state resource group {value}."
-          de: "Die Ressourcengruppe für den Zustand {value}."
-        plain_values:
-          existing: { en: "already exists and is only used", de: "existiert bereits und wird nur verwendet" }
-          create: { en: "is created together with the system", de: "wird zusammen mit dem System angelegt" }
-        accepts: [existing, create]
-        default: existing
-        depends_on: { question: resource_group_split, contains: state }
-        why: See resource_group_mode_main; the group holding the data is the one whose deletion is the most expensive mistake, so it is the strongest case for existing.
-        renders: >
-          existing: variable resource_group_name_state per stage; create: the
-          AVM resource group module, named by the naming interface unless a name is stated
-
-      - id: resource_group_mode_runtime
-        ask:
-          en: "Does the runtime resource group already exist, or should the infrastructure create it?"
-          de: "Gibt es die Laufzeit-Ressourcengruppe schon, oder soll die Infrastruktur sie anlegen?"
-        type: enum
-        resolved_by: derived
-        forced_when: >
-          Not asked: `create` when runtime is in resource_groups_created, otherwise `existing`;
-          always `existing` under deployment_scope resource_group (forced_by deployment.deployment_scope)
-        plain:
-          en: "The runtime resource group {value}."
-          de: "Die Ressourcengruppe für die Laufzeit {value}."
-        plain_values:
-          existing: { en: "already exists and is only used", de: "existiert bereits und wird nur verwendet" }
-          create: { en: "is created together with the system", de: "wird zusammen mit dem System angelegt" }
-        accepts: [existing, create]
-        default: existing
-        depends_on: { question: resource_group_split, contains: runtime }
-        why: See resource_group_mode_main; the runtime group is the one a workload most often owns, since nothing in it outlives a rebuild, but creating it still costs Contributor on the subscription.
-        renders: >
-          existing: variable resource_group_name_runtime per stage; create: the
-          AVM resource group module, named by the naming interface unless a name is stated
-
-      - id: resource_group_mode_protected
-        ask:
-          en: "Does the protected resource group already exist, or should the infrastructure create it?"
-          de: "Gibt es die Ressourcengruppe für geschützte Daten schon, oder soll die Infrastruktur sie anlegen?"
-        type: enum
-        resolved_by: derived
-        forced_when: >
-          Not asked: `create` when protected is in resource_groups_created, otherwise `existing`;
-          always `existing` under deployment_scope resource_group (forced_by deployment.deployment_scope)
-        plain:
-          en: "The protected resource group {value}."
-          de: "Die Ressourcengruppe für Geschütztes {value}."
-        plain_values:
-          existing: { en: "already exists and is only used", de: "existiert bereits und wird nur verwendet" }
-          create: { en: "is created together with the system", de: "wird zusammen mit dem System angelegt" }
-        accepts: [existing, create]
-        default: existing
-        depends_on: { question: resource_group_split, contains: protected }
-        why: See resource_group_mode_main; the group holding data and secrets is the strongest case for existing - its administrator rights are set by whoever hands it out.
-        renders: >
-          existing: variable resource_group_name_protected per stage; create: the
-          AVM resource group module, named by the naming interface unless a name is stated
-
-      - id: resource_group_mode_standard
-        ask:
-          en: "Does the standard resource group already exist, or should the infrastructure create it?"
-          de: "Gibt es die Standard-Ressourcengruppe schon, oder soll die Infrastruktur sie anlegen?"
-        type: enum
-        resolved_by: derived
-        forced_when: >
-          Not asked: `create` when standard is in resource_groups_created, otherwise `existing`;
-          always `existing` under deployment_scope resource_group (forced_by deployment.deployment_scope)
-        plain:
-          en: "The standard resource group {value}."
-          de: "Die Ressourcengruppe für den Rest {value}."
-        plain_values:
-          existing: { en: "already exists and is only used", de: "existiert bereits und wird nur verwendet" }
-          create: { en: "is created together with the system", de: "wird zusammen mit dem System angelegt" }
-        accepts: [existing, create]
-        default: existing
-        depends_on: { question: resource_group_split, contains: standard }
-        why: See resource_group_mode_main; nothing in it holds data, so it is the group a workload most often owns, but creating it still costs Contributor on the subscription.
-        renders: >
-          existing: variable resource_group_name_standard per stage; create: the
-          AVM resource group module, named by the naming interface unless a name is stated
-
-      - id: resource_group_mode_shared
-        ask:
-          en: "Does the shared resource group already exist, or should the infrastructure create it?"
-          de: "Gibt es die gemeinsame Ressourcengruppe schon, oder soll die Infrastruktur sie anlegen?"
-        type: enum
-        resolved_by: derived
-        forced_when: >
-          Not asked: `create` when shared is in resource_groups_created, otherwise `existing`;
-          always `existing` under deployment_scope resource_group (forced_by deployment.deployment_scope)
-        plain:
-          en: "The shared resource group {value}."
-          de: "Die Ressourcengruppe für das Gemeinsame {value}."
-        plain_values:
-          existing: { en: "already exists and is only used", de: "existiert bereits und wird nur verwendet" }
-          create: { en: "is created together with the system", de: "wird zusammen mit dem System angelegt" }
-        accepts: [existing, create]
-        default: existing
-        depends_on: { question: resource_group_split, contains: shared }
-        why: See resource_group_mode_main; the network and monitoring every part uses are often handed out by a platform team.
-        renders: >
-          existing: variable resource_group_name_shared per stage; create: the
-          AVM resource group module, named by the naming interface unless a name is stated
-
-      - id: resource_group_mode_part
-        ask:
-          en: "Does the part resource group already exist, or should the infrastructure create it?"
-          de: "Gibt es die Ressourcengruppe für den Systemteil schon, oder soll die Infrastruktur sie anlegen?"
-        type: enum
-        resolved_by: derived
-        forced_when: >
-          Not asked: `create` when part is in resource_groups_created, otherwise `existing`;
-          always `existing` under deployment_scope resource_group (forced_by deployment.deployment_scope)
-        plain:
-          en: "The part resource group {value}."
-          de: "Die Ressourcengruppe eines Teils {value}."
-        plain_values:
-          existing: { en: "already exists and is only used", de: "existiert bereits und wird nur verwendet" }
-          create: { en: "is created together with the system", de: "wird zusammen mit dem System angelegt" }
-        accepts: [existing, create]
-        default: existing
-        depends_on: { question: resource_group_scheme, equals: component }
-        why: See resource_group_mode_main. One entry here stands for the per-part keys (resource_group_mode_chat), because a design's parts are not known before it.
-        renders: >
-          existing: variable resource_group_name_part per stage; create: the
-          AVM resource group module, named by the naming interface unless a name is stated
+          per group: listed - the AVM resource group module, named by the naming interface
+          unless a name is stated; not listed - a variable resource_group_name[_<role>] per
+          stage. The spec keeps this list and no mode per group
 
       - id: resource_group_lock
         ask:
@@ -982,7 +613,7 @@ groups:
         default: []
         forced_when: >
           Derived from the spec, never asked; each entry is `{ role, scope, for }`, `for`
-          naming the decisions that need it. Any `resource_group_mode_<role>: create` adds
+          naming the decisions that need it. A non-empty `resource_groups_created` adds
           `Contributor` on `subscription` (a group is created at subscription scope). A
           non-empty `role_assignments` on any resource, or `wiring.role_assignments`, adds
           `Role Based Access Control Administrator` on `resource_group`, conditioned to the
@@ -1073,7 +704,7 @@ groups:
   # What the customer can say about the system without knowing Azure. Each answer
   # derives technical decisions in the resource sets: a resource question carrying
   # `answer: { question: <id>, map }` maps the answer through its own table and records the value
-  # with `source: requirement`. The default answer derives the guardrail default, so an
+  # with `source: { derived_from: deployment.<id> }`. The default answer derives the guardrail default, so an
   # unanswered requirement changes nothing - it only lets the customer change things.
   - id: requirements
     title: Requirements
@@ -1387,7 +1018,7 @@ groups:
           resources written out and under their own review.
           A resource whose type has no `Available` module in the AVM index
           renders authored either way, recorded per module with
-          `source: forced` - the index is checked at render time, not
+          `source: { forced_by: no AVM module for <type> }` - the index is checked at render time, not
           remembered. Asked first, before the description
           and before any resource question: it decides what every later
           decision renders to, and it is the one choice a person can make
@@ -1735,8 +1366,8 @@ groups:
         forced_when: >
           Not asked when the design has exactly one part people open - one application of the
           workload's own (a web app, a container app, a static web app) and nothing else a
-          person reaches: the public part is that application, recorded `forced` with
-          `forced_by: deployment.network_exposure` and shown in Phase 4 as the line the
+          person reaches: the public part is that application, recorded
+          `source: { forced_by: deployment.network_exposure }` and shown in Phase 4 as the line the
           customer ticks. Its deployment slots follow their app and are not parts of their
           own. Asked when the design has two or more such parts, or a part only the customer
           can name (a partner interface, a download area).

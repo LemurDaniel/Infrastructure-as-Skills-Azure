@@ -407,8 +407,9 @@ settles how the code is split, which the spec records under `composition.granula
   stages; everything else is identical, which is what the stack is for. A value the
   customer stated holds in every stage unless they said which stage; the savings relax
   defaults and derived values only.
-- An existing `infra-spec.yaml` → its `composition` is `carried`; do not re-decide it
+- An existing `infra-spec.yaml` → its `composition` is kept as it is; do not re-decide it
 - A flat repository, or a single resource → `single`
+- AVM with resources of more than one family → `per-family`
 - Otherwise → `per-concern`
 
 Deciding this before the interview matters because it is the one thing both backends must
@@ -491,9 +492,9 @@ For each question, the answer then comes from the first source that has one:
 | # | Source | `source` recorded as |
 |---|---|---|
 | 1 | What the user said — the request and the Phase 0 description | `stated`, or `overridden` where it changes a carried value |
-| 2 | The existing `infra-spec.yaml` | `carried` |
+| 2 | The existing `infra-spec.yaml` | The source it already has; `carried` only for what the repository holds without one (a pipeline, a `modules/` layout) |
 | 3 | A pattern skill's pre-answers | `pattern` |
-| 4 | The deployment set's answer: copied for an `answer: { deployment }` question, mapped through the question's table for an `answer: { question, map }` one | `deployment`, or `requirement` with `derived_from: deployment.<id>` |
+| 4 | The deployment set's answer: copied for an `answer: { deployment }` question, mapped through the question's table for an `answer: { question, map }` one | `deployment`, or `{ derived_from: deployment.<id> }` |
 | 5 | The question's `default` | `default` |
 
 A carried value outranks a pattern and a default on purpose: it was decided, and quite
@@ -548,17 +549,16 @@ is designing and has no deployment target yet; what the description leaves out o
 `resource_group_scheme` - by responsibility (`concern`), by lifecycle (`lifecycle`), by protection
 need (`protection`: data and secrets in a fenced group, the rest beside it) or by part of the
 system (`component`). Under `component` the run names the parts from the description and
-`wiring.purposes` (`resource_group_components`, short lowercase names: `chat`, `ingest`), puts
-what every part uses - network, monitoring, identities - into `shared`, and places every other
-resource in its part (`placement.resource_group`, `forced_by: wiring.purposes`); the person
-renames, merges or moves at the diagram sign-off. Which groups follow is **not asked**: `resource_group_split` is
-derived from the scheme's table in `resource-group-roles.yaml`, every role that at least one
-resource of the design belongs to (`forced`, `forced_by: deployment.resource_group_scheme`).
+`meta.purpose` (short lowercase names: `chat`, `ingest`), puts what every part uses - network,
+monitoring, identities - into `shared`, and places every other resource in its part
+(`placement.resource_group`, `source: { forced_by: meta.purpose }`); the person renames, merges
+or moves at the diagram sign-off. Which groups follow is **not asked and not written**: every
+role of the scheme that a resource of the design is in - its placement, else its kind's role in
+`resource-group-roles.yaml` - gets a group; the scripts derive it.
 The person sees the result as frames in the diagram and moves a resource or drops a group
-at the sign-off - a `placement.resource_group` or a changed split, `overridden` with the
-reason. Then `resource_groups_created` (one list question; the
-per-role `resource_group_mode_<role>` are derived from it), with every group existing as the
-default. It reads the derived split, so it is asked in a call after the scheme, multi-select,
+at the sign-off - a `placement.resource_group` or a changed split, `source: { overridden: <reason> }`. Then `resource_groups_created` (one list question, and the only record of it: a group on the
+list is created, every other one exists; no mode per group is written), with every group
+existing as the default. It reads the derived split, so it is asked in a call after the scheme, multi-select,
 with **one option per group** - each role of the split, named by the scheme's words (a split has
 no main group; a single layout asks for its one group),
 never folded into one option ("the areas you split off"); five groups go into two questions of
@@ -763,7 +763,7 @@ off, company accounts only, no public access), *Verschlüsselung* (TLS floor, en
 rest, infrastructure encryption), *Schutz vor Löschen* (soft delete, purge protection,
 locks), *Identitäten* (which part has which identity, and that the rest has none) and
 *Protokolle* (diagnostics, retention) / *Access*, *Encryption*, *Protection against deletion*,
-*Identities*, *Logs*. Every row is a decision of the spec - `source: default` or `forced` in a
+*Identities*, *Logs*. Every row is a decision of the spec - `source: default` or `{ forced_by: ... }` in a
 `security` or `identity` group - in the customer's words, and the block comes from the spec,
 not from memory. Nothing in it is asked; it is shown so that nobody finds it in the code.
 
@@ -797,8 +797,8 @@ when nothing is open) / *Etwas fehlt oder ist zu viel* / *Something is missing o
 not written until the list is right). A part the customer strikes is removed, a part they
 add goes through `azure-resources` like any other request, and the account below is
 redone for the change. A security row the person wants different comes through the
-dialog's free answer: only that row is opened and recorded `source: overridden` with the
-reason, the baseline stays as shown for the rest, and a row the guardrails refuse to relax -
+dialog's free answer: only that row is opened and recorded
+`source: { overridden: <reason> }`, the baseline stays as shown for the rest, and a row the guardrails refuse to relax -
 anything security-shaped in a non-production stage - is said so, not applied.
 
 **Then the account of what was decided for them.** Compact - not forty rows, group it. It
@@ -925,18 +925,20 @@ what the request says — the diagram draws exactly this and nothing else
 ([spec.md](references/spec.md)). `wiring.access` is one `{ from, to, label }` per call the
 request names ("the web app reads from the storage" / "die Web-App liest aus dem Storage" is `app-service` → `storage-account`),
 with `users`, `internet` and `external:<name>` as the actors outside the deployment;
-`wiring.purposes` is a few words per resource in the user's own terms ("Produktbilder"), and
+`resources.<key>.meta.purpose` is a few words per resource in the user's own terms ("Produktbilder"), and
 only for a resource whose purpose the request says - one it names without saying what it is
 for gets none, never a restatement of its type ("Speicher der App", "the app's database"),
 which the picture already shows as the type;
-`wiring.optional` lists what the user called optional. Never infer a call from the
+A part the user calls optional is not built on spec: it is an `open:` entry ("Soll der Redis-Cache
+gebaut werden?" / "Should the Redis cache be built?", `blocks: apply`) until someone decides,
+then a resource or nothing. Never infer a call from the
 resource types: two resources side by side say nothing about who talks to whom, and an
 invented line in a picture the customer signs off on is a decision nobody made. A call
 the request leaves out is an `open:` entry only where the spec cannot work without it;
 otherwise the line is simply absent.
 
 **Customer-facing text in the spec is written in the customer's language**, the one
-`context.language` names - the one exception to the English spec: `wiring.access[].label`, `wiring.purposes` and the
+`context.language` names - the one exception to the English spec: `wiring.access[].label`, `meta.purpose` and the
 `owner` of every `open:` entry are printed verbatim into the picture, the `question` into
 the decision document (the picture counts the open entries by owner and points at the
 document), so an English label there is a `spec` finding of the review. Keys, values, `why`, `reason` stay English.

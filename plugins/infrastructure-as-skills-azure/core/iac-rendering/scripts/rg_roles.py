@@ -3,9 +3,9 @@
 One reader for the spec check, the diagram and the decision document, so a scheme means the
 same thing in all three. `deployment.resource_group_scheme` picks the scheme:
 `concern` (the default, and what a spec without the key means), `lifecycle`, `protection`
-(fixed tables), or `component`, whose parts the run names per design in
-`deployment.resource_group_components`: the foundation kinds go to `shared`, every other
-resource names its part in `placement.resource_group`.
+(fixed tables), or `component`, whose parts are the design's: the foundation kinds go to
+`shared`, every other resource names its part in `placement.resource_group`. Which groups exist
+is derived here (`groups`), never recorded in the spec.
 
 Import it by path - the scripts live in different skills:
 
@@ -35,9 +35,20 @@ def value(deployment, key):
 
 
 def has_main(deployment):
-    """Whether the deployment has a main group: always, unless resource_group_layout is split.
-    A spec written before the layout key keeps its main group beside the split roles."""
+    """Whether the deployment has a main group: always, unless resource_group_layout is split."""
     return value(deployment, 'resource_group_layout') != 'split'
+
+
+def created(deployment):
+    """The groups the render creates: `resource_groups_created`, [] when it is absent."""
+    v = value(deployment, 'resource_groups_created')
+    return [r for r in v if isinstance(r, str)] if isinstance(v, list) else []
+
+
+def mode(deployment, role):
+    """`create` for a group in resource_groups_created, `existing` for every other: the list is
+    the record, no mode per group is written."""
+    return 'create' if role in created(deployment) else 'existing'
 
 
 def scheme_of(deployment):
@@ -56,14 +67,44 @@ def table(data, scheme):
     return data.get('kinds') or {}
 
 
-def roles(data, scheme, resource_keys=(), deployment=None):
-    """The roles a scheme can split off (never `main`); `component`: `shared` and the parts the
-    deployment names."""
+def placement(node):
+    """The role a resource's `placement.resource_group` names, or None."""
+    p = ((node or {}).get('placement') or {}).get('resource_group') if isinstance(node, dict) else None
+    v = p.get('value') if isinstance(p, dict) else p
+    return v if isinstance(v, str) and v else None
+
+
+def roles(data, scheme, resources=None, deployment=None):
+    """The roles a scheme can split off (never `main`); `component`: `shared` and the parts -
+    those `resource_group_components` lists, else those the resources are placed in."""
     if scheme == 'component':
         parts = value(deployment, 'resource_group_components') or []
-        return ['shared'] + [p for p in parts if isinstance(p, str) and p not in ('shared', 'main')]
+        if not parts and isinstance(resources, dict):
+            parts = [placement(n) for n in resources.values()]
+        out = ['shared']
+        for p in parts:
+            if p and p not in out and p != 'main':
+                out.append(p)
+        return out
     listed = (data.get(scheme) or {}).get('roles') if scheme in ('lifecycle', 'protection') else data.get('roles')
     return [r for r in (listed or list(table(data, scheme))) if r != 'main']
+
+
+def groups(data, deployment, resources):
+    """The roles with a group of their own, derived and never recorded: none under a single
+    layout; under a split every role of the scheme that a resource of the spec is in - its
+    `placement.resource_group`, else its kind's role - in the scheme's order. A role a
+    placement names that the scheme does not have is left out; check_spec.py names it."""
+    if value(deployment, 'resource_group_layout') != 'split':
+        return []
+    scheme = scheme_of(deployment)
+    order = roles(data, scheme, resources)
+    used = set()
+    for key, node in (resources or {}).items():
+        role = placement(node) or role_of(data, scheme, str(key).split('__')[0])
+        if role:
+            used.add(role)
+    return [r for r in order if r in used]
 
 
 def role_of(data, scheme, kind):

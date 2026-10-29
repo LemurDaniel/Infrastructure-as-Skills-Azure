@@ -68,8 +68,8 @@ groups:
         why: >
           The vault is placed into an existing group. For `isolated` and `immutable` backups
           it is usually a group of its own with its own access, so that whoever administers
-          the workload's group cannot delete the vault. A `deployment.resource_group_split`
-          role of `security` is the place.
+          the workload's group cannot delete the vault. The `security` group of a split
+          (`deployment.resource_group_layout: split`) is the place.
         renders: resource_group_name (AVM Terraform) / implicit in Bicep scope
 
   - id: vault

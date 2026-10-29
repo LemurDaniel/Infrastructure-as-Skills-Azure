@@ -280,6 +280,30 @@ the detail; this list says what was decided and why, so a session does not reope
   `interview` and repeats `derived` from its source (checked). `answer` is the one field for an
   inherited value - `{ deployment }`, `{ context }` or `{ question, map }`. There is no engineer role:
   open items belong to the workload owner or the platform team.
+- **The spec format, revised: what is derived is not written** (2026-10-29, branch
+  `restructure-core`, owner's review of `spec.md`). No migration path - nobody but the owner
+  uses the plugin; the repo's specs were moved over, `check_spec.py` refuses the old forms.
+  - `source` is a word or a map of one key that names the kind and its pointer:
+    `{ forced_by: ... }`, `{ derived_from: deployment.<id> }`, `{ overridden: <reason> }`;
+    no `forced_by:`/`derived_from:`/`reason:` beside it. One field says where a value came from.
+  - Every map in block style, a stage map one stage per line; only a short list of plain
+    values stays on one line - the one-liners with nested braces were unreadable.
+  - `resources.<key>.meta.purpose` replaces `wiring.purposes`: a purpose belongs to its
+    resource, and `meta` holds what describes rather than decides. `wiring.optional` is gone:
+    a part nobody decided on is an `open:` entry, a resource in the spec is built.
+  - `non_production` is gone: which stages took the cheaper default follows from the
+    question, `non_production_savings` and the values; the decision document derives it.
+  - Resource groups: `resource_group_split`, `resource_group_components` and every
+    `resource_group_mode_<role>` are gone. The groups follow from layout, scheme and each
+    resource's role (`rg_roles.groups`); a split has no main group (the partial split with
+    `main` beside listed roles is gone); `resource_groups_created` is the one record of what
+    the render creates. A group nobody wants goes by placing its resources elsewhere.
+  - A `per_environment` value from outside the spec (range, id, platform part) must be a
+    stage map even when the stages agree; one naming only the spec's own parts stays one value.
+  - An `assumed` value renders as a stage-file parameter with its working value and an
+    `ASSUMED: <key>` marker; the placeholder guard (invariant 11) refuses it, so `plan` runs
+    and `apply` does not - before, nothing technically stopped an assumed value deploying.
+  - The Shape example of `spec.md` is tested: it must pass `check_spec.py` and be canonical.
 - **GitHub Copilot CLI is the second host, Codex is not** (2026-10-29): Copilot reads the
   `.claude-plugin/` manifests as its legacy format, `"skills": ["./core/"]` included - all
   four skills load and the interview asks through its own question tool, with no change to
@@ -949,12 +973,24 @@ regeneration from the spec loses them. All `render`:
   (App Service P1v3/P2v3/P3v3, SQL 2/4/8 vCores) are estimates, not measurements.
 - The contradiction list in `iac-authoring` is a skill rule, not a script check.
 - Idea: a cost estimate in Phase 4 (`ideas/cost-and-security-profiles.md`).
-- `examples/order-platform`: `terraform init`, `validate` and `test` were not run when it was
-  added (only `check_spec`, `check_render_coverage`, `check_pipeline`); its spec says
-  `plugin_version: 0.1.0` and `language: de` for an English request, and it predates
-  exposure as a question, `public_parts`, `central_*` and `resource_groups_created`, so a
-  fresh interview would answer some decisions differently. Re-render it, or leave it as the
-  record of that run.
+- `examples/order-platform` was deleted (2026-10-29, owner's call): it predated the spec
+  revision and was to be regenerated anyway. It was the only per-family and pipeline render;
+  `chat-sandbox` is now the rendered example the `CLAUDE.md` commands test.
+
+### After the spec revision (2026-10-29)
+
+- `chatbot-multi-rg` and `orders-integration` were moved to a full split (no main group):
+  the roles that lived in main (`security`, and `application` in `orders-integration`) are
+  groups of their own now. Their diagrams and decision documents, and every example's
+  `infra-decisions.md`, are behind their specs - regenerate the examples.
+- `.github/workflows/eval-agent-infra-stage.yaml` and `examples/chat-sandbox/deploy.ps1` are
+  rendered with the old guard line (no `ASSUMED:`); neither spec assumes anything, the next
+  render brings the line.
+- The six pipeline fixtures (`core/iac-rendering/tests/pipelines/*/infra-spec.yaml`) carry no
+  `schema_version`, so `check_spec.py` fails on them; `check_pipeline.py` does not mind.
+- `wiring.private_dns_zones` stays in `wiring` (a zone serves an endpoint kind, not one
+  resource); it duplicates `private-dns-zone.zone.zone_names` when the deployment owns the
+  zones, and its `forced_by: deployment.network_exposure` is loose. Left until it diverges.
 
 ### Waiting on the owner
 
@@ -982,9 +1018,10 @@ regeneration from the spec loses them. All `render`:
 
 ## Next
 
-**On `restructure-core` first:** the format review of `question-set-format.md` is done
-(owner satisfied, 2026-10-28). Left before the merge: push, PR, and the eval run on Sonnet
-and Haiku - the format change touches every set and the digest.
+**On `restructure-core` first:** the format review of `question-set-format.md` (2026-10-28)
+and of `spec.md` (2026-10-29) are done. Left before the merge: push, PR, and the eval run on
+Sonnet and Haiku - the format changes touch every set, the digest and every spec the
+interview writes. Then regenerate the examples against the revised spec.
 
 **The pattern skill** (`ideas/pattern-skill.md`): the wiring that `chatbot` and
 `chatbot-rag` carry by hand — roles between resources, the private link, the order

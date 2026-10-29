@@ -74,19 +74,16 @@ deployment:
     source: stated
   private_dns_ownership:
     value: deployment
-    source: forced
-    forced_by: deployment.landing_zone
+    source: { forced_by: deployment.landing_zone }
   observability_ownership:
     value: create
-    source: forced
-    forced_by: deployment.landing_zone
+    source: { forced_by: deployment.landing_zone }
   diagnostics_destination:
     value:
       development: log-analytics-workspace
       test: log-analytics-workspace
       production: log-analytics-workspace
-    source: forced
-    forced_by: deployment.observability_ownership
+    source: { forced_by: deployment.observability_ownership }
   log_retention_days:
     value: 30
     source: default
@@ -116,8 +113,7 @@ resources:
         value:
         - subnet: snet-web
           service: Microsoft.Web/serverFarms
-        source: forced
-        forced_by: resources.app-service.networking.integration_subnet
+        source: { forced_by: resources.app-service.networking.integration_subnet }
     security:
       ddos_protection:
         value: false
@@ -133,8 +129,7 @@ resources:
           production:
           - snet-endpoints
           - snet-web
-        source: forced
-        forced_by: resources.network-security-group__endpoints.rules.subnet_purpose
+        source: { forced_by: resources.network-security-group__endpoints.rules.subnet_purpose }
     observability:
       diagnostic_workspace:
         value:
@@ -146,6 +141,8 @@ resources:
         value: false
         source: default
   network-security-group__endpoints:
+    meta:
+      purpose: { value: Private endpoints subnet, source: stated }
     rules:
       subnet_purpose:
         value: private_endpoints
@@ -155,8 +152,7 @@ resources:
         source: default
       default_outbound:
         value: deny_internet
-        source: forced
-        forced_by: resources.network-security-group__endpoints.rules.subnet_purpose
+        source: { forced_by: resources.network-security-group__endpoints.rules.subnet_purpose }
       rules:
         value:
           development: []
@@ -176,6 +172,8 @@ resources:
         - NetworkSecurityGroupRuleCounter
         source: default
   network-security-group__integration:
+    meta:
+      purpose: { value: App integration subnet, source: stated }
     rules:
       subnet_purpose:
         value: app_integration
@@ -233,6 +231,8 @@ resources:
         value: false
         source: default
   application-insights:
+    meta:
+      purpose: { value: Application telemetry, source: stated }
     component:
       workspace:
         value:
@@ -274,6 +274,8 @@ resources:
         value: true
         source: deployment
   key-vault:
+    meta:
+      purpose: { value: Secrets of the app, source: stated }
     vault:
       sku:
         value: standard
@@ -296,8 +298,7 @@ resources:
           development: snet-endpoints
           test: snet-endpoints
           production: snet-endpoints
-        source: forced
-        forced_by: deployment.network_ownership
+        source: { forced_by: deployment.network_ownership }
       network_acl_bypass:
         value: None
         source: default
@@ -328,6 +329,8 @@ resources:
         value: true
         source: default
   storage-account:
+    meta:
+      purpose: { value: Source documents, source: stated }
     networking:
       public_network_access:
         value: disabled
@@ -337,8 +340,7 @@ resources:
           development: snet-endpoints
           test: snet-endpoints
           production: snet-endpoints
-        source: forced
-        forced_by: deployment.network_ownership
+        source: { forced_by: deployment.network_ownership }
       private_endpoint_subresources:
         value:
         - blob
@@ -387,24 +389,19 @@ resources:
     data_protection:
       replication:
         value: LRS
-        source: requirement
-        derived_from: deployment.outage_impact
+        source: { derived_from: deployment.outage_impact }
       access_tier:
         value: Hot
-        source: requirement
-        derived_from: deployment.data_access_pattern
+        source: { derived_from: deployment.data_access_pattern }
       blob_soft_delete_days:
         value: 7
-        source: requirement
-        derived_from: deployment.data_loss_tolerance
+        source: { derived_from: deployment.data_loss_tolerance }
       container_soft_delete_days:
         value: 7
-        source: requirement
-        derived_from: deployment.data_loss_tolerance
+        source: { derived_from: deployment.data_loss_tolerance }
       versioning_enabled:
         value: true
-        source: requirement
-        derived_from: deployment.data_loss_tolerance
+        source: { derived_from: deployment.data_loss_tolerance }
       change_feed_enabled:
         value: false
         source: default
@@ -429,6 +426,8 @@ resources:
         value: true
         source: default
   foundry:
+    meta:
+      purpose: { value: Chat and embedding models, source: stated }
     account:
       kind:
         value: AIServices
@@ -464,8 +463,7 @@ resources:
           development: snet-endpoints
           test: snet-endpoints
           production: snet-endpoints
-        source: forced
-        forced_by: deployment.network_ownership
+        source: { forced_by: deployment.network_ownership }
       restrict_outbound:
         value: true
         source: default
@@ -515,6 +513,8 @@ resources:
         value: true
         source: default
   search-service:
+    meta:
+      purpose: { value: Retrieval index over the documents, source: stated }
     service:
       sku:
         value:
@@ -522,11 +522,9 @@ resources:
           test: basic
           production: standard
         source: default
-        non_production: default
       replica_count:
         value: 1
-        source: requirement
-        derived_from: deployment.outage_impact
+        source: { derived_from: deployment.outage_impact }
       partition_count:
         value: 1
         source: default
@@ -542,8 +540,7 @@ resources:
           development: snet-endpoints
           test: snet-endpoints
           production: snet-endpoints
-        source: forced
-        forced_by: deployment.network_ownership
+        source: { forced_by: deployment.network_ownership }
       network_rule_bypass:
         value: None
         source: default
@@ -585,6 +582,8 @@ resources:
         value: true
         source: default
   app-service:
+    meta:
+      purpose: { value: Chat web app, source: stated }
     hosting:
       os_type:
         value: Linux
@@ -595,15 +594,12 @@ resources:
           test: B1
           production: P1v3
         source: default
-        non_production: default
       zone_redundant:
         value: false
-        source: requirement
-        derived_from: deployment.outage_impact
+        source: { derived_from: deployment.outage_impact }
       instance_count:
         value: 1
-        source: requirement
-        derived_from: deployment.outage_impact
+        source: { derived_from: deployment.outage_impact }
     networking:
       public_network_access:
         value: disabled
@@ -613,8 +609,7 @@ resources:
           development: snet-endpoints
           test: snet-endpoints
           production: snet-endpoints
-        source: forced
-        forced_by: deployment.network_ownership
+        source: { forced_by: deployment.network_ownership }
       vnet_integration:
         value: true
         source: default
@@ -623,8 +618,7 @@ resources:
           development: snet-web
           test: snet-web
           production: snet-web
-        source: forced
-        forced_by: deployment.network_ownership
+        source: { forced_by: deployment.network_ownership }
       vnet_route_all:
         value: true
         source: default
@@ -684,8 +678,7 @@ wiring:
     - privatelink.search.windows.net
     - privatelink.azurewebsites.net
     - privatelink.monitor.azure.com
-    source: forced
-    forced_by: deployment.private_dns_ownership
+    source: { forced_by: deployment.private_dns_ownership }
   access:
     value:
     - from: users
@@ -702,20 +695,6 @@ wiring:
       to: foundry
       label: embeddings
     source: stated
-  purposes:
-    value:
-      app-service: Chat web app
-      foundry: Chat and embedding models
-      search-service: Retrieval index over the documents
-      storage-account: Source documents
-      key-vault: Secrets of the app
-      application-insights: Application telemetry
-      network-security-group__endpoints: Private endpoints subnet
-      network-security-group__integration: App integration subnet
-    source: stated
-  optional:
-    value: []
-    source: default
 open:
 - key: context.subscription_id
   environments:

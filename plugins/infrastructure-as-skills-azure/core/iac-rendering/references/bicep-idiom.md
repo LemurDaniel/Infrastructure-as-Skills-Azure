@@ -25,9 +25,11 @@ Every decision whose question is `per_environment`, or whose spec value is a map
 stage, is a `param` without a default whose value lives in the stage file — the address
 range, the subnets, `storageSkuName` and `logRetentionDays` that `non_production_savings`
 sets cheaper outside production — never a literal in the template. A stage whose values
-are still `open:` gets its file with placeholders (the all-zero GUID, `OPEN-<what>`), as
-in [terraform-idiom.md](terraform-idiom.md#the-context-values-and-the-stage-files); the
-pipeline refuses to deploy it.
+are still `open:` gets its file with placeholders (the all-zero GUID, `OPEN-<what>`), and an
+`assumed` value is a `param` whose working value stands in every stage file with
+`// ASSUMED: <key>` beside it, as in
+[terraform-idiom.md](terraform-idiom.md#the-context-values-and-the-stage-files); the
+pipeline refuses to deploy either.
 The conditionals are where environments silently diverge.
 
 ## Modules
@@ -74,7 +76,7 @@ Four of these cost a deployment if ported naively from the Terraform side:
   is `scope: resourceGroup(otherSub, otherRg)` on the module, where Terraform needs a
   provider alias passed in. This is the asymmetry that makes a cross-scope spec render
   cleanly here and awkwardly there. A split without a main group is rendered exactly so: one
-  root deployed into the first group of `resource_group_split`, every module scoped to its own
+  root deployed into the first group of the split (in the scheme's order), every module scoped to its own
   group, references between groups as module outputs
   ([resource-groups.md](resource-groups.md#what-create-changes-elsewhere)).
 - **A module output is not secret.** It is readable in the deployment history, so a module

@@ -23,7 +23,7 @@ associations (`azurerm_monitor_data_collection_rule_association`), which neither
 | Decision | Input | Note |
 |---|---|---|
 | `resource_group_name` | `parent_id` (both modules) | The group's **id** |
-| `kind` | `kind` | **`Linux` / `Windows` only** - the module validates the input. `AgentDirectToStore`, `Direct` and `WorkspaceTransforms` render authored (`azurerm_monitor_data_collection_rule`, below) and the spec records `implementation: authored`, `source: forced`, `forced_by: avm-res-insights-datacollectionrule kind validation` |
+| `kind` | `kind` | **`Linux` / `Windows` only** - the module validates the input. `AgentDirectToStore`, `Direct` and `WorkspaceTransforms` render authored (`azurerm_monitor_data_collection_rule`, below) and the spec records `implementation: authored`, `source: { forced_by: avm-res-insights-datacollectionrule kind validation }` |
 | `performance_counter_set`, `custom_performance_counters` | `data_sources.performance_counters[].counter_specifiers` | The set resolves to the OS dialect in a `local` |
 | `performance_sampling_seconds` | `data_sources.performance_counters[].sampling_frequency_in_seconds` | |
 | `syslog_facilities`, `syslog_min_level` | `data_sources.syslog[]` (two entries: general at the floor, `auth`/`authpriv` at `Info`) | Linux |

@@ -98,7 +98,7 @@ different matter again, decided by `resolved_by` alone.
 | `why` | yes | The reasoning. This is what a reviewer reads and what justifies the default. |
 | `renders` | yes | Which attribute(s) the answer drives, per target where they differ. Lets a review skill map code back to a decision. |
 | `depends_on` | no | `{ question: <id>, equals: <value> }`, `not_equals`, or `contains` (a `list` question holds the value) — skip unless the condition holds. Gates a question that would be dead otherwise: firewall rules mean nothing while public access is disabled, so they are not asked and discarded. |
-| `forced_when` | no | Which answer elsewhere removes a value from `accepts`, or determines this one: `key_protection: hsm` requires Key Vault Premium, and a software key cannot be converted later. The forced value is set, not asked, and recorded as `forced` with `forced_by` in the spec - a value determined silently is worse than one asked, so the spec always names what drove it. Prose, because the conditions are not uniform enough to encode. |
+| `forced_when` | no | Which answer elsewhere removes a value from `accepts`, or determines this one: `key_protection: hsm` requires Key Vault Premium, and a software key cannot be converted later. The forced value is set, not asked, and recorded as `source: { forced_by: <what drove it> }` in the spec - a value determined silently is worse than one asked, so the spec always names what drove it. Prose, because the conditions are not uniform enough to encode. |
 | `resolved_by` | no | Who supplies the value. `interview`: the customer is asked. `derived`: never asked - it follows from interview answers, else its default, else an `open:` entry for the platform team. Absent: never asked - its default or derivation applies, else an `open:` entry for the workload owner. See *Who resolves it*. |
 | `topic` | for `interview` | The heading the question stands under in the interview: `platform`, `network`, `security`, `resilience`, `data` or `application`. Only on `resolved_by: interview`. See *The interview's topics*. |
 | `plain` | yes | The decision as one sentence in the customer's words, per language (`en` required, `de` and others optional), with `{value}` where the answer goes: "The data is kept {value}." The decision document and the Phase 4 account print every decision through it. See *The customer's line*. |
@@ -137,7 +137,7 @@ offers only those, never one from memory. A workflow regenerates the file, never
 The deployment set's questions are asked first and never restated on a resource. A
 resource question covering the same decision declares `answer: { deployment: <id> }`
 instead of a `default` and takes the deployment's answer. A resource that needs a different value
-departs from it, recorded `overridden` with a `reason`.
+departs from it, recorded `source: { overridden: <reason> }`.
 
 Which scope a decision belongs to: could two resources of one system sensibly answer it
 differently? Exposure, network ownership, key protection and the diagnostics destination
@@ -167,7 +167,7 @@ is for and who uses it. A question is put to them only when it says so:
 | `resolved_by` | Resolved by | Example | When nobody is there |
 |---|---|---|---|
 | `interview` | The customer: what the system needs - who uses it, how bad an outage or a loss is, which rules apply, how long data lives | `environment`, `network_exposure`, `blob_soft_delete_days`, `mandates` | Asked - these are the questions the interview exists for |
-| `derived` | The environment the workload lands in — landing zone, network, resource groups, pipeline, module source — owned by the platform team | `network_ownership`, `resource_group_mode_main`, `pipeline_auth`, `existing_vnet`, `diagnostics_destination` | Never asked: follows from the interview's answers (`landing_zone_exists`, `central_*`, `deployment_scope`, `deploy_mechanism`, `network_requirements`, …), defaulted where a default exists, otherwise an `open:` entry owned by the platform team |
+| `derived` | The environment the workload lands in — landing zone, network, resource groups, pipeline, module source — owned by the platform team | `network_ownership`, `stage_isolation`, `pipeline_auth`, `existing_vnet`, `diagnostics_destination` | Never asked: follows from the interview's answers (`landing_zone_exists`, `central_*`, `deployment_scope`, `deploy_mechanism`, `network_requirements`, …), defaulted where a default exists, otherwise an `open:` entry owned by the platform team |
 | *(absent)* | The workload's own technical choice — the guardrail default, or a derivation from a requirement | `min_tls_version`, `private_endpoint_subresources`, `diagnostic_categories`, `key_management` | Defaulted and reported, never asked of a customer; a `required` one becomes an `open:` entry owned by the workload owner |
 
 The field is optional: most questions have none. The test for `interview` is whether the
@@ -178,8 +178,8 @@ in?" does not, however it is phrased - it is `derived`.
 A question that inherits its answer (`answer: { deployment }`, `answer: { context }`) is never asked
 again: it takes the deployment's answer. It is never `interview`; it repeats `derived` where the question
 it inherits from is `derived`, so an open value still goes to the platform team, and
-carries none otherwise. A departure on one resource is recorded `overridden` with a
-`reason`.
+carries none otherwise. A departure on one resource is recorded
+`source: { overridden: <reason> }`.
 
 Keep `interview` for what only the customer knows - a requirement of the system, in their
 words - and never for a technical choice with a safe default. There is no cap on their
@@ -289,7 +289,7 @@ customer can give and the value this question takes for it. The customer says
 The map sits on the resource question, not on the requirement: the resource knows its own
 values (`ZRS`), the requirement only the customer's (`disruptive`), and a new resource
 derives from an existing requirement without touching the deployment set. The spec records
-the result as `source: requirement` with `derived_from: deployment.outage_impact`; the
+the result as `source: { derived_from: deployment.outage_impact }`; the
 decision document turns that into "because you said an outage would be disruptive, the
 data is kept in three datacenters".
 

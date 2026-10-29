@@ -210,7 +210,7 @@ creates it.
 A guardrail that cannot be departed from gets worked around instead of discussed, which is
 worse. So exceptions are allowed, and the cost is recording them:
 
-- The spec records the value with `source: overridden` and a comment stating the reason.
+- The spec records the value with `source: { overridden: <the reason> }`.
 - Generated code carries a comment at the departing attribute pointing at that reason.
 - An exception in an earlier spec keeps its reason when the spec is extended, and is listed
   again at the sign-off - never applied silently because it was there before.

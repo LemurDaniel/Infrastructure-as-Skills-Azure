@@ -22,38 +22,43 @@ context:
   language: en
   location: westeurope
   workload: chatbot
-  subscription_id: {production: 11111111-2222-3333-4444-555555555555}
-  resource_group_name:
-    production: rg-chatbot-prod-we  # main: created by the render (mode create)
+  subscription_id:
+    production: 11111111-2222-3333-4444-555555555555
   resource_group_name_network:
     production: rg-spoke-chatbot-prod-we  # network: handed out by the platform (mode existing)
+  resource_group_name_security:
+    production: rg-chatbot-prod-we
   tags: {}
 
 deployment:
   # --- context ---
-  stage_isolation: {value: subscription, source: default}
-  non_production_savings: {value: enabled, source: default}
-  naming_convention: {value: default, source: default}
+  stage_isolation:
+    value: subscription
+    source: default
+  non_production_savings:
+    value: enabled
+    source: default
+  naming_convention:
+    value: default
+    source: default
 
   # --- resource_groups ---
-  resource_group_split: {value: [network, data, application, observability], source: stated}
-  resource_group_mode_main: {value: create, source: stated}
-  resource_group_mode_network: {value: existing, source: stated}
-  resource_group_mode_data: {value: create, source: stated}
-  resource_group_mode_application: {value: create, source: stated}
-  resource_group_mode_observability: {value: create, source: asked}
-  resource_group_lock: {value: production, source: default}
+  resource_group_layout:
+    value: split
+    source: stated
+  resource_groups_created:
+    value: [data, application, observability, security]
+    source: stated
+  resource_group_lock:
+    value: production
+    source: default
 
   # --- delivery ---
   deployer_roles:
     value:
     - role: Contributor
       scope: subscription
-      for:
-      - deployment.resource_group_mode_main
-      - deployment.resource_group_mode_data
-      - deployment.resource_group_mode_application
-      - deployment.resource_group_mode_observability
+      for: [deployment.resource_groups_created]
     - role: Role Based Access Control Administrator
       scope: resource_group
       for:
@@ -67,59 +72,101 @@ deployment:
     - role: Key Vault Secrets Officer
       scope: key-vault
       for: [resources.key-vault.security.secret_placeholders]
-    source: forced
-    forced_by:
-    - deployment.resource_group_mode_main
-    - deployment.resource_group_mode_data
-    - deployment.resource_group_mode_application
-    - deployment.resource_group_mode_observability
-    - resources.application-insights.identity.role_assignments
-    - resources.key-vault.identity.role_assignments
-    - resources.storage-account__uploads.identity.role_assignments
-    - resources.storage-account__host.identity.role_assignments
-    - resources.foundry.identity.role_assignments
-    - resources.search-service.identity.role_assignments
-    - resources.container-registry.identity.role_assignments
-    - resources.key-vault.security.secret_placeholders
+    source:
+      forced_by:
+      - deployment.resource_groups_created
+      - resources.application-insights.identity.role_assignments
+      - resources.key-vault.identity.role_assignments
+      - resources.storage-account__uploads.identity.role_assignments
+      - resources.storage-account__host.identity.role_assignments
+      - resources.foundry.identity.role_assignments
+      - resources.search-service.identity.role_assignments
+      - resources.container-registry.identity.role_assignments
+      - resources.key-vault.security.secret_placeholders
 
   # --- requirements ---
-  outage_impact: {value: disruptive, source: default}
-  data_loss_tolerance: {value: one_week, source: default}
-  data_access_pattern: {value: active, source: default}
-  backup_isolation: {value: operational, source: default}
-  data_residency: {value: data_zone, source: stated}
+  outage_impact:
+    value: disruptive
+    source: default
+  data_loss_tolerance:
+    value: one_week
+    source: default
+  data_access_pattern:
+    value: active
+    source: default
+  backup_isolation:
+    value: operational
+    source: default
+  data_residency:
+    value: data_zone
+    source: stated
 
   # --- modules ---
-  module_source: {value: avm, source: default}
-  module_telemetry: {value: enabled, source: default}
+  module_source:
+    value: avm
+    source: default
+  module_telemetry:
+    value: enabled
+    source: default
 
   # --- posture ---
-  landing_zone: {value: corp, source: stated}
-  network_exposure: {value: private, source: stated}
-  local_auth: {value: disabled, source: default}
+  landing_zone:
+    value: corp
+    source: stated
+  network_exposure:
+    value: private
+    source: stated
+  local_auth:
+    value: disabled
+    source: default
 
   # --- compliance ---
-  mandates: {value: [Datenverarbeitung nur in der EU], source: stated}
-  key_protection: {value: software, source: default}
-  key_management: {value: platform_managed, source: default}
+  mandates:
+    value: [Datenverarbeitung nur in der EU]
+    source: stated
+  key_protection:
+    value: software
+    source: default
+  key_management:
+    value: platform_managed
+    source: default
 
   # --- network ---
-  network_ownership: {value: create, source: stated}
-  address_space: {value: {production: 10.20.0.0/16}, source: stated}
-  private_endpoint_subnet_prefix: {value: {production: 10.20.0.0/27}, source: stated}
+  network_ownership:
+    value: create
+    source: stated
+  address_space:
+    value:
+      production: 10.20.0.0/16
+    source: stated
+  private_endpoint_subnet_prefix:
+    value:
+      production: 10.20.0.0/27
+    source: stated
 
   # --- dns ---
-  private_dns_ownership: {value: platform, source: default}
-  private_dns_records: {value: policy, source: default}
+  private_dns_ownership:
+    value: platform
+    source: default
+  private_dns_records:
+    value: policy
+    source: default
 
   # --- observability ---
-  observability_ownership: {value: create, source: stated}
+  observability_ownership:
+    value: create
+    source: stated
   diagnostics_destination:
-    value: {production: log-analytics-workspace}
-    source: forced
-    forced_by: deployment.observability_ownership
-  log_retention_days: {value: 30, source: stated}
-  daily_quota_gb: {value: -1, source: default}
+    value:
+      production: log-analytics-workspace
+    source:
+      forced_by: deployment.observability_ownership
+  log_retention_days:
+    value: 30
+    source: stated
+  daily_quota_gb:
+    value: -1
+    source: default
 
 composition:
   granularity: single
@@ -128,277 +175,625 @@ composition:
 resources:
   virtual-network:
     addressing:
-      address_space: {value: {production: 10.20.0.0/16}, source: deployment}
+      address_space:
+        value:
+          production: 10.20.0.0/16
+        source: deployment
       subnets:
         value:
           production:
-          - {name: snet-endpoints, prefix: 10.20.0.0/27}
-          - {name: snet-web, prefix: 10.20.0.64/26}
-          - {name: snet-mcp, prefix: 10.20.0.128/26}
-          - {name: snet-func, prefix: 10.20.0.192/26}
-          - {name: snet-aca, prefix: 10.20.1.0/27}
+          - name: snet-endpoints
+            prefix: 10.20.0.0/27
+          - name: snet-web
+            prefix: 10.20.0.64/26
+          - name: snet-mcp
+            prefix: 10.20.0.128/26
+          - name: snet-func
+            prefix: 10.20.0.192/26
+          - name: snet-aca
+            prefix: 10.20.1.0/27
         source: stated
-      private_endpoint_subnet_prefix: {value: {production: 10.20.0.0/27}, source: deployment}
-      dns_servers: {value: {production: []}, source: default}
+      private_endpoint_subnet_prefix:
+        value:
+          production: 10.20.0.0/27
+        source: deployment
+      dns_servers:
+        value:
+          production: []
+        source: default
     subnet_policy:
-      private_endpoint_network_policies: {value: Enabled, source: default}
-      service_endpoints: {value: [], source: default}
+      private_endpoint_network_policies:
+        value: Enabled
+        source: default
+      service_endpoints:
+        value: []
+        source: default
       subnet_delegations:
         value:
-        - {subnet: snet-web, service: Microsoft.Web/serverFarms}
-        - {subnet: snet-mcp, service: Microsoft.Web/serverFarms}
-        - {subnet: snet-func, service: Microsoft.App/environments}
-        - {subnet: snet-aca, service: Microsoft.App/environments}
-        source: forced
-        forced_by: resources.app-service__web.networking.integration_subnet
+        - subnet: snet-web
+          service: Microsoft.Web/serverFarms
+        - subnet: snet-mcp
+          service: Microsoft.Web/serverFarms
+        - subnet: snet-func
+          service: Microsoft.App/environments
+        - subnet: snet-aca
+          service: Microsoft.App/environments
+        source:
+          forced_by: resources.app-service__web.networking.integration_subnet
     security:
-      ddos_protection: {value: false, source: default}
+      ddos_protection:
+        value: false
+        source: default
       subnets_expecting_nsg:
         value:
           production: [snet-endpoints, snet-web, snet-mcp, snet-func, snet-aca]
         source: stated
     observability:
-      diagnostic_workspace: {value: {production: log-analytics-workspace}, source: deployment}
-      flow_logs_enabled: {value: false, source: default}
+      diagnostic_workspace:
+        value:
+          production: log-analytics-workspace
+        source: deployment
+      flow_logs_enabled:
+        value: false
+        source: default
 
   network-security-group__endpoints:
+    meta:
+      purpose:
+        value: Private endpoints subnet
+        source: stated
     rules:
-      subnet_purpose: {value: private_endpoints, source: stated}
-      default_inbound: {value: deny_all, source: default}
+      subnet_purpose:
+        value: private_endpoints
+        source: stated
+      default_inbound:
+        value: deny_all
+        source: default
       default_outbound:
         value: deny_internet
-        source: forced
-        forced_by: resources.network-security-group__endpoints.rules.subnet_purpose
-      rules: {value: {production: []}, source: default}
+        source:
+          forced_by: resources.network-security-group__endpoints.rules.subnet_purpose
+      rules:
+        value:
+          production: []
+        source: default
     observability:
-      diagnostic_workspace: {value: {production: log-analytics-workspace}, source: deployment}
-      diagnostic_categories: {value: [NetworkSecurityGroupEvent, NetworkSecurityGroupRuleCounter], source: default}
+      diagnostic_workspace:
+        value:
+          production: log-analytics-workspace
+        source: deployment
+      diagnostic_categories:
+        value: [NetworkSecurityGroupEvent, NetworkSecurityGroupRuleCounter]
+        source: default
 
   network-security-group__integration:
+    meta:
+      purpose:
+        value: App integration subnets
+        source: stated
     rules:
-      subnet_purpose: {value: app_integration, source: stated}
-      default_inbound: {value: deny_all, source: default}
-      default_outbound: {value: azure_default, source: default}
-      rules: {value: {production: []}, source: default}
+      subnet_purpose:
+        value: app_integration
+        source: stated
+      default_inbound:
+        value: deny_all
+        source: default
+      default_outbound:
+        value: azure_default
+        source: default
+      rules:
+        value:
+          production: []
+        source: default
     observability:
-      diagnostic_workspace: {value: {production: log-analytics-workspace}, source: deployment}
-      diagnostic_categories: {value: [NetworkSecurityGroupEvent, NetworkSecurityGroupRuleCounter], source: default}
+      diagnostic_workspace:
+        value:
+          production: log-analytics-workspace
+        source: deployment
+      diagnostic_categories:
+        value: [NetworkSecurityGroupEvent, NetworkSecurityGroupRuleCounter]
+        source: default
 
   network-security-group__containerapps:
+    meta:
+      purpose:
+        value: Container Apps subnet
+        source: stated
     rules:
-      subnet_purpose: {value: container_apps, source: stated}
-      default_inbound: {value: deny_all, source: default}
-      default_outbound: {value: azure_default, source: default}
-      rules: {value: {production: []}, source: default}
+      subnet_purpose:
+        value: container_apps
+        source: stated
+      default_inbound:
+        value: deny_all
+        source: default
+      default_outbound:
+        value: azure_default
+        source: default
+      rules:
+        value:
+          production: []
+        source: default
     observability:
-      diagnostic_workspace: {value: {production: log-analytics-workspace}, source: deployment}
-      diagnostic_categories: {value: [NetworkSecurityGroupEvent, NetworkSecurityGroupRuleCounter], source: default}
+      diagnostic_workspace:
+        value:
+          production: log-analytics-workspace
+        source: deployment
+      diagnostic_categories:
+        value: [NetworkSecurityGroupEvent, NetworkSecurityGroupRuleCounter]
+        source: default
 
   log-analytics-workspace:
     cost:
-      retention_days: {value: 30, source: deployment}
-      daily_quota_gb: {value: -1, source: deployment}
-      sku: {value: PerGB2018, source: default}
+      retention_days:
+        value: 30
+        source: deployment
+      daily_quota_gb:
+        value: -1
+        source: deployment
+      sku:
+        value: PerGB2018
+        source: default
     access:
-      public_network_access: {value: enabled, source: default}
-      local_auth: {value: false, source: deployment}
-      rbac_only_access: {value: true, source: default}
+      public_network_access:
+        value: enabled
+        source: default
+      local_auth:
+        value: false
+        source: deployment
+      rbac_only_access:
+        value: true
+        source: default
     data_protection:
-      immediate_purge_protection: {value: true, source: default}
-      archive_to_storage: {value: false, source: default}
+      immediate_purge_protection:
+        value: true
+        source: default
+      archive_to_storage:
+        value: false
+        source: default
 
   application-insights:
+    meta:
+      purpose:
+        value: Application telemetry
+        source: stated
     component:
-      workspace: {value: {production: log-analytics-workspace}, source: deployment}
-      application_type: {value: web, source: default}
-      sampling_percentage: {value: 100, source: default}
-      daily_cap_gb: {value: 0, source: default}
-      store_client_ip: {value: false, source: default}
+      workspace:
+        value:
+          production: log-analytics-workspace
+        source: deployment
+      application_type:
+        value: web
+        source: default
+      sampling_percentage:
+        value: 100
+        source: default
+      daily_cap_gb:
+        value: 0
+        source: default
+      store_client_ip:
+        value: false
+        source: default
     networking:
-      public_network_access: {value: disabled, source: deployment}
+      public_network_access:
+        value: disabled
+        source: deployment
     identity:
       role_assignments:
         value:
           production:
-          - {principal: user-assigned-identity__connector, role: Monitoring Metrics Publisher}
+          - principal: user-assigned-identity__connector
+            role: Monitoring Metrics Publisher
         source: stated
     security:
-      local_authentication_disabled: {value: true, source: deployment}
+      local_authentication_disabled:
+        value: true
+        source: deployment
 
   key-vault:
+    meta:
+      purpose:
+        value: Secrets
+        source: stated
     vault:
-      sku: {value: standard, source: default}
-      purge_protection: {value: true, source: default}
-      soft_delete_retention_days: {value: 90, source: default}
-      rbac_authorization: {value: true, source: deployment}
+      sku:
+        value: standard
+        source: default
+      purge_protection:
+        value: true
+        source: default
+      soft_delete_retention_days:
+        value: 90
+        source: default
+      rbac_authorization:
+        value: true
+        source: deployment
     networking:
-      public_network_access: {value: disabled, source: deployment}
+      public_network_access:
+        value: disabled
+        source: deployment
       private_endpoint_subnet:
-        value: {production: snet-endpoints}
-        source: forced
-        forced_by: deployment.network_ownership
-      network_acl_bypass: {value: None, source: default}
+        value:
+          production: snet-endpoints
+        source:
+          forced_by: deployment.network_ownership
+      network_acl_bypass:
+        value: None
+        source: default
     identity:
       role_assignments:
         value:
           production:
-          - {principal: user-assigned-identity__web, role: Key Vault Secrets User}
-          - {principal: user-assigned-identity__connector, role: Key Vault Secrets User}
+          - principal: user-assigned-identity__web
+            role: Key Vault Secrets User
+          - principal: user-assigned-identity__connector
+            role: Key Vault Secrets User
         source: stated
     security:
-      enabled_for_services: {value: [], source: default}
-      secret_placeholders: {value: [entra-client-secret], source: stated}
+      enabled_for_services:
+        value: []
+        source: default
+      secret_placeholders:
+        value: [entra-client-secret]
+        source: stated
     keys:
-      key_management: {value: platform_managed, source: deployment}
+      key_management:
+        value: platform_managed
+        source: deployment
     observability:
-      diagnostic_workspace: {value: {production: log-analytics-workspace}, source: deployment}
-      diagnostic_categories: {value: [AuditEvent, AzurePolicyEvaluationDetails], source: default}
-      metrics_enabled: {value: true, source: default}
+      diagnostic_workspace:
+        value:
+          production: log-analytics-workspace
+        source: deployment
+      diagnostic_categories:
+        value: [AuditEvent, AzurePolicyEvaluationDetails]
+        source: default
+      metrics_enabled:
+        value: true
+        source: default
 
   user-assigned-identity__web:
+    meta:
+      purpose:
+        value: Web app and MCP server
+        source: stated
     identity:
-      purpose: {value: 'the web app and the MCP server, to reach models, search, data and secrets', source: stated}
-      federated_credentials: {value: [], source: default}
-      isolation_scope: {value: None, source: default}
-      role_assignments: {value: {production: []}, source: default}
+      purpose:
+        value: the web app and the MCP server, to reach models, search, data and secrets
+        source: stated
+      federated_credentials:
+        value: []
+        source: default
+      isolation_scope:
+        value: None
+        source: default
+      role_assignments:
+        value:
+          production: []
+        source: default
 
   user-assigned-identity__connector:
+    meta:
+      purpose:
+        value: Connector function
+        source: stated
     identity:
-      purpose: {value: 'the document connector function, to index documents and keep its own state', source: stated}
-      federated_credentials: {value: [], source: default}
-      isolation_scope: {value: None, source: default}
-      role_assignments: {value: {production: []}, source: default}
+      purpose:
+        value: the document connector function, to index documents and keep its own state
+        source: stated
+      federated_credentials:
+        value: []
+        source: default
+      isolation_scope:
+        value: None
+        source: default
+      role_assignments:
+        value:
+          production: []
+        source: default
 
   user-assigned-identity__runner:
+    meta:
+      purpose:
+        value: Code interpreter
+        source: stated
     identity:
-      purpose: {value: 'the code interpreter container app, to pull its image', source: stated}
-      federated_credentials: {value: [], source: default}
-      isolation_scope: {value: None, source: default}
-      role_assignments: {value: {production: []}, source: default}
+      purpose:
+        value: the code interpreter container app, to pull its image
+        source: stated
+      federated_credentials:
+        value: []
+        source: default
+      isolation_scope:
+        value: None
+        source: default
+      role_assignments:
+        value:
+          production: []
+        source: default
 
   storage-account__uploads:
+    meta:
+      purpose:
+        value: Uploaded files
+        source: stated
     networking:
-      public_network_access: {value: disabled, source: deployment}
+      public_network_access:
+        value: disabled
+        source: deployment
       private_endpoint_subnet:
-        value: {production: snet-endpoints}
-        source: forced
-        forced_by: deployment.network_ownership
-      private_endpoint_subresources: {value: [blob], source: default}
-      allow_azure_services_bypass: {value: true, source: default}
+        value:
+          production: snet-endpoints
+        source:
+          forced_by: deployment.network_ownership
+      private_endpoint_subresources:
+        value: [blob]
+        source: default
+      allow_azure_services_bypass:
+        value: true
+        source: default
     identity:
-      managed_identity: {value: system_assigned, source: default}
+      managed_identity:
+        value: system_assigned
+        source: default
       role_assignments:
         value:
           production:
-          - {principal: user-assigned-identity__web, role: Storage Blob Data Contributor}
-          - {principal: search-service, role: Storage Blob Data Reader}
+          - principal: user-assigned-identity__web
+            role: Storage Blob Data Contributor
+          - principal: search-service
+            role: Storage Blob Data Reader
         source: stated
     security:
-      shared_access_key_enabled: {value: false, source: deployment}
-      min_tls_version: {value: TLS1_2, source: default}
-      https_traffic_only: {value: true, source: default}
-      allow_blob_public_access: {value: false, source: default}
-      infrastructure_encryption_enabled: {value: true, source: default}
-      key_management: {value: platform_managed, source: deployment}
-      sftp_enabled: {value: false, source: default}
+      shared_access_key_enabled:
+        value: false
+        source: deployment
+      min_tls_version:
+        value: TLS1_2
+        source: default
+      https_traffic_only:
+        value: true
+        source: default
+      allow_blob_public_access:
+        value: false
+        source: default
+      infrastructure_encryption_enabled:
+        value: true
+        source: default
+      key_management:
+        value: platform_managed
+        source: deployment
+      sftp_enabled:
+        value: false
+        source: default
     data_protection:
-      replication: {value: ZRS, source: requirement, derived_from: deployment.outage_impact}
-      access_tier: {value: Hot, source: requirement, derived_from: deployment.data_access_pattern}
-      blob_soft_delete_days: {value: 7, source: requirement, derived_from: deployment.data_loss_tolerance}
-      container_soft_delete_days: {value: 7, source: requirement, derived_from: deployment.data_loss_tolerance}
-      versioning_enabled: {value: true, source: requirement, derived_from: deployment.data_loss_tolerance}
-      change_feed_enabled: {value: false, source: default}
-      point_in_time_restore_days: {value: 0, source: default}
-      immutability: {value: none, source: default}
+      replication:
+        value: ZRS
+        source:
+          derived_from: deployment.outage_impact
+      access_tier:
+        value: Hot
+        source:
+          derived_from: deployment.data_access_pattern
+      blob_soft_delete_days:
+        value: 7
+        source:
+          derived_from: deployment.data_loss_tolerance
+      container_soft_delete_days:
+        value: 7
+        source:
+          derived_from: deployment.data_loss_tolerance
+      versioning_enabled:
+        value: true
+        source:
+          derived_from: deployment.data_loss_tolerance
+      change_feed_enabled:
+        value: false
+        source: default
+      point_in_time_restore_days:
+        value: 0
+        source: default
+      immutability:
+        value: none
+        source: default
     observability:
-      diagnostic_workspace: {value: {production: log-analytics-workspace}, source: deployment}
-      diagnostic_categories: {value: [audit], source: default}
-      metrics_enabled: {value: true, source: default}
+      diagnostic_workspace:
+        value:
+          production: log-analytics-workspace
+        source: deployment
+      diagnostic_categories:
+        value: [audit]
+        source: default
+      metrics_enabled:
+        value: true
+        source: default
 
   storage-account__host:
+    meta:
+      purpose:
+        value: State of the connector function
+        source: stated
     # placement departs from the role table: the Function App's own state account lives with the
     # application, so a rebuild of the app group takes its state along.
     placement:
       resource_group:
         value: application
-        source: overridden
-        reason: The Function App's own state lives and is rebuilt with the application, not with the data group.
+        source:
+          overridden: The Function App's own state lives and is rebuilt with the application, not with the data group.
     networking:
-      public_network_access: {value: disabled, source: deployment}
+      public_network_access:
+        value: disabled
+        source: deployment
       private_endpoint_subnet:
-        value: {production: snet-endpoints}
-        source: forced
-        forced_by: deployment.network_ownership
+        value:
+          production: snet-endpoints
+        source:
+          forced_by: deployment.network_ownership
       private_endpoint_subresources:
         value: [blob, queue, table]
-        source: forced
-        forced_by: resources.function-app.storage.host_storage_account
-      allow_azure_services_bypass: {value: true, source: default}
+        source:
+          forced_by: resources.function-app.storage.host_storage_account
+      allow_azure_services_bypass:
+        value: true
+        source: default
     identity:
-      managed_identity: {value: system_assigned, source: default}
+      managed_identity:
+        value: system_assigned
+        source: default
       role_assignments:
         value:
           production:
-          - {principal: user-assigned-identity__connector, role: Storage Blob Data Owner}
-          - {principal: user-assigned-identity__connector, role: Storage Table Data Contributor}
-          - {principal: user-assigned-identity__connector, role: Storage Queue Data Contributor}
+          - principal: user-assigned-identity__connector
+            role: Storage Blob Data Owner
+          - principal: user-assigned-identity__connector
+            role: Storage Table Data Contributor
+          - principal: user-assigned-identity__connector
+            role: Storage Queue Data Contributor
         source: stated
     security:
-      shared_access_key_enabled: {value: false, source: deployment}
-      min_tls_version: {value: TLS1_2, source: default}
-      https_traffic_only: {value: true, source: default}
-      allow_blob_public_access: {value: false, source: default}
-      infrastructure_encryption_enabled: {value: true, source: default}
-      key_management: {value: platform_managed, source: deployment}
-      sftp_enabled: {value: false, source: default}
+      shared_access_key_enabled:
+        value: false
+        source: deployment
+      min_tls_version:
+        value: TLS1_2
+        source: default
+      https_traffic_only:
+        value: true
+        source: default
+      allow_blob_public_access:
+        value: false
+        source: default
+      infrastructure_encryption_enabled:
+        value: true
+        source: default
+      key_management:
+        value: platform_managed
+        source: deployment
+      sftp_enabled:
+        value: false
+        source: default
     data_protection:
-      replication: {value: ZRS, source: requirement, derived_from: deployment.outage_impact}
-      access_tier: {value: Hot, source: requirement, derived_from: deployment.data_access_pattern}
-      blob_soft_delete_days: {value: 7, source: requirement, derived_from: deployment.data_loss_tolerance}
-      container_soft_delete_days: {value: 7, source: requirement, derived_from: deployment.data_loss_tolerance}
-      versioning_enabled: {value: true, source: requirement, derived_from: deployment.data_loss_tolerance}
-      change_feed_enabled: {value: false, source: default}
-      point_in_time_restore_days: {value: 0, source: default}
-      immutability: {value: none, source: default}
+      replication:
+        value: ZRS
+        source:
+          derived_from: deployment.outage_impact
+      access_tier:
+        value: Hot
+        source:
+          derived_from: deployment.data_access_pattern
+      blob_soft_delete_days:
+        value: 7
+        source:
+          derived_from: deployment.data_loss_tolerance
+      container_soft_delete_days:
+        value: 7
+        source:
+          derived_from: deployment.data_loss_tolerance
+      versioning_enabled:
+        value: true
+        source:
+          derived_from: deployment.data_loss_tolerance
+      change_feed_enabled:
+        value: false
+        source: default
+      point_in_time_restore_days:
+        value: 0
+        source: default
+      immutability:
+        value: none
+        source: default
     observability:
-      diagnostic_workspace: {value: {production: log-analytics-workspace}, source: deployment}
-      diagnostic_categories: {value: [audit], source: default}
-      metrics_enabled: {value: true, source: default}
+      diagnostic_workspace:
+        value:
+          production: log-analytics-workspace
+        source: deployment
+      diagnostic_categories:
+        value: [audit]
+        source: default
+      metrics_enabled:
+        value: true
+        source: default
 
   cosmos-db:
+    meta:
+      purpose:
+        value: Conversation history
+        source: stated
     account:
-      capacity_mode: {value: provisioned, source: default}
-      throughput_mode: {value: autoscale, source: default}
-      max_throughput: {value: 1000, source: default}
-      total_throughput_limit: {value: -1, source: default}
-      free_tier: {value: false, source: default}
+      capacity_mode:
+        value: provisioned
+        source: default
+      throughput_mode:
+        value: autoscale
+        source: default
+      max_throughput:
+        value: 1000
+        source: default
+      total_throughput_limit:
+        value: -1
+        source: default
+      free_tier:
+        value: false
+        source: default
     resilience:
-      zone_redundant: {value: true, source: requirement, derived_from: deployment.outage_impact}
-      geo_replicas: {value: {production: []}, source: default}
-      automatic_failover: {value: true, source: default}
-      consistency_level: {value: Session, source: default}
+      zone_redundant:
+        value: true
+        source:
+          derived_from: deployment.outage_impact
+      geo_replicas:
+        value:
+          production: []
+        source: default
+      automatic_failover:
+        value: true
+        source: default
+      consistency_level:
+        value: Session
+        source: default
     networking:
-      public_network_access: {value: disabled, source: deployment}
+      public_network_access:
+        value: disabled
+        source: deployment
       private_endpoint_subnet:
-        value: {production: snet-endpoints}
-        source: forced
-        forced_by: deployment.network_ownership
-      network_acl_bypass: {value: false, source: default}
+        value:
+          production: snet-endpoints
+        source:
+          forced_by: deployment.network_ownership
+      network_acl_bypass:
+        value: false
+        source: default
     identity:
-      managed_identity: {value: none, source: default}
+      managed_identity:
+        value: none
+        source: default
       data_plane_role_assignments:
         value:
           production:
-          - {principal: user-assigned-identity__web, role: Cosmos DB Built-in Data Contributor, scope: account}
+          - principal: user-assigned-identity__web
+            role: Cosmos DB Built-in Data Contributor
+            scope: account
         source: stated
-      role_assignments: {value: {production: []}, source: default}
+      role_assignments:
+        value:
+          production: []
+        source: default
     security:
-      local_authentication_disabled: {value: true, source: deployment}
-      key_based_metadata_writes: {value: true, source: deployment}
-      key_management: {value: platform_managed, source: deployment}
+      local_authentication_disabled:
+        value: true
+        source: deployment
+      key_based_metadata_writes:
+        value: true
+        source: deployment
+      key_management:
+        value: platform_managed
+        source: deployment
     data_protection:
-      backup_policy: {value: continuous_7_days, source: requirement, derived_from: deployment.data_loss_tolerance}
-      analytical_storage: {value: false, source: default}
+      backup_policy:
+        value: continuous_7_days
+        source:
+          derived_from: deployment.data_loss_tolerance
+      analytical_storage:
+        value: false
+        source: default
     containers:
       databases:
         value:
@@ -408,215 +803,500 @@ resources:
             partition_key_paths: [/userId]
         source: stated
     observability:
-      diagnostic_workspace: {value: {production: log-analytics-workspace}, source: deployment}
-      diagnostic_categories: {value: [ControlPlaneRequests, DataPlaneRequests], source: default}
-      metrics_enabled: {value: true, source: default}
+      diagnostic_workspace:
+        value:
+          production: log-analytics-workspace
+        source: deployment
+      diagnostic_categories:
+        value: [ControlPlaneRequests, DataPlaneRequests]
+        source: default
+      metrics_enabled:
+        value: true
+        source: default
 
   foundry:
+    meta:
+      purpose:
+        value: Chat and embedding models
+        source: stated
     account:
-      kind: {value: AIServices, source: default}
-      sku_name: {value: S0, source: default}
-      project_management: {value: true, source: default}
-      projects: {value: [chatbot], source: stated}
+      kind:
+        value: AIServices
+        source: default
+      sku_name:
+        value: S0
+        source: default
+      project_management:
+        value: true
+        source: default
+      projects:
+        value: [chatbot]
+        source: stated
     models:
       model_deployments:
         value:
-        - {name: chat, format: OpenAI, model: gpt-4.1, version: '2025-04-14'}
-        - {name: embeddings, format: OpenAI, model: text-embedding-3-large, version: '1'}
+        - name: chat
+          format: OpenAI
+          model: gpt-4.1
+          version: '2025-04-14'
+        - name: embeddings
+          format: OpenAI
+          model: text-embedding-3-large
+          version: '1'
         source: stated
-      deployment_sku: {value: DataZoneStandard, source: requirement, derived_from: deployment.data_residency}
-      deployment_capacity: {value: 10, source: default}
-      version_upgrade_option: {value: OnceCurrentVersionExpired, source: default}
-      content_filter: {value: Microsoft.DefaultV2, source: default}
+      deployment_sku:
+        value: DataZoneStandard
+        source:
+          derived_from: deployment.data_residency
+      deployment_capacity:
+        value: 10
+        source: default
+      version_upgrade_option:
+        value: OnceCurrentVersionExpired
+        source: default
+      content_filter:
+        value: Microsoft.DefaultV2
+        source: default
     networking:
-      public_network_access: {value: disabled, source: deployment}
+      public_network_access:
+        value: disabled
+        source: deployment
       private_endpoint_subnet:
-        value: {production: snet-endpoints}
-        source: forced
-        forced_by: deployment.network_ownership
-      restrict_outbound: {value: true, source: default}
+        value:
+          production: snet-endpoints
+        source:
+          forced_by: deployment.network_ownership
+      restrict_outbound:
+        value: true
+        source: default
     identity:
-      managed_identity: {value: system_assigned, source: default}
+      managed_identity:
+        value: system_assigned
+        source: default
       role_assignments:
         value:
           production:
-          - {principal: user-assigned-identity__web, role: Cognitive Services OpenAI User}
-          - {principal: user-assigned-identity__connector, role: Cognitive Services OpenAI User}
-          - {principal: search-service, role: Cognitive Services OpenAI User}
+          - principal: user-assigned-identity__web
+            role: Cognitive Services OpenAI User
+          - principal: user-assigned-identity__connector
+            role: Cognitive Services OpenAI User
+          - principal: search-service
+            role: Cognitive Services OpenAI User
         source: stated
     security:
-      local_authentication_disabled: {value: true, source: deployment}
-      key_management: {value: platform_managed, source: deployment}
+      local_authentication_disabled:
+        value: true
+        source: deployment
+      key_management:
+        value: platform_managed
+        source: deployment
     observability:
-      diagnostic_workspace: {value: {production: log-analytics-workspace}, source: deployment}
-      diagnostic_categories: {value: [Audit, RequestResponse, AzureOpenAIRequestUsage], source: default}
-      metrics_enabled: {value: true, source: default}
+      diagnostic_workspace:
+        value:
+          production: log-analytics-workspace
+        source: deployment
+      diagnostic_categories:
+        value: [Audit, RequestResponse, AzureOpenAIRequestUsage]
+        source: default
+      metrics_enabled:
+        value: true
+        source: default
 
   search-service:
+    meta:
+      purpose:
+        value: Search; indexes the uploads, embeds with the models
+        source: stated
     service:
-      sku: {value: standard, source: default}
-      replica_count: {value: 2, source: requirement, derived_from: deployment.outage_impact}
-      partition_count: {value: 1, source: default}
-      semantic_ranker: {value: free, source: default}
+      sku:
+        value: standard
+        source: default
+      replica_count:
+        value: 2
+        source:
+          derived_from: deployment.outage_impact
+      partition_count:
+        value: 1
+        source: default
+      semantic_ranker:
+        value: free
+        source: default
     networking:
-      public_network_access: {value: disabled, source: deployment}
+      public_network_access:
+        value: disabled
+        source: deployment
       private_endpoint_subnet:
-        value: {production: snet-endpoints}
-        source: forced
-        forced_by: deployment.network_ownership
-      network_rule_bypass: {value: None, source: default}
+        value:
+          production: snet-endpoints
+        source:
+          forced_by: deployment.network_ownership
+      network_rule_bypass:
+        value: None
+        source: default
     identity:
-      managed_identity: {value: system_assigned, source: default}
+      managed_identity:
+        value: system_assigned
+        source: default
       role_assignments:
         value:
           production:
-          - {principal: user-assigned-identity__web, role: Search Index Data Reader}
-          - {principal: user-assigned-identity__connector, role: Search Index Data Contributor}
+          - principal: user-assigned-identity__web
+            role: Search Index Data Reader
+          - principal: user-assigned-identity__connector
+            role: Search Index Data Contributor
         source: stated
     security:
-      local_authentication_disabled: {value: true, source: deployment}
-      key_management: {value: platform_managed, source: deployment}
+      local_authentication_disabled:
+        value: true
+        source: deployment
+      key_management:
+        value: platform_managed
+        source: deployment
     observability:
-      diagnostic_workspace: {value: {production: log-analytics-workspace}, source: deployment}
-      diagnostic_categories: {value: [OperationLogs], source: default}
-      metrics_enabled: {value: true, source: default}
+      diagnostic_workspace:
+        value:
+          production: log-analytics-workspace
+        source: deployment
+      diagnostic_categories:
+        value: [OperationLogs]
+        source: default
+      metrics_enabled:
+        value: true
+        source: default
 
   container-registry:
+    meta:
+      purpose:
+        value: Images of all apps
+        source: stated
     registry:
-      sku: {value: Premium, source: forced, forced_by: deployment.network_exposure}
-      zone_redundant: {value: true, source: requirement, derived_from: deployment.outage_impact}
-      geo_replicas: {value: {production: []}, source: default}
-      retention_untagged_days: {value: 7, source: default}
+      sku:
+        value: Premium
+        source:
+          forced_by: deployment.network_exposure
+      zone_redundant:
+        value: true
+        source:
+          derived_from: deployment.outage_impact
+      geo_replicas:
+        value:
+          production: []
+        source: default
+      retention_untagged_days:
+        value: 7
+        source: default
     networking:
-      public_network_access: {value: disabled, source: deployment}
+      public_network_access:
+        value: disabled
+        source: deployment
       private_endpoint_subnet:
-        value: {production: snet-endpoints}
-        source: forced
-        forced_by: deployment.network_ownership
-      network_rule_bypass: {value: None, source: default}
-      export_policy_enabled: {value: false, source: default}
+        value:
+          production: snet-endpoints
+        source:
+          forced_by: deployment.network_ownership
+      network_rule_bypass:
+        value: None
+        source: default
+      export_policy_enabled:
+        value: false
+        source: default
     identity:
-      managed_identity: {value: none, source: default}
+      managed_identity:
+        value: none
+        source: default
       role_assignments:
         value:
           production:
-          - {principal: user-assigned-identity__runner, role: AcrPull}
+          - principal: user-assigned-identity__runner
+            role: AcrPull
         source: stated
     security:
-      admin_enabled: {value: false, source: deployment}
-      anonymous_pull_enabled: {value: false, source: default}
-      key_management: {value: platform_managed, source: deployment}
+      admin_enabled:
+        value: false
+        source: deployment
+      anonymous_pull_enabled:
+        value: false
+        source: default
+      key_management:
+        value: platform_managed
+        source: deployment
     observability:
-      diagnostic_workspace: {value: {production: log-analytics-workspace}, source: deployment}
-      diagnostic_categories: {value: [ContainerRegistryRepositoryEvents, ContainerRegistryLoginEvents], source: default}
-      metrics_enabled: {value: true, source: default}
+      diagnostic_workspace:
+        value:
+          production: log-analytics-workspace
+        source: deployment
+      diagnostic_categories:
+        value: [ContainerRegistryRepositoryEvents, ContainerRegistryLoginEvents]
+        source: default
+      metrics_enabled:
+        value: true
+        source: default
 
   container-apps:
+    meta:
+      purpose:
+        value: Code interpreter
+        source: stated
     environment:
-      workload_profile: {value: Consumption, source: default}
-      zone_redundant: {value: true, source: requirement, derived_from: deployment.outage_impact}
-      internal: {value: true, source: deployment}
-      infrastructure_subnet: {value: {production: snet-aca}, source: forced, forced_by: deployment.network_ownership}
-      public_network_access: {value: disabled, source: deployment}
-      peer_traffic_encryption: {value: true, source: default}
+      workload_profile:
+        value: Consumption
+        source: default
+      zone_redundant:
+        value: true
+        source:
+          derived_from: deployment.outage_impact
+      internal:
+        value: true
+        source: deployment
+      infrastructure_subnet:
+        value:
+          production: snet-aca
+        source:
+          forced_by: deployment.network_ownership
+      public_network_access:
+        value: disabled
+        source: deployment
+      peer_traffic_encryption:
+        value: true
+        source: default
     app:
-      container_image: {value: 'container-registry/code-runner:1.0.0', source: stated}
-      container_size: {value: 0.5-1Gi, source: default}
-      min_replicas: {value: 2, source: requirement, derived_from: deployment.outage_impact}
-      max_replicas: {value: 10, source: default}
-      revision_mode: {value: Single, source: default}
+      container_image:
+        value: container-registry/code-runner:1.0.0
+        source: stated
+      container_size:
+        value: 0.5-1Gi
+        source: default
+      min_replicas:
+        value: 2
+        source:
+          derived_from: deployment.outage_impact
+      max_replicas:
+        value: 10
+        source: default
+      revision_mode:
+        value: Single
+        source: default
     ingress:
-      ingress: {value: environment, source: default}
-      target_port: {value: 8080, source: stated}
-      allow_insecure: {value: false, source: default}
+      ingress:
+        value: environment
+        source: default
+      target_port:
+        value: 8080
+        source: stated
+      allow_insecure:
+        value: false
+        source: default
     identity:
-      managed_identity: {value: user_assigned, source: default}
+      managed_identity:
+        value: user_assigned
+        source: default
       user_assigned_identity_ids:
         value:
           production: [user-assigned-identity__runner]
         source: stated
-      secret_references: {value: {production: []}, source: default}
-      role_assignments: {value: {production: []}, source: default}
+      secret_references:
+        value:
+          production: []
+        source: default
+      role_assignments:
+        value:
+          production: []
+        source: default
     observability:
-      diagnostic_workspace: {value: {production: log-analytics-workspace}, source: deployment}
-      diagnostic_categories: {value: [ContainerAppConsoleLogs, ContainerAppSystemLogs], source: default}
-      metrics_enabled: {value: true, source: default}
+      diagnostic_workspace:
+        value:
+          production: log-analytics-workspace
+        source: deployment
+      diagnostic_categories:
+        value: [ContainerAppConsoleLogs, ContainerAppSystemLogs]
+        source: default
+      metrics_enabled:
+        value: true
+        source: default
     _target_overrides:
-      terraform: {container_environment: authored azapi_resource Microsoft.App/managedEnvironments}
+      terraform:
+        container_environment: authored azapi_resource Microsoft.App/managedEnvironments
 
   function-app:
+    meta:
+      purpose:
+        value: Connector to the document store
+        source: stated
     hosting:
-      plan_type: {value: flex_consumption, source: default}
-      runtime_stack: {value: python, source: stated}
-      runtime_version: {value: '3.12', source: stated}
-      zone_redundant: {value: true, source: requirement, derived_from: deployment.outage_impact}
-      max_instance_count: {value: 20, source: default}
-      always_ready_instances: {value: 1, source: requirement, derived_from: deployment.outage_impact}
-      instance_memory_mb: {value: 2048, source: default}
+      plan_type:
+        value: flex_consumption
+        source: default
+      runtime_stack:
+        value: python
+        source: stated
+      runtime_version:
+        value: '3.12'
+        source: stated
+      zone_redundant:
+        value: true
+        source:
+          derived_from: deployment.outage_impact
+      max_instance_count:
+        value: 20
+        source: default
+      always_ready_instances:
+        value: 1
+        source:
+          derived_from: deployment.outage_impact
+      instance_memory_mb:
+        value: 2048
+        source: default
     storage:
-      host_storage_account: {value: {production: storage-account__host}, source: stated}
-      host_storage_auth: {value: identity, source: deployment}
-      deployment_container: {value: app-package, source: default}
+      host_storage_account:
+        value:
+          production: storage-account__host
+        source: stated
+      host_storage_auth:
+        value: identity
+        source: deployment
+      deployment_container:
+        value: app-package
+        source: default
     networking:
-      public_network_access: {value: disabled, source: deployment}
+      public_network_access:
+        value: disabled
+        source: deployment
       private_endpoint_subnet:
-        value: {production: snet-endpoints}
-        source: forced
-        forced_by: deployment.network_ownership
-      vnet_integration: {value: true, source: default}
-      integration_subnet: {value: {production: snet-func}, source: forced, forced_by: deployment.network_ownership}
-      vnet_route_all: {value: true, source: default}
+        value:
+          production: snet-endpoints
+        source:
+          forced_by: deployment.network_ownership
+      vnet_integration:
+        value: true
+        source: default
+      integration_subnet:
+        value:
+          production: snet-func
+        source:
+          forced_by: deployment.network_ownership
+      vnet_route_all:
+        value: true
+        source: default
     identity:
-      managed_identity: {value: user_assigned, source: default}
+      managed_identity:
+        value: user_assigned
+        source: default
       user_assigned_identity_ids:
         value:
           production: [user-assigned-identity__connector]
         source: stated
-      role_assignments: {value: {production: []}, source: default}
+      role_assignments:
+        value:
+          production: []
+        source: default
     security:
-      https_only: {value: true, source: default}
-      min_tls_version: {value: '1.2', source: default}
-      basic_auth_enabled: {value: false, source: deployment}
-      application_insights: {value: {production: application-insights}, source: stated}
+      https_only:
+        value: true
+        source: default
+      min_tls_version:
+        value: '1.2'
+        source: default
+      basic_auth_enabled:
+        value: false
+        source: deployment
+      application_insights:
+        value:
+          production: application-insights
+        source: stated
     observability:
-      diagnostic_workspace: {value: {production: log-analytics-workspace}, source: deployment}
-      diagnostic_categories: {value: [FunctionAppLogs, AppServiceAuditLogs], source: default}
-      metrics_enabled: {value: true, source: default}
+      diagnostic_workspace:
+        value:
+          production: log-analytics-workspace
+        source: deployment
+      diagnostic_categories:
+        value: [FunctionAppLogs, AppServiceAuditLogs]
+        source: default
+      metrics_enabled:
+        value: true
+        source: default
 
   app-service__web:
+    meta:
+      purpose:
+        value: Chat front end and back end
+        source: stated
     hosting:
-      os_type: {value: Linux, source: default}
-      sku: {value: P1v3, source: default}
-      zone_redundant: {value: true, source: requirement, derived_from: deployment.outage_impact}
-      instance_count: {value: 2, source: requirement, derived_from: deployment.outage_impact}
+      os_type:
+        value: Linux
+        source: default
+      sku:
+        value: P1v3
+        source: default
+      zone_redundant:
+        value: true
+        source:
+          derived_from: deployment.outage_impact
+      instance_count:
+        value: 2
+        source:
+          derived_from: deployment.outage_impact
     networking:
-      public_network_access: {value: disabled, source: deployment}
+      public_network_access:
+        value: disabled
+        source: deployment
       private_endpoint_subnet:
-        value: {production: snet-endpoints}
-        source: forced
-        forced_by: deployment.network_ownership
-      vnet_integration: {value: true, source: default}
-      integration_subnet: {value: {production: snet-web}, source: forced, forced_by: deployment.network_ownership}
-      vnet_route_all: {value: true, source: default}
+        value:
+          production: snet-endpoints
+        source:
+          forced_by: deployment.network_ownership
+      vnet_integration:
+        value: true
+        source: default
+      integration_subnet:
+        value:
+          production: snet-web
+        source:
+          forced_by: deployment.network_ownership
+      vnet_route_all:
+        value: true
+        source: default
     identity:
-      managed_identity: {value: user_assigned, source: stated}
+      managed_identity:
+        value: user_assigned
+        source: stated
       user_assigned_identity_ids:
         value:
           production: [user-assigned-identity__web]
         source: stated
     security:
-      https_only: {value: true, source: default}
-      min_tls_version: {value: '1.2', source: default}
-      ftps_state: {value: Disabled, source: default}
-      basic_auth_enabled: {value: false, source: deployment}
+      https_only:
+        value: true
+        source: default
+      min_tls_version:
+        value: '1.2'
+        source: default
+      ftps_state:
+        value: Disabled
+        source: default
+      basic_auth_enabled:
+        value: false
+        source: deployment
     runtime:
-      runtime_stack: {value: python, source: stated}
-      runtime_version: {value: '3.12', source: stated}
-      always_on: {value: true, source: default}
-      health_check_path: {value: '', source: default}
-      http2_enabled: {value: true, source: default}
+      runtime_stack:
+        value: python
+        source: stated
+      runtime_version:
+        value: '3.12'
+        source: stated
+      always_on:
+        value: true
+        source: default
+      health_check_path:
+        value: ''
+        source: default
+      http2_enabled:
+        value: true
+        source: default
     observability:
-      diagnostic_workspace: {value: {production: log-analytics-workspace}, source: deployment}
+      diagnostic_workspace:
+        value:
+          production: log-analytics-workspace
+        source: deployment
       diagnostic_categories:
         value:
         - AppServiceHTTPLogs
@@ -625,42 +1305,92 @@ resources:
         - AppServiceIPSecAuditLogs
         - AppServicePlatformLogs
         source: default
-      metrics_enabled: {value: true, source: default}
+      metrics_enabled:
+        value: true
+        source: default
 
   app-service__mcp:
+    meta:
+      purpose:
+        value: MCP tool server
+        source: stated
     hosting:
-      os_type: {value: Linux, source: default}
-      sku: {value: P1v3, source: default}
-      zone_redundant: {value: true, source: requirement, derived_from: deployment.outage_impact}
-      instance_count: {value: 2, source: requirement, derived_from: deployment.outage_impact}
+      os_type:
+        value: Linux
+        source: default
+      sku:
+        value: P1v3
+        source: default
+      zone_redundant:
+        value: true
+        source:
+          derived_from: deployment.outage_impact
+      instance_count:
+        value: 2
+        source:
+          derived_from: deployment.outage_impact
     networking:
-      public_network_access: {value: disabled, source: deployment}
+      public_network_access:
+        value: disabled
+        source: deployment
       private_endpoint_subnet:
-        value: {production: snet-endpoints}
-        source: forced
-        forced_by: deployment.network_ownership
-      vnet_integration: {value: true, source: default}
-      integration_subnet: {value: {production: snet-mcp}, source: forced, forced_by: deployment.network_ownership}
-      vnet_route_all: {value: true, source: default}
+        value:
+          production: snet-endpoints
+        source:
+          forced_by: deployment.network_ownership
+      vnet_integration:
+        value: true
+        source: default
+      integration_subnet:
+        value:
+          production: snet-mcp
+        source:
+          forced_by: deployment.network_ownership
+      vnet_route_all:
+        value: true
+        source: default
     identity:
-      managed_identity: {value: user_assigned, source: stated}
+      managed_identity:
+        value: user_assigned
+        source: stated
       user_assigned_identity_ids:
         value:
           production: [user-assigned-identity__web]
         source: stated
     security:
-      https_only: {value: true, source: default}
-      min_tls_version: {value: '1.2', source: default}
-      ftps_state: {value: Disabled, source: default}
-      basic_auth_enabled: {value: false, source: deployment}
+      https_only:
+        value: true
+        source: default
+      min_tls_version:
+        value: '1.2'
+        source: default
+      ftps_state:
+        value: Disabled
+        source: default
+      basic_auth_enabled:
+        value: false
+        source: deployment
     runtime:
-      runtime_stack: {value: node, source: stated}
-      runtime_version: {value: 22-lts, source: stated}
-      always_on: {value: true, source: default}
-      health_check_path: {value: '', source: default}
-      http2_enabled: {value: true, source: default}
+      runtime_stack:
+        value: node
+        source: stated
+      runtime_version:
+        value: 22-lts
+        source: stated
+      always_on:
+        value: true
+        source: default
+      health_check_path:
+        value: ''
+        source: default
+      http2_enabled:
+        value: true
+        source: default
     observability:
-      diagnostic_workspace: {value: {production: log-analytics-workspace}, source: deployment}
+      diagnostic_workspace:
+        value:
+          production: log-analytics-workspace
+        source: deployment
       diagnostic_categories:
         value:
         - AppServiceHTTPLogs
@@ -669,50 +1399,49 @@ resources:
         - AppServiceIPSecAuditLogs
         - AppServicePlatformLogs
         source: default
-      metrics_enabled: {value: true, source: default}
+      metrics_enabled:
+        value: true
+        source: default
 
 wiring:
   access:
     value:
-    - {from: users, to: app-service__web, label: HTTPS 443}
-    - {from: app-service__web, to: 'external:entra-id', label: sign-in}
-    - {from: app-service__web, to: app-service__mcp}
-    - {from: app-service__web, to: foundry}
-    - {from: app-service__web, to: search-service}
-    - {from: app-service__web, to: cosmos-db}
-    - {from: app-service__web, to: storage-account__uploads}
-    - {from: app-service__web, to: key-vault}
-    - {from: app-service__mcp, to: container-apps}
-    - {from: app-service__mcp, to: foundry}
-    - {from: function-app, to: search-service}
-    - {from: function-app, to: foundry}
-    - {from: function-app, to: key-vault}
-    - {from: function-app, to: storage-account__host}
-    - {from: function-app, to: application-insights}
-    - {from: container-apps, to: container-registry, label: pulls its image}
+    - from: users
+      to: app-service__web
+      label: HTTPS 443
+    - from: app-service__web
+      to: external:entra-id
+      label: sign-in
+    - from: app-service__web
+      to: app-service__mcp
+    - from: app-service__web
+      to: foundry
+    - from: app-service__web
+      to: search-service
+    - from: app-service__web
+      to: cosmos-db
+    - from: app-service__web
+      to: storage-account__uploads
+    - from: app-service__web
+      to: key-vault
+    - from: app-service__mcp
+      to: container-apps
+    - from: app-service__mcp
+      to: foundry
+    - from: function-app
+      to: search-service
+    - from: function-app
+      to: foundry
+    - from: function-app
+      to: key-vault
+    - from: function-app
+      to: storage-account__host
+    - from: function-app
+      to: application-insights
+    - from: container-apps
+      to: container-registry
+      label: pulls its image
     source: stated
-  purposes:
-    value:
-      app-service__web: Chat front end and back end
-      app-service__mcp: MCP tool server
-      function-app: Connector to the document store
-      container-apps: Code interpreter
-      foundry: Chat and embedding models
-      search-service: Search; indexes the uploads, embeds with the models
-      cosmos-db: Conversation history
-      storage-account__uploads: Uploaded files
-      storage-account__host: State of the connector function
-      key-vault: Secrets
-      user-assigned-identity__web: Web app and MCP server
-      user-assigned-identity__connector: Connector function
-      user-assigned-identity__runner: Code interpreter
-      network-security-group__endpoints: Private endpoints subnet
-      network-security-group__integration: App integration subnets
-      network-security-group__containerapps: Container Apps subnet
-      container-registry: Images of all apps
-      application-insights: Application telemetry
-    source: stated
-  optional: {value: [], source: default}
 
 open:
 - key: resources.application-insights.networking.private_link_scope

@@ -90,8 +90,7 @@ deployment:
   diagnostics_destination:
     value: &id003
       production: log-analytics-workspace
-    source: forced
-    forced_by: deployment.observability_ownership
+    source: { forced_by: deployment.observability_ownership }
   log_retention_days:
     value: 30
     source: stated
@@ -145,8 +144,7 @@ resources:
           service: Microsoft.App/environments
         - subnet: snet-aca
           service: Microsoft.App/environments
-        source: forced
-        forced_by: resources.app-service__web.networking.integration_subnet
+        source: { forced_by: resources.app-service__web.networking.integration_subnet }
     security:
       ddos_protection:
         value: false
@@ -168,6 +166,8 @@ resources:
         value: false
         source: default
   network-security-group__endpoints:
+    meta:
+      purpose: { value: Private endpoints subnet, source: stated }
     rules:
       subnet_purpose:
         value: private_endpoints
@@ -177,8 +177,7 @@ resources:
         source: default
       default_outbound:
         value: deny_internet
-        source: forced
-        forced_by: resources.network-security-group__endpoints.rules.subnet_purpose
+        source: { forced_by: resources.network-security-group__endpoints.rules.subnet_purpose }
       rules:
         value:
           production: &id004 []
@@ -193,6 +192,8 @@ resources:
         - NetworkSecurityGroupRuleCounter
         source: default
   network-security-group__integration:
+    meta:
+      purpose: { value: App integration subnets, source: stated }
     rules:
       subnet_purpose:
         value: app_integration
@@ -215,6 +216,8 @@ resources:
         value: *id005
         source: default
   network-security-group__containerapps:
+    meta:
+      purpose: { value: Container Apps subnet, source: stated }
     rules:
       subnet_purpose:
         value: container_apps
@@ -265,6 +268,8 @@ resources:
         value: false
         source: default
   application-insights:
+    meta:
+      purpose: { value: Application telemetry, source: stated }
     component:
       workspace:
         value: *id003
@@ -297,6 +302,8 @@ resources:
         value: true
         source: deployment
   key-vault:
+    meta:
+      purpose: { value: Secrets, source: stated }
     vault:
       sku:
         value: standard
@@ -317,8 +324,7 @@ resources:
       private_endpoint_subnet:
         value: &id008
           production: snet-endpoints
-        source: forced
-        forced_by: deployment.network_ownership
+        source: { forced_by: deployment.network_ownership }
       network_acl_bypass:
         value: None
         source: default
@@ -356,6 +362,8 @@ resources:
         value: true
         source: default
   user-assigned-identity__web:
+    meta:
+      purpose: { value: Web app and MCP server, source: stated }
     identity:
       purpose:
         value: the web app and the MCP server, to reach models, search, data and secrets
@@ -371,6 +379,8 @@ resources:
           production: &id007 []
         source: default
   user-assigned-identity__connector:
+    meta:
+      purpose: { value: Connector function, source: stated }
     identity:
       purpose:
         value: the document connector function, to index documents and keep its own state
@@ -386,6 +396,8 @@ resources:
           production: *id007
         source: default
   user-assigned-identity__runner:
+    meta:
+      purpose: { value: Code interpreter, source: stated }
     identity:
       purpose:
         value: the code interpreter container app, to pull its image
@@ -401,14 +413,15 @@ resources:
           production: *id007
         source: default
   storage-account__uploads:
+    meta:
+      purpose: { value: Uploaded files, source: stated }
     networking:
       public_network_access:
         value: disabled
         source: deployment
       private_endpoint_subnet:
         value: *id008
-        source: forced
-        forced_by: deployment.network_ownership
+        source: { forced_by: deployment.network_ownership }
       private_endpoint_subresources:
         value:
         - blob
@@ -453,24 +466,19 @@ resources:
     data_protection:
       replication:
         value: ZRS
-        source: requirement
-        derived_from: deployment.outage_impact
+        source: { derived_from: deployment.outage_impact }
       access_tier:
         value: Hot
-        source: requirement
-        derived_from: deployment.data_access_pattern
+        source: { derived_from: deployment.data_access_pattern }
       blob_soft_delete_days:
         value: 7
-        source: requirement
-        derived_from: deployment.data_loss_tolerance
+        source: { derived_from: deployment.data_loss_tolerance }
       container_soft_delete_days:
         value: 7
-        source: requirement
-        derived_from: deployment.data_loss_tolerance
+        source: { derived_from: deployment.data_loss_tolerance }
       versioning_enabled:
         value: true
-        source: requirement
-        derived_from: deployment.data_loss_tolerance
+        source: { derived_from: deployment.data_loss_tolerance }
       change_feed_enabled:
         value: false
         source: default
@@ -492,21 +500,21 @@ resources:
         value: true
         source: default
   storage-account__host:
+    meta:
+      purpose: { value: State of the connector function, source: stated }
     networking:
       public_network_access:
         value: disabled
         source: deployment
       private_endpoint_subnet:
         value: *id008
-        source: forced
-        forced_by: deployment.network_ownership
+        source: { forced_by: deployment.network_ownership }
       private_endpoint_subresources:
         value:
         - blob
         - queue
         - table
-        source: forced
-        forced_by: resources.function-app.storage.host_storage_account
+        source: { forced_by: resources.function-app.storage.host_storage_account }
       allow_azure_services_bypass:
         value: true
         source: default
@@ -549,24 +557,19 @@ resources:
     data_protection:
       replication:
         value: ZRS
-        source: requirement
-        derived_from: deployment.outage_impact
+        source: { derived_from: deployment.outage_impact }
       access_tier:
         value: Hot
-        source: requirement
-        derived_from: deployment.data_access_pattern
+        source: { derived_from: deployment.data_access_pattern }
       blob_soft_delete_days:
         value: 7
-        source: requirement
-        derived_from: deployment.data_loss_tolerance
+        source: { derived_from: deployment.data_loss_tolerance }
       container_soft_delete_days:
         value: 7
-        source: requirement
-        derived_from: deployment.data_loss_tolerance
+        source: { derived_from: deployment.data_loss_tolerance }
       versioning_enabled:
         value: true
-        source: requirement
-        derived_from: deployment.data_loss_tolerance
+        source: { derived_from: deployment.data_loss_tolerance }
       change_feed_enabled:
         value: false
         source: default
@@ -587,6 +590,8 @@ resources:
         value: true
         source: default
   cosmos-db:
+    meta:
+      purpose: { value: Conversation history, source: stated }
     account:
       capacity_mode:
         value: provisioned
@@ -606,8 +611,7 @@ resources:
     resilience:
       zone_redundant:
         value: true
-        source: requirement
-        derived_from: deployment.outage_impact
+        source: { derived_from: deployment.outage_impact }
       geo_replicas:
         value:
           production: []
@@ -624,8 +628,7 @@ resources:
         source: deployment
       private_endpoint_subnet:
         value: *id008
-        source: forced
-        forced_by: deployment.network_ownership
+        source: { forced_by: deployment.network_ownership }
       network_acl_bypass:
         value: false
         source: default
@@ -657,8 +660,7 @@ resources:
     data_protection:
       backup_policy:
         value: continuous_7_days
-        source: requirement
-        derived_from: deployment.data_loss_tolerance
+        source: { derived_from: deployment.data_loss_tolerance }
       analytical_storage:
         value: false
         source: default
@@ -684,6 +686,8 @@ resources:
         value: true
         source: default
   foundry:
+    meta:
+      purpose: { value: Chat and embedding models, source: stated }
     account:
       kind:
         value: AIServices
@@ -712,8 +716,7 @@ resources:
         source: stated
       deployment_sku:
         value: DataZoneStandard
-        source: forced
-        forced_by: deployment.mandates
+        source: { forced_by: deployment.mandates }
       deployment_capacity:
         value: 10
         source: default
@@ -729,8 +732,7 @@ resources:
         source: deployment
       private_endpoint_subnet:
         value: *id008
-        source: forced
-        forced_by: deployment.network_ownership
+        source: { forced_by: deployment.network_ownership }
       restrict_outbound:
         value: true
         source: default
@@ -769,14 +771,15 @@ resources:
         value: true
         source: default
   search-service:
+    meta:
+      purpose: { value: "Search; indexes the uploads, embeds with the models", source: stated }
     service:
       sku:
         value: standard
         source: default
       replica_count:
         value: 2
-        source: requirement
-        derived_from: deployment.outage_impact
+        source: { derived_from: deployment.outage_impact }
       partition_count:
         value: 1
         source: default
@@ -789,8 +792,7 @@ resources:
         source: deployment
       private_endpoint_subnet:
         value: *id008
-        source: forced
-        forced_by: deployment.network_ownership
+        source: { forced_by: deployment.network_ownership }
       network_rule_bypass:
         value: None
         source: default
@@ -825,15 +827,15 @@ resources:
         value: true
         source: default
   container-registry:
+    meta:
+      purpose: { value: Images of all apps, source: stated }
     registry:
       sku:
         value: Premium
-        source: forced
-        forced_by: deployment.network_exposure
+        source: { forced_by: deployment.network_exposure }
       zone_redundant:
         value: true
-        source: requirement
-        derived_from: deployment.outage_impact
+        source: { derived_from: deployment.outage_impact }
       geo_replicas:
         value:
           production: []
@@ -847,8 +849,7 @@ resources:
         source: deployment
       private_endpoint_subnet:
         value: *id008
-        source: forced
-        forced_by: deployment.network_ownership
+        source: { forced_by: deployment.network_ownership }
       network_rule_bypass:
         value: None
         source: default
@@ -888,22 +889,22 @@ resources:
         value: true
         source: default
   container-apps:
+    meta:
+      purpose: { value: Code interpreter, source: stated }
     environment:
       workload_profile:
         value: Consumption
         source: default
       zone_redundant:
         value: true
-        source: requirement
-        derived_from: deployment.outage_impact
+        source: { derived_from: deployment.outage_impact }
       internal:
         value: true
         source: deployment
       infrastructure_subnet:
         value:
           production: snet-aca
-        source: forced
-        forced_by: deployment.network_ownership
+        source: { forced_by: deployment.network_ownership }
       public_network_access:
         value: disabled
         source: deployment
@@ -919,8 +920,7 @@ resources:
         source: default
       min_replicas:
         value: 2
-        source: requirement
-        derived_from: deployment.outage_impact
+        source: { derived_from: deployment.outage_impact }
       max_replicas:
         value: 10
         source: default
@@ -970,6 +970,8 @@ resources:
       terraform:
         container_environment: authored azapi_resource Microsoft.App/managedEnvironments
   function-app:
+    meta:
+      purpose: { value: Connector to the document store, source: stated }
     hosting:
       plan_type:
         value: flex_consumption
@@ -982,15 +984,13 @@ resources:
         source: stated
       zone_redundant:
         value: true
-        source: requirement
-        derived_from: deployment.outage_impact
+        source: { derived_from: deployment.outage_impact }
       max_instance_count:
         value: 20
         source: default
       always_ready_instances:
         value: 1
-        source: requirement
-        derived_from: deployment.outage_impact
+        source: { derived_from: deployment.outage_impact }
       instance_memory_mb:
         value: 2048
         source: default
@@ -1011,16 +1011,14 @@ resources:
         source: deployment
       private_endpoint_subnet:
         value: *id008
-        source: forced
-        forced_by: deployment.network_ownership
+        source: { forced_by: deployment.network_ownership }
       vnet_integration:
         value: true
         source: default
       integration_subnet:
         value:
           production: snet-func
-        source: forced
-        forced_by: deployment.network_ownership
+        source: { forced_by: deployment.network_ownership }
       vnet_route_all:
         value: true
         source: default
@@ -1064,6 +1062,8 @@ resources:
         value: true
         source: default
   app-service__web:
+    meta:
+      purpose: { value: Chat front end and back end, source: stated }
     hosting:
       os_type:
         value: Linux
@@ -1073,28 +1073,24 @@ resources:
         source: default
       zone_redundant:
         value: true
-        source: requirement
-        derived_from: deployment.outage_impact
+        source: { derived_from: deployment.outage_impact }
       instance_count:
         value: 2
-        source: requirement
-        derived_from: deployment.outage_impact
+        source: { derived_from: deployment.outage_impact }
     networking:
       public_network_access:
         value: disabled
         source: deployment
       private_endpoint_subnet:
         value: *id008
-        source: forced
-        forced_by: deployment.network_ownership
+        source: { forced_by: deployment.network_ownership }
       vnet_integration:
         value: true
         source: default
       integration_subnet:
         value:
           production: snet-web
-        source: forced
-        forced_by: deployment.network_ownership
+        source: { forced_by: deployment.network_ownership }
       vnet_route_all:
         value: true
         source: default
@@ -1152,6 +1148,8 @@ resources:
         value: true
         source: default
   app-service__mcp:
+    meta:
+      purpose: { value: MCP tool server, source: stated }
     hosting:
       os_type:
         value: Linux
@@ -1161,28 +1159,24 @@ resources:
         source: default
       zone_redundant:
         value: true
-        source: requirement
-        derived_from: deployment.outage_impact
+        source: { derived_from: deployment.outage_impact }
       instance_count:
         value: 2
-        source: requirement
-        derived_from: deployment.outage_impact
+        source: { derived_from: deployment.outage_impact }
     networking:
       public_network_access:
         value: disabled
         source: deployment
       private_endpoint_subnet:
         value: *id008
-        source: forced
-        forced_by: deployment.network_ownership
+        source: { forced_by: deployment.network_ownership }
       vnet_integration:
         value: true
         source: default
       integration_subnet:
         value:
           production: snet-mcp
-        source: forced
-        forced_by: deployment.network_ownership
+        source: { forced_by: deployment.network_ownership }
       vnet_route_all:
         value: true
         source: default
@@ -1273,30 +1267,6 @@ wiring:
       to: container-registry
       label: pulls its image
     source: stated
-  purposes:
-    value:
-      app-service__web: Chat front end and back end
-      app-service__mcp: MCP tool server
-      function-app: Connector to the document store
-      container-apps: Code interpreter
-      foundry: Chat and embedding models
-      search-service: Search; indexes the uploads, embeds with the models
-      cosmos-db: Conversation history
-      storage-account__uploads: Uploaded files
-      storage-account__host: State of the connector function
-      key-vault: Secrets
-      user-assigned-identity__web: Web app and MCP server
-      user-assigned-identity__connector: Connector function
-      user-assigned-identity__runner: Code interpreter
-      network-security-group__endpoints: Private endpoints subnet
-      network-security-group__integration: App integration subnets
-      network-security-group__containerapps: Container Apps subnet
-      container-registry: Images of all apps
-      application-insights: Application telemetry
-    source: stated
-  optional:
-    value: []
-    source: default
 open:
 - key: resources.application-insights.networking.private_link_scope
   question: Which private monitoring connection should the component belong to?

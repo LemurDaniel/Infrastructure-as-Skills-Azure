@@ -1,17 +1,17 @@
 # Resource groups: roles, modes, rendering
 
 The deployment set decides [which areas get a group of their own and whether each group is
-created](../../iac-authoring/questions/deployment.yaml) (`resource_group_split`,
-`resource_group_mode_<role>`, `resource_group_lock`). This file is what the renderer does
+created](../../iac-authoring/questions/deployment.yaml) (`resource_group_layout`,
+`resource_group_scheme`, `resource_groups_created`, `resource_group_lock`). This file is what the renderer does
 with the answers.
 
 ## Roles
 
 `resource_group_layout: single` has one group per stage, `main` - `context.resource_group_name`.
-A split (`resource_group_layout: split`) has **no main group**: the roles of the scheme that a
-resource of the design belongs to are listed in `resource_group_split`, and every resource is in
-the group of its role. A spec written before the layout key keeps `main` beside its split roles,
-for whatever is not split off.
+A split (`resource_group_layout: split`) has **no main group**: every role of the scheme that a
+resource of the design is in - its `placement.resource_group`, else its kind's role in the table
+below - gets a group, and every resource is in the group of its role. The list of groups is
+derived (`rg_roles.groups`), never written into the spec.
 
 The roles depend on `deployment.resource_group_scheme`; the tables below are the prose of
 [resource-group-roles.yaml](resource-group-roles.yaml), which the spec check, the diagram and
@@ -22,7 +22,7 @@ the decision document read through `scripts/rg_roles.py`; change both together.
 | `concern` (default) | `network`, `data`, `application`, `observability`, `security` - the table below | a resource of the design has that role |
 | `lifecycle` | `foundation` (network, monitoring, identities, messaging: built once), `state` (data stores, Key Vault, registry, search: outlives every redeploy, locked and backed up), `runtime` (compute, AI, integration: replaced freely) | same |
 | `protection` | `protected` (the `state` kinds: what holds data or secrets), `standard` (everything else) | same |
-| `component` | `shared` (the `foundation` kinds) and one group per part in `resource_group_components`; every other resource names its part in `placement.resource_group` | `shared` when a foundation kind is in the design; a part when it is named |
+| `component` | `shared` (the `foundation` kinds) and one group per part a resource is placed in; every other resource names its part in `placement.resource_group` | `shared` when a foundation kind is in the design; a part when it is named |
 
 Every resource set has a role in both tables, or is `attached` (a private endpoint and a role
 assignment go with the resource they serve, Defender for Cloud with the subscription);
@@ -47,9 +47,9 @@ The `concern` table:
   subscription reaches nothing in it - and that the workload's identities hold data-plane roles
   there, never Contributor.
 - A resource may depart from the table; the spec records it as `placement.resource_group: <role>`
-  on the resource, `source: overridden`, with the reason in a comment. Without the key the table
+  on the resource, `source: { overridden: <reason> }`. Without the key the table
   applies.
-- Where a role's group is in mode `existing`, the resources in it still render — the group is
+- Where a role's group exists (not in `resource_groups_created`), the resources in it still render — the group is
   only read.
 
 ## Modes
@@ -69,7 +69,7 @@ Versions are looked up live ([avm.md](avm.md)); the table there is a dated snaps
   location is not read.
 - **Tags** are `context.tags`, like every other resource.
 - **Lock:** `resource_group_lock` — `CanNotDelete` on each created group in `production` (default),
-  in every stage, or none. A group in mode `existing` never gets a lock from this render.
+  in every stage, or none. A group that exists beforehand never gets a lock from this render.
 - **Order:** every resource in a created group depends on the group through its id or name
   output; never a module-level `depends_on` ([terraform-idiom.md](terraform-idiom.md)).
 
@@ -82,7 +82,7 @@ Versions are looked up live ([avm.md](avm.md)); the table there is a dated snaps
   scope with one `scope:` per module for the roles that differ.
 - **Bicep without a main group** (`resource_group_layout: split`, all groups `existing`): still
   one root and one deployment per stage, at resource-group scope, deployed into the **first group
-  of `resource_group_split`** - the *deployment group*. It holds the deployment record, not
+  of the split**, in the scheme's order - the *deployment group*. It holds the deployment record, not
   necessarily resources of its own. Every resource module takes `scope: resourceGroup(<its
   group>)`, and a module that needs another group's resource takes the other module's output:
   ARM orders the modules by those references across groups, so groups never need each other in
@@ -98,8 +98,8 @@ Versions are looked up live ([avm.md](avm.md)); the table there is a dated snaps
   [pipelines.md](pipelines.md).
 - **Terraform state.** A created group is in the state of the stage; the pipeline's `destroy`
   (if any) removes it. The lock stops that in production, deliberately.
-- **Tests.** One `assert` per group decision: `# decision: deployment.resource_group_mode_<role>`
-  checks the group resource planned (create) or absent (existing); `resource_group_lock` checks
+- **Tests.** One `assert` per group: `# decision: deployment.resource_groups_created`
+  checks each group resource planned (on the list) or absent (not on it); `resource_group_lock` checks
   the lock in the stages it names, `# not-testable:` where a plan cannot observe it.
   `# decision: <resource>.placement.resource_group` checks the resource's group.
 

@@ -191,7 +191,7 @@ jobs:
         run: |
           f="environments/${STAGE}.tfvars"
           [ -f "$f" ] || { echo "::error::$f is missing"; exit 1; }
-          if grep -Eq '00000000-0000-0000-0000-000000000000|OPEN-' "$f"; then
+          if grep -Eq '00000000-0000-0000-0000-000000000000|OPEN-|ASSUMED:' "$f"; then
             echo "::error file=$f::Stage ${STAGE} still holds placeholder values - answer the open items first."
             exit 1
           fi
@@ -289,7 +289,7 @@ jobs:
         run: |
           f="main.${STAGE}.bicepparam"
           [ -f "$f" ] || { echo "::error::$f is missing"; exit 1; }
-          if grep -Eq '00000000-0000-0000-0000-000000000000|OPEN-' "$f"; then
+          if grep -Eq '00000000-0000-0000-0000-000000000000|OPEN-|ASSUMED:' "$f"; then
             echo "::error file=$f::Stage ${STAGE} still holds placeholder values - answer the open items first."
             exit 1
           fi

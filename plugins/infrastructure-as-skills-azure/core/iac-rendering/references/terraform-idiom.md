@@ -358,6 +358,18 @@ structure. The convention is the same for every target and every pipeline:
   blocking `apply`. Placeholders stand in for values nobody has given; they are not
   `assumed` values and not a default.
 
+**An `assumed` value is a variable too, with its working value in every stage file and a
+marker beside it** - so `plan` shows it and the same guard refuses `apply`:
+
+```hcl
+vm_instance_count = 3  # ASSUMED: resources.virtual-machine.machine.instance_count
+```
+
+The marker names the decision's key path. Every stage file carries one line per `assumed`
+value of the spec and no marker the spec does not have; `check_pipeline.py` fails both ways.
+Confirming the value is an edit of the spec (`source: asked`) and a render, which drops the
+marker - not an edit of the stage files.
+
 One state per stage, chosen at init by the backend key and never by a workspace — a
 workspace is invisible in the file tree and the thing a pipeline forgets to select:
 

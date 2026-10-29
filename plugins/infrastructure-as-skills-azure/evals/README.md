@@ -50,7 +50,7 @@ scripts are tested by `run_plugin_version_tests.py` and `run_claude_md_tests.py`
 higher rev is left alone is only there, since an eval run for it costs real money and the script test is free.
 
 The `diagram-no-invented-lines` case tests the half of the diagram a run can reach: the spec. The
-picture is drawn from `wiring.access`, `wiring.purposes` and `wiring.optional` and from
+picture is drawn from `wiring.access` and the resources' `meta.purpose` and from
 nothing else, so the cases grade that the spec carries what the request said and nothing
 it did not - an invented line in a picture the customer signs off on is a decision nobody
 made. The drawing itself cannot run in a case (no shell in the eval sandbox on Windows) and

@@ -8,7 +8,7 @@ layout, variables and tagging are in
 
 | Resource | Module | Documented against | Resolved | Status |
 |---|---|---|---|---|
-| Availability set | none - **`avm-res-compute-availabilityset` is not published** | - | 2026-10-25 | Not in the registry: render the authored resource below, `implementation: authored`, `source: forced`, `forced_by: no AVM module for Microsoft.Compute/availabilitySets` |
+| Availability set | none - **`avm-res-compute-availabilityset` is not published** | - | 2026-10-25 | Not in the registry: render the authored resource below, `implementation: authored`, `source: { forced_by: no AVM module for Microsoft.Compute/availabilitySets }` |
 | Proximity placement group | `Azure/avm-res-compute-proximityplacementgroup/azurerm` | **0.1.0** | 2026-10-25 | Available |
 
 Resolve the current version and re-read the README inputs before rendering, as

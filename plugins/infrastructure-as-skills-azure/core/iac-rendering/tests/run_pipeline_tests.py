@@ -162,19 +162,19 @@ MUTATIONS = [
 
     # a placeholder never deploys
     ('github without the placeholder guard', 'github-terraform', GHS,
-     '00000000-0000-0000-0000-000000000000|OPEN-', 'NEVER', 'refuses placeholder'),
+     '00000000-0000-0000-0000-000000000000|OPEN-|ASSUMED:', 'NEVER', 'refuses placeholder'),
     ('github bicep without the placeholder guard', 'github-bicep', GHS,
-     '00000000-0000-0000-0000-000000000000|OPEN-', 'NEVER', 'refuses placeholder'),
+     '00000000-0000-0000-0000-000000000000|OPEN-|ASSUMED:', 'NEVER', 'refuses placeholder'),
     ('ado without the placeholder guard', 'ado-terraform', ADOS,
-     '00000000-0000-0000-0000-000000000000|OPEN-', 'NEVER', 'refuses placeholder'),
+     '00000000-0000-0000-0000-000000000000|OPEN-|ASSUMED:', 'NEVER', 'refuses placeholder'),
     ('gitlab without the placeholder guard', 'gitlab-terraform', GL,
-     '00000000-0000-0000-0000-000000000000|OPEN-', 'NEVER', 'refuses placeholder'),
+     '00000000-0000-0000-0000-000000000000|OPEN-|ASSUMED:', 'NEVER', 'refuses placeholder'),
     ('local without the placeholder guard', 'local-terraform', 'deploy.ps1',
-     '00000000-0000-0000-0000-000000000000|OPEN-', 'NEVER', 'refuses placeholder'),
+     '00000000-0000-0000-0000-000000000000|OPEN-|ASSUMED:', 'NEVER', 'refuses placeholder'),
     ('stage file missing', 'ado-terraform', 'environments/test.tfvars',
      '@remove', '', 'missing'),
     ('ado bicep without the placeholder guard', 'ado-bicep', ADOS,
-     '00000000-0000-0000-0000-000000000000|OPEN-', 'NEVER', 'refuses placeholder'),
+     '00000000-0000-0000-0000-000000000000|OPEN-|ASSUMED:', 'NEVER', 'refuses placeholder'),
     ('ado bicep deploys without what-if', 'ado-bicep', ADOS,
      'az deployment group what-if', 'az deployment group show', 'what-if'),
     ('ado bicep stage file missing', 'ado-bicep', 'main.test.bicepparam',
@@ -191,8 +191,8 @@ MUTATIONS = [
     ('bicep deploys without what-if', 'github-bicep', GHS,
      'az deployment group what-if', 'az deployment group show', 'what-if'),
     ('bicep at subscription scope deploys into a group', 'github-bicep', 'infra-spec.yaml',
-     '  pipeline_approvals: {value: production, source: default}\n',
-     '  pipeline_approvals: {value: production, source: default}\n  deployment_scope: {value: subscription, source: asked}\n',
+     '  pipeline_approvals:\n    value: production\n    source: default\n',
+     '  pipeline_approvals:\n    value: production\n    source: default\n  deployment_scope:\n    value: subscription\n    source: asked\n',
      'deployment_scope is subscription'),
     ('ado bicep at group scope deploys at subscription', 'ado-bicep', ADOS,
      'az deployment group create', 'az deployment sub create', 'deploys with `az deployment sub`'),
@@ -208,15 +208,18 @@ OPEN_DEV = 'open:\n  - key: context.subscription_id\n    environments: [developm
 DEV = 'environments/development.tfvars'
 DEV_REAL = 'subscription_id     = "11111111-2222-3333-4444-dev000000000"'
 DEV_OPEN = 'subscription_id     = "00000000-0000-0000-0000-000000000000"'
+ASSUMED_RES = ('resources:\n  virtual-machine:\n    machine:\n      instance_count:\n        value: 3\n'
+               '        source: assumed\n\n')
+ASSUMED_LINE = '\nvm_instance_count   = 3  # ASSUMED: resources.virtual-machine.machine.instance_count'
 
 # Specs that must still pass: the same pipeline under a different decision.
 VARIANTS = [
     # approvals none: no stage gated, so the production gate must go
     ('approvals none, nothing gated', 'github-terraform',
-     [(SPEC, 'pipeline_approvals: {value: production,', 'pipeline_approvals: {value: none,'),
+     [(SPEC, 'pipeline_approvals:\n    value: production\n', 'pipeline_approvals:\n    value: none\n'),
       (GH, 'gated: true', 'gated: false')], 0, ''),
     ('approvals every_stage, only production gated is wrong', 'github-terraform',
-     [(SPEC, 'pipeline_approvals: {value: production,', 'pipeline_approvals: {value: every_stage,')], 1, 'pipeline_approvals says'),
+     [(SPEC, 'pipeline_approvals:\n    value: production\n', 'pipeline_approvals:\n    value: every_stage\n')], 1, 'pipeline_approvals says'),
     # an open stage keeps its job and its file, filled with placeholders
     ('open stage: job and placeholder file', 'github-terraform',
      [(SPEC, 'deployment:', OPEN_DEV + 'deployment:'), (DEV, DEV_REAL, DEV_OPEN)], 0, ''),
@@ -230,6 +233,17 @@ VARIANTS = [
      [(SPEC, 'deployment:', OPEN_DEV + 'deployment:'), (DEV, DEV_REAL, DEV_OPEN),
       (GH, "  development:\n    needs: validate\n    if: github.event_name != 'pull_request'\n    uses: ./.github/workflows/infra-stage.yaml\n    permissions:\n      contents: read\n      id-token: write\n    with:\n      stage: development\n      gated: false\n\n", '')],
      1, 'stages are'),
+    # an assumed value is a parameter in every stage file, marked so the guard refuses it
+    ('assumed value marked in every stage file', 'github-terraform',
+     [(SPEC, 'deployment:', ASSUMED_RES + 'deployment:')] + [(f'environments/{s}.tfvars', f'environment         = "{s}"', f'environment         = "{s}"' + ASSUMED_LINE)
+                                                            for s in ('development', 'test', 'production')], 0, ''),
+    ('assumed value with a stage file that does not mark it', 'github-terraform',
+     [(SPEC, 'deployment:', ASSUMED_RES + 'deployment:')] + [(f'environments/{s}.tfvars', f'environment         = "{s}"', f'environment         = "{s}"' + ASSUMED_LINE)
+                                                            for s in ('development', 'production')],
+     1, 'is assumed in the spec but not marked here'),
+    ('a marker for a value the spec does not assume', 'github-terraform',
+     [(DEV, 'environment         = "development"', 'environment         = "development"' + ASSUMED_LINE)],
+     1, 'but the spec does not assume it'),
 ]
 
 

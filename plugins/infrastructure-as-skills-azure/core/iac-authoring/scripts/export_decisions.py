@@ -9,7 +9,7 @@ question sets:
 
   1. What follows from your answers - the interview-resolved deployment
      decisions (environment, exposure, mandates, the requirements) with the
-     decisions derived from each (`source: requirement`, `derived_from`).
+     decisions derived from each (`source: {derived_from: deployment.<id>}`).
   2. Set by the rules - everything defaulted, inherited or forced, per
      resource, a forced value with the decision that forced it.
   3. Decided differently by you - `overridden` values with their reason.
@@ -45,6 +45,8 @@ DEPLOYMENT_SET = os.path.join(HERE, '..', 'questions', 'deployment.yaml')
 RESOURCES = os.path.join(PLUGIN, 'resources')
 sys.path.insert(0, os.path.join(HERE, '..', '..', 'iac-rendering', 'scripts'))
 import rg_roles  # noqa: E402 - the role table per scheme (deployment.resource_group_scheme)
+sys.path.insert(0, HERE)
+import spec_source  # noqa: E402 - a source as a word or {forced_by | derived_from | overridden: ...}
 
 LABELS = {
     'en': {
@@ -134,6 +136,23 @@ def say(text):
 def load_yaml(path, yaml):
     with open(path, encoding='utf-8') as f:
         return yaml.safe_load(f)
+
+
+def flat_sources(node):
+    # Every decision's source as its kind, the pointer beside it under its old name
+    # (forced_by, derived_from, reason): the sections below read the kind.
+    if isinstance(node, dict):
+        if 'value' in node and isinstance(node.get('source'), dict):
+            kind, ref = spec_source.kind(node['source'])
+            if kind:
+                node['source'] = kind
+                node[{'forced': 'forced_by', 'requirement': 'derived_from', 'overridden': 'reason'}[kind]] = ref
+        for v in node.values():
+            flat_sources(v)
+    elif isinstance(node, list):
+        for v in node:
+            flat_sources(v)
+    return node
 
 
 def questions_of(doc):
@@ -237,7 +256,7 @@ def main():
         R = Renderer(lang, L)
 
     try:
-        spec = load_yaml(args.spec, yaml)
+        spec = flat_sources(load_yaml(args.spec, yaml))
         deployment = load_yaml(DEPLOYMENT_SET, yaml)
     except (yaml.YAMLError, OSError) as e:
         say(f"[fail] could not read: {e}")
@@ -302,9 +321,9 @@ def main():
         d = dep.get(qid)
         return d.get('value') if isinstance(d, dict) else None
 
-    split = [r for r in (dval('resource_group_split') or []) if isinstance(r, str)]
+    rg_table, rg_scheme = rg_roles.load(yaml), rg_roles.scheme_of(dep)
+    split = rg_roles.groups(rg_table, dep, resources)
     if split:
-        rg_table, rg_scheme = rg_roles.load(yaml), rg_roles.scheme_of(dep)
         rg_groups = (['main'] if rg_roles.has_main(dep) else []) + split   # a split has no main group
         members = {r: [] for r in rg_groups}
         for res, groups in resources.items():
@@ -331,19 +350,30 @@ def main():
         w(f"| {L['g_group']} | {L['g_state']} | {L['g_name']} | {L['g_contains']} |")
         w('|---|---|---|---|')
         for role in rg_groups:
-            state = dval(f'resource_group_mode_{role}') or 'existing'
+            state = rg_roles.mode(dep, role)
             w(f"| {L['g_roles'].get(role) or titles.get(role, role)} | {L['g_created'] if state == 'create' else L['g_existing']} | "
               f"{group_name(role, state)} | {', '.join(sorted(members[role])) or '-'} |")
         w('')
 
     # --- what differs between the stages ---------------------------------------
+    # A cost saving is derived, never recorded: the question has a non_production_default,
+    # the deployment saves outside production, and every other stage holds that default.
+    savings_on = str((dep.get('non_production_savings') or {}).get('value', 'enabled')) == 'enabled' \
+        if isinstance(dep.get('non_production_savings'), dict) else True
+
+    def saved(q, v):
+        if not (savings_on and isinstance(q, dict) and 'non_production_default' in q):
+            return False
+        others = [s for s in v if s != 'production']
+        return bool(others) and all(str(v[s]) == str(q['non_production_default']) for s in others)
+
     stage_lines = []
     for key, v in ctx.items():
         if R.is_stage_map(v) and key in dep_q:
             stage_lines.append(R.line(dep_q[key][1], v))
     for qid, d in dep.items():
         if isinstance(d, dict) and R.is_stage_map(d.get('value')) and qid in dep_q:
-            note = f" _({L['savings']})_" if d.get('non_production') == 'default' else ''
+            note = f" _({L['savings']})_" if saved(dep_q[qid][1], d['value']) else ''
             stage_lines.append(R.line(dep_q[qid][1], d['value']) + note)
     for res, groups in resources.items():
         qset = sets.get(res, {})
@@ -353,7 +383,7 @@ def main():
             for qid, d in qs.items():
                 if isinstance(d, dict) and R.is_stage_map(d.get('value')):
                     q = qset.get(qid, (None, None))[1]
-                    note = f" _({L['savings']})_" if d.get('non_production') == 'default' else ''
+                    note = f" _({L['savings']})_" if saved(q, d['value']) else ''
                     stage_lines.append(f"{titles.get(res, res)}: {R.line(q, d['value'])}{note}")
     if len(R.environments) > 1:
         w(f"## {L['stages']}")
@@ -429,8 +459,8 @@ def main():
         qset = sets.get(res, {})
         lines = []
         for gid, qs in (groups or {}).items():
-            if not isinstance(qs, dict) or str(gid).startswith('_'):
-                continue
+            if not isinstance(qs, dict) or str(gid).startswith('_') or gid == 'meta':
+                continue  # meta describes the resource; only the appendix lists it
             for qid, d in qs.items():
                 if not isinstance(d, dict):
                     continue

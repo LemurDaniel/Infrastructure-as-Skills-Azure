@@ -1,7 +1,7 @@
 schema_version: 1
 
-# Three services in three groups (data, main, application) beside one compute resource: the compact
-# layout, services in a row below the network, a frame per group in the row.
+# Three services in three groups (data, security, application) beside one compute resource: the
+# compact layout, services in a row below the network, a frame per group in the row.
 spec:
   id: shop-groups-small
   target: terraform
@@ -12,8 +12,6 @@ context:
   environments: [production]
   location: westeurope
   workload: shop
-  resource_group_name:
-    production: rg-shop-prod-we
 
 deployment:
   landing_zone: { value: standalone, source: stated }
@@ -23,10 +21,8 @@ deployment:
   observability_ownership: { value: create, source: default }
   private_dns_ownership: { value: deployment, source: default }
   local_auth: { value: disabled, source: default }
-  resource_group_split: { value: [data, application], source: stated }
-  resource_group_mode_main: { value: create, source: stated }
-  resource_group_mode_data: { value: existing, source: stated }
-  resource_group_mode_application: { value: create, source: stated }
+  resource_group_layout: { value: split, source: stated }
+  resource_groups_created: { value: [security, observability, application], source: stated }   # data exists
 
 wiring:
   access:

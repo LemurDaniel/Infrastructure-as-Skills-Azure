@@ -25,8 +25,8 @@ it with `enablePrivateOnlyBastion`.
 - **`native_client` is fixed on.** The module sets `enableTunneling` to `true` for `Standard` and for
   `Premium` without session recording, and has no parameter for it. A spec with `native_client: false`
   on `Standard` therefore renders the Bastion **authored** (below) with `implementation: authored`,
-  `source: forced`, `forced_by: avm/res/network/bastion-host fixes tunneling on`, or records the value
-  actually deployed (`true`) as `forced`. The Terraform module carries it (`tunneling_enabled`).
+  `source: { forced_by: avm/res/network/bastion-host fixes tunneling on }`, or records the value
+  actually deployed (`true`) as forced. The Terraform module carries it (`tunneling_enabled`).
 - **`metrics_enabled` is not in the module's diagnostic setting** (logs only). The metrics go in a
   second `Microsoft.Insights/diagnosticSettings` on the existing host, as below.
 

@@ -88,12 +88,13 @@ reports as "not checkable" instead of passing them.
 
 11. **A placeholder never deploys.** The first step of a stage's plan job - before any login
     and before `init` - fails when the stage's file (`environments/<stage>.tfvars`,
-    `main.<stage>.bicepparam`) holds the all-zero GUID or an `OPEN-` value, and says which
-    file and to ask for the spec's `open:` entries. The stage chain then holds every stage
+    `main.<stage>.bicepparam`) holds the all-zero GUID, an `OPEN-` value or an `ASSUMED:`
+    marker, and says which file and to ask for the spec's `open:` entries and `assumed`
+    values. The stage chain then holds every stage
     behind it: nothing rolls out while a stage in front of it is open, which is what the
     decision document tells the customer ("Solange diese Punkte offen sind, wird nichts
     ausgerollt"). The check is the same one line on every platform:
-    `grep -Eq '00000000-0000-0000-0000-000000000000|OPEN-'`. A resolved stage whose file
+    `grep -Eq '00000000-0000-0000-0000-000000000000|OPEN-|ASSUMED:'`. A resolved stage whose file
     still holds a marker fails it too, which is the point - and the grep reads comments as
     well, so a resolved stage's file must not spell either marker out, not even to explain
     the convention (a staging file once did, and would have refused itself).
@@ -156,7 +157,7 @@ names the stages that still hold placeholders. They cannot deploy - see invarian
 | `deployment.pipeline_auth` | The login mechanics of the platform file |
 | `deployment.pipeline_approvals` | Which stages have the gate: `production` - the last stage named `production`, or the last stage if none is; `every_stage`; `none` |
 | `deployment.deployment_scope` | Bicep: `az deployment group` (`resource_group`) or `az deployment sub` with `--location` (`subscription`), invariant 13. Both targets: the stage identity's Contributor on its groups, or on the subscription |
-| `deployment.resource_group_layout` | Bicep: the group the stage deploys into (`AZURE_RESOURCE_GROUP`, `-ResourceGroup`) is the main group, or under `split` the first group of `resource_group_split` - the root's modules reach the others by `scope:`. Terraform: nothing |
+| `deployment.resource_group_layout` | Bicep: the group the stage deploys into (`AZURE_RESOURCE_GROUP`, `-ResourceGroup`) is the main group, or under `split` the first group of the split, in the scheme's order - the root's modules reach the others by `scope:`. Terraform: nothing |
 | `deployment.stage_isolation` | `subscription`: one identity and one subscription per stage. `resource_group`: one subscription, so the identities differ by the role scope on the resource group - every role of a stage's identity is assigned on that stage's groups, never on the subscription, and the hand-over says that a subscription assignment removes the separation |
 | `deployment.deployer_roles` | The roles beyond `Contributor` in the hand-over list; nothing in a pipeline step |
 | `deployment.non_production_savings` | Nothing in the pipeline; the stage file carries it |

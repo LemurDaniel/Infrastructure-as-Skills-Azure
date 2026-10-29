@@ -195,11 +195,13 @@ def main():
 
         # Resource groups: the main group and the split roles; a split (resource_group_layout:
         # split) has no main group.
-        split = value(dep.get("resource_group_split")) or []
-        has_main = value(dep.get("resource_group_layout")) != "split"
+        sys.path.insert(0, str(Path(__file__).resolve().parent))
+        import rg_roles  # beside this script: the groups are derived, never recorded
+        split = rg_roles.groups(rg_roles.load(yaml), dep, spec.get("resources") or {})
+        has_main = rg_roles.has_main(dep)
         for role in (["main"] if has_main else []) + list(split):
             key = "resource_group_name" + ("" if role == "main" else f"_{role}")
-            mode = value(dep.get(f"resource_group_mode_{role}")) or "existing"
+            mode = rg_roles.mode(dep, role)
             stated = per_stage(ctx.get(key), stage)
             action = t["create"] if mode == "create" else t["existing"]
             if stated:
