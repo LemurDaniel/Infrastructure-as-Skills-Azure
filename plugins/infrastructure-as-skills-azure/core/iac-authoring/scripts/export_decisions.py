@@ -193,7 +193,7 @@ class Renderer:
                 detail = value.get('resource_group_name') or value.get('prefix')
                 base = str(value['name']) + (f" ({detail})" if detail else '')
                 extra = {k: v for k, v in value.items() if k not in ('name', 'resource_group_name', 'prefix', 'purpose')}
-                return base + (' ' + ', '.join(f"{k} {v}" for k, v in extra.items()) if extra else '')
+                return base + (' (' + ', '.join(f"{k}: {self.value_words(None, v)}" for k, v in extra.items()) + ')' if extra else '')
             return ', '.join(f"{k}: {self.value_words(None, v)}" for k, v in value.items())
         try:
             if value in pv:
