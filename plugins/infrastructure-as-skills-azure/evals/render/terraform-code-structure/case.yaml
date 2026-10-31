@@ -1,0 +1,72 @@
+schema_version: "1.1"
+name: terraform-code-structure
+
+# The signed-off spec is a file under workspace/, copied into the run's working directory by
+# scaffold.sh, so every run starts from the same state.
+context:
+  scaffold_script: scaffold.sh
+
+# The eval sandbox has no shell, so check_code_structure.py cannot run here; the graders read
+# what it checks with regexes. providers.tf and variables.tf have fixed names in the idiom, the
+# resource and test files do not, so those graders read every file the run wrote.
+graders:
+  - name: skill-fired
+    type: tool_used
+    tool: Skill
+    input_match: infrastructure-as-skills-azure
+
+  - name: providers-written
+    type: file_exists
+    path: infra/providers.tf
+    weight: 2
+
+  - name: providers-opens-with-header
+    type: regex
+    weight: 2
+    target: { source: file, path: infra/providers.tf }
+    pattern: '^\s*#\s*\S'
+
+  # The root is one book: its table of contents sits in providers.tf and lists UPPERCASE titles.
+  - name: root-contents-in-providers
+    type: regex
+    weight: 3
+    target: { source: file, path: infra/providers.tf }
+    pattern: '#\s*Chapters:\s*\n#\s{3,}[A-Z][A-Z0-9 ,/()&-]*[A-Z0-9)]\s{2,}\S'
+
+  - name: providers-chapter-banner
+    type: regex
+    weight: 2
+    target: { source: file, path: infra/providers.tf }
+    pattern: '^# ={75}\s*\n# =+   [A-Z][A-Z0-9 ,/()&-]*   =+\s*\n# ={75}\s*$'
+    flags: m
+
+  - name: variables-chapter-banner
+    type: regex
+    weight: 2
+    target: { source: file, path: infra/variables.tf }
+    pattern: '^# ={75}\s*\n# =+   [A-Z][A-Z0-9 ,/()&-]*   =+\s*\n# ={75}\s*$'
+    flags: m
+
+  # A flow chapter numbers its steps; each step is a section: rule, title, indented description.
+  - name: resource-flow-chapter-with-sections
+    type: regex
+    weight: 3
+    target: files
+    pattern: '^#\s{3}1\. \S[\s\S]*^# -{75}\s*\n# \S[^\n]*\n#\s{3}\S'
+    flags: m
+
+  # Every banner line is 75 characters after `# ` - none shorter, none longer.
+  - name: no-banner-line-off-width
+    type: regex
+    weight: 3
+    target: files
+    pattern: '^\s*# (?:={20,74}|={76,}|-{20,74}|-{76,})\s*$'
+    flags: m
+    match: not_contains
+
+  # The structure comes on top of the idiom's comments, never instead of them.
+  - name: decision-comments-kept
+    type: regex
+    weight: 2
+    target: files
+    pattern: '#\s*decision:\s*storage-account\.networking\.public_network_access\s*\n(?:\s*#[^\n]*\n)*\s*assert\s*\{'
