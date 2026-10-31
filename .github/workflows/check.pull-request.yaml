@@ -1,0 +1,92 @@
+# ---------------------------------------------------------------------------
+# Pull request
+#   Feature branches go into dev, dev goes into master. A merge to master is
+#   a release (release.plugin.yaml), so a pull request into master must come
+#   from dev and raise the version in plugin.json past the last release; a
+#   pull request into dev only runs the checks - dev deploys the eval agent,
+#   it releases nothing.
+#
+#   The job names 'Version raised' and 'Repository checks' are the required
+#   status checks of the branch protection on master and dev: renaming one
+#   blocks every merge until the protection names the new one.
+# ---------------------------------------------------------------------------
+
+#
+#   Chapters:
+#     CHECK THE PULL REQUEST   The release rules, then the repository checks.
+#
+
+name: Pull request
+
+on:
+  pull_request:
+    branches: [master, dev]
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: pwsh
+
+jobs:
+
+  # ===========================================================================
+  # =======================   CHECK THE PULL REQUEST   ========================
+  # ===========================================================================
+  #
+  #   1. Version raised      Into master: from dev, with a new version.
+  #   2. Repository checks   The checks every commit has to pass.
+  #
+
+  # ---------------------------------------------------------------------------
+  # Version raised
+  #   Into master: from dev, with a new version.
+  # ---------------------------------------------------------------------------
+  version:
+    name: Version raised
+    runs-on: ubuntu-latest
+    # Into dev the job runs and passes without steps: the check is required on both branches.
+    env:
+      IS_RELEASE: ${{ github.base_ref == 'master' }}
+      BASE_REF: ${{ github.base_ref }}
+    steps:
+      # head_ref only in a condition, never in an expression a script sees (check_pipeline.py flags one).
+      - name: Only dev is released
+        if: env.IS_RELEASE == 'true' && github.head_ref != 'dev'
+        run: |
+          Write-Output '::error::a pull request into master comes from dev; open this one against dev (gh pr edit --base dev)'
+          exit 1
+
+      - uses: actions/checkout@v7
+        if: env.IS_RELEASE == 'true'
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v6
+        if: env.IS_RELEASE == 'true'
+        with:
+          python-version: "3.12"
+
+      - name: Check the version against the last release
+        if: env.IS_RELEASE == 'true'
+        run: python3 .claude/skills/release/scripts/check_version_bump.py --base "origin/$env:BASE_REF"
+
+  # ---------------------------------------------------------------------------
+  # Repository checks
+  #   The checks every commit has to pass.
+  # ---------------------------------------------------------------------------
+  checks:
+    name: Repository checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Run the repository checks
+        run: |
+          pip install pyyaml
+          ./.github/scripts/Invoke-RepositoryChecks.ps1

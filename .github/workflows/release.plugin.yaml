@@ -1,0 +1,98 @@
+# ---------------------------------------------------------------------------
+# Release
+#   Every push to master - the merge of the release pull request from dev -
+#   publishes the version in plugin.json as release v<version>; the tag is
+#   created here, on the merged commit. check.pull-request.yaml has made sure
+#   the version is new. A 0.0.x version or a -suffix marks it as a
+#   prerelease; 0.1.0 and later are stable.
+#
+#   Needs no secret: the GITHUB_TOKEN creates tag and release.
+# ---------------------------------------------------------------------------
+
+name: Release
+
+on:
+  push:
+    branches: [master]
+
+permissions:
+  contents: write   # creates the tag and the release
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: pwsh
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    env:
+      PLUGIN_DIR: plugins/infrastructure-as-skills-azure
+      PLUGIN_NAME: infrastructure-as-skills-azure
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Read the version from the manifest
+        id: version
+        run: |
+          $Version = (Get-Content -Path "$env:PLUGIN_DIR/.claude-plugin/plugin.json" -Raw | ConvertFrom-Json).version
+          git rev-parse -q --verify "refs/tags/v$Version" | Out-Null
+          if ($LASTEXITCODE -EQ 0) {
+              Write-Output "::error::v$Version is already released; a merge to master must raise the version in plugin.json"
+              exit 1
+          }
+
+          # 0.0.x or a -suffix is a prerelease
+          $IsPrerelease = $Version -LIKE '0.0.*' -OR $Version -LIKE '*-*'
+          Add-Content -Path $env:GITHUB_OUTPUT -Value @(
+              "version=$Version"
+              "tag=v$Version"
+              "prerelease=$($IsPrerelease.ToString().ToLower())"
+          )
+          exit 0
+
+      - name: Check for an eval run on this version
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: ./.github/scripts/Test-ReleaseEvalRun.ps1 -Version $env:VERSION
+
+      - name: Run the repository checks
+        run: |
+          pip install pyyaml
+          ./.github/scripts/Invoke-RepositoryChecks.ps1
+
+      # Tracked files only: git archive never picks up a local build output.
+      - name: Build the ZIP
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          $PSNativeCommandUseErrorActionPreference = $true
+          $ZipName = "$env:PLUGIN_NAME-$env:VERSION.zip"
+          git archive --format=zip --prefix="$env:PLUGIN_NAME/" -o $ZipName "HEAD:$env:PLUGIN_DIR"
+          sha256sum $ZipName > "$ZipName.sha256"
+          Add-Content -Path $env:GITHUB_ENV -Value "ZIP_NAME=$ZipName"
+
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.version.outputs.tag }}
+          IS_PRERELEASE: ${{ steps.version.outputs.prerelease }}
+        run: |
+          $PSNativeCommandUseErrorActionPreference = $true
+          $Release = @(
+              $env:TAG, $env:ZIP_NAME, "$env:ZIP_NAME.sha256"
+              '--target', $env:GITHUB_SHA, '--title', $env:TAG, '--generate-notes'
+          )
+          if ($env:IS_PRERELEASE -EQ 'true') {
+              $Release += '--prerelease'
+          }
+          gh release create @Release
