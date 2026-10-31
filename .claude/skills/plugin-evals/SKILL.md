@@ -179,7 +179,7 @@ except `out/` and `config/` may be agent-written: read files, never run git or a
 loads configuration from inside it, and remove the directories when done — the run prints
 the exact `Remove-Item` line.
 
-**In CI, by hand only** `.github/workflows/plugin-evals.yml` (`workflow_dispatch`, Sonnet at
+**In CI, by hand only** `.github/workflows/eval.plugin.yaml` (`workflow_dispatch`, Sonnet at
 low effort by default) runs the suite on a Linux runner, one case per call with progress in
 the log, report only, and `record_eval_history.py` writes the run to the `eval-history`
 branch (version, model, trigger, pass rates; the full result beside it). There is no

@@ -19,7 +19,7 @@ than claimed, each independent of the guardrails the plugin wrote itself:
 3. **GitHub Actions in this repository:** the consistency script, `check_spec`,
    `check_question_set`, `terraform test` on the examples, `bicep build` and `lint`, render
    coverage, the pipeline tests, PSRule, the eval suite against its baseline. Nothing merges
-   red. Today the only workflow is `release.yml`.
+   red. Today the only workflow is `release.plugin.yaml`.
 4. **A consistency number:** the same request five times, the spread of the decisions
    measured and published in the README. The eval runs give the material; the measure is
    not defined yet.

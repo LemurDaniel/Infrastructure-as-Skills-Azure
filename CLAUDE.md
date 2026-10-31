@@ -83,6 +83,11 @@ python3 plugins/infrastructure-as-skills-azure/core/iac-authoring/tests/run_plug
 python3 plugins/infrastructure-as-skills-azure/core/iac-rendering/scripts/write_naming.py <spec>
 python plugins/infrastructure-as-skills-azure/core/iac-rendering/tests/run_naming_tests.py
 
+# The comments of a render (references/code-structure.md): headers, banner widths, numbered
+# steps against sections, tables of contents against chapters. The test breaks one rule per case.
+python3 plugins/infrastructure-as-skills-azure/core/iac-rendering/scripts/check_code_structure.py <root>
+python plugins/infrastructure-as-skills-azure/core/iac-rendering/tests/run_code_structure_tests.py
+
 # Renders a spec as the customer's decision document (infra-decisions.md beside it).
 python3 plugins/infrastructure-as-skills-azure/core/iac-authoring/scripts/export_decisions.py <spec> --language de
 

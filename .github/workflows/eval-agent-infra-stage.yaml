@@ -37,7 +37,7 @@ jobs:
           f="main.${STAGE}.bicepparam"
           [ -f "$f" ] || { echo "::error::eval-agent/infra/$f is missing"; exit 1; }
           # only real parameter lines count; comments, blank lines and 'using' are ignored
-          if grep -E '^param ' "$f" | grep -Eq '00000000-0000-0000-0000-000000000000|OPEN-'; then
+          if grep -E '^param ' "$f" | grep -Eq '00000000-0000-0000-0000-000000000000|OPEN-|ASSUMED:'; then
             echo "::error file=eval-agent/infra/$f::Stage ${STAGE} still holds placeholder values - answer the open items of the spec first."
             exit 1
           fi

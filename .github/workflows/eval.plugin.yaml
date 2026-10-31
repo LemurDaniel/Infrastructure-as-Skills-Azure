@@ -1,0 +1,220 @@
+# ---------------------------------------------------------------------------
+# Plugin evals
+#   Runs the eval suite by hand, on a Linux runner: the same suite as the run
+#   before a release (git-commit-conventions, section 5), here on Sonnet at
+#   low effort by default. There is no pull-request trigger - a cheap model
+#   on the spec cases did not tell a plugin change from the model's own
+#   noise, and the full suite is what a release is judged on. Every run is
+#   recorded on the eval-history branch, which the eval dashboard reads per
+#   plugin version and model. Report only: a failing case does not fail it.
+#
+#   Required repository secrets:
+#     ANTHROPIC_API_KEY   API key the eval agent and the judge run on
+# ---------------------------------------------------------------------------
+
+#
+#   Chapters:
+#     RUN AND RECORD THE SUITE   Runs the cases, then records them.
+#
+
+name: Plugin evals
+
+on:
+  workflow_dispatch:
+    inputs:
+      model:
+        description: Model the agent runs on
+        type: choice
+        options: [sonnet, haiku, opus]
+        default: sonnet
+      effort:
+        description: Effort level of the agent (CLAUDE_CODE_EFFORT_LEVEL)
+        type: choice
+        options: [low, medium, high]
+        default: low
+      trigger:
+        description: What the run is recorded as
+        type: choice
+        options: [manual, release]
+        default: manual
+      runs:
+        description: Runs for every case, run in parallel up to 8 (empty = each case's own runs, 4 or 2 for the costly ones)
+        default: ""
+      max_cost_usd:
+        description: Hard cost ceiling in USD
+        default: "30"
+      case:
+        description: Case name glob (empty = all)
+        default: ""
+      tag:
+        description: Only cases with this tag (empty = all)
+        default: ""
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: pwsh
+
+jobs:
+
+  # ===========================================================================
+  # ======================   RUN AND RECORD THE SUITE   =======================
+  # ===========================================================================
+  #
+  #   1. Eval suite              Runs the cases and uploads the merged result.
+  #   2. Record in eval-history  Commits the result to the eval-history branch.
+  #
+  #   Kept apart: the job that runs plugin code holds the API key and a
+  #   read-only token, the one that can push holds no key and runs no plugin
+  #   code.
+  #
+
+  # ---------------------------------------------------------------------------
+  # Eval suite
+  #   Runs the cases and uploads the merged result.
+  # ---------------------------------------------------------------------------
+  eval:
+    name: Eval suite
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      MODEL: ${{ inputs.model }}
+      CLAUDE_CODE_EFFORT_LEVEL: ${{ inputs.effort }}
+      RUNS: ${{ inputs.runs }}
+      MAX_COST_USD: ${{ inputs.max_cost_usd }}
+      CASE: ${{ inputs.case }}
+      TAG: ${{ inputs.tag }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install Claude Code
+        run: npm install -g @anthropic-ai/claude-code@2.1.310
+
+      - name: Run the eval suite
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          $Suite = @(
+              '--output-dir', "$env:RUNNER_TEMP/eval"
+              '--model', $env:MODEL
+              '--max-cost-usd', $env:MAX_COST_USD
+              '--runs', $env:RUNS
+              '--case', $env:CASE
+              '--tag', $env:TAG
+          )
+          python3 .github/scripts/run_eval_suite.py @Suite
+
+      - name: Summarise
+        if: always()
+        run: |
+          $Result = "$env:RUNNER_TEMP/eval/aggregate-result.json"
+          if (-NOT (Test-Path -Path $Result)) {
+              exit 0
+          }
+          pip install --quiet pyyaml
+
+          $env:NO_COLOR = '1'
+          $RunsLabel = [System.String]::IsNullOrEmpty($env:RUNS) ? "each case's own" : $env:RUNS
+          $Table = python3 .claude/skills/plugin-evals/scripts/show_eval_result.py $Result
+          Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value @(
+              "### Plugin evals on ``$env:MODEL`` ($RunsLabel run(s) per case)"
+              '```'
+              $Table
+              '```'
+          )
+          # The table is a report; its exit code never fails the summary.
+          exit 0
+
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: eval-result
+          path: |
+            ${{ runner.temp }}/eval/aggregate-result.json
+            ${{ runner.temp }}/eval/cases/*/report.html
+          if-no-files-found: ignore
+          retention-days: 14
+
+  # ---------------------------------------------------------------------------
+  # Record in eval-history
+  #   Commits the result to the eval-history branch.
+  # ---------------------------------------------------------------------------
+  record:
+    name: Record in eval-history
+    needs: eval
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write   # pushes to eval-history
+    env:
+      MODEL: ${{ inputs.model }}
+      TRIGGER: ${{ inputs.trigger }}
+      COMMIT: ${{ github.sha }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: eval-result
+          path: ${{ runner.temp }}/eval
+
+      # Another run may push in between: start again from the remote branch and record again
+      # (recording is idempotent), never rebase a conflicting index.json.
+      - name: Record and push
+        run: |
+          $PSNativeCommandUseErrorActionPreference = $true
+          $HistoryDir = "$env:RUNNER_TEMP/history"
+          $Record = @(
+              "$env:RUNNER_TEMP/eval/aggregate-result.json"
+              '--history-dir', $HistoryDir, '--model', $env:MODEL, '--trigger', $env:TRIGGER, '--commit', $env:COMMIT
+          )
+          git config --global user.name 'github-actions[bot]'
+          git config --global user.email '41898282+github-actions[bot]@users.noreply.github.com'
+
+          foreach ($Attempt in 1..5) {
+              # A missing branch is the first record, not an error.
+              $PSNativeCommandUseErrorActionPreference = $false
+              git fetch --quiet origin eval-history 2>$null
+              $IsHistoryFetched = $LASTEXITCODE -EQ 0
+              $PSNativeCommandUseErrorActionPreference = $true
+
+              if ($IsHistoryFetched) {
+                  git worktree add --force -B eval-history $HistoryDir FETCH_HEAD
+              }
+              else {
+                  # First record: an orphan branch with nothing in it.
+                  git worktree add --force --detach $HistoryDir
+                  git -C $HistoryDir checkout --quiet --orphan eval-history
+                  git -C $HistoryDir rm -rf --quiet .
+              }
+              python3 .claude/skills/plugin-evals/scripts/record_eval_history.py @Record
+              git -C $HistoryDir add -A
+              git -C $HistoryDir commit --quiet -m "Record eval run on $env:MODEL ($env:TRIGGER)"
+
+              # A rejected push is the race above: retried, not thrown.
+              $PSNativeCommandUseErrorActionPreference = $false
+              git -C $HistoryDir push --quiet origin eval-history
+              $IsPushed = $LASTEXITCODE -EQ 0
+              $PSNativeCommandUseErrorActionPreference = $true
+
+              if ($IsPushed) {
+                  exit 0
+              }
+              git worktree remove --force $HistoryDir
+              Start-Sleep -Seconds ($Attempt * 5)
+          }
+          Write-Output '::error::could not push to eval-history after 5 attempts'
+          exit 1

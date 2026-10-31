@@ -7,7 +7,7 @@ description: Releasing the plugin - every merge of dev into master publishes the
 
 **A merge into `master` is a release.** Feature branches go into `dev` (which deploys the
 eval agent and releases nothing); `dev` goes into `master` by a release pull request, merged
-as a merge commit. `.github/workflows/release.yml` runs on every push
+as a merge commit. `.github/workflows/release.plugin.yaml` runs on every push
 to `master`, reads `version` from
 `plugins/infrastructure-as-skills-azure/.claude-plugin/plugin.json`, fails if `v<version>`
 already exists, runs the repository checks, zips the plugin directory (tracked files only,
@@ -15,7 +15,7 @@ via `git archive`), and creates the tag `v<version>` on the merged commit with t
 release and a SHA-256 file. A `0.0.x` version, or a `-suffix`, makes it a prerelease;
 `0.1.0` and later are stable releases.
 
-`.github/workflows/pull-request.yml` blocks a pull request into `master` unless it comes
+`.github/workflows/check.pull-request.yaml` blocks a pull request into `master` unless it comes
 from `dev` and the version is raised: `scripts/check_version_bump.py` fails when
 `plugin.json` is not newer than the last `v*` tag and the version on `master`. So **the
 release bumps the version**, once for everything `dev` collected; a feature branch does not.
@@ -42,7 +42,7 @@ release bumps the version**, once for everything `dev` collected; a feature bran
    request runs no eval.
 6. **Merge as a merge commit** (`gh pr merge <n> --merge`), never squash: `dev` and
    `master` keep one history. **After the merge, report** what the workflow did:
-   `gh run list --workflow release.yml --limit 1`, then `gh release view v<version>`.
+   `gh run list --workflow release.plugin.yaml --limit 1`, then `gh release view v<version>`.
 
 ## Never
 

@@ -249,7 +249,7 @@ the detail; this list says what was decided and why, so a session does not reope
 - **Foundry models come from a generated catalogue, never from memory** (2026-10-28, owner's
   call). A run offered gpt-4.1 (Legacy) while gpt-6 was GA. `resources/ai/foundry/models.yaml`
   is written by `.github/scripts/update_foundry_models.py` from the EU regions' catalogue and
-  refreshed monthly by `foundry-models.yml` (identity of the `production` environment, a PR
+  refreshed monthly by `refresh.foundry-models.yaml` (identity of the `production` environment, a PR
   with a patch bump when it changed); no CLI in the user's session. The question field
   `accepts: { catalogue: models.yaml }` carries it into the digest. The interview asks family first (multi-select),
   then per family its three newest models (multi-select, "Noch offen" first), the embedding
@@ -272,13 +272,13 @@ the detail; this list says what was decided and why, so a session does not reope
 - **Feature -> `dev` -> `master`; every merge into `master` is a release** (2026-10-26,
   owner's call; `dev` added 2026-11-01, owner's call). `dev` exists so the eval agent can be
   deployed without a release: a push to `dev` runs `eval-agent-infra.yaml` and
-  `eval-dashboard-image.yaml` into `production`, a push to `master` deploys nothing.
+  `deploy.eval-agent.dashboard.yaml` into `production`, a push to `master` deploys nothing.
   `master` stays the default branch, because the marketplace reads it - a user installs
   only what is released. Feature branches go into `dev` as a squash merge and raise no
   version; `dev` goes into `master` by a release PR as a merge commit (never squash, or the
-  two histories part), which raises the version once. `pull-request.yml` runs the checks on
+  two histories part), which raises the version once. `check.pull-request.yaml` runs the checks on
   both; into `master` it also fails unless the head is `dev` and `plugin.json`'s version is
-  newer than the last tag and `master` (`check_version_bump.py`). `release.yml` runs on the
+  newer than the last tag and `master` (`check_version_bump.py`). `release.plugin.yaml` runs on the
   push to `master` and creates tag and release itself. No tag by hand.
 - **The question-set format, revised** (2026-10-28, branch `restructure-core`):
   `accepts` is the one field for what an answer may be - a value list, `{ ref: <kind> }` or
@@ -349,7 +349,7 @@ the detail; this list says what was decided and why, so a session does not reope
   Terraform site module cannot render identity-based host storage for a Standard logic app; the
   alert, DCR and flow-log kinds count as `MONITOR_KINDS` in the diagram but have no layout of their
   own.
-- **Release 0.1.0 (2026-10-25), the first stable one** (owner's call): `release.yml` marks only `0.0.x` and
+- **Release 0.1.0 (2026-10-25), the first stable one** (owner's call): `release.plugin.yaml` marks only `0.0.x` and
   suffixed versions as prereleases. The plugin folder has its own `README.md` (the directory reads it, with what the plugin
   runs and writes), `displayName` and new keywords are in `plugin.json`. Not done: the submission to Anthropic's plugin
   directory (developer portal, `claude.ai/directory/manage`; needs the owner's account, GitHub connection and the
@@ -396,7 +396,7 @@ the detail; this list says what was decided and why, so a session does not reope
   dashboard (sign-in, reads the results, holds the GitHub token) and an agent behind a private
   endpoint (runs plugin code, writes the results, no secret), on one B2 plan, one user-assigned
   identity each; the tests assert the separation (`ideas/eval-agent.md`). Decided 2026-10-25: the dashboard files a ticket on a click, never automatically; its image goes in through
-  `.github/workflows/eval-dashboard-image.yaml` (the pipeline opens the registry for the runner's address only and closes it in an
+  `.github/workflows/deploy.eval-agent.dashboard.yaml` (the pipeline opens the registry for the runner's address only and closes it in an
   `always()` step; `container-registry.networking.image_push_path`, needs AcrPush for the pipeline identity). The dashboard app is
   `eval-agent/dashboard/` (Node 22, Express; `MOCK=1` or `run-local.ps1` runs it without Azure; pages Overview and Tune & Fuzz; it starts
   the tuner only, the tuner starts the fuzz agent; reads `runs/`, `fuzz/`, `tune/` from the storage account; agents not written yet,
@@ -413,7 +413,7 @@ the detail; this list says what was decided and why, so a session does not reope
   never fires on its own specs yet - only the `four-apps-one-subnet` fixture test guards the
   rule that a call inside one container stays in it.
   **Since 2026-10-27 the agent app is gone** (spec, diagram, render, pipelines; not deployed):
-  the evals run in GitHub Actions instead (`plugin-evals.yml`), recorded on the `eval-history`
+  the evals run in GitHub Actions instead (`eval.plugin.yaml`), recorded on the `eval-history`
   branch, and the dashboard only shows - eval history per plugin version and model, read from
   that branch through the GitHub API without a token, plus the fuzz and tuner reports from
   storage. No run start, no tickets, no `github-token` in the vault; drift and tune run on
@@ -931,7 +931,7 @@ regeneration from the spec loses them. All `render`:
   cost over resolution, those read only 0/50/100%), no `--runs` flag;
   Haiku runs beside it every time (owner's call, ~$1-3) as the floor - reported, compared only
   with earlier Haiku runs, never blocking a merge on its own;
-  `plugin-evals.yml` runs it by hand on Linux. The PR run on Haiku was removed: it measured
+  `eval.plugin.yaml` runs it by hand on Linux. The PR run on Haiku was removed: it measured
   the model. First CI run on Haiku, 13 cases: 23:45 min,
   $2.18, 2/13 at 100%, 0% on every process, sync and render case - Haiku skips multi-step rules.
   `language-de-request` and `module-source-authored` removed (100% on Opus and Haiku).
@@ -955,7 +955,7 @@ regeneration from the spec loses them. All `render`:
   The composed Sonnet run is `baseline.json` since (owner's call): 11 cases, every grader at
   its full rate. Haiku keeps failing the same rules as on 0.5.4/0.5.5: invented subscription and
   region, the default stack, `@onlyIfNotExists()`, the CLAUDE.md sync in one of four runs.
-- **CI by hand**: `.github/workflows/plugin-evals.yml` (`workflow_dispatch`, Sonnet/low by
+- **CI by hand**: `.github/workflows/eval.plugin.yaml` (`workflow_dispatch`, Sonnet/low by
   default, one case per call with progress, `--scaffold`, report only);
   `record_eval_history.py` writes each run to `eval-history`. `review-agent-separate` never loaded before 2026-10-27 (`focus:
   transcript` is not a value; `trace` is). It needs the secret `ANTHROPIC_API_KEY`. Unverified on a Linux runner: whether the eval
@@ -1022,8 +1022,8 @@ regeneration from the spec loses them. All `render`:
   only (`ideas/pattern-skill.md`).
 - An AVM version drift check, read-only, scheduled (`ideas/avm-drift-watch.md`).
 - First run of the image pipeline (AcrPush is granted, 2026-10-25) and a check that its closing step really leaves the registry at `Disabled`. The dashboard's real mode (blob, GitHub, sign-in) has not run.
-- The repository secret `ANTHROPIC_API_KEY` for `plugin-evals.yml`.
-- A first manual run of `foundry-models.yml` after the merge: whether the `production`
+- The repository secret `ANTHROPIC_API_KEY` for `eval.plugin.yaml`.
+- A first manual run of `refresh.foundry-models.yaml` after the merge: whether the `production`
   identity (Contributor on its resource group) may read the model catalogue at subscription
   scope, else Reader on the subscription; and "Allow GitHub Actions to create and approve
   pull requests" switched on.

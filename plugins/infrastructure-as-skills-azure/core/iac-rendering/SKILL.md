@@ -57,7 +57,10 @@ than inferring the shape from an example spec.
    spec's `deployment.module_source` is `authored` or the repository already renders the
    resource authored.
 3. **Read the target idiom** — [terraform-idiom](references/terraform-idiom.md) or
-   [bicep-idiom](references/bicep-idiom.md), not both.
+   [bicep-idiom](references/bicep-idiom.md), not both — and
+   [code-structure.md](references/code-structure.md) for the comments: header, table of
+   contents, chapters and sections in every file. A `code-style` skill in the session
+   replaces its rules, the repository's own style replaces both; the layout stays the idiom's.
 4. **Read the resource's own rendering reference**, `<plugin>/resources/<family>/<resource>/{terraform,bicep}.md`.
    `<plugin>` is two levels above this skill's base directory (shown when it loads,
    `.../core/iac-rendering`); `resources/` sits beside `core/`, not inside it. Read it by that
@@ -84,7 +87,8 @@ than inferring the shape from an example spec.
    what makes the next re-render a diff instead of a review. The shape per target is in
    the idiom file; `scripts/check_render_coverage.py` fails on an unasserted decision.
 8. **Validate before handing over.** Syntactically valid is not done — `fmt` →
-   `validate` → `test` → `plan` / `what-if`, then say which diffs are service-affecting.
+   `validate` → `test` → `plan` / `what-if`, then say which diffs are service-affecting,
+   and `scripts/check_code_structure.py <root>` for the comments the render wrote.
    The commands are at the end of each idiom file. **Then show the names**: run
    `scripts/list_names.py <spec>` and hand over the table - every resource with the name it
    will get, before anything is deployed. A name cannot be changed afterwards, and the
@@ -213,6 +217,7 @@ is spelled. A port that reads as a transliteration has usually lost one of them.
 | [references/naming.md](references/naming.md) | Always, before rendering a name |
 | [references/terraform-idiom.md](references/terraform-idiom.md) | Target is Terraform |
 | [references/bicep-idiom.md](references/bicep-idiom.md) | Target is Bicep |
+| [references/code-structure.md](references/code-structure.md) | Always, with the idiom: how every rendered file is commented, and when a `code-style` skill takes over |
 | [references/pipelines.md](references/pipelines.md) | Always, after the code: the flow and invariants every pipeline shares |
 | [references/pipelines.github.md](references/pipelines.github.md), [.ado.md](references/pipelines.ado.md), [.gitlab.md](references/pipelines.gitlab.md), [.local.md](references/pipelines.local.md) | `deploy_mechanism` is that system |
 | [references/gitignore.md](references/gitignore.md) | After rendering: the lines the repository's `.gitignore` must have, added never rewritten |
@@ -223,3 +228,4 @@ is spelled. A port that reads as a transliteration has usually lost one of them.
 | `scripts/check_pipeline.py` | After rendering a pipeline: the invariants of `pipelines.md`, per platform |
 | `scripts/list_names.py` | After rendering: the names every resource will get, offline from the spec; fails on a length, a character or a duplicate |
 | `scripts/check_render_coverage.py` | After rendering, either target: every spec decision asserted or marked, nothing stale |
+| `scripts/check_code_structure.py` | After rendering: headers, banner widths, chapters against their steps, tables of contents against the chapters |
