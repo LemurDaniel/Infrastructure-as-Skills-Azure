@@ -1,10 +1,12 @@
 name: Pull request
 
-# A merge to master is a release (release.yml), so a pull request into master must raise
-# the version in plugin.json past the last release and pass the checks the release runs.
+# Feature branches go into dev, dev goes into master. A merge to master is a release
+# (release.yml), so a pull request into master must come from dev and raise the version in
+# plugin.json past the last release; a pull request into dev only runs the checks - dev
+# deploys the eval agent, it releases nothing.
 on:
   pull_request:
-    branches: [master]
+    branches: [master, dev]
 
 permissions:
   contents: read
@@ -14,15 +16,24 @@ jobs:
     name: Version raised
     runs-on: ubuntu-latest
     steps:
+      - name: Only dev is released
+        if: github.base_ref == 'master' && github.head_ref != 'dev'
+        run: |
+          echo "::error::a pull request into master comes from dev; open this one against dev (gh pr edit --base dev)"
+          exit 1
+
       - uses: actions/checkout@v4
+        if: github.base_ref == 'master'
         with:
           fetch-depth: 0
 
       - uses: actions/setup-python@v5
+        if: github.base_ref == 'master'
         with:
           python-version: "3.12"
 
       - name: Check the version against the last release
+        if: github.base_ref == 'master'
         run: python3 .claude/skills/release/scripts/check_version_bump.py --base "origin/${{ github.base_ref }}"
 
   checks:
