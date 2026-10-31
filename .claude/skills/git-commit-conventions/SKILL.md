@@ -185,7 +185,7 @@ Beyond the script:
   a pull request into `dev`; `dev` goes into `master` by its own pull request,
   and **every merge into `master` is a release** (see the
   [release skill](../release/SKILL.md)). A push to `dev` deploys the eval agent
-  (`eval-agent-infra.yaml`, `eval-dashboard-image.yaml`) and releases nothing.
+  (`eval-agent-infra.yaml`, `deploy.eval-agent.dashboard.yaml`) and releases nothing.
   The branch protection on both enforces it; locally it is this rule.
 - **One branch per piece of work**, cut from a fresh `origin/dev`
   (`git fetch origin`, `git switch -c <name> origin/dev`). Short kebab-case
@@ -250,7 +250,7 @@ Beyond the script:
      `README.md`, replace the 40-character `eval-history` commit in both URLs
      with the one just pushed (`git ls-remote origin refs/heads/eval-history`),
      and commit that on a branch into `dev`. The badge then shows the run this
-     version was merged with and never moves on its own; `release.yml` warns
+     version was merged with and never moves on its own; `release.plugin.yaml` warns
      when a release has no run, or the pinned badge names another version.
   4. **Write the result into the pull request description**, as its section
      `## Eval results (before merge)`, after every suite run on the

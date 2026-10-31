@@ -99,7 +99,7 @@ messages as German) and costs about half a cent per verdict; the agent runs are 
 ## In CI
 
 The suite is judged before a merge, on Sonnet at low effort (four runs per case, about
-$15-25; repo skill `git-commit-conventions`, section 5). `.github/workflows/plugin-evals.yml`
+$15-25; repo skill `git-commit-conventions`, section 5). `.github/workflows/eval.plugin.yaml`
 runs the same on a Linux runner, by hand (`workflow_dispatch`): one case per call, so the log
 says which case it is on and how long the rest will take, the results merged by
 `merge_eval_results.py`, report only. There is no pull-request run. One was tried on Haiku:

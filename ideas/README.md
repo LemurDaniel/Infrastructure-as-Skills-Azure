@@ -13,7 +13,7 @@ taken up, `PROGRESS.md` records the decision and its file gets a pointer to it.
 | [Review agent](review-agent.md) - existing infra vs. guardrails | Sketch |
 | [Cost estimate and profiles](cost-and-security-profiles.md) - a monthly estimate per stage in Phase 4; the profiles exist as `priority` | Sketch, the estimate is open |
 | [Eval dashboard](eval-dashboard.md) - runs over time | Sketch |
-| [Eval agent](eval-agent.md) - runs the evals on request, files tickets per cause | Agent superseded by `plugin-evals.yml` + `eval-history`; dashboard read-only |
+| [Eval agent](eval-agent.md) - runs the evals on request, files tickets per cause | Agent superseded by `eval.plugin.yaml` + `eval-history`; dashboard read-only |
 | [Diagram fuzz](diagram-fuzz.md) - random specs drawn and scored on layout, on CI and on the eval agent | Sketch, fuzzer exists |
 | [Simulated customer in the evals](simulated-customer-eval.md) - scripted answers so the interview path runs | Sketch |
 | [Spec versions and diff](spec-diff.md) - readable "what changed" between two specs | Sketch |

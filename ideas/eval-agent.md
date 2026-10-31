@@ -1,7 +1,7 @@
 # Eval agent
 
 **Status:** the agent half is superseded (2026-10-27). The evals run in GitHub Actions
-(`.github/workflows/plugin-evals.yml`, by hand; the full suite on Sonnet before a merge), each
+(`.github/workflows/eval.plugin.yaml`, by hand; the full suite on Sonnet before a merge), each
 run is recorded on the `eval-history` branch, and the dashboard only shows that history per
 plugin version and model - no run start, no tickets, no GitHub token. `app-service__agent` and
 its identity are out of the spec and the render. Why: an always-on App Service and a private
