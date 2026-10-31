@@ -89,4 +89,4 @@ jobs:
       - name: Run the repository checks
         run: |
           pip install pyyaml
-          ./.github/scripts/Invoke-RepositoryChecks.ps1
+          python3 .github/scripts/run_repository_checks.py

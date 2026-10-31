@@ -63,12 +63,12 @@ jobs:
       - name: Check for an eval run on this version
         env:
           VERSION: ${{ steps.version.outputs.version }}
-        run: ./.github/scripts/Test-ReleaseEvalRun.ps1 -Version $env:VERSION
+        run: python3 .github/scripts/check_release_eval_run.py $env:VERSION
 
       - name: Run the repository checks
         run: |
           pip install pyyaml
-          ./.github/scripts/Invoke-RepositoryChecks.ps1
+          python3 .github/scripts/run_repository_checks.py
 
       # Tracked files only: git archive never picks up a local build output.
       - name: Build the ZIP
