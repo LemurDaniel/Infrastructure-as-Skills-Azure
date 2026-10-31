@@ -9,6 +9,7 @@
 #     (Microsoft.CognitiveServices/locations/models/read); if a role on the resource group
 #     alone does not cover it, Reader on the subscription does. The job only reads;
 #   - "Allow GitHub Actions to create and approve pull requests" in the repository settings.
+# The pull request goes into dev, like every change; the version is raised when dev is released.
 # A pull request opened with GITHUB_TOKEN starts no other workflow: pull-request.yml runs
 # once someone pushes to the branch or closes and reopens the pull request.
 name: Foundry model catalogue
@@ -28,7 +29,6 @@ concurrency:
 env:
   REGIONS: westeurope northeurope swedencentral germanywestcentral francecentral italynorth spaincentral polandcentral
   MODELS: plugins/infrastructure-as-skills-azure/resources/ai/foundry/models.yaml
-  MANIFEST: plugins/infrastructure-as-skills-azure/.claude-plugin/plugin.json
   BRANCH: foundry-models-refresh
 
 jobs:
@@ -38,7 +38,7 @@ jobs:
     permissions: { contents: write, pull-requests: write, id-token: write }
     steps:
       - uses: actions/checkout@v7
-        with: { fetch-depth: 0 }
+        with: { ref: dev, fetch-depth: 0 }
 
       - uses: azure/login@v3
         with:
@@ -73,7 +73,6 @@ jobs:
         if: steps.diff.outputs.changed == 'true'
         run: python3 plugins/infrastructure-as-skills-azure/core/iac-authoring/scripts/check_question_set.py
 
-      # Every merge into master is a release, so the branch raises the patch version.
       # The pull request stays open until someone merges it; a newer run replaces it.
       - name: Open the pull request
         if: steps.diff.outputs.changed == 'true'
@@ -81,27 +80,14 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          python3 - <<'EOF'
-          import json, os
-          p = os.environ['MANIFEST']
-          with open(p, encoding='utf-8') as f:
-              m = json.load(f)
-          major, minor, patch = m['version'].split('-')[0].split('.')
-          m['version'] = f"{major}.{minor}.{int(patch) + 1}"
-          with open(p, 'w', encoding='utf-8', newline='\n') as f:
-              json.dump(m, f, indent=2, ensure_ascii=False)
-              f.write('\n')
-          print(m['version'])
-          EOF
-          version=$(python3 -c "import json; print(json.load(open('$MANIFEST'))['version'])")
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git switch -C "$BRANCH"
-          git add "$MODELS" "$MANIFEST"
-          git commit -m "Refresh the Foundry model catalogue" -m "Bump the version to $version."
+          git add "$MODELS"
+          git commit -m "Refresh the Foundry model catalogue"
           git push --force origin "$BRANCH"
           if [ -z "$(gh pr list --head "$BRANCH" --state open --json number --jq '.[].number')" ]; then
-            gh pr create --base master --head "$BRANCH" \
+            gh pr create --base dev --head "$BRANCH" \
               --title "Refresh the Foundry model catalogue" \
-              --body "Monthly refresh of \`resources/ai/foundry/models.yaml\` from the model catalogue of the EU regions ($REGIONS). Raises the version to $version."
+              --body "Monthly refresh of \`resources/ai/foundry/models.yaml\` from the model catalogue of the EU regions ($REGIONS)."
           fi

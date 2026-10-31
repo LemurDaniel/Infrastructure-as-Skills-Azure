@@ -20,7 +20,7 @@
 #     the pipeline deploys into it and does not create it.
 #  5. GitHub environment 'production': variables (plain variables, no secrets)
 #       AZURE_CLIENT_ID, AZURE_TENANT_ID, AZURE_SUBSCRIPTION_ID  (must equal subscriptionId in the stage file)
-#     Protection: deployment branches = default branch only.
+#     Protection: deployment branches = dev and master (dev deploys; the scheduled jobs on master read).
 #  6. GitHub environment 'production-approval': Required reviewers (pipeline_approvals: production).
 #     The approve job stops the run between what-if and deploy; it holds no credential.
 #  7. eval-agent/infra/main.production.bicepparam still holds placeholders (OPEN-... values, all-zero GUIDs;
@@ -38,8 +38,10 @@ name: Eval-Agent Infrastructure
 on:
   pull_request:
     paths: ["eval-agent/infra/**", ".github/workflows/eval-agent-infra*.yaml"]
+  # dev is where the eval agent is deployed from; a merge into master is a plugin release and
+  # deploys nothing (master only ever receives what dev already deployed).
   push:
-    branches: [main, master]
+    branches: [dev]
     paths: ["eval-agent/infra/**", ".github/workflows/eval-agent-infra*.yaml"]
   workflow_dispatch:
 

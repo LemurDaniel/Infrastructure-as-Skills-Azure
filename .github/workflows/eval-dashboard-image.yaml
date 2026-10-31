@@ -18,8 +18,9 @@
 name: Eval Dashboard image
 
 on:
+  # Deployed from dev, like the infrastructure (eval-agent-infra.yaml).
   push:
-    branches: [main, master]
+    branches: [dev]
     paths: ["eval-agent/dashboard/**", ".github/workflows/eval-dashboard-image.yaml"]
   pull_request:
     paths: ["eval-agent/dashboard/**", ".github/workflows/eval-dashboard-image.yaml"]
