@@ -104,15 +104,15 @@ jobs:
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: |
-          $Suite = @{
-              OutputDir  = "$env:RUNNER_TEMP/eval"
-              Model      = $env:MODEL
-              MaxCostUsd = [System.Double]::Parse($env:MAX_COST_USD, [System.Globalization.CultureInfo]::InvariantCulture)
-              Runs       = $env:RUNS
-              Case       = $env:CASE
-              Tag        = $env:TAG
-          }
-          ./.github/scripts/Invoke-PluginEvalSuite.ps1 @Suite
+          $Suite = @(
+              '--output-dir', "$env:RUNNER_TEMP/eval"
+              '--model', $env:MODEL
+              '--max-cost-usd', $env:MAX_COST_USD
+              '--runs', $env:RUNS
+              '--case', $env:CASE
+              '--tag', $env:TAG
+          )
+          python3 .github/scripts/run_eval_suite.py @Suite
 
       - name: Summarise
         if: always()
