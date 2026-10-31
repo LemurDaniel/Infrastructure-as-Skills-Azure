@@ -181,30 +181,35 @@ Beyond the script:
 
 ## 5. Branch and push
 
-- **Never commit to `master`.** Every change goes through a branch and a pull
-  request into `master`, and **every merge is a release** (see the
-  [release skill](../release/SKILL.md)). The branch protection on `master`
-  enforces it; locally it is this rule.
-- **One branch per piece of work**, cut from a fresh `origin/master`
-  (`git fetch origin`, `git switch -c <name> origin/master`). Short kebab-case
+- **Never commit to `master` or `dev`.** Every change goes through a branch and
+  a pull request into `dev`; `dev` goes into `master` by its own pull request,
+  and **every merge into `master` is a release** (see the
+  [release skill](../release/SKILL.md)). A push to `dev` deploys the eval agent
+  (`eval-agent-infra.yaml`, `eval-dashboard-image.yaml`) and releases nothing.
+  The branch protection on both enforces it; locally it is this rule.
+- **One branch per piece of work**, cut from a fresh `origin/dev`
+  (`git fetch origin`, `git switch -c <name> origin/dev`). Short kebab-case
   names saying what it does, e.g. `network-family`, `fix-diagram-endpoints`. A
   branch may carry several commits; the one-concern rule (section 3) still holds
   per commit.
-- **Every branch raises the version in `plugin.json`**, in its own commit. The
-  PR check fails otherwise: a merge publishes that version.
+- **The version is raised on the release, not per branch**: a feature branch
+  leaves `plugin.json` alone; the release pull request `dev` -> `master` raises
+  it (release skill), and the PR check fails into `master` otherwise.
 - **Commit only when asked; push and open the PR only when asked.** They are
   separate instructions — "commit das" is not permission to push. A PR is
-  opened with `gh pr create --base master`: English title like a commit
+  opened with `gh pr create --base dev`: English title like a commit
   subject, a body saying what and why, and no attribution line (section 1).
-- **Merge only when asked, and only as a squash merge**
-  (`gh pr merge <n> --squash`). The PR becomes one commit on `master`: its
-  title is that commit's subject (section 2), its body carries no attribution
-  (section 1). The branch commits stay split by concern (section 3) for the
-  review. The merge publishes a release.
-- **Before the merge, the full eval suite on Sonnet and on Haiku, each run by a test agent.**
-  No eval runs on the pull request: the suite needs a model that follows a
-  multi-step skill, and every merge is a release. For a branch that touches `core/`, `resources/`
-  or `evals/` of the plugin, before `gh pr merge`:
+- **Merge only when asked.** A feature branch into `dev` as a squash merge
+  (`gh pr merge <n> --squash`): the PR becomes one commit on `dev`, its title
+  that commit's subject (section 2), its body without attribution (section 1);
+  the branch commits stay split by concern (section 3) for the review. `dev`
+  into `master` as a merge commit (`gh pr merge <n> --merge`), never squash or
+  rebase: `master` then holds the very commits of `dev`, and `dev` never falls
+  behind it. That merge publishes a release.
+- **Before the release merge, the full eval suite on Sonnet and on Haiku, each run by a test agent.**
+  No eval runs on a pull request: the suite needs a model that follows a
+  multi-step skill. For a release whose `dev` touches `core/`, `resources/`
+  or `evals/` of the plugin since the last release, before `gh pr merge`:
   1. Say what it costs (low effort, each case's own `runs:` - 4, the four
      costliest 2: Sonnet about $12-18, Haiku about $1-3) and start only on
      the owner's yes.
@@ -240,11 +245,11 @@ Beyond the script:
      <scratch>/eval/aggregate-result.json --history-dir <scratch>/eh --model
      sonnet --trigger release --commit <head sha>`, and the same for the
      Haiku run with `--model haiku`; commit, push, remove the worktree.
-     Every pull request does this, with the PR's head commit.
+     Every release pull request does this, with the PR's head commit.
      Then **pin the README badge to it**: in the `Evals on Sonnet` line of
      `README.md`, replace the 40-character `eval-history` commit in both URLs
      with the one just pushed (`git ls-remote origin refs/heads/eval-history`),
-     and commit that on the PR branch. The badge then shows the run this
+     and commit that on a branch into `dev`. The badge then shows the run this
      version was merged with and never moves on its own; `release.yml` warns
      when a release has no run, or the pinned badge names another version.
   4. **Write the result into the pull request description**, as its section

@@ -269,13 +269,17 @@ the detail; this list says what was decided and why, so a session does not reope
   the code does - sign-in implemented in a container, the Application Insights SDK - is not
   asked, flagged or opened; platform features (a component, a connection string, Easy Auth if
   ever wanted) are the plugin's.
-- **Every change is a branch and a PR; every merge into `master` is a release** (2026-10-26,
-  owner's call). No `dev` branch: one person, and the marketplace reads `master`, so what is
-  there is released anyway. `pull-request.yml` fails unless `plugin.json`'s version is newer
-  than the last tag and `master` (`check_version_bump.py`), plus the repository checks;
-  `release.yml` runs on the push to `master` and creates tag and release itself. Squash merge
-  only (2026-10-29, owner's call; was rebase merge), one commit per PR on `master`; `master` is protected (PR, both checks, up to date,
-  linear history, admins included). No tag by hand.
+- **Feature -> `dev` -> `master`; every merge into `master` is a release** (2026-10-26,
+  owner's call; `dev` added 2026-11-01, owner's call). `dev` exists so the eval agent can be
+  deployed without a release: a push to `dev` runs `eval-agent-infra.yaml` and
+  `eval-dashboard-image.yaml` into `production`, a push to `master` deploys nothing.
+  `master` stays the default branch, because the marketplace reads it - a user installs
+  only what is released. Feature branches go into `dev` as a squash merge and raise no
+  version; `dev` goes into `master` by a release PR as a merge commit (never squash, or the
+  two histories part), which raises the version once. `pull-request.yml` runs the checks on
+  both; into `master` it also fails unless the head is `dev` and `plugin.json`'s version is
+  newer than the last tag and `master` (`check_version_bump.py`). `release.yml` runs on the
+  push to `master` and creates tag and release itself. No tag by hand.
 - **The question-set format, revised** (2026-10-28, branch `restructure-core`):
   `accepts` is the one field for what an answer may be - a value list, `{ ref: <kind> }` or
   `{ catalogue: <file> }`; `values`, `ref`, `options_from` and `type: ref` are gone, the type
