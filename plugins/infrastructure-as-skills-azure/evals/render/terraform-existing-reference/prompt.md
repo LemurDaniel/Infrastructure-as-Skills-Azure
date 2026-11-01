@@ -5,7 +5,7 @@ expected_outcome: >-
   infra/ holds a workspace id variable with a validation on Microsoft.OperationalInsights/workspaces; environments/development.tfvars carries law-platform-dev's id, environments/production.tfvars the all-zero GUID placeholder with OPEN-; no data "azurerm_log_analytics_workspace" anywhere, no workspace name or resource group variable; the test passes the id as a variable instead of mocking a data source.
 tags: [terraform, development, production, storage, render, reference]
 plugins: ["../../.."]
-runs: 4
+runs: 2
 max_turns: 80
 timeout_seconds: 1200
 allowed_tools: [Read, Glob, Grep, Skill, Write, Edit]

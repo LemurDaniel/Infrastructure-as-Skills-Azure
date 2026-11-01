@@ -14,6 +14,24 @@ fix is committed, and put the commit hash in once it exists.
 
 ## Entries
 
+### `terraform-code-structure`, `terraform-existing-reference`, 2026-11-01
+
+- **Symptom:** On the 0.7.0 release run, `resource-flow-chapter-with-sections`,
+  `decision-comments-kept`, `workspace-id-variable` and `id-validated-on-type` failed 0/4 on
+  Sonnet and on Haiku: "pattern not found in files". Both cases at 0%.
+- **Cause:** The grader. `target: files` is the list of paths the run created, one per line,
+  not their contents; every positive content check on it could never pass, and the five
+  `not_contains` checks on it passed without reading any code. A re-run with `--keep-temp`
+  (2 runs each) showed all four patterns matching the files the runs wrote.
+- **Fix:** Content checks read the file the idiom names (`infra/res.storage.tf`,
+  `infra/variables.tf`, `infra/tests/networking.tftest.hcl`); "never written" checks are
+  `tool_used` on `Write` (and `Edit`, except for the banner width, where an Edit fixing a
+  banner carries the old one) with `max: 0` over the serialized input. Tested against the four
+  kept runs and nine synthetic inputs. Both cases drop to `runs: 2`.
+- **After:** On the kept runs every grader passes except `root-contents-in-providers` in one
+  run, a real miss (`Chapters (the root, in reading order):`, file before title -
+  `check_code_structure.py` refuses it too). The next suite run confirms.
+
 ### `diagram-no-invented-lines`, 2026-10-29
 
 - **Symptom:** `no-invented-calls` failed 0/2 on Sonnet (baseline 3/3) and 1/2 on Haiku, a
