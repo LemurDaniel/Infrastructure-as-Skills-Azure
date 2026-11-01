@@ -14,6 +14,21 @@ fix is committed, and put the commit hash in once it exists.
 
 ## Entries
 
+### `terraform-code-structure`, 2026-11-01
+
+- **Symptom:** `root-contents-in-providers` 1/2 on Sonnet (re-test on `7fbbcb6`): one run titled
+  the root's list `Table of contents of the root, in reading order:`, an earlier one put the
+  file name before the title. `check_code_structure.py` also failed every kept run on
+  `tests/*.tftest.hcl`: a chapter, no `Chapters:` list. No grader looked at the test files.
+- **Cause:** The reference. `code-structure.md` showed `Chapters:` only in an example, never
+  said the label is literal or that the entry starts with the title, and had no example of the
+  root's list in `providers.tf`; for a test file it named only the chapter description.
+- **Fix:** The label word for word, title-first entries and "every file with a chapter banner,
+  one chapter included" as rules; the root's list in `providers.tf` as an example. New grader
+  `test-file-contents`.
+- **After:** 2/2 on Sonnet, every grader, `root-contents-in-providers` and `test-file-contents`
+  included ($1.24).
+
 ### `terraform-code-structure`, `terraform-existing-reference`, 2026-11-01
 
 - **Symptom:** On the 0.7.0 release run, `resource-flow-chapter-with-sections`,
