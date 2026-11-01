@@ -72,6 +72,24 @@ groups:
 | `{ ref: <kind> }` | A reference to another resource of a kind [ref-kinds.yaml](ref-kinds.yaml) defines (`subnet`, `resource_group`, `log_analytics_workspace`, ...), on a `string` or a `list`. In the spec `{ resource: <key> }` or `{ existing: <kind> }` ([spec.md](spec.md#references)); never offered as a guessed option |
 | `{ catalogue: <file> }` | A value from a generated catalogue beside the set (`models.yaml`), never one from memory |
 
+### How a reference resolves
+
+A `{ ref: <kind> }` question's answer takes one of three paths from the interview to the code.
+The kind ([ref-kinds.yaml](ref-kinds.yaml)) says which sets may answer it and what an id of it
+looks like; the spec form says where the id comes from:
+
+| The resource | In the spec | Rendered as | `check_spec.py` checks |
+|---|---|---|---|
+| Created by this spec | `{ resource: <key> }`, with `part: <name>` where the kind is a part (a subnet); one value for every stage | The id output of that resource's module, per stage | The key exists, its set is one of the kind's `sets`, the part is named by the kind's `part` question |
+| Outside it, id known | `{ existing: <kind>, id: { <stage>: <id> } }` | An id variable / param; the render writes each stage's id into its stage file | Every stage has an id, of the kind's ARM `type` (or a GUID, any resource id) |
+| Outside it, id unknown | `{ existing: <kind> }` and an `open:` entry with its owner | The same variable / param; the stage file holds a placeholder id, refused by the pipeline before `apply` | The `open:` entry exists |
+
+A name or a resource group is never part of a reference: an existing resource is never looked
+up, so `plan` needs no access to the platform, and a name the person gives without an id goes
+into the `open:` entry's question. The rendering is in
+[terraform-idiom.md](../../iac-rendering/references/terraform-idiom.md#referencing-what-the-deployment-does-not-own)
+and [bicep-idiom.md](../../iac-rendering/references/bicep-idiom.md#referencing-what-the-deployment-does-not-own).
+
 ## Where the value comes from
 
 Every question names exactly one answer path: where its value comes from when nobody
