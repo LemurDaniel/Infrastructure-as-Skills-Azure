@@ -13,7 +13,10 @@ The written spec must pass check_spec.py and be canonical, and:
   - the integration subnet is the network's part, the role assignment names both resources
     and keeps its id, the lock and the diagnostic setting are adopted;
   - what has no place is unmapped with its reason (Databricks, the ReadOnly lock, the group's
-    role assignment), and the noise appears nowhere - nor does a tag Azure set itself.
+    role assignment), and the noise appears nowhere - nor does a tag Azure set itself;
+  - the exposure follows from what was read (a public storage account: public);
+  - the decision document lists the departures from the rules (public access, shared keys)
+    and what was found and not built.
 
 Usage:
     python3 run_map_inventory_tests.py
@@ -31,6 +34,7 @@ FIXTURE = os.path.join(HERE, 'fixtures', 'inventory-orders.json')
 CORE = os.path.join(HERE, '..', '..')
 CHECK = os.path.join(CORE, 'iac-authoring', 'scripts', 'check_spec.py')
 WRITE = os.path.join(CORE, 'iac-authoring', 'scripts', 'write_spec.py')
+EXPORT = os.path.join(CORE, 'iac-authoring', 'scripts', 'export_decisions.py')
 
 
 def main():
@@ -60,6 +64,9 @@ def main():
         with open(out, encoding='utf-8') as f:
             text = f.read()
         spec = yaml.safe_load(text)
+        md = os.path.join(tmp, 'infra-decisions.md')
+        subprocess.run([sys.executable, EXPORT, out, '--out', md], capture_output=True, text=True)
+        doc = open(md, encoding='utf-8').read() if os.path.isfile(md) else ''
 
     res = spec.get('resources') or {}
     expect(set(res) == {'virtual-network', 'storage-account', 'app-service'},
@@ -83,6 +90,10 @@ def main():
                    ('microsoft.authorization/locks', 'outside_lock_policy'),
                    ('microsoft.authorization/roleassignments', 'scope_not_adopted')]:
         expect((t, why) in reasons, f"unmapped: {t} ({why})")
+    expect(spec.get('deployment', {}).get('network_exposure') == {'value': 'public', 'source': 'imported'},
+           'network_exposure follows from the public storage account')
+    expect('## Abweichungen von den Vorgaben' in doc and '## Gefunden, nicht gebaut' in doc and 'dbw-orders' in doc,
+           'the decision document lists the departures and what was not built')
     expect('NetworkWatcher' not in text and 'Failure Anomalies' not in text, 'the noise is left out')
     expect('hidden-link' not in text and spec['context'].get('tags') == {'owner_team': 'orders'},
            'tags Azure sets itself are left out, the shared one kept')

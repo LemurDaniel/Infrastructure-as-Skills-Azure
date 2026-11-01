@@ -38,8 +38,13 @@ What it writes, and from where:
   - adopt: the row's id, its CanNotDelete lock, its diagnostic setting to a workspace, its
     parts. A ReadOnly lock, a lock on a group and a second diagnostic setting are `unmapped`.
   - Role assignments on an adopted resource go to wiring.role_assignments with their adopt_id;
-    the principal is the spec resource whose identity it is, else external:<principalId>. One
+    the principal is the spec resource whose identity it is, else external:<type>-<objectId>
+    (external:user-33bb1760-..., group, serviceprincipal) - a reader sees what kind of
+    principal it is, the render keeps the object id. One
     on a scope the spec does not adopt (the group, the subscription) is `unmapped`.
+  - deployment.network_exposure follows from what was read: `public` when any adopted
+    resource's public_network_access is enabled or enabled_with_firewall, `private` when every
+    one read is disabled; none read, none written.
   - Noise is left out and counted, never written: everything in NetworkWatcherRG and in a
     managed group (managedBy set), Smart Detector alert rules, and the tags Azure sets itself
     (hidden-*, ms-resource-usage, aks-managed-*).
@@ -207,6 +212,12 @@ def fits(question, v):
     if isinstance(acc, list) and t in ('enum',):
         return next((a for a in acc if same(a, v)), MISSING)
     return v
+
+
+def get_dec(node, group, qid):
+    """An imported decision's value in a resource being written, None when it was not read."""
+    d = (node.get(group) or {}).get(qid) if isinstance(node, dict) else None
+    return d.get('value') if isinstance(d, dict) and d.get('source') == 'imported' else None
 
 
 # --- the spec ------------------------------------------------------------------------------
@@ -388,7 +399,8 @@ def main():
             unmapped.append({'type': 'Microsoft.Authorization/roleAssignments', 'id': a['id'],
                              'reason': 'scope_not_adopted' if scope not in key_of else 'not_readable'})
             continue
-        assignments.append({'from': principal_key(pid) or f"external:{pid}", 'to': key_of[scope],
+        kind = str(at(a, 'properties.principalType') if at(a, 'properties.principalType') is not MISSING else 'principal').lower()
+        assignments.append({'from': principal_key(pid) or f"external:{kind}-{pid}", 'to': key_of[scope],
                             'role': role, 'adopt_id': {stage: a['id']}})
 
     # --- context, deployment, head ---------------------------------------------------------
@@ -425,6 +437,12 @@ def main():
         'resource_lock': {'value': ('production' if stage == 'production' else 'all_stages') if any_lock else 'none',
                           'source': 'imported'},
     }
+    exposure = [str(get_dec(n, 'networking', 'public_network_access')) for n in resources_out.values()
+                if get_dec(n, 'networking', 'public_network_access') is not None]
+    if exposure:
+        deployment['network_exposure'] = {
+            'value': 'public' if any(e in ('enabled', 'enabled_with_firewall') for e in exposure) else 'private',
+            'source': 'imported'}
     if assignments:
         deployment['deployer_roles'] = {
             'value': [{'role': 'Role Based Access Control Administrator', 'scope': 'resource_group',
