@@ -20,20 +20,12 @@ registry path: `trafficmanagerprofile` in one word, unlike most Bicep modules.
 
 ### Decision -> module parameter
 
+What each decision renders to - the parameter and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.
+
+Deployment-wide inputs, not decisions of this set:
+
 | Decision | Parameter | Note |
 |---|---|---|
-| `traffic_goal` | - | Pre-answers `routing_method`; nothing of its own in the call |
-| `routing_method` | `trafficRoutingMethod` | Module default **`'Performance'`**; written |
-| `relative_dns_name` | `relativeName` | The module falls back to `name` when unset; written anyway |
-| `dns_ttl_seconds` | `ttl` | Module default 60; written |
-| `profile_status` | `profileStatus` | Module default `'Enabled'`; written |
-| `traffic_view` | `trafficViewEnrollmentStatus` | `'Enabled'` / `'Disabled'`; written |
-| `max_return` | `maxReturn` | Module default 1; written |
-| `monitor_protocol`, `monitor_port`, `monitor_path`, `expected_status_codes`, `probe_profile` | `monitorConfig: { protocol, port, path, intervalInSeconds, timeoutInSeconds, toleratedNumberOfFailures, expectedStatusCodeRanges: [ { min, max } ] }` | Module default is **`http` on port 80 at `/`**; the whole object is written. `standard`: 30 / 10 / 3; `fast`: 10 / 9 / 3 |
-| `endpoints` | `endpoints: [ { name, type, properties: { targetResourceId or target, endpointStatus, priority, weight, endpointLocation, geoMapping, minChildEndpoints } } ]` | One array; the kind is the ARM `type`: `Microsoft.Network/trafficManagerProfiles/azureEndpoints`, `/externalEndpoints`, `/nestedEndpoints`. The parameter is typed from the resource schema, so a misspelt property fails `bicep build` |
-| `role_assignments` | `roleAssignments: [ { principalId, roleDefinitionIdOrName: 'Traffic Manager Contributor', principalType } ]` | |
-| `diagnostic_*`, `metrics_enabled` | `diagnosticSettings: [ { workspaceResourceId, logCategoriesAndGroups: [ { category } ], metricCategories: [ { category: 'AllMetrics' } ] } ]` | Without either list the module collects everything; both are written |
-| `location` | `location: 'global'` | Module default; written |
 | `deployment.module_telemetry` | `enableTelemetry` | |
 | `context.tags` | `tags` | |
 
@@ -116,7 +108,7 @@ assembled from the relative name.
 ### Tests
 
 A module call compiles to a nested deployment whose `properties.parameters.<param>.value` is
-the decision, so every decision above is observable in `tests/*.armtest.yaml`
+the decision, so every decision in render-map.yaml is observable in `tests/*.armtest.yaml`
 ([bicep-idiom.md](../../../core/iac-rendering/references/bicep-idiom.md#tests)):
 `trafficRoutingMethod`, `relativeName`, `ttl`, `profileStatus`, `trafficViewEnrollmentStatus`,
 `maxReturn`, every member of `monitorConfig`, the `endpoints` copy, `roleAssignments`, the

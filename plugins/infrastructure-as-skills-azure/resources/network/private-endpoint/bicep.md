@@ -21,14 +21,12 @@ Resolve the current version and re-read the README parameters before rendering, 
 
 ### Decision -> module parameter
 
+What each decision renders to - the parameter and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.
+
+Not decisions of this set:
+
 | Decision | Parameter | Note |
 |---|---|---|
-| `target_resource`, `subresource` | `privateLinkServiceConnections: [ { name, properties: { privateLinkServiceId, groupIds: [ '<group id>' ] } } ]` | One group id per endpoint |
-| `connection_approval: manual`, `approval_message` | `manualPrivateLinkServiceConnections: [ { name, properties: { privateLinkServiceId, groupIds, requestMessage } } ]` | Instead of `privateLinkServiceConnections`, not beside it |
-| `subnet` | `subnetResourceId` | |
-| `private_ip_address` | `ipConfigurations: [ { name, properties: { groupId, memberName: 'default', privateIPAddress } } ]` | Omit for Azure-assigned |
-| `dns_zone_group: attached` | `privateDnsZoneGroup: { name, privateDnsZoneGroupConfigs: [ { privateDnsZoneResourceId } ] }` | Up to five zones |
-| `dns_zone_group: left_to_policy` | no `privateDnsZoneGroup` | No second writer |
 | the interface name | `customNetworkInterfaceName` | |
 | `deployment.module_telemetry` | `enableTelemetry` | |
 | `context.tags` | `tags` | |
@@ -84,7 +82,7 @@ group id in the deployment name and the endpoint's name.
 ### Tests
 
 A module call compiles to a nested deployment whose `properties.parameters.<param>.value` is
-the decision, so every decision above is observable in `tests/*.armtest.yaml`
+the decision, so every decision in render-map.yaml is observable in `tests/*.armtest.yaml`
 ([bicep-idiom.md](../../../core/iac-rendering/references/bicep-idiom.md#tests)): the group id,
 the target, the subnet, the zone group present with the expected zone - or **absent** for
 `left_to_policy`, asserted as `privateDnsZoneGroup` not in the parameters.

@@ -33,7 +33,6 @@ groups:
         answer: { context: environments }
         why: >
           Drives the strictness of several defaults below. Nothing sensible can be guessed.
-        renders: tag of the environment where the repository uses one
 
       - id: storage_account
         ask:
@@ -51,7 +50,6 @@ groups:
           authentication and public access are the account's. The account is resolved first,
           in `storage-account`, and this set only names the objects inside it. Looked up
           from the deployment when the account is created in the same run.
-        renders: storage account id / parent of the child resource
 
   - id: shares
     title: The shares
@@ -72,7 +70,6 @@ groups:
           assignments, so a share per audience or per workload keeps the quotas honest. The
           names are the workload's own and part of its contract with the machines that mount
           them. At least one.
-        renders: shares / fileServices.shares
 
       - id: protocol
         ask:
@@ -95,7 +92,6 @@ groups:
           everything uses. `NFS` is for Linux workloads that need POSIX permissions, needs a
           Premium FileStorage account, a virtual network (no public endpoint, no identity-
           based authentication) and cannot be changed afterwards. **Fixed at creation.**
-        renders: shares.<k>.enabled_protocol / fileServices.shares[].enabledProtocols
 
       - id: quota_gb
         ask:
@@ -112,7 +108,6 @@ groups:
           share it is the **provisioned** size and is billed whether filled or not. 100 GB
           is a start for a small team share; the cap is a safety valve against a runaway
           writer, not a plan.
-        renders: shares.<k>.quota / fileServices.shares[].shareQuota
 
       - id: access_tier
         ask:
@@ -141,7 +136,6 @@ groups:
           operations. `Premium` is SSD on a FileStorage account and is **forced** by that
           account kind, not chosen. The tier can be changed later; the moves cost
           operations.
-        renders: shares.<k>.access_tier / fileServices.shares[].accessTier
 
       - id: root_squash
         ask:
@@ -163,7 +157,6 @@ groups:
           compromised client cannot act as root on the share; `AllSquash` maps every user;
           `NoRootSquash` trusts the client. RootSquash is the answer unless an application
           needs to chown files as root, named at this share.
-        renders: shares.<k>.root_squash / fileServices.shares[].rootSquash
 
   - id: identity
     title: Identity and access
@@ -188,5 +181,4 @@ groups:
           about and grants a consumer's role in the pattern, not here. A role on the
           *container*, share or queue is scoped narrower than one on the account; the
           account-level roles belong to the storage set.
-        renders: role_assignments / roleAssignments
 

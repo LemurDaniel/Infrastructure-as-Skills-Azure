@@ -37,7 +37,6 @@ groups:
         why: >
           Drives the rendered name. One component per stage: telemetry of two stages in one
           component cannot be told apart in a dashboard or an alert.
-        renders: naming parameter `environment`, and the tag of that name where the repository uses one
 
       - id: location
         ask:
@@ -52,7 +51,6 @@ groups:
           Part of the rendered name. The component lives in the workspace's region in
           practice, since its data is stored there; a component in another region than its
           workspace works and sends telemetry across regions.
-        renders: location
 
       - id: resource_group_name
         ask:
@@ -68,7 +66,6 @@ groups:
         why: >
           The component is placed into an existing group, with the application that sends to
           it - its lifecycle is the application's, not the platform's.
-        renders: parent_id (AVM Terraform, AzAPI) / implicit in Bicep scope
 
   # ---------------------------------------------------------------- component
   - id: component
@@ -93,7 +90,6 @@ groups:
           workspace governs retention and the daily cap of what it stores** - the per-component
           retention setting does not change that, which is why there is no retention question
           here. Required by both modules.
-        renders: workspace_id / workspaceResourceId
 
       - id: application_type
         ask:
@@ -114,7 +110,6 @@ groups:
           functions and containers. **It is fixed at creation** - changing it replaces the
           component, and the telemetry history of the old one stays behind in the workspace
           under the old resource id.
-        renders: application_type / applicationType
 
       - id: sampling_percentage
         ask:
@@ -132,7 +127,6 @@ groups:
           its telemetry lowers it deliberately, and the better place for that is the SDK's
           adaptive sampling, which keeps failures. The component-level value is the ingestion
           sampling of what the SDK did not already drop.
-        renders: sampling_percentage / samplingPercentage
 
       - id: daily_cap_gb
         ask:
@@ -149,7 +143,6 @@ groups:
           misbehaves loudly - so the default is none and production prefers an alert on
           ingestion. 0 means no cap in the module's own terms (its default is 100 GB, which
           is why it is written); if a cap is wanted the number is the answer, "yes" is not.
-        renders: daily_data_cap_in_gb / the component's `DailyDataCap` (a billing feature, not a template property in Bicep)
 
       - id: store_client_ip
         ask:
@@ -171,7 +164,6 @@ groups:
           module does not (`disableIpMasking: true`, which stores them), so it is written on
           both. The decision belongs in the decision document, because a data-protection
           review will ask.
-        renders: disable_ip_masking (AVM module) or ip_masking_enabled (inverse; azurerm 5.x) / disableIpMasking
 
   # --------------------------------------------------------------- networking
   - id: networking
@@ -203,9 +195,6 @@ groups:
           the component joins (`private_link_scope`), and then every application that sends
           to it must reach that scope. Both modules default both switches to enabled, so the
           value is always written.
-        renders: >
-          terraform: internet_ingestion_enabled and internet_query_enabled;
-          bicep: publicNetworkAccessForIngestion and publicNetworkAccessForQuery
 
       - id: private_link_scope
         ask:
@@ -227,7 +216,6 @@ groups:
           `agentsvc`, blob). The component is added to the scope as a scoped resource; the
           scope is not created here. Without one, a closed component cannot receive telemetry
           at all. With no answer the decision is an `open:` entry owned by the platform team.
-        renders: monitor_private_link_scope / a scoped resource on the AMPLS
 
   # ----------------------------------------------------------------- identity
   - id: identity
@@ -255,7 +243,6 @@ groups:
           loses its telemetry the moment the switch is turned. People who read the data need
           `Monitoring Reader` or a role on the workspace. A pattern fills this from the
           consumers it knows.
-        renders: role_assignments / roleAssignments
 
   # ----------------------------------------------------------------- security
   - id: security
@@ -272,7 +259,7 @@ groups:
         plain_values:
           true: { en: "switched off", de: "abgeschaltet" }
           false: { en: "possible", de: "möglich" }
-        answer: { deployment: local_auth }
+        answer: { deployment: local_auth, map: { disabled: true, allowed_where_unavoidable: true } }
         why: >
           Inherited: `local_auth: disabled` renders as `true`. The instrumentation key is
           embedded in the connection string, sits in every app setting and every browser that
@@ -281,4 +268,3 @@ groups:
           accepted. **Both modules default to off (keys allowed)**, so it is written. A
           **browser** SDK cannot authenticate with a managed identity, which is the case that
           names a departure at this component.
-        renders: local_authentication_enabled (inverse; azurerm 5.x) / disableLocalAuth

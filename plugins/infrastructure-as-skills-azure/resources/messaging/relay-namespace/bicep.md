@@ -20,19 +20,14 @@ public access lives in the `networkRuleSets` child, not on the namespace.
 
 ### Decision -> module parameter
 
-| Decision | Parameter | Note |
+What each decision renders to - the parameter and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.
+
+### Parameters no decision covers
+
+| Input | Parameter | Note |
 |---|---|---|
 | tier (no decision) | `skuName: 'Standard'` | The only allowed value; written |
-| `hybrid_connections` | `hybridConnections: [ { name, userMetadata } ]` | Untyped array; `userMetadata` is a JSON string the App Service Hybrid Connection Manager reads (`[{"key":"endpoint","value":"host:port"}]`) |
-| `client_authorization_required` | `hybridConnections[].requiresClientAuthorization` | Child default `true`; written |
-| `wcf_relays` | `wcfRelays: [ { name, relayType, requiresClientAuthorization, requiresTransportSecurity } ]` | SAS-only, a named departure |
-| `local_auth` | `authorizationRules: []` | **The module defaults this to `RootManageSharedAccessKey` with Listen/Manage/Send**; the empty array keeps the template from declaring it. The service still creates the root rule; nothing reads it |
-| `public_network_access` | `networkRuleSets.publicNetworkAccess: 'Disabled'` / `'Enabled'` | Child default `'Enabled'`; written. Under `'Disabled'` the child nulls `defaultAction` and `ipRules` |
-| `ip_rules` | `networkRuleSets.ipRules: [ { ipMask, action: 'Allow' } ]`, `networkRuleSets.defaultAction: 'Deny'` | Used only under `enabled_with_firewall`; the child forces `Deny` when rules exist |
-| `private_endpoint_subnet` | `privateEndpoints: [ { subnetResourceId, service: 'namespace' } ]` | |
 | `deployment.private_dns_records: policy` | no `privateDnsZoneGroup` on the endpoint | |
-| `role_assignments` | `roleAssignments: [ { principalId, roleDefinitionIdOrName, principalType } ]` | On the namespace; a per-connection role goes in `hybridConnections[].roleAssignments` |
-| `diagnostic_*`, `metrics_enabled` | `diagnosticSettings: [ { workspaceResourceId, logCategoriesAndGroups: [ { category } ], metricCategories: [ { category: 'AllMetrics' } ] } ]` | |
 | `deployment.resource_lock` | `lock: { kind: 'CanNotDelete' }` | In the stages the deployment names |
 | `deployment.module_telemetry` | `enableTelemetry` | |
 | `context.tags` | `tags` | |
@@ -108,7 +103,7 @@ place when the principal is known at render time. A WCF relay entry takes its `L
 ### Tests
 
 A module call compiles to a nested deployment whose `properties.parameters.<param>.value` is the
-decision, so every decision above is observable in `tests/*.armtest.yaml`
+decision, so every decision in render-map.yaml is observable in `tests/*.armtest.yaml`
 ([bicep-idiom.md](../../../core/iac-rendering/references/bicep-idiom.md#tests)): `skuName`,
 `authorizationRules` (asserted empty), the `hybridConnections` array down to
 `requiresClientAuthorization`, `networkRuleSets.publicNetworkAccess`, the diagnostic categories.
@@ -117,13 +112,10 @@ decision, so every decision above is observable in `tests/*.armtest.yaml`
 
 The fallback. `Microsoft.Relay/namespaces@2024-01-01` with `sku` and `properties`:
 
-| Decision | Property |
+What each decision renders to - the property and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.
+
+### Properties no decision covers
+
+| Input | Property |
 |---|---|
 | tier | `sku: { name: 'Standard', tier: 'Standard' }` (beside `properties`) |
-| `public_network_access` | `properties.publicNetworkAccess` on the namespace, **and** child `networkRuleSets` named `default` with `properties: { publicNetworkAccess, defaultAction, ipRules }` |
-| `ip_rules` | child `networkRuleSets.properties.ipRules`, `defaultAction: 'Deny'` |
-| `hybrid_connections`, `client_authorization_required` | child `hybridConnections` with `properties: { requiresClientAuthorization, userMetadata }` |
-| `wcf_relays` | child `wcfRelays` with `properties: { relayType, requiresClientAuthorization, requiresTransportSecurity }` |
-| `local_auth` | no child `authorizationRules`, no `listKeys()` in any output |
-| `private_endpoint_subnet` | `Microsoft.Network/privateEndpoints` with `groupIds: [ 'namespace' ]` |
-| diagnostics | `Microsoft.Insights/diagnosticSettings` scoped to the namespace, `logs: [ { category, enabled: true } ]`, `metrics: [ { category: 'AllMetrics', enabled: true } ]` |

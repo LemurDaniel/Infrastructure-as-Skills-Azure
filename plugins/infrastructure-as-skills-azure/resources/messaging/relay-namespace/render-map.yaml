@@ -1,0 +1,162 @@
+# What each decision of questions.yaml renders to, per target and implementation.
+# Format: core/iac-rendering/references/render-map.md. The call, the authored blocks and the
+# tests are in terraform.md and bicep.md.
+schema_version: 1
+resource: Microsoft.Relay/namespaces
+
+# Terraform: the children are submodules beside the root call, each taking relay_namespace_id.
+modules:
+  terraform:
+    - Azure/avm-res-relay-namespace/azurerm
+    - Azure/avm-res-relay-namespace/azurerm//modules/hybrid-connection
+    - Azure/avm-res-relay-namespace/azurerm//modules/network-rule-set
+    - Azure/avm-res-relay-namespace/azurerm//modules/wcf-relay
+  bicep: [avm/res/relay/namespace]
+
+decisions:
+
+  # ---------------------------------------------------------------- placement
+  placement.environments:
+    not_rendered: naming parameter `environment` and the tag of that name; no attribute of the namespace
+  placement.location:
+    terraform_avm: { module: Azure/avm-res-relay-namespace/azurerm, attribute: location, passthrough: true }
+    terraform: { attribute: location, passthrough: true }
+    bicep_avm: { attribute: location, passthrough: true }
+    bicep: { attribute: location, passthrough: true }
+  placement.resource_group_name:
+    terraform_avm:
+      module: Azure/avm-res-relay-namespace/azurerm
+      attribute: resource_group_id
+      note: the group's id (data.azurerm_resource_group), not its name - AzAPI-based module
+    terraform: { attribute: resource_group_name }
+    bicep_avm: { gap: the deployment's resource group scope; no parameter }
+    bicep: { gap: the deployment's resource group scope; no property }
+
+  # -------------------------------------------------------------- connections
+  connections.hybrid_connections:
+    terraform_avm:
+      module: Azure/avm-res-relay-namespace/azurerm//modules/hybrid-connection
+      attribute: one call per entry - name, relay_namespace_id, user_metadata
+      note: 'user_metadata is a JSON string the App Service Hybrid Connection Manager reads: [{ key = "endpoint", value = "host:port" }]'
+    terraform: { attribute: azurerm_relay_hybrid_connection, note: with user_metadata }
+    bicep_avm:
+      attribute: 'hybridConnections[] = { name, userMetadata }'
+      note: 'untyped array; userMetadata is a JSON string the App Service Hybrid Connection Manager reads ([{"key":"endpoint","value":"host:port"}])'
+    bicep: { attribute: 'Microsoft.Relay/namespaces/hybridConnections properties: { requiresClientAuthorization, userMetadata }' }
+  connections.client_authorization_required:
+    terraform_avm:
+      module: Azure/avm-res-relay-namespace/azurerm//modules/hybrid-connection
+      attribute: requires_client_authorization
+      passthrough: true
+      note: on each call; submodule default true - written
+    terraform: { attribute: azurerm_relay_hybrid_connection.requires_client_authorization, passthrough: true }
+    bicep_avm: { attribute: 'hybridConnections[].requiresClientAuthorization', passthrough: true, note: child default true - written }
+    bicep: { attribute: hybridConnections child properties.requiresClientAuthorization, passthrough: true }
+  connections.wcf_relays:
+    terraform_avm:
+      module: Azure/avm-res-relay-namespace/azurerm//modules/wcf-relay
+      attribute: one call per entry
+      note: relay_type from the submodule README; SAS-only, a named departure
+    terraform:
+      attribute: azapi_resource Microsoft.Relay/namespaces/wcfRelays@2024-01-01
+      note: no azurerm resource
+    bicep_avm:
+      attribute: 'wcfRelays[] = { name, relayType, requiresClientAuthorization, requiresTransportSecurity }'
+      note: SAS-only, a named departure; its Listen rule in wcfRelays[].authorizationRules
+    bicep: { attribute: 'Microsoft.Relay/namespaces/wcfRelays properties: { relayType, requiresClientAuthorization, requiresTransportSecurity }' }
+
+  # ------------------------------------------------------------------- access
+  access.local_auth:
+    terraform_avm:
+      gap: module README v0.1.1 has no input - the type has no switch; the authorization-rule submodule is not called, no listKeys
+    terraform:
+      gap: no azurerm_relay_namespace_authorization_rule and no *_connection_string output
+    bicep_avm:
+      attribute: authorizationRules
+      values: { disabled: { expr: '[]' }, allowed_where_unavoidable: { expr: '[]' } }
+      note: both answers - the service creates RootManageSharedAccessKey anyway and no rule is rendered beyond it; unset, the module would declare that root rule itself (Listen/Manage/Send)
+    bicep:
+      gap: no child authorizationRules and no listKeys() in any output
+
+  # --------------------------------------------------------------- networking
+  networking.public_network_access:
+    terraform_avm:
+      module: Azure/avm-res-relay-namespace/azurerm
+      attribute: public_network_access
+      values: { disabled: Disabled, enabled_with_firewall: Enabled, enabled: Enabled }
+      also:
+        enabled_with_firewall: 'module "network_rule_set" { public_network_access = "Enabled", default_action = "Deny", ip_rules = {networking.ip_rules} }'
+      note: a string on the module, module default Enabled - written; under disabled the rule-set call is omitted
+    terraform:
+      gap: azurerm 5.12 schema has no network argument on azurerm_relay_namespace - azapi_resource Microsoft.Relay/namespaces/networkRuleSets@2024-01-01 named default with properties.publicNetworkAccess, or azapi_update_resource on the namespace for properties.publicNetworkAccess
+    bicep_avm:
+      attribute: networkRuleSets.publicNetworkAccess
+      values: { disabled: Disabled, enabled_with_firewall: Enabled, enabled: Enabled }
+      note: child default Enabled - written; under Disabled the child nulls defaultAction and ipRules; the module writes properties {} on the namespace, public access lives in the child
+    bicep:
+      attribute: properties.publicNetworkAccess
+      values: { disabled: Disabled, enabled_with_firewall: Enabled, enabled: Enabled }
+      note: and the networkRuleSets child named default with the same properties.publicNetworkAccess
+  networking.private_endpoint_subnet:
+    terraform_avm:
+      module: Azure/avm-res-relay-namespace/azurerm
+      attribute: private_endpoints.namespace.subnet_resource_id
+      note: the sub-resource is namespace, fixed by the module
+    terraform: { attribute: azurerm_private_endpoint.subnet_id, note: 'subresource_names = ["namespace"]' }
+    bicep_avm: { attribute: 'privateEndpoints[].subnetResourceId', note: "service: 'namespace'" }
+    bicep: { attribute: Microsoft.Network/privateEndpoints properties.subnet.id, note: "groupIds: [ 'namespace' ]" }
+  networking.ip_rules:
+    terraform_avm:
+      module: Azure/avm-res-relay-namespace/azurerm//modules/network-rule-set
+      attribute: 'ip_rules[].ipMask'
+      note: camel case as the submodule spells it; action = "Allow", default_action = "Deny"; called only under enabled_with_firewall
+    terraform:
+      attribute: 'azapi_resource networkRuleSets (default) body.properties.ipRules[].ipMask'
+      note: no azurerm argument; action = "Allow", with defaultAction = "Deny"
+    bicep_avm:
+      attribute: 'networkRuleSets.ipRules[].ipMask'
+      note: "action: 'Allow', networkRuleSets.defaultAction: 'Deny' (the child forces Deny when rules exist); only under enabled_with_firewall"
+    bicep: { attribute: 'networkRuleSets child properties.ipRules[].ipMask', note: "action: 'Allow', defaultAction: 'Deny'" }
+
+  # ----------------------------------------------------------------- identity
+  identity.role_assignments:
+    terraform_avm:
+      module: Azure/avm-res-relay-namespace/azurerm
+      attribute: 'role_assignments.<k> = { role_definition_id_or_name, principal_id, principal_type }'
+      note: on the namespace; a per-connection role is an azurerm_role_assignment on the submodule's resource_id
+    terraform: { attribute: azurerm_role_assignment, note: scope = the namespace's id }
+    bicep_avm:
+      attribute: 'roleAssignments[] = { principalId, roleDefinitionIdOrName, principalType }'
+      note: on the namespace; a per-connection role goes in hybridConnections[].roleAssignments
+    bicep: { attribute: Microsoft.Authorization/roleAssignments, note: scope = the namespace }
+
+  # ------------------------------------------------------------ observability
+  observability.diagnostic_workspace:
+    terraform_avm: { module: Azure/avm-res-relay-namespace/azurerm, attribute: 'diagnostic_settings.<key>.workspace_resource_id' }
+    terraform: { attribute: azurerm_monitor_diagnostic_setting.log_analytics_workspace_id }
+    bicep_avm: { attribute: 'diagnosticSettings[].workspaceResourceId' }
+    bicep: { attribute: Microsoft.Insights/diagnosticSettings properties.workspaceId, note: scoped to the namespace }
+  observability.diagnostic_categories:
+    terraform_avm:
+      module: Azure/avm-res-relay-namespace/azurerm
+      attribute: 'diagnostic_settings.<key>.log_categories'
+      note: 'log_groups defaults to ["allLogs"] - set to [] so the categories are the decision'
+    terraform: { attribute: azurerm_monitor_diagnostic_setting.enabled_log.category }
+    bicep_avm: { attribute: 'diagnosticSettings[].logCategoriesAndGroups[].category' }
+    bicep: { attribute: 'Microsoft.Insights/diagnosticSettings properties.logs[].category', note: 'with enabled: true' }
+  observability.metrics_enabled:
+    terraform_avm:
+      module: Azure/avm-res-relay-namespace/azurerm
+      attribute: 'diagnostic_settings.<key>.metric_categories'
+      values: { true: { expr: '["AllMetrics"]' }, false: { expr: '[]' } }
+    terraform:
+      attribute: azurerm_monitor_diagnostic_setting.enabled_metric
+      values: { true: { expr: '{ category = "AllMetrics" }' }, false: null }
+      note: a block (azurerm 5.x); false renders no enabled_metric block
+    bicep_avm:
+      attribute: 'diagnosticSettings[].metricCategories'
+      values: { true: { expr: "[ { category: 'AllMetrics' } ]" }, false: { expr: '[]' } }
+    bicep:
+      attribute: 'Microsoft.Insights/diagnosticSettings properties.metrics[].category'
+      values: { true: AllMetrics, false: null }
+      note: 'with enabled: true; false renders no metrics entry'

@@ -1,0 +1,159 @@
+# What each decision of questions.yaml renders to, per target and implementation.
+# Format: core/iac-rendering/references/render-map.md. The call, the authored blocks and the
+# tests are in terraform.md and bicep.md.
+schema_version: 1
+resource: Microsoft.Network/networkWatchers
+
+# Bicep: the flow-log child module is the platform render, the parent module the deployment
+# render; connection monitors under platform take the connection-monitor child module.
+modules:
+  terraform: [Azure/avm-res-network-networkwatcher/azurerm]
+  bicep: [avm/res/network/network-watcher/flow-log, avm/res/network/network-watcher, avm/res/network/network-watcher/connection-monitor]
+
+decisions:
+
+  # ---------------------------------------------------------------- placement
+  placement.environments:
+    not_rendered: naming parameter `environment` for the flow log names; one flow log set per stage
+  placement.location:
+    terraform_avm: { attribute: location, passthrough: true, note: the flow logs' region; the watcher's name is derived from it }
+    terraform: { attribute: azurerm_network_watcher_flow_log.location, passthrough: true }
+    bicep_avm: { attribute: location, module: avm/res/network/network-watcher/flow-log, passthrough: true, note: the same on the parent module }
+    bicep: { attribute: location, passthrough: true }
+  placement.resource_group_name:
+    terraform_avm:
+      attribute: resource_group_name
+      note: the watcher's group (NetworkWatcherRG under platform), not the context's
+    terraform: { attribute: azurerm_network_watcher_flow_log.resource_group_name, note: the watcher's group }
+    bicep_avm: { gap: "the deployment's scope for the parent module (deployment); scope: resourceGroup('NetworkWatcherRG') for the flow-log module (platform)" }
+    bicep: { gap: the deployment's scope; the flow log lands in NetworkWatcherRG under platform }
+
+  # ------------------------------------------------------------------ watcher
+  watcher.ownership:
+    terraform_avm:
+      attribute: network_watcher_id
+      values:
+        platform: { expr: data.azurerm_network_watcher.this.id }
+        deployment: { expr: azurerm_network_watcher.this.id }
+      also:
+        platform: 'data "azurerm_network_watcher" "this" { name = "NetworkWatcher_${var.location}", resource_group_name = "NetworkWatcherRG" }'
+        deployment: 'resource "azurerm_network_watcher" "this" { name, location, resource_group_name, tags }'
+      note: network_watcher_name and resource_group_name take .name and .resource_group_name of the same watcher; the module never creates it - deployment is an authored azurerm_network_watcher beside it
+    terraform:
+      attribute: azurerm_network_watcher_flow_log.network_watcher_name
+      values:
+        platform: { expr: data.azurerm_network_watcher.this.name }
+        deployment: { expr: azurerm_network_watcher.this.name }
+      also:
+        platform: 'data "azurerm_network_watcher" "this" { name = "NetworkWatcher_${var.location}", resource_group_name = "NetworkWatcherRG" }'
+        deployment: 'resource "azurerm_network_watcher" "this" { name, location, resource_group_name }'
+      note: the flow log's resource_group_name is the same watcher's group
+    bicep_avm:
+      - module: avm/res/network/network-watcher/flow-log
+        attribute: networkWatcherName
+        values:
+          platform: { expr: "'NetworkWatcher_${location}'" }
+          deployment: null
+        note: "platform calls this child module with scope: resourceGroup('NetworkWatcherRG'); the module's own default for the name is the same expression - written; deployment does not call it"
+      - module: avm/res/network/network-watcher
+        attribute: name
+        values:
+          platform: null
+          deployment: { expr: networkWatcherName }
+        note: deployment calls the parent with name, location and flowLogs - it declares the watcher; platform does not call it
+    bicep:
+      gap: >-
+        platform: Microsoft.Network/networkWatchers as existing in NetworkWatcherRG and the flowLogs
+        children with parent; deployment: the watcher as a resource with location and empty properties
+
+  # ---------------------------------------------------------------- flow_logs
+  flow_logs.flow_log_targets:
+    terraform_avm:
+      attribute: 'flow_logs.<k> = { enabled = true, name, target_resource_id, version = 2 }'
+      note: one map entry per target, the key its role (vnet, vnet_hub); version 2 written
+    terraform: { attribute: azurerm_network_watcher_flow_log.target_resource_id, note: one flow log per target; version = 2 }
+    bicep_avm:
+      attribute: targetResourceId
+      module: avm/res/network/network-watcher/flow-log
+      note: one child module call per target; the parent takes flowLogs[].targetResourceId. The description says NSG - any vnet, subnet or NIC id is accepted
+    bicep: { attribute: flowLogs properties.targetResourceId, note: "format: { type: 'JSON', version: 2 }" }
+  flow_logs.flow_log_storage_account:
+    terraform_avm: { attribute: 'flow_logs.<k>.storage_account_id' }
+    terraform: { attribute: azurerm_network_watcher_flow_log.storage_account_id }
+    bicep_avm:
+      attribute: storageResourceId
+      module: avm/res/network/network-watcher/flow-log
+      note: the parent takes flowLogs[].storageResourceId
+    bicep: { attribute: flowLogs properties.storageId }
+  flow_logs.retention_days:
+    terraform_avm:
+      attribute: 'flow_logs.<k>.retention_policy.days'
+      passthrough: true
+      note: 'retention_policy = { days, enabled = true }; enabled = false only for 0 (keep forever)'
+    terraform:
+      attribute: azurerm_network_watcher_flow_log.retention_policy.days
+      passthrough: true
+      note: 'retention_policy { enabled, days }; enabled false only for 0'
+    bicep_avm:
+      attribute: retentionInDays
+      module: avm/res/network/network-watcher/flow-log
+      passthrough: true
+      note: module default 365 - written; 0 renders retentionPolicy.enabled false; the parent takes flowLogs[].retentionInDays
+    bicep:
+      attribute: flowLogs properties.retentionPolicy.days
+      passthrough: true
+      note: 'retentionPolicy: { days, enabled }; enabled false only for 0'
+  flow_logs.traffic_analytics:
+    terraform_avm: { attribute: 'flow_logs.<k>.traffic_analytics.enabled', passthrough: true }
+    terraform: { attribute: azurerm_network_watcher_flow_log.traffic_analytics.enabled, passthrough: true }
+    bicep_avm:
+      attribute: workspaceResourceId
+      module: avm/res/network/network-watcher/flow-log
+      values: { true: { expr: '{flow_logs.traffic_analytics_workspace}' }, false: null }
+      note: no enabled parameter - true is the presence of the workspace id, false its absence; the handover says so. The parent takes flowLogs[].workspaceResourceId
+    bicep: { attribute: flowLogs properties.flowAnalyticsConfiguration.networkWatcherFlowAnalyticsConfiguration.enabled, passthrough: true }
+  flow_logs.traffic_analytics_interval_minutes:
+    terraform_avm: { attribute: 'flow_logs.<k>.traffic_analytics.interval_in_minutes', passthrough: true, note: module default 60 when left out; written }
+    terraform: { attribute: azurerm_network_watcher_flow_log.traffic_analytics.interval_in_minutes, passthrough: true }
+    bicep_avm:
+      attribute: trafficAnalyticsInterval
+      module: avm/res/network/network-watcher/flow-log
+      passthrough: true
+      note: module default 60; written; the parent takes flowLogs[].trafficAnalyticsInterval
+    bicep: { attribute: flowLogs properties.flowAnalyticsConfiguration.networkWatcherFlowAnalyticsConfiguration.trafficAnalyticsInterval, passthrough: true }
+  flow_logs.traffic_analytics_workspace:
+    terraform_avm:
+      attribute: 'flow_logs.<k>.traffic_analytics.workspace_resource_id'
+      note: beside workspace_id (the GUID, data.azurerm_log_analytics_workspace.this.workspace_id) and workspace_region (its location)
+    terraform:
+      attribute: azurerm_network_watcher_flow_log.traffic_analytics.workspace_resource_id
+      note: beside workspace_id (the GUID) and workspace_region
+    bicep_avm:
+      attribute: workspaceResourceId
+      module: avm/res/network/network-watcher/flow-log
+      note: the id alone; the parent takes flowLogs[].workspaceResourceId
+    bicep: { attribute: flowLogs properties.flowAnalyticsConfiguration.networkWatcherFlowAnalyticsConfiguration.workspaceResourceId }
+
+  # ----------------------------------------------------------------- monitors
+  monitors.connection_monitors:
+    terraform_avm:
+      attribute: 'condition_monitor.<k> = { name, endpoint, test_configuration, test_group, output_workspace_resource_ids }'
+      note: the module names the input condition_monitor; null when empty
+    terraform: { attribute: azurerm_network_connection_monitor }
+    bicep_avm:
+      attribute: 'connectionMonitors[] = { name, endpoints, testConfigurations, testGroups, workspaceResourceId }'
+      module: avm/res/network/network-watcher
+      note: under platform the connection-monitor child module instead
+    bicep: { attribute: networkWatchers/connectionMonitors }
+
+  # ------------------------------------------------------------------- access
+  access.role_assignments:
+    terraform_avm:
+      attribute: 'role_assignments.<k> = { role_definition_id_or_name, principal_id, principal_type }'
+      note: on the watcher's id, also under platform
+    terraform: { attribute: azurerm_role_assignment, note: scope = the watcher's id }
+    bicep_avm:
+      attribute: roleAssignments
+      module: avm/res/network/network-watcher
+      note: the flow-log module has none - under platform an extension resource in NetworkWatcherRG
+    bicep: { attribute: Microsoft.Authorization/roleAssignments, note: extension resource with scope = the watcher }

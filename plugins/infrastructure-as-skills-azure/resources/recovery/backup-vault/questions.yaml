@@ -35,9 +35,6 @@ groups:
         why: >
           Drives the rendered name and the strictness of several defaults below. Nothing
           sensible can be guessed.
-        renders: >
-          naming parameter `environment`, and the tag of that name where the repository uses
-          one
 
       - id: location
         ask:
@@ -52,7 +49,6 @@ groups:
           Part of the rendered name and not inferable. A vault is regional, and a backup
           copy is stored in the vault's region and, with geo-redundant storage, in its
           paired region - which `data_residency` constrains.
-        renders: location
 
       - id: resource_group_name
         ask:
@@ -70,7 +66,6 @@ groups:
           it is usually a group of its own with its own access, so that whoever administers
           the workload's group cannot delete the vault. The `security` group of a split
           (`deployment.resource_group_layout: split`) is the place.
-        renders: resource_group_name (AVM Terraform) / implicit in Bicep scope
 
   - id: vault
     title: The vault
@@ -102,7 +97,6 @@ groups:
           creation** and per vault, not per item. Both modules default to geo-redundant,
           which is the most expensive choice and the one that moves data across a border, so
           the value is written.
-        renders: redundancy / type
 
       - id: cross_region_restore
         ask:
@@ -122,8 +116,6 @@ groups:
           the primary is down - without it the geo copy exists but cannot be used until
           Microsoft declares the primary failed. Costs nothing beyond the geo-redundant
           storage, so it follows that choice.
-        renders: >
-          cross_region_restore_enabled / featureSettings.crossRegionRestoreSettings
 
       - id: immutability
         ask:
@@ -150,7 +142,6 @@ groups:
           backup before it expires, and a retention set too long is paid for until the last
           day. Locked is what a ransomware mandate asks for and is raised in production
           only, after the policy is tested.
-        renders: immutability / immutabilitySettingState
 
       - id: soft_delete_retention_days
         ask:
@@ -169,8 +160,6 @@ groups:
           the deletion of a backup, which `data_loss_tolerance` (how far back a restore
           reaches) does not: a vault whose backups were deleted by mistake restores nothing.
           The window is paid for in storage.
-        renders: >
-          retention_duration_in_days / softDeleteSettings.retentionDurationInDays
 
       - id: multi_user_authorization
         ask:
@@ -193,9 +182,6 @@ groups:
           approval from whoever holds the guard, so a compromised administrator of the
           workload cannot erase the copies. It is what turns `isolated` from a separate
           vault into a separate *authority*. Derived from the isolation answer.
-        renders: >
-          resource_guard_enabled + resource_guard_resource_id / resourceGuard (the vault's
-          `resourceGuardOperationRequests`)
 
       - id: resource_guard
         ask:
@@ -213,7 +199,6 @@ groups:
           The id of the guard in the security team's subscription. The vault's identity
           needs `Reader` on it. Nobody on the workload team can create it, so it is an
           `open:` entry owned by the security team when the request did not name one.
-        renders: resource_guard_resource_id
 
       - id: infrastructure_encryption
         ask:
@@ -232,7 +217,6 @@ groups:
           defaults to on and it costs nothing visible; the guardrails want it for a store
           whose job is to outlive an attack. **Fixed at creation.** The Terraform module has
           no input and takes the platform's default.
-        renders: infrastructureEncryption (Bicep); no Terraform input
 
       - id: job_failure_alerts
         ask:
@@ -250,8 +234,6 @@ groups:
           A backup nobody knows failed is not a backup. The built-in alert fires on each job
           failure and costs nothing; turning it off is only for a vault that is not yet
           protecting anything.
-        renders: >
-          alerts_for_all_job_failures / azureMonitorAlertSettingsAlertsForAllJobFailures
 
   - id: protection
     title: What is protected
@@ -270,7 +252,6 @@ groups:
           its containers, a managed disk, a PostgreSQL flexible server, an AKS cluster). A
           vault with no instance protects nothing, which is a valid first state; the pattern
           adds each resource with its policy.
-        renders: backup_instances / backupInstances
 
       - id: backup_schedule
         ask:
@@ -291,9 +272,6 @@ groups:
           blob backup is continuous underneath and this sets only the vaulted copy. A
           shorter interval is a different product (continuous backup on the resource
           itself).
-        renders: >
-          backup_policies.<k>.backup_repeating_time_intervals /
-          backupPolicies[].properties.policyRules
 
       - id: retention_days
         ask:
@@ -312,9 +290,6 @@ groups:
           backup itself, not the soft-delete window of the vault: a mistake noticed after
           the retention has passed is not recoverable from the vault. Longer retention costs
           storage per day kept, and with `Locked` immutability it cannot be shortened.
-        renders: >
-          backup_policies.<k>.retention_duration /
-          backupPolicies[].properties.policyRules[].lifecycles
 
   - id: encryption
     title: Encryption
@@ -337,7 +312,6 @@ groups:
           the customer's vault and needs a user-assigned identity with wrap and unwrap on
           it. Revoking the key makes every backup in the vault unreadable, which is the
           point and the risk.
-        renders: customer_managed_key / customerManagedKey
 
       - id: cmk_key_vault_key_id
         ask:
@@ -355,8 +329,6 @@ groups:
           The key must exist and the vault's user-assigned identity must hold wrap and
           unwrap on it before the key is set; the key vault must have soft delete and purge
           protection.
-        renders: >
-          customer_managed_key.key_vault_resource_id + key_name / customerManagedKey
 
       - id: managed_identity
         ask:
@@ -380,7 +352,23 @@ groups:
           needs the key role before the key is set, which is why that case is
           `user_assigned`. Without an identity the vault cannot back anything up, so `none`
           is not offered.
-        renders: managed_identities / managedIdentities
+
+      - id: user_assigned_identity_id
+        ask:
+          en: "Which user-assigned identity does the vault carry?"
+          de: "Welche separat verwaltete Identität trägt der Tresor?"
+        type: string
+        plain:
+          en: "It uses the identity {value}."
+          de: "Er nutzt die Identität {value}."
+        accepts: { ref: user_assigned_identity }
+        required: true
+        depends_on: { question: managed_identity, equals: user_assigned }
+        per_environment: true
+        why: >
+          `managed_identity: user_assigned` names an identity that is a resource of its own and
+          must exist first - a customer-managed key forces it, because the key role is granted
+          to that identity before the key is set. Without its id the vault has nothing to take.
 
   - id: identity
     title: Identity and access
@@ -404,7 +392,6 @@ groups:
           knows about and grants a consumer's role in the pattern, not here. The vault's own
           identity needs a role on each protected resource - that is wiring, owned by the
           pattern, not listed here.
-        renders: role_assignments / roleAssignments
 
   - id: observability
     title: Observability
@@ -424,7 +411,6 @@ groups:
         why: >
           Inherited: one deployment, one destination. Without a diagnostic setting the
           resource keeps no record anyone can query.
-        renders: diagnostic_settings / diagnosticSettings
 
       - id: diagnostic_categories
         ask:
@@ -448,9 +434,6 @@ groups:
           view. The category names are the same across both vault types. The names are the
           platform's and are checked against `az monitor diagnostic-settings categories
           list` for the resource before a render, not remembered.
-        renders: >
-          diagnostic_settings.<key>.logs[].category /
-          diagnosticSettings[].logCategoriesAndGroups[].category
 
       - id: metrics_enabled
         ask:
@@ -468,5 +451,4 @@ groups:
           Backup health and restore health - the failed-backup count is the number to alert
           on, because a vault that quietly stopped backing up looks the same as a healthy
           one.
-        renders: metrics[].category = "AllMetrics" / metricCategories[].category
 

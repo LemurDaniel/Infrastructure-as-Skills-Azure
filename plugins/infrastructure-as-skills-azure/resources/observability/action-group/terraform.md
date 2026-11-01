@@ -22,24 +22,12 @@ versions has no input.
 
 ### Decision -> module input
 
+What each decision renders to - the input and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.
+
+### Deployment-wide inputs
+
 | Decision | Input | Note |
 |---|---|---|
-| `location` | `location = "Global"` | Required by the module, not read from the deployment's region |
-| `resource_group_name` | `parent_id` | The group's **id** |
-| `short_name` | `short_name` | `substr(coalesce(var.short_name, var.workload), 0, 12)`; required, 1-12 characters |
-| `on_call_email` | `email_receivers.oncall` | The first entry, `use_common_alert_schema = true` |
-| `email_receivers` | `email_receivers` | A map keyed by a stable key; `name` is the Azure-visible name |
-| `sms_receivers` | `sms_receivers` | `country_code` + `phone_number`, digits only; no schema switch |
-| `webhook_receivers`, `webhook_authentication` | `webhook_receivers.<k>.{service_uri, use_aad_auth, object_id, identifier_uri}` | `entra_id` → `use_aad_auth = true` with both ids; `url_secret` → `false` |
-| `azure_function_receivers` | `azure_function_receivers.<k>.{function_app_resource_id, function_name, http_trigger_url}` | The URL is read from the app, never literal |
-| `logic_app_receivers` | `logic_app_receivers.<k>.{resource_id, callback_url}` | |
-| `event_hub_receivers` | `event_hub_receivers.<k>.{event_hub_namespace, event_hub_name, subscription_id}` | Namespace **name**, not id |
-| `arm_role_receivers` | `arm_role_receivers.<k>.role_id` | The bare GUID of the built-in role (`Owner` = `8e3af657-a8ff-443c-a75c-2fe8c4bcb635`, `Monitoring Contributor` = `749f88d5-cbae-40b8-bcfc-e573ddc772fa`, `Monitoring Reader` = `43d0d8ad-25c7-4714-9337-8ba259a9fe05`, `Contributor` = `b24988ac-6180-42a0-ab88-20f7382dd24c`) |
-| `automation_runbook_receivers` | `automation_runbook_receivers` | |
-| `itsm_receivers` | `itsm_receivers` | |
-| `common_alert_schema` | `use_common_alert_schema` on every receiver that has it | Module default **`false`** on each; written per receiver |
-| `enabled` | `enabled` | Default `true`; a per-stage variable |
-| `role_assignments` | `role_assignments = { <k> = { role_definition_id_or_name, principal_id, principal_type } }` | |
 | `deployment.resource_lock` | `lock = { kind = "CanNotDelete" }` | |
 | `deployment.module_telemetry` | `enable_telemetry` | |
 | `context.tags` | `tags = local.tags` | |
@@ -121,21 +109,7 @@ What a plan does observe is the root's own wiring: `substr(...)` of the short na
 
 The fallback. Targets `azurerm` **5.x**; check against `terraform providers schema -json`.
 
-| Decision | Argument |
-|---|---|
-| `location` | `azurerm_monitor_action_group.location = "global"` (optional on the resource) |
-| `short_name` | `.short_name` |
-| `enabled` | `.enabled` |
-| `on_call_email`, `email_receivers` | `email_receiver { name, email_address, use_common_alert_schema }` (repeated blocks) |
-| `sms_receivers` | `sms_receiver { name, country_code, phone_number }` |
-| `webhook_receivers`, `webhook_authentication` | `webhook_receiver { name, service_uri, use_common_alert_schema, aad_auth { object_id, identifier_uri, tenant_id } }` - the nested block is the secure webhook |
-| `azure_function_receivers` | `azure_function_receiver { name, function_app_resource_id, function_name, http_trigger_url, use_common_alert_schema }` |
-| `logic_app_receivers` | `logic_app_receiver { name, resource_id, callback_url, use_common_alert_schema }` |
-| `event_hub_receivers` | `event_hub_receiver { name, event_hub_namespace, event_hub_name, subscription_id, tenant_id, use_common_alert_schema }` |
-| `arm_role_receivers` | `arm_role_receiver { name, role_id, use_common_alert_schema }` |
-| `automation_runbook_receivers`, `itsm_receivers` | `automation_runbook_receiver { }`, `itsm_receiver { }` |
-| `common_alert_schema` | `use_common_alert_schema` in each block above |
-| `role_assignments` | `azurerm_role_assignment` with `scope = azurerm_monitor_action_group.this.id` |
+What each decision renders to - the argument and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.
 
 The authored resource stores every URL in state in plaintext, which is the reason the module
 path is primary.

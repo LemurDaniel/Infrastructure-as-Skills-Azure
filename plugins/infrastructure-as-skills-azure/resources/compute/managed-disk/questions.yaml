@@ -41,7 +41,6 @@ groups:
         why: >
           Drives the rendered name and the strictness of several defaults below. Nothing
           sensible can be guessed. A disk is one per stage: it holds the stage's data.
-        renders: naming parameter `environment`, and the tag of that name where the repository uses one
 
       - id: location
         ask:
@@ -55,7 +54,6 @@ groups:
         why: >
           Part of the rendered name and the home of the disk. A disk can only be attached to a
           machine of the same region, and the disk types offered differ per region.
-        renders: location
 
       - id: resource_group_name
         ask:
@@ -72,7 +70,6 @@ groups:
           The disk is placed into an existing group. Creating one here would make this set own
           a lifecycle wider than the resource it describes. A disk lives in the group of the
           machine it serves, so the two are removed together.
-        renders: resource_group_name (AVM Terraform, AzAPI-based) / implicit in Bicep scope
 
   # --------------------------------------------------------------------- disk
   - id: disk
@@ -97,7 +94,6 @@ groups:
           cannot tell later whether the data has since changed, and changing the source forces
           a new disk. Import from a blob (`Import`, `Upload`) and from an image are departures
           this set does not render.
-        renders: create_option / createOption
 
       - id: source_resource_id
         ask:
@@ -115,7 +111,6 @@ groups:
           The source must exist, be in the same region (or be copied across), and be at most
           the size given below. A source in another subscription needs the identity that
           deploys to read it.
-        renders: source_resource_id / sourceResourceId
 
       - id: sku
         ask:
@@ -147,7 +142,6 @@ groups:
           A machine size without premium storage removes the Premium types, and a region
           without ZRS disks removes the ZRS types, recorded as forced with the machine's
           `size` or `location` as forced_by
-        renders: storage_account_type / sku
 
       - id: size_gb
         ask:
@@ -163,7 +157,6 @@ groups:
           so the number is the price, and a size just over a tier boundary costs the next tier.
           It grows in place (offline for some types) and never shrinks. 128 is a starting size;
           the workload's growth and the throughput its tier gives decide the rest.
-        renders: disk_size_gb / diskSizeGB
 
       - id: zone
         ask:
@@ -189,7 +182,6 @@ groups:
           in Terraform where the module allows it, recorded as forced with `sku` as forced_by.
           A disk attached to a machine takes the machine's zone, recorded as forced with the
           machine's `zone` as forced_by
-        renders: zone / availabilityZone
 
   # --------------------------------------------------------------- networking
   - id: networking
@@ -217,9 +209,6 @@ groups:
           host regardless. `network_exposure: public` does not open a disk. **The modules
           disagree**: Terraform defaults to `AllowPrivate` with public access off, Bicep to
           `DenyAll` and `Disabled`, so both are written.
-        renders: >
-          terraform: network_access_policy and public_network_access_enabled (bool); bicep:
-          networkAccessPolicy and publicNetworkAccess (`Disabled`, `Enabled`)
 
       - id: disk_access_id
         ask:
@@ -238,7 +227,6 @@ groups:
           region, one for many disks, which this set does not create. Without one the policy
           has nothing to point at; the decision is an `open:` entry owned by the platform
           team.
-        renders: disk_access_id / not a module parameter in Bicep (property `diskAccessId`)
 
       - id: private_endpoint_subnet
         ask:
@@ -258,7 +246,6 @@ groups:
           endpoint's sub-resource is `disks` and its zone `privatelink.blob.core.windows.net`,
           the same as the storage account's blob endpoint - the platform zone must hold the
           record.
-        renders: private_endpoints.<key>.subnet_resource_id (sub-resource `disks`)
 
   # ----------------------------------------------------------------- identity
   - id: identity
@@ -281,7 +268,6 @@ groups:
           resource group for the sake of one disk. The machine that carries the disk needs no
           role on it. An empty list is a working disk; a snapshot or backup identity that was
           named and not granted is an `open:` entry owned by the workload owner.
-        renders: role_assignments / roleAssignments
 
   # ----------------------------------------------------------------- security
   - id: security
@@ -306,7 +292,6 @@ groups:
           the customer's key, so revoking it makes the disk unreadable. It is set at creation of
           the disk, can be changed to another set later, and needs the vault, purge protection
           and an identity on the set. Encryption at the host is the machine's decision.
-        renders: disk_encryption_set_id / diskEncryptionSetResourceId
 
       - id: disk_encryption_set_id
         ask:
@@ -323,4 +308,3 @@ groups:
         why: >
           The set must exist in the disk's region, and the same set encrypts every disk of a
           machine so that revoking the key revokes the machine as a whole.
-        renders: disk_encryption_set_id / diskEncryptionSetResourceId

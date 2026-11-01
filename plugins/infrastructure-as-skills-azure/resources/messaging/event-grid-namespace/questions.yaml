@@ -38,9 +38,6 @@ groups:
         why: >
           Drives the rendered name and the strictness of several defaults below. Nothing
           sensible can be guessed.
-        renders: >
-          naming parameter `environment`, and the tag of that name where the repository uses
-          one
 
       - id: location
         ask:
@@ -54,7 +51,6 @@ groups:
         why: >
           Part of the rendered name and not inferable. A namespace is regional and so are the
           events it holds; a topic it routes MQTT messages to must be in the same region.
-        renders: location
 
       - id: resource_group_name
         ask:
@@ -70,7 +66,6 @@ groups:
         why: >
           The namespace is placed into an existing group. Creating one here would make this
           set own a lifecycle wider than the resource it describes.
-        renders: parent_id (AVM Terraform, the group's id) / implicit in Bicep scope
 
   - id: namespace
     title: The namespace
@@ -93,9 +88,6 @@ groups:
           enough to start; more follow from a measured load. The Terraform module writes
           `sku` and `capacity`; **the Bicep module has no input for either** and deploys the
           platform's one unit, so a larger namespace in Bicep is an authored render.
-        renders: >
-          capacity (Terraform, with sku = "Standard") / not carried by the Bicep module -
-          sku.capacity authored
 
       - id: minimum_tls_version
         ask:
@@ -112,9 +104,6 @@ groups:
           type lists the older versions and refuses them. Neither module carries the input;
           the decision stays in the spec and is written through the escape hatch or an
           authored render, so a later module release that exposes it does not move it.
-        renders: >
-          properties.minimumTlsVersionAllowed - not carried by either module; `_target_overrides`
-          or authored
 
       - id: local_auth
         ask:
@@ -142,9 +131,6 @@ groups:
           in with Entra ID and attributable. On this type it is a convention the render
           keeps rather than a property it sets, which is why it is recorded as forced and
           not as done.
-        renders: >
-          no attribute - no `listKeys` output, no key in any setting; data-plane access
-          through `role_assignments` only
 
       - id: zone_redundant
         ask:
@@ -168,9 +154,6 @@ groups:
           Terraform render takes the platform's regional default and a `false` in a zonal
           region is an authored render or an accepted `forced` value - there is no cost
           reason to want it.
-        renders: >
-          isZoneRedundant (Bicep) / not carried by the Terraform module - the platform's
-          regional default, authored to depart
 
       - id: managed_identity
         ask:
@@ -198,7 +181,6 @@ groups:
           that names it, so it is on by default. Targets are granted the identity's role in
           the pattern, not here. `user_assigned` is for an identity that must hold its roles
           before the namespace exists.
-        renders: managed_identities / managedIdentities
 
       - id: user_assigned_identity_ids
         ask:
@@ -216,9 +198,6 @@ groups:
           The identity that holds the data-plane role on each delivery target, on the
           dead-letter container and on the routing topic. It is created before the
           namespace, by the identity set.
-        renders: >
-          managed_identities.user_assigned_resource_ids /
-          managedIdentities.userAssignedResourceIds
 
   - id: topics
     title: Namespace topics and pull delivery
@@ -238,7 +217,6 @@ groups:
           broker only. The names are the workload's own and part of its contract with the
           publishers, so they are asked, not invented. Namespace topics accept the
           CloudEvents 1.0 schema only; there is no schema decision here.
-        renders: namespace_topics / topics[]
 
       - id: event_retention_days
         ask:
@@ -257,10 +235,6 @@ groups:
           must not lose events; 1 is right for a signal that is worthless after a day. The
           same value is written as the subscriptions' time-to-live, because a subscription
           cannot keep an event longer than its topic.
-        renders: >
-          namespace_topics.<k>.event_retention_days and topic_event_subscriptions.<k>.event_time_to_live
-          (ISO 8601 `P7D`) / topics[].eventRetentionInDays and
-          eventSubscriptions[].deliveryConfiguration.queue.eventTimeToLive
 
       - id: topic_subscriptions
         ask:
@@ -279,7 +253,6 @@ groups:
           resources of the deployment, named here and wired by the pattern; a webhook target
           is an `open:` entry owned by its operator because it must answer the validation
           handshake.
-        renders: topic_event_subscriptions / topics[].eventSubscriptions[]
 
       - id: delivery_mode
         ask:
@@ -301,9 +274,6 @@ groups:
           a firewall needs no inbound path. Push is the custom-topic model, kept for a
           target that cannot pull (a function, an event hub, a webhook) and needs the
           namespace's identity.
-        renders: >
-          topic_event_subscriptions.<k>.delivery_mode (`Queue` / `Push`) /
-          eventSubscriptions[].deliveryConfiguration.deliveryMode
 
       - id: max_delivery_count
         ask:
@@ -320,9 +290,6 @@ groups:
           or dropped. 10 is the service's own default; the Terraform module's is 30, so the
           value is written. Lower for a receiver that retries by itself, higher for a flaky
           downstream.
-        renders: >
-          topic_event_subscriptions.<k>.max_delivery_count /
-          eventSubscriptions[].deliveryConfiguration.queue.maxDeliveryCount
 
       - id: receive_lock_duration_seconds
         ask:
@@ -338,9 +305,6 @@ groups:
           visible again and counts as one failed delivery. Too short and a slow handler sees
           the same event twice; too long and a crashed receiver blocks it. 60 seconds is the
           service default; 300 is the ceiling, and longer work renews the lock.
-        renders: >
-          topic_event_subscriptions.<k>.receive_lock_duration_in_seconds /
-          eventSubscriptions[].deliveryConfiguration.queue.receiveLockDurationInSeconds
 
       - id: keep_undeliverable_events
         ask:
@@ -362,9 +326,6 @@ groups:
           is written as a file to a storage container where it can be read, repaired and
           resent. The price is the storage and someone reading it; the reason to alert on
           the dead-lettered count.
-        renders: >
-          topic_event_subscriptions.<k>.dead_letter_destination /
-          eventSubscriptions[].deliveryConfiguration.<mode>.deadLetterDestinationWithResourceIdentity
 
       - id: dead_letter_storage_account
         ask:
@@ -382,9 +343,6 @@ groups:
           A storage account of the deployment, written by the namespace's identity with
           `Storage Blob Data Contributor` on the container (no key). A firewalled account
           must let Event Grid in through the trusted-service path or a private endpoint.
-        renders: >
-          dead_letter_destination.storage_account_id /
-          deadLetterDestinationWithResourceIdentity.deadLetterDestination.properties.resourceId
 
       - id: dead_letter_container
         ask:
@@ -398,9 +356,6 @@ groups:
         depends_on: { question: keep_undeliverable_events, equals: true }
         why: >
           The container is created by the storage set (blob container); this names it.
-        renders: >
-          dead_letter_destination.blob_container_name /
-          deadLetterDestinationWithResourceIdentity.deadLetterDestination.properties.blobContainerName
 
   - id: mqtt
     title: MQTT broker
@@ -426,10 +381,6 @@ groups:
           a client registry, certificate authorities and a permission model, and because
           **once enabled it cannot be switched off** again on that namespace. Off unless the
           system has MQTT clients; applications that publish HTTP CloudEvents do not need it.
-        renders: >
-          topicSpacesConfiguration.state = Enabled - topicSpacesState (Bicep) / not carried by
-          the Terraform module (its configuration object has no state); `_target_overrides` or
-          authored
 
       - id: topic_spaces
         ask:
@@ -446,7 +397,6 @@ groups:
           permissions are granted on. Clients cannot publish or subscribe anywhere a topic
           space does not cover, so a broker with none is silent. Each entry is a name and
           its templates; templates may carry client attribute variables.
-        renders: topic_spaces / topicSpaces[]
 
       - id: clients
         ask:
@@ -464,7 +414,6 @@ groups:
           clients that exist at deployment time - a simulator, a gateway - are listed here;
           a device fleet is registered by its own process against the namespace, not by the
           template, because it changes at a pace no deployment should.
-        renders: clients / clients[]
 
       - id: client_groups
         ask:
@@ -481,7 +430,6 @@ groups:
           and permissions are granted to groups, never to single clients. The built-in
           group `$all` matches every client; a group per role (sensors publish, dashboards
           subscribe) is the usual shape. Each entry is a name and its query.
-        renders: client_groups / clientGroups[]
 
       - id: permission_bindings
         ask:
@@ -499,7 +447,6 @@ groups:
           `Subscriber` binding nobody hears the publishers. Each entry names the group, the
           topic space and the permission. The Terraform module takes the map keys of the
           group and the space, the Bicep module their names.
-        renders: permission_bindings / permissionBindings[]
 
       - id: mqtt_routing
         ask:
@@ -524,9 +471,6 @@ groups:
           exist first, in the same region, and the namespace's identity needs `EventGrid
           Data Sender` on it - a two-step deployment when the topic is created in the same
           run.
-        renders: >
-          topic_spaces_configuration.route_topic_resource_id / routeTopicResourceId and
-          routingIdentityInfo
 
       - id: mqtt_routing_topic
         ask:
@@ -543,8 +487,6 @@ groups:
         why: >
           A custom topic of the deployment (the `event-grid-topic` set), created before the
           namespace. It is where the subscriptions on the routed messages live.
-        renders: >
-          topic_spaces_configuration.route_topic_resource_id / routeTopicResourceId
 
   - id: networking
     title: Networking
@@ -562,7 +504,7 @@ groups:
           enabled_with_firewall: { en: reachable from the internet only from listed addresses, de: aus dem Internet nur von gelisteten Adressen erreichbar }
           enabled: { en: reachable from the internet, de: aus dem Internet erreichbar }
         accepts: [disabled, enabled_with_firewall, enabled]
-        answer: { deployment: network_exposure }
+        answer: { deployment: network_exposure, map: { private: disabled, private_with_exceptions: disabled, public: enabled_with_firewall } }
         forced_when: >
           `network_ownership: none` (a public deployment without a network) forces
           `enabled`, recorded as forced with `network_ownership` as forced_by: the
@@ -576,9 +518,6 @@ groups:
           `enabled_with_firewall`. The namespace supports a private endpoint for the HTTP
           and the MQTT path alike. **Both modules default to `Enabled`**, so the value is
           written on every call.
-        renders: >
-          public_network_access (`Enabled`/`Disabled`, a string) and inbound_ip_rules /
-          publicNetworkAccess and inboundIpRules
 
       - id: private_endpoint_subnet
         ask:
@@ -596,8 +535,6 @@ groups:
           One subnet carries the deployment's private endpoints, so this is inherited. The
           sub-resource is `topic`, for the HTTP and the MQTT endpoint alike; there is no
           list to choose from.
-        renders: >
-          private_endpoints.<key>.subnet_resource_id / privateEndpoints[].subnetResourceId
 
       - id: ip_rules
         ask:
@@ -614,7 +551,6 @@ groups:
           An enumerated allowlist. An empty list denies every public caller, which is valid
           and deliberate. `0.0.0.0/0` is not an allowlist and is rejected by the guardrails;
           a single address takes `/32`.
-        renders: inbound_ip_rules = [{ ip_mask, action = "Allow" }] / inboundIpRules
 
   - id: identity
     title: Identity and access
@@ -636,7 +572,6 @@ groups:
           Contributor` are for the deploying principal. MQTT clients are not Entra
           principals: their access is `permission_bindings`. A pattern normally fills this
           from the consumers it knows about and grants a consumer's role in the pattern.
-        renders: role_assignments / roleAssignments
 
   - id: observability
     title: Observability
@@ -656,7 +591,6 @@ groups:
         why: >
           Inherited: one deployment, one destination. Without a diagnostic setting the
           resource keeps no record anyone can query.
-        renders: diagnostic_settings / diagnosticSettings
 
       - id: diagnostic_categories
         ask:
@@ -685,9 +619,6 @@ groups:
           trail. The names are the platform's and are checked against `az monitor
           diagnostic-settings categories list` for the resource before a render, not
           remembered.
-        renders: >
-          diagnostic_settings.<key>.log_categories /
-          diagnosticSettings[].logCategoriesAndGroups[].category
 
       - id: metrics_enabled
         ask:
@@ -705,4 +636,3 @@ groups:
           Published, delivered, acknowledged and dead-lettered event counts, throttled
           requests, connected MQTT clients - a throttled count is how a namespace short of
           throughput units shows up, and the one to alert on next to the dead-lettered count.
-        renders: metrics[].category = "AllMetrics" / metricCategories[].category

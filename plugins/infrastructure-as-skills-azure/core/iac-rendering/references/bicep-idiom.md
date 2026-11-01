@@ -207,30 +207,47 @@ is a proof of concept and its address is not settled — writing a guessed ACR i
 consumer repository bakes in a PoC that will move. Say the alias is missing and fall back
 to the AVM module or to authored code.
 
-## Referencing a network the deployment does not own
+## Referencing what the deployment does not own
 
-`network_ownership: reference` in the spec means the virtual network is read, never managed.
-Bicep spells that `existing`, which compiles to a reference and emits nothing into the
-template's resource set:
+A reference in the spec to a resource outside it - `{ existing: <kind> }`
+([spec.md](../../iac-authoring/references/spec.md#references)): the platform's network or
+subnet, a central workspace, a DDoS plan, a key - is an **id parameter**, filled from each
+stage's `.bicepparam`. It is never an `existing` resource looked up by name and scope: the
+name and the resource group are as unknown as the id until the platform team answers, and
+the id in the parameter file pins nothing into the template.
 
 ```bicep
-resource platformVnet 'Microsoft.Network/virtualNetworks@2023-11-01' existing = {
-  name: vnetName
-  scope: resourceGroup(networkResourceGroupName)
-}
-
-resource privateEndpointSubnet 'Microsoft.Network/virtualNetworks/subnets@2023-11-01' existing = {
-  parent: platformVnet
-  name: privateEndpointSubnetName
-}
+@description('The platform's private endpoint subnet (deployment.private_endpoint_subnet). From the stage file.')
+param privateEndpointSubnetId string
 ```
 
-Note the `scope:` — a platform network usually lives in another resource group, and
-without it the lookup silently targets the deployment's own and fails at resolution rather
-than at compile time. By name and scope, never by a hardcoded resource id.
+```bicep
+// main.production.bicepparam
+param privateEndpointSubnetId = '/subscriptions/<sub>/resourceGroups/rg-network/providers/Microsoft.Network/virtualNetworks/vnet-hub/subnets/snet-privatelink'
+```
 
-With `create`, the same subnet is a resource the deployment owns. Never both: two sources
-of truth for one address space.
+The id goes to the module or resource input as it is - every AVM module takes the subnet,
+the workspace, the key as an id. Where a property of the foreign resource is needed and only
+an `existing` reference yields it, the reference is built from the id, never from a separate
+name parameter: `scope: resourceGroup(split(id, '/')[2], split(id, '/')[4])`, `name: last(split(id, '/'))`.
+
+An id the spec does not have yet - `{ existing: <kind> }` with an `open:` entry - is still a
+parameter; its stage file holds the placeholder
+`/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/OPEN-<owner>/providers/<type>/OPEN-<what>`,
+which compiles, lets what-if and the tests run, and is refused by the pipeline before the
+deployment ([pipelines.md](pipelines.md), invariant 11).
+
+Most inputs take the id. Where one takes another property of the foreign resource,
+`render-map.yaml` names it: what the id carries - the name, the resource group, the
+subscription, a key's vault and name - is split out of it, never looked up; what it does not
+carry - a component's connection string, an identity's principal id, a site's host name - is a
+**second parameter** from the stage file beside the id, placeholder and `open:` entry included.
+A secret among them is sensitive (`@secure()`) and comes from the pipeline's secrets,
+never from a stage file.
+
+A resource of the spec - `{ resource: <key> }` - is never a parameter: it is the output of
+that resource's module. Never both for one network: two sources of truth for one address
+space.
 
 ## Parameters
 

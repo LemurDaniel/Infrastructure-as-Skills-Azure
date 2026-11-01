@@ -158,7 +158,7 @@ deployment:
     source: stated
   diagnostics_destination:
     value:
-      production: log-analytics-workspace
+      resource: log-analytics-workspace
     source:
       forced_by: deployment.observability_ownership
   log_retention_days:
@@ -231,7 +231,7 @@ resources:
     observability:
       diagnostic_workspace:
         value:
-          production: log-analytics-workspace
+          resource: log-analytics-workspace
         source: deployment
       flow_logs_enabled:
         value: false
@@ -260,7 +260,7 @@ resources:
     observability:
       diagnostic_workspace:
         value:
-          production: log-analytics-workspace
+          resource: log-analytics-workspace
         source: deployment
       diagnostic_categories:
         value: [NetworkSecurityGroupEvent, NetworkSecurityGroupRuleCounter]
@@ -288,7 +288,7 @@ resources:
     observability:
       diagnostic_workspace:
         value:
-          production: log-analytics-workspace
+          resource: log-analytics-workspace
         source: deployment
       diagnostic_categories:
         value: [NetworkSecurityGroupEvent, NetworkSecurityGroupRuleCounter]
@@ -316,7 +316,7 @@ resources:
     observability:
       diagnostic_workspace:
         value:
-          production: log-analytics-workspace
+          resource: log-analytics-workspace
         source: deployment
       diagnostic_categories:
         value: [NetworkSecurityGroupEvent, NetworkSecurityGroupRuleCounter]
@@ -359,7 +359,7 @@ resources:
     component:
       workspace:
         value:
-          production: log-analytics-workspace
+          resource: log-analytics-workspace
         source: deployment
       application_type:
         value: web
@@ -413,7 +413,8 @@ resources:
         source: deployment
       private_endpoint_subnet:
         value:
-          production: snet-endpoints
+          resource: virtual-network
+          part: snet-endpoints
         source:
           forced_by: deployment.network_ownership
       network_acl_bypass:
@@ -442,7 +443,7 @@ resources:
     observability:
       diagnostic_workspace:
         value:
-          production: log-analytics-workspace
+          resource: log-analytics-workspace
         source: deployment
       diagnostic_categories:
         value: [AuditEvent, AzurePolicyEvaluationDetails]
@@ -522,7 +523,8 @@ resources:
         source: deployment
       private_endpoint_subnet:
         value:
-          production: snet-endpoints
+          resource: virtual-network
+          part: snet-endpoints
         source:
           forced_by: deployment.network_ownership
       private_endpoint_subresources:
@@ -598,7 +600,7 @@ resources:
     observability:
       diagnostic_workspace:
         value:
-          production: log-analytics-workspace
+          resource: log-analytics-workspace
         source: deployment
       diagnostic_categories:
         value: [audit]
@@ -625,7 +627,8 @@ resources:
         source: deployment
       private_endpoint_subnet:
         value:
-          production: snet-endpoints
+          resource: virtual-network
+          part: snet-endpoints
         source:
           forced_by: deployment.network_ownership
       private_endpoint_subresources:
@@ -704,7 +707,7 @@ resources:
     observability:
       diagnostic_workspace:
         value:
-          production: log-analytics-workspace
+          resource: log-analytics-workspace
         source: deployment
       diagnostic_categories:
         value: [audit]
@@ -755,7 +758,8 @@ resources:
         source: deployment
       private_endpoint_subnet:
         value:
-          production: snet-endpoints
+          resource: virtual-network
+          part: snet-endpoints
         source:
           forced_by: deployment.network_ownership
       network_acl_bypass:
@@ -805,7 +809,7 @@ resources:
     observability:
       diagnostic_workspace:
         value:
-          production: log-analytics-workspace
+          resource: log-analytics-workspace
         source: deployment
       diagnostic_categories:
         value: [ControlPlaneRequests, DataPlaneRequests]
@@ -863,7 +867,8 @@ resources:
         source: deployment
       private_endpoint_subnet:
         value:
-          production: snet-endpoints
+          resource: virtual-network
+          part: snet-endpoints
         source:
           forced_by: deployment.network_ownership
       restrict_outbound:
@@ -893,7 +898,7 @@ resources:
     observability:
       diagnostic_workspace:
         value:
-          production: log-analytics-workspace
+          resource: log-analytics-workspace
         source: deployment
       diagnostic_categories:
         value: [Audit, RequestResponse, AzureOpenAIRequestUsage]
@@ -927,7 +932,8 @@ resources:
         source: deployment
       private_endpoint_subnet:
         value:
-          production: snet-endpoints
+          resource: virtual-network
+          part: snet-endpoints
         source:
           forced_by: deployment.network_ownership
       network_rule_bypass:
@@ -955,7 +961,7 @@ resources:
     observability:
       diagnostic_workspace:
         value:
-          production: log-analytics-workspace
+          resource: log-analytics-workspace
         source: deployment
       diagnostic_categories:
         value: [OperationLogs]
@@ -991,7 +997,8 @@ resources:
         source: deployment
       private_endpoint_subnet:
         value:
-          production: snet-endpoints
+          resource: virtual-network
+          part: snet-endpoints
         source:
           forced_by: deployment.network_ownership
       network_rule_bypass:
@@ -1023,7 +1030,7 @@ resources:
     observability:
       diagnostic_workspace:
         value:
-          production: log-analytics-workspace
+          resource: log-analytics-workspace
         source: deployment
       diagnostic_categories:
         value: [ContainerRegistryRepositoryEvents, ContainerRegistryLoginEvents]
@@ -1050,7 +1057,8 @@ resources:
         source: deployment
       infrastructure_subnet:
         value:
-          production: snet-aca
+          resource: virtual-network
+          part: snet-aca
         source:
           forced_by: deployment.network_ownership
       public_network_access:
@@ -1092,7 +1100,7 @@ resources:
         source: default
       user_assigned_identity_ids:
         value:
-          production: [user-assigned-identity__runner]
+        - resource: user-assigned-identity__runner
         source: stated
       secret_references:
         value:
@@ -1105,7 +1113,7 @@ resources:
     observability:
       diagnostic_workspace:
         value:
-          production: log-analytics-workspace
+          resource: log-analytics-workspace
         source: deployment
       diagnostic_categories:
         value: [ContainerAppConsoleLogs, ContainerAppSystemLogs]
@@ -1149,7 +1157,7 @@ resources:
     storage:
       host_storage_account:
         value:
-          production: storage-account__host
+          resource: storage-account__host
         source: stated
       host_storage_auth:
         value: identity
@@ -1163,7 +1171,8 @@ resources:
         source: deployment
       private_endpoint_subnet:
         value:
-          production: snet-endpoints
+          resource: virtual-network
+          part: snet-endpoints
         source:
           forced_by: deployment.network_ownership
       vnet_integration:
@@ -1171,7 +1180,8 @@ resources:
         source: default
       integration_subnet:
         value:
-          production: snet-func
+          resource: virtual-network
+          part: snet-func
         source:
           forced_by: deployment.network_ownership
       vnet_route_all:
@@ -1183,7 +1193,7 @@ resources:
         source: default
       user_assigned_identity_ids:
         value:
-          production: [user-assigned-identity__connector]
+        - resource: user-assigned-identity__connector
         source: stated
       role_assignments:
         value:
@@ -1201,12 +1211,12 @@ resources:
         source: deployment
       application_insights:
         value:
-          production: application-insights
+          resource: application-insights
         source: stated
     observability:
       diagnostic_workspace:
         value:
-          production: log-analytics-workspace
+          resource: log-analytics-workspace
         source: deployment
       diagnostic_categories:
         value: [FunctionAppLogs, AppServiceAuditLogs]
@@ -1241,7 +1251,8 @@ resources:
         source: deployment
       private_endpoint_subnet:
         value:
-          production: snet-endpoints
+          resource: virtual-network
+          part: snet-endpoints
         source:
           forced_by: deployment.network_ownership
       vnet_integration:
@@ -1249,7 +1260,8 @@ resources:
         source: default
       integration_subnet:
         value:
-          production: snet-web
+          resource: virtual-network
+          part: snet-web
         source:
           forced_by: deployment.network_ownership
       vnet_route_all:
@@ -1261,7 +1273,7 @@ resources:
         source: stated
       user_assigned_identity_ids:
         value:
-          production: [user-assigned-identity__web]
+        - resource: user-assigned-identity__web
         source: stated
     security:
       https_only:
@@ -1295,7 +1307,7 @@ resources:
     observability:
       diagnostic_workspace:
         value:
-          production: log-analytics-workspace
+          resource: log-analytics-workspace
         source: deployment
       diagnostic_categories:
         value:
@@ -1335,7 +1347,8 @@ resources:
         source: deployment
       private_endpoint_subnet:
         value:
-          production: snet-endpoints
+          resource: virtual-network
+          part: snet-endpoints
         source:
           forced_by: deployment.network_ownership
       vnet_integration:
@@ -1343,7 +1356,8 @@ resources:
         source: default
       integration_subnet:
         value:
-          production: snet-mcp
+          resource: virtual-network
+          part: snet-mcp
         source:
           forced_by: deployment.network_ownership
       vnet_route_all:
@@ -1355,7 +1369,7 @@ resources:
         source: stated
       user_assigned_identity_ids:
         value:
-          production: [user-assigned-identity__web]
+        - resource: user-assigned-identity__web
         source: stated
     security:
       https_only:
@@ -1389,7 +1403,7 @@ resources:
     observability:
       diagnostic_workspace:
         value:
-          production: log-analytics-workspace
+          resource: log-analytics-workspace
         source: deployment
       diagnostic_categories:
         value:

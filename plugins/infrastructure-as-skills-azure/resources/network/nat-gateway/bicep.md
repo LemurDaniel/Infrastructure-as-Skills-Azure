@@ -20,16 +20,13 @@ at a major version of 2, unlike most; a repository on 1.x re-reads its parameter
 
 ### Decision -> module parameter
 
+What each decision renders to - the parameter and the literal of every answer - is in
+[render-map.yaml](render-map.yaml); the render digest prints it for a spec.
+
+### Deployment-wide parameters
+
 | Decision | Parameter | Note |
 |---|---|---|
-| `sku` | `natGatewaySku` | **Module default is `Standard`**, the Terraform module's `StandardV2`: written on every call |
-| `zone` | `availabilityZone` | **Required.** `1`, `2` or `3` for a `Standard` gateway; `-1` for `none`, and for `StandardV2`, which ignores it |
-| `public_ip_source: with_gateway`, `public_ip_count` | `publicIPAddresses: [ { name, skuName, publicIPAllocationMethod: 'Static', availabilityZones } ]` | One entry per address, 1 to 16; `skuName` equal to `natGatewaySku` |
-| `public_ip_source: separate` | `publicIpResourceIds` | The ids from the `public-ip-address` set (`purpose: nat_gateway`) |
-| `public_ip_prefix_ids` | `publicIPPrefixResourceIds` | IPv4; the IPv6 variants are not used |
-| `idle_timeout_minutes` | `idleTimeoutInMinutes` | |
-| `subnets` | not a parameter here | The association is the virtual-network set's `subnets[].natGatewayResourceId: natGateway.outputs.resourceId` |
-| `diagnostic_workspace`, `metrics_enabled` | **not carried** | The module has no `diagnosticSettings` for the gateway (only for the addresses it creates) - see below |
 | `deployment.module_telemetry` | `enableTelemetry` | |
 | `context.tags` | `tags` | |
 
@@ -84,7 +81,7 @@ the published module, both generations and the `publicIpResourceIds` form.
 ### Tests
 
 A module call compiles to a nested deployment whose `properties.parameters.<param>.value` is
-the decision, so every decision above except the diagnostic setting is observable in
+the decision, so every decision in render-map.yaml except the diagnostic setting is observable in
 `tests/*.armtest.yaml`
 ([bicep-idiom.md](../../../core/iac-rendering/references/bicep-idiom.md#tests)): `natGatewaySku`,
 `availabilityZone`, `idleTimeoutInMinutes`, the address count and each address's `skuName`

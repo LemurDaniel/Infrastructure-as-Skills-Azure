@@ -19,15 +19,12 @@ deployment's.
 
 ### Decision → module input
 
+What each decision renders to - the input and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.
+
+Not decisions of this set:
+
 | Decision | Input | Note |
 |---|---|---|
-| `address_space` | `address_space = [var.address_space]` | A set, even with one entry |
-| `dns_servers` | `dns_servers = { dns_servers = [...] }` | Omit for Azure DNS |
-| `ddos_protection` | `ddos_protection_plan = { id, enable }` | |
-| `subnets` | `subnets = { <name> = { name, address_prefixes = [prefix], … } }` | A map keyed by subnet name — the module's own rule, same reason as the authored render's `for_each` |
-| `private_endpoint_network_policies` | `subnets.<name>.private_endpoint_network_policies = "Enabled"` | Module default is `Enabled` already; written anyway |
-| `service_endpoints` | `subnets.<name>.service_endpoints` | |
-| `subnet_delegations` | `subnets.<name>.delegations = [{ name, service_delegation = { name } }]` | A list, plural |
 | diagnostics (from the deployment set) | `diagnostic_settings = { <key> = { workspace_resource_id, log_groups = [], metric_categories = ["AllMetrics"] } }` | |
 | `deployment.module_telemetry` | `enable_telemetry` | |
 | `context.tags` | `tags = local.tags` | |
@@ -85,15 +82,7 @@ this way, or reading what the module does inside.
 
 ## Decision → argument
 
-| Decision | Argument |
-|---|---|
-| `address_space` | `azurerm_virtual_network.address_space` (a list, even with one entry) |
-| `dns_servers` | `azurerm_virtual_network.dns_servers` — omit for Azure DNS |
-| `ddos_protection` | `ddos_protection_plan { id, enable }` block |
-| `subnets` | One `azurerm_subnet` each — **not** a `subnet` block on the vnet |
-| `private_endpoint_network_policies` | `azurerm_subnet.private_endpoint_network_policies` (string, not bool) |
-| `service_endpoints` | `azurerm_subnet.service_endpoints` |
-| `subnet_delegations` | `delegation { name, service_delegation { name, actions } }` |
+What each decision renders to - the argument and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.
 
 ## The network and its subnets
 
@@ -261,5 +250,4 @@ run "observability" {
 ```
 
 With `observability_ownership: reference` the workspace id comes from
-`data.azurerm_log_analytics_workspace.platform.id` instead, and the data source is mocked
-with a parseable id.
+`var.diagnostics_workspace_id` instead, set in the test's `variables` block to a parseable id.

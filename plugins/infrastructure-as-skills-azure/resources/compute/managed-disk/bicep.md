@@ -18,15 +18,12 @@ Resolve the current version and re-read the README parameters before rendering, 
 
 ### Decision -> module parameter
 
+What each decision renders to - the parameter and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.
+
+Deployment-wide and fixed parameters, not decisions of this set:
+
 | Decision | Parameter | Note |
 |---|---|---|
-| `create_option`, `source_resource_id` | `createOption: 'Empty'` / `'Copy'`, `sourceResourceId` | Default `'Empty'`; written |
-| `sku` | `sku` | Required; written |
-| `size_gb` | `diskSizeGB` | Default `0`; written |
-| `zone` | `availabilityZone` | **Required**: `1`, `2`, `3`, or `-1` for none (ZRS type, region without zones) |
-| `network_access` | `networkAccessPolicy`, `publicNetworkAccess` | `'DenyAll'` / `'Disabled'` is the module default (Terraform `AllowPrivate`); written. `'AllowPrivate'` needs an id the module has no parameter for |
-| `key_management`, `disk_encryption_set_id` | `diskEncryptionSetResourceId` | |
-| `role_assignments` | `roleAssignments` | |
 | not offered | `maxShares: 1`, `burstingEnabled: false`, `hyperVGeneration` | Written at the defaults so a module release cannot change them |
 | `deployment.module_telemetry` | `enableTelemetry` | |
 | `context.tags` | `tags` | |
@@ -74,20 +71,12 @@ version.
 ### Tests
 
 A module call compiles to a nested deployment whose `properties.parameters.<param>.value` is
-the decision, so every decision above is observable in `tests/*.armtest.yaml`
+the decision, so every decision in render-map.yaml is observable in `tests/*.armtest.yaml`
 ([bicep-idiom.md](../../../core/iac-rendering/references/bicep-idiom.md#tests)).
 
 ## Authored rendering
 
 The fallback, and the only form of `allow_private`. `Microsoft.Compute/disks` with `sku` and
-`properties`:
+`properties`.
 
-| Decision | Property |
-|---|---|
-| `create_option`, `source_resource_id` | `properties.creationData { createOption, sourceResourceId }` |
-| `sku` | `sku.name` |
-| `size_gb` | `properties.diskSizeGB` |
-| `zone` | `zones: [ '1' ]` |
-| `network_access` | `properties.networkAccessPolicy`, `properties.publicNetworkAccess`, `properties.diskAccessId` |
-| `key_management` | `properties.encryption { type: 'EncryptionAtRestWithCustomerKey', diskEncryptionSetId }` |
-| private endpoint | `Microsoft.Network/privateEndpoints` with group id `disks` |
+What each decision renders to - the property and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.

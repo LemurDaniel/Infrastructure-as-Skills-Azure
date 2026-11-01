@@ -24,16 +24,13 @@ policy is a **separate module** in Bicep: the profile's `securityPolicies` bind 
 
 ### Decision -> module parameter
 
+What each decision renders to - the parameter and the literal of every answer - is in
+[render-map.yaml](render-map.yaml); the render digest prints it for a spec.
+
+### Deployment-wide parameters
+
 | Decision | Parameter | Note |
 |---|---|---|
-| `sku` | `sku` | `'Standard_AzureFrontDoor'` / `'Premium_AzureFrontDoor'`; **required, no default**; written |
-| `response_timeout_seconds` | `originResponseTimeoutSeconds` | **Module default 60** (Terraform 120); written |
-| `managed_identity`, `user_assigned_identity_ids` | `managedIdentities: { systemAssigned, userAssignedResourceIds }` | |
-| `origins`, `origin_connection` | `originGroups: [ { name, origins: [ { name, hostName, sharedPrivateLinkResource } ] } ]` | The private-link connection arrives *pending* |
-| `forwarding_protocol`, `https_redirect`, `caching` | `afdEndpoints[].routes[]: { forwardingProtocol, httpsRedirect, cacheConfiguration }` | Route default for the protocol is `MatchRequest`; written |
-| `custom_domains`, `certificate_source`, `minimum_tls_version` | `customDomains: [ { name, hostName, certificateType, minimumTlsVersion } ]` | `'ManagedCertificate'` / `'CustomerCertificate'`; `'TLS12'` |
-| `waf_enabled`, `waf_mode`, `waf_managed_rules`, `waf_rate_limit_per_minute` | policy module `policySettings`, `managedRules`, `customRules`, plus the profile's `securityPolicies` | The policy `sku` must match the profile's; managed rules need Premium |
-| `diagnostic_*`, `metrics_enabled` | `diagnosticSettings: [ { workspaceResourceId, logCategoriesAndGroups: [ { category } ], metricCategories: [ { category: 'AllMetrics' } ] } ]` | |
 | `deployment.module_telemetry` | `enableTelemetry` | |
 | `context.tags` | `tags` | |
 
@@ -103,19 +100,14 @@ README for the pinned version.
 ### Tests
 
 A module call compiles to a nested deployment whose `properties.parameters.<param>.value` is the
-decision, so every decision above is observable in `tests/*.armtest.yaml`
+decision, so every decision in render-map.yaml is observable in `tests/*.armtest.yaml`
 ([bicep-idiom.md](../../../core/iac-rendering/references/bicep-idiom.md#tests)). The policy is
 its own nested deployment.
 
 ## Authored rendering
 
 The fallback. `Microsoft.Cdn/profiles` with `sku: { name }` and `properties`, and
-`Microsoft.Network/FrontDoorWebApplicationFirewallPolicies`:
+`Microsoft.Network/FrontDoorWebApplicationFirewallPolicies`.
 
-| Decision | Property |
-|---|---|
-| `response_timeout_seconds` | `properties.originResponseTimeoutSeconds` |
-| `origins` | child `originGroups` and `originGroups/origins` |
-| routes, endpoints | child `afdEndpoints` and `afdEndpoints/routes` |
-| `custom_domains` | child `customDomains` with `properties.tlsSettings` |
-| WAF | the policy's `properties.policySettings`, `managedRules`, `customRules`; child `securityPolicies` |
+What each decision renders to - the property and the literal of every answer - is in
+[render-map.yaml](render-map.yaml); the render digest prints it for a spec.

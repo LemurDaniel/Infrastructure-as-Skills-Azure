@@ -21,11 +21,12 @@ Terraform `~> 1.9`. In a root on `azurerm` 5.x use the authored group below.
 
 ### Decision -> module input
 
+What each decision renders to - the input and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.
+
+Deployment-wide inputs, not decisions of this set:
+
 | Decision | Input | Note |
 |---|---|---|
-| `proximity_placement_group` | the module call itself | Rendered only when `true` |
-| `proximity_zone` | `zone` | Module default **`"1"`**; `none` is `null`; written |
-| `proximity_vm_sizes` | `allowed_vm_sizes` | `null` when empty |
 | `deployment.module_telemetry` | `enable_telemetry` | |
 | `context.tags` | `tags = local.tags` | |
 
@@ -81,13 +82,7 @@ where the module hides them in a child resource.
 The only form of the availability set, and the fallback for the group. Targets `azurerm`
 **5.x**; check against `terraform providers schema -json`.
 
-| Decision | Argument on `azurerm_availability_set` / `azurerm_proximity_placement_group` |
-|---|---|
-| `sku` | `managed` (`true` is `Aligned`) |
-| `fault_domain_count`, `update_domain_count` | `platform_fault_domain_count`, `platform_update_domain_count` |
-| `proximity_placement_group` | `azurerm_proximity_placement_group` and `proximity_placement_group_id` on the set |
-| `proximity_zone` | `zone` on the group (omitted for `none`) |
-| `proximity_vm_sizes` | `allowed_vm_sizes` |
+What each decision renders to - the argument and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.
 
 ```hcl
 resource "azurerm_proximity_placement_group" "this" {

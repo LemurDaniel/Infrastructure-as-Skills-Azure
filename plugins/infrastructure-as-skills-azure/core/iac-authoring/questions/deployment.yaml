@@ -1595,8 +1595,8 @@ groups:
           forces every resource's public_network_access to `enabled`: without a network
           the deployment's own callers have no fixed address a firewall could list
         renders: >
-          terraform: azurerm_virtual_network resource vs. data "azurerm_virtual_network";
-          bicep: Microsoft.Network/virtualNetworks resource vs. an `existing` reference
+          create: the virtual network resource (AVM module); reference: no network resource -
+          the subnets come in as id parameters from the stage files (spec.md, References)
 
       - id: existing_vnet
         ask:
@@ -1612,10 +1612,12 @@ groups:
         depends_on: { question: network_ownership, equals: reference }
         per_environment: true
         why: >
-          Read by name and resource group, never by a hardcoded resource id - an id
-          pins a subscription into the template. A pattern skill normally supplies
-          this from the platform it knows about.
-        renders: data source / existing reference the subnets are resolved from
+          A network the platform owns is referenced by its id, never looked up and never
+          written into the template: the id is a parameter in each stage file, so one
+          template deploys into every subscription. Unknown, it is an `open:` entry owned
+          by the platform team. A pattern skill normally supplies it from the platform it
+          knows about.
+        renders: an id parameter per stage (variable / param), never a data source
 
       - id: address_space
         ask:
@@ -1979,7 +1981,7 @@ groups:
         depends_on: { question: backup_ownership, equals: reference }
         per_environment: true
         why: >
-          Read by name and resource group, never by a hardcoded resource id, for the same
-          reason as the other referenced platform parts. Never asked of the customer: an
-          `open:` entry owned by the platform team until the request names it.
-        renders: data source / existing reference the backup instances are attached to
+          Referenced by its id, a parameter in each stage file, for the same reason as the
+          other referenced platform parts. Never asked of the customer: an `open:` entry
+          owned by the platform team until the request names it.
+        renders: an id parameter per stage (variable / param) the backup instances are attached to

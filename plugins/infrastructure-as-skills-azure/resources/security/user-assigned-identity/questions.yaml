@@ -35,7 +35,6 @@ groups:
         why: >
           Drives the rendered name. One identity per stage: a shared identity across
           stages would give development the roles of production.
-        renders: naming parameter `environment`, and the tag of that name where the repository uses one
 
       - id: location
         ask:
@@ -50,7 +49,6 @@ groups:
           Part of the rendered name. The identity itself is global in effect, but it is
           a regional resource and can only be assigned to resources in the same
           subscription's tenant; the region follows the workload.
-        renders: location
 
       - id: resource_group_name
         ask:
@@ -67,7 +65,6 @@ groups:
           The identity is placed into an existing group. Its lifecycle is the point of
           using one: it must outlive the consumers, so it is usually in the workload's
           group and never in a group that is torn down with a single consumer.
-        renders: resource_group_name (AVM Terraform, azurerm-based) / implicit in Bicep scope
 
   # ----------------------------------------------------------------- identity
   - id: identity
@@ -89,7 +86,6 @@ groups:
           identity reviewable, and an identity with no stated reason is a system-assigned
           one in disguise. The text goes into the identity's tags and the decision
           document, and picks the name.
-        renders: tag `purpose`, and the workload part of the rendered name
 
       - id: federated_credentials
         ask:
@@ -109,7 +105,6 @@ groups:
           are exact and never wildcards. Up to 20 per identity. The pipeline's own
           identity (`deployment.pipeline_auth: workload_identity`) is the usual entry, and
           the platform owns it when it is the platform's, not this deployment's.
-        renders: federated_identity_credentials / federatedIdentityCredentials
 
       - id: isolation_scope
         ask:
@@ -129,7 +124,6 @@ groups:
           assigned, for a mandate on data residency. Without one it only gets in the way
           of a failover to a second region, where the same identity must be assignable.
           The Terraform module accepts only `Regional` or null, so `None` renders as unset.
-        renders: isolation_scope / isolationScope
 
       - id: role_assignments
         ask:
@@ -146,4 +140,3 @@ groups:
           a principal assign it to a resource it creates, which a pipeline deploying the
           consumer needs. Empty is a valid answer when the deploying principal owns the
           resource group. The identity's roles *on other resources* are the pattern's.
-        renders: role_assignments / roleAssignments

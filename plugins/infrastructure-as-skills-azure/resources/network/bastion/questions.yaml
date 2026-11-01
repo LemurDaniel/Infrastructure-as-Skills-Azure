@@ -38,9 +38,6 @@ groups:
         why: >
           Drives the rendered name and the strictness of several defaults below. Nothing
           sensible can be guessed.
-        renders: >
-          naming parameter `environment`, and the tag of that name where the repository uses
-          one
 
       - id: location
         ask:
@@ -55,7 +52,6 @@ groups:
           A Bastion sits in the virtual network it serves and reaches the peered networks of
           the same region; machines in another region need a Bastion there or a global
           peering (Standard and above).
-        renders: location
 
       - id: resource_group_name
         ask:
@@ -71,7 +67,6 @@ groups:
         why: >
           The Bastion is placed into an existing group. In a split deployment it belongs to
           the `network` role, with the virtual network it sits in.
-        renders: parent_id (AzAPI, a resource group id) / implicit in Bicep scope
 
   # ----------------------------------------------------------------- bastion
   - id: bastion
@@ -101,7 +96,6 @@ groups:
           who are on that connection. `private_network` is the better posture and the answer
           wherever the organisation's administrators are already on a VPN; it is not a default
           because it also locks out the administrator who is not.
-        renders: private_only_enabled, ip_configuration.create_public_ip / enablePrivateOnlyBastion, publicIPAddressObject
 
       - id: sku
         ask:
@@ -131,7 +125,6 @@ groups:
           virtual machine at a time in a development network. A SKU can be raised in place
           and not lowered, which argues against starting on Basic for a stage that will be
           used. The Terraform and the Bicep module both default to `Basic`; it is written.
-        renders: sku / skuName
 
       - id: zone_redundant
         ask:
@@ -156,7 +149,6 @@ groups:
           beyond the instances' normal price. Fixed at creation. The Terraform module defaults
           to all three zones, the Bicep module to none, so it is written. A region without
           zones takes `false`, said out loud. The public IP takes the same zones.
-        renders: zones / availabilityZones
 
       - id: scale_units
         ask:
@@ -174,7 +166,6 @@ groups:
           minimum and enough for a team. Raise it from the session metric, not in advance:
           every unit is billed by the hour. The value is a ceiling on parallel administration,
           not on throughput.
-        renders: scale_units / scaleUnits
 
   # ---------------------------------------------------------------- networking
   - id: networking
@@ -197,9 +188,6 @@ groups:
           else; scale-out takes addresses from it. Looked up from the platform or created by
           the network set. Its name is not a choice. Not used by the `Developer` SKU, which
           takes the virtual network instead.
-        renders: >
-          ip_configuration.subnet_id, virtual_network_id for Developer / virtualNetworkResourceId
-          (the module finds the subnet by its fixed name)
 
       - id: public_ip_zone_redundant
         ask:
@@ -217,7 +205,6 @@ groups:
         why: >
           A zonal Bastion with a non-zonal public IP is zonal in name only. Follows
           `zone_redundant`. The address is Standard and static; the Developer SKU needs none.
-        renders: public IP zones / publicIPAddressObject.availabilityZones
 
   # ------------------------------------------------------------------ security
   - id: security
@@ -241,7 +228,6 @@ groups:
           the access is the link. That is the whole feature and the whole risk: a link pasted
           in a ticket is access to a machine. Off, always; the guardrails' identity-over-secrets
           rule. Standard and above only.
-        renders: shareable_link_enabled / enableShareableLink
 
       - id: native_client
         ask:
@@ -264,7 +250,6 @@ groups:
           also puts a TCP tunnel on the administrator's own device. Off until someone needs
           it; browser sessions cover the common case and keep the session in the portal. Not
           available with session recording. Standard and above.
-        renders: tunneling_enabled / not carried by the Bicep module, which fixes it on for Standard and for Premium without session recording
 
       - id: ip_connect
         ask:
@@ -283,7 +268,6 @@ groups:
           including peered networks and on-premises hosts that are not Azure resources and so
           have no role assignment to check. The range widens from "machines I may reach" to
           "everything routable". Off unless a named target needs it. Standard and above.
-        renders: ip_connect_enabled / enableIpConnect
 
       - id: file_copy
         ask:
@@ -302,7 +286,6 @@ groups:
           sees, and the audit log records the session and not what was copied. Off by default
           - the Terraform module agrees, the Bicep module defaults to `true`, so it is written.
           On for a stated need. Standard and above.
-        renders: file_copy_enabled / enableFileCopy
 
       - id: copy_paste
         ask:
@@ -321,7 +304,6 @@ groups:
           the clipboard. It also makes the day-to-day work awkward (a password or a command
           cannot be pasted), so it is on until a mandate for confidential data asks. Basic and
           Developer always allow it.
-        renders: copy_paste_enabled / disableCopyPaste (inverted)
 
       - id: session_recording
         ask:
@@ -342,7 +324,6 @@ groups:
           recordings go to (a SAS URL, which is a key to hold and rotate), and it turns the
           native client off. Off unless a mandate asks; the connection log below is the
           baseline.
-        renders: session_recording_enabled / enableSessionRecording
 
   # ------------------------------------------------------------ observability
   - id: observability
@@ -363,7 +344,6 @@ groups:
         why: >
           Inherited: one deployment, one destination. The audit log is the record of who
           opened a session to which machine - the first thing asked after an incident.
-        renders: diagnostic_settings / diagnosticSettings
 
       - id: diagnostic_categories
         ask:
@@ -382,9 +362,6 @@ groups:
           Bastion without it is access nobody can reconstruct. It is small. The name is the
           platform's and is checked against `az monitor diagnostic-settings categories list`
           for the resource before a render, not remembered.
-        renders: >
-          diagnostic_settings.<key>.log_categories /
-          diagnosticSettings[].logCategoriesAndGroups[].category
 
       - id: metrics_enabled
         ask:
@@ -401,4 +378,3 @@ groups:
         why: >
           Sessions per Bastion and the host's load - what says when the scale units are too
           few. Cheap.
-        renders: metric_categories = ["AllMetrics"] / metricCategories[].category

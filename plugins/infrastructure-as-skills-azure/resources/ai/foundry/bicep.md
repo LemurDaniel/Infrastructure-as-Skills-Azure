@@ -20,25 +20,14 @@ module's own `deployment` and `project` child modules are `Proposed` in the inde
 
 ### Decision -> module parameter
 
-| Decision | Parameter | Note |
+What each decision renders to - the parameter and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.
+
+### Parameters no decision covers
+
+| Input | Parameter | Note |
 |---|---|---|
-| `kind` | `kind` | **Required** |
-| `sku_name` | `sku` | Default `'S0'`; written |
 | (derived from the name) | `customSubDomainName` | **Required** with `networkAcls` or `privateEndpoints`; written |
-| `project_management` | `allowProjectManagement` | No default; written |
-| `projects` | **not the module** - child resources below | |
-| `model_deployments`, `deployment_sku`, `deployment_capacity`, `version_upgrade_option`, `content_filter` | `deployments: [ { name, model: { format, name, version }, sku: { name, capacity }, versionUpgradeOption, raiPolicyName } ]` | `sku.name` carries the deployment type |
-| `public_network_access` | `publicNetworkAccess: 'Disabled'` / `'Enabled'` | Unset, it is disabled only when private endpoints are set and no `networkAcls`; written |
-| `ip_rules` | `networkAcls: { defaultAction: 'Deny', ipRules: [ { value } ] }` | |
-| `restrict_outbound` | `restrictOutboundNetworkAccess` | Default **`true`**; written |
-| `allowed_fqdns` | - | **No parameter** in the module. The allowlist is `properties.allowedFqdnList` on the account: render it with a second deployment against the account (an `existing` reference and a `Microsoft.CognitiveServices/accounts` update), and say so in the handover |
-| `private_endpoint_subnet` | `privateEndpoints: [ { subnetResourceId, service: 'account' } ]` | |
 | `deployment.private_dns_records: policy` | no `privateDnsZoneGroup` on the endpoint | |
-| `managed_identity` | `managedIdentities: { systemAssigned, userAssignedResourceIds }` | |
-| `role_assignments` | `roleAssignments` | |
-| `local_authentication_disabled` | `disableLocalAuth` | Default `true`; written |
-| `key_management`, `cmk_key_vault_key_id` | `customerManagedKey: { keyName, keyVaultResourceId, ... }` - spelling from the README | |
-| diagnostics | `diagnosticSettings: [ { workspaceResourceId, logCategoriesAndGroups: [ { category } ], metricCategories: [ { category: 'AllMetrics' } ] } ]` | |
 | `deployment.module_telemetry` | `enableTelemetry` | |
 | `context.tags` | `tags` | |
 
@@ -165,19 +154,11 @@ The API version is the compiled module's, not recalled.
 ### Tests
 
 A module call compiles to a nested deployment whose `properties.parameters.<param>.value` is
-the decision, so every decision above, deployments included, is observable in
+the decision, so every decision in render-map.yaml, deployments included, is observable in
 `tests/*.armtest.yaml` ([bicep-idiom.md](../../../core/iac-rendering/references/bicep-idiom.md#tests)).
 
 ## Authored rendering
 
-The fallback. `Microsoft.CognitiveServices/accounts` with `kind`, `sku` and `properties`:
+The fallback. `Microsoft.CognitiveServices/accounts` with `kind`, `sku` and `properties`.
 
-| Decision | Property |
-|---|---|
-| `project_management` | `properties.allowProjectManagement` |
-| `public_network_access`, `ip_rules` | `properties.publicNetworkAccess`, `properties.networkAcls` |
-| `restrict_outbound` | `properties.restrictOutboundNetworkAccess` |
-| `allowed_fqdns` | `properties.allowedFqdnList` |
-| `local_authentication_disabled` | `properties.disableLocalAuth` |
-| deployments | child `accounts/deployments` with `sku` and `properties.model`, `versionUpgradeOption`, `raiPolicyName` - created one after another (`@batchSize(1)`) |
-| `projects` | child `accounts/projects` |
+What each decision renders to - the property and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.

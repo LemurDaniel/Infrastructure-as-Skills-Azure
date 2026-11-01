@@ -20,29 +20,13 @@ version and re-read its README parameters before rendering, as
 
 ### Decision → module parameter
 
+What each decision renders to - the parameter and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.
+
+Deployment-wide inputs, not decisions of this set:
+
 | Decision | Parameter | Note |
 |---|---|---|
-| `public_network_access: disabled` | `publicNetworkAccess: 'Disabled'` | Unset, the module picks `Disabled` only when endpoints are set and no `networkAcls` — never rely on that; write it |
-| `public_network_access: enabled_with_firewall` | `'Enabled'` + `networkAcls: { defaultAction: 'Deny', … }` | |
-| `public_network_access: enabled` | `'Enabled'` + `networkAcls: { defaultAction: 'Allow' }` | |
-| `allow_azure_services_bypass` | `networkAcls.bypass: 'AzureServices'` / `'None'` | A string, not an array |
-| `shared_access_key_enabled` | `allowSharedKeyAccess` | |
-| `https_traffic_only` | `supportsHttpsTrafficOnly` | |
-| `min_tls_version` | `minimumTlsVersion` | |
-| `allow_blob_public_access` | `allowBlobPublicAccess` | |
-| `infrastructure_encryption_enabled` | `requireInfrastructureEncryption` | Module default `true`; written anyway |
-| `sftp_enabled` | `enableSftp` (+ `enableHierarchicalNamespace: true`) | |
-| `hierarchical_namespace` | `enableHierarchicalNamespace` | |
-| `replication`, `access_tier` | `skuName: 'Standard_ZRS'`, `accessTier` | Module default is **`Standard_GRS`** — the guardrail says ZRS; must be written |
-| `managed_identity` | `managedIdentities: { systemAssigned: true }` | |
-| `key_management: customer_managed` | `customerManagedKey: { keyVaultResourceId, keyName, userAssignedIdentityResourceId }` | |
-| `blob_soft_delete_days`, `container_soft_delete_days`, `versioning_enabled`, `change_feed_enabled`, `point_in_time_restore_days` | `blobServices: { deleteRetentionPolicyEnabled, deleteRetentionPolicyDays, containerDeleteRetentionPolicyEnabled, containerDeleteRetentionPolicyDays, isVersioningEnabled, changeFeedEnabled, restorePolicyEnabled, restorePolicyDays }` | The module's own `blobServices` default is 6 / 7 days — not the guardrail's; written anyway. `0` days renders `…Enabled: false` |
-| `private_endpoint_subnet`, `private_endpoint_subresources` | `privateEndpoints: [ { name, service, subnetResourceId } ]` | `service` is the sub-resource (`blob`); `name` from the vars with the sub-resource before the index |
 | `deployment.private_dns_records: policy` | no `privateDnsZoneGroup` on the entry | `deployment` → `privateDnsZoneGroup: { privateDnsZoneGroupConfigs: [ { privateDnsZoneResourceId } ] }` |
-| `diagnostic_workspace`, `metrics_enabled` | `diagnosticSettings: [ { workspaceResourceId, metricCategories: [ { category: 'AllMetrics' } ] } ]` | The account-level parameter is typed metrics-only — the module knows the account emits no logs |
-| `diagnostic_categories` | `blobServices.diagnosticSettings: [ { workspaceResourceId, logCategoriesAndGroups: [ { categoryGroup: 'audit' } ], metricCategories: [ … ] } ]` | One per service that is used: `fileServices`, `queueServices`, `tableServices` |
-| `role_assignments` | `roleAssignments: [ { principalId, roleDefinitionIdOrName, principalType } ]` | Role **by name** — the GUID table of the authored render goes away. Container scope is on `blobServices.containers[].roleAssignments` |
-| `immutability` | `immutableStorageWithVersioning` on the account, `immutabilityPolicyProperties` on a container | |
 | `deployment.module_telemetry` | `enableTelemetry` | |
 | `context.tags` | `tags` | |
 
@@ -154,20 +138,7 @@ this way, or reading what the module does inside.
 
 ## Decision → property
 
-| Decision | Property |
-|---|---|
-| `public_network_access: disabled` | `properties.publicNetworkAccess: 'Disabled'` |
-| `public_network_access: enabled_with_firewall` | `'Enabled'` + `networkAcls.defaultAction: 'Deny'` |
-| `public_network_access: enabled` | `'Enabled'` + `networkAcls.defaultAction: 'Allow'` |
-| `shared_access_key_enabled` | `properties.allowSharedKeyAccess` |
-| `https_traffic_only` | `properties.supportsHttpsTrafficOnly` |
-| `allow_blob_public_access` | `properties.allowBlobPublicAccess` |
-| `min_tls_version` | `properties.minimumTlsVersion` |
-| `replication` | `sku.name` — `Standard_ZRS`, `Standard_LRS`, … |
-| `access_tier` | `properties.accessTier` |
-| `infrastructure_encryption_enabled` | `properties.encryption.requireInfrastructureEncryption` |
-| `sftp_enabled` | `properties.isSftpEnabled` (requires `isHnsEnabled: true`) |
-| `hierarchical_namespace` | `properties.isHnsEnabled` |
+What each decision renders to - the property and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.
 
 Note the shape difference from Terraform: replication is not its own property but encoded
 into the SKU name together with the tier, so `Standard` + `ZRS` becomes `Standard_ZRS`.

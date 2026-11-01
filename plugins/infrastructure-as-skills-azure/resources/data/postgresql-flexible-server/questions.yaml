@@ -40,7 +40,6 @@ groups:
         why: >
           Drives the rendered name and the strictness of several defaults below.
           Nothing sensible can be guessed.
-        renders: naming parameter `environment`, and the tag of that name where the repository uses one
 
       - id: location
         ask:
@@ -55,7 +54,6 @@ groups:
           The server lives in one region and the region is part of the rendered name.
           Zone-redundant high availability is not offered in every region, and a region
           short of capacity for a compute size can refuse a new server.
-        renders: location
 
       - id: resource_group_name
         ask:
@@ -71,7 +69,6 @@ groups:
         why: >
           The server is placed into an existing group. Creating one here would make this
           set own a lifecycle wider than the resource it describes.
-        renders: resource_group_name (AVM Terraform, azurerm-based) / implicit in Bicep scope
 
   # ------------------------------------------------------------------- server
   - id: server
@@ -95,7 +92,6 @@ groups:
           is upgraded in place, one way** - there is no downgrade - and the version
           offered depends on the region, which is checked with `az postgres flexible-server
           list-skus` before a render, not remembered.
-        renders: server_version / version
 
       - id: compute_tier
         ask:
@@ -123,7 +119,6 @@ groups:
         forced_when: >
           `burstable` forces `high_availability: disabled`, recorded as forced with
           `compute_tier` as forced_by
-        renders: sku_name prefix `B_`, `GP_`, `MO_` / tier
 
       - id: sku_name
         ask:
@@ -144,7 +139,6 @@ groups:
           the region; both are checked, not assumed. The Terraform module takes the tier
           as a prefix of the name (`GP_Standard_D2ds_v5`), the Bicep one as a separate
           `tier`.
-        renders: sku_name / skuName and tier
 
       - id: storage_size_gb
         ask:
@@ -160,7 +154,6 @@ groups:
           high is paid for as long as the server lives, while a number that is too low is
           raised in place. 128 GB is a modest start whose disk performance is adequate for
           a small system; the performance tier follows from the size unless it is set.
-        renders: storage_mb (megabytes) / storageSizeGB
 
       - id: storage_auto_grow
         ask:
@@ -179,7 +172,6 @@ groups:
           outage with a manual fix at the worst moment. Auto-grow trades that for a bill
           that grows with the data - and, because storage never shrinks, one that stays
           grown. On, with the monitoring of storage use as the alert.
-        renders: auto_grow_enabled / autoGrow
 
       - id: databases
         ask:
@@ -195,7 +187,6 @@ groups:
           the decision is an `open:` entry owned by the workload owner, blocking apply.
           The character set is `UTF8` and the collation `en_US.utf8` unless the application
           names another - both are fixed when a database is created.
-        renders: databases.<key> (name, charset, collation) / databases[]
 
   # --------------------------------------------------------------- resilience
   - id: resilience
@@ -234,7 +225,6 @@ groups:
           `compute_tier: burstable` forces `disabled`, recorded as forced with
           `compute_tier` as forced_by; `outage_impact: critical` also requires an `open:`
           entry for a geo-replica region, which must satisfy `data_residency`
-        renders: high_availability { mode } / highAvailability
 
       - id: maintenance_window
         ask:
@@ -251,7 +241,6 @@ groups:
           slot in the small hours of a weekend is the least harmful guess. A customer with
           a business pattern says so. The two modules disagree on the default (day 0 at
           00:00 in Terraform, day 0 at 01:00 in Bicep), which is why it is written.
-        renders: maintenance_window { day_of_week, start_hour, start_minute } / maintenanceWindow { customWindow, dayOfWeek, startHour, startMinute }
 
   # --------------------------------------------------------------- networking
   - id: networking
@@ -280,7 +269,6 @@ groups:
           is the older form, needs a subnet delegated to the server alone and a private DNS
           zone linked to the network, and allows no public access and no private endpoint
           later. Choose it where a platform standard demands it.
-        renders: private_endpoints (and no delegated_subnet_id) / privateEndpoints; or delegated_subnet_id and private_dns_zone_id / delegatedSubnetResourceId and privateDnsZoneArmResourceId
 
       - id: public_network_access
         ask:
@@ -295,7 +283,7 @@ groups:
           enabled_with_firewall: { en: "reachable from the internet only from listed addresses", de: "aus dem Internet nur von gelisteten Adressen erreichbar" }
           enabled: { en: "reachable from the internet", de: "aus dem Internet erreichbar" }
         accepts: [disabled, enabled_with_firewall, enabled]
-        answer: { deployment: network_exposure }
+        answer: { deployment: network_exposure, map: { private: disabled, private_with_exceptions: disabled, public: enabled_with_firewall } }
         why: >
           Asked only as a departure: exposure is a property of the system. `private` is
           `disabled`, `public` is `enabled_with_firewall`, and a bare `enabled` - a server
@@ -309,9 +297,6 @@ groups:
           `enabled`, recorded as forced with `network_ownership` as forced_by: the
           deployment's own callers have no fixed outbound address, so a firewall with no
           rule locks them out of this resource
-        renders: >
-          terraform: public_network_access_enabled (bool) and firewall_rules;
-          bicep: publicNetworkAccess and firewallRules
 
       - id: private_endpoint_subnet
         ask:
@@ -329,7 +314,6 @@ groups:
         why: >
           One subnet carries the deployment's private endpoints, so this is inherited. The
           sub-resource is `postgresqlServer`, the zone `privatelink.postgres.database.azure.com`.
-        renders: private_endpoints.<key>.subnet_resource_id / privateEndpoints[].subnetResourceId (service `postgresqlServer`)
 
       - id: delegated_subnet
         ask:
@@ -349,7 +333,6 @@ groups:
           nothing else, and cannot be resized or moved once the server is in it. It is not
           the private-endpoint subnet. The network family creates it; no answer is an
           `open:` entry owned by the platform team.
-        renders: delegated_subnet_id / delegatedSubnetResourceId
 
       - id: private_dns_zone
         ask:
@@ -368,7 +351,6 @@ groups:
           A VNet-integrated server needs a zone ending in `.postgres.database.azure.com`
           linked to the network, which the server writes its own record into. Shared
           infrastructure: the platform's, referenced and never created here.
-        renders: private_dns_zone_id / privateDnsZoneArmResourceId
 
       - id: ip_rules
         ask:
@@ -386,7 +368,6 @@ groups:
           the firewall on denies every public caller, which is valid and deliberate.
           `0.0.0.0` - which reads as "allow Azure services" - is not an allowlist and is
           `allow_azure_services`' job, not this list's.
-        renders: firewall_rules / firewallRules
 
       - id: allow_azure_services
         ask:
@@ -406,7 +387,6 @@ groups:
           0.0.0.0 - 0.0.0.0 and admits **any resource in Azure, in any tenant**; it defeats
           the firewall it sits in. Off by default; a consumer that needs it is named and
           gets a specific rule, or a private endpoint.
-        renders: a firewall rule with 0.0.0.0 as start and end / firewallRules[]
 
   # ----------------------------------------------------------------- identity
   - id: identity
@@ -435,7 +415,6 @@ groups:
         forced_when: >
           `key_management: customer_managed` forces `user_assigned`, recorded as forced
           with `key_management` as forced_by
-        renders: managed_identities / managedIdentities
 
       - id: user_assigned_identity_ids
         ask:
@@ -450,7 +429,6 @@ groups:
         depends_on: { question: managed_identity, equals: user_assigned }
         per_environment: true
         why: The identity must already exist; this set does not create it.
-        renders: managed_identities.user_assigned_resource_ids / managedIdentities.userAssignedResourceIds
 
       - id: entra_admins
         ask:
@@ -470,7 +448,6 @@ groups:
           administrators an audit trail of their own. Unlike SQL Database, a PostgreSQL
           server takes several. No answer is an `open:` entry owned by the engineer,
           blocking apply.
-        renders: ad_administrator { object_id, principal_name, principal_type, tenant_id } / administrators[] { objectId, principalName, principalType, tenantId }
 
       - id: database_roles
         ask:
@@ -492,9 +469,6 @@ groups:
           blocking apply. Each entry is an identity and a privilege, the least first
           (`CONNECT`, `SELECT`, never superuser-like roles). A pattern fills this from the
           consumers it knows.
-        renders: >
-          not the module and not Azure Resource Manager - a SQL step after the deployment
-          (the deployment's pipeline, or a deployment script), recorded as such in the spec
 
       - id: role_assignments
         ask:
@@ -510,7 +484,6 @@ groups:
           Azure RBAC on the server - the control plane: scaling, restarting, changing
           parameters. Separate from the database roles on purpose, and usually the
           deploying principal's alone, so empty is a normal answer.
-        renders: role_assignments / roleAssignments
 
   # ----------------------------------------------------------------- security
   - id: security
@@ -527,7 +500,7 @@ groups:
         plain_values:
           true: { en: "switched off", de: "abgeschaltet" }
           false: { en: "possible", de: "möglich" }
-        answer: { deployment: local_auth }
+        answer: { deployment: local_auth, map: { disabled: true, allowed_where_unavoidable: true } }
         why: >
           Inherited: `local_auth: disabled` renders as Entra authentication on and password
           authentication off. A database password does not expire, is shared, and is not
@@ -535,9 +508,6 @@ groups:
           so there is no secret to leak or rotate. The Terraform module's default leaves
           the provider's - password on - and the Bicep module's is Entra on and password
           off; the block is written on every call.
-        renders: >
-          authentication { active_directory_auth_enabled = true, password_auth_enabled = false, tenant_id } /
-          authConfig { activeDirectoryAuth: 'Enabled', passwordAuth: 'Disabled', tenantId }
 
       - id: minimum_tls_version
         ask:
@@ -554,7 +524,6 @@ groups:
           Encryption in transit is not a decision: `require_secure_transport` is always
           `on`, and the minimum protocol is the server parameter `ssl_min_protocol_version`,
           a configuration the modules accept as a map of name and value.
-        renders: server_configuration `ssl_min_protocol_version` and `require_secure_transport` / configurations[]
 
       - id: key_management
         ask:
@@ -575,7 +544,6 @@ groups:
           in a Key Vault with purge protection, an identity that can wrap and unwrap it, and
           a rotation story. **It is set at creation and cannot be removed**, and a server
           that loses access to the key becomes inaccessible.
-        renders: customer_managed_key / customerManagedKey
 
       - id: cmk_key_vault_key_id
         ask:
@@ -594,7 +562,6 @@ groups:
           server's user-assigned identity must hold `Key Vault Crypto Service Encryption
           User` on it before the server is created - an ordering that bites the first
           attempt. Geo-redundant backups need a key in the paired region's vault as well.
-        renders: customer_managed_key { key_vault_key_id, primary_user_assigned_identity_id } / customerManagedKey { keyVaultResourceId, keyName, autoRotationEnabled }
 
       - id: threat_protection
         ask:
@@ -614,7 +581,6 @@ groups:
           setting here is what binds this server to it, and an alert needs both.
           Security-shaped, so every stage has it. It costs per server per month once the
           plan is on.
-        renders: an authored `advancedThreatProtectionSettings` child (no input in the Terraform module) / enableAdvancedThreatProtection
 
   # ---------------------------------------------------------- data protection
   - id: data_protection
@@ -641,7 +607,6 @@ groups:
           decision document names the gap rather than pretending. `reproducible` still
           gets 7: shorter retention saves almost nothing. The retention can be changed in
           place, and the backups are kept by the platform outside the server.
-        renders: backup_retention_days / backupRetentionDays
 
       - id: geo_redundant_backup
         ask:
@@ -668,7 +633,6 @@ groups:
           at creation** and cannot be changed. The Bicep module defaults to `Enabled` and the
           Terraform one to the provider's `false`, so a deployment taking the module
           default gets a different answer per target - which is why it is written.
-        renders: geo_redundant_backup_enabled / geoRedundantBackup
 
   # ------------------------------------------------------------ observability
   - id: observability
@@ -690,7 +654,6 @@ groups:
           Inherited: one deployment, one destination. Without a diagnostic setting the
           server keeps no record of its sessions and errors beyond what the portal shows
           for a short while.
-        renders: diagnostic_settings / diagnosticSettings
 
       - id: diagnostic_categories
         ask:
@@ -718,7 +681,6 @@ groups:
           category names are the platform's and are checked against `az monitor
           diagnostic-settings categories list --resource <server id>` before a render, not
           remembered.
-        renders: diagnostic_settings.<key>.log_categories / diagnosticSettings[].logCategoriesAndGroups[].category
 
       - id: metrics_enabled
         ask:
@@ -735,4 +697,3 @@ groups:
         why: >
           CPU, memory, storage use and connection counts decide whether the compute size
           was right and warn before the disk fills, and they are cheap.
-        renders: diagnostic_settings.<key>.metric_categories = ["AllMetrics"] / diagnosticSettings[].metricCategories[].category = "AllMetrics"

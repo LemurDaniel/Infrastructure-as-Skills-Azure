@@ -23,14 +23,13 @@ on every deployment. A placeholder is rendered authored, with `@onlyIfNotExists(
 
 ### Decision -> module parameter
 
+What each decision renders to - the parameter and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.
+
+### Parameters no decision covers
+
 | Decision | Parameter | Note |
 |---|---|---|
-| `key_vault` | `keyVaultName` | The vault, by name, in the same resource group |
 | name | `name` | |
-| `content_type` | `contentType` | A `securestring` in the module |
-| `expiry_days` | `attributesExp` | Epoch seconds, see below |
-| `value_source: secure_input` | `value` | A `@secure()` parameter of the root, from the pipeline's secret store. Required |
-| `role_assignments` | `roleAssignments: [ { roleDefinitionIdOrName, principalId, principalType } ]` | Scoped to the secret |
 | `context.tags` | `tags` | |
 | `deployment.module_telemetry` | `enableTelemetry` | |
 
@@ -122,10 +121,4 @@ recalled, and the placeholder resources are matched by that. The secure value is
 The fallback. A `Microsoft.KeyVault/vaults/secrets` child of the vault; the placeholder block above
 is already the authored form.
 
-| Decision | Property |
-|---|---|
-| `content_type` | `properties.contentType` |
-| `expiry_days` | `properties.attributes.exp` (epoch seconds) |
-| `value_source: secure_input` | `properties.value`, from a `@secure()` parameter |
-| `value_source: placeholder` | `properties.value` as above, with `@onlyIfNotExists()` |
-| `role_assignments` | `Microsoft.Authorization/roleAssignments` with `scope` set to the secret |
+What each decision renders to - the property and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.

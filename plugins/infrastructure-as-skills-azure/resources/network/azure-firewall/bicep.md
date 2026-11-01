@@ -29,21 +29,13 @@ their names, zones and count follow the decisions.
 
 ### Decision -> module parameter
 
+What each decision renders to - the parameter and the literal of every answer - is in
+[render-map.yaml](render-map.yaml); the render digest prints it for a spec.
+
+### Deployment-wide parameters
+
 | Decision | Parameter | Note |
 |---|---|---|
-| `sku_tier` | firewall `azureSkuTier`, policy `tier` | `'Basic'` / `'Standard'` / `'Premium'`, the same on both; module default `'Standard'` - written |
-| `zone_redundant` | firewall `availabilityZones`; public IP `availabilityZones` | `[1, 2, 3]` or `[]`; module default all three |
-| `firewall_subnet` | firewall `virtualNetworkResourceId` | The vnet; the module looks up `AzureFirewallSubnet` |
-| `public_ip_count` | firewall `publicIPResourceID` (the first) and `additionalPublicIpConfigurations: [ { name, properties: { publicIPAddress: { id } } } ]` | One public IP module call per address |
-| `forced_tunneling`, `management_subnet` | firewall `enableManagementNic: true` and `managementIPAddressObject` | The vnet needs `AzureFirewallManagementSubnet`; module default `false` - written |
-| `dns_proxy`, `dns_servers` | policy `enableProxy`, `servers` | |
-| `snat_private_ranges` | policy `snat: { autoLearnPrivateRanges, privateRanges }` | `autoLearnPrivateRanges` is required in the object: `'Disabled'` |
-| `threat_intelligence_mode` | policy `threatIntelMode` | `'Off'` / `'Alert'` / `'Deny'`; module default `'Deny'` - written |
-| `idps_mode` | policy `intrusionDetection: { mode }` | Premium only |
-| `tls_inspection`, `tls_certificate_secret_id` | policy `certificateName`, `keyVaultSecretId` | Premium only |
-| `policy_identity`, `user_assigned_identity_ids` | policy `managedIdentities: { userAssignedResourceIds }` | |
-| `rule_collection_groups` | policy `ruleCollectionGroups`, or the child module `firewall-policy/rule-collection-group` | Wiring: filled by the pattern or the platform |
-| `diagnostic_*`, `metrics_enabled` | firewall `diagnosticSettings: [ { workspaceResourceId, logAnalyticsDestinationType: 'Dedicated', logCategoriesAndGroups: [ { category } ], metricCategories: [ { category: 'AllMetrics' } ] } ]` | |
 | `deployment.module_telemetry` | `enableTelemetry` | On every module |
 | `context.tags` | `tags` | |
 
@@ -154,7 +146,7 @@ spokes' route tables and DNS settings point at.
 ### Tests
 
 A module call compiles to a nested deployment whose `properties.parameters.<param>.value` is the
-decision, so every decision above is observable in `tests/*.armtest.yaml`
+decision, so every decision in render-map.yaml is observable in `tests/*.armtest.yaml`
 ([bicep-idiom.md](../../../core/iac-rendering/references/bicep-idiom.md#tests)). The policy and each
 public IP are their own nested deployments; the loop compiles to a `copy` whose expression text names
 the literal.
@@ -162,16 +154,7 @@ the literal.
 ## Authored rendering
 
 The fallback. `Microsoft.Network/azureFirewalls` with `properties`, `Microsoft.Network/firewallPolicies`
-and `Microsoft.Network/publicIPAddresses`:
+and `Microsoft.Network/publicIPAddresses`.
 
-| Decision | Property |
-|---|---|
-| `sku_tier`, `zone_redundant` | firewall `properties.sku: { name: 'AZFW_VNet', tier }` and `zones`; policy `properties.sku.tier` |
-| `firewall_subnet`, `public_ip_count` | `properties.ipConfigurations[]: { name, properties: { subnet: { id }, publicIPAddress: { id } } }` - the subnet on the first entry only |
-| `forced_tunneling` | `properties.managementIpConfiguration: { name, properties: { subnet: { id }, publicIPAddress: { id } } }` |
-| `dns_proxy`, `dns_servers` | policy `properties.dnsSettings: { enableProxy, servers }` |
-| `snat_private_ranges` | policy `properties.snat: { privateRanges, autoLearnPrivateRanges }` |
-| `threat_intelligence_mode` | policy `properties.threatIntelMode` |
-| `idps_mode` | policy `properties.intrusionDetection: { mode }` |
-| `tls_inspection` | policy `properties.transportSecurity.certificateAuthority: { name, keyVaultSecretId }` and `identity` |
-| `rule_collection_groups` | `Microsoft.Network/firewallPolicies/ruleCollectionGroups` |
+What each decision renders to - the property and the literal of every answer - is in
+[render-map.yaml](render-map.yaml); the render digest prints it for a spec.

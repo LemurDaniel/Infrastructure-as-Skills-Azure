@@ -20,29 +20,10 @@ associations (`azurerm_monitor_data_collection_rule_association`), which neither
 
 ### Decision -> module input
 
+What each decision renders to - the input and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.
+
 | Decision | Input | Note |
 |---|---|---|
-| `resource_group_name` | `parent_id` (both modules) | The group's **id** |
-| `kind` | `kind` | **`Linux` / `Windows` only** - the module validates the input. `AgentDirectToStore`, `Direct` and `WorkspaceTransforms` render authored (`azurerm_monitor_data_collection_rule`, below) and the spec records `implementation: authored`, `source: { forced_by: avm-res-insights-datacollectionrule kind validation }` |
-| `performance_counter_set`, `custom_performance_counters` | `data_sources.performance_counters[].counter_specifiers` | The set resolves to the OS dialect in a `local` |
-| `performance_sampling_seconds` | `data_sources.performance_counters[].sampling_frequency_in_seconds` | |
-| `syslog_facilities`, `syslog_min_level` | `data_sources.syslog[]` (two entries: general at the floor, `auth`/`authpriv` at `Info`) | Linux |
-| `windows_event_logs`, `windows_security_events` | `data_sources.windows_event_logs[].x_path_queries` | Windows |
-| `iis_logs` | `data_sources.iis_logs[]` | Windows; needs the endpoint |
-| `custom_text_logs` | `data_sources.log_files[] { file_patterns, format = "text", streams, settings.text.record_start_timestamp_format }` + `stream_declarations` | Needs the endpoint |
-| `extensions` | `data_sources.extensions[]` (`DependencyAgent`, `ContainerInsights`), `data_sources.prometheus_forwarder[]` | Settings from `dcr/<extension>.json` |
-| `stream_declarations` | `stream_declarations = { "Custom-X_CL" = { columns } }` | Columns from `dcr/<stream>.json` (`jsondecode(file(...))`) |
-| `transformations` | `data_flows[].transform_kql = file(...)`, `.output_stream` | |
-| `workspace` | `destinations.log_analytics[] { name, workspace_resource_id }` | |
-| `azure_monitor_metrics` | `destinations.azure_monitor_metrics { name }` + a data flow on `Microsoft-InsightsMetrics` | |
-| `archive_to_storage`, `storage_account` | `destinations.storage_blobs_direct[] { name, storage_account_resource_id, container_name }` | `AgentDirectToStore` |
-| `forward_to_event_hub`, `event_hub` | `destinations.event_hubs_direct[] { name, event_hub_resource_id }` | `AgentDirectToStore` |
-| `endpoint`, `endpoint_id` | `data_collection_endpoint_id` | `create`: the endpoint module's `resource_id`; `reference`: the id; `none`: `null` |
-| `endpoint_public_access` | endpoint module `public_network_access` | **String**; module default `Enabled`, the Bicep module `Disabled` |
-| `private_link_scope` | not carried by either module; authored `azapi_resource` of type `Microsoft.Insights/privateLinkScopes/scopedResources` in the root | |
-| `associations` | not carried by either module; `azurerm_monitor_data_collection_rule_association` per machine, plus one named `configurationAccessEndpoint` when there is an endpoint | |
-| `managed_identity`, `user_assigned_identity_id` | `managed_identities = { system_assigned, user_assigned_resource_ids }` | |
-| `diagnostic_workspace`, `diagnostic_categories` | `diagnostic_settings = { <k> = { workspace_resource_id, log_categories, log_groups = [], metric_categories = [] } }` | No metrics on the type |
 | `deployment.resource_lock` | `lock = { kind = "CanNotDelete" }` | |
 | `deployment.module_telemetry` | `enable_telemetry` | |
 | `context.tags` | `tags = local.tags` | |
@@ -195,21 +176,4 @@ resources and `target_resource_id` / `name == "configurationAccessEndpoint"` are
 
 The fallback. Targets `azurerm` **5.x**; check against `terraform providers schema -json`.
 
-| Decision | Argument |
-|---|---|
-| `kind` | `azurerm_monitor_data_collection_rule.kind` |
-| `performance_counter_set`, `custom_performance_counters`, `performance_sampling_seconds` | `data_sources { performance_counter { name, streams, sampling_frequency_in_seconds, counter_specifiers } }` |
-| `syslog_facilities`, `syslog_min_level` | `data_sources.syslog { name, streams, facility_names, log_levels }` |
-| `windows_event_logs`, `windows_security_events` | `data_sources.windows_event_log { name, streams, x_path_queries }` |
-| `iis_logs` | `data_sources.iis_log { name, streams, log_directories }` |
-| `custom_text_logs` | `data_sources.log_file { name, streams, file_patterns, format, settings { text { record_start_timestamp_format } } }` + `stream_declaration { stream_name, column { name, type } }` |
-| `extensions` | `data_sources.extension { }`, `data_sources.prometheus_forwarder { }` |
-| `transformations` | `data_flow { streams, destinations, transform_kql, output_stream }` |
-| `workspace` | `destinations { log_analytics { name, workspace_resource_id } }` |
-| `azure_monitor_metrics` | `destinations.azure_monitor_metrics { name }` |
-| `archive_to_storage`, `storage_account` | `destinations.storage_blob_direct { name, storage_account_id, container_name }` |
-| `forward_to_event_hub`, `event_hub` | `destinations.event_hub_direct { name, event_hub_id }` |
-| `endpoint` | `data_collection_endpoint_id`; the endpoint is `azurerm_monitor_data_collection_endpoint { kind, public_network_access_enabled }` (a **bool** on the resource) |
-| `managed_identity` | `identity { type, identity_ids }` |
-| `associations` | `azurerm_monitor_data_collection_rule_association` as above |
-| `diagnostic_*` | `azurerm_monitor_diagnostic_setting` with `enabled_log { category }` |
+What each decision renders to - the argument and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.

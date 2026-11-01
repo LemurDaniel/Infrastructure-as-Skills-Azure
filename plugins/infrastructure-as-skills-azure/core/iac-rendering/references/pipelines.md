@@ -93,9 +93,10 @@ reports as "not checkable" instead of passing them.
     values. The stage chain then holds every stage
     behind it: nothing rolls out while a stage in front of it is open, which is what the
     decision document tells the customer ("Solange diese Punkte offen sind, wird nichts
-    ausgerollt"). The check is the same one line on every platform:
-    `grep -Eq '00000000-0000-0000-0000-000000000000|OPEN-|ASSUMED:'`. A resolved stage whose file
-    still holds a marker fails it too, which is the point - and the grep reads comments as
+    ausgerollt"). The check is the same pattern on every platform:
+    `Select-String -Pattern '00000000-0000-0000-0000-000000000000|OPEN-|ASSUMED:' -Quiet`
+    (`grep -Eq` with the same pattern on GitLab). A resolved stage whose file
+    still holds a marker fails it too, which is the point - and the search reads comments as
     well, so a resolved stage's file must not spell either marker out, not even to explain
     the convention (a staging file once did, and would have refused itself).
 12. **A plan that deletes a resource group does not reach apply.** Terraform only: after the
@@ -106,15 +107,23 @@ reports as "not checkable" instead of passing them.
     scrolls past one line in a long plan is not a safeguard; a deliberate teardown is done by
     hand, outside the pipeline, after the production lock is removed on purpose. Bicep
     deploys incrementally and never deletes: dropping a group from the spec leaves it
-    behind, orphaned, and the hand-over says so. The step needs `jq` (or PowerShell in the
-    local script); verify the `azapi_resource` branch against the AVM resource group
-    module's plan before relying on it.
+    behind, orphaned, and the hand-over says so. The step reads the plan with
+    `ConvertFrom-Json` (`jq` on GitLab); verify the `azapi_resource` branch against the AVM
+    resource group module's plan before relying on it.
 
 13. **The deployment command matches `deployment_scope`.** Bicep only: `resource_group` deploys
     with `az deployment group` into the stage's group (the main group, or the first group of a
     split), `subscription` with `az deployment sub` and `--location`, the root at
     `targetScope = 'subscription'` creating its groups. Both what-if and create use the same
     command; a root at one scope deployed with the other fails at the first run.
+14. **The shell is PowerShell 7.** GitHub: `defaults.run.shell: pwsh` in every workflow, no
+    step on another shell. Azure DevOps: `pwsh:` steps, never `bash:`, `script:` or
+    `powershell:` (Windows PowerShell 5.1), and `AzureCLI@2` with `scriptType: pscore`. Both
+    hosted Ubuntu images ship pwsh, the local script is PowerShell already, and JSON is read
+    with `ConvertFrom-Json` instead of `jq`. pwsh stops on a cmdlet error but not on a native
+    command's exit code: a step that runs more than one `terraform` or `az` command checks
+    `$LASTEXITCODE` after each one whose failure must stop it. GitLab is the exception: its
+    job images (`hashicorp/terraform`, `azure-cli`) carry no pwsh, so its scripts stay `sh`.
 
 ## What the render hands over besides the files
 

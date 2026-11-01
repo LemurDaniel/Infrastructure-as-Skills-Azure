@@ -264,7 +264,7 @@ AVM render (a storage account on a referenced platform, storage module v0.10.0, 
 - **Mock `azapi` and `modtm` as the platform is mocked.** `mock_provider "azapi" {}` and
   `mock_provider "modtm" {}` beside the `azurerm` mock; the naming provider stays real.
   The root's `data "azurerm_resource_group"` (the module's `parent_id`) needs a mocked
-  id that parses, like the other platform data sources.
+  id that parses, as the platform's id variables get one in the test's `variables`.
 - **Assert through the module's `resource` output.** It is the `azapi_resource` the
   module creates, and its `body` is what the root passed in, so it is known at plan
   time. What a plan observes there: `body.sku.name`, every `body.properties.*` the

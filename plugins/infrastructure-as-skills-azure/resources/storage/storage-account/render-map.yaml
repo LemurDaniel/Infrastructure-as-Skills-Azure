@@ -1,0 +1,346 @@
+# What each decision of questions.yaml renders to, per target and implementation.
+# Format: core/iac-rendering/references/render-map.md. The call, the authored blocks and the
+# tests are in terraform.md and bicep.md.
+schema_version: 1
+resource: Microsoft.Storage/storageAccounts
+
+modules:
+  terraform: [Azure/avm-res-storage-storageaccount/azurerm]
+  bicep: [avm/res/storage/storage-account]
+
+decisions:
+
+  # ---------------------------------------------------------------- placement
+  placement.environments:
+    not_rendered: naming parameter `environment` and the tag of that name; no attribute of the account
+  placement.location:
+    terraform_avm: { attribute: location, passthrough: true }
+    terraform: { attribute: location, passthrough: true }
+    bicep_avm: { attribute: location, passthrough: true }
+    bicep: { attribute: location, passthrough: true }
+  placement.resource_group_name:
+    terraform_avm:
+      attribute: parent_id
+      note: the group's id (data.azurerm_resource_group), not its name - AzAPI-based module
+    terraform: { attribute: resource_group_name }
+    bicep_avm: { gap: the deployment's resource group scope; no parameter }
+    bicep: { gap: the deployment's resource group scope; no property }
+
+  # --------------------------------------------------------------- networking
+  networking.public_network_access:
+    terraform_avm:
+      attribute: public_network_access_enabled
+      values: { disabled: false, enabled_with_firewall: true, enabled: true }
+      also:
+        enabled_with_firewall: 'network_rules = { default_action = "Deny" }'
+        enabled: 'network_rules = { default_action = "Allow" }'
+      note: a bool on the module, unlike the provider's string; comment the decision key above it
+    terraform:
+      attribute: public_network_access
+      values: { disabled: Disabled, enabled_with_firewall: Enabled, enabled: Enabled }
+      also:
+        enabled_with_firewall: network_rules.default_action = "Deny"
+        enabled: network_rules.default_action = "Allow"
+    bicep_avm:
+      attribute: publicNetworkAccess
+      values: { disabled: Disabled, enabled_with_firewall: Enabled, enabled: Enabled }
+      also:
+        enabled_with_firewall: "networkAcls: { defaultAction: 'Deny' }"
+        enabled: "networkAcls: { defaultAction: 'Allow' }"
+      note: unset, the module picks Disabled only with endpoints and no networkAcls - always write it
+    bicep:
+      attribute: properties.publicNetworkAccess
+      values: { disabled: Disabled, enabled_with_firewall: Enabled, enabled: Enabled }
+      also:
+        enabled_with_firewall: "properties.networkAcls.defaultAction: 'Deny'"
+        enabled: "properties.networkAcls.defaultAction: 'Allow'"
+  networking.private_endpoint_subnet:
+    terraform_avm: { attribute: 'private_endpoints.<sub>.subnet_resource_id' }
+    terraform: { attribute: azurerm_private_endpoint.subnet_id }
+    bicep_avm: { attribute: 'privateEndpoints[].subnetResourceId' }
+    bicep: { attribute: Microsoft.Network/privateEndpoints properties.subnet.id }
+  networking.private_endpoint_subresources:
+    terraform_avm:
+      attribute: 'private_endpoints.<sub>.subresource_name'
+      note: one map entry per sub-resource, named with the naming provider's subname parameter
+    terraform: { attribute: azurerm_private_endpoint.private_service_connection.subresource_names }
+    bicep_avm:
+      attribute: 'privateEndpoints[].service'
+      note: one entry per sub-resource; the name from the vars with the sub-resource before the index
+    bicep: { attribute: 'Microsoft.Network/privateEndpoints properties.privateLinkServiceConnections[].properties.groupIds' }
+  networking.firewall_ip_rules:
+    terraform_avm: { attribute: network_rules.ip_rules }
+    terraform: { attribute: network_rules.ip_rules }
+    bicep_avm:
+      attribute: networkAcls.ipRules
+      format: { expr: "[for ip in {value}: { action: 'Allow', value: ip }]" }
+      note: one object per address (source module README 0.33.1, usage example)
+    bicep:
+      attribute: properties.networkAcls.ipRules
+      format: { expr: "[for ip in {value}: { value: ip, action: 'Allow' }]" }
+      note: one object per address (source bicep build, Microsoft.Storage/storageAccounts@2023-05-01)
+  networking.firewall_subnet_rules:
+    terraform_avm: { attribute: network_rules.virtual_network_subnet_ids }
+    terraform: { attribute: network_rules.virtual_network_subnet_ids }
+    bicep_avm:
+      attribute: networkAcls.virtualNetworkRules
+      format: { expr: "[for s in {value}: { action: 'Allow', id: s }]" }
+      note: one object per subnet (source module README 0.33.1, usage example)
+    bicep:
+      attribute: properties.networkAcls.virtualNetworkRules
+      format: { expr: "[for s in {value}: { id: s, action: 'Allow' }]" }
+      note: one object per subnet (source bicep build, Microsoft.Storage/storageAccounts@2023-05-01)
+  networking.allow_azure_services_bypass:
+    terraform_avm:
+      attribute: network_rules.bypass
+      values: { true: { expr: '["AzureServices"]' }, false: { expr: '["None"]' } }
+      note: the module's network_rules default is already Deny + AzureServices; written anyway
+    terraform:
+      attribute: network_rules.bypass
+      values: { true: { expr: '["AzureServices"]' }, false: { expr: '["None"]' } }
+      note: network_rules is not rendered while public access is disabled
+    bicep_avm:
+      attribute: networkAcls.bypass
+      values: { true: AzureServices, false: None }
+      note: a string, not an array
+    bicep:
+      attribute: properties.networkAcls.bypass
+      values: { true: AzureServices, false: None }
+
+  # ----------------------------------------------------------------- identity
+  identity.managed_identity:
+    terraform_avm:
+      attribute: managed_identities
+      values:
+        system_assigned: { expr: '{ system_assigned = true }' }
+        user_assigned: { expr: '{ user_assigned_resource_ids = {identity.user_assigned_identity_ids} }' }
+        none: { expr: '{}' }
+    terraform:
+      attribute: identity.type
+      values: { system_assigned: SystemAssigned, user_assigned: UserAssigned, none: null }
+      note: none renders no identity block
+    bicep_avm:
+      attribute: managedIdentities
+      values:
+        system_assigned: { expr: '{ systemAssigned: true }' }
+        user_assigned: { expr: '{ userAssignedResourceIds: {identity.user_assigned_identity_ids} }' }
+        none: { expr: '{}' }
+    bicep:
+      attribute: identity.type
+      values: { system_assigned: SystemAssigned, user_assigned: UserAssigned, none: null }
+      note: none renders no identity block
+  identity.user_assigned_identity_ids:
+    terraform_avm: { attribute: managed_identities.user_assigned_resource_ids }
+    terraform: { attribute: identity.identity_ids }
+    bicep_avm: { attribute: managedIdentities.userAssignedResourceIds }
+    bicep:
+      attribute: identity.userAssignedIdentities
+      format: { expr: 'toObject({value}, id => id, id => {})' }
+      note: an object keyed by id, each value empty (source bicep build, Microsoft.Storage/storageAccounts@2023-05-01)
+  identity.role_assignments:
+    terraform_avm:
+      attribute: 'role_assignments.<key> = { role_definition_id_or_name, principal_id }'
+      note: role by name, scoped to the account; container scope is on the containers input
+    terraform: { attribute: azurerm_role_assignment, note: scope = the account's id }
+    bicep_avm:
+      attribute: 'roleAssignments[] = { principalId, roleDefinitionIdOrName, principalType }'
+      note: role by name - the GUID table of the authored render goes away; container scope is on blobServices.containers[].roleAssignments
+    bicep: { attribute: Microsoft.Authorization/roleAssignments, note: scope = the account }
+
+  # ----------------------------------------------------------------- security
+  security.shared_access_key_enabled:
+    terraform_avm: { attribute: shared_access_key_enabled, passthrough: true, note: module default false; written anyway }
+    terraform: { attribute: shared_access_key_enabled, passthrough: true }
+    bicep_avm: { attribute: allowSharedKeyAccess, passthrough: true }
+    bicep: { attribute: properties.allowSharedKeyAccess, passthrough: true }
+  security.min_tls_version:
+    terraform_avm: { attribute: min_tls_version, passthrough: true }
+    terraform: { attribute: min_tls_version, passthrough: true }
+    bicep_avm: { attribute: minimumTlsVersion, passthrough: true }
+    bicep: { attribute: properties.minimumTlsVersion, passthrough: true }
+  security.https_traffic_only:
+    terraform_avm: { attribute: https_traffic_only_enabled, passthrough: true }
+    terraform: { attribute: https_traffic_only_enabled, passthrough: true, note: enable_https_traffic_only before 4.0 }
+    bicep_avm: { attribute: supportsHttpsTrafficOnly, passthrough: true }
+    bicep: { attribute: properties.supportsHttpsTrafficOnly, passthrough: true }
+  security.allow_blob_public_access:
+    terraform_avm: { attribute: allow_nested_items_to_be_public, passthrough: true }
+    terraform: { attribute: allow_nested_items_to_be_public, passthrough: true }
+    bicep_avm: { attribute: allowBlobPublicAccess, passthrough: true }
+    bicep: { attribute: properties.allowBlobPublicAccess, passthrough: true }
+  security.infrastructure_encryption_enabled:
+    terraform_avm:
+      attribute: infrastructure_encryption_enabled
+      passthrough: true
+      note: module default false, the guardrail true - the one input never left to the module; set at creation
+    terraform: { attribute: infrastructure_encryption_enabled, passthrough: true, note: set at creation }
+    bicep_avm: { attribute: requireInfrastructureEncryption, passthrough: true, note: module default true; written anyway }
+    bicep: { attribute: properties.encryption.requireInfrastructureEncryption, passthrough: true }
+  security.key_management:
+    terraform_avm:
+      attribute: customer_managed_key
+      values:
+        platform_managed: null
+        customer_managed: { expr: '{ key_vault_resource_id, key_name, user_assigned_identity = { resource_id } }' }
+      note: applied after creation (azapi_update_resource), so a system-assigned identity works too; the user-assigned one is preferred so the wrap/unwrap grant exists first
+    terraform:
+      attribute: azurerm_storage_account_customer_managed_key
+      values:
+        platform_managed: null
+        customer_managed: { expr: '{ storage_account_id = <storage account id>, key_vault_key_id = {security.cmk_key_vault_key_id}, user_assigned_identity_id = <user-assigned identity id> }' }
+      note: a separate resource after the account; platform_managed renders none (source azurerm 5.12 schema)
+    bicep_avm:
+      attribute: customerManagedKey
+      values:
+        platform_managed: null
+        customer_managed: { expr: '{ keyVaultResourceId: <keyVaultResourceId>, keyName: <keyName>, userAssignedIdentityResourceId: <userAssignedIdentityResourceId> }' }
+    bicep:
+      attribute: properties.encryption.keySource
+      values: { platform_managed: Microsoft.Storage, customer_managed: Microsoft.Keyvault }
+  security.cmk_key_vault_key_id:
+    terraform_avm:
+      attribute: customer_managed_key.key_vault_resource_id, customer_managed_key.key_name
+      note: the key id split into the vault's id and the key's name
+    terraform: { attribute: azurerm_storage_account_customer_managed_key.key_vault_key_id }
+    bicep_avm:
+      attribute: customerManagedKey.keyVaultResourceId, customerManagedKey.keyName
+      note: the key id split into the vault's id and the key's name
+    bicep:
+      attribute: properties.encryption.keyvaultproperties.keyname, properties.encryption.keyvaultproperties.keyvaulturi
+      note: the key split into its name and its vault's uri (source bicep build, Microsoft.Storage/storageAccounts@2023-05-01)
+  security.sftp_enabled:
+    terraform_avm: { attribute: sftp_enabled, passthrough: true, note: requires is_hns_enabled = true }
+    terraform: { attribute: sftp_enabled, passthrough: true, note: requires is_hns_enabled = true }
+    bicep_avm: { attribute: enableSftp, passthrough: true, note: 'requires enableHierarchicalNamespace: true' }
+    bicep: { attribute: properties.isSftpEnabled, passthrough: true, note: 'requires isHnsEnabled: true' }
+
+  # ---------------------------------------------------------- data_protection
+  data_protection.replication:
+    terraform_avm:
+      attribute: account_sku_name
+      format: Standard_{value}
+      note: defaults to Standard_ZRS and overrides account_tier + account_replication_type unless set to null - render the SKU name, leave the pair alone
+    terraform: { attribute: account_replication_type, passthrough: true }
+    bicep_avm:
+      attribute: skuName
+      format: Standard_{value}
+      note: module default Standard_GRS - must be written
+    bicep:
+      attribute: sku.name
+      format: Standard_{value}
+  data_protection.access_tier:
+    terraform_avm: { attribute: access_tier, passthrough: true }
+    terraform: { attribute: access_tier, passthrough: true }
+    bicep_avm: { attribute: accessTier, passthrough: true }
+    bicep: { attribute: properties.accessTier, passthrough: true }
+  data_protection.hierarchical_namespace:
+    terraform_avm: { attribute: is_hns_enabled, passthrough: true, note: set at creation }
+    terraform: { attribute: is_hns_enabled, passthrough: true, note: set at creation }
+    bicep_avm: { attribute: enableHierarchicalNamespace, passthrough: true }
+    bicep: { attribute: properties.isHnsEnabled, passthrough: true }
+  data_protection.blob_soft_delete_days:
+    terraform_avm:
+      attribute: blob_properties.delete_retention_policy.days
+      passthrough: true
+      note: '{ enabled, days }; 0 days renders the block absent, not days = 0'
+    terraform:
+      attribute: blob_properties.delete_retention_policy.days
+      passthrough: true
+      note: 0 days renders the block absent, not days = 0
+    bicep_avm:
+      attribute: blobServices.deleteRetentionPolicyDays
+      passthrough: true
+      note: with deleteRetentionPolicyEnabled; 0 days renders Enabled false. The module default is not the guardrail's - written anyway
+    bicep: { attribute: blobServices/default properties.deleteRetentionPolicy.days, passthrough: true }
+  data_protection.container_soft_delete_days:
+    terraform_avm:
+      attribute: blob_properties.container_delete_retention_policy.days
+      passthrough: true
+      note: '{ enabled, days }; 0 days renders the block absent, not days = 0'
+    terraform:
+      attribute: blob_properties.container_delete_retention_policy.days
+      passthrough: true
+      note: 0 days renders the block absent, not days = 0
+    bicep_avm:
+      attribute: blobServices.containerDeleteRetentionPolicyDays
+      passthrough: true
+      note: with containerDeleteRetentionPolicyEnabled; 0 days renders Enabled false. The module default is not the guardrail's - written anyway
+    bicep: { attribute: blobServices/default properties.containerDeleteRetentionPolicy.days, passthrough: true }
+  data_protection.versioning_enabled:
+    terraform_avm: { attribute: blob_properties.versioning_enabled, passthrough: true }
+    terraform: { attribute: blob_properties.versioning_enabled, passthrough: true }
+    bicep_avm: { attribute: blobServices.isVersioningEnabled, passthrough: true }
+    bicep: { attribute: blobServices/default properties.isVersioningEnabled, passthrough: true }
+  data_protection.change_feed_enabled:
+    terraform_avm: { attribute: blob_properties.change_feed.enabled, passthrough: true }
+    terraform: { attribute: blob_properties.change_feed_enabled, passthrough: true }
+    bicep_avm: { attribute: blobServices.changeFeedEnabled, passthrough: true }
+    bicep: { attribute: blobServices/default properties.changeFeed.enabled, passthrough: true }
+  data_protection.point_in_time_restore_days:
+    terraform_avm:
+      attribute: blob_properties.restore_policy.days
+      passthrough: true
+      note: '{ enabled, days }; 0 days renders the block absent'
+    terraform: { attribute: blob_properties.restore_policy.days, passthrough: true, note: 0 days renders the block absent }
+    bicep_avm:
+      attribute: blobServices.restorePolicyDays
+      passthrough: true
+      note: with restorePolicyEnabled; 0 days renders Enabled false
+    bicep:
+      attribute: blobServices/default properties.restorePolicy.days
+      passthrough: true
+      note: requires isVersioningEnabled and changeFeed.enabled; days below the soft-delete days
+  data_protection.immutability:
+    terraform_avm:
+      gap: >-
+        none and container_level leave immutability_policy out (a container-level policy is on the
+        containers input); account_level needs period_since_creation_in_days and
+        allow_protected_append_writes, which no question answers, and a policy is created Disabled or
+        Unlocked, never Locked (source: module README v0.10.0)
+    terraform:
+      gap: >-
+        none and container_level leave immutability_policy out (asserted as length 0); account_level
+        needs period_since_creation_in_days, allow_protected_append_writes and state, of which no
+        question answers the first two (source: azurerm 5.12 schema)
+    bicep_avm:
+      gap: >-
+        none leaves immutableStorageWithVersioning out; container_level is
+        immutabilityPolicyProperties on the container; account_level - module README 0.33.1 types
+        immutableStorageWithVersioning as a bare object and names no fields
+    bicep:
+      gap: none leaves properties.immutableStorageWithVersioning out (null); account_level - the object's fields are not in the reference
+
+  # ------------------------------------------------------------ observability
+  observability.diagnostic_workspace:
+    terraform_avm:
+      attribute: 'diagnostic_settings_storage_account.<key>.workspace_resource_id'
+      note: the account emits metrics only; diagnostic_settings_blob takes the same workspace for the logs
+    terraform: { attribute: azurerm_monitor_diagnostic_setting.log_analytics_workspace_id }
+    bicep_avm:
+      attribute: 'diagnosticSettings[].workspaceResourceId'
+      note: the account-level parameter is metrics-only; blobServices.diagnosticSettings carries the logs
+    bicep: { attribute: Microsoft.Insights/diagnosticSettings properties.workspaceId }
+  observability.diagnostic_categories:
+    terraform_avm:
+      attribute: 'diagnostic_settings_blob.<key>.logs[].category_group'
+      note: one setting per service with an endpoint in use (_file, _queue, _table)
+    terraform: { attribute: azurerm_monitor_diagnostic_setting.enabled_log.category_group, note: on the blobServices/default target }
+    bicep_avm:
+      attribute: 'blobServices.diagnosticSettings[].logCategoriesAndGroups[].categoryGroup'
+      note: one per service in use (fileServices, queueServices, tableServices)
+    bicep: { attribute: 'Microsoft.Insights/diagnosticSettings properties.logs[].categoryGroup', note: scoped to blobServices/default }
+  observability.metrics_enabled:
+    terraform_avm:
+      attribute: 'diagnostic_settings_storage_account.<key>.metrics'
+      values: { true: { expr: '[{ category = "AllMetrics" }]' }, false: { expr: '[]' } }
+    terraform:
+      attribute: azurerm_monitor_diagnostic_setting.enabled_metric
+      values: { true: { expr: '{ category = "AllMetrics" }' }, false: null }
+      note: a block (azurerm 5.x); false renders no enabled_metric block
+    bicep_avm:
+      attribute: 'diagnosticSettings[].metricCategories'
+      values: { true: { expr: "[ { category: 'AllMetrics' } ]" }, false: { expr: '[]' } }
+    bicep:
+      attribute: 'Microsoft.Insights/diagnosticSettings properties.metrics[].category'
+      values: { true: AllMetrics, false: null }
+      note: false renders no metrics entry

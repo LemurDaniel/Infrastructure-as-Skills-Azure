@@ -19,31 +19,13 @@ module deploys the namespace with API version `2023-12-15-preview`.
 
 ### Decision -> module parameter
 
-| Decision | Parameter | Note |
+What each decision renders to - the parameter and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.
+
+### Parameters no decision covers
+
+| Input | Parameter | Note |
 |---|---|---|
-| `capacity` | **not carried by the module** - no `sku` parameter | The platform's one unit; a larger namespace is an authored `sku: { name: 'Standard', capacity }` |
-| `minimum_tls_version` | **not carried by the module** | The API accepts `1.2` only; authored to write |
-| `local_auth` | no parameter - the type has no switch | Recorded `forced`; no `listKeys`, no key output. Roles only |
-| `zone_redundant` | `isZoneRedundant` | No module default (the platform decides when unset); written. Fixed at creation |
-| `managed_identity`, `user_assigned_identity_ids` | `managedIdentities: { systemAssigned, userAssignedResourceIds }` | |
-| `namespace_topics`, `event_retention_days` | `topics: [ { name, eventRetentionInDays, inputSchema: 'CloudEventSchemaV1_0', eventSubscriptions } ]` | Untyped array; member names from the `topic` child README |
-| `topic_subscriptions`, `delivery_mode` | `topics[].eventSubscriptions[]: { name, eventDeliverySchema, deliveryConfiguration: { deliveryMode: 'Queue' / 'Push', queue / push } }` | |
-| `event_retention_days` (again) | `deliveryConfiguration.queue.eventTimeToLive` | ISO 8601, `'P7D'` |
-| `max_delivery_count` | `deliveryConfiguration.queue.maxDeliveryCount` | Service default 10; written |
-| `receive_lock_duration_seconds` | `deliveryConfiguration.queue.receiveLockDurationInSeconds` | |
-| `keep_undeliverable_events`, `dead_letter_*` | `deliveryConfiguration.<mode>.deadLetterDestinationWithResourceIdentity: { identity, deadLetterDestination: { endpointType: 'StorageBlob', properties: { resourceId, blobContainerName } } }` | The identity form; no key |
-| `mqtt_broker` | `topicSpacesState: 'Enabled'` / `'Disabled'` | Module default `'Disabled'`; written. Cannot be disabled again |
-| `topic_spaces` | `topicSpaces: [ { name, topicTemplates } ]` | |
-| `clients` | `clients: [ { name, authenticationName, attributes, clientCertificateAuthenticationValidationScheme, clientCertificateAuthenticationAllowedThumbprints } ]` | |
-| `client_groups` | `clientGroups: [ { name, query } ]` | |
-| `permission_bindings` | `permissionBindings: [ { name, clientGroupName, topicSpaceName, permission } ]` | By **name**, where the Terraform module takes map keys |
-| `mqtt_routing`, `mqtt_routing_topic` | `routeTopicResourceId`, `routingIdentityInfo: { type: 'SystemAssigned' }` | Two-pass when the topic is created in the same run |
-| `public_network_access` | `publicNetworkAccess: 'Disabled'` / `'Enabled'` | Module default `'Enabled'`; written |
-| `ip_rules` | `inboundIpRules: [ { ipMask, action: 'Allow' } ]` | Used only with public access `Enabled` |
-| `private_endpoint_subnet` | `privateEndpoints: [ { subnetResourceId, service: 'topic' } ]` | |
 | `deployment.private_dns_records: policy` | no `privateDnsZoneGroup` on the endpoint | |
-| `role_assignments` | `roleAssignments: [ { principalId, roleDefinitionIdOrName, principalType } ]` | |
-| `diagnostic_*`, `metrics_enabled` | `diagnosticSettings: [ { workspaceResourceId, logCategoriesAndGroups: [ { category } ], metricCategories: [ { category: 'AllMetrics' } ] } ]` | |
 | `deployment.resource_lock` | `lock: { kind: 'CanNotDelete' }` | In the stages the deployment names |
 | `deployment.module_telemetry` | `enableTelemetry` | |
 | `context.tags` | `tags` | |
@@ -168,13 +150,10 @@ where that path is taken.
 The fallback, and the path for `capacity` above one or an explicit TLS floor.
 `Microsoft.EventGrid/namespaces@2025-02-15` with `sku` and `properties`:
 
-| Decision | Property |
+What each decision renders to - the property and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.
+
+### Properties no decision covers
+
+| Input | Property |
 |---|---|
-| `capacity` | `sku: { name: 'Standard', capacity }` (beside `properties`) |
-| `minimum_tls_version` | `properties.minimumTlsVersionAllowed` |
-| `zone_redundant` | `properties.isZoneRedundant` |
-| `public_network_access`, `ip_rules` | `properties.publicNetworkAccess`, `properties.inboundIpRules` |
-| `managed_identity` | `identity` (top level) |
-| `mqtt_broker`, `mqtt_routing*` | `properties.topicSpacesConfiguration: { state, routeTopicResourceId, routingIdentityInfo }` |
-| `namespace_topics`, `topic_subscriptions` | child `topics` with `properties: { eventRetentionInDays, inputSchema }` and `topics/eventSubscriptions` with `properties.deliveryConfiguration` |
-| MQTT content | child `topicSpaces`, `clients`, `clientGroups`, `permissionBindings`, `caCertificates` |
+| MQTT content without a decision | child `caCertificates` |
