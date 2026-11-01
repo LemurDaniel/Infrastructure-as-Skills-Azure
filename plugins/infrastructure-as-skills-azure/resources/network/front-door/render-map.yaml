@@ -88,6 +88,11 @@ decisions:
       module: avm/res/cdn/profile
       note: member names from the README of the pinned version
     bicep: { attribute: child originGroups and originGroups/origins }
+  delivery.origin_host_names:
+    terraform_avm: { attribute: 'front_door_origins.<k>.host_name', note: 'one origin per host name, in the pattern''s origin group' }
+    terraform: { attribute: azurerm_cdn_frontdoor_origin.host_name }
+    bicep_avm: { attribute: 'originGroups[].origins[].hostName', module: avm/res/cdn/profile }
+    bicep: { attribute: originGroups/origins properties.hostName }
   delivery.origin_connection:
     terraform_avm:
       attribute: 'front_door_origins.<k>.private_link'

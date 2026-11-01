@@ -151,20 +151,36 @@ groups:
     questions:
       - id: origins
         ask:
-          en: "Which backends does Front Door route to?"
-          de: "Zu welchen Backends leitet Front Door weiter?"
+          en: "Which Azure resources does Front Door route to?"
+          de: "Zu welchen Azure-Ressourcen leitet Front Door weiter?"
         type: list
         plain:
           en: "Backends: {value}."
           de: "Backends: {value}."
+        accepts: { ref: resource }
+        default: []
+        why: >
+          Each entry is a backend in Azure: a resource of the deployment (an App Service, a
+          storage account's static website, an Application Gateway) or an existing one by its
+          id. A profile with no origin serves nothing, a valid first state. Origin groups,
+          health probes and routes are the wiring to the services behind and belong to the
+          pattern. A backend outside Azure is a host name, in origin_host_names.
+
+      - id: origin_host_names
+        ask:
+          en: "Which backends outside Azure does Front Door route to, by host name?"
+          de: "Zu welchen Backends außerhalb von Azure leitet Front Door weiter, per Hostname?"
+        type: list
+        plain:
+          en: "Backends outside Azure: {value}."
+          de: "Backends außerhalb von Azure: {value}."
         default: []
         per_environment: true
         why: >
-          Each entry is a backend of the deployment (an App Service, a storage account's
-          static website, an Application Gateway) or a host name, with the route pattern it
-          serves. A profile with no origin serves nothing, a valid first state. Origin
-          groups, health probes and routes are the wiring to the services behind and belong
-          to the pattern.
+          A host name (`api.partner.example`) is no Azure resource and has no id, so it is not
+          a reference: it is a value per stage, since a partner's test and production
+          endpoints differ. Such an origin cannot take a private endpoint, which forces
+          `origin_connection: public` for it.
 
       - id: origin_connection
         ask:
