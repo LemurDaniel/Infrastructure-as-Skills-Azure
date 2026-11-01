@@ -80,7 +80,7 @@ groups:
         plain:
           en: "Reports what happens to {value}."
           de: "Meldet, was mit {value} geschieht."
-        accepts: { ref: azure_resource }
+        accepts: { ref: resource }
         required: true
         per_environment: true
         why: >

@@ -75,7 +75,7 @@ groups:
           en: "Which resource, group, subscription or management group?"
           de: "Welche Ressource, Gruppe, Subscription oder Management Group?"
         type: string
-        accepts: { ref: azure_resource }
+        accepts: { ref: resource }
         plain:
           en: "Granted on {value}."
           de: "Vergeben auf {value}."
