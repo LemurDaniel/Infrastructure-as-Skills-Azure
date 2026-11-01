@@ -50,7 +50,7 @@ decisions:
     terraform_avm:
       attribute: 'frontend_ip_configurations.<k>.zones'
       values: { true: { expr: '["1", "2", "3"]' }, false: { expr: '["None"]' } }
-      note: a list of strings; ["None"] omits them; the created public IP takes the same
+      note: 'a list of strings; ["None"] omits them; with create_public_ip_address the frontend''s zones become null and only the created public IP takes them (module v0.5.0 main.tf)'
     terraform:
       attribute: azurerm_lb.frontend_ip_configuration.zones
       values: { true: { expr: '["1", "2", "3"]' }, false: null }
@@ -108,7 +108,7 @@ decisions:
       note: module default Dynamic - written
     terraform: { attribute: azurerm_lb.frontend_ip_configuration.private_ip_address_allocation, passthrough: true }
     bicep_avm:
-      gap: no allocation parameter - Static is frontendIPConfigurations[].privateIPAddress set (private_ip_address), Dynamic leaves it unset
+      gap: module README 0.8.0 has no allocation parameter - main.bicep derives Static from frontendIPConfigurations[].privateIPAddress set (private_ip_address), Dynamic from it unset
     bicep: { attribute: 'properties.frontendIPConfigurations[].properties.privateIPAllocationMethod', passthrough: true }
   networking.private_ip_address:
     terraform_avm: { attribute: 'frontend_ip_configurations.<k>.frontend_private_ip_address', passthrough: true }
@@ -117,7 +117,7 @@ decisions:
     bicep: { attribute: 'properties.frontendIPConfigurations[].properties.privateIPAddress', passthrough: true }
   networking.public_ip_zone_redundant:
     terraform_avm:
-      gap: 'no separate input - the created address takes the frontend zones (balancer.zone_redundant); public_ip_address_configuration = { allocation_method = "Static", sku = "Standard", sku_tier = "Regional" }, ddos_protection_mode = "VirtualNetworkInherited" the default'
+      gap: 'module README v0.5.0 has no separate input - frontend_ip_configurations.<k>.zones zones the created address (balancer.zone_redundant); public_ip_address_configuration = { allocation_method = "Static", sku = "Standard", sku_tier = "Regional" }, ddos_protection_mode = "VirtualNetworkInherited" the default'
     terraform:
       attribute: azurerm_public_ip.zones
       values: { true: { expr: '["1", "2", "3"]' }, false: null }
@@ -222,7 +222,7 @@ decisions:
       note: log_categories = [] and log_groups = [] - log_groups defaults to ["allLogs"]
     terraform: { attribute: azurerm_monitor_diagnostic_setting.log_analytics_workspace_id }
     bicep_avm: { attribute: 'diagnosticSettings[].workspaceResourceId' }
-    bicep: { gap: bicep.md names no authored diagnostic setting }
+    bicep: { attribute: Microsoft.Insights/diagnosticSettings properties.workspaceId, note: 'an extension resource with scope: the load balancer (source: bicep build, Microsoft.Insights/diagnosticSettings@2021-05-01-preview)' }
   observability.metrics_enabled:
     terraform_avm:
       attribute: 'diagnostic_settings.<key>.metric_categories'
@@ -234,4 +234,7 @@ decisions:
     bicep_avm:
       attribute: 'diagnosticSettings[].metricCategories'
       values: { true: { expr: "[ { category: 'AllMetrics' } ]" }, false: { expr: '[]' } }
-    bicep: { gap: bicep.md names no authored diagnostic setting }
+    bicep:
+      attribute: 'Microsoft.Insights/diagnosticSettings properties.metrics[].category'
+      values: { true: AllMetrics, false: null }
+      note: 'with enabled: true; false renders no metrics entry (source: bicep build, Microsoft.Insights/diagnosticSettings@2021-05-01-preview)'

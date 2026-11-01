@@ -166,7 +166,7 @@ decisions:
       note: the portal endpoint is an authored azurerm_private_endpoint with the same subnet_id
     terraform: { attribute: azurerm_private_endpoint.subnet_id }
     bicep_avm: { attribute: 'privateEndpoints[].subnetResourceId' }
-    bicep: { gap: the authored rendering names Microsoft.Network/privateEndpoints but no subnet property }
+    bicep: { attribute: Microsoft.Network/privateEndpoints properties.subnet.id, note: "one endpoint per sub-resource (source: bicep build, Microsoft.Network/privateEndpoints@2025-01-01)" }
   networking.private_endpoint_subresources:
     terraform_avm:
       gap: 'the module fixes the sub-resource dataFactory (private_endpoints.dataFactory); portal in the list is an authored azurerm_private_endpoint with subresource_names = ["portal"]'
@@ -188,18 +188,27 @@ decisions:
         system_assigned: { expr: '{ system_assigned = true }' }
         user_assigned: { expr: '{ system_assigned = true, user_assigned_resource_ids = {identity.user_assigned_identity_ids} }' }
       note: system-assigned stays on beside user_assigned
-    terraform: { gap: 'the authored rendering names identity { type, identity_ids } but no type literal' }
+    terraform:
+      attribute: identity.type
+      values: { system_assigned: SystemAssigned, user_assigned: 'SystemAssigned, UserAssigned' }
+      note: "system-assigned stays on beside user_assigned (source: azurerm 5.12 docs)"
     bicep_avm:
       attribute: managedIdentities
       values:
         system_assigned: { expr: '{ systemAssigned: true }' }
         user_assigned: { expr: '{ systemAssigned: true, userAssignedResourceIds: {identity.user_assigned_identity_ids} }' }
-    bicep: { gap: 'the authored rendering names identity { type, userAssignedIdentities } but no type literal' }
+    bicep:
+      attribute: identity.type
+      values: { system_assigned: SystemAssigned, user_assigned: 'SystemAssigned,UserAssigned' }
+      note: "no space after the comma, unlike Terraform (source: bicep build, Microsoft.DataFactory/factories@2018-06-01)"
   identity.user_assigned_identity_ids:
     terraform_avm: { attribute: managed_identities.user_assigned_resource_ids }
     terraform: { attribute: identity.identity_ids }
     bicep_avm: { attribute: managedIdentities.userAssignedResourceIds }
-    bicep: { gap: the authored rendering names identity.userAssignedIdentities but not its shape - ARM keys it by id while the answer is a list }
+    bicep:
+      attribute: identity.userAssignedIdentities
+      format: { expr: 'toObject({value}, id => id, id => {})' }
+      note: "an object keyed by id, built from the list (source: bicep build, Microsoft.DataFactory/factories@2018-06-01)"
   identity.source_access:
     not_rendered: role assignments on each source with the factory's principal id - rendered beside the source; not an input of either module
   identity.role_assignments:
@@ -247,9 +256,9 @@ decisions:
     terraform_avm:
       attribute: 'diagnostic_settings.<key>.workspace_resource_id'
       note: with log_analytics_destination_type = "Dedicated"
-    terraform: { gap: the authored rendering names azurerm_monitor_diagnostic_setting but not its workspace argument, note: with log_analytics_destination_type = "Dedicated" }
+    terraform: { attribute: azurerm_monitor_diagnostic_setting.log_analytics_workspace_id, note: "with log_analytics_destination_type = \"Dedicated\" (source: azurerm 5.12 schema)" }
     bicep_avm: { attribute: 'diagnosticSettings[].workspaceResourceId', note: logAnalyticsDestinationType defaults to Dedicated }
-    bicep: { gap: the authored rendering names Microsoft.Insights/diagnosticSettings but not its workspace property, note: "with logAnalyticsDestinationType: 'Dedicated'" }
+    bicep: { attribute: Microsoft.Insights/diagnosticSettings properties.workspaceId, note: "with logAnalyticsDestinationType: 'Dedicated' (source: bicep build, Microsoft.Insights/diagnosticSettings@2021-05-01-preview)" }
   observability.diagnostic_categories:
     terraform_avm:
       attribute: 'diagnostic_settings.<key>.log_categories'

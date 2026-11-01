@@ -47,7 +47,7 @@ decisions:
     bicep: { attribute: properties.maximumThroughputUnits, passthrough: true }
   namespace.minimum_tls_version:
     terraform_avm:
-      gap: no input in this version - the platform default applies; named in the handover, not-testable
+      gap: module README v0.1.1 has no input for the minimum TLS version - the platform default applies; named in the handover, not-testable
     terraform: { attribute: azurerm_eventhub_namespace.minimum_tls_version, passthrough: true }
     bicep_avm: { attribute: minimumTlsVersion, passthrough: true, note: default 1.2 - written }
     bicep: { attribute: properties.minimumTlsVersion, passthrough: true }
@@ -91,7 +91,10 @@ decisions:
     terraform_avm: { attribute: managed_identities.user_assigned_resource_ids }
     terraform: { attribute: azurerm_eventhub_namespace.identity.identity_ids }
     bicep_avm: { attribute: managedIdentities.userAssignedResourceIds }
-    bicep: { gap: identity.userAssignedIdentities is an object keyed by id; the reference shows no shape }
+    bicep:
+      attribute: identity.userAssignedIdentities
+      format: { expr: 'toObject({value}, id => id, id => {})' }
+      note: "an object keyed by each id - type: 'UserAssigned'; bicep.md names no API version, the module's (source: bicep build, Microsoft.EventHub/namespaces@2024-01-01)"
 
   # ----------------------------------------------------------------- entities
   entities.event_hubs:
@@ -113,7 +116,7 @@ decisions:
     bicep: { attribute: eventhubs child properties.messageRetentionInDays, passthrough: true }
   entities.consumer_groups:
     terraform_avm:
-      gap: no input - one azapi_resource of type Microsoft.EventHub/namespaces/eventhubs/consumergroups per name, outside the module
+      gap: module README v0.1.1 has no consumer-group input (event_hubs carries none) - one azapi_resource of type Microsoft.EventHub/namespaces/eventhubs/consumergroups per name, outside the module
     terraform: { attribute: azurerm_eventhub_consumer_group }
     bicep_avm: { attribute: 'eventhubs[].consumergroups[].name' }
     bicep: { attribute: Microsoft.EventHub/namespaces/eventhubs/consumergroups }
@@ -190,7 +193,9 @@ decisions:
         customer_managed: { expr: '{ key_vault_resource_id, key_name, user_assigned_identity = { resource_id } }' }
       note: key version unset - the latest
     terraform:
-      gap: customer_managed renders the separate azurerm_eventhub_namespace_customer_managed_key after the namespace; platform_managed renders nothing. The reference names the resource, not its arguments
+      attribute: azurerm_eventhub_namespace_customer_managed_key.key_vault_key_ids
+      values: { platform_managed: null, customer_managed: { expr: '[{encryption.cmk_key_vault_key_id}]' } }
+      note: 'a separate resource after the namespace, eventhub_namespace_id = the namespace id, user_assigned_identity_id beside it; platform_managed renders none (source: azurerm 5.12 schema, azurerm 5.12 docs)'
     bicep_avm:
       attribute: customerManagedKey
       values:
@@ -205,28 +210,37 @@ decisions:
       attribute: customer_managed_key.key_vault_resource_id, customer_managed_key.key_name
       note: the key id split into the vault's id and the key's name
     terraform:
-      gap: azurerm_eventhub_namespace_customer_managed_key carries the key; the reference names the resource, not its argument
+      attribute: azurerm_eventhub_namespace_customer_managed_key.key_vault_key_ids
+      format: { expr: '[{value}]' }
+      note: 'a set of key ids (source: azurerm 5.12 schema, azurerm 5.12 docs)'
     bicep_avm:
       attribute: customerManagedKey.keyVaultResourceId, customerManagedKey.keyName
       note: the key id split into the vault's id and the key's name
-    bicep: { gap: properties.encryption.keyVaultProperties takes the key's name and vault uri; the reference shows no member names }
+    bicep:
+      attribute: 'properties.encryption.keyVaultProperties[].keyName, properties.encryption.keyVaultProperties[].keyVaultUri'
+      note: "the key id split into the key's name and its vault's uri; identity.userAssignedIdentity beside them (source: bicep build, Microsoft.EventHub/namespaces@2024-01-01)"
   encryption.infrastructure_encryption:
-    terraform_avm: { gap: 'no input - taken from the platform; named in the handover, not-testable' }
-    terraform: { gap: the reference names no argument }
+    terraform_avm: { gap: 'module README v0.1.1 has no input (customer_managed_key has no such member) - taken from the platform; named in the handover, not-testable' }
+    terraform:
+      attribute: azurerm_eventhub_namespace_customer_managed_key.infrastructure_encryption_enabled
+      passthrough: true
+      note: 'on the key resource, so only with customer_managed; forces a new resource (source: azurerm 5.12 schema, azurerm 5.12 docs)'
     bicep_avm: { attribute: requireInfrastructureEncryption, passthrough: true, note: default false - written }
     bicep: { attribute: properties.encryption.requireInfrastructureEncryption, passthrough: true }
 
   # ----------------------------------------------------------------- recovery
   recovery.zone_redundant:
-    terraform_avm: { gap: no input - not-testable }
-    terraform: { gap: the reference names no argument }
+    terraform_avm: { gap: module README v0.1.1 has no zone input - not-testable }
+    terraform: { gap: 'azurerm 5.12 schema has no zone argument on azurerm_eventhub_namespace - the platform default applies' }
     bicep_avm: { attribute: zoneRedundant, passthrough: true, note: module default true - written }
     bicep: { attribute: properties.zoneRedundant, passthrough: true }
   recovery.geo_recovery:
     terraform_avm:
-      gap: no input - an azapi_resource of type Microsoft.EventHub/namespaces/disasterRecoveryConfigs on the primary, outside the module
+      gap: module README v0.1.1 has no input - an azapi_resource of type Microsoft.EventHub/namespaces/disasterRecoveryConfigs on the primary, outside the module
     terraform:
-      gap: paired_namespace renders azurerm_eventhub_namespace_disaster_recovery_config on the primary, none renders none; the reference names the resource, not its arguments
+      attribute: azurerm_eventhub_namespace_disaster_recovery_config.partner_namespace_id
+      values: { none: null, paired_namespace: { expr: '{recovery.partner_namespace}' } }
+      note: 'one resource on the primary - name, namespace_name and resource_group_name of the primary; none renders none (source: azurerm 5.12 schema, azurerm 5.12 docs)'
     bicep_avm:
       attribute: disasterRecoveryConfig
       values:
@@ -234,10 +248,12 @@ decisions:
         paired_namespace: { expr: '{ partnerNamespace: {recovery.partner_namespace}, alternateName: <alternateName> }' }
       note: on the primary only
     bicep:
-      gap: paired_namespace renders the child disasterRecoveryConfigs on the primary, none renders none
+      attribute: Microsoft.EventHub/namespaces/disasterRecoveryConfigs properties.partnerNamespace
+      values: { none: null, paired_namespace: { expr: '{recovery.partner_namespace}' } }
+      note: 'a child of the primary; none renders none (source: bicep build, Microsoft.EventHub/namespaces/disasterRecoveryConfigs@2024-01-01)'
   recovery.partner_namespace:
     terraform_avm:
-      gap: no input - the disasterRecoveryConfigs azapi_resource outside the module carries the partner
+      gap: module README v0.1.1 has no input - the disasterRecoveryConfigs azapi_resource outside the module carries the partner
     terraform: { attribute: azurerm_eventhub_namespace_disaster_recovery_config.partner_namespace_id }
     bicep_avm: { attribute: disasterRecoveryConfig.partnerNamespace }
     bicep: { attribute: disasterRecoveryConfigs child properties.partnerNamespace }

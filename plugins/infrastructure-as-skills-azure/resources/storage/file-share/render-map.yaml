@@ -44,7 +44,7 @@ decisions:
   shares.root_squash:
     terraform_avm: { attribute: 'shares.<key>.root_squash', note: NFS only, passthrough: true }
     terraform:
-      gap: not on azurerm_storage_share; an azapi_update_resource on Microsoft.Storage/storageAccounts/fileServices/shares sets rootSquash
+      gap: not on azurerm_storage_share (source azurerm 5.12 schema); an azapi_update_resource on Microsoft.Storage/storageAccounts/fileServices/shares sets rootSquash
     bicep_avm: { attribute: 'fileServices.shares[].rootSquash', note: NFS only, passthrough: true }
     bicep: { attribute: properties.rootSquash, passthrough: true }
 
@@ -57,4 +57,6 @@ decisions:
       attribute: azurerm_role_assignment
       note: scope = azurerm_storage_share.<k>.rbac_scope_id, not the resource id - the File service's role scope differs
     bicep_avm: { attribute: 'fileServices.shares[].roleAssignments[] = { principalId, roleDefinitionIdOrName, principalType }' }
-    bicep: { gap: reference names no authored property }
+    bicep:
+      attribute: 'Microsoft.Authorization/roleAssignments properties = { roleDefinitionId, principalId, principalType }'
+      note: 'an extension resource, scope = the share (source: bicep build, Microsoft.Authorization/roleAssignments@2022-04-01)'

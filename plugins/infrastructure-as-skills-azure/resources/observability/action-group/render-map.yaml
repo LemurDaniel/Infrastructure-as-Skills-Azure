@@ -14,7 +14,7 @@ decisions:
   placement.environments:
     not_rendered: naming parameter `environment`; no attribute of the group
   placement.location:
-    terraform_avm: { gap: 'the module requires the literal location = "Global" (capitalised), not the answer; not read from the deployment region' }
+    terraform_avm: { gap: 'module README v0.1.0: location is a free string, "Global" expected for virtually every group, a region only for data residency - whether the answer''s lowercase "global" is accepted it does not say; written as the literal "Global"' }
     terraform: { attribute: location, passthrough: true, note: '"global"; optional on the resource' }
     bicep_avm: { attribute: location, passthrough: true, note: "module default 'global'; written anyway" }
     bicep: { attribute: location, passthrough: true, note: "'global'" }

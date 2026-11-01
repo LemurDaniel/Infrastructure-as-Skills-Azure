@@ -39,7 +39,10 @@ decisions:
     terraform_avm: { attribute: sku_name, passthrough: true, note: required by the module }
     terraform: { attribute: sku_name, passthrough: true }
     bicep_avm: { attribute: sku, passthrough: true, note: "a string ('S0'); module default 'S0' - written anyway" }
-    bicep: { gap: sku is an object on the authored account; the reference names sku without its members }
+    bicep:
+      attribute: sku.name
+      passthrough: true
+      note: "(source: bicep build, Microsoft.CognitiveServices/accounts@2025-06-01)"
 
   # --------------------------------------------------------------- networking
   networking.public_network_access:
@@ -71,12 +74,14 @@ decisions:
       attribute: private_endpoints.account.subnet_resource_id
       note: one zone, privatelink.cognitiveservices.azure.com; private_endpoints_manage_dns_zone_group = false under policy
     terraform:
-      gap: authored child azurerm_private_endpoint with subresource_names = ["account"]; the reference names the resource, not its subnet argument
+      attribute: azurerm_private_endpoint.subnet_id
+      note: "authored child with subresource_names = [\"account\"]; (source: azurerm 5.12 schema)"
     bicep_avm:
       attribute: 'privateEndpoints[].subnetResourceId'
       note: "service: 'account'; no privateDnsZoneGroup under private_dns_records policy"
     bicep:
-      gap: "authored child Microsoft.Network/privateEndpoints with groupIds: [ 'account' ]; the reference names the resource, not its subnet property"
+      attribute: Microsoft.Network/privateEndpoints properties.subnet.id
+      note: "authored child with groupIds: [ 'account' ]; (source: bicep build, Microsoft.Network/privateEndpoints@2024-05-01)"
   networking.ip_rules:
     terraform_avm:
       attribute: network_acls.ip_rules
@@ -99,7 +104,8 @@ decisions:
     terraform_avm: { attribute: fqdns, note: 'only with restrict_outbound; host names, no wildcards' }
     terraform: { attribute: fqdns }
     bicep_avm:
-      gap: no module parameter - properties.allowedFqdnList by a second deployment against the account (an existing reference and an accounts update); said in the handover
+      attribute: allowedFqdnList
+      note: "only with restrictOutboundNetworkAccess (source: module README 0.19.1)"
     bicep: { attribute: properties.allowedFqdnList }
 
   # ----------------------------------------------------------------- identity
@@ -111,7 +117,9 @@ decisions:
         user_assigned: { expr: '{ user_assigned_resource_ids = {identity.user_assigned_identity_ids} }' }
         none: { expr: '{}' }
     terraform:
-      gap: identity { type, identity_ids } - the reference states no type literal for the account; none renders no identity block
+      attribute: identity.type
+      values: { system_assigned: SystemAssigned, user_assigned: UserAssigned, none: null }
+      note: "none writes no identity block (source: azurerm 5.12 docs)"
     bicep_avm:
       attribute: managedIdentities
       values:
@@ -119,20 +127,28 @@ decisions:
         user_assigned: { expr: '{ userAssignedResourceIds: {identity.user_assigned_identity_ids} }' }
         none: { expr: '{}' }
     bicep:
-      gap: the authored section names identity without its members or type literals; none renders no identity
+      attribute: identity.type
+      values: { system_assigned: SystemAssigned, user_assigned: UserAssigned, none: null }
+      note: "none writes no identity; literals from the compiled type (source: bicep build, Microsoft.CognitiveServices/accounts@2025-06-01)"
   identity.user_assigned_identity_ids:
     terraform_avm: { attribute: managed_identities.user_assigned_resource_ids }
     terraform: { attribute: identity.identity_ids }
     bicep_avm: { attribute: managedIdentities.userAssignedResourceIds }
     bicep:
-      gap: identity.userAssignedIdentities is an object keyed by id; the reference names identity without its members
+      attribute: identity.userAssignedIdentities
+      format: { expr: 'toObject({value}, id => id, id => {})' }
+      note: "an object keyed by identity id, each value empty (source: bicep build, Microsoft.CognitiveServices/accounts@2025-06-01)"
   identity.role_assignments:
     terraform_avm:
       attribute: 'role_assignments.<key> = { role_definition_id_or_name, principal_id }'
       note: the per-kind roles by name
-    terraform: { gap: the authored rendering names no role assignment; the renders field names only the module input }
+    terraform:
+      attribute: 'azurerm_role_assignment = { scope, role_definition_name, principal_id }'
+      note: "one per entry, scope = the account id (source: azurerm 5.12 schema)"
     bicep_avm: { attribute: roleAssignments, note: the per-kind roles by name }
-    bicep: { gap: the authored rendering names no role assignment; the renders field names only the module parameter }
+    bicep:
+      attribute: 'Microsoft.Authorization/roleAssignments properties = { principalId, roleDefinitionId, principalType }'
+      note: "one per entry, scoped to the account; roleDefinitionId takes the definition id, the render resolves the role name (source: bicep build, Microsoft.Authorization/roleAssignments@2022-04-01)"
 
   # ----------------------------------------------------------------- security
   security.local_authentication_disabled:
@@ -178,16 +194,19 @@ decisions:
       attribute: customerManagedKey.keyVaultResourceId, customerManagedKey.keyName
       note: the key id split - keyVaultResourceId = the key's vault id, keyName = the key's name; never the key id into either
     bicep:
-      gap: properties.encryption.keyVaultProperties is an object; the reference names it without its members
+      attribute: properties.encryption.keyVaultProperties.keyVaultUri, properties.encryption.keyVaultProperties.keyName
+      note: "the key id split - keyVaultUri = the vault URI, keyName = the key name; identityClientId beside them (source: bicep build, Microsoft.CognitiveServices/accounts@2025-06-01)"
 
   # ------------------------------------------------------------ observability
   observability.diagnostic_workspace:
     terraform_avm: { attribute: diagnostic_settings.workspace.workspace_resource_id }
     terraform:
-      gap: authored azurerm_monitor_diagnostic_setting; the reference names the resource, not its workspace argument
+      attribute: azurerm_monitor_diagnostic_setting.log_analytics_workspace_id
+      note: "(source: azurerm 5.12 schema)"
     bicep_avm: { attribute: 'diagnosticSettings[].workspaceResourceId' }
     bicep:
-      gap: authored Microsoft.Insights/diagnosticSettings scoped to the account; the reference names the resource, not its workspace property
+      attribute: Microsoft.Insights/diagnosticSettings properties.workspaceId
+      note: "scoped to the account (source: bicep build, Microsoft.Insights/diagnosticSettings@2021-05-01-preview)"
   observability.diagnostic_categories:
     terraform_avm:
       attribute: diagnostic_settings.workspace.log_categories
@@ -195,15 +214,18 @@ decisions:
     terraform: { attribute: azurerm_monitor_diagnostic_setting.enabled_log.category }
     bicep_avm: { attribute: 'diagnosticSettings[].logCategoriesAndGroups[].category' }
     bicep:
-      gap: authored Microsoft.Insights/diagnosticSettings scoped to the account; the reference names the resource, not its log property
+      attribute: 'Microsoft.Insights/diagnosticSettings properties.logs[].category'
+      note: "one { category, enabled: true } per entry, scoped to the account (source: bicep build, Microsoft.Insights/diagnosticSettings@2021-05-01-preview)"
   observability.metrics_enabled:
     terraform_avm:
       attribute: diagnostic_settings.workspace.metric_categories
       values: { true: { expr: '["AllMetrics"]' }, false: { expr: '[]' } }
     terraform:
-      gap: authored azurerm_monitor_diagnostic_setting; the authored rendering names only enabled_log - no metric block is in the reference
+      attribute: azurerm_monitor_diagnostic_setting.enabled_metric.category
+      values: { true: AllMetrics, false: null }
+      note: "false renders no enabled_metric block (source: azurerm 5.12 schema); AllMetrics from the 5.12 docs example"
     bicep_avm:
       attribute: 'diagnosticSettings[].metricCategories'
       values: { true: { expr: "[ { category: 'AllMetrics' } ]" }, false: { expr: '[]' } }
     bicep:
-      gap: authored Microsoft.Insights/diagnosticSettings scoped to the account; the reference names the resource, not its metric property
+      gap: "Microsoft.Insights/diagnosticSettings properties.metrics[] { category, enabled } scoped to the account is proven (bicep build, Microsoft.Insights/diagnosticSettings@2021-05-01-preview); the category is a free string in the type, so AllMetrics has no source for authored Bicep"

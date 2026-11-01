@@ -45,7 +45,7 @@ decisions:
   component.daily_cap_gb:
     terraform_avm: { attribute: daily_data_cap_in_gb, passthrough: true, note: module default 100; 0 is unlimited; written }
     terraform: { attribute: daily_data_cap_in_gb, passthrough: true }
-    bicep_avm: { gap: not a module parameter; the child Microsoft.Insights/components/pricingPlans/current beside the module }
+    bicep_avm: { gap: 'module README 0.8.0 has no input for the daily cap; the child Microsoft.Insights/components/pricingPlans/current beside the module' }
     bicep:
       attribute: pricingPlans/current properties.cap
       passthrough: true
@@ -85,7 +85,9 @@ decisions:
     terraform_avm:
       attribute: monitor_private_link_scope.scope.resource_id
       note: adds the component to the platform's scope; member names from the README of the pinned version
-    terraform: { gap: 'an azurerm_monitor_private_link_scoped_service on the scope; the reference names none of its arguments' }
+    terraform:
+      attribute: azurerm_monitor_private_link_scoped_service.scope_name
+      note: 'the scope''s name (resource_group_name its group, usually the platform''s), not its id; linked_resource_id = the component''s id (source: azurerm 5.12 schema, docs)'
     bicep_avm:
       gap: not a module parameter; a Microsoft.Insights/privateLinkScopes/scopedResources in the scope's resource group, usually the platform's
     bicep:
@@ -94,9 +96,13 @@ decisions:
   # ----------------------------------------------------------------- identity
   identity.role_assignments:
     terraform_avm: { attribute: 'role_assignments.<key> = { role_definition_id_or_name, principal_id }' }
-    terraform: { gap: an azurerm_role_assignment with scope = the component's id; the reference's authored rendering names none }
+    terraform:
+      attribute: 'azurerm_role_assignment = { role_definition_name, principal_id, principal_type }'
+      note: 'one per entry, scope = the component''s id; role_definition_id instead of the name for a custom role (source: azurerm 5.12 schema)'
     bicep_avm: { attribute: roleAssignments }
-    bicep: { gap: a Microsoft.Authorization/roleAssignments with scope set to the component; the reference's authored rendering names none }
+    bicep:
+      attribute: 'Microsoft.Authorization/roleAssignments = { properties.principalId, properties.roleDefinitionId, properties.principalType }'
+      note: 'one per entry, scope: the component; roleDefinitionId is the definition id, never the name (source: bicep build, Microsoft.Authorization/roleAssignments@2022-04-01)'
 
   # ----------------------------------------------------------------- security
   security.local_authentication_disabled:

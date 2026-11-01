@@ -174,11 +174,13 @@ decisions:
     terraform_avm:
       gap: not the module - azurerm_network_security_rule for TCP 3342 on the subnet's NSG; an open entry when the platform owns the NSG
     terraform:
-      gap: azurerm_network_security_rule (TCP 3342) on the subnet's NSG, only when this deployment owns it; the reference names no argument for the ranges
+      attribute: azurerm_network_security_rule.source_address_prefixes
+      note: "one inbound rule for TCP 3342 on the subnet NSG, only when this deployment owns it (source: azurerm 5.12 schema)"
     bicep_avm:
       gap: not the module - a securityRules entry (TCP 3342) on the subnet's NSG; an open entry when the platform owns the NSG
     bicep:
-      gap: a securityRules entry (TCP 3342) on the subnet's NSG, only when this deployment owns it; the reference names no property for the ranges
+      attribute: Microsoft.Network/networkSecurityGroups/securityRules properties.sourceAddressPrefixes
+      note: "one inbound rule for TCP 3342 on the subnet NSG, only when this deployment owns it (source: bicep build, Microsoft.Network/networkSecurityGroups/securityRules@2024-05-01)"
   networking.private_endpoint:
     terraform_avm:
       attribute: private_endpoints
@@ -191,7 +193,7 @@ decisions:
       values: { true: { expr: '["managedInstance"]' }, false: null }
       note: false renders no endpoint
     bicep_avm:
-      gap: no module parameter - an authored Microsoft.Network/privateEndpoints on the instance id with groupIds ['managedInstance']
+      gap: module README 0.5.1 has no privateEndpoints parameter - an authored Microsoft.Network/privateEndpoints on the instance id with groupIds ['managedInstance']
     bicep:
       attribute: Microsoft.Network/privateEndpoints properties.privateLinkServiceConnections[].properties.groupIds
       values: { true: { expr: "['managedInstance']" }, false: null }
@@ -200,10 +202,10 @@ decisions:
     terraform_avm:
       attribute: 'private_endpoints.<key>.subnet_resource_id'
       note: private_endpoints_manage_dns_zone_group = false under policy DNS
-    terraform: { gap: the authored rendering names azurerm_private_endpoint but no subnet argument }
+    terraform: { attribute: azurerm_private_endpoint.subnet_id, note: "(source: azurerm 5.12 schema)" }
     bicep_avm:
       gap: no module parameter - the subnet of the authored Microsoft.Network/privateEndpoints; no privateDnsZoneGroup under policy DNS
-    bicep: { gap: the authored rendering names Microsoft.Network/privateEndpoints but no subnet property }
+    bicep: { attribute: Microsoft.Network/privateEndpoints properties.subnet.id, note: "(source: bicep build, Microsoft.Network/privateEndpoints@2025-01-01)" }
   networking.connection_type:
     terraform_avm: { attribute: proxy_override, passthrough: true, note: module default Default - always written }
     terraform: { attribute: proxy_override, passthrough: true }
@@ -259,9 +261,9 @@ decisions:
     not_rendered: a T-SQL step after the deployment from inside the network (CREATE LOGIN FROM EXTERNAL PROVIDER, then users and roles); no module input and no ARM resource
   identity.role_assignments:
     terraform_avm: { attribute: role_assignments, note: control plane }
-    terraform: { gap: the authored rendering names no role assignment }
+    terraform: { attribute: azurerm_role_assignment, note: "scope = the instance id; control plane (source: azurerm 5.12 schema)" }
     bicep_avm: { attribute: roleAssignments, note: control plane }
-    bicep: { gap: the authored rendering names no role assignment }
+    bicep: { attribute: Microsoft.Authorization/roleAssignments, note: "scope the instance; control plane (source: bicep build, Microsoft.Authorization/roleAssignments@2022-04-01)" }
 
   # ----------------------------------------------------------------- security
   security.local_authentication_disabled:
@@ -377,7 +379,9 @@ decisions:
       authored_when: [GeoZone]
       note: module default GRS - always written
     terraform:
-      gap: storage_account_type takes LRS / ZRS / GRS as on the module; the reference names no literal for GeoZone, the answer that sends the instance to the authored rendering
+      attribute: storage_account_type
+      values: { Local: LRS, Zone: ZRS, Geo: GRS, GeoZone: GZRS }
+      note: "provider default GRS - always written (source: azurerm 5.12 docs)"
     bicep_avm: { attribute: requestedBackupStorageRedundancy, passthrough: true, note: module default Geo - always written; all four values }
     bicep: { attribute: properties.requestedBackupStorageRedundancy, passthrough: true }
 
@@ -407,7 +411,7 @@ decisions:
       values: { true: AllMetrics, false: null }
       note: false renders no enabled_metric block
     bicep_avm:
-      gap: "the module's setting is logs-only (no metricCategories) - a second authored Microsoft.Insights/diagnosticSettings with metrics: [ { category: 'AllMetrics', enabled: true } ]"
+      gap: "module README 0.5.1 has no metricCategories under diagnosticSettings (logs only) - a second authored Microsoft.Insights/diagnosticSettings with metrics: [ { category: 'AllMetrics', enabled: true } ]"
     bicep:
       attribute: 'Microsoft.Insights/diagnosticSettings properties.metrics[].category'
       values: { true: AllMetrics, false: null }

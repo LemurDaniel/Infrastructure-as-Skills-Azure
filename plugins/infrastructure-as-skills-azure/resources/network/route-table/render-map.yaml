@@ -22,7 +22,7 @@ decisions:
     bicep: { attribute: location, passthrough: true }
   placement.resource_group_name:
     terraform_avm: { attribute: resource_group_name, note: 'a name, not an id - the table is an azurerm_route_table' }
-    terraform: { gap: reference names no authored argument }
+    terraform: { attribute: resource_group_name, note: 'a name, not an id (source: azurerm 5.12 schema)' }
     bicep_avm: { gap: the deployment's resource group scope; no parameter }
     bicep: { gap: the deployment's resource group scope; no property }
 
@@ -35,7 +35,7 @@ decisions:
       note: one association per subnet; or the subnet's own route_table_id - one of them, never both
     bicep_avm:
       gap: 'not a parameter here; the virtual-network set renders subnets[].routeTableResourceId: routeTable.outputs.resourceId'
-    bicep: { gap: reference names no authored property }
+    bicep: { gap: 'properties.subnets is read-only on the route table (source: bicep build BCP073, Microsoft.Network/routeTables@2024-05-01); the subnet sets properties.routeTable.id' }
   networking.default_route:
     terraform_avm:
       attribute: routes.default

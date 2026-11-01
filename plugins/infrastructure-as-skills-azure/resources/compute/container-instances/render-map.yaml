@@ -90,7 +90,7 @@ decisions:
     terraform_avm: { attribute: subnet_ids, format: { expr: '[{value}]' }, note: a list of one id }
     terraform: { attribute: subnet_ids, format: { expr: '[{value}]' }, note: a list of one id; set at creation }
     bicep_avm: { attribute: 'subnets[].subnetResourceId' }
-    bicep: { gap: properties.subnetIds is a list of objects; the reference names no member for the id }
+    bicep: { attribute: 'properties.subnetIds[].id', note: 'a list of one object (source: bicep build, Microsoft.ContainerInstance/containerGroups@2025-09-01)' }
   networking.exposed_ports:
     terraform_avm:
       attribute: 'exposed_ports = [{ port, protocol }], containers.main.ports'
@@ -117,9 +117,12 @@ decisions:
       values: { system_assigned: SystemAssigned, user_assigned: UserAssigned, none: null }
       note: none renders no identity block
     bicep_avm:
-      gap: >-
-        managedIdentities: { userAssignedResourceIds: {identity.user_assigned_identity_ids} } for user_assigned;
-        system_assigned and none are not spelled in the reference
+      attribute: managedIdentities
+      values:
+        system_assigned: { expr: '{ systemAssigned: true }' }
+        user_assigned: { expr: '{ userAssignedResourceIds: {identity.user_assigned_identity_ids} }' }
+        none: null
+      note: 'none omits the parameter (source: module README 0.7.1)'
     bicep:
       attribute: identity.type
       values: { system_assigned: SystemAssigned, user_assigned: UserAssigned, none: None }
@@ -127,7 +130,10 @@ decisions:
     terraform_avm: { attribute: managed_identities.user_assigned_resource_ids }
     terraform: { attribute: identity.identity_ids }
     bicep_avm: { attribute: managedIdentities.userAssignedResourceIds }
-    bicep: { gap: identity.userAssignedIdentities is an object keyed by id; the reference shows no shape }
+    bicep:
+      attribute: identity.userAssignedIdentities
+      format: { expr: 'toObject({value}, id => id, id => {})' }
+      note: 'an object keyed by each id (source: bicep build, Microsoft.ContainerInstance/containerGroups@2025-09-01)'
   identity.registry_login_server:
     terraform_avm:
       attribute: 'image_registry_credential.<k>.server'
@@ -146,7 +152,7 @@ decisions:
     terraform_avm: { attribute: 'role_assignments.<key> = { role_definition_id_or_name, principal_id }' }
     terraform: { attribute: azurerm_role_assignment, note: scope = the group's id }
     bicep_avm:
-      gap: no parameter; a Microsoft.Authorization/roleAssignments resource beside the module, scoped to the group, by role definition id
+      gap: module README 0.7.1 has no input for role assignments; a Microsoft.Authorization/roleAssignments resource beside the module, scoped to the group, by role definition id
     bicep: { attribute: Microsoft.Authorization/roleAssignments, note: scope = the group }
 
   # ----------------------------------------------------------------- security
@@ -196,7 +202,7 @@ decisions:
       note: the module reads the shared key itself
     bicep: { attribute: properties.diagnostics.logAnalytics.workspaceId, note: "the workspace's customer id (GUID) as on the Terraform side, not its resource id; with workspaceKey" }
   observability.log_type:
-    terraform_avm: { gap: not carried by the module; left to the provider and named in the handover }
+    terraform_avm: { gap: module README v0.2.0 has no input for log_type (diagnostics_log_analytics takes workspace_id and workspace_key only); left to the provider and named in the handover }
     terraform: { attribute: diagnostics.log_analytics.log_type, passthrough: true }
     bicep_avm: { attribute: logAnalytics.logType, passthrough: true }
     bicep: { attribute: properties.diagnostics.logAnalytics.logType, passthrough: true }

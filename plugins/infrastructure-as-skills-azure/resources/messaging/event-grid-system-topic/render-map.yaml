@@ -47,7 +47,7 @@ decisions:
       also:
         system_assigned: 'delivery_identity { type = "SystemAssigned" } and dead_letter_identity { type = "SystemAssigned" } on every subscription'
         user_assigned: 'delivery_identity and dead_letter_identity with type = "UserAssigned" and user_assigned_identity on every subscription'
-      note: none renders no identity block and no identity delivery; a webhook or hybrid connection has no identity delivery
+      note: none renders no identity block and no identity delivery; a webhook or hybrid connection has no identity delivery; the provider also takes SystemAssigned, UserAssigned together, but each subscription delivers with one, so the set offers one
     bicep_avm:
       attribute: managedIdentities
       values:
@@ -64,7 +64,10 @@ decisions:
   source.user_assigned_identity_ids:
     terraform: { attribute: identity.identity_ids }
     bicep_avm: { attribute: managedIdentities.userAssignedResourceIds }
-    bicep: { gap: identity.userAssignedIdentities is an object keyed by id; the reference shows no shape }
+    bicep:
+      attribute: identity.userAssignedIdentities
+      format: { expr: 'toObject({value}, id => id, id => {})' }
+      note: "an object keyed by each id - type: 'UserAssigned' (source: bicep build, Microsoft.EventGrid/systemTopics@2025-02-15)"
 
   # ----------------------------------------------------------------- delivery
   delivery.event_subscriptions:

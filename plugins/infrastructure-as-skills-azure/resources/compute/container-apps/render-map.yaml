@@ -43,7 +43,13 @@ decisions:
         E4: { expr: '[{ name = "E4", workload_profile_type = "E4" }]' }
       note: Consumption is a profile, the singular workload_profile is deprecated; a dedicated profile also takes minimum_count / maximum_count - no question decides them, an open item; the app module takes workload_profile_name - unset, workload profiles are not used
     terraform:
-      gap: the workload_profile block on azurerm_container_app_environment - the reference names the block, not its arguments; the app takes workload_profile_name
+      attribute: workload_profile
+      values:
+        Consumption: { expr: '{ name = "Consumption", workload_profile_type = "Consumption" }' }
+        D4: { expr: '{ name = "D4", workload_profile_type = "D4" }' }
+        D8: { expr: '{ name = "D8", workload_profile_type = "D8" }' }
+        E4: { expr: '{ name = "E4", workload_profile_type = "E4" }' }
+      note: 'a block on azurerm_container_app_environment; a dedicated profile also takes minimum_count / maximum_count; the app takes workload_profile_name (source: azurerm 5.12 docs)'
     bicep_avm:
       module: avm/res/app/managed-environment
       attribute: workloadProfiles
@@ -116,7 +122,7 @@ decisions:
       passthrough: true
       note: module default unset; written
     terraform:
-      gap: not on azurerm_container_app_environment in 5.x (mutual_tls_enabled only); peerTrafficConfiguration through an azapi_update_resource on the environment
+      gap: not on azurerm_container_app_environment in 5.12 (mutual_tls_enabled only - azurerm 5.12 schema); peerTrafficConfiguration through an azapi_update_resource on the environment
     bicep_avm: { module: avm/res/app/managed-environment, attribute: peerTrafficEncryption, passthrough: true, note: default true; written }
     bicep: { attribute: properties.peerTrafficConfiguration.encryption.enabled, passthrough: true }
 
@@ -127,9 +133,9 @@ decisions:
       attribute: 'template.containers[].image'
       passthrough: true
       note: a tag or digest, never latest
-    terraform: { gap: on azurerm_container_app the reference names only the block - not its arguments }
+    terraform: { attribute: template.container.image, passthrough: true, note: 'a tag or digest, never latest (source: azurerm 5.12 schema)' }
     bicep_avm: { module: avm/res/app/container-app, attribute: 'containers[].image', passthrough: true, note: a tag or digest - never latest }
-    bicep: { gap: reference names no authored property }
+    bicep: { attribute: 'properties.template.containers[].image', passthrough: true, note: 'a tag or digest, never latest (source: bicep build, Microsoft.App/containerApps@2025-01-01)' }
   app.container_size:
     terraform_avm:
       module: Azure/avm-res-app-containerapp/azurerm
@@ -140,7 +146,14 @@ decisions:
         1-2Gi: { expr: 'cpu = 1, memory = "2Gi"' }
         2-4Gi: { expr: 'cpu = 2, memory = "4Gi"' }
       note: cpu a number, memory a string - the pair
-    terraform: { gap: on azurerm_container_app the reference names only the block - not its arguments }
+    terraform:
+      attribute: template.container
+      values:
+        0.25-0.5Gi: { expr: 'cpu = 0.25, memory = "0.5Gi"' }
+        0.5-1Gi: { expr: 'cpu = 0.5, memory = "1Gi"' }
+        1-2Gi: { expr: 'cpu = 1, memory = "2Gi"' }
+        2-4Gi: { expr: 'cpu = 2, memory = "4Gi"' }
+      note: 'cpu a number, memory a string with the Gi unit; the pair must be an allowed combination (source: azurerm 5.12 docs)'
     bicep_avm:
       module: avm/res/app/container-app
       attribute: 'containers[].resources'
@@ -150,22 +163,22 @@ decisions:
         1-2Gi: { expr: "{ cpu: json('1'), memory: '2Gi' }" }
         2-4Gi: { expr: "{ cpu: json('2'), memory: '4Gi' }" }
       note: cpu is a json() value
-    bicep: { gap: reference names no authored property }
+    bicep: { gap: "properties.template.containers[].resources.cpu and .memory (bicep build @2025-01-01); memory is a free string the build does not check, so its spelling is unproven" }
   app.min_replicas:
     terraform_avm: { module: Azure/avm-res-app-containerapp/azurerm, attribute: template.min_replicas, passthrough: true }
-    terraform: { gap: on azurerm_container_app the reference names only the block - not its arguments }
+    terraform: { attribute: template.min_replicas, passthrough: true, note: '(source: azurerm 5.12 schema)' }
     bicep_avm: { module: avm/res/app/container-app, attribute: scaleSettings.minReplicas, passthrough: true }
-    bicep: { gap: the authored rendering names no scale property of the app }
+    bicep: { attribute: properties.template.scale.minReplicas, passthrough: true, note: '(source: bicep build, Microsoft.App/containerApps@2025-01-01)' }
   app.max_replicas:
     terraform_avm: { module: Azure/avm-res-app-containerapp/azurerm, attribute: template.max_replicas, passthrough: true }
-    terraform: { gap: on azurerm_container_app the reference names only the block - not its arguments }
+    terraform: { attribute: template.max_replicas, passthrough: true, note: '(source: azurerm 5.12 schema)' }
     bicep_avm: { module: avm/res/app/container-app, attribute: scaleSettings.maxReplicas, passthrough: true }
-    bicep: { gap: the authored rendering names no scale property of the app }
+    bicep: { attribute: properties.template.scale.maxReplicas, passthrough: true, note: '(source: bicep build, Microsoft.App/containerApps@2025-01-01)' }
   app.revision_mode:
     terraform_avm: { module: Azure/avm-res-app-containerapp/azurerm, attribute: revision_mode, passthrough: true, note: default Single; written }
     terraform: { attribute: revision_mode, passthrough: true, note: the reference names the argument; Single / Multiple as on the module }
     bicep_avm: { module: avm/res/app/container-app, attribute: activeRevisionsMode, passthrough: true, note: default Single; written }
-    bicep: { gap: reference names no authored property }
+    bicep: { gap: "properties.configuration.activeRevisionsMode (bicep build @2025-01-01); the build accepts any string there, so Single / Multiple are unproven" }
 
   # ------------------------------------------------------------------ ingress
   ingress.ingress:
@@ -174,7 +187,10 @@ decisions:
       attribute: ingress.external_enabled
       values: { none: null, environment: false, external: true }
       note: omit the whole ingress input for none; module default false - written; transport is a member of the ingress object beside it
-    terraform: { gap: on azurerm_container_app the reference names only the block - not its arguments }
+    terraform:
+      attribute: ingress.external_enabled
+      values: { none: null, environment: false, external: true }
+      note: 'none renders no ingress block (source: azurerm 5.12 schema)'
     bicep_avm:
       module: avm/res/app/container-app
       attribute: ingressExternal
@@ -188,7 +204,7 @@ decisions:
       note: none renders no ingress
   ingress.target_port:
     terraform_avm: { module: Azure/avm-res-app-containerapp/azurerm, attribute: ingress.target_port, passthrough: true }
-    terraform: { gap: on azurerm_container_app the reference names only the block - not its arguments }
+    terraform: { attribute: ingress.target_port, passthrough: true, note: '(source: azurerm 5.12 schema)' }
     bicep_avm: { module: avm/res/app/container-app, attribute: ingressTargetPort, passthrough: true, note: module default 80; written }
     bicep: { attribute: properties.configuration.ingress.targetPort, passthrough: true }
   ingress.allow_insecure:
@@ -197,7 +213,7 @@ decisions:
       attribute: ingress.allow_insecure_connections
       passthrough: true
       note: module default false; written
-    terraform: { gap: on azurerm_container_app the reference names only the block - not its arguments }
+    terraform: { attribute: ingress.allow_insecure_connections, passthrough: true, note: '(source: azurerm 5.12 schema)' }
     bicep_avm: { module: avm/res/app/container-app, attribute: ingressAllowInsecure, passthrough: true, note: module default true; written }
     bicep: { attribute: properties.configuration.ingress.allowInsecure, passthrough: true }
 
@@ -230,18 +246,20 @@ decisions:
       module: Azure/avm-res-app-containerapp/azurerm
       attribute: managed_identities.user_assigned_resource_ids
       note: the same id goes on registries[].identity for the pull - never username/password_secret_name
-    terraform: { gap: on azurerm_container_app the reference names only the block - not its arguments }
+    terraform: { attribute: identity.identity_ids, note: 'a set of ids; the same id on registry.identity for the pull (source: azurerm 5.12 schema)' }
     bicep_avm:
       module: avm/res/app/container-app
       attribute: managedIdentities.userAssignedResourceIds
       note: the same id goes on registries[].identity for the pull - never username/passwordSecretRef
-    bicep: { gap: reference names no authored property }
+    bicep: { attribute: identity.userAssignedIdentities, note: 'a map keyed by the identity id, each value {} (source: bicep build, Microsoft.App/containerApps@2025-01-01)' }
   identity.secret_references:
     terraform_avm:
       module: Azure/avm-res-app-containerapp/azurerm
       attribute: 'secrets.<k> = { name, key_vault_secret_id, identity }'
       note: never value
-    terraform: { gap: on azurerm_container_app the reference names only the block - not its arguments }
+    terraform:
+      attribute: 'secret = { name, key_vault_secret_id, identity }'
+      note: 'one block per entry, never value; identity the user-assigned id or System (source: azurerm 5.12 docs)'
     bicep_avm:
       module: avm/res/app/container-app
       attribute: 'secrets[] = { name, keyVaultUrl, identity }'
@@ -251,11 +269,15 @@ decisions:
     terraform_avm:
       module: Azure/avm-res-app-containerapp/azurerm
       attribute: 'role_assignments.<key> = { role_definition_id_or_name, principal_id }'
-    terraform: { gap: reference names no authored argument }
+    terraform:
+      attribute: 'azurerm_role_assignment = { scope, role_definition_name, principal_id }'
+      note: 'one per entry, scope = the app''s id (source: azurerm 5.12 schema)'
     bicep_avm:
       module: avm/res/app/container-app
       attribute: 'roleAssignments[] = { principalId, roleDefinitionIdOrName, principalType }'
-    bicep: { gap: reference names no authored property }
+    bicep:
+      attribute: 'Microsoft.Authorization/roleAssignments properties = { principalId, roleDefinitionId, principalType }'
+      note: 'one per entry, scope the app; roleDefinitionId is the role''s id, not its name (source: bicep build, Microsoft.Authorization/roleAssignments@2022-04-01)'
 
   # ------------------------------------------------------------ observability
   observability.diagnostic_workspace:
@@ -269,7 +291,8 @@ decisions:
       attribute: 'diagnosticSettings[].workspaceResourceId'
       note: "with appLogsConfiguration: { destination: 'azure-monitor' } - never log-analytics (shared key)"
     bicep:
-      gap: "the authored rendering names no diagnostic setting for the workspace id; properties.appLogsConfiguration.destination is the constant 'azure-monitor'"
+      attribute: Microsoft.Insights/diagnosticSettings properties.workspaceId
+      note: "scope the environment, whose properties.appLogsConfiguration.destination is the constant 'azure-monitor' (source: bicep build, Microsoft.Insights/diagnosticSettings@2021-05-01-preview)"
   observability.diagnostic_categories:
     terraform_avm:
       module: Azure/avm-res-app-managedenvironment/azurerm
@@ -279,26 +302,29 @@ decisions:
     bicep_avm:
       module: avm/res/app/managed-environment
       attribute: 'diagnosticSettings[].logCategoriesAndGroups[].category'
-    bicep: { gap: reference names no authored property }
+    bicep: { attribute: 'Microsoft.Insights/diagnosticSettings properties.logs[].category', note: 'scope the environment, each with enabled: true (source: bicep build, Microsoft.Insights/diagnosticSettings@2021-05-01-preview)' }
   observability.metrics_enabled:
     terraform_avm:
       module: Azure/avm-res-app-managedenvironment/azurerm
       attribute: diagnostic_settings.workspace.metric_categories
       values: { true: { expr: '["AllMetrics"]' }, false: { expr: '[]' } }
-    terraform: { gap: reference names no authored argument }
+    terraform:
+      attribute: azurerm_monitor_diagnostic_setting.enabled_metric.category
+      values: { true: AllMetrics, false: null }
+      note: 'on the environment; false renders no enabled_metric block (source: azurerm 5.12 docs)'
     bicep_avm:
       module: avm/res/app/managed-environment
       attribute: 'diagnosticSettings[].metricCategories'
       values: { true: { expr: "[ { category: 'AllMetrics' } ]" }, false: { expr: '[]' } }
-    bicep: { gap: reference names no authored property }
+    bicep: { gap: "Microsoft.Insights/diagnosticSettings properties.metrics[].category (bicep build @2021-05-01-preview); the category is a free string the build does not check, so the literal for true is unproven" }
   observability.application_insights:
     terraform_avm:
       module: Azure/avm-res-app-containerapp/azurerm
       attribute: 'template.containers[].env'
       note: the component's connection string output, not its id - APPLICATIONINSIGHTS_CONNECTION_STRING plain, APPLICATIONINSIGHTS_AUTHENTICATION_STRING = Authorization=AAD;ClientId=<client id> with the app's user-assigned identity while local auth is off; omitted while empty
-    terraform: { gap: on azurerm_container_app the reference names only the block - not its arguments }
+    terraform: { gap: "template.container.env { name, value } (azurerm 5.12 schema); the variable's name is in no allowed source" }
     bicep_avm:
       module: avm/res/app/container-app
       attribute: 'containers[].env'
       note: the component's connection string output, not its id - APPLICATIONINSIGHTS_CONNECTION_STRING, and APPLICATIONINSIGHTS_AUTHENTICATION_STRING = Authorization=AAD;ClientId=<client id> with the app's user-assigned identity while local auth is off; omitted while empty
-    bicep: { gap: reference names no authored property }
+    bicep: { gap: "properties.template.containers[].env[] { name, value } (bicep build @2025-01-01); the variable's name is a free string the build does not check" }

@@ -86,8 +86,8 @@ decisions:
       gap: >-
         one authored resource per entry - MsTeamsChannel azurerm_bot_channel_ms_teams, DirectLineChannel
         azurerm_bot_channel_directline, WebChatChannel azurerm_bot_channel_web_chat, EmailChannel
-        azurerm_bot_channel_email, SlackChannel azurerm_bot_channel_slack; the reference names none
-        for M365Extensions
+        azurerm_bot_channel_email, SlackChannel azurerm_bot_channel_slack; the azurerm 5.12 schema has no
+        channel resource for M365Extensions, so the entry cannot map every answer
     bicep:
       attribute: botServices/channels properties.channelName
       note: "a child per entry named after the channel, location: 'global'; the channel's settings are content"
@@ -115,13 +115,14 @@ decisions:
       attribute: 'private_endpoints.<key>.subnet_resource_id'
       note: keys bot and token; private_endpoints_manage_dns_zone_group = false under private_dns_records policy
     terraform:
-      gap: authored azurerm_private_endpoint, one per sub-resource; the reference names the resource, not its subnet argument
+      attribute: azurerm_private_endpoint.subnet_id
+      note: "one per sub-resource; (source: azurerm 5.12 schema)"
     bicep:
       attribute: Microsoft.Network/privateEndpoints properties.subnet.id
       note: one per sub-resource in the deployment's region; no zone group under private_dns_records policy
   networking.private_endpoint_subresources:
     terraform_avm: { attribute: 'private_endpoints.<key>.subresource_name', note: 'one entry per sub-resource (Bot, Token)' }
-    terraform: { attribute: azurerm_private_endpoint.subresource_names, note: '["Bot"] and a second endpoint with ["Token"]' }
+    terraform: { attribute: azurerm_private_endpoint.private_service_connection.subresource_names, note: '["Bot"] and a second endpoint with ["Token"]; inside the private_service_connection block (source: azurerm 5.12 schema)' }
     bicep:
       attribute: 'Microsoft.Network/privateEndpoints properties.privateLinkServiceConnections[].properties.groupIds'
       note: one endpoint per sub-resource
@@ -129,7 +130,9 @@ decisions:
   # ----------------------------------------------------------------- identity
   identity.role_assignments:
     terraform_avm: { attribute: 'role_assignments.<key> = { role_definition_id_or_name, principal_id, principal_type }' }
-    terraform: { gap: the authored rendering names no role assignment; the renders field names only the module input }
+    terraform:
+      attribute: 'azurerm_role_assignment = { scope, role_definition_name, principal_id }'
+      note: "one per entry, scope = the bot id (source: azurerm 5.12 schema)"
     bicep:
       attribute: 'Microsoft.Authorization/roleAssignments properties = { principalId, roleDefinitionId, principalType }'
       note: one per entry, scoped to the bot; the role definition id, not the name - no module resolves names
@@ -150,7 +153,9 @@ decisions:
       attribute: is_cmek_enabled
       values: { platform_managed: false, customer_managed: true }
     terraform:
-      gap: no flag on the authored resource - customer_managed is cmk_key_vault_key_url set (security.cmk_key_vault_key_id), platform_managed leaves it out
+      attribute: cmk_key_vault_key_url
+      values: { platform_managed: null, customer_managed: { expr: '<the key URL of security.cmk_key_vault_key_id>' } }
+      note: "no flag on the authored resource - the key URL set is customer_managed (source: azurerm 5.12 schema)"
     bicep:
       attribute: properties.isCmekEnabled
       values: { platform_managed: false, customer_managed: true }
@@ -163,7 +168,8 @@ decisions:
   observability.diagnostic_workspace:
     terraform_avm: { attribute: diagnostic_settings.workspace.workspace_resource_id }
     terraform:
-      gap: authored azurerm_monitor_diagnostic_setting; the reference names the resource, not its workspace argument
+      attribute: azurerm_monitor_diagnostic_setting.log_analytics_workspace_id
+      note: "(source: azurerm 5.12 schema)"
     bicep: { attribute: Microsoft.Insights/diagnosticSettings properties.workspaceId, note: scoped to the bot }
   observability.diagnostic_categories:
     terraform_avm:
@@ -176,7 +182,9 @@ decisions:
       attribute: diagnostic_settings.workspace.metric_categories
       values: { true: { expr: '["AllMetrics"]' }, false: { expr: '[]' } }
     terraform:
-      gap: authored azurerm_monitor_diagnostic_setting; the authored rendering names only enabled_log - no metric block is in the reference
+      attribute: azurerm_monitor_diagnostic_setting.enabled_metric.category
+      values: { true: AllMetrics, false: null }
+      note: "false renders no enabled_metric block (source: azurerm 5.12 schema); AllMetrics from the 5.12 docs example"
     bicep:
       attribute: 'Microsoft.Insights/diagnosticSettings properties.metrics[].category'
       values: { true: AllMetrics, false: null }

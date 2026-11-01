@@ -118,7 +118,7 @@ decisions:
       attribute: 'diagnostic_settings.<key>.workspace_resource_id'
       note: the object form (logs, metrics); no logs for a NAT gateway
     terraform: { attribute: azurerm_monitor_diagnostic_setting.log_analytics_workspace_id }
-    bicep_avm: { gap: 'the module has no diagnosticSettings for the gateway; an authored Microsoft.Insights/diagnosticSettings with scope: natGateway' }
+    bicep_avm: { gap: 'module README 2.1.1 has no diagnosticSettings parameter for the gateway; an authored Microsoft.Insights/diagnosticSettings with scope: natGateway' }
     bicep: { attribute: Microsoft.Insights/diagnosticSettings properties.workspaceId, note: 'extension resource with scope: natGateway' }
   observability.metrics_enabled:
     terraform_avm:
@@ -128,7 +128,7 @@ decisions:
       attribute: azurerm_monitor_diagnostic_setting.enabled_metric
       values: { true: { expr: '{ category = "AllMetrics" }' }, false: null }
       note: a block (azurerm 5.x); false renders no enabled_metric block
-    bicep_avm: { gap: 'the module has no diagnosticSettings for the gateway; the authored diagnostic setting carries metrics' }
+    bicep_avm: { gap: 'module README 2.1.1 has no diagnosticSettings parameter for the gateway; the authored diagnostic setting carries metrics' }
     bicep:
       attribute: Microsoft.Insights/diagnosticSettings properties.metrics
       values: { true: { expr: "[ { category: 'AllMetrics', enabled: true } ]" }, false: null }

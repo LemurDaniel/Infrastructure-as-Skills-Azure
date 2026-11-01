@@ -114,10 +114,19 @@ decisions:
     bicep_avm: { gap: not a template property; a permanent delete is the forceDelete=true query parameter on deletion }
     bicep: { gap: not a template property; a permanent delete is the forceDelete=true query parameter on deletion }
   data_protection.archive_to_storage:
-    terraform_avm: { gap: 'reference names no module input; an azurerm_monitor_diagnostic_setting with storage_account_id beside the workspace, count on the decision' }
+    terraform_avm:
+      attribute: 'diagnostic_settings.<key>.storage_account_resource_id'
+      values: { true: { expr: '<archive_storage_account_id>' }, false: null }
+      note: 'an archive entry of the module''s diagnostic_settings map; false renders no such entry (source: module README v0.5.1)'
     terraform:
       attribute: azurerm_monitor_diagnostic_setting.count
       values: { true: 1, false: 0 }
       note: the setting beside the workspace, storage_account_id from the archive account
-    bicep_avm: { gap: 'the module''s diagnosticSettings exists, but a storage destination member is not in the reference; rendered as an authored Microsoft.Insights/diagnosticSettings beside the module, conditional on the decision' }
-    bicep: { gap: 'the reference names no Bicep rendering; a Microsoft.Insights/diagnosticSettings with scope set to the workspace and storageAccountId, conditional on the decision' }
+    bicep_avm:
+      attribute: 'diagnosticSettings[].storageAccountResourceId'
+      values: { true: { expr: '<archive_storage_account_id>' }, false: null }
+      note: 'an archive entry of the module''s diagnosticSettings array; false renders no such entry (source: module README 0.16.1)'
+    bicep:
+      attribute: Microsoft.Insights/diagnosticSettings properties.storageAccountId
+      values: { true: { expr: '<archive_storage_account_id>' }, false: null }
+      note: 'scope: the workspace; false renders no setting (source: bicep build, Microsoft.Insights/diagnosticSettings@2021-05-01-preview)'

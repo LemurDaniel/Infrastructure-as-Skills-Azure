@@ -39,9 +39,11 @@ decisions:
         Windows: { expr: azurerm_windows_virtual_machine }
     bicep_avm: { attribute: osType, passthrough: true, note: a required parameter }
     bicep:
-      gap: >-
-        properties.osProfile.linuxConfiguration for Linux; the reference's authored rendering spells no
-        Windows configuration
+      attribute: properties.osProfile
+      values:
+        Linux: { expr: 'linuxConfiguration: { <members per the other decisions> }' }
+        Windows: { expr: 'windowsConfiguration: { <members per the other decisions> }' }
+      note: 'source: bicep build, Microsoft.Compute/virtualMachines@2024-11-01'
   machine.image:
     terraform_avm:
       attribute: source_image_reference
@@ -72,7 +74,7 @@ decisions:
         gallery_image is { id: {machine.gallery_image_id} }
   machine.gallery_image_id:
     terraform_avm: { attribute: source_image_resource_id, note: and no source_image_reference }
-    terraform: { gap: the reference's authored rendering names no argument for a gallery image }
+    terraform: { attribute: source_image_id, note: 'instead of source_image_reference (source: azurerm 5.12 schema, azurerm 5.12 docs)' }
     bicep_avm: { attribute: imageReference.id }
     bicep: { attribute: properties.storageProfile.imageReference.id }
   machine.size:
@@ -91,7 +93,9 @@ decisions:
       attribute: licenseType
       values: { included: null, azure_hybrid_benefit: Windows_Server }
     bicep:
-      gap: the reference's authored rendering names no license property
+      attribute: properties.licenseType
+      values: { included: null, azure_hybrid_benefit: Windows_Server }
+      note: 'source: bicep build, Microsoft.Compute/virtualMachines@2024-11-01 (an open string there); literal per module README 0.22.3 licenseType'
   machine.instance_count:
     terraform_avm:
       attribute: for_each
@@ -186,28 +190,38 @@ decisions:
       passthrough: true
       note: module default false; written anyway
     terraform:
-      gap: false renders no azurerm_public_ip; true is not spelled in the reference
+      attribute: azurerm_network_interface.ip_configuration.public_ip_address_id
+      values: { true: { expr: 'azurerm_public_ip.<name>.id' }, false: null }
+      note: 'true renders an azurerm_public_ip beside the interface (source: azurerm 5.12 schema, azurerm 5.12 docs)'
     bicep_avm:
-      gap: "false renders no pipConfiguration on the ip configuration; true's pipConfiguration is not spelled in the reference"
+      attribute: 'nicConfigurations[].ipConfigurations[].pipConfiguration'
+      values: { true: { expr: "{ name: '<name>' }" }, false: null }
+      note: 'the module creates the public IP (source: module README 0.22.3)'
     bicep:
-      gap: false renders no publicIPAddress on the interface's ip configuration; true is not spelled in the reference
+      attribute: 'Microsoft.Network/networkInterfaces properties.ipConfigurations[].properties.publicIPAddress.id'
+      values: { true: { expr: '<the public IP resource id>' }, false: null }
+      note: 'true renders a Microsoft.Network/publicIPAddresses beside it (source: bicep build, Microsoft.Network/networkInterfaces@2024-05-01)'
   networking.private_ip_allocation:
     terraform_avm:
       attribute: network_interfaces.primary.ip_configurations.primary.private_ip_address_allocation
       passthrough: true
     terraform:
-      gap: >-
-        not in the reference's authored rendering (the interface's ip_configuration names subnet_id only);
-        Static also needs an address
+      attribute: azurerm_network_interface.ip_configuration.private_ip_address_allocation
+      passthrough: true
+      note: 'Static with private_ip_address (source: azurerm 5.12 schema, azurerm 5.12 docs)'
     bicep_avm: { attribute: 'nicConfigurations[].ipConfigurations[].privateIPAllocationMethod', passthrough: true }
     bicep:
-      gap: not in the reference's authored rendering (the interface's ip configuration names subnet.id only)
+      attribute: 'Microsoft.Network/networkInterfaces properties.ipConfigurations[].properties.privateIPAllocationMethod'
+      passthrough: true
+      note: 'Static with privateIPAddress (source: bicep build, Microsoft.Network/networkInterfaces@2024-05-01 - an open string there; literals per module README 0.22.3)'
   networking.accelerated_networking:
     terraform_avm: { attribute: network_interfaces.primary.accelerated_networking_enabled, passthrough: true }
     terraform: { attribute: azurerm_network_interface.accelerated_networking_enabled, passthrough: true }
     bicep_avm: { attribute: 'nicConfigurations[].enableAcceleratedNetworking', passthrough: true }
     bicep:
-      gap: not in the reference's authored rendering for Microsoft.Network/networkInterfaces
+      attribute: Microsoft.Network/networkInterfaces properties.enableAcceleratedNetworking
+      passthrough: true
+      note: 'source: bicep build, Microsoft.Network/networkInterfaces@2024-05-01'
 
   # ----------------------------------------------------------------- identity
   identity.system_assigned_identity:
@@ -225,7 +239,10 @@ decisions:
     terraform_avm: { attribute: managed_identities.user_assigned_resource_ids }
     terraform: { attribute: identity.identity_ids }
     bicep_avm: { attribute: managedIdentities.userAssignedResourceIds }
-    bicep: { gap: identity.userAssignedIdentities is an object keyed by id; the reference shows no shape }
+    bicep:
+      attribute: identity.userAssignedIdentities
+      format: { expr: 'toObject({value}, id => id, id => {})' }
+      note: 'an object keyed by each id (source: bicep build, Microsoft.Compute/virtualMachines@2024-11-01)'
   identity.entra_login:
     terraform_avm:
       attribute: extensions.entra_login
@@ -347,29 +364,36 @@ decisions:
         true: { expr: '{ default = { recovery_vault_resource_id, backup_policy_resource_id } }' }
         false: { expr: '{}' }
     terraform:
-      gap: true renders azurerm_backup_protected_vm, false none; its arguments are not in the reference's authored rendering
+      attribute: azurerm_backup_protected_vm
+      values:
+        true: { expr: '{ resource_group_name, recovery_vault_name, source_vm_id, backup_policy_id }' }
+        false: null
+      note: 'source_vm_id is the machine id; false renders none (source: azurerm 5.12 schema, azurerm 5.12 docs)'
     bicep_avm:
       attribute: backupVaultName
       values: { true: { expr: '<the name of backup_vault_id>' }, false: '' }
       note: an empty vault name is no backup
     bicep:
-      gap: >-
-        true renders Microsoft.RecoveryServices/vaults/backupFabrics/protectionContainers/protectedItems,
-        false none; its properties are not in the reference's authored rendering
+      attribute: Microsoft.RecoveryServices/vaults/backupFabrics/protectionContainers/protectedItems properties.protectedItemType
+      values: { true: Microsoft.Compute/virtualMachines, false: null }
+      note: 'with sourceResourceId = the machine id and policyId; false renders none; the fabric, container and item names are in no source - check them (source: bicep build, protectedItems@2025-02-01, a strict discriminator)'
   data_protection.backup_vault_id:
     terraform_avm: { attribute: azure_backup_configurations.default.recovery_vault_resource_id }
-    terraform: { gap: azurerm_backup_protected_vm - the argument is not in the reference }
+    terraform:
+      attribute: azurerm_backup_protected_vm.recovery_vault_name, azurerm_backup_protected_vm.resource_group_name
+      note: 'the vault id split into its name and resource group (source: azurerm 5.12 schema, azurerm 5.12 docs)'
     bicep_avm:
       attribute: backupVaultName, backupVaultResourceGroup
       note: the vault id split into its name and resource group
     bicep:
-      gap: the protected item is a child of this vault; the reference names the resource and no property
+      gap: the protected item is a child of this vault by name (vaults/<vault>/backupFabrics/<fabric>/protectionContainers/<container>/protectedItems/<item>); the fabric, container and item names are in no source of record
   data_protection.backup_policy_id:
     terraform_avm: { attribute: azure_backup_configurations.default.backup_policy_resource_id }
-    terraform: { gap: azurerm_backup_protected_vm - the argument is not in the reference }
+    terraform: { attribute: azurerm_backup_protected_vm.backup_policy_id, note: 'source: azurerm 5.12 schema, azurerm 5.12 docs' }
     bicep_avm: { attribute: backupPolicyName, note: the policy's name and not its id; module default DefaultPolicy }
     bicep:
-      gap: Microsoft.RecoveryServices/vaults/backupFabrics/protectionContainers/protectedItems - the property is not in the reference
+      attribute: Microsoft.RecoveryServices/vaults/backupFabrics/protectionContainers/protectedItems properties.policyId
+      note: 'source: bicep build, protectedItems@2025-02-01'
 
   # -------------------------------------------------------------- maintenance
   maintenance.patch_mode:
@@ -390,27 +414,38 @@ decisions:
         true: { expr: '{ nightly = { daily_recurrence_time, timezone, enabled = true } }' }
         false: { expr: '{}' }
     terraform:
-      gap: true renders azurerm_dev_test_global_vm_shutdown_schedule, false none; its arguments are not in the reference
+      attribute: azurerm_dev_test_global_vm_shutdown_schedule
+      values:
+        true: { expr: '{ virtual_machine_id, location, enabled = true, daily_recurrence_time, timezone, notification_settings { enabled = false } }' }
+        false: null
+      note: 'notification_settings is a required block; false renders none (source: azurerm 5.12 schema, azurerm 5.12 docs)'
     bicep_avm:
       attribute: autoShutdownConfig
       values:
         true: { expr: "{ status: 'Enabled', dailyRecurrenceTime, timeZone, notificationSettings: { status: 'Disabled' } }" }
         false: { expr: '{}' }
     bicep:
-      gap: true renders Microsoft.DevTestLab/schedules (shutdown-computevm-<name>), false none; its properties are not in the reference
+      gap: >-
+        true renders Microsoft.DevTestLab/schedules (shutdown-computevm-<name>), false none; status,
+        taskType, dailyRecurrence.time, timeZoneId, targetResourceId and notificationSettings.status
+        compile (bicep build, Microsoft.DevTestLab/schedules@2018-09-15), but taskType is an open string and
+        its literal is in no source of record
   maintenance.auto_shutdown_time:
     terraform_avm: { attribute: shutdown_schedules.nightly.daily_recurrence_time, passthrough: true }
-    terraform: { gap: azurerm_dev_test_global_vm_shutdown_schedule - the argument is not in the reference }
+    terraform:
+      attribute: azurerm_dev_test_global_vm_shutdown_schedule.daily_recurrence_time
+      passthrough: true
+      note: 'HHmm (source: azurerm 5.12 docs)'
     bicep_avm:
       attribute: autoShutdownConfig.dailyRecurrenceTime
       passthrough: true
       note: HHmm; the module's own default is written 19:00 - check the first deployment
-    bicep: { gap: Microsoft.DevTestLab/schedules - the property is not in the reference }
+    bicep: { attribute: Microsoft.DevTestLab/schedules properties.dailyRecurrence.time, passthrough: true, note: 'source: bicep build, Microsoft.DevTestLab/schedules@2018-09-15' }
   maintenance.auto_shutdown_timezone:
     terraform_avm: { attribute: shutdown_schedules.nightly.timezone, passthrough: true, note: a Windows time zone id }
-    terraform: { gap: azurerm_dev_test_global_vm_shutdown_schedule - the argument is not in the reference }
+    terraform: { attribute: azurerm_dev_test_global_vm_shutdown_schedule.timezone, passthrough: true, note: 'a time zone id (source: azurerm 5.12 docs)' }
     bicep_avm: { attribute: autoShutdownConfig.timeZone, passthrough: true }
-    bicep: { gap: Microsoft.DevTestLab/schedules - the property is not in the reference }
+    bicep: { attribute: Microsoft.DevTestLab/schedules properties.timeZoneId, passthrough: true, note: 'source: bicep build, Microsoft.DevTestLab/schedules@2018-09-15' }
 
   # ------------------------------------------------------------ observability
   observability.boot_diagnostics:
@@ -428,7 +463,9 @@ decisions:
       attribute: 'nicConfigurations[].diagnosticSettings[].workspaceResourceId'
       note: no machine-level diagnostic setting in the module; metrics go on the interface
     bicep:
-      gap: no diagnostic setting in the reference's authored rendering
+      gap: >-
+        whether the machine itself takes a diagnostic setting is in no Bicep source - module README
+        0.22.3 sets diagnostic settings on the interface and the public IP only
   observability.metrics_enabled:
     terraform_avm:
       attribute: diagnostic_settings.workspace.metric_categories
@@ -441,4 +478,6 @@ decisions:
       attribute: 'nicConfigurations[].diagnosticSettings[].metricCategories'
       values: { true: { expr: "[ { category: 'AllMetrics' } ]" }, false: { expr: '[]' } }
     bicep:
-      gap: no diagnostic setting in the reference's authored rendering
+      gap: >-
+        whether the machine itself takes a diagnostic setting is in no Bicep source - module README
+        0.22.3 sets diagnostic settings on the interface and the public IP only

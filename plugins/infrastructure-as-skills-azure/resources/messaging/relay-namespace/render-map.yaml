@@ -68,8 +68,7 @@ decisions:
   # ------------------------------------------------------------------- access
   access.local_auth:
     terraform_avm:
-      gap: no input - the type has no switch; the authorization-rule submodule is not called, no listKeys
-      note: recorded forced; roles only
+      gap: module README v0.1.1 has no input - the type has no switch; the authorization-rule submodule is not called, no listKeys
     terraform:
       gap: no azurerm_relay_namespace_authorization_rule and no *_connection_string output
     bicep_avm:
@@ -89,7 +88,7 @@ decisions:
         enabled_with_firewall: 'module "network_rule_set" { public_network_access = "Enabled", default_action = "Deny", ip_rules = {networking.ip_rules} }'
       note: a string on the module, module default Enabled - written; under disabled the rule-set call is omitted
     terraform:
-      gap: no azurerm argument - azapi_resource Microsoft.Relay/namespaces/networkRuleSets@2024-01-01 named default with properties.publicNetworkAccess, or azapi_update_resource on the namespace for properties.publicNetworkAccess
+      gap: azurerm 5.12 schema has no network argument on azurerm_relay_namespace - azapi_resource Microsoft.Relay/namespaces/networkRuleSets@2024-01-01 named default with properties.publicNetworkAccess, or azapi_update_resource on the namespace for properties.publicNetworkAccess
     bicep_avm:
       attribute: networkRuleSets.publicNetworkAccess
       values: { disabled: Disabled, enabled_with_firewall: Enabled, enabled: Enabled }

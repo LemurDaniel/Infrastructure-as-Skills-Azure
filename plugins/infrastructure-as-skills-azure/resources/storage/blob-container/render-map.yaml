@@ -45,7 +45,7 @@ decisions:
       passthrough: true
       note: needs blob versioning on the account; cannot be combined with blob_properties.restore_policy
     terraform:
-      gap: not on azurerm_storage_container; an azapi_update_resource on Microsoft.Storage/storageAccounts/blobServices/containers sets immutableStorageWithVersioning.enabled
+      gap: not on azurerm_storage_container (source azurerm 5.12 schema - has_immutability_policy is computed only); an azapi_update_resource on Microsoft.Storage/storageAccounts/blobServices/containers sets immutableStorageWithVersioning.enabled
     bicep_avm:
       attribute: 'blobServices.containers[].immutableStorageWithVersioningEnabled'
       passthrough: true
@@ -76,4 +76,6 @@ decisions:
       note: scoped to the container
     terraform: { attribute: azurerm_role_assignment, note: 'scope = azurerm_storage_container.<k>.id, the Resource Manager id in 5.x' }
     bicep_avm: { attribute: 'blobServices.containers[].roleAssignments[] = { principalId, roleDefinitionIdOrName, principalType }' }
-    bicep: { gap: reference names no authored property }
+    bicep:
+      attribute: 'Microsoft.Authorization/roleAssignments properties = { roleDefinitionId, principalId, principalType }'
+      note: 'an extension resource, scope = the container (source: bicep build, Microsoft.Authorization/roleAssignments@2022-04-01)'

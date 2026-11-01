@@ -111,4 +111,6 @@ decisions:
     terraform_avm: { attribute: 'role_assignments.<key> = { role_definition_id_or_name, principal_id }' }
     terraform: { attribute: azurerm_role_assignment, note: scope = the app's id }
     bicep_avm: { attribute: 'roleAssignments[] = { principalId, roleDefinitionIdOrName, principalType }' }
-    bicep: { gap: reference names no authored property }
+    bicep:
+      attribute: 'Microsoft.Authorization/roleAssignments properties = { principalId, roleDefinitionId, principalType }'
+      note: 'one per entry, scope the app; roleDefinitionId is the role''s id, not its name (source: bicep build, Microsoft.Authorization/roleAssignments@2022-04-01)'

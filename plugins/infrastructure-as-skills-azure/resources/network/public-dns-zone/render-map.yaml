@@ -15,8 +15,8 @@ decisions:
   placement.environments:
     not_rendered: the stage the zone is rendered in; the zone name and the delegations come from the stage's file
   placement.location:
-    terraform_avm: { gap: no input; the module creates the zone global }
-    terraform: { gap: reference names no authored argument; azurerm_dns_zone takes name and resource_group_name }
+    terraform_avm: { gap: module README v0.2.1 has no input for location; the module creates the zone global }
+    terraform: { gap: 'azurerm_dns_zone has no location argument - the zone is global (source: azurerm 5.12 schema)' }
     bicep_avm: { attribute: location, note: "always 'global'; the module default as well, written anyway", passthrough: true }
     bicep: { attribute: location, note: "always 'global'", passthrough: true }
   placement.resource_group_name:
@@ -73,7 +73,7 @@ decisions:
   # ------------------------------------------------------------------- access
   access.role_assignments:
     terraform_avm:
-      gap: 'not carried by the module; an authored azurerm_role_assignment per entry, scope = module.public_dns_zone.resource_id, role_definition_name = "DNS Zone Contributor"'
+      gap: 'module README v0.2.1 has no input for role assignments; an authored azurerm_role_assignment per entry, scope = module.public_dns_zone.resource_id, role_definition_name = "DNS Zone Contributor"'
     terraform: { attribute: azurerm_role_assignment, note: "scope = the zone's id" }
     bicep_avm: { attribute: "roleAssignments[] = { principalId, roleDefinitionIdOrName: 'DNS Zone Contributor', principalType }" }
     bicep: { attribute: Microsoft.Authorization/roleAssignments, note: an extension resource with scope = the zone }
@@ -81,9 +81,9 @@ decisions:
   # ----------------------------------------------------------------- security
   security.dnssec:
     terraform_avm:
-      gap: not carried by the module; an authored azapi_resource Microsoft.Network/dnsZones/dnssecConfigs@2023-07-01-preview named default, parent_id the zone's id
+      gap: module README v0.2.1 has no input for DNSSEC; an authored azapi_resource Microsoft.Network/dnsZones/dnssecConfigs@2023-07-01-preview named default, parent_id the zone's id
     terraform:
-      gap: azurerm 5.x has no DNSSEC resource; an azapi_resource Microsoft.Network/dnsZones/dnssecConfigs@2023-07-01-preview named default
+      gap: azurerm 5.12 has no DNSSEC resource and azurerm_dns_zone no DNSSEC argument (source azurerm 5.12 schema); an azapi_resource Microsoft.Network/dnsZones/dnssecConfigs@2023-07-01-preview named default
     bicep_avm:
       attribute: enableDnsSec
       passthrough: true

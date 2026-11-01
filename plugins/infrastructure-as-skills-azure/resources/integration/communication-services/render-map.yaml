@@ -77,7 +77,8 @@ decisions:
       module: avm/res/communication/email-service
       attribute: 'domains[].senderUsernames[] = { name, username, displayName }'
     bicep:
-      gap: a child domains/senderUsernames per entry; the reference names the child, not its properties
+      attribute: 'Microsoft.Communication/emailServices/domains/senderUsernames = { name, properties.username, properties.displayName }'
+      note: "a child of the domain per entry (source: bicep build, Microsoft.Communication/emailServices/domains/senderUsernames@2025-09-01)"
   service.user_engagement_tracking:
     terraform:
       module: Azure/avm-res-communication-emailservice/azurerm
@@ -128,12 +129,16 @@ decisions:
         user_assigned: { expr: '{ userAssignedResourceIds: {identity.user_assigned_identity_ids} }' }
         none: { expr: '{}' }
     bicep:
-      gap: the authored section names identity without its members or type literals; none renders no identity
+      attribute: identity.type
+      values: { system_assigned: SystemAssigned, user_assigned: UserAssigned, none: null }
+      note: "none writes no identity; literals from the compiled type (source: bicep build, Microsoft.Communication/communicationServices@2025-09-01)"
   identity.user_assigned_identity_ids:
     terraform: { attribute: azapi_resource identity.identity_ids, note: not in azurerm - the fallback needs an azapi_update_resource }
     bicep_avm: { attribute: managedIdentities.userAssignedResourceIds }
     bicep:
-      gap: identity.userAssignedIdentities is an object keyed by id; the reference names identity without its members
+      attribute: identity.userAssignedIdentities
+      format: { expr: 'toObject({value}, id => id, id => {})' }
+      note: "an object keyed by identity id, each value empty (source: bicep build, Microsoft.Communication/communicationServices@2025-09-01)"
   identity.role_assignments:
     terraform:
       module: Azure/avm-res-communication-emailservice/azurerm
@@ -142,7 +147,9 @@ decisions:
     bicep_avm:
       attribute: roleAssignments
       note: on both modules; 'Communication and Email Service Owner' by name
-    bicep: { gap: the authored rendering names no role assignment; the renders field names only the module input }
+    bicep:
+      attribute: 'Microsoft.Authorization/roleAssignments properties = { principalId, roleDefinitionId, principalType }'
+      note: "one per entry, scoped to the communication service; roleDefinitionId takes the definition id, the render resolves the role name (source: bicep build, Microsoft.Authorization/roleAssignments@2022-04-01)"
 
   # ----------------------------------------------------------------- security
   security.local_authentication_disabled:
@@ -157,12 +164,14 @@ decisions:
       attribute: 'diagnosticSettings[].workspaceResourceId'
       note: the e-mail service has no diagnostic setting of its own
     bicep:
-      gap: authored Microsoft.Insights/diagnosticSettings scoped to the communication service; the reference names the resource, not its workspace property
+      attribute: Microsoft.Insights/diagnosticSettings properties.workspaceId
+      note: "scoped to the communication service (source: bicep build, Microsoft.Insights/diagnosticSettings@2021-05-01-preview)"
   observability.diagnostic_categories:
     terraform: { attribute: azurerm_monitor_diagnostic_setting.enabled_log.category }
     bicep_avm: { attribute: 'diagnosticSettings[].logCategoriesAndGroups[].category' }
     bicep:
-      gap: authored Microsoft.Insights/diagnosticSettings scoped to the communication service; the reference names the resource, not its log property
+      attribute: 'Microsoft.Insights/diagnosticSettings properties.logs[].category'
+      note: "one { category, enabled: true } per entry, scoped to the communication service (source: bicep build, Microsoft.Insights/diagnosticSettings@2021-05-01-preview)"
   observability.metrics_enabled:
     terraform:
       attribute: azurerm_monitor_diagnostic_setting.enabled_metric.category
@@ -172,4 +181,4 @@ decisions:
       attribute: 'diagnosticSettings[].metricCategories'
       values: { true: { expr: "[ { category: 'AllMetrics' } ]" }, false: { expr: '[]' } }
     bicep:
-      gap: authored Microsoft.Insights/diagnosticSettings scoped to the communication service; the reference names the resource, not its metric property
+      gap: "Microsoft.Insights/diagnosticSettings properties.metrics[] { category, enabled } scoped to the communication service is proven (bicep build, Microsoft.Insights/diagnosticSettings@2021-05-01-preview); the category is a free string in the type, so AllMetrics has no source for authored Bicep"

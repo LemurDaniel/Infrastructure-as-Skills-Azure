@@ -44,11 +44,10 @@ decisions:
   vault.soft_delete:
     terraform_avm: { attribute: soft_delete_enabled, passthrough: true, note: module default Enabled - written; AlwaysOn cannot be reverted }
     terraform:
-      attribute: azurerm_recovery_services_vault.soft_delete_enabled
-      values: { Enabled: true, AlwaysOn: null, Disabled: false }
-      also:
-        AlwaysOn: azapi_update_resource on the vault for properties.securitySettings.softDeleteSettings.softDeleteState
-      note: a bool on the provider; AlwaysOn is not expressible there - check the 5.x schema
+      gap: >-
+        azurerm 5.12 has no soft-delete argument on azurerm_recovery_services_vault (source: azurerm
+        5.12 schema) - every answer renders as an azapi_update_resource on the vault for
+        properties.securitySettings.softDeleteSettings.softDeleteState
     bicep_avm:
       attribute: softDeleteSettings.softDeleteState
       values: { Enabled: Enabled, AlwaysOn: AlwaysON, Disabled: Disabled }
@@ -58,8 +57,8 @@ decisions:
       values: { Enabled: Enabled, AlwaysOn: AlwaysON, Disabled: Disabled }
   vault.soft_delete_retention_days:
     terraform_avm:
-      gap: 'no input in this version - the platform default (14 days) applies; named in the handover, not-testable'
-    terraform: { gap: the reference names no argument }
+      gap: 'module README v1.3.3 has no input for the soft-delete retention - the platform default (14 days) applies; named in the handover, not-testable'
+    terraform: { gap: 'azurerm 5.12 schema has no soft-delete argument on azurerm_recovery_services_vault' }
     bicep_avm: { attribute: softDeleteSettings.softDeleteRetentionPeriodInDays, passthrough: true }
     bicep: { attribute: properties.securitySettings.softDeleteSettings.softDeleteRetentionPeriodInDays, passthrough: true }
   vault.immutability:
@@ -72,23 +71,33 @@ decisions:
       attribute: resource_guard_association_enabled
       passthrough: true
       note: true whenever resource_guard_id is supplied; resource_guard_operation_requests beside it
-    terraform: { gap: the reference names no argument }
+    terraform:
+      attribute: azurerm_recovery_services_vault_resource_guard_association.resource_guard_id
+      values: { true: { expr: '{vault.resource_guard}' }, false: null }
+      note: 'a separate resource, vault_id = the vault id; false renders none (source: azurerm 5.12 schema, azurerm 5.12 docs)'
     bicep_avm:
-      gap: resourceGuardOperationRequests takes the guard's operation-request ids, not a bool; the reference gives neither their form nor what false renders. The vault's identity needs Reader on the guard
-    bicep: { gap: the reference names no property }
+      gap: module README 0.13.2 types resourceGuardOperationRequests as a free array of operation-request ids, not a bool, and says neither their form nor what false renders. The vault's identity needs Reader on the guard
+    bicep:
+      attribute: Microsoft.RecoveryServices/vaults/backupResourceGuardProxies properties.resourceGuardResourceId
+      values: { true: { expr: '{vault.resource_guard}' }, false: null }
+      note: "a child of the vault; false renders none; the vault's identity needs Reader on the guard (source: bicep build, Microsoft.RecoveryServices/vaults/backupResourceGuardProxies@2025-08-01)"
   vault.resource_guard:
     terraform_avm: { attribute: resource_guard_id }
-    terraform: { gap: the reference names no argument }
-    bicep_avm: { gap: "resourceGuardOperationRequests takes the guard's operation-request ids, not the guard id; the reference does not say how they derive from it" }
-    bicep: { gap: the reference names no property }
+    terraform: { attribute: azurerm_recovery_services_vault_resource_guard_association.resource_guard_id, note: '(source: azurerm 5.12 schema, azurerm 5.12 docs)' }
+    bicep_avm: { gap: "module README 0.13.2 types resourceGuardOperationRequests as a free array of operation-request ids, not the guard id; it does not say how they derive from it" }
+    bicep: { attribute: Microsoft.RecoveryServices/vaults/backupResourceGuardProxies properties.resourceGuardResourceId, note: '(source: bicep build, Microsoft.RecoveryServices/vaults/backupResourceGuardProxies@2025-08-01)' }
   vault.job_failure_alerts:
     terraform_avm: { attribute: alerts_for_all_job_failures_enabled, passthrough: true, note: default true - written }
     terraform:
-      gap: not in the reference's authored rendering for azurerm_recovery_services_vault - the argument is unconfirmed
+      attribute: azurerm_recovery_services_vault.monitoring.alerts_for_all_job_failures_enabled
+      passthrough: true
+      note: 'a bool in the monitoring block, provider default true - written (source: azurerm 5.12 schema, azurerm 5.12 docs)'
     bicep_avm:
-      gap: monitoringSettings - the alert setting is a member whose name and literals are read from the README; the reference gives neither
+      attribute: monitoringSettings.azureMonitorAlertSettings.alertsForAllJobFailures
+      values: { true: Enabled, false: Disabled }
+      note: '(source: module README 0.13.2)'
     bicep:
-      gap: properties.monitoringSettings is not in the reference's authored rendering; member and literals unstated
+      gap: 'properties.monitoringSettings.azureMonitorAlertSettings.alertsForAllJobFailures exists (bicep build, Microsoft.RecoveryServices/vaults@2025-08-01) but the type is an open string, so the build proves no literal per answer'
 
   # --------------------------------------------------------------- protection
   protection.protected_resources:
@@ -104,9 +113,12 @@ decisions:
       values: { daily: Daily, weekly: Weekly }
       note: file_share_backup_policy and workload_backup_policy alike; policy_type V2 for an enhanced policy
     terraform:
-      gap: azurerm_backup_policy_vm, azurerm_backup_policy_file_share - the reference names the resources, not the schedule argument
+      - attribute: azurerm_backup_policy_vm.backup.frequency
+        values: { daily: Daily, weekly: Weekly }
+        note: 'weekly needs backup.weekdays, retention_weekly and instant_restore_retention_days = 5 (source: azurerm 5.12 schema, azurerm 5.12 docs)'
+      - { gap: 'azurerm_backup_policy_file_share.backup.frequency takes Daily or Hourly only - weekly has no file-share policy (source: azurerm 5.12 docs)' }
     bicep_avm:
-      gap: backupPolicies - the schedule is a member of the policy, whose shape per workload type is read from the README
+      gap: module README 0.13.2 types backupPolicies.properties as a free object - no schedule member stated
     bicep:
       gap: backupPolicies child properties.schedulePolicy - the reference names the object, not its members or literals
   protection.retention_days:
@@ -115,9 +127,10 @@ decisions:
       passthrough: true
       note: a count of daily points; file_share_backup_policy and workload_backup_policy alike
     terraform:
-      gap: azurerm_backup_policy_vm, azurerm_backup_policy_file_share - the reference names the resources, not the retention argument
+      - { attribute: azurerm_backup_policy_vm.retention_daily.count, passthrough: true, note: 'daily points, 7-9999; a weekly schedule takes retention_weekly instead (source: azurerm 5.12 schema, azurerm 5.12 docs)' }
+      - { attribute: azurerm_backup_policy_file_share.retention_daily.count, passthrough: true, note: 'daily points, 1-200 (source: azurerm 5.12 schema, azurerm 5.12 docs)' }
     bicep_avm:
-      gap: backupPolicies - the retention is a member of the policy, whose shape per workload type is read from the README
+      gap: module README 0.13.2 types backupPolicies.properties as a free object - no retention member stated
     bicep:
       gap: backupPolicies child properties.retentionPolicy - the reference names the object, not its members or duration format
 
@@ -165,7 +178,12 @@ decisions:
         platform_managed: null
         customer_managed: { expr: '{ keyName: <keyName>, keyVaultResourceId: <keyVaultResourceId>, userAssignedIdentityResourceId: <userAssignedIdentityResourceId> }' }
       note: a user-assigned key identity does not support private endpoints for backup
-    bicep: { gap: the reference names no property }
+    bicep:
+      attribute: properties.encryption
+      values:
+        platform_managed: null
+        customer_managed: { expr: '{ keyVaultProperties: { keyUri: {encryption.cmk_key_vault_key_id} }, kekIdentity: { userAssignedIdentity: <userAssignedIdentity>, useSystemAssignedIdentity: <useSystemAssignedIdentity> } }' }
+      note: 'platform_managed renders no encryption object (source: bicep build, Microsoft.RecoveryServices/vaults@2025-08-01; bicep.md names no API version - the one the module uses)'
   encryption.cmk_key_vault_key_id:
     terraform_avm:
       attribute: customer_managed_key.key_vault_resource_id, customer_managed_key.key_name
@@ -174,7 +192,7 @@ decisions:
     bicep_avm:
       attribute: customerManagedKey.keyVaultResourceId, customerManagedKey.keyName
       note: the key id split into the vault's id and the key's name
-    bicep: { gap: the reference names no property }
+    bicep: { attribute: properties.encryption.keyVaultProperties.keyUri, note: '(source: bicep build, Microsoft.RecoveryServices/vaults@2025-08-01; bicep.md names no API version - the one the module uses)' }
   encryption.managed_identity:
     terraform_avm:
       attribute: managed_identities
@@ -199,9 +217,15 @@ decisions:
 
   encryption.user_assigned_identity_id:
     terraform_avm: { attribute: managed_identities.user_assigned_resource_ids, format: { expr: '[{value}]' } }
-    terraform: { gap: the reference names no authored argument for a user-assigned identity on this vault }
+    terraform:
+      attribute: azurerm_recovery_services_vault.identity.identity_ids
+      format: { expr: '[{value}]' }
+      note: 'also encryption.user_assigned_identity_id when the key uses it (source: azurerm 5.12 schema, azurerm 5.12 docs)'
     bicep_avm: { attribute: managedIdentities.userAssignedResourceIds, format: { expr: '[{value}]' } }
-    bicep: { gap: identity.userAssignedIdentities is an object keyed by id; the reference shows no shape }
+    bicep:
+      attribute: identity.userAssignedIdentities
+      format: { expr: 'toObject([{value}], id => id, id => {})' }
+      note: "an object keyed by the id - type: 'UserAssigned' (source: bicep build, Microsoft.RecoveryServices/vaults@2025-08-01; bicep.md names no API version - the one the module uses)"
 
   # ----------------------------------------------------------------- identity
   identity.role_assignments:

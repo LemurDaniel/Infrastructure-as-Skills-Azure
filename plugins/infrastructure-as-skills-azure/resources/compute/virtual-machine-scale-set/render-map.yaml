@@ -32,7 +32,7 @@ decisions:
   # ---------------------------------------------------------------- scale_set
   scale_set.orchestration_mode:
     terraform_avm:
-      gap: Flexible is fixed in the module; Uniform renders the authored azurerm_linux/windows_virtual_machine_scale_set
+      gap: module README v0.11.1 has no input for the orchestration mode - Flexible is fixed; Uniform renders the authored azurerm_linux/windows_virtual_machine_scale_set
     terraform:
       attribute: resource type
       values:
@@ -55,9 +55,11 @@ decisions:
       note: Uniform picks the linux or windows resource instead
     bicep_avm: { attribute: osType, passthrough: true, note: a required parameter }
     bicep:
-      gap: >-
-        properties.virtualMachineProfile.osProfile.linuxConfiguration for Linux; the reference's
-        authored rendering spells no Windows configuration
+      attribute: properties.virtualMachineProfile.osProfile
+      values:
+        Linux: { expr: 'linuxConfiguration: { <members per the other decisions> }' }
+        Windows: { expr: 'windowsConfiguration: { <members per the other decisions> }' }
+      note: 'source: bicep build, Microsoft.Compute/virtualMachineScaleSets@2024-11-01'
   scale_set.image:
     terraform_avm:
       gap: >-
@@ -81,7 +83,7 @@ decisions:
         offer: 'ubuntu-24_04-lts', sku: 'server', version: 'latest' }; gallery_image is { id: {scale_set.gallery_image_id} }
   scale_set.gallery_image_id:
     terraform_avm: { attribute: source_image_id }
-    terraform: { gap: the reference's authored rendering names no argument for a gallery image }
+    terraform: { attribute: source_image_id, note: 'instead of source_image_reference; on the Uniform resources too (source: azurerm 5.12 schema, azurerm 5.12 docs)' }
     bicep_avm: { attribute: imageReference.id }
     bicep: { attribute: properties.virtualMachineProfile.storageProfile.imageReference.id }
   scale_set.size:
@@ -130,7 +132,7 @@ decisions:
     terraform:
       attribute: upgrade_mode
       passthrough: true
-      note: on the Uniform resources; the reference names no upgrade argument for the Flexible resource
+      note: 'on the Uniform and the Flexible resources alike, with rolling_upgrade_policy beside it for Rolling (source: azurerm 5.12 schema)'
     bicep_avm:
       attribute: upgradePolicyMode
       passthrough: true
@@ -180,13 +182,21 @@ decisions:
     bicep: { attribute: 'properties.virtualMachineProfile.networkProfile.networkInterfaceConfigurations[].properties.ipConfigurations[].properties.subnet.id' }
   networking.public_ip:
     terraform_avm:
-      gap: false renders no public_ip_address block in the ip configuration; true is not spelled in the reference
+      attribute: 'network_interface[].ip_configuration[].public_ip_address'
+      values: { true: { expr: '[{ name = "<name>" }]' }, false: { expr: 'null' } }
+      note: 'a set of objects, name required (source: module README v0.11.1)'
     terraform:
-      gap: false renders no public_ip_address block in the ip configuration; true is not spelled in the reference
+      attribute: 'network_interface[].ip_configuration[].public_ip_address'
+      values: { true: { expr: 'public_ip_address { name = "<name>" }' }, false: null }
+      note: 'a block, name required; false renders none (source: azurerm 5.12 schema)'
     bicep_avm:
-      gap: false renders no publicIPAddressConfiguration in the ip configuration; true is not spelled in the reference
+      attribute: 'nicConfigurations[].ipConfigurations[].properties.publicIPAddressConfiguration'
+      values: { true: { expr: "{ name: '<name>' }" }, false: null }
+      note: 'source: module README 0.11.1 (example)'
     bicep:
-      gap: false renders no publicIPAddressConfiguration in the ip configuration; true is not spelled in the reference
+      attribute: 'properties.virtualMachineProfile.networkProfile.networkInterfaceConfigurations[].properties.ipConfigurations[].properties.publicIPAddressConfiguration'
+      values: { true: { expr: "{ name: '<name>' }" }, false: null }
+      note: 'source: bicep build, Microsoft.Compute/virtualMachineScaleSets@2024-11-01'
   networking.load_balancer_backend_pool_ids:
     terraform_avm:
       attribute: 'network_interface[].ip_configuration[].load_balancer_backend_address_pool_ids'
@@ -196,7 +206,7 @@ decisions:
     bicep: { attribute: 'properties.virtualMachineProfile.networkProfile.networkInterfaceConfigurations[].properties.ipConfigurations[].properties.loadBalancerBackendAddressPools[].id' }
   networking.accelerated_networking:
     terraform_avm: { attribute: 'network_interface[].enable_accelerated_networking', passthrough: true, note: module default false - always written }
-    terraform: { attribute: 'network_interface[].enable_accelerated_networking', passthrough: true }
+    terraform: { attribute: 'network_interface[].accelerated_networking_enabled', passthrough: true, note: 'the 4.x enable_accelerated_networking is gone (source: azurerm 5.12 schema)' }
     bicep_avm: { attribute: 'nicConfigurations[].enableAcceleratedNetworking', passthrough: true }
     bicep: { attribute: 'properties.virtualMachineProfile.networkProfile.networkInterfaceConfigurations[].properties.enableAcceleratedNetworking', passthrough: true }
 
@@ -205,7 +215,10 @@ decisions:
     terraform_avm: { attribute: managed_identities.user_assigned_resource_ids, note: the module refuses a system-assigned identity }
     terraform: { attribute: identity.identity_ids, note: type UserAssigned }
     bicep_avm: { attribute: managedIdentities.userAssignedResourceIds, note: a Flexible set takes no system-assigned identity }
-    bicep: { gap: "identity { type: 'UserAssigned', userAssignedIdentities } - an object keyed by id; the reference shows no shape" }
+    bicep:
+      attribute: identity.userAssignedIdentities
+      format: { expr: 'toObject({value}, id => id, id => {})' }
+      note: 'an object keyed by each id, with type UserAssigned (source: bicep build, Microsoft.Compute/virtualMachineScaleSets@2024-11-01)'
   identity.role_assignments:
     terraform_avm: { attribute: 'role_assignments.<key> = { role_definition_id_or_name, principal_id }' }
     terraform: { attribute: azurerm_role_assignment, note: scope = the set's id }
@@ -214,7 +227,7 @@ decisions:
 
   # ----------------------------------------------------------------- security
   security.trusted_launch:
-    terraform_avm: { gap: no module input for secure boot or vTPM; a named gap in the handover }
+    terraform_avm: { gap: module README v0.11.1 has no input for secure boot or vTPM; a named gap in the handover }
     terraform:
       attribute: secure_boot_enabled, vtpm_enabled
       passthrough: true
@@ -323,15 +336,17 @@ decisions:
     bicep: { attribute: properties.virtualMachineProfile.diagnosticsProfile.bootDiagnostics.enabled, passthrough: true }
   observability.diagnostic_workspace:
     terraform_avm:
-      gap: no diagnostic input; a sibling azurerm_monitor_diagnostic_setting (log_analytics_workspace_id), unverified for this type
+      gap: module README v0.11.1 has no diagnostic input; a sibling azurerm_monitor_diagnostic_setting (log_analytics_workspace_id), unverified for this type
     terraform:
       attribute: azurerm_monitor_diagnostic_setting.log_analytics_workspace_id
       note: unverified for this type
     bicep_avm: { attribute: 'diagnosticSettings[].workspaceResourceId', note: metrics-only }
-    bicep: { gap: no diagnostic setting in the reference's authored rendering }
+    bicep:
+      attribute: Microsoft.Insights/diagnosticSettings properties.workspaceId
+      note: 'scope = the set; metrics only (source: bicep build, Microsoft.Insights/diagnosticSettings@2021-05-01-preview)'
   observability.metrics_enabled:
     terraform_avm:
-      gap: no diagnostic input; the sibling azurerm_monitor_diagnostic_setting carries enabled_metric { category = "AllMetrics" }
+      gap: module README v0.11.1 has no diagnostic input; the sibling azurerm_monitor_diagnostic_setting carries enabled_metric { category = "AllMetrics" }
     terraform:
       attribute: azurerm_monitor_diagnostic_setting.enabled_metric
       values: { true: { expr: '{ category = "AllMetrics" }' }, false: null }
@@ -339,4 +354,7 @@ decisions:
     bicep_avm:
       attribute: 'diagnosticSettings[].metricCategories'
       values: { true: { expr: "[ { category: 'AllMetrics' } ]" }, false: { expr: '[]' } }
-    bicep: { gap: no diagnostic setting in the reference's authored rendering }
+    bicep:
+      attribute: Microsoft.Insights/diagnosticSettings properties.metrics
+      values: { true: { expr: "[ { category: 'AllMetrics', enabled: true } ]" }, false: { expr: '[]' } }
+      note: 'source: bicep build, Microsoft.Insights/diagnosticSettings@2021-05-01-preview; AllMetrics per module README 0.11.1'

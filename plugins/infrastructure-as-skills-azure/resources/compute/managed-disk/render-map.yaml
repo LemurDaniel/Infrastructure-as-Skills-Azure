@@ -64,30 +64,42 @@ decisions:
   # --------------------------------------------------------------- networking
   networking.network_access:
     terraform_avm:
-      gap: >-
-        allow_all's literals are not in the reference. Stated: network_access_policy "DenyAll"
-        (deny_all) / "AllowPrivate" (allow_private), each with public_network_access_enabled = false
-        (a bool); module default AllowPrivate + false - written
+      attribute: network_access_policy
+      values: { deny_all: DenyAll, allow_private: AllowPrivate, allow_all: AllowAll }
+      also:
+        deny_all: public_network_access_enabled = false
+        allow_private: public_network_access_enabled = false
+        allow_all: public_network_access_enabled = true
+      note: 'a bool beside it; module defaults AllowPrivate and false - written (source: module README v0.4.1)'
     terraform:
-      gap: >-
-        allow_all's literals are not in the reference. Stated: network_access_policy DenyAll /
-        AllowPrivate and public_network_access_enabled; whether 5.x takes that bool or a string is
-        contradicted by the module call's comment - check the provider schema
+      attribute: network_access_policy
+      values: { deny_all: DenyAll, allow_private: AllowPrivate, allow_all: AllowAll }
+      also:
+        deny_all: public_network_access_enabled = false
+        allow_private: public_network_access_enabled = false
+        allow_all: public_network_access_enabled = true
+      note: 'a bool in 5.12; provider defaults AllowAll and true - always written (source: azurerm 5.12 schema, azurerm 5.12 docs)'
     bicep_avm:
-      gap: >-
-        allow_private has no module parameter (renders the authored disk) and allow_all's policy
-        literal is not in the reference. Stated: deny_all is networkAccessPolicy 'DenyAll' +
-        publicNetworkAccess 'Disabled' (the module default; written)
+      attribute: networkAccessPolicy
+      values: { deny_all: DenyAll, allow_all: AllowAll }
+      authored_when: [allow_private]
+      also:
+        deny_all: "publicNetworkAccess: 'Disabled'"
+        allow_all: "publicNetworkAccess: 'Enabled'"
+      note: 'no diskAccessId parameter, so allow_private renders the authored disk; module defaults DenyAll and Disabled - written (source: module README 0.6.1)'
     bicep:
-      gap: >-
-        allow_all's literals are not in the reference. Stated: properties.networkAccessPolicy
-        (DenyAll, AllowPrivate as the module literals), properties.publicNetworkAccess 'Disabled',
-        properties.diskAccessId for allow_private
+      attribute: properties.networkAccessPolicy
+      values: { deny_all: DenyAll, allow_private: AllowPrivate, allow_all: AllowAll }
+      also:
+        deny_all: "properties.publicNetworkAccess: 'Disabled'"
+        allow_private: "properties.publicNetworkAccess: 'Disabled'"
+        allow_all: "properties.publicNetworkAccess: 'Enabled'"
+      note: 'allow_private with properties.diskAccessId (source: bicep build, Microsoft.Compute/disks@2024-03-02; open strings there - literals per module README 0.6.1)'
   networking.disk_access_id:
     terraform_avm: { attribute: disk_access_id, note: allow_private only }
     terraform: { attribute: disk_access_id }
     bicep_avm:
-      gap: no module parameter for a disk access; allow_private renders the authored Microsoft.Compute/disks with properties.diskAccessId
+      gap: module README 0.6.1 has no input for a disk access; allow_private renders the authored Microsoft.Compute/disks (authored_when on networking.network_access)
     bicep: { attribute: properties.diskAccessId }
   networking.private_endpoint_subnet:
     terraform_avm:
@@ -97,7 +109,7 @@ decisions:
       attribute: azurerm_private_endpoint.subnet_id
       note: 'subresource_names = ["disks"]'
     bicep_avm:
-      gap: no module parameter for a private endpoint; an authored Microsoft.Network/privateEndpoints with group id disks
+      gap: module README 0.6.1 has no input for a private endpoint; an authored Microsoft.Network/privateEndpoints with group id disks
     bicep: { attribute: Microsoft.Network/privateEndpoints properties.subnet.id, note: group id disks }
 
   # ----------------------------------------------------------------- identity

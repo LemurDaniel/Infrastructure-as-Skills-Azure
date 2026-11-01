@@ -160,14 +160,22 @@ decisions:
   data_sources.iis_logs:
     terraform_avm:
       module: Azure/avm-res-insights-datacollectionrule/azurerm
-      gap: true renders one data_sources.iis_logs[] entry (Windows; needs the endpoint), false none - the entry's members and stream name are not in the reference
+      gap: 'true renders one data_sources.iis_logs[] { name, streams, log_directories, transform_kql } entry (Windows; needs the endpoint), false none - module README v0.1.0 names the members but no stream literal'
     terraform:
-      gap: true renders one data_sources.iis_log { name, streams, log_directories } block, false none - the stream name is not in the reference
+      attribute: data_sources.iis_log
+      values:
+        true: { expr: '{ name = <name>, streams = ["Microsoft-W3CIISLog"] }' }
+        false: null
+      note: 'a block (written without =), log_directories optional; false renders none; a data_flow carries the stream (source: azurerm 5.12 docs)'
     bicep_avm:
       module: avm/res/insights/data-collection-rule
-      gap: true renders one dataCollectionRuleProperties.dataSources.iisLogs[] entry, false none - the entry's members are not in the reference
+      attribute: dataCollectionRuleProperties.dataSources.iisLogs
+      values:
+        true: { expr: "[ { name: <name>, streams: [ 'Microsoft-W3CIISLog' ] } ]" }
+        false: null
+      note: 'logDirectories optional; false renders no entry; a dataFlows entry carries the stream (source: module README 0.11.0, IIS example)'
     bicep:
-      gap: true renders one properties.dataSources.iisLogs[] entry, false none - the entry's members are not in the reference
+      gap: "true renders one properties.dataSources.iisLogs[] { name, streams } entry (bicep build, @2023-03-11), false none - streams is a plain string array in the type, the stream literal is not provable by a build"
   data_sources.custom_text_logs:
     terraform_avm:
       attribute: 'data_sources.log_files[] { file_patterns, format = "text", streams, settings.text.record_start_timestamp_format }'
@@ -257,7 +265,12 @@ decisions:
         false: null
       note: a block (written without =); false renders none; AgentDirectToStore
     bicep_avm: { gap: 'not carried by 0.11.0 (AgentDirectToStore is not a variant); authored destinations.storageBlobsDirect[]' }
-    bicep: { gap: 'true renders one properties.destinations.storageBlobsDirect[] entry, false none - the entry''s members are not in the reference' }
+    bicep:
+      attribute: properties.destinations.storageBlobsDirect
+      values:
+        true: { expr: '[ { name: <name>, storageAccountResourceId: {destinations.storage_account}, containerName: <container_name> } ]' }
+        false: null
+      note: 'false renders none; AgentDirectToStore (source: bicep build, Microsoft.Insights/dataCollectionRules@2023-03-11)'
   destinations.storage_account:
     terraform_avm: { gap: 'AgentDirectToStore only, which the module''s kind validation refuses; authored destinations.storage_blob_direct.storage_account_id' }
     terraform: { attribute: destinations.storage_blob_direct.storage_account_id }
@@ -272,7 +285,12 @@ decisions:
         false: null
       note: a block (written without =); false renders none; AgentDirectToStore
     bicep_avm: { gap: 'not carried by 0.11.0 (AgentDirectToStore is not a variant); authored destinations.eventHubsDirect[]' }
-    bicep: { gap: 'true renders one properties.destinations.eventHubsDirect[] entry, false none - the entry''s members are not in the reference' }
+    bicep:
+      attribute: properties.destinations.eventHubsDirect
+      values:
+        true: { expr: '[ { name: <name>, eventHubResourceId: {destinations.event_hub} } ]' }
+        false: null
+      note: 'false renders none; AgentDirectToStore (source: bicep build, Microsoft.Insights/dataCollectionRules@2023-03-11)'
   destinations.event_hub:
     terraform_avm: { gap: 'AgentDirectToStore only, which the module''s kind validation refuses; authored destinations.event_hub_direct.event_hub_id' }
     terraform: { attribute: destinations.event_hub_direct.event_hub_id }
@@ -348,8 +366,10 @@ decisions:
       attribute: Microsoft.Insights/dataCollectionEndpoints properties.networkAcls.publicNetworkAccess
       values: { disabled: Disabled, enabled: Enabled }
   networking.private_link_scope:
-    terraform_avm: { gap: not carried by either module; authored azapi_resource of type Microsoft.Insights/privateLinkScopes/scopedResources in the root }
-    terraform: { gap: an azapi_resource of type Microsoft.Insights/privateLinkScopes/scopedResources in the root; the reference names none of its body }
+    terraform_avm: { gap: 'not carried by either module (READMEs v0.1.0, v0.2.0 have no input); authored azurerm_monitor_private_link_scoped_service in the root, linking the endpoint' }
+    terraform:
+      attribute: azurerm_monitor_private_link_scoped_service.scope_name
+      note: 'the scope''s name (resource_group_name its group), not its id; linked_resource_id = the endpoint''s id - the provider allows a data collection endpoint, not the rule (source: azurerm 5.12 schema, docs)'
     bicep_avm: { gap: not carried; authored Microsoft.Insights/privateLinkScopes/scopedResources with the scope as parent }
     bicep: { gap: a Microsoft.Insights/privateLinkScopes/scopedResources with the scope as parent; the reference names none of its properties }
 
@@ -363,7 +383,9 @@ decisions:
         none: { expr: '{}' }
       module: Azure/avm-res-insights-datacollectionrule/azurerm
     terraform:
-      gap: 'identity { type, identity_ids }; none renders no identity block - the type literals are not in the reference'
+      attribute: identity.type
+      values: { none: null, system_assigned: SystemAssigned, user_assigned: UserAssigned }
+      note: 'none renders no identity block (source: azurerm 5.12 docs)'
     bicep_avm:
       attribute: managedIdentities
       values:
@@ -373,12 +395,14 @@ decisions:
       module: avm/res/insights/data-collection-rule
       note: none leaves the parameter out
     bicep:
-      gap: the top-level identity; none renders none - its shape and type literals are not in the reference
+      gap: 'the top-level identity { type, userAssignedIdentities } (bicep build, @2023-03-11); none renders none - type is a plain string in the type, the literals are not provable by a build'
   identity.user_assigned_identity_id:
     terraform_avm: { attribute: managed_identities.user_assigned_resource_ids, module: Azure/avm-res-insights-datacollectionrule/azurerm, note: 'a set - [<id>]' }
     terraform: { attribute: identity.identity_ids, note: 'a list - [<id>]' }
     bicep_avm: { attribute: managedIdentities.userAssignedResourceIds, module: avm/res/insights/data-collection-rule, note: 'an array - [<id>]' }
-    bicep: { gap: identity.userAssignedIdentities is an object keyed by the id; the reference shows no shape }
+    bicep:
+      attribute: identity.userAssignedIdentities
+      note: "an object keyed by the id: { '${<id>}': {} } (source: bicep build, Microsoft.Insights/dataCollectionRules@2023-03-11)"
 
   # ------------------------------------------------------------ observability
   observability.diagnostic_workspace:
@@ -386,9 +410,13 @@ decisions:
       attribute: 'diagnostic_settings.<key>.workspace_resource_id'
       module: Azure/avm-res-insights-datacollectionrule/azurerm
       note: no metrics on the type - metric_categories = []
-    terraform: { gap: 'an azurerm_monitor_diagnostic_setting on the rule; the reference names the resource and enabled_log, not the workspace argument' }
+    terraform:
+      attribute: azurerm_monitor_diagnostic_setting.log_analytics_workspace_id
+      note: 'target_resource_id = the rule id (source: azurerm 5.12 schema)'
     bicep_avm: { gap: 'no diagnosticSettings parameter on the rule module; authored Microsoft.Insights/diagnosticSettings with scope: the rule' }
-    bicep: { gap: 'a Microsoft.Insights/diagnosticSettings with scope: an existing reference to the rule; the reference names no workspace property' }
+    bicep:
+      attribute: Microsoft.Insights/diagnosticSettings properties.workspaceId
+      note: 'scope: an existing reference to the rule (source: bicep build, Microsoft.Insights/diagnosticSettings@2021-05-01-preview)'
   observability.diagnostic_categories:
     terraform_avm:
       attribute: 'diagnostic_settings.<key>.log_categories'

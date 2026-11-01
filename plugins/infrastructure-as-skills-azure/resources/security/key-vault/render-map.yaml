@@ -22,7 +22,7 @@ decisions:
     bicep: { attribute: location, passthrough: true }
   placement.resource_group_name:
     terraform_avm: { attribute: resource_group_name, note: 'a name, not parent_id - azurerm-based module' }
-    terraform: { gap: reference names no argument }
+    terraform: { attribute: resource_group_name, note: '(source: azurerm 5.12 schema)' }
     bicep_avm: { gap: the deployment's resource group scope; no parameter }
     bicep: { gap: the deployment's resource group scope; no property }
 
@@ -87,9 +87,13 @@ decisions:
       note: the also lines sit inside properties.networkAcls; what enabled writes there the reference does not state
   networking.private_endpoint_subnet:
     terraform_avm: { attribute: private_endpoints.vault.subnet_resource_id, note: subresource_name defaults to vault }
-    terraform: { gap: reference names no argument }
+    terraform:
+      attribute: azurerm_private_endpoint.subnet_id
+      note: 'private_service_connection { private_connection_resource_id = the vault id, subresource_names } beside it (source: azurerm 5.12 schema)'
     bicep_avm: { attribute: 'privateEndpoints[].subnetResourceId', note: "service: 'vault'" }
-    bicep: { gap: reference names no property }
+    bicep:
+      attribute: Microsoft.Network/privateEndpoints properties.subnet.id
+      note: 'privateLinkServiceConnections[].properties { privateLinkServiceId: the vault id, groupIds } beside it (source: bicep build, Microsoft.Network/privateEndpoints@2024-05-01)'
   networking.network_acl_bypass:
     terraform_avm: { attribute: network_acls.bypass, passthrough: true }
     terraform: { attribute: network_acls.bypass, passthrough: true }
@@ -108,9 +112,13 @@ decisions:
   # ----------------------------------------------------------------- identity
   identity.role_assignments:
     terraform_avm: { attribute: 'role_assignments.<key> = { role_definition_id_or_name, principal_id, principal_type }' }
-    terraform: { gap: reference names no argument }
+    terraform:
+      attribute: 'azurerm_role_assignment = { role_definition_name, principal_id, principal_type }'
+      note: 'one per entry, scope = the vault id; role_definition_id instead of the name for a custom role (source: azurerm 5.12 schema)'
     bicep_avm: { attribute: 'roleAssignments[] = { principalId, roleDefinitionIdOrName, principalType }' }
-    bicep: { gap: reference names no property }
+    bicep:
+      attribute: 'Microsoft.Authorization/roleAssignments = { properties.principalId, properties.roleDefinitionId, properties.principalType }'
+      note: 'one per entry, scope: the vault; roleDefinitionId is the definition id, never the name (source: bicep build, Microsoft.Authorization/roleAssignments@2022-04-01)'
 
   # ----------------------------------------------------------------- security
   security.enabled_for_services:
@@ -147,60 +155,75 @@ decisions:
     terraform_avm:
       attribute: 'keys = { <key> = { name, key_type, key_size, key_opts, rotation_policy } }'
       note: exact member names from the README of the pinned version
-    terraform: { gap: reference names no argument }
+    terraform:
+      attribute: azurerm_key_vault_key
+      note: 'one per entry, key_vault_id = the vault id; name, key_type, key_size, key_opts (required), rotation_policy (source: azurerm 5.12 schema)'
     bicep_avm:
       attribute: 'keys[] = { name, kty, keySize, rotationPolicy, attributes }'
       note: member names from the README
-    bicep: { gap: reference names no property }
+    bicep:
+      attribute: Microsoft.KeyVault/vaults/keys
+      note: 'one per entry, parent: the vault; properties { kty, keySize, rotationPolicy } (source: bicep build, Microsoft.KeyVault/vaults/keys@2024-11-01)'
   keys.key_type:
     terraform_avm: { attribute: 'keys.<key>.key_type', passthrough: true }
-    terraform: { gap: reference names no argument }
+    terraform: { attribute: azurerm_key_vault_key.key_type, passthrough: true, note: 'EC, EC-HSM, RSA, RSA-HSM (source: azurerm 5.12 docs)' }
     bicep_avm: { attribute: 'keys[].kty', passthrough: true }
-    bicep: { gap: reference names no property }
+    bicep: { gap: 'Microsoft.KeyVault/vaults/keys properties.kty (bicep build, @2024-11-01) is a plain string in the type - the RSA / RSA-HSM literals are not provable by a build' }
   keys.key_size:
     terraform_avm: { attribute: 'keys.<key>.key_size', passthrough: true }
-    terraform: { gap: reference names no argument }
+    terraform: { attribute: azurerm_key_vault_key.key_size, passthrough: true, note: 'a number; RSA only (source: azurerm 5.12 schema)' }
     bicep_avm: { attribute: 'keys[].keySize', passthrough: true }
-    bicep: { gap: reference names no property }
+    bicep: { attribute: Microsoft.KeyVault/vaults/keys properties.keySize, passthrough: true, note: 'an int (source: bicep build, Microsoft.KeyVault/vaults/keys@2024-11-01)' }
   keys.key_rotation_days:
     terraform_avm:
       attribute: 'keys.<key>.rotation_policy.automatic.time_after_creation'
       format: 'P{value}D'
       note: an ISO 8601 duration; the member path is the key submodule's (key-vault-key) - confirm in the README
-    terraform: { gap: reference names no argument }
+    terraform:
+      attribute: azurerm_key_vault_key.rotation_policy.automatic.time_after_creation
+      format: 'P{value}D'
+      note: 'an ISO 8601 duration (source: azurerm 5.12 docs)'
     bicep_avm:
       attribute: 'keys[].rotationPolicy.lifetimeActions[].trigger.timeAfterCreate'
       format: 'P{value}D'
       note: "the entry with action: { type: 'rotate' }; the member path is the key child module's (key-vault-key) - confirm in the README"
-    bicep: { gap: reference names no property }
+    bicep: { gap: 'Microsoft.KeyVault/vaults/keys properties.rotationPolicy.lifetimeActions[].trigger.timeAfterCreate (bicep build, @2024-11-01) is a plain string - the duration literal is not provable by a build' }
   keys.key_expiry_days:
     terraform_avm: { attribute: 'keys.<key>.rotation_policy.expire_after', format: 'P{value}D', note: an ISO 8601 duration; member names from the README }
-    terraform: { gap: reference names no argument }
+    terraform: { attribute: azurerm_key_vault_key.rotation_policy.expire_after, format: 'P{value}D', note: 'an ISO 8601 duration (source: azurerm 5.12 docs)' }
     bicep_avm: { attribute: 'keys[].rotationPolicy.attributes.expiryTime', format: 'P{value}D', note: an ISO 8601 duration; member names from the README }
-    bicep: { gap: reference names no property }
+    bicep: { gap: 'Microsoft.KeyVault/vaults/keys properties.rotationPolicy.attributes.expiryTime (bicep build, @2024-11-01) is a plain string - the duration literal is not provable by a build' }
 
   # ------------------------------------------------------------ observability
   observability.diagnostic_workspace:
     terraform_avm: { attribute: diagnostic_settings.workspace.workspace_resource_id }
-    terraform: { gap: "an azurerm_monitor_diagnostic_setting on the vault; the reference's authored rendering names the resource and enabled_log, not the workspace argument" }
+    terraform:
+      attribute: azurerm_monitor_diagnostic_setting.log_analytics_workspace_id
+      note: 'target_resource_id = the vault id (source: azurerm 5.12 schema)'
     bicep_avm: { attribute: 'diagnosticSettings[].workspaceResourceId' }
-    bicep: { gap: reference names no property }
+    bicep:
+      attribute: Microsoft.Insights/diagnosticSettings properties.workspaceId
+      note: 'scope: the vault (source: bicep build, Microsoft.Insights/diagnosticSettings@2021-05-01-preview)'
   observability.diagnostic_categories:
     terraform_avm:
       attribute: diagnostic_settings.workspace.log_categories
       note: 'log_groups defaults to ["allLogs"] - set it [] beside named categories, or every log is collected'
     terraform: { attribute: 'azurerm_monitor_diagnostic_setting.enabled_log { category }', note: one enabled_log block per category (dynamic) }
     bicep_avm: { attribute: 'diagnosticSettings[].logCategoriesAndGroups[].category' }
-    bicep: { gap: reference names no property }
+    bicep:
+      attribute: 'Microsoft.Insights/diagnosticSettings properties.logs[].category'
+      note: 'one entry per category, enabled: true on each (source: bicep build, Microsoft.Insights/diagnosticSettings@2021-05-01-preview)'
   observability.metrics_enabled:
     terraform_avm:
       attribute: diagnostic_settings.workspace.metric_categories
       values: { true: { expr: '["AllMetrics"]' }, false: { expr: '[]' } }
       note: false is an empty list, not left out - the interface defaults to metrics
     terraform:
-      gap: the reference's authored rendering names only enabled_log; azurerm 5.x carries metrics in an enabled_metric { category } block, which the reference does not state
+      attribute: azurerm_monitor_diagnostic_setting.enabled_metric.category
+      values: { true: AllMetrics, false: null }
+      note: 'a block; false renders no enabled_metric block (source: azurerm 5.12 schema; AllMetrics: azurerm 5.12 docs)'
     bicep_avm:
       attribute: 'diagnosticSettings[].metricCategories'
       values: { true: { expr: "[ { category: 'AllMetrics' } ]" }, false: { expr: '[]' } }
       note: false is an empty array, not left out
-    bicep: { gap: reference names no property }
+    bicep: { gap: 'Microsoft.Insights/diagnosticSettings properties.metrics[].category (bicep build, @2021-05-01-preview) is a plain string - the AllMetrics literal is not provable by a build' }

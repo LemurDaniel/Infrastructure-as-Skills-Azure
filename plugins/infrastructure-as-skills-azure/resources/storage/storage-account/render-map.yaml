@@ -71,13 +71,25 @@ decisions:
   networking.firewall_ip_rules:
     terraform_avm: { attribute: network_rules.ip_rules }
     terraform: { attribute: network_rules.ip_rules }
-    bicep_avm: { gap: networkAcls.ipRules takes one object per address; the reference shows no item shape }
-    bicep: { gap: properties.networkAcls.ipRules takes one object per address; the reference shows no item shape }
+    bicep_avm:
+      attribute: networkAcls.ipRules
+      format: { expr: "[for ip in {value}: { action: 'Allow', value: ip }]" }
+      note: one object per address (source module README 0.33.1, usage example)
+    bicep:
+      attribute: properties.networkAcls.ipRules
+      format: { expr: "[for ip in {value}: { value: ip, action: 'Allow' }]" }
+      note: one object per address (source bicep build, Microsoft.Storage/storageAccounts@2023-05-01)
   networking.firewall_subnet_rules:
     terraform_avm: { attribute: network_rules.virtual_network_subnet_ids }
     terraform: { attribute: network_rules.virtual_network_subnet_ids }
-    bicep_avm: { gap: networkAcls.virtualNetworkRules takes one object per subnet; the reference shows no item shape }
-    bicep: { gap: properties.networkAcls.virtualNetworkRules takes one object per subnet; the reference shows no item shape }
+    bicep_avm:
+      attribute: networkAcls.virtualNetworkRules
+      format: { expr: "[for s in {value}: { action: 'Allow', id: s }]" }
+      note: one object per subnet (source module README 0.33.1, usage example)
+    bicep:
+      attribute: properties.networkAcls.virtualNetworkRules
+      format: { expr: "[for s in {value}: { id: s, action: 'Allow' }]" }
+      note: one object per subnet (source bicep build, Microsoft.Storage/storageAccounts@2023-05-01)
   networking.allow_azure_services_bypass:
     terraform_avm:
       attribute: network_rules.bypass
@@ -121,7 +133,10 @@ decisions:
     terraform_avm: { attribute: managed_identities.user_assigned_resource_ids }
     terraform: { attribute: identity.identity_ids }
     bicep_avm: { attribute: managedIdentities.userAssignedResourceIds }
-    bicep: { gap: identity.userAssignedIdentities is an object keyed by id; the reference shows no shape }
+    bicep:
+      attribute: identity.userAssignedIdentities
+      format: { expr: 'toObject({value}, id => id, id => {})' }
+      note: an object keyed by id, each value empty (source bicep build, Microsoft.Storage/storageAccounts@2023-05-01)
   identity.role_assignments:
     terraform_avm:
       attribute: 'role_assignments.<key> = { role_definition_id_or_name, principal_id }'
@@ -169,10 +184,11 @@ decisions:
         customer_managed: { expr: '{ key_vault_resource_id, key_name, user_assigned_identity = { resource_id } }' }
       note: applied after creation (azapi_update_resource), so a system-assigned identity works too; the user-assigned one is preferred so the wrap/unwrap grant exists first
     terraform:
-      gap: >-
-        customer_managed renders the separate azurerm_storage_account_customer_managed_key
-        (storage_account_id, key_vault_key_id, user_assigned_identity_id) after the account;
-        platform_managed renders nothing
+      attribute: azurerm_storage_account_customer_managed_key
+      values:
+        platform_managed: null
+        customer_managed: { expr: '{ storage_account_id = <storage account id>, key_vault_key_id = {security.cmk_key_vault_key_id}, user_assigned_identity_id = <user-assigned identity id> }' }
+      note: a separate resource after the account; platform_managed renders none (source azurerm 5.12 schema)
     bicep_avm:
       attribute: customerManagedKey
       values:
@@ -189,7 +205,9 @@ decisions:
     bicep_avm:
       attribute: customerManagedKey.keyVaultResourceId, customerManagedKey.keyName
       note: the key id split into the vault's id and the key's name
-    bicep: { gap: properties.encryption.keyvaultproperties takes the key's name and vault uri; the reference shows no shape }
+    bicep:
+      attribute: properties.encryption.keyvaultproperties.keyname, properties.encryption.keyvaultproperties.keyvaulturi
+      note: the key split into its name and its vault's uri (source bicep build, Microsoft.Storage/storageAccounts@2023-05-01)
   security.sftp_enabled:
     terraform_avm: { attribute: sftp_enabled, passthrough: true, note: requires is_hns_enabled = true }
     terraform: { attribute: sftp_enabled, passthrough: true, note: requires is_hns_enabled = true }
@@ -274,11 +292,21 @@ decisions:
       note: requires isVersioningEnabled and changeFeed.enabled; days below the soft-delete days
   data_protection.immutability:
     terraform_avm:
-      gap: none and container_level leave immutability_policy out (a container-level policy is on the containers input); account_level - the block's fields are not in the reference
+      gap: >-
+        none and container_level leave immutability_policy out (a container-level policy is on the
+        containers input); account_level needs period_since_creation_in_days and
+        allow_protected_append_writes, which no question answers, and a policy is created Disabled or
+        Unlocked, never Locked (source: module README v0.10.0)
     terraform:
-      gap: none and container_level leave immutability_policy out (asserted as length 0); account_level - the block's fields are not in the reference
+      gap: >-
+        none and container_level leave immutability_policy out (asserted as length 0); account_level
+        needs period_since_creation_in_days, allow_protected_append_writes and state, of which no
+        question answers the first two (source: azurerm 5.12 schema)
     bicep_avm:
-      gap: none leaves immutableStorageWithVersioning out; container_level is immutabilityPolicyProperties on the container; account_level - the object's fields are not in the reference
+      gap: >-
+        none leaves immutableStorageWithVersioning out; container_level is
+        immutabilityPolicyProperties on the container; account_level - module README 0.33.1 types
+        immutableStorageWithVersioning as a bare object and names no fields
     bicep:
       gap: none leaves properties.immutableStorageWithVersioning out (null); account_level - the object's fields are not in the reference
 

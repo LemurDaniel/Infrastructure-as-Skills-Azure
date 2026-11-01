@@ -14,8 +14,8 @@ decisions:
   placement.environments:
     not_rendered: naming parameter `environment`; the profile is rendered per stage over that stage's endpoints
   placement.location:
-    terraform_avm: { gap: no location input; the profile is global inside the module }
-    terraform: { gap: azurerm_traffic_manager_profile has no location }
+    terraform_avm: { gap: module README v0.1.1 has no input for location; the profile is global inside the module }
+    terraform: { gap: 'azurerm_traffic_manager_profile has no location argument (source: azurerm 5.12 schema)' }
     bicep_avm: { attribute: location, note: "always 'global'; the module default, written", passthrough: true }
     bicep: { attribute: location, note: "always 'global'", passthrough: true }
   placement.resource_group_name:
@@ -157,7 +157,10 @@ decisions:
     bicep_avm:
       attribute: 'diagnosticSettings[].logCategoriesAndGroups[].category'
       note: without the list the module collects everything; written
-    bicep: { gap: 'reference names only the Microsoft.Insights/diagnosticSettings extension resource, no property path' }
+    bicep:
+      attribute: 'Microsoft.Insights/diagnosticSettings properties.logs'
+      format: { expr: '[for c in {value}: { category: c, enabled: true }]' }
+      note: 'an extension resource, scope = the profile (source: bicep build, Microsoft.Insights/diagnosticSettings@2021-05-01-preview)'
   observability.metrics_enabled:
     terraform_avm:
       attribute: 'diagnostic_settings.<key>.metric_categories'
@@ -170,4 +173,8 @@ decisions:
       attribute: 'diagnosticSettings[].metricCategories'
       values: { true: { expr: "[ { category: 'AllMetrics' } ]" }, false: { expr: '[]' } }
       note: without the list the module collects everything; written
-    bicep: { gap: 'reference names only the Microsoft.Insights/diagnosticSettings extension resource, no property path' }
+    bicep:
+      gap: >-
+        Microsoft.Insights/diagnosticSettings properties.metrics[] = { category, enabled } compiles
+        (source: bicep build, Microsoft.Insights/diagnosticSettings@2021-05-01-preview), but the category
+        literal is a free string the build does not check, and no allowed source names it for this target

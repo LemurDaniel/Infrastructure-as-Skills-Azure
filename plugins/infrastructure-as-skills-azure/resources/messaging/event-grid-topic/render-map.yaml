@@ -34,8 +34,7 @@ decisions:
     bicep: { attribute: properties.inputSchema, passthrough: true, note: fixed at creation }
   topic.minimum_tls_version:
     terraform_avm: { attribute: minimum_tls_version_allowed, passthrough: true, note: module default 1.2 - written }
-    terraform:
-      gap: not in the reference's authored rendering for azurerm_eventgrid_topic - the argument is unconfirmed; azapi_update_resource with properties.minimumTlsVersionAllowed until the schema confirms one
+    terraform: { attribute: minimum_tls_version, passthrough: true, note: 'string; "1.0", "1.1", "1.2", provider default 1.2 - written (source: azurerm 5.12 schema, azurerm 5.12 docs)' }
     bicep_avm: { attribute: minimumTlsVersionAllowed, passthrough: true, note: module default 1.2 - written }
     bicep: { attribute: properties.minimumTlsVersionAllowed, passthrough: true }
   topic.local_auth:
@@ -56,8 +55,7 @@ decisions:
       values: { disabled: true, allowed_where_unavoidable: false }
   topic.data_residency_boundary:
     terraform_avm: { attribute: data_residency_boundary, passthrough: true, note: module default null }
-    terraform:
-      gap: not in the reference's authored rendering for azurerm_eventgrid_topic - the argument is unconfirmed; azapi_update_resource with properties.dataResidencyBoundary until the schema confirms one
+    terraform: { attribute: data_residency_boundary, passthrough: true, note: 'WithinGeopair or WithinRegion (source: azurerm 5.12 schema, azurerm 5.12 docs)' }
     bicep_avm: { attribute: dataResidencyBoundary, passthrough: true }
     bicep: { attribute: properties.dataResidencyBoundary, passthrough: true }
   topic.managed_identity:
@@ -85,7 +83,10 @@ decisions:
     terraform_avm: { attribute: managed_identities.user_assigned_resource_ids }
     terraform: { attribute: identity.identity_ids }
     bicep_avm: { attribute: managedIdentities.userAssignedResourceIds }
-    bicep: { gap: identity.userAssignedIdentities is an object keyed by id; the reference shows no shape }
+    bicep:
+      attribute: identity.userAssignedIdentities
+      format: { expr: 'toObject({value}, id => id, id => {})' }
+      note: "an object keyed by each id - type: 'UserAssigned'; bicep.md names no API version, the namespace reference's (source: bicep build, Microsoft.EventGrid/topics@2025-02-15)"
 
   # ----------------------------------------------------------------- delivery
   delivery.event_subscriptions:

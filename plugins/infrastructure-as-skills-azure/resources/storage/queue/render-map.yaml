@@ -50,4 +50,6 @@ decisions:
       note: scoped to the queue
     terraform: { attribute: azurerm_role_assignment, note: 'scope = azurerm_storage_queue.<k>.id, the Resource Manager id in 5.x' }
     bicep_avm: { attribute: 'queueServices.queues[].roleAssignments[] = { principalId, roleDefinitionIdOrName, principalType }' }
-    bicep: { gap: reference names no authored property }
+    bicep:
+      attribute: 'Microsoft.Authorization/roleAssignments properties = { roleDefinitionId, principalId, principalType }'
+      note: 'an extension resource, scope = the queue (source: bicep build, Microsoft.Authorization/roleAssignments@2022-04-01)'

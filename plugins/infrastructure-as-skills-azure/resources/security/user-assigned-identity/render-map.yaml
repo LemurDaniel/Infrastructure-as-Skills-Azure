@@ -21,7 +21,7 @@ decisions:
     bicep: { attribute: location, passthrough: true }
   placement.resource_group_name:
     terraform_avm: { attribute: resource_group_name, note: 'a name, not parent_id - azurerm-based module' }
-    terraform: { gap: reference names no argument }
+    terraform: { attribute: resource_group_name, note: 'required (source: azurerm 5.12 schema)' }
     bicep_avm: { gap: the deployment's resource group scope; no parameter }
     bicep: { gap: the deployment's resource group scope; no property }
 

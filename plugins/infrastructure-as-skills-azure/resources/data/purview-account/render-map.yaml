@@ -56,7 +56,7 @@ decisions:
       values: { true: Enabled, false: Disabled }
   account.managed_resources_public_access:
     terraform:
-      gap: no azurerm argument - azapi_update_resource on properties.managedResourcesPublicNetworkAccess ("Disabled" / "Enabled")
+      gap: no azurerm argument (the 5.12 schema of azurerm_purview_account has none) - azapi_update_resource on properties.managedResourcesPublicNetworkAccess ("Disabled" / "Enabled")
     bicep_avm:
       attribute: managedResourcesPublicNetworkAccess
       values: { disabled: Disabled, enabled: Enabled }
@@ -83,7 +83,7 @@ decisions:
     bicep_avm:
       attribute: '<kind>PrivateEndpoints[].subnetResourceId'
       note: on each of the five arrays (account, portal, storageBlob, storageQueue, eventHub)
-    bicep: { gap: the authored rendering names Microsoft.Network/privateEndpoints but no subnet property }
+    bicep: { attribute: Microsoft.Network/privateEndpoints properties.subnet.id, note: "one endpoint per sub-resource (source: bicep build, Microsoft.Network/privateEndpoints@2025-01-01)" }
   networking.private_endpoint_subresources:
     terraform:
       attribute: azurerm_private_endpoint.private_service_connection.subresource_names
@@ -113,7 +113,10 @@ decisions:
   identity.user_assigned_identity_ids:
     terraform: { attribute: identity.identity_ids }
     bicep_avm: { attribute: managedIdentities.userAssignedResourceIds }
-    bicep: { gap: identity.userAssignedIdentities takes an object keyed by id; the reference shows no shape for the list }
+    bicep:
+      attribute: identity.userAssignedIdentities
+      format: { expr: 'toObject({value}, id => id, id => {})' }
+      note: "an object keyed by id, built from the list (source: bicep build, Microsoft.Purview/accounts@2021-12-01)"
   identity.collection_roles:
     not_rendered: a step after the deployment against the account's metadata policy API, run as a Collection admin; no provider resource and no ARM resource
   identity.role_assignments:
@@ -125,7 +128,7 @@ decisions:
   observability.diagnostic_workspace:
     terraform: { attribute: azurerm_monitor_diagnostic_setting.log_analytics_workspace_id }
     bicep_avm: { attribute: 'diagnosticSettings[].workspaceResourceId' }
-    bicep: { gap: the authored rendering names Microsoft.Insights/diagnosticSettings but no workspace property }
+    bicep: { attribute: Microsoft.Insights/diagnosticSettings properties.workspaceId, note: "scope the account (source: bicep build, Microsoft.Insights/diagnosticSettings@2021-05-01-preview)" }
   observability.diagnostic_categories:
     terraform: { attribute: azurerm_monitor_diagnostic_setting.enabled_log.category, note: one enabled_log block per category }
     bicep_avm: { attribute: 'diagnosticSettings[].logCategoriesAndGroups[].category' }

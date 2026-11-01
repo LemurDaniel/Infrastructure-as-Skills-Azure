@@ -22,7 +22,7 @@ decisions:
     bicep: { attribute: location, passthrough: true }
   placement.resource_group_name:
     terraform_avm: { attribute: resource_group_name, note: 'a name, not an id' }
-    terraform: { gap: reference names no authored argument }
+    terraform: { attribute: resource_group_name, note: 'a name, not an id (source: azurerm 5.12 schema)' }
     bicep_avm: { gap: the deployment's resource group scope; no parameter }
     bicep: { gap: the deployment's resource group scope; no property }
 
@@ -101,7 +101,10 @@ decisions:
     bicep_avm:
       attribute: 'diagnosticSettings[].logCategoriesAndGroups[].category'
       note: without the list the module collects everything; written
-    bicep: { gap: 'reference names only the Microsoft.Insights/diagnosticSettings extension resource, no property path' }
+    bicep:
+      attribute: 'Microsoft.Insights/diagnosticSettings properties.logs'
+      format: { expr: '[for c in {value}: { category: c, enabled: true }]' }
+      note: 'an extension resource, scope = the public IP (source: bicep build, Microsoft.Insights/diagnosticSettings@2021-05-01-preview)'
   observability.metrics_enabled:
     terraform_avm:
       attribute: 'diagnostic_settings.<key>.metric_categories'
@@ -114,4 +117,8 @@ decisions:
       attribute: 'diagnosticSettings[].metricCategories'
       values: { true: { expr: "[ { category: 'AllMetrics' } ]" }, false: { expr: '[]' } }
       note: without the list the module collects everything; written
-    bicep: { gap: 'reference names only the Microsoft.Insights/diagnosticSettings extension resource, no property path' }
+    bicep:
+      gap: >-
+        Microsoft.Insights/diagnosticSettings properties.metrics[] = { category, enabled } compiles
+        (source: bicep build, Microsoft.Insights/diagnosticSettings@2021-05-01-preview), but the category
+        literal is a free string the build does not check, and no allowed source names it for this target

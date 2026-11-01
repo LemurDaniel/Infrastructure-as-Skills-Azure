@@ -41,8 +41,8 @@ decisions:
     bicep: { attribute: sku.capacity, passthrough: true }
   namespace.zone_redundant:
     terraform_avm:
-      gap: no input - the platform's on Premium in a zonal region; not-testable
-    terraform: { gap: the reference names no argument }
+      gap: module README 0.4.0 has no zone input - the platform's on Premium in a zonal region; not-testable
+    terraform: { gap: 'azurerm 5.12 schema has no zone argument on azurerm_servicebus_namespace - the platform default applies' }
     bicep_avm: { attribute: zoneRedundant, passthrough: true, note: 'module default true requires Premium - written, false below Premium' }
     bicep: { attribute: properties.zoneRedundant, passthrough: true }
   namespace.premium_messaging_partitions:
@@ -95,7 +95,10 @@ decisions:
     terraform_avm: { attribute: managed_identities.user_assigned_resource_ids }
     terraform: { attribute: azurerm_servicebus_namespace.identity.identity_ids }
     bicep_avm: { attribute: managedIdentities.userAssignedResourceIds }
-    bicep: { gap: identity.userAssignedIdentities is an object keyed by id; the reference shows no shape }
+    bicep:
+      attribute: identity.userAssignedIdentities
+      format: { expr: 'toObject({value}, id => id, id => {})' }
+      note: "an object keyed by each id - type: 'UserAssigned'; bicep.md names no API version, the module's (source: bicep build, Microsoft.ServiceBus/namespaces@2024-01-01)"
 
   # ----------------------------------------------------------------- entities
   entities.queues:
@@ -243,9 +246,11 @@ decisions:
   # ----------------------------------------------------------------- recovery
   recovery.geo_recovery:
     terraform_avm:
-      gap: no input - azurerm_servicebus_namespace_disaster_recovery_config outside the module; the partner is a second module call with no entities
+      gap: module README 0.4.0 has no input - azurerm_servicebus_namespace_disaster_recovery_config outside the module; the partner is a second module call with no entities
     terraform:
-      gap: paired_namespace renders azurerm_servicebus_namespace_disaster_recovery_config on the primary, none renders none; the reference names the resource, not its arguments
+      attribute: azurerm_servicebus_namespace_disaster_recovery_config.partner_namespace_id
+      values: { none: null, paired_namespace: { expr: '{recovery.partner_namespace}' } }
+      note: 'one resource, primary_namespace_id = the primary id, name = the alias; none renders none (source: azurerm 5.12 schema, azurerm 5.12 docs)'
     bicep_avm:
       attribute: disasterRecoveryConfig
       values:
@@ -253,10 +258,12 @@ decisions:
         paired_namespace: { expr: '{ partnerNamespace: {recovery.partner_namespace}, alternateName: <alternateName> }' }
       note: on the primary only; the partner is a second module call with no entities
     bicep:
-      gap: paired_namespace renders the child disasterRecoveryConfigs on the primary, none renders none
+      attribute: Microsoft.ServiceBus/namespaces/disasterRecoveryConfigs properties.partnerNamespace
+      values: { none: null, paired_namespace: { expr: '{recovery.partner_namespace}' } }
+      note: 'a child of the primary; none renders none (source: bicep build, Microsoft.ServiceBus/namespaces/disasterRecoveryConfigs@2024-01-01)'
   recovery.partner_namespace:
     terraform_avm:
-      gap: no input - partner_namespace_id on the azurerm_servicebus_namespace_disaster_recovery_config outside the module
+      gap: module README 0.4.0 has no input - partner_namespace_id on the azurerm_servicebus_namespace_disaster_recovery_config outside the module
     terraform: { attribute: azurerm_servicebus_namespace_disaster_recovery_config.partner_namespace_id }
     bicep_avm: { attribute: disasterRecoveryConfig.partnerNamespace }
     bicep: { attribute: disasterRecoveryConfigs child properties.partnerNamespace }

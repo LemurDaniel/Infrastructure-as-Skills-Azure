@@ -79,7 +79,7 @@ decisions:
     bicep: { attribute: 'properties.subnets[].properties.privateEndpointNetworkPolicies', passthrough: true }
   subnet_policy.service_endpoints:
     terraform_avm: { attribute: 'subnets.<name>.service_endpoints' }
-    terraform: { attribute: azurerm_subnet.service_endpoints }
+    terraform: { attribute: 'azurerm_subnet.service_endpoint[].service', note: 'one service_endpoint block per entry - the 4.x list argument service_endpoints is gone (source: azurerm 5.12 schema)' }
     bicep_avm: { attribute: 'subnets[].serviceEndpoints', note: 'strings, not { service } objects' }
     bicep: { attribute: 'properties.subnets[].properties.serviceEndpoints[].service', note: '{ service } objects, unlike the module' }
   subnet_policy.subnet_delegations:

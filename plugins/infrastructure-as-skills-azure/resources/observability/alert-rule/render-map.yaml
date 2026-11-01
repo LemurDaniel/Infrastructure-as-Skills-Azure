@@ -337,14 +337,22 @@ decisions:
   identity.query_identity:
     terraform_avm: { gap: activity log alerts run no query and carry no identity; log_query renders authored }
     terraform:
-      gap: 'log_query only: user_assigned is identity { type = "UserAssigned", identity_ids }, none renders no identity block; system_assigned - the reference renders only UserAssigned and states no literal for it'
+      attribute: identity.type
+      values: { none: null, system_assigned: SystemAssigned, user_assigned: UserAssigned }
+      note: 'log_query only (azurerm_monitor_scheduled_query_rules_alert_v2); none renders no identity block (source: azurerm 5.12 docs)'
     bicep_avm:
       module: avm/res/insights/scheduled-query-rule
-      gap: 'user_assigned is managedIdentities: { userAssignedResourceIds: [ <user_assigned_identity_id> ] }, none leaves the parameter out; system_assigned - the reference renders only user-assigned and states no member for it'
+      attribute: managedIdentities.systemAssigned
+      values: { none: null, system_assigned: true, user_assigned: null }
+      note: 'user_assigned is userAssignedResourceIds (user_assigned_identity_id); none leaves managedIdentities out; one kind only (source: module README 0.6.1)'
     bicep:
-      gap: "log_query only: the scheduledQueryRules resource's top-level identity; the reference names no shape and no type literal"
+      attribute: identity.type
+      values: { none: null, system_assigned: SystemAssigned, user_assigned: UserAssigned }
+      note: 'log_query only; none leaves identity out (source: bicep build, Microsoft.Insights/scheduledQueryRules@2023-12-01)'
   identity.user_assigned_identity_id:
     terraform_avm: { gap: activity log alerts run no query and carry no identity; log_query renders authored }
     terraform: { attribute: identity.identity_ids, format: { expr: '[{value}]' } }
     bicep_avm: { attribute: managedIdentities.userAssignedResourceIds, module: avm/res/insights/scheduled-query-rule, format: { expr: '[{value}]' } }
-    bicep: { gap: "the user-assigned identity of the scheduledQueryRules resource's identity; the reference names no shape" }
+    bicep:
+      attribute: identity.userAssignedIdentities
+      note: "an object keyed by the id: { '${<id>}': {} } (source: bicep build, Microsoft.Insights/scheduledQueryRules@2023-12-01)"

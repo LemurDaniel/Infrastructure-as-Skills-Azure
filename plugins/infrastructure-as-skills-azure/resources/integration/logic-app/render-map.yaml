@@ -124,13 +124,15 @@ decisions:
       attribute: for_each
       note: one workflow module call per entry, logic_app_definition left empty; on standard content from the repository - not-testable
     terraform:
-      gap: one authored azurerm_logic_app_workflow per entry (the reference names the resource, not its name argument); on standard the app's workflow folders (content)
+      attribute: azurerm_logic_app_workflow.name
+      note: "one per entry on consumption; on standard the workflow folders of the app (content) (source: azurerm 5.12 schema)"
     bicep_avm:
       module: avm/res/logic/workflow
       attribute: 'for wf in workflows'
       note: workflowTriggers and workflowActions stay empty (content); on standard content - not_testable
     bicep:
-      gap: one authored Microsoft.Logic/workflows per entry (the reference names the resource, not how the entry names it); on standard the app's workflow folders (content)
+      attribute: Microsoft.Logic/workflows name
+      note: "one per entry on consumption; on standard the workflow folders of the app (content) (source: bicep build, Microsoft.Logic/workflows@2019-05-01)"
   workflows.state:
     terraform_avm: { module: Azure/avm-res-logic-workflow/azurerm, attribute: state, passthrough: true, note: default "Enabled"; written }
     terraform:
@@ -244,10 +246,12 @@ decisions:
   networking.private_endpoint_subnet:
     terraform_avm: { module: Azure/avm-res-web-site/azurerm, attribute: private_endpoints.sites.subnet_resource_id }
     terraform:
-      gap: authored azurerm_private_endpoint with subresource_names = ["sites"]; the reference names the resource, not its subnet argument
+      attribute: azurerm_private_endpoint.subnet_id
+      note: "authored child with subresource_names = [\"sites\"]; (source: azurerm 5.12 schema)"
     bicep_avm: { module: avm/res/web/site, attribute: 'privateEndpoints[].subnetResourceId', note: "service: 'sites'" }
     bicep:
-      gap: "authored Microsoft.Network/privateEndpoints with groupIds: [ 'sites' ]; the reference names the resource, not its subnet property"
+      attribute: Microsoft.Network/privateEndpoints properties.subnet.id
+      note: "authored child with groupIds: [ 'sites' ]; (source: bicep build, Microsoft.Network/privateEndpoints@2024-05-01)"
   networking.vnet_integration:
     terraform_avm:
       module: Azure/avm-res-web-site/azurerm
@@ -285,10 +289,11 @@ decisions:
         user_assigned: key_vault_reference_identity = <identity id>
       note: site and workflow; key_vault_reference_identity on the site only
     terraform:
-      gap: >-
-        identity { type, identity_ids } on azurerm_logic_app_standard and azurerm_logic_app_workflow -
-        user_assigned is type = "UserAssigned" as the authored azapi site writes it, with
-        key_vault_reference_identity_id = <identity id> on the standard app; the SystemAssigned literal is not in the reference
+      attribute: identity.type
+      values: { system_assigned: SystemAssigned, user_assigned: UserAssigned }
+      also:
+        user_assigned: key_vault_reference_identity_id = <identity id>
+      note: "on azurerm_logic_app_standard and azurerm_logic_app_workflow (source: azurerm 5.12 docs); key_vault_reference_identity_id on the standard app only (source: azurerm 5.12 schema)"
     bicep_avm:
       attribute: managedIdentities
       values:
@@ -298,20 +303,28 @@ decisions:
         user_assigned: 'keyVaultAccessIdentityResourceId: <identity id>'
       note: site and workflow; keyVaultAccessIdentityResourceId on the site only
     bicep:
-      gap: >-
-        identity (top level) - the reference names it without its members or type literals;
-        user_assigned also sets properties.keyVaultReferenceIdentity to the identity id
+      attribute: identity.type
+      values: { system_assigned: SystemAssigned, user_assigned: UserAssigned }
+      also:
+        user_assigned: 'properties.keyVaultReferenceIdentity: <identity id>'
+      note: "site and workflow, keyVaultReferenceIdentity on the site only; literals from the compiled type (source: bicep build, Microsoft.Web/sites@2025-03-01 and Microsoft.Logic/workflows@2019-05-01)"
   identity.user_assigned_identity_ids:
     terraform_avm: { attribute: managed_identities.user_assigned_resource_ids, note: site and workflow }
     terraform: { attribute: identity.identity_ids }
     bicep_avm: { attribute: managedIdentities.userAssignedResourceIds, note: site and workflow }
     bicep:
-      gap: identity.userAssignedIdentities is an object keyed by id; the reference names identity without its members
+      attribute: identity.userAssignedIdentities
+      format: { expr: 'toObject({value}, id => id, id => {})' }
+      note: "an object keyed by identity id, each value empty (source: bicep build, Microsoft.Web/sites@2025-03-01 and Microsoft.Logic/workflows@2019-05-01)"
   identity.role_assignments:
     terraform_avm: { attribute: 'role_assignments.<key> = { role_definition_id_or_name, principal_id, principal_type }', note: site and workflow }
-    terraform: { gap: the authored rendering names no role assignment; the renders field names only the module input }
+    terraform:
+      attribute: 'azurerm_role_assignment = { scope, role_definition_name, principal_id }'
+      note: "one per entry, scope = the resource id (source: azurerm 5.12 schema)"
     bicep_avm: { attribute: roleAssignments, note: site and workflow }
-    bicep: { gap: the authored rendering names no role assignment; the renders field names only the module parameter }
+    bicep:
+      attribute: 'Microsoft.Authorization/roleAssignments properties = { principalId, roleDefinitionId, principalType }'
+      note: "one per entry, scoped to the resource; roleDefinitionId takes the definition id, the render resolves the role name (source: bicep build, Microsoft.Authorization/roleAssignments@2022-04-01)"
 
   # ----------------------------------------------------------------- security
   security.https_only:
@@ -355,10 +368,12 @@ decisions:
   observability.diagnostic_workspace:
     terraform_avm: { attribute: diagnostic_settings.workspace.workspace_resource_id, note: on every module; site and plan take the older object form }
     terraform:
-      gap: authored azurerm_monitor_diagnostic_setting per resource; the reference names the resource, not its workspace argument
+      attribute: azurerm_monitor_diagnostic_setting.log_analytics_workspace_id
+      note: "(source: azurerm 5.12 schema)"
     bicep_avm: { attribute: 'diagnosticSettings[].workspaceResourceId', note: on every module }
     bicep:
-      gap: authored Microsoft.Insights/diagnosticSettings scoped to each resource; the reference names the resource, not its workspace property
+      attribute: Microsoft.Insights/diagnosticSettings properties.workspaceId
+      note: "scoped to the resource, one per resource (source: bicep build, Microsoft.Insights/diagnosticSettings@2021-05-01-preview)"
   observability.diagnostic_categories:
     terraform_avm:
       - { module: Azure/avm-res-web-site/azurerm, attribute: 'diagnostic_settings.workspace.logs[].category' }
@@ -369,7 +384,8 @@ decisions:
     terraform: { attribute: azurerm_monitor_diagnostic_setting.enabled_log.category }
     bicep_avm: { attribute: 'diagnosticSettings[].logCategoriesAndGroups[].category', note: the plan has metrics only }
     bicep:
-      gap: authored Microsoft.Insights/diagnosticSettings scoped to each resource; the reference names the resource, not its log property
+      attribute: 'Microsoft.Insights/diagnosticSettings properties.logs[].category'
+      note: "one { category, enabled: true } per entry, scoped to the resource, one per resource (source: bicep build, Microsoft.Insights/diagnosticSettings@2021-05-01-preview)"
   observability.metrics_enabled:
     terraform_avm:
       - module: Azure/avm-res-web-site/azurerm
@@ -389,4 +405,4 @@ decisions:
       attribute: 'diagnosticSettings[].metricCategories'
       values: { true: { expr: "[ { category: 'AllMetrics' } ]" }, false: { expr: '[]' } }
     bicep:
-      gap: authored Microsoft.Insights/diagnosticSettings scoped to each resource; the reference names the resource, not its metric property
+      gap: "Microsoft.Insights/diagnosticSettings properties.metrics[] { category, enabled } scoped to the resource is proven (bicep build, Microsoft.Insights/diagnosticSettings@2021-05-01-preview); the category is a free string in the type, so AllMetrics has no source for authored Bicep"

@@ -64,13 +64,16 @@ decisions:
       values: { true: { expr: '[1, 2, 3]' }, false: { expr: '[]' } }
       note: Premium/PremiumV2 only
     bicep:
-      gap: zones (top level, beside properties) - the reference states no literal for the authored property
+      gap: "zones (top level) is string[] in the compiled type (bicep build, Microsoft.ApiManagement/service@2024-05-01); the zone literals have no source for authored Bicep"
   service.additional_regions:
     terraform_avm: { attribute: additional_location, note: '[{ location, capacity, zones, ... }]; Premium only' }
     terraform:
-      gap: the authored rendering names no argument; additional_location is only the renders field's spelling
+      attribute: additional_location
+      note: "one block per entry { location, capacity, zones }; Premium only (source: azurerm 5.12 schema)"
     bicep_avm: { attribute: additionalLocations, note: Premium only }
-    bicep: { gap: the authored rendering names no property; the renders field names only the module parameter }
+    bicep:
+      attribute: properties.additionalLocations
+      note: "[{ location, sku: { name, capacity }, zones }]; Premium only (source: bicep build, Microsoft.ApiManagement/service@2024-05-01)"
   service.managed_identity:
     terraform_avm:
       attribute: managed_identities
@@ -79,7 +82,9 @@ decisions:
         user_assigned: { expr: '{ user_assigned_resource_ids = {service.user_assigned_identity_ids} }' }
         none: { expr: '{}' }
     terraform:
-      gap: .identity { type, identity_ids } - the reference states no type literal; none renders no identity block
+      attribute: identity.type
+      values: { system_assigned: SystemAssigned, user_assigned: UserAssigned, none: null }
+      note: "none writes no identity block (source: azurerm 5.12 docs)"
     bicep_avm:
       attribute: managedIdentities
       values:
@@ -87,13 +92,17 @@ decisions:
         user_assigned: { expr: '{ userAssignedResourceIds: {service.user_assigned_identity_ids} }' }
         none: { expr: '{}' }
     bicep:
-      gap: identity (top level) - the reference names it without its members or type literals; none renders no identity
+      attribute: identity.type
+      values: { system_assigned: SystemAssigned, user_assigned: UserAssigned, none: null }
+      note: "none writes no identity; literals from the compiled type (source: bicep build, Microsoft.ApiManagement/service@2024-05-01)"
   service.user_assigned_identity_ids:
     terraform_avm: { attribute: managed_identities.user_assigned_resource_ids }
     terraform: { attribute: identity.identity_ids }
     bicep_avm: { attribute: managedIdentities.userAssignedResourceIds }
     bicep:
-      gap: identity.userAssignedIdentities is an object keyed by id; the reference names identity without its members
+      attribute: identity.userAssignedIdentities
+      format: { expr: 'toObject({value}, id => id, id => {})' }
+      note: "an object keyed by identity id, each value empty (source: bicep build, Microsoft.ApiManagement/service@2024-05-01)"
 
   # ------------------------------------------------------------------- access
   access.caller_authentication:
@@ -103,47 +112,62 @@ decisions:
         terraform.md (openid-config of the tenant, the audience an open entry); subscription_key,
         entra_id_and_key and open are not spelled in the reference
     terraform:
-      gap: the same global policy XML on the authored azurerm_api_management_policy; the reference names the resource, not its argument, and spells only entra_id
+      gap: >-
+        azurerm_api_management_policy.xml_content (azurerm 5.12 schema) carries the global policy XML; only
+        entra_id's validate-jwt element is in terraform.md - the XML for subscription_key, entra_id_and_key
+        and open is in no source
     bicep_avm:
       gap: >-
         "policies[] = { name: 'policy', format: 'rawxml', value }" - the same XML as the Terraform
         reference (loadTextContent, tenant and audience substituted); only entra_id is spelled
     bicep:
-      gap: the same XML on the child policies/policy; the reference names the child, not its property, and spells only entra_id
+      gap: >-
+        the child policies (name 'policy') carries the XML in properties.value with format 'rawxml'
+        (bicep build, Microsoft.ApiManagement/service/policies@2024-05-01); only entra_id's validate-jwt element is in
+        the references - the XML for subscription_key, entra_id_and_key and open is in no source
   access.rate_limit_calls_per_minute:
     terraform_avm:
       attribute: policy.xml_content
       format: '<rate-limit-by-key calls="{value}" renewal-period="60" counter-key="@(context.Request.IpAddress)" />'
       note: one element inside <inbound> of the global policy (local.apim_global_policy), never the whole value
     terraform:
-      gap: the rate-limit-by-key element in the global policy XML of the authored azurerm_api_management_policy; the reference names the resource, not its argument
+      attribute: azurerm_api_management_policy.xml_content
+      format: '<rate-limit-by-key calls="{value}" renewal-period="60" counter-key="@(context.Request.IpAddress)" />'
+      note: "one element inside <inbound> of the global policy, never the whole value (source: azurerm 5.12 schema); the element from terraform.md"
     bicep_avm:
       attribute: "policies[].value (name: 'policy', format: 'rawxml')"
       format: '<rate-limit-by-key calls="{value}" renewal-period="60" counter-key="@(context.Request.IpAddress)" />'
       note: one element inside <inbound> of the same XML as the Terraform reference, never the whole value
     bicep:
-      gap: the rate-limit-by-key element in the XML of the child policies/policy; the reference names the child, not its property
+      attribute: "Microsoft.ApiManagement/service/policies properties.value (name: 'policy', format: 'rawxml')"
+      format: '<rate-limit-by-key calls="{value}" renewal-period="60" counter-key="@(context.Request.IpAddress)" />'
+      note: "one element inside <inbound> of the XML of terraform.md, never the whole value (source: bicep build, Microsoft.ApiManagement/service/policies@2024-05-01)"
   access.developer_portal:
     terraform_avm:
       gap: no module input switches the portal - sign_in, sign_up and delegation configure it; not-testable
     terraform:
-      gap: the authored rendering names no portal argument; sign_in, sign_up, delegation are only the renders field's spelling
+      gap: the azurerm 5.12 schema has no switch for the portal on azurerm_api_management - sign_in, sign_up and delegation configure it
     bicep_avm: { attribute: enableDeveloperPortal, passthrough: true, note: module default false; written }
-    bicep: { gap: the authored rendering names no property; the renders field names only the module's enableDeveloperPortal }
+    bicep:
+      gap: "properties.developerPortalStatus exists (bicep build, Microsoft.ApiManagement/service@2024-05-01) but is a plain string in the type; Enabled and Disabled have no source for authored Bicep"
   access.apis:
     terraform_avm: { attribute: apis, note: 'with api_version_sets, backends, named_values; content of the API team - the names and the backend only' }
     terraform:
-      gap: one authored azurerm_api_management_api per entry; the reference names the resource, not its arguments
+      attribute: 'azurerm_api_management_api = { name, path, service_url, revision }'
+      note: "one per entry; the names and the backend only, operations are content (source: azurerm 5.12 schema)"
     bicep_avm: { attribute: apis, note: 'with apiVersionSets, backends, namedValues; content of the API team - the names and the backend only' }
     bicep:
-      gap: a child apis per entry; the reference names the child, not its properties
+      attribute: 'Microsoft.ApiManagement/service/apis = { name, properties.path, properties.serviceUrl }'
+      note: "a child per entry; the names and the backend only, operations are content (source: bicep build, Microsoft.ApiManagement/service/apis@2024-05-01)"
   access.products:
     terraform_avm: { attribute: products, note: with subscriptions; the names only }
     terraform:
-      gap: one authored azurerm_api_management_product per entry; the reference names the resource, not its arguments
+      attribute: 'azurerm_api_management_product = { product_id, display_name, published }'
+      note: "one per entry; the names only (source: azurerm 5.12 schema)"
     bicep_avm: { attribute: products, note: with subscriptions; the names only }
     bicep:
-      gap: a child products per entry; the reference names the child, not its properties
+      attribute: 'Microsoft.ApiManagement/service/products = { name, properties.displayName }'
+      note: "a child per entry; the names only (source: bicep build, Microsoft.ApiManagement/service/products@2024-05-01)"
 
   # --------------------------------------------------------------- networking
   networking.network_integration:
@@ -190,18 +214,26 @@ decisions:
     terraform_avm:
       attribute: private_endpoints.gateway.subnet_resource_id
       note: subresource_name = "Gateway"; tiers with private endpoint support only
-    terraform: { gap: the authored rendering names no private endpoint; the renders field names only the module input }
+    terraform:
+      attribute: azurerm_private_endpoint.subnet_id
+      note: "authored child; (source: azurerm 5.12 schema)"
     bicep_avm:
       attribute: 'privateEndpoints[].subnetResourceId'
       note: "service: 'Gateway'; tiers with private endpoint support only"
-    bicep: { gap: the authored rendering names no private endpoint; the renders field names only the module parameter }
+    bicep:
+      attribute: Microsoft.Network/privateEndpoints properties.subnet.id
+      note: "authored child; (source: bicep build, Microsoft.Network/privateEndpoints@2024-05-01)"
 
   # ----------------------------------------------------------------- identity
   identity.role_assignments:
     terraform_avm: { attribute: 'role_assignments.<key> = { role_definition_id_or_name, principal_id, principal_type }' }
-    terraform: { gap: the authored rendering names no role assignment; the renders field names only the module input }
+    terraform:
+      attribute: 'azurerm_role_assignment = { scope, role_definition_name, principal_id }'
+      note: "one per entry, scope = the service id (source: azurerm 5.12 schema)"
     bicep_avm: { attribute: 'roleAssignments[] = { principalId, roleDefinitionIdOrName, principalType }' }
-    bicep: { gap: the authored rendering names no role assignment; the renders field names only the module parameter }
+    bicep:
+      attribute: 'Microsoft.Authorization/roleAssignments properties = { principalId, roleDefinitionId, principalType }'
+      note: "one per entry, scoped to the service; roleDefinitionId takes the definition id, the render resolves the role name (source: bicep build, Microsoft.Authorization/roleAssignments@2022-04-01)"
 
   # ----------------------------------------------------------------- security
   security.legacy_protocols_disabled:
@@ -233,21 +265,29 @@ decisions:
   observability.diagnostic_workspace:
     terraform_avm: { attribute: diagnostic_settings.workspace.workspace_resource_id }
     terraform:
-      gap: authored azurerm_monitor_diagnostic_setting; the reference names the resource, not its workspace argument
+      attribute: azurerm_monitor_diagnostic_setting.log_analytics_workspace_id
+      note: "(source: azurerm 5.12 schema)"
     bicep_avm: { attribute: 'diagnosticSettings[].workspaceResourceId' }
-    bicep: { gap: the authored rendering names no diagnostic setting; the renders field names only the module parameter }
+    bicep:
+      attribute: Microsoft.Insights/diagnosticSettings properties.workspaceId
+      note: "scoped to the service (source: bicep build, Microsoft.Insights/diagnosticSettings@2021-05-01-preview)"
   observability.diagnostic_categories:
     terraform_avm: { attribute: diagnostic_settings.workspace.log_categories, note: 'log_groups = [] beside it' }
     terraform: { attribute: azurerm_monitor_diagnostic_setting.enabled_log.category }
     bicep_avm: { attribute: 'diagnosticSettings[].logCategoriesAndGroups[].category' }
-    bicep: { gap: the authored rendering names no diagnostic setting; the renders field names only the module parameter }
+    bicep:
+      attribute: 'Microsoft.Insights/diagnosticSettings properties.logs[].category'
+      note: "one { category, enabled: true } per entry, scoped to the service (source: bicep build, Microsoft.Insights/diagnosticSettings@2021-05-01-preview)"
   observability.metrics_enabled:
     terraform_avm:
       attribute: diagnostic_settings.workspace.metric_categories
       values: { true: { expr: '["AllMetrics"]' }, false: { expr: '[]' } }
     terraform:
-      gap: authored azurerm_monitor_diagnostic_setting; the authored rendering names only enabled_log - no metric block is in the reference
+      attribute: azurerm_monitor_diagnostic_setting.enabled_metric.category
+      values: { true: AllMetrics, false: null }
+      note: "false renders no enabled_metric block (source: azurerm 5.12 schema); AllMetrics from the 5.12 docs example"
     bicep_avm:
       attribute: 'diagnosticSettings[].metricCategories'
       values: { true: { expr: "[ { category: 'AllMetrics' } ]" }, false: { expr: '[]' } }
-    bicep: { gap: the authored rendering names no diagnostic setting; the renders field names only the module parameter }
+    bicep:
+      gap: "Microsoft.Insights/diagnosticSettings properties.metrics[] { category, enabled } scoped to the service is proven (bicep build, Microsoft.Insights/diagnosticSettings@2021-05-01-preview); the category is a free string in the type, so AllMetrics has no source for authored Bicep"

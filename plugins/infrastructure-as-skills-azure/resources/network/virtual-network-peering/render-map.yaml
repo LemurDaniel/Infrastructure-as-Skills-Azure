@@ -18,7 +18,7 @@ decisions:
   placement.location:
     not_rendered: naming parameter `location`; a peering is a child of the network and carries no location
   placement.resource_group_name:
-    terraform_avm: { gap: no input; the peering's parent is the local network's id (parent_id) }
+    terraform_avm: { gap: "module README v0.22.3 (modules/peering) has no input for a resource group; the peering's parent is the local network's id (parent_id)" }
     terraform: { attribute: azurerm_virtual_network_peering.resource_group_name, note: "the local network's group" }
     bicep_avm: { gap: "the module's scope, the local network's group; no parameter" }
     bicep: { gap: the deployment's resource group scope; no property }
@@ -102,7 +102,7 @@ decisions:
       attribute: do_not_verify_remote_gateways
       values: { true: false, false: true }
       note: inverted
-    terraform: { gap: not an argument of azurerm_virtual_network_peering; the provider does not expose doNotVerifyRemoteGateways }
+    terraform: { gap: 'azurerm_virtual_network_peering has no argument for doNotVerifyRemoteGateways (source: azurerm 5.12 schema)' }
     bicep_avm:
       attribute: doNotVerifyRemoteGateways
       values: { true: false, false: true }

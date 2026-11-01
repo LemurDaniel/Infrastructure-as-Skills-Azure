@@ -48,34 +48,48 @@ decisions:
       values: { autoscale: { expr: '{ max_throughput = {account.max_throughput} }' }, manual: null }
       also: { manual: 'throughput = {account.max_throughput}' }
       note: set at creation; changing the mode is a replace
-    terraform: { gap: the authored rendering names azurerm_cosmosdb_sql_container but no throughput argument on it }
+    terraform:
+      attribute: azurerm_cosmosdb_sql_container.autoscale_settings.max_throughput
+      values: { autoscale: { expr: '{account.max_throughput}' }, manual: null }
+      also: { manual: 'throughput = {account.max_throughput}' }
+      note: "an autoscale_settings block on each container; manual renders none and sets throughput instead (source: azurerm 5.12 schema)"
     bicep_avm:
       attribute: 'sqlDatabases[].containers[].autoscaleSettingsMaxThroughput'
       values: { autoscale: { expr: '{account.max_throughput}' }, manual: null }
       also: { manual: 'throughput: {account.max_throughput}' }
       note: on each container; manual sets throughput instead
-    bicep: { gap: the authored rendering names child sqlDatabases/containers but no throughput property on it }
+    bicep:
+      attribute: child sqlDatabases/containers properties.options.autoscaleSettings.maxThroughput
+      values: { autoscale: { expr: '{account.max_throughput}' }, manual: null }
+      also: { manual: 'properties.options.throughput: {account.max_throughput}' }
+      note: "on each container; manual sets properties.options.throughput instead (source: bicep build, Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers@2024-11-15)"
   account.max_throughput:
     terraform_avm:
       attribute: 'sql_databases.<db>.containers.<c>.autoscale_settings.max_throughput'
       passthrough: true
       note: throughput instead under manual
-    terraform: { gap: the authored rendering names azurerm_cosmosdb_sql_container but no throughput argument on it }
+    terraform:
+      attribute: azurerm_cosmosdb_sql_container.autoscale_settings.max_throughput
+      passthrough: true
+      note: "throughput instead under manual (source: azurerm 5.12 schema)"
     bicep_avm:
       attribute: 'sqlDatabases[].containers[].autoscaleSettingsMaxThroughput'
       passthrough: true
       note: throughput instead under manual
-    bicep: { gap: the authored rendering names child sqlDatabases/containers but no throughput property on it }
+    bicep:
+      attribute: child sqlDatabases/containers properties.options.autoscaleSettings.maxThroughput
+      passthrough: true
+      note: "properties.options.throughput instead under manual (source: bicep build, Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers@2024-11-15)"
   account.total_throughput_limit:
     terraform_avm: { attribute: capacity.total_throughput_limit, passthrough: true, note: module default -1; written anyway }
-    terraform: { gap: the authored rendering names no total throughput limit argument }
+    terraform: { attribute: capacity.total_throughput_limit, passthrough: true, note: "a capacity block (source: azurerm 5.12 schema)" }
     bicep_avm: { attribute: totalThroughputLimit, passthrough: true }
-    bicep: { gap: the authored rendering names no total throughput limit property }
+    bicep: { attribute: properties.capacity.totalThroughputLimit, passthrough: true, note: "(source: bicep build, Microsoft.DocumentDB/databaseAccounts@2024-11-15)" }
   account.free_tier:
     terraform_avm: { attribute: free_tier_enabled, passthrough: true, note: module default false; written anyway }
-    terraform: { gap: the authored rendering names no free tier argument }
+    terraform: { attribute: free_tier_enabled, passthrough: true, note: "(source: azurerm 5.12 schema)" }
     bicep_avm: { attribute: enableFreeTier, passthrough: true }
-    bicep: { gap: the authored rendering names no free tier property }
+    bicep: { attribute: properties.enableFreeTier, passthrough: true, note: "(source: bicep build, Microsoft.DocumentDB/databaseAccounts@2024-11-15)" }
 
   # --------------------------------------------------------------- resilience
   resilience.zone_redundant:
@@ -104,9 +118,9 @@ decisions:
       note: 'the list holds regions: each becomes an entry with failoverPriority 1..n and isZoneRedundant after the primary (failoverPriority 0)'
   resilience.automatic_failover:
     terraform_avm: { attribute: automatic_failover_enabled, passthrough: true, note: module default true; written anyway }
-    terraform: { gap: the authored rendering names no automatic failover argument }
+    terraform: { attribute: automatic_failover_enabled, passthrough: true, note: "(source: azurerm 5.12 schema)" }
     bicep_avm: { attribute: enableAutomaticFailover, passthrough: true, note: module default true; written anyway }
-    bicep: { gap: the authored rendering names no automatic failover property }
+    bicep: { attribute: properties.enableAutomaticFailover, passthrough: true, note: "(source: bicep build, Microsoft.DocumentDB/databaseAccounts@2024-11-15)" }
   resilience.consistency_level:
     terraform_avm:
       attribute: consistency_policy.consistency_level
@@ -137,22 +151,22 @@ decisions:
     terraform_avm:
       attribute: 'private_endpoints.sql.subnet_resource_id'
       note: with subresource_name = "Sql"; private_endpoints_manage_dns_zone_group = false under policy DNS
-    terraform: { gap: the authored rendering names no private endpoint }
+    terraform: { attribute: azurerm_private_endpoint.subnet_id, note: "one endpoint on the account (source: azurerm 5.12 schema)" }
     bicep_avm:
       attribute: 'privateEndpoints[].subnetResourceId'
       note: "with service: 'Sql'; no privateDnsZoneGroup under policy DNS"
-    bicep: { gap: the authored rendering names no private endpoint }
+    bicep: { attribute: Microsoft.Network/privateEndpoints properties.subnet.id, note: "one endpoint on the account (source: bicep build, Microsoft.Network/privateEndpoints@2025-01-01)" }
   networking.ip_rules:
     terraform_avm: { attribute: ip_range_filter, note: a list of CIDR strings }
     terraform: { attribute: ip_range_filter }
     bicep_avm: { attribute: networkRestrictions.ipRules }
-    bicep: { gap: the authored rendering names properties.ipRules but not its item shape }
+    bicep: { attribute: 'properties.ipRules[].ipAddressOrRange', note: "one object per entry (source: bicep build, Microsoft.DocumentDB/databaseAccounts@2024-11-15)" }
   networking.network_acl_bypass:
     terraform_avm:
       attribute: network_acl_bypass_for_azure_services
       passthrough: true
       note: module default false; written anyway
-    terraform: { gap: the authored rendering names no ACL bypass argument }
+    terraform: { attribute: network_acl_bypass_for_azure_services, passthrough: true, note: "a bool here, a string in Bicep (source: azurerm 5.12 schema)" }
     bicep_avm:
       attribute: networkRestrictions.networkAclBypass
       values: { true: AzureServices, false: None }
@@ -169,19 +183,28 @@ decisions:
         system_assigned: { expr: '{ system_assigned = true }' }
         user_assigned: { expr: '{ user_assigned_resource_ids = {identity.user_assigned_identity_ids} }' }
         none: { expr: '{}' }
-    terraform: { gap: the authored rendering names no identity argument }
+    terraform:
+      attribute: identity.type
+      values: { none: null, system_assigned: SystemAssigned, user_assigned: UserAssigned }
+      note: "none renders no identity block (source: azurerm 5.12 docs)"
     bicep_avm:
       attribute: managedIdentities
       values:
         system_assigned: { expr: '{ systemAssigned: true }' }
         user_assigned: { expr: '{ userAssignedResourceIds: {identity.user_assigned_identity_ids} }' }
         none: { expr: '{}' }
-    bicep: { gap: the authored rendering names no identity property }
+    bicep:
+      attribute: identity.type
+      values: { none: null, system_assigned: SystemAssigned, user_assigned: UserAssigned }
+      note: "none renders no identity (source: bicep build, Microsoft.DocumentDB/databaseAccounts@2024-11-15)"
   identity.user_assigned_identity_ids:
     terraform_avm: { attribute: managed_identities.user_assigned_resource_ids }
-    terraform: { gap: the authored rendering names no identity argument }
+    terraform: { attribute: identity.identity_ids, note: "(source: azurerm 5.12 schema)" }
     bicep_avm: { attribute: managedIdentities.userAssignedResourceIds }
-    bicep: { gap: the authored rendering names no identity property }
+    bicep:
+      attribute: identity.userAssignedIdentities
+      format: { expr: 'toObject({value}, id => id, id => {})' }
+      note: "an object keyed by id, built from the list (source: bicep build, Microsoft.DocumentDB/databaseAccounts@2024-11-15)"
   identity.data_plane_role_assignments:
     terraform_avm:
       gap: the module has no input - azurerm_cosmosdb_sql_role_assignment beside the call, role_definition_id under the account's sqlRoleDefinitions
@@ -192,9 +215,9 @@ decisions:
     bicep: { attribute: child sqlRoleAssignments }
   identity.role_assignments:
     terraform_avm: { attribute: role_assignments, note: control plane; principal_type and condition unsupported }
-    terraform: { gap: the authored rendering names no role assignment }
+    terraform: { attribute: azurerm_role_assignment, note: "scope = the account's id; control plane (source: azurerm 5.12 schema)" }
     bicep_avm: { attribute: roleAssignments, note: control plane }
-    bicep: { gap: the authored rendering names no role assignment }
+    bicep: { attribute: Microsoft.Authorization/roleAssignments, note: "scope the account; control plane (source: bicep build, Microsoft.Authorization/roleAssignments@2022-04-01)" }
 
   # ----------------------------------------------------------------- security
   security.local_authentication_disabled:
@@ -287,17 +310,21 @@ decisions:
       attribute: backup.storage_redundancy
       passthrough: true
       note: module default Geo unlike Bicep's Local - written anyway
-    terraform: { gap: the authored rendering names no backup storage redundancy argument }
+    terraform:
+      attribute: backup.storage_redundancy
+      passthrough: true
+      note: "Geo, Local or Zone; provider default Geo - written; only under type Periodic (source: azurerm 5.12 docs)"
     bicep_avm:
       attribute: backupStorageRedundancy
       passthrough: true
       note: module default Local unlike Terraform's Geo - written anyway
-    bicep: { gap: the authored rendering names no backup storage redundancy property }
+    bicep:
+      gap: properties.backupPolicy.periodicModeProperties.backupStorageRedundancy compiles at 2024-11-15, but the type is a free string - bicep build proves no literal for Local, Zone or Geo
   data_protection.analytical_storage:
     terraform_avm: { attribute: analytical_storage_enabled, passthrough: true, note: module default false; written anyway }
-    terraform: { gap: the authored rendering names no analytical storage argument }
+    terraform: { attribute: analytical_storage_enabled, passthrough: true, note: "(source: azurerm 5.12 schema)" }
     bicep_avm: { attribute: enableAnalyticalStorage, passthrough: true }
-    bicep: { gap: the authored rendering names no analytical storage property }
+    bicep: { attribute: properties.enableAnalyticalStorage, passthrough: true, note: "(source: bicep build, Microsoft.DocumentDB/databaseAccounts@2024-11-15)" }
 
   # --------------------------------------------------------------- containers
   containers.databases:
@@ -311,21 +338,23 @@ decisions:
   # ------------------------------------------------------------ observability
   observability.diagnostic_workspace:
     terraform_avm: { attribute: 'diagnostic_settings.<key>.workspace_resource_id', note: 'the plain-set interface - not the logs / metrics objects of the Web App, Application Insights and Storage modules' }
-    terraform: { gap: the authored rendering names azurerm_monitor_diagnostic_setting but not its workspace argument }
+    terraform: { attribute: azurerm_monitor_diagnostic_setting.log_analytics_workspace_id, note: "target_resource_id = the account's id (source: azurerm 5.12 schema)" }
     bicep_avm: { attribute: 'diagnosticSettings[].workspaceResourceId' }
-    bicep: { gap: the authored rendering names no diagnostic setting }
+    bicep: { attribute: Microsoft.Insights/diagnosticSettings properties.workspaceId, note: "scope the account (source: bicep build, Microsoft.Insights/diagnosticSettings@2021-05-01-preview)" }
   observability.diagnostic_categories:
     terraform_avm: { attribute: 'diagnostic_settings.<key>.log_categories', note: 'log_groups = [] beside it' }
     terraform: { attribute: azurerm_monitor_diagnostic_setting.enabled_log.category }
     bicep_avm: { attribute: 'diagnosticSettings[].logCategoriesAndGroups[].category' }
-    bicep: { gap: the authored rendering names no diagnostic setting }
+    bicep: { attribute: 'Microsoft.Insights/diagnosticSettings properties.logs[].category', note: "(source: bicep build, Microsoft.Insights/diagnosticSettings@2021-05-01-preview)" }
   observability.metrics_enabled:
     terraform_avm:
       attribute: 'diagnostic_settings.<key>.metric_categories'
       values: { true: { expr: '["Requests"]' }, false: { expr: '[]' } }
       note: the module allows only Requests and SLI - its own default AllMetrics fails validation
-    terraform: { gap: the authored rendering names no metric category }
+    terraform:
+      gap: azurerm_monitor_diagnostic_setting.enabled_metric.category is the argument, but the account's metric category name (AllMetrics or Requests) is in neither the provider schema nor its docs
     bicep_avm:
       attribute: 'diagnosticSettings[].metricCategories'
       values: { true: { expr: "[ { category: 'AllMetrics' } ]" }, false: { expr: '[]' } }
-    bicep: { gap: the authored rendering names no diagnostic setting }
+    bicep:
+      gap: "Microsoft.Insights/diagnosticSettings properties.metrics[].category is the property, but the type is a free string - bicep build proves no category name for the account"
