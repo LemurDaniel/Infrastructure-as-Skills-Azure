@@ -90,9 +90,9 @@ What a run leaves behind, from the [`chat-sandbox`](examples/chat-sandbox/) exam
 3. **Sign-off.** The spec, the decision document and a draft diagram go to the customer; once the content is right, a review and a fix agent polish the picture, and the customer says whether the code may be generated. A correction is a spec change, and the loop runs again.
 4. **`iac-rendering` renders** the approved spec, starting from the render digest: AVM module and version, naming, layout, code with a test per decision, pipeline, the repository's `CLAUDE.md` section and `.gitignore`. A test agent runs `fmt`, `validate`, `test`, the coverage, code-structure and pipeline checks.
 
-## 🔄 unclick: from what runs to a spec (concept)
+## 🔄 unclick: from what runs to a spec
 
-> **Not built yet.** This section describes the design on branch `feature/iac-unclick`; nothing below ships in the current version.
+> **Partly built.** Reading, mapping and the review work (`core/iac-unclick`); the render does not adopt yet - iac-rendering writes no `import` blocks, so a run stops after the sign-off.
 
 Reverse ClickOps. A second way into the same spec: `iac-authoring` gets there by interview, `iac-unclick` by reading what already runs in Azure - resources built in the portal, never written down. From the spec on, nothing is new: `iac-diagram` draws it, `iac-rendering` renders it, AVM first, with names, tests and pipeline.
 
@@ -328,7 +328,7 @@ Early, and the shape matters more than the coverage. The eval suite runs on Sonn
 - [x] A complex case in Bicep: a chat app with RAG (Front Door with WAF, App Service with a slot, Foundry, AI Search, storage, private endpoints), every decision covered by ARM tests, beside [`eval-agent/`](eval-agent/)
 - [ ] Remaining resources: further network, data and AI services - listed in `PROGRESS.md`
 - [ ] AVM version drift check; cross-backend diff of one spec
-- [ ] **unclick**: a spec from what already runs in Azure, adopted by the render instead of re-created - [concept](#-unclick-from-what-runs-to-a-spec-concept)
+- [ ] **unclick**: a spec from what already runs in Azure, adopted by the render instead of re-created - [read, map and review done; the render's `import` blocks are not](#-unclick-from-what-runs-to-a-spec)
 
 ## 🙏 Acknowledgments
 
