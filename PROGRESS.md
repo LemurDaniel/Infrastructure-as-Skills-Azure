@@ -18,6 +18,15 @@ Verified Modules first, authored resources second.
 The rules the plugin is built on, each with the reason. The skills and references carry
 the detail; this list says what was decided and why, so a session does not reopen it.
 
+- **unclick: a second way into the same spec, never a second generator** (2026-11-02). What
+  runs in Azure is read (read only, `az graph query`) into `infra-spec.yaml`; review, diagram and
+  render are the existing skills'. The live value is kept (`source: imported`), so the first
+  apply changes nothing; hardening is the person's call in the review (`overridden`). Each
+  decision is read back through an explicit `import:` in its `render-map.yaml`, never derived at
+  run time from the authored Bicep entry - measured: only 565 of 1,354 invert, ~100 of those
+  live on child resources, and some Bicep attributes are prose. What cannot be read is
+  `assumed` with an `open:` entry; what has no set is `unmapped`. Nothing drops silently.
+
 - **Question sets, not modules or templates.** The hard part of a resource is its
   decisions, not its syntax. Generic generation gets the syntax right and the decisions
   wrong.
@@ -359,6 +368,22 @@ the detail; this list says what was decided and why, so a session does not reope
   (`{ ref: resource }`) and `origin_host_names`, a backend outside Azure having no id.
 
 ## State
+
+- **unclick, the import entry** (2026-11-02, branch `feature/iac-unclick`, draft PR into `dev`):
+  `core/iac-unclick` with `collect.py` (the one Azure step, read only) and `map_inventory.py`
+  (offline); the spec contract has `source: imported`, `adopt` (id, lock, diagnostic setting,
+  `parts`), `wiring.role_assignments[].adopt_id`, `unmapped` and `spec.imported_from`
+  (`spec_import.py`, rule 11 of `check_spec.py`). Every render-map decision carries `import:`
+  (path + values / passthrough / format / reference / single / items / present, `cases`,
+  `not_readable`, `todo`), `import_parts` (a plan, a WAF policy, the private endpoints a set
+  renders) and `import_match` (two sets of one type by `kind`): 467 read back, 3 not readable,
+  884 todo. The decision document lists departures from the rules and what was found and not
+  built; the diagram routes lines from outside into PaaS from above. First real run on one of
+  the owner's resource groups (a registry, a vault, a storage account; its name and findings
+  are not recorded in this public repository): it found and fixed role definitions (tenant level, read through
+  `az role definition list`) and absent properties read as the default (identity, infrastructure
+  encryption). README section, `docs/unclick.drawio.png` and a teaser (`docs/teaser-unclick.*`,
+  illustrative figures). Not rendered: see *Open, unclick*.
 
 - **Three workload-scoped sets instead of a governance family** (2026-11-01, branch
   `feature/budget-maintenance-automation`; 70 resource sets, 1,517 questions): `observability/budget`
@@ -1120,6 +1145,33 @@ regeneration from the spec loses them. All `render`:
   resource); it duplicates `private-dns-zone.zone.zone_names` when the deployment owns the
   zones, and its `forced_by: deployment.network_exposure` is loose. Left until it diverges.
 
+### unclick (2026-11-02)
+
+- **No render yet.** iac-rendering writes no `import` blocks for `adopt` (Terraform `import {}`
+  into the AVM module's resource address, ids from the stage file; Bicep deploys over the
+  resource under the same name, never `existing`), so an imported spec today would plan to
+  create every resource a second time. The skill stops after the sign-off and says so. The
+  acceptance is an empty `plan` / `what-if`.
+- **884 `todo` readings.** The 24 most used sets were gone through; the rest is the bootstrap's.
+  Most need a child resource the Resource Graph row does not hold (blobServices/default, queues,
+  databases, firewall rules, `sites/config/web`) - `collect.py` reads none yet - or a form not
+  written (a list element, the keys of `userAssignedIdentities`, a key URI for a CMK id).
+- **Readings to check against a real row:** the eight `properties.siteConfig.*` readings on web,
+  function and logic apps (Resource Graph often returns them empty, read as not found, so
+  `assumed`); function-app `hosting.plan_type` (`properties.sku`); `key_management` with
+  `missing: platform_managed` on Service Bus, Event Hubs, Redis, registry and PostgreSQL; SQL
+  `entra_admin` as a GUID reference (could be a user or a service principal).
+- **Several groups or a subscription** are read, but only one group yields a complete spec:
+  more raise an `open:` entry for the group layout. One stage per run; matching stages across
+  scopes is not built.
+- **Container registry `security.admin_enabled`:** its plain text ends "the access runs through
+  company accounts" for both answers - wrong when the admin account is on. Seen in the first
+  real decision document.
+- **Diagram:** a resource without `meta.purpose` is labelled with its key (`key-vault`); an
+  import has no purpose to read, the review gives it.
+- `collect.py` reads diagnostic settings one call per resource (`--no-diagnostics` skips it);
+  locks through `az lock list`, not Resource Graph.
+
 ### Waiting on the owner
 
 - A sandbox subscription with a federated credential and a fenced resource group for the
@@ -1145,6 +1197,12 @@ regeneration from the spec loses them. All `render`:
   `~/.local/bin` itself. No Linux in WSL on the owner's machine.
 
 ## Next
+
+**unclick: render what an import adopts** (*Open, unclick*): `import` blocks in iac-rendering
+for `adopt` (id, lock, diagnostic setting, parts, role assignments), the Bicep path, and an empty
+plan on the first real group as the acceptance. Then the registry's `admin_enabled` text and the
+child-resource readings `collect.py` would need. The draft PR into `dev` carries the rest.
+
 
 **Regenerate the remaining examples and freeze the formats** (*Road to 1.0.0*): `render-yaml`
 (#22) is in `dev`, rendered and graded with structured references in the 0.7.0 run (see
