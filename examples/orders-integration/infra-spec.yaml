@@ -133,7 +133,8 @@ resources:
         source: stated
     delivery:
       origins:
-        value: [application-gateway]
+        value:
+        - resource: application-gateway
         source: stated
       origin_connection:
         value: public
