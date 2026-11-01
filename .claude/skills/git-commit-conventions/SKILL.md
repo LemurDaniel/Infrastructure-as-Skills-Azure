@@ -207,6 +207,17 @@ Beyond the script:
   into `master` as a merge commit (`gh pr merge <n> --merge`), never squash or
   rebase: `master` then holds the very commits of `dev`, and `dev` never falls
   behind it. That merge publishes a release.
+- **Clean up after every merge, local and remote.** A merged feature branch
+  goes on both sides: `gh pr merge <n> --squash --delete-branch` deletes the
+  remote and the local branch and switches to `dev`; a branch merged another
+  way goes with `git push origin --delete <branch>` and `git branch -D <branch>`
+  (a squash leaves it unmerged in git's eyes, so check the PR is merged
+  first). Then `git fetch --prune`, and every worktree the work used is
+  removed (`git worktree remove`). Never deleted: `dev`, `master`,
+  `eval-history` and a branch whose PR is still open - so never
+  `--delete-branch` on the release PR, whose head is `dev`. A deleted branch
+  of a merged PR stays restorable from the PR. Before a new branch, the old
+  ones of merged work are gone: one open branch per piece of work, not a pile.
 - **Before the release merge, the full eval suite on Sonnet and on Haiku, each run by a test agent.**
   No eval runs on a pull request: the suite needs a model that follows a
   multi-step skill. For a release whose `dev` touches `core/`, `resources/`
