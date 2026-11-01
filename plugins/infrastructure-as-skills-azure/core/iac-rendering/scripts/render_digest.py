@@ -589,6 +589,18 @@ def main():
                         for e in entries or []:
                             for line in render_lines(e, entry.get('value'), stages, target, ctx):
                                 p(f"      {line}")
+                        # An answer the module refuses: this resource renders authored instead.
+                        v = entry.get('value')
+                        answers = list(v.values()) if is_stage_map(v, stages) else [v]
+                        refused = sorted({str(a) for e in entries or [] for a in answers
+                                          if not isinstance(a, (dict, list)) and a in (e.get('authored_when') or [])})
+                        if refused and entry_key != target and target in node_map:
+                            p(f"      authored: the module refuses {', '.join(refused)} - render this resource "
+                              "authored and record implementation: authored; its entry:")
+                            authored, _ = resolve(node_map[target], ctx)
+                            for e in authored or []:
+                                for line in render_lines(e, v, stages, target, ctx):
+                                    p(f"        {line}")
         if isinstance(node, dict) and node.get('_target_overrides'):
             p(f"   _target_overrides: {show(node['_target_overrides'])}")
     p()

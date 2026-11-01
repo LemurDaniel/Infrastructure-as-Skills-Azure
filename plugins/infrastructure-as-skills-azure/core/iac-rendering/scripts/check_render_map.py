@@ -18,7 +18,8 @@ or the paths given:
      literal (or null) for every answer; an enum, bool, int or string answer has `values`,
      `format` or `passthrough: true`, never nothing; `part_of` points at a decision whose
      format names this one; `module` is one of the target's modules or companions;
-     `omit_empty` is true and stands beside passthrough or format.
+     `omit_empty` is true and stands beside passthrough or format; `authored_when` lists
+     answers of the question, on a module entry only, and `values` needs no literal for them.
   5. Code (values exprs, also lines, a format of code) names only questions of the set as
      `{group.question}` and holds no `...` sketch.
   6. A list of entries over several modules names the module on each; `by_kind` keys are
@@ -50,7 +51,7 @@ COORD = {
     'bicep': re.compile(r'^avm/(res|ptn)/[a-z0-9-]+(/[a-z0-9-]+)+$'),
 }
 ENTRY_FIELDS = {'attribute', 'values', 'format', 'also', 'module', 'note', 'gap', 'part_of', 'passthrough',
-                'omit_empty'}
+                'omit_empty', 'authored_when'}
 # Answer types a literal is written from. A reference (accepts: { ref }) resolves to an id and a
 # list is written as the list, so neither needs to say how it renders.
 SCALAR_TYPES = {'enum', 'bool', 'int', 'string'}
@@ -140,7 +141,7 @@ def check_entry(where, entry, question, ctx, mods):
                     errs.append(f"{where}: values[{ans!r}] - a mapping literal is {{ expr: '<code>' }}")
             # Every answer has its literal, or null for "left out": an answer missing here would
             # otherwise reach the render with nothing said about it.
-            for ans in sorted(allowed - set(m), key=str):
+            for ans in sorted(allowed - set(m) - set(entry.get('authored_when') or []), key=str):
                 errs.append(f"{where}: values has no literal for {ans!r} (null when it leaves the attribute out)")
         else:
             for ans, line in m.items():
@@ -148,6 +149,17 @@ def check_entry(where, entry, question, ctx, mods):
                     errs.append(f"{where}: also[{ans!r}] is a line of code")
     if 'module' in entry and entry['module'] not in mods:
         errs.append(f"{where}: module {entry['module']} is neither in modules nor in companions for the target")
+    # Answers the module refuses: the resource renders authored for them. Only a module entry has one.
+    aw = entry.get('authored_when')
+    if aw is not None:
+        if not ctx.get('is_avm'):
+            errs.append(f"{where}: authored_when belongs on a module (_avm) entry")
+        if not isinstance(aw, list) or not aw:
+            errs.append(f"{where}: authored_when is a non-empty list of answers")
+        elif allowed is not None:
+            for ans in aw:
+                if ans not in allowed:
+                    errs.append(f"{where}: authored_when {ans!r} is not an answer the question accepts")
     return errs
 
 
@@ -296,6 +308,7 @@ def check_file(path, yaml):
         for k in sorted(set(node) & expected):
             t = k[:-4] if k.endswith('_avm') else k
             mods = (modules[t] if k.endswith('_avm') else []) + companions[t]
+            ctx['is_avm'] = k.endswith('_avm')
             errs.extend(check_target(f"{where}.{k}", node[k], questions[key], ctx, mods))
     return errs
 

@@ -1,6 +1,7 @@
 # The spec run_render_digest_tests.py digests for the render-map shapes beyond one entry: a
 # literal composed from three answers per stage (sql-database), an entry picked by kind
-# (alert-rule, authored), a format that is code (postgresql storage in megabytes).
+# (alert-rule, authored), a format that is code (postgresql storage in megabytes), and an answer
+# the Terraform module refuses (redis clustering NoCluster), which renders the resource authored.
 schema_version: 1
 
 spec:
@@ -27,7 +28,7 @@ composition:
   source: default
   modules:
   - id: data
-    contains: [sql-database, postgresql-flexible-server]
+    contains: [sql-database, postgresql-flexible-server, redis-cache]
   - id: observability
     contains: [alert-rule]
     implementation: authored
@@ -58,4 +59,9 @@ resources:
     server:
       storage_size_gb:
         value: 128
+        source: asked
+  redis-cache:
+    cache:
+      clustering_policy:
+        value: NoCluster
         source: asked

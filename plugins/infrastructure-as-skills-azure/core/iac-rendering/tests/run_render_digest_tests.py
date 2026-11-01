@@ -13,7 +13,8 @@ On tests/fixtures/render-digest.yaml (Terraform, AVM, per-family, GitHub):
   - --target bicep uses the bicep_avm entry, quotes for Bicep and reads the Bicep idiom.
 On tests/fixtures/render-digest-shapes.yaml: a literal composed from three answers per stage,
 its pieces pointing at it, an entry picked by the resource's kind (and another kind picking
-another), a format of code written unquoted. Then a `{group.question}` in a values expr, a list
+another), a format of code written unquoted, an answer the module refuses switching to the
+authored entry. Then a `{group.question}` in a values expr, a list
 answer in a format of code and a null in values, through render_lines directly.
 Across the plugin: every heading SKIPS names exists in its file (a renamed heading fails here,
 not as a silently longer reading), and every resource's rendering reference with an AVM part
@@ -118,6 +119,8 @@ def main():
     expect('renders: part of database.vcores' in shapes, 'a part_of decision printed a fragment as its value')
     expect('renders: severity = 2' in shapes, 'by_kind did not pick the entry of the resource kind')
     expect('renders: storage_mb = 128 * 1024' in shapes, 'a format of code not written unquoted')
+    expect('authored: the module refuses NoCluster' in shapes and 'renders: default_database.clustering_policy = "NoCluster"' in shapes,
+           'an answer the module refuses did not switch the resource to its authored entry')
     with open(SHAPES, encoding='utf-8') as f:
         shaped = yaml.safe_load(f)
     shaped['resources']['alert-rule']['rule']['kind']['value'] = 'activity_log'

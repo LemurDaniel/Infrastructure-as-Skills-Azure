@@ -116,6 +116,12 @@ def main():
             d['decisions']['security.min_tls_version'].__setitem__(
                 'terraform', {'by_kind': {'Warm': {'attribute': 'a'}}})),
          "by_kind key 'Warm'"),
+        ('authored_when on an authored entry',
+         lambda d: d['decisions']['security.min_tls_version']['terraform'].__setitem__('authored_when', ['TLS1_3']),
+         'authored_when belongs on a module'),
+        ('authored_when naming no answer',
+         lambda d: d['decisions']['security.min_tls_version']['terraform_avm'].__setitem__('authored_when', ['TLS9']),
+         "authored_when 'TLS9' is not an answer"),
         ('a sketch instead of code',
          lambda d: d['decisions']['networking.allow_azure_services_bypass']['terraform']['values'].__setitem__(
              True, {'expr': '{ bypass = ... }'}),
@@ -145,6 +151,9 @@ def main():
             'values', {'LRS': 'L', 'ZRS': 'Z', 'GRS': 'G', 'GZRS': 'GZ'})),
         ('format as code', lambda d: d['decisions']['data_protection.blob_soft_delete_days'].__setitem__(
             'terraform', {'attribute': 'x', 'format': {'expr': '{value} * 1'}})),
+        ('authored_when standing in for a values key', lambda d: (
+            d['decisions']['networking.public_network_access']['terraform_avm']['values'].pop('enabled'),
+            d['decisions']['networking.public_network_access']['terraform_avm'].__setitem__('authored_when', ['enabled']))),
         ('null in values', lambda d: d['decisions']['networking.allow_azure_services_bypass']['bicep']['values'].__setitem__(
             False, None)),
         ('a composite format with part_of', lambda d: (
