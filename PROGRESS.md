@@ -879,21 +879,12 @@ per-family` in `check_spec.py` and the `chatbot` spec, and `references/private-d
 - The pwsh pipelines have parsed and been dry-run with a mocked `az`, never run on a
   runner: the next push of `eval-agent/infra` to `dev` is the first real run of
   `eval-agent-infra*.yaml` in pwsh; the ADO and GitHub Terraform fixtures have not run at all.
-- `run_pipeline_tests.py` passes 86/86 on LF files; on a Windows checkout with CRLF
-  fixtures 11 multi-line mutations do not find their text (`edit()` reads with
-  `newline=''`). Normalise in `edit()` or add a `.gitattributes` with `eol=lf`.
-- `check_pipeline.py` counts an `open:` entry without `environments` as resolved (a false
-  fail on every such entry; the runs name the stage on each entry as a workaround),
-  applies the workload-identity secret grep to `local`, and its `client[-_]?secret`
-  pattern matches the placeholder name `entra-client-secret`.
-- `pipelines.local.md`'s script runs `validate` after the backend init, has no
-  `terraform test`, no `-reconfigure`, no cd to its own directory; `terraform-idiom.md`
-  says the empty backend block is for non-local only, but the local script passes
-  `-backend-config` too.
-- `pipelines.github.md` says nothing about a render in a subfolder (working directory,
-  artifact paths, path filters) and pins Terraform `~> 1.16.0` (live 1.17). GitLab has no
-  scaffold behind it and is untested; Azure DevOps and GitLab accepting their file was
-  never checked.
+- An `open:` entry without `environments` allows a placeholder in every stage file and
+  requires none (`check_pipeline.py`): it may be a per-stage value (`context.location`) or
+  none at all (a model list). The runs no longer need to name the stage as a workaround.
+- GitLab has no scaffold behind it and is untested; Azure DevOps and GitLab accepting their
+  file was never checked. The Terraform pin is `~> 1.17.0` (ADO `1.17.1`, GitLab image
+  `1.17`), resolved on 2026-11-01.
 - `naming.tftest.hcl` proves "from naming.yaml", not the deployed suffix, while the stage
   file holds placeholders. `terraform providers schema -json` refuses a root with an
   empty backend block unless run on a copy without it. `terraform init` fails on the

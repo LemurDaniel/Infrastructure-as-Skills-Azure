@@ -84,6 +84,15 @@ MUTATIONS = [
      'expire_in: 1 day', 'expire_in: 30 days', 'one day'),
     ('local plan file not removed', 'local-terraform', 'deploy.ps1',
      'Remove-Item', 'Write-Host', 'plan file is not removed'),
+    ('local script runs from the caller directory', 'local-terraform', 'deploy.ps1',
+     'Push-Location $PSScriptRoot', 'Push-Location .', 'its own directory'),
+    ('local validate only after the stage init', 'local-terraform', 'deploy.ps1',
+     'terraform init -backend=false -input=false;', 'terraform init -input=false;', 'init -backend=false'),
+    ('local without terraform test', 'local-terraform', 'deploy.ps1',
+     "terraform test;                                  if ($LASTEXITCODE) { throw 'terraform test failed' }\n", '',
+     'no `terraform test`'),
+    ('local stage init without -reconfigure', 'local-terraform', 'deploy.ps1',
+     'terraform init -input=false -reconfigure', 'terraform init -input=false', '-reconfigure'),
 
     # the gate
     ('github production not gated', 'github-terraform', GH,

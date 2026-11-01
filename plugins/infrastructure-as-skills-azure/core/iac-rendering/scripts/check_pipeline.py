@@ -554,11 +554,22 @@ def check_local(root, stages, target, auth, gated, exempt):
         err(f"deploy.ps1: ValidateSet is {got}, the spec's stages are {expect}")
     if 'Read-Host' not in text:
         err("deploy.ps1: no confirmation before the change")
+    if not re.search(r'(Push|Set)-Location\s+\$PSScriptRoot', text):
+        err("deploy.ps1: does not change into its own directory - the stage file is found relative to the caller")
     if target == 'terraform':
         apply_problems(text, 'deploy.ps1')
         state_keys(text, 'deploy.ps1', r'\$Stage')
         if 'Remove-Item' not in text:
             err("deploy.ps1: the plan file is not removed - it can hold sensitive values")
+        # validate and test run on an init without the state, the stage's init comes after
+        offline = text.find('-backend=false')
+        validate = text.find('terraform validate')
+        if offline < 0 or validate < offline:
+            err("deploy.ps1: terraform validate does not run on an `init -backend=false` before the stage's init")
+        if not re.search(r'terraform\s+test\b', text):
+            err("deploy.ps1: no `terraform test` before the plan")
+        if not re.search(r'terraform\s+init\b[^\n]*-reconfigure', text):
+            err("deploy.ps1: the stage's `terraform init` has no -reconfigure - a run for another stage would migrate the state")
     else:
         if 'what-if' not in text:
             err("deploy.ps1: no what-if before the deployment")
