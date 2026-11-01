@@ -1,0 +1,274 @@
+# What each decision of questions.yaml renders to, per target and implementation.
+# Format: core/iac-rendering/references/render-map.md. The call, the authored blocks and the
+# tests are in terraform.md and bicep.md.
+schema_version: 1
+resource: Microsoft.DataFactory/factories
+
+modules:
+  terraform: [Azure/avm-res-datafactory-factory/azurerm]
+  bicep: [avm/res/data-factory/factory]
+
+decisions:
+
+  # ---------------------------------------------------------------- placement
+  placement.environments:
+    not_rendered: naming parameter `environment` and the tag of that name; no attribute of the factory
+  placement.location:
+    terraform_avm: { attribute: location, passthrough: true }
+    terraform: { attribute: location, passthrough: true }
+    bicep_avm: { attribute: location, passthrough: true }
+    bicep: { attribute: location, passthrough: true }
+  placement.resource_group_name:
+    terraform_avm: { attribute: resource_group_name, note: azurerm-based module - the root cannot be on azurerm 5.x }
+    terraform: { attribute: resource_group_name }
+    bicep_avm: { gap: the deployment's resource group scope; no parameter }
+    bicep: { gap: the deployment's resource group scope; no property }
+
+  # ------------------------------------------------------------------ factory
+  factory.managed_virtual_network:
+    terraform_avm:
+      attribute: managed_virtual_network_enabled
+      passthrough: true
+      also:
+        true: 'resource "azurerm_data_factory_integration_runtime_azure" { location = "AutoResolve", virtual_network_enabled = true }'
+      note: module default false; without the authored Azure runtime the network exists and nothing runs in it
+    terraform:
+      attribute: managed_virtual_network_enabled
+      passthrough: true
+      also:
+        true: 'resource "azurerm_data_factory_integration_runtime_azure" { location = "AutoResolve", virtual_network_enabled = true }'
+    bicep_avm:
+      attribute: managedVirtualNetwork
+      values: { true: { expr: "{ name: 'default' }" }, false: null }
+      also:
+        true: "integrationRuntimes: [ { name: 'AutoResolveIntegrationRuntime', type: 'Managed', managedVirtualNetworkName: 'default', typeProperties: { computeProperties: { location: 'AutoResolve' } } } ]"
+      note: omitted by default; the runtime is what runs inside the network
+    bicep:
+      attribute: child managedVirtualNetworks name
+      values: { true: default, false: null }
+      also:
+        true: "child integrationRuntimes { type: 'Managed', managedVirtualNetwork.referenceName: 'default' }"
+      note: false renders neither child
+  factory.managed_private_endpoints:
+    terraform_avm:
+      gap: not a module input - azurerm_data_factory_managed_private_endpoint per entry beside the call
+    terraform: { attribute: azurerm_data_factory_managed_private_endpoint, note: approval on the source is a step after the apply }
+    bicep_avm:
+      attribute: 'managedVirtualNetwork.managedPrivateEndpoints[] = { name, privateLinkResourceId, groupId, fqdns }'
+      note: fqdns is required by the type; approval on the source follows
+    bicep: { attribute: child managedVirtualNetworks/default/managedPrivateEndpoints }
+  factory.self_hosted_integration_runtime:
+    terraform_avm:
+      attribute: integration_runtime_self_hosted
+      values: { none: { expr: '{}' }, create_key_only: { expr: '{ shir = { name = "shir-onprem" } }' } }
+      note: the key is read with azapi_resource_action listAuthKeys after the apply - into Key Vault, never an output
+    terraform:
+      attribute: azurerm_data_factory_integration_runtime_self_hosted.name
+      values: { none: null, create_key_only: shir-onprem }
+      note: none renders no runtime resource
+    bicep_avm:
+      attribute: 'integrationRuntimes[]'
+      values: { none: null, create_key_only: { expr: "{ name: 'shir-onprem', type: 'SelfHosted' }" } }
+      note: none adds no entry; the key is listAuthKeys() after the deployment into a Key Vault secret
+    bicep:
+      attribute: "child integrationRuntimes (type: 'SelfHosted') name"
+      values: { none: null, create_key_only: shir-onprem }
+      note: none renders no runtime
+  factory.global_parameters:
+    terraform_avm: { attribute: 'global_parameters[] = { name, type, value }', note: a list - not a map }
+    terraform: { attribute: 'global_parameter { name, type, value }' }
+    bicep_avm: { attribute: 'globalParameters.<name> = { type, value }', note: an object keyed by name - a list in Terraform }
+    bicep: { attribute: properties.globalParameters }
+  factory.purview_account:
+    terraform_avm: { attribute: purview_id, passthrough: true, omit_empty: true }
+    terraform: { attribute: purview_id, passthrough: true, omit_empty: true }
+    bicep_avm: { attribute: purviewResourceId, passthrough: true, omit_empty: true }
+    bicep: { attribute: properties.purviewConfiguration.purviewResourceId, passthrough: true, omit_empty: true }
+
+  # ----------------------------------------------------------- source_control
+  source_control.git_provider:
+    terraform_avm:
+      attribute: github_configuration
+      values:
+        none: null
+        github: { expr: '{ account_name, repository_name, branch_name, root_folder, git_url }' }
+        azure_devops: null
+      also:
+        azure_devops: 'vsts_configuration = { account_name, project_name, repository_name, branch_name, root_folder, tenant_id }'
+      note: both configurations null on every stage but development
+    terraform:
+      attribute: github_configuration
+      values:
+        none: null
+        github: { expr: '{ account_name, repository_name, branch_name, root_folder, git_url, publishing_enabled }' }
+        azure_devops: null
+      also:
+        azure_devops: 'vsts_configuration { account_name, project_name, repository_name, branch_name, root_folder, tenant_id }'
+      note: a block; neither on every stage but development
+    bicep_avm:
+      attribute: gitConfiguration.type
+      values: { none: null, github: FactoryGitHubConfiguration, azure_devops: FactoryVSTSConfiguration }
+      note: gitConfiguration omitted for none and on every stage but development
+    bicep:
+      attribute: properties.repoConfiguration.type
+      values: { none: null, github: FactoryGitHubConfiguration, azure_devops: FactoryVSTSConfiguration }
+      note: repoConfiguration omitted for none and on every stage but development
+  source_control.git_account:
+    terraform_avm: { attribute: github_configuration.account_name, passthrough: true, note: vsts_configuration.account_name for azure_devops }
+    terraform: { attribute: github_configuration.account_name, passthrough: true, note: vsts_configuration.account_name for azure_devops }
+    bicep_avm: { attribute: gitConfiguration.accountName, passthrough: true }
+    bicep: { attribute: properties.repoConfiguration.accountName, passthrough: true }
+  source_control.git_repository:
+    terraform_avm: { attribute: github_configuration.repository_name, passthrough: true, note: vsts_configuration.repository_name for azure_devops }
+    terraform: { attribute: github_configuration.repository_name, passthrough: true, note: vsts_configuration.repository_name for azure_devops }
+    bicep_avm: { attribute: gitConfiguration.repositoryName, passthrough: true }
+    bicep: { attribute: properties.repoConfiguration.repositoryName, passthrough: true }
+  source_control.git_project:
+    terraform_avm: { attribute: vsts_configuration.project_name, passthrough: true }
+    terraform: { attribute: vsts_configuration.project_name, passthrough: true }
+    bicep_avm: { attribute: gitConfiguration.projectName, passthrough: true }
+    bicep: { attribute: properties.repoConfiguration.projectName, passthrough: true }
+  source_control.git_collaboration_branch:
+    terraform_avm: { attribute: github_configuration.branch_name, passthrough: true, note: vsts_configuration.branch_name for azure_devops }
+    terraform: { attribute: github_configuration.branch_name, passthrough: true, note: vsts_configuration.branch_name for azure_devops }
+    bicep_avm: { attribute: gitConfiguration.collaborationBranch, passthrough: true }
+    bicep: { attribute: properties.repoConfiguration.collaborationBranch, passthrough: true }
+  source_control.git_root_folder:
+    terraform_avm: { attribute: github_configuration.root_folder, passthrough: true, note: vsts_configuration.root_folder for azure_devops }
+    terraform: { attribute: github_configuration.root_folder, passthrough: true, note: vsts_configuration.root_folder for azure_devops }
+    bicep_avm: { attribute: gitConfiguration.rootFolder, passthrough: true }
+    bicep: { attribute: properties.repoConfiguration.rootFolder, passthrough: true }
+  source_control.git_host:
+    terraform_avm: { attribute: github_configuration.git_url, passthrough: true, note: only for an Enterprise Server }
+    terraform: { attribute: github_configuration.git_url, passthrough: true, note: only for an Enterprise Server }
+    bicep_avm: { attribute: gitConfiguration.hostName, passthrough: true }
+    bicep: { attribute: properties.repoConfiguration.hostName, passthrough: true }
+
+  # --------------------------------------------------------------- networking
+  networking.public_network_access:
+    terraform_avm:
+      attribute: public_network_enabled
+      values: { disabled: false, enabled_with_firewall: true, enabled: true }
+      note: a bool; module default true - always written
+    terraform:
+      attribute: public_network_enabled
+      values: { disabled: false, enabled_with_firewall: true, enabled: true }
+    bicep_avm:
+      attribute: publicNetworkAccess
+      values: { disabled: Disabled, enabled_with_firewall: Enabled, enabled: Enabled }
+      note: module default '' (disabled only when endpoints are passed); written anyway
+    bicep:
+      attribute: properties.publicNetworkAccess
+      values: { disabled: Disabled, enabled_with_firewall: Enabled, enabled: Enabled }
+  networking.private_endpoint_subnet:
+    terraform_avm:
+      attribute: 'private_endpoints.dataFactory.subnet_resource_id'
+      note: the portal endpoint is an authored azurerm_private_endpoint with the same subnet_id
+    terraform: { attribute: azurerm_private_endpoint.subnet_id }
+    bicep_avm: { attribute: 'privateEndpoints[].subnetResourceId' }
+    bicep: { gap: the authored table names Microsoft.Network/privateEndpoints but no subnet property }
+  networking.private_endpoint_subresources:
+    terraform_avm:
+      gap: 'the module fixes the sub-resource dataFactory (private_endpoints.dataFactory); portal in the list is an authored azurerm_private_endpoint with subresource_names = ["portal"]'
+    terraform:
+      attribute: azurerm_private_endpoint.private_service_connection.subresource_names
+      note: one endpoint per entry, subresource_names = [entry]
+    bicep_avm:
+      attribute: 'privateEndpoints[].service'
+      note: 'one privateEndpoints entry per sub-resource, service: the entry'
+    bicep:
+      attribute: Microsoft.Network/privateEndpoints groupIds
+      note: 'one endpoint per entry, groupIds: [entry]'
+
+  # ----------------------------------------------------------------- identity
+  identity.managed_identity:
+    terraform_avm:
+      attribute: managed_identities
+      values:
+        system_assigned: { expr: '{ system_assigned = true }' }
+        user_assigned: { expr: '{ system_assigned = true, user_assigned_resource_ids = {identity.user_assigned_identity_ids} }' }
+      note: system-assigned stays on beside user_assigned
+    terraform: { gap: 'the authored table names identity { type, identity_ids } but no type literal' }
+    bicep_avm:
+      attribute: managedIdentities
+      values:
+        system_assigned: { expr: '{ systemAssigned: true }' }
+        user_assigned: { expr: '{ systemAssigned: true, userAssignedResourceIds: {identity.user_assigned_identity_ids} }' }
+    bicep: { gap: 'the authored table names identity { type, userAssignedIdentities } but no type literal' }
+  identity.user_assigned_identity_ids:
+    terraform_avm: { attribute: managed_identities.user_assigned_resource_ids }
+    terraform: { attribute: identity.identity_ids }
+    bicep_avm: { attribute: managedIdentities.userAssignedResourceIds }
+    bicep: { gap: the authored table names identity.userAssignedIdentities but not its shape - ARM keys it by id while the answer is a list }
+  identity.source_access:
+    not_rendered: role assignments on each source with the factory's principal id - rendered beside the source; not an input of either module
+  identity.role_assignments:
+    terraform_avm: { attribute: role_assignments, note: control plane }
+    terraform: { attribute: azurerm_role_assignment }
+    bicep_avm: { attribute: roleAssignments, note: control plane }
+    bicep: { attribute: Microsoft.Authorization/roleAssignments }
+
+  # ----------------------------------------------------------------- security
+  security.key_management:
+    terraform_avm:
+      attribute: customer_managed_key_id
+      values: { platform_managed: null, customer_managed: { expr: '{security.cmk_key_vault_key_id}' } }
+      also: { customer_managed: 'customer_managed_key_identity_id = <identity id>' }
+      note: both or neither; the identity also goes into managed_identities
+    terraform:
+      attribute: customer_managed_key_id
+      values: { platform_managed: null, customer_managed: { expr: '{security.cmk_key_vault_key_id}' } }
+      also: { customer_managed: 'customer_managed_key_identity_id = <identity id>' }
+      note: both or neither
+    bicep_avm:
+      attribute: customerManagedKey
+      values:
+        platform_managed: null
+        customer_managed: { expr: '{ keyVaultResourceId: <vault id>, keyName: <key name>, userAssignedIdentityResourceId: <identity id>, autoRotationEnabled: true }' }
+      note: unversioned with rotation
+    bicep:
+      attribute: properties.encryption
+      values:
+        platform_managed: null
+        customer_managed: { expr: '{ keyName: <key name>, vaultBaseUrl: <vault URI>, identity: <identity> }' }
+      note: the reference does not state the shape of identity
+  security.cmk_key_vault_key_id:
+    terraform_avm: { attribute: customer_managed_key_id, note: the versioned key URL }
+    terraform: { attribute: customer_managed_key_id, note: the versioned key URL }
+    bicep_avm:
+      attribute: customerManagedKey.keyVaultResourceId
+      note: the vault's id taken from the key id; the key's name goes into customerManagedKey.keyName beside it; unversioned with autoRotationEnabled
+    bicep:
+      attribute: properties.encryption.vaultBaseUrl
+      note: "the vault's URI taken from the key; the key's name goes into properties.encryption.keyName beside it"
+
+  # ------------------------------------------------------------ observability
+  observability.diagnostic_workspace:
+    terraform_avm:
+      attribute: 'diagnostic_settings.<key>.workspace_resource_id'
+      note: with log_analytics_destination_type = "Dedicated"
+    terraform: { gap: the authored table names azurerm_monitor_diagnostic_setting but not its workspace argument }
+    bicep_avm: { attribute: 'diagnosticSettings[].workspaceResourceId', note: logAnalyticsDestinationType defaults to Dedicated }
+    bicep: { gap: the authored table names Microsoft.Insights/diagnosticSettings but not its workspace property }
+  observability.diagnostic_categories:
+    terraform_avm:
+      attribute: 'diagnostic_settings.<key>.log_categories'
+      note: 'log_groups defaults to ["allLogs"] - set it empty beside the categories'
+    terraform: { attribute: azurerm_monitor_diagnostic_setting.enabled_log.category }
+    bicep_avm: { attribute: 'diagnosticSettings[].logCategoriesAndGroups[].category' }
+    bicep: { attribute: 'Microsoft.Insights/diagnosticSettings properties.logs[].category' }
+  observability.metrics_enabled:
+    terraform_avm:
+      attribute: 'diagnostic_settings.<key>.metric_categories'
+      values: { true: { expr: '["AllMetrics"]' }, false: { expr: '[]' } }
+    terraform:
+      attribute: azurerm_monitor_diagnostic_setting.enabled_metric.category
+      values: { true: AllMetrics, false: null }
+      note: an enabled_metric block; false renders none
+    bicep_avm:
+      attribute: 'diagnosticSettings[].metricCategories'
+      values: { true: { expr: "[ { category: 'AllMetrics' } ]" }, false: { expr: '[]' } }
+    bicep:
+      attribute: 'Microsoft.Insights/diagnosticSettings properties.metrics[].category'
+      values: { true: AllMetrics, false: null }
+      note: false renders no metrics entry

@@ -1,0 +1,144 @@
+# What each decision of questions.yaml renders to, per target and implementation.
+# Format: core/iac-rendering/references/render-map.md. The call, the authored blocks and the
+# tests are in terraform.md and bicep.md.
+schema_version: 1
+resource: Microsoft.Purview/accounts
+
+# Terraform: the AVM module is Proposed and unpublished - authored is the primary there.
+modules:
+  terraform: []
+  bicep: [avm/res/purview/account]
+
+decisions:
+
+  # ---------------------------------------------------------------- placement
+  placement.environments:
+    not_rendered: naming parameter `environment` and the tag of that name; no attribute of the account
+  placement.location:
+    terraform: { attribute: location, passthrough: true }
+    bicep_avm: { attribute: location, passthrough: true }
+    bicep: { attribute: location, passthrough: true }
+  placement.resource_group_name:
+    terraform: { attribute: resource_group_name }
+    bicep_avm: { gap: the deployment's resource group scope; no parameter }
+    bicep: { gap: the deployment's resource group scope; no property }
+  placement.ownership:
+    not_rendered: decides whether the account is created here or only referenced (existing_account_id); platform renders nothing below
+  placement.existing_account_id:
+    terraform:
+      attribute: var.purview_account_id
+      note: platform only - the plain id variable, or data.azurerm_purview_account by the name and group parsed from the id; no resource
+    bicep_avm: { attribute: "resource pview 'Microsoft.Purview/accounts@2021-12-01' existing", note: platform only - by id; no module call }
+    bicep: { attribute: "resource pview 'Microsoft.Purview/accounts@2021-12-01' existing", note: platform only - by id }
+
+  # ------------------------------------------------------------------ account
+  account.managed_resource_group_name:
+    terraform:
+      attribute: managed_resource_group_name
+      passthrough: true
+      note: fixed at creation; an empty answer renders "managed-rg-${data.naming_name.pview.name}", never ""
+    bicep_avm:
+      attribute: managedResourceGroupName
+      passthrough: true
+      note: an empty answer renders 'managed-rg-${pviewName}' (the module default), written anyway, never ''; fixed at creation
+    bicep:
+      attribute: properties.managedResourceGroupName
+      passthrough: true
+      note: an empty answer renders 'managed-rg-${pviewName}', never ''; fixed at creation
+  account.managed_event_hub:
+    terraform: { attribute: managed_event_hub_enabled, passthrough: true, note: provider default true - always written }
+    bicep_avm:
+      attribute: managedEventHubState
+      values: { true: Enabled, false: Disabled }
+      note: module default Enabled - always written
+    bicep:
+      attribute: properties.managedEventHubState
+      values: { true: Enabled, false: Disabled }
+  account.managed_resources_public_access:
+    terraform:
+      gap: no azurerm argument - azapi_update_resource on properties.managedResourcesPublicNetworkAccess ("Disabled" / "Enabled")
+    bicep_avm:
+      attribute: managedResourcesPublicNetworkAccess
+      values: { disabled: Disabled, enabled: Enabled }
+      note: module default NotSpecified - always written
+    bicep:
+      attribute: properties.managedResourcesPublicNetworkAccess
+      values: { disabled: Disabled, enabled: Enabled }
+
+  # --------------------------------------------------------------- networking
+  networking.public_network_access:
+    terraform:
+      attribute: public_network_enabled
+      values: { disabled: false, enabled_with_firewall: true, enabled: true }
+      note: a bool; provider default true - always written
+    bicep_avm:
+      attribute: publicNetworkAccess
+      values: { disabled: Disabled, enabled_with_firewall: Enabled, enabled: Enabled }
+      note: module default NotSpecified - always written
+    bicep:
+      attribute: properties.publicNetworkAccess
+      values: { disabled: Disabled, enabled_with_firewall: Enabled, enabled: Enabled }
+  networking.private_endpoint_subnet:
+    terraform: { attribute: azurerm_private_endpoint.subnet_id, note: one endpoint per sub-resource }
+    bicep_avm:
+      attribute: '<kind>PrivateEndpoints[].subnetResourceId'
+      note: on each of the five arrays (account, portal, storageBlob, storageQueue, eventHub)
+    bicep: { gap: the authored table names Microsoft.Network/privateEndpoints but no subnet property }
+  networking.private_endpoint_subresources:
+    terraform:
+      attribute: azurerm_private_endpoint.private_service_connection.subresource_names
+      note: one endpoint per entry (for_each, subresource_names = [each.key]) - account and portal on the account id; blob and queue on managed_resources[0].storage_account_id; namespace on managed_resources[0].event_hub_namespace_id, known after apply
+    bicep_avm:
+      attribute: '<kind>PrivateEndpoints'
+      note: one parameter per entry - account -> accountPrivateEndpoints, portal -> portalPrivateEndpoints, blob -> storageBlobPrivateEndpoints, queue -> storageQueuePrivateEndpoints, namespace -> eventHubPrivateEndpoints - each [ { name, subnetResourceId } ]; an entry not in the list renders []
+    bicep:
+      attribute: Microsoft.Network/privateEndpoints groupIds
+      note: one endpoint per entry, groupIds = [entry]; account and portal on the account, blob and queue on properties.managedResources.storageAccount, namespace on properties.managedResources.eventHubNamespace
+
+  # ----------------------------------------------------------------- identity
+  identity.managed_identity:
+    terraform:
+      attribute: identity.type
+      values: { system_assigned: SystemAssigned, user_assigned: 'SystemAssigned, UserAssigned' }
+      note: system-assigned is mandatory
+    bicep_avm:
+      attribute: managedIdentities
+      values:
+        system_assigned: { expr: '{ userAssignedResourceIds: [] }' }
+        user_assigned: { expr: '{ userAssignedResourceIds: {identity.user_assigned_identity_ids} }' }
+      note: the module sets SystemAssigned always and adds UserAssigned when ids are passed
+    bicep:
+      attribute: identity.type
+      values: { system_assigned: SystemAssigned, user_assigned: 'SystemAssigned,UserAssigned' }
+  identity.user_assigned_identity_ids:
+    terraform: { attribute: identity.identity_ids }
+    bicep_avm: { attribute: managedIdentities.userAssignedResourceIds }
+    bicep: { gap: identity.userAssignedIdentities takes an object keyed by id; the reference shows no shape for the list }
+  identity.collection_roles:
+    not_rendered: a step after the deployment against the account's metadata policy API, run as a Collection admin; no provider resource and no ARM resource
+  identity.role_assignments:
+    terraform: { attribute: azurerm_role_assignment, note: scope = the account's id; role by name }
+    bicep_avm: { attribute: roleAssignments, note: control plane }
+    bicep: { attribute: Microsoft.Authorization/roleAssignments }
+
+  # ------------------------------------------------------------ observability
+  observability.diagnostic_workspace:
+    terraform: { attribute: azurerm_monitor_diagnostic_setting.log_analytics_workspace_id }
+    bicep_avm: { attribute: 'diagnosticSettings[].workspaceResourceId' }
+    bicep: { gap: the authored table names Microsoft.Insights/diagnosticSettings but no workspace property }
+  observability.diagnostic_categories:
+    terraform: { attribute: azurerm_monitor_diagnostic_setting.enabled_log.category, note: one enabled_log block per category }
+    bicep_avm: { attribute: 'diagnosticSettings[].logCategoriesAndGroups[].category' }
+    bicep: { attribute: 'Microsoft.Insights/diagnosticSettings properties.logs[].category' }
+  observability.metrics_enabled:
+    terraform:
+      attribute: azurerm_monitor_diagnostic_setting.enabled_metric.category
+      values: { true: AllMetrics, false: null }
+      note: a block - enabled_metric { category = "AllMetrics" }; false renders no enabled_metric block
+    bicep_avm:
+      attribute: 'diagnosticSettings[].metricCategories'
+      values: { true: { expr: "[ { category: 'AllMetrics' } ]" }, false: { expr: '[]' } }
+    bicep:
+      attribute: 'Microsoft.Insights/diagnosticSettings properties.metrics[].category'
+      values: { true: AllMetrics, false: null }
+      note: false renders no metrics entry

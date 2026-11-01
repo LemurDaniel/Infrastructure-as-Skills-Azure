@@ -1,0 +1,245 @@
+# What each decision of questions.yaml renders to, per target and implementation.
+# Format: core/iac-rendering/references/render-map.md. The call, the authored blocks and the
+# tests are in terraform.md and bicep.md.
+schema_version: 1
+resource: Microsoft.Cache/redisEnterprise
+
+modules:
+  terraform: [Azure/avm-res-cache-redisenterprise/azurerm]
+  bicep: [avm/res/cache/redis-enterprise]
+
+decisions:
+
+  # ---------------------------------------------------------------- placement
+  placement.environments:
+    not_rendered: naming parameter `environment` and the tag of that name; no attribute of the cache
+  placement.location:
+    terraform_avm: { attribute: location, passthrough: true }
+    terraform: { attribute: location, passthrough: true }
+    bicep_avm: { attribute: location, passthrough: true }
+    bicep: { attribute: location, passthrough: true }
+  placement.resource_group_name:
+    terraform_avm:
+      attribute: parent_id
+      note: the group's id (var.resource_group_id), not its name - azapi-only module, no azurerm needed
+    terraform: { attribute: resource_group_name }
+    bicep_avm: { gap: the deployment's resource group scope; no parameter }
+    bicep: { gap: the deployment's resource group scope; no property }
+
+  # -------------------------------------------------------------------- cache
+  cache.sku_name:
+    terraform_avm: { attribute: sku_name, passthrough: true, note: required }
+    terraform: { attribute: sku_name, passthrough: true }
+    bicep_avm: { attribute: skuName, passthrough: true, note: module default Balanced_B5 - always written }
+    bicep: { attribute: sku.name, passthrough: true }
+  cache.clustering_policy:
+    terraform_avm:
+      attribute: clustering_policy
+      passthrough: true
+      note: EnterpriseCluster and OSSCluster only - the module's validation refuses NoCluster, which renders authored (default_database.clustering_policy); default EnterpriseCluster
+    terraform: { attribute: default_database.clustering_policy, passthrough: true }
+    bicep_avm: { attribute: database.clusteringPolicy, passthrough: true }
+    bicep: { attribute: database properties.clusteringPolicy, passthrough: true }
+  cache.eviction_policy:
+    terraform_avm:
+      attribute: eviction_policy
+      passthrough: true
+      note: module default AllKeysLRU; its validation refuses AllKeysLFU and VolatileLFU, which render authored (default_database.eviction_policy)
+    terraform: { attribute: default_database.eviction_policy, passthrough: true }
+    bicep_avm: { attribute: database.evictionPolicy, passthrough: true }
+    bicep: { attribute: database properties.evictionPolicy, passthrough: true }
+  cache.redis_modules:
+    terraform_avm: { attribute: 'redis_modules[] = { name, args }' }
+    terraform: { attribute: 'default_database.module { name, args }' }
+    bicep_avm: { attribute: 'database.modules[] = { name, args }' }
+    bicep: { attribute: database properties.modules }
+
+  # --------------------------------------------------------------- resilience
+  resilience.high_availability:
+    terraform_avm:
+      attribute: high_availability
+      values: { true: Enabled, false: Disabled }
+      note: a string; default null (the API's); written anyway; zones left empty - Enterprise SKUs only
+    terraform: { attribute: high_availability_enabled, passthrough: true }
+    bicep_avm:
+      attribute: highAvailability
+      values: { true: Enabled, false: Disabled }
+      note: module default Enabled; written anyway; availabilityZones left at its default
+    bicep:
+      attribute: properties.highAvailability
+      values: { true: Enabled, false: Disabled }
+  resilience.geo_replicas:
+    terraform_avm:
+      gap: not the module - a second instance per region and azurerm_managed_redis_geo_replication
+    terraform: { gap: azurerm_managed_redis_geo_replication with default_database.geo_replication_group_name; the table names no argument for the linked regions }
+    bicep_avm:
+      attribute: 'database.geoReplication = { groupNickname, linkedDatabases }'
+      note: one instance per region; the shape is read from the pinned README
+    bicep: { gap: the authored table names no geo-replication property }
+
+  # --------------------------------------------------------------- networking
+  networking.public_network_access:
+    terraform_avm:
+      attribute: public_network_access
+      values: { disabled: Disabled, enabled_with_firewall: Enabled, enabled: Enabled }
+      note: a string; default Disabled; written anyway
+    terraform:
+      attribute: public_network_access
+      values: { disabled: Disabled, enabled_with_firewall: Enabled, enabled: Enabled }
+    bicep_avm:
+      attribute: publicNetworkAccess
+      values: { disabled: Disabled, enabled_with_firewall: Enabled, enabled: Enabled }
+      note: required
+    bicep:
+      attribute: properties.publicNetworkAccess
+      values: { disabled: Disabled, enabled_with_firewall: Enabled, enabled: Enabled }
+  networking.private_endpoint_subnet:
+    terraform_avm:
+      attribute: 'private_endpoints.redis.subnet_resource_id'
+      note: with subresource_name = "redisEnterprise"; private_endpoints_manage_dns_zone_group = false under policy DNS
+    terraform: { gap: 'azurerm_private_endpoint with subresource_names = ["redisEnterprise"]; the table names no subnet argument' }
+    bicep_avm:
+      attribute: 'privateEndpoints[].subnetResourceId'
+      note: "with service: 'redisEnterprise'; no privateDnsZoneGroup under policy DNS"
+    bicep: { gap: "Microsoft.Network/privateEndpoints with groupIds: ['redisEnterprise']; the table names no subnet property" }
+
+  # ----------------------------------------------------------------- identity
+  identity.managed_identity:
+    terraform_avm:
+      attribute: managed_identities
+      values:
+        none: { expr: '{}' }
+        user_assigned: { expr: '{ user_assigned_resource_ids = {identity.user_assigned_identity_ids} }' }
+    terraform: { gap: the authored table names identity only beside key_management }
+    bicep_avm:
+      attribute: managedIdentities
+      values:
+        none: { expr: '{}' }
+        user_assigned: { expr: '{ userAssignedResourceIds: {identity.user_assigned_identity_ids} }' }
+      note: user-assigned only
+    bicep: { gap: the authored table names identity only beside key_management }
+  identity.user_assigned_identity_ids:
+    terraform_avm: { attribute: managed_identities.user_assigned_resource_ids }
+    terraform: { gap: the authored table names identity only beside key_management }
+    bicep_avm: { attribute: managedIdentities.userAssignedResourceIds }
+    bicep: { gap: the authored table names identity only beside key_management }
+  identity.data_access_assignments:
+    terraform_avm:
+      attribute: access_policy_assignments
+      note: 'a map, one entry per principal - <key> = { object_id = <principal>, access_policy_name = "default" }; the database''s one access policy'
+    terraform: { gap: one azurerm_managed_redis_access_policy_assignment per principal; the table names no argument for the object id }
+    bicep_avm:
+      attribute: database.accessPolicyAssignments
+      note: "one object per principal - { userObjectId: <principal>, accessPolicyName: 'default' }"
+    bicep: { gap: a database child accessPolicyAssignments per principal; the table names no property for the object id }
+  identity.role_assignments:
+    terraform_avm: { attribute: role_assignments, note: control plane }
+    terraform: { gap: the authored table names no role assignment }
+    bicep_avm: { attribute: roleAssignments, note: control plane }
+    bicep: { gap: the authored table names no role assignment }
+
+  # ----------------------------------------------------------------- security
+  security.access_keys_authentication_disabled:
+    terraform_avm:
+      gap: not a module input - azapi_update_resource on module.redis.database_id setting properties.accessKeysAuthentication ("Disabled" for true)
+    terraform:
+      attribute: default_database.access_keys_authentication_enabled
+      values: { true: false, false: true }
+      note: inverse
+    bicep_avm:
+      attribute: database.accessKeysAuthentication
+      values: { true: Disabled, false: Enabled }
+    bicep:
+      attribute: database properties.accessKeysAuthentication
+      values: { true: Disabled, false: Enabled }
+  security.encrypted_connections_only:
+    terraform_avm:
+      attribute: enable_non_ssl_port
+      values: { true: false, false: true }
+      also: { true: 'minimum_tls_version = "1.2"' }
+      note: both the module defaults; written anyway
+    terraform:
+      gap: default_database.client_protocol = "Encrypted" for true; the reference names no literal for false
+    bicep_avm:
+      gap: "database.clientProtocol: 'Encrypted' and minimumTlsVersion: '1.2' (the only allowed value) for true; the reference names no clientProtocol literal for false"
+    bicep:
+      gap: "database properties.clientProtocol: 'Encrypted' and properties.minimumTlsVersion: '1.2' for true; the reference names no clientProtocol literal for false"
+  security.key_management:
+    terraform_avm:
+      attribute: customer_managed_key_encryption
+      values:
+        platform_managed: { expr: 'null' }
+        customer_managed: { expr: '{ key_encryption_key_url, identity_type = "userAssignedIdentity", user_assigned_identity_resource_id }' }
+      note: unversioned key URL
+    terraform:
+      attribute: customer_managed_key.key_vault_key_id
+      values: { platform_managed: null, customer_managed: { expr: '{security.cmk_key_vault_key_id}' } }
+      also: { customer_managed: customer_managed_key.user_assigned_identity_id = <user-assigned identity id> }
+      note: a block, beside an identity block; platform_managed renders neither
+    bicep_avm:
+      attribute: customerManagedKey
+      values:
+        platform_managed: null
+        customer_managed: { expr: '{ keyVaultResourceId: <vault id>, keyName: <key name>, userAssignedIdentityResourceId: <identity id> }' }
+      note: unversioned
+    bicep:
+      gap: properties.encryption.customerManagedKeyEncryption with identity for customer_managed, unset for platform_managed; the authored table names no sub-property
+  security.cmk_key_vault_key_id:
+    terraform_avm: { attribute: customer_managed_key_encryption.key_encryption_key_url, note: unversioned }
+    terraform: { attribute: customer_managed_key.key_vault_key_id }
+    bicep_avm:
+      attribute: customerManagedKey.keyVaultResourceId
+      note: the key id split - the vault's id here, the key's name into customerManagedKey.keyName
+    bicep: { gap: properties.encryption.customerManagedKeyEncryption; the authored table names no sub-property for the key }
+
+  # ---------------------------------------------------------- data_protection
+  data_protection.persistence:
+    terraform_avm:
+      gap: 'not a module input - azapi_update_resource on module.redis.database_id setting properties.persistence: { rdbEnabled = false, aofEnabled = false } for disabled, { rdbEnabled = true, rdbFrequency = "12h" | "6h" | "1h" } for rdb_*, { aofEnabled = true, aofFrequency = "1s" } for aof_1s'
+    terraform:
+      gap: default_database.persistence_redis_database_backup_frequency for rdb_*, persistence_append_only_file_backup_frequency for aof_1s; the table names no literals
+    bicep_avm:
+      attribute: database.persistence
+      values:
+        disabled: { expr: "{ type: 'disabled' }" }
+        rdb_12h: { expr: "{ type: 'rdb', frequency: '12h' }" }
+        rdb_6h: { expr: "{ type: 'rdb', frequency: '6h' }" }
+        rdb_1h: { expr: "{ type: 'rdb', frequency: '1h' }" }
+        aof_1s: { expr: "{ type: 'aof', frequency: '1s' }" }
+    bicep:
+      attribute: database properties.persistence
+      values:
+        disabled: { expr: '{ rdbEnabled: false, aofEnabled: false }' }
+        rdb_12h: { expr: "{ rdbEnabled: true, rdbFrequency: '12h' }" }
+        rdb_6h: { expr: "{ rdbEnabled: true, rdbFrequency: '6h' }" }
+        rdb_1h: { expr: "{ rdbEnabled: true, rdbFrequency: '1h' }" }
+        aof_1s: { expr: "{ aofEnabled: true, aofFrequency: '1s' }" }
+      note: the API shape the Terraform azapi update writes
+
+  # ------------------------------------------------------------ observability
+  observability.diagnostic_workspace:
+    terraform_avm:
+      gap: the module builds no diagnostic setting - azurerm_monitor_diagnostic_setting.log_analytics_workspace_id on module.redis.database_id
+    terraform: { attribute: azurerm_monitor_diagnostic_setting.log_analytics_workspace_id }
+    bicep_avm:
+      attribute: 'database.diagnosticSettings[].workspaceResourceId'
+      note: logs only on the database; the cluster's diagnosticSettings take the same workspace for the metrics
+    bicep: { gap: Microsoft.Insights/diagnosticSettings on the database (logs) and on the cluster (metrics); the authored table names no workspace property }
+  observability.diagnostic_categories:
+    terraform_avm:
+      gap: the module builds no diagnostic setting - enabled_log.category on the authored azurerm_monitor_diagnostic_setting
+    terraform: { attribute: azurerm_monitor_diagnostic_setting.enabled_log.category }
+    bicep_avm: { attribute: 'database.diagnosticSettings[].logCategoriesAndGroups[].category' }
+    bicep: { gap: Microsoft.Insights/diagnosticSettings on the database; the authored table names no category property }
+  observability.metrics_enabled:
+    terraform_avm:
+      gap: the module builds no diagnostic setting - enabled_metric { category = "AllMetrics" } on the authored azurerm_monitor_diagnostic_setting; whether it belongs to the cluster or the database is checked before a render
+    terraform:
+      attribute: azurerm_monitor_diagnostic_setting.enabled_metric.category
+      values: { true: AllMetrics, false: null }
+      note: a block, enabled_metric { category = "AllMetrics" }; the category and its target (cluster or database) are checked with az monitor diagnostic-settings categories list before a render; false renders no block
+    bicep_avm:
+      attribute: 'diagnosticSettings[].metricCategories'
+      values: { true: { expr: "[ { category: 'AllMetrics' } ]" }, false: { expr: '[]' } }
+      note: metrics only on the cluster
+    bicep: { gap: Microsoft.Insights/diagnosticSettings on the cluster; the authored table names no metrics property }

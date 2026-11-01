@@ -1,0 +1,341 @@
+# What each decision of questions.yaml renders to, per target and implementation.
+# Format: core/iac-rendering/references/render-map.md. The call, the authored blocks and the
+# tests are in terraform.md and bicep.md.
+schema_version: 1
+resource: Microsoft.DBforPostgreSQL/flexibleServers
+
+modules:
+  terraform: [Azure/avm-res-dbforpostgresql-flexibleserver/azurerm]
+  bicep: [avm/res/db-for-postgre-sql/flexible-server]
+
+decisions:
+
+  # ---------------------------------------------------------------- placement
+  placement.environments:
+    not_rendered: naming parameter `environment` and the tag of that name; no attribute of the server
+  placement.location:
+    terraform_avm: { attribute: location, passthrough: true }
+    terraform: { attribute: location, passthrough: true }
+    bicep_avm: { attribute: location, passthrough: true }
+    bicep: { attribute: location, passthrough: true }
+  placement.resource_group_name:
+    terraform_avm: { attribute: resource_group_name, note: azurerm-based module - the root cannot be on azurerm 5.x }
+    terraform: { attribute: resource_group_name }
+    bicep_avm: { gap: the deployment's resource group scope; no parameter }
+    bicep: { gap: the deployment's resource group scope; no property }
+
+  # ------------------------------------------------------------------- server
+  server.postgres_version:
+    terraform_avm: { attribute: server_version, passthrough: true, note: 'a string ("17"); the module description lists up to 16 - check the provider' }
+    terraform: { attribute: version, passthrough: true }
+    bicep_avm: { attribute: version, passthrough: true, note: a string; module default 18 - always written }
+    bicep: { attribute: properties.version, passthrough: true }
+  server.compute_tier:
+    terraform_avm:
+      attribute: sku_name
+      values: { burstable: B_, general_purpose: GP_, memory_optimized: MO_ }
+      part_of: server.sku_name
+      note: the tier is the prefix of sku_name (GP_Standard_D2ds_v5) - no input of its own
+    terraform:
+      attribute: sku_name
+      values: { burstable: B_, general_purpose: GP_, memory_optimized: MO_ }
+      part_of: server.sku_name
+      note: the prefix of sku_name
+    bicep_avm:
+      gap: "tier - 'Burstable' and 'GeneralPurpose' in the reference; it states no literal for memory_optimized. Must agree with skuName; both required"
+    bicep:
+      gap: "sku.tier - 'Burstable' and 'GeneralPurpose' in the reference; it states no literal for memory_optimized"
+  server.sku_name:
+    terraform_avm:
+      attribute: sku_name
+      format: '{server.compute_tier}{value}'
+      note: 'behind the tier prefix: "GP_Standard_D2ds_v5"'
+    terraform:
+      attribute: sku_name
+      format: '{server.compute_tier}{value}'
+      note: behind the tier prefix
+    bicep_avm: { attribute: skuName, passthrough: true, note: "the size without a tier prefix ('Standard_D2ds_v5'); must agree with tier" }
+    bicep: { attribute: sku.name, passthrough: true }
+  server.storage_size_gb:
+    terraform_avm:
+      attribute: storage_mb
+      format: { expr: '{value} * 1024' }
+      note: megabytes (131072 for 128 GB) - only the values the provider lists
+    terraform:
+      attribute: storage_mb
+      format: { expr: '{value} * 1024' }
+      note: megabytes
+    bicep_avm: { attribute: storageSizeGB, passthrough: true, note: gigabytes; default 32; written anyway }
+    bicep: { attribute: properties.storage.storageSizeGB, passthrough: true }
+  server.storage_auto_grow:
+    terraform_avm: { attribute: auto_grow_enabled, passthrough: true, note: default null; written anyway }
+    terraform: { attribute: auto_grow_enabled, passthrough: true }
+    bicep_avm:
+      attribute: autoGrow
+      values: { true: Enabled, false: Disabled }
+      note: required
+    bicep:
+      attribute: properties.storage.autoGrow
+      values: { true: Enabled, false: Disabled }
+  server.databases:
+    terraform_avm: { attribute: 'databases.<key> = { name, charset, collation }' }
+    terraform: { gap: one azurerm_postgresql_flexible_server_database per entry; the authored table names no argument }
+    bicep_avm: { attribute: 'databases[] = { name, charset, collation }' }
+    bicep: { gap: one child databases per entry; the authored table names no property }
+
+  # --------------------------------------------------------------- resilience
+  resilience.high_availability:
+    terraform_avm:
+      attribute: high_availability
+      values:
+        disabled: { expr: 'null' }
+        same_zone: { expr: '{ mode = "SameZone" }' }
+        zone_redundant: { expr: '{ mode = "ZoneRedundant" }' }
+      note: module default ZoneRedundant - always written; null on burstable compute
+    terraform:
+      attribute: high_availability.mode
+      values: { disabled: null, same_zone: SameZone, zone_redundant: ZoneRedundant }
+      note: disabled renders no high_availability block
+    bicep_avm:
+      attribute: highAvailability
+      values: { disabled: Disabled, same_zone: SameZone, zone_redundant: ZoneRedundant }
+      note: module default ZoneRedundant; Disabled on burstable
+    bicep:
+      attribute: properties.highAvailability.mode
+      values: { disabled: Disabled, same_zone: SameZone, zone_redundant: ZoneRedundant }
+  resilience.maintenance_window:
+    terraform_avm:
+      gap: 'maintenance_window = { day_of_week, start_hour, start_minute }, parsed from the free-text answer ("Sunday 02:00 UTC" is day_of_week = "0", start_hour = 2, start_minute = 0 - day_of_week a string); no literal follows from the answer as it is. Module default 00:00'
+    terraform:
+      gap: maintenance_window { day_of_week, start_hour, start_minute }, parsed from the free-text answer; no literal follows from the answer as it is
+    bicep_avm:
+      gap: "maintenanceWindow = { customWindow: 'Enabled', dayOfWeek, startHour, startMinute }, parsed from the free-text answer (\"Sunday 02:00 UTC\" is dayOfWeek 0, startHour 2, startMinute 0 - ints); module default 01:00, written anyway"
+    bicep:
+      gap: properties.maintenanceWindow, parsed from the free-text answer; the authored table names no sub-property
+
+  # --------------------------------------------------------------- networking
+  networking.private_connectivity:
+    terraform_avm:
+      attribute: delegated_subnet_id
+      values: { private_endpoint: null, vnet_integration: { expr: '{networking.delegated_subnet}' } }
+      also: { vnet_integration: 'private_dns_zone_id = {networking.private_dns_zone}' }
+      note: private_endpoint renders private_endpoints with both ids unset - fixed at creation
+    terraform:
+      attribute: delegated_subnet_id
+      values: { private_endpoint: null, vnet_integration: { expr: '{networking.delegated_subnet}' } }
+      also: { vnet_integration: 'private_dns_zone_id = {networking.private_dns_zone}' }
+      note: private_endpoint renders an azurerm_private_endpoint instead
+    bicep_avm:
+      attribute: delegatedSubnetResourceId
+      values: { private_endpoint: null, vnet_integration: { expr: '{networking.delegated_subnet}' } }
+      also: { vnet_integration: 'privateDnsZoneArmResourceId: {networking.private_dns_zone}' }
+      note: private_endpoint renders privateEndpoints with both ids unset - fixed at creation
+    bicep:
+      attribute: properties.network.delegatedSubnetResourceId
+      values: { private_endpoint: null, vnet_integration: { expr: '{networking.delegated_subnet}' } }
+      also: { vnet_integration: 'properties.network.privateDnsZoneArmResourceId: {networking.private_dns_zone}' }
+      note: private_endpoint renders a Microsoft.Network/privateEndpoints instead
+  networking.public_network_access:
+    terraform_avm:
+      attribute: public_network_access_enabled
+      values: { disabled: false, enabled_with_firewall: true, enabled: true }
+      note: a bool (a string in the MySQL module); default false; written anyway
+    terraform:
+      attribute: public_network_access_enabled
+      values: { disabled: false, enabled_with_firewall: true, enabled: true }
+    bicep_avm:
+      attribute: publicNetworkAccess
+      values: { disabled: Disabled, enabled_with_firewall: Enabled, enabled: Enabled }
+      note: a string here - a bool in Terraform; default disabled; written anyway
+    bicep:
+      attribute: properties.network.publicNetworkAccess
+      values: { disabled: Disabled, enabled_with_firewall: Enabled, enabled: Enabled }
+  networking.private_endpoint_subnet:
+    terraform_avm:
+      attribute: 'private_endpoints.pg.subnet_resource_id'
+      note: with subresource_name = "postgresqlServer"; private_endpoints_manage_dns_zone_group = false under policy DNS
+    terraform: { gap: 'an azurerm_private_endpoint with subresource_names = ["postgresqlServer"]; the authored table names no subnet argument' }
+    bicep_avm:
+      attribute: 'privateEndpoints[].subnetResourceId'
+      note: "with service: 'postgresqlServer'; no privateDnsZoneGroup under policy DNS"
+    bicep: { gap: "a Microsoft.Network/privateEndpoints with groupIds: ['postgresqlServer']; the authored table names no subnet property" }
+  networking.delegated_subnet:
+    terraform_avm: { attribute: delegated_subnet_id }
+    terraform: { attribute: delegated_subnet_id }
+    bicep_avm: { attribute: delegatedSubnetResourceId }
+    bicep: { attribute: properties.network.delegatedSubnetResourceId }
+  networking.private_dns_zone:
+    terraform_avm: { attribute: private_dns_zone_id }
+    terraform: { attribute: private_dns_zone_id }
+    bicep_avm: { attribute: privateDnsZoneArmResourceId }
+    bicep: { attribute: properties.network.privateDnsZoneArmResourceId }
+  networking.ip_rules:
+    terraform_avm:
+      gap: "firewall_rules = { <key> = { name, start_ip_address, end_ip_address } }, one entry per range, merged with allow_azure_services; the answer's item shape (an address, a CIDR, a range) is not stated, so no expression maps it. The module default admits 0.0.0.0 - 255.255.255.255: firewall_rules = {} is written on every call"
+    terraform: { gap: one azurerm_postgresql_flexible_server_firewall_rule per range; the authored table names no argument }
+    bicep_avm:
+      gap: "firewallRules: [ { name, startIpAddress, endIpAddress } ], one per range; the answer's item shape is not stated, so no expression maps it"
+    bicep: { gap: one child firewallRules per range; the authored table names no property }
+  networking.allow_azure_services:
+    terraform_avm:
+      attribute: firewall_rules
+      values: { true: { expr: '{ <key> = { name = <name>, start_ip_address = "0.0.0.0", end_ip_address = "0.0.0.0" } }' }, false: { expr: '{}' } }
+      note: one entry of the same map as ip_rules - merged; false is the empty map, written - left out, the module default admits 0.0.0.0-255.255.255.255
+    terraform:
+      gap: an azurerm_postgresql_flexible_server_firewall_rule from 0.0.0.0 to 0.0.0.0 for true, none for false; the authored table names no argument
+    bicep_avm:
+      attribute: 'firewallRules[]'
+      values: { true: { expr: "{ name: <name>, startIpAddress: '0.0.0.0', endIpAddress: '0.0.0.0' }" }, false: null }
+      note: one element of the same array as ip_rules; false adds none
+    bicep:
+      gap: a child firewallRules from 0.0.0.0 to 0.0.0.0 for true, none for false; the authored table names no property
+
+  # ----------------------------------------------------------------- identity
+  identity.managed_identity:
+    terraform_avm:
+      attribute: managed_identities
+      values:
+        system_assigned: { expr: '{ system_assigned = true }' }
+        user_assigned: { expr: '{ user_assigned_resource_ids = {identity.user_assigned_identity_ids} }' }
+        none: { expr: '{}' }
+    terraform: { gap: the authored table names no identity argument }
+    bicep_avm:
+      attribute: managedIdentities
+      values:
+        system_assigned: { expr: '{ systemAssigned: true }' }
+        user_assigned: { expr: '{ userAssignedResourceIds: {identity.user_assigned_identity_ids} }' }
+        none: { expr: '{}' }
+    bicep: { gap: the authored table names identity only for key_management }
+  identity.user_assigned_identity_ids:
+    terraform_avm: { attribute: managed_identities.user_assigned_resource_ids }
+    terraform: { gap: the authored table names no identity argument }
+    bicep_avm: { attribute: managedIdentities.userAssignedResourceIds }
+    bicep: { gap: the authored table names identity only for key_management }
+  identity.entra_admins:
+    terraform_avm:
+      attribute: ad_administrator
+      format: { expr: '{ for g in {value} : <key of g> => { object_id = <object id of g>, principal_name = <display name of g>, principal_type = "Group", tenant_id = var.tenant_id } }' }
+      note: a map of objects filled from each group
+    terraform: { gap: one azurerm_postgresql_flexible_server_active_directory_administrator per group; the authored table names no argument }
+    bicep_avm:
+      attribute: administrators
+      format: { expr: "[for g in {value}: { objectId: <object id of g>, principalName: <display name of g>, principalType: 'Group', tenantId: tenantId }]" }
+    bicep: { gap: one child administrators per group; the authored table names no property }
+  identity.database_roles:
+    not_rendered: a SQL step after the deployment (pgaadauth_create_principal and GRANT as the Entra administrator); no module input and no ARM resource
+  identity.role_assignments:
+    terraform_avm: { attribute: role_assignments, note: control plane }
+    terraform: { gap: the authored table names no role assignment }
+    bicep_avm: { attribute: roleAssignments, note: control plane }
+    bicep: { gap: the authored table names no role assignment }
+
+  # ----------------------------------------------------------------- security
+  security.password_authentication_disabled:
+    terraform_avm:
+      attribute: authentication
+      values:
+        true: { expr: '{ active_directory_auth_enabled = true, password_auth_enabled = false, tenant_id = var.tenant_id }' }
+        false: { expr: '{ active_directory_auth_enabled = true, password_auth_enabled = true, tenant_id = var.tenant_id }' }
+      note: true renders no administrator_login or password; false needs them (not in the reference's call). Module default null is the provider's - password on; written on every call
+    terraform:
+      attribute: authentication
+      values:
+        true: { expr: '{ active_directory_auth_enabled = true, password_auth_enabled = false, tenant_id = var.tenant_id }' }
+        false: { expr: '{ active_directory_auth_enabled = true, password_auth_enabled = true, tenant_id = var.tenant_id }' }
+    bicep_avm:
+      gap: "true is authConfig: { activeDirectoryAuth: 'Enabled', passwordAuth: 'Disabled', tenantId } with no administratorLogin or administratorLoginPassword; the reference states no passwordAuth literal for false, and the module default (Entra on, password off) is not false"
+    bicep:
+      gap: "true is properties.authConfig { activeDirectoryAuth: 'Enabled', passwordAuth: 'Disabled', tenantId }; the reference states no passwordAuth literal for false"
+  security.minimum_tls_version:
+    terraform_avm:
+      attribute: server_configuration.ssl_min_protocol_version
+      values:
+        TLSv1.2: { expr: '{ name = "ssl_min_protocol_version", config = "TLSv1.2" }' }
+        TLSv1.3: { expr: '{ name = "ssl_min_protocol_version", config = "TLSv1.3" }' }
+      also:
+        TLSv1.2: 'require_secure_transport = { name = "require_secure_transport", config = "on" }'
+        TLSv1.3: 'require_secure_transport = { name = "require_secure_transport", config = "on" }'
+    terraform:
+      gap: an azurerm_postgresql_flexible_server_configuration (ssl_min_protocol_version, and require_secure_transport = on, as in the module call); the authored table names neither the parameter nor an argument
+    bicep_avm:
+      attribute: 'configurations[]'
+      values:
+        TLSv1.2: { expr: "{ name: 'ssl_min_protocol_version', source: 'user-override', value: 'TLSv1.2' }" }
+        TLSv1.3: { expr: "{ name: 'ssl_min_protocol_version', source: 'user-override', value: 'TLSv1.3' }" }
+      also:
+        TLSv1.2: "{ name: 'require_secure_transport', source: 'user-override', value: 'on' }"
+        TLSv1.3: "{ name: 'require_secure_transport', source: 'user-override', value: 'on' }"
+    bicep:
+      gap: a child configurations (ssl_min_protocol_version, as in the module call); the authored table names neither the parameter nor a property
+  security.key_management:
+    terraform_avm:
+      attribute: customer_managed_key
+      values:
+        platform_managed: { expr: 'null' }
+        customer_managed: { expr: '{ key_vault_key_id = {security.cmk_key_vault_key_id}, primary_user_assigned_identity_id = <user-assigned identity id> }' }
+      note: versionless key id; the geo-backup key is a second pair
+    terraform:
+      attribute: customer_managed_key
+      values:
+        platform_managed: null
+        customer_managed: { expr: '{ key_vault_key_id = {security.cmk_key_vault_key_id}, primary_user_assigned_identity_id = <user-assigned identity id> }' }
+      note: a block, with the user-assigned identity; absent for platform_managed
+    bicep_avm:
+      attribute: customerManagedKey
+      values:
+        platform_managed: null
+        customer_managed: { expr: '{ keyVaultResourceId: <vault id of the key>, keyName: <key name>, autoRotationEnabled: true, userAssignedIdentityResourceId: <user-assigned identity id> }' }
+      note: unversioned; the user-assigned identity also in managedIdentities
+    bicep: { gap: 'properties.dataEncryption and identity for customer_managed, unset for platform_managed; the authored table names no sub-property' }
+  security.cmk_key_vault_key_id:
+    terraform_avm: { attribute: customer_managed_key.key_vault_key_id, note: versionless }
+    terraform: { attribute: customer_managed_key.key_vault_key_id }
+    bicep_avm:
+      gap: the key id split into customerManagedKey.keyVaultResourceId (the vault's id) and keyName (the key's name), written in key_management's object; no single parameter takes the id
+    bicep: { gap: properties.dataEncryption; the authored table names no sub-property }
+  security.threat_protection:
+    terraform_avm:
+      gap: not a module input - an azapi_resource advancedThreatProtectionSettings child (name Default, body.properties.state = "Enabled" for true); the reference states no literal for false
+    terraform:
+      gap: azapi_resource advancedThreatProtectionSettings (name Default), body.properties.state = "Enabled" for true; the reference states no literal for false
+    bicep_avm: { attribute: enableAdvancedThreatProtection, passthrough: true, note: a bool; default true; written anyway }
+    bicep:
+      gap: child advancedThreatProtectionSettings/Default; the reference states neither its property nor a literal for false
+
+  # ---------------------------------------------------------- data_protection
+  data_protection.backup_retention_days:
+    terraform_avm: { attribute: backup_retention_days, passthrough: true }
+    terraform: { attribute: backup_retention_days, passthrough: true }
+    bicep_avm: { attribute: backupRetentionDays, passthrough: true, note: default 7; written anyway }
+    bicep: { attribute: properties.backup.backupRetentionDays, passthrough: true }
+  data_protection.geo_redundant_backup:
+    terraform_avm: { attribute: geo_redundant_backup_enabled, passthrough: true, note: default null (the provider's false); written anyway }
+    terraform: { attribute: geo_redundant_backup_enabled, passthrough: true }
+    bicep_avm:
+      attribute: geoRedundantBackup
+      values: { true: Enabled, false: Disabled }
+      note: module default Enabled - differs from Terraform; always written
+    bicep:
+      attribute: properties.backup.geoRedundantBackup
+      values: { true: Enabled, false: Disabled }
+
+  # ------------------------------------------------------------ observability
+  observability.diagnostic_workspace:
+    terraform_avm: { attribute: 'diagnostic_settings.<key>.workspace_resource_id' }
+    terraform: { gap: an azurerm_monitor_diagnostic_setting; the authored table names no workspace argument }
+    bicep_avm: { attribute: 'diagnosticSettings[].workspaceResourceId' }
+    bicep: { gap: the authored table names no diagnostic setting }
+  observability.diagnostic_categories:
+    terraform_avm: { attribute: 'diagnostic_settings.<key>.log_categories', note: 'log_groups = [] beside it' }
+    terraform: { attribute: azurerm_monitor_diagnostic_setting.enabled_log.category }
+    bicep_avm: { attribute: 'diagnosticSettings[].logCategoriesAndGroups[].category' }
+    bicep: { gap: the authored table names no diagnostic setting }
+  observability.metrics_enabled:
+    terraform_avm:
+      attribute: 'diagnostic_settings.<key>.metric_categories'
+      values: { true: { expr: '["AllMetrics"]' }, false: { expr: '[]' } }
+    terraform: { gap: the authored table names no metric category }
+    bicep_avm:
+      attribute: 'diagnosticSettings[].metricCategories'
+      values: { true: { expr: "[ { category: 'AllMetrics' } ]" }, false: { expr: '[]' } }
+    bicep: { gap: the authored table names no diagnostic setting }
