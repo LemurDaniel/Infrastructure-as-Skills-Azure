@@ -29,7 +29,6 @@ What each decision renders to - the argument and the literal of every answer - i
 
 | Input | Argument | Note |
 |---|---|---|
-| `managed_identity`, `user_assigned_identity_ids` | `.identity { type, identity_ids }` | `SystemAssigned`, `UserAssigned` or both |
 | subject filter (content of the entry) | `subject_filter { subject_begins_with, subject_ends_with }` | |
 | `deployment.resource_lock` | no lock - the type is not on the list | |
 | `context.tags` | `tags = local.tags` on the topic | A subscription has no tags |
