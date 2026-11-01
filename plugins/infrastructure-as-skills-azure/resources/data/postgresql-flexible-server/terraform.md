@@ -30,8 +30,8 @@ build the threat-protection setting or any database role.
 | `databases` | `databases = { <key> = { name, charset, collation } }` | |
 | `high_availability` | `high_availability = { mode = "ZoneRedundant" }`, or `null` for `disabled` | Module default **`ZoneRedundant`**; written. `null` on burstable compute |
 | `maintenance_window` | `maintenance_window = { day_of_week, start_hour, start_minute }` | `day_of_week` a string, `"0"` Sunday; module default 00:00 |
-| `private_connectivity: private_endpoint` | `private_endpoints`, with `delegated_subnet_id` and `private_dns_zone_id` unset | Fixed at creation |
-| `private_connectivity: vnet_integration` | `delegated_subnet_id`, `private_dns_zone_id` | |
+| `private_connectivity: private_endpoint` | `private_endpoints`, with `delegated_subnet_id` and `private_dns_zone_id` unset | Fixed at creation, either way - the network mode (notes.md) |
+| `private_connectivity: vnet_integration` | `delegated_subnet_id`, `private_dns_zone_id` | Fixed at creation, either way - the network mode (notes.md) |
 | `public_network_access` | `public_network_access_enabled` | **Bool**, default `false`; written |
 | `ip_rules`, `allow_azure_services` | `firewall_rules = { <key> = { name, start_ip_address, end_ip_address } }` | **Module default is a rule that admits `0.0.0.0` - `255.255.255.255`: `firewall_rules = {}` is written on every call** |
 | `private_endpoint_subnet` | `private_endpoints = { pg = { subnet_resource_id, subresource_name = "postgresqlServer" } }` | |

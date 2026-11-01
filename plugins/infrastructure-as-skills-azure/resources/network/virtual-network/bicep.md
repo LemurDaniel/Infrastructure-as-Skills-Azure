@@ -82,9 +82,9 @@ this way, or reading what the module does inside.
 | `dns_servers` | `properties.dhcpOptions.dnsServers` — omit for Azure DNS |
 | `ddos_protection` | `properties.enableDdosProtection` + `properties.ddosProtectionPlan.id` |
 | `subnets` | `properties.subnets[]`, inline — see below |
-| `private_endpoint_network_policies` | `properties.subnets[].privateEndpointNetworkPolicies` |
-| `service_endpoints` | `properties.subnets[].serviceEndpoints[].service` |
-| `subnet_delegations` | `properties.subnets[].delegations[].properties.serviceName` |
+| `private_endpoint_network_policies` | `properties.subnets[].properties.privateEndpointNetworkPolicies` |
+| `service_endpoints` | `properties.subnets[].properties.serviceEndpoints[].service` |
+| `subnet_delegations` | `properties.subnets[].properties.delegations[].properties.serviceName` |
 
 ## Inline subnets, unlike Terraform
 

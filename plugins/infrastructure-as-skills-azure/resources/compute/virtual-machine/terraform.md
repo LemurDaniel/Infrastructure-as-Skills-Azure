@@ -163,8 +163,8 @@ A Windows machine differs in `os_type = "Windows"`, the image (`MicrosoftWindows
 `WindowsServer` / `2022-datacenter-g2`), `os_disk.disk_size_gb = 128`, `license_type`, the
 extension (`AADLoginForWindows`, handler `2.0`), and the credentials: no keys, and
 `account_credentials.key_vault_configuration = { resource_id = var.credential_key_vault_id }`
-with the generation flag left on. `backup_policy_resource_id`, `shutdown_schedules` and
-`azure_backup_configurations` are empty maps when the decisions are off. The Linux and Windows
+with the generation flag left on. `shutdown_schedules` and `azure_backup_configurations` are
+empty maps when the decisions are off. The Linux and Windows
 calls were validated with `terraform validate` against v0.21.0 (azurerm 4.81, azapi 2.13).
 
 The role assignments use the principal ids the pattern supplies; a role the machine's identity

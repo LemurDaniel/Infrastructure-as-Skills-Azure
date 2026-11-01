@@ -28,8 +28,8 @@ Resolve the current version and re-read the README parameters before rendering, 
 | `high_availability` | `highAvailability: 'ZoneRedundant'` / `'SameZone'` / `'Disabled'` | Default `'ZoneRedundant'`; written. `'Disabled'` on burstable |
 | `availability_zone` | `availabilityZone: -1` | **Required** by the module; `-1` is no preference |
 | `maintenance_window` | `maintenanceWindow: { customWindow: 'Enabled', dayOfWeek: 0, startHour: 2, startMinute: 0 }` | Module default 01:00; written |
-| `private_connectivity: private_endpoint` | `privateEndpoints`, with `delegatedSubnetResourceId` and `privateDnsZoneArmResourceId` unset | Fixed at creation |
-| `private_connectivity: vnet_integration` | `delegatedSubnetResourceId`, `privateDnsZoneArmResourceId` | |
+| `private_connectivity: private_endpoint` | `privateEndpoints`, with `delegatedSubnetResourceId` and `privateDnsZoneArmResourceId` unset | Fixed at creation, either way - the network mode (notes.md) |
+| `private_connectivity: vnet_integration` | `delegatedSubnetResourceId`, `privateDnsZoneArmResourceId` | Fixed at creation, either way - the network mode (notes.md) |
 | `public_network_access` | `publicNetworkAccess: 'Disabled'` | A string here, a bool in Terraform; default disabled; written |
 | `ip_rules`, `allow_azure_services` | `firewallRules: [ { name, startIpAddress, endIpAddress } ]` | |
 | `private_endpoint_subnet` | `privateEndpoints: [ { subnetResourceId, service: 'postgresqlServer' } ]` | |

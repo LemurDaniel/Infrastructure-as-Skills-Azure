@@ -33,7 +33,7 @@ threat-protection setting without a storage account, no audit and no NSG rule.
 | `maintenance_window` | `maintenanceWindow: 'SystemManaged' / 'Custom1' (weekday nights) / 'Custom2' (weekend nights)` | The module resolves the region's configuration id |
 | `databases` | `databases: [ { name, ... } ]` | |
 | `zone_redundant` | `zoneRedundant` | Module default **`false`**; written |
-| `geo_failover_region` | **not one call** - a second instance with `dnsZonePartnerResourceId` and an authored `Microsoft.Sql/instanceFailoverGroups` | |
+| `geo_failover_region` | **not one call** - a second instance with `dnsZonePartnerResourceId` and an authored `Microsoft.Sql/locations/instanceFailoverGroups` | |
 | `subnet` | `subnetResourceId` | Required; fixed at creation |
 | `public_data_endpoint` | `publicDataEndpointEnabled` | Bool, default `false`; written |
 | `ip_rules` | **not the module** - a `securityRules` entry (3342) on the subnet's NSG | Open entry when the platform owns the NSG |

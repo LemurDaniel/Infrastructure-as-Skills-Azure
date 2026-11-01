@@ -27,7 +27,7 @@ union with the other modules.
 | `store_client_ip` | `disable_ip_masking` | Same polarity: storing the address is disabling the masking (`true`); not storing is `false`, the default; written |
 | `public_network_access` | `internet_ingestion_enabled`, `internet_query_enabled` | **Bools**; module defaults **`true`** for both; written |
 | `private_link_scope` | `monitor_private_link_scope = { scope = { resource_id } }` | Adds the component to the platform's scope; member names from the README |
-| `local_authentication_disabled` | `local_authentication_enabled` (inverse; the 4.x `local_authentication_disabled` is gone in 5.x) | Module default **`false`**; written |
+| `local_authentication_disabled` | `local_authentication_disabled` (same polarity - the module input, not the 5.x provider argument, which is the inverse `local_authentication_enabled`) | Module default **`false`**; written |
 | `role_assignments` | `role_assignments` | |
 | (retention) | `retention_in_days` | Module default 90; set to the workspace's retention, not a decision |
 | `deployment.module_telemetry` | `enable_telemetry` | |

@@ -30,8 +30,8 @@ threat-protection setting or any database account.
 | `databases` | `databases = { <key> = { name, charset, collation } }` | All three required |
 | `high_availability` | `high_availability = { mode = "ZoneRedundant" }`, or `null` for `disabled` | Module default **`ZoneRedundant`**; written. `null` on burstable compute |
 | `maintenance_window` | `maintenance_window = { day_of_week, start_hour, start_minute }` | `day_of_week` a string, `"0"` Sunday; module default day 0 only |
-| `private_connectivity: private_endpoint` | `private_endpoints`, with `delegated_subnet_id` and `private_dns_zone_id` unset | |
-| `private_connectivity: vnet_integration` | `delegated_subnet_id`, `private_dns_zone_id` | Fixed at creation |
+| `private_connectivity: private_endpoint` | `private_endpoints`, with `delegated_subnet_id` and `private_dns_zone_id` unset | Fixed at creation, either way - the network mode (notes.md) |
+| `private_connectivity: vnet_integration` | `delegated_subnet_id`, `private_dns_zone_id` | Fixed at creation, either way - the network mode (notes.md) |
 | `public_network_access` | `public_network_access` | A **string**, `"Disabled"` / `"Enabled"` (a bool in the PostgreSQL module); default `"Disabled"`; written |
 | `ip_rules`, `allow_azure_services` | `firewall_rules = { <key> = { start_ip_address, end_ip_address } }` | Default `{}`; written |
 | `private_endpoint_subnet` | `private_endpoints = { mysql = { subnet_resource_id, subresource_name = "mysqlServer" } }` | |

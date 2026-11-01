@@ -158,4 +158,4 @@ The fallback. Targets `azurerm` **5.x**; check against `terraform providers sche
 | `rules`, `tcp_reset`, `load_distribution`, `floating_ip` | `azurerm_lb_rule { protocol, frontend_port, backend_port, frontend_ip_configuration_name, backend_address_pool_ids, probe_id, tcp_reset_enabled, load_distribution, floating_ip_enabled, disable_outbound_snat }` |
 | `inbound_nat_rules` | `azurerm_lb_nat_rule` |
 | `outbound_snat` | `azurerm_lb_outbound_rule { protocol, backend_address_pool_id, allocated_outbound_ports, frontend_ip_configuration { name } }` |
-| diagnostics | `azurerm_monitor_diagnostic_setting` with `metric { category = "AllMetrics" }` |
+| diagnostics | `azurerm_monitor_diagnostic_setting` with `enabled_metric { category = "AllMetrics" }` |

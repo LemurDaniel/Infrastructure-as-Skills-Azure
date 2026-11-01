@@ -110,7 +110,8 @@ run "naming" {
 # not-testable: private-endpoint.networking.subnet - inside the body
 # not-testable: private-endpoint.networking.private_ip_address - inside the body
 # not-testable: private-endpoint.dns.dns_ownership - inherited; decides where the zone id comes from, rendered by the caller
-# not-testable: private-endpoint.dns.dns_records - as above
+# not-testable: private-endpoint.dns.dns_records - inherited; decides whether a zone group is
+# rendered at all (policy: none, the platform's policy writes the record), rendered by the caller
 # not-testable: private-endpoint.dns.dns_zone_group - the zone group is a module-internal submodule of the body
 # not-testable: private-endpoint.dns.dns_zones - as above
 # not-testable: private-endpoint.dns.dns_zone_scope - a data source of the caller
