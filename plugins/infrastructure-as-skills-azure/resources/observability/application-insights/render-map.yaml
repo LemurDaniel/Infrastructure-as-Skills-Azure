@@ -1,0 +1,112 @@
+# What each decision of questions.yaml renders to, per target and implementation.
+# Format: core/iac-rendering/references/render-map.md. The call, the authored blocks and the
+# tests are in terraform.md and bicep.md.
+schema_version: 1
+resource: Microsoft.Insights/components
+
+modules:
+  terraform: [Azure/avm-res-insights-component/azurerm]
+  bicep: [avm/res/insights/component]
+
+decisions:
+
+  # ---------------------------------------------------------------- placement
+  placement.environments:
+    not_rendered: naming parameter `environment` and the tag of that name; no attribute of the component
+  placement.location:
+    terraform_avm: { attribute: location, passthrough: true }
+    terraform: { attribute: location, passthrough: true }
+    bicep_avm: { attribute: location, passthrough: true }
+    bicep: { attribute: location, passthrough: true }
+  placement.resource_group_name:
+    terraform_avm:
+      attribute: parent_id
+      note: the group's id, not its name - AzAPI-only module
+    terraform: { attribute: resource_group_name, note: required by the provider schema; the reference's authored table omits it }
+    bicep_avm: { gap: the deployment's resource group scope; no parameter }
+    bicep: { gap: the deployment's resource group scope; no property }
+
+  # ---------------------------------------------------------------- component
+  component.workspace:
+    terraform_avm: { attribute: workspace_id, note: required }
+    terraform: { attribute: workspace_id, note: always; the classic form is not offered }
+    bicep_avm: { attribute: workspaceResourceId, note: required }
+    bicep: { attribute: properties.WorkspaceResourceId }
+  component.application_type:
+    terraform_avm: { attribute: application_type, passthrough: true, note: module default web; written }
+    terraform: { attribute: application_type, passthrough: true }
+    bicep_avm: { attribute: applicationType, passthrough: true, note: module default 'web'; written }
+    bicep: { attribute: properties.Application_Type, passthrough: true, note: "kind: 'web' on the resource beside it" }
+  component.sampling_percentage:
+    terraform_avm: { attribute: sampling_percentage, passthrough: true, note: module default 100; written }
+    terraform: { attribute: sampling_percentage, passthrough: true }
+    bicep_avm: { attribute: samplingPercentage, passthrough: true, note: module default 100; written }
+    bicep: { attribute: properties.SamplingPercentage, passthrough: true }
+  component.daily_cap_gb:
+    terraform_avm: { attribute: daily_data_cap_in_gb, passthrough: true, note: module default 100; 0 is unlimited; written }
+    terraform: { attribute: daily_data_cap_in_gb, passthrough: true }
+    bicep_avm: { gap: not a module parameter; the child Microsoft.Insights/components/pricingPlans/current beside the module }
+    bicep:
+      attribute: pricingPlans/current properties.cap
+      passthrough: true
+      note: the reference states 0 = unlimited only for the Terraform module; verify 0 on the child before rendering it
+  component.store_client_ip:
+    terraform_avm:
+      attribute: disable_ip_masking
+      passthrough: true
+      note: same polarity - storing the address is true; module default false; written
+    terraform:
+      attribute: ip_masking_enabled
+      values: { true: false, false: true }
+      note: opposite polarity to the module's disable_ip_masking
+    bicep_avm:
+      attribute: disableIpMasking
+      passthrough: true
+      note: same polarity; module default true (stores IPs) - written
+    bicep: { attribute: properties.DisableIpMasking, passthrough: true }
+
+  # --------------------------------------------------------------- networking
+  networking.public_network_access:
+    terraform_avm:
+      attribute: internet_ingestion_enabled, internet_query_enabled
+      values: { disabled: false, enabled: true }
+      note: bools, both set alike; module defaults true - written
+    terraform:
+      attribute: internet_ingestion_enabled, internet_query_enabled
+      values: { disabled: false, enabled: true }
+    bicep_avm:
+      attribute: publicNetworkAccessForIngestion, publicNetworkAccessForQuery
+      values: { disabled: Disabled, enabled: Enabled }
+      note: strings, both set alike; module defaults 'Enabled' - written
+    bicep:
+      attribute: properties.publicNetworkAccessForIngestion, properties.publicNetworkAccessForQuery
+      values: { disabled: Disabled, enabled: Enabled }
+  networking.private_link_scope:
+    terraform_avm:
+      attribute: monitor_private_link_scope.scope.resource_id
+      note: adds the component to the platform's scope; member names from the README of the pinned version
+    terraform: { gap: 'an azurerm_monitor_private_link_scoped_service on the scope; the reference names none of its arguments' }
+    bicep_avm:
+      gap: not a module parameter; a Microsoft.Insights/privateLinkScopes/scopedResources in the scope's resource group, usually the platform's
+    bicep:
+      gap: a Microsoft.Insights/privateLinkScopes/scopedResources in the scope's resource group, outside this deployment; the reference names none of its properties
+
+  # ----------------------------------------------------------------- identity
+  identity.role_assignments:
+    terraform_avm: { attribute: 'role_assignments.<key> = { role_definition_id_or_name, principal_id }' }
+    terraform: { gap: an azurerm_role_assignment with scope = the component's id; the reference's authored table names none }
+    bicep_avm: { attribute: roleAssignments }
+    bicep: { gap: a Microsoft.Authorization/roleAssignments with scope set to the component; the reference's authored table names none }
+
+  # ----------------------------------------------------------------- security
+  security.local_authentication_disabled:
+    terraform_avm:
+      attribute: local_authentication_disabled
+      passthrough: true
+      note: same polarity - the AzAPI module keeps the name the call writes (local_authentication_disabled = true); module default false - written
+    terraform:
+      attribute: local_authentication_enabled
+      values: { true: false, false: true }
+      note: inverse; the 4.x local_authentication_disabled is gone in 5.x
+    bicep_avm: { attribute: disableLocalAuth, passthrough: true, note: module default false; written }
+    bicep: { attribute: properties.DisableLocalAuth, passthrough: true }

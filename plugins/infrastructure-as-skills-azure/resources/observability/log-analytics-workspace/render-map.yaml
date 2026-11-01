@@ -1,0 +1,123 @@
+# What each decision of questions.yaml renders to, per target and implementation.
+# Format: core/iac-rendering/references/render-map.md. The call, the authored blocks and the
+# tests are in terraform.md and bicep.md.
+# The Terraform module is azurerm-based and pins azurerm < 5.0: a root calling it is on 4.x,
+# and anything authored beside it follows the 4.x spelling.
+schema_version: 1
+resource: Microsoft.OperationalInsights/workspaces
+
+modules:
+  terraform: [Azure/avm-res-operationalinsights-workspace/azurerm]
+  bicep: [avm/res/operational-insights/workspace]
+
+decisions:
+
+  # ---------------------------------------------------------------- placement
+  placement.environments:
+    not_rendered: naming parameter `environment`; no attribute of the workspace
+  placement.location:
+    terraform_avm: { attribute: location, passthrough: true }
+    terraform: { attribute: location, passthrough: true }
+    bicep_avm: { attribute: location, passthrough: true }
+    bicep: { attribute: location, passthrough: true }
+  placement.resource_group_name:
+    terraform_avm: { attribute: resource_group_name, note: 'the name, not parent_id - azurerm-based module' }
+    terraform: { attribute: resource_group_name }
+    bicep_avm: { gap: the deployment's resource group scope; no parameter }
+    bicep: { gap: the deployment's resource group scope; no property }
+
+  # --------------------------------------------------------------------- cost
+  cost.retention_days:
+    terraform_avm:
+      attribute: log_analytics_workspace_retention_in_days
+      passthrough: true
+      note: module default null (the API's 30); written anyway
+    terraform: { attribute: retention_in_days, passthrough: true, note: 30-730; 30 is the floor on PerGB2018 }
+    bicep_avm:
+      attribute: dataRetention
+      passthrough: true
+      note: module default 365, the guardrail 30 - must be written
+    bicep: { attribute: properties.retentionInDays, passthrough: true }
+  cost.daily_quota_gb:
+    terraform_avm: { attribute: log_analytics_workspace_daily_quota_gb, passthrough: true, note: -1 for no cap }
+    terraform: { attribute: daily_quota_gb, passthrough: true, note: -1 for no cap }
+    bicep_avm:
+      attribute: dailyQuotaGb
+      format: '{value}'
+      note: a string on this module ('-1' for no cap)
+    bicep: { attribute: properties.workspaceCapping.dailyQuotaGb, passthrough: true, note: an int; -1 for no cap }
+  cost.sku:
+    terraform_avm:
+      attribute: log_analytics_workspace_sku
+      passthrough: true
+      note: CapacityReservation also takes log_analytics_workspace_reservation_capacity_in_gb_per_day
+    terraform: { attribute: sku, passthrough: true, note: CapacityReservation also takes reservation_capacity_in_gb_per_day }
+    bicep_avm: { attribute: skuName, passthrough: true, note: CapacityReservation also takes skuCapacityReservationLevel }
+    bicep: { attribute: properties.sku.name, passthrough: true }
+
+  # ------------------------------------------------------------------- access
+  access.public_network_access:
+    terraform_avm:
+      attribute: log_analytics_workspace_internet_ingestion_enabled, log_analytics_workspace_internet_query_enabled
+      values: { disabled: false, enabled: true }
+      note: the 4.x bools, both set alike; module defaults already false - written anyway
+    terraform:
+      attribute: internet_ingestion_access_type, internet_query_access_type
+      values: { disabled: Disabled, enabled: Enabled }
+      note: strings in 5.x (the 4.x bools are gone); both set alike
+    bicep_avm:
+      attribute: publicNetworkAccessForIngestion, publicNetworkAccessForQuery
+      values: { disabled: Disabled, enabled: Enabled }
+      note: module defaults 'Enabled' - both must be written
+    bicep:
+      attribute: properties.publicNetworkAccessForIngestion, properties.publicNetworkAccessForQuery
+      values: { disabled: Disabled, enabled: Enabled }
+  access.local_auth:
+    terraform_avm:
+      attribute: log_analytics_workspace_local_authentication_enabled
+      passthrough: true
+      note: same polarity; module default true - must be written
+    terraform: { attribute: local_authentication_enabled, passthrough: true, note: the 4.x local_authentication_disabled is gone in 5.x }
+    bicep_avm:
+      attribute: features.disableLocalAuth
+      values: { true: false, false: true }
+      note: inverse
+    bicep:
+      attribute: properties.features.disableLocalAuth
+      values: { true: false, false: true }
+      note: inverse
+  access.rbac_only_access:
+    terraform_avm:
+      attribute: log_analytics_workspace_allow_resource_only_permissions
+      values: { true: false, false: true }
+      note: inverse - false means workspace RBAC governs reads
+    terraform:
+      attribute: allow_resource_only_permissions
+      values: { true: false, false: true }
+      note: inverse - reading the argument name as the decision gets it backwards
+    bicep_avm:
+      attribute: features.enableLogAccessUsingOnlyResourcePermissions
+      values: { true: false, false: true }
+      note: inverse
+    bicep:
+      attribute: properties.features.enableLogAccessUsingOnlyResourcePermissions
+      values: { true: false, false: true }
+      note: inverse
+
+  # ---------------------------------------------------------- data_protection
+  data_protection.immediate_purge_protection:
+    terraform_avm: { gap: 'not a module input; the provider''s features.log_analytics_workspace.permanently_delete_on_destroy in the root, inverted' }
+    terraform:
+      attribute: provider azurerm features.log_analytics_workspace.permanently_delete_on_destroy
+      values: { true: false, false: true }
+      note: provider-side, inverted; not observable by a plan
+    bicep_avm: { gap: not a template property; a permanent delete is the forceDelete=true query parameter on deletion }
+    bicep: { gap: not a template property; a permanent delete is the forceDelete=true query parameter on deletion }
+  data_protection.archive_to_storage:
+    terraform_avm: { gap: 'reference names no module input; an azurerm_monitor_diagnostic_setting with storage_account_id beside the workspace, count on the decision' }
+    terraform:
+      attribute: azurerm_monitor_diagnostic_setting.count
+      values: { true: 1, false: 0 }
+      note: the setting beside the workspace, storage_account_id from the archive account
+    bicep_avm: { gap: 'the module''s diagnosticSettings exists, but a storage destination member is not in the reference; rendered as an authored Microsoft.Insights/diagnosticSettings beside the module, conditional on the decision' }
+    bicep: { gap: 'the reference names no Bicep rendering; a Microsoft.Insights/diagnosticSettings with scope set to the workspace and storageAccountId, conditional on the decision' }
