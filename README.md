@@ -2,6 +2,8 @@
 
 ![A 34-second teaser of a run: the request, the interview, the spec with where each decision came from, the diagram sign-off, the render with one test per decision](docs/teaser.gif)
 
+![A 34-second teaser of unclick, a concept: read what runs in Azure, map every value onto its decision, the spec with adopted resources, the review with the picture and every departure, a plan that imports instead of re-creating - the figures are illustrative](docs/teaser-unclick.gif)
+
 > [!NOTE]
 > **AI disclaimer:** Yes, an AI helped write this, and yes, an AI is the one doing the interviewing. No, it does not get to `terraform apply`. Every decision it makes is written down with where it came from, and every render ships with a test per decision. 🤖
 
@@ -87,6 +89,24 @@ What a run leaves behind, from the [`chat-sandbox`](examples/chat-sandbox/) exam
 2. **The interview.** First how the code is built (target, building blocks, deployment scope, naming), then what is built: the deployment-wide set (posture, network ownership, mandates, the eight requirements, asked by topic), then each resource. Answers resolve in order: stated › carried spec › pattern › deployment › default. Phase 4 shows the design as a tick list with the security baseline and asks whether it fits.
 3. **Sign-off.** The spec, the decision document and a draft diagram go to the customer; once the content is right, a review and a fix agent polish the picture, and the customer says whether the code may be generated. A correction is a spec change, and the loop runs again.
 4. **`iac-rendering` renders** the approved spec, starting from the render digest: AVM module and version, naming, layout, code with a test per decision, pipeline, the repository's `CLAUDE.md` section and `.gitignore`. A test agent runs `fmt`, `validate`, `test`, the coverage, code-structure and pipeline checks.
+
+## 🔄 unclick: from what runs to a spec (concept)
+
+> **Not built yet.** This section describes the design on branch `feature/iac-unclick`; nothing below ships in the current version.
+
+Reverse ClickOps. A second way into the same spec: `iac-authoring` gets there by interview, `iac-unclick` by reading what already runs in Azure - resources built in the portal, never written down. From the spec on, nothing is new: `iac-diagram` draws it, `iac-rendering` renders it, AVM first, with names, tests and pipeline.
+
+![Reverse ClickOps: scope, inventory, offline mapping, review, render](docs/unclick.drawio.png)
+
+1. **Scope.** One resource group, several, or a subscription, optionally narrowed by a tag. The scope is one stage of the stack; matching several stages across scopes comes later.
+2. **Inventory, read only.** `collect.py` is the one step that touches Azure: `az graph query` over `resources`, `resourcecontainers` and `authorizationresources` (role assignments), with `az monitor diagnostic-settings list` and `az lock list` where Resource Graph has no table. Its output is a raw `inventory.json`. A Reader login is enough, and the rest of the plugin keeps working without any.
+3. **Map, offline.** `map_inventory.py` turns the inventory into an `infra-spec.yaml`:
+   - **The mapping is `render-map.yaml`, read backwards.** Each decision already names the ARM property it renders to and the literal of each answer; an explicit `import:` covers the decisions where one value stands for two answers. No second mapping per resource to drift from the first.
+   - **The live value, not the guardrail.** A value read from Azure is `source: imported`; one that cannot be read is `assumed` with an `open:` item. The first apply changes nothing.
+   - **Adopt, never re-create.** `resources.<key>.adopt` carries the resource id per stage, and the ids of its lock and diagnostic setting; a role assignment carries its own. The render imports them instead of creating a second one.
+   - **Noise out, gaps in.** NetworkWatcherRG, managed groups, tags Azure sets itself and every property no question asks are dropped; a type without a question set is listed under `unmapped:` with its type and id, never dropped silently.
+4. **Review, in the same loop as an interview's sign-off.** The person gets the spec, the decision document and a draft diagram: every departure from the guardrails, every unmapped type, every open item. Once the parts are right, a review and a fix agent polish the picture, and the person says whether the code may be generated. A correction is a spec change - hardening included (`overridden`), never something the import does quietly - and the loop runs again: redraw, ask again.
+5. **Render.** Terraform gets `import` blocks in the root, the ids from the stage file. Bicep has no state: a deployment with the same name in the same group adopts the resource, so it is never written as `existing`, which would leave it unmanaged. The import is right when `plan` / `what-if` shows no change.
 
 ## 📦 What's in the Plugin
 
@@ -308,6 +328,7 @@ Early, and the shape matters more than the coverage. The eval suite runs on Sonn
 - [x] A complex case in Bicep: a chat app with RAG (Front Door with WAF, App Service with a slot, Foundry, AI Search, storage, private endpoints), every decision covered by ARM tests, beside [`eval-agent/`](eval-agent/)
 - [ ] Remaining resources: further network, data and AI services - listed in `PROGRESS.md`
 - [ ] AVM version drift check; cross-backend diff of one spec
+- [ ] **unclick**: a spec from what already runs in Azure, adopted by the render instead of re-created - [concept](#-unclick-from-what-runs-to-a-spec-concept)
 
 ## 🙏 Acknowledgments
 

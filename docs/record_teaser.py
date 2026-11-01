@@ -2,6 +2,10 @@
 """Records docs/teaser.html as the GIF the README shows.
 
     python docs/record_teaser.py [--out docs/teaser.gif] [--fps 10]
+    python docs/record_teaser.py --page docs/teaser-unclick.html --out docs/teaser-unclick.gif
+
+Any page on the same stage records the same way: it has #frame, the #record mode and
+window.__seek(t). --end is when its last scene ends.
 
 The page is opened in its #record mode (CSS transitions off, every fade computed from the
 clock), seeked frame by frame through window.__seek(t) and screenshotted, so each frame is
@@ -33,16 +37,16 @@ SIZE = (960, 540)
 LAST_FRAME_MS = 2500     # hold the install line before the loop restarts
 
 
-def grab(fps):
+def grab(page_path, end, fps):
     frames = []
     with sync_playwright() as p:
         browser = p.chromium.launch(channel="msedge")
         page = browser.new_page(viewport={"width": 1280, "height": 1000})
-        page.goto(PAGE.as_uri() + "#record")
+        page.goto(page_path.resolve().as_uri() + "#record")
         page.evaluate("document.fonts.ready")
         page.wait_for_load_state("networkidle")
         frame = page.locator("#frame")
-        for i in range(int(END * fps) + 1):
+        for i in range(int(end * fps) + 1):
             page.evaluate(f"window.__seek({i / fps})")
             shot = Image.open(io.BytesIO(frame.screenshot())).convert("RGB")
             frames.append(shot.resize(SIZE, Image.LANCZOS))
@@ -64,11 +68,13 @@ def write_gif(frames, fps, out):
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    ap.add_argument("--page", type=Path, default=PAGE)
     ap.add_argument("--out", type=Path, default=HERE / "teaser.gif")
+    ap.add_argument("--end", type=float, default=END)
     ap.add_argument("--fps", type=int, default=10)
     args = ap.parse_args()
 
-    frames = grab(args.fps)
+    frames = grab(args.page, args.end, args.fps)
     write_gif(frames, args.fps, args.out)
     print(f"{args.out}: {len(frames)} frames, {args.out.stat().st_size // 1024} KB")
     return 0
