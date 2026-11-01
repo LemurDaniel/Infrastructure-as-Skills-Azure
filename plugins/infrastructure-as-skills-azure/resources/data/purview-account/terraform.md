@@ -18,8 +18,8 @@ render; when it becomes `Available`, this reference is re-walked against its inp
 
 Targets `azurerm` **5.x** (`azurerm_purview_account`, API `2021-12-01`), with `azapi ~> 2.4` for the
 one property the provider does not expose. Check arguments against `terraform providers schema -json`
-for the version the root pins. `ownership: platform` renders a `data "azurerm_purview_account"` (or a
-plain id variable) and nothing below.
+for the version the root pins. `ownership: platform` renders an id variable from the stage files - never a
+data source ([terraform-idiom.md](../../../core/iac-rendering/references/terraform-idiom.md#referencing-what-the-deployment-does-not-own)) - and nothing below.
 
 ### Decision -> resource and argument
 

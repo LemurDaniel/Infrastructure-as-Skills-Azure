@@ -250,5 +250,4 @@ run "observability" {
 ```
 
 With `observability_ownership: reference` the workspace id comes from
-`data.azurerm_log_analytics_workspace.platform.id` instead, and the data source is mocked
-with a parseable id.
+`var.diagnostics_workspace_id` instead, set in the test's `variables` block to a parseable id.

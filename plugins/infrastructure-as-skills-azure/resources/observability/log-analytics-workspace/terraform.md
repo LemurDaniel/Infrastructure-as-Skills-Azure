@@ -124,13 +124,19 @@ every time, because reading the argument name as the decision gets it backwards.
 
 ## Referencing one instead
 
-`observability_ownership: reference` renders a data source, and the module takes the id as
-a variable rather than looking it up repeatedly:
+`observability_ownership: reference` makes `deployment.diagnostics_destination`
+`{ existing: log_analytics_workspace }`: an id variable from the stage files that every
+diagnostic setting takes as it is, never a data source ([terraform-idiom.md](../../../core/iac-rendering/references/terraform-idiom.md#referencing-what-the-deployment-does-not-own)):
 
 ```hcl
-data "azurerm_log_analytics_workspace" "platform" {
-  name                = var.workspace_name
-  resource_group_name = var.workspace_resource_group_name
+variable "diagnostics_workspace_id" {
+  description = "The platform's Log Analytics workspace (deployment.diagnostics_destination). From the stage file."
+  type        = string
+
+  validation {
+    condition     = can(regex("^/subscriptions/[^/]+/resourceGroups/[^/]+/providers/Microsoft.OperationalInsights/workspaces/[^/]+$", var.diagnostics_workspace_id))
+    error_message = "diagnostics_workspace_id must be the resource id of a Log Analytics workspace."
+  }
 }
 ```
 

@@ -463,16 +463,15 @@ resource "azurerm_monitor_diagnostic_setting" "storage_blob" {
 One more pair per sub-resource that has an endpoint and is used (`fileServices`,
 `queueServices`, `tableServices`) — a service nobody writes to needs no log.
 
-The workspace id is read from the referenced workspace's data source
-(`observability_ownership: reference`) or from the deployment's own
-`azurerm_log_analytics_workspace` resource — not passed in as a bare id variable, which
-would pin a subscription into the configuration.
+The workspace id is the referenced workspace's id variable from the stage files
+(`observability_ownership: reference`) or the deployment's own workspace module output - never
+a data source, and never a literal id in the configuration.
 
 ## Tests
 
 Every decision in the question set, one assert each, named by its spec key path; one
-`run` per group. The platform data sources are mocked so the plan needs no credentials —
-how, and why the mocked ids must parse, is in
+`run` per group. The platform's ids are test variables and the remaining data sources are
+mocked, so the plan needs no credentials — how, and why the ids must parse, is in
 [terraform-idiom.md](../../../core/iac-rendering/references/terraform-idiom.md#tests).
 The values below are the defaults; a spec that departs changes the expected value, never
 the assert.

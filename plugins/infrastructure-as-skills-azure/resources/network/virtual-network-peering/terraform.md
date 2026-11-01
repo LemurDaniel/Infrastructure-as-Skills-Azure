@@ -15,7 +15,7 @@ lists the parent only (`avm-res-network-virtualnetwork`, Available); the submodu
 **It is AzAPI only**: `azapi ~> 2.12` and Terraform `>= 1.9, < 2.0`, no `azurerm`. It takes the *local*
 network as `parent_id` (the network's resource id, validated against the id pattern) and the remote as
 `remote_virtual_network_id`, so neither network has to be a module output of this configuration - a
-referenced hub is a `data "azurerm_virtual_network"` or a variable. **One call creates both
+referenced hub is `{ existing: virtual_network }` in the spec, an id variable from the stage files. **One call creates both
 directions** with `create_reverse_peering = true`; the reverse side has its own `reverse_*` inputs and
 is created on the remote network by the same provider identity.
 

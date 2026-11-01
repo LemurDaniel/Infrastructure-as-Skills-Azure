@@ -28,18 +28,18 @@ decisions:
 
   # --------------------------------------------------------------------- plan
   plan.ownership:
-    not_rendered: 'decides what is rendered - the module (deployment) or a data source / existing reference to plan.existing_plan (platform); no attribute'
+    not_rendered: 'decides what is rendered - the module (deployment) or the id variable of plan.existing_plan (platform); no attribute'
   plan.existing_plan:
     terraform_avm:
-      attribute: 'data "azurerm_network_ddos_protection_plan" { name, resource_group_name }'
-      note: platform only; provider alias for the connectivity subscription; its id goes to the networks
+      attribute: variable ddos_protection_plan_id
+      note: platform only; an id from the stage files, never a data source; it goes to the networks
     terraform:
-      attribute: 'data "azurerm_network_ddos_protection_plan" { name, resource_group_name }'
-      note: platform only; provider alias for the connectivity subscription
+      attribute: variable ddos_protection_plan_id
+      note: platform only; an id from the stage files, never a data source
     bicep_avm:
-      attribute: 'existing resource: name, scope: resourceGroup(subscriptionId, resourceGroupName)'
-      note: platform only; its id goes to the networks
-    bicep: { attribute: 'existing resource: name, scope: resourceGroup(subscriptionId, resourceGroupName)' }
+      attribute: param ddosProtectionPlanId
+      note: platform only; an id from the stage files, never an existing lookup; it goes to the networks
+    bicep: { attribute: param ddosProtectionPlanId, note: platform only - an id from the stage files }
   plan.stages_with_plan:
     terraform_avm:
       attribute: count

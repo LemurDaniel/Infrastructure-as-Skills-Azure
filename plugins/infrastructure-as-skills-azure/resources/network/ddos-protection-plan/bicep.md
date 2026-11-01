@@ -53,14 +53,13 @@ module ddosProtectionPlan 'br/public:avm/res/network/ddos-protection-plan:0.3.2'
 output id string = ddosProtectionPlan.outputs.resourceId // virtual-network.ddos_protection takes it
 ```
 
-Validated with `bicep build` against the published module. For `ownership: platform` the call is
-replaced by a reference into the connectivity subscription:
+Validated with `bicep build` against the published module. For `ownership: platform` there is no
+call: `existing_plan` is `{ existing: ddos_protection_plan }` in the spec and renders as an id
+parameter from the stage files, which the networks take as it is ([bicep-idiom.md](../../../core/iac-rendering/references/bicep-idiom.md#referencing-what-the-deployment-does-not-own)):
 
 ```bicep
-resource platformDdosPlan 'Microsoft.Network/ddosProtectionPlans@2024-05-01' existing = {
-  name: ddosProtectionPlanName
-  scope: resourceGroup(connectivitySubscriptionId, ddosProtectionPlanResourceGroupName)
-}
+@description('The platform\'s DDoS protection plan (ddos-protection-plan.plan.existing_plan). From the stage file.')
+param ddosProtectionPlanId string
 ```
 
 ### Tests
@@ -69,7 +68,7 @@ A module call compiles to a nested deployment whose `properties.parameters.<para
 the decision, so `name`, `location`, `roleAssignments` and `enableTelemetry` are observable in
 `tests/*.armtest.yaml` ([bicep-idiom.md](../../../core/iac-rendering/references/bicep-idiom.md#tests));
 `stages_with_plan` is the module's `condition` expression, matched on its text; `ownership` and
-`existing_plan` are the presence of the module or of the `existing` reference and are asserted as
+`existing_plan` are the presence of the module or of the id parameter and are asserted as
 that.
 
 ## Authored rendering

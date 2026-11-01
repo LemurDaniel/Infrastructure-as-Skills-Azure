@@ -58,13 +58,19 @@ output "id" { value = module.ddos_protection_plan.resource_id } # virtual-networ
 ```
 
 Validated with `terraform validate` (registry, v0.3.0, `azurerm ~> 4.0`). For `ownership: platform`
-the call is replaced by the data source, in the connectivity subscription through a provider alias:
+there is no call: `existing_plan` is `{ existing: ddos_protection_plan }` in the spec and renders as
+an id variable from the stage files, which the networks take as it is - no data source and no
+provider alias into the connectivity subscription ([terraform-idiom.md](../../../core/iac-rendering/references/terraform-idiom.md#referencing-what-the-deployment-does-not-own)):
 
 ```hcl
-data "azurerm_network_ddos_protection_plan" "platform" {
-  provider            = azurerm.connectivity
-  name                = var.ddos_protection_plan.name
-  resource_group_name = var.ddos_protection_plan.resource_group_name
+variable "ddos_protection_plan_id" {
+  description = "The platform's DDoS protection plan (ddos-protection-plan.plan.existing_plan). From the stage file."
+  type        = string
+
+  validation {
+    condition     = can(regex("^/subscriptions/[^/]+/resourceGroups/[^/]+/providers/Microsoft.Network/ddosProtectionPlans/[^/]+$", var.ddos_protection_plan_id))
+    error_message = "ddos_protection_plan_id must be the resource id of a DDoS protection plan."
+  }
 }
 ```
 
@@ -93,8 +99,8 @@ run "plan" {
   }
 }
 
-# not-testable: ddos-protection-plan.plan.ownership - decides whether the module or the data source is rendered, which the root's wiring test sees
-# not-testable: ddos-protection-plan.plan.existing_plan - a data source under platform; not in a deployment root
+# not-testable: ddos-protection-plan.plan.ownership - decides whether the module or the id variable is rendered, which the root's wiring test sees
+# not-testable: ddos-protection-plan.plan.existing_plan - an id variable under platform; the variable's validation checks its type
 # not-testable: ddos-protection-plan.plan.stages_with_plan - the module's count per stage file; the non-production run asserts count 0
 # not-testable: ddos-protection-plan.access.role_assignments - inside the module
 ```
