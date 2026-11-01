@@ -59,6 +59,7 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
+        shell: pwsh
         working-directory: eval-agent/infra
     steps:
       - uses: actions/checkout@v7

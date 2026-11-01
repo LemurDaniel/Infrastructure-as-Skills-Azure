@@ -142,6 +142,7 @@ jobs:
     # No checkout here, so the workflow default working directory does not exist.
     defaults:
       run:
+        shell: pwsh
         working-directory: .
     steps:
       - run: Write-Output "Approved for ${{ inputs.stage }}."
