@@ -38,6 +38,8 @@ Read-only. Checks what the contract in references/spec.md promises:
      {existing: <kind>} with an id per stage of the kind's form, or an open entry for
      the id - never a bare name, a stage map or a name and resource group
      (spec_ref.py, references/ref-kinds.yaml).
+  7b. A question marked `exclusive` (a subnet takes one NSG, one route table, one NAT
+     gateway): no part is named by two resources of its set through it.
   8. Resource groups: the groups are derived (rg_roles.groups) - one, `main`, unless
      `resource_group_layout` is split; under a split every role of the scheme
      (`resource_group_scheme`: concern by default, lifecycle, protection, or component:
@@ -333,6 +335,11 @@ def main():
                 # A reference is one value; its per-stage part is the existing id inside it.
                 errors.extend(spec_ref.check(path, v, kind, ref_kinds, get(spec, 'resources') or {},
                                              environments, open_stages, open_keys))
+                if (question_of(path) or {}).get('exclusive'):
+                    owner = path.split('.')[1].split('__')[0]
+                    for r in spec_ref.items(v):
+                        if isinstance(r, dict) and r.get('resource') and r.get('part'):
+                            claims.setdefault((owner, path.split('.')[-1], r['resource'], r['part']), []).append(path)
             elif environments and isinstance(v, dict) and v and all(k in environments for k in v):
                 stage_maps += 1
                 missing = [e for e in environments if e not in v]
@@ -393,9 +400,14 @@ def main():
                 errors.append(f"{path}.{key} uses a backend's attribute spelling. The spec names decisions; renderers know attributes.")
             walk(node[k], f"{path}.{key}")
 
+    claims = {}  # (set, question, resource, part) -> the decisions claiming it, for `exclusive`
     for section in ('deployment', 'resources', 'wiring'):
         if has(spec, section):
             walk(spec[section], section)
+    for (owner, qid, res, part), by in claims.items():
+        if len(by) > 1:
+            errors.append(f"{part} of {res} is claimed by {len(by)} {owner} resources ({', '.join(by)}) - "
+                          f"a part takes at most one, so all but one would be overwritten")
 
     # context values that are per-stage maps follow the same rule
     for key, v in (get(spec, 'context') or {}).items():

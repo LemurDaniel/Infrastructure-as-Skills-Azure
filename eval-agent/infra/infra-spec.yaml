@@ -254,10 +254,6 @@ resources:
       ddos_protection:
         value: false
         source: default
-      subnets_expecting_nsg:
-        value:
-          production: []
-        source: default
     observability:
       diagnostic_workspace:
         value:

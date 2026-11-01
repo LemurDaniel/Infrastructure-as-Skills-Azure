@@ -109,7 +109,7 @@ run "networking" {
   }
 }
 
-# not-testable: route-table.networking.subnets - recorded in the spec; the association is rendered in the virtual-network set
+# route-table.networking.subnets is asserted in the virtual-network run: the subnet takes the table's id
 # not-testable: route-table.networking.firewall_private_ip - the next hop is inside a module-internal azapi route; read from the plan JSON
 # not-testable: route-table.networking.routes - as above
 ```

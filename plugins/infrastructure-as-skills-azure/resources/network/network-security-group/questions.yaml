@@ -11,7 +11,7 @@ naming:
 
 boundaries:
   - "Does not create the resource group. Expects one from the spec's context."
-  - "Does not associate itself with a subnet. The association is a property of the subnet, which the virtual-network set carries (`network_security_group` on a subnet); an NSG nobody associates filters nothing."
+  - "Does not render the association itself. `subnets` references the subnets this group guards; the association is a property of the subnet, so the virtual-network module renders it (`on_part` in render-map.yaml). An NSG no subnet takes filters nothing."
   - "Does not create the Log Analytics workspace it routes diagnostics to."
   - "Does not create flow logs. They belong to Network Watcher and a storage account or workspace, are a separate resource with their own decisions, and have no question set yet."
   - "Does not create application security groups, route tables or a firewall. Egress control for `deny_internet` is the platform's firewall, referenced and not built."
@@ -65,6 +65,28 @@ groups:
         why: >
           The NSG is placed into an existing group, usually the network's, so the people who
           own the subnets own the rules that guard them.
+
+  # --------------------------------------------------------------- networking
+  - id: networking
+    title: Networking
+    questions:
+      - id: subnets
+        ask:
+          en: "Which subnets does this group guard?"
+          de: "Welche Subnetze schützt diese Gruppe?"
+        type: list
+        plain:
+          en: "Subnets this group guards: {value}."
+          de: "Subnetze, die diese Gruppe schützt: {value}."
+        accepts: { ref: subnet }
+        exclusive: true
+        required: true
+        why: >
+          Recorded here and rendered where the subnet is: the group filters nothing until a
+          subnet takes its id. A reference to a subnet of the network, the same in every stage.
+          The subnets of one purpose share one group; a subnet takes one group at most.
+          `GatewaySubnet` and `AzureFirewallSubnet` take none, and a private endpoint subnet
+          only honours one with its network policies enabled (`notes.md`).
 
   # -------------------------------------------------------------------- rules
   - id: rules

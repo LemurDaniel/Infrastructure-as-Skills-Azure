@@ -66,7 +66,7 @@ either
 
 | Field | Holds |
 |---|---|
-| `attribute` | The input, argument or property path the answer sets. Required unless `gap` |
+| `attribute` | The input, argument or property path the answer sets. Required unless `gap` or `on_part` |
 | `values` | Answer -> literal, for an enum or a bool: **one key for every answer** of the question's `accepts` (or `true` and `false`). A string is a string literal - the digest quotes it for the target. An expression the target writes as code is `{ expr: '<code>' }`; `null` means the attribute or block is left out |
 | `format` | A literal built from the answer, `{value}` standing for it (`Standard_{value}`). `{ expr: '{value} * 1024' }` is code, written unquoted (a unit, a duration, a list around one value). It may name other answers of the same resource as `{group.question}` - see [one literal from several answers](#one-literal-from-several-answers). Beside `values`, `{value}` is the answer's mapped fragment |
 | `passthrough` | `true`: the attribute takes the answer exactly as it is (`min_tls_version = "TLS1_2"`, a bool into a bool). An enum, bool, int or string answer needs `values`, `format` or this - never nothing |
@@ -77,6 +77,7 @@ either
 | `module` | Which module carries it, when `modules` lists several for the target (plan and site), or the `companions` module an authored entry is an input of |
 | `note` | One short line: the trap, the type difference, the module default that diverges |
 | `gap` | The module or the provider cannot carry the decision; how it is rendered instead (an `azapi_update_resource`, an authored child). Instead of `attribute` |
+| `on_part` | Instead of `attribute`, on a question that references a part (`accepts: { ref: subnet }`): the line this resource sets **on that part**, which another resource owns - `subnets.{part}.network_security_group = { id = {self} }`. The digest prints it once per referenced part, under the part's resource (`-- on parts`), whose module renders it; nothing beside it makes a literal |
 
 **How the answer becomes the literal is always said.** A list and a reference (an answer the
 render resolves to an id) pass through as they are. Every other answer says it: `values` per
@@ -96,6 +97,7 @@ one of two ways:
 | Written | Means | Filled by |
 |---|---|---|
 | `{value}` | This decision's answer (in `format`; its mapped fragment beside `values`) | The digest |
+| `{part}`, `{self}` | In `on_part`: the referenced part's name, and the id of the resource the decision belongs to | The digest |
 | `{group.question}` | Another answer of the same resource (`{identity.user_assigned_identity_ids}`) | The digest, from the spec; the check fails on one that names no question of the set |
 | `<name>` | What the render knows and the spec does not: a map key (`<key>`), an id from wiring or a stage file's id variable, a module output | The render |
 

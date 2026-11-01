@@ -11,7 +11,7 @@ naming:
 boundaries:
   - "Does not create the resource group. Expects one from the spec's context."
   - "Does not create peerings — both sides are involved, so a pattern or the platform owns them."
-  - "Does not create network security groups or route tables. It records which subnets expect one."
+  - "Does not create network security groups, route tables or NAT gateways. Their sets reference the subnets they take (`subnets`), and this set's module renders each association on the subnet."
   - "Does not resolve the address space. That is deployment.address_space, settled before this set runs."
 
 groups:
@@ -236,22 +236,6 @@ groups:
           plan's id - the bool alone renders nothing. The plan is the ddos-protection-plan
           set's, usually the platform's and shared across a subscription; an id nobody can
           give is an `open:` entry, never a guess.
-
-      - id: subnets_expecting_nsg
-        ask:
-          en: "Which subnets will have a network security group attached?"
-          de: "An welche Subnetze wird eine Network Security Group angehängt?"
-        type: list
-        plain:
-          en: "Subnets that will get a security group: {value}."
-          de: "Subnetze, die eine Sicherheitsgruppe bekommen: {value}."
-        default: []
-        per_environment: true
-        why: >
-          Recorded rather than created: the NSG is a separate resource this set
-          does not own, but a subnet expected to have one and silently without it
-          is the gap worth naming. A delegated subnet is the usual legitimate
-          exception.
 
   # ------------------------------------------------------------ observability
   - id: observability

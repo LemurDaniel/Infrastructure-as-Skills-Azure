@@ -12,14 +12,16 @@ or the paths given:
   3. Each decision is `not_rendered: <reason>` alone, or one entry per target and
      implementation: `terraform` and `bicep` always, `<target>_avm` exactly when `modules`
      lists a module for the target.
-  4. Each entry has `attribute` or `gap` (not both), only known fields; `values` keys are
+  4. Each entry has exactly one of `attribute`, `gap` or `on_part`, only known fields; `values` keys are
      answers the question accepts; `format` carries `{value}`, names only other questions as
      `{group.question}` (beside `values`, `{value}` is the mapped fragment); `values` has a
      literal (or null) for every answer; an enum, bool, int or string answer has `values`,
      `format` or `passthrough: true`, never nothing; `part_of` points at a decision whose
      format names this one; `module` is one of the target's modules or companions;
      `omit_empty` is true and stands beside passthrough or format; `authored_when` lists
-     answers of the question, on a module entry only, and `values` needs no literal for them.
+     answers of the question, on a module entry only, and `values` needs no literal for them;
+     `on_part` stands on a question that references a part (a subnet) and carries `{part}`
+     and `{self}`, with nothing that makes a literal beside it.
   5. Code (values exprs, also lines, a format of code) names only questions of the set as
      `{group.question}` and holds no `...` sketch.
   6. A list of entries over several modules names the module on each; `by_kind` keys are
@@ -44,6 +46,7 @@ import sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 PLUGIN = os.path.abspath(os.path.join(HERE, '..', '..', '..'))
 RESOURCES = os.path.join(PLUGIN, 'resources')
+REF_KINDS = os.path.join(PLUGIN, 'core', 'iac-authoring', 'references', 'ref-kinds.yaml')
 
 TARGETS = ['terraform', 'bicep']
 COORD = {
@@ -51,13 +54,25 @@ COORD = {
     'bicep': re.compile(r'^avm/(res|ptn)/[a-z0-9-]+(/[a-z0-9-]+)+$'),
 }
 ENTRY_FIELDS = {'attribute', 'values', 'format', 'also', 'module', 'note', 'gap', 'part_of', 'passthrough',
-                'omit_empty', 'authored_when'}
+                'omit_empty', 'authored_when', 'on_part'}
 # Answer types a literal is written from. A reference (accepts: { ref }) resolves to an id and a
 # list is written as the list, so neither needs to say how it renders.
 SCALAR_TYPES = {'enum', 'bool', 'int', 'string'}
 TOP_FIELDS = {'schema_version', 'resource', 'modules', 'companions', 'kinds', 'decisions'}
 # `{group.question}`: another answer of the same resource. `${var.x}` is target code, not one.
 PLACEHOLDER = re.compile(r'(?<!\$)\{([a-z0-9_]+\.[a-z0-9_]+)\}')
+
+
+_PART_KINDS = None
+
+
+def part_kinds(yaml):
+    """ref-kinds.yaml's kind -> its part (None where the kind is a whole resource)."""
+    global _PART_KINDS
+    if _PART_KINDS is None:
+        with open(REF_KINDS, encoding='utf-8') as f:
+            _PART_KINDS = {k: (v or {}).get('part') for k, v in ((yaml.safe_load(f) or {}).get('kinds') or {}).items()}
+    return _PART_KINDS
 
 
 def check_entry(where, entry, question, ctx, mods):
@@ -67,9 +82,9 @@ def check_entry(where, entry, question, ctx, mods):
     unknown = set(entry) - ENTRY_FIELDS
     if unknown:
         errs.append(f"{where}: unknown field(s) {', '.join(sorted(unknown))}")
-    if ('attribute' in entry) == ('gap' in entry):
-        errs.append(f"{where}: needs exactly one of attribute or gap")
-    for k in ('attribute', 'gap', 'note', 'part_of'):
+    if sum(k in entry for k in ('attribute', 'gap', 'on_part')) != 1:
+        errs.append(f"{where}: needs exactly one of attribute, gap or on_part")
+    for k in ('attribute', 'gap', 'note', 'part_of', 'on_part'):
         if k in entry and not (isinstance(entry[k], str) and entry[k].strip()):
             errs.append(f"{where}: {k} is a non-empty string")
     fmt = entry.get('format')
@@ -110,6 +125,19 @@ def check_entry(where, entry, question, ctx, mods):
     if scalar and 'attribute' in entry and not any(k in entry for k in ('values', 'format', 'part_of', 'passthrough')):
         errs.append(f"{where}: a {question.get('type')} answer needs values, format, or passthrough: true "
                     "(the attribute takes the answer as it is)")
+    # on_part: the line this resource sets on a part another resource owns (an NSG on a subnet).
+    # The question references that part; the digest fills {part} with its name, {self} with this
+    # resource's id, and prints the line under the part's resource.
+    on_part = entry.get('on_part')
+    if isinstance(on_part, str):
+        kind = accepts.get('ref') if isinstance(accepts, dict) else None
+        if kind is None or not ctx['part_kinds'].get(kind):
+            errs.append(f"{where}: on_part on a question that references no part (accepts: {{ ref: <kind with a part> }})")
+        for ph in ('{part}', '{self}'):
+            if ph not in on_part:
+                errs.append(f"{where}: on_part carries no {ph}")
+        if any(k in entry for k in ('values', 'format', 'passthrough', 'part_of', 'omit_empty', 'also')):
+            errs.append(f"{where}: on_part stands beside none of values, format, passthrough, part_of, omit_empty, also")
     part = entry.get('part_of')
     if isinstance(part, str):
         formats = [e.get('format', '') for e in ctx['entries_of'](part)]
@@ -304,7 +332,8 @@ def check_file(path, yaml):
         for k in sorted(set(node) - expected):
             hint = ' (modules lists none for that target)' if k.endswith('_avm') else ''
             errs.append(f"{where}: {k} not expected{hint}")
-        ctx = {'questions': questions, 'key': key, 'kinds': kinds, 'entries_of': entries_of}
+        ctx = {'questions': questions, 'key': key, 'kinds': kinds, 'entries_of': entries_of,
+               'part_kinds': part_kinds(yaml)}
         for k in sorted(set(node) & expected):
             t = k[:-4] if k.endswith('_avm') else k
             mods = (modules[t] if k.endswith('_avm') else []) + companions[t]

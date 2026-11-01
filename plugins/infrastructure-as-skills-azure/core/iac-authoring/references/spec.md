@@ -452,6 +452,13 @@ What each kind is - the sets that create it, the part, the ARM type its id carri
 form (`arm`, `arm_any`, `guid`) - is [ref-kinds.yaml](ref-kinds.yaml); `check_spec.py` reads it
 for every reference (`scripts/spec_ref.py`).
 
+**An association is recorded on the resource that attaches.** An NSG, a route table and a NAT
+gateway each reference the subnets they take (`networking.subnets`, `gateway.subnets`), never
+the other way round: the subnet's list stays `{ name, prefix }` per stage, and the reference is
+one value for every stage. The association is still a property of the subnet, so the network's
+module renders it (`on_part` in render-map.yaml). Such a question is `exclusive`: a subnet takes
+at most one of each, and `check_spec.py` fails on a second claim.
+
 ## Resource groups: roles, modes, names
 
 `context.resource_group_name` is the **main** group of a single layout: one group per stage that
