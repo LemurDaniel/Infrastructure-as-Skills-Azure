@@ -405,8 +405,8 @@ terraform plan -var-file=environments/<stage>.tfvars
 
 The backend's values (its storage account and container) are the consuming repository's;
 the render adds the key convention as a comment in `providers.tf` and never a backend
-with values of its own. With a pipeline (`deployment.deploy_mechanism` other than
-`local`) it adds the **empty** block `backend "azurerm" {}` as well, because the pipeline
+with values of its own. With any `deployment.deploy_mechanism`, `local` included, it adds
+the **empty** block `backend "azurerm" {}` as well, because the pipeline or `deploy.ps1`
 passes the values as `-backend-config` and `terraform init` ignores `-backend-config`
 without raising an error when no backend block exists - the state would be local, and gone
 with the runner. A local run without a state uses `terraform init -backend=false`. The test file plans a non-production stage once besides the

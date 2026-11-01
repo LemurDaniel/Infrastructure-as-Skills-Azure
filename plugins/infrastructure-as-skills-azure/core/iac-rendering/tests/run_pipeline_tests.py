@@ -84,6 +84,15 @@ MUTATIONS = [
      'expire_in: 1 day', 'expire_in: 30 days', 'one day'),
     ('local plan file not removed', 'local-terraform', 'deploy.ps1',
      'Remove-Item', 'Write-Host', 'plan file is not removed'),
+    ('local script runs from the caller directory', 'local-terraform', 'deploy.ps1',
+     'Push-Location $PSScriptRoot', 'Push-Location .', 'its own directory'),
+    ('local validate only after the stage init', 'local-terraform', 'deploy.ps1',
+     'terraform init -backend=false -input=false;', 'terraform init -input=false;', 'init -backend=false'),
+    ('local without terraform test', 'local-terraform', 'deploy.ps1',
+     "terraform test;                                  if ($LASTEXITCODE) { throw 'terraform test failed' }\n", '',
+     'no `terraform test`'),
+    ('local stage init without -reconfigure', 'local-terraform', 'deploy.ps1',
+     'terraform init -input=false -reconfigure', 'terraform init -input=false', '-reconfigure'),
 
     # the gate
     ('github production not gated', 'github-terraform', GH,
@@ -131,6 +140,12 @@ MUTATIONS = [
     ('github client secret', 'github-terraform', GHS,
      '  ARM_USE_AZUREAD: "true"\n', '  ARM_USE_AZUREAD: "true"\n  ARM_CLIENT_SECRET: ${{ secrets.AZURE_SECRET }}\n',
      'nothing secret exists'),
+    ('github client secret from a variable', 'github-terraform', GHS,
+     '  ARM_USE_AZUREAD: "true"\n', '  ARM_USE_AZUREAD: "true"\n  AZURE_CLIENT_SECRET: ${{ vars.SP_KEY }}\n',
+     'a client secret'),
+    ('github login input client-secret', 'github-terraform', GHS,
+     '  ARM_USE_AZUREAD: "true"\n', '  ARM_USE_AZUREAD: "true"\n  LOGIN_ARGS: --client-secret abc\n',
+     'a client secret'),
     ('github terraform without OIDC', 'github-terraform', GHS,
      'ARM_USE_OIDC: "true"', 'ARM_USE_OIDC: "false"', 'ARM_USE_OIDC'),
     ('github stage job without id-token', 'github-terraform', GH,
@@ -147,10 +162,10 @@ MUTATIONS = [
     ('action on a branch', 'github-terraform', GH,
      'uses: actions/checkout@v7', 'uses: actions/checkout@main', 'not pinned'),
     ('terraform unconstrained', 'github-terraform', GHS,
-     'terraform_version: "~> 1.16.0"\n          terraform_wrapper: false      # the wrapper',
+     'terraform_version: "~> 1.17.0"\n          terraform_wrapper: false      # the wrapper',
      'terraform_version: latest\n          terraform_wrapper: false      # the wrapper', '~>'),
     ('gitlab image latest', 'gitlab-terraform', GL,
-     'name: hashicorp/terraform:1.16 ', 'name: hashicorp/terraform:latest ', 'not pinned'),
+     'name: hashicorp/terraform:1.17 ', 'name: hashicorp/terraform:latest ', 'not pinned'),
     ('ado install without checksum', 'ado-terraform', ADOI,
      '(Get-FileHash "$dir/$zip" -Algorithm SHA256).Hash', '$want', 'checksum'),
 
@@ -222,6 +237,8 @@ OPEN_DEV = 'open:\n  - key: context.subscription_id\n    environments: [developm
 DEV = 'environments/development.tfvars'
 DEV_REAL = 'subscription_id     = "11111111-2222-3333-4444-dev000000000"'
 DEV_OPEN = 'subscription_id     = "00000000-0000-0000-0000-000000000000"'
+OPEN_ANY = 'open:\n  - key: context.subscription_id\n    blocks: apply\n'
+STAGE_SUBSCRIPTIONS = {'development': 'dev', 'test': 'tes', 'production': 'pro'}
 ASSUMED_RES = ('resources:\n  virtual-machine:\n    machine:\n      instance_count:\n        value: 3\n'
                '        source: assumed\n\n')
 ASSUMED_LINE = '\nvm_instance_count   = 3  # ASSUMED: resources.virtual-machine.machine.instance_count'
@@ -247,6 +264,19 @@ VARIANTS = [
      [(SPEC, 'deployment:', OPEN_DEV + 'deployment:'), (DEV, DEV_REAL, DEV_OPEN),
       (GH, "  development:\n    needs: validate\n    if: github.event_name != 'pull_request'\n    uses: ./.github/workflows/infra-stage.yaml\n    permissions:\n      contents: read\n      id-token: write\n    with:\n      stage: development\n      gated: false\n\n", '')],
      1, 'stages are'),
+    # an open entry without environments names no stage: placeholders allowed everywhere, required nowhere
+    ('open entry without stages, placeholder in every file', 'github-terraform',
+     [(SPEC, 'deployment:', OPEN_ANY + 'deployment:')]
+     + [(f'environments/{s}.tfvars', f'11111111-2222-3333-4444-{k}000000000', '00000000-0000-0000-0000-000000000000')
+        for s, k in STAGE_SUBSCRIPTIONS.items()], 0, ''),
+    ('open entry without stages, no placeholder', 'github-terraform',
+     [(SPEC, 'deployment:', OPEN_ANY + 'deployment:')], 0, ''),
+    # a secret checks the pipeline login, not a name that only ends in client-secret
+    ('vault secret named entra-client-secret', 'github-terraform',
+     [(GHS, '  ARM_USE_AZUREAD: "true"\n', '  ARM_USE_AZUREAD: "true"\n  SIGN_IN_SECRET_NAME: entra-client-secret\n')], 0, ''),
+    ('local script that mentions a client secret', 'local-terraform',
+     [('deploy.ps1', 'Signs in through the current `az login`.',
+       'Signs in through the current `az login`, never with a client_secret.')], 0, ''),
     # an assumed value is a parameter in every stage file, marked so the guard refuses it
     ('assumed value marked in every stage file', 'github-terraform',
      [(SPEC, 'deployment:', ASSUMED_RES + 'deployment:')] + [(f'environments/{s}.tfvars', f'environment         = "{s}"', f'environment         = "{s}"' + ASSUMED_LINE)
@@ -272,7 +302,8 @@ def edit(root, rel, find, repl):
     if find == '@remove':
         os.remove(path)
         return
-    with open(path, encoding='utf-8', newline='') as f:
+    # Read with universal newlines: a CRLF checkout (core.autocrlf) must match the LF mutations.
+    with open(path, encoding='utf-8') as f:
         text = f.read()
     if find not in text:
         raise AssertionError(f"mutation text not found in {rel}: {find[:60]!r}")

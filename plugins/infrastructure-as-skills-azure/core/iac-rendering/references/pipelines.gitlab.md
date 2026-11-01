@@ -56,7 +56,7 @@ stages:
 
 default:
   image:
-    name: hashicorp/terraform:1.16        # latest 1.16.x; re-resolve on render
+    name: hashicorp/terraform:1.17        # latest 1.17.x; re-resolve on render
     entrypoint: [""]
 
 variables:

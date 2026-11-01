@@ -74,7 +74,7 @@ reports as "not checkable" instead of passing them.
 8. **A plan file is a secret.** It can hold sensitive values in clear. The artifact keeps
    for one day, and is downloaded by the apply job of the same run only.
 9. **Versions are pinned and looked up, never recalled.** The Terraform version as a
-   constraint on the minor (`~> 1.16.0`), actions and tasks at a major tag, resolved at
+   constraint on the minor (`~> 1.17.0`), actions and tasks at a major tag, resolved at
    render time and dated in a comment. The numbers in the platform files are a snapshot of
    2026-10-18 - `git ls-remote --tags --refs <repo>` is how to read the live ones. An
    organisation that requires full-commit pins states it once and the render writes the SHA

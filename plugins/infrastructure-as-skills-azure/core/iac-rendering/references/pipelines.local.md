@@ -44,23 +44,30 @@ $ErrorActionPreference = 'Stop'
 $plan = Join-Path ([IO.Path]::GetTempPath()) "tfplan-$Stage-$PID"
 $env:ARM_USE_AZUREAD = 'true'
 
-# A placeholder never deploys: a stage whose open items are unanswered stops here.
-$stageFile = "environments/$Stage.tfvars"
-if (-not (Test-Path $stageFile)) { throw "$stageFile is missing" }
-if (Select-String -Path $stageFile -Pattern '00000000-0000-0000-0000-000000000000|OPEN-|ASSUMED:' -Quiet) {
-  throw "Stage $Stage still holds placeholder values in $stageFile - answer the open items first."
-}
-
+# The stage file, the root and its tests are relative to the script, not to the caller.
+Push-Location $PSScriptRoot
 try {
+  # A placeholder never deploys: a stage whose open items are unanswered stops here.
+  $stageFile = "environments/$Stage.tfvars"
+  if (-not (Test-Path $stageFile)) { throw "$stageFile is missing" }
+  if (Select-String -Path $stageFile -Pattern '00000000-0000-0000-0000-000000000000|OPEN-|ASSUMED:' -Quiet) {
+    throw "Stage $Stage still holds placeholder values in $stageFile - answer the open items first."
+  }
+
+  # Validate and test without the state, as the pipelines' validate job does.
   terraform fmt -check -recursive;                 if ($LASTEXITCODE) { throw 'terraform fmt: files need formatting' }
-  terraform init -input=false `
+  terraform init -backend=false -input=false;      if ($LASTEXITCODE) { throw 'terraform init failed' }
+  terraform validate;                              if ($LASTEXITCODE) { throw 'terraform validate failed' }
+  terraform test;                                  if ($LASTEXITCODE) { throw 'terraform test failed' }
+
+  # The stage's state: -reconfigure, so a run for another stage never migrates this one.
+  terraform init -input=false -reconfigure `
     "-backend-config=subscription_id=$StateSubscriptionId" `
     "-backend-config=resource_group_name=$StateResourceGroup" `
     "-backend-config=storage_account_name=$StateStorageAccount" `
     "-backend-config=container_name=$StateContainer" `
     "-backend-config=key=$Workload/$Stage.tfstate" `
     '-backend-config=use_azuread_auth=true';       if ($LASTEXITCODE) { throw 'terraform init failed' }
-  terraform validate;                              if ($LASTEXITCODE) { throw 'terraform validate failed' }
 
   terraform plan -input=false -detailed-exitcode "-var-file=environments/$Stage.tfvars" "-out=$plan"
   switch ($LASTEXITCODE) { 0 { Write-Host 'No changes.'; return } 1 { throw 'terraform plan failed' } }
@@ -74,8 +81,14 @@ try {
   if ($answer -ne $Stage) { Write-Host 'Not applied.'; return }
   terraform apply -input=false $plan;              if ($LASTEXITCODE) { throw 'terraform apply failed' }
 }
-finally { Remove-Item $plan -ErrorAction SilentlyContinue }
+finally {
+  Remove-Item $plan -ErrorAction SilentlyContinue
+  Pop-Location
+}
 ```
+
+The root carries the empty `backend "azurerm" {}` here too: the script passes the same
+`-backend-config` as a pipeline, and without the block the state would be local.
 
 ## `deploy.ps1` - Bicep
 
@@ -94,27 +107,32 @@ param(
 $ErrorActionPreference = 'Stop'
 $params = "main.$Stage.bicepparam"
 
-# A placeholder never deploys: a stage whose open items are unanswered stops here.
-if (-not (Test-Path $params)) { throw "$params is missing" }
-if (Select-String -Path $params -Pattern '00000000-0000-0000-0000-000000000000|OPEN-|ASSUMED:' -Quiet) {
-  throw "Stage $Stage still holds placeholder values in $params - answer the open items first."
+# The template and its parameter files are relative to the script, not to the caller.
+Push-Location $PSScriptRoot
+try {
+  # A placeholder never deploys: a stage whose open items are unanswered stops here.
+  if (-not (Test-Path $params)) { throw "$params is missing" }
+  if (Select-String -Path $params -Pattern '00000000-0000-0000-0000-000000000000|OPEN-|ASSUMED:' -Quiet) {
+    throw "Stage $Stage still holds placeholder values in $params - answer the open items first."
+  }
+
+  az bicep lint --file main.bicep;                 if ($LASTEXITCODE) { throw 'bicep lint failed' }
+  $whatIf = az deployment group what-if --subscription $SubscriptionId --resource-group $ResourceGroup `
+    --template-file main.bicep --parameters $params --no-pretty-print | ConvertFrom-Json
+  if ($LASTEXITCODE) { throw 'what-if failed' }
+
+  $changes = $whatIf.changes | Where-Object { $_.changeType -notin 'NoChange', 'Ignore' }
+  if (-not $changes) { Write-Host 'No changes.'; return }
+  $changes | Format-Table changeType, resourceId
+
+  # what-if is read-only and create redeploys: the answer approves a prediction.
+  $answer = Read-Host "Deploy to '$Stage'? Type the stage name to confirm"
+  if ($answer -ne $Stage) { Write-Host 'Not deployed.'; return }
+  az deployment group create --name "$Workload-$Stage" --subscription $SubscriptionId `
+    --resource-group $ResourceGroup --template-file main.bicep --parameters $params
+  if ($LASTEXITCODE) { throw 'deployment failed' }
 }
-
-az bicep lint --file main.bicep;                   if ($LASTEXITCODE) { throw 'bicep lint failed' }
-$whatIf = az deployment group what-if --subscription $SubscriptionId --resource-group $ResourceGroup `
-  --template-file main.bicep --parameters $params --no-pretty-print | ConvertFrom-Json
-if ($LASTEXITCODE) { throw 'what-if failed' }
-
-$changes = $whatIf.changes | Where-Object { $_.changeType -notin 'NoChange', 'Ignore' }
-if (-not $changes) { Write-Host 'No changes.'; return }
-$changes | Format-Table changeType, resourceId
-
-# what-if is read-only and create redeploys: the answer approves a prediction.
-$answer = Read-Host "Deploy to '$Stage'? Type the stage name to confirm"
-if ($answer -ne $Stage) { Write-Host 'Not deployed.'; return }
-az deployment group create --name "$Workload-$Stage" --subscription $SubscriptionId `
-  --resource-group $ResourceGroup --template-file main.bicep --parameters $params
-if ($LASTEXITCODE) { throw 'deployment failed' }
+finally { Pop-Location }
 ```
 
 The stage list in `ValidateSet` is `context.environments`. A `[sandbox]` spec has one entry
