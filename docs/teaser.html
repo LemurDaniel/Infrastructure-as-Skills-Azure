@@ -114,9 +114,10 @@ pre.code .ln { display: block; }
 .stamp.in { transform: rotate(-6deg) scale(1); opacity: 1; }
 
 /* S6: render + tests */
-.render { display: grid; grid-template-columns: 1.15fr 1fr; gap: 40px; margin-top: 40px; }
-.render pre.code { font-size: 20px; }
-.tests { border: 1px solid var(--line); border-radius: 10px; background: #071320; padding: 22px 26px; font: 400 20px/1.55 var(--mono); }
+.render { display: grid; grid-template-columns: 1.3fr 1fr; gap: 32px; margin-top: 40px; }
+.render pre.code { font-size: 16px; line-height: 1.6; }
+.tests { border: 1px solid var(--line); border-radius: 10px; background: #071320; padding: 22px 26px; font: 400 17px/1.7 var(--mono); white-space: nowrap; }
+.tests .sum { white-space: normal; }
 .tests .t { color: var(--muted); }
 .tests .t::before { content: "✓ "; color: var(--ok); font-weight: 600; }
 .tests .sum { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--line); color: var(--ink); font-size: 22px; }
@@ -148,6 +149,7 @@ pre.code .ln { display: block; }
 .hint { font-size: 13px; color: var(--muted); margin: 0; }
 @media (max-width: 640px) { .chapters .lbl { display: none; } }
 @media (prefers-reduced-motion: reduce) { .caret { animation: none; } }
+.rec *, .rec *::before { transition: none !important; animation: none !important; }
 </style>
 </head>
 <body>
@@ -340,6 +342,7 @@ pre.code .ln { display: block; }
   const span = (s, now) => { const [a, b] = s.split(",").map(Number); return clamp((now - a) / (b - a)); };
 
   // ---------- render state at time t ----------
+  const REC = location.hash === "#record";
   let t = 0, playing = true, last = null;
   function render() {
     scenes.forEach(s => s.classList.toggle("on", t >= +s.dataset.start && t < +s.dataset.end));
@@ -349,11 +352,23 @@ pre.code .ln { display: block; }
     types.forEach(e => { const txt = e.dataset.text; e.textContent = txt.slice(0, Math.round(txt.length * span(e.dataset.type, t))); });
     counts.forEach(e => { const n = +e.dataset.count.split(",")[2]; e.textContent = Math.round(n * ease(span(e.dataset.count, t))); });
     bars.forEach(e => { const n = +e.dataset.bar.split(",")[2]; e.style.width = (n / 56 * 100 * ease(span(e.dataset.bar, t))) + "%"; });
-    const shown = rail.querySelectorAll(".row.in").length;
+    const shown = [...rail.children].reduce((n, r) => n + ease(clamp((t - r.dataset.at) / 0.3)), 0);
     rail.style.transform = `translateY(${-Math.max(0, shown - 9) * 52}px)`;
+    if (REC) still();
     img.style.transform = `scale(${1 + 0.07 * ease(clamp((t - 20.5) / 4.5))})`;
     chapFills.forEach(([f, a, b]) => f.style.width = clamp((t - a) / (b - a)) * 100 + "%");
     $("#time").textContent = `${Math.min(t, TOTAL).toFixed(1)} / ${TOTAL.toFixed(1)} s`;
+  }
+  // #record: no CSS transitions, every fade computed from t, so a frame grabbed at any t is exact
+  function still() {
+    scenes.forEach(s => {
+      const a = +s.dataset.start, b = +s.dataset.end;
+      const o = t < b ? (a === 0 ? 1 : clamp((t - a) / 0.5)) : clamp(1 - (t - b) / 0.5);
+      s.style.opacity = o; s.style.visibility = o > 0 ? "visible" : "hidden";
+    });
+    ats.forEach(e => { const f = ease(clamp((t - e.dataset.at) / 0.45)); e.style.opacity = f; e.style.transform = `translateY(${10 * (1 - f)}px)`; });
+    stamps.forEach(e => { const f = clamp((t - e.dataset.stamp) / 0.35); e.style.opacity = clamp(f * 1.75); e.style.transform = `rotate(-6deg) scale(${1.6 - 0.6 * ease(f)})`; });
+    document.querySelectorAll(".caret").forEach(c => c.style.opacity = t % 1 < 0.5 ? 1 : 0);
   }
   function tick(now) {
     if (playing) {
@@ -387,6 +402,10 @@ pre.code .ln { display: block; }
   new ResizeObserver(fit).observe(frame); fit();
 
   if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) { setPlaying(false); t = 3.5; }
+  if (REC) {
+    document.documentElement.classList.add("rec"); setPlaying(false);
+    window.__seek = s => { t = s; render(); };
+  }
   requestAnimationFrame(tick);
 })();
 </script>
