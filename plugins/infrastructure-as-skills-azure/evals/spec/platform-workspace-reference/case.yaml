@@ -1,0 +1,66 @@
+schema_version: "1.1"
+name: platform-workspace-reference
+
+graders:
+  - name: skill-fired
+    type: tool_used
+    tool: Skill
+    input_match: infrastructure-as-skills-azure
+
+  # A named central workspace answers central_logging: the deployment references it.
+  - name: workspace-referenced
+    type: regex
+    weight: 2
+    target: { source: file, path: infra/infra-spec.yaml }
+    pattern: 'observability_ownership:\s*(?:#[^\n]*\s*)*(?:\{\s*)?(?:value:\s*)?\W?reference\b'
+
+  - name: no-workspace-resource
+    type: regex
+    weight: 2
+    target: { source: file, path: infra/infra-spec.yaml }
+    pattern: '^\s{2}log-analytics-workspace:'
+    flags: m
+    match: not_contains
+
+  # The reference in its structured form (spec.md, References): the kind, no name.
+  - name: destination-existing
+    type: regex
+    weight: 3
+    target: { source: file, path: infra/infra-spec.yaml }
+    pattern: 'diagnostics_destination:\s*(?:#[^\n]*\s*)*(?:\{\s*)?(?:value:\s*)?(?:#[^\n]*\s*)*(?:\{\s*)?existing:\s*\W?log_analytics_workspace\b'
+
+  # No id was given, so the id is an open entry - and the name the person gave goes into
+  # its question, where the platform team can answer it.
+  - name: open-destination
+    type: regex
+    weight: 3
+    target: { source: file, path: infra/infra-spec.yaml }
+    pattern: '^open:[\s\S]*key:\s*\W?deployment\.diagnostics_destination\b'
+    flags: m
+
+  - name: open-names-the-workspace
+    type: regex
+    weight: 2
+    target: { source: file, path: infra/infra-spec.yaml }
+    pattern: '^open:[\s\S]*law-platform-prod'
+    flags: m
+
+  # Never a name or a resource group as the value, never an id nobody gave.
+  - name: no-name-as-value
+    type: regex
+    weight: 3
+    target: { source: file, path: infra/infra-spec.yaml }
+    pattern: '(?:name|value|existing):\s*\W?law-platform-prod'
+    match: not_contains
+
+  - name: no-invented-workspace-id
+    type: regex
+    weight: 3
+    target: { source: file, path: infra/infra-spec.yaml }
+    pattern: 'Microsoft\.OperationalInsights/workspaces/'
+    match: not_contains
+
+  - name: no-code-before-confirmation
+    type: file_exists
+    path: '**/*.tf'
+    exists: false
