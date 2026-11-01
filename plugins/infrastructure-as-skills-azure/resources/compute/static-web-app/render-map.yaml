@@ -1,0 +1,114 @@
+# What each decision of questions.yaml renders to, per target and implementation.
+# Format: core/iac-rendering/references/render-map.md. The call, the authored blocks and the
+# tests are in terraform.md and bicep.md.
+schema_version: 1
+resource: Microsoft.Web/staticSites
+
+modules:
+  terraform: [Azure/avm-res-web-staticsite/azurerm]
+  bicep: [avm/res/web/static-site]
+
+decisions:
+
+  # ---------------------------------------------------------------- placement
+  placement.environments:
+    not_rendered: naming parameter `environment` and the tag of that name; no attribute of the app
+  placement.location:
+    terraform_avm: { attribute: location, passthrough: true }
+    terraform: { attribute: location, passthrough: true }
+    bicep_avm: { attribute: location, passthrough: true }
+    bicep: { attribute: location, passthrough: true }
+  placement.resource_group_name:
+    terraform_avm:
+      attribute: resource_group_name
+      note: azurerm-based module, pins azurerm ~> 4.0 - a root calling it cannot be on 5.x
+    terraform: { attribute: resource_group_name }
+    bicep_avm: { gap: the deployment's resource group scope; no parameter }
+    bicep: { gap: the deployment's resource group scope; no property }
+
+  # ----------------------------------------------------------- static_web_app
+  static_web_app.sku:
+    terraform_avm:
+      attribute: sku_tier, sku_size
+      values: { Free: Free, Standard: Standard }
+      note: both inputs take the same value; module default Free - written anyway
+    terraform:
+      attribute: sku_tier, sku_size
+      values: { Free: Free, Standard: Standard }
+    bicep_avm:
+      attribute: sku
+      values: { Free: Free, Standard: Standard }
+      note: module default Free; written anyway
+    bicep:
+      attribute: sku.name, sku.tier
+      values: { Free: Free, Standard: Standard }
+  static_web_app.preview_environments_enabled:
+    terraform_avm: { attribute: preview_environments_enabled, passthrough: true, note: module default true; written anyway }
+    terraform: { attribute: preview_environments_enabled, passthrough: true }
+    bicep_avm:
+      attribute: stagingEnvironmentPolicy
+      values: { true: Enabled, false: Disabled }
+      note: module default Enabled; written anyway
+    bicep:
+      attribute: properties.stagingEnvironmentPolicy
+      values: { true: Enabled, false: Disabled }
+
+  # --------------------------------------------------------------- networking
+  networking.public_network_access:
+    terraform_avm:
+      attribute: public_network_access_enabled
+      values: { disabled: false, enabled: true }
+      note: a bool; module default true
+    terraform:
+      attribute: public_network_access_enabled
+      values: { disabled: false, enabled: true }
+    bicep_avm:
+      attribute: publicNetworkAccess
+      values: { disabled: Disabled, enabled: Enabled }
+      note: module default unset - disabled only when a private endpoint is given; always write it
+    bicep:
+      attribute: properties.publicNetworkAccess
+      values: { disabled: Disabled, enabled: Enabled }
+  networking.private_endpoint_subnet:
+    terraform_avm:
+      attribute: private_endpoints.staticsite.subnet_resource_id
+      note: the sub-resource is fixed by the module; no subresource_name input
+    terraform: { attribute: azurerm_private_endpoint.subnet_id, note: 'subresource_names = ["staticSites"]' }
+    bicep_avm:
+      attribute: 'privateEndpoints[].subnetResourceId'
+      note: "service: 'staticSites'; createPrivateDnsZone: 'Disabled' always written - module default Enabled creates a zone"
+    bicep: { attribute: Microsoft.Network/privateEndpoints properties.subnet.id, note: "groupIds: [ 'staticSites' ]" }
+
+  # ----------------------------------------------------------------- identity
+  identity.managed_identity:
+    terraform_avm:
+      attribute: managed_identities
+      values:
+        system_assigned: { expr: '{ system_assigned = true }' }
+        user_assigned: { expr: '{ user_assigned_resource_ids = {identity.user_assigned_identity_ids} }' }
+        none: { expr: '{}' }
+      note: omit the input for none
+    terraform:
+      attribute: identity.type
+      values: { system_assigned: SystemAssigned, user_assigned: UserAssigned, none: null }
+      note: none renders no identity block
+    bicep_avm:
+      attribute: managedIdentities
+      values:
+        system_assigned: { expr: '{ systemAssigned: true }' }
+        user_assigned: { expr: '{ userAssignedResourceIds: {identity.user_assigned_identity_ids} }' }
+        none: { expr: '{}' }
+    bicep:
+      attribute: identity.type
+      values: { system_assigned: SystemAssigned, user_assigned: UserAssigned, none: null }
+      note: none renders no identity block
+  identity.user_assigned_identity_ids:
+    terraform_avm: { attribute: managed_identities.user_assigned_resource_ids }
+    terraform: { attribute: identity.identity_ids }
+    bicep_avm: { attribute: managedIdentities.userAssignedResourceIds }
+    bicep: { attribute: identity.userAssignedIdentities }
+  identity.role_assignments:
+    terraform_avm: { attribute: 'role_assignments.<key> = { role_definition_id_or_name, principal_id }' }
+    terraform: { attribute: azurerm_role_assignment, note: scope = the app's id }
+    bicep_avm: { attribute: 'roleAssignments[] = { principalId, roleDefinitionIdOrName, principalType }' }
+    bicep: { gap: reference names no authored property }

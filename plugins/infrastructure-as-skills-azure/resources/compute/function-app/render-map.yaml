@@ -1,0 +1,340 @@
+# What each decision of questions.yaml renders to, per target and implementation.
+# Format: core/iac-rendering/references/render-map.md. The calls, the authored blocks and the
+# tests are in terraform.md and bicep.md; what they leave to the App Service reference is
+# taken from ../app-service.
+schema_version: 1
+resource: Microsoft.Web/sites
+
+modules:
+  terraform: [Azure/avm-res-web-serverfarm/azurerm, Azure/avm-res-web-site/azurerm]
+  bicep: [avm/res/web/serverfarm, avm/res/web/site]
+
+decisions:
+
+  # ---------------------------------------------------------------- placement
+  placement.environments:
+    not_rendered: naming parameter `environment` and the tag of that name; no attribute of the plan or the site
+  placement.location:
+    terraform_avm: { module: Azure/avm-res-web-serverfarm/azurerm, attribute: location, passthrough: true, note: the site module takes location too }
+    terraform: { attribute: location, passthrough: true, note: on the plan and the app }
+    bicep_avm: { module: avm/res/web/serverfarm, attribute: location, passthrough: true, note: the site module takes location too }
+    bicep: { attribute: location, passthrough: true, note: on the plan and the site }
+  placement.resource_group_name:
+    terraform_avm:
+      module: Azure/avm-res-web-serverfarm/azurerm
+      attribute: parent_id
+      note: the group's id (data.azurerm_resource_group), not its name - both modules are AzAPI-based
+    terraform: { attribute: resource_group_name }
+    bicep_avm: { gap: the deployment's resource group scope; no parameter }
+    bicep: { gap: the deployment's resource group scope; no property }
+
+  # ------------------------------------------------------------------ hosting
+  hosting.plan_type:
+    terraform_avm:
+      module: Azure/avm-res-web-serverfarm/azurerm
+      attribute: sku_name
+      values: { flex_consumption: FC1, elastic_premium: { expr: '<EP1, EP2 or EP3 - no question picks the size>' } }
+      also:
+        flex_consumption: 'function_app_uses_fc1 = true'
+      note: elastic_premium is EP1..EP3 and no question picks the size; os_type = "Linux"; the site takes kind = "functionapp"
+    terraform:
+      attribute: azurerm_service_plan.sku_name
+      values: { flex_consumption: FC1, elastic_premium: { expr: '<EP1, EP2 or EP3 - no question picks the size>' } }
+      note: the app is azurerm_function_app_flex_consumption (Flex) or azurerm_linux_function_app (Premium); EP size not decided
+    bicep_avm:
+      module: avm/res/web/serverfarm
+      attribute: skuName
+      values: { flex_consumption: FC1, elastic_premium: { expr: '<EP1, EP2 or EP3 - no question picks the size>' } }
+      note: "kind: 'linux' on the plan, 'functionapp,linux' on the site; elastic_premium is EP1..EP3 and no question picks the size"
+    bicep:
+      attribute: sku.name
+      values: { flex_consumption: FC1, elastic_premium: { expr: '<EP1, EP2 or EP3 - no question picks the size>' } }
+      note: "on the plan with reserved: true; the site's kind is 'functionapp,linux'"
+  hosting.runtime_stack:
+    terraform_avm:
+      module: Azure/avm-res-web-site/azurerm
+      attribute: fc1_runtime_name
+      passthrough: true
+      note: Flex - the stack names node, dotnet-isolated, powershell, python, java; on Premium site_config.application_stack
+    terraform: { attribute: runtime_name, passthrough: true, note: on azurerm_function_app_flex_consumption; Premium site_config.application_stack }
+    bicep_avm:
+      module: avm/res/web/site
+      attribute: functionAppConfig.runtime.name
+      passthrough: true
+      note: Flex; on Premium siteConfig.linuxFxVersion
+    bicep: { attribute: properties.functionAppConfig.runtime.name, passthrough: true, note: Flex }
+  hosting.runtime_version:
+    terraform_avm:
+      module: Azure/avm-res-web-site/azurerm
+      attribute: fc1_runtime_version
+      passthrough: true
+      note: Flex; on Premium site_config.application_stack
+    terraform: { attribute: runtime_version, passthrough: true, note: on azurerm_function_app_flex_consumption; Premium site_config.application_stack }
+    bicep_avm:
+      module: avm/res/web/site
+      attribute: functionAppConfig.runtime.version
+      passthrough: true
+      note: Flex; on Premium siteConfig.linuxFxVersion
+    bicep: { attribute: properties.functionAppConfig.runtime.version, passthrough: true, note: Flex }
+  hosting.zone_redundant:
+    terraform_avm:
+      module: Azure/avm-res-web-serverfarm/azurerm
+      attribute: zone_balancing_enabled
+      passthrough: true
+      note: module default true; fails early for FC1 in a region without FCZONEREDUNDANCY - written
+    terraform: { attribute: azurerm_service_plan.zone_balancing_enabled, passthrough: true }
+    bicep_avm: { module: avm/res/web/serverfarm, attribute: zoneRedundant, passthrough: true, note: computed by the module from the SKU; written }
+    bicep: { attribute: properties.zoneRedundant, passthrough: true, note: on the plan }
+  hosting.max_instance_count:
+    terraform_avm: { module: Azure/avm-res-web-site/azurerm, attribute: maximum_instance_count, passthrough: true, note: module default null }
+    terraform: { attribute: maximum_instance_count, passthrough: true, note: on azurerm_function_app_flex_consumption }
+    bicep_avm: { module: avm/res/web/site, attribute: functionAppConfig.scaleAndConcurrency.maximumInstanceCount, passthrough: true }
+    bicep: { attribute: properties.functionAppConfig.scaleAndConcurrency.maximumInstanceCount, passthrough: true }
+  hosting.always_ready_instances:
+    terraform_avm:
+      module: Azure/avm-res-web-site/azurerm
+      attribute: always_ready.http.instance_count
+      passthrough: true
+      note: Flex; on Premium the plan module's worker_count
+    terraform: { gap: reference names no Flex argument; on Premium azurerm_service_plan.worker_count }
+    bicep_avm:
+      module: avm/res/web/site
+      attribute: functionAppConfig.scaleAndConcurrency.alwaysReady
+      format: { expr: "[ { name: 'http', instanceCount: {value} } ]" }
+      note: Flex; on Premium the plan's skuCapacity
+    bicep:
+      attribute: properties.functionAppConfig.scaleAndConcurrency.alwaysReady
+      format: { expr: "[ { name: 'http', instanceCount: {value} } ]" }
+      note: Flex; an array, not the count
+  hosting.instance_memory_mb:
+    terraform_avm: { module: Azure/avm-res-web-site/azurerm, attribute: instance_memory_in_mb, passthrough: true, note: module default 2048; written }
+    terraform: { attribute: instance_memory_in_mb, passthrough: true, note: on azurerm_function_app_flex_consumption }
+    bicep_avm: { module: avm/res/web/site, attribute: functionAppConfig.scaleAndConcurrency.instanceMemoryMB, passthrough: true }
+    bicep: { attribute: properties.functionAppConfig.scaleAndConcurrency.instanceMemoryMB, passthrough: true }
+
+  # ------------------------------------------------------------------ storage
+  storage.host_storage_account:
+    terraform_avm:
+      module: Azure/avm-res-web-site/azurerm
+      attribute: storage_account_name
+      note: the host connection (AzureWebJobsStorage__accountName) - never storage_account_access_key
+    terraform: { attribute: storage_account_name, note: on azurerm_linux_function_app (Premium) }
+    bicep_avm:
+      module: avm/res/web/site
+      attribute: "configs[name: 'appsettings'].properties.AzureWebJobsStorage__accountName"
+      note: never AzureWebJobsStorage with a key
+    bicep: { gap: the authored text names no app settings for the host connection - the module form is the AzureWebJobsStorage__accountName app setting }
+  storage.host_storage_auth:
+    terraform_avm:
+      module: Azure/avm-res-web-site/azurerm
+      gap: 'the reference renders no connection_string form (never storage_account_access_key); identity is storage_uses_managed_identity = true with storage_user_assigned_identity_client_id, and storage_authentication_type = "UserAssignedIdentity" with storage_user_assigned_identity_id'
+    terraform:
+      gap: 'the reference renders no connection_string form; identity is storage_authentication_type = "UserAssignedIdentity" (Flex) or storage_uses_managed_identity = true (Premium)'
+    bicep_avm:
+      module: avm/res/web/site
+      gap: "the reference renders no connection_string form (never AzureWebJobsStorage with a key); identity is functionAppConfig.deployment.storage.authentication.type: 'UserAssignedIdentity' with AzureWebJobsStorage__credential: 'managedidentity'"
+    bicep:
+      gap: "the reference renders no connection_string form; identity is properties.functionAppConfig.deployment.storage.authentication.type 'UserAssignedIdentity'"
+  storage.deployment_container:
+    terraform_avm:
+      module: Azure/avm-res-web-site/azurerm
+      attribute: storage_container_endpoint
+      format: { expr: '"${<host_storage_blob_endpoint>}{value}"' }
+      note: the host account's blob endpoint followed by the container; Flex only
+    terraform:
+      attribute: storage_container_endpoint
+      format: { expr: '"${<host_storage_blob_endpoint>}{value}"' }
+      note: on azurerm_function_app_flex_consumption; the host account's blob endpoint followed by the container
+    bicep_avm:
+      module: avm/res/web/site
+      attribute: functionAppConfig.deployment.storage.value
+      format: { expr: "'${<hostStorageBlobEndpoint>}{value}'" }
+      note: "the host account's blob endpoint followed by the container; type: 'blobContainer'"
+    bicep:
+      attribute: properties.functionAppConfig.deployment.storage.value
+      format: { expr: "'${<hostStorageBlobEndpoint>}{value}'" }
+      note: the host account's blob endpoint followed by the container
+
+  # --------------------------------------------------------------- networking
+  networking.public_network_access:
+    terraform_avm:
+      module: Azure/avm-res-web-site/azurerm
+      attribute: public_network_access_enabled
+      values: { disabled: false, enabled_with_firewall: true, enabled: true }
+      also:
+        disabled: 'site_config.ip_restriction_default_action = "Deny"'
+        enabled_with_firewall: 'site_config.ip_restriction_default_action = "Deny"'
+        enabled: 'site_config.ip_restriction_default_action = "Allow"'
+      note: a bool on the module
+    terraform:
+      attribute: public_network_access_enabled
+      values: { disabled: false, enabled_with_firewall: true, enabled: true }
+      note: a bool, per the App Service reference
+    bicep_avm:
+      module: avm/res/web/site
+      attribute: publicNetworkAccess
+      values: { disabled: Disabled, enabled_with_firewall: Enabled, enabled: Enabled }
+      also:
+        disabled: "siteConfig.ipSecurityRestrictionsDefaultAction: 'Deny'"
+        enabled_with_firewall: "siteConfig.ipSecurityRestrictionsDefaultAction: 'Deny'"
+        enabled: "siteConfig.ipSecurityRestrictionsDefaultAction: 'Allow'"
+    bicep:
+      attribute: properties.publicNetworkAccess
+      values: { disabled: Disabled, enabled_with_firewall: Enabled, enabled: Enabled }
+  networking.private_endpoint_subnet:
+    terraform_avm: { module: Azure/avm-res-web-site/azurerm, attribute: private_endpoints.sites.subnet_resource_id }
+    terraform: { gap: reference names no authored argument }
+    bicep_avm: { module: avm/res/web/site, attribute: 'privateEndpoints[].subnetResourceId', note: "service: 'sites'" }
+    bicep: { gap: reference names no authored property }
+  networking.vnet_integration:
+    terraform_avm:
+      module: Azure/avm-res-web-site/azurerm
+      attribute: virtual_network_subnet_id
+      values: { true: { expr: '{networking.integration_subnet}' }, false: null }
+      note: the id comes from networking.integration_subnet; delegation per plan
+    terraform:
+      attribute: virtual_network_subnet_id
+      values: { true: { expr: '{networking.integration_subnet}' }, false: null }
+      note: or the swift-connection resource - never both
+    bicep_avm:
+      module: avm/res/web/site
+      attribute: virtualNetworkSubnetResourceId
+      values: { true: { expr: '{networking.integration_subnet}' }, false: null }
+      note: the id comes from networking.integration_subnet; delegation per plan
+    bicep:
+      attribute: properties.virtualNetworkSubnetId
+      values: { true: { expr: '{networking.integration_subnet}' }, false: null }
+  networking.integration_subnet:
+    terraform_avm: { module: Azure/avm-res-web-site/azurerm, attribute: virtual_network_subnet_id }
+    terraform: { attribute: virtual_network_subnet_id }
+    bicep_avm: { module: avm/res/web/site, attribute: virtualNetworkSubnetResourceId }
+    bicep: { attribute: properties.virtualNetworkSubnetId }
+  networking.vnet_route_all:
+    terraform_avm: { module: Azure/avm-res-web-site/azurerm, attribute: vnet_route_all_traffic, passthrough: true }
+    terraform: { attribute: site_config.vnet_route_all_enabled, passthrough: true, note: per the App Service reference }
+    bicep_avm: { module: avm/res/web/site, attribute: outboundVnetRouting.allTraffic, passthrough: true }
+    bicep: { attribute: properties.outboundVnetRouting.allTraffic, passthrough: true, note: properties.vnetRouteAllEnabled is the older form }
+  networking.ip_restrictions:
+    terraform_avm:
+      module: Azure/avm-res-web-site/azurerm
+      attribute: site_config.ip_restriction
+      note: with scm_use_main_ip_restriction = true for the SCM site
+    terraform: { attribute: site_config.ip_restriction, note: from the question's renders - the authored table names none }
+    bicep_avm:
+      module: avm/res/web/site
+      attribute: siteConfig.ipSecurityRestrictions
+      note: from the App Service reference - the function app table has no row
+    bicep: { attribute: properties.siteConfig.ipSecurityRestrictions }
+
+  # ----------------------------------------------------------------- identity
+  identity.managed_identity:
+    terraform_avm:
+      module: Azure/avm-res-web-site/azurerm
+      attribute: managed_identities
+      values:
+        system_assigned: { expr: '{ system_assigned = true }' }
+        user_assigned: { expr: '{ user_assigned_resource_ids = {identity.user_assigned_identity_ids} }' }
+      note: key_vault_reference_identity takes the identity's id
+    terraform: { gap: reference names no authored argument }
+    bicep_avm:
+      module: avm/res/web/site
+      attribute: managedIdentities
+      values:
+        system_assigned: { expr: '{ systemAssigned: true }' }
+        user_assigned: { expr: '{ userAssignedResourceIds: {identity.user_assigned_identity_ids} }' }
+      note: keyVaultAccessIdentityResourceId takes the identity's id
+    bicep: { gap: reference names no authored property }
+  identity.user_assigned_identity_ids:
+    terraform_avm: { module: Azure/avm-res-web-site/azurerm, attribute: managed_identities.user_assigned_resource_ids }
+    terraform: { gap: reference names no authored argument }
+    bicep_avm: { module: avm/res/web/site, attribute: managedIdentities.userAssignedResourceIds }
+    bicep: { gap: reference names no authored property }
+  identity.role_assignments:
+    terraform_avm:
+      module: Azure/avm-res-web-site/azurerm
+      attribute: 'role_assignments.<key> = { role_definition_id_or_name, principal_id }'
+      note: the avm.md interface - the reference table has no row
+    terraform: { gap: reference names no authored argument }
+    bicep_avm:
+      module: avm/res/web/site
+      attribute: 'roleAssignments[] = { principalId, roleDefinitionIdOrName, principalType }'
+      note: the avm.md interface - the reference table has no row
+    bicep: { gap: reference names no authored property }
+
+  # ----------------------------------------------------------------- security
+  security.https_only:
+    terraform_avm: { module: Azure/avm-res-web-site/azurerm, attribute: https_only, passthrough: true }
+    terraform: { attribute: https_only, passthrough: true }
+    bicep_avm: { module: avm/res/web/site, attribute: httpsOnly, passthrough: true }
+    bicep: { attribute: properties.httpsOnly, passthrough: true }
+  security.min_tls_version:
+    terraform_avm:
+      module: Azure/avm-res-web-site/azurerm
+      attribute: site_config.minimum_tls_version, site_config.scm_minimum_tls_version
+      passthrough: true
+      note: module default 1.3; written
+    terraform: { attribute: 'site_config.minimum_tls_version, site_config.scm_minimum_tls_version', passthrough: true }
+    bicep_avm: { module: avm/res/web/site, attribute: 'siteConfig.minTlsVersion, siteConfig.scmMinTlsVersion', passthrough: true }
+    bicep: { attribute: properties.siteConfig.minTlsVersion, passthrough: true }
+  security.basic_auth_enabled:
+    terraform_avm:
+      module: Azure/avm-res-web-site/azurerm
+      attribute: ftp_publish_basic_authentication_enabled, scm_publish_basic_authentication_enabled
+      passthrough: true
+      note: the SCM module default is true
+    terraform:
+      attribute: ftp_publish_basic_authentication_enabled, webdeploy_publish_basic_authentication_enabled
+      passthrough: true
+      note: the SCM switch is the WebDeploy one on the provider
+    bicep_avm:
+      module: avm/res/web/site
+      attribute: basicPublishingCredentialsPolicies
+      values:
+        true: { expr: "[ { name: 'ftp', allow: true }, { name: 'scm', allow: true } ]" }
+        false: { expr: "[ { name: 'ftp', allow: false }, { name: 'scm', allow: false } ]" }
+    bicep:
+      attribute: basicPublishingCredentialsPolicies/ftp and /scm properties.allow
+      passthrough: true
+      note: two child resources, not a property of the site
+  security.application_insights:
+    terraform_avm:
+      module: Azure/avm-res-web-site/azurerm
+      attribute: application_insights_connection_string
+      note: the component's connection string output, not its id; with app_settings.APPLICATIONINSIGHTS_AUTHENTICATION_STRING = "Authorization=AAD" (;ClientId= user-assigned) while local auth is off; omitted while empty
+    terraform: { gap: reference names no authored argument }
+    bicep_avm:
+      module: avm/res/web/site
+      attribute: "configs[name: 'appsettings'].properties.APPLICATIONINSIGHTS_CONNECTION_STRING"
+      note: the component's connection string output, not its id; with APPLICATIONINSIGHTS_AUTHENTICATION_STRING while local auth is off; omitted while empty
+    bicep: { gap: reference names no authored property }
+
+  # ------------------------------------------------------------ observability
+  observability.diagnostic_workspace:
+    terraform_avm:
+      module: Azure/avm-res-web-site/azurerm
+      attribute: diagnostic_settings.workspace.workspace_resource_id
+      note: on both modules; the plan has metrics only
+    terraform: { attribute: azurerm_monitor_diagnostic_setting.log_analytics_workspace_id }
+    bicep_avm:
+      module: avm/res/web/site
+      attribute: 'diagnosticSettings[].workspaceResourceId'
+      note: on both modules; the plan has metrics only
+    bicep: { gap: reference names no authored property }
+  observability.diagnostic_categories:
+    terraform_avm: { module: Azure/avm-res-web-site/azurerm, attribute: 'diagnostic_settings.workspace.logs[].category' }
+    terraform: { attribute: azurerm_monitor_diagnostic_setting.enabled_log.category }
+    bicep_avm: { module: avm/res/web/site, attribute: 'diagnosticSettings[].logCategoriesAndGroups[].category' }
+    bicep: { gap: reference names no authored property }
+  observability.metrics_enabled:
+    terraform_avm:
+      module: Azure/avm-res-web-site/azurerm
+      attribute: diagnostic_settings.workspace.metrics
+      values: { true: { expr: '[{ category = "AllMetrics" }]' }, false: { expr: '[]' } }
+      note: the plan module takes the same metrics
+    terraform: { gap: reference names no authored argument }
+    bicep_avm:
+      module: avm/res/web/site
+      attribute: 'diagnosticSettings[].metricCategories'
+      values: { true: { expr: "[ { category: 'AllMetrics' } ]" }, false: { expr: '[]' } }
+      note: the plan module takes the same metrics
+    bicep: { gap: reference names no authored property }

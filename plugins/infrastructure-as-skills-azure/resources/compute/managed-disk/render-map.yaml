@@ -1,0 +1,132 @@
+# What each decision of questions.yaml renders to, per target and implementation.
+# Format: core/iac-rendering/references/render-map.md. The call, the authored blocks and the
+# tests are in terraform.md and bicep.md.
+schema_version: 1
+resource: Microsoft.Compute/disks
+
+modules:
+  terraform: [Azure/avm-res-compute-disk/azurerm]
+  bicep: [avm/res/compute/disk]
+
+decisions:
+
+  # ---------------------------------------------------------------- placement
+  placement.environments:
+    not_rendered: naming parameter `environment` and the tag of that name; no attribute of the disk
+  placement.location:
+    terraform_avm: { attribute: location, passthrough: true }
+    terraform: { attribute: location, passthrough: true }
+    bicep_avm: { attribute: location, passthrough: true }
+    bicep: { attribute: location, passthrough: true }
+  placement.resource_group_name:
+    terraform_avm:
+      attribute: resource_group_name
+      note: a name, not an id; the module requires azurerm ~> 4.0, a root on 5.x cannot call it
+    terraform: { attribute: resource_group_name }
+    bicep_avm: { gap: the deployment's resource group scope; no parameter }
+    bicep: { gap: the deployment's resource group scope; no property }
+
+  # --------------------------------------------------------------------- disk
+  disk.create_option:
+    terraform_avm: { attribute: create_option, passthrough: true, note: a required input }
+    terraform: { attribute: create_option, passthrough: true }
+    bicep_avm: { attribute: createOption, passthrough: true, note: module default Empty; written anyway }
+    bicep: { attribute: properties.creationData.createOption, passthrough: true }
+  disk.source_resource_id:
+    terraform_avm: { attribute: source_resource_id, note: a change forces a new disk }
+    terraform: { attribute: source_resource_id }
+    bicep_avm: { attribute: sourceResourceId }
+    bicep: { attribute: properties.creationData.sourceResourceId }
+  disk.sku:
+    terraform_avm: { attribute: storage_account_type, passthrough: true, note: a required input }
+    terraform: { attribute: storage_account_type, passthrough: true }
+    bicep_avm: { attribute: sku, passthrough: true, note: a required parameter }
+    bicep: { attribute: sku.name, passthrough: true }
+  disk.size_gb:
+    terraform_avm: { attribute: disk_size_gb, passthrough: true }
+    terraform: { attribute: disk_size_gb, passthrough: true }
+    bicep_avm: { attribute: diskSizeGB, passthrough: true, note: module default 0 - always written }
+    bicep: { attribute: properties.diskSizeGB, passthrough: true }
+  disk.zone:
+    terraform_avm:
+      attribute: zone
+      values: { '1': '1', '2': '2', '3': '3' }
+      note: required, a string; null for a ZRS type; set at creation
+    terraform: { attribute: zone, values: { '1': '1', '2': '2', '3': '3' } }
+    bicep_avm:
+      attribute: availabilityZone
+      values: { '1': { expr: '1' }, '2': { expr: '2' }, '3': { expr: '3' } }
+      note: required; -1 for a ZRS type or a region without zones
+    bicep:
+      attribute: zones
+      values: { '1': { expr: "[ '1' ]" }, '2': { expr: "[ '2' ]" }, '3': { expr: "[ '3' ]" } }
+
+  # --------------------------------------------------------------- networking
+  networking.network_access:
+    terraform_avm:
+      gap: >-
+        allow_all's literals are not in the reference. Stated: network_access_policy "DenyAll"
+        (deny_all) / "AllowPrivate" (allow_private), each with public_network_access_enabled = false
+        (a bool); module default AllowPrivate + false - written
+    terraform:
+      gap: >-
+        allow_all's literals are not in the reference. Stated: network_access_policy DenyAll /
+        AllowPrivate and public_network_access_enabled; whether 5.x takes that bool or a string is
+        contradicted by the module call's comment - check the provider schema
+    bicep_avm:
+      gap: >-
+        allow_private has no module parameter (renders the authored disk) and allow_all's policy
+        literal is not in the reference. Stated: deny_all is networkAccessPolicy 'DenyAll' +
+        publicNetworkAccess 'Disabled' (the module default; written)
+    bicep:
+      gap: >-
+        allow_all's literals are not in the reference. Stated: properties.networkAccessPolicy
+        (DenyAll, AllowPrivate as the module literals), properties.publicNetworkAccess 'Disabled',
+        properties.diskAccessId for allow_private
+  networking.disk_access_id:
+    terraform_avm: { attribute: disk_access_id, note: allow_private only }
+    terraform: { attribute: disk_access_id }
+    bicep_avm:
+      gap: no module parameter for a disk access; allow_private renders the authored Microsoft.Compute/disks with properties.diskAccessId
+    bicep: { attribute: properties.diskAccessId }
+  networking.private_endpoint_subnet:
+    terraform_avm:
+      attribute: private_endpoints.disks.subnet_resource_id
+      note: sub-resource disks; needs disk_access_id
+    terraform:
+      attribute: azurerm_private_endpoint.subnet_id
+      note: 'subresource_names = ["disks"]'
+    bicep_avm:
+      gap: no module parameter for a private endpoint; an authored Microsoft.Network/privateEndpoints with group id disks
+    bicep: { attribute: Microsoft.Network/privateEndpoints properties.subnet.id, note: group id disks }
+
+  # ----------------------------------------------------------------- identity
+  identity.role_assignments:
+    terraform_avm: { attribute: 'role_assignments.<key> = { role_definition_id_or_name, principal_id }' }
+    terraform: { attribute: azurerm_role_assignment, note: scope = the disk's id }
+    bicep_avm: { attribute: roleAssignments }
+    bicep: { attribute: Microsoft.Authorization/roleAssignments, note: scope = the disk }
+
+  # ----------------------------------------------------------------- security
+  security.key_management:
+    terraform_avm:
+      attribute: disk_encryption_set_id
+      values: { platform_managed: null, customer_managed: { expr: '{security.disk_encryption_set_id}' } }
+      note: the id from security.disk_encryption_set_id; the module's customer_managed_key variant is left unset
+    terraform:
+      attribute: disk_encryption_set_id
+      values: { platform_managed: null, customer_managed: { expr: '{security.disk_encryption_set_id}' } }
+      note: the id from security.disk_encryption_set_id
+    bicep_avm:
+      attribute: diskEncryptionSetResourceId
+      values: { platform_managed: null, customer_managed: { expr: '{security.disk_encryption_set_id}' } }
+      note: the id from security.disk_encryption_set_id
+    bicep:
+      attribute: properties.encryption.type
+      values: { platform_managed: null, customer_managed: EncryptionAtRestWithCustomerKey }
+      note: the encryption block only for customer_managed; diskEncryptionSetId beside it
+  security.disk_encryption_set_id:
+    terraform_avm: { attribute: disk_encryption_set_id, note: a set the module does not create }
+    terraform: { attribute: disk_encryption_set_id }
+    bicep_avm: { attribute: diskEncryptionSetResourceId }
+    bicep: { attribute: properties.encryption.diskEncryptionSetId }
