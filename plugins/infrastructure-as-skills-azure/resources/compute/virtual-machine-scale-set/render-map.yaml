@@ -57,7 +57,7 @@ decisions:
     bicep:
       gap: >-
         properties.virtualMachineProfile.osProfile.linuxConfiguration for Linux; the reference's
-        authored table spells no Windows configuration
+        authored rendering spells no Windows configuration
   scale_set.image:
     terraform_avm:
       gap: >-
@@ -66,9 +66,9 @@ decisions:
         version = "latest" }; gallery_image is source_image_id and no reference
     terraform:
       gap: >-
-        source_image_reference; the Windows images are not spelled in the reference. Stated (module row):
+        source_image_reference; the Windows images are not spelled in the reference. Stated (module call):
         ubuntu_24_04 is { publisher = "Canonical", offer = "ubuntu-24_04-lts", sku = "server",
-        version = "latest" }; the authored table names no gallery image argument
+        version = "latest" }; the authored rendering names no gallery image argument
     bicep_avm:
       gap: >-
         imageReference; the Windows images are not spelled in the reference. Stated: ubuntu_24_04 is
@@ -77,11 +77,11 @@ decisions:
     bicep:
       gap: >-
         properties.virtualMachineProfile.storageProfile.imageReference; the Windows images are not
-        spelled in the reference. Stated (module row): ubuntu_24_04 is { publisher: 'Canonical',
+        spelled in the reference. Stated (module call): ubuntu_24_04 is { publisher: 'Canonical',
         offer: 'ubuntu-24_04-lts', sku: 'server', version: 'latest' }; gallery_image is { id: {scale_set.gallery_image_id} }
   scale_set.gallery_image_id:
     terraform_avm: { attribute: source_image_id }
-    terraform: { gap: the reference's authored table names no argument for a gallery image }
+    terraform: { gap: the reference's authored rendering names no argument for a gallery image }
     bicep_avm: { attribute: imageReference.id }
     bicep: { attribute: properties.virtualMachineProfile.storageProfile.imageReference.id }
   scale_set.size:
@@ -130,11 +130,11 @@ decisions:
     terraform:
       attribute: upgrade_mode
       passthrough: true
-      note: on the Uniform resources; the Flexible row of the reference names no upgrade argument
+      note: on the Uniform resources; the reference names no upgrade argument for the Flexible resource
     bicep_avm:
       attribute: upgradePolicyMode
       passthrough: true
-      note: module default Manual - written; Rolling also sets the batch and unhealthy percentages and pauseTimeBetweenBatches
+      note: module default Manual - written; Rolling also sets the batch and unhealthy percentages (default 20 each) and pauseTimeBetweenBatches
     bicep: { attribute: properties.upgradePolicy.mode, passthrough: true }
   scale_set.health_check_port:
     terraform_avm:
@@ -218,7 +218,7 @@ decisions:
     terraform:
       attribute: secure_boot_enabled, vtpm_enabled
       passthrough: true
-      note: on the Uniform resources; the Flexible row of the reference names neither
+      note: on the Uniform resources; the reference names neither for the Flexible resource
     bicep_avm:
       attribute: securityType
       values: { true: TrustedLaunch, false: null }
@@ -328,7 +328,7 @@ decisions:
       attribute: azurerm_monitor_diagnostic_setting.log_analytics_workspace_id
       note: unverified for this type
     bicep_avm: { attribute: 'diagnosticSettings[].workspaceResourceId', note: metrics-only }
-    bicep: { gap: no diagnostic setting in the reference's authored table }
+    bicep: { gap: no diagnostic setting in the reference's authored rendering }
   observability.metrics_enabled:
     terraform_avm:
       gap: no diagnostic input; the sibling azurerm_monitor_diagnostic_setting carries enabled_metric { category = "AllMetrics" }
@@ -339,4 +339,4 @@ decisions:
     bicep_avm:
       attribute: 'diagnosticSettings[].metricCategories'
       values: { true: { expr: "[ { category: 'AllMetrics' } ]" }, false: { expr: '[]' } }
-    bicep: { gap: no diagnostic setting in the reference's authored table }
+    bicep: { gap: no diagnostic setting in the reference's authored rendering }

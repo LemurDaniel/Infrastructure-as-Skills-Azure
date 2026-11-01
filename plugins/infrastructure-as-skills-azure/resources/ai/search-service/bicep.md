@@ -18,21 +18,13 @@ Resolve the current version and re-read the README parameters before rendering, 
 
 ### Decision -> module parameter
 
-| Decision | Parameter | Note |
+What each decision renders to - the parameter and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.
+
+### Deployment-wide parameters
+
+| Input | Parameter | Note |
 |---|---|---|
-| `sku` | `sku` | Default `'standard'`; written |
-| `replica_count` | `replicaCount` | Default **3** (Terraform: 1); written |
-| `partition_count` | `partitionCount` | Default 1; written |
-| `semantic_ranker` | `semanticSearch: 'disabled'` / `'free'` / `'standard'` | |
-| `public_network_access` | `publicNetworkAccess: 'Disabled'` / `'Enabled'` | Default **`'Enabled'`** |
-| `ip_rules`, `network_rule_bypass` | `networkRuleSet: { ipRules: [ { value } ], bypass }` | Member names from the README |
-| `private_endpoint_subnet` | `privateEndpoints: [ { subnetResourceId, service: 'searchService' } ]` | |
 | `deployment.private_dns_records: policy` | no `privateDnsZoneGroup` on the endpoint | |
-| `managed_identity` | `managedIdentities: { systemAssigned, userAssignedResourceIds }` | |
-| `role_assignments` | `roleAssignments` | |
-| `local_authentication_disabled` | `disableLocalAuth` | Default `true`; written. `authOptions` is ignored while it is true |
-| `cmk_enforcement` | `cmkEnforcement: 'Enabled'` / `'Disabled'` / `'Unspecified'` | Default `'Unspecified'`; written |
-| diagnostics | `diagnosticSettings: [ { workspaceResourceId, logCategoriesAndGroups: [ { category } ], metricCategories: [ { category: 'AllMetrics' } ] } ]` | |
 | `deployment.module_telemetry` | `enableTelemetry` | |
 | `context.tags` | `tags` | |
 
@@ -90,19 +82,11 @@ output name string = search.outputs.name
 ### Tests
 
 A module call compiles to a nested deployment whose `properties.parameters.<param>.value` is
-the decision, so every decision above is observable in `tests/*.armtest.yaml`
+the decision, so every decision in render-map.yaml is observable in `tests/*.armtest.yaml`
 ([bicep-idiom.md](../../../core/iac-rendering/references/bicep-idiom.md#tests)).
 
 ## Authored rendering
 
-The fallback. `Microsoft.Search/searchServices` with `properties`:
+The fallback. `Microsoft.Search/searchServices` with `properties`.
 
-| Decision | Property |
-|---|---|
-| `sku` | `sku.name` |
-| `replica_count`, `partition_count` | `properties.replicaCount`, `properties.partitionCount` |
-| `semantic_ranker` | `properties.semanticSearch` |
-| `public_network_access` | `properties.publicNetworkAccess`, `networkRuleSet.ipRules`, `networkRuleSet.bypass` |
-| `local_authentication_disabled` | `properties.disableLocalAuth` |
-| `cmk_enforcement` | `properties.encryptionWithCmk.enforcement` |
-| `managed_identity` | `identity.type` |
+What each decision renders to - the property and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.

@@ -20,22 +20,12 @@ targets `Microsoft.Insights/actionGroups@2024-10-01-preview` and so also carries
 
 ### Decision -> module parameter
 
+What each decision renders to - the parameter and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.
+
+### Deployment-wide inputs
+
 | Decision | Parameter | Note |
 |---|---|---|
-| `location` | `location: 'global'` | Module default `'global'`; written |
-| `short_name` | `groupShortName` | `take(empty(shortName) ? workload : shortName, 12)`; required |
-| `on_call_email` | `emailReceivers[0]` | `useCommonAlertSchema: true` |
-| `email_receivers` | `emailReceivers` | `{ name, emailAddress, useCommonAlertSchema }` |
-| `sms_receivers` | `smsReceivers` | `{ name, countryCode, phoneNumber }` |
-| `webhook_receivers`, `webhook_authentication` | `webhookReceivers[].{ serviceUri, useAadAuth, objectId, identifierUri, tenantId }` | `serviceUri` from a `@secure()` param or `listCallbackUrl()` |
-| `azure_function_receivers` | `azureFunctionReceivers[].{ functionAppResourceId, functionName, httpTriggerUrl }` | |
-| `logic_app_receivers` | `logicAppReceivers[].{ resourceId, callbackUrl }` | `callbackUrl` is a `securestring` |
-| `event_hub_receivers` | `eventHubReceivers[].{ eventHubNameSpace, eventHubName, subscriptionId }` | |
-| `arm_role_receivers` | `armRoleReceivers[].roleId` | The built-in role's GUID (table in [terraform.md](terraform.md)) |
-| `automation_runbook_receivers`, `itsm_receivers` | `automationRunbookReceivers`, `itsmReceivers` | |
-| `common_alert_schema` | `useCommonAlertSchema` on every receiver that has it | Module default **`false`** per receiver; written |
-| `enabled` | `enabled` | Default `true`; a stage parameter |
-| `role_assignments` | `roleAssignments: [ { principalId, roleDefinitionIdOrName, principalType } ]` | |
 | `deployment.resource_lock` | `lock: { kind: 'CanNotDelete' }` | |
 | `deployment.module_telemetry` | `enableTelemetry` | |
 | `context.tags` | `tags` | |
@@ -123,17 +113,6 @@ by value.
 ## Authored rendering
 
 The fallback. `Microsoft.Insights/actionGroups@2023-01-01`, `location: 'global'`, with
-`properties`:
+`properties`.
 
-| Decision | Property |
-|---|---|
-| `short_name` | `properties.groupShortName` |
-| `enabled` | `properties.enabled` |
-| `on_call_email`, `email_receivers` | `properties.emailReceivers[]` |
-| `sms_receivers` | `properties.smsReceivers[]` |
-| `webhook_receivers`, `webhook_authentication` | `properties.webhookReceivers[].{ useAadAuth, objectId, identifierUri, tenantId }` |
-| `azure_function_receivers`, `logic_app_receivers`, `event_hub_receivers` | `properties.azureFunctionReceivers[]`, `logicAppReceivers[]`, `eventHubReceivers[]` |
-| `arm_role_receivers` | `properties.armRoleReceivers[].roleId` |
-| `automation_runbook_receivers`, `itsm_receivers` | `properties.automationRunbookReceivers[]`, `itsmReceivers[]` |
-| `common_alert_schema` | `useCommonAlertSchema` on each receiver |
-| `role_assignments` | `Microsoft.Authorization/roleAssignments` with `scope: actionGroup` |
+What each decision renders to - the property and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.

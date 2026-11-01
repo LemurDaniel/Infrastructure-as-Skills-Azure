@@ -21,21 +21,13 @@ e-mail module carries the domain and the sender usernames as nested parameters; 
 
 ### Decision -> module parameter
 
-| Decision | Module | Parameter | Note |
+What each decision renders to - the parameter and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.
+
+### Parameters no decision covers
+
+| Input | Module | Parameter | Note |
 |---|---|---|---|
-| `location` | both | `location: 'global'` | Module default `'global'`; written |
-| `data_location` | both | `dataLocation` | **Required**, immutable; identical on both |
-| `email` | email | the module call exists; `domains: [ { name, domainManagement } ]` | `'AzureManaged'` with name `AzureManagedDomain`; `'CustomerManaged'` with the domain name |
-| `custom_domain_name` | email | `domains[].name` | |
-| `sender_usernames` | email | `domains[].senderUsernames: [ { name, username, displayName } ]` | |
-| `user_engagement_tracking` | email | `domains[].userEngagementTracking: 'Disabled'` / `'Enabled'` | A string, not a bool |
 | (linking) | communication | `linkedDomains: [ '<email service id>/domains/<name>' ]` | The domain id |
-| `public_network_access` | communication | `publicNetworkAccess` | `'Enabled'` / `'Disabled'` / `'SecuredByPerimeter'`; unset by default; written |
-| `network_security_perimeter` | - | authored `Microsoft.Network/networkSecurityPerimeters/profiles/resourceAssociations` | Only when set |
-| `managed_identity`, `user_assigned_identity_ids` | communication | `managedIdentities: { systemAssigned, userAssignedResourceIds }` | |
-| `role_assignments` | both | `roleAssignments` | `'Communication and Email Service Owner'` is configurable by name |
-| `local_authentication_disabled` | communication | `disableLocalAuth` | Unset by default; written |
-| `diagnostic_*`, `metrics_enabled` | communication | `diagnosticSettings: [ { workspaceResourceId, logCategoriesAndGroups: [ { category } ], metricCategories: [ { category: 'AllMetrics' } ] } ]` | The e-mail service has no diagnostic setting of its own |
 | `deployment.module_telemetry` | both | `enableTelemetry` | |
 | `context.tags` | both | `tags` | |
 
@@ -104,20 +96,19 @@ verification records are read from the deployed resource for the DNS owner.
 ### Tests
 
 A module call compiles to a nested deployment whose `properties.parameters.<param>.value` is the
-decision, so every decision above is observable in `tests/*.armtest.yaml`
+decision, so every decision in render-map.yaml is observable in `tests/*.armtest.yaml`
 ([bicep-idiom.md](../../../core/iac-rendering/references/bicep-idiom.md#tests)); `linkedDomains`
 is an expression over the e-mail module's output and is matched on its text.
 
 ## Authored rendering
 
 The fallback. `Microsoft.Communication/communicationServices@2025-09-01` with `location: 'global'`,
-`identity` and `properties`:
+`identity` and `properties`.
 
-| Decision | Property |
+What each decision renders to - the property and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.
+
+### Properties no decision covers
+
+| Input | Property |
 |---|---|
-| `data_location` | `properties.dataLocation` |
-| `public_network_access` | `properties.publicNetworkAccess` |
-| `local_authentication_disabled` | `properties.disableLocalAuth` |
 | (linking) | `properties.linkedDomains` |
-| `email`, `custom_domain_name`, `user_engagement_tracking`, `sender_usernames` | `Microsoft.Communication/emailServices` with child `domains` (`properties.domainManagement`, `userEngagementTracking`) and `domains/senderUsernames` |
-| diagnostics | `Microsoft.Insights/diagnosticSettings` scoped to the communication service |

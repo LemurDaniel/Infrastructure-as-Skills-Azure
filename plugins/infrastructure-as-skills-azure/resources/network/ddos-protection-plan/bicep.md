@@ -19,14 +19,13 @@ Resolve the current version and re-read the README parameters before rendering, 
 
 ### Decision -> module parameter
 
+What each decision renders to - the parameter and the literal of every answer - is in
+[render-map.yaml](render-map.yaml); the render digest prints it for a spec.
+
+### Deployment-wide parameters
+
 | Decision | Parameter | Note |
 |---|---|---|
-| `ownership: platform` | - | The module is **not called**; an `existing` resource with `scope: resourceGroup(subscriptionId, resourceGroupName)` reads `existing_plan` and its `id` goes to the networks |
-| `ownership: deployment` | the call below | |
-| `stages_with_plan` | a `param ddosProtectionPlanEnabled bool` and `if (ddosProtectionPlanEnabled)` on the module | `true` in `main.production.bicepparam` only |
-| `location` | `location` | Module default is the group's location; written |
-| `resource_group_name` | the deployment's scope | |
-| `role_assignments` | `roleAssignments: [ { principalId, roleDefinitionIdOrName: 'Network Contributor', principalType } ]` | |
 | `deployment.module_telemetry` | `enableTelemetry` | |
 | `context.tags` | `tags` | |
 

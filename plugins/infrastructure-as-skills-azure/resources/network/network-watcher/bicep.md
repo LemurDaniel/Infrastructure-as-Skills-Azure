@@ -24,21 +24,14 @@ owns only the flow log; it is the `platform` render. Both carry the same flow-lo
 
 ### Decision -> module parameter
 
+What each decision renders to - the parameter and the literal of every answer - is in
+[render-map.yaml](render-map.yaml); the render digest prints it for a spec.
+
+### Parameters no decision covers
+
 | Decision | Parameter | Note |
 |---|---|---|
-| `ownership: platform` | the `flow-log` child module, `scope: resourceGroup('NetworkWatcherRG')`, `networkWatcherName: 'NetworkWatcher_${location}'` | The module's own default for the name is the same expression; written |
-| `ownership: deployment` | the parent module with `name`, `location` and `flowLogs: [ ... ]` | |
-| `location` | `location` | |
-| `resource_group_name` | the parent module's deployment scope (`deployment`); `NetworkWatcherRG` for the flow logs (`platform`) | |
-| `flow_log_targets` | `targetResourceId` (child) / `flowLogs[].targetResourceId` (parent) | One child module call, or one array entry, per target. The parameter's description still says "NSG"; a virtual network, subnet or interface id is accepted by the resource type |
-| `flow_log_storage_account` | `storageResourceId` / `flowLogs[].storageResourceId` | |
-| `retention_days` | `retentionInDays` / `flowLogs[].retentionInDays` | Module default **365**; written. 0 renders `retentionPolicy.enabled: false` |
-| `traffic_analytics` | the presence of `workspaceResourceId` | The module switches analytics on when a workspace is given; `false` is the absence of the parameter, and the handover says so |
-| `traffic_analytics_interval_minutes` | `trafficAnalyticsInterval` / `flowLogs[].trafficAnalyticsInterval` | `10` or `60`; module default 60; written |
-| `traffic_analytics_workspace` | `workspaceResourceId` / `flowLogs[].workspaceResourceId` | The id alone; the module derives nothing else |
 | (format) | `formatVersion: 2` | Module default 2; written |
-| `connection_monitors` | parent `connectionMonitors: [ { name, endpoints, testConfigurations, testGroups, workspaceResourceId } ]`, or the `network-watcher/connection-monitor` child module under `platform` | |
-| `role_assignments` | parent `roleAssignments` | The child module has none: under `platform` a role assignment on Azure's watcher is an extension resource in `NetworkWatcherRG` |
 | `deployment.module_telemetry` | `enableTelemetry` | |
 | `context.tags` | `tags` | |
 
@@ -115,7 +108,7 @@ because a module's `scope` can name another group only from a scope above it.
 ### Tests
 
 A module call compiles to a nested deployment whose `properties.parameters.<param>.value` is
-the decision, so every decision above is observable in `tests/*.armtest.yaml`
+the decision, so every decision in render-map.yaml is observable in `tests/*.armtest.yaml`
 ([bicep-idiom.md](../../../core/iac-rendering/references/bicep-idiom.md#tests)):
 `networkWatcherName` (the expression's text names `NetworkWatcher_`), `targetResourceId`,
 `storageResourceId`, `retentionInDays`, `trafficAnalyticsInterval`, `workspaceResourceId`.

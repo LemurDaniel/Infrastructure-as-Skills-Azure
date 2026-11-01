@@ -105,7 +105,7 @@ decisions:
       format: { expr: '{value}' }
       note: a number, as on the module
     bicep_avm: { attribute: 'databases[].minCapacity', passthrough: true, note: "a string ('0.5')" }
-    bicep: { gap: "the authored table names minCapacity but not its type; the module takes a string ('0.5') - check the ARM type of the pinned API version" }
+    bicep: { gap: "the authored rendering names minCapacity but not its type; the module takes a string ('0.5') - check the ARM type of the pinned API version" }
   database.auto_pause_delay_minutes:
     terraform_avm: { attribute: 'databases.<key>.auto_pause_delay_in_minutes', passthrough: true, note: serverless only }
     terraform: { attribute: azurerm_mssql_database.auto_pause_delay_in_minutes, passthrough: true }
@@ -136,9 +136,9 @@ decisions:
       also: { true: child elasticPools }
   database.pool_vcores:
     terraform_avm: { attribute: 'elastic_pools.<key>.sku.capacity', passthrough: true }
-    terraform: { gap: the authored table names azurerm_mssql_elasticpool but no capacity argument }
+    terraform: { gap: the authored rendering names azurerm_mssql_elasticpool but no capacity argument }
     bicep_avm: { attribute: 'elasticPools[].sku.capacity', passthrough: true }
-    bicep: { gap: the authored table names child elasticPools but no capacity property }
+    bicep: { gap: the authored rendering names child elasticPools but no capacity property }
 
   # --------------------------------------------------------------- resilience
   resilience.zone_redundant:
@@ -155,10 +155,10 @@ decisions:
   resilience.geo_failover_region:
     terraform_avm:
       gap: not the module - a second instance of the module in that region and an azurerm_mssql_failover_group binding the two servers' databases
-    terraform: { gap: the authored table names no failover group - azurerm_mssql_failover_group beside a second server }
+    terraform: { gap: the authored rendering names no failover group - azurerm_mssql_failover_group beside a second server }
     bicep_avm:
       gap: not one call - a second instance of the module in that region and the module's failoverGroups parameter on the primary naming the partner; shape from the pinned README
-    bicep: { gap: the authored table names no failover group }
+    bicep: { gap: the authored rendering names no failover group }
 
   # --------------------------------------------------------------- networking
   networking.public_network_access:
@@ -180,11 +180,11 @@ decisions:
     terraform_avm:
       attribute: 'private_endpoints.sql.subnet_resource_id'
       note: with subresource_name = "sqlServer"; private_endpoints_manage_dns_zone_group = false under policy DNS
-    terraform: { gap: 'the authored table names azurerm_private_endpoint with subresource_names = ["sqlServer"] but no subnet argument' }
+    terraform: { gap: 'the authored rendering names azurerm_private_endpoint with subresource_names = ["sqlServer"] but no subnet argument' }
     bicep_avm:
       attribute: 'privateEndpoints[].subnetResourceId'
       note: "with service: 'sqlServer'; no privateDnsZoneGroup under policy DNS"
-    bicep: { gap: "the authored table names Microsoft.Network/privateEndpoints with groupIds: ['sqlServer'] but no subnet property" }
+    bicep: { gap: "the authored rendering names Microsoft.Network/privateEndpoints with groupIds: ['sqlServer'] but no subnet property" }
   networking.ip_rules:
     terraform_avm:
       attribute: 'firewall_rules.<key>'
@@ -219,7 +219,8 @@ decisions:
       note: false renders no child
   networking.minimum_tls_version:
     terraform_avm:
-      gap: no input - fixed minimum_tls_version = "1.2" inside the module; 1.3 means the authored server
+      gap: no input - the module fixes minimum_tls_version = "1.2", which is the answer 1.2
+      authored_when: ['1.3']
     terraform: { attribute: minimum_tls_version, passthrough: true }
     bicep_avm: { attribute: minimalTlsVersion, passthrough: true, note: default 1.2; written anyway }
     bicep: { attribute: properties.minimalTlsVersion, passthrough: true }
@@ -273,9 +274,9 @@ decisions:
     not_rendered: a T-SQL step after the deployment (CREATE USER FROM EXTERNAL PROVIDER as the Entra administrator); no module input and no ARM resource
   identity.role_assignments:
     terraform_avm: { attribute: role_assignments, note: control plane }
-    terraform: { gap: the authored table names no role assignment }
+    terraform: { gap: the authored rendering names no role assignment }
     bicep_avm: { attribute: roleAssignments, note: control plane }
-    bicep: { gap: the authored table names no role assignment }
+    bicep: { gap: the authored rendering names no role assignment }
 
   # ----------------------------------------------------------------- security
   security.local_authentication_disabled:
@@ -385,7 +386,7 @@ decisions:
     bicep_avm:
       attribute: 'databases[].diagnosticSettings[].workspaceResourceId'
       note: the audit's setting on master is authored beside the module
-    bicep: { gap: the authored table names a diagnostic setting only on master for the audit }
+    bicep: { gap: the authored rendering names a diagnostic setting only on master for the audit }
   observability.auditing_enabled:
     terraform_avm:
       gap: not the module - azurerm_mssql_server_extended_auditing_policy (log_monitoring_enabled = true) and a diagnostic setting on master with SQLSecurityAuditEvents
@@ -395,7 +396,7 @@ decisions:
       also: { true: 'resource "azurerm_monitor_diagnostic_setting" on master with enabled_log { category = "SQLSecurityAuditEvents" }' }
       note: false renders neither resource; without the diagnostic setting the audit records nothing
     bicep_avm:
-      gap: "auditSettings: { state: 'Enabled', isAzureMonitorTargetEnabled: true } and an authored diagnostic setting on master for true; the module default is { state: 'Enabled' }, so leaving it out is not off, and the reference names no off literal"
+      gap: "auditSettings: { state: 'Enabled', isAzureMonitorTargetEnabled: true } and an authored diagnostic setting on master for true; the module default is { state: 'Enabled' }, which records to no destination at all, so leaving it out is not off, and the reference names no off literal"
     bicep:
       attribute: child auditingSettings/default properties.state
       values: { true: Enabled, false: null }
@@ -405,15 +406,15 @@ decisions:
     terraform_avm: { attribute: 'databases.<key>.diagnostic_settings.<key>.log_categories', note: 'log_groups = [] beside it' }
     terraform: { attribute: azurerm_monitor_diagnostic_setting.enabled_log.category, note: one enabled_log block per category }
     bicep_avm: { attribute: 'databases[].diagnosticSettings[].logCategoriesAndGroups[].category' }
-    bicep: { gap: the authored table names no database diagnostic setting }
+    bicep: { gap: the authored rendering names no database diagnostic setting }
   observability.metrics_enabled:
     terraform_avm:
       attribute: 'databases.<key>.diagnostic_settings.<key>.metric_categories'
       values: { true: { expr: '["Basic"]' }, false: { expr: '[]' } }
       note: Basic - not AllMetrics for a database
-    terraform: { gap: the authored table names no metric category }
+    terraform: { gap: the authored rendering names no metric category }
     bicep_avm:
       attribute: 'databases[].diagnosticSettings[].metricCategories'
       values: { true: { expr: "[ { category: 'Basic' } ]" }, false: { expr: '[]' } }
       note: Basic - not AllMetrics for a database
-    bicep: { gap: the authored table names no database diagnostic setting }
+    bicep: { gap: the authored rendering names no database diagnostic setting }

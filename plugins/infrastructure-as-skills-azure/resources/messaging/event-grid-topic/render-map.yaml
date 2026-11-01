@@ -35,7 +35,7 @@ decisions:
   topic.minimum_tls_version:
     terraform_avm: { attribute: minimum_tls_version_allowed, passthrough: true, note: module default 1.2 - written }
     terraform:
-      gap: not in the reference's authored table for azurerm_eventgrid_topic - the argument is unconfirmed; azapi_update_resource with properties.minimumTlsVersionAllowed until the schema confirms one
+      gap: not in the reference's authored rendering for azurerm_eventgrid_topic - the argument is unconfirmed; azapi_update_resource with properties.minimumTlsVersionAllowed until the schema confirms one
     bicep_avm: { attribute: minimumTlsVersionAllowed, passthrough: true, note: module default 1.2 - written }
     bicep: { attribute: properties.minimumTlsVersionAllowed, passthrough: true }
   topic.local_auth:
@@ -57,7 +57,7 @@ decisions:
   topic.data_residency_boundary:
     terraform_avm: { attribute: data_residency_boundary, passthrough: true, note: module default null }
     terraform:
-      gap: not in the reference's authored table for azurerm_eventgrid_topic - the argument is unconfirmed; azapi_update_resource with properties.dataResidencyBoundary until the schema confirms one
+      gap: not in the reference's authored rendering for azurerm_eventgrid_topic - the argument is unconfirmed; azapi_update_resource with properties.dataResidencyBoundary until the schema confirms one
     bicep_avm: { attribute: dataResidencyBoundary, passthrough: true }
     bicep: { attribute: properties.dataResidencyBoundary, passthrough: true }
   topic.managed_identity:

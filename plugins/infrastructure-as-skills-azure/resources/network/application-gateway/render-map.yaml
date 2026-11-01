@@ -162,7 +162,7 @@ decisions:
       attribute: 'gatewayIPConfigurations[].properties.subnet.id'
       module: avm/res/network/application-gateway
       note: 'a list of one { name, properties: { subnet: { id } } }'
-    bicep: { gap: "bicep.md's authored table names no property for the gateway subnet" }
+    bicep: { gap: "bicep.md's authored rendering names no property for the gateway subnet" }
   gateway.managed_identity:
     terraform_avm:
       attribute: managed_identities
@@ -201,26 +201,26 @@ decisions:
         public: { expr: '[{ name = "public", properties = { public_ip_address = { id = module.public_ip.resource_id } } }]' }
         private: { expr: '[{ name = "private", properties = { subnet = { id = <frontend_subnet_id> }, private_ip_address = <private_ip_address>, private_ip_allocation_method = <allocation_method> } }]' }
       note: the gateway module creates no public IP; private-only needs the subscription enrolled in the private application gateway feature
-    terraform: { gap: "terraform.md's authored table names no argument for the frontend" }
+    terraform: { gap: "terraform.md's authored rendering names no argument for the frontend" }
     bicep_avm:
       gap: >-
         frontendIPConfigurations (and frontendPorts) take the public-ip-address module's id for
         public, a subnet for private; bicep.md passes them as a variable and shows no item shape
-    bicep: { gap: "bicep.md's authored table names no property for the frontend" }
+    bicep: { gap: "bicep.md's authored rendering names no property for the frontend" }
   networking.public_ip_zone_redundant:
     terraform_avm:
       gap: >-
         the public IP module's zones = ["1", "2", "3"] for true (allocation_method = "Static",
         sku = "Standard"); terraform.md states no literal for false
-    terraform: { gap: "terraform.md's authored table names no public IP" }
+    terraform: { gap: "terraform.md's authored rendering names no public IP" }
     bicep_avm: { gap: the public-ip-address module beside the gateway takes the zones; bicep.md names no parameter of it }
-    bicep: { gap: "bicep.md's authored table names no public IP" }
+    bicep: { gap: "bicep.md's authored rendering names no public IP" }
   networking.tls_policy:
     terraform_avm:
       attribute: ssl_policy.policy_name
       module: Azure/avm-res-network-applicationgateway/azurerm
       passthrough: true
-      note: with policy_type = "Predefined"; module default null - written
+      note: with policy_type = "Predefined"; module default null - written; min_protocol_version is for a custom policy
     terraform: { attribute: azurerm_application_gateway.ssl_policy.policy_name, passthrough: true, note: with policy_type }
     bicep_avm:
       attribute: sslPolicyName
@@ -234,20 +234,20 @@ decisions:
       module: Azure/avm-res-network-applicationgateway/azurerm
       passthrough: true
       note: port 443 for Https, 80 for Http
-    terraform: { gap: "terraform.md's authored table names no argument for the backend settings" }
+    terraform: { gap: "terraform.md's authored rendering names no argument for the backend settings" }
     bicep_avm: { attribute: 'backendHttpSettingsCollection[].properties.protocol', module: avm/res/network/application-gateway, passthrough: true }
-    bicep: { gap: "bicep.md's authored table names no property for the backend settings" }
+    bicep: { gap: "bicep.md's authored rendering names no property for the backend settings" }
   networking.redirect_http_to_https:
     terraform_avm:
       gap: >-
         true adds a redirect_configurations entry and a request_routing_rules entry on the port-80
         listener, false neither; terraform.md shows no entry shape
-    terraform: { gap: "terraform.md's authored table names no argument for the redirect" }
+    terraform: { gap: "terraform.md's authored rendering names no argument for the redirect" }
     bicep_avm:
       gap: >-
         true adds a redirectConfigurations entry and a routing rule on the port-80 listener, false
         neither; bicep.md shows no entry shape
-    bicep: { gap: "bicep.md's authored table names no property for the redirect" }
+    bicep: { gap: "bicep.md's authored rendering names no property for the redirect" }
   networking.http2_enabled:
     terraform_avm: { attribute: enable_http2, module: Azure/avm-res-network-applicationgateway/azurerm, passthrough: true, note: module default null - written }
     terraform: { attribute: azurerm_application_gateway.http2_enabled, passthrough: true, note: the module input is enable_http2 }
@@ -258,12 +258,12 @@ decisions:
       attribute: http_listeners, backend_address_pools, probes, request_routing_rules, ssl_certificates
       module: Azure/avm-res-network-applicationgateway/azurerm
       note: wiring filled by the pattern; a certificate is { name, key_vault_secret_id }
-    terraform: { gap: "terraform.md's authored table names no argument for the listeners" }
+    terraform: { gap: "terraform.md's authored rendering names no argument for the listeners" }
     bicep_avm:
       attribute: httpListeners, backendAddressPools, probes, requestRoutingRules, sslCertificates
       module: avm/res/network/application-gateway
       note: wiring filled by the pattern
-    bicep: { gap: "bicep.md's authored table names no property for the listeners" }
+    bicep: { gap: "bicep.md's authored rendering names no property for the listeners" }
 
   # ----------------------------------------------------------------- security
   security.waf_exclusions:

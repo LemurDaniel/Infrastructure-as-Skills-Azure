@@ -22,33 +22,13 @@ Resolve the current versions and re-read the README parameters before rendering,
 
 ### Decision → module parameter
 
-| Decision | Module | Parameter | Note |
+What each decision renders to - the parameter and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.
+
+### Deployment-wide inputs
+
+| Input | Module | Parameter | Note |
 |---|---|---|---|
-| `os_type` | plan | `kind: 'linux'` or `'app'` | `reserved` follows `kind`; the module default is `'app'` (Windows) |
-| `os_type` | site | `kind: 'app,linux'` or `'app'` | `'app,linux,container'` for `runtime_stack: container` |
-| `sku` | plan | `skuName` | Module default `P1v3` |
-| `zone_redundant` | plan | `zoneRedundant` | Module default is **true for `P`/`EP` sizes** - computed, not constant; written |
-| `instance_count` | plan | `skuCapacity` | |
-| `public_network_access` | site | `publicNetworkAccess: 'Disabled'` / `'Enabled'` | A string; unset, it is disabled only when private endpoints are set |
-| `public_network_access` | site | `siteConfig.ipSecurityRestrictionsDefaultAction` | `'Deny'` unless `enabled` |
-| `private_endpoint_subnet` | site | `privateEndpoints: [ { subnetResourceId, service: 'sites' } ]` | |
 | `deployment.private_dns_records: policy` | site | no `privateDnsZoneGroup` on the endpoint | |
-| `vnet_integration`, `integration_subnet` | site | `virtualNetworkSubnetResourceId` | Delegated subnet |
-| `vnet_route_all` | site | `outboundVnetRouting: { allTraffic: true }` | |
-| `ip_restrictions` | site | `siteConfig.ipSecurityRestrictions` | |
-| `managed_identity` | site | `managedIdentities: { systemAssigned: true }` | |
-| `https_only` | site | `httpsOnly` | Module default `true`; written |
-| `min_tls_version` | site | `siteConfig.minTlsVersion`, `scmMinTlsVersion` | |
-| `ftps_state` | site | `siteConfig.ftpsState` | |
-| `basic_auth_enabled` | site | `basicPublishingCredentialsPolicies: [ { name: 'ftp', allow: false }, { name: 'scm', allow: false } ]` | |
-| `runtime_*` | site | `siteConfig.linuxFxVersion` (`PYTHON\|3.13`) or `windowsFxVersion` | |
-| `container_image_owner: image_pipeline` | site | `siteConfig.linuxFxVersion` from a parameter holding the running site's value (read by the pipeline before the deployment), `DOCKER\|<container_image>` while it is empty | Bicep cannot read a property of a resource it deploys; the pipeline reads it |
-| `entra_sign_in`, `entra_client_secret` | site | `configs: [ { name: 'authsettingsV2', properties: { ... } } ]` as below, and the app setting holding the Key Vault reference | Parameter shape from the module README of the version pinned |
-| `always_on` | site | `siteConfig.alwaysOn` | |
-| `health_check_path` | site | `siteConfig.healthCheckPath` | Omitted while empty |
-| `http2_enabled` | site | `siteConfig.http20Enabled` | |
-| diagnostics | both | `diagnosticSettings: [ { workspaceResourceId, logCategoriesAndGroups: [ { category } ], metricCategories: [ { category: 'AllMetrics' } ] } ]` | The plan has metrics only |
-| `application_insights` | site | `configs: [ { name: 'appsettings', properties: { APPLICATIONINSIGHTS_CONNECTION_STRING, APPLICATIONINSIGHTS_AUTHENTICATION_STRING } } ]` | The component's `connectionString` output; the second is `Authorization=AAD` (`;ClientId=<client id>` user-assigned) while local auth is off; omitted while empty |
 | `deployment.module_telemetry` | both | `enableTelemetry` | |
 | `context.tags` | both | `tags` | |
 
@@ -191,17 +171,7 @@ falls back to `Disabled` only when the slot or the site has a private endpoint. 
 inherited ones inherited so that the slot cannot drift from the site. Checked against
 0.24.0 (2026-10-27).
 
-| Decision | Parameter | Note |
-|---|---|---|
-| `deployment_slots` | `slots: [ { name: '<name>', ... } ]` | Premium v3 plan |
-| `slot_access: same_as_app` / `private` | `slots[].privateEndpoints: [ { service: 'sites-<name>', subnetResourceId } ]` | The slot's own private link group |
-| `slot_access: same_as_app` (waf) | an origin group and route of the slot on the Front Door call, over private link to `sites-<name>` | |
-| `slot_access: known_addresses`, `slot_ip_restrictions` | `slots[].publicNetworkAccess: 'Enabled'`, `slots[].siteConfig` with `ipSecurityRestrictions`, `ipSecurityRestrictionsDefaultAction: 'Deny'`, `scmIpSecurityRestrictionsUseMain: true` | A slot `siteConfig` **replaces** the site's: write the whole object |
-| `managed_identity` (forced `user_assigned`) | `managedIdentities: { userAssignedResourceIds: [...] }` on the site | Inherited by the slot |
-| `auto_swap` | `slots[].siteConfig.autoSwapSlotName: 'production'` | Omitted while `false`; needs the whole `siteConfig` on the slot |
-| `sticky_settings` | `configs: [ { name: 'slotConfigNames', properties: { appSettingNames: [...] } } ]` on the site | **Write `configs` on each slot** - the slot inherits the site's `configs`, and `slotConfigNames` is not available for slots: the slot's list holds its `appsettings` only (`[]` when it has none) |
-| `application_insights` | `slots[].configs: [ { name: 'appsettings', properties: { APPLICATIONINSIGHTS_CONNECTION_STRING, APPLICATIONINSIGHTS_AUTHENTICATION_STRING } } ]` | The same component as the site |
-| diagnostics | `slots[].diagnosticSettings` | Same categories as the site |
+What each decision renders to - the parameter and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.
 
 ```bicep
     // decision: app-service.slots.deployment_slots
@@ -251,7 +221,7 @@ decision is observable in `tests/*.armtest.yaml` as a member of `slots.value[<i>
 
 A module call compiles to a nested deployment whose `properties.parameters.<param>.value`
 is the decision ([bicep-idiom.md](../../../core/iac-rendering/references/bicep-idiom.md#tests)),
-so every decision above is observable in `tests/*.armtest.yaml` - including the plan's,
+so every decision in render-map.yaml is observable in `tests/*.armtest.yaml` - including the plan's,
 which the Terraform side cannot see. `siteConfig` is one object parameter; its members
 are matched inside it. `application_insights` is the `APPLICATIONINSIGHTS_CONNECTION_STRING`
 key of the `appsettings` entry in `configs`; its value is the component's output, an
@@ -262,20 +232,7 @@ expression in the compiled template, so the test matches the key, not the value.
 The fallback - `implementation: authored`, a repository that already renders the app this
 way, or reading what the modules do inside.
 
-| Decision | Property |
-|---|---|
-| `os_type` | `Microsoft.Web/serverfarms` `kind` and `properties.reserved` |
-| `sku` | `sku.name` on the plan |
-| `zone_redundant` | `properties.zoneRedundant` on the plan |
-| `instance_count` | `sku.capacity` on the plan |
-| `public_network_access` | `properties.publicNetworkAccess` on the site |
-| `vnet_integration` | `properties.virtualNetworkSubnetId` |
-| `vnet_route_all` | `properties.vnetRouteAllEnabled` (older) / `outboundVnetRouting.allTraffic` |
-| `https_only` | `properties.httpsOnly` |
-| `min_tls_version` | `properties.siteConfig.minTlsVersion` |
-| `basic_auth_enabled` | child resources `basicPublishingCredentialsPolicies/ftp` and `/scm`, `properties.allow` |
-| `container_image_owner: image_pipeline` | `properties.siteConfig.linuxFxVersion` from a parameter with the running value, the bootstrap image while it is empty |
-| `entra_sign_in`, `entra_client_secret` | child `Microsoft.Web/sites/config` `authsettingsV2`: `globalValidation { requireAuthentication: true, unauthenticatedClientAction: 'RedirectToLoginPage' }`, `identityProviders.azureActiveDirectory.registration { openIdIssuer, clientId, clientSecretSettingName }` |
+What each decision renders to - the property and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.
 
 ```bicep
 resource plan 'Microsoft.Web/serverfarms@2024-04-01' = {

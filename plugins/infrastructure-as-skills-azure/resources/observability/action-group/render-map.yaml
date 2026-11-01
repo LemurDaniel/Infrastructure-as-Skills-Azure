@@ -22,7 +22,7 @@ decisions:
     terraform_avm:
       attribute: parent_id
       note: the group's id, not its name - AzAPI-only module
-    terraform: { attribute: resource_group_name, note: required by the provider schema; the reference's authored table omits it }
+    terraform: { attribute: resource_group_name, note: required by the provider schema; the reference's authored rendering omits it }
     bicep_avm: { gap: the deployment's resource group scope; no parameter }
     bicep: { gap: the deployment's resource group scope; no property }
 
@@ -153,9 +153,9 @@ decisions:
       note: module default false per receiver; written
     bicep: { attribute: 'properties.<receiver>[].useCommonAlertSchema', passthrough: true }
   notification.enabled:
-    terraform_avm: { attribute: enabled, passthrough: true, note: a per-stage variable }
+    terraform_avm: { attribute: enabled, passthrough: true, note: default true; a per-stage variable }
     terraform: { attribute: enabled, passthrough: true }
-    bicep_avm: { attribute: enabled, passthrough: true, note: a stage parameter }
+    bicep_avm: { attribute: enabled, passthrough: true, note: default true; a stage parameter }
     bicep: { attribute: properties.enabled, passthrough: true }
 
   # ----------------------------------------------------------------- identity

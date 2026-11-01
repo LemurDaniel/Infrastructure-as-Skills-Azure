@@ -129,7 +129,7 @@ decisions:
   # ----------------------------------------------------------------- identity
   identity.role_assignments:
     terraform_avm: { attribute: 'role_assignments.<key> = { role_definition_id_or_name, principal_id, principal_type }' }
-    terraform: { gap: the authored table names no role assignment; the renders field names only the module input }
+    terraform: { gap: the authored rendering names no role assignment; the renders field names only the module input }
     bicep:
       attribute: 'Microsoft.Authorization/roleAssignments properties = { principalId, roleDefinitionId, principalType }'
       note: one per entry, scoped to the bot; the role definition id, not the name - no module resolves names
@@ -176,7 +176,7 @@ decisions:
       attribute: diagnostic_settings.workspace.metric_categories
       values: { true: { expr: '["AllMetrics"]' }, false: { expr: '[]' } }
     terraform:
-      gap: authored azurerm_monitor_diagnostic_setting; the authored table names only enabled_log - no metric block is in the reference
+      gap: authored azurerm_monitor_diagnostic_setting; the authored rendering names only enabled_log - no metric block is in the reference
     bicep:
       attribute: 'Microsoft.Insights/diagnosticSettings properties.metrics[].category'
       values: { true: AllMetrics, false: null }

@@ -36,7 +36,7 @@ decisions:
       values: { flex_consumption: FC1, elastic_premium: { expr: '<EP1, EP2 or EP3 - no question picks the size>' } }
       also:
         flex_consumption: 'function_app_uses_fc1 = true'
-      note: elastic_premium is EP1..EP3 and no question picks the size; os_type = "Linux"; the site takes kind = "functionapp"
+      note: elastic_premium is EP1..EP3 and no question picks the size; os_type = "Linux" - Flex is Linux only; the site takes kind = "functionapp"; Premium also maximum_elastic_worker_count and elastic scale
     terraform:
       attribute: azurerm_service_plan.sku_name
       values: { flex_consumption: FC1, elastic_premium: { expr: '<EP1, EP2 or EP3 - no question picks the size>' } }
@@ -45,7 +45,7 @@ decisions:
       module: avm/res/web/serverfarm
       attribute: skuName
       values: { flex_consumption: FC1, elastic_premium: { expr: '<EP1, EP2 or EP3 - no question picks the size>' } }
-      note: "kind: 'linux' on the plan, 'functionapp,linux' on the site; elastic_premium is EP1..EP3 and no question picks the size"
+      note: "kind: 'linux' on the plan (Flex is Linux only; reserved follows kind), 'functionapp,linux' on the site; elastic_premium is EP1..EP3 and no question picks the size"
     bicep:
       attribute: sku.name
       values: { flex_consumption: FC1, elastic_premium: { expr: '<EP1, EP2 or EP3 - no question picks the size>' } }
@@ -117,30 +117,41 @@ decisions:
     terraform_avm:
       module: Azure/avm-res-web-site/azurerm
       attribute: storage_account_name
-      note: the host connection (AzureWebJobsStorage__accountName) - never storage_account_access_key
+      note: the host connection (AzureWebJobsStorage__accountName, __credential, __clientId) - never storage_account_access_key
     terraform: { attribute: storage_account_name, note: on azurerm_linux_function_app (Premium) }
     bicep_avm:
       module: avm/res/web/site
       attribute: "configs[name: 'appsettings'].properties.AzureWebJobsStorage__accountName"
-      note: never AzureWebJobsStorage with a key
+      note: "the host connection, with AzureWebJobsStorage__credential: 'managedidentity' and AzureWebJobsStorage__clientId; never AzureWebJobsStorage with a key"
     bicep: { gap: the authored text names no app settings for the host connection - the module form is the AzureWebJobsStorage__accountName app setting }
   storage.host_storage_auth:
     terraform_avm:
       module: Azure/avm-res-web-site/azurerm
-      gap: 'the reference renders no connection_string form (never storage_account_access_key); identity is storage_uses_managed_identity = true with storage_user_assigned_identity_client_id, and storage_authentication_type = "UserAssignedIdentity" with storage_user_assigned_identity_id'
+      attribute: storage_uses_managed_identity
+      values: { identity: true }
+      also:
+        identity: 'storage_user_assigned_identity_client_id = <client id>, storage_authentication_type = "UserAssignedIdentity", storage_user_assigned_identity_id = <identity id>'
+      note: never storage_account_access_key; both connections are set on Flex
     terraform:
-      gap: 'the reference renders no connection_string form; identity is storage_authentication_type = "UserAssignedIdentity" (Flex) or storage_uses_managed_identity = true (Premium)'
+      attribute: storage_authentication_type
+      values: { identity: UserAssignedIdentity }
+      note: Flex; on Premium the identity is storage_uses_managed_identity = true
     bicep_avm:
       module: avm/res/web/site
-      gap: "the reference renders no connection_string form (never AzureWebJobsStorage with a key); identity is functionAppConfig.deployment.storage.authentication.type: 'UserAssignedIdentity' with AzureWebJobsStorage__credential: 'managedidentity'"
+      attribute: functionAppConfig.deployment.storage.authentication.type
+      values: { identity: UserAssignedIdentity }
+      also:
+        identity: "AzureWebJobsStorage__credential: 'managedidentity'"
+      note: never AzureWebJobsStorage with a key
     bicep:
-      gap: "the reference renders no connection_string form; identity is properties.functionAppConfig.deployment.storage.authentication.type 'UserAssignedIdentity'"
+      attribute: properties.functionAppConfig.deployment.storage.authentication.type
+      values: { identity: UserAssignedIdentity }
   storage.deployment_container:
     terraform_avm:
       module: Azure/avm-res-web-site/azurerm
       attribute: storage_container_endpoint
       format: { expr: '"${<host_storage_blob_endpoint>}{value}"' }
-      note: the host account's blob endpoint followed by the container; Flex only
+      note: the second connection, Flex only - the deployment package; the host account's blob endpoint followed by the container
     terraform:
       attribute: storage_container_endpoint
       format: { expr: '"${<host_storage_blob_endpoint>}{value}"' }
@@ -149,7 +160,7 @@ decisions:
       module: avm/res/web/site
       attribute: functionAppConfig.deployment.storage.value
       format: { expr: "'${<hostStorageBlobEndpoint>}{value}'" }
-      note: "the host account's blob endpoint followed by the container; type: 'blobContainer'"
+      note: "the second connection, Flex only; the host account's blob endpoint followed by the container; type: 'blobContainer', authentication: { type: 'UserAssignedIdentity', userAssignedIdentityResourceId }"
     bicep:
       attribute: properties.functionAppConfig.deployment.storage.value
       format: { expr: "'${<hostStorageBlobEndpoint>}{value}'" }
@@ -219,7 +230,7 @@ decisions:
       module: Azure/avm-res-web-site/azurerm
       attribute: site_config.ip_restriction
       note: with scm_use_main_ip_restriction = true for the SCM site
-    terraform: { attribute: site_config.ip_restriction, note: from the question's renders - the authored table names none }
+    terraform: { attribute: site_config.ip_restriction, note: from the question's renders - the authored rendering names none }
     bicep_avm:
       module: avm/res/web/site
       attribute: siteConfig.ipSecurityRestrictions
@@ -305,7 +316,7 @@ decisions:
     bicep_avm:
       module: avm/res/web/site
       attribute: "configs[name: 'appsettings'].properties.APPLICATIONINSIGHTS_CONNECTION_STRING"
-      note: the component's connection string output, not its id; with APPLICATIONINSIGHTS_AUTHENTICATION_STRING while local auth is off; omitted while empty
+      note: the component's connection string output, not its id; with APPLICATIONINSIGHTS_AUTHENTICATION_STRING = Authorization=AAD (;ClientId=<client id> user-assigned) while local auth is off; omitted while empty
     bicep: { gap: reference names no authored property }
 
   # ------------------------------------------------------------ observability

@@ -37,11 +37,11 @@ decisions:
     terraform_avm:
       module: Azure/avm-res-relay-namespace/azurerm//modules/hybrid-connection
       attribute: one call per entry - name, relay_namespace_id, user_metadata
-      note: 'user_metadata is a JSON string: [{ key = "endpoint", value = "host:port" }]'
+      note: 'user_metadata is a JSON string the App Service Hybrid Connection Manager reads: [{ key = "endpoint", value = "host:port" }]'
     terraform: { attribute: azurerm_relay_hybrid_connection, note: with user_metadata }
     bicep_avm:
       attribute: 'hybridConnections[] = { name, userMetadata }'
-      note: 'untyped array; userMetadata is a JSON string ([{"key":"endpoint","value":"host:port"}])'
+      note: 'untyped array; userMetadata is a JSON string the App Service Hybrid Connection Manager reads ([{"key":"endpoint","value":"host:port"}])'
     bicep: { attribute: 'Microsoft.Relay/namespaces/hybridConnections properties: { requiresClientAuthorization, userMetadata }' }
   connections.client_authorization_required:
     terraform_avm:
@@ -69,12 +69,13 @@ decisions:
   access.local_auth:
     terraform_avm:
       gap: no input - the type has no switch; the authorization-rule submodule is not called, no listKeys
+      note: recorded forced; roles only
     terraform:
       gap: no azurerm_relay_namespace_authorization_rule and no *_connection_string output
     bicep_avm:
       attribute: authorizationRules
       values: { disabled: { expr: '[]' }, allowed_where_unavoidable: { expr: '[]' } }
-      note: both answers - the service creates RootManageSharedAccessKey anyway and no rule is rendered beyond it; unset, the module would declare that root rule itself
+      note: both answers - the service creates RootManageSharedAccessKey anyway and no rule is rendered beyond it; unset, the module would declare that root rule itself (Listen/Manage/Send)
     bicep:
       gap: no child authorizationRules and no listKeys() in any output
 
@@ -92,7 +93,7 @@ decisions:
     bicep_avm:
       attribute: networkRuleSets.publicNetworkAccess
       values: { disabled: Disabled, enabled_with_firewall: Enabled, enabled: Enabled }
-      note: child default Enabled - written; the module writes properties {} on the namespace, public access lives in the child
+      note: child default Enabled - written; under Disabled the child nulls defaultAction and ipRules; the module writes properties {} on the namespace, public access lives in the child
     bicep:
       attribute: properties.publicNetworkAccess
       values: { disabled: Disabled, enabled_with_firewall: Enabled, enabled: Enabled }
@@ -115,7 +116,7 @@ decisions:
       note: no azurerm argument; action = "Allow", with defaultAction = "Deny"
     bicep_avm:
       attribute: 'networkRuleSets.ipRules[].ipMask'
-      note: "action: 'Allow', networkRuleSets.defaultAction: 'Deny'; only under enabled_with_firewall"
+      note: "action: 'Allow', networkRuleSets.defaultAction: 'Deny' (the child forces Deny when rules exist); only under enabled_with_firewall"
     bicep: { attribute: 'networkRuleSets child properties.ipRules[].ipMask', note: "action: 'Allow', defaultAction: 'Deny'" }
 
   # ----------------------------------------------------------------- identity

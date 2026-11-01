@@ -23,22 +23,14 @@ the diagnostic setting takes `enabled_metric` (4.x: `metric`).
 
 ### Decision -> argument
 
-| Decision | Argument | Note |
+What each decision renders to - the argument and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.
+
+### Arguments no decision covers
+
+| Input | Argument | Note |
 |---|---|---|
-| `location` | `azurerm_eventgrid_system_topic.location` | The source's region, `global` for `Microsoft.Resources.*` topic types |
-| `source_resource` | `.source_resource_id` | Fixed at creation |
-| `topic_type` | `.topic_type` | Exact casing; fixed at creation |
 | `managed_identity`, `user_assigned_identity_ids` | `.identity { type, identity_ids }` | `SystemAssigned`, `UserAssigned` or both |
-| `event_subscriptions` | one `azurerm_eventgrid_system_topic_event_subscription` per entry, `for_each` | `system_topic` is the topic's **name**, with `resource_group_name` |
-| `destination_kind` | `service_bus_queue_id` / `service_bus_topic_id` / `eventhub_id` / `hybrid_connection_id` / `storage_queue_endpoint { storage_account_id, queue_name }` / `azure_function_endpoint { function_id }` / `webhook_endpoint { url }` | Exactly one per subscription |
-| `managed_identity` (delivery) | `delivery_identity { type = "SystemAssigned" }` and `dead_letter_identity { type }` | Omitted only under `managed_identity: none`; a webhook or hybrid connection has no identity delivery |
-| `event_delivery_schema` | `event_delivery_schema` | Platform default `EventGridSchema`; written |
-| `included_event_types` | `included_event_types` | Empty list delivers every type |
 | subject filter (content of the entry) | `subject_filter { subject_begins_with, subject_ends_with }` | |
-| `max_delivery_attempts`, `event_ttl_minutes` | `retry_policy { max_delivery_attempts, event_time_to_live }` | `event_time_to_live` is in **minutes** |
-| `keep_undeliverable_events`, `dead_letter_*` | `storage_blob_dead_letter_destination { storage_account_id, storage_blob_container_name }` + `dead_letter_identity` | |
-| `role_assignments` | `azurerm_role_assignment` scoped to the topic | |
-| `diagnostic_*`, `metrics_enabled` | `azurerm_monitor_diagnostic_setting` with `enabled_log { category }`, `enabled_metric { category = "AllMetrics" }` | |
 | `deployment.resource_lock` | no lock - the type is not on the list | |
 | `context.tags` | `tags = local.tags` on the topic | A subscription has no tags |
 

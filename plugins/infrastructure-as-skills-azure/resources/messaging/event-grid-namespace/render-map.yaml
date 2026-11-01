@@ -43,11 +43,11 @@ decisions:
       note: the API accepts 1.2 only
     bicep: { attribute: properties.minimumTlsVersionAllowed, passthrough: true }
   namespace.local_auth:
-    not_rendered: the type has no switch - no listKeys, no key output; data-plane access through role_assignments only
+    not_rendered: the type has no switch - no listKeys, no key output; data-plane access through role_assignments only; recorded forced
   namespace.zone_redundant:
     terraform_avm:
       gap: not carried by the module - the platform's regional default; a false in a zonal region renders the namespace authored
-      note: fixed at creation, so an azapi_update_resource cannot set it
+      note: the regional default is true in a zonal region; fixed at creation, so an azapi_update_resource cannot set it
     terraform: { attribute: body.properties.isZoneRedundant, passthrough: true, note: fixed at creation }
     bicep_avm: { attribute: isZoneRedundant, passthrough: true, note: no module default (the platform decides when unset) - written; fixed at creation }
     bicep: { attribute: properties.isZoneRedundant, passthrough: true, note: fixed at creation }

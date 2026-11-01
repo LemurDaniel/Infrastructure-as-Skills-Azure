@@ -62,7 +62,7 @@ decisions:
       attribute: opts
       note: 'submodule default [], the vault module''s keys default ["sign", "verify"] - written'
     terraform: { attribute: key_opts, note: required }
-    bicep_avm: { attribute: keyOps, note: unset by default (the type's operations); written }
+    bicep_avm: { attribute: keyOps, note: 'unset by default (the type''s operations); written; allowed: decrypt, encrypt, import, sign, unwrapKey, verify, wrapKey' }
     bicep: { attribute: properties.keyOps }
   security.key_size:
     terraform_avm: { attribute: size, passthrough: true, note: RSA only; null for EC }

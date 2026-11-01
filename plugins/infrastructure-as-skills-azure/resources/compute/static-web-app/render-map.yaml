@@ -76,7 +76,7 @@ decisions:
     terraform: { attribute: azurerm_private_endpoint.subnet_id, note: 'subresource_names = ["staticSites"]' }
     bicep_avm:
       attribute: 'privateEndpoints[].subnetResourceId'
-      note: "service: 'staticSites'; createPrivateDnsZone: 'Disabled' always written - module default Enabled creates a zone"
+      note: "service: 'staticSites' (its default); createPrivateDnsZone: 'Disabled' always written - module default Enabled creates a zone and needs virtualNetworkResourceId"
     bicep: { attribute: Microsoft.Network/privateEndpoints properties.subnet.id, note: "groupIds: [ 'staticSites' ]" }
 
   # ----------------------------------------------------------------- identity

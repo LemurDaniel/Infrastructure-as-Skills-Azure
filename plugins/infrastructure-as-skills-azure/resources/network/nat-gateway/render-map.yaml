@@ -74,7 +74,7 @@ decisions:
       also:
         with_gateway: 'public_ip_configuration = { for i, n in data.naming_name.nat_public_ip.at_index : "ip_${i + 1}" => { sku = {gateway.sku}, allocation_method = "Static", zones = ["1", "2", "3"] } }'
         separate: 'public_ip_resource_ids = <ids from the public-ip-address set>'
-      note: with_gateway sets both inputs with the same keys (zones are strings here); separate sets public_ip_resource_ids instead
+      note: with_gateway sets both inputs with the same keys; sku equal to sku_name (module default StandardV2 for both); zones are strings here, unlike the public IP module's numbers; separate sets public_ip_resource_ids instead
     terraform:
       gap: >-
         with_gateway renders the azurerm_public_ip addresses (as in the public-ip-address set) and an

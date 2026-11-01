@@ -41,7 +41,7 @@ decisions:
         D4: { expr: '[{ name = "D4", workload_profile_type = "D4" }]' }
         D8: { expr: '[{ name = "D8", workload_profile_type = "D8" }]' }
         E4: { expr: '[{ name = "E4", workload_profile_type = "E4" }]' }
-      note: a dedicated profile also takes minimum_count / maximum_count - no question decides them, an open item; the app module takes workload_profile_name
+      note: Consumption is a profile, the singular workload_profile is deprecated; a dedicated profile also takes minimum_count / maximum_count - no question decides them, an open item; the app module takes workload_profile_name - unset, workload profiles are not used
     terraform:
       gap: the workload_profile block on azurerm_container_app_environment - the reference names the block, not its arguments; the app takes workload_profile_name
     bicep_avm:
@@ -52,7 +52,7 @@ decisions:
         D4: { expr: "[ { name: 'D4', workloadProfileType: 'D4' } ]" }
         D8: { expr: "[ { name: 'D8', workloadProfileType: 'D8' } ]" }
         E4: { expr: "[ { name: 'E4', workloadProfileType: 'E4' } ]" }
-      note: required when zoneRedundant is true; the app module takes workloadProfileName
+      note: required when zoneRedundant is true (the README - WAF compliance); the app module takes workloadProfileName
     bicep:
       attribute: properties.workloadProfiles
       values:
@@ -155,12 +155,12 @@ decisions:
     terraform_avm: { module: Azure/avm-res-app-containerapp/azurerm, attribute: template.min_replicas, passthrough: true }
     terraform: { gap: on azurerm_container_app the reference names only the block - not its arguments }
     bicep_avm: { module: avm/res/app/container-app, attribute: scaleSettings.minReplicas, passthrough: true }
-    bicep: { gap: the authored table names no scale property of the app }
+    bicep: { gap: the authored rendering names no scale property of the app }
   app.max_replicas:
     terraform_avm: { module: Azure/avm-res-app-containerapp/azurerm, attribute: template.max_replicas, passthrough: true }
     terraform: { gap: on azurerm_container_app the reference names only the block - not its arguments }
     bicep_avm: { module: avm/res/app/container-app, attribute: scaleSettings.maxReplicas, passthrough: true }
-    bicep: { gap: the authored table names no scale property of the app }
+    bicep: { gap: the authored rendering names no scale property of the app }
   app.revision_mode:
     terraform_avm: { module: Azure/avm-res-app-containerapp/azurerm, attribute: revision_mode, passthrough: true, note: default Single; written }
     terraform: { attribute: revision_mode, passthrough: true, note: the reference names the argument; Single / Multiple as on the module }
@@ -173,7 +173,7 @@ decisions:
       module: Azure/avm-res-app-containerapp/azurerm
       attribute: ingress.external_enabled
       values: { none: null, environment: false, external: true }
-      note: omit the whole ingress input for none; module default false - written
+      note: omit the whole ingress input for none; module default false - written; transport is a member of the ingress object beside it
     terraform: { gap: on azurerm_container_app the reference names only the block - not its arguments }
     bicep_avm:
       module: avm/res/app/container-app
@@ -224,7 +224,7 @@ decisions:
     bicep:
       attribute: identity.type
       values: { system_assigned: SystemAssigned, user_assigned: UserAssigned, none: null }
-      note: from the question's renders; the authored table names no property. none renders no identity block
+      note: from the question's renders; the authored rendering names no property. none renders no identity block
   identity.user_assigned_identity_ids:
     terraform_avm:
       module: Azure/avm-res-app-containerapp/azurerm
@@ -269,7 +269,7 @@ decisions:
       attribute: 'diagnosticSettings[].workspaceResourceId'
       note: "with appLogsConfiguration: { destination: 'azure-monitor' } - never log-analytics (shared key)"
     bicep:
-      gap: "the authored table names no diagnostic setting for the workspace id; properties.appLogsConfiguration.destination is the constant 'azure-monitor'"
+      gap: "the authored rendering names no diagnostic setting for the workspace id; properties.appLogsConfiguration.destination is the constant 'azure-monitor'"
   observability.diagnostic_categories:
     terraform_avm:
       module: Azure/avm-res-app-managedenvironment/azurerm
@@ -295,10 +295,10 @@ decisions:
     terraform_avm:
       module: Azure/avm-res-app-containerapp/azurerm
       attribute: 'template.containers[].env'
-      note: the component's connection string output, not its id - APPLICATIONINSIGHTS_CONNECTION_STRING plain, APPLICATIONINSIGHTS_AUTHENTICATION_STRING while local auth is off; omitted while empty
+      note: the component's connection string output, not its id - APPLICATIONINSIGHTS_CONNECTION_STRING plain, APPLICATIONINSIGHTS_AUTHENTICATION_STRING = Authorization=AAD;ClientId=<client id> with the app's user-assigned identity while local auth is off; omitted while empty
     terraform: { gap: on azurerm_container_app the reference names only the block - not its arguments }
     bicep_avm:
       module: avm/res/app/container-app
       attribute: 'containers[].env'
-      note: the component's connection string output, not its id - APPLICATIONINSIGHTS_CONNECTION_STRING, and APPLICATIONINSIGHTS_AUTHENTICATION_STRING while local auth is off; omitted while empty
+      note: the component's connection string output, not its id - APPLICATIONINSIGHTS_CONNECTION_STRING, and APPLICATIONINSIGHTS_AUTHENTICATION_STRING = Authorization=AAD;ClientId=<client id> with the app's user-assigned identity while local auth is off; omitted while empty
     bicep: { gap: reference names no authored property }

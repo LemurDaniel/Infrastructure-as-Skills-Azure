@@ -18,9 +18,9 @@ decisions:
     not_rendered: naming parameter `environment` and the tag of that name; no attribute of the profile
   placement.location:
     terraform_avm: { gap: 'location = "global" on the profile, a constant whatever the answer - the module requires the argument' }
-    terraform: { gap: "terraform.md's authored table names no location argument" }
+    terraform: { gap: "terraform.md's authored rendering names no location argument" }
     bicep_avm: { gap: "location: 'global' on the profile module, a constant whatever the answer" }
-    bicep: { gap: "bicep.md's authored table names no location property" }
+    bicep: { gap: "bicep.md's authored rendering names no location property" }
   placement.resource_group_name:
     terraform_avm:
       attribute: resource_group_name
@@ -55,7 +55,7 @@ decisions:
         system_assigned: { expr: '{ system_assigned = true }' }
         user_assigned: { expr: '{ user_assigned_resource_ids = {profile.user_assigned_identity_ids} }' }
       note: none leaves the input out
-    terraform: { gap: "terraform.md's authored table names no identity argument" }
+    terraform: { gap: "terraform.md's authored rendering names no identity argument" }
     bicep_avm:
       attribute: managedIdentities
       module: avm/res/cdn/profile
@@ -64,12 +64,12 @@ decisions:
         system_assigned: { expr: '{ systemAssigned: true }' }
         user_assigned: { expr: '{ userAssignedResourceIds: {profile.user_assigned_identity_ids} }' }
       note: none leaves the parameter out
-    bicep: { gap: "bicep.md's authored table names no identity property" }
+    bicep: { gap: "bicep.md's authored rendering names no identity property" }
   profile.user_assigned_identity_ids:
     terraform_avm: { attribute: managed_identities.user_assigned_resource_ids }
-    terraform: { gap: "terraform.md's authored table names no identity argument" }
+    terraform: { gap: "terraform.md's authored rendering names no identity argument" }
     bicep_avm: { attribute: managedIdentities.userAssignedResourceIds, module: avm/res/cdn/profile }
-    bicep: { gap: "bicep.md's authored table names no identity property" }
+    bicep: { gap: "bicep.md's authored rendering names no identity property" }
 
   # ----------------------------------------------------------------- delivery
   delivery.origins:
@@ -94,7 +94,7 @@ decisions:
       gap: >-
         private_link sets originGroups[].origins[].sharedPrivateLinkResource (its members are read
         from the README), public leaves it out; the connection arrives pending
-    bicep: { gap: "bicep.md's authored table names no property for the private link on originGroups/origins" }
+    bicep: { gap: "bicep.md's authored rendering names no property for the private link on originGroups/origins" }
   delivery.forwarding_protocol:
     terraform_avm: { attribute: 'front_door_routes.<k>.forwarding_protocol', passthrough: true, note: route default MatchRequest - written }
     terraform: { gap: "terraform.md names the resource azurerm_cdn_frontdoor_route, not the argument" }

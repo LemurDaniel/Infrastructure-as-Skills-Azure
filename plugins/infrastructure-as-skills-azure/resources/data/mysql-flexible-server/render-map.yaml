@@ -28,7 +28,7 @@ decisions:
   server.mysql_version:
     terraform_avm: { attribute: mysql_version, passthrough: true, note: 'a string ("8.4")' }
     terraform: { attribute: version, passthrough: true }
-    bicep_avm: { attribute: version, passthrough: true, note: module default 8.0.21 - always written }
+    bicep_avm: { attribute: version, passthrough: true, note: "allowed '5.7', '8.0.21', '8.4', '9.3'; module default 8.0.21 - always written" }
     bicep: { attribute: properties.version, passthrough: true }
   server.compute_tier:
     terraform_avm:
@@ -73,9 +73,9 @@ decisions:
       values: { true: Enabled, false: Disabled }
   server.databases:
     terraform_avm: { attribute: 'databases.<key> = { name, charset, collation }', note: all three required }
-    terraform: { gap: one azurerm_mysql_flexible_database per entry; the authored table names no argument }
+    terraform: { gap: one azurerm_mysql_flexible_database per entry; the authored rendering names no argument }
     bicep_avm: { attribute: 'databases[] = { name, charset, collation }' }
-    bicep: { gap: one child databases per entry; the authored table names no property }
+    bicep: { gap: one child databases per entry; the authored rendering names no property }
 
   # --------------------------------------------------------------- resilience
   resilience.high_availability:
@@ -99,13 +99,13 @@ decisions:
       values: { disabled: Disabled, same_zone: SameZone, zone_redundant: ZoneRedundant }
   resilience.maintenance_window:
     terraform_avm:
-      gap: 'maintenance_window = { day_of_week, start_hour, start_minute }, parsed from the free-text answer ("Sunday 02:00 UTC" is day_of_week = "0", start_hour = 2, start_minute = 0 - day_of_week a string); no literal follows from the answer as it is'
+      gap: 'maintenance_window = { day_of_week, start_hour, start_minute }, parsed from the free-text answer ("Sunday 02:00 UTC" is day_of_week = "0", start_hour = 2, start_minute = 0 - day_of_week a string; module default day 0 only); no literal follows from the answer as it is'
     terraform:
       gap: maintenance_window { day_of_week, start_hour, start_minute }, parsed from the free-text answer; no literal follows from the answer as it is
     bicep_avm:
       gap: "maintenanceWindow = { customWindow: 'Enabled', dayOfWeek, startHour, startMinute }, parsed from the free-text answer (\"Sunday 02:00 UTC\" is dayOfWeek 0, startHour 2, startMinute 0 - ints); module default {}"
     bicep:
-      gap: properties.maintenanceWindow, parsed from the free-text answer; the authored table names no sub-property
+      gap: properties.maintenanceWindow, parsed from the free-text answer; the authored rendering names no sub-property
 
   # --------------------------------------------------------------- networking
   networking.private_connectivity:
@@ -148,11 +148,11 @@ decisions:
     terraform_avm:
       attribute: 'private_endpoints.mysql.subnet_resource_id'
       note: with subresource_name = "mysqlServer"; private_endpoints_manage_dns_zone_group = false under policy DNS
-    terraform: { gap: 'an azurerm_private_endpoint with subresource_names = ["mysqlServer"]; the authored table names no subnet argument' }
+    terraform: { gap: 'an azurerm_private_endpoint with subresource_names = ["mysqlServer"]; the authored rendering names no subnet argument' }
     bicep_avm:
       attribute: 'privateEndpoints[].subnetResourceId'
       note: "with service: 'mysqlServer'; no privateDnsZoneGroup under policy DNS"
-    bicep: { gap: "a Microsoft.Network/privateEndpoints with groupIds: ['mysqlServer']; the authored table names no subnet property" }
+    bicep: { gap: "a Microsoft.Network/privateEndpoints with groupIds: ['mysqlServer']; the authored rendering names no subnet property" }
   networking.delegated_subnet:
     terraform_avm: { attribute: delegated_subnet_id, note: fixed at creation }
     terraform: { attribute: delegated_subnet_id }
@@ -166,23 +166,23 @@ decisions:
   networking.ip_rules:
     terraform_avm:
       gap: "firewall_rules = { <key> = { start_ip_address, end_ip_address } }, one entry per range, merged with allow_azure_services; the answer's item shape (an address, a CIDR, a range) is not stated, so no expression maps it. Default {}; written anyway"
-    terraform: { gap: one azurerm_mysql_flexible_server_firewall_rule per range; the authored table names no argument }
+    terraform: { gap: one azurerm_mysql_flexible_server_firewall_rule per range; the authored rendering names no argument }
     bicep_avm:
       gap: "firewallRules: [ { name, startIpAddress, endIpAddress } ], one per range; the answer's item shape is not stated, so no expression maps it"
-    bicep: { gap: one child firewallRules per range; the authored table names no property }
+    bicep: { gap: one child firewallRules per range; the authored rendering names no property }
   networking.allow_azure_services:
     terraform_avm:
       attribute: firewall_rules
       values: { true: { expr: '{ <key> = { start_ip_address = "0.0.0.0", end_ip_address = "0.0.0.0" } }' }, false: null }
       note: one entry of the same map as ip_rules - merged, never a second firewall_rules; false adds no rule
     terraform:
-      gap: an azurerm_mysql_flexible_server_firewall_rule from 0.0.0.0 to 0.0.0.0 for true, none for false; the authored table names no argument
+      gap: an azurerm_mysql_flexible_server_firewall_rule from 0.0.0.0 to 0.0.0.0 for true, none for false; the authored rendering names no argument
     bicep_avm:
       attribute: 'firewallRules[]'
       values: { true: { expr: "{ name: <name>, startIpAddress: '0.0.0.0', endIpAddress: '0.0.0.0' }" }, false: null }
       note: one element of the same array as ip_rules; false adds none
     bicep:
-      gap: a child firewallRules from 0.0.0.0 to 0.0.0.0 for true, none for false; the authored table names no property
+      gap: a child firewallRules from 0.0.0.0 to 0.0.0.0 for true, none for false; the authored rendering names no property
 
   # ----------------------------------------------------------------- identity
   identity.user_assigned_identity_ids:
@@ -195,18 +195,18 @@ decisions:
       attribute: active_directory_administrator
       format: { expr: '{ login = <display name of {value}>, object_id = <object id of {value}>, tenant_id = var.tenant_id, identity_id = var.user_assigned_identity_id }' }
       note: an object filled from the group; identity_id defaults to the first identity
-    terraform: { gap: an azurerm_mysql_flexible_server_active_directory_administrator; the authored table names no argument }
+    terraform: { gap: an azurerm_mysql_flexible_server_active_directory_administrator; the authored rendering names no argument }
     bicep_avm:
       attribute: administrators
       format: { expr: '[ { identityResourceId: userAssignedIdentityId, login: <display name of {value}>, sid: <object id of {value}> } ]' }
-    bicep: { gap: a child administrators; the authored table names no property }
+    bicep: { gap: a child administrators; the authored rendering names no property }
   identity.database_users:
     not_rendered: a SQL step after the deployment (CREATE AADUSER and GRANT as the Entra administrator); no module input and no ARM resource
   identity.role_assignments:
     terraform_avm: { attribute: role_assignments, note: control plane }
-    terraform: { gap: the authored table names no role assignment }
+    terraform: { gap: the authored rendering names no role assignment }
     bicep_avm: { attribute: roleAssignments, note: control plane }
-    bicep: { gap: the authored table names no role assignment }
+    bicep: { gap: the authored rendering names no role assignment }
 
   # ----------------------------------------------------------------- security
   security.password_authentication_disabled:
@@ -217,7 +217,7 @@ decisions:
     bicep_avm:
       gap: "true is configurations[] { name: 'aad_auth_only', source: 'user-override', value: 'ON' }; the reference states no literal for false. The administrator login and a secure password are still required at creation"
     bicep:
-      gap: true is a child configurations aad_auth_only = ON; the reference states no literal for false and the authored table names no property
+      gap: true is a child configurations aad_auth_only = ON; the reference states no literal for false and the authored rendering names no property
   security.minimum_tls_version:
     terraform_avm:
       attribute: server_configuration.tls_version
@@ -231,7 +231,7 @@ decisions:
     terraform:
       attribute: azurerm_mysql_flexible_server_configuration tls_version
       values: { TLSv1.2: 'TLSv1.2,TLSv1.3', TLSv1.3: TLSv1.3 }
-      note: the parameter's value; the authored table names no argument beside it
+      note: the parameter's value; the authored rendering names no argument beside it
     bicep_avm:
       attribute: 'configurations[]'
       values:
@@ -244,7 +244,7 @@ decisions:
     bicep:
       attribute: child configurations tls_version
       values: { TLSv1.2: 'TLSv1.2,TLSv1.3', TLSv1.3: TLSv1.3 }
-      note: the parameter's value; the authored table names no property of the child
+      note: the parameter's value; the authored rendering names no property of the child
   security.key_management:
     terraform_avm:
       attribute: customer_managed_key
@@ -264,13 +264,13 @@ decisions:
         platform_managed: null
         customer_managed: { expr: '{ keyVaultResourceId: <vault id of the key>, keyName: <key name>, userAssignedIdentityResourceId: <user-assigned identity id> }' }
       note: unversioned
-    bicep: { gap: 'properties.dataEncryption for customer_managed, unset for platform_managed; the authored table names no sub-property' }
+    bicep: { gap: 'properties.dataEncryption for customer_managed, unset for platform_managed; the authored rendering names no sub-property' }
   security.cmk_key_vault_key_id:
     terraform_avm: { attribute: customer_managed_key.key_vault_key_id, note: versionless }
     terraform: { attribute: customer_managed_key.key_vault_key_id }
     bicep_avm:
       gap: the key id split into customerManagedKey.keyVaultResourceId (the vault's id) and keyName (the key's name), written in key_management's object; no single parameter takes the id
-    bicep: { gap: properties.dataEncryption; the authored table names no sub-property }
+    bicep: { gap: properties.dataEncryption; the authored rendering names no sub-property }
   security.threat_protection:
     terraform_avm:
       gap: not a module input - an azapi_resource advancedThreatProtectionSettings child (name Default, body.properties.state = "Enabled" for true); the reference states no literal for false
@@ -301,9 +301,9 @@ decisions:
   # ------------------------------------------------------------ observability
   observability.diagnostic_workspace:
     terraform_avm: { attribute: 'diagnostic_settings.<key>.workspace_resource_id' }
-    terraform: { gap: an azurerm_monitor_diagnostic_setting; the authored table names no workspace argument }
+    terraform: { gap: an azurerm_monitor_diagnostic_setting; the authored rendering names no workspace argument }
     bicep_avm: { attribute: 'diagnosticSettings[].workspaceResourceId' }
-    bicep: { gap: the authored table names no diagnostic setting }
+    bicep: { gap: the authored rendering names no diagnostic setting }
   observability.audit_logging:
     terraform_avm:
       gap: 'true is server_configuration audit_log_enabled = { name = "audit_log_enabled", value = "ON" } and audit_log_events = { name = "audit_log_events", value = "CONNECTION" }, with the log category MySqlAuditLogs; the reference states no literal for false'
@@ -312,18 +312,18 @@ decisions:
     bicep_avm:
       gap: "true is configurations[] { name: 'audit_log_enabled', source: 'user-override', value: 'ON' } and { name: 'audit_log_events', source: 'user-override', value: 'CONNECTION' }, with the category MySqlAuditLogs; the reference states no literal for false"
     bicep:
-      gap: true is a child configurations audit_log_enabled = ON; the reference states no literal for false and the authored table names no property
+      gap: true is a child configurations audit_log_enabled = ON; the reference states no literal for false and the authored rendering names no property
   observability.diagnostic_categories:
     terraform_avm: { attribute: 'diagnostic_settings.<key>.log_categories', note: 'log_groups = [] beside it' }
     terraform: { attribute: azurerm_monitor_diagnostic_setting.enabled_log.category }
     bicep_avm: { attribute: 'diagnosticSettings[].logCategoriesAndGroups[].category' }
-    bicep: { gap: the authored table names no diagnostic setting }
+    bicep: { gap: the authored rendering names no diagnostic setting }
   observability.metrics_enabled:
     terraform_avm:
       attribute: 'diagnostic_settings.<key>.metric_categories'
       values: { true: { expr: '["AllMetrics"]' }, false: { expr: '[]' } }
-    terraform: { gap: the authored table names no metric category }
+    terraform: { gap: the authored rendering names no metric category }
     bicep_avm:
       attribute: 'diagnosticSettings[].metricCategories'
       values: { true: { expr: "[ { category: 'AllMetrics' } ]" }, false: { expr: '[]' } }
-    bicep: { gap: the authored table names no diagnostic setting }
+    bicep: { gap: the authored rendering names no diagnostic setting }

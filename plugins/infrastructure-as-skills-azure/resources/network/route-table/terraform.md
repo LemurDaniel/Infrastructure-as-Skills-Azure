@@ -22,13 +22,13 @@ set is the union with the other modules.
 
 ### Decision -> module input
 
+What each decision renders to - the input and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.
+
+Not decisions of this set:
+
 | Decision | Input | Note |
 |---|---|---|
 | (the table) | `name` through the naming provider | `subname` carries the subnet role: `rt-gwc-dev-telemetry-spoke-01` |
-| `default_route: firewall`, `firewall_private_ip` | `routes = { default = { name, address_prefix = "0.0.0.0/0", next_hop_type = "VirtualAppliance", next_hop_in_ip_address } }` | Written as an entry, so it shows in the plan |
-| `routes` | further entries of `routes`, the key arbitrary and stable; `next_hop_type` one of `VirtualAppliance`, `VirtualNetworkGateway`, `VnetLocal`, `Internet`, `None` | `next_hop_in_ip_address` only for `VirtualAppliance` |
-| `bgp_route_propagation` | `bgp_route_propagation_enabled` | `disabled` renders **`false`**; module default is `true`, the portal's too |
-| `subnets` | not an input here | The association is the virtual-network set's `subnets.<k>.route_table = { id = module.route_table.resource_id }`; `subnet_resource_ids` stays empty |
 | `deployment.module_telemetry` | `enable_telemetry` | |
 | `context.tags` | `tags = local.tags` | |
 
@@ -118,10 +118,6 @@ run "networking" {
 
 The fallback. Targets `azurerm` **5.x**; check against `terraform providers schema -json`.
 
-| Decision | Resource |
-|---|---|
-| the table, `bgp_route_propagation` | `azurerm_route_table` with `bgp_route_propagation_enabled` |
-| `default_route`, `routes` | `azurerm_route` each (`address_prefix`, `next_hop_type`, `next_hop_in_ip_address`) **or** the table's inline `route` argument (a list of objects on 5.x, no longer a block) - **not both**, the two fight on every apply |
-| `subnets` | `azurerm_subnet_route_table_association` - or the subnet's own `route_table_id`; one of them, never both |
+What each decision renders to - the resource and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.
 
 Validated against `azurerm` 5.x.

@@ -22,7 +22,7 @@ decisions:
     terraform_avm:
       attribute: parent_id
       note: the group's id, not its name - AzAPI-only module
-    terraform: { attribute: resource_group_name, note: required by the provider schema; the reference's authored table omits it }
+    terraform: { attribute: resource_group_name, note: required by the provider schema; the reference's authored rendering omits it }
     bicep_avm: { gap: the deployment's resource group scope; no parameter }
     bicep: { gap: the deployment's resource group scope; no property }
 
@@ -94,9 +94,9 @@ decisions:
   # ----------------------------------------------------------------- identity
   identity.role_assignments:
     terraform_avm: { attribute: 'role_assignments.<key> = { role_definition_id_or_name, principal_id }' }
-    terraform: { gap: an azurerm_role_assignment with scope = the component's id; the reference's authored table names none }
+    terraform: { gap: an azurerm_role_assignment with scope = the component's id; the reference's authored rendering names none }
     bicep_avm: { attribute: roleAssignments }
-    bicep: { gap: a Microsoft.Authorization/roleAssignments with scope set to the component; the reference's authored table names none }
+    bicep: { gap: a Microsoft.Authorization/roleAssignments with scope set to the component; the reference's authored rendering names none }
 
   # ----------------------------------------------------------------- security
   security.local_authentication_disabled:

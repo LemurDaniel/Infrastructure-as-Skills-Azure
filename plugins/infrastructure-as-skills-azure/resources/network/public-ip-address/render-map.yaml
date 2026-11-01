@@ -28,11 +28,11 @@ decisions:
 
   # ------------------------------------------------------------------ address
   address.purpose:
-    not_rendered: the naming convention's `name` parameter (<workload>-<purpose>) - the pattern has no SUBNAME token; and the SKU decision
+    not_rendered: the naming convention's `name` parameter (<workload>-<purpose>) - the pattern has no SUBNAME token, Bicep assembles it from the pip abbreviation, affix, workload and purpose; and the SKU decision
   address.sku:
     terraform_avm: { attribute: sku, note: module default Standard; written anyway, passthrough: true }
     terraform: { attribute: sku, passthrough: true }
-    bicep_avm: { attribute: skuName, note: module default Standard; written anyway, passthrough: true }
+    bicep_avm: { attribute: skuName, note: "module default Standard; written anyway. 'StandardV2' and 'Basic' are allowed values", passthrough: true }
     bicep: { attribute: sku.name, passthrough: true }
   address.sku_tier:
     terraform_avm: { attribute: sku_tier, passthrough: true }
@@ -79,7 +79,7 @@ decisions:
     bicep_avm:
       attribute: ddosSettings.protectionMode
       values: { Enabled: Enabled, VirtualNetworkInherited: null, Disabled: null }
-      note: VirtualNetworkInherited and Disabled omit ddosSettings - not carried; a recorded Disabled renders as inherited and the handover says so
+      note: Enabled is the only mode the module allows; VirtualNetworkInherited and Disabled omit ddosSettings - not carried; a recorded Disabled renders as inherited and the handover says so
     bicep: { attribute: properties.ddosSettings.protectionMode, passthrough: true, note: authored takes VirtualNetworkInherited and Disabled as well }
   security.ddos_protection_plan:
     terraform_avm: { attribute: ddos_protection_plan_id, note: only with Enabled }

@@ -82,7 +82,7 @@ decisions:
       values:
         true: { expr: proximityPlacementGroup.id }
         false: null
-      note: true also renders Microsoft.Compute/proximityPlacementGroups; absent for false
+      note: true also renders Microsoft.Compute/proximityPlacementGroups (with properties.proximityPlacementGroupType); absent for false
   proximity.proximity_zone:
     terraform:
       module: Azure/avm-res-compute-proximityplacementgroup/azurerm

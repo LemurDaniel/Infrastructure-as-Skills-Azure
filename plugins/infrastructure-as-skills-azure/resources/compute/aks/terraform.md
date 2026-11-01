@@ -23,39 +23,12 @@ modules in the deployment may not allow; the union of the requirements decides.
 
 ### Decision -> module input
 
-| Decision | Input | Note |
+What each decision renders to - the input and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.
+
+### Deployment-wide inputs
+
+| Setting | Input | Note |
 |---|---|---|
-| `sku_tier` | `sku = { name = "Base", tier }` | Bicep defaults `Standard`, Terraform unset (`Free`); written |
-| `kubernetes_version` | `kubernetes_version` | A minor (`"1.33"`) takes the newest patch; looked up, never recalled |
-| `upgrade_channel`, `node_os_upgrade_channel` | `auto_upgrade_profile = { upgrade_channel, node_os_upgrade_channel }` | Module defaults `"none"` (Bicep `stable`) and `"NodeImage"`; written |
-| `zone_redundant` | `availability_zones = ["1", "2", "3"]` on both pools | Strings in Terraform, integers in Bicep. Set when a pool is created |
-| `public_network_access` | `public_network_access` (`"Disabled"` / `"Enabled"`) and `api_server_access_profile.enable_private_cluster` | `disabled` is both; `enabled_with_firewall` is `Enabled` with `authorized_ip_ranges`; module default unset |
-| `authorized_ip_ranges` | `api_server_access_profile.authorized_ip_ranges` | Never rendered empty |
-| `private_dns_zone`, `private_dns_zone_id` | `api_server_access_profile.private_dns_zone` | `"system"`, or the zone's resource id; `"none"` is not offered |
-| `node_subnet` | `vnet_subnet_id` on `default_agent_pool` and each `agent_pools` entry | |
-| `network_plugin_mode` | `network_profile.network_plugin = "azure"`, `network_plugin_mode` | `"overlay"` or unset for `vnet` |
-| `network_dataplane`, `network_policy` | `network_profile.network_dataplane`, `network_policy` | `"cilium"` / `"azure"`; policy `"cilium"`, `"calico"`, `"azure"` or unset for `none` |
-| `pod_cidr`, `service_cidr`, `dns_service_ip` | `network_profile.pod_cidr`, `service_cidr`, `dns_service_ip` | `pod_cidr` only with overlay |
-| `outbound_type` | `network_profile.outbound_type` | `"loadBalancer"`, `"managedNATGateway"`, `"userDefinedRouting"` |
-| `system_pool_vm_size`, `_min_count`, `_max_count` | `default_agent_pool = { vm_size, enable_auto_scaling = true, count_of, min_count, max_count }` | `count_of` is written equal to `min_count`: it is the initial size |
-| `system_pool_dedicated` | `default_agent_pool.node_taints = ["CriticalAddonsOnly=true:NoSchedule"]` | |
-| `user_pool_*` | `agent_pools = { user = { name, mode = "User", vm_size, enable_auto_scaling, count_of, min_count, max_count } }` | |
-| `os_sku`, `os_disk_type` | `os_sku`, `os_disk_type` on both pools | Release names (`AzureLinux3`, ...) from the README |
-| `encryption_at_host` | `enable_encryption_at_host` on both pools | |
-| `managed_identity`, `user_assigned_identity_ids` | `managed_identities = { system_assigned, user_assigned_resource_ids }` | One kind only |
-| `entra_integration`, `azure_rbac_enabled`, `admin_group_object_ids` | `aad_profile = { managed, enable_azure_rbac, admin_group_object_ids }` | `enable_rbac = true` written beside it |
-| `local_accounts_disabled` | `disable_local_accounts` | Inverse reading of `local_auth`; module default `false`; written |
-| `oidc_issuer_enabled` | `oidc_issuer_profile = { enabled }` | Module default unset; written |
-| `workload_identity_enabled` | `security_profile.workload_identity = { enabled }` | |
-| `defender_enabled` | `security_profile.defender = { log_analytics_workspace_resource_id, security_monitoring = { enabled } }` | The workspace id is `diagnostic_workspace` |
-| `image_cleaner_enabled` | `security_profile.image_cleaner = { enabled, interval_hours = 168 }` | |
-| `azure_policy_enabled` | `addon_profile_azure_policy = { enabled }` | |
-| `keyvault_secrets_provider_enabled` | `addon_profile_key_vault_secrets_provider = { enabled, config = { enable_secret_rotation = true } }` | |
-| `key_management`, `disk_encryption_set_id` | `disk_encryption_set_id` | |
-| `container_insights_enabled` | `addon_profile_oms_agent = { enabled, config = { log_analytics_workspace_resource_id, use_aad_auth = true } }` and `onboard_monitoring = true` | `onboard_monitoring` also creates the data collection rule; the validation needs the workspace id |
-| `diagnostic_*`, `metrics_enabled` | `diagnostic_settings = { workspace = { workspace_resource_id, log_categories = [...], log_groups = [], metric_categories = ["AllMetrics"] } }` | `log_groups` defaults to `["allLogs"]`: set it empty when `log_categories` names the categories, or every log is collected beside them |
-| `role_assignments` | `role_assignments` | `role_definition_id_or_name`, `principal_id` |
-| `acr_pull_registry_ids` | *(root)* a role assignment per registry for `module.aks.kubelet_identity.objectId` | Not a module input; `AcrPull` on the registry |
 | `deployment.resource_lock` | none | AKS is not in the locked set |
 | `deployment.module_telemetry` | `enable_telemetry` | |
 | `context.tags` | `tags = local.tags` | |
@@ -216,13 +189,4 @@ pool names from the naming provider and the `AcrPull` assignments per registry.
 
 The fallback. Targets `azurerm` **5.x**; check against `terraform providers schema -json`.
 
-| Decision | Resource and argument |
-|---|---|
-| the cluster | `azurerm_kubernetes_cluster` (`public_network_access` is not an argument in 5.x: the private cluster is the control) with `sku_tier`, `kubernetes_version`, `automatic_upgrade_channel`, `node_os_upgrade_channel`, `private_cluster_enabled`, `private_dns_zone_id`, `api_server_access_profile { authorized_ip_ranges }`, `local_account_disabled`, `oidc_issuer_enabled`, `workload_identity_enabled`, `image_cleaner_enabled`, `azure_policy_enabled`, `disk_encryption_set_id` |
-| the system pool | `default_node_pool { vm_size, min_count, max_count, auto_scaling_enabled, zones, vnet_subnet_id, only_critical_addons_enabled, os_sku, os_disk_type, host_encryption_enabled }` |
-| the user pool | `azurerm_kubernetes_cluster_node_pool` with `mode = "User"` and the same arguments |
-| `network_*`, CIDRs, outbound | `network_profile { network_plugin, network_plugin_mode, network_data_plane, network_policy, pod_cidr, service_cidr, dns_service_ip, outbound_type }` |
-| Entra and Azure RBAC | `azure_active_directory_role_based_access_control { azure_rbac_enabled, admin_group_object_ids }` |
-| identity | `identity { type, identity_ids }` |
-| Defender, Container insights, secrets provider | `microsoft_defender { log_analytics_workspace_id }`, `oms_agent { log_analytics_workspace_id, msi_auth_for_monitoring_enabled }`, `key_vault_secrets_provider { secret_rotation_enabled }` |
-| diagnostics | `azurerm_monitor_diagnostic_setting` with `enabled_log { category }` |
+What each decision renders to - the argument and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.

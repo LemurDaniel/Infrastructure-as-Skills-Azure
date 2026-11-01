@@ -96,14 +96,16 @@ decisions:
   # --------------------------------------------------------------- networking
   networking.public_network_access:
     terraform:
-      gap: >-
-        azapi_resource body.properties.publicNetworkAccess - disabled "Disabled", enabled "Enabled",
-        SecuredByPerimeter with a perimeter; forced to Enabled without one; the reference maps no
-        enabled_with_firewall. No private endpoint; not in azurerm (the fallback needs an azapi_update_resource)
+      attribute: azapi_resource body.properties.publicNetworkAccess
+      values: { disabled: Disabled, enabled: Enabled }
+      note: SecuredByPerimeter with a perimeter; no private endpoint; not in azurerm (the fallback needs an azapi_update_resource)
     bicep_avm:
-      gap: publicNetworkAccess (unset by default; written) - disabled 'Disabled', enabled 'Enabled', 'SecuredByPerimeter' with a perimeter; the reference maps no enabled_with_firewall
+      attribute: publicNetworkAccess
+      values: { disabled: Disabled, enabled: Enabled }
+      note: SecuredByPerimeter with a perimeter; unset by default; written
     bicep:
-      gap: properties.publicNetworkAccess - disabled 'Disabled', enabled 'Enabled'; the reference maps no enabled_with_firewall
+      attribute: properties.publicNetworkAccess
+      values: { disabled: Disabled, enabled: Enabled }
   networking.network_security_perimeter:
     terraform:
       gap: an azapi_resource Microsoft.Network/networkSecurityPerimeters/profiles/resourceAssociations, only when set (publicNetworkAccess becomes SecuredByPerimeter); the reference names the resource, not its properties
@@ -140,7 +142,7 @@ decisions:
     bicep_avm:
       attribute: roleAssignments
       note: on both modules; 'Communication and Email Service Owner' by name
-    bicep: { gap: the authored table names no role assignment; the renders field names only the module input }
+    bicep: { gap: the authored rendering names no role assignment; the renders field names only the module input }
 
   # ----------------------------------------------------------------- security
   security.local_authentication_disabled:

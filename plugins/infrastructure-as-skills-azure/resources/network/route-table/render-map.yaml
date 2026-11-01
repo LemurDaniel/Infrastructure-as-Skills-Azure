@@ -54,7 +54,7 @@ decisions:
       values:
         firewall: { expr: "{ name: 'default-to-firewall', properties: { addressPrefix: '0.0.0.0/0', nextHopType: 'VirtualAppliance', nextHopIpAddress: {networking.firewall_private_ip} } }" }
         none: null
-      note: none renders no entry
+      note: written as an entry so it shows in the deployment; none renders no entry
     bicep:
       attribute: 'properties.routes[]'
       values:
@@ -69,13 +69,13 @@ decisions:
   networking.routes:
     terraform_avm:
       attribute: 'routes.<key> = { name, address_prefix, next_hop_type, next_hop_in_ip_address }'
-      note: the key arbitrary and stable; next_hop_in_ip_address only for VirtualAppliance
+      note: the key arbitrary and stable; next_hop_type one of VirtualAppliance, VirtualNetworkGateway, VnetLocal, Internet, None; next_hop_in_ip_address only for VirtualAppliance
     terraform:
       attribute: azurerm_route
-      note: or the table's inline route (a list of objects on 5.x) - not both, the two fight on every apply
+      note: one each { address_prefix, next_hop_type, next_hop_in_ip_address }, or the table's inline route (a list of objects on 5.x) - not both, the two fight on every apply
     bicep_avm:
       attribute: "routes[] = { name, properties: { addressPrefix, nextHopType, nextHopIpAddress } }"
-      note: nextHopIpAddress only for VirtualAppliance
+      note: nextHopType one of VirtualAppliance, VirtualNetworkGateway, VnetLocal, Internet, None; nextHopIpAddress only for VirtualAppliance
     bicep: { attribute: 'properties.routes[] = { name, properties: { addressPrefix, nextHopType, nextHopIpAddress } }' }
   networking.bgp_route_propagation:
     terraform_avm:
@@ -85,10 +85,11 @@ decisions:
     terraform:
       attribute: bgp_route_propagation_enabled
       values: { disabled: false, enabled: true }
+      note: on azurerm_route_table
     bicep_avm:
       attribute: disableBgpRoutePropagation
       values: { disabled: true, enabled: false }
-      note: inverted - disabled renders true; module default false
+      note: inverted - disabled renders true; module default false, the portal's too
     bicep:
       attribute: properties.disableBgpRoutePropagation
       values: { disabled: true, enabled: false }

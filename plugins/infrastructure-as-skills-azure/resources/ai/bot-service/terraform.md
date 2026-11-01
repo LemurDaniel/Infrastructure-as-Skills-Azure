@@ -20,25 +20,14 @@ module.
 
 ### Decision -> module input
 
-| Decision | Input | Note |
+What each decision renders to - the input and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.
+
+### Inputs no decision covers
+
+| Input | Module input | Note |
 |---|---|---|
-| `location` | `location = "global"` | Literal |
-| `sku` | `sku` | Module default **`F0`**; written |
 | (kind) | `kind = "azurebot"` | Module default; written |
-| `display_name` | `display_name` | `null` falls back to the name |
-| `messaging_endpoint` | `endpoint` | |
-| `app_identity_type` | `microsoft_app_type` | `UserAssignedMSI` / `SingleTenant` / `MultiTenant`; module default **`MultiTenant`**, which the platform refuses for new bots; written |
-| `bot_identity` | `microsoft_app_id` (its client id), `microsoft_app_msi_id` (its resource id), `microsoft_app_tenant_id` | All three for `UserAssignedMSI` |
-| `app_registration_client_id` | `microsoft_app_id`, `microsoft_app_tenant_id` | Single / multi tenant |
-| `channels` | `channels = { <k> = { channel_name, location = "global", properties } }` | `properties` is the channel's own object (`isEnabled`, sites, ...), content |
-| `streaming_endpoint` | `streaming_endpoint_enabled` | Module default `null` (on per README); written |
-| `public_network_access` | `public_network_access` | `"Enabled"` / `"Disabled"` / `"SecuredByPerimeter"`; overrides the bool `public_network_access_enabled`, which is left unset |
-| `private_endpoint_subnet`, `private_endpoint_subresources` | `private_endpoints = { bot = { subnet_resource_id, subresource_name = "Bot" }, token = { ..., subresource_name = "Token" } }` | Two endpoints |
 | `deployment.private_dns_records` | `private_endpoints_manage_dns_zone_group` | `false` under `policy` |
-| `role_assignments` | `role_assignments` | |
-| `local_authentication_disabled` | `local_authentication_enabled` | **Inverse**; default `null` (on); written |
-| `key_management`, `cmk_key_vault_key_id` | `is_cmek_enabled`, `cmek_key_vault_url` | The key URL, not a resource id |
-| `diagnostic_*`, `metrics_enabled` | `diagnostic_settings = { workspace = { workspace_resource_id, log_categories = ["BotRequest"], log_groups = [], metric_categories = ["AllMetrics"] } }` | `log_groups` defaults to `["allLogs"]`: set it empty |
 | `deployment.module_telemetry` | `enable_telemetry` | |
 | `context.tags` | `tags = local.tags` | |
 
@@ -137,14 +126,4 @@ and `# not-testable:` with a reason.
 The fallback. Targets `azurerm` **5.x** (`azurerm_bot_service_azure_bot`); check against
 `terraform providers schema -json`.
 
-| Decision | Argument |
-|---|---|
-| `sku`, `display_name`, `messaging_endpoint` | `sku`, `display_name`, `endpoint`, `location = "global"` |
-| `app_identity_type`, `bot_identity` / `app_registration_client_id` | `microsoft_app_type`, `microsoft_app_id`, `microsoft_app_msi_id`, `microsoft_app_tenant_id` |
-| `channels` | `azurerm_bot_channel_ms_teams`, `azurerm_bot_channel_directline`, `azurerm_bot_channel_web_chat`, `azurerm_bot_channel_email`, `azurerm_bot_channel_slack` |
-| `streaming_endpoint` | `streaming_endpoint_enabled` |
-| `public_network_access` | `public_network_access_enabled` (bool; `SecuredByPerimeter` needs `azapi`) |
-| `private_endpoint_subnet`, `private_endpoint_subresources` | `azurerm_private_endpoint` with `subresource_names = ["Bot"]` and a second with `["Token"]` |
-| `local_authentication_disabled` | `local_authentication_enabled` (inverse) |
-| `key_management` | `cmk_key_vault_key_url` |
-| diagnostics | `azurerm_monitor_diagnostic_setting` with `enabled_log { category = "BotRequest" }` |
+What each decision renders to - the argument and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.

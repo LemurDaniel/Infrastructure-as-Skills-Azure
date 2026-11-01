@@ -98,7 +98,7 @@ decisions:
       note: the vnet's id, the parent of the subnet's - the module finds AzureBastionSubnet by name; Developer too
     bicep:
       attribute: 'properties.ipConfigurations[].properties.subnet.id'
-      note: 'Developer: properties.virtualNetwork.id and no ipConfigurations'
+      note: "privateIPAllocationMethod: 'Dynamic' beside subnet and publicIPAddress; Developer: properties.virtualNetwork.id and no ipConfigurations"
   networking.public_ip_zone_redundant:
     terraform_avm: { gap: 'no input; the module creates the address Standard and static, with the zones of the Bastion (zones)' }
     terraform:
@@ -119,23 +119,23 @@ decisions:
     terraform_avm: { attribute: shareable_link_enabled, passthrough: true, note: rejected on Basic and Developer }
     terraform: { attribute: shareable_link_enabled, passthrough: true }
     bicep_avm: { attribute: enableShareableLink, passthrough: true }
-    bicep: { attribute: properties.enableShareableLink, passthrough: true }
+    bicep: { attribute: properties.enableShareableLink, passthrough: true, note: the switch exists from Standard upward }
   security.native_client:
     terraform_avm: { attribute: tunneling_enabled, passthrough: true, note: not compatible with session recording }
     terraform: { attribute: tunneling_enabled, passthrough: true }
     bicep_avm:
       gap: 'the module fixes enableTunneling on for Standard and for Premium without session recording; false on Standard renders the Bastion authored (forced_by: avm/res/network/bastion-host fixes tunneling on) or records true as forced'
-    bicep: { attribute: properties.enableTunneling, passthrough: true }
+    bicep: { attribute: properties.enableTunneling, passthrough: true, note: the switch exists from Standard upward }
   security.ip_connect:
     terraform_avm: { attribute: ip_connect_enabled, passthrough: true, note: rejected on Basic and Developer }
     terraform: { attribute: ip_connect_enabled, passthrough: true }
     bicep_avm: { attribute: enableIpConnect, passthrough: true }
-    bicep: { attribute: properties.enableIpConnect, passthrough: true }
+    bicep: { attribute: properties.enableIpConnect, passthrough: true, note: the switch exists from Standard upward }
   security.file_copy:
     terraform_avm: { attribute: file_copy_enabled, passthrough: true, note: rejected on Basic and Developer }
     terraform: { attribute: file_copy_enabled, passthrough: true }
     bicep_avm: { attribute: enableFileCopy, passthrough: true, note: "module default true, the Terraform module's false - written" }
-    bicep: { attribute: properties.enableFileCopy, passthrough: true }
+    bicep: { attribute: properties.enableFileCopy, passthrough: true, note: the switch exists from Standard upward }
   security.copy_paste:
     terraform_avm: { attribute: copy_paste_enabled, passthrough: true, note: false is rejected on Basic and Developer }
     terraform: { attribute: copy_paste_enabled, passthrough: true }
@@ -146,12 +146,12 @@ decisions:
     bicep:
       attribute: properties.disableCopyPaste
       values: { true: false, false: true }
-      note: inverted
+      note: inverted; the switch exists from Standard upward
   security.session_recording:
     terraform_avm: { attribute: session_recording_enabled, passthrough: true, note: Premium; the module has no input for the recording container }
     terraform: { attribute: session_recording_enabled, passthrough: true }
     bicep_avm: { attribute: enableSessionRecording, passthrough: true, note: Premium }
-    bicep: { attribute: properties.enableSessionRecording, passthrough: true }
+    bicep: { attribute: properties.enableSessionRecording, passthrough: true, note: the switch exists from Standard upward }
 
   # ------------------------------------------------------------ observability
   observability.diagnostic_workspace:

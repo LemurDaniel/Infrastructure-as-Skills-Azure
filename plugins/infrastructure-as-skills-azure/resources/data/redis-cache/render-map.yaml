@@ -28,15 +28,16 @@ decisions:
 
   # -------------------------------------------------------------------- cache
   cache.sku_name:
-    terraform_avm: { attribute: sku_name, passthrough: true, note: required }
+    terraform_avm: { attribute: sku_name, passthrough: true, note: required; the module's examples list the families }
     terraform: { attribute: sku_name, passthrough: true }
-    bicep_avm: { attribute: skuName, passthrough: true, note: module default Balanced_B5 - always written }
+    bicep_avm: { attribute: skuName, passthrough: true, note: module default Balanced_B5 - always written; capacity applies to the older Enterprise_* SKUs only }
     bicep: { attribute: sku.name, passthrough: true }
   cache.clustering_policy:
     terraform_avm:
       attribute: clustering_policy
       passthrough: true
-      note: EnterpriseCluster and OSSCluster only - the module's validation refuses NoCluster, which renders authored (default_database.clustering_policy); default EnterpriseCluster
+      authored_when: [NoCluster]
+      note: the module's validation lists NoEviction where the API says NoCluster; default EnterpriseCluster; written
     terraform: { attribute: default_database.clustering_policy, passthrough: true }
     bicep_avm: { attribute: database.clusteringPolicy, passthrough: true }
     bicep: { attribute: database properties.clusteringPolicy, passthrough: true }
@@ -44,7 +45,8 @@ decisions:
     terraform_avm:
       attribute: eviction_policy
       passthrough: true
-      note: module default AllKeysLRU; its validation refuses AllKeysLFU and VolatileLFU, which render authored (default_database.eviction_policy)
+      authored_when: [AllKeysLFU, VolatileLFU]
+      note: module default AllKeysLRU; written
     terraform: { attribute: default_database.eviction_policy, passthrough: true }
     bicep_avm: { attribute: database.evictionPolicy, passthrough: true }
     bicep: { attribute: database properties.evictionPolicy, passthrough: true }
@@ -64,7 +66,7 @@ decisions:
     bicep_avm:
       attribute: highAvailability
       values: { true: Enabled, false: Disabled }
-      note: module default Enabled; written anyway; availabilityZones left at its default
+      note: module default Enabled; written anyway; availabilityZones (default [1, 2, 3], documented for the Enterprise SKUs only) left at its default
     bicep:
       attribute: properties.highAvailability
       values: { true: Enabled, false: Disabled }
@@ -75,7 +77,7 @@ decisions:
     bicep_avm:
       attribute: 'database.geoReplication = { groupNickname, linkedDatabases }'
       note: one instance per region; the shape is read from the pinned README
-    bicep: { gap: the authored table names no geo-replication property }
+    bicep: { gap: the authored rendering names no geo-replication property }
 
   # --------------------------------------------------------------- networking
   networking.public_network_access:
@@ -110,19 +112,19 @@ decisions:
       values:
         none: { expr: '{}' }
         user_assigned: { expr: '{ user_assigned_resource_ids = {identity.user_assigned_identity_ids} }' }
-    terraform: { gap: the authored table names identity only beside key_management }
+    terraform: { gap: the authored rendering names identity only beside key_management }
     bicep_avm:
       attribute: managedIdentities
       values:
         none: { expr: '{}' }
         user_assigned: { expr: '{ userAssignedResourceIds: {identity.user_assigned_identity_ids} }' }
       note: user-assigned only
-    bicep: { gap: the authored table names identity only beside key_management }
+    bicep: { gap: the authored rendering names identity only beside key_management }
   identity.user_assigned_identity_ids:
     terraform_avm: { attribute: managed_identities.user_assigned_resource_ids }
-    terraform: { gap: the authored table names identity only beside key_management }
+    terraform: { gap: the authored rendering names identity only beside key_management }
     bicep_avm: { attribute: managedIdentities.userAssignedResourceIds }
-    bicep: { gap: the authored table names identity only beside key_management }
+    bicep: { gap: the authored rendering names identity only beside key_management }
   identity.data_access_assignments:
     terraform_avm:
       attribute: access_policy_assignments
@@ -134,9 +136,9 @@ decisions:
     bicep: { gap: a database child accessPolicyAssignments per principal; the table names no property for the object id }
   identity.role_assignments:
     terraform_avm: { attribute: role_assignments, note: control plane }
-    terraform: { gap: the authored table names no role assignment }
+    terraform: { gap: the authored rendering names no role assignment }
     bicep_avm: { attribute: roleAssignments, note: control plane }
-    bicep: { gap: the authored table names no role assignment }
+    bicep: { gap: the authored rendering names no role assignment }
 
   # ----------------------------------------------------------------- security
   security.access_keys_authentication_disabled:
@@ -183,14 +185,14 @@ decisions:
         customer_managed: { expr: '{ keyVaultResourceId: <vault id>, keyName: <key name>, userAssignedIdentityResourceId: <identity id> }' }
       note: unversioned
     bicep:
-      gap: properties.encryption.customerManagedKeyEncryption with identity for customer_managed, unset for platform_managed; the authored table names no sub-property
+      gap: properties.encryption.customerManagedKeyEncryption with identity for customer_managed, unset for platform_managed; the authored rendering names no sub-property
   security.cmk_key_vault_key_id:
     terraform_avm: { attribute: customer_managed_key_encryption.key_encryption_key_url, note: unversioned }
     terraform: { attribute: customer_managed_key.key_vault_key_id }
     bicep_avm:
       attribute: customerManagedKey.keyVaultResourceId
       note: the key id split - the vault's id here, the key's name into customerManagedKey.keyName
-    bicep: { gap: properties.encryption.customerManagedKeyEncryption; the authored table names no sub-property for the key }
+    bicep: { gap: properties.encryption.customerManagedKeyEncryption; the authored rendering names no sub-property for the key }
 
   # ---------------------------------------------------------- data_protection
   data_protection.persistence:
@@ -224,13 +226,13 @@ decisions:
     bicep_avm:
       attribute: 'database.diagnosticSettings[].workspaceResourceId'
       note: logs only on the database; the cluster's diagnosticSettings take the same workspace for the metrics
-    bicep: { gap: Microsoft.Insights/diagnosticSettings on the database (logs) and on the cluster (metrics); the authored table names no workspace property }
+    bicep: { gap: Microsoft.Insights/diagnosticSettings on the database (logs) and on the cluster (metrics); the authored rendering names no workspace property }
   observability.diagnostic_categories:
     terraform_avm:
       gap: the module builds no diagnostic setting - enabled_log.category on the authored azurerm_monitor_diagnostic_setting
     terraform: { attribute: azurerm_monitor_diagnostic_setting.enabled_log.category }
     bicep_avm: { attribute: 'database.diagnosticSettings[].logCategoriesAndGroups[].category' }
-    bicep: { gap: Microsoft.Insights/diagnosticSettings on the database; the authored table names no category property }
+    bicep: { gap: Microsoft.Insights/diagnosticSettings on the database; the authored rendering names no category property }
   observability.metrics_enabled:
     terraform_avm:
       gap: the module builds no diagnostic setting - enabled_metric { category = "AllMetrics" } on the authored azurerm_monitor_diagnostic_setting; whether it belongs to the cluster or the database is checked before a render
@@ -242,4 +244,4 @@ decisions:
       attribute: 'diagnosticSettings[].metricCategories'
       values: { true: { expr: "[ { category: 'AllMetrics' } ]" }, false: { expr: '[]' } }
       note: metrics only on the cluster
-    bicep: { gap: Microsoft.Insights/diagnosticSettings on the cluster; the authored table names no metrics property }
+    bicep: { gap: Microsoft.Insights/diagnosticSettings on the cluster; the authored rendering names no metrics property }

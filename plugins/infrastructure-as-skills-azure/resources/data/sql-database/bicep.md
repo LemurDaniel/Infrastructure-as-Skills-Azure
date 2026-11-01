@@ -18,35 +18,13 @@ Resolve the current version and re-read the README parameters before rendering, 
 
 ### Decision -> module parameter
 
-| Decision | Parameter | Note |
+What each decision renders to - the parameter and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.
+
+### Deployment-wide inputs
+
+| Input | Parameter | Note |
 |---|---|---|
-| `databases` | `databases: [ { name, ... } ]` | |
-| `collation` | `databases[].collation` | Fixed at creation |
-| `service_tier`, `compute_tier`, `vcores` | `databases[].sku: { name: 'GP_Gen5', tier: 'GeneralPurpose', family: 'Gen5', capacity: 2 }`; serverless `name: 'GP_S_Gen5'`; `'BusinessCritical'` / `'Hyperscale'` with `BC_Gen5` / `HS_Gen5` | Name, tier, family and capacity are four fields here, one string in Terraform |
-| `min_vcores` | `databases[].minCapacity` | A **string** (`'0.5'`) |
-| `auto_pause_delay_minutes` | `databases[].autoPauseDelay` | Serverless only |
-| `max_size_gb` | `databases[].maxSizeBytes` | **Bytes** |
-| `elastic_pool`, `pool_vcores` | `elasticPools: [ { name, sku: { name, tier, capacity }, perDatabaseSettings, zoneRedundant } ]` and `databases[].elasticPoolResourceId` | |
-| `zone_redundant` | `databases[].zoneRedundant` (and the pool's) | Written; `availabilityZone` is a **required** property of a database (`-1`: no preference) |
-| `geo_failover_region` | **not one call** - see below | |
-| `public_network_access` | `publicNetworkAccess: 'Disabled'` | A string here, a bool in Terraform; default is empty (unset); written |
-| `ip_rules` | `firewallRules: [ { name, startIpAddress, endIpAddress } ]` | |
-| `allow_azure_services` | `firewallRules` entry `0.0.0.0` - `0.0.0.0` | |
-| `private_endpoint_subnet` | `privateEndpoints: [ { subnetResourceId, service: 'sqlServer' } ]` | |
 | `deployment.private_dns_records: policy` | no `privateDnsZoneGroup` on the endpoint | |
-| `minimum_tls_version` | `minimalTlsVersion` | `'1.2'` or `'1.3'`; default `'1.2'`; written |
-| `managed_identity` | `managedIdentities: { systemAssigned, userAssignedResourceIds }`, `primaryUserAssignedIdentityResourceId` | |
-| `entra_admin`, `local_authentication_disabled` | `administrators: { administratorType: 'ActiveDirectory', azureADOnlyAuthentication: true, login, sid, principalType: 'Group', tenantId }` and **no** `administratorLogin`/`administratorLoginPassword` | |
-| `database_users` | **not the module** | T-SQL after the deployment |
-| `role_assignments` | `roleAssignments` | Control plane |
-| `key_management`, `cmk_key_vault_key_id` | `customerManagedKey: { keyVaultResourceId, keyName, autoRotationEnabled: true, userAssignedIdentityResourceId }` and `keys` | Unversioned |
-| `threat_detection` | `securityAlertPolicies: [ { name: 'Default', state: 'Enabled' } ]` | |
-| `vulnerability_assessment` | **not the module** for the express form (`vulnerabilityAssessmentsObj` is the classic one and wants a storage account) - `Microsoft.Sql/servers/sqlVulnerabilityAssessments` | |
-| `short_term_retention_days` | `databases[].backupShortTermRetentionPolicy: { retentionDays, diffBackupIntervalInHours }` | |
-| `long_term_retention` | `databases[].backupLongTermRetentionPolicy: { weeklyRetention }` | `'P13W'`, `'P52W'` |
-| `backup_storage_redundancy` | `databases[].requestedBackupStorageRedundancy` | Written |
-| `auditing_enabled` | `auditSettings: { state: 'Enabled', isAzureMonitorTargetEnabled: true }` **and** a diagnostic setting on `master` | Module default `{ state: 'Enabled' }` records to no destination at all; written |
-| `diagnostic_workspace`, `diagnostic_categories`, `metrics_enabled` | `databases[].diagnosticSettings: [ { workspaceResourceId, logCategoriesAndGroups: [ { category } ], metricCategories: [ { category: 'Basic' } ] } ]` | Not `AllMetrics` for a database |
 | `deployment.module_telemetry` | `enableTelemetry` | |
 | `context.tags` | `tags` | |
 
@@ -193,7 +171,7 @@ naming the partner server. The exact shape is read from the README of the pinned
 ### Tests
 
 A module call compiles to a nested deployment whose `properties.parameters.<param>.value` is the
-decision, so every decision above is observable in `tests/*.armtest.yaml`
+decision, so every decision in render-map.yaml is observable in `tests/*.armtest.yaml`
 ([bicep-idiom.md](../../../core/iac-rendering/references/bicep-idiom.md#tests)), including the
 databases' tiers, retention and the audit settings. The `master` diagnostic and the express
 assessment are top-level resources of the compiled template. `database_users` and the Defender plan
@@ -203,18 +181,10 @@ are `not-testable` (not a resource of this template).
 
 The fallback. `Microsoft.Sql/servers`:
 
-| Decision | Property |
+What each decision renders to - the property and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.
+
+### Inputs no decision covers
+
+| Input | Property |
 |---|---|
 | the server | `Microsoft.Sql/servers` (`version: '12.0'`) |
-| `minimum_tls_version` | `properties.minimalTlsVersion` |
-| `public_network_access` | `properties.publicNetworkAccess`, child `firewallRules` |
-| `local_authentication_disabled`, `entra_admin` | `properties.administrators { administratorType, azureADOnlyAuthentication, login, sid, tenantId }`, no `administratorLogin` |
-| `managed_identity` | `identity { type, userAssignedIdentities }`, `properties.primaryUserAssignedIdentityId` |
-| `key_management` | `properties.keyId` and child `encryptionProtector` |
-| `databases` | child `databases` (`sku`, `collation`, `maxSizeBytes`, `zoneRedundant`, `requestedBackupStorageRedundancy`, `minCapacity`, `autoPauseDelay`) |
-| `short_term_retention_days`, `long_term_retention` | child `backupShortTermRetentionPolicies/default`, `backupLongTermRetentionPolicies/default` |
-| `elastic_pool` | child `elasticPools` and `properties.elasticPoolId` |
-| `auditing_enabled` | child `auditingSettings/default` and a diagnostic setting on `master` |
-| `threat_detection` | child `securityAlertPolicies/Default` |
-| `vulnerability_assessment` | child `sqlVulnerabilityAssessments/default` |
-| private endpoint | `Microsoft.Network/privateEndpoints` with `groupIds: ['sqlServer']` |

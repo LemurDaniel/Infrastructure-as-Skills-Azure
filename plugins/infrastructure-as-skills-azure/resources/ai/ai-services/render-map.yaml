@@ -31,7 +31,7 @@ decisions:
     terraform_avm:
       attribute: kind
       passthrough: true
-      note: the naming identifier follows the kind (Azure::Microsoft.CognitiveServices/accounts::<kind>)
+      note: the module accepts every Cognitive Services kind, the set narrows it; the naming identifier follows the kind (Azure::Microsoft.CognitiveServices/accounts::<kind>)
     terraform: { attribute: kind, passthrough: true }
     bicep_avm: { attribute: kind, passthrough: true, note: required }
     bicep: { attribute: kind, passthrough: true }
@@ -130,9 +130,9 @@ decisions:
     terraform_avm:
       attribute: 'role_assignments.<key> = { role_definition_id_or_name, principal_id }'
       note: the per-kind roles by name
-    terraform: { gap: the authored table names no role assignment; the renders field names only the module input }
+    terraform: { gap: the authored rendering names no role assignment; the renders field names only the module input }
     bicep_avm: { attribute: roleAssignments, note: the per-kind roles by name }
-    bicep: { gap: the authored table names no role assignment; the renders field names only the module parameter }
+    bicep: { gap: the authored rendering names no role assignment; the renders field names only the module parameter }
 
   # ----------------------------------------------------------------- security
   security.local_authentication_disabled:
@@ -201,7 +201,7 @@ decisions:
       attribute: diagnostic_settings.workspace.metric_categories
       values: { true: { expr: '["AllMetrics"]' }, false: { expr: '[]' } }
     terraform:
-      gap: authored azurerm_monitor_diagnostic_setting; the authored table names only enabled_log - no metric block is in the reference
+      gap: authored azurerm_monitor_diagnostic_setting; the authored rendering names only enabled_log - no metric block is in the reference
     bicep_avm:
       attribute: 'diagnosticSettings[].metricCategories'
       values: { true: { expr: "[ { category: 'AllMetrics' } ]" }, false: { expr: '[]' } }

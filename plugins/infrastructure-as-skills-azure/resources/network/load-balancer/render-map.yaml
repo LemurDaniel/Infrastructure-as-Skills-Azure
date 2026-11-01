@@ -117,7 +117,7 @@ decisions:
     bicep: { attribute: 'properties.frontendIPConfigurations[].properties.privateIPAddress', passthrough: true }
   networking.public_ip_zone_redundant:
     terraform_avm:
-      gap: 'no separate input - the created address takes the frontend zones (balancer.zone_redundant); public_ip_address_configuration = { allocation_method = "Static", sku = "Standard", sku_tier = "Regional" }'
+      gap: 'no separate input - the created address takes the frontend zones (balancer.zone_redundant); public_ip_address_configuration = { allocation_method = "Static", sku = "Standard", sku_tier = "Regional" }, ddos_protection_mode = "VirtualNetworkInherited" the default'
     terraform:
       attribute: azurerm_public_ip.zones
       values: { true: { expr: '["1", "2", "3"]' }, false: null }
@@ -174,16 +174,16 @@ decisions:
   networking.rules:
     terraform_avm:
       attribute: 'lb_rules.<k> = { name, frontend_ip_configuration_name, protocol, frontend_port, backend_port, backend_address_pool_object_names, probe_object_name }'
-      note: references by map key, not id; module default 3389 to 3389 - both ports always stated
+      note: wiring filled by the pattern; references by map key, not id; module default 3389 to 3389 - both ports always stated
     terraform: { attribute: azurerm_lb_rule, note: '{ protocol, frontend_port, backend_port, frontend_ip_configuration_name, backend_address_pool_ids, probe_id }' }
     bicep_avm:
       attribute: 'loadBalancingRules[] = { name, frontendIPConfigurationName, protocol, frontendPort, backendPort, backendAddressPoolName, probeName }'
-      note: references by name; both ports always stated
+      note: wiring filled by the pattern; references by name; both ports always stated
     bicep: { attribute: 'properties.loadBalancingRules[]', note: 'frontendIPConfiguration, backendAddressPool and probe by { id }' }
   networking.inbound_nat_rules:
-    terraform_avm: { attribute: lb_nat_rules }
+    terraform_avm: { attribute: lb_nat_rules, note: empty }
     terraform: { attribute: azurerm_lb_nat_rule }
-    bicep_avm: { attribute: inboundNatRules }
+    bicep_avm: { attribute: inboundNatRules, note: empty }
     bicep: { attribute: 'properties.inboundNatRules[]' }
   networking.outbound_snat:
     terraform_avm:

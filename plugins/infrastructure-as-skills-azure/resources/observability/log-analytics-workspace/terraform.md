@@ -21,15 +21,12 @@ below.
 
 ### Decision → module input
 
+What each decision renders to - the input and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.
+
+### Inputs no decision covers
+
 | Decision | Input | Note |
 |---|---|---|
-| `retention_days` | `log_analytics_workspace_retention_in_days` | Module default `null` → the API's 30; written anyway |
-| `daily_quota_gb` | `log_analytics_workspace_daily_quota_gb` | `-1` for no cap |
-| `sku` | `log_analytics_workspace_sku` | `PerGB2018`, or `CapacityReservation` + `…_reservation_capacity_in_gb_per_day` |
-| `public_network_access: disabled` | `log_analytics_workspace_internet_ingestion_enabled = false` **and** `…_internet_query_enabled = false` | Module defaults are already `false` — the guardrail's posture; written anyway |
-| `local_auth: disabled` | `log_analytics_workspace_local_authentication_enabled = false` | Module default is **`true`** — must be written |
-| `rbac_only_access` | `log_analytics_workspace_allow_resource_only_permissions = false` | The inversion from the authored render holds |
-| `immediate_purge_protection` | — | Provider-side `features {}` in the root, as in the authored render; not a module input |
 | `managed_identity` | `log_analytics_workspace_identity = { type = "SystemAssigned" }` | |
 | `key_management: customer_managed` | `customer_managed_key = { key_vault_resource_id, key_name, … }` | |
 | diagnostics of the workspace itself | `diagnostic_settings = { <key> = { workspace_resource_id, log_categories, log_groups, metric_categories } }` | Into itself, usually |
@@ -93,15 +90,7 @@ workspace this way, or reading what the module does inside.
 
 ## Decision → argument
 
-| Decision | Argument |
-|---|---|
-| `retention_days` | `retention_in_days` (30–730; 30 is the floor on PerGB2018) |
-| `daily_quota_gb` | `daily_quota_gb` — `-1` for no cap |
-| `sku` | `sku` — `PerGB2018`, or `CapacityReservation` with `reservation_capacity_in_gb_per_day` |
-| `public_network_access: disabled` | `internet_ingestion_access_type = "Disabled"` **and** `internet_query_access_type = "Disabled"` (strings: `Enabled`, `Disabled`, `SecuredByPerimeter`; the 4.x bools are gone in 5.x) |
-| `local_auth: disabled` | `local_authentication_enabled = false` (the 4.x `local_authentication_disabled` is gone in 5.x) |
-| `rbac_only_access` | `allow_resource_only_permissions = false` — note the inversion |
-| `immediate_purge_protection` | provider-side `permanently_delete_on_destroy` in the `features` block, inverted |
+What each decision renders to - the argument and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.
 
 ## The workspace
 

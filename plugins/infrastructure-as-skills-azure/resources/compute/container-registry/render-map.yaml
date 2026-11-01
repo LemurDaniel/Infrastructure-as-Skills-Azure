@@ -98,7 +98,7 @@ decisions:
   networking.ip_rules:
     terraform_avm:
       attribute: 'network_rule_set.ip_rule[].ip_range'
-      note: with default_action = "Deny"; Premium only
+      note: with default_action = "Deny"; Premium only; member names from the README
     terraform: { attribute: network_rule_set.ip_rule }
     bicep_avm: { attribute: networkRuleSetIpRules, note: "with networkRuleSetDefaultAction: 'Deny'" }
     bicep: { attribute: properties.networkRuleSet.ipRules }
@@ -124,7 +124,7 @@ decisions:
       attribute: properties.policies.exportPolicy.status
       values: { true: enabled, false: disabled }
   networking.image_push_path:
-    not_rendered: nothing on the registry - the image pipeline's steps and the AcrPush assignment for its identity; the render keeps public access disabled
+    not_rendered: nothing on the registry - the image pipeline's steps and the AcrPush assignment for its identity; with pipeline_opens_registry the registry's public access is the pipeline's between its steps, so the render keeps it disabled
 
   # ----------------------------------------------------------------- identity
   identity.managed_identity:
@@ -191,7 +191,7 @@ decisions:
         customer_managed: { expr: '{ keyName: <keyName>, keyVaultResourceId: <keyVaultResourceId>, <further members per the module README> }' }
       note: unversioned; the identity member from the README
     bicep:
-      gap: the reference's authored table names no encryption property - customer_managed is not rendered authored until bicep.md states it
+      gap: the reference's authored rendering names no encryption property - customer_managed is not rendered authored until bicep.md states it
   security.cmk_key_vault_key_id:
     terraform_avm:
       attribute: customer_managed_key.key_vault_resource_id, customer_managed_key.key_name
@@ -200,21 +200,21 @@ decisions:
     bicep_avm:
       attribute: customerManagedKey.keyVaultResourceId, customerManagedKey.keyName
       note: the key id split into the vault's id and the key's name
-    bicep: { gap: the reference's authored table names no encryption property for the key }
+    bicep: { gap: the reference's authored rendering names no encryption property for the key }
 
   # ------------------------------------------------------------ observability
   observability.diagnostic_workspace:
     terraform_avm: { attribute: diagnostic_settings.workspace.workspace_resource_id }
     terraform: { attribute: azurerm_monitor_diagnostic_setting.log_analytics_workspace_id }
     bicep_avm: { attribute: 'diagnosticSettings[].workspaceResourceId' }
-    bicep: { gap: no diagnostic setting in the reference's authored table }
+    bicep: { gap: no diagnostic setting in the reference's authored rendering }
   observability.diagnostic_categories:
     terraform_avm:
       attribute: diagnostic_settings.workspace.log_categories
       note: with log_groups = [] - its default ["allLogs"] collects every log beside the categories
     terraform: { attribute: azurerm_monitor_diagnostic_setting.enabled_log.category }
     bicep_avm: { attribute: 'diagnosticSettings[].logCategoriesAndGroups[].category' }
-    bicep: { gap: no diagnostic setting in the reference's authored table }
+    bicep: { gap: no diagnostic setting in the reference's authored rendering }
   observability.metrics_enabled:
     terraform_avm:
       attribute: diagnostic_settings.workspace.metric_categories
@@ -226,4 +226,4 @@ decisions:
     bicep_avm:
       attribute: 'diagnosticSettings[].metricCategories'
       values: { true: { expr: "[ { category: 'AllMetrics' } ]" }, false: { expr: '[]' } }
-    bicep: { gap: no diagnostic setting in the reference's authored table }
+    bicep: { gap: no diagnostic setting in the reference's authored rendering }

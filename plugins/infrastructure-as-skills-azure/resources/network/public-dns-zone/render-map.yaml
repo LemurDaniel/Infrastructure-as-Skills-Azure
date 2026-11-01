@@ -47,13 +47,13 @@ decisions:
   records.record_sets:
     terraform_avm:
       attribute: 'a_records, aaaa_records, cname_records, txt_records, mx_records, caa_records'
-      note: every record object repeats resource_group_name and zone_name; caa flags is a string; an alias is target_resource_id
+      note: every record object repeats resource_group_name and zone_name - merge them in from one local; caa flags is a string; an alias is target_resource_id
     terraform:
       attribute: 'azurerm_dns_a_record, _aaaa_record, _cname_record, _txt_record, _mx_record, _caa_record'
-      note: on 5.x still zone_name plus resource_group_name; an alias is target_resource_id instead of records
+      note: on 5.x still zone_name plus resource_group_name; an alias is target_resource_id instead of records; _txt_record takes record { value } blocks, _mx_record record { preference, exchange }, _caa_record record { flags, tag, value }
     bicep_avm:
       attribute: 'a, aaaa, cname, txt, mx, caa'
-      note: one array per type; caa flags is an int; an alias is targetResourceId
+      note: 'one array per type - a: aRecords [ { ipv4Address } ], aaaa: aaaaRecords [ { ipv6Address } ], cname: cnameRecord { cname }, txt: txtRecords [ { value: [ ] } ], mx: mxRecords [ { preference, exchange } ], caa: caaRecords [ { flags, tag, value } ]; caa flags is an int; an alias is targetResourceId'
     bicep:
       attribute: 'Microsoft.Network/dnsZones/A, /AAAA, /CNAME, /TXT, /MX, /CAA'
       note: the typed ARecords / CNAMERecord / TXTRecords / MXRecords / caaRecords, or targetResource.id for an alias
@@ -65,7 +65,7 @@ decisions:
     bicep_avm: { attribute: 'txt, cname', note: 'from wiring.dns_records, concatenated into the same arrays' }
     bicep: { attribute: 'Microsoft.Network/dnsZones/TXT, /CNAME' }
   records.record_ttl_seconds:
-    terraform_avm: { attribute: ttl, note: on every record object; required per record, passthrough: true }
+    terraform_avm: { attribute: ttl, note: on every record object; required per record - the question's value unless the entry states one, passthrough: true }
     terraform: { attribute: ttl, note: on every record, passthrough: true }
     bicep_avm: { attribute: ttl, note: per record; the module default is 3600 too - written, passthrough: true }
     bicep: { attribute: properties.TTL, note: on every record child, passthrough: true }

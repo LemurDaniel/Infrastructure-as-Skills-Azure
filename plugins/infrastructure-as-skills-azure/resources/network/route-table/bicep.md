@@ -19,13 +19,13 @@ Resolve the current version and re-read the README parameters before rendering, 
 
 ### Decision -> module parameter
 
+What each decision renders to - the parameter and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.
+
+Not decisions of this set:
+
 | Decision | Parameter | Note |
 |---|---|---|
 | (the table) | `name` | Assembled from the `rt` abbreviation, affix, workload and subnet role |
-| `default_route: firewall`, `firewall_private_ip` | `routes: [ { name, properties: { addressPrefix: '0.0.0.0/0', nextHopType: 'VirtualAppliance', nextHopIpAddress } } ]` | Written as an entry, so it shows in the deployment |
-| `routes` | further entries of `routes`; `nextHopType` one of `VirtualAppliance`, `VirtualNetworkGateway`, `VnetLocal`, `Internet`, `None` | `nextHopIpAddress` only for `VirtualAppliance` |
-| `bgp_route_propagation` | `disableBgpRoutePropagation` | **Inverted**: `disabled` renders `true`; the module default is `false`, the portal's too |
-| `subnets` | not a parameter here | The association is the virtual-network set's `subnets[].routeTableResourceId: routeTable.outputs.resourceId` |
 | `deployment.module_telemetry` | `enableTelemetry` | |
 | `context.tags` | `tags` | |
 
@@ -70,7 +70,7 @@ virtual-network set takes for a subnet's `routeTableResourceId`.
 ### Tests
 
 A module call compiles to a nested deployment whose `properties.parameters.<param>.value` is
-the decision, so every decision above is observable in `tests/*.armtest.yaml`
+the decision, so every decision in render-map.yaml is observable in `tests/*.armtest.yaml`
 ([bicep-idiom.md](../../../core/iac-rendering/references/bicep-idiom.md#tests)):
 `disableBgpRoutePropagation` is `true`, the default route is present with `VirtualAppliance`
 and the firewall's address, every further route has a known next-hop type. The inversion is the

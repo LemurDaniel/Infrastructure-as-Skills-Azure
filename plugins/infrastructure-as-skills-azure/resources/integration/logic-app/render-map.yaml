@@ -151,7 +151,7 @@ decisions:
     terraform:
       gap: >-
         azurerm_logic_app_workflow access_control { trigger { open_authentication_policy } } - the
-        reference names the block without its members; standard - the authored table names no
+        reference names the block without its members; standard - the authored rendering names no
         authentication argument
     bicep_avm:
       - module: avm/res/logic/workflow
@@ -162,7 +162,7 @@ decisions:
       - module: avm/res/web/site
         gap: "configs: [ { name: 'authsettingsV2', ... } ] (Easy Auth) - the reference spells no value for either answer"
     bicep:
-      gap: Microsoft.Logic/workflows properties.accessControl.triggers - the authored table names it without its members; standard - no authentication property is named
+      gap: Microsoft.Logic/workflows properties.accessControl.triggers - the authored rendering names it without its members; standard - no authentication property is named
 
   # ------------------------------------------------------------------ storage
   storage.host_storage_account:
@@ -182,6 +182,11 @@ decisions:
         logicapp) - the site renders authored as an azapi_resource with a config/appsettings child
         (AzureWebJobsStorage__accountName, AzureWebJobsStorage__credential = "managedidentity",
         AzureWebJobsStorage__clientId)
+      note: >-
+        the module's logic-app settings write AzureWebJobsStorage with the account key after app_settings, without
+        the function-app override guard, and storage_account_access_key is validated non-null for logicapp; identity
+        records implementation authored (forced_by: avm-res-web-site v0.24.1 writes the storage key for a logic app) -
+        re-read the pinned README's logic-app settings before a render, the module may gain the identity path
     terraform:
       attribute: azurerm_logic_app_standard.app_settings
       values:
@@ -304,9 +309,9 @@ decisions:
       gap: identity.userAssignedIdentities is an object keyed by id; the reference names identity without its members
   identity.role_assignments:
     terraform_avm: { attribute: 'role_assignments.<key> = { role_definition_id_or_name, principal_id, principal_type }', note: site and workflow }
-    terraform: { gap: the authored table names no role assignment; the renders field names only the module input }
+    terraform: { gap: the authored rendering names no role assignment; the renders field names only the module input }
     bicep_avm: { attribute: roleAssignments, note: site and workflow }
-    bicep: { gap: the authored table names no role assignment; the renders field names only the module parameter }
+    bicep: { gap: the authored rendering names no role assignment; the renders field names only the module parameter }
 
   # ----------------------------------------------------------------- security
   security.https_only:
@@ -339,7 +344,7 @@ decisions:
     terraform_avm: { module: Azure/avm-res-web-site/azurerm, attribute: app_settings.APPLICATIONINSIGHTS_CONNECTION_STRING, note: omitted while empty }
     terraform:
       attribute: azurerm_logic_app_standard.app_settings.APPLICATIONINSIGHTS_CONNECTION_STRING
-      note: the app_settings the authored table names, the key the module row names; omitted while empty
+      note: the app_settings the authored rendering names, the key the module section names; omitted while empty
     bicep_avm:
       module: avm/res/web/site
       attribute: "configs[name = 'appsettings'].properties.APPLICATIONINSIGHTS_CONNECTION_STRING"

@@ -83,14 +83,14 @@ decisions:
     bicep_avm:
       attribute: '<kind>PrivateEndpoints[].subnetResourceId'
       note: on each of the five arrays (account, portal, storageBlob, storageQueue, eventHub)
-    bicep: { gap: the authored table names Microsoft.Network/privateEndpoints but no subnet property }
+    bicep: { gap: the authored rendering names Microsoft.Network/privateEndpoints but no subnet property }
   networking.private_endpoint_subresources:
     terraform:
       attribute: azurerm_private_endpoint.private_service_connection.subresource_names
       note: one endpoint per entry (for_each, subresource_names = [each.key]) - account and portal on the account id; blob and queue on managed_resources[0].storage_account_id; namespace on managed_resources[0].event_hub_namespace_id, known after apply
     bicep_avm:
       attribute: '<kind>PrivateEndpoints'
-      note: one parameter per entry - account -> accountPrivateEndpoints, portal -> portalPrivateEndpoints, blob -> storageBlobPrivateEndpoints, queue -> storageQueuePrivateEndpoints, namespace -> eventHubPrivateEndpoints - each [ { name, subnetResourceId } ]; an entry not in the list renders []
+      note: one parameter per entry - account -> accountPrivateEndpoints, portal -> portalPrivateEndpoints, blob -> storageBlobPrivateEndpoints, queue -> storageQueuePrivateEndpoints, namespace -> eventHubPrivateEndpoints - each [ { name, subnetResourceId } ]; the module targets the managed resources itself; an entry not in the list renders []
     bicep:
       attribute: Microsoft.Network/privateEndpoints groupIds
       note: one endpoint per entry, groupIds = [entry]; account and portal on the account, blob and queue on properties.managedResources.storageAccount, namespace on properties.managedResources.eventHubNamespace
@@ -117,7 +117,7 @@ decisions:
   identity.collection_roles:
     not_rendered: a step after the deployment against the account's metadata policy API, run as a Collection admin; no provider resource and no ARM resource
   identity.role_assignments:
-    terraform: { attribute: azurerm_role_assignment, note: scope = the account's id; role by name }
+    terraform: { attribute: azurerm_role_assignment, note: scope = the account's id; role by name; control plane }
     bicep_avm: { attribute: roleAssignments, note: control plane }
     bicep: { attribute: Microsoft.Authorization/roleAssignments }
 
@@ -125,7 +125,7 @@ decisions:
   observability.diagnostic_workspace:
     terraform: { attribute: azurerm_monitor_diagnostic_setting.log_analytics_workspace_id }
     bicep_avm: { attribute: 'diagnosticSettings[].workspaceResourceId' }
-    bicep: { gap: the authored table names Microsoft.Insights/diagnosticSettings but no workspace property }
+    bicep: { gap: the authored rendering names Microsoft.Insights/diagnosticSettings but no workspace property }
   observability.diagnostic_categories:
     terraform: { attribute: azurerm_monitor_diagnostic_setting.enabled_log.category, note: one enabled_log block per category }
     bicep_avm: { attribute: 'diagnosticSettings[].logCategoriesAndGroups[].category' }

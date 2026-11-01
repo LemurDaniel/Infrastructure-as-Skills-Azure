@@ -90,7 +90,7 @@ decisions:
     terraform_avm:
       attribute: firewall_ip_configuration[0].subnet_id
       module: Azure/avm-res-network-azurefirewall/azurerm
-      note: only the first entry carries the subnet; the list is never reordered
+      note: only the first entry carries the subnet, the others just an address; the list is never reordered
     terraform: { attribute: azurerm_firewall.ip_configuration.subnet_id, note: on the first block only }
     bicep_avm:
       attribute: virtualNetworkResourceId
@@ -125,7 +125,7 @@ decisions:
       values:
         true: { expr: '{ name = "mgmt", public_ip_address_id = module.firewall_public_ip[var.public_ip_count].resource_id, subnet_id = var.management_subnet_id }' }
         false: { expr: 'null' }
-      note: an object, not a list; always on Basic; its own public IP (count + 1), sliced off the data-plane list
+      note: an object, not a list; always on Basic; its own public IP (count + 1), same zones, sliced off the data-plane list
     terraform:
       attribute: azurerm_firewall.management_ip_configuration
       values:
@@ -169,7 +169,7 @@ decisions:
     terraform_avm:
       attribute: firewall_policy_private_ip_ranges
       module: Azure/avm-res-network-firewallpolicy/azurerm
-      note: the firewall module's own firewall_private_ip_ranges applies only without a policy - unused
+      note: a list, IANAPrivateRanges the special value; the firewall module's own firewall_private_ip_ranges applies only without a policy - unused
     terraform: { attribute: azurerm_firewall_policy.private_ip_ranges }
     bicep_avm:
       attribute: snat.privateRanges

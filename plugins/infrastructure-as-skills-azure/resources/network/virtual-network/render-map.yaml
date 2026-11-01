@@ -47,7 +47,7 @@ decisions:
   addressing.subnets:
     terraform_avm:
       attribute: 'subnets.<name> = { name, address_prefixes = [prefix] }'
-      note: a map keyed by subnet name
+      note: a map keyed by subnet name - the module's own rule, same reason as the authored for_each
     terraform:
       attribute: azurerm_subnet
       note: one each, for_each keyed by name, never count; never a subnet block on the vnet beside them
@@ -97,26 +97,31 @@ decisions:
     terraform_avm:
       attribute: ddos_protection_plan
       values:
-        true: { expr: '{ id = <ddos_protection_plan_id>, enable = true }' }
+        true: { expr: '{ id = {security.ddos_protection_plan}, enable = true }' }
         false: null
-      note: the plan's id from the ddos-protection-plan set; false leaves the object out
+      note: false leaves the object out
     terraform:
       attribute: azurerm_virtual_network.ddos_protection_plan.enable
       values: { true: true, false: null }
       also:
-        true: ddos_protection_plan.id = <ddos_protection_plan_id>
+        true: ddos_protection_plan.id = {security.ddos_protection_plan}
       note: 'the ddos_protection_plan { id, enable } block; false renders no block'
     bicep_avm:
       attribute: ddosProtectionPlanResourceId
       values:
-        true: { expr: '<ddos_protection_plan_id>' }
+        true: { expr: '{security.ddos_protection_plan}' }
         false: null
       note: the plan's id, not a bool; false leaves the parameter out
     bicep:
       attribute: properties.enableDdosProtection
       passthrough: true
       also:
-        true: 'properties.ddosProtectionPlan.id: <ddos_protection_plan_id>'
+        true: 'properties.ddosProtectionPlan.id: {security.ddos_protection_plan}'
+  security.ddos_protection_plan:
+    terraform_avm: { attribute: ddos_protection_plan.id, note: written inside ddos_protection's object - see that decision }
+    terraform: { attribute: azurerm_virtual_network.ddos_protection_plan.id }
+    bicep_avm: { attribute: ddosProtectionPlanResourceId, note: the parameter ddos_protection sets - see that decision }
+    bicep: { attribute: properties.ddosProtectionPlan.id }
   security.subnets_expecting_nsg:
     not_rendered: recorded in the spec; the association is rendered where the NSG is
 

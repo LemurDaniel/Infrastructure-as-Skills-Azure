@@ -19,15 +19,11 @@ modules.
 
 ### Decision -> module input
 
+What each decision renders to - the input and the literal of every answer - is in
+[render-map.yaml](render-map.yaml); the render digest prints it for a spec.
+
 | Decision | Input | Note |
 |---|---|---|
-| `ownership: platform` | - | The module is **not called**; a `data "azurerm_network_ddos_protection_plan"` reads `existing_plan` and its `id` goes to the networks |
-| `ownership: deployment` | the call below | |
-| `existing_plan` | `data "azurerm_network_ddos_protection_plan" { name, resource_group_name }` with a provider alias for the connectivity subscription | Under `platform` only |
-| `stages_with_plan` | `count` on the module / data source per stage | `production`: the module in the production root's stage file only; the other stages' networks render `ddos_protection = false` |
-| `location` | `location` | Required by the module |
-| `resource_group_name` | `resource_group_name` | A name, not an id |
-| `role_assignments` | `role_assignments = { <k> = { role_definition_id_or_name, principal_id, principal_type } }` | `"Network Contributor"` or `"Reader"` |
 | `deployment.module_telemetry` | `enable_telemetry` | |
 | `context.tags` | `tags = local.tags` | |
 
@@ -107,11 +103,12 @@ run "plan" {
 
 The fallback. Targets `azurerm` **5.x**; check against `terraform providers schema -json`.
 
+What each decision renders to - the argument and the literal of every answer - is in
+[render-map.yaml](render-map.yaml); the render digest prints it for a spec.
+
 | Decision | Resource / argument |
 |---|---|
 | the plan | `azurerm_network_ddos_protection_plan` (`name`, `location`, `resource_group_name`, `tags`); `virtual_network_ids` is read-only |
-| `existing_plan` | `data "azurerm_network_ddos_protection_plan"` |
-| `role_assignments` | `azurerm_role_assignment` on the plan's id |
 | the association | **not here**: `azurerm_virtual_network.ddos_protection_plan { id, enable }` in the network's render |
 
 Validated against `azurerm` 5.x.

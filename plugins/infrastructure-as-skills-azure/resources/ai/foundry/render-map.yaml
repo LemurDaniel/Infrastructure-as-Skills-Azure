@@ -52,6 +52,7 @@ decisions:
   account.projects:
     terraform_avm:
       gap: 'not the module - azapi_resource Microsoft.CognitiveServices/accounts/projects per entry beside it (name = the entry), identity SystemAssigned, parent_id = module.<name>.resource_id; location = var.foundry_location when placement.location departs'
+      note: the module takes project names only (associated_projects, default_project)
     terraform:
       gap: one authored azurerm_cognitive_account_project per entry (cognitive_account_id, location, identity) - the resource the AVM module lacks; the reference names no argument for the entry's name
     bicep_avm:
@@ -76,7 +77,7 @@ decisions:
       note: child resources created one after another (@batchSize(1))
   models.deployment_sku:
     terraform_avm: { attribute: 'cognitive_deployments.<key>.scale.type', passthrough: true }
-    terraform: { gap: azurerm_cognitive_deployment sku block; the authored table names sku without its members }
+    terraform: { gap: azurerm_cognitive_deployment sku block; the authored rendering names sku without its members }
     bicep_avm: { attribute: 'deployments[].sku.name', passthrough: true }
     bicep:
       attribute: accounts/deployments sku.name
@@ -84,7 +85,7 @@ decisions:
       note: 'the sku: { name, capacity } shape the deployments parameter states'
   models.deployment_capacity:
     terraform_avm: { attribute: 'cognitive_deployments.<key>.scale.capacity', passthrough: true }
-    terraform: { gap: azurerm_cognitive_deployment sku block; the authored table names sku without its members }
+    terraform: { gap: azurerm_cognitive_deployment sku block; the authored rendering names sku without its members }
     bicep_avm: { attribute: 'deployments[].sku.capacity', passthrough: true }
     bicep:
       attribute: accounts/deployments sku.capacity
@@ -95,12 +96,12 @@ decisions:
       attribute: 'cognitive_deployments.<key>.version_upgrade_option'
       passthrough: true
       note: module default OnceNewDefaultVersionAvailable; written anyway
-    terraform: { gap: the authored table names only model and sku on azurerm_cognitive_deployment }
+    terraform: { gap: the authored rendering names only model and sku on azurerm_cognitive_deployment }
     bicep_avm: { attribute: 'deployments[].versionUpgradeOption', passthrough: true }
     bicep: { attribute: accounts/deployments properties.versionUpgradeOption, passthrough: true }
   models.content_filter:
     terraform_avm: { attribute: 'cognitive_deployments.<key>.rai_policy_name', passthrough: true }
-    terraform: { gap: the authored table names only model and sku on azurerm_cognitive_deployment }
+    terraform: { gap: the authored rendering names only model and sku on azurerm_cognitive_deployment }
     bicep_avm: { attribute: 'deployments[].raiPolicyName', passthrough: true }
     bicep: { attribute: accounts/deployments properties.raiPolicyName, passthrough: true }
 
@@ -132,11 +133,11 @@ decisions:
     terraform_avm:
       attribute: private_endpoints.account.subnet_resource_id
       note: under private_dns_records policy, private_endpoints_manage_dns_zone_group = false
-    terraform: { gap: the authored table names no private endpoint; the renders field names only the module input }
+    terraform: { gap: the authored rendering names no private endpoint; the renders field names only the module input }
     bicep_avm:
       attribute: 'privateEndpoints[].subnetResourceId'
       note: "service: 'account'; no privateDnsZoneGroup under private_dns_records policy"
-    bicep: { gap: the authored table names no private endpoint; the renders field names only the module parameter }
+    bicep: { gap: the authored rendering names no private endpoint; the renders field names only the module parameter }
   networking.ip_rules:
     terraform_avm:
       attribute: network_acls.ip_rules
@@ -170,7 +171,7 @@ decisions:
         system_assigned: { expr: '{ system_assigned = true }' }
         user_assigned: { expr: '{ user_assigned_resource_ids = {identity.user_assigned_identity_ids} }' }
         none: { expr: '{}' }
-    terraform: { gap: the authored table names no identity argument; the renders field names only the module input }
+    terraform: { gap: the authored rendering names no identity argument; the renders field names only the module input }
     bicep_avm:
       attribute: managedIdentities
       values:
@@ -180,14 +181,14 @@ decisions:
     bicep: { gap: the authored section names no identity property; the renders field names only the module parameter }
   identity.user_assigned_identity_ids:
     terraform_avm: { attribute: managed_identities.user_assigned_resource_ids }
-    terraform: { gap: the authored table names no identity argument; the renders field names only the module input }
+    terraform: { gap: the authored rendering names no identity argument; the renders field names only the module input }
     bicep_avm: { attribute: managedIdentities.userAssignedResourceIds }
     bicep: { gap: the authored section names no identity property; the renders field names only the module parameter }
   identity.role_assignments:
     terraform_avm: { attribute: 'role_assignments.<key> = { role_definition_id_or_name, principal_id }' }
-    terraform: { gap: the authored table names no role assignment; the renders field names only the module input }
+    terraform: { gap: the authored rendering names no role assignment; the renders field names only the module input }
     bicep_avm: { attribute: roleAssignments }
-    bicep: { gap: the authored table names no role assignment; the renders field names only the module parameter }
+    bicep: { gap: the authored rendering names no role assignment; the renders field names only the module parameter }
 
   # ----------------------------------------------------------------- security
   security.local_authentication_disabled:
@@ -208,23 +209,23 @@ decisions:
         platform_managed: null
         customer_managed: { expr: '{ key_vault_resource_id, key_name, user_assigned_identity = { resource_id } }' }
       note: unversioned key
-    terraform: { gap: the authored table names no key argument; the renders field names only the module input }
+    terraform: { gap: the authored rendering names no key argument; the renders field names only the module input }
     bicep_avm:
       attribute: customerManagedKey
       values:
         platform_managed: null
         customer_managed: { expr: '{ keyName, keyVaultResourceId, <further members per the module README> }' }
       note: member spelling from the README
-    bicep: { gap: the authored table names no encryption property; the renders field names only the module parameter }
+    bicep: { gap: the authored rendering names no encryption property; the renders field names only the module parameter }
   security.cmk_key_vault_key_id:
     terraform_avm:
       attribute: customer_managed_key.key_vault_resource_id, customer_managed_key.key_name
       note: the key id split - key_vault_resource_id = the key's vault id, key_name = the key's name; never the key id into either
-    terraform: { gap: the authored table names no key argument; the renders field names only the module input }
+    terraform: { gap: the authored rendering names no key argument; the renders field names only the module input }
     bicep_avm:
       attribute: customerManagedKey.keyVaultResourceId, customerManagedKey.keyName
       note: the key id split - keyVaultResourceId = the key's vault id, keyName = the key's name; never the key id into either
-    bicep: { gap: the authored table names no encryption property; the renders field names only the module parameter }
+    bicep: { gap: the authored rendering names no encryption property; the renders field names only the module parameter }
 
   # ------------------------------------------------------------ observability
   observability.diagnostic_workspace:
@@ -232,21 +233,21 @@ decisions:
     terraform:
       gap: authored azurerm_monitor_diagnostic_setting; the reference names the resource, not its workspace argument
     bicep_avm: { attribute: 'diagnosticSettings[].workspaceResourceId' }
-    bicep: { gap: the authored table names no diagnostic setting; the renders field names only the module parameter }
+    bicep: { gap: the authored rendering names no diagnostic setting; the renders field names only the module parameter }
   observability.diagnostic_categories:
     terraform_avm:
       attribute: diagnostic_settings.workspace.log_categories
       note: log_groups defaults to ["allLogs"] - set it [] beside the categories, or every log is collected
     terraform: { attribute: azurerm_monitor_diagnostic_setting.enabled_log.category }
     bicep_avm: { attribute: 'diagnosticSettings[].logCategoriesAndGroups[].category' }
-    bicep: { gap: the authored table names no diagnostic setting; the renders field names only the module parameter }
+    bicep: { gap: the authored rendering names no diagnostic setting; the renders field names only the module parameter }
   observability.metrics_enabled:
     terraform_avm:
       attribute: diagnostic_settings.workspace.metric_categories
       values: { true: { expr: '["AllMetrics"]' }, false: { expr: '[]' } }
     terraform:
-      gap: authored azurerm_monitor_diagnostic_setting; the authored table names only enabled_log - no metric block is in the reference
+      gap: authored azurerm_monitor_diagnostic_setting; the authored rendering names only enabled_log - no metric block is in the reference
     bicep_avm:
       attribute: 'diagnosticSettings[].metricCategories'
       values: { true: { expr: "[ { category: 'AllMetrics' } ]" }, false: { expr: '[]' } }
-    bicep: { gap: the authored table names no diagnostic setting; the renders field names only the module parameter }
+    bicep: { gap: the authored rendering names no diagnostic setting; the renders field names only the module parameter }

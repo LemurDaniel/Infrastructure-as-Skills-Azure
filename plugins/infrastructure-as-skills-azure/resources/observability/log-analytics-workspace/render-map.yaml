@@ -64,7 +64,7 @@ decisions:
     terraform:
       attribute: internet_ingestion_access_type, internet_query_access_type
       values: { disabled: Disabled, enabled: Enabled }
-      note: strings in 5.x (the 4.x bools are gone); both set alike
+      note: strings in 5.x (Enabled, Disabled, SecuredByPerimeter; the 4.x bools are gone); both set alike
     bicep_avm:
       attribute: publicNetworkAccessForIngestion, publicNetworkAccessForQuery
       values: { disabled: Disabled, enabled: Enabled }

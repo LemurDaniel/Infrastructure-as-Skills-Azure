@@ -28,9 +28,9 @@ decisions:
   # ----------------------------------------------------------------- identity
   identity.purpose:
     terraform_avm: { attribute: tags.purpose, passthrough: true, note: 'merged into local.tags; also the workload part of the name' }
-    terraform: { attribute: tags.purpose, passthrough: true, note: from the question's renders; the reference's authored table names none }
+    terraform: { attribute: tags.purpose, passthrough: true, note: from the question's renders; the reference's authored rendering names none }
     bicep_avm: { attribute: tags.purpose, passthrough: true, note: 'union(tags, { purpose: purpose }); also the workload part of the name' }
-    bicep: { attribute: tags.purpose, passthrough: true, note: from the question's renders; the reference's authored table names none }
+    bicep: { attribute: tags.purpose, passthrough: true, note: from the question's renders; the reference's authored rendering names none }
   identity.federated_credentials:
     terraform_avm:
       attribute: 'federated_identity_credentials.<key> = { name, issuer, subject, audience }'

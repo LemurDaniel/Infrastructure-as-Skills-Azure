@@ -72,5 +72,5 @@ decisions:
       attribute: 'role_assignments.<k> = { role_definition_id_or_name, principal_id, principal_type }'
       note: '"Network Contributor" or "Reader"'
     terraform: { attribute: azurerm_role_assignment, note: scope = the plan's id }
-    bicep_avm: { attribute: "roleAssignments[] = { principalId, roleDefinitionIdOrName, principalType }" }
+    bicep_avm: { attribute: "roleAssignments[] = { principalId, roleDefinitionIdOrName, principalType }", note: "roleDefinitionIdOrName: 'Network Contributor'" }
     bicep: { attribute: Microsoft.Authorization/roleAssignments, note: extension resource with scope = the plan }

@@ -29,21 +29,13 @@ still written.
 
 ### Decision -> module input
 
+What each decision renders to - the input and the literal of every answer - is in
+[render-map.yaml](render-map.yaml); the render digest prints it for a spec.
+
+### Deployment-wide inputs
+
 | Decision | Input | Note |
 |---|---|---|
-| `admin_access` | `private_only_enabled` and `ip_configuration.create_public_ip` | `private_network`: `private_only_enabled = true`, `create_public_ip = false`, no `public_ip_address_id`; Premium |
-| `sku` | `sku` | `Developer` / `Basic` / `Standard` / `Premium`; module default `Basic` - written |
-| `zone_redundant` | `zones = ["1", "2", "3"]` (a set of strings) or `[]` | Module default all three; `Developer` requires `[]` |
-| `scale_units` | `scale_units` | Module default `2`; written |
-| `bastion_subnet` | `ip_configuration = { name, subnet_id }` (`Developer`: `virtual_network_id`) | The subnet is named `AzureBastionSubnet` |
-| `public_ip_zone_redundant` | follows `zones` | The module creates the address `Standard`, static |
-| `shareable_link` | `shareable_link_enabled` | |
-| `native_client` | `tunneling_enabled` | Not compatible with session recording |
-| `ip_connect` | `ip_connect_enabled` | |
-| `file_copy` | `file_copy_enabled` | |
-| `copy_paste` | `copy_paste_enabled` | |
-| `session_recording` | `session_recording_enabled` | Premium; the module has no input for the recording container |
-| `diagnostic_*`, `metrics_enabled` | `diagnostic_settings = { workspace = { workspace_resource_id, log_categories, log_groups = [], metric_categories = ["AllMetrics"] } }` | `log_groups` defaults to `["allLogs"]`, so it is set empty |
 | `deployment.module_telemetry` | `enable_telemetry` | |
 | `context.tags` | `tags = local.tags` | |
 
@@ -135,11 +127,5 @@ are `# not-testable:` with that reason.
 
 The fallback. Targets `azurerm` **5.x**; check against `terraform providers schema -json`.
 
-| Decision | Argument |
-|---|---|
-| `sku`, `zone_redundant`, `scale_units` | `azurerm_bastion_host.sku`, `.zones`, `.scale_units` |
-| `bastion_subnet` | `azurerm_bastion_host.ip_configuration { name, subnet_id, public_ip_address_id }` (`Developer`: `virtual_network_id`) |
-| `admin_access` | `.private_only_enabled`; no public IP resource |
-| `shareable_link`, `native_client`, `ip_connect`, `file_copy`, `copy_paste`, `session_recording` | `.shareable_link_enabled`, `.tunneling_enabled`, `.ip_connect_enabled`, `.file_copy_enabled`, `.copy_paste_enabled`, `.session_recording_enabled` |
-| public address | `azurerm_public_ip` with `sku = "Standard"`, `allocation_method = "Static"`, `zones` |
-| diagnostics | `azurerm_monitor_diagnostic_setting` with `enabled_log { category }` |
+What each decision renders to - the argument and the literal of every answer - is in
+[render-map.yaml](render-map.yaml); the render digest prints it for a spec.

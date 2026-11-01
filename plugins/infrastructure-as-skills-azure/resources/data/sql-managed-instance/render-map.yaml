@@ -78,7 +78,7 @@ decisions:
         premium_series: "sku.family: 'Gen8IM'"
         premium_series_memory_optimized: "sku.family: 'Gen8IH'"
   instance.vcores:
-    terraform_avm: { attribute: vcores, passthrough: true, note: required }
+    terraform_avm: { attribute: vcores, passthrough: true, note: required; the allowed list per hardware is in the question's why }
     terraform: { attribute: vcores, passthrough: true }
     bicep_avm: { attribute: vCores, passthrough: true, note: default 4; written anyway }
     bicep: { attribute: properties.vCores, passthrough: true, note: and sku.capacity }
@@ -122,7 +122,7 @@ decisions:
       values: { system_managed: SystemManaged, weekday_nights: Custom1, weekend_nights: Custom2 }
       note: the module resolves the region's configuration id
     bicep:
-      gap: the authored table names properties.maintenanceConfigurationId but neither the id nor how it is resolved from the answer
+      gap: the authored rendering names properties.maintenanceConfigurationId but neither the id nor how it is resolved from the answer
   instance.databases:
     terraform_avm: { attribute: 'databases.<key>.name', note: the map key is arbitrary }
     terraform: { attribute: azurerm_mssql_managed_database.name, note: one resource per database }
@@ -200,10 +200,10 @@ decisions:
     terraform_avm:
       attribute: 'private_endpoints.<key>.subnet_resource_id'
       note: private_endpoints_manage_dns_zone_group = false under policy DNS
-    terraform: { gap: the authored table names azurerm_private_endpoint but no subnet argument }
+    terraform: { gap: the authored rendering names azurerm_private_endpoint but no subnet argument }
     bicep_avm:
       gap: no module parameter - the subnet of the authored Microsoft.Network/privateEndpoints; no privateDnsZoneGroup under policy DNS
-    bicep: { gap: the authored table names Microsoft.Network/privateEndpoints but no subnet property }
+    bicep: { gap: the authored rendering names Microsoft.Network/privateEndpoints but no subnet property }
   networking.connection_type:
     terraform_avm: { attribute: proxy_override, passthrough: true, note: module default Default - always written }
     terraform: { attribute: proxy_override, passthrough: true }
@@ -259,16 +259,16 @@ decisions:
     not_rendered: a T-SQL step after the deployment from inside the network (CREATE LOGIN FROM EXTERNAL PROVIDER, then users and roles); no module input and no ARM resource
   identity.role_assignments:
     terraform_avm: { attribute: role_assignments, note: control plane }
-    terraform: { gap: the authored table names no role assignment }
+    terraform: { gap: the authored rendering names no role assignment }
     bicep_avm: { attribute: roleAssignments, note: control plane }
-    bicep: { gap: the authored table names no role assignment }
+    bicep: { gap: the authored rendering names no role assignment }
 
   # ----------------------------------------------------------------- security
   security.local_authentication_disabled:
     terraform_avm:
       attribute: active_directory_administrator.azuread_authentication_only_enabled
       passthrough: true
-      note: administrator_login and password are still required by module and provider - a generated random_password, never output
+      note: administrator_login and password are still required by module and provider - a generated random_password, never output, never stored
     terraform:
       attribute: azuread_administrator.azuread_authentication_only_enabled
       passthrough: true
@@ -313,7 +313,7 @@ decisions:
     terraform:
       attribute: azapi_resource Microsoft.Sql/managedInstances/advancedThreatProtectionSettings state
       values: { true: Enabled, false: null }
-      note: name Default; false renders no setting - the reference shows no off literal
+      note: name Default (or azurerm_mssql_managed_instance_security_alert_policy); false renders no setting - the reference shows no off literal
     bicep_avm:
       gap: "not the module (securityAlertPolicy wants a storage account when enabled) - an authored advancedThreatProtectionSettings/Default with state: 'Enabled'"
     bicep:
@@ -373,8 +373,9 @@ decisions:
   data_protection.backup_storage_redundancy:
     terraform_avm:
       attribute: storage_account_type
-      values: { Local: LRS, Zone: ZRS, Geo: GRS, GeoZone: GRS }
-      note: module default GRS - always written; no GeoZone on the module - recorded forced to GRS (forced_by the module), or the instance renders authored
+      values: { Local: LRS, Zone: ZRS, Geo: GRS }
+      authored_when: [GeoZone]
+      note: module default GRS - always written
     terraform:
       gap: storage_account_type takes LRS / ZRS / GRS as on the module; the reference names no literal for GeoZone, the answer that sends the instance to the authored rendering
     bicep_avm: { attribute: requestedBackupStorageRedundancy, passthrough: true, note: module default Geo - always written; all four values }

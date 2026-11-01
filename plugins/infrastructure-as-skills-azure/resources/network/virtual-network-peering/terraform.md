@@ -28,21 +28,12 @@ The network module also takes a `peerings` map for the same thing from inside th
 
 ### Decision -> module input
 
+What each decision renders to - the input and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.
+
+Not decisions of this set:
+
 | Decision | Input | Note |
 |---|---|---|
-| `local_virtual_network` | `parent_id` | The local network's id |
-| `remote_virtual_network` | `remote_virtual_network_id` | The hub's id |
-| `both_directions` | `create_reverse_peering`, `reverse_name` | `false` leaves the hub side to its owner |
-| `allow_virtual_network_access` | `allow_virtual_network_access` | |
-| `reverse_allow_virtual_network_access` | `reverse_allow_virtual_network_access` | |
-| `allow_forwarded_traffic` | `allow_forwarded_traffic` | |
-| `reverse_allow_forwarded_traffic` | `reverse_allow_forwarded_traffic` | |
-| `allow_gateway_transit` | `allow_gateway_transit` | Hub side only |
-| `use_remote_gateways` | `use_remote_gateways` | Spoke side only; the reverse has `reverse_use_remote_gateways`, always `false` |
-| `reverse_allow_gateway_transit` | `reverse_allow_gateway_transit` | |
-| `verify_remote_gateways` | `do_not_verify_remote_gateways` | Inverted |
-| `peering_role` | decides which side takes which switch | Not an input |
-| `central_inspection`, `hub_gateway` | decide the switches above | Not inputs |
 | names | `name`, `reverse_name` | From the naming provider with the `name` parameter set per side |
 
 The module peers whole networks by default (`peer_complete_vnets = true`); the address-space and subnet
@@ -120,12 +111,12 @@ mapping`. That is the honest state; the call itself is the review.
 
 The fallback. Targets `azurerm` **5.x**; check against `terraform providers schema -json`.
 
+What each decision renders to - the argument and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.
+
+Not decisions of this set:
+
 | Decision | Argument |
 |---|---|
-| `local_virtual_network`, `remote_virtual_network` | `azurerm_virtual_network_peering.virtual_network_name` and `.resource_group_name` (the local network's), `.remote_virtual_network_id` |
-| `both_directions` | a second `azurerm_virtual_network_peering` on the remote network, with a provider alias when it is in another subscription |
-| `allow_virtual_network_access`, `allow_forwarded_traffic`, `allow_gateway_transit`, `use_remote_gateways` | the arguments of the same name |
-| `verify_remote_gateways` | not an argument of the resource; the provider does not expose `doNotVerifyRemoteGateways` |
 | names | `.name` |
 
 The provider has no input for `doNotVerifyRemoteGateways` and no reverse side; a hub-and-spoke pair needs

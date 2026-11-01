@@ -23,19 +23,13 @@ plain id variable) and nothing below.
 
 ### Decision -> resource and argument
 
-| Decision | Resource and argument | Note |
+What each decision renders to - the argument and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.
+
+### Deployment-wide inputs
+
+| Input | Resource and argument | Note |
 |---|---|---|
-| `ownership`, `existing_account_id` | `data "azurerm_purview_account"` / `var.purview_account_id` | `platform`: the reference only |
-| `managed_resource_group_name` | `azurerm_purview_account.managed_resource_group_name` | Fixed at creation; `managed-rg-<name>` when empty |
-| `managed_event_hub` | `managed_event_hub_enabled` | Provider default **`true`**; written |
-| `managed_resources_public_access` | **no argument** - `azapi_update_resource` on `properties.managedResourcesPublicNetworkAccess` | Gap of the provider |
-| `public_network_access` | `public_network_enabled` | **Bool**, provider default **`true`**; written |
-| `private_endpoint_subnet`, `private_endpoint_subresources` | `azurerm_private_endpoint` per entry: `account`, `portal` on the account id; `blob`, `queue` on `managed_resources[0].storage_account_id`; `namespace` on `managed_resources[0].event_hub_namespace_id` | The managed ids are attributes of the account, known after apply |
 | `deployment.private_dns_records: policy` | no `private_dns_zone_group` block | |
-| `managed_identity`, `user_assigned_identity_ids` | `identity { type = "SystemAssigned" }` or `identity { type = "SystemAssigned, UserAssigned", identity_ids }` | System-assigned is mandatory |
-| `collection_roles` | **not Azure Resource Manager** - the account's metadata policy API after the apply | |
-| `role_assignments` | `azurerm_role_assignment` on the account | Control plane |
-| `diagnostic_workspace`, `diagnostic_categories`, `metrics_enabled` | `azurerm_monitor_diagnostic_setting` with `enabled_log { category }` per category and `enabled_metric { category = "AllMetrics" }` | |
 | `deployment.resource_lock` | `azurerm_management_lock` (`CanNotDelete`) on the account | A lost account is a lost data map |
 | `context.tags` | `tags = local.tags` | |
 

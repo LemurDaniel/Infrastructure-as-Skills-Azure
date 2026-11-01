@@ -35,7 +35,7 @@ decisions:
       module: Azure/avm-res-web-site/azurerm
       attribute: service_plan_resource_id
       note: the owner's plan module output; the owner's plan is rendered first
-    terraform: { attribute: service_plan_id, note: from the question's renders - the authored table names none }
+    terraform: { attribute: service_plan_id, note: from the question's renders - the authored rendering names none }
     bicep_avm: { module: avm/res/web/site, attribute: serverFarmResourceId, note: the owner's plan module output }
     bicep: { gap: reference names no authored property }
   hosting.os_type:
@@ -52,7 +52,7 @@ decisions:
       module: avm/res/web/serverfarm
       attribute: kind
       values: { Linux: linux, Windows: app }
-      note: "module default 'app' (Windows); the site's kind is 'app,linux' or 'app' ('app,linux,container' for a container)"
+      note: "reserved follows kind; module default 'app' (Windows); the site's kind is 'app,linux' or 'app' ('app,linux,container' for a container)"
     bicep:
       attribute: kind
       values: { Linux: linux, Windows: app }
@@ -60,7 +60,7 @@ decisions:
         Linux: 'properties.reserved: true'
       note: on Microsoft.Web/serverfarms
   hosting.sku:
-    terraform_avm: { module: Azure/avm-res-web-serverfarm/azurerm, attribute: sku_name, passthrough: true, note: module default P1v2 - must be written }
+    terraform_avm: { module: Azure/avm-res-web-serverfarm/azurerm, attribute: sku_name, passthrough: true, note: module default P1v2 (older hardware) - must be written }
     terraform: { attribute: azurerm_service_plan.sku_name, passthrough: true }
     bicep_avm: { module: avm/res/web/serverfarm, attribute: skuName, passthrough: true, note: module default P1v3; written }
     bicep: { attribute: sku.name, passthrough: true, note: on the plan }
@@ -158,7 +158,7 @@ decisions:
       module: Azure/avm-res-web-site/azurerm
       attribute: site_config.ip_restriction
       note: scm_use_main_ip_restriction = true instead of a second scm_ip_restriction list
-    terraform: { attribute: site_config.ip_restriction, note: from the question's renders - the authored table names none }
+    terraform: { attribute: site_config.ip_restriction, note: from the question's renders - the authored rendering names none }
     bicep_avm: { module: avm/res/web/site, attribute: siteConfig.ipSecurityRestrictions }
     bicep: { attribute: properties.siteConfig.ipSecurityRestrictions }
 
@@ -171,7 +171,7 @@ decisions:
         system_assigned: { expr: '{ system_assigned = true }' }
         user_assigned: { expr: '{ user_assigned_resource_ids = {identity.user_assigned_identity_ids} }' }
         none: { expr: '{}' }
-      note: module default system_assigned = false; written
+      note: module default system_assigned = false; written. A forced user_assigned is written on each slot too (deployment_slots.<name>.managed_identities) - one identity written twice
     terraform:
       attribute: identity.type
       values: { system_assigned: SystemAssigned, user_assigned: UserAssigned, none: null }
@@ -183,10 +183,11 @@ decisions:
         system_assigned: { expr: '{ systemAssigned: true }' }
         user_assigned: { expr: '{ userAssignedResourceIds: {identity.user_assigned_identity_ids} }' }
         none: { expr: '{}' }
+      note: a forced user_assigned on the site is inherited by the slots
     bicep:
       attribute: identity.type
       values: { system_assigned: SystemAssigned, user_assigned: UserAssigned, none: null }
-      note: from the question's renders - the authored table names none; none renders no identity block
+      note: from the question's renders - the authored rendering names none; none renders no identity block
   identity.user_assigned_identity_ids:
     terraform_avm: { module: Azure/avm-res-web-site/azurerm, attribute: managed_identities.user_assigned_resource_ids }
     terraform: { gap: reference names no authored argument }
@@ -208,7 +209,7 @@ decisions:
       values:
         none: null
         existing_app_registration: { expr: "{ globalValidation: { requireAuthentication: true, unauthenticatedClientAction: 'RedirectToLoginPage' }, identityProviders: { azureActiveDirectory: { registration: { openIdIssuer, clientId, clientSecretSettingName } } } }" }
-      note: the properties of the authored child resource; none renders no authsettingsV2 entry
+      note: the properties of the authored child resource, the shape from the module README of the version pinned; none renders no authsettingsV2 entry
     bicep:
       attribute: Microsoft.Web/sites/config authsettingsV2 properties
       values:
@@ -338,6 +339,7 @@ decisions:
       values:
         deployment: { expr: "'DOCKER|{runtime.container_image}'" }
         image_pipeline: { expr: "<a parameter with the running site's linuxFxVersion, read by the pipeline; 'DOCKER|{runtime.container_image}' while empty>" }
+      note: Bicep cannot read a property of a resource it deploys; the pipeline reads it
     bicep:
       attribute: properties.siteConfig.linuxFxVersion
       values:
@@ -345,7 +347,7 @@ decisions:
         image_pipeline: { expr: '<a parameter with the running value; the bootstrap image while it is empty>' }
   runtime.always_on:
     terraform_avm: { module: Azure/avm-res-web-site/azurerm, attribute: site_config.always_on, passthrough: true }
-    terraform: { attribute: site_config.always_on, passthrough: true, note: from the question's renders - the authored table names none }
+    terraform: { attribute: site_config.always_on, passthrough: true, note: from the question's renders - the authored rendering names none }
     bicep_avm: { module: avm/res/web/site, attribute: siteConfig.alwaysOn, passthrough: true }
     bicep: { attribute: properties.siteConfig.alwaysOn, passthrough: true }
   runtime.health_check_path:
@@ -355,7 +357,7 @@ decisions:
     bicep: { attribute: properties.siteConfig.healthCheckPath, passthrough: true, note: omitted while empty }
   runtime.http2_enabled:
     terraform_avm: { module: Azure/avm-res-web-site/azurerm, attribute: site_config.http2_enabled, passthrough: true, note: module default false }
-    terraform: { attribute: site_config.http2_enabled, passthrough: true, note: from the question's renders - the authored table names none }
+    terraform: { attribute: site_config.http2_enabled, passthrough: true, note: from the question's renders - the authored rendering names none }
     bicep_avm: { module: avm/res/web/site, attribute: siteConfig.http20Enabled, passthrough: true }
     bicep: { attribute: properties.siteConfig.http20Enabled, passthrough: true }
 
@@ -364,7 +366,7 @@ decisions:
     terraform_avm:
       module: Azure/avm-res-web-site/azurerm
       attribute: 'deployment_slots.<name> = { name, ... }'
-      note: a slot inherits nothing - every site decision is written on each slot again; Premium v3
+      note: a slot inherits nothing - every site decision is written on each slot again; Premium v3 - Basic rejects it at apply
     terraform: { gap: reference names no authored argument }
     bicep_avm:
       module: avm/res/web/site
@@ -380,7 +382,7 @@ decisions:
         same_as_app: 'private_endpoints = { sites = { subnet_resource_id } }'
         private: 'private_endpoints = { sites = { subnet_resource_id } }'
         known_addresses: 'site_config.ip_restriction_default_action = "Deny"; site_config.scm_use_main_ip_restriction = true'
-      note: subresource_name defaults to sites-<slot>; same_as_app behind a WAF also adds an origin group and route on the Front Door call
+      note: subresource_name defaults to sites-<slot>; same_as_app behind a WAF also adds the slot's origin group and route on the Front Door call - origin <app>-<slot>.azurewebsites.net over private link to sites-<slot>, the route's endpoint host name the slot's address
     terraform: { gap: reference names no authored argument }
     bicep_avm:
       module: avm/res/web/site
@@ -390,7 +392,7 @@ decisions:
         same_as_app: "privateEndpoints: [ { service: 'sites-<name>', subnetResourceId } ]"
         private: "privateEndpoints: [ { service: 'sites-<name>', subnetResourceId } ]"
         known_addresses: "siteConfig: { ipSecurityRestrictionsDefaultAction: 'Deny', scmIpSecurityRestrictionsUseMain: true }"
-      note: a slot siteConfig replaces the site's - write the whole object
+      note: a slot siteConfig replaces the site's - write the whole object; same_as_app behind a WAF also adds an origin group and route on the Front Door call, over private link to sites-<name>
     bicep: { gap: reference names no authored property }
   slots.slot_ip_restrictions:
     terraform_avm: { module: Azure/avm-res-web-site/azurerm, attribute: 'deployment_slots.<name>.site_config.ip_restriction' }
@@ -422,7 +424,7 @@ decisions:
     bicep_avm:
       module: avm/res/web/site
       attribute: "configs[name: 'slotConfigNames'].properties.appSettingNames"
-      note: on the site; write configs on each slot, which would inherit slotConfigNames otherwise
+      note: on the site; write configs on each slot, which would inherit slotConfigNames otherwise - the slot's list holds its appsettings only ([] when it has none)
     bicep: { gap: reference names no authored property }
 
   # ------------------------------------------------------------ observability
@@ -462,10 +464,10 @@ decisions:
     terraform_avm:
       module: Azure/avm-res-web-site/azurerm
       attribute: application_insights_connection_string
-      note: the component's connection string output, not its id; with app_settings.APPLICATIONINSIGHTS_AUTHENTICATION_STRING = "Authorization=AAD" while local auth is off; on every slot too; omitted while empty
+      note: the component's connection string output, not its id; with app_settings.APPLICATIONINSIGHTS_AUTHENTICATION_STRING = "Authorization=AAD" (;ClientId=<client id> user-assigned - the role a role_assignments entry on the component) while local auth is off; becomes the APPLICATIONINSIGHTS_CONNECTION_STRING app setting - the module creates no component; on every slot too, as deployment_slots.<name>.site_config.application_insights_connection_string and its app_settings; omitted while empty
     terraform: { gap: reference names no authored argument }
     bicep_avm:
       module: avm/res/web/site
       attribute: "configs[name: 'appsettings'].properties.APPLICATIONINSIGHTS_CONNECTION_STRING"
-      note: the component's connectionString output, not its id; with APPLICATIONINSIGHTS_AUTHENTICATION_STRING while local auth is off; slots[].configs too; omitted while empty
+      note: the component's connectionString output, not its id; with APPLICATIONINSIGHTS_AUTHENTICATION_STRING = Authorization=AAD (;ClientId=<client id> user-assigned) while local auth is off; slots[].configs too; omitted while empty
     bicep: { gap: reference names no authored property }

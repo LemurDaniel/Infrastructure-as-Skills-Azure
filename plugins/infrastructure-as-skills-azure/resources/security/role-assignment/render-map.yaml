@@ -34,7 +34,7 @@ decisions:
 
   # ----------------------------------------------------------------- identity
   identity.principal:
-    terraform_avm: { attribute: 'role_assignments_azure_resource_manager.<key>.principal_id', note: an object id }
+    terraform_avm: { attribute: 'role_assignments_azure_resource_manager.<key>.principal_id', note: an object id; from the identity module's principal_id output }
     terraform: { attribute: principal_id }
     bicep_avm: { attribute: principalId }
     bicep: { attribute: properties.principalId }
@@ -44,7 +44,7 @@ decisions:
       passthrough: true
       note: ServicePrincipal for a managed identity; the module's *ManagedIdentity values are helper-map only - check the README
     terraform: { attribute: principal_type, passthrough: true, note: with it set the AAD lookup is skipped }
-    bicep_avm: { attribute: principalType, passthrough: true, note: ServicePrincipal for a managed identity - no managed-identity value; written always }
+    bicep_avm: { attribute: principalType, passthrough: true, note: "ServicePrincipal for a managed identity - the allowed list is '', Device, ForeignGroup, Group, ServicePrincipal, User, with no managed-identity value; written always" }
     bicep: { attribute: properties.principalType, passthrough: true }
   identity.role:
     terraform_avm:

@@ -30,13 +30,18 @@ decisions:
     not_rendered: true swaps this set for service-bus; no attribute of the queue
   queues.metadata:
     terraform_avm:
-      gap: 'queues.<key>.metadata takes a map of lowercase keys; the question records a list with no item shape, so no map can be built from it until the question is a map'
+      attribute: 'queues.<key>.metadata'
+      format: { expr: '{ for kv in {value} : split("=", kv)[0] => split("=", kv)[1] }' }
+      note: a map of lowercase keys, built from the key=value entries
     terraform:
-      gap: 'metadata takes a map; the question records a list with no item shape, so no map can be built from it until the question is a map'
+      attribute: azurerm_storage_queue.metadata
+      format: { expr: '{ for kv in {value} : split("=", kv)[0] => split("=", kv)[1] }' }
     bicep_avm:
-      gap: 'queueServices.queues[].metadata is key-value metadata (a map, terraform.md); the question records a list with no item shape, so nothing can be built from it until the question is a map'
+      attribute: 'queueServices.queues[].metadata'
+      format: { expr: "toObject({value}, kv => split(kv, '=')[0], kv => split(kv, '=')[1])" }
     bicep:
-      gap: 'properties.metadata is key-value metadata (a map, terraform.md); the question records a list with no item shape, so nothing can be built from it until the question is a map'
+      attribute: properties.metadata
+      format: { expr: "toObject({value}, kv => split(kv, '=')[0], kv => split(kv, '=')[1])" }
 
   # ----------------------------------------------------------------- identity
   identity.role_assignments:

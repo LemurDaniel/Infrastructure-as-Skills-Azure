@@ -60,11 +60,12 @@ decisions:
     terraform_avm:
       attribute: resource_guard_enabled
       passthrough: true
-      note: with resource_guard_resource_id; without an id the module creates a guard in the same group, which protects nothing
+      note: with resource_guard_resource_id; without an id the module creates a guard in the same group, which protects nothing - never rely on that for isolated
     terraform:
       gap: the reference names only azurerm_data_protection_resource_guard in the security subscription; no vault argument attaches it
     bicep_avm:
       gap: no parameter - a Microsoft.DataProtection/backupVaults/backupResourceGuardProxies child outside the module, pointing at the guard id; the vault's identity needs Reader on the guard
+      note: named in the handover
     bicep:
       gap: a Microsoft.DataProtection/backupVaults/backupResourceGuardProxies child pointing at the guard id
   vault.resource_guard:
@@ -80,14 +81,14 @@ decisions:
       values: { true: Enabled, false: Disabled }
       note: module default Enabled - written
     bicep:
-      gap: the property path of infrastructureEncryption is not in the reference's authored table
+      gap: the property path of infrastructureEncryption is not in the reference's authored rendering
   vault.job_failure_alerts:
     terraform_avm:
       attribute: alerts_for_all_job_failures
       values: { true: Enabled, false: Disabled }
       note: module default null (unset) - written
     terraform:
-      gap: not in the reference's authored table for azurerm_data_protection_backup_vault - the argument is unconfirmed
+      gap: not in the reference's authored rendering for azurerm_data_protection_backup_vault - the argument is unconfirmed
     bicep_avm:
       attribute: azureMonitorAlertSettingsAlertsForAllJobFailures
       values: { true: Enabled, false: Disabled }
@@ -130,7 +131,7 @@ decisions:
     terraform_avm:
       gap: customer_managed sets customer_managed_key, platform_managed leaves it out; the object's members are read from the pinned README - the reference names none. Needs the user-assigned identity
     terraform:
-      gap: not in the reference's authored table for azurerm_data_protection_backup_vault - the argument is unconfirmed
+      gap: not in the reference's authored rendering for azurerm_data_protection_backup_vault - the argument is unconfirmed
     bicep_avm:
       attribute: customerManagedKey
       values:
@@ -140,7 +141,7 @@ decisions:
   encryption.cmk_key_vault_key_id:
     terraform_avm: { gap: a member of customer_managed_key; the reference names none - read from the pinned README }
     terraform:
-      gap: not in the reference's authored table for azurerm_data_protection_backup_vault - the argument is unconfirmed
+      gap: not in the reference's authored rendering for azurerm_data_protection_backup_vault - the argument is unconfirmed
     bicep_avm:
       attribute: customerManagedKey.keyVaultResourceId, customerManagedKey.keyName
       note: the key id split into the vault's id and the key's name
@@ -150,7 +151,7 @@ decisions:
       attribute: managed_identities
       values:
         system_assigned: { expr: '{ system_assigned = true }' }
-        user_assigned: { expr: '{ user_assigned_resource_ids = <user_assigned_identity_ids> }' }
+        user_assigned: { expr: '{ user_assigned_resource_ids = [{encryption.user_assigned_identity_id}] }' }
     terraform:
       attribute: azurerm_data_protection_backup_vault.identity.type
       values: { system_assigned: SystemAssigned, user_assigned: UserAssigned }
@@ -158,10 +159,16 @@ decisions:
       attribute: managedIdentities
       values:
         system_assigned: { expr: '{ systemAssigned: true }' }
-        user_assigned: { expr: '{ userAssignedResourceIds: <user_assigned_identity_ids> }' }
+        user_assigned: { expr: '{ userAssignedResourceIds: [{encryption.user_assigned_identity_id}] }' }
     bicep:
       attribute: identity.type
       values: { system_assigned: SystemAssigned, user_assigned: UserAssigned }
+
+  encryption.user_assigned_identity_id:
+    terraform_avm: { attribute: managed_identities.user_assigned_resource_ids, format: { expr: '[{value}]' } }
+    terraform: { gap: the reference names no authored argument for a user-assigned identity on this vault }
+    bicep_avm: { attribute: managedIdentities.userAssignedResourceIds, format: { expr: '[{value}]' } }
+    bicep: { gap: identity.userAssignedIdentities is an object keyed by id; the reference shows no shape }
 
   # ----------------------------------------------------------------- identity
   identity.role_assignments:

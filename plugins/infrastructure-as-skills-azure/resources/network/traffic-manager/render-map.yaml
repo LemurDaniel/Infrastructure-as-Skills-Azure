@@ -28,7 +28,7 @@ decisions:
   profile.traffic_goal:
     not_rendered: pre-answers routing_method; nothing of its own in the call
   profile.routing_method:
-    terraform_avm: { attribute: traffic_routing_method, note: required by the module - no default, passthrough: true }
+    terraform_avm: { attribute: traffic_routing_method, note: 'required by the module - no default; "Priority" for failover', passthrough: true }
     terraform: { attribute: traffic_routing_method, passthrough: true }
     bicep_avm: { attribute: trafficRoutingMethod, note: module default Performance; written, passthrough: true }
     bicep: { attribute: properties.trafficRoutingMethod, passthrough: true }
@@ -125,13 +125,13 @@ decisions:
   endpoints.endpoints:
     terraform_avm:
       attribute: 'azure_endpoints, external_endpoints, nested_endpoints'
-      note: 'three maps keyed by the entry name; azure and nested take target_resource_id, external target'
+      note: 'three maps keyed by the entry name; azure and nested take target_resource_id, external target (hostname or address), nested also min_child_endpoints; each takes priority, weight, endpoint_location, geo_mapping, enabled'
     terraform:
       attribute: 'azurerm_traffic_manager_azure_endpoint, _external_endpoint, _nested_endpoint'
-      note: profile_id on each; external takes target and endpoint_location
+      note: profile_id on each; azure takes target_resource_id, priority, weight, enabled; external takes target and endpoint_location
     bicep_avm:
       attribute: 'endpoints[] = { name, type, properties: { targetResourceId or target, endpointStatus, priority, weight, endpointLocation, geoMapping, minChildEndpoints } }'
-      note: 'the kind is the ARM type: Microsoft.Network/trafficManagerProfiles/azureEndpoints, /externalEndpoints, /nestedEndpoints'
+      note: 'one array; the kind is the ARM type: Microsoft.Network/trafficManagerProfiles/azureEndpoints, /externalEndpoints, /nestedEndpoints. Typed from the resource schema, so a misspelt property fails bicep build'
     bicep: { attribute: 'properties.endpoints[]', note: "the same shape as the module's parameter" }
 
   # ------------------------------------------------------------------- access

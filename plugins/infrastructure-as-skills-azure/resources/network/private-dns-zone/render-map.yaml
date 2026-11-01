@@ -16,7 +16,7 @@ decisions:
   placement.resource_group_name:
     terraform_avm:
       attribute: parent_id
-      note: the group's id, not its name - AzAPI-only module
+      note: the group's id, not its name (the module also accepts a virtual network's) - AzAPI-only module
     terraform: { attribute: azurerm_private_dns_zone.resource_group_name }
     bicep_avm: { gap: the deployment's resource group scope; no parameter }
     bicep: { gap: the deployment's resource group scope; no property }
@@ -49,7 +49,7 @@ decisions:
       attribute: Microsoft.Network/privateDnsZones/virtualNetworkLinks properties.virtualNetwork.id
       note: "the link is location: 'global' as well"
   networking.auto_registration:
-    terraform_avm: { attribute: 'virtual_network_links.<key>.registration_enabled', passthrough: true }
+    terraform_avm: { attribute: 'virtual_network_links.<key>.registration_enabled', passthrough: true, note: 'false unless zone_kind: internal_domain says otherwise' }
     terraform: { attribute: azurerm_private_dns_zone_virtual_network_link.registration_enabled, passthrough: true }
     bicep_avm: { attribute: 'virtualNetworkLinks[].registrationEnabled', passthrough: true }
     bicep: { attribute: Microsoft.Network/privateDnsZones/virtualNetworkLinks properties.registrationEnabled, passthrough: true }
@@ -69,5 +69,5 @@ decisions:
       note: private_dns_zone_id on 5.x, not zone_name and resource_group_name
     bicep_avm:
       attribute: 'a, aaaa, cname, txt'
-      note: 'an array per type: a: [ { name, ttl, aRecords: [ { ipv4Address } ] } ]'
+      note: 'an array per type: a: [ { name, ttl, aRecords: [ { ipv4Address } ] } ], cname: [ { name, ttl, cnameRecord: { cname } } ], txt: [ { name, ttl, txtRecords: [ { value: [ ... ] } ] } ]'
     bicep: { attribute: 'Microsoft.Network/privateDnsZones/A, /CNAME, /TXT' }

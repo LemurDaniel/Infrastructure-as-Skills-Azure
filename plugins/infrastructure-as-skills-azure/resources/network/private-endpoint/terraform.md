@@ -21,17 +21,12 @@ repository on it migrates with `avm_managed_migration_enabled`, set for one appl
 
 ### Decision -> module input
 
+What each decision renders to - the input and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.
+
+Not decisions of this set:
+
 | Decision | Input | Note |
 |---|---|---|
-| `target_resource` | `private_connection_resource_id` | |
-| `subresource` | `subresource_names = ["<group id>"]` | A list, with one entry |
-| `connection_approval: manual` | not carried | The module has no manual-connection input at v0.3.0: render the endpoint authored (below) or mark the decision as not carried in the handover |
-| `approval_message` | not carried | As above |
-| `subnet` | `subnet_resource_id` | From the platform or the network set |
-| `private_ip_address` | `ip_configurations = { <k> = { name, private_ip_address, subresource_name } }` | Omit for Azure-assigned |
-| `dns_zone_group: attached` | `private_dns_zone_group_name`, `private_dns_zone_resource_ids` | |
-| `dns_zone_group: left_to_policy` | neither input | No zone group is rendered, so there is no second writer |
-| `dns_zones` | `private_dns_zone_resource_ids` | Ids; for a platform zone from the `data` source, for one created here the `private-dns-zone` output |
 | the name | `name`, `network_interface_name`, `private_service_connection_name` | The interface name is required by the module although its description says optional; both follow the endpoint's name |
 | `deployment.module_telemetry` | `enable_telemetry` | |
 | `context.tags` | `tags = local.tags` | |
@@ -125,14 +120,13 @@ A render that must prove the zone group is absent for `left_to_policy` checks th
 The fallback - and the render for a **manual connection**, which the module does not carry.
 Targets `azurerm` **5.x**; check against `terraform providers schema -json`.
 
+What each decision renders to - the argument and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.
+
+Not decisions of this set:
+
 | Decision | Argument |
 |---|---|
 | the endpoint | `azurerm_private_endpoint` |
-| `subnet` | `subnet_id` |
-| `target_resource`, `subresource`, `connection_approval` | `private_service_connection { name, private_connection_resource_id, subresource_names, is_manual_connection, request_message }` - `request_message` only when manual |
-| `private_ip_address` | `ip_configuration { name, private_ip_address, subresource_name }` |
 | the interface name | `custom_network_interface_name` |
-| `dns_zone_group: attached` | `private_dns_zone_group { name, private_dns_zone_ids }` |
-| `dns_zone_group: left_to_policy` | no `private_dns_zone_group` block - and `lifecycle { ignore_changes = [private_dns_zone_group] }` where the platform policy adds one afterwards, so the plan does not remove it |
 
 Validated against `azurerm` 5.x.

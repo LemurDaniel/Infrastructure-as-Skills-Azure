@@ -38,9 +38,9 @@ decisions:
       note: the name of the parent network, out of its id; the call is scoped to its group
     bicep: { attribute: parent, note: 'the network, by parent or as a nested resource' }
   peering.remote_virtual_network:
-    terraform_avm: { attribute: remote_virtual_network_id }
+    terraform_avm: { attribute: remote_virtual_network_id, note: "the hub's id" }
     terraform: { attribute: azurerm_virtual_network_peering.remote_virtual_network_id }
-    bicep_avm: { attribute: remoteVirtualNetworkResourceId }
+    bicep_avm: { attribute: remoteVirtualNetworkResourceId, note: "the hub's id" }
     bicep: { attribute: properties.remoteVirtualNetwork.id }
   peering.both_directions:
     terraform_avm:

@@ -76,11 +76,11 @@ decisions:
     terraform_avm:
       attribute: private_endpoints.search.subnet_resource_id
       note: subresource_name defaults to searchService; private_endpoints_manage_dns_zone_group = false under policy
-    terraform: { gap: the authored table names no private endpoint; the renders field names only the module input }
+    terraform: { gap: the authored rendering names no private endpoint; the renders field names only the module input }
     bicep_avm:
       attribute: 'privateEndpoints[].subnetResourceId'
       note: "service: 'searchService'; no privateDnsZoneGroup under private_dns_records policy"
-    bicep: { gap: the authored table names no private endpoint; the renders field names only the module parameter }
+    bicep: { gap: the authored rendering names no private endpoint; the renders field names only the module parameter }
   networking.ip_rules:
     terraform_avm: { attribute: allowed_ips, note: addresses or CIDR blocks }
     terraform: { attribute: allowed_ips }
@@ -118,14 +118,14 @@ decisions:
       gap: identity.type - the reference states no type literal; none renders no identity
   identity.user_assigned_identity_ids:
     terraform_avm: { attribute: managed_identities.user_assigned_resource_ids }
-    terraform: { gap: 'the authored table names identity { type } only; the renders field names only the module input' }
+    terraform: { gap: 'the authored rendering names identity { type } only; the renders field names only the module input' }
     bicep_avm: { attribute: managedIdentities.userAssignedResourceIds }
-    bicep: { gap: the authored table names identity.type only; the renders field names only the module parameter }
+    bicep: { gap: the authored rendering names identity.type only; the renders field names only the module parameter }
   identity.role_assignments:
     terraform_avm: { attribute: 'role_assignments.<key> = { role_definition_id_or_name, principal_id }' }
-    terraform: { gap: the authored table names no role assignment; the renders field names only the module input }
+    terraform: { gap: the authored rendering names no role assignment; the renders field names only the module input }
     bicep_avm: { attribute: roleAssignments }
-    bicep: { gap: the authored table names no role assignment; the renders field names only the module parameter }
+    bicep: { gap: the authored rendering names no role assignment; the renders field names only the module parameter }
 
   # ----------------------------------------------------------------- security
   security.local_authentication_disabled:
@@ -159,21 +159,21 @@ decisions:
     terraform:
       gap: authored azurerm_monitor_diagnostic_setting; the reference names the resource, not its workspace argument
     bicep_avm: { attribute: 'diagnosticSettings[].workspaceResourceId' }
-    bicep: { gap: the authored table names no diagnostic setting; the renders field names only the module parameter }
+    bicep: { gap: the authored rendering names no diagnostic setting; the renders field names only the module parameter }
   observability.diagnostic_categories:
     terraform_avm:
       attribute: diagnostic_settings.workspace.log_categories
       note: log_groups defaults to ["allLogs"] - set it [] beside the categories, or every log is collected
     terraform: { attribute: azurerm_monitor_diagnostic_setting.enabled_log.category }
     bicep_avm: { attribute: 'diagnosticSettings[].logCategoriesAndGroups[].category' }
-    bicep: { gap: the authored table names no diagnostic setting; the renders field names only the module parameter }
+    bicep: { gap: the authored rendering names no diagnostic setting; the renders field names only the module parameter }
   observability.metrics_enabled:
     terraform_avm:
       attribute: diagnostic_settings.workspace.metric_categories
       values: { true: { expr: '["AllMetrics"]' }, false: { expr: '[]' } }
     terraform:
-      gap: authored azurerm_monitor_diagnostic_setting; the authored table names only enabled_log - no metric block is in the reference
+      gap: authored azurerm_monitor_diagnostic_setting; the authored rendering names only enabled_log - no metric block is in the reference
     bicep_avm:
       attribute: 'diagnosticSettings[].metricCategories'
       values: { true: { expr: "[ { category: 'AllMetrics' } ]" }, false: { expr: '[]' } }
-    bicep: { gap: the authored table names no diagnostic setting; the renders field names only the module parameter }
+    bicep: { gap: the authored rendering names no diagnostic setting; the renders field names only the module parameter }

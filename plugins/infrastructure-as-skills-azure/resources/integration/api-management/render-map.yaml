@@ -30,12 +30,12 @@ decisions:
   service.publisher_name:
     terraform_avm: { attribute: publisher_name, passthrough: true, note: 'module default is the placeholder "Apim Example Publisher"; always written' }
     terraform: { attribute: publisher_name, passthrough: true }
-    bicep_avm: { attribute: publisherName, passthrough: true }
+    bicep_avm: { attribute: publisherName, passthrough: true, note: required }
     bicep: { attribute: properties.publisherName, passthrough: true }
   service.publisher_email:
-    terraform_avm: { attribute: publisher_email, passthrough: true }
+    terraform_avm: { attribute: publisher_email, passthrough: true, note: required }
     terraform: { attribute: publisher_email, passthrough: true }
-    bicep_avm: { attribute: publisherEmail, passthrough: true }
+    bicep_avm: { attribute: publisherEmail, passthrough: true, note: required }
     bicep: { attribute: properties.publisherEmail, passthrough: true }
   service.sku:
     terraform_avm:
@@ -58,7 +58,7 @@ decisions:
     terraform:
       attribute: zones
       values: { true: { expr: '["1", "2", "3"]' }, false: null }
-      note: the literals the module row states for the same list; Premium/PremiumV2 only
+      note: the literals the module section states for the same list; Premium/PremiumV2 only
     bicep_avm:
       attribute: availabilityZones
       values: { true: { expr: '[1, 2, 3]' }, false: { expr: '[]' } }
@@ -68,9 +68,9 @@ decisions:
   service.additional_regions:
     terraform_avm: { attribute: additional_location, note: '[{ location, capacity, zones, ... }]; Premium only' }
     terraform:
-      gap: the authored table names no argument; additional_location is only the renders field's spelling
+      gap: the authored rendering names no argument; additional_location is only the renders field's spelling
     bicep_avm: { attribute: additionalLocations, note: Premium only }
-    bicep: { gap: the authored table names no property; the renders field names only the module parameter }
+    bicep: { gap: the authored rendering names no property; the renders field names only the module parameter }
   service.managed_identity:
     terraform_avm:
       attribute: managed_identities
@@ -127,14 +127,14 @@ decisions:
     terraform_avm:
       gap: no module input switches the portal - sign_in, sign_up and delegation configure it; not-testable
     terraform:
-      gap: the authored table names no portal argument; sign_in, sign_up, delegation are only the renders field's spelling
+      gap: the authored rendering names no portal argument; sign_in, sign_up, delegation are only the renders field's spelling
     bicep_avm: { attribute: enableDeveloperPortal, passthrough: true, note: module default false; written }
-    bicep: { gap: the authored table names no property; the renders field names only the module's enableDeveloperPortal }
+    bicep: { gap: the authored rendering names no property; the renders field names only the module's enableDeveloperPortal }
   access.apis:
-    terraform_avm: { attribute: apis, note: 'with api_version_sets, backends, named_values; the names and the backend only' }
+    terraform_avm: { attribute: apis, note: 'with api_version_sets, backends, named_values; content of the API team - the names and the backend only' }
     terraform:
       gap: one authored azurerm_api_management_api per entry; the reference names the resource, not its arguments
-    bicep_avm: { attribute: apis, note: 'with apiVersionSets, backends, namedValues; the names and the backend only' }
+    bicep_avm: { attribute: apis, note: 'with apiVersionSets, backends, namedValues; content of the API team - the names and the backend only' }
     bicep:
       gap: a child apis per entry; the reference names the child, not its properties
   access.products:
@@ -173,29 +173,35 @@ decisions:
     bicep: { attribute: properties.publicIpAddressId }
   networking.public_network_access:
     terraform_avm:
-      gap: public_network_access_enabled (a bool, management plane only; module default true - written) - disabled false, enabled true; the reference maps no enabled_with_firewall
+      attribute: public_network_access_enabled
+      values: { disabled: false, enabled: true }
+      note: a bool, management plane only; module default true - written
     terraform:
-      gap: .public_network_access_enabled - disabled false, enabled true; the reference maps no enabled_with_firewall
+      attribute: public_network_access_enabled
+      values: { disabled: false, enabled: true }
     bicep_avm:
-      gap: publicNetworkAccess (unset by default; written) - disabled 'Disabled', enabled 'Enabled'; the reference maps no enabled_with_firewall
+      attribute: publicNetworkAccess
+      values: { disabled: Disabled, enabled: Enabled }
+      note: unset by default; written
     bicep:
-      gap: properties.publicNetworkAccess - disabled 'Disabled', enabled 'Enabled'; the reference maps no enabled_with_firewall
+      attribute: properties.publicNetworkAccess
+      values: { disabled: Disabled, enabled: Enabled }
   networking.private_endpoint_subnet:
     terraform_avm:
       attribute: private_endpoints.gateway.subnet_resource_id
       note: subresource_name = "Gateway"; tiers with private endpoint support only
-    terraform: { gap: the authored table names no private endpoint; the renders field names only the module input }
+    terraform: { gap: the authored rendering names no private endpoint; the renders field names only the module input }
     bicep_avm:
       attribute: 'privateEndpoints[].subnetResourceId'
       note: "service: 'Gateway'; tiers with private endpoint support only"
-    bicep: { gap: the authored table names no private endpoint; the renders field names only the module parameter }
+    bicep: { gap: the authored rendering names no private endpoint; the renders field names only the module parameter }
 
   # ----------------------------------------------------------------- identity
   identity.role_assignments:
     terraform_avm: { attribute: 'role_assignments.<key> = { role_definition_id_or_name, principal_id, principal_type }' }
-    terraform: { gap: the authored table names no role assignment; the renders field names only the module input }
+    terraform: { gap: the authored rendering names no role assignment; the renders field names only the module input }
     bicep_avm: { attribute: 'roleAssignments[] = { principalId, roleDefinitionIdOrName, principalType }' }
-    bicep: { gap: the authored table names no role assignment; the renders field names only the module parameter }
+    bicep: { gap: the authored rendering names no role assignment; the renders field names only the module parameter }
 
   # ----------------------------------------------------------------- security
   security.legacy_protocols_disabled:
@@ -214,6 +220,7 @@ decisions:
       gap: >-
         customProperties - true is { 'Microsoft.WindowsAzure.ApiManagement.Gateway.Security.Protocols.Tls10':
         'False', ... } with every key written (the list is in the README); the reference states nothing for false
+      note: the module sets a block of these by default; every key is written so a release cannot move it
     bicep:
       gap: properties.customProperties - the reference names the object without its keys or values
   security.client_certificate_required:
@@ -228,19 +235,19 @@ decisions:
     terraform:
       gap: authored azurerm_monitor_diagnostic_setting; the reference names the resource, not its workspace argument
     bicep_avm: { attribute: 'diagnosticSettings[].workspaceResourceId' }
-    bicep: { gap: the authored table names no diagnostic setting; the renders field names only the module parameter }
+    bicep: { gap: the authored rendering names no diagnostic setting; the renders field names only the module parameter }
   observability.diagnostic_categories:
     terraform_avm: { attribute: diagnostic_settings.workspace.log_categories, note: 'log_groups = [] beside it' }
     terraform: { attribute: azurerm_monitor_diagnostic_setting.enabled_log.category }
     bicep_avm: { attribute: 'diagnosticSettings[].logCategoriesAndGroups[].category' }
-    bicep: { gap: the authored table names no diagnostic setting; the renders field names only the module parameter }
+    bicep: { gap: the authored rendering names no diagnostic setting; the renders field names only the module parameter }
   observability.metrics_enabled:
     terraform_avm:
       attribute: diagnostic_settings.workspace.metric_categories
       values: { true: { expr: '["AllMetrics"]' }, false: { expr: '[]' } }
     terraform:
-      gap: authored azurerm_monitor_diagnostic_setting; the authored table names only enabled_log - no metric block is in the reference
+      gap: authored azurerm_monitor_diagnostic_setting; the authored rendering names only enabled_log - no metric block is in the reference
     bicep_avm:
       attribute: 'diagnosticSettings[].metricCategories'
       values: { true: { expr: "[ { category: 'AllMetrics' } ]" }, false: { expr: '[]' } }
-    bicep: { gap: the authored table names no diagnostic setting; the renders field names only the module parameter }
+    bicep: { gap: the authored rendering names no diagnostic setting; the renders field names only the module parameter }

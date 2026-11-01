@@ -54,7 +54,7 @@ decisions:
         values:
           platform: { expr: "'NetworkWatcher_${location}'" }
           deployment: null
-        note: "platform calls this child module with scope: resourceGroup('NetworkWatcherRG'); deployment does not call it"
+        note: "platform calls this child module with scope: resourceGroup('NetworkWatcherRG'); the module's own default for the name is the same expression - written; deployment does not call it"
       - module: avm/res/network/network-watcher
         attribute: name
         values:

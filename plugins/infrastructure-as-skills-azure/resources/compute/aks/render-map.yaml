@@ -230,9 +230,9 @@ decisions:
     bicep_avm: { attribute: 'agentPools[].vmSize', passthrough: true, note: "mode: 'User'" }
     bicep: { attribute: 'properties.agentPoolProfiles[].vmSize', passthrough: true, note: "mode: 'User'; or a child agentPools resource" }
   node_pools.user_pool_min_count:
-    terraform_avm: { attribute: agent_pools.user.min_count, passthrough: true, note: count_of written equal to min_count }
+    terraform_avm: { attribute: agent_pools.user.min_count, passthrough: true, note: count_of written equal to min_count; with enable_auto_scaling }
     terraform: { attribute: azurerm_kubernetes_cluster_node_pool.min_count , passthrough: true}
-    bicep_avm: { attribute: 'agentPools[].minCount', passthrough: true, note: count written equal to minCount }
+    bicep_avm: { attribute: 'agentPools[].minCount', passthrough: true, note: count written equal to minCount; with enableAutoScaling }
     bicep: { attribute: 'properties.agentPoolProfiles[].minCount', passthrough: true }
   node_pools.user_pool_max_count:
     terraform_avm: { attribute: agent_pools.user.max_count , passthrough: true}
@@ -302,7 +302,7 @@ decisions:
     bicep_avm: { attribute: aadProfile.adminGroupObjectIDs }
     bicep: { attribute: properties.aadProfile.adminGroupObjectIDs }
   identity.local_accounts_disabled:
-    terraform_avm: { attribute: disable_local_accounts, passthrough: true, note: module default false (Bicep true); written }
+    terraform_avm: { attribute: disable_local_accounts, passthrough: true, note: inverse reading of local_auth; module default false (Bicep true); written }
     terraform: { attribute: local_account_disabled , passthrough: true}
     bicep_avm: { attribute: disableLocalAccounts, passthrough: true, note: module default true (Terraform false); written }
     bicep: { attribute: properties.disableLocalAccounts , passthrough: true}
@@ -319,10 +319,10 @@ decisions:
   identity.acr_pull_registry_ids:
     terraform_avm:
       gap: not a module input; an azurerm_role_assignment AcrPull per registry in the root for module.aks.kubelet_identity.objectId
-    terraform: { gap: an AcrPull role assignment per registry for the kubelet identity in the root; the authored table names none }
+    terraform: { gap: an AcrPull role assignment per registry for the kubelet identity in the root; the authored rendering names none }
     bicep_avm:
       gap: not a module parameter; a Microsoft.Authorization/roleAssignments AcrPull per registry in the root for the kubeletIdentityObjectId output
-    bicep: { gap: an AcrPull role assignment per registry for the kubelet identity in the root; the authored table names none }
+    bicep: { gap: an AcrPull role assignment per registry for the kubelet identity in the root; the authored rendering names none }
   identity.role_assignments:
     terraform_avm: { attribute: 'role_assignments.<key> = { role_definition_id_or_name, principal_id }' }
     terraform: { gap: reference names no authored argument }
@@ -409,7 +409,7 @@ decisions:
       passthrough: true
       also:
         true: 'onboard_monitoring = true'
-      note: config = { log_analytics_workspace_resource_id, use_aad_auth = true }; onboard_monitoring also creates the data collection rule
+      note: config = { log_analytics_workspace_resource_id, use_aad_auth = true }; onboard_monitoring also creates the data collection rule; the validation needs the workspace id
     terraform:
       attribute: oms_agent
       values:

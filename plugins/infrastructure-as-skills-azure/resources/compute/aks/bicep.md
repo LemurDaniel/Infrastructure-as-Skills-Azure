@@ -26,38 +26,12 @@ system pool) and `agentPools`, and the OMS agent is switched by `omsAgentEnabled
 
 ### Decision -> module parameter
 
-| Decision | Parameter | Note |
+What each decision renders to - the parameter and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.
+
+### Deployment-wide inputs
+
+| Input | Parameter | Note |
 |---|---|---|
-| `sku_tier` | `skuTier` | Default `'Standard'` (Terraform: unset); written. `skuName` stays `'Base'` |
-| `kubernetes_version` | `kubernetesVersion` | |
-| `upgrade_channel`, `node_os_upgrade_channel` | `autoUpgradeProfile: { upgradeChannel, nodeOSUpgradeChannel }` | Default channel **`'stable'`** (Terraform: `none`); written |
-| `zone_redundant` | `availabilityZones: [ 1, 2, 3 ]` on both pool profiles | Integers here, strings in Terraform |
-| `public_network_access` | `publicNetworkAccess` and `apiServerAccessProfile.enablePrivateCluster` | Default `'Disabled'`; written |
-| `authorized_ip_ranges` | `apiServerAccessProfile.authorizedIPRanges` | Never rendered empty |
-| `private_dns_zone`, `private_dns_zone_id` | `apiServerAccessProfile.privateDNSZone` | `'system'` or the zone's resource id |
-| `node_subnet` | `vnetSubnetResourceId` on each pool profile | |
-| `network_plugin_mode` | `networkPlugin: 'azure'`, `networkPluginMode` | `'overlay'`, or unset for `vnet` |
-| `network_dataplane`, `network_policy` | `networkDataplane`, `networkPolicy` | `'cilium'` / `'azure'`; policy `'cilium'`, `'calico'`, `'azure'` |
-| `pod_cidr`, `service_cidr`, `dns_service_ip` | `podCidr`, `serviceCidr`, `dnsServiceIP` | `podCidr` only with overlay |
-| `outbound_type` | `outboundType` | Default `'loadBalancer'`; written |
-| `system_pool_*`, `system_pool_dedicated` | `primaryAgentPoolProfiles: [ { name, mode: 'System', vmSize, enableAutoScaling, count, minCount, maxCount, nodeTaints } ]` | `count` is the initial size, written equal to `minCount` |
-| `user_pool_*` | `agentPools: [ { name, mode: 'User', vmSize, enableAutoScaling, count, minCount, maxCount } ]` | |
-| `os_sku`, `os_disk_type` | `osSKU`, `osDiskType` on each pool profile | Release names (`AzureLinux3`, ...) from the README |
-| `encryption_at_host` | `enableEncryptionAtHost` on each pool profile | |
-| `managed_identity`, `user_assigned_identity_ids` | `managedIdentities: { userAssignedResourceIds }` | System- or user-assigned, **not both** |
-| `entra_integration`, `azure_rbac_enabled`, `admin_group_object_ids` | `aadProfile: { managed, enableAzureRBAC, adminGroupObjectIDs }` | `enableRBAC: true` written beside it (default `true`) |
-| `local_accounts_disabled` | `disableLocalAccounts` | Default `true` (Terraform: `false`); written |
-| `oidc_issuer_enabled` | `enableOidcIssuerProfile` | Default **`false`**; written |
-| `workload_identity_enabled` | `securityProfile.workloadIdentity: { enabled }` | |
-| `defender_enabled` | `securityProfile.defender: { logAnalyticsWorkspaceResourceId, securityMonitoring: { enabled } }` | |
-| `image_cleaner_enabled` | `securityProfile.imageCleaner: { enabled, intervalHours: 168 }` | |
-| `azure_policy_enabled` | `azurePolicyEnabled` | Default `true`; written |
-| `keyvault_secrets_provider_enabled` | `enableKeyvaultSecretsProvider`, `enableSecretRotation` | Defaults `false` / `false`; written |
-| `key_management`, `disk_encryption_set_id` | `diskEncryptionSetResourceId` | |
-| `container_insights_enabled` | `omsAgentEnabled`, `omsAgentUseAADAuth: true`, `monitoringWorkspaceResourceId` | Default `omsAgentEnabled: true`, AAD auth `false`; written |
-| `diagnostic_*`, `metrics_enabled` | `diagnosticSettings: [ { workspaceResourceId, logCategoriesAndGroups: [ { category } ], metricCategories: [ { category: 'AllMetrics' } ] } ]` | |
-| `role_assignments` | `roleAssignments` | |
-| `acr_pull_registry_ids` | *(root)* a `Microsoft.Authorization/roleAssignments` per registry for the `kubeletIdentityObjectId` output | Not a module parameter; `AcrPull` on the registry |
 | `deployment.module_telemetry` | `enableTelemetry` | |
 | `context.tags` | `tags` | |
 
@@ -185,7 +159,7 @@ zone are granted before the module is deployed, outside this call.
 ### Tests
 
 A module call compiles to a nested deployment whose `properties.parameters.<param>.value` is
-the decision, so every decision above is observable in `tests/*.armtest.yaml`
+the decision, so every decision in render-map.yaml is observable in `tests/*.armtest.yaml`
 ([bicep-idiom.md](../../../core/iac-rendering/references/bicep-idiom.md#tests)); the pool decisions
 are members of the `primaryAgentPoolProfiles` and `agentPools` values.
 
@@ -193,15 +167,4 @@ are members of the `primaryAgentPoolProfiles` and `agentPools` values.
 
 The fallback. `Microsoft.ContainerService/managedClusters` with `sku` and `properties`:
 
-| Decision | Property |
-|---|---|
-| `sku_tier` | `sku: { name: 'Base', tier }` |
-| `kubernetes_version`, `upgrade_channel`, `node_os_upgrade_channel` | `properties.kubernetesVersion`, `properties.autoUpgradeProfile: { upgradeChannel, nodeOSUpgradeChannel }` |
-| `public_network_access`, private cluster, DNS zone | `properties.publicNetworkAccess`, `properties.apiServerAccessProfile: { enablePrivateCluster, authorizedIPRanges, privateDNSZone }` |
-| networking | `properties.networkProfile: { networkPlugin, networkPluginMode, networkDataplane, networkPolicy, podCidr, serviceCidr, dnsServiceIP, outboundType }` |
-| the pools | `properties.agentPoolProfiles[]` with `mode`, `vmSize`, `enableAutoScaling`, `minCount`, `maxCount`, `availabilityZones`, `osSKU`, `osDiskType`, `enableEncryptionAtHost`, `vnetSubnetID`, `nodeTaints`; the user pool may be a child `agentPools` resource |
-| identity | `identity: { type: 'UserAssigned', userAssignedIdentities }` |
-| Entra, RBAC, local accounts | `properties.aadProfile`, `properties.enableRBAC`, `properties.disableLocalAccounts` |
-| OIDC, workload identity, Defender, image cleaner | `properties.oidcIssuerProfile`, `properties.securityProfile: { workloadIdentity, defender, imageCleaner }` |
-| add-ons | `properties.addonProfiles: { azurepolicy, omsagent, azureKeyvaultSecretsProvider }` |
-| `key_management` | `properties.diskEncryptionSetID` |
+What each decision renders to - the property and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.

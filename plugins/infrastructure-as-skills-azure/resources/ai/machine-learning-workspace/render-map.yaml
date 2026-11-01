@@ -53,9 +53,11 @@ decisions:
   workspace.v1_legacy_mode:
     terraform_avm:
       gap: not carried by the module - properties.v1LegacyMode through _target_overrides on the workspace body, written only when true
+      note: the platform default is off, which is the set's default
     terraform: { attribute: v1_legacy_mode_enabled, passthrough: true }
     bicep_avm:
       gap: not carried by the module - a second deployment against the workspace (an existing reference and an update of properties.v1LegacyMode) when true; said in the handover
+      note: the platform default is off, which is the set's default
     bicep: { attribute: properties.v1LegacyMode, passthrough: true }
   workspace.image_build_compute:
     terraform_avm: { attribute: image_build_compute, passthrough: true, note: null when empty }
@@ -80,7 +82,7 @@ decisions:
       values: { allow_only_approved_outbound: AllowOnlyApprovedOutbound, allow_internet_outbound: AllowInternetOutbound, disabled: Disabled }
       note: module default Disabled - always written; spark_ready defaults true
     terraform:
-      gap: managed_network { isolation_mode } - the reference states no literals for the azurerm argument (AllowOnlyApprovedOutbound / AllowInternetOutbound / Disabled are the AVM row's, the ARM body's)
+      gap: managed_network { isolation_mode } - the reference states no literals for the azurerm argument (AllowOnlyApprovedOutbound / AllowInternetOutbound / Disabled are the AVM section's, the ARM body's)
     bicep_avm:
       attribute: managedNetworkSettings.isolationMode
       values: { allow_only_approved_outbound: AllowOnlyApprovedOutbound, allow_internet_outbound: AllowInternetOutbound, disabled: Disabled }
@@ -123,7 +125,7 @@ decisions:
       values: { disabled: Disabled, enabled_with_firewall: Enabled, enabled: Enabled }
   networking.ip_allowlist:
     terraform_avm: { attribute: ip_allowlist }
-    terraform: { gap: the authored table names no allowlist argument; the renders field names only the module input }
+    terraform: { gap: the authored rendering names no allowlist argument; the renders field names only the module input }
     bicep_avm: { attribute: ipAllowlist }
     bicep: { attribute: properties.ipAllowlist }
   networking.private_endpoint_subnet:
@@ -185,9 +187,9 @@ decisions:
       gap: identity.userAssignedIdentities is an object keyed by id the reference does not show; properties.primaryUserAssignedIdentity = the first entry
   identity.role_assignments:
     terraform_avm: { attribute: 'role_assignments.<key> = { role_definition_id_or_name, principal_id, principal_type }' }
-    terraform: { gap: the authored table names no role assignment; the renders field names only the module input }
+    terraform: { gap: the authored rendering names no role assignment; the renders field names only the module input }
     bicep_avm: { attribute: roleAssignments }
-    bicep: { gap: the authored table names no role assignment; the renders field names only the module parameter }
+    bicep: { gap: the authored rendering names no role assignment; the renders field names only the module parameter }
 
   # ----------------------------------------------------------------- security
   security.storage_datastore_auth:
@@ -264,7 +266,7 @@ decisions:
       attribute: diagnostic_settings.workspace.metric_categories
       values: { true: { expr: '["AllMetrics"]' }, false: { expr: '[]' } }
     terraform:
-      gap: authored azurerm_monitor_diagnostic_setting; the authored table names only enabled_log - no metric block is in the reference
+      gap: authored azurerm_monitor_diagnostic_setting; the authored rendering names only enabled_log - no metric block is in the reference
     bicep_avm:
       attribute: 'diagnosticSettings[].metricCategories'
       values: { true: { expr: "[ { category: 'AllMetrics' } ]" }, false: { expr: '[]' } }

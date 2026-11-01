@@ -81,7 +81,7 @@ decisions:
 
   # --------------------------------------------------------------- networking
   networking.subnet:
-    terraform_avm: { attribute: subnet_resource_id }
+    terraform_avm: { attribute: subnet_resource_id, note: from the platform or the network set }
     terraform: { attribute: subnet_id }
     bicep_avm: { attribute: subnetResourceId }
     bicep: { attribute: properties.subnet.id }

@@ -40,7 +40,7 @@ decisions:
     bicep_avm: { attribute: osType, passthrough: true, note: a required parameter }
     bicep:
       gap: >-
-        properties.osProfile.linuxConfiguration for Linux; the reference's authored table spells no
+        properties.osProfile.linuxConfiguration for Linux; the reference's authored rendering spells no
         Windows configuration
   machine.image:
     terraform_avm:
@@ -60,19 +60,19 @@ decisions:
         windows_server_2022: { expr: '{ publisher = "MicrosoftWindowsServer", offer = "WindowsServer", sku = "2022-datacenter-g2", version = "latest" }' }
         windows_server_2025: { expr: '{ publisher, offer, sku, version = "latest" } from az vm image list' }
         gallery_image: null
-      note: windows_server_2025 is looked up live; a gallery image's argument is not in the reference's authored table
+      note: windows_server_2025 is looked up live; a gallery image's argument is not in the reference's authored rendering
     bicep_avm:
       gap: >-
         imageReference; bicep.md spells no Windows image. Stated: ubuntu_24_04 is { publisher: 'Canonical',
         offer: 'ubuntu-24_04-lts', sku: 'server', version: 'latest' }, gallery_image is { id: {machine.gallery_image_id} }
     bicep:
       gap: >-
-        properties.storageProfile.imageReference; bicep.md spells no Windows image. Stated (module row):
+        properties.storageProfile.imageReference; bicep.md spells no Windows image. Stated (module call):
         ubuntu_24_04 is { publisher: 'Canonical', offer: 'ubuntu-24_04-lts', sku: 'server', version: 'latest' },
         gallery_image is { id: {machine.gallery_image_id} }
   machine.gallery_image_id:
     terraform_avm: { attribute: source_image_resource_id, note: and no source_image_reference }
-    terraform: { gap: the reference's authored table names no argument for a gallery image }
+    terraform: { gap: the reference's authored rendering names no argument for a gallery image }
     bicep_avm: { attribute: imageReference.id }
     bicep: { attribute: properties.storageProfile.imageReference.id }
   machine.size:
@@ -91,20 +91,20 @@ decisions:
       attribute: licenseType
       values: { included: null, azure_hybrid_benefit: Windows_Server }
     bicep:
-      gap: the reference's authored table names no license property
+      gap: the reference's authored rendering names no license property
   machine.instance_count:
     terraform_avm:
       attribute: for_each
       format: { expr: 'toset([for i in range({value}) : tostring(i + 1)])' }
-      note: on the module call; one machine is a for_each of one, so a second is not a state move
+      note: on the module call; each name from the naming provider with the instance number; one machine is a for_each of one, so a second is not a state move
     terraform:
-      gap: the reference's authored table is silent on the count; the module call's for_each over "1".."n" is the pattern
+      gap: the reference's authored rendering is silent on the count; the module call's for_each over "1".."n" is the pattern
     bicep_avm:
       attribute: module loop
       format: { expr: '[for i in range(1, {value}): <instance>]' }
       note: each name with the instance number
     bicep:
-      gap: the reference's authored table is silent on the count
+      gap: the reference's authored rendering is silent on the count
   machine.availability:
     terraform_avm:
       attribute: zone
@@ -167,10 +167,10 @@ decisions:
       attribute: 'data_disk_managed_disks.<key> = { name, lun, caching, storage_account_type, disk_size_gb, disk_encryption_set_resource_id }'
       note: same zone as the machine
     terraform:
-      gap: no argument in the reference's authored table; standalone data disks are the managed-disk set
+      gap: no argument in the reference's authored rendering; standalone data disks are the managed-disk set
     bicep_avm: { attribute: dataDisks, note: same zone as the machine }
     bicep:
-      gap: no property in the reference's authored table; standalone data disks are the managed-disk set
+      gap: no property in the reference's authored rendering; standalone data disks are the managed-disk set
 
   # --------------------------------------------------------------- networking
   networking.workload_subnet:
@@ -197,17 +197,17 @@ decisions:
       passthrough: true
     terraform:
       gap: >-
-        not in the reference's authored table (the interface's ip_configuration names subnet_id only);
+        not in the reference's authored rendering (the interface's ip_configuration names subnet_id only);
         Static also needs an address
     bicep_avm: { attribute: 'nicConfigurations[].ipConfigurations[].privateIPAllocationMethod', passthrough: true }
     bicep:
-      gap: not in the reference's authored table (the interface's ip configuration names subnet.id only)
+      gap: not in the reference's authored rendering (the interface's ip configuration names subnet.id only)
   networking.accelerated_networking:
     terraform_avm: { attribute: network_interfaces.primary.accelerated_networking_enabled, passthrough: true }
     terraform: { attribute: azurerm_network_interface.accelerated_networking_enabled, passthrough: true }
     bicep_avm: { attribute: 'nicConfigurations[].enableAcceleratedNetworking', passthrough: true }
     bicep:
-      gap: not in the reference's authored table for Microsoft.Network/networkInterfaces
+      gap: not in the reference's authored rendering for Microsoft.Network/networkInterfaces
 
   # ----------------------------------------------------------------- identity
   identity.system_assigned_identity:
@@ -236,7 +236,7 @@ decisions:
     terraform:
       gap: >-
         true renders azurerm_virtual_machine_extension (AADSSHLoginForLinux / AADLoginForWindows), false
-        none; its arguments are not in the reference's authored table
+        none; its arguments are not in the reference's authored rendering
     bicep_avm:
       attribute: extensionAadJoinConfig.enabled
       passthrough: true
@@ -244,7 +244,7 @@ decisions:
     bicep:
       gap: >-
         true renders a child extension (AADSSHLoginForLinux / AADLoginForWindows), false none; its
-        properties are not in the reference's authored table
+        properties are not in the reference's authored rendering
   identity.role_assignments:
     terraform_avm:
       attribute: 'role_assignments.<key> = { role_definition_id_or_name, principal_id }'
@@ -304,7 +304,7 @@ decisions:
     terraform_avm:
       attribute: account_credentials.password_authentication_disabled
       values: { true: false, false: true }
-      note: inverted; generate_admin_password_or_ssh_key = false keeps a generated key out of state
+      note: inverted; Linux only; generate_admin_password_or_ssh_key = false keeps a generated key out of state
     terraform:
       attribute: disable_password_authentication
       values: { true: false, false: true }
@@ -335,9 +335,9 @@ decisions:
     terraform:
       gap: admin_password from a Key Vault secret in this vault (Windows); the secret is not named by the reference
     bicep_avm:
-      gap: adminPassword is getSecret(...) on this vault in the parameter file - a Key Vault reference, never a literal; the secret is not named by the reference
+      gap: adminPassword is getSecret(...) on this vault in the parameter file - a Key Vault reference, never a literal; the module takes it as string; the secret is not named by the reference
     bicep:
-      gap: not in the reference's authored table; properties.osProfile.adminPassword would take a getSecret(...) reference to a secret in this vault
+      gap: not in the reference's authored rendering; properties.osProfile.adminPassword would take a getSecret(...) reference to a secret in this vault
 
   # ---------------------------------------------------------- data_protection
   data_protection.backup_enabled:
@@ -347,7 +347,7 @@ decisions:
         true: { expr: '{ default = { recovery_vault_resource_id, backup_policy_resource_id } }' }
         false: { expr: '{}' }
     terraform:
-      gap: true renders azurerm_backup_protected_vm, false none; its arguments are not in the reference's authored table
+      gap: true renders azurerm_backup_protected_vm, false none; its arguments are not in the reference's authored rendering
     bicep_avm:
       attribute: backupVaultName
       values: { true: { expr: '<the name of backup_vault_id>' }, false: '' }
@@ -355,7 +355,7 @@ decisions:
     bicep:
       gap: >-
         true renders Microsoft.RecoveryServices/vaults/backupFabrics/protectionContainers/protectedItems,
-        false none; its properties are not in the reference's authored table
+        false none; its properties are not in the reference's authored rendering
   data_protection.backup_vault_id:
     terraform_avm: { attribute: azure_backup_configurations.default.recovery_vault_resource_id }
     terraform: { gap: azurerm_backup_protected_vm - the argument is not in the reference }
@@ -428,7 +428,7 @@ decisions:
       attribute: 'nicConfigurations[].diagnosticSettings[].workspaceResourceId'
       note: no machine-level diagnostic setting in the module; metrics go on the interface
     bicep:
-      gap: no diagnostic setting in the reference's authored table
+      gap: no diagnostic setting in the reference's authored rendering
   observability.metrics_enabled:
     terraform_avm:
       attribute: diagnostic_settings.workspace.metric_categories
@@ -441,4 +441,4 @@ decisions:
       attribute: 'nicConfigurations[].diagnosticSettings[].metricCategories'
       values: { true: { expr: "[ { category: 'AllMetrics' } ]" }, false: { expr: '[]' } }
     bicep:
-      gap: no diagnostic setting in the reference's authored table
+      gap: no diagnostic setting in the reference's authored rendering

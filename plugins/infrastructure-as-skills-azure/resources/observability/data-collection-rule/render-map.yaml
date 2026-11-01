@@ -25,7 +25,7 @@ decisions:
       attribute: parent_id
       module: Azure/avm-res-insights-datacollectionrule/azurerm
       note: the group's id, on both modules - AzAPI only
-    terraform: { attribute: resource_group_name, note: required by the provider schema; the reference's authored table omits it }
+    terraform: { attribute: resource_group_name, note: required by the provider schema; the reference's authored rendering omits it }
     bicep_avm: { gap: the deployment's resource group scope; no parameter }
     bicep: { gap: the deployment's resource group scope; no property }
 
@@ -310,7 +310,7 @@ decisions:
         none: null
         create: { expr: dataCollectionEndpoint.id }
         reference: { expr: '{endpoint.endpoint_id}' }
-      note: create authors Microsoft.Insights/dataCollectionEndpoints with kind
+      note: create authors Microsoft.Insights/dataCollectionEndpoints@2023-03-11 with kind
   endpoint.endpoint_id:
     terraform_avm: { attribute: data_collection_endpoint_id, module: Azure/avm-res-insights-datacollectionrule/azurerm }
     terraform: { attribute: data_collection_endpoint_id }
@@ -326,7 +326,7 @@ decisions:
     bicep_avm: { gap: 'not carried; Microsoft.Insights/dataCollectionRuleAssociations with scope: the machine, plus one named configurationAccessEndpoint' }
     bicep:
       attribute: Microsoft.Insights/dataCollectionRuleAssociations scope
-      note: 'an existing reference to the machine, one association each; plus configurationAccessEndpoint when there is an endpoint'
+      note: 'Microsoft.Insights/dataCollectionRuleAssociations@2023-03-11; an existing reference to the machine, one association each; plus configurationAccessEndpoint when there is an endpoint'
 
   # --------------------------------------------------------------- networking
   networking.endpoint_public_access:

@@ -18,15 +18,12 @@ an `existing` reference as below.
 
 ### Decision → module parameter
 
+What each decision renders to - the parameter and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.
+
+Not decisions of this set:
+
 | Decision | Parameter | Note |
 |---|---|---|
-| `address_space` | `addressPrefixes: [addressSpace]` | |
-| `dns_servers` | `dnsServers` | Omit for Azure DNS |
-| `ddos_protection` | `ddosProtectionPlanResourceId` | |
-| `subnets` | `subnets: [ { name, addressPrefix, … } ]` | The module declares them inline on the vnet — the safe form, as the authored render says — and still outputs `subnetResourceIds` |
-| `private_endpoint_network_policies` | `subnets[].privateEndpointNetworkPolicies: 'Enabled'` | |
-| `service_endpoints` | `subnets[].serviceEndpoints: ['Microsoft.Storage']` | Strings, not `{ service }` objects |
-| `subnet_delegations` | `subnets[].delegation: 'Microsoft.Web/serverFarms'` | A single string per subnet |
 | diagnostics (from the deployment set) | `diagnosticSettings: [ { workspaceResourceId, metricCategories } ]` | |
 | `deployment.module_telemetry` | `enableTelemetry` | |
 | `context.tags` | `tags` | |
@@ -76,15 +73,7 @@ this way, or reading what the module does inside.
 
 ## Decision → property
 
-| Decision | Property |
-|---|---|
-| `address_space` | `properties.addressSpace.addressPrefixes` (array) |
-| `dns_servers` | `properties.dhcpOptions.dnsServers` — omit for Azure DNS |
-| `ddos_protection` | `properties.enableDdosProtection` + `properties.ddosProtectionPlan.id` |
-| `subnets` | `properties.subnets[]`, inline — see below |
-| `private_endpoint_network_policies` | `properties.subnets[].properties.privateEndpointNetworkPolicies` |
-| `service_endpoints` | `properties.subnets[].properties.serviceEndpoints[].service` |
-| `subnet_delegations` | `properties.subnets[].properties.delegations[].properties.serviceName` |
+What each decision renders to - the property and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.
 
 ## Inline subnets, unlike Terraform
 

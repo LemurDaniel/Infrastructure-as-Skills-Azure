@@ -51,11 +51,11 @@ decisions:
       note: false renders neither child
   factory.managed_private_endpoints:
     terraform_avm:
-      gap: not a module input - azurerm_data_factory_managed_private_endpoint per entry beside the call
+      gap: not a module input - azurerm_data_factory_managed_private_endpoint per entry beside the call; approval on the source is a step after the apply
     terraform: { attribute: azurerm_data_factory_managed_private_endpoint, note: approval on the source is a step after the apply }
     bicep_avm:
       attribute: 'managedVirtualNetwork.managedPrivateEndpoints[] = { name, privateLinkResourceId, groupId, fqdns }'
-      note: fqdns is required by the type; approval on the source follows
+      note: fqdns is required by the type - the source's endpoint host; approval on the source follows
     bicep: { attribute: child managedVirtualNetworks/default/managedPrivateEndpoints }
   factory.self_hosted_integration_runtime:
     terraform_avm:
@@ -108,7 +108,7 @@ decisions:
     bicep_avm:
       attribute: gitConfiguration.type
       values: { none: null, github: FactoryGitHubConfiguration, azure_devops: FactoryVSTSConfiguration }
-      note: gitConfiguration omitted for none and on every stage but development
+      note: the ARM repoConfiguration shape (azure_devops adds tenantId); gitConfiguration omitted for none and on every stage but development
     bicep:
       attribute: properties.repoConfiguration.type
       values: { none: null, github: FactoryGitHubConfiguration, azure_devops: FactoryVSTSConfiguration }
@@ -166,7 +166,7 @@ decisions:
       note: the portal endpoint is an authored azurerm_private_endpoint with the same subnet_id
     terraform: { attribute: azurerm_private_endpoint.subnet_id }
     bicep_avm: { attribute: 'privateEndpoints[].subnetResourceId' }
-    bicep: { gap: the authored table names Microsoft.Network/privateEndpoints but no subnet property }
+    bicep: { gap: the authored rendering names Microsoft.Network/privateEndpoints but no subnet property }
   networking.private_endpoint_subresources:
     terraform_avm:
       gap: 'the module fixes the sub-resource dataFactory (private_endpoints.dataFactory); portal in the list is an authored azurerm_private_endpoint with subresource_names = ["portal"]'
@@ -188,18 +188,18 @@ decisions:
         system_assigned: { expr: '{ system_assigned = true }' }
         user_assigned: { expr: '{ system_assigned = true, user_assigned_resource_ids = {identity.user_assigned_identity_ids} }' }
       note: system-assigned stays on beside user_assigned
-    terraform: { gap: 'the authored table names identity { type, identity_ids } but no type literal' }
+    terraform: { gap: 'the authored rendering names identity { type, identity_ids } but no type literal' }
     bicep_avm:
       attribute: managedIdentities
       values:
         system_assigned: { expr: '{ systemAssigned: true }' }
         user_assigned: { expr: '{ systemAssigned: true, userAssignedResourceIds: {identity.user_assigned_identity_ids} }' }
-    bicep: { gap: 'the authored table names identity { type, userAssignedIdentities } but no type literal' }
+    bicep: { gap: 'the authored rendering names identity { type, userAssignedIdentities } but no type literal' }
   identity.user_assigned_identity_ids:
     terraform_avm: { attribute: managed_identities.user_assigned_resource_ids }
     terraform: { attribute: identity.identity_ids }
     bicep_avm: { attribute: managedIdentities.userAssignedResourceIds }
-    bicep: { gap: the authored table names identity.userAssignedIdentities but not its shape - ARM keys it by id while the answer is a list }
+    bicep: { gap: the authored rendering names identity.userAssignedIdentities but not its shape - ARM keys it by id while the answer is a list }
   identity.source_access:
     not_rendered: role assignments on each source with the factory's principal id - rendered beside the source; not an input of either module
   identity.role_assignments:
@@ -247,9 +247,9 @@ decisions:
     terraform_avm:
       attribute: 'diagnostic_settings.<key>.workspace_resource_id'
       note: with log_analytics_destination_type = "Dedicated"
-    terraform: { gap: the authored table names azurerm_monitor_diagnostic_setting but not its workspace argument }
+    terraform: { gap: the authored rendering names azurerm_monitor_diagnostic_setting but not its workspace argument, note: with log_analytics_destination_type = "Dedicated" }
     bicep_avm: { attribute: 'diagnosticSettings[].workspaceResourceId', note: logAnalyticsDestinationType defaults to Dedicated }
-    bicep: { gap: the authored table names Microsoft.Insights/diagnosticSettings but not its workspace property }
+    bicep: { gap: the authored rendering names Microsoft.Insights/diagnosticSettings but not its workspace property, note: "with logAnalyticsDestinationType: 'Dedicated'" }
   observability.diagnostic_categories:
     terraform_avm:
       attribute: 'diagnostic_settings.<key>.log_categories'
