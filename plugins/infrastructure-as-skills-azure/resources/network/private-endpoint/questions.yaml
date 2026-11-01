@@ -39,7 +39,6 @@ groups:
         why: >
           Drives the rendered name. One endpoint per stage and per target: a target of another
           stage is reached through its own endpoint, never through a shared one.
-        renders: naming parameter `environment`, and the tag of that name where the repository uses one
 
       - id: location
         ask:
@@ -54,7 +53,6 @@ groups:
           The endpoint lives in the region of the virtual network its subnet belongs to, not
           in the target's: a target in another region is reached by an endpoint here, which is
           allowed and billed as cross-region traffic.
-        renders: location
 
       - id: resource_group_name
         ask:
@@ -70,7 +68,6 @@ groups:
         why: >
           Placed into an existing group - the consumer's or the network's. The endpoint's
           network interface is created by Azure in the same group.
-        renders: parent_id (AVM Terraform, AzAPI) / implicit in Bicep scope
 
   # ------------------------------------------------------------------- target
   - id: target
@@ -93,7 +90,6 @@ groups:
           a hardcoded id, so no subscription is pinned into the template. The target has to
           support Private Link; the table in `private-dns-zones.md` lists the types this plugin
           knows.
-        renders: private_connection_resource_id / privateLinkServiceConnections[].properties.privateLinkServiceId
 
       - id: subresource
         ask:
@@ -111,7 +107,6 @@ groups:
           remembered. One endpoint, one group id: a storage account with `blob` and `file`
           used needs two endpoints. Wrong case is an error at apply (`Sql`, not `sql`), and a
           group id the target does not offer is rejected there, not at plan.
-        renders: subresource_names / privateLinkServiceConnections[].properties.groupIds
 
       - id: connection_approval
         ask:
@@ -132,7 +127,6 @@ groups:
           is part of Owner and Contributor on the target). `manual` is for a target another
           team or tenant owns: the endpoint is created `Pending` and unusable until they
           approve it, which the handover names as a step outside the deployment.
-        renders: private_service_connection.is_manual_connection / manualPrivateLinkServiceConnections (instead of privateLinkServiceConnections)
 
       - id: approval_message
         ask:
@@ -148,7 +142,6 @@ groups:
           The owner sees a list of pending connections with only this text to tell them
           apart, so it names the deployment, the stage and a contact. Empty is accepted by
           Azure and leaves the owner guessing.
-        renders: private_service_connection.request_message / manualPrivateLinkServiceConnections[].properties.requestMessage
 
   # --------------------------------------------------------------- networking
   - id: networking
@@ -172,7 +165,6 @@ groups:
           separate data zone, or a subnet whose NSG differs. The endpoint takes one address
           from it per sub-resource, and the subnet's `private_endpoint_network_policies` decide
           whether its NSG and routes apply to the endpoint's traffic.
-        renders: subnet_resource_id / subnetResourceId
 
       - id: private_ip_address
         ask:
@@ -189,7 +181,6 @@ groups:
           consumer that cannot resolve names (an allowlist on an appliance) and then has to
           be inside the subnet and outside its first four and last address; it is bound to
           the sub-resource and cannot change without recreating the endpoint.
-        renders: ip_configurations.<k>.private_ip_address / ipConfigurations[].properties.privateIPAddress
 
   # ---------------------------------------------------------------------- dns
   - id: dns
@@ -212,7 +203,6 @@ groups:
         why: >
           Inherited: one answer per deployment. It decides where the zone comes from - the
           platform's hub or the `private-dns-zone` set - and nothing else here.
-        renders: whether the zone is referenced or created, and so where its id comes from
 
       - id: dns_records
         ask:
@@ -233,7 +223,6 @@ groups:
           platform's zone and writes the record; a zone group written here as well means two
           owners of one record, and a plan that shows drift on every run. Only reached when
           `dns_ownership` is `platform`; under `deployment` this deployment writes the records.
-        renders: whether private_dns_zone_group / privateDnsZoneGroup is rendered at all
 
       - id: dns_zone_group
         ask:
@@ -256,7 +245,6 @@ groups:
           The single switch the two deployment answers resolve to, so the render does not
           re-derive it. An endpoint without a zone group, where nobody else writes the
           record, is the usual reason a private endpoint is created and nothing resolves to it.
-        renders: private_dns_zone_resource_ids / privateDnsZoneGroup (present or absent)
 
       - id: dns_zones
         ask:
@@ -273,7 +261,6 @@ groups:
           `private-dns-zones.md` - fixed by Azure, the same for every deployment - and the
           render fills them. A zone group holds up to five zones; most targets need one,
           `foundry` three. A name here departs from the table (a custom zone) and says so.
-        renders: private_dns_zone_resource_ids / privateDnsZoneGroup.privateDnsZoneGroupConfigs[].privateDnsZoneResourceId
 
       - id: dns_zone_scope
         ask:
@@ -291,4 +278,3 @@ groups:
         why: >
           Inherited. Needed only to reference a zone the platform owns; for a zone created in
           this deployment the id comes from the `private-dns-zone` set instead.
-        renders: data "azurerm_private_dns_zone" with a provider alias for the hub / `existing` zone with a cross-subscription scope

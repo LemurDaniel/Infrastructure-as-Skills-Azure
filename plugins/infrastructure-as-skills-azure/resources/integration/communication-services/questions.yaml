@@ -41,9 +41,6 @@ groups:
         why: >
           Drives the rendered name and the strictness of several defaults below. Nothing
           sensible can be guessed.
-        renders: >
-          naming parameter `environment`, and the tag of that name where the repository uses
-          one
 
       - id: location
         ask:
@@ -59,7 +56,6 @@ groups:
           resources: `location` is the literal `global`, and the deployment's region is not
           used for them. Where the data rests is `data_location`, which is the decision that
           matters.
-        renders: location = "global"
 
       - id: resource_group_name
         ask:
@@ -75,9 +71,6 @@ groups:
         why: >
           The resource is placed into an existing group. Creating one here would make this set
           own a lifecycle wider than the resource it describes.
-        renders: >
-          resource_group_name (authored Terraform) / parent_id (AVM Terraform email module) /
-          implicit in Bicep scope
 
   - id: service
     title: Data location and channels
@@ -125,7 +118,6 @@ groups:
           well as the residency answer, so it is set by the rule in
           `forced_when`. The communication resource
           and the e-mail service must share it, or the domain cannot be linked.
-        renders: data_location / dataLocation (both resources)
 
       - id: email
         ask:
@@ -151,10 +143,6 @@ groups:
           verification record, SPF, DKIM and DMARC in the organisation's DNS - owned by
           whoever runs the zone, so the domain is created here and verified by them - and is
           what production mail to customers needs. `none` renders no e-mail resources at all.
-        renders: >
-          email: Microsoft.Communication/emailServices + emailServices/domains
-          (domain_management = AzureManaged / CustomerManaged), linked through
-          linkedDomains on the communication resource
 
       - id: custom_domain_name
         ask:
@@ -174,7 +162,6 @@ groups:
           system, which is why a subdomain is the usual answer. The domain resource is named
           after it, and the verification records it needs are reported as an `open:` entry
           for the DNS owner.
-        renders: email_communication_service_domains.<key>.name / domains[].name
 
       - id: sender_usernames
         ask:
@@ -192,9 +179,6 @@ groups:
           `DoNotReply` is the one Azure creates on a managed domain and the sensible first
           answer; a reply-expecting address belongs to a mailbox the organisation reads,
           which this service does not provide.
-        renders: >
-          email_communication_service_domain_sender_usernames /
-          domains[].senderUsernames[]
 
       - id: user_engagement_tracking
         ask:
@@ -213,7 +197,6 @@ groups:
           Tracking rewrites links and adds a pixel; it is personal data processing that
           needs a basis and a privacy notice, and it is off in both modules. Marketing mail
           turns it on deliberately; transactional mail does not need it.
-        renders: user_engagement_tracking_enabled / domains[].userEngagementTracking
 
   - id: networking
     title: Networking
@@ -247,9 +230,6 @@ groups:
           Both modules leave the property unset, so it is written, and `enabled` with keys
           off and Entra-only access is the honest posture for a deployment without a
           perimeter.
-        renders: >
-          terraform: properties.publicNetworkAccess on the azapi resource (azurerm has no
-          argument); bicep: publicNetworkAccess
 
       - id: network_security_perimeter
         ask:
@@ -268,9 +248,6 @@ groups:
           resources may talk to which. Joining it is an association resource and is what makes
           `public_network_access: disabled` enforceable. Empty - the common case today - leaves
           the endpoint public and attributable.
-        renders: >
-          Microsoft.Network/networkSecurityPerimeters/resourceAssociations (authored, both
-          targets); publicNetworkAccess = SecuredByPerimeter
 
   - id: identity
     title: Identity and access
@@ -296,7 +273,6 @@ groups:
           one, so a resource that reaches nothing outward carries none. `system_assigned` is
           enough where it does, because nothing here needs a role before the
           resource exists; user-assigned is for an identity shared with the application.
-        renders: managed_identities / managedIdentities
 
       - id: user_assigned_identity_ids
         ask:
@@ -311,7 +287,6 @@ groups:
         depends_on: { question: managed_identity, equals: user_assigned }
         per_environment: true
         why: The identity must already exist; this set does not create it.
-        renders: managed_identities.user_assigned_resource_ids / managedIdentities.userAssignedResourceIds
 
       - id: role_assignments
         ask:
@@ -329,7 +304,6 @@ groups:
           narrow role is `Communication and Email Service Owner` for the application that
           sends and manages identities; `Contributor` is a departure that names a person. A
           pattern fills this from the application it knows about.
-        renders: role_assignments / roleAssignments (communication resource and e-mail service)
 
   - id: security
     title: Security
@@ -357,9 +331,6 @@ groups:
           setting. With keys off the application authenticates with its managed identity and
           a role; the resource's own user-token endpoint keeps working, because the tokens it
           issues are not access keys. Neither module sets the property by default; written.
-        renders: >
-          terraform: properties.disableLocalAuth on the azapi resource (azurerm has no
-          argument); bicep: disableLocalAuth
 
   - id: observability
     title: Observability
@@ -379,7 +350,6 @@ groups:
         why: >
           Inherited: one deployment, one destination. Without a diagnostic setting nobody can
           say which mails were sent, which calls failed or who minted a token.
-        renders: diagnostic_settings / diagnosticSettings
 
       - id: diagnostic_categories
         ask:
@@ -409,9 +379,6 @@ groups:
           The names are the platform's, differ per channel release, and are checked against
           `az monitor diagnostic-settings categories list --resource <id>` before a render,
           not remembered.
-        renders: >
-          diagnostic_settings.<key>.log_categories /
-          diagnosticSettings[].logCategoriesAndGroups[].category
 
       - id: metrics_enabled
         ask:
@@ -428,4 +395,3 @@ groups:
         why: >
           API request counts and results per operation, chat and SMS counts, and e-mail
           delivery counts - cheap, and the only metric view of the channels.
-        renders: metrics[].category = "AllMetrics" / metricCategories[].category

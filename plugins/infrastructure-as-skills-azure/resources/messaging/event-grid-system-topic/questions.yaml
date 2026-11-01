@@ -37,9 +37,6 @@ groups:
         why: >
           Drives the rendered name and the strictness of several defaults below. Nothing
           sensible can be guessed.
-        renders: >
-          naming parameter `environment`, and the tag of that name where the repository uses
-          one
 
       - id: location
         ask:
@@ -56,9 +53,6 @@ groups:
           without one (a subscription, a resource group - the `Microsoft.Resources.*` topic
           types) takes `global`. The render reads the source's location and writes that;
           the context value only names the stage.
-        renders: >
-          location - the source resource's region, `global` for `Microsoft.Resources.*`
-          topic types
 
       - id: resource_group_name
         ask:
@@ -74,7 +68,6 @@ groups:
         why: >
           The topic is placed into an existing group, usually the source's own. Creating one
           here would make this set own a lifecycle wider than the resource it describes.
-        renders: resource_group_name / implicit in Bicep scope
 
   - id: source
     title: The source
@@ -96,7 +89,6 @@ groups:
           most one system topic per topic type; a second deployment that creates one for the
           same source fails, so a shared source (the subscription, a platform resource group)
           is checked for an existing topic first. Fixed at creation.
-        renders: source_resource_id / source
 
       - id: topic_type
         ask:
@@ -133,7 +125,6 @@ groups:
           the authority, and is recorded as a departure from the list, not refused. The
           event types a source can emit come from `az eventgrid topic-type list-event-types
           --name <type>`.
-        renders: topic_type / topicType
 
       - id: managed_identity
         ask:
@@ -158,7 +149,6 @@ groups:
           (a pattern that grants first). `none` leaves only key-based destinations and
           unauthenticated webhooks, which `local_auth: disabled` on the targets forbids - it
           is a named departure. Targets are granted the identity's role in the pattern.
-        renders: identity / managedIdentities, and deliveryWithResourceIdentity on every subscription
 
       - id: user_assigned_identity_ids
         ask:
@@ -175,7 +165,6 @@ groups:
         why: >
           The identity that holds the data-plane role on each delivery target and on the
           dead-letter container. It is created before the topic, by the identity set.
-        renders: identity.identity_ids / managedIdentities.userAssignedResourceIds
 
   - id: delivery
     title: Subscriptions and delivery
@@ -198,7 +187,6 @@ groups:
           other resources of the deployment, named here and wired by the pattern; a webhook
           target is an `open:` entry owned by its operator because it must answer the
           validation handshake.
-        renders: azurerm_eventgrid_system_topic_event_subscription (one per entry) / eventSubscriptions[]
 
       - id: destination_kind
         ask:
@@ -228,11 +216,6 @@ groups:
           to rerun. `webhook` needs the validation handshake and, for a protected endpoint,
           the Entra application settings on the subscription. Every kind except `webhook`
           and `hybrid_connection` accepts delivery with the topic's identity.
-        renders: >
-          the endpoint block of azurerm_eventgrid_system_topic_event_subscription
-          (service_bus_queue_endpoint_id, storage_queue_endpoint, eventhub_endpoint_id,
-          azure_function_endpoint, webhook_endpoint, hybrid_connection_endpoint_id) /
-          eventSubscriptions[].deliveryWithResourceIdentity.destination.endpointType
 
       - id: event_delivery_schema
         ask:
@@ -253,7 +236,6 @@ groups:
           may also receive from other systems; the Event Grid schema is what older SDK
           samples and some built-in triggers expect. Written on every subscription, because
           the platform defaults to the Event Grid schema.
-        renders: event_delivery_schema / eventSubscriptions[].eventDeliverySchema
 
       - id: included_event_types
         ask:
@@ -270,7 +252,6 @@ groups:
           the source, which is right for an audit feed and wrong for a handler that reacts
           to one thing. Applies to every subscription; a single one departs in its entry.
           The valid names per source come from `az eventgrid topic-type list-event-types`.
-        renders: included_event_types / eventSubscriptions[].filter.includedEventTypes
 
       - id: max_delivery_attempts
         ask:
@@ -286,8 +267,6 @@ groups:
           run out, then the event is dead-lettered or dropped. 30 is the service default and
           covers a target that is down for a day; fewer is right for a target where a late
           event is worse than none. Applies to every subscription, a single one can depart.
-        renders: >
-          retry_policy.max_delivery_attempts / eventSubscriptions[].retryPolicy.maxDeliveryAttempts
 
       - id: event_ttl_minutes
         ask:
@@ -304,8 +283,6 @@ groups:
           The window in which Event Grid keeps retrying. 1440 minutes (one day) is the
           service default and the maximum; a notification that is useless after an hour sets
           it to 60. It works with the attempts: whichever runs out first ends the retry.
-        renders: >
-          retry_policy.event_time_to_live / eventSubscriptions[].retryPolicy.eventTimeToLiveInMinutes
 
       - id: keep_undeliverable_events
         ask:
@@ -326,9 +303,6 @@ groups:
           nobody learns that a subscriber was down. With one it is written as a file to a
           storage container where it can be read, repaired and resent. The price is the
           storage and someone reading it; the reason to alert on `DeliveryFailures`.
-        renders: >
-          storage_blob_dead_letter_destination + dead_letter_identity /
-          eventSubscriptions[].deadLetterWithResourceIdentity
 
       - id: dead_letter_storage_account
         ask:
@@ -348,9 +322,6 @@ groups:
           when the source is a storage account: dead-lettering into the account that emits
           the events emits more events. A firewalled account must let Event Grid in through
           the trusted-service path or a private endpoint.
-        renders: >
-          storage_blob_dead_letter_destination.storage_account_id /
-          deadLetterWithResourceIdentity.deadLetterDestination.properties.resourceId
 
       - id: dead_letter_container
         ask:
@@ -364,9 +335,6 @@ groups:
         depends_on: { question: keep_undeliverable_events, equals: true }
         why: >
           The container is created by the storage set (blob container); this names it.
-        renders: >
-          storage_blob_dead_letter_destination.storage_blob_container_name /
-          deadLetterWithResourceIdentity.deadLetterDestination.properties.blobContainerName
 
   - id: identity
     title: Identity and access
@@ -387,7 +355,6 @@ groups:
           that manages its own subscriptions on a shared topic, `EventGrid Contributor` for
           the deploying principal. Nothing here grants the topic's identity anything; its
           roles on the targets are granted in the pattern.
-        renders: azurerm_role_assignment on the topic / roleAssignments
 
   - id: observability
     title: Observability
@@ -407,7 +374,6 @@ groups:
         why: >
           Inherited: one deployment, one destination. Without a diagnostic setting the
           resource keeps no record anyone can query.
-        renders: azurerm_monitor_diagnostic_setting / diagnosticSettings
 
       - id: diagnostic_categories
         ask:
@@ -427,8 +393,6 @@ groups:
           cheap. There is no publish-failure category - the source publishes, not a client.
           The name is the platform's and is checked against `az monitor diagnostic-settings
           categories list` for the resource before a render, not remembered.
-        renders: >
-          enabled_log { category } / diagnosticSettings[].logCategoriesAndGroups[].category
 
       - id: metrics_enabled
         ask:
@@ -446,4 +410,3 @@ groups:
           Published, matched, delivered and dropped event counts and the dead-lettered count
           - a delivered count that stops rising is how a dead subscriber shows up, and the
           one to alert on.
-        renders: metric { category = "AllMetrics" } / metricCategories[].category

@@ -39,7 +39,6 @@ groups:
           Drives the rendered name. Whether every stage gets a plan is `stages_with_plan` below:
           a plan is a fixed monthly fee, and three of them for one workload's stages is the
           cost finding this set exists to prevent.
-        renders: naming parameter `environment`; which stages render the plan is `stages_with_plan`
 
       - id: location
         ask:
@@ -54,7 +53,6 @@ groups:
           The plan is a regional resource for placement only; it protects networks in **any**
           region and any subscription of the tenant. Not asked: the context's region, which is
           also what goes into the name.
-        renders: location
 
       - id: resource_group_name
         ask:
@@ -72,7 +70,6 @@ groups:
           with the network that references it and is read by every other network through its
           id. For a plan that several subscriptions share, a group of the connectivity
           subscription - and then the platform owns it, not this set.
-        renders: resource_group_name (both modules) / implicit in Bicep scope
 
   # --------------------------------------------------------------------- plan
   - id: plan
@@ -103,7 +100,6 @@ groups:
           networks take `existing_plan`. `deployment` creates one and is right only where no
           platform exists, which `landing_zone: standalone` says; a workload that wants a plan in
           a landing zone asks the platform team for the id instead.
-        renders: whether the module is called (`deployment`) or only `existing_plan` is handed to the networks (`platform`)
 
       - id: existing_plan
         ask:
@@ -123,7 +119,6 @@ groups:
           connectivity subscription, so it is never assumed to be in the context's. A pattern
           for a known platform supplies it; without a profile it is an `open:` entry owned by
           the platform team, never guessed, because a wrong id fails at the network's apply.
-        renders: data "azurerm_network_ddos_protection_plan" / an `existing` resource with scope; the id goes to virtual-network.ddos_protection and public-ip-address.ddos_protection_plan
 
       - id: stages_with_plan
         ask:
@@ -149,10 +144,6 @@ groups:
           subscription and could share one plan - then one plan, created in production,
           referenced by the others, is the cheaper form of `all_stages` and is what the render
           does when `stage_isolation` is `resource_group`.
-        renders: >
-          the stages in which the module is called; in the other stages the networks render
-          without a plan (virtual-network.ddos_protection forced false), or with the
-          production plan's id when the stages share a subscription
 
   # ------------------------------------------------------------------- access
   - id: access
@@ -175,4 +166,3 @@ groups:
           `deployment` the same identity deploys plan and networks. A plan that several
           subscriptions share lists each subscription's deploying identity here, and that is the
           platform's list, not a workload's.
-        renders: role_assignments / roleAssignments

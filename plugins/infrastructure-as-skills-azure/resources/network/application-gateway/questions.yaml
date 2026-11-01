@@ -36,9 +36,6 @@ groups:
         why: >
           Drives the rendered name and the strictness of several defaults below. Nothing
           sensible can be guessed.
-        renders: >
-          naming parameter `environment`, and the tag of that name where the repository uses
-          one
 
       - id: location
         ask:
@@ -53,7 +50,6 @@ groups:
           Part of the rendered name and not inferable. A gateway is regional and sits in the
           same region as the network it routes into; for several regions the answer is Front
           Door in front of one gateway per region.
-        renders: location
 
       - id: resource_group_name
         ask:
@@ -69,7 +65,6 @@ groups:
         why: >
           The gateway is placed into an existing group. In a split deployment it belongs to
           the `network` role, with the subnet it lives in.
-        renders: resource_group_name (AVM Terraform) / implicit in Bicep scope
 
   - id: gateway
     title: The gateway
@@ -95,9 +90,6 @@ groups:
           private network alone and whose backends are behind other controls, named at this
           instance. The Bicep module defaults to `WAF_v2`; the Terraform module has no
           default SKU.
-        renders: >
-          sku.name, sku.tier, firewall_policy / sku, firewallPolicyResourceId (`WAF_v2` or
-          `Standard_v2`)
 
       - id: waf_mode
         ask:
@@ -119,7 +111,6 @@ groups:
           first week is spent finding them - but a gateway left in Detection is a gateway
           that logs attacks it let in. Prevention is the default; moving to Detection is a
           recorded, temporary departure with an owner, never a savings default.
-        renders: firewall policy policy_settings.mode / policySettings.mode
 
       - id: waf_rule_set
         ask:
@@ -141,7 +132,6 @@ groups:
           rules. 2.1 is current as of this writing and is looked up against the Azure
           documentation before a render. OWASP 3.2 is for a gateway migrated from it that
           has a tuned exclusion list. The bot manager rule set below is separate.
-        renders: managed_rules.managed_rule_set / managedRules.managedRuleSets
 
       - id: waf_bot_protection
         ask:
@@ -160,9 +150,6 @@ groups:
           The bot manager rule set blocks scrapers, scanners and known bad actors by
           reputation. Cheap, rarely a false positive, and an effect on the bill (less junk
           traffic). On with the firewall.
-        renders: >
-          managed_rules.managed_rule_set (`Microsoft_BotManagerRuleSet_1.1`) /
-          managedRules.managedRuleSets
 
       - id: capacity_min
         ask:
@@ -182,7 +169,6 @@ groups:
           point of failure during an upgrade. Two is the floor for anything that must stay
           up (upgrades roll one at a time); a development stage keeps one. The Bicep module
           defaults to a fixed capacity of 2, the Terraform module to nothing.
-        renders: autoscale_configuration.min_capacity / autoscaleMinCapacity
 
       - id: capacity_max
         ask:
@@ -199,7 +185,6 @@ groups:
           control: without one a flood is paid for until someone notices. 10 is room for a
           tenfold burst on a small gateway. Each instance is billed by the hour in capacity
           units.
-        renders: autoscale_configuration.max_capacity / autoscaleMaxCapacity
 
       - id: zone_redundant
         ask:
@@ -221,7 +206,6 @@ groups:
           region's zones at no extra charge; the public IP address must be zone-redundant as
           well. The only cost is the minimum of two instances, so it is `true` unless the
           outage is tolerable. A region without zones takes `false`, said out loud.
-        renders: zones / availabilityZones
 
       - id: gateway_subnet
         ask:
@@ -242,8 +226,6 @@ groups:
           `GatewayManager` through on ports 65200-65535 and the load balancer probe; a rule
           that forgets them fails the deployment late. Looked up from the platform or
           created by the network set.
-        renders: >
-          gateway_ip_configurations.subnet_id / gatewayIPConfigurations[].properties.subnet
 
       - id: managed_identity
         ask:
@@ -263,7 +245,6 @@ groups:
           user-assigned one can hold the role before the gateway exists. Without
           certificates in Key Vault no identity is needed. The role (`Key Vault Secrets
           User`) is wiring and belongs to the pattern.
-        renders: identity / managedIdentities
 
       - id: user_assigned_identity_ids
         ask:
@@ -280,7 +261,6 @@ groups:
         why: >
           The identity that holds `Key Vault Secrets User` on the vault with the
           certificates, created by the identity set before the gateway.
-        renders: identity.identity_ids / managedIdentities.userAssignedResourceIds
 
   - id: networking
     title: Networking
@@ -309,9 +289,6 @@ groups:
           gateway needs a feature the subscription has to be enrolled in; a gateway with a
           public IP can also hold a private frontend beside it. `private` is the
           deployment's posture; `public` is a stated exception.
-        renders: >
-          frontend_ip_configurations / frontendIPConfigurations; public_ip_addresses
-          (module-created) / the public IP
 
       - id: public_ip_zone_redundant
         ask:
@@ -329,7 +306,6 @@ groups:
         why: >
           A zonal gateway with a non-zonal public IP is zonal in name only. Follows
           `zone_redundant`; the module's public IP is created with the same zones.
-        renders: public_ip_addresses.<k>.zones / the public IP resource zones
 
       - id: tls_policy
         ask:
@@ -350,7 +326,6 @@ groups:
           default. The module's own default is a *custom* policy with TLS 1.2 minimum and no
           cipher list - written here so the chosen policy is what applies. Looked up against
           the Azure documentation before a render, because the predefined list grows.
-        renders: ssl_policy / sslPolicyName, sslPolicyType
 
       - id: backend_protocol
         ask:
@@ -371,9 +346,6 @@ groups:
           the gateway - acceptable only where the leg is inside a closed subnet and a
           mandate allows it, and a recorded departure. HTTPS needs a certificate the gateway
           trusts on the backend (a well-known CA, or a root certificate added to it).
-        renders: >
-          backend_http_settings_collection.protocol /
-          backendHttpSettingsCollection[].properties.protocol
 
       - id: redirect_http_to_https
         ask:
@@ -390,9 +362,6 @@ groups:
         why: >
           A listener on port 80 that redirects to the 443 listener, so a link typed without
           `https://` still ends encrypted. On unless there is no port 80 at all.
-        renders: >
-          redirect_configurations + a routing rule / redirectConfigurations +
-          requestRoutingRules
 
       - id: http2_enabled
         ask:
@@ -409,7 +378,6 @@ groups:
         why: >
           Faster for browsers, no downside for others. The Terraform module leaves it unset
           (the platform default), so it is written.
-        renders: enable_http2 / enableHttp2
 
       - id: listeners
         ask:
@@ -427,9 +395,6 @@ groups:
           backend pools, probes and routing rules are the wiring to the services behind; the
           pattern fills them. A gateway with no listener serves nothing - the first state,
           and a valid one.
-        renders: >
-          http_listeners, backend_address_pools, request_routing_rules, probes / the same
-          lists in Bicep
 
   - id: security
     title: Security
@@ -450,7 +415,6 @@ groups:
           Detection. Each entry is the match variable, the selector, and the reason. Empty
           at the start; the list grows from the first week in Detection or from the logs.
           Recorded as free text and rendered into `managed_rules.exclusion`.
-        renders: managed_rules.exclusion / managedRules.exclusions
 
   - id: observability
     title: Observability
@@ -470,7 +434,6 @@ groups:
         why: >
           Inherited: one deployment, one destination. Without a diagnostic setting the
           resource keeps no record anyone can query.
-        renders: diagnostic_settings / diagnosticSettings
 
       - id: diagnostic_categories
         ask:
@@ -493,9 +456,6 @@ groups:
           and is not collected. The names are the platform's and are checked against `az
           monitor diagnostic-settings categories list` for the resource before a render, not
           remembered.
-        renders: >
-          diagnostic_settings.<key>.logs[].category /
-          diagnosticSettings[].logCategoriesAndGroups[].category
 
       - id: metrics_enabled
         ask:
@@ -513,5 +473,4 @@ groups:
           Throughput, healthy and unhealthy host count (the number to alert on, because a
           backend that failed its probe is silently out of rotation), response status counts
           and capacity units.
-        renders: metrics[].category = "AllMetrics" / metricCategories[].category
 

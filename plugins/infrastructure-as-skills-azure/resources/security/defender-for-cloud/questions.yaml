@@ -41,7 +41,6 @@ groups:
           (guardrails, *Stages*): each stage's subscription gets its own set of plans. The
           plans are the same in every stage - parity - but the bill follows the resources, so a
           small development subscription costs little.
-        renders: the stage file the subscription comes from
 
       - id: subscription_id
         ask:
@@ -57,7 +56,6 @@ groups:
         why: >
           The target of the whole set. A stage file supplies it, and a plan enabled on the
           wrong subscription is billed there from the next hour on.
-        renders: subscription_id (provider) / the deployment's target scope
 
       - id: defender_ownership
         ask:
@@ -83,7 +81,6 @@ groups:
         forced_when: >
           landing_zone: standalone forces `deployment`: nothing assigns the plans, so the
           generated code has to (recorded as forced with `landing_zone` as forced_by)
-        renders: whether the questions below render at all
 
   # ----------------------------------------------------------------- identity
   - id: identity
@@ -106,7 +103,6 @@ groups:
           usual state of a Defender deployment a year later. A distribution list or a ticket
           mailbox, never a person - the person leaves, the alert stays. When nobody is named
           the decision is an `open:` entry owned by the workload owner, blocking apply.
-        renders: properties.emails (azapi body in Terraform; azurerm_security_center_contact.email as the older alternative) / securityContactProperties.emails
 
       - id: notify_subscription_owners
         ask:
@@ -126,7 +122,6 @@ groups:
           for owners who are many (a role is held by whoever is assigned, eligible ones included
           in some tenants), which is why the contact above is the primary and this is the
           backstop.
-        renders: properties.notificationsByRole.state (`On`, roles `Owner`; azurerm_security_center_contact.alerts_to_admins as the older alternative) / notificationsByRole.state
 
       - id: alert_minimum_severity
         ask:
@@ -149,7 +144,6 @@ groups:
           and trains people to ignore the list. The older `azurerm` contact resource has no
           threshold - it mails every alert it is enabled for - so the Terraform render writes the
           contact through `azapi` (see `terraform.md`).
-        renders: notificationsSources[Alert].minimalSeverity (azapi body in Terraform; not carried by azurerm_security_center_contact)
 
   # ----------------------------------------------------------------- security
   - id: security
@@ -192,7 +186,6 @@ groups:
           for a storage account - and the person confirms the cost. The free foundational posture
           management is on in every subscription and needs no entry. `Dns` is deprecated and not
           offered; `Arm` and `KeyVaults` bill per operation and are cheap to start with.
-        renders: azurerm_security_center_subscription_pricing (tier `Standard`, one per plan) / defenderPlans[] (pricingTier `Standard`)
 
       - id: servers_plan
         ask:
@@ -215,7 +208,6 @@ groups:
           P2 is chosen when a mandate names vulnerability management or just-in-time access.
           The sub-plan is billed per server per hour, including a server that is stopped but not
           deallocated.
-        renders: subplan / subPlan
 
       - id: storage_malware_scanning
         ask:
@@ -235,7 +227,6 @@ groups:
           extension on top, billed **per GB scanned**, so a storage account that receives large
           uploads costs in proportion. It is off until a workload accepts uploads from
           people it does not control, and then it is paired with the monthly cap below.
-        renders: extension OnUploadMalwareScanning (isEnabled) / extensions[]
 
       - id: storage_malware_scan_cap_gb
         ask:
@@ -253,7 +244,6 @@ groups:
           The ceiling stops the scanning, not the upload: files above it arrive unscanned, which
           is the trade for a bounded cost, and the alert for reaching it is the person's to
           watch. The portal offers a different default; this one is deliberately lower.
-        renders: extension OnUploadMalwareScanning, additional property `CapGBPerMonth` / extensions[].additionalExtensionProperties.CapGBPerMonth
 
       - id: storage_sensitive_data_discovery
         ask:
@@ -272,4 +262,3 @@ groups:
           An extension on the storage plan that classifies blobs, billed on top of the plan and
           meant for a data-protection duty (a register of where personal data lives), not for
           threat detection. Off until a mandate asks for the classification.
-        renders: extension SensitiveDataDiscovery (isEnabled) / extensions[]

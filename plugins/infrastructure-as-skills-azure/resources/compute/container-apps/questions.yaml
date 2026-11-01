@@ -42,7 +42,6 @@ groups:
         why: >
           Drives the rendered name and the strictness of several defaults below.
           Nothing sensible can be guessed.
-        renders: naming parameter `environment`, and the tag of that name where the repository uses one
 
       - id: location
         ask:
@@ -57,7 +56,6 @@ groups:
           Part of the rendered name. Zone redundancy and the dedicated workload profiles
           are not available in every region, so the region constrains the environment
           group below.
-        renders: location (environment and app)
 
       - id: resource_group_name
         ask:
@@ -74,7 +72,6 @@ groups:
           The environment and the app are placed into an existing group. The platform also
           creates a second, managed group for the environment's infrastructure; it is not
           this one and nothing is deployed into it.
-        renders: parent_id / resource_group_name / implicit in Bicep scope
 
   # -------------------------------------------------------------- environment
   - id: environment
@@ -104,7 +101,6 @@ groups:
           for its instances whether the app is busy or not. GPU and the larger sizes are not
           offered. The profile is fixed per app but a profile can be added or removed from the
           environment.
-        renders: workload_profiles / workloadProfiles and workload_profile_name / workloadProfileName on the app
 
       - id: zone_redundant
         ask:
@@ -133,7 +129,6 @@ groups:
           `false` while non_production_savings is enabled.
         forced_when: >
           `true` forces `min_replicas` to at least 2 and requires `infrastructure_subnet`
-        renders: zone_redundant / zoneRedundant
 
       - id: internal
         ask:
@@ -153,7 +148,6 @@ groups:
           subnet; its default domain needs a private DNS zone, which is the platform's. It
           forces public network access off. **It is fixed at creation**: an environment is not
           switched between internal and external, it is rebuilt.
-        renders: vnet_configuration.internal / internal
 
       - id: infrastructure_subnet
         ask:
@@ -178,7 +172,6 @@ groups:
         forced_when: >
           network_ownership: create - the created network's subnet, recorded as forced with
           the network as forced_by
-        renders: vnet_configuration.infrastructure_subnet_id / infrastructureSubnetResourceId
 
       - id: public_network_access
         ask:
@@ -206,7 +199,6 @@ groups:
           deployment's own callers have no fixed outbound address, so a firewall with no
           rule locks them out of this resource - the first dry run (2026-10-24) hit it on
           five resources at once
-        renders: public_network_access / publicNetworkAccess
 
       - id: peer_traffic_encryption
         ask:
@@ -226,7 +218,6 @@ groups:
           on top. A network that is shared with other workloads is where an unencrypted hop is
           sniffed. It costs a little latency. The Bicep module defaults to on, the Terraform
           module leaves it unset, so it is written.
-        renders: peer_traffic_configuration.encryption.enabled / peerTrafficEncryption
 
   # ---------------------------------------------------------------------- app
   - id: app
@@ -249,7 +240,6 @@ groups:
           wiring this set does not own. A private registry is pulled over the network the
           environment is in, so a registry with a private endpoint needs a route and its DNS.
           With no answer the decision is an `open:` entry owned by the workload owner.
-        renders: template.containers[].image / containers[].image
 
       - id: container_size
         ask:
@@ -272,7 +262,6 @@ groups:
           reserve while they run, so too large is paid every second and too small is an
           out-of-memory restart. A dedicated profile takes any combination up to the instance
           size, which this set does not model.
-        renders: template.containers[].resources (cpu, memory) / containers[].resources
 
       - id: min_replicas
         ask:
@@ -295,7 +284,6 @@ groups:
           cold start production does not have. Billed per replica per second.
         forced_when: >
           `zone_redundant: true` forces at least 2
-        renders: template.min_replicas / scale.minReplicas
 
       - id: max_replicas
         ask:
@@ -311,7 +299,6 @@ groups:
           under a flood takes the database it calls with it. Ten is a guard, not a measurement,
           and the scale rule that drives it (HTTP concurrency by default) is the workload's.
           Custom scale rules are not rendered.
-        renders: template.max_replicas / scale.maxReplicas
 
       - id: revision_mode
         ask:
@@ -331,7 +318,6 @@ groups:
           wants. `Multiple` is for blue-green and canary releases, and needs the traffic
           weights a pipeline sets; left on with no weights it keeps every old revision running
           and billed. Not an infrastructure default to turn on speculatively.
-        renders: revision_mode / activeRevisionsMode
 
   # ------------------------------------------------------------------ ingress
   - id: ingress
@@ -364,7 +350,6 @@ groups:
         forced_when: >
           `deployment.network_exposure: private` forbids `external` on a public environment;
           `external` is a recorded departure, the same rule as a bare `enabled` elsewhere
-        renders: ingress.external_enabled / ingressExternal and disableIngress
 
       - id: target_port
         ask:
@@ -380,7 +365,6 @@ groups:
           The port the container binds, and the one thing the platform cannot find out from the
           image: a mismatch deploys cleanly and fails every health probe. With no answer it is
           an `open:` entry owned by the workload owner.
-        renders: ingress.target_port / ingressTargetPort
 
       - id: allow_insecure
         ask:
@@ -400,7 +384,6 @@ groups:
           default is `true`**, so an unwritten value is the insecure one; Terraform's is
           `false`. Both are written. A departure - a probe from an appliance that cannot do
           TLS - is named at this app.
-        renders: ingress.allow_insecure_connections / ingressAllowInsecure
 
   # ----------------------------------------------------------------- identity
   - id: identity
@@ -428,7 +411,6 @@ groups:
           Creating the app first fails the pull, and the failure looks like a bad image. A
           user-assigned identity with the roles granted first is the order that works. `none`
           is for an app that pulls from a public registry and calls nothing.
-        renders: managed_identities / managedIdentities (identity.type on the app)
 
       - id: user_assigned_identity_ids
         ask:
@@ -445,7 +427,6 @@ groups:
         why: >
           The identity must already exist and hold its roles; this set does not create it or
           grant them. It is the one the registry entry and the secret references name.
-        renders: managed_identities.user_assigned_resource_ids / managedIdentities.userAssignedResourceIds
 
       - id: secret_references
         ask:
@@ -463,7 +444,6 @@ groups:
           secret in a template is in the deployment history. The URL is versionless where the
           app should follow a rotation. The identity needs the vault's secret-reader role
           before the first revision (see `managed_identity`).
-        renders: secrets[].key_vault_secret_id and identity / secrets[].keyVaultUrl and identity
 
       - id: role_assignments
         ask:
@@ -478,7 +458,6 @@ groups:
         why: >
           Azure RBAC on the app - the control plane. Usually the deploying principal's alone,
           so empty is a normal answer.
-        renders: role_assignments / roleAssignments
 
   # ------------------------------------------------------------ observability
   - id: observability
@@ -504,9 +483,6 @@ groups:
           guardrail and the deployment's `local_auth`, and one the Terraform module reads by
           needing `sharedkeys/read` on the workspace. Without either, an app's console output
           is gone with the replica.
-        renders: >
-          app_logs_configuration.destination = azure-monitor and diagnostic_settings /
-          appLogsConfiguration.destination = azure-monitor and diagnosticSettings
 
       - id: diagnostic_categories
         ask:
@@ -528,7 +504,6 @@ groups:
           watch the workspace's daily cap. The category names are the platform's and are checked
           against `az monitor diagnostic-settings categories list --resource <environment id>`
           before a render, not remembered.
-        renders: diagnostic_settings.<key>.logs[].category / diagnosticSettings[].logCategoriesAndGroups[].category
 
       - id: metrics_enabled
         ask:
@@ -545,7 +520,6 @@ groups:
         why: >
           Replica count, CPU, memory and request counts are what decide whether the size and
           the replica bounds above were right, and they are cheap.
-        renders: metrics[].category = "AllMetrics" / metricCategories[].category
 
       - id: application_insights
         ask:
@@ -572,6 +546,3 @@ groups:
           of its user-assigned identity, which holds `Monitoring Metrics Publisher` on the
           component. Variables and role are infrastructure and always rendered; only the code
           that reads them is the app's. Empty only under `application_monitoring: disabled`.
-        renders: >
-          template.containers[].env = [{ name = "APPLICATIONINSIGHTS_CONNECTION_STRING", value },
-          { name = "APPLICATIONINSIGHTS_AUTHENTICATION_STRING", value }] / the same two in containers[].env

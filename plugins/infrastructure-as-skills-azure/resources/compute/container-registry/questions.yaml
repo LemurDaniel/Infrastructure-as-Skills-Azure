@@ -38,7 +38,6 @@ groups:
           Drives the rendered name and the strictness of several defaults below.
           Nothing sensible can be guessed. A registry is often one for all stages of a
           workload, in which case the deployment is the shared one - recorded, not assumed.
-        renders: naming parameter `environment`, and the tag of that name where the repository uses one
 
       - id: location
         ask:
@@ -53,7 +52,6 @@ groups:
           Part of the rendered name, and the home region of the registry. Zone redundancy is
           not offered in every region, and an image pull from a distant region pays for it in
           latency - a registry sits next to what pulls from it.
-        renders: location
 
       - id: resource_group_name
         ask:
@@ -69,7 +67,6 @@ groups:
         why: >
           The registry is placed into an existing group. Creating one here would make this
           set own a lifecycle wider than the resource it describes.
-        renders: resource_group_name (AVM Terraform, azurerm-based) / implicit in Bicep scope
 
   # ----------------------------------------------------------------- registry
   - id: registry
@@ -101,7 +98,6 @@ groups:
         forced_when: >
           `deployment.network_exposure: private` forces `Premium`, recorded as forced with
           `network_exposure` as forced_by
-        renders: sku / acrSku
 
       - id: zone_redundant
         ask:
@@ -126,7 +122,6 @@ groups:
           (modifying it forces a new registry). The modules default it to on, so the derivation
           for `tolerable` is written as `false`. The non-production stages take `false` while
           non_production_savings is enabled.
-        renders: zone_redundancy_enabled / zoneRedundancy (`Enabled`, `Disabled`)
 
       - id: geo_replicas
         ask:
@@ -149,7 +144,6 @@ groups:
           `outage_impact: critical` requires at least one entry here, or an `open:` entry;
           every region named must satisfy `data_residency`, and one that does not is
           refused with the residency as the reason
-        renders: georeplications / replications
 
       - id: retention_untagged_days
         ask:
@@ -168,7 +162,6 @@ groups:
           Terraform defaults to 7 days, Bicep to 15, so it is written. Applies to untagged
           manifests only - a tagged image is never deleted by it, which is what protects a
           release.
-        renders: retention_policy_in_days / retentionPolicyDays and retentionPolicyStatus
 
   # --------------------------------------------------------------- networking
   - id: networking
@@ -201,9 +194,6 @@ groups:
           deployment's own callers have no fixed outbound address, so a firewall with no
           rule locks them out of this resource - the first dry run (2026-10-24) hit it on
           five resources at once
-        renders: >
-          terraform: public_network_access_enabled (bool) and network_rule_set;
-          bicep: publicNetworkAccess and networkRuleSetIpRules
 
       - id: private_endpoint_subnet
         ask:
@@ -222,7 +212,6 @@ groups:
           registry has one sub-resource, `registry`, and the endpoint writes DNS records for
           the registry's login server and for each region's data endpoint - the platform's
           `privatelink.azurecr.io` zone must hold them, and a geo-replica adds one per region.
-        renders: private_endpoints.<key>.subnet_resource_id / privateEndpoints[].subnetResourceId (service `registry`)
 
       - id: ip_rules
         ask:
@@ -238,7 +227,6 @@ groups:
         why: >
           An enumerated allowlist with a default action of `Deny`, in CIDR form. An empty list
           denies every public caller, which is valid and deliberate. Needs Premium.
-        renders: network_rule_set.ip_rule / networkRuleSetIpRules
 
       - id: network_rule_bypass
         ask:
@@ -258,7 +246,6 @@ groups:
           past the firewall. **The modules disagree**: Terraform defaults to `None`, Bicep to
           `AzureServices` - a Bicep render that leaves it unset opens a hole the Terraform one
           does not. Closed by default; a consumer that needs it is named at this registry.
-        renders: network_rule_bypass_option / networkRuleBypassOptions
 
       - id: export_policy_enabled
         ask:
@@ -279,7 +266,6 @@ groups:
           close by itself. Pulls by clients with a role are unaffected. It can only be turned
           off while public access is off (Terraform enforces it), so it is asked only then.
           **The modules disagree**: Terraform defaults to enabled, Bicep to disabled.
-        renders: export_policy_enabled / exportPolicyStatus
 
       - id: image_push_path
         ask:
@@ -303,9 +289,6 @@ groups:
           enabled with a deny-by-default rule and the runner's IP, pushes, and closes it in a
           step that always runs and checks the result. Either way the pipeline identity needs
           AcrPush, and the infrastructure render must not reopen what the pipeline closed.
-        renders: >
-          nothing on the registry itself; the image pipeline's steps and the AcrPush role
-          assignment for its identity
 
   # ----------------------------------------------------------------- identity
   - id: identity
@@ -334,7 +317,6 @@ groups:
         forced_when: >
           `key_management: customer_managed` forces `user_assigned`, recorded as forced with
           `key_management` as forced_by
-        renders: managed_identities / managedIdentities
 
       - id: user_assigned_identity_ids
         ask:
@@ -349,7 +331,6 @@ groups:
         depends_on: { question: managed_identity, equals: user_assigned }
         per_environment: true
         why: The identity must already exist; this set does not create it.
-        renders: managed_identities.user_assigned_resource_ids / managedIdentities.userAssignedResourceIds
 
       - id: role_assignments
         ask:
@@ -370,7 +351,6 @@ groups:
           access, to a repository), never to the subscription. A pattern fills this from the
           consumers it knows; the puller's role is granted there, because the puller's
           identity exists only after the registry does.
-        renders: role_assignments / roleAssignments
 
   # ----------------------------------------------------------------- security
   - id: security
@@ -394,7 +374,6 @@ groups:
           whoever has it and not attributable. It is what a tutorial uses for `docker login`;
           a managed identity with `AcrPull` is what a deployment uses. Both modules default to
           off; written anyway.
-        renders: admin_enabled / acrAdminUserEnabled
 
       - id: anonymous_pull_enabled
         ask:
@@ -413,7 +392,6 @@ groups:
           registry. It is for a registry that publishes open-source images on purpose and is a
           preview feature; a departure that names the registry, never a default. Needs
           Standard or Premium.
-        renders: anonymous_pull_enabled / anonymousPullEnabled
 
       - id: key_management
         ask:
@@ -433,7 +411,6 @@ groups:
           `customer_managed` (Premium) adds the customer's key in a Key Vault with purge
           protection, an identity that can wrap and unwrap, and a rotation story. **It is set
           at creation**; a registry that loses its key cannot serve a single layer.
-        renders: customer_managed_key / customerManagedKey
 
       - id: cmk_key_vault_key_id
         ask:
@@ -452,7 +429,6 @@ groups:
           registry's user-assigned identity must hold wrap and unwrap on it before the
           registry is created. The reference is the unversioned key, so a rotation reaches the
           registry without a change here.
-        renders: customer_managed_key.key_vault_resource_id and key_name / customerManagedKey.keyVaultResourceId and keyName
 
   # ------------------------------------------------------------ observability
   - id: observability
@@ -473,7 +449,6 @@ groups:
         why: >
           Inherited: one deployment, one destination. The registry's logs are the record of who
           pulled and pushed which image - the supply-chain audit.
-        renders: diagnostic_settings / diagnosticSettings
 
       - id: diagnostic_categories
         ask:
@@ -494,7 +469,6 @@ groups:
           and is why the sign-in log is not an afterthought. The names are the platform's and
           are checked against `az monitor diagnostic-settings categories list --resource
           <registry id>` before a render, not remembered.
-        renders: diagnostic_settings.<key>.logs[].category / diagnosticSettings[].logCategoriesAndGroups[].category
 
       - id: metrics_enabled
         ask:
@@ -511,4 +485,3 @@ groups:
         why: >
           Storage used, pull and push counts and the successful-pull latency are the inputs to
           the retention and tier decisions above, and they are cheap.
-        renders: metrics[].category = "AllMetrics" / metricCategories[].category

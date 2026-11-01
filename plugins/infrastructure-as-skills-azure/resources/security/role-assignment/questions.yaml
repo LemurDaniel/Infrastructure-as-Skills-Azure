@@ -39,7 +39,6 @@ groups:
           Each stage gets its own assignment: the scope and the principal are stage
           resources, and an assignment that spans stages would give development the access of
           production.
-        renders: the stage file the scope and principal values come from
 
       - id: scope_kind
         ask:
@@ -70,7 +69,6 @@ groups:
         forced_when: >
           A role whose data actions live on a sub-resource (a secret, a key, a container)
           takes that sub-resource as the scope where the consumer reads only that one
-        renders: scope (azurerm_role_assignment.scope / the module's `scope` or `resourceId`)
 
       - id: scope
         ask:
@@ -88,7 +86,6 @@ groups:
           that owns the resource, never a literal; a subscription id and a management group
           name are stage values like the rest. A scope that does not exist yet at plan time is
           what makes the assignment a root-level wiring entry and not a module input.
-        renders: scope / scope (resource id), `subscriptionId` + `resourceGroupName` + `managementGroupId` for the scope-level Bicep pattern module
 
   # ----------------------------------------------------------------- identity
   - id: identity
@@ -112,7 +109,6 @@ groups:
           answer for a workload - the access outlives them and cannot be rotated - and a
           group is for people. A system-assigned identity is the consumer's own output and
           only exists after the consumer, so the assignment follows it (see `notes.md`).
-        renders: principal_id / principalId
 
       - id: principal_type
         ask:
@@ -137,7 +133,6 @@ groups:
           - there is no separate value for it in the API, and the AVM modules accept
           `ServicePrincipal` for one. A wrong type is refused or silently ignored depending
           on the API version; the type follows the principal.
-        renders: principal_type / principalType
 
       - id: role
         ask:
@@ -159,7 +154,6 @@ groups:
           Bicep pattern module and the authored resource take a role definition id - the
           render resolves the name through a table checked against the live definitions, it
           does not recall GUIDs.
-        renders: role_definition_name / roleDefinitionIdOrName (role_definition_id on the authored side)
 
       - id: role_may_assign
         ask:
@@ -180,7 +174,6 @@ groups:
           with `Role Based Access Control Administrator` it carries a condition (`condition`)
           that limits which roles it may assign. The answer is recorded rather than derived
           from the role name, so a custom role that can assign is declared too.
-        renders: gates `condition` - a True answer with no condition is refused
 
   # ----------------------------------------------------------------- security
   - id: security
@@ -203,7 +196,6 @@ groups:
           that lets a pipeline wire a deployment without being able to make itself an owner.
           A condition is valid only for roles and resource types that support it, and is
           written with `condition_version` `2.0`, which the render always sets beside it.
-        renders: condition + condition_version / condition + conditionVersion
 
       - id: description
         ask:
@@ -218,7 +210,6 @@ groups:
           The one place an assignment explains itself; the portal shows a GUID and a role
           name. Empty is allowed and the render falls back to "<principal> as <role> on
           <scope>" generated from the spec, which tells a reviewer the same, not the reason.
-        renders: description
 
       - id: deployer_role
         ask:
@@ -246,4 +237,3 @@ groups:
           legacy shapes and a departure. The right belongs to the platform team, held by the
           pipeline's identity at the scope, and the handover lists it with the roles and
           scope it needs; the render never grants it to itself.
-        renders: the handover's list of rights the deploying identity needs - nothing in the template

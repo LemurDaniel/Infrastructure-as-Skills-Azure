@@ -37,9 +37,6 @@ groups:
         why: >
           Drives the rendered name and the strictness of several defaults below. Nothing
           sensible can be guessed.
-        renders: >
-          naming parameter `environment`, and the tag of that name where the repository uses
-          one
 
       - id: location
         ask:
@@ -54,7 +51,6 @@ groups:
           Part of the rendered name and not inferable. A namespace is regional; the
           listeners and senders can be anywhere that reaches it over 443, which is the
           service's point.
-        renders: location
 
       - id: resource_group_name
         ask:
@@ -70,7 +66,6 @@ groups:
         why: >
           The namespace is placed into an existing group. Creating one here would make this
           set own a lifecycle wider than the resource it describes.
-        renders: resource_group_id (AVM Terraform, the group's id) / implicit in Bicep scope
 
   - id: connections
     title: Hybrid connections and relays
@@ -92,9 +87,6 @@ groups:
           with both sides, so they are asked, not invented; each entry is a name and, as
           metadata, what sits behind it (`host:port`), which the App Service Hybrid
           Connection Manager reads.
-        renders: >
-          modules/hybrid-connection (one per entry, name, user_metadata) /
-          hybridConnections[] (name, userMetadata)
 
       - id: client_authorization_required
         ask:
@@ -115,8 +107,6 @@ groups:
           listener must authenticate on its own. Off is for a public rendezvous (a browser
           WebSocket client) that cannot carry a token, and is a departure the spec records.
           Both modules default to on; written anyway.
-        renders: >
-          requires_client_authorization / hybridConnections[].requiresClientAuthorization
 
       - id: wcf_relays
         ask:
@@ -133,7 +123,6 @@ groups:
           A WCF relay authenticates with SAS only - it has no Entra ID path - so every entry
           is a named departure from `local_auth: disabled` for its listener and its senders.
           New work is a hybrid connection; this exists for what already runs.
-        renders: wcfRelays[] (Bicep) / modules/wcf-relay (Terraform, one per entry)
 
   - id: access
     title: Access
@@ -166,9 +155,6 @@ groups:
           the render keeps rather than a property it sets, which is why it is recorded as
           forced and not as done. **The Bicep module declares the root rule by default** and
           an empty `authorizationRules` keeps the template from owning it.
-        renders: >
-          no attribute - authorizationRules: [] (Bicep), no authorization-rule submodule
-          (Terraform), no `listKeys` output; data-plane access through `role_assignments` only
 
   - id: networking
     title: Networking
@@ -202,9 +188,6 @@ groups:
           is gated. **Both modules default to `Enabled`**, so the value is written on every
           call; the Terraform module writes it on the namespace, the Bicep module through
           the `networkRuleSets` child.
-        renders: >
-          public_network_access (`Enabled`/`Disabled`, a string) and the network-rule-set
-          submodule / networkRuleSets.publicNetworkAccess, defaultAction and ipRules
 
       - id: private_endpoint_subnet
         ask:
@@ -222,8 +205,6 @@ groups:
           One subnet carries the deployment's private endpoints, so this is inherited. The
           sub-resource is `namespace`; there is no list to choose from. The zone is the one
           Service Bus uses, because Relay shares its hostname suffix.
-        renders: >
-          private_endpoints.<key>.subnet_resource_id / privateEndpoints[].subnetResourceId
 
       - id: ip_rules
         ask:
@@ -243,9 +224,6 @@ groups:
           is not an allowlist and is rejected by the guardrails; a single address takes
           `/32`. The rule set has no virtual-network rules; a caller inside Azure uses the
           private endpoint.
-        renders: >
-          modules/network-rule-set ip_rules = [{ ipMask, action = "Allow" }], default_action
-          = "Deny" / networkRuleSets.ipRules, defaultAction
 
   - id: identity
     title: Identity and access
@@ -268,7 +246,6 @@ groups:
           consumer's role in the pattern, not here. An on-premises listener is a service
           principal or a managed identity with Azure Arc; one that has neither is the named
           departure to a SAS rule on that connection.
-        renders: role_assignments / roleAssignments
 
   - id: observability
     title: Observability
@@ -288,7 +265,6 @@ groups:
         why: >
           Inherited: one deployment, one destination. Without a diagnostic setting the
           resource keeps no record anyone can query.
-        renders: diagnostic_settings / diagnosticSettings
 
       - id: diagnostic_categories
         ask:
@@ -310,9 +286,6 @@ groups:
           The names are the platform's and are checked against `az monitor
           diagnostic-settings categories list` for the resource before a render, not
           remembered.
-        renders: >
-          diagnostic_settings.<key>.log_categories /
-          diagnosticSettings[].logCategoriesAndGroups[].category
 
       - id: metrics_enabled
         ask:
@@ -330,4 +303,3 @@ groups:
           Active connections, active listeners, listener-connection failures, bytes
           transferred - an active-listener count that drops to zero is how a dead far side
           shows up, and the one to alert on.
-        renders: metrics[].category = "AllMetrics" / metricCategories[].category

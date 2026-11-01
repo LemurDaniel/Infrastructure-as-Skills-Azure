@@ -40,7 +40,6 @@ groups:
         why: >
           Drives the rendered name and the strictness of several defaults below.
           Nothing sensible can be guessed.
-        renders: naming parameter `environment`, and the tag of that name where the repository uses one
 
       - id: location
         ask:
@@ -56,7 +55,6 @@ groups:
           rendered name. Zone redundancy and zone-redundant backup storage are not
           available in every region, and a region short of capacity can refuse a new
           server (provisioning restrictions are per subscription and region).
-        renders: location
 
       - id: resource_group_name
         ask:
@@ -72,7 +70,6 @@ groups:
         why: >
           The server is placed into an existing group. Creating one here would make this
           set own a lifecycle wider than the resource it describes.
-        renders: resource_group_name (AVM Terraform, azurerm-based) / implicit in Bicep scope
 
   # ------------------------------------------------------------------- server
   - id: database
@@ -95,7 +92,6 @@ groups:
           workload owner, blocking apply. Every database takes the compute, backup and resilience answers below as
           its own; a departure per database is recorded. A database name is part of its
           connection string and cannot be renamed in place.
-        renders: databases.<key>.name / databases[].name
 
       - id: collation
         ask:
@@ -114,7 +110,6 @@ groups:
           accent-sensitive) and what most existing applications and imports assume; an
           application that needs another (case-sensitive, UTF-8, a language) says so
           and gets it written, never discovers it later.
-        renders: databases.<key>.collation / databases[].collation
 
       - id: service_tier
         ask:
@@ -143,7 +138,6 @@ groups:
           `compute_tier: serverless` is available for General Purpose and Hyperscale
           only; `business_critical` forces `provisioned`, recorded as forced with
           `service_tier` as forced_by
-        renders: databases.<key>.sku_name (`GP_`, `BC_`, `HS_` prefix) / databases[].sku.tier and name
 
       - id: compute_tier
         ask:
@@ -172,7 +166,6 @@ groups:
         forced_when: >
           `service_tier: business_critical` forces `provisioned`, recorded as forced with
           `service_tier` as forced_by
-        renders: databases.<key>.sku_name (`GP_S_Gen5_<n>` for serverless) / databases[].sku.name
 
       - id: vcores
         ask:
@@ -191,7 +184,6 @@ groups:
           change with a brief disconnect. Starting low is deliberate: the cost of a number
           that is too high is paid every hour, the cost of one that is too low is a visible,
           fixable signal. For serverless this is the maximum; the minimum is `min_vcores`.
-        renders: databases.<key>.sku_name suffix and the capacity / databases[].sku.capacity
 
       - id: min_vcores
         ask:
@@ -208,7 +200,6 @@ groups:
           up from it within seconds, so a higher minimum only buys readiness for a sudden
           load at an hourly price. A string, because the allowed values are fractions
           (0.5, 0.75, 1, ...).
-        renders: databases.<key>.min_capacity / databases[].minCapacity
 
       - id: auto_pause_delay_minutes
         ask:
@@ -225,7 +216,6 @@ groups:
           requests of a working day; the minimum is 15, and `-1` disables pausing, which
           turns serverless into provisioned billing with a minimum. A paused database
           costs only storage, and the next connection pays the cold start.
-        renders: databases.<key>.auto_pause_delay_in_minutes / databases[].autoPauseDelay
 
       - id: max_size_gb
         ask:
@@ -241,7 +231,6 @@ groups:
           in General Purpose and Business Critical: a ceiling far above the data is paid
           for. 32 GB is a small default that is raised in place; a database that reaches
           the ceiling stops accepting writes, which is the visible signal to raise it.
-        renders: databases.<key>.max_size_gb / databases[].maxSizeBytes (bytes)
 
       - id: elastic_pool
         ask:
@@ -264,7 +253,6 @@ groups:
         forced_when: >
           `true` forces `compute_tier: provisioned` for the pooled databases, recorded as
           forced with `elastic_pool` as forced_by
-        renders: elastic_pools.<key> and databases.<key>.elastic_pool_key / elasticPools[] and databases[].elasticPoolResourceId
 
       - id: pool_vcores
         ask:
@@ -279,7 +267,6 @@ groups:
         why: >
           The pool's capacity is shared by all databases in it, and the per-database
           minimum and maximum bound each one. 2 is the smallest and is raised in place.
-        renders: elastic_pools.<key>.sku.capacity / elasticPools[].sku.capacity
 
   # --------------------------------------------------------------- resilience
   - id: resilience
@@ -309,7 +296,6 @@ groups:
           Purpose and Business Critical but not in every Hyperscale case. The derivation is
           production's; the non-production stages take `false` while non_production_savings
           is enabled.
-        renders: databases.<key>.zone_redundant / databases[].zoneRedundant (and the pool's zone_redundant / zoneRedundant)
 
       - id: geo_failover_region
         ask:
@@ -333,7 +319,6 @@ groups:
           `outage_impact: critical` requires a value here, or an `open:` entry; the region
           must satisfy `data_residency` (`country`: the same country, `data_zone`: the same
           data zone), and a region that does not is refused with the residency as the reason
-        renders: a second instance of this set in that region plus failover_group / failoverGroups[] (the second server and the group are rendered by the render skill, not by one module call)
 
   # --------------------------------------------------------------- networking
   - id: networking
@@ -365,9 +350,6 @@ groups:
           `enabled`, recorded as forced with `network_ownership` as forced_by: the
           deployment's own callers have no fixed outbound address, so a firewall with no
           rule locks them out of this resource
-        renders: >
-          terraform: public_network_access_enabled (bool) and firewall rules;
-          bicep: publicNetworkAccess and firewallRules
 
       - id: private_endpoint_subnet
         ask:
@@ -385,7 +367,6 @@ groups:
           One subnet carries the deployment's private endpoints, so this is inherited. The
           sub-resource is `sqlServer`, the zone `privatelink.database.windows.net`, and one
           endpoint reaches every database on the server.
-        renders: private_endpoints.<key>.subnet_resource_id / privateEndpoints[].subnetResourceId (service `sqlServer`)
 
       - id: ip_rules
         ask:
@@ -403,7 +384,6 @@ groups:
           the firewall on denies every public caller, which is valid and deliberate.
           `0.0.0.0` - which SQL reads as "allow Azure services" - is not an allowlist and
           is `allow_azure_services`' job, not this list's.
-        renders: firewall_rules / firewallRules
 
       - id: allow_azure_services
         ask:
@@ -423,7 +403,6 @@ groups:
           0.0.0.0 - 0.0.0.0 and admits **any resource in Azure, in any tenant**, not only
           this customer's; it defeats the firewall it sits in. Off by default; a consumer
           that needs it is named and gets a specific rule, or a private endpoint.
-        renders: a firewall rule named `AllowAllWindowsAzureIps` with 0.0.0.0 as start and end / firewallRules[]
 
       - id: minimum_tls_version
         ask:
@@ -441,7 +420,6 @@ groups:
           server at "1.2" and offers no input - so a stricter answer than the floor forces
           the authored rendering for the server on that target; the answer is recorded
           either way.
-        renders: minimal_tls_version (fixed "1.2" in the AVM Terraform module) / minimalTlsVersion
 
   # ----------------------------------------------------------------- identity
   - id: identity
@@ -473,7 +451,6 @@ groups:
         forced_when: >
           `key_management: customer_managed` forces `user_assigned`, recorded as forced
           with `key_management` as forced_by
-        renders: managed_identities / managedIdentities (and primary_user_assigned_identity_id / primaryUserAssignedIdentityResourceId)
 
       - id: user_assigned_identity_ids
         ask:
@@ -488,7 +465,6 @@ groups:
         depends_on: { question: managed_identity, equals: user_assigned }
         per_environment: true
         why: The identity must already exist; this set does not create it.
-        renders: managed_identities.user_assigned_resource_ids / managedIdentities.userAssignedResourceIds
 
       - id: entra_admin
         ask:
@@ -507,7 +483,6 @@ groups:
           unusable. A **group** and not a person: it survives staff changes and gives the
           administrators an audit trail of their own. A server has exactly one; no answer
           is an `open:` entry owned by the engineer, blocking apply.
-        renders: azuread_administrator { login_username, object_id } / administrators { login, sid, principalType }
 
       - id: database_users
         ask:
@@ -529,9 +504,6 @@ groups:
           the workload owner, blocking apply. Each entry is an identity and a database role,
           least privilege first (`db_datareader`, `db_datawriter`, never `db_owner`). A
           pattern fills this from the consumers it knows.
-        renders: >
-          not the module and not Azure Resource Manager - a T-SQL step after the deployment
-          (the deployment's pipeline, or a deployment script), recorded as such in the spec
 
       - id: role_assignments
         ask:
@@ -547,7 +519,6 @@ groups:
           Azure RBAC on the server - the control plane: creating databases, changing
           firewall rules, reading the audit settings. Separate from the database roles on
           purpose, and usually the deploying principal's alone, so empty is a normal answer.
-        renders: role_assignments / roleAssignments
 
   # ----------------------------------------------------------------- security
   - id: security
@@ -570,9 +541,6 @@ groups:
           login is a password that does not expire, is shared, and is not attributable in
           the audit log. With it off no administrator login or password is rendered at all,
           so there is no secret to leak or rotate. Both modules accept it; written anyway.
-        renders: >
-          azuread_administrator.azuread_authentication_only (and no administrator_login) /
-          administrators.azureADOnlyAuthentication
 
       - id: key_management
         ask:
@@ -594,7 +562,6 @@ groups:
           in a Key Vault with purge protection, an identity that can wrap and unwrap it,
           and a rotation story; a server that loses access to the key makes its databases
           inaccessible within the hour.
-        renders: transparent_data_encryption_key_vault_key_id and the database-level equivalent / customerManagedKey
 
       - id: cmk_key_vault_key_id
         ask:
@@ -615,7 +582,6 @@ groups:
           attempt. The Terraform module takes the **versioned** key URL, the Bicep module
           the key name with `autoRotationEnabled`; rotation reaches the server through the
           Bicep form without a change here, and through a version bump in the Terraform one.
-        renders: transparent_data_encryption_key_vault_key_id (versioned URL) / customerManagedKey { keyVaultResourceId, keyName, autoRotationEnabled }
 
       - id: threat_detection
         ask:
@@ -635,7 +601,6 @@ groups:
           itself is a subscription plan and the platform's; the policy here is what binds
           this server to it, and an alert needs both. Security-shaped, so every stage
           has it. It costs per server per month once the plan is on.
-        renders: azurerm_mssql_server_security_alert_policy (authored beside the module) / securityAlertPolicies[]
 
       - id: vulnerability_assessment
         ask:
@@ -654,7 +619,6 @@ groups:
           permissions and unencrypted columns and needs no storage account. The classic
           configuration needs one, with an identity and a role on it, and is not what this
           set renders. Needs the Defender plan like the policy above.
-        renders: express_vulnerability_assessment_enabled / vulnerabilityAssessmentsObj (the classic form; the express form is the authored resource `Microsoft.Sql/servers/sqlVulnerabilityAssessments`)
 
   # ---------------------------------------------------------- data protection
   - id: data_protection
@@ -679,7 +643,6 @@ groups:
           and `three_months` adds long-term retention for the rest. `reproducible` still
           gets 7: shorter retention saves almost nothing and a restore is cheap insurance.
           Retention of a deleted database follows the same number.
-        renders: databases.<key>.short_term_retention_policy.retention_days / databases[].backupShortTermRetentionPolicy.retentionDays
 
       - id: long_term_retention
         ask:
@@ -704,7 +667,6 @@ groups:
           duty longer than the customer's own question is a mandate, and a `mandates` entry
           names it. A restore from it is also a new database, and the copies are billed per
           gigabyte for as long as they live.
-        renders: databases.<key>.long_term_retention_policy.weekly_retention (`P13W`, `P52W`) / databases[].backupLongTermRetentionPolicy.weeklyRetention
 
       - id: backup_storage_redundancy
         ask:
@@ -733,7 +695,6 @@ groups:
           which copies the backups to the paired region whether or not anyone asked, and
           on a database the choice is made at creation: changing it afterwards means a new
           database. Written on every call. A zone-redundant database wants at least `Zone`.
-        renders: databases.<key>.storage_account_type / databases[].requestedBackupStorageRedundancy
 
   # ------------------------------------------------------------ observability
   - id: observability
@@ -755,7 +716,6 @@ groups:
           Inherited: one deployment, one destination. Without a diagnostic setting the
           database keeps no record of its errors, deadlocks and timeouts beyond what the
           portal shows for a short while.
-        renders: diagnostic_settings / diagnosticSettings (on each database, and on `master` for the audit)
 
       - id: auditing_enabled
         ask:
@@ -777,7 +737,6 @@ groups:
           either alone records nothing. A storage destination is for long-term archival
           and is not rendered. Security-shaped, so every stage has it. The volume has a
           price in the workspace.
-        renders: azurerm_mssql_server_extended_auditing_policy plus a diagnostic setting on `master` (authored beside the module) / auditSettings { state, isAzureMonitorTargetEnabled } plus a diagnostic setting on `master`
 
       - id: diagnostic_categories
         ask:
@@ -803,7 +762,6 @@ groups:
           category names are the platform's and are checked against `az monitor
           diagnostic-settings categories list --resource <database id>` before a render,
           not remembered.
-        renders: databases.<key>.diagnostic_settings.<key>.log_categories / databases[].diagnosticSettings[].logCategoriesAndGroups[].category
 
       - id: metrics_enabled
         ask:
@@ -821,4 +779,3 @@ groups:
           CPU, storage and connection figures decide whether `vcores` was right, and they
           are cheap. SQL databases do not offer the category `AllMetrics`; the category is
           `Basic`, and a module default of `AllMetrics` fails the plan.
-        renders: databases.<key>.diagnostic_settings.<key>.metric_categories = ["Basic"] / databases[].diagnosticSettings[].metricCategories[].category = "Basic"

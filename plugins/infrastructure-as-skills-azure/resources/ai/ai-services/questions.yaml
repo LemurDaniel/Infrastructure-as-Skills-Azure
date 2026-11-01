@@ -44,7 +44,6 @@ groups:
         why: >
           Drives the rendered name and the strictness of several defaults below.
           Nothing sensible can be guessed.
-        renders: naming parameter `environment`, and the tag of that name where the repository uses one
 
       - id: location
         ask:
@@ -62,7 +61,6 @@ groups:
           at rest stays in the region; some Speech and Translator features process in other
           regions of the geography, which is a `data_residency` consequence named in the
           notes.
-        renders: location
 
       - id: resource_group_name
         ask:
@@ -78,7 +76,6 @@ groups:
         why: >
           The account is placed into an existing group. Creating one here would make this set
           own a lifecycle wider than the resource it describes.
-        renders: parent_id (AVM Terraform, AzAPI) / implicit in Bicep scope
 
   # ------------------------------------------------------------------ account
   - id: account
@@ -113,7 +110,6 @@ groups:
           creation**; changing it is a new account with a new subdomain. `Face` and some
           Speech features need a registered use case approved per subscription before the
           account can be created.
-        renders: kind / kind
 
       - id: sku_name
         ask:
@@ -138,7 +134,6 @@ groups:
           Document Intelligence or Speech workload with steady volume buys a commitment tier
           outside this set. The modules default differently (Bicep `S0`, Terraform has no
           default), so it is written.
-        renders: sku_name / sku
 
   # --------------------------------------------------------------- networking
   - id: networking
@@ -174,9 +169,6 @@ groups:
           **synthesis and container path** that is reached from end-user devices; that
           traffic goes through the application, not to the account, when the account is
           closed.
-        renders: >
-          terraform: public_network_access_enabled (bool) and network_acls;
-          bicep: publicNetworkAccess and networkAcls
 
       - id: private_endpoint_subnet
         ask:
@@ -197,7 +189,6 @@ groups:
           endpoint needs the custom subdomain and the Speech SDK must then be given the
           private endpoint's hostname, not the region, which is an application setting named
           in the notes.
-        renders: private_endpoints.<key>.subnet_resource_id / privateEndpoints[].subnetResourceId (service `account`)
 
       - id: ip_rules
         ask:
@@ -214,7 +205,6 @@ groups:
           An enumerated allowlist with a default action of `Deny`. A firewall needs the custom
           subdomain, which the render sets. An empty list denies every public caller, which is
           valid and deliberate.
-        renders: network_acls.ip_rules / networkAcls.ipRules
 
       - id: restrict_outbound
         ask:
@@ -236,7 +226,6 @@ groups:
           names in `allowed_fqdns`. **The Bicep module defaults it to true; Terraform leaves
           it unset (off)**, so it is written. The usual blocker is a document served from a
           public CDN, which is a named entry, not a reason to leave the account open.
-        renders: outbound_network_access_restricted / restrictOutboundNetworkAccess
 
       - id: allowed_fqdns
         ask:
@@ -255,10 +244,6 @@ groups:
           only what is sent in the request body. A restricted account given a URL not on
           this list fails at the call, not at the deployment, which is how the missing entry
           is usually found.
-        renders: >
-          terraform: the module input `fqdns`; bicep: the module has no parameter, the
-          property is properties.allowedFqdnList (rendered as a second deployment against
-          the account)
 
   # ----------------------------------------------------------------- identity
   - id: identity
@@ -289,7 +274,6 @@ groups:
         forced_when: >
           `key_management: customer_managed` forces `user_assigned`, recorded as forced with
           `key_management` as forced_by
-        renders: managed_identities / managedIdentities
 
       - id: user_assigned_identity_ids
         ask:
@@ -304,7 +288,6 @@ groups:
         depends_on: { question: managed_identity, equals: user_assigned }
         per_environment: true
         why: The identity must already exist; this set does not create it.
-        renders: managed_identities.user_assigned_resource_ids / managedIdentities.userAssignedResourceIds
 
       - id: role_assignments
         ask:
@@ -325,7 +308,6 @@ groups:
           Recognizer` - and `Cognitive Services User` where a kind has none of its own; a
           role that can *list keys* has no business in a keyless account. A pattern fills
           this from the consumers it knows about.
-        renders: role_assignments / roleAssignments
 
   # ----------------------------------------------------------------- security
   - id: security
@@ -356,7 +338,6 @@ groups:
           defaults on, and the Terraform input is the inverse. The client then needs a
           token for the `https://cognitiveservices.azure.com` scope and the account's custom
           subdomain, which is why the subdomain is set.
-        renders: local_auth_enabled (inverse) / disableLocalAuth
 
       - id: key_management
         ask:
@@ -381,7 +362,6 @@ groups:
           through. `customer_managed` pulls in a vault with purge protection, an identity
           that can wrap and unwrap and a rotation story, and some kinds need the E0 tier or
           an approval for it.
-        renders: customer_managed_key / customerManagedKey
 
       - id: cmk_key_vault_key_id
         ask:
@@ -400,7 +380,6 @@ groups:
           account's user-assigned identity must hold wrap and unwrap on it before the account
           is created. The reference is the unversioned key, so a rotation reaches the account
           without a change here.
-        renders: customer_managed_key.key_name and key_vault_resource_id / customerManagedKey.keyName and keyVaultResourceId
 
   # ------------------------------------------------------------ observability
   - id: observability
@@ -421,7 +400,6 @@ groups:
         why: >
           Inherited: one deployment, one destination. Without a diagnostic setting nobody can
           say who called the service, how often or why a call failed.
-        renders: diagnostic_settings / diagnosticSettings
 
       - id: diagnostic_categories
         ask:
@@ -443,7 +421,6 @@ groups:
           `Trace` is for a support case and is the volume line. The category names are the
           platform's, differ per kind, and are checked against `az monitor diagnostic-settings
           categories list --resource <account id>` before a render, not remembered.
-        renders: diagnostic_settings.<key>.logs[].category / diagnosticSettings[].logCategoriesAndGroups[].category
 
       - id: metrics_enabled
         ask:
@@ -461,4 +438,3 @@ groups:
           Calls, errors, throttled calls and latency per operation, and the per-kind
           counters (characters translated, audio seconds, pages analysed) the bill is made
           of.
-        renders: metrics[].category = "AllMetrics" / metricCategories[].category

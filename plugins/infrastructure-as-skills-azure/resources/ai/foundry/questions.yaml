@@ -43,7 +43,6 @@ groups:
         why: >
           Drives the rendered name and the strictness of several defaults below.
           Nothing sensible can be guessed.
-        renders: naming parameter `environment`, and the tag of that name where the repository uses one
 
       - id: location
         ask:
@@ -70,10 +69,6 @@ groups:
           named gap, or the customer revisits the residency. The private endpoint stays in
           the network's region, which works across regions; agent network injection does
           not (the account must be in the network's region) and rules the departure out.
-        renders: >
-          location - context.location, or `resources.<key>.placement.location` when it departs:
-          then its own variable `foundry_location` / param `foundryLocation`, one value in every
-          stage file; the private endpoint keeps context.location
 
       - id: resource_group_name
         ask:
@@ -89,7 +84,6 @@ groups:
         why: >
           The account is placed into an existing group. Creating one here would make this set
           own a lifecycle wider than the resource it describes.
-        renders: parent_id (AVM Terraform, AzAPI) / implicit in Bicep scope
 
   # ------------------------------------------------------------------ account
   - id: account
@@ -113,7 +107,6 @@ groups:
           model catalogue, and the projects that Foundry's agents and evaluations live in.
           `OpenAI` is the older, narrower account and stays for a deployment that must match
           one that exists. **The kind is fixed at creation**; changing it is a new account.
-        renders: kind
 
       - id: sku_name
         ask:
@@ -132,7 +125,6 @@ groups:
           tiers have no private endpoints, no deployments of the large models and a hard
           monthly cap. What an account costs comes from the model deployments, not from the
           account, which is why the tier is a constant and the capacity is a question.
-        renders: sku_name / sku
 
       - id: project_management
         ask:
@@ -154,7 +146,6 @@ groups:
           calls a model does not. Whether it can be turned on for an existing account is
           checked against the platform before a render, not assumed; it needs the custom
           subdomain the render sets.
-        renders: allow_project_management / allowProjectManagement
 
       - id: projects
         ask:
@@ -174,10 +165,6 @@ groups:
           (`Microsoft.CognitiveServices/accounts/projects`), each with its own managed
           identity, which is the identity a project's connections use. An empty list is a
           valid answer for an account that only hosts models.
-        renders: >
-          terraform: azapi_resource `Microsoft.CognitiveServices/accounts/projects` next to the AVM
-          module (module input `default_project` names one), or azurerm_cognitive_account_project
-          (azurerm 5.x) in an authored render; bicep: child resource `accounts/projects`
 
   # ------------------------------------------------------------------- models
   - id: models
@@ -205,7 +192,6 @@ groups:
           derived deployment type or the chosen region is named as a gap. A version is
           pinned, never left to a default, for the reason a runtime version is. With no
           answer the decision is an `open:` entry owned by the workload owner, blocking apply.
-        renders: cognitive_deployments / deployments[]
 
       - id: deployment_sku
         ask:
@@ -238,7 +224,6 @@ groups:
           A model not offered in the derived deployment type (some are `GlobalStandard`
           only) is not deployed under `country` or `data_zone`; the gap is named, never
           widened to `GlobalStandard` silently
-        renders: cognitive_deployments.<key>.scale.type / deployments[].sku.name
 
       - id: deployment_capacity
         ask:
@@ -258,7 +243,6 @@ groups:
           the quota is the failure to check, and a quota increase is a request to Microsoft,
           not a template change. 10 (10,000 tokens a minute) is a start that a real workload
           raises once measured; it applies to every deployment unless an entry says otherwise.
-        renders: cognitive_deployments.<key>.scale.capacity / deployments[].sku.capacity
 
       - id: version_upgrade_option
         ask:
@@ -281,7 +265,6 @@ groups:
           `OnceNewDefaultVersionAvailable` is the Terraform module's default and moves on
           Microsoft's schedule; `NoAutoUpgrade` is the strict form and turns a retirement into
           an outage until someone acts. Written on every deployment.
-        renders: cognitive_deployments.<key>.version_upgrade_option / deployments[].versionUpgradeOption
 
       - id: content_filter
         ask:
@@ -301,7 +284,6 @@ groups:
           attaches. A less strict filter needs Microsoft's approval, and a custom policy is a
           separate resource this set does not render. The policy name is looked up in the
           account's policies before a render.
-        renders: cognitive_deployments.<key>.rai_policy_name / deployments[].raiPolicyName
 
   # --------------------------------------------------------------- networking
   - id: networking
@@ -335,9 +317,6 @@ groups:
           deployment's own callers have no fixed outbound address, so a firewall with no
           rule locks them out of this resource - the first dry run (2026-10-24) hit it on
           five resources at once
-        renders: >
-          terraform: public_network_access_enabled (bool) and network_acls;
-          bicep: publicNetworkAccess and networkAcls
 
       - id: private_endpoint_subnet
         ask:
@@ -357,7 +336,6 @@ groups:
           records - the account's cognitive services, OpenAI and AI services hostnames - so the
           platform's zones must cover all three; a missing one fails at the first call, not at
           apply.
-        renders: private_endpoints.<key>.subnet_resource_id / privateEndpoints[].subnetResourceId (service `account`)
 
       - id: ip_rules
         ask:
@@ -374,7 +352,6 @@ groups:
           An enumerated allowlist with a default action of `Deny`. A firewall needs the custom
           subdomain, which the render sets. An empty list denies every public caller, which is
           valid and deliberate.
-        renders: network_acls.ip_rules / networkAcls.ipRules
 
       - id: restrict_outbound
         ask:
@@ -394,7 +371,6 @@ groups:
           it to true; Terraform leaves it unset (off)**, so it is written. The allowed names
           (`allowed_fqdns`) are the workload's, and the usual blocker is a tool that calls a
           public API - a named departure, not a reason to leave the account open.
-        renders: outbound_network_access_restricted / restrictOutboundNetworkAccess
 
       - id: allowed_fqdns
         ask:
@@ -414,9 +390,6 @@ groups:
           lets it reach on its own. A restricted account with a tool that calls an address not
           on this list fails at the call, not at the deployment, which is how the missing entry
           is usually found.
-        renders: >
-          terraform: the module input `fqdns` (azurerm_cognitive_account.fqdns); bicep: the
-          module has no parameter, the property is properties.allowedFqdnList
 
   # ----------------------------------------------------------------- identity
   - id: identity
@@ -446,7 +419,6 @@ groups:
         forced_when: >
           `key_management: customer_managed` forces `user_assigned`, recorded as forced with
           `key_management` as forced_by
-        renders: managed_identities / managedIdentities
 
       - id: user_assigned_identity_ids
         ask:
@@ -461,7 +433,6 @@ groups:
         depends_on: { question: managed_identity, equals: user_assigned }
         per_environment: true
         why: The identity must already exist; this set does not create it.
-        renders: managed_identities.user_assigned_resource_ids / managedIdentities.userAssignedResourceIds
 
       - id: role_assignments
         ask:
@@ -482,7 +453,6 @@ groups:
           Services Contributor` or an owner role is a departure that names a person. A role
           that can *list keys* has no business in a keyless account. A pattern fills this
           from the consumers it knows about.
-        renders: role_assignments / roleAssignments
 
   # ----------------------------------------------------------------- security
   - id: security
@@ -507,7 +477,6 @@ groups:
           `local_auth_enabled` defaults on, and the Terraform input is the inverse. The
           client then needs a token for the `https://cognitiveservices.azure.com` scope and
           the account's custom subdomain, which is why the subdomain is set.
-        renders: local_auth_enabled (inverse) / disableLocalAuth
 
       - id: key_management
         ask:
@@ -527,7 +496,6 @@ groups:
           files, project data - not to the prompts passing through, which are not stored.
           `customer_managed` pulls in a vault with purge protection, an identity that can wrap
           and unwrap and a rotation story.
-        renders: customer_managed_key / customerManagedKey
 
       - id: cmk_key_vault_key_id
         ask:
@@ -546,7 +514,6 @@ groups:
           account's user-assigned identity must hold wrap and unwrap on it before the account
           is created. The reference is the unversioned key, so a rotation reaches the account
           without a change here.
-        renders: customer_managed_key.key_name and key_vault_resource_id / customerManagedKey.keyName and keyVaultResourceId
 
   # ------------------------------------------------------------ observability
   - id: observability
@@ -567,7 +534,6 @@ groups:
         why: >
           Inherited: one deployment, one destination. Without a diagnostic setting nobody can
           say who called a model, how many tokens a caller used or why a call failed.
-        renders: diagnostic_settings / diagnosticSettings
 
       - id: diagnostic_categories
         ask:
@@ -592,7 +558,6 @@ groups:
           volume line. The category names are the platform's, differ between OpenAI and AI
           Services accounts, and are checked against `az monitor diagnostic-settings
           categories list --resource <account id>` before a render, not remembered.
-        renders: diagnostic_settings.<key>.logs[].category / diagnosticSettings[].logCategoriesAndGroups[].category
 
       - id: metrics_enabled
         ask:
@@ -609,4 +574,3 @@ groups:
         why: >
           Processed tokens, the throttled-request count and the latency per deployment are
           what decide whether `deployment_capacity` was right, and they are cheap.
-        renders: metrics[].category = "AllMetrics" / metricCategories[].category

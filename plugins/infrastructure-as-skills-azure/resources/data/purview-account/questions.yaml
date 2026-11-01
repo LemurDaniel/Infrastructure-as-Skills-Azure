@@ -39,7 +39,6 @@ groups:
           Drives the rendered name and the tags. A governance catalog is one per tenant,
           so a deployment that creates one does so in one stage only and the others
           reference it; the stage list is still the deployment's.
-        renders: naming parameter `environment`, and the tag of that name where the repository uses one
 
       - id: location
         ask:
@@ -56,7 +55,6 @@ groups:
           is offered in a subset of regions, so a deployment region without it takes the
           nearest one in the same geography and records the departure, and `data_residency:
           country` is checked against that choice.
-        renders: location
 
       - id: resource_group_name
         ask:
@@ -73,7 +71,6 @@ groups:
           The account is placed into an existing group. Creating one here would make this
           set own a lifecycle wider than the resource it describes; the account creates a
           second, managed group of its own for its storage and Event Hubs.
-        renders: resource_group_name / implicit in Bicep scope
 
       - id: ownership
         ask:
@@ -98,7 +95,6 @@ groups:
           account. `platform` renders nothing but the reference (`existing_account_id`) and
           skips every question below; `deployment` creates the account and is the answer
           only for the team that owns governance for the tenant.
-        renders: whether the account is created here or only referenced
 
       - id: existing_account_id
         ask:
@@ -117,7 +113,6 @@ groups:
           The account's resource id, named by the platform team; it is what a Data
           Factory's `purview_account` and a source's registration point at. With no answer
           the decision is an `open:` entry owned by the platform team.
-        renders: a data source / `existing` reference; no resource
 
   # ------------------------------------------------------------------ account
   - id: account
@@ -140,7 +135,6 @@ groups:
           to; an organisation whose naming policy denies that pattern names one here. The
           group is deleted with the account, and a policy or a lock on it blocks the
           account's own operations.
-        renders: managed_resource_group_name / managedResourceGroupName
 
       - id: managed_event_hub
         ask:
@@ -163,7 +157,6 @@ groups:
           it can be switched on later. **Both modules default to on** (the Bicep module's
           `managedEventHubState: 'Enabled'`, the provider's `managed_event_hub_enabled =
           true`); written. With it off there is no `namespace` private endpoint to create.
-        renders: managed_event_hub_enabled / managedEventHubState ('Enabled' | 'Disabled')
 
       - id: managed_resources_public_access
         ask:
@@ -192,9 +185,6 @@ groups:
           `public_network_access: enabled` (a public deployment) forces `enabled` here,
           recorded as forced with `public_network_access` as forced_by - a closed ingestion
           path behind an open front door has no runtime that can scan
-        renders: >
-          an azapi_update_resource on properties.managedResourcesPublicNetworkAccess (azurerm has no
-          argument) / managedResourcesPublicNetworkAccess
 
   # --------------------------------------------------------------- networking
   - id: networking
@@ -228,7 +218,6 @@ groups:
           `enabled_with_firewall` is rendered as `enabled`, recorded as forced with "no
           firewall on a Purview account" as forced_by; `network_ownership: none` forces
           `enabled`, recorded as forced with `network_ownership` as forced_by
-        renders: public_network_enabled (bool) / publicNetworkAccess ('Disabled' | 'Enabled')
 
       - id: private_endpoint_subnet
         ask:
@@ -250,10 +239,6 @@ groups:
           and the ingestion trio on the managed resources - `blob`
           (`privatelink.blob.core.windows.net`), `queue` (`privatelink.queue.core.windows.net`)
           and `namespace` (`privatelink.servicebus.windows.net`).
-        renders: >
-          subnet_id of each authored private endpoint / accountPrivateEndpoints[],
-          portalPrivateEndpoints[], storageBlobPrivateEndpoints[], storageQueuePrivateEndpoints[],
-          eventHubPrivateEndpoints[] .subnetResourceId
 
       - id: private_endpoint_subresources
         ask:
@@ -283,10 +268,6 @@ groups:
         forced_when: >
           `managed_event_hub: false` removes `namespace`; `managed_resources_public_access:
           disabled` requires `blob` and `queue`, recorded as forced with it as forced_by
-        renders: >
-          one authored azurerm_private_endpoint per entry (account and portal on the account, blob
-          and queue on the managed storage account, namespace on the managed namespace) / the five
-          module parameters, one array each
 
   # ----------------------------------------------------------------- identity
   - id: identity
@@ -314,9 +295,6 @@ groups:
           beside it, for a scan credential that must be granted before the account exists
           or must survive a recreate; the system-assigned one stays. The provider spells the
           pair `SystemAssigned, UserAssigned`.
-        renders: >
-          identity { type = "SystemAssigned" | "SystemAssigned, UserAssigned", identity_ids } /
-          managedIdentities { userAssignedResourceIds } (the module adds SystemAssigned by itself)
 
       - id: user_assigned_identity_ids
         ask:
@@ -331,7 +309,6 @@ groups:
         depends_on: { question: managed_identity, equals: user_assigned }
         per_environment: true
         why: The identity must already exist; this set does not create it.
-        renders: identity.identity_ids / managedIdentities.userAssignedResourceIds
 
       - id: collection_roles
         ask:
@@ -354,9 +331,6 @@ groups:
           principal can use; a pattern or the governance team fills it. Each entry is an
           identity and a role on a collection, least privilege first, and a Data Factory
           that reports lineage needs `Data curator` here.
-        renders: >
-          not the module and not Azure Resource Manager - a step after the deployment against the
-          account's metadata policy API, recorded as such in the spec
 
       - id: role_assignments
         ask:
@@ -374,7 +348,6 @@ groups:
           diagnostics, deleting the account. Separate from the collection roles on purpose;
           `Reader` on the account is also what a user needs before the portal lets them
           sign in to it. Usually the deploying principal's plus the governance team's.
-        renders: role_assignments (authored azurerm_role_assignment) / roleAssignments
 
   # ------------------------------------------------------------ observability
   - id: observability
@@ -397,7 +370,6 @@ groups:
           Inherited: one deployment, one destination. Without a diagnostic setting there
           is no record of which scans ran and failed, and no audit of who changed a
           collection's roles beyond what the portal shows.
-        renders: azurerm_monitor_diagnostic_setting (authored) / diagnosticSettings
 
       - id: diagnostic_categories
         ask:
@@ -421,7 +393,6 @@ groups:
           their volume follows the number of assets scanned. The category names are the
           platform's and are checked against `az monitor diagnostic-settings categories
           list --resource <account id>` before a render, not remembered.
-        renders: enabled_log { category } / diagnosticSettings[].logCategoriesAndGroups[].category
 
       - id: metrics_enabled
         ask:
@@ -440,4 +411,3 @@ groups:
           The data map's capacity units and storage, and the scan cancellations - the
           figures behind the account's bill, which is capacity-based. Cheap. The category
           is `AllMetrics`.
-        renders: enabled_metric { category = "AllMetrics" } / diagnosticSettings[].metricCategories[].category = "AllMetrics"

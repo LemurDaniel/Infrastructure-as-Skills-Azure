@@ -38,7 +38,6 @@ groups:
         why: >
           Drives the rendered name and the strictness of several defaults below.
           Nothing sensible can be guessed.
-        renders: naming parameter `environment`, and the tag of that name where the repository uses one
 
       - id: location
         ask:
@@ -53,7 +52,6 @@ groups:
           The primary (write) region and part of the rendered name. Zone redundancy
           is not available in every region, and a region that is short of capacity can
           refuse a new zone-redundant account.
-        renders: location, and the failover location with priority 0
 
       - id: resource_group_name
         ask:
@@ -69,7 +67,6 @@ groups:
         why: >
           The account is placed into an existing group. Creating one here would make
           this set own a lifecycle wider than the resource it describes.
-        renders: resource_group_name (AVM Terraform, azurerm-based) / implicit in Bicep scope
 
   # ------------------------------------------------------------------ account
   - id: account
@@ -102,7 +99,6 @@ groups:
           `serverless` forces `geo_replicas` empty, `throughput_mode` out of the
           question and `zone_redundant` to what the region offers; recorded as forced
           with `capacity_mode` as forced_by
-        renders: capabilities (`EnableServerless`) / capacityMode
 
       - id: throughput_mode
         ask:
@@ -125,7 +121,6 @@ groups:
           is cheaper for a steady load that is measured, and wrong for a new system whose
           load is a guess. It is set when a database or container is created and cannot
           be switched by the template afterwards without a replace.
-        renders: autoscale_settings / autoscaleSettings, or throughput
 
       - id: max_throughput
         ask:
@@ -143,7 +138,6 @@ groups:
           and raising the maximum is an in-place edit. Starting low is deliberate: the cost
           of a number that is too high is paid every hour, the cost of one that is too low
           is a visible, fixable signal. Multiples of 1,000.
-        renders: autoscale_settings.max_throughput / autoscaleSettings.maxThroughput, or throughput (manual)
 
       - id: total_throughput_limit
         ask:
@@ -160,7 +154,6 @@ groups:
           maximum by a script or a mistake. `-1` is no limit and is the module default;
           a number is a budget decision the owner makes, and the plugin cannot guess one.
           Requests above it fail to create the database or container instead of billing.
-        renders: capacity.total_throughput_limit / totalThroughputLimit
 
       - id: free_tier
         ask:
@@ -179,7 +172,6 @@ groups:
           account that did not take it never can. Off, because a template deployed to
           several stages and subscriptions would fail on the second, and because the
           allowance is small. A single sandbox subscription is the one place to turn it on.
-        renders: free_tier_enabled / enableFreeTier
 
   # --------------------------------------------------------------- resilience
   - id: resilience
@@ -208,7 +200,6 @@ groups:
           and the old one removed. Both AVM modules default it to true; the guardrail
           answer for `tolerable` is false, so it is written. The derivation is production's;
           the non-production stages take `false` while non_production_savings is enabled.
-        renders: geo_locations[].zone_redundant / failoverLocations[].isZoneRedundant (zoneRedundant for one region)
 
       - id: geo_replicas
         ask:
@@ -235,7 +226,6 @@ groups:
           every region named must satisfy `data_residency` (`country`: the same country,
           `data_zone`: the same data zone), and a region that does not is refused with the
           residency as the reason
-        renders: geo_locations[] (failover_priority 1..n) / failoverLocations[]
 
       - id: automatic_failover
         ask:
@@ -253,7 +243,6 @@ groups:
           Without it a regional outage is an outage until a person fails over. True is the
           default of both modules and only has an effect with a replica region. It does
           not apply to manual failover, which stays available for a planned test.
-        renders: automatic_failover_enabled / enableAutomaticFailover
 
       - id: consistency_level
         ask:
@@ -279,7 +268,6 @@ groups:
           **The two AVM modules disagree**: Bicep defaults to Session, Terraform to
           `BoundedStaleness` - so it is written on every call. Changing it is an in-place
           edit, but the application is written for one of them.
-        renders: consistency_policy.consistency_level / defaultConsistencyLevel
 
   # --------------------------------------------------------------- networking
   - id: networking
@@ -312,9 +300,6 @@ groups:
           deployment's own callers have no fixed outbound address, so a firewall with no
           rule locks them out of this resource - the first dry run (2026-10-24) hit it on
           five resources at once
-        renders: >
-          terraform: public_network_access_enabled (bool) and ip_range_filter;
-          bicep: networkRestrictions.publicNetworkAccess
 
       - id: private_endpoint_subnet
         ask:
@@ -331,7 +316,6 @@ groups:
         why: >
           One subnet carries the deployment's private endpoints, so this is inherited. For
           the NoSQL API the sub-resource is `Sql`, and it is the only one this set uses.
-        renders: private_endpoints.<key>.subnet_resource_id / privateEndpoints[].subnetResourceId (service `Sql`)
 
       - id: ip_rules
         ask:
@@ -349,7 +333,6 @@ groups:
           caller, which is valid and deliberate. `0.0.0.0` - which Cosmos DB reads as
           "allow Azure services" - is not an allowlist and is the bypass's job, not this
           list's.
-        renders: ip_range_filter / networkRestrictions.ipRules
 
       - id: network_acl_bypass
         ask:
@@ -368,7 +351,6 @@ groups:
           from a browser, Azure Functions' triggers in some modes) past the firewall. Off
           by default: a closed account that nothing outside reads should not carry it, and
           a consumer that needs it is named at this account.
-        renders: network_acl_bypass_for_azure_services / networkRestrictions.networkAclBypass
 
   # ----------------------------------------------------------------- identity
   - id: identity
@@ -398,7 +380,6 @@ groups:
         forced_when: >
           `key_management: customer_managed` forces `user_assigned`, recorded as forced
           with `key_management` as forced_by
-        renders: managed_identities / managedIdentities
 
       - id: user_assigned_identity_ids
         ask:
@@ -413,7 +394,6 @@ groups:
         depends_on: { question: managed_identity, equals: user_assigned }
         per_environment: true
         why: The identity must already exist; this set does not create it.
-        renders: managed_identities.user_assigned_resource_ids / managedIdentities.userAssignedResourceIds
 
       - id: data_plane_role_assignments
         ask:
@@ -435,9 +415,6 @@ groups:
           entry owned by the workload owner, blocking apply. Scope to the database or
           container where the consumer allows it, never wider. A pattern fills this from the
           consumers it knows.
-        renders: >
-          terraform: **not the module** (it has no input for them) - azurerm_cosmosdb_sql_role_assignment;
-          bicep: sqlRoleAssignments (built-in role ids ending 0001 reader, 0002 contributor)
 
       - id: role_assignments
         ask:
@@ -454,7 +431,6 @@ groups:
           throughput, reading keys if they were enabled. Separate from the data roles above
           on purpose, and usually the deploying principal's alone, so empty is a normal
           answer.
-        renders: role_assignments / roleAssignments
 
   # ----------------------------------------------------------------- security
   - id: security
@@ -478,9 +454,6 @@ groups:
           attributable. It cannot be combined with the data roles above in the same client
           without the client choosing one, which is why the roles come first. Both modules
           default to disabled; written anyway.
-        renders: >
-          local_authentication_enabled (inverse; azurerm 5.x) or the module input
-          local_authentication_disabled / disableLocalAuthentication
 
       - id: key_based_metadata_writes
         ask:
@@ -500,7 +473,6 @@ groups:
           through the data plane, outside the audit of Azure Resource Manager. Follows
           `local_auth`. The Terraform input is the *enabled* form, the Bicep one the
           *disabled* form.
-        renders: access_key_metadata_writes_enabled (inverse) / disableKeyBasedMetadataWriteAccess
 
       - id: key_management
         ask:
@@ -521,7 +493,6 @@ groups:
           protection, an identity that can wrap and unwrap it, and a rotation story. **It
           is set at creation and cannot be removed**; an account that loses access to the
           key becomes unreadable.
-        renders: customer_managed_key / customerManagedKey
 
       - id: cmk_key_vault_key_id
         ask:
@@ -541,7 +512,6 @@ groups:
           User` on it before the account is created - an ordering that bites the first
           attempt. The reference is the **unversioned** key, so a rotation reaches the
           account without a change here.
-        renders: customer_managed_key.key_name and key_vault_resource_id / customerManagedKey.keyName and keyVaultResourceId
 
   # ---------------------------------------------------------- data protection
   - id: data_protection
@@ -577,9 +547,6 @@ groups:
           platform outside the account, so `backup_isolation: isolated` is met here
           without a vault; `immutable` is not something Cosmos DB offers, and is named as
           a gap in the decision document rather than claimed.
-        renders: >
-          backup.type and backup.tier / backupPolicyType and backupPolicyContinuousTier
-          (`Continuous7Days`, `Continuous30Days`)
 
       - id: backup_storage_redundancy
         ask:
@@ -604,7 +571,6 @@ groups:
           (ZRS); Geo is for a documented regional recovery plan. **The modules disagree**:
           Terraform defaults to `Geo`, Bicep to `Local` - a deployment taking the module
           default gets a different answer per target, which is why it is written.
-        renders: backup.storage_redundancy / backupStorageRedundancy
 
       - id: analytical_storage
         ask:
@@ -622,7 +588,6 @@ groups:
           Analytical storage feeds Synapse Link and costs for the second copy. **Enabling
           and then disabling it forces a new account**, so it is not a switch to try. Off,
           until an analytics consumer is named.
-        renders: analytical_storage_enabled / enableAnalyticalStorage
 
   # --------------------------------------------------------------- containers
   - id: containers
@@ -648,7 +613,6 @@ groups:
           Every container takes `throughput_mode` and `max_throughput` as its own
           dedicated throughput (a departure per container is recorded); throughput shared
           at database level is not rendered.
-        renders: sql_databases.<db>.containers.<c> (name, partition_key_paths, default_ttl) / sqlDatabases[].containers[]
 
   # ------------------------------------------------------------ observability
   - id: observability
@@ -670,7 +634,6 @@ groups:
           Inherited: one deployment, one destination. Without a diagnostic setting the
           account keeps no record of who read what, and a throttled request leaves no
           trace beyond the client's own log.
-        renders: diagnostic_settings / diagnosticSettings
 
       - id: diagnostic_categories
         ask:
@@ -697,7 +660,6 @@ groups:
           keeps the categories queryable apart; the category names are the platform's and
           are checked against `az monitor diagnostic-settings categories list --resource
           <account id>` before a render, not remembered.
-        renders: diagnostic_settings.<key>.logs[].category / diagnosticSettings[].logCategoriesAndGroups[].category
 
       - id: metrics_enabled
         ask:
@@ -714,6 +676,3 @@ groups:
         why: >
           Normalised RU consumption and the throttled-request counter are what decide
           whether `max_throughput` was right, and they are cheap.
-        renders: >
-          terraform: metric_categories = ["Requests"] - the module allows only Requests and SLI,
-          there is no AllMetrics; bicep: metricCategories[].category = "AllMetrics"

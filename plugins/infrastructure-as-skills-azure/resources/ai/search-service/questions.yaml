@@ -38,7 +38,6 @@ groups:
         why: >
           Drives the rendered name and the strictness of several defaults below.
           Nothing sensible can be guessed.
-        renders: naming parameter `environment`, and the tag of that name where the repository uses one
 
       - id: location
         ask:
@@ -53,7 +52,6 @@ groups:
           Part of the rendered name. Availability zones, the higher tiers and semantic
           ranking are not offered in every region, and a region short of capacity can
           refuse a new service of a given tier.
-        renders: location
 
       - id: resource_group_name
         ask:
@@ -69,7 +67,6 @@ groups:
         why: >
           The service is placed into an existing group. Creating one here would make
           this set own a lifecycle wider than the resource it describes.
-        renders: resource_group_name (AVM Terraform, azurerm-based) / implicit in Bicep scope
 
   # ------------------------------------------------------------------ service
   - id: service
@@ -100,7 +97,6 @@ groups:
           nobody depends on (`non_production_default`), at the price that a stage on basic
           does not rehearse partition scaling. Storage-optimised tiers are for very large,
           slowly changing indexes and are not offered.
-        renders: sku / sku.name
 
       - id: replica_count
         ask:
@@ -121,7 +117,6 @@ groups:
           Replicas are billed per search unit, so this is the cost of the answer. They can
           be changed in place. The modules disagree on a default: Terraform 1, Bicep 3, so
           it is always written. `basic` allows at most 3.
-        renders: replica_count / replicaCount
 
       - id: partition_count
         ask:
@@ -138,7 +133,6 @@ groups:
           or indexing is too slow; both are measured, not guessed, and the count can be raised
           in place, never lowered below what the data needs. Only 1, 2, 3, 4, 6 or 12 are valid. Search units are partitions times
           replicas, which is what is billed. More than one needs a tier above basic.
-        renders: partition_count / partitionCount
 
       - id: semantic_ranker
         ask:
@@ -159,7 +153,6 @@ groups:
           better and costs nothing within the free allowance (1,000 queries a month). Beyond
           that it is billed per query, so a production system with real traffic says
           `standard` deliberately. `disabled` for a pure keyword or vector workload.
-        renders: semantic_search_sku / semanticSearch
 
   # --------------------------------------------------------------- networking
   - id: networking
@@ -191,9 +184,6 @@ groups:
           deployment's own callers have no fixed outbound address, so a firewall with no
           rule locks them out of this resource - the first dry run (2026-10-24) hit it on
           five resources at once
-        renders: >
-          terraform: public_network_access_enabled (bool) and allowed_ips;
-          bicep: publicNetworkAccess and networkRuleSet.ipRules
 
       - id: private_endpoint_subnet
         ask:
@@ -210,7 +200,6 @@ groups:
         why: >
           One subnet carries the deployment's private endpoints, so this is inherited. The
           service has one sub-resource, `searchService`.
-        renders: private_endpoints.<key>.subnet_resource_id / privateEndpoints[].subnetResourceId (service `searchService`)
 
       - id: ip_rules
         ask:
@@ -227,7 +216,6 @@ groups:
           An enumerated allowlist. An empty list with the firewall on denies every public
           caller, which is valid and deliberate. `0.0.0.0/0` is not an allowlist and is
           rejected by the guardrails.
-        renders: allowed_ips / networkRuleSet.ipRules
 
       - id: network_rule_bypass
         ask:
@@ -247,7 +235,6 @@ groups:
           OpenAI "on your data" connection, for one) past the firewall. Closed by default; a
           consumer that needs it is named here. It is not how an indexer reaches a private
           data source - that is a shared private link, the pattern's wiring.
-        renders: network_rule_bypass_option / networkRuleSet.bypass
 
   # ----------------------------------------------------------------- identity
   - id: identity
@@ -273,7 +260,6 @@ groups:
           the identity the data source's role (`Storage Blob Data Reader`, a Cosmos DB data
           role) is granted to, which the pattern wires. `user_assigned` for an identity that
           must hold those roles before the service exists.
-        renders: managed_identities / managedIdentities
 
       - id: user_assigned_identity_ids
         ask:
@@ -288,7 +274,6 @@ groups:
         depends_on: { question: managed_identity, equals: user_assigned }
         per_environment: true
         why: The identity must already exist; this set does not create it.
-        renders: managed_identities.user_assigned_resource_ids / managedIdentities.userAssignedResourceIds
 
       - id: role_assignments
         ask:
@@ -308,7 +293,6 @@ groups:
           `Search Index Data Contributor` for whatever loads documents, `Search Service
           Contributor` for whatever manages indexes and indexers. A pattern fills this from
           the consumers it knows about.
-        renders: role_assignments / roleAssignments
 
   # ----------------------------------------------------------------- security
   - id: security
@@ -332,7 +316,6 @@ groups:
           module disables keys by default, the Terraform module leaves them on, and
           Terraform's input is the inverse (`local_authentication_enabled`). A client then
           authenticates with a role (`Search Index Data Reader`).
-        renders: local_authentication_enabled (inverse) / disableLocalAuth
 
       - id: key_management
         ask:
@@ -353,7 +336,6 @@ groups:
           as the **enforcement policy** only: the service reports or rejects objects that are
           not encrypted with a customer key. The keys themselves are the application's, created
           with the index, and the service identity needs wrap and unwrap on them.
-        renders: whether `cmk_enforcement` is asked at all
 
       - id: cmk_enforcement
         ask:
@@ -373,7 +355,6 @@ groups:
           creation. The compliance state is what an auditor reads, and it needs a policy to act
           on it. Default false, because turning it on before the application creates its
           indexes with a key marks all of them. Raised once the indexes carry a key.
-        renders: customer_managed_key_enforcement_enabled / cmkEnforcement (`Enabled`, `Disabled`)
 
   # ------------------------------------------------------------ observability
   - id: observability
@@ -394,7 +375,6 @@ groups:
         why: >
           Inherited: one deployment, one destination. Without a diagnostic setting a failed
           query or a throttled indexer leaves no trace beyond the client's own log.
-        renders: diagnostic_settings / diagnosticSettings
 
       - id: diagnostic_categories
         ask:
@@ -414,7 +394,6 @@ groups:
           logged, so it can hold what a user typed. The name is the platform's and is checked
           against `az monitor diagnostic-settings categories list --resource <service id>`
           before a render, not remembered.
-        renders: diagnostic_settings.<key>.logs[].category / diagnosticSettings[].logCategoriesAndGroups[].category
 
       - id: metrics_enabled
         ask:
@@ -432,4 +411,3 @@ groups:
           Search latency, queries per second and the throttled-query percentage are what
           decide whether the replica and partition counts above were right, and they are
           cheap.
-        renders: metrics[].category = "AllMetrics" / metricCategories[].category

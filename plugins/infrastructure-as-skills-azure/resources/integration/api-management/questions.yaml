@@ -37,9 +37,6 @@ groups:
         why: >
           Drives the rendered name and the strictness of several defaults below. Nothing
           sensible can be guessed.
-        renders: >
-          naming parameter `environment`, and the tag of that name where the repository uses
-          one
 
       - id: location
         ask:
@@ -54,7 +51,6 @@ groups:
           Part of the rendered name and not inferable. An instance is regional; an
           additional region is a Premium feature (`additional_regions`), not a property of
           this one.
-        renders: location
 
       - id: resource_group_name
         ask:
@@ -70,7 +66,6 @@ groups:
         why: >
           The instance is placed into an existing group. Creating one here would make this
           set own a lifecycle wider than the resource it describes.
-        renders: resource_group_name (AVM Terraform) / implicit in Bicep scope
 
   - id: service
     title: The service
@@ -91,7 +86,6 @@ groups:
           the Terraform module's placeholder default ("Apim Example Publisher") must never
           reach a real instance, which is why it is asked. The organisation's own name, not
           the project's.
-        renders: publisher_name / publisherName
 
       - id: publisher_email
         ask:
@@ -109,7 +103,6 @@ groups:
           expiry of a certificate. A shared mailbox, not a person: the person leaves and the
           mails keep coming. Required by the service and the one value that cannot be
           derived.
-        renders: publisher_email / publisherEmail
 
       - id: sku
         ask:
@@ -148,8 +141,6 @@ groups:
           the default - **Terraform `Developer_1`, Bicep `Premium` with three units** - so
           the tier is written on every call and a Premium default in Bicep is never
           inherited.
-        renders: >
-          sku_name (`<Tier>_<capacity>`, `Developer_1`) / sku + skuCapacity
 
       - id: capacity
         ask:
@@ -166,7 +157,6 @@ groups:
           Developer tier has exactly one; for the others one unit is the floor and a
           measured request rate raises it - the Bicep module's default of **three** is a
           Premium sizing, not a starting point. Consumption has no units.
-        renders: sku_name suffix / skuCapacity
 
       - id: zone_redundant
         ask:
@@ -186,7 +176,6 @@ groups:
           datacenters; only Premium and PremiumV2 offer it, and a unit count that is not a
           multiple of the zones leaves them uneven (use 3 units for 3 zones). The cost is
           the Premium tier, which is why the tier is derived from the same answer.
-        renders: zones / availabilityZones
 
       - id: additional_regions
         ask:
@@ -205,7 +194,6 @@ groups:
           must satisfy `data_residency`. Empty is the common answer - a second region is a
           decision with a traffic-routing story (Front Door or Traffic Manager) that someone
           owns.
-        renders: additional_location / additionalLocations
 
       - id: managed_identity
         ask:
@@ -228,7 +216,6 @@ groups:
           comes after the instance - fine for a backend call, a cycle for a named value read
           at creation. A user-assigned identity breaks it: the roles are in place first.
           Both are written explicitly.
-        renders: managed_identities / managedIdentities
 
       - id: user_assigned_identity_ids
         ask:
@@ -245,9 +232,6 @@ groups:
         why: >
           The identity that holds the roles on the backends and on Key Vault before the
           instance exists. It is created before the service, by the identity set.
-        renders: >
-          managed_identities.user_assigned_resource_ids /
-          managedIdentities.userAssignedResourceIds
 
   - id: access
     title: Callers and APIs
@@ -280,8 +264,6 @@ groups:
           person, and a secret in the caller's hands. `entra_id_and_key` requires both.
           `open` accepts anyone and belongs on an API that is public by design. `local_auth:
           disabled` removes the key, so it forces `entra_id`.
-        renders: >
-          policy.xml_content (validate-jwt) and products[].subscriptionRequired / policies
 
       - id: rate_limit_calls_per_minute
         ask:
@@ -300,7 +282,6 @@ groups:
           deliberate statement and not the default: the backend behind a gateway is usually
           the smaller system. 600 is ten calls a second per caller, a sensible start for an
           interactive client; a batch caller gets its own product with its own number.
-        renders: policy.xml_content (rate-limit-by-key)
 
       - id: developer_portal
         ask:
@@ -322,9 +303,6 @@ groups:
           facing surface, a published URL and a sign-in to maintain; internal APIs
           documented elsewhere do not need it. Off by default in the Bicep module, on in the
           Terraform one for the classic tiers.
-        renders: >
-          enableDeveloperPortal (Bicep); the portal is a platform feature in Terraform,
-          enabled through `sign_in` / `sign_up` and `delegation`
 
       - id: apis
         ask:
@@ -342,7 +320,6 @@ groups:
           their own pipeline; the infrastructure names the API so the routing, the identity
           and the policy have something to attach to. Empty is a valid and common first
           answer.
-        renders: apis / apis
 
       - id: products
         ask:
@@ -358,7 +335,6 @@ groups:
           approval. Empty means every API is open to every authenticated caller, which is
           right for a single consumer team and wrong for external partners next to internal
           users.
-        renders: products / products
 
   - id: networking
     title: Networking
@@ -389,9 +365,6 @@ groups:
           involvement at all - the instance is outside, its backends must be public. A
           private deployment is `internal`; a public one with backends in the network is
           `external`. Consumption cannot do either.
-        renders: >
-          virtual_network_type + virtual_network_subnet_id / virtualNetworkType +
-          subnetResourceId
 
       - id: apim_subnet
         ask:
@@ -412,7 +385,6 @@ groups:
           `Microsoft.Web/hostingEnvironments`. It cannot be shared with the private
           endpoints or with other resources. Looked up from the platform or created by the
           network set.
-        renders: virtual_network_subnet_id / subnetResourceId
 
       - id: public_ip_address
         ask:
@@ -430,7 +402,6 @@ groups:
           Classic injection (Developer, Premium) needs a Standard-SKU static public IP, even
           for `internal`, for the management plane. The v2 tiers do not take one. The
           address is a separate resource with a lifecycle of its own.
-        renders: public_ip_address_id / publicIpAddressResourceId
 
       - id: public_network_access
         ask:
@@ -456,7 +427,6 @@ groups:
           `external` gateway is public by construction and records `enabled` here. The
           modules disagree on the default - Terraform `true`, Bicep unset - so it is
           written.
-        renders: public_network_access_enabled (bool) / publicNetworkAccess
 
       - id: private_endpoint_subnet
         ask:
@@ -475,8 +445,6 @@ groups:
           sub-resource is `Gateway`. Applies to the tiers that take a private endpoint
           instead of injection; classic Developer and Premium use `network_integration` and
           have none.
-        renders: >
-          private_endpoints.<key>.subnet_resource_id / privateEndpoints[].subnetResourceId
 
   - id: identity
     title: Identity and access
@@ -499,7 +467,6 @@ groups:
           consumer needs, never the subscription. A pattern normally fills this from the
           consumers it knows about and grants a consumer's role in the pattern, not here.
           The instance's own roles on backends and Key Vault are wiring, not listed here.
-        renders: role_assignments / roleAssignments
 
   - id: security
     title: Security
@@ -521,9 +488,6 @@ groups:
           backends. Both modules default to refusing the protocols; the ciphers and the
           backend side differ, so the whole set is written. Off only for a client that
           cannot be upgraded, named at this instance.
-        renders: >
-          security.* /
-          customProperties[Microsoft.WindowsAzure.ApiManagement.Gateway.Security.*]
 
       - id: client_certificate_required
         ask:
@@ -542,7 +506,6 @@ groups:
           machine callers; for browsers and mixed callers it breaks the sign-in. Off by
           default; a single API that needs it validates the certificate in its own policy
           instead.
-        renders: client_certificate_enabled / enableClientCertificate
 
   - id: observability
     title: Observability
@@ -562,7 +525,6 @@ groups:
         why: >
           Inherited: one deployment, one destination. Without a diagnostic setting the
           resource keeps no record anyone can query.
-        renders: diagnostic_settings / diagnosticSettings
 
       - id: diagnostic_categories
         ask:
@@ -586,9 +548,6 @@ groups:
           with a Foundry backend. The names are the platform's and are checked against `az
           monitor diagnostic-settings categories list` for the resource before a render, not
           remembered.
-        renders: >
-          diagnostic_settings.<key>.logs[].category /
-          diagnosticSettings[].logCategoriesAndGroups[].category
 
       - id: metrics_enabled
         ask:
@@ -605,5 +564,4 @@ groups:
         why: >
           Requests, failed requests, capacity (the number to alert on before the gateway
           saturates) and backend duration.
-        renders: metrics[].category = "AllMetrics" / metricCategories[].category
 

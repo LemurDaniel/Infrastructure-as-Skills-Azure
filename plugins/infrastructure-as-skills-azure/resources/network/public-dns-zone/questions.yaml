@@ -42,7 +42,6 @@ groups:
           the apex and the other stages hold child zones (`dev.example.com`, `test.example.com`)
           delegated from it. The zone name is per stage for that reason, and the apex's
           delegation list names the children.
-        renders: the stage the zone is rendered in; the zone name and the delegations come from the stage's file
 
       - id: location
         ask:
@@ -58,7 +57,6 @@ groups:
           context's region says, and served by four name servers in different networks. Not
           asked; the context's region still names the resource group and the regional resources
           the records point at.
-        renders: location = "global" (both modules; the Terraform module sets it itself)
 
       - id: resource_group_name
         ask:
@@ -76,7 +74,6 @@ groups:
           the public surface own what resolves to it; a dedicated DNS group when several
           workloads share the domain, because every record writer needs rights on the zone and
           a group-wide Contributor is more than a record writer should hold.
-        renders: resource_group_name (both modules) / implicit in Bicep scope
 
   # --------------------------------------------------------------------- zone
   - id: zone
@@ -100,7 +97,6 @@ groups:
           (`dev.example.com`) - a stage that shares the production zone shares its records, and a
           development CNAME overwrites the production name. A zone is named after its domain
           and cannot be renamed, only recreated with a new name-server set.
-        renders: name (both modules)
 
       - id: registrar_owner
         ask:
@@ -121,7 +117,6 @@ groups:
           owned by this person; a zone deployed without it is a zone nobody reaches, and the
           failure looks like a DNS problem elsewhere. For a child zone the same step is the
           parent zone's NS record (`child_zone_delegations`), done by the apex's owner.
-        renders: the `open:` entry for the delegation in the handover; the name servers are the module's `name_servers` / `nameServers` output
 
       - id: child_zone_delegations
         ask:
@@ -141,7 +136,6 @@ groups:
           production zone lists the development and test zones; the children list nothing.
           A delegation to name servers outside Azure (a subdomain run by another provider) is
           the same record.
-        renders: ns_records / ns (one record set per entry)
 
   # ------------------------------------------------------------------ records
   - id: records
@@ -166,7 +160,6 @@ groups:
           a hand-listed address is a line nobody updates when the host moves. Listed here are
           the fixed ones - mail (MX, SPF as TXT), the CAA record naming the certificate
           authority, an apex alias. Addresses differ per stage.
-        renders: a_records, aaaa_records, cname_records, txt_records, mx_records, caa_records / a, aaaa, cname, txt, mx, caa
 
       - id: verification_records
         ask:
@@ -186,7 +179,6 @@ groups:
           rendered once, so the proof exists before the resource that checks it is deployed.
           Listed apart from `record_sets` because a reviewer should see which records are
           somebody else's requirement and which are the customer's names.
-        renders: txt_records, cname_records / txt, cname - from `wiring.dns_records`
 
       - id: record_ttl_seconds
         ask:
@@ -203,7 +195,6 @@ groups:
           being served from caches. A record that is about to move is lowered to 60 seconds a
           day before and raised again after; that is an edit of the entry, not of this default.
           An alias record ignores it for the target's health, not for caching.
-        renders: ttl on every record set (both modules); the Bicep module's default is 3600 as well
 
   # ------------------------------------------------------------------- access
   - id: access
@@ -227,7 +218,6 @@ groups:
           subscription. Empty by default: the records a render writes are written by the
           deploying identity, which already has them. A pattern normally fills this from the
           consumers it knows about.
-        renders: role_assignments / roleAssignments
 
   # ----------------------------------------------------------------- security
   - id: security
@@ -255,6 +245,3 @@ groups:
           registrar **before** DNSSEC is switched off or the zone deleted, or the domain stops
           resolving everywhere. That ordering is the handover's line, and why production
           confirms it.
-        renders: >
-          enableDnsSec (Bicep) / an authored `Microsoft.Network/dnsZones/dnssecConfigs` child
-          beside the module (Terraform - not carried by the module, see terraform.md)

@@ -34,7 +34,6 @@ groups:
         why: >
           Drives the rendered name and the strictness of several defaults below.
           Nothing sensible can be guessed.
-        renders: naming parameter `environment`, and the tag of that name where the repository uses one
 
       - id: location
         ask:
@@ -49,7 +48,6 @@ groups:
           Part of the rendered name and not inferable. Note that replication
           choice and region interact: ZRS is unavailable in regions without
           availability zones.
-        renders: azurerm_storage_account.location / resource.location
 
       - id: resource_group_name
         ask:
@@ -65,7 +63,6 @@ groups:
         why: >
           The account is placed into an existing group. Creating one here would
           make this skill own a lifecycle wider than the resource it describes.
-        renders: azurerm_storage_account.resource_group_name / implicit in Bicep scope
 
   # --------------------------------------------------------------- networking
   - id: networking
@@ -98,9 +95,6 @@ groups:
           deployment's own callers have no fixed outbound address, so a firewall with no
           rule locks them out of this resource - the first dry run (2026-10-24) hit it on
           five resources at once
-        renders: >
-          terraform: public_network_access_enabled, network_rules.default_action;
-          bicep: properties.publicNetworkAccess, properties.networkAcls.defaultAction
 
       - id: private_endpoint_subnet
         ask:
@@ -119,7 +113,6 @@ groups:
           inherited rather than asked. Overridden only where an account genuinely
           belongs in a different subnet - a separate data zone, or a subnet whose
           NSG differs.
-        renders: azurerm_private_endpoint.subnet_id / Microsoft.Network/privateEndpoints
 
       - id: private_endpoint_subresources
         ask:
@@ -142,7 +135,6 @@ groups:
         why: >
           One private endpoint per sub-resource, each with its own DNS zone. Adding
           every service "to be safe" multiplies both, so enumerate what is used.
-        renders: azurerm_private_endpoint.private_service_connection.subresource_names
 
       - id: firewall_ip_rules
         ask:
@@ -159,7 +151,6 @@ groups:
           An enumerated allowlist. An empty list with the firewall enabled denies
           everything public, which is a valid and deliberate state. `0.0.0.0/0`
           here is not an allowlist and the guardrails reject it.
-        renders: network_rules.ip_rules / networkAcls.ipRules
 
       - id: firewall_subnet_rules
         ask:
@@ -177,7 +168,6 @@ groups:
           Service endpoints are cheaper than private endpoints but leave the
           account publicly addressable — the ACL does the refusing. Prefer a
           private endpoint where the posture matters.
-        renders: network_rules.virtual_network_subnet_ids / networkAcls.virtualNetworkRules
 
       - id: allow_azure_services_bypass
         ask:
@@ -196,7 +186,6 @@ groups:
           behalf — diagnostics delivery, backup, some data-factory paths — fail in
           ways that are hard to attribute. The bypass is scoped to services
           authenticating with a managed identity in the same tenant.
-        renders: network_rules.bypass / networkAcls.bypass
 
   # ----------------------------------------------------------------- identity
   - id: identity
@@ -223,7 +212,6 @@ groups:
           an outward reach that needs no role first; user-assigned is for an identity
           that must outlive the resource, be shared across several, or hold its role
           before the account exists.
-        renders: identity.type / identity
 
       - id: user_assigned_identity_ids
         ask:
@@ -238,7 +226,6 @@ groups:
         depends_on: { question: managed_identity, equals: user_assigned }
         per_environment: true
         why: The identities must already exist; this skill does not create them.
-        renders: identity.identity_ids / identity.userAssignedIdentities
 
       - id: role_assignments
         ask:
@@ -259,7 +246,6 @@ groups:
           Scope each assignment to the container it needs, not to the account, and
           never to the subscription. A pattern skill normally fills this from the
           consumers it knows about.
-        renders: azurerm_role_assignment / Microsoft.Authorization/roleAssignments
 
   # ----------------------------------------------------------------- security
   - id: security
@@ -285,7 +271,6 @@ groups:
           that is a migration, and it is the kind of case
           `allowed_where_unavoidable` exists for, named at this account rather than
           relaxed deployment-wide.
-        renders: shared_access_key_enabled / properties.allowSharedKeyAccess
 
       - id: min_tls_version
         ask:
@@ -304,7 +289,6 @@ groups:
           1.2 is the floor and non-negotiable. 1.3 is preferable where every
           client supports it, but an unsupported floor fails as an opaque
           connection reset, so raise it deliberately.
-        renders: min_tls_version / properties.minimumTlsVersion
 
       - id: https_traffic_only
         ask:
@@ -322,7 +306,6 @@ groups:
           No current reason to allow HTTP to a storage account. Kept as a question
           only because a handful of legacy appliances still cannot do TLS, and
           that exception deserves to be recorded rather than silently impossible.
-        renders: https_traffic_only_enabled / properties.supportsHttpsTrafficOnly
 
       - id: allow_blob_public_access
         ask:
@@ -342,7 +325,6 @@ groups:
           public data leak; turned off, that mistake is not available. Static
           website hosting is the one legitimate need, and belongs on its own
           account rather than relaxing a shared one.
-        renders: allow_nested_items_to_be_public / properties.allowBlobPublicAccess
 
       - id: infrastructure_encryption_enabled
         ask:
@@ -361,7 +343,6 @@ groups:
           It can only be set when the account is created — turning it on later
           means a new account and a data migration, which is why the default is on
           rather than "when someone asks".
-        renders: infrastructure_encryption_enabled / properties.encryption.requireInfrastructureEncryption
 
       - id: key_management
         ask:
@@ -382,7 +363,6 @@ groups:
           reasoning, and what CMK pulls in, is in the deployment set. Where the
           deployment also answered `key_protection: hsm`, the vault holding this
           key is Premium — that is forced there, not decided here.
-        renders: customer_managed_key / properties.encryption.keySource
 
       - id: cmk_key_vault_key_id
         ask:
@@ -400,7 +380,6 @@ groups:
           The key must exist and the account's identity must hold wrap/unwrap on
           it before the account can be created — an ordering that bites every
           first attempt.
-        renders: customer_managed_key.key_vault_key_id / properties.encryption.keyvaultproperties
 
       - id: sftp_enabled
         ask:
@@ -419,7 +398,6 @@ groups:
           are credentials outside Entra ID — exactly what disabling shared keys
           was for. Enable only where an external party genuinely cannot use
           anything else.
-        renders: sftp_enabled / properties.isSftpEnabled
 
   # ---------------------------------------------------------- data protection
   - id: data_protection
@@ -460,7 +438,6 @@ groups:
           GZRS down to ZRS, recorded as forced with the residency as forced_by - the
           secondary copy of a geo tier always lands in the paired region, and
           `critical` then needs a recovery plan the template does not own
-        renders: account_replication_type / sku.name
 
       - id: access_tier
         ask:
@@ -484,7 +461,6 @@ groups:
           early-deletion charge, so they only win for data genuinely read rarely —
           a lifecycle policy moving data between tiers usually beats picking a cold
           default.
-        renders: access_tier / properties.accessTier
 
       - id: hierarchical_namespace
         ask:
@@ -504,7 +480,6 @@ groups:
           lake. Set at creation: an existing account can be upgraded once, never reverted.
           Off by default because it costs blob features an ordinary account keeps, among them
           point-in-time restore; SFTP needs it on.
-        renders: is_hns_enabled / properties.isHnsEnabled
 
       - id: blob_soft_delete_days
         ask:
@@ -522,7 +497,6 @@ groups:
           recovery there is for the most common failure mode, which is someone
           deleting the wrong thing. 0 disables it, which is what `reproducible`
           means: the data can be regenerated and nothing is kept.
-        renders: blob_properties.delete_retention_policy.days / properties.deleteRetentionPolicy
 
       - id: container_soft_delete_days
         ask:
@@ -539,7 +513,6 @@ groups:
           The same window as blob soft delete, from the same answer. Separate
           because it is frequently forgotten — blob retention does not help when
           the container itself is gone.
-        renders: blob_properties.container_delete_retention_policy.days / properties.containerDeleteRetentionPolicy
 
       - id: versioning_enabled
         ask:
@@ -560,7 +533,6 @@ groups:
           the same answer, and is off only for reproducible data. The cost is
           storage for retained versions, so pair it with a lifecycle rule that
           expires old ones rather than leaving it unbounded.
-        renders: blob_properties.versioning_enabled / properties.isVersioningEnabled
 
       - id: change_feed_enabled
         ask:
@@ -580,7 +552,6 @@ groups:
           An append-only log of blob changes. Useful for downstream processing and
           required for point-in-time restore, otherwise it is storage spent on a
           log nobody reads. Off unless the customer put protection first.
-        renders: blob_properties.change_feed_enabled / properties.changeFeed
 
       - id: point_in_time_restore_days
         ask:
@@ -597,7 +568,6 @@ groups:
           restoring an object - an engineer's choice for data where a logical
           corruption needs rewinding, offered when data_loss_tolerance is a month
           or more. 0 disables it.
-        renders: blob_properties.restore_policy.days / properties.restorePolicy
 
       - id: immutability
         ask:
@@ -620,7 +590,6 @@ groups:
           decision rather than a hardening default. Not derived mechanically: a
           mandate (deployment.mandates) that names record retention is the trigger,
           and the engineer names it in Phase 4 as a consequence of that mandate.
-        renders: immutability_policy / properties.immutableStorageWithVersioning
 
   # ------------------------------------------------------------ observability
   - id: observability
@@ -644,7 +613,6 @@ groups:
           with no diagnostic setting at all is invisible exactly when someone is
           investigating it, and the workspace is shared infrastructure this skill
           does not create.
-        renders: azurerm_monitor_diagnostic_setting / Microsoft.Insights/diagnosticSettings
 
       - id: diagnostic_categories
         ask:
@@ -667,7 +635,6 @@ groups:
           anything handling regulated data, but data-plane read logging on a busy
           account is a real ingestion bill — so in production it is a deliberate
           choice rather than a default.
-        renders: enabled_log.category_group / logs.categoryGroup
 
       - id: metrics_enabled
         ask:
@@ -682,4 +649,3 @@ groups:
           false: { en: "not collected", de: "nicht erfasst" }
         default: true
         why: Metric ingestion is cheap and the baseline for any capacity question.
-        renders: metric.category = "AllMetrics" / metrics.category

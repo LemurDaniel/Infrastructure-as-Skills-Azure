@@ -40,7 +40,6 @@ groups:
         why: >
           Drives the rendered name and the strictness of several defaults below. Nothing
           sensible can be guessed.
-        renders: naming parameter `environment`, and the tag of that name where the repository uses one
 
       - id: location
         ask:
@@ -56,7 +55,6 @@ groups:
           same region as the workspace (the storage account and key vault strictly), and the
           GPU sizes a training job needs are a per-region quota - check both before the
           interview ends.
-        renders: location
 
       - id: resource_group_name
         ask:
@@ -72,7 +70,6 @@ groups:
         why: >
           The workspace is placed into an existing group. Creating one here would make this
           set own a lifecycle wider than the resource it describes.
-        renders: resource_group_name (AVM Terraform) / implicit in Bicep scope
 
   # ---------------------------------------------------------------- workspace
   - id: workspace
@@ -96,7 +93,6 @@ groups:
           same region) with private endpoints for blob and file in a private deployment;
           with `storage_datastore_auth: identity` its shared keys stay off. Referenced here,
           created by the storage set.
-        renders: storage_account.resource_id / associatedStorageAccountResourceId
 
       - id: key_vault
         ask:
@@ -113,7 +109,6 @@ groups:
           Datastore credentials, compute SSH keys and connection secrets are written here by
           the workspace, and **it is fixed at creation**. One vault per workspace, RBAC
           authorisation, in the same region. Referenced here, created by the Key Vault set.
-        renders: key_vault.resource_id / associatedKeyVaultResourceId
 
       - id: application_insights
         ask:
@@ -131,7 +126,6 @@ groups:
           endpoints write their request telemetry here and the studio reads it. Referenced
           here, created by the observability set, on the deployment's Log Analytics
           workspace.
-        renders: application_insights.resource_id / associatedApplicationInsightsResourceId
 
       - id: container_registry
         ask:
@@ -151,7 +145,6 @@ groups:
           deployment cannot accept, and which no template owns. A private deployment names
           a Premium registry (private endpoints need Premium) created by the registry set;
           empty is for a sandbox. Once set it cannot be removed, only replaced.
-        renders: container_registry.resource_id / associatedContainerRegistryResourceId
 
       - id: hbi_workspace
         ask:
@@ -173,7 +166,6 @@ groups:
           creation**. It costs nothing but limits what support can see, so it is the
           customer's answer about the data - personal, health, financial - and not a
           default. Both modules default to `false`.
-        renders: hbi_workspace / hbiWorkspace
 
       - id: v1_legacy_mode
         ask:
@@ -194,9 +186,6 @@ groups:
           nothing else. Off by default and written, because **neither AVM module exposes
           it** (the property is `v1LegacyMode`); the render sets it through the module's
           override or records that the platform default (off) applies.
-        renders: >
-          properties.v1LegacyMode - not carried by either module; `_target_overrides` or the
-          authored resource
 
       - id: image_build_compute
         ask:
@@ -213,7 +202,6 @@ groups:
           a compute cluster inside the workspace that builds the images; this names it. The
           cluster is content (`computes`), created after the workspace, so the value is set
           on a second apply or left empty for a public registry.
-        renders: image_build_compute / imageBuildCompute
 
       - id: computes
         ask:
@@ -231,9 +219,6 @@ groups:
           through serverless compute. Named here so the subnet, the quota request and
           `image_build_compute` have something to point at; rendered from the module's
           compute child where present, otherwise after the workspace.
-        renders: >
-          bicep: computes[] of the module; terraform: not carried by the module, an
-          azapi_resource `workspaces/computes` next to it
 
   # --------------------------------------------------------------- networking
   - id: networking
@@ -269,7 +254,6 @@ groups:
           is the legacy bring-your-own-VNet model where every compute is injected into a
           subnet of yours. **Isolation can be turned on later but never off**, and the Bicep
           module leaves it unset while Terraform defaults to `Disabled` - written.
-        renders: workspace_managed_network.isolation_mode / managedNetworkSettings.isolationMode
 
       - id: outbound_fqdns
         ask:
@@ -289,9 +273,6 @@ groups:
           inside the network avoids both the rule and the firewall. Private-endpoint rules to
           other Azure resources (a second storage account, a Foundry account) cost no
           firewall and are the pattern's wiring.
-        renders: >
-          workspace_managed_network.outbound_rules.fqdn /
-          managedNetworkSettings.outboundRules (type FQDN)
 
       - id: provision_network_now
         ask:
@@ -312,7 +293,6 @@ groups:
           misconfigured rule into a failing job twenty minutes into someone's day instead of
           a failing deployment. `true` adds minutes to the apply and surfaces the error
           there. Both modules default to `false`; written.
-        renders: provision_network_now_enabled / provisionNetworkNow
 
       - id: public_network_access
         ask:
@@ -336,7 +316,6 @@ groups:
           studio and the API; with `disabled` data scientists open the studio from inside the
           network (a jump host, a VPN, Bastion), and the private endpoint carries the API,
           the studio and the notebooks. Both modules default to disabled - written.
-        renders: public_network_access_enabled (bool) and ip_allowlist / publicNetworkAccess and ipAllowlist
 
       - id: ip_allowlist
         ask:
@@ -353,7 +332,6 @@ groups:
           An enumerated allowlist beside the private endpoint; the office's egress ranges
           are the usual content. An empty list with `enabled_with_firewall` denies every
           public caller, which is valid and deliberate.
-        renders: ip_allowlist / ipAllowlist
 
       - id: private_endpoint_subnet
         ask:
@@ -372,7 +350,6 @@ groups:
           sub-resource is `amlworkspace` and it writes records into **two** zones -
           `privatelink.api.azureml.ms` and `privatelink.notebooks.azure.net` - so the
           platform must hold both, or the studio loads and the notebooks do not.
-        renders: private_endpoints.<key>.subnet_resource_id / privateEndpoints[].subnetResourceId (service `amlworkspace`)
 
       - id: serverless_compute_no_public_ip
         ask:
@@ -392,7 +369,6 @@ groups:
           `false` is needed only in the legacy `disabled` network model when the nodes are
           in a subnet of yours without a NAT gateway. Both modules default to `false`;
           written.
-        renders: serverless_compute.public_ip_enabled (inverse) / serverlessComputeSettings.serverlessComputeNoPublicIP
 
   # ----------------------------------------------------------------- identity
   - id: identity
@@ -427,7 +403,6 @@ groups:
         forced_when: >
           `key_management: customer_managed` forces `user_assigned`, recorded as forced with
           `key_management` as forced_by
-        renders: managed_identities and primary_user_assigned_identity / managedIdentities and primaryUserAssignedIdentity
 
       - id: user_assigned_identity_ids
         ask:
@@ -444,9 +419,6 @@ groups:
         why: >
           The identity that holds the roles listed above before the workspace is created. The
           first entry is the primary identity the workspace acts as.
-        renders: >
-          managed_identities.user_assigned_resource_ids and primary_user_assigned_identity /
-          managedIdentities.userAssignedResourceIds and primaryUserAssignedIdentity
 
       - id: role_assignments
         ask:
@@ -465,7 +437,6 @@ groups:
           and is a departure that names a person. A pattern fills this from the team it knows
           about. The workspace identity's own roles on its dependencies are wiring, not listed
           here.
-        renders: role_assignments / roleAssignments
 
   # ----------------------------------------------------------------- security
   - id: security
@@ -492,7 +463,6 @@ groups:
           Users then need `Storage Blob Data Contributor` themselves, which `role_assignments`
           on the storage account carries - a pattern's wiring. The Terraform module defaults
           to `identity`, the Bicep module leaves it unset (key) - written.
-        renders: storage_access_type / systemDatastoresAuthMode
 
       - id: key_management
         ask:
@@ -513,7 +483,6 @@ groups:
           data in the storage account is that account's own `key_management`. `customer_managed`
           pulls in the vault with purge protection, the user-assigned identity with wrap and
           unwrap, and `service_side_cmk` below.
-        renders: customer_managed_key / customerManagedKey
 
       - id: cmk_key_vault_key_id
         ask:
@@ -531,7 +500,6 @@ groups:
           The key must exist, the vault must have soft delete and purge protection, and the
           user-assigned identity must hold wrap and unwrap on it before the workspace is
           created. The reference is the unversioned key.
-        renders: customer_managed_key.key_name and key_vault_resource_id / customerManagedKey.keyName and keyVaultResourceId
 
       - id: service_side_cmk
         ask:
@@ -553,7 +521,6 @@ groups:
           Service-side encryption keeps the metadata in Microsoft's subscription, encrypted
           with your key, with nothing to pay for or patch. It is **fixed at creation**. Both
           modules default to `false`; written.
-        renders: service_side_cmk_encryption_enabled / enableServiceSideCMKEncryption
 
   # ------------------------------------------------------------ observability
   - id: observability
@@ -574,7 +541,6 @@ groups:
         why: >
           Inherited: one deployment, one destination. Without a diagnostic setting nobody can
           say who ran which job on which compute, or why a cluster did not scale.
-        renders: diagnostic_settings / diagnosticSettings
 
       - id: diagnostic_categories
         ask:
@@ -608,7 +574,6 @@ groups:
           question. The names are the platform's and are checked against `az monitor
           diagnostic-settings categories list --resource <workspace id>` before a render,
           not remembered; the list is long and moves.
-        renders: diagnostic_settings.<key>.log_categories / diagnosticSettings[].logCategoriesAndGroups[].category
 
       - id: metrics_enabled
         ask:
@@ -625,4 +590,3 @@ groups:
         why: >
           Active and idle cores, quota use, queued and failed runs - the numbers behind a
           quota request and a cost review.
-        renders: metrics[].category = "AllMetrics" / metricCategories[].category

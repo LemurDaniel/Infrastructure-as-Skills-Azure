@@ -32,7 +32,6 @@ groups:
         answer: { context: environments }
         why: >
           Drives the strictness of several defaults below. Nothing sensible can be guessed.
-        renders: tag of the environment where the repository uses one
 
       - id: storage_account
         ask:
@@ -50,7 +49,6 @@ groups:
           authentication and public access are the account's. The account is resolved first,
           in `storage-account`, and this set only names the objects inside it. Looked up
           from the deployment when the account is created in the same run.
-        renders: storage account id / parent of the child resource
 
   - id: queues
     title: The queues
@@ -72,7 +70,6 @@ groups:
           itself. The names are the workload's own and part of its contract with whatever
           writes and reads them. At least one. Names are lowercase and may be used as a
           Functions or Container Apps trigger.
-        renders: queues / queueServices.queues
 
       - id: needs_dead_letter_or_ordering
         ask:
@@ -96,7 +93,6 @@ groups:
           code, and order is best effort. If either is needed the answer is Service Bus, and
           the interview switches the resource rather than rendering a queue that cannot do
           it. `false` keeps the storage queue.
-        renders: selects service-bus instead of this set when true
 
       - id: metadata
         ask:
@@ -110,7 +106,6 @@ groups:
         why: >
           Key-value metadata on a queue, lowercase keys. Usually empty; used by tools that
           discover queues by label.
-        renders: queues.<k>.metadata / queueServices.queues[].metadata
 
   - id: identity
     title: Identity and access
@@ -135,5 +130,4 @@ groups:
           grants a consumer's role in the pattern, not here. A role on the *container*,
           share or queue is scoped narrower than one on the account; the account-level roles
           belong to the storage set.
-        renders: role_assignments / roleAssignments
 

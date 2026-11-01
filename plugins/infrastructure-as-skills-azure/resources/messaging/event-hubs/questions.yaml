@@ -35,9 +35,6 @@ groups:
         why: >
           Drives the rendered name and the strictness of several defaults below. Nothing
           sensible can be guessed.
-        renders: >
-          naming parameter `environment`, and the tag of that name where the repository uses
-          one
 
       - id: location
         ask:
@@ -52,7 +49,6 @@ groups:
           Part of the rendered name and not inferable. A namespace is regional; the events
           stay in the region unless a geo pairing (`geo_recovery`) copies the metadata to
           another.
-        renders: location
 
       - id: resource_group_name
         ask:
@@ -68,7 +64,6 @@ groups:
         why: >
           The namespace is placed into an existing group. Creating one here would make this
           set own a lifecycle wider than the resource it describes.
-        renders: resource_group_name (AVM Terraform) / implicit in Bicep scope
 
   - id: namespace
     title: The namespace
@@ -99,8 +94,6 @@ groups:
           Premium is dedicated processing units with longer retention, zone-resilient
           capacity and the strongest isolation. Both AVM modules default to **Standard**.
           The tier can be raised from Basic to Standard; Premium is a new namespace.
-        renders: >
-          sku / skuName (`Basic`, `Standard`, `Premium`)
 
       - id: capacity
         ask:
@@ -118,7 +111,6 @@ groups:
           count is billed around the clock, so the floor of 1 is the default and the number
           comes from a measured load; auto-inflate is the safety valve for a Standard
           namespace that is outgrown. Basic takes the Standard unit count.
-        renders: capacity / skuCapacity
 
       - id: auto_inflate
         ask:
@@ -138,9 +130,6 @@ groups:
           reserved capacity, and **does not scale back down on its own**. Without it a burst
           is throttled, which senders see as server-busy errors. Standard only; it makes the
           bill follow the peak, which is why it needs a ceiling.
-        renders: >
-          auto_inflate_enabled, maximum_throughput_units / isAutoInflateEnabled,
-          maximumThroughputUnits
 
       - id: maximum_throughput_units
         ask:
@@ -156,7 +145,6 @@ groups:
           The most the namespace may grow to, 1 to 40. A ceiling is the point of the cost
           control: without one a runaway sender is paid for until someone notices. 10 is
           room for a tenfold burst on a small namespace.
-        renders: maximum_throughput_units / maximumThroughputUnits
 
       - id: minimum_tls_version
         ask:
@@ -174,7 +162,6 @@ groups:
           (also 1.2 for new namespaces) and records the gap in the handover. Azure retired TLS
           below 1.2 in 2025 and the azurerm provider accepts only `1.2`, so `1.0` and `1.1` are
           values the platform may refuse.
-        renders: minimumTlsVersion (Bicep); no input in the Terraform module
 
       - id: local_auth
         ask:
@@ -195,7 +182,6 @@ groups:
           anyway. Terraform expresses it positively (`local_authentication_enabled`), Bicep
           negatively (`disableLocalAuth`). Kafka clients then need OAuth, not a connection
           string.
-        renders: local_authentication_enabled (inverse) / disableLocalAuth
 
       - id: managed_identity
         ask:
@@ -220,7 +206,6 @@ groups:
           Producers and consumers use their own identities. A customer-managed key needs the
           identity to hold its role on the key before the key is set, which is why that case
           is `user_assigned`.
-        renders: managed_identities / managedIdentities
 
       - id: user_assigned_identity_ids
         ask:
@@ -238,9 +223,6 @@ groups:
           The identity that holds `Key Vault Crypto Service Encryption User` on the key, and
           `Storage Blob Data Contributor` on the Capture container. It is created before the
           namespace, by the identity set.
-        renders: >
-          managed_identities.user_assigned_resource_ids /
-          managedIdentities.userAssignedResourceIds
 
   - id: entities
     title: Event hubs
@@ -259,7 +241,6 @@ groups:
           flows through it (`telemetry`, `orders`). The names are part of the workload's
           contract with its producers and consumers, so they are asked. At least one is
           needed: an empty namespace carries nothing. All of them take the settings below.
-        renders: event_hubs / eventhubs
 
       - id: partition_count
         ask:
@@ -280,7 +261,6 @@ groups:
           and can only be raised on Premium, never lowered. Too few caps the consumers for
           good; too many costs nothing per lane but spreads a small load thin. 4 is a sound
           start; 32 is the Standard ceiling.
-        renders: partition_count / partitionCount
 
       - id: message_retention_days
         ask:
@@ -299,7 +279,6 @@ groups:
           top out at one and seven days; Premium goes to ninety. A day covers a night and a
           failed deploy, a week covers a long weekend and a slow fix. Long retention raises
           the stored volume and with Premium the cost.
-        renders: message_retention / messageRetentionInDays
 
       - id: consumer_groups
         ask:
@@ -316,7 +295,6 @@ groups:
           one. Every namespace has `$Default`. Naming a group per reader keeps them from
           stealing each other's checkpoints, which is the usual fault. Basic has the default
           group only; Standard allows 20 per event hub.
-        renders: consumergroups
 
       - id: event_archive
         ask:
@@ -339,7 +317,6 @@ groups:
           Standard and above; it costs per throughput unit and the storage. Needs a storage
           account and container, a role for the namespace's identity on it, and the account
           must be in the same region family for the private path.
-        renders: capture_description / captureDescription
 
       - id: archive_storage_account
         ask:
@@ -358,9 +335,6 @@ groups:
           `Storage Blob Data Contributor` on the container (Capture uses managed identity,
           not a key). The account's own network rules must let the namespace through: the
           trusted-service path or a private endpoint.
-        renders: >
-          capture_description.destination.storage_account_id /
-          captureDescription.destination.properties.storageAccountResourceId
 
       - id: archive_container
         ask:
@@ -375,9 +349,6 @@ groups:
         why: >
           The container is created by the storage set (blob container); this names it. One
           container per event hub keeps the retention and access separate.
-        renders: >
-          capture_description.destination.blob_container_name /
-          captureDescription.destination.properties.blobContainerName
 
       - id: archive_interval_seconds
         ask:
@@ -393,8 +364,6 @@ groups:
           The time window of one Avro file, 60 to 900 seconds (a size limit closes it
           earlier). 300 seconds is the default: files small enough to be current, large
           enough not to flood the container with thousands of tiny blobs a day.
-        renders: >
-          capture_description.interval_in_seconds / captureDescription.intervalInSeconds
 
   - id: networking
     title: Networking
@@ -424,9 +393,6 @@ groups:
           `enabled_with_firewall`. A bare `enabled` is a deliberate choice for a consumer
           that cannot be given an address in advance. Basic has no private endpoint, so a
           closed namespace is Standard or above.
-        renders: >
-          terraform: the public network access input (a bool in the AVM modules) and the
-          module's network rules; bicep: publicNetworkAccess and the network rule set
 
       - id: private_endpoint_subnet
         ask:
@@ -443,8 +409,6 @@ groups:
         why: >
           One subnet carries the deployment's private endpoints, so this is inherited. The
           sub-resource is `namespace`; there is no list to choose from.
-        renders: >
-          private_endpoints.<key>.subnet_resource_id / privateEndpoints[].subnetResourceId
 
       - id: ip_rules
         ask:
@@ -461,7 +425,6 @@ groups:
           An enumerated allowlist with a default action of `Deny`. An empty list denies
           every public caller, which is valid and deliberate. `0.0.0.0/0` is not an
           allowlist and is rejected by the guardrails; a single address takes `/32`.
-        renders: network_rulesets.ip_rules / networkRuleSets.ipRules
 
       - id: trusted_service_bypass
         ask:
@@ -482,9 +445,6 @@ groups:
           endpoint of their own. Off unless a named service needs it; it has no effect with
           `public_network_access: disabled`. Capture over a private storage account needs it
           on.
-        renders: >
-          network_rulesets.trusted_service_access_enabled /
-          networkRuleSets.trustedServiceAccessEnabled
 
   - id: encryption
     title: Encryption
@@ -507,8 +467,6 @@ groups:
           either way; `customer_managed` points the namespace at a key in the customer's
           vault, needs Standard or above (Premium or a dedicated cluster for double
           encryption) and a user-assigned identity, and makes the vault a dependency.
-        renders: >
-          whether `customer_managed_key` is rendered at all
 
       - id: cmk_key_vault_key_id
         ask:
@@ -526,9 +484,6 @@ groups:
           The key must exist and the namespace's identity must hold wrap and unwrap on it
           before the key is set. The key is referenced without a version so a rotation is
           followed.
-        renders: >
-          customer_managed_key.key_vault_resource_id + key_name /
-          customerManagedKey.keyVaultResourceId + keyName
 
       - id: infrastructure_encryption
         ask:
@@ -548,7 +503,6 @@ groups:
           names it. It needs a customer-managed key and is **fixed at creation**. Off unless
           a mandate asks; the Bicep module defaults to off, the Terraform module has no
           dedicated input and takes it from the platform.
-        renders: requireInfrastructureEncryption (Bicep)
 
   - id: recovery
     title: Recovery
@@ -573,7 +527,6 @@ groups:
           region's zones at no extra charge in a zonal region, so the answer is `true`
           unless the outage is tolerable. The Bicep module has the switch (default `true`);
           in Terraform the platform decides and the decision is not testable in a plan.
-        renders: zoneRedundant (Bicep); no Terraform input
 
       - id: geo_recovery
         ask:
@@ -597,7 +550,6 @@ groups:
           not the events - so a failover finds the streams ready and the events that were in
           flight are lost. Standard and above; costs a second namespace and a failover that
           someone has practised; the partner must lie where `data_residency` allows.
-        renders: disaster_recovery_config / disasterRecoveryConfig
 
       - id: partner_namespace
         ask:
@@ -615,9 +567,6 @@ groups:
           The second namespace, in a region that satisfies `data_residency`, with the same
           tier and no event hubs when paired. It is an `open:` entry owned by the workload
           owner when nobody named one.
-        renders: >
-          disaster_recovery_config.partner_namespace_id /
-          disasterRecoveryConfig.partnerNamespace
 
   - id: identity
     title: Identity and access
@@ -641,7 +590,6 @@ groups:
           consumer's role in the pattern, not here. A producer needs only Sender, a consumer
           only Receiver; a consumer that checkpoints into a storage account also needs its
           blob role there, which is the pattern's wiring.
-        renders: role_assignments / roleAssignments
 
   - id: observability
     title: Observability
@@ -661,7 +609,6 @@ groups:
         why: >
           Inherited: one deployment, one destination. Without a diagnostic setting the
           resource keeps no record anyone can query.
-        renders: diagnostic_settings / diagnosticSettings
 
       - id: diagnostic_categories
         ask:
@@ -690,9 +637,6 @@ groups:
           Kafka clients. The names are the platform's and are checked against `az monitor
           diagnostic-settings categories list` for the resource before a render, not
           remembered.
-        renders: >
-          diagnostic_settings.<key>.logs[].category /
-          diagnosticSettings[].logCategoriesAndGroups[].category
 
       - id: metrics_enabled
         ask:
@@ -709,5 +653,4 @@ groups:
         why: >
           Incoming and outgoing events and bytes, throttled and server-busy requests, and
           the capture backlog - throttling is how an under-sized namespace shows up.
-        renders: metrics[].category = "AllMetrics" / metricCategories[].category
 

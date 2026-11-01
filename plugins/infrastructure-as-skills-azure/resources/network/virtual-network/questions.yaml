@@ -32,7 +32,6 @@ groups:
         answer: { context: environments }
         why: >
           Drives the rendered name and the strictness of several defaults below.
-        renders: naming parameter `environment`
 
       - id: location
         ask:
@@ -47,7 +46,6 @@ groups:
           A virtual network is regional. Resources in another region reach it only
           through peering or a gateway, which is a topology decision rather than a
           property of this network.
-        renders: location
 
       - id: resource_group_name
         ask:
@@ -64,7 +62,6 @@ groups:
           Not created here. A network usually outlives the workloads in it, which
           is an argument for a platform resource group rather than the
           application's.
-        renders: resource_group_name / scope
 
   # ----------------------------------------------------------- address space
   - id: addressing
@@ -87,7 +84,6 @@ groups:
           once subnets exist: every subnet carved out of the range has to be
           emptied and rebuilt, and an overlap is invisible until the first peering
           attempt refuses.
-        renders: address_space / properties.addressSpace.addressPrefixes
 
       - id: subnets
         ask:
@@ -106,7 +102,6 @@ groups:
           smallest range that comfortably carries private endpoints. Growing a
           subnet later is only possible into free space adjacent to it, which is
           why leaving gaps is worth more than packing them tightly.
-        renders: azurerm_subnet / properties.subnets
 
       - id: private_endpoint_subnet_prefix
         ask:
@@ -123,7 +118,6 @@ groups:
           One subnet holds the deployment's private endpoints, decided before this
           set runs so that no resource has to ask. One address per endpoint, so the
           prefix size is the endpoint budget.
-        renders: the subnet the private endpoints in every other module attach to
 
       - id: dns_servers
         ask:
@@ -142,7 +136,6 @@ groups:
           to resolve on-premises names — and then the privatelink zones must be
           forwarded to Azure DNS, or private endpoints resolve to their public
           addresses and the traffic leaves the network while looking fine.
-        renders: dns_servers / properties.dhcpOptions.dnsServers
 
   # ------------------------------------------------------------- subnet policy
   - id: subnet_policy
@@ -169,7 +162,6 @@ groups:
           `Enabled` the subnet's NSG and routes apply to endpoint traffic, which is
           what anyone would assume they do. Leaving it disabled means an NSG that
           looks like it protects the subnet and does not.
-        renders: private_endpoint_network_policies / properties.privateEndpointNetworkPolicies
 
       - id: service_endpoints
         ask:
@@ -186,7 +178,6 @@ groups:
           resource stays publicly addressable and an ACL refuses the traffic. Use
           them where a private endpoint is not available for the service or not
           worth its cost, not as a cheaper equivalent.
-        renders: service_endpoints / properties.serviceEndpoints
 
       - id: subnet_delegations
         ask:
@@ -203,7 +194,6 @@ groups:
           resources in it. A delegation is effectively permanent: it cannot be
           removed while anything the service created is still there, and nothing
           else may use the subnet.
-        renders: delegation / properties.subnets[].delegations
 
   # ----------------------------------------------------------------- security
   - id: security
@@ -227,7 +217,6 @@ groups:
           protection plan adds per-network mitigation tuning and attack reporting,
           and it is expensive enough that it belongs to a platform decision rather
           than a workload one — the plan is usually shared across a subscription.
-        renders: ddos_protection_plan / properties.enableDdosProtection
 
       - id: subnets_expecting_nsg
         ask:
@@ -244,7 +233,6 @@ groups:
           does not own, but a subnet expected to have one and silently without it
           is the gap worth naming. A delegated subnet is the usual legitimate
           exception.
-        renders: recorded in the spec; the association is rendered where the NSG is
 
   # ------------------------------------------------------------ observability
   - id: observability
@@ -266,7 +254,6 @@ groups:
           Inherited: one deployment, one destination. Network diagnostics are what
           answers "was it ever reachable", and that question arrives during an
           incident rather than before one.
-        renders: azurerm_monitor_diagnostic_setting / Microsoft.Insights/diagnosticSettings
 
       - id: flow_logs_enabled
         ask:
@@ -289,4 +276,3 @@ groups:
           Network Watcher and a storage account in the same region — enough moving
           parts that enabling them silently is the wrong default; they are on only when the
           customer put protection first.
-        renders: azurerm_network_watcher_flow_log / Microsoft.Network/networkWatchers/flowLogs
