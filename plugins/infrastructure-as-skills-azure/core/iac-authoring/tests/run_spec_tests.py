@@ -100,6 +100,16 @@ SHAPE_MUTATIONS += [
      SHAPE_RANGES + LAW + "      name: law-platform\n" + "    source: stated\n", 'never a name or a resource group'),
 ]
 
+# The envelope and the escape hatch: a format this plugin does not know, an override without its reason.
+OVERRIDE = "    _target_overrides:\n      terraform:\n        lifecycle_ignore:\n          value: [created_at]\n"
+SHAPE_MUTATIONS += [
+    ('a spec format newer than the plugin', "schema_version: 1\n", "schema_version: 2\n", 'a spec format newer than this plugin reads'),
+    ('an override with its reason', "\n  key-vault:\n", "\n" + OVERRIDE + "          reason: azurerm sets the tag itself\n  key-vault:\n", None),
+    ('an override without a reason', "\n  key-vault:\n", "\n" + OVERRIDE + "  key-vault:\n", 'lifecycle_ignore has no reason'),
+    ('an override as a bare value', "\n  key-vault:\n", "\n    _target_overrides:\n      terraform:\n        lifecycle_ignore: [created_at]\n  key-vault:\n",
+     'lifecycle_ignore is not { value, reason }'),
+]
+
 # The fixture's storage account up to its first group: its meta comes first.
 STORAGE = "  storage-account:\n    meta:\n      purpose: { value: Product images, source: stated }\n"
 

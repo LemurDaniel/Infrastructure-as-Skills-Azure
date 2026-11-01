@@ -51,7 +51,7 @@ hand-over. The digest's literal is the one to write; a `gap` is rendered the way
 | `context` | Variables/parameters shared by every module, resolved once |
 | `resources.<id>` | Decisions → attributes and literals, via the resource's `render-map.yaml` (the digest prints them) and its rendering reference |
 | `wiring` | Renders into the root, never into a module — only the caller sees both ends |
-| `_target_overrides` | Target-specific escape hatches, each with its comment |
+| `_target_overrides` | Target-specific escape hatches, each `{ value, reason }`; the reason becomes the comment in the code |
 
 The digest reads the spec for the render; the schema behind it is
 [../iac-authoring/references/spec.md](../iac-authoring/references/spec.md). Look a key up
