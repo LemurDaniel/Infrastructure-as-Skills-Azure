@@ -483,8 +483,8 @@ run "naming" {
   # The naming provider is not mocked: the name is asserted as it will be
   # deployed, which is also the test that catches an edited naming.yaml.
   assert {
-    condition     = azurerm_storage_account.this.name == "stweprodinvoicing01"
-    error_message = "The name must come from naming.yaml, not from a literal."
+    condition     = can(regex("^stweprodinvoicing[a-z0-9]{4}$", azurerm_storage_account.this.name))
+    error_message = "The name must come from naming.yaml, not from a literal; the suffix is <UNIQUE_ID_4>."
   }
 
   assert {

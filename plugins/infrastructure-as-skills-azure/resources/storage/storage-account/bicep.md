@@ -186,8 +186,8 @@ var locationCodes = {
 }
 
 // patterns.Azure."Microsoft.Storage/storageAccounts":
-// <TYPE><LOCATION><ENVIRONMENT><NAME><INDEX>, lowercase  ->  stwedevobjects01
-var storageAccountName = toLower('st${locationCodes[location]}${environmentCodes[environment]}${workload}${padLeft(index, 2, '0')}')
+// <TYPE><LOCATION><ENVIRONMENT><NAME><UNIQUE_ID_4>, lowercase  ->  stwedevobjectsa1b2
+var storageAccountName = toLower('st${locationCodes[location]}${environmentCodes[environment]}${workload}${take(uniqueString(resourceGroup().id), 4)}')
 
 resource storageAccount 'Microsoft.Storage/storageAccounts@2023-05-01' = {
   name: storageAccountName
@@ -234,7 +234,7 @@ resource storageAccount 'Microsoft.Storage/storageAccounts@2023-05-01' = {
 
 The name is **lowercase alphanumeric, 3–24 characters, no hyphens** — the one Azure
 resource where the usual hyphenated form is rejected. With `st` + a 5-character affix + the
-2-digit index, `workload` has 15 characters left. `bicep build` will not catch an overlong
+4-character `uniqueString()` suffix, `workload` has 13 characters left. `bicep build` will not catch an overlong
 one — it is a deploy-time validation failure — so check it while interviewing.
 
 `networkAcls` stays present even with `publicNetworkAccess: 'Disabled'` — the API accepts
