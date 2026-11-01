@@ -1007,7 +1007,9 @@ resources:
         source: default
     _target_overrides:
       terraform:
-        container_environment: authored azapi_resource Microsoft.App/managedEnvironments
+        container_environment:
+          value: authored azapi_resource Microsoft.App/managedEnvironments
+          reason: The environment's AVM module pins azurerm ~> 4.0, which a root on 5.x cannot call.
   function-app:
     meta:
       purpose: { value: Connector to the document store, source: stated }

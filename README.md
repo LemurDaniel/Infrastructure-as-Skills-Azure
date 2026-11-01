@@ -330,10 +330,6 @@ Early, and the shape matters more than the coverage. The eval suite runs on Sonn
 - [ ] Remaining resources: Logic Apps, Data Factory, governance (policy, budgets), further network, data and AI services - listed in `PROGRESS.md`
 - [ ] AVM version drift check; cross-backend diff of one spec
 
-## 🔁 Relation to `Infrastructure-by-Skill`
-
-A sibling repo pointing the other way: it drives a GUI through an agent and records the run, where this one emits code for a provider to apply. That one is explicitly an experiment, and part of the experiment is running it against systems that *do* have an API. Without a comparable IaC path next to it there is no way to tell whether a guided GUI run is merely slower or actually worse. Where both are possible, this repo is the production answer and the other one is the measurement.
-
 ## 🙏 Acknowledgments
 
 - 🤖 [Anthropic](https://www.anthropic.com/) for Claude Code and the plugin system the whole thing hangs on
