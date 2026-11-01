@@ -58,14 +58,14 @@ SKIPS = {
         ('### Azure Verified Modules are the default module', lambda s: s['all_authored']),
         ('### Grouped AVM calls', lambda s: s['granularity'] != 'per-family' or s['all_authored']),
         ('### Do not generate a module per resource by reflex', lambda s: s['granularity'] != 'per-resource'),
-        ('## Referencing a network the deployment does not own', lambda s: s['network_ownership'] != 'reference'),
+        ('## Referencing what the deployment does not own', lambda s: not s['existing_refs']),
     ],
     'bicep-idiom.md': [
         ('### Where Bicep modules differ from Terraform', lambda s: True),
         ('## Azure Verified Modules from the public registry', lambda s: s['all_authored']),
         ('### Grouped AVM calls', lambda s: s['granularity'] != 'per-family' or s['all_authored']),
         ('### Do not generate a module per resource by reflex', lambda s: s['granularity'] != 'per-resource'),
-        ('## Referencing a network the deployment does not own', lambda s: s['network_ownership'] != 'reference'),
+        ('## Referencing what the deployment does not own', lambda s: not s['existing_refs']),
     ],
     'naming.md': [
         ('## The mechanism', lambda s: s['target'] == 'bicep'),
@@ -425,6 +425,11 @@ def main():
         'granularity': comp.get('granularity') or 'single',
         'all_authored': all_authored,
         'network_ownership': value_of(dep.get('network_ownership')),
+        # any { existing: <kind> } in the spec: its id is a variable / param from the stage files
+        'existing_refs': any(isinstance(r, dict) and 'existing' in r
+                             for node in [*dep.values(), *(d for res in (spec.get('resources') or {}).values() if isinstance(res, dict)
+                                                          for g in res.values() if isinstance(g, dict) for d in g.values())]
+                             if isinstance(node, dict) for r in spec_ref.items(node.get('value'))),
     }
     gaps = []
     out = []

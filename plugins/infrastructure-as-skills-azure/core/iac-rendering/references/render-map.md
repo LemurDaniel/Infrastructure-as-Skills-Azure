@@ -97,7 +97,7 @@ one of two ways:
 |---|---|---|
 | `{value}` | This decision's answer (in `format`; its mapped fragment beside `values`) | The digest |
 | `{group.question}` | Another answer of the same resource (`{identity.user_assigned_identity_ids}`) | The digest, from the spec; the check fails on one that names no question of the set |
-| `<name>` | What the render knows and the spec does not: a map key (`<key>`), an id from wiring or a data source, a module output | The render |
+| `<name>` | What the render knows and the spec does not: a map key (`<key>`), an id from wiring or a stage file's id variable, a module output | The render |
 
 A `${...}` is the target's own interpolation and never a placeholder.
 
