@@ -1,0 +1,95 @@
+# What each decision of questions.yaml renders to, per target and implementation.
+# Format: core/iac-rendering/references/render-map.md. The call, the authored blocks and the
+# tests are in terraform.md and bicep.md.
+# The Terraform module requires azurerm ~> 4.0 and random < 4.0: a root calling it cannot be on
+# azurerm 5.x, and the authored fallback in that root follows the 4.x spelling.
+schema_version: 1
+resource: Microsoft.Network/routeTables
+
+modules:
+  terraform: [Azure/avm-res-network-routetable/azurerm]
+  bicep: [avm/res/network/route-table]
+
+decisions:
+
+  # ---------------------------------------------------------------- placement
+  placement.environments:
+    not_rendered: naming parameter `environment` and the tag of that name; no attribute of the table
+  placement.location:
+    terraform_avm: { attribute: location, passthrough: true }
+    terraform: { attribute: location, passthrough: true }
+    bicep_avm: { attribute: location, passthrough: true }
+    bicep: { attribute: location, passthrough: true }
+  placement.resource_group_name:
+    terraform_avm: { attribute: resource_group_name, note: 'a name, not an id - the table is an azurerm_route_table' }
+    terraform: { gap: reference names no authored argument }
+    bicep_avm: { gap: the deployment's resource group scope; no parameter }
+    bicep: { gap: the deployment's resource group scope; no property }
+
+  # --------------------------------------------------------------- networking
+  networking.subnets:
+    terraform_avm:
+      gap: 'not an input here; the virtual-network set renders subnets.<k>.route_table = { id = module.route_table.resource_id }, subnet_resource_ids stays empty'
+    terraform:
+      attribute: azurerm_subnet_route_table_association.subnet_id
+      note: one association per subnet; or the subnet's own route_table_id - one of them, never both
+    bicep_avm:
+      gap: 'not a parameter here; the virtual-network set renders subnets[].routeTableResourceId: routeTable.outputs.resourceId'
+    bicep: { gap: reference names no authored property }
+  networking.default_route:
+    terraform_avm:
+      attribute: routes.default
+      values:
+        firewall: { expr: '{ name = "default-to-firewall", address_prefix = "0.0.0.0/0", next_hop_type = "VirtualAppliance", next_hop_in_ip_address = {networking.firewall_private_ip} }' }
+        none: null
+      note: written as an entry so it shows in the plan; none renders no entry
+    terraform:
+      attribute: azurerm_route.next_hop_type
+      values: { firewall: VirtualAppliance, none: null }
+      also:
+        firewall: 'address_prefix = "0.0.0.0/0"'
+      note: none declares no azurerm_route; or the table's inline route list, never both
+    bicep_avm:
+      attribute: 'routes[]'
+      values:
+        firewall: { expr: "{ name: 'default-to-firewall', properties: { addressPrefix: '0.0.0.0/0', nextHopType: 'VirtualAppliance', nextHopIpAddress: {networking.firewall_private_ip} } }" }
+        none: null
+      note: none renders no entry
+    bicep:
+      attribute: 'properties.routes[]'
+      values:
+        firewall: { expr: "{ name: 'default-to-firewall', properties: { addressPrefix: '0.0.0.0/0', nextHopType: 'VirtualAppliance', nextHopIpAddress: {networking.firewall_private_ip} } }" }
+        none: null
+      note: none renders no entry; inline routes and .../routes children are alternatives - mixing them makes a redeploy remove one
+  networking.firewall_private_ip:
+    terraform_avm: { attribute: routes.default.next_hop_in_ip_address, passthrough: true }
+    terraform: { attribute: azurerm_route.next_hop_in_ip_address, passthrough: true }
+    bicep_avm: { attribute: 'routes[].properties.nextHopIpAddress', passthrough: true }
+    bicep: { attribute: 'properties.routes[].properties.nextHopIpAddress', passthrough: true }
+  networking.routes:
+    terraform_avm:
+      attribute: 'routes.<key> = { name, address_prefix, next_hop_type, next_hop_in_ip_address }'
+      note: the key arbitrary and stable; next_hop_in_ip_address only for VirtualAppliance
+    terraform:
+      attribute: azurerm_route
+      note: or the table's inline route (a list of objects on 5.x) - not both, the two fight on every apply
+    bicep_avm:
+      attribute: "routes[] = { name, properties: { addressPrefix, nextHopType, nextHopIpAddress } }"
+      note: nextHopIpAddress only for VirtualAppliance
+    bicep: { attribute: 'properties.routes[] = { name, properties: { addressPrefix, nextHopType, nextHopIpAddress } }' }
+  networking.bgp_route_propagation:
+    terraform_avm:
+      attribute: bgp_route_propagation_enabled
+      values: { disabled: false, enabled: true }
+      note: module default true, the portal's too
+    terraform:
+      attribute: bgp_route_propagation_enabled
+      values: { disabled: false, enabled: true }
+    bicep_avm:
+      attribute: disableBgpRoutePropagation
+      values: { disabled: true, enabled: false }
+      note: inverted - disabled renders true; module default false
+    bicep:
+      attribute: properties.disableBgpRoutePropagation
+      values: { disabled: true, enabled: false }
+      note: inverted - disabled renders true

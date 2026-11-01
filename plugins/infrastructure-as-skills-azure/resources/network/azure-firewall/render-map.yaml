@@ -1,0 +1,309 @@
+# What each decision of questions.yaml renders to, per target and implementation.
+# Format: core/iac-rendering/references/render-map.md. The call, the authored blocks and the
+# tests are in terraform.md and bicep.md.
+schema_version: 1
+resource: Microsoft.Network/azureFirewalls
+
+# Called in this order: the policy, the public addresses, the firewall taking both by id.
+modules:
+  terraform: [Azure/avm-res-network-firewallpolicy/azurerm, Azure/avm-res-network-publicipaddress/azurerm, Azure/avm-res-network-azurefirewall/azurerm]
+  bicep: [avm/res/network/firewall-policy, avm/res/network/public-ip-address, avm/res/network/azure-firewall]
+
+decisions:
+
+  # ---------------------------------------------------------------- placement
+  placement.environments:
+    not_rendered: naming parameter `environment` and the tag of that name; no attribute of the firewall
+  placement.location:
+    terraform_avm: { attribute: location, module: Azure/avm-res-network-azurefirewall/azurerm, passthrough: true, note: the same on the policy and the public IP modules }
+    terraform: { attribute: location, passthrough: true }
+    bicep_avm: { attribute: location, module: avm/res/network/azure-firewall, passthrough: true, note: the same on the policy and the public IP modules }
+    bicep: { attribute: location, passthrough: true }
+  placement.resource_group_name:
+    terraform_avm:
+      attribute: resource_group_name
+      module: Azure/avm-res-network-azurefirewall/azurerm
+      note: a name, not an id - azurerm-based modules (azurerm < 5.0); the same on the policy and the public IPs
+    terraform: { attribute: resource_group_name }
+    bicep_avm: { gap: the deployment's resource group scope; no parameter }
+    bicep: { gap: the deployment's resource group scope; no property }
+
+  # ----------------------------------------------------------------- firewall
+  firewall.sku_tier:
+    terraform_avm:
+      attribute: firewall_sku_tier
+      module: Azure/avm-res-network-azurefirewall/azurerm
+      passthrough: true
+      also:
+        Basic: firewall_policy_sku = "Basic"
+        Standard: firewall_policy_sku = "Standard"
+        Premium: firewall_policy_sku = "Premium"
+      note: firewall_policy_sku on the policy module, the same tier; firewall_sku_name = "AZFW_VNet" is required and fixed
+    terraform:
+      attribute: azurerm_firewall.sku_tier
+      passthrough: true
+      also:
+        Basic: azurerm_firewall_policy.sku = "Basic"
+        Standard: azurerm_firewall_policy.sku = "Standard"
+        Premium: azurerm_firewall_policy.sku = "Premium"
+      note: sku_name = "AZFW_VNet"
+    bicep_avm:
+      attribute: azureSkuTier
+      module: avm/res/network/azure-firewall
+      passthrough: true
+      also:
+        Basic: "tier: 'Basic'"
+        Standard: "tier: 'Standard'"
+        Premium: "tier: 'Premium'"
+      note: tier on the policy module, the same; module default Standard - written
+    bicep:
+      attribute: properties.sku.tier
+      passthrough: true
+      also:
+        Basic: "policy properties.sku.tier: 'Basic'"
+        Standard: "policy properties.sku.tier: 'Standard'"
+        Premium: "policy properties.sku.tier: 'Premium'"
+      note: "properties.sku.name: 'AZFW_VNet'"
+  firewall.zone_redundant:
+    terraform_avm:
+      attribute: firewall_zones
+      module: Azure/avm-res-network-azurefirewall/azurerm
+      values: { true: { expr: '["1", "2", "3"]' }, false: { expr: '[]' } }
+      also:
+        true: zones = [1, 2, 3]
+        false: zones = []
+      note: module default all three; the public IP module's zones is set(number), set beside it
+    terraform:
+      attribute: azurerm_firewall.zones
+      values: { true: { expr: '["1", "2", "3"]' }, false: { expr: '[]' } }
+      note: azurerm_public_ip.zones the same
+    bicep_avm:
+      attribute: availabilityZones
+      module: avm/res/network/azure-firewall
+      values: { true: { expr: '[ 1, 2, 3 ]' }, false: { expr: '[]' } }
+      note: module default all three; the public IP module's availabilityZones the same
+    bicep:
+      attribute: zones
+      values: { true: { expr: "[ '1', '2', '3' ]" }, false: { expr: '[]' } }
+      note: on the firewall and on each public IP; ARM zones are strings, unlike the module's integers
+  firewall.firewall_subnet:
+    terraform_avm:
+      attribute: firewall_ip_configuration[0].subnet_id
+      module: Azure/avm-res-network-azurefirewall/azurerm
+      note: only the first entry carries the subnet; the list is never reordered
+    terraform: { attribute: azurerm_firewall.ip_configuration.subnet_id, note: on the first block only }
+    bicep_avm:
+      attribute: virtualNetworkResourceId
+      module: avm/res/network/azure-firewall
+      format: { expr: "join(take(split({value}, '/'), 9), '/')" }
+      note: the vnet's id, the parent of the subnet's - the module finds AzureFirewallSubnet by name
+    bicep: { attribute: 'properties.ipConfigurations[].properties.subnet.id', note: on the first entry only }
+  firewall.public_ip_count:
+    terraform_avm:
+      attribute: count
+      module: Azure/avm-res-network-publicipaddress/azurerm
+      passthrough: true
+      note: one public IP module call per address (Static, Standard), one firewall_ip_configuration entry each; one more with forced tunneling, sliced off
+    terraform:
+      gap: >-
+        the number of azurerm_public_ip (Standard, Static) and of azurerm_firewall.ip_configuration
+        blocks, one each per address; terraform.md names no count argument
+    bicep_avm:
+      gap: >-
+        the length of the public IP module loop; the first address in publicIPResourceID, the rest
+        as additionalPublicIpConfigurations entries { name, properties: { publicIPAddress: { id } } }
+    bicep:
+      gap: >-
+        the number of Microsoft.Network/publicIPAddresses and of properties.ipConfigurations[]
+        entries, one each per address
+
+  # --------------------------------------------------------------- networking
+  networking.forced_tunneling:
+    terraform_avm:
+      attribute: firewall_management_ip_configuration
+      module: Azure/avm-res-network-azurefirewall/azurerm
+      values:
+        true: { expr: '{ name = "mgmt", public_ip_address_id = module.firewall_public_ip[var.public_ip_count].resource_id, subnet_id = var.management_subnet_id }' }
+        false: { expr: 'null' }
+      note: an object, not a list; always on Basic; its own public IP (count + 1), sliced off the data-plane list
+    terraform:
+      attribute: azurerm_firewall.management_ip_configuration
+      values:
+        true: { expr: '{ name = "mgmt", subnet_id = {networking.management_subnet}, public_ip_address_id = <management public IP id> }' }
+        false: null
+      note: always on Basic; false renders no block
+    bicep_avm:
+      attribute: enableManagementNic
+      module: avm/res/network/azure-firewall
+      passthrough: true
+      also:
+        true: "managementIPAddressObject: { publicIPAllocationMethod: 'Static' }"
+      note: module default false - written; always on Basic; needs AzureFirewallManagementSubnet in the vnet
+    bicep:
+      attribute: properties.managementIpConfiguration
+      values:
+        true: { expr: "{ name: 'mgmt', properties: { subnet: { id: {networking.management_subnet} }, publicIPAddress: { id: <management public IP id> } } }" }
+        false: null
+      note: always on Basic; false renders none
+  networking.management_subnet:
+    terraform_avm:
+      attribute: firewall_management_ip_configuration.subnet_id
+      module: Azure/avm-res-network-azurefirewall/azurerm
+    terraform: { attribute: azurerm_firewall.management_ip_configuration.subnet_id }
+    bicep_avm: { gap: no parameter; the module finds AzureFirewallManagementSubnet in virtualNetworkResourceId by name }
+    bicep: { attribute: properties.managementIpConfiguration.properties.subnet.id }
+  networking.dns_proxy:
+    terraform_avm: { attribute: firewall_policy_dns.proxy_enabled, module: Azure/avm-res-network-firewallpolicy/azurerm, passthrough: true }
+    terraform: { attribute: azurerm_firewall_policy.dns.proxy_enabled, passthrough: true }
+    bicep_avm: { attribute: enableProxy, module: avm/res/network/firewall-policy, passthrough: true }
+    bicep: { attribute: policy properties.dnsSettings.enableProxy, passthrough: true }
+  networking.dns_servers:
+    terraform_avm:
+      attribute: firewall_policy_dns.servers
+      module: Azure/avm-res-network-firewallpolicy/azurerm
+      note: null for Azure-provided DNS
+    terraform: { attribute: azurerm_firewall_policy.dns.servers }
+    bicep_avm: { attribute: servers, module: avm/res/network/firewall-policy }
+    bicep: { attribute: policy properties.dnsSettings.servers }
+  networking.snat_private_ranges:
+    terraform_avm:
+      attribute: firewall_policy_private_ip_ranges
+      module: Azure/avm-res-network-firewallpolicy/azurerm
+      note: the firewall module's own firewall_private_ip_ranges applies only without a policy - unused
+    terraform: { attribute: azurerm_firewall_policy.private_ip_ranges }
+    bicep_avm:
+      attribute: snat.privateRanges
+      module: avm/res/network/firewall-policy
+      note: "autoLearnPrivateRanges is required in the object: 'Disabled'"
+    bicep: { attribute: policy properties.snat.privateRanges, note: beside autoLearnPrivateRanges }
+
+  # ----------------------------------------------------------------- identity
+  identity.policy_identity:
+    terraform_avm:
+      attribute: firewall_policy_identity
+      module: Azure/avm-res-network-firewallpolicy/azurerm
+      values:
+        none: { expr: 'null' }
+        user_assigned: { expr: '{ type = "UserAssigned", identity_ids = {identity.user_assigned_identity_ids} }' }
+    terraform:
+      attribute: azurerm_firewall_policy.identity.type
+      values: { none: null, user_assigned: UserAssigned }
+      note: none renders no identity block
+    bicep_avm:
+      attribute: managedIdentities
+      module: avm/res/network/firewall-policy
+      values:
+        none: null
+        user_assigned: { expr: '{ userAssignedResourceIds: {identity.user_assigned_identity_ids} }' }
+      note: none leaves the parameter out
+    bicep:
+      attribute: policy identity.type
+      values: { none: null, user_assigned: UserAssigned }
+      note: none renders no identity block
+  identity.user_assigned_identity_ids:
+    terraform_avm: { attribute: firewall_policy_identity.identity_ids, module: Azure/avm-res-network-firewallpolicy/azurerm }
+    terraform: { attribute: azurerm_firewall_policy.identity.identity_ids }
+    bicep_avm: { attribute: managedIdentities.userAssignedResourceIds, module: avm/res/network/firewall-policy }
+    bicep: { gap: the policy's identity.userAssignedIdentities is an object keyed by id; the reference names only identity }
+
+  # ----------------------------------------------------------------- security
+  security.threat_intelligence_mode:
+    terraform_avm:
+      attribute: firewall_policy_threat_intelligence_mode
+      module: Azure/avm-res-network-firewallpolicy/azurerm
+      passthrough: true
+      note: module default unset - written
+    terraform: { attribute: azurerm_firewall_policy.threat_intelligence_mode, passthrough: true }
+    bicep_avm:
+      attribute: threatIntelMode
+      module: avm/res/network/firewall-policy
+      passthrough: true
+      note: module default Deny - written
+    bicep: { attribute: policy properties.threatIntelMode, passthrough: true }
+  security.idps_mode:
+    terraform_avm:
+      attribute: firewall_policy_intrusion_detection.mode
+      module: Azure/avm-res-network-firewallpolicy/azurerm
+      passthrough: true
+      note: Premium only; firewall_policy_intrusion_detection = null otherwise
+    terraform: { attribute: azurerm_firewall_policy.intrusion_detection.mode, passthrough: true, note: Premium only }
+    bicep_avm: { attribute: intrusionDetection.mode, module: avm/res/network/firewall-policy, passthrough: true, note: Premium only }
+    bicep: { attribute: policy properties.intrusionDetection.mode, passthrough: true, note: Premium only }
+  security.tls_inspection:
+    terraform_avm:
+      attribute: firewall_policy_tls_certificate
+      module: Azure/avm-res-network-firewallpolicy/azurerm
+      values:
+        true: { expr: '{ name = <certificate name>, key_vault_secret_id = {security.tls_certificate_secret_id} }' }
+        false: { expr: 'null' }
+      also:
+        true: firewall_policy_identity = { type = "UserAssigned", identity_ids = var.user_assigned_identity_ids }
+      note: Premium only; the certificate's name is not a decision
+    terraform:
+      attribute: azurerm_firewall_policy.tls_certificate
+      values:
+        true: { expr: '{ name = <certificate name>, key_vault_secret_id = {security.tls_certificate_secret_id} }' }
+        false: null
+      note: with azurerm_firewall_policy.identity; false renders no block
+    bicep_avm:
+      attribute: certificateName
+      module: avm/res/network/firewall-policy
+      values: { true: { expr: '<certificate name>' }, false: null }
+      also:
+        true: 'keyVaultSecretId, managedIdentities: { userAssignedResourceIds }'
+      note: Premium only; the certificate's name is not a decision - false leaves the three parameters out
+    bicep:
+      attribute: policy properties.transportSecurity.certificateAuthority
+      values:
+        true: { expr: '{ name: <certificate name>, keyVaultSecretId: {security.tls_certificate_secret_id} }' }
+        false: null
+      note: with the policy identity
+  security.tls_certificate_secret_id:
+    terraform_avm: { attribute: firewall_policy_tls_certificate.key_vault_secret_id, module: Azure/avm-res-network-firewallpolicy/azurerm }
+    terraform: { attribute: azurerm_firewall_policy.tls_certificate.key_vault_secret_id }
+    bicep_avm: { attribute: keyVaultSecretId, module: avm/res/network/firewall-policy }
+    bicep: { attribute: policy properties.transportSecurity.certificateAuthority.keyVaultSecretId }
+  security.rule_collection_groups:
+    terraform_avm:
+      gap: no input on the policy module; its submodule modules/rule_collection_groups, wiring filled by the pattern or the platform
+    terraform: { attribute: azurerm_firewall_policy_rule_collection_group, note: one resource per group; wiring filled by the pattern or the platform }
+    bicep_avm:
+      attribute: ruleCollectionGroups
+      module: avm/res/network/firewall-policy
+      note: or the child module firewall-policy/rule-collection-group; wiring filled by the pattern or the platform
+    bicep: { attribute: Microsoft.Network/firewallPolicies/ruleCollectionGroups, note: one child per group; wiring filled by the pattern or the platform }
+
+  # ------------------------------------------------------------ observability
+  observability.diagnostic_workspace:
+    terraform_avm:
+      attribute: 'diagnostic_settings.<key>.workspace_resource_id'
+      module: Azure/avm-res-network-azurefirewall/azurerm
+      note: log_analytics_destination_type = "Dedicated"
+    terraform: { attribute: azurerm_monitor_diagnostic_setting.log_analytics_workspace_id, note: log_analytics_destination_type = "Dedicated" }
+    bicep_avm:
+      attribute: 'diagnosticSettings[].workspaceResourceId'
+      module: avm/res/network/azure-firewall
+      note: "logAnalyticsDestinationType: 'Dedicated'"
+    bicep: { gap: bicep.md names no authored diagnostic setting }
+  observability.diagnostic_categories:
+    terraform_avm:
+      attribute: 'diagnostic_settings.<key>.log_categories'
+      module: Azure/avm-res-network-azurefirewall/azurerm
+      note: log_groups defaults to ["allLogs"] - set it to [] beside the categories
+    terraform: { attribute: azurerm_monitor_diagnostic_setting.enabled_log.category }
+    bicep_avm: { attribute: 'diagnosticSettings[].logCategoriesAndGroups[].category', module: avm/res/network/azure-firewall }
+    bicep: { gap: bicep.md names no authored diagnostic setting }
+  observability.metrics_enabled:
+    terraform_avm:
+      attribute: 'diagnostic_settings.<key>.metric_categories'
+      module: Azure/avm-res-network-azurefirewall/azurerm
+      values: { true: { expr: '["AllMetrics"]' }, false: { expr: '[]' } }
+    terraform:
+      attribute: azurerm_monitor_diagnostic_setting.enabled_metric
+      values: { true: { expr: '{ category = "AllMetrics" }' }, false: null }
+      note: a block (azurerm 5.x); false renders no enabled_metric block
+    bicep_avm:
+      attribute: 'diagnosticSettings[].metricCategories'
+      module: avm/res/network/azure-firewall
+      values: { true: { expr: "[ { category: 'AllMetrics' } ]" }, false: { expr: '[]' } }
+    bicep: { gap: bicep.md names no authored diagnostic setting }

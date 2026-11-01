@@ -1,0 +1,136 @@
+# What each decision of questions.yaml renders to, per target and implementation.
+# Format: core/iac-rendering/references/render-map.md. The call, the authored blocks and the
+# tests are in terraform.md and bicep.md.
+# Subnets: separate azurerm_subnet resources in Terraform, inline properties.subnets in Bicep -
+# never mixed with the other form in one configuration.
+schema_version: 1
+resource: Microsoft.Network/virtualNetworks
+
+modules:
+  terraform: [Azure/avm-res-network-virtualnetwork/azurerm]
+  bicep: [avm/res/network/virtual-network]
+
+decisions:
+
+  # ---------------------------------------------------------------- placement
+  placement.environments:
+    not_rendered: naming parameter `environment`; no attribute of the network
+  placement.location:
+    terraform_avm: { attribute: location, passthrough: true }
+    terraform: { attribute: location, passthrough: true }
+    bicep_avm: { attribute: location, passthrough: true }
+    bicep: { attribute: location, passthrough: true }
+  placement.resource_group_name:
+    terraform_avm: { attribute: parent_id, note: "the group's id, not its name - AzAPI-based module" }
+    terraform: { attribute: azurerm_virtual_network.resource_group_name }
+    bicep_avm: { gap: the deployment's resource group scope; no parameter }
+    bicep: { gap: the deployment's resource group scope; no property }
+
+  # --------------------------------------------------------------- addressing
+  addressing.address_space:
+    terraform_avm:
+      attribute: address_space
+      format: { expr: '["{value}"]' }
+      note: a set, even with one entry
+    terraform:
+      attribute: azurerm_virtual_network.address_space
+      format: { expr: '["{value}"]' }
+      note: a list, even with one entry
+    bicep_avm:
+      attribute: addressPrefixes
+      format: { expr: "['{value}']" }
+      note: an array, even with one entry
+    bicep:
+      attribute: properties.addressSpace.addressPrefixes
+      format: { expr: "['{value}']" }
+      note: an array, even with one entry
+  addressing.subnets:
+    terraform_avm:
+      attribute: 'subnets.<name> = { name, address_prefixes = [prefix] }'
+      note: a map keyed by subnet name
+    terraform:
+      attribute: azurerm_subnet
+      note: one each, for_each keyed by name, never count; never a subnet block on the vnet beside them
+    bicep_avm:
+      attribute: 'subnets[] = { name, addressPrefix }'
+      note: inline on the vnet; subnetResourceIds is an array in the order of subnets
+    bicep:
+      attribute: "properties.subnets[] = { name, properties: { addressPrefix } }"
+      note: inline; child subnets resources only when the vnet declares no inline subnets at all
+  addressing.private_endpoint_subnet_prefix:
+    terraform_avm: { gap: reference names no module input; rendered as the endpoints entry of subnets }
+    terraform:
+      attribute: azurerm_subnet.address_prefixes
+      format: { expr: '["{value}"]' }
+      note: on the endpoints subnet, a list with one entry; a /29 leaves three usable addresses
+    bicep_avm: { gap: reference names no module input; rendered as the endpoints entry of subnets }
+    bicep: { gap: reference names no authored property; rendered as the endpoints entry of properties.subnets }
+  addressing.dns_servers:
+    terraform_avm: { attribute: dns_servers.dns_servers, note: 'dns_servers = { dns_servers = [...] }; omitted for Azure DNS' }
+    terraform: { attribute: azurerm_virtual_network.dns_servers, note: omitted for Azure DNS }
+    bicep_avm: { attribute: dnsServers, note: omitted for Azure DNS }
+    bicep: { attribute: properties.dhcpOptions.dnsServers, note: omitted for Azure DNS }
+
+  # ------------------------------------------------------------ subnet_policy
+  subnet_policy.private_endpoint_network_policies:
+    terraform_avm: { attribute: 'subnets.<name>.private_endpoint_network_policies', note: module default Enabled; written anyway, passthrough: true }
+    terraform: { attribute: azurerm_subnet.private_endpoint_network_policies, note: 'a string, not a bool', passthrough: true }
+    bicep_avm: { attribute: 'subnets[].privateEndpointNetworkPolicies', passthrough: true }
+    bicep: { attribute: 'properties.subnets[].properties.privateEndpointNetworkPolicies', passthrough: true }
+  subnet_policy.service_endpoints:
+    terraform_avm: { attribute: 'subnets.<name>.service_endpoints' }
+    terraform: { attribute: azurerm_subnet.service_endpoints }
+    bicep_avm: { attribute: 'subnets[].serviceEndpoints', note: 'strings, not { service } objects' }
+    bicep: { attribute: 'properties.subnets[].properties.serviceEndpoints[].service', note: '{ service } objects, unlike the module' }
+  subnet_policy.subnet_delegations:
+    terraform_avm:
+      attribute: 'subnets.<name>.delegations = [{ name, service_delegation = { name } }]'
+      note: a list, plural
+    terraform:
+      attribute: 'azurerm_subnet.delegation { name, service_delegation { name } }'
+      note: actions left unset - the provider fills the service's required set; a disagreeing list fails at apply
+    bicep_avm: { attribute: 'subnets[].delegation', note: a single string per subnet }
+    bicep: { attribute: 'properties.subnets[].properties.delegations[].properties.serviceName' }
+
+  # ----------------------------------------------------------------- security
+  security.ddos_protection:
+    terraform_avm:
+      attribute: ddos_protection_plan
+      values:
+        true: { expr: '{ id = <ddos_protection_plan_id>, enable = true }' }
+        false: null
+      note: the plan's id from the ddos-protection-plan set; false leaves the object out
+    terraform:
+      attribute: azurerm_virtual_network.ddos_protection_plan.enable
+      values: { true: true, false: null }
+      also:
+        true: ddos_protection_plan.id = <ddos_protection_plan_id>
+      note: 'the ddos_protection_plan { id, enable } block; false renders no block'
+    bicep_avm:
+      attribute: ddosProtectionPlanResourceId
+      values:
+        true: { expr: '<ddos_protection_plan_id>' }
+        false: null
+      note: the plan's id, not a bool; false leaves the parameter out
+    bicep:
+      attribute: properties.enableDdosProtection
+      passthrough: true
+      also:
+        true: 'properties.ddosProtectionPlan.id: <ddos_protection_plan_id>'
+  security.subnets_expecting_nsg:
+    not_rendered: recorded in the spec; the association is rendered where the NSG is
+
+  # ------------------------------------------------------------ observability
+  observability.diagnostic_workspace:
+    terraform_avm:
+      attribute: 'diagnostic_settings.<key>.workspace_resource_id'
+      note: 'with log_groups = [] and metric_categories = ["AllMetrics"]'
+    terraform: { attribute: azurerm_monitor_diagnostic_setting.log_analytics_workspace_id }
+    bicep_avm: { attribute: 'diagnosticSettings[].workspaceResourceId', note: with metricCategories }
+    bicep: { attribute: Microsoft.Insights/diagnosticSettings properties.workspaceId, note: attached to the network - a subnet has no diagnostic surface }
+  observability.flow_logs_enabled:
+    terraform_avm: { gap: reference names no module input; a flow log is a Network Watcher resource }
+    terraform: { gap: 'an azurerm_network_watcher_flow_log - a Network Watcher resource (the network-watcher set), not an attribute of the network' }
+    bicep_avm: { gap: reference names no module input; a flow log is a Network Watcher resource }
+    bicep:
+      gap: Microsoft.Network/networkWatchers/flowLogs - a Network Watcher resource in the region (the network-watcher set), not a property of the network; the watcher is usually platform-owned

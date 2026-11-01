@@ -1,0 +1,173 @@
+# What each decision of questions.yaml renders to, per target and implementation.
+# Format: core/iac-rendering/references/render-map.md. The call, the authored blocks and the
+# tests are in terraform.md and bicep.md.
+schema_version: 1
+resource: Microsoft.Network/trafficManagerProfiles
+
+modules:
+  terraform: [Azure/avm-res-network-trafficmanagerprofile/azurerm]
+  bicep: [avm/res/network/trafficmanagerprofile]
+
+decisions:
+
+  # ---------------------------------------------------------------- placement
+  placement.environments:
+    not_rendered: naming parameter `environment`; the profile is rendered per stage over that stage's endpoints
+  placement.location:
+    terraform_avm: { gap: no location input; the profile is global inside the module }
+    terraform: { gap: azurerm_traffic_manager_profile has no location }
+    bicep_avm: { attribute: location, note: "always 'global'; the module default, written", passthrough: true }
+    bicep: { attribute: location, note: "always 'global'", passthrough: true }
+  placement.resource_group_name:
+    terraform_avm: { attribute: resource_group_name, note: 'a name, not an id' }
+    terraform: { attribute: azurerm_traffic_manager_profile.resource_group_name }
+    bicep_avm: { gap: the deployment's resource group scope; no parameter }
+    bicep: { gap: the deployment's resource group scope; no property }
+
+  # ------------------------------------------------------------------ profile
+  profile.traffic_goal:
+    not_rendered: pre-answers routing_method; nothing of its own in the call
+  profile.routing_method:
+    terraform_avm: { attribute: traffic_routing_method, note: required by the module - no default, passthrough: true }
+    terraform: { attribute: traffic_routing_method, passthrough: true }
+    bicep_avm: { attribute: trafficRoutingMethod, note: module default Performance; written, passthrough: true }
+    bicep: { attribute: properties.trafficRoutingMethod, passthrough: true }
+  profile.relative_dns_name:
+    terraform_avm: { attribute: dns_config.relative_name, note: dns_config is a required object; the resource name when the decision is empty, passthrough: true }
+    terraform: { attribute: dns_config.relative_name, passthrough: true }
+    bicep_avm: { attribute: relativeName, note: the module falls back to name when unset; written anyway, passthrough: true }
+    bicep: { attribute: properties.dnsConfig.relativeName, passthrough: true }
+  profile.dns_ttl_seconds:
+    terraform_avm: { attribute: dns_config.ttl, passthrough: true }
+    terraform: { attribute: dns_config.ttl, passthrough: true }
+    bicep_avm: { attribute: ttl, note: module default 60; written, passthrough: true }
+    bicep: { attribute: properties.dnsConfig.ttl, passthrough: true }
+  profile.profile_status:
+    terraform_avm: { attribute: profile_status, note: module default Enabled; written, passthrough: true }
+    terraform: { attribute: profile_status, passthrough: true }
+    bicep_avm: { attribute: profileStatus, note: module default Enabled; written, passthrough: true }
+    bicep: { attribute: properties.profileStatus, passthrough: true }
+  profile.traffic_view:
+    terraform_avm:
+      attribute: traffic_view_enrollment_status
+      values: { true: Enabled, false: Disabled }
+      note: module default Disabled; written
+    terraform: { attribute: traffic_view_enabled, note: 'a bool here, a string on the module', passthrough: true }
+    bicep_avm:
+      attribute: trafficViewEnrollmentStatus
+      values: { true: Enabled, false: Disabled }
+    bicep:
+      attribute: properties.trafficViewEnrollmentStatus
+      values: { true: Enabled, false: Disabled }
+  profile.max_return:
+    terraform_avm: { attribute: max_return, note: null unless MultiValue, passthrough: true }
+    terraform: { attribute: max_return, passthrough: true }
+    bicep_avm: { attribute: maxReturn, note: module default 1; written, passthrough: true }
+    bicep: { attribute: properties.maxReturn, passthrough: true }
+
+  # --------------------------------------------------------------- monitoring
+  monitoring.monitor_protocol:
+    terraform_avm: { attribute: monitor_config.protocol, note: monitor_config is a required object; protocol uppercase, passthrough: true }
+    terraform: { attribute: monitor_config.protocol, passthrough: true }
+    bicep_avm: { attribute: monitorConfig.protocol, note: 'module default probes http on port 80 at / - the whole object is written', passthrough: true }
+    bicep: { attribute: properties.monitorConfig.protocol, passthrough: true }
+  monitoring.monitor_port:
+    terraform_avm: { attribute: monitor_config.port, passthrough: true }
+    terraform: { attribute: monitor_config.port, passthrough: true }
+    bicep_avm: { attribute: monitorConfig.port, passthrough: true }
+    bicep: { attribute: properties.monitorConfig.port, passthrough: true }
+  monitoring.monitor_path:
+    terraform_avm: { attribute: monitor_config.path, passthrough: true }
+    terraform: { attribute: monitor_config.path, passthrough: true }
+    bicep_avm: { attribute: monitorConfig.path, passthrough: true }
+    bicep: { attribute: properties.monitorConfig.path, passthrough: true }
+  monitoring.expected_status_codes:
+    terraform_avm:
+      attribute: monitor_config.expected_status_code_ranges
+      format: { expr: '[for r in {value} : { min = tonumber(split("-", r)[0]), max = tonumber(split("-", r)[1]) }]' }
+      note: 'objects on the module: [{ min, max }], from the answer''s "200-299" strings'
+    terraform: { attribute: monitor_config.expected_status_code_ranges, note: 'strings here (["200-299"]), objects on the module' }
+    bicep_avm:
+      attribute: monitorConfig.expectedStatusCodeRanges
+      format: { expr: "[for r in {value}: { min: int(split(r, '-')[0]), max: int(split(r, '-')[1]) }]" }
+      note: '[ { min, max } ], from the answer''s "200-299" strings'
+    bicep:
+      attribute: properties.monitorConfig.expectedStatusCodeRanges
+      format: { expr: "[for r in {value}: { min: int(split(r, '-')[0]), max: int(split(r, '-')[1]) }]" }
+      note: the same object shape as the module's parameter
+  monitoring.probe_profile:
+    terraform_avm:
+      attribute: monitor_config.interval_in_seconds
+      values: { standard: 30, fast: 10 }
+      also:
+        standard: 'timeout_in_seconds = 10, tolerated_number_of_failures = 3'
+        fast: 'timeout_in_seconds = 9, tolerated_number_of_failures = 3'
+    terraform:
+      attribute: monitor_config.interval_in_seconds
+      values: { standard: 30, fast: 10 }
+      also:
+        standard: 'timeout_in_seconds = 10, tolerated_number_of_failures = 3'
+        fast: 'timeout_in_seconds = 9, tolerated_number_of_failures = 3'
+    bicep_avm:
+      attribute: monitorConfig.intervalInSeconds
+      values: { standard: 30, fast: 10 }
+      also:
+        standard: 'timeoutInSeconds: 10, toleratedNumberOfFailures: 3'
+        fast: 'timeoutInSeconds: 9, toleratedNumberOfFailures: 3'
+    bicep:
+      attribute: properties.monitorConfig.intervalInSeconds
+      values: { standard: 30, fast: 10 }
+      also:
+        standard: 'timeoutInSeconds: 10, toleratedNumberOfFailures: 3'
+        fast: 'timeoutInSeconds: 9, toleratedNumberOfFailures: 3'
+
+  # ---------------------------------------------------------------- endpoints
+  endpoints.endpoints:
+    terraform_avm:
+      attribute: 'azure_endpoints, external_endpoints, nested_endpoints'
+      note: 'three maps keyed by the entry name; azure and nested take target_resource_id, external target'
+    terraform:
+      attribute: 'azurerm_traffic_manager_azure_endpoint, _external_endpoint, _nested_endpoint'
+      note: profile_id on each; external takes target and endpoint_location
+    bicep_avm:
+      attribute: 'endpoints[] = { name, type, properties: { targetResourceId or target, endpointStatus, priority, weight, endpointLocation, geoMapping, minChildEndpoints } }'
+      note: 'the kind is the ARM type: Microsoft.Network/trafficManagerProfiles/azureEndpoints, /externalEndpoints, /nestedEndpoints'
+    bicep: { attribute: 'properties.endpoints[]', note: "the same shape as the module's parameter" }
+
+  # ------------------------------------------------------------------- access
+  access.role_assignments:
+    terraform_avm:
+      attribute: 'role_assignments.<key> = { role_definition_id_or_name, principal_id, principal_type }'
+      note: Traffic Manager Contributor
+    terraform: { attribute: azurerm_role_assignment, note: "scope = the profile's id" }
+    bicep_avm: { attribute: "roleAssignments[] = { principalId, roleDefinitionIdOrName: 'Traffic Manager Contributor', principalType }" }
+    bicep: { attribute: Microsoft.Authorization/roleAssignments, note: 'an extension resource with scope: trafficManager' }
+
+  # ------------------------------------------------------------ observability
+  observability.diagnostic_workspace:
+    terraform_avm: { attribute: 'diagnostic_settings.<key>.workspace_resource_id' }
+    terraform: { attribute: azurerm_monitor_diagnostic_setting.log_analytics_workspace_id }
+    bicep_avm: { attribute: 'diagnosticSettings[].workspaceResourceId' }
+    bicep: { attribute: Microsoft.Insights/diagnosticSettings properties.workspaceId, note: 'an extension resource with scope: trafficManager' }
+  observability.diagnostic_categories:
+    terraform_avm:
+      attribute: 'diagnostic_settings.<key>.log_categories'
+      note: log_groups defaults to ["allLogs"] - set it to [] beside log_categories
+    terraform: { attribute: azurerm_monitor_diagnostic_setting.enabled_log.category }
+    bicep_avm:
+      attribute: 'diagnosticSettings[].logCategoriesAndGroups[].category'
+      note: without the list the module collects everything; written
+    bicep: { gap: 'reference names only the Microsoft.Insights/diagnosticSettings extension resource, no property path' }
+  observability.metrics_enabled:
+    terraform_avm:
+      attribute: 'diagnostic_settings.<key>.metric_categories'
+      values: { true: { expr: '["AllMetrics"]' }, false: { expr: '[]' } }
+    terraform:
+      attribute: azurerm_monitor_diagnostic_setting.enabled_metric.category
+      values: { true: AllMetrics, false: null }
+      note: false renders no enabled_metric block
+    bicep_avm:
+      attribute: 'diagnosticSettings[].metricCategories'
+      values: { true: { expr: "[ { category: 'AllMetrics' } ]" }, false: { expr: '[]' } }
+      note: without the list the module collects everything; written
+    bicep: { gap: 'reference names only the Microsoft.Insights/diagnosticSettings extension resource, no property path' }

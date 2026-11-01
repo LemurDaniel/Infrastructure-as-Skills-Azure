@@ -1,0 +1,73 @@
+# What each decision of questions.yaml renders to, per target and implementation.
+# Format: core/iac-rendering/references/render-map.md. The call, the authored blocks and the
+# tests are in terraform.md and bicep.md.
+schema_version: 1
+resource: Microsoft.Network/privateDnsZones
+
+modules:
+  terraform: [Azure/avm-res-network-privatednszone/azurerm]
+  bicep: [avm/res/network/private-dns-zone]
+
+decisions:
+
+  # ---------------------------------------------------------------- placement
+  placement.environments:
+    not_rendered: the stage the zone is rendered in; naming parameter `environment` for the link names
+  placement.resource_group_name:
+    terraform_avm:
+      attribute: parent_id
+      note: the group's id, not its name - AzAPI-only module
+    terraform: { attribute: azurerm_private_dns_zone.resource_group_name }
+    bicep_avm: { gap: the deployment's resource group scope; no parameter }
+    bicep: { gap: the deployment's resource group scope; no property }
+
+  # --------------------------------------------------------------------- zone
+  zone.ownership:
+    not_rendered: decides whether the zone is created here or only referenced - whether the module is called at all
+  zone.zone_kind:
+    not_rendered: decides which questions are reached; no attribute of its own
+  zone.zone_names:
+    terraform_avm:
+      attribute: domain_name
+      note: one module call per zone, for_each over the names so the address is the zone
+    terraform: { attribute: azurerm_private_dns_zone.name }
+    bicep_avm: { attribute: name, note: one module call per zone in a for loop; location 'global' written anyway }
+    bicep: { attribute: Microsoft.Network/privateDnsZones name, note: "location: 'global'" }
+
+  # --------------------------------------------------------------- networking
+  networking.vnet_links:
+    terraform_avm:
+      attribute: 'virtual_network_links.<key> = { name, virtual_network_id, registration_enabled, resolution_policy }'
+      note: keyed by the network's role; the older vnetlinkname / vnetid / autoregistration inputs are not used
+    terraform:
+      attribute: azurerm_private_dns_zone_virtual_network_link.virtual_network_id
+      note: with private_dns_zone_id; 5.x has no resource_group_name or private_dns_zone_name
+    bicep_avm:
+      attribute: 'virtualNetworkLinks[] = { name, virtualNetworkResourceId, registrationEnabled, resolutionPolicy }'
+      note: name is pdnsz-<role>
+    bicep:
+      attribute: Microsoft.Network/privateDnsZones/virtualNetworkLinks properties.virtualNetwork.id
+      note: "the link is location: 'global' as well"
+  networking.auto_registration:
+    terraform_avm: { attribute: 'virtual_network_links.<key>.registration_enabled', passthrough: true }
+    terraform: { attribute: azurerm_private_dns_zone_virtual_network_link.registration_enabled, passthrough: true }
+    bicep_avm: { attribute: 'virtualNetworkLinks[].registrationEnabled', passthrough: true }
+    bicep: { attribute: Microsoft.Network/privateDnsZones/virtualNetworkLinks properties.registrationEnabled, passthrough: true }
+  networking.resolution_policy:
+    terraform_avm: { attribute: 'virtual_network_links.<key>.resolution_policy', note: the module sends null for Default, passthrough: true }
+    terraform: { attribute: azurerm_private_dns_zone_virtual_network_link.resolution_policy, passthrough: true }
+    bicep_avm: { attribute: 'virtualNetworkLinks[].resolutionPolicy', passthrough: true }
+    bicep: { attribute: Microsoft.Network/privateDnsZones/virtualNetworkLinks properties.resolutionPolicy, passthrough: true }
+
+  # ------------------------------------------------------------------ records
+  records.static_records:
+    terraform_avm:
+      attribute: 'a_records, aaaa_records, cname_records, txt_records'
+      note: 'a map per type: a_records = { <k> = { name, ttl, records = [...] } }'
+    terraform:
+      attribute: 'azurerm_private_dns_a_record, _cname_record, _txt_record'
+      note: private_dns_zone_id on 5.x, not zone_name and resource_group_name
+    bicep_avm:
+      attribute: 'a, aaaa, cname, txt'
+      note: 'an array per type: a: [ { name, ttl, aRecords: [ { ipv4Address } ] } ]'
+    bicep: { attribute: 'Microsoft.Network/privateDnsZones/A, /CNAME, /TXT' }

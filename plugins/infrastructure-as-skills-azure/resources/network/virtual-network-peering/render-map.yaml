@@ -1,0 +1,113 @@
+# What each decision of questions.yaml renders to, per target and implementation.
+# Format: core/iac-rendering/references/render-map.md. The call, the authored blocks and the
+# tests are in terraform.md and bicep.md.
+# Terraform: one call creates both directions (create_reverse_peering, reverse_* inputs).
+# Bicep: one call per direction; the reverse side is a second call scoped to the remote network.
+schema_version: 1
+resource: Microsoft.Network/virtualNetworks/virtualNetworkPeerings
+
+modules:
+  terraform: [Azure/avm-res-network-virtualnetwork/azurerm//modules/peering]
+  bicep: [avm/res/network/virtual-network/virtual-network-peering]
+
+decisions:
+
+  # ---------------------------------------------------------------- placement
+  placement.environments:
+    not_rendered: naming parameter `environment` and the tag of that name; no attribute of the peering
+  placement.location:
+    not_rendered: naming parameter `location`; a peering is a child of the network and carries no location
+  placement.resource_group_name:
+    terraform_avm: { gap: no input; the peering's parent is the local network's id (parent_id) }
+    terraform: { attribute: azurerm_virtual_network_peering.resource_group_name, note: "the local network's group" }
+    bicep_avm: { gap: "the module's scope, the local network's group; no parameter" }
+    bicep: { gap: the deployment's resource group scope; no property }
+
+  # ------------------------------------------------------------------ peering
+  peering.peering_role:
+    not_rendered: decides which of the local and reverse switches is the spoke's; not an input
+  peering.local_virtual_network:
+    terraform_avm: { attribute: parent_id, note: "the local network's id, validated against the id pattern" }
+    terraform:
+      attribute: azurerm_virtual_network_peering.virtual_network_name
+      format: { expr: 'split("/", {value})[8]' }
+      note: "the name out of the local network's id; resource_group_name is segment [4] of the same id"
+    bicep_avm:
+      attribute: localVnetName
+      format: { expr: "split({value}, '/')[8]" }
+      note: the name of the parent network, out of its id; the call is scoped to its group
+    bicep: { attribute: parent, note: 'the network, by parent or as a nested resource' }
+  peering.remote_virtual_network:
+    terraform_avm: { attribute: remote_virtual_network_id }
+    terraform: { attribute: azurerm_virtual_network_peering.remote_virtual_network_id }
+    bicep_avm: { attribute: remoteVirtualNetworkResourceId }
+    bicep: { attribute: properties.remoteVirtualNetwork.id }
+  peering.both_directions:
+    terraform_avm:
+      attribute: create_reverse_peering
+      passthrough: true
+      note: with reverse_name; false leaves the hub side to its owner and writes no reverse_* input
+    terraform:
+      gap: a second azurerm_virtual_network_peering on the remote network, with a provider alias in another subscription; the resource has no reverse side
+    bicep_avm:
+      gap: "a second module call, scope: resourceGroup(split(id, '/')[2], split(id, '/')[4]), localVnetName split(id, '/')[8]; false - no second call"
+    bicep:
+      gap: a second peering resource on the remote network, declared existing in resourceGroup(subscriptionId, name) through a module scoped to it
+  peering.allow_virtual_network_access:
+    terraform_avm: { attribute: allow_virtual_network_access, passthrough: true }
+    terraform: { attribute: allow_virtual_network_access, passthrough: true }
+    bicep_avm: { attribute: allowVirtualNetworkAccess, passthrough: true }
+    bicep: { attribute: properties.allowVirtualNetworkAccess, passthrough: true }
+  peering.reverse_allow_virtual_network_access:
+    terraform_avm: { attribute: reverse_allow_virtual_network_access, passthrough: true }
+    terraform: { attribute: allow_virtual_network_access, note: on the second azurerm_virtual_network_peering, passthrough: true }
+    bicep_avm: { attribute: allowVirtualNetworkAccess, note: on the second call, passthrough: true }
+    bicep: { attribute: properties.allowVirtualNetworkAccess, note: on the second resource, passthrough: true }
+
+  # --------------------------------------------------------------- networking
+  networking.central_inspection:
+    not_rendered: decides allow_forwarded_traffic and reverse_allow_forwarded_traffic; not an input
+  networking.allow_forwarded_traffic:
+    terraform_avm: { attribute: allow_forwarded_traffic, note: module default false; written, passthrough: true }
+    terraform: { attribute: allow_forwarded_traffic, passthrough: true }
+    bicep_avm: { attribute: allowForwardedTraffic, note: module default true - unlike Terraform; written, passthrough: true }
+    bicep: { attribute: properties.allowForwardedTraffic, passthrough: true }
+  networking.reverse_allow_forwarded_traffic:
+    terraform_avm: { attribute: reverse_allow_forwarded_traffic, passthrough: true }
+    terraform: { attribute: allow_forwarded_traffic, note: on the second azurerm_virtual_network_peering, passthrough: true }
+    bicep_avm: { attribute: allowForwardedTraffic, note: on the second call; module default true - written, passthrough: true }
+    bicep: { attribute: properties.allowForwardedTraffic, note: on the second resource, passthrough: true }
+  networking.hub_gateway:
+    not_rendered: decides allow_gateway_transit, use_remote_gateways and reverse_allow_gateway_transit; not an input
+  networking.allow_gateway_transit:
+    terraform_avm: { attribute: allow_gateway_transit, note: hub side only, passthrough: true }
+    terraform: { attribute: allow_gateway_transit, passthrough: true }
+    bicep_avm: { attribute: allowGatewayTransit, note: hub side only, passthrough: true }
+    bicep: { attribute: properties.allowGatewayTransit, passthrough: true }
+  networking.use_remote_gateways:
+    terraform_avm: { attribute: use_remote_gateways, note: spoke side only; reverse_use_remote_gateways is always false, passthrough: true }
+    terraform: { attribute: use_remote_gateways, passthrough: true }
+    bicep_avm:
+      attribute: useRemoteGateways
+      passthrough: true
+      note: 'spoke side only; true needs the reverse call first - dependsOn: [ reversePeering ] on the local call'
+    bicep: { attribute: properties.useRemoteGateways, passthrough: true }
+  networking.reverse_allow_gateway_transit:
+    terraform_avm: { attribute: reverse_allow_gateway_transit, passthrough: true }
+    terraform: { attribute: allow_gateway_transit, note: on the second azurerm_virtual_network_peering, passthrough: true }
+    bicep_avm: { attribute: allowGatewayTransit, note: on the second call, passthrough: true }
+    bicep: { attribute: properties.allowGatewayTransit, note: on the second resource, passthrough: true }
+  networking.verify_remote_gateways:
+    terraform_avm:
+      attribute: do_not_verify_remote_gateways
+      values: { true: false, false: true }
+      note: inverted
+    terraform: { gap: not an argument of azurerm_virtual_network_peering; the provider does not expose doNotVerifyRemoteGateways }
+    bicep_avm:
+      attribute: doNotVerifyRemoteGateways
+      values: { true: false, false: true }
+      note: inverted; module default true (no check) - unlike Terraform; written
+    bicep:
+      attribute: properties.doNotVerifyRemoteGateways
+      values: { true: false, false: true }
+      note: inverted

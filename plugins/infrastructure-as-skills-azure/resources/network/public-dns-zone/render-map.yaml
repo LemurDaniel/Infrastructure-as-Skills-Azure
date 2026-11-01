@@ -1,0 +1,91 @@
+# What each decision of questions.yaml renders to, per target and implementation.
+# Format: core/iac-rendering/references/render-map.md. The call, the authored blocks and the
+# tests are in terraform.md and bicep.md.
+# The Terraform module is azurerm-based (>= 3.71, < 5.0): a root calling it cannot be on 5.x.
+schema_version: 1
+resource: Microsoft.Network/dnsZones
+
+modules:
+  terraform: [Azure/avm-res-network-dnszone/azurerm]
+  bicep: [avm/res/network/dns-zone]
+
+decisions:
+
+  # ---------------------------------------------------------------- placement
+  placement.environments:
+    not_rendered: the stage the zone is rendered in; the zone name and the delegations come from the stage's file
+  placement.location:
+    terraform_avm: { gap: no input; the module creates the zone global }
+    terraform: { gap: reference names no authored argument; azurerm_dns_zone takes name and resource_group_name }
+    bicep_avm: { attribute: location, note: "always 'global'; the module default as well, written anyway", passthrough: true }
+    bicep: { attribute: location, note: "always 'global'", passthrough: true }
+  placement.resource_group_name:
+    terraform_avm: { attribute: resource_group_name, note: 'a name, not an id' }
+    terraform: { attribute: azurerm_dns_zone.resource_group_name }
+    bicep_avm: { gap: the deployment's resource group scope; no parameter }
+    bicep: { gap: the deployment's resource group scope; no property }
+
+  # --------------------------------------------------------------------- zone
+  zone.zone_name:
+    terraform_avm: { attribute: name, note: the domain from the stage's file; never the naming provider, passthrough: true }
+    terraform: { attribute: azurerm_dns_zone.name, passthrough: true }
+    bicep_avm: { attribute: name, note: a parameter of the stage file; not assembled from the naming vars, passthrough: true }
+    bicep: { attribute: Microsoft.Network/dnsZones name, note: "properties.zoneType: 'Public'", passthrough: true }
+  zone.registrar_owner:
+    not_rendered: the handover's `open:` entry for the delegation; the name servers are the module's name_servers / nameServers output
+  zone.child_zone_delegations:
+    terraform_avm:
+      attribute: 'ns_records.<key> = { name, ttl, records = [<name servers>], resource_group_name, zone_name }'
+      note: one record set per child
+    terraform: { attribute: 'azurerm_dns_ns_record { zone_name, resource_group_name, name, ttl, records }' }
+    bicep_avm:
+      attribute: 'ns[] = { name, ttl, nsRecords: [ { nsdname } ] }'
+      note: 'no nested for inside a property - the inner list is map(child.nameServers, ns => { nsdname: ns })'
+    bicep: { attribute: Microsoft.Network/dnsZones/NS properties.NSRecords }
+
+  # ------------------------------------------------------------------ records
+  records.record_sets:
+    terraform_avm:
+      attribute: 'a_records, aaaa_records, cname_records, txt_records, mx_records, caa_records'
+      note: every record object repeats resource_group_name and zone_name; caa flags is a string; an alias is target_resource_id
+    terraform:
+      attribute: 'azurerm_dns_a_record, _aaaa_record, _cname_record, _txt_record, _mx_record, _caa_record'
+      note: on 5.x still zone_name plus resource_group_name; an alias is target_resource_id instead of records
+    bicep_avm:
+      attribute: 'a, aaaa, cname, txt, mx, caa'
+      note: one array per type; caa flags is an int; an alias is targetResourceId
+    bicep:
+      attribute: 'Microsoft.Network/dnsZones/A, /AAAA, /CNAME, /TXT, /MX, /CAA'
+      note: the typed ARecords / CNAMERecord / TXTRecords / MXRecords / caaRecords, or targetResource.id for an alias
+  records.verification_records:
+    terraform_avm:
+      attribute: 'txt_records, cname_records'
+      note: from wiring.dns_records, in the same maps as record_sets - keyed so the two cannot collide
+    terraform: { attribute: 'azurerm_dns_txt_record, _cname_record' }
+    bicep_avm: { attribute: 'txt, cname', note: 'from wiring.dns_records, concatenated into the same arrays' }
+    bicep: { attribute: 'Microsoft.Network/dnsZones/TXT, /CNAME' }
+  records.record_ttl_seconds:
+    terraform_avm: { attribute: ttl, note: on every record object; required per record, passthrough: true }
+    terraform: { attribute: ttl, note: on every record, passthrough: true }
+    bicep_avm: { attribute: ttl, note: per record; the module default is 3600 too - written, passthrough: true }
+    bicep: { attribute: properties.TTL, note: on every record child, passthrough: true }
+
+  # ------------------------------------------------------------------- access
+  access.role_assignments:
+    terraform_avm:
+      gap: 'not carried by the module; an authored azurerm_role_assignment per entry, scope = module.public_dns_zone.resource_id, role_definition_name = "DNS Zone Contributor"'
+    terraform: { attribute: azurerm_role_assignment, note: "scope = the zone's id" }
+    bicep_avm: { attribute: "roleAssignments[] = { principalId, roleDefinitionIdOrName: 'DNS Zone Contributor', principalType }" }
+    bicep: { attribute: Microsoft.Authorization/roleAssignments, note: an extension resource with scope = the zone }
+
+  # ----------------------------------------------------------------- security
+  security.dnssec:
+    terraform_avm:
+      gap: not carried by the module; an authored azapi_resource Microsoft.Network/dnsZones/dnssecConfigs@2023-07-01-preview named default, parent_id the zone's id
+    terraform:
+      gap: azurerm 5.x has no DNSSEC resource; an azapi_resource Microsoft.Network/dnsZones/dnssecConfigs@2023-07-01-preview named default
+    bicep_avm:
+      attribute: enableDnsSec
+      passthrough: true
+      note: deploys the dnssecConfigs child; the DS record for the parent is read after the deployment, not an output
+    bicep: { gap: 'an authored child Microsoft.Network/dnsZones/dnssecConfigs@2023-07-01-preview named default, declared only when true; no property of the zone' }

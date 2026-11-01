@@ -1,0 +1,217 @@
+# What each decision of questions.yaml renders to, per target and implementation.
+# Format: core/iac-rendering/references/render-map.md. The call, the authored blocks and the
+# tests are in terraform.md and bicep.md.
+schema_version: 1
+resource: Microsoft.Cdn/profiles
+
+# The CDN profile module carries Front Door Standard and Premium; the Bicep network/front-door
+# module is the deprecated classic one. Terraform keeps the WAF policy inside the profile module,
+# Bicep calls it first as a module of its own.
+modules:
+  terraform: [Azure/avm-res-cdn-profile/azurerm]
+  bicep: [avm/res/network/front-door-web-application-firewall-policy, avm/res/cdn/profile]
+
+decisions:
+
+  # ---------------------------------------------------------------- placement
+  placement.environments:
+    not_rendered: naming parameter `environment` and the tag of that name; no attribute of the profile
+  placement.location:
+    terraform_avm: { gap: 'location = "global" on the profile, a constant whatever the answer - the module requires the argument' }
+    terraform: { gap: "terraform.md's authored table names no location argument" }
+    bicep_avm: { gap: "location: 'global' on the profile module, a constant whatever the answer" }
+    bicep: { gap: "bicep.md's authored table names no location property" }
+  placement.resource_group_name:
+    terraform_avm:
+      attribute: resource_group_name
+      note: a name, not an id; front_door_firewall_policies.<k>.resource_group_name is a required member too
+    terraform: { attribute: resource_group_name }
+    bicep_avm: { gap: the deployment's resource group scope; no parameter }
+    bicep: { gap: the deployment's resource group scope; no property }
+
+  # ------------------------------------------------------------------ profile
+  profile.sku:
+    terraform_avm:
+      attribute: sku
+      passthrough: true
+      note: module default Standard_AzureFrontDoor - written; the firewall policy's sku_name must match
+    terraform: { attribute: azurerm_cdn_frontdoor_profile.sku_name, passthrough: true }
+    bicep_avm:
+      attribute: sku
+      module: avm/res/cdn/profile
+      passthrough: true
+      note: required, no module default; the WAF policy module's sku must match
+    bicep: { attribute: sku.name, passthrough: true }
+  profile.response_timeout_seconds:
+    terraform_avm: { attribute: response_timeout_seconds, passthrough: true, note: module default 120 (Bicep 60) - written }
+    terraform: { attribute: azurerm_cdn_frontdoor_profile.response_timeout_seconds, passthrough: true }
+    bicep_avm: { attribute: originResponseTimeoutSeconds, module: avm/res/cdn/profile, passthrough: true, note: module default 60 (Terraform 120) - written }
+    bicep: { attribute: properties.originResponseTimeoutSeconds, passthrough: true }
+  profile.managed_identity:
+    terraform_avm:
+      attribute: managed_identities
+      values:
+        none: null
+        system_assigned: { expr: '{ system_assigned = true }' }
+        user_assigned: { expr: '{ user_assigned_resource_ids = {profile.user_assigned_identity_ids} }' }
+      note: none leaves the input out
+    terraform: { gap: "terraform.md's authored table names no identity argument" }
+    bicep_avm:
+      attribute: managedIdentities
+      module: avm/res/cdn/profile
+      values:
+        none: null
+        system_assigned: { expr: '{ systemAssigned: true }' }
+        user_assigned: { expr: '{ userAssignedResourceIds: {profile.user_assigned_identity_ids} }' }
+      note: none leaves the parameter out
+    bicep: { gap: "bicep.md's authored table names no identity property" }
+  profile.user_assigned_identity_ids:
+    terraform_avm: { attribute: managed_identities.user_assigned_resource_ids }
+    terraform: { gap: "terraform.md's authored table names no identity argument" }
+    bicep_avm: { attribute: managedIdentities.userAssignedResourceIds, module: avm/res/cdn/profile }
+    bicep: { gap: "bicep.md's authored table names no identity property" }
+
+  # ----------------------------------------------------------------- delivery
+  delivery.origins:
+    terraform_avm:
+      attribute: front_door_origin_groups, front_door_origins
+      note: with front_door_endpoints and front_door_routes - the pattern's wiring
+    terraform: { attribute: azurerm_cdn_frontdoor_origin_group, note: plus azurerm_cdn_frontdoor_origin }
+    bicep_avm:
+      attribute: 'originGroups[] = { name, origins: [ { name, hostName, sharedPrivateLinkResource } ] }'
+      module: avm/res/cdn/profile
+      note: member names from the README of the pinned version
+    bicep: { attribute: child originGroups and originGroups/origins }
+  delivery.origin_connection:
+    terraform_avm:
+      gap: >-
+        private_link sets the private_link member of front_door_origins.<k> (its members are not in
+        terraform.md - read them from the README); public leaves it out. The connection is created
+        pending on the origin's resource - the handover names its approver
+    terraform:
+      gap: private_link renders azurerm_cdn_frontdoor_origin.private_link { ... }, public no block; terraform.md shows no member of the block
+    bicep_avm:
+      gap: >-
+        private_link sets originGroups[].origins[].sharedPrivateLinkResource (its members are read
+        from the README), public leaves it out; the connection arrives pending
+    bicep: { gap: "bicep.md's authored table names no property for the private link on originGroups/origins" }
+  delivery.forwarding_protocol:
+    terraform_avm: { attribute: 'front_door_routes.<k>.forwarding_protocol', passthrough: true, note: route default MatchRequest - written }
+    terraform: { gap: "terraform.md names the resource azurerm_cdn_frontdoor_route, not the argument" }
+    bicep_avm: { attribute: 'afdEndpoints[].routes[].forwardingProtocol', module: avm/res/cdn/profile, passthrough: true, note: route default MatchRequest - written }
+    bicep: { gap: "bicep.md names the child afdEndpoints/routes, not the property" }
+  delivery.https_redirect:
+    terraform_avm: { attribute: 'front_door_routes.<k>.https_redirect_enabled', passthrough: true }
+    terraform: { gap: "terraform.md names the resource azurerm_cdn_frontdoor_route, not the argument" }
+    bicep_avm: { gap: "afdEndpoints[].routes[].httpsRedirect; bicep.md states neither its type nor its literals" }
+    bicep: { gap: "bicep.md names the child afdEndpoints/routes, not the property" }
+  delivery.caching:
+    terraform_avm: { gap: "true sets front_door_routes.<k>.cache, false leaves it out; terraform.md names no member of the cache object" }
+    terraform: { gap: "terraform.md names the resource azurerm_cdn_frontdoor_route, not the argument" }
+    bicep_avm: { gap: "true sets afdEndpoints[].routes[].cacheConfiguration, false leaves it out; bicep.md names no member of it" }
+    bicep: { gap: "bicep.md names the child afdEndpoints/routes, not the property" }
+  delivery.custom_domains:
+    terraform_avm: { attribute: 'front_door_custom_domains.<k> = { host_name, tls = { certificate_type, minimum_tls_version } }' }
+    terraform: { attribute: azurerm_cdn_frontdoor_custom_domain }
+    bicep_avm: { attribute: 'customDomains[] = { name, hostName, certificateType, minimumTlsVersion }', module: avm/res/cdn/profile }
+    bicep: { attribute: child customDomains }
+  delivery.certificate_source:
+    terraform_avm:
+      attribute: 'front_door_custom_domains.<k>.tls.certificate_type'
+      values: { managed: ManagedCertificate, customer: CustomerCertificate }
+    terraform:
+      attribute: azurerm_cdn_frontdoor_custom_domain.tls.certificate_type
+      values: { managed: ManagedCertificate, customer: CustomerCertificate }
+    bicep_avm:
+      attribute: 'customDomains[].certificateType'
+      module: avm/res/cdn/profile
+      values: { managed: ManagedCertificate, customer: CustomerCertificate }
+    bicep: { gap: "bicep.md names the child customDomains with properties.tlsSettings, not its member" }
+  delivery.minimum_tls_version:
+    terraform_avm: { attribute: 'front_door_custom_domains.<k>.tls.minimum_tls_version', passthrough: true }
+    terraform: { attribute: azurerm_cdn_frontdoor_custom_domain.tls.minimum_tls_version, passthrough: true }
+    bicep_avm: { attribute: 'customDomains[].minimumTlsVersion', module: avm/res/cdn/profile, passthrough: true }
+    bicep: { gap: "bicep.md names the child customDomains with properties.tlsSettings, not its member" }
+
+  # ----------------------------------------------------------------- security
+  security.waf_enabled:
+    terraform_avm:
+      attribute: front_door_firewall_policies
+      values:
+        true: { expr: '{ waf = { name, resource_group_name, sku_name, mode, custom_block_response_status_code = 403, custom_rules, managed_rules } }' }
+        false: null
+      also:
+        true: front_door_security_policies = var.front_door_security_policies
+      note: false renders neither input; the security policy binds the firewall policy to the endpoint and domains
+    terraform:
+      gap: >-
+        true renders azurerm_cdn_frontdoor_firewall_policy and azurerm_cdn_frontdoor_security_policy,
+        false neither; terraform.md names the resources, not their arguments
+    bicep_avm:
+      attribute: securityPolicies
+      module: avm/res/cdn/profile
+      values:
+        true: { expr: "[ { name: 'waf', wafPolicyResourceId: wafPolicy.outputs.resourceId, associations: securityPolicyAssociations } ]" }
+        false: null
+      note: true also calls the WAF policy module, bound by its id; false calls neither
+    bicep:
+      gap: >-
+        true renders Microsoft.Network/FrontDoorWebApplicationFirewallPolicies and the profile's child
+        securityPolicies, false neither
+  security.waf_mode:
+    terraform_avm:
+      attribute: 'front_door_firewall_policies.<k>.mode'
+      passthrough: true
+      note: resource_group_name, sku_name and mode are required members; sku_name equal to the profile's
+    terraform: { gap: "terraform.md names the resource azurerm_cdn_frontdoor_firewall_policy, not the argument" }
+    bicep_avm: { attribute: policySettings.mode, module: avm/res/network/front-door-web-application-firewall-policy, passthrough: true }
+    bicep: { attribute: policy properties.policySettings.mode, passthrough: true }
+  security.waf_managed_rules:
+    terraform_avm:
+      attribute: 'front_door_firewall_policies.<k>.managed_rules'
+      values:
+        true: { expr: '{ default = { type = "Microsoft_DefaultRuleSet", version = "2.1", action = "Block" }, bots = { type = "Microsoft_BotManagerRuleSet", version = "1.1", action = "Block" } }' }
+        false: null
+      note: Premium only; false leaves the member out
+    terraform: { gap: "terraform.md names the resource azurerm_cdn_frontdoor_firewall_policy, not the argument" }
+    bicep_avm:
+      gap: >-
+        true sets the policy module's managedRules with Microsoft_DefaultRuleSet 2.1 and
+        Microsoft_BotManagerRuleSet 1.1 (Premium only), false leaves it out; bicep.md passes a
+        variable and names no member of it
+    bicep: { gap: "true sets the policy's properties.managedRules, false leaves it out; bicep.md names no member of it" }
+  security.waf_rate_limit_per_minute:
+    terraform_avm:
+      attribute: 'front_door_firewall_policies.<k>.custom_rules.<r>.rate_limit_threshold'
+      passthrough: true
+      note: 'a custom rule: type = "RateLimitRule", action = "Block", rate_limit_duration_in_minutes = 1; custom_block_response_status_code = 403 on the policy'
+    terraform: { gap: "terraform.md names the resource azurerm_cdn_frontdoor_firewall_policy, not the argument" }
+    bicep_avm: { gap: the threshold of a rate-limit rule in the policy module's customRules; bicep.md passes a variable and shows no rule shape }
+    bicep: { gap: the threshold of a rate-limit rule in the policy's properties.customRules; bicep.md shows no rule shape }
+
+  # ------------------------------------------------------------ observability
+  observability.diagnostic_workspace:
+    terraform_avm: { attribute: 'diagnostic_settings.<key>.workspace_resource_id' }
+    terraform: { attribute: azurerm_monitor_diagnostic_setting.log_analytics_workspace_id }
+    bicep_avm: { attribute: 'diagnosticSettings[].workspaceResourceId', module: avm/res/cdn/profile }
+    bicep: { gap: bicep.md names no authored diagnostic setting }
+  observability.diagnostic_categories:
+    terraform_avm:
+      attribute: 'diagnostic_settings.<key>.log_categories'
+      note: log_groups = [] beside the categories
+    terraform: { attribute: azurerm_monitor_diagnostic_setting.enabled_log.category }
+    bicep_avm: { attribute: 'diagnosticSettings[].logCategoriesAndGroups[].category', module: avm/res/cdn/profile }
+    bicep: { gap: bicep.md names no authored diagnostic setting }
+  observability.metrics_enabled:
+    terraform_avm:
+      attribute: 'diagnostic_settings.<key>.metric_categories'
+      values: { true: { expr: '["AllMetrics"]' }, false: { expr: '[]' } }
+    terraform:
+      attribute: azurerm_monitor_diagnostic_setting.enabled_metric
+      values: { true: { expr: '{ category = "AllMetrics" }' }, false: null }
+      note: a block (azurerm 5.x); false renders no enabled_metric block
+    bicep_avm:
+      attribute: 'diagnosticSettings[].metricCategories'
+      module: avm/res/cdn/profile
+      values: { true: { expr: "[ { category: 'AllMetrics' } ]" }, false: { expr: '[]' } }
+    bicep: { gap: bicep.md names no authored diagnostic setting }

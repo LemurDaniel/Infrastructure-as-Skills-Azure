@@ -1,0 +1,76 @@
+# What each decision of questions.yaml renders to, per target and implementation.
+# Format: core/iac-rendering/references/render-map.md. The call, the authored blocks and the
+# tests are in terraform.md and bicep.md.
+schema_version: 1
+resource: Microsoft.Network/ddosProtectionPlans
+
+modules:
+  terraform: [Azure/avm-res-network-ddosprotectionplan/azurerm]
+  bicep: [avm/res/network/ddos-protection-plan]
+
+decisions:
+
+  # ---------------------------------------------------------------- placement
+  placement.environments:
+    not_rendered: naming parameter `environment`; which stages render the plan is plan.stages_with_plan
+  placement.location:
+    terraform_avm: { attribute: location, passthrough: true, note: required by the module }
+    terraform: { attribute: location, passthrough: true }
+    bicep_avm: { attribute: location, passthrough: true, note: module default is the group's location; written }
+    bicep: { attribute: location, passthrough: true }
+  placement.resource_group_name:
+    terraform_avm:
+      attribute: resource_group_name
+      note: a name, not an id - azurerm-based module (azurerm < 5.0)
+    terraform: { attribute: resource_group_name }
+    bicep_avm: { gap: the deployment's resource group scope; no parameter }
+    bicep: { gap: the deployment's resource group scope; no property }
+
+  # --------------------------------------------------------------------- plan
+  plan.ownership:
+    not_rendered: 'decides what is rendered - the module (deployment) or a data source / existing reference to plan.existing_plan (platform); no attribute'
+  plan.existing_plan:
+    terraform_avm:
+      attribute: 'data "azurerm_network_ddos_protection_plan" { name, resource_group_name }'
+      note: platform only; provider alias for the connectivity subscription; its id goes to the networks
+    terraform:
+      attribute: 'data "azurerm_network_ddos_protection_plan" { name, resource_group_name }'
+      note: platform only; provider alias for the connectivity subscription
+    bicep_avm:
+      attribute: 'existing resource: name, scope: resourceGroup(subscriptionId, resourceGroupName)'
+      note: platform only; its id goes to the networks
+    bicep: { attribute: 'existing resource: name, scope: resourceGroup(subscriptionId, resourceGroupName)' }
+  plan.stages_with_plan:
+    terraform_avm:
+      attribute: count
+      values:
+        production: { expr: 'var.ddos_protection_plan_enabled ? 1 : 0' }
+        all_stages: { expr: 'var.ddos_protection_plan_enabled ? 1 : 0' }
+      note: the answer picks the stage files - production sets the switch true in environments/production.tfvars only (the other stages' networks take ddos_protection_plan = null), all_stages in every stage file
+    terraform:
+      attribute: count
+      values:
+        production: { expr: 'var.ddos_protection_plan_enabled ? 1 : 0' }
+        all_stages: { expr: 'var.ddos_protection_plan_enabled ? 1 : 0' }
+      note: the switch true in the production stage file only (production) or in every stage file (all_stages)
+    bicep_avm:
+      attribute: module condition
+      values:
+        production: { expr: 'if (ddosProtectionPlanEnabled)' }
+        all_stages: { expr: 'if (ddosProtectionPlanEnabled)' }
+      note: param ddosProtectionPlanEnabled bool, true in main.production.bicepparam only (production) or in every stage file (all_stages)
+    bicep:
+      attribute: resource condition
+      values:
+        production: { expr: 'if (ddosProtectionPlanEnabled)' }
+        all_stages: { expr: 'if (ddosProtectionPlanEnabled)' }
+      note: the switch true in the production stage file only (production) or in every stage file (all_stages)
+
+  # ------------------------------------------------------------------- access
+  access.role_assignments:
+    terraform_avm:
+      attribute: 'role_assignments.<k> = { role_definition_id_or_name, principal_id, principal_type }'
+      note: '"Network Contributor" or "Reader"'
+    terraform: { attribute: azurerm_role_assignment, note: scope = the plan's id }
+    bicep_avm: { attribute: "roleAssignments[] = { principalId, roleDefinitionIdOrName, principalType }" }
+    bicep: { attribute: Microsoft.Authorization/roleAssignments, note: extension resource with scope = the plan }

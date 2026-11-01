@@ -1,0 +1,138 @@
+# What each decision of questions.yaml renders to, per target and implementation.
+# Format: core/iac-rendering/references/render-map.md. The call, the authored blocks and the
+# tests are in terraform.md and bicep.md.
+# The Terraform module carries no manual connection: an endpoint with connection_approval
+# manual renders authored there.
+schema_version: 1
+resource: Microsoft.Network/privateEndpoints
+
+modules:
+  terraform: [Azure/avm-res-network-privateendpoint/azurerm]
+  bicep: [avm/res/network/private-endpoint]
+
+decisions:
+
+  # ---------------------------------------------------------------- placement
+  placement.environments:
+    not_rendered: naming parameter `environment` and the tag of that name; no attribute of the endpoint
+  placement.location:
+    terraform_avm: { attribute: location, passthrough: true }
+    terraform: { attribute: location, passthrough: true }
+    bicep_avm: { attribute: location, passthrough: true }
+    bicep: { attribute: location, passthrough: true }
+  placement.resource_group_name:
+    terraform_avm:
+      attribute: parent_id
+      note: the group's id, not its name - AzAPI-only module
+    terraform: { gap: reference names no authored argument }
+    bicep_avm: { gap: the deployment's resource group scope; no parameter }
+    bicep: { gap: the deployment's resource group scope; no property }
+
+  # ------------------------------------------------------------------- target
+  target.target_resource:
+    terraform_avm: { attribute: private_connection_resource_id }
+    terraform: { attribute: private_service_connection.private_connection_resource_id }
+    bicep_avm:
+      attribute: 'privateLinkServiceConnections[].properties.privateLinkServiceId'
+      note: under manualPrivateLinkServiceConnections when the connection is manual
+    bicep:
+      attribute: 'properties.privateLinkServiceConnections[].properties.privateLinkServiceId'
+      note: under manualPrivateLinkServiceConnections when the connection is manual
+  target.subresource:
+    terraform_avm:
+      attribute: subresource_names
+      format: { expr: '["{value}"]' }
+      note: a list with one entry
+    terraform:
+      attribute: private_service_connection.subresource_names
+      format: { expr: '["{value}"]' }
+      note: a list with one entry
+    bicep_avm:
+      attribute: 'privateLinkServiceConnections[].properties.groupIds'
+      format: { expr: "['{value}']" }
+      note: a list with one entry; one group id per endpoint
+    bicep:
+      attribute: 'properties.privateLinkServiceConnections[].properties.groupIds'
+      format: { expr: "['{value}']" }
+      note: a list with one entry
+  target.connection_approval:
+    terraform_avm:
+      gap: the module has no manual-connection input; a manual endpoint renders authored, or the decision is marked not carried in the handover
+    terraform:
+      attribute: private_service_connection.is_manual_connection
+      values: { automatic: false, manual: true }
+    bicep_avm:
+      attribute: manualPrivateLinkServiceConnections
+      values:
+        automatic: null
+        manual: { expr: '[ { name: <name>, properties: { privateLinkServiceId: {target.target_resource}, groupIds: [ {target.subresource} ], requestMessage: {target.approval_message} } } ]' }
+      note: manual moves the connection here and leaves privateLinkServiceConnections out - instead of it, not beside it
+    bicep:
+      attribute: properties.manualPrivateLinkServiceConnections
+      values:
+        automatic: null
+        manual: { expr: '[ { name: <name>, properties: { privateLinkServiceId: {target.target_resource}, groupIds: [ {target.subresource} ], requestMessage: {target.approval_message} } } ]' }
+      note: manual moves the connection here and leaves properties.privateLinkServiceConnections out; the item shape is the module's, which passes it through
+  target.approval_message:
+    terraform_avm: { gap: not carried by the module; the manual endpoint renders authored }
+    terraform: { attribute: private_service_connection.request_message, note: only when manual, passthrough: true }
+    bicep_avm: { attribute: 'manualPrivateLinkServiceConnections[].properties.requestMessage', passthrough: true }
+    bicep: { attribute: 'properties.manualPrivateLinkServiceConnections[].properties.requestMessage', passthrough: true }
+
+  # --------------------------------------------------------------- networking
+  networking.subnet:
+    terraform_avm: { attribute: subnet_resource_id }
+    terraform: { attribute: subnet_id }
+    bicep_avm: { attribute: subnetResourceId }
+    bicep: { attribute: properties.subnet.id }
+  networking.private_ip_address:
+    terraform_avm:
+      attribute: 'ip_configurations.<key>.private_ip_address'
+      passthrough: true
+      omit_empty: true
+      note: 'ip_configurations.<key> = { name, private_ip_address, subresource_name }; the map left out for an Azure-assigned address ("")'
+    terraform:
+      attribute: ip_configuration.private_ip_address
+      passthrough: true
+      omit_empty: true
+      note: 'ip_configuration { name, private_ip_address, subresource_name }; no block for an Azure-assigned address ("")'
+    bicep_avm:
+      attribute: 'ipConfigurations[].properties.privateIPAddress'
+      passthrough: true
+      omit_empty: true
+      note: "ipConfigurations[] = { name, properties: { groupId, memberName: 'default', privateIPAddress } }; left out for an Azure-assigned address"
+    bicep:
+      attribute: 'properties.ipConfigurations[].properties.privateIPAddress'
+      passthrough: true
+      omit_empty: true
+      note: left out for an Azure-assigned address ("")
+
+  # ---------------------------------------------------------------------- dns
+  dns.dns_ownership:
+    not_rendered: decides where the zone id comes from - the platform's data source or the private-dns-zone output
+  dns.dns_records:
+    not_rendered: resolves into dns_zone_group, which decides whether the zone group is rendered
+  dns.dns_zone_group:
+    terraform_avm:
+      attribute: private_dns_zone_group_name
+      values: { attached: default, left_to_policy: null }
+      note: left_to_policy leaves private_dns_zone_resource_ids out too - no zone group, no second writer
+    terraform:
+      attribute: private_dns_zone_group.name
+      values: { attached: default, left_to_policy: null }
+      also:
+        left_to_policy: 'lifecycle { ignore_changes = [private_dns_zone_group] }'
+      note: 'private_dns_zone_group { name, private_dns_zone_ids } only for attached; the ignore_changes where the platform policy adds one afterwards'
+    bicep_avm:
+      attribute: privateDnsZoneGroup.name
+      values: { attached: default, left_to_policy: null }
+      note: left_to_policy leaves the whole privateDnsZoneGroup out
+    bicep:
+      gap: the child Microsoft.Network/privateEndpoints/privateDnsZoneGroups, declared only for attached; the reference names no property the answer sets
+  dns.dns_zones:
+    terraform_avm: { attribute: private_dns_zone_resource_ids, note: ids - the platform's data source or the private-dns-zone output }
+    terraform: { attribute: private_dns_zone_group.private_dns_zone_ids }
+    bicep_avm: { attribute: 'privateDnsZoneGroup.privateDnsZoneGroupConfigs[].privateDnsZoneResourceId', note: up to five zones }
+    bicep: { gap: 'the child privateDnsZoneGroups takes privateDnsZoneConfigs, one object per zone; the reference shows no item shape' }
+  dns.dns_zone_scope:
+    not_rendered: the scope of the data source or `existing` reference that resolves the zone ids; no attribute of the endpoint

@@ -1,0 +1,121 @@
+# What each decision of questions.yaml renders to, per target and implementation.
+# Format: core/iac-rendering/references/render-map.md. The call, the authored blocks and the
+# tests are in terraform.md and bicep.md.
+schema_version: 1
+resource: Microsoft.Network/networkSecurityGroups
+
+modules:
+  terraform: [Azure/avm-res-network-networksecuritygroup/azurerm]
+  bicep: [avm/res/network/network-security-group]
+
+decisions:
+
+  # ---------------------------------------------------------------- placement
+  placement.environments:
+    not_rendered: naming parameter `environment` and the tag of that name; no attribute of the group
+  placement.location:
+    terraform_avm: { attribute: location, passthrough: true }
+    terraform: { attribute: location, passthrough: true }
+    bicep_avm: { attribute: location, passthrough: true }
+    bicep: { attribute: location, passthrough: true }
+  placement.resource_group_name:
+    terraform_avm:
+      attribute: parent_id
+      note: the group's id (data.azurerm_resource_group), not its name - AzAPI-only module
+    terraform: { attribute: resource_group_name }
+    bicep_avm: { gap: the deployment's resource group scope; no parameter }
+    bicep: { gap: the deployment's resource group scope; no property }
+
+  # -------------------------------------------------------------------- rules
+  rules.subnet_purpose:
+    terraform_avm:
+      gap: >-
+        selects the baseline rules of notes.md for the purpose (local.baseline_rules), merged into
+        security_rules beside the default and the explicit rules, and the name part nsg-<purpose>;
+        notes.md states the baselines in prose, not as rule objects
+    terraform:
+      gap: >-
+        selects the baseline rules of notes.md for the purpose, as inline security_rule blocks or
+        azurerm_network_security_rule - never both; notes.md states them in prose, not as rule objects
+    bicep_avm:
+      gap: >-
+        selects the baseline rules of notes.md for the purpose (baselineRules), concatenated into
+        securityRules beside the default and the explicit rules, and the name part nsg-<purpose>;
+        notes.md states them in prose, not as rule objects
+    bicep:
+      gap: >-
+        selects the baseline rules of notes.md for the purpose, in properties.securityRules or as
+        child resources - never both; notes.md states them in prose, not as rule objects
+  rules.default_inbound:
+    terraform_avm:
+      attribute: security_rules.deny_all_inbound
+      values:
+        deny_all: { expr: '{ name = "deny-all-inbound", priority = 4096, direction = "Inbound", access = "Deny", protocol = "*", source_address_prefix = "*", source_port_range = "*", destination_address_prefix = "*", destination_port_range = "*" }' }
+        azure_default: null
+      note: one entry of the merged security_rules map, beside the baseline and the explicit rules; azure_default renders no rule
+    terraform:
+      attribute: 'azurerm_network_security_group.security_rule[]'
+      values:
+        deny_all: { expr: '{ name = "deny-all-inbound", priority = 4096, direction = "Inbound", access = "Deny", protocol = "*", source_address_prefix = "*", source_port_range = "*", destination_address_prefix = "*", destination_port_range = "*" }' }
+        azure_default: null
+      note: azure_default renders no rule; inline blocks or azurerm_network_security_rule - never both
+    bicep_avm:
+      attribute: 'securityRules[]'
+      values:
+        deny_all: { expr: "{ name: 'deny-all-inbound', properties: { priority: 4096, direction: 'Inbound', access: 'Deny', protocol: '*', sourceAddressPrefix: '*', sourcePortRange: '*', destinationAddressPrefix: '*', destinationPortRange: '*' } }" }
+        azure_default: null
+      note: the first element of the concat, before the baseline and the explicit rules; azure_default renders no rule
+    bicep:
+      attribute: 'properties.securityRules[]'
+      values:
+        deny_all: { expr: "{ name: 'deny-all-inbound', properties: { priority: 4096, direction: 'Inbound', access: 'Deny', protocol: '*', sourceAddressPrefix: '*', sourcePortRange: '*', destinationAddressPrefix: '*', destinationPortRange: '*' } }" }
+        azure_default: null
+      note: azure_default renders no rule
+  rules.default_outbound:
+    terraform_avm:
+      gap: >-
+        deny_internet adds a security_rules entry - Deny, Outbound, destination Internet, priority
+        4096; terraform.md states no name, protocol, source or ports for it. azure_default adds none
+    terraform:
+      gap: >-
+        deny_internet adds a security_rule - Deny, Outbound, destination Internet, priority 4096;
+        terraform.md states no name, protocol, source or ports for it. azure_default adds none
+    bicep_avm:
+      gap: >-
+        deny_internet adds a securityRules entry - Deny, Outbound, destinationAddressPrefix
+        'Internet', priority 4096; bicep.md states no name, protocol, source or ports for it.
+        azure_default adds none
+    bicep:
+      gap: >-
+        deny_internet adds a properties.securityRules entry - Deny, Outbound, destinationAddressPrefix
+        'Internet', priority 4096; bicep.md states no name, protocol, source or ports for it.
+        azure_default adds none
+  rules.rules:
+    terraform_avm:
+      attribute: 'security_rules.<k> = { name, priority, direction, access = "Allow", protocol, source_*, destination_* }'
+      note: the map key is arbitrary; names unique; always Allow
+    terraform:
+      attribute: security_rule
+      note: inline blocks or azurerm_network_security_rule - never both, the two fight on every apply
+    bicep_avm:
+      attribute: "securityRules[] = { name, properties: { priority, direction, access: 'Allow', protocol, sourceAddressPrefix, destinationPortRange, ... } }"
+      note: always Allow
+    bicep:
+      attribute: properties.securityRules
+      note: inline or as child resources - mixing them makes a redeploy remove one or the other
+
+  # ------------------------------------------------------------ observability
+  observability.diagnostic_workspace:
+    terraform_avm:
+      attribute: 'diagnostic_settings.<key>.workspace_resource_id'
+      note: metric_categories = []; no metrics for an NSG
+    terraform: { attribute: azurerm_monitor_diagnostic_setting.log_analytics_workspace_id }
+    bicep_avm: { attribute: 'diagnosticSettings[].workspaceResourceId', note: no metrics for an NSG }
+    bicep: { gap: bicep.md names no authored diagnostic setting }
+  observability.diagnostic_categories:
+    terraform_avm:
+      attribute: 'diagnostic_settings.<key>.log_categories'
+      note: log_groups defaults to ["allLogs"] - set it to [] beside the categories, or every log is collected
+    terraform: { attribute: azurerm_monitor_diagnostic_setting.enabled_log.category }
+    bicep_avm: { attribute: 'diagnosticSettings[].logCategoriesAndGroups[].category' }
+    bicep: { gap: bicep.md names no authored diagnostic setting }

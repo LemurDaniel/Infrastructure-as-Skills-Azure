@@ -1,0 +1,117 @@
+# What each decision of questions.yaml renders to, per target and implementation.
+# Format: core/iac-rendering/references/render-map.md. The call, the authored blocks and the
+# tests are in terraform.md and bicep.md.
+# The Terraform module is azurerm-based (>= 3.116, < 5.0): a root calling it cannot be on 5.x,
+# and the authored fallback in that root follows the 4.x spelling.
+schema_version: 1
+resource: Microsoft.Network/publicIPAddresses
+
+modules:
+  terraform: [Azure/avm-res-network-publicipaddress/azurerm]
+  bicep: [avm/res/network/public-ip-address]
+
+decisions:
+
+  # ---------------------------------------------------------------- placement
+  placement.environments:
+    not_rendered: naming parameter `environment` and the tag of that name; no attribute of the address
+  placement.location:
+    terraform_avm: { attribute: location, passthrough: true }
+    terraform: { attribute: location, passthrough: true }
+    bicep_avm: { attribute: location, passthrough: true }
+    bicep: { attribute: location, passthrough: true }
+  placement.resource_group_name:
+    terraform_avm: { attribute: resource_group_name, note: 'a name, not an id' }
+    terraform: { gap: reference names no authored argument }
+    bicep_avm: { gap: the deployment's resource group scope; no parameter }
+    bicep: { gap: the deployment's resource group scope; no property }
+
+  # ------------------------------------------------------------------ address
+  address.purpose:
+    not_rendered: the naming convention's `name` parameter (<workload>-<purpose>) - the pattern has no SUBNAME token; and the SKU decision
+  address.sku:
+    terraform_avm: { attribute: sku, note: module default Standard; written anyway, passthrough: true }
+    terraform: { attribute: sku, passthrough: true }
+    bicep_avm: { attribute: skuName, note: module default Standard; written anyway, passthrough: true }
+    bicep: { attribute: sku.name, passthrough: true }
+  address.sku_tier:
+    terraform_avm: { attribute: sku_tier, passthrough: true }
+    terraform: { attribute: sku_tier, passthrough: true }
+    bicep_avm: { attribute: skuTier, passthrough: true }
+    bicep: { attribute: sku.tier, passthrough: true }
+  address.allocation_method:
+    terraform_avm: { attribute: allocation_method, passthrough: true }
+    terraform: { attribute: allocation_method, passthrough: true }
+    bicep_avm: { attribute: publicIPAllocationMethod, passthrough: true }
+    bicep: { attribute: properties.publicIPAllocationMethod, passthrough: true }
+  address.ip_version:
+    terraform_avm: { attribute: ip_version, passthrough: true }
+    terraform: { attribute: ip_version, passthrough: true }
+    bicep_avm: { attribute: publicIPAddressVersion, passthrough: true }
+    bicep: { attribute: properties.publicIPAddressVersion, passthrough: true }
+  address.zones:
+    terraform_avm: { attribute: zones, note: 'a set of numbers ([1, 2, 3]), unlike the authored strings' }
+    terraform: { attribute: zones, note: 'strings (["1", "2", "3"]); Terraform converts the numbers' }
+    bicep_avm: { attribute: availabilityZones, note: integers; the module default is all three too }
+    bicep:
+      attribute: zones
+      format: { expr: 'map({value}, z => string(z))' }
+      note: strings - Bicep does not convert the integers of the answer
+  address.idle_timeout_minutes:
+    terraform_avm: { attribute: idle_timeout_in_minutes, passthrough: true }
+    terraform: { attribute: idle_timeout_in_minutes, passthrough: true }
+    bicep_avm: { attribute: idleTimeoutInMinutes, passthrough: true }
+    bicep: { attribute: properties.idleTimeoutInMinutes, passthrough: true }
+  address.dns_label:
+    terraform_avm: { attribute: domain_name_label, passthrough: true, omit_empty: true, note: the module has no empty-string form }
+    terraform: { attribute: domain_name_label, passthrough: true, omit_empty: true }
+    bicep_avm: { attribute: dnsSettings.domainNameLabel, passthrough: true, omit_empty: true }
+    bicep: { attribute: properties.dnsSettings.domainNameLabel, passthrough: true, omit_empty: true }
+
+  # ----------------------------------------------------------------- security
+  security.ddos_protection_mode:
+    terraform_avm:
+      attribute: ddos_protection_mode
+      passthrough: true
+    terraform:
+      attribute: ddos_protection_mode
+      passthrough: true
+    bicep_avm:
+      attribute: ddosSettings.protectionMode
+      values: { Enabled: Enabled, VirtualNetworkInherited: null, Disabled: null }
+      note: VirtualNetworkInherited and Disabled omit ddosSettings - not carried; a recorded Disabled renders as inherited and the handover says so
+    bicep: { attribute: properties.ddosSettings.protectionMode, passthrough: true, note: authored takes VirtualNetworkInherited and Disabled as well }
+  security.ddos_protection_plan:
+    terraform_avm: { attribute: ddos_protection_plan_id, note: only with Enabled }
+    terraform: { attribute: ddos_protection_plan_id }
+    bicep_avm: { attribute: ddosSettings.ddosProtectionPlan.id, note: "with protectionMode: 'Enabled'" }
+    bicep: { attribute: properties.ddosSettings.ddosProtectionPlan.id }
+
+  # ------------------------------------------------------------ observability
+  observability.diagnostic_workspace:
+    terraform_avm: { attribute: 'diagnostic_settings.<key>.workspace_resource_id' }
+    terraform: { attribute: azurerm_monitor_diagnostic_setting.log_analytics_workspace_id }
+    bicep_avm: { attribute: 'diagnosticSettings[].workspaceResourceId' }
+    bicep: { attribute: Microsoft.Insights/diagnosticSettings properties.workspaceId, note: 'an extension resource with scope: publicIp' }
+  observability.diagnostic_categories:
+    terraform_avm:
+      attribute: 'diagnostic_settings.<key>.log_categories'
+      note: log_groups defaults to ["allLogs"] - set it to [] when log_categories names the categories
+    terraform: { attribute: azurerm_monitor_diagnostic_setting.enabled_log.category }
+    bicep_avm:
+      attribute: 'diagnosticSettings[].logCategoriesAndGroups[].category'
+      note: without the list the module collects everything; written
+    bicep: { gap: 'reference names only the Microsoft.Insights/diagnosticSettings extension resource, no property path' }
+  observability.metrics_enabled:
+    terraform_avm:
+      attribute: 'diagnostic_settings.<key>.metric_categories'
+      values: { true: { expr: '["AllMetrics"]' }, false: { expr: '[]' } }
+    terraform:
+      attribute: azurerm_monitor_diagnostic_setting.enabled_metric.category
+      values: { true: AllMetrics, false: null }
+      note: false renders no enabled_metric block
+    bicep_avm:
+      attribute: 'diagnosticSettings[].metricCategories'
+      values: { true: { expr: "[ { category: 'AllMetrics' } ]" }, false: { expr: '[]' } }
+      note: without the list the module collects everything; written
+    bicep: { gap: 'reference names only the Microsoft.Insights/diagnosticSettings extension resource, no property path' }
