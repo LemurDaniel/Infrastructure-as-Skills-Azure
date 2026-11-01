@@ -105,6 +105,9 @@ it for an order a good run always shows (spec written, then the diagram skill), 
 the call's whole serialized input, file content included: anchor a path check on
 `file_path[^,]*` so a spec that mentions `main.tf` does not count as code. `focus` and
 `target` take `last_message`, `trace`, `files`, `mock_calls` or `{source: file, path}`.
+`files` is the list of paths the run created, never their contents: a content check reads
+`{source: file, path}` (no glob), and "never written, in any file" is `tool_used` on `Write`
+and `Edit` with `max: 0`, where a quote in the code reads as `\"`.
 
 **Per case, one grader on the process:** `tool_used` on `Skill` with
 `input_match: iac-authoring`. It is an indicator, excluded from the score against the

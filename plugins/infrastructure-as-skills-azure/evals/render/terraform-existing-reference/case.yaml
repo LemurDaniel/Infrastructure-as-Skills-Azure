@@ -7,9 +7,10 @@ name: terraform-existing-reference
 context:
   scaffold_script: scaffold.sh
 
-# The variable's name is the render's choice, so the graders read every file the run wrote for
-# what the idiom fixes: an id variable validated on the ARM type, the ids in the stage files,
-# no lookup by name.
+# The variable's name is the render's choice, but variables.tf is the idiom's: the graders read
+# it for an id variable validated on the ARM type, the stage files for the ids, and every Write
+# and Edit the run made for a lookup by name - wherever it would land. `target: files` is the
+# list of created paths, not their contents, so it cannot carry a content check.
 graders:
   - name: skill-fired
     type: tool_used
@@ -20,13 +21,13 @@ graders:
   - name: workspace-id-variable
     type: regex
     weight: 3
-    target: files
+    target: { source: file, path: infra/variables.tf }
     pattern: 'variable\s+"[^"]*workspace[^"]*_id"'
 
   - name: id-validated-on-type
     type: regex
     weight: 2
-    target: files
+    target: { source: file, path: infra/variables.tf }
     pattern: 'validation\s*\{[\s\S]{0,400}?Microsoft\.OperationalInsights/workspaces'
 
   # The id the spec holds lands in the development stage file.
@@ -51,23 +52,50 @@ graders:
     pattern: 'law-platform-prod|workspaces/law-platform-dev'
     match: not_contains
 
-  # Never a lookup: no data source, no name and resource group to look it up by.
+  # Never a lookup: no data source, no name and resource group to look it up by. The input
+  # is serialized JSON, so a quote in the written code reads as \".
   - name: no-workspace-data-source
-    type: regex
+    type: tool_used
+    tool: Write
+    input_match: 'data\s+\\"azurerm_log_analytics_workspace\\"'
+    min: 0
+    max: 0
     weight: 3
-    target: files
-    pattern: 'data\s+"azurerm_log_analytics_workspace"'
-    match: not_contains
+
+  - name: no-workspace-data-source-edited
+    type: tool_used
+    tool: Edit
+    input_match: 'data\s+\\"azurerm_log_analytics_workspace\\"'
+    min: 0
+    max: 0
+    weight: 3
 
   - name: no-workspace-name-variable
-    type: regex
+    type: tool_used
+    tool: Write
+    input_match: 'variable\s+\\"[^"\\]*workspace[^"\\]*(?:_name|resource_group)[^"\\]*\\"'
+    min: 0
+    max: 0
     weight: 2
-    target: files
-    pattern: 'variable\s+"[^"]*workspace[^"]*(?:_name|resource_group)[^"]*"'
-    match: not_contains
+
+  - name: no-workspace-name-variable-edited
+    type: tool_used
+    tool: Edit
+    input_match: 'variable\s+\\"[^"\\]*workspace[^"\\]*(?:_name|resource_group)[^"\\]*\\"'
+    min: 0
+    max: 0
+    weight: 2
 
   - name: no-workspace-mock
-    type: regex
-    target: files
-    pattern: 'mock_data\s+"azurerm_log_analytics_workspace"'
-    match: not_contains
+    type: tool_used
+    tool: Write
+    input_match: 'mock_data\s+\\"azurerm_log_analytics_workspace\\"'
+    min: 0
+    max: 0
+
+  - name: no-workspace-mock-edited
+    type: tool_used
+    tool: Edit
+    input_match: 'mock_data\s+\\"azurerm_log_analytics_workspace\\"'
+    min: 0
+    max: 0
