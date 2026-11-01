@@ -1,0 +1,365 @@
+schema_version: 1
+
+resource: Microsoft.Maintenance/maintenanceConfigurations
+title: Azure Maintenance Configuration (scheduled patch window)
+
+naming:
+  terraform: "Azure::Microsoft.Maintenance/maintenanceConfigurations"
+  bicep: "Microsoft.Maintenance/maintenanceConfigurations"
+  # Bicep assembles the name from vars - this is the prefix it renders.
+  abbreviation: "mc"
+
+boundaries:
+  - "Does not create the resource group. Expects one from the spec's context."
+  - "Does not assign machines to the window. The assignment (`Microsoft.Maintenance/configurationAssignments`) is rendered on the machine: the `virtual-machine` set references this configuration, and both AVM machine modules take its id. A configuration no machine is assigned to patches nothing."
+  - "Does not switch a machine to scheduled patching. A machine follows the window only with `patch_mode: AutomaticByPlatform` and the platform safety checks bypassed on a user schedule (`bypassPlatformSafetyChecksOnUserSchedule`); without that flag Azure keeps patching on its own schedule and the window is ignored. That flag is the machine's."
+  - "Does not render a dynamic scope. A subscription-scoped assignment that picks machines by tag, resource group or OS is policy-shaped and belongs to the platform; this set assigns named machines."
+  - "Scopes other than `InGuestPatch` and `Host` are not covered: `OSImage` (automatic OS image upgrades of a scale set), `Extension`, `SQLDB` and `SQLManagedInstance` (the SQL sets' own maintenance windows) each decide differently."
+  - "Does not create Azure Update Manager pre- and post-maintenance events (Event Grid subscriptions on the configuration), periodic assessment or hotpatching. Periodic assessment is the machine's `patch_assessment_mode`."
+  - "Does not carry diagnostics or a resource lock: a maintenance configuration has no diagnostic settings, and `deployment.resource_lock` does not list it - it holds no data and is recreated from the spec."
+
+groups:
+
+  # ---------------------------------------------------------------- placement
+  - id: placement
+    title: Placement
+    questions:
+      - id: environments
+        ask:
+          en: "Which stages is this deployed to?"
+          de: "In welche Stufen wird das ausgerollt?"
+        type: list
+        plain:
+          en: "Deployed in the stages {value}."
+          de: "Wird in den Stufen {value} ausgerollt."
+        accepts: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
+        answer: { context: environments }
+        why: >
+          Drives the rendered name. One configuration per stage, so each stage patches in its
+          own window: the stages before production take the updates first, and production
+          follows once they ran there without trouble.
+
+      - id: location
+        ask:
+          en: "Which Azure region?"
+          de: "Welche Azure-Region?"
+        type: string
+        plain:
+          en: "Created in the Azure region {value}."
+          de: "Wird in der Azure-Region {value} angelegt."
+        answer: { context: location }
+        why: >
+          A configuration is regional; it is assigned to machines of its own region. The
+          window's time zone is a separate decision and does not follow the region.
+
+      - id: resource_group_name
+        ask:
+          en: "Which resource group?"
+          de: "Welche Ressourcengruppe?"
+        type: string
+        plain:
+          en: "Placed in the resource group {value}."
+          de: "Liegt in der Ressourcengruppe {value}."
+        accepts: { ref: resource_group }
+        answer: { context: resource_group_name }
+        per_environment: true
+        why: >
+          Placed beside the machines it patches, so the people who own the machines own the
+          window that restarts them.
+
+  # ----------------------------------------------------------------- schedule
+  - id: schedule
+    title: Maintenance window
+    questions:
+      - id: scope
+        ask:
+          en: "What does the window schedule - guest operating system updates, or Azure's updates of the host?"
+          de: "Was plant das Fenster - Updates des Gastbetriebssystems oder Azures Updates am Host?"
+        type: enum
+        plain:
+          en: "The window schedules {value}."
+          de: "Das Fenster plant {value}."
+        plain_values:
+          InGuestPatch: { en: "operating system updates inside the machines", de: "Betriebssystem-Updates in den Maschinen" }
+          Host: { en: "Azure's platform updates of the dedicated host or isolated machine", de: "Azures Plattform-Updates am dedizierten Host oder an der isolierten Maschine" }
+        accepts: [InGuestPatch, Host]
+        default: InGuestPatch
+        forced_when: >
+          `Host` only where the machines run on a dedicated host or an isolated size, where
+          Azure lets the customer defer platform updates; on any other machine a `Host`
+          configuration cannot be assigned. The patch questions below are dropped with it.
+        why: >
+          `InGuestPatch` is the Azure Update Manager schedule: the operating system's updates
+          are installed inside the window, and the machine is restarted there if it must be.
+          This is what a customer means by "patch window". `Host` defers Azure's own
+          maintenance of the physical host and is only available to machines that have a host
+          to themselves. The scope is fixed at creation; another scope is a new configuration.
+          The Bicep module defaults to `Host`, so the scope is always written.
+
+      - id: recur_every
+        ask:
+          en: "On which days may the machines be updated and restarted?"
+          de: "An welchen Tagen dürfen die Maschinen aktualisiert und neu gestartet werden?"
+        type: string
+        resolved_by: interview
+        topic: resilience
+        plain:
+          en: "Updates are installed {value}."
+          de: "Updates werden {value} eingespielt."
+        plain_values:
+          "1Week Sunday": { en: "every Sunday", de: "jeden Sonntag" }
+          "1Week Saturday": { en: "every Saturday", de: "jeden Samstag" }
+          "1Month Second Tuesday Offset2": { en: "once a month, on the second Thursday - two days after Microsoft's patch day", de: "einmal im Monat am zweiten Donnerstag, zwei Tage nach Microsofts Patchday" }
+          "1Day": { en: "every day", de: "jeden Tag" }
+        offer:
+          "1Week Sunday": { en: "Every Sunday", de: "Jeden Sonntag" }
+          "1Week Saturday": { en: "Every Saturday", de: "Jeden Samstag" }
+          "1Month Second Tuesday Offset2": { en: "Monthly, after Microsoft's patch day", de: "Monatlich, nach Microsofts Patchday" }
+          "1Day": { en: "Every day", de: "Jeden Tag" }
+        default: "1Week Sunday"
+        per_environment: true
+        why: >
+          The window's recurrence in Azure's notation: `1Day`, `1Week <days>` (`1Week
+          Saturday,Sunday`), `1Month <week> <day> [Offset<n>]` (`1Month Second Tuesday Offset2`, two days after the second Tuesday) or `1Month
+          day<n>`. Weekly keeps a machine at most a week behind a published security update;
+          monthly matches Microsoft's patch day rhythm but leaves a critical fix waiting up to a
+          month. Per stage, so the stages are staggered: development and test patch some days
+          before production, and a broken update stops there. The customer knows when a restart
+          does the least harm; the set cannot.
+
+      - id: start_time
+        ask:
+          en: "At what time of day may the updates begin?"
+          de: "Zu welcher Uhrzeit dürfen die Updates beginnen?"
+        type: string
+        resolved_by: interview
+        topic: resilience
+        plain:
+          en: "The window opens at {value}."
+          de: "Das Fenster öffnet um {value} Uhr."
+        default: "02:00"
+        per_environment: true
+        why: >
+          `HH:mm`, 24 hours, in the time zone below. 02:00 is after evening jobs and before the
+          first users; a restart inside the window takes a machine away for minutes. A machine
+          that serves around the clock has no good hour - then several machines behind a load
+          balancer, patched in different windows, are the answer, not a different time.
+
+      - id: start_date
+        ask:
+          en: "From which date should the schedule apply?"
+          de: "Ab welchem Datum soll der Zeitplan gelten?"
+        type: string
+        plain:
+          en: "The schedule applies from {value}."
+          de: "Der Zeitplan gilt ab {value}."
+        required: true
+        why: >
+          `yyyy-MM-dd`, the day the recurrence counts from; with `start_time` it becomes the
+          window's `startDateTime`. No safe value exists: a date chosen by the render is a
+          window someone did not agree to. A monthly recurrence is counted from it, so it is
+          the date of the first run.
+
+      - id: duration
+        ask:
+          en: "How long may the window last?"
+          de: "Wie lange darf das Fenster dauern?"
+        type: string
+        plain:
+          en: "The window lasts {value} (hours:minutes)."
+          de: "Das Fenster dauert {value} (Stunden:Minuten)."
+        default: "03:00"
+        why: >
+          `HH:mm`. For `InGuestPatch` Azure accepts 1:30 to 3:55; it stops starting new updates
+          when the time left is too short for one plus the restart, so a window at the minimum
+          leaves updates for the next run. Three hours covers a monthly Windows cumulative
+          update with its restart. For `Host` the platform requires a longer window - check the
+          documented minimum for the scope before departing.
+
+      - id: time_zone
+        ask:
+          en: "In which time zone is the window?"
+          de: "In welcher Zeitzone liegt das Fenster?"
+        type: string
+        plain:
+          en: "Time zone of the window: {value}."
+          de: "Zeitzone des Fensters: {value}."
+        default: UTC
+        why: >
+          A Windows time zone id (`W. Europe Standard Time`), not an IANA name. UTC is the
+          default because the set cannot know where the users are, as in the machine's
+          shutdown schedule; the customer's own zone is the usual departure, and a zone with
+          daylight saving keeps the window at the same local hour all year.
+
+  # ------------------------------------------------------------------ patches
+  - id: patches
+    title: What is installed
+    questions:
+      - id: reboot_setting
+        ask:
+          en: "May the machines restart during the window when an update needs it?"
+          de: "Dürfen die Maschinen im Fenster neu starten, wenn ein Update es verlangt?"
+        type: enum
+        resolved_by: interview
+        topic: resilience
+        plain:
+          en: "During the window the machines {value}."
+          de: "Im Fenster {value}."
+        plain_values:
+          IfRequired: { en: "restart when an update needs it", de: "starten die Maschinen neu, wenn ein Update es verlangt" }
+          Never: { en: "never restart - updates that need it stay pending until someone restarts them", de: "starten die Maschinen nie neu - Updates, die einen Neustart brauchen, bleiben offen, bis jemand neu startet" }
+          Always: { en: "always restart, whether an update needs it or not", de: "starten die Maschinen immer neu, ob ein Update es braucht oder nicht" }
+        accepts: [IfRequired, Never, Always]
+        default: IfRequired
+        depends_on: { question: scope, equals: InGuestPatch }
+        why: >
+          `IfRequired` restarts only when an installed update asks for it, which is what a
+          window is for. `Never` looks safe and is not: most security updates of the kernel or
+          of Windows take effect only after the restart, so the machine reports them installed
+          and stays exposed. `Always` adds a restart nobody needs.
+
+      - id: operating_systems
+        ask:
+          en: "Which operating systems should the window patch?"
+          de: "Welche Betriebssysteme soll das Fenster patchen?"
+        type: list
+        plain:
+          en: "Updates are configured for {value}."
+          de: "Updates sind eingerichtet für {value}."
+        accepts: [linux, windows]
+        default: [linux, windows]
+        depends_on: { question: scope, equals: InGuestPatch }
+        why: >
+          Which parameter blocks the configuration carries. One configuration may hold both;
+          each machine applies the block of its own operating system and ignores the other.
+          Both by default, so a machine of the other kind assigned later is still patched; a
+          configuration with only one block patches nothing on a machine of the other kind.
+
+      - id: linux_classifications
+        ask:
+          en: "Which kinds of Linux updates should be installed?"
+          de: "Welche Arten von Linux-Updates sollen installiert werden?"
+        type: list
+        plain:
+          en: "Linux updates installed: {value}."
+          de: "Installierte Linux-Updates: {value}."
+        accepts: [Critical, Security, Other]
+        default: [Critical, Security]
+        depends_on: { question: operating_systems, contains: linux }
+        why: >
+          Critical and security updates close vulnerabilities and rarely change behaviour;
+          `Other` is every remaining package upgrade, which is where a new major version of a
+          runtime slips in. The image version is how a machine gets everything else - a rebuild,
+          not the window.
+
+      - id: linux_packages_to_exclude
+        ask:
+          en: "Which Linux packages must never be updated by the window?"
+          de: "Welche Linux-Pakete darf das Fenster nie aktualisieren?"
+        type: list
+        plain:
+          en: "Linux packages left alone: {value}."
+          de: "Ausgenommene Linux-Pakete: {value}."
+        default: []
+        depends_on: { question: operating_systems, contains: linux }
+        why: >
+          Package name masks (`docker-ce*`, `kernel*`). For a package whose version the
+          application pins, whose update is a deployment of its own. Empty is the default:
+          every exclusion is a vulnerability nobody tracks.
+
+      - id: linux_packages_to_include
+        ask:
+          en: "Should the window install only certain Linux packages?"
+          de: "Soll das Fenster nur bestimmte Linux-Pakete installieren?"
+        type: list
+        plain:
+          en: "Only these Linux packages are installed: {value}."
+          de: "Nur diese Linux-Pakete werden installiert: {value}."
+        default: []
+        depends_on: { question: operating_systems, contains: linux }
+        why: >
+          Package name masks. A non-empty list is an allow-list: only those packages are
+          updated, whatever the classifications say. Empty, the classifications decide - the
+          default, because an allow-list goes stale the day it is written.
+
+      - id: windows_classifications
+        ask:
+          en: "Which kinds of Windows updates should be installed?"
+          de: "Welche Arten von Windows-Updates sollen installiert werden?"
+        type: list
+        plain:
+          en: "Windows updates installed: {value}."
+          de: "Installierte Windows-Updates: {value}."
+        accepts: [Critical, Security, UpdateRollup, FeaturePack, ServicePack, Definition, Tools, Updates]
+        default: [Critical, Security]
+        depends_on: { question: operating_systems, contains: windows }
+        why: >
+          Critical and security updates, which include the monthly cumulative update. Feature
+          packs and service packs change the system and belong in an image rebuild;
+          `Definition` (Defender signatures) updates itself several times a day outside any
+          window. `UpdateRollup` and `Updates` are the departure for a machine whose software
+          needs the non-security fixes.
+
+      - id: windows_kbs_to_exclude
+        ask:
+          en: "Which Windows updates (KB numbers) must never be installed?"
+          de: "Welche Windows-Updates (KB-Nummern) dürfen nie installiert werden?"
+        type: list
+        plain:
+          en: "Windows updates left out: {value}."
+          de: "Ausgenommene Windows-Updates: {value}."
+        default: []
+        depends_on: { question: operating_systems, contains: windows }
+        why: >
+          KB numbers without the prefix (`5034441`). For a known-bad update until Microsoft
+          replaces it; an entry outlives its reason unless someone removes it, so each one
+          names its reason in the spec.
+
+      - id: windows_kbs_to_include
+        ask:
+          en: "Should particular Windows updates (KB numbers) always be installed?"
+          de: "Sollen bestimmte Windows-Updates (KB-Nummern) immer installiert werden?"
+        type: list
+        plain:
+          en: "Windows updates always installed: {value}."
+          de: "Immer installierte Windows-Updates: {value}."
+        default: []
+        depends_on: { question: operating_systems, contains: windows }
+        why: >
+          KB numbers installed in addition to the classifications - an out-of-band fix outside
+          them. Empty is the default.
+
+      - id: windows_exclude_kbs_requiring_reboot
+        ask:
+          en: "Should Windows updates that need a restart be left out?"
+          de: "Sollen Windows-Updates, die einen Neustart brauchen, ausgelassen werden?"
+        type: bool
+        plain:
+          en: "Windows updates that need a restart are {value}."
+          de: "Windows-Updates, die einen Neustart brauchen, werden {value}."
+        plain_values:
+          true: { en: "left out", de: "ausgelassen" }
+          false: { en: "installed", de: "installiert" }
+        default: false
+        depends_on: { question: operating_systems, contains: windows }
+        why: >
+          The cumulative update needs a restart every month, so leaving out what needs one
+          leaves out the security fixes. `true` is for a machine whose restarts are scheduled
+          elsewhere; with `reboot_setting: IfRequired` it is not needed.
+
+      - id: visibility
+        ask:
+          en: "Who sees the configuration?"
+          de: "Wer sieht die Konfiguration?"
+        type: enum
+        plain:
+          en: "The configuration is {value}."
+          de: "Die Konfiguration ist {value}."
+        plain_values:
+          Custom: { en: "the customer's own", de: "die eigene des Kunden" }
+        accepts: [Custom]
+        default: Custom
+        why: >
+          `Custom` is the only value a customer can create; `Public` marks the configurations
+          Microsoft publishes for platform maintenance and is refused on create. Written
+          anyway, so the plan shows it.

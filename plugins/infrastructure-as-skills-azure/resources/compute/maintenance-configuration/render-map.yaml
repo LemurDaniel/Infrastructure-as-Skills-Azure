@@ -1,0 +1,148 @@
+# What each decision of questions.yaml renders to, per target and implementation.
+# Format: core/iac-rendering/references/render-map.md. The call, the authored blocks and the
+# tests are in terraform.md and bicep.md.
+# The Terraform module is AzAPI-only (azapi ~> 2.12, time ~> 0.13) and takes the resource
+# group as parent_id; it requires no azurerm, so the root keeps azurerm 5.x.
+schema_version: 1
+resource: Microsoft.Maintenance/maintenanceConfigurations
+
+modules:
+  terraform: [Azure/avm-res-maintenance-maintenanceconfiguration/azurerm]
+  bicep: [avm/res/maintenance/maintenance-configuration]
+
+decisions:
+
+  # ---------------------------------------------------------------- placement
+  placement.environments:
+    not_rendered: naming parameter `environment` and the tag of that name; no attribute of the configuration
+  placement.location:
+    terraform_avm: { attribute: location, passthrough: true }
+    terraform: { attribute: location, passthrough: true }
+    bicep_avm: { attribute: location, passthrough: true }
+    bicep: { attribute: location, passthrough: true }
+  placement.resource_group_name:
+    terraform_avm:
+      attribute: parent_id
+      note: the group's id, not its name - AzAPI-based module
+    terraform: { attribute: resource_group_name, note: 'a name (source: azurerm 5.12 schema)' }
+    bicep_avm: { gap: the deployment's resource group scope; no parameter }
+    bicep: { gap: the deployment's resource group scope; no property }
+
+  # ----------------------------------------------------------------- schedule
+  schedule.scope:
+    terraform_avm:
+      attribute: scope
+      passthrough: true
+      also:
+        InGuestPatch: 'extension_properties = { InGuestPatchMode = "User" }'
+      note: InGuestPatchMode User is what Azure Update Manager schedules; without it the window is not a patch schedule
+    terraform:
+      attribute: scope
+      passthrough: true
+      also:
+        InGuestPatch: 'in_guest_user_patch_mode = "User"'
+    bicep_avm:
+      attribute: maintenanceScope
+      passthrough: true
+      also:
+        InGuestPatch: "extensionProperties: { InGuestPatchMode: 'User' }"
+      note: module default Host - always written
+    bicep:
+      attribute: properties.maintenanceScope
+      passthrough: true
+      also:
+        InGuestPatch: "properties.extensionProperties: { InGuestPatchMode: 'User' }"
+  schedule.recur_every:
+    terraform_avm: { attribute: window.recur_every, passthrough: true }
+    terraform: { attribute: window.recur_every, passthrough: true }
+    bicep_avm: { attribute: maintenanceWindow.recurEvery, passthrough: true }
+    bicep: { attribute: properties.maintenanceWindow.recurEvery, passthrough: true }
+  schedule.start_date:
+    terraform_avm:
+      attribute: window.start_date_time
+      format: '{value} {schedule.start_time}'
+      note: yyyy-MM-dd HH:mm, in the window's time zone
+    terraform:
+      attribute: window.start_date_time
+      format: '{value} {schedule.start_time}'
+    bicep_avm:
+      attribute: maintenanceWindow.startDateTime
+      format: '{value} {schedule.start_time}'
+    bicep:
+      attribute: properties.maintenanceWindow.startDateTime
+      format: '{value} {schedule.start_time}'
+  schedule.start_time:
+    terraform_avm: { attribute: window.start_date_time, part_of: schedule.start_date }
+    terraform: { attribute: window.start_date_time, part_of: schedule.start_date }
+    bicep_avm: { attribute: maintenanceWindow.startDateTime, part_of: schedule.start_date }
+    bicep: { attribute: properties.maintenanceWindow.startDateTime, part_of: schedule.start_date }
+  schedule.duration:
+    terraform_avm: { attribute: window.duration, passthrough: true, note: 'module default 01:30 - written' }
+    terraform: { attribute: window.duration, passthrough: true }
+    bicep_avm: { attribute: maintenanceWindow.duration, passthrough: true }
+    bicep: { attribute: properties.maintenanceWindow.duration, passthrough: true }
+  schedule.time_zone:
+    terraform_avm: { attribute: window.time_zone, passthrough: true, note: a Windows time zone id }
+    terraform: { attribute: window.time_zone, passthrough: true }
+    bicep_avm: { attribute: maintenanceWindow.timeZone, passthrough: true }
+    bicep: { attribute: properties.maintenanceWindow.timeZone, passthrough: true }
+
+  # ------------------------------------------------------------------ patches
+  patches.reboot_setting:
+    terraform_avm: { attribute: install_patches.reboot_setting, passthrough: true }
+    terraform: { attribute: install_patches.reboot, passthrough: true, note: 'reboot, not reboot_setting (source: azurerm 5.12 schema)' }
+    bicep_avm: { attribute: installPatches.rebootSetting, passthrough: true }
+    bicep: { attribute: properties.installPatches.rebootSetting, passthrough: true }
+  patches.operating_systems:
+    terraform_avm:
+      attribute: install_patches.linux / install_patches.windows
+      note: one object per listed system; a system not listed renders null, not an empty object - the module would fill its default classifications
+    terraform:
+      attribute: install_patches.linux / install_patches.windows
+      note: one block per listed system
+    bicep_avm:
+      attribute: installPatches.linuxParameters / installPatches.windowsParameters
+      note: one object per listed system
+    bicep:
+      attribute: properties.installPatches.linuxParameters / properties.installPatches.windowsParameters
+      note: one object per listed system
+  patches.linux_classifications:
+    terraform_avm: { attribute: install_patches.linux.classifications_to_include }
+    terraform: { attribute: install_patches.linux.classifications_to_include }
+    bicep_avm: { attribute: installPatches.linuxParameters.classificationsToInclude }
+    bicep: { attribute: properties.installPatches.linuxParameters.classificationsToInclude }
+  patches.linux_packages_to_exclude:
+    terraform_avm: { attribute: install_patches.linux.package_name_masks_to_exclude }
+    terraform: { attribute: install_patches.linux.package_names_mask_to_exclude, note: 'names_mask, not name_masks (source: azurerm 5.12 schema)' }
+    bicep_avm: { attribute: installPatches.linuxParameters.packageNameMasksToExclude }
+    bicep: { attribute: properties.installPatches.linuxParameters.packageNameMasksToExclude }
+  patches.linux_packages_to_include:
+    terraform_avm: { attribute: install_patches.linux.package_name_masks_to_include }
+    terraform: { attribute: install_patches.linux.package_names_mask_to_include }
+    bicep_avm: { attribute: installPatches.linuxParameters.packageNameMasksToInclude }
+    bicep: { attribute: properties.installPatches.linuxParameters.packageNameMasksToInclude }
+  patches.windows_classifications:
+    terraform_avm: { attribute: install_patches.windows.classifications_to_include }
+    terraform: { attribute: install_patches.windows.classifications_to_include }
+    bicep_avm: { attribute: installPatches.windowsParameters.classificationsToInclude }
+    bicep: { attribute: properties.installPatches.windowsParameters.classificationsToInclude }
+  patches.windows_kbs_to_exclude:
+    terraform_avm: { attribute: install_patches.windows.kb_numbers_to_exclude }
+    terraform: { attribute: install_patches.windows.kb_numbers_to_exclude }
+    bicep_avm: { attribute: installPatches.windowsParameters.kbNumbersToExclude }
+    bicep: { attribute: properties.installPatches.windowsParameters.kbNumbersToExclude }
+  patches.windows_kbs_to_include:
+    terraform_avm: { attribute: install_patches.windows.kb_numbers_to_include }
+    terraform: { attribute: install_patches.windows.kb_numbers_to_include }
+    bicep_avm: { attribute: installPatches.windowsParameters.kbNumbersToInclude }
+    bicep: { attribute: properties.installPatches.windowsParameters.kbNumbersToInclude }
+  patches.windows_exclude_kbs_requiring_reboot:
+    terraform_avm: { attribute: install_patches.windows.exclude_kbs_requiring_reboot, passthrough: true, note: module default null - written }
+    terraform: { gap: 'azurerm_maintenance_configuration has no such argument (source: azurerm 5.12 schema); true renders the configuration as an azapi_resource, false is the service default and needs nothing' }
+    bicep_avm: { attribute: installPatches.windowsParameters.excludeKbsRequiringReboot, passthrough: true }
+    bicep: { attribute: properties.installPatches.windowsParameters.excludeKbsRequiringReboot, passthrough: true }
+  patches.visibility:
+    terraform_avm: { attribute: visibility, passthrough: true }
+    terraform: { attribute: visibility, passthrough: true }
+    bicep_avm: { attribute: visibility, passthrough: true }
+    bicep: { attribute: properties.visibility, passthrough: true }

@@ -19,7 +19,8 @@ boundaries:
   - "Does not create the Recovery Services vault or its backup policy; the `recovery-services-vault` set owns both. This set only links the machine to them."
   - "Does not create the disk encryption set, nor the Key Vault key behind it, nor the identity that unwraps it. A customer-managed key is wiring between the key vault, the set and the machine."
   - "Does not install software, join a domain, run DSC or custom scripts, or configure the guest. The only extension it renders is the Entra login one."
-  - "Does not create maintenance configurations (scheduled patch windows), dedicated hosts, capacity reservations, Spot or hibernation settings."
+  - "Does not create the maintenance configuration (the scheduled patch window); the `maintenance-configuration` set owns it, and this set assigns the machine to it."
+  - "Does not create dedicated hosts, capacity reservations, Spot or hibernation settings."
   - "Does not grant other resources a role for the machine's identity (Key Vault secrets, storage data). `role_assignments` records who may log in to this machine; a role the machine's identity needs elsewhere is wiring, owned by a pattern."
   - "Standalone data disks are the `managed-disk` set; this set lists the data disks the machine carries and renders them through the module."
   - "Scale sets (`virtual-machine-scale-set`) and availability sets with their proximity placement group (`availability-set`) are their own sets; this machine only references an availability set."
@@ -717,9 +718,30 @@ groups:
           Platform orchestration patches one zone at a time, backs off on regional health and
           reports compliance, which the guest updater does not. `ImageDefault` leaves Ubuntu's
           unattended upgrades or Windows Update running - fine, but nobody sees whether they
-          ran. A scheduled window needs a maintenance configuration, which is a separate
-          resource this set does not create; until one is attached, a reboot can happen at the
-          platform's choosing.
+          ran. A scheduled window is `maintenance_configuration` below; until one is attached,
+          a reboot can happen at the platform's choosing.
+
+      - id: maintenance_configuration
+        ask:
+          en: "Which maintenance window should the machine be patched in?"
+          de: "In welchem Wartungsfenster soll die Maschine gepatcht werden?"
+        type: string
+        plain:
+          en: "Updates are installed in the maintenance window {value} (empty: at the platform's choosing)."
+          de: "Updates werden im Wartungsfenster {value} eingespielt (leer: wann die Plattform will)."
+        accepts: { ref: maintenance_configuration }
+        default: ""
+        per_environment: true
+        depends_on: { question: patch_mode, equals: AutomaticByPlatform }
+        why: >
+          The `maintenance-configuration` set holds the window (`InGuestPatch`); the machine is
+          assigned to it here, because both AVM VM modules take the configuration's id
+          themselves. The assignment alone is not enough: the machine also needs
+          `bypassPlatformSafetyChecksOnUserSchedule` on, or the platform keeps patching on its
+          own schedule and the window is silently ignored - the render writes it whenever an id
+          is set. Per stage, because each stage has its own window. Empty is the default: a
+          machine with no window is patched by the platform's orchestration, which is safe but
+          picks the reboot time itself.
 
       - id: auto_shutdown
         ask:
