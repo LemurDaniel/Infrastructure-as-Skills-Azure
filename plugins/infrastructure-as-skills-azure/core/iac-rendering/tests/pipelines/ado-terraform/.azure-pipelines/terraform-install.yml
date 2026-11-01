@@ -1,11 +1,13 @@
 steps:
-  - bash: |
-      set -euo pipefail
-      v="$(TF_VERSION)"
-      cd "$(Agent.TempDirectory)"
-      curl -fsSLO "https://releases.hashicorp.com/terraform/${v}/terraform_${v}_linux_amd64.zip"
-      curl -fsSLO "https://releases.hashicorp.com/terraform/${v}/terraform_${v}_SHA256SUMS"
-      grep "terraform_${v}_linux_amd64.zip" "terraform_${v}_SHA256SUMS" | sha256sum -c -
-      mkdir -p "$(Agent.TempDirectory)/tf" && unzip -oq "terraform_${v}_linux_amd64.zip" -d "$(Agent.TempDirectory)/tf"
-      echo "##vso[task.prependpath]$(Agent.TempDirectory)/tf"
+  - pwsh: |
+      $v = '$(TF_VERSION)'
+      $dir = '$(Agent.TempDirectory)'
+      $zip = "terraform_${v}_linux_amd64.zip"
+      Invoke-WebRequest "https://releases.hashicorp.com/terraform/$v/$zip" -OutFile "$dir/$zip"
+      $sums = Invoke-RestMethod "https://releases.hashicorp.com/terraform/$v/terraform_${v}_SHA256SUMS"
+      $want = (($sums -split "`n" | Where-Object { $_ -like "*  $zip" }) -split '\s+')[0]
+      if (-not $want -or (Get-FileHash "$dir/$zip" -Algorithm SHA256).Hash -ne $want) { throw "Checksum mismatch for $zip" }
+      Expand-Archive "$dir/$zip" -DestinationPath "$dir/tf" -Force
+      chmod +x "$dir/tf/terraform"
+      Write-Output "##vso[task.prependpath]$dir/tf"
     displayName: Install Terraform $(TF_VERSION)

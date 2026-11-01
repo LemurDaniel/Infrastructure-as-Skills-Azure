@@ -59,7 +59,7 @@ MUTATIONS = [
      '    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH\n  script:', '    - if: $CI_PIPELINE_SOURCE == "merge_request_event"\n  script:',
      'not restricted to the default branch'),
     ('github token at workflow level', 'github-terraform', GH,
-     'permissions:\n  contents: read\n\njobs:', 'permissions:\n  contents: read\n  id-token: write\n\njobs:',
+     'permissions:\n  contents: read\n\ndefaults:', 'permissions:\n  contents: read\n  id-token: write\n\ndefaults:',
      'at workflow level'),
 
     # the saved plan
@@ -141,7 +141,7 @@ MUTATIONS = [
     ('ado terraform without the token', 'ado-terraform', ADOS,
      'addSpnToEnvironment: true', 'addSpnToEnvironment: false', 'federated token'),
     ('a shell fed from event text', 'github-terraform', GHS,
-     'echo "Approved for ${{ inputs.stage }}."', 'echo "${{ github.event.head_commit.message }}"', 'attacker-controlled'),
+     'Write-Output "Approved for ${{ inputs.stage }}."', 'Write-Output "${{ github.event.head_commit.message }}"', 'attacker-controlled'),
 
     # versions
     ('action on a branch', 'github-terraform', GH,
@@ -152,7 +152,17 @@ MUTATIONS = [
     ('gitlab image latest', 'gitlab-terraform', GL,
      'name: hashicorp/terraform:1.16 ', 'name: hashicorp/terraform:latest ', 'not pinned'),
     ('ado install without checksum', 'ado-terraform', ADOI,
-     'sha256sum -c -', 'cat', 'checksum'),
+     '(Get-FileHash "$dir/$zip" -Algorithm SHA256).Hash', '$want', 'checksum'),
+
+    # the shell is PowerShell 7
+    ('github workflow without the pwsh default', 'github-terraform', GHS,
+     'defaults:\n  run:\n    shell: pwsh\n\n', '', 'invariant 14'),
+    ('github step back on bash', 'github-bicep', GHS,
+     '      - name: Deploy\n', '      - name: Deploy\n        shell: bash\n', 'invariant 14'),
+    ('ado bash step', 'ado-terraform', ADO,
+     '- pwsh: terraform fmt', '- bash: terraform fmt', 'invariant 14'),
+    ('ado azure cli task on bash', 'ado-bicep', ADOS,
+     'scriptType: pscore', 'scriptType: bash', 'invariant 14'),
 
     # the code beside the pipeline
     ('no backend block: -backend-config is ignored', 'github-terraform', 'providers.tf',
@@ -180,8 +190,8 @@ MUTATIONS = [
     ('ado bicep stage file missing', 'ado-bicep', 'main.test.bicepparam',
      '@remove', '', 'missing'),
     ('ado bicep validate holds a service connection', 'ado-bicep', ADO,
-     '          - script: az bicep lint --file main.bicep\n',
-     '          - task: AzureCLI@2\n            inputs: { azureSubscription: sc-x, scriptType: bash, scriptLocation: inlineScript, inlineScript: "az bicep lint --file main.bicep" }\n',
+     '          - pwsh: az bicep lint --file main.bicep\n',
+     '          - task: AzureCLI@2\n            inputs: { azureSubscription: sc-x, scriptType: pscore, scriptLocation: inlineScript, inlineScript: "az bicep lint --file main.bicep" }\n',
      'validate uses a service connection'),
     # validate and state
     ('github validate skips fmt', 'github-terraform', GH,

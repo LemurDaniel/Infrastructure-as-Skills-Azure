@@ -181,6 +181,10 @@ the detail; this list says what was decided and why, so a session does not reope
   invariants, `run_pipeline_tests.py` breaks them one at a time. The root holds an empty
   `backend "azurerm" {}` because `init -backend-config` without one is ignored silently.
   A resolved stage's file must not spell a placeholder marker even in a comment.
+- **Pipelines run PowerShell 7, not bash** (2026-11-01, invariant 14). Bash was never a
+  decision, only the runner default copied from vendor docs; the stack is pwsh, both hosted
+  Ubuntu images ship it, JSON is read with `ConvertFrom-Json` instead of `jq`. Not a spec
+  question: a fixed default. GitLab stays `sh` - its job images carry no pwsh.
 - **Grouped AVM calls: `granularity: per-family`** (2026-10-23, Terraform only). The root
   is `modules.<family>.tf` calls, `modules/<family>/` holds the family's AVM calls, roles,
   endpoints, tests. A module-level `depends_on` defers `data` lookups to apply, so the
@@ -801,6 +805,12 @@ per-family` in `check_spec.py` and the `chatbot` spec, and `references/private-d
 
 ### Pipelines
 
+- The pwsh pipelines have parsed and been dry-run with a mocked `az`, never run on a
+  runner: the next push of `eval-agent/infra` to `dev` is the first real run of
+  `eval-agent-infra*.yaml` in pwsh; the ADO and GitHub Terraform fixtures have not run at all.
+- `run_pipeline_tests.py` passes 86/86 on LF files; on a Windows checkout with CRLF
+  fixtures 11 multi-line mutations do not find their text (`edit()` reads with
+  `newline=''`). Normalise in `edit()` or add a `.gitattributes` with `eol=lf`.
 - `check_pipeline.py` counts an `open:` entry without `environments` as resolved (a false
   fail on every such entry; the runs name the stage on each entry as a workaround),
   applies the workload-identity secret grep to `local`, and its `client[-_]?secret`

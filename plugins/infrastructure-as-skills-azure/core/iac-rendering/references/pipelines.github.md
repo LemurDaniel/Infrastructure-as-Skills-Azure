@@ -92,6 +92,10 @@ on:
 permissions:
   contents: read
 
+defaults:
+  run:
+    shell: pwsh
+
 jobs:
   validate:
     runs-on: ubuntu-latest
@@ -144,10 +148,14 @@ stages behind it.
 
 ```yaml
       - uses: actions/checkout@v7
-      - run: az bicep build --file main.bicep --stdout > /dev/null
+      - run: az bicep build --file main.bicep --stdout > $null
       - run: az bicep lint --file main.bicep
       - name: Parameter files compile against the template
-        run: for f in main.*.bicepparam; do az bicep build-params --file "$f" --stdout > /dev/null; done
+        run: |
+          foreach ($f in Get-ChildItem main.*.bicepparam) {
+            az bicep build-params --file $f.Name --stdout > $null
+            if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          }
 ```
 
 ## Stage workflow - Terraform
@@ -169,6 +177,10 @@ concurrency:
   group: infra-${{ inputs.stage }}
   cancel-in-progress: false
 
+defaults:
+  run:
+    shell: pwsh
+
 env:
   STAGE: ${{ inputs.stage }}
   ARM_USE_OIDC: "true"
@@ -189,39 +201,46 @@ jobs:
       - uses: actions/checkout@v7
       - name: Refuse placeholder values
         run: |
-          f="environments/${STAGE}.tfvars"
-          [ -f "$f" ] || { echo "::error::$f is missing"; exit 1; }
-          if grep -Eq '00000000-0000-0000-0000-000000000000|OPEN-|ASSUMED:' "$f"; then
-            echo "::error file=$f::Stage ${STAGE} still holds placeholder values - answer the open items first."
+          $f = "environments/$env:STAGE.tfvars"
+          if (-not (Test-Path $f)) { Write-Output "::error::${f} is missing"; exit 1 }
+          if (Select-String -Path $f -Pattern '00000000-0000-0000-0000-000000000000|OPEN-|ASSUMED:' -Quiet) {
+            Write-Output "::error file=${f}::Stage $env:STAGE still holds placeholder values - answer the open items first."
             exit 1
-          fi
+          }
       - uses: hashicorp/setup-terraform@v4
         with:
           terraform_version: "~> 1.16.0"
           terraform_wrapper: false      # the wrapper swallows the exit code the plan step reads
       - name: Init
         run: |
-          terraform init -input=false \
-            -backend-config="subscription_id=${{ vars.TF_STATE_SUBSCRIPTION_ID }}" \
-            -backend-config="resource_group_name=${{ vars.TF_STATE_RESOURCE_GROUP }}" \
-            -backend-config="storage_account_name=${{ vars.TF_STATE_STORAGE_ACCOUNT }}" \
-            -backend-config="container_name=${{ vars.TF_STATE_CONTAINER }}" \
-            -backend-config="key=${TF_STATE_KEY_PREFIX}/${STAGE}.tfstate" \
+          terraform init -input=false `
+            -backend-config="subscription_id=${{ vars.TF_STATE_SUBSCRIPTION_ID }}" `
+            -backend-config="resource_group_name=${{ vars.TF_STATE_RESOURCE_GROUP }}" `
+            -backend-config="storage_account_name=${{ vars.TF_STATE_STORAGE_ACCOUNT }}" `
+            -backend-config="container_name=${{ vars.TF_STATE_CONTAINER }}" `
+            -backend-config="key=$env:TF_STATE_KEY_PREFIX/$env:STAGE.tfstate" `
             -backend-config="use_azuread_auth=true"
       - name: Plan
         id: plan
         run: |
-          set +e
-          terraform plan -input=false -detailed-exitcode \
-            -var-file="environments/${STAGE}.tfvars" -out=tfplan
-          code=$?
-          set -e
-          if [ "$code" -eq 1 ]; then exit 1; fi
-          echo "changes=$([ "$code" -eq 2 ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
-          { echo "### Plan: ${STAGE}"; echo '```'; terraform show -no-color tfplan; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          terraform plan -input=false -detailed-exitcode `
+            -var-file="environments/$env:STAGE.tfvars" -out=tfplan
+          $code = $LASTEXITCODE
+          if ($code -eq 1) { exit 1 }
+          "changes=$(($code -eq 2).ToString().ToLower())" | Add-Content $env:GITHUB_OUTPUT
+          "### Plan: $env:STAGE", '```', ((terraform show -no-color tfplan) -join "`n"), '```' | Add-Content $env:GITHUB_STEP_SUMMARY
       - name: Refuse a plan that deletes a resource group
         run: |
-          terraform show -json tfplan | jq -e '[.resource_changes[]? | select(.change.actions | index("delete")) | select(.type == "azurerm_resource_group" or (.type == "azapi_resource" and ((.change.before.type // "") | startswith("Microsoft.Resources/resourceGroups"))))] | length == 0' > /dev/null \n            || { echo "::error::The plan deletes a resource group - a group is destroyed by hand, never by the pipeline."; exit 1; }
+          $plan = terraform show -json tfplan | ConvertFrom-Json
+          $groups = @($plan.resource_changes | Where-Object {
+            $_.change.actions -contains 'delete' -and (
+              $_.type -eq 'azurerm_resource_group' -or
+              ($_.type -eq 'azapi_resource' -and "$($_.change.before.type)".StartsWith('Microsoft.Resources/resourceGroups')))
+          })
+          if ($groups) {
+            Write-Output "::error::The plan deletes a resource group ($($groups.address -join ', ')) - a group is destroyed by hand, never by the pipeline."
+            exit 1
+          }
       - uses: actions/upload-artifact@v7
         if: steps.plan.outputs.changes == 'true'
         with:
@@ -235,7 +254,7 @@ jobs:
     runs-on: ubuntu-latest
     environment: ${{ inputs.stage }}-approval
     steps:
-      - run: echo "Approved for ${{ inputs.stage }}."
+      - run: Write-Output "Approved for ${{ inputs.stage }}."
 
   apply:
     needs: [plan, approve]
@@ -255,12 +274,12 @@ jobs:
           name: tfplan-${{ inputs.stage }}
       - name: Init
         run: |
-          terraform init -input=false \
-            -backend-config="subscription_id=${{ vars.TF_STATE_SUBSCRIPTION_ID }}" \
-            -backend-config="resource_group_name=${{ vars.TF_STATE_RESOURCE_GROUP }}" \
-            -backend-config="storage_account_name=${{ vars.TF_STATE_STORAGE_ACCOUNT }}" \
-            -backend-config="container_name=${{ vars.TF_STATE_CONTAINER }}" \
-            -backend-config="key=${TF_STATE_KEY_PREFIX}/${STAGE}.tfstate" \
+          terraform init -input=false `
+            -backend-config="subscription_id=${{ vars.TF_STATE_SUBSCRIPTION_ID }}" `
+            -backend-config="resource_group_name=${{ vars.TF_STATE_RESOURCE_GROUP }}" `
+            -backend-config="storage_account_name=${{ vars.TF_STATE_STORAGE_ACCOUNT }}" `
+            -backend-config="container_name=${{ vars.TF_STATE_CONTAINER }}" `
+            -backend-config="key=$env:TF_STATE_KEY_PREFIX/$env:STAGE.tfstate" `
             -backend-config="use_azuread_auth=true"
       - name: Apply the approved plan
         run: terraform apply -input=false tfplan
@@ -287,12 +306,12 @@ jobs:
       - uses: actions/checkout@v7
       - name: Refuse placeholder values
         run: |
-          f="main.${STAGE}.bicepparam"
-          [ -f "$f" ] || { echo "::error::$f is missing"; exit 1; }
-          if grep -Eq '00000000-0000-0000-0000-000000000000|OPEN-|ASSUMED:' "$f"; then
-            echo "::error file=$f::Stage ${STAGE} still holds placeholder values - answer the open items first."
+          $f = "main.$env:STAGE.bicepparam"
+          if (-not (Test-Path $f)) { Write-Output "::error::${f} is missing"; exit 1 }
+          if (Select-String -Path $f -Pattern '00000000-0000-0000-0000-000000000000|OPEN-|ASSUMED:' -Quiet) {
+            Write-Output "::error file=${f}::Stage $env:STAGE still holds placeholder values - answer the open items first."
             exit 1
-          fi
+          }
       - uses: azure/login@v3
         with:
           client-id: ${{ vars.AZURE_CLIENT_ID }}
@@ -303,23 +322,21 @@ jobs:
         env:
           RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP }}
         run: |
-          az deployment group what-if --resource-group "$RESOURCE_GROUP" \
-            --template-file main.bicep --parameters "main.${STAGE}.bicepparam" \
+          az deployment group what-if --resource-group $env:RESOURCE_GROUP `
+            --template-file main.bicep --parameters "main.$env:STAGE.bicepparam" `
             --no-pretty-print > whatif.json
-          n=$(jq '[.changes[] | select(.changeType != "NoChange" and .changeType != "Ignore")] | length' whatif.json)
-          echo "changes=$([ "$n" -gt 0 ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
-          {
-            echo "### What-if: ${STAGE}"
-            echo '```'
-            jq -r '.changes[] | select(.changeType != "NoChange" and .changeType != "Ignore") | "\(.changeType)\t\(.resourceId)"' whatif.json
-            echo '```'
-            # A module whose parameters use another module's output cannot be expanded before the
-            # deployment: what-if skips it and shows none of its resources.
-            skipped=$(jq -r '[.diagnostics[]? | select(.code == "NestedDeploymentShortCircuited") | .target | split("/") | last] | join(", ")' whatif.json)
-            if [ -n "$skipped" ]; then
-              echo "**Not predicted (what-if cannot expand these modules, they are deployed anyway):** ${skipped}"
-            fi
-          } | tee -a "$GITHUB_STEP_SUMMARY"
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          $whatif = Get-Content whatif.json -Raw | ConvertFrom-Json
+          $changes = @($whatif.changes | Where-Object changeType -notin 'NoChange', 'Ignore')
+          "changes=$(($changes.Count -gt 0).ToString().ToLower())" | Add-Content $env:GITHUB_OUTPUT
+          $summary = @("### What-if: $env:STAGE", '```') + @($changes | ForEach-Object { "$($_.changeType)`t$($_.resourceId)" }) + '```'
+          # A module whose parameters use another module's output cannot be expanded before the
+          # deployment: what-if skips it and shows none of its resources.
+          $skipped = @($whatif.diagnostics | Where-Object code -eq 'NestedDeploymentShortCircuited' | ForEach-Object { ($_.target -split '/')[-1] })
+          if ($skipped) {
+            $summary += "**Not predicted (what-if cannot expand these modules, they are deployed anyway):** $($skipped -join ', ')"
+          }
+          $summary | Tee-Object -FilePath $env:GITHUB_STEP_SUMMARY -Append
 
   approve:
     # unchanged from the Terraform workflow
@@ -343,11 +360,11 @@ jobs:
         env:
           RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP }}
         run: |
-          az deployment group create --name "payments-${STAGE}" --resource-group "$RESOURCE_GROUP" \
-            --template-file main.bicep --parameters "main.${STAGE}.bicepparam"
+          az deployment group create --name "payments-$env:STAGE" --resource-group $env:RESOURCE_GROUP `
+            --template-file main.bicep --parameters "main.$env:STAGE.bicepparam"
 ```
 
-The `jq` filter assumes the `changes[].changeType` shape of `az deployment group what-if
+The filter assumes the `changes[].changeType` shape of `az deployment group what-if
 --no-pretty-print`; check it against one real run before relying on the skip.
 
 **What-if is partial for modules, and the step says so.** A module whose parameters use another
@@ -376,7 +393,7 @@ workflows still go to the root and carry the directory:
   `<root>/<file>` too;
 - **a job without a checkout does not inherit a directory that is not there.** The `approve`
   job checks out nothing, and under a workflow-wide `working-directory: <root>` its first step
-  fails with "An error occurred trying to start process '/usr/bin/bash' with working directory"
+  fails with "An error occurred trying to start process '/usr/bin/pwsh' with working directory"
   before it runs. Such a job sets `defaults.run.working-directory: .`.
 
 `check_pipeline.py` fails on a job that has no `actions/checkout` and inherits such a default.
