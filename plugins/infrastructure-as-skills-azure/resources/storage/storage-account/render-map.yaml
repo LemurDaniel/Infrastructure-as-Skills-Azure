@@ -195,7 +195,7 @@ decisions:
     terraform: { attribute: infrastructure_encryption_enabled, passthrough: true, note: set at creation }
     bicep_avm: { attribute: requireInfrastructureEncryption, passthrough: true, note: module default true; written anyway }
     bicep: { attribute: properties.encryption.requireInfrastructureEncryption, passthrough: true }
-    import: {path: properties.encryption.requireInfrastructureEncryption, passthrough: true}
+    import: {path: properties.encryption.requireInfrastructureEncryption, passthrough: true, missing: false}
   security.key_management:
     terraform_avm:
       attribute: customer_managed_key
