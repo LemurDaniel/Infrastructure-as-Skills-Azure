@@ -457,8 +457,8 @@ groups:
 
       - id: key_based_metadata_writes
         ask:
-          en: "May account keys change databases and containers?"
-          de: "Dürfen Kontoschlüssel Datenbanken und Container ändern?"
+          en: "Should account keys be barred from changing databases and containers?"
+          de: "Sollen Kontoschlüssel Datenbanken und Container nicht ändern dürfen?"
         type: bool
         plain:
           en: "Creating or changing databases, containers and throughput with account keys is {value}."

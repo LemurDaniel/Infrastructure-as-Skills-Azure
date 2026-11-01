@@ -218,6 +218,25 @@ groups:
           and it is expensive enough that it belongs to a platform decision rather
           than a workload one — the plan is usually shared across a subscription.
 
+      - id: ddos_protection_plan
+        ask:
+          en: "Which DDoS protection plan does the network use?"
+          de: "Welchen DDoS-Schutzplan nutzt das Netz?"
+        type: string
+        resolved_by: derived
+        plain:
+          en: "The network is protected by the plan {value}."
+          de: "Das Netz ist durch den Plan {value} geschützt."
+        accepts: { ref: ddos_protection_plan }
+        required: true
+        depends_on: { question: ddos_protection, equals: true }
+        per_environment: true
+        why: >
+          `ddos_protection: true` attaches the network to a plan, and the network takes the
+          plan's id - the bool alone renders nothing. The plan is the ddos-protection-plan
+          set's, usually the platform's and shared across a subscription; an id nobody can
+          give is an `open:` entry, never a guess.
+
       - id: subnets_expecting_nsg
         ask:
           en: "Which subnets will have a network security group attached?"

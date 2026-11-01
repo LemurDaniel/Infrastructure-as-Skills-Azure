@@ -353,6 +353,23 @@ groups:
           `user_assigned`. Without an identity the vault cannot back anything up, so `none`
           is not offered.
 
+      - id: user_assigned_identity_id
+        ask:
+          en: "Which user-assigned identity does the vault carry?"
+          de: "Welche separat verwaltete Identität trägt der Tresor?"
+        type: string
+        plain:
+          en: "It uses the identity {value}."
+          de: "Er nutzt die Identität {value}."
+        accepts: { ref: user_assigned_identity }
+        required: true
+        depends_on: { question: managed_identity, equals: user_assigned }
+        per_environment: true
+        why: >
+          `managed_identity: user_assigned` names an identity that is a resource of its own and
+          must exist first - a customer-managed key forces it, because the key role is granted
+          to that identity before the key is set. Without its id the vault has nothing to take.
+
   - id: identity
     title: Identity and access
     questions:

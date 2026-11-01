@@ -258,11 +258,11 @@ groups:
           de: "Die Function App meldet sich an ihrem Speicher an mit {value}."
         plain_values:
           identity: { en: "its managed identity, with no secret stored", de: "ihrer verwalteten Identität, ohne gespeichertes Geheimnis" }
-          connection_string: { en: "a connection string holding the storage key", de: "einer Verbindungszeichenfolge mit dem Speicherschlüssel" }
-        accepts: [identity, connection_string]
-        answer: { deployment: local_auth }
+        accepts: [identity]
+        default: identity
         why: >
-          Inherited: `local_auth: disabled` renders as `identity`. A storage key in an app
+          The identity, always: a connection string is not offered, and neither rendering
+          reference writes one - `local_auth: allowed_where_unavoidable` does not reach it. A storage key in an app
           setting is a long-lived secret with full access to the account, visible to anyone with
           read on the app, and it cannot work against an account whose shared-key access is
           off - which the storage set turns off by default. **There are two connections on

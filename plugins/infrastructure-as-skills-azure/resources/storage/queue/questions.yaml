@@ -104,8 +104,9 @@ groups:
           de: "Beschriftungen der Warteschlangen: {value} (leer: keine)."
         default: []
         why: >
-          Key-value metadata on a queue, lowercase keys. Usually empty; used by tools that
-          discover queues by label.
+          Key-value metadata on a queue, one `key=value` entry per label, lowercase keys
+          (`team=billing`). A list, because the format has no map type; the render builds the
+          map the queue takes. Usually empty; used by tools that discover queues by label.
 
   - id: identity
     title: Identity and access

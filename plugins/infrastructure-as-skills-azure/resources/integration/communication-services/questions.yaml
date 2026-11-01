@@ -211,12 +211,12 @@ groups:
           de: "Der Kommunikations-Endpunkt ist {value}."
         plain_values:
           disabled: { en: not reachable from the internet at all, de: aus dem Internet überhaupt nicht erreichbar }
-          enabled_with_firewall: { en: reachable from the internet only from listed addresses, de: aus dem Internet nur von gelisteten Adressen erreichbar }
           enabled: { en: reachable from the internet, de: aus dem Internet erreichbar }
-        accepts: [disabled, enabled_with_firewall, enabled]
+        accepts: [disabled, enabled]
         answer: { deployment: network_exposure }
         forced_when: >
-          Without a `network_security_perimeter`, `disabled` and `enabled_with_firewall` are
+          There is no `enabled_with_firewall` - the resource has no IP firewall, so a firewalled
+          posture renders `disabled`. Without a `network_security_perimeter`, `disabled` is
           forced to `enabled` and recorded as forced with `network_security_perimeter` as
           forced_by - the resource has no private endpoint and no IP firewall of its own,
           so the posture is enforced by keys off and roles (see `security`), not by the

@@ -413,13 +413,15 @@ groups:
           de: "Das Gateway ist {value}."
         plain_values:
           disabled: { en: not reachable from the internet at all, de: aus dem Internet überhaupt nicht erreichbar }
-          enabled_with_firewall: { en: reachable from the internet only from listed addresses, de: aus dem Internet nur von gelisteten Adressen erreichbar }
           enabled: { en: reachable from the internet, de: aus dem Internet erreichbar }
-        accepts: [disabled, enabled_with_firewall, enabled]
+        accepts: [disabled, enabled]
         answer: { deployment: network_exposure }
         forced_when: >
           `network_integration: external` forces `enabled`; `network_ownership: none` forces
-          `enabled`, recorded as forced with that question as forced_by.
+          `enabled`, recorded as forced with that question as forced_by. There is no
+          `enabled_with_firewall`: the management plane has no IP firewall, so a firewalled
+          posture renders `disabled`, and a gateway that has to be public is an `overridden`
+          `enabled`.
         why: >
           Asked only as a departure: exposure is a property of the system, the deployment
           set already answered it. It switches the **management plane** and, on tiers with
