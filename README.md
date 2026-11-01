@@ -1,6 +1,6 @@
 # Infrastructure as Skills: Azure
 
-![Infrastructure as Skills for Azure: an interview turns the decisions each resource forces into a spec, rendered as Terraform or Bicep on Azure Verified Modules](docs/social-preview.png)
+![A 34-second teaser of a run: the request, the interview, the spec with where each decision came from, the diagram sign-off, the render with one test per decision](docs/teaser.gif)
 
 > [!NOTE]
 > **AI disclaimer:** Yes, an AI helped write this, and yes, an AI is the one doing the interviewing. No, it does not get to `terraform apply`. Every decision it makes is written down with where it came from, and every render ships with a test per decision. 🤖
@@ -18,10 +18,6 @@
 [![Evals on Sonnet](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/LemurDaniel/Infrastructure-as-Skills-Azure/8e1bd6c30aa07bcfbc854dbb002c76f369d389da/badge-sonnet.json)](https://github.com/LemurDaniel/Infrastructure-as-Skills-Azure/blob/8e1bd6c30aa07bcfbc854dbb002c76f369d389da/README.md)
 
 A Claude Code plugin that authors Azure infrastructure as **Terraform or Bicep** from the decisions a resource actually forces - compute, network, data, security, messaging, integration, AI and recovery, 67 resource types in ten families. Not a module library and not a template collection. The interview writes an `infra-spec.yaml`; the code, its tests, a diagram and a decision document are rendered from that, onto [Azure Verified Modules](https://azure.github.io/Azure-Verified-Modules/) first.
-
-![A 34-second teaser of a run: the request, the interview, the spec with where each decision came from, the diagram sign-off, the render with one test per decision](docs/teaser.gif)
-
-<sub>🤖 AI-generated teaser, animated from [`docs/teaser.html`](docs/teaser.html). Every figure in it is counted from the [`chat-sandbox`](examples/chat-sandbox/) example.</sub>
 
 ## 💡 The Idea
 
