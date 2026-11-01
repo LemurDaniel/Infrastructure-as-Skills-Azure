@@ -108,14 +108,22 @@ groups:
         accepts: [private_endpoints, app_integration, container_apps, workload]
         required: true
         why: >
-          The rules follow from what is in the subnet, and the plugin cannot guess it: a subnet
-          for private endpoints is entered only by traffic to port 443 of the services behind
-          it, a subnet delegated to an app platform has outbound needs of its own, and a
-          workload subnet has whatever its workload listens on. It names the NSG
-          (`nsg-<purpose>`), picks the baseline in `notes.md` and says which service's
-          documentation to read for the platform rules. With no answer the decision is an
-          `open:` entry owned by the engineer, because an NSG with the wrong role's rules
-          either blocks the service or guards nothing.
+          The rules follow from what is in the subnet: a subnet for private endpoints is
+          entered only by traffic to port 443 of the services behind it, a subnet delegated to
+          an app platform has outbound needs of its own, and a workload subnet has whatever its
+          workload listens on. Every subnet the spec creates gets an NSG (guardrails, network
+          exposure), so the purpose is read from what the spec puts in the subnet, never asked.
+          It names the NSG (`nsg-<purpose>`), picks the baseline in `notes.md` and says which
+          service's documentation to read for the platform rules. A subnet nothing in the spec
+          explains is an `open:` entry owned by the engineer, because an NSG with the wrong
+          role's rules either blocks the service or guards nothing.
+        forced_when: >
+          What references the subnet decides it, recorded as forced with that reference as
+          forced_by: the network's private endpoint subnet (`private_endpoint_subnet_prefix`)
+          takes `private_endpoints`; a subnet an App Service, Function App or Logic App names as
+          `integration_subnet` takes `app_integration`; a Container Apps `infrastructure_subnet`
+          takes `container_apps`; a subnet API Management, Application Gateway or a machine is
+          placed in takes `workload`. One NSG per purpose, naming all of its subnets
 
       - id: default_inbound
         ask:

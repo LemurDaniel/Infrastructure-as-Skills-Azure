@@ -178,7 +178,7 @@ composition:
   source: default
   modules:
   - id: network
-    contains: [virtual-network]
+    contains: [virtual-network, network-security-group__app, network-security-group__endpoints]
     inputs: [environment, location, workload, resource_group_name]
     outputs: [id, private_endpoint_subnet_id, integration_subnet_id]
   - id: compute
@@ -226,6 +226,35 @@ resources:
           test: 10.43.0.0/27
           production: 10.44.0.0/27
         source: deployment
+
+  # One NSG per subnet purpose; every subnet the spec creates has one (guardrails, network).
+  network-security-group__app:
+    networking:
+      subnets:
+        value:
+        - resource: virtual-network
+          part: snet-app
+        source:
+          forced_by: resources.virtual-network.addressing.subnets
+    rules:
+      subnet_purpose:
+        value: app_integration
+        source:
+          forced_by: resources.app-service.networking.integration_subnet
+
+  network-security-group__endpoints:
+    networking:
+      subnets:
+        value:
+        - resource: virtual-network
+          part: endpoints  # the private endpoint subnet: no listed subnet carries its prefix
+        source:
+          forced_by: resources.virtual-network.addressing.subnets
+    rules:
+      subnet_purpose:
+        value: private_endpoints
+        source:
+          forced_by: resources.virtual-network.addressing.private_endpoint_subnet_prefix
 
   app-service:
     meta:
@@ -478,7 +507,10 @@ gateway each reference the subnets they take (`networking.subnets`, `gateway.sub
 the other way round: the subnet's list stays `{ name, prefix }` per stage, and the reference is
 one value for every stage. The association is still a property of the subnet, so the network's
 module renders it (`on_part` in render-map.yaml). Such a question is `exclusive`: a subnet takes
-at most one of each, and `check_spec.py` fails on a second claim.
+at most one of each, and `check_spec.py` fails on a second claim - and on a subnet the spec
+creates that no NSG names. The private endpoint subnet is a part too: the listed subnet
+carrying `private_endpoint_subnet_prefix`, or `endpoints` when none does (`implied` in
+ref-kinds.yaml).
 
 ## Resource groups: roles, modes, names
 

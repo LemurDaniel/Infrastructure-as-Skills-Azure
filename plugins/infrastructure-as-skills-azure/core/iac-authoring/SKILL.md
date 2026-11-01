@@ -475,7 +475,9 @@ technology where the set needs it.
 
 **Read every question set before Phase 3 asks anything.** That is the set of each resource
 the request names **plus** every resource a deployment decision forces into the design: a
-private network exposure brings the virtual network and its private-endpoint subnet,
+private network exposure brings the virtual network and its private-endpoint subnet, a virtual
+network brings one `network-security-group` per subnet purpose naming its subnets (guardrails,
+network exposure),
 `observability_ownership: create` brings a `log-analytics-workspace` resource whose set is
 resolved and written like any other - its access and authentication decisions live there, not
 in the deployment set - `application_monitoring:
