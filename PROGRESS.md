@@ -799,9 +799,16 @@ per-family` in `check_spec.py` and the `chatbot` spec, and `references/private-d
   import worker) render two environments and two subnets - it needs several apps per
   environment; `central_backup` is asked before `backup_isolation` and so also when no copy
   leaves the system; the round-5 spec and diagram live in a scratchpad only.
-- The diagrams of `chatbot-rag`, `chat-sandbox` and `orders-integration` were not redrawn
-  after region/subscription became `open:` (2026-10-26); `chat-sandbox`'s carries hand edits
-  a redraw would lose.
+- The diagrams of `chatbot-rag` and `orders-integration` were not redrawn after
+  region/subscription became `open:` (2026-10-26). `chat-sandbox` was (2026-11-01): its spec is
+  now English (`context.language: en`; the quotes of the German request and the owner names
+  stay), the picture regenerated and then laid out by hand - App Service label right, one trunk
+  down to the PaaS row, the resource group as a dashed frame, legend and panel side by side,
+  subtitle cell cut from 1300 to 1076px. A redraw loses that; the generator faults behind it
+  (fixed 1300px subtitle, exits from the top looping around the zone, labels on frame borders)
+  are open in `new_diagram.py`. The README now opens with `docs/teaser.gif` instead of
+  `docs/social-preview.png` (kept, likely the GitHub social preview); the teaser carries an
+  `AI-generated` mark top right.
 - `wiring:` is validated by example only. (`check_spec.py` knows `granularity: per-family`
   since 2026-10-25 and the `chatbot` spec declares its seven family modules.)
 - `export_decisions.py` prints `reason` and `open:` texts untranslated. `infra-decisions.docx` is missing everywhere (no `pandoc`).
@@ -901,8 +908,6 @@ per-family` in `check_spec.py` and the `chatbot` spec, and `references/private-d
   NSG pattern has no `<?SUBNAME>` (two NSGs got one name); the web app name has no unique
   id (global hostname); `wiring.private_dns_zones` lacks `oms`/`ods`/`agentsvc` for a
   monitor scope; the Key Vault has no caller in the picture until its access is decided.
-- `chat-sandbox`'s decision panel was finished by hand before the two SKU corrections and
-  does not list the new forced chain (`verify_diagram.py` passes).
 - Not exercised: a fresh export through `export_diagram.py` end to end; the customer-edit
   diff path (extract, regenerate, diff).
 
