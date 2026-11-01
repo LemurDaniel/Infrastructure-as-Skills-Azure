@@ -1,0 +1,60 @@
+# What each decision of questions.yaml renders to, per target and implementation.
+# Format: core/iac-rendering/references/render-map.md. The call, the authored blocks and the
+# tests are in terraform.md and bicep.md.
+# No module call of its own: the AVM entries are paths inside the storage account's call.
+schema_version: 1
+resource: Microsoft.Storage/storageAccounts/fileServices/shares
+
+modules:
+  terraform: [Azure/avm-res-storage-storageaccount/azurerm]
+  bicep: [avm/res/storage/storage-account]
+
+decisions:
+
+  # ---------------------------------------------------------------- placement
+  placement.environments:
+    not_rendered: the tag of the environment where the repository uses one; no attribute of the share
+  placement.storage_account:
+    terraform_avm: { gap: the shares are an input of the account's own module call; no input of their own }
+    terraform: { attribute: storage_account_id }
+    bicep_avm: { gap: the shares are a parameter of the account's own module call; no parameter of their own }
+    bicep: { attribute: parent, note: fileServices/default of the account }
+
+  # ------------------------------------------------------------------- shares
+  shares.share_names:
+    terraform_avm: { attribute: 'shares.<key>.name', note: name and quota are both required members }
+    terraform: { attribute: name }
+    bicep_avm: { attribute: 'fileServices.shares[].name' }
+    bicep: { attribute: name, note: child of fileServices/default }
+  shares.protocol:
+    terraform_avm: { attribute: 'shares.<key>.enabled_protocol', note: module default null; written. Fixed at creation, passthrough: true }
+    terraform: { attribute: enabled_protocol, passthrough: true }
+    bicep_avm: { attribute: 'fileServices.shares[].enabledProtocols', note: fixed at creation, passthrough: true }
+    bicep: { attribute: properties.enabledProtocols, passthrough: true }
+  shares.quota_gb:
+    terraform_avm: { attribute: 'shares.<key>.quota', note: 'required member; GB, the provisioned size on Premium', passthrough: true }
+    terraform: { attribute: quota, note: required, passthrough: true }
+    bicep_avm: { attribute: 'fileServices.shares[].shareQuota', note: 'GB; up to 5,120, 102,400 with large file shares', passthrough: true }
+    bicep: { attribute: properties.shareQuota, passthrough: true }
+  shares.access_tier:
+    terraform_avm: { attribute: 'shares.<key>.access_tier', note: module default null (the platform's); written, passthrough: true }
+    terraform: { attribute: access_tier, passthrough: true }
+    bicep_avm: { attribute: 'fileServices.shares[].accessTier', note: required on a FileStorage account (Premium), passthrough: true }
+    bicep: { attribute: properties.accessTier, passthrough: true }
+  shares.root_squash:
+    terraform_avm: { attribute: 'shares.<key>.root_squash', note: NFS only, passthrough: true }
+    terraform:
+      gap: not on azurerm_storage_share; an azapi_update_resource on Microsoft.Storage/storageAccounts/fileServices/shares sets rootSquash
+    bicep_avm: { attribute: 'fileServices.shares[].rootSquash', note: NFS only, passthrough: true }
+    bicep: { attribute: properties.rootSquash, passthrough: true }
+
+  # ----------------------------------------------------------------- identity
+  identity.role_assignments:
+    terraform_avm:
+      attribute: 'shares.<key>.role_assignments.<key> = { role_definition_id_or_name, principal_id, principal_type }'
+      note: SMB data roles
+    terraform:
+      attribute: azurerm_role_assignment
+      note: scope = azurerm_storage_share.<k>.rbac_scope_id, not the resource id - the File service's role scope differs
+    bicep_avm: { attribute: 'fileServices.shares[].roleAssignments[] = { principalId, roleDefinitionIdOrName, principalType }' }
+    bicep: { gap: reference names no authored property }
