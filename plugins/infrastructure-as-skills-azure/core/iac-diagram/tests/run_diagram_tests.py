@@ -134,6 +134,8 @@ def case_ten_resources(cells):
         bad.append('a resource of the spec is drawn faded or marked optional - it is built like any other')
     if 'public access disabled' not in cells.get('z-paas', {}).get('value', ''):
         bad.append('the PaaS zone does not say public access is disabled')
+    if 'Diagnostics: existing, id open' not in cells.get('panel', {}).get('value', ''):
+        bad.append('the panel does not say the referenced workspace exists with its id open')
     if cells.get('z-monitoring', {}).get('parent') != '1' or cells.get('z-dnszones', {}).get('parent') != '1':
         bad.append('referenced monitoring and DNS should sit outside the subscription')
     if 'snet-app-integration' not in cells.get('snet-c0', {}).get('value', '') or 'Microsoft.Web/serverFarms' not in cells.get('snet-c0', {}).get('value', ''):
@@ -157,6 +159,8 @@ def case_ten_resources_de(cells):
         bad.append('title not in German')
     if 'ohne Fragenset' not in cells.get('res-event-grid-icon', {}).get('value', ''):
         bad.append('no-question-set note not in German')
+    if 'Diagnose: vorhanden, ID offen' not in cells.get('panel', {}).get('value', ''):
+        bad.append('the open workspace id is not said in German')
     return bad
 
 

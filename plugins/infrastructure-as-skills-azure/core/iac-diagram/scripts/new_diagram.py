@@ -77,7 +77,7 @@ def s(v):
 
 LABELS = {
     'en': {
-        'internet': 'Internet', 'users': 'Users', 'noPublic': 'no public access', 'existing': 'existing - not created',
+        'internet': 'Internet', 'users': 'Users', 'noPublic': 'no public access', 'existing': 'existing - not created', 'idOpen': 'existing, id open',
         'decisions': 'Decisions', 'open': 'Open', 'assumed': 'Assumed', 'exposure': 'Exposure',
         'network': 'Network', 'mandates': 'Mandates', 'dns': 'Private DNS', 'diag': 'Diagnostics',
         'peSubnet': 'private endpoints', 'owner': 'owner', 'noSet': 'no question set',
@@ -105,7 +105,7 @@ LABELS = {
         'dnsOpen': 'open - owner not decided', 'entry': 'Entry', 'children': 'Containers', 'children_file-share': 'File shares', 'children_queue': 'Queues',
     },
     'de': {
-        'internet': 'Internet', 'users': 'Benutzer', 'noPublic': 'kein öffentlicher Zugriff', 'existing': 'vorhanden - wird nicht erstellt',
+        'internet': 'Internet', 'users': 'Benutzer', 'noPublic': 'kein öffentlicher Zugriff', 'existing': 'vorhanden - wird nicht erstellt', 'idOpen': 'vorhanden, ID offen',
         'decisions': 'Entscheidungen', 'open': 'Offen', 'assumed': 'Angenommen', 'exposure': 'Erreichbarkeit',
         'network': 'Netzwerk', 'mandates': 'Vorgaben', 'dns': 'Private DNS', 'diag': 'Diagnose',
         'peSubnet': 'Private Endpoints', 'owner': 'zuständig', 'noSet': 'ohne Fragenset',
@@ -1842,6 +1842,8 @@ def main():
         lines.append(f"{T['dns']}: {esc(dns_ownership)}")
     if diag_target:
         lines.append(f"{T['diag']}: {esc(diag_target)}" + (f" ({esc(diag_ref['rg'])})" if diag_ref['rg'] else ''))
+    elif isinstance(diag_value, dict) and 'existing' in diag_value:
+        lines.append(f"{T['diag']}: {esc(T['idOpen'])}")
     if vnet_existing and vnet_ref['rg']:
         lines.append(f"VNet: {esc(vnet_ref['name'])} ({esc(vnet_ref['rg'])})")
     # Nothing that is prose. The forced chains, the questions and their reasons are in the
