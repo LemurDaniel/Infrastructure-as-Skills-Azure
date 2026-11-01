@@ -257,7 +257,7 @@ groups:
           enabled_with_firewall: { en: "reachable from the internet (the service has no address firewall)", de: "aus dem Internet erreichbar (der Dienst hat keine Adress-Firewall)" }
           enabled: { en: "reachable from the internet", de: "aus dem Internet erreichbar" }
         accepts: [disabled, enabled_with_firewall, enabled]
-        answer: { deployment: network_exposure }
+        answer: { deployment: network_exposure, map: { private: disabled, private_with_exceptions: disabled, public: enabled_with_firewall } }
         forced_when: >
           `channels` containing `MsTeamsChannel`, `EmailChannel`, `SlackChannel` or
           `M365Extensions` forces `enabled` - those channels reach the bot through the
@@ -349,7 +349,7 @@ groups:
         plain_values:
           true: { en: "switched off", de: "abgeschaltet" }
           false: { en: "possible", de: "möglich" }
-        answer: { deployment: local_auth }
+        answer: { deployment: local_auth, map: { disabled: true, allowed_where_unavoidable: true } }
         forced_when: >
           A Direct Line client that cannot obtain a token through the application (a static
           page without a backend) is `local_auth: allowed_where_unavoidable` for this bot

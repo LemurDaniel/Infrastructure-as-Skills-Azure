@@ -415,7 +415,7 @@ groups:
           disabled: { en: not reachable from the internet at all, de: aus dem Internet überhaupt nicht erreichbar }
           enabled: { en: reachable from the internet, de: aus dem Internet erreichbar }
         accepts: [disabled, enabled]
-        answer: { deployment: network_exposure }
+        answer: { deployment: network_exposure, map: { private: disabled, private_with_exceptions: disabled, public: enabled } }
         forced_when: >
           `network_integration: external` forces `enabled`; `network_ownership: none` forces
           `enabled`, recorded as forced with that question as forced_by. There is no

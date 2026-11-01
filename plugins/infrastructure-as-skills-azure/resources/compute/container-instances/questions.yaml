@@ -185,7 +185,7 @@ groups:
           private: { en: "an address inside the company network only", de: "nur eine Adresse im Firmennetz" }
           public: { en: "an address on the internet", de: "eine Adresse im Internet" }
         accepts: [private, public]
-        answer: { deployment: network_exposure }
+        answer: { deployment: network_exposure, map: { private: private, private_with_exceptions: private, public: public } }
         why: >
           Asked only as a departure: exposure is a property of the system. `private` is a group
           **injected into a delegated subnet** with a private address, so its outbound traffic

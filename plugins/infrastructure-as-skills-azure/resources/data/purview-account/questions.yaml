@@ -203,7 +203,7 @@ groups:
           enabled_with_firewall: { en: "reachable from the internet (the account has no address allowlist, so this means reachable)", de: "aus dem Internet erreichbar (das Konto kennt keine Adressliste, also bedeutet dies erreichbar)" }
           enabled: { en: "reachable from the internet", de: "aus dem Internet erreichbar" }
         accepts: [disabled, enabled_with_firewall, enabled]
-        answer: { deployment: network_exposure }
+        answer: { deployment: network_exposure, map: { private: disabled, private_with_exceptions: disabled, public: enabled_with_firewall } }
         depends_on: { question: ownership, equals: deployment }
         why: >
           Asked only as a departure: exposure is a property of the system. `disabled`

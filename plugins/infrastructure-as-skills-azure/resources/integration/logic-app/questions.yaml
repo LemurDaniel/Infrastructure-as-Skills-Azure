@@ -373,7 +373,7 @@ groups:
           enabled_with_firewall: { en: reachable from the internet only from listed addresses, de: aus dem Internet nur von gelisteten Adressen erreichbar }
           enabled: { en: reachable from the internet, de: aus dem Internet erreichbar }
         accepts: [disabled, enabled_with_firewall, enabled]
-        answer: { deployment: network_exposure }
+        answer: { deployment: network_exposure, map: { private: disabled, private_with_exceptions: disabled, public: enabled_with_firewall } }
         forced_when: >
           `hosting: consumption` forces `enabled` or `enabled_with_firewall` - the resource has
           no switch for `disabled`, its triggers are public URLs - recorded as forced with

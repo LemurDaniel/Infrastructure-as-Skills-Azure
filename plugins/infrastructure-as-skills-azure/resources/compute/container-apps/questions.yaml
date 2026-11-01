@@ -141,7 +141,7 @@ groups:
         plain_values:
           true: { en: "reachable only from inside the company network, through an internal load balancer", de: "nur aus dem Firmennetz erreichbar, über einen internen Lastverteiler" }
           false: { en: "given a public address of its own", de: "mit einer eigenen öffentlichen Adresse versehen" }
-        answer: { deployment: network_exposure }
+        answer: { deployment: network_exposure, map: { private: true, private_with_exceptions: true, public: false } }
         why: >
           Inherited: `private` renders as `true`, `public` as `false`. An internal environment
           has no public IP at all and is reached through an address in the infrastructure
@@ -185,7 +185,7 @@ groups:
           disabled: { en: "closed to all public traffic", de: "für jeden öffentlichen Verkehr gesperrt" }
           enabled: { en: "open to public traffic", de: "für öffentlichen Verkehr geöffnet" }
         accepts: [disabled, enabled]
-        answer: { deployment: network_exposure }
+        answer: { deployment: network_exposure, map: { private: disabled, private_with_exceptions: disabled, public: enabled } }
         why: >
           The platform switch for all public traffic to the environment, beside `internal`.
           `private` is `disabled`, `public` is `enabled`; the firewalling of a public app is

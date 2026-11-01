@@ -137,7 +137,7 @@ groups:
           disabled: { en: "not reachable from the internet at all, only through a private connection", de: "aus dem Internet überhaupt nicht erreichbar, nur über eine private Anbindung" }
           enabled: { en: "reachable from the internet", de: "aus dem Internet erreichbar" }
         accepts: [disabled, enabled]
-        answer: { deployment: network_exposure }
+        answer: { deployment: network_exposure, map: { private: disabled, private_with_exceptions: disabled, public: enabled } }
         why: >
           Asked only as a departure: exposure is a property of the system. `private` is
           `disabled`, `public` is `enabled`; there is no firewall allowlist on a Static Web App,

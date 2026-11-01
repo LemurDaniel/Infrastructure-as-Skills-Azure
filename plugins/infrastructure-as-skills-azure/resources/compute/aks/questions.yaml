@@ -210,7 +210,7 @@ groups:
           enabled_with_firewall: { en: "reachable from the internet only from listed addresses", de: "aus dem Internet nur von gelisteten Adressen erreichbar" }
           enabled: { en: "reachable from the internet", de: "aus dem Internet erreichbar" }
         accepts: [disabled, enabled_with_firewall, enabled]
-        answer: { deployment: network_exposure }
+        answer: { deployment: network_exposure, map: { private: disabled, private_with_exceptions: disabled, public: enabled_with_firewall } }
         why: >
           Asked only as a departure: exposure is a property of the system. It is about the
           **Kubernetes API server**, the thing `kubectl` and the pipeline talk to - the apps
@@ -730,7 +730,7 @@ groups:
         plain_values:
           true: { en: "switched off", de: "abgeschaltet" }
           false: { en: "available to anyone who can list the cluster's credentials", de: "für jeden verfügbar, der die Zugangsdaten des Clusters auflisten darf" }
-        answer: { deployment: local_auth }
+        answer: { deployment: local_auth, map: { disabled: true, allowed_where_unavoidable: true } }
         why: >
           Inherited, inverted: `local_auth: disabled` renders as `true`. A static admin
           kubeconfig is a long-lived, unattributable credential with `cluster-admin`; with it off,

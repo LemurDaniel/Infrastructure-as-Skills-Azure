@@ -239,7 +239,7 @@ groups:
           enabled_with_firewall: { en: "reachable from the internet, with sign-in as the only gate", de: "aus dem Internet erreichbar, mit der Anmeldung als einziger Schranke" }
           enabled: { en: "reachable from the internet", de: "aus dem Internet erreichbar" }
         accepts: [disabled, enabled_with_firewall, enabled]
-        answer: { deployment: network_exposure }
+        answer: { deployment: network_exposure, map: { private: disabled, private_with_exceptions: disabled, public: enabled_with_firewall } }
         why: >
           Asked only as a departure: exposure is a property of the system. `private` is
           `disabled`. **Azure Managed Redis has no IP allowlist**: public access is on or
@@ -364,7 +364,7 @@ groups:
         plain_values:
           true: { en: "switched off", de: "abgeschaltet" }
           false: { en: "possible", de: "möglich" }
-        answer: { deployment: local_auth }
+        answer: { deployment: local_auth, map: { disabled: true, allowed_where_unavoidable: true } }
         why: >
           Inherited: `local_auth: disabled` renders as access-key authentication disabled.
           An access key is a password that every client shares, does not expire and is not

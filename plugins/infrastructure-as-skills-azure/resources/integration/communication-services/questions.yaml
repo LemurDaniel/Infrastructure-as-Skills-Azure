@@ -213,7 +213,7 @@ groups:
           disabled: { en: not reachable from the internet at all, de: aus dem Internet überhaupt nicht erreichbar }
           enabled: { en: reachable from the internet, de: aus dem Internet erreichbar }
         accepts: [disabled, enabled]
-        answer: { deployment: network_exposure }
+        answer: { deployment: network_exposure, map: { private: disabled, private_with_exceptions: disabled, public: enabled } }
         forced_when: >
           There is no `enabled_with_firewall` - the resource has no IP firewall, so a firewalled
           posture renders `disabled`. Without a `network_security_perimeter`, `disabled` is
@@ -319,7 +319,7 @@ groups:
         plain_values:
           true: { en: "switched off", de: "abgeschaltet" }
           false: { en: "possible", de: "möglich" }
-        answer: { deployment: local_auth }
+        answer: { deployment: local_auth, map: { disabled: true, allowed_where_unavoidable: true } }
         forced_when: >
           `local_auth: allowed_where_unavoidable` is named for a client SDK or a connector
           that offers no token credential - checked against the SDK before a render, because

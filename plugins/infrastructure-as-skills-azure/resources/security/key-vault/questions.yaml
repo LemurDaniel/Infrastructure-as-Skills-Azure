@@ -145,7 +145,7 @@ groups:
         plain_values:
           true: { en: "role assignments, like everything else in Azure", de: "Rollenzuweisungen, wie alles andere in Azure" }
           false: { en: "the vault's own access list, which sits outside the normal access model", de: "die eigene Zugriffsliste des Tresors, die außerhalb des üblichen Zugriffsmodells liegt" }
-        answer: { deployment: local_auth }
+        answer: { deployment: local_auth, map: { disabled: true, allowed_where_unavoidable: true } }
         why: >
           Inherited: `local_auth: disabled` renders as `true`. Access policies are a second
           permission system per vault that cannot be scoped to one secret, is not visible
@@ -171,7 +171,7 @@ groups:
           enabled_with_firewall: { en: "reachable from the internet only from listed addresses", de: "aus dem Internet nur von gelisteten Adressen erreichbar" }
           enabled: { en: "reachable from the internet", de: "aus dem Internet erreichbar" }
         accepts: [disabled, enabled_with_firewall, enabled]
-        answer: { deployment: network_exposure }
+        answer: { deployment: network_exposure, map: { private: disabled, private_with_exceptions: disabled, public: enabled_with_firewall } }
         why: >
           Asked only as a departure: exposure is a property of the system, the deployment
           set already answered it. `private` is `disabled`, `public` is

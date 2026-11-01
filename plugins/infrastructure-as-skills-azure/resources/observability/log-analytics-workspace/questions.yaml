@@ -163,7 +163,7 @@ groups:
         plain_values:
           true: { en: "possible", de: "möglich" }
           false: { en: "not possible - agents use company identities", de: "nicht möglich, Agenten nutzen Firmenidentitäten" }
-        answer: { deployment: local_auth }
+        answer: { deployment: local_auth, map: { disabled: false, allowed_where_unavoidable: false } }
         why: >
           The shared key is a bearer credential with ingestion rights and no
           expiry. Disabling it forces Entra ID, which the modern agents use

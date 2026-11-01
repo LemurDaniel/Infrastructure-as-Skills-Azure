@@ -180,7 +180,7 @@ groups:
           enabled_with_firewall: { en: "reachable from the internet only from listed addresses", de: "aus dem Internet nur von gelisteten Adressen erreichbar" }
           enabled: { en: "reachable from the internet", de: "aus dem Internet erreichbar" }
         accepts: [disabled, enabled_with_firewall, enabled]
-        answer: { deployment: network_exposure }
+        answer: { deployment: network_exposure, map: { private: disabled, private_with_exceptions: disabled, public: enabled_with_firewall } }
         why: >
           Asked only as a departure: exposure is a property of the system. `private` is
           `disabled`, `public` is `enabled_with_firewall`. **Terraform's module defaults to
@@ -367,7 +367,7 @@ groups:
         plain_values:
           true: { en: "switched on", de: "eingeschaltet" }
           false: { en: "switched off", de: "abgeschaltet" }
-        answer: { deployment: local_auth }
+        answer: { deployment: local_auth, map: { disabled: false, allowed_where_unavoidable: false } }
         why: >
           Inherited, inverted: `local_auth: disabled` renders as `false`. The admin user is
           one username and password with push and pull on the whole registry, shared by

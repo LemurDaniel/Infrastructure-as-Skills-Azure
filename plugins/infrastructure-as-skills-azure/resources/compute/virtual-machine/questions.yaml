@@ -587,7 +587,7 @@ groups:
         plain_values:
           true: { en: "allowed", de: "erlaubt" }
           false: { en: "not allowed; keys and company accounts only", de: "nicht erlaubt; nur Schlüssel und Firmenkonten" }
-        answer: { deployment: local_auth }
+        answer: { deployment: local_auth, map: { disabled: false, allowed_where_unavoidable: false } }
         depends_on: { question: os_type, equals: Linux }
         why: >
           Inherited, inverted: `local_auth: disabled` renders as `false`. SSH with a key or
