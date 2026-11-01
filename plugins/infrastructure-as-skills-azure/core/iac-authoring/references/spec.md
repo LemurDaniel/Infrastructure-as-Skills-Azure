@@ -338,6 +338,24 @@ open:
   blocks: apply
 ```
 
+## The head and the context
+
+| Key | Holds |
+|---|---|
+| `schema_version` | The version of this file's format, an integer: `1`. Not the question sets' `schema_version`, which versions their format and moves on its own. `check_spec.py` fails on a version newer than the plugin reads |
+| `spec.id` | The root's name, stable across runs; lower case and hyphens |
+| `spec.target` | `terraform` or `bicep` |
+| `spec.generated_by` | `infrastructure-as-skills-azure`: what wrote the file |
+| `spec.plugin_version` | The plugin version that last wrote it; set by `write_spec.py`, never lowered (see *Reading one back*) |
+| `spec.at` | When it was last written, UTC, ISO 8601 (`2026-10-17T09:14:00Z`); the decision document prints its date |
+| `context.environments` | The stages, in deployment order (see *Stages*) |
+| `context.language` | The customer's language (see *Language*) |
+| `context.location` | The region; a value or an `open:` entry, never picked by the run |
+| `context.workload` | The workload's short name; the naming interface and the state key read it |
+| `context.subscription_id` | A stage map; a stage nobody named is an `open:` entry |
+| `context.resource_group_name` | The main group of a single layout, a stage map (see *Resource groups*) |
+| `context.tags` | A flat map of tag name to value, taken from the repository or the request - the plugin prescribes none ([guardrails.md](guardrails.md#1-naming-and-tags)). Every resource gets it; absent or empty renders an empty set |
+
 ## Language
 
 `context.language` is the customer's language, `en` or `de`: the fixed labels of the picture,
@@ -356,7 +374,10 @@ the spec is then either **one value for every stage** (a scalar, a list, a refer
 **a map keyed by stage**:
 
 ```yaml
-      replication:
+      min_tls_version:  # one value: a literal in the template, the same in every stage
+        value: TLS1_2
+        source: default
+      replication:      # a map: a parameter, each stage's value in its stage file
         value:
           development: LRS
           test: LRS
@@ -615,6 +636,14 @@ open:
     blocks: apply
 ```
 
+| Field | Holds |
+|---|---|
+| `key` | Required. The key path the entry stands for (`context.subscription_id`, `deployment.address_space`, `resources.<key>.<group>.<id>`) |
+| `environments` | The stages still missing, where the value is a stage map; absent means every stage |
+| `question` | What has to be answered, in `context.language` |
+| `owner` | Who answers it, in `context.language` (`Plattform-Team`, `network / IPAM owner`); absent when the person asking is the one to answer |
+| `blocks` | Required. The first step it stops: `render` - the part is not rendered until it is answered (nothing to render it from); `plan` - rendered, but `plan` cannot run on a placeholder; `apply` - rendered and planned with a placeholder in the stage file, the pipeline refuses `apply`. Most entries are `apply`: the placeholder exists so that everything before it runs |
+
 Neither is a defect in the spec. A run that invents a resource group to avoid an empty
 field is the defect, and it is invisible until someone deploys it.
 
@@ -685,12 +714,17 @@ resources:
   storage-account:
     _target_overrides:
       terraform:
-        # Needed until azurerm supports it as a first-class argument.
-        lifecycle_ignore: [tags["created_at"]]
+        lifecycle_ignore:
+          value: [tags["created_at"]]
+          reason: Needed until azurerm supports it as a first-class argument.
 ```
 
-Anything under `_target_overrides` needs a comment saying why, and a spec that accumulates
-them is telling you the question set is missing a question.
+`_target_overrides` sits on a resource or at the top level, keyed by target (`terraform`,
+`bicep`); each override is `{ value, reason }` and nothing else. The reason is data, not a
+YAML comment: the render reads the spec through a parser, which drops comments, and writes
+the reason as the comment above the code it produces. `check_spec.py` fails on an override
+without one. A spec that accumulates overrides is telling you the question set is missing a
+question.
 
 ## Modularity
 
@@ -724,7 +758,8 @@ existing spec, decides this before the interview starts.
 | `inputs` | Context keys and values the caller passes in. Not the full decision set — the decisions stay in `resources:` |
 | `outputs` | What other modules or the caller may consume. Nothing secret |
 | `needs` | Other module ids it consumes outputs from. The dependency is declared here, never discovered from the rendered code |
-| `implementation` | `avm` (default), `authored`, or `reuse` — see below. Never a module path |
+| `implementation` | `avm` (default), `authored`, or `reuse` — see below. Never a module path. Written only where it departs from `deployment.module_source` |
+| `source` | Beside `implementation`, where the departure came from: `{ forced_by: ... }` or `{ overridden: <reason> }` |
 
 Three rules that hold in both targets:
 
@@ -743,17 +778,20 @@ Whether a module is a call to a published one or authored here is a decision, so
 the spec. *Which* published module, and how it is addressed, is not:
 
 ```yaml
-    - id: storage
+    - id: storage                # follows deployment.module_source: avm - nothing written
       contains: [storage-account]
-      implementation: avm        # avm | authored | reuse
-      source: deployment         # follows deployment.module_source unless overridden
+    - id: container
+      contains: [container-apps]
+      implementation: authored   # avm | authored | reuse - written where it departs
+      source:
+        overridden: The repository's container module is authored; this one joins it.
 ```
 
 | Value | Meaning |
 |---|---|
 | `avm` | **Default.** A call to the resource's Azure Verified Module, in whichever target renders. Follows `deployment.module_source: avm`; not written per module unless it departs |
 | `authored` | Resources written out from the resource's own rendering reference. The fallback when no AVM module exists for the type — then `source: { forced_by: no AVM module for <type> }` — or the deployment chose it |
-| `reuse` | A published module that is not AVM, named by the user. The coordinate goes into `_target_overrides` with a comment |
+| `reuse` | A published module that is not AVM, named by the user. The coordinate goes into `_target_overrides` with its reason |
 
 The coordinate stays in the renderer, because it is target knowledge with target rules
 attached — `br/public:avm/res/...` and the exact version on the Bicep side,
@@ -776,7 +814,7 @@ Two consequences worth stating before generating:
   the user should see it. The rules per kind of gap are in
   [avm.md](../../iac-rendering/references/avm.md#gaps-what-the-module-does-not-carry).
 - If the user named a specific module, that is a target-specific instruction and goes in
-  `_target_overrides` with a comment, not into `implementation`.
+  `_target_overrides` with its reason, not into `implementation`.
 
 ### Rendering it
 
@@ -893,8 +931,11 @@ Three cases need care:
   predates it and is not held back. Every run that writes the spec sets the field to the
   installed version and never lowers it.
 - **A question was added to the set since.** See the table above.
-- **`schema_version` is older than the question set's.** Say what changed before
-  regenerating. Silently migrating a file whose purpose is auditability defeats the file.
+- **`schema_version` differs from the spec format this plugin writes** (`1`). Newer: the
+  file is in a format this plugin does not know - `check_spec.py` fails, and nothing is
+  written until the plugin is updated. Older: say what changed before regenerating. Silently
+  migrating a file whose purpose is auditability defeats the file. The question sets'
+  `schema_version` plays no part here.
 
 ## Canonical form
 
