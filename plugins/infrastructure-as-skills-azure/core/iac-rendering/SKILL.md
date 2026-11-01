@@ -29,6 +29,19 @@ and follow the version gate in [iac-authoring](../iac-authoring/SKILL.md#before-
 one AskUserQuestion offering the update, no way on with the older plugin. A render that goes
 ahead sets `spec.plugin_version` to the installed version.
 
+**Then the digest, before any reference:**
+`python <plugin>/core/iac-rendering/scripts/render_digest.py <spec>`. It prints the spec's
+shape, every deployment and resource decision under the key path its test names, with
+its value, source and what the resource's `render-map.yaml` maps it to for the target and
+implementation - the attribute and the literal the value becomes
+([render-map.md](references/render-map.md)) - the AVM modules and naming identifier of
+each resource, wiring, `assumed` and `open:` entries, and the
+reading list: each reference and each resource's rendering reference with the line
+ranges that apply to this spec. Read those ranges (Read with offset and limit), not the
+whole files; the rest only for a question the digest leaves open. Exit 1 names a gap - a
+resource without a question set, `render-map.yaml` or rendering reference - which goes into the
+hand-over. The digest's literal is the one to write; a `gap` is rendered the way it says.
+
 ## What the spec hands over
 
 | Spec | What this layer does with it |
@@ -40,9 +53,9 @@ ahead sets `spec.plugin_version` to the installed version.
 | `wiring` | Renders into the root, never into a module — only the caller sees both ends |
 | `_target_overrides` | Target-specific escape hatches, each with its comment |
 
-The schema is in
-[../iac-authoring/references/spec.md](../iac-authoring/references/spec.md). Read it rather
-than inferring the shape from an example spec.
+The digest reads the spec for the render; the schema behind it is
+[../iac-authoring/references/spec.md](../iac-authoring/references/spec.md). Look a key up
+there when the digest does not explain it, never infer the shape from an example spec.
 
 ## Order of work
 
@@ -222,7 +235,9 @@ is spelled. A port that reads as a transliteration has usually lost one of them.
 | [references/pipelines.github.md](references/pipelines.github.md), [.ado.md](references/pipelines.ado.md), [.gitlab.md](references/pipelines.gitlab.md), [.local.md](references/pipelines.local.md) | `deploy_mechanism` is that system |
 | [references/gitignore.md](references/gitignore.md) | After rendering: the lines the repository's `.gitignore` must have, added never rewritten |
 | [references/agents.md](references/agents.md) | The Agent tool is available and the spec spans several families: the two loops in sequence, the stop rules, the briefs |
-| [../iac-authoring/references/spec.md](../iac-authoring/references/spec.md) | Reading the spec you render from |
+| [references/render-map.md](references/render-map.md) | A digest line is unclear, or a resource's `render-map.yaml` is written or changed |
+| `scripts/render_digest.py` | First, after the version gate: the spec's decisions with their `renders`, and the line ranges of every reference this spec needs |
+| [../iac-authoring/references/spec.md](../iac-authoring/references/spec.md) | A spec key the digest does not explain |
 | [../iac-authoring/references/guardrails.md](../iac-authoring/references/guardrails.md) | A value in the spec looks wrong and you need the rule behind it |
 | `scripts/run_arm_tests.py` | A Bicep render: its `tests/*.armtest.yaml` against the compiled ARM |
 | `scripts/check_pipeline.py` | After rendering a pipeline: the invariants of `pipelines.md`, per platform |

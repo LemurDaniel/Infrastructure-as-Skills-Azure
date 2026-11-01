@@ -1,0 +1,61 @@
+# The spec run_render_digest_tests.py digests for the render-map shapes beyond one entry: a
+# literal composed from three answers per stage (sql-database), an entry picked by kind
+# (alert-rule, authored), a format that is code (postgresql storage in megabytes).
+schema_version: 1
+
+spec:
+  id: digest-shapes-fixture
+  target: terraform
+  generated_by: infrastructure-as-skills-azure
+  plugin_version: 0.7.0
+
+context:
+  environments: [development, production]
+  language: en
+  workload: shapes
+
+deployment:
+  deploy_mechanism:
+    value: local
+    source: asked
+  module_source:
+    value: avm
+    source: asked
+
+composition:
+  granularity: per-family
+  source: default
+  modules:
+  - id: data
+    contains: [sql-database, postgresql-flexible-server]
+  - id: observability
+    contains: [alert-rule]
+    implementation: authored
+
+resources:
+  sql-database:
+    database:
+      service_tier:
+        value: general_purpose
+        source: default
+      compute_tier:
+        value: serverless
+        source: asked
+      vcores:
+        value:
+          development: 2
+          production: 4
+        source: asked
+  alert-rule:
+    rule:
+      kind:
+        value: metric
+        source: asked
+      severity:
+        value: 2
+        source: default
+  postgresql-flexible-server:
+    server:
+      storage_size_gb:
+        value: 128
+        source: asked
