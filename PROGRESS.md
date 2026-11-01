@@ -579,32 +579,29 @@ until it is fixed or decided against.
 
 ### The sources behind `render-map.yaml`
 
-The migration read every set against both references. Done on `render-yaml`: `renders` dropped,
-the self-contradicting references corrected, the decision tables removed, and the design gaps
-closed (DDoS plan and vault identity questions, function-app identity only, no
-`enabled_with_firewall` on APIM and communication-services, queue metadata as `key=value`,
-cosmos wording, the refused answers as `authored_when`). Left:
+Done on `render-yaml`: `renders` dropped, the self-contradicting references corrected, the
+decision tables removed, the design gaps closed, the inherited deployment answers translated
+(`answer: { deployment, map }`, 54 questions, required where the values differ), and the gaps
+filled from primary sources - 969 to 513 (18% to 9% of 5,216 entries): the azurerm 5.12
+schema and docs, the module READMEs at the documented versions, `bicep build` for paths. Each
+fill names its source in its note; the pass also corrected eight entries the sources
+contradicted. Left:
 
-- **Deployment answers inherited across value spaces** - the big one, 55 questions. `answer:
-  { deployment: <id> }` takes the answer "unchanged", but `network_exposure` (`private`,
-  `private_with_exceptions`, `public`) feeds questions that take `disabled` /
-  `enabled_with_firewall` / `enabled`, and `local_auth` (an enum) feeds bools of either polarity
-  (`local_authentication_disabled`, `shared_access_key_enabled`). The translation lives only in
-  prose ("pre-answers the equivalent switch per resource"), so every interview derives it -
-  log-analytics-workspace got it wrong (`local_authentication_enabled = "disabled"` in a spec).
-  Proposed, not decided: `answer: { deployment: <id>, map: { <answer>: <value> } }`, a map over
-  every deployment answer, checked against the question's type; source stays `deployment`;
-  exceptions stay an `overridden` per resource. The owner's call.
-- **event-grid-system-topic identity**: the reference allows SystemAssigned, UserAssigned or
-  both; the question has no `both` (the one row left in its reference).
-- **The gaps, about 980 entries**: a literal no reference states. Filling them needs the module
-  READMEs at the pinned version and the provider schema, not the references. Largest: front-door
-  (the reference names resources, no arguments), key-vault, alert-rule, app-service, function-app,
-  container-apps, foundry (complete from ai-services, same ARM type), api-management,
-  data-collection-rule. Recurring: role assignments, private endpoint subnet, identity type
-  literals, Bicep diagnostics, Terraform `enabled_metric`. Also bools with no rendering for
-  `false` (mysql audit, sql threat detection, redis encrypted connections), redis `NoEviction` in
-  the module's validation, alert-rule `query_identity` beyond user-assigned.
+- **The remaining 513 gaps.** About 160 are permanent: the Bicep resource-group scope,
+  inputs a module README shows it does not have. The rest: Bicep literals of loosely typed
+  properties - `bicep build` proves the path, not the value, where the type is `string` or
+  `'A' | 'B' | string` (diagnostic `AllMetrics`, `linuxFxVersion`, `activeRevisionsMode`) - and
+  shapes no source states (Windows image literals, policy schedules, NSG baseline rules, the
+  question-less app setting names). A live deployment or the ARM REST specs would settle the
+  loose literals; neither is a source this pass used.
+- **API versions the authored Bicep was proven against** are named in each note; most
+  `bicep.md` files name none for their sibling types (diagnostic settings, role assignments,
+  private endpoints). Writing them into the references is open.
+- **Prose that may be outdated**: ai-services, foundry and api-management say the Bicep module
+  has no `allowedFqdnList`; README 0.19.1 has it (the maps are filled, terraform.md and
+  questions.yaml are not). event-grid-namespace renders the namespace with azapi although
+  azurerm 5.12 has `azurerm_eventgrid_namespace`. cosmos-db's note that the Terraform module
+  refuses `AllMetrics` is not in its README - only its source would show it.
 
 ### Rendering references and question sets
 
@@ -1105,10 +1102,10 @@ regeneration from the spec loses them. All `render`:
 ## Next
 
 **Merge `render-yaml`** (#22: render digest, `render-map.yaml` for 67 resources, `renders` and
-the decision tables gone, the sources corrected): into `dev`. Then the owner decides the
-deployment-answer maps (*Open*, the 55 questions), and the gaps get filled from the module
-READMEs and the provider schema, front-door first. An eval run that renders with the digest
-belongs before the release that carries it: no case exercises it yet. After that, regenerate the
+the decision tables gone, the sources corrected, the deployment answers translated, the gaps
+filled from primary sources): into `dev`. An eval run that renders with the digest belongs
+before the release that carries it: no case exercises it yet. What is left of the sources
+(*Open*) is small and can follow. After that, regenerate the
 remaining examples against the revised spec and freeze the formats (*Road to 1.0.0*) - the
 render-map format among them.
 
