@@ -76,8 +76,15 @@ chapters lists them below the header, in file order, as its own comment block:
 #
 ```
 
+- **The label is `Chapters:`, word for word**, on a line of its own - never "Contents",
+  "Table of contents" or a phrase around it. The check finds the list by that line alone.
+- **One entry per chapter: the title first**, exactly as in its banner, then two or more
+  spaces and a one-line description. No file name before it, no number.
+- **Every file with a chapter banner has the block, one chapter included** - a
+  `.tftest.hcl` as much as `res.storage.tf`.
+
 A tiny file with one unit (a `.bicepparam`, a `.tfvars`, a workflow with one job, an
-`.armtest.yaml`) gets the header and no banner.
+`.armtest.yaml`) gets the header and no banner, so no list.
 
 ## Per target
 
@@ -86,13 +93,30 @@ chapter banner and description - a collection chapter for `variables.tf`, `outpu
 `locals.tf`, `providers.tf`, a flow chapter with one section per module call or resource
 group for an `avm.*.tf` or `res.*.tf`. The table of contents of the root sits in the header
 of `providers.tf`, which every root has: every `.tf` file with its chapter title, in reading
-order (providers → variables → locals → `avm.*`/`res.*` → outputs). A family module under
-`modules/<family>/` is a book of its own, its contents in its `providers.tf` header, or in
-`variables.tf` when it has none.
+order (providers → variables → locals → `avm.*`/`res.*` → outputs). It is the one list in
+`providers.tf`, the same shape as every other:
+
+```hcl
+# NOTE:
+#   Rendered from infra-spec.yaml. Requires: an authenticated azurerm provider and the
+#   stage file of the stage planned (environments/<stage>.tfvars).
+
+#
+#   Chapters:
+#     CONFIGURE THE PROVIDERS   Terraform, azurerm, the naming provider, the backend.
+#     VARIABLES                 The context values and the stage's decisions.
+#     LOCALS                    The tags, merged once.
+#     DEPLOY THE STORAGE        The account and its private endpoint.
+#     OUTPUTS                   What a consumer reads.
+#
+```
+
+A family module under `modules/<family>/` is a book of its own, its contents in its
+`providers.tf` header, or in `variables.tf` when it has none.
 
 **Terraform tests.** Each `.tftest.hcl` is one chapter whose title names the behaviour
-tested (`ASSERT THE SECURITY DECISIONS`); its description lists the `run` blocks by name, one
-line each.
+tested (`ASSERT THE SECURITY DECISIONS`): its header lists that chapter under `Chapters:`,
+and the chapter's description lists the `run` blocks by name, one line each.
 
 **Bicep.** Each file is one book. `main.bicep` reads parameters → names (`var`) → deployment
 (the module calls, one section each) → outputs, one chapter per phase; a module under

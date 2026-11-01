@@ -67,6 +67,13 @@ graders:
     max: 0
     weight: 3
 
+  # A test file is one chapter, and lists it like every file with a chapter does.
+  - name: test-file-contents
+    type: regex
+    weight: 2
+    target: { source: file, path: infra/tests/networking.tftest.hcl }
+    pattern: '#\s*Chapters:\s*\n#\s{3,}ASSERT [A-Z][A-Z0-9 ,/()&-]*[A-Z0-9)]'
+
   # The structure comes on top of the idiom's comments, never instead of them.
   - name: decision-comments-kept
     type: regex
