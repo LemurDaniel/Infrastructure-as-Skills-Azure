@@ -69,26 +69,6 @@ What a run leaves behind, from the [`chat-sandbox`](examples/chat-sandbox/) exam
 
 ![The architecture diagram of the chat-sandbox example, rendered from its infra-spec.yaml](examples/chat-sandbox/infra-diagram.drawio.png)
 
-and the spec it was drawn from, every decision with where it came from:
-
-```yaml
-deployment:
-  module_source:
-    value: authored
-    source: asked           # "Einzelne Ressourcen"
-  deploy_mechanism:
-    value: local
-    source: asked           # "Von Hand" - a script, no pipeline
-  outage_impact:
-    value: tolerable
-    source: asked
-  data_loss_tolerance:
-    value: one_week
-    source: asked
-```
-
-Complete runs, request to tests, live under [`examples/`](examples/README.md).
-
 ## Why This Plugin?
 
 - **Decisions, not syntax.** Every decision is explicit in the render and recorded with where it came from, so a review happens at the level decisions are actually made.
