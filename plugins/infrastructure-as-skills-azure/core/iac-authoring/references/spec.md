@@ -733,6 +733,148 @@ the reason as the comment above the code it produces. `check_spec.py` fails on a
 without one. A spec that accumulates overrides is telling you the question set is missing a
 question.
 
+## One decision, end to end
+
+`storage-account.data_protection.replication` of the [Shape](#shape) example, from the question
+to the test. Each station is a file a script reads; nothing between them is improvised.
+
+**1. The question** - `resources/storage/storage-account/questions.yaml`, abridged:
+
+```yaml
+      - id: replication
+        type: enum
+        accepts: [LRS, ZRS, GRS, GZRS]
+        answer:                       # derived from a requirement, never asked itself
+          question: outage_impact
+          map: { tolerable: LRS, disruptive: ZRS, critical: GZRS }
+        non_production_default: LRS   # a cost knob: cheaper outside production
+        plain:
+          de: "Die Daten liegen {value}."
+        plain_values:
+          LRS: { de: "dreifach in einem Rechenzentrum" }
+          ZRS: { de: "in drei Rechenzentren der Region, eines darf ausfallen" }
+```
+
+**2. The customer's answer** - in the deployment set, once for the whole system:
+
+```yaml
+deployment:
+  outage_impact:
+    value: disruptive        # "Ein Tag Ausfall wäre störend"
+    source: asked
+```
+
+**3. The spec** - the map turns `disruptive` into `ZRS` for production, and
+`deployment.non_production_savings: enabled` gives the other stages `LRS`. A stage departs,
+so the value is a stage map (see *Stages*), and the source names the requirement:
+
+```yaml
+resources:
+  storage-account:
+    data_protection:
+      replication:
+        value:
+          development: LRS
+          test: LRS
+          production: ZRS
+        source:
+          derived_from: deployment.outage_impact
+```
+
+**4. What the customer reads** - `export_decisions.py`, from `plain` and `plain_values`:
+
+> Azure Storage Account: Die Daten liegen Entwicklung: dreifach in einem Rechenzentrum; Test:
+> dreifach in einem Rechenzentrum; Echtbetrieb: in drei Rechenzentren der Region, eines darf
+> ausfallen. _(außerhalb der Produktion günstiger)_
+
+**5. What it renders to** - `resources/storage/storage-account/render-map.yaml`, one entry per
+target and implementation:
+
+```yaml
+  data_protection.replication:
+    terraform_avm:
+      attribute: account_sku_name
+      format: Standard_{value}
+      note: defaults to Standard_ZRS and overrides account_tier + account_replication_type unless set to null
+    terraform: { attribute: account_replication_type, passthrough: true }
+    bicep_avm:
+      attribute: skuName
+      format: Standard_{value}
+      note: module default Standard_GRS - must be written
+    bicep:
+      attribute: sku.name
+      format: Standard_{value}
+```
+
+**6. What the render reads** - `render_digest.py <spec>` joins the spec and the entry (Terraform,
+AVM):
+
+```
+storage-account.data_protection.replication = {development: LRS, test: LRS, production: ZRS}  (derived_from deployment.outage_impact)  [per stage]
+   renders: account_sku_name = "Standard_LRS" (development), "Standard_LRS" (test), "Standard_ZRS" (production)
+   note: defaults to Standard_ZRS and overrides account_tier + account_replication_type unless set to null
+```
+
+**7. The code** - `[per stage]` makes it a variable whose value lives in each stage file; the
+`format` stays in the template, so the stage file holds the answer, not the SKU:
+
+```hcl
+# modules/storage/main.tf
+module "storage" {
+  source  = "Azure/avm-res-storage-storageaccount/azurerm"
+  # ...
+  # decision: storage-account.data_protection.replication - the SKU name carries it
+  account_sku_name = "Standard_${var.replication}"
+}
+
+# environments/development.tfvars             # environments/production.tfvars
+replication = "LRS"                            replication = "ZRS"
+```
+
+```bicep
+// modules/storage.bicep - replication comes in as a param from main.bicep
+module storageAccount 'br/public:avm/res/storage/storage-account:<version>' = {
+  params: {
+    // decision: storage-account.data_protection.replication - the module default is Standard_GRS
+    skuName: 'Standard_${replication}'
+  }
+}
+
+// main.development.bicepparam: param replication = 'LRS'
+// main.production.bicepparam:  param replication = 'ZRS'
+```
+
+**8. The test** - one assertion per decision, named by its key path, against production's
+value (`check_render_coverage.py` fails on a decision without one):
+
+```hcl
+# tests/storage-account.data_protection.tftest.hcl - variables {} carries production's stage file
+run "data_protection" {
+  command = plan
+
+  # decision: storage-account.data_protection.replication
+  assert {
+    condition     = module.storage.resource.body.sku.name == "Standard_ZRS"
+    error_message = "Production survives a zone loss: outage_impact is disruptive."
+  }
+}
+```
+
+```yaml
+# tests/storage.armtest.yaml - evaluated against main.production.bicepparam
+- decision: storage-account.data_protection.replication
+  stage: production
+  path: parameters.replication.value
+  equals: ZRS
+```
+
+A later change runs the same chain backwards. If the customer now says an outage would be
+critical, `outage_impact` changes, every `derived_from` value is re-derived (*Extending one*),
+`production.tfvars` reads `GZRS`, and the git diff shows that line and the spec - not a
+rewrite of the module. That step crosses from a local to a geo tier, which the question's
+`why` says cannot be changed in place - the plan shows what it replaces, and the run says so
+before rendering.
+
 ## Modularity
 
 `composition` is what keeps the two backends structurally comparable. Without it, each
