@@ -272,7 +272,7 @@ groups:
         per_environment: true
         why: >
           The plan is shared across a subscription and owned by the platform, so it is
-          referenced and never created here. Read by name and resource group, not by id.
+          referenced and never created here: its id, a parameter in each stage file.
 
   # ------------------------------------------------------------ observability
   - id: observability

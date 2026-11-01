@@ -85,9 +85,9 @@ groups:
         required: true
         per_environment: true
         why: >
-          Nothing to default: the endpoint exists for exactly one resource. Read by name and
-          resource group where it is another set's output or an existing resource, never as
-          a hardcoded id, so no subscription is pinned into the template. The target has to
+          Nothing to default: the endpoint exists for exactly one resource - a resource of the
+          spec, taken from its module, or an existing one by its id, a parameter in each stage
+          file, so no subscription is pinned into the template. The target has to
           support Private Link; the table in `private-dns-zones.md` lists the types this plugin
           knows.
 

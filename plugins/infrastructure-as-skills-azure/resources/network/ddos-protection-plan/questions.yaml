@@ -115,7 +115,7 @@ groups:
         depends_on: { question: ownership, equals: platform }
         per_environment: true
         why: >
-          Read by name, resource group and subscription - the plan usually lives in the
+          Referenced by its id, a parameter in each stage file - the plan usually lives in the
           connectivity subscription, so it is never assumed to be in the context's. A pattern
           for a known platform supplies it; without a profile it is an `open:` entry owned by
           the platform team, never guessed, because a wrong id fails at the network's apply.
