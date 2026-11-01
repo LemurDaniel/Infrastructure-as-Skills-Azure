@@ -1,0 +1,234 @@
+# What each decision of questions.yaml renders to, per target and implementation.
+# Format: core/iac-rendering/references/render-map.md. The call, the authored blocks and the
+# tests are in terraform.md and bicep.md.
+schema_version: 1
+resource: Microsoft.RecoveryServices/vaults
+
+modules:
+  terraform: [Azure/avm-res-recoveryservices-vault/azurerm]
+  bicep: [avm/res/recovery-services/vault]
+
+decisions:
+
+  # ---------------------------------------------------------------- placement
+  placement.environments:
+    not_rendered: naming parameter `environment` and the tag of that name; no attribute of the vault
+  placement.location:
+    terraform_avm: { attribute: location, passthrough: true }
+    terraform: { attribute: location, passthrough: true }
+    bicep_avm: { attribute: location, passthrough: true }
+    bicep: { attribute: location, passthrough: true }
+  placement.resource_group_name:
+    terraform_avm: { attribute: resource_group_name, note: a name on this module }
+    terraform: { attribute: resource_group_name }
+    bicep_avm: { gap: the deployment's resource group scope; no parameter }
+    bicep: { gap: the deployment's resource group scope; no property }
+
+  # -------------------------------------------------------------------- vault
+  vault.storage_redundancy:
+    terraform_avm:
+      attribute: storage_mode_type
+      passthrough: true
+      note: module default GeoRedundant - written; cannot change once an item is protected
+    terraform: { attribute: azurerm_recovery_services_vault.storage_mode_type, passthrough: true }
+    bicep_avm:
+      attribute: redundancySettings.standardTierStorageRedundancy
+      passthrough: true
+      note: a discriminated object on this member
+    bicep: { attribute: backupstorageconfig/vaultstorageconfig properties.storageType, passthrough: true }
+  vault.cross_region_restore:
+    terraform_avm: { attribute: cross_region_restore_enabled, passthrough: true, note: module default true - written; needs GeoRedundant }
+    terraform: { attribute: azurerm_recovery_services_vault.cross_region_restore_enabled, passthrough: true }
+    bicep_avm: { attribute: redundancySettings.crossRegionRestore, passthrough: true, note: only in the GeoRedundant variant }
+    bicep: { attribute: backupstorageconfig/vaultstorageconfig properties.crossRegionRestoreFlag, passthrough: true }
+  vault.soft_delete:
+    terraform_avm: { attribute: soft_delete_enabled, passthrough: true, note: module default Enabled - written; AlwaysOn cannot be reverted }
+    terraform:
+      attribute: azurerm_recovery_services_vault.soft_delete_enabled
+      values: { Enabled: true, AlwaysOn: null, Disabled: false }
+      also:
+        AlwaysOn: azapi_update_resource on the vault for properties.securitySettings.softDeleteSettings.softDeleteState
+      note: a bool on the provider; AlwaysOn is not expressible there - check the 5.x schema
+    bicep_avm:
+      attribute: softDeleteSettings.softDeleteState
+      values: { Enabled: Enabled, AlwaysOn: AlwaysON, Disabled: Disabled }
+      note: softDeleteState, softDeleteRetentionPeriodInDays and enhancedSecurityState all required; AlwaysON for both states when isolated or immutable
+    bicep:
+      attribute: properties.securitySettings.softDeleteSettings.softDeleteState
+      values: { Enabled: Enabled, AlwaysOn: AlwaysON, Disabled: Disabled }
+  vault.soft_delete_retention_days:
+    terraform_avm:
+      gap: 'no input in this version - the platform default (14 days) applies; named in the handover, not-testable'
+    terraform: { gap: the reference names no argument }
+    bicep_avm: { attribute: softDeleteSettings.softDeleteRetentionPeriodInDays, passthrough: true }
+    bicep: { attribute: properties.securitySettings.softDeleteSettings.softDeleteRetentionPeriodInDays, passthrough: true }
+  vault.immutability:
+    terraform_avm: { attribute: immutability, passthrough: true, note: module default Unlocked - written }
+    terraform: { attribute: azurerm_recovery_services_vault.immutability, passthrough: true }
+    bicep_avm: { attribute: immutabilitySettingState, passthrough: true }
+    bicep: { attribute: properties.securitySettings.immutabilitySettings.state, passthrough: true }
+  vault.multi_user_authorization:
+    terraform_avm:
+      attribute: resource_guard_association_enabled
+      passthrough: true
+      note: true whenever resource_guard_id is supplied; resource_guard_operation_requests beside it
+    terraform: { gap: the reference names no argument }
+    bicep_avm:
+      gap: resourceGuardOperationRequests takes the guard's operation-request ids, not a bool; the reference gives neither their form nor what false renders. The vault's identity needs Reader on the guard
+    bicep: { gap: the reference names no property }
+  vault.resource_guard:
+    terraform_avm: { attribute: resource_guard_id }
+    terraform: { gap: the reference names no argument }
+    bicep_avm: { gap: "resourceGuardOperationRequests takes the guard's operation-request ids, not the guard id; the reference does not say how they derive from it" }
+    bicep: { gap: the reference names no property }
+  vault.job_failure_alerts:
+    terraform_avm: { attribute: alerts_for_all_job_failures_enabled, passthrough: true, note: default true - written }
+    terraform:
+      gap: not in the reference's authored table for azurerm_recovery_services_vault - the argument is unconfirmed
+    bicep_avm:
+      gap: monitoringSettings - the alert setting is a member whose name and literals are read from the README; the reference gives neither
+    bicep:
+      gap: properties.monitoringSettings is not in the reference's authored table; member and literals unstated
+
+  # --------------------------------------------------------------- protection
+  protection.protected_resources:
+    terraform_avm:
+      attribute: backup_protected_vm, backup_protected_file_share, backup_protected_workload
+      note: maps keyed by a name; the policy referenced by key
+    terraform: { attribute: 'azurerm_backup_protected_vm, azurerm_backup_protected_file_share' }
+    bicep_avm: { attribute: protectedItems }
+    bicep: { attribute: backupFabrics/protectionContainers/protectedItems }
+  protection.backup_schedule:
+    terraform_avm:
+      attribute: 'vm_backup_policy.<k>.frequency'
+      values: { daily: Daily, weekly: Weekly }
+      note: file_share_backup_policy and workload_backup_policy alike; policy_type V2 for an enhanced policy
+    terraform:
+      gap: azurerm_backup_policy_vm, azurerm_backup_policy_file_share - the reference names the resources, not the schedule argument
+    bicep_avm:
+      gap: backupPolicies - the schedule is a member of the policy, whose shape per workload type is read from the README
+    bicep:
+      gap: backupPolicies child properties.schedulePolicy - the reference names the object, not its members or literals
+  protection.retention_days:
+    terraform_avm:
+      attribute: 'vm_backup_policy.<k>.retention_daily'
+      passthrough: true
+      note: a count of daily points; file_share_backup_policy and workload_backup_policy alike
+    terraform:
+      gap: azurerm_backup_policy_vm, azurerm_backup_policy_file_share - the reference names the resources, not the retention argument
+    bicep_avm:
+      gap: backupPolicies - the retention is a member of the policy, whose shape per workload type is read from the README
+    bicep:
+      gap: backupPolicies child properties.retentionPolicy - the reference names the object, not its members or duration format
+
+  # --------------------------------------------------------------- networking
+  networking.public_network_access:
+    terraform_avm:
+      attribute: public_network_access_enabled
+      values: { disabled: false, enabled_with_firewall: true, enabled: true }
+      note: a bool, module default true - the Bicep module's is Disabled
+    terraform:
+      attribute: azurerm_recovery_services_vault.public_network_access_enabled
+      values: { disabled: false, enabled_with_firewall: true, enabled: true }
+    bicep_avm:
+      attribute: publicNetworkAccess
+      values: { disabled: Disabled, enabled_with_firewall: Enabled, enabled: Enabled }
+      note: module default Disabled - written
+    bicep:
+      attribute: properties.publicNetworkAccess
+      values: { disabled: Disabled, enabled_with_firewall: Enabled, enabled: Enabled }
+  networking.private_endpoint_subnet:
+    terraform_avm:
+      attribute: private_endpoints.vault.subnet_resource_id
+      note: subresource_name = "AzureBackup" is optional - written
+    terraform: { attribute: azurerm_private_endpoint.subnet_id }
+    bicep_avm: { attribute: 'privateEndpoints[].subnetResourceId', note: "service: 'AzureBackup'" }
+    bicep: { attribute: Microsoft.Network/privateEndpoints properties.subnet.id }
+
+  # --------------------------------------------------------------- encryption
+  encryption.key_management:
+    terraform_avm:
+      attribute: customer_managed_key
+      values:
+        platform_managed: null
+        customer_managed: { expr: '{ key_vault_resource_id, key_name, user_assigned_identity = { resource_id } }' }
+      note: a user-assigned key identity does not support private endpoints for backup - a private vault uses the system-assigned one
+    terraform:
+      attribute: azurerm_recovery_services_vault.encryption
+      values:
+        platform_managed: null
+        customer_managed: { expr: '{ key_id = {encryption.cmk_key_vault_key_id}, infrastructure_encryption_enabled = <infrastructure_encryption_enabled>, user_assigned_identity_id = <user_assigned_identity_id>, use_system_assigned_identity = <use_system_assigned_identity> }' }
+      note: a block; platform_managed renders none
+    bicep_avm:
+      attribute: customerManagedKey
+      values:
+        platform_managed: null
+        customer_managed: { expr: '{ keyName: <keyName>, keyVaultResourceId: <keyVaultResourceId>, userAssignedIdentityResourceId: <userAssignedIdentityResourceId> }' }
+      note: a user-assigned key identity does not support private endpoints for backup
+    bicep: { gap: the reference names no property }
+  encryption.cmk_key_vault_key_id:
+    terraform_avm:
+      attribute: customer_managed_key.key_vault_resource_id, customer_managed_key.key_name
+      note: the key id split into the vault's id and the key's name
+    terraform: { attribute: azurerm_recovery_services_vault.encryption.key_id }
+    bicep_avm:
+      attribute: customerManagedKey.keyVaultResourceId, customerManagedKey.keyName
+      note: the key id split into the vault's id and the key's name
+    bicep: { gap: the reference names no property }
+  encryption.managed_identity:
+    terraform_avm:
+      attribute: managed_identities
+      values:
+        system_assigned: { expr: '{ system_assigned = true }' }
+        user_assigned: { expr: '{ user_assigned_resource_ids = <user_assigned_identity_ids> }' }
+        none: { expr: '{}' }
+    terraform:
+      attribute: azurerm_recovery_services_vault.identity.type
+      values: { system_assigned: SystemAssigned, user_assigned: UserAssigned, none: null }
+      note: none renders no identity block
+    bicep_avm:
+      attribute: managedIdentities
+      values:
+        system_assigned: { expr: '{ systemAssigned: true }' }
+        user_assigned: { expr: '{ userAssignedResourceIds: <user_assigned_identity_ids> }' }
+        none: { expr: '{}' }
+    bicep:
+      attribute: identity.type
+      values: { system_assigned: SystemAssigned, user_assigned: UserAssigned, none: null }
+      note: none renders no identity block
+
+  # ----------------------------------------------------------------- identity
+  identity.role_assignments:
+    terraform_avm: { attribute: 'role_assignments.<k> = { role_definition_id_or_name, principal_id, principal_type }' }
+    terraform: { attribute: azurerm_role_assignment, note: scope = the vault's id }
+    bicep_avm: { attribute: 'roleAssignments[] = { principalId, roleDefinitionIdOrName, principalType }' }
+    bicep: { attribute: Microsoft.Authorization/roleAssignments, note: scope = the vault }
+
+  # ------------------------------------------------------------ observability
+  observability.diagnostic_workspace:
+    terraform_avm: { attribute: 'diagnostic_settings.<key>.workspace_resource_id' }
+    terraform: { attribute: azurerm_monitor_diagnostic_setting.log_analytics_workspace_id }
+    bicep_avm: { attribute: 'diagnosticSettings[].workspaceResourceId' }
+    bicep: { attribute: Microsoft.Insights/diagnosticSettings properties.workspaceId }
+  observability.diagnostic_categories:
+    terraform_avm:
+      attribute: 'diagnostic_settings.<key>.log_categories'
+      note: log_groups = [] so the categories are the decision
+    terraform: { attribute: azurerm_monitor_diagnostic_setting.enabled_log.category }
+    bicep_avm: { attribute: 'diagnosticSettings[].logCategoriesAndGroups[].category' }
+    bicep: { attribute: 'Microsoft.Insights/diagnosticSettings properties.logs[].category' }
+  observability.metrics_enabled:
+    terraform_avm:
+      attribute: 'diagnostic_settings.<key>.metric_categories'
+      values: { true: { expr: '["AllMetrics"]' }, false: { expr: '[]' } }
+    terraform:
+      attribute: azurerm_monitor_diagnostic_setting.enabled_metric
+      values: { true: { expr: '{ category = "AllMetrics" }' }, false: null }
+      note: a block (azurerm 5.x); false renders none. The reference's diagnostics row names enabled_log only
+    bicep_avm:
+      attribute: 'diagnosticSettings[].metricCategories'
+      values: { true: { expr: "[ { category: 'AllMetrics' } ]" }, false: { expr: '[]' } }
+    bicep:
+      attribute: 'Microsoft.Insights/diagnosticSettings properties.metrics[].category'
+      values: { true: AllMetrics, false: null }
+      note: false renders no metrics entry
