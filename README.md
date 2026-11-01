@@ -84,9 +84,9 @@ What a run leaves behind, from the [`chat-sandbox`](examples/chat-sandbox/) exam
 ![From the request to a checked render: interview, spec, sign-off, render](docs/process.drawio.png)
 
 1. **`iac-authoring` triggers** on any request for Azure infrastructure — one that names the workload ("eine Chatapp mit RAG") as much as one that names a resource. **`azure-resources`** routes each resource through the family's `routing.md` to its question set.
-2. **The interview.** The deployment-wide set first (posture, network ownership, mandates, the six requirements), then each resource. Answers resolve in order: stated › carried spec › platform › pattern › deployment › default.
-3. **Sign-off.** The spec, the decision document and the diagram go to the customer. A correction is a spec change, and the loop runs again.
-4. **`iac-rendering` renders** the approved spec: AVM module and version, naming, layout, code, tests, pipeline. Then `fmt`, `validate`, `test`, and the coverage check.
+2. **The interview.** First how the code is built (target, building blocks, deployment scope, naming), then what is built: the deployment-wide set (posture, network ownership, mandates, the eight requirements, asked by topic), then each resource. Answers resolve in order: stated › carried spec › pattern › deployment › default. Phase 4 shows the design as a tick list with the security baseline and asks whether it fits.
+3. **Sign-off.** The spec, the decision document and a draft diagram go to the customer; once the content is right, a review and a fix agent polish the picture, and the customer says whether the code may be generated. A correction is a spec change, and the loop runs again.
+4. **`iac-rendering` renders** the approved spec, starting from the render digest: AVM module and version, naming, layout, code with a test per decision, pipeline, the repository's `CLAUDE.md` section and `.gitignore`. A test agent runs `fmt`, `validate`, `test`, the coverage, code-structure and pipeline checks.
 
 ## 📦 What's in the Plugin
 
