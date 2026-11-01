@@ -107,7 +107,7 @@ A `${...}` is the target's own interpolation and never a placeholder.
 
 An import (iac-unclick) writes a spec from what runs in Azure: for each decision it reads the
 resource's row in Azure Resource Graph and needs the answer that row stands for. Every decision
-that renders something says how, in one of five forms - no form is derived from the target
+that renders something says how, in one of the forms below - none is derived from the target
 entries at run time:
 
 ```yaml
@@ -132,6 +132,10 @@ entries at run time:
 | `path` + `values` | A dotted path in the Resource Graph row and literal -> answer; every answer an answer of the question. Literals compare without case: Azure returns `Microsoft.Keyvault` and `Microsoft.KeyVault` alike |
 | `path` + `passthrough: true` | The value is the answer as it is |
 | `path` + `format` | The literal with one `{value}`: `Standard_GRS` reads back as `GRS` |
+| `path` + `reference: true` | On a question that takes a reference: the path holds an id (`properties.virtualNetworkSubnetId`), which the import writes as the spec resource or part it belongs to, or as `{ existing: <kind>, id }` when it lies outside the scope |
+| `path` + `single: true` | The path holds a list and the answer is its one element (`addressSpace.addressPrefixes` -> one range); a list of two or more is not read, never cut to its first |
+| `path` + `items` | On a list question: the path holds a list of objects and each becomes one answer item, `{ <field>: <path inside the element> }` - `{ name: name, prefix: properties.addressPrefix }` for the subnets |
+| `path` + `present` + `missing` | The answer when the path holds a value (`virtualNetworkSubnetId` set -> `vnet_integration: true`), `missing` when it is absent or empty |
 | `cases` | A list of `{ when: { <path>: <literal>, ... }, answer }`, the first whose paths all match wins - for answers that share a literal on one path |
 | `not_readable: <reason>` | The decision cannot be read from Azure at all (what a deployment decides, not a property); the import writes it `assumed` with an `open:` entry |
 | `todo: <what is missing>` | It can be read, the reading is not written yet - a property of a child resource the Resource Graph row does not hold, a shared literal that needs `cases`. The import treats it like `not_readable`; `check_render_map.py` counts it as the work list |
@@ -153,6 +157,18 @@ instead of creating a second one; `check_spec.py` refuses an id of a type not li
 that renders nothing besides its resource has no `import_parts`. Locks, diagnostic settings and
 role assignments are not listed: the spec names them on their own (`adopt.lock_id`,
 `adopt.diagnostic_setting_id`, `adopt_id`).
+
+## Two sets of one type: `import_match`
+
+```yaml
+import_match: { kind_has: [functionapp] }                    # function-app
+import_match: { kind_lacks: [functionapp, workflowapp] }     # app-service
+```
+
+Where two sets create the same ARM type (`Microsoft.Web/sites`: a web app and a function app),
+an import tells a row apart by its `kind`, split at the commas: `kind_has` - one of these tokens
+is in it, `kind_lacks` - none is. Every set sharing a type carries one, and a row that fits
+none or several is `unmapped`, never guessed.
 
 ## Beyond one entry
 

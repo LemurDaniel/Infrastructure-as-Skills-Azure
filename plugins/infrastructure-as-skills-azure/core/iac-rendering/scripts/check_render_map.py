@@ -28,7 +28,10 @@ or the paths given:
      answers of the question `kinds` names, and only with `kinds` declared.
   7. Every decision that renders something says how an import reads it back (`import:`):
      a path in the Resource Graph row with `values` (literal -> an answer it accepts),
-     `passthrough` or a `format` with one `{value}`; `cases` over several paths, each
+     `passthrough`, a `format` with one `{value}`, `reference` (an id, on a question
+     that takes a reference), `single` (the one element of a list), `items` (a list of
+     objects, field -> path, on a list question) or `present` (an answer when the path is
+     set, `missing` when not); `cases` over several paths, each
      `when` with an answer; `not_readable: <reason>`; or `todo: <what is missing>`. The
      count of each is printed - `todo` is the work list, not a failure.
 
@@ -65,7 +68,8 @@ ENTRY_FIELDS = {'attribute', 'values', 'format', 'also', 'module', 'note', 'gap'
 SCALAR_TYPES = {'enum', 'bool', 'int', 'string'}
 # How an import reads a decision back (references/render-map.md, "Reading it back").
 IMPORT_PATH = re.compile(r'^[A-Za-z][A-Za-z0-9_]*(\.[A-Za-z0-9_]+)*$')
-IMPORT_FIELDS = {'path', 'values', 'passthrough', 'format', 'cases', 'missing', 'note'}
+IMPORT_FIELDS = {'path', 'values', 'passthrough', 'format', 'reference', 'single', 'items', 'present', 'cases',
+                 'missing', 'note'}
 IMPORT_STATS = {'read': 0, 'not_readable': 0, 'todo': 0}
 
 
@@ -103,7 +107,7 @@ def check_import(where, imp, question):
     if 'missing' in imp:
         answer_ok(imp['missing'], 'missing')
     if 'cases' in imp:
-        if 'path' in imp or {'values', 'passthrough', 'format'} & set(imp):
+        if 'path' in imp or {'values', 'passthrough', 'format', 'reference', 'single', 'items', 'present'} & set(imp):
             errs.append(f"{where}: cases stands beside no path, values, passthrough or format")
         cases = imp['cases']
         if not isinstance(cases, list) or not cases:
@@ -120,9 +124,28 @@ def check_import(where, imp, question):
     path = imp.get('path')
     if not (isinstance(path, str) and IMPORT_PATH.match(path)):
         errs.append(f"{where}: import.path is a dotted path in the Resource Graph row (properties.publicNetworkAccess)")
-    forms = [k for k in ('values', 'passthrough', 'format') if k in imp]
+    forms = [k for k in ('values', 'passthrough', 'format', 'reference', 'single', 'items', 'present') if k in imp]
     if len(forms) != 1:
-        return errs + [f"{where}: import has exactly one of values, passthrough or format"]
+        return errs + [f"{where}: import has exactly one of values, passthrough, format, reference, single, items or present"]
+    if 'single' in imp and imp['single'] is not True:
+        errs.append(f"{where}: import.single is true or absent")
+    if 'items' in imp:
+        it = imp['items']
+        if question.get('type') != 'list':
+            errs.append(f"{where}: import.items on a question that is no list")
+        if not isinstance(it, dict) or not it or not all(isinstance(p, str) and IMPORT_PATH.match(p) for p in it.values()):
+            errs.append(f"{where}: import.items maps each field of an answer to a path inside one list element")
+    if 'present' in imp:
+        answer_ok(imp['present'], 'import.present')
+        if 'missing' not in imp:
+            errs.append(f"{where}: import.present needs missing - the answer when the path is not set")
+    if 'reference' in imp:
+        acc = question.get('accepts')
+        if imp['reference'] is not True:
+            errs.append(f"{where}: import.reference is true or absent")
+        elif not (isinstance(acc, dict) and acc.get('ref')):
+            errs.append(f"{where}: import.reference on a question that takes no reference")
+        return errs
     if 'values' in imp:
         vals = imp['values']
         if not isinstance(vals, dict) or not vals:
@@ -136,7 +159,7 @@ def check_import(where, imp, question):
                                   and imp['format'].count('{') == 1):
         errs.append(f"{where}: import.format carries one {{value}} and nothing else in braces")
     return errs
-TOP_FIELDS = {'schema_version', 'resource', 'modules', 'companions', 'kinds', 'import_parts', 'decisions'}
+TOP_FIELDS = {'schema_version', 'resource', 'modules', 'companions', 'kinds', 'import_parts', 'import_match', 'decisions'}
 ARM_TYPE = re.compile(r'^[A-Za-z]+(\.[A-Za-z]+)+/[A-Za-z]+(/[A-Za-z]+)*$')
 # `{group.question}`: another answer of the same resource. `${var.x}` is target code, not one.
 PLACEHOLDER = re.compile(r'(?<!\$)\{([a-z0-9_]+\.[a-z0-9_]+)\}')
@@ -363,6 +386,14 @@ def check_file(path, yaml):
             errs.append(f"{rel}: import_parts is a list of ARM types (Microsoft.Web/serverFarms)")
         elif len(set(parts)) != len(parts) or doc.get('resource') in parts:
             errs.append(f"{rel}: import_parts lists a type twice or the set's own resource")
+
+    # Two sets of one ARM type (a web app and a function app are both Microsoft.Web/sites): the
+    # import tells them apart by the row's kind, never by a guess.
+    if 'import_match' in doc:
+        m = doc['import_match']
+        if (not isinstance(m, dict) or not m or set(m) - {'kind_has', 'kind_lacks'}
+                or not all(isinstance(v, list) and v and all(isinstance(x, str) for x in v) for v in m.values())):
+            errs.append(f"{rel}: import_match is {{ kind_has: [..], kind_lacks: [..] }}, lists of kind tokens")
 
     questions = {f"{g.get('id')}.{q.get('id')}": q
                  for g in qs.get('groups') or [] for q in g.get('questions') or []}

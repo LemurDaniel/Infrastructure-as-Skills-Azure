@@ -14,7 +14,9 @@ format does not name it, values missing an answer, a scalar entry without values
 passthrough, a passthrough that is not true or stands beside values, import_parts that is no
 list of ARM types or names the set's own resource, a decision without import, an import answer
 the question does not accept, an import with two forms, a todo without its reason, cases without
-when. An import read back through cases must pass. A companion, a list per
+when, a reference on a question that takes none, items on a question that is no list, present
+without missing, import_match that is no list of kind tokens. An import read back through cases
+must pass. A companion, a list per
 module, `by_kind`, a composite format, format beside values, format as code, null in values
 and a composite format with part_of used correctly must pass. Every render-map.yaml in the
 plugin must pass.
@@ -104,13 +106,24 @@ def main():
         ('an import with two forms',
          lambda d: d['decisions']['security.min_tls_version'].__setitem__(
              'import', {'path': 'properties.minimumTlsVersion', 'passthrough': True, 'format': 'TLS{value}'}),
-         'exactly one of values, passthrough or format'),
+         'exactly one of values, passthrough, format'),
         ('a todo without its reason',
          lambda d: d['decisions']['security.min_tls_version'].__setitem__('import', {'todo': ''}),
          'todo carries its reason'),
         ('cases without when',
          lambda d: d['decisions']['networking.public_network_access'].__setitem__(
              'import', {'cases': [{'answer': 'disabled'}]}), 'cases[0] is { when, answer }'),
+        ('a reference on a question that takes none',
+         lambda d: d['decisions']['security.min_tls_version'].__setitem__(
+             'import', {'path': 'properties.minimumTlsVersion', 'reference': True}), 'a question that takes no reference'),
+        ('items on a question that is no list',
+         lambda d: d['decisions']['security.min_tls_version'].__setitem__(
+             'import', {'path': 'properties.x', 'items': {'name': 'name'}}), 'items on a question that is no list'),
+        ('present without missing',
+         lambda d: d['decisions']['security.shared_access_key_enabled'].__setitem__(
+             'import', {'path': 'properties.allowSharedKeyAccess', 'present': True}), 'present needs missing'),
+        ('import_match that is no list of kind tokens',
+         lambda d: d.__setitem__('import_match', {'kind_has': 'functionapp'}), 'import_match is'),
         ('import_parts that is no list of ARM types',
          lambda d: d.__setitem__('import_parts', ['private endpoints']), 'import_parts is a list of ARM types'),
         ('import_parts naming the set\'s own resource',
