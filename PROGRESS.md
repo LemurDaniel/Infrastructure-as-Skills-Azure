@@ -1027,6 +1027,14 @@ regeneration from the spec loses them. All `render`:
   The composed Sonnet run is `baseline.json` since (owner's call): 11 cases, every grader at
   its full rate. Haiku keeps failing the same rules as on 0.5.4/0.5.5: invented subscription and
   region, the default stack, `@onlyIfNotExists()`, the CLAUDE.md sync in one of four runs.
+- **0.7.0 (2026-11-01)**: Sonnet 14/14, recorded on `eval-history` as `8e1bd6c`, composed - the
+  full suite on `a4cf3c2`, the `terraform-*` cases re-tested after #26 (graders read file
+  contents), `terraform-code-structure` after #27; the badge pinned to it (#29). New since
+  0.6.0: `spec/platform-workspace-reference` (the interview writes `{ existing:
+  log_analytics_workspace }` with an open id) and `render/terraform-existing-reference` (id
+  variable validated on the ARM type, the id per stage file, no data source) - every render
+  case now runs through the mandatory render digest, though no grader asserts it was read.
+  `baseline.json` is still the 0.6.0 run (11 cases).
 - **CI by hand**: `.github/workflows/eval.plugin.yaml` (`workflow_dispatch`, Sonnet/low by
   default, one case per call with progress, `--scaffold`, report only);
   `record_eval_history.py` writes each run to `eval-history`. `review-agent-separate` never loaded before 2026-10-27 (`focus:
@@ -1111,20 +1119,13 @@ regeneration from the spec loses them. All `render`:
 
 ## Next
 
-**Structured references are in `render-yaml` too** (2026-11-01, see *Decisions*): no eval
-case renders an `existing:` reference yet - one with a platform workspace and an open id
-(the variable, the placeholder in the stage file, no data source) belongs in the run before
-that release.
+**Regenerate the remaining examples and freeze the formats** (*Road to 1.0.0*): `render-yaml`
+(#22) is in `dev`, rendered and graded with structured references in the 0.7.0 run (see
+*Evals*). The examples go against the revised spec first, then `spec.md`,
+`question-set-format.md` and the render-map format name their stable interface. What is
+left of the sources (*Open*) is small and can follow.
 
-**Merge `render-yaml`** (#22: render digest, `render-map.yaml` for 67 resources, `renders` and
-the decision tables gone, the sources corrected, the deployment answers translated, the gaps
-filled from primary sources): into `dev`. An eval run that renders with the digest belongs
-before the release that carries it: no case exercises it yet. What is left of the sources
-(*Open*) is small and can follow. After that, regenerate the
-remaining examples against the revised spec and freeze the formats (*Road to 1.0.0*) - the
-render-map format among them.
-
-**The pattern skill** (`ideas/pattern-skill.md`): the wiring that `chatbot` and
+**The pattern skill** (`ideas/pattern-skill.md`, draft PR #16): the wiring that `chatbot` and
 `chatbot-rag` carry by hand — roles between resources, the private link, the order
 identity → vault → consumer — becomes the first pattern, `./patterns/` enters
 `plugin.json` in the same commit, and `wiring:` becomes a schema `check_spec.py` validates.
