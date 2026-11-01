@@ -38,6 +38,10 @@ body { font-family: var(--display); }
     linear-gradient(90deg, rgba(74,168,255,.06) 1px, transparent 1px);
   background-size: 40px 40px; }
 
+/* AI notice, on every frame of the recording */
+.ai-mark { position: absolute; top: 28px; right: 40px; z-index: 5; font: 400 18px/1 var(--mono); letter-spacing: .08em;
+  color: var(--muted); opacity: .6; }
+
 /* ---------- scenes ---------- */
 .scene { position: absolute; inset: 0; padding: 70px 96px; opacity: 0; visibility: hidden;
   transition: opacity .5s ease, visibility 0s linear .5s; }
@@ -107,7 +111,8 @@ pre.code .ln { display: block; }
 /* S5: diagram */
 .diagram { position: absolute; left: 96px; right: 96px; top: 230px; bottom: 50px; border-radius: 10px; overflow: hidden;
   border: 1px solid var(--line); background: #fff; }
-.diagram img { width: 100%; height: 100%; object-fit: cover; object-position: 50% 30%; transform-origin: 50% 40%; display: block; }
+.diagram img { width: 100%; height: 100%; box-sizing: border-box; padding: 0 3.5%; /* room for the 7% zoom, so no side is cut */
+  object-fit: cover; object-position: 50% 33%; transform-origin: 50% 40%; display: block; }
 .stamp { position: absolute; right: 140px; bottom: 90px; font: 800 46px var(--display); color: var(--ok); border: 5px solid var(--ok);
   padding: 10px 26px; border-radius: 8px; background: rgba(10,24,40,.92); transform: rotate(-6deg) scale(1.6); opacity: 0;
   transition: transform .35s cubic-bezier(.2,1.6,.4,1), opacity .2s; }
@@ -157,6 +162,8 @@ pre.code .ln { display: block; }
 <div class="page">
   <div class="frame" id="frame">
     <div class="stage" id="stage">
+
+      <div class="ai-mark">AI-generated</div>
 
       <section class="scene s1" data-start="0" data-end="5">
         <div class="eyebrow">Azure infrastructure, Terraform or Bicep</div>
