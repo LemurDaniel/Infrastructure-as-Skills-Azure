@@ -11,7 +11,7 @@ pool:
 # Terraform only - a Bicep root has no TF_VERSION and renders no `variables:` block here.
 variables:
   - name: TF_VERSION
-    value: "1.16.6"           # the newest patch of the ~> 1.16.0 constraint on 2026-10-18; re-resolve on render
+    value: "1.17.1"           # the newest patch of the ~> 1.17.0 constraint on 2026-11-01; re-resolve on render
 
 stages:
   - stage: validate

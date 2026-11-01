@@ -147,10 +147,10 @@ MUTATIONS = [
     ('action on a branch', 'github-terraform', GH,
      'uses: actions/checkout@v7', 'uses: actions/checkout@main', 'not pinned'),
     ('terraform unconstrained', 'github-terraform', GHS,
-     'terraform_version: "~> 1.16.0"\n          terraform_wrapper: false      # the wrapper',
+     'terraform_version: "~> 1.17.0"\n          terraform_wrapper: false      # the wrapper',
      'terraform_version: latest\n          terraform_wrapper: false      # the wrapper', '~>'),
     ('gitlab image latest', 'gitlab-terraform', GL,
-     'name: hashicorp/terraform:1.16 ', 'name: hashicorp/terraform:latest ', 'not pinned'),
+     'name: hashicorp/terraform:1.17 ', 'name: hashicorp/terraform:latest ', 'not pinned'),
     ('ado install without checksum', 'ado-terraform', ADOI,
      '(Get-FileHash "$dir/$zip" -Algorithm SHA256).Hash', '$want', 'checksum'),
 

@@ -30,7 +30,7 @@ git ls-remote --tags --refs https://github.com/<owner>/<action>.git | sed 's#.*/
 | `hashicorp/setup-terraform` | `v4` |
 | `actions/upload-artifact` / `download-artifact` | `v7` / `v8` (a pair; they must agree on the artifact format) |
 | `azure/login` | `v3` |
-| Terraform | `~> 1.16.0` |
+| Terraform | `~> 1.17.0` |
 
 ## Environments
 
@@ -137,7 +137,7 @@ stages behind it.
       - uses: actions/checkout@v7
       - uses: hashicorp/setup-terraform@v4
         with:
-          terraform_version: "~> 1.16.0"
+          terraform_version: "~> 1.17.0"
       - run: terraform fmt -check -recursive
       - run: terraform init -backend=false -input=false
       - run: terraform validate
@@ -209,7 +209,7 @@ jobs:
           }
       - uses: hashicorp/setup-terraform@v4
         with:
-          terraform_version: "~> 1.16.0"
+          terraform_version: "~> 1.17.0"
           terraform_wrapper: false      # the wrapper swallows the exit code the plan step reads
       - name: Init
         run: |
@@ -267,7 +267,7 @@ jobs:
       - uses: actions/checkout@v7
       - uses: hashicorp/setup-terraform@v4
         with:
-          terraform_version: "~> 1.16.0"
+          terraform_version: "~> 1.17.0"
           terraform_wrapper: false
       - uses: actions/download-artifact@v8
         with:
