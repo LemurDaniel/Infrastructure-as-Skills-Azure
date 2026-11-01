@@ -28,7 +28,7 @@ decisions:
     terraform: { attribute: resource_group_name }
     bicep_avm: { gap: the deployment's resource group scope; no parameter }
     bicep: { gap: the deployment's resource group scope; no property }
-    import: {todo: 'bicep renders it as a gap: the deployment''s resource group scope; no property'}
+    import: {path: resourceGroup, passthrough: true}
 
   # ---------------------------------------------------------------- namespace
   namespace.sku:
@@ -99,7 +99,7 @@ decisions:
       attribute: identity.type
       values: { system_assigned: SystemAssigned, user_assigned: UserAssigned, none: null }
       note: none renders no identity block
-    import: {todo: an answer renders as code or as nothing; needs cases}
+    import: {path: identity.type, values: {SystemAssigned: system_assigned, UserAssigned: user_assigned, None: none}, missing: none}
   namespace.user_assigned_identity_ids:
     terraform_avm: { attribute: managed_identities.user_assigned_resource_ids }
     terraform: { attribute: azurerm_eventhub_namespace.identity.identity_ids }
@@ -108,7 +108,7 @@ decisions:
       attribute: identity.userAssignedIdentities
       format: { expr: 'toObject({value}, id => id, id => {})' }
       note: "an object keyed by each id - type: 'UserAssigned'; bicep.md names no API version, the module's (source: bicep build, Microsoft.EventHub/namespaces@2024-01-01)"
-    import: {todo: a composed or computed literal; needs its own reading}
+    import: {todo: 'identity.userAssignedIdentities is an object keyed by each identity id; no form reads its keys as a list of references'}
 
   # ----------------------------------------------------------------- entities
   entities.event_hubs:
@@ -186,7 +186,7 @@ decisions:
     bicep:
       attribute: properties.publicNetworkAccess
       values: { disabled: Disabled, enabled_with_firewall: Enabled, enabled: Enabled }
-    import: {todo: answers share the literal Enabled; needs cases over a second path}
+    import: {todo: 'properties.publicNetworkAccess Disabled reads disabled; Enabled splits by the child Microsoft.EventHub/namespaces/networkRuleSets default properties.defaultAction, not in the row'}
   networking.private_endpoint_subnet:
     terraform_avm:
       attribute: private_endpoints.namespace.subnet_resource_id
@@ -194,7 +194,7 @@ decisions:
     terraform: { attribute: azurerm_private_endpoint.subnet_id }
     bicep_avm: { attribute: 'privateEndpoints[].subnetResourceId', note: "service: 'namespace'; Standard or above" }
     bicep: { attribute: Microsoft.Network/privateEndpoints properties.subnet.id }
-    import: {todo: 'not in the Resource Graph row: Microsoft.Network/privateEndpoints properties.subnet.id'}
+    import: {todo: 'not in the Resource Graph row: the Microsoft.Network/privateEndpoints properties.subnet.id; the row holds only properties.privateEndpointConnections[].properties.privateEndpoint.id'}
   networking.ip_rules:
     terraform_avm:
       attribute: 'network_rulesets.ip_rule[].ip_mask'
@@ -202,13 +202,13 @@ decisions:
     terraform: { attribute: 'azurerm_eventhub_namespace.network_rulesets.ip_rule[].ip_mask', note: one ip_rule per mask }
     bicep_avm: { attribute: 'networkRuleSets.ipRules[].ipMask', note: "action: 'Allow'" }
     bicep: { attribute: 'networkRuleSets/default properties.ipRules[].ipMask', note: "action: 'Allow'" }
-    import: {todo: 'not in the Resource Graph row: networkRuleSets/default properties.ipRules[].ipMask'}
+    import: {todo: 'not in the Resource Graph row: the child Microsoft.EventHub/namespaces/networkRuleSets default properties.ipRules[].ipMask'}
   networking.trusted_service_bypass:
     terraform_avm: { attribute: network_rulesets.trusted_service_access_enabled, passthrough: true, note: a required member of network_rulesets }
     terraform: { attribute: azurerm_eventhub_namespace.network_rulesets.trusted_service_access_enabled, passthrough: true }
     bicep_avm: { attribute: networkRuleSets.trustedServiceAccessEnabled, passthrough: true }
     bicep: { attribute: networkRuleSets/default properties.trustedServiceAccessEnabled, passthrough: true }
-    import: {todo: 'not in the Resource Graph row: networkRuleSets/default properties.trustedServiceAccessE...'}
+    import: {todo: 'not in the Resource Graph row: the child Microsoft.EventHub/namespaces/networkRuleSets default properties.trustedServiceAccessEnabled'}
 
   # --------------------------------------------------------------- encryption
   encryption.key_management:
@@ -231,7 +231,7 @@ decisions:
       attribute: properties.encryption.keySource
       values: { platform_managed: null, customer_managed: Microsoft.KeyVault }
       note: platform_managed renders no encryption block
-    import: {todo: an answer renders as code or as nothing; needs cases}
+    import: {path: properties.encryption.keySource, values: {Microsoft.KeyVault: customer_managed}, missing: platform_managed}
   encryption.cmk_key_vault_key_id:
     terraform_avm:
       attribute: customer_managed_key.key_vault_resource_id, customer_managed_key.key_name
@@ -246,7 +246,7 @@ decisions:
     bicep:
       attribute: 'properties.encryption.keyVaultProperties[].keyName, properties.encryption.keyVaultProperties[].keyVaultUri'
       note: "the key id split into the key's name and its vault's uri; identity.userAssignedIdentity beside them (source: bicep build, Microsoft.EventHub/namespaces@2024-01-01)"
-    import: {todo: 'not in the Resource Graph row: properties.encryption.keyVaultProperties[].keyName, prop...'}
+    import: {todo: 'in the row as properties.encryption.keyVaultProperties[] { keyName, keyVaultUri }, not a key id; needs the key looked up from its name and vault'}
   encryption.infrastructure_encryption:
     terraform_avm: { gap: 'module README v0.1.1 has no input (customer_managed_key has no such member) - taken from the platform; named in the handover, not-testable' }
     terraform:
@@ -281,14 +281,14 @@ decisions:
       attribute: Microsoft.EventHub/namespaces/disasterRecoveryConfigs properties.partnerNamespace
       values: { none: null, paired_namespace: { expr: '{recovery.partner_namespace}' } }
       note: 'a child of the primary; none renders none (source: bicep build, Microsoft.EventHub/namespaces/disasterRecoveryConfigs@2024-01-01)'
-    import: {todo: 'not in the Resource Graph row: Microsoft.EventHub/namespaces/disasterRecoveryConfigs pr...'}
+    import: {todo: 'not in the Resource Graph row: whether a child Microsoft.EventHub/namespaces/disasterRecoveryConfigs exists'}
   recovery.partner_namespace:
     terraform_avm:
       gap: module README v0.1.1 has no input - the disasterRecoveryConfigs azapi_resource outside the module carries the partner
     terraform: { attribute: azurerm_eventhub_namespace_disaster_recovery_config.partner_namespace_id }
     bicep_avm: { attribute: disasterRecoveryConfig.partnerNamespace }
     bicep: { attribute: disasterRecoveryConfigs child properties.partnerNamespace }
-    import: {todo: 'not in the Resource Graph row: disasterRecoveryConfigs child properties.partnerNamespace'}
+    import: {todo: 'not in the Resource Graph row: the child Microsoft.EventHub/namespaces/disasterRecoveryConfigs properties.partnerNamespace'}
 
   # ----------------------------------------------------------------- identity
   identity.role_assignments:
@@ -300,7 +300,7 @@ decisions:
       attribute: 'roleAssignments[] = { principalId, roleDefinitionIdOrName, principalType }'
       note: also per event hub
     bicep: { attribute: Microsoft.Authorization/roleAssignments, note: scope = the namespace }
-    import: {todo: 'not in the Resource Graph row: Microsoft.Authorization/roleAssignments'}
+    import: {todo: 'not in the Resource Graph row: the extension resources Microsoft.Authorization/roleAssignments scoped to the resource'}
 
   # ------------------------------------------------------------ observability
   observability.diagnostic_workspace:
@@ -308,7 +308,7 @@ decisions:
     terraform: { attribute: azurerm_monitor_diagnostic_setting.log_analytics_workspace_id }
     bicep_avm: { attribute: 'diagnosticSettings[].workspaceResourceId' }
     bicep: { attribute: Microsoft.Insights/diagnosticSettings properties.workspaceId }
-    import: {todo: 'not in the Resource Graph row: Microsoft.Insights/diagnosticSettings properties.workspa...'}
+    import: {todo: 'not in the Resource Graph row: the extension resource Microsoft.Insights/diagnosticSettings (scope the resource) properties.workspaceId'}
   observability.diagnostic_categories:
     terraform_avm:
       attribute: 'diagnostic_settings.<key>.log_categories'
@@ -316,7 +316,7 @@ decisions:
     terraform: { attribute: azurerm_monitor_diagnostic_setting.enabled_log.category }
     bicep_avm: { attribute: 'diagnosticSettings[].logCategoriesAndGroups[].category' }
     bicep: { attribute: 'Microsoft.Insights/diagnosticSettings properties.logs[].category' }
-    import: {todo: 'not in the Resource Graph row: Microsoft.Insights/diagnosticSettings properties.logs[]....'}
+    import: {todo: 'not in the Resource Graph row: the extension resource Microsoft.Insights/diagnosticSettings (scope the resource) properties.logs[].category'}
   observability.metrics_enabled:
     terraform_avm:
       attribute: 'diagnostic_settings.<key>.metric_categories'
@@ -332,4 +332,4 @@ decisions:
       attribute: 'Microsoft.Insights/diagnosticSettings properties.metrics[].category'
       values: { true: AllMetrics, false: null }
       note: false renders no metrics entry
-    import: {todo: 'not in the Resource Graph row: Microsoft.Insights/diagnosticSettings properties.metrics...'}
+    import: {todo: 'not in the Resource Graph row: the extension resource Microsoft.Insights/diagnosticSettings (scope the resource) properties.metrics[].category'}

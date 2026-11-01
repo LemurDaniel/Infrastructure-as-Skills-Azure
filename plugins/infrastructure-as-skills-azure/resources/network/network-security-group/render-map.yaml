@@ -26,7 +26,7 @@ decisions:
     terraform: { attribute: resource_group_name }
     bicep_avm: { gap: the deployment's resource group scope; no parameter }
     bicep: { gap: the deployment's resource group scope; no property }
-    import: {todo: 'bicep renders it as a gap: the deployment''s resource group scope; no property'}
+    import: {path: resourceGroup, passthrough: true}
 
   # --------------------------------------------------------------- networking
   networking.subnets:
@@ -42,7 +42,7 @@ decisions:
     bicep:
       on_part: "properties.subnets[name={part}].properties.networkSecurityGroup.id: {self}"
       note: the subnet takes the group's id; an NSG has no property naming its subnets
-    import: {todo: set on a part of another resource; read from that resource}
+    import: {todo: 'set on the subnet, a part of the virtual network; the row holds properties.subnets[].id, a list no form reads as references'}
 
   # -------------------------------------------------------------------- rules
   rules.subnet_purpose:
@@ -64,7 +64,7 @@ decisions:
       gap: >-
         selects the baseline rules of notes.md for the purpose, in properties.securityRules or as
         child resources - never both; notes.md states them in prose, not as rule objects
-    import: {todo: 'bicep renders it as a gap: selects the baseline rules of notes.md for the purpose, in p...'}
+    import: {todo: 'the baseline rules of notes.md in properties.securityRules (and the name part nsg-<purpose>); no form matches a rule set in a list'}
   rules.default_inbound:
     terraform_avm:
       attribute: security_rules.deny_all_inbound
@@ -90,7 +90,7 @@ decisions:
         deny_all: { expr: "{ name: 'deny-all-inbound', properties: { priority: 4096, direction: 'Inbound', access: 'Deny', protocol: '*', sourceAddressPrefix: '*', sourcePortRange: '*', destinationAddressPrefix: '*', destinationPortRange: '*' } }" }
         azure_default: null
       note: azure_default renders no rule
-    import: {todo: 'not in the Resource Graph row: properties.securityRules[]'}
+    import: {todo: 'in the row as a properties.securityRules[] entry (Deny, Inbound, priority 4096, all *); no form tests a list element'}
   rules.default_outbound:
     terraform_avm:
       gap: >-
@@ -110,7 +110,7 @@ decisions:
         deny_internet adds a properties.securityRules entry - Deny, Outbound, destinationAddressPrefix
         'Internet', priority 4096; bicep.md states no name, protocol, source or ports for it.
         azure_default adds none
-    import: {todo: 'bicep renders it as a gap: deny_internet adds a properties.securityRules entry - Deny,...'}
+    import: {todo: 'in the row as a properties.securityRules[] entry (Deny, Outbound, destination Internet, priority 4096); no form tests a list element'}
   rules.rules:
     terraform_avm:
       attribute: 'security_rules.<k> = { name, priority, direction, access = "Allow", protocol, source_*, destination_* }'
@@ -124,7 +124,7 @@ decisions:
     bicep:
       attribute: properties.securityRules
       note: inline or as child resources - mixing them makes a redeploy remove one or the other
-    import: {todo: a list or a reference; needs its own reading}
+    import: {todo: 'in the row as properties.securityRules[] (Allow entries besides the baseline and default rules); a list of objects no form reads'}
 
   # ------------------------------------------------------------ observability
   observability.diagnostic_workspace:
@@ -134,7 +134,7 @@ decisions:
     terraform: { attribute: azurerm_monitor_diagnostic_setting.log_analytics_workspace_id }
     bicep_avm: { attribute: 'diagnosticSettings[].workspaceResourceId', note: no metrics for an NSG }
     bicep: { attribute: Microsoft.Insights/diagnosticSettings properties.workspaceId, note: 'an extension resource with scope: the NSG; no metrics (source: bicep build, Microsoft.Insights/diagnosticSettings@2021-05-01-preview)' }
-    import: {todo: 'not in the Resource Graph row: Microsoft.Insights/diagnosticSettings properties.workspa...'}
+    import: {todo: 'not in the Resource Graph row: the extension resource Microsoft.Insights/diagnosticSettings (scope the resource) properties.workspaceId'}
   observability.diagnostic_categories:
     terraform_avm:
       attribute: 'diagnostic_settings.<key>.log_categories'
@@ -142,4 +142,4 @@ decisions:
     terraform: { attribute: azurerm_monitor_diagnostic_setting.enabled_log.category }
     bicep_avm: { attribute: 'diagnosticSettings[].logCategoriesAndGroups[].category' }
     bicep: { attribute: 'Microsoft.Insights/diagnosticSettings properties.logs[].category', note: 'with enabled: true (source: bicep build, Microsoft.Insights/diagnosticSettings@2021-05-01-preview)' }
-    import: {todo: 'not in the Resource Graph row: Microsoft.Insights/diagnosticSettings properties.logs[]....'}
+    import: {todo: 'not in the Resource Graph row: the extension resource Microsoft.Insights/diagnosticSettings (scope the resource) properties.logs[].category'}

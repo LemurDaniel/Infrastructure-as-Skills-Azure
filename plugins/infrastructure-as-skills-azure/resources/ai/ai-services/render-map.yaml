@@ -12,6 +12,9 @@ modules:
 # them by id (adopt.parts). Format: core/iac-rendering/references/render-map.md.
 import_parts: [Microsoft.Network/privateEndpoints]
 
+# This set shares its ARM type with another; an import tells a row apart by its kind (render-map.md).
+import_match: {kind_has: [SpeechServices, ComputerVision, TextAnalytics, FormRecognizer, ContentSafety, TextTranslation, CustomVision.Training, Face]}
+
 decisions:
 
   # ---------------------------------------------------------------- placement

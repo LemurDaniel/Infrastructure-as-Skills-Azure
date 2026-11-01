@@ -26,7 +26,7 @@ decisions:
     terraform: { attribute: resource_group_name, note: 'a name, not an id (source: azurerm 5.12 schema)' }
     bicep_avm: { gap: the deployment's resource group scope; no parameter }
     bicep: { gap: the deployment's resource group scope; no property }
-    import: {todo: 'bicep renders it as a gap: the deployment''s resource group scope; no property'}
+    import: {path: resourceGroup, passthrough: true}
 
   # ------------------------------------------------------------------ address
   address.purpose:
@@ -63,7 +63,7 @@ decisions:
       attribute: zones
       format: { expr: 'map({value}, z => string(z))' }
       note: strings - Bicep does not convert the integers of the answer
-    import: {todo: a composed or computed literal; needs its own reading}
+    import: {todo: 'the row holds zones as strings ("1"), the answer is a list of ints; no form converts the list'}
   address.idle_timeout_minutes:
     terraform_avm: { attribute: idle_timeout_in_minutes, passthrough: true }
     terraform: { attribute: idle_timeout_in_minutes, passthrough: true }
@@ -96,7 +96,7 @@ decisions:
     terraform: { attribute: ddos_protection_plan_id }
     bicep_avm: { attribute: ddosSettings.ddosProtectionPlan.id, note: "with protectionMode: 'Enabled'" }
     bicep: { attribute: properties.ddosSettings.ddosProtectionPlan.id }
-    import: {todo: a list or a reference; needs its own reading}
+    import: {path: properties.ddosSettings.ddosProtectionPlan.id, reference: true}
 
   # ------------------------------------------------------------ observability
   observability.diagnostic_workspace:
@@ -104,7 +104,7 @@ decisions:
     terraform: { attribute: azurerm_monitor_diagnostic_setting.log_analytics_workspace_id }
     bicep_avm: { attribute: 'diagnosticSettings[].workspaceResourceId' }
     bicep: { attribute: Microsoft.Insights/diagnosticSettings properties.workspaceId, note: 'an extension resource with scope: publicIp' }
-    import: {todo: 'not in the Resource Graph row: Microsoft.Insights/diagnosticSettings properties.workspa...'}
+    import: {todo: 'not in the Resource Graph row: the extension resource Microsoft.Insights/diagnosticSettings (scope the resource) properties.workspaceId'}
   observability.diagnostic_categories:
     terraform_avm:
       attribute: 'diagnostic_settings.<key>.log_categories'
@@ -117,7 +117,7 @@ decisions:
       attribute: 'Microsoft.Insights/diagnosticSettings properties.logs'
       format: { expr: '[for c in {value}: { category: c, enabled: true }]' }
       note: 'an extension resource, scope = the public IP (source: bicep build, Microsoft.Insights/diagnosticSettings@2021-05-01-preview)'
-    import: {todo: 'not in the Resource Graph row: Microsoft.Insights/diagnosticSettings properties.logs'}
+    import: {todo: 'not in the Resource Graph row: the extension resource Microsoft.Insights/diagnosticSettings (scope the resource) properties.logs[].category'}
   observability.metrics_enabled:
     terraform_avm:
       attribute: 'diagnostic_settings.<key>.metric_categories'
@@ -135,4 +135,4 @@ decisions:
         Microsoft.Insights/diagnosticSettings properties.metrics[] = { category, enabled } compiles
         (source: bicep build, Microsoft.Insights/diagnosticSettings@2021-05-01-preview), but the category
         literal is a free string the build does not check, and no allowed source names it for this target
-    import: {todo: 'bicep renders it as a gap: Microsoft.Insights/diagnosticSettings properties.metrics[] =...'}
+    import: {todo: 'not in the Resource Graph row: the extension resource Microsoft.Insights/diagnosticSettings (scope the resource) properties.metrics[]'}

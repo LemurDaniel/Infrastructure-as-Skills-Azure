@@ -28,7 +28,7 @@ decisions:
     terraform: { attribute: resource_group_name }
     bicep_avm: { gap: the deployment's resource group scope; no parameter }
     bicep: { gap: the deployment's resource group scope; no property }
-    import: {todo: 'bicep renders it as a gap: the deployment''s resource group scope; no property'}
+    import: {path: resourceGroup, passthrough: true}
 
   # ------------------------------------------------------------------- server
   server.postgres_version:
@@ -97,7 +97,7 @@ decisions:
     terraform: { attribute: 'azurerm_postgresql_flexible_server_database = { name, charset, collation }', note: "one per entry; charset and collation optional (source: azurerm 5.12 schema)" }
     bicep_avm: { attribute: 'databases[] = { name, charset, collation }' }
     bicep: { attribute: 'child databases { name, properties.charset, properties.collation }', note: "one per entry (source: bicep build, Microsoft.DBforPostgreSQL/flexibleServers/databases@2026-01-01-preview)" }
-    import: {todo: 'not in the Resource Graph row: child databases { name, properties.charset, properties.c...'}
+    import: {todo: 'not in the Resource Graph row: the child Microsoft.DBforPostgreSQL/flexibleServers/databases { name, properties.charset, properties.collation }'}
 
   # --------------------------------------------------------------- resilience
   resilience.high_availability:
@@ -129,7 +129,7 @@ decisions:
       gap: "maintenanceWindow = { customWindow: 'Enabled', dayOfWeek, startHour, startMinute }, parsed from the free-text answer (\"Sunday 02:00 UTC\" is dayOfWeek 0, startHour 2, startMinute 0 - ints); module default 01:00, written anyway"
     bicep:
       gap: properties.maintenanceWindow, parsed from the free-text answer; the authored rendering names no sub-property
-    import: {todo: 'bicep renders it as a gap: properties.maintenanceWindow, parsed from the free-text answ...'}
+    import: {todo: 'in the row as properties.maintenanceWindow { customWindow, dayOfWeek, startHour, startMinute }; the answer is free text composed from several paths'}
 
   # --------------------------------------------------------------- networking
   networking.private_connectivity:
@@ -153,7 +153,7 @@ decisions:
       values: { private_endpoint: null, vnet_integration: { expr: '{networking.delegated_subnet}' } }
       also: { vnet_integration: 'properties.network.privateDnsZoneArmResourceId: {networking.private_dns_zone}' }
       note: private_endpoint renders a Microsoft.Network/privateEndpoints instead
-    import: {todo: an answer renders as code or as nothing; needs cases}
+    import: {todo: 'vnet_integration when properties.network.delegatedSubnetResourceId is set, private_endpoint otherwise; no form tests whether a free value is present'}
   networking.public_network_access:
     terraform_avm:
       attribute: public_network_access_enabled
@@ -169,7 +169,7 @@ decisions:
     bicep:
       attribute: properties.network.publicNetworkAccess
       values: { disabled: Disabled, enabled_with_firewall: Enabled, enabled: Enabled }
-    import: {todo: answers share the literal Enabled; needs cases over a second path}
+    import: {todo: 'properties.network.publicNetworkAccess Disabled reads disabled; Enabled splits by the child Microsoft.DBforPostgreSQL/flexibleServers/firewallRules, not in the row'}
   networking.private_endpoint_subnet:
     terraform_avm:
       attribute: 'private_endpoints.pg.subnet_resource_id'
@@ -179,19 +179,19 @@ decisions:
       attribute: 'privateEndpoints[].subnetResourceId'
       note: "with service: 'postgresqlServer'; no privateDnsZoneGroup under policy DNS"
     bicep: { attribute: Microsoft.Network/privateEndpoints properties.subnet.id, note: "groupIds ['postgresqlServer'] as the reference states (source: bicep build, Microsoft.Network/privateEndpoints@2025-01-01)" }
-    import: {todo: 'not in the Resource Graph row: Microsoft.Network/privateEndpoints properties.subnet.id'}
+    import: {todo: 'not in the Resource Graph row: the Microsoft.Network/privateEndpoints properties.subnet.id; the row holds only properties.privateEndpointConnections[].properties.privateEndpoint.id'}
   networking.delegated_subnet:
     terraform_avm: { attribute: delegated_subnet_id }
     terraform: { attribute: delegated_subnet_id }
     bicep_avm: { attribute: delegatedSubnetResourceId }
     bicep: { attribute: properties.network.delegatedSubnetResourceId }
-    import: {todo: a list or a reference; needs its own reading}
+    import: {path: properties.network.delegatedSubnetResourceId, reference: true}
   networking.private_dns_zone:
     terraform_avm: { attribute: private_dns_zone_id }
     terraform: { attribute: private_dns_zone_id }
     bicep_avm: { attribute: privateDnsZoneArmResourceId }
     bicep: { attribute: properties.network.privateDnsZoneArmResourceId }
-    import: {todo: a list or a reference; needs its own reading}
+    import: {path: properties.network.privateDnsZoneArmResourceId, reference: true}
   networking.ip_rules:
     terraform_avm:
       gap: "firewall_rules = { <key> = { name, start_ip_address, end_ip_address } }, one entry per range, merged with allow_azure_services; the answer's item shape (an address, a CIDR, a range) is not stated, so no expression maps it. The module default admits 0.0.0.0 - 255.255.255.255: firewall_rules = {} is written on every call"
@@ -199,7 +199,7 @@ decisions:
     bicep_avm:
       gap: "firewallRules: [ { name, startIpAddress, endIpAddress } ], one per range; the answer's item shape is not stated, so no expression maps it"
     bicep: { gap: one child firewallRules per range; the authored rendering names no property }
-    import: {todo: 'bicep renders it as a gap: one child firewallRules per range; the authored rendering na...'}
+    import: {todo: 'not in the Resource Graph row: the child Microsoft.DBforPostgreSQL/flexibleServers/firewallRules properties { startIpAddress, endIpAddress }, one per range'}
   networking.allow_azure_services:
     terraform_avm:
       attribute: firewall_rules
@@ -219,7 +219,7 @@ decisions:
       values: { true: 0.0.0.0, false: null }
       also: { true: "properties.endIpAddress: '0.0.0.0'" }
       note: "0.0.0.0 to 0.0.0.0 as the reference states; false renders no rule (source: bicep build, Microsoft.DBforPostgreSQL/flexibleServers/firewallRules@2026-01-01-preview)"
-    import: {todo: 'not in the Resource Graph row: child firewallRules properties.startIpAddress'}
+    import: {todo: 'not in the Resource Graph row: a child Microsoft.DBforPostgreSQL/flexibleServers/firewallRules with startIpAddress and endIpAddress 0.0.0.0'}
 
   # ----------------------------------------------------------------- identity
   identity.managed_identity:
@@ -243,7 +243,7 @@ decisions:
       attribute: identity.type
       values: { none: null, system_assigned: SystemAssigned, user_assigned: UserAssigned }
       note: "none renders no identity (source: bicep build, Microsoft.DBforPostgreSQL/flexibleServers@2026-01-01-preview)"
-    import: {todo: an answer renders as code or as nothing; needs cases}
+    import: {path: identity.type, values: {SystemAssigned: system_assigned, UserAssigned: user_assigned, None: none}, missing: none}
   identity.user_assigned_identity_ids:
     terraform_avm: { attribute: managed_identities.user_assigned_resource_ids }
     terraform: { attribute: identity.identity_ids, note: "(source: azurerm 5.12 schema)" }
@@ -252,7 +252,7 @@ decisions:
       attribute: identity.userAssignedIdentities
       format: { expr: 'toObject({value}, id => id, id => {})' }
       note: "an object keyed by id, built from the list (source: bicep build, Microsoft.DBforPostgreSQL/flexibleServers@2026-01-01-preview)"
-    import: {todo: a composed or computed literal; needs its own reading}
+    import: {todo: 'identity.userAssignedIdentities is an object keyed by each identity id; no form reads its keys as a list of references'}
   identity.entra_admins:
     terraform_avm:
       attribute: ad_administrator
@@ -267,7 +267,7 @@ decisions:
     bicep:
       attribute: "child administrators { properties.principalName, properties.principalType: 'Group', properties.tenantId }"
       note: "one per group, filled from it (source: bicep build, Microsoft.DBforPostgreSQL/flexibleServers/administrators@2026-01-01-preview)"
-    import: {todo: 'not in the Resource Graph row: child administrators { properties.principalName, propert...'}
+    import: {todo: 'not in the Resource Graph row: the child Microsoft.DBforPostgreSQL/flexibleServers/administrators properties { principalName, principalType, tenantId }'}
   identity.database_roles:
     not_rendered: a SQL step after the deployment (pgaadauth_create_principal and GRANT as the Entra administrator); no module input and no ARM resource
   identity.role_assignments:
@@ -275,7 +275,7 @@ decisions:
     terraform: { attribute: azurerm_role_assignment, note: "scope = the server id; control plane (source: azurerm 5.12 schema)" }
     bicep_avm: { attribute: roleAssignments, note: control plane }
     bicep: { attribute: Microsoft.Authorization/roleAssignments, note: "scope the server; control plane (source: bicep build, Microsoft.Authorization/roleAssignments@2022-04-01)" }
-    import: {todo: 'not in the Resource Graph row: Microsoft.Authorization/roleAssignments'}
+    import: {todo: 'not in the Resource Graph row: the extension resources Microsoft.Authorization/roleAssignments scoped to the resource'}
 
   # ----------------------------------------------------------------- security
   security.password_authentication_disabled:
@@ -318,7 +318,7 @@ decisions:
         TLSv1.3: "{ name: 'require_secure_transport', source: 'user-override', value: 'on' }"
     bicep:
       gap: a child configurations { properties.value } (ssl_min_protocol_version, as in the module call) compiles, but its name and value are free strings - bicep build proves neither
-    import: {todo: 'bicep renders it as a gap: a child configurations { properties.value } (ssl_min_protoco...'}
+    import: {todo: 'not in the Resource Graph row: the child Microsoft.DBforPostgreSQL/flexibleServers/configurations ssl_min_protocol_version properties.value'}
   security.key_management:
     terraform_avm:
       attribute: customer_managed_key
@@ -344,14 +344,14 @@ decisions:
         platform_managed: null
         customer_managed: { expr: "{ type: 'AzureKeyVault', primaryKeyURI: <key URI>, primaryUserAssignedIdentityId: <user-assigned identity id> }" }
       note: "the identity also in identity.userAssignedIdentities; absent for platform_managed (source: bicep build, Microsoft.DBforPostgreSQL/flexibleServers@2026-01-01-preview)"
-    import: {todo: an answer renders as code or as nothing; needs cases}
+    import: {path: properties.dataEncryption.type, values: {AzureKeyVault: customer_managed, SystemManaged: platform_managed}, missing: platform_managed}
   security.cmk_key_vault_key_id:
     terraform_avm: { attribute: customer_managed_key.key_vault_key_id, note: versionless }
     terraform: { attribute: customer_managed_key.key_vault_key_id }
     bicep_avm:
       gap: the key id split into customerManagedKey.keyVaultResourceId (the vault's id) and keyName (the key's name), written in key_management's object; no single parameter takes the id
     bicep: { attribute: properties.dataEncryption.primaryKeyURI, note: "the key URI, not its resource id (source: bicep build, Microsoft.DBforPostgreSQL/flexibleServers@2026-01-01-preview)" }
-    import: {todo: a list or a reference; needs its own reading}
+    import: {todo: 'properties.dataEncryption.primaryKeyURI holds the key URI, not a resource id; needs a lookup of the key from its URI'}
   security.threat_protection:
     terraform_avm:
       gap: not a module input - an azapi_resource advancedThreatProtectionSettings child (name Default, body.properties.state = "Enabled" for true); the reference states no literal for false
@@ -362,7 +362,7 @@ decisions:
       attribute: child advancedThreatProtectionSettings/Default properties.state
       values: { true: Enabled, false: Disabled }
       note: "(source: bicep build, Microsoft.DBforPostgreSQL/flexibleServers/advancedThreatProtectionSettings@2026-01-01-preview)"
-    import: {todo: 'not in the Resource Graph row: child advancedThreatProtectionSettings/Default propertie...'}
+    import: {todo: 'not in the Resource Graph row: the child Microsoft.DBforPostgreSQL/flexibleServers/advancedThreatProtectionSettings Default properties.state'}
 
   # ---------------------------------------------------------- data_protection
   data_protection.backup_retention_days:
@@ -389,13 +389,13 @@ decisions:
     terraform: { attribute: azurerm_monitor_diagnostic_setting.log_analytics_workspace_id, note: "target_resource_id = the server id (source: azurerm 5.12 schema)" }
     bicep_avm: { attribute: 'diagnosticSettings[].workspaceResourceId' }
     bicep: { attribute: Microsoft.Insights/diagnosticSettings properties.workspaceId, note: "scope the server (source: bicep build, Microsoft.Insights/diagnosticSettings@2021-05-01-preview)" }
-    import: {todo: 'not in the Resource Graph row: Microsoft.Insights/diagnosticSettings properties.workspa...'}
+    import: {todo: 'not in the Resource Graph row: the extension resource Microsoft.Insights/diagnosticSettings (scope the resource) properties.workspaceId'}
   observability.diagnostic_categories:
     terraform_avm: { attribute: 'diagnostic_settings.<key>.log_categories', note: 'log_groups = [] beside it' }
     terraform: { attribute: azurerm_monitor_diagnostic_setting.enabled_log.category }
     bicep_avm: { attribute: 'diagnosticSettings[].logCategoriesAndGroups[].category' }
     bicep: { attribute: 'Microsoft.Insights/diagnosticSettings properties.logs[].category', note: "(source: bicep build, Microsoft.Insights/diagnosticSettings@2021-05-01-preview)" }
-    import: {todo: 'not in the Resource Graph row: Microsoft.Insights/diagnosticSettings properties.logs[]....'}
+    import: {todo: 'not in the Resource Graph row: the extension resource Microsoft.Insights/diagnosticSettings (scope the resource) properties.logs[].category'}
   observability.metrics_enabled:
     terraform_avm:
       attribute: 'diagnostic_settings.<key>.metric_categories'
@@ -407,4 +407,4 @@ decisions:
       values: { true: { expr: "[ { category: 'AllMetrics' } ]" }, false: { expr: '[]' } }
     bicep:
       gap: "Microsoft.Insights/diagnosticSettings properties.metrics[].category is the property, but the type is a free string - bicep build proves no category name for the server"
-    import: {todo: 'bicep renders it as a gap: Microsoft.Insights/diagnosticSettings properties.metrics[].c...'}
+    import: {todo: 'not in the Resource Graph row: the extension resource Microsoft.Insights/diagnosticSettings (scope the resource) properties.metrics[]'}

@@ -26,7 +26,7 @@ decisions:
     terraform: { attribute: resource_group_name }
     bicep_avm: { gap: the deployment's resource group scope; no parameter }
     bicep: { gap: the deployment's resource group scope; no property }
-    import: {todo: 'bicep renders it as a gap: the deployment''s resource group scope; no property'}
+    import: {path: resourceGroup, passthrough: true}
 
   # --------------------------------------------------------------------- cost
   cost.retention_days:
@@ -77,7 +77,7 @@ decisions:
     bicep:
       attribute: properties.publicNetworkAccessForIngestion, properties.publicNetworkAccessForQuery
       values: { disabled: Disabled, enabled: Enabled }
-    import: {todo: 'not in the Resource Graph row: properties.publicNetworkAccessForIngestion, properties.p...'}
+    import: {cases: [{when: {properties.publicNetworkAccessForIngestion: Disabled, properties.publicNetworkAccessForQuery: Disabled}, answer: disabled}, {when: {properties.publicNetworkAccessForIngestion: Enabled, properties.publicNetworkAccessForQuery: Enabled}, answer: enabled}]}
   access.local_auth:
     terraform_avm:
       attribute: log_analytics_workspace_local_authentication_enabled
@@ -121,7 +121,7 @@ decisions:
       note: provider-side, inverted; not observable by a plan
     bicep_avm: { gap: not a template property; a permanent delete is the forceDelete=true query parameter on deletion }
     bicep: { gap: not a template property; a permanent delete is the forceDelete=true query parameter on deletion }
-    import: {todo: 'bicep renders it as a gap: not a template property; a permanent delete is the forceDele...'}
+    import: {not_readable: 'not a property: a permanent delete is the forceDelete=true query parameter of the deletion call'}
   data_protection.archive_to_storage:
     terraform_avm:
       attribute: 'diagnostic_settings.<key>.storage_account_resource_id'
@@ -139,4 +139,4 @@ decisions:
       attribute: Microsoft.Insights/diagnosticSettings properties.storageAccountId
       values: { true: { expr: '<archive_storage_account_id>' }, false: null }
       note: 'scope: the workspace; false renders no setting (source: bicep build, Microsoft.Insights/diagnosticSettings@2021-05-01-preview)'
-    import: {todo: 'not in the Resource Graph row: Microsoft.Insights/diagnosticSettings properties.storage...'}
+    import: {todo: 'not in the Resource Graph row: the extension resource Microsoft.Insights/diagnosticSettings (scope the resource) properties.storageAccountId'}

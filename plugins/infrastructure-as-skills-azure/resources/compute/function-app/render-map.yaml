@@ -13,6 +13,9 @@ modules:
 # them by id (adopt.parts). Format: core/iac-rendering/references/render-map.md.
 import_parts: [Microsoft.Web/serverFarms, Microsoft.Network/privateEndpoints]
 
+# This set shares its ARM type with another; an import tells a row apart by its kind (render-map.md).
+import_match: {kind_has: [functionapp], kind_lacks: [workflowapp]}
+
 decisions:
 
   # ---------------------------------------------------------------- placement
@@ -32,7 +35,7 @@ decisions:
     terraform: { attribute: resource_group_name }
     bicep_avm: { gap: the deployment's resource group scope; no parameter }
     bicep: { gap: the deployment's resource group scope; no property }
-    import: {todo: 'bicep renders it as a gap: the deployment''s resource group scope; no property'}
+    import: {path: resourceGroup, passthrough: true}
 
   # ------------------------------------------------------------------ hosting
   hosting.plan_type:
@@ -56,7 +59,7 @@ decisions:
       attribute: sku.name
       values: { flex_consumption: FC1, elastic_premium: { expr: '<EP1, EP2 or EP3 - no question picks the size>' } }
       note: "on the plan with reserved: true; the site's kind is 'functionapp,linux'"
-    import: {todo: an answer renders as code or as nothing; needs cases}
+    import: {path: properties.sku, values: {FlexConsumption: flex_consumption, ElasticPremium: elastic_premium}}
   hosting.runtime_stack:
     terraform_avm:
       module: Azure/avm-res-web-site/azurerm
@@ -120,7 +123,7 @@ decisions:
       attribute: properties.functionAppConfig.scaleAndConcurrency.alwaysReady
       format: { expr: "[ { name: 'http', instanceCount: {value} } ]" }
       note: Flex; an array, not the count
-    import: {todo: a composed or computed literal; needs its own reading}
+    import: {todo: 'in the row as a list of objects: properties.functionAppConfig.scaleAndConcurrency.alwaysReady[].instanceCount of the http entry; no form reads a list element'}
   hosting.instance_memory_mb:
     terraform_avm: { module: Azure/avm-res-web-site/azurerm, attribute: instance_memory_in_mb, passthrough: true, note: module default 2048; written }
     terraform: { attribute: instance_memory_in_mb, passthrough: true, note: on azurerm_function_app_flex_consumption }
@@ -140,7 +143,7 @@ decisions:
       attribute: "configs[name: 'appsettings'].properties.AzureWebJobsStorage__accountName"
       note: "the host connection, with AzureWebJobsStorage__credential: 'managedidentity' and AzureWebJobsStorage__clientId; never AzureWebJobsStorage with a key"
     bicep: { gap: "the host connection is an app setting; Microsoft.Web/sites/config appsettings properties is a string map - the build does not check the setting's key" }
-    import: {todo: 'bicep renders it as a gap: the host connection is an app setting; Microsoft.Web/sites/c...'}
+    import: {todo: 'not in the Resource Graph row: Microsoft.Web/sites/config appsettings (a list action) AzureWebJobsStorage__accountName'}
   storage.host_storage_auth:
     terraform_avm:
       module: Azure/avm-res-web-site/azurerm
@@ -183,7 +186,7 @@ decisions:
       attribute: properties.functionAppConfig.deployment.storage.value
       format: { expr: "'${<hostStorageBlobEndpoint>}{value}'" }
       note: the host account's blob endpoint followed by the container
-    import: {todo: a composed or computed literal; needs its own reading}
+    import: {todo: 'the last segment of properties.functionAppConfig.deployment.storage.value, a URL whose prefix is the blob endpoint of the host account; format takes no variable prefix'}
 
   # --------------------------------------------------------------- networking
   networking.public_network_access:
@@ -211,7 +214,7 @@ decisions:
     bicep:
       attribute: properties.publicNetworkAccess
       values: { disabled: Disabled, enabled_with_firewall: Enabled, enabled: Enabled }
-    import: {todo: answers share the literal Enabled; needs cases over a second path}
+    import: {todo: 'Disabled reads from properties.publicNetworkAccess; Enabled vs enabled_with_firewall needs Microsoft.Web/sites/config web properties.ipSecurityRestrictionsDefaultAction, null in the site row (verify)'}
   networking.private_endpoint_subnet:
     terraform_avm: { module: Azure/avm-res-web-site/azurerm, attribute: private_endpoints.sites.subnet_resource_id }
     terraform:
@@ -240,13 +243,13 @@ decisions:
     bicep:
       attribute: properties.virtualNetworkSubnetId
       values: { true: { expr: '{networking.integration_subnet}' }, false: null }
-    import: {todo: an answer renders as code or as nothing; needs cases}
+    import: {path: properties.virtualNetworkSubnetId, present: true, missing: false}
   networking.integration_subnet:
     terraform_avm: { module: Azure/avm-res-web-site/azurerm, attribute: virtual_network_subnet_id }
     terraform: { attribute: virtual_network_subnet_id }
     bicep_avm: { module: avm/res/web/site, attribute: virtualNetworkSubnetResourceId }
     bicep: { attribute: properties.virtualNetworkSubnetId }
-    import: {todo: a list or a reference; needs its own reading}
+    import: {path: properties.virtualNetworkSubnetId, reference: true}
   networking.vnet_route_all:
     terraform_avm: { module: Azure/avm-res-web-site/azurerm, attribute: vnet_route_all_traffic, passthrough: true }
     terraform: { attribute: site_config.vnet_route_all_enabled, passthrough: true, note: per the App Service reference }
@@ -264,7 +267,7 @@ decisions:
       attribute: siteConfig.ipSecurityRestrictions
       note: from the App Service reference - the function app table has no row
     bicep: { attribute: properties.siteConfig.ipSecurityRestrictions }
-    import: {todo: a list or a reference; needs its own reading}
+    import: {todo: 'not in the Resource Graph row: Microsoft.Web/sites/config web properties.ipSecurityRestrictions, a list of objects (null in the siteConfig of the site row)'}
 
   # ----------------------------------------------------------------- identity
   identity.managed_identity:
@@ -296,7 +299,7 @@ decisions:
     terraform: { attribute: identity.identity_ids, note: 'a set of ids (source: azurerm 5.12 schema)' }
     bicep_avm: { module: avm/res/web/site, attribute: managedIdentities.userAssignedResourceIds }
     bicep: { attribute: identity.userAssignedIdentities, note: 'a map keyed by the identity id, each value {} (source: bicep build, Microsoft.Web/sites@2024-04-01)' }
-    import: {todo: a list or a reference; needs its own reading}
+    import: {todo: 'in the row as the keys of identity.userAssignedIdentities; no form reads the keys of an object'}
   identity.role_assignments:
     terraform_avm:
       module: Azure/avm-res-web-site/azurerm
@@ -312,7 +315,7 @@ decisions:
     bicep:
       attribute: 'Microsoft.Authorization/roleAssignments properties = { principalId, roleDefinitionId, principalType }'
       note: 'one per entry, scope the app; roleDefinitionId is the role''s id, not its name (source: bicep build, Microsoft.Authorization/roleAssignments@2022-04-01)'
-    import: {todo: 'not in the Resource Graph row: Microsoft.Authorization/roleAssignments properties = { p...'}
+    import: {todo: 'not in the Resource Graph row: Microsoft.Authorization/roleAssignments properties = { principalId, roleDefinitionId, principalType }'}
 
   # ----------------------------------------------------------------- security
   security.https_only:
@@ -351,7 +354,7 @@ decisions:
       attribute: basicPublishingCredentialsPolicies/ftp and /scm properties.allow
       passthrough: true
       note: two child resources, not a property of the site
-    import: {todo: 'not in the Resource Graph row: basicPublishingCredentialsPolicies/ftp and /scm properti...'}
+    import: {todo: 'not in the Resource Graph row: Microsoft.Web/sites/basicPublishingCredentialsPolicies ftp and scm properties.allow'}
   security.application_insights:
     terraform_avm:
       module: Azure/avm-res-web-site/azurerm
@@ -367,7 +370,7 @@ decisions:
       attribute: "configs[name: 'appsettings'].properties.APPLICATIONINSIGHTS_CONNECTION_STRING"
       note: the component's connection string output, not its id; with APPLICATIONINSIGHTS_AUTHENTICATION_STRING = Authorization=AAD (;ClientId=<client id> user-assigned) while local auth is off; omitted while empty
     bicep: { gap: "Microsoft.Web/sites/config appsettings properties is a string map - the build does not check the setting's key" }
-    import: {todo: 'bicep renders it as a gap: Microsoft.Web/sites/config appsettings properties is a strin...'}
+    import: {todo: 'not in the Resource Graph row: Microsoft.Web/sites/config appsettings (a list action) APPLICATIONINSIGHTS_CONNECTION_STRING, which names the component by its connection string, not its id'}
 
   # ------------------------------------------------------------ observability
   observability.diagnostic_workspace:
@@ -381,13 +384,13 @@ decisions:
       attribute: 'diagnosticSettings[].workspaceResourceId'
       note: on both modules; the plan has metrics only
     bicep: { attribute: Microsoft.Insights/diagnosticSettings properties.workspaceId, note: 'scope the site (source: bicep build, Microsoft.Insights/diagnosticSettings@2021-05-01-preview)' }
-    import: {todo: 'not in the Resource Graph row: Microsoft.Insights/diagnosticSettings properties.workspa...'}
+    import: {todo: 'not in the Resource Graph row: Microsoft.Insights/diagnosticSettings properties.workspaceId'}
   observability.diagnostic_categories:
     terraform_avm: { module: Azure/avm-res-web-site/azurerm, attribute: 'diagnostic_settings.workspace.logs[].category' }
     terraform: { attribute: azurerm_monitor_diagnostic_setting.enabled_log.category }
     bicep_avm: { module: avm/res/web/site, attribute: 'diagnosticSettings[].logCategoriesAndGroups[].category' }
     bicep: { attribute: 'Microsoft.Insights/diagnosticSettings properties.logs[].category', note: 'each with enabled: true (source: bicep build, Microsoft.Insights/diagnosticSettings@2021-05-01-preview)' }
-    import: {todo: 'not in the Resource Graph row: Microsoft.Insights/diagnosticSettings properties.logs[]....'}
+    import: {todo: 'not in the Resource Graph row: Microsoft.Insights/diagnosticSettings properties.logs[].category'}
   observability.metrics_enabled:
     terraform_avm:
       module: Azure/avm-res-web-site/azurerm
@@ -404,4 +407,4 @@ decisions:
       values: { true: { expr: "[ { category: 'AllMetrics' } ]" }, false: { expr: '[]' } }
       note: the plan module takes the same metrics
     bicep: { gap: "Microsoft.Insights/diagnosticSettings properties.metrics[].category (bicep build @2021-05-01-preview); the category is a free string the build does not check, so the literal for true is unproven" }
-    import: {todo: 'bicep renders it as a gap: Microsoft.Insights/diagnosticSettings properties.metrics[].c...'}
+    import: {todo: 'not in the Resource Graph row: Microsoft.Insights/diagnosticSettings properties.metrics[].category'}

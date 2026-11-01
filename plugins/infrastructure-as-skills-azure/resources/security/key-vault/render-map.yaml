@@ -30,7 +30,7 @@ decisions:
     terraform: { attribute: resource_group_name, note: '(source: azurerm 5.12 schema)' }
     bicep_avm: { gap: the deployment's resource group scope; no parameter }
     bicep: { gap: the deployment's resource group scope; no property }
-    import: {todo: 'bicep renders it as a gap: the deployment''s resource group scope; no property'}
+    import: {path: resourceGroup, passthrough: true}
 
   # -------------------------------------------------------------------- vault
   vault.sku:
@@ -47,7 +47,7 @@ decisions:
       attribute: properties.enablePurgeProtection
       values: { true: true, false: null }
       note: only true or omitted - ARM rejects an explicit false
-    import: {todo: an answer renders as code or as nothing; needs cases}
+    import: {path: properties.enablePurgeProtection, passthrough: true, missing: false}
   vault.soft_delete_retention_days:
     terraform_avm: { attribute: soft_delete_retention_days, passthrough: true, note: module default null (90); written }
     terraform: { attribute: soft_delete_retention_days, passthrough: true }
@@ -95,7 +95,7 @@ decisions:
         disabled: "defaultAction: 'Deny'"
         enabled_with_firewall: "defaultAction: 'Deny'"
       note: the also lines sit inside properties.networkAcls; what enabled writes there the reference does not state
-    import: {todo: answers share the literal Enabled; needs cases over a second path}
+    import: {cases: [{when: {properties.publicNetworkAccess: Disabled}, answer: disabled}, {when: {properties.publicNetworkAccess: Enabled, properties.networkAcls.defaultAction: Deny}, answer: enabled_with_firewall}, {when: {properties.publicNetworkAccess: Enabled}, answer: enabled}]}
   networking.private_endpoint_subnet:
     terraform_avm: { attribute: private_endpoints.vault.subnet_resource_id, note: subresource_name defaults to vault }
     terraform:
@@ -121,7 +121,7 @@ decisions:
     bicep:
       attribute: properties.networkAcls.ipRules
       note: the item shape is not in the reference (the module's parameter is [ { value } ]); check the API schema - never the plain list
-    import: {todo: a list or a reference; needs its own reading}
+    import: {todo: 'in the row as a list of objects: properties.networkAcls.ipRules[].value; no form reads a list element'}
 
   # ----------------------------------------------------------------- identity
   identity.role_assignments:
@@ -133,7 +133,7 @@ decisions:
     bicep:
       attribute: 'Microsoft.Authorization/roleAssignments = { properties.principalId, properties.roleDefinitionId, properties.principalType }'
       note: 'one per entry, scope: the vault; roleDefinitionId is the definition id, never the name (source: bicep build, Microsoft.Authorization/roleAssignments@2022-04-01)'
-    import: {todo: 'not in the Resource Graph row: Microsoft.Authorization/roleAssignments = { properties.p...'}
+    import: {todo: 'not in the Resource Graph row: Microsoft.Authorization/roleAssignments = { properties.principalId, properties.roleDefinitionId, properties.principalType }'}
 
   # ----------------------------------------------------------------- security
   security.enabled_for_services:
@@ -153,7 +153,7 @@ decisions:
       - { attribute: properties.enabledForDeployment, format: { expr: "contains({value}, 'vm_deployment')" } }
       - { attribute: properties.enabledForDiskEncryption, format: { expr: "contains({value}, 'disk_encryption')" } }
       - { attribute: properties.enabledForTemplateDeployment, format: { expr: "contains({value}, 'template_deployment')" } }
-    import: {todo: renders onto several attributes; needs cases}
+    import: {todo: 'a list built from three bools: properties.enabledForDeployment, enabledForDiskEncryption, enabledForTemplateDeployment; no form builds a list'}
   security.secret_placeholders:
     terraform_avm: { gap: 'not the module; azurerm_key_vault_secret per name outside it, value placeholder, ignore_changes = [value, tags]' }
     terraform:
@@ -187,7 +187,7 @@ decisions:
     terraform: { attribute: azurerm_key_vault_key.key_type, passthrough: true, note: 'EC, EC-HSM, RSA, RSA-HSM (source: azurerm 5.12 docs)' }
     bicep_avm: { attribute: 'keys[].kty', passthrough: true }
     bicep: { gap: 'Microsoft.KeyVault/vaults/keys properties.kty (bicep build, @2024-11-01) is a plain string in the type - the RSA / RSA-HSM literals are not provable by a build' }
-    import: {todo: 'bicep renders it as a gap: Microsoft.KeyVault/vaults/keys properties.kty (bicep build,...'}
+    import: {todo: 'not in the Resource Graph row: Microsoft.KeyVault/vaults/keys properties.kty'}
   keys.key_size:
     terraform_avm: { attribute: 'keys.<key>.key_size', passthrough: true }
     terraform: { attribute: azurerm_key_vault_key.key_size, passthrough: true, note: 'a number; RSA only (source: azurerm 5.12 schema)' }
@@ -208,13 +208,13 @@ decisions:
       format: 'P{value}D'
       note: "the entry with action: { type: 'rotate' }; the member path is the key child module's (key-vault-key) - confirm in the README"
     bicep: { gap: 'Microsoft.KeyVault/vaults/keys properties.rotationPolicy.lifetimeActions[].trigger.timeAfterCreate (bicep build, @2024-11-01) is a plain string - the duration literal is not provable by a build' }
-    import: {todo: 'bicep renders it as a gap: Microsoft.KeyVault/vaults/keys properties.rotationPolicy.lif...'}
+    import: {todo: 'not in the Resource Graph row: Microsoft.KeyVault/vaults/keys properties.rotationPolicy.lifetimeActions[].trigger.timeAfterCreate (P<n>D)'}
   keys.key_expiry_days:
     terraform_avm: { attribute: 'keys.<key>.rotation_policy.expire_after', format: 'P{value}D', note: an ISO 8601 duration; member names from the README }
     terraform: { attribute: azurerm_key_vault_key.rotation_policy.expire_after, format: 'P{value}D', note: 'an ISO 8601 duration (source: azurerm 5.12 docs)' }
     bicep_avm: { attribute: 'keys[].rotationPolicy.attributes.expiryTime', format: 'P{value}D', note: an ISO 8601 duration; member names from the README }
     bicep: { gap: 'Microsoft.KeyVault/vaults/keys properties.rotationPolicy.attributes.expiryTime (bicep build, @2024-11-01) is a plain string - the duration literal is not provable by a build' }
-    import: {todo: 'bicep renders it as a gap: Microsoft.KeyVault/vaults/keys properties.rotationPolicy.att...'}
+    import: {todo: 'not in the Resource Graph row: Microsoft.KeyVault/vaults/keys properties.rotationPolicy.attributes.expiryTime (P<n>D)'}
 
   # ------------------------------------------------------------ observability
   observability.diagnostic_workspace:
@@ -226,7 +226,7 @@ decisions:
     bicep:
       attribute: Microsoft.Insights/diagnosticSettings properties.workspaceId
       note: 'scope: the vault (source: bicep build, Microsoft.Insights/diagnosticSettings@2021-05-01-preview)'
-    import: {todo: 'not in the Resource Graph row: Microsoft.Insights/diagnosticSettings properties.workspa...'}
+    import: {todo: 'not in the Resource Graph row: Microsoft.Insights/diagnosticSettings properties.workspaceId'}
   observability.diagnostic_categories:
     terraform_avm:
       attribute: diagnostic_settings.workspace.log_categories
@@ -236,7 +236,7 @@ decisions:
     bicep:
       attribute: 'Microsoft.Insights/diagnosticSettings properties.logs[].category'
       note: 'one entry per category, enabled: true on each (source: bicep build, Microsoft.Insights/diagnosticSettings@2021-05-01-preview)'
-    import: {todo: 'not in the Resource Graph row: Microsoft.Insights/diagnosticSettings properties.logs[]....'}
+    import: {todo: 'not in the Resource Graph row: Microsoft.Insights/diagnosticSettings properties.logs[].category'}
   observability.metrics_enabled:
     terraform_avm:
       attribute: diagnostic_settings.workspace.metric_categories
@@ -251,4 +251,4 @@ decisions:
       values: { true: { expr: "[ { category: 'AllMetrics' } ]" }, false: { expr: '[]' } }
       note: false is an empty array, not left out
     bicep: { gap: 'Microsoft.Insights/diagnosticSettings properties.metrics[].category (bicep build, @2021-05-01-preview) is a plain string - the AllMetrics literal is not provable by a build' }
-    import: {todo: 'bicep renders it as a gap: Microsoft.Insights/diagnosticSettings properties.metrics[].c...'}
+    import: {todo: 'not in the Resource Graph row: Microsoft.Insights/diagnosticSettings properties.metrics[].category'}

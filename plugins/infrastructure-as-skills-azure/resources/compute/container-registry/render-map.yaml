@@ -30,7 +30,7 @@ decisions:
     terraform: { attribute: resource_group_name }
     bicep_avm: { gap: the deployment's resource group scope; no parameter }
     bicep: { gap: the deployment's resource group scope; no property }
-    import: {todo: 'bicep renders it as a gap: the deployment''s resource group scope; no property'}
+    import: {path: resourceGroup, passthrough: true}
 
   # ----------------------------------------------------------------- registry
   registry.sku:
@@ -60,7 +60,7 @@ decisions:
     terraform: { attribute: 'georeplications { location, zone_redundancy_enabled }' }
     bicep_avm: { attribute: 'replications[] = { location, zoneRedundancy }' }
     bicep: { attribute: child replications, note: one Microsoft.ContainerRegistry/registries/replications per region }
-    import: {todo: 'not in the Resource Graph row: child replications'}
+    import: {todo: 'not in the Resource Graph row: the child Microsoft.ContainerRegistry/registries/replications, one per region (their location)'}
   registry.retention_untagged_days:
     terraform_avm:
       attribute: retention_policy_in_days
@@ -98,7 +98,7 @@ decisions:
       values: { disabled: Disabled, enabled_with_firewall: Enabled, enabled: Enabled }
       also:
         enabled_with_firewall: "properties.networkRuleSet.defaultAction: 'Deny'"
-    import: {todo: answers share the literal Enabled; needs cases over a second path}
+    import: {cases: [{when: {properties.publicNetworkAccess: Disabled}, answer: disabled}, {when: {properties.publicNetworkAccess: Enabled, properties.networkRuleSet.defaultAction: Deny}, answer: enabled_with_firewall}, {when: {properties.publicNetworkAccess: Enabled}, answer: enabled}]}
   networking.private_endpoint_subnet:
     terraform_avm:
       attribute: private_endpoints.registry.subnet_resource_id
@@ -106,7 +106,7 @@ decisions:
     terraform: { attribute: azurerm_private_endpoint.subnet_id }
     bicep_avm: { attribute: 'privateEndpoints[].subnetResourceId', note: "with service: 'registry'" }
     bicep: { attribute: Microsoft.Network/privateEndpoints properties.subnet.id }
-    import: {todo: 'not in the Resource Graph row: Microsoft.Network/privateEndpoints properties.subnet.id'}
+    import: {todo: 'not in the Resource Graph row: the Microsoft.Network/privateEndpoints properties.subnet.id; the row holds only properties.privateEndpointConnections[].properties.privateEndpoint.id'}
   networking.ip_rules:
     terraform_avm:
       attribute: 'network_rule_set.ip_rule[].ip_range'
@@ -114,7 +114,7 @@ decisions:
     terraform: { attribute: network_rule_set.ip_rule }
     bicep_avm: { attribute: networkRuleSetIpRules, note: "with networkRuleSetDefaultAction: 'Deny'" }
     bicep: { attribute: properties.networkRuleSet.ipRules }
-    import: {todo: a list or a reference; needs its own reading}
+    import: {todo: 'in the row as properties.networkRuleSet.ipRules[].value; a list of objects no form reads'}
   networking.network_rule_bypass:
     terraform_avm: { attribute: network_rule_bypass_option, passthrough: true, note: module default None; written anyway }
     terraform: { attribute: network_rule_bypass_option, passthrough: true }
@@ -171,7 +171,7 @@ decisions:
       attribute: identity.userAssignedIdentities
       format: { expr: 'toObject({value}, id => id, id => {})' }
       note: 'an object keyed by each id (source: bicep build, Microsoft.ContainerRegistry/registries@2025-04-01)'
-    import: {todo: a composed or computed literal; needs its own reading}
+    import: {todo: 'identity.userAssignedIdentities is an object keyed by each identity id; no form reads its keys as a list of references'}
   identity.role_assignments:
     terraform_avm:
       attribute: 'role_assignments.<key> = { role_definition_id_or_name, principal_id }'
@@ -179,7 +179,7 @@ decisions:
     terraform: { attribute: azurerm_role_assignment, note: scope = the registry's id }
     bicep_avm: { attribute: roleAssignments, note: roleAssignmentMode left at its default }
     bicep: { attribute: Microsoft.Authorization/roleAssignments, note: scope = the registry }
-    import: {todo: 'not in the Resource Graph row: Microsoft.Authorization/roleAssignments'}
+    import: {todo: 'not in the Resource Graph row: the extension resources Microsoft.Authorization/roleAssignments scoped to the resource'}
 
   # ----------------------------------------------------------------- security
   security.admin_enabled:
@@ -218,7 +218,7 @@ decisions:
         properties.encryption { status, keyVaultProperties { keyIdentifier, identity } } compiles
         (bicep build, Microsoft.ContainerRegistry/registries@2025-04-01), but status is an open string there
         and its literal is in no source of record
-    import: {todo: 'bicep renders it as a gap: properties.encryption { status, keyVaultProperties { keyIden...'}
+    import: {path: properties.encryption.status, values: {enabled: customer_managed, disabled: platform_managed}, missing: platform_managed}
   security.cmk_key_vault_key_id:
     terraform_avm:
       attribute: customer_managed_key.key_vault_resource_id, customer_managed_key.key_name
@@ -228,7 +228,7 @@ decisions:
       attribute: customerManagedKey.keyVaultResourceId, customerManagedKey.keyName
       note: the key id split into the vault's id and the key's name
     bicep: { attribute: properties.encryption.keyVaultProperties.keyIdentifier, note: 'with keyVaultProperties.identity (source: bicep build, Microsoft.ContainerRegistry/registries@2025-04-01)' }
-    import: {todo: a list or a reference; needs its own reading}
+    import: {todo: 'properties.encryption.keyVaultProperties.keyIdentifier holds the key URI, not a resource id; needs a lookup of the key from its URI'}
 
   # ------------------------------------------------------------ observability
   observability.diagnostic_workspace:
@@ -238,7 +238,7 @@ decisions:
     bicep:
       attribute: Microsoft.Insights/diagnosticSettings properties.workspaceId
       note: 'scope = the registry (source: bicep build, Microsoft.Insights/diagnosticSettings@2021-05-01-preview)'
-    import: {todo: 'not in the Resource Graph row: Microsoft.Insights/diagnosticSettings properties.workspa...'}
+    import: {todo: 'not in the Resource Graph row: the extension resource Microsoft.Insights/diagnosticSettings (scope the resource) properties.workspaceId'}
   observability.diagnostic_categories:
     terraform_avm:
       attribute: diagnostic_settings.workspace.log_categories
@@ -248,7 +248,7 @@ decisions:
     bicep:
       attribute: 'Microsoft.Insights/diagnosticSettings properties.logs[].category'
       note: 'one entry per category, each with enabled: true (source: bicep build, Microsoft.Insights/diagnosticSettings@2021-05-01-preview)'
-    import: {todo: 'not in the Resource Graph row: Microsoft.Insights/diagnosticSettings properties.logs[]....'}
+    import: {todo: 'not in the Resource Graph row: the extension resource Microsoft.Insights/diagnosticSettings (scope the resource) properties.logs[].category'}
   observability.metrics_enabled:
     terraform_avm:
       attribute: diagnostic_settings.workspace.metric_categories
@@ -264,4 +264,4 @@ decisions:
       attribute: Microsoft.Insights/diagnosticSettings properties.metrics
       values: { true: { expr: "[ { category: 'AllMetrics', enabled: true } ]" }, false: { expr: '[]' } }
       note: '(source: bicep build, Microsoft.Insights/diagnosticSettings@2021-05-01-preview; AllMetrics per module README 0.13.1)'
-    import: {todo: 'not in the Resource Graph row: Microsoft.Insights/diagnosticSettings properties.metrics'}
+    import: {todo: 'not in the Resource Graph row: the extension resource Microsoft.Insights/diagnosticSettings (scope the resource) properties.metrics[]'}

@@ -28,7 +28,7 @@ decisions:
     terraform: { attribute: resource_group_name }
     bicep_avm: { gap: the deployment's resource group scope; no parameter }
     bicep: { gap: the deployment's resource group scope; no property }
-    import: {todo: 'bicep renders it as a gap: the deployment''s resource group scope; no property'}
+    import: {path: resourceGroup, passthrough: true}
 
   # ----------------------------------------------------------------- database
   database.databases:
@@ -72,7 +72,7 @@ decisions:
         business_critical: "sku.tier: 'BusinessCritical', sku.family: 'Gen5'"
         hyperscale: "sku.tier: 'Hyperscale', sku.family: 'Gen5'"
       note: the sku object of the module's databases[].sku
-    import: {todo: a piece of database.compute_tier; read back with it}
+    import: {todo: 'not in the Resource Graph row: child databases sku.tier (GeneralPurpose, BusinessCritical, Hyperscale)'}
   database.compute_tier:
     terraform_avm:
       attribute: 'databases.<key>.sku_name'
@@ -179,7 +179,7 @@ decisions:
     bicep_avm:
       gap: not one call - a second instance of the module in that region and the module's failoverGroups parameter on the primary naming the partner; shape from the pinned README
     bicep: { gap: the authored rendering names no failover group }
-    import: {todo: 'bicep renders it as a gap: the authored rendering names no failover group'}
+    import: {todo: 'not in the Resource Graph row: Microsoft.Sql/servers/failoverGroups properties.partnerServers[].location'}
 
   # --------------------------------------------------------------- networking
   networking.public_network_access:
@@ -197,7 +197,7 @@ decisions:
     bicep:
       attribute: properties.publicNetworkAccess
       values: { disabled: Disabled, enabled_with_firewall: Enabled, enabled: Enabled }
-    import: {todo: answers share the literal Enabled; needs cases over a second path}
+    import: {todo: 'Disabled reads from properties.publicNetworkAccess; Enabled vs enabled_with_firewall needs the child firewallRules'}
   networking.private_endpoint_subnet:
     terraform_avm:
       attribute: 'private_endpoints.sql.subnet_resource_id'
@@ -277,13 +277,13 @@ decisions:
       values: { system_assigned: SystemAssigned, user_assigned: UserAssigned, none: null }
       also: { user_assigned: 'properties.primaryUserAssignedIdentityId: <first user_assigned_identity_id>' }
       note: none renders no identity block
-    import: {todo: an answer renders as code or as nothing; needs cases}
+    import: {path: identity.type, values: {SystemAssigned: system_assigned, UserAssigned: user_assigned, None: none}, missing: none}
   identity.user_assigned_identity_ids:
     terraform_avm: { attribute: managed_identities.user_assigned_resource_ids }
     terraform: { attribute: identity.identity_ids }
     bicep_avm: { attribute: managedIdentities.userAssignedResourceIds }
     bicep: { attribute: identity.userAssignedIdentities, note: 'an object keyed by each id - not the list' }
-    import: {todo: a list or a reference; needs its own reading}
+    import: {todo: 'in the row as the keys of identity.userAssignedIdentities; no form reads the keys of an object'}
   identity.entra_admin:
     terraform_avm:
       attribute: azuread_administrator.object_id
@@ -297,7 +297,7 @@ decisions:
     bicep:
       attribute: properties.administrators.sid
       note: the group's object id; login its name, administratorType and tenantId beside it
-    import: {todo: a list or a reference; needs its own reading}
+    import: {path: properties.administrators.sid, reference: true}
   identity.database_users:
     not_rendered: a T-SQL step after the deployment (CREATE USER FROM EXTERNAL PROVIDER as the Entra administrator); no module input and no ARM resource
   identity.role_assignments:
@@ -340,7 +340,7 @@ decisions:
       attribute: properties.keyId
       values: { platform_managed: null, customer_managed: { expr: '{security.cmk_key_vault_key_id}' } }
       also: { customer_managed: child encryptionProtector }
-    import: {todo: an answer renders as code or as nothing; needs cases}
+    import: {todo: 'customer_managed when properties.keyId holds a value, platform_managed when it is absent; no form maps any value'}
   security.cmk_key_vault_key_id:
     terraform_avm: { attribute: transparent_data_encryption_key_vault_key_id, note: the versioned key URL; also on each database }
     terraform: { attribute: transparent_data_encryption_key_vault_key_id }
@@ -348,7 +348,7 @@ decisions:
       attribute: customerManagedKey.keyName
       note: the key's name; its vault's id into customerManagedKey.keyVaultResourceId - unversioned with autoRotationEnabled
     bicep: { attribute: properties.keyId }
-    import: {todo: a list or a reference; needs its own reading}
+    import: {todo: 'properties.keyId is the key URI, not the key resource id the question takes; needs the id built from it'}
   security.threat_detection:
     terraform_avm:
       gap: not the module (only a per-database policy that wants a storage key) - azurerm_mssql_server_security_alert_policy beside it with state = "Enabled"
@@ -387,7 +387,7 @@ decisions:
     terraform: { attribute: azurerm_mssql_database.short_term_retention_policy.retention_days, passthrough: true }
     bicep_avm: { attribute: 'databases[].backupShortTermRetentionPolicy.retentionDays', passthrough: true, note: diffBackupIntervalInHours beside it }
     bicep: { attribute: child backupShortTermRetentionPolicies/default retentionDays, passthrough: true }
-    import: {todo: 'not in the Resource Graph row: child backupShortTermRetentionPolicies/default retention...'}
+    import: {todo: 'not in the Resource Graph row: child backupShortTermRetentionPolicies/default retentionDays'}
   data_protection.long_term_retention:
     terraform_avm:
       attribute: 'databases.<key>.long_term_retention_policy.weekly_retention'
@@ -405,7 +405,7 @@ decisions:
       attribute: child backupLongTermRetentionPolicies/default weeklyRetention
       values: { none: null, three_months: P13W, one_year: P52W }
       note: none renders no child
-    import: {todo: 'not in the Resource Graph row: child backupLongTermRetentionPolicies/default weeklyRete...'}
+    import: {todo: 'not in the Resource Graph row: child backupLongTermRetentionPolicies/default weeklyRetention'}
   data_protection.backup_storage_redundancy:
     terraform_avm:
       attribute: 'databases.<key>.storage_account_type'
@@ -428,7 +428,7 @@ decisions:
       attribute: 'databases[].diagnosticSettings[].workspaceResourceId'
       note: the audit's setting on master is authored beside the module
     bicep: { attribute: Microsoft.Insights/diagnosticSettings properties.workspaceId, note: "scope each database; the audit setting on master takes the same workspace (source: bicep build, Microsoft.Insights/diagnosticSettings@2021-05-01-preview)" }
-    import: {todo: 'not in the Resource Graph row: Microsoft.Insights/diagnosticSettings properties.workspa...'}
+    import: {todo: 'not in the Resource Graph row: Microsoft.Insights/diagnosticSettings properties.workspaceId'}
   observability.auditing_enabled:
     terraform_avm:
       gap: not the module - azurerm_mssql_server_extended_auditing_policy (log_monitoring_enabled = true) and a diagnostic setting on master with SQLSecurityAuditEvents
@@ -455,7 +455,7 @@ decisions:
     terraform: { attribute: azurerm_monitor_diagnostic_setting.enabled_log.category, note: one enabled_log block per category }
     bicep_avm: { attribute: 'databases[].diagnosticSettings[].logCategoriesAndGroups[].category' }
     bicep: { attribute: 'Microsoft.Insights/diagnosticSettings properties.logs[].category', note: "scope each database (source: bicep build, Microsoft.Insights/diagnosticSettings@2021-05-01-preview)" }
-    import: {todo: 'not in the Resource Graph row: Microsoft.Insights/diagnosticSettings properties.logs[]....'}
+    import: {todo: 'not in the Resource Graph row: Microsoft.Insights/diagnosticSettings properties.logs[].category'}
   observability.metrics_enabled:
     terraform_avm:
       attribute: 'databases.<key>.diagnostic_settings.<key>.metric_categories'
@@ -469,4 +469,4 @@ decisions:
       note: Basic - not AllMetrics for a database
     bicep:
       gap: "Microsoft.Insights/diagnosticSettings properties.metrics[].category is the property, but the type is a free string - bicep build proves no category name for the database"
-    import: {todo: 'bicep renders it as a gap: Microsoft.Insights/diagnosticSettings properties.metrics[].c...'}
+    import: {todo: 'not in the Resource Graph row: Microsoft.Insights/diagnosticSettings properties.metrics[].category'}

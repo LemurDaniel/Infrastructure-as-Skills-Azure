@@ -25,7 +25,7 @@ decisions:
     terraform: { attribute: resource_group_name, note: 'required (source: azurerm 5.12 schema)' }
     bicep_avm: { gap: the deployment's resource group scope; no parameter }
     bicep: { gap: the deployment's resource group scope; no property }
-    import: {todo: 'bicep renders it as a gap: the deployment''s resource group scope; no property'}
+    import: {path: resourceGroup, passthrough: true}
 
   # ----------------------------------------------------------------- identity
   identity.purpose:
@@ -43,7 +43,7 @@ decisions:
     bicep:
       attribute: 'federatedIdentityCredentials child properties: { issuer, subject, audiences }'
       note: '@batchSize(1) - created one after another'
-    import: {todo: 'not in the Resource Graph row: federatedIdentityCredentials child properties: { issuer,...'}
+    import: {todo: 'not in the Resource Graph row: the child Microsoft.ManagedIdentity/userAssignedIdentities/federatedIdentityCredentials properties { issuer, subject, audiences }'}
   identity.isolation_scope:
     terraform_avm:
       attribute: isolation_scope
@@ -61,4 +61,4 @@ decisions:
     terraform: { attribute: azurerm_role_assignment, note: scoped to the identity's id }
     bicep_avm: { attribute: 'roleAssignments[] = { principalId, roleDefinitionIdOrName, principalType }' }
     bicep: { attribute: Microsoft.Authorization/roleAssignments, note: scope = the identity }
-    import: {todo: 'not in the Resource Graph row: Microsoft.Authorization/roleAssignments'}
+    import: {todo: 'not in the Resource Graph row: the extension resources Microsoft.Authorization/roleAssignments scoped to the resource'}

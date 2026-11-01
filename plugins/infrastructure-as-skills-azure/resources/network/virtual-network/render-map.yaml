@@ -26,7 +26,7 @@ decisions:
     terraform: { attribute: azurerm_virtual_network.resource_group_name }
     bicep_avm: { gap: the deployment's resource group scope; no parameter }
     bicep: { gap: the deployment's resource group scope; no property }
-    import: {todo: 'bicep renders it as a gap: the deployment''s resource group scope; no property'}
+    import: {path: resourceGroup, passthrough: true}
 
   # --------------------------------------------------------------- addressing
   addressing.address_space:
@@ -46,7 +46,7 @@ decisions:
       attribute: properties.addressSpace.addressPrefixes
       format: { expr: "['{value}']" }
       note: an array, even with one entry
-    import: {todo: a composed or computed literal; needs its own reading}
+    import: {path: properties.addressSpace.addressPrefixes, single: true}
   addressing.subnets:
     terraform_avm:
       attribute: 'subnets.<name> = { name, address_prefixes = [prefix] }'
@@ -60,7 +60,7 @@ decisions:
     bicep:
       attribute: "properties.subnets[] = { name, properties: { addressPrefix } }"
       note: inline; child subnets resources only when the vnet declares no inline subnets at all
-    import: {todo: 'not in the Resource Graph row: properties.subnets[] = { name, properties: { addressPref...'}
+    import: {path: properties.subnets, items: {name: name, prefix: properties.addressPrefix}}
   addressing.private_endpoint_subnet_prefix:
     terraform_avm: { gap: 'reference names no module input; rendered as the endpoints entry of subnets, or as the listed subnet carrying this prefix' }
     terraform:
@@ -69,13 +69,13 @@ decisions:
       note: on the endpoints subnet, a list with one entry; a /29 leaves three usable addresses
     bicep_avm: { gap: 'reference names no module input; rendered as the endpoints entry of subnets, or as the listed subnet carrying this prefix' }
     bicep: { gap: 'reference names no authored property; rendered as the endpoints entry of properties.subnets, or as the listed subnet carrying this prefix' }
-    import: {todo: 'bicep renders it as a gap: reference names no authored property; rendered as the endpoi...'}
+    import: {todo: 'in the row as a list of objects: properties.subnets[].properties.addressPrefix of the endpoints subnet; no form reads a list element'}
   addressing.dns_servers:
     terraform_avm: { attribute: dns_servers.dns_servers, note: 'dns_servers = { dns_servers = [...] }; omitted for Azure DNS' }
     terraform: { attribute: azurerm_virtual_network.dns_servers, note: omitted for Azure DNS }
     bicep_avm: { attribute: dnsServers, note: omitted for Azure DNS }
     bicep: { attribute: properties.dhcpOptions.dnsServers, note: omitted for Azure DNS }
-    import: {todo: a list or a reference; needs its own reading}
+    import: {path: properties.dhcpOptions.dnsServers, passthrough: true, missing: []}
 
   # ------------------------------------------------------------ subnet_policy
   subnet_policy.private_endpoint_network_policies:
@@ -83,13 +83,13 @@ decisions:
     terraform: { attribute: azurerm_subnet.private_endpoint_network_policies, note: 'a string, not a bool', passthrough: true }
     bicep_avm: { attribute: 'subnets[].privateEndpointNetworkPolicies', passthrough: true }
     bicep: { attribute: 'properties.subnets[].properties.privateEndpointNetworkPolicies', passthrough: true }
-    import: {todo: 'not in the Resource Graph row: properties.subnets[].properties.privateEndpointNetworkPo...'}
+    import: {todo: 'in the row as a list of objects: properties.subnets[].properties.privateEndpointNetworkPolicies; no form reads a list element'}
   subnet_policy.service_endpoints:
     terraform_avm: { attribute: 'subnets.<name>.service_endpoints' }
     terraform: { attribute: 'azurerm_subnet.service_endpoint[].service', note: 'one service_endpoint block per entry - the 4.x list argument service_endpoints is gone (source: azurerm 5.12 schema)' }
     bicep_avm: { attribute: 'subnets[].serviceEndpoints', note: 'strings, not { service } objects' }
     bicep: { attribute: 'properties.subnets[].properties.serviceEndpoints[].service', note: '{ service } objects, unlike the module' }
-    import: {todo: 'not in the Resource Graph row: properties.subnets[].properties.serviceEndpoints[].service'}
+    import: {todo: 'in the row as a list of objects: properties.subnets[].properties.serviceEndpoints[].service; no form reads a list element'}
   subnet_policy.subnet_delegations:
     terraform_avm:
       attribute: 'subnets.<name>.delegations = [{ name, service_delegation = { name } }]'
@@ -99,7 +99,7 @@ decisions:
       note: actions left unset - the provider fills the service's required set; a disagreeing list fails at apply
     bicep_avm: { attribute: 'subnets[].delegation', note: a single string per subnet }
     bicep: { attribute: 'properties.subnets[].properties.delegations[].properties.serviceName' }
-    import: {todo: 'not in the Resource Graph row: properties.subnets[].properties.delegations[].properties...'}
+    import: {todo: 'in the row as a list of objects: properties.subnets[].properties.delegations[].properties.serviceName; no form reads a list element'}
 
   # ----------------------------------------------------------------- security
   security.ddos_protection:
@@ -132,7 +132,7 @@ decisions:
     terraform: { attribute: azurerm_virtual_network.ddos_protection_plan.id }
     bicep_avm: { attribute: ddosProtectionPlanResourceId, note: the parameter ddos_protection sets - see that decision }
     bicep: { attribute: properties.ddosProtectionPlan.id }
-    import: {todo: a list or a reference; needs its own reading}
+    import: {path: properties.ddosProtectionPlan.id, reference: true}
 
   # ------------------------------------------------------------ observability
   observability.diagnostic_workspace:
@@ -142,11 +142,11 @@ decisions:
     terraform: { attribute: azurerm_monitor_diagnostic_setting.log_analytics_workspace_id }
     bicep_avm: { attribute: 'diagnosticSettings[].workspaceResourceId', note: with metricCategories }
     bicep: { attribute: Microsoft.Insights/diagnosticSettings properties.workspaceId, note: attached to the network - a subnet has no diagnostic surface }
-    import: {todo: 'not in the Resource Graph row: Microsoft.Insights/diagnosticSettings properties.workspa...'}
+    import: {todo: 'not in the Resource Graph row: Microsoft.Insights/diagnosticSettings properties.workspaceId'}
   observability.flow_logs_enabled:
     terraform_avm: { gap: reference names no module input; a flow log is a Network Watcher resource }
     terraform: { gap: 'an azurerm_network_watcher_flow_log - a Network Watcher resource (the network-watcher set), not an attribute of the network' }
     bicep_avm: { gap: reference names no module input; a flow log is a Network Watcher resource }
     bicep:
       gap: Microsoft.Network/networkWatchers/flowLogs - a Network Watcher resource in the region (the network-watcher set), not a property of the network; the watcher is usually platform-owned
-    import: {todo: 'bicep renders it as a gap: Microsoft.Network/networkWatchers/flowLogs - a Network Watch...'}
+    import: {todo: 'not in the Resource Graph row: Microsoft.Network/networkWatchers/flowLogs whose properties.targetResourceId is the network'}

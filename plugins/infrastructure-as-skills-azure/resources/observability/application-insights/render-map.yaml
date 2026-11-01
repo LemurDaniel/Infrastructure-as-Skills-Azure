@@ -26,7 +26,7 @@ decisions:
     terraform: { attribute: resource_group_name, note: required by the provider schema; the reference's authored rendering omits it }
     bicep_avm: { gap: the deployment's resource group scope; no parameter }
     bicep: { gap: the deployment's resource group scope; no property }
-    import: {todo: 'bicep renders it as a gap: the deployment''s resource group scope; no property'}
+    import: {path: resourceGroup, passthrough: true}
 
   # ---------------------------------------------------------------- component
   component.workspace:
@@ -34,7 +34,7 @@ decisions:
     terraform: { attribute: workspace_id, note: always; the classic form is not offered }
     bicep_avm: { attribute: workspaceResourceId, note: required }
     bicep: { attribute: properties.WorkspaceResourceId }
-    import: {todo: a list or a reference; needs its own reading}
+    import: {path: properties.WorkspaceResourceId, reference: true}
   component.application_type:
     terraform_avm: { attribute: application_type, passthrough: true, note: module default web; written }
     terraform: { attribute: application_type, passthrough: true }
@@ -55,7 +55,7 @@ decisions:
       attribute: pricingPlans/current properties.cap
       passthrough: true
       note: the reference states 0 = unlimited only for the Terraform module; verify 0 on the child before rendering it
-    import: {todo: 'not in the Resource Graph row: pricingPlans/current properties.cap'}
+    import: {todo: 'not in the Resource Graph row: the child Microsoft.Insights/components/pricingPlans current properties.cap'}
   component.store_client_ip:
     terraform_avm:
       attribute: disable_ip_masking
@@ -88,7 +88,7 @@ decisions:
     bicep:
       attribute: properties.publicNetworkAccessForIngestion, properties.publicNetworkAccessForQuery
       values: { disabled: Disabled, enabled: Enabled }
-    import: {todo: 'not in the Resource Graph row: properties.publicNetworkAccessForIngestion, properties.p...'}
+    import: {cases: [{when: {properties.publicNetworkAccessForIngestion: Disabled, properties.publicNetworkAccessForQuery: Disabled}, answer: disabled}, {when: {properties.publicNetworkAccessForIngestion: Enabled, properties.publicNetworkAccessForQuery: Enabled}, answer: enabled}]}
   networking.private_link_scope:
     terraform_avm:
       attribute: monitor_private_link_scope.scope.resource_id
@@ -100,7 +100,7 @@ decisions:
       gap: not a module parameter; a Microsoft.Insights/privateLinkScopes/scopedResources in the scope's resource group, usually the platform's
     bicep:
       gap: a Microsoft.Insights/privateLinkScopes/scopedResources in the scope's resource group, outside this deployment; the reference names none of its properties
-    import: {todo: 'bicep renders it as a gap: a Microsoft.Insights/privateLinkScopes/scopedResources in th...'}
+    import: {todo: 'a Microsoft.Insights/privateLinkScopes/scopedResources in the scope''s group; the row holds properties.PrivateLinkScopedResources[].ScopeId, a list no form reads'}
 
   # ----------------------------------------------------------------- identity
   identity.role_assignments:
@@ -112,7 +112,7 @@ decisions:
     bicep:
       attribute: 'Microsoft.Authorization/roleAssignments = { properties.principalId, properties.roleDefinitionId, properties.principalType }'
       note: 'one per entry, scope: the component; roleDefinitionId is the definition id, never the name (source: bicep build, Microsoft.Authorization/roleAssignments@2022-04-01)'
-    import: {todo: 'not in the Resource Graph row: Microsoft.Authorization/roleAssignments = { properties.p...'}
+    import: {todo: 'not in the Resource Graph row: the extension resources Microsoft.Authorization/roleAssignments scoped to the resource'}
 
   # ----------------------------------------------------------------- security
   security.local_authentication_disabled:
