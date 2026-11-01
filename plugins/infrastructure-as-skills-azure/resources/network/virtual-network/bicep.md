@@ -51,6 +51,11 @@ module virtualNetwork 'br/public:avm/res/network/virtual-network:0.10.2' = {
         // NSG and routes apply to private endpoint traffic.
         privateEndpointNetworkPolicies: 'Enabled'
         serviceEndpoints: subnet.?serviceEndpoints ?? []
+        // Set by the NSG, route table and NAT gateway sets that reference this subnet (the
+        // digest's `-- on parts`): subnet name -> id objects from the root, null where none claims it.
+        networkSecurityGroupResourceId: networkSecurityGroupIds[?subnet.name]
+        routeTableResourceId: routeTableIds[?subnet.name]
+        natGatewayResourceId: natGatewayIds[?subnet.name]
       }
     ]
 

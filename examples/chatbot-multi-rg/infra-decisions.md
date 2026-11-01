@@ -88,7 +88,6 @@ The security baseline of every part in one place. None of it was asked and it is
 
 - **Azure Virtual Network**
   - A paid DDoS protection plan is not used; Azure's basic protection applies either way.
-  - Subnets that will get a security group: snet-endpoints, snet-web, snet-mcp, snet-func, snet-aca.
 - **Azure Application Insights (workspace-based)**
   - Access rights on the component granted to: user-assigned-identity__connector (Monitoring Metrics Publisher).
   - Sending telemetry with only a key is switched off; applications sign in with company identities.
@@ -165,6 +164,7 @@ The security baseline of every part in one place. None of it was asked and it is
 
 ### Azure Network Security Group (endpoints)
 
+- Subnets this group guards: snet-endpoints (virtual-network).
 - The group guards a subnet for private connections to Azure services.
 - Inbound traffic that no rule allows is refused, including traffic from other machines in the same network.
 - Outbound traffic to the internet that no rule allows is refused; what must go out goes through the company firewall. — because: `resources.network-security-group__endpoints.rules.subnet_purpose`
@@ -174,6 +174,7 @@ The security baseline of every part in one place. None of it was asked and it is
 
 ### Azure Network Security Group (integration)
 
+- Subnets this group guards: snet-web (virtual-network), snet-mcp (virtual-network), snet-func (virtual-network).
 - The group guards a subnet for the outgoing traffic of web and function apps.
 - Inbound traffic that no rule allows is refused, including traffic from other machines in the same network.
 - Outbound traffic to the internet that no rule allows is left to Azure's built-in rules, which let it out.
@@ -183,6 +184,7 @@ The security baseline of every part in one place. None of it was asked and it is
 
 ### Azure Network Security Group (containerapps)
 
+- Subnets this group guards: snet-aca (virtual-network).
 - The group guards a subnet for the infrastructure of a container environment.
 - Inbound traffic that no rule allows is refused, including traffic from other machines in the same network.
 - Outbound traffic to the internet that no rule allows is left to Azure's built-in rules, which let it out.
@@ -217,7 +219,7 @@ The security baseline of every part in one place. None of it was asked and it is
 - Deleted vault contents can be restored for 90 days.
 - Access to the vault's contents is controlled by role assignments, like everything else in Azure.
 - The vault is not reachable from the internet at all.
-- Its private connection lands in subnet snet-endpoints. — because: The network is built by this deployment.
+- Its private connection lands in subnet snet-endpoints (virtual-network). — because: The network is built by this deployment.
 - Trusted Azure services may not pass past the vault's firewall.
 - Encryption keys are managed by Azure - the vault holds none for encryption.
 - Its logs go to log-analytics-workspace.
@@ -248,7 +250,7 @@ The security baseline of every part in one place. None of it was asked and it is
 ### Azure Storage Account (uploads)
 
 - The storage is not reachable from the internet at all.
-- Its private connection lands in subnet snet-endpoints. — because: The network is built by this deployment.
+- Its private connection lands in subnet snet-endpoints (virtual-network). — because: The network is built by this deployment.
 - Private connections exist for: files (blob).
 - Azure's own services (backup, monitoring) may reach the storage past the firewall.
 - A log of every change is not kept.
@@ -261,7 +263,7 @@ The security baseline of every part in one place. None of it was asked and it is
 ### Azure Storage Account (host)
 
 - The storage is not reachable from the internet at all.
-- Its private connection lands in subnet snet-endpoints. — because: The network is built by this deployment.
+- Its private connection lands in subnet snet-endpoints (virtual-network). — because: The network is built by this deployment.
 - Private connections exist for: files (blob), queues, tables. — because: `resources.function-app.storage.host_storage_account`
 - Azure's own services (backup, monitoring) may reach the storage past the firewall.
 - A log of every change is not kept.
@@ -282,7 +284,7 @@ The security baseline of every part in one place. None of it was asked and it is
 - If the main region fails, the account switches to a replica region on its own.
 - A read sees its own writes at once and, for others, a slightly older state.
 - The account is not reachable from the internet at all.
-- Its private connection lands in subnet snet-endpoints. — because: The network is built by this deployment.
+- Its private connection lands in subnet snet-endpoints (virtual-network). — because: The network is built by this deployment.
 - Trusted Azure services may not pass past the account's firewall.
 - A column store for analytics beside the data is not kept.
 - The account holds the databases and containers chatbot (containers: conversations (partition_key_paths: /userId)).
@@ -301,7 +303,7 @@ The security baseline of every part in one place. None of it was asked and it is
 - When the model version expires, it moves to the new default version on that day.
 - Prompts and answers are checked by the content filter Microsoft.DefaultV2.
 - The account is not reachable from the internet at all.
-- Its private connection lands in subnet snet-endpoints. — because: The network is built by this deployment.
+- Its private connection lands in subnet snet-endpoints (virtual-network). — because: The network is built by this deployment.
 - The account may call out only to addresses that are explicitly allowed.
 - Its logs go to log-analytics-workspace.
 - Logged: changes to the account and who made them, every request to the models, with its caller, size and result (not the text), the tokens each call used.
@@ -313,7 +315,7 @@ The security baseline of every part in one place. None of it was asked and it is
 - The index data is spread over 1 partition(s).
 - Re-ranking of results by meaning is on, within a small free monthly allowance.
 - The search service is not reachable from the internet at all.
-- Its private connection lands in subnet snet-endpoints. — because: The network is built by this deployment.
+- Its private connection lands in subnet snet-endpoints (virtual-network). — because: The network is built by this deployment.
 - Trusted Azure services may not pass past the search service's firewall.
 - Its logs go to log-analytics-workspace.
 - Logged: every query and every change to indexes and indexers.
@@ -325,7 +327,7 @@ The security baseline of every part in one place. None of it was asked and it is
 - The images are also kept in none (empty: only in the main region).
 - Untagged images are deleted after 7 days.
 - The registry is not reachable from the internet at all.
-- Its private connection lands in subnet snet-endpoints. — because: The network is built by this deployment.
+- Its private connection lands in subnet snet-endpoints (virtual-network). — because: The network is built by this deployment.
 - Trusted Azure services may not pass past the registry's firewall.
 - Copying images out of the registry to elsewhere is blocked.
 - Its logs go to log-analytics-workspace.
@@ -336,7 +338,7 @@ The security baseline of every part in one place. None of it was asked and it is
 
 - The app runs on shared capacity that is billed per use and scales to nothing.
 - The environment is reachable only from inside the company network, through an internal load balancer.
-- The environment's infrastructure lives in subnet snet-aca. — because: The network is built by this deployment.
+- The environment's infrastructure lives in subnet snet-aca (virtual-network). — because: The network is built by this deployment.
 - The environment is closed to all public traffic.
 - Traffic between the apps inside the environment is encrypted.
 - The app runs the container image container-registry/code-runner:1.0.0.
@@ -361,9 +363,9 @@ The security baseline of every part in one place. None of it was asked and it is
 - The function app signs in to its storage with its managed identity, with no secret stored.
 - The deployed code is kept in the container app-package.
 - The function app is not reachable from the internet at all.
-- Its private connection lands in subnet snet-endpoints. — because: The network is built by this deployment.
+- Its private connection lands in subnet snet-endpoints (virtual-network). — because: The network is built by this deployment.
 - The function app's own outgoing traffic goes through the company network, so it can reach private services.
-- Outgoing traffic leaves through the subnet snet-func. — because: The network is built by this deployment.
+- Outgoing traffic leaves through the subnet snet-func (virtual-network). — because: The network is built by this deployment.
 - Outgoing traffic is routed entirely through the company network, including to the internet.
 - Its logs go to log-analytics-workspace.
 - Logged: what the functions write to their log, who signed in to deploy or manage the app.
@@ -374,9 +376,9 @@ The security baseline of every part in one place. None of it was asked and it is
 - The app runs on Linux.
 - The hosting plan is size P1v3, premium, the normal production size.
 - The app is not reachable from the internet at all.
-- Its private connection lands in subnet snet-endpoints. — because: The network is built by this deployment.
+- Its private connection lands in subnet snet-endpoints (virtual-network). — because: The network is built by this deployment.
 - The app's own outgoing traffic goes through the company network, so it can reach private services.
-- Outgoing traffic leaves through the subnet snet-web. — because: The network is built by this deployment.
+- Outgoing traffic leaves through the subnet snet-web (virtual-network). — because: The network is built by this deployment.
 - Outgoing traffic is routed entirely through the company network, including to the internet.
 - The app is written for Python.
 - Runtime version 3.12.
@@ -392,9 +394,9 @@ The security baseline of every part in one place. None of it was asked and it is
 - The app runs on Linux.
 - The hosting plan is size P1v3, premium, the normal production size.
 - The app is not reachable from the internet at all.
-- Its private connection lands in subnet snet-endpoints. — because: The network is built by this deployment.
+- Its private connection lands in subnet snet-endpoints (virtual-network). — because: The network is built by this deployment.
 - The app's own outgoing traffic goes through the company network, so it can reach private services.
-- Outgoing traffic leaves through the subnet snet-mcp. — because: The network is built by this deployment.
+- Outgoing traffic leaves through the subnet snet-mcp (virtual-network). — because: The network is built by this deployment.
 - Outgoing traffic is routed entirely through the company network, including to the internet.
 - The app is written for Node.js.
 - Runtime version 22-lts.
@@ -450,7 +452,7 @@ Nothing can be deployed until these are answered.
 | `deployment.private_dns_ownership` | platform | rule |
 | `deployment.private_dns_records` | policy | rule |
 | `deployment.observability_ownership` | create | your description |
-| `deployment.diagnostics_destination` | {"production": "log-analytics-workspace"} | forced |
+| `deployment.diagnostics_destination` | log-analytics-workspace | forced |
 | `deployment.log_retention_days` | 30 | your description |
 | `deployment.daily_quota_gb` | -1 | rule |
 | `virtual-network.addressing.address_space` | {"production": "10.20.0.0/16"} | inherited |
@@ -461,29 +463,31 @@ Nothing can be deployed until these are answered.
 | `virtual-network.subnet_policy.service_endpoints` | [] | rule |
 | `virtual-network.subnet_policy.subnet_delegations` | [{"subnet": "snet-web", "service": "Microsoft.Web/serverFarms"}, {"subnet": "snet-mcp", "service": "Microsoft.Web/serverFarms"}, {"subnet": "snet-func", "service": "Microsoft.App/environments"}, {"subnet": "snet-aca", "service": "Microsoft.App/environments"}] | forced |
 | `virtual-network.security.ddos_protection` | false | rule |
-| `virtual-network.security.subnets_expecting_nsg` | {"production": ["snet-endpoints", "snet-web", "snet-mcp", "snet-func", "snet-aca"]} | your description |
-| `virtual-network.observability.diagnostic_workspace` | {"production": "log-analytics-workspace"} | inherited |
+| `virtual-network.observability.diagnostic_workspace` | log-analytics-workspace | inherited |
 | `virtual-network.observability.flow_logs_enabled` | false | rule |
 | `network-security-group__endpoints.meta.purpose` | Private endpoints subnet | your description |
+| `network-security-group__endpoints.networking.subnets` | snet-endpoints | your description |
 | `network-security-group__endpoints.rules.subnet_purpose` | private_endpoints | your description |
 | `network-security-group__endpoints.rules.default_inbound` | deny_all | rule |
 | `network-security-group__endpoints.rules.default_outbound` | deny_internet | forced |
 | `network-security-group__endpoints.rules.rules` | {"production": []} | rule |
-| `network-security-group__endpoints.observability.diagnostic_workspace` | {"production": "log-analytics-workspace"} | inherited |
+| `network-security-group__endpoints.observability.diagnostic_workspace` | log-analytics-workspace | inherited |
 | `network-security-group__endpoints.observability.diagnostic_categories` | ["NetworkSecurityGroupEvent", "NetworkSecurityGroupRuleCounter"] | rule |
 | `network-security-group__integration.meta.purpose` | App integration subnets | your description |
+| `network-security-group__integration.networking.subnets` | snet-web, snet-mcp, snet-func | your description |
 | `network-security-group__integration.rules.subnet_purpose` | app_integration | your description |
 | `network-security-group__integration.rules.default_inbound` | deny_all | rule |
 | `network-security-group__integration.rules.default_outbound` | azure_default | rule |
 | `network-security-group__integration.rules.rules` | {"production": []} | rule |
-| `network-security-group__integration.observability.diagnostic_workspace` | {"production": "log-analytics-workspace"} | inherited |
+| `network-security-group__integration.observability.diagnostic_workspace` | log-analytics-workspace | inherited |
 | `network-security-group__integration.observability.diagnostic_categories` | ["NetworkSecurityGroupEvent", "NetworkSecurityGroupRuleCounter"] | rule |
 | `network-security-group__containerapps.meta.purpose` | Container Apps subnet | your description |
+| `network-security-group__containerapps.networking.subnets` | snet-aca | your description |
 | `network-security-group__containerapps.rules.subnet_purpose` | container_apps | your description |
 | `network-security-group__containerapps.rules.default_inbound` | deny_all | rule |
 | `network-security-group__containerapps.rules.default_outbound` | azure_default | rule |
 | `network-security-group__containerapps.rules.rules` | {"production": []} | rule |
-| `network-security-group__containerapps.observability.diagnostic_workspace` | {"production": "log-analytics-workspace"} | inherited |
+| `network-security-group__containerapps.observability.diagnostic_workspace` | log-analytics-workspace | inherited |
 | `network-security-group__containerapps.observability.diagnostic_categories` | ["NetworkSecurityGroupEvent", "NetworkSecurityGroupRuleCounter"] | rule |
 | `log-analytics-workspace.cost.retention_days` | 30 | inherited |
 | `log-analytics-workspace.cost.daily_quota_gb` | -1 | inherited |
@@ -494,7 +498,7 @@ Nothing can be deployed until these are answered.
 | `log-analytics-workspace.data_protection.immediate_purge_protection` | true | rule |
 | `log-analytics-workspace.data_protection.archive_to_storage` | false | rule |
 | `application-insights.meta.purpose` | Application telemetry | your description |
-| `application-insights.component.workspace` | {"production": "log-analytics-workspace"} | inherited |
+| `application-insights.component.workspace` | log-analytics-workspace | inherited |
 | `application-insights.component.application_type` | web | rule |
 | `application-insights.component.sampling_percentage` | 100 | rule |
 | `application-insights.component.daily_cap_gb` | 0 | rule |
@@ -508,13 +512,13 @@ Nothing can be deployed until these are answered.
 | `key-vault.vault.soft_delete_retention_days` | 90 | rule |
 | `key-vault.vault.rbac_authorization` | true | inherited |
 | `key-vault.networking.public_network_access` | disabled | inherited |
-| `key-vault.networking.private_endpoint_subnet` | {"production": "snet-endpoints"} | forced |
+| `key-vault.networking.private_endpoint_subnet` | snet-endpoints | forced |
 | `key-vault.networking.network_acl_bypass` | None | rule |
 | `key-vault.identity.role_assignments` | {"production": [{"principal": "user-assigned-identity__web", "role": "Key Vault Secrets User"}, {"principal": "user-assigned-identity__connector", "role": "Key Vault Secrets User"}]} | your description |
 | `key-vault.security.enabled_for_services` | [] | rule |
 | `key-vault.security.secret_placeholders` | ["entra-client-secret"] | your description |
 | `key-vault.keys.key_management` | platform_managed | inherited |
-| `key-vault.observability.diagnostic_workspace` | {"production": "log-analytics-workspace"} | inherited |
+| `key-vault.observability.diagnostic_workspace` | log-analytics-workspace | inherited |
 | `key-vault.observability.diagnostic_categories` | ["AuditEvent", "AzurePolicyEvaluationDetails"] | rule |
 | `key-vault.observability.metrics_enabled` | true | rule |
 | `user-assigned-identity__web.meta.purpose` | Web app and MCP server | your description |
@@ -534,7 +538,7 @@ Nothing can be deployed until these are answered.
 | `user-assigned-identity__runner.identity.role_assignments` | {"production": []} | rule |
 | `storage-account__uploads.meta.purpose` | Uploaded files | your description |
 | `storage-account__uploads.networking.public_network_access` | disabled | inherited |
-| `storage-account__uploads.networking.private_endpoint_subnet` | {"production": "snet-endpoints"} | forced |
+| `storage-account__uploads.networking.private_endpoint_subnet` | snet-endpoints | forced |
 | `storage-account__uploads.networking.private_endpoint_subresources` | ["blob"] | rule |
 | `storage-account__uploads.networking.allow_azure_services_bypass` | true | rule |
 | `storage-account__uploads.identity.managed_identity` | system_assigned | rule |
@@ -554,13 +558,13 @@ Nothing can be deployed until these are answered.
 | `storage-account__uploads.data_protection.change_feed_enabled` | false | rule |
 | `storage-account__uploads.data_protection.point_in_time_restore_days` | 0 | rule |
 | `storage-account__uploads.data_protection.immutability` | none | rule |
-| `storage-account__uploads.observability.diagnostic_workspace` | {"production": "log-analytics-workspace"} | inherited |
+| `storage-account__uploads.observability.diagnostic_workspace` | log-analytics-workspace | inherited |
 | `storage-account__uploads.observability.diagnostic_categories` | ["audit"] | rule |
 | `storage-account__uploads.observability.metrics_enabled` | true | rule |
 | `storage-account__host.meta.purpose` | State of the connector function | your description |
 | `storage-account__host.placement.resource_group` | application | your departure |
 | `storage-account__host.networking.public_network_access` | disabled | inherited |
-| `storage-account__host.networking.private_endpoint_subnet` | {"production": "snet-endpoints"} | forced |
+| `storage-account__host.networking.private_endpoint_subnet` | snet-endpoints | forced |
 | `storage-account__host.networking.private_endpoint_subresources` | ["blob", "queue", "table"] | forced |
 | `storage-account__host.networking.allow_azure_services_bypass` | true | rule |
 | `storage-account__host.identity.managed_identity` | system_assigned | rule |
@@ -580,7 +584,7 @@ Nothing can be deployed until these are answered.
 | `storage-account__host.data_protection.change_feed_enabled` | false | rule |
 | `storage-account__host.data_protection.point_in_time_restore_days` | 0 | rule |
 | `storage-account__host.data_protection.immutability` | none | rule |
-| `storage-account__host.observability.diagnostic_workspace` | {"production": "log-analytics-workspace"} | inherited |
+| `storage-account__host.observability.diagnostic_workspace` | log-analytics-workspace | inherited |
 | `storage-account__host.observability.diagnostic_categories` | ["audit"] | rule |
 | `storage-account__host.observability.metrics_enabled` | true | rule |
 | `cosmos-db.meta.purpose` | Conversation history | your description |
@@ -594,7 +598,7 @@ Nothing can be deployed until these are answered.
 | `cosmos-db.resilience.automatic_failover` | true | rule |
 | `cosmos-db.resilience.consistency_level` | Session | rule |
 | `cosmos-db.networking.public_network_access` | disabled | inherited |
-| `cosmos-db.networking.private_endpoint_subnet` | {"production": "snet-endpoints"} | forced |
+| `cosmos-db.networking.private_endpoint_subnet` | snet-endpoints | forced |
 | `cosmos-db.networking.network_acl_bypass` | false | rule |
 | `cosmos-db.identity.managed_identity` | none | rule |
 | `cosmos-db.identity.data_plane_role_assignments` | {"production": [{"principal": "user-assigned-identity__web", "role": "Cosmos DB Built-in Data Contributor", "scope": "account"}]} | your description |
@@ -605,7 +609,7 @@ Nothing can be deployed until these are answered.
 | `cosmos-db.data_protection.backup_policy` | continuous_7_days | derived from your answer |
 | `cosmos-db.data_protection.analytical_storage` | false | rule |
 | `cosmos-db.containers.databases` | [{"name": "chatbot", "containers": [{"name": "conversations", "partition_key_paths": ["/userId"]}]}] | your description |
-| `cosmos-db.observability.diagnostic_workspace` | {"production": "log-analytics-workspace"} | inherited |
+| `cosmos-db.observability.diagnostic_workspace` | log-analytics-workspace | inherited |
 | `cosmos-db.observability.diagnostic_categories` | ["ControlPlaneRequests", "DataPlaneRequests"] | rule |
 | `cosmos-db.observability.metrics_enabled` | true | rule |
 | `foundry.meta.purpose` | Chat and embedding models | your description |
@@ -619,13 +623,13 @@ Nothing can be deployed until these are answered.
 | `foundry.models.version_upgrade_option` | OnceCurrentVersionExpired | rule |
 | `foundry.models.content_filter` | Microsoft.DefaultV2 | rule |
 | `foundry.networking.public_network_access` | disabled | inherited |
-| `foundry.networking.private_endpoint_subnet` | {"production": "snet-endpoints"} | forced |
+| `foundry.networking.private_endpoint_subnet` | snet-endpoints | forced |
 | `foundry.networking.restrict_outbound` | true | rule |
 | `foundry.identity.managed_identity` | system_assigned | rule |
 | `foundry.identity.role_assignments` | {"production": [{"principal": "user-assigned-identity__web", "role": "Cognitive Services OpenAI User"}, {"principal": "user-assigned-identity__connector", "role": "Cognitive Services OpenAI User"}, {"principal": "search-service", "role": "Cognitive Services OpenAI User"}]} | your description |
 | `foundry.security.local_authentication_disabled` | true | inherited |
 | `foundry.security.key_management` | platform_managed | inherited |
-| `foundry.observability.diagnostic_workspace` | {"production": "log-analytics-workspace"} | inherited |
+| `foundry.observability.diagnostic_workspace` | log-analytics-workspace | inherited |
 | `foundry.observability.diagnostic_categories` | ["Audit", "RequestResponse", "AzureOpenAIRequestUsage"] | rule |
 | `foundry.observability.metrics_enabled` | true | rule |
 | `search-service.meta.purpose` | Search; indexes the uploads, embeds with the models | your description |
@@ -634,13 +638,13 @@ Nothing can be deployed until these are answered.
 | `search-service.service.partition_count` | 1 | rule |
 | `search-service.service.semantic_ranker` | free | rule |
 | `search-service.networking.public_network_access` | disabled | inherited |
-| `search-service.networking.private_endpoint_subnet` | {"production": "snet-endpoints"} | forced |
+| `search-service.networking.private_endpoint_subnet` | snet-endpoints | forced |
 | `search-service.networking.network_rule_bypass` | None | rule |
 | `search-service.identity.managed_identity` | system_assigned | rule |
 | `search-service.identity.role_assignments` | {"production": [{"principal": "user-assigned-identity__web", "role": "Search Index Data Reader"}, {"principal": "user-assigned-identity__connector", "role": "Search Index Data Contributor"}]} | your description |
 | `search-service.security.local_authentication_disabled` | true | inherited |
 | `search-service.security.key_management` | platform_managed | inherited |
-| `search-service.observability.diagnostic_workspace` | {"production": "log-analytics-workspace"} | inherited |
+| `search-service.observability.diagnostic_workspace` | log-analytics-workspace | inherited |
 | `search-service.observability.diagnostic_categories` | ["OperationLogs"] | rule |
 | `search-service.observability.metrics_enabled` | true | rule |
 | `container-registry.meta.purpose` | Images of all apps | your description |
@@ -649,7 +653,7 @@ Nothing can be deployed until these are answered.
 | `container-registry.registry.geo_replicas` | {"production": []} | rule |
 | `container-registry.registry.retention_untagged_days` | 7 | rule |
 | `container-registry.networking.public_network_access` | disabled | inherited |
-| `container-registry.networking.private_endpoint_subnet` | {"production": "snet-endpoints"} | forced |
+| `container-registry.networking.private_endpoint_subnet` | snet-endpoints | forced |
 | `container-registry.networking.network_rule_bypass` | None | rule |
 | `container-registry.networking.export_policy_enabled` | false | rule |
 | `container-registry.identity.managed_identity` | none | rule |
@@ -657,14 +661,14 @@ Nothing can be deployed until these are answered.
 | `container-registry.security.admin_enabled` | false | inherited |
 | `container-registry.security.anonymous_pull_enabled` | false | rule |
 | `container-registry.security.key_management` | platform_managed | inherited |
-| `container-registry.observability.diagnostic_workspace` | {"production": "log-analytics-workspace"} | inherited |
+| `container-registry.observability.diagnostic_workspace` | log-analytics-workspace | inherited |
 | `container-registry.observability.diagnostic_categories` | ["ContainerRegistryRepositoryEvents", "ContainerRegistryLoginEvents"] | rule |
 | `container-registry.observability.metrics_enabled` | true | rule |
 | `container-apps.meta.purpose` | Code interpreter | your description |
 | `container-apps.environment.workload_profile` | Consumption | rule |
 | `container-apps.environment.zone_redundant` | true | derived from your answer |
 | `container-apps.environment.internal` | true | inherited |
-| `container-apps.environment.infrastructure_subnet` | {"production": "snet-aca"} | forced |
+| `container-apps.environment.infrastructure_subnet` | snet-aca | forced |
 | `container-apps.environment.public_network_access` | disabled | inherited |
 | `container-apps.environment.peer_traffic_encryption` | true | rule |
 | `container-apps.app.container_image` | container-registry/code-runner:1.0.0 | your description |
@@ -676,10 +680,10 @@ Nothing can be deployed until these are answered.
 | `container-apps.ingress.target_port` | 8080 | your description |
 | `container-apps.ingress.allow_insecure` | false | rule |
 | `container-apps.identity.managed_identity` | user_assigned | rule |
-| `container-apps.identity.user_assigned_identity_ids` | {"production": ["user-assigned-identity__runner"]} | your description |
+| `container-apps.identity.user_assigned_identity_ids` | user-assigned-identity__runner | your description |
 | `container-apps.identity.secret_references` | {"production": []} | rule |
 | `container-apps.identity.role_assignments` | {"production": []} | rule |
-| `container-apps.observability.diagnostic_workspace` | {"production": "log-analytics-workspace"} | inherited |
+| `container-apps.observability.diagnostic_workspace` | log-analytics-workspace | inherited |
 | `container-apps.observability.diagnostic_categories` | ["ContainerAppConsoleLogs", "ContainerAppSystemLogs"] | rule |
 | `container-apps.observability.metrics_enabled` | true | rule |
 | `function-app.meta.purpose` | Connector to the document store | your description |
@@ -690,22 +694,22 @@ Nothing can be deployed until these are answered.
 | `function-app.hosting.max_instance_count` | 20 | rule |
 | `function-app.hosting.always_ready_instances` | 1 | derived from your answer |
 | `function-app.hosting.instance_memory_mb` | 2048 | rule |
-| `function-app.storage.host_storage_account` | {"production": "storage-account__host"} | your description |
+| `function-app.storage.host_storage_account` | storage-account__host | your description |
 | `function-app.storage.host_storage_auth` | identity | inherited |
 | `function-app.storage.deployment_container` | app-package | rule |
 | `function-app.networking.public_network_access` | disabled | inherited |
-| `function-app.networking.private_endpoint_subnet` | {"production": "snet-endpoints"} | forced |
+| `function-app.networking.private_endpoint_subnet` | snet-endpoints | forced |
 | `function-app.networking.vnet_integration` | true | rule |
-| `function-app.networking.integration_subnet` | {"production": "snet-func"} | forced |
+| `function-app.networking.integration_subnet` | snet-func | forced |
 | `function-app.networking.vnet_route_all` | true | rule |
 | `function-app.identity.managed_identity` | user_assigned | rule |
-| `function-app.identity.user_assigned_identity_ids` | {"production": ["user-assigned-identity__connector"]} | your description |
+| `function-app.identity.user_assigned_identity_ids` | user-assigned-identity__connector | your description |
 | `function-app.identity.role_assignments` | {"production": []} | rule |
 | `function-app.security.https_only` | true | rule |
 | `function-app.security.min_tls_version` | 1.2 | rule |
 | `function-app.security.basic_auth_enabled` | false | inherited |
-| `function-app.security.application_insights` | {"production": "application-insights"} | your description |
-| `function-app.observability.diagnostic_workspace` | {"production": "log-analytics-workspace"} | inherited |
+| `function-app.security.application_insights` | application-insights | your description |
+| `function-app.observability.diagnostic_workspace` | log-analytics-workspace | inherited |
 | `function-app.observability.diagnostic_categories` | ["FunctionAppLogs", "AppServiceAuditLogs"] | rule |
 | `function-app.observability.metrics_enabled` | true | rule |
 | `app-service__web.meta.purpose` | Chat front end and back end | your description |
@@ -714,12 +718,12 @@ Nothing can be deployed until these are answered.
 | `app-service__web.hosting.zone_redundant` | true | derived from your answer |
 | `app-service__web.hosting.instance_count` | 2 | derived from your answer |
 | `app-service__web.networking.public_network_access` | disabled | inherited |
-| `app-service__web.networking.private_endpoint_subnet` | {"production": "snet-endpoints"} | forced |
+| `app-service__web.networking.private_endpoint_subnet` | snet-endpoints | forced |
 | `app-service__web.networking.vnet_integration` | true | rule |
-| `app-service__web.networking.integration_subnet` | {"production": "snet-web"} | forced |
+| `app-service__web.networking.integration_subnet` | snet-web | forced |
 | `app-service__web.networking.vnet_route_all` | true | rule |
 | `app-service__web.identity.managed_identity` | user_assigned | your description |
-| `app-service__web.identity.user_assigned_identity_ids` | {"production": ["user-assigned-identity__web"]} | your description |
+| `app-service__web.identity.user_assigned_identity_ids` | user-assigned-identity__web | your description |
 | `app-service__web.security.https_only` | true | rule |
 | `app-service__web.security.min_tls_version` | 1.2 | rule |
 | `app-service__web.security.ftps_state` | Disabled | rule |
@@ -729,7 +733,7 @@ Nothing can be deployed until these are answered.
 | `app-service__web.runtime.always_on` | true | rule |
 | `app-service__web.runtime.health_check_path` |  | rule |
 | `app-service__web.runtime.http2_enabled` | true | rule |
-| `app-service__web.observability.diagnostic_workspace` | {"production": "log-analytics-workspace"} | inherited |
+| `app-service__web.observability.diagnostic_workspace` | log-analytics-workspace | inherited |
 | `app-service__web.observability.diagnostic_categories` | ["AppServiceHTTPLogs", "AppServiceAppLogs", "AppServiceAuditLogs", "AppServiceIPSecAuditLogs", "AppServicePlatformLogs"] | rule |
 | `app-service__web.observability.metrics_enabled` | true | rule |
 | `app-service__mcp.meta.purpose` | MCP tool server | your description |
@@ -738,12 +742,12 @@ Nothing can be deployed until these are answered.
 | `app-service__mcp.hosting.zone_redundant` | true | derived from your answer |
 | `app-service__mcp.hosting.instance_count` | 2 | derived from your answer |
 | `app-service__mcp.networking.public_network_access` | disabled | inherited |
-| `app-service__mcp.networking.private_endpoint_subnet` | {"production": "snet-endpoints"} | forced |
+| `app-service__mcp.networking.private_endpoint_subnet` | snet-endpoints | forced |
 | `app-service__mcp.networking.vnet_integration` | true | rule |
-| `app-service__mcp.networking.integration_subnet` | {"production": "snet-mcp"} | forced |
+| `app-service__mcp.networking.integration_subnet` | snet-mcp | forced |
 | `app-service__mcp.networking.vnet_route_all` | true | rule |
 | `app-service__mcp.identity.managed_identity` | user_assigned | your description |
-| `app-service__mcp.identity.user_assigned_identity_ids` | {"production": ["user-assigned-identity__web"]} | your description |
+| `app-service__mcp.identity.user_assigned_identity_ids` | user-assigned-identity__web | your description |
 | `app-service__mcp.security.https_only` | true | rule |
 | `app-service__mcp.security.min_tls_version` | 1.2 | rule |
 | `app-service__mcp.security.ftps_state` | Disabled | rule |
@@ -753,7 +757,7 @@ Nothing can be deployed until these are answered.
 | `app-service__mcp.runtime.always_on` | true | rule |
 | `app-service__mcp.runtime.health_check_path` |  | rule |
 | `app-service__mcp.runtime.http2_enabled` | true | rule |
-| `app-service__mcp.observability.diagnostic_workspace` | {"production": "log-analytics-workspace"} | inherited |
+| `app-service__mcp.observability.diagnostic_workspace` | log-analytics-workspace | inherited |
 | `app-service__mcp.observability.diagnostic_categories` | ["AppServiceHTTPLogs", "AppServiceAppLogs", "AppServiceAuditLogs", "AppServiceIPSecAuditLogs", "AppServicePlatformLogs"] | rule |
 | `app-service__mcp.observability.metrics_enabled` | true | rule |
 | `wiring.access` | [{"from": "users", "to": "app-service__web", "label": "HTTPS 443"}, {"from": "app-service__web", "to": "external:entra-id", "label": "sign-in"}, {"from": "app-service__web", "to": "app-service__mcp"}, {"from": "app-service__web", "to": "foundry"}, {"from": "app-service__web", "to": "search-service"}, {"from": "app-service__web", "to": "cosmos-db"}, {"from": "app-service__web", "to": "storage-account__uploads"}, {"from": "app-service__web", "to": "key-vault"}, {"from": "app-service__mcp", "to": "container-apps"}, {"from": "app-service__mcp", "to": "foundry"}, {"from": "function-app", "to": "search-service"}, {"from": "function-app", "to": "foundry"}, {"from": "function-app", "to": "key-vault"}, {"from": "function-app", "to": "storage-account__host"}, {"from": "function-app", "to": "application-insights"}, {"from": "container-apps", "to": "container-registry", "label": "pulls its image"}] | your description |

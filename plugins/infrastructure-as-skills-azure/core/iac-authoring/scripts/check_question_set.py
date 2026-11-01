@@ -48,6 +48,8 @@ a regex cannot see - what references/question-set-format.md promises:
  10. Reference kinds: every `{ ref: <kind> }` names a kind of references/ref-kinds.yaml,
      and every kind there names sets that exist, a part question its set asks, and the
      type its single set creates - a kind nobody defines checks nothing in a spec.
+ 11. `exclusive: true` stands only on a list of references: a part it names is claimed
+     by at most one resource of the set (check_spec.py enforces it on a spec).
 
 Needs PyYAML (pip install pyyaml). Without it the script says so and exits 2
 rather than pretending the files are fine.
@@ -82,7 +84,7 @@ KNOWN_FIELDS = {
     'id', 'ask', 'type', 'accepts', 'default', 'required', 'parameterized',
     'why', 'renders', 'depends_on', 'answer', 'forced_when',
     'resolved_by', 'topic', 'plain', 'plain_values', 'per_environment', 'non_production_default',
-    'offer',
+    'offer', 'exclusive',
 }
 # Groups whose decisions may never be relaxed for a non-production stage.
 NO_SAVINGS_GROUPS = {'security', 'networking', 'identity', 'access', 'dns', 'compliance', 'posture', 'modules', 'subnet_policy'}
@@ -435,6 +437,16 @@ def check_set(path, doc, deployment, rel):
                 err(f"{where}: inherits '{fd}', which is per_environment, so it is per-stage too - mark it")
             if pe and not dep_ids[fd].get('per_environment'):
                 wrn(f"{where}: per_environment, but the inherited '{fd}' is not - one value for all stages there")
+        # exclusive: a part this list references is claimed by at most one resource of the set
+        # (a subnet takes one NSG) - only meaningful on a list of references.
+        ex = q.get('exclusive')
+        if ex is not None:
+            acc = q.get('accepts')
+            if ex is not True:
+                err(f"{where}: exclusive is true or absent")
+            elif qtype != 'list' or not (isinstance(acc, dict) and acc.get('ref')):
+                err(f"{where}: exclusive on a question that is not a list of references (type: list, accepts: {{ ref: <kind> }})")
+
         npd = q.get('non_production_default')
         if npd is not None:
             if gid in NO_SAVINGS_GROUPS:

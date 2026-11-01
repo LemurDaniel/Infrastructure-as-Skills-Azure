@@ -29,13 +29,17 @@ decisions:
   # --------------------------------------------------------------- networking
   networking.subnets:
     terraform_avm:
-      gap: 'not an input here; the virtual-network set renders subnets.<k>.route_table = { id = module.route_table.resource_id }, subnet_resource_ids stays empty'
+      on_part: 'subnets.{part}.route_table = { id = {self} }'
+      note: an input of the virtual-network module; this module's subnet_resource_ids stays empty - associating twice makes each apply undo the other
     terraform:
       attribute: azurerm_subnet_route_table_association.subnet_id
       note: one association per subnet; or the subnet's own route_table_id - one of them, never both
     bicep_avm:
-      gap: 'not a parameter here; the virtual-network set renders subnets[].routeTableResourceId: routeTable.outputs.resourceId'
-    bicep: { gap: 'properties.subnets is read-only on the route table (source: bicep build BCP073, Microsoft.Network/routeTables@2024-05-01); the subnet sets properties.routeTable.id' }
+      on_part: 'subnets[name={part}].routeTableResourceId: {self}'
+      note: a parameter of the virtual-network module, not of this one
+    bicep:
+      on_part: "properties.subnets[name={part}].properties.routeTable.id: {self}"
+      note: 'properties.subnets is read-only on the route table (source: bicep build BCP073, Microsoft.Network/routeTables@2024-05-01)'
   networking.default_route:
     terraform_avm:
       attribute: routes.default

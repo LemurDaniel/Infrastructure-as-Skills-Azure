@@ -42,9 +42,6 @@
   path: resources.network.properties.template.resources.virtualNetwork.properties.enableDdosProtection
   equals: false
 
-- not_testable: virtual-network.security.subnets_expecting_nsg
-  reason: an empty list for production; the spec records that no subnet expects an NSG and no NSG resource is rendered, so there is nothing in the template to observe
-
 - decision: virtual-network.observability.diagnostic_workspace
   path: resources.virtualNetworkDiagnostics.properties.workspaceId
   matches: "reference\\('observability'\\)\\.outputs\\.id"

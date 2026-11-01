@@ -16,7 +16,9 @@ This digest reads the spec and prints:
   4. Per resource: the AVM modules and the naming identifier, and every decision as
      `<resource>.<group>.<question>` - the key a test asserts - with its value, its source and
      what its render-map.yaml entry says for the target and implementation: the attribute with
-     the literal the value becomes, further lines, the note or the gap.
+     the literal the value becomes, further lines, the note or the gap. A line a resource
+     sets on a part of another one (`on_part`: an NSG on a subnet) is printed under the part's
+     resource, `-- on parts`: that resource's module renders it.
   5. Wiring, target overrides, the `assumed` values (an `ASSUMED:` marker in every stage
      file) and the `open:` entries (placeholders), then the checks with their paths.
 
@@ -307,6 +309,19 @@ def render_lines(entry, value, stages, target, ctx):
         if entry.get('module'):
             lines.append(f"module: {entry['module']}")
         return lines
+    if 'on_part' in entry:
+        # Set on the part's resource, not here: one line per referenced part, collected for
+        # the part's resource; a stage map cannot hold a reference, so one value covers every stage.
+        lines = []
+        for r in spec_ref.items(value):
+            if not (isinstance(r, dict) and r.get('resource') and r.get('part')):
+                continue
+            line = flat(entry['on_part']).replace('{part}', str(r['part'])).replace('{self}', f"<id of {ctx['key']}>")
+            ctx['on_parts'].setdefault(r['resource'], []).append((ctx['path'], line))
+            lines.append(f"renders on {r['resource']}: {line}")
+        if entry.get('note'):
+            lines.append(f"note: {flat(entry['note'])}")
+        return lines or [f"renders on the referenced part: {flat(entry['on_part'])}"]
     attr = flat(entry['attribute'])
     refs = placeholders(entry)
     involved = [value] + [ctx['answers'].get(r) for r in refs]
@@ -522,6 +537,7 @@ def main():
     # ---- 4. resources
     p('-- resources (every key below is asserted once, or marked not-testable with a reason)')
     sets = {}
+    on_parts = {}  # resource key -> [(decision path, line)] other resources set on its parts
     for key, node in resources.items():
         kind, family, qpath = kinds[key]
         impl = implementation(key)
@@ -568,6 +584,8 @@ def main():
             'decisions': (rmap or {}).get('decisions') or {} if qpath else {},
             'entry_key': entry_key if qpath else None,
             'kind_question': ((rmap or {}).get('kinds') or {}).get('question') if qpath else None,
+            'key': key,
+            'on_parts': on_parts,
         }
         for path, entry in own:
             parts = path.split('.')
@@ -593,6 +611,7 @@ def main():
                         p(f"      no {entry_key} entry in render-map.yaml")
                     else:
                         ctx['question'] = q
+                        ctx['path'] = path
                         entries, kind = resolve(node_map[entry_key], ctx)
                         if entries is None:
                             p(f"      not rendered for {ctx['kind_question']} = {kind}")
@@ -614,6 +633,15 @@ def main():
         if isinstance(node, dict) and node.get('_target_overrides'):
             p(f"   _target_overrides: {show(node['_target_overrides'])}")
     p()
+    if on_parts:
+        p('-- on parts (set by another resource on a part of this one; rendered with this resource)')
+        for key, lines in on_parts.items():
+            p(f"## {key}")
+            for path, line in lines:
+                p(f"   {line}  (from {path})")
+                if key not in resources:
+                    gaps.append(f"{path}: sets a part of '{key}', which this spec does not hold")
+        p()
 
     # ---- 5. wiring, overrides, assumed, open
     if wiring:

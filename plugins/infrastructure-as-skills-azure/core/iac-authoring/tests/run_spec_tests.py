@@ -110,6 +110,22 @@ SHAPE_MUTATIONS += [
      'lifecycle_ignore is not { value, reason }'),
 ]
 
+# An association is exclusive (a subnet takes one NSG): on the Shape example, NSGs that claim
+# snet-app, each added to the network module. (name, [(find, replace)], expected; None = must pass)
+def nsg(name):
+    return (f"  network-security-group__{name}:\n    networking:\n      subnets:\n        value:\n"
+            "        - resource: virtual-network\n          part: snet-app\n        source: stated\n")
+
+
+SHAPE_EDITS = [
+    ('one NSG on a subnet', [("\n  app-service:\n", "\n" + nsg('a') + "  app-service:\n"),
+                             ("    contains: [virtual-network]\n", "    contains: [virtual-network, network-security-group__a]\n")], None),
+    ('two NSGs on one subnet', [("\n  app-service:\n", "\n" + nsg('a') + nsg('b') + "  app-service:\n"),
+                                ("    contains: [virtual-network]\n",
+                                 "    contains: [virtual-network, network-security-group__a, network-security-group__b]\n")],
+     'snet-app of virtual-network is claimed by 2 network-security-group resources'),
+]
+
 # The fixture's storage account up to its first group: its meta comes first.
 STORAGE = "  storage-account:\n    meta:\n      purpose: { value: Product images, source: stated }\n"
 
@@ -371,6 +387,17 @@ def main():
             rc, out = run(shape.replace(find, replace) + ''.join(appended))
             ok = rc == 0 and 'Contract ok' in out if expected is None else rc == 1 and expected in out
             report(ok, name if expected is None else f"breaks: {name}", f"expected {expected!r}; got exit {rc}:\n{out[-500:]}")
+        for name, edits, expected in SHAPE_EDITS:
+            text = shape
+            for find, replace in edits:
+                if text.count(find) != 1:
+                    report(False, name, f"the edit text is in the Shape example {text.count(find)} times: {find[:60]!r}")
+                    break
+                text = text.replace(find, replace)
+            else:
+                rc, out = run(text)
+                ok = rc == 0 and 'Contract ok' in out if expected is None else rc == 1 and expected in out
+                report(ok, name if expected is None else f"breaks: {name}", f"expected {expected!r}; got exit {rc}:\n{out[-500:]}")
 
     print('-' * 70)
     total = 8 + len(MUTATIONS) + len(COMPONENT_MUTATIONS) + len(SHAPE_MUTATIONS)

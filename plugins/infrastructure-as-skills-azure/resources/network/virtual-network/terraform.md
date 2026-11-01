@@ -53,6 +53,11 @@ module "network" {
       # Enabled, so the subnet's NSG and routes apply to private endpoint traffic.
       private_endpoint_network_policies = "Enabled"
       service_endpoints                 = lookup(s, "service_endpoints", [])
+      # Set by the NSG, route table and NAT gateway sets that reference this subnet (the
+      # digest's `-- on parts`): subnet name -> id maps from the root, null where none claims it.
+      network_security_group = try({ id = var.network_security_group_ids[name] }, null)
+      route_table            = try({ id = var.route_table_ids[name] }, null)
+      nat_gateway            = try({ id = var.nat_gateway_ids[name] }, null)
     }
   }
 
@@ -227,9 +232,6 @@ run "security" {
     condition     = length(azurerm_virtual_network.this.ddos_protection_plan) == 0
     error_message = "No DDoS plan: a platform decision, not a workload one."
   }
-
-  # not-testable: virtual-network.security.subnets_expecting_nsg - recorded in the spec;
-  # the association is rendered where the NSG is, which this module does not own
 }
 
 run "observability" {
