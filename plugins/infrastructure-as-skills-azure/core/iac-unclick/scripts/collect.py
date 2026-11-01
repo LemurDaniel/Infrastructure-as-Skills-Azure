@@ -6,7 +6,7 @@
     python collect.py --subscription <id> [--tag ...]
 
 Every command it runs only reads: `az account show`, `az graph query` (resources,
-resourcecontainers, authorizationresources), `az lock list`, and per resource
+resourcecontainers, authorizationresources), `az role definition list`, `az lock list`, and per resource
 `az monitor diagnostic-settings list` (skipped with --no-diagnostics, the slow part on a large
 scope). It never writes to Azure and needs no more than Reader on the scope. The rest of the
 plugin never needs a login; this script is the only one that does.
@@ -66,6 +66,11 @@ def main():
     if not az_path:
         print('[fail] the Azure CLI (az) is not on PATH - install it, then az login')
         return 2
+    try:  # az graph is an extension; without it az asks interactively and fails in a script
+        az(['extension', 'show', '--name', 'resource-graph'], az_path)
+    except RuntimeError:
+        print('[fail] the az extension resource-graph is missing - az extension add --name resource-graph')
+        return 2
     try:
         account = az(['account', 'show'], az_path)
     except RuntimeError as e:
@@ -92,9 +97,10 @@ def main():
         assignments = graph(
             "authorizationresources | where type =~ 'microsoft.authorization/roleassignments' "
             f"| where {scope_filter} | project id, properties", sub, az_path)
-        definitions = graph(
-            "authorizationresources | where type =~ 'microsoft.authorization/roledefinitions' "
-            "| project id, roleName = tostring(properties.roleName)", sub, az_path)
+        # Built-in roles are defined at the tenant, not in the subscription: Resource Graph filtered
+        # by --subscriptions does not return them, `az role definition list` does (built-in and custom).
+        definitions = az(['role', 'definition', 'list', '--subscription', sub,
+                          '--query', '[].{id: name, roleName: roleName}'], az_path) or []
         locks = []
         for g in (args.resource_group or [None]):
             found = az(['lock', 'list', '--subscription', sub] + (['--resource-group', g] if g else []), az_path) or []
