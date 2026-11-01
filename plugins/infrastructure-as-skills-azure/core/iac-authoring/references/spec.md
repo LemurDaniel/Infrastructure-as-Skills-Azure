@@ -377,6 +377,7 @@ open:
 | `spec.generated_by` | `infrastructure-as-skills-azure`: what wrote the file |
 | `spec.plugin_version` | The plugin version that last wrote it; set by `write_spec.py`, never lowered (see *Reading one back*) |
 | `spec.at` | When it was last written, UTC, ISO 8601 (`2026-10-17T09:14:00Z`); the decision document prints its date |
+| `spec.imported_from` | Only in a spec written from what runs in Azure: the `scopes` read (subscription or resource group ids), the `tag_filter` that narrowed them, `read_at` (see *Imported resources*) |
 | `context.environments` | The stages, in deployment order (see *Stages*) |
 | `context.language` | The customer's language (see *Language*) |
 | `context.location` | The region; a value or an `open:` entry, never picked by the run |
@@ -512,6 +513,66 @@ creates that no NSG names. The private endpoint subnet is a part too: the listed
 carrying `private_endpoint_subnet_prefix`, or `endpoints` when none does (`implied` in
 ref-kinds.yaml).
 
+## Imported resources: adopt and unmapped
+
+A spec can also be written from what already runs in Azure - resources built in the portal,
+never written down. It is the same spec: every decision is a question of the sets, with its
+value and source. Three things say that the resources exist and what was left out:
+
+```yaml
+spec:
+  imported_from:
+    scopes: [/subscriptions/<sub>/resourceGroups/rg-payments-prod]
+    tag_filter: {}
+    read_at: 2026-11-01T09:58:12Z
+resources:
+  storage-account:
+    adopt:                       # after meta, before the groups of the set
+      id:
+        value:
+          production: /subscriptions/<sub>/resourceGroups/rg-payments-prod/providers/Microsoft.Storage/storageAccounts/stpaymentsprod01
+        source: imported
+      lock_id:                   # optional: the lock the render would otherwise create a second time
+        value:
+          production: <id>/providers/Microsoft.Authorization/locks/nodelete
+        source: imported
+      diagnostic_setting_id:     # optional: Azure refuses a second setting with the same categories
+        value:
+          production: <id>/providers/Microsoft.Insights/diagnosticSettings/to-law-central
+        source: imported
+    networking:
+      public_network_access:
+        value: enabled           # the live value, not the guardrail's disabled
+        source: imported
+wiring:
+  role_assignments:
+    value:
+    - from: app-service
+      to: storage-account
+      role: Storage Blob Data Contributor
+      adopt_id:                  # a second assignment of the same role fails with 409
+        production: <scope>/providers/Microsoft.Authorization/roleAssignments/<guid>
+    source: imported
+unmapped:
+- type: Microsoft.Databricks/workspaces
+  id: /subscriptions/<sub>/resourceGroups/rg-payments-prod/providers/Microsoft.Databricks/workspaces/dbw-payments
+  reason: no_question_set
+```
+
+| Key | Holds |
+|---|---|
+| `resources.<key>.adopt.id` | The resource exists: the render imports it (Terraform `import`, Bicep deploys over it under the same name), never creates it and never refers to it as `existing`. A stage map like every id; the name comes from it, not from the naming interface - another name would replace the resource. Of the type the resource's set creates. `imported`, `stated` or `asked`, never `default` or `assumed` |
+| `resources.<key>.adopt.lock_id` | The resource's lock, below its id, when one exists and `deployment.resource_lock` would render it |
+| `resources.<key>.adopt.diagnostic_setting_id` | The resource's diagnostic setting, below its id |
+| `wiring.role_assignments[].adopt_id` | An existing role assignment, a stage map of its id |
+| `unmapped` | What was found and is not rendered: `{ type, id, reason, note? }`, `reason` one of `no_question_set`, `outside_lock_policy` (a lock `resource_lock` cannot express), `destination_not_supported` (a diagnostic setting to something other than the workspace), `not_readable`. Never dropped silently; `check_spec.py` reports every entry |
+
+`adopt` holds ids, not decisions: no question asks it, the decision document leaves it out of
+the per-resource lists, and a resource with nothing but `adopt` has recorded no decision. A
+value the import could not read is `assumed` with an `open:` entry, never the default under
+`imported`. A resource added during the review is an ordinary resource without `adopt`.
+`check_spec.py` (`scripts/spec_import.py`) checks the forms and types; it never reads Azure.
+
 ## Resource groups: roles, modes, names
 
 `context.resource_group_name` is the **main** group of a single layout: one group per stage that
@@ -642,6 +703,7 @@ both what kind of source it is and where it points:
 | `deployment` | Inherited from the deployment set, via the question's `answer: { deployment: <id> }` |
 | `default` | The question set's opinionated default applied |
 | `carried` | Taken from what the repository already holds without a spec - an existing pipeline, an existing `modules/` layout. A value of this spec keeps its own source on a re-run |
+| `imported` | Read from what runs in Azure (see *Imported resources*): the live value, kept even where it departs from the guardrail, so the first apply changes nothing. Hardening it is a departure the person names: `{ overridden: <reason> }` |
 | `assumed` | The run chose a value to keep going. Rendered as a stage-file parameter marked `ASSUMED:`: valid for `plan`, refused by the pipeline for `apply` |
 | `{ derived_from: deployment.<id> }` | A requirement: mapped from a customer's answer in the deployment set's `requirements` group |
 | `{ forced_by: <key> }` | Forced: determined by another answer; a list where several did |

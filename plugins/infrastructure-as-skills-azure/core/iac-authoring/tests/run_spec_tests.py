@@ -26,6 +26,14 @@ one the network does not name, an existing one with no id and no open entry, an 
 type, a stage without an id, a name beside it. An existing one with its ids, or with an open
 entry, passes.
 
+tests/fixtures/imported.yaml is a spec as an import (iac-unclick) writes it: adopted resources
+with the ids of their lock and diagnostic setting, adopted role assignments, unmapped items and
+spec.imported_from. It must pass and be canonical; each mutation breaks one rule of
+scripts/spec_import.py - an id of another type, a lock under another resource, an id as one value
+or defaulted, a key the adopt group does not have, a resource that records nothing but its id, a
+role assignment id that is none, an unmapped entry with an unknown reason or an id of another
+type, a scope that is no scope, no read_at.
+
 Usage:
     python3 run_spec_tests.py
 
@@ -42,6 +50,7 @@ CHECK = os.path.join(HERE, '..', 'scripts', 'check_spec.py')
 WRITE = os.path.join(HERE, '..', 'scripts', 'write_spec.py')
 SPEC_MD = os.path.join(HERE, '..', 'references', 'spec.md')
 FIXTURE = os.path.join(HERE, 'fixtures', 'resource-groups.yaml')
+IMPORTED = os.path.join(HERE, 'fixtures', 'imported.yaml')
 
 LAYOUT = "  resource_group_layout: { value: split, source: asked }\n"
 SCHEME = "  resource_group_scheme: { value: concern, source: asked }\n"
@@ -265,6 +274,40 @@ NO_SPLIT = [
     "    placement:\n      resource_group: { value: data, source: { overridden: the vault is kept with the data it protects } }\n",
 ]
 
+# An import (iac-unclick): tests/fixtures/imported.yaml must pass; each mutation breaks one rule
+# of spec_import.py. (name, find, replace, expected message)
+SUB = '/subscriptions/11111111-1111-1111-1111-111111111111/resourceGroups/rg-payments-prod/providers/'
+STORAGE_ID = SUB + 'Microsoft.Storage/storageAccounts/stpaymentsprod01'
+APP_ID = "          production: " + SUB + "Microsoft.Web/sites/app-payments-prod\n"
+APP_DECISIONS = ("    hosting:\n      sku:\n        value: P1v3\n        source: imported\n"
+                 "    identity:\n      managed_identity:\n        value: system_assigned\n        source: imported\n")
+IMPORT_MUTATIONS = [
+    ('an adopted id of another type', APP_ID, APP_ID.replace('Microsoft.Web/sites/', 'Microsoft.Web/serverFarms/'),
+     'set creates a Microsoft.Web/sites'),
+    ('a lock under another resource', STORAGE_ID + '/providers/Microsoft.Authorization/locks/nodelete',
+     STORAGE_ID.replace('stpaymentsprod01', 'stother') + '/providers/Microsoft.Authorization/locks/nodelete',
+     'which is no Microsoft.Authorization/locks of the adopted resource'),
+    ('an adopted id as one value', "    adopt:\n      id:\n        value:\n" + APP_ID,
+     "    adopt:\n      id:\n        value: " + APP_ID.strip().split(': ', 1)[1] + "\n",
+     'adopt.id is not a map keyed by stage'),
+    ('an adopted id defaulted', APP_ID + "        source: imported\n", APP_ID + "        source: default\n",
+     'never defaulted or assumed'),
+    ('a key the adopt group does not have', APP_ID + "        source: imported\n",
+     APP_ID + "        source: imported\n      name:\n        value: app-payments-prod\n        source: imported\n",
+     'adopt holds name'),
+    ('a resource that records nothing but its id', APP_DECISIONS, '', 'resources.app-service records no decision'),
+    ('a role assignment id that is none', 'roleAssignments/9f3c1a2b-0000-4000-8000-000000000001',
+     'roleDefinitions/9f3c1a2b-0000-4000-8000-000000000001', 'which is no role assignment id'),
+    ('an unmapped entry with an unknown reason', '  reason: no_question_set\n', '  reason: too_hard\n',
+     "has reason 'too_hard'"),
+    ('an unmapped id of another type', 'providers/Microsoft.Databricks/workspaces/dbw-payments',
+     'providers/Microsoft.Web/sites/dbw-payments', 'which is no Microsoft.Databricks/workspaces'),
+    ('a scope that is no scope', '  imported_from:\n    scopes: [/subscriptions/11111111-1111-1111-1111-111111111111/resourceGroups/rg-payments-prod]\n',
+     '  imported_from:\n    scopes: [rg-payments-prod]\n', 'no subscription or resource group id'),
+    ('no read_at', '    read_at: 2026-11-01T09:58:12Z\n', '', 'spec.imported_from.read_at is not a UTC time'),
+]
+
+
 def run(text, cmd=None):
     with tempfile.TemporaryDirectory() as tmp:
         path = os.path.join(tmp, 'infra-spec.yaml')
@@ -384,6 +427,20 @@ def main():
         rc, out = run(text)
         report(rc == 0, 'application monitoring with its component stays valid', out[-400:])
 
+    with open(IMPORTED, encoding='utf-8', newline='') as f:
+        imported = f.read().replace('\r\n', '\n')
+    rc, out = run(imported)
+    report(rc == 0 and 'imports - 2 adopted resource(s)' in out and '2 unmapped item(s)' in out,
+           'the import fixture passes, its unmapped items reported', out[-600:])
+    rc, out = run(imported, [WRITE, '--check', '--no-stamp'])
+    report(rc == 0, 'the import fixture is canonical', out[-400:])
+    for name, find, replace, expected in IMPORT_MUTATIONS:
+        if imported.count(find) != 1:
+            report(False, name, f"the mutation text is in the import fixture {imported.count(find)} times: {find[:60]!r}")
+            continue
+        rc, out = run(imported.replace(find, replace))
+        report(rc == 1 and expected in out, f"breaks: {name}", f"expected exit 1 with {expected!r}; got exit {rc}:\n{out[-500:]}")
+
     shape = shape_example()
     if shape is None:
         report(False, 'the Shape example of spec.md passes', "references/spec.md has no ```yaml block under '## Shape'")
@@ -414,7 +471,7 @@ def main():
                 report(ok, name if expected is None else f"breaks: {name}", f"expected {expected!r}; got exit {rc}:\n{out[-500:]}")
 
     print('-' * 70)
-    total = 8 + len(MUTATIONS) + len(COMPONENT_MUTATIONS) + len(SHAPE_MUTATIONS)
+    total = 10 + len(MUTATIONS) + len(COMPONENT_MUTATIONS) + len(SHAPE_MUTATIONS) + len(IMPORT_MUTATIONS)
     print(f"{total - failed}/{total} passed")
     return 1 if failed else 0
 

@@ -7,9 +7,10 @@ The run decides, this script lays the file out: the same decisions give the same
 a re-run is a diff of what moved, not of how it was typed.
 
   - sections in a fixed order (spec, context, deployment, pattern, composition, resources,
-    wiring, open); a decision's fields as value, source, forces;
+    wiring, unmapped, open); a decision's fields as value, source, forces;
   - deployment keys in the order of questions/deployment.yaml under one `# --- <group> ---`
     comment per group; a resource's groups and questions in the order of its question set,
+    after `meta` and an import's `adopt`,
     one blank line between resources; a stage map in the order of context.environments.
     The resources themselves keep the order the run wrote them in: the decision document,
     the name list and the picture follow it, and the run puts what matters most first;
@@ -48,8 +49,12 @@ PLUGIN_JSON = PLUGIN / ".claude-plugin" / "plugin.json"
 DEPLOYMENT_SET = HERE.parent / "questions" / "deployment.yaml"
 WRITE_NAMING = PLUGIN / "core" / "iac-rendering" / "scripts" / "write_naming.py"
 
-SECTIONS = ['schema_version', 'spec', 'context', 'deployment', 'pattern', 'composition', 'resources', 'wiring', 'open']
-HEAD = ['id', 'target', 'generated_by', 'plugin_version', 'skill', 'skill_version', 'at']
+SECTIONS = ['schema_version', 'spec', 'context', 'deployment', 'pattern', 'composition', 'resources', 'wiring', 'unmapped',
+            'open']
+HEAD = ['id', 'target', 'generated_by', 'plugin_version', 'skill', 'skill_version', 'at', 'imported_from']
+IMPORTED_FROM = ['scopes', 'tag_filter', 'read_at']
+ADOPT = ['id', 'lock_id', 'diagnostic_setting_id']
+UNMAPPED = ['type', 'id', 'reason', 'note']
 CONTEXT = ['environments', 'language', 'location', 'workload', 'subscription_id', 'resource_group_name', 'tags']
 ENTRY = ['value', 'source', 'forces']
 COMPOSITION = ['granularity', 'source', 'modules']
@@ -110,6 +115,8 @@ def canonical(spec, sets):
         out = {}
         if isinstance(d.get('meta'), dict):
             out['meta'] = {q: entry(v) for q, v in d['meta'].items()}
+        if isinstance(d.get('adopt'), dict):
+            out['adopt'] = {q: entry(v) for q, v in order(d['adopt'], ADOPT).items()}
         for gid, ids in set_groups:
             g = d.get(gid)
             if isinstance(g, dict):
@@ -124,6 +131,8 @@ def canonical(spec, sets):
     out['spec'] = order(out.get('spec'), HEAD) if 'spec' in out else None
     if out['spec'] is None:
         del out['spec']
+    elif isinstance(out['spec'].get('imported_from'), dict):
+        out['spec']['imported_from'] = order(out['spec']['imported_from'], IMPORTED_FROM)
     if isinstance(out.get('context'), dict):
         out['context'] = {k: entry(v) for k, v in order(out['context'], CONTEXT).items()}
 
@@ -151,6 +160,8 @@ def canonical(spec, sets):
         out['wiring'] = {k: entry(v) for k, v in order(out['wiring'], WIRING).items()}
     if isinstance(out.get('open'), list):
         out['open'] = [order(o, OPEN) for o in out['open']]
+    if isinstance(out.get('unmapped'), list):
+        out['unmapped'] = [order(u, UNMAPPED) for u in out['unmapped']]
     return out, groups
 
 

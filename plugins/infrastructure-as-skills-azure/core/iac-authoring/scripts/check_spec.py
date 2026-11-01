@@ -76,6 +76,11 @@ Read-only. Checks what the contract in references/spec.md promises:
      warning (written before the key existed). Under `stage_isolation:
      resource_group` no group is `create` and no deployer role is scoped to
      `subscription`: either reaches every stage, and the separation is gone.
+ 11. Imports (spec_import.py): spec.imported_from names the scopes read and when; a
+     resource's `adopt` group holds its id per stage, of the type its set creates, and
+     the ids of its lock and diagnostic setting below it; a role assignment's adopt_id
+     is a role assignment id per stage; every `unmapped` entry is { type, id, reason }
+     with an id of that type, and is reported - found in Azure, not rendered.
 
 Needs PyYAML (pip install pyyaml). Without it the script says so and exits 2
 rather than pretending the file is fine.
@@ -118,8 +123,10 @@ import rg_roles  # noqa: E402 - the role table per scheme, shared with the diagr
 sys.path.insert(0, HERE)
 import spec_source  # noqa: E402 - a source as a word or {forced_by | derived_from | overridden: ...}
 import spec_ref  # noqa: E402 - a reference as {resource: <key>} or {existing: <kind>}
+import spec_import  # noqa: E402 - adopt, unmapped and imported_from, what an import leaves
 # Resource keys every resource may carry without its set asking them (spec.md: placement, meta).
-BUILTIN_RESOURCE_KEYS = {('placement', 'resource_group'), ('placement', 'location'), ('meta', 'purpose')}
+BUILTIN_RESOURCE_KEYS = {('placement', 'resource_group'), ('placement', 'location'), ('meta', 'purpose'),
+                         ('adopt', 'id'), ('adopt', 'lock_id'), ('adopt', 'diagnostic_setting_id')}
 RG_LOCKS = ['production', 'all_stages', 'none']
 # A role satisfies a need when it is the narrow one or broader; broader is the platform's call.
 ROLES_ASSIGN = ['Role Based Access Control Administrator', 'User Access Administrator', 'Owner']
@@ -151,6 +158,22 @@ def load_question_index(yaml):
                         with open(qs, encoding='utf-8') as f:
                             add(res, yaml.safe_load(f))
     return index
+
+
+def load_set_types(yaml):
+    """Set name -> the ARM type its question set creates (`resource:`), for an adopted id."""
+    types = {}
+    res_root = os.path.join(PLUGIN, 'resources')
+    for fam in sorted(os.listdir(res_root)) if os.path.isdir(res_root) else []:
+        fam_dir = os.path.join(res_root, fam)
+        for res in sorted(os.listdir(fam_dir)) if os.path.isdir(fam_dir) else []:
+            qs = os.path.join(fam_dir, res, 'questions.yaml')
+            if os.path.isfile(qs):
+                with open(qs, encoding='utf-8') as f:
+                    doc = yaml.safe_load(f) or {}
+                if isinstance(doc, dict) and isinstance(doc.get('resource'), str):
+                    types[res] = doc['resource']
+    return types
 
 
 COLORS = {'cyan': '36', 'green': '32', 'red': '31', 'yellow': '33', 'gray': '90'}
@@ -741,7 +764,7 @@ def main():
                       "resource - the workspace's own decisions (public access, local auth) were never made")
     for rkey, rnode in (get(spec, 'resources') or {}).items():
         groups = rnode if isinstance(rnode, dict) else {}
-        if any(isinstance(g, dict) and g for g in groups.values()):
+        if any(isinstance(g, dict) and g for gid, g in groups.items() if gid != 'adopt'):  # an id decides nothing
             continue
         decided = sorted(qid for (owner, qid), q in questions.items() if owner == rkey.split('__')[0]
                          and not q.get('depends_on') and (
@@ -752,6 +775,19 @@ def main():
             shown = ', '.join(decided[:5]) + (f" and {len(decided) - 5} more" if len(decided) > 5 else '')
             errors.append(f"resources.{rkey} records no decision, but its set decides {shown} - "
                           f"resolve the set and write its values, defaults included")
+
+    # --- 11. imports: adopt, unmapped, imported_from --------------------------
+    # What an import (iac-unclick) leaves: the ids the render imports instead of creating a
+    # second resource, and what it found and does not render.
+    try:
+        set_types = load_set_types(yaml)
+    except (yaml.YAMLError, OSError):
+        set_types = {}
+    imp_errors, imp_warnings, adopted = spec_import.check(spec, set_types, environments, spec_source.kind)
+    errors.extend(imp_errors)
+    warnings.extend(imp_warnings)
+    if adopted and not imp_errors:
+        ok(f"imports - {adopted} adopted resource(s), each id of its set's type")
 
     # --- 10. deployer roles ------------------------------------------------
     def filled(v):
