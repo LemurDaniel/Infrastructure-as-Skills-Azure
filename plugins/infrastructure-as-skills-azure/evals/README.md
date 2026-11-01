@@ -118,9 +118,9 @@ the same model.
 ## Keeping outputs good on the same scenarios
 
 `runs:` in each case's `prompt.md` is the consistency measurement, the same on every model:
-4 per case, and 2 for the four cases that cost about $3 or more per suite on Sonnet
-(`diagram-no-invented-lines`, `language-en-request`, `requirements-stated`,
-`vague-public-dev`) - halved for cost, accepting that they can only read 0, 50 or 100%. No
+4 per case, and 2 for the six cases that cost about $2 or more per suite on Sonnet
+(`diagram-no-invented-lines`, `language-en-request`, `requirements-stated`, `vague-public-dev`,
+`terraform-code-structure`, `terraform-existing-reference`) - halved for cost, accepting that they can only read 0, 50 or 100%. No
 `--runs` on the command line: it overrides every case's own value. A
 grader that passes in some runs but not all is a decision the plugin does not pin down. Three runs were too few - a case could only
 read 0, 33, 67 or 100%, and one run decided between "unstable" and "fine". Read those first — they are where a

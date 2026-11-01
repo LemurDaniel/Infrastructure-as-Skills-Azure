@@ -211,8 +211,8 @@ Beyond the script:
   No eval runs on a pull request: the suite needs a model that follows a
   multi-step skill. For a release whose `dev` touches `core/`, `resources/`
   or `evals/` of the plugin since the last release, before `gh pr merge`:
-  1. Say what it costs (low effort, each case's own `runs:` - 4, the four
-     costliest 2: Sonnet about $12-18, Haiku about $1-3) and start only on
+  1. Say what it costs (low effort, each case's own `runs:` - 4, the six
+     costliest 2: Sonnet about $18-24, Haiku about $1-3) and start only on
      the owner's yes.
   2. Start a **test agent** (Agent tool, background) with the run as its whole
      brief. It runs, from the repo root, with `$claude` the CLI (on the
