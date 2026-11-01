@@ -338,6 +338,25 @@ the detail; this list says what was decided and why, so a session does not reope
   (`values` complete, `format`, or an explicit `passthrough: true`) - the pass-through of an
   answer into an id, a block or another unit was the error class the reviews found most. YAML
   in its own file, not in `questions.yaml`: the set stays backend-neutral, as the spec does.
+- **A reference is `{ resource: <key> }` or `{ existing: <kind> }`, its kind registered**
+  (2026-11-01). `accepts: { ref: <kind> }` named a bare word, and a spec held a reference in
+  five shapes - key, plain name, id, `{ name, resource_group_name }`, a stage map of any - told
+  apart by a regex; nothing checked a value was of its kind. Now
+  `core/iac-authoring/references/ref-kinds.yaml` defines every kind (the sets that create it,
+  the part where it is one, the ARM type and form of its id: `arm`, `arm_any`, `guid`), and a
+  spec writes a resource of the spec as `{ resource: <key>[, part: <name>] }` (one value, every
+  stage; a subnet is a part of the network) or one outside it as `{ existing: <kind> }`.
+  **The spec carries the id, never a name or a resource group** (owner's call): an id the
+  person gives goes in per stage (`id: { <stage>: <id> }`); without one an `open:` entry names
+  the owner and the stage file holds a placeholder id the pipeline refuses before `apply`.
+  **Rendered as an id variable / param, never a lookup**: a data source needs a name and a
+  group as unknown as the id, and makes every `plan` read the platform; the id in the stage
+  file pins nothing into the code, and tests pass it as a variable instead of mocking a data
+  source. `scripts/spec_ref.py` reads both forms for `check_spec.py`, the diagram, the
+  decision document and the digest. Kept outside the rule on purpose: the resource groups
+  (named in `context`), the private DNS zones (a fixed name in a group) and the Network
+  Watcher (Azure's fixed name). Front Door's origins split into `origins`
+  (`{ ref: resource }`) and `origin_host_names`, a backend outside Azure having no id.
 
 ## State
 
@@ -685,40 +704,6 @@ per-family` in `check_spec.py` and the `chatbot` spec, and `references/private-d
 
 ### Interview and spec
 
-- **Make `accepts: { ref: <kind> }` structured** (owner's todo, 2026-11-01): the concept is
-  vague. `<kind>` is a bare word with no registry behind it; a value takes five shapes
-  (resource key, plain name, id string, `{ name, resource_group_name }`, a stage map of any)
-  told apart by key names and the `names_this_spec` regex; nothing checks that a value is of
-  its kind (a storage account under `ref: key_vault_key` passes); and how a reference outside
-  the spec renders (`<id of X>` covers only spec resources) is unspecified. Proposal: a
-  registry `references/ref-kinds.yaml` (kind → question set, part, Azure type), checked by
-  `check_question_set.py`; two explicit value forms, `{ resource: <key>, part: ... }` (one
-  value, renders to the module output) and `{ existing: <kind> }` for a resource outside the
-  spec (the platform's workspace, a hub subnet, a security team's key). The render needs no
-  id for it, only the decision that it comes from outside: it becomes an id parameter
-  (`variable` / `param`). The spec carries the id only, never a name or a resource group
-  (owner's call 2026-11-01): an id the person names in the interview goes into the spec
-  per stage, `{ existing: <kind>, id: { <stage>: <id> } }`, the render writes it into each
-  stage file, and no `open:` entry is written. Without one, `{ existing: <kind> }` comes
-  with an `open:` entry naming its owner and the stage file gets a placeholder - `plan` and
-  the tests run, the pipeline refuses `apply` - filled later without a re-render. No data
-  source: name and resource group are as unknown as the id, and `plan` would need read
-  access to the platform subscription. `check_spec.py` checks key existence and kind, the
-  id against the kind's Azure type, and for every `existing:` either an id for each stage
-  or an `open:` entry; the regex goes. Subnets as `{ resource: virtual-network, part: <name> }`;
-  kinds outside ARM carry `id: guid` (entra_group, principal, subscription) or `arm_any`
-  (`resource`, which absorbed `azure_resource`) (owner's calls 2026-11-01).
-  **Phase 1 done (2026-11-01):** `core/iac-authoring/references/ref-kinds.yaml` (43 kinds),
-  `scripts/spec_ref.py` shared by `check_spec.py`, `new_diagram.py`, `export_decisions.py` and
-  `render_digest.py`; `check_question_set.py` checks the registry; `spec.md` *References* and the
-  Shape example; every spec and fixture migrated (inventory: 297 ref questions; values were
-  resource keys in stage maps, subnet names, two `{ name, resource_group_name }`).
-  **Phase 2, open:** the interview in `iac-authoring/SKILL.md` writes the two forms; the
-  rendering references render `existing:` as an id parameter, never a data source -
-  `deployment.existing_vnet` still says "read by name and resource group", and its `renders`
-  names a data source; the diagram shows an existing one with an open id by its kind;
-  `front-door.delivery.origins` takes resource keys or host names and stays outside the rule
-  (`check_spec.py` exempts a list of resource keys) - split it into a reference and a host list.
 - **Wire the former `confirm_in` defaults to requirements** (2026-10-28): `confirm_in` was
   removed - a marker in a document nobody reads changes nothing. Defaults the customer can
   judge get a `derived_from` instead: `outage_impact` → `compute_tier`/`service_tier` (SQL,
@@ -1134,6 +1119,11 @@ regeneration from the spec loses them. All `render`:
   `~/.local/bin` itself. No Linux in WSL on the owner's machine.
 
 ## Next
+
+**Structured references are in `render-yaml` too** (2026-11-01, see *Decisions*): no eval
+case renders an `existing:` reference yet - one with a platform workspace and an open id
+(the variable, the placeholder in the stage file, no data source) belongs in the run before
+that release.
 
 **Merge `render-yaml`** (#22: render digest, `render-map.yaml` for 67 resources, `renders` and
 the decision tables gone, the sources corrected, the deployment answers translated, the gaps
