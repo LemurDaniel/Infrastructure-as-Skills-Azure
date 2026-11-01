@@ -167,7 +167,10 @@ def common_text(path, text, auth, rel):
     if auth == 'workload_identity':
         for pat, what in [(r'\bsecrets\.', 'a `secrets.` reference'),
                           (r'AZURE_CREDENTIALS|AZURE_AUTH', 'a stored credential blob'),
-                          (r'client[-_]?secret|ARM_CLIENT_SECRET', 'a client secret')]:
+                          # client-secret, --client-secret, clientSecret, ARM_/AZURE_CLIENT_SECRET;
+                          # not a name that only ends in it (the vault secret entra-client-secret)
+                          (r'(?<![A-Za-z0-9]-)(?<![A-Za-z0-9_])client[-_]?secret|(ARM|AZURE)_CLIENT_SECRET',
+                           'a client secret')]:
             if re.search(pat, low, re.I):
                 err(f"{rel}: {what} - pipeline_auth is workload_identity, nothing secret exists to store")
     for m in re.finditer(r'\$\{\{\s*(github\.event\.|github\.head_ref)', low):
@@ -542,7 +545,8 @@ def check_local(root, stages, target, auth, gated, exempt):
         return
     with open(path, encoding='utf-8') as f:
         text = f.read()
-    common_text(path, text, 'workload_identity', 'deploy.ps1')
+    # No pipeline_auth here: the script runs as the person's own az login, nothing is stored.
+    common_text(path, text, None, 'deploy.ps1')
     m = re.search(r"ValidateSet\(([^)]*)\)", text)
     got = re.findall(r"'([^']+)'", m.group(1)) if m else []
     expect = [s for s in stages if s not in exempt]
@@ -635,9 +639,10 @@ def check_group_guard(root, mech):
             "(pipelines.md, invariant 12)")
 
 
-def check_stage_files(root, stages, target, open_stages, assumed=frozenset()):
-    """Every stage has its file; an open stage's file holds placeholders, a resolved stage's none;
-    every file marks each assumed value of the spec, and nothing else, as ASSUMED."""
+def check_stage_files(root, stages, target, open_stages, may_hold_placeholder, assumed=frozenset()):
+    """Every stage has its file; an open stage's file holds placeholders, a resolved stage's none
+    (unless an open: entry without environments may have put one there); every file marks each
+    assumed value of the spec, and nothing else, as ASSUMED."""
     code = root
     if target == 'terraform':
         names = {s: os.path.join('environments', f'{s}.tfvars') for s in stages}
@@ -670,7 +675,7 @@ def check_stage_files(root, stages, target, open_stages, assumed=frozenset()):
         if s in open_stages and not has:
             err(f"{names[s]}: stage {s} is open in the spec but its file holds no placeholder - "
                 f"either the values were given (drop the open: entries) or they were guessed")
-        if s not in open_stages and has:
+        if s not in may_hold_placeholder and has:
             err(f"{names[s]}: stage {s} is resolved in the spec but its file still holds a placeholder")
 
 
@@ -789,12 +794,16 @@ def main():
         say(f"[fail] spec.target is {target!r}, expected terraform or bicep", 'red')
         return 2
     # A stage with open: entries is not left out: it has its job and its file, with
-    # placeholders, and the pipeline refuses to run it.
-    open_stages = set()
+    # placeholders, and the pipeline refuses to run it. An entry without environments
+    # names no stage: its value may be a placeholder in every stage file (context.location)
+    # or in none (a model list, the deploy mechanism), so it allows one and requires none.
+    open_stages, unscoped_open = set(), False
     for o in spec.get('open') or []:
         if isinstance(o, dict):
             open_stages.update(o.get('environments') or [])
+            unscoped_open = unscoped_open or not o.get('environments')
     open_stages &= set(stages)
+    may_hold_placeholder = set(stages) if unscoped_open else open_stages
     gated = gated_stages(stages, approvals) if mech != 'local' else []
 
     fns = {'github': check_github, 'azure_devops': check_ado, 'gitlab': check_gitlab, 'local': check_local}
@@ -804,7 +813,7 @@ def main():
     fns[mech](root, stages, target, auth, gated, set())
     check_shell(root, mech)
     check_guard(root, mech)
-    check_stage_files(root, stages, target, open_stages, assumed_keys(spec))
+    check_stage_files(root, stages, target, open_stages, may_hold_placeholder, assumed_keys(spec))
     if target == 'terraform':
         check_backend(root)
         check_group_guard(root, mech)
