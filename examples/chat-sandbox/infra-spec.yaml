@@ -12,7 +12,7 @@ spec:
 # template that nobody named: open entries, placeholders in the stage file.
 context:
   environments: [sandbox]
-  language: de
+  language: en
   workload: chat
   tags: {}
 
@@ -138,7 +138,7 @@ resources:
   app-service:
     meta:
       purpose:
-        value: Chat-Anwendung (Docker-Container)
+        value: Chat application (Docker container)
         source: stated
     hosting:
       os_type:
@@ -217,7 +217,7 @@ resources:
   foundry:
     meta:
       purpose:
-        value: Chat- und Embedding-Modelle
+        value: Chat and embedding models
         source: stated
     account:
       kind:
@@ -291,7 +291,7 @@ resources:
   search-service:
     meta:
       purpose:
-        value: Suchindex über die Dokumente (RAG)
+        value: Search index over the documents (RAG)
         source: stated
     service:
       sku:
@@ -351,7 +351,7 @@ resources:
   storage-account:
     meta:
       purpose:
-        value: Persistente Daten der Chat-Anwendung
+        value: Persistent data of the chat application
         source: stated
     networking:
       public_network_access:
@@ -446,7 +446,7 @@ resources:
   key-vault:
     meta:
       purpose:
-        value: Client Secret der Entra-App
+        value: Client secret of the Entra app
         source: stated
     vault:
       sku:
@@ -509,7 +509,7 @@ resources:
   log-analytics-workspace:
     meta:
       purpose:
-        value: Protokolle aller Ressourcen
+        value: Logs of all resources
         source: stated
     cost:
       retention_days:
@@ -551,57 +551,57 @@ wiring:
       label: HTTPS 443
     - from: app-service
       to: external:entra-id
-      label: Anmeldung (Client Secret)
+      label: Sign-in (client secret)
     - from: app-service
       to: foundry
     - from: app-service
       to: search-service
-      label: Suche
+      label: Search
     - from: app-service
       to: storage-account
     - from: search-service
       to: storage-account
-      label: indexiert die Dokumente
+      label: indexes the documents
     - from: search-service
       to: foundry
       label: Embeddings
     - from: app-service
       to: key-vault
-      label: liest das Client Secret
+      label: reads the client secret
     source: stated
 
 open:
 - key: context.location
   environments: [sandbox]
-  question: In welcher Azure-Region läuft das System? Sie bestimmt auch das Regionskürzel in jedem Namen und muss in der EU
-    liegen (data_residency).
+  question: Which Azure region does the system run in? It also sets the region abbreviation in every name and must be in the
+    EU (data_residency).
   owner: Workload-Team
   blocks: apply
 - key: context.subscription_id
   environments: [sandbox]
-  question: In welche Subscription wird die Sandbox ausgerollt?
+  question: Which subscription is the sandbox deployed into?
   owner: Workload-Team
   blocks: apply
 - key: context.resource_group_name
   environments: [sandbox]
-  question: In welche bestehende Ressourcengruppe wird die Sandbox ausgerollt?
+  question: Which existing resource group is the sandbox deployed into?
   owner: Workload-Team
   blocks: apply
 - key: resources.app-service.runtime.container_image
   environments: [sandbox]
-  question: Welches Container-Image läuft in der App - Registry, Repository und ein Tag, der nicht "latest" ist? Und aus welcher
-    Registry darf die App es mit ihrer Identität ziehen?
+  question: Which container image does the app run - registry, repository and a tag that is not "latest"? And which registry
+    may the app pull it from with its identity?
   owner: Workload-Team
   blocks: apply
 - key: resources.foundry.models.model_deployments
   environments: [sandbox]
-  question: Welches Chat-Modell und welches Embedding-Modell, in welchen genauen Versionen, mit welchem Kontingent? Wird beim
-    Rendern gegen den Katalog der Region als DataZoneStandard nachgeschlagen, nie aus dem Gedächtnis.
+  question: Which chat model and which embedding model, in which exact versions, with what quota? Looked up at render time
+    against the region's catalogue as DataZoneStandard, never from memory.
   owner: Workload-Team
   blocks: apply
 - key: wiring.entra_app_registration
   environments: [sandbox]
-  question: Die Entra-App-Registrierung und ihr Client Secret. Ein Verzeichnisobjekt, keine Azure-Ressource - das Identity-Team
-    legt sie an; das Secret kommt in den Key-Vault-Platzhalter "entra-client-secret".
+  question: The Entra app registration and its client secret. A directory object, not an Azure resource - the Identity-Team
+    creates it; the secret goes into the Key Vault placeholder "entra-client-secret".
   owner: Identity-Team
   blocks: apply
