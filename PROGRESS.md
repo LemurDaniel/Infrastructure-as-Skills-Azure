@@ -360,6 +360,17 @@ the detail; this list says what was decided and why, so a session does not reope
 
 ## State
 
+- **Three workload-scoped sets instead of a governance family** (2026-11-01, branch
+  `feature/budget-maintenance-automation`; 70 resource sets, 1,517 questions): `observability/budget`
+  (resource-group scope, one per stage; both targets authored - no Terraform module, and the Bicep
+  `rg-scope` module takes one `thresholdType` for all thresholds), `compute/maintenance-configuration`
+  (Update Manager window, `InGuestPatch`; the VM set assigns the machine through the new
+  `maintenance.maintenance_configuration` and the bypass flag), `integration/automation-account`
+  (account, identity, endpoints; runbooks are content, Update Management and DSC retired). Written by
+  three agents, checks green, `terraform validate` / `bicep build` on the calls; not exercised in a
+  render or an eval. Why no governance family: policy, management groups and subscriptions are the
+  landing zone's; only what a workload owns is a set.
+
 - **`render-map.yaml` for all 67 resources, the render digest mandatory** (2026-11-01, branch
   `render-yaml`): 5,190 entries, 980 of them `gap` (18% - the references do not state the
   literal), 1,658 explicit pass-throughs, 101 `not_rendered`. Written by 8 agents, reviewed by 3
@@ -624,6 +635,12 @@ contradicted. Left:
 
 ### Rendering references and question sets
 
+- From the 2026-11-01 sets: the scale-set sets cannot assign a maintenance configuration (neither
+  AVM module has the input; authored `azurerm_maintenance_assignment_virtual_machine_scale_set`,
+  check Update Manager's support for Flexible orchestration first). Whether the naming provider
+  knows `Azure::Microsoft.Consumption/budgets` is unchecked. azurerm 5.12 has no
+  `exclude_kbs_requiring_reboot` on the maintenance configuration (a `gap`).
+
 Done 2026-10-25: the azurerm 5.x spellings (checked against `terraform providers schema -json` of
 5.11 and the provider docs at the tag; only storage has the string `public_network_access`), the
 module `diagnostic_settings` interface (two forms, see `avm.md`), every diagnostic category name
@@ -659,8 +676,10 @@ per-family` in `check_spec.py` and the `chatbot` spec, and `references/private-d
   - **Medium, still open:** network: Virtual WAN / VPN Gateway / ExpressRoute, Private Link Service;
     data: Synapse, Databricks, Data Explorer, Fabric Capacity; observability: Diagnostic Settings as a
     resource of its own, Managed Grafana, Azure Monitor Workspace (Prometheus), Dashboards; messaging:
-    Notification Hubs, SignalR / Web PubSub; governance (the family itself is parked in `drafts/`): Budgets, a standalone lock,
-    Automation Account, Maintenance Configuration (resource groups stay a deployment decision).
+    Notification Hubs, SignalR / Web PubSub. No governance family: policy, management groups and
+    subscriptions are the landing zone's (parked in `drafts/governance/`), the lock is
+    `deployment.resource_lock`; the workload-scoped parts became sets of their own (2026-11-01:
+    `observability/budget`, `compute/maintenance-configuration`, `integration/automation-account`).
   - **Low:** storage: Table, Managed HSM, NetApp Files, Files Sync, Data Lake Gen2 as its own type;
     compute: Batch, Service Fabric, App Service Environment, Spring Apps, Compute Gallery, Dedicated
     Host, Virtual Desktop, Arc; security: Managed HSM, Sentinel, Confidential Ledger; data: Cosmos DB

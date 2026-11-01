@@ -17,7 +17,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Evals on Sonnet](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/LemurDaniel/Infrastructure-as-Skills-Azure/8e1bd6c30aa07bcfbc854dbb002c76f369d389da/badge-sonnet.json)](https://github.com/LemurDaniel/Infrastructure-as-Skills-Azure/blob/8e1bd6c30aa07bcfbc854dbb002c76f369d389da/README.md)
 
-A Claude Code plugin that authors Azure infrastructure as **Terraform or Bicep** from the decisions a resource actually forces - compute, network, data, security, messaging, integration, AI and recovery, 67 resource types in ten families. Not a module library and not a template collection. The interview writes an `infra-spec.yaml`; the code, its tests, a diagram and a decision document are rendered from that, onto [Azure Verified Modules](https://azure.github.io/Azure-Verified-Modules/) first.
+A Claude Code plugin that authors Azure infrastructure as **Terraform or Bicep** from the decisions a resource actually forces - compute, network, data, security, messaging, integration, AI and recovery, 70 resource types in ten families. Not a module library and not a template collection. The interview writes an `infra-spec.yaml`; the code, its tests, a diagram and a decision document are rendered from that, onto [Azure Verified Modules](https://azure.github.io/Azure-Verified-Modules/) first.
 
 ## 💡 The Idea
 
@@ -101,19 +101,19 @@ What a run leaves behind, from the [`chat-sandbox`](examples/chat-sandbox/) exam
 
 ### Resource coverage
 
-67 resource types in ten families. Each has a question set and both rendering references; a resource with an [Azure Verified Module](https://azure.github.io/Azure-Verified-Modules/) renders as a call to it.
+70 resource types in ten families. Each has a question set and both rendering references; a resource with an [Azure Verified Module](https://azure.github.io/Azure-Verified-Modules/) renders as a call to it.
 
 | Family | Resources |
 |---|---|
-| `compute` | virtual machine, VM scale set, managed disk, availability set and proximity placement group, AKS, App Service, function app, Container Apps, Container Instances, Static Web App, container registry |
+| `compute` | virtual machine, VM scale set, managed disk, availability set and proximity placement group, maintenance configuration (patch window), AKS, App Service, function app, Container Apps, Container Instances, Static Web App, container registry |
 | `network` | virtual network, network security group, public IP, private endpoint, private DNS zone, public DNS zone, route table, NAT gateway, Azure Firewall, load balancer, Bastion, VNet peering, Application Gateway with WAF, Front Door, Traffic Manager, DDoS protection plan, Network Watcher (VNet flow logs) |
 | `data` | Azure SQL, SQL Managed Instance, PostgreSQL flexible server, MySQL flexible server, Azure Managed Redis, Cosmos DB (NoSQL), Data Factory, Purview |
 | `storage` | storage account, blob container, file share, queue |
 | `security` | Key Vault, Key Vault key, Key Vault secret, user-assigned managed identity, role assignment (RBAC), Defender for Cloud |
 | `messaging` | Service Bus, Event Hubs, Event Grid topic, Event Grid namespace (MQTT, pull delivery), Event Grid system topic, Azure Relay |
-| `integration` | API Management, Logic Apps (Standard and Consumption), Communication Services |
+| `integration` | API Management, Logic Apps (Standard and Consumption), Automation account, Communication Services |
 | `ai` | AI Foundry (Azure OpenAI), AI Search, single-service AI accounts (Speech, Vision, Language, Document Intelligence, ...), Machine Learning workspace, Azure Bot |
-| `observability` | Log Analytics workspace, Application Insights, action group, alert rule (metric, log query, activity log), data collection rule and endpoint |
+| `observability` | Log Analytics workspace, Application Insights, action group, alert rule (metric, log query, activity log), data collection rule and endpoint, budget |
 | `recovery` | Backup vault, Recovery Services vault |
 
 Not covered yet: Synapse, Databricks, Data Explorer, Fabric; VPN and ExpressRoute gateways, Virtual WAN, Private Link Service; Managed Grafana, Azure Monitor workspace, dashboards; Notification Hubs, SignalR and Web PubSub; governance (policy, management groups, subscription vending: landing-zone topics, out of scope), budgets, Automation Accounts, Maintenance Configurations. The list is in [`PROGRESS.md`](PROGRESS.md); a request for one of them is said out loud and never improvised.
@@ -298,7 +298,7 @@ Early, and the shape matters more than the coverage. The eval suite runs on Sonn
 - [x] Deployment-wide question set, inherited by every resource via `answer: { deployment: <id> }`
 - [x] The customer interview: requirements derived into decisions, landing-zone questions, decision document in the customer's language
 - [x] Azure Verified Modules as the primary rendering, both targets, with the test contract
-- [x] 67 resources in 10 families (the 42 added last are checked against their AVM modules, not yet rendered or tested)
+- [x] 70 resources in 10 families (the 45 added last are checked against their AVM modules, not yet rendered or tested)
 - [x] Rendering: naming, layout, idiom and pipelines (GitHub, Azure DevOps, GitLab, local)
 - [x] Diagram from the spec, editable draw.io embedded in the PNG
 - [x] Checks: `check_spec.py`, `check_question_set.py`, `check_render_coverage.py`, `check_pipeline.py`
@@ -306,7 +306,7 @@ Early, and the shape matters more than the coverage. The eval suite runs on Sonn
 - [ ] **Reference pattern skill.** `patterns/` is empty, so composition is specified but unproven
 - [x] **An applied render.** [`eval-agent/`](eval-agent/) - rendered Bicep from an `infra-spec.yaml`, what-if, approval and deploy through the rendered GitHub pipeline (OIDC, no secret). The first run found what the pipeline reference now says: a job without a checkout, a what-if that skips modules, immutable OIDC subjects. One spec override came from a quota, not from the interview. Terraform and the other pipelines are still unapplied
 - [x] A complex case in Bicep: a chat app with RAG (Front Door with WAF, App Service with a slot, Foundry, AI Search, storage, private endpoints), every decision covered by ARM tests, beside [`eval-agent/`](eval-agent/)
-- [ ] Remaining resources: Logic Apps, Data Factory, governance (policy, budgets), further network, data and AI services - listed in `PROGRESS.md`
+- [ ] Remaining resources: further network, data and AI services - listed in `PROGRESS.md`
 - [ ] AVM version drift check; cross-backend diff of one spec
 
 ## 🙏 Acknowledgments

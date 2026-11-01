@@ -43,6 +43,7 @@ kinds:
   load_balancer_backend_pool: { sets: [load-balancer], part: networking.backend_pools, type: Microsoft.Network/loadBalancers/backendAddressPools, id: arm }
   log_analytics_workspace:  { sets: [log-analytics-workspace],  type: Microsoft.OperationalInsights/workspaces,           id: arm }
   logic_app:                { sets: [logic-app],                type: Microsoft.Logic/workflows,                          id: arm }
+  maintenance_configuration: { sets: [maintenance-configuration], type: Microsoft.Maintenance/maintenanceConfigurations, id: arm }
   monitor_private_link_scope: { sets: [],                       type: Microsoft.Insights/privateLinkScopes,               id: arm }
   network_security_perimeter: { sets: [],                       type: Microsoft.Network/networkSecurityPerimeters,        id: arm }
   # A principal of this spec is a user-assigned identity; one outside it is an Entra object id.
