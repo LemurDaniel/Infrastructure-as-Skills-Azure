@@ -1,0 +1,52 @@
+schema_version: 1
+
+# Three public PaaS services without a network, as an import (iac-unclick) reads a portal-built
+# group: lines from the internet straight into each service, a person's role on the vault
+# (external:<type>-<objectId>).
+spec:
+  id: registry-public
+  target: bicep
+  at: 2026-11-02T10:00:00Z
+
+context:
+  environments: [production]
+  language: de
+  location: germanywestcentral
+  workload: registry
+  subscription_id:
+    production: 11111111-2222-3333-4444-555555555555
+  resource_group_name:
+    production: rg-registry-prod
+
+deployment:
+  # --- posture ---
+  network_exposure:
+    value: public
+    source: imported
+
+resources:
+  key-vault:
+    networking:
+      public_network_access:
+        value: enabled
+        source: imported
+
+  container-registry:
+    networking:
+      public_network_access:
+        value: enabled
+        source: imported
+
+  storage-account:
+    networking:
+      public_network_access:
+        value: enabled
+        source: imported
+
+wiring:
+  role_assignments:
+    value:
+    - from: external:user-33bb1760-ae82-4b5c-8160-600c7dff76dc
+      to: key-vault
+      role: Key Vault Administrator
+    source: imported
