@@ -36,7 +36,8 @@ ADOPT_KEYS = {
 }
 # Who may have put an id there: the import, or a person naming it.
 ADOPT_SOURCES = ('imported', 'stated', 'asked')
-UNMAPPED_REASONS = ('no_question_set', 'outside_lock_policy', 'destination_not_supported', 'not_readable')
+UNMAPPED_REASONS = ('no_question_set', 'outside_lock_policy', 'destination_not_supported', 'scope_not_adopted',
+                    'not_readable')
 UNMAPPED_KEYS = ('type', 'id', 'reason', 'note')
 
 

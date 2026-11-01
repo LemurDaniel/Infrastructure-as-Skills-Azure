@@ -570,7 +570,7 @@ unmapped:
 | `resources.<key>.adopt.diagnostic_setting_id` | The resource's diagnostic setting, below its id |
 | `resources.<key>.adopt.parts` | The other Azure resources the set renders for it - an App Service's plan, a private endpoint its module makes - a list of ids per stage, each of a type its `render-map.yaml` lists under `import_parts`. Without it the render adopts the resource and creates its plan a second time |
 | `wiring.role_assignments[].adopt_id` | An existing role assignment, a stage map of its id |
-| `unmapped` | What was found and is not rendered: `{ type, id, reason, note? }`, `reason` one of `no_question_set`, `outside_lock_policy` (a lock `resource_lock` cannot express), `destination_not_supported` (a diagnostic setting to something other than the workspace), `not_readable`. Never dropped silently; `check_spec.py` reports every entry |
+| `unmapped` | What was found and is not rendered: `{ type, id, reason, note? }`, `reason` one of `no_question_set`, `outside_lock_policy` (a lock `resource_lock` cannot express), `destination_not_supported` (a diagnostic setting to something other than the workspace), `scope_not_adopted` (a role assignment on the resource group or the subscription), `not_readable`. Never dropped silently; `check_spec.py` reports every entry |
 
 `adopt` holds ids, not decisions: no question asks it, the decision document leaves it out of
 the per-resource lists, and a resource with nothing but `adopt` has recorded no decision. A

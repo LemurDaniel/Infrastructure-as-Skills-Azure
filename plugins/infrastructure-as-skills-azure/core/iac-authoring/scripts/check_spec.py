@@ -46,7 +46,8 @@ Read-only. Checks what the contract in references/spec.md promises:
      gateway): no part is named by two resources of its set through it.
   7c. Every subnet a virtual-network of the spec creates - listed, or the implied private
      endpoint subnet - is named by a network-security-group, but those Azure refuses one on
-     (NO_NSG_SUBNETS).
+     (NO_NSG_SUBNETS). On an adopted network a subnet without one is a warning: it is what
+     runs today, a departure the review decides.
   8. Resource groups: the groups are derived (rg_roles.groups) - one, `main`, unless
      `resource_group_layout` is split; under a split every role of the scheme
      (`resource_group_scheme`: concern by default, lifecycle, protection, or component:
@@ -134,6 +135,11 @@ ROLES_SECRETS = ['Key Vault Secrets Officer', 'Key Vault Administrator', 'Owner'
 ROLES_CREATE_GROUP = ['Contributor', 'Owner']
 
 
+def fast_load(yaml, f):
+    """safe_load through libyaml's C loader where PyYAML has it - the sets are read on every check."""
+    return yaml.load(f, Loader=getattr(yaml, 'CSafeLoader', yaml.SafeLoader))
+
+
 def load_question_index(yaml):
     """(resource or 'deployment', question id) -> question dict, from the plugin's sets."""
     index = {}
@@ -146,7 +152,7 @@ def load_question_index(yaml):
     dep = os.path.join(HERE, '..', 'questions', 'deployment.yaml')
     if os.path.isfile(dep):
         with open(dep, encoding='utf-8') as f:
-            add('deployment', yaml.safe_load(f))
+            add('deployment', fast_load(yaml, f))
     res_root = os.path.join(PLUGIN, 'resources')
     if os.path.isdir(res_root):
         for fam in os.listdir(res_root):
@@ -156,7 +162,7 @@ def load_question_index(yaml):
                     qs = os.path.join(fam_dir, res, 'questions.yaml')
                     if os.path.isfile(qs):
                         with open(qs, encoding='utf-8') as f:
-                            add(res, yaml.safe_load(f))
+                            add(res, fast_load(yaml, f))
     return index
 
 
@@ -171,13 +177,13 @@ def load_set_types(yaml):
             qs = os.path.join(fam_dir, res, 'questions.yaml')
             if os.path.isfile(qs):
                 with open(qs, encoding='utf-8') as f:
-                    doc = yaml.safe_load(f) or {}
+                    doc = fast_load(yaml, f) or {}
                 if isinstance(doc, dict) and isinstance(doc.get('resource'), str):
                     types[res] = doc['resource']
             rm = os.path.join(fam_dir, res, 'render-map.yaml')
             if os.path.isfile(rm):
                 with open(rm, encoding='utf-8') as f:
-                    doc = yaml.safe_load(f) or {}
+                    doc = fast_load(yaml, f) or {}
                 if isinstance(doc, dict) and isinstance(doc.get('import_parts'), list):
                     parts[res] = doc['import_parts']
     return types, parts
@@ -467,10 +473,15 @@ def main():
     for rkey, rnode in (get(spec, 'resources') or {}).items():
         if str(rkey).split('__')[0] != 'virtual-network':
             continue
+        adopted = isinstance(rnode, dict) and isinstance(rnode.get('adopt'), dict)
         for name in sorted(spec_ref.part_names(rnode, subnet_kind.get('part') or 'addressing.subnets', subnet_kind.get('implied'))):
             if name not in NO_NSG_SUBNETS and (str(rkey), name) not in guarded:
-                errors.append(f"subnet {name} of {rkey} has no network security group - every subnet the spec "
-                              f"creates gets one (a network-security-group whose networking.subnets names it)")
+                if adopted:  # what runs today: a departure for the review, not a spec that cannot be written
+                    warnings.append(f"subnet {name} of the adopted {rkey} has no network security group today - "
+                                    f"a departure from the guardrails; add one in the review")
+                else:
+                    errors.append(f"subnet {name} of {rkey} has no network security group - every subnet the spec "
+                                  f"creates gets one (a network-security-group whose networking.subnets names it)")
 
     # context values that are per-stage maps follow the same rule
     for key, v in (get(spec, 'context') or {}).items():
@@ -788,8 +799,10 @@ def main():
     # --- 11. imports: adopt, unmapped, imported_from --------------------------
     # What an import (iac-unclick) leaves: the ids the render imports instead of creating a
     # second resource, and what it found and does not render.
+    imports = has(spec, 'unmapped') or has(get(spec, 'spec'), 'imported_from') or any(
+        has(r, 'adopt') for r in (get(spec, 'resources') or {}).values())
     try:
-        set_types, set_parts = load_set_types(yaml)
+        set_types, set_parts = load_set_types(yaml) if imports else ({}, {})  # only an import reads them
     except (yaml.YAMLError, OSError):
         set_types, set_parts = {}, {}
     imp_errors, imp_warnings, adopted = spec_import.check(spec, set_types, set_parts, environments, spec_source.kind)
