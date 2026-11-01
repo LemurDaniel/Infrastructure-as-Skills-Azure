@@ -371,7 +371,8 @@ mapping:
 - **A referenced platform part answers its central question.** A named hub network or
   shared private-endpoint subnet answers `central_network` as `yes`, a named central
   workspace `central_logging` as `yes`, a named zone resource group `central_private_dns` as
-  `yes`, a named backup vault `central_backup` as `yes` - recorded `stated`, never an open item, because the reference is the answer. It does
+  `yes`, a named backup vault `central_backup` as `yes` - recorded `stated`, never an open item, because the reference is the answer (the
+  reference itself is `{ existing: <kind> }`, its id an open item unless the person gave it). It does
   not answer `landing_zone_exists`: only the customer saying there is a landing zone does,
   and without one `landing_zone` stays `standalone` while each central answer sets its own
   ownership decision. An explicit answer beats an archetype's pre-answer.
@@ -670,12 +671,21 @@ ask it; default it and say so in Phase 4, or open it with its owner.
 **Never invent a value nobody gave.** Grouped options work for an `enum`, where the
 values come from the question set. A reference (`accepts: { ref: ... }`), an address range, a subscription id, a
 workspace name — anything only the environment knows — is never offered as an option and
-never guessed: it comes from the stage file or from the person's
-own prose in Phase 0, and otherwise it is an `open:` entry naming its owner. An
+never guessed: it comes from the person's own prose in Phase 0, and otherwise it is an
+`open:` entry naming its owner. An
 unassigned address range is a blocker to say out loud, not a gap to fill with
 `10.0.0.0/16`; a workspace that does not exist yet is a boundary — something this run
 does not create — and the honest answer is to record it as missing rather than to
 reference a name nobody has.
+
+**A reference is written in one of two forms** ([spec.md](references/spec.md#references)):
+`{ resource: <key> }` for a resource of this spec, with `part: <name>` where the kind is a part
+(`{ resource: virtual-network, part: snet-app }`), one value for every stage; or
+`{ existing: <kind> }` for one outside it. An existing one carries `id:` per stage only where
+the person gave the resource ids; a name without an id ("the platform workspace
+law-platform-prod" / "der Plattform-Workspace law-platform-prod") is never written as a value -
+it goes into the `open:` entry's question, which asks the owner for the id. Never a bare name,
+a stage map around a reference, or a name and resource group.
 
 **Ask in the user's language; keep the artefacts in English.** A question's `ask`,
 `plain`, `plain_values` and `offer` carry the customer's wording per language: put the
