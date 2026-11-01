@@ -324,9 +324,33 @@ the detail; this list says what was decided and why, so a session does not reope
   the plugin. Azure customers sit on Copilot licences; Codex reaches few of them and has no
   eval harness here. An Agent Plugins 1.0 root `plugin.json` would serve both, but fixes
   skills to `skills/` - not worth moving `core/` for until a host needs it.
+- **What a decision renders to is data, `render-map.yaml`, read through a digest**
+  (2026-11-01). A render read the skill, `spec.md` and every reference whole (~250 KB) and
+  took the attribute from the question's `renders` string - prose, partly stale (azurerm 4.x
+  names, inverted polarity, the authored spelling under AVM: `account_replication_type` where
+  the module takes `account_sku_name`). Now each resource has a `render-map.yaml` beside its
+  set: per target and implementation the attribute and the literal of every answer
+  (`references/render-map.md`); `render_digest.py <spec>` prints each decision with that
+  literal filled in, plus the line ranges of only the references the spec needs (~50% less
+  read). Data, not prose, because the renderer's core must not rest on heuristics: the digest
+  does `dict` lookups, `check_render_map.py` holds every file to its question set. A literal
+  no reference states is a `gap`, never a guess; every scalar answer says how it renders
+  (`values` complete, `format`, or an explicit `passthrough: true`) - the pass-through of an
+  answer into an id, a block or another unit was the error class the reviews found most. YAML
+  in its own file, not in `questions.yaml`: the set stays backend-neutral, as the spec does.
 
 ## State
 
+- **`render-map.yaml` for all 67 resources, the render digest mandatory** (2026-11-01, branch
+  `render-yaml`): 5,190 entries, 980 of them `gap` (18% - the references do not state the
+  literal), 1,658 explicit pass-throughs, 101 `not_rendered`. Written by 8 agents, reviewed by 3
+  (330 ERRORs - the hand-written storage pilot had 9), corrected by 8, sample-reviewed once more
+  (75 of 81 former ERRORs fixed or honestly a gap, the 6 left fixed by hand, 0 unit errors new).
+  `check_render_map.py` and both test runners are in the repository checks. The format has
+  `companions`, lists per attribute or module, `kinds`/`by_kind`, composite formats with
+  `part_of`, `format: { expr }`, `omit_empty`; code names `{group.question}` (filled by the
+  digest) and `<name>` (filled by the render), never `...`. The question sets still carry
+  `renders` and the references their decision tables - both go once the sources agree (*Open*).
 - **18 more sets written 2026-10-26 (67 resource sets in 10 families, 1,442 questions with the deployment
   set), checked, not exercised:** network public-dns-zone, traffic-manager, ddos-protection-plan, network-watcher (VNet flow logs only);
   observability action-group, alert-rule (metric, log query and activity log by `kind`),
@@ -550,6 +574,38 @@ until it is fixed or decided against.
   `canonical-no-anchors` are load-checked, not run - a run without a shell lays the form out
   by hand, and whether it does is unmeasured. The diagram and spec-test fixtures are not
   named `infra-spec.yaml` and not laid out; `run_spec_tests.py` edits its fixture as text.
+
+### The sources behind `render-map.yaml` (own branch)
+
+The migration read every question set against both references and found where they disagree.
+The maps follow the reference and mark the rest a `gap`; the sources themselves are fixed on a
+branch of their own, then `renders` leaves the sets and the decision tables leave the `.md`
+(the map is the one record). What it has to fix:
+
+- **`renders` is stale or wrong in many sets**: diagnostics `logs[].category` / `metrics[].category`
+  where the modules take `log_categories` / `metric_categories` (application-gateway, front-door,
+  network-security-group, container-registry); azurerm 4.x names (event-grid-system-topic, aks
+  `public_network_access`, sql-database `minimal_tls_version`); wrong module inputs (service-bus
+  `sku.name`, event-hubs `ip_rules`, key-vault-key `key_*`, role-assignment, app-service
+  `scm_ip_restriction` and `sticky_settings`, logic-app TLS, cosmos-db autoscale, container-apps scale).
+- **References contradicting themselves**: virtual-network Bicep subnet paths (table vs code),
+  application-insights `local_authentication_enabled` vs `_disabled`, sql-managed-instance
+  failover-group type, postgresql "fixed at creation" row, virtual-machine `AADSSHLoginforLinux`,
+  load-balancer and several authored diagnostics still on the 4.x `metric {}` block.
+- **Answers a module refuses or no reference renders**: redis `NoCluster` and the LFU policies,
+  sql-database TLS 1.3, sql-managed-instance `GeoZone`, service-bus `DiagnosticErrorLogs` and
+  capacity `0`, function-app `connection_string`, APIM and communication-services
+  `enabled_with_firewall`, alert-rule `query_identity` other than user-assigned, many bools with no
+  rendering for `false` (mysql audit, sql threat detection, redis encrypted connections).
+- **Questions missing or mistyped**: log-analytics-workspace `access.local_auth` is a bool fed by
+  the deployment enum (`local_authentication_enabled = "disabled"` today - check every set that
+  inherits `local_auth`); virtual-network `ddos_protection` needs a plan id no question gives;
+  storage queue `metadata` is a map, not a list; public-ip `zones` ints vs strings; traffic-manager
+  status ranges; backup and recovery vault tables name `user_assigned_identity_ids`, which no set has.
+- **Thin authored references** - the most gaps: front-door (names resources, no arguments), key-vault,
+  alert-rule, app-service, function-app, container-apps, foundry (complete from ai-services, same
+  ARM type), api-management, data-collection-rule. Recurring holes: role assignments, private
+  endpoint subnet, identity type literals, Bicep diagnostics, Terraform `enabled_metric`.
 
 ### Rendering references and question sets
 
@@ -1049,9 +1105,14 @@ regeneration from the spec loses them. All `render`:
 
 ## Next
 
-**Merge #15 (0.6.0)**: pushed, ready for review, evals run, recorded and accepted as the
-baseline (see *Evals*). Left: the owner's squash merge. After it, regenerate the remaining examples against the revised spec, and freeze the
-formats (*Road to 1.0.0*).
+**Merge `render-yaml`** (render digest, `render-map.yaml` for 67 resources): a PR into `dev`.
+Then the **sources branch** (*Open*: the sources behind `render-map.yaml`): fix the sets and
+references the migration found disagreeing, fill the largest gaps (front-door first), then drop
+`renders` from the question sets and the decision tables from the `.md` - and teach
+`check_question_set.py` that `renders` is gone. An eval run that renders with the digest belongs
+before the release that carries it: no case exercises it yet. After that, regenerate the
+remaining examples against the revised spec and freeze the formats (*Road to 1.0.0*) - the
+render-map format among them.
 
 **The pattern skill** (`ideas/pattern-skill.md`): the wiring that `chatbot` and
 `chatbot-rag` carry by hand — roles between resources, the private link, the order
