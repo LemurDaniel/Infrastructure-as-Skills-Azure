@@ -1,0 +1,120 @@
+# What each decision of questions.yaml renders to, per target and implementation.
+# Format: core/iac-rendering/references/render-map.md. The call, the authored blocks and the
+# tests are in terraform.md and bicep.md.
+# Terraform: the vault module's key submodule - Orphaned with it, azurerm-based (< 5.0); a root
+# on 5.x renders authored. Bicep: the vault module's key child module.
+schema_version: 1
+resource: Microsoft.KeyVault/vaults/keys
+
+modules:
+  terraform: [Azure/avm-res-keyvault-vault/azurerm//modules/key]
+  bicep: [avm/res/key-vault/vault/key]
+
+decisions:
+
+  # ---------------------------------------------------------------- placement
+  placement.environments:
+    not_rendered: the stage file the vault reference comes from; no attribute of the key
+  placement.key_vault:
+    terraform_avm: { attribute: key_vault_resource_id, note: the vault module's resource_id output }
+    terraform: { attribute: key_vault_id }
+    bicep_avm:
+      attribute: keyVaultName
+      note: "the vault's NAME, never the reference's id - the vault module's name output or the vault's name parameter; same resource group"
+    bicep: { attribute: parent, note: an existing resource symbol for the vault - never the id string }
+  placement.purpose:
+    not_rendered: drives the defaults of key_operations and the role in role_assignments; no attribute of its own
+
+  # ----------------------------------------------------------------- identity
+  identity.role_assignments:
+    terraform_avm:
+      attribute: 'role_assignments.<key> = { role_definition_id_or_name, principal_id, principal_type }'
+      note: scoped to the key's versionless id
+    terraform: { attribute: azurerm_role_assignment, note: scope = azurerm_key_vault_key.this.resource_versionless_id }
+    bicep_avm:
+      attribute: 'roleAssignments[] = { roleDefinitionIdOrName, principalId, principalType }'
+      note: scoped to the key; the module knows a fixed set of role names - read it from the README
+    bicep: { attribute: Microsoft.Authorization/roleAssignments, note: scope = the key }
+
+  # ----------------------------------------------------------------- security
+  security.algorithm:
+    terraform_avm:
+      attribute: type
+      format: '{value}{security.protection}'
+      note: RSA, RSA-HSM, EC, EC-HSM; case-sensitive
+    terraform: { attribute: key_type, format: '{value}{security.protection}' }
+    bicep_avm:
+      attribute: kty
+      format: '{value}{security.protection}'
+      note: module default EC - written
+    bicep: { attribute: properties.kty, format: '{value}{security.protection}' }
+  security.protection:
+    terraform_avm:
+      attribute: type
+      values: { software: '', hsm: -HSM }
+      part_of: security.algorithm
+      note: hsm needs a Premium vault, which the submodule does not validate
+    terraform: { attribute: key_type, values: { software: '', hsm: -HSM }, part_of: security.algorithm }
+    bicep_avm: { attribute: kty, values: { software: '', hsm: -HSM }, part_of: security.algorithm, note: hsm needs a Premium vault }
+    bicep: { attribute: properties.kty, values: { software: '', hsm: -HSM }, part_of: security.algorithm }
+  security.key_operations:
+    terraform_avm:
+      attribute: opts
+      note: 'submodule default [], the vault module''s keys default ["sign", "verify"] - written'
+    terraform: { attribute: key_opts, note: required }
+    bicep_avm: { attribute: keyOps, note: unset by default (the type's operations); written }
+    bicep: { attribute: properties.keyOps }
+  security.key_size:
+    terraform_avm: { attribute: size, passthrough: true, note: RSA only; null for EC }
+    terraform: { attribute: key_size, passthrough: true, note: RSA only }
+    bicep_avm: { attribute: keySize, passthrough: true, note: RSA only }
+    bicep: { attribute: properties.keySize, passthrough: true, note: RSA only }
+  security.curve:
+    terraform_avm: { attribute: curve, passthrough: true, note: EC only; null for RSA }
+    terraform: { attribute: curve, passthrough: true, note: EC only }
+    bicep_avm: { attribute: curveName, passthrough: true, note: EC only; module default P-256 }
+    bicep: { attribute: properties.curveName, passthrough: true, note: EC only }
+
+  # ---------------------------------------------------------- data_protection
+  data_protection.rotation_days:
+    terraform_avm:
+      attribute: rotation_policy.automatic.time_after_creation
+      format: 'P{value}D'
+      note: null with 0
+    terraform: { attribute: rotation_policy.automatic.time_after_creation, format: 'P{value}D' }
+    bicep_avm:
+      attribute: 'rotationPolicy.lifetimeActions[].trigger.timeAfterCreate'
+      format: 'P{value}D'
+      note: "the entry with action: { type: 'rotate' }"
+    bicep:
+      attribute: 'properties.rotationPolicy.lifetimeActions[].trigger.timeAfterCreate'
+      format: 'P{value}D'
+      note: "action: { type: 'rotate' }"
+  data_protection.expiry_days:
+    terraform_avm:
+      attribute: rotation_policy.expire_after
+      format: 'P{value}D'
+      note: dates each version a rotation creates; the first version gets no expiration_date - that needs authored
+    terraform:
+      attribute: rotation_policy.expire_after
+      format: 'P{value}D'
+      note: a first version that must expire takes expiration_date (RFC 3339, from a time_offset)
+    bicep_avm:
+      attribute: rotationPolicy.attributes.expiryTime
+      format: 'P{value}D'
+      note: dates each version a rotation creates; attributesExp is left unset
+    bicep:
+      attribute: properties.rotationPolicy.attributes.expiryTime
+      format: 'P{value}D'
+      note: a first version that must expire takes properties.attributes.exp (epoch seconds)
+  data_protection.notify_days_before_expiry:
+    terraform_avm: { attribute: rotation_policy.notify_before_expiry, format: 'P{value}D' }
+    terraform: { attribute: rotation_policy.notify_before_expiry, format: 'P{value}D' }
+    bicep_avm:
+      attribute: 'rotationPolicy.lifetimeActions[].trigger.timeBeforeExpiry'
+      format: 'P{value}D'
+      note: "action: { type: 'notify' }; a duration before expiry, not an offset from creation"
+    bicep:
+      attribute: 'properties.rotationPolicy.lifetimeActions[].trigger.timeBeforeExpiry'
+      format: 'P{value}D'
+      note: "action: { type: 'notify' }"

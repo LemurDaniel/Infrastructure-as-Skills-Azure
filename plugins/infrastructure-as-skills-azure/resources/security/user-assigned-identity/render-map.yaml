@@ -1,0 +1,58 @@
+# What each decision of questions.yaml renders to, per target and implementation.
+# Format: core/iac-rendering/references/render-map.md. The call, the authored blocks and the
+# tests are in terraform.md and bicep.md.
+# The Terraform module is azurerm-based (azurerm < 5.0): a root calling it cannot be on 5.x.
+schema_version: 1
+resource: Microsoft.ManagedIdentity/userAssignedIdentities
+
+modules:
+  terraform: [Azure/avm-res-managedidentity-userassignedidentity/azurerm]
+  bicep: [avm/res/managed-identity/user-assigned-identity]
+
+decisions:
+
+  # ---------------------------------------------------------------- placement
+  placement.environments:
+    not_rendered: naming parameter `environment` and the tag of that name; no attribute of the identity
+  placement.location:
+    terraform_avm: { attribute: location, passthrough: true }
+    terraform: { attribute: location, passthrough: true }
+    bicep_avm: { attribute: location, passthrough: true }
+    bicep: { attribute: location, passthrough: true }
+  placement.resource_group_name:
+    terraform_avm: { attribute: resource_group_name, note: 'a name, not parent_id - azurerm-based module' }
+    terraform: { gap: reference names no argument }
+    bicep_avm: { gap: the deployment's resource group scope; no parameter }
+    bicep: { gap: the deployment's resource group scope; no property }
+
+  # ----------------------------------------------------------------- identity
+  identity.purpose:
+    terraform_avm: { attribute: tags.purpose, passthrough: true, note: 'merged into local.tags; also the workload part of the name' }
+    terraform: { attribute: tags.purpose, passthrough: true, note: from the question's renders; the reference's authored table names none }
+    bicep_avm: { attribute: tags.purpose, passthrough: true, note: 'union(tags, { purpose: purpose }); also the workload part of the name' }
+    bicep: { attribute: tags.purpose, passthrough: true, note: from the question's renders; the reference's authored table names none }
+  identity.federated_credentials:
+    terraform_avm:
+      attribute: 'federated_identity_credentials.<key> = { name, issuer, subject, audience }'
+      note: audience is a list; module default {}
+    terraform: { attribute: 'azurerm_federated_identity_credential { parent_id, issuer, subject, audience }' }
+    bicep_avm: { attribute: 'federatedIdentityCredentials[] = { name, issuer, subject, audiences }', note: audiences is an array }
+    bicep:
+      attribute: 'federatedIdentityCredentials child properties: { issuer, subject, audiences }'
+      note: '@batchSize(1) - created one after another'
+  identity.isolation_scope:
+    terraform_avm:
+      attribute: isolation_scope
+      values: { None: { expr: 'null' }, Regional: Regional }
+      note: only "Regional" or null
+    terraform:
+      attribute: isolation_scope
+      values: { None: null, Regional: Regional }
+      note: only "Regional" or unset (None is null); the argument exists only where the provider has it - check terraform providers schema -json
+    bicep_avm: { attribute: isolationScope, passthrough: true, note: both values valid; written }
+    bicep: { attribute: properties.isolationScope, passthrough: true }
+  identity.role_assignments:
+    terraform_avm: { attribute: 'role_assignments.<key> = { role_definition_id_or_name, principal_id }' }
+    terraform: { attribute: azurerm_role_assignment, note: scoped to the identity's id }
+    bicep_avm: { attribute: 'roleAssignments[] = { principalId, roleDefinitionIdOrName, principalType }' }
+    bicep: { attribute: Microsoft.Authorization/roleAssignments, note: scope = the identity }
