@@ -446,7 +446,7 @@ the decisions inside it are matched, not equalled.
 
 What the compiled template cannot show: a deletion-time behaviour (`forceDelete`), a
 value only an output or a deployment resolves (an `existing` reference's id), a decision
-recorded in the spec and rendered nowhere (`subnets_expecting_nsg`). Those are
+recorded in the spec and rendered nowhere (`not_rendered` in its render-map.yaml). Those are
 `not_testable` with the reason, as in Terraform.
 
 ## Before handing over

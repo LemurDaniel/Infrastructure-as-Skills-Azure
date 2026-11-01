@@ -26,6 +26,21 @@ decisions:
     bicep_avm: { gap: the deployment's resource group scope; no parameter }
     bicep: { gap: the deployment's resource group scope; no property }
 
+  # --------------------------------------------------------------- networking
+  networking.subnets:
+    terraform_avm:
+      on_part: 'subnets.{part}.network_security_group = { id = {self} }'
+      note: an input of the virtual-network module, not of this one
+    terraform:
+      attribute: azurerm_subnet_network_security_group_association.subnet_id
+      note: one association per subnet (for_each), network_security_group_id the group's; or the subnet's own argument - one of them, never both
+    bicep_avm:
+      on_part: 'subnets[name={part}].networkSecurityGroupResourceId: {self}'
+      note: a parameter of the virtual-network module, not of this one
+    bicep:
+      on_part: "properties.subnets[name={part}].properties.networkSecurityGroup.id: {self}"
+      note: the subnet takes the group's id; an NSG has no property naming its subnets
+
   # -------------------------------------------------------------------- rules
   rules.subnet_purpose:
     terraform_avm:

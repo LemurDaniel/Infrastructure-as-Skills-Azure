@@ -4,7 +4,7 @@ spec:
   id: claude-plugin-eval-agent
   target: bicep
   generated_by: infrastructure-as-skills-azure
-  plugin_version: 0.5.1
+  plugin_version: 0.7.0
   skill: iac-authoring
   skill_version: 0.1.0
   at: 2026-10-24T12:00:00Z
@@ -139,7 +139,7 @@ composition:
   source: default
   modules:
   - id: network
-    contains: [virtual-network]
+    contains: [virtual-network, network-security-group__endpoints, network-security-group__apps]
     implementation: authored
     source: deployment
     outputs: [id, integration_subnet_id, private_endpoint_subnet_id]
@@ -254,10 +254,6 @@ resources:
       ddos_protection:
         value: false
         source: default
-      subnets_expecting_nsg:
-        value:
-          production: []
-        source: default
     observability:
       diagnostic_workspace:
         value:
@@ -265,6 +261,77 @@ resources:
         source: deployment
       flow_logs_enabled:
         value: false
+        source: default
+
+  network-security-group__endpoints:
+    meta:
+      purpose:
+        value: Schutz der privaten Endpunkte
+        source: stated
+    networking:
+      subnets:
+        value:
+        - resource: virtual-network
+          part: pe
+        source:
+          forced_by: resources.virtual-network.addressing.subnets
+    rules:
+      subnet_purpose:
+        value: private_endpoints
+        source:
+          forced_by: resources.virtual-network.addressing.private_endpoint_subnet_prefix
+      default_inbound:
+        value: deny_all
+        source: default
+      default_outbound:
+        value: deny_internet
+        source:
+          forced_by: resources.network-security-group__endpoints.rules.subnet_purpose
+      rules:
+        value: []
+        source: default
+    observability:
+      diagnostic_workspace:
+        value:
+          resource: log-analytics-workspace
+        source: deployment
+      diagnostic_categories:
+        value: [NetworkSecurityGroupEvent, NetworkSecurityGroupRuleCounter]
+        source: default
+
+  network-security-group__apps:
+    meta:
+      purpose:
+        value: Schutz des App-Subnetzes
+        source: stated
+    networking:
+      subnets:
+        value:
+        - resource: virtual-network
+          part: app-integration
+        source:
+          forced_by: resources.virtual-network.addressing.subnets
+    rules:
+      subnet_purpose:
+        value: app_integration
+        source:
+          forced_by: resources.app-service__dashboard.networking.integration_subnet
+      default_inbound:
+        value: deny_all
+        source: default
+      default_outbound:
+        value: azure_default
+        source: default
+      rules:
+        value: []
+        source: default
+    observability:
+      diagnostic_workspace:
+        value:
+          resource: log-analytics-workspace
+        source: deployment
+      diagnostic_categories:
+        value: [NetworkSecurityGroupEvent, NetworkSecurityGroupRuleCounter]
         source: default
 
   log-analytics-workspace:

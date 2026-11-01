@@ -1,6 +1,6 @@
 # Infrastructure as Skills: Azure
 
-![Infrastructure as Skills for Azure: an interview turns the decisions each resource forces into a spec, rendered as Terraform or Bicep on Azure Verified Modules](docs/social-preview.png)
+![A 34-second teaser of a run: the request, the interview, the spec with where each decision came from, the diagram sign-off, the render with one test per decision](docs/teaser.gif)
 
 > [!NOTE]
 > **AI disclaimer:** Yes, an AI helped write this, and yes, an AI is the one doing the interviewing. No, it does not get to `terraform apply`. Every decision it makes is written down with where it came from, and every render ships with a test per decision. 🤖
@@ -18,10 +18,6 @@
 [![Evals on Sonnet](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/LemurDaniel/Infrastructure-as-Skills-Azure/8e1bd6c30aa07bcfbc854dbb002c76f369d389da/badge-sonnet.json)](https://github.com/LemurDaniel/Infrastructure-as-Skills-Azure/blob/8e1bd6c30aa07bcfbc854dbb002c76f369d389da/README.md)
 
 A Claude Code plugin that authors Azure infrastructure as **Terraform or Bicep** from the decisions a resource actually forces - compute, network, data, security, messaging, integration, AI and recovery, 67 resource types in ten families. Not a module library and not a template collection. The interview writes an `infra-spec.yaml`; the code, its tests, a diagram and a decision document are rendered from that, onto [Azure Verified Modules](https://azure.github.io/Azure-Verified-Modules/) first.
-
-![A 34-second teaser of a run: the request, the interview, the spec with where each decision came from, the diagram sign-off, the render with one test per decision](docs/teaser.gif)
-
-<sub>🤖 AI-generated teaser, animated from [`docs/teaser.html`](docs/teaser.html). Every figure in it is counted from the [`chat-sandbox`](examples/chat-sandbox/) example.</sub>
 
 ## 💡 The Idea
 
@@ -329,10 +325,6 @@ Early, and the shape matters more than the coverage. The eval suite runs on Sonn
 - [x] A complex case in Bicep: a chat app with RAG (Front Door with WAF, App Service with a slot, Foundry, AI Search, storage, private endpoints), every decision covered by ARM tests, beside [`eval-agent/`](eval-agent/)
 - [ ] Remaining resources: Logic Apps, Data Factory, governance (policy, budgets), further network, data and AI services - listed in `PROGRESS.md`
 - [ ] AVM version drift check; cross-backend diff of one spec
-
-## 🔁 Relation to `Infrastructure-by-Skill`
-
-A sibling repo pointing the other way: it drives a GUI through an agent and records the run, where this one emits code for a provider to apply. That one is explicitly an experiment, and part of the experiment is running it against systems that *do* have an API. Without a comparable IaC path next to it there is no way to tell whether a guided GUI run is merely slower or actually worse. Where both are possible, this repo is the production answer and the other one is the measurement.
 
 ## 🙏 Acknowledgments
 

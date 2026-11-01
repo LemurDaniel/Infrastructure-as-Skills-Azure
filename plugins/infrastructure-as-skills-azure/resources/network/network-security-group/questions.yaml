@@ -11,7 +11,7 @@ naming:
 
 boundaries:
   - "Does not create the resource group. Expects one from the spec's context."
-  - "Does not associate itself with a subnet. The association is a property of the subnet, which the virtual-network set carries (`network_security_group` on a subnet); an NSG nobody associates filters nothing."
+  - "Does not render the association itself. `subnets` references the subnets this group guards; the association is a property of the subnet, so the virtual-network module renders it (`on_part` in render-map.yaml). An NSG no subnet takes filters nothing."
   - "Does not create the Log Analytics workspace it routes diagnostics to."
   - "Does not create flow logs. They belong to Network Watcher and a storage account or workspace, are a separate resource with their own decisions, and have no question set yet."
   - "Does not create application security groups, route tables or a firewall. Egress control for `deny_internet` is the platform's firewall, referenced and not built."
@@ -66,6 +66,28 @@ groups:
           The NSG is placed into an existing group, usually the network's, so the people who
           own the subnets own the rules that guard them.
 
+  # --------------------------------------------------------------- networking
+  - id: networking
+    title: Networking
+    questions:
+      - id: subnets
+        ask:
+          en: "Which subnets does this group guard?"
+          de: "Welche Subnetze schützt diese Gruppe?"
+        type: list
+        plain:
+          en: "Subnets this group guards: {value}."
+          de: "Subnetze, die diese Gruppe schützt: {value}."
+        accepts: { ref: subnet }
+        exclusive: true
+        required: true
+        why: >
+          Recorded here and rendered where the subnet is: the group filters nothing until a
+          subnet takes its id. A reference to a subnet of the network, the same in every stage.
+          The subnets of one purpose share one group; a subnet takes one group at most.
+          `GatewaySubnet` and `AzureFirewallSubnet` take none, and a private endpoint subnet
+          only honours one with its network policies enabled (`notes.md`).
+
   # -------------------------------------------------------------------- rules
   - id: rules
     title: Rules
@@ -79,21 +101,29 @@ groups:
           en: "The group guards a subnet for {value}."
           de: "Die Gruppe schützt ein Subnetz für {value}."
         plain_values:
-          private_endpoints: { en: "private connections to Azure services", de: "private Anbindungen an Azure-Dienste" }
+          private_endpoints: { en: "private connections to Azure services, reachable from the network on port 443", de: "private Anbindungen an Azure-Dienste, aus dem Netz über Port 443 erreichbar" }
           app_integration: { en: "the outgoing traffic of web and function apps", de: "den ausgehenden Verkehr von Web- und Function-Apps" }
           container_apps: { en: "the infrastructure of a container environment", de: "die Infrastruktur einer Container-Umgebung" }
           workload: { en: "workload machines or services", de: "Workload-Maschinen oder -Dienste" }
         accepts: [private_endpoints, app_integration, container_apps, workload]
         required: true
         why: >
-          The rules follow from what is in the subnet, and the plugin cannot guess it: a subnet
-          for private endpoints is entered only by traffic to port 443 of the services behind
-          it, a subnet delegated to an app platform has outbound needs of its own, and a
-          workload subnet has whatever its workload listens on. It names the NSG
-          (`nsg-<purpose>`), picks the baseline in `notes.md` and says which service's
-          documentation to read for the platform rules. With no answer the decision is an
-          `open:` entry owned by the engineer, because an NSG with the wrong role's rules
-          either blocks the service or guards nothing.
+          The rules follow from what is in the subnet: a subnet for private endpoints is
+          entered only by traffic to port 443 of the services behind it, a subnet delegated to
+          an app platform has outbound needs of its own, and a workload subnet has whatever its
+          workload listens on. Every subnet the spec creates gets an NSG (guardrails, network
+          exposure), so the purpose is read from what the spec puts in the subnet, never asked.
+          It names the NSG (`nsg-<purpose>`), picks the baseline in `notes.md` and says which
+          service's documentation to read for the platform rules. A subnet nothing in the spec
+          explains is an `open:` entry owned by the engineer, because an NSG with the wrong
+          role's rules either blocks the service or guards nothing.
+        forced_when: >
+          What references the subnet decides it, recorded as forced with that reference as
+          forced_by: the network's private endpoint subnet (`private_endpoint_subnet_prefix`)
+          takes `private_endpoints`; a subnet an App Service, Function App or Logic App names as
+          `integration_subnet` takes `app_integration`; a Container Apps `infrastructure_subnet`
+          takes `container_apps`; a subnet API Management, Application Gateway or a machine is
+          placed in takes `workload`. One NSG per purpose, naming all of its subnets
 
       - id: default_inbound
         ask:
@@ -127,7 +157,7 @@ groups:
           de: "Ausgehender Verkehr ins Internet, den keine Regel erlaubt, wird {value}."
         plain_values:
           azure_default: { en: "left to Azure's built-in rules, which let it out", de: "den eingebauten Azure-Regeln überlassen, die ihn hinauslassen" }
-          deny_internet: { en: "refused; what must go out goes through the company firewall", de: "abgelehnt; was hinaus muss, läuft über die Firmen-Firewall" }
+          deny_internet: { en: "refused - nothing in the subnet reaches the internet directly", de: "abgelehnt - aus dem Subnetz geht nichts direkt ins Internet" }
         accepts: [azure_default, deny_internet]
         default: azure_default
         why: >
@@ -148,8 +178,8 @@ groups:
           de: "Welcher Verkehr soll ausdrücklich erlaubt werden?"
         type: list
         plain:
-          en: "Traffic allowed explicitly: {value}."
-          de: "Ausdrücklich erlaubter Verkehr: {value}."
+          en: "Traffic allowed explicitly, beyond what the subnet's purpose brings: {value}."
+          de: "Ausdrücklich erlaubter Verkehr über das hinaus, was der Zweck des Subnetzes mitbringt: {value}."
         default: []
         per_environment: true
         why: >

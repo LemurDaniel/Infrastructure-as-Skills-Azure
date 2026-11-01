@@ -799,9 +799,16 @@ per-family` in `check_spec.py` and the `chatbot` spec, and `references/private-d
   import worker) render two environments and two subnets - it needs several apps per
   environment; `central_backup` is asked before `backup_isolation` and so also when no copy
   leaves the system; the round-5 spec and diagram live in a scratchpad only.
-- The diagrams of `chatbot-rag`, `chat-sandbox` and `orders-integration` were not redrawn
-  after region/subscription became `open:` (2026-10-26); `chat-sandbox`'s carries hand edits
-  a redraw would lose.
+- The diagrams of `chatbot-rag` and `orders-integration` were not redrawn after
+  region/subscription became `open:` (2026-10-26). `chat-sandbox` was (2026-11-01): its spec is
+  now English (`context.language: en`; the quotes of the German request and the owner names
+  stay), the picture regenerated and then laid out by hand - App Service label right, one trunk
+  down to the PaaS row, the resource group as a dashed frame, legend and panel side by side,
+  subtitle cell cut from 1300 to 1076px. A redraw loses that; the generator faults behind it
+  (fixed 1300px subtitle, exits from the top looping around the zone, labels on frame borders)
+  are open in `new_diagram.py`. The README now opens with `docs/teaser.gif` instead of
+  `docs/social-preview.png` (kept, likely the GitHub social preview); the teaser carries an
+  `AI-generated` mark top right.
 - `wiring:` is validated by example only. (`check_spec.py` knows `granularity: per-family`
   since 2026-10-25 and the `chatbot` spec declares its seven family modules.)
 - `export_decisions.py` prints `reason` and `open:` texts untranslated. `infra-decisions.docx` is missing everywhere (no `pandoc`).
@@ -901,8 +908,6 @@ per-family` in `check_spec.py` and the `chatbot` spec, and `references/private-d
   NSG pattern has no `<?SUBNAME>` (two NSGs got one name); the web app name has no unique
   id (global hostname); `wiring.private_dns_zones` lacks `oms`/`ods`/`agentsvc` for a
   monitor scope; the Key Vault has no caller in the picture until its access is decided.
-- `chat-sandbox`'s decision panel was finished by hand before the two SKU corrections and
-  does not list the new forced chain (`verify_diagram.py` passes).
 - Not exercised: a fresh export through `export_diagram.py` end to end; the customer-edit
   diff path (extract, regenerate, diff).
 
@@ -1027,6 +1032,14 @@ regeneration from the spec loses them. All `render`:
   The composed Sonnet run is `baseline.json` since (owner's call): 11 cases, every grader at
   its full rate. Haiku keeps failing the same rules as on 0.5.4/0.5.5: invented subscription and
   region, the default stack, `@onlyIfNotExists()`, the CLAUDE.md sync in one of four runs.
+- **0.7.0 (2026-11-01)**: Sonnet 14/14, recorded on `eval-history` as `8e1bd6c`, composed - the
+  full suite on `a4cf3c2`, the `terraform-*` cases re-tested after #26 (graders read file
+  contents), `terraform-code-structure` after #27; the badge pinned to it (#29). New since
+  0.6.0: `spec/platform-workspace-reference` (the interview writes `{ existing:
+  log_analytics_workspace }` with an open id) and `render/terraform-existing-reference` (id
+  variable validated on the ARM type, the id per stage file, no data source) - every render
+  case now runs through the mandatory render digest, though no grader asserts it was read.
+  `baseline.json` is still the 0.6.0 run (11 cases).
 - **CI by hand**: `.github/workflows/eval.plugin.yaml` (`workflow_dispatch`, Sonnet/low by
   default, one case per call with progress, `--scaffold`, report only);
   `record_eval_history.py` writes each run to `eval-history`. `review-agent-separate` never loaded before 2026-10-27 (`focus:
@@ -1111,20 +1124,13 @@ regeneration from the spec loses them. All `render`:
 
 ## Next
 
-**Structured references are in `render-yaml` too** (2026-11-01, see *Decisions*): no eval
-case renders an `existing:` reference yet - one with a platform workspace and an open id
-(the variable, the placeholder in the stage file, no data source) belongs in the run before
-that release.
+**Regenerate the remaining examples and freeze the formats** (*Road to 1.0.0*): `render-yaml`
+(#22) is in `dev`, rendered and graded with structured references in the 0.7.0 run (see
+*Evals*). The examples go against the revised spec first, then `spec.md`,
+`question-set-format.md` and the render-map format name their stable interface. What is
+left of the sources (*Open*) is small and can follow.
 
-**Merge `render-yaml`** (#22: render digest, `render-map.yaml` for 67 resources, `renders` and
-the decision tables gone, the sources corrected, the deployment answers translated, the gaps
-filled from primary sources): into `dev`. An eval run that renders with the digest belongs
-before the release that carries it: no case exercises it yet. What is left of the sources
-(*Open*) is small and can follow. After that, regenerate the
-remaining examples against the revised spec and freeze the formats (*Road to 1.0.0*) - the
-render-map format among them.
-
-**The pattern skill** (`ideas/pattern-skill.md`): the wiring that `chatbot` and
+**The pattern skill** (`ideas/pattern-skill.md`, draft PR #16): the wiring that `chatbot` and
 `chatbot-rag` carry by hand — roles between resources, the private link, the order
 identity → vault → consumer — becomes the first pattern, `./patterns/` enters
 `plugin.json` in the same commit, and `wiring:` becomes a schema `check_spec.py` validates.

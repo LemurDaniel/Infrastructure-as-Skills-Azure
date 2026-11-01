@@ -4,7 +4,8 @@
 Read-only. Checks what the contract in references/spec.md promises:
 
   1. The file parses as YAML, and carries schema_version, spec.id and
-     spec.target.
+     spec.target. schema_version is the spec format's (SPEC_SCHEMA_VERSION); a newer
+     one fails - this plugin does not know the format.
   2. Every decision value carries a known `source`: a word (spec_source.WORDS) or
      a map of one key. A value without one is a settings dump entry, not a
      recorded decision.
@@ -29,6 +30,9 @@ Read-only. Checks what the contract in references/spec.md promises:
   6. composition: unique module ids, every resource contained exactly once,
      `needs` pointing at declared modules and acyclic, `implementation`
      being avm|authored|reuse rather than a module path.
+  6a. _target_overrides (top level or a resource's): keyed by terraform or bicep, each
+     override { value, reason } with a reason - data, since a comment does not
+     survive the parser the render reads the spec through.
   7. Stages: context.environments is a non-empty list; a value that is a map
      keyed by stage names uses only those stages, and a stage it leaves out
      is named by an open entry (`environments:`) for that key. A per_environment
@@ -38,6 +42,11 @@ Read-only. Checks what the contract in references/spec.md promises:
      {existing: <kind>} with an id per stage of the kind's form, or an open entry for
      the id - never a bare name, a stage map or a name and resource group
      (spec_ref.py, references/ref-kinds.yaml).
+  7b. A question marked `exclusive` (a subnet takes one NSG, one route table, one NAT
+     gateway): no part is named by two resources of its set through it.
+  7c. Every subnet a virtual-network of the spec creates - listed, or the implied private
+     endpoint subnet - is named by a network-security-group, but those Azure refuses one on
+     (NO_NSG_SUBNETS).
   8. Resource groups: the groups are derived (rg_roles.groups) - one, `main`, unless
      `resource_group_layout` is split; under a split every role of the scheme
      (`resource_group_scheme`: concern by default, lifecycle, protection, or component:
@@ -84,6 +93,14 @@ import re
 import sys
 
 KNOWN_BLOCKS = ['render', 'plan', 'apply']
+
+# The version of the spec format this plugin reads and writes - not the question sets'
+# schema_version, which versions their own format.
+SPEC_SCHEMA_VERSION = 1
+# Subnets Azure refuses an NSG on (guardrails.md, Network exposure); every other one the spec
+# creates has one.
+NO_NSG_SUBNETS = {'GatewaySubnet', 'AzureFirewallSubnet', 'AzureFirewallManagementSubnet', 'RouteServerSubnet'}
+TARGETS = ('terraform', 'bicep')
 
 # Attribute spellings that belong to a backend, not to a decision. Matched
 # against decision keys only - a render-map.yaml naming them is correct.
@@ -195,12 +212,17 @@ def main():
     for k in ('schema_version', 'spec'):
         if not has(spec, k):
             errors.append(f"top level: '{k}' is missing")
+    sv = get(spec, 'schema_version')
+    if has(spec, 'schema_version') and (not isinstance(sv, int) or isinstance(sv, bool) or sv < 1):
+        errors.append(f"schema_version '{sv}' is not a spec format version (an integer, {SPEC_SCHEMA_VERSION} today)")
+    elif isinstance(sv, int) and sv > SPEC_SCHEMA_VERSION:
+        errors.append(f"schema_version {sv} is a spec format newer than this plugin reads ({SPEC_SCHEMA_VERSION}) - update the plugin")
     head = get(spec, 'spec')
     for k in ('id', 'target'):
         if not has(head, k):
             errors.append(f"spec.{k} is missing")
     target = get(head, 'target')
-    if target and target not in ('terraform', 'bicep'):
+    if target and target not in TARGETS:
         errors.append(f"spec.target '{target}' is not terraform or bicep")
     pv = get(head, 'plugin_version')
     if pv is not None and not re.match(r'^\d+\.\d+\.\d+', str(pv)):
@@ -333,6 +355,11 @@ def main():
                 # A reference is one value; its per-stage part is the existing id inside it.
                 errors.extend(spec_ref.check(path, v, kind, ref_kinds, get(spec, 'resources') or {},
                                              environments, open_stages, open_keys))
+                if (question_of(path) or {}).get('exclusive'):
+                    owner = path.split('.')[1].split('__')[0]
+                    for r in spec_ref.items(v):
+                        if isinstance(r, dict) and r.get('resource') and r.get('part'):
+                            claims.setdefault((owner, path.split('.')[-1], r['resource'], r['part']), []).append(path)
             elif environments and isinstance(v, dict) and v and all(k in environments for k in v):
                 stage_maps += 1
                 missing = [e for e in environments if e not in v]
@@ -393,9 +420,25 @@ def main():
                 errors.append(f"{path}.{key} uses a backend's attribute spelling. The spec names decisions; renderers know attributes.")
             walk(node[k], f"{path}.{key}")
 
+    claims = {}  # (set, question, resource, part) -> the decisions claiming it, for `exclusive`
     for section in ('deployment', 'resources', 'wiring'):
         if has(spec, section):
             walk(spec[section], section)
+    for (owner, qid, res, part), by in claims.items():
+        if len(by) > 1:
+            errors.append(f"{part} of {res} is claimed by {len(by)} {owner} resources ({', '.join(by)}) - "
+                          f"a part takes at most one, so all but one would be overwritten")
+    # A subnet this spec creates without an NSG is open inside the network, and a landing zone's
+    # policy refuses it at apply time.
+    guarded = {(res, part) for (owner, _, res, part) in claims if owner == 'network-security-group'}
+    subnet_kind = ref_kinds.get('subnet') or {}
+    for rkey, rnode in (get(spec, 'resources') or {}).items():
+        if str(rkey).split('__')[0] != 'virtual-network':
+            continue
+        for name in sorted(spec_ref.part_names(rnode, subnet_kind.get('part') or 'addressing.subnets', subnet_kind.get('implied'))):
+            if name not in NO_NSG_SUBNETS and (str(rkey), name) not in guarded:
+                errors.append(f"subnet {name} of {rkey} has no network security group - every subnet the spec "
+                              f"creates gets one (a network-security-group whose networking.subnets names it)")
 
     # context values that are per-stage maps follow the same rule
     for key, v in (get(spec, 'context') or {}).items():
@@ -463,6 +506,33 @@ def main():
 
         if modules:
             ok(f"composition - {len(modules)} module(s), needs acyclic")
+
+    # --- 6a. _target_overrides: per target, each override a value with its reason --------------
+    # The reason is data, not a YAML comment: the render reads the spec through a parser (the
+    # digest), and a comment does not survive one.
+    overrides = [('_target_overrides', get(spec, '_target_overrides'))]
+    overrides += [(f"resources.{r}._target_overrides", get(n, '_target_overrides'))
+                   for r, n in (get(spec, 'resources') or {}).items()]
+    for path, node in overrides:
+        if node is None:
+            continue
+        if not isinstance(node, dict):
+            errors.append(f"{path} is not a map keyed by target ({', '.join(TARGETS)})")
+            continue
+        for t, entries in node.items():
+            if t not in TARGETS:
+                errors.append(f"{path}.{t} is not a target - {', '.join(TARGETS)}")
+                continue
+            if not isinstance(entries, dict):
+                errors.append(f"{path}.{t} is not a map of overrides")
+                continue
+            for name, o in entries.items():
+                if not isinstance(o, dict) or 'value' not in o:
+                    errors.append(f"{path}.{t}.{name} is not {{ value, reason }}")
+                elif not str(o.get('reason') or '').strip():
+                    errors.append(f"{path}.{t}.{name} has no reason - an override nobody explained reads as an accident")
+                elif set(o) - {'value', 'reason'}:
+                    errors.append(f"{path}.{t}.{name} holds {', '.join(sorted(set(o) - {'value', 'reason'}))} beside value and reason")
 
     # --- 8. resource groups ------------------------------------------------
     rg_errors = len(errors)

@@ -11,7 +11,7 @@ naming:
 
 boundaries:
   - "Does not create the resource group. Expects one from the spec's context."
-  - "Does not associate itself with a subnet. The association is a property of the subnet, which the virtual-network set carries (`route_table` on a subnet); a route table nobody associates routes nothing. `subnets` records which subnets expect this one."
+  - "Does not render the association itself. `subnets` references the subnets that take this table; the association is a property of the subnet, so the virtual-network module renders it (`on_part` in render-map.yaml). A route table no subnet takes routes nothing."
   - "Does not create the firewall or network virtual appliance a route points at. The hub firewall is the platform's, referenced by its private address (`firewall_private_ip`) and never built; this plugin builds spokes."
   - "Does not create firewall rules. Sending traffic to a firewall that has no rule for it drops it; the rules are the platform's and the handover names them."
   - "Does not model Virtual WAN or Azure Virtual Network Manager routing. Where AVNM `ManagedOnly` routing or a DeployIfNotExists policy attaches the route table, the subnet's `properties.routeTable` is owned by that controller and this set does not render the association."
@@ -80,12 +80,13 @@ groups:
         plain:
           en: "Subnets that follow these routes: {value}."
           de: "Subnetze, die diesen Routen folgen: {value}."
+        accepts: { ref: subnet }
+        exclusive: true
         required: true
-        per_environment: true
         why: >
-          Recorded and rendered where the subnet is: the table is only effective once a subnet
-          takes its id. The subnets of one role share one table; a subnet takes one table at
-          most. Not for `GatewaySubnet` without care (see `bgp_route_propagation`), and
+          Recorded here and rendered where the subnet is: the table is only effective once a
+          subnet takes its id. A reference to a subnet of the network, the same in every stage.
+          The subnets of one role share one table; a subnet takes one table at most. Not for `GatewaySubnet` without care (see `bgp_route_propagation`), and
           `AzureFirewallSubnet` and `AzureBastionSubnet` have requirements of their own
           that `notes.md` lists - a default route on the wrong one breaks the service.
 

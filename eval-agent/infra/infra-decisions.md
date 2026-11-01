@@ -60,7 +60,6 @@ Die Sicherheitsvorgaben aller Teile an einer Stelle. Sie wurden nicht gefragt un
 
 - **Azure Virtual Network**
   - Ein kostenpflichtiger DDoS-Schutzplan wird nicht genutzt; Azures Basisschutz gilt ohnehin.
-  - Subnetze, die eine Sicherheitsgruppe bekommen: keine.
 - **Azure Container Registry**
   - Die Registry hat keine eigene Identität.
   - Zugriffsrechte auf die Registry vergeben an: keine.
@@ -111,6 +110,26 @@ Die Sicherheitsvorgaben aller Teile an einer Stelle. Sie wurden nicht gefragt un
 - Netzwerk-Logs gehen in log-analytics-workspace.
 - Eine Aufzeichnung erlaubten und abgewiesenen Verkehrs wird nicht geführt.
 
+### Azure Network Security Group (endpoints)
+
+- Subnetze, die diese Gruppe schützt: pe (virtual-network). — weil: `resources.virtual-network.addressing.subnets`
+- Die Gruppe schützt ein Subnetz für private Anbindungen an Azure-Dienste, aus dem Netz über Port 443 erreichbar. — weil: `resources.virtual-network.addressing.private_endpoint_subnet_prefix`
+- Eingehender Verkehr, den keine Regel erlaubt, wird abgelehnt, auch von anderen Maschinen im selben Netz.
+- Ausgehender Verkehr ins Internet, den keine Regel erlaubt, wird abgelehnt - aus dem Subnetz geht nichts direkt ins Internet. — weil: `resources.network-security-group__endpoints.rules.subnet_purpose`
+- Ausdrücklich erlaubter Verkehr über das hinaus, was der Zweck des Subnetzes mitbringt: keine.
+- Seine Logs gehen in log-analytics-workspace.
+- Geloggt wird: welche Regel auf welche Maschine angewendet wurde, wie oft jede Regel gegriffen hat.
+
+### Azure Network Security Group (apps)
+
+- Subnetze, die diese Gruppe schützt: app-integration (virtual-network). — weil: `resources.virtual-network.addressing.subnets`
+- Die Gruppe schützt ein Subnetz für den ausgehenden Verkehr von Web- und Function-Apps. — weil: `resources.app-service__dashboard.networking.integration_subnet`
+- Eingehender Verkehr, den keine Regel erlaubt, wird abgelehnt, auch von anderen Maschinen im selben Netz.
+- Ausgehender Verkehr ins Internet, den keine Regel erlaubt, wird den eingebauten Azure-Regeln überlassen, die ihn hinauslassen.
+- Ausdrücklich erlaubter Verkehr über das hinaus, was der Zweck des Subnetzes mitbringt: keine.
+- Seine Logs gehen in log-analytics-workspace.
+- Geloggt wird: welche Regel auf welche Maschine angewendet wurde, wie oft jede Regel gegriffen hat.
+
 ### Azure Log Analytics Workspace
 
 - Logs werden 30 Tage aufbewahrt.
@@ -156,7 +175,7 @@ Die Sicherheitsvorgaben aller Teile an einer Stelle. Sie wurden nicht gefragt un
 - Die Images liegen zusätzlich in keine (leer: nur in der Hauptregion).
 - Images ohne Tag werden nach 7 Tagen gelöscht.
 - Die Registry ist aus dem Internet überhaupt nicht erreichbar.
-- Seine private Anbindung landet im Subnetz pe.
+- Seine private Anbindung landet im Subnetz pe (virtual-network).
 - Vertrauenswürdige Azure-Dienste dürfen nicht an der Firewall der Registry vorbei.
 - Das Herauskopieren von Images aus der Registry ist gesperrt.
 - Images kommen von einem gehosteten Runner: die Pipeline öffnet die Registry nur für dessen Adresse, schiebt und schließt sie wieder in die Registry.
@@ -173,7 +192,7 @@ Die Sicherheitsvorgaben aller Teile an einer Stelle. Sie wurden nicht gefragt un
 - Läuft die Modellversion aus, wechselt sie an diesem Tag auf die neue Standardversion.
 - Anfragen und Antworten werden vom Inhaltsfilter Microsoft.DefaultV2 geprüft.
 - Das Konto ist aus dem Internet überhaupt nicht erreichbar.
-- Seine private Anbindung landet im Subnetz pe.
+- Seine private Anbindung landet im Subnetz pe (virtual-network).
 - Das Konto darf nur Adressen aufrufen, die ausdrücklich erlaubt sind.
 - Seine Logs gehen in log-analytics-workspace.
 - Geloggt wird: Änderungen am Konto und wer sie gemacht hat, jede Anfrage an die Modelle mit Aufrufer, Größe und Ergebnis (nicht der Text), die von jedem Aufruf verbrauchten Token.
@@ -182,7 +201,7 @@ Die Sicherheitsvorgaben aller Teile an einer Stelle. Sie wurden nicht gefragt un
 ### Azure Storage Account
 
 - Der Speicher ist aus dem Internet überhaupt nicht erreichbar.
-- Seine private Anbindung landet im Subnetz pe.
+- Seine private Anbindung landet im Subnetz pe (virtual-network).
 - Private Anbindungen gibt es für: Dateien (Blob).
 - Azures eigene Dienste (Backup, Überwachung) dürfen am Firewall vorbei auf den Speicher zugreifen.
 - Ein Log jeder Änderung wird nicht geführt.
@@ -196,7 +215,7 @@ Die Sicherheitsvorgaben aller Teile an einer Stelle. Sie wurden nicht gefragt un
 
 - Die App läuft auf Linux.
 - Der ausgehende Verkehr der App läuft durch das Firmennetz, so erreicht sie private Dienste.
-- Ausgehender Verkehr verlässt das Netz über das Subnetz app-integration. — weil: Das Netz wird von diesem Ausrollen selbst gebaut.
+- Ausgehender Verkehr verlässt das Netz über das Subnetz app-integration (virtual-network). — weil: Das Netz wird von diesem Ausrollen selbst gebaut.
 - Die App ist geschrieben für ein Container-Image, das seine Laufzeit selbst mitbringt.
 - Die App bleibt geladen und antwortet sofort auf die erste Anfrage, wenn kein Verkehr anliegt.
 - Die Plattform prüft die Gesundheit der App unter dem Pfad  (leer: keine Prüfung).
@@ -211,9 +230,9 @@ Die Sicherheitsvorgaben aller Teile an einer Stelle. Sie wurden nicht gefragt un
 - Der Hosting-Plan hat die Größe B2, Basic, zwei Kerne. — weil: `resources.app-service__dashboard.hosting.sku`
 - Die App übersteht nicht den Ausfall eines Rechenzentrums der Region. — weil: `resources.app-service__dashboard.hosting.zone_redundant`
 - Gleichzeitig laufende Kopien der App: 1. — weil: `resources.app-service__dashboard.hosting.instance_count`
-- Seine private Anbindung landet im Subnetz pe.
+- Seine private Anbindung landet im Subnetz pe (virtual-network).
 - Der ausgehende Verkehr der App läuft durch das Firmennetz, so erreicht sie private Dienste.
-- Ausgehender Verkehr verlässt das Netz über das Subnetz app-integration. — weil: Das Netz wird von diesem Ausrollen selbst gebaut.
+- Ausgehender Verkehr verlässt das Netz über das Subnetz app-integration (virtual-network). — weil: Das Netz wird von diesem Ausrollen selbst gebaut.
 - Die App ist geschrieben für ein Container-Image, das seine Laufzeit selbst mitbringt.
 - Die App bleibt geladen und antwortet sofort auf die erste Anfrage, wenn kein Verkehr anliegt.
 - Die Plattform prüft die Gesundheit der App unter dem Pfad  (leer: keine Prüfung).
@@ -228,9 +247,9 @@ Die Sicherheitsvorgaben aller Teile an einer Stelle. Sie wurden nicht gefragt un
 - Der Hosting-Plan hat die Größe B2, Basic, zwei Kerne. — weil: `resources.app-service__dashboard.hosting.sku`
 - Die App übersteht nicht den Ausfall eines Rechenzentrums der Region. — weil: `resources.app-service__dashboard.hosting.zone_redundant`
 - Gleichzeitig laufende Kopien der App: 1. — weil: `resources.app-service__dashboard.hosting.instance_count`
-- Seine private Anbindung landet im Subnetz pe.
+- Seine private Anbindung landet im Subnetz pe (virtual-network).
 - Der ausgehende Verkehr der App läuft durch das Firmennetz, so erreicht sie private Dienste.
-- Ausgehender Verkehr verlässt das Netz über das Subnetz app-integration. — weil: Das Netz wird von diesem Ausrollen selbst gebaut.
+- Ausgehender Verkehr verlässt das Netz über das Subnetz app-integration (virtual-network). — weil: Das Netz wird von diesem Ausrollen selbst gebaut.
 - Die App ist geschrieben für ein Container-Image, das seine Laufzeit selbst mitbringt.
 - Die App bleibt geladen und antwortet sofort auf die erste Anfrage, wenn kein Verkehr anliegt.
 - Die Plattform prüft die Gesundheit der App unter dem Pfad  (leer: keine Prüfung).
@@ -245,9 +264,9 @@ Die Sicherheitsvorgaben aller Teile an einer Stelle. Sie wurden nicht gefragt un
 - Der Hosting-Plan hat die Größe B2, Basic, zwei Kerne. — weil: `resources.app-service__dashboard.hosting.sku`
 - Die App übersteht nicht den Ausfall eines Rechenzentrums der Region. — weil: `resources.app-service__dashboard.hosting.zone_redundant`
 - Gleichzeitig laufende Kopien der App: 1. — weil: `resources.app-service__dashboard.hosting.instance_count`
-- Seine private Anbindung landet im Subnetz pe.
+- Seine private Anbindung landet im Subnetz pe (virtual-network).
 - Der ausgehende Verkehr der App läuft durch das Firmennetz, so erreicht sie private Dienste.
-- Ausgehender Verkehr verlässt das Netz über das Subnetz app-integration. — weil: Das Netz wird von diesem Ausrollen selbst gebaut.
+- Ausgehender Verkehr verlässt das Netz über das Subnetz app-integration (virtual-network). — weil: Das Netz wird von diesem Ausrollen selbst gebaut.
 - Die App ist geschrieben für ein Container-Image, das seine Laufzeit selbst mitbringt.
 - Die App bleibt geladen und antwortet sofort auf die erste Anfrage, wenn kein Verkehr anliegt.
 - Die Plattform prüft die Gesundheit der App unter dem Pfad  (leer: keine Prüfung).
@@ -270,7 +289,7 @@ Die Sicherheitsvorgaben aller Teile an einer Stelle. Sie wurden nicht gefragt un
 - Gelöschte Inhalte des Tresors lassen sich 90 Tage lang wiederherstellen.
 - Der Zugriff auf den Inhalt des Tresors wird über Rollenzuweisungen, wie alles andere in Azure gesteuert.
 - Der Tresor ist aus dem Internet überhaupt nicht erreichbar.
-- Seine private Anbindung landet im Subnetz pe.
+- Seine private Anbindung landet im Subnetz pe (virtual-network).
 - Vertrauenswürdige Azure-Dienste dürfen nicht an der Firewall des Tresors vorbei.
 - Verschlüsselungsschlüssel sind von Azure verwaltet - der Tresor hält dafür keine.
 - Seine Logs gehen in log-analytics-workspace.
@@ -351,9 +370,24 @@ Solange diese Punkte offen sind, wird nichts ausgerollt.
 | `virtual-network.subnet_policy.service_endpoints` | [] | Regel |
 | `virtual-network.subnet_policy.subnet_delegations` | [{"subnet": "app-integration", "service": "Microsoft.Web/serverFarms"}] | erzwungen |
 | `virtual-network.security.ddos_protection` | false | Regel |
-| `virtual-network.security.subnets_expecting_nsg` | {"production": []} | Regel |
 | `virtual-network.observability.diagnostic_workspace` | log-analytics-workspace | übernommen |
 | `virtual-network.observability.flow_logs_enabled` | false | Regel |
+| `network-security-group__endpoints.meta.purpose` | Schutz der privaten Endpunkte | eure Beschreibung |
+| `network-security-group__endpoints.networking.subnets` | pe | erzwungen |
+| `network-security-group__endpoints.rules.subnet_purpose` | private_endpoints | erzwungen |
+| `network-security-group__endpoints.rules.default_inbound` | deny_all | Regel |
+| `network-security-group__endpoints.rules.default_outbound` | deny_internet | erzwungen |
+| `network-security-group__endpoints.rules.rules` | [] | Regel |
+| `network-security-group__endpoints.observability.diagnostic_workspace` | log-analytics-workspace | übernommen |
+| `network-security-group__endpoints.observability.diagnostic_categories` | ["NetworkSecurityGroupEvent", "NetworkSecurityGroupRuleCounter"] | Regel |
+| `network-security-group__apps.meta.purpose` | Schutz des App-Subnetzes | eure Beschreibung |
+| `network-security-group__apps.networking.subnets` | app-integration | erzwungen |
+| `network-security-group__apps.rules.subnet_purpose` | app_integration | erzwungen |
+| `network-security-group__apps.rules.default_inbound` | deny_all | Regel |
+| `network-security-group__apps.rules.default_outbound` | azure_default | Regel |
+| `network-security-group__apps.rules.rules` | [] | Regel |
+| `network-security-group__apps.observability.diagnostic_workspace` | log-analytics-workspace | übernommen |
+| `network-security-group__apps.observability.diagnostic_categories` | ["NetworkSecurityGroupEvent", "NetworkSecurityGroupRuleCounter"] | Regel |
 | `log-analytics-workspace.meta.purpose` | Logs aller Teile | eure Beschreibung |
 | `log-analytics-workspace.cost.retention_days` | 30 | übernommen |
 | `log-analytics-workspace.cost.daily_quota_gb` | -1 | übernommen |
@@ -455,7 +489,7 @@ Solange diese Punkte offen sind, wird nichts ausgerollt.
 | `app-service__dashboard.networking.integration_subnet` | app-integration | erzwungen |
 | `app-service__dashboard.networking.vnet_route_all` | false | eure Abweichung |
 | `app-service__dashboard.identity.managed_identity` | user_assigned | eure Abweichung |
-| `app-service__dashboard.identity.user_assigned_identity_ids` | {"production": ["user-assigned-identity__dashboard"]} | erzwungen |
+| `app-service__dashboard.identity.user_assigned_identity_ids` | user-assigned-identity__dashboard | erzwungen |
 | `app-service__dashboard.identity.entra_sign_in` | existing_app_registration | eure Beschreibung |
 | `app-service__dashboard.identity.entra_client_secret` | key_vault_reference | eure Beschreibung |
 | `app-service__dashboard.security.https_only` | true | Regel |
@@ -481,7 +515,7 @@ Solange diese Punkte offen sind, wird nichts ausgerollt.
 | `app-service__drift.networking.integration_subnet` | app-integration | erzwungen |
 | `app-service__drift.networking.vnet_route_all` | false | eure Abweichung |
 | `app-service__drift.identity.managed_identity` | user_assigned | eure Abweichung |
-| `app-service__drift.identity.user_assigned_identity_ids` | {"production": ["user-assigned-identity__drift"]} | erzwungen |
+| `app-service__drift.identity.user_assigned_identity_ids` | user-assigned-identity__drift | erzwungen |
 | `app-service__drift.security.https_only` | true | Regel |
 | `app-service__drift.security.min_tls_version` | 1.2 | Regel |
 | `app-service__drift.security.ftps_state` | Disabled | Regel |
@@ -505,7 +539,7 @@ Solange diese Punkte offen sind, wird nichts ausgerollt.
 | `app-service__fuzz.networking.integration_subnet` | app-integration | erzwungen |
 | `app-service__fuzz.networking.vnet_route_all` | false | eure Abweichung |
 | `app-service__fuzz.identity.managed_identity` | user_assigned | eure Abweichung |
-| `app-service__fuzz.identity.user_assigned_identity_ids` | {"production": ["user-assigned-identity__fuzz"]} | erzwungen |
+| `app-service__fuzz.identity.user_assigned_identity_ids` | user-assigned-identity__fuzz | erzwungen |
 | `app-service__fuzz.security.https_only` | true | Regel |
 | `app-service__fuzz.security.min_tls_version` | 1.2 | Regel |
 | `app-service__fuzz.security.ftps_state` | Disabled | Regel |
@@ -529,7 +563,7 @@ Solange diese Punkte offen sind, wird nichts ausgerollt.
 | `app-service__tune.networking.integration_subnet` | app-integration | erzwungen |
 | `app-service__tune.networking.vnet_route_all` | false | eure Abweichung |
 | `app-service__tune.identity.managed_identity` | user_assigned | eure Abweichung |
-| `app-service__tune.identity.user_assigned_identity_ids` | {"production": ["user-assigned-identity__tune"]} | erzwungen |
+| `app-service__tune.identity.user_assigned_identity_ids` | user-assigned-identity__tune | erzwungen |
 | `app-service__tune.security.https_only` | true | Regel |
 | `app-service__tune.security.min_tls_version` | 1.2 | Regel |
 | `app-service__tune.security.ftps_state` | Disabled | Regel |
@@ -542,7 +576,7 @@ Solange diese Punkte offen sind, wird nichts ausgerollt.
 | `app-service__tune.observability.diagnostic_workspace` | log-analytics-workspace | übernommen |
 | `app-service__tune.observability.diagnostic_categories` | ["AppServiceHTTPLogs", "AppServiceAppLogs", "AppServiceAuditLogs", "AppServiceIPSecAuditLogs", "AppServicePlatformLogs"] | Regel |
 | `app-service__tune.observability.metrics_enabled` | true | Regel |
-| `blob-container.placement.storage_account` | {"production": "storage-account"} | übernommen |
+| `blob-container.placement.storage_account` | storage-account | übernommen |
 | `blob-container.containers.container_names` | ["results"] | eure Beschreibung |
 | `blob-container.containers.public_access` | None | Regel |
 | `blob-container.containers.immutable_storage` | false | abgeleitet aus eurer Antwort |

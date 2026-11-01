@@ -556,6 +556,10 @@ def main():
     w('|---|---|---|')
 
     def cell(v):
+        # A reference reads as its label (the part, the resource, the existing one's name), as in the body.
+        refs = v if isinstance(v, list) and v and all(spec_ref.is_ref(r) for r in v) else [v] if spec_ref.is_ref(v) else None
+        if refs:
+            v = ', '.join(spec_ref.label(r) or r.get('existing') or '?' for r in refs)
         return json.dumps(v, ensure_ascii=False).replace('|', '\\|') if not isinstance(v, str) else v.replace('|', '\\|')
 
     for qid, d in dep.items():

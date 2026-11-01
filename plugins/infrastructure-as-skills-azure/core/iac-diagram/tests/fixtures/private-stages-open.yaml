@@ -116,18 +116,6 @@ resources:
       ddos_protection:
         value: false
         source: default
-      subnets_expecting_nsg:
-        value:
-          development:
-          - snet-endpoints
-          - snet-web
-          test:
-          - snet-endpoints
-          - snet-web
-          production:
-          - snet-endpoints
-          - snet-web
-        source: { forced_by: resources.network-security-group__endpoints.rules.subnet_purpose }
     observability:
       diagnostic_workspace:
         value:

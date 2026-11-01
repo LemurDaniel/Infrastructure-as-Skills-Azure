@@ -224,10 +224,6 @@ resources:
       ddos_protection:
         value: false
         source: default
-      subnets_expecting_nsg:
-        value:
-          production: [snet-endpoints, snet-web, snet-mcp, snet-func, snet-aca]
-        source: stated
     observability:
       diagnostic_workspace:
         value:
@@ -241,6 +237,12 @@ resources:
     meta:
       purpose:
         value: Private endpoints subnet
+        source: stated
+    networking:
+      subnets:
+        value:
+        - resource: virtual-network
+          part: snet-endpoints
         source: stated
     rules:
       subnet_purpose:
@@ -271,6 +273,16 @@ resources:
       purpose:
         value: App integration subnets
         source: stated
+    networking:
+      subnets:
+        value:
+        - resource: virtual-network
+          part: snet-web
+        - resource: virtual-network
+          part: snet-mcp
+        - resource: virtual-network
+          part: snet-func
+        source: stated
     rules:
       subnet_purpose:
         value: app_integration
@@ -298,6 +310,12 @@ resources:
     meta:
       purpose:
         value: Container Apps subnet
+        source: stated
+    networking:
+      subnets:
+        value:
+        - resource: virtual-network
+          part: snet-aca
         source: stated
     rules:
       subnet_purpose:
@@ -1123,7 +1141,9 @@ resources:
         source: default
     _target_overrides:
       terraform:
-        container_environment: authored azapi_resource Microsoft.App/managedEnvironments
+        container_environment:
+          value: authored azapi_resource Microsoft.App/managedEnvironments
+          reason: The environment's AVM module pins azurerm ~> 4.0, which a root on 5.x cannot call.
 
   function-app:
     meta:

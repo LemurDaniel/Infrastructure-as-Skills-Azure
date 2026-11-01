@@ -144,7 +144,7 @@ run "gateway" {
   }
 }
 
-# not-testable: nat-gateway.gateway.subnets - recorded in the spec; the association is rendered in the virtual-network set
+# nat-gateway.gateway.subnets is asserted in the virtual-network run: the subnet takes the gateway's id
 # not-testable: nat-gateway.gateway.zone - not reached for StandardV2; for Standard assert body.zones
 # not-testable: nat-gateway.observability.diagnostic_workspace - the diagnostic setting is a module-internal azapi resource
 # not-testable: nat-gateway.observability.metrics_enabled - as above

@@ -199,7 +199,7 @@ Rules:
   input and use them where the wait happens (`triggers = { scopes = join(",", var.role_scope_ids) }`
   on a `time_sleep`).
 - **`_target_overrides` that replace an AVM call** (an authored resource in its place) live
-  in the same submodule and keep their comment.
+  in the same submodule; the override's `reason` goes on as their comment.
 
 The spec carries it as `composition.granularity: per-family` with one `modules` entry per
 family (`id` = family, `contains` = its resource keys). A repository that already has its

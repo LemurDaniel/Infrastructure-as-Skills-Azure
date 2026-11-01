@@ -11,7 +11,7 @@ naming:
 
 boundaries:
   - "Does not create the resource group. Expects one from the spec's context."
-  - "Does not associate itself with a subnet. The association is a property of the subnet, which the virtual-network set carries (`nat_gateway` on a subnet); a NAT gateway nobody associates changes nothing. `subnets` records which subnets expect it."
+  - "Does not render the association itself. `subnets` references the subnets that go out through this gateway; the association is a property of the subnet, so the virtual-network module renders it (`on_part` in render-map.yaml). A NAT gateway no subnet takes changes nothing."
   - "Does not make a subnet reachable from the internet. A NAT gateway is outbound only: it carries replies to what a machine started and never accepts a connection from outside, so it is compatible with `network_exposure: private`."
   - "Does not work together with a default route to a firewall. A route table with `0.0.0.0/0` to a virtual appliance (`route-table.default_route: firewall`) overrides the NAT gateway for that subnet; the NAT gateway then belongs on the firewall's own subnet, which the platform owns."
   - "Does not switch off the implicit default outbound access of a subnet (`defaultOutboundAccess` on the subnet, which Azure is retiring for new networks). A subnet that needs a stable, owned outbound address uses this resource; that property is the virtual network's and is not a decision in its set yet."
@@ -81,11 +81,13 @@ groups:
         plain:
           en: "Subnets that go out through the gateway: {value}."
           de: "Subnetze, die über das Gateway nach außen gehen: {value}."
+        accepts: { ref: subnet }
+        exclusive: true
         required: true
-        per_environment: true
         why: >
-          Recorded and rendered where the subnet is: the gateway is only effective once a
-          subnet takes its id. A subnet has at most one NAT gateway; one gateway serves many
+          Recorded here and rendered where the subnet is: the gateway is only effective once a
+          subnet takes its id. A reference to a subnet of the network, the same in every
+          stage. A subnet has at most one NAT gateway; one gateway serves many
           subnets of the same network. Not `GatewaySubnet`, `AzureFirewallSubnet` and
           `AzureBastionSubnet`, which do not take one, and not a subnet whose route table
           sends `0.0.0.0/0` to an appliance.

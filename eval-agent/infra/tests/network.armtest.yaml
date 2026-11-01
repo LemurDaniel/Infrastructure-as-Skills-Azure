@@ -1,4 +1,5 @@
-# Tests for the modules network and observability (spec: virtual-network, log-analytics-workspace).
+# Tests for the modules network and observability (spec: virtual-network,
+# network-security-group__endpoints, network-security-group__apps, log-analytics-workspace).
 # Run: run_arm_tests.py infra-spec.yaml --template main.bicep
 # The module bodies are nested deployments: resources.<module>.properties.template.resources.<symbol>.
 
@@ -42,9 +43,6 @@
   path: resources.network.properties.template.resources.virtualNetwork.properties.enableDdosProtection
   equals: false
 
-- not_testable: virtual-network.security.subnets_expecting_nsg
-  reason: an empty list for production; the spec records that no subnet expects an NSG and no NSG resource is rendered, so there is nothing in the template to observe
-
 - decision: virtual-network.observability.diagnostic_workspace
   path: resources.virtualNetworkDiagnostics.properties.workspaceId
   matches: "reference\\('observability'\\)\\.outputs\\.id"
@@ -56,6 +54,140 @@
 - wiring: private_endpoint_subnet_name
   path: variables.privateEndpointSubnetName
   equals: pe
+
+# ---- network-security-group__endpoints ----------------------------------------------------------
+
+# The association is made on the subnet: the subnet named pe takes this group's id.
+# The pattern spans exactly one key and its value, so a swapped mapping fails it.
+- decision: network-security-group__endpoints.networking.subnets
+  path: resources.network.properties.template.variables.subnetSecurityGroupIds
+  matches: "parameters\\('privateEndpointSubnetName'\\)\\)\\]\"\\s*:\\s*\"\\[resourceId\\('Microsoft\\.Network/networkSecurityGroups', parameters\\('endpointsSecurityGroupName'\\)\\)\\]\""
+
+- decision: network-security-group__endpoints.rules.subnet_purpose
+  path: resources.network.properties.template.variables.endpointsBaselineRules
+  equals:
+    - name: allow-vnet-https-inbound
+      properties:
+        priority: 100
+        direction: Inbound
+        access: Allow
+        protocol: Tcp
+        sourceAddressPrefix: VirtualNetwork
+        sourcePortRange: "*"
+        destinationAddressPrefix: "[parameters('privateEndpointSubnetPrefix')]"
+        destinationPortRange: "443"
+
+- decision: network-security-group__endpoints.rules.default_inbound
+  path: resources.network.properties.template.variables.endpointsDefaultInboundRules
+  equals:
+    - name: deny-all-inbound
+      properties:
+        priority: 4096
+        direction: Inbound
+        access: Deny
+        protocol: "*"
+        sourceAddressPrefix: "*"
+        sourcePortRange: "*"
+        destinationAddressPrefix: "*"
+        destinationPortRange: "*"
+
+- decision: network-security-group__endpoints.rules.default_outbound
+  path: resources.network.properties.template.variables.endpointsDefaultOutboundRules
+  equals:
+    - name: deny-internet-outbound
+      properties:
+        priority: 4096
+        direction: Outbound
+        access: Deny
+        protocol: "*"
+        sourceAddressPrefix: "*"
+        sourcePortRange: "*"
+        destinationAddressPrefix: Internet
+        destinationPortRange: "*"
+
+- decision: network-security-group__endpoints.rules.rules
+  path: resources.network.properties.template.variables.endpointsCustomRules
+  equals: []
+
+- decision: network-security-group__endpoints.observability.diagnostic_workspace
+  path: resources.endpointsSecurityGroupDiagnostics.properties.workspaceId
+  matches: "reference\\('observability'\\)\\.outputs\\.id"
+
+- decision: network-security-group__endpoints.observability.diagnostic_categories
+  path: resources.endpointsSecurityGroupDiagnostics.properties.logs
+  equals:
+    - { category: NetworkSecurityGroupEvent, enabled: true }
+    - { category: NetworkSecurityGroupRuleCounter, enabled: true }
+
+# ---- network-security-group__apps ---------------------------------------------------------------
+
+# The association is made on the subnet: the subnet named app-integration takes this group's id.
+# The pattern spans exactly one key and its value, so a swapped mapping fails it.
+- decision: network-security-group__apps.networking.subnets
+  path: resources.network.properties.template.variables.subnetSecurityGroupIds
+  matches: "parameters\\('integrationSubnetName'\\)\\)\\]\"\\s*:\\s*\"\\[resourceId\\('Microsoft\\.Network/networkSecurityGroups', parameters\\('appsSecurityGroupName'\\)\\)\\]\""
+
+# app_integration: no baseline rule, outbound stays with the Azure default rules.
+- decision: network-security-group__apps.rules.subnet_purpose
+  path: resources.network.properties.template.variables.appsBaselineRules
+  equals: []
+
+- decision: network-security-group__apps.rules.default_inbound
+  path: resources.network.properties.template.variables.appsDefaultInboundRules
+  equals:
+    - name: deny-all-inbound
+      properties:
+        priority: 4096
+        direction: Inbound
+        access: Deny
+        protocol: "*"
+        sourceAddressPrefix: "*"
+        sourcePortRange: "*"
+        destinationAddressPrefix: "*"
+        destinationPortRange: "*"
+
+# azure_default renders no rule.
+- decision: network-security-group__apps.rules.default_outbound
+  path: resources.network.properties.template.variables.appsDefaultOutboundRules
+  equals: []
+
+- decision: network-security-group__apps.rules.rules
+  path: resources.network.properties.template.variables.appsCustomRules
+  equals: []
+
+- decision: network-security-group__apps.observability.diagnostic_workspace
+  path: resources.appsSecurityGroupDiagnostics.properties.workspaceId
+  matches: "reference\\('observability'\\)\\.outputs\\.id"
+
+- decision: network-security-group__apps.observability.diagnostic_categories
+  path: resources.appsSecurityGroupDiagnostics.properties.logs
+  equals:
+    - { category: NetworkSecurityGroupEvent, enabled: true }
+    - { category: NetworkSecurityGroupRuleCounter, enabled: true }
+
+# wiring: every subnet the network creates takes a group's id (no subnet left unassociated).
+- wiring: subnet_network_security_group
+  path: resources.network.properties.template.variables.copy[0].input.properties.networkSecurityGroup.id
+  matches: "variables\\('subnetSecurityGroupIds'\\)\\[parameters\\('subnets'\\)\\[copyIndex\\('subnetDefinitions'\\)\\]\\.name\\]"
+
+# wiring: each group's securityRules is the concat() of all four rule lists, so a list dropped
+# from it fails here even though its own variable still holds.
+- wiring: endpoints_security_rules
+  path: resources.network.properties.template.resources.endpointsSecurityGroup.properties.securityRules
+  equals: "[concat(variables('endpointsBaselineRules'), variables('endpointsCustomRules'), variables('endpointsDefaultInboundRules'), variables('endpointsDefaultOutboundRules'))]"
+
+- wiring: apps_security_rules
+  path: resources.network.properties.template.resources.appsSecurityGroup.properties.securityRules
+  equals: "[concat(variables('appsBaselineRules'), variables('appsCustomRules'), variables('appsDefaultInboundRules'), variables('appsDefaultOutboundRules'))]"
+
+# wiring: each diagnostic setting is scoped to its own group, never to the other one.
+- wiring: endpoints_diagnostics_scope
+  path: resources.endpointsSecurityGroupDiagnostics.scope
+  equals: "[resourceId('Microsoft.Network/networkSecurityGroups', variables('endpointsSecurityGroupName'))]"
+
+- wiring: apps_diagnostics_scope
+  path: resources.appsSecurityGroupDiagnostics.scope
+  equals: "[resourceId('Microsoft.Network/networkSecurityGroups', variables('appsSecurityGroupName'))]"
 
 # ---- log-analytics-workspace --------------------------------------------------------------------
 

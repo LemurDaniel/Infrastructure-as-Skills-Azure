@@ -100,6 +100,46 @@ SHAPE_MUTATIONS += [
      SHAPE_RANGES + LAW + "      name: law-platform\n" + "    source: stated\n", 'never a name or a resource group'),
 ]
 
+# The envelope and the escape hatch: a format this plugin does not know, an override without its reason.
+OVERRIDE = "    _target_overrides:\n      terraform:\n        lifecycle_ignore:\n          value: [created_at]\n"
+SHAPE_MUTATIONS += [
+    ('a spec format newer than the plugin', "schema_version: 1\n", "schema_version: 2\n", 'a spec format newer than this plugin reads'),
+    ('an override with its reason', "\n  key-vault:\n", "\n" + OVERRIDE + "          reason: azurerm sets the tag itself\n  key-vault:\n", None),
+    ('an override without a reason', "\n  key-vault:\n", "\n" + OVERRIDE + "  key-vault:\n", 'lifecycle_ignore has no reason'),
+    ('an override as a bare value', "\n  key-vault:\n", "\n    _target_overrides:\n      terraform:\n        lifecycle_ignore: [created_at]\n  key-vault:\n",
+     'lifecycle_ignore is not { value, reason }'),
+]
+
+# NSGs on the Shape example, which guards snet-app and the implied private endpoint subnet
+# `endpoints`: an association is exclusive (a subnet takes one NSG), and every subnet the spec
+# creates has one. (name, [(find, replace)], expected; None = must pass)
+def nsg(name):
+    return (f"  network-security-group__{name}:\n    networking:\n      subnets:\n        value:\n"
+            "        - resource: virtual-network\n          part: snet-app\n        source: stated\n")
+
+
+SHAPE_MODULE = "    contains: [virtual-network, network-security-group__app, network-security-group__endpoints]\n"
+SHAPE_NSG_ENDPOINTS = ("  network-security-group__endpoints:\n    networking:\n      subnets:\n        value:\n"
+                       "        - resource: virtual-network\n"
+                       "          part: endpoints  # the private endpoint subnet: no listed subnet carries its prefix\n"
+                       "        source:\n          forced_by: resources.virtual-network.addressing.subnets\n"
+                       "    rules:\n      subnet_purpose:\n        value: private_endpoints\n        source:\n"
+                       "          forced_by: resources.virtual-network.addressing.private_endpoint_subnet_prefix\n\n")
+SHAPE_EDITS = [
+    ('a second NSG on a subnet', [("\n  app-service:\n", "\n" + nsg('a') + "  app-service:\n"),
+                                  (SHAPE_MODULE, SHAPE_MODULE.replace(']', ', network-security-group__a]'))],
+     'snet-app of virtual-network is claimed by 2 network-security-group resources'),
+    ('a subnet without an NSG', [(SHAPE_NSG_ENDPOINTS, ''),
+                                 (SHAPE_MODULE, SHAPE_MODULE.replace(', network-security-group__endpoints', ''))],
+     'subnet endpoints of virtual-network has no network security group'),
+    # Listed with the private endpoint prefix, the subnet is that one by its own name: no `endpoints`.
+    ('the private endpoint subnet listed by name',
+     [(f"          {s}:\n          - name: snet-app\n", f"          {s}:\n          - name: snet-pe\n            prefix: {p}\n          - name: snet-app\n")
+      for s, p in (('development', '10.42.0.0/27'), ('test', '10.43.0.0/27'), ('production', '10.44.0.0/27'))]
+     + [("          part: endpoints  # the private endpoint subnet: no listed subnet carries its prefix\n", "          part: snet-pe\n")],
+     None),
+]
+
 # The fixture's storage account up to its first group: its meta comes first.
 STORAGE = "  storage-account:\n    meta:\n      purpose: { value: Product images, source: stated }\n"
 
@@ -361,6 +401,17 @@ def main():
             rc, out = run(shape.replace(find, replace) + ''.join(appended))
             ok = rc == 0 and 'Contract ok' in out if expected is None else rc == 1 and expected in out
             report(ok, name if expected is None else f"breaks: {name}", f"expected {expected!r}; got exit {rc}:\n{out[-500:]}")
+        for name, edits, expected in SHAPE_EDITS:
+            text = shape
+            for find, replace in edits:
+                if text.count(find) != 1:
+                    report(False, name, f"the edit text is in the Shape example {text.count(find)} times: {find[:60]!r}")
+                    break
+                text = text.replace(find, replace)
+            else:
+                rc, out = run(text)
+                ok = rc == 0 and 'Contract ok' in out if expected is None else rc == 1 and expected in out
+                report(ok, name if expected is None else f"breaks: {name}", f"expected {expected!r}; got exit {rc}:\n{out[-500:]}")
 
     print('-' * 70)
     total = 8 + len(MUTATIONS) + len(COMPONENT_MUTATIONS) + len(SHAPE_MUTATIONS)
