@@ -349,8 +349,10 @@ the detail; this list says what was decided and why, so a session does not reope
   `check_render_map.py` and both test runners are in the repository checks. The format has
   `companions`, lists per attribute or module, `kinds`/`by_kind`, composite formats with
   `part_of`, `format: { expr }`, `omit_empty`; code names `{group.question}` (filled by the
-  digest) and `<name>` (filled by the render), never `...`. The question sets still carry
-  `renders` and the references their decision tables - both go once the sources agree (*Open*).
+  digest) and `<name>` (filled by the render), never `...`; `authored_when` names the answers a
+  module refuses, which render the resource authored. The map is the one record: `renders` is
+  gone from the resource sets (the check refuses it there; the deployment set keeps its own),
+  and the references' decision tables are gone, their remarks moved into the maps.
 - **18 more sets written 2026-10-26 (67 resource sets in 10 families, 1,442 questions with the deployment
   set), checked, not exercised:** network public-dns-zone, traffic-manager, ddos-protection-plan, network-watcher (VNet flow logs only);
   observability action-group, alert-rule (metric, log query and activity log by `kind`),
@@ -575,37 +577,34 @@ until it is fixed or decided against.
   by hand, and whether it does is unmeasured. The diagram and spec-test fixtures are not
   named `infra-spec.yaml` and not laid out; `run_spec_tests.py` edits its fixture as text.
 
-### The sources behind `render-map.yaml` (own branch)
+### The sources behind `render-map.yaml`
 
-The migration read every question set against both references and found where they disagree.
-The maps follow the reference and mark the rest a `gap`; the sources themselves are fixed on a
-branch of their own, then `renders` leaves the sets and the decision tables leave the `.md`
-(the map is the one record). What it has to fix:
+The migration read every set against both references. Done on `render-yaml`: `renders` dropped,
+the self-contradicting references corrected, the decision tables removed, and the design gaps
+closed (DDoS plan and vault identity questions, function-app identity only, no
+`enabled_with_firewall` on APIM and communication-services, queue metadata as `key=value`,
+cosmos wording, the refused answers as `authored_when`). Left:
 
-- **`renders` is stale or wrong in many sets**: diagnostics `logs[].category` / `metrics[].category`
-  where the modules take `log_categories` / `metric_categories` (application-gateway, front-door,
-  network-security-group, container-registry); azurerm 4.x names (event-grid-system-topic, aks
-  `public_network_access`, sql-database `minimal_tls_version`); wrong module inputs (service-bus
-  `sku.name`, event-hubs `ip_rules`, key-vault-key `key_*`, role-assignment, app-service
-  `scm_ip_restriction` and `sticky_settings`, logic-app TLS, cosmos-db autoscale, container-apps scale).
-- **References contradicting themselves**: virtual-network Bicep subnet paths (table vs code),
-  application-insights `local_authentication_enabled` vs `_disabled`, sql-managed-instance
-  failover-group type, postgresql "fixed at creation" row, virtual-machine `AADSSHLoginforLinux`,
-  load-balancer and several authored diagnostics still on the 4.x `metric {}` block.
-- **Answers a module refuses or no reference renders**: redis `NoCluster` and the LFU policies,
-  sql-database TLS 1.3, sql-managed-instance `GeoZone`, service-bus `DiagnosticErrorLogs` and
-  capacity `0`, function-app `connection_string`, APIM and communication-services
-  `enabled_with_firewall`, alert-rule `query_identity` other than user-assigned, many bools with no
-  rendering for `false` (mysql audit, sql threat detection, redis encrypted connections).
-- **Questions missing or mistyped**: log-analytics-workspace `access.local_auth` is a bool fed by
-  the deployment enum (`local_authentication_enabled = "disabled"` today - check every set that
-  inherits `local_auth`); virtual-network `ddos_protection` needs a plan id no question gives;
-  storage queue `metadata` is a map, not a list; public-ip `zones` ints vs strings; traffic-manager
-  status ranges; backup and recovery vault tables name `user_assigned_identity_ids`, which no set has.
-- **Thin authored references** - the most gaps: front-door (names resources, no arguments), key-vault,
-  alert-rule, app-service, function-app, container-apps, foundry (complete from ai-services, same
-  ARM type), api-management, data-collection-rule. Recurring holes: role assignments, private
-  endpoint subnet, identity type literals, Bicep diagnostics, Terraform `enabled_metric`.
+- **Deployment answers inherited across value spaces** - the big one, 55 questions. `answer:
+  { deployment: <id> }` takes the answer "unchanged", but `network_exposure` (`private`,
+  `private_with_exceptions`, `public`) feeds questions that take `disabled` /
+  `enabled_with_firewall` / `enabled`, and `local_auth` (an enum) feeds bools of either polarity
+  (`local_authentication_disabled`, `shared_access_key_enabled`). The translation lives only in
+  prose ("pre-answers the equivalent switch per resource"), so every interview derives it -
+  log-analytics-workspace got it wrong (`local_authentication_enabled = "disabled"` in a spec).
+  Proposed, not decided: `answer: { deployment: <id>, map: { <answer>: <value> } }`, a map over
+  every deployment answer, checked against the question's type; source stays `deployment`;
+  exceptions stay an `overridden` per resource. The owner's call.
+- **event-grid-system-topic identity**: the reference allows SystemAssigned, UserAssigned or
+  both; the question has no `both` (the one row left in its reference).
+- **The gaps, about 980 entries**: a literal no reference states. Filling them needs the module
+  READMEs at the pinned version and the provider schema, not the references. Largest: front-door
+  (the reference names resources, no arguments), key-vault, alert-rule, app-service, function-app,
+  container-apps, foundry (complete from ai-services, same ARM type), api-management,
+  data-collection-rule. Recurring: role assignments, private endpoint subnet, identity type
+  literals, Bicep diagnostics, Terraform `enabled_metric`. Also bools with no rendering for
+  `false` (mysql audit, sql threat detection, redis encrypted connections), redis `NoEviction` in
+  the module's validation, alert-rule `query_identity` beyond user-assigned.
 
 ### Rendering references and question sets
 
@@ -1105,12 +1104,11 @@ regeneration from the spec loses them. All `render`:
 
 ## Next
 
-**Merge `render-yaml`** (render digest, `render-map.yaml` for 67 resources): a PR into `dev`.
-Then the **sources branch** (*Open*: the sources behind `render-map.yaml`): fix the sets and
-references the migration found disagreeing, fill the largest gaps (front-door first), then drop
-`renders` from the question sets and the decision tables from the `.md` - and teach
-`check_question_set.py` that `renders` is gone. An eval run that renders with the digest belongs
-before the release that carries it: no case exercises it yet. After that, regenerate the
+**Merge `render-yaml`** (#22: render digest, `render-map.yaml` for 67 resources, `renders` and
+the decision tables gone, the sources corrected): into `dev`. Then the owner decides the
+deployment-answer maps (*Open*, the 55 questions), and the gaps get filled from the module
+READMEs and the provider schema, front-door first. An eval run that renders with the digest
+belongs before the release that carries it: no case exercises it yet. After that, regenerate the
 remaining examples against the revised spec and freeze the formats (*Road to 1.0.0*) - the
 render-map format among them.
 
