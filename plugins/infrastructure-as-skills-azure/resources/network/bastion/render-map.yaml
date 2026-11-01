@@ -18,6 +18,7 @@ decisions:
     terraform: { attribute: location, passthrough: true }
     bicep_avm: { attribute: location, passthrough: true }
     bicep: { attribute: location, passthrough: true }
+    import: {path: location, passthrough: true}
   placement.resource_group_name:
     terraform_avm:
       attribute: parent_id
@@ -25,6 +26,7 @@ decisions:
     terraform: { attribute: resource_group_name }
     bicep_avm: { gap: the deployment's resource group scope; no parameter }
     bicep: { gap: the deployment's resource group scope; no property }
+    import: {todo: 'bicep renders it as a gap: the deployment''s resource group scope; no property'}
 
   # ------------------------------------------------------------------ bastion
   bastion.admin_access:
@@ -47,6 +49,7 @@ decisions:
       attribute: properties.enablePrivateOnlyBastion
       values: { internet: false, private_network: true }
       note: private_network renders no publicIPAddress on the ipConfiguration
+    import: {path: properties.enablePrivateOnlyBastion, values: {false: internet, true: private_network}}
   bastion.sku:
     terraform_avm:
       attribute: sku
@@ -62,6 +65,7 @@ decisions:
     bicep:
       attribute: sku.name
       values: { Developer: Developer, Basic: Basic, Standard: Standard, Premium: Premium }
+    import: {path: sku.name, values: {Developer: Developer, Basic: Basic, Standard: Standard, Premium: Premium}}
   bastion.zone_redundant:
     terraform_avm:
       attribute: zones
@@ -78,11 +82,13 @@ decisions:
       attribute: zones
       values: { true: { expr: "[ '1', '2', '3' ]" }, false: { expr: '[]' } }
       note: top level; none for Developer; ARM zones are strings, unlike the module's integers
+    import: {todo: an answer renders as code or as nothing; needs cases}
   bastion.scale_units:
     terraform_avm: { attribute: scale_units, passthrough: true, note: module default 2; written }
     terraform: { attribute: scale_units, passthrough: true }
     bicep_avm: { attribute: scaleUnits, passthrough: true, note: module default 2; forced to 2 on Basic and Developer }
     bicep: { attribute: properties.scaleUnits, passthrough: true }
+    import: {path: properties.scaleUnits, passthrough: true}
 
   # --------------------------------------------------------------- networking
   networking.bastion_subnet:
@@ -99,6 +105,7 @@ decisions:
     bicep:
       attribute: 'properties.ipConfigurations[].properties.subnet.id'
       note: "privateIPAllocationMethod: 'Dynamic' beside subnet and publicIPAddress; Developer: properties.virtualNetwork.id and no ipConfigurations"
+    import: {todo: 'not in the Resource Graph row: properties.ipConfigurations[].properties.subnet.id'}
   networking.public_ip_zone_redundant:
     terraform_avm: { gap: 'module README v0.9.0 has no input for the address zones; the created address takes the Bastion''s zones (default ["1", "2", "3"])' }
     terraform:
@@ -113,6 +120,7 @@ decisions:
       attribute: Microsoft.Network/publicIPAddresses zones
       values: { true: { expr: "[ '1', '2', '3' ]" }, false: { expr: '[]' } }
       note: "sku: { name: 'Standard' }, properties.publicIPAllocationMethod: 'Static'"
+    import: {todo: 'not in the Resource Graph row: Microsoft.Network/publicIPAddresses zones'}
 
   # ----------------------------------------------------------------- security
   security.shareable_link:
@@ -120,22 +128,26 @@ decisions:
     terraform: { attribute: shareable_link_enabled, passthrough: true }
     bicep_avm: { attribute: enableShareableLink, passthrough: true }
     bicep: { attribute: properties.enableShareableLink, passthrough: true, note: the switch exists from Standard upward }
+    import: {path: properties.enableShareableLink, passthrough: true}
   security.native_client:
     terraform_avm: { attribute: tunneling_enabled, passthrough: true, note: not compatible with session recording }
     terraform: { attribute: tunneling_enabled, passthrough: true }
     bicep_avm:
       gap: 'module 0.8.2 has no enableTunneling parameter - main.bicep fixes it on for Standard and for Premium without session recording; false on Standard renders the Bastion authored (forced_by: avm/res/network/bastion-host fixes tunneling on) or records true as forced'
     bicep: { attribute: properties.enableTunneling, passthrough: true, note: the switch exists from Standard upward }
+    import: {path: properties.enableTunneling, passthrough: true}
   security.ip_connect:
     terraform_avm: { attribute: ip_connect_enabled, passthrough: true, note: rejected on Basic and Developer }
     terraform: { attribute: ip_connect_enabled, passthrough: true }
     bicep_avm: { attribute: enableIpConnect, passthrough: true }
     bicep: { attribute: properties.enableIpConnect, passthrough: true, note: the switch exists from Standard upward }
+    import: {path: properties.enableIpConnect, passthrough: true}
   security.file_copy:
     terraform_avm: { attribute: file_copy_enabled, passthrough: true, note: rejected on Basic and Developer }
     terraform: { attribute: file_copy_enabled, passthrough: true }
     bicep_avm: { attribute: enableFileCopy, passthrough: true, note: "module default true, the Terraform module's false - written" }
     bicep: { attribute: properties.enableFileCopy, passthrough: true, note: the switch exists from Standard upward }
+    import: {path: properties.enableFileCopy, passthrough: true}
   security.copy_paste:
     terraform_avm: { attribute: copy_paste_enabled, passthrough: true, note: false is rejected on Basic and Developer }
     terraform: { attribute: copy_paste_enabled, passthrough: true }
@@ -147,11 +159,13 @@ decisions:
       attribute: properties.disableCopyPaste
       values: { true: false, false: true }
       note: inverted; the switch exists from Standard upward
+    import: {path: properties.disableCopyPaste, values: {false: true, true: false}}
   security.session_recording:
     terraform_avm: { attribute: session_recording_enabled, passthrough: true, note: Premium; the module has no input for the recording container }
     terraform: { attribute: session_recording_enabled, passthrough: true }
     bicep_avm: { attribute: enableSessionRecording, passthrough: true, note: Premium }
     bicep: { attribute: properties.enableSessionRecording, passthrough: true, note: the switch exists from Standard upward }
+    import: {path: properties.enableSessionRecording, passthrough: true}
 
   # ------------------------------------------------------------ observability
   observability.diagnostic_workspace:
@@ -159,6 +173,7 @@ decisions:
     terraform: { attribute: azurerm_monitor_diagnostic_setting.log_analytics_workspace_id }
     bicep_avm: { attribute: 'diagnosticSettings[].workspaceResourceId', note: the metrics setting takes the same workspace }
     bicep: { attribute: Microsoft.Insights/diagnosticSettings properties.workspaceId }
+    import: {todo: 'not in the Resource Graph row: Microsoft.Insights/diagnosticSettings properties.workspa...'}
   observability.diagnostic_categories:
     terraform_avm:
       attribute: 'diagnostic_settings.<key>.log_categories'
@@ -166,6 +181,7 @@ decisions:
     terraform: { attribute: azurerm_monitor_diagnostic_setting.enabled_log.category }
     bicep_avm: { attribute: 'diagnosticSettings[].logCategoriesAndGroups[].category' }
     bicep: { attribute: 'Microsoft.Insights/diagnosticSettings properties.logs[].category' }
+    import: {todo: 'not in the Resource Graph row: Microsoft.Insights/diagnosticSettings properties.logs[]....'}
   observability.metrics_enabled:
     terraform_avm:
       attribute: 'diagnostic_settings.<key>.metric_categories'
@@ -180,3 +196,4 @@ decisions:
       attribute: Microsoft.Insights/diagnosticSettings properties.metrics
       values: { true: { expr: "[ { category: 'AllMetrics', enabled: true } ]" }, false: null }
       note: false renders no metrics entry
+    import: {todo: 'not in the Resource Graph row: Microsoft.Insights/diagnosticSettings properties.metrics'}

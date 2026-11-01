@@ -18,6 +18,7 @@ decisions:
     terraform: { attribute: location, passthrough: true, note: '"global"; optional on the resource' }
     bicep_avm: { attribute: location, passthrough: true, note: "module default 'global'; written anyway" }
     bicep: { attribute: location, passthrough: true, note: "'global'" }
+    import: {path: location, passthrough: true}
   placement.resource_group_name:
     terraform_avm:
       attribute: parent_id
@@ -25,6 +26,7 @@ decisions:
     terraform: { attribute: resource_group_name, note: required by the provider schema; the reference's authored rendering omits it }
     bicep_avm: { gap: the deployment's resource group scope; no parameter }
     bicep: { gap: the deployment's resource group scope; no property }
+    import: {todo: 'bicep renders it as a gap: the deployment''s resource group scope; no property'}
 
   # ------------------------------------------------------------- notification
   notification.short_name:
@@ -42,6 +44,7 @@ decisions:
     bicep:
       attribute: properties.groupShortName
       format: { expr: "take(empty('{value}') ? workload : '{value}', 12)" }
+    import: {todo: a composed or computed literal; needs its own reading}
   notification.on_call_email:
     terraform_avm:
       attribute: email_receivers.oncall.email_address
@@ -50,6 +53,7 @@ decisions:
     terraform: { attribute: email_receiver.email_address, passthrough: true, note: 'the first email_receiver block, name "oncall"' }
     bicep_avm: { attribute: 'emailReceivers[0].emailAddress', passthrough: true, note: 'useCommonAlertSchema: true' }
     bicep: { attribute: 'properties.emailReceivers[0].emailAddress', passthrough: true }
+    import: {todo: 'not in the Resource Graph row: properties.emailReceivers[0].emailAddress'}
   notification.email_receivers:
     terraform_avm:
       attribute: 'email_receivers.<key> = { name, email_address, use_common_alert_schema }'
@@ -57,6 +61,7 @@ decisions:
     terraform: { attribute: 'email_receiver { name, email_address, use_common_alert_schema }', note: repeated blocks }
     bicep_avm: { attribute: 'emailReceivers[] = { name, emailAddress, useCommonAlertSchema }' }
     bicep: { attribute: 'properties.emailReceivers[]' }
+    import: {todo: 'not in the Resource Graph row: properties.emailReceivers[]'}
   notification.sms_receivers:
     terraform_avm:
       attribute: 'sms_receivers.<key> = { country_code, phone_number }'
@@ -64,6 +69,7 @@ decisions:
     terraform: { attribute: 'sms_receiver { name, country_code, phone_number }' }
     bicep_avm: { attribute: 'smsReceivers[] = { name, countryCode, phoneNumber }' }
     bicep: { attribute: 'properties.smsReceivers[]' }
+    import: {todo: 'not in the Resource Graph row: properties.smsReceivers[]'}
   notification.webhook_receivers:
     terraform_avm:
       attribute: 'webhook_receivers.<key>.service_uri'
@@ -73,6 +79,7 @@ decisions:
       note: the authored resource stores the URL in state in plaintext
     bicep_avm: { attribute: 'webhookReceivers[].serviceUri', note: from a @secure() param or listCallbackUrl() }
     bicep: { attribute: 'properties.webhookReceivers[]' }
+    import: {todo: 'not in the Resource Graph row: properties.webhookReceivers[]'}
   notification.webhook_authentication:
     terraform_avm:
       attribute: 'webhook_receivers.<key>.use_aad_auth'
@@ -95,6 +102,7 @@ decisions:
       values: { entra_id: true, url_secret: false }
       also:
         entra_id: objectId, identifierUri, tenantId
+    import: {todo: 'not in the Resource Graph row: properties.webhookReceivers[].useAadAuth'}
   notification.azure_function_receivers:
     terraform_avm:
       attribute: 'azure_function_receivers.<key> = { function_app_resource_id, function_name, http_trigger_url }'
@@ -102,11 +110,13 @@ decisions:
     terraform: { attribute: 'azure_function_receiver { name, function_app_resource_id, function_name, http_trigger_url, use_common_alert_schema }' }
     bicep_avm: { attribute: 'azureFunctionReceivers[] = { functionAppResourceId, functionName, httpTriggerUrl }' }
     bicep: { attribute: 'properties.azureFunctionReceivers[]' }
+    import: {todo: 'not in the Resource Graph row: properties.azureFunctionReceivers[]'}
   notification.logic_app_receivers:
     terraform_avm: { attribute: 'logic_app_receivers.<key> = { resource_id, callback_url }' }
     terraform: { attribute: 'logic_app_receiver { name, resource_id, callback_url, use_common_alert_schema }' }
     bicep_avm: { attribute: 'logicAppReceivers[] = { resourceId, callbackUrl }', note: callbackUrl is a securestring }
     bicep: { attribute: 'properties.logicAppReceivers[]' }
+    import: {todo: 'not in the Resource Graph row: properties.logicAppReceivers[]'}
   notification.event_hub_receivers:
     terraform_avm:
       attribute: 'event_hub_receivers.<key> = { event_hub_namespace, event_hub_name, subscription_id }'
@@ -114,6 +124,7 @@ decisions:
     terraform: { attribute: 'event_hub_receiver { name, event_hub_namespace, event_hub_name, subscription_id, tenant_id, use_common_alert_schema }' }
     bicep_avm: { attribute: 'eventHubReceivers[] = { eventHubNameSpace, eventHubName, subscriptionId }' }
     bicep: { attribute: 'properties.eventHubReceivers[]' }
+    import: {todo: 'not in the Resource Graph row: properties.eventHubReceivers[]'}
   notification.arm_role_receivers:
     terraform_avm:
       attribute: 'arm_role_receivers.<key>.role_id'
@@ -131,16 +142,19 @@ decisions:
       attribute: 'properties.armRoleReceivers[].roleId'
       values: { Owner: 8e3af657-a8ff-443c-a75c-2fe8c4bcb635, Contributor: b24988ac-6180-42a0-ab88-20f7382dd24c, Monitoring Contributor: 749f88d5-cbae-40b8-bcfc-e573ddc772fa, Monitoring Reader: 43d0d8ad-25c7-4714-9337-8ba259a9fe05 }
       note: one entry per role in the list
+    import: {todo: 'not in the Resource Graph row: properties.armRoleReceivers[].roleId'}
   notification.automation_runbook_receivers:
     terraform_avm: { attribute: automation_runbook_receivers }
     terraform: { attribute: automation_runbook_receiver }
     bicep_avm: { attribute: automationRunbookReceivers }
     bicep: { attribute: 'properties.automationRunbookReceivers[]' }
+    import: {todo: 'not in the Resource Graph row: properties.automationRunbookReceivers[]'}
   notification.itsm_receivers:
     terraform_avm: { attribute: itsm_receivers }
     terraform: { attribute: itsm_receiver }
     bicep_avm: { attribute: itsmReceivers }
     bicep: { attribute: 'properties.itsmReceivers[]' }
+    import: {todo: 'not in the Resource Graph row: properties.itsmReceivers[]'}
   notification.common_alert_schema:
     terraform_avm:
       attribute: '<receiver>.<key>.use_common_alert_schema'
@@ -152,11 +166,13 @@ decisions:
       passthrough: true
       note: module default false per receiver; written
     bicep: { attribute: 'properties.<receiver>[].useCommonAlertSchema', passthrough: true }
+    import: {todo: 'not in the Resource Graph row: properties.<receiver>[].useCommonAlertSchema'}
   notification.enabled:
     terraform_avm: { attribute: enabled, passthrough: true, note: default true; a per-stage variable }
     terraform: { attribute: enabled, passthrough: true }
     bicep_avm: { attribute: enabled, passthrough: true, note: default true; a stage parameter }
     bicep: { attribute: properties.enabled, passthrough: true }
+    import: {path: properties.enabled, passthrough: true}
 
   # ----------------------------------------------------------------- identity
   identity.role_assignments:
@@ -164,3 +180,4 @@ decisions:
     terraform: { attribute: azurerm_role_assignment, note: scope = the action group's id }
     bicep_avm: { attribute: 'roleAssignments[] = { principalId, roleDefinitionIdOrName, principalType }' }
     bicep: { attribute: Microsoft.Authorization/roleAssignments, note: scope = the action group }
+    import: {todo: 'not in the Resource Graph row: Microsoft.Authorization/roleAssignments'}

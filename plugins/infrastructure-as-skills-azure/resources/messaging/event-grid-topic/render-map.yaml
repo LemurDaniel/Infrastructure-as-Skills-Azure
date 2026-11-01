@@ -22,6 +22,7 @@ decisions:
     terraform: { attribute: location, passthrough: true }
     bicep_avm: { attribute: location, passthrough: true }
     bicep: { attribute: location, passthrough: true }
+    import: {path: location, passthrough: true}
   placement.resource_group_name:
     terraform_avm:
       attribute: parent_id
@@ -29,6 +30,7 @@ decisions:
     terraform: { attribute: resource_group_name }
     bicep_avm: { gap: the deployment's resource group scope; no parameter }
     bicep: { gap: the deployment's resource group scope; no property }
+    import: {todo: 'bicep renders it as a gap: the deployment''s resource group scope; no property'}
 
   # -------------------------------------------------------------------- topic
   topic.input_schema:
@@ -36,11 +38,13 @@ decisions:
     terraform: { attribute: input_schema, passthrough: true, note: fixed at creation }
     bicep_avm: { attribute: inputSchema, passthrough: true, note: module default EventGridSchema - written; fixed at creation }
     bicep: { attribute: properties.inputSchema, passthrough: true, note: fixed at creation }
+    import: {path: properties.inputSchema, passthrough: true}
   topic.minimum_tls_version:
     terraform_avm: { attribute: minimum_tls_version_allowed, passthrough: true, note: module default 1.2 - written }
     terraform: { attribute: minimum_tls_version, passthrough: true, note: 'string; "1.0", "1.1", "1.2", provider default 1.2 - written (source: azurerm 5.12 schema, azurerm 5.12 docs)' }
     bicep_avm: { attribute: minimumTlsVersionAllowed, passthrough: true, note: module default 1.2 - written }
     bicep: { attribute: properties.minimumTlsVersionAllowed, passthrough: true }
+    import: {path: properties.minimumTlsVersionAllowed, passthrough: true}
   topic.local_auth:
     terraform_avm:
       attribute: disable_local_auth
@@ -57,11 +61,13 @@ decisions:
     bicep:
       attribute: properties.disableLocalAuth
       values: { disabled: true, allowed_where_unavoidable: false }
+    import: {path: properties.disableLocalAuth, values: {true: disabled, false: allowed_where_unavoidable}}
   topic.data_residency_boundary:
     terraform_avm: { attribute: data_residency_boundary, passthrough: true, note: module default null }
     terraform: { attribute: data_residency_boundary, passthrough: true, note: 'WithinGeopair or WithinRegion (source: azurerm 5.12 schema, azurerm 5.12 docs)' }
     bicep_avm: { attribute: dataResidencyBoundary, passthrough: true }
     bicep: { attribute: properties.dataResidencyBoundary, passthrough: true }
+    import: {path: properties.dataResidencyBoundary, passthrough: true}
   topic.managed_identity:
     terraform_avm:
       attribute: managed_identities
@@ -83,6 +89,7 @@ decisions:
       attribute: identity.type
       values: { system_assigned: SystemAssigned, user_assigned: UserAssigned, none: null }
       note: none renders no identity block
+    import: {todo: an answer renders as code or as nothing; needs cases}
   topic.user_assigned_identity_ids:
     terraform_avm: { attribute: managed_identities.user_assigned_resource_ids }
     terraform: { attribute: identity.identity_ids }
@@ -91,6 +98,7 @@ decisions:
       attribute: identity.userAssignedIdentities
       format: { expr: 'toObject({value}, id => id, id => {})' }
       note: "an object keyed by each id - type: 'UserAssigned'; bicep.md names no API version, the namespace reference's (source: bicep build, Microsoft.EventGrid/topics@2025-02-15)"
+    import: {todo: a composed or computed literal; needs its own reading}
 
   # ----------------------------------------------------------------- delivery
   delivery.event_subscriptions:
@@ -104,6 +112,7 @@ decisions:
       attribute: 'eventSubscriptions[] = { name, destination, deliveryWithResourceIdentity, filter, retryPolicy, deadLetterWithResourceIdentity }'
       note: identity-based delivery, never a key; member names from the README
     bicep: { attribute: 'eventSubscriptions child properties: { destination, filter, retryPolicy, deadLetterWithResourceIdentity }' }
+    import: {todo: 'not in the Resource Graph row: eventSubscriptions child properties: { destination, filt...'}
   delivery.max_delivery_attempts:
     terraform_avm: { attribute: 'event_subscriptions.<k>.retry_policy.max_delivery_attempts', passthrough: true, note: written on every subscription }
     terraform:
@@ -112,6 +121,7 @@ decisions:
       note: this reference names the block; the member as event-grid-system-topic/terraform.md states it for the same subscription schema
     bicep_avm: { attribute: 'eventSubscriptions[].retryPolicy.maxDeliveryAttempts', passthrough: true }
     bicep: { attribute: eventSubscriptions child properties.retryPolicy.maxDeliveryAttempts, passthrough: true }
+    import: {todo: 'not in the Resource Graph row: eventSubscriptions child properties.retryPolicy.maxDeliv...'}
   delivery.event_ttl_minutes:
     terraform_avm: { attribute: 'event_subscriptions.<k>.retry_policy.event_time_to_live_in_minutes', passthrough: true, note: written on every subscription }
     terraform:
@@ -120,6 +130,7 @@ decisions:
       note: in minutes; this reference names the block, the member as event-grid-system-topic/terraform.md states it for the same subscription schema
     bicep_avm: { attribute: 'eventSubscriptions[].retryPolicy.eventTimeToLiveInMinutes', passthrough: true }
     bicep: { attribute: eventSubscriptions child properties.retryPolicy.eventTimeToLiveInMinutes, passthrough: true }
+    import: {todo: 'not in the Resource Graph row: eventSubscriptions child properties.retryPolicy.eventTim...'}
   delivery.keep_undeliverable_events:
     terraform_avm:
       attribute: 'event_subscriptions.<k>.dead_letter_with_resource_identity'
@@ -144,6 +155,7 @@ decisions:
       values:
         true: { expr: "{ identity: { type: 'SystemAssigned' }, deadLetterDestination: { endpointType: 'StorageBlob', properties: { resourceId: {delivery.dead_letter_storage_account}, blobContainerName: {delivery.dead_letter_container} } } }" }
         false: null
+    import: {todo: 'not in the Resource Graph row: eventSubscriptions child properties.deadLetterWithResour...'}
   delivery.dead_letter_storage_account:
     terraform_avm: { attribute: 'event_subscriptions.<k>.dead_letter_with_resource_identity.dead_letter_destination.storage_blob.resource_id' }
     terraform:
@@ -151,6 +163,7 @@ decisions:
       note: the member as event-grid-system-topic/terraform.md states it for the same subscription schema
     bicep_avm: { attribute: 'eventSubscriptions[].deadLetterWithResourceIdentity.deadLetterDestination.properties.resourceId' }
     bicep: { attribute: eventSubscriptions child properties.deadLetterWithResourceIdentity.deadLetterDestination.properties.resourceId }
+    import: {todo: 'not in the Resource Graph row: eventSubscriptions child properties.deadLetterWithResour...'}
   delivery.dead_letter_container:
     terraform_avm: { attribute: 'event_subscriptions.<k>.dead_letter_with_resource_identity.dead_letter_destination.storage_blob.blob_container_name', passthrough: true }
     terraform:
@@ -159,6 +172,7 @@ decisions:
       note: the member as event-grid-system-topic/terraform.md states it for the same subscription schema
     bicep_avm: { attribute: 'eventSubscriptions[].deadLetterWithResourceIdentity.deadLetterDestination.properties.blobContainerName', passthrough: true }
     bicep: { attribute: eventSubscriptions child properties.deadLetterWithResourceIdentity.deadLetterDestination.properties.blobContainerName, passthrough: true }
+    import: {todo: 'not in the Resource Graph row: eventSubscriptions child properties.deadLetterWithResour...'}
 
   # --------------------------------------------------------------- networking
   networking.public_network_access:
@@ -177,6 +191,7 @@ decisions:
     bicep:
       attribute: properties.publicNetworkAccess
       values: { disabled: Disabled, enabled_with_firewall: Enabled, enabled: Enabled }
+    import: {todo: answers share the literal Enabled; needs cases over a second path}
   networking.private_endpoint_subnet:
     terraform_avm:
       attribute: private_endpoints.topic.subnet_resource_id
@@ -184,11 +199,13 @@ decisions:
     terraform: { attribute: azurerm_private_endpoint.subnet_id }
     bicep_avm: { attribute: 'privateEndpoints[].subnetResourceId', note: "with service: 'topic'" }
     bicep: { attribute: Microsoft.Network/privateEndpoints properties.subnet.id }
+    import: {todo: 'not in the Resource Graph row: Microsoft.Network/privateEndpoints properties.subnet.id'}
   networking.ip_rules:
     terraform_avm: { attribute: 'inbound_ip_rules[].ip_mask', note: 'action = "Allow"; used only with public access Enabled' }
     terraform: { attribute: inbound_ip_rule.ip_mask, note: '{ ip_mask, action }' }
     bicep_avm: { attribute: 'inboundIpRules[].ipMask', note: "action: 'Allow'; used only with public access Enabled" }
     bicep: { attribute: 'properties.inboundIpRules[].ipMask', note: "action: 'Allow'" }
+    import: {todo: 'not in the Resource Graph row: properties.inboundIpRules[].ipMask'}
 
   # ----------------------------------------------------------------- identity
   identity.role_assignments:
@@ -196,6 +213,7 @@ decisions:
     terraform: { attribute: azurerm_role_assignment, note: scope = the topic's id }
     bicep_avm: { attribute: 'roleAssignments[] = { principalId, roleDefinitionIdOrName, principalType }' }
     bicep: { attribute: Microsoft.Authorization/roleAssignments, note: scope = the topic }
+    import: {todo: 'not in the Resource Graph row: Microsoft.Authorization/roleAssignments'}
 
   # ------------------------------------------------------------ observability
   observability.diagnostic_workspace:
@@ -203,6 +221,7 @@ decisions:
     terraform: { attribute: azurerm_monitor_diagnostic_setting.log_analytics_workspace_id }
     bicep_avm: { attribute: 'diagnosticSettings[].workspaceResourceId' }
     bicep: { attribute: Microsoft.Insights/diagnosticSettings properties.workspaceId }
+    import: {todo: 'not in the Resource Graph row: Microsoft.Insights/diagnosticSettings properties.workspa...'}
   observability.diagnostic_categories:
     terraform_avm:
       attribute: 'diagnostic_settings.<key>.log_categories'
@@ -210,6 +229,7 @@ decisions:
     terraform: { attribute: azurerm_monitor_diagnostic_setting.enabled_log.category }
     bicep_avm: { attribute: 'diagnosticSettings[].logCategoriesAndGroups[].category' }
     bicep: { attribute: 'Microsoft.Insights/diagnosticSettings properties.logs[].category' }
+    import: {todo: 'not in the Resource Graph row: Microsoft.Insights/diagnosticSettings properties.logs[]....'}
   observability.metrics_enabled:
     terraform_avm:
       attribute: 'diagnostic_settings.<key>.metric_categories'
@@ -225,3 +245,4 @@ decisions:
       attribute: 'Microsoft.Insights/diagnosticSettings properties.metrics[].category'
       values: { true: AllMetrics, false: null }
       note: false renders no metrics entry
+    import: {todo: 'not in the Resource Graph row: Microsoft.Insights/diagnosticSettings properties.metrics...'}

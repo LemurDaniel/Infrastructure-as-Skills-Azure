@@ -22,6 +22,7 @@ decisions:
     terraform: { attribute: location, passthrough: true, note: on the plan and the app }
     bicep_avm: { module: avm/res/web/serverfarm, attribute: location, passthrough: true, note: the site module takes location too }
     bicep: { attribute: location, passthrough: true, note: on the plan and the site }
+    import: {path: location, passthrough: true}
   placement.resource_group_name:
     terraform_avm:
       module: Azure/avm-res-web-serverfarm/azurerm
@@ -30,6 +31,7 @@ decisions:
     terraform: { attribute: resource_group_name }
     bicep_avm: { gap: the deployment's resource group scope; no parameter }
     bicep: { gap: the deployment's resource group scope; no property }
+    import: {todo: 'bicep renders it as a gap: the deployment''s resource group scope; no property'}
 
   # ------------------------------------------------------------------ hosting
   hosting.plan:
@@ -42,6 +44,7 @@ decisions:
     terraform: { attribute: service_plan_id, note: from the question's renders - the authored rendering names none }
     bicep_avm: { module: avm/res/web/site, attribute: serverFarmResourceId, note: the owner's plan module output }
     bicep: { attribute: properties.serverFarmId, note: 'the owner''s plan id (source: bicep build, Microsoft.Web/sites@2024-04-01)' }
+    import: {todo: a list or a reference; needs its own reading}
   hosting.os_type:
     terraform_avm:
       module: Azure/avm-res-web-serverfarm/azurerm
@@ -63,11 +66,13 @@ decisions:
       also:
         Linux: 'properties.reserved: true'
       note: on Microsoft.Web/serverfarms
+    import: {path: kind, values: {linux: Linux, app: Windows}}
   hosting.sku:
     terraform_avm: { module: Azure/avm-res-web-serverfarm/azurerm, attribute: sku_name, passthrough: true, note: module default P1v2 (older hardware) - must be written }
     terraform: { attribute: azurerm_service_plan.sku_name, passthrough: true }
     bicep_avm: { module: avm/res/web/serverfarm, attribute: skuName, passthrough: true, note: module default P1v3; written }
     bicep: { attribute: sku.name, passthrough: true, note: on the plan }
+    import: {path: sku.name, passthrough: true}
   hosting.zone_redundant:
     terraform_avm:
       module: Azure/avm-res-web-serverfarm/azurerm
@@ -81,11 +86,13 @@ decisions:
       passthrough: true
       note: module default true for P/EP sizes - computed from the SKU; written
     bicep: { attribute: properties.zoneRedundant, passthrough: true, note: on the plan }
+    import: {path: properties.zoneRedundant, passthrough: true}
   hosting.instance_count:
     terraform_avm: { module: Azure/avm-res-web-serverfarm/azurerm, attribute: worker_count, passthrough: true, note: module default 3 - must be written }
     terraform: { attribute: azurerm_service_plan.worker_count, passthrough: true }
     bicep_avm: { module: avm/res/web/serverfarm, attribute: skuCapacity, passthrough: true }
     bicep: { attribute: sku.capacity, passthrough: true, note: on the plan }
+    import: {path: sku.capacity, passthrough: true}
 
   # --------------------------------------------------------------- networking
   networking.public_network_access:
@@ -114,6 +121,7 @@ decisions:
     bicep:
       attribute: properties.publicNetworkAccess
       values: { disabled: Disabled, enabled_with_firewall: Enabled, enabled: Enabled }
+    import: {todo: answers share the literal Enabled; needs cases over a second path}
   networking.private_endpoint_subnet:
     terraform_avm:
       module: Azure/avm-res-web-site/azurerm
@@ -129,6 +137,7 @@ decisions:
     bicep:
       attribute: Microsoft.Network/privateEndpoints properties.subnet.id
       note: 'privateLinkServiceConnections[].properties.groupIds takes the site''s group id, a string the build does not check (source: bicep build, Microsoft.Network/privateEndpoints@2024-05-01)'
+    import: {todo: 'not in the Resource Graph row: Microsoft.Network/privateEndpoints properties.subnet.id'}
   networking.vnet_integration:
     terraform_avm:
       module: Azure/avm-res-web-site/azurerm
@@ -147,11 +156,13 @@ decisions:
     bicep:
       attribute: properties.virtualNetworkSubnetId
       values: { true: { expr: '{networking.integration_subnet}' }, false: null }
+    import: {todo: an answer renders as code or as nothing; needs cases}
   networking.integration_subnet:
     terraform_avm: { module: Azure/avm-res-web-site/azurerm, attribute: virtual_network_subnet_id, note: one plan owns the delegated subnet }
     terraform: { attribute: virtual_network_subnet_id }
     bicep_avm: { module: avm/res/web/site, attribute: virtualNetworkSubnetResourceId }
     bicep: { attribute: properties.virtualNetworkSubnetId }
+    import: {todo: a list or a reference; needs its own reading}
   networking.vnet_route_all:
     terraform_avm:
       module: Azure/avm-res-web-site/azurerm
@@ -161,6 +172,7 @@ decisions:
     terraform: { attribute: site_config.vnet_route_all_enabled, passthrough: true }
     bicep_avm: { module: avm/res/web/site, attribute: outboundVnetRouting.allTraffic, passthrough: true }
     bicep: { attribute: properties.outboundVnetRouting.allTraffic, passthrough: true, note: properties.vnetRouteAllEnabled is the older form }
+    import: {path: properties.outboundVnetRouting.allTraffic, passthrough: true}
   networking.ip_restrictions:
     terraform_avm:
       module: Azure/avm-res-web-site/azurerm
@@ -169,6 +181,7 @@ decisions:
     terraform: { attribute: site_config.ip_restriction, note: from the question's renders - the authored rendering names none }
     bicep_avm: { module: avm/res/web/site, attribute: siteConfig.ipSecurityRestrictions }
     bicep: { attribute: properties.siteConfig.ipSecurityRestrictions }
+    import: {todo: a list or a reference; needs its own reading}
 
   # ----------------------------------------------------------------- identity
   identity.managed_identity:
@@ -196,11 +209,13 @@ decisions:
       attribute: identity.type
       values: { system_assigned: SystemAssigned, user_assigned: UserAssigned, none: null }
       note: from the question's renders - the authored rendering names none; none renders no identity block
+    import: {todo: an answer renders as code or as nothing; needs cases}
   identity.user_assigned_identity_ids:
     terraform_avm: { module: Azure/avm-res-web-site/azurerm, attribute: managed_identities.user_assigned_resource_ids }
     terraform: { attribute: identity.identity_ids, note: 'a set of ids (source: azurerm 5.12 schema)' }
     bicep_avm: { module: avm/res/web/site, attribute: managedIdentities.userAssignedResourceIds }
     bicep: { attribute: identity.userAssignedIdentities, note: 'a map keyed by the identity id, each value {} (source: bicep build, Microsoft.Web/sites@2024-04-01)' }
+    import: {todo: a list or a reference; needs its own reading}
   identity.entra_sign_in:
     terraform_avm:
       module: Azure/avm-res-web-site/azurerm
@@ -228,6 +243,7 @@ decisions:
         none: null
         existing_app_registration: { expr: "{ globalValidation: { requireAuthentication: true, unauthenticatedClientAction: 'RedirectToLoginPage' }, identityProviders: { azureActiveDirectory: { registration: { openIdIssuer, clientId, clientSecretSettingName } } } }" }
       note: a child resource; none renders none
+    import: {todo: 'not in the Resource Graph row: Microsoft.Web/sites/config authsettingsV2 properties'}
   identity.entra_client_secret:
     terraform_avm:
       module: Azure/avm-res-web-site/azurerm
@@ -239,6 +255,7 @@ decisions:
       gap: "configs[name: 'authsettingsV2'] registration.clientSecretSettingName takes the name of the app setting holding the Key Vault reference; the reference does not name the setting"
     bicep:
       gap: authsettingsV2 identityProviders.azureActiveDirectory.registration.clientSecretSettingName takes the name of the app setting holding the Key Vault reference; the reference does not name the setting
+    import: {todo: 'bicep renders it as a gap: authsettingsV2 identityProviders.azureActiveDirectory.regist...'}
 
   # ----------------------------------------------------------------- security
   security.https_only:
@@ -246,6 +263,7 @@ decisions:
     terraform: { attribute: https_only, passthrough: true }
     bicep_avm: { module: avm/res/web/site, attribute: httpsOnly, passthrough: true, note: module default true; written }
     bicep: { attribute: properties.httpsOnly, passthrough: true }
+    import: {path: properties.httpsOnly, passthrough: true}
   security.min_tls_version:
     terraform_avm:
       module: Azure/avm-res-web-site/azurerm
@@ -255,11 +273,13 @@ decisions:
     terraform: { attribute: 'site_config.minimum_tls_version, site_config.scm_minimum_tls_version', passthrough: true }
     bicep_avm: { module: avm/res/web/site, attribute: 'siteConfig.minTlsVersion, siteConfig.scmMinTlsVersion', passthrough: true }
     bicep: { attribute: properties.siteConfig.minTlsVersion, passthrough: true }
+    import: {path: properties.siteConfig.minTlsVersion, passthrough: true}
   security.ftps_state:
     terraform_avm: { module: Azure/avm-res-web-site/azurerm, attribute: site_config.ftps_state, passthrough: true, note: module default FtpsOnly }
     terraform: { attribute: site_config.ftps_state, passthrough: true }
     bicep_avm: { module: avm/res/web/site, attribute: siteConfig.ftpsState, passthrough: true }
     bicep: { attribute: properties.siteConfig.ftpsState, passthrough: true }
+    import: {path: properties.siteConfig.ftpsState, passthrough: true}
   security.basic_auth_enabled:
     terraform_avm:
       module: Azure/avm-res-web-site/azurerm
@@ -280,6 +300,7 @@ decisions:
       attribute: basicPublishingCredentialsPolicies/ftp and /scm properties.allow
       passthrough: true
       note: two child resources, not a property of the site - the part authored renders forget
+    import: {todo: 'not in the Resource Graph row: basicPublishingCredentialsPolicies/ftp and /scm properti...'}
 
   # ------------------------------------------------------------------ runtime
   runtime.runtime_stack:
@@ -309,6 +330,7 @@ decisions:
       gap: "the prefix of siteConfig.linuxFxVersion '<STACK>|<version>'; the module README 0.24.0 shows only DOCKER|<image>, the other stacks' spellings are in no allowed source. windowsFxVersion on a Windows plan"
     bicep:
       gap: "the prefix of properties.siteConfig.linuxFxVersion '<STACK>|<version>'; a free string the build does not check (Microsoft.Web/sites@2024-04-01), so no stack's spelling is proven"
+    import: {todo: 'bicep renders it as a gap: the prefix of properties.siteConfig.linuxFxVersion ''<STACK>|...'}
   runtime.runtime_version:
     terraform_avm:
       module: Azure/avm-res-web-site/azurerm
@@ -324,6 +346,7 @@ decisions:
       gap: "the part after the bar of siteConfig.linuxFxVersion; the prefix is runtime_stack's, which no allowed source spells beyond DOCKER"
     bicep:
       gap: "the part after the bar of properties.siteConfig.linuxFxVersion; the prefix is runtime_stack's, which the build cannot prove"
+    import: {todo: 'bicep renders it as a gap: the part after the bar of properties.siteConfig.linuxFxVersi...'}
   runtime.container_image:
     terraform_avm: { module: Azure/avm-res-web-site/azurerm, attribute: site_config.application_stack.docker_image_name, passthrough: true, note: inside the docker block runtime_stack opens }
     terraform: { attribute: site_config.application_stack.docker_image_name, passthrough: true }
@@ -333,6 +356,7 @@ decisions:
       format: 'DOCKER|{value}'
       note: "kind: 'app,linux,container'; acrUseManagedIdentityCreds per the question's renders"
     bicep: { attribute: properties.siteConfig.linuxFxVersion, format: 'DOCKER|{value}' }
+    import: {path: properties.siteConfig.linuxFxVersion, format: 'DOCKER|{value}'}
   runtime.container_image_owner:
     terraform_avm:
       module: Azure/avm-res-web-site/azurerm
@@ -357,21 +381,25 @@ decisions:
       values:
         deployment: { expr: "'DOCKER|{runtime.container_image}'" }
         image_pipeline: { expr: '<a parameter with the running value; the bootstrap image while it is empty>' }
+    import: {todo: an answer renders as code or as nothing; needs cases}
   runtime.always_on:
     terraform_avm: { module: Azure/avm-res-web-site/azurerm, attribute: site_config.always_on, passthrough: true }
     terraform: { attribute: site_config.always_on, passthrough: true, note: from the question's renders - the authored rendering names none }
     bicep_avm: { module: avm/res/web/site, attribute: siteConfig.alwaysOn, passthrough: true }
     bicep: { attribute: properties.siteConfig.alwaysOn, passthrough: true }
+    import: {path: properties.siteConfig.alwaysOn, passthrough: true}
   runtime.health_check_path:
     terraform_avm: { module: Azure/avm-res-web-site/azurerm, attribute: site_config.health_check_path, passthrough: true, note: omitted while empty }
     terraform: { attribute: site_config.health_check_path, passthrough: true, note: from the question's renders; omitted while empty }
     bicep_avm: { module: avm/res/web/site, attribute: siteConfig.healthCheckPath, passthrough: true, note: omitted while empty }
     bicep: { attribute: properties.siteConfig.healthCheckPath, passthrough: true, note: omitted while empty }
+    import: {path: properties.siteConfig.healthCheckPath, passthrough: true}
   runtime.http2_enabled:
     terraform_avm: { module: Azure/avm-res-web-site/azurerm, attribute: site_config.http2_enabled, passthrough: true, note: module default false }
     terraform: { attribute: site_config.http2_enabled, passthrough: true, note: from the question's renders - the authored rendering names none }
     bicep_avm: { module: avm/res/web/site, attribute: siteConfig.http20Enabled, passthrough: true }
     bicep: { attribute: properties.siteConfig.http20Enabled, passthrough: true }
+    import: {path: properties.siteConfig.http20Enabled, passthrough: true}
 
   # -------------------------------------------------------------------- slots
   slots.deployment_slots:
@@ -389,6 +417,7 @@ decisions:
     bicep:
       attribute: Microsoft.Web/sites/slots name
       note: 'one child resource per entry, parent the site (source: bicep build, Microsoft.Web/sites/slots@2024-04-01)'
+    import: {todo: 'not in the Resource Graph row: Microsoft.Web/sites/slots name'}
   slots.slot_access:
     terraform_avm:
       module: Azure/avm-res-web-site/azurerm
@@ -410,6 +439,7 @@ decisions:
         known_addresses: "siteConfig: { ipSecurityRestrictionsDefaultAction: 'Deny', scmIpSecurityRestrictionsUseMain: true }"
       note: a slot siteConfig replaces the site's - write the whole object; same_as_app behind a WAF also adds an origin group and route on the Front Door call, over private link to sites-<name>
     bicep: { gap: "Microsoft.Web/sites/slots properties.publicNetworkAccess exists (bicep build @2024-04-01) but takes a free string, and the slot's private endpoint group id for same_as_app and private is in no source" }
+    import: {todo: 'bicep renders it as a gap: Microsoft.Web/sites/slots properties.publicNetworkAccess exi...'}
   slots.slot_ip_restrictions:
     terraform_avm: { module: Azure/avm-res-web-site/azurerm, attribute: 'deployment_slots.<name>.site_config.ip_restriction' }
     terraform:
@@ -422,6 +452,7 @@ decisions:
     bicep:
       attribute: Microsoft.Web/sites/slots properties.siteConfig.ipSecurityRestrictions
       note: 'one entry per range (source: bicep build, Microsoft.Web/sites/slots@2024-04-01)'
+    import: {todo: 'not in the Resource Graph row: Microsoft.Web/sites/slots properties.siteConfig.ipSecuri...'}
   slots.auto_swap:
     terraform_avm:
       module: Azure/avm-res-web-site/azurerm
@@ -435,6 +466,7 @@ decisions:
       values: { true: production, false: null }
       note: omitted while false; needs the whole siteConfig on the slot
     bicep: { gap: "Microsoft.Web/sites/slots properties.siteConfig.autoSwapSlotName (bicep build @2024-04-01); a free string, the build proves no literal for the production slot" }
+    import: {todo: 'bicep renders it as a gap: Microsoft.Web/sites/slots properties.siteConfig.autoSwapSlot...'}
   slots.sticky_settings:
     terraform_avm:
       module: Azure/avm-res-web-site/azurerm
@@ -448,6 +480,7 @@ decisions:
     bicep:
       attribute: Microsoft.Web/sites/config slotConfigNames properties.appSettingNames
       note: 'a child of the site (source: bicep build, Microsoft.Web/sites/config@2024-04-01)'
+    import: {todo: 'not in the Resource Graph row: Microsoft.Web/sites/config slotConfigNames properties.ap...'}
 
   # ------------------------------------------------------------ observability
   observability.diagnostic_workspace:
@@ -461,6 +494,7 @@ decisions:
       attribute: 'diagnosticSettings[].workspaceResourceId'
       note: on both modules, the plan with metrics only; slots[].diagnosticSettings per slot
     bicep: { attribute: Microsoft.Insights/diagnosticSettings properties.workspaceId, note: 'scope the site, one more per slot (source: bicep build, Microsoft.Insights/diagnosticSettings@2021-05-01-preview)' }
+    import: {todo: 'not in the Resource Graph row: Microsoft.Insights/diagnosticSettings properties.workspa...'}
   observability.diagnostic_categories:
     terraform_avm:
       module: Azure/avm-res-web-site/azurerm
@@ -469,6 +503,7 @@ decisions:
     terraform: { attribute: azurerm_monitor_diagnostic_setting.enabled_log.category }
     bicep_avm: { module: avm/res/web/site, attribute: 'diagnosticSettings[].logCategoriesAndGroups[].category' }
     bicep: { attribute: 'Microsoft.Insights/diagnosticSettings properties.logs[].category', note: 'each with enabled: true (source: bicep build, Microsoft.Insights/diagnosticSettings@2021-05-01-preview)' }
+    import: {todo: 'not in the Resource Graph row: Microsoft.Insights/diagnosticSettings properties.logs[]....'}
   observability.metrics_enabled:
     terraform_avm:
       module: Azure/avm-res-web-site/azurerm
@@ -485,6 +520,7 @@ decisions:
       values: { true: { expr: "[ { category: 'AllMetrics' } ]" }, false: { expr: '[]' } }
       note: the plan module takes the same metrics
     bicep: { gap: "Microsoft.Insights/diagnosticSettings properties.metrics[].category (bicep build @2021-05-01-preview); the category is a free string the build does not check, so the literal for true is unproven" }
+    import: {todo: 'bicep renders it as a gap: Microsoft.Insights/diagnosticSettings properties.metrics[].c...'}
   observability.application_insights:
     terraform_avm:
       module: Azure/avm-res-web-site/azurerm
@@ -496,3 +532,4 @@ decisions:
       attribute: "configs[name: 'appsettings'].properties.APPLICATIONINSIGHTS_CONNECTION_STRING"
       note: the component's connectionString output, not its id; with APPLICATIONINSIGHTS_AUTHENTICATION_STRING = Authorization=AAD (;ClientId=<client id> user-assigned) while local auth is off; slots[].configs too; omitted while empty
     bicep: { gap: "Microsoft.Web/sites/config appsettings properties is a string map - the build does not check the setting's key" }
+    import: {todo: 'bicep renders it as a gap: Microsoft.Web/sites/config appsettings properties is a strin...'}

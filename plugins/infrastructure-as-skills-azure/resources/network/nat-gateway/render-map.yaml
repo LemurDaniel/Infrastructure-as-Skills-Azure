@@ -18,6 +18,7 @@ decisions:
     terraform: { attribute: location, passthrough: true }
     bicep_avm: { attribute: location, passthrough: true }
     bicep: { attribute: location, passthrough: true }
+    import: {path: location, passthrough: true}
   placement.resource_group_name:
     terraform_avm:
       attribute: parent_id
@@ -25,6 +26,7 @@ decisions:
     terraform: { attribute: resource_group_name }
     bicep_avm: { gap: the deployment's resource group scope; no parameter }
     bicep: { gap: the deployment's resource group scope; no property }
+    import: {todo: 'bicep renders it as a gap: the deployment''s resource group scope; no property'}
 
   # ------------------------------------------------------------------ gateway
   gateway.subnets:
@@ -40,6 +42,7 @@ decisions:
     bicep:
       on_part: "properties.subnets[name={part}].properties.natGateway.id: {self}"
       note: the subnet takes the gateway's id
+    import: {todo: set on a part of another resource; read from that resource}
   gateway.sku:
     terraform_avm:
       attribute: sku_name
@@ -55,6 +58,7 @@ decisions:
     bicep:
       attribute: sku.name
       values: { Standard: Standard, StandardV2: StandardV2 }
+    import: {path: sku.name, values: {Standard: Standard, StandardV2: StandardV2}}
   gateway.zone:
     terraform_avm:
       attribute: zones
@@ -71,6 +75,7 @@ decisions:
       attribute: zones
       values: { none: { expr: '[]' }, '1': { expr: "[ '1' ]" }, '2': { expr: "[ '2' ]" }, '3': { expr: "[ '3' ]" } }
       note: strings, for Standard only
+    import: {todo: an answer renders as code or as nothing; needs cases}
   gateway.public_ip_source:
     terraform_avm:
       attribute: public_ips
@@ -99,6 +104,7 @@ decisions:
         with_gateway renders Microsoft.Network/publicIPAddresses (as in the public-ip-address set)
         and points properties.publicIpAddresses[].id at them; separate points them at the ids of
         that set
+    import: {todo: 'bicep renders it as a gap: with_gateway renders Microsoft.Network/publicIPAddresses (as...'}
   gateway.public_ip_count:
     terraform_avm:
       attribute: data.naming_name.nat_public_ip.index.count
@@ -107,16 +113,19 @@ decisions:
     terraform: { gap: 'the number of azurerm_public_ip and azurerm_nat_gateway_public_ip_association resources, one each per address (1 to 16)' }
     bicep_avm: { gap: 'the length of publicIpNames, the loop over publicIPAddresses - one entry per address (1 to 16)' }
     bicep: { gap: 'the number of Microsoft.Network/publicIPAddresses and properties.publicIpAddresses[] entries, one each per address' }
+    import: {todo: 'bicep renders it as a gap: the number of Microsoft.Network/publicIPAddresses and proper...'}
   gateway.public_ip_prefix_ids:
     terraform_avm: { attribute: public_ip_prefix_resource_ids, note: IPv4 only }
     terraform: { attribute: azurerm_nat_gateway_public_ip_prefix_association.public_ip_prefix_id, note: one association per prefix (for_each) }
     bicep_avm: { attribute: publicIPPrefixResourceIds, note: IPv4; the IPv6 variants are not used }
     bicep: { attribute: 'properties.publicIpPrefixes[].id' }
+    import: {todo: 'not in the Resource Graph row: properties.publicIpPrefixes[].id'}
   gateway.idle_timeout_minutes:
     terraform_avm: { attribute: idle_timeout_in_minutes, passthrough: true, note: the gateway's; the addresses' own timeout (default 30) is not used for NAT traffic }
     terraform: { attribute: idle_timeout_in_minutes, passthrough: true }
     bicep_avm: { attribute: idleTimeoutInMinutes, passthrough: true }
     bicep: { attribute: properties.idleTimeoutInMinutes, passthrough: true }
+    import: {path: properties.idleTimeoutInMinutes, passthrough: true}
 
   # ------------------------------------------------------------ observability
   observability.diagnostic_workspace:
@@ -126,6 +135,7 @@ decisions:
     terraform: { attribute: azurerm_monitor_diagnostic_setting.log_analytics_workspace_id }
     bicep_avm: { gap: 'module README 2.1.1 has no diagnosticSettings parameter for the gateway; an authored Microsoft.Insights/diagnosticSettings with scope: natGateway' }
     bicep: { attribute: Microsoft.Insights/diagnosticSettings properties.workspaceId, note: 'extension resource with scope: natGateway' }
+    import: {todo: 'not in the Resource Graph row: Microsoft.Insights/diagnosticSettings properties.workspa...'}
   observability.metrics_enabled:
     terraform_avm:
       attribute: 'diagnostic_settings.<key>.metrics'
@@ -139,3 +149,4 @@ decisions:
       attribute: Microsoft.Insights/diagnosticSettings properties.metrics
       values: { true: { expr: "[ { category: 'AllMetrics', enabled: true } ]" }, false: null }
       note: false renders no metrics entry
+    import: {todo: 'not in the Resource Graph row: Microsoft.Insights/diagnosticSettings properties.metrics'}

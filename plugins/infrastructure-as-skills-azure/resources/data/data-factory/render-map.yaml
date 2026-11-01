@@ -22,11 +22,13 @@ decisions:
     terraform: { attribute: location, passthrough: true }
     bicep_avm: { attribute: location, passthrough: true }
     bicep: { attribute: location, passthrough: true }
+    import: {path: location, passthrough: true}
   placement.resource_group_name:
     terraform_avm: { attribute: resource_group_name, note: azurerm-based module - the root cannot be on azurerm 5.x }
     terraform: { attribute: resource_group_name }
     bicep_avm: { gap: the deployment's resource group scope; no parameter }
     bicep: { gap: the deployment's resource group scope; no property }
+    import: {todo: 'bicep renders it as a gap: the deployment''s resource group scope; no property'}
 
   # ------------------------------------------------------------------ factory
   factory.managed_virtual_network:
@@ -53,6 +55,7 @@ decisions:
       also:
         true: "child integrationRuntimes { type: 'Managed', managedVirtualNetwork.referenceName: 'default' }"
       note: false renders neither child
+    import: {todo: 'not in the Resource Graph row: child managedVirtualNetworks name'}
   factory.managed_private_endpoints:
     terraform_avm:
       gap: not a module input - azurerm_data_factory_managed_private_endpoint per entry beside the call; approval on the source is a step after the apply
@@ -61,6 +64,7 @@ decisions:
       attribute: 'managedVirtualNetwork.managedPrivateEndpoints[] = { name, privateLinkResourceId, groupId, fqdns }'
       note: fqdns is required by the type - the source's endpoint host; approval on the source follows
     bicep: { attribute: child managedVirtualNetworks/default/managedPrivateEndpoints }
+    import: {todo: 'not in the Resource Graph row: child managedVirtualNetworks/default/managedPrivateEndpo...'}
   factory.self_hosted_integration_runtime:
     terraform_avm:
       attribute: integration_runtime_self_hosted
@@ -78,16 +82,19 @@ decisions:
       attribute: "child integrationRuntimes (type: 'SelfHosted') name"
       values: { none: null, create_key_only: shir-onprem }
       note: none renders no runtime
+    import: {todo: 'not in the Resource Graph row: child integrationRuntimes (type: ''SelfHosted'') name'}
   factory.global_parameters:
     terraform_avm: { attribute: 'global_parameters[] = { name, type, value }', note: a list - not a map }
     terraform: { attribute: 'global_parameter { name, type, value }' }
     bicep_avm: { attribute: 'globalParameters.<name> = { type, value }', note: an object keyed by name - a list in Terraform }
     bicep: { attribute: properties.globalParameters }
+    import: {todo: a list or a reference; needs its own reading}
   factory.purview_account:
     terraform_avm: { attribute: purview_id, passthrough: true, omit_empty: true }
     terraform: { attribute: purview_id, passthrough: true, omit_empty: true }
     bicep_avm: { attribute: purviewResourceId, passthrough: true, omit_empty: true }
     bicep: { attribute: properties.purviewConfiguration.purviewResourceId, passthrough: true, omit_empty: true }
+    import: {path: properties.purviewConfiguration.purviewResourceId, passthrough: true}
 
   # ----------------------------------------------------------- source_control
   source_control.git_provider:
@@ -117,36 +124,43 @@ decisions:
       attribute: properties.repoConfiguration.type
       values: { none: null, github: FactoryGitHubConfiguration, azure_devops: FactoryVSTSConfiguration }
       note: repoConfiguration omitted for none and on every stage but development
+    import: {todo: an answer renders as code or as nothing; needs cases}
   source_control.git_account:
     terraform_avm: { attribute: github_configuration.account_name, passthrough: true, note: vsts_configuration.account_name for azure_devops }
     terraform: { attribute: github_configuration.account_name, passthrough: true, note: vsts_configuration.account_name for azure_devops }
     bicep_avm: { attribute: gitConfiguration.accountName, passthrough: true }
     bicep: { attribute: properties.repoConfiguration.accountName, passthrough: true }
+    import: {path: properties.repoConfiguration.accountName, passthrough: true}
   source_control.git_repository:
     terraform_avm: { attribute: github_configuration.repository_name, passthrough: true, note: vsts_configuration.repository_name for azure_devops }
     terraform: { attribute: github_configuration.repository_name, passthrough: true, note: vsts_configuration.repository_name for azure_devops }
     bicep_avm: { attribute: gitConfiguration.repositoryName, passthrough: true }
     bicep: { attribute: properties.repoConfiguration.repositoryName, passthrough: true }
+    import: {path: properties.repoConfiguration.repositoryName, passthrough: true}
   source_control.git_project:
     terraform_avm: { attribute: vsts_configuration.project_name, passthrough: true }
     terraform: { attribute: vsts_configuration.project_name, passthrough: true }
     bicep_avm: { attribute: gitConfiguration.projectName, passthrough: true }
     bicep: { attribute: properties.repoConfiguration.projectName, passthrough: true }
+    import: {path: properties.repoConfiguration.projectName, passthrough: true}
   source_control.git_collaboration_branch:
     terraform_avm: { attribute: github_configuration.branch_name, passthrough: true, note: vsts_configuration.branch_name for azure_devops }
     terraform: { attribute: github_configuration.branch_name, passthrough: true, note: vsts_configuration.branch_name for azure_devops }
     bicep_avm: { attribute: gitConfiguration.collaborationBranch, passthrough: true }
     bicep: { attribute: properties.repoConfiguration.collaborationBranch, passthrough: true }
+    import: {path: properties.repoConfiguration.collaborationBranch, passthrough: true}
   source_control.git_root_folder:
     terraform_avm: { attribute: github_configuration.root_folder, passthrough: true, note: vsts_configuration.root_folder for azure_devops }
     terraform: { attribute: github_configuration.root_folder, passthrough: true, note: vsts_configuration.root_folder for azure_devops }
     bicep_avm: { attribute: gitConfiguration.rootFolder, passthrough: true }
     bicep: { attribute: properties.repoConfiguration.rootFolder, passthrough: true }
+    import: {path: properties.repoConfiguration.rootFolder, passthrough: true}
   source_control.git_host:
     terraform_avm: { attribute: github_configuration.git_url, passthrough: true, note: only for an Enterprise Server }
     terraform: { attribute: github_configuration.git_url, passthrough: true, note: only for an Enterprise Server }
     bicep_avm: { attribute: gitConfiguration.hostName, passthrough: true }
     bicep: { attribute: properties.repoConfiguration.hostName, passthrough: true }
+    import: {path: properties.repoConfiguration.hostName, passthrough: true}
 
   # --------------------------------------------------------------- networking
   networking.public_network_access:
@@ -164,6 +178,7 @@ decisions:
     bicep:
       attribute: properties.publicNetworkAccess
       values: { disabled: Disabled, enabled_with_firewall: Enabled, enabled: Enabled }
+    import: {todo: answers share the literal Enabled; needs cases over a second path}
   networking.private_endpoint_subnet:
     terraform_avm:
       attribute: 'private_endpoints.dataFactory.subnet_resource_id'
@@ -171,6 +186,7 @@ decisions:
     terraform: { attribute: azurerm_private_endpoint.subnet_id }
     bicep_avm: { attribute: 'privateEndpoints[].subnetResourceId' }
     bicep: { attribute: Microsoft.Network/privateEndpoints properties.subnet.id, note: "one endpoint per sub-resource (source: bicep build, Microsoft.Network/privateEndpoints@2025-01-01)" }
+    import: {todo: 'not in the Resource Graph row: Microsoft.Network/privateEndpoints properties.subnet.id'}
   networking.private_endpoint_subresources:
     terraform_avm:
       gap: 'the module fixes the sub-resource dataFactory (private_endpoints.dataFactory); portal in the list is an authored azurerm_private_endpoint with subresource_names = ["portal"]'
@@ -183,6 +199,7 @@ decisions:
     bicep:
       attribute: Microsoft.Network/privateEndpoints groupIds
       note: 'one endpoint per entry, groupIds: [entry]'
+    import: {todo: 'not in the Resource Graph row: Microsoft.Network/privateEndpoints groupIds'}
 
   # ----------------------------------------------------------------- identity
   identity.managed_identity:
@@ -205,6 +222,7 @@ decisions:
       attribute: identity.type
       values: { system_assigned: SystemAssigned, user_assigned: 'SystemAssigned,UserAssigned' }
       note: "no space after the comma, unlike Terraform (source: bicep build, Microsoft.DataFactory/factories@2018-06-01)"
+    import: {path: identity.type, values: {SystemAssigned: system_assigned, 'SystemAssigned,UserAssigned': user_assigned}}
   identity.user_assigned_identity_ids:
     terraform_avm: { attribute: managed_identities.user_assigned_resource_ids }
     terraform: { attribute: identity.identity_ids }
@@ -213,6 +231,7 @@ decisions:
       attribute: identity.userAssignedIdentities
       format: { expr: 'toObject({value}, id => id, id => {})' }
       note: "an object keyed by id, built from the list (source: bicep build, Microsoft.DataFactory/factories@2018-06-01)"
+    import: {todo: a composed or computed literal; needs its own reading}
   identity.source_access:
     not_rendered: role assignments on each source with the factory's principal id - rendered beside the source; not an input of either module
   identity.role_assignments:
@@ -220,6 +239,7 @@ decisions:
     terraform: { attribute: azurerm_role_assignment }
     bicep_avm: { attribute: roleAssignments, note: control plane }
     bicep: { attribute: Microsoft.Authorization/roleAssignments }
+    import: {todo: 'not in the Resource Graph row: Microsoft.Authorization/roleAssignments'}
 
   # ----------------------------------------------------------------- security
   security.key_management:
@@ -245,6 +265,7 @@ decisions:
         platform_managed: null
         customer_managed: { expr: '{ keyName: <key name>, vaultBaseUrl: <vault URI>, identity: <identity> }' }
       note: the reference does not state the shape of identity
+    import: {todo: an answer renders as code or as nothing; needs cases}
   security.cmk_key_vault_key_id:
     terraform_avm: { attribute: customer_managed_key_id, note: the versioned key URL }
     terraform: { attribute: customer_managed_key_id, note: the versioned key URL }
@@ -254,6 +275,7 @@ decisions:
     bicep:
       attribute: properties.encryption.vaultBaseUrl
       note: "the vault's URI taken from the key; the key's name goes into properties.encryption.keyName beside it"
+    import: {todo: a list or a reference; needs its own reading}
 
   # ------------------------------------------------------------ observability
   observability.diagnostic_workspace:
@@ -263,6 +285,7 @@ decisions:
     terraform: { attribute: azurerm_monitor_diagnostic_setting.log_analytics_workspace_id, note: "with log_analytics_destination_type = \"Dedicated\" (source: azurerm 5.12 schema)" }
     bicep_avm: { attribute: 'diagnosticSettings[].workspaceResourceId', note: logAnalyticsDestinationType defaults to Dedicated }
     bicep: { attribute: Microsoft.Insights/diagnosticSettings properties.workspaceId, note: "with logAnalyticsDestinationType: 'Dedicated' (source: bicep build, Microsoft.Insights/diagnosticSettings@2021-05-01-preview)" }
+    import: {todo: 'not in the Resource Graph row: Microsoft.Insights/diagnosticSettings properties.workspa...'}
   observability.diagnostic_categories:
     terraform_avm:
       attribute: 'diagnostic_settings.<key>.log_categories'
@@ -270,6 +293,7 @@ decisions:
     terraform: { attribute: azurerm_monitor_diagnostic_setting.enabled_log.category }
     bicep_avm: { attribute: 'diagnosticSettings[].logCategoriesAndGroups[].category' }
     bicep: { attribute: 'Microsoft.Insights/diagnosticSettings properties.logs[].category' }
+    import: {todo: 'not in the Resource Graph row: Microsoft.Insights/diagnosticSettings properties.logs[]....'}
   observability.metrics_enabled:
     terraform_avm:
       attribute: 'diagnostic_settings.<key>.metric_categories'
@@ -285,3 +309,4 @@ decisions:
       attribute: 'Microsoft.Insights/diagnosticSettings properties.metrics[].category'
       values: { true: AllMetrics, false: null }
       note: false renders no metrics entry
+    import: {todo: 'not in the Resource Graph row: Microsoft.Insights/diagnosticSettings properties.metrics...'}

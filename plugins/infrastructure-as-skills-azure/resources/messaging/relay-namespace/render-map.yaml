@@ -27,6 +27,7 @@ decisions:
     terraform: { attribute: location, passthrough: true }
     bicep_avm: { attribute: location, passthrough: true }
     bicep: { attribute: location, passthrough: true }
+    import: {path: location, passthrough: true}
   placement.resource_group_name:
     terraform_avm:
       module: Azure/avm-res-relay-namespace/azurerm
@@ -35,6 +36,7 @@ decisions:
     terraform: { attribute: resource_group_name }
     bicep_avm: { gap: the deployment's resource group scope; no parameter }
     bicep: { gap: the deployment's resource group scope; no property }
+    import: {todo: 'bicep renders it as a gap: the deployment''s resource group scope; no property'}
 
   # -------------------------------------------------------------- connections
   connections.hybrid_connections:
@@ -47,6 +49,7 @@ decisions:
       attribute: 'hybridConnections[] = { name, userMetadata }'
       note: 'untyped array; userMetadata is a JSON string the App Service Hybrid Connection Manager reads ([{"key":"endpoint","value":"host:port"}])'
     bicep: { attribute: 'Microsoft.Relay/namespaces/hybridConnections properties: { requiresClientAuthorization, userMetadata }' }
+    import: {todo: 'not in the Resource Graph row: Microsoft.Relay/namespaces/hybridConnections properties:...'}
   connections.client_authorization_required:
     terraform_avm:
       module: Azure/avm-res-relay-namespace/azurerm//modules/hybrid-connection
@@ -56,6 +59,7 @@ decisions:
     terraform: { attribute: azurerm_relay_hybrid_connection.requires_client_authorization, passthrough: true }
     bicep_avm: { attribute: 'hybridConnections[].requiresClientAuthorization', passthrough: true, note: child default true - written }
     bicep: { attribute: hybridConnections child properties.requiresClientAuthorization, passthrough: true }
+    import: {todo: 'not in the Resource Graph row: hybridConnections child properties.requiresClientAuthori...'}
   connections.wcf_relays:
     terraform_avm:
       module: Azure/avm-res-relay-namespace/azurerm//modules/wcf-relay
@@ -68,6 +72,7 @@ decisions:
       attribute: 'wcfRelays[] = { name, relayType, requiresClientAuthorization, requiresTransportSecurity }'
       note: SAS-only, a named departure; its Listen rule in wcfRelays[].authorizationRules
     bicep: { attribute: 'Microsoft.Relay/namespaces/wcfRelays properties: { relayType, requiresClientAuthorization, requiresTransportSecurity }' }
+    import: {todo: 'not in the Resource Graph row: Microsoft.Relay/namespaces/wcfRelays properties: { relay...'}
 
   # ------------------------------------------------------------------- access
   access.local_auth:
@@ -81,6 +86,7 @@ decisions:
       note: both answers - the service creates RootManageSharedAccessKey anyway and no rule is rendered beyond it; unset, the module would declare that root rule itself (Listen/Manage/Send)
     bicep:
       gap: no child authorizationRules and no listKeys() in any output
+    import: {todo: 'bicep renders it as a gap: no child authorizationRules and no listKeys() in any output'}
 
   # --------------------------------------------------------------- networking
   networking.public_network_access:
@@ -101,6 +107,7 @@ decisions:
       attribute: properties.publicNetworkAccess
       values: { disabled: Disabled, enabled_with_firewall: Enabled, enabled: Enabled }
       note: and the networkRuleSets child named default with the same properties.publicNetworkAccess
+    import: {todo: answers share the literal Enabled; needs cases over a second path}
   networking.private_endpoint_subnet:
     terraform_avm:
       module: Azure/avm-res-relay-namespace/azurerm
@@ -109,6 +116,7 @@ decisions:
     terraform: { attribute: azurerm_private_endpoint.subnet_id, note: 'subresource_names = ["namespace"]' }
     bicep_avm: { attribute: 'privateEndpoints[].subnetResourceId', note: "service: 'namespace'" }
     bicep: { attribute: Microsoft.Network/privateEndpoints properties.subnet.id, note: "groupIds: [ 'namespace' ]" }
+    import: {todo: 'not in the Resource Graph row: Microsoft.Network/privateEndpoints properties.subnet.id'}
   networking.ip_rules:
     terraform_avm:
       module: Azure/avm-res-relay-namespace/azurerm//modules/network-rule-set
@@ -121,6 +129,7 @@ decisions:
       attribute: 'networkRuleSets.ipRules[].ipMask'
       note: "action: 'Allow', networkRuleSets.defaultAction: 'Deny' (the child forces Deny when rules exist); only under enabled_with_firewall"
     bicep: { attribute: 'networkRuleSets child properties.ipRules[].ipMask', note: "action: 'Allow', defaultAction: 'Deny'" }
+    import: {todo: 'not in the Resource Graph row: networkRuleSets child properties.ipRules[].ipMask'}
 
   # ----------------------------------------------------------------- identity
   identity.role_assignments:
@@ -133,6 +142,7 @@ decisions:
       attribute: 'roleAssignments[] = { principalId, roleDefinitionIdOrName, principalType }'
       note: on the namespace; a per-connection role goes in hybridConnections[].roleAssignments
     bicep: { attribute: Microsoft.Authorization/roleAssignments, note: scope = the namespace }
+    import: {todo: 'not in the Resource Graph row: Microsoft.Authorization/roleAssignments'}
 
   # ------------------------------------------------------------ observability
   observability.diagnostic_workspace:
@@ -140,6 +150,7 @@ decisions:
     terraform: { attribute: azurerm_monitor_diagnostic_setting.log_analytics_workspace_id }
     bicep_avm: { attribute: 'diagnosticSettings[].workspaceResourceId' }
     bicep: { attribute: Microsoft.Insights/diagnosticSettings properties.workspaceId, note: scoped to the namespace }
+    import: {todo: 'not in the Resource Graph row: Microsoft.Insights/diagnosticSettings properties.workspa...'}
   observability.diagnostic_categories:
     terraform_avm:
       module: Azure/avm-res-relay-namespace/azurerm
@@ -148,6 +159,7 @@ decisions:
     terraform: { attribute: azurerm_monitor_diagnostic_setting.enabled_log.category }
     bicep_avm: { attribute: 'diagnosticSettings[].logCategoriesAndGroups[].category' }
     bicep: { attribute: 'Microsoft.Insights/diagnosticSettings properties.logs[].category', note: 'with enabled: true' }
+    import: {todo: 'not in the Resource Graph row: Microsoft.Insights/diagnosticSettings properties.logs[]....'}
   observability.metrics_enabled:
     terraform_avm:
       module: Azure/avm-res-relay-namespace/azurerm
@@ -164,3 +176,4 @@ decisions:
       attribute: 'Microsoft.Insights/diagnosticSettings properties.metrics[].category'
       values: { true: AllMetrics, false: null }
       note: 'with enabled: true; false renders no metrics entry'
+    import: {todo: 'not in the Resource Graph row: Microsoft.Insights/diagnosticSettings properties.metrics...'}

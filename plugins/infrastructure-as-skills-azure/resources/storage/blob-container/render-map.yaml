@@ -19,6 +19,7 @@ decisions:
     terraform: { attribute: storage_account_id, note: "5.x takes the account's id, not its name" }
     bicep_avm: { gap: the containers are a parameter of the account's own module call; no parameter of their own }
     bicep: { attribute: parent, note: blobServices/default of the account }
+    import: {todo: 'not in the Resource Graph row: parent'}
 
   # --------------------------------------------------------------- containers
   containers.container_names:
@@ -26,6 +27,7 @@ decisions:
     terraform: { attribute: name }
     bicep_avm: { attribute: 'blobServices.containers[].name' }
     bicep: { attribute: name, note: child of blobServices/default }
+    import: {todo: 'not in the Resource Graph row: name'}
   containers.public_access:
     terraform_avm:
       attribute: 'containers.<key>.public_access'
@@ -39,6 +41,7 @@ decisions:
       passthrough: true
       note: anything but None needs allowBlobPublicAccess on the account; written
     bicep: { attribute: properties.publicAccess, passthrough: true }
+    import: {path: properties.publicAccess, passthrough: true}
   containers.immutable_storage:
     terraform_avm:
       attribute: 'containers.<key>.immutable_storage_with_versioning.enabled'
@@ -51,6 +54,7 @@ decisions:
       passthrough: true
       note: needs blobServices.isVersioningEnabled; cannot be combined with restorePolicyEnabled
     bicep: { attribute: properties.immutableStorageWithVersioning.enabled, passthrough: true }
+    import: {path: properties.immutableStorageWithVersioning.enabled, passthrough: true}
   containers.encryption_scope_locked:
     terraform_avm:
       attribute: 'containers.<key>.deny_encryption_scope_override'
@@ -68,6 +72,7 @@ decisions:
       attribute: properties.denyEncryptionScopeOverride
       passthrough: true
       note: with defaultEncryptionScope, written together or both left out when no scope is set
+    import: {path: properties.denyEncryptionScopeOverride, passthrough: true}
 
   # ----------------------------------------------------------------- identity
   identity.role_assignments:
@@ -79,3 +84,4 @@ decisions:
     bicep:
       attribute: 'Microsoft.Authorization/roleAssignments properties = { roleDefinitionId, principalId, principalType }'
       note: 'an extension resource, scope = the container (source: bicep build, Microsoft.Authorization/roleAssignments@2022-04-01)'
+    import: {todo: 'not in the Resource Graph row: Microsoft.Authorization/roleAssignments properties = { r...'}

@@ -21,14 +21,17 @@ decisions:
       attribute: resource_group_id
       note: 'an id, not a name - the group id, also the budget scope (source: azurerm 5.12 schema)'
     bicep: { gap: the deployment's resource group scope - the budget is deployed into the group it watches; no property }
+    import: {todo: 'bicep renders it as a gap: the deployment''s resource group scope - the budget is deploy...'}
 
   # ------------------------------------------------------------------- budget
   budget.amount:
     terraform: { attribute: amount, passthrough: true }
     bicep: { attribute: properties.amount, passthrough: true }
+    import: {path: properties.amount, passthrough: true}
   budget.time_grain:
     terraform: { attribute: time_grain, passthrough: true }
     bicep: { attribute: properties.timeGrain, passthrough: true }
+    import: {path: properties.timeGrain, passthrough: true}
   budget.actual_thresholds:
     terraform:
       attribute: 'notification { enabled = true, threshold = <n>, threshold_type = "Actual", operator = "GreaterThanOrEqualTo" }'
@@ -36,6 +39,7 @@ decisions:
     bicep:
       attribute: "properties.notifications['actual_<n>'] = { enabled: true, threshold: <n>, thresholdType: 'Actual', operator: 'GreaterThanOrEqualTo' }"
       note: one key per entry, contacts repeated in every one; at most five keys with the forecast ones
+    import: {todo: 'not in the Resource Graph row: properties.notifications[''actual_<n>''] = { enabled: true...'}
   budget.forecast_thresholds:
     terraform:
       attribute: 'notification { enabled = true, threshold = <n>, threshold_type = "Forecasted", operator = "GreaterThanOrEqualTo" }'
@@ -43,6 +47,7 @@ decisions:
     bicep:
       attribute: "properties.notifications['forecast_<n>'] = { enabled: true, threshold: <n>, thresholdType: 'Forecasted', operator: 'GreaterThanOrEqualTo' }"
       note: one key per entry
+    import: {todo: 'not in the Resource Graph row: properties.notifications[''forecast_<n>''] = { enabled: tr...'}
 
   # ------------------------------------------------------------ notifications
   notifications.action_group:
@@ -52,11 +57,14 @@ decisions:
     bicep:
       attribute: "properties.notifications[*].contactGroups: [ <id> ]"
       note: in every notification
+    import: {todo: 'not in the Resource Graph row: properties.notifications[*].contactGroups: [ <id> ]'}
   notifications.contact_emails:
     terraform:
       attribute: notification.contact_emails
       note: in every notification block; an empty list is written as []
     bicep: { attribute: "properties.notifications[*].contactEmails" }
+    import: {todo: 'not in the Resource Graph row: properties.notifications[*].contactEmails'}
   notifications.contact_roles:
     terraform: { attribute: notification.contact_roles }
     bicep: { attribute: "properties.notifications[*].contactRoles" }
+    import: {todo: 'not in the Resource Graph row: properties.notifications[*].contactRoles'}

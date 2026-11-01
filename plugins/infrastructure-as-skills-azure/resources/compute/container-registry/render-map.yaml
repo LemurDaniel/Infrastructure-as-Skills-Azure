@@ -22,6 +22,7 @@ decisions:
     terraform: { attribute: location, passthrough: true }
     bicep_avm: { attribute: location, passthrough: true }
     bicep: { attribute: location, passthrough: true }
+    import: {path: location, passthrough: true}
   placement.resource_group_name:
     terraform_avm:
       attribute: resource_group_name
@@ -29,6 +30,7 @@ decisions:
     terraform: { attribute: resource_group_name }
     bicep_avm: { gap: the deployment's resource group scope; no parameter }
     bicep: { gap: the deployment's resource group scope; no property }
+    import: {todo: 'bicep renders it as a gap: the deployment''s resource group scope; no property'}
 
   # ----------------------------------------------------------------- registry
   registry.sku:
@@ -36,6 +38,7 @@ decisions:
     terraform: { attribute: sku, passthrough: true }
     bicep_avm: { attribute: acrSku, passthrough: true, note: module default Premium; written anyway }
     bicep: { attribute: sku.name, passthrough: true }
+    import: {path: sku.name, passthrough: true}
   registry.zone_redundant:
     terraform_avm:
       attribute: zone_redundancy_enabled
@@ -49,6 +52,7 @@ decisions:
     bicep:
       attribute: properties.zoneRedundancy
       values: { true: Enabled, false: Disabled }
+    import: {path: properties.zoneRedundancy, values: {Enabled: true, Disabled: false}}
   registry.geo_replicas:
     terraform_avm:
       attribute: 'georeplications = [{ location, zone_redundancy_enabled, regional_endpoint_enabled }]'
@@ -56,6 +60,7 @@ decisions:
     terraform: { attribute: 'georeplications { location, zone_redundancy_enabled }' }
     bicep_avm: { attribute: 'replications[] = { location, zoneRedundancy }' }
     bicep: { attribute: child replications, note: one Microsoft.ContainerRegistry/registries/replications per region }
+    import: {todo: 'not in the Resource Graph row: child replications'}
   registry.retention_untagged_days:
     terraform_avm:
       attribute: retention_policy_in_days
@@ -67,6 +72,7 @@ decisions:
       passthrough: true
       note: "with retentionPolicyStatus: 'enabled'; module default 15 - written"
     bicep: { attribute: properties.policies.retentionPolicy.days, passthrough: true, note: with status }
+    import: {path: properties.policies.retentionPolicy.days, passthrough: true}
 
   # --------------------------------------------------------------- networking
   networking.public_network_access:
@@ -92,6 +98,7 @@ decisions:
       values: { disabled: Disabled, enabled_with_firewall: Enabled, enabled: Enabled }
       also:
         enabled_with_firewall: "properties.networkRuleSet.defaultAction: 'Deny'"
+    import: {todo: answers share the literal Enabled; needs cases over a second path}
   networking.private_endpoint_subnet:
     terraform_avm:
       attribute: private_endpoints.registry.subnet_resource_id
@@ -99,6 +106,7 @@ decisions:
     terraform: { attribute: azurerm_private_endpoint.subnet_id }
     bicep_avm: { attribute: 'privateEndpoints[].subnetResourceId', note: "with service: 'registry'" }
     bicep: { attribute: Microsoft.Network/privateEndpoints properties.subnet.id }
+    import: {todo: 'not in the Resource Graph row: Microsoft.Network/privateEndpoints properties.subnet.id'}
   networking.ip_rules:
     terraform_avm:
       attribute: 'network_rule_set.ip_rule[].ip_range'
@@ -106,6 +114,7 @@ decisions:
     terraform: { attribute: network_rule_set.ip_rule }
     bicep_avm: { attribute: networkRuleSetIpRules, note: "with networkRuleSetDefaultAction: 'Deny'" }
     bicep: { attribute: properties.networkRuleSet.ipRules }
+    import: {todo: a list or a reference; needs its own reading}
   networking.network_rule_bypass:
     terraform_avm: { attribute: network_rule_bypass_option, passthrough: true, note: module default None; written anyway }
     terraform: { attribute: network_rule_bypass_option, passthrough: true }
@@ -114,6 +123,7 @@ decisions:
       passthrough: true
       note: module default AzureServices, unlike Terraform's None - always written
     bicep: { attribute: properties.networkRuleBypassOptions, passthrough: true }
+    import: {path: properties.networkRuleBypassOptions, passthrough: true}
   networking.export_policy_enabled:
     terraform_avm:
       attribute: export_policy_enabled
@@ -127,6 +137,7 @@ decisions:
     bicep:
       attribute: properties.policies.exportPolicy.status
       values: { true: enabled, false: disabled }
+    import: {path: properties.policies.exportPolicy.status, values: {enabled: true, disabled: false}}
   networking.image_push_path:
     not_rendered: nothing on the registry - the image pipeline's steps and the AcrPush assignment for its identity; with pipeline_opens_registry the registry's public access is the pipeline's between its steps, so the render keeps it disabled
 
@@ -151,6 +162,7 @@ decisions:
     bicep:
       attribute: identity.type
       values: { system_assigned: SystemAssigned, user_assigned: UserAssigned, none: None }
+    import: {path: identity.type, values: {SystemAssigned: system_assigned, UserAssigned: user_assigned, None: none}}
   identity.user_assigned_identity_ids:
     terraform_avm: { attribute: managed_identities.user_assigned_resource_ids }
     terraform: { attribute: identity.identity_ids }
@@ -159,6 +171,7 @@ decisions:
       attribute: identity.userAssignedIdentities
       format: { expr: 'toObject({value}, id => id, id => {})' }
       note: 'an object keyed by each id (source: bicep build, Microsoft.ContainerRegistry/registries@2025-04-01)'
+    import: {todo: a composed or computed literal; needs its own reading}
   identity.role_assignments:
     terraform_avm:
       attribute: 'role_assignments.<key> = { role_definition_id_or_name, principal_id }'
@@ -166,6 +179,7 @@ decisions:
     terraform: { attribute: azurerm_role_assignment, note: scope = the registry's id }
     bicep_avm: { attribute: roleAssignments, note: roleAssignmentMode left at its default }
     bicep: { attribute: Microsoft.Authorization/roleAssignments, note: scope = the registry }
+    import: {todo: 'not in the Resource Graph row: Microsoft.Authorization/roleAssignments'}
 
   # ----------------------------------------------------------------- security
   security.admin_enabled:
@@ -173,11 +187,13 @@ decisions:
     terraform: { attribute: admin_enabled, passthrough: true }
     bicep_avm: { attribute: acrAdminUserEnabled, passthrough: true, note: module default false; written anyway }
     bicep: { attribute: properties.adminUserEnabled, passthrough: true }
+    import: {path: properties.adminUserEnabled, passthrough: true}
   security.anonymous_pull_enabled:
     terraform_avm: { attribute: anonymous_pull_enabled, passthrough: true, note: module default false; written anyway }
     terraform: { attribute: anonymous_pull_enabled, passthrough: true }
     bicep_avm: { attribute: anonymousPullEnabled, passthrough: true, note: module default false; written anyway }
     bicep: { attribute: properties.anonymousPullEnabled, passthrough: true }
+    import: {path: properties.anonymousPullEnabled, passthrough: true}
   security.key_management:
     terraform_avm:
       attribute: customer_managed_key
@@ -202,6 +218,7 @@ decisions:
         properties.encryption { status, keyVaultProperties { keyIdentifier, identity } } compiles
         (bicep build, Microsoft.ContainerRegistry/registries@2025-04-01), but status is an open string there
         and its literal is in no source of record
+    import: {todo: 'bicep renders it as a gap: properties.encryption { status, keyVaultProperties { keyIden...'}
   security.cmk_key_vault_key_id:
     terraform_avm:
       attribute: customer_managed_key.key_vault_resource_id, customer_managed_key.key_name
@@ -211,6 +228,7 @@ decisions:
       attribute: customerManagedKey.keyVaultResourceId, customerManagedKey.keyName
       note: the key id split into the vault's id and the key's name
     bicep: { attribute: properties.encryption.keyVaultProperties.keyIdentifier, note: 'with keyVaultProperties.identity (source: bicep build, Microsoft.ContainerRegistry/registries@2025-04-01)' }
+    import: {todo: a list or a reference; needs its own reading}
 
   # ------------------------------------------------------------ observability
   observability.diagnostic_workspace:
@@ -220,6 +238,7 @@ decisions:
     bicep:
       attribute: Microsoft.Insights/diagnosticSettings properties.workspaceId
       note: 'scope = the registry (source: bicep build, Microsoft.Insights/diagnosticSettings@2021-05-01-preview)'
+    import: {todo: 'not in the Resource Graph row: Microsoft.Insights/diagnosticSettings properties.workspa...'}
   observability.diagnostic_categories:
     terraform_avm:
       attribute: diagnostic_settings.workspace.log_categories
@@ -229,6 +248,7 @@ decisions:
     bicep:
       attribute: 'Microsoft.Insights/diagnosticSettings properties.logs[].category'
       note: 'one entry per category, each with enabled: true (source: bicep build, Microsoft.Insights/diagnosticSettings@2021-05-01-preview)'
+    import: {todo: 'not in the Resource Graph row: Microsoft.Insights/diagnosticSettings properties.logs[]....'}
   observability.metrics_enabled:
     terraform_avm:
       attribute: diagnostic_settings.workspace.metric_categories
@@ -244,3 +264,4 @@ decisions:
       attribute: Microsoft.Insights/diagnosticSettings properties.metrics
       values: { true: { expr: "[ { category: 'AllMetrics', enabled: true } ]" }, false: { expr: '[]' } }
       note: '(source: bicep build, Microsoft.Insights/diagnosticSettings@2021-05-01-preview; AllMetrics per module README 0.13.1)'
+    import: {todo: 'not in the Resource Graph row: Microsoft.Insights/diagnosticSettings properties.metrics'}

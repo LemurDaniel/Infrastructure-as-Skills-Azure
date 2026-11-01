@@ -22,6 +22,7 @@ decisions:
     terraform: { attribute: location, passthrough: true }
     bicep_avm: { attribute: location, passthrough: true }
     bicep: { attribute: location, passthrough: true }
+    import: {path: location, passthrough: true}
   placement.resource_group_name:
     terraform_avm:
       attribute: parent_id
@@ -29,6 +30,7 @@ decisions:
     terraform: { attribute: resource_group_name }
     bicep_avm: { gap: the deployment's resource group scope; no parameter }
     bicep: { gap: the deployment's resource group scope; no property }
+    import: {todo: 'bicep renders it as a gap: the deployment''s resource group scope; no property'}
 
   # ------------------------------------------------------------------ account
   account.kind:
@@ -39,6 +41,7 @@ decisions:
     terraform: { attribute: kind, passthrough: true }
     bicep_avm: { attribute: kind, passthrough: true, note: required }
     bicep: { attribute: kind, passthrough: true }
+    import: {path: kind, passthrough: true}
   account.sku_name:
     terraform_avm: { attribute: sku_name, passthrough: true, note: required by the module }
     terraform: { attribute: sku_name, passthrough: true }
@@ -47,6 +50,7 @@ decisions:
       attribute: sku.name
       passthrough: true
       note: "(source: bicep build, Microsoft.CognitiveServices/accounts@2025-06-01)"
+    import: {path: sku.name, passthrough: true}
 
   # --------------------------------------------------------------- networking
   networking.public_network_access:
@@ -73,6 +77,7 @@ decisions:
       values: { disabled: Disabled, enabled_with_firewall: Enabled, enabled: Enabled }
       also:
         enabled_with_firewall: "properties.networkAcls.defaultAction: 'Deny'"
+    import: {todo: answers share the literal Enabled; needs cases over a second path}
   networking.private_endpoint_subnet:
     terraform_avm:
       attribute: private_endpoints.account.subnet_resource_id
@@ -86,6 +91,7 @@ decisions:
     bicep:
       attribute: Microsoft.Network/privateEndpoints properties.subnet.id
       note: "authored child with groupIds: [ 'account' ]; (source: bicep build, Microsoft.Network/privateEndpoints@2024-05-01)"
+    import: {todo: 'not in the Resource Graph row: Microsoft.Network/privateEndpoints properties.subnet.id'}
   networking.ip_rules:
     terraform_avm:
       attribute: network_acls.ip_rules
@@ -99,11 +105,13 @@ decisions:
       attribute: properties.networkAcls.ipRules
       format: { expr: '[for ip in {value}: { value: ip }]' }
       note: the item shape the module parameter states
+    import: {todo: a composed or computed literal; needs its own reading}
   networking.restrict_outbound:
     terraform_avm: { attribute: outbound_network_access_restricted, passthrough: true, note: module default null (off); written }
     terraform: { attribute: outbound_network_access_restricted, passthrough: true }
     bicep_avm: { attribute: restrictOutboundNetworkAccess, passthrough: true, note: module default true; written anyway }
     bicep: { attribute: properties.restrictOutboundNetworkAccess, passthrough: true }
+    import: {path: properties.restrictOutboundNetworkAccess, passthrough: true}
   networking.allowed_fqdns:
     terraform_avm: { attribute: fqdns, note: 'only with restrict_outbound; host names, no wildcards' }
     terraform: { attribute: fqdns }
@@ -111,6 +119,7 @@ decisions:
       attribute: allowedFqdnList
       note: "only with restrictOutboundNetworkAccess (source: module README 0.19.1)"
     bicep: { attribute: properties.allowedFqdnList }
+    import: {todo: a list or a reference; needs its own reading}
 
   # ----------------------------------------------------------------- identity
   identity.managed_identity:
@@ -134,6 +143,7 @@ decisions:
       attribute: identity.type
       values: { system_assigned: SystemAssigned, user_assigned: UserAssigned, none: null }
       note: "none writes no identity; literals from the compiled type (source: bicep build, Microsoft.CognitiveServices/accounts@2025-06-01)"
+    import: {todo: an answer renders as code or as nothing; needs cases}
   identity.user_assigned_identity_ids:
     terraform_avm: { attribute: managed_identities.user_assigned_resource_ids }
     terraform: { attribute: identity.identity_ids }
@@ -142,6 +152,7 @@ decisions:
       attribute: identity.userAssignedIdentities
       format: { expr: 'toObject({value}, id => id, id => {})' }
       note: "an object keyed by identity id, each value empty (source: bicep build, Microsoft.CognitiveServices/accounts@2025-06-01)"
+    import: {todo: a composed or computed literal; needs its own reading}
   identity.role_assignments:
     terraform_avm:
       attribute: 'role_assignments.<key> = { role_definition_id_or_name, principal_id }'
@@ -153,6 +164,7 @@ decisions:
     bicep:
       attribute: 'Microsoft.Authorization/roleAssignments properties = { principalId, roleDefinitionId, principalType }'
       note: "one per entry, scoped to the account; roleDefinitionId takes the definition id, the render resolves the role name (source: bicep build, Microsoft.Authorization/roleAssignments@2022-04-01)"
+    import: {todo: 'not in the Resource Graph row: Microsoft.Authorization/roleAssignments properties = { p...'}
 
   # ----------------------------------------------------------------- security
   security.local_authentication_disabled:
@@ -166,6 +178,7 @@ decisions:
       note: inverse
     bicep_avm: { attribute: disableLocalAuth, passthrough: true, note: module default true; written anyway }
     bicep: { attribute: properties.disableLocalAuth, passthrough: true }
+    import: {path: properties.disableLocalAuth, passthrough: true}
   security.key_management:
     terraform_avm:
       attribute: customer_managed_key
@@ -189,6 +202,7 @@ decisions:
       attribute: properties.encryption.keySource
       values: { platform_managed: null, customer_managed: Microsoft.KeyVault }
       note: with properties.encryption.keyVaultProperties; platform_managed writes no encryption object
+    import: {todo: an answer renders as code or as nothing; needs cases}
   security.cmk_key_vault_key_id:
     terraform_avm:
       attribute: customer_managed_key.key_vault_resource_id, customer_managed_key.key_name
@@ -200,6 +214,7 @@ decisions:
     bicep:
       attribute: properties.encryption.keyVaultProperties.keyVaultUri, properties.encryption.keyVaultProperties.keyName
       note: "the key id split - keyVaultUri = the vault URI, keyName = the key name; identityClientId beside them (source: bicep build, Microsoft.CognitiveServices/accounts@2025-06-01)"
+    import: {todo: 'not in the Resource Graph row: properties.encryption.keyVaultProperties.keyVaultUri, pr...'}
 
   # ------------------------------------------------------------ observability
   observability.diagnostic_workspace:
@@ -211,6 +226,7 @@ decisions:
     bicep:
       attribute: Microsoft.Insights/diagnosticSettings properties.workspaceId
       note: "scoped to the account (source: bicep build, Microsoft.Insights/diagnosticSettings@2021-05-01-preview)"
+    import: {todo: 'not in the Resource Graph row: Microsoft.Insights/diagnosticSettings properties.workspa...'}
   observability.diagnostic_categories:
     terraform_avm:
       attribute: diagnostic_settings.workspace.log_categories
@@ -220,6 +236,7 @@ decisions:
     bicep:
       attribute: 'Microsoft.Insights/diagnosticSettings properties.logs[].category'
       note: "one { category, enabled: true } per entry, scoped to the account (source: bicep build, Microsoft.Insights/diagnosticSettings@2021-05-01-preview)"
+    import: {todo: 'not in the Resource Graph row: Microsoft.Insights/diagnosticSettings properties.logs[]....'}
   observability.metrics_enabled:
     terraform_avm:
       attribute: diagnostic_settings.workspace.metric_categories
@@ -233,3 +250,4 @@ decisions:
       values: { true: { expr: "[ { category: 'AllMetrics' } ]" }, false: { expr: '[]' } }
     bicep:
       gap: "Microsoft.Insights/diagnosticSettings properties.metrics[] { category, enabled } scoped to the account is proven (bicep build, Microsoft.Insights/diagnosticSettings@2021-05-01-preview); the category is a free string in the type, so AllMetrics has no source for authored Bicep"
+    import: {todo: 'bicep renders it as a gap: Microsoft.Insights/diagnosticSettings properties.metrics[] {...'}

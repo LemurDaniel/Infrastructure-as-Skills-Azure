@@ -22,11 +22,13 @@ decisions:
     terraform: { attribute: location, passthrough: true }
     bicep_avm: { attribute: location, passthrough: true }
     bicep: { attribute: location, passthrough: true }
+    import: {path: location, passthrough: true}
   placement.resource_group_name:
     terraform_avm: { attribute: resource_group_name, note: azurerm-based module - the root cannot be on azurerm 5.x }
     terraform: { attribute: resource_group_name }
     bicep_avm: { gap: the deployment's resource group scope; no parameter }
     bicep: { gap: the deployment's resource group scope; no property }
+    import: {todo: 'bicep renders it as a gap: the deployment''s resource group scope; no property'}
 
   # ------------------------------------------------------------------- server
   server.mysql_version:
@@ -34,6 +36,7 @@ decisions:
     terraform: { attribute: version, passthrough: true }
     bicep_avm: { attribute: version, passthrough: true, note: "allowed '5.7', '8.0.21', '8.4', '9.3'; module default 8.0.21 - always written" }
     bicep: { attribute: properties.version, passthrough: true }
+    import: {path: properties.version, passthrough: true}
   server.compute_tier:
     terraform_avm:
       attribute: sku_name
@@ -53,6 +56,7 @@ decisions:
       attribute: sku.tier
       values: { burstable: Burstable, general_purpose: GeneralPurpose, memory_optimized: MemoryOptimized }
       note: "must agree with sku.name (source: bicep build, Microsoft.DBforMySQL/flexibleServers@2024-12-30)"
+    import: {path: sku.tier, values: {Burstable: burstable, GeneralPurpose: general_purpose, MemoryOptimized: memory_optimized}}
   server.sku_name:
     terraform_avm:
       attribute: sku_name
@@ -64,11 +68,13 @@ decisions:
       note: behind the tier prefix
     bicep_avm: { attribute: skuName, passthrough: true, note: "the size without a tier prefix ('Standard_D2ds_v4'); must agree with tier" }
     bicep: { attribute: sku.name, passthrough: true }
+    import: {path: sku.name, passthrough: true}
   server.storage_size_gb:
     terraform_avm: { attribute: storage.size_gb, passthrough: true, note: gigabytes; module default null (the provider's); written anyway }
     terraform: { attribute: storage.size_gb, passthrough: true }
     bicep_avm: { attribute: storageSizeGB, passthrough: true, note: only the listed sizes; default 64; written anyway }
     bicep: { attribute: properties.storage.storageSizeGB, passthrough: true }
+    import: {path: properties.storage.storageSizeGB, passthrough: true}
   server.storage_auto_grow:
     terraform_avm: { attribute: storage.auto_grow_enabled, passthrough: true }
     terraform: { attribute: storage.auto_grow_enabled, passthrough: true }
@@ -79,11 +85,13 @@ decisions:
     bicep:
       attribute: properties.storage.autoGrow
       values: { true: Enabled, false: Disabled }
+    import: {path: properties.storage.autoGrow, values: {Enabled: true, Disabled: false}}
   server.databases:
     terraform_avm: { attribute: 'databases.<key> = { name, charset, collation }', note: all three required }
     terraform: { attribute: 'azurerm_mysql_flexible_database = { name, charset, collation }', note: "one per entry; charset and collation required (source: azurerm 5.12 schema)" }
     bicep_avm: { attribute: 'databases[] = { name, charset, collation }' }
     bicep: { attribute: 'child databases { name, properties.charset, properties.collation }', note: "one per entry (source: bicep build, Microsoft.DBforMySQL/flexibleServers/databases@2024-12-30)" }
+    import: {todo: 'not in the Resource Graph row: child databases { name, properties.charset, properties.c...'}
 
   # --------------------------------------------------------------- resilience
   resilience.high_availability:
@@ -105,6 +113,7 @@ decisions:
     bicep:
       attribute: properties.highAvailability.mode
       values: { disabled: Disabled, same_zone: SameZone, zone_redundant: ZoneRedundant }
+    import: {path: properties.highAvailability.mode, values: {Disabled: disabled, SameZone: same_zone, ZoneRedundant: zone_redundant}}
   resilience.maintenance_window:
     terraform_avm:
       gap: 'maintenance_window = { day_of_week, start_hour, start_minute }, parsed from the free-text answer ("Sunday 02:00 UTC" is day_of_week = "0", start_hour = 2, start_minute = 0 - day_of_week a string; module default day 0 only); no literal follows from the answer as it is'
@@ -114,6 +123,7 @@ decisions:
       gap: "maintenanceWindow = { customWindow: 'Enabled', dayOfWeek, startHour, startMinute }, parsed from the free-text answer (\"Sunday 02:00 UTC\" is dayOfWeek 0, startHour 2, startMinute 0 - ints); module default {}"
     bicep:
       gap: properties.maintenanceWindow, parsed from the free-text answer; the authored rendering names no sub-property
+    import: {todo: 'bicep renders it as a gap: properties.maintenanceWindow, parsed from the free-text answ...'}
 
   # --------------------------------------------------------------- networking
   networking.private_connectivity:
@@ -137,6 +147,7 @@ decisions:
       values: { private_endpoint: null, vnet_integration: { expr: '{networking.delegated_subnet}' } }
       also: { vnet_integration: 'properties.network.privateDnsZoneResourceId: {networking.private_dns_zone}' }
       note: private_endpoint renders a Microsoft.Network/privateEndpoints instead
+    import: {todo: an answer renders as code or as nothing; needs cases}
   networking.public_network_access:
     terraform_avm:
       attribute: public_network_access
@@ -152,6 +163,7 @@ decisions:
     bicep:
       attribute: properties.network.publicNetworkAccess
       values: { disabled: Disabled, enabled_with_firewall: Enabled, enabled: Enabled }
+    import: {todo: answers share the literal Enabled; needs cases over a second path}
   networking.private_endpoint_subnet:
     terraform_avm:
       attribute: 'private_endpoints.mysql.subnet_resource_id'
@@ -161,16 +173,19 @@ decisions:
       attribute: 'privateEndpoints[].subnetResourceId'
       note: "with service: 'mysqlServer'; no privateDnsZoneGroup under policy DNS"
     bicep: { attribute: Microsoft.Network/privateEndpoints properties.subnet.id, note: "groupIds ['mysqlServer'] as the reference states (source: bicep build, Microsoft.Network/privateEndpoints@2025-01-01)" }
+    import: {todo: 'not in the Resource Graph row: Microsoft.Network/privateEndpoints properties.subnet.id'}
   networking.delegated_subnet:
     terraform_avm: { attribute: delegated_subnet_id, note: fixed at creation }
     terraform: { attribute: delegated_subnet_id }
     bicep_avm: { attribute: delegatedSubnetResourceId, note: fixed at creation }
     bicep: { attribute: properties.network.delegatedSubnetResourceId }
+    import: {todo: a list or a reference; needs its own reading}
   networking.private_dns_zone:
     terraform_avm: { attribute: private_dns_zone_id, note: fixed at creation }
     terraform: { attribute: private_dns_zone_id }
     bicep_avm: { attribute: privateDnsZoneResourceId, note: fixed at creation }
     bicep: { attribute: properties.network.privateDnsZoneResourceId }
+    import: {todo: a list or a reference; needs its own reading}
   networking.ip_rules:
     terraform_avm:
       gap: "firewall_rules = { <key> = { start_ip_address, end_ip_address } }, one entry per range, merged with allow_azure_services; the answer's item shape (an address, a CIDR, a range) is not stated, so no expression maps it. Default {}; written anyway"
@@ -178,6 +193,7 @@ decisions:
     bicep_avm:
       gap: "firewallRules: [ { name, startIpAddress, endIpAddress } ], one per range; the answer's item shape is not stated, so no expression maps it"
     bicep: { gap: one child firewallRules per range; the authored rendering names no property }
+    import: {todo: 'bicep renders it as a gap: one child firewallRules per range; the authored rendering na...'}
   networking.allow_azure_services:
     terraform_avm:
       attribute: firewall_rules
@@ -197,6 +213,7 @@ decisions:
       values: { true: 0.0.0.0, false: null }
       also: { true: "properties.endIpAddress: '0.0.0.0'" }
       note: "0.0.0.0 to 0.0.0.0 as the reference states; false renders no rule (source: bicep build, Microsoft.DBforMySQL/flexibleServers/firewallRules@2024-12-30)"
+    import: {todo: 'not in the Resource Graph row: child firewallRules properties.startIpAddress'}
 
   # ----------------------------------------------------------------- identity
   identity.user_assigned_identity_ids:
@@ -204,6 +221,7 @@ decisions:
     terraform: { attribute: identity.identity_ids, note: type = "UserAssigned" }
     bicep_avm: { attribute: managedIdentities.userAssignedResourceIds, note: user-assigned only; no system-assigned form }
     bicep: { attribute: identity.userAssignedIdentities, note: "type: 'UserAssigned'" }
+    import: {todo: a list or a reference; needs its own reading}
   identity.entra_admin:
     terraform_avm:
       attribute: active_directory_administrator
@@ -220,6 +238,7 @@ decisions:
       attribute: child administrators properties
       format: { expr: "{ administratorType: 'ActiveDirectory', login: <display name of {value}>, sid: <object id of {value}>, tenantId: <tenant id>, identityResourceId: <user-assigned identity id> }" }
       note: "(source: bicep build, Microsoft.DBforMySQL/flexibleServers/administrators@2024-12-30)"
+    import: {todo: 'not in the Resource Graph row: child administrators properties'}
   identity.database_users:
     not_rendered: a SQL step after the deployment (CREATE AADUSER and GRANT as the Entra administrator); no module input and no ARM resource
   identity.role_assignments:
@@ -227,6 +246,7 @@ decisions:
     terraform: { attribute: azurerm_role_assignment, note: "scope = the server's id; control plane (source: azurerm 5.12 schema)" }
     bicep_avm: { attribute: roleAssignments, note: control plane }
     bicep: { attribute: Microsoft.Authorization/roleAssignments, note: "scope the server; control plane (source: bicep build, Microsoft.Authorization/roleAssignments@2022-04-01)" }
+    import: {todo: 'not in the Resource Graph row: Microsoft.Authorization/roleAssignments'}
 
   # ----------------------------------------------------------------- security
   security.password_authentication_disabled:
@@ -238,6 +258,7 @@ decisions:
       gap: "true is configurations[] { name: 'aad_auth_only', source: 'user-override', value: 'ON' }; the reference states no literal for false. The administrator login and a secure password are still required at creation"
     bicep:
       gap: true is a child configurations aad_auth_only = ON; the reference states no literal for false and the authored rendering names no property
+    import: {todo: 'bicep renders it as a gap: true is a child configurations aad_auth_only = ON; the refer...'}
   security.minimum_tls_version:
     terraform_avm:
       attribute: server_configuration.tls_version
@@ -265,6 +286,7 @@ decisions:
       attribute: child configurations tls_version
       values: { TLSv1.2: 'TLSv1.2,TLSv1.3', TLSv1.3: TLSv1.3 }
       note: the parameter's value; the authored rendering names no property of the child
+    import: {todo: 'not in the Resource Graph row: child configurations tls_version'}
   security.key_management:
     terraform_avm:
       attribute: customer_managed_key
@@ -290,12 +312,14 @@ decisions:
         platform_managed: null
         customer_managed: { expr: "{ type: 'AzureKeyVault', primaryKeyURI: <key URI>, primaryUserAssignedIdentityId: <user-assigned identity id> }" }
       note: "absent for platform_managed (source: bicep build, Microsoft.DBforMySQL/flexibleServers@2024-12-30)"
+    import: {todo: an answer renders as code or as nothing; needs cases}
   security.cmk_key_vault_key_id:
     terraform_avm: { attribute: customer_managed_key.key_vault_key_id, note: versionless }
     terraform: { attribute: customer_managed_key.key_vault_key_id }
     bicep_avm:
       gap: the key id split into customerManagedKey.keyVaultResourceId (the vault's id) and keyName (the key's name), written in key_management's object; no single parameter takes the id
     bicep: { attribute: properties.dataEncryption.primaryKeyURI, note: "the key's URI, not its resource id (source: bicep build, Microsoft.DBforMySQL/flexibleServers@2024-12-30)" }
+    import: {todo: a list or a reference; needs its own reading}
   security.threat_protection:
     terraform_avm:
       gap: not a module input - an azapi_resource advancedThreatProtectionSettings child (name Default, body.properties.state = "Enabled" for true); the reference states no literal for false
@@ -309,6 +333,7 @@ decisions:
       attribute: child advancedThreatProtectionSettings/Default properties.state
       values: { true: Enabled, false: Disabled }
       note: "(source: bicep build, Microsoft.DBforMySQL/flexibleServers/advancedThreatProtectionSettings@2024-12-30)"
+    import: {todo: 'not in the Resource Graph row: child advancedThreatProtectionSettings/Default propertie...'}
 
   # ---------------------------------------------------------- data_protection
   data_protection.backup_retention_days:
@@ -316,6 +341,7 @@ decisions:
     terraform: { attribute: backup_retention_days, passthrough: true }
     bicep_avm: { attribute: backupRetentionDays, passthrough: true, note: default 7; written anyway }
     bicep: { attribute: properties.backup.backupRetentionDays, passthrough: true }
+    import: {path: properties.backup.backupRetentionDays, passthrough: true}
   data_protection.geo_redundant_backup:
     terraform_avm: { attribute: geo_redundant_backup_enabled, passthrough: true, note: module default true - always written }
     terraform: { attribute: geo_redundant_backup_enabled, passthrough: true }
@@ -326,6 +352,7 @@ decisions:
     bicep:
       attribute: properties.backup.geoRedundantBackup
       values: { true: Enabled, false: Disabled }
+    import: {path: properties.backup.geoRedundantBackup, values: {Enabled: true, Disabled: false}}
 
   # ------------------------------------------------------------ observability
   observability.diagnostic_workspace:
@@ -333,6 +360,7 @@ decisions:
     terraform: { attribute: azurerm_monitor_diagnostic_setting.log_analytics_workspace_id, note: "target_resource_id = the server's id (source: azurerm 5.12 schema)" }
     bicep_avm: { attribute: 'diagnosticSettings[].workspaceResourceId' }
     bicep: { attribute: Microsoft.Insights/diagnosticSettings properties.workspaceId, note: "scope the server (source: bicep build, Microsoft.Insights/diagnosticSettings@2021-05-01-preview)" }
+    import: {todo: 'not in the Resource Graph row: Microsoft.Insights/diagnosticSettings properties.workspa...'}
   observability.audit_logging:
     terraform_avm:
       gap: 'true is server_configuration audit_log_enabled = { name = "audit_log_enabled", value = "ON" } and audit_log_events = { name = "audit_log_events", value = "CONNECTION" }, with the log category MySqlAuditLogs; the reference states no literal for false'
@@ -342,11 +370,13 @@ decisions:
       gap: "true is configurations[] { name: 'audit_log_enabled', source: 'user-override', value: 'ON' } and { name: 'audit_log_events', source: 'user-override', value: 'CONNECTION' }, with the category MySqlAuditLogs; the reference states no literal for false"
     bicep:
       gap: true is a child configurations audit_log_enabled = ON; the reference states no literal for false and the authored rendering names no property
+    import: {todo: 'bicep renders it as a gap: true is a child configurations audit_log_enabled = ON; the r...'}
   observability.diagnostic_categories:
     terraform_avm: { attribute: 'diagnostic_settings.<key>.log_categories', note: 'log_groups = [] beside it' }
     terraform: { attribute: azurerm_monitor_diagnostic_setting.enabled_log.category }
     bicep_avm: { attribute: 'diagnosticSettings[].logCategoriesAndGroups[].category' }
     bicep: { attribute: 'Microsoft.Insights/diagnosticSettings properties.logs[].category', note: "(source: bicep build, Microsoft.Insights/diagnosticSettings@2021-05-01-preview)" }
+    import: {todo: 'not in the Resource Graph row: Microsoft.Insights/diagnosticSettings properties.logs[]....'}
   observability.metrics_enabled:
     terraform_avm:
       attribute: 'diagnostic_settings.<key>.metric_categories'
@@ -358,3 +388,4 @@ decisions:
       values: { true: { expr: "[ { category: 'AllMetrics' } ]" }, false: { expr: '[]' } }
     bicep:
       gap: "Microsoft.Insights/diagnosticSettings properties.metrics[].category is the property, but the type is a free string - bicep build proves no category name for the server"
+    import: {todo: 'bicep renders it as a gap: Microsoft.Insights/diagnosticSettings properties.metrics[].c...'}

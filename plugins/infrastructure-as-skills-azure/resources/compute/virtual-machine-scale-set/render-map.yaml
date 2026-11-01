@@ -21,6 +21,7 @@ decisions:
     terraform: { attribute: location, passthrough: true }
     bicep_avm: { attribute: location, passthrough: true }
     bicep: { attribute: location, passthrough: true }
+    import: {path: location, passthrough: true}
   placement.resource_group_name:
     terraform_avm:
       attribute: parent_id
@@ -28,6 +29,7 @@ decisions:
     terraform: { attribute: resource_group_name }
     bicep_avm: { gap: the deployment's resource group scope; no parameter }
     bicep: { gap: the deployment's resource group scope; no property }
+    import: {todo: 'bicep renders it as a gap: the deployment''s resource group scope; no property'}
 
   # ---------------------------------------------------------------- scale_set
   scale_set.orchestration_mode:
@@ -41,6 +43,7 @@ decisions:
       note: set at creation; a set does not convert
     bicep_avm: { attribute: orchestrationMode, passthrough: true, note: module default Flexible; written anyway }
     bicep: { attribute: properties.orchestrationMode, passthrough: true }
+    import: {path: properties.orchestrationMode, passthrough: true}
   scale_set.os_type:
     terraform_avm:
       attribute: os_profile
@@ -60,6 +63,7 @@ decisions:
         Linux: { expr: 'linuxConfiguration: { <members per the other decisions> }' }
         Windows: { expr: 'windowsConfiguration: { <members per the other decisions> }' }
       note: 'source: bicep build, Microsoft.Compute/virtualMachineScaleSets@2024-11-01'
+    import: {todo: an answer renders as code or as nothing; needs cases}
   scale_set.image:
     terraform_avm:
       gap: >-
@@ -81,36 +85,43 @@ decisions:
         properties.virtualMachineProfile.storageProfile.imageReference; the Windows images are not
         spelled in the reference. Stated (module call): ubuntu_24_04 is { publisher: 'Canonical',
         offer: 'ubuntu-24_04-lts', sku: 'server', version: 'latest' }; gallery_image is { id: {scale_set.gallery_image_id} }
+    import: {todo: 'bicep renders it as a gap: properties.virtualMachineProfile.storageProfile.imageReferen...'}
   scale_set.gallery_image_id:
     terraform_avm: { attribute: source_image_id }
     terraform: { attribute: source_image_id, note: 'instead of source_image_reference; on the Uniform resources too (source: azurerm 5.12 schema, azurerm 5.12 docs)' }
     bicep_avm: { attribute: imageReference.id }
     bicep: { attribute: properties.virtualMachineProfile.storageProfile.imageReference.id }
+    import: {todo: a list or a reference; needs its own reading}
   scale_set.size:
     terraform_avm: { attribute: sku_name, passthrough: true, note: module default null - always written }
     terraform: { attribute: sku_name, passthrough: true, note: sku on the Uniform resources }
     bicep_avm: { attribute: skuName, passthrough: true, note: a required parameter }
     bicep: { attribute: sku.name, passthrough: true }
+    import: {path: sku.name, passthrough: true}
   scale_set.instances:
     terraform_avm: { attribute: instances, passthrough: true, note: module default null - always written }
     terraform: { attribute: instances, passthrough: true }
     bicep_avm: { attribute: skuCapacity, passthrough: true, note: module default 1; written anyway }
     bicep: { attribute: sku.capacity, passthrough: true }
+    import: {path: sku.capacity, passthrough: true}
   scale_set.zones:
     terraform_avm: { attribute: zones, note: module default all three; written anyway; set at creation }
     terraform: { attribute: zones, note: set at creation }
     bicep_avm: { attribute: availabilityZones, note: 'integers ([ 1, 2, 3 ]), not strings; module default all three - written' }
     bicep: { attribute: zones, note: "strings ([ '1', '2', '3' ])" }
+    import: {todo: a list or a reference; needs its own reading}
   scale_set.zone_balance:
     terraform_avm: { attribute: zone_balance, passthrough: true, note: module default false; written anyway }
     terraform: { attribute: zone_balance, passthrough: true }
     bicep_avm: { attribute: zoneBalance, passthrough: true, note: module default false; written anyway }
     bicep: { attribute: properties.zoneBalance, passthrough: true }
+    import: {path: properties.zoneBalance, passthrough: true}
   scale_set.fault_domain_count:
     terraform_avm: { attribute: platform_fault_domain_count, passthrough: true, note: module default 1; written anyway }
     terraform: { attribute: platform_fault_domain_count, passthrough: true, note: set at creation }
     bicep_avm: { attribute: scaleSetFaultDomain, passthrough: true, note: module default 1; written anyway }
     bicep: { attribute: properties.platformFaultDomainCount, passthrough: true }
+    import: {path: properties.platformFaultDomainCount, passthrough: true}
   scale_set.os_disk_storage:
     terraform_avm: { attribute: os_disk.storage_account_type, passthrough: true }
     terraform: { attribute: os_disk.storage_account_type, passthrough: true }
@@ -119,11 +130,13 @@ decisions:
       passthrough: true
       note: "osDisk is a raw API object: { createOption: 'FromImage', caching, deleteOption: 'Delete', diskSizeGB, managedDisk }"
     bicep: { attribute: properties.virtualMachineProfile.storageProfile.osDisk.managedDisk.storageAccountType, passthrough: true }
+    import: {path: properties.virtualMachineProfile.storageProfile.osDisk.managedDisk.storageAccountType, passthrough: true}
   scale_set.os_disk_size_gb:
     terraform_avm: { attribute: os_disk.disk_size_gb, passthrough: true }
     terraform: { attribute: os_disk.disk_size_gb, passthrough: true }
     bicep_avm: { attribute: osDisk.diskSizeGB, passthrough: true }
     bicep: { attribute: properties.virtualMachineProfile.storageProfile.osDisk.diskSizeGB, passthrough: true }
+    import: {path: properties.virtualMachineProfile.storageProfile.osDisk.diskSizeGB, passthrough: true}
   scale_set.upgrade_mode:
     terraform_avm:
       attribute: upgrade_policy.upgrade_mode
@@ -138,6 +151,7 @@ decisions:
       passthrough: true
       note: module default Manual - written; Rolling also sets the batch and unhealthy percentages (default 20 each) and pauseTimeBetweenBatches
     bicep: { attribute: properties.upgradePolicy.mode, passthrough: true }
+    import: {path: properties.upgradePolicy.mode, passthrough: true}
   scale_set.health_check_port:
     terraform_avm:
       attribute: 'extension[].settings.port'
@@ -153,6 +167,7 @@ decisions:
         an ApplicationHealthLinux / ApplicationHealthWindows entry in
         properties.virtualMachineProfile.extensionProfile.extensions; the settings path of the port is
         not in the reference
+    import: {todo: 'bicep renders it as a gap: an ApplicationHealthLinux / ApplicationHealthWindows entry i...'}
   scale_set.health_check_path:
     terraform_avm: { attribute: 'extension[].settings.requestPath', passthrough: true, note: inside the jsonencode'd settings }
     terraform: { attribute: 'extension[].settings.requestPath', passthrough: true }
@@ -162,6 +177,7 @@ decisions:
         an ApplicationHealthLinux / ApplicationHealthWindows entry in
         properties.virtualMachineProfile.extensionProfile.extensions; the settings path of the request
         path is not in the reference
+    import: {todo: 'bicep renders it as a gap: an ApplicationHealthLinux / ApplicationHealthWindows entry i...'}
   scale_set.instance_repair:
     terraform_avm:
       attribute: automatic_instance_repair.enabled
@@ -173,6 +189,7 @@ decisions:
       passthrough: true
       note: "with gracePeriod: 'PT30M'; module default on - written"
     bicep: { attribute: properties.automaticRepairsPolicy.enabled, passthrough: true, note: with gracePeriod }
+    import: {path: properties.automaticRepairsPolicy.enabled, passthrough: true}
 
   # --------------------------------------------------------------- networking
   networking.workload_subnet:
@@ -180,6 +197,7 @@ decisions:
     terraform: { attribute: 'network_interface[].ip_configuration[].subnet_id' }
     bicep_avm: { attribute: 'nicConfigurations[].ipConfigurations[].properties.subnet.id', note: ipConfigurations is a free array of API objects }
     bicep: { attribute: 'properties.virtualMachineProfile.networkProfile.networkInterfaceConfigurations[].properties.ipConfigurations[].properties.subnet.id' }
+    import: {todo: 'not in the Resource Graph row: properties.virtualMachineProfile.networkProfile.networkI...'}
   networking.public_ip:
     terraform_avm:
       attribute: 'network_interface[].ip_configuration[].public_ip_address'
@@ -197,6 +215,7 @@ decisions:
       attribute: 'properties.virtualMachineProfile.networkProfile.networkInterfaceConfigurations[].properties.ipConfigurations[].properties.publicIPAddressConfiguration'
       values: { true: { expr: "{ name: '<name>' }" }, false: null }
       note: 'source: bicep build, Microsoft.Compute/virtualMachineScaleSets@2024-11-01'
+    import: {todo: 'not in the Resource Graph row: properties.virtualMachineProfile.networkProfile.networkI...'}
   networking.load_balancer_backend_pool_ids:
     terraform_avm:
       attribute: 'network_interface[].ip_configuration[].load_balancer_backend_address_pool_ids'
@@ -204,11 +223,13 @@ decisions:
     terraform: { attribute: 'network_interface[].ip_configuration[].load_balancer_backend_address_pool_ids' }
     bicep_avm: { attribute: 'nicConfigurations[].ipConfigurations[].properties.loadBalancerBackendAddressPools[].id' }
     bicep: { attribute: 'properties.virtualMachineProfile.networkProfile.networkInterfaceConfigurations[].properties.ipConfigurations[].properties.loadBalancerBackendAddressPools[].id' }
+    import: {todo: 'not in the Resource Graph row: properties.virtualMachineProfile.networkProfile.networkI...'}
   networking.accelerated_networking:
     terraform_avm: { attribute: 'network_interface[].enable_accelerated_networking', passthrough: true, note: module default false - always written }
     terraform: { attribute: 'network_interface[].accelerated_networking_enabled', passthrough: true, note: 'the 4.x enable_accelerated_networking is gone (source: azurerm 5.12 schema)' }
     bicep_avm: { attribute: 'nicConfigurations[].enableAcceleratedNetworking', passthrough: true }
     bicep: { attribute: 'properties.virtualMachineProfile.networkProfile.networkInterfaceConfigurations[].properties.enableAcceleratedNetworking', passthrough: true }
+    import: {todo: 'not in the Resource Graph row: properties.virtualMachineProfile.networkProfile.networkI...'}
 
   # ----------------------------------------------------------------- identity
   identity.user_assigned_identity_ids:
@@ -219,11 +240,13 @@ decisions:
       attribute: identity.userAssignedIdentities
       format: { expr: 'toObject({value}, id => id, id => {})' }
       note: 'an object keyed by each id, with type UserAssigned (source: bicep build, Microsoft.Compute/virtualMachineScaleSets@2024-11-01)'
+    import: {todo: a composed or computed literal; needs its own reading}
   identity.role_assignments:
     terraform_avm: { attribute: 'role_assignments.<key> = { role_definition_id_or_name, principal_id }' }
     terraform: { attribute: azurerm_role_assignment, note: scope = the set's id }
     bicep_avm: { attribute: roleAssignments }
     bicep: { attribute: Microsoft.Authorization/roleAssignments, note: scope = the set }
+    import: {todo: 'not in the Resource Graph row: Microsoft.Authorization/roleAssignments'}
 
   # ----------------------------------------------------------------- security
   security.trusted_launch:
@@ -240,11 +263,13 @@ decisions:
       attribute: properties.virtualMachineProfile.securityProfile.securityType
       values: { true: TrustedLaunch, false: null }
       note: with uefiSettings { secureBootEnabled, vTpmEnabled }
+    import: {todo: an answer renders as code or as nothing; needs cases}
   security.encryption_at_host:
     terraform_avm: { attribute: encryption_at_host_enabled, passthrough: true, note: module default null - always written }
     terraform: { attribute: encryption_at_host_enabled, passthrough: true }
     bicep_avm: { attribute: encryptionAtHost, passthrough: true, note: module default true; written anyway }
     bicep: { attribute: properties.virtualMachineProfile.securityProfile.encryptionAtHost, passthrough: true }
+    import: {path: properties.virtualMachineProfile.securityProfile.encryptionAtHost, passthrough: true}
   security.key_management:
     terraform_avm:
       attribute: os_disk.disk_encryption_set_id
@@ -262,16 +287,19 @@ decisions:
       attribute: properties.virtualMachineProfile.storageProfile.osDisk.managedDisk.diskEncryptionSet.id
       values: { platform_managed: null, customer_managed: { expr: '{security.disk_encryption_set_id}' } }
       note: the id from security.disk_encryption_set_id
+    import: {todo: an answer renders as code or as nothing; needs cases}
   security.disk_encryption_set_id:
     terraform_avm: { attribute: os_disk.disk_encryption_set_id }
     terraform: { attribute: os_disk.disk_encryption_set_id }
     bicep_avm: { attribute: osDisk.managedDisk.diskEncryptionSet.id }
     bicep: { attribute: properties.virtualMachineProfile.storageProfile.osDisk.managedDisk.diskEncryptionSet.id }
+    import: {todo: a list or a reference; needs its own reading}
   security.admin_username:
     terraform_avm: { attribute: os_profile.linux_configuration.admin_username, passthrough: true, note: windows_configuration.admin_username on Windows }
     terraform: { attribute: os_profile.linux_configuration.admin_username, passthrough: true, note: set at creation }
     bicep_avm: { attribute: adminUsername, passthrough: true }
     bicep: { attribute: properties.virtualMachineProfile.osProfile.adminUsername, passthrough: true }
+    import: {path: properties.virtualMachineProfile.osProfile.adminUsername, passthrough: true}
   security.password_authentication:
     terraform_avm:
       attribute: os_profile.linux_configuration.disable_password_authentication
@@ -289,6 +317,7 @@ decisions:
       attribute: properties.virtualMachineProfile.osProfile.linuxConfiguration.disablePasswordAuthentication
       values: { true: false, false: true }
       note: inverted
+    import: {path: properties.virtualMachineProfile.osProfile.linuxConfiguration.disablePasswordAuthentication, values: {false: true, true: false}}
   security.ssh_public_key:
     terraform_avm:
       attribute: 'admin_ssh_keys[].public_key'
@@ -303,6 +332,7 @@ decisions:
       attribute: 'properties.virtualMachineProfile.osProfile.linuxConfiguration.ssh.publicKeys[].keyData'
       passthrough: true
       note: with path /home/<admin_username>/.ssh/authorized_keys
+    import: {todo: 'not in the Resource Graph row: properties.virtualMachineProfile.osProfile.linuxConfigur...'}
   security.admin_password_secret:
     terraform_avm:
       attribute: admin_password
@@ -310,6 +340,7 @@ decisions:
     terraform: { attribute: admin_password, note: "the secret's value (a sensitive variable), not its id" }
     bicep_avm: { attribute: adminPassword, note: "the secret's value from getSecret(...) - a Key Vault reference, not its id" }
     bicep: { attribute: properties.virtualMachineProfile.osProfile.adminPassword, note: "the secret's value through a secure parameter, not its id" }
+    import: {todo: a list or a reference; needs its own reading}
   security.patch_mode:
     terraform_avm:
       attribute: os_profile.linux_configuration.patch_mode
@@ -321,6 +352,7 @@ decisions:
       passthrough: true
       note: with patchAssessmentMode, whose module default is ImageDefault - written
     bicep: { attribute: properties.virtualMachineProfile.osProfile.linuxConfiguration.patchSettings.patchMode, passthrough: true }
+    import: {path: properties.virtualMachineProfile.osProfile.linuxConfiguration.patchSettings.patchMode, passthrough: true}
 
   # ------------------------------------------------------------ observability
   observability.boot_diagnostics:
@@ -334,6 +366,7 @@ decisions:
       note: false renders no block
     bicep_avm: { attribute: bootDiagnosticEnabled, passthrough: true, note: the managed storage account when no account name is given }
     bicep: { attribute: properties.virtualMachineProfile.diagnosticsProfile.bootDiagnostics.enabled, passthrough: true }
+    import: {path: properties.virtualMachineProfile.diagnosticsProfile.bootDiagnostics.enabled, passthrough: true}
   observability.diagnostic_workspace:
     terraform_avm:
       gap: module README v0.11.1 has no diagnostic input; a sibling azurerm_monitor_diagnostic_setting (log_analytics_workspace_id), unverified for this type
@@ -344,6 +377,7 @@ decisions:
     bicep:
       attribute: Microsoft.Insights/diagnosticSettings properties.workspaceId
       note: 'scope = the set; metrics only (source: bicep build, Microsoft.Insights/diagnosticSettings@2021-05-01-preview)'
+    import: {todo: 'not in the Resource Graph row: Microsoft.Insights/diagnosticSettings properties.workspa...'}
   observability.metrics_enabled:
     terraform_avm:
       gap: module README v0.11.1 has no diagnostic input; the sibling azurerm_monitor_diagnostic_setting carries enabled_metric { category = "AllMetrics" }
@@ -358,3 +392,4 @@ decisions:
       attribute: Microsoft.Insights/diagnosticSettings properties.metrics
       values: { true: { expr: "[ { category: 'AllMetrics', enabled: true } ]" }, false: { expr: '[]' } }
       note: 'source: bicep build, Microsoft.Insights/diagnosticSettings@2021-05-01-preview; AllMetrics per module README 0.11.1'
+    import: {todo: 'not in the Resource Graph row: Microsoft.Insights/diagnosticSettings properties.metrics'}

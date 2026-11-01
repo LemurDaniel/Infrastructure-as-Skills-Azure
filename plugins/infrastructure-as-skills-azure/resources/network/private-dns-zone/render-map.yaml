@@ -20,6 +20,7 @@ decisions:
     terraform: { attribute: azurerm_private_dns_zone.resource_group_name }
     bicep_avm: { gap: the deployment's resource group scope; no parameter }
     bicep: { gap: the deployment's resource group scope; no property }
+    import: {todo: 'bicep renders it as a gap: the deployment''s resource group scope; no property'}
 
   # --------------------------------------------------------------------- zone
   zone.ownership:
@@ -33,6 +34,7 @@ decisions:
     terraform: { attribute: azurerm_private_dns_zone.name }
     bicep_avm: { attribute: name, note: one module call per zone in a for loop; location 'global' written anyway }
     bicep: { attribute: Microsoft.Network/privateDnsZones name, note: "location: 'global'" }
+    import: {todo: 'not in the Resource Graph row: Microsoft.Network/privateDnsZones name'}
 
   # --------------------------------------------------------------- networking
   networking.vnet_links:
@@ -48,16 +50,19 @@ decisions:
     bicep:
       attribute: Microsoft.Network/privateDnsZones/virtualNetworkLinks properties.virtualNetwork.id
       note: "the link is location: 'global' as well"
+    import: {todo: 'not in the Resource Graph row: Microsoft.Network/privateDnsZones/virtualNetworkLinks pr...'}
   networking.auto_registration:
     terraform_avm: { attribute: 'virtual_network_links.<key>.registration_enabled', passthrough: true, note: 'false unless zone_kind: internal_domain says otherwise' }
     terraform: { attribute: azurerm_private_dns_zone_virtual_network_link.registration_enabled, passthrough: true }
     bicep_avm: { attribute: 'virtualNetworkLinks[].registrationEnabled', passthrough: true }
     bicep: { attribute: Microsoft.Network/privateDnsZones/virtualNetworkLinks properties.registrationEnabled, passthrough: true }
+    import: {todo: 'not in the Resource Graph row: Microsoft.Network/privateDnsZones/virtualNetworkLinks pr...'}
   networking.resolution_policy:
     terraform_avm: { attribute: 'virtual_network_links.<key>.resolution_policy', note: the module sends null for Default, passthrough: true }
     terraform: { attribute: azurerm_private_dns_zone_virtual_network_link.resolution_policy, passthrough: true }
     bicep_avm: { attribute: 'virtualNetworkLinks[].resolutionPolicy', passthrough: true }
     bicep: { attribute: Microsoft.Network/privateDnsZones/virtualNetworkLinks properties.resolutionPolicy, passthrough: true }
+    import: {todo: 'not in the Resource Graph row: Microsoft.Network/privateDnsZones/virtualNetworkLinks pr...'}
 
   # ------------------------------------------------------------------ records
   records.static_records:
@@ -71,3 +76,4 @@ decisions:
       attribute: 'a, aaaa, cname, txt'
       note: 'an array per type: a: [ { name, ttl, aRecords: [ { ipv4Address } ] } ], cname: [ { name, ttl, cnameRecord: { cname } } ], txt: [ { name, ttl, txtRecords: [ { value: [ ... ] } ] } ]'
     bicep: { attribute: 'Microsoft.Network/privateDnsZones/A, /CNAME, /TXT' }
+    import: {todo: 'not in the Resource Graph row: Microsoft.Network/privateDnsZones/A, /CNAME, /TXT'}

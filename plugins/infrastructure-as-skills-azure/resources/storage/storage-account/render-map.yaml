@@ -22,6 +22,7 @@ decisions:
     terraform: { attribute: location, passthrough: true }
     bicep_avm: { attribute: location, passthrough: true }
     bicep: { attribute: location, passthrough: true }
+    import: {path: location, passthrough: true}
   placement.resource_group_name:
     terraform_avm:
       attribute: parent_id
@@ -29,6 +30,7 @@ decisions:
     terraform: { attribute: resource_group_name }
     bicep_avm: { gap: the deployment's resource group scope; no parameter }
     bicep: { gap: the deployment's resource group scope; no property }
+    import: {todo: 'bicep renders it as a gap: the deployment''s resource group scope; no property'}
 
   # --------------------------------------------------------------- networking
   networking.public_network_access:
@@ -58,11 +60,13 @@ decisions:
       also:
         enabled_with_firewall: "properties.networkAcls.defaultAction: 'Deny'"
         enabled: "properties.networkAcls.defaultAction: 'Allow'"
+    import: {todo: answers share the literal Enabled; needs cases over a second path}
   networking.private_endpoint_subnet:
     terraform_avm: { attribute: 'private_endpoints.<sub>.subnet_resource_id' }
     terraform: { attribute: azurerm_private_endpoint.subnet_id }
     bicep_avm: { attribute: 'privateEndpoints[].subnetResourceId' }
     bicep: { attribute: Microsoft.Network/privateEndpoints properties.subnet.id }
+    import: {todo: 'not in the Resource Graph row: Microsoft.Network/privateEndpoints properties.subnet.id'}
   networking.private_endpoint_subresources:
     terraform_avm:
       attribute: 'private_endpoints.<sub>.subresource_name'
@@ -72,6 +76,7 @@ decisions:
       attribute: 'privateEndpoints[].service'
       note: one entry per sub-resource; the name from the vars with the sub-resource before the index
     bicep: { attribute: 'Microsoft.Network/privateEndpoints properties.privateLinkServiceConnections[].properties.groupIds' }
+    import: {todo: 'not in the Resource Graph row: Microsoft.Network/privateEndpoints properties.privateLin...'}
   networking.firewall_ip_rules:
     terraform_avm: { attribute: network_rules.ip_rules }
     terraform: { attribute: network_rules.ip_rules }
@@ -83,6 +88,7 @@ decisions:
       attribute: properties.networkAcls.ipRules
       format: { expr: "[for ip in {value}: { value: ip, action: 'Allow' }]" }
       note: one object per address (source bicep build, Microsoft.Storage/storageAccounts@2023-05-01)
+    import: {todo: a composed or computed literal; needs its own reading}
   networking.firewall_subnet_rules:
     terraform_avm: { attribute: network_rules.virtual_network_subnet_ids }
     terraform: { attribute: network_rules.virtual_network_subnet_ids }
@@ -94,6 +100,7 @@ decisions:
       attribute: properties.networkAcls.virtualNetworkRules
       format: { expr: "[for s in {value}: { id: s, action: 'Allow' }]" }
       note: one object per subnet (source bicep build, Microsoft.Storage/storageAccounts@2023-05-01)
+    import: {todo: a composed or computed literal; needs its own reading}
   networking.allow_azure_services_bypass:
     terraform_avm:
       attribute: network_rules.bypass
@@ -110,6 +117,7 @@ decisions:
     bicep:
       attribute: properties.networkAcls.bypass
       values: { true: AzureServices, false: None }
+    import: {path: properties.networkAcls.bypass, values: {AzureServices: true, None: false}}
 
   # ----------------------------------------------------------------- identity
   identity.managed_identity:
@@ -133,6 +141,7 @@ decisions:
       attribute: identity.type
       values: { system_assigned: SystemAssigned, user_assigned: UserAssigned, none: null }
       note: none renders no identity block
+    import: {todo: an answer renders as code or as nothing; needs cases}
   identity.user_assigned_identity_ids:
     terraform_avm: { attribute: managed_identities.user_assigned_resource_ids }
     terraform: { attribute: identity.identity_ids }
@@ -141,6 +150,7 @@ decisions:
       attribute: identity.userAssignedIdentities
       format: { expr: 'toObject({value}, id => id, id => {})' }
       note: an object keyed by id, each value empty (source bicep build, Microsoft.Storage/storageAccounts@2023-05-01)
+    import: {todo: a composed or computed literal; needs its own reading}
   identity.role_assignments:
     terraform_avm:
       attribute: 'role_assignments.<key> = { role_definition_id_or_name, principal_id }'
@@ -150,6 +160,7 @@ decisions:
       attribute: 'roleAssignments[] = { principalId, roleDefinitionIdOrName, principalType }'
       note: role by name - the GUID table of the authored render goes away; container scope is on blobServices.containers[].roleAssignments
     bicep: { attribute: Microsoft.Authorization/roleAssignments, note: scope = the account }
+    import: {todo: 'not in the Resource Graph row: Microsoft.Authorization/roleAssignments'}
 
   # ----------------------------------------------------------------- security
   security.shared_access_key_enabled:
@@ -157,21 +168,25 @@ decisions:
     terraform: { attribute: shared_access_key_enabled, passthrough: true }
     bicep_avm: { attribute: allowSharedKeyAccess, passthrough: true }
     bicep: { attribute: properties.allowSharedKeyAccess, passthrough: true }
+    import: {path: properties.allowSharedKeyAccess, passthrough: true}
   security.min_tls_version:
     terraform_avm: { attribute: min_tls_version, passthrough: true }
     terraform: { attribute: min_tls_version, passthrough: true }
     bicep_avm: { attribute: minimumTlsVersion, passthrough: true }
     bicep: { attribute: properties.minimumTlsVersion, passthrough: true }
+    import: {path: properties.minimumTlsVersion, passthrough: true}
   security.https_traffic_only:
     terraform_avm: { attribute: https_traffic_only_enabled, passthrough: true }
     terraform: { attribute: https_traffic_only_enabled, passthrough: true, note: enable_https_traffic_only before 4.0 }
     bicep_avm: { attribute: supportsHttpsTrafficOnly, passthrough: true }
     bicep: { attribute: properties.supportsHttpsTrafficOnly, passthrough: true }
+    import: {path: properties.supportsHttpsTrafficOnly, passthrough: true}
   security.allow_blob_public_access:
     terraform_avm: { attribute: allow_nested_items_to_be_public, passthrough: true }
     terraform: { attribute: allow_nested_items_to_be_public, passthrough: true }
     bicep_avm: { attribute: allowBlobPublicAccess, passthrough: true }
     bicep: { attribute: properties.allowBlobPublicAccess, passthrough: true }
+    import: {path: properties.allowBlobPublicAccess, passthrough: true}
   security.infrastructure_encryption_enabled:
     terraform_avm:
       attribute: infrastructure_encryption_enabled
@@ -180,6 +195,7 @@ decisions:
     terraform: { attribute: infrastructure_encryption_enabled, passthrough: true, note: set at creation }
     bicep_avm: { attribute: requireInfrastructureEncryption, passthrough: true, note: module default true; written anyway }
     bicep: { attribute: properties.encryption.requireInfrastructureEncryption, passthrough: true }
+    import: {path: properties.encryption.requireInfrastructureEncryption, passthrough: true}
   security.key_management:
     terraform_avm:
       attribute: customer_managed_key
@@ -201,6 +217,7 @@ decisions:
     bicep:
       attribute: properties.encryption.keySource
       values: { platform_managed: Microsoft.Storage, customer_managed: Microsoft.Keyvault }
+    import: {path: properties.encryption.keySource, values: {Microsoft.Storage: platform_managed, Microsoft.Keyvault: customer_managed}}
   security.cmk_key_vault_key_id:
     terraform_avm:
       attribute: customer_managed_key.key_vault_resource_id, customer_managed_key.key_name
@@ -212,11 +229,13 @@ decisions:
     bicep:
       attribute: properties.encryption.keyvaultproperties.keyname, properties.encryption.keyvaultproperties.keyvaulturi
       note: the key split into its name and its vault's uri (source bicep build, Microsoft.Storage/storageAccounts@2023-05-01)
+    import: {todo: 'not in the Resource Graph row: properties.encryption.keyvaultproperties.keyname, proper...'}
   security.sftp_enabled:
     terraform_avm: { attribute: sftp_enabled, passthrough: true, note: requires is_hns_enabled = true }
     terraform: { attribute: sftp_enabled, passthrough: true, note: requires is_hns_enabled = true }
     bicep_avm: { attribute: enableSftp, passthrough: true, note: 'requires enableHierarchicalNamespace: true' }
     bicep: { attribute: properties.isSftpEnabled, passthrough: true, note: 'requires isHnsEnabled: true' }
+    import: {path: properties.isSftpEnabled, passthrough: true}
 
   # ---------------------------------------------------------- data_protection
   data_protection.replication:
@@ -232,16 +251,19 @@ decisions:
     bicep:
       attribute: sku.name
       format: Standard_{value}
+    import: {path: sku.name, format: 'Standard_{value}'}
   data_protection.access_tier:
     terraform_avm: { attribute: access_tier, passthrough: true }
     terraform: { attribute: access_tier, passthrough: true }
     bicep_avm: { attribute: accessTier, passthrough: true }
     bicep: { attribute: properties.accessTier, passthrough: true }
+    import: {path: properties.accessTier, passthrough: true}
   data_protection.hierarchical_namespace:
     terraform_avm: { attribute: is_hns_enabled, passthrough: true, note: set at creation }
     terraform: { attribute: is_hns_enabled, passthrough: true, note: set at creation }
     bicep_avm: { attribute: enableHierarchicalNamespace, passthrough: true }
     bicep: { attribute: properties.isHnsEnabled, passthrough: true }
+    import: {path: properties.isHnsEnabled, passthrough: true}
   data_protection.blob_soft_delete_days:
     terraform_avm:
       attribute: blob_properties.delete_retention_policy.days
@@ -256,6 +278,7 @@ decisions:
       passthrough: true
       note: with deleteRetentionPolicyEnabled; 0 days renders Enabled false. The module default is not the guardrail's - written anyway
     bicep: { attribute: blobServices/default properties.deleteRetentionPolicy.days, passthrough: true }
+    import: {todo: 'not in the Resource Graph row: blobServices/default properties.deleteRetentionPolicy.days'}
   data_protection.container_soft_delete_days:
     terraform_avm:
       attribute: blob_properties.container_delete_retention_policy.days
@@ -270,16 +293,19 @@ decisions:
       passthrough: true
       note: with containerDeleteRetentionPolicyEnabled; 0 days renders Enabled false. The module default is not the guardrail's - written anyway
     bicep: { attribute: blobServices/default properties.containerDeleteRetentionPolicy.days, passthrough: true }
+    import: {todo: 'not in the Resource Graph row: blobServices/default properties.containerDeleteRetention...'}
   data_protection.versioning_enabled:
     terraform_avm: { attribute: blob_properties.versioning_enabled, passthrough: true }
     terraform: { attribute: blob_properties.versioning_enabled, passthrough: true }
     bicep_avm: { attribute: blobServices.isVersioningEnabled, passthrough: true }
     bicep: { attribute: blobServices/default properties.isVersioningEnabled, passthrough: true }
+    import: {todo: 'not in the Resource Graph row: blobServices/default properties.isVersioningEnabled'}
   data_protection.change_feed_enabled:
     terraform_avm: { attribute: blob_properties.change_feed.enabled, passthrough: true }
     terraform: { attribute: blob_properties.change_feed_enabled, passthrough: true }
     bicep_avm: { attribute: blobServices.changeFeedEnabled, passthrough: true }
     bicep: { attribute: blobServices/default properties.changeFeed.enabled, passthrough: true }
+    import: {todo: 'not in the Resource Graph row: blobServices/default properties.changeFeed.enabled'}
   data_protection.point_in_time_restore_days:
     terraform_avm:
       attribute: blob_properties.restore_policy.days
@@ -294,6 +320,7 @@ decisions:
       attribute: blobServices/default properties.restorePolicy.days
       passthrough: true
       note: requires isVersioningEnabled and changeFeed.enabled; days below the soft-delete days
+    import: {todo: 'not in the Resource Graph row: blobServices/default properties.restorePolicy.days'}
   data_protection.immutability:
     terraform_avm:
       gap: >-
@@ -313,6 +340,7 @@ decisions:
         immutableStorageWithVersioning as a bare object and names no fields
     bicep:
       gap: none leaves properties.immutableStorageWithVersioning out (null); account_level - the object's fields are not in the reference
+    import: {todo: 'bicep renders it as a gap: none leaves properties.immutableStorageWithVersioning out (n...'}
 
   # ------------------------------------------------------------ observability
   observability.diagnostic_workspace:
@@ -324,6 +352,7 @@ decisions:
       attribute: 'diagnosticSettings[].workspaceResourceId'
       note: the account-level parameter is metrics-only; blobServices.diagnosticSettings carries the logs
     bicep: { attribute: Microsoft.Insights/diagnosticSettings properties.workspaceId }
+    import: {todo: 'not in the Resource Graph row: Microsoft.Insights/diagnosticSettings properties.workspa...'}
   observability.diagnostic_categories:
     terraform_avm:
       attribute: 'diagnostic_settings_blob.<key>.logs[].category_group'
@@ -333,6 +362,7 @@ decisions:
       attribute: 'blobServices.diagnosticSettings[].logCategoriesAndGroups[].categoryGroup'
       note: one per service in use (fileServices, queueServices, tableServices)
     bicep: { attribute: 'Microsoft.Insights/diagnosticSettings properties.logs[].categoryGroup', note: scoped to blobServices/default }
+    import: {todo: 'not in the Resource Graph row: Microsoft.Insights/diagnosticSettings properties.logs[]....'}
   observability.metrics_enabled:
     terraform_avm:
       attribute: 'diagnostic_settings_storage_account.<key>.metrics'
@@ -348,3 +378,4 @@ decisions:
       attribute: 'Microsoft.Insights/diagnosticSettings properties.metrics[].category'
       values: { true: AllMetrics, false: null }
       note: false renders no metrics entry
+    import: {todo: 'not in the Resource Graph row: Microsoft.Insights/diagnosticSettings properties.metrics...'}

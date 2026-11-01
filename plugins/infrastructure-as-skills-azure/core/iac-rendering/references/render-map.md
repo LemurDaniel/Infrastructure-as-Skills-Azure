@@ -103,6 +103,43 @@ one of two ways:
 
 A `${...}` is the target's own interpolation and never a placeholder.
 
+## Reading it back: `import`
+
+An import (iac-unclick) writes a spec from what runs in Azure: for each decision it reads the
+resource's row in Azure Resource Graph and needs the answer that row stands for. Every decision
+that renders something says how, in one of five forms - no form is derived from the target
+entries at run time:
+
+```yaml
+  networking.public_network_access:
+    import:                                    # several paths decide the answer
+      cases:
+      - { when: { properties.publicNetworkAccess: Disabled }, answer: disabled }
+      - { when: { properties.publicNetworkAccess: Enabled, properties.networkAcls.defaultAction: Deny }, answer: enabled_with_firewall }
+      - { when: { properties.publicNetworkAccess: Enabled, properties.networkAcls.defaultAction: Allow }, answer: enabled }
+  security.min_tls_version:
+    import: { path: properties.minimumTlsVersion, passthrough: true }
+  security.key_management:
+    import: { path: properties.encryption.keySource, values: { Microsoft.Storage: platform_managed, Microsoft.Keyvault: customer_managed } }
+  data_protection.replication:
+    import: { path: sku.name, format: 'Standard_{value}' }
+  data_protection.blob_soft_delete_days:
+    import: { todo: 'not in the Resource Graph row: blobServices/default properties.deleteRetentionPolicy.days' }
+```
+
+| Form | Holds |
+|---|---|
+| `path` + `values` | A dotted path in the Resource Graph row and literal -> answer; every answer an answer of the question. Literals compare without case: Azure returns `Microsoft.Keyvault` and `Microsoft.KeyVault` alike |
+| `path` + `passthrough: true` | The value is the answer as it is |
+| `path` + `format` | The literal with one `{value}`: `Standard_GRS` reads back as `GRS` |
+| `cases` | A list of `{ when: { <path>: <literal>, ... }, answer }`, the first whose paths all match wins - for answers that share a literal on one path |
+| `not_readable: <reason>` | The decision cannot be read from Azure at all (what a deployment decides, not a property); the import writes it `assumed` with an `open:` entry |
+| `todo: <what is missing>` | It can be read, the reading is not written yet - a property of a child resource the Resource Graph row does not hold, a shared literal that needs `cases`. The import treats it like `not_readable`; `check_render_map.py` counts it as the work list |
+
+`missing: <answer>` beside a path or `cases` names the answer when the path is absent from the
+row (Azure leaves a property out that was never set). A decision that is `not_rendered` carries
+no `import`: nothing was rendered, so nothing is read back.
+
 ## What an import adopts: `import_parts`
 
 ```yaml

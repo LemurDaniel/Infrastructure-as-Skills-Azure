@@ -23,6 +23,7 @@ decisions:
     terraform: { attribute: location, passthrough: true }
     bicep_avm: { attribute: location, module: avm/res/network/azure-firewall, passthrough: true, note: the same on the policy and the public IP modules }
     bicep: { attribute: location, passthrough: true }
+    import: {path: location, passthrough: true}
   placement.resource_group_name:
     terraform_avm:
       attribute: resource_group_name
@@ -31,6 +32,7 @@ decisions:
     terraform: { attribute: resource_group_name }
     bicep_avm: { gap: the deployment's resource group scope; no parameter }
     bicep: { gap: the deployment's resource group scope; no property }
+    import: {todo: 'bicep renders it as a gap: the deployment''s resource group scope; no property'}
 
   # ----------------------------------------------------------------- firewall
   firewall.sku_tier:
@@ -68,6 +70,7 @@ decisions:
         Standard: "policy properties.sku.tier: 'Standard'"
         Premium: "policy properties.sku.tier: 'Premium'"
       note: "properties.sku.name: 'AZFW_VNet'"
+    import: {path: properties.sku.tier, passthrough: true}
   firewall.zone_redundant:
     terraform_avm:
       attribute: firewall_zones
@@ -90,6 +93,7 @@ decisions:
       attribute: zones
       values: { true: { expr: "[ '1', '2', '3' ]" }, false: { expr: '[]' } }
       note: on the firewall and on each public IP; ARM zones are strings, unlike the module's integers
+    import: {todo: an answer renders as code or as nothing; needs cases}
   firewall.firewall_subnet:
     terraform_avm:
       attribute: firewall_ip_configuration[0].subnet_id
@@ -102,6 +106,7 @@ decisions:
       format: { expr: "join(take(split({value}, '/'), 9), '/')" }
       note: the vnet's id, the parent of the subnet's - the module finds AzureFirewallSubnet by name
     bicep: { attribute: 'properties.ipConfigurations[].properties.subnet.id', note: on the first entry only }
+    import: {todo: 'not in the Resource Graph row: properties.ipConfigurations[].properties.subnet.id'}
   firewall.public_ip_count:
     terraform_avm:
       attribute: count
@@ -120,6 +125,7 @@ decisions:
       gap: >-
         the number of Microsoft.Network/publicIPAddresses and of properties.ipConfigurations[]
         entries, one each per address
+    import: {todo: 'bicep renders it as a gap: the number of Microsoft.Network/publicIPAddresses and of pro...'}
 
   # --------------------------------------------------------------- networking
   networking.forced_tunneling:
@@ -149,6 +155,7 @@ decisions:
         true: { expr: "{ name: 'mgmt', properties: { subnet: { id: {networking.management_subnet} }, publicIPAddress: { id: <management public IP id> } } }" }
         false: null
       note: always on Basic; false renders none
+    import: {todo: an answer renders as code or as nothing; needs cases}
   networking.management_subnet:
     terraform_avm:
       attribute: firewall_management_ip_configuration.subnet_id
@@ -156,11 +163,13 @@ decisions:
     terraform: { attribute: azurerm_firewall.management_ip_configuration.subnet_id }
     bicep_avm: { gap: 'no parameter; the module finds AzureFirewallManagementSubnet in virtualNetworkResourceId by name (module main.bicep 0.11.1)' }
     bicep: { attribute: properties.managementIpConfiguration.properties.subnet.id }
+    import: {todo: a list or a reference; needs its own reading}
   networking.dns_proxy:
     terraform_avm: { attribute: firewall_policy_dns.proxy_enabled, module: Azure/avm-res-network-firewallpolicy/azurerm, passthrough: true }
     terraform: { attribute: azurerm_firewall_policy.dns.proxy_enabled, passthrough: true }
     bicep_avm: { attribute: enableProxy, module: avm/res/network/firewall-policy, passthrough: true }
     bicep: { attribute: policy properties.dnsSettings.enableProxy, passthrough: true }
+    import: {todo: 'not in the Resource Graph row: policy properties.dnsSettings.enableProxy'}
   networking.dns_servers:
     terraform_avm:
       attribute: firewall_policy_dns.servers
@@ -169,6 +178,7 @@ decisions:
     terraform: { attribute: azurerm_firewall_policy.dns.servers }
     bicep_avm: { attribute: servers, module: avm/res/network/firewall-policy }
     bicep: { attribute: policy properties.dnsSettings.servers }
+    import: {todo: 'not in the Resource Graph row: policy properties.dnsSettings.servers'}
   networking.snat_private_ranges:
     terraform_avm:
       attribute: firewall_policy_private_ip_ranges
@@ -180,6 +190,7 @@ decisions:
       module: avm/res/network/firewall-policy
       note: "autoLearnPrivateRanges is required in the object: 'Disabled'"
     bicep: { attribute: policy properties.snat.privateRanges, note: beside autoLearnPrivateRanges }
+    import: {todo: 'not in the Resource Graph row: policy properties.snat.privateRanges'}
 
   # ----------------------------------------------------------------- identity
   identity.policy_identity:
@@ -204,11 +215,13 @@ decisions:
       attribute: policy identity.type
       values: { none: null, user_assigned: UserAssigned }
       note: none renders no identity block
+    import: {todo: 'not in the Resource Graph row: policy identity.type'}
   identity.user_assigned_identity_ids:
     terraform_avm: { attribute: firewall_policy_identity.identity_ids, module: Azure/avm-res-network-firewallpolicy/azurerm }
     terraform: { attribute: azurerm_firewall_policy.identity.identity_ids }
     bicep_avm: { attribute: managedIdentities.userAssignedResourceIds, module: avm/res/network/firewall-policy }
     bicep: { attribute: policy identity.userAssignedIdentities, note: 'an object keyed by each id, { <id>: {} } - not the list (source: bicep build, Microsoft.Network/firewallPolicies@2024-10-01)' }
+    import: {todo: 'not in the Resource Graph row: policy identity.userAssignedIdentities'}
 
   # ----------------------------------------------------------------- security
   security.threat_intelligence_mode:
@@ -224,6 +237,7 @@ decisions:
       passthrough: true
       note: module default Deny - written
     bicep: { attribute: policy properties.threatIntelMode, passthrough: true }
+    import: {todo: 'not in the Resource Graph row: policy properties.threatIntelMode'}
   security.idps_mode:
     terraform_avm:
       attribute: firewall_policy_intrusion_detection.mode
@@ -233,6 +247,7 @@ decisions:
     terraform: { attribute: azurerm_firewall_policy.intrusion_detection.mode, passthrough: true, note: Premium only }
     bicep_avm: { attribute: intrusionDetection.mode, module: avm/res/network/firewall-policy, passthrough: true, note: Premium only }
     bicep: { attribute: policy properties.intrusionDetection.mode, passthrough: true, note: Premium only }
+    import: {todo: 'not in the Resource Graph row: policy properties.intrusionDetection.mode'}
   security.tls_inspection:
     terraform_avm:
       attribute: firewall_policy_tls_certificate
@@ -262,11 +277,13 @@ decisions:
         true: { expr: '{ name: <certificate name>, keyVaultSecretId: {security.tls_certificate_secret_id} }' }
         false: null
       note: with the policy identity
+    import: {todo: 'not in the Resource Graph row: policy properties.transportSecurity.certificateAuthority'}
   security.tls_certificate_secret_id:
     terraform_avm: { attribute: firewall_policy_tls_certificate.key_vault_secret_id, module: Azure/avm-res-network-firewallpolicy/azurerm }
     terraform: { attribute: azurerm_firewall_policy.tls_certificate.key_vault_secret_id }
     bicep_avm: { attribute: keyVaultSecretId, module: avm/res/network/firewall-policy }
     bicep: { attribute: policy properties.transportSecurity.certificateAuthority.keyVaultSecretId }
+    import: {todo: 'not in the Resource Graph row: policy properties.transportSecurity.certificateAuthority...'}
   security.rule_collection_groups:
     terraform_avm:
       gap: module README v0.3.4 has no input for rule collection groups; its submodule modules/rule_collection_groups, wiring filled by the pattern or the platform
@@ -276,6 +293,7 @@ decisions:
       module: avm/res/network/firewall-policy
       note: or the child module firewall-policy/rule-collection-group; wiring filled by the pattern or the platform
     bicep: { attribute: Microsoft.Network/firewallPolicies/ruleCollectionGroups, note: one child per group; wiring filled by the pattern or the platform }
+    import: {todo: 'not in the Resource Graph row: Microsoft.Network/firewallPolicies/ruleCollectionGroups'}
 
   # ------------------------------------------------------------ observability
   observability.diagnostic_workspace:
@@ -289,6 +307,7 @@ decisions:
       module: avm/res/network/azure-firewall
       note: "logAnalyticsDestinationType: 'Dedicated'"
     bicep: { attribute: Microsoft.Insights/diagnosticSettings properties.workspaceId, note: "an extension resource with scope: the firewall, logAnalyticsDestinationType 'Dedicated' (source: bicep build, Microsoft.Insights/diagnosticSettings@2021-05-01-preview)" }
+    import: {todo: 'not in the Resource Graph row: Microsoft.Insights/diagnosticSettings properties.workspa...'}
   observability.diagnostic_categories:
     terraform_avm:
       attribute: 'diagnostic_settings.<key>.log_categories'
@@ -297,6 +316,7 @@ decisions:
     terraform: { attribute: azurerm_monitor_diagnostic_setting.enabled_log.category }
     bicep_avm: { attribute: 'diagnosticSettings[].logCategoriesAndGroups[].category', module: avm/res/network/azure-firewall }
     bicep: { attribute: 'Microsoft.Insights/diagnosticSettings properties.logs[].category', note: 'with enabled: true (source: bicep build, Microsoft.Insights/diagnosticSettings@2021-05-01-preview)' }
+    import: {todo: 'not in the Resource Graph row: Microsoft.Insights/diagnosticSettings properties.logs[]....'}
   observability.metrics_enabled:
     terraform_avm:
       attribute: 'diagnostic_settings.<key>.metric_categories'
@@ -314,3 +334,4 @@ decisions:
       attribute: 'Microsoft.Insights/diagnosticSettings properties.metrics[].category'
       values: { true: AllMetrics, false: null }
       note: 'with enabled: true; false renders no metrics entry (source: bicep build, Microsoft.Insights/diagnosticSettings@2021-05-01-preview)'
+    import: {todo: 'not in the Resource Graph row: Microsoft.Insights/diagnosticSettings properties.metrics...'}

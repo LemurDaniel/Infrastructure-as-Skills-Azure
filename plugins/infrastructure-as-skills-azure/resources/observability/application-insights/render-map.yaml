@@ -18,6 +18,7 @@ decisions:
     terraform: { attribute: location, passthrough: true }
     bicep_avm: { attribute: location, passthrough: true }
     bicep: { attribute: location, passthrough: true }
+    import: {path: location, passthrough: true}
   placement.resource_group_name:
     terraform_avm:
       attribute: parent_id
@@ -25,6 +26,7 @@ decisions:
     terraform: { attribute: resource_group_name, note: required by the provider schema; the reference's authored rendering omits it }
     bicep_avm: { gap: the deployment's resource group scope; no parameter }
     bicep: { gap: the deployment's resource group scope; no property }
+    import: {todo: 'bicep renders it as a gap: the deployment''s resource group scope; no property'}
 
   # ---------------------------------------------------------------- component
   component.workspace:
@@ -32,16 +34,19 @@ decisions:
     terraform: { attribute: workspace_id, note: always; the classic form is not offered }
     bicep_avm: { attribute: workspaceResourceId, note: required }
     bicep: { attribute: properties.WorkspaceResourceId }
+    import: {todo: a list or a reference; needs its own reading}
   component.application_type:
     terraform_avm: { attribute: application_type, passthrough: true, note: module default web; written }
     terraform: { attribute: application_type, passthrough: true }
     bicep_avm: { attribute: applicationType, passthrough: true, note: module default 'web'; written }
     bicep: { attribute: properties.Application_Type, passthrough: true, note: "kind: 'web' on the resource beside it" }
+    import: {path: properties.Application_Type, passthrough: true}
   component.sampling_percentage:
     terraform_avm: { attribute: sampling_percentage, passthrough: true, note: module default 100; written }
     terraform: { attribute: sampling_percentage, passthrough: true }
     bicep_avm: { attribute: samplingPercentage, passthrough: true, note: module default 100; written }
     bicep: { attribute: properties.SamplingPercentage, passthrough: true }
+    import: {path: properties.SamplingPercentage, passthrough: true}
   component.daily_cap_gb:
     terraform_avm: { attribute: daily_data_cap_in_gb, passthrough: true, note: module default 100; 0 is unlimited; written }
     terraform: { attribute: daily_data_cap_in_gb, passthrough: true }
@@ -50,6 +55,7 @@ decisions:
       attribute: pricingPlans/current properties.cap
       passthrough: true
       note: the reference states 0 = unlimited only for the Terraform module; verify 0 on the child before rendering it
+    import: {todo: 'not in the Resource Graph row: pricingPlans/current properties.cap'}
   component.store_client_ip:
     terraform_avm:
       attribute: disable_ip_masking
@@ -64,6 +70,7 @@ decisions:
       passthrough: true
       note: same polarity; module default true (stores IPs) - written
     bicep: { attribute: properties.DisableIpMasking, passthrough: true }
+    import: {path: properties.DisableIpMasking, passthrough: true}
 
   # --------------------------------------------------------------- networking
   networking.public_network_access:
@@ -81,6 +88,7 @@ decisions:
     bicep:
       attribute: properties.publicNetworkAccessForIngestion, properties.publicNetworkAccessForQuery
       values: { disabled: Disabled, enabled: Enabled }
+    import: {todo: 'not in the Resource Graph row: properties.publicNetworkAccessForIngestion, properties.p...'}
   networking.private_link_scope:
     terraform_avm:
       attribute: monitor_private_link_scope.scope.resource_id
@@ -92,6 +100,7 @@ decisions:
       gap: not a module parameter; a Microsoft.Insights/privateLinkScopes/scopedResources in the scope's resource group, usually the platform's
     bicep:
       gap: a Microsoft.Insights/privateLinkScopes/scopedResources in the scope's resource group, outside this deployment; the reference names none of its properties
+    import: {todo: 'bicep renders it as a gap: a Microsoft.Insights/privateLinkScopes/scopedResources in th...'}
 
   # ----------------------------------------------------------------- identity
   identity.role_assignments:
@@ -103,6 +112,7 @@ decisions:
     bicep:
       attribute: 'Microsoft.Authorization/roleAssignments = { properties.principalId, properties.roleDefinitionId, properties.principalType }'
       note: 'one per entry, scope: the component; roleDefinitionId is the definition id, never the name (source: bicep build, Microsoft.Authorization/roleAssignments@2022-04-01)'
+    import: {todo: 'not in the Resource Graph row: Microsoft.Authorization/roleAssignments = { properties.p...'}
 
   # ----------------------------------------------------------------- security
   security.local_authentication_disabled:
@@ -116,3 +126,4 @@ decisions:
       note: inverse; the 4.x local_authentication_disabled is gone in 5.x
     bicep_avm: { attribute: disableLocalAuth, passthrough: true, note: module default false; written }
     bicep: { attribute: properties.DisableLocalAuth, passthrough: true }
+    import: {path: properties.DisableLocalAuth, passthrough: true}

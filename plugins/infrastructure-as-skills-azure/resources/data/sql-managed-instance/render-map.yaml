@@ -22,11 +22,13 @@ decisions:
     terraform: { attribute: location, passthrough: true }
     bicep_avm: { attribute: location, passthrough: true }
     bicep: { attribute: location, passthrough: true }
+    import: {path: location, passthrough: true}
   placement.resource_group_name:
     terraform_avm: { attribute: resource_group_name, note: azurerm-based module - the root cannot be on azurerm 5.x }
     terraform: { attribute: resource_group_name }
     bicep_avm: { gap: the deployment's resource group scope; no parameter }
     bicep: { gap: the deployment's resource group scope; no property }
+    import: {todo: 'bicep renders it as a gap: the deployment''s resource group scope; no property'}
 
   # ----------------------------------------------------------------- instance
   instance.service_tier:
@@ -55,6 +57,7 @@ decisions:
       also:
         GeneralPurpose: "sku.tier: 'GeneralPurpose'"
         BusinessCritical: "sku.tier: 'BusinessCritical'"
+    import: {todo: a piece of instance.hardware_family; read back with it}
   instance.hardware_family:
     terraform_avm:
       attribute: sku_name
@@ -81,31 +84,37 @@ decisions:
         standard_series: "sku.family: 'Gen5'"
         premium_series: "sku.family: 'Gen8IM'"
         premium_series_memory_optimized: "sku.family: 'Gen8IH'"
+    import: {todo: a composed or computed literal; needs its own reading}
   instance.vcores:
     terraform_avm: { attribute: vcores, passthrough: true, note: required; the allowed list per hardware is in the question's why }
     terraform: { attribute: vcores, passthrough: true }
     bicep_avm: { attribute: vCores, passthrough: true, note: default 4; written anyway }
     bicep: { attribute: properties.vCores, passthrough: true, note: and sku.capacity }
+    import: {path: properties.vCores, passthrough: true}
   instance.storage_gb:
     terraform_avm: { attribute: storage_size_in_gb, passthrough: true, note: required; a multiple of 32 }
     terraform: { attribute: storage_size_in_gb, passthrough: true }
     bicep_avm: { attribute: storageSizeInGB, passthrough: true, note: default 32; a multiple of 32; written anyway }
     bicep: { attribute: properties.storageSizeInGB, passthrough: true }
+    import: {path: properties.storageSizeInGB, passthrough: true}
   instance.license_type:
     terraform_avm: { attribute: license_type, passthrough: true, note: required - no module default }
     terraform: { attribute: license_type, passthrough: true }
     bicep_avm: { attribute: licenseType, passthrough: true, note: default LicenseIncluded; written anyway }
     bicep: { attribute: properties.licenseType, passthrough: true }
+    import: {path: properties.licenseType, passthrough: true}
   instance.collation:
     terraform_avm: { attribute: collation, passthrough: true, note: fixed at creation }
     terraform: { attribute: collation, passthrough: true }
     bicep_avm: { attribute: collation, passthrough: true, note: fixed at creation }
     bicep: { attribute: properties.collation, passthrough: true }
+    import: {path: properties.collation, passthrough: true}
   instance.timezone:
     terraform_avm: { attribute: timezone_id, passthrough: true, note: fixed at creation }
     terraform: { attribute: timezone_id, passthrough: true }
     bicep_avm: { attribute: timezoneId, passthrough: true, note: fixed at creation }
     bicep: { attribute: properties.timezoneId, passthrough: true }
+    import: {path: properties.timezoneId, passthrough: true}
   instance.maintenance_window:
     terraform_avm:
       attribute: maintenance_configuration_name
@@ -127,11 +136,13 @@ decisions:
       note: the module resolves the region's configuration id
     bicep:
       gap: the authored rendering names properties.maintenanceConfigurationId but neither the id nor how it is resolved from the answer
+    import: {todo: 'bicep renders it as a gap: the authored rendering names properties.maintenanceConfigura...'}
   instance.databases:
     terraform_avm: { attribute: 'databases.<key>.name', note: the map key is arbitrary }
     terraform: { attribute: azurerm_mssql_managed_database.name, note: one resource per database }
     bicep_avm: { attribute: 'databases[].name' }
     bicep: { attribute: child databases name, note: one child per database }
+    import: {todo: 'not in the Resource Graph row: child databases name'}
 
   # --------------------------------------------------------------- resilience
   resilience.zone_redundant:
@@ -139,6 +150,7 @@ decisions:
     terraform: { attribute: zone_redundant_enabled, passthrough: true }
     bicep_avm: { attribute: zoneRedundant, passthrough: true, note: module default false - always written }
     bicep: { attribute: properties.zoneRedundant, passthrough: true }
+    import: {path: properties.zoneRedundant, passthrough: true}
   resilience.geo_failover_region:
     terraform_avm:
       gap: not one call - a second instance of the module with dns_zone_partner_id and failover_group on the primary
@@ -148,6 +160,7 @@ decisions:
       gap: not one call - a second instance with dnsZonePartnerResourceId and an authored Microsoft.Sql/locations/instanceFailoverGroups
     bicep:
       gap: a second instance in that region with properties.dnsZonePartner, and a Microsoft.Sql/locations/instanceFailoverGroups naming both; shape from the ARM reference
+    import: {todo: 'bicep renders it as a gap: a second instance in that region with properties.dnsZonePart...'}
 
   # --------------------------------------------------------------- networking
   networking.subnet:
@@ -155,6 +168,7 @@ decisions:
     terraform: { attribute: subnet_id }
     bicep_avm: { attribute: subnetResourceId, note: required; fixed at creation }
     bicep: { attribute: properties.subnetId }
+    import: {todo: a list or a reference; needs its own reading}
   networking.public_data_endpoint:
     terraform_avm:
       attribute: public_data_endpoint_enabled
@@ -174,6 +188,7 @@ decisions:
       attribute: properties.publicDataEndpointEnabled
       values: { disabled: false, enabled_with_firewall: true, enabled: true }
       also: { enabled_with_firewall: a securityRules entry (TCP 3342 from ip_rules) on the subnet NSG }
+    import: {todo: answers share the literal True; needs cases over a second path}
   networking.ip_rules:
     terraform_avm:
       gap: not the module - azurerm_network_security_rule for TCP 3342 on the subnet's NSG; an open entry when the platform owns the NSG
@@ -185,6 +200,7 @@ decisions:
     bicep:
       attribute: Microsoft.Network/networkSecurityGroups/securityRules properties.sourceAddressPrefixes
       note: "one inbound rule for TCP 3342 on the subnet NSG, only when this deployment owns it (source: bicep build, Microsoft.Network/networkSecurityGroups/securityRules@2024-05-01)"
+    import: {todo: 'not in the Resource Graph row: Microsoft.Network/networkSecurityGroups/securityRules pr...'}
   networking.private_endpoint:
     terraform_avm:
       attribute: private_endpoints
@@ -202,6 +218,7 @@ decisions:
       attribute: Microsoft.Network/privateEndpoints properties.privateLinkServiceConnections[].properties.groupIds
       values: { true: { expr: "['managedInstance']" }, false: null }
       note: on instance.id; false renders no endpoint
+    import: {todo: 'not in the Resource Graph row: Microsoft.Network/privateEndpoints properties.privateLin...'}
   networking.private_endpoint_subnet:
     terraform_avm:
       attribute: 'private_endpoints.<key>.subnet_resource_id'
@@ -210,16 +227,19 @@ decisions:
     bicep_avm:
       gap: no module parameter - the subnet of the authored Microsoft.Network/privateEndpoints; no privateDnsZoneGroup under policy DNS
     bicep: { attribute: Microsoft.Network/privateEndpoints properties.subnet.id, note: "(source: bicep build, Microsoft.Network/privateEndpoints@2025-01-01)" }
+    import: {todo: 'not in the Resource Graph row: Microsoft.Network/privateEndpoints properties.subnet.id'}
   networking.connection_type:
     terraform_avm: { attribute: proxy_override, passthrough: true, note: module default Default - always written }
     terraform: { attribute: proxy_override, passthrough: true }
     bicep_avm: { attribute: proxyOverride, passthrough: true, note: module default Proxy - always written }
     bicep: { attribute: properties.proxyOverride, passthrough: true }
+    import: {path: properties.proxyOverride, passthrough: true}
   networking.minimum_tls_version:
     terraform_avm: { attribute: minimum_tls_version, passthrough: true }
     terraform: { attribute: minimum_tls_version, passthrough: true }
     bicep_avm: { attribute: minimalTlsVersion, passthrough: true }
     bicep: { attribute: properties.minimalTlsVersion, passthrough: true }
+    import: {path: properties.minimalTlsVersion, passthrough: true}
 
   # ----------------------------------------------------------------- identity
   identity.managed_identity:
@@ -243,11 +263,13 @@ decisions:
       attribute: identity.type
       values: { system_assigned: SystemAssigned, user_assigned: UserAssigned }
       also: { user_assigned: 'properties.primaryUserAssignedIdentityId: <first user_assigned_identity_id>' }
+    import: {path: identity.type, values: {SystemAssigned: system_assigned, UserAssigned: user_assigned}}
   identity.user_assigned_identity_ids:
     terraform_avm: { attribute: managed_identities.user_assigned_resource_ids }
     terraform: { attribute: identity.identity_ids }
     bicep_avm: { attribute: managedIdentities.userAssignedResourceIds, note: and primaryUserAssignedIdentityResourceId }
     bicep: { attribute: identity.userAssignedIdentities, note: 'an object keyed by each id - not the list; and properties.primaryUserAssignedIdentityId' }
+    import: {todo: a list or a reference; needs its own reading}
   identity.entra_admin:
     terraform_avm:
       attribute: active_directory_administrator.object_id
@@ -261,6 +283,7 @@ decisions:
     bicep:
       attribute: properties.administrators.sid
       note: "the group's object id; login its name, administratorType: 'ActiveDirectory', principalType and tenantId beside it"
+    import: {todo: a list or a reference; needs its own reading}
   identity.database_users:
     not_rendered: a T-SQL step after the deployment from inside the network (CREATE LOGIN FROM EXTERNAL PROVIDER, then users and roles); no module input and no ARM resource
   identity.role_assignments:
@@ -268,6 +291,7 @@ decisions:
     terraform: { attribute: azurerm_role_assignment, note: "scope = the instance id; control plane (source: azurerm 5.12 schema)" }
     bicep_avm: { attribute: roleAssignments, note: control plane }
     bicep: { attribute: Microsoft.Authorization/roleAssignments, note: "scope the instance; control plane (source: bicep build, Microsoft.Authorization/roleAssignments@2022-04-01)" }
+    import: {todo: 'not in the Resource Graph row: Microsoft.Authorization/roleAssignments'}
 
   # ----------------------------------------------------------------- security
   security.local_authentication_disabled:
@@ -284,6 +308,7 @@ decisions:
       passthrough: true
       note: no administratorLogin or password - the module makes the pair conditional on administrators being absent
     bicep: { attribute: properties.administrators.azureADOnlyAuthentication, passthrough: true, note: no administratorLogin }
+    import: {path: properties.administrators.azureADOnlyAuthentication, passthrough: true}
   security.key_management:
     terraform_avm:
       attribute: transparent_data_encryption
@@ -307,6 +332,7 @@ decisions:
       values: { platform_managed: null, customer_managed: { expr: '{security.cmk_key_vault_key_id}' } }
       also: { customer_managed: child encryptionProtector/current naming the key }
       note: platform_managed renders neither child
+    import: {todo: 'not in the Resource Graph row: child keys uri'}
   security.cmk_key_vault_key_id:
     terraform_avm: { attribute: transparent_data_encryption.key_vault_key_id, note: the versioned key URL }
     terraform: { attribute: azurerm_mssql_managed_instance_transparent_data_encryption.key_vault_key_id }
@@ -314,6 +340,7 @@ decisions:
       attribute: 'keys[].uri'
       note: the versioned key URI; keys[].name and encryptionProtector.serverKeyName are <vault>_<key>_<version>, built from it
     bicep: { attribute: child keys uri }
+    import: {todo: 'not in the Resource Graph row: child keys uri'}
   security.threat_detection:
     terraform_avm: { attribute: advanced_threat_protection_enabled, passthrough: true, note: default false; written anyway; security_alert_policy stays unset }
     terraform:
@@ -326,6 +353,7 @@ decisions:
       attribute: child advancedThreatProtectionSettings/Default properties.state
       values: { true: Enabled, false: null }
       note: false renders no child - the reference shows no off literal
+    import: {todo: 'not in the Resource Graph row: child advancedThreatProtectionSettings/Default propertie...'}
   security.vulnerability_assessment:
     terraform_avm:
       attribute: vulnerability_assessment
@@ -347,11 +375,13 @@ decisions:
       attribute: child vulnerabilityAssessments/default storageContainerPath
       values: { true: { expr: '<storage container path>' }, false: null }
       note: false renders no child
+    import: {todo: 'not in the Resource Graph row: child vulnerabilityAssessments/default storageContainerPath'}
   security.vulnerability_assessment_storage_account:
     terraform_avm: { attribute: storage_account_resource_id }
     terraform: { gap: the authored resource takes a storage container path in that account - the table names no account id argument }
     bicep_avm: { attribute: vulnerabilityAssessment.storageAccountResourceId }
     bicep: { gap: the authored child takes storageContainerPath in that account - the table names no account id property }
+    import: {todo: 'bicep renders it as a gap: the authored child takes storageContainerPath in that accoun...'}
 
   # ---------------------------------------------------------- data_protection
   data_protection.short_term_retention_days:
@@ -359,6 +389,7 @@ decisions:
     terraform: { attribute: azurerm_mssql_managed_database.short_term_retention_days, passthrough: true }
     bicep_avm: { attribute: 'databases[].backupShortTermRetentionPolicy.retentionDays', passthrough: true }
     bicep: { attribute: child databases/backupShortTermRetentionPolicies/default retentionDays, passthrough: true }
+    import: {todo: 'not in the Resource Graph row: child databases/backupShortTermRetentionPolicies/default...'}
   data_protection.long_term_retention:
     terraform_avm:
       attribute: 'databases.<key>.long_term_retention_policy.weekly_retention'
@@ -376,6 +407,7 @@ decisions:
       attribute: child databases/backupLongTermRetentionPolicies/default weeklyRetention
       values: { none: null, three_months: P13W, one_year: P52W }
       note: none renders no child
+    import: {todo: 'not in the Resource Graph row: child databases/backupLongTermRetentionPolicies/default...'}
   data_protection.backup_storage_redundancy:
     terraform_avm:
       attribute: storage_account_type
@@ -388,6 +420,7 @@ decisions:
       note: "provider default GRS - always written (source: azurerm 5.12 docs)"
     bicep_avm: { attribute: requestedBackupStorageRedundancy, passthrough: true, note: module default Geo - always written; all four values }
     bicep: { attribute: properties.requestedBackupStorageRedundancy, passthrough: true }
+    import: {path: properties.requestedBackupStorageRedundancy, passthrough: true}
 
   # ------------------------------------------------------------ observability
   observability.diagnostic_workspace:
@@ -397,6 +430,7 @@ decisions:
       attribute: 'diagnosticSettings[].workspaceResourceId'
       note: logs only - the authored metrics setting takes the same workspace
     bicep: { attribute: Microsoft.Insights/diagnosticSettings properties.workspaceId }
+    import: {todo: 'not in the Resource Graph row: Microsoft.Insights/diagnosticSettings properties.workspa...'}
   observability.auditing_enabled:
     not_rendered: a T-SQL step after the deployment (CREATE SERVER AUDIT TO EXTERNAL_MONITOR); its log category SQLSecurityAuditEvents rides on diagnostic_categories
   observability.diagnostic_categories:
@@ -406,6 +440,7 @@ decisions:
     terraform: { attribute: azurerm_monitor_diagnostic_setting.enabled_log.category, note: one enabled_log block per category }
     bicep_avm: { attribute: 'diagnosticSettings[].logCategoriesAndGroups[].category' }
     bicep: { attribute: 'Microsoft.Insights/diagnosticSettings properties.logs[].category' }
+    import: {todo: 'not in the Resource Graph row: Microsoft.Insights/diagnosticSettings properties.logs[]....'}
   observability.metrics_enabled:
     terraform_avm:
       attribute: 'diagnostic_settings.<key>.metric_categories'
@@ -420,3 +455,4 @@ decisions:
       attribute: 'Microsoft.Insights/diagnosticSettings properties.metrics[].category'
       values: { true: AllMetrics, false: null }
       note: false renders no metrics entry
+    import: {todo: 'not in the Resource Graph row: Microsoft.Insights/diagnosticSettings properties.metrics...'}

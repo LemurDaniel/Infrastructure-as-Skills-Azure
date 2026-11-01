@@ -22,11 +22,13 @@ decisions:
     terraform: { attribute: location, passthrough: true }
     bicep_avm: { attribute: location, passthrough: true }
     bicep: { attribute: location, passthrough: true }
+    import: {path: location, passthrough: true}
   placement.resource_group_name:
     terraform_avm: { attribute: resource_group_name, note: 'a name, not an id; the module pins azurerm < 5.0' }
     terraform: { attribute: resource_group_name }
     bicep_avm: { gap: the deployment's resource group scope; no parameter }
     bicep: { gap: the deployment's resource group scope; no property }
+    import: {todo: 'bicep renders it as a gap: the deployment''s resource group scope; no property'}
 
   # ---------------------------------------------------------------- workspace
   workspace.storage_account:
@@ -34,26 +36,31 @@ decisions:
     terraform: { attribute: storage_account_id }
     bicep_avm: { attribute: associatedStorageAccountResourceId, note: required for kind Default }
     bicep: { attribute: properties.storageAccount }
+    import: {todo: a list or a reference; needs its own reading}
   workspace.key_vault:
     terraform_avm: { attribute: key_vault.resource_id, note: null makes the module create one - always set }
     terraform: { attribute: key_vault_id }
     bicep_avm: { attribute: associatedKeyVaultResourceId, note: 'missing, the service creates a Microsoft-managed vault' }
     bicep: { attribute: properties.keyVault }
+    import: {todo: a list or a reference; needs its own reading}
   workspace.application_insights:
     terraform_avm: { attribute: application_insights.resource_id, note: null makes the module create one - always set }
     terraform: { attribute: application_insights_id }
     bicep_avm: { attribute: associatedApplicationInsightsResourceId, note: required for kind Default }
     bicep: { attribute: properties.applicationInsights }
+    import: {todo: a list or a reference; needs its own reading}
   workspace.container_registry:
     terraform_avm: { attribute: container_registry.resource_id, note: '{ resource_id = null } when empty' }
     terraform: { attribute: container_registry_id }
     bicep_avm: { attribute: associatedContainerRegistryResourceId, note: omitted when empty }
     bicep: { attribute: properties.containerRegistry }
+    import: {todo: a list or a reference; needs its own reading}
   workspace.hbi_workspace:
     terraform_avm: { attribute: hbi_workspace, passthrough: true, note: module default false; written anyway }
     terraform: { attribute: high_business_impact, passthrough: true }
     bicep_avm: { attribute: hbiWorkspace, passthrough: true, note: module default false; written anyway }
     bicep: { attribute: properties.hbiWorkspace, passthrough: true }
+    import: {path: properties.hbiWorkspace, passthrough: true}
   workspace.v1_legacy_mode:
     terraform_avm:
       gap: not carried by the module - properties.v1LegacyMode through _target_overrides on the workspace body, written only when true
@@ -63,11 +70,13 @@ decisions:
       gap: not carried by the module - a second deployment against the workspace (an existing reference and an update of properties.v1LegacyMode) when true; said in the handover
       note: the platform default is off, which is the set's default
     bicep: { attribute: properties.v1LegacyMode, passthrough: true }
+    import: {path: properties.v1LegacyMode, passthrough: true}
   workspace.image_build_compute:
     terraform_avm: { attribute: image_build_compute, passthrough: true, note: null when empty }
     terraform: { attribute: image_build_compute_name, passthrough: true }
     bicep_avm: { attribute: imageBuildCompute, passthrough: true }
     bicep: { attribute: properties.imageBuildCompute, passthrough: true }
+    import: {path: properties.imageBuildCompute, passthrough: true}
   workspace.computes:
     terraform_avm:
       gap: not carried by the module - azapi_resource Microsoft.MachineLearningServices/workspaces/computes per entry, after the workspace
@@ -79,6 +88,7 @@ decisions:
     bicep:
       attribute: 'workspaces/computes = { name, location, properties: { computeType, properties } }'
       note: "a child per entry; names only from the set, the sizing is content (source: bicep build, Microsoft.MachineLearningServices/workspaces/computes@2024-10-01-preview)"
+    import: {todo: 'not in the Resource Graph row: workspaces/computes = { name, location, properties: { co...'}
 
   # --------------------------------------------------------------- networking
   networking.managed_network_isolation:
@@ -98,6 +108,7 @@ decisions:
       attribute: properties.managedNetwork.isolationMode
       values: { allow_only_approved_outbound: AllowOnlyApprovedOutbound, allow_internet_outbound: AllowInternetOutbound, disabled: Disabled }
       note: the ARM body literals terraform.md states (the AzAPI module writes properties.managedNetwork.isolationMode)
+    import: {path: properties.managedNetwork.isolationMode, values: {AllowOnlyApprovedOutbound: allow_only_approved_outbound, AllowInternetOutbound: allow_internet_outbound, Disabled: disabled}}
   networking.outbound_fqdns:
     terraform_avm:
       attribute: 'workspace_managed_network.outbound_rules.fqdn.<key> = { destination }'
@@ -111,11 +122,13 @@ decisions:
     bicep:
       attribute: "properties.managedNetwork.outboundRules.<name> = { type: 'FQDN', destination, category: 'UserDefined' }"
       note: one rule per host name, keyed by its name; the shape the module parameter states
+    import: {todo: 'not in the Resource Graph row: properties.managedNetwork.outboundRules.<name> = { type:...'}
   networking.provision_network_now:
     terraform_avm: { attribute: provision_network_now_enabled, passthrough: true, note: module default false; written anyway }
     terraform: { attribute: managed_network.provision_on_creation_enabled, passthrough: true }
     bicep_avm: { attribute: provisionNetworkNow, passthrough: true, note: unset by default; written }
     bicep: { attribute: properties.provisionNetworkNow, passthrough: true }
+    import: {path: properties.provisionNetworkNow, passthrough: true}
   networking.public_network_access:
     terraform_avm:
       attribute: public_network_access_enabled
@@ -131,12 +144,14 @@ decisions:
     bicep:
       attribute: properties.publicNetworkAccess
       values: { disabled: Disabled, enabled_with_firewall: Enabled, enabled: Enabled }
+    import: {todo: answers share the literal Enabled; needs cases over a second path}
   networking.ip_allowlist:
     terraform_avm: { attribute: ip_allowlist }
     terraform:
       gap: the azurerm 5.12 schema has no IP allowlist argument on azurerm_machine_learning_workspace; the reference names none either
     bicep_avm: { attribute: ipAllowlist }
     bicep: { attribute: properties.ipAllowlist }
+    import: {todo: a list or a reference; needs its own reading}
   networking.private_endpoint_subnet:
     terraform_avm:
       attribute: private_endpoints.amlworkspace.subnet_resource_id
@@ -150,6 +165,7 @@ decisions:
     bicep:
       attribute: Microsoft.Network/privateEndpoints properties.subnet.id
       note: "authored child with groupIds: [ 'amlworkspace' ]; (source: bicep build, Microsoft.Network/privateEndpoints@2024-05-01)"
+    import: {todo: 'not in the Resource Graph row: Microsoft.Network/privateEndpoints properties.subnet.id'}
   networking.serverless_compute_no_public_ip:
     terraform_avm:
       attribute: serverless_compute.public_ip_enabled
@@ -161,6 +177,7 @@ decisions:
       note: inverse
     bicep_avm: { attribute: serverlessComputeSettings.serverlessComputeNoPublicIP, passthrough: true }
     bicep: { attribute: properties.serverlessComputeSettings.serverlessComputeNoPublicIP, passthrough: true }
+    import: {path: properties.serverlessComputeSettings.serverlessComputeNoPublicIP, passthrough: true}
 
   # ----------------------------------------------------------------- identity
   identity.managed_identity:
@@ -192,6 +209,7 @@ decisions:
       also:
         user_assigned: 'properties.primaryUserAssignedIdentity: <first of user_assigned_identity_ids>'
       note: "literals from the compiled type (source: bicep build, Microsoft.MachineLearningServices/workspaces@2024-10-01-preview)"
+    import: {path: identity.type, values: {SystemAssigned: system_assigned, UserAssigned: user_assigned}}
   identity.user_assigned_identity_ids:
     terraform_avm:
       attribute: managed_identities.user_assigned_resource_ids, primary_user_assigned_identity.resource_id
@@ -209,6 +227,7 @@ decisions:
       - attribute: properties.primaryUserAssignedIdentity
         format: { expr: '{value}[0]' }
         note: "the first entry (source: bicep build, Microsoft.MachineLearningServices/workspaces@2024-10-01-preview)"
+    import: {todo: renders onto several attributes; needs cases}
   identity.role_assignments:
     terraform_avm: { attribute: 'role_assignments.<key> = { role_definition_id_or_name, principal_id, principal_type }' }
     terraform:
@@ -218,6 +237,7 @@ decisions:
     bicep:
       attribute: 'Microsoft.Authorization/roleAssignments properties = { principalId, roleDefinitionId, principalType }'
       note: "one per entry, scoped to the workspace; roleDefinitionId takes the definition id, the render resolves the role name (source: bicep build, Microsoft.Authorization/roleAssignments@2022-04-01)"
+    import: {todo: 'not in the Resource Graph row: Microsoft.Authorization/roleAssignments properties = { p...'}
 
   # ----------------------------------------------------------------- security
   security.storage_datastore_auth:
@@ -235,6 +255,7 @@ decisions:
     bicep:
       attribute: properties.systemDatastoresAuthMode
       values: { identity: Identity, access_key: AccessKey }
+    import: {path: properties.systemDatastoresAuthMode, values: {Identity: identity, 'AccessKey': access_key}}
   security.key_management:
     terraform_avm:
       attribute: customer_managed_key
@@ -257,6 +278,7 @@ decisions:
       attribute: properties.encryption.status
       values: { platform_managed: null, customer_managed: Enabled }
       note: "with properties.encryption.keyVaultProperties; platform_managed writes no encryption object; literal from the compiled type (source: bicep build, Microsoft.MachineLearningServices/workspaces@2024-10-01-preview)"
+    import: {todo: an answer renders as code or as nothing; needs cases}
   security.cmk_key_vault_key_id:
     terraform_avm:
       attribute: customer_managed_key.key_vault_resource_id, customer_managed_key.key_name
@@ -270,11 +292,13 @@ decisions:
     bicep:
       attribute: properties.encryption.keyVaultProperties.keyIdentifier, properties.encryption.keyVaultProperties.keyVaultArmId
       note: "keyIdentifier = the key id, keyVaultArmId = the key vault id; identityClientId beside them (source: bicep build, Microsoft.MachineLearningServices/workspaces@2024-10-01-preview)"
+    import: {todo: 'not in the Resource Graph row: properties.encryption.keyVaultProperties.keyIdentifier,...'}
   security.service_side_cmk:
     terraform_avm: { attribute: service_side_cmk_encryption_enabled, passthrough: true, note: module default false; written anyway }
     terraform: { attribute: service_side_encryption_enabled, passthrough: true }
     bicep_avm: { attribute: enableServiceSideCMKEncryption, passthrough: true, note: unset by default; written }
     bicep: { attribute: properties.enableServiceSideCMKEncryption, passthrough: true }
+    import: {path: properties.enableServiceSideCMKEncryption, passthrough: true}
 
   # ------------------------------------------------------------ observability
   observability.diagnostic_workspace:
@@ -286,6 +310,7 @@ decisions:
     bicep:
       attribute: Microsoft.Insights/diagnosticSettings properties.workspaceId
       note: "scoped to the workspace (source: bicep build, Microsoft.Insights/diagnosticSettings@2021-05-01-preview)"
+    import: {todo: 'not in the Resource Graph row: Microsoft.Insights/diagnosticSettings properties.workspa...'}
   observability.diagnostic_categories:
     terraform_avm:
       attribute: diagnostic_settings.workspace.log_categories
@@ -295,6 +320,7 @@ decisions:
     bicep:
       attribute: 'Microsoft.Insights/diagnosticSettings properties.logs[].category'
       note: "one { category, enabled: true } per entry, scoped to the workspace (source: bicep build, Microsoft.Insights/diagnosticSettings@2021-05-01-preview)"
+    import: {todo: 'not in the Resource Graph row: Microsoft.Insights/diagnosticSettings properties.logs[]....'}
   observability.metrics_enabled:
     terraform_avm:
       attribute: diagnostic_settings.workspace.metric_categories
@@ -308,3 +334,4 @@ decisions:
       values: { true: { expr: "[ { category: 'AllMetrics' } ]" }, false: { expr: '[]' } }
     bicep:
       gap: "Microsoft.Insights/diagnosticSettings properties.metrics[] { category, enabled } scoped to the workspace is proven (bicep build, Microsoft.Insights/diagnosticSettings@2021-05-01-preview); the category is a free string in the type, so AllMetrics has no source for authored Bicep"
+    import: {todo: 'bicep renders it as a gap: Microsoft.Insights/diagnosticSettings properties.metrics[] {...'}

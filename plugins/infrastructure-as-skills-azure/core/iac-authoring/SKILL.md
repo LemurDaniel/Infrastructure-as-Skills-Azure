@@ -1188,7 +1188,8 @@ family:
    the review order, and a reviewer reading three resources should not relearn the layout.
 2. Fill `why` for every question - it is what a reviewer reads - and write the resource's
    `render-map.yaml` beside the set: what each question renders to, per target and
-   implementation ([render-map.md](../iac-rendering/references/render-map.md)).
+   implementation, and how an import reads it back (`import:`, or `todo` / `not_readable`
+   with the reason) ([render-map.md](../iac-rendering/references/render-map.md)).
    `check_render_map.py` fails on a question the map misses.
 3. Take defaults from [references/guardrails.md](references/guardrails.md) rather than from the
    Azure portal. They differ often, and the portal default is not a baseline worth
