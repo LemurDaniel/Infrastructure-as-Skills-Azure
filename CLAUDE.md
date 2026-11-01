@@ -58,8 +58,9 @@ python3 plugins/infrastructure-as-skills-azure/core/iac-authoring/scripts/interv
 python3 plugins/infrastructure-as-skills-azure/core/iac-authoring/tests/run_interview_digest_tests.py
 
 # What a render reads instead of spec.md and whole references: every decision with its key path
-# and renders, the AVM coordinate, and the line ranges of each reference this spec needs. The
-# test asserts no decision is dropped and every heading the skips name still exists.
+# and the literal its render-map.yaml gives the target, the AVM modules, and the line ranges of
+# each reference this spec needs. The test asserts no decision is dropped and every heading the
+# skips name still exists.
 python3 plugins/infrastructure-as-skills-azure/core/iac-rendering/scripts/render_digest.py <spec>
 python3 plugins/infrastructure-as-skills-azure/core/iac-rendering/tests/run_render_digest_tests.py
 
