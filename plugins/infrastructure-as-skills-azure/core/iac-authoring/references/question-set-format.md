@@ -80,13 +80,19 @@ looks like; the spec form says where the id comes from:
 
 | The resource | In the spec | Rendered as | `check_spec.py` checks |
 |---|---|---|---|
-| Created by this spec | `{ resource: <key> }`, with `part: <name>` where the kind is a part (a subnet); one value for every stage | The id output of that resource's module, per stage | The key exists, its set is one of the kind's `sets`, the part is named by the kind's `part` question |
-| Outside it, id known | `{ existing: <kind>, id: { <stage>: <id> } }` | An id variable / param; the render writes each stage's id into its stage file | Every stage has an id, of the kind's ARM `type` (or a GUID, any resource id) |
+| Created by this spec | `{ resource: <key> }`, with `part: <name>` where the kind is a part (a subnet); one value for every stage | The output of that resource's module the input takes, per stage - the id, or the property `render-map.yaml` names (a name, a connection string) | The key exists, its set is one of the kind's `sets`, the part is named by the kind's `part` question |
+| Outside it, id known | `{ existing: <kind>, id: { <stage>: <id> } }` | An id variable / param; the render writes each stage's id into its stage file. A property the id does not carry is a second variable / param (below) | Every stage has an id, of the kind's ARM `type` (or a GUID, any resource id) |
 | Outside it, id unknown | `{ existing: <kind> }` and an `open:` entry with its owner | The same variable / param; the stage file holds a placeholder id, refused by the pipeline before `apply` | The `open:` entry exists |
 
 A name or a resource group is never part of a reference: an existing resource is never looked
 up, so `plan` needs no access to the platform, and a name the person gives without an id goes
-into the `open:` entry's question. The rendering is in
+into the `open:` entry's question. What the input takes is `render-map.yaml`'s to say. From an
+existing one's id the render derives its name, group and subscription, and a key's vault and
+name, by splitting it; a property the id does not carry (a component's connection string, an
+identity's principal id, a site's host name) is a **second variable / param** beside the id,
+from the stage file too, and the spec does not hold it: the `open:` entry asks the owner for
+it with the id, or alone where the id is known. A secret among them (a connection string) is
+a sensitive variable / `@secure()` param from the pipeline's secrets, never in a stage file. The rendering is in
 [terraform-idiom.md](../../iac-rendering/references/terraform-idiom.md#referencing-what-the-deployment-does-not-own)
 and [bicep-idiom.md](../../iac-rendering/references/bicep-idiom.md#referencing-what-the-deployment-does-not-own).
 

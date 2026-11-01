@@ -370,9 +370,8 @@ When a map, when one value:
 - **Always a map:** a `per_environment` value from outside the spec - an address range, a
   subscription, a name. Even when every stage has the same value: one value would end up
   hard-coded in the template.
-- **One value:** a reference (see *References* below), `[]`, and a list of resource keys of
-  this spec where a question takes them beside other values (Front Door's origins). A
-  reference to an existing resource carries its per-stage ids inside it.
+- **One value:** a reference (see *References* below) and `[]`. A reference to an existing
+  resource carries its per-stage ids inside it.
 - **A map if a stage departs:** a cost knob that takes its cheaper `non_production_default`
   outside production, or a departure the user named for one stage (`{ overridden: <reason> }`).
 - **Never a map:** everything else. A posture holds for the whole system.
@@ -444,7 +443,10 @@ around it, no name and resource group:
   owner names the key - the stage file gets a placeholder, `plan` and the tests run, the
   pipeline refuses `apply`, and answering the entry is an edit of the stage files, no
   re-render. A stage whose id is still missing is named by an `open:` entry with
-  `environments:`.
+  `environments:`. A property the input
+  needs that the id does not carry (a connection string, a principal id, a host name) is a
+  second parameter from the stage file, never in the spec: the `open:` entry asks for it,
+  with the id or alone.
 
 What each kind is - the sets that create it, the part, the ARM type its id carries, the id's
 form (`arm`, `arm_any`, `guid`) - is [ref-kinds.yaml](ref-kinds.yaml); `check_spec.py` reads it

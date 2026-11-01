@@ -262,7 +262,15 @@ variable; its stage file holds the placeholder
 which passes the validation, lets `plan` and the tests run, and is refused by the pipeline
 before `apply` ([pipelines.md](pipelines.md), invariant 11).
 
-A resource of the spec - `{ resource: <key> }` - is never a variable: it is the id output of
+Most inputs take the id. Where one takes another property of the foreign resource,
+`render-map.yaml` names it: what the id carries - the name, the resource group, the
+subscription, a key's vault and name - is split out of it, never looked up; what it does not
+carry - a component's connection string, an identity's principal id, a site's host name - is a
+**second variable** from the stage file beside the id, placeholder and `open:` entry included.
+A secret among them is sensitive (`sensitive = true`) and comes from the pipeline's secrets,
+never from a stage file.
+
+A resource of the spec - `{ resource: <key> }` - is never a variable: it is the output of
 that resource's module (`module.network.subnet_ids["snet-app"]`). Never both for one network:
 a configuration that creates a network and also references a foreign one has two sources of
 truth for its address space, and the overlap surfaces at the first peering.

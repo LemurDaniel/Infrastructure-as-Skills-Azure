@@ -237,7 +237,15 @@ parameter; its stage file holds the placeholder
 which compiles, lets what-if and the tests run, and is refused by the pipeline before the
 deployment ([pipelines.md](pipelines.md), invariant 11).
 
-A resource of the spec - `{ resource: <key> }` - is never a parameter: it is the id output of
+Most inputs take the id. Where one takes another property of the foreign resource,
+`render-map.yaml` names it: what the id carries - the name, the resource group, the
+subscription, a key's vault and name - is split out of it, never looked up; what it does not
+carry - a component's connection string, an identity's principal id, a site's host name - is a
+**second parameter** from the stage file beside the id, placeholder and `open:` entry included.
+A secret among them is sensitive (`@secure()`) and comes from the pipeline's secrets,
+never from a stage file.
+
+A resource of the spec - `{ resource: <key> }` - is never a parameter: it is the output of
 that resource's module. Never both for one network: two sources of truth for one address
 space.
 

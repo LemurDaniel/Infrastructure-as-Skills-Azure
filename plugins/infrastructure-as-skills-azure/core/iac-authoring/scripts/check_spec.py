@@ -344,13 +344,10 @@ def main():
                     errors.append(f"{path} is split by stage, but its question is neither per_environment nor a cost knob - one value for every stage, or the user's departure recorded as overridden")
             elif environments and isinstance(v, dict) and any(k in environments for k in v):
                 errors.append(f"{path} mixes stage names and other keys in its value")
-            elif len(environments) > 1 and v not in (None, '', [], {}) and not all(
-                    isinstance(i, str) and i in (get(spec, 'resources') or {}) for i in (v if isinstance(v, list) else [v])):
+            elif len(environments) > 1 and v not in (None, '', [], {}):
                 # per_environment: what lies outside the spec (a range, a name, a prefix) is a
                 # parameter from the stage file, a map even where the stages agree - one value
-                # would render as a literal. A reference is the exception, handled above, and so
-                # are the resource keys of a question that takes them beside other values
-                # (front-door origins: a resource of the spec or a host name).
+                # would render as a literal. A reference is the exception, handled above.
                 q = question_of(path)
                 if q is not None and q.get('per_environment'):
                     errors.append(f"{path} is one value, but its question is per_environment and the value lies outside "
