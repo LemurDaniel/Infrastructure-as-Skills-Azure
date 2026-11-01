@@ -98,9 +98,9 @@ Never hardcode a resource name, and never hand-write a tag per resource.
 **Names follow the plugin's convention unless the customer specifies another.** The
 convention is [naming.default.yaml](../../iac-rendering/references/naming.default.yaml) —
 CAF abbreviations, AVM region codes, `<TYPE>-<LOCATION>-<ENVIRONMENT>-<NAME>-<INDEX>` with
-per-type patterns where Azure's limits force them (`stweprodpayments01`,
-`kv-we-prod-payments-a1b2`). Every root gets a full copy as `naming.yaml` beside the spec on
-the first run: Terraform's provider reads it, Bicep's name `var`s are generated from it.
+per-type patterns where Azure's limits force them, and `<UNIQUE_ID_4>` in place of `<INDEX>`
+for every global name (`stweprodpaymentsa1b2`, `kv-we-prod-payments-a1b2`). Every root gets
+a full copy as `naming.yaml` beside the spec on the first run: Terraform's provider reads it, Bicep's name `var`s are generated from it.
 From then on the convention is what the repository holds:
 
 - **The customer's word wins.** A different pattern, abbreviation or environment code goes

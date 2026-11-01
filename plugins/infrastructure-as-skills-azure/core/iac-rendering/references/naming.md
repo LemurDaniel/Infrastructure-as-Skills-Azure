@@ -39,8 +39,12 @@ What it produces, with `location: westeurope`, `environment: production`,
 | Virtual network | same | `vnet-we-prod-payments-01` |
 | Subnet | `<TYPE>-<ENVIRONMENT>-<NAME>-<INDEX>` | `snet-prod-payments-01` |
 | Log Analytics | Azure default, `<?SUBNAME;-%s>` optional | `log-we-prod-payments-01` |
-| Storage account | `<TYPE><LOCATION><ENVIRONMENT><NAME><INDEX>`, lowercase | `stweprodpayments01` |
-| Key vault, Cosmos DB, Foundry, AI Search | `<TYPE>-<LOCATION>-<ENVIRONMENT>-<NAME>-<UNIQUE_ID_4>` | `kv-we-prod-payments-a1b2` |
+| Storage account, container registry | `<TYPE><LOCATION><ENVIRONMENT><NAME><UNIQUE_ID_4>`, lowercase | `stweprodpaymentsa1b2` |
+| Every other global name: key vault, Cosmos DB, Foundry, AI Search, App Service, SQL, PostgreSQL, MySQL, Service Bus, Event Hubs, Relay, Data Factory, Purview, API Management, Communication Services, Bot | `<TYPE>-<LOCATION>-<ENVIRONMENT>-<NAME>-<UNIQUE_ID_4>` | `kv-we-prod-payments-a1b2` |
+
+**A global name carries `<UNIQUE_ID_4>` in place of `<INDEX>`.** It is a DNS name across all
+of Azure, so workload, stage and region alone collide with another tenant's; a second
+instance differs in `<NAME>` (the instance suffix), not in an index.
 
 ### `naming.yaml` in the user's repository — a full copy, both targets
 
@@ -122,7 +126,7 @@ terraform {
 provider "naming" {
   convention  = "default"
   naming      = "${path.module}/naming.yaml"
-  # Read only by <UNIQUE_ID_n> - the key vault pattern. Key vault names are global,
+  # Read only by <UNIQUE_ID_n> - the patterns of global names (key vault, storage, ...),
   # so the seed carries the deployment scope, not just the workload.
   random_seed = "${var.subscription_id}/${var.resource_group_name}"
 
@@ -138,7 +142,7 @@ data "naming_name" "storage_account" {
 }
 
 resource "azurerm_storage_account" "this" {
-  name = data.naming_name.storage_account.name # stwedevmyapp01 (environment: development)
+  name = data.naming_name.storage_account.name # stwedevmyappa1b2 (environment: development)
   # ...
 }
 ```
@@ -234,8 +238,8 @@ var loc = locationCodes[location]
 var env = environmentCodes[environment]
 var idx = padLeft(index, 2, '0')
 
-// <TYPE><LOCATION><ENVIRONMENT><NAME><INDEX>, lowercase  ->  stwedevobjects01
-var storageAccountName = toLower('st${loc}${env}${workload}${idx}')
+// <TYPE><LOCATION><ENVIRONMENT><NAME><UNIQUE_ID_4>, lowercase  ->  stwedevobjectsa1b2
+var storageAccountName = toLower('st${loc}${env}${workload}${take(uniqueString(resourceGroup().id), 4)}')
 
 // <TYPE>-<LOCATION>-<ENVIRONMENT>-<NAME>-<INDEX>  ->  vnet-we-dev-objects-01
 var virtualNetworkName = 'vnet-${loc}-${env}-${workload}-${idx}'
@@ -258,7 +262,7 @@ var keyVaultName = 'kv-${loc}-${env}-${workload}-${take(uniqueString(resourceGro
 
 **`<UNIQUE_ID_n>` is the one part the targets do not share.** The provider derives it from
 `random_seed`, Bicep from `uniqueString()`; the same spec therefore names a key vault
-differently in Terraform and in Bicep. Say so when a spec is rendered to both, and do not
+differently in Terraform and in Bicep - and every other global name with it. Say so when a spec is rendered to both, and do not
 paper over it with a literal.
 
 Declare the maps once per deployment — in `main.bicep`, or in a shared `naming.bicep`
@@ -271,7 +275,8 @@ regenerate the block.
 Nothing checks a name assembled from `var`s, so the per-type rules are the render's to keep:
 
 - **Storage accounts, container registries**: lowercase alphanumeric only, no separators,
-  3–24 characters. `toLower()` and no `-`.
+  3–24 characters (registry 5–50). `toLower()` and no `-`; `uniqueString()` is lowercase
+  already. With location and suffix that leaves 10–13 for the workload name.
 - **Key vaults**: 3–24 characters, hyphens allowed, must start with a letter; with location
   and suffix that leaves 3–10 for the workload name.
 - **Most others**: hyphens are conventional (`vnet-we-dev-myapp-01`).
@@ -302,7 +307,8 @@ on a name over its type's length, outside its characters, or used twice.
 What it cannot know it says, per row, and the hand-over repeats it:
 
 - **`<UNIQUE_ID_n>` is printed as `?`.** The seed (Terraform) and `uniqueString()` (Bicep)
-  decide it; a key vault, Cosmos DB, Search or Foundry name is final only at the deploy.
+  decide it; every global name (storage, key vault, registry, App Service, ...) is final only
+  at the deploy.
 - **A global name is never "free".** Storage, key vault, registry, App Service, Cosmos DB,
   Search and the Foundry subdomain are marked `availability unchecked`; the check needs a login.
 - **Not listed:** private endpoints, diagnostic settings, role assignments and what an AVM
