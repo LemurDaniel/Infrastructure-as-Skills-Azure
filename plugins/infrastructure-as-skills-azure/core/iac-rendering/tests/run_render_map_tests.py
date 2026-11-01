@@ -11,7 +11,8 @@ extensions: a module in modules and companions, an authored entry naming a modul
 companion, a list over several modules with an entry naming none, `by_kind` without `kinds`, `kinds` on a question
 that is no enum, a `by_kind` key no answer, a sketch (`...`) instead of code, a format naming no question, a `part_of` whose
 format does not name it, values missing an answer, a scalar entry without values, format or
-passthrough, a passthrough that is not true or stands beside values. A companion, a list per
+passthrough, a passthrough that is not true or stands beside values, import_parts that is no
+list of ARM types or names the set's own resource. A companion, a list per
 module, `by_kind`, a composite format, format beside values, format as code, null in values
 and a composite format with part_of used correctly must pass. Every render-map.yaml in the
 plugin must pass.
@@ -92,6 +93,11 @@ def main():
         ('an unknown field',
          lambda d: d['decisions']['security.min_tls_version']['bicep'].__setitem__('default', 'x'),
          'unknown field(s) default'),
+        ('import_parts that is no list of ARM types',
+         lambda d: d.__setitem__('import_parts', ['private endpoints']), 'import_parts is a list of ARM types'),
+        ('import_parts naming the set\'s own resource',
+         lambda d: d.__setitem__('import_parts', ['Microsoft.Storage/storageAccounts']),
+         "import_parts lists a type twice or the set's own resource"),
         ('a module not in modules',
          lambda d: d['decisions']['security.min_tls_version']['terraform_avm'].__setitem__('module', 'Azure/avm-res-x-y/azurerm'),
          'is neither in modules nor in companions'),

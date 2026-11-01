@@ -540,6 +540,10 @@ resources:
         value:
           production: <id>/providers/Microsoft.Insights/diagnosticSettings/to-law-central
         source: imported
+      parts:                     # optional: the other resources the set renders - here its private endpoint
+        value:
+          production: [/subscriptions/<sub>/resourceGroups/rg-payments-prod/providers/Microsoft.Network/privateEndpoints/pe-st-blob]
+        source: imported
     networking:
       public_network_access:
         value: enabled           # the live value, not the guardrail's disabled
@@ -564,6 +568,7 @@ unmapped:
 | `resources.<key>.adopt.id` | The resource exists: the render imports it (Terraform `import`, Bicep deploys over it under the same name), never creates it and never refers to it as `existing`. A stage map like every id; the name comes from it, not from the naming interface - another name would replace the resource. Of the type the resource's set creates. `imported`, `stated` or `asked`, never `default` or `assumed` |
 | `resources.<key>.adopt.lock_id` | The resource's lock, below its id, when one exists and `deployment.resource_lock` would render it |
 | `resources.<key>.adopt.diagnostic_setting_id` | The resource's diagnostic setting, below its id |
+| `resources.<key>.adopt.parts` | The other Azure resources the set renders for it - an App Service's plan, a private endpoint its module makes - a list of ids per stage, each of a type its `render-map.yaml` lists under `import_parts`. Without it the render adopts the resource and creates its plan a second time |
 | `wiring.role_assignments[].adopt_id` | An existing role assignment, a stage map of its id |
 | `unmapped` | What was found and is not rendered: `{ type, id, reason, note? }`, `reason` one of `no_question_set`, `outside_lock_policy` (a lock `resource_lock` cannot express), `destination_not_supported` (a diagnostic setting to something other than the workspace), `not_readable`. Never dropped silently; `check_spec.py` reports every entry |
 

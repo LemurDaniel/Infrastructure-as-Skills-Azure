@@ -584,7 +584,7 @@ def main():
         adopt = (node or {}).get('adopt') if isinstance(node, dict) else None
         if isinstance(adopt, dict):
             p('   adopt: exists - imported, never created; its name is the one in the id, not the naming interface')
-            for k in ('id', 'lock_id', 'diagnostic_setting_id'):
+            for k in ('id', 'lock_id', 'diagnostic_setting_id', 'parts'):
                 if isinstance(adopt.get(k), dict):
                     p(f"      {k} = {show(adopt[k].get('value'))}  [per stage]")
         own = decisions_of(node, str(key))

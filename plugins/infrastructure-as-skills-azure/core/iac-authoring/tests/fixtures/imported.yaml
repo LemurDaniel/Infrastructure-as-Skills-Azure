@@ -97,6 +97,11 @@ resources:
         value:
           production: /subscriptions/11111111-1111-1111-1111-111111111111/resourceGroups/rg-payments-prod/providers/Microsoft.Web/sites/app-payments-prod
         source: imported
+      parts:
+        value:
+          production:
+          - /subscriptions/11111111-1111-1111-1111-111111111111/resourceGroups/rg-payments-prod/providers/Microsoft.Web/serverFarms/asp-payments-prod
+        source: imported
     hosting:
       sku:
         value: P1v3

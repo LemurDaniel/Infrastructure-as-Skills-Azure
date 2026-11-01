@@ -9,6 +9,10 @@ modules:
   terraform: [Azure/avm-res-network-applicationgatewaywebapplicationfirewallpolicy/azurerm, Azure/avm-res-network-publicipaddress/azurerm, Azure/avm-res-network-applicationgateway/azurerm]
   bicep: [avm/res/network/application-gateway-web-application-firewall-policy, avm/res/network/public-ip-address, avm/res/network/application-gateway]
 
+# The Azure resources besides `resource` the render creates for this set; an import adopts
+# them by id (adopt.parts). Format: core/iac-rendering/references/render-map.md.
+import_parts: [Microsoft.Network/ApplicationGatewayWebApplicationFirewallPolicies, Microsoft.Network/publicIPAddresses]
+
 decisions:
 
   # ---------------------------------------------------------------- placement

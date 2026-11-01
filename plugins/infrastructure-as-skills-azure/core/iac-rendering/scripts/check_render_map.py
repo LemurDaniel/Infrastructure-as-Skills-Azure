@@ -58,7 +58,8 @@ ENTRY_FIELDS = {'attribute', 'values', 'format', 'also', 'module', 'note', 'gap'
 # Answer types a literal is written from. A reference (accepts: { ref }) resolves to an id and a
 # list is written as the list, so neither needs to say how it renders.
 SCALAR_TYPES = {'enum', 'bool', 'int', 'string'}
-TOP_FIELDS = {'schema_version', 'resource', 'modules', 'companions', 'kinds', 'decisions'}
+TOP_FIELDS = {'schema_version', 'resource', 'modules', 'companions', 'kinds', 'import_parts', 'decisions'}
+ARM_TYPE = re.compile(r'^[A-Za-z]+(\.[A-Za-z]+)+/[A-Za-z]+(/[A-Za-z]+)*$')
 # `{group.question}`: another answer of the same resource. `${var.x}` is target code, not one.
 PLACEHOLDER = re.compile(r'(?<!\$)\{([a-z0-9_]+\.[a-z0-9_]+)\}')
 
@@ -276,6 +277,14 @@ def check_file(path, yaml):
     for t in TARGETS:
         for c in sorted(set(modules[t]) & set(companions[t])):
             errs.append(f"{rel}: {c} is in modules and in companions")
+
+    # The other Azure resources an import adopts with this one (adopt.parts in the spec).
+    if 'import_parts' in doc:
+        parts = doc['import_parts']
+        if not isinstance(parts, list) or not parts or not all(isinstance(t, str) and ARM_TYPE.match(t) for t in parts):
+            errs.append(f"{rel}: import_parts is a list of ARM types (Microsoft.Web/serverFarms)")
+        elif len(set(parts)) != len(parts) or doc.get('resource') in parts:
+            errs.append(f"{rel}: import_parts lists a type twice or the set's own resource")
 
     questions = {f"{g.get('id')}.{q.get('id')}": q
                  for g in qs.get('groups') or [] for q in g.get('questions') or []}

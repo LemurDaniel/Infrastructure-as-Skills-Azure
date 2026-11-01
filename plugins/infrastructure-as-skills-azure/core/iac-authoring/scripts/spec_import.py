@@ -4,9 +4,11 @@ A spec written from what already runs in Azure carries three things an interview
 (references/spec.md, "Imported resources"):
 
   spec.imported_from                      where it was read: scopes, tag filter, when
-  resources.<key>.adopt.{id, lock_id, diagnostic_setting_id}
+  resources.<key>.adopt.{id, lock_id, diagnostic_setting_id, parts}
                                           the resource exists; each a stage map of ids the
-                                          render imports instead of creating a second one
+                                          render imports instead of creating a second one -
+                                          parts a list per stage, of the types the set's
+                                          render-map.yaml lists under import_parts
   wiring.role_assignments[].adopt_id      the same for one role assignment
   unmapped: [{type, id, reason, note?}]   found, not rendered - said out loud, never dropped
 
@@ -25,10 +27,12 @@ ROLE_ASSIGNMENT_ID = re.compile(rf'^(/subscriptions/{GUID}(/resourceGroups/[^/]+
 TIMESTAMP = re.compile(r'^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z$')
 
 # The keys of the adopt group, and for the two children the extension path below the resource.
+# `parts` holds the other resources the set renders (a plan, a private endpoint), a list per stage.
 ADOPT_KEYS = {
     'id': None,
     'lock_id': 'Microsoft.Authorization/locks',
     'diagnostic_setting_id': 'Microsoft.Insights/diagnosticSettings',
+    'parts': None,
 }
 # Who may have put an id there: the import, or a person naming it.
 ADOPT_SOURCES = ('imported', 'stated', 'asked')
@@ -59,9 +63,10 @@ def stage_values(v, environments):
     return None
 
 
-def check(spec, set_types, environments, source_kind):
-    """(errors, warnings, adopted count) for the import parts of a spec. set_types: set name -> ARM type of its
-    question set's `resource`; source_kind: spec_source.kind."""
+def check(spec, set_types, set_parts, environments, source_kind):
+    """(errors, warnings, adopted count) for the import parts of a spec. set_types: set name -> the
+    ARM type of its question set's `resource`; set_parts: set name -> its render-map.yaml's
+    import_parts; source_kind: spec_source.kind."""
     errors, warnings = [], []
     get = lambda m, k: m.get(k) if isinstance(m, dict) else None
 
@@ -95,13 +100,13 @@ def check(spec, set_types, environments, source_kind):
             continue
         where = f"resources.{rkey}.adopt"
         if not isinstance(adopt, dict):
-            errors.append(f"{where} is not a group of id, lock_id and diagnostic_setting_id")
+            errors.append(f"{where} is not a group of {', '.join(ADOPT_KEYS)}")
             continue
         extra = sorted(set(adopt) - set(ADOPT_KEYS))
         if extra:
             errors.append(f"{where} holds {', '.join(extra)} - only {', '.join(ADOPT_KEYS)}")
         if 'id' not in adopt:
-            errors.append(f"{where} has no id - lock_id and diagnostic_setting_id belong to an adopted resource")
+            errors.append(f"{where} has no id - its lock, diagnostic setting and parts belong to an adopted resource")
             continue
         adopted += 1
         ids = {}
@@ -120,6 +125,23 @@ def check(spec, set_types, environments, source_kind):
             if staged is None:
                 errors.append(f"{where}.{key} is not a map keyed by stage - an id differs per stage like any value "
                               f"outside the spec")
+                continue
+            for e in [e for e in environments if e not in d['value']]:
+                errors.append(f"{where}.{key} has no id for stage '{e}'")
+            if key == 'parts':
+                kind = str(rkey).split('__')[0]
+                allowed = set_parts.get(kind) or []
+                for stage, part_ids in staged:
+                    if not isinstance(part_ids, list) or not part_ids:
+                        errors.append(f"{where}.parts (stage {stage}) is not a list of ids")
+                        continue
+                    for rid in part_ids:
+                        t = resource_type(rid) if isinstance(rid, str) and RESOURCE_ID.match(rid) else None
+                        if t is None:
+                            errors.append(f"{where}.parts (stage {stage}) has '{rid}', which is no resource id")
+                        elif t.lower() not in {a.lower() for a in allowed}:
+                            errors.append(f"{where}.parts (stage {stage}) has a {t}, which the {kind} set does not "
+                                          f"render (import_parts: {', '.join(allowed) or 'none'})")
                 continue
             for stage, rid in staged:
                 if key == 'id':

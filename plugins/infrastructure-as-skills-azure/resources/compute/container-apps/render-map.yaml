@@ -8,6 +8,10 @@ modules:
   terraform: [Azure/avm-res-app-managedenvironment/azurerm, Azure/avm-res-app-containerapp/azurerm]
   bicep: [avm/res/app/managed-environment, avm/res/app/container-app]
 
+# The Azure resources besides `resource` the render creates for this set; an import adopts
+# them by id (adopt.parts). Format: core/iac-rendering/references/render-map.md.
+import_parts: [Microsoft.App/managedEnvironments]
+
 decisions:
 
   # ---------------------------------------------------------------- placement

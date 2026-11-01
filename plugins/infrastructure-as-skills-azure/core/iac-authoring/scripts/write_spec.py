@@ -53,7 +53,7 @@ SECTIONS = ['schema_version', 'spec', 'context', 'deployment', 'pattern', 'compo
             'open']
 HEAD = ['id', 'target', 'generated_by', 'plugin_version', 'skill', 'skill_version', 'at', 'imported_from']
 IMPORTED_FROM = ['scopes', 'tag_filter', 'read_at']
-ADOPT = ['id', 'lock_id', 'diagnostic_setting_id']
+ADOPT = ['id', 'lock_id', 'diagnostic_setting_id', 'parts']
 UNMAPPED = ['type', 'id', 'reason', 'note']
 CONTEXT = ['environments', 'language', 'location', 'workload', 'subscription_id', 'resource_group_name', 'tags']
 ENTRY = ['value', 'source', 'forces']

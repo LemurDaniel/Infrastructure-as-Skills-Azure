@@ -103,6 +103,20 @@ one of two ways:
 
 A `${...}` is the target's own interpolation and never a placeholder.
 
+## What an import adopts: `import_parts`
+
+```yaml
+import_parts: [Microsoft.Web/serverFarms, Microsoft.Network/privateEndpoints]
+```
+
+The Azure resources besides the set's own `resource` that the render creates for it - a plan
+under a web app, a WAF policy, the private endpoints its module makes. A spec written from what
+runs in Azure lists their ids under `resources.<key>.adopt.parts`, and the render imports them
+instead of creating a second one; `check_spec.py` refuses an id of a type not listed here. A set
+that renders nothing besides its resource has no `import_parts`. Locks, diagnostic settings and
+role assignments are not listed: the spec names them on their own (`adopt.lock_id`,
+`adopt.diagnostic_setting_id`, `adopt_id`).
+
 ## Beyond one entry
 
 Four shapes for resources that do not fit one module and one attribute per decision.

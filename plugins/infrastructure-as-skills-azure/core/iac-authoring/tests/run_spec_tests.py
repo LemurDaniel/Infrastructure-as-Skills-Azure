@@ -31,8 +31,9 @@ with the ids of their lock and diagnostic setting, adopted role assignments, unm
 spec.imported_from. It must pass and be canonical; each mutation breaks one rule of
 scripts/spec_import.py - an id of another type, a lock under another resource, an id as one value
 or defaulted, a key the adopt group does not have, a resource that records nothing but its id, a
-role assignment id that is none, an unmapped entry with an unknown reason or an id of another
-type, a scope that is no scope, no read_at.
+role assignment id that is none, a part of a type the set does not render or a part that is no
+list, an unmapped entry with an unknown reason or an id of another type, a scope that is no
+scope, no read_at.
 
 Usage:
     python3 run_spec_tests.py
@@ -296,6 +297,10 @@ IMPORT_MUTATIONS = [
      APP_ID + "        source: imported\n      name:\n        value: app-payments-prod\n        source: imported\n",
      'adopt holds name'),
     ('a resource that records nothing but its id', APP_DECISIONS, '', 'resources.app-service records no decision'),
+    ('a part of a type the set does not render', 'Microsoft.Web/serverFarms/asp-payments-prod',
+     'Microsoft.Web/certificates/asp-payments-prod', 'which the app-service set does not render'),
+    ('a part that is no list', "          production:\n          - " + SUB + "Microsoft.Web/serverFarms/asp-payments-prod\n",
+     "          production: " + SUB + "Microsoft.Web/serverFarms/asp-payments-prod\n", 'is not a list of ids'),
     ('a role assignment id that is none', 'roleAssignments/9f3c1a2b-0000-4000-8000-000000000001',
      'roleDefinitions/9f3c1a2b-0000-4000-8000-000000000001', 'which is no role assignment id'),
     ('an unmapped entry with an unknown reason', '  reason: no_question_set\n', '  reason: too_hard\n',

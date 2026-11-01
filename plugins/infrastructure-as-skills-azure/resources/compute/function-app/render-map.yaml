@@ -9,6 +9,10 @@ modules:
   terraform: [Azure/avm-res-web-serverfarm/azurerm, Azure/avm-res-web-site/azurerm]
   bicep: [avm/res/web/serverfarm, avm/res/web/site]
 
+# The Azure resources besides `resource` the render creates for this set; an import adopts
+# them by id (adopt.parts). Format: core/iac-rendering/references/render-map.md.
+import_parts: [Microsoft.Web/serverFarms, Microsoft.Network/privateEndpoints]
+
 decisions:
 
   # ---------------------------------------------------------------- placement

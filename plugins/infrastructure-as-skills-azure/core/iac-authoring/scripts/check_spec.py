@@ -77,8 +77,9 @@ Read-only. Checks what the contract in references/spec.md promises:
      resource_group` no group is `create` and no deployer role is scoped to
      `subscription`: either reaches every stage, and the separation is gone.
  11. Imports (spec_import.py): spec.imported_from names the scopes read and when; a
-     resource's `adopt` group holds its id per stage, of the type its set creates, and
-     the ids of its lock and diagnostic setting below it; a role assignment's adopt_id
+     resource's `adopt` group holds its id per stage, of the type its set creates, the
+     ids of its lock and diagnostic setting below it, and its parts, of the types its
+     render-map.yaml lists under import_parts; a role assignment's adopt_id
      is a role assignment id per stage; every `unmapped` entry is { type, id, reason }
      with an id of that type, and is reported - found in Azure, not rendered.
 
@@ -125,8 +126,7 @@ import spec_source  # noqa: E402 - a source as a word or {forced_by | derived_fr
 import spec_ref  # noqa: E402 - a reference as {resource: <key>} or {existing: <kind>}
 import spec_import  # noqa: E402 - adopt, unmapped and imported_from, what an import leaves
 # Resource keys every resource may carry without its set asking them (spec.md: placement, meta).
-BUILTIN_RESOURCE_KEYS = {('placement', 'resource_group'), ('placement', 'location'), ('meta', 'purpose'),
-                         ('adopt', 'id'), ('adopt', 'lock_id'), ('adopt', 'diagnostic_setting_id')}
+BUILTIN_RESOURCE_KEYS = {('placement', 'resource_group'), ('placement', 'location'), ('meta', 'purpose')}
 RG_LOCKS = ['production', 'all_stages', 'none']
 # A role satisfies a need when it is the narrow one or broader; broader is the platform's call.
 ROLES_ASSIGN = ['Role Based Access Control Administrator', 'User Access Administrator', 'Owner']
@@ -161,8 +161,9 @@ def load_question_index(yaml):
 
 
 def load_set_types(yaml):
-    """Set name -> the ARM type its question set creates (`resource:`), for an adopted id."""
-    types = {}
+    """(set name -> the ARM type its question set creates, set name -> its render-map.yaml's
+    import_parts), for an adopted id and its parts."""
+    types, parts = {}, {}
     res_root = os.path.join(PLUGIN, 'resources')
     for fam in sorted(os.listdir(res_root)) if os.path.isdir(res_root) else []:
         fam_dir = os.path.join(res_root, fam)
@@ -173,7 +174,13 @@ def load_set_types(yaml):
                     doc = yaml.safe_load(f) or {}
                 if isinstance(doc, dict) and isinstance(doc.get('resource'), str):
                     types[res] = doc['resource']
-    return types
+            rm = os.path.join(fam_dir, res, 'render-map.yaml')
+            if os.path.isfile(rm):
+                with open(rm, encoding='utf-8') as f:
+                    doc = yaml.safe_load(f) or {}
+                if isinstance(doc, dict) and isinstance(doc.get('import_parts'), list):
+                    parts[res] = doc['import_parts']
+    return types, parts
 
 
 COLORS = {'cyan': '36', 'green': '32', 'red': '31', 'yellow': '33', 'gray': '90'}
@@ -439,6 +446,8 @@ def main():
             key = str(k)
             if key.startswith('_'):
                 continue  # _target_overrides is quarantined on purpose
+            if key == 'adopt' and path.count('.') == 1 and path.startswith('resources.'):
+                continue  # ids, not decisions: spec_import checks them
             if key in BACKEND_SPELLINGS:
                 errors.append(f"{path}.{key} uses a backend's attribute spelling. The spec names decisions; renderers know attributes.")
             walk(node[k], f"{path}.{key}")
@@ -780,10 +789,10 @@ def main():
     # What an import (iac-unclick) leaves: the ids the render imports instead of creating a
     # second resource, and what it found and does not render.
     try:
-        set_types = load_set_types(yaml)
+        set_types, set_parts = load_set_types(yaml)
     except (yaml.YAMLError, OSError):
-        set_types = {}
-    imp_errors, imp_warnings, adopted = spec_import.check(spec, set_types, environments, spec_source.kind)
+        set_types, set_parts = {}, {}
+    imp_errors, imp_warnings, adopted = spec_import.check(spec, set_types, set_parts, environments, spec_source.kind)
     errors.extend(imp_errors)
     warnings.extend(imp_warnings)
     if adopted and not imp_errors:
