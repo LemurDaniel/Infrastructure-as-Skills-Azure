@@ -215,6 +215,25 @@ resources:
           resource: virtual-network
           part: snet-privatelink
         source: deployment
+  key-vault-secret__signin:
+    placement:
+      key_vault: { value: { resource: key-vault }, source: stated }
+    identity:
+      role_assignments:
+        value:
+        - { principal: app-service__dashboard, role: Key Vault Secrets User }
+        source: stated
+  key-vault-secret__github:
+    placement:
+      key_vault: { value: { resource: key-vault }, source: stated }
+    identity:
+      role_assignments:
+        value:
+        - { principal: app-service__tuner, role: Key Vault Secrets User }
+        source: stated
+  key-vault-key__signing:
+    placement:
+      key_vault: { value: { resource: key-vault }, source: stated }
   container-registry:
     meta:
       purpose: { value: Images, source: stated }

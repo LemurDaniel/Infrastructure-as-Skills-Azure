@@ -103,6 +103,7 @@ LABELS = {
         'keyless': ' Access to the resources is by identity, no keys.',
         'aiNotice': 'AI-generated - please review',
         'dnsOpen': 'open - owner not decided', 'entry': 'Entry', 'children': 'Containers', 'children_file-share': 'File shares', 'children_queue': 'Queues',
+        'children_key-vault-secret': 'Secret', 'children_key-vault-key': 'Key',
     },
     'de': {
         'internet': 'Internet', 'users': 'Benutzer', 'noPublic': 'kein öffentlicher Zugriff', 'existing': 'vorhanden - wird nicht erstellt', 'idOpen': 'vorhanden, ID offen',
@@ -131,6 +132,7 @@ LABELS = {
         'keyless': ' Zugriffe auf die Ressourcen laufen über Identitäten, ohne Schlüssel.',
         'aiNotice': 'KI-generiert - bitte prüfen',
         'dnsOpen': 'offen - Zuständigkeit ungeklärt', 'entry': 'Eingang', 'children': 'Container', 'children_file-share': 'Dateifreigaben', 'children_queue': 'Warteschlangen',
+        'children_key-vault-secret': 'Secret', 'children_key-vault-key': 'Schlüssel',
     },
 }
 
@@ -176,6 +178,7 @@ ICONS = {
     'bastion': 'img/lib/azure2/networking/Bastions.svg',
     'azure-firewall': 'img/lib/azure2/networking/Firewalls.svg',
     'virtual-machine': 'img/lib/azure2/compute/Virtual_Machine.svg',
+    'availability-set': 'img/lib/azure2/compute/Availability_Sets.svg',
     'managed-disk': 'img/lib/azure2/compute/Disks.svg',
     'load-balancer': 'img/lib/azure2/networking/Load_Balancers.svg',
     'virtual-machine-scale-set': 'img/lib/azure2/compute/VM_Scale_Sets.svg',
@@ -243,8 +246,16 @@ HOSTED_DEFAULT_SUBNET = {'application-gateway': 'snet-gateway', 'api-management'
 SUBNET_HOSTED = {'application-gateway': ['gateway', 'gateway_subnet'], 'api-management': ['networking', 'apim_subnet']}
 # A global service in front of the network: drawn with the actors, outside it.
 EDGE_KINDS = {'front-door'}
-# Children of a storage account: no icon of their own, their names go on the account's label.
-CHILD_KINDS = {'blob-container': 'container_names', 'file-share': 'share_names', 'queue': 'queue_names'}
+# Children of a storage account or a vault: no icon of their own, their names go on the parent's
+# label. Per kind the decision naming the parent and the one listing the names; None names the
+# child by its instance (`key-vault-secret__github-token` -> github-token), with its roles under it.
+CHILD_KINDS = {
+    'blob-container': ('storage_account', 'container_names'),
+    'file-share': ('storage_account', 'share_names'),
+    'queue': ('storage_account', 'queue_names'),
+    'key-vault-secret': ('key_vault', None),
+    'key-vault-key': ('key_vault', None),
+}
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', 'iac-rendering', 'scripts'))
 import rg_roles  # noqa: E402 - the role table per scheme (deployment.resource_group_scheme)
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', 'iac-authoring', 'scripts'))
@@ -520,15 +531,19 @@ def main():
             return mode in ('internal', 'external') or bool(subnet_name(get_decision(node, SUBNET_HOSTED[base(k)])))
         return True
 
-    # Children of a storage account are words on its label, not icons.
+    # Children of a storage account or a vault are words on its label, not icons.
     children_of = {}
     for k in res_keys:
         if base(k) in CHILD_KINDS and isinstance(resources[k], dict):
+            parent_field, names_field = CHILD_KINDS[base(k)]
             parent, names = None, []
             for grp in resources[k].values():
                 if isinstance(grp, dict):
-                    parent = parent or next(iter(spec_ref.resource_keys(get_value(grp.get('storage_account')))), None)
-                    names += [s(n) for n in as_list(get_value(grp.get(CHILD_KINDS[base(k)]))) if n]
+                    parent = parent or next(iter(spec_ref.resource_keys(get_value(grp.get(parent_field)))), None)
+                    if names_field:
+                        names += [s(n) for n in as_list(get_value(grp.get(names_field))) if n]
+            if names_field is None:
+                names = [k]
             if parent in resources:
                 children_of.setdefault(parent, []).append((base(k), names))
     child_keys = {k for k in res_keys if base(k) in CHILD_KINDS}
@@ -916,8 +931,15 @@ def main():
             principal, _, role = line.partition(': ')
             label += f"<br><font style='font-size:10px' color='#5C2D91'>&#8592; {esc(display_name(principal))}: {esc(role)}</font>"
         for kind, names in children_of.get(k, []):
-            if names:
-                label += f"<br><font style='font-size:10px'>{esc(T['children' if kind == 'blob-container' else 'children_' + kind])}: {esc(', '.join(names))}</font>"
+            title = T['children' if kind == 'blob-container' else 'children_' + kind]
+            if CHILD_KINDS[kind][1] is None:
+                child = names[0]
+                label += f"<br><font style='font-size:10px'>{esc(title)}: {esc(child.partition('__')[2] or child)}</font>"
+                for line in role_lines.get(child, []):
+                    principal, _, role = line.partition(': ')
+                    label += f"<br><font style='font-size:10px' color='#5C2D91'>&#8592; {esc(display_name(principal))}: {esc(role)}</font>"
+            elif names:
+                label += f"<br><font style='font-size:10px'>{esc(title)}: {esc(', '.join(names))}</font>"
         for src, text in deliveries.get(k, []):
             label += f"<br><font style='font-size:10px' color='#5C2D91'>&#8592; {esc(display_name(src))}" + (f": {esc(text)}" if text else '') + "</font>"
         rest = [c for c in callers_of.get(k, []) if (k, c.split(' (')[0]) not in callers_listed_in_roles]

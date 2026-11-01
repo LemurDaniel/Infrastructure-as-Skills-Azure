@@ -223,6 +223,7 @@ lines are access, not plumbing.
 | `front-door` | An icon in the *external* zone below the actors - a global service in front of the network, not a PaaS service in it. A line from an actor to it runs down the zone's left edge. Marked *reachable from the internet*, as is an `application-gateway` whose `frontend_exposure` is `public` |
 | `application-gateway`, `api-management` with a subnet decision | An icon in the subnet named by `gateway.gateway_subnet` / `networking.apim_subnet`, like compute, and without a private endpoint (an injected instance has none). Compute stands in the order a request meets it - the first appearance in `wiring.access`. With two or more calls between compute in three or more subnets (**chain layout**) the subnets are columns left to right, the line between neighbours straight, the private endpoints the last column; the actors that start a request (users, Front Door) are zones of their own left of the network at the height of the row, an actor that is only called (the directory) a zone above its caller, so every line to them is one straight stretch; identities, monitoring and name resolution stand in a column under the actors, the security groups and the identities of one kind (and group) as one icon each (`4× Network Security Group`, the instances' names under it - `verify_diagram.py` counts it for every instance); the calls from compute into the services are then words on the service (`<- caller`), not lines |
 | `blob-container`, `file-share`, `queue` | No icon: the names are a line on the label of the storage account they belong to |
+| `key-vault-secret`, `key-vault-key` | No icon: one line per secret or key on the label of its vault, the roles on it in purple under that line |
 | A `wiring.access` line from a service into compute (a topic delivering to a function) | No line - no route to compute stays clear of the icons between them. A purple `<- service: label` on the target's label, as a role is |
 | `user-assigned-identity`, `network-security-group` | Not services that are called: a zone of their own below the PaaS zone (*Identities and network baseline*), so that no line to a service runs through them |
 | A second resource of one kind (`app-service__web`, `app-service__mcp`) | Read as the set before the `__` for icon, title and question set; labelled with its `meta.purpose`, else the instance name |
@@ -305,7 +306,10 @@ to read or grep without opening draw.io.
 ## Icons
 
 `ICONS` in [new_diagram.py](scripts/new_diagram.py) maps each resource key to a path in
-draw.io's built-in `azure2` library. Every resource with a question set needs a row there.
+draw.io's built-in `azure2` library. Every resource with a question set needs a row there,
+or is a child in `CHILD_KINDS` drawn on its parent's label; `run_png_tests.py` fails on one
+with neither. The table is filled when a question set is added, never looked up at render
+time: a lookup by name guesses, and draw.io is not installed everywhere the script runs.
 
 Find a path with `drawio_png.py icons <word> [<word>]` (e.g. `icons azure2 key`), never from
 memory. A wrong path does not fail, it exports as a broken-image placeholder.
