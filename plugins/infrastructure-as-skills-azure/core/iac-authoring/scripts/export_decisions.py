@@ -60,7 +60,7 @@ LABELS = {
         'stage_file': 'in stage', 'savings': 'cheaper outside production',
         'answers': 'What follows from your answers',
         'answered': 'your answer', 'stated': 'from your description', 'assumed_default': 'not said, so the usual answer applies',
-        'carried': 'as decided earlier',
+        'carried': 'as decided earlier', 'imported': 'as it runs in Azure today',
         'groups': 'Resource groups',
         'groups_intro': 'A resource group is the unit that is deleted, permitted and costed as a whole. Each group is either created with the system or already exists and is only used.',
         'g_group': 'Group', 'g_state': 'State', 'g_name': 'Name', 'g_contains': 'Contains',
@@ -84,7 +84,7 @@ LABELS = {
         'sources': {'stated': 'your description', 'asked': 'your answer', 'platform': 'the landing zone',
                     'pattern': 'the pattern', 'requirement': 'derived from your answer', 'deployment': 'inherited',
                     'forced': 'forced', 'assumed': 'placeholder', 'default': 'rule', 'carried': 'carried',
-                    'overridden': 'your departure'},
+                    'imported': 'Azure today', 'overridden': 'your departure'},
     },
     'de': {
         'title': 'Entscheidungen für „{workload}“',
@@ -96,7 +96,7 @@ LABELS = {
         'stage_file': 'in Stufe', 'savings': 'außerhalb der Produktion günstiger',
         'answers': 'Was aus euren Antworten folgt',
         'answered': 'eure Antwort', 'stated': 'aus eurer Beschreibung', 'assumed_default': 'nicht gesagt, daher gilt die übliche Antwort',
-        'carried': 'wie früher entschieden',
+        'carried': 'wie früher entschieden', 'imported': 'wie es heute in Azure läuft',
         'groups': 'Ressourcengruppen',
         'groups_intro': 'Eine Ressourcengruppe wird als Ganzes gelöscht, berechtigt und abgerechnet. Jede Gruppe wird entweder mit dem System angelegt oder existiert bereits und wird nur verwendet.',
         'g_group': 'Gruppe', 'g_state': 'Zustand', 'g_name': 'Name', 'g_contains': 'Enthält',
@@ -120,11 +120,11 @@ LABELS = {
         'sources': {'stated': 'eure Beschreibung', 'asked': 'eure Antwort', 'platform': 'die Landing Zone',
                     'pattern': 'das Muster', 'requirement': 'abgeleitet aus eurer Antwort', 'deployment': 'übernommen',
                     'forced': 'erzwungen', 'assumed': 'Platzhalter', 'default': 'Regel', 'carried': 'übernommen',
-                    'overridden': 'eure Abweichung'},
+                    'imported': 'Azure heute', 'overridden': 'eure Abweichung'},
     },
 }
 
-CUSTOMER_ANSWER_SOURCES = {'stated', 'asked', 'carried', 'overridden'}
+CUSTOMER_ANSWER_SOURCES = {'stated', 'asked', 'carried', 'imported', 'overridden'}
 # Groups whose defaults are shown together, ahead of the per-resource lists (a managed
 # identity's own `identity` group describes the identity, not a baseline, and stays with it).
 SECURITY_GROUPS = {'security', 'identity'}
@@ -429,6 +429,8 @@ def main():
             how = L['answered']
         elif src == 'carried':
             how = L['carried']
+        elif src == 'imported':
+            how = L['imported']
         w(f"- **{R.line(q, d.get('value'))}** _({how})_")
         for res, line in derived.get(qid, []):
             w(f"  - {L['derived']}, {titles.get(res, res)}: {line}")
@@ -465,7 +467,7 @@ def main():
         qset = sets.get(res, {})
         lines = []
         for gid, qs in (groups or {}).items():
-            if not isinstance(qs, dict) or str(gid).startswith('_') or gid == 'meta':
+            if not isinstance(qs, dict) or str(gid).startswith('_') or gid in ('meta', 'adopt'):
                 continue  # meta describes the resource; only the appendix lists it
             for qid, d in qs.items():
                 if not isinstance(d, dict):
