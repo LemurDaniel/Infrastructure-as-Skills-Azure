@@ -110,20 +110,34 @@ SHAPE_MUTATIONS += [
      'lifecycle_ignore is not { value, reason }'),
 ]
 
-# An association is exclusive (a subnet takes one NSG): on the Shape example, NSGs that claim
-# snet-app, each added to the network module. (name, [(find, replace)], expected; None = must pass)
+# NSGs on the Shape example, which guards snet-app and the implied private endpoint subnet
+# `endpoints`: an association is exclusive (a subnet takes one NSG), and every subnet the spec
+# creates has one. (name, [(find, replace)], expected; None = must pass)
 def nsg(name):
     return (f"  network-security-group__{name}:\n    networking:\n      subnets:\n        value:\n"
             "        - resource: virtual-network\n          part: snet-app\n        source: stated\n")
 
 
+SHAPE_MODULE = "    contains: [virtual-network, network-security-group__app, network-security-group__endpoints]\n"
+SHAPE_NSG_ENDPOINTS = ("  network-security-group__endpoints:\n    networking:\n      subnets:\n        value:\n"
+                       "        - resource: virtual-network\n"
+                       "          part: endpoints  # the private endpoint subnet: no listed subnet carries its prefix\n"
+                       "        source:\n          forced_by: resources.virtual-network.addressing.subnets\n"
+                       "    rules:\n      subnet_purpose:\n        value: private_endpoints\n        source:\n"
+                       "          forced_by: resources.virtual-network.addressing.private_endpoint_subnet_prefix\n\n")
 SHAPE_EDITS = [
-    ('one NSG on a subnet', [("\n  app-service:\n", "\n" + nsg('a') + "  app-service:\n"),
-                             ("    contains: [virtual-network]\n", "    contains: [virtual-network, network-security-group__a]\n")], None),
-    ('two NSGs on one subnet', [("\n  app-service:\n", "\n" + nsg('a') + nsg('b') + "  app-service:\n"),
-                                ("    contains: [virtual-network]\n",
-                                 "    contains: [virtual-network, network-security-group__a, network-security-group__b]\n")],
+    ('a second NSG on a subnet', [("\n  app-service:\n", "\n" + nsg('a') + "  app-service:\n"),
+                                  (SHAPE_MODULE, SHAPE_MODULE.replace(']', ', network-security-group__a]'))],
      'snet-app of virtual-network is claimed by 2 network-security-group resources'),
+    ('a subnet without an NSG', [(SHAPE_NSG_ENDPOINTS, ''),
+                                 (SHAPE_MODULE, SHAPE_MODULE.replace(', network-security-group__endpoints', ''))],
+     'subnet endpoints of virtual-network has no network security group'),
+    # Listed with the private endpoint prefix, the subnet is that one by its own name: no `endpoints`.
+    ('the private endpoint subnet listed by name',
+     [(f"          {s}:\n          - name: snet-app\n", f"          {s}:\n          - name: snet-pe\n            prefix: {p}\n          - name: snet-app\n")
+      for s, p in (('development', '10.42.0.0/27'), ('test', '10.43.0.0/27'), ('production', '10.44.0.0/27'))]
+     + [("          part: endpoints  # the private endpoint subnet: no listed subnet carries its prefix\n", "          part: snet-pe\n")],
+     None),
 ]
 
 # The fixture's storage account up to its first group: its meta comes first.

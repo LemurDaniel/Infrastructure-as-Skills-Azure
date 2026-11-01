@@ -142,6 +142,17 @@ The posture ladder, in order of preference:
 4. **Public, unrestricted** — only with a stated reason recorded in the spec as
    `overridden`.
 
+**Every subnet the deployment creates has a network security group**, with or without a
+landing zone - the private endpoint subnet included. Without one, everything in the network
+reaches everything in the subnet, and a landing zone's policy (*Subnets should have a Network
+Security Group*, deny) refuses the subnet at apply time. One NSG per subnet purpose
+(`private_endpoints`, `app_integration`, `container_apps`, `workload`), derived from what is in
+the subnet and never asked; it costs nothing. The exceptions are the subnets Azure refuses one
+on - `GatewaySubnet`, `AzureFirewallSubnet`, `AzureFirewallManagementSubnet`,
+`RouteServerSubnet`. A subnet the platform hands out carries the platform's NSG: the
+deployment does not attach its own, since a subnet takes one. `check_spec.py` fails on a
+created subnet without one.
+
 Private DNS zones are shared infrastructure. No resource that needs one creates it: in a
 landing zone the platform owns them, without one the deployment creates each zone once, as a
 `private-dns-zone` resource of its own (`private_dns_ownership`, [platform

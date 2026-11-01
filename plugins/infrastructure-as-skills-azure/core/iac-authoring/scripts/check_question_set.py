@@ -548,7 +548,8 @@ def check_set(path, doc, deployment, rel):
 
 
 def check_ref_kinds(kinds, load):
-    """The errors of ref-kinds.yaml: sets that exist, a part its set asks, the type its set creates."""
+    """The errors of ref-kinds.yaml: sets that exist, a part its set asks (and the prefix question
+    of an implied part), the type its set creates."""
     errors = []
     set_files = {os.path.basename(os.path.dirname(p)): p for p in find_sets([os.path.join(PLUGIN, 'resources')])}
     for name, k in kinds.items():
@@ -556,7 +557,7 @@ def check_ref_kinds(kinds, load):
         if not isinstance(k, dict):
             errors.append(f"{where} is not a mapping")
             continue
-        stray = set(k) - {'sets', 'part', 'type', 'id'}
+        stray = set(k) - {'sets', 'part', 'type', 'id', 'implied'}
         if stray:
             errors.append(f"{where} carries unknown field(s) {', '.join(sorted(stray))}")
         if k.get('id') not in ('arm', 'arm_any', 'guid'):
@@ -578,6 +579,16 @@ def check_ref_kinds(kinds, load):
                 group, _, qid = str(k['part']).partition('.')
                 if not any(g == group and q.get('id') == qid for g, q in questions_of(doc)):
                     errors.append(f"{where}: part {k['part']} is no question of the {s} set")
+                imp = k.get('implied')
+                if imp is not None:
+                    if not isinstance(imp, dict) or set(imp) != {'prefix', 'name'}:
+                        errors.append(f"{where}: implied is {{ prefix: <group.question>, name: <part name> }}")
+                    else:
+                        group, _, qid = str(imp['prefix']).partition('.')
+                        if not any(g == group and q.get('id') == qid for g, q in questions_of(doc)):
+                            errors.append(f"{where}: implied prefix {imp['prefix']} is no question of the {s} set")
+            elif k.get('implied') is not None:
+                errors.append(f"{where}: implied without a part")
             elif k.get('type') and str(doc.get('resource', '')).lower() != str(k['type']).lower():
                 errors.append(f"{where}: type {k['type']}, but the {s} set creates {doc.get('resource')}")
     return errors

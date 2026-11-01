@@ -77,18 +77,32 @@ def id_fits(rid, kind):
     return t is not None and t.lower() == str(kind.get('type', '')).lower()
 
 
-def part_names(resource, part):
-    """The names a resource's part question holds (`addressing.subnets`), over every stage."""
-    group, question = part.split('.', 1)
+def _value(resource, path):
+    group, question = path.split('.', 1)
     node = ((resource or {}).get(group) or {}).get(question)
-    v = node.get('value') if isinstance(node, dict) and 'value' in node else node
-    lists = v.values() if isinstance(v, dict) else [v]
-    names = set()
-    for lst in lists:
+    return node.get('value') if isinstance(node, dict) and 'value' in node else node
+
+
+def part_names(resource, part, implied=None):
+    """The names a resource's part question holds (`addressing.subnets`), over every stage, and
+    the implied part (ref-kinds.yaml `implied`: the private endpoint subnet) where no listed part
+    carries its prefix in a stage - a listed part with that prefix is the implied one."""
+    v = _value(resource, part)
+    lists = v if isinstance(v, dict) else {None: v}
+    names, prefixes = set(), {}
+    for stage, lst in lists.items():
         for item in (lst if isinstance(lst, list) else []):
             n = item.get('name') if isinstance(item, dict) else item
             if n is not None:
                 names.add(str(n))
+            if isinstance(item, dict) and item.get('prefix') is not None:
+                prefixes.setdefault(stage, set()).add(str(item['prefix']))
+    if isinstance(implied, dict):
+        pe = _value(resource, implied['prefix'])
+        for stage, prefix in (pe.items() if isinstance(pe, dict) else [(None, pe)]):
+            listed = prefixes.get(stage, set()) | prefixes.get(None, set())
+            if prefix not in (None, '') and str(prefix) not in listed:
+                names.add(str(implied['name']))
     return names
 
 
@@ -125,7 +139,7 @@ def check(path, v, kind_name, kinds, resources, environments, open_stages, open_
                 if not ref.get('part'):
                     errors.append(f"{path} references '{key}' without part - a {kind_name} is a part of it, named by {kind['part']}")
                 else:
-                    names = part_names(resources.get(key), kind['part'])
+                    names = part_names(resources.get(key), kind['part'], kind.get('implied'))
                     if names and str(ref['part']) not in names:
                         errors.append(f"{path} references part '{ref['part']}' of '{key}', which its {kind['part']} does not name ({', '.join(sorted(names))})")
             elif 'part' in ref:

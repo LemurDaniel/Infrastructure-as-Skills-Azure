@@ -58,13 +58,13 @@ decisions:
       attribute: "properties.subnets[] = { name, properties: { addressPrefix } }"
       note: inline; child subnets resources only when the vnet declares no inline subnets at all
   addressing.private_endpoint_subnet_prefix:
-    terraform_avm: { gap: reference names no module input; rendered as the endpoints entry of subnets }
+    terraform_avm: { gap: 'reference names no module input; rendered as the endpoints entry of subnets, or as the listed subnet carrying this prefix' }
     terraform:
       attribute: azurerm_subnet.address_prefixes
       format: { expr: '["{value}"]' }
       note: on the endpoints subnet, a list with one entry; a /29 leaves three usable addresses
-    bicep_avm: { gap: reference names no module input; rendered as the endpoints entry of subnets }
-    bicep: { gap: reference names no authored property; rendered as the endpoints entry of properties.subnets }
+    bicep_avm: { gap: 'reference names no module input; rendered as the endpoints entry of subnets, or as the listed subnet carrying this prefix' }
+    bicep: { gap: 'reference names no authored property; rendered as the endpoints entry of properties.subnets, or as the listed subnet carrying this prefix' }
   addressing.dns_servers:
     terraform_avm: { attribute: dns_servers.dns_servers, note: 'dns_servers = { dns_servers = [...] }; omitted for Azure DNS' }
     terraform: { attribute: azurerm_virtual_network.dns_servers, note: omitted for Azure DNS }

@@ -9,6 +9,9 @@
 #          spec never creates one (only `existing:`), `any` for a reference to any resource
 #   part   for a kind that is a part of a resource: <group>.<question> of its set whose list
 #          names the parts (a subnet is a name in the network's subnets). `part:` then names one
+#   implied  a part the resource has without listing it: { prefix: <group.question>, name } - the
+#          private endpoint subnet, rendered as `name` unless a listed part carries the same
+#          prefix in that stage, which is then that part
 #   type   the ARM type an `existing:` id must carry (provider namespace and type segments)
 #   id     the id's form: arm (a resource id of `type`), arm_any (any resource id, a group,
 #          a subscription or a management group), guid (an Entra object or a subscription id)
@@ -56,7 +59,7 @@ kinds:
   service_bus_namespace:    { sets: [service-bus],              type: Microsoft.ServiceBus/namespaces,                    id: arm }
   snapshot:                 { sets: [],                         type: Microsoft.Compute/snapshots,                        id: arm }
   storage_account:          { sets: [storage-account],          type: Microsoft.Storage/storageAccounts,                  id: arm }
-  subnet:                   { sets: [virtual-network], part: addressing.subnets, type: Microsoft.Network/virtualNetworks/subnets, id: arm }
+  subnet:                   { sets: [virtual-network], part: addressing.subnets, implied: { prefix: addressing.private_endpoint_subnet_prefix, name: endpoints }, type: Microsoft.Network/virtualNetworks/subnets, id: arm }
   subscription:             { sets: [],                                                                                    id: guid }
   user_assigned_identity:   { sets: [user-assigned-identity],   type: Microsoft.ManagedIdentity/userAssignedIdentities,   id: arm }
   virtual_network:          { sets: [virtual-network],          type: Microsoft.Network/virtualNetworks,                  id: arm }

@@ -11,7 +11,7 @@ naming:
 boundaries:
   - "Does not create the resource group. Expects one from the spec's context."
   - "Does not create peerings — both sides are involved, so a pattern or the platform owns them."
-  - "Does not create network security groups, route tables or NAT gateways. Their sets reference the subnets they take (`subnets`), and this set's module renders each association on the subnet."
+  - "Does not create network security groups, route tables or NAT gateways. Their sets reference the subnets they take (`subnets`), and this set's module renders each association on the subnet. Every subnet it creates, the private endpoint subnet included (`endpoints` unless a listed subnet carries its prefix), is named by one network-security-group, but `GatewaySubnet`, `AzureFirewallSubnet`, `AzureFirewallManagementSubnet` and `RouteServerSubnet`, which Azure refuses one on."
   - "Does not resolve the address space. That is deployment.address_space, settled before this set runs."
 
 groups:
