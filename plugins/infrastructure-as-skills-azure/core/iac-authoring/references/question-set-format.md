@@ -69,7 +69,7 @@ groups:
 | `accepts` | The answer is |
 |---|---|
 | `[LRS, ZRS, ...]` | One of the listed values: required on an `enum`, optional on a `list` |
-| `{ ref: <kind> }` | The name or id of another resource of that kind (`subnet`, `resource_group`, `log_analytics_workspace`, ...), on a `string` or a `list`. Supplied by a pattern or the platform, never offered as a guessed option |
+| `{ ref: <kind> }` | A reference to another resource of a kind [ref-kinds.yaml](ref-kinds.yaml) defines (`subnet`, `resource_group`, `log_analytics_workspace`, ...), on a `string` or a `list`. In the spec `{ resource: <key> }` or `{ existing: <kind> }` ([spec.md](spec.md#references)); never offered as a guessed option |
 | `{ catalogue: <file> }` | A value from a generated catalogue beside the set (`models.yaml`), never one from memory |
 
 ## Where the value comes from
@@ -120,9 +120,13 @@ different matter again, decided by `resolved_by` alone.
 ### Types
 
 A reference - a subnet, a workspace, a key - is a `string` or a `list` whose `accepts` is
-`{ ref: <kind> }`: `resource_group`, `subnet`, `log_analytics_workspace`, `key_vault_key`,
-`storage_account`, .... Its value is usually supplied by a pattern or the platform rather
-than stated, and never offered as a guessed option.
+`{ ref: <kind> }`, the kind one of [ref-kinds.yaml](ref-kinds.yaml) (`resource_group`, `subnet`,
+`log_analytics_workspace`, `key_vault_key`, `storage_account`, ...): the sets that create it, the
+part where it is one, the ARM type and form of its id. A kind missing there fails
+`check_question_set.py`; a new kind is added there in the same commit. In the spec the value is
+`{ resource: <key> }` for a resource of the spec or `{ existing: <kind> }` for one outside it
+([spec.md](spec.md#references)). It is usually supplied by a pattern or the platform rather than
+stated, and never offered as a guessed option.
 
 Values that move faster than a release - the Foundry models - come from a generated
 catalogue beside the set: `accepts: { catalogue: models.yaml }`, with `retrieved: <date>` and a
@@ -133,7 +137,7 @@ offers only those, never one from memory. A workflow regenerates the file, never
 |---|---|---|---|
 | `enum` | One of the values in `accepts` | `accepts: [...]` | `replication`: `accepts: [LRS, ZRS, GRS, GZRS]` |
 | `bool` | `true` or `false` | - | `restrict_outbound` |
-| `string` | Free text, or with `accepts: { ref: <kind> }` the name or id of another resource of that kind | - | `location`; `private_endpoint_subnet`: `accepts: { ref: subnet }` |
+| `string` | Free text, or with `accepts: { ref: <kind> }` a reference to another resource of that kind | - | `location`; `private_endpoint_subnet`: `accepts: { ref: subnet }` |
 | `int` | A whole number | - | `deployment_capacity` |
 | `list` | Several values: from `accepts: [...]` where given, otherwise free; references with `accepts: { ref: <kind> }` | - | `environments`; `subnets`: `accepts: { ref: subnet }` |
 

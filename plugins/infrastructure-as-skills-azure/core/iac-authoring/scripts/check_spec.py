@@ -32,8 +32,12 @@ Read-only. Checks what the contract in references/spec.md promises:
   7. Stages: context.environments is a non-empty list; a value that is a map
      keyed by stage names uses only those stages, and a stage it leaves out
      is named by an open entry (`environments:`) for that key. A per_environment
-     question with more than one stage is a map unless its value names only
-     what the spec defines (a resource key, names of its parts, nothing).
+     question with more than one stage is a map, unless it takes a reference.
+  7a. References: a question with `accepts: { ref: <kind> }` holds {resource: <key>}
+     (a resource of this spec of that kind, with `part:` where the kind is a part) or
+     {existing: <kind>} with an id per stage of the kind's form, or an open entry for
+     the id - never a bare name, a stage map or a name and resource group
+     (spec_ref.py, references/ref-kinds.yaml).
   8. Resource groups: the groups are derived (rg_roles.groups) - one, `main`, unless
      `resource_group_layout` is split; under a split every role of the scheme
      (`resource_group_scheme`: concern by default, lifecycle, protection, or component:
@@ -96,6 +100,7 @@ sys.path.insert(0, os.path.join(HERE, '..', '..', 'iac-rendering', 'scripts'))
 import rg_roles  # noqa: E402 - the role table per scheme, shared with the diagram and the documents
 sys.path.insert(0, HERE)
 import spec_source  # noqa: E402 - a source as a word or {forced_by | derived_from | overridden: ...}
+import spec_ref  # noqa: E402 - a reference as {resource: <key>} or {existing: <kind>}
 # Resource keys every resource may carry without its set asking them (spec.md: placement, meta).
 BUILTIN_RESOURCE_KEYS = {('placement', 'resource_group'), ('placement', 'location'), ('meta', 'purpose')}
 RG_LOCKS = ['production', 'all_stages', 'none']
@@ -215,9 +220,11 @@ def main():
         ok(f"envelope - id '{get(head, 'id')}', target '{target}', stages {environments}")
 
     # open entries naming stages, keyed by decision path
-    open_stages = {}
+    open_stages, open_keys = {}, set()
     for o in (get(spec, 'open') or []):
         if isinstance(o, dict) and o.get('key'):
+            if not o.get('environments'):
+                open_keys.add(str(o['key']))
             for e in (o.get('environments') or []):
                 open_stages.setdefault(str(o['key']), set()).add(e)
     stage_maps = 0
@@ -225,6 +232,10 @@ def main():
         questions = load_question_index(yaml)
     except (yaml.YAMLError, OSError):
         questions = {}
+    try:
+        ref_kinds = spec_ref.load_kinds(yaml)
+    except (yaml.YAMLError, OSError):
+        ref_kinds = {}
 
     # --- 2-5. walk every decision ------------------------------------------
     decisions = 0
@@ -302,18 +313,11 @@ def main():
                     where = f" (stage {stage})" if stage else ''
                     errors.append(f"{path}{where} is '{item}', which is not one of its question's accepts: {', '.join(str(a) for a in acc)}")
 
-    resource_keys = {str(k) for k in (get(spec, 'resources') or {})}
-
-    def names_this_spec(v):
-        # Empty, a resource key of this spec, or a list of resource keys and plain names of
-        # parts the spec defines (subnets) - the same in every stage by construction.
-        if v in (None, '', [], {}):
-            return True
-        if isinstance(v, str):
-            return v in resource_keys
-        if isinstance(v, list):
-            return all(isinstance(i, str) and (i in resource_keys or re.match(r'^[a-z][a-z0-9-]*$', i)) for i in v)
-        return False
+    def question_of(path):
+        # The question a decision path answers: deployment.<id> or resources.<key>.<group>.<id>.
+        parts = path.split('.')
+        owner = 'deployment' if parts[0] == 'deployment' else (parts[1].split('__')[0] if parts[0] == 'resources' and len(parts) > 1 else None)  # <set>__<instance>: a second one of a kind
+        return questions.get((owner, parts[-1]))
 
     def walk(node, path):
         nonlocal decisions, stage_maps
@@ -324,27 +328,30 @@ def main():
             decisions += 1
             src, ref = spec_source.kind(node.get('source'))
             v = node['value']
-            if environments and isinstance(v, dict) and v and all(k in environments for k in v):
+            kind = spec_ref.kind_of(question_of(path))
+            if kind:
+                # A reference is one value; its per-stage part is the existing id inside it.
+                errors.extend(spec_ref.check(path, v, kind, ref_kinds, get(spec, 'resources') or {},
+                                             environments, open_stages, open_keys))
+            elif environments and isinstance(v, dict) and v and all(k in environments for k in v):
                 stage_maps += 1
                 missing = [e for e in environments if e not in v]
                 for e in missing:
                     if e not in open_stages.get(path, set()):
                         errors.append(f"{path} has no value for stage '{e}' and no open entry naming it")
-                parts = path.split('.')
-                owner = 'deployment' if parts[0] == 'deployment' else (parts[1].split('__')[0] if parts[0] == 'resources' and len(parts) > 1 else None)  # <set>__<instance>: a second one of a kind
-                q = questions.get((owner, parts[-1]))
+                q = question_of(path)
                 if q is not None and not q.get('per_environment') and 'non_production_default' not in q and src != 'overridden':
                     errors.append(f"{path} is split by stage, but its question is neither per_environment nor a cost knob - one value for every stage, or the user's departure recorded as overridden")
             elif environments and isinstance(v, dict) and any(k in environments for k in v):
                 errors.append(f"{path} mixes stage names and other keys in its value")
-            elif len(environments) > 1 and not names_this_spec(v):
-                # per_environment: what lies outside the spec (a range, an id, a platform
-                # part) is a parameter from the stage file, a map even where the stages agree -
-                # one value would render as a literal. A resource key of this spec, or names of
-                # parts it defines, is the same in every stage; the render resolves it per stage.
-                parts = path.split('.')
-                owner = 'deployment' if parts[0] == 'deployment' else (parts[1].split('__')[0] if parts[0] == 'resources' and len(parts) > 1 else None)
-                q = questions.get((owner, parts[-1]))
+            elif len(environments) > 1 and v not in (None, '', [], {}) and not all(
+                    isinstance(i, str) and i in (get(spec, 'resources') or {}) for i in (v if isinstance(v, list) else [v])):
+                # per_environment: what lies outside the spec (a range, a name, a prefix) is a
+                # parameter from the stage file, a map even where the stages agree - one value
+                # would render as a literal. A reference is the exception, handled above, and so
+                # are the resource keys of a question that takes them beside other values
+                # (front-door origins: a resource of the spec or a host name).
+                q = question_of(path)
                 if q is not None and q.get('per_environment'):
                     errors.append(f"{path} is one value, but its question is per_environment and the value lies outside "
                                   f"this spec - a map keyed by stage ({', '.join(environments)}), a stage nobody could "

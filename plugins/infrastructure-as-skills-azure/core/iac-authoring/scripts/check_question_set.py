@@ -45,6 +45,9 @@ a regex cannot see - what references/question-set-format.md promises:
      compliance or posture group - a cheaper stage is never a less secure one.
   9. Unknown fields are reported: a misspelt `default` is a question that is
      silently asked every run.
+ 10. Reference kinds: every `{ ref: <kind> }` names a kind of references/ref-kinds.yaml,
+     and every kind there names sets that exist, a part question its set asks, and the
+     type its single set creates - a kind nobody defines checks nothing in a spec.
 
 Needs PyYAML (pip install pyyaml). Without it the script says so and exits 2
 rather than pretending the files are fine.
@@ -67,6 +70,8 @@ import sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 PLUGIN = os.path.abspath(os.path.join(HERE, '..', '..', '..'))
 DEPLOYMENT_SET = os.path.join(HERE, '..', 'questions', 'deployment.yaml')
+REF_KINDS_FILE = os.path.join(HERE, '..', 'references', 'ref-kinds.yaml')
+REF_KINDS = None  # kind -> entry of ref-kinds.yaml, loaded by main()
 
 TYPES = ['enum', 'bool', 'string', 'int', 'list']
 RESOLVED_BY = ['interview', 'derived']
@@ -277,6 +282,8 @@ def check_set(path, doc, deployment, rel):
             err(f"{where}: an enum needs accepts: [<value>, ...]")
         elif isinstance(acc, dict) and qtype not in ('string', 'list'):
             err(f"{where}: accepts: {{ {next(iter(acc))}: ... }} on a {qtype} question; it takes a string or a list")
+        elif isinstance(acc, dict) and 'ref' in acc and REF_KINDS is not None and acc['ref'] not in REF_KINDS:
+            err(f"{where}: accepts: {{ ref: {acc['ref']} }} names a kind ref-kinds.yaml does not define")
         elif values is not None and qtype not in ('enum', 'list'):
             wrn(f"{where}: accepts on a {qtype} question is not read; only enum and list take a value list")
         if values is not None:
@@ -528,7 +535,44 @@ def check_set(path, doc, deployment, rel):
     return errors, warnings, len(qs)
 
 
+def check_ref_kinds(kinds, load):
+    """The errors of ref-kinds.yaml: sets that exist, a part its set asks, the type its set creates."""
+    errors = []
+    set_files = {os.path.basename(os.path.dirname(p)): p for p in find_sets([os.path.join(PLUGIN, 'resources')])}
+    for name, k in kinds.items():
+        where = f"ref-kinds.yaml: {name}"
+        if not isinstance(k, dict):
+            errors.append(f"{where} is not a mapping")
+            continue
+        stray = set(k) - {'sets', 'part', 'type', 'id'}
+        if stray:
+            errors.append(f"{where} carries unknown field(s) {', '.join(sorted(stray))}")
+        if k.get('id') not in ('arm', 'arm_any', 'guid'):
+            errors.append(f"{where}: id must be arm, arm_any or guid")
+        if k.get('id') == 'arm' and not k.get('type'):
+            errors.append(f"{where}: an arm id needs the type it carries")
+        sets = k.get('sets')
+        if sets == 'any':
+            continue
+        if not isinstance(sets, list):
+            errors.append(f"{where}: sets is a list of question sets, or any")
+            continue
+        for s in sets:
+            if s not in set_files:
+                errors.append(f"{where} names set '{s}', which does not exist")
+                continue
+            doc = load(set_files[s])
+            if k.get('part'):
+                group, _, qid = str(k['part']).partition('.')
+                if not any(g == group and q.get('id') == qid for g, q in questions_of(doc)):
+                    errors.append(f"{where}: part {k['part']} is no question of the {s} set")
+            elif k.get('type') and str(doc.get('resource', '')).lower() != str(k['type']).lower():
+                errors.append(f"{where}: type {k['type']}, but the {s} set creates {doc.get('resource')}")
+    return errors
+
+
 def main():
+    global REF_KINDS
     ap = argparse.ArgumentParser(description='Validate question sets against the question-set format.')
     ap.add_argument('paths', nargs='*', help='questions.yaml files or directories holding them; default: the whole plugin')
     args = ap.parse_args()
@@ -553,6 +597,13 @@ def main():
         except yaml.YAMLError:
             deployment = None
 
+    kind_errors = []
+    try:
+        REF_KINDS = (load(REF_KINDS_FILE) or {}).get('kinds') or {}
+        kind_errors = check_ref_kinds(REF_KINDS, load)
+    except (OSError, yaml.YAMLError) as e:
+        kind_errors = [f"ref-kinds.yaml does not load: {e}"]
+
     paths = args.paths or [PLUGIN]
     sets = find_sets(paths)
     if not sets:
@@ -562,7 +613,8 @@ def main():
     say(f"Question-set check - {len(sets)} file(s)", 'cyan')
     print('-' * 70)
 
-    errors, warnings, total = [], [], 0
+    errors, warnings, total = list(kind_errors), [], 0
+    (bad if kind_errors else ok)(f"ref-kinds.yaml - {len(REF_KINDS or {})} kind(s)" + (f", {len(kind_errors)} problem(s)" if kind_errors else ''))
     for p in sets:
         rel = os.path.relpath(p, PLUGIN) if p.startswith(PLUGIN) else p
         try:

@@ -43,6 +43,8 @@ CORE = os.path.abspath(os.path.join(HERE, '..', '..'))
 PLUGIN = os.path.abspath(os.path.join(CORE, '..'))
 RESOURCES = os.path.join(PLUGIN, 'resources')
 REFS = os.path.join(CORE, 'iac-rendering', 'references')
+sys.path.insert(0, os.path.join(CORE, 'iac-authoring', 'scripts'))
+import spec_ref  # noqa: E402 - a reference as {resource: <key>} or {existing: <kind>}
 
 PIPELINE_FILES = {'github': 'github', 'azure_devops': 'ado', 'gitlab': 'gitlab', 'local': 'local'}
 AUTHORED_MARK = '## Authored rendering'
@@ -260,15 +262,18 @@ def rendered(entry, v, target, refs=None, ref=False):
     """The literal an entry gives answer v, or None when it passes no scalar through. `refs`
     fills the `{group.question}` placeholders. With `format` beside `values`, `{value}` is the
     answer's mapped fragment; a `format` of `{ expr }` is code, and takes a list answer too.
-    `ref`: the question takes a reference, printed as the id the render resolves it to."""
+    `ref`: the question takes a reference, printed as the id the render resolves it to - a
+    resource of the spec from its module, an existing one from the stage file's id parameter."""
     refs = refs or {}
     fmt = entry.get('format')
     code = isinstance(fmt, dict)
     if entry.get('omit_empty') and v in ('', None, []):
         return LEFT_OUT
-    if ref and isinstance(v, str) and 'values' not in entry:
-        # A reference names a resource of the spec; the render resolves it to its id.
-        v = f"<id of {v}>"
+    if ref and spec_ref.is_ref(v) and 'values' not in entry:
+        if 'resource' in v:
+            v = f"<id of {v['part']} in {v['resource']}>" if v.get('part') else f"<id of {v['resource']}>"
+        else:
+            v = f"<id of the existing {v['existing']}, a stage-file parameter>"
         if 'format' not in entry:
             return v
         if code:

@@ -20,7 +20,11 @@ question of its set, sits in another group, or sits directly under the resource.
 longer in the fixture fails the run: a test that cannot break anything proves nothing. Last, the
 Shape example of references/spec.md must pass the check and be in write_spec.py's canonical form,
 so the reference cannot show a spec the plugin would refuse. On it, a per_environment range or
-reference object written as one value fails; subnet names written as one value pass.
+reference object written as one value fails, and so does every broken reference: a bare name,
+a stage map, a resource of another kind or not in the spec, a subnet without its part or with
+one the network does not name, an existing one with no id and no open entry, an id of another
+type, a stage without an id, a name beside it. An existing one with its ids, or with an open
+entry, passes.
 
 Usage:
     python3 run_spec_tests.py
@@ -59,11 +63,41 @@ SHAPE_RANGES = "    value:\n      development: 10.42.0.0/24\n      test: 10.43.0
 SHAPE_MUTATIONS = [
     ('a per_environment range as one value', SHAPE_RANGES, "    value: 10.42.0.0/24\n    source: asked\n",
      'deployment.address_space is one value, but its question is per_environment'),
-    ('a per_environment reference object as one value', SHAPE_RANGES,
+]
+
+# References (spec_ref.py): on the Shape example's integration subnet and a workspace outside it.
+SHAPE_SUBNET = "        value:  # a reference: a part of a resource of this spec, the same in every stage\n          resource: virtual-network\n          part: snet-app\n"
+LAW = "  diagnostics_destination:\n    value:\n      existing: log_analytics_workspace\n"
+LAW_ID = "/subscriptions/00000000-0000-0000-0000-000000000001/resourceGroups/rg-platform/providers/Microsoft.OperationalInsights/workspaces/law-platform"
+LAW_IDS = "".join(f"        {s}: {LAW_ID}\n" for s in ('development', 'test', 'production'))
+SHAPE_MUTATIONS += [
+    ('a name and resource group instead of a reference', SHAPE_RANGES,
      SHAPE_RANGES + "  diagnostics_destination: {value: {name: law-platform, resource_group_name: rg-platform}, source: stated}\n",
-     'deployment.diagnostics_destination is one value'),
-    ('per_environment subnet names as one value stay valid', "      private_endpoint_subnet_prefix:\n",
-     "      subnets: {value: [private-endpoints, app-integration], source: default}\n      private_endpoint_subnet_prefix:\n", None),
+     "deployment.diagnostics_destination holds {'name': 'law-platform'"),
+    ('a bare subnet name', SHAPE_SUBNET, "        value: snet-app\n", "integration_subnet holds 'snet-app', which is no reference"),
+    ('a reference split by stage', SHAPE_SUBNET,
+     "        value:\n          development: {resource: virtual-network, part: snet-app}\n"
+     "          test: {resource: virtual-network, part: snet-app}\n          production: {resource: virtual-network, part: snet-app}\n",
+     'integration_subnet is a reference split by stage'),
+    ('a resource of another kind', SHAPE_SUBNET, "        value:\n          resource: storage-account\n",
+     "references 'storage-account', which is no subnet"),
+    ('a subnet without its part', SHAPE_SUBNET, "        value:\n          resource: virtual-network\n", 'without part'),
+    ('a part the network does not name', SHAPE_SUBNET, SHAPE_SUBNET.replace('part: snet-app', 'part: snet-gone'),
+     "part 'snet-gone' of 'virtual-network', which its addressing.subnets does not name"),
+    ('a resource the spec does not hold', SHAPE_SUBNET, SHAPE_SUBNET.replace('resource: virtual-network', 'resource: virtual-network__hub'),
+     "references resource 'virtual-network__hub', which this spec does not hold"),
+    ('an existing reference with no id and no open entry', SHAPE_RANGES, SHAPE_RANGES + LAW + "    source: stated\n",
+     'with no id and no open entry'),
+    ('an existing reference whose id is open', SHAPE_RANGES, SHAPE_RANGES + LAW + "    source: stated\n",
+     None, "- key: deployment.diagnostics_destination\n  question: Welche Resource-ID hat der zentrale Workspace?\n  owner: Plattform-Team\n  blocks: apply\n"),
+    ('an existing reference with an id per stage', SHAPE_RANGES, SHAPE_RANGES + LAW + "      id:\n" + LAW_IDS + "    source: stated\n", None),
+    ('an existing reference with an id of another type', SHAPE_RANGES,
+     SHAPE_RANGES + LAW + "      id:\n" + LAW_IDS.replace('Microsoft.OperationalInsights/workspaces', 'Microsoft.Storage/storageAccounts') + "    source: stated\n",
+     'which is not the id of a Microsoft.OperationalInsights/workspaces'),
+    ('an existing reference missing a stage', SHAPE_RANGES,
+     SHAPE_RANGES + LAW + "      id:\n" + LAW_IDS.split('\n', 1)[1] + "    source: stated\n", "has no id for stage 'development'"),
+    ('an existing reference with a name beside it', SHAPE_RANGES,
+     SHAPE_RANGES + LAW + "      name: law-platform\n" + "    source: stated\n", 'never a name or a resource group'),
 ]
 
 # The fixture's storage account up to its first group: its meta comes first.
@@ -319,11 +353,12 @@ def main():
         report(rc == 0 and 'Contract ok' in out, 'the Shape example of spec.md passes', out[-600:])
         rc, out = run(shape, [WRITE, '--check', '--no-stamp'])
         report(rc == 0, 'the Shape example of spec.md is canonical', out[-400:])
-        for name, find, replace, expected in SHAPE_MUTATIONS:
+        for name, find, replace, expected, *appended in SHAPE_MUTATIONS:
             if shape.count(find) != 1:
                 report(False, name, f"the mutation text is in the Shape example {shape.count(find)} times: {find[:60]!r}")
                 continue
-            rc, out = run(shape.replace(find, replace))
+            # a fifth field is appended to the example's open: list, its last section
+            rc, out = run(shape.replace(find, replace) + ''.join(appended))
             ok = rc == 0 and 'Contract ok' in out if expected is None else rc == 1 and expected in out
             report(ok, name if expected is None else f"breaks: {name}", f"expected {expected!r}; got exit {rc}:\n{out[-500:]}")
 
