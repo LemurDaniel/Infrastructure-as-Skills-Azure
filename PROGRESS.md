@@ -1080,7 +1080,10 @@ regeneration from the spec loses them. All `render`:
 - Idea: a cost estimate in Phase 4 (`ideas/cost-and-security-profiles.md`).
 - `examples/order-platform` was deleted (2026-10-29, owner's call): it predated the spec
   revision and was to be regenerated anyway. It was the only per-family and pipeline render;
-  `chat-sandbox` is now the rendered example the `CLAUDE.md` commands test.
+  `chat-sandbox` is now the rendered Terraform example. Its `terraform test` and
+  `check_render_coverage.py` are no standing check (2026-11-01): the render is frozen, so they
+  test that render, not the plugin - the Terraform eval cases render fresh. Run them after a
+  change to the example itself.
 
 ### After the spec revision (2026-10-29)
 

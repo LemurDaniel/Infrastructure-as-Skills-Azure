@@ -104,10 +104,6 @@ python plugins/infrastructure-as-skills-azure/core/iac-rendering/tests/run_code_
 # Renders a spec as the customer's decision document (infra-decisions.md beside it).
 python3 plugins/infrastructure-as-skills-azure/core/iac-authoring/scripts/export_decisions.py <spec> --language de
 
-# A rendered example: fmt, validate, plan-only tests with a mocked platform.
-# Every decision in the spec asserted by those tests, or marked not-testable with a reason.
-terraform -chdir=examples/chat-sandbox init -backend=false && terraform -chdir=examples/chat-sandbox test
-python plugins/infrastructure-as-skills-azure/core/iac-rendering/scripts/check_render_coverage.py examples/chat-sandbox/infra-spec.yaml
 # The eval dashboard app (eval-agent/dashboard, Node 22): endpoint tests, and the container
 # locally with generated data, no Azure and no GitHub (MOCK=1).
 npm --prefix eval-agent/dashboard test

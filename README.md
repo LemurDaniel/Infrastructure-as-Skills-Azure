@@ -69,26 +69,6 @@ What a run leaves behind, from the [`chat-sandbox`](examples/chat-sandbox/) exam
 
 ![The architecture diagram of the chat-sandbox example, rendered from its infra-spec.yaml](examples/chat-sandbox/infra-diagram.drawio.png)
 
-and the spec it was drawn from, every decision with where it came from:
-
-```yaml
-deployment:
-  module_source:
-    value: authored
-    source: asked           # "Einzelne Ressourcen"
-  deploy_mechanism:
-    value: local
-    source: asked           # "Von Hand" - a script, no pipeline
-  outage_impact:
-    value: tolerable
-    source: asked
-  data_loss_tolerance:
-    value: one_week
-    source: asked
-```
-
-Complete runs, request to tests, live under [`examples/`](examples/README.md).
-
 ## Why This Plugin?
 
 - **Decisions, not syntax.** Every decision is explicit in the render and recorded with where it came from, so a review happens at the level decisions are actually made.
@@ -293,10 +273,6 @@ python3 plugins/infrastructure-as-skills-azure/core/iac-authoring/scripts/check_
 
 # a spec against the contract; --require-applyable also fails on assumed values and open items
 python3 plugins/infrastructure-as-skills-azure/core/iac-authoring/scripts/check_spec.py <spec>
-
-# a rendered example: fmt, validate, plan-only tests, then every decision asserted or excused
-terraform -chdir=examples/chat-sandbox init -backend=false && terraform -chdir=examples/chat-sandbox test
-python3 plugins/infrastructure-as-skills-azure/core/iac-rendering/scripts/check_render_coverage.py examples/chat-sandbox/infra-spec.yaml
 
 # diagram, PNG round-trip and pipeline invariants
 python3 plugins/infrastructure-as-skills-azure/core/iac-diagram/tests/run_diagram_tests.py
