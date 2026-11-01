@@ -255,7 +255,8 @@ resources:
         value: true
         source: stated
       archive_storage_account:
-        value: storage-account
+        value:
+          resource: storage-account
         source: stated
     networking:
       public_network_access:
