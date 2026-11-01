@@ -294,10 +294,6 @@ python3 plugins/infrastructure-as-skills-azure/core/iac-authoring/scripts/check_
 # a spec against the contract; --require-applyable also fails on assumed values and open items
 python3 plugins/infrastructure-as-skills-azure/core/iac-authoring/scripts/check_spec.py <spec>
 
-# a rendered example: fmt, validate, plan-only tests, then every decision asserted or excused
-terraform -chdir=examples/chat-sandbox init -backend=false && terraform -chdir=examples/chat-sandbox test
-python3 plugins/infrastructure-as-skills-azure/core/iac-rendering/scripts/check_render_coverage.py examples/chat-sandbox/infra-spec.yaml
-
 # diagram, PNG round-trip and pipeline invariants
 python3 plugins/infrastructure-as-skills-azure/core/iac-diagram/tests/run_diagram_tests.py
 python3 plugins/infrastructure-as-skills-azure/core/iac-diagram/tests/run_png_tests.py
