@@ -8,7 +8,7 @@
 # is the date the version stops answering. `deployment_types` maps each type to the
 # regions that offer it - a model missing from the derived type is not deployed there.
 
-retrieved: '2026-10-28'
+retrieved: '2026-11-01'
 regions: [francecentral, germanywestcentral, italynorth, northeurope, polandcentral, spaincentral, swedencentral, westeurope]
 models:
 - name: gpt-6.1-terra
@@ -309,7 +309,7 @@ models:
   kind: chat
   lifecycle: GenerallyAvailable
   released: '2025-12-08'
-  retires: '2099-12-31'
+  retires: '2027-11-01'
   deployment_types:
     GlobalStandard: [francecentral, germanywestcentral, italynorth, polandcentral, spaincentral, swedencentral, westeurope]
 - name: DeepSeek-V3.2-Speciale
@@ -318,7 +318,7 @@ models:
   kind: chat
   lifecycle: GenerallyAvailable
   released: '2025-12-08'
-  retires: '2099-12-31'
+  retires: '2027-11-01'
   deployment_types:
     GlobalStandard: [francecentral, germanywestcentral, italynorth, polandcentral, spaincentral, swedencentral, westeurope]
 - name: gpt-5.1-codex-max
@@ -450,7 +450,7 @@ models:
   kind: chat
   lifecycle: GenerallyAvailable
   released: '2025-08-05'
-  retires: '2099-12-31'
+  retires: '2027-09-15'
   deployment_types:
     GlobalStandard: [francecentral, germanywestcentral, italynorth, polandcentral, spaincentral, swedencentral, westeurope]
 - name: grok-4-1-fast-non-reasoning
@@ -586,7 +586,7 @@ models:
   kind: chat
   lifecycle: GenerallyAvailable
   released: '2024-10-01'
-  retires: '2099-12-31'
+  retires: '2027-02-15'
   deployment_types:
     GlobalStandard: [francecentral, germanywestcentral, italynorth, polandcentral, spaincentral, swedencentral, westeurope]
 - name: gpt-oss-20b
@@ -698,15 +698,6 @@ models:
   deployment_types:
     DataZoneStandard: [francecentral, germanywestcentral, italynorth, polandcentral, spaincentral, swedencentral, westeurope]
     GlobalStandard: [francecentral, germanywestcentral, italynorth, polandcentral, spaincentral, swedencentral, westeurope]
-- name: Cohere-command-a-plus-05-2026
-  version: '1'
-  format: Cohere
-  kind: chat
-  lifecycle: Preview
-  released: '2026-06-15'
-  retires: '2026-10-13'
-  deployment_types:
-    GlobalStandard: [francecentral, germanywestcentral, italynorth, polandcentral, spaincentral, swedencentral, westeurope]
 - name: Kimi-K2.7-Code
   version: '2026-06-12'
   format: MoonshotAI
@@ -779,13 +770,22 @@ models:
   retires: '2027-01-26'
   deployment_types:
     GlobalStandard: [francecentral, germanywestcentral, italynorth, polandcentral, spaincentral, swedencentral, westeurope]
+- name: muse-spark-1.3
+  version: '1'
+  format: Meta
+  kind: chat
+  lifecycle: Preview
+  released: '2025-12-08'
+  retires: '2099-12-31'
+  deployment_types:
+    GlobalStandard: [francecentral, germanywestcentral, italynorth, polandcentral, spaincentral, swedencentral, westeurope]
 - name: Cohere-embed-v3-english
   version: '1'
   format: Cohere
   kind: embedding
   lifecycle: GenerallyAvailable
   released: '2024-10-01'
-  retires: '2099-12-31'
+  retires: '2027-02-15'
   deployment_types:
     GlobalStandard: [francecentral, germanywestcentral, italynorth, polandcentral, spaincentral, swedencentral, westeurope]
 - name: Cohere-embed-v3-multilingual
@@ -794,7 +794,7 @@ models:
   kind: embedding
   lifecycle: GenerallyAvailable
   released: '2024-10-01'
-  retires: '2099-12-31'
+  retires: '2027-02-15'
   deployment_types:
     GlobalStandard: [francecentral, germanywestcentral, italynorth, polandcentral, spaincentral, swedencentral, westeurope]
 - name: embed-v-4-0
@@ -803,7 +803,7 @@ models:
   kind: embedding
   lifecycle: GenerallyAvailable
   released: '2024-10-01'
-  retires: '2099-12-31'
+  retires: '2027-06-01'
   deployment_types:
     GlobalStandard: [francecentral, germanywestcentral, italynorth, polandcentral, spaincentral, swedencentral, westeurope]
 - name: text-embedding-3-large
