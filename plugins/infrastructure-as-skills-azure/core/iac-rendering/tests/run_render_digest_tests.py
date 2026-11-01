@@ -18,7 +18,9 @@ authored entry. Then a `{group.question}` in a values expr, a list
 answer in a format of code and a null in values, through render_lines directly.
 Across the plugin: every heading SKIPS names exists in its file (a renamed heading fails here,
 not as a silently longer reading), and every resource's rendering reference with an AVM part
-has the `## Authored rendering` heading the split depends on. A resource kind without a question set
+has the `## Authored rendering` heading the split depends on. On the import fixture of
+iac-authoring: the adopted ids are printed under their resource and are no decisions, and the
+unmapped items are listed. A resource kind without a question set
 exits 1, a spec that cannot be read exits 2.
 
 Usage:
@@ -37,6 +39,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 SCRIPT = os.path.join(HERE, '..', 'scripts', 'render_digest.py')
 FIXTURE = os.path.join(HERE, 'fixtures', 'render-digest.yaml')
 SHAPES = os.path.join(HERE, 'fixtures', 'render-digest-shapes.yaml')
+IMPORTED = os.path.join(HERE, '..', '..', 'iac-authoring', 'tests', 'fixtures', 'imported.yaml')
 sys.path.insert(0, os.path.join(HERE, '..', 'scripts'))
 
 
@@ -109,6 +112,15 @@ def main():
     expect("renders: publicNetworkAccess = 'Disabled'" in r.stdout, '--target bicep did not use the bicep_avm entry')
     expect("renders: skuName = 'Standard_LRS' (development), 'Standard_ZRS' (production)" in r.stdout,
            '--target bicep did not quote the literal for Bicep')
+
+    # An import: adopted ids under their resource, never as decisions; unmapped listed.
+    r = run(IMPORTED)
+    imp = r.stdout
+    expect(r.returncode in (0, 1) and imp, f"import fixture exited {r.returncode}: {r.stderr.strip()}")
+    expect('   storage-account.adopt' not in imp and '   app-service.adopt' not in imp, 'adopt printed as a decision')
+    expect('   adopt: exists - imported, never created' in imp, 'adopted resource not marked')
+    expect('stpaymentsprod01/providers/Microsoft.Authorization/locks/nodelete' in imp, 'adopted lock id not printed')
+    expect('Microsoft.Databricks/workspaces  no_question_set' in imp.split('-- unmapped')[-1], 'unmapped not listed')
 
     # The shapes beyond one entry, on their own fixture.
     r = run(SHAPES)
