@@ -19,6 +19,10 @@
 
 A Claude Code plugin that authors Azure infrastructure as **Terraform or Bicep** from the decisions a resource actually forces - compute, network, data, security, messaging, integration, AI and recovery, 67 resource types in ten families. Not a module library and not a template collection. The interview writes an `infra-spec.yaml`; the code, its tests, a diagram and a decision document are rendered from that, onto [Azure Verified Modules](https://azure.github.io/Azure-Verified-Modules/) first.
 
+![A 34-second teaser of a run: the request, the interview, the spec with where each decision came from, the diagram sign-off, the render with one test per decision](docs/teaser.gif)
+
+<sub>🤖 AI-generated teaser, animated from [`docs/teaser.html`](docs/teaser.html). Every figure in it is counted from the [`chat-sandbox`](examples/chat-sandbox/) example.</sub>
+
 ## 💡 The Idea
 
 Writing a storage account is not hard because the HCL is hard. It is hard because a storage account carries about forty decisions — public network access, TLS floor, shared key access, replication, soft delete, immutability, which subnet, which private DNS zone, where diagnostics go — and most of them are invisible until something breaks. Generic code generation gets the syntax right and the decisions wrong.
