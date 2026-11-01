@@ -19,11 +19,14 @@ a regex cannot see - what references/question-set-format.md promises:
      accepted values (enum) or a subset of them (list); a default of the type's kind.
   4. Resolution: `required`, `default`, `answer` and `parameterized` are
      mutually exclusive, and a question carries one of them - a question with
-     none has no answer path. `answer` is `{ deployment: <id> }`,
+     none has no answer path. `answer` is `{ deployment: <id> }` (with a
+     `map` when the deployment question answers in other values than this one),
      `{ context: <id> }` or `{ question: <id>, map: {...} }`.
   5. References: `depends_on` names a question in the same set and, for an
      enum, a value it can take; `answer.deployment` and `answer.context` name a
-     question in the deployment set (its context group for the latter); `answer.question` names an interview question in the
+     question in the deployment set (its context group for the latter); a deployment answer in
+     another type or other values than this question's must be translated by `answer.map`, one
+     entry per deployment answer, each a value of this question; `answer.question` names an interview question in the
      deployment set and maps every one of its values to a value of this
      question's kind (and, for an enum, one of its values).
   6. `resolved_by`, where present, is interview or derived; absent means the question
@@ -79,7 +82,7 @@ KNOWN_FIELDS = {
 # Groups whose decisions may never be relaxed for a non-production stage.
 NO_SAVINGS_GROUPS = {'security', 'networking', 'identity', 'access', 'dns', 'compliance', 'posture', 'modules', 'subnet_policy'}
 DERIVED_KEYS = {'question', 'map'}
-ANSWER_FORMS = ({'deployment'}, {'context'}, DERIVED_KEYS)
+ANSWER_FORMS = ({'deployment'}, {'deployment', 'map'}, {'context'}, DERIVED_KEYS)
 KNOWN_TOP = {'schema_version', 'scope', 'resource', 'title', 'naming', 'boundaries', 'groups'}
 
 COLORS = {'cyan': '36', 'green': '32', 'red': '31', 'yellow': '33', 'gray': '90'}
@@ -283,13 +286,15 @@ def check_set(path, doc, deployment, rel):
 
         # --- 4. resolution: one answer path; `answer` names where an inherited one comes from
         ans = q.get('answer')
-        fd = ctx = dv = None
+        fd = ctx = dv = fmap = None
         if ans is not None:
             if not isinstance(ans, dict) or set(ans) not in ANSWER_FORMS:
-                err(f"{where}: answer must be {{ deployment: <id> }}, {{ context: <id> }} or {{ question: <id>, map: {{...}} }}")
+                err(f"{where}: answer must be {{ deployment: <id> }} (with a map where the values differ), "
+                    f"{{ context: <id> }} or {{ question: <id>, map: {{...}} }}")
             else:
                 fd, ctx = ans.get('deployment'), ans.get('context')
                 dv = ans if 'question' in ans else None
+                fmap = ans.get('map') if 'deployment' in ans else None
         # `default: false` is a default; `required: false` is not a requirement.
         present = [f for f in RESOLUTION_FIELDS if q.get(f) is not None
                    and not (f in ('required', 'parameterized') and q[f] is False)]
@@ -353,12 +358,31 @@ def check_set(path, doc, deployment, rel):
             elif fd not in dep_ids:
                 err(f"{where}: answer.deployment '{fd}', which the deployment set does not have")
             else:
+                # The deployment answer is taken as it is only where this question takes the same
+                # values; otherwise answer.map translates it, so no run has to derive the translation.
                 tq = dep_ids[fd]
-                if qtype == 'enum' and tq.get('type') == 'enum' and isinstance(values, list):
-                    tv = accepted(tq) or []
-                    if set(map(str, tv)) == set(map(str, values)):
-                        pass  # same vocabulary, inherited as-is
-                    # different vocabularies are mapped in `why`; nothing to check mechanically
+                tv = accepted(tq) if tq.get('type') == 'enum' else None
+                same = tq.get('type') == qtype and (
+                    tv is None or (isinstance(values, list) and set(map(str, tv)) <= set(map(str, values))))
+                if fmap is None and not same:
+                    err(f"{where}: answer.deployment '{fd}' answers in {tq.get('type')} {tv or ''}, this question "
+                        f"takes {qtype} {values if isinstance(values, list) else ''} - add answer.map, one entry per answer")
+                if fmap is not None:
+                    if not isinstance(fmap, dict) or not fmap:
+                        err(f"{where}: answer.map must be a non-empty mapping")
+                    else:
+                        if tv is not None:
+                            missing = [v for v in tv if v not in fmap]
+                            extra = [k for k in fmap if k not in tv]
+                            if missing:
+                                err(f"{where}: answer.map has no entry for {missing} - every answer to {fd} must translate")
+                            if extra:
+                                err(f"{where}: answer.map names answer(s) {extra} that {fd} cannot take")
+                        for k, v in fmap.items():
+                            if qtype and not kind_matches(qtype, v):
+                                err(f"{where}: answer.map[{k!r}] = {v!r} is not a {qtype}")
+                            if qtype == 'enum' and isinstance(values, list) and v not in values:
+                                err(f"{where}: answer.map[{k!r}] = '{v}' is not in accepts {values}")
 
         if dv is not None:
             if scope == 'deployment':

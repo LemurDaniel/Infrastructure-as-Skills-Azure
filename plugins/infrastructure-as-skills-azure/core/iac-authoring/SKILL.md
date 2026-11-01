@@ -451,7 +451,10 @@ resource, in two halves:
   the ingestion cap.
 
 Resolve it once and every resource inherits it. A resource question carrying
-`answer: { deployment: <id> }` is answered from there and never asked again — eight resources in
+`answer: { deployment: <id> }` is answered from there and never asked again - with its `map`, in the
+question's own values, which the interview digest prints (`network_exposure: private` is
+`public_network_access: disabled`, `local_auth: disabled` is `shared_access_key_enabled: false`);
+never translated by hand. Eight resources in
 one run must not produce eight separate exposure answers, and a system is not private
 because seven of them are.
 

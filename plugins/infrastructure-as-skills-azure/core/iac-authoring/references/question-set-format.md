@@ -62,6 +62,16 @@ groups:
           nobody will exercise.
 ```
 
+## What the answer may be
+
+`accepts` takes one of three forms. `check_question_set.py` fails on any other.
+
+| `accepts` | The answer is |
+|---|---|
+| `[LRS, ZRS, ...]` | One of the listed values: required on an `enum`, optional on a `list` |
+| `{ ref: <kind> }` | The name or id of another resource of that kind (`subnet`, `resource_group`, `log_analytics_workspace`, ...), on a `string` or a `list`. Supplied by a pattern or the platform, never offered as a guessed option |
+| `{ catalogue: <file> }` | A value from a generated catalogue beside the set (`models.yaml`), never one from memory |
+
 ## Where the value comes from
 
 Every question names exactly one answer path: where its value comes from when nobody
@@ -70,7 +80,8 @@ states one. `check_question_set.py` fails on a question with none, and on one wi
 | Answer path | The value comes from |
 |---|---|
 | `default` | The question itself |
-| `answer: { deployment: <id> }` | The answer to the deployment-set question with id `<id>`, taken unchanged |
+| `answer: { deployment: <id> }` | The answer to the deployment-set question with id `<id>`, taken unchanged - only where this question takes the same values |
+| `answer: { deployment: <id>, map: { <answer>: <value> } }` | The deployment answer translated into this question's values, one entry per deployment answer (`network_exposure: private` → `public_network_access: disabled`; `local_auth: disabled` → `shared_access_key_enabled: false`). Source stays `deployment` |
 | `answer: { context: <id> }` | The spec's `context.<id>`: `environments`, `location`, `subscription_id`, `resource_group_name`. Missing, it becomes an `open:` entry |
 | `answer: { question: <id>, map: {...} }` | A customer's answer to a `requirements` question of the deployment set, translated through the map |
 | `parameterized: true` | An input of the rendered code (Terraform `variable`, Bicep `param`), filled per stage from that stage's parameter file (`.tfvars`, `.bicepparam`) |
@@ -93,7 +104,7 @@ different matter again, decided by `resolved_by` alone.
 | `default` | no | The value taken when nobody states another, from the [guardrails](guardrails.md). It does not decide whether the question is asked - `resolved_by` does; on an `interview` question it is the answer preselected for the customer. |
 | `required` | no | `true`: no safe value exists and none can be guessed. An `interview` question is asked; any other becomes an `open:` entry with a placeholder, owned by the platform team (`derived`) or the workload owner. |
 | `parameterized` | no | `true` means the value is never asked and never rendered as a literal: the template takes it as an input variable (Terraform `variable`, Bicep `param`) without a default. Used for deployment context that is supplied at deploy time. |
-| `answer` | no | Where an inherited answer comes from, in one of three forms: `{ deployment: <id> }` takes a deployment-set answer unchanged; `{ context: <id> }` reads the spec's `context:`; `{ question: <id>, map: { <answer>: <value> } }` translates a customer requirement through a map covering every one of its answers (`outage_impact: disruptive` → `replication: ZRS`). See *Where the value comes from* and *Requirements*. |
+| `answer` | no | Where an inherited answer comes from, in one of three forms: `{ deployment: <id> }` takes a deployment-set answer unchanged, and with `map: { <answer>: <value> }` translates it where this question answers in other values (a bool, another enum) - required then, so no run derives the translation itself; `{ context: <id> }` reads the spec's `context:`; `{ question: <id>, map: { <answer>: <value> } }` translates a customer requirement through a map covering every one of its answers (`outage_impact: disruptive` → `replication: ZRS`). See *Where the value comes from* and *Requirements*. |
 | `why` | yes | The reasoning. This is what a reviewer reads and what justifies the default. |
 | `renders` | deployment set only | Which attribute(s) the answer drives. A resource set has none: its renderings are its `render-map.yaml`, one record checked against the set, where a second one here drifted from the references. |
 | `depends_on` | no | `{ question: <id>, equals: <value> }`, `not_equals`, or `contains` (a `list` question holds the value) — skip unless the condition holds. Gates a question that would be dead otherwise: firewall rules mean nothing while public access is disabled, so they are not asked and discarded. |
