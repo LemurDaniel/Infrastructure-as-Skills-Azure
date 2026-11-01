@@ -698,9 +698,15 @@ def check_shell(root, mech):
             if shell != 'pwsh':
                 err(f"{rel}: `defaults.run.shell` is {shell!r}, not pwsh - every run step would fall back to bash (invariant 14)")
             for jid, j in (d.get('jobs') or {}).items():
-                own = ((j.get('defaults') or {}).get('run') or {}).get('shell')
+                run = (j.get('defaults') or {}).get('run')
+                own = (run or {}).get('shell')
                 if own not in (None, 'pwsh'):
                     err(f"{rel}: job {jid} sets shell {own!r} - the shell is pwsh (invariant 14)")
+                elif run is not None and own is None:
+                    # A job's defaults.run replaces the workflow's whole block, shell included:
+                    # a job that only sets its working-directory runs every step in bash.
+                    err(f"{rel}: job {jid} has its own defaults.run without `shell: pwsh` - it replaces "
+                        "the workflow's, and the job falls back to bash (invariant 14)")
                 for st in (j.get('steps') or []):
                     if 'run' in st and st.get('shell') not in (None, 'pwsh'):
                         err(f"{rel}: job {jid} has a step in {st.get('shell')!r} - the shell is pwsh (invariant 14)")

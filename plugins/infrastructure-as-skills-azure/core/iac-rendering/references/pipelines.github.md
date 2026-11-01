@@ -391,12 +391,24 @@ workflows still go to the root and carry the directory:
   paths of `upload-artifact` and `download-artifact` are workspace-relative, not relative to
   that default: `<root>/whatif.json`, `path: <root>`. `::error file=` annotations name
   `<root>/<file>` too;
+- **a job's `defaults.run` replaces the workflow's whole block, shell included.** A job that
+  sets only `working-directory: <root>` runs every step in bash, and a `> $null` fails with
+  "ambiguous redirect". Every job-level `defaults.run` repeats `shell: pwsh`:
+
+  ```yaml
+      defaults:
+        run:
+          shell: pwsh
+          working-directory: <root>
+  ```
 - **a job without a checkout does not inherit a directory that is not there.** The `approve`
   job checks out nothing, and under a workflow-wide `working-directory: <root>` its first step
   fails with "An error occurred trying to start process '/usr/bin/pwsh' with working directory"
-  before it runs. Such a job sets `defaults.run.working-directory: .`.
+  before it runs. Such a job sets `defaults.run.working-directory: .` - with `shell: pwsh`
+  beside it, as above.
 
-`check_pipeline.py` fails on a job that has no `actions/checkout` and inherits such a default.
+`check_pipeline.py` fails on a job that has no `actions/checkout` and inherits such a default,
+and on a job-level `defaults.run` without `shell: pwsh`.
 
 ## Left out of the scaffold
 
