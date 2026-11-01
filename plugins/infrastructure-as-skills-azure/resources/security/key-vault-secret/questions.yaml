@@ -86,15 +86,15 @@ groups:
     questions:
       - id: value_source
         ask:
-          en: "Where does the secret's value come from?"
-          de: "Woher kommt der Wert des Secrets?"
+          en: "Where does the value of the secret in the Key Vault come from?"
+          de: "Woher kommt der Wert des Secrets im Key Vault?"
         type: enum
         plain:
-          en: "The secret's value {value}."
-          de: "Der Wert des Geheimnisses {value}."
+          en: "The value of the secret in the Key Vault {value}."
+          de: "Der Wert des Geheimnisses im Key Vault {value}."
         plain_values:
-          placeholder: { en: "is entered afterwards, by hand or by the application - the template only creates the empty slot", de: "wird danach von Hand oder von der Anwendung eingetragen, die Vorlage legt nur den leeren Platz an" }
-          secure_input: { en: "is handed to the deployment as a protected input and never appears in the code", de: "wird dem Ausrollen als geschützte Eingabe übergeben und steht nie im Code" }
+          placeholder: { en: "is entered in the Key Vault afterwards, by hand or by the application - the template only creates the secret there with a dummy value", de: "wird danach von Hand oder von der Anwendung im Key Vault eingetragen; die Vorlage legt das Secret dort nur mit einem Platzhalterwert an" }
+          secure_input: { en: "is handed to the deployment as a protected input (a pipeline secret), written to the Key Vault by it and never appears in the code", de: "wird dem Ausrollen als geschützte Eingabe (Pipeline-Secret) übergeben, von ihm in den Key Vault geschrieben und steht nie im Code" }
         accepts: [placeholder, secure_input]
         default: placeholder
         resolved_by: interview
