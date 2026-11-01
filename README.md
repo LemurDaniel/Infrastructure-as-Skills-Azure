@@ -199,10 +199,16 @@ open:
 
 The spec names **decisions, never a backend's attribute spelling**: `public_network_access: disabled`, not `public_network_access_enabled: false`. The mapping to an attribute and its literal lives in the resource's `render-map.yaml`, per target and implementation, with the rendering references for what cannot be data. Module coordinates and versions stay in the renderer, never in the spec.
 
-```
-infra-spec.yaml ──> module "storage" { source = "Azure/avm-res-storage-storageaccount/azurerm" ... }
-                ──> module storageAccount 'br/public:avm/res/storage/storage-account:0.33.1' = { ... }
-```
+One decision, three spellings - the storage account's public access:
+
+| | |
+|---|---|
+| Spec | `public_network_access: disabled` |
+| Terraform, AVM module | `public_network_access_enabled = false` - a bool on the module |
+| Terraform, authored | `public_network_access = "Disabled"` - a string on the provider |
+| Bicep, AVM module | `publicNetworkAccess: 'Disabled'` |
+
+Which module the call goes to, and in which version, is looked up live at render time and pinned in the code; the spec never names it.
 
 Names come from this author's own naming stack: Terraform uses the [`LemurDaniel/naming`](https://registry.terraform.io/providers/LemurDaniel/naming/latest) provider; Bicep assembles the name from `var`s, since the [`utility/naming` modules](https://github.com/LemurDaniel/BICEP__Registry/tree/master/modules/utility/naming) are not ready to ship.
 
