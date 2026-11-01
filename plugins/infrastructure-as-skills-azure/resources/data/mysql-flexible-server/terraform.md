@@ -22,32 +22,14 @@ threat-protection setting or any database account.
 
 ### Decision -> module input
 
-| Decision | Input | Note |
+What each decision renders to - the input and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.
+
+### Deployment-wide inputs and inputs no decision covers
+
+| Input | Module input | Note |
 |---|---|---|
-| `mysql_version` | `mysql_version` | A string (`"8.4"`) |
-| `compute_tier`, `sku_name` | `sku_name = "GP_Standard_D2ds_v4"` | The tier is the **prefix** (`B_`, `GP_`, `MO_`) |
-| `storage_size_gb`, `storage_auto_grow` | `storage = { size_gb, auto_grow_enabled, io_scaling_enabled, iops }` | Default null: the provider's; written |
-| `databases` | `databases = { <key> = { name, charset, collation } }` | All three required |
-| `high_availability` | `high_availability = { mode = "ZoneRedundant" }`, or `null` for `disabled` | Module default **`ZoneRedundant`**; written. `null` on burstable compute |
-| `maintenance_window` | `maintenance_window = { day_of_week, start_hour, start_minute }` | `day_of_week` a string, `"0"` Sunday; module default day 0 only |
-| `private_connectivity: private_endpoint` | `private_endpoints`, with `delegated_subnet_id` and `private_dns_zone_id` unset | |
-| `private_connectivity: vnet_integration` | `delegated_subnet_id`, `private_dns_zone_id` | Fixed at creation |
-| `public_network_access` | `public_network_access` | A **string**, `"Disabled"` / `"Enabled"` (a bool in the PostgreSQL module); default `"Disabled"`; written |
-| `ip_rules`, `allow_azure_services` | `firewall_rules = { <key> = { start_ip_address, end_ip_address } }` | Default `{}`; written |
-| `private_endpoint_subnet` | `private_endpoints = { mysql = { subnet_resource_id, subresource_name = "mysqlServer" } }` | |
+| (no decision) | `storage.io_scaling_enabled`, `storage.iops` | Beside `size_gb` and `auto_grow_enabled` in the one `storage` object |
 | `deployment.private_dns_records` | `private_endpoints_manage_dns_zone_group` | `false` under `policy` |
-| `user_assigned_identity_ids` | `managed_identities = { user_assigned_resource_ids }` | Always: Entra authentication runs through it |
-| `entra_admin` | `active_directory_administrator = { login, object_id, tenant_id, identity_id }` | `identity_id` defaults to the first identity |
-| `password_authentication_disabled` | `server_configuration = { aad_auth_only = { name = "aad_auth_only", value = "ON" } }` | The administrator login and a **write-only** password are still required at creation |
-| `database_users` | **not the module** | SQL after the deployment |
-| `role_assignments` | `role_assignments` | Control plane |
-| `minimum_tls_version` | `server_configuration` `tls_version` = `"TLSv1.2,TLSv1.3"` (or `"TLSv1.3"`) and `require_secure_transport` = `"ON"` | A list, not a minimum |
-| `key_management`, `cmk_key_vault_key_id` | `customer_managed_key = { key_vault_key_id, primary_user_assigned_identity_id }` | Versionless key id |
-| `threat_protection` | **not the module** - an `azapi_resource` child | |
-| `audit_logging` | `server_configuration` `audit_log_enabled` = `"ON"`, `audit_log_events` = `"CONNECTION"` | And the category below |
-| `backup_retention_days` | `backup_retention_days` | |
-| `geo_redundant_backup` | `geo_redundant_backup_enabled` | Module default **`true`**; written |
-| `diagnostic_*`, `metrics_enabled` | `diagnostic_settings = { workspace = { workspace_resource_id, log_categories, log_groups, metric_categories = ["AllMetrics"] } }` | |
 | `deployment.module_telemetry` | `enable_telemetry` | |
 | `context.tags` | `tags = local.tags` | |
 
@@ -201,19 +183,11 @@ hides it. `database_users` and the Defender plan are `# not-testable:` (not a re
 The fallback - `implementation: authored`, or a repository that already renders the server this way.
 Targets `azurerm` **5.x**; check against `terraform providers schema -json`.
 
-| Decision | Resource and argument |
+What each decision renders to - the argument and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.
+
+### Inputs no decision covers
+
+| Input | Resource and argument |
 |---|---|
 | the server | `azurerm_mysql_flexible_server` |
-| `mysql_version`, `sku_name`, `storage_*` | `version`, `sku_name`, `storage { size_gb, auto_grow_enabled, io_scaling_enabled }` |
-| `high_availability`, `maintenance_window` | `high_availability { mode }`, `maintenance_window { day_of_week, start_hour, start_minute }` |
-| `public_network_access` | `public_network_access`, `azurerm_mysql_flexible_server_firewall_rule` |
-| `private_connectivity: vnet_integration` | `delegated_subnet_id`, `private_dns_zone_id` |
-| `private_connectivity: private_endpoint` | `azurerm_private_endpoint` with `subresource_names = ["mysqlServer"]` |
-| `user_assigned_identity_ids` | `identity { type = "UserAssigned", identity_ids }` |
-| `entra_admin` | `azurerm_mysql_flexible_server_active_directory_administrator` |
-| `password_authentication_disabled`, `minimum_tls_version`, `audit_logging` | `azurerm_mysql_flexible_server_configuration` (`aad_auth_only`, `tls_version`, `audit_log_enabled`) |
-| `key_management` | `customer_managed_key { key_vault_key_id, primary_user_assigned_identity_id }` |
-| `backup_retention_days`, `geo_redundant_backup` | `backup_retention_days`, `geo_redundant_backup_enabled` |
-| `databases` | `azurerm_mysql_flexible_database` |
-| `threat_protection` | `azapi_resource` `advancedThreatProtectionSettings` |
-| diagnostics | `azurerm_monitor_diagnostic_setting` with `enabled_log { category }` |
+| (no decision) | `storage { io_scaling_enabled }` |

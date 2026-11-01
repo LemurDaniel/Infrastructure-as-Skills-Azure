@@ -32,7 +32,6 @@ groups:
         answer: { context: environments }
         why: >
           Drives the rendered name and the retention and access defaults below.
-        renders: naming parameter `environment`
 
       - id: location
         ask:
@@ -47,7 +46,6 @@ groups:
           Logs are stored in the workspace's region, which is a data-residency
           statement as much as a latency one. Cross-region ingestion works and
           carries egress cost.
-        renders: location
 
       - id: resource_group_name
         ask:
@@ -64,7 +62,6 @@ groups:
           A workspace normally outlives the workloads reporting into it, which
           argues for a platform resource group rather than the application's — and
           for the deletion lock that usually comes with one.
-        renders: resource_group_name / scope
 
   # ------------------------------------------------------------------- cost
   - id: cost
@@ -88,7 +85,6 @@ groups:
           requirement rather than an operational one. The first 31 days are
           included in the ingestion price, so 30 is also where the retention line
           item starts.
-        renders: retention_in_days / properties.retentionInDays
 
       - id: daily_quota_gb
         ask:
@@ -104,7 +100,6 @@ groups:
           workspace, and a deployment that owns its logging owns the bill. Asked a
           level apart, one gets answered and the other forgotten. -1 means no cap;
           a cap drops logs for the rest of the day once hit.
-        renders: daily_quota_gb / properties.workspaceCapping.dailyQuotaGb
 
       - id: sku
         ask:
@@ -124,7 +119,6 @@ groups:
           capacity reservation is cheaper per gigabyte above roughly 100 GB/day and
           is a commitment — it bills the reserved tier whether the data arrives or
           not, so it follows measurement rather than estimation.
-        renders: sku / properties.sku.name
 
   # ----------------------------------------------------------------- access
   - id: access
@@ -157,10 +151,6 @@ groups:
           encrypted, and the first render's eval run flagged the inherited
           `disabled` as unworkable. `disabled` is for a stated AMPLS the workspace
           joins. Query and ingestion are two separate switches, rendered together.
-        renders: >
-          internet_ingestion_access_type and internet_query_access_type (azurerm 5.x; the AVM
-          module takes the 4.x bools internet_ingestion_enabled / internet_query_enabled) /
-          properties.publicNetworkAccessForIngestion and ...ForQuery
 
       - id: local_auth
         ask:
@@ -173,13 +163,12 @@ groups:
         plain_values:
           true: { en: "possible", de: "möglich" }
           false: { en: "not possible - agents use company identities", de: "nicht möglich, Agenten nutzen Firmenidentitäten" }
-        answer: { deployment: local_auth }
+        answer: { deployment: local_auth, map: { disabled: false, allowed_where_unavoidable: false } }
         why: >
           The shared key is a bearer credential with ingestion rights and no
           expiry. Disabling it forces Entra ID, which the modern agents use
           anyway; the blocker is usually a legacy collector still posting with the
           workspace key.
-        renders: local_authentication_enabled (inverse) / properties.features.disableLocalAuth
 
       - id: rbac_only_access
         ask:
@@ -198,9 +187,6 @@ groups:
           of permissions inherited from the resources that emitted it. Off, a
           reader on a resource can query its logs here — convenient, and the
           reason people find data in a workspace they were never granted.
-        renders: >
-          local_authentication_enabled is separate; this is allow_resource_only_permissions (azurerm) /
-          properties.features.enableLogAccessUsingOnlyResourcePermissions (inverted)
 
   # ------------------------------------------------------------- data export
   - id: data_protection
@@ -223,9 +209,6 @@ groups:
           reserved for that period. Keeping it is right; the cost is that a
           destroy-then-recreate cycle with the same name inside the window either
           fails or silently recovers the old workspace with its old data.
-        renders: >
-          terraform: the provider's permanently_delete_on_destroy (inverted);
-          bicep: the forceDelete query parameter on deletion, not a template property
 
       - id: archive_to_storage
         ask:
@@ -244,4 +227,3 @@ groups:
           storage is an order of magnitude cheaper and is not queryable with KQL.
           Archive for an audit requirement that demands years of data nobody reads
           daily — and then alongside the workspace, never instead of it.
-        renders: a diagnostic setting with a storage account destination

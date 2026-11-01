@@ -20,27 +20,13 @@ with the other modules.
 
 ### Decision -> module input
 
-| Decision | Input | Note |
+What each decision renders to - the input and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.
+
+### Deployment-wide inputs
+
+| Input | Module input | Note |
 |---|---|---|
-| `publisher_name` | `publisher_name` | Module default is the placeholder **`"Apim Example Publisher"`**; always written |
-| `publisher_email` | `publisher_email` | Required |
-| `sku`, `capacity` | `sku_name = "<Tier>_<capacity>"` | e.g. `StandardV2_1`; `Consumption_0`. Module default **`Developer_1`**; written |
-| `zone_redundant` | `zones` | Premium/PremiumV2 only; `["1","2","3"]` or `null`. Capacity should be a multiple of the zones |
-| `additional_regions` | `additional_location = [{ location, capacity, zones, ... }]` | Premium only |
-| `managed_identity`, `user_assigned_identity_ids` | `managed_identities = { system_assigned, user_assigned_resource_ids }` | |
-| `caller_authentication`, `rate_limit_calls_per_minute` | `policy = { xml_content = ... }` | The service-level policy; see below |
-| `developer_portal` | `sign_in`, `sign_up`, `delegation` | The portal itself is not an input; no Terraform switch beside these. `# not-testable:` |
-| `apis`, `products` | `apis`, `products`, `api_version_sets`, `backends`, `named_values`, `subscriptions` | Content of the API team; the names and the backend only |
-| `network_integration` | `virtual_network_type` | `"None"` / `"External"` / `"Internal"`; module default `"None"`; written |
-| `apim_subnet` | `virtual_network_subnet_id` | Injection (classic) |
-| `public_ip_address` | `public_ip_address_id` | Standard static IPv4; Developer and Premium in a network |
-| `public_network_access` | `public_network_access_enabled` | **Bool**, management plane only per the README; module default **`true`** |
-| `private_endpoint_subnet` | `private_endpoints = { gateway = { subnet_resource_id, subresource_name = "Gateway" } }` | Tiers with private endpoint support only |
 | `deployment.private_dns_records` | `private_endpoints_manage_dns_zone_group` | `false` under `policy` |
-| `legacy_protocols_disabled` | `security = { enable_frontend_ssl30 = false, enable_frontend_tls10 = false, enable_frontend_tls11 = false, enable_backend_ssl30 = false, enable_backend_tls10 = false, enable_backend_tls11 = false, tls_*_ciphers_enabled = false }` | Every member is written; the cipher toggles are in the README |
-| `client_certificate_required` | `client_certificate_enabled` | Default `false`; written |
-| `role_assignments` | `role_assignments = { <k> = { role_definition_id_or_name, principal_id, principal_type } }` | |
-| `diagnostic_*`, `metrics_enabled` | `diagnostic_settings = { workspace = { workspace_resource_id, log_categories, log_groups = [], metric_categories = ["AllMetrics"] } }` | |
 | `deployment.module_telemetry` | `enable_telemetry` | |
 | `context.tags` | `tags = local.tags` | |
 
@@ -155,16 +141,4 @@ the portal are marked `# not-testable:` with a reason.
 
 The fallback. Targets `azurerm` **5.x**; check against `terraform providers schema -json`.
 
-| Decision | Argument |
-|---|---|
-| `publisher_*`, `sku`, `capacity` | `azurerm_api_management.publisher_name`, `.publisher_email`, `.sku_name` |
-| `zone_redundant` | `.zones` |
-| `network_integration` | `.virtual_network_type`, `.virtual_network_configuration { subnet_id }` |
-| `public_ip_address` | `.public_ip_address_id` |
-| `public_network_access` | `.public_network_access_enabled` |
-| `managed_identity` | `.identity { type, identity_ids }` |
-| `legacy_protocols_disabled` | `.security { frontend_ssl30_enabled, frontend_tls10_enabled, frontend_tls11_enabled, backend_ssl30_enabled, backend_tls10_enabled, backend_tls11_enabled, triple_des_ciphers_enabled, tls_*_ciphers_enabled }` (the AVM module spells them `enable_*`) |
-| `client_certificate_required` | `.client_certificate_enabled` |
-| global policy | `azurerm_api_management_policy` |
-| `apis`, `products` | `azurerm_api_management_api`, `azurerm_api_management_product` |
-| diagnostics | `azurerm_monitor_diagnostic_setting` with `enabled_log { category }` |
+What each decision renders to - the argument and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.

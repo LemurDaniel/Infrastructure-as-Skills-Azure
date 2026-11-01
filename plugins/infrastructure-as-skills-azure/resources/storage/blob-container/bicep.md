@@ -12,13 +12,7 @@ Module: `br/public:avm/res/storage/storage-account:0.33.1` (resolved 2026-10-25)
 
 ### Decision -> module parameter
 
-| Decision | Parameter | Note |
-|---|---|---|
-| `container_names` | `blobServices.containers: [ { name } ]` | |
-| `public_access` | `blobServices.containers[].publicAccess` | `'None'`, `'Blob'`, `'Container'`; written. The account must allow anonymous access (`allowBlobPublicAccess`) for anything but `'None'` |
-| `immutable_storage` | `blobServices.containers[].immutableStorageWithVersioningEnabled` | Needs `blobServices.isVersioningEnabled`; **cannot be combined with `restorePolicyEnabled`** |
-| `encryption_scope_locked` | `blobServices.containers[].denyEncryptionScopeOverride`, `defaultEncryptionScope` | Both or neither: Azure refuses a container with one of them (`ContainerOperationFailure`, missing `x-ms-default-encryption-scope` / `x-ms-deny-encryption-scope-override`). `false` with no scope writes neither |
-| `role_assignments` | `blobServices.containers[].roleAssignments: [ { principalId, roleDefinitionIdOrName, principalType } ]` | |
+What each decision renders to - the parameter and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.
 
 ```bicep
     // inside module storage - decision: blob-container.containers.*
@@ -34,7 +28,7 @@ Module: `br/public:avm/res/storage/storage-account:0.33.1` (resolved 2026-10-25)
 ### Tests
 
 A module call compiles to a nested deployment whose `properties.parameters.blobServices.value`
-carries the containers, so every decision above is observable in `tests/*.armtest.yaml`
+carries the containers, so every decision in render-map.yaml is observable in `tests/*.armtest.yaml`
 ([bicep-idiom.md](../../../core/iac-rendering/references/bicep-idiom.md#tests)).
 
 ## Authored rendering
@@ -42,8 +36,4 @@ carries the containers, so every decision above is observable in `tests/*.armtes
 The fallback. `Microsoft.Storage/storageAccounts/blobServices/containers` (parent
 `blobServices/default`) with `properties`:
 
-| Decision | Property |
-|---|---|
-| `public_access` | `properties.publicAccess` |
-| `immutable_storage` | `properties.immutableStorageWithVersioning: { enabled }` |
-| `encryption_scope_locked` | `properties.denyEncryptionScopeOverride`, `defaultEncryptionScope` - written together, or both left out when no scope is set |
+What each decision renders to - the property and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.

@@ -35,9 +35,6 @@ groups:
         why: >
           Drives the rendered name and the strictness of several defaults below. Nothing
           sensible can be guessed.
-        renders: >
-          naming parameter `environment`, and the tag of that name where the repository uses
-          one
 
       - id: location
         ask:
@@ -52,7 +49,6 @@ groups:
           Part of the rendered name and not inferable. A namespace is regional, and so is
           the data it holds; a second region is a geo-recovery pairing (`geo_recovery`), not
           a property of this one.
-        renders: location
 
       - id: resource_group_name
         ask:
@@ -68,7 +64,6 @@ groups:
         why: >
           The namespace is placed into an existing group. Creating one here would make this
           set own a lifecycle wider than the resource it describes.
-        renders: resource_group_name (AVM Terraform) / implicit in Bicep scope
 
   - id: namespace
     title: The namespace
@@ -100,8 +95,6 @@ groups:
           deployment, whatever the load. Both AVM modules default to Premium, so the default
           here is written, not inherited. The tier cannot be lowered later without a new
           namespace.
-        renders: >
-          sku.name / skuObject.name (`Basic`, `Standard`, `Premium`)
 
       - id: capacity
         ask:
@@ -121,7 +114,6 @@ groups:
           and is the floor; 2, 4, 8 and 16 follow from measured load, and the count can be
           changed later without a new namespace. Basic and Standard have no units and take
           `0`.
-        renders: capacity / skuObject.capacity
 
       - id: zone_redundant
         ask:
@@ -145,9 +137,6 @@ groups:
           the answer is `true` unless the outage is tolerable. Only Premium offers it. The
           Bicep module defaults to `true` (and therefore to Premium), the Terraform module
           has no input for it: it is set by the platform for Premium in a region with zones.
-        renders: >
-          zoneRedundant (Bicep); no Terraform input - the platform enables it on Premium in
-          a zonal region
 
       - id: premium_messaging_partitions
         ask:
@@ -165,7 +154,6 @@ groups:
           throughput. **Fixed at creation** - a different count is a new namespace. One is
           the default and enough until a measured throughput says otherwise; it also keeps
           ordering and duplicate detection simple, which partitioned entities restrict.
-        renders: premium_messaging_partitions / premiumMessagingPartitions
 
       - id: minimum_tls_version
         ask:
@@ -182,7 +170,6 @@ groups:
           module release can move it. Azure retired TLS below 1.2 for its services in 2025,
           so `1.0` and `1.1` are values the platform may refuse; an older client that needs
           one is a named departure on this namespace, not a relaxation.
-        renders: minimum_tls_version / minimumTlsVersion
 
       - id: local_auth
         ask:
@@ -203,7 +190,6 @@ groups:
           modules disagree on the default - **Terraform leaves SAS on, Bicep turns it off**
           - so the value is written on every call. Terraform expresses it positively
           (`local_auth_enabled`), Bicep negatively (`disableLocalAuth`).
-        renders: local_auth_enabled (inverse) / disableLocalAuth
 
       - id: managed_identity
         ask:
@@ -228,7 +214,6 @@ groups:
           and receivers use their own identities. A customer-managed key needs the identity
           to hold its role on the key before the key is set, which is why that case is
           `user_assigned`.
-        renders: managed_identities / managedIdentities
 
       - id: user_assigned_identity_ids
         ask:
@@ -245,9 +230,6 @@ groups:
         why: >
           The identity that holds `Key Vault Crypto Service Encryption User` on the key. It
           is created before the namespace, by the identity set.
-        renders: >
-          managed_identities.user_assigned_resource_ids /
-          managedIdentities.userAssignedResourceIds
 
   - id: entities
     title: Queues and topics
@@ -267,7 +249,6 @@ groups:
           invented. Every queue takes the namespace-wide settings below; one that needs its
           own is recorded here as free text and rendered from the module README. Names are
           unique across queues and topics of a namespace.
-        renders: queues / queues[]
 
       - id: topics
         ask:
@@ -283,7 +264,6 @@ groups:
           its own copy and its own queue. Each entry is a topic with the subscription names
           under it. A subscription with a filter (SQL or correlation) is recorded with it as
           free text; the rule is rendered from the module README. Needs Standard or Premium.
-        renders: topics.<key>.subscriptions / topics[].subscriptions
 
       - id: message_ordering
         ask:
@@ -306,8 +286,6 @@ groups:
           sessions. Fixed at creation of the queue or subscription. Off unless the system
           genuinely cannot cope with out-of-order messages: most can, and a receiver that is
           idempotent is more robust than one that relies on order.
-        renders: >
-          queues.<key>.requires_session / queues[].requiresSession, and subscriptions
 
       - id: duplicate_protection
         ask:
@@ -329,7 +307,6 @@ groups:
           timeout and cannot tell whether the first send arrived. **Fixed at creation** and
           unavailable on Basic. It costs a little throughput, and it does not replace an
           idempotent receiver, because a repeat after the window passes through.
-        renders: requires_duplicate_detection / requiresDuplicateDetection
 
       - id: message_retention_days
         ask:
@@ -349,8 +326,6 @@ groups:
           enough to survive a weekend and a failed release and short enough to notice a
           receiver that stopped; a system where a message older than an hour is worthless
           sets it short, because a stale message processed late is often worse than none.
-        renders: >
-          default_message_ttl / defaultMessageTimeToLive (ISO 8601 `P14D`)
 
       - id: dead_letter_on_expiry
         ask:
@@ -370,8 +345,6 @@ groups:
           be read, repaired and resent. The dead-letter queue is storage inside the
           namespace and counts against its size, so someone has to empty it - that is the
           price, and the reason to alert on its length.
-        renders: >
-          dead_lettering_on_message_expiration / deadLetteringOnMessageExpiration
 
       - id: max_delivery_count
         ask:
@@ -388,7 +361,6 @@ groups:
           service default and a sound middle: enough for a transient fault to clear, few
           enough that a broken message does not hold a session for an hour. Lower for a
           receiver that retries by itself, higher for a flaky downstream.
-        renders: max_delivery_count / maxDeliveryCount
 
       - id: lock_duration_seconds
         ask:
@@ -405,8 +377,6 @@ groups:
           slow handler processes the same message twice; too long and a crashed receiver
           blocks it. 60 seconds is the floor and default, 300 the ceiling - longer work
           renews the lock.
-        renders: >
-          lock_duration / lockDuration (ISO 8601 `PT1M`)
 
       - id: max_size_megabytes
         ask:
@@ -423,7 +393,6 @@ groups:
           entity fills and senders start failing, which is a loud signal, where an unlimited
           one would grow silently until the bill. 1 GB is the default; 5 GB is the Standard
           maximum, and Premium goes to 80 GB. Fixed at creation for partitioned entities.
-        renders: max_size_in_megabytes / maxSizeInMegabytes
 
   - id: networking
     title: Networking
@@ -441,7 +410,7 @@ groups:
           enabled_with_firewall: { en: reachable from the internet only from listed addresses, de: aus dem Internet nur von gelisteten Adressen erreichbar }
           enabled: { en: reachable from the internet, de: aus dem Internet erreichbar }
         accepts: [disabled, enabled_with_firewall, enabled]
-        answer: { deployment: network_exposure }
+        answer: { deployment: network_exposure, map: { private: disabled, private_with_exceptions: disabled, public: enabled_with_firewall } }
         forced_when: >
           `network_ownership: none` (a public deployment without a network) forces
           `enabled`, recorded as forced with `network_ownership` as forced_by: the
@@ -453,9 +422,6 @@ groups:
           `enabled_with_firewall`. A bare `enabled` is a deliberate choice for a consumer
           that cannot be given an address in advance. Only Premium has a private endpoint,
           so a closed namespace is a Premium one.
-        renders: >
-          terraform: the public network access input (a bool in the AVM modules) and the
-          module's network rules; bicep: publicNetworkAccess and the network rule set
 
       - id: private_endpoint_subnet
         ask:
@@ -472,8 +438,6 @@ groups:
         why: >
           One subnet carries the deployment's private endpoints, so this is inherited. The
           sub-resource is `namespace`; there is no list to choose from.
-        renders: >
-          private_endpoints.<key>.subnet_resource_id / privateEndpoints[].subnetResourceId
 
       - id: ip_rules
         ask:
@@ -490,7 +454,6 @@ groups:
           An enumerated allowlist with a default action of `Deny`. An empty list denies
           every public caller, which is valid and deliberate. `0.0.0.0/0` is not an
           allowlist and is rejected by the guardrails; a single address takes `/32`.
-        renders: network_rule_config.cidr_or_ip_rules / networkRuleSets.ipRules
 
       - id: trusted_service_bypass
         ask:
@@ -511,9 +474,6 @@ groups:
           namespace without a private endpoint of their own. The modules disagree -
           **Terraform defaults to off, Bicep to on** - so it is written. Off unless a named
           service needs it; it has no effect with `public_network_access: disabled`.
-        renders: >
-          network_rule_config.trusted_services_allowed /
-          networkRuleSets.trustedServiceAccessEnabled
 
   - id: encryption
     title: Encryption
@@ -536,8 +496,6 @@ groups:
           either way; `customer_managed` points the namespace at a key in the customer's
           vault, needs Premium and a user-assigned identity, and makes the vault a
           dependency.
-        renders: >
-          whether `customer_managed_key` is rendered at all
 
       - id: cmk_key_vault_key_id
         ask:
@@ -555,9 +513,6 @@ groups:
           The key must exist and the namespace's identity must hold wrap and unwrap on it
           before the namespace is created or the key is set. The key is referenced without a
           version so a rotation is followed.
-        renders: >
-          customer_managed_key.key_vault_resource_id + key_name /
-          customerManagedKey.keyVaultResourceId + keyName
 
       - id: infrastructure_encryption
         ask:
@@ -577,7 +532,6 @@ groups:
           names it. It needs a customer-managed key and is **fixed at creation**. **Both
           modules default to `true`** and the Terraform module then fails without a key, so
           it is written explicitly and is `false` unless a mandate asks.
-        renders: infrastructure_encryption_enabled / requireInfrastructureEncryption
 
   - id: recovery
     title: Recovery
@@ -605,7 +559,6 @@ groups:
           lost. It is Premium only, costs a second namespace and needs a failover plan
           someone has practised, and the partner must lie where `data_residency` allows.
           Zone redundancy already survives a datacenter; this is for the region.
-        renders: disaster_recovery_config / disasterRecoveryConfig
 
       - id: partner_namespace
         ask:
@@ -623,9 +576,6 @@ groups:
           The second namespace, created by this run or already existing, in a region that
           satisfies `data_residency`. It must be Premium and empty of entities when paired.
           It is an `open:` entry owned by the workload owner when nobody named one.
-        renders: >
-          disaster_recovery_config.partner_namespace_id /
-          disasterRecoveryConfig.partnerNamespace
 
   - id: identity
     title: Identity and access
@@ -648,7 +598,6 @@ groups:
           pattern normally fills this from the consumers it knows about and grants a
           consumer's role in the pattern, not here. A sender needs only Sender, a receiver
           only Receiver - a workload that does both is two role assignments, not Owner.
-        renders: role_assignments / roleAssignments
 
   - id: observability
     title: Observability
@@ -668,7 +617,6 @@ groups:
         why: >
           Inherited: one deployment, one destination. Without a diagnostic setting the
           resource keeps no record anyone can query.
-        renders: diagnostic_settings / diagnosticSettings
 
       - id: diagnostic_categories
         ask:
@@ -698,9 +646,6 @@ groups:
           duplicates the metrics. The names are the platform's and are checked against `az
           monitor diagnostic-settings categories list` for the resource before a render, not
           remembered.
-        renders: >
-          diagnostic_settings.<key>.logs[].category /
-          diagnosticSettings[].logCategoriesAndGroups[].category
 
       - id: metrics_enabled
         ask:
@@ -717,5 +662,4 @@ groups:
         why: >
           Active messages, dead-lettered messages, throttled requests and server errors -
           the dead-letter count is how a stuck receiver shows up, and the one to alert on.
-        renders: metrics[].category = "AllMetrics" / metricCategories[].category
 

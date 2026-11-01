@@ -1,0 +1,73 @@
+schema_version: "1.1"
+name: terraform-existing-reference
+
+# The signed-off spec is a file under workspace/, copied into the run's working directory by
+# scaffold.sh, so every run starts from the same state. Its diagnostics_destination is
+# { existing: log_analytics_workspace } with the development id and an open entry for production.
+context:
+  scaffold_script: scaffold.sh
+
+# The variable's name is the render's choice, so the graders read every file the run wrote for
+# what the idiom fixes: an id variable validated on the ARM type, the ids in the stage files,
+# no lookup by name.
+graders:
+  - name: skill-fired
+    type: tool_used
+    tool: Skill
+    input_match: infrastructure-as-skills-azure
+
+  # An id variable for the workspace, validated on its ARM type.
+  - name: workspace-id-variable
+    type: regex
+    weight: 3
+    target: files
+    pattern: 'variable\s+"[^"]*workspace[^"]*_id"'
+
+  - name: id-validated-on-type
+    type: regex
+    weight: 2
+    target: files
+    pattern: 'validation\s*\{[\s\S]{0,400}?Microsoft\.OperationalInsights/workspaces'
+
+  # The id the spec holds lands in the development stage file.
+  - name: development-id-in-stage-file
+    type: regex
+    weight: 3
+    target: { source: file, path: infra/environments/development.tfvars }
+    pattern: 'workspaces/law-platform-dev'
+
+  # The open production id is a placeholder that parses as a workspace id and carries both
+  # markers the pipeline refuses.
+  - name: production-placeholder
+    type: regex
+    weight: 3
+    target: { source: file, path: infra/environments/production.tfvars }
+    pattern: '00000000-0000-0000-0000-000000000000[^"\n]*OPEN-|OPEN-[^"\n]*00000000-0000-0000-0000-000000000000'
+
+  - name: production-id-not-invented
+    type: regex
+    weight: 3
+    target: { source: file, path: infra/environments/production.tfvars }
+    pattern: 'law-platform-prod|workspaces/law-platform-dev'
+    match: not_contains
+
+  # Never a lookup: no data source, no name and resource group to look it up by.
+  - name: no-workspace-data-source
+    type: regex
+    weight: 3
+    target: files
+    pattern: 'data\s+"azurerm_log_analytics_workspace"'
+    match: not_contains
+
+  - name: no-workspace-name-variable
+    type: regex
+    weight: 2
+    target: files
+    pattern: 'variable\s+"[^"]*workspace[^"]*(?:_name|resource_group)[^"]*"'
+    match: not_contains
+
+  - name: no-workspace-mock
+    type: regex
+    target: files
+    pattern: 'mock_data\s+"azurerm_log_analytics_workspace"'
+    match: not_contains

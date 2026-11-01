@@ -1,0 +1,111 @@
+# What each decision of questions.yaml renders to, per target and implementation.
+# Format: core/iac-rendering/references/render-map.md. The call, the authored blocks and the
+# tests are in terraform.md and bicep.md.
+# No Terraform module (none in the index): Terraform renders authored, azurerm + azapi.
+# Bicep calls a pattern module at subscription scope. Nothing renders for defender_ownership: platform.
+schema_version: 1
+resource: Microsoft.Security/pricings
+
+modules:
+  terraform: []
+  bicep: [avm/ptn/security/security-center]
+
+decisions:
+
+  # ---------------------------------------------------------------- placement
+  placement.environments:
+    not_rendered: the stage file the subscription comes from; no attribute
+  placement.subscription_id:
+    terraform: { attribute: provider azurerm subscription_id, note: 'a root variable, the bare GUID; the azapi contact''s parent_id prefixes it as /subscriptions/<id>' }
+    bicep_avm: { gap: "the deployment's target scope (targetScope = 'subscription'); no parameter" }
+    bicep: { gap: "the deployment's target scope (targetScope = 'subscription'); no property" }
+  placement.defender_ownership:
+    not_rendered: whether the resources exist at all (count / the module call); no attribute
+
+  # ----------------------------------------------------------------- identity
+  identity.security_contact_emails:
+    terraform:
+      attribute: azapi_resource Microsoft.Security/securityContacts body.properties.emails
+      format: { expr: 'join(";", {value})' }
+      note: one semicolon-separated string; name default
+    bicep_avm: { attribute: securityContactProperties.emails, format: { expr: "join({value}, ';')" }, note: 'one string, semicolon-separated - never the array' }
+    bicep: { attribute: Microsoft.Security/securityContacts properties.emails, format: { expr: "join({value}, ';')" }, note: 'name default; one string - never the array' }
+  identity.notify_subscription_owners:
+    terraform:
+      attribute: azapi_resource Microsoft.Security/securityContacts body.properties.notificationsByRole.state
+      values: { true: On, false: Off }
+      also:
+        true: roles = ["Owner"]
+        false: roles = ["Owner"]
+    bicep_avm:
+      attribute: securityContactProperties.notificationsByRole.state
+      values: { true: On, false: Off }
+      also:
+        true: "roles: [ 'Owner' ]"
+        false: "roles: [ 'Owner' ]"
+    bicep:
+      attribute: Microsoft.Security/securityContacts properties.notificationsByRole.state
+      values: { true: On, false: Off }
+      also:
+        true: "roles: [ 'Owner' ]"
+        false: "roles: [ 'Owner' ]"
+  identity.alert_minimum_severity:
+    terraform:
+      attribute: 'azapi_resource Microsoft.Security/securityContacts body.properties.notificationsSources[].minimalSeverity'
+      passthrough: true
+      note: 'sourceType = "Alert"; azurerm_security_center_contact cannot carry it'
+    bicep_avm: { attribute: 'securityContactProperties.notificationsSources[].minimalSeverity', passthrough: true, note: "sourceType: 'Alert'" }
+    bicep: { attribute: 'Microsoft.Security/securityContacts properties.notificationsSources[].minimalSeverity', passthrough: true, note: "sourceType: 'Alert'" }
+
+  # ----------------------------------------------------------------- security
+  security.plans:
+    terraform:
+      attribute: azurerm_security_center_subscription_pricing.resource_type
+      note: 'one per plan, tier = "Standard"; writes Free back on destroy; unlisted plans are not touched'
+    bicep_avm:
+      attribute: "defenderPlans[] = { name, pricingTier: 'Standard' }"
+      note: always pass it - left out the module writes twelve plans as Free; [] writes none
+    bicep:
+      attribute: Microsoft.Security/pricings name
+      note: "properties.pricingTier: 'Standard'; @batchSize(1) - concurrent plan writes conflict"
+  security.servers_plan:
+    terraform: { attribute: azurerm_security_center_subscription_pricing.subplan, passthrough: true, note: on the VirtualMachines pricing }
+    bicep_avm: { attribute: 'defenderPlans[].subPlan', passthrough: true, note: on the VirtualMachines entry }
+    bicep: { attribute: Microsoft.Security/pricings properties.subPlan, passthrough: true, note: on the VirtualMachines pricing }
+  security.storage_malware_scanning:
+    terraform:
+      attribute: azurerm_security_center_subscription_pricing.extension
+      values: { true: { expr: '{ name = "OnUploadMalwareScanning" }' }, false: null }
+      note: a block on the StorageAccounts pricing (subplan DefenderForStorageV2), enabled by being present; false is absent, not isEnabled = false
+    bicep_avm:
+      attribute: "defenderPlans[].extensions[] = { name: 'OnUploadMalwareScanning', isEnabled }"
+      values: { true: 'True', false: 'False' }
+      note: isEnabled is a string in the pricings API; off is written, so a later change switches it off
+    bicep:
+      attribute: "Microsoft.Security/pricings properties.extensions[] = { name: 'OnUploadMalwareScanning', isEnabled }"
+      values: { true: 'True', false: 'False' }
+      note: isEnabled is a string in the pricings API
+  security.storage_malware_scan_cap_gb:
+    terraform:
+      attribute: extension.additional_extension_properties.CapGBPerMonth
+      format: '{value}'
+      note: a string, on the OnUploadMalwareScanning extension
+    bicep_avm:
+      attribute: 'defenderPlans[].extensions[].additionalExtensionProperties.CapGBPerMonth'
+      format: '{value}'
+      note: a string, on the OnUploadMalwareScanning extension
+    bicep:
+      attribute: 'Microsoft.Security/pricings properties.extensions[].additionalExtensionProperties.CapGBPerMonth'
+      format: '{value}'
+      note: a string
+  security.storage_sensitive_data_discovery:
+    terraform:
+      attribute: azurerm_security_center_subscription_pricing.extension
+      values: { true: { expr: '{ name = "SensitiveDataDiscovery" }' }, false: null }
+      note: a block on the StorageAccounts pricing, enabled by being present; false is absent
+    bicep_avm:
+      attribute: "defenderPlans[].extensions[] = { name: 'SensitiveDataDiscovery', isEnabled }"
+      values: { true: 'True', false: 'False' }
+    bicep:
+      attribute: "Microsoft.Security/pricings properties.extensions[] = { name: 'SensitiveDataDiscovery', isEnabled }"
+      values: { true: 'True', false: 'False' }

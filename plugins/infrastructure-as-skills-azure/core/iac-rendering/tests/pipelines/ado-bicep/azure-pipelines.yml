@@ -15,11 +15,15 @@ stages:
       - job: validate
         steps:
           - checkout: self
-          - script: az bicep build --file main.bicep --stdout > /dev/null
+          - pwsh: az bicep build --file main.bicep --stdout > $null
             displayName: Build
-          - script: az bicep lint --file main.bicep
+          - pwsh: az bicep lint --file main.bicep
             displayName: Lint
-          - script: for f in main.*.bicepparam; do az bicep build-params --file "$f" --stdout > /dev/null; done
+          - pwsh: |
+              foreach ($f in Get-ChildItem main.*.bicepparam) {
+                az bicep build-params --file $f.Name --stdout > $null
+                if ($LASTEXITCODE) { exit $LASTEXITCODE }
+              }
             displayName: Parameter files compile against the template
 
   - template: .azure-pipelines/stage.yml

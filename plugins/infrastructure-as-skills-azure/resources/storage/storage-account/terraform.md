@@ -23,29 +23,13 @@ resource group as `parent_id`. It does not use `azurerm` at all.
 
 ### Decision → module input
 
+What each decision renders to - the input and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.
+
+Deployment-wide inputs, not decisions of this set:
+
 | Decision | Input | Note |
 |---|---|---|
-| `public_network_access: disabled` | `public_network_access_enabled = false` | A **bool** here, unlike the 5.x provider string. Comment the decision key above it |
-| `public_network_access: enabled_with_firewall` | `public_network_access_enabled = true` + `network_rules = { default_action = "Deny", … }` | |
-| `public_network_access: enabled` | `public_network_access_enabled = true` + `network_rules = { default_action = "Allow" }` | |
-| `allow_azure_services_bypass` | `network_rules.bypass = ["AzureServices"]` / `["None"]` | The module's `network_rules` default is already `Deny` + `AzureServices`; written anyway |
-| `shared_access_key_enabled` | `shared_access_key_enabled` | Module default `false` — same as the guardrail, written anyway |
-| `https_traffic_only` | `https_traffic_only_enabled` | |
-| `min_tls_version` | `min_tls_version` | |
-| `allow_blob_public_access` | `allow_nested_items_to_be_public` | |
-| `infrastructure_encryption_enabled` | `infrastructure_encryption_enabled` | Module default `false` — the guardrail says `true`; the one input that must not be left to the module |
-| `sftp_enabled` | `sftp_enabled` (+ `is_hns_enabled = true`) | |
-| `hierarchical_namespace` | `is_hns_enabled` | |
-| `replication`, `access_tier` | `account_sku_name = "Standard_ZRS"`, `access_tier` | **Trap:** `account_sku_name` defaults to `Standard_ZRS` and overrides `account_tier` + `account_replication_type` unless set to `null`. Render the SKU name, as Bicep does; leave the pair alone |
-| `managed_identity` | `managed_identities = { system_assigned = true }` | |
-| `key_management: customer_managed` | `customer_managed_key = { key_vault_resource_id, key_name, user_assigned_identity = { resource_id } }` | The module applies it after creation (`azapi_update_resource`), so a system-assigned identity works too; the user-assigned one is still preferred for the wrap/unwrap grant to exist first |
-| `blob_soft_delete_days`, `container_soft_delete_days`, `versioning_enabled`, `change_feed_enabled`, `point_in_time_restore_days` | `blob_properties = { delete_retention_policy = { enabled, days }, container_delete_retention_policy = { … }, versioning_enabled, change_feed = { enabled }, restore_policy = { enabled, days } }` | `0` days renders as the block **absent**, not `days = 0` |
-| `private_endpoint_subnet`, `private_endpoint_subresources` | `private_endpoints = { <sub> = { name, subnet_resource_id, subresource_name } }` | One map entry per sub-resource; `name` from the naming provider with the `subname` parameter, as in the authored render |
 | `deployment.private_dns_records: policy` | `private_endpoints_manage_dns_zone_group = false` | Replaces the `lifecycle { ignore_changes }` of the authored render; `deployment` → `true` plus `private_dns_zone_resource_ids` per endpoint |
-| `diagnostic_workspace`, `metrics_enabled` | `diagnostic_settings_storage_account = { <key> = { workspace_resource_id, metrics = [{ category = "AllMetrics" }] } }` | Metrics only — the account emits no log categories, as the authored render notes |
-| `diagnostic_categories` | `diagnostic_settings_blob = { <key> = { workspace_resource_id, logs = [{ category_group = "audit" }], metrics = [...] } }` | One per service with an endpoint that is used: `_file`, `_queue`, `_table` |
-| `role_assignments` | `role_assignments = { <key> = { role_definition_id_or_name, principal_id } }` | Role by name; scoped to the account. A container-scoped assignment is on the `containers` input's own `role_assignments` |
-| `immutability` | `immutability_policy` | Account-level policy only; a container-level one is on `containers` |
 | `deployment.module_telemetry` | `enable_telemetry` | |
 | `context.tags` | `tags = local.tags` | |
 
@@ -242,23 +226,7 @@ this way, or reading what the module does inside.
 
 ## Decision → argument
 
-| Decision | Argument |
-|---|---|
-| `public_network_access: disabled` | `public_network_access = "Disabled"` |
-| `public_network_access: enabled_with_firewall` | `public_network_access = "Enabled"` + `network_rules.default_action = "Deny"` |
-| `public_network_access: enabled` | `public_network_access = "Enabled"` + `network_rules.default_action = "Allow"` |
-| `shared_access_key_enabled` | `shared_access_key_enabled` |
-| `https_traffic_only` | `https_traffic_only_enabled` (was `enable_https_traffic_only` before 4.0) |
-| `allow_blob_public_access` | `allow_nested_items_to_be_public` |
-| `replication` | `account_replication_type` |
-| `access_tier` | `access_tier` |
-| `blob_soft_delete_days` | `blob_properties.delete_retention_policy.days` |
-| `container_soft_delete_days` | `blob_properties.container_delete_retention_policy.days` |
-| `versioning_enabled` | `blob_properties.versioning_enabled` |
-| `change_feed_enabled` | `blob_properties.change_feed_enabled` |
-| `point_in_time_restore_days` | `blob_properties.restore_policy.days` |
-| `sftp_enabled` | `sftp_enabled` (requires `is_hns_enabled = true`) |
-| `hierarchical_namespace` | `is_hns_enabled` |
+What each decision renders to - the argument and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.
 
 `account_tier` is not a question — it follows from `replication` and `access_tier`. Standard
 unless the answers call for premium block blob.
@@ -495,16 +463,15 @@ resource "azurerm_monitor_diagnostic_setting" "storage_blob" {
 One more pair per sub-resource that has an endpoint and is used (`fileServices`,
 `queueServices`, `tableServices`) — a service nobody writes to needs no log.
 
-The workspace id is read from the referenced workspace's data source
-(`observability_ownership: reference`) or from the deployment's own
-`azurerm_log_analytics_workspace` resource — not passed in as a bare id variable, which
-would pin a subscription into the configuration.
+The workspace id is the referenced workspace's id variable from the stage files
+(`observability_ownership: reference`) or the deployment's own workspace module output - never
+a data source, and never a literal id in the configuration.
 
 ## Tests
 
 Every decision in the question set, one assert each, named by its spec key path; one
-`run` per group. The platform data sources are mocked so the plan needs no credentials —
-how, and why the mocked ids must parse, is in
+`run` per group. The platform's ids are test variables and the remaining data sources are
+mocked, so the plan needs no credentials — how, and why the ids must parse, is in
 [terraform-idiom.md](../../../core/iac-rendering/references/terraform-idiom.md#tests).
 The values below are the defaults; a spec that departs changes the expected value, never
 the assert.

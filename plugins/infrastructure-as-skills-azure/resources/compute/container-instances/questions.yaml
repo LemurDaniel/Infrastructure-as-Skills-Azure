@@ -42,7 +42,6 @@ groups:
         why: >
           Drives the rendered name and the strictness of several defaults below. Nothing
           sensible can be guessed.
-        renders: naming parameter `environment`, and the tag of that name where the repository uses one
 
       - id: location
         ask:
@@ -57,7 +56,6 @@ groups:
           Part of the rendered name and where the group runs. Availability zones, CPU and memory
           limits and the features of a VNet-injected group differ by region, and the group sits
           next to the registry it pulls from and the services it calls.
-        renders: location
 
       - id: resource_group_name
         ask:
@@ -73,7 +71,6 @@ groups:
         why: >
           The group is placed into an existing resource group. Creating one here would make this
           set own a lifecycle wider than the resource it describes.
-        renders: resource_group_name (AVM Terraform, azurerm-based) / implicit in Bicep scope
 
   # ---------------------------------------------------------- container group
   - id: container_group
@@ -96,7 +93,6 @@ groups:
           and to be pulled from with the group's managed identity (`AcrPull`), not an admin user,
           which is wiring this set does not own. With no answer the decision is an `open:` entry
           owned by the workload owner.
-        renders: containers[].image / containers[].properties.image
 
       - id: cpu
         ask:
@@ -113,7 +109,6 @@ groups:
           are the two ways to find out it was wrong. A group has an upper limit per region (read from `az container
           list-usage` and the region's documentation, never recalled), and a bigger job is a
           different service. Whole cores: the Bicep module takes an integer.
-        renders: cpu / containers[].resources.cpu / containers[].properties.resources.requests.cpu
 
       - id: memory_in_gb
         ask:
@@ -129,7 +124,6 @@ groups:
           fits most runtimes; a JVM or a data job wants more, a small script less. Memory is a
           hard limit - exceeding it kills the container, and with `OnFailure` it restarts in a
           loop.
-        renders: memory / containers[].resources.memory / containers[].properties.resources.requests.memoryInGB
 
       - id: restart_policy
         ask:
@@ -152,7 +146,6 @@ groups:
           job it is a bill that never ends); `Never` is for a run-once task whose failure is
           someone's alert, not a retry. Written: the Terraform module requires it, the Bicep module
           defaults to `Always`.
-        renders: restart_policy / restartPolicy
 
       - id: availability_zone
         ask:
@@ -175,7 +168,6 @@ groups:
           a pattern. A zone is named only to sit next to a zonal resource (a disk, a database) in
           the same zone, or to be explicit about it. **The Bicep module requires the parameter**
           (`-1` for none), the Terraform module takes a list. Not every region has zones.
-        renders: zones / availabilityZone
 
   # --------------------------------------------------------------- networking
   - id: networking
@@ -193,7 +185,7 @@ groups:
           private: { en: "an address inside the company network only", de: "nur eine Adresse im Firmennetz" }
           public: { en: "an address on the internet", de: "eine Adresse im Internet" }
         accepts: [private, public]
-        answer: { deployment: network_exposure }
+        answer: { deployment: network_exposure, map: { private: private, private_with_exceptions: private, public: public } }
         why: >
           Asked only as a departure: exposure is a property of the system. `private` is a group
           **injected into a delegated subnet** with a private address, so its outbound traffic
@@ -207,7 +199,6 @@ groups:
           `network_ownership: none` (a public deployment without a network) forces `public`,
           recorded as forced with `network_ownership` as forced_by: there is no subnet to inject
           the group into
-        renders: ip_address.type and subnet_ids / ipAddress.type and subnets
 
       - id: subnet_id
         ask:
@@ -232,7 +223,6 @@ groups:
         forced_when: >
           network_ownership: create - the created network's subnet, recorded as forced with the
           network as forced_by
-        renders: subnet_ids / subnets[].subnetResourceId
 
       - id: exposed_ports
         ask:
@@ -249,7 +239,6 @@ groups:
           group each port is open to the internet (see `ip_address_type`). The container must
           listen on the same ports: the group exposes them, the image opens them. TLS is not
           terminated here - a service that needs HTTPS puts a gateway in front.
-        renders: exposed_ports and containers[].ports / ipAddress.ports and containers[].properties.ports
 
   # ----------------------------------------------------------------- identity
   - id: identity
@@ -281,7 +270,6 @@ groups:
           `registry_login_server` set (a private registry) forces `user_assigned`;
           `key_management: customer_managed` forces `user_assigned`; both recorded as forced with
           the question as forced_by
-        renders: managed_identities / managedIdentities
 
       - id: user_assigned_identity_ids
         ask:
@@ -298,7 +286,6 @@ groups:
         why: >
           The identity must already exist and hold its roles; this set does not create it or
           grant them. It is the one the registry sign-in and the customer-managed key name.
-        renders: managed_identities.user_assigned_resource_ids / managedIdentities.userAssignedResourceIds
 
       - id: registry_login_server
         ask:
@@ -315,7 +302,6 @@ groups:
           credential in the template and in state. Empty is a public image. A registry with a
           private endpoint needs a route and its DNS from the group's subnet; a registry with a
           firewall needs the group's outbound address allowed or the trusted-service bypass.
-        renders: image_registry_credential.server and user_assigned_identity_id / imageRegistryCredentials[].server and identity
 
       - id: role_assignments
         ask:
@@ -332,7 +318,6 @@ groups:
           `az container exec`, which opens a shell in the running container. Usually the deploying
           principal's alone, so empty is a normal answer. **The Bicep module has no role
           assignment parameter**: the render writes the assignment beside the module.
-        renders: role_assignments / roleAssignments (authored beside the module in Bicep)
 
   # ----------------------------------------------------------------- security
   - id: security
@@ -358,7 +343,6 @@ groups:
           purge protection and a user-assigned identity that can wrap and unwrap. **The key is
           pinned to the version current at deployment: ACI does not follow a rotation**, so a
           rotated key needs a redeployment.
-        renders: key_vault_key_id / customerManagedKey
 
       - id: cmk_key_vault_key_id
         ask:
@@ -376,7 +360,6 @@ groups:
           The key must exist, the vault must have soft delete and purge protection, and the
           group's user-assigned identity must hold wrap and unwrap on it before the group is
           created. This set does not create the key or the grant.
-        renders: key_vault_key_id and key_vault_user_assigned_identity_id / customerManagedKey.keyVaultResourceId and keyName
 
   # ------------------------------------------------------------ observability
   - id: observability
@@ -402,7 +385,6 @@ groups:
           module reads the key at deployment time, the Terraform module needs it as an input
           (`primary_shared_key` of the workspace data source) and so keeps it in state. The
           deploying principal needs `sharedkeys/read` on the workspace.
-        renders: diagnostics_log_analytics.workspace_id and workspace_key / logAnalytics.workspaceResourceId
 
       - id: log_type
         ask:
@@ -424,4 +406,3 @@ groups:
           Volume follows what the container writes - the reason to watch the workspace's daily
           cap. The Terraform module does not expose the log type and leaves it to the provider, a
           gap named in the handover.
-        renders: logAnalytics.logType (Bicep) / not carried by the module (Terraform)

@@ -1,0 +1,184 @@
+# What each decision of questions.yaml renders to, per target and implementation.
+# Format: core/iac-rendering/references/render-map.md. The call, the authored blocks and the
+# tests are in terraform.md and bicep.md.
+#
+# Terraform has a module for the e-mail service only: it is a companion, and the communication
+# resource is a root-level azapi_resource beside it, so the terraform entries name that resource's
+# body. The azurerm form (terraform.md, authored rendering) is the fallback, kept in the notes.
+schema_version: 1
+resource: Microsoft.Communication/communicationServices
+
+modules:
+  terraform: []
+  bicep: [avm/res/communication/communication-service]
+companions:
+  terraform: [Azure/avm-res-communication-emailservice/azurerm]
+  bicep: [avm/res/communication/email-service]
+
+decisions:
+
+  # ---------------------------------------------------------------- placement
+  placement.environments:
+    not_rendered: naming parameter `environment` and the tag of that name; no attribute of the resource
+  placement.location:
+    terraform: { attribute: location, passthrough: true, note: 'the answer is the literal "global" (the default), on the module and the azapi_resource; never the deployment region' }
+    bicep_avm: { attribute: location, passthrough: true, note: "the answer is the literal 'global', on both modules; module default 'global' - written" }
+    bicep: { attribute: location, passthrough: true, note: "the answer is the literal 'global'" }
+  placement.resource_group_name:
+    terraform:
+      attribute: parent_id
+      note: the group's id (data.azurerm_resource_group), on the module and the azapi_resource - AzAPI-based; the azurerm fallback takes resource_group_name
+    bicep_avm: { gap: the deployment's resource group scope; no parameter }
+    bicep: { gap: the deployment's resource group scope; no property }
+
+  # ------------------------------------------------------------------ service
+  service.data_location:
+    terraform:
+      attribute: data_location, azapi_resource body.properties.dataLocation
+      passthrough: true
+      note: immutable; the e-mail service must match the communication resource (azurerm fallback - data_location on azurerm_communication_service and azurerm_email_communication_service, identical on both)
+    bicep_avm: { attribute: dataLocation, passthrough: true, note: 'required on both modules, immutable; identical on both' }
+    bicep: { attribute: properties.dataLocation, passthrough: true, note: immutable }
+  service.email:
+    terraform:
+      module: Azure/avm-res-communication-emailservice/azurerm
+      attribute: 'email_communication_service_domains.<key>.domain_management'
+      values: { none: null, azure_managed_domain: AzureManaged, custom_domain: CustomerManaged }
+      also:
+        azure_managed_domain: 'name = "AzureManagedDomain"'
+        custom_domain: 'name = var.custom_domain_name'
+      note: none renders no module call and no linkedDomains; linkedDomains takes the domain id, not the service id (azurerm fallback - azurerm_email_communication_service_domain.domain_management; linking is not in azurerm)
+    bicep_avm:
+      module: avm/res/communication/email-service
+      attribute: 'domains[].domainManagement'
+      values: { none: null, azure_managed_domain: AzureManaged, custom_domain: CustomerManaged }
+      also:
+        azure_managed_domain: "name: 'AzureManagedDomain'"
+        custom_domain: 'name: customDomainName'
+      note: none omits the e-mail module and linkedDomains; linkedDomains takes the domain id
+    bicep:
+      attribute: Microsoft.Communication/emailServices/domains properties.domainManagement
+      values: { none: null, azure_managed_domain: AzureManaged, custom_domain: CustomerManaged }
+      note: linked through properties.linkedDomains on the communication service; none renders no emailServices and no linkedDomains
+  service.custom_domain_name:
+    terraform:
+      module: Azure/avm-res-communication-emailservice/azurerm
+      attribute: 'email_communication_service_domains.<key>.name'
+      passthrough: true
+      note: azurerm fallback - azurerm_email_communication_service_domain; the reference names the resource, not the argument
+    bicep_avm: { module: avm/res/communication/email-service, attribute: 'domains[].name', passthrough: true }
+    bicep: { attribute: Microsoft.Communication/emailServices/domains name, passthrough: true, note: the child's name }
+  service.sender_usernames:
+    terraform:
+      module: Azure/avm-res-communication-emailservice/azurerm
+      attribute: 'email_communication_service_domain_sender_usernames.<key> = { name, email_communication_service_domain_name_key, display_name }'
+      note: azurerm fallback - azurerm_email_communication_service_domain_sender_username
+    bicep_avm:
+      module: avm/res/communication/email-service
+      attribute: 'domains[].senderUsernames[] = { name, username, displayName }'
+    bicep:
+      attribute: 'Microsoft.Communication/emailServices/domains/senderUsernames = { name, properties.username, properties.displayName }'
+      note: "a child of the domain per entry (source: bicep build, Microsoft.Communication/emailServices/domains/senderUsernames@2025-09-01)"
+  service.user_engagement_tracking:
+    terraform:
+      module: Azure/avm-res-communication-emailservice/azurerm
+      attribute: 'email_communication_service_domains.<key>.user_engagement_tracking_enabled'
+      passthrough: true
+      note: default false; written (azurerm fallback - azurerm_email_communication_service_domain.user_engagement_tracking_enabled)
+    bicep_avm:
+      module: avm/res/communication/email-service
+      attribute: 'domains[].userEngagementTracking'
+      values: { true: Enabled, false: Disabled }
+      note: a string, not a bool
+    bicep:
+      attribute: Microsoft.Communication/emailServices/domains properties.userEngagementTracking
+      values: { true: Enabled, false: Disabled }
+
+  # --------------------------------------------------------------- networking
+  networking.public_network_access:
+    terraform:
+      attribute: azapi_resource body.properties.publicNetworkAccess
+      values: { disabled: Disabled, enabled: Enabled }
+      note: SecuredByPerimeter with a perimeter; no private endpoint; not in azurerm (the fallback needs an azapi_update_resource)
+    bicep_avm:
+      attribute: publicNetworkAccess
+      values: { disabled: Disabled, enabled: Enabled }
+      note: SecuredByPerimeter with a perimeter; unset by default; written
+    bicep:
+      attribute: properties.publicNetworkAccess
+      values: { disabled: Disabled, enabled: Enabled }
+  networking.network_security_perimeter:
+    terraform:
+      gap: an azapi_resource Microsoft.Network/networkSecurityPerimeters/profiles/resourceAssociations, only when set (publicNetworkAccess becomes SecuredByPerimeter); the reference names the resource, not its properties
+    bicep_avm:
+      gap: authored Microsoft.Network/networkSecurityPerimeters/profiles/resourceAssociations beside the modules, only when set
+    bicep:
+      gap: authored Microsoft.Network/networkSecurityPerimeters/profiles/resourceAssociations beside the resource, only when set; the reference names the resource, not its properties
+
+  # ----------------------------------------------------------------- identity
+  identity.managed_identity:
+    terraform:
+      gap: >-
+        azapi_resource identity { type, identity_ids } - system_assigned is type = "SystemAssigned"
+        and none renders no identity block, as terraform.md writes them; the UserAssigned literal is
+        not in the reference. Not in azurerm (the fallback needs an azapi_update_resource)
+    bicep_avm:
+      attribute: managedIdentities
+      values:
+        system_assigned: { expr: '{ systemAssigned: true }' }
+        user_assigned: { expr: '{ userAssignedResourceIds: {identity.user_assigned_identity_ids} }' }
+        none: { expr: '{}' }
+    bicep:
+      attribute: identity.type
+      values: { system_assigned: SystemAssigned, user_assigned: UserAssigned, none: null }
+      note: "none writes no identity; literals from the compiled type (source: bicep build, Microsoft.Communication/communicationServices@2025-09-01)"
+  identity.user_assigned_identity_ids:
+    terraform: { attribute: azapi_resource identity.identity_ids, note: not in azurerm - the fallback needs an azapi_update_resource }
+    bicep_avm: { attribute: managedIdentities.userAssignedResourceIds }
+    bicep:
+      attribute: identity.userAssignedIdentities
+      format: { expr: 'toObject({value}, id => id, id => {})' }
+      note: "an object keyed by identity id, each value empty (source: bicep build, Microsoft.Communication/communicationServices@2025-09-01)"
+  identity.role_assignments:
+    terraform:
+      module: Azure/avm-res-communication-emailservice/azurerm
+      attribute: 'role_assignments.<key> = { role_definition_id_or_name, principal_id, principal_type }'
+      note: on the e-mail module; the communication resource takes an azurerm_role_assignment (scope = the communication resource)
+    bicep_avm:
+      attribute: roleAssignments
+      note: on both modules; 'Communication and Email Service Owner' by name
+    bicep:
+      attribute: 'Microsoft.Authorization/roleAssignments properties = { principalId, roleDefinitionId, principalType }'
+      note: "one per entry, scoped to the communication service; roleDefinitionId takes the definition id, the render resolves the role name (source: bicep build, Microsoft.Authorization/roleAssignments@2022-04-01)"
+
+  # ----------------------------------------------------------------- security
+  security.local_authentication_disabled:
+    terraform: { attribute: azapi_resource body.properties.disableLocalAuth, passthrough: true, note: not in azurerm; written }
+    bicep_avm: { attribute: disableLocalAuth, passthrough: true, note: unset by default; written }
+    bicep: { attribute: properties.disableLocalAuth, passthrough: true }
+
+  # ------------------------------------------------------------ observability
+  observability.diagnostic_workspace:
+    terraform: { attribute: azurerm_monitor_diagnostic_setting.log_analytics_workspace_id, note: a root resource on the azapi_resource }
+    bicep_avm:
+      attribute: 'diagnosticSettings[].workspaceResourceId'
+      note: the e-mail service has no diagnostic setting of its own
+    bicep:
+      attribute: Microsoft.Insights/diagnosticSettings properties.workspaceId
+      note: "scoped to the communication service (source: bicep build, Microsoft.Insights/diagnosticSettings@2021-05-01-preview)"
+  observability.diagnostic_categories:
+    terraform: { attribute: azurerm_monitor_diagnostic_setting.enabled_log.category }
+    bicep_avm: { attribute: 'diagnosticSettings[].logCategoriesAndGroups[].category' }
+    bicep:
+      attribute: 'Microsoft.Insights/diagnosticSettings properties.logs[].category'
+      note: "one { category, enabled: true } per entry, scoped to the communication service (source: bicep build, Microsoft.Insights/diagnosticSettings@2021-05-01-preview)"
+  observability.metrics_enabled:
+    terraform:
+      attribute: azurerm_monitor_diagnostic_setting.enabled_metric.category
+      values: { true: AllMetrics, false: null }
+      note: false renders no enabled_metric block
+    bicep_avm:
+      attribute: 'diagnosticSettings[].metricCategories'
+      values: { true: { expr: "[ { category: 'AllMetrics' } ]" }, false: { expr: '[]' } }
+    bicep:
+      gap: "Microsoft.Insights/diagnosticSettings properties.metrics[] { category, enabled } scoped to the communication service is proven (bicep build, Microsoft.Insights/diagnosticSettings@2021-05-01-preview); the category is a free string in the type, so AllMetrics has no source for authored Bicep"

@@ -21,23 +21,14 @@ leave `ConfiguringProtection`.
 
 ### Decision -> module input
 
-| Decision | Input | Note |
+What each decision renders to - the input and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.
+
+### Inputs no decision covers
+
+| Input | Module input | Note |
 |---|---|---|
-| `storage_redundancy` | `redundancy` | `GeoRedundant`, `LocallyRedundant`, `ZoneRedundant`; **required**; changing forces a new vault |
 | (the vault's datastore) | `datastore_type` | **Required**; `VaultStore` for a vaulted backup; the set does not decide it |
-| `cross_region_restore` | `cross_region_restore_enabled` | Default `false`; written; only with `GeoRedundant` |
-| `immutability` | `immutability` | `Disabled`, `Unlocked`, `Locked`; module default `Disabled`; written |
 | (soft delete state) | `soft_delete` | **`AlwaysOn` and not changeable** with the current API version (2025-09-01); not a question |
-| `soft_delete_retention_days` | `retention_duration_in_days` | 14-180; default 14; written |
-| `multi_user_authorization`, `resource_guard` | `resource_guard_enabled`, `resource_guard_resource_id` | Pass the id of the guard in the security team's subscription; with `resource_guard_enabled = true` and no id the module creates a guard **in the same resource group**, which protects nothing against that group's administrators - never rely on that for `isolated` |
-| `infrastructure_encryption` | - | **No input**; taken from the platform. `# not-testable:` and named in the handover |
-| `job_failure_alerts` | `alerts_for_all_job_failures` | `"Enabled"` / `"Disabled"`; module default `null` (unset); written |
-| `key_management`, `cmk_key_vault_key_id` | `customer_managed_key` | Read the member names for the pinned version; needs `user_assigned` identity |
-| `managed_identity`, `user_assigned_identity_ids` | `managed_identities = { system_assigned, user_assigned_resource_ids }` | |
-| `protected_resources` | `backup_instances = { <k> = { name, backup_policy_key, ... } }` | Types `disk`, `blob`, `adls`, `kubernetes`, `postgresql`, `postgresql_flexible`; type-specific members in the README |
-| `backup_schedule`, `retention_days` | `backup_policies = { <k> = { ... } }` | Read the policy shape for the datasource type from the README |
-| `role_assignments` | `role_assignments = { <k> = { role_definition_id_or_name, principal_id, principal_type } }` | |
-| `diagnostic_*`, `metrics_enabled` | `diagnostic_settings = { workspace = { workspace_resource_id, log_categories, log_groups = [], metric_categories = ["AllMetrics"] } }` | |
 | `deployment.module_telemetry` | `enable_telemetry` | |
 | `context.tags` | `tags = local.tags` | |
 
@@ -116,13 +107,4 @@ with a reason.
 
 The fallback. Targets `azurerm` **5.x**; check against `terraform providers schema -json`.
 
-| Decision | Argument on `azurerm_data_protection_backup_vault` |
-|---|---|
-| `storage_redundancy` | `redundancy` |
-| `cross_region_restore` | `cross_region_restore_enabled` |
-| `immutability` | `immutability` |
-| `soft_delete_retention_days` | `retention_duration_in_days`, `soft_delete` |
-| `managed_identity` | `identity { type }` |
-| `protected_resources` | `azurerm_data_protection_backup_instance_blob_storage`, `..._disk`, `..._postgresql_flexible_server`, `..._kubernetes_cluster` and a matching `azurerm_data_protection_backup_policy_*` |
-| resource guard | `azurerm_data_protection_resource_guard` in the security subscription |
-| diagnostics | `azurerm_monitor_diagnostic_setting` with `enabled_log { category }` |
+What each decision renders to - the argument and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.

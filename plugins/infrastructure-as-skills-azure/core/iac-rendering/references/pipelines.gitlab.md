@@ -11,6 +11,10 @@ run on a throwaway project before it reaches production.
 
 ## What differs from the other platforms
 
+- **The scripts are `sh`, not pwsh.** The job images (`hashicorp/terraform`, `azure-cli`)
+  carry no PowerShell, and installing it on every job costs more than it buys. This is the
+  one exception to invariant 14; JSON is read with `jq`.
+
 - **The OIDC subject does not name the stage.** GitLab's token carries `project_path`,
   `ref_type` and `ref` in the subject, not the environment. A federated credential
   therefore trusts "this project, this branch", and every stage's identity can trust the

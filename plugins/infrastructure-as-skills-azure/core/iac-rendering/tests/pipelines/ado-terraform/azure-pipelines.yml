@@ -21,13 +21,13 @@ stages:
         steps:
           - checkout: self
           - template: .azure-pipelines/terraform-install.yml
-          - script: terraform fmt -check -recursive
+          - pwsh: terraform fmt -check -recursive
             displayName: Format
-          - script: terraform init -backend=false -input=false
+          - pwsh: terraform init -backend=false -input=false
             displayName: Init (no backend)
-          - script: terraform validate
+          - pwsh: terraform validate
             displayName: Validate
-          - script: terraform test
+          - pwsh: terraform test
             displayName: Test
 
   - template: .azure-pipelines/stage.yml

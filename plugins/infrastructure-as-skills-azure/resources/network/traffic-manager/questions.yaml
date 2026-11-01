@@ -39,7 +39,6 @@ groups:
           Drives the rendered name and with it the relative DNS name, which is global: a
           development profile and a production profile cannot share `shop.trafficmanager.net`,
           so each stage renders its own profile over its own endpoints.
-        renders: naming parameter `environment`; the profile is rendered per stage over that stage's endpoints
 
       - id: location
         ask:
@@ -54,7 +53,6 @@ groups:
           A Traffic Manager profile is a global resource: it is created as `global`, whatever the
           context's region says. Not asked; the context's region still goes into the name and is
           the region of the first endpoint, which is what `closest` routing measures against.
-        renders: location = "global" (Bicep; the Terraform module has no location input)
 
       - id: resource_group_name
         ask:
@@ -70,7 +68,6 @@ groups:
         why: >
           A global resource still sits in a group - the one of the application it fronts, so the
           people who own the endpoints own the steering between them.
-        renders: resource_group_name (both modules) / implicit in Bicep scope
 
   # ------------------------------------------------------------------ profile
   - id: profile
@@ -101,7 +98,6 @@ groups:
           contract that shares load. `by_region` is for a legal or content reason to keep users
           of a country on a site; it needs every region of the world mapped to an endpoint, or
           those users get no answer.
-        renders: pre-answers routing_method; recorded so the review reads the intent, not the method
 
       - id: routing_method
         ask:
@@ -130,7 +126,6 @@ groups:
           closest-routing regions nests a Priority profile under a Performance one
           (`endpoints` of type `nested`). The modules disagree on the default - Terraform has none
           and requires it, Bicep defaults to `Performance` - so it is written on every call.
-        renders: traffic_routing_method / trafficRoutingMethod
 
       - id: relative_dns_name
         ask:
@@ -147,7 +142,6 @@ groups:
           collides; a name claimed by somebody else fails at apply, not at plan. The customer's
           own name (`www.example.com`) is a CNAME to this one in the public zone and is the name
           people see; nobody types the trafficmanager.net name.
-        renders: dns_config.relative_name / relativeName
 
       - id: dns_ttl_seconds
         ask:
@@ -164,7 +158,6 @@ groups:
           service default and the right floor for a failover profile; lower values multiply the
           queries (billed per million) for little gain, since the probe interval below is the
           other half of the delay. Higher values suit a split profile where nothing fails over.
-        renders: dns_config.ttl / ttl
 
       - id: profile_status
         ask:
@@ -184,7 +177,6 @@ groups:
           for a maintenance window: the name returns NXDOMAIN. It is a decision somebody takes
           during an incident, not a render default, and it is here so a profile rendered
           disabled is visibly so.
-        renders: profile_status / profileStatus
 
       - id: traffic_view
         ask:
@@ -202,7 +194,6 @@ groups:
           Traffic View is a paid add-on billed on the queries the profile answers, and it is
           useful once - when choosing where the next region goes. Off by default; enable it for
           a few weeks around that decision and turn it off again.
-        renders: traffic_view_enrollment_status / trafficViewEnrollmentStatus
 
       - id: max_return
         ask:
@@ -218,7 +209,6 @@ groups:
           MultiValue only: the client gets several A records and retries on its own, which is
           the point of the method. 1 to 10; 1 is the modules' default and makes MultiValue behave
           like a health-checked round robin. Not reached for the other methods.
-        renders: max_return / maxReturn
 
   # --------------------------------------------------------------- monitoring
   - id: monitoring
@@ -245,7 +235,6 @@ groups:
           only proves a port is open and misses an application that answers 500 to everything.
           The Bicep module's default is **lowercase `http` on port 80**; the value is written on
           every call.
-        renders: monitor_config.protocol / monitorConfig.protocol
 
       - id: monitor_port
         ask:
@@ -260,7 +249,6 @@ groups:
           443 for HTTPS. A different port is the endpoint's choice, not the profile's, and it is
           the same port users connect to - a management port that is up while the application is
           down is the probe that never fails.
-        renders: monitor_config.port / monitorConfig.port
 
       - id: monitor_path
         ask:
@@ -276,7 +264,6 @@ groups:
           whose database is gone is taken out of rotation; `/` is served by a static page long
           after that. The path must answer anonymously and without a redirect. For `TCP` it is
           ignored and the modules still take it.
-        renders: monitor_config.path / monitorConfig.path
 
       - id: expected_status_codes
         ask:
@@ -291,7 +278,6 @@ groups:
           200-299 by default. An endpoint behind a redirecting front (HTTP to HTTPS, a sign-in
           redirect) answers 3xx to the probe and is marked down unless the range says so; a range
           that includes 4xx or 5xx is a probe that never fails. Each entry is `min-max`.
-        renders: monitor_config.expected_status_code_ranges = [{ min, max }] / monitorConfig.expectedStatusCodeRanges
 
       - id: probe_profile
         ask:
@@ -316,7 +302,6 @@ groups:
           interval), three failures, billed as "fast interval" health checks per endpoint; it is
           what a `critical` outage answer buys, and one failure instead of three is a flapping
           profile, not a faster one.
-        renders: monitor_config.interval_in_seconds, timeout_in_seconds, tolerated_number_of_failures / monitorConfig.intervalInSeconds, timeoutInSeconds, toleratedNumberOfFailures
 
   # ---------------------------------------------------------------- endpoints
   - id: endpoints
@@ -341,7 +326,6 @@ groups:
           for Geographic. Nothing sensible can be guessed - a profile without endpoints answers
           nothing - and the targets differ per stage. A pattern that deploys the application to
           two regions fills this list from its own outputs.
-        renders: azure_endpoints, external_endpoints, nested_endpoints (maps) / endpoints[] with `type` per entry
 
   # ------------------------------------------------------------------- access
   - id: access
@@ -362,7 +346,6 @@ groups:
           pipeline, an operations group - holds `Traffic Manager Contributor` on the profile,
           never Contributor on the group. Empty by default: a render changes the profile with
           the deploying identity. A pattern fills it from the consumers it knows about.
-        renders: role_assignments / roleAssignments
 
   # ------------------------------------------------------------ observability
   - id: observability
@@ -384,7 +367,6 @@ groups:
           Inherited: one deployment, one destination. The profile's log is the probe history -
           when each endpoint went down and came back - which is the record an incident review
           needs to say whether the failover happened and how long it took.
-        renders: diagnostic_settings / diagnosticSettings
 
       - id: diagnostic_categories
         ask:
@@ -403,7 +385,6 @@ groups:
           nothing while everything is healthy. The name is the platform's and is checked against
           `az monitor diagnostic-settings categories list --resource <profile id>` before a
           render, not remembered.
-        renders: diagnostic_settings.<key>.log_categories / diagnosticSettings[].logCategoriesAndGroups[].category
 
       - id: metrics_enabled
         ask:
@@ -420,4 +401,3 @@ groups:
         why: >
           Queries per endpoint and the endpoint status metric are what an alert on "the standby
           is taking traffic" rests on, and `AllMetrics` is cheap.
-        renders: diagnostic_settings.<key>.metric_categories = ["AllMetrics"] / metricCategories[].category

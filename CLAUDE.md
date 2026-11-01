@@ -57,6 +57,19 @@ python3 plugins/infrastructure-as-skills-azure/core/iac-authoring/scripts/check_
 python3 plugins/infrastructure-as-skills-azure/core/iac-authoring/scripts/interview_digest.py compute/app-service --language de
 python3 plugins/infrastructure-as-skills-azure/core/iac-authoring/tests/run_interview_digest_tests.py
 
+# What a render reads instead of spec.md and whole references: every decision with its key path
+# and the literal its render-map.yaml gives the target, the AVM modules, and the line ranges of
+# each reference this spec needs. The test asserts no decision is dropped and every heading the
+# skips name still exists.
+python3 plugins/infrastructure-as-skills-azure/core/iac-rendering/scripts/render_digest.py <spec>
+python3 plugins/infrastructure-as-skills-azure/core/iac-rendering/tests/run_render_digest_tests.py
+
+# Every resource's render-map.yaml (core/iac-rendering/references/render-map.md) against the format
+# and its questions.yaml: every question covered, values keys the question accepts, an _avm
+# entry exactly where modules lists one. The test breaks one rule per case in a copy.
+python3 plugins/infrastructure-as-skills-azure/core/iac-rendering/scripts/check_render_map.py
+python3 plugins/infrastructure-as-skills-azure/core/iac-rendering/tests/run_render_map_tests.py
+
 # Renders fixture specs with the diagram script and asserts on the .drawio: zones, lines,
 # colours, the bundled endpoint icon. The evals cannot draw, so this is where it is tested.
 python3 plugins/infrastructure-as-skills-azure/core/iac-diagram/tests/run_diagram_tests.py
@@ -125,6 +138,7 @@ The full tree is in [README.md](README.md#layout). What is not obvious from it:
 | `.../core/iac-rendering/references/{naming,terraform-idiom,bicep-idiom}.md` | Naming interfaces; layout, modules, tests per target |
 | `.../resources/<family>/routing.md` | Routing table: request → question set. **Not** a `SKILL.md` — see below |
 | `.../resources/<family>/<resource>/{questions.yaml,notes.md,terraform.md,bicep.md}` | **The content**, one directory per resource; the rendering references open with the AVM call |
+| `.../resources/<family>/<resource>/render-map.yaml` | What each decision renders to, per target and implementation, with the literal of every answer (`core/iac-rendering/references/render-map.md`). A changed question, input or literal changes it in the same commit; `check_render_map.py` fails on a question it misses |
 | `.claude/skills/` | Repo maintenance. **Not** shipped with the plugin |
 
 ## The Two Structural Constraints

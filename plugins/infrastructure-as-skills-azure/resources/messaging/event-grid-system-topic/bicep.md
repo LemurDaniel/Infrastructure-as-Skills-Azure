@@ -20,23 +20,14 @@ array whose members follow the ARM `systemTopics/eventSubscriptions` shape.
 
 ### Decision -> module parameter
 
-| Decision | Parameter | Note |
+What each decision renders to - the parameter and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.
+
+### Parameters no decision covers
+
+| Input | Parameter | Note |
 |---|---|---|
-| `location` | `location` | Module default `resourceGroup().location`; **written**: the source's region, `'global'` for `Microsoft.Resources.*` topic types |
-| `source_resource` | `source` | Required by the module; fixed at creation |
-| `topic_type` | `topicType` | Required by the module; exact casing; fixed at creation |
-| `managed_identity`, `user_assigned_identity_ids` | `managedIdentities: { systemAssigned, userAssignedResourceIds }` | |
-| `event_subscriptions` | `eventSubscriptions: [ { name, deliveryWithResourceIdentity, filter, retryPolicy, deadLetterWithResourceIdentity, eventDeliverySchema } ]` | One member per entry |
-| `destination_kind` | `deliveryWithResourceIdentity.destination.endpointType`: `'ServiceBusQueue'`, `'ServiceBusTopic'`, `'StorageQueue'`, `'EventHub'`, `'AzureFunction'`, `'WebHook'`, `'HybridConnection'`, with `properties.resourceId` (`endpointUrl` for a webhook, `queueName` added for a storage queue) | |
-| `managed_identity` (delivery) | `deliveryWithResourceIdentity.identity: { type: 'SystemAssigned' }` and `deadLetterWithResourceIdentity.identity` | Under `none`, the key-based `destination` and `deadLetterDestination` members instead |
-| `event_delivery_schema` | `eventSubscriptions[].eventDeliverySchema` | Platform default `EventGridSchema`; written |
-| `included_event_types` | `eventSubscriptions[].filter.includedEventTypes` | Empty delivers every type |
 | subject filter (content of the entry) | `filter.subjectBeginsWith`, `subjectEndsWith` | |
-| `max_delivery_attempts`, `event_ttl_minutes` | `retryPolicy: { maxDeliveryAttempts, eventTimeToLiveInMinutes }` | |
-| `keep_undeliverable_events`, `dead_letter_*` | `deadLetterWithResourceIdentity: { identity, deadLetterDestination: { endpointType: 'StorageBlob', properties: { resourceId, blobContainerName } } }` | |
-| `role_assignments` | `roleAssignments: [ { principalId, roleDefinitionIdOrName, principalType } ]` | |
 | roles on the targets | `externalResourceRoleAssignments` exists; **not used** - wiring belongs to the pattern | |
-| `diagnostic_*`, `metrics_enabled` | `diagnosticSettings: [ { workspaceResourceId, logCategoriesAndGroups: [ { category } ], metricCategories: [ { category: 'AllMetrics' } ] } ]` | |
 | `deployment.resource_lock` | no `lock` - the type is not on the list | |
 | `deployment.module_telemetry` | `enableTelemetry` | |
 | `context.tags` | `tags` | |
@@ -123,7 +114,7 @@ webhook destination is an `open:` entry.
 ### Tests
 
 A module call compiles to a nested deployment whose `properties.parameters.<param>.value` is the
-decision, so every decision above is observable in `tests/*.armtest.yaml`
+decision, so every decision in render-map.yaml is observable in `tests/*.armtest.yaml`
 ([bicep-idiom.md](../../../core/iac-rendering/references/bicep-idiom.md#tests)): `source`,
 `topicType`, `location`, `managedIdentities.systemAssigned`, and the `eventSubscriptions`
 array down to `retryPolicy.maxDeliveryAttempts` and `deadLetterWithResourceIdentity`.
@@ -132,10 +123,4 @@ array down to `retryPolicy.maxDeliveryAttempts` and `deadLetterWithResourceIdent
 
 The fallback. `Microsoft.EventGrid/systemTopics@2025-02-15` with `identity` and `properties`:
 
-| Decision | Property |
-|---|---|
-| `location` | `location` (the source's, or `'global'`) |
-| `source_resource`, `topic_type` | `properties.source`, `properties.topicType` |
-| `managed_identity` | `identity` (top level) |
-| `event_subscriptions` and the delivery decisions | child `Microsoft.EventGrid/systemTopics/eventSubscriptions@2025-02-15` with `properties: { deliveryWithResourceIdentity, filter, retryPolicy, deadLetterWithResourceIdentity, eventDeliverySchema }` |
-| diagnostics | `Microsoft.Insights/diagnosticSettings` scoped to the topic, `logs: [ { category: 'DeliveryFailures', enabled: true } ]`, `metrics: [ { category: 'AllMetrics', enabled: true } ]` |
+What each decision renders to - the property and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.

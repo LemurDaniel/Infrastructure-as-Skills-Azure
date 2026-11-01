@@ -20,18 +20,13 @@ same members and is what the `key-vault` set uses for its customer-managed keys.
 
 ### Decision -> module parameter
 
+What each decision renders to - the parameter and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.
+
+### Parameters no decision covers
+
 | Decision | Parameter | Note |
 |---|---|---|
-| `key_vault` | `keyVaultName` | The vault, by name, in the same resource group |
 | name | `name` | |
-| `algorithm`, `protection` | `kty` | `RSA`, `RSA-HSM`, `EC`, `EC-HSM`. **Module default is `EC`**; written. An HSM type needs a Premium vault |
-| `key_size` | `keySize` | RSA only |
-| `curve` | `curveName` | EC only. Module default `P-256` |
-| `key_operations` | `keyOps` | Unset by default (the type's operations); written. Allowed: `decrypt`, `encrypt`, `import`, `sign`, `unwrapKey`, `verify`, `wrapKey` |
-| `rotation_days` | `rotationPolicy.lifetimeActions[ { action: { type: 'rotate' }, trigger: { timeAfterCreate } } ]` | ISO 8601 (`P90D`) |
-| `expiry_days` | `rotationPolicy.attributes.expiryTime` | Dates each version a rotation creates |
-| `notify_days_before_expiry` | `rotationPolicy.lifetimeActions[ { action: { type: 'notify' }, trigger: { timeBeforeExpiry } } ]` | Duration **before** expiry (`P30D`), not an offset from creation |
-| `role_assignments` | `roleAssignments: [ { roleDefinitionIdOrName, principalId, principalType } ]` | Scoped to the key. The module knows a fixed set of role names (including `Key Vault Crypto User`, `Key Vault Crypto Service Encryption User`); read the list from the README |
 | `context.tags` | `tags` | |
 | `deployment.module_telemetry` | `enableTelemetry` | |
 
@@ -95,22 +90,18 @@ authored.
 ### Tests
 
 A module call compiles to a nested deployment whose `properties.parameters.<param>.value` is the
-decision, so every decision above is observable in `tests/*.armtest.yaml`
+decision, so every decision in render-map.yaml is observable in `tests/*.armtest.yaml`
 ([bicep-idiom.md](../../../core/iac-rendering/references/bicep-idiom.md#tests)).
 
 ## Authored rendering
 
-The fallback. A `Microsoft.KeyVault/vaults/keys` child of the vault:
+The fallback. A `Microsoft.KeyVault/vaults/keys` child of the vault.
+
+What each decision renders to - the property and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.
 
 | Decision | Property |
 |---|---|
-| `algorithm`, `protection` | `properties.kty` |
-| `key_size` | `properties.keySize` |
-| `curve` | `properties.curveName` |
-| `key_operations` | `properties.keyOps` |
-| `rotation_days`, `expiry_days`, `notify_days_before_expiry` | `properties.rotationPolicy: { attributes: { expiryTime }, lifetimeActions: [ ... ] }` |
 | first version expiry | `properties.attributes.exp` (epoch seconds) |
-| `role_assignments` | `Microsoft.Authorization/roleAssignments` with `scope` set to the key |
 
 ```bicep
 resource key 'Microsoft.KeyVault/vaults/keys@2024-11-01' = {

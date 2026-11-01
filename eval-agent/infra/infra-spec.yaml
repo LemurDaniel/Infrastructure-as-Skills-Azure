@@ -123,7 +123,8 @@ deployment:
     source:
       forced_by: deployment.landing_zone
   diagnostics_destination:
-    value: log-analytics-workspace
+    value:
+      resource: log-analytics-workspace
     source:
       forced_by: deployment.observability_ownership
   log_retention_days:
@@ -259,7 +260,8 @@ resources:
         source: default
     observability:
       diagnostic_workspace:
-        value: log-analytics-workspace
+        value:
+          resource: log-analytics-workspace
         source: deployment
       flow_logs_enabled:
         value: false
@@ -415,7 +417,9 @@ resources:
         value: disabled
         source: deployment
       private_endpoint_subnet:
-        value: pe
+        value:
+          resource: virtual-network
+          part: pe
         source: deployment
       network_rule_bypass:
         value: None
@@ -450,7 +454,8 @@ resources:
         source: deployment
     observability:
       diagnostic_workspace:
-        value: log-analytics-workspace
+        value:
+          resource: log-analytics-workspace
         source: deployment
       diagnostic_categories:
         value: [ContainerRegistryRepositoryEvents, ContainerRegistryLoginEvents]
@@ -497,7 +502,9 @@ resources:
         value: disabled
         source: deployment
       private_endpoint_subnet:
-        value: pe
+        value:
+          resource: virtual-network
+          part: pe
         source: deployment
       restrict_outbound:
         value: true
@@ -519,7 +526,8 @@ resources:
         source: deployment
     observability:
       diagnostic_workspace:
-        value: log-analytics-workspace
+        value:
+          resource: log-analytics-workspace
         source: deployment
       diagnostic_categories:
         value: [Audit, RequestResponse, AzureOpenAIRequestUsage]
@@ -538,7 +546,9 @@ resources:
         value: disabled
         source: deployment
       private_endpoint_subnet:
-        value: pe
+        value:
+          resource: virtual-network
+          part: pe
         source: deployment
       private_endpoint_subresources:
         value: [blob]
@@ -608,7 +618,8 @@ resources:
         source: default
     observability:
       diagnostic_workspace:
-        value: log-analytics-workspace
+        value:
+          resource: log-analytics-workspace
         source: deployment
       diagnostic_categories:
         value: [audit]
@@ -654,7 +665,9 @@ resources:
         value: true
         source: default
       integration_subnet:
-        value: app-integration
+        value:
+          resource: virtual-network
+          part: app-integration
         source:
           forced_by: deployment.network_ownership
       vnet_route_all:
@@ -671,7 +684,7 @@ resources:
             which a system-assigned identity cannot have.'
       user_assigned_identity_ids:
         value:
-          production: [user-assigned-identity__dashboard]
+        - resource: user-assigned-identity__dashboard
         source:
           forced_by: resources.app-service__dashboard.identity.managed_identity
       entra_sign_in:
@@ -717,7 +730,8 @@ resources:
         source: default
     observability:
       diagnostic_workspace:
-        value: log-analytics-workspace
+        value:
+          resource: log-analytics-workspace
         source: deployment
       diagnostic_categories:
         value:
@@ -768,13 +782,17 @@ resources:
           overridden: 'Nothing calls the drift watcher: it runs on its own timer, and the dashboard only reads its reports
             from the storage account.'
       private_endpoint_subnet:
-        value: pe
+        value:
+          resource: virtual-network
+          part: pe
         source: deployment
       vnet_integration:
         value: true
         source: default
       integration_subnet:
-        value: app-integration
+        value:
+          resource: virtual-network
+          part: app-integration
         source:
           forced_by: deployment.network_ownership
       vnet_route_all:
@@ -791,7 +809,7 @@ resources:
             which a system-assigned identity cannot have.'
       user_assigned_identity_ids:
         value:
-          production: [user-assigned-identity__drift]
+        - resource: user-assigned-identity__drift
         source:
           forced_by: resources.app-service__drift.identity.managed_identity
     security:
@@ -828,7 +846,8 @@ resources:
         source: default
     observability:
       diagnostic_workspace:
-        value: log-analytics-workspace
+        value:
+          resource: log-analytics-workspace
         source: deployment
       diagnostic_categories:
         value:
@@ -877,13 +896,17 @@ resources:
           overridden: 'Nothing outside the VNet calls the fuzz agent: the tuner starts a run from inside the VNet, through
             its private endpoint; the dashboard only reads its reports.'
       private_endpoint_subnet:
-        value: pe
+        value:
+          resource: virtual-network
+          part: pe
         source: deployment
       vnet_integration:
         value: true
         source: default
       integration_subnet:
-        value: app-integration
+        value:
+          resource: virtual-network
+          part: app-integration
         source:
           forced_by: deployment.network_ownership
       vnet_route_all:
@@ -900,7 +923,7 @@ resources:
             which a system-assigned identity cannot have.'
       user_assigned_identity_ids:
         value:
-          production: [user-assigned-identity__fuzz]
+        - resource: user-assigned-identity__fuzz
         source:
           forced_by: resources.app-service__fuzz.identity.managed_identity
     security:
@@ -937,7 +960,8 @@ resources:
         source: default
     observability:
       diagnostic_workspace:
-        value: log-analytics-workspace
+        value:
+          resource: log-analytics-workspace
         source: deployment
       diagnostic_categories:
         value:
@@ -989,13 +1013,17 @@ resources:
           overridden: 'Nothing calls the tuner: it runs on its own timer, and the dashboard only reads its runs from the storage
             account.'
       private_endpoint_subnet:
-        value: pe
+        value:
+          resource: virtual-network
+          part: pe
         source: deployment
       vnet_integration:
         value: true
         source: default
       integration_subnet:
-        value: app-integration
+        value:
+          resource: virtual-network
+          part: app-integration
         source:
           forced_by: deployment.network_ownership
       vnet_route_all:
@@ -1012,7 +1040,7 @@ resources:
             which a system-assigned identity cannot have.'
       user_assigned_identity_ids:
         value:
-          production: [user-assigned-identity__tune]
+        - resource: user-assigned-identity__tune
         source:
           forced_by: resources.app-service__tune.identity.managed_identity
     security:
@@ -1049,7 +1077,8 @@ resources:
         source: default
     observability:
       diagnostic_workspace:
-        value: log-analytics-workspace
+        value:
+          resource: log-analytics-workspace
         source: deployment
       diagnostic_categories:
         value:
@@ -1067,7 +1096,7 @@ resources:
     placement:
       storage_account:
         value:
-          production: storage-account
+          resource: storage-account
         source: deployment
     containers:
       # One container for everything the apps share: the drift reports, the fuzz reports
@@ -1117,7 +1146,9 @@ resources:
         value: disabled
         source: deployment
       private_endpoint_subnet:
-        value: pe
+        value:
+          resource: virtual-network
+          part: pe
         source: deployment
       network_acl_bypass:
         value: None
@@ -1144,7 +1175,8 @@ resources:
         source: deployment
     observability:
       diagnostic_workspace:
-        value: log-analytics-workspace
+        value:
+          resource: log-analytics-workspace
         source: deployment
       diagnostic_categories:
         value: [AuditEvent, AzurePolicyEvaluationDetails]

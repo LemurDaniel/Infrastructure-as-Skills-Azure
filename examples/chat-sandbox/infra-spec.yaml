@@ -115,7 +115,8 @@ deployment:
     source:  # standalone: no central workspace to reference
       forced_by: deployment.landing_zone
   diagnostics_destination:
-    value: log-analytics-workspace
+    value:
+      resource: log-analytics-workspace
     source:
       forced_by: deployment.observability_ownership
   log_retention_days:
@@ -199,7 +200,7 @@ resources:
     observability:
       diagnostic_workspace:
         value:
-          sandbox: log-analytics-workspace
+          resource: log-analytics-workspace
         source: deployment
       diagnostic_categories:
         value:
@@ -278,7 +279,7 @@ resources:
     observability:
       diagnostic_workspace:
         value:
-          sandbox: log-analytics-workspace
+          resource: log-analytics-workspace
         source: deployment
       diagnostic_categories:
         value: [Audit, RequestResponse, AzureOpenAIRequestUsage]
@@ -338,7 +339,7 @@ resources:
     observability:
       diagnostic_workspace:
         value:
-          sandbox: log-analytics-workspace
+          resource: log-analytics-workspace
         source: deployment
       diagnostic_categories:
         value: [OperationLogs]
@@ -433,7 +434,7 @@ resources:
     observability:
       diagnostic_workspace:
         value:
-          sandbox: log-analytics-workspace
+          resource: log-analytics-workspace
         source: deployment
       diagnostic_categories:
         value: [audit]
@@ -496,7 +497,7 @@ resources:
     observability:
       diagnostic_workspace:
         value:
-          sandbox: log-analytics-workspace
+          resource: log-analytics-workspace
         source: deployment
       diagnostic_categories:
         value: [AuditEvent, AzurePolicyEvaluationDetails]
@@ -525,7 +526,7 @@ resources:
         value: enabled
         source: default
       local_auth:
-        value: disabled
+        value: false
         source: deployment
       rbac_only_access:
         value: true

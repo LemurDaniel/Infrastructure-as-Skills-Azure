@@ -40,7 +40,6 @@ groups:
           Drives the rendered name and the strictness of several defaults. Nothing sensible can
           be guessed. A set is one per stage: it groups the machines of one workload in one
           stage and is never shared across them.
-        renders: naming parameter `environment`, and the tag of that name where the repository uses one
 
       - id: location
         ask:
@@ -55,7 +54,6 @@ groups:
           Part of the rendered name and the home of the set and of every machine in it. The
           number of fault domains a region offers (two or three) is a property of the region.
           A region with availability zones does not need a set for a workload that can be zonal.
-        renders: location
 
       - id: resource_group_name
         ask:
@@ -72,7 +70,6 @@ groups:
           The set is placed into an existing group, the machines' own - a machine and its set
           can be in different groups, but removing them together is simpler. Creating a group
           here would make this set own a lifecycle wider than the resource it describes.
-        renders: resource_group_name (authored Terraform) / implicit in Bicep scope
 
   # ---------------------------------------------------------------------- set
   - id: set
@@ -96,7 +93,6 @@ groups:
           machine has. `Classic` exists for a machine with a VHD in a storage account, which is
           legacy and cannot be Premium-ZRS or encrypted at the host. A set's kind is fixed at
           creation and a machine with managed disks in a `Classic` set is refused.
-        renders: managed / skuName (`Aligned`, `Classic`)
 
       - id: fault_domain_count
         ask:
@@ -113,7 +109,6 @@ groups:
           the deployment. 2 is what every region has and what the Bicep module defaults to;
           the azurerm resource defaults to 3, which fails in a two-domain region. With three
           available, three is the better spread for three or more machines. Fixed at creation.
-        renders: platform_fault_domain_count / platformFaultDomainCount
 
       - id: update_domain_count
         ask:
@@ -129,7 +124,6 @@ groups:
           maintenance, one group at a time with a 30-minute pause. 5 is the default of both the
           resource and the module, and the maximum is 20. With more machines than domains, the
           later machines share a domain. Fixed at creation.
-        renders: platform_update_domain_count / platformUpdateDomainCount
 
   # ---------------------------------------------------- proximity placement
   - id: proximity
@@ -156,7 +150,6 @@ groups:
           machines share the datacenter's fate - and its price is capacity: a later machine in
           another size or family may fail to allocate into the group. Only the customer can say
           that latency outweighs resilience, so it is never defaulted on.
-        renders: a second resource, `azurerm_proximity_placement_group` / `Microsoft.Compute/proximityPlacementGroups`, and the set's proximity_placement_group_id / proximityPlacementGroupResourceId
 
       - id: proximity_zone
         ask:
@@ -182,7 +175,6 @@ groups:
         forced_when: >
           This set exists to hold machines without a zone, so `none` is the value; a zone is a
           departure that names the machines it serves
-        renders: zone (a string, module default "1") / availabilityZone (`-1` is none)
 
       - id: proximity_vm_sizes
         ask:
@@ -199,4 +191,3 @@ groups:
           is first used. A group created without them takes the first machine's size and can fail
           to place a different family later - the usual reason a growing group stops growing.
           List every size the workload will use, including the scale-up one.
-        renders: allowed_vm_sizes / intent.vmSizes

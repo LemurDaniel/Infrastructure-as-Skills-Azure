@@ -1,0 +1,62 @@
+# The kinds a question's `accepts: { ref: <kind> }` may name, and what a reference of each
+# kind is. question-set-format.md describes the field, spec.md the two value forms:
+#
+#   { resource: <key>[, part: <name>] }     a resource of this spec (one value, every stage)
+#   { existing: <kind>[, id: {<stage>: <id>}] }  one outside it; without an id, an open: entry
+#
+# Per kind:
+#   sets   the question sets whose resources a `resource:` reference may name; [] when the
+#          spec never creates one (only `existing:`), `any` for a reference to any resource
+#   part   for a kind that is a part of a resource: <group>.<question> of its set whose list
+#          names the parts (a subnet is a name in the network's subnets). `part:` then names one
+#   type   the ARM type an `existing:` id must carry (provider namespace and type segments)
+#   id     the id's form: arm (a resource id of `type`), arm_any (any resource id, a group,
+#          a subscription or a management group), guid (an Entra object or a subscription id)
+#
+# check_question_set.py fails on a kind missing here, and on a set or part that does not
+# exist; check_spec.py reads it for every reference a spec holds.
+
+kinds:
+  action_group:             { sets: [action-group],             type: Microsoft.Insights/actionGroups,                    id: arm }
+  app_service:              { sets: [app-service],              type: Microsoft.Web/sites,                                id: arm }
+  application_insights:     { sets: [application-insights],     type: Microsoft.Insights/components,                      id: arm }
+  availability_set:         { sets: [availability-set],         type: Microsoft.Compute/availabilitySets,                 id: arm }
+  backup_policy:            { sets: [],                         type: Microsoft.RecoveryServices/vaults/backupPolicies,   id: arm }
+  backup_vault:             { sets: [backup-vault],             type: Microsoft.DataProtection/backupVaults,               id: arm }
+  container_registry:       { sets: [container-registry],       type: Microsoft.ContainerRegistry/registries,             id: arm }
+  data_collection_endpoint: { sets: [],                         type: Microsoft.Insights/dataCollectionEndpoints,         id: arm }
+  ddos_protection_plan:     { sets: [ddos-protection-plan],     type: Microsoft.Network/ddosProtectionPlans,              id: arm }
+  disk_access:              { sets: [],                         type: Microsoft.Compute/diskAccesses,                     id: arm }
+  disk_encryption_set:      { sets: [],                         type: Microsoft.Compute/diskEncryptionSets,               id: arm }
+  entra_group:              { sets: [],                                                                                    id: guid }
+  event_grid_topic:         { sets: [event-grid-topic],         type: Microsoft.EventGrid/topics,                         id: arm }
+  event_hub:                { sets: [event-hubs], part: entities.event_hubs, type: Microsoft.EventHub/namespaces/eventhubs, id: arm }
+  event_hubs_namespace:     { sets: [event-hubs],               type: Microsoft.EventHub/namespaces,                      id: arm }
+  function_app:             { sets: [function-app],             type: Microsoft.Web/sites,                                id: arm }
+  gallery_image:            { sets: [],                         type: Microsoft.Compute/galleries/images/versions,        id: arm }
+  key_vault:                { sets: [key-vault],                type: Microsoft.KeyVault/vaults,                          id: arm }
+  key_vault_key:            { sets: [key-vault-key],            type: Microsoft.KeyVault/vaults/keys,                     id: arm }
+  key_vault_secret:         { sets: [key-vault-secret],         type: Microsoft.KeyVault/vaults/secrets,                  id: arm }
+  load_balancer_backend_pool: { sets: [load-balancer], part: networking.backend_pools, type: Microsoft.Network/loadBalancers/backendAddressPools, id: arm }
+  log_analytics_workspace:  { sets: [log-analytics-workspace],  type: Microsoft.OperationalInsights/workspaces,           id: arm }
+  logic_app:                { sets: [logic-app],                type: Microsoft.Logic/workflows,                          id: arm }
+  monitor_private_link_scope: { sets: [],                       type: Microsoft.Insights/privateLinkScopes,               id: arm }
+  network_security_perimeter: { sets: [],                       type: Microsoft.Network/networkSecurityPerimeters,        id: arm }
+  # A principal of this spec is a user-assigned identity; one outside it is an Entra object id.
+  principal:                { sets: [user-assigned-identity],                                                              id: guid }
+  private_dns_zone:         { sets: [private-dns-zone],         type: Microsoft.Network/privateDnsZones,                  id: arm }
+  private_link_resource:    { sets: any,                                                                                   id: arm_any }
+  public_ip_address:        { sets: [public-ip-address],        type: Microsoft.Network/publicIPAddresses,                id: arm }
+  public_ip_prefix:         { sets: [],                         type: Microsoft.Network/publicIPPrefixes,                 id: arm }
+  purview_account:          { sets: [purview-account],          type: Microsoft.Purview/accounts,                         id: arm }
+  recovery_services_vault:  { sets: [recovery-services-vault],  type: Microsoft.RecoveryServices/vaults,                  id: arm }
+  resource:                 { sets: any,                                                                                   id: arm_any }
+  resource_group:           { sets: [],                         type: Microsoft.Resources/resourceGroups,                 id: arm }
+  resource_guard:           { sets: [],                         type: Microsoft.DataProtection/resourceGuards,            id: arm }
+  service_bus_namespace:    { sets: [service-bus],              type: Microsoft.ServiceBus/namespaces,                    id: arm }
+  snapshot:                 { sets: [],                         type: Microsoft.Compute/snapshots,                        id: arm }
+  storage_account:          { sets: [storage-account],          type: Microsoft.Storage/storageAccounts,                  id: arm }
+  subnet:                   { sets: [virtual-network], part: addressing.subnets, type: Microsoft.Network/virtualNetworks/subnets, id: arm }
+  subscription:             { sets: [],                                                                                    id: guid }
+  user_assigned_identity:   { sets: [user-assigned-identity],   type: Microsoft.ManagedIdentity/userAssignedIdentities,   id: arm }
+  virtual_network:          { sets: [virtual-network],          type: Microsoft.Network/virtualNetworks,                  id: arm }

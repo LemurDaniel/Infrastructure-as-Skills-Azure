@@ -31,21 +31,13 @@ module's submodule `modules/rule_collection_groups` - wiring, not rendered here.
 
 ### Decision -> module input
 
+What each decision renders to - the input and the literal of every answer - is in
+[render-map.yaml](render-map.yaml); the render digest prints it for a spec.
+
+### Deployment-wide inputs
+
 | Decision | Input | Note |
 |---|---|---|
-| `sku_tier` | firewall `firewall_sku_tier` and policy `firewall_policy_sku` | `Basic` / `Standard` / `Premium`, the same on both; `firewall_sku_name = "AZFW_VNet"` is required and fixed |
-| `zone_redundant` | firewall `firewall_zones`; public IP module `zones` | `["1", "2", "3"]` or `[]`; the module defaults to all three. The public IP module takes `set(number)` |
-| `firewall_subnet` | firewall `firewall_ip_configuration = [{ name, subnet_id, public_ip_address_id }]` | Only the first entry carries the subnet; the others carry just an address |
-| `public_ip_count` | one public IP module call per address, one `firewall_ip_configuration` entry each | `allocation_method = "Static"`, `sku = "Standard"` |
-| `forced_tunneling`, `management_subnet` | firewall `firewall_management_ip_configuration = { name, subnet_id, public_ip_address_id }` | An object, not a list; its own public IP, same zones |
-| `dns_proxy`, `dns_servers` | policy `firewall_policy_dns = { proxy_enabled, servers }` | `servers = null` for Azure-provided DNS |
-| `snat_private_ranges` | policy `firewall_policy_private_ip_ranges` | A list; `IANAPrivateRanges` is the special value. The firewall module has its own `firewall_private_ip_ranges`, which applies when no policy is attached - unused |
-| `threat_intelligence_mode` | policy `firewall_policy_threat_intelligence_mode` | `Off` / `Alert` / `Deny`; module default unset - written |
-| `idps_mode` | policy `firewall_policy_intrusion_detection = { mode }` | Premium only; `null` otherwise |
-| `tls_inspection`, `tls_certificate_secret_id` | policy `firewall_policy_tls_certificate = { name, key_vault_secret_id }` | Premium only |
-| `policy_identity`, `user_assigned_identity_ids` | policy `firewall_policy_identity = { type = "UserAssigned", identity_ids }` | `null` for none |
-| `rule_collection_groups` | policy submodule `modules/rule_collection_groups` | Wiring: filled by the pattern or the platform |
-| `diagnostic_*`, `metrics_enabled` | firewall `diagnostic_settings = { workspace = { workspace_resource_id, log_categories, log_groups = [], metric_categories = ["AllMetrics"], log_analytics_destination_type = "Dedicated" } }` | `log_groups` defaults to `["allLogs"]`, so it is set empty beside the categories |
 | `deployment.module_telemetry` | `enable_telemetry` | On every module |
 | `context.tags` | `tags = local.tags` | |
 
@@ -190,15 +182,5 @@ tested there.
 
 The fallback. Targets `azurerm` **5.x**; check against `terraform providers schema -json`.
 
-| Decision | Argument |
-|---|---|
-| `sku_tier`, `zone_redundant` | `azurerm_firewall.sku_name = "AZFW_VNet"`, `.sku_tier`, `.zones`; `azurerm_firewall_policy.sku` |
-| `firewall_subnet`, `public_ip_count` | `azurerm_firewall.ip_configuration { name, subnet_id, public_ip_address_id }` - the subnet on the first block only; `azurerm_public_ip` with `sku = "Standard"`, `allocation_method = "Static"`, `zones` |
-| `forced_tunneling` | `azurerm_firewall.management_ip_configuration { name, subnet_id, public_ip_address_id }` |
-| `dns_proxy`, `dns_servers` | `azurerm_firewall_policy.dns { proxy_enabled, servers }` |
-| `snat_private_ranges` | `azurerm_firewall_policy.private_ip_ranges` |
-| `threat_intelligence_mode` | `azurerm_firewall_policy.threat_intelligence_mode` |
-| `idps_mode` | `azurerm_firewall_policy.intrusion_detection { mode }` |
-| `tls_inspection` | `azurerm_firewall_policy.tls_certificate { name, key_vault_secret_id }` and `.identity` |
-| `rule_collection_groups` | `azurerm_firewall_policy_rule_collection_group` |
-| diagnostics | `azurerm_monitor_diagnostic_setting` with `enabled_log { category }` and `log_analytics_destination_type = "Dedicated"` |
+What each decision renders to - the argument and the literal of every answer - is in
+[render-map.yaml](render-map.yaml); the render digest prints it for a spec.

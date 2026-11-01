@@ -37,7 +37,6 @@ groups:
         why: >
           Drives the rendered name and the strictness of several defaults below.
           Nothing sensible can be guessed.
-        renders: naming parameter `environment`, and the tag of that name where the repository uses one
 
       - id: location
         ask:
@@ -51,7 +50,6 @@ groups:
         why: >
           Part of the rendered name and not inferable. A vault is regional and its
           soft-deleted state stays in the region.
-        renders: location
 
       - id: resource_group_name
         ask:
@@ -67,7 +65,6 @@ groups:
         why: >
           The vault is placed into an existing group. Creating one here would make this
           set own a lifecycle wider than the resource it describes.
-        renders: resource_group_name (AVM Terraform, azurerm-based) / implicit in Bicep scope
 
   # -------------------------------------------------------------------- vault
   - id: vault
@@ -95,7 +92,6 @@ groups:
         forced_when: >
           deployment.key_protection: hsm forces `premium`, recorded as forced with
           `key_protection` as forced_by
-        renders: sku_name / sku.name (`standard`, `premium`)
 
       - id: purge_protection
         ask:
@@ -119,7 +115,6 @@ groups:
         forced_when: >
           deployment.key_management: customer_managed forces `true`, because a key
           that can be purged takes the data it protects with it
-        renders: purge_protection_enabled / enablePurgeProtection
 
       - id: soft_delete_retention_days
         ask:
@@ -138,7 +133,6 @@ groups:
           a tear-down. A throwaway stage that is torn down often lowers it deliberately,
           which is a recorded departure and not a savings default: it protects against a
           mistake, it does not cost anything.
-        renders: soft_delete_retention_days / softDeleteRetentionInDays
 
       - id: rbac_authorization
         ask:
@@ -151,7 +145,7 @@ groups:
         plain_values:
           true: { en: "role assignments, like everything else in Azure", de: "Rollenzuweisungen, wie alles andere in Azure" }
           false: { en: "the vault's own access list, which sits outside the normal access model", de: "die eigene Zugriffsliste des Tresors, die außerhalb des üblichen Zugriffsmodells liegt" }
-        answer: { deployment: local_auth }
+        answer: { deployment: local_auth, map: { disabled: true, allowed_where_unavoidable: true } }
         why: >
           Inherited: `local_auth: disabled` renders as `true`. Access policies are a second
           permission system per vault that cannot be scoped to one secret, is not visible
@@ -159,9 +153,6 @@ groups:
           to a single secret or key. Both modules default to RBAC; the Terraform module
           expresses it inversely (`legacy_access_policies_enabled = false`). Departing is
           for a consumer that only speaks access policies and is named at this vault.
-        renders: >
-          legacy_access_policies_enabled (inverse; AVM module input) or rbac_authorization_enabled
-          (azurerm) / enableRbacAuthorization
 
   # --------------------------------------------------------------- networking
   - id: networking
@@ -180,7 +171,7 @@ groups:
           enabled_with_firewall: { en: "reachable from the internet only from listed addresses", de: "aus dem Internet nur von gelisteten Adressen erreichbar" }
           enabled: { en: "reachable from the internet", de: "aus dem Internet erreichbar" }
         accepts: [disabled, enabled_with_firewall, enabled]
-        answer: { deployment: network_exposure }
+        answer: { deployment: network_exposure, map: { private: disabled, private_with_exceptions: disabled, public: enabled_with_firewall } }
         why: >
           Asked only as a departure: exposure is a property of the system, the deployment
           set already answered it. `private` is `disabled`, `public` is
@@ -195,9 +186,6 @@ groups:
           deployment's own callers have no fixed outbound address, so a firewall with no
           rule locks them out of this resource - the first dry run (2026-10-24) hit it on
           five resources at once
-        renders: >
-          terraform: public_network_access_enabled (bool) and network_acls (null only for
-          `enabled`); bicep: publicNetworkAccess and networkAcls.defaultAction
 
       - id: private_endpoint_subnet
         ask:
@@ -214,7 +202,6 @@ groups:
         why: >
           One subnet carries the deployment's private endpoints, so this is inherited. The
           vault has exactly one sub-resource, `vault`, so there is no list to choose from.
-        renders: private_endpoints.<key>.subnet_resource_id / privateEndpoints[].subnetResourceId
 
       - id: network_acl_bypass
         ask:
@@ -240,7 +227,6 @@ groups:
         forced_when: >
           deployment.key_management: customer_managed forces `AzureServices` where a
           storage account reaches its key over the trusted-service path
-        renders: network_acls.bypass / networkAcls.bypass
 
       - id: ip_rules
         ask:
@@ -257,7 +243,6 @@ groups:
           An enumerated allowlist with a default action of `Deny`. An empty list denies
           every public caller, which is valid and deliberate. `0.0.0.0/0` is not an
           allowlist and is rejected by the guardrails; a single address takes `/32`.
-        renders: network_acls.ip_rules / networkAcls.ipRules
 
   # ----------------------------------------------------------------- identity
   - id: identity
@@ -284,7 +269,6 @@ groups:
           `Key Vault Administrator` is a departure that names a person. A pattern normally
           fills this from the consumers it knows about, and grants a consumer's role in the
           pattern, not here.
-        renders: role_assignments / roleAssignments
 
   # ----------------------------------------------------------------- security
   - id: security
@@ -312,9 +296,6 @@ groups:
           clearest cases of a module default that is not the guardrail's, which is why
           all three are written explicitly. Raised only for a consumer that genuinely needs
           one, named at this vault.
-        renders: >
-          enabled_for_deployment, enabled_for_disk_encryption, enabled_for_template_deployment /
-          enableVaultForDeployment, enableVaultForDiskEncryption, enableVaultForTemplateDeployment
 
       - id: secret_placeholders
         ask:
@@ -337,9 +318,6 @@ groups:
           does not exist yet (a `secretExists`-style parameter, set by the pipeline).
           Names only, never values. The writer needs `Key Vault Secrets Officer`, which
           belongs in `role_assignments`.
-        renders: >
-          terraform: azurerm_key_vault_secret.value placeholder + ignore_changes;
-          bicep: Microsoft.KeyVault/vaults/secrets, conditional on the secret not existing
 
   # --------------------------------------------------------------------- keys
   - id: keys
@@ -362,7 +340,6 @@ groups:
           Inherited: one answer per system. `customer_managed` is what makes the vault a
           dependency of the others, and pulls in purge protection, the trusted-service
           bypass and the key questions below.
-        renders: whether the keys below are rendered at all
 
       - id: customer_managed_keys
         ask:
@@ -379,7 +356,6 @@ groups:
           revoke the others. The consumer's identity needs wrap and unwrap on the key
           before the consumer exists, which is why the identity is user-assigned and its
           role is granted first. Not asked when the deployment uses platform-managed keys.
-        renders: keys / keys[]
 
       - id: key_type
         ask:
@@ -401,7 +377,6 @@ groups:
           so the type follows from that answer and is not an independent choice.
         forced_when: >
           deployment.key_protection: hsm forces `RSA-HSM` and, through `sku`, `premium`
-        renders: keys.<key>.key_type / keys[].kty
 
       - id: key_size
         ask:
@@ -419,7 +394,6 @@ groups:
           recommended for keys that live for years and costs nothing noticeable; 4096
           slows every wrap operation for no gain a consumer asks for. Fixed at creation -
           a larger key is a rotation to a new key, not an edit.
-        renders: keys.<key>.key_size / keys[].keySize
 
       - id: key_rotation_days
         ask:
@@ -437,7 +411,6 @@ groups:
           interval means no key lives past it, and consumers that follow the key's latest
           version pick the new one up without a change. A consumer pinned to a version
           needs a note, because that is the one that breaks.
-        renders: keys.<key>.rotation_policy.automatic.time_after_creation / keys[].rotationPolicy.lifetimeActions
 
       - id: key_expiry_days
         ask:
@@ -453,7 +426,6 @@ groups:
           The backstop for a rotation that silently stopped: a key version that never
           expires is one nobody notices. Longer than the rotation interval by a wide margin
           so a rotation has time to fail and be noticed before the old version dies.
-        renders: keys.<key>.rotation_policy.expire_after / keys[].rotationPolicy.attributes.expiryTime
 
   # ------------------------------------------------------------ observability
   - id: observability
@@ -475,7 +447,6 @@ groups:
           Inherited: one deployment, one destination. For a vault the audit log is the
           record of who read which secret, which is the reason to have a vault at all;
           without a diagnostic setting there is none.
-        renders: diagnostic_settings / diagnosticSettings
 
       - id: diagnostic_categories
         ask:
@@ -496,7 +467,6 @@ groups:
           is read at startup and on rotation, not per user request. The names are the
           platform's and are checked against the resource's supported categories before a
           render, not remembered.
-        renders: diagnostic_settings.<key>.logs[].category / diagnosticSettings[].logCategoriesAndGroups[].category
 
       - id: metrics_enabled
         ask:
@@ -513,4 +483,3 @@ groups:
         why: >
           Request count, latency and the throttling counter - the last is how a hot loop
           against a vault shows up, because a vault throttles at a fixed request rate.
-        renders: metrics[].category = "AllMetrics" / metricCategories[].category

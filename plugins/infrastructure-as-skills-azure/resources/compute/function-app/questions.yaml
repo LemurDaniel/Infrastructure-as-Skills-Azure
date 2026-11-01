@@ -44,7 +44,6 @@ groups:
         why: >
           Drives the rendered name and the strictness of several defaults below.
           Nothing sensible can be guessed.
-        renders: naming parameter `environment`, and the tag of that name where the repository uses one
 
       - id: location
         ask:
@@ -59,7 +58,6 @@ groups:
           Part of the rendered name. **Flex Consumption is not offered in every region**, and
           neither are zone redundancy and the larger instance sizes, so the region constrains
           the hosting group below - check the region before the interview ends.
-        renders: location (plan and site)
 
       - id: resource_group_name
         ask:
@@ -75,7 +73,6 @@ groups:
         why: >
           The plan and the app are placed into an existing group. Creating one here would make
           this set own a lifecycle wider than the resources it describes.
-        renders: parent_id (AVM Terraform) / resource_group_name / implicit in Bicep scope
 
   # ------------------------------------------------------------------ hosting
   - id: hosting
@@ -103,7 +100,6 @@ groups:
           warm instances whether used or not. The classic Consumption plan (Y1) is left out: it
           has no private networking worth the name. **The plan type is fixed at creation** -
           Linux for Flex, and an app does not move between plan types, it is redeployed.
-        renders: kind and sku (FC1 / EP1..EP3) on the plan, `function_app_uses_fc1` on the module
 
       - id: runtime_stack
         ask:
@@ -131,7 +127,6 @@ groups:
           function app in another language than the application, or when app_runtime is a
           container or PHP. Nobody answering makes it an `open:` entry owned by the workload
           owner, blocking apply.
-        renders: fc1_runtime_name / functionAppConfig.runtime.name (and linuxFxVersion for Premium)
 
       - id: runtime_version
         ask:
@@ -148,7 +143,6 @@ groups:
           runtimes, and a retired one stops receiving security patches before it stops running.
           The spelling differs by stack and plan and is looked up in the platform's current
           list at render time, not remembered.
-        renders: fc1_runtime_version / functionAppConfig.runtime.version
 
       - id: zone_redundant
         ask:
@@ -175,7 +169,6 @@ groups:
           stages take `false` while non_production_savings is enabled.
         forced_when: >
           `true` on Elastic Premium forces at least 2 always-ready instances
-        renders: zone_redundant on the plan (zone_balancing_enabled / zoneRedundant)
 
       - id: max_instance_count
         ask:
@@ -192,7 +185,6 @@ groups:
           a measurement, and the real ceiling is the downstream system's. The platform's own
           maximum is far higher, and Flex bills per execution, so an unbounded function is an
           unbounded bill.
-        renders: maximum_instance_count / scaleAndConcurrency.maximumInstanceCount
 
       - id: always_ready_instances
         ask:
@@ -215,7 +207,6 @@ groups:
         forced_when: >
           On Elastic Premium this is the plan's minimum instance count, and zone redundancy
           forces at least 2
-        renders: always_ready / scaleAndConcurrency.alwaysReady (Flex), worker_count / skuCapacity (Premium)
 
       - id: instance_memory_mb
         ask:
@@ -232,7 +223,6 @@ groups:
           Flex Consumption bills memory-seconds, so the size is the cost per execution: 2 GB is
           the smaller and cheaper, and the module default. 4 GB for a function that holds data in
           memory. An instance that runs out restarts, which looks like a flaky trigger.
-        renders: instance_memory_in_mb / scaleAndConcurrency.instanceMemoryMB
 
   # ------------------------------------------------------------------ storage
   - id: storage
@@ -257,7 +247,6 @@ groups:
           app. A storage account of its own for the host is the usual answer; the storage set
           decides it, with shared-key access off and the account reachable from the app's network.
           The account must exist and be reachable before the app is created.
-        renders: storage_account_name / AzureWebJobsStorage__accountName and the deployment storage
 
       - id: host_storage_auth
         ask:
@@ -269,11 +258,11 @@ groups:
           de: "Die Function App meldet sich an ihrem Speicher an mit {value}."
         plain_values:
           identity: { en: "its managed identity, with no secret stored", de: "ihrer verwalteten Identität, ohne gespeichertes Geheimnis" }
-          connection_string: { en: "a connection string holding the storage key", de: "einer Verbindungszeichenfolge mit dem Speicherschlüssel" }
-        accepts: [identity, connection_string]
-        answer: { deployment: local_auth }
+        accepts: [identity]
+        default: identity
         why: >
-          Inherited: `local_auth: disabled` renders as `identity`. A storage key in an app
+          The identity, always: a connection string is not offered, and neither rendering
+          reference writes one - `local_auth: allowed_where_unavoidable` does not reach it. A storage key in an app
           setting is a long-lived secret with full access to the account, visible to anyone with
           read on the app, and it cannot work against an account whose shared-key access is
           off - which the storage set turns off by default. **There are two connections on
@@ -281,9 +270,6 @@ groups:
           that reads the deployment package (`storage_authentication_type`). The identity needs
           `Storage Blob Data Owner` on the account, and `Storage Table Data Contributor` if the
           host is to write diagnostic events, before the app starts.
-        renders: >
-          terraform: storage_uses_managed_identity and storage_authentication_type;
-          bicep: AzureWebJobsStorage__accountName and functionAppConfig.deployment.storage.authentication
 
       - id: deployment_container
         ask:
@@ -300,7 +286,6 @@ groups:
           from a file share. The container is created by the storage set, and the app's
           identity needs blob data rights on it. The default is the platform's naming; a second
           function app on the same account takes a different name.
-        renders: storage_container_endpoint / functionAppConfig.deployment.storage.value
 
   # --------------------------------------------------------------- networking
   - id: networking
@@ -319,7 +304,7 @@ groups:
           enabled_with_firewall: { en: "reachable from the internet only from listed addresses", de: "aus dem Internet nur von gelisteten Adressen erreichbar" }
           enabled: { en: "reachable from the internet", de: "aus dem Internet erreichbar" }
         accepts: [disabled, enabled_with_firewall, enabled]
-        answer: { deployment: network_exposure }
+        answer: { deployment: network_exposure, map: { private: disabled, private_with_exceptions: disabled, public: enabled_with_firewall } }
         why: >
           Asked only as a departure: exposure is a property of the system. `private` is
           `disabled`, `public` is `enabled_with_firewall`. A function with an HTTP trigger is
@@ -333,9 +318,6 @@ groups:
           deployment's own callers have no fixed outbound address, so a firewall with no
           rule locks them out of this resource - the first dry run (2026-10-24) hit it on
           five resources at once
-        renders: >
-          terraform: public_network_access_enabled and site_config.ip_restriction_default_action;
-          bicep: publicNetworkAccess and siteConfig.ipSecurityRestrictionsDefaultAction
 
       - id: private_endpoint_subnet
         ask:
@@ -352,7 +334,6 @@ groups:
         why: >
           One subnet carries the deployment's private endpoints, so this is inherited. The app
           has exactly one sub-resource, `sites`.
-        renders: private_endpoints.<key>.subnet_resource_id / privateEndpoints[].subnetResourceId
 
       - id: vnet_integration
         ask:
@@ -375,8 +356,6 @@ groups:
           private storage, and `network_ownership: none` forces it.
         forced_when: >
           network_ownership: none (deployment) forces `false` - there is no subnet to integrate into
-        renders: >
-          terraform: virtual_network_subnet_id; bicep: virtualNetworkSubnetResourceId
 
       - id: integration_subnet
         ask:
@@ -402,8 +381,6 @@ groups:
         forced_when: >
           network_ownership: create - the created network's subnet, recorded as forced with the
           network as forced_by
-        renders: >
-          terraform: virtual_network_subnet_id; bicep: virtualNetworkSubnetResourceId
 
       - id: vnet_route_all
         ask:
@@ -424,8 +401,6 @@ groups:
           for exactly this. It also decides whose DNS the app uses - the VNet's, which resolves
           private endpoints. True means the egress goes through whatever the subnet's route table
           says, and a function that calls a public API needs that path allowed.
-        renders: >
-          terraform: vnet_route_all_traffic; bicep: outboundVnetRouting.allTraffic
 
       - id: ip_restrictions
         ask:
@@ -441,8 +416,6 @@ groups:
         why: >
           An enumerated allowlist with a default action of Deny, applied to the Kudu/SCM site as
           well. `0.0.0.0/0` is not an allowlist and is rejected by the guardrails.
-        renders: >
-          site_config.ip_restriction / siteConfig.ipSecurityRestrictions and the SCM equivalents
 
   # ----------------------------------------------------------------- identity
   - id: identity
@@ -470,7 +443,6 @@ groups:
           identity. A user-assigned identity with its roles granted first is the order that works,
           and the one that gives a Key Vault reference its role. `none` is not offered: an app
           with identity-based storage has one by definition.
-        renders: managed_identities / managedIdentities, and key_vault_reference_identity
 
       - id: user_assigned_identity_ids
         ask:
@@ -487,7 +459,6 @@ groups:
         why: >
           The identity must already exist and hold its roles on the host storage; this set does
           not create it or grant them.
-        renders: managed_identities.user_assigned_resource_ids / managedIdentities.userAssignedResourceIds
 
       - id: role_assignments
         ask:
@@ -502,7 +473,6 @@ groups:
         why: >
           Azure RBAC on the app - the control plane. Usually the deploying principal's alone, so
           empty is a normal answer.
-        renders: role_assignments / roleAssignments
 
   # ----------------------------------------------------------------- security
   - id: security
@@ -524,7 +494,6 @@ groups:
           No current reason to serve HTTP, and the redirect is free. A question only so that a
           departure is recorded rather than silently impossible. The module default is already
           true; written anyway.
-        renders: https_only / httpsOnly
 
       - id: min_tls_version
         ask:
@@ -543,7 +512,6 @@ groups:
           1.2 is the floor and non-negotiable; 1.3 is preferable where every client supports it,
           but an unsupported floor fails as an opaque connection reset, so raise it deliberately.
           The AVM Terraform module's default is 1.3, which is why it is written on the call.
-        renders: site_config.minimum_tls_version / siteConfig.minTlsVersion
 
       - id: basic_auth_enabled
         ask:
@@ -556,16 +524,13 @@ groups:
         plain_values:
           true: { en: "possible", de: "möglich" }
           false: { en: "not possible", de: "nicht möglich" }
-        answer: { deployment: local_auth }
+        answer: { deployment: local_auth, map: { disabled: false, allowed_where_unavoidable: false } }
         why: >
           Inherited: `local_auth: disabled` renders as `false`. The publishing profile is a
           shared password for the Kudu site and FTP, does not expire and is not attributable.
           Two switches (FTP and SCM) and both are written; the AVM Terraform module's SCM default
           is true. Flex Consumption deploys through the storage container and has no
           publishing profile to switch, which the render confirms against the platform.
-        renders: >
-          terraform: ftp_publish_basic_authentication_enabled and
-          scm_publish_basic_authentication_enabled; bicep: basicPublishingCredentialsPolicies
 
       - id: application_insights
         ask:
@@ -592,7 +557,6 @@ groups:
           component - infrastructure, always rendered. The
           component is workspace-based, and the connection string - not the instrumentation key -
           is the setting, because the key is being retired.
-        renders: application_insights_connection_string and app_settings.APPLICATIONINSIGHTS_AUTHENTICATION_STRING / both settings
 
   # ------------------------------------------------------------ observability
   - id: observability
@@ -614,7 +578,6 @@ groups:
           Inherited: one deployment, one destination. A function with no diagnostic setting
           writes its logs to a file on the instance, which is gone when the instance is
           replaced - and on Flex, instances are replaced all the time.
-        renders: diagnostic_settings / diagnosticSettings (site and plan)
 
       - id: diagnostic_categories
         ask:
@@ -636,7 +599,6 @@ groups:
           are a choice, not a default. The category names are the platform's and are checked
           against `az monitor diagnostic-settings categories list --resource <app id>` before a
           render, not remembered; on Flex they can differ from Premium.
-        renders: diagnostic_settings.<key>.logs[].category / diagnosticSettings[].logCategoriesAndGroups[].category
 
       - id: metrics_enabled
         ask:
@@ -653,4 +615,3 @@ groups:
         why: >
           Execution count, units and instance count are what the cost of a function is read from,
           and what decides whether the instance bounds above were right.
-        renders: metrics[].category = "AllMetrics" / metricCategories[].category

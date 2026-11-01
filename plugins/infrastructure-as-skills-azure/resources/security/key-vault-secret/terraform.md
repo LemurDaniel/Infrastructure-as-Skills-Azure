@@ -20,14 +20,13 @@ has no guard for a value somebody else set; a placeholder is rendered authored (
 
 ### Decision -> module input
 
+What each decision renders to - the input and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.
+
+### Inputs no decision covers
+
 | Decision | Input | Note |
 |---|---|---|
-| `key_vault` | `key_vault_resource_id` | The vault module's `resource_id` |
 | name | `name` | |
-| `content_type` | `content_type` | |
-| `expiry_days` | `expiration_date` | A UTC datetime (`2026-11-01T00:00:00Z`) computed once from `time_offset` - see below |
-| `value_source: secure_input` | `value_wo` + `value_wo_version` | **Write-only and ephemeral**: the root variable is `ephemeral = true`. `value` (stored in state) is not used. Raise `value_wo_version` to write a new version |
-| `role_assignments` | `role_assignments = { <k> = { role_definition_id_or_name, principal_id, principal_type } }` | Scoped to the secret's versionless id |
 | `context.tags` | `tags` | `map(string)` |
 
 ### The call - a secure input
@@ -123,13 +122,7 @@ read from the code and not from a plan; the write-only value is never in the pla
 The fallback - `implementation: authored`, a root on `azurerm` **5.x**, or a repository that renders
 secrets this way. Checked against `terraform providers schema -json` (5.11.0).
 
-| Decision | Argument on `azurerm_key_vault_secret` |
-|---|---|
-| `content_type` | `content_type` |
-| `expiry_days` | `expiration_date` |
-| `value_source: secure_input` | `value_wo` + `value_wo_version` (ephemeral input) |
-| `value_source: placeholder` | `value` as above, with `lifecycle { ignore_changes = [value, tags, expiration_date] }` |
-| `role_assignments` | `azurerm_role_assignment`, `scope = ...resource_versionless_id` |
+What each decision renders to - the argument and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.
 
 The placeholder block above is already the authored form, and is the one used with the AVM module
 for the vault.

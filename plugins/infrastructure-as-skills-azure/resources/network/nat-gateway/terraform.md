@@ -18,17 +18,13 @@ union with the other modules.
 
 ### Decision -> module input
 
+What each decision renders to - the input and the literal of every answer - is in
+[render-map.yaml](render-map.yaml); the render digest prints it for a spec.
+
+### Deployment-wide inputs
+
 | Decision | Input | Note |
 |---|---|---|
-| `sku` | `sku_name` | **Module default is `StandardV2`**, the Bicep module's `Standard`: written on every call |
-| `zone` | `zones = ["1"]` for `Standard`; `null` for `none` | Ignored by the module for `StandardV2`, which is always `["1", "2", "3"]` |
-| `public_ip_source: with_gateway`, `public_ip_count` | `public_ips = { ip_1 = { name }, ... }` and `public_ip_configuration` with the **same keys** | 1 to 16 entries; the names come from the naming provider's `at_index`. Keys must match between the two inputs |
-| the addresses' SKU, allocation, zones | `public_ip_configuration.<k> = { sku, allocation_method = "Static", zones }` | `sku` equal to `sku_name`; module default `StandardV2` for both. `zones` are **strings** here, unlike the public IP module's numbers |
-| `public_ip_source: separate` | `public_ip_resource_ids` | The ids from the `public-ip-address` set (`purpose: nat_gateway`) |
-| `public_ip_prefix_ids` | `public_ip_prefix_resource_ids` | IPv4 only |
-| `idle_timeout_minutes` | `idle_timeout_in_minutes` | The gateway's; the addresses' own `idle_timeout_in_minutes` (default 30) is not used for NAT traffic |
-| `subnets` | not an input here | The association is the virtual-network set's `subnets.<k>.nat_gateway = { id = module.nat_gateway.resource_id }` |
-| `diagnostic_workspace`, `metrics_enabled` | `diagnostic_settings = { workspace = { workspace_resource_id, metrics = [{ category = "AllMetrics" }] } }` | The object form (`logs`, `metrics`), not the category-set form; no logs for a NAT gateway |
 | `deployment.module_telemetry` | `enable_telemetry` | |
 | `context.tags` | `tags = local.tags` | |
 
@@ -158,11 +154,7 @@ run "gateway" {
 
 The fallback. Targets `azurerm` **5.x**; check against `terraform providers schema -json`.
 
-| Decision | Resource |
-|---|---|
-| the gateway, `sku`, `zone`, `idle_timeout_minutes` | `azurerm_nat_gateway` (`sku_name`, `zones`, `idle_timeout_in_minutes`) |
-| the addresses | `azurerm_public_ip` (see the `public-ip-address` set) + `azurerm_nat_gateway_public_ip_association`; a prefix with `azurerm_nat_gateway_public_ip_prefix_association` |
-| `subnets` | `azurerm_subnet_nat_gateway_association` - the subnet has no argument for it, so this is the one form |
-| diagnostics | `azurerm_monitor_diagnostic_setting` with `enabled_metric { category }` |
+What each decision renders to - the argument and the literal of every answer - is in
+[render-map.yaml](render-map.yaml); the render digest prints it for a spec.
 
 Validated against `azurerm` 5.x (gateway and associations).

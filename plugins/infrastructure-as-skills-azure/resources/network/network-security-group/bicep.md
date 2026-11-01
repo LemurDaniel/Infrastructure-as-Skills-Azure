@@ -18,13 +18,13 @@ Resolve the current version and re-read the README parameters before rendering, 
 
 ### Decision -> module parameter
 
+What each decision renders to - the parameter and the literal of every answer - is in
+[render-map.yaml](render-map.yaml); the render digest prints it for a spec.
+
+### Parameters no decision covers
+
 | Decision | Parameter | Note |
 |---|---|---|
-| `subnet_purpose` | the name `nsg-<purpose>`, and the baseline rules | See `notes.md` |
-| `default_inbound` | `securityRules` entry: `properties: { access: 'Deny', direction: 'Inbound', priority: 4096, ... }` | Written as a rule |
-| `default_outbound` | `securityRules` entry: Deny, Outbound, `destinationAddressPrefix: 'Internet'`, priority 4096 | Only for `deny_internet` |
-| `rules` | `securityRules: [ { name, properties: { priority, direction, access: 'Allow', protocol, sourceAddressPrefix, destinationPortRange, ... } } ]` | |
-| `diagnostic_*` | `diagnosticSettings: [ { workspaceResourceId, logCategoriesAndGroups: [ { category } ] } ]` | No metrics for an NSG |
 | (flow re-evaluation) | `flushConnection` | Default `false`; left, with its prerequisites in `notes.md` |
 | `deployment.module_telemetry` | `enableTelemetry` | |
 | `context.tags` | `tags` | |
@@ -82,7 +82,7 @@ Parameter and output spellings are read from the README of the pinned version. T
 ### Tests
 
 A module call compiles to a nested deployment whose `properties.parameters.<param>.value` is
-the decision, so every decision above is observable in `tests/*.armtest.yaml`
+the decision, so every decision in render-map.yaml is observable in `tests/*.armtest.yaml`
 ([bicep-idiom.md](../../../core/iac-rendering/references/bicep-idiom.md#tests)): the deny rule
 at 4096, every custom rule `Allow`, priorities unique.
 

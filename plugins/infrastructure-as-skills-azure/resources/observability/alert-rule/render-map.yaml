@@ -1,0 +1,358 @@
+# What each decision of questions.yaml renders to, per target and implementation.
+# Format: core/iac-rendering/references/render-map.md. The calls, the authored blocks and the
+# tests are in terraform.md and bicep.md.
+# rule.kind picks the module or resource: Terraform has a module for activity_log only (metric
+# and log_query are Proposed and render authored - their terraform_avm entries are gaps);
+# Bicep has one module per kind. An entry whose spelling differs by kind is a by_kind map.
+schema_version: 1
+resource: Microsoft.Insights/metricAlerts
+
+kinds: { question: rule.kind }
+
+modules:
+  terraform: [Azure/avm-res-insights-activitylogalert/azurerm]
+  bicep: [avm/res/insights/activity-log-alert, avm/res/insights/metric-alert, avm/res/insights/scheduled-query-rule]
+
+decisions:
+
+  # ---------------------------------------------------------------- placement
+  placement.environments:
+    not_rendered: naming parameter `environment`; no attribute of the rule
+  placement.location:
+    terraform_avm:
+      by_kind:
+        metric: { gap: no Terraform module for metric alerts (Proposed); rendered by the authored azurerm_monitor_metric_alert }
+        log_query: { gap: no Terraform module for scheduled query rules (Proposed); rendered by the authored azurerm_monitor_scheduled_query_rules_alert_v2 }
+        activity_log:
+          attribute: location
+          passthrough: true
+          note: 'telemetry only; resource_location = "global" beside it places the alert'
+    terraform:
+      by_kind:
+        metric: { gap: azurerm_monitor_metric_alert takes no location - a global resource }
+        log_query: { attribute: location, passthrough: true, note: the workspace's region }
+        activity_log: { gap: 'the fallback writes the literal location = "global" (required in 5.x), not the answer' }
+    bicep_avm:
+      by_kind:
+        metric: { module: avm/res/insights/metric-alert, gap: "the literal location: 'global' (module default 'global'), not the answer" }
+        log_query: { module: avm/res/insights/scheduled-query-rule, attribute: location, passthrough: true, note: the region; module default resourceGroup().location }
+        activity_log: { module: avm/res/insights/activity-log-alert, gap: "the literal location: 'global', not the answer" }
+    bicep:
+      by_kind:
+        metric: { gap: "the literal location: 'global', not the answer" }
+        log_query: { attribute: location, passthrough: true, note: the region }
+        activity_log: { gap: "the literal location: 'global', not the answer" }
+  placement.resource_group_name:
+    terraform_avm:
+      attribute: parent_id
+      note: the group's id, not its name - AzAPI-only module
+    terraform: { attribute: resource_group_name }
+    bicep_avm: { gap: the deployment's resource group scope; no parameter }
+    bicep: { gap: the deployment's resource group scope; no property }
+
+  # --------------------------------------------------------------------- rule
+  rule.kind:
+    not_rendered: picks the module or resource type (metricAlerts, scheduledQueryRules, activityLogAlerts) and the naming identifier; no attribute
+  rule.action_group:
+    terraform_avm:
+      by_kind:
+        metric: { gap: no Terraform module for metric alerts (Proposed); rendered by the authored azurerm_monitor_metric_alert }
+        log_query: { gap: no Terraform module for scheduled query rules (Proposed); rendered by the authored azurerm_monitor_scheduled_query_rules_alert_v2 }
+        activity_log: { attribute: 'action_groups = { <key> = { action_group_id } }' }
+    terraform:
+      by_kind:
+        metric: { attribute: 'action { action_group_id }' }
+        log_query: { attribute: 'action { action_groups = [...] }' }
+        activity_log: { attribute: 'action { action_group_id }' }
+    bicep_avm:
+      by_kind:
+        metric: { module: avm/res/insights/metric-alert, attribute: 'actions: [ <id> ] (strings)' }
+        log_query: { module: avm/res/insights/scheduled-query-rule, attribute: 'actions: { actionGroupResourceIds: [ <id> ] }' }
+        activity_log: { module: avm/res/insights/activity-log-alert, attribute: 'actions: [ { actionGroupId } ]' }
+    bicep:
+      by_kind:
+        metric: { attribute: 'properties.actions[].actionGroupId' }
+        log_query: { attribute: 'properties.actions.actionGroups[]' }
+        activity_log: { attribute: 'properties.actions.actionGroups[].actionGroupId' }
+  rule.severity:
+    terraform_avm: { gap: activity log alerts carry no severity; metric and log_query render authored }
+    terraform:
+      by_kind:
+        metric: { attribute: severity, passthrough: true, note: provider default 3 - written }
+        log_query: { attribute: severity, passthrough: true, note: required }
+        activity_log: { gap: activity log alerts carry no severity }
+    bicep_avm:
+      by_kind:
+        metric: { module: avm/res/insights/metric-alert, attribute: severity, passthrough: true, note: module default 3 - written }
+        log_query: { module: avm/res/insights/scheduled-query-rule, attribute: severity, passthrough: true, note: module default 3 - written }
+        activity_log: { module: avm/res/insights/activity-log-alert, gap: activity log alerts carry no severity }
+    bicep:
+      by_kind:
+        metric: { attribute: properties.severity, passthrough: true }
+        log_query: { attribute: properties.severity, passthrough: true }
+        activity_log: { gap: activity log alerts carry no severity }
+  rule.enabled:
+    terraform_avm:
+      by_kind:
+        metric: { gap: no Terraform module for metric alerts (Proposed); rendered by the authored azurerm_monitor_metric_alert }
+        log_query: { gap: no Terraform module for scheduled query rules (Proposed); rendered by the authored azurerm_monitor_scheduled_query_rules_alert_v2 }
+        activity_log: { attribute: enabled, passthrough: true }
+    terraform: { attribute: enabled, passthrough: true }
+    bicep_avm: { attribute: enabled, passthrough: true, note: the same parameter on all three modules }
+    bicep: { attribute: properties.enabled, passthrough: true }
+  rule.auto_mitigate:
+    terraform_avm:
+      by_kind:
+        metric: { gap: no Terraform module for metric alerts (Proposed); rendered by the authored azurerm_monitor_metric_alert }
+        log_query: { gap: no Terraform module for scheduled query rules (Proposed); rendered by the authored azurerm_monitor_scheduled_query_rules_alert_v2 }
+        activity_log: { gap: activity log alerts carry no auto-mitigation }
+    terraform:
+      by_kind:
+        metric: { attribute: auto_mitigate, passthrough: true, note: refused together with a mute duration }
+        log_query: { attribute: auto_mitigation_enabled, passthrough: true, note: refused together with a mute duration }
+        activity_log: { gap: activity log alerts carry no auto-mitigation }
+    bicep_avm:
+      by_kind:
+        metric: { module: avm/res/insights/metric-alert, attribute: autoMitigate, passthrough: true, note: refused together with muteActionsDuration }
+        log_query: { module: avm/res/insights/scheduled-query-rule, attribute: autoMitigate, passthrough: true, note: refused together with muteActionsDuration }
+        activity_log: { module: avm/res/insights/activity-log-alert, gap: activity log alerts carry no auto-mitigation }
+    bicep:
+      by_kind:
+        metric: { attribute: properties.autoMitigate, passthrough: true }
+        log_query: { attribute: properties.autoMitigate, passthrough: true }
+        activity_log: { gap: activity log alerts carry no auto-mitigation }
+
+  # ------------------------------------------------------------------- metric
+  metric.scopes:
+    terraform_avm: { gap: no Terraform module for metric alerts (Proposed); rendered by the authored azurerm_monitor_metric_alert }
+    terraform:
+      attribute: scopes, target_resource_type, target_resource_location
+      note: type and region read off the ids
+    bicep_avm:
+      attribute: scopes, targetResourceType, targetResourceRegion
+      module: avm/res/insights/metric-alert
+      note: module default scope is the subscription - always write it
+    bicep: { attribute: 'properties.scopes, properties.targetResourceType, properties.targetResourceRegion' }
+  metric.metric_name:
+    terraform_avm: { gap: no Terraform module for metric alerts (Proposed); rendered by the authored azurerm_monitor_metric_alert }
+    terraform:
+      attribute: criteria.metric_name
+      passthrough: true
+      note: criteria.metric_namespace beside it is the scope's type; dynamic_criteria.metric_name in dynamic mode
+    bicep_avm:
+      attribute: 'criteria.allof[].metricName'
+      passthrough: true
+      module: avm/res/insights/metric-alert
+      note: metricNamespace beside it; criteria is an untyped object - a misspelt key compiles
+    bicep: { attribute: 'properties.criteria.allOf[].metricName', passthrough: true }
+  metric.aggregation:
+    terraform_avm: { gap: no Terraform module for metric alerts (Proposed); rendered by the authored azurerm_monitor_metric_alert }
+    terraform: { attribute: criteria.aggregation, passthrough: true, note: dynamic_criteria.aggregation in dynamic mode }
+    bicep_avm: { attribute: 'criteria.allof[].timeAggregation', passthrough: true, module: avm/res/insights/metric-alert }
+    bicep: { attribute: 'properties.criteria.allOf[].timeAggregation', passthrough: true }
+  metric.operator:
+    terraform_avm: { gap: no Terraform module for metric alerts (Proposed); rendered by the authored azurerm_monitor_metric_alert }
+    terraform: { attribute: criteria.operator, passthrough: true, note: dynamic_criteria.operator in dynamic mode }
+    bicep_avm: { attribute: 'criteria.allof[].operator', passthrough: true, module: avm/res/insights/metric-alert }
+    bicep: { attribute: 'properties.criteria.allOf[].operator', passthrough: true }
+  metric.threshold_mode:
+    terraform_avm: { gap: no Terraform module for metric alerts (Proposed); rendered by the authored azurerm_monitor_metric_alert }
+    terraform:
+      gap: 'a block switch, no attribute: static renders the criteria block, dynamic a dynamic_criteria { metric_namespace, metric_name, aggregation, operator, alert_sensitivity } block instead'
+    bicep_avm:
+      attribute: 'criteria.allof[].criterionType'
+      values: { static: StaticThresholdCriterion, dynamic: DynamicThresholdCriterion }
+      also:
+        static: "'odata.type': 'Microsoft.Azure.Monitor.MultipleResourceMultipleMetricCriteria'"
+        dynamic: "'odata.type': 'Microsoft.Azure.Monitor.MultipleResourceMultipleMetricCriteria'"
+      module: avm/res/insights/metric-alert
+      note: dynamic also takes alertSensitivity and failingPeriods
+    bicep:
+      attribute: 'properties.criteria.allOf[].criterionType'
+      values: { static: StaticThresholdCriterion, dynamic: DynamicThresholdCriterion }
+      also:
+        static: "'odata.type': 'Microsoft.Azure.Monitor.MultipleResourceMultipleMetricCriteria'"
+        dynamic: "'odata.type': 'Microsoft.Azure.Monitor.MultipleResourceMultipleMetricCriteria'"
+      note: on properties.criteria; dynamic also takes alertSensitivity and failingPeriods
+  metric.threshold:
+    terraform_avm: { gap: no Terraform module for metric alerts (Proposed); rendered by the authored azurerm_monitor_metric_alert }
+    terraform: { attribute: criteria.threshold, passthrough: true }
+    bicep_avm: { attribute: 'criteria.allof[].threshold', passthrough: true, module: avm/res/insights/metric-alert }
+    bicep: { attribute: 'properties.criteria.allOf[].threshold', passthrough: true }
+  metric.dynamic_sensitivity:
+    terraform_avm: { gap: no Terraform module for metric alerts (Proposed); rendered by the authored azurerm_monitor_metric_alert }
+    terraform: { attribute: dynamic_criteria.alert_sensitivity, passthrough: true }
+    bicep_avm: { attribute: 'criteria.allof[].alertSensitivity', passthrough: true, module: avm/res/insights/metric-alert }
+    bicep: { attribute: 'properties.criteria.allOf[].alertSensitivity', passthrough: true }
+  metric.window_size:
+    terraform_avm: { gap: no Terraform module for metric alerts (Proposed); rendered by the authored azurerm_monitor_metric_alert }
+    terraform: { attribute: window_size, passthrough: true }
+    bicep_avm: { attribute: windowSize, passthrough: true, module: avm/res/insights/metric-alert, note: module default PT15M - written }
+    bicep: { attribute: properties.windowSize, passthrough: true }
+  metric.frequency:
+    terraform_avm: { gap: no Terraform module for metric alerts (Proposed); rendered by the authored azurerm_monitor_metric_alert }
+    terraform: { attribute: frequency, passthrough: true }
+    bicep_avm: { attribute: evaluationFrequency, passthrough: true, module: avm/res/insights/metric-alert }
+    bicep: { attribute: properties.evaluationFrequency, passthrough: true }
+  metric.dimensions:
+    terraform_avm: { gap: no Terraform module for metric alerts (Proposed); rendered by the authored azurerm_monitor_metric_alert }
+    terraform: { attribute: 'criteria.dimension { name, operator, values }' }
+    bicep_avm: { attribute: 'criteria.allof[].dimensions', module: avm/res/insights/metric-alert }
+    bicep: { attribute: 'properties.criteria.allOf[].dimensions' }
+
+  # ---------------------------------------------------------------- log_query
+  log_query.workspace:
+    terraform_avm: { gap: no Terraform module for scheduled query rules (Proposed); rendered by the authored azurerm_monitor_scheduled_query_rules_alert_v2 }
+    terraform: { attribute: scopes, note: '[workspace id]' }
+    bicep_avm: { attribute: scopes, module: avm/res/insights/scheduled-query-rule, note: '[workspace id]' }
+    bicep: { attribute: properties.scopes, note: '[workspace id]' }
+  log_query.query_file:
+    terraform_avm: { gap: no Terraform module for scheduled query rules (Proposed); rendered by the authored azurerm_monitor_scheduled_query_rules_alert_v2 }
+    terraform:
+      attribute: criteria.query
+      format: { expr: 'file(join("/", [path.module, "{value}"]))' }
+      note: content loaded from the file, never the path and never inline
+    bicep_avm:
+      attribute: 'criterias.allOf[].query'
+      format: { expr: "loadTextContent('{value}')" }
+      module: avm/res/insights/scheduled-query-rule
+      note: inlines the file's content; criterias is untyped - a misspelt key compiles
+    bicep:
+      attribute: 'properties.criteria.allOf[].query'
+      format: { expr: "loadTextContent('{value}')" }
+      note: content, never the path
+  log_query.time_aggregation:
+    terraform_avm: { gap: no Terraform module for scheduled query rules (Proposed); rendered by the authored azurerm_monitor_scheduled_query_rules_alert_v2 }
+    terraform: { attribute: criteria.time_aggregation_method, passthrough: true, note: metric_measure_column beside it for anything but Count }
+    bicep_avm:
+      attribute: 'criterias.allOf[].timeAggregation'
+      passthrough: true
+      module: avm/res/insights/scheduled-query-rule
+      note: metricMeasureColumn beside it for anything but Count
+    bicep: { attribute: 'properties.criteria.allOf[].timeAggregation', passthrough: true }
+  log_query.log_operator:
+    terraform_avm: { gap: no Terraform module for scheduled query rules (Proposed); rendered by the authored azurerm_monitor_scheduled_query_rules_alert_v2 }
+    terraform: { attribute: criteria.operator, passthrough: true }
+    bicep_avm: { attribute: 'criterias.allOf[].operator', passthrough: true, module: avm/res/insights/scheduled-query-rule }
+    bicep: { attribute: 'properties.criteria.allOf[].operator', passthrough: true }
+  log_query.log_threshold:
+    terraform_avm: { gap: no Terraform module for scheduled query rules (Proposed); rendered by the authored azurerm_monitor_scheduled_query_rules_alert_v2 }
+    terraform: { attribute: criteria.threshold, passthrough: true }
+    bicep_avm: { attribute: 'criterias.allOf[].threshold', passthrough: true, module: avm/res/insights/scheduled-query-rule, note: failingPeriods beside it }
+    bicep: { attribute: 'properties.criteria.allOf[].threshold', passthrough: true }
+  log_query.evaluation_frequency:
+    terraform_avm: { gap: no Terraform module for scheduled query rules (Proposed); rendered by the authored azurerm_monitor_scheduled_query_rules_alert_v2 }
+    terraform: { attribute: evaluation_frequency, passthrough: true }
+    bicep_avm: { attribute: evaluationFrequency, passthrough: true, module: avm/res/insights/scheduled-query-rule }
+    bicep: { attribute: properties.evaluationFrequency, passthrough: true }
+  log_query.window_duration:
+    terraform_avm: { gap: no Terraform module for scheduled query rules (Proposed); rendered by the authored azurerm_monitor_scheduled_query_rules_alert_v2 }
+    terraform: { attribute: window_duration, passthrough: true }
+    bicep_avm: { attribute: windowSize, passthrough: true, module: avm/res/insights/scheduled-query-rule, note: "required for kind: 'LogAlert'" }
+    bicep: { attribute: properties.windowSize, passthrough: true }
+  log_query.mute_actions_duration:
+    terraform_avm: { gap: no Terraform module for scheduled query rules (Proposed); rendered by the authored azurerm_monitor_scheduled_query_rules_alert_v2 }
+    terraform:
+      attribute: mute_actions_after_alert_duration
+      values: { none: { expr: 'null' }, PT30M: PT30M, PT1H: PT1H, PT6H: PT6H, P1D: P1D }
+      note: the reference writes none as an explicit null
+    bicep_avm:
+      attribute: muteActionsDuration
+      values: { none: null, PT30M: PT30M, PT1H: PT1H, PT6H: PT6H, P1D: P1D }
+      module: avm/res/insights/scheduled-query-rule
+      note: none leaves the parameter out
+    bicep:
+      attribute: properties.muteActionsDuration
+      values: { none: null, PT30M: PT30M, PT1H: PT1H, PT6H: PT6H, P1D: P1D }
+      note: none leaves the property out
+
+  # ------------------------------------------------------------- activity_log
+  activity_log.category:
+    terraform_avm:
+      attribute: 'condition.all_of[].equals'
+      passthrough: true
+      note: 'the leaf { field = "category", equals = <value> }; scopes = ["/subscriptions/<id>"], the stage''s subscription'
+    terraform: { attribute: criteria.category, passthrough: true }
+    bicep_avm:
+      attribute: 'conditions[].equals'
+      passthrough: true
+      module: avm/res/insights/activity-log-alert
+      note: "the leaf { field: 'category', equals: <value> }; scopes: [ subscription().id ]"
+    bicep:
+      attribute: 'properties.condition.allOf[].equals'
+      passthrough: true
+      note: "the leaf { field: 'category', equals: <value> }; scopes: the subscription"
+  activity_log.service_health_event_types:
+    terraform_avm: { attribute: 'condition.all_of[].any_of[] = { field = "properties.incidentType", equals = <each> }' }
+    terraform: { attribute: criteria.service_health.events }
+    bicep_avm:
+      attribute: "conditions[].anyOf[] = { field: 'properties.incidentType', equals: <each> }"
+      module: avm/res/insights/activity-log-alert
+    bicep: { attribute: "properties.condition.allOf[].anyOf[] = { field: 'properties.incidentType', equals: <each> }" }
+  activity_log.impacted_regions:
+    terraform_avm:
+      attribute: 'condition.all_of[] = { field = "properties.impactedServices[*].ImpactedRegions[*].RegionName", contains_any = <list> }'
+      note: region display names (West Europe); empty is the deployment region and Global, mapped by a local
+    terraform:
+      attribute: criteria.service_health.locations
+      note: region display names (West Europe); empty is the deployment region and Global, mapped by a local
+    bicep_avm:
+      attribute: "conditions[] = { field: 'properties.impactedServices[*].ImpactedRegions[*].RegionName', containsAny: <list> }"
+      module: avm/res/insights/activity-log-alert
+      note: region display names; empty is the deployment region and Global
+    bicep:
+      attribute: "properties.condition.allOf[] = { field: 'properties.impactedServices[*].ImpactedRegions[*].RegionName', containsAny: <list> }"
+      note: region display names; empty is the deployment region and Global
+  activity_log.resource_health_statuses:
+    terraform_avm:
+      attribute: 'condition.all_of[] leaves on properties.currentHealthStatus'
+      note: with properties.cause = PlatformInitiated beside it
+    terraform:
+      attribute: criteria.resource_health.current
+      note: reason = ["PlatformInitiated"] beside it
+    bicep_avm:
+      attribute: 'conditions[] leaves on properties.currentHealthStatus'
+      module: avm/res/insights/activity-log-alert
+      note: with properties.cause = PlatformInitiated beside it
+    bicep:
+      attribute: 'properties.condition.allOf[] leaves on properties.currentHealthStatus'
+      note: with properties.cause = PlatformInitiated beside it
+  activity_log.operation_name:
+    terraform_avm:
+      attribute: 'condition.all_of[].equals'
+      passthrough: true
+      note: 'the leaf { field = "operationName", equals = <value> }; status = Succeeded beside it'
+    terraform: { attribute: criteria.operation_name, passthrough: true, note: 'status = "Succeeded" beside it' }
+    bicep_avm:
+      attribute: 'conditions[].equals'
+      passthrough: true
+      module: avm/res/insights/activity-log-alert
+      note: "the leaf { field: 'operationName', equals: <value> }; status = Succeeded beside it"
+    bicep:
+      attribute: 'properties.condition.allOf[].equals'
+      passthrough: true
+      note: "the leaf { field: 'operationName', equals: <value> }; status = Succeeded beside it"
+
+  # ----------------------------------------------------------------- identity
+  identity.query_identity:
+    terraform_avm: { gap: activity log alerts run no query and carry no identity; log_query renders authored }
+    terraform:
+      attribute: identity.type
+      values: { none: null, system_assigned: SystemAssigned, user_assigned: UserAssigned }
+      note: 'log_query only (azurerm_monitor_scheduled_query_rules_alert_v2); none renders no identity block (source: azurerm 5.12 docs)'
+    bicep_avm:
+      module: avm/res/insights/scheduled-query-rule
+      attribute: managedIdentities.systemAssigned
+      values: { none: null, system_assigned: true, user_assigned: null }
+      note: 'user_assigned is userAssignedResourceIds (user_assigned_identity_id); none leaves managedIdentities out; one kind only (source: module README 0.6.1)'
+    bicep:
+      attribute: identity.type
+      values: { none: null, system_assigned: SystemAssigned, user_assigned: UserAssigned }
+      note: 'log_query only; none leaves identity out (source: bicep build, Microsoft.Insights/scheduledQueryRules@2023-12-01)'
+  identity.user_assigned_identity_id:
+    terraform_avm: { gap: activity log alerts run no query and carry no identity; log_query renders authored }
+    terraform: { attribute: identity.identity_ids, format: { expr: '[{value}]' } }
+    bicep_avm: { attribute: managedIdentities.userAssignedResourceIds, module: avm/res/insights/scheduled-query-rule, format: { expr: '[{value}]' } }
+    bicep:
+      attribute: identity.userAssignedIdentities
+      note: "an object keyed by the id: { '${<id>}': {} } (source: bicep build, Microsoft.Insights/scheduledQueryRules@2023-12-01)"

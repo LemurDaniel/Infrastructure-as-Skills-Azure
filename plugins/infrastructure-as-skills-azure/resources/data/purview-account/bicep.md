@@ -21,19 +21,13 @@ lock and the diagnostic setting. `ownership: platform` renders an `existing` ref
 
 ### Decision -> module parameter
 
-| Decision | Parameter | Note |
+What each decision renders to - the parameter and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.
+
+### Deployment-wide inputs
+
+| Input | Parameter | Note |
 |---|---|---|
-| `ownership`, `existing_account_id` | `resource pview 'Microsoft.Purview/accounts@2021-12-01' existing` by id | `platform`: the reference only |
-| `managed_resource_group_name` | `managedResourceGroupName` | Module default `managed-rg-<name>`; written. Fixed at creation |
-| `managed_event_hub` | `managedEventHubState: 'Disabled' / 'Enabled'` | Module default **`Enabled`**; written |
-| `managed_resources_public_access` | `managedResourcesPublicNetworkAccess: 'Disabled' / 'Enabled'` | Module default `NotSpecified`; written |
-| `public_network_access` | `publicNetworkAccess: 'Disabled' / 'Enabled'` | Module default `NotSpecified`; written |
-| `private_endpoint_subnet`, `private_endpoint_subresources` | `accountPrivateEndpoints`, `portalPrivateEndpoints`, `storageBlobPrivateEndpoints`, `storageQueuePrivateEndpoints`, `eventHubPrivateEndpoints`: each `[ { name, subnetResourceId } ]` | The module targets the managed resources itself; an empty array for a kind that is off |
 | `deployment.private_dns_records: policy` | no `privateDnsZoneGroup` on the endpoints | |
-| `managed_identity`, `user_assigned_identity_ids` | `managedIdentities: { userAssignedResourceIds }` | The module sets `SystemAssigned` always and adds `UserAssigned` when ids are passed |
-| `collection_roles` | **not the module** - the metadata policy API after the deployment | |
-| `role_assignments` | `roleAssignments` | Control plane |
-| `diagnostic_workspace`, `diagnostic_categories`, `metrics_enabled` | `diagnosticSettings: [ { workspaceResourceId, logCategoriesAndGroups: [ { category } ], metricCategories: [ { category: 'AllMetrics' } ] } ]` | |
 | `deployment.resource_lock` | `lock: { kind: 'CanNotDelete' }` | |
 | `deployment.module_telemetry` | `enableTelemetry` | |
 | `context.tags` | `tags` | |
@@ -118,7 +112,7 @@ as that step.
 ### Tests
 
 A module call compiles to a nested deployment whose `properties.parameters.<param>.value` is the
-decision, so every decision above is observable in `tests/*.armtest.yaml`
+decision, so every decision in render-map.yaml is observable in `tests/*.armtest.yaml`
 ([bicep-idiom.md](../../../core/iac-rendering/references/bicep-idiom.md#tests)): the managed
 group name, the Event Hubs state, both public-access strings, each endpoint array, the identity
 and the diagnostic categories. `collection_roles` and the `existing` reference under
@@ -128,10 +122,8 @@ and the diagnostic categories. `collection_roles` and the `existing` reference u
 
 The fallback. `Microsoft.Purview/accounts@2021-12-01`:
 
-| Decision | Property |
+What each decision renders to - the property and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.
+
+| Input | Property |
 |---|---|
-| the account | `identity { type: 'SystemAssigned' | 'SystemAssigned,UserAssigned', userAssignedIdentities }`, `properties.managedResourceGroupName`, `properties.managedEventHubState`, `properties.publicNetworkAccess`, `properties.managedResourcesPublicNetworkAccess` |
-| private endpoints | `Microsoft.Network/privateEndpoints` with `groupIds: ['account']` and `['portal']` on the account, `['blob']` and `['queue']` on `properties.managedResources.storageAccount`, `['namespace']` on `properties.managedResources.eventHubNamespace` |
-| `role_assignments` | `Microsoft.Authorization/roleAssignments` |
-| diagnostics | `Microsoft.Insights/diagnosticSettings` with `logs: [ { category } ]` and `metrics: [ { category: 'AllMetrics' } ]` |
-| lock | `Microsoft.Authorization/locks` (`CanNotDelete`) |
+| `deployment.resource_lock` | `Microsoft.Authorization/locks` (`CanNotDelete`) |

@@ -181,6 +181,10 @@ the detail; this list says what was decided and why, so a session does not reope
   invariants, `run_pipeline_tests.py` breaks them one at a time. The root holds an empty
   `backend "azurerm" {}` because `init -backend-config` without one is ignored silently.
   A resolved stage's file must not spell a placeholder marker even in a comment.
+- **Pipelines run PowerShell 7, not bash** (2026-11-01, invariant 14). Bash was never a
+  decision, only the runner default copied from vendor docs; the stack is pwsh, both hosted
+  Ubuntu images ship it, JSON is read with `ConvertFrom-Json` instead of `jq`. Not a spec
+  question: a fixed default. GitLab stays `sh` - its job images carry no pwsh.
 - **Grouped AVM calls: `granularity: per-family`** (2026-10-23, Terraform only). The root
   is `modules.<family>.tf` calls, `modules/<family>/` holds the family's AVM calls, roles,
   endpoints, tests. A module-level `depends_on` defers `data` lookups to apply, so the
@@ -320,9 +324,54 @@ the detail; this list says what was decided and why, so a session does not reope
   the plugin. Azure customers sit on Copilot licences; Codex reaches few of them and has no
   eval harness here. An Agent Plugins 1.0 root `plugin.json` would serve both, but fixes
   skills to `skills/` - not worth moving `core/` for until a host needs it.
+- **What a decision renders to is data, `render-map.yaml`, read through a digest**
+  (2026-11-01). A render read the skill, `spec.md` and every reference whole (~250 KB) and
+  took the attribute from the question's `renders` string - prose, partly stale (azurerm 4.x
+  names, inverted polarity, the authored spelling under AVM: `account_replication_type` where
+  the module takes `account_sku_name`). Now each resource has a `render-map.yaml` beside its
+  set: per target and implementation the attribute and the literal of every answer
+  (`references/render-map.md`); `render_digest.py <spec>` prints each decision with that
+  literal filled in, plus the line ranges of only the references the spec needs (~50% less
+  read). Data, not prose, because the renderer's core must not rest on heuristics: the digest
+  does `dict` lookups, `check_render_map.py` holds every file to its question set. A literal
+  no reference states is a `gap`, never a guess; every scalar answer says how it renders
+  (`values` complete, `format`, or an explicit `passthrough: true`) - the pass-through of an
+  answer into an id, a block or another unit was the error class the reviews found most. YAML
+  in its own file, not in `questions.yaml`: the set stays backend-neutral, as the spec does.
+- **A reference is `{ resource: <key> }` or `{ existing: <kind> }`, its kind registered**
+  (2026-11-01). `accepts: { ref: <kind> }` named a bare word, and a spec held a reference in
+  five shapes - key, plain name, id, `{ name, resource_group_name }`, a stage map of any - told
+  apart by a regex; nothing checked a value was of its kind. Now
+  `core/iac-authoring/references/ref-kinds.yaml` defines every kind (the sets that create it,
+  the part where it is one, the ARM type and form of its id: `arm`, `arm_any`, `guid`), and a
+  spec writes a resource of the spec as `{ resource: <key>[, part: <name>] }` (one value, every
+  stage; a subnet is a part of the network) or one outside it as `{ existing: <kind> }`.
+  **The spec carries the id, never a name or a resource group** (owner's call): an id the
+  person gives goes in per stage (`id: { <stage>: <id> }`); without one an `open:` entry names
+  the owner and the stage file holds a placeholder id the pipeline refuses before `apply`.
+  **Rendered as an id variable / param, never a lookup**: a data source needs a name and a
+  group as unknown as the id, and makes every `plan` read the platform; the id in the stage
+  file pins nothing into the code, and tests pass it as a variable instead of mocking a data
+  source. `scripts/spec_ref.py` reads both forms for `check_spec.py`, the diagram, the
+  decision document and the digest. Kept outside the rule on purpose: the resource groups
+  (named in `context`), the private DNS zones (a fixed name in a group) and the Network
+  Watcher (Azure's fixed name). Front Door's origins split into `origins`
+  (`{ ref: resource }`) and `origin_host_names`, a backend outside Azure having no id.
 
 ## State
 
+- **`render-map.yaml` for all 67 resources, the render digest mandatory** (2026-11-01, branch
+  `render-yaml`): 5,190 entries, 980 of them `gap` (18% - the references do not state the
+  literal), 1,658 explicit pass-throughs, 101 `not_rendered`. Written by 8 agents, reviewed by 3
+  (330 ERRORs - the hand-written storage pilot had 9), corrected by 8, sample-reviewed once more
+  (75 of 81 former ERRORs fixed or honestly a gap, the 6 left fixed by hand, 0 unit errors new).
+  `check_render_map.py` and both test runners are in the repository checks. The format has
+  `companions`, lists per attribute or module, `kinds`/`by_kind`, composite formats with
+  `part_of`, `format: { expr }`, `omit_empty`; code names `{group.question}` (filled by the
+  digest) and `<name>` (filled by the render), never `...`; `authored_when` names the answers a
+  module refuses, which render the resource authored. The map is the one record: `renders` is
+  gone from the resource sets (the check refuses it there; the deployment set keeps its own),
+  and the references' decision tables are gone, their remarks moved into the maps.
 - **18 more sets written 2026-10-26 (67 resource sets in 10 families, 1,442 questions with the deployment
   set), checked, not exercised:** network public-dns-zone, traffic-manager, ddos-protection-plan, network-watcher (VNet flow logs only);
   observability action-group, alert-rule (metric, log query and activity log by `kind`),
@@ -546,6 +595,32 @@ until it is fixed or decided against.
   `canonical-no-anchors` are load-checked, not run - a run without a shell lays the form out
   by hand, and whether it does is unmeasured. The diagram and spec-test fixtures are not
   named `infra-spec.yaml` and not laid out; `run_spec_tests.py` edits its fixture as text.
+
+### The sources behind `render-map.yaml`
+
+Done on `render-yaml`: `renders` dropped, the self-contradicting references corrected, the
+decision tables removed, the design gaps closed, the inherited deployment answers translated
+(`answer: { deployment, map }`, 54 questions, required where the values differ), and the gaps
+filled from primary sources - 969 to 513 (18% to 9% of 5,216 entries): the azurerm 5.12
+schema and docs, the module READMEs at the documented versions, `bicep build` for paths. Each
+fill names its source in its note; the pass also corrected eight entries the sources
+contradicted. Left:
+
+- **The remaining 513 gaps.** About 160 are permanent: the Bicep resource-group scope,
+  inputs a module README shows it does not have. The rest: Bicep literals of loosely typed
+  properties - `bicep build` proves the path, not the value, where the type is `string` or
+  `'A' | 'B' | string` (diagnostic `AllMetrics`, `linuxFxVersion`, `activeRevisionsMode`) - and
+  shapes no source states (Windows image literals, policy schedules, NSG baseline rules, the
+  question-less app setting names). A live deployment or the ARM REST specs would settle the
+  loose literals; neither is a source this pass used.
+- **API versions the authored Bicep was proven against** are named in each note; most
+  `bicep.md` files name none for their sibling types (diagnostic settings, role assignments,
+  private endpoints). Writing them into the references is open.
+- **Prose that may be outdated**: ai-services, foundry and api-management say the Bicep module
+  has no `allowedFqdnList`; README 0.19.1 has it (the maps are filled, terraform.md and
+  questions.yaml are not). event-grid-namespace renders the namespace with azapi although
+  azurerm 5.12 has `azurerm_eventgrid_namespace`. cosmos-db's note that the Terraform module
+  refuses `AllMetrics` is not in its README - only its source would show it.
 
 ### Rendering references and question sets
 
@@ -801,6 +876,12 @@ per-family` in `check_spec.py` and the `chatbot` spec, and `references/private-d
 
 ### Pipelines
 
+- The pwsh pipelines have parsed and been dry-run with a mocked `az`, never run on a
+  runner: the next push of `eval-agent/infra` to `dev` is the first real run of
+  `eval-agent-infra*.yaml` in pwsh; the ADO and GitHub Terraform fixtures have not run at all.
+- `run_pipeline_tests.py` passes 86/86 on LF files; on a Windows checkout with CRLF
+  fixtures 11 multi-line mutations do not find their text (`edit()` reads with
+  `newline=''`). Normalise in `edit()` or add a `.gitattributes` with `eol=lf`.
 - `check_pipeline.py` counts an `open:` entry without `environments` as resolved (a false
   fail on every such entry; the runs name the stage on each entry as a workaround),
   applies the workload-identity secret grep to `local`, and its `client[-_]?secret`
@@ -1039,9 +1120,18 @@ regeneration from the spec loses them. All `render`:
 
 ## Next
 
-**Merge #15 (0.6.0)**: pushed, ready for review, evals run, recorded and accepted as the
-baseline (see *Evals*). Left: the owner's squash merge. After it, regenerate the remaining examples against the revised spec, and freeze the
-formats (*Road to 1.0.0*).
+**Structured references are in `render-yaml` too** (2026-11-01, see *Decisions*): no eval
+case renders an `existing:` reference yet - one with a platform workspace and an open id
+(the variable, the placeholder in the stage file, no data source) belongs in the run before
+that release.
+
+**Merge `render-yaml`** (#22: render digest, `render-map.yaml` for 67 resources, `renders` and
+the decision tables gone, the sources corrected, the deployment answers translated, the gaps
+filled from primary sources): into `dev`. An eval run that renders with the digest belongs
+before the release that carries it: no case exercises it yet. What is left of the sources
+(*Open*) is small and can follow. After that, regenerate the
+remaining examples against the revised spec and freeze the formats (*Road to 1.0.0*) - the
+render-map format among them.
 
 **The pattern skill** (`ideas/pattern-skill.md`): the wiring that `chatbot` and
 `chatbot-rag` carry by hand — roles between resources, the private link, the order

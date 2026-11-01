@@ -45,7 +45,6 @@ groups:
         why: >
           Drives the rendered name and the strictness of several defaults below.
           Nothing sensible can be guessed.
-        renders: naming parameter `environment`, and the tag of that name where the repository uses one
 
       - id: location
         ask:
@@ -60,7 +59,6 @@ groups:
           Part of the rendered name and not inferable. Zone redundancy and the
           Premium v3 SKUs are not available in every region, so the region
           constrains the hosting group below.
-        renders: location (plan and site)
 
       - id: resource_group_name
         ask:
@@ -76,7 +74,6 @@ groups:
         why: >
           The plan and the app are placed into an existing group. Creating one here
           would make this set own a lifecycle wider than the resources it describes.
-        renders: parent_id (AVM Terraform) / resource_group_name / implicit in Bicep scope
 
   # ------------------------------------------------------------------ hosting
   - id: hosting
@@ -110,10 +107,6 @@ groups:
           instance (they are the plan owner's), and forces `vnet_integration` and
           `integration_subnet` to the owner's values - a plan has one integration subnet -
           recorded as forced with `plan` as forced_by
-        renders: >
-          own: the plan resource (azurerm_service_plan / Microsoft.Web/serverFarms) is created
-          with this site; shared: no plan resource, the site's service_plan_id /
-          serverFarmResourceId is the owner's plan id
 
       - id: shared_plan_with
         ask:
@@ -130,9 +123,6 @@ groups:
           The instance of this set (`app-service__<name>`) that owns the plan. It is created
           first; the second site takes its plan id, so the order is owner, plan, then this site.
           An owner that is itself shared is refused: the plan is created exactly once.
-        renders: >
-          service_plan_id (module input `service_plan_resource_id`) / serverFarmResourceId of
-          the owner's plan
 
       - id: os_type
         ask:
@@ -153,7 +143,6 @@ groups:
           custom containers run. Windows is for what needs it - .NET Framework, not
           .NET - and the choice is fixed per plan: an app cannot move between a
           Linux and a Windows plan, it is redeployed.
-        renders: os_type / kind and reserved on the plan
 
       - id: sku
         ask:
@@ -196,7 +185,6 @@ groups:
           `deployment_slots` not empty removes B1, B2 and B3 in every stage - a Basic plan has
           no deployment slots - and with them `non_production_default`; the smallest size is
           then P0v3, recorded as forced with `deployment_slots` as forced_by
-        renders: sku_name / sku.name on the plan
 
       - id: zone_redundant
         ask:
@@ -229,7 +217,6 @@ groups:
         forced_when: >
           A Basic `sku` forces `false` - the size cannot be zone redundant - recorded
           as forced with `sku` as forced_by. `true` forces `instance_count` to at least 2
-        renders: zone_redundant / zoneRedundant / zone_balancing_enabled on the plan
 
       - id: instance_count
         ask:
@@ -251,7 +238,6 @@ groups:
           each zone. Instances are billed one by one, so this is the cost of the
           answer, and autoscale is a separate decision with no question set yet. The
           count is a fixed number here, not a minimum.
-        renders: worker_count (terraform) / skuCapacity (bicep) on the plan
 
   # --------------------------------------------------------------- networking
   - id: networking
@@ -270,7 +256,7 @@ groups:
           enabled_with_firewall: { en: "reachable from the internet only from listed addresses", de: "aus dem Internet nur von gelisteten Adressen erreichbar" }
           enabled: { en: "reachable from the internet", de: "aus dem Internet erreichbar" }
         accepts: [disabled, enabled_with_firewall, enabled]
-        answer: { deployment: network_exposure }
+        answer: { deployment: network_exposure, map: { private: disabled, private_with_exceptions: disabled, public: enabled_with_firewall } }
         why: >
           Asked only as a departure, because exposure is a property of the system and
           not of one app - the deployment set already answered it. The mapping is
@@ -287,9 +273,6 @@ groups:
           deployment's own callers have no fixed outbound address, so a firewall with no
           rule locks them out of this resource - the first dry run (2026-10-24) hit it on
           five resources at once
-        renders: >
-          terraform: public_network_access_enabled and site_config.ip_restriction_default_action;
-          bicep: publicNetworkAccess and siteConfig.ipSecurityRestrictionsDefaultAction
 
       - id: private_endpoint_subnet
         ask:
@@ -308,7 +291,6 @@ groups:
           rather than asked. The app has exactly one sub-resource, `sites`, so there is
           no list of services to choose from; the endpoint exists when
           `public_network_access` is `disabled`, and is the thing that makes it so.
-        renders: private_endpoints.<key>.subnet_resource_id / privateEndpoints[].subnetResourceId
 
       - id: vnet_integration
         ask:
@@ -334,8 +316,6 @@ groups:
         forced_when: >
           network_ownership: none (deployment) forces `false` - there is no subnet
           to integrate into
-        renders: >
-          terraform: virtual_network_subnet_id; bicep: virtualNetworkSubnetResourceId
 
       - id: integration_subnet
         ask:
@@ -361,8 +341,6 @@ groups:
         forced_when: >
           network_ownership: create - the created network's subnet, recorded as
           forced with the network as forced_by
-        renders: >
-          terraform: virtual_network_subnet_id; bicep: virtualNetworkSubnetResourceId
 
       - id: vnet_route_all
         ask:
@@ -386,9 +364,6 @@ groups:
           names it should have blocked. True means the egress goes through whatever
           the subnet's route table says, and an app that needs to reach a public API
           needs that path allowed.
-        renders: >
-          terraform: vnet_route_all_traffic (the site_config.vnet_route_all_enabled
-          form is the older spelling); bicep: outboundVnetRouting.allTraffic
 
       - id: ip_restrictions
         ask:
@@ -408,9 +383,6 @@ groups:
           public app behind a CDN or front door lists that service's tag or address
           ranges here, not `0.0.0.0/0`, which is not an allowlist and which the
           guardrails reject. The same list guards the Kudu/SCM site.
-        renders: >
-          site_config.ip_restriction / siteConfig.ipSecurityRestrictions and
-          scm_ip_restriction / scmIpSecurityRestrictions, default action Deny on both
 
   # ----------------------------------------------------------------- identity
   - id: identity
@@ -446,7 +418,6 @@ groups:
           the identity that was warmed up as the other slot. One shared identity holds its roles
           before the first start and keeps them through every swap. `none` stays possible for an
           app that calls nothing.
-        renders: managed_identities / managedIdentities (identity.type on the site)
 
       - id: user_assigned_identity_ids
         ask:
@@ -464,7 +435,6 @@ groups:
           The identities must already exist; this set does not create them. Forced to the
           identity of the user-assigned-identity set when `deployment_slots` forces
           `user_assigned` - the design creates it, so it is wiring, never an open item.
-        renders: managed_identities.user_assigned_resource_ids / managedIdentities.userAssignedResourceIds
 
       - id: entra_sign_in
         ask:
@@ -487,9 +457,6 @@ groups:
           parameters, and its redirect URI (`https://<host>/.auth/login/aad/callback`) is an
           `open:` entry for whoever owns the registration, because the host name exists only
           after the first deployment.
-        renders: >
-          auth_settings_v2 { require_authentication, unauthenticated_action = "RedirectToLoginPage",
-          active_directory_v2 } / Microsoft.Web/sites/config 'authsettingsV2'
 
       - id: entra_client_secret
         ask:
@@ -510,9 +477,6 @@ groups:
           reference, and the authentication settings name that setting - the template never
           carries the value. Who creates the secret and writes it into the vault is an
           `open:` entry with the registration's owner.
-        renders: >
-          active_directory_v2.client_secret_setting_name / registration.clientSecretSettingName,
-          plus the app setting with @Microsoft.KeyVault(SecretUri=...)
 
   # ----------------------------------------------------------------- security
   - id: security
@@ -535,7 +499,6 @@ groups:
           as a question only so a departure - a health probe from an appliance that
           cannot do TLS - is recorded rather than silently impossible. The module
           default is already true; it is written anyway.
-        renders: https_only / httpsOnly
 
       - id: min_tls_version
         ask:
@@ -556,7 +519,6 @@ groups:
           raise it deliberately. Note the AVM Terraform module's own default is
           **1.3**, one step stricter than this set, which is why it is written on the
           call. The same version is applied to the Kudu/SCM site.
-        renders: site_config.minimum_tls_version and scm_minimum_tls_version / siteConfig.minTlsVersion and scmMinTlsVersion
 
       - id: ftps_state
         ask:
@@ -578,7 +540,6 @@ groups:
           path next to Entra ID. Disabled is the default and the module's own is
           `FtpsOnly`, so it is written. `AllAllowed` is never a default and needs a
           recorded reason.
-        renders: site_config.ftps_state / siteConfig.ftpsState
 
       - id: basic_auth_enabled
         ask:
@@ -591,7 +552,7 @@ groups:
         plain_values:
           true: { en: "possible", de: "möglich" }
           false: { en: "not possible", de: "nicht möglich" }
-        answer: { deployment: local_auth }
+        answer: { deployment: local_auth, map: { disabled: false, allowed_where_unavoidable: false } }
         why: >
           Inherited: `local_auth: disabled` renders as `false` here. The publishing
           profile is a shared username and password for the Kudu site and for FTP, it
@@ -601,10 +562,6 @@ groups:
           the publish profile: that is a migration to a service principal or federated
           credential with a deploy role, the kind of case `allowed_where_unavoidable`
           exists for, named at this app.
-        renders: >
-          terraform: ftp_publish_basic_authentication_enabled and
-          scm_publish_basic_authentication_enabled; bicep:
-          basicPublishingCredentialsPolicies (ftp and scm) allow
 
   # ------------------------------------------------------------------ runtime
   - id: runtime
@@ -632,9 +589,6 @@ groups:
           chosen, because the stack decides the service. A second app in another stack departs
           per instance (`overridden`). `container` is the stack for anything with a Dockerfile;
           it turns the version question into an image.
-        renders: >
-          site_config.application_stack / siteConfig.linuxFxVersion (or windowsFxVersion
-          for the .NET and Java families on a Windows plan)
 
       - id: runtime_version
         ask:
@@ -653,9 +607,6 @@ groups:
           security patches before it stops running. The spelling differs by stack
           (`3.13`, `22-lts`, `9.0`, `21`) and is looked up in the platform's current
           list at render time, not remembered.
-        renders: >
-          site_config.application_stack.<stack>.<stack>_version /
-          siteConfig.linuxFxVersion (`PYTHON|3.13`, `NODE|22-lts`, `DOTNETCORE|9.0`)
 
       - id: container_image
         ask:
@@ -673,9 +624,6 @@ groups:
           to be pulled from with the app's managed identity (`AcrPull`), not an
           admin user, which is wiring this set does not own. A registry that is
           private needs the image pull to go over the VNet integration too.
-        renders: >
-          site_config.application_stack.docker / siteConfig.linuxFxVersion
-          (`DOCKER|<image>`) with acrUseManagedIdentityCreds
 
       - id: container_image_owner
         ask:
@@ -697,9 +645,6 @@ groups:
           tag in the stage file. `image_pipeline` sets the image on the first deployment
           only and keeps the running one afterwards; `container_image` becomes the
           bootstrap image.
-        renders: >
-          lifecycle { ignore_changes = [site_config[0].application_stack[0].docker_image_name] } /
-          the existing site's linuxFxVersion read before the deployment and passed back in
 
       - id: always_on
         ask:
@@ -719,7 +664,6 @@ groups:
           extra on Basic and above, which is every size this set allows. It is also
           what keeps background threads and WebJobs running. The module default is
           true; it is written anyway.
-        renders: site_config.always_on / siteConfig.alwaysOn
 
       - id: health_check_path
         ask:
@@ -738,7 +682,6 @@ groups:
           at once, and the plugin cannot invent one: `/health` that returns 404 marks
           every instance unhealthy. So the default is empty, and a path is the
           engineer's answer once the app has it. Zone-redundant plans want one.
-        renders: site_config.health_check_path / siteConfig.healthCheckPath
 
       - id: http2_enabled
         ask:
@@ -756,7 +699,6 @@ groups:
           Free multiplexing for the browser clients, and every current client speaks
           it. The module default is `false`, which is why it is written. Off only for
           a backend behind a proxy that mishandles it.
-        renders: site_config.http2_enabled / siteConfig.http20Enabled
 
   # -------------------------------------------------------------------- slots
   - id: slots
@@ -784,10 +726,6 @@ groups:
           Terraform module gives a slot its own defaults rather than the site's (public access,
           TLS 1.3, FTPS, no identity), and neither module carries the site's diagnostic
           setting over.
-        renders: >
-          deployment_slots = { <name> = { ... } } (AVM Terraform) / slots: [ { name, ... } ]
-          (AVM Bicep), each slot carrying the site's networking, identity, security, runtime and
-          observability decisions
 
       - id: slot_access
         ask:
@@ -820,11 +758,6 @@ groups:
         forced_when: >
           network_exposure `private` (deployment) forces `private`, recorded as forced with
           `deployment.network_exposure` as forced_by, and the question is not asked
-        renders: >
-          same_as_app: the slot's private endpoint (subresource `sites-<slot>`) and an origin
-          group and route of the slot on the entry's endpoint, or the app's ip_restrictions on
-          the slot; private: the private endpoint only, public access disabled; known_addresses:
-          public access enabled with slot_ip_restrictions, default action Deny
 
       - id: slot_ip_restrictions
         ask:
@@ -841,9 +774,6 @@ groups:
           The allowlist of `known_addresses`, with a default action of Deny on the slot and its
           SCM site. Only the customer knows the ranges, so an unanswered list is an `open:`
           entry owned by the workload owner, never `0.0.0.0/0`.
-        renders: >
-          deployment_slots.<name>.site_config.ip_restriction and scm_use_main_ip_restriction /
-          slots[].siteConfig.ipSecurityRestrictions and scmIpSecurityRestrictionsUseMain
 
       - id: auto_swap
         ask:
@@ -864,9 +794,6 @@ groups:
           a slot exists. The swap is the release's deliberate step - an approval in the
           pipeline, or `az webapp deployment slot swap` by hand. On only for a slot that exists
           purely for zero-downtime warm-up, and never on a slot used for testing.
-        renders: >
-          deployment_slots.<name>.site_config.auto_swap_slot_name / slots[].siteConfig.autoSwapSlotName
-          set to `production` only when true; omitted otherwise
 
       - id: sticky_settings
         ask:
@@ -884,9 +811,6 @@ groups:
           a stage marker, a feature flag that must stay off in the slot, a connection to a test
           backend. An empty list means production's settings travel back into the slot on every
           swap, which is correct when slot and production are meant to be identical.
-        renders: >
-          sticky_settings = { app_setting_names = [...] } / configs: [ { name: 'slotConfigNames',
-          properties: { appSettingNames: [...] } } ]
 
   # ------------------------------------------------------------ observability
   - id: observability
@@ -909,7 +833,6 @@ groups:
           its resources means querying two workspaces. An app with no diagnostic
           setting writes its logs to a file on the instance, which is gone when the
           instance is replaced.
-        renders: diagnostic_settings / diagnosticSettings (site and plan)
 
       - id: diagnostic_categories
         ask:
@@ -938,7 +861,6 @@ groups:
           production they are a choice to make, not a thing to forget. The category
           names are the platform's and are checked against the resource's supported
           categories before a render, not remembered.
-        renders: diagnostic_settings.<key>.logs[].category / diagnosticSettings[].logCategoriesAndGroups[].category
 
       - id: metrics_enabled
         ask:
@@ -956,7 +878,6 @@ groups:
           Metric ingestion is cheap and the baseline for any capacity question - CPU and
           memory of the plan are what decides whether the plan size above was right.
           Applies to the plan and the site, which each have their own metrics.
-        renders: metrics[].category = "AllMetrics" / metricCategories[].category
 
       - id: application_insights
         ask:
@@ -984,6 +905,3 @@ groups:
           infrastructure and always rendered; only the code that reads them is the app's.
           Every slot gets the same settings: a slot inherits nothing from the site. Empty only
           under `application_monitoring: disabled`.
-        renders: >
-          application_insights_connection_string and app_settings.APPLICATIONINSIGHTS_AUTHENTICATION_STRING
-          (and on every slot) / both settings in configs appsettings

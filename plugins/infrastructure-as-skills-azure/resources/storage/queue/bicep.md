@@ -12,12 +12,7 @@ Module: `br/public:avm/res/storage/storage-account:0.33.1` (resolved 2026-10-25)
 
 ### Decision -> module parameter
 
-| Decision | Parameter | Note |
-|---|---|---|
-| `queue_names` | `queueServices.queues: [ { name } ]` | |
-| `metadata` | `queueServices.queues[].metadata` | |
-| `role_assignments` | `queueServices.queues[].roleAssignments: [ { principalId, roleDefinitionIdOrName, principalType } ]` | |
-| `needs_dead_letter_or_ordering` | - | Not a module parameter: `true` swaps this set for `service-bus` |
+What each decision renders to - the parameter and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.
 
 ```bicep
     // inside module storage - decision: queue.queues.*
@@ -31,7 +26,7 @@ Module: `br/public:avm/res/storage/storage-account:0.33.1` (resolved 2026-10-25)
 ### Tests
 
 A module call compiles to a nested deployment whose `properties.parameters.queueServices.value`
-carries the queues, so every decision above is observable in `tests/*.armtest.yaml`
+carries the queues, so every decision in render-map.yaml is observable in `tests/*.armtest.yaml`
 ([bicep-idiom.md](../../../core/iac-rendering/references/bicep-idiom.md#tests)).
 
 ## Authored rendering

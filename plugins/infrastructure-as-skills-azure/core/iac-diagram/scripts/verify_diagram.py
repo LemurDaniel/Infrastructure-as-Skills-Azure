@@ -30,8 +30,8 @@ import drawio_png  # noqa: E402
 IMPLIED = {'application-insights', 'virtual-network', 'log-analytics-workspace'}
 # Resources the script draws under a fixed id instead of res-<key>.
 FIXED_IDS = {'virtual-network': 'vnet', 'log-analytics-workspace': 'law'}
-# Children of a storage account have no icon; their names are on the account's label.
-CHILD_KINDS = {'blob-container', 'file-share', 'queue'}
+# Children of a storage account or a vault have no icon; their names are on the parent's label.
+CHILD_KINDS = {'blob-container', 'file-share', 'queue', 'key-vault-secret', 'key-vault-key'}
 TRANSLITERATED = re.compile(r'\b(ueber\w*|oeffentlich\w*|fuer|koennen|muessen|zurueck\w*|loesch\w*|aender\w*|vorhanden\s+-\s+wird\s+nicht\s+erstell\w*\s+fuer)\b', re.I)
 
 

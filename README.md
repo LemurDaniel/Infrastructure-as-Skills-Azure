@@ -175,7 +175,6 @@ groups:
         why: >
           One posture per system. A resource that re-asks it carries the
           deployment's answer instead of a default of its own.
-        renders: azurerm_storage_account.public_network_access / properties.publicNetworkAccess
 ```
 
 | Group | Decides |
@@ -219,7 +218,7 @@ open:
     blocks: apply             # a placeholder in the stage file until answered
 ```
 
-The spec names **decisions, never a backend's attribute spelling**: `public_network_access: disabled`, not `public_network_access_enabled: false`. The mapping to an attribute lives in the question's `renders` field and in each target's rendering reference. Module coordinates and versions stay in the renderer, never in the spec.
+The spec names **decisions, never a backend's attribute spelling**: `public_network_access: disabled`, not `public_network_access_enabled: false`. The mapping to an attribute and its literal lives in the resource's `render-map.yaml`, per target and implementation, with the rendering references for what cannot be data. Module coordinates and versions stay in the renderer, never in the spec.
 
 ```
 infra-spec.yaml ──> module "storage" { source = "Azure/avm-res-storage-storageaccount/azurerm" ... }
