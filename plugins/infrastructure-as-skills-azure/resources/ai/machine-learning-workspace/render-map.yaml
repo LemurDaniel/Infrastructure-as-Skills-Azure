@@ -1,0 +1,272 @@
+# What each decision of questions.yaml renders to, per target and implementation.
+# Format: core/iac-rendering/references/render-map.md. The call, the computes, the authored
+# blocks and the tests are in terraform.md and bicep.md.
+schema_version: 1
+resource: Microsoft.MachineLearningServices/workspaces
+
+modules:
+  terraform: [Azure/avm-res-machinelearningservices-workspace/azurerm]
+  bicep: [avm/res/machine-learning-services/workspace]
+
+decisions:
+
+  # ---------------------------------------------------------------- placement
+  placement.environments:
+    not_rendered: naming parameter `environment` and the tag of that name; no attribute of the workspace
+  placement.location:
+    terraform_avm: { attribute: location, passthrough: true }
+    terraform: { attribute: location, passthrough: true }
+    bicep_avm: { attribute: location, passthrough: true }
+    bicep: { attribute: location, passthrough: true }
+  placement.resource_group_name:
+    terraform_avm: { attribute: resource_group_name, note: 'a name, not an id; the module pins azurerm < 5.0' }
+    terraform: { attribute: resource_group_name }
+    bicep_avm: { gap: the deployment's resource group scope; no parameter }
+    bicep: { gap: the deployment's resource group scope; no property }
+
+  # ---------------------------------------------------------------- workspace
+  workspace.storage_account:
+    terraform_avm: { attribute: storage_account.resource_id, note: null makes the module create one - always set }
+    terraform: { attribute: storage_account_id }
+    bicep_avm: { attribute: associatedStorageAccountResourceId, note: required for kind Default }
+    bicep: { attribute: properties.storageAccount }
+  workspace.key_vault:
+    terraform_avm: { attribute: key_vault.resource_id, note: null makes the module create one - always set }
+    terraform: { attribute: key_vault_id }
+    bicep_avm: { attribute: associatedKeyVaultResourceId, note: 'missing, the service creates a Microsoft-managed vault' }
+    bicep: { attribute: properties.keyVault }
+  workspace.application_insights:
+    terraform_avm: { attribute: application_insights.resource_id, note: null makes the module create one - always set }
+    terraform: { attribute: application_insights_id }
+    bicep_avm: { attribute: associatedApplicationInsightsResourceId, note: required for kind Default }
+    bicep: { attribute: properties.applicationInsights }
+  workspace.container_registry:
+    terraform_avm: { attribute: container_registry.resource_id, note: '{ resource_id = null } when empty' }
+    terraform: { attribute: container_registry_id }
+    bicep_avm: { attribute: associatedContainerRegistryResourceId, note: omitted when empty }
+    bicep: { attribute: properties.containerRegistry }
+  workspace.hbi_workspace:
+    terraform_avm: { attribute: hbi_workspace, passthrough: true, note: module default false; written anyway }
+    terraform: { attribute: high_business_impact, passthrough: true }
+    bicep_avm: { attribute: hbiWorkspace, passthrough: true, note: module default false; written anyway }
+    bicep: { attribute: properties.hbiWorkspace, passthrough: true }
+  workspace.v1_legacy_mode:
+    terraform_avm:
+      gap: not carried by the module - properties.v1LegacyMode through _target_overrides on the workspace body, written only when true
+    terraform: { attribute: v1_legacy_mode_enabled, passthrough: true }
+    bicep_avm:
+      gap: not carried by the module - a second deployment against the workspace (an existing reference and an update of properties.v1LegacyMode) when true; said in the handover
+    bicep: { attribute: properties.v1LegacyMode, passthrough: true }
+  workspace.image_build_compute:
+    terraform_avm: { attribute: image_build_compute, passthrough: true, note: null when empty }
+    terraform: { attribute: image_build_compute_name, passthrough: true }
+    bicep_avm: { attribute: imageBuildCompute, passthrough: true }
+    bicep: { attribute: properties.imageBuildCompute, passthrough: true }
+  workspace.computes:
+    terraform_avm:
+      gap: not carried by the module - azapi_resource Microsoft.MachineLearningServices/workspaces/computes per entry, after the workspace
+    terraform:
+      gap: one authored azurerm_machine_learning_compute_cluster or azurerm_machine_learning_compute_instance per entry, by its type; the reference names the resources, not their arguments
+    bicep_avm:
+      attribute: 'computes[] = { name, computeType, location, sku, properties }'
+      note: names only from the set; the sizing is content
+    bicep:
+      gap: a child workspaces/computes per entry; the reference names the child, not its properties
+
+  # --------------------------------------------------------------- networking
+  networking.managed_network_isolation:
+    terraform_avm:
+      attribute: workspace_managed_network.isolation_mode
+      values: { allow_only_approved_outbound: AllowOnlyApprovedOutbound, allow_internet_outbound: AllowInternetOutbound, disabled: Disabled }
+      note: module default Disabled - always written; spark_ready defaults true
+    terraform:
+      gap: managed_network { isolation_mode } - the reference states no literals for the azurerm argument (AllowOnlyApprovedOutbound / AllowInternetOutbound / Disabled are the AVM row's, the ARM body's)
+    bicep_avm:
+      attribute: managedNetworkSettings.isolationMode
+      values: { allow_only_approved_outbound: AllowOnlyApprovedOutbound, allow_internet_outbound: AllowInternetOutbound, disabled: Disabled }
+      note: unset by default; written. Literals of properties.managedNetwork.isolationMode as terraform.md states them (the AzAPI module writes that body)
+    bicep:
+      attribute: properties.managedNetwork.isolationMode
+      values: { allow_only_approved_outbound: AllowOnlyApprovedOutbound, allow_internet_outbound: AllowInternetOutbound, disabled: Disabled }
+      note: the ARM body literals terraform.md states (the AzAPI module writes properties.managedNetwork.isolationMode)
+  networking.outbound_fqdns:
+    terraform_avm:
+      attribute: 'workspace_managed_network.outbound_rules.fqdn.<key> = { destination }'
+      note: the first rule provisions a firewall (firewall_sku, default Standard)
+    terraform:
+      gap: one authored azurerm_machine_learning_workspace_network_outbound_rule_fqdn per entry; the reference names the resource, not its destination argument
+    bicep_avm:
+      attribute: "managedNetworkSettings.outboundRules.<name> = { type: 'FQDN', destination, category: 'UserDefined' }"
+      note: the rule name is the object key; firewallSku beside it; member names from the README
+    bicep:
+      attribute: "properties.managedNetwork.outboundRules.<name> = { type: 'FQDN', destination, category: 'UserDefined' }"
+      note: one rule per host name, keyed by its name; the shape the module parameter states
+  networking.provision_network_now:
+    terraform_avm: { attribute: provision_network_now_enabled, passthrough: true, note: module default false; written anyway }
+    terraform: { attribute: managed_network.provision_on_creation_enabled, passthrough: true }
+    bicep_avm: { attribute: provisionNetworkNow, passthrough: true, note: unset by default; written }
+    bicep: { attribute: properties.provisionNetworkNow, passthrough: true }
+  networking.public_network_access:
+    terraform_avm:
+      attribute: public_network_access_enabled
+      values: { disabled: false, enabled_with_firewall: true, enabled: true }
+      note: a bool, module default false; is_private is deprecated; the firewall is ip_allowlist
+    terraform:
+      attribute: public_network_access_enabled
+      values: { disabled: false, enabled_with_firewall: true, enabled: true }
+    bicep_avm:
+      attribute: publicNetworkAccess
+      values: { disabled: Disabled, enabled_with_firewall: Enabled, enabled: Enabled }
+      note: module default 'Disabled'; written anyway
+    bicep:
+      attribute: properties.publicNetworkAccess
+      values: { disabled: Disabled, enabled_with_firewall: Enabled, enabled: Enabled }
+  networking.ip_allowlist:
+    terraform_avm: { attribute: ip_allowlist }
+    terraform: { gap: the authored table names no allowlist argument; the renders field names only the module input }
+    bicep_avm: { attribute: ipAllowlist }
+    bicep: { attribute: properties.ipAllowlist }
+  networking.private_endpoint_subnet:
+    terraform_avm:
+      attribute: private_endpoints.amlworkspace.subnet_resource_id
+      note: two zones; private_endpoints_manage_dns_zone_group = false under private_dns_records policy
+    terraform:
+      gap: authored child azurerm_private_endpoint with subresource_names = ["amlworkspace"]; the reference names the resource, not its subnet argument
+    bicep_avm:
+      attribute: 'privateEndpoints[].subnetResourceId'
+      note: "service: 'amlworkspace'; no privateDnsZoneGroup under private_dns_records policy"
+    bicep:
+      gap: "authored child Microsoft.Network/privateEndpoints with groupIds: [ 'amlworkspace' ]; the reference names the resource, not its subnet property"
+  networking.serverless_compute_no_public_ip:
+    terraform_avm:
+      attribute: serverless_compute.public_ip_enabled
+      values: { true: false, false: true }
+      note: inverse; module default false = no public IP
+    terraform:
+      attribute: serverless_compute.public_ip_enabled
+      values: { true: false, false: true }
+      note: inverse
+    bicep_avm: { attribute: serverlessComputeSettings.serverlessComputeNoPublicIP, passthrough: true }
+    bicep: { attribute: properties.serverlessComputeSettings.serverlessComputeNoPublicIP, passthrough: true }
+
+  # ----------------------------------------------------------------- identity
+  identity.managed_identity:
+    terraform_avm:
+      attribute: managed_identities
+      values:
+        system_assigned: { expr: '{ system_assigned = true }' }
+        user_assigned: { expr: '{ user_assigned_resource_ids = {identity.user_assigned_identity_ids} }' }
+      also:
+        user_assigned: 'primary_user_assigned_identity = { resource_id = <first of user_assigned_identity_ids> }'
+      note: the primary is required with user-assigned
+    terraform:
+      gap: identity { type, identity_ids } - the reference states no type literal; user_assigned also sets primary_user_assigned_identity = the first of user_assigned_identity_ids
+    bicep_avm:
+      attribute: managedIdentities
+      values:
+        system_assigned: { expr: '{ systemAssigned: true }' }
+        user_assigned: { expr: '{ userAssignedResourceIds: {identity.user_assigned_identity_ids} }' }
+      also:
+        user_assigned: 'primaryUserAssignedIdentity: <first of user_assigned_identity_ids>'
+      note: module default { systemAssigned true }; the primary is required with user-assigned and not allowed with system-assigned
+    bicep:
+      gap: 'identity (top level) - the reference names it without its members or type literals; user_assigned also sets properties.primaryUserAssignedIdentity: the first of user_assigned_identity_ids'
+  identity.user_assigned_identity_ids:
+    terraform_avm:
+      attribute: managed_identities.user_assigned_resource_ids, primary_user_assigned_identity.resource_id
+      note: user_assigned_resource_ids = the list, primary_user_assigned_identity = { resource_id = its first entry }
+    terraform:
+      attribute: identity.identity_ids, primary_user_assigned_identity
+      note: identity_ids = the list, primary_user_assigned_identity = its first entry
+    bicep_avm:
+      attribute: managedIdentities.userAssignedResourceIds, primaryUserAssignedIdentity
+      note: userAssignedResourceIds = the list, primaryUserAssignedIdentity = its first entry
+    bicep:
+      gap: identity.userAssignedIdentities is an object keyed by id the reference does not show; properties.primaryUserAssignedIdentity = the first entry
+  identity.role_assignments:
+    terraform_avm: { attribute: 'role_assignments.<key> = { role_definition_id_or_name, principal_id, principal_type }' }
+    terraform: { gap: the authored table names no role assignment; the renders field names only the module input }
+    bicep_avm: { attribute: roleAssignments }
+    bicep: { gap: the authored table names no role assignment; the renders field names only the module parameter }
+
+  # ----------------------------------------------------------------- security
+  security.storage_datastore_auth:
+    terraform_avm:
+      attribute: storage_access_type
+      values: { identity: identity, access_key: accessKey }
+      note: module default identity; written; documented as deprecated with a future API version
+    terraform:
+      attribute: storage_account_access_type
+      values: { identity: Identity, access_key: AccessKey }
+    bicep_avm:
+      attribute: systemDatastoresAuthMode
+      values: { identity: Identity, access_key: AccessKey }
+      note: unset by default, which is key - always written
+    bicep:
+      attribute: properties.systemDatastoresAuthMode
+      values: { identity: Identity, access_key: AccessKey }
+  security.key_management:
+    terraform_avm:
+      attribute: customer_managed_key
+      values:
+        platform_managed: null
+        customer_managed: { expr: '{ key_vault_resource_id, key_name, user_assigned_identity = { resource_id } }' }
+      note: forces a user-assigned identity
+    terraform:
+      attribute: encryption
+      values:
+        platform_managed: null
+        customer_managed: { expr: '{ key_vault_id, key_id, user_assigned_identity_id }' }
+      note: the block only for customer_managed
+    bicep_avm:
+      attribute: customerManagedKey
+      values:
+        platform_managed: null
+        customer_managed: { expr: '{ keyName, keyVaultResourceId, userAssignedIdentityResourceId }' }
+    bicep:
+      gap: properties.encryption for customer_managed only - the reference names the object without its members
+  security.cmk_key_vault_key_id:
+    terraform_avm:
+      attribute: customer_managed_key.key_vault_resource_id, customer_managed_key.key_name
+      note: the key id split - key_vault_resource_id = the key's vault id, key_name = the key's name; never the key id into either
+    terraform:
+      attribute: encryption.key_id, encryption.key_vault_id
+      note: key_id = the key id, key_vault_id = the key's vault id
+    bicep_avm:
+      attribute: customerManagedKey.keyVaultResourceId, customerManagedKey.keyName
+      note: the key id split - keyVaultResourceId = the key's vault id, keyName = the key's name; never the key id into either
+    bicep:
+      gap: properties.encryption - the reference names the object without its members
+  security.service_side_cmk:
+    terraform_avm: { attribute: service_side_cmk_encryption_enabled, passthrough: true, note: module default false; written anyway }
+    terraform: { attribute: service_side_encryption_enabled, passthrough: true }
+    bicep_avm: { attribute: enableServiceSideCMKEncryption, passthrough: true, note: unset by default; written }
+    bicep: { attribute: properties.enableServiceSideCMKEncryption, passthrough: true }
+
+  # ------------------------------------------------------------ observability
+  observability.diagnostic_workspace:
+    terraform_avm: { attribute: diagnostic_settings.workspace.workspace_resource_id }
+    terraform:
+      gap: authored azurerm_monitor_diagnostic_setting; the reference names the resource, not its workspace argument
+    bicep_avm: { attribute: 'diagnosticSettings[].workspaceResourceId' }
+    bicep:
+      gap: authored Microsoft.Insights/diagnosticSettings scoped to the workspace; the reference names the resource, not its workspace property
+  observability.diagnostic_categories:
+    terraform_avm:
+      attribute: diagnostic_settings.workspace.log_categories
+      note: log_groups defaults to ["allLogs"] - set it [] beside the categories
+    terraform: { attribute: azurerm_monitor_diagnostic_setting.enabled_log.category }
+    bicep_avm: { attribute: 'diagnosticSettings[].logCategoriesAndGroups[].category' }
+    bicep:
+      gap: authored Microsoft.Insights/diagnosticSettings scoped to the workspace; the reference names the resource, not its log property
+  observability.metrics_enabled:
+    terraform_avm:
+      attribute: diagnostic_settings.workspace.metric_categories
+      values: { true: { expr: '["AllMetrics"]' }, false: { expr: '[]' } }
+    terraform:
+      gap: authored azurerm_monitor_diagnostic_setting; the authored table names only enabled_log - no metric block is in the reference
+    bicep_avm:
+      attribute: 'diagnosticSettings[].metricCategories'
+      values: { true: { expr: "[ { category: 'AllMetrics' } ]" }, false: { expr: '[]' } }
+    bicep:
+      gap: authored Microsoft.Insights/diagnosticSettings scoped to the workspace; the reference names the resource, not its metric property
