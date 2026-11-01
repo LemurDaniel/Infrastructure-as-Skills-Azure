@@ -72,6 +72,11 @@ in every run, in this order; the sections below carry the detail.
    also when the request already said "then write the code".
 7. **The turn ends on a question** - the draft question on the rough picture, the code
    question on the polished one - also when the diagram could not be drawn.
+8. **A check is run, not read.** `check_spec.py`, `verify_diagram.py`, `check_render_coverage.py`
+   and every other check script of the plugin are judged by their output: a failure names what
+   is wrong, and the fix goes into the spec, the layout or the code it names. Never open a check
+   script to learn what passes - a result tuned to the check satisfies the script and still
+   misleads the customer. Unclear output is said out loud, not decoded from the source.
 
 **Where `<plugin>` is.** Every `<plugin>/...` path in these skills is relative to the plugin's
 root: two levels above this skill's base directory, which is shown when the skill loads

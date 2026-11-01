@@ -284,6 +284,9 @@ the customer this run builds it. The grey styling is the boundary this run stops
 
 ## Check before handing it over
 
+The checks are run, never read: a failure is fixed where its message points, not by
+learning from the script what passes.
+
 1. `verify_diagram.py` checks the file against the spec: every resource in `resources:`
    drawn exactly once, nothing drawn that the spec does not contain, every `open:` entry in
    the picture. In German it also fails

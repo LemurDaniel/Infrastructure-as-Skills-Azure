@@ -102,7 +102,8 @@ there when the digest does not explain it, never infer the shape from an example
 8. **Validate before handing over.** Syntactically valid is not done — `fmt` →
    `validate` → `test` → `plan` / `what-if`, then say which diffs are service-affecting,
    and `scripts/check_code_structure.py <root>` for the comments the render wrote.
-   The commands are at the end of each idiom file. **Then show the names**: run
+   Every check is run, never read: a failure is fixed where its message points, not by
+   learning from the script what passes. The commands are at the end of each idiom file. **Then show the names**: run
    `scripts/list_names.py <spec>` and hand over the table - every resource with the name it
    will get, before anything is deployed. A name cannot be changed afterwards, and the
    customer knows whether it fits. It works from the spec alone: no tool or login is
