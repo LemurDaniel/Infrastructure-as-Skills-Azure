@@ -110,6 +110,26 @@ Die Sicherheitsvorgaben aller Teile an einer Stelle. Sie wurden nicht gefragt un
 - Netzwerk-Logs gehen in log-analytics-workspace.
 - Eine Aufzeichnung erlaubten und abgewiesenen Verkehrs wird nicht geführt.
 
+### Azure Network Security Group (endpoints)
+
+- Subnetze, die diese Gruppe schützt: pe (virtual-network). — weil: `resources.virtual-network.addressing.subnets`
+- Die Gruppe schützt ein Subnetz für private Anbindungen an Azure-Dienste, aus dem Netz über Port 443 erreichbar. — weil: `resources.virtual-network.addressing.private_endpoint_subnet_prefix`
+- Eingehender Verkehr, den keine Regel erlaubt, wird abgelehnt, auch von anderen Maschinen im selben Netz.
+- Ausgehender Verkehr ins Internet, den keine Regel erlaubt, wird abgelehnt - aus dem Subnetz geht nichts direkt ins Internet. — weil: `resources.network-security-group__endpoints.rules.subnet_purpose`
+- Ausdrücklich erlaubter Verkehr über das hinaus, was der Zweck des Subnetzes mitbringt: keine.
+- Seine Logs gehen in log-analytics-workspace.
+- Geloggt wird: welche Regel auf welche Maschine angewendet wurde, wie oft jede Regel gegriffen hat.
+
+### Azure Network Security Group (apps)
+
+- Subnetze, die diese Gruppe schützt: app-integration (virtual-network). — weil: `resources.virtual-network.addressing.subnets`
+- Die Gruppe schützt ein Subnetz für den ausgehenden Verkehr von Web- und Function-Apps. — weil: `resources.app-service__dashboard.networking.integration_subnet`
+- Eingehender Verkehr, den keine Regel erlaubt, wird abgelehnt, auch von anderen Maschinen im selben Netz.
+- Ausgehender Verkehr ins Internet, den keine Regel erlaubt, wird den eingebauten Azure-Regeln überlassen, die ihn hinauslassen.
+- Ausdrücklich erlaubter Verkehr über das hinaus, was der Zweck des Subnetzes mitbringt: keine.
+- Seine Logs gehen in log-analytics-workspace.
+- Geloggt wird: welche Regel auf welche Maschine angewendet wurde, wie oft jede Regel gegriffen hat.
+
 ### Azure Log Analytics Workspace
 
 - Logs werden 30 Tage aufbewahrt.
@@ -352,6 +372,22 @@ Solange diese Punkte offen sind, wird nichts ausgerollt.
 | `virtual-network.security.ddos_protection` | false | Regel |
 | `virtual-network.observability.diagnostic_workspace` | log-analytics-workspace | übernommen |
 | `virtual-network.observability.flow_logs_enabled` | false | Regel |
+| `network-security-group__endpoints.meta.purpose` | Schutz der privaten Endpunkte | eure Beschreibung |
+| `network-security-group__endpoints.networking.subnets` | pe | erzwungen |
+| `network-security-group__endpoints.rules.subnet_purpose` | private_endpoints | erzwungen |
+| `network-security-group__endpoints.rules.default_inbound` | deny_all | Regel |
+| `network-security-group__endpoints.rules.default_outbound` | deny_internet | erzwungen |
+| `network-security-group__endpoints.rules.rules` | [] | Regel |
+| `network-security-group__endpoints.observability.diagnostic_workspace` | log-analytics-workspace | übernommen |
+| `network-security-group__endpoints.observability.diagnostic_categories` | ["NetworkSecurityGroupEvent", "NetworkSecurityGroupRuleCounter"] | Regel |
+| `network-security-group__apps.meta.purpose` | Schutz des App-Subnetzes | eure Beschreibung |
+| `network-security-group__apps.networking.subnets` | app-integration | erzwungen |
+| `network-security-group__apps.rules.subnet_purpose` | app_integration | erzwungen |
+| `network-security-group__apps.rules.default_inbound` | deny_all | Regel |
+| `network-security-group__apps.rules.default_outbound` | azure_default | Regel |
+| `network-security-group__apps.rules.rules` | [] | Regel |
+| `network-security-group__apps.observability.diagnostic_workspace` | log-analytics-workspace | übernommen |
+| `network-security-group__apps.observability.diagnostic_categories` | ["NetworkSecurityGroupEvent", "NetworkSecurityGroupRuleCounter"] | Regel |
 | `log-analytics-workspace.meta.purpose` | Logs aller Teile | eure Beschreibung |
 | `log-analytics-workspace.cost.retention_days` | 30 | übernommen |
 | `log-analytics-workspace.cost.daily_quota_gb` | -1 | übernommen |
