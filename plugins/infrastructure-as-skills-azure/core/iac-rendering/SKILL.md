@@ -49,7 +49,7 @@ hand-over. The digest's literal is the one to write; a `gap` is rendered the way
 | `spec.target` | Picks Terraform or Bicep. Never both from one run |
 | `composition` | The module split. One `modules` entry is a directory (Terraform) or a file (Bicep) |
 | `context` | Variables/parameters shared by every module, resolved once |
-| `resources.<id>` | Decisions → attributes, via the question set's `renders` and the resource's own rendering reference |
+| `resources.<id>` | Decisions → attributes and literals, via the resource's `render-map.yaml` (the digest prints them) and its rendering reference |
 | `wiring` | Renders into the root, never into a module — only the caller sees both ends |
 | `_target_overrides` | Target-specific escape hatches, each with its comment |
 
@@ -236,7 +236,7 @@ is spelled. A port that reads as a transliteration has usually lost one of them.
 | [references/gitignore.md](references/gitignore.md) | After rendering: the lines the repository's `.gitignore` must have, added never rewritten |
 | [references/agents.md](references/agents.md) | The Agent tool is available and the spec spans several families: the two loops in sequence, the stop rules, the briefs |
 | [references/render-map.md](references/render-map.md) | A digest line is unclear, or a resource's `render-map.yaml` is written or changed |
-| `scripts/render_digest.py` | First, after the version gate: the spec's decisions with their `renders`, and the line ranges of every reference this spec needs |
+| `scripts/render_digest.py` | First, after the version gate: the spec's decisions with the literal their `render-map.yaml` gives, and the line ranges of every reference this spec needs |
 | [../iac-authoring/references/spec.md](../iac-authoring/references/spec.md) | A spec key the digest does not explain |
 | [../iac-authoring/references/guardrails.md](../iac-authoring/references/guardrails.md) | A value in the spec looks wrong and you need the rule behind it |
 | `scripts/run_arm_tests.py` | A Bicep render: its `tests/*.armtest.yaml` against the compiled ARM |

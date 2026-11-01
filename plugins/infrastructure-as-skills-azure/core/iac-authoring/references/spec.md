@@ -617,8 +617,8 @@ The spec names **decisions**, not attributes. `public_network_access: disabled`,
 `azurerm` provider and would leak one backend's vocabulary into the interface the other
 backends have to read.
 
-The mapping from a decision to an attribute lives in the question set's `renders` field and
-in each target's rendering reference. That is the layer allowed to know about
+The mapping from a decision to an attribute and its literal lives in the resource's
+`render-map.yaml` and in each target's rendering reference. That is the layer allowed to know about
 `networkAcls.defaultAction` versus `public_network_access_enabled`.
 
 Target-specific escape hatches do exist, and are quarantined:

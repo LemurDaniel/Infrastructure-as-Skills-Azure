@@ -1166,8 +1166,10 @@ family:
 1. Create `<resource>/` in the family and write `<resource>/questions.yaml`. Copy an existing one and keep the group order:
    placement, networking, identity, security, data_protection, observability. The order is
    the review order, and a reviewer reading three resources should not relearn the layout.
-2. Fill `why` and `renders` for every question. `why` is what a reviewer reads; `renders`
-   names the attribute it drives, which is what lets a review map code back to a decision.
+2. Fill `why` for every question - it is what a reviewer reads - and write the resource's
+   `render-map.yaml` beside the set: what each question renders to, per target and
+   implementation ([render-map.md](../iac-rendering/references/render-map.md)).
+   `check_render_map.py` fails on a question the map misses.
 3. Take defaults from [references/guardrails.md](references/guardrails.md) rather than from the
    Azure portal. They differ often, and the portal default is not a baseline worth
    inheriting.

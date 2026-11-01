@@ -460,7 +460,8 @@ sentence rather than a silence:
 marker naming a decision the spec no longer has. Run it with `terraform test`; a render
 that passes one and not the other is half done.
 
-Assert the value the spec records, through the attribute `renders` names. A decision
+Assert the value the spec records, through the attribute and literal the digest prints from
+the resource's `render-map.yaml`. A decision
 rendered as an absent block (`immutability: none`, `point_in_time_restore_days: 0`,
 `key_management: platform_managed`) is asserted as `length(...) == 0` — the absence is the
 decision.

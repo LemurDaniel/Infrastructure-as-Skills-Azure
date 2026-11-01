@@ -12,7 +12,8 @@ a regex cannot see - what references/question-set-format.md promises:
   2. Groups: unique ids, each with a title and questions, the review-order
      groups (placement, networking, identity, security, data_protection,
      observability) in that relative order.
-  3. Questions: unique ids; id, ask, type, why and renders present; a known
+  3. Questions: unique ids; id, ask, type and why present; renders in the deployment set
+     only (a resource's renderings are its render-map.yaml); a known
      type; `accepts` - a list of values (required on an enum, optional on a
      list) or `{ ref: <kind> }` (on a string or a list); a default within the
      accepted values (enum) or a subset of them (list); a default of the type's kind.
@@ -250,9 +251,13 @@ def check_set(path, doc, deployment, rel):
             if k not in KNOWN_FIELDS:
                 err(f"{where}: unknown field '{k}'" + (" - did you mean 'default'?" if k.lower().startswith('def') else ''))
 
-        for k in ('id', 'ask', 'type', 'why', 'renders'):
+        for k in ('id', 'ask', 'type', 'why') + (('renders',) if scope == 'deployment' else ()):
             if not q.get(k):
                 err(f"{where}: '{k}' is missing")
+        if scope == 'resource' and 'renders' in q:
+            # One record of what a decision renders to: the resource's render-map.yaml. A second
+            # one here drifts from it, which is what the field did before the map existed.
+            err(f"{where}: 'renders' belongs in render-map.yaml beside the set, not in the question")
         if q.get('why') and len(str(q['why']).strip()) < 40:
             wrn(f"{where}: why is one line; the format wants what breaks or what it costs if the other value is chosen")
 

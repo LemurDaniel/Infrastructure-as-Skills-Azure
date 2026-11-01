@@ -5,7 +5,8 @@ this plugin:
 
 | File | Where | Purpose |
 |---|---|---|
-| `questions.yaml` | `resources/<family>/<resource>/` | The decisions the resource forces, each with its default, `why` and `renders`. This file's subject |
+| `questions.yaml` | `resources/<family>/<resource>/` | The decisions the resource forces, each with its default and `why`. This file's subject |
+| `render-map.yaml` | beside it | What each decision renders to, per target and implementation - [render-map.md](../../iac-rendering/references/render-map.md) |
 | `notes.md` | `resources/<family>/<resource>/` | What a question set cannot express: decisions fixed at creation, dependency order, pitfalls to name out loud |
 | `terraform.md` | `resources/<family>/<resource>/` | How the resource's decisions become Terraform: the AVM module with its version snapshot and provider requirements, a decision → module input table, the `azurerm` resource as the fallback, and how to verify arguments against the provider schema |
 | `bicep.md` | `resources/<family>/<resource>/` | How the resource's decisions become Bicep: the `br/public:avm/...` module with its version snapshot, a decision → module parameter table, the raw resource type as the fallback, the name length limit, and `bicep build` as the check |
@@ -46,7 +47,6 @@ groups:
         why: >
           Drives the rendered name, the tags, and the strictness of several
           defaults below. Nothing sensible can be guessed here.
-        renders: naming parameter `environment`, tag `environment`
 
       - id: replication
         ask:
@@ -60,7 +60,6 @@ groups:
           anything that is not scratch data. GRS only pays off with a documented
           cross-region recovery plan — without one it is cost for a capability
           nobody will exercise.
-        renders: azurerm_storage_account.account_replication_type / sku.name
 ```
 
 ## Where the value comes from
@@ -96,7 +95,7 @@ different matter again, decided by `resolved_by` alone.
 | `parameterized` | no | `true` means the value is never asked and never rendered as a literal: the template takes it as an input variable (Terraform `variable`, Bicep `param`) without a default. Used for deployment context that is supplied at deploy time. |
 | `answer` | no | Where an inherited answer comes from, in one of three forms: `{ deployment: <id> }` takes a deployment-set answer unchanged; `{ context: <id> }` reads the spec's `context:`; `{ question: <id>, map: { <answer>: <value> } }` translates a customer requirement through a map covering every one of its answers (`outage_impact: disruptive` → `replication: ZRS`). See *Where the value comes from* and *Requirements*. |
 | `why` | yes | The reasoning. This is what a reviewer reads and what justifies the default. |
-| `renders` | yes | Which attribute(s) the answer drives, per target where they differ. Lets a review skill map code back to a decision. |
+| `renders` | deployment set only | Which attribute(s) the answer drives. A resource set has none: its renderings are its `render-map.yaml`, one record checked against the set, where a second one here drifted from the references. |
 | `depends_on` | no | `{ question: <id>, equals: <value> }`, `not_equals`, or `contains` (a `list` question holds the value) — skip unless the condition holds. Gates a question that would be dead otherwise: firewall rules mean nothing while public access is disabled, so they are not asked and discarded. |
 | `forced_when` | no | Which answer elsewhere removes a value from `accepts`, or determines this one: `key_protection: hsm` requires Key Vault Premium, and a software key cannot be converted later. The forced value is set, not asked, and recorded as `source: { forced_by: <what drove it> }` in the spec - a value determined silently is worse than one asked, so the spec always names what drove it. Prose, because the conditions are not uniform enough to encode. |
 | `resolved_by` | no | Who supplies the value. `interview`: the customer is asked. `derived`: never asked - it follows from interview answers, else its default, else an `open:` entry for the platform team. Absent: never asked - its default or derivation applies, else an `open:` entry for the workload owner. See *Who resolves it*. |
@@ -157,7 +156,8 @@ and a decision with `answer: { deployment: <id> }`.
 A deployment set declares `scope: deployment` and names no resource, so it carries no
 `resource:` and no `naming:` block, and its groups keep no review order. `answer` is
 refused inside it; `parameterized` belongs only there. Everything
-else — groups, ids, `why`, `renders`, `depends_on` — is the same in both scopes.
+else — groups, ids, `why`, `depends_on` — is the same in both scopes; `renders` is the
+deployment set's alone.
 
 ## Who resolves it: `resolved_by`
 

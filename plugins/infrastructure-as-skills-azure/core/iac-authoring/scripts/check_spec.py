@@ -82,7 +82,7 @@ import sys
 KNOWN_BLOCKS = ['render', 'plan', 'apply']
 
 # Attribute spellings that belong to a backend, not to a decision. Matched
-# against decision keys only - a `renders:` field naming them is correct.
+# against decision keys only - a render-map.yaml naming them is correct.
 BACKEND_SPELLINGS = [
     'public_network_access_enabled', 'allow_nested_items_to_be_public',
     'shared_access_key_enabled_bool', 'https_traffic_only_enabled',
