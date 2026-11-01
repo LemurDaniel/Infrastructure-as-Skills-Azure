@@ -473,6 +473,8 @@ abbreviations:
     Microsoft.Insights/dataCollectionRules::default: dcr
     Microsoft.Insights/dataCollectionEndpoints::default: dce
 
+    Microsoft.Consumption/budgets::default: budget
+
 
     #/////////////////////////////////////////////////////////////////////////
     #//// Migration
