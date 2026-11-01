@@ -1,6 +1,7 @@
 # Rendered from eval-agent/infra/infra-spec.yaml (target: bicep, deploy_mechanism: github,
 # pipeline_auth: workload_identity, pipeline_approvals: production, stage_isolation: subscription).
 # Stages: production (one stage). Working directory of every step: eval-agent/infra/
+# Shell of every step: pwsh (pipelines.md, invariant 14).
 #
 # PLATFORM PREREQUISITES - this repository does not create them:
 #
@@ -48,6 +49,10 @@ on:
 permissions:
   contents: read
 
+defaults:
+  run:
+    shell: pwsh
+
 jobs:
   validate:
     # No Azure credential: safe for unreviewed pull requests.
@@ -57,10 +62,14 @@ jobs:
         working-directory: eval-agent/infra
     steps:
       - uses: actions/checkout@v7
-      - run: az bicep build --file main.bicep --stdout > /dev/null
+      - run: az bicep build --file main.bicep --stdout > $null
       - run: az bicep lint --file main.bicep
       - name: Parameter files compile against the template
-        run: for f in main.*.bicepparam; do az bicep build-params --file "$f" --stdout > /dev/null; done
+        run: |
+          foreach ($f in Get-ChildItem main.*.bicepparam) {
+            az bicep build-params --file $f.Name --stdout > $null
+            if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          }
 
   production:
     needs: validate

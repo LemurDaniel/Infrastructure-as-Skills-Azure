@@ -20,6 +20,7 @@ env:
 
 defaults:
   run:
+    shell: pwsh
     working-directory: eval-agent/infra
 
 jobs:
@@ -34,25 +35,29 @@ jobs:
 
       - name: Refuse placeholder values
         run: |
-          f="main.${STAGE}.bicepparam"
-          [ -f "$f" ] || { echo "::error::eval-agent/infra/$f is missing"; exit 1; }
+          $f = "main.$env:STAGE.bicepparam"
+          if (-not (Test-Path $f)) { Write-Output "::error::eval-agent/infra/${f} is missing"; exit 1 }
           # only real parameter lines count; comments, blank lines and 'using' are ignored
-          if grep -E '^param ' "$f" | grep -Eq '00000000-0000-0000-0000-000000000000|OPEN-|ASSUMED:'; then
-            echo "::error file=eval-agent/infra/$f::Stage ${STAGE} still holds placeholder values - answer the open items of the spec first."
+          if (Get-Content $f | Where-Object { $_ -match '^param ' } | Select-String -Pattern '00000000-0000-0000-0000-000000000000|OPEN-|ASSUMED:' -Quiet) {
+            Write-Output "::error file=eval-agent/infra/${f}::Stage $env:STAGE still holds placeholder values - answer the open items of the spec first."
             exit 1
-          fi
+          }
 
       - name: Read target from the stage file
         run: |
-          f="main.${STAGE}.bicepparam"
-          sub=$(sed -nE "s/^param subscriptionId *= *'([^']+)'.*/\1/p" "$f")
-          rg=$(sed -nE "s/^param resourceGroupName *= *'([^']+)'.*/\1/p" "$f")
-          [ -n "$sub" ] && [ -n "$rg" ] || { echo "::error file=eval-agent/infra/$f::subscriptionId / resourceGroupName not found"; exit 1; }
-          if [ "$sub" != "${{ vars.AZURE_SUBSCRIPTION_ID }}" ]; then
-            echo "::error::subscriptionId in $f differs from environment variable AZURE_SUBSCRIPTION_ID"; exit 1
-          fi
-          echo "SUBSCRIPTION_ID=$sub" >> "$GITHUB_ENV"
-          echo "RESOURCE_GROUP=$rg" >> "$GITHUB_ENV"
+          $f = "main.$env:STAGE.bicepparam"
+          function Get-Param ([string] $name) {
+            $m = Select-String -Path $f -Pattern "^param $name *= *'([^']+)'" | Select-Object -First 1
+            $m ? $m.Matches[0].Groups[1].Value : ''
+          }
+          $sub = Get-Param subscriptionId
+          $rg = Get-Param resourceGroupName
+          if (-not $sub -or -not $rg) { Write-Output "::error file=eval-agent/infra/${f}::subscriptionId / resourceGroupName not found"; exit 1 }
+          if ($sub -ne '${{ vars.AZURE_SUBSCRIPTION_ID }}') {
+            Write-Output "::error::subscriptionId in ${f} differs from environment variable AZURE_SUBSCRIPTION_ID"; exit 1
+          }
+          "SUBSCRIPTION_ID=$sub" | Add-Content $env:GITHUB_ENV
+          "RESOURCE_GROUP=$rg" | Add-Content $env:GITHUB_ENV
 
       - uses: azure/login@v3
         with:
@@ -67,65 +72,57 @@ jobs:
       # contain any of these words.
       - name: Resolve existing linuxFxVersions
         run: |
-          set -euo pipefail
           # The resolved parameter file starts as a copy of the stage file.
-          cp "main.${STAGE}.bicepparam" "main.${STAGE}.resolved.bicepparam"
-          workload=$(sed -nE "s/^param workload *= *'([^']+)'.*/\1/p" "main.${STAGE}.bicepparam")
-          [ -n "$workload" ] || { echo "::error file=eval-agent/infra/main.${STAGE}.bicepparam::workload not found"; exit 1; }
-          dashboard_fx=""
-          drift_fx=""
-          fuzz_fx=""
-          tune_fx=""
-          if [ "$(az group exists --subscription "$SUBSCRIPTION_ID" --name "$RESOURCE_GROUP")" = "true" ]; then
-            sites=$(az resource list --subscription "$SUBSCRIPTION_ID" --resource-group "$RESOURCE_GROUP" \
-              --resource-type Microsoft.Web/sites --query "[].[id,name]" -o tsv | tr -d '\r' | tr '\t' ';')
-            for site in $sites; do
-              id="${site%;*}"
-              name="${site#*;}"
-              fx=$(az rest --method get \
-                --url "https://management.azure.com${id}/config/web?api-version=2024-11-01" \
-                --query "properties.linuxFxVersion" -o tsv | tr -d '\r')
-              case "$fx" in 'DOCKER|'*) ;; *) fx="" ;; esac
-              case "$name" in
-                app-*-"$workload"-drift-[0-9][0-9]) drift_fx="$fx" ;;
-                app-*-"$workload"-fuzz-[0-9][0-9]) fuzz_fx="$fx" ;;
-                app-*-"$workload"-tune-[0-9][0-9]) tune_fx="$fx" ;;
-                app-*-"$workload"-[0-9][0-9]) dashboard_fx="$fx" ;;
-                *) echo "::warning::site $name matches no app of main.bicep - its linuxFxVersion is not kept" ;;
-              esac
-            done
-          fi
-          {
-            printf "\nparam existingDashboardLinuxFxVersion = '%s'\n" "$dashboard_fx"
-            printf "param existingDriftLinuxFxVersion = '%s'\n" "$drift_fx"
-            printf "param existingFuzzLinuxFxVersion = '%s'\n" "$fuzz_fx"
-            printf "param existingTuneLinuxFxVersion = '%s'\n" "$tune_fx"
-          } >> "main.${STAGE}.resolved.bicepparam"
-          echo "existingDashboardLinuxFxVersion = '$dashboard_fx'"
-          echo "existingDriftLinuxFxVersion = '$drift_fx'"
-          echo "existingFuzzLinuxFxVersion = '$fuzz_fx'"
-          echo "existingTuneLinuxFxVersion = '$tune_fx'"
+          $f = "main.$env:STAGE.bicepparam"
+          $resolved = "main.$env:STAGE.resolved.bicepparam"
+          Copy-Item $f $resolved
+          $m = Select-String -Path $f -Pattern "^param workload *= *'([^']+)'" | Select-Object -First 1
+          if (-not $m) { Write-Output "::error file=eval-agent/infra/${f}::workload not found"; exit 1 }
+          $workload = [regex]::Escape($m.Matches[0].Groups[1].Value)
+          $fx = [ordered]@{ Dashboard = ''; Drift = ''; Fuzz = ''; Tune = '' }
+          $exists = az group exists --subscription $env:SUBSCRIPTION_ID --name $env:RESOURCE_GROUP
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          if ($exists -eq 'true') {
+            $sites = az resource list --subscription $env:SUBSCRIPTION_ID --resource-group $env:RESOURCE_GROUP `
+              --resource-type Microsoft.Web/sites --query "[].{id: id, name: name}" -o json | ConvertFrom-Json
+            if ($LASTEXITCODE) { exit $LASTEXITCODE }
+            foreach ($site in $sites) {
+              $value = az rest --method get `
+                --url "https://management.azure.com$($site.id)/config/web?api-version=2024-11-01" `
+                --query "properties.linuxFxVersion" -o tsv
+              if ($LASTEXITCODE) { exit $LASTEXITCODE }
+              if ("$value" -notlike 'DOCKER|*') { $value = '' }
+              switch -Regex ($site.name) {
+                "^app-.*-$workload-drift-\d\d$" { $fx.Drift = $value; break }
+                "^app-.*-$workload-fuzz-\d\d$" { $fx.Fuzz = $value; break }
+                "^app-.*-$workload-tune-\d\d$" { $fx.Tune = $value; break }
+                "^app-.*-$workload-\d\d$" { $fx.Dashboard = $value; break }
+                default { Write-Output "::warning::site $($site.name) matches no app of main.bicep - its linuxFxVersion is not kept" }
+              }
+            }
+          }
+          $params = $fx.Keys | ForEach-Object { "existing$($_)LinuxFxVersion = '$($fx[$_])'" }
+          @('') + @($params | ForEach-Object { "param $_" }) | Add-Content $resolved
+          $params
 
       - name: What-if
         id: whatif
         run: |
-          az deployment group what-if --subscription "$SUBSCRIPTION_ID" --resource-group "$RESOURCE_GROUP" \
-            --template-file main.bicep --parameters "main.${STAGE}.resolved.bicepparam" \
+          az deployment group what-if --subscription $env:SUBSCRIPTION_ID --resource-group $env:RESOURCE_GROUP `
+            --template-file main.bicep --parameters "main.$env:STAGE.resolved.bicepparam" `
             --no-pretty-print > whatif.json
-          n=$(jq '[.changes[] | select(.changeType != "NoChange" and .changeType != "Ignore")] | length' whatif.json)
-          echo "changes=$([ "$n" -gt 0 ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
-          {
-            echo "### What-if: ${STAGE}"
-            echo '```'
-            jq -r '.changes[] | select(.changeType != "NoChange" and .changeType != "Ignore") | "\(.changeType)\t\(.resourceId)"' whatif.json
-            echo '```'
-            # A module whose parameters use another module's output cannot be expanded before the
-            # deployment: what-if skips it and shows none of its resources.
-            skipped=$(jq -r '[.diagnostics[]? | select(.code == "NestedDeploymentShortCircuited") | .target | split("/") | last] | join(", ")' whatif.json)
-            if [ -n "$skipped" ]; then
-              echo "**Not predicted (what-if cannot expand these modules, they are deployed anyway):** ${skipped}"
-            fi
-          } | tee -a "$GITHUB_STEP_SUMMARY"
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          $whatif = Get-Content whatif.json -Raw | ConvertFrom-Json
+          $changes = @($whatif.changes | Where-Object changeType -notin 'NoChange', 'Ignore')
+          "changes=$(($changes.Count -gt 0).ToString().ToLower())" | Add-Content $env:GITHUB_OUTPUT
+          $summary = @("### What-if: $env:STAGE", '```') + @($changes | ForEach-Object { "$($_.changeType)`t$($_.resourceId)" }) + '```'
+          # A module whose parameters use another module's output cannot be expanded before the
+          # deployment: what-if skips it and shows none of its resources.
+          $skipped = @($whatif.diagnostics | Where-Object code -eq 'NestedDeploymentShortCircuited' | ForEach-Object { ($_.target -split '/')[-1] })
+          if ($skipped) {
+            $summary += "**Not predicted (what-if cannot expand these modules, they are deployed anyway):** $($skipped -join ', ')"
+          }
+          $summary | Tee-Object -FilePath $env:GITHUB_STEP_SUMMARY -Append
 
       # The saved plan: what-if result plus the exact parameter file the deploy will use.
       - uses: actions/upload-artifact@v7
@@ -147,7 +144,7 @@ jobs:
       run:
         working-directory: .
     steps:
-      - run: echo "Approved for ${{ inputs.stage }}."
+      - run: Write-Output "Approved for ${{ inputs.stage }}."
 
   apply:
     needs: [plan, approve]
@@ -171,10 +168,14 @@ jobs:
       # template and (resolved) parameter file as the plan job - nothing else is promised.
       - name: Deploy
         run: |
-          f="main.${STAGE}.resolved.bicepparam"
-          sub=$(sed -nE "s/^param subscriptionId *= *'([^']+)'.*/\1/p" "$f")
-          rg=$(sed -nE "s/^param resourceGroupName *= *'([^']+)'.*/\1/p" "$f")
-          [ -n "$sub" ] && [ -n "$rg" ] || { echo "::error::target not found in $f"; exit 1; }
-          az deployment group create --name "infra-${STAGE}-${GITHUB_RUN_ID}" \
-            --subscription "$sub" --resource-group "$rg" \
-            --template-file main.bicep --parameters "$f"
+          $f = "main.$env:STAGE.resolved.bicepparam"
+          function Get-Param ([string] $name) {
+            $m = Select-String -Path $f -Pattern "^param $name *= *'([^']+)'" | Select-Object -First 1
+            $m ? $m.Matches[0].Groups[1].Value : ''
+          }
+          $sub = Get-Param subscriptionId
+          $rg = Get-Param resourceGroupName
+          if (-not $sub -or -not $rg) { Write-Output "::error::target not found in ${f}"; exit 1 }
+          az deployment group create --name "infra-$env:STAGE-$env:GITHUB_RUN_ID" `
+            --subscription $sub --resource-group $rg `
+            --template-file main.bicep --parameters $f
