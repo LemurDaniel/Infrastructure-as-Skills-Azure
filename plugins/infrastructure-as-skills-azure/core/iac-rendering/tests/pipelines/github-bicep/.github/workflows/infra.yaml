@@ -12,15 +12,23 @@ on:
 permissions:
   contents: read
 
+defaults:
+  run:
+    shell: pwsh
+
 jobs:
   validate:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - run: az bicep build --file main.bicep --stdout > /dev/null
+      - run: az bicep build --file main.bicep --stdout > $null
       - run: az bicep lint --file main.bicep
       - name: Parameter files compile against the template
-        run: for f in main.*.bicepparam; do az bicep build-params --file "$f" --stdout > /dev/null; done
+        run: |
+          foreach ($f in Get-ChildItem main.*.bicepparam) {
+            az bicep build-params --file $f.Name --stdout > $null
+            if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          }
 
   development:
     needs: validate

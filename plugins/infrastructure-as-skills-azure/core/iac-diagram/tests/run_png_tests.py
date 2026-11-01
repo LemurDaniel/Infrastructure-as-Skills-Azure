@@ -147,6 +147,19 @@ def case_icon_table_is_in_the_library(tmp):
     return [f"not in the library: {p}" for p in sorted(paths - dp.bundled_icons())]
 
 
+def case_every_question_set_has_an_icon(tmp):
+    """Every resource with a question set has an icon, or is a child on its parent's label - a
+    resource with neither is drawn as a bare box, and nothing else notices."""
+    import glob
+    import new_diagram as nd
+    # A role assignment is a line on its target's label, never a shape of its own.
+    not_drawn = {'role-assignment'}
+    keys = {os.path.basename(os.path.dirname(p))
+            for p in glob.glob(os.path.join(nd.PLUGIN_RESOURCES, '*', '*', 'questions.yaml'))}
+    return [f"no icon and not a child: {k} - add it to ICONS (drawio_png.py icons <word>)"
+            for k in sorted(keys - set(nd.ICONS) - set(nd.CHILD_KINDS) - not_drawn)]
+
+
 CASES = [
     ('check names the draw.io bug', case_check_names_the_draw_io_bug),
     ('repair is lossless', case_repair_is_lossless),
@@ -156,6 +169,7 @@ CASES = [
     ('verify catches transliterated umlauts', case_verify_catches_transliterated_umlauts),
     ('export delivers one file', case_export_delivers_one_file),
     ('icon table is in the library', case_icon_table_is_in_the_library),
+    ('every question set has an icon', case_every_question_set_has_an_icon),
 ]
 
 

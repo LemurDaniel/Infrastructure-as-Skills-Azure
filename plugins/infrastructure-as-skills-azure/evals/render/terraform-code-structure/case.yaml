@@ -1,0 +1,82 @@
+schema_version: "1.1"
+name: terraform-code-structure
+
+# The signed-off spec is a file under workspace/, copied into the run's working directory by
+# scaffold.sh, so every run starts from the same state.
+context:
+  scaffold_script: scaffold.sh
+
+# The eval sandbox has no shell, so check_code_structure.py cannot run here; the graders read
+# what it checks with regexes. The idiom fixes every file name the graders read: providers.tf,
+# variables.tf, res.storage.tf for the authored storage account and tests/networking.tftest.hcl
+# for its networking group. `target: files` is the list of created paths, not their contents.
+graders:
+  - name: skill-fired
+    type: tool_used
+    tool: Skill
+    input_match: infrastructure-as-skills-azure
+
+  - name: providers-written
+    type: file_exists
+    path: infra/providers.tf
+    weight: 2
+
+  - name: providers-opens-with-header
+    type: regex
+    weight: 2
+    target: { source: file, path: infra/providers.tf }
+    pattern: '^\s*#\s*\S'
+
+  # The root is one book: its table of contents sits in providers.tf and lists UPPERCASE titles.
+  - name: root-contents-in-providers
+    type: regex
+    weight: 3
+    target: { source: file, path: infra/providers.tf }
+    pattern: '#\s*Chapters:\s*\n#\s{3,}[A-Z][A-Z0-9 ,/()&-]*[A-Z0-9)]\s{2,}\S'
+
+  - name: providers-chapter-banner
+    type: regex
+    weight: 2
+    target: { source: file, path: infra/providers.tf }
+    pattern: '^# ={75}\s*\n# =+   [A-Z][A-Z0-9 ,/()&-]*   =+\s*\n# ={75}\s*$'
+    flags: m
+
+  - name: variables-chapter-banner
+    type: regex
+    weight: 2
+    target: { source: file, path: infra/variables.tf }
+    pattern: '^# ={75}\s*\n# =+   [A-Z][A-Z0-9 ,/()&-]*   =+\s*\n# ={75}\s*$'
+    flags: m
+
+  # A flow chapter numbers its steps; each step is a section: rule, title, indented description.
+  - name: resource-flow-chapter-with-sections
+    type: regex
+    weight: 3
+    target: { source: file, path: infra/res.storage.tf }
+    pattern: '^#\s{3}1\. \S[\s\S]*^# -{75}\s*\n# \S[^\n]*\n#\s{3}\S'
+    flags: m
+
+  # Every banner line is 75 characters after `# ` - none shorter, none longer. Read in every
+  # file the run wrote: the input is serialized JSON, so a line ends at \n or the closing quote.
+  # Write only - an Edit that fixes a banner carries the old one in its old_string.
+  - name: no-banner-line-off-width
+    type: tool_used
+    tool: Write
+    input_match: '(?:\\n|")[ \t]*# (?:={20,74}|={76,}|-{20,74}|-{76,})[ \t]*(?:\\[rn]|")'
+    min: 0
+    max: 0
+    weight: 3
+
+  # A test file is one chapter, and lists it like every file with a chapter does.
+  - name: test-file-contents
+    type: regex
+    weight: 2
+    target: { source: file, path: infra/tests/networking.tftest.hcl }
+    pattern: '#\s*Chapters:\s*\n#\s{3,}ASSERT [A-Z][A-Z0-9 ,/()&-]*[A-Z0-9)]'
+
+  # The structure comes on top of the idiom's comments, never instead of them.
+  - name: decision-comments-kept
+    type: regex
+    weight: 2
+    target: { source: file, path: infra/tests/networking.tftest.hcl }
+    pattern: '#\s*decision:\s*storage-account\.networking\.public_network_access\s*\n(?:\s*#[^\n]*\n)*\s*assert\s*\{'

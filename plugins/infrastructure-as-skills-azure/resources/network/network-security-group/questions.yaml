@@ -37,7 +37,6 @@ groups:
           Drives the rendered name. One NSG per subnet role per stage: rules that differ
           between stages by accident are the finding a review looks for, and the parity rule
           says they do not differ.
-        renders: naming parameter `environment`, and the tag of that name where the repository uses one
 
       - id: location
         ask:
@@ -51,7 +50,6 @@ groups:
         why: >
           An NSG is regional and can only be associated with subnets of its own region, which
           is the one constraint on where it goes.
-        renders: location
 
       - id: resource_group_name
         ask:
@@ -67,7 +65,6 @@ groups:
         why: >
           The NSG is placed into an existing group, usually the network's, so the people who
           own the subnets own the rules that guard them.
-        renders: parent_id (AVM Terraform, AzAPI) / implicit in Bicep scope
 
   # -------------------------------------------------------------------- rules
   - id: rules
@@ -97,7 +94,6 @@ groups:
           documentation to read for the platform rules. With no answer the decision is an
           `open:` entry owned by the engineer, because an NSG with the wrong role's rules
           either blocks the service or guards nothing.
-        renders: the NSG's name part and the baseline rule set
 
       - id: default_inbound
         ask:
@@ -120,7 +116,6 @@ groups:
           4096) overrides them, and every legitimate flow becomes a rule someone wrote and a
           reviewer can read. Written as a rule, not left implicit, so it shows in the plan.
           `azure_default` is a departure for a subnet where that is intended and says so.
-        renders: security_rules / securityRules (a Deny rule, priority 4096, inbound, any to any)
 
       - id: default_outbound
         ask:
@@ -146,7 +141,6 @@ groups:
         forced_when: >
           `subnet_purpose: private_endpoints` takes `deny_internet`, recorded as forced with
           `subnet_purpose` as forced_by
-        renders: security_rules / securityRules (a Deny rule to the `Internet` tag, priority 4096, outbound)
 
       - id: rules
         ask:
@@ -167,7 +161,6 @@ groups:
           rule, which the guardrails reject. An empty list is valid for a subnet that only
           answers what it started; for the service in the subnet it is usually not enough, and
           the rule set follows the baseline for `subnet_purpose`. Address ranges are per stage.
-        renders: security_rules / securityRules
 
   # ------------------------------------------------------------ observability
   - id: observability
@@ -189,7 +182,6 @@ groups:
           Inherited: one deployment, one destination. The NSG's own log records rule *changes*
           and per-rule match counts, not traffic - the traffic is a flow log (a separate
           resource, not rendered here).
-        renders: diagnostic_settings / diagnosticSettings
 
       - id: diagnostic_categories
         ask:
@@ -210,4 +202,3 @@ groups:
           Both are small. The names are the platform's and are checked against `az monitor
           diagnostic-settings categories list --resource <nsg id>` before a render, not
           remembered. Changes to the rules themselves are in the Azure activity log, not here.
-        renders: diagnostic_settings.<key>.logs[].category / diagnosticSettings[].logCategoriesAndGroups[].category

@@ -36,7 +36,6 @@ groups:
         why: >
           Drives the rendered name and which stages notify whom: an action group exists per
           stage so that a test alert never pages the on-call team.
-        renders: naming parameter `environment`
 
       - id: location
         ask:
@@ -52,7 +51,6 @@ groups:
           outage does not stop it notifying. `global` is written as the location and the
           deployment's region is not used - a regional action group exists only for a
           data-residency requirement on notification metadata and is a departure.
-        renders: "location = \"global\" / location: 'global'"
 
       - id: resource_group_name
         ask:
@@ -69,7 +67,6 @@ groups:
           The group is placed into an existing resource group, the observability one where
           the deployment splits by role: it outlives any single workload resource that
           alerts into it.
-        renders: parent_id (AVM Terraform, the group's id) / implicit in Bicep scope
 
   # ----------------------------------------------------------------- receivers
   - id: notification
@@ -91,7 +88,6 @@ groups:
           parameter, so every stage of one system is recognisable by the same prefix. A
           stated value is for a name that collides within the subscription or a team that
           wants its own prefix; it is cut to 12 characters either way.
-        renders: "short_name = coalesce(var.short_name, substr(var.workload, 0, 12)) / groupShortName: take(empty(shortName) ? workload : shortName, 12)"
 
       - id: on_call_email
         ask:
@@ -111,7 +107,6 @@ groups:
           the address and the receiver stays silent until it is accepted, so the mailbox
           must be one somebody reads before the first alert, not after. Written as the
           first entry of the e-mail receivers; further addresses go into `email_receivers`.
-        renders: email_receivers.oncall / emailReceivers[0]
 
       - id: email_receivers
         ask:
@@ -128,7 +123,6 @@ groups:
           stage, because a development stage informs the team and production informs the
           people who carry the pager. Empty is the common answer. A person's address is a
           finding, for the reason given at `on_call_email`.
-        renders: email_receivers / emailReceivers
 
       - id: sms_receivers
         ask:
@@ -146,7 +140,6 @@ groups:
           production answer and a short list. Azure applies a rate limit per number (no more
           than one SMS every five minutes) and sends a confirmation first. SMS receivers do
           not get the common alert schema; the text is Azure's fixed format.
-        renders: sms_receivers / smsReceivers
 
       - id: webhook_receivers
         ask:
@@ -165,7 +158,6 @@ groups:
           carries a token, so it is read from a secret at render - the Terraform module
           sends it write-only and keeps a hash in state, Bicep takes it as a `securestring`
           - and never appears in the spec.
-        renders: webhook_receivers / webhookReceivers
 
       - id: webhook_authentication
         ask:
@@ -190,9 +182,6 @@ groups:
           the address, which chat tools (Teams, Slack) offer and which cannot be upgraded:
           a receiver pointing at one of those is recorded as `url_secret` per entry, the
           rest stay `entra_id`.
-        renders: >
-          webhook_receivers.<key>.use_aad_auth + object_id + identifier_uri /
-          webhookReceivers[].useAadAuth + objectId + identifierUri
 
       - id: azure_function_receivers
         ask:
@@ -210,7 +199,6 @@ groups:
           auto-remediation hook: restart, scale, open a ticket. The HTTP trigger URL carries
           the function key and is read from the app at render, never written down. The
           function's own code is the workload's.
-        renders: azure_function_receivers / azureFunctionReceivers
 
       - id: logic_app_receivers
         ask:
@@ -227,7 +215,6 @@ groups:
           Each entry is a Logic App workflow with an HTTP trigger - the usual way to post an
           adaptive card into Teams, enrich the alert or route it by severity. The callback
           URL carries a shared access signature and is read from the workflow at render.
-        renders: logic_app_receivers / logicAppReceivers
 
       - id: event_hub_receivers
         ask:
@@ -245,7 +232,6 @@ groups:
           operations platform reads. Azure Monitor authenticates to the hub with its own
           identity - no connection string is accepted - so the namespace must allow Entra
           ID and the hub's role is wiring the pattern does.
-        renders: event_hub_receivers / eventHubReceivers
 
       - id: arm_role_receivers
         ask:
@@ -269,7 +255,6 @@ groups:
           needs no address to maintain, which is also its weakness: who gets paged changes
           with every role assignment. Empty by default; `Owner` is the common addition for a
           Service Health alert. Only built-in roles are accepted, rendered by their GUID.
-        renders: arm_role_receivers.<key>.role_id (GUID) / armRoleReceivers[].roleId
 
       - id: automation_runbook_receivers
         ask:
@@ -286,7 +271,6 @@ groups:
           operations team that exists before this group. The webhook URI is a single-use
           secret and is read at render, not written. Empty is the common answer; a Function
           App receiver covers the same need without an Automation account.
-        renders: automation_runbook_receivers / automationRunbookReceivers
 
       - id: itsm_receivers
         ask:
@@ -304,7 +288,6 @@ groups:
           configuration document - content of the service-management team. The connection
           is created in the portal or by that team's own automation, not here. ITSM receivers
           do not get the common alert schema.
-        renders: itsm_receivers / itsmReceivers
 
       - id: common_alert_schema
         ask:
@@ -326,7 +309,6 @@ groups:
           `false`**, Azure's default, so it is written on every receiver that supports it
           (e-mail, webhook, function, Logic App, runbook, Event Hub, ARM role); SMS, voice,
           push and ITSM have no such switch.
-        renders: <receiver>.use_common_alert_schema on every receiver / <receiver>.useCommonAlertSchema
 
       - id: enabled
         ask:
@@ -345,7 +327,6 @@ groups:
           noisy week. It is a runtime state that the stage's parameter file flips, never a
           literal in the template; a group left disabled is the classic reason an outage
           went unnoticed, so the decision document shows it.
-        renders: enabled / enabled
 
   # ----------------------------------------------------------------- identity
   - id: identity
@@ -367,4 +348,3 @@ groups:
           `Monitoring Reader` to see them. Empty means the inherited rights of the resource
           group apply, which is right where the observability group is the operations
           team's. A pattern fills it; nothing here grants a role elsewhere.
-        renders: role_assignments / roleAssignments

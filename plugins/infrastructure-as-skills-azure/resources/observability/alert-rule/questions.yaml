@@ -40,7 +40,6 @@ groups:
         why: >
           Drives the rendered name. A rule exists per stage, watching that stage's
           resources and notifying that stage's action group.
-        renders: naming parameter `environment`
 
       - id: location
         ask:
@@ -60,7 +59,6 @@ groups:
           workspace it queries - a rule in another region works and pays the cross-region
           query. The metric alert and the activity log alert have no region; the two AVM
           modules default them to `global` and the render writes that.
-        renders: location (scheduledQueryRules) / "global" for the other two kinds
 
       - id: resource_group_name
         ask:
@@ -76,7 +74,6 @@ groups:
         why: >
           The rule is placed into an existing group - the observability one where the
           deployment splits by role, beside the action group it notifies.
-        renders: parent_id (AVM Terraform) / resource_group_name (authored) / implicit in Bicep scope
 
   # ---------------------------------------------------------------- the rule
   - id: rule
@@ -105,9 +102,6 @@ groups:
           control-plane events - Service Health, Resource Health, an administrative
           operation - with no threshold at all. Nothing sensible can be guessed; the pattern
           usually pre-answers it.
-        renders: >
-          Microsoft.Insights/metricAlerts / scheduledQueryRules / activityLogAlerts - the
-          module called and the set's naming identifier
 
       - id: action_group
         ask:
@@ -125,9 +119,6 @@ groups:
           deployment's (the action-group set) and differs per stage so a test stage never
           pages production's on-call. One group per rule here; a second group for a
           different audience is a second rule or a processing rule.
-        renders: >
-          actions.<key>.action_group_id / action_groups / actions[] (metric, activity log),
-          actions.actionGroupResourceIds[] (log query)
 
       - id: severity
         ask:
@@ -146,7 +137,6 @@ groups:
           modules default to 3** (Informational), which is where an alert is filtered out
           of most views, so the value is always written. Per rule, not derived from the
           deployment's outage answer - the same system has rules of every severity.
-        renders: severity / severity
 
       - id: enabled
         ask:
@@ -165,7 +155,6 @@ groups:
           runtime state for a maintenance window or a rule being tuned, flipped in the
           stage's parameter file; a rule left disabled is a finding the decision document
           shows.
-        renders: enabled / enabled
 
       - id: auto_mitigate
         ask:
@@ -189,7 +178,6 @@ groups:
           firing is an open alert until a person closes it, which is how a page of stale
           alerts hides the live one. An activity log alert is an event and has no state to
           resolve.
-        renders: auto_mitigate / autoMitigate (metric); auto_mitigation_enabled / autoMitigate (log query)
 
   # ------------------------------------------------------------------ metric
   - id: metric
@@ -213,7 +201,6 @@ groups:
           is one rule instead of twenty. The type and region are read off the ids at render
           and written as the target type and region, which the multi-resource criteria
           require. A resource of another type is another rule.
-        renders: scopes + target_resource_type + target_resource_location / scopes + targetResourceType + targetResourceRegion
 
       - id: metric_name
         ask:
@@ -231,7 +218,6 @@ groups:
           list-definitions --resource <id>` before a render, not remembered. The namespace
           is the scope's resource type unless a custom metric namespace is named with it.
           Nothing can be guessed; a pattern pre-answers the rules it ships.
-        renders: criteria.metric_name + metric_namespace / criteria.allof[].metricName + metricNamespace
 
       - id: aggregation
         ask:
@@ -256,7 +242,6 @@ groups:
           one is silent - a totalled percentage over five minutes is a number above 100
           that never crosses a threshold meant for one sample. Average is right for the
           utilisation metrics most first rules watch.
-        renders: criteria.aggregation / criteria.allof[].timeAggregation
 
       - id: operator
         ask:
@@ -280,7 +265,6 @@ groups:
           Above is the shape of a utilisation or error rule, below of an availability or
           throughput one (requests dropped to zero). `GreaterOrLessThan` exists only for
           dynamic thresholds, where the band has two sides.
-        renders: criteria.operator / criteria.allof[].operator
 
       - id: threshold_mode
         ask:
@@ -302,7 +286,6 @@ groups:
           history and fire on deviation - right for a metric with a daily pattern whose
           normal level nobody knows, wrong for a new resource with no history (it needs
           days of data before it fires at all) and for a limit that is a hard fact.
-        renders: criteria (static) vs dynamic_criteria / criterionType StaticThresholdCriterion vs DynamicThresholdCriterion
 
       - id: threshold
         ask:
@@ -319,7 +302,6 @@ groups:
           cannot be guessed, because it is the point where the people on the receiving end
           want to be told; a threshold set by rule is one that is either never crossed or
           crossed hourly. A pattern pre-answers it for the rules it ships.
-        renders: criteria.threshold / criteria.allof[].threshold
 
       - id: dynamic_sensitivity
         ask:
@@ -340,7 +322,6 @@ groups:
           The width of the learned band. High fires early and often; Low fires on what is
           clearly abnormal. Medium is where a rule starts and is tuned after a week of
           firings - the failure mode is a High rule that pages on every deployment.
-        renders: dynamic_criteria.alert_sensitivity / criteria.allof[].alertSensitivity
 
       - id: window_size
         ask:
@@ -368,7 +349,6 @@ groups:
           sit; a one-minute window on a one-minute metric fires on a single sample. The
           window must be at least the frequency. **The Bicep module defaults to fifteen
           minutes**, the Terraform resource to five, so it is written.
-        renders: window_size / windowSize
 
       - id: frequency
         ask:
@@ -392,7 +372,6 @@ groups:
           the metric's own delay. A metric alert costs the same at every frequency, so one
           minute is the default and a slower one is for a metric that itself arrives
           slowly (a daily quota, a storage capacity figure). Never longer than the window.
-        renders: frequency / evaluationFrequency
 
       - id: dimensions
         ask:
@@ -410,7 +389,6 @@ groups:
           per unhealthy instance instead of one for the average that hides it. Empty is
           right for a first rule; the dimension names are the metric's and are checked
           against the metric definition before a render.
-        renders: criteria.dimension[] / criteria.allof[].dimensions[]
 
   # --------------------------------------------------------------- log query
   - id: log_query
@@ -434,7 +412,6 @@ groups:
           and that is the deployment's one destination. The workspace is the rule's scope;
           a rule scoped to a resource instead queries that resource's own logs and is a
           departure.
-        renders: "scopes = [workspace id] / scopes: [workspaceResourceId]"
 
       - id: query_file
         ask:
@@ -454,7 +431,6 @@ groups:
           the render and the test know what to load; a rule whose file is missing fails at
           render, not at apply. The query is validated by the service at deployment, which
           is where a typo surfaces.
-        renders: criteria.query = file(...) / criterias.allOf[].query = loadTextContent(...)
 
       - id: time_aggregation
         ask:
@@ -479,7 +455,6 @@ groups:
           the query projects, named as the measure column in the query file's first
           comment line (`// measure: AggregatedValue`) and rendered beside it; a query
           that projects no such column fails the service's validation.
-        renders: criteria.time_aggregation_method + metric_measure_column / criterias.allOf[].timeAggregation + metricMeasureColumn
 
       - id: log_operator
         ask:
@@ -502,7 +477,6 @@ groups:
           Above zero rows is the common rule. Below is the heartbeat shape - fewer than one
           row means the thing that should log stopped logging - and the one place a log
           rule beats a metric: it can fire on absence.
-        renders: criteria.operator / criterias.allOf[].operator
 
       - id: log_threshold
         ask:
@@ -518,7 +492,6 @@ groups:
           With `Count` and `GreaterThan`, 0 fires on the first matching row, which is what
           an error-pattern rule wants; a rule that tolerates a few rows raises it. For a
           measured column it is the column's unit.
-        renders: criteria.threshold / criterias.allOf[].threshold
 
       - id: evaluation_frequency
         ask:
@@ -547,7 +520,6 @@ groups:
           minutes, so it buys little. Five minutes is the floor for a rule that pages;
           a daily rule is a report. The Bicep module has no default and requires it, the
           Terraform resource requires it, so it is always written.
-        renders: evaluation_frequency / evaluationFrequency
 
       - id: window_duration
         ask:
@@ -574,7 +546,6 @@ groups:
           is seen once; longer means a row can fire the rule on several runs in a row,
           which is wanted for a condition that should keep alerting while it persists and
           noise otherwise. Never shorter than the frequency, or rows fall between runs.
-        renders: window_duration / windowSize
 
       - id: mute_actions_duration
         ask:
@@ -600,7 +571,6 @@ groups:
           auto-mitigation, so a value here forces `auto_mitigate: false`, and a muted rule
           then needs a person or a processing rule to close it - the reason `none` is the
           default and the duplication is accepted.
-        renders: mute_actions_after_alert_duration / muteActionsDuration
 
   # ------------------------------------------------------------ activity log
   - id: activity_log
@@ -630,7 +600,6 @@ groups:
           (Unavailable, Degraded) - the cheapest availability signal. Administrative
           watches an operation, the classic being a resource group deletion. The scope is
           the stage's subscription and is read from the context, not asked.
-        renders: condition.all_of[category] / conditions[].category; scopes = [subscription id]
 
       - id: service_health_event_types
         ask:
@@ -655,7 +624,6 @@ groups:
           and a reason the Service Health alert gets muted when they page. Add
           `Maintenance` for a workload whose single-instance components a maintenance
           window reboots.
-        renders: condition.all_of[any_of properties.incidentType] / conditions[].anyOf[].properties.incidentType
 
       - id: impacted_regions
         ask:
@@ -674,7 +642,6 @@ groups:
           single-region workload needs; a workload with a second region lists both. The
           region is spelled as Azure's display name (`West Europe`), mapped from the
           location at render.
-        renders: condition.all_of[contains_any properties.impactedServices[*].ImpactedRegions[*].RegionName] / conditions[].containsAny
 
       - id: resource_health_statuses
         ask:
@@ -695,7 +662,6 @@ groups:
           worth a notification; the rule also filters to platform-initiated events, so a
           stop a person requested does not page. Scoped to the subscription, it covers
           every resource the deployment creates later without another rule.
-        renders: condition.all_of[properties.currentHealthStatus, properties.cause = PlatformInitiated] / conditions[]
 
       - id: operation_name
         ask:
@@ -714,7 +680,6 @@ groups:
           its `Succeeded` status. Nothing can be guessed, so it is asked and the deletion
           of a resource group is the one most teams start with. The operation names are
           listed by `az provider operation show --namespace <ns>`.
-        renders: condition.all_of[operationName, status = Succeeded] / conditions[].operationName
 
   # ----------------------------------------------------------------- identity
   - id: identity
@@ -743,7 +708,6 @@ groups:
           must exist before the rule's first evaluation and one identity serves every
           rule of the deployment; the role assignment is wiring the pattern renders.
           Neither module defaults to an identity, so it is written.
-        renders: identity { type, identity_ids } / managedIdentities
 
       - id: user_assigned_identity_id
         ask:
@@ -760,4 +724,3 @@ groups:
         why: >
           The identity that holds `Log Analytics Reader` on the workspace before the rule
           exists. Created by the identity set, shared by the deployment's log query rules.
-        renders: identity.identity_ids / managedIdentities.userAssignedResourceIds

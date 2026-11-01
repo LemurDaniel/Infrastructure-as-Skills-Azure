@@ -43,9 +43,6 @@ groups:
         why: >
           Drives the rendered name and the strictness of several defaults below. Nothing
           sensible can be guessed.
-        renders: >
-          naming parameter `environment`, and the tag of that name where the repository uses
-          one
 
       - id: location
         ask:
@@ -59,7 +56,6 @@ groups:
         why: >
           Part of the rendered name and not inferable. Both hosting models are regional; a
           Standard plan with zone redundancy needs a region with availability zones.
-        renders: location
 
       - id: resource_group_name
         ask:
@@ -75,9 +71,6 @@ groups:
         why: >
           The logic app is placed into an existing group. Creating one here would make this
           set own a lifecycle wider than the resource it describes.
-        renders: >
-          resource_group_name (Consumption module) / parent_id (Standard site and plan modules,
-          AzAPI) / implicit in Bicep scope
 
   - id: hosting
     title: Hosting
@@ -112,9 +105,6 @@ groups:
           Standard. The Integration Service Environment that once gave Consumption a network
           is retired. **The hosting model is fixed at creation** - the two are different
           resource types, and a move is a re-authoring of the workflows.
-        renders: >
-          standard: Microsoft.Web/serverFarms + Microsoft.Web/sites (kind
-          `functionapp,workflowapp`); consumption: Microsoft.Logic/workflows
 
       - id: plan
         ask:
@@ -143,9 +133,6 @@ groups:
           `shared` removes `plan_sku`, `zone_redundant`, `instance_count` and
           `max_instance_count` from this instance and forces `integration_subnet` to the
           owner's, recorded as forced with `plan` as forced_by
-        renders: >
-          own: the plan resource is created with this app; shared: service_plan_resource_id /
-          serverFarmResourceId is the owner's plan id
 
       - id: shared_plan_with
         ask:
@@ -162,7 +149,6 @@ groups:
         why: >
           The other Standard logic app of the deployment whose plan this app joins. Its plan
           decisions are the owner's and are not asked again here.
-        renders: service_plan_resource_id / serverFarmResourceId
 
       - id: plan_sku
         ask:
@@ -186,7 +172,6 @@ groups:
           integration loads; a larger size is for a workflow that holds large messages in
           memory, not for throughput, which scale-out handles. The size changes in place. It
           is a cost knob, which is the only reason a stage may differ here.
-        renders: sku_name / skuName on the plan
 
       - id: zone_redundant
         ask:
@@ -215,7 +200,6 @@ groups:
           `non_production_savings` is enabled.
         forced_when: >
           `true` forces `instance_count` to the platform's minimum for a zone-redundant plan
-        renders: zone_balancing_enabled / zoneRedundant on the plan
 
       - id: instance_count
         ask:
@@ -235,7 +219,6 @@ groups:
           clock; one is a single point of failure that is restarted on every platform update,
           two keeps workflows running through one, three puts one in each zone. The plan
           scales out beyond this number on load, so this is the floor, not the ceiling.
-        renders: worker_count / skuCapacity on the plan
 
       - id: max_instance_count
         ask:
@@ -253,7 +236,6 @@ groups:
           the ceiling is what a runaway trigger can cost before someone notices. 20 is the
           platform's default ceiling and is written so a change is a decision; a workflow
           that must never burst sets it to `instance_count`.
-        renders: maximum_elastic_worker_count / maximumElasticWorkerCount on the plan
 
   - id: workflows
     title: Workflows and callers
@@ -276,10 +258,6 @@ groups:
           Consumption deployment has **one resource per workflow**, so an entry here is a
           resource. Empty is a valid first answer for a Standard app that is deployed to
           later.
-        renders: >
-          standard: the app's workflow folders (content); consumption: one
-          Microsoft.Logic/workflows per entry, logic_app_definition / workflowTriggers +
-          workflowActions
 
       - id: state
         ask:
@@ -301,7 +279,6 @@ groups:
           half-finished definition sends mails. `Disabled` is for a workflow deployed ahead
           of its go-live; both modules default to `Enabled`, so it is written. A Standard
           app's workflows are enabled per workflow in their own files.
-        renders: state / state
 
       - id: trigger_authentication
         ask:
@@ -330,11 +307,6 @@ groups:
           on the app (Easy Auth in front of the request triggers and the same switch in the
           host settings); the exact property names are read from the documentation before a
           render, because the SAS switch is new.
-        renders: >
-          consumption: access_control.triggers (open_authentication_policies, the SAS
-          authentication policy) / triggersAccessControlConfiguration; standard: the site's
-          auth_settings_v2 / configs.authsettingsV2 and the host setting that disables SAS on
-          request triggers, its name checked against the documentation before a render
 
   - id: storage
     title: Host storage (Standard)
@@ -359,9 +331,6 @@ groups:
           here and created by the storage set - general-purpose v2, with a private endpoint
           for **blob, queue, table and file** in a private deployment. A Consumption workflow
           has no storage of its own.
-        renders: >
-          storage_account_name (+ the app settings the module derives) / configs.appsettings
-          (AzureWebJobsStorage*, WEBSITE_CONTENTAZUREFILECONNECTIONSTRING)
 
       - id: host_storage_auth
         ask:
@@ -387,9 +356,6 @@ groups:
           Terraform site module cannot render `identity` for a logic app** (it always writes
           the key connection string), so that target renders the site authored and records the
           departure - see the rendering reference.
-        renders: >
-          AzureWebJobsStorage__accountName, __credential, __clientId and
-          WEBSITE_CONTENTAZUREFILECONNECTIONSTRING in app_settings / configs.appsettings
 
   - id: networking
     title: Networking
@@ -407,7 +373,7 @@ groups:
           enabled_with_firewall: { en: reachable from the internet only from listed addresses, de: aus dem Internet nur von gelisteten Adressen erreichbar }
           enabled: { en: reachable from the internet, de: aus dem Internet erreichbar }
         accepts: [disabled, enabled_with_firewall, enabled]
-        answer: { deployment: network_exposure }
+        answer: { deployment: network_exposure, map: { private: disabled, private_with_exceptions: disabled, public: enabled_with_firewall } }
         forced_when: >
           `hosting: consumption` forces `enabled` or `enabled_with_firewall` - the resource has
           no switch for `disabled`, its triggers are public URLs - recorded as forced with
@@ -419,12 +385,6 @@ groups:
           here, named per workflow. The Terraform site module defaults to `false`, Bicep
           leaves it unset and disables it only when private endpoints are given - written on
           every call.
-        renders: >
-          standard: public_network_access_enabled (bool) and
-          site_config.ip_restriction_default_action / publicNetworkAccess and
-          siteConfig.ipSecurityRestrictionsDefaultAction; consumption:
-          access_control.triggers.allowed_caller_ip_address_range /
-          triggersAccessControlConfiguration
 
       - id: allowed_caller_ip_ranges
         ask:
@@ -442,9 +402,6 @@ groups:
           trigger access control (the SaaS webhook's published ranges); on Standard it is the
           site's IP restrictions, applied to the SCM site as well. An empty list denies every
           public caller, which is valid and deliberate.
-        renders: >
-          consumption: access_control.triggers.allowed_caller_ip_address_range; standard:
-          site_config.ip_restriction / siteConfig.ipSecurityRestrictions
 
       - id: private_endpoint_subnet
         ask:
@@ -464,7 +421,6 @@ groups:
           sub-resource is `sites`; the endpoint serves the request triggers and the
           designer's management calls alike, so the portal reaches a closed app only from
           inside the network. Consumption has none.
-        renders: private_endpoints.sites.subnet_resource_id / privateEndpoints[].subnetResourceId
 
       - id: vnet_integration
         ask:
@@ -489,7 +445,6 @@ groups:
           Standard app whose storage account is private and which is not integrated cannot
           start, and the error says storage. True is the default because the posture is
           private.
-        renders: virtual_network_subnet_id / virtualNetworkSubnetResourceId
 
       - id: integration_subnet
         ask:
@@ -509,7 +464,6 @@ groups:
           else - not the private endpoint subnet. Sized for the plan's maximum instance
           count (a /26 for a plan that scales to 20). Looked up from the platform or created
           by the network set.
-        renders: virtual_network_subnet_id / virtualNetworkSubnetResourceId
 
       - id: vnet_route_all
         ask:
@@ -530,7 +484,6 @@ groups:
           routes. True puts the workflows' SaaS calls behind the platform's egress and makes
           private DNS resolution apply to every call, which is what a connector to a
           privately-linked service needs.
-        renders: vnet_route_all_traffic / outboundVnetRouting.allTraffic
 
   - id: identity
     title: Identity and access
@@ -557,7 +510,6 @@ groups:
           user-assigned identity with its roles granted first is the order that works, for
           both hosting models, and the one a Key Vault reference needs. `none` is not
           offered: a logic app without an identity authenticates with secrets.
-        renders: managed_identities / managedIdentities, and key_vault_reference_identity (Standard)
 
       - id: user_assigned_identity_ids
         ask:
@@ -574,9 +526,6 @@ groups:
         why: >
           The identity that holds the roles on the host storage account and on the systems
           the connections reach. It is created before the app, by the identity set.
-        renders: >
-          managed_identities.user_assigned_resource_ids /
-          managedIdentities.userAssignedResourceIds
 
       - id: role_assignments
         ask:
@@ -595,7 +544,6 @@ groups:
           Contributor on the group. Scope to the app. A pattern fills it from the teams it
           knows; the app's own roles on storage, Key Vault and the systems it calls are
           wiring, not listed here.
-        renders: role_assignments / roleAssignments
 
   - id: security
     title: Security
@@ -617,7 +565,6 @@ groups:
           A request trigger called over HTTP sends its payload and its token in clear. Both
           modules default to `true`; written. Consumption triggers are HTTPS only by the
           platform.
-        renders: https_only / httpsOnly
 
       - id: min_tls_version
         ask:
@@ -635,7 +582,6 @@ groups:
           refuses a connector or an on-premises caller that has not caught up, which is a
           decision to take with the caller list in hand. The Terraform site module defaults
           to **1.3**, Bicep to 1.2 - written on both, for the SCM site too.
-        renders: site_config.minimum_tls_version, scm_minimum_tls_version / siteConfig.minTlsVersion, scmMinTlsVersion
 
       - id: basic_auth_enabled
         ask:
@@ -655,9 +601,6 @@ groups:
           ends up in build logs. Off, the pipeline deploys with its workload identity. Two
           separate switches (FTP and SCM); the Terraform module defaults SCM to **on** -
           written.
-        renders: >
-          ftp_publish_basic_authentication_enabled, scm_publish_basic_authentication_enabled /
-          basicPublishingCredentialsPolicies
 
       - id: application_insights
         ask:
@@ -677,7 +620,6 @@ groups:
           Referenced, never created here; empty means the app relies on run history alone,
           which is a valid first answer. The connection string is written as a setting, never
           an instrumentation key.
-        renders: application_insights_connection_string / configs.appsettings.APPLICATIONINSIGHTS_CONNECTION_STRING
 
   - id: observability
     title: Observability
@@ -697,7 +639,6 @@ groups:
         why: >
           Inherited: one deployment, one destination. Without a diagnostic setting the run
           history is the only record, and it is kept on the app's own terms.
-        renders: diagnostic_settings / diagnosticSettings
 
       - id: diagnostic_categories
         ask:
@@ -721,9 +662,6 @@ groups:
           worth collecting where the deployment endpoints are a concern. The names are the
           platform's and are checked against `az monitor diagnostic-settings categories list`
           for the resource before a render, not remembered.
-        renders: >
-          diagnostic_settings.<key>.log_categories (Consumption) / .logs[].category
-          (Standard) / diagnosticSettings[].logCategoriesAndGroups[].category
 
       - id: metrics_enabled
         ask:
@@ -741,4 +679,3 @@ groups:
           Runs started, failed and throttled, action latency, and on Standard the plan's CPU
           and memory - the numbers that decide whether `plan_sku` and `instance_count` were
           right.
-        renders: metrics[].category = "AllMetrics" / metricCategories[].category

@@ -1,0 +1,240 @@
+# What each decision of questions.yaml renders to, per target and implementation.
+# Format: core/iac-rendering/references/render-map.md. The call, the authored blocks and the
+# tests are in terraform.md and bicep.md.
+schema_version: 1
+resource: Microsoft.Network/loadBalancers
+
+modules:
+  terraform: [Azure/avm-res-network-loadbalancer/azurerm]
+  bicep: [avm/res/network/load-balancer]
+
+decisions:
+
+  # ---------------------------------------------------------------- placement
+  placement.environments:
+    not_rendered: naming parameter `environment` and the tag of that name; no attribute of the balancer
+  placement.location:
+    terraform_avm: { attribute: location, passthrough: true }
+    terraform: { attribute: location, passthrough: true }
+    bicep_avm: { attribute: location, passthrough: true }
+    bicep: { attribute: location, passthrough: true }
+  placement.resource_group_name:
+    terraform_avm:
+      attribute: resource_group_name
+      note: a name, not an id - azurerm-based module (azurerm < 5.0)
+    terraform: { attribute: resource_group_name }
+    bicep_avm: { gap: the deployment's resource group scope; no parameter }
+    bicep: { gap: the deployment's resource group scope; no property }
+
+  # ----------------------------------------------------------------- balancer
+  balancer.sku:
+    terraform_avm:
+      attribute: sku
+      values: { Standard: Standard }
+      also: { Standard: sku_tier = "Regional" }
+      note: module default; written
+    terraform:
+      attribute: sku
+      values: { Standard: Standard }
+      also: { Standard: sku_tier = "Regional" }
+    bicep_avm:
+      attribute: skuName
+      values: { Standard: Standard }
+      also: { Standard: "skuTier: 'Regional'" }
+      note: module default; written
+    bicep:
+      attribute: sku.name
+      values: { Standard: Standard }
+      also: { Standard: "sku.tier: 'Regional'" }
+  balancer.zone_redundant:
+    terraform_avm:
+      attribute: 'frontend_ip_configurations.<k>.zones'
+      values: { true: { expr: '["1", "2", "3"]' }, false: { expr: '["None"]' } }
+      note: 'a list of strings; ["None"] omits them; with create_public_ip_address the frontend''s zones become null and only the created public IP takes them (module v0.5.0 main.tf)'
+    terraform:
+      attribute: azurerm_lb.frontend_ip_configuration.zones
+      values: { true: { expr: '["1", "2", "3"]' }, false: null }
+      note: false leaves zones out
+    bicep_avm:
+      attribute: 'frontendIPConfigurations[].availabilityZones'
+      values: { true: { expr: '[ 1, 2, 3 ]' }, false: { expr: '[]' } }
+      note: publicIPAddressConfiguration.availabilityZones takes the same
+    bicep:
+      attribute: 'properties.frontendIPConfigurations[].zones'
+      values: { true: { expr: "[ '1', '2', '3' ]" }, false: { expr: '[]' } }
+      note: top level of the entry, not under its properties; ARM zones are strings, unlike the module's integers
+
+  # --------------------------------------------------------------- networking
+  networking.frontend_exposure:
+    terraform_avm:
+      attribute: 'frontend_ip_configurations.<k>'
+      values:
+        private: { expr: '{ name = "frontend", frontend_private_ip_subnet_resource_id = {networking.frontend_subnet}, frontend_private_ip_address_allocation = {networking.private_ip_allocation}, frontend_private_ip_address = {networking.private_ip_address}, zones = {balancer.zone_redundant} }' }
+        public: { expr: '{ name = "frontend", create_public_ip_address = true, public_ip_address_resource_name = data.naming_name.load_balancer_public_ip.name, zones = {balancer.zone_redundant} }' }
+      also:
+        public: 'public_ip_address_configuration = { allocation_method = "Static", sku = "Standard", sku_tier = "Regional", ddos_protection_mode = "VirtualNetworkInherited" }'
+      note: one frontend per entry; the module creates the public IP from public_ip_address_configuration
+    terraform:
+      attribute: azurerm_lb.frontend_ip_configuration
+      values:
+        private: { expr: '{ name = "frontend", subnet_id = {networking.frontend_subnet}, private_ip_address_allocation = {networking.private_ip_allocation}, private_ip_address = {networking.private_ip_address}, zones = {balancer.zone_redundant} }' }
+        public: { expr: '{ name = "frontend", public_ip_address_id = <the azurerm_public_ip id> }' }
+      also:
+        public: 'azurerm_public_ip with sku = "Standard", allocation_method = "Static", zones'
+    bicep_avm:
+      attribute: 'frontendIPConfigurations[]'
+      values:
+        private: { expr: "{ name: 'frontend', subnetResourceId: {networking.frontend_subnet}, privateIPAddress: {networking.private_ip_address}, availabilityZones: {balancer.zone_redundant} }" }
+        public: { expr: "{ name: 'frontend', publicIPAddressConfiguration: { name: publicIpName, skuName: 'Standard', skuTier: 'Regional', publicIPAllocationMethod: 'Static', availabilityZones: {networking.public_ip_zone_redundant} }, availabilityZones: {balancer.zone_redundant} }" }
+      note: one frontend per entry; public replaces subnetResourceId and privateIPAddress
+    bicep:
+      attribute: 'properties.frontendIPConfigurations[].properties'
+      values:
+        private: { expr: '{ subnet: { id: {networking.frontend_subnet} }, privateIPAllocationMethod: {networking.private_ip_allocation}, privateIPAddress: {networking.private_ip_address} }' }
+        public: { expr: '{ publicIPAddress: { id: <the Microsoft.Network/publicIPAddresses id> } }' }
+      also:
+        public: "Microsoft.Network/publicIPAddresses with sku: { name: 'Standard' }, properties.publicIPAllocationMethod: 'Static', zones"
+  networking.frontend_subnet:
+    terraform_avm:
+      attribute: 'frontend_ip_configurations.<k>.frontend_private_ip_subnet_resource_id'
+      note: or the module-wide frontend_subnet_resource_id
+    terraform: { attribute: frontend_ip_configuration.subnet_id }
+    bicep_avm: { attribute: 'frontendIPConfigurations[].subnetResourceId' }
+    bicep: { attribute: 'properties.frontendIPConfigurations[].properties.subnet.id' }
+  networking.private_ip_allocation:
+    terraform_avm:
+      attribute: 'frontend_ip_configurations.<k>.frontend_private_ip_address_allocation'
+      passthrough: true
+      note: module default Dynamic - written
+    terraform: { attribute: azurerm_lb.frontend_ip_configuration.private_ip_address_allocation, passthrough: true }
+    bicep_avm:
+      gap: module README 0.8.0 has no allocation parameter - main.bicep derives Static from frontendIPConfigurations[].privateIPAddress set (private_ip_address), Dynamic from it unset
+    bicep: { attribute: 'properties.frontendIPConfigurations[].properties.privateIPAllocationMethod', passthrough: true }
+  networking.private_ip_address:
+    terraform_avm: { attribute: 'frontend_ip_configurations.<k>.frontend_private_ip_address', passthrough: true }
+    terraform: { attribute: azurerm_lb.frontend_ip_configuration.private_ip_address, passthrough: true }
+    bicep_avm: { attribute: 'frontendIPConfigurations[].privateIPAddress', passthrough: true, note: set means Static - unset Dynamic }
+    bicep: { attribute: 'properties.frontendIPConfigurations[].properties.privateIPAddress', passthrough: true }
+  networking.public_ip_zone_redundant:
+    terraform_avm:
+      gap: 'module README v0.5.0 has no separate input - frontend_ip_configurations.<k>.zones zones the created address (balancer.zone_redundant); public_ip_address_configuration = { allocation_method = "Static", sku = "Standard", sku_tier = "Regional" }, ddos_protection_mode = "VirtualNetworkInherited" the default'
+    terraform:
+      attribute: azurerm_public_ip.zones
+      values: { true: { expr: '["1", "2", "3"]' }, false: null }
+      note: 'sku = "Standard", allocation_method = "Static"; false leaves zones out'
+    bicep_avm:
+      attribute: 'frontendIPConfigurations[].publicIPAddressConfiguration.availabilityZones'
+      values: { true: { expr: '[ 1, 2, 3 ]' }, false: { expr: '[]' } }
+      note: "with skuName: 'Standard', skuTier: 'Regional', publicIPAllocationMethod: 'Static'"
+    bicep:
+      attribute: Microsoft.Network/publicIPAddresses zones
+      values: { true: { expr: "[ '1', '2', '3' ]" }, false: { expr: '[]' } }
+  networking.backend_pools:
+    terraform_avm:
+      attribute: 'backend_address_pools.<k> = { name, virtual_network_resource_id }, backend_address_pool_addresses'
+      note: a pool whose members are a scale set's joins from the scale set
+    terraform: { attribute: azurerm_lb_backend_address_pool, note: plus azurerm_lb_backend_address_pool_address }
+    bicep_avm:
+      attribute: 'backendAddressPools[] = { name, loadBalancerBackendAddresses }'
+      note: a pool whose members are a scale set's joins from the scale set
+    bicep: { attribute: 'properties.backendAddressPools[]' }
+  networking.health_probe_protocol:
+    terraform_avm:
+      attribute: 'lb_probes.<k>.protocol'
+      passthrough: true
+      note: request_path only with Http / Https; the module validates the pair
+    terraform: { attribute: azurerm_lb_probe.protocol, passthrough: true, note: request_path only with Http / Https }
+    bicep_avm: { attribute: 'probes[].protocol', passthrough: true, note: requestPath only with Http / Https }
+    bicep: { attribute: 'properties.probes[].properties.protocol', passthrough: true, note: requestPath only with Http / Https }
+  networking.health_probe_interval_seconds:
+    terraform_avm: { attribute: 'lb_probes.<k>.interval_in_seconds', passthrough: true, note: module default 15 - written }
+    terraform: { attribute: azurerm_lb_probe.interval_in_seconds, passthrough: true }
+    bicep_avm: { attribute: 'probes[].intervalInSeconds', passthrough: true }
+    bicep: { attribute: 'properties.probes[].properties.intervalInSeconds', passthrough: true }
+  networking.health_probe_unhealthy_threshold:
+    terraform_avm: { attribute: 'lb_probes.<k>.number_of_probes_before_removal', passthrough: true, note: probe_threshold (default 1) stays }
+    terraform: { attribute: azurerm_lb_probe.number_of_probes, passthrough: true, note: the argument the module's number_of_probes_before_removal sets; probe_threshold beside it stays at its default }
+    bicep_avm: { attribute: 'probes[].numberOfProbes', passthrough: true }
+    bicep: { attribute: 'properties.probes[].properties.numberOfProbes', passthrough: true }
+  networking.tcp_reset:
+    terraform_avm: { attribute: 'lb_rules.<k>.enable_tcp_reset', passthrough: true, note: module default false - written }
+    terraform: { attribute: azurerm_lb_rule.tcp_reset_enabled, passthrough: true }
+    bicep_avm: { attribute: 'loadBalancingRules[].enableTcpReset', passthrough: true, note: the Terraform module defaults to false; written }
+    bicep: { attribute: 'properties.loadBalancingRules[].properties.enableTcpReset', passthrough: true }
+  networking.load_distribution:
+    terraform_avm: { attribute: 'lb_rules.<k>.load_distribution', passthrough: true, note: module default Default; written }
+    terraform: { attribute: azurerm_lb_rule.load_distribution, passthrough: true }
+    bicep_avm: { attribute: 'loadBalancingRules[].loadDistribution', passthrough: true }
+    bicep: { attribute: 'properties.loadBalancingRules[].properties.loadDistribution', passthrough: true }
+  networking.floating_ip:
+    terraform_avm: { attribute: 'lb_rules.<k>.enable_floating_ip', passthrough: true, note: module default false; written }
+    terraform: { attribute: azurerm_lb_rule.floating_ip_enabled, passthrough: true }
+    bicep_avm: { attribute: 'loadBalancingRules[].enableFloatingIP', passthrough: true }
+    bicep: { attribute: 'properties.loadBalancingRules[].properties.enableFloatingIP', passthrough: true }
+  networking.rules:
+    terraform_avm:
+      attribute: 'lb_rules.<k> = { name, frontend_ip_configuration_name, protocol, frontend_port, backend_port, backend_address_pool_object_names, probe_object_name }'
+      note: wiring filled by the pattern; references by map key, not id; module default 3389 to 3389 - both ports always stated
+    terraform: { attribute: azurerm_lb_rule, note: '{ protocol, frontend_port, backend_port, frontend_ip_configuration_name, backend_address_pool_ids, probe_id }' }
+    bicep_avm:
+      attribute: 'loadBalancingRules[] = { name, frontendIPConfigurationName, protocol, frontendPort, backendPort, backendAddressPoolName, probeName }'
+      note: wiring filled by the pattern; references by name; both ports always stated
+    bicep: { attribute: 'properties.loadBalancingRules[]', note: 'frontendIPConfiguration, backendAddressPool and probe by { id }' }
+  networking.inbound_nat_rules:
+    terraform_avm: { attribute: lb_nat_rules, note: empty }
+    terraform: { attribute: azurerm_lb_nat_rule }
+    bicep_avm: { attribute: inboundNatRules, note: empty }
+    bicep: { attribute: 'properties.inboundNatRules[]' }
+  networking.outbound_snat:
+    terraform_avm:
+      attribute: 'lb_rules.<k>.disable_outbound_snat'
+      values: { none: false, outbound_rule: true }
+      also:
+        outbound_rule: 'lb_outbound_rules = { out = { name = "outbound", frontend_ip_configurations = [{ name = "frontend" }], backend_address_pool_object_name = "<pool key>", number_of_allocated_outbound_ports = 1024 } }'
+      note: module default false - written
+    terraform:
+      attribute: azurerm_lb_rule.disable_outbound_snat
+      values: { none: false, outbound_rule: true }
+      also:
+        outbound_rule: 'azurerm_lb_outbound_rule { protocol, backend_address_pool_id, allocated_outbound_ports, frontend_ip_configuration { name } }'
+    bicep_avm:
+      attribute: 'loadBalancingRules[].disableOutboundSnat'
+      values: { none: null, outbound_rule: true }
+      also:
+        outbound_rule: "outboundRules: [ { name: 'outbound', frontendIPConfigurationName: 'frontend', backendAddressPoolName: '<pool>', allocatedOutboundPorts: 1024 } ]"
+      note: set only with the rule; none renders neither the property nor an outbound rule
+    bicep:
+      attribute: 'properties.loadBalancingRules[].properties.disableOutboundSnat'
+      values: { none: null, outbound_rule: true }
+      also:
+        outbound_rule: 'properties.outboundRules[].properties: { protocol, allocatedOutboundPorts, backendAddressPool: { id }, frontendIPConfigurations: [ { id } ] }'
+      note: set only with the rule
+  networking.outbound_allocated_ports:
+    terraform_avm: { attribute: 'lb_outbound_rules.<k>.number_of_allocated_outbound_ports', passthrough: true, note: only with the outbound rule }
+    terraform: { attribute: azurerm_lb_outbound_rule.allocated_outbound_ports, passthrough: true }
+    bicep_avm: { attribute: 'outboundRules[].allocatedOutboundPorts', passthrough: true, note: only with the outbound rule }
+    bicep: { attribute: 'properties.outboundRules[].properties.allocatedOutboundPorts', passthrough: true }
+
+  # ------------------------------------------------------------ observability
+  observability.diagnostic_workspace:
+    terraform_avm:
+      attribute: 'diagnostic_settings.<key>.workspace_resource_id'
+      note: log_categories = [] and log_groups = [] - log_groups defaults to ["allLogs"]
+    terraform: { attribute: azurerm_monitor_diagnostic_setting.log_analytics_workspace_id }
+    bicep_avm: { attribute: 'diagnosticSettings[].workspaceResourceId' }
+    bicep: { attribute: Microsoft.Insights/diagnosticSettings properties.workspaceId, note: 'an extension resource with scope: the load balancer (source: bicep build, Microsoft.Insights/diagnosticSettings@2021-05-01-preview)' }
+  observability.metrics_enabled:
+    terraform_avm:
+      attribute: 'diagnostic_settings.<key>.metric_categories'
+      values: { true: { expr: '["AllMetrics"]' }, false: { expr: '[]' } }
+    terraform:
+      attribute: azurerm_monitor_diagnostic_setting.enabled_metric
+      values: { true: { expr: '{ category = "AllMetrics" }' }, false: null }
+      note: a block (azurerm 5.x; terraform.md still writes the 4.x metric block); false renders no enabled_metric block
+    bicep_avm:
+      attribute: 'diagnosticSettings[].metricCategories'
+      values: { true: { expr: "[ { category: 'AllMetrics' } ]" }, false: { expr: '[]' } }
+    bicep:
+      attribute: 'Microsoft.Insights/diagnosticSettings properties.metrics[].category'
+      values: { true: AllMetrics, false: null }
+      note: 'with enabled: true; false renders no metrics entry (source: bicep build, Microsoft.Insights/diagnosticSettings@2021-05-01-preview)'

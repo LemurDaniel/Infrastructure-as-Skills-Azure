@@ -181,6 +181,10 @@ the detail; this list says what was decided and why, so a session does not reope
   invariants, `run_pipeline_tests.py` breaks them one at a time. The root holds an empty
   `backend "azurerm" {}` because `init -backend-config` without one is ignored silently.
   A resolved stage's file must not spell a placeholder marker even in a comment.
+- **Pipelines run PowerShell 7, not bash** (2026-11-01, invariant 14). Bash was never a
+  decision, only the runner default copied from vendor docs; the stack is pwsh, both hosted
+  Ubuntu images ship it, JSON is read with `ConvertFrom-Json` instead of `jq`. Not a spec
+  question: a fixed default. GitLab stays `sh` - its job images carry no pwsh.
 - **Grouped AVM calls: `granularity: per-family`** (2026-10-23, Terraform only). The root
   is `modules.<family>.tf` calls, `modules/<family>/` holds the family's AVM calls, roles,
   endpoints, tests. A module-level `depends_on` defers `data` lookups to apply, so the
@@ -249,7 +253,7 @@ the detail; this list says what was decided and why, so a session does not reope
 - **Foundry models come from a generated catalogue, never from memory** (2026-10-28, owner's
   call). A run offered gpt-4.1 (Legacy) while gpt-6 was GA. `resources/ai/foundry/models.yaml`
   is written by `.github/scripts/update_foundry_models.py` from the EU regions' catalogue and
-  refreshed monthly by `foundry-models.yml` (identity of the `production` environment, a PR
+  refreshed monthly by `refresh.foundry-models.yaml` (identity of the `production` environment, a PR
   with a patch bump when it changed); no CLI in the user's session. The question field
   `accepts: { catalogue: models.yaml }` carries it into the digest. The interview asks family first (multi-select),
   then per family its three newest models (multi-select, "Noch offen" first), the embedding
@@ -269,13 +273,17 @@ the detail; this list says what was decided and why, so a session does not reope
   the code does - sign-in implemented in a container, the Application Insights SDK - is not
   asked, flagged or opened; platform features (a component, a connection string, Easy Auth if
   ever wanted) are the plugin's.
-- **Every change is a branch and a PR; every merge into `master` is a release** (2026-10-26,
-  owner's call). No `dev` branch: one person, and the marketplace reads `master`, so what is
-  there is released anyway. `pull-request.yml` fails unless `plugin.json`'s version is newer
-  than the last tag and `master` (`check_version_bump.py`), plus the repository checks;
-  `release.yml` runs on the push to `master` and creates tag and release itself. Squash merge
-  only (2026-10-29, owner's call; was rebase merge), one commit per PR on `master`; `master` is protected (PR, both checks, up to date,
-  linear history, admins included). No tag by hand.
+- **Feature -> `dev` -> `master`; every merge into `master` is a release** (2026-10-26,
+  owner's call; `dev` added 2026-11-01, owner's call). `dev` exists so the eval agent can be
+  deployed without a release: a push to `dev` runs `eval-agent-infra.yaml` and
+  `deploy.eval-agent.dashboard.yaml` into `production`, a push to `master` deploys nothing.
+  `master` stays the default branch, because the marketplace reads it - a user installs
+  only what is released. Feature branches go into `dev` as a squash merge and raise no
+  version; `dev` goes into `master` by a release PR as a merge commit (never squash, or the
+  two histories part), which raises the version once. `check.pull-request.yaml` runs the checks on
+  both; into `master` it also fails unless the head is `dev` and `plugin.json`'s version is
+  newer than the last tag and `master` (`check_version_bump.py`). `release.plugin.yaml` runs on the
+  push to `master` and creates tag and release itself. No tag by hand.
 - **The question-set format, revised** (2026-10-28, branch `restructure-core`):
   `accepts` is the one field for what an answer may be - a value list, `{ ref: <kind> }` or
   `{ catalogue: <file> }`; `values`, `ref`, `options_from` and `type: ref` are gone, the type
@@ -316,9 +324,54 @@ the detail; this list says what was decided and why, so a session does not reope
   the plugin. Azure customers sit on Copilot licences; Codex reaches few of them and has no
   eval harness here. An Agent Plugins 1.0 root `plugin.json` would serve both, but fixes
   skills to `skills/` - not worth moving `core/` for until a host needs it.
+- **What a decision renders to is data, `render-map.yaml`, read through a digest**
+  (2026-11-01). A render read the skill, `spec.md` and every reference whole (~250 KB) and
+  took the attribute from the question's `renders` string - prose, partly stale (azurerm 4.x
+  names, inverted polarity, the authored spelling under AVM: `account_replication_type` where
+  the module takes `account_sku_name`). Now each resource has a `render-map.yaml` beside its
+  set: per target and implementation the attribute and the literal of every answer
+  (`references/render-map.md`); `render_digest.py <spec>` prints each decision with that
+  literal filled in, plus the line ranges of only the references the spec needs (~50% less
+  read). Data, not prose, because the renderer's core must not rest on heuristics: the digest
+  does `dict` lookups, `check_render_map.py` holds every file to its question set. A literal
+  no reference states is a `gap`, never a guess; every scalar answer says how it renders
+  (`values` complete, `format`, or an explicit `passthrough: true`) - the pass-through of an
+  answer into an id, a block or another unit was the error class the reviews found most. YAML
+  in its own file, not in `questions.yaml`: the set stays backend-neutral, as the spec does.
+- **A reference is `{ resource: <key> }` or `{ existing: <kind> }`, its kind registered**
+  (2026-11-01). `accepts: { ref: <kind> }` named a bare word, and a spec held a reference in
+  five shapes - key, plain name, id, `{ name, resource_group_name }`, a stage map of any - told
+  apart by a regex; nothing checked a value was of its kind. Now
+  `core/iac-authoring/references/ref-kinds.yaml` defines every kind (the sets that create it,
+  the part where it is one, the ARM type and form of its id: `arm`, `arm_any`, `guid`), and a
+  spec writes a resource of the spec as `{ resource: <key>[, part: <name>] }` (one value, every
+  stage; a subnet is a part of the network) or one outside it as `{ existing: <kind> }`.
+  **The spec carries the id, never a name or a resource group** (owner's call): an id the
+  person gives goes in per stage (`id: { <stage>: <id> }`); without one an `open:` entry names
+  the owner and the stage file holds a placeholder id the pipeline refuses before `apply`.
+  **Rendered as an id variable / param, never a lookup**: a data source needs a name and a
+  group as unknown as the id, and makes every `plan` read the platform; the id in the stage
+  file pins nothing into the code, and tests pass it as a variable instead of mocking a data
+  source. `scripts/spec_ref.py` reads both forms for `check_spec.py`, the diagram, the
+  decision document and the digest. Kept outside the rule on purpose: the resource groups
+  (named in `context`), the private DNS zones (a fixed name in a group) and the Network
+  Watcher (Azure's fixed name). Front Door's origins split into `origins`
+  (`{ ref: resource }`) and `origin_host_names`, a backend outside Azure having no id.
 
 ## State
 
+- **`render-map.yaml` for all 67 resources, the render digest mandatory** (2026-11-01, branch
+  `render-yaml`): 5,190 entries, 980 of them `gap` (18% - the references do not state the
+  literal), 1,658 explicit pass-throughs, 101 `not_rendered`. Written by 8 agents, reviewed by 3
+  (330 ERRORs - the hand-written storage pilot had 9), corrected by 8, sample-reviewed once more
+  (75 of 81 former ERRORs fixed or honestly a gap, the 6 left fixed by hand, 0 unit errors new).
+  `check_render_map.py` and both test runners are in the repository checks. The format has
+  `companions`, lists per attribute or module, `kinds`/`by_kind`, composite formats with
+  `part_of`, `format: { expr }`, `omit_empty`; code names `{group.question}` (filled by the
+  digest) and `<name>` (filled by the render), never `...`; `authored_when` names the answers a
+  module refuses, which render the resource authored. The map is the one record: `renders` is
+  gone from the resource sets (the check refuses it there; the deployment set keeps its own),
+  and the references' decision tables are gone, their remarks moved into the maps.
 - **18 more sets written 2026-10-26 (67 resource sets in 10 families, 1,442 questions with the deployment
   set), checked, not exercised:** network public-dns-zone, traffic-manager, ddos-protection-plan, network-watcher (VNet flow logs only);
   observability action-group, alert-rule (metric, log query and activity log by `kind`),
@@ -345,7 +398,7 @@ the detail; this list says what was decided and why, so a session does not reope
   Terraform site module cannot render identity-based host storage for a Standard logic app; the
   alert, DCR and flow-log kinds count as `MONITOR_KINDS` in the diagram but have no layout of their
   own.
-- **Release 0.1.0 (2026-10-25), the first stable one** (owner's call): `release.yml` marks only `0.0.x` and
+- **Release 0.1.0 (2026-10-25), the first stable one** (owner's call): `release.plugin.yaml` marks only `0.0.x` and
   suffixed versions as prereleases. The plugin folder has its own `README.md` (the directory reads it, with what the plugin
   runs and writes), `displayName` and new keywords are in `plugin.json`. Not done: the submission to Anthropic's plugin
   directory (developer portal, `claude.ai/directory/manage`; needs the owner's account, GitHub connection and the
@@ -392,7 +445,7 @@ the detail; this list says what was decided and why, so a session does not reope
   dashboard (sign-in, reads the results, holds the GitHub token) and an agent behind a private
   endpoint (runs plugin code, writes the results, no secret), on one B2 plan, one user-assigned
   identity each; the tests assert the separation (`ideas/eval-agent.md`). Decided 2026-10-25: the dashboard files a ticket on a click, never automatically; its image goes in through
-  `.github/workflows/eval-dashboard-image.yaml` (the pipeline opens the registry for the runner's address only and closes it in an
+  `.github/workflows/deploy.eval-agent.dashboard.yaml` (the pipeline opens the registry for the runner's address only and closes it in an
   `always()` step; `container-registry.networking.image_push_path`, needs AcrPush for the pipeline identity). The dashboard app is
   `eval-agent/dashboard/` (Node 22, Express; `MOCK=1` or `run-local.ps1` runs it without Azure; pages Overview and Tune & Fuzz; it starts
   the tuner only, the tuner starts the fuzz agent; reads `runs/`, `fuzz/`, `tune/` from the storage account; agents not written yet,
@@ -409,7 +462,7 @@ the detail; this list says what was decided and why, so a session does not reope
   never fires on its own specs yet - only the `four-apps-one-subnet` fixture test guards the
   rule that a call inside one container stays in it.
   **Since 2026-10-27 the agent app is gone** (spec, diagram, render, pipelines; not deployed):
-  the evals run in GitHub Actions instead (`plugin-evals.yml`), recorded on the `eval-history`
+  the evals run in GitHub Actions instead (`eval.plugin.yaml`), recorded on the `eval-history`
   branch, and the dashboard only shows - eval history per plugin version and model, read from
   that branch through the GitHub API without a token, plus the fuzz and tuner reports from
   storage. No run start, no tickets, no `github-token` in the vault; drift and tune run on
@@ -542,6 +595,32 @@ until it is fixed or decided against.
   `canonical-no-anchors` are load-checked, not run - a run without a shell lays the form out
   by hand, and whether it does is unmeasured. The diagram and spec-test fixtures are not
   named `infra-spec.yaml` and not laid out; `run_spec_tests.py` edits its fixture as text.
+
+### The sources behind `render-map.yaml`
+
+Done on `render-yaml`: `renders` dropped, the self-contradicting references corrected, the
+decision tables removed, the design gaps closed, the inherited deployment answers translated
+(`answer: { deployment, map }`, 54 questions, required where the values differ), and the gaps
+filled from primary sources - 969 to 513 (18% to 9% of 5,216 entries): the azurerm 5.12
+schema and docs, the module READMEs at the documented versions, `bicep build` for paths. Each
+fill names its source in its note; the pass also corrected eight entries the sources
+contradicted. Left:
+
+- **The remaining 513 gaps.** About 160 are permanent: the Bicep resource-group scope,
+  inputs a module README shows it does not have. The rest: Bicep literals of loosely typed
+  properties - `bicep build` proves the path, not the value, where the type is `string` or
+  `'A' | 'B' | string` (diagnostic `AllMetrics`, `linuxFxVersion`, `activeRevisionsMode`) - and
+  shapes no source states (Windows image literals, policy schedules, NSG baseline rules, the
+  question-less app setting names). A live deployment or the ARM REST specs would settle the
+  loose literals; neither is a source this pass used.
+- **API versions the authored Bicep was proven against** are named in each note; most
+  `bicep.md` files name none for their sibling types (diagnostic settings, role assignments,
+  private endpoints). Writing them into the references is open.
+- **Prose that may be outdated**: ai-services, foundry and api-management say the Bicep module
+  has no `allowedFqdnList`; README 0.19.1 has it (the maps are filled, terraform.md and
+  questions.yaml are not). event-grid-namespace renders the namespace with azapi although
+  azurerm 5.12 has `azurerm_eventgrid_namespace`. cosmos-db's note that the Terraform module
+  refuses `AllMetrics` is not in its README - only its source would show it.
 
 ### Rendering references and question sets
 
@@ -797,18 +876,15 @@ per-family` in `check_spec.py` and the `chatbot` spec, and `references/private-d
 
 ### Pipelines
 
-- `check_pipeline.py` counts an `open:` entry without `environments` as resolved (a false
-  fail on every such entry; the runs name the stage on each entry as a workaround),
-  applies the workload-identity secret grep to `local`, and its `client[-_]?secret`
-  pattern matches the placeholder name `entra-client-secret`.
-- `pipelines.local.md`'s script runs `validate` after the backend init, has no
-  `terraform test`, no `-reconfigure`, no cd to its own directory; `terraform-idiom.md`
-  says the empty backend block is for non-local only, but the local script passes
-  `-backend-config` too.
-- `pipelines.github.md` says nothing about a render in a subfolder (working directory,
-  artifact paths, path filters) and pins Terraform `~> 1.16.0` (live 1.17). GitLab has no
-  scaffold behind it and is untested; Azure DevOps and GitLab accepting their file was
-  never checked.
+- The pwsh pipelines have parsed and been dry-run with a mocked `az`, never run on a
+  runner: the next push of `eval-agent/infra` to `dev` is the first real run of
+  `eval-agent-infra*.yaml` in pwsh; the ADO and GitHub Terraform fixtures have not run at all.
+- An `open:` entry without `environments` allows a placeholder in every stage file and
+  requires none (`check_pipeline.py`): it may be a per-stage value (`context.location`) or
+  none at all (a model list). The runs no longer need to name the stage as a workaround.
+- GitLab has no scaffold behind it and is untested; Azure DevOps and GitLab accepting their
+  file was never checked. The Terraform pin is `~> 1.17.0` (ADO `1.17.1`, GitLab image
+  `1.17`), resolved on 2026-11-01.
 - `naming.tftest.hcl` proves "from naming.yaml", not the deployed suffix, while the stage
   file holds placeholders. `terraform providers schema -json` refuses a root with an
   empty backend block unless run on a copy without it. `terraform init` fails on the
@@ -927,7 +1003,7 @@ regeneration from the spec loses them. All `render`:
   cost over resolution, those read only 0/50/100%), no `--runs` flag;
   Haiku runs beside it every time (owner's call, ~$1-3) as the floor - reported, compared only
   with earlier Haiku runs, never blocking a merge on its own;
-  `plugin-evals.yml` runs it by hand on Linux. The PR run on Haiku was removed: it measured
+  `eval.plugin.yaml` runs it by hand on Linux. The PR run on Haiku was removed: it measured
   the model. First CI run on Haiku, 13 cases: 23:45 min,
   $2.18, 2/13 at 100%, 0% on every process, sync and render case - Haiku skips multi-step rules.
   `language-de-request` and `module-source-authored` removed (100% on Opus and Haiku).
@@ -951,7 +1027,7 @@ regeneration from the spec loses them. All `render`:
   The composed Sonnet run is `baseline.json` since (owner's call): 11 cases, every grader at
   its full rate. Haiku keeps failing the same rules as on 0.5.4/0.5.5: invented subscription and
   region, the default stack, `@onlyIfNotExists()`, the CLAUDE.md sync in one of four runs.
-- **CI by hand**: `.github/workflows/plugin-evals.yml` (`workflow_dispatch`, Sonnet/low by
+- **CI by hand**: `.github/workflows/eval.plugin.yaml` (`workflow_dispatch`, Sonnet/low by
   default, one case per call with progress, `--scaffold`, report only);
   `record_eval_history.py` writes each run to `eval-history`. `review-agent-separate` never loaded before 2026-10-27 (`focus:
   transcript` is not a value; `trace` is). It needs the secret `ANTHROPIC_API_KEY`. Unverified on a Linux runner: whether the eval
@@ -1018,8 +1094,8 @@ regeneration from the spec loses them. All `render`:
   only (`ideas/pattern-skill.md`).
 - An AVM version drift check, read-only, scheduled (`ideas/avm-drift-watch.md`).
 - First run of the image pipeline (AcrPush is granted, 2026-10-25) and a check that its closing step really leaves the registry at `Disabled`. The dashboard's real mode (blob, GitHub, sign-in) has not run.
-- The repository secret `ANTHROPIC_API_KEY` for `plugin-evals.yml`.
-- A first manual run of `foundry-models.yml` after the merge: whether the `production`
+- The repository secret `ANTHROPIC_API_KEY` for `eval.plugin.yaml`.
+- A first manual run of `refresh.foundry-models.yaml` after the merge: whether the `production`
   identity (Contributor on its resource group) may read the model catalogue at subscription
   scope, else Reader on the subscription; and "Allow GitHub Actions to create and approve
   pull requests" switched on.
@@ -1035,9 +1111,18 @@ regeneration from the spec loses them. All `render`:
 
 ## Next
 
-**Merge #15 (0.6.0)**: pushed, ready for review, evals run, recorded and accepted as the
-baseline (see *Evals*). Left: the owner's squash merge. After it, regenerate the remaining examples against the revised spec, and freeze the
-formats (*Road to 1.0.0*).
+**Structured references are in `render-yaml` too** (2026-11-01, see *Decisions*): no eval
+case renders an `existing:` reference yet - one with a platform workspace and an open id
+(the variable, the placeholder in the stage file, no data source) belongs in the run before
+that release.
+
+**Merge `render-yaml`** (#22: render digest, `render-map.yaml` for 67 resources, `renders` and
+the decision tables gone, the sources corrected, the deployment answers translated, the gaps
+filled from primary sources): into `dev`. An eval run that renders with the digest belongs
+before the release that carries it: no case exercises it yet. What is left of the sources
+(*Open*) is small and can follow. After that, regenerate the
+remaining examples against the revised spec and freeze the formats (*Road to 1.0.0*) - the
+render-map format among them.
 
 **The pattern skill** (`ideas/pattern-skill.md`): the wiring that `chatbot` and
 `chatbot-rag` carry by hand — roles between resources, the private link, the order

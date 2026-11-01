@@ -22,21 +22,13 @@ Terraform module defaults a rule to 3389 to 3389 and `enable_tcp_reset` to `fals
 
 ### Decision -> module parameter
 
+What each decision renders to - the parameter and the literal of every answer - is in
+[render-map.yaml](render-map.yaml); the render digest prints it for a spec.
+
+### Deployment-wide parameters
+
 | Decision | Parameter | Note |
 |---|---|---|
-| `sku` | `skuName: 'Standard'`, `skuTier: 'Regional'` | Module default; written |
-| `zone_redundant` | `frontendIPConfigurations[].availabilityZones` (and `publicIPAddressConfiguration.availabilityZones`) | `[1, 2, 3]` or `[]` |
-| `frontend_exposure` | private: `subnetResourceId`; public: `publicIPAddressConfiguration` | One frontend per entry |
-| `frontend_subnet` | `frontendIPConfigurations[].subnetResourceId` | |
-| `private_ip_allocation`, `private_ip_address` | `frontendIPConfigurations[].privateIPAddress` | Set means static; unset means dynamic |
-| `public_ip_zone_redundant` | `publicIPAddressConfiguration: { availabilityZones, skuName: 'Standard', skuTier: 'Regional', publicIPAllocationMethod: 'Static' }` | |
-| `backend_pools` | `backendAddressPools: [ { name, loadBalancerBackendAddresses } ]` | A pool whose members are a scale set's joins from the scale set |
-| `health_probe_protocol`, `health_probe_interval_seconds`, `health_probe_unhealthy_threshold` | `probes: [ { name, protocol, port, intervalInSeconds, numberOfProbes, requestPath } ]` | `requestPath` only with `'Http'` / `'Https'` |
-| `tcp_reset`, `load_distribution`, `floating_ip` | `loadBalancingRules[].enableTcpReset`, `.loadDistribution`, `.enableFloatingIP` | |
-| `rules` | `loadBalancingRules: [ { name, frontendIPConfigurationName, protocol, frontendPort, backendPort, backendAddressPoolName, probeName } ]` | Wiring: filled by the pattern; both ports always stated |
-| `inbound_nat_rules` | `inboundNatRules` | Empty |
-| `outbound_snat`, `outbound_allocated_ports` | `outboundRules: [ { name, frontendIPConfigurationName, backendAddressPoolName, allocatedOutboundPorts } ]`; `loadBalancingRules[].disableOutboundSnat: true` | Only with the rule |
-| `diagnostic_*`, `metrics_enabled` | `diagnosticSettings: [ { workspaceResourceId, metricCategories: [ { category: 'AllMetrics' } ] } ]` | |
 | `deployment.module_telemetry` | `enableTelemetry` | |
 | `context.tags` | `tags` | |
 
@@ -124,20 +116,13 @@ With `frontend_exposure: public` the frontend entry carries
 ### Tests
 
 A module call compiles to a nested deployment whose `properties.parameters.<param>.value` is the
-decision, so every decision above is observable in `tests/*.armtest.yaml`
+decision, so every decision in render-map.yaml is observable in `tests/*.armtest.yaml`
 ([bicep-idiom.md](../../../core/iac-rendering/references/bicep-idiom.md#tests)); the loops compile to a
 `copy` whose expression text names the literal.
 
 ## Authored rendering
 
-The fallback. `Microsoft.Network/loadBalancers` with `properties`, and `Microsoft.Network/publicIPAddresses`:
+The fallback. `Microsoft.Network/loadBalancers` with `properties`, and `Microsoft.Network/publicIPAddresses`.
 
-| Decision | Property |
-|---|---|
-| `sku`, `zone_redundant` | `sku: { name, tier }`; `properties.frontendIPConfigurations[].zones` (top-level of the entry) |
-| `frontend_exposure`, `private_ip_*` | `properties.frontendIPConfigurations[].properties: { subnet: { id }, privateIPAllocationMethod, privateIPAddress }` or `{ publicIPAddress: { id } }` |
-| `backend_pools` | `properties.backendAddressPools[]` |
-| `health_probe_*` | `properties.probes[].properties: { protocol, port, requestPath, intervalInSeconds, numberOfProbes }` |
-| `rules`, `tcp_reset`, `load_distribution`, `floating_ip` | `properties.loadBalancingRules[].properties: { protocol, frontendPort, backendPort, frontendIPConfiguration: { id }, backendAddressPool: { id }, probe: { id }, enableTcpReset, loadDistribution, enableFloatingIP, disableOutboundSnat }` |
-| `inbound_nat_rules` | `properties.inboundNatRules[]` |
-| `outbound_snat` | `properties.outboundRules[].properties: { protocol, allocatedOutboundPorts, backendAddressPool: { id }, frontendIPConfigurations: [ { id } ] }` |
+What each decision renders to - the property and the literal of every answer - is in
+[render-map.yaml](render-map.yaml); the render digest prints it for a spec.

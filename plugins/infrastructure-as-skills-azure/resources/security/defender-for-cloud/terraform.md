@@ -19,16 +19,11 @@ Targets `azurerm` **5.x** (checked against `terraform providers schema -json`, 5
 `azurerm_security_center_auto_provisioning`, the resource for the retired agent setting, no longer
 exists in 5.x and is not rendered.
 
+What each decision renders to - the argument and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.
+
 | Decision | Resource and argument |
 |---|---|
-| `plans` | one `azurerm_security_center_subscription_pricing` per entry: `resource_type = <plan>`, `tier = "Standard"` |
-| `servers_plan` | `subplan` on the `VirtualMachines` pricing (`P1`, `P2`) |
 | (storage) | `subplan = "DefenderForStorageV2"` on the `StorageAccounts` pricing |
-| `storage_malware_scanning`, `storage_malware_scan_cap_gb` | `extension { name = "OnUploadMalwareScanning", additional_extension_properties = { CapGBPerMonth = "<n>" } }` |
-| `storage_sensitive_data_discovery` | `extension { name = "SensitiveDataDiscovery" }` |
-| `security_contact_emails`, `notify_subscription_owners`, `alert_minimum_severity` | `azapi_resource` `Microsoft.Security/securityContacts@2023-12-01-preview`, name `default` |
-| `subscription_id` | the provider's `subscription_id`, a root variable |
-| `defender_ownership` | whether the resources exist at all (`count` / the module call) |
 
 ```hcl
 variable "plans" {

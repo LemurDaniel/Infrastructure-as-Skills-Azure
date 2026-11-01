@@ -29,6 +29,19 @@ and follow the version gate in [iac-authoring](../iac-authoring/SKILL.md#before-
 one AskUserQuestion offering the update, no way on with the older plugin. A render that goes
 ahead sets `spec.plugin_version` to the installed version.
 
+**Then the digest, before any reference:**
+`python <plugin>/core/iac-rendering/scripts/render_digest.py <spec>`. It prints the spec's
+shape, every deployment and resource decision under the key path its test names, with
+its value, source and what the resource's `render-map.yaml` maps it to for the target and
+implementation - the attribute and the literal the value becomes
+([render-map.md](references/render-map.md)) - the AVM modules and naming identifier of
+each resource, wiring, `assumed` and `open:` entries, and the
+reading list: each reference and each resource's rendering reference with the line
+ranges that apply to this spec. Read those ranges (Read with offset and limit), not the
+whole files; the rest only for a question the digest leaves open. Exit 1 names a gap - a
+resource without a question set, `render-map.yaml` or rendering reference - which goes into the
+hand-over. The digest's literal is the one to write; a `gap` is rendered the way it says.
+
 ## What the spec hands over
 
 | Spec | What this layer does with it |
@@ -36,13 +49,13 @@ ahead sets `spec.plugin_version` to the installed version.
 | `spec.target` | Picks Terraform or Bicep. Never both from one run |
 | `composition` | The module split. One `modules` entry is a directory (Terraform) or a file (Bicep) |
 | `context` | Variables/parameters shared by every module, resolved once |
-| `resources.<id>` | Decisions → attributes, via the question set's `renders` and the resource's own rendering reference |
+| `resources.<id>` | Decisions → attributes and literals, via the resource's `render-map.yaml` (the digest prints them) and its rendering reference |
 | `wiring` | Renders into the root, never into a module — only the caller sees both ends |
 | `_target_overrides` | Target-specific escape hatches, each with its comment |
 
-The schema is in
-[../iac-authoring/references/spec.md](../iac-authoring/references/spec.md). Read it rather
-than inferring the shape from an example spec.
+The digest reads the spec for the render; the schema behind it is
+[../iac-authoring/references/spec.md](../iac-authoring/references/spec.md). Look a key up
+there when the digest does not explain it, never infer the shape from an example spec.
 
 ## Order of work
 
@@ -57,7 +70,10 @@ than inferring the shape from an example spec.
    spec's `deployment.module_source` is `authored` or the repository already renders the
    resource authored.
 3. **Read the target idiom** — [terraform-idiom](references/terraform-idiom.md) or
-   [bicep-idiom](references/bicep-idiom.md), not both.
+   [bicep-idiom](references/bicep-idiom.md), not both — and
+   [code-structure.md](references/code-structure.md) for the comments: header, table of
+   contents, chapters and sections in every file. A `code-style` skill in the session
+   replaces its rules, the repository's own style replaces both; the layout stays the idiom's.
 4. **Read the resource's own rendering reference**, `<plugin>/resources/<family>/<resource>/{terraform,bicep}.md`.
    `<plugin>` is two levels above this skill's base directory (shown when it loads,
    `.../core/iac-rendering`); `resources/` sits beside `core/`, not inside it. Read it by that
@@ -84,8 +100,10 @@ than inferring the shape from an example spec.
    what makes the next re-render a diff instead of a review. The shape per target is in
    the idiom file; `scripts/check_render_coverage.py` fails on an unasserted decision.
 8. **Validate before handing over.** Syntactically valid is not done — `fmt` →
-   `validate` → `test` → `plan` / `what-if`, then say which diffs are service-affecting.
-   The commands are at the end of each idiom file. **Then show the names**: run
+   `validate` → `test` → `plan` / `what-if`, then say which diffs are service-affecting,
+   and `scripts/check_code_structure.py <root>` for the comments the render wrote.
+   Every check is run, never read: a failure is fixed where its message points, not by
+   learning from the script what passes. The commands are at the end of each idiom file. **Then show the names**: run
    `scripts/list_names.py <spec>` and hand over the table - every resource with the name it
    will get, before anything is deployed. A name cannot be changed afterwards, and the
    customer knows whether it fits. It works from the spec alone: no tool or login is
@@ -213,13 +231,17 @@ is spelled. A port that reads as a transliteration has usually lost one of them.
 | [references/naming.md](references/naming.md) | Always, before rendering a name |
 | [references/terraform-idiom.md](references/terraform-idiom.md) | Target is Terraform |
 | [references/bicep-idiom.md](references/bicep-idiom.md) | Target is Bicep |
+| [references/code-structure.md](references/code-structure.md) | Always, with the idiom: how every rendered file is commented, and when a `code-style` skill takes over |
 | [references/pipelines.md](references/pipelines.md) | Always, after the code: the flow and invariants every pipeline shares |
 | [references/pipelines.github.md](references/pipelines.github.md), [.ado.md](references/pipelines.ado.md), [.gitlab.md](references/pipelines.gitlab.md), [.local.md](references/pipelines.local.md) | `deploy_mechanism` is that system |
 | [references/gitignore.md](references/gitignore.md) | After rendering: the lines the repository's `.gitignore` must have, added never rewritten |
 | [references/agents.md](references/agents.md) | The Agent tool is available and the spec spans several families: the two loops in sequence, the stop rules, the briefs |
-| [../iac-authoring/references/spec.md](../iac-authoring/references/spec.md) | Reading the spec you render from |
+| [references/render-map.md](references/render-map.md) | A digest line is unclear, or a resource's `render-map.yaml` is written or changed |
+| `scripts/render_digest.py` | First, after the version gate: the spec's decisions with the literal their `render-map.yaml` gives, and the line ranges of every reference this spec needs |
+| [../iac-authoring/references/spec.md](../iac-authoring/references/spec.md) | A spec key the digest does not explain |
 | [../iac-authoring/references/guardrails.md](../iac-authoring/references/guardrails.md) | A value in the spec looks wrong and you need the rule behind it |
 | `scripts/run_arm_tests.py` | A Bicep render: its `tests/*.armtest.yaml` against the compiled ARM |
 | `scripts/check_pipeline.py` | After rendering a pipeline: the invariants of `pipelines.md`, per platform |
 | `scripts/list_names.py` | After rendering: the names every resource will get, offline from the spec; fails on a length, a character or a duplicate |
 | `scripts/check_render_coverage.py` | After rendering, either target: every spec decision asserted or marked, nothing stale |
+| `scripts/check_code_structure.py` | After rendering: headers, banner widths, chapters against their steps, tables of contents against the chapters |

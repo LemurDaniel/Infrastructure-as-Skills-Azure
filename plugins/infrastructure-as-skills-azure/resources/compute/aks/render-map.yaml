@@ -1,0 +1,441 @@
+# What each decision of questions.yaml renders to, per target and implementation.
+# Format: core/iac-rendering/references/render-map.md. The call, the authored blocks and the
+# tests are in terraform.md and bicep.md. The Bicep module's nested objects are ARM-typed, so
+# the authored property paths below are the module's under properties.
+schema_version: 1
+resource: Microsoft.ContainerService/managedClusters
+
+modules:
+  terraform: [Azure/avm-res-containerservice-managedcluster/azurerm]
+  bicep: [avm/res/container-service/managed-cluster]
+
+decisions:
+
+  # ---------------------------------------------------------------- placement
+  placement.environments:
+    not_rendered: naming parameter `environment` and the tag of that name; no attribute of the cluster
+  placement.location:
+    terraform_avm: { attribute: location , passthrough: true}
+    terraform: { attribute: location , passthrough: true}
+    bicep_avm: { attribute: location , passthrough: true}
+    bicep: { attribute: location , passthrough: true}
+  placement.resource_group_name:
+    terraform_avm:
+      attribute: parent_id
+      note: the group's id, not its name - AzAPI-only module, no azurerm
+    terraform: { attribute: resource_group_name }
+    bicep_avm: { gap: the deployment's resource group scope; no parameter }
+    bicep: { gap: the deployment's resource group scope; no property }
+
+  # ------------------------------------------------------------------ cluster
+  cluster.sku_tier:
+    terraform_avm:
+      attribute: sku.tier
+      passthrough: true
+      note: 'sku = { name = "Base", tier }; module default unset (Free) - written'
+    terraform: { attribute: sku_tier , passthrough: true}
+    bicep_avm: { attribute: skuTier, passthrough: true, note: module default Standard; written. skuName stays Base }
+    bicep: { attribute: sku.tier, passthrough: true, note: "sku.name stays 'Base'" }
+  cluster.kubernetes_version:
+    terraform_avm: { attribute: kubernetes_version, passthrough: true, note: a minor takes the newest patch; looked up - never recalled }
+    terraform: { attribute: kubernetes_version , passthrough: true}
+    bicep_avm: { attribute: kubernetesVersion , passthrough: true}
+    bicep: { attribute: properties.kubernetesVersion , passthrough: true}
+  cluster.upgrade_channel:
+    terraform_avm: { attribute: auto_upgrade_profile.upgrade_channel, passthrough: true, note: module default none (Bicep stable); written }
+    terraform:
+      attribute: automatic_upgrade_channel
+      values: { none: null, patch: patch, stable: stable, rapid: rapid }
+      note: 'none is the argument left out - omitting it sets none (source: azurerm 5.12 docs)'
+    bicep_avm: { attribute: autoUpgradeProfile.upgradeChannel, passthrough: true, note: module default stable (Terraform none); written }
+    bicep: { attribute: properties.autoUpgradeProfile.upgradeChannel , passthrough: true}
+  cluster.node_os_upgrade_channel:
+    terraform_avm: { attribute: auto_upgrade_profile.node_os_upgrade_channel, passthrough: true, note: module default NodeImage; written }
+    terraform: { attribute: node_os_upgrade_channel, passthrough: true, note: the ARM spelling - as on the module }
+    bicep_avm: { attribute: autoUpgradeProfile.nodeOSUpgradeChannel , passthrough: true}
+    bicep: { attribute: properties.autoUpgradeProfile.nodeOSUpgradeChannel , passthrough: true}
+  cluster.zone_redundant:
+    terraform_avm:
+      attribute: default_agent_pool.availability_zones, agent_pools.user.availability_zones
+      values: { true: { expr: '["1", "2", "3"]' }, false: null }
+      note: strings in Terraform; fixed when a pool is created
+    terraform:
+      attribute: default_node_pool.zones
+      values: { true: { expr: '["1", "2", "3"]' }, false: null }
+      note: the same on azurerm_kubernetes_cluster_node_pool; fixed when a pool is created
+    bicep_avm:
+      attribute: 'primaryAgentPoolProfiles[].availabilityZones, agentPools[].availabilityZones'
+      values: { true: { expr: '[ 1, 2, 3 ]' }, false: null }
+      note: integers in Bicep; fixed when a pool is created
+    bicep:
+      attribute: 'properties.agentPoolProfiles[].availabilityZones'
+      values: { true: { expr: '[ 1, 2, 3 ]' }, false: null }
+
+  # --------------------------------------------------------------- networking
+  networking.public_network_access:
+    terraform_avm:
+      attribute: public_network_access
+      values: { disabled: Disabled, enabled_with_firewall: Enabled, enabled: Enabled }
+      also:
+        disabled: 'api_server_access_profile.enable_private_cluster = true'
+      note: enabled_with_firewall carries authorized_ip_ranges; module default unset
+    terraform:
+      attribute: private_cluster_enabled
+      values: { disabled: true, enabled_with_firewall: false, enabled: false }
+      note: public_network_access is not an argument in 5.x - the private cluster is the control
+    bicep_avm:
+      attribute: publicNetworkAccess
+      values: { disabled: Disabled, enabled_with_firewall: Enabled, enabled: Enabled }
+      also:
+        disabled: 'apiServerAccessProfile.enablePrivateCluster: true'
+      note: module default Disabled; written
+    bicep:
+      attribute: properties.publicNetworkAccess
+      values: { disabled: Disabled, enabled_with_firewall: Enabled, enabled: Enabled }
+      also:
+        disabled: 'properties.apiServerAccessProfile.enablePrivateCluster: true'
+  networking.authorized_ip_ranges:
+    terraform_avm: { attribute: api_server_access_profile.authorized_ip_ranges, note: never rendered empty }
+    terraform: { attribute: api_server_access_profile.authorized_ip_ranges }
+    bicep_avm: { attribute: apiServerAccessProfile.authorizedIPRanges, note: never rendered empty }
+    bicep: { attribute: properties.apiServerAccessProfile.authorizedIPRanges }
+  networking.private_dns_zone:
+    terraform_avm:
+      attribute: api_server_access_profile.private_dns_zone
+      values: { system: system, custom: { expr: '{networking.private_dns_zone_id}' } }
+      note: the id comes from private_dns_zone_id; none is not offered
+    terraform:
+      attribute: private_dns_zone_id
+      values: { system: System, custom: { expr: '{networking.private_dns_zone_id}' } }
+      note: 'System capitalised, unlike the ARM value; the id comes from private_dns_zone_id (source: azurerm 5.12 docs)'
+    bicep_avm:
+      attribute: apiServerAccessProfile.privateDNSZone
+      values: { system: system, custom: { expr: '{networking.private_dns_zone_id}' } }
+      note: the id comes from private_dns_zone_id
+    bicep:
+      attribute: properties.apiServerAccessProfile.privateDNSZone
+      values: { system: system, custom: { expr: '{networking.private_dns_zone_id}' } }
+  networking.private_dns_zone_id:
+    terraform_avm: { attribute: api_server_access_profile.private_dns_zone }
+    terraform: { attribute: private_dns_zone_id }
+    bicep_avm: { attribute: apiServerAccessProfile.privateDNSZone }
+    bicep: { attribute: properties.apiServerAccessProfile.privateDNSZone }
+  networking.node_subnet:
+    terraform_avm: { attribute: 'default_agent_pool.vnet_subnet_id, agent_pools.user.vnet_subnet_id' }
+    terraform: { attribute: default_node_pool.vnet_subnet_id, note: the same on azurerm_kubernetes_cluster_node_pool }
+    bicep_avm: { attribute: 'primaryAgentPoolProfiles[].vnetSubnetResourceId, agentPools[].vnetSubnetResourceId' }
+    bicep: { attribute: 'properties.agentPoolProfiles[].vnetSubnetID' }
+  networking.network_plugin_mode:
+    terraform_avm:
+      attribute: network_profile.network_plugin_mode
+      values: { overlay: overlay, vnet: null }
+      also:
+        overlay: 'network_profile.network_plugin = "azure"'
+        vnet: 'network_profile.network_plugin = "azure"'
+      note: unset for vnet
+    terraform:
+      attribute: network_profile.network_plugin_mode
+      values: { overlay: overlay, vnet: null }
+      also:
+        overlay: 'network_profile.network_plugin = "azure"'
+        vnet: 'network_profile.network_plugin = "azure"'
+      note: unset for vnet
+    bicep_avm:
+      attribute: networkPluginMode
+      values: { overlay: overlay, vnet: null }
+      also:
+        overlay: "networkPlugin: 'azure'"
+        vnet: "networkPlugin: 'azure'"
+      note: unset for vnet
+    bicep:
+      attribute: properties.networkProfile.networkPluginMode
+      values: { overlay: overlay, vnet: null }
+      also:
+        overlay: "properties.networkProfile.networkPlugin: 'azure'"
+        vnet: "properties.networkProfile.networkPlugin: 'azure'"
+      note: unset for vnet
+  networking.network_dataplane:
+    terraform_avm: { attribute: network_profile.network_dataplane , passthrough: true}
+    terraform: { attribute: network_profile.network_data_plane, passthrough: true, note: spelled network_data_plane on the provider }
+    bicep_avm: { attribute: networkDataplane , passthrough: true}
+    bicep: { attribute: properties.networkProfile.networkDataplane , passthrough: true}
+  networking.network_policy:
+    terraform_avm:
+      attribute: network_profile.network_policy
+      values: { cilium: cilium, calico: calico, azure: azure, none: null }
+      note: unset for none
+    terraform:
+      attribute: network_profile.network_policy
+      values: { cilium: cilium, calico: calico, azure: azure, none: null }
+      note: unset for none
+    bicep_avm:
+      attribute: networkPolicy
+      values: { cilium: cilium, calico: calico, azure: azure, none: null }
+      note: unset for none
+    bicep:
+      attribute: properties.networkProfile.networkPolicy
+      values: { cilium: cilium, calico: calico, azure: azure, none: null }
+      note: unset for none
+  networking.pod_cidr:
+    terraform_avm: { attribute: network_profile.pod_cidr, passthrough: true, note: only with overlay }
+    terraform: { attribute: network_profile.pod_cidr, passthrough: true, note: only with overlay }
+    bicep_avm: { attribute: podCidr, passthrough: true, note: only with overlay }
+    bicep: { attribute: properties.networkProfile.podCidr, passthrough: true, note: only with overlay }
+  networking.service_cidr:
+    terraform_avm: { attribute: network_profile.service_cidr , passthrough: true}
+    terraform: { attribute: network_profile.service_cidr , passthrough: true}
+    bicep_avm: { attribute: serviceCidr , passthrough: true}
+    bicep: { attribute: properties.networkProfile.serviceCidr , passthrough: true}
+  networking.dns_service_ip:
+    terraform_avm: { attribute: network_profile.dns_service_ip , passthrough: true}
+    terraform: { attribute: network_profile.dns_service_ip , passthrough: true}
+    bicep_avm: { attribute: dnsServiceIP , passthrough: true}
+    bicep: { attribute: properties.networkProfile.dnsServiceIP , passthrough: true}
+  networking.outbound_type:
+    terraform_avm: { attribute: network_profile.outbound_type , passthrough: true}
+    terraform: { attribute: network_profile.outbound_type , passthrough: true}
+    bicep_avm: { attribute: outboundType, passthrough: true, note: module default loadBalancer; written }
+    bicep: { attribute: properties.networkProfile.outboundType , passthrough: true}
+
+  # --------------------------------------------------------------- node_pools
+  node_pools.system_pool_vm_size:
+    terraform_avm: { attribute: default_agent_pool.vm_size , passthrough: true}
+    terraform: { attribute: default_node_pool.vm_size , passthrough: true}
+    bicep_avm: { attribute: 'primaryAgentPoolProfiles[].vmSize', passthrough: true }
+    bicep: { attribute: 'properties.agentPoolProfiles[].vmSize', passthrough: true, note: "the profile with mode: 'System'" }
+  node_pools.system_pool_min_count:
+    terraform_avm:
+      attribute: default_agent_pool.min_count
+      passthrough: true
+      note: count_of is written equal to min_count - the initial size; enable_auto_scaling = true
+    terraform: { attribute: default_node_pool.min_count, passthrough: true, note: with auto_scaling_enabled }
+    bicep_avm:
+      attribute: 'primaryAgentPoolProfiles[].minCount'
+      passthrough: true
+      note: count is written equal to minCount - the initial size; enableAutoScaling true
+    bicep: { attribute: 'properties.agentPoolProfiles[].minCount', passthrough: true, note: with enableAutoScaling }
+  node_pools.system_pool_max_count:
+    terraform_avm: { attribute: default_agent_pool.max_count , passthrough: true}
+    terraform: { attribute: default_node_pool.max_count , passthrough: true}
+    bicep_avm: { attribute: 'primaryAgentPoolProfiles[].maxCount', passthrough: true }
+    bicep: { attribute: 'properties.agentPoolProfiles[].maxCount', passthrough: true }
+  node_pools.system_pool_dedicated:
+    terraform_avm:
+      attribute: default_agent_pool.node_taints
+      values: { true: { expr: '["CriticalAddonsOnly=true:NoSchedule"]' }, false: null }
+    terraform: { attribute: default_node_pool.only_critical_addons_enabled , passthrough: true}
+    bicep_avm:
+      attribute: 'primaryAgentPoolProfiles[].nodeTaints'
+      values: { true: { expr: "[ 'CriticalAddonsOnly=true:NoSchedule' ]" }, false: null }
+    bicep:
+      attribute: 'properties.agentPoolProfiles[].nodeTaints'
+      values: { true: { expr: "[ 'CriticalAddonsOnly=true:NoSchedule' ]" }, false: null }
+  node_pools.user_pool_vm_size:
+    terraform_avm: { attribute: agent_pools.user.vm_size, passthrough: true, note: 'mode = "User"' }
+    terraform: { attribute: azurerm_kubernetes_cluster_node_pool.vm_size, passthrough: true, note: 'mode = "User"' }
+    bicep_avm: { attribute: 'agentPools[].vmSize', passthrough: true, note: "mode: 'User'" }
+    bicep: { attribute: 'properties.agentPoolProfiles[].vmSize', passthrough: true, note: "mode: 'User'; or a child agentPools resource" }
+  node_pools.user_pool_min_count:
+    terraform_avm: { attribute: agent_pools.user.min_count, passthrough: true, note: count_of written equal to min_count; with enable_auto_scaling }
+    terraform: { attribute: azurerm_kubernetes_cluster_node_pool.min_count , passthrough: true}
+    bicep_avm: { attribute: 'agentPools[].minCount', passthrough: true, note: count written equal to minCount; with enableAutoScaling }
+    bicep: { attribute: 'properties.agentPoolProfiles[].minCount', passthrough: true }
+  node_pools.user_pool_max_count:
+    terraform_avm: { attribute: agent_pools.user.max_count , passthrough: true}
+    terraform: { attribute: azurerm_kubernetes_cluster_node_pool.max_count , passthrough: true}
+    bicep_avm: { attribute: 'agentPools[].maxCount', passthrough: true }
+    bicep: { attribute: 'properties.agentPoolProfiles[].maxCount', passthrough: true }
+  node_pools.os_sku:
+    terraform_avm:
+      attribute: default_agent_pool.os_sku, agent_pools.user.os_sku
+      passthrough: true
+      note: release names (AzureLinux3 ...) from the module README
+    terraform: { attribute: default_node_pool.os_sku, passthrough: true, note: the same on azurerm_kubernetes_cluster_node_pool }
+    bicep_avm:
+      attribute: 'primaryAgentPoolProfiles[].osSKU, agentPools[].osSKU'
+      passthrough: true
+      note: release names (AzureLinux3 ...) from the module README
+    bicep: { attribute: 'properties.agentPoolProfiles[].osSKU', passthrough: true }
+  node_pools.os_disk_type:
+    terraform_avm: { attribute: 'default_agent_pool.os_disk_type, agent_pools.user.os_disk_type', passthrough: true }
+    terraform: { attribute: default_node_pool.os_disk_type, passthrough: true, note: the same on azurerm_kubernetes_cluster_node_pool }
+    bicep_avm: { attribute: 'primaryAgentPoolProfiles[].osDiskType, agentPools[].osDiskType', passthrough: true }
+    bicep: { attribute: 'properties.agentPoolProfiles[].osDiskType', passthrough: true }
+
+  # ----------------------------------------------------------------- identity
+  identity.managed_identity:
+    terraform_avm:
+      attribute: managed_identities
+      values:
+        system_assigned: { expr: '{ system_assigned = true }' }
+        user_assigned: { expr: '{ user_assigned_resource_ids = {identity.user_assigned_identity_ids} }' }
+      note: one kind only; the roles on the subnet and the zone exist first
+    terraform:
+      attribute: identity.type
+      values: { system_assigned: SystemAssigned, user_assigned: UserAssigned }
+    bicep_avm:
+      attribute: managedIdentities
+      values:
+        system_assigned: { expr: '{ systemAssigned: true }' }
+        user_assigned: { expr: '{ userAssignedResourceIds: {identity.user_assigned_identity_ids} }' }
+      note: system- or user-assigned, not both
+    bicep:
+      attribute: identity.type
+      values: { system_assigned: SystemAssigned, user_assigned: UserAssigned }
+  identity.user_assigned_identity_ids:
+    terraform_avm: { attribute: managed_identities.user_assigned_resource_ids }
+    terraform: { attribute: identity.identity_ids }
+    bicep_avm: { attribute: managedIdentities.userAssignedResourceIds }
+    bicep: { attribute: identity.userAssignedIdentities }
+  identity.entra_integration:
+    terraform_avm: { attribute: aad_profile.managed, passthrough: true, note: enable_rbac = true written beside it }
+    terraform:
+      attribute: azure_active_directory_role_based_access_control
+      values:
+        true: { expr: '{ azure_rbac_enabled = {identity.azure_rbac_enabled}, admin_group_object_ids = {identity.admin_group_object_ids} }' }
+        false: null
+      note: a block; false renders none
+    bicep_avm: { attribute: aadProfile.managed, passthrough: true, note: 'enableRBAC: true written beside it (default true)' }
+    bicep: { attribute: properties.aadProfile.managed, passthrough: true, note: with properties.enableRBAC }
+  identity.azure_rbac_enabled:
+    terraform_avm: { attribute: aad_profile.enable_azure_rbac , passthrough: true}
+    terraform: { attribute: azure_active_directory_role_based_access_control.azure_rbac_enabled , passthrough: true}
+    bicep_avm: { attribute: aadProfile.enableAzureRBAC , passthrough: true}
+    bicep: { attribute: properties.aadProfile.enableAzureRBAC , passthrough: true}
+  identity.admin_group_object_ids:
+    terraform_avm: { attribute: aad_profile.admin_group_object_ids }
+    terraform: { attribute: azure_active_directory_role_based_access_control.admin_group_object_ids }
+    bicep_avm: { attribute: aadProfile.adminGroupObjectIDs }
+    bicep: { attribute: properties.aadProfile.adminGroupObjectIDs }
+  identity.local_accounts_disabled:
+    terraform_avm: { attribute: disable_local_accounts, passthrough: true, note: inverse reading of local_auth; module default false (Bicep true); written }
+    terraform: { attribute: local_account_disabled , passthrough: true}
+    bicep_avm: { attribute: disableLocalAccounts, passthrough: true, note: module default true (Terraform false); written }
+    bicep: { attribute: properties.disableLocalAccounts , passthrough: true}
+  identity.oidc_issuer_enabled:
+    terraform_avm: { attribute: oidc_issuer_profile.enabled, passthrough: true, note: module default unset; written }
+    terraform: { attribute: oidc_issuer_enabled , passthrough: true}
+    bicep_avm: { attribute: enableOidcIssuerProfile, passthrough: true, note: module default false; written }
+    bicep: { attribute: properties.oidcIssuerProfile.enabled , passthrough: true}
+  identity.workload_identity_enabled:
+    terraform_avm: { attribute: security_profile.workload_identity.enabled , passthrough: true}
+    terraform: { attribute: workload_identity_enabled , passthrough: true}
+    bicep_avm: { attribute: securityProfile.workloadIdentity.enabled , passthrough: true}
+    bicep: { attribute: properties.securityProfile.workloadIdentity.enabled , passthrough: true}
+  identity.acr_pull_registry_ids:
+    terraform_avm:
+      gap: not a module input; an azurerm_role_assignment AcrPull per registry in the root for module.aks.kubelet_identity.objectId
+    terraform:
+      attribute: azurerm_role_assignment.scope
+      note: 'one per registry, role_definition_name = "AcrPull", principal_id = kubelet_identity[0].object_id (source: azurerm 5.12 schema)'
+    bicep_avm:
+      gap: not a module parameter; a Microsoft.Authorization/roleAssignments AcrPull per registry in the root for the kubeletIdentityObjectId output
+    bicep:
+      gap: "a Microsoft.Authorization/roleAssignments per registry (scope the registry; properties.principalId, roleDefinitionId - bicep build @2022-04-01); the kubelet identity's key under properties.identityProfile is a map key the build does not check, and the AcrPull role id is in no source"
+  identity.role_assignments:
+    terraform_avm: { attribute: 'role_assignments.<key> = { role_definition_id_or_name, principal_id }' }
+    terraform:
+      attribute: 'azurerm_role_assignment = { scope, role_definition_name, principal_id }'
+      note: 'one per entry, scope = the cluster''s id or narrower (source: azurerm 5.12 schema)'
+    bicep_avm: { attribute: 'roleAssignments[] = { principalId, roleDefinitionIdOrName, principalType }' }
+    bicep:
+      attribute: 'Microsoft.Authorization/roleAssignments properties = { principalId, roleDefinitionId, principalType }'
+      note: 'one per entry, scope the cluster; roleDefinitionId is the role''s id, not its name (source: bicep build, Microsoft.Authorization/roleAssignments@2022-04-01)'
+
+  # ----------------------------------------------------------------- security
+  security.defender_enabled:
+    terraform_avm:
+      attribute: security_profile.defender.security_monitoring.enabled
+      passthrough: true
+      note: with log_analytics_workspace_resource_id = the diagnostic workspace
+    terraform:
+      attribute: microsoft_defender
+      values: { true: { expr: '{ log_analytics_workspace_id = {observability.diagnostic_workspace} }' }, false: null }
+      note: a block; false renders none
+    bicep_avm:
+      attribute: securityProfile.defender.securityMonitoring.enabled
+      passthrough: true
+      note: with logAnalyticsWorkspaceResourceId = the diagnostic workspace
+    bicep: { attribute: properties.securityProfile.defender.securityMonitoring.enabled , passthrough: true}
+  security.azure_policy_enabled:
+    terraform_avm: { attribute: addon_profile_azure_policy.enabled , passthrough: true}
+    terraform: { attribute: azure_policy_enabled , passthrough: true}
+    bicep_avm: { attribute: azurePolicyEnabled, passthrough: true, note: module default true; written }
+    bicep: { gap: "properties.addonProfiles.<key>.enabled (bicep build, managedClusters@2025-05-01); addonProfiles is a map - the build does not check the key and no source names it" }
+  security.keyvault_secrets_provider_enabled:
+    terraform_avm:
+      attribute: addon_profile_key_vault_secrets_provider.enabled
+      passthrough: true
+      note: with config = { enable_secret_rotation = true }
+    terraform:
+      attribute: key_vault_secrets_provider
+      values: { true: { expr: '{ secret_rotation_enabled = true }' }, false: null }
+      note: a block; false renders none
+    bicep_avm: { attribute: enableKeyvaultSecretsProvider, passthrough: true, note: with enableSecretRotation; both default false - written }
+    bicep: { gap: "properties.addonProfiles.<key>.enabled and .config (bicep build, managedClusters@2025-05-01); addonProfiles and config are maps - the build checks neither the key nor the rotation setting, and no source names them" }
+  security.image_cleaner_enabled:
+    terraform_avm: { attribute: security_profile.image_cleaner.enabled, passthrough: true, note: with interval_hours = 168 }
+    terraform: { attribute: image_cleaner_enabled , passthrough: true}
+    bicep_avm: { attribute: securityProfile.imageCleaner.enabled, passthrough: true, note: 'with intervalHours: 168' }
+    bicep: { attribute: properties.securityProfile.imageCleaner.enabled , passthrough: true}
+  security.encryption_at_host:
+    terraform_avm: { attribute: 'default_agent_pool.enable_encryption_at_host, agent_pools.user.enable_encryption_at_host', passthrough: true }
+    terraform: { attribute: default_node_pool.host_encryption_enabled, passthrough: true, note: the same on azurerm_kubernetes_cluster_node_pool }
+    bicep_avm: { attribute: 'primaryAgentPoolProfiles[].enableEncryptionAtHost, agentPools[].enableEncryptionAtHost', passthrough: true }
+    bicep: { attribute: 'properties.agentPoolProfiles[].enableEncryptionAtHost', passthrough: true }
+  security.key_management:
+    terraform_avm: { attribute: disk_encryption_set_id, values: { platform_managed: null, customer_managed: { expr: '{security.disk_encryption_set_id}' } }, note: the id comes from disk_encryption_set_id }
+    terraform: { attribute: disk_encryption_set_id, values: { platform_managed: null, customer_managed: { expr: '{security.disk_encryption_set_id}' } }, note: the id comes from disk_encryption_set_id }
+    bicep_avm: { attribute: diskEncryptionSetResourceId, values: { platform_managed: null, customer_managed: { expr: '{security.disk_encryption_set_id}' } }, note: the id comes from disk_encryption_set_id }
+    bicep: { attribute: properties.diskEncryptionSetID, values: { platform_managed: null, customer_managed: { expr: '{security.disk_encryption_set_id}' } }, note: the id comes from disk_encryption_set_id }
+  security.disk_encryption_set_id:
+    terraform_avm: { attribute: disk_encryption_set_id }
+    terraform: { attribute: disk_encryption_set_id }
+    bicep_avm: { attribute: diskEncryptionSetResourceId }
+    bicep: { attribute: properties.diskEncryptionSetID }
+
+  # ------------------------------------------------------------ observability
+  observability.diagnostic_workspace:
+    terraform_avm: { attribute: diagnostic_settings.workspace.workspace_resource_id }
+    terraform: { attribute: azurerm_monitor_diagnostic_setting.log_analytics_workspace_id }
+    bicep_avm: { attribute: 'diagnosticSettings[].workspaceResourceId' }
+    bicep: { attribute: Microsoft.Insights/diagnosticSettings properties.workspaceId, note: 'scope the cluster (source: bicep build, Microsoft.Insights/diagnosticSettings@2021-05-01-preview)' }
+  observability.diagnostic_categories:
+    terraform_avm:
+      attribute: diagnostic_settings.workspace.log_categories
+      note: set log_groups = [] beside it - its default allLogs collects every log on top
+    terraform: { attribute: azurerm_monitor_diagnostic_setting.enabled_log.category }
+    bicep_avm: { attribute: 'diagnosticSettings[].logCategoriesAndGroups[].category' }
+    bicep: { attribute: 'Microsoft.Insights/diagnosticSettings properties.logs[].category', note: 'each with enabled: true (source: bicep build, Microsoft.Insights/diagnosticSettings@2021-05-01-preview)' }
+  observability.metrics_enabled:
+    terraform_avm:
+      attribute: diagnostic_settings.workspace.metric_categories
+      values: { true: { expr: '["AllMetrics"]' }, false: { expr: '[]' } }
+    terraform:
+      attribute: azurerm_monitor_diagnostic_setting.enabled_metric.category
+      values: { true: AllMetrics, false: null }
+      note: 'false renders no enabled_metric block (source: azurerm 5.12 docs)'
+    bicep_avm:
+      attribute: 'diagnosticSettings[].metricCategories'
+      values: { true: { expr: "[ { category: 'AllMetrics' } ]" }, false: { expr: '[]' } }
+    bicep: { gap: "Microsoft.Insights/diagnosticSettings properties.metrics[].category (bicep build @2021-05-01-preview); the category is a free string the build does not check, so the literal for true is unproven" }
+  observability.container_insights_enabled:
+    terraform_avm:
+      attribute: addon_profile_oms_agent.enabled
+      passthrough: true
+      also:
+        true: 'onboard_monitoring = true'
+      note: config = { log_analytics_workspace_resource_id, use_aad_auth = true }; onboard_monitoring also creates the data collection rule; the validation needs the workspace id
+    terraform:
+      attribute: oms_agent
+      values:
+        true: { expr: '{ log_analytics_workspace_id = {observability.diagnostic_workspace}, msi_auth_for_monitoring_enabled = true }' }
+        false: null
+      note: a block; false renders none
+    bicep_avm:
+      attribute: omsAgentEnabled
+      passthrough: true
+      also:
+        true: 'omsAgentUseAADAuth: true'
+      note: with monitoringWorkspaceResourceId; module default true, AAD auth false - written
+    bicep: { gap: "properties.addonProfiles.<key>.enabled and .config (bicep build, managedClusters@2025-05-01); addonProfiles and config are maps - the build checks neither the key nor the workspace id setting, and no source names them" }

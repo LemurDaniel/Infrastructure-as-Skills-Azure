@@ -19,18 +19,13 @@ Terraform `>= 1.9`. The root's provider set is the union with the other modules.
 
 ### Decision -> module input
 
+What each decision renders to - the input and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.
+
+Deployment-wide inputs, not decisions of this set:
+
 | Decision | Input | Note |
 |---|---|---|
-| `create_option`, `source_resource_id` | `create_option`, `source_resource_id` | Required `create_option`; `"Empty"` / `"Copy"` |
-| `sku` | `storage_account_type` | Required; written |
-| `size_gb` | `disk_size_gb` | |
-| `zone` | `zone` | Required, a string `"1"`; `null` for a ZRS type |
-| `network_access` | `network_access_policy`, `public_network_access_enabled` | **Bool** for the second; `deny_all` is `"DenyAll"` + `false`; module defaults `"AllowPrivate"` + `false`; written |
-| `disk_access_id` | `disk_access_id` | `allow_private` only |
-| `private_endpoint_subnet` | `private_endpoints = { disks = { subnet_resource_id } }` | Sub-resource `disks`; needs `disk_access_id` |
 | `deployment.private_dns_records` | `private_endpoints_manage_dns_zone_group` | `false` under `policy` |
-| `key_management`, `disk_encryption_set_id` | `disk_encryption_set_id` | A set the module does not create. `customer_managed_key` is the module's own variant and is left unset |
-| `role_assignments` | `role_assignments` | |
 | `deployment.module_telemetry` | `enable_telemetry` | |
 | `context.tags` | `tags = local.tags` | |
 
@@ -92,12 +87,4 @@ where the plan hides them.
 
 The fallback. Targets `azurerm` **5.x**; check against `terraform providers schema -json`.
 
-| Decision | Argument on `azurerm_managed_disk` |
-|---|---|
-| `create_option`, `source_resource_id` | `create_option`, `source_resource_id` |
-| `sku`, `size_gb` | `storage_account_type`, `disk_size_gb` |
-| `zone` | `zone` |
-| `network_access` | `network_access_policy`, `public_network_access_enabled`, `disk_access_id` |
-| `key_management` | `disk_encryption_set_id` |
-| private endpoint | `azurerm_private_endpoint` with `subresource_names = ["disks"]` |
-| `role_assignments` | `azurerm_role_assignment` |
+What each decision renders to - the argument and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.

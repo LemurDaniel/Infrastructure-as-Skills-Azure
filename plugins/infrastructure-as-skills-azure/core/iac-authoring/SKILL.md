@@ -72,6 +72,11 @@ in every run, in this order; the sections below carry the detail.
    also when the request already said "then write the code".
 7. **The turn ends on a question** - the draft question on the rough picture, the code
    question on the polished one - also when the diagram could not be drawn.
+8. **A check is run, not read.** `check_spec.py`, `verify_diagram.py`, `check_render_coverage.py`
+   and every other check script of the plugin are judged by their output: a failure names what
+   is wrong, and the fix goes into the spec, the layout or the code it names. Never open a check
+   script to learn what passes - a result tuned to the check satisfies the script and still
+   misleads the customer. Unclear output is said out loud, not decoded from the source.
 
 **Where `<plugin>` is.** Every `<plugin>/...` path in these skills is relative to the plugin's
 root: two levels above this skill's base directory, which is shown when the skill loads
@@ -371,7 +376,8 @@ mapping:
 - **A referenced platform part answers its central question.** A named hub network or
   shared private-endpoint subnet answers `central_network` as `yes`, a named central
   workspace `central_logging` as `yes`, a named zone resource group `central_private_dns` as
-  `yes`, a named backup vault `central_backup` as `yes` - recorded `stated`, never an open item, because the reference is the answer. It does
+  `yes`, a named backup vault `central_backup` as `yes` - recorded `stated`, never an open item, because the reference is the answer (the
+  reference itself is `{ existing: <kind> }`, its id an open item unless the person gave it). It does
   not answer `landing_zone_exists`: only the customer saying there is a landing zone does,
   and without one `landing_zone` stays `standalone` while each central answer sets its own
   ownership decision. An explicit answer beats an archetype's pre-answer.
@@ -451,7 +457,10 @@ resource, in two halves:
   the ingestion cap.
 
 Resolve it once and every resource inherits it. A resource question carrying
-`answer: { deployment: <id> }` is answered from there and never asked again — eight resources in
+`answer: { deployment: <id> }` is answered from there and never asked again - with its `map`, in the
+question's own values, which the interview digest prints (`network_exposure: private` is
+`public_network_access: disabled`, `local_auth: disabled` is `shared_access_key_enabled: false`);
+never translated by hand. Eight resources in
 one run must not produce eight separate exposure answers, and a system is not private
 because seven of them are.
 
@@ -667,12 +676,21 @@ ask it; default it and say so in Phase 4, or open it with its owner.
 **Never invent a value nobody gave.** Grouped options work for an `enum`, where the
 values come from the question set. A reference (`accepts: { ref: ... }`), an address range, a subscription id, a
 workspace name — anything only the environment knows — is never offered as an option and
-never guessed: it comes from the stage file or from the person's
-own prose in Phase 0, and otherwise it is an `open:` entry naming its owner. An
+never guessed: it comes from the person's own prose in Phase 0, and otherwise it is an
+`open:` entry naming its owner. An
 unassigned address range is a blocker to say out loud, not a gap to fill with
 `10.0.0.0/16`; a workspace that does not exist yet is a boundary — something this run
 does not create — and the honest answer is to record it as missing rather than to
 reference a name nobody has.
+
+**A reference is written in one of two forms** ([spec.md](references/spec.md#references)):
+`{ resource: <key> }` for a resource of this spec, with `part: <name>` where the kind is a part
+(`{ resource: virtual-network, part: snet-app }`), one value for every stage; or
+`{ existing: <kind> }` for one outside it. An existing one carries `id:` per stage only where
+the person gave the resource ids; a name without an id ("the platform workspace
+law-platform-prod" / "der Plattform-Workspace law-platform-prod") is never written as a value -
+it goes into the `open:` entry's question, which asks the owner for the id. Never a bare name,
+a stage map around a reference, or a name and resource group.
 
 **Ask in the user's language; keep the artefacts in English.** A question's `ask`,
 `plain`, `plain_values` and `offer` carry the customer's wording per language: put the
@@ -1166,8 +1184,10 @@ family:
 1. Create `<resource>/` in the family and write `<resource>/questions.yaml`. Copy an existing one and keep the group order:
    placement, networking, identity, security, data_protection, observability. The order is
    the review order, and a reviewer reading three resources should not relearn the layout.
-2. Fill `why` and `renders` for every question. `why` is what a reviewer reads; `renders`
-   names the attribute it drives, which is what lets a review map code back to a decision.
+2. Fill `why` for every question - it is what a reviewer reads - and write the resource's
+   `render-map.yaml` beside the set: what each question renders to, per target and
+   implementation ([render-map.md](../iac-rendering/references/render-map.md)).
+   `check_render_map.py` fails on a question the map misses.
 3. Take defaults from [references/guardrails.md](references/guardrails.md) rather than from the
    Azure portal. They differ often, and the portal default is not a baseline worth
    inheriting.

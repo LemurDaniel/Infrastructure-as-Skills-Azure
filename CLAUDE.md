@@ -57,6 +57,19 @@ python3 plugins/infrastructure-as-skills-azure/core/iac-authoring/scripts/check_
 python3 plugins/infrastructure-as-skills-azure/core/iac-authoring/scripts/interview_digest.py compute/app-service --language de
 python3 plugins/infrastructure-as-skills-azure/core/iac-authoring/tests/run_interview_digest_tests.py
 
+# What a render reads instead of spec.md and whole references: every decision with its key path
+# and the literal its render-map.yaml gives the target, the AVM modules, and the line ranges of
+# each reference this spec needs. The test asserts no decision is dropped and every heading the
+# skips name still exists.
+python3 plugins/infrastructure-as-skills-azure/core/iac-rendering/scripts/render_digest.py <spec>
+python3 plugins/infrastructure-as-skills-azure/core/iac-rendering/tests/run_render_digest_tests.py
+
+# Every resource's render-map.yaml (core/iac-rendering/references/render-map.md) against the format
+# and its questions.yaml: every question covered, values keys the question accepts, an _avm
+# entry exactly where modules lists one. The test breaks one rule per case in a copy.
+python3 plugins/infrastructure-as-skills-azure/core/iac-rendering/scripts/check_render_map.py
+python3 plugins/infrastructure-as-skills-azure/core/iac-rendering/tests/run_render_map_tests.py
+
 # Renders fixture specs with the diagram script and asserts on the .drawio: zones, lines,
 # colours, the bundled endpoint icon. The evals cannot draw, so this is where it is tested.
 python3 plugins/infrastructure-as-skills-azure/core/iac-diagram/tests/run_diagram_tests.py
@@ -82,6 +95,11 @@ python3 plugins/infrastructure-as-skills-azure/core/iac-authoring/tests/run_plug
 # with the patterns an existing Bicep root already names pinned (write_spec.py runs it too).
 python3 plugins/infrastructure-as-skills-azure/core/iac-rendering/scripts/write_naming.py <spec>
 python plugins/infrastructure-as-skills-azure/core/iac-rendering/tests/run_naming_tests.py
+
+# The comments of a render (references/code-structure.md): headers, banner widths, numbered
+# steps against sections, tables of contents against chapters. The test breaks one rule per case.
+python3 plugins/infrastructure-as-skills-azure/core/iac-rendering/scripts/check_code_structure.py <root>
+python plugins/infrastructure-as-skills-azure/core/iac-rendering/tests/run_code_structure_tests.py
 
 # Renders a spec as the customer's decision document (infra-decisions.md beside it).
 python3 plugins/infrastructure-as-skills-azure/core/iac-authoring/scripts/export_decisions.py <spec> --language de
@@ -120,6 +138,7 @@ The full tree is in [README.md](README.md#layout). What is not obvious from it:
 | `.../core/iac-rendering/references/{naming,terraform-idiom,bicep-idiom}.md` | Naming interfaces; layout, modules, tests per target |
 | `.../resources/<family>/routing.md` | Routing table: request → question set. **Not** a `SKILL.md` — see below |
 | `.../resources/<family>/<resource>/{questions.yaml,notes.md,terraform.md,bicep.md}` | **The content**, one directory per resource; the rendering references open with the AVM call |
+| `.../resources/<family>/<resource>/render-map.yaml` | What each decision renders to, per target and implementation, with the literal of every answer (`core/iac-rendering/references/render-map.md`). A changed question, input or literal changes it in the same commit; `check_render_map.py` fails on a question it misses |
 | `.claude/skills/` | Repo maintenance. **Not** shipped with the plugin |
 
 ## The Two Structural Constraints
@@ -230,9 +249,11 @@ carries the working rules — read it before committing. In short: commits are a
 **LemurDaniel \<landau.daniel.1998@gmail.com\>** (set repo-locally only in a tool-driven
 session whose identity starts as `Claude`; never touch a configured identity on the
 owner's machine); they carry **no attribution trailers** (no `Co-Authored-By`, no "Generated
-with Claude Code"); English imperative subject; one concern per commit; never commit to `master` — every
-change is a branch and a pull request, and every merge into `master` is a release, so
-every branch raises the version in `plugin.json` (the PR check fails otherwise, see
+with Claude Code"); English imperative subject; one concern per commit; never commit to `master` or `dev` —
+every change is a branch and a pull request **into `dev`** (squash), and `dev` goes into
+`master` by a release PR (merge commit). A push to `dev` deploys the eval agent; every
+merge into `master` is a release, so the release PR raises the version in `plugin.json`
+(the PR check fails otherwise, see
 [.claude/skills/release/](.claude/skills/release/SKILL.md)); `PROGRESS.md` is rewritten
 before a session's last commit.
 

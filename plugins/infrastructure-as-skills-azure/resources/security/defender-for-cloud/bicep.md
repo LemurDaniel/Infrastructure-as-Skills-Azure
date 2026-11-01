@@ -30,16 +30,13 @@ deployment).
 
 ### Decision -> module parameter
 
+What each decision renders to - the parameter and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.
+
+### Parameters no decision covers
+
 | Decision | Parameter | Note |
 |---|---|---|
-| `plans` | `defenderPlans: [ { name, pricingTier: 'Standard' } ]` | One entry per plan; `[]` when none |
-| `servers_plan` | `subPlan` on the `VirtualMachines` entry | `P1`, `P2` |
 | (storage) | `subPlan: 'DefenderForStorageV2'` on the `StorageAccounts` entry | |
-| `storage_malware_scanning`, `storage_malware_scan_cap_gb` | `extensions: [ { name: 'OnUploadMalwareScanning', isEnabled: 'True', additionalExtensionProperties: { CapGBPerMonth: '<n>' } } ]` | `isEnabled` is the string `'True'` / `'False'` in the pricings API |
-| `storage_sensitive_data_discovery` | `extensions: [ { name: 'SensitiveDataDiscovery', isEnabled: 'True' } ]` | |
-| `security_contact_emails` | `securityContactProperties.emails` | One string, semicolon-separated |
-| `notify_subscription_owners` | `securityContactProperties.notificationsByRole: { state: 'On', roles: [ 'Owner' ] }` | `'Off'` when false |
-| `alert_minimum_severity` | `securityContactProperties.notificationsSources: [ { sourceType: 'Alert', minimalSeverity } ]` | `Low`, `Medium`, `High` |
 | `enforce` | *not used* | Prevents child scopes overriding; for management group scope, not rendered |
 | `deployment.module_telemetry` | `enableTelemetry` | |
 
@@ -96,7 +93,7 @@ switches it off rather than leaving it on.
 ### Tests
 
 A module call compiles to a nested deployment whose `properties.parameters.<param>.value` is the
-decision, so every decision above is observable in `tests/*.armtest.yaml`
+decision, so every decision in render-map.yaml is observable in `tests/*.armtest.yaml`
 ([bicep-idiom.md](../../../core/iac-rendering/references/bicep-idiom.md#tests)): the plan names and
 tiers in `defenderPlans`, the contact in `securityContactProperties`. What a plan costs is
 `not-testable` with that reason.

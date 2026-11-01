@@ -1,0 +1,237 @@
+# ---------------------------------------------------------------------------
+# Eval Dashboard image
+#   Builds the eval dashboard image, pushes it into the private registry and
+#   sets it on the web app. The image belongs to this pipeline, not to the
+#   Bicep template (spec: container_image_owner: image_pipeline); the infra
+#   pipeline reads the running image before each deployment and keeps it.
+#
+#   Azure Authentication via Workload Identity Federation (OIDC), the same
+#   identity and environment as eval-agent-infra.yaml. No client secret.
+#
+#   Required variables of the GitHub environment 'production':
+#     AZURE_CLIENT_ID         Client ID of the deploying identity
+#     AZURE_TENANT_ID         Entra ID tenant
+#     AZURE_SUBSCRIPTION_ID   Must equal subscriptionId in the stage file
+#
+#   Required roles of the identity, on top of the infra roles:
+#     AcrPush on the registry (Contributor cannot push). Contributor on the
+#     resource group covers the registry network rule and the web app.
+#
+#   The registry is private (publicNetworkAccess Disabled, export policy
+#   disabled; spec decisions). A hosted runner cannot reach it, so the push
+#   opens it for the runner's address only and closes it again in a step
+#   that always runs. Azure refuses public access on a registry whose export
+#   policy is disabled, so the window opens the export policy first and
+#   closes it last. If the closing step fails the registry stays open - the
+#   job then fails and says so. The infra pipeline shares the concurrency
+#   group, so a Bicep deployment never resets the registry mid-push.
+# ---------------------------------------------------------------------------
+
+#
+#   Chapters:
+#     TEST AND PUBLISH THE DASHBOARD   Tests on every run, publishes from dev.
+#
+
+name: Eval Dashboard image
+
+on:
+  # Deployed from dev, like the infrastructure (eval-agent-infra.yaml).
+  push:
+    branches: [dev]
+    paths: ["eval-agent/dashboard/**", ".github/workflows/deploy.eval-agent.dashboard.yaml"]
+  pull_request:
+    paths: ["eval-agent/dashboard/**", ".github/workflows/deploy.eval-agent.dashboard.yaml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: pwsh
+
+jobs:
+
+  # ===========================================================================
+  # ===================   TEST AND PUBLISH THE DASHBOARD   ====================
+  # ===========================================================================
+  #
+  #   1. Test      Runs the endpoint tests and builds the image, no credential.
+  #   2. Publish   Pushes the image and sets it on the dashboard web app.
+  #
+
+  # ---------------------------------------------------------------------------
+  # Test
+  #   Runs the endpoint tests and builds the image, no credential.
+  # ---------------------------------------------------------------------------
+  test:
+    # No Azure credential: safe for unreviewed pull requests.
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: pwsh
+        working-directory: eval-agent/dashboard
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: eval-agent/dashboard/package-lock.json
+      - run: npm ci
+      - run: npm test
+      - name: Image builds
+        run: docker build -t eval-dashboard:test .
+
+  # ---------------------------------------------------------------------------
+  # Publish
+  #   Pushes the image and sets it on the dashboard web app.
+  # ---------------------------------------------------------------------------
+  publish:
+    needs: test
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    environment: production
+    permissions:
+      contents: read
+      id-token: write   # OIDC token for azure/login
+    # Queue, never cancel; shared with the infra pipeline of the stage.
+    concurrency:
+      group: eval-agent-infra-production
+      cancel-in-progress: false
+    env:
+      STAGE: production
+      IMAGE: eval-dashboard
+    steps:
+      - uses: actions/checkout@v7
+
+      # The dashboard's name ends in -<workload>-<index> (main.bicep; index defaults to 1).
+      - name: Read target from the stage file
+        working-directory: eval-agent/infra
+        env:
+          EXPECTED_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+        run: |
+          $StageFile = Get-Content -Path "main.$env:STAGE.bicepparam"
+          function Get-BicepParam {
+              param ([System.String] $Name, [System.String] $ValuePattern = "'([^']+)'")
+              $Match = $StageFile | Select-String -Pattern "^param $Name *= *$ValuePattern" | Select-Object -First 1
+              return $null -EQ $Match ? $null : $Match.Matches[0].Groups[1].Value
+          }
+
+          $Subscription  = Get-BicepParam -Name subscriptionId
+          $ResourceGroup = Get-BicepParam -Name resourceGroupName
+          $Workload      = Get-BicepParam -Name workload
+          $Index         = Get-BicepParam -Name index -ValuePattern '([0-9]+)'
+
+          if ([System.String]::IsNullOrEmpty($Subscription) -OR [System.String]::IsNullOrEmpty($ResourceGroup) -OR [System.String]::IsNullOrEmpty($Workload)) {
+              Write-Output "::error::subscriptionId, resourceGroupName or workload not found in main.$env:STAGE.bicepparam"
+              exit 1
+          }
+          if ($Subscription -NE $env:EXPECTED_SUBSCRIPTION_ID) {
+              Write-Output "::error::subscriptionId in main.$env:STAGE.bicepparam differs from environment variable AZURE_SUBSCRIPTION_ID"
+              exit 1
+          }
+
+          Add-Content -Path $env:GITHUB_ENV -Value @(
+              "SUBSCRIPTION_ID=$Subscription"
+              "RESOURCE_GROUP=$ResourceGroup"
+              ('DASHBOARD_SUFFIX=-{0}-{1:d2}' -f $Workload, [System.Int32] ($Index ?? 1))
+          )
+
+      - uses: azure/login@v3
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      # Registry and web app are found in the resource group, as the infra pipeline does; the dashboard is the
+      # site named app-...-<workload>-<index>: drift, fuzz and tune carry their suffix before the index, and a
+      # site Bicep no longer renders (incremental deployments never delete one) does not end that way.
+      # The tag is the commit, never 'latest': what runs can always be traced to a commit.
+      - name: Resolve registry and web app
+        run: |
+          $PSNativeCommandUseErrorActionPreference = $true
+          $Registry = az acr list --subscription $env:SUBSCRIPTION_ID -g $env:RESOURCE_GROUP --query '[0].name' -o tsv
+          $AppQuery = "[?starts_with(name,'app-') && ends_with(name,'$env:DASHBOARD_SUFFIX')].name | [0]"
+          $App = az webapp list --subscription $env:SUBSCRIPTION_ID -g $env:RESOURCE_GROUP --query $AppQuery -o tsv
+
+          if ([System.String]::IsNullOrEmpty($Registry) -OR [System.String]::IsNullOrEmpty($App)) {
+              Write-Output "::error::registry or dashboard web app not found in $env:RESOURCE_GROUP (deploy the infrastructure first)"
+              exit 1
+          }
+          Add-Content -Path $env:GITHUB_ENV -Value @(
+              "REGISTRY=$Registry"
+              "APP=$App"
+              "TAG=$($env:GITHUB_SHA.Substring(0, 8))"
+          )
+
+      # Opened here, closed in 'Close the registry again' - which runs even when the push fails.
+      - name: Open the registry for this runner
+        run: |
+          $PSNativeCommandUseErrorActionPreference = $true
+          $RunnerIp = (Invoke-RestMethod -Uri 'https://api.ipify.org').Trim()
+          Add-Content -Path $env:GITHUB_ENV -Value "RUNNER_IP=$RunnerIp"
+
+          # Public access is refused while the export policy is disabled: allow exports first.
+          az acr update --subscription $env:SUBSCRIPTION_ID -n $env:REGISTRY --allow-exports true -o none
+          az acr update --subscription $env:SUBSCRIPTION_ID -n $env:REGISTRY --public-network-enabled true --default-action Deny -o none
+          az acr network-rule add --subscription $env:SUBSCRIPTION_ID -n $env:REGISTRY --ip-address $RunnerIp -o none
+
+          # The rule takes a while to apply; a failed login is retried, not thrown.
+          $PSNativeCommandUseErrorActionPreference = $false
+          foreach ($Attempt in 1..6) {
+              az acr login -n $env:REGISTRY
+              if ($LASTEXITCODE -EQ 0) {
+                  exit 0
+              }
+              Write-Output "registry not reachable yet ($Attempt/6)"
+              Start-Sleep -Seconds 20
+          }
+          Write-Output "::error::registry did not become reachable for $RunnerIp"
+          exit 1
+
+      - name: Build and push
+        working-directory: eval-agent/dashboard
+        run: |
+          $PSNativeCommandUseErrorActionPreference = $true
+          $ImageRef = "$env:REGISTRY.azurecr.io/$($env:IMAGE):$env:TAG"
+          docker build --build-arg "GIT_COMMIT=$env:GITHUB_SHA" -t $ImageRef .
+          docker push $ImageRef
+
+      # Back to the spec: public access off first (exports can only be disabled on a closed registry), then the
+      # export policy. Every command runs even if an earlier one failed, so a half-open window is closed as far as possible.
+      - name: Close the registry again
+        if: always()
+        run: |
+          $IsClosed = $true
+          if (-NOT [System.String]::IsNullOrEmpty($env:RUNNER_IP)) {
+              az acr network-rule remove --subscription $env:SUBSCRIPTION_ID -n $env:REGISTRY --ip-address $env:RUNNER_IP -o none
+              $IsClosed = $IsClosed -AND $LASTEXITCODE -EQ 0
+          }
+          az acr update --subscription $env:SUBSCRIPTION_ID -n $env:REGISTRY --public-network-enabled false -o none
+          $IsClosed = $IsClosed -AND $LASTEXITCODE -EQ 0
+          az acr update --subscription $env:SUBSCRIPTION_ID -n $env:REGISTRY --allow-exports false -o none
+          $IsClosed = $IsClosed -AND $LASTEXITCODE -EQ 0
+
+          $StateQuery = '[publicNetworkAccess, policies.exportPolicy.status]'
+          $State = (az acr show --subscription $env:SUBSCRIPTION_ID -n $env:REGISTRY --query $StateQuery -o tsv) -join ','
+          if (-NOT $IsClosed -OR $State -NE 'Disabled,disabled') {
+              Write-Output ("::error::THE REGISTRY $env:REGISTRY IS NOT CLOSED (public access, export policy: $State) - close it by hand: " +
+                  "az acr update -n $env:REGISTRY --public-network-enabled false && az acr update -n $env:REGISTRY --allow-exports false")
+              exit 1
+          }
+          Write-Output "Registry closed ($State)."
+
+      # The app pulls through its private endpoint with its identity (acrUseManagedIdentityCreds is set by Bicep).
+      - name: Set the image on the web app
+        run: |
+          $PSNativeCommandUseErrorActionPreference = $true
+          $ImageRef = "$env:REGISTRY.azurecr.io/$($env:IMAGE):$env:TAG"
+          $WebApp = @('--subscription', $env:SUBSCRIPTION_ID, '-g', $env:RESOURCE_GROUP, '-n', $env:APP)
+          az webapp config set @WebApp --linux-fx-version "DOCKER|$ImageRef" -o none
+          az webapp restart @WebApp
+
+          Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value @(
+              '### Dashboard image'
+              "``$ImageRef`` -> ``$env:APP``"
+          )

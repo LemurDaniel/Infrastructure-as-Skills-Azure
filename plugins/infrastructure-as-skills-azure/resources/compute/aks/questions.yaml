@@ -44,7 +44,6 @@ groups:
           Drives the rendered name and the strictness of several defaults below. Nothing
           sensible can be guessed. A cluster per stage is the rule; a namespace per stage in
           one cluster is a different isolation model and a decision for the platform team.
-        renders: naming parameter `environment`, and the tag of that name where the repository uses one
 
       - id: location
         ask:
@@ -59,7 +58,6 @@ groups:
           Part of the rendered name and the home region of the control plane and the nodes.
           Zones, VM sizes and Kubernetes versions differ by region, and a cluster far from the
           data it works on pays for it on every call.
-        renders: location
 
       - id: resource_group_name
         ask:
@@ -76,7 +74,6 @@ groups:
           The cluster is placed into an existing group. Creating one here would make this set
           own a lifecycle wider than the resource it describes. AKS creates a second, managed
           group for the nodes (`MC_...`) on its own; nothing of the deployment lives there.
-        renders: parent_id (AVM Terraform, AzAPI-based, the resource group's id) / implicit in Bicep scope
 
   # ------------------------------------------------------------------ cluster
   - id: cluster
@@ -107,7 +104,6 @@ groups:
           engineer departs and records why. The non-production stages take `Free` while
           non_production_savings is enabled. **The Bicep module defaults to `Standard`**, the
           Terraform module leaves it unset (`Free`): written either way.
-        renders: sku.tier / skuTier
 
       - id: kubernetes_version
         ask:
@@ -125,7 +121,6 @@ groups:
           pins it and holds back the security fixes. Each minor is supported for about a year,
           so the choice is also a date by which the next upgrade is due. With no answer the
           decision is an `open:` entry owned by the engineer.
-        renders: kubernetes_version / kubernetesVersion
 
       - id: upgrade_channel
         ask:
@@ -150,7 +145,6 @@ groups:
           Bicep defaults to `stable`, Terraform to `none`; both are written. Without a
           maintenance window the upgrade runs at any time - windows are not modelled here and
           are named as a gap in the handover.
-        renders: auto_upgrade_profile.upgrade_channel / autoUpgradeProfile.upgradeChannel
 
       - id: node_os_upgrade_channel
         ask:
@@ -173,7 +167,6 @@ groups:
           leaves nodes on the image they were created from until someone upgrades them;
           `Unmanaged` patches in place and reboots on its own schedule. `NodeImage` is the
           ARM and Terraform default; written.
-        renders: auto_upgrade_profile.node_os_upgrade_channel / autoUpgradeProfile.nodeOSUpgradeChannel
 
       - id: zone_redundant
         ask:
@@ -199,7 +192,6 @@ groups:
           because a cluster is regional: a second region is a second deployment behind a global
           front door, a pattern. The non-production stages take `false` while
           non_production_savings is enabled. Not every region or VM size has three zones.
-        renders: availability_zones on both pools / availabilityZones on both pool profiles (["1","2","3"] / [1, 2, 3])
 
   # --------------------------------------------------------------- networking
   - id: networking
@@ -218,7 +210,7 @@ groups:
           enabled_with_firewall: { en: "reachable from the internet only from listed addresses", de: "aus dem Internet nur von gelisteten Adressen erreichbar" }
           enabled: { en: "reachable from the internet", de: "aus dem Internet erreichbar" }
         accepts: [disabled, enabled_with_firewall, enabled]
-        answer: { deployment: network_exposure }
+        answer: { deployment: network_exposure, map: { private: disabled, private_with_exceptions: disabled, public: enabled_with_firewall } }
         why: >
           Asked only as a departure: exposure is a property of the system. It is about the
           **Kubernetes API server**, the thing `kubectl` and the pipeline talk to - the apps
@@ -231,9 +223,6 @@ groups:
           `network_ownership: none` (a public deployment without a network) forces `enabled`,
           recorded as forced with `network_ownership` as forced_by: the deployment's own callers
           have no fixed outbound address, so an allowlist with no rule locks them out
-        renders: >
-          api_server_access_profile.enable_private_cluster and public_network_access /
-          apiServerAccessProfile.enablePrivateCluster and publicNetworkAccess
 
       - id: authorized_ip_ranges
         ask:
@@ -251,7 +240,6 @@ groups:
           empty list means no restriction, not no access - the opposite of a firewall rule list
           elsewhere - so an empty answer here is an `open:` entry owned by the workload owner,
           blocking apply, never an empty list rendered.
-        renders: api_server_access_profile.authorized_ip_ranges / apiServerAccessProfile.authorizedIPRanges
 
       - id: private_dns_zone
         ask:
@@ -278,7 +266,6 @@ groups:
         forced_when: >
           `private_dns_zone: custom` forces `managed_identity: user_assigned` and requires
           `private_dns_zone_id`
-        renders: api_server_access_profile.private_dns_zone / apiServerAccessProfile.privateDNSZone (`system`, or the zone's id)
 
       - id: private_dns_zone_id
         ask:
@@ -297,7 +284,6 @@ groups:
           The zone must be named `privatelink.<region>.azmk8s.io` (or a subzone) and the cluster
           identity needs `Private DNS Zone Contributor` on it. The platform owns the zone, never
           this set.
-        renders: api_server_access_profile.private_dns_zone / apiServerAccessProfile.privateDNSZone
 
       - id: node_subnet
         ask:
@@ -321,7 +307,6 @@ groups:
         forced_when: >
           network_ownership: create - the created network's subnet, recorded as forced with the
           network as forced_by
-        renders: vnet_subnet_id on both pools / vnetSubnetResourceId on both pool profiles
 
       - id: network_plugin_mode
         ask:
@@ -347,7 +332,6 @@ groups:
         forced_when: >
           `network_requirements: corporate` with pod addresses required by the company network
           forces `vnet`, recorded as forced with `network_requirements` as forced_by
-        renders: network_profile.network_plugin = azure and network_plugin_mode / networkPlugin = azure and networkPluginMode
 
       - id: network_dataplane
         ask:
@@ -366,7 +350,6 @@ groups:
           Azure CNI powered by Cilium is the engine Microsoft builds on; Azure Network Policy
           Manager, the engine behind `azure` policies, is being retired. `azure` is for a cluster
           that must stay on the old engine. Fixed at creation.
-        renders: network_profile.network_dataplane / networkDataplane
 
       - id: network_policy
         ask:
@@ -391,7 +374,6 @@ groups:
         forced_when: >
           `network_dataplane: cilium` forces `cilium` (or `none`), `network_dataplane: azure`
           removes `cilium` from `values`
-        renders: network_profile.network_policy / networkPolicy
 
       - id: pod_cidr
         ask:
@@ -412,7 +394,6 @@ groups:
         forced_when: >
           `network_requirements: corporate` or `assigned_ranges` means the company's ranges are
           known: the engineer checks this range against them
-        renders: network_profile.pod_cidr / podCidr
 
       - id: service_cidr
         ask:
@@ -431,7 +412,6 @@ groups:
           range corporate networks rarely hand out. It must not overlap the node subnet, the
           VNet, a peered network or the pod range. Fixed at creation. Per stage, because
           peerings differ per stage.
-        renders: network_profile.service_cidr / serviceCidr
 
       - id: dns_service_ip
         ask:
@@ -446,7 +426,6 @@ groups:
         why: >
           Must lie inside `service_cidr` and not be its first address. The `.10` of the range is
           the convention. Changes together with `service_cidr`.
-        renders: network_profile.dns_service_ip / dnsServiceIP
 
       - id: outbound_type
         ask:
@@ -472,7 +451,6 @@ groups:
         forced_when: >
           `landing_zone: corp` expects `userDefinedRouting` where the request names a
           route table
-        renders: network_profile.outbound_type / outboundType
 
   # -------------------------------------------------------------- node pools
   - id: node_pools
@@ -495,7 +473,6 @@ groups:
           with `az vm list-skus --location <region> --zone` before a render, and a size that
           has no zones breaks `zone_redundant`. The size of a pool is fixed; changing it replaces
           the pool.
-        renders: default_agent_pool.vm_size / primaryAgentPoolProfiles[].vmSize
 
       - id: system_pool_min_count
         ask:
@@ -517,7 +494,6 @@ groups:
           enabled.
         forced_when: >
           `zone_redundant: true` forces at least 3 - fewer leaves a zone with no system node
-        renders: default_agent_pool.min_count and count_of / primaryAgentPoolProfiles[].minCount and count
 
       - id: system_pool_max_count
         ask:
@@ -531,7 +507,6 @@ groups:
         why: >
           The system pool grows with the cluster's add-ons and its node count, not with the
           workload; five is a guard against runaway scale-out of a pool that should be boring.
-        renders: default_agent_pool.max_count / primaryAgentPoolProfiles[].maxCount
 
       - id: system_pool_dedicated
         ask:
@@ -550,7 +525,6 @@ groups:
           nodes, so a runaway workload cannot starve CoreDNS. It requires the user pool below to
           exist - without it nothing but system components schedules. Turn it off only on a
           single small pool.
-        renders: default_agent_pool.node_taints / primaryAgentPoolProfiles[].nodeTaints
 
       - id: user_pool_vm_size
         ask:
@@ -568,7 +542,6 @@ groups:
           compute-optimised families are a departure for a measured reason. Same availability
           and quota check as the system pool. The size of a pool is fixed; changing it replaces
           the pool.
-        renders: agent_pools.user.vm_size / agentPools[].vmSize
 
       - id: user_pool_min_count
         ask:
@@ -590,7 +563,6 @@ groups:
           non-production stages take 1 while non_production_savings is enabled.
         forced_when: >
           `zone_redundant: true` forces at least 3
-        renders: agent_pools.user.min_count and count_of / agentPools[].minCount and count
 
       - id: user_pool_max_count
         ask:
@@ -606,7 +578,6 @@ groups:
           A ceiling on cost and on the systems the workloads call. Ten is a guard, not a
           measurement. The subscription's vCPU quota for the family is the hard stop beneath it
           and is checked before a render.
-        renders: agent_pools.user.max_count / agentPools[].maxCount
 
       - id: os_sku
         ask:
@@ -627,7 +598,6 @@ groups:
           needs its packages or a kernel module the other lacks. Names the generic family; the
           release (`AzureLinux3`, `Ubuntu2204`, `Ubuntu2404`) is the platform's current mapping
           and is read from the module README of the pinned version.
-        renders: default_agent_pool.os_sku and agent_pools.user.os_sku / primaryAgentPoolProfiles[].osSKU and agentPools[].osSKU
 
       - id: os_disk_type
         ask:
@@ -647,7 +617,6 @@ groups:
           ephemeral disks start nodes faster and cost nothing. They need a VM size whose cache or
           temp disk holds the OS disk (a size without one fails at creation). `Managed` is for a
           size that has no such disk.
-        renders: default_agent_pool.os_disk_type and agent_pools.user.os_disk_type / primaryAgentPoolProfiles[].osDiskType and agentPools[].osDiskType
 
   # ----------------------------------------------------------------- identity
   - id: identity
@@ -677,7 +646,6 @@ groups:
         forced_when: >
           `private_dns_zone: custom` and a referenced node subnet (`network_ownership: reference`)
           force `user_assigned`, recorded as forced with the question as forced_by
-        renders: managed_identities / managedIdentities (identity.type on the cluster)
 
       - id: user_assigned_identity_ids
         ask:
@@ -694,7 +662,6 @@ groups:
         why: >
           The identity must already exist and hold its roles on the subnet and the DNS zone; this
           set does not create it or grant them.
-        renders: managed_identities.user_assigned_resource_ids / managedIdentities.userAssignedResourceIds
 
       - id: entra_integration
         ask:
@@ -713,7 +680,6 @@ groups:
           protected account instead of a shared certificate in a kubeconfig. It is the precondition
           for switching local accounts off below. Without it the only way in is a certificate
           admin.
-        renders: aad_profile.managed / aadProfile.managed
 
       - id: azure_rbac_enabled
         ask:
@@ -734,7 +700,6 @@ groups:
           rest of the access reviews; Kubernetes `RoleBinding`s are a second system nobody
           reviews. The roles themselves are `role_assignments` below. Kubernetes RBAC stays
           enabled either way.
-        renders: aad_profile.enable_azure_rbac / aadProfile.enableAzureRBAC
 
       - id: admin_group_object_ids
         ask:
@@ -753,7 +718,6 @@ groups:
           still works when role assignments are wrong. A small group, ideally eligible through
           privileged identity management, never a team. With local accounts off, the lock-out
           without it is complete.
-        renders: aad_profile.admin_group_object_ids / aadProfile.adminGroupObjectIDs
 
       - id: local_accounts_disabled
         ask:
@@ -766,14 +730,13 @@ groups:
         plain_values:
           true: { en: "switched off", de: "abgeschaltet" }
           false: { en: "available to anyone who can list the cluster's credentials", de: "für jeden verfügbar, der die Zugangsdaten des Clusters auflisten darf" }
-        answer: { deployment: local_auth }
+        answer: { deployment: local_auth, map: { disabled: true, allowed_where_unavoidable: true } }
         why: >
           Inherited, inverted: `local_auth: disabled` renders as `true`. A static admin
           kubeconfig is a long-lived, unattributable credential with `cluster-admin`; with it off,
           `az aks get-credentials --admin` stops working and every call is a signed-in person or
           workload. Requires `entra_integration`. **The Bicep module defaults to `true`**, the
           Terraform module to `false`: written.
-        renders: disable_local_accounts / disableLocalAccounts
 
       - id: oidc_issuer_enabled
         ask:
@@ -795,7 +758,6 @@ groups:
         forced_when: >
           `workload_identity_enabled: true` forces `true`, recorded as forced with
           `workload_identity_enabled` as forced_by
-        renders: oidc_issuer_profile.enabled / enableOidcIssuerProfile
 
       - id: workload_identity_enabled
         ask:
@@ -815,7 +777,6 @@ groups:
           connection strings in secrets and the node-wide identity every pod on a node would
           share. The identities and federated credentials are the workload's and are wiring, not
           this set. Replaces the retired pod-managed identity.
-        renders: security_profile.workload_identity.enabled / securityProfile.workloadIdentity.enabled
 
       - id: acr_pull_registry_ids
         ask:
@@ -835,7 +796,6 @@ groups:
           input); a pull before the role has propagated ends in `ImagePullBackOff` that looks like
           a bad image. An empty list is a cluster that can run only public images: with no
           registry named it is an `open:` entry owned by the workload owner.
-        renders: role assignment (`AcrPull`, principal = the kubelet identity) on each registry, rendered in the root
 
       - id: role_assignments
         ask:
@@ -853,7 +813,6 @@ groups:
           RBAC Reader` / `Writer` / `Admin` roles, at cluster scope or narrower (a namespace is
           `<cluster id>/namespaces/<name>`). Scope as tightly as the consumer allows; an empty
           list is a cluster only the admin group can use.
-        renders: role_assignments / roleAssignments
 
   # ----------------------------------------------------------------- security
   - id: security
@@ -878,7 +837,6 @@ groups:
           Needs a workspace, the diagnostics destination below. No `non_production_default`: a
           development cluster that nobody watches is where an exposed dashboard is found by
           someone else.
-        renders: security_profile.defender / securityProfile.defender
 
       - id: azure_policy_enabled
         ask:
@@ -897,7 +855,6 @@ groups:
           host namespaces, allowed registries) into the cluster as admission control - without it
           a landing-zone policy initiative reports "not applicable" instead of enforcing. Cheap.
           Both modules default it to on; written.
-        renders: addon_profile_azure_policy.enabled / azurePolicyEnabled
 
       - id: keyvault_secrets_provider_enabled
         ask:
@@ -917,7 +874,6 @@ groups:
           adds one add-on identity. Rotation is on so a rotated secret reaches the pod without a
           redeploy. The vault, its role assignments and the `SecretProviderClass` are the
           workload's. Bicep defaults to `false`: written.
-        renders: addon_profile_key_vault_secrets_provider / enableKeyvaultSecretsProvider and enableSecretRotation
 
       - id: image_cleaner_enabled
         ask:
@@ -935,7 +891,6 @@ groups:
           Images with known vulnerabilities that no pod uses any more still sit on the node disk
           and can be started by anyone with node access. The cleaner removes them every 7 days
           (168 hours) and frees disk. Cheap.
-        renders: security_profile.image_cleaner / securityProfile.imageCleaner (enabled, intervalHours = 168)
 
       - id: encryption_at_host
         ask:
@@ -955,7 +910,6 @@ groups:
           leaves the host. Needs the `EncryptionAtHost` feature registered on the subscription
           and a VM size that supports it - a missing registration fails the pool at creation.
           **Set when the pool is created.**
-        renders: default_agent_pool.enable_encryption_at_host and agent_pools.user.enable_encryption_at_host / primaryAgentPoolProfiles[].enableEncryptionAtHost and agentPools[].enableEncryptionAtHost
 
       - id: key_management
         ask:
@@ -976,7 +930,6 @@ groups:
           and a rotation story. Only the node and persistent-volume disks are covered; encrypting
           Kubernetes secrets in etcd with a vault key (KMS) is a separate feature and not rendered.
           **Set at creation.**
-        renders: disk_encryption_set_id / diskEncryptionSetResourceId
 
       - id: disk_encryption_set_id
         ask:
@@ -994,7 +947,6 @@ groups:
           The set must exist, point at a Key Vault key with purge protection, and the cluster
           identity needs `Reader` on it. A cluster whose key is revoked loses every disk. This set
           does not create the set or the key.
-        renders: disk_encryption_set_id / diskEncryptionSetResourceId
 
   # ------------------------------------------------------------ observability
   - id: observability
@@ -1016,7 +968,6 @@ groups:
           Inherited: one deployment, one destination. The cluster's control-plane logs, the
           container insights data and Defender all go to it; the control plane's audit log is the
           record of who did what in Kubernetes.
-        renders: diagnostic_settings / diagnosticSettings
 
       - id: diagnostic_categories
         ask:
@@ -1044,7 +995,6 @@ groups:
           control plane and is added for a reason. The names are the platform's and are checked
           against `az monitor diagnostic-settings categories list --resource <cluster id>` before
           a render, not remembered.
-        renders: diagnostic_settings.<key>.log_categories / diagnosticSettings[].logCategoriesAndGroups[].category
 
       - id: metrics_enabled
         ask:
@@ -1061,7 +1011,6 @@ groups:
         why: >
           API-server request and latency metrics and node-count figures are what decide whether
           the tier and the pool bounds were right, and they are cheap.
-        renders: diagnostic_settings.<key>.metric_categories = ["AllMetrics"] / metricCategories[].category
 
       - id: container_insights_enabled
         ask:
@@ -1083,4 +1032,3 @@ groups:
           reason to watch the workspace's daily cap; no `non_production_default` here, because the
           volume is set by what the containers write, not by a switch. Managed Prometheus is a
           separate, not rendered feature.
-        renders: addon_profile_oms_agent and onboard_monitoring / omsAgentEnabled, monitoringWorkspaceResourceId and omsAgentUseAADAuth

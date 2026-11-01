@@ -21,25 +21,13 @@ or its access-key switch, the diagnostic setting, or geo-replication.
 
 ### Decision -> module input
 
-| Decision | Input | Note |
+What each decision renders to - the input and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.
+
+### Deployment-wide inputs
+
+| Input | Module input | Note |
 |---|---|---|
-| `sku_name` | `sku_name` (required) | `Balanced_B1`; the module's examples list the families |
-| `clustering_policy` | `clustering_policy` | Module accepts `EnterpriseCluster`, `OSSCluster` and `NoEviction` (the API's non-clustered value is `NoCluster`); default `EnterpriseCluster`; written |
-| `eviction_policy` | `eviction_policy` | Module default `AllKeysLRU`; its validation has no LFU values; written |
-| `redis_modules` | `redis_modules = [{ name, args }]` | |
-| `high_availability` | `high_availability = "Enabled"` / `"Disabled"` | Default null: the API's; written. `zones` is left empty: it applies to the Enterprise SKUs |
-| `geo_replicas` | **not the module** | A second instance and `azurerm_managed_redis_geo_replication` |
-| `public_network_access` | `public_network_access = "Disabled"` | A **string**; default `"Disabled"`; written |
-| `private_endpoint_subnet` | `private_endpoints = { redis = { subnet_resource_id, subresource_name = "redisEnterprise" } }` | |
 | `deployment.private_dns_records` | `private_endpoints_manage_dns_zone_group` | `false` under `policy` |
-| `managed_identity`, `user_assigned_identity_ids` | `managed_identities = { user_assigned_resource_ids }` | |
-| `data_access_assignments` | `access_policy_assignments = { <key> = { object_id, access_policy_name = "default" } }` | The one policy |
-| `role_assignments` | `role_assignments` | Control plane |
-| `access_keys_authentication_disabled` | **not the module** - `azapi_update_resource` on the database | |
-| `encrypted_connections_only` | `enable_non_ssl_port = false` and `minimum_tls_version = "1.2"` | Defaults; written |
-| `key_management`, `cmk_key_vault_key_id` | `customer_managed_key_encryption = { key_encryption_key_url, identity_type = "userAssignedIdentity", user_assigned_identity_resource_id }` | Unversioned key URL |
-| `persistence` | **not the module** - `azapi_update_resource` on the database | |
-| `diagnostic_*`, `metrics_enabled` | **not the module** - `azurerm_monitor_diagnostic_setting` on `database_id` | |
 | `deployment.module_telemetry` | `enable_telemetry` | |
 | `context.tags` | `tags = local.tags` | |
 
@@ -157,18 +145,7 @@ The fallback - `implementation: authored`, or a repository that already renders 
 `azurerm` **5.x**; check against `terraform providers schema -json`. `azurerm` has a resource for Azure Managed
 Redis (`azurerm_managed_redis`) which carries what the AVM module does not.
 
-| Decision | Resource and argument |
-|---|---|
-| the cluster | `azurerm_managed_redis` (`sku_name`, `high_availability_enabled`, `public_network_access`) |
-| `clustering_policy`, `eviction_policy`, `encrypted_connections_only` | `default_database { clustering_policy, eviction_policy, client_protocol }` |
-| `access_keys_authentication_disabled` | `default_database.access_keys_authentication_enabled` (inverse) |
-| `persistence` | `default_database { persistence_redis_database_backup_frequency, persistence_append_only_file_backup_frequency }` |
-| `redis_modules` | `default_database { module { name, args } }` |
-| `data_access_assignments` | `azurerm_managed_redis_access_policy_assignment` |
-| `geo_replicas` | `azurerm_managed_redis_geo_replication` and `default_database.geo_replication_group_name` |
-| `key_management` | `customer_managed_key { key_vault_key_id, user_assigned_identity_id }`, `identity` |
-| private endpoint | `azurerm_private_endpoint` with `subresource_names = ["redisEnterprise"]` |
-| diagnostics | `azurerm_monitor_diagnostic_setting` with `enabled_log { category }` |
+What each decision renders to - the argument and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.
 
 ## Azure Cache for Redis (Basic, Standard, Premium)
 

@@ -19,33 +19,13 @@ root calling it cannot be on 5.x** - plus `modtm ~> 0.3`, `random ~> 3.6`, and T
 
 ### Decision -> module input
 
-| Decision | Input | Note |
+What each decision renders to - the input and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.
+
+### Inputs no decision covers
+
+| Input | Module input | Note |
 |---|---|---|
-| `sku` | `sku` | Module default **`Premium`**; written |
-| `capacity` | `capacity` | Premium only, `1/2/4/8/16`. Standard and Basic take `0` |
-| `zone_redundant` | - | **No input.** Zone redundancy is the platform's on Premium in a zonal region; the decision is not testable in a plan and is `# not-testable:` |
-| `premium_messaging_partitions` | `premium_messaging_partitions` | Premium only; `0` for Standard/Basic |
-| `minimum_tls_version` | `minimum_tls_version` | Default `"1.2"`; written |
-| `local_auth` | `local_auth_enabled` | **Inverse**: `disabled` is `false`; module default **`true`** |
-| `managed_identity`, `user_assigned_identity_ids` | `managed_identities = { system_assigned, user_assigned_resource_ids }` | |
-| `public_network_access` | `public_network_access_enabled` | **Bool**; module default **`true`** |
-| `public_network_access`, `ip_rules`, `trusted_service_bypass` | `network_rule_config = { default_action, cidr_or_ip_rules, trusted_services_allowed }` | Module default `default_action = "Allow"`: set `"Deny"` for every posture except `enabled`. Premium only in Azure, whatever the README says for Basic/Standard |
-| `private_endpoint_subnet` | `private_endpoints = { namespace = { subnet_resource_id, subresource_name = "namespace" } }` | `subresource_name` is optional and defaults to `null`: written. Premium only |
 | `deployment.private_dns_records` | `private_endpoints_manage_dns_zone_group` | `false` under `policy` |
-| `key_management`, `cmk_key_vault_key_id` | `customer_managed_key = { key_vault_resource_id, key_name, user_assigned_identity = { resource_id } }` | Premium; read the exact member names from the README |
-| `infrastructure_encryption` | `infrastructure_encryption_enabled` | Module default **`true`** and then requires the key; written |
-| `queues` | `queues = { <name> = { ... } }` | One entry per name; the namespace-wide settings below on each |
-| `topics` | `topics = { <name> = { subscriptions = { <name> = { ... } } } }` | Standard or Premium; Basic ignores it |
-| `message_ordering` | `queues.<k>.requires_session`, `topics.<k>.subscriptions.<s>.requires_session` | Fixed at creation |
-| `duplicate_protection` | `queues.<k>.requires_duplicate_detection`, `topics.<k>.requires_duplicate_detection` | Fixed at creation; not on Basic |
-| `message_retention_days` | `default_message_ttl` | ISO 8601: `P14D` |
-| `dead_letter_on_expiry` | `dead_lettering_on_message_expiration` | Queue and subscription; module default `false` |
-| `max_delivery_count` | `max_delivery_count` | Queue and subscription; default `10` |
-| `lock_duration_seconds` | `lock_duration` | Queue and subscription; `PT1M` for 60 |
-| `max_size_megabytes` | `max_size_in_megabytes` | Queue and topic |
-| `geo_recovery`, `partner_namespace` | - | **No input.** A `azurerm_servicebus_namespace_disaster_recovery_config` outside the module, see below |
-| `role_assignments` | `role_assignments = { <k> = { role_definition_id_or_name, principal_id, principal_type } }` | Also per queue and topic |
-| `diagnostic_*`, `metrics_enabled` | `diagnostic_settings = { workspace = { workspace_resource_id, log_categories = [...], log_groups = [], metric_categories = ["AllMetrics"] } }` | `log_groups` defaults to `["allLogs"]`: set it empty when `log_categories` names the categories. **The module validates `log_categories`** against `OperationalLogs`, `VNetAndIPFilteringLogs`, `RuntimeAuditLogs`, `ApplicationMetricsLogs`: `DiagnosticErrorLogs` is refused |
 | `deployment.module_telemetry` | `enable_telemetry` | |
 | `context.tags` | `tags = local.tags` | |
 
@@ -155,15 +135,4 @@ are built by the module and marked `# not-testable:` with a reason, as for stora
 The fallback - `implementation: authored`, or a repository that already renders the namespace
 this way. Targets `azurerm` **5.x**; check against `terraform providers schema -json`.
 
-| Decision | Argument on `azurerm_servicebus_namespace` |
-|---|---|
-| `sku`, `capacity`, `premium_messaging_partitions` | `sku`, `capacity`, `premium_messaging_partitions` |
-| `minimum_tls_version` | `minimum_tls_version` |
-| `local_auth` | `local_auth_enabled` |
-| `public_network_access` | `public_network_access_enabled` (a bool, unchanged in 5.x; only storage moved to a string) |
-| `network_rule_config` | `.network_rule_set { default_action, public_network_access_enabled, trusted_services_allowed, ip_rules, network_rules }` (an inline block in 5.x) |
-| `managed_identity` | `identity { type, identity_ids }` |
-| `key_management` | `customer_managed_key { key_vault_key_id, identity_id, infrastructure_encryption_enabled }` |
-| `queues` | `azurerm_servicebus_queue` per name, `namespace_id` |
-| `topics` | `azurerm_servicebus_topic` and `azurerm_servicebus_subscription` |
-| diagnostics | `azurerm_monitor_diagnostic_setting` with `enabled_log { category }` |
+What each decision renders to - the argument and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.

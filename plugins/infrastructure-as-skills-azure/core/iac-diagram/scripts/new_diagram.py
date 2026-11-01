@@ -77,7 +77,7 @@ def s(v):
 
 LABELS = {
     'en': {
-        'internet': 'Internet', 'users': 'Users', 'noPublic': 'no public access', 'existing': 'existing - not created',
+        'internet': 'Internet', 'users': 'Users', 'noPublic': 'no public access', 'existing': 'existing - not created', 'idOpen': 'existing, id open',
         'decisions': 'Decisions', 'open': 'Open', 'assumed': 'Assumed', 'exposure': 'Exposure',
         'network': 'Network', 'mandates': 'Mandates', 'dns': 'Private DNS', 'diag': 'Diagnostics',
         'peSubnet': 'private endpoints', 'owner': 'owner', 'noSet': 'no question set',
@@ -103,9 +103,10 @@ LABELS = {
         'keyless': ' Access to the resources is by identity, no keys.',
         'aiNotice': 'AI-generated - please review',
         'dnsOpen': 'open - owner not decided', 'entry': 'Entry', 'children': 'Containers', 'children_file-share': 'File shares', 'children_queue': 'Queues',
+        'children_key-vault-secret': 'Secret', 'children_key-vault-key': 'Key',
     },
     'de': {
-        'internet': 'Internet', 'users': 'Benutzer', 'noPublic': 'kein öffentlicher Zugriff', 'existing': 'vorhanden - wird nicht erstellt',
+        'internet': 'Internet', 'users': 'Benutzer', 'noPublic': 'kein öffentlicher Zugriff', 'existing': 'vorhanden - wird nicht erstellt', 'idOpen': 'vorhanden, ID offen',
         'decisions': 'Entscheidungen', 'open': 'Offen', 'assumed': 'Angenommen', 'exposure': 'Erreichbarkeit',
         'network': 'Netzwerk', 'mandates': 'Vorgaben', 'dns': 'Private DNS', 'diag': 'Diagnose',
         'peSubnet': 'Private Endpoints', 'owner': 'zuständig', 'noSet': 'ohne Fragenset',
@@ -131,6 +132,7 @@ LABELS = {
         'keyless': ' Zugriffe auf die Ressourcen laufen über Identitäten, ohne Schlüssel.',
         'aiNotice': 'KI-generiert - bitte prüfen',
         'dnsOpen': 'offen - Zuständigkeit ungeklärt', 'entry': 'Eingang', 'children': 'Container', 'children_file-share': 'Dateifreigaben', 'children_queue': 'Warteschlangen',
+        'children_key-vault-secret': 'Secret', 'children_key-vault-key': 'Schlüssel',
     },
 }
 
@@ -176,6 +178,7 @@ ICONS = {
     'bastion': 'img/lib/azure2/networking/Bastions.svg',
     'azure-firewall': 'img/lib/azure2/networking/Firewalls.svg',
     'virtual-machine': 'img/lib/azure2/compute/Virtual_Machine.svg',
+    'availability-set': 'img/lib/azure2/compute/Availability_Sets.svg',
     'managed-disk': 'img/lib/azure2/compute/Disks.svg',
     'load-balancer': 'img/lib/azure2/networking/Load_Balancers.svg',
     'virtual-machine-scale-set': 'img/lib/azure2/compute/VM_Scale_Sets.svg',
@@ -243,10 +246,20 @@ HOSTED_DEFAULT_SUBNET = {'application-gateway': 'snet-gateway', 'api-management'
 SUBNET_HOSTED = {'application-gateway': ['gateway', 'gateway_subnet'], 'api-management': ['networking', 'apim_subnet']}
 # A global service in front of the network: drawn with the actors, outside it.
 EDGE_KINDS = {'front-door'}
-# Children of a storage account: no icon of their own, their names go on the account's label.
-CHILD_KINDS = {'blob-container': 'container_names', 'file-share': 'share_names', 'queue': 'queue_names'}
+# Children of a storage account or a vault: no icon of their own, their names go on the parent's
+# label. Per kind the decision naming the parent and the one listing the names; None names the
+# child by its instance (`key-vault-secret__github-token` -> github-token), with its roles under it.
+CHILD_KINDS = {
+    'blob-container': ('storage_account', 'container_names'),
+    'file-share': ('storage_account', 'share_names'),
+    'queue': ('storage_account', 'queue_names'),
+    'key-vault-secret': ('key_vault', None),
+    'key-vault-key': ('key_vault', None),
+}
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', 'iac-rendering', 'scripts'))
 import rg_roles  # noqa: E402 - the role table per scheme (deployment.resource_group_scheme)
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', 'iac-authoring', 'scripts'))
+import spec_ref  # noqa: E402 - a reference as {resource: <key>} or {existing: <kind>}
 RG_TABLE = {}   # the role table, read in main (it needs PyYAML)
 DELEGATIONS = {'app-service': 'Microsoft.Web/serverFarms', 'function-app': 'Microsoft.Web/serverFarms',
                'container-apps-environment': 'Microsoft.App/environments', 'container-apps': 'Microsoft.App/environments'}
@@ -366,26 +379,22 @@ def get_decision(m, keys):
     return get_value(get_at(m, keys))
 
 
-# A referenced resource is recorded as "name / resource-group", or as a map with
-# name and resource_group_name. The name goes on the shape; the group goes to
-# the panel, where text has room. Putting both on an icon label overflows its
-# fixed slot.
+# A reference is {resource: <key>[, part: <name>]} or {existing: <kind>[, id: {<stage>: <id>}]}
+# (spec_ref.py). The name goes on the shape - the part, the key, or the last segment of an
+# existing id; the group, read from that id, goes to the panel, where text has room. Putting
+# both on an icon label overflows its fixed slot. An existing one whose id is open has neither.
 def split_ref(value):
-    if value is None:
+    if not spec_ref.is_ref(value):
         return {'name': None, 'rg': None}
-    if isinstance(value, dict):
-        return {'name': value.get('name'), 'rg': value.get('resource_group_name') or value.get('resource_group')}
-    parts = re.split(r'\s*/\s*', str(value), maxsplit=1)
-    return {'name': parts[0], 'rg': parts[1] if len(parts) > 1 else None}
+    ids = value.get('id') if isinstance(value.get('id'), dict) else {}
+    rid = str(ids.get('production') or next(iter(ids.values()), '') or '')
+    m = re.search(r'/resourceGroups/([^/]+)', rid, re.IGNORECASE)
+    return {'name': spec_ref.label(value), 'rg': m.group(1) if m else None}
 
 
-def subnet_name(value, resource_keys=()):
-    """A subnet is named by what the spec calls it, and a reference may carry the resource's
-    key in front (`virtual-network.snet-app`); the picture shows the name alone."""
-    name = split_ref(value)['name']
-    if name and '.' in name and name.split('.', 1)[0] in resource_keys:
-        return name.split('.', 1)[1]
-    return name
+def subnet_name(value):
+    """A subnet is named by its part of the network, or by the last segment of its id."""
+    return split_ref(value)['name']
 
 
 def as_list(v):
@@ -507,7 +516,7 @@ def main():
 
     def hosted_subnet(k):
         """The subnet the spec names for a hosted resource, else the one its kind usually gets."""
-        return subnet_name(get_decision(resources[k], SUBNET_HOSTED[base(k)]), res_keys) or HOSTED_DEFAULT_SUBNET[base(k)]
+        return subnet_name(get_decision(resources[k], SUBNET_HOSTED[base(k)])) or HOSTED_DEFAULT_SUBNET[base(k)]
 
     def is_hosted(k):
         """A gateway always stands in a subnet; API Management when it is injected (network_integration
@@ -519,18 +528,22 @@ def main():
         if mode == 'none':
             return False
         if base(k) == 'api-management':
-            return mode in ('internal', 'external') or bool(subnet_name(get_decision(node, SUBNET_HOSTED[base(k)]), res_keys))
+            return mode in ('internal', 'external') or bool(subnet_name(get_decision(node, SUBNET_HOSTED[base(k)])))
         return True
 
-    # Children of a storage account are words on its label, not icons.
+    # Children of a storage account or a vault are words on its label, not icons.
     children_of = {}
     for k in res_keys:
         if base(k) in CHILD_KINDS and isinstance(resources[k], dict):
+            parent_field, names_field = CHILD_KINDS[base(k)]
             parent, names = None, []
             for grp in resources[k].values():
                 if isinstance(grp, dict):
-                    parent = parent or get_value(grp.get('storage_account'))
-                    names += [s(n) for n in as_list(get_value(grp.get(CHILD_KINDS[base(k)]))) if n]
+                    parent = parent or next(iter(spec_ref.resource_keys(get_value(grp.get(parent_field)))), None)
+                    if names_field:
+                        names += [s(n) for n in as_list(get_value(grp.get(names_field))) if n]
+            if names_field is None:
+                names = [k]
             if parent in resources:
                 children_of.setdefault(parent, []).append((base(k), names))
     child_keys = {k for k in res_keys if base(k) in CHILD_KINDS}
@@ -601,13 +614,13 @@ def main():
         return title
     exception_names = ', '.join(dict.fromkeys(exception_name(k) for k in public_exceptions))
 
-    pe_subnet_name = subnet_name(get_decision(dep, ['private_endpoint_subnet']), res_keys)
+    pe_subnet_name = subnet_name(get_decision(dep, ['private_endpoint_subnet']))
     pe_subnet_prefix = get_decision(dep, ['private_endpoint_subnet_prefix'])
     if not pe_subnet_name:
         # Under network_ownership: create the deployment set holds only the prefix; the
         # generated subnet's name is on the resources that use it.
         for k in with_pe:
-            pe_subnet_name = subnet_name(pe_subnet_of(k), res_keys)
+            pe_subnet_name = subnet_name(pe_subnet_of(k))
             if pe_subnet_name:
                 break
     if not pe_subnet_name:
@@ -633,10 +646,11 @@ def main():
     zones = [z for z in as_list(get_decision(spec, ['wiring', 'private_dns_zones'])) if z]
     purposes = {k: get_decision(r, ['meta', 'purpose']) for k, r in (spec.get('resources') or {}).items()
                 if isinstance(r, dict)}
-    diag_ref = split_ref(get_decision(dep, ['diagnostics_destination']))
+    diag_value = get_decision(dep, ['diagnostics_destination'])
+    diag_ref = split_ref(diag_value)
     diag_target = diag_ref['name']
     vnet_ref = split_ref(get_decision(dep, ['existing_vnet']))
-    draw_law = has_law_res or bool(diag_target)
+    draw_law = has_law_res or spec_ref.is_ref(diag_value)
     has_ai = 'application-insights' in res_keys
 
     # assumed values anywhere in the spec, by dotted path
@@ -779,7 +793,7 @@ def main():
         if is_hosted(k):
             return hosted_subnet(k)
         n = subnet_name(get_decision(resources[k], ['networking', 'integration_subnet'])
-                        or get_decision(resources[k], ['environment', 'infrastructure_subnet']), res_keys)
+                        or get_decision(resources[k], ['environment', 'infrastructure_subnet']))
         if n:
             return n
         for sn in other_subnets:
@@ -917,8 +931,15 @@ def main():
             principal, _, role = line.partition(': ')
             label += f"<br><font style='font-size:10px' color='#5C2D91'>&#8592; {esc(display_name(principal))}: {esc(role)}</font>"
         for kind, names in children_of.get(k, []):
-            if names:
-                label += f"<br><font style='font-size:10px'>{esc(T['children' if kind == 'blob-container' else 'children_' + kind])}: {esc(', '.join(names))}</font>"
+            title = T['children' if kind == 'blob-container' else 'children_' + kind]
+            if CHILD_KINDS[kind][1] is None:
+                child = names[0]
+                label += f"<br><font style='font-size:10px'>{esc(title)}: {esc(child.partition('__')[2] or child)}</font>"
+                for line in role_lines.get(child, []):
+                    principal, _, role = line.partition(': ')
+                    label += f"<br><font style='font-size:10px' color='#5C2D91'>&#8592; {esc(display_name(principal))}: {esc(role)}</font>"
+            elif names:
+                label += f"<br><font style='font-size:10px'>{esc(title)}: {esc(', '.join(names))}</font>"
         for src, text in deliveries.get(k, []):
             label += f"<br><font style='font-size:10px' color='#5C2D91'>&#8592; {esc(display_name(src))}" + (f": {esc(text)}" if text else '') + "</font>"
         rest = [c for c in callers_of.get(k, []) if (k, c.split(' (')[0]) not in callers_listed_in_roles]
@@ -1843,6 +1864,8 @@ def main():
         lines.append(f"{T['dns']}: {esc(dns_ownership)}")
     if diag_target:
         lines.append(f"{T['diag']}: {esc(diag_target)}" + (f" ({esc(diag_ref['rg'])})" if diag_ref['rg'] else ''))
+    elif isinstance(diag_value, dict) and 'existing' in diag_value:
+        lines.append(f"{T['diag']}: {esc(T['idOpen'])}")
     if vnet_existing and vnet_ref['rg']:
         lines.append(f"VNet: {esc(vnet_ref['name'])} ({esc(vnet_ref['rg'])})")
     # Nothing that is prose. The forced chains, the questions and their reasons are in the

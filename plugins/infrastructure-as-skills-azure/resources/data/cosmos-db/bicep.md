@@ -18,30 +18,13 @@ Resolve the current version and re-read the README parameters before rendering, 
 
 ### Decision -> module parameter
 
-| Decision | Parameter | Note |
+What each decision renders to - the parameter and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.
+
+### Deployment-wide inputs
+
+| Input | Parameter | Note |
 |---|---|---|
-| `capacity_mode` | `capacityMode: 'Provisioned'` / `'Serverless'` | Default `'Provisioned'`; written |
-| `throughput_mode`, `max_throughput` | on each container: `autoscaleSettingsMaxThroughput` or `throughput` | |
-| `total_throughput_limit` | `totalThroughputLimit` | |
-| `free_tier` | `enableFreeTier` | |
-| `zone_redundant`, `geo_replicas` | `failoverLocations: [ { locationName, failoverPriority, isZoneRedundant } ]`; a single region may use `zoneRedundant` | `zoneRedundant` default **true**, ignored for several regions; written |
-| `automatic_failover` | `enableAutomaticFailover` | Default `true`; written |
-| `consistency_level` | `defaultConsistencyLevel` | Default `'Session'`; differs from Terraform; written |
-| `public_network_access` | `networkRestrictions: { publicNetworkAccess: 'Disabled', ipRules, networkAclBypass }` | Default disabled; written |
-| `network_acl_bypass` | `networkRestrictions.networkAclBypass: 'None'` / `'AzureServices'` | A string here, a bool in Terraform |
-| `private_endpoint_subnet` | `privateEndpoints: [ { subnetResourceId, service: 'Sql' } ]` | |
 | `deployment.private_dns_records: policy` | no `privateDnsZoneGroup` on the endpoint | |
-| `managed_identity` | `managedIdentities: { systemAssigned, userAssignedResourceIds }` | |
-| `role_assignments` | `roleAssignments` | Control plane |
-| `data_plane_role_assignments` | `sqlRoleAssignments: [ { principalId, roleDefinitionId, scope } ]` | `roleDefinitionId` is the full id of the built-in definition under the account |
-| `local_authentication_disabled` | `disableLocalAuthentication` | Default `true`; written |
-| `key_based_metadata_writes` | `disableKeyBasedMetadataWriteAccess` | Default `true`; written |
-| `key_management`, `cmk_key_vault_key_id` | `customerManagedKey: { keyName, keyVaultResourceId, userAssignedIdentityResourceId }` | Unversioned |
-| `backup_policy` | `backupPolicyType`, `backupPolicyContinuousTier` | Default `'Continuous'` / `'Continuous30Days'` |
-| `backup_storage_redundancy` | `backupStorageRedundancy` | Default **`'Local'`**; differs from Terraform; written |
-| `analytical_storage` | `enableAnalyticalStorage` | |
-| `databases` | `sqlDatabases: [ { name, containers: [ { name, paths, defaultTtl, autoscaleSettingsMaxThroughput } ] } ]` | |
-| diagnostics | `diagnosticSettings: [ { workspaceResourceId, logCategoriesAndGroups: [ { category } ], metricCategories: [ { category: 'AllMetrics' } ] } ]` | |
 | `deployment.module_telemetry` | `enableTelemetry` | |
 | `context.tags` | `tags` | |
 
@@ -130,7 +113,7 @@ README of the pinned version.
 ### Tests
 
 A module call compiles to a nested deployment whose `properties.parameters.<param>.value` is
-the decision, so every decision above is observable in `tests/*.armtest.yaml`
+the decision, so every decision in render-map.yaml is observable in `tests/*.armtest.yaml`
 ([bicep-idiom.md](../../../core/iac-rendering/references/bicep-idiom.md#tests)), including the
 containers and the data-plane roles, which the Terraform side cannot see through the module.
 
@@ -138,15 +121,4 @@ containers and the data-plane roles, which the Terraform side cannot see through
 
 The fallback. `Microsoft.DocumentDB/databaseAccounts` with `kind: 'GlobalDocumentDB'`:
 
-| Decision | Property |
-|---|---|
-| `capacity_mode` | `properties.capabilities: [ { name: 'EnableServerless' } ]` |
-| `zone_redundant`, `geo_replicas` | `properties.locations[].isZoneRedundant`, `failoverPriority` |
-| `consistency_level` | `properties.consistencyPolicy.defaultConsistencyLevel` |
-| `public_network_access` | `properties.publicNetworkAccess`, `ipRules`, `networkAclBypass` |
-| `local_authentication_disabled` | `properties.disableLocalAuth` |
-| `key_based_metadata_writes` | `properties.disableKeyBasedMetadataWriteAccess` |
-| `backup_policy` | `properties.backupPolicy: { type, continuousModeProperties.tier }` |
-| `key_management` | `properties.keyVaultKeyUri` (versionless) and `defaultIdentity` |
-| `databases` | child `sqlDatabases` and `sqlDatabases/containers` |
-| `data_plane_role_assignments` | child `sqlRoleAssignments` |
+What each decision renders to - the property and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.

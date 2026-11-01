@@ -38,7 +38,6 @@ groups:
           Drives the rendered name and the strictness of several defaults below. Nothing
           sensible can be guessed. One Static Web App is one site with its own preview
           environments; a stage is a separate app, not a preview environment.
-        renders: naming parameter `environment`, and the tag of that name where the repository uses one
 
       - id: location
         ask:
@@ -55,7 +54,6 @@ groups:
           provider show` before a render, not recalled). The region holds the app's metadata and
           its managed functions; the static content is served from edge locations worldwide, so
           the region is not where the visitors are. It is part of the rendered name.
-        renders: location
 
       - id: resource_group_name
         ask:
@@ -71,7 +69,6 @@ groups:
         why: >
           The app is placed into an existing group. Creating one here would make this set own a
           lifecycle wider than the resource it describes.
-        renders: resource_group_name (AVM Terraform, azurerm-based) / implicit in Bicep scope
 
   # ----------------------------------------------------------- static web app
   - id: static_web_app
@@ -103,7 +100,6 @@ groups:
         forced_when: >
           `deployment.network_exposure: private` (a private endpoint) forces `Standard`, recorded
           as forced with `network_exposure` as forced_by
-        renders: sku_tier and sku_size / sku
 
       - id: preview_environments_enabled
         ask:
@@ -124,7 +120,6 @@ groups:
           unlisted publication of work in progress otherwise. A deliberate opt-in for a pipeline
           that uses them, with the gate named. **Both modules default to on**, so it is written.
           Free allows 3, Standard 10.
-        renders: preview_environments_enabled / stagingEnvironmentPolicy (`Enabled`, `Disabled`)
 
   # --------------------------------------------------------------- networking
   - id: networking
@@ -142,7 +137,7 @@ groups:
           disabled: { en: "not reachable from the internet at all, only through a private connection", de: "aus dem Internet überhaupt nicht erreichbar, nur über eine private Anbindung" }
           enabled: { en: "reachable from the internet", de: "aus dem Internet erreichbar" }
         accepts: [disabled, enabled]
-        answer: { deployment: network_exposure }
+        answer: { deployment: network_exposure, map: { private: disabled, private_with_exceptions: disabled, public: enabled } }
         why: >
           Asked only as a departure: exposure is a property of the system. `private` is
           `disabled`, `public` is `enabled`; there is no firewall allowlist on a Static Web App,
@@ -156,7 +151,6 @@ groups:
           `network_ownership: none` (a public deployment without a network) forces `enabled`,
           recorded as forced with `network_ownership` as forced_by: the deployment's own callers
           have no fixed outbound address, so a closed resource locks them out
-        renders: public_network_access_enabled (bool) / publicNetworkAccess
 
       - id: private_endpoint_subnet
         ask:
@@ -179,7 +173,6 @@ groups:
           pre-provisioned, which is the usual snag: under `private_dns_records: policy` the policy
           has to create it, and under `deployment` it is created after the app, named from the partition id in the app's
           default hostname.
-        renders: private_endpoints.<key>.subnet_resource_id / privateEndpoints[].subnetResourceId (service `staticSites`)
 
   # ----------------------------------------------------------------- identity
   - id: identity
@@ -205,7 +198,6 @@ groups:
           serves files and nothing else carries none. Where the settings read Key Vault secrets,
           the identity holds the secret-reader role on the vault before the first deployment,
           which is why that case is `user_assigned`.
-        renders: managed_identities / managedIdentities
 
       - id: user_assigned_identity_ids
         ask:
@@ -220,7 +212,6 @@ groups:
         depends_on: { question: managed_identity, equals: user_assigned }
         per_environment: true
         why: The identity must already exist; this set does not create it or grant its roles.
-        renders: managed_identities.user_assigned_resource_ids / managedIdentities.userAssignedResourceIds
 
       - id: role_assignments
         ask:
@@ -237,4 +228,3 @@ groups:
           Contributor` for the deploying principal, scoped to the app. The visitors' access to
           the site is not Azure RBAC at all: it is the login and the routes in
           `staticwebapp.config.json`. Empty is a normal answer.
-        renders: role_assignments / roleAssignments

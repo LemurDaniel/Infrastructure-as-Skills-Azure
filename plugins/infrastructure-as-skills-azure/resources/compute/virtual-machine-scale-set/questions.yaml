@@ -42,7 +42,6 @@ groups:
         why: >
           Drives the rendered name and the strictness of several defaults below. Nothing
           sensible can be guessed. A scale set is one per stage; its instances are not shared.
-        renders: naming parameter `environment`, and the tag of that name where the repository uses one
 
       - id: location
         ask:
@@ -57,7 +56,6 @@ groups:
           Part of the rendered name and the home of the set and its instances. The size is
           offered per region and per zone, and a region without availability zones changes the
           `zones` decision.
-        renders: location
 
       - id: resource_group_name
         ask:
@@ -74,7 +72,6 @@ groups:
           The set is placed into an existing group. Creating one here would make this set own a
           lifecycle wider than the resource it describes. The AzAPI-based Terraform module takes
           the group's id (`parent_id`), not its name.
-        renders: parent_id (AVM Terraform, AzAPI) / implicit in Bicep scope
 
   # ---------------------------------------------------------------- scale_set
   - id: scale_set
@@ -103,7 +100,6 @@ groups:
         forced_when: >
           A request for Service Fabric, or for more than 1,000 instances in one set, selects
           `Uniform` as a departure that names the reason
-        renders: orchestrationMode `Flexible` / `Uniform` (the Terraform module renders Flexible only; the Uniform set is the authored `azurerm_linux_virtual_machine_scale_set` / `azurerm_windows_virtual_machine_scale_set`)
 
       - id: os_type
         ask:
@@ -125,7 +121,6 @@ groups:
           the hourly price, key-based sign-in, and the smaller attack surface. The OS type is
           fixed at creation and decides the profile's shape, the patch modes and the extension
           names.
-        renders: os_profile.linux_configuration / windows_configuration; osType
 
       - id: image
         ask:
@@ -153,8 +148,6 @@ groups:
           `os_type: Windows` removes `ubuntu_24_04` and defaults to `windows_server_2022`;
           `os_type: Linux` removes both Windows images, recorded as forced with `os_type` as
           forced_by
-        renders: >
-          source_image_reference { publisher, offer, sku, version = "latest" } (a gallery image: source_image_id) / imageReference
 
       - id: gallery_image_id
         ask:
@@ -171,7 +164,6 @@ groups:
         why: >
           The image must exist, be generation 2 and be shared to the deployment's subscription
           or tenant. A pinned version, not `latest`, is what makes every instance identical.
-        renders: source_image_id / imageReference.id
 
       - id: size
         ask:
@@ -188,7 +180,6 @@ groups:
           comes from measurement under load, and a change of size is a model change that
           reaches instances through the upgrade policy. Whether the size exists in a region and
           its zones is checked with `az vm list-skus --location <region> --size <size>`.
-        renders: sku_name / skuName
 
       - id: instances
         ask:
@@ -208,7 +199,6 @@ groups:
           The number is the starting capacity; where an autoscale setting exists it overrides it
           at the next scale event and the template must not fight it (see the notes). The
           non-production stages take 1 while non_production_savings is enabled.
-        renders: instances / skuCapacity
 
       - id: zones
         ask:
@@ -228,7 +218,6 @@ groups:
         forced_when: >
           A region without availability zones forces an empty list, and a size missing in a zone
           removes that zone, recorded as forced with `location` or `size` as forced_by
-        renders: zones / availabilityZones
 
       - id: zone_balance
         ask:
@@ -247,7 +236,6 @@ groups:
           Strict balance blocks a scale-out when one zone has no capacity, which is the moment
           capacity was needed; best effort keeps adding instances and rebalances later. Both
           modules default to `false`; written.
-        renders: zone_balance / zoneBalance
 
       - id: fault_domain_count
         ask:
@@ -267,7 +255,6 @@ groups:
         forced_when: >
           Empty `zones` raises the value to the region's maximum (2 or 3), recorded as forced
           with `zones` as forced_by
-        renders: platform_fault_domain_count / scaleSetFaultDomain
 
       - id: os_disk_storage
         ask:
@@ -289,7 +276,6 @@ groups:
           because a slow disk is a slow start for every scale-out, and the single-instance SLA
           needs it. Ephemeral OS disks (`diffDiskSettings`) are the cheaper and faster option for
           stateless instances and a departure that names the workload.
-        renders: os_disk.storage_account_type / osDisk.managedDisk.storageAccountType
 
       - id: os_disk_size_gb
         ask:
@@ -306,7 +292,6 @@ groups:
           127 GiB and cannot be made smaller.
         forced_when: >
           `os_type: Windows` forces 128, recorded as forced with `os_type` as forced_by
-        renders: os_disk.disk_size_gb / osDisk.diskSizeGB
 
       - id: upgrade_mode
         ask:
@@ -330,7 +315,6 @@ groups:
           never taken down together. `Automatic` replaces every instance at once and is not a
           production answer. Image-based automatic OS upgrades are a further setting this set
           does not offer.
-        renders: upgrade_policy.upgrade_mode / upgradePolicyMode
 
       - id: health_check_port
         ask:
@@ -346,7 +330,6 @@ groups:
           instance is up, and the application health extension is it. Only the workload's
           engineer knows its port, so there is no default; it is an `open:` entry owned by the
           workload owner. The extension checks inside the instance on the loopback address.
-        renders: extension (`ApplicationHealthLinux` / `ApplicationHealthWindows`).settings.port / extensionHealthConfig.port
 
       - id: health_check_path
         ask:
@@ -361,7 +344,6 @@ groups:
           An HTTP path that returns 200 when the instance can serve, not merely when the process
           runs - a path that checks the database connection keeps a broken instance in service.
           `/` is the placeholder every web server answers; the engineer replaces it.
-        renders: extension.settings.requestPath / extensionHealthConfig.requestPath
 
       - id: instance_repair
         ask:
@@ -380,7 +362,6 @@ groups:
           (a rendering without the extension fails the module's own precondition). The grace
           period of 30 minutes keeps a slow start from being repaired in a loop; shorter risks
           that, longer leaves a broken instance in service.
-        renders: automatic_instance_repair { enabled, grace_period = "PT30M" } / automaticRepairsPolicyEnabled, gracePeriod
 
   # --------------------------------------------------------------- networking
   - id: networking
@@ -406,7 +387,6 @@ groups:
         forced_when: >
           `network_ownership: create` - the created network's workload subnet, recorded as
           forced with the network as forced_by
-        renders: network_interface.ip_configuration.subnet_id / nicConfigurations[].ipConfigurations[].properties.subnet.id
 
       - id: public_ip
         ask:
@@ -425,7 +405,6 @@ groups:
           that appears and disappears with the scale. Traffic reaches the set through whatever
           is in front of it; people reach an instance through the private network. A departure
           names the reason.
-        renders: network_interface.ip_configuration.public_ip_address (absent) / ipConfigurations[].properties.publicIPAddressConfiguration (absent)
 
       - id: load_balancer_backend_pool_ids
         ask:
@@ -443,7 +422,6 @@ groups:
           belong to a load balancer or an Application Gateway that this set does not create, so
           the ids come from the pattern that wires them. An empty list is a valid set (a worker
           fleet that pulls from a queue) and the decision records that nothing fronts it.
-        renders: network_interface.ip_configuration.load_balancer_backend_address_pool_ids, application_gateway_backend_address_pool_ids / ipConfigurations[].properties.loadBalancerBackendAddressPools
 
       - id: accelerated_networking
         ask:
@@ -463,7 +441,6 @@ groups:
         forced_when: >
           A size that does not support it forces `false`, recorded as forced with `size` as
           forced_by
-        renders: network_interface.enable_accelerated_networking / nicConfigurations[].enableAcceleratedNetworking
 
   # ----------------------------------------------------------------- identity
   - id: identity
@@ -486,7 +463,6 @@ groups:
           identity shared by all instances is the right shape anyway: a role is granted to it
           once and every new instance has it from its first minute, which a system-assigned
           identity cannot give. The identity must exist; this set does not create it.
-        renders: managed_identities.user_assigned_resource_ids / managedIdentities.userAssignedResourceIds
 
       - id: role_assignments
         ask:
@@ -504,7 +480,6 @@ groups:
           in to an instance with Entra needs the system-assigned identity a Flexible set does
           not have, so access to instances is by key and the private network. Empty is a valid
           answer.
-        renders: role_assignments / roleAssignments
 
   # ----------------------------------------------------------------- security
   - id: security
@@ -531,9 +506,6 @@ groups:
         forced_when: >
           A generation 1 gallery image or a size without trusted launch forces `false`,
           recorded as forced with `image` or `size` as forced_by
-        renders: >
-          bicep: securityType `TrustedLaunch`, secureBootEnabled, vTpmEnabled; terraform: no
-          module input (authored: secure_boot_enabled, vtpm_enabled)
 
       - id: encryption_at_host
         ask:
@@ -552,7 +524,6 @@ groups:
           data before it leaves the host. **The modules disagree**: the Bicep module defaults to
           on, the Terraform one leaves it unset, so it is written. It needs the subscription
           feature `Microsoft.Compute/EncryptionAtHost` registered, or the deployment fails.
-        renders: encryption_at_host_enabled / encryptionAtHost
 
       - id: key_management
         ask:
@@ -572,7 +543,6 @@ groups:
           `customer_managed` wraps them with a key in the customer's Key Vault through a disk
           encryption set. For a scale set the set is in the model, so every instance added later
           takes it - and an instance cannot start if the key is lost.
-        renders: os_disk.disk_encryption_set_id / osDisk.managedDisk.diskEncryptionSet.id
 
       - id: disk_encryption_set_id
         ask:
@@ -589,7 +559,6 @@ groups:
         why: >
           The set references a key in the customer's Key Vault and carries its own identity. It
           must exist in the set's region before the scale set does.
-        renders: os_disk.disk_encryption_set_id / osDisk.managedDisk.diskEncryptionSet.id
 
       - id: admin_username
         ask:
@@ -604,7 +573,6 @@ groups:
           Required by the platform. Not `admin`, `administrator` or `root`: Azure refuses them,
           and a name every scanner tries first is no help. It is the same on every instance and
           fixed at creation.
-        renders: os_profile.linux_configuration.admin_username / adminUsername
 
       - id: password_authentication
         ask:
@@ -617,13 +585,12 @@ groups:
         plain_values:
           true: { en: "allowed", de: "erlaubt" }
           false: { en: "not allowed; keys only", de: "nicht erlaubt; nur Schlüssel" }
-        answer: { deployment: local_auth }
+        answer: { deployment: local_auth, map: { disabled: false, allowed_where_unavoidable: false } }
         depends_on: { question: os_type, equals: Linux }
         why: >
           Inherited, inverted: `local_auth: disabled` renders as `false`. A scale set's
           instances share one credential, so a password is one password on every instance.
           Windows has no choice: its administrator password comes from the vault below.
-        renders: os_profile.linux_configuration.disable_password_authentication (inverted) / disablePasswordAuthentication (inverted)
 
       - id: ssh_public_key
         ask:
@@ -640,7 +607,6 @@ groups:
           person's - so it is an open entry owned by the workload owner until given, and an input
           variable of the template rather than a literal. Without a key and without a password,
           nobody enters an instance, which is the intended shape for stateless instances.
-        renders: admin_ssh_keys, os_profile.linux_configuration.admin_ssh_key_id / publicKeys
 
       - id: admin_password_secret
         ask:
@@ -660,7 +626,6 @@ groups:
           one, so the secret exists beforehand and the deploying identity reads it; the value
           reaches the template as a secure parameter (Bicep `getSecret`, Terraform a sensitive
           variable) and never as a literal.
-        renders: admin_password (sensitive variable) / adminPassword from a Key Vault reference
 
       - id: patch_mode
         ask:
@@ -681,7 +646,6 @@ groups:
           one batch at a time and stops on an unhealthy instance. For stateless instances the
           cleaner alternative is replacing them with a newer image through `upgrade_mode`, which
           makes patching a deployment and not an in-place event.
-        renders: os_profile.linux_configuration.patch_mode, patch_assessment_mode / patchMode, patchAssessmentMode
 
   # ------------------------------------------------------------ observability
   - id: observability
@@ -703,7 +667,6 @@ groups:
           The only view of an instance that does not come up, for example after a scale-out in
           which a new instance fails its health check before anything can be read from it. Uses
           a managed storage account that Azure owns: no keys, no firewall to open.
-        renders: boot_diagnostics = {} (an empty object is the managed account) / bootDiagnosticEnabled
 
       - id: diagnostic_workspace
         ask:
@@ -723,7 +686,6 @@ groups:
           Data Collection Rule, which this set does not create. **The Terraform module has no
           diagnostic input**, so the setting is a named gap there and a sibling authored
           resource.
-        renders: diagnostic_settings (authored) / diagnosticSettings
 
       - id: metrics_enabled
         ask:
@@ -740,4 +702,3 @@ groups:
         why: >
           CPU, network and disk throughput across the set are the input to the autoscale rules and
           to the right-sizing that the `size` default defers, and they are cheap.
-        renders: metrics[].category = "AllMetrics" / diagnosticSettings[].metricCategories

@@ -208,6 +208,18 @@ resources:
           test: 10.43.0.0/24
           production: 10.44.0.0/24
         source: deployment
+      subnets:
+        value:
+          development:
+          - name: snet-app
+            prefix: 10.42.0.64/26
+          test:
+          - name: snet-app
+            prefix: 10.43.0.64/26
+          production:
+          - name: snet-app
+            prefix: 10.44.0.64/26
+        source: asked
       private_endpoint_subnet_prefix:
         value:
           development: 10.42.0.0/27
@@ -231,6 +243,11 @@ resources:
       public_network_access:
         value: disabled
         source: deployment
+      integration_subnet:
+        value:  # a reference: a part of a resource of this spec, the same in every stage
+          resource: virtual-network
+          part: snet-app
+        source: stated
     identity:
       managed_identity:
         value: system_assigned
@@ -335,8 +352,8 @@ their `--language` only overrides it for a check. A spec without it is drawn in 
 
 `context.environments` lists the stages the code is deployed through — `[development,
 test, production]` by default, `[sandbox]` for one throwaway environment. Every value in
-the spec is then either **one value for every stage** (a scalar, a list, a reference
-object) or **a map keyed by stage**:
+the spec is then either **one value for every stage** (a scalar, a list, a reference) or
+**a map keyed by stage**:
 
 ```yaml
       replication:
@@ -350,12 +367,11 @@ object) or **a map keyed by stage**:
 
 When a map, when one value:
 
-- **Always a map:** a `per_environment` value from outside the spec - an address range, an
-  id, a subscription, a platform resource. Even when every stage has the same value: one
-  value would end up hard-coded in the template.
-- **One value:** a `per_environment` value that only names parts of this spec - a resource
-  key (`storage-account__datalake`), subnet names, or `[]`. It is the same in every stage;
-  the render finds that stage's resource.
+- **Always a map:** a `per_environment` value from outside the spec - an address range, a
+  subscription, a name. Even when every stage has the same value: one value would end up
+  hard-coded in the template.
+- **One value:** a reference (see *References* below) and `[]`. A reference to an existing
+  resource carries its per-stage ids inside it.
 - **A map if a stage departs:** a cost knob that takes its cheaper `non_production_default`
   outside production, or a departure the user named for one stage (`{ overridden: <reason> }`).
 - **Never a map:** everything else. A posture holds for the whole system.
@@ -363,9 +379,7 @@ When a map, when one value:
 `check_spec.py` enforces all four. A map's keys are stages of `context.environments`.
 
 The renderer reads a map as a parameter and writes each stage's value into that stage's
-parameter file; one value is a literal in the template. A reference object
-(`{ name, resource_group_name }`) is told apart from a stage map by its keys, which are never
-stage names.
+parameter file; one value is a literal in the template.
 
 Which stages took the cheaper `non_production_default` is not recorded: it follows from the
 question, `deployment.non_production_savings` and the values, and the decision document
@@ -394,6 +408,49 @@ stage whose file holds no placeholder (the values were guessed) and a resolved s
 file still holds one. A placeholder never deploys; the pipeline refuses it
 ([pipelines.md](../../iac-rendering/references/pipelines.md), invariant 11), and the stage
 chain then holds every stage behind it.
+
+## References
+
+A question with `accepts: { ref: <kind> }` (question-set-format.md) points at another
+resource. Its value takes one of two forms, and nothing else - no bare name, no stage map
+around it, no name and resource group:
+
+```yaml
+      integration_subnet:          # a resource of this spec: one value, every stage
+        value:
+          resource: virtual-network
+          part: snet-app           # where the kind is a part of the resource (a subnet)
+        source: stated
+  diagnostics_destination:         # one outside it, its id known: the id per stage
+    value:
+      existing: log_analytics_workspace
+      id:
+        development: /subscriptions/<sub>/resourceGroups/rg-mgmt-dev/providers/Microsoft.OperationalInsights/workspaces/law-dev
+        test: /subscriptions/<sub>/resourceGroups/rg-mgmt-tst/providers/Microsoft.OperationalInsights/workspaces/law-tst
+        production: /subscriptions/<sub>/resourceGroups/rg-mgmt-prod/providers/Microsoft.OperationalInsights/workspaces/law-prod
+    source: platform
+```
+
+- **`resource:`** names a resource key of this spec whose question set creates that kind;
+  `part:` names the part where the kind is one (a subnet in the network's `subnets`, an event
+  hub, a backend pool). The render takes the id from the resource's module, per stage.
+- **`existing:`** names the kind of a resource outside the spec - the platform's workspace, a
+  hub subnet, a key the security team holds. The render never looks it up (no data source:
+  name and group are as unknown as the id, and `plan` would need read access to the platform):
+  it becomes an id parameter (`variable` / `param`) filled from each stage file. The spec
+  carries the id, never a name or a resource group. An id the person names goes into `id:`
+  per stage; without one, `{ existing: <kind> }` stands alone and an `open:` entry with its
+  owner names the key - the stage file gets a placeholder, `plan` and the tests run, the
+  pipeline refuses `apply`, and answering the entry is an edit of the stage files, no
+  re-render. A stage whose id is still missing is named by an `open:` entry with
+  `environments:`. A property the input
+  needs that the id does not carry (a connection string, a principal id, a host name) is a
+  second parameter from the stage file, never in the spec: the `open:` entry asks for it,
+  with the id or alone.
+
+What each kind is - the sets that create it, the part, the ARM type its id carries, the id's
+form (`arm`, `arm_any`, `guid`) - is [ref-kinds.yaml](ref-kinds.yaml); `check_spec.py` reads it
+for every reference (`scripts/spec_ref.py`).
 
 ## Resource groups: roles, modes, names
 
@@ -617,8 +674,8 @@ The spec names **decisions**, not attributes. `public_network_access: disabled`,
 `azurerm` provider and would leak one backend's vocabulary into the interface the other
 backends have to read.
 
-The mapping from a decision to an attribute lives in the question set's `renders` field and
-in each target's rendering reference. That is the layer allowed to know about
+The mapping from a decision to an attribute and its literal lives in the resource's
+`render-map.yaml` and in each target's rendering reference. That is the layer allowed to know about
 `networkAcls.defaultAction` versus `public_network_access_enabled`.
 
 Target-specific escape hatches do exist, and are quarantined:

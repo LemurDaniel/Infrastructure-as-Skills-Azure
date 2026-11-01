@@ -1,6 +1,7 @@
 # Rendered from eval-agent/infra/infra-spec.yaml (target: bicep, deploy_mechanism: github,
 # pipeline_auth: workload_identity, pipeline_approvals: production, stage_isolation: subscription).
 # Stages: production (one stage). Working directory of every step: eval-agent/infra/
+# Shell of every step: pwsh (pipelines.md, invariant 14).
 #
 # PLATFORM PREREQUISITES - this repository does not create them:
 #
@@ -20,7 +21,7 @@
 #     the pipeline deploys into it and does not create it.
 #  5. GitHub environment 'production': variables (plain variables, no secrets)
 #       AZURE_CLIENT_ID, AZURE_TENANT_ID, AZURE_SUBSCRIPTION_ID  (must equal subscriptionId in the stage file)
-#     Protection: deployment branches = default branch only.
+#     Protection: deployment branches = dev and master (dev deploys; the scheduled jobs on master read).
 #  6. GitHub environment 'production-approval': Required reviewers (pipeline_approvals: production).
 #     The approve job stops the run between what-if and deploy; it holds no credential.
 #  7. eval-agent/infra/main.production.bicepparam still holds placeholders (OPEN-... values, all-zero GUIDs;
@@ -38,13 +39,19 @@ name: Eval-Agent Infrastructure
 on:
   pull_request:
     paths: ["eval-agent/infra/**", ".github/workflows/eval-agent-infra*.yaml"]
+  # dev is where the eval agent is deployed from; a merge into master is a plugin release and
+  # deploys nothing (master only ever receives what dev already deployed).
   push:
-    branches: [main, master]
+    branches: [dev]
     paths: ["eval-agent/infra/**", ".github/workflows/eval-agent-infra*.yaml"]
   workflow_dispatch:
 
 permissions:
   contents: read
+
+defaults:
+  run:
+    shell: pwsh
 
 jobs:
   validate:
@@ -52,13 +59,18 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
+        shell: pwsh
         working-directory: eval-agent/infra
     steps:
       - uses: actions/checkout@v7
-      - run: az bicep build --file main.bicep --stdout > /dev/null
+      - run: az bicep build --file main.bicep --stdout > $null
       - run: az bicep lint --file main.bicep
       - name: Parameter files compile against the template
-        run: for f in main.*.bicepparam; do az bicep build-params --file "$f" --stdout > /dev/null; done
+        run: |
+          foreach ($f in Get-ChildItem main.*.bicepparam) {
+            az bicep build-params --file $f.Name --stdout > $null
+            if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          }
 
   production:
     needs: validate

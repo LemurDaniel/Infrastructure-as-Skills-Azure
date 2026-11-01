@@ -39,7 +39,6 @@ groups:
           Drives the rendered name. One route table per subnet role per stage: the routes are
           the same in every stage, only the addresses differ, and a stage whose traffic skips
           the firewall is the one an attacker starts in.
-        renders: naming parameter `environment`, and the tag of that name where the repository uses one
 
       - id: location
         ask:
@@ -53,7 +52,6 @@ groups:
         why: >
           A route table is regional and associates only with subnets of virtual networks in
           its own region - the one constraint on where it goes.
-        renders: location
 
       - id: resource_group_name
         ask:
@@ -69,7 +67,6 @@ groups:
         why: >
           Placed into an existing group, usually the network's, so the people who own the
           subnets own the routes that steer them.
-        renders: resource_group_name (azurerm modules) / parent_id (AzAPI modules) / implicit in Bicep scope
 
   # --------------------------------------------------------------- networking
   - id: networking
@@ -91,7 +88,6 @@ groups:
           most. Not for `GatewaySubnet` without care (see `bgp_route_propagation`), and
           `AzureFirewallSubnet` and `AzureBastionSubnet` have requirements of their own
           that `notes.md` lists - a default route on the wrong one breaks the service.
-        renders: virtual-network subnets.<k>.route_table.id / routeTableResourceId
 
       - id: default_route
         ask:
@@ -117,7 +113,6 @@ groups:
           system route sends internet traffic straight out, and an NSG that denies
           `Internet` outbound is the only thing left standing. The route is written as an
           explicit entry, so it shows in the plan.
-        renders: routes entry `0.0.0.0/0`, next hop `VirtualAppliance` / properties.routes
 
       - id: firewall_private_ip
         ask:
@@ -137,7 +132,6 @@ groups:
           and the first symptom is a timeout in the application, not an error in the plan.
           Per stage, because each stage peers to its own hub where the stages are separated.
           It is an address, not a resource id - the next hop is an IP in the hub's range.
-        renders: next_hop_in_ip_address / nextHopIpAddress
 
       - id: routes
         ask:
@@ -158,7 +152,6 @@ groups:
           `VirtualNetworkGateway`, a range to black-hole with `None`. Longest prefix wins, so
           a more specific route beats the default one. Empty is valid for a table whose job is
           the default route alone. Destinations are per stage.
-        renders: routes / properties.routes
 
       - id: bgp_route_propagation
         ask:
@@ -184,4 +177,3 @@ groups:
           keeps the table the only source for the spoke, which is what a forced-tunnelling
           design means. On is for a subnet that must follow the on-premises routes - the gateway
           subnet itself, or a hub without a firewall. The portal's default is on.
-        renders: bgp_route_propagation_enabled (Terraform, true/false) / disableBgpRoutePropagation (Bicep, inverted)

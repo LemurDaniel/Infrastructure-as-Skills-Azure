@@ -20,19 +20,12 @@ follows the 4.x spelling. The root's provider set is the union with the other mo
 
 ### Decision -> module input
 
+What each decision renders to - the input and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.
+
+Deployment-wide inputs, not decisions of this set:
+
 | Decision | Input | Note |
 |---|---|---|
-| `purpose` | the name, through the naming provider's `name` parameter (`<workload>-<purpose>`) | The convention's pattern for public IPs has no `SUBNAME` token, so the purpose goes into `name`, not `subname` |
-| `sku` | `sku` | `"Standard"`; module default is `Standard` too, written anyway |
-| `sku_tier` | `sku_tier` | |
-| `allocation_method` | `allocation_method` | |
-| `ip_version` | `ip_version` | |
-| `zones` | `zones = [1, 2, 3]` | A **set of numbers**, unlike the authored resource's strings |
-| `idle_timeout_minutes` | `idle_timeout_in_minutes` | |
-| `dns_label` | `domain_name_label` | `null` for none - the module has no empty-string form |
-| `ddos_protection_mode` | `ddos_protection_mode` | |
-| `ddos_protection_plan` | `ddos_protection_plan_id` | Only with `Enabled` |
-| `diagnostic_workspace`, `diagnostic_categories`, `metrics_enabled` | `diagnostic_settings = { workspace = { workspace_resource_id, log_categories, log_groups = [], metric_categories } }` | `log_groups` defaults to `["allLogs"]`: set it empty when `log_categories` names the categories |
 | `deployment.module_telemetry` | `enable_telemetry` | |
 | `context.tags` | `tags = local.tags` | |
 
@@ -140,16 +133,12 @@ root.
 
 The fallback. Targets `azurerm` **5.x**; check against `terraform providers schema -json`.
 
+What each decision renders to - the argument and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.
+
+Not decisions of this set:
+
 | Decision | Argument |
 |---|---|
 | the address | `azurerm_public_ip` |
-| `sku`, `sku_tier` | `sku`, `sku_tier` |
-| `allocation_method` | `allocation_method` |
-| `ip_version` | `ip_version` |
-| `zones` | `zones` - **strings** (`["1", "2", "3"]`) |
-| `idle_timeout_minutes` | `idle_timeout_in_minutes` |
-| `dns_label` | `domain_name_label`; omit for none |
-| `ddos_protection_mode`, `ddos_protection_plan` | `ddos_protection_mode`, `ddos_protection_plan_id` |
-| diagnostics | `azurerm_monitor_diagnostic_setting` with `enabled_log { category }` and `enabled_metric { category }` |
 
 Validated against `azurerm` 5.x.

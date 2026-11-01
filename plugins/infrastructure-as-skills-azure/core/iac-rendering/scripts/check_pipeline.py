@@ -30,6 +30,10 @@ renders under the root, and checks what a reviewer would otherwise check by eye:
  12. Terraform: a plan that deletes a resource group does not reach apply - the
      plan job reads `terraform show -json` and fails on a `delete` of a group.
      Bicep deploys incrementally and never deletes, so there is nothing to refuse.
+ 13. Bicep: the deployment command matches deployment_scope.
+ 14. The shell is PowerShell 7: GitHub sets `defaults.run.shell: pwsh` in every
+     workflow, Azure DevOps runs `pwsh:` steps and AzureCLI@2 with `scriptType:
+     pscore`. GitLab keeps the image's sh - its images carry no pwsh.
 
 Platform-specific constructs are checked where the file can show them. What the
 file cannot - an environment's approval check, a lock check, the federated
@@ -113,7 +117,7 @@ def scripts_of(node):
     def rec(n):
         if isinstance(n, dict):
             for k, v in n.items():
-                if k in ('run', 'script', 'inlineScript', 'bash', 'before_script', 'after_script'):
+                if k in ('run', 'script', 'inlineScript', 'bash', 'pwsh', 'powershell', 'before_script', 'after_script'):
                     out.extend(walk_strings(v))
                 else:
                     rec(v)
@@ -128,8 +132,9 @@ def scripts_of(node):
 def apply_problems(script, where):
     """terraform apply must take a plan file and no -auto-approve."""
     for m in re.finditer(r'terraform\s+apply\b([^\n]*)', script):
-        # the command ends at the first ; | & on the line - `apply -input=false; if (...)` has no file
-        args = re.split(r'[;|&]', m.group(1))[0].replace('\\', ' ').split()
+        # the command ends at the first ; | & on the line - `apply -input=false; if (...)` has no file;
+        # a line continuation (\ in sh, ` in pwsh) is not an argument
+        args = re.split(r'[;|&]', m.group(1))[0].replace('\\', ' ').replace('`', ' ').split()
         if '-auto-approve' in args:
             err(f"{where}: `terraform apply -auto-approve` - the saved plan is the approval; the flag turns it back into a fresh apply")
         if not [a for a in args if not a.startswith('-')]:
@@ -162,7 +167,10 @@ def common_text(path, text, auth, rel):
     if auth == 'workload_identity':
         for pat, what in [(r'\bsecrets\.', 'a `secrets.` reference'),
                           (r'AZURE_CREDENTIALS|AZURE_AUTH', 'a stored credential blob'),
-                          (r'client[-_]?secret|ARM_CLIENT_SECRET', 'a client secret')]:
+                          # client-secret, --client-secret, clientSecret, ARM_/AZURE_CLIENT_SECRET;
+                          # not a name that only ends in it (the vault secret entra-client-secret)
+                          (r'(?<![A-Za-z0-9]-)(?<![A-Za-z0-9_])client[-_]?secret|(ARM|AZURE)_CLIENT_SECRET',
+                           'a client secret')]:
             if re.search(pat, low, re.I):
                 err(f"{rel}: {what} - pipeline_auth is workload_identity, nothing secret exists to store")
     for m in re.finditer(r'\$\{\{\s*(github\.event\.|github\.head_ref)', low):
@@ -330,7 +338,7 @@ def check_github(root, stages, target, auth, gated, exempt):
         versions = re.findall(r'terraform_version:\s*(\S+)', stext)
         if not versions or not all(v.strip('"\'').startswith('~>') for v in versions):
             err(f"{srel}: every setup-terraform needs a `~>` constraint on terraform_version, found {versions}")
-        state_keys(stext, srel, r'\$\{?STAGE\}?|inputs\.stage')
+        state_keys(stext, srel, r'\$\{?(env:)?STAGE\}?|inputs\.stage')
     else:
         if not re.search(r'az deployment \w+ what-if', allscripts):
             err(f"{srel}: no `az deployment ... what-if` before the deployment")
@@ -427,7 +435,7 @@ def check_ado(root, stages, target, auth, gated, exempt):
         if 'terraform-install.yml' not in tmpl:
             err(".azure-pipelines/terraform-install.yml: missing")
         else:
-            if 'sha256sum' not in tmpl['terraform-install.yml'][1]:
+            if 'Get-FileHash' not in tmpl['terraform-install.yml'][1]:
                 err(".azure-pipelines/terraform-install.yml: the download is not checksum-verified")
         tfv = [v for v in (ed.get('variables') or []) if isinstance(v, dict) and v.get('name') == 'TF_VERSION']
         if not tfv or not re.match(r'^\d+\.\d+\.\d+$', str(tfv[0].get('value'))):
@@ -537,7 +545,8 @@ def check_local(root, stages, target, auth, gated, exempt):
         return
     with open(path, encoding='utf-8') as f:
         text = f.read()
-    common_text(path, text, 'workload_identity', 'deploy.ps1')
+    # No pipeline_auth here: the script runs as the person's own az login, nothing is stored.
+    common_text(path, text, None, 'deploy.ps1')
     m = re.search(r"ValidateSet\(([^)]*)\)", text)
     got = re.findall(r"'([^']+)'", m.group(1)) if m else []
     expect = [s for s in stages if s not in exempt]
@@ -545,11 +554,22 @@ def check_local(root, stages, target, auth, gated, exempt):
         err(f"deploy.ps1: ValidateSet is {got}, the spec's stages are {expect}")
     if 'Read-Host' not in text:
         err("deploy.ps1: no confirmation before the change")
+    if not re.search(r'(Push|Set)-Location\s+\$PSScriptRoot', text):
+        err("deploy.ps1: does not change into its own directory - the stage file is found relative to the caller")
     if target == 'terraform':
         apply_problems(text, 'deploy.ps1')
         state_keys(text, 'deploy.ps1', r'\$Stage')
         if 'Remove-Item' not in text:
             err("deploy.ps1: the plan file is not removed - it can hold sensitive values")
+        # validate and test run on an init without the state, the stage's init comes after
+        offline = text.find('-backend=false')
+        validate = text.find('terraform validate')
+        if offline < 0 or validate < offline:
+            err("deploy.ps1: terraform validate does not run on an `init -backend=false` before the stage's init")
+        if not re.search(r'terraform\s+test\b', text):
+            err("deploy.ps1: no `terraform test` before the plan")
+        if not re.search(r'terraform\s+init\b[^\n]*-reconfigure', text):
+            err("deploy.ps1: the stage's `terraform init` has no -reconfigure - a run for another stage would migrate the state")
     else:
         if 'what-if' not in text:
             err("deploy.ps1: no what-if before the deployment")
@@ -630,9 +650,10 @@ def check_group_guard(root, mech):
             "(pipelines.md, invariant 12)")
 
 
-def check_stage_files(root, stages, target, open_stages, assumed=frozenset()):
-    """Every stage has its file; an open stage's file holds placeholders, a resolved stage's none;
-    every file marks each assumed value of the spec, and nothing else, as ASSUMED."""
+def check_stage_files(root, stages, target, open_stages, may_hold_placeholder, assumed=frozenset()):
+    """Every stage has its file; an open stage's file holds placeholders, a resolved stage's none
+    (unless an open: entry without environments may have put one there); every file marks each
+    assumed value of the spec, and nothing else, as ASSUMED."""
     code = root
     if target == 'terraform':
         names = {s: os.path.join('environments', f'{s}.tfvars') for s in stages}
@@ -665,8 +686,61 @@ def check_stage_files(root, stages, target, open_stages, assumed=frozenset()):
         if s in open_stages and not has:
             err(f"{names[s]}: stage {s} is open in the spec but its file holds no placeholder - "
                 f"either the values were given (drop the open: entries) or they were guessed")
-        if s not in open_stages and has:
+        if s not in may_hold_placeholder and has:
             err(f"{names[s]}: stage {s} is resolved in the spec but its file still holds a placeholder")
+
+
+# ---------------------------------------------------------------- the shell
+
+def ado_steps(node):
+    """Every Azure DevOps step under a node: a dict that runs a script or a task."""
+    if isinstance(node, dict):
+        if any(k in node for k in ('bash', 'script', 'pwsh', 'powershell', 'task')):
+            yield node
+        for v in node.values():
+            yield from ado_steps(v)
+    elif isinstance(node, list):
+        for v in node:
+            yield from ado_steps(v)
+
+
+def check_shell(root, mech):
+    """The pipeline runs PowerShell 7 (pipelines.md, invariant 14). GitLab keeps the image's sh."""
+    if mech == 'github':
+        for f in sorted(glob.glob(os.path.join(root, '.github', 'workflows', '*.y*ml'))):
+            d, _ = load_yaml(f)
+            rel = os.path.relpath(f, root)
+            shell = ((d.get('defaults') or {}).get('run') or {}).get('shell')
+            if shell != 'pwsh':
+                err(f"{rel}: `defaults.run.shell` is {shell!r}, not pwsh - every run step would fall back to bash (invariant 14)")
+            for jid, j in (d.get('jobs') or {}).items():
+                run = (j.get('defaults') or {}).get('run')
+                own = (run or {}).get('shell')
+                if own not in (None, 'pwsh'):
+                    err(f"{rel}: job {jid} sets shell {own!r} - the shell is pwsh (invariant 14)")
+                elif run is not None and own is None:
+                    # A job's defaults.run replaces the workflow's whole block, shell included:
+                    # a job that only sets its working-directory runs every step in bash.
+                    err(f"{rel}: job {jid} has its own defaults.run without `shell: pwsh` - it replaces "
+                        "the workflow's, and the job falls back to bash (invariant 14)")
+                for st in (j.get('steps') or []):
+                    if 'run' in st and st.get('shell') not in (None, 'pwsh'):
+                        err(f"{rel}: job {jid} has a step in {st.get('shell')!r} - the shell is pwsh (invariant 14)")
+    elif mech == 'azure_devops':
+        files = [os.path.join(root, 'azure-pipelines.yml')] + sorted(glob.glob(os.path.join(root, '.azure-pipelines', '*.yml')))
+        for f in files:
+            if not os.path.isfile(f):
+                continue
+            d, _ = load_yaml(f)
+            rel = os.path.relpath(f, root)
+            for st in ado_steps(d):
+                for k in ('bash', 'script', 'powershell'):
+                    if k in st:
+                        err(f"{rel}: a `{k}:` step - the shell is PowerShell 7, a `pwsh:` step (invariant 14)")
+                if str(st.get('task', '')).startswith('AzureCLI'):
+                    kind = (st.get('inputs') or {}).get('scriptType')
+                    if kind != 'pscore':
+                        err(f"{rel}: AzureCLI task {st.get('displayName', '')!r} has scriptType {kind!r}, not pscore (invariant 14)")
 
 
 # ---------------------------------------------------------------- main
@@ -731,12 +805,16 @@ def main():
         say(f"[fail] spec.target is {target!r}, expected terraform or bicep", 'red')
         return 2
     # A stage with open: entries is not left out: it has its job and its file, with
-    # placeholders, and the pipeline refuses to run it.
-    open_stages = set()
+    # placeholders, and the pipeline refuses to run it. An entry without environments
+    # names no stage: its value may be a placeholder in every stage file (context.location)
+    # or in none (a model list, the deploy mechanism), so it allows one and requires none.
+    open_stages, unscoped_open = set(), False
     for o in spec.get('open') or []:
         if isinstance(o, dict):
             open_stages.update(o.get('environments') or [])
+            unscoped_open = unscoped_open or not o.get('environments')
     open_stages &= set(stages)
+    may_hold_placeholder = set(stages) if unscoped_open else open_stages
     gated = gated_stages(stages, approvals) if mech != 'local' else []
 
     fns = {'github': check_github, 'azure_devops': check_ado, 'gitlab': check_gitlab, 'local': check_local}
@@ -744,8 +822,9 @@ def main():
         say(f"[fail] deploy_mechanism {mech!r} is not one of {sorted(fns)}", 'red')
         return 2
     fns[mech](root, stages, target, auth, gated, set())
+    check_shell(root, mech)
     check_guard(root, mech)
-    check_stage_files(root, stages, target, open_stages, assumed_keys(spec))
+    check_stage_files(root, stages, target, open_stages, may_hold_placeholder, assumed_keys(spec))
     if target == 'terraform':
         check_backend(root)
         check_group_guard(root, mech)

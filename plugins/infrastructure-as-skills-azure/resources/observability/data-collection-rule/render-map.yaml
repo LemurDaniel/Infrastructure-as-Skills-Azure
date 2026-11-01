@@ -1,0 +1,427 @@
+# What each decision of questions.yaml renders to, per target and implementation.
+# Format: core/iac-rendering/references/render-map.md. The calls, the authored blocks and the
+# tests are in terraform.md and bicep.md.
+# The endpoint module is called only for endpoint: create. Terraform's rule module takes kind
+# Linux / Windows only; Bicep's 0.11.0 has no AgentDirectToStore variant - those render authored.
+schema_version: 1
+resource: Microsoft.Insights/dataCollectionRules
+
+modules:
+  terraform: [Azure/avm-res-insights-datacollectionendpoint/azurerm, Azure/avm-res-insights-datacollectionrule/azurerm]
+  bicep: [avm/res/insights/data-collection-endpoint, avm/res/insights/data-collection-rule]
+
+decisions:
+
+  # ---------------------------------------------------------------- placement
+  placement.environments:
+    not_rendered: naming parameter `environment`; no attribute of the rule
+  placement.location:
+    terraform_avm: { attribute: location, passthrough: true, module: Azure/avm-res-insights-datacollectionrule/azurerm, note: the endpoint module takes the same }
+    terraform: { attribute: location, passthrough: true }
+    bicep_avm: { attribute: location, passthrough: true, module: avm/res/insights/data-collection-rule, note: the endpoint module takes the same }
+    bicep: { attribute: location, passthrough: true }
+  placement.resource_group_name:
+    terraform_avm:
+      attribute: parent_id
+      module: Azure/avm-res-insights-datacollectionrule/azurerm
+      note: the group's id, on both modules - AzAPI only
+    terraform: { attribute: resource_group_name, note: required by the provider schema; the reference's authored rendering omits it }
+    bicep_avm: { gap: the deployment's resource group scope; no parameter }
+    bicep: { gap: the deployment's resource group scope; no property }
+
+  # --------------------------------------------------------------------- rule
+  rule.kind:
+    terraform_avm:
+      attribute: kind
+      passthrough: true
+      module: Azure/avm-res-insights-datacollectionrule/azurerm
+      note: Linux / Windows only (module validation); the others render authored, forced_by the kind validation
+    terraform: { attribute: kind, passthrough: true }
+    bicep_avm:
+      attribute: dataCollectionRuleProperties.kind
+      passthrough: true
+      module: avm/res/insights/data-collection-rule
+      note: AgentDirectToStore is not a variant of 0.11.0 - renders authored
+    bicep: { attribute: kind, passthrough: true, note: top level }
+
+  # ------------------------------------------------------------- data_sources
+  data_sources.performance_counter_set:
+    terraform_avm:
+      attribute: 'data_sources.performance_counters[].counter_specifiers'
+      values: { none: null, basic: { expr: 'local.<os>_basic_counters' }, extended: { expr: 'local.<os>_extended_counters' } }
+      module: Azure/avm-res-insights-datacollectionrule/azurerm
+      note: the OS dialect in a local (linux_basic_counters in the reference); none renders no performance_counters entry; the extended list is in neither reference
+    terraform:
+      attribute: data_sources.performance_counter.counter_specifiers
+      values: { none: null, basic: { expr: 'local.<os>_basic_counters' }, extended: { expr: 'local.<os>_extended_counters' } }
+      note: none renders no performance_counter block; the extended list is in neither reference
+    bicep_avm:
+      attribute: 'dataCollectionRuleProperties.dataSources.performanceCounters[].counterSpecifiers'
+      values: { none: null, basic: { expr: '<os>BasicCounters' }, extended: { expr: '<os>ExtendedCounters' } }
+      module: avm/res/insights/data-collection-rule
+      note: the OS dialect in a var (linuxBasicCounters in the reference); none renders no performanceCounters entry; the extended list is in neither reference
+    bicep:
+      attribute: 'properties.dataSources.performanceCounters[].counterSpecifiers'
+      values: { none: null, basic: { expr: '<os>BasicCounters' }, extended: { expr: '<os>ExtendedCounters' } }
+      note: none renders no performanceCounters entry; the extended list is in neither reference
+  data_sources.custom_performance_counters:
+    terraform_avm:
+      attribute: 'data_sources.performance_counters[].counter_specifiers'
+      module: Azure/avm-res-insights-datacollectionrule/azurerm
+      note: appended to the set's counters
+    terraform: { attribute: data_sources.performance_counter.counter_specifiers }
+    bicep_avm:
+      attribute: 'dataCollectionRuleProperties.dataSources.performanceCounters[].counterSpecifiers'
+      module: avm/res/insights/data-collection-rule
+    bicep: { attribute: 'properties.dataSources.performanceCounters[].counterSpecifiers', note: appended to the set's counters }
+  data_sources.performance_sampling_seconds:
+    terraform_avm: { attribute: 'data_sources.performance_counters[].sampling_frequency_in_seconds', passthrough: true, module: Azure/avm-res-insights-datacollectionrule/azurerm }
+    terraform: { attribute: data_sources.performance_counter.sampling_frequency_in_seconds, passthrough: true }
+    bicep_avm: { attribute: 'dataCollectionRuleProperties.dataSources.performanceCounters[].samplingFrequencyInSeconds', passthrough: true, module: avm/res/insights/data-collection-rule }
+    bicep: { attribute: 'properties.dataSources.performanceCounters[].samplingFrequencyInSeconds', passthrough: true }
+  data_sources.syslog_facilities:
+    terraform_avm:
+      attribute: 'data_sources.syslog[].facility_names'
+      module: Azure/avm-res-insights-datacollectionrule/azurerm
+      note: two entries - general at the floor, auth/authpriv at Info; Linux
+    terraform: { attribute: data_sources.syslog.facility_names }
+    bicep_avm:
+      attribute: 'dataCollectionRuleProperties.dataSources.syslog[].facilityNames'
+      module: avm/res/insights/data-collection-rule
+      note: two entries - general at the floor, auth/authpriv at Info
+    bicep: { attribute: 'properties.dataSources.syslog[].facilityNames', note: 'two entries - general at the floor, auth/authpriv at Info' }
+  data_sources.syslog_min_level:
+    terraform_avm:
+      attribute: 'data_sources.syslog[].log_levels'
+      values:
+        Debug: { expr: '["Debug", "Info", "Notice", "Warning", "Error", "Critical", "Alert", "Emergency"]' }
+        Info: { expr: '["Info", "Notice", "Warning", "Error", "Critical", "Alert", "Emergency"]' }
+        Notice: { expr: '["Notice", "Warning", "Error", "Critical", "Alert", "Emergency"]' }
+        Warning: { expr: '["Warning", "Error", "Critical", "Alert", "Emergency"]' }
+        Error: { expr: '["Error", "Critical", "Alert", "Emergency"]' }
+        Critical: { expr: '["Critical", "Alert", "Emergency"]' }
+        Alert: { expr: '["Alert", "Emergency"]' }
+        Emergency: { expr: '["Emergency"]' }
+      module: Azure/avm-res-insights-datacollectionrule/azurerm
+      note: the level and every one above it, on the general entry; auth/authpriv from Info regardless
+    terraform:
+      attribute: data_sources.syslog.log_levels
+      values:
+        Debug: { expr: '["Debug", "Info", "Notice", "Warning", "Error", "Critical", "Alert", "Emergency"]' }
+        Info: { expr: '["Info", "Notice", "Warning", "Error", "Critical", "Alert", "Emergency"]' }
+        Notice: { expr: '["Notice", "Warning", "Error", "Critical", "Alert", "Emergency"]' }
+        Warning: { expr: '["Warning", "Error", "Critical", "Alert", "Emergency"]' }
+        Error: { expr: '["Error", "Critical", "Alert", "Emergency"]' }
+        Critical: { expr: '["Critical", "Alert", "Emergency"]' }
+        Alert: { expr: '["Alert", "Emergency"]' }
+        Emergency: { expr: '["Emergency"]' }
+      note: the general block; auth/authpriv from Info regardless
+    bicep_avm:
+      attribute: 'dataCollectionRuleProperties.dataSources.syslog[].logLevels'
+      values:
+        Debug: { expr: "['Debug', 'Info', 'Notice', 'Warning', 'Error', 'Critical', 'Alert', 'Emergency']" }
+        Info: { expr: "['Info', 'Notice', 'Warning', 'Error', 'Critical', 'Alert', 'Emergency']" }
+        Notice: { expr: "['Notice', 'Warning', 'Error', 'Critical', 'Alert', 'Emergency']" }
+        Warning: { expr: "['Warning', 'Error', 'Critical', 'Alert', 'Emergency']" }
+        Error: { expr: "['Error', 'Critical', 'Alert', 'Emergency']" }
+        Critical: { expr: "['Critical', 'Alert', 'Emergency']" }
+        Alert: { expr: "['Alert', 'Emergency']" }
+        Emergency: { expr: "['Emergency']" }
+      module: avm/res/insights/data-collection-rule
+      note: the level and every one above it, on the general entry; auth/authpriv from Info regardless
+    bicep:
+      attribute: 'properties.dataSources.syslog[].logLevels'
+      values:
+        Debug: { expr: "['Debug', 'Info', 'Notice', 'Warning', 'Error', 'Critical', 'Alert', 'Emergency']" }
+        Info: { expr: "['Info', 'Notice', 'Warning', 'Error', 'Critical', 'Alert', 'Emergency']" }
+        Notice: { expr: "['Notice', 'Warning', 'Error', 'Critical', 'Alert', 'Emergency']" }
+        Warning: { expr: "['Warning', 'Error', 'Critical', 'Alert', 'Emergency']" }
+        Error: { expr: "['Error', 'Critical', 'Alert', 'Emergency']" }
+        Critical: { expr: "['Critical', 'Alert', 'Emergency']" }
+        Alert: { expr: "['Alert', 'Emergency']" }
+        Emergency: { expr: "['Emergency']" }
+      note: the general entry; auth/authpriv from Info regardless
+  data_sources.windows_event_logs:
+    terraform_avm: { attribute: 'data_sources.windows_event_logs[].x_path_queries', module: Azure/avm-res-insights-datacollectionrule/azurerm, note: Windows }
+    terraform: { attribute: data_sources.windows_event_log.x_path_queries }
+    bicep_avm: { attribute: 'dataCollectionRuleProperties.dataSources.windowsEventLogs[].xPathQueries', module: avm/res/insights/data-collection-rule }
+    bicep: { attribute: 'properties.dataSources.windowsEventLogs[].xPathQueries' }
+  data_sources.windows_security_events:
+    terraform_avm:
+      module: Azure/avm-res-insights-datacollectionrule/azurerm
+      gap: 'a second data_sources.windows_event_logs[] entry on the Security log - all is x_path_queries = ["Security!*"], none renders no entry; the XPath of common is in neither reference (only its event ids, in questions.yaml)'
+    terraform:
+      gap: 'a second data_sources.windows_event_log block on the Security log - all is x_path_queries = ["Security!*"], none renders no block; the XPath of common is in neither reference'
+    bicep_avm:
+      module: avm/res/insights/data-collection-rule
+      gap: "a second dataCollectionRuleProperties.dataSources.windowsEventLogs[] entry - all is xPathQueries: ['Security!*'], none renders no entry; the XPath of common is in neither reference"
+    bicep:
+      gap: "a second properties.dataSources.windowsEventLogs[] entry - all is xPathQueries: ['Security!*'], none renders no entry; the XPath of common is in neither reference"
+  data_sources.iis_logs:
+    terraform_avm:
+      module: Azure/avm-res-insights-datacollectionrule/azurerm
+      gap: 'true renders one data_sources.iis_logs[] { name, streams, log_directories, transform_kql } entry (Windows; needs the endpoint), false none - module README v0.1.0 names the members but no stream literal'
+    terraform:
+      attribute: data_sources.iis_log
+      values:
+        true: { expr: '{ name = <name>, streams = ["Microsoft-W3CIISLog"] }' }
+        false: null
+      note: 'a block (written without =), log_directories optional; false renders none; a data_flow carries the stream (source: azurerm 5.12 docs)'
+    bicep_avm:
+      module: avm/res/insights/data-collection-rule
+      attribute: dataCollectionRuleProperties.dataSources.iisLogs
+      values:
+        true: { expr: "[ { name: <name>, streams: [ 'Microsoft-W3CIISLog' ] } ]" }
+        false: null
+      note: 'logDirectories optional; false renders no entry; a dataFlows entry carries the stream (source: module README 0.11.0, IIS example)'
+    bicep:
+      gap: "true renders one properties.dataSources.iisLogs[] { name, streams } entry (bicep build, @2023-03-11), false none - streams is a plain string array in the type, the stream literal is not provable by a build"
+  data_sources.custom_text_logs:
+    terraform_avm:
+      attribute: 'data_sources.log_files[] { file_patterns, format = "text", streams, settings.text.record_start_timestamp_format }'
+      module: Azure/avm-res-insights-datacollectionrule/azurerm
+      note: plus stream_declarations; needs the endpoint
+    terraform:
+      attribute: 'data_sources.log_file { name, streams, file_patterns, format, settings { text { record_start_timestamp_format } } }'
+      note: 'plus stream_declaration { stream_name, column { name, type } }'
+    bicep_avm:
+      attribute: 'dataCollectionRuleProperties.dataSources.logFiles[]'
+      module: avm/res/insights/data-collection-rule
+      note: plus streamDeclarations
+    bicep: { attribute: properties.dataSources.logFiles }
+  data_sources.extensions:
+    terraform_avm:
+      attribute: 'data_sources.extensions[], data_sources.prometheus_forwarder[]'
+      module: Azure/avm-res-insights-datacollectionrule/azurerm
+      note: DependencyAgent, ContainerInsights are extensions; settings from dcr/<extension>.json
+    terraform: { attribute: 'data_sources.extension { }, data_sources.prometheus_forwarder { }' }
+    bicep_avm:
+      attribute: 'dataCollectionRuleProperties.dataSources.extensions[], dataCollectionRuleProperties.dataSources.prometheusForwarder[]'
+      module: avm/res/insights/data-collection-rule
+      note: settings from loadJsonContent('dcr/<extension>.json')
+    bicep: { attribute: 'properties.dataSources.extensions, properties.dataSources.prometheusForwarder' }
+  data_sources.stream_declarations:
+    terraform_avm:
+      attribute: 'stream_declarations = { "Custom-X_CL" = { columns } }'
+      module: Azure/avm-res-insights-datacollectionrule/azurerm
+      note: columns from jsondecode(file("dcr/<stream>.json"))
+    terraform: { attribute: 'stream_declaration { stream_name, column { name, type } }' }
+    bicep_avm:
+      attribute: dataCollectionRuleProperties.streamDeclarations
+      module: avm/res/insights/data-collection-rule
+      note: columns from loadJsonContent('dcr/<stream>.json')
+    bicep: { attribute: properties.streamDeclarations }
+  data_sources.transformations:
+    terraform_avm:
+      attribute: 'data_flows[].transform_kql, data_flows[].output_stream'
+      module: Azure/avm-res-insights-datacollectionrule/azurerm
+      note: transform_kql = file("${path.module}/dcr/<name>.kql") - content, never inline
+    terraform: { attribute: 'data_flow { streams, destinations, transform_kql, output_stream }' }
+    bicep_avm:
+      attribute: 'dataCollectionRuleProperties.dataFlows[].transformKql, dataCollectionRuleProperties.dataFlows[].outputStream'
+      module: avm/res/insights/data-collection-rule
+      note: transformKql = loadTextContent('dcr/<name>.kql')
+    bicep: { attribute: 'properties.dataFlows[].transformKql, properties.dataFlows[].outputStream' }
+
+  # ------------------------------------------------------------- destinations
+  destinations.workspace:
+    terraform_avm: { attribute: 'destinations.log_analytics[] = { name, workspace_resource_id }', module: Azure/avm-res-insights-datacollectionrule/azurerm }
+    terraform: { attribute: 'destinations.log_analytics { name, workspace_resource_id }' }
+    bicep_avm: { attribute: 'dataCollectionRuleProperties.destinations.logAnalytics[] = { name, workspaceResourceId }', module: avm/res/insights/data-collection-rule }
+    bicep: { attribute: 'properties.destinations.logAnalytics[] = { name, workspaceResourceId }' }
+  destinations.azure_monitor_metrics:
+    terraform_avm:
+      attribute: destinations.azure_monitor_metrics.name
+      values: { true: metrics, false: null }
+      also:
+        true: 'data_flows += { streams = ["Microsoft-InsightsMetrics"], destinations = ["metrics"] }'
+      module: Azure/avm-res-insights-datacollectionrule/azurerm
+      note: false renders neither the destination nor the data flow
+    terraform:
+      attribute: destinations.azure_monitor_metrics.name
+      values: { true: metrics, false: null }
+      also:
+        true: 'data_flow { streams = ["Microsoft-InsightsMetrics"], destinations = ["metrics"] }'
+      note: false renders no azure_monitor_metrics block and no data flow
+    bicep_avm:
+      attribute: dataCollectionRuleProperties.destinations.azureMonitorMetrics.name
+      values: { true: metrics, false: null }
+      also:
+        true: "dataFlows += { streams: ['Microsoft-InsightsMetrics'], destinations: ['metrics'] }"
+      module: avm/res/insights/data-collection-rule
+      note: false renders neither the destination nor the data flow
+    bicep:
+      attribute: properties.destinations.azureMonitorMetrics.name
+      values: { true: metrics, false: null }
+      also:
+        true: "properties.dataFlows += { streams: ['Microsoft-InsightsMetrics'], destinations: ['metrics'] }"
+      note: false renders neither the destination nor the data flow
+  destinations.archive_to_storage:
+    terraform_avm: { gap: 'AgentDirectToStore only, which the module''s kind validation refuses; authored destinations.storage_blob_direct' }
+    terraform:
+      attribute: destinations.storage_blob_direct
+      values:
+        true: { expr: '{ name = <name>, storage_account_id = {destinations.storage_account}, container_name = <container_name> }' }
+        false: null
+      note: a block (written without =); false renders none; AgentDirectToStore
+    bicep_avm: { gap: 'not carried by 0.11.0 (AgentDirectToStore is not a variant); authored destinations.storageBlobsDirect[]' }
+    bicep:
+      attribute: properties.destinations.storageBlobsDirect
+      values:
+        true: { expr: '[ { name: <name>, storageAccountResourceId: {destinations.storage_account}, containerName: <container_name> } ]' }
+        false: null
+      note: 'false renders none; AgentDirectToStore (source: bicep build, Microsoft.Insights/dataCollectionRules@2023-03-11)'
+  destinations.storage_account:
+    terraform_avm: { gap: 'AgentDirectToStore only, which the module''s kind validation refuses; authored destinations.storage_blob_direct.storage_account_id' }
+    terraform: { attribute: destinations.storage_blob_direct.storage_account_id }
+    bicep_avm: { gap: 'not carried by 0.11.0 (AgentDirectToStore is not a variant); authored destinations.storageBlobsDirect[]' }
+    bicep: { attribute: 'properties.destinations.storageBlobsDirect[].storageAccountResourceId' }
+  destinations.forward_to_event_hub:
+    terraform_avm: { gap: 'AgentDirectToStore only, which the module''s kind validation refuses; authored destinations.event_hub_direct' }
+    terraform:
+      attribute: destinations.event_hub_direct
+      values:
+        true: { expr: '{ name = <name>, event_hub_id = {destinations.event_hub} }' }
+        false: null
+      note: a block (written without =); false renders none; AgentDirectToStore
+    bicep_avm: { gap: 'not carried by 0.11.0 (AgentDirectToStore is not a variant); authored destinations.eventHubsDirect[]' }
+    bicep:
+      attribute: properties.destinations.eventHubsDirect
+      values:
+        true: { expr: '[ { name: <name>, eventHubResourceId: {destinations.event_hub} } ]' }
+        false: null
+      note: 'false renders none; AgentDirectToStore (source: bicep build, Microsoft.Insights/dataCollectionRules@2023-03-11)'
+  destinations.event_hub:
+    terraform_avm: { gap: 'AgentDirectToStore only, which the module''s kind validation refuses; authored destinations.event_hub_direct.event_hub_id' }
+    terraform: { attribute: destinations.event_hub_direct.event_hub_id }
+    bicep_avm: { gap: 'not carried by 0.11.0 (AgentDirectToStore is not a variant); authored destinations.eventHubsDirect[]' }
+    bicep: { attribute: 'properties.destinations.eventHubsDirect[].eventHubResourceId' }
+
+  # ----------------------------------------------------------------- endpoint
+  endpoint.endpoint:
+    terraform_avm:
+      attribute: data_collection_endpoint_id
+      values:
+        none: { expr: 'null' }
+        create: { expr: module.data_collection_endpoint.resource_id }
+        reference: { expr: '{endpoint.endpoint_id}' }
+      module: Azure/avm-res-insights-datacollectionrule/azurerm
+      note: create also calls the endpoint module, its kind the rule's
+    terraform:
+      attribute: data_collection_endpoint_id
+      values:
+        none: null
+        create: { expr: azurerm_monitor_data_collection_endpoint.this.id }
+        reference: { expr: '{endpoint.endpoint_id}' }
+      note: create authors azurerm_monitor_data_collection_endpoint { kind, public_network_access_enabled }
+    bicep_avm:
+      attribute: dataCollectionRuleProperties.dataCollectionEndpointResourceId
+      values:
+        none: null
+        create: { expr: dataCollectionEndpoint.outputs.resourceId }
+        reference: { expr: '{endpoint.endpoint_id}' }
+      module: avm/res/insights/data-collection-rule
+      note: create also calls the endpoint module, its kind the rule's
+    bicep:
+      attribute: properties.dataCollectionEndpointId
+      values:
+        none: null
+        create: { expr: dataCollectionEndpoint.id }
+        reference: { expr: '{endpoint.endpoint_id}' }
+      note: create authors Microsoft.Insights/dataCollectionEndpoints@2023-03-11 with kind
+  endpoint.endpoint_id:
+    terraform_avm: { attribute: data_collection_endpoint_id, module: Azure/avm-res-insights-datacollectionrule/azurerm }
+    terraform: { attribute: data_collection_endpoint_id }
+    bicep_avm: { attribute: dataCollectionRuleProperties.dataCollectionEndpointResourceId, module: avm/res/insights/data-collection-rule }
+    bicep: { attribute: properties.dataCollectionEndpointId }
+
+  # ------------------------------------------------------------- associations
+  associations.associations:
+    terraform_avm: { gap: 'not carried by either module; azurerm_monitor_data_collection_rule_association per machine in the root, plus one named configurationAccessEndpoint when there is an endpoint' }
+    terraform:
+      attribute: azurerm_monitor_data_collection_rule_association.target_resource_id
+      note: one per machine, plus configurationAccessEndpoint (endpoint id, no rule) when there is an endpoint
+    bicep_avm: { gap: 'not carried; Microsoft.Insights/dataCollectionRuleAssociations with scope: the machine, plus one named configurationAccessEndpoint' }
+    bicep:
+      attribute: Microsoft.Insights/dataCollectionRuleAssociations scope
+      note: 'Microsoft.Insights/dataCollectionRuleAssociations@2023-03-11; an existing reference to the machine, one association each; plus configurationAccessEndpoint when there is an endpoint'
+
+  # --------------------------------------------------------------- networking
+  networking.endpoint_public_access:
+    terraform_avm:
+      attribute: public_network_access
+      values: { disabled: Disabled, enabled: Enabled }
+      module: Azure/avm-res-insights-datacollectionendpoint/azurerm
+      note: a string; module default Enabled, the Bicep module's Disabled - written
+    terraform:
+      attribute: azurerm_monitor_data_collection_endpoint.public_network_access_enabled
+      values: { disabled: false, enabled: true }
+      note: a bool on the resource
+    bicep_avm:
+      attribute: publicNetworkAccess
+      values: { disabled: Disabled, enabled: Enabled }
+      module: avm/res/insights/data-collection-endpoint
+      note: module default 'Disabled', the Terraform module's Enabled - written
+    bicep:
+      attribute: Microsoft.Insights/dataCollectionEndpoints properties.networkAcls.publicNetworkAccess
+      values: { disabled: Disabled, enabled: Enabled }
+  networking.private_link_scope:
+    terraform_avm: { gap: 'not carried by either module (READMEs v0.1.0, v0.2.0 have no input); authored azurerm_monitor_private_link_scoped_service in the root, linking the endpoint' }
+    terraform:
+      attribute: azurerm_monitor_private_link_scoped_service.scope_name
+      note: 'the scope''s name (resource_group_name its group), not its id; linked_resource_id = the endpoint''s id - the provider allows a data collection endpoint, not the rule (source: azurerm 5.12 schema, docs)'
+    bicep_avm: { gap: not carried; authored Microsoft.Insights/privateLinkScopes/scopedResources with the scope as parent }
+    bicep: { gap: a Microsoft.Insights/privateLinkScopes/scopedResources with the scope as parent; the reference names none of its properties }
+
+  # ----------------------------------------------------------------- identity
+  identity.managed_identity:
+    terraform_avm:
+      attribute: managed_identities
+      values:
+        system_assigned: { expr: '{ system_assigned = true }' }
+        user_assigned: { expr: '{ user_assigned_resource_ids = [{identity.user_assigned_identity_id}] }' }
+        none: { expr: '{}' }
+      module: Azure/avm-res-insights-datacollectionrule/azurerm
+    terraform:
+      attribute: identity.type
+      values: { none: null, system_assigned: SystemAssigned, user_assigned: UserAssigned }
+      note: 'none renders no identity block (source: azurerm 5.12 docs)'
+    bicep_avm:
+      attribute: managedIdentities
+      values:
+        system_assigned: { expr: '{ systemAssigned: true }' }
+        user_assigned: { expr: '{ userAssignedResourceIds: [{identity.user_assigned_identity_id}] }' }
+        none: null
+      module: avm/res/insights/data-collection-rule
+      note: none leaves the parameter out
+    bicep:
+      gap: 'the top-level identity { type, userAssignedIdentities } (bicep build, @2023-03-11); none renders none - type is a plain string in the type, the literals are not provable by a build'
+  identity.user_assigned_identity_id:
+    terraform_avm: { attribute: managed_identities.user_assigned_resource_ids, module: Azure/avm-res-insights-datacollectionrule/azurerm, note: 'a set - [<id>]' }
+    terraform: { attribute: identity.identity_ids, note: 'a list - [<id>]' }
+    bicep_avm: { attribute: managedIdentities.userAssignedResourceIds, module: avm/res/insights/data-collection-rule, note: 'an array - [<id>]' }
+    bicep:
+      attribute: identity.userAssignedIdentities
+      note: "an object keyed by the id: { '${<id>}': {} } (source: bicep build, Microsoft.Insights/dataCollectionRules@2023-03-11)"
+
+  # ------------------------------------------------------------ observability
+  observability.diagnostic_workspace:
+    terraform_avm:
+      attribute: 'diagnostic_settings.<key>.workspace_resource_id'
+      module: Azure/avm-res-insights-datacollectionrule/azurerm
+      note: no metrics on the type - metric_categories = []
+    terraform:
+      attribute: azurerm_monitor_diagnostic_setting.log_analytics_workspace_id
+      note: 'target_resource_id = the rule id (source: azurerm 5.12 schema)'
+    bicep_avm: { gap: 'no diagnosticSettings parameter on the rule module; authored Microsoft.Insights/diagnosticSettings with scope: the rule' }
+    bicep:
+      attribute: Microsoft.Insights/diagnosticSettings properties.workspaceId
+      note: 'scope: an existing reference to the rule (source: bicep build, Microsoft.Insights/diagnosticSettings@2021-05-01-preview)'
+  observability.diagnostic_categories:
+    terraform_avm:
+      attribute: 'diagnostic_settings.<key>.log_categories'
+      module: Azure/avm-res-insights-datacollectionrule/azurerm
+      note: log_groups = [] beside it
+    terraform: { attribute: 'azurerm_monitor_diagnostic_setting.enabled_log { category }' }
+    bicep_avm: { gap: 'no diagnosticSettings parameter on the rule module; authored Microsoft.Insights/diagnosticSettings with scope: the rule' }
+    bicep: { attribute: 'Microsoft.Insights/diagnosticSettings properties.logs[].category', note: 'enabled: true on each' }

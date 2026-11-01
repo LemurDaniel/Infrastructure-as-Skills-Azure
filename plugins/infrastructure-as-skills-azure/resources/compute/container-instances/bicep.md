@@ -19,19 +19,12 @@ Resolve the current version and re-read the README parameters before rendering, 
 
 ### Decision -> module parameter
 
+What each decision renders to - the parameter and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.
+
+Deployment-wide parameters, not decisions of this set:
+
 | Decision | Parameter | Note |
 |---|---|---|
-| `container_image`, `cpu`, `memory_in_gb`, `exposed_ports` | `containers: [ { name, properties: { image, ports, resources: { requests: { cpu, memoryInGB } } } } ]` | `cpu` an integer, `memoryInGB` a **string** |
-| `restart_policy` | `restartPolicy` | Default **`'Always'`**; written |
-| `availability_zone` | `availabilityZone` | **Required**; `-1` for `none`, else `1`, `2`, `3` |
-| `ip_address_type` | `ipAddress: { type: 'Private' / 'Public', ports }` | The module sends `Public` when `ipAddress` is given without a type; written |
-| `subnet_id` | `subnets: [ { subnetResourceId } ]` | |
-| `exposed_ports` | `ipAddress.ports: [ { port, protocol } ]` and the container's `ports` | Both lists must agree |
-| `managed_identity`, `user_assigned_identity_ids` | `managedIdentities: { userAssignedResourceIds }` | |
-| `registry_login_server` | `imageRegistryCredentials: [ { server, identity } ]` | `identity` is the identity's resource id - never `username` / `password` |
-| `key_management`, `cmk_key_vault_key_id` | `customerManagedKey: { keyVaultResourceId, keyName, userAssignedIdentityResourceId }` | The module resolves the current key version at deployment (rotation unsupported by the service) |
-| `diagnostic_workspace`, `log_type` | `logAnalytics: { workspaceResourceId, logType }` | `'ContainerInstanceLogs'` or `'ContainerInsights'`; the module reads the shared key itself |
-| `role_assignments` | none | **No parameter**: a `Microsoft.Authorization/roleAssignments` resource beside the module, scoped to the group |
 | `deployment.resource_lock` | none | Compute carries no lock |
 | `deployment.module_telemetry` | `enableTelemetry` | |
 | `context.tags` | `tags` | |
@@ -125,20 +118,12 @@ definition id, not a name). The member names are read from the README of the pin
 ### Tests
 
 A module call compiles to a nested deployment whose `properties.parameters.<param>.value` is
-the decision, so every decision above is observable in `tests/*.armtest.yaml`
+the decision, so every decision in render-map.yaml is observable in `tests/*.armtest.yaml`
 ([bicep-idiom.md](../../../core/iac-rendering/references/bicep-idiom.md#tests)); the role
 assignment is a plain resource and is asserted on its own entry.
 
 ## Authored rendering
 
-The fallback. `Microsoft.ContainerInstance/containerGroups` with `identity` and `properties`:
+The fallback. `Microsoft.ContainerInstance/containerGroups` with `identity` and `properties`.
 
-| Decision | Property |
-|---|---|
-| `container_image`, `cpu`, `memory_in_gb`, `exposed_ports` | `properties.containers[].properties: { image, ports, resources.requests: { cpu, memoryInGB } }` |
-| `restart_policy`, `availability_zone` | `properties.restartPolicy`, `zones` |
-| `ip_address_type`, `subnet_id` | `properties.ipAddress: { type, ports }`, `properties.subnetIds` |
-| `managed_identity` | `identity: { type, userAssignedIdentities }` |
-| `registry_login_server` | `properties.imageRegistryCredentials[]: { server, identity }` |
-| `key_management` | `properties.encryptionProperties: { vaultBaseUrl, keyName, keyVersion, identity }` |
-| `diagnostic_workspace`, `log_type` | `properties.diagnostics.logAnalytics: { workspaceId, workspaceKey, logType }` |
+What each decision renders to - the property and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.

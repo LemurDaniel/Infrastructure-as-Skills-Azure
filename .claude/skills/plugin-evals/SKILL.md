@@ -105,6 +105,9 @@ it for an order a good run always shows (spec written, then the diagram skill), 
 the call's whole serialized input, file content included: anchor a path check on
 `file_path[^,]*` so a spec that mentions `main.tf` does not count as code. `focus` and
 `target` take `last_message`, `trace`, `files`, `mock_calls` or `{source: file, path}`.
+`files` is the list of paths the run created, never their contents: a content check reads
+`{source: file, path}` (no glob), and "never written, in any file" is `tool_used` on `Write`
+and `Edit` with `max: 0`, where a quote in the code reads as `\"`.
 
 **Per case, one grader on the process:** `tool_used` on `Skill` with
 `input_match: iac-authoring`. It is an indicator, excluded from the score against the
@@ -133,9 +136,9 @@ A first look — one run per case, no baseline arm, in parallel:
 & $claude plugin eval plugins/infrastructure-as-skills-azure --trust-plugin --no-publish --runs 1 --ablation none -j 3 --allow-tools Write Edit --keep-temp --json <scratch>/eval.json
 ```
 
-The full measurement is the default: each case's own `runs:` (4, and 2 for the four cases
-costing about $3 or more on Sonnet - the evals README names them) and the no-plugin arm,
-so 32 agent runs per arm for the 10 cases; the run before a merge drops the arm
+The full measurement is the default: each case's own `runs:` (4, and 2 for the six cases
+costing about $2 or more on Sonnet - the evals README names them) and the no-plugin arm,
+so 44 agent runs per arm for the 14 cases; the run before a merge drops the arm
 (`--ablation none`). Never pass `--runs` for it: it overrides every case's own value. A new
 case starts at `runs: 4` and drops to 2 only when a measured run shows it that costly.
 Start it in the background and say what it costs before starting it.
@@ -179,7 +182,7 @@ except `out/` and `config/` may be agent-written: read files, never run git or a
 loads configuration from inside it, and remove the directories when done — the run prints
 the exact `Remove-Item` line.
 
-**In CI, by hand only** `.github/workflows/plugin-evals.yml` (`workflow_dispatch`, Sonnet at
+**In CI, by hand only** `.github/workflows/eval.plugin.yaml` (`workflow_dispatch`, Sonnet at
 low effort by default) runs the suite on a Linux runner, one case per call with progress in
 the log, report only, and `record_eval_history.py` writes the run to the `eval-history`
 branch (version, model, trigger, pass rates; the full result beside it). There is no

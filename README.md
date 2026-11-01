@@ -15,9 +15,13 @@
 > **Terraform or Bicep is not required, but recommended.** The plugin writes the code without the CLI, but then it cannot run `fmt`, `validate`, `terraform test` or `bicep build` against it. The render is handed over marked as unverified.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Evals on Sonnet](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/LemurDaniel/Infrastructure-as-Skills-Azure/ffbb421a338376bb5ed336ca97e5cacb9b54ebb7/badge-sonnet.json)](https://github.com/LemurDaniel/Infrastructure-as-Skills-Azure/blob/ffbb421a338376bb5ed336ca97e5cacb9b54ebb7/README.md)
+[![Evals on Sonnet](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/LemurDaniel/Infrastructure-as-Skills-Azure/8e1bd6c30aa07bcfbc854dbb002c76f369d389da/badge-sonnet.json)](https://github.com/LemurDaniel/Infrastructure-as-Skills-Azure/blob/8e1bd6c30aa07bcfbc854dbb002c76f369d389da/README.md)
 
 A Claude Code plugin that authors Azure infrastructure as **Terraform or Bicep** from the decisions a resource actually forces - compute, network, data, security, messaging, integration, AI and recovery, 67 resource types in ten families. Not a module library and not a template collection. The interview writes an `infra-spec.yaml`; the code, its tests, a diagram and a decision document are rendered from that, onto [Azure Verified Modules](https://azure.github.io/Azure-Verified-Modules/) first.
+
+![A 34-second teaser of a run: the request, the interview, the spec with where each decision came from, the diagram sign-off, the render with one test per decision](docs/teaser.gif)
+
+<sub>🤖 AI-generated teaser, animated from [`docs/teaser.html`](docs/teaser.html). Every figure in it is counted from the [`chat-sandbox`](examples/chat-sandbox/) example.</sub>
 
 ## 💡 The Idea
 
@@ -171,7 +175,6 @@ groups:
         why: >
           One posture per system. A resource that re-asks it carries the
           deployment's answer instead of a default of its own.
-        renders: azurerm_storage_account.public_network_access / properties.publicNetworkAccess
 ```
 
 | Group | Decides |
@@ -215,7 +218,7 @@ open:
     blocks: apply             # a placeholder in the stage file until answered
 ```
 
-The spec names **decisions, never a backend's attribute spelling**: `public_network_access: disabled`, not `public_network_access_enabled: false`. The mapping to an attribute lives in the question's `renders` field and in each target's rendering reference. Module coordinates and versions stay in the renderer, never in the spec.
+The spec names **decisions, never a backend's attribute spelling**: `public_network_access: disabled`, not `public_network_access_enabled: false`. The mapping to an attribute and its literal lives in the resource's `render-map.yaml`, per target and implementation, with the rendering references for what cannot be data. Module coordinates and versions stay in the renderer, never in the spec.
 
 ```
 infra-spec.yaml ──> module "storage" { source = "Azure/avm-res-storage-storageaccount/azurerm" ... }

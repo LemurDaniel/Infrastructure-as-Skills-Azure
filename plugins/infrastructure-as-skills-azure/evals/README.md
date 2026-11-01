@@ -20,12 +20,12 @@ grouping costs nothing; a case's `prompt.md` reaches the plugin with `plugins: [
 
 | Group | Grades | Cases |
 |---|---|---|
-| `spec/` | The interview's output, `infra/infra-spec.yaml` | `vague-public-dev`, `requirements-stated` |
+| `spec/` | The interview's output, `infra/infra-spec.yaml` | `vague-public-dev`, `requirements-stated`, `platform-workspace-reference` |
 | `diagram/` | What the spec carries for the picture | `diagram-*` |
 | `trigger/` | That a request triggers the plugin at all | `trigger-workload-request` |
 | `language/` | The language of the person is the language of everything said to them | `language-en-request`, `language-en-first-question` |
 | `sync/` | The version gate and the CLAUDE.md section in a repository that already holds a spec (scaffolded) | `plugin-newer-halts`, `claude-md-section-replaced` |
-| `render/` | The code the render writes, for the few rules a spec cannot show | `bicep-secret-placeholder-once`, `app-code-untouched`, `bicep-rerender-keeps-names` |
+| `render/` | The code the render writes, for the few rules a spec cannot show | `bicep-secret-placeholder-once`, `app-code-untouched`, `bicep-rerender-keeps-names`, `terraform-code-structure`, `terraform-existing-reference` |
 
 ## The cases
 
@@ -36,10 +36,13 @@ most different situations rather than three variations of one:
 |---|---|---|---|---|---|---|
 | `vague-public-dev` | Terraform | development | public | none | reference | **Missing information** |
 | `requirements-stated` | Terraform | production | - | - | - | All five customer requirements in plain words, none at its default; the access tier derives |
+| `platform-workspace-reference` | Terraform | - | - | - | reference | The platform's workspace **named without its id**: `{ existing: log_analytics_workspace }`, the id an open entry whose question carries the name, no name or invented id as the value |
 | `diagram-no-invented-lines` | Bicep | staging | - | - | - | Three resources, **no call named**: no line may be invented |
 | `bicep-secret-placeholder-once` | Bicep | development | public | none | - | Spec and diagram already signed off, Bicep asked: each secret placeholder carries `@onlyIfNotExists()`, no lookup of existing secrets, no secret value as a parameter |
 | `app-code-untouched` | Bicep | development | public | none | - | Spec signed off, a .NET app beside it reads another key than the render outputs: no Write or Edit on `.cs`/`.csproj`, the mismatch named in the hand-over |
 | `bicep-rerender-keeps-names` | Bicep | development | public | none | deployed root | A deployed root whose Key Vault name predates `<LOCATION>` in its pattern, re-rendered for an unrelated change: the name stays and `naming_convention` stays `default`; the `naming.yaml` pin is a script's, tested by `run_naming_tests.py` |
+| `terraform-code-structure` | Terraform | development | public | none | - | Spec signed off, Terraform with tests asked: every file carries the comment structure (header, 75-character banners, the root's contents in `providers.tf`, numbered steps over sections) and the `# decision:` comments stay above their asserts |
+| `terraform-existing-reference` | Terraform | development, production | public | none | reference | Spec signed off, its workspace `{ existing: ... }` with the development id and production open: an id variable validated on the type, the id in `development.tfvars`, a placeholder in `production.tfvars`, no data source, no name variable, no mocked workspace |
 | `plugin-newer-halts` | Terraform | development | public | none | - | The spec carries `plugin_version: 99.0.0`: the run halts, changes and writes nothing, and says to update the plugin |
 | `claude-md-section-replaced` | Terraform | development | public | none | - | A CLAUDE.md with an older plugin section (no rev) between the team's own text: replaced, once, team text intact, the spec stamped |
 
@@ -99,7 +102,7 @@ messages as German) and costs about half a cent per verdict; the agent runs are 
 ## In CI
 
 The suite is judged before a merge, on Sonnet at low effort (four runs per case, about
-$15-25; repo skill `git-commit-conventions`, section 5). `.github/workflows/plugin-evals.yml`
+$15-25; repo skill `git-commit-conventions`, section 5). `.github/workflows/eval.plugin.yaml`
 runs the same on a Linux runner, by hand (`workflow_dispatch`): one case per call, so the log
 says which case it is on and how long the rest will take, the results merged by
 `merge_eval_results.py`, report only. There is no pull-request run. One was tried on Haiku:
@@ -115,9 +118,9 @@ the same model.
 ## Keeping outputs good on the same scenarios
 
 `runs:` in each case's `prompt.md` is the consistency measurement, the same on every model:
-4 per case, and 2 for the four cases that cost about $3 or more per suite on Sonnet
-(`diagram-no-invented-lines`, `language-en-request`, `requirements-stated`,
-`vague-public-dev`) - halved for cost, accepting that they can only read 0, 50 or 100%. No
+4 per case, and 2 for the six cases that cost about $2 or more per suite on Sonnet
+(`diagram-no-invented-lines`, `language-en-request`, `requirements-stated`, `vague-public-dev`,
+`terraform-code-structure`, `terraform-existing-reference`) - halved for cost, accepting that they can only read 0, 50 or 100%. No
 `--runs` on the command line: it overrides every case's own value. A
 grader that passes in some runs but not all is a decision the plugin does not pin down. Three runs were too few - a case could only
 read 0, 33, 67 or 100%, and one run decided between "unstable" and "fine". Read those first — they are where a

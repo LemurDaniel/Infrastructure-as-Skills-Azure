@@ -47,6 +47,7 @@ sys.path.insert(0, os.path.join(HERE, '..', '..', 'iac-rendering', 'scripts'))
 import rg_roles  # noqa: E402 - the role table per scheme (deployment.resource_group_scheme)
 sys.path.insert(0, HERE)
 import spec_source  # noqa: E402 - a source as a word or {forced_by | derived_from | overridden: ...}
+import spec_ref  # noqa: E402 - a reference as {resource: <key>} or {existing: <kind>}
 
 LABELS = {
     'en': {
@@ -79,7 +80,7 @@ LABELS = {
         'owner': 'needed from', 'blocks': 'blocks', 'assumed': 'Placeholders',
         'assumed_intro': 'Values the run chose to keep going. They are not decisions yet.',
         'appendix': 'Appendix: every decision', 'key': 'Key', 'value': 'Value', 'source': 'Source',
-        'none': 'none', 'nobody': 'nobody yet', 'yes': 'yes', 'no': 'no', 'fallback': '(en)',
+        'none': 'none', 'nobody': 'nobody yet', 'existing': 'existing, its id still open', 'yes': 'yes', 'no': 'no', 'fallback': '(en)',
         'sources': {'stated': 'your description', 'asked': 'your answer', 'platform': 'the landing zone',
                     'pattern': 'the pattern', 'requirement': 'derived from your answer', 'deployment': 'inherited',
                     'forced': 'forced', 'assumed': 'placeholder', 'default': 'rule', 'carried': 'carried',
@@ -115,7 +116,7 @@ LABELS = {
         'owner': 'gebraucht von', 'blocks': 'blockiert', 'assumed': 'Platzhalter',
         'assumed_intro': 'Werte, die der Lauf angenommen hat, um weiterzukommen. Das sind noch keine Entscheidungen.',
         'appendix': 'Anhang: alle Entscheidungen', 'key': 'Schlüssel', 'value': 'Wert', 'source': 'Quelle',
-        'none': 'keine', 'nobody': 'noch niemand', 'yes': 'ja', 'no': 'nein', 'fallback': '(en)',
+        'none': 'keine', 'nobody': 'noch niemand', 'existing': 'bestehend, ID noch offen', 'yes': 'ja', 'no': 'nein', 'fallback': '(en)',
         'sources': {'stated': 'eure Beschreibung', 'asked': 'eure Antwort', 'platform': 'die Landing Zone',
                     'pattern': 'das Muster', 'requirement': 'abgeleitet aus eurer Antwort', 'deployment': 'übernommen',
                     'forced': 'erzwungen', 'assumed': 'Platzhalter', 'default': 'Regel', 'carried': 'übernommen',
@@ -203,6 +204,11 @@ class Renderer:
             if not value:
                 return self.L['none']
             return ', '.join(self.value_words(q, v) for v in value)
+        if spec_ref.is_ref(value):
+            # a resource of this spec by its key, a part as "part (key)", an existing one by its name
+            if 'resource' in value:
+                return f"{value['part']} ({value['resource']})" if value.get('part') else str(value['resource'])
+            return spec_ref.label(value) or self.L['existing']
         if isinstance(value, dict):
             # a role granted to a principal, a subnet handed to a service, a role on a scope: pairs read as "who (what)"
             for who, what in (('principal', 'role'), ('subnet', 'service'), ('role', 'scope')):

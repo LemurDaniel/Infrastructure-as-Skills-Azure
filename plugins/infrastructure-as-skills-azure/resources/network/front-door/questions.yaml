@@ -36,9 +36,6 @@ groups:
         why: >
           Drives the rendered name and the strictness of several defaults below. Nothing
           sensible can be guessed.
-        renders: >
-          naming parameter `environment`, and the tag of that name where the repository uses
-          one
 
       - id: location
         ask:
@@ -54,8 +51,6 @@ groups:
           profile object itself is created as `global`. The context's region still goes into
           the rendered name and the metadata of the resource group, and a diagnostic
           workspace is regional. Not asked: it takes the context value.
-        renders: >
-          location (`global` on the profile)
 
       - id: resource_group_name
         ask:
@@ -71,7 +66,6 @@ groups:
         why: >
           The profile is placed into an existing group. In a split deployment it belongs to
           the `network` role, with the other edge components.
-        renders: resource_group_name (AVM Terraform) / implicit in Bicep scope
 
   - id: profile
     title: The profile
@@ -100,8 +94,6 @@ groups:
           the edge needs Premium; so does one that wants managed rules. The Terraform module
           defaults to `Standard_AzureFrontDoor`, the Bicep module has no default. Cannot be
           lowered from Premium to Standard in place.
-        renders: >
-          sku / sku.name (`Standard_AzureFrontDoor`, `Premium_AzureFrontDoor`)
 
       - id: response_timeout_seconds
         ask:
@@ -117,7 +109,6 @@ groups:
           60**, so the value is written. 60 is the normal answer for an interactive system -
           a request that takes longer than a minute is a design problem - and 240 is the
           ceiling for a deliberate long-running call.
-        renders: response_timeout_seconds / originResponseTimeoutSeconds
 
       - id: managed_identity
         ask:
@@ -138,7 +129,6 @@ groups:
           through its managed identity instead of the shared first-party application, which
           is the form without a standing access policy. Without a customer certificate (the
           default is a certificate Front Door issues itself) no identity is needed.
-        renders: managed_identities / identity
 
       - id: user_assigned_identity_ids
         ask:
@@ -155,32 +145,42 @@ groups:
         why: >
           The identity that holds `Key Vault Secrets User` on the vault with the
           certificate, created by the identity set before the profile.
-        renders: >
-          managed_identities.user_assigned_resource_ids /
-          managedIdentities.userAssignedResourceIds
 
   - id: delivery
     title: Delivery
     questions:
       - id: origins
         ask:
-          en: "Which backends does Front Door route to?"
-          de: "Zu welchen Backends leitet Front Door weiter?"
+          en: "Which Azure resources does Front Door route to?"
+          de: "Zu welchen Azure-Ressourcen leitet Front Door weiter?"
         type: list
         plain:
           en: "Backends: {value}."
           de: "Backends: {value}."
+        accepts: { ref: resource }
+        default: []
+        why: >
+          Each entry is a backend in Azure: a resource of the deployment (an App Service, a
+          storage account's static website, an Application Gateway) or an existing one by its
+          id. A profile with no origin serves nothing, a valid first state. Origin groups,
+          health probes and routes are the wiring to the services behind and belong to the
+          pattern. A backend outside Azure is a host name, in origin_host_names.
+
+      - id: origin_host_names
+        ask:
+          en: "Which backends outside Azure does Front Door route to, by host name?"
+          de: "Zu welchen Backends außerhalb von Azure leitet Front Door weiter, per Hostname?"
+        type: list
+        plain:
+          en: "Backends outside Azure: {value}."
+          de: "Backends außerhalb von Azure: {value}."
         default: []
         per_environment: true
         why: >
-          Each entry is a backend of the deployment (an App Service, a storage account's
-          static website, an Application Gateway) or a host name, with the route pattern it
-          serves. A profile with no origin serves nothing, a valid first state. Origin
-          groups, health probes and routes are the wiring to the services behind and belong
-          to the pattern.
-        renders: >
-          front_door_origin_groups, front_door_origins, front_door_routes / originGroups,
-          afdEndpoints
+          A host name (`api.partner.example`) is no Azure resource and has no id, so it is not
+          a reference: it is a value per stage, since a partner's test and production
+          endpoints differ. Such an origin cannot take a private endpoint, which forces
+          `origin_connection: public` for it.
 
       - id: origin_connection
         ask:
@@ -206,9 +206,6 @@ groups:
           the backend (Premium), which can then be closed to the internet entirely. The
           connection arrives as *pending* and the backend's owner approves it - a step
           outside the template. `private` is the deployment's posture.
-        renders: >
-          front_door_origins.<k>.private_link /
-          originGroups[].origins[].sharedPrivateLinkResource
 
       - id: forwarding_protocol
         ask:
@@ -227,8 +224,6 @@ groups:
           `HttpsOnly` keeps the leg between the edge and the backend encrypted;
           `MatchRequest` forwards plain HTTP when the client used it. HTTPS only is the
           guardrails' default. The route default in the modules is `MatchRequest`.
-        renders: >
-          front_door_routes.<k>.forwarding_protocol / routes[].forwardingProtocol
 
       - id: https_redirect
         ask:
@@ -246,7 +241,6 @@ groups:
           A route setting (`https_redirect_enabled`) that sends an `http://` request to the
           `https://` address. On: Front Door accepts both protocols at the edge and a
           visitor who typed no scheme still ends encrypted.
-        renders: front_door_routes.<k>.https_redirect_enabled / routes[].httpsRedirect
 
       - id: caching
         ask:
@@ -268,7 +262,6 @@ groups:
           personalised responses (a cached page served to the wrong visitor). Off by
           default; on for a static site or assets, scoped by route. The query-string
           behaviour is part of the route.
-        renders: front_door_routes.<k>.cache / routes[].cacheConfiguration
 
       - id: custom_domains
         ask:
@@ -285,7 +278,6 @@ groups:
           record to prove ownership, an `open:` entry owned by the DNS team. Empty means the
           generated name only, which is fine for a test and wrong for a product. Domains
           need a minimum TLS version and a certificate source below.
-        renders: front_door_custom_domains / customDomains
 
       - id: certificate_source
         ask:
@@ -306,9 +298,6 @@ groups:
           - nothing to rotate, nothing to expire silently. `customer` is a certificate held
           in Key Vault, for a name Front Door cannot validate or a mandate that names the
           issuer; then the renewal is the owner's job and an expiry takes the site down.
-        renders: >
-          front_door_custom_domains.<k>.tls.certificate_type /
-          customDomains[].certificateType (`ManagedCertificate`, `CustomerCertificate`)
 
       - id: minimum_tls_version
         ask:
@@ -328,9 +317,6 @@ groups:
           1.2 is the guardrails' floor; the platform still accepts 1.0 on a custom domain,
           which is a named departure for a client that cannot be upgraded. TLS 1.3 needs no
           setting: the edge negotiates it. Written on every custom domain.
-        renders: >
-          front_door_custom_domains.<k>.tls.minimum_tls_version /
-          customDomains[].minimumTlsVersion
 
   - id: security
     title: Security
@@ -352,9 +338,6 @@ groups:
           every request before it reaches the backend, at the nearest edge. On by default
           for anything that faces the internet; off only for a profile whose backends are
           inspected elsewhere, named at this instance.
-        renders: >
-          front_door_firewall_policies + front_door_security_policies / a WAF policy module
-          + securityPolicies
 
       - id: waf_mode
         ask:
@@ -374,7 +357,6 @@ groups:
           `Prevention` blocks, `Detection` records and lets through. Detection is the mode
           to *learn* in, not to run in; moving there is a recorded, temporary departure with
           an owner, never a savings default.
-        renders: front_door_firewall_policies.<k>.mode / policySettings.mode
 
       - id: waf_managed_rules
         ask:
@@ -394,8 +376,6 @@ groups:
           bot protection rule set, both maintained by Microsoft. They need the **Premium**
           tier; Standard has only the custom rules and a rate limit. On with the firewall,
           and it is what makes Premium worth its price.
-        renders: >
-          front_door_firewall_policies.<k>.managed_rules / managedRules.managedRuleSets
 
       - id: waf_rate_limit_per_minute
         ask:
@@ -412,8 +392,6 @@ groups:
           one source costs the attacker and not the backend. 0 means no rule - a statement,
           not a default. 1000 per minute per address is a sound start for an interactive
           site; an API gateway sets its own figure.
-        renders: >
-          front_door_firewall_policies.<k>.custom_rules (RateLimitRule) / customRules.rules
 
   - id: observability
     title: Observability
@@ -433,7 +411,6 @@ groups:
         why: >
           Inherited: one deployment, one destination. Without a diagnostic setting the
           resource keeps no record anyone can query.
-        renders: diagnostic_settings / diagnosticSettings
 
       - id: diagnostic_categories
         ask:
@@ -455,9 +432,6 @@ groups:
           as the traffic; the other two are small. The names are the platform's. The names
           are the platform's and are checked against `az monitor diagnostic-settings
           categories list` for the resource before a render, not remembered.
-        renders: >
-          diagnostic_settings.<key>.logs[].category /
-          diagnosticSettings[].logCategoriesAndGroups[].category
 
       - id: metrics_enabled
         ask:
@@ -475,5 +449,4 @@ groups:
           Request count, origin health percentage (the number to alert on, because a backend
           that failed its probe silently leaves the pool), total latency, and WAF request
           counts.
-        renders: metrics[].category = "AllMetrics" / metricCategories[].category
 

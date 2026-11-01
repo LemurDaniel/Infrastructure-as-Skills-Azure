@@ -1,0 +1,121 @@
+# ---------------------------------------------------------------------------
+# Foundry model catalogue
+#   Monthly: regenerates resources/ai/foundry/models.yaml from the Azure model
+#   catalogue of the EU regions and opens a pull request into dev when it
+#   changed. The interview offers models from that file only, so a stale
+#   file is a stale interview. The version is raised when dev is released.
+#
+#   Azure Authentication via Workload Identity Federation (OIDC): the
+#   identity of the GitHub environment 'production' (eval-agent-infra.yaml)
+#   and its federated credential for the environment subject. The catalogue
+#   is read at subscription scope (Microsoft.CognitiveServices/locations/
+#   models/read); if a role on the resource group alone does not cover it,
+#   Reader on the subscription does. The job only reads Azure.
+#
+#   Required variables of the GitHub environment 'production':
+#     AZURE_CLIENT_ID         Client ID of the identity
+#     AZURE_TENANT_ID         Entra ID tenant
+#     AZURE_SUBSCRIPTION_ID   Subscription the catalogue is read in
+#
+#   Required repository setting:
+#     "Allow GitHub Actions to create and approve pull requests". A pull
+#     request opened with GITHUB_TOKEN starts no other workflow:
+#     check.pull-request.yaml runs once someone pushes to the branch or
+#     closes and reopens the pull request.
+# ---------------------------------------------------------------------------
+
+name: Foundry model catalogue
+
+on:
+  schedule:
+    - cron: '0 5 1 * *'   # on the 1st of each month, 05:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: foundry-models
+  cancel-in-progress: false
+
+env:
+  REGIONS: westeurope northeurope swedencentral germanywestcentral francecentral italynorth spaincentral polandcentral
+  MODELS: plugins/infrastructure-as-skills-azure/resources/ai/foundry/models.yaml
+  BRANCH: foundry-models-refresh
+
+defaults:
+  run:
+    shell: pwsh
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    environment: production
+    permissions:
+      contents: write        # pushes the refresh branch
+      pull-requests: write   # opens the pull request
+      id-token: write        # OIDC token for azure/login
+    steps:
+      # The schedule runs on master; the change belongs on dev.
+      - uses: actions/checkout@v7
+        with:
+          ref: dev
+          fetch-depth: 0
+
+      - uses: azure/login@v3
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Fetch the catalogue per region
+        run: |
+          $PSNativeCommandUseErrorActionPreference = $true
+          $CatalogueDir = "$env:RUNNER_TEMP/models"
+          $null = New-Item -Path $CatalogueDir -ItemType Directory -Force
+          foreach ($Region in $env:REGIONS -split ' ') {
+              az cognitiveservices model list --location $Region -o json | Set-Content -Path "$CatalogueDir/$Region.json"
+          }
+
+      - name: Write models.yaml
+        run: |
+          $PSNativeCommandUseErrorActionPreference = $true
+          pip install pyyaml
+          python3 .github/scripts/update_foundry_models.py "$env:RUNNER_TEMP/models"
+
+      # Only the retrieved date changed: nothing to release.
+      - name: Detect a change
+        id: diff
+        run: |
+          git diff --quiet -I '^retrieved:' -- $env:MODELS
+          $IsChanged = $LASTEXITCODE -NE 0
+          Add-Content -Path $env:GITHUB_OUTPUT -Value "changed=$($IsChanged.ToString().ToLower())"
+          exit 0
+
+      - name: Validate the question sets
+        if: steps.diff.outputs.changed == 'true'
+        run: python3 plugins/infrastructure-as-skills-azure/core/iac-authoring/scripts/check_question_set.py
+
+      # The pull request stays open until someone merges it; a newer run replaces it.
+      - name: Open the pull request
+        if: steps.diff.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $PSNativeCommandUseErrorActionPreference = $true
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git switch -C $env:BRANCH
+          git add $env:MODELS
+          git commit -m 'Refresh the Foundry model catalogue'
+          git push --force origin $env:BRANCH
+
+          $OpenPullRequests = gh pr list --head $env:BRANCH --state open --json number --jq '.[].number'
+          if ([System.String]::IsNullOrEmpty($OpenPullRequests)) {
+              $PullRequest = @(
+                  '--base', 'dev', '--head', $env:BRANCH
+                  '--title', 'Refresh the Foundry model catalogue'
+                  '--body', "Monthly refresh of ``resources/ai/foundry/models.yaml`` from the model catalogue of the EU regions ($env:REGIONS)."
+              )
+              gh pr create @PullRequest
+          }

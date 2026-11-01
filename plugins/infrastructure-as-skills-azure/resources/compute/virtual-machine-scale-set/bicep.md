@@ -19,27 +19,12 @@ module carries both orchestration modes, trusted launch and a metrics diagnostic
 
 ### Decision -> module parameter
 
+What each decision renders to - the parameter and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.
+
+Deployment-wide parameters, not decisions of this set:
+
 | Decision | Parameter | Note |
 |---|---|---|
-| `orchestration_mode` | `orchestrationMode: 'Flexible'` / `'Uniform'` | Default `'Flexible'`; written |
-| `os_type` | `osType` | Required |
-| `image` | `imageReference: { publisher, offer, sku, version: 'latest' }` | A gallery image: `imageReference: { id }` |
-| `size`, `instances` | `skuName` (required), `skuCapacity` (default 1) | Written |
-| `zones`, `zone_balance`, `fault_domain_count` | `availabilityZones: [ 1, 2, 3 ]`, `zoneBalance`, `scaleSetFaultDomain` | Defaults all three, `false`, 1; written |
-| `os_disk_storage`, `os_disk_size_gb`, `disk_encryption_set_id` | `osDisk: { createOption: 'FromImage', caching, deleteOption: 'Delete', diskSizeGB, managedDisk: { storageAccountType, diskEncryptionSet: { id } } }` | A raw API object, not a module type |
-| `upgrade_mode` | `upgradePolicyMode` | Default `'Manual'`; `'Rolling'` also sets the batch and unhealthy percentages (default 20 each) and `pauseTimeBetweenBatches`; written |
-| `health_check_*` | `extensionHealthConfig: { enabled: true, protocol, port, requestPath }` | Module default is enabled on port 80, `/`; written |
-| `instance_repair` | `automaticRepairsPolicyEnabled`, `gracePeriod` | Default on, `PT30M`; written |
-| `workload_subnet`, `load_balancer_backend_pool_ids`, `accelerated_networking` | `nicConfigurations: [ { nicSuffix, enableAcceleratedNetworking, ipConfigurations: [ { name, properties: { subnet: { id }, loadBalancerBackendAddressPools: [ { id } ] } } ] } ]` | `ipConfigurations` is a free array of API objects; no `publicIPAddressConfiguration` is no public IP |
-| `user_assigned_identity_ids` | `managedIdentities: { userAssignedResourceIds }` | A Flexible set takes no system-assigned identity |
-| `role_assignments` | `roleAssignments` | |
-| `trusted_launch` | `securityType: 'TrustedLaunch'`, `secureBootEnabled`, `vTpmEnabled` | Module defaults empty, `false`, `false`; written |
-| `encryption_at_host` | `encryptionAtHost` | Module default `true`; written |
-| `admin_username`, `password_authentication`, `ssh_public_key` | `adminUsername`, `disablePasswordAuthentication`, `publicKeys: [ { keyData, path } ]` | `disablePasswordAuthentication` defaults to `false`; written. `adminPassword` is required: `''` for key-only Linux |
-| `admin_password_secret` | `adminPassword` from `getSecret(...)` | Windows |
-| `patch_mode` | `patchMode`, `patchAssessmentMode` | Module defaults `AutomaticByPlatform` and `ImageDefault`; written |
-| `boot_diagnostics` | `bootDiagnosticEnabled` | Managed storage account when no account name is given |
-| `diagnostic_*`, `metrics_enabled` | `diagnosticSettings: [ { workspaceResourceId, metricCategories: [ { category: 'AllMetrics' } ] } ]` | The type is metrics-only |
 | `deployment.module_telemetry` | `enableTelemetry` | |
 | `context.tags` | `tags` | |
 
@@ -152,24 +137,12 @@ to the model; those are not decisions of this set and stay at the module's defau
 ### Tests
 
 A module call compiles to a nested deployment whose `properties.parameters.<param>.value` is
-the decision, so every decision above is observable in `tests/*.armtest.yaml`
+the decision, so every decision in render-map.yaml is observable in `tests/*.armtest.yaml`
 ([bicep-idiom.md](../../../core/iac-rendering/references/bicep-idiom.md#tests)).
 
 ## Authored rendering
 
 The fallback. `Microsoft.Compute/virtualMachineScaleSets` with `sku`, `zones` and
-`properties.orchestrationMode`:
+`properties.orchestrationMode`.
 
-| Decision | Property |
-|---|---|
-| `orchestration_mode`, `fault_domain_count`, `zone_balance` | `properties.orchestrationMode`, `properties.platformFaultDomainCount`, `properties.zoneBalance` |
-| `size`, `instances` | `sku { name, capacity }` |
-| `zones` | `zones: [ '1', '2', '3' ]` |
-| `upgrade_mode`, `instance_repair` | `properties.upgradePolicy.mode`, `properties.automaticRepairsPolicy { enabled, gracePeriod }` |
-| `image`, `os_disk_*` | `properties.virtualMachineProfile.storageProfile { imageReference, osDisk }` |
-| `trusted_launch`, `encryption_at_host` | `properties.virtualMachineProfile.securityProfile { securityType, uefiSettings, encryptionAtHost }` |
-| `admin_*`, `patch_mode` | `properties.virtualMachineProfile.osProfile { adminUsername, linuxConfiguration { disablePasswordAuthentication, ssh, patchSettings } }` |
-| `workload_subnet`, `load_balancer_backend_pool_ids` | `virtualMachineProfile.networkProfile.networkInterfaceConfigurations` |
-| `health_check_*` | `virtualMachineProfile.extensionProfile.extensions` (`ApplicationHealthLinux` / `ApplicationHealthWindows`) |
-| `user_assigned_identity_ids` | `identity { type: 'UserAssigned', userAssignedIdentities }` |
-| `boot_diagnostics` | `virtualMachineProfile.diagnosticsProfile.bootDiagnostics.enabled` |
+What each decision renders to - the property and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.

@@ -26,17 +26,13 @@ an entry is the normal shape.
 
 ### Decision -> module input
 
+What each decision renders to - the input and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.
+
+### Inputs no decision covers
+
 | Decision | Input | Note |
 |---|---|---|
-| `scope` (any `scope_kind`) | `role_assignments_azure_resource_manager.<k>.scope` | A resource id, a group id, `/subscriptions/<id>` or `/providers/Microsoft.Management/managementGroups/<name>`. The module does not check that it exists |
-| `principal` | `...<k>.principal_id` | An object id; from the identity module's `principal_id` output |
-| `principal_type` | `...<k>.principal_type` | **`ServicePrincipal`** for a managed identity. The module's own `User`, `Group`, `ServicePrincipal` values pass through; its docs also list `SystemAssignedManagedIdentity` and `UserAssignedManagedIdentity`, which it uses for its helper maps and are not passed to Azure - check the README of the version pinned |
-| `role` | `...<k>.role_definition_name` | By name. `role_definition_id` for a role the name table does not resolve |
-| `condition` | `...<k>.condition` | `null` when empty |
-| (set with a condition) | `...<k>.condition_version` | `"2.0"`, always beside a condition; `null` otherwise |
-| `description` | `...<k>.description` | |
 | `deployment.module_telemetry` | `enable_telemetry` | |
-| `deployer_role` | *none* | Not in the template; the handover (see `notes.md`) |
 
 ### The call
 
@@ -93,15 +89,11 @@ The fallback - `implementation: authored`, a root that must be on `azurerm` 5.x,
 that already renders assignments this way. Targets `azurerm` **5.x**; checked against
 `terraform providers schema -json` (5.11.0).
 
+What each decision renders to - the argument and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.
+
 | Decision | Argument on `azurerm_role_assignment` |
 |---|---|
 | name | `name = uuidv5("url", "<scope>/<principal>/<role>")` - stable, derived from the triple; omit it to let the provider generate one, which is fine until an assignment is adopted by hand |
-| `scope` | `scope` |
-| `principal` | `principal_id` |
-| `principal_type` | `principal_type` |
-| `role` | `role_definition_name` (or `role_definition_id` - exclusive with the name) |
-| `condition` | `condition`, with `condition_version = "2.0"` |
-| `description` | `description` |
 
 ```hcl
 resource "azurerm_role_assignment" "this" {

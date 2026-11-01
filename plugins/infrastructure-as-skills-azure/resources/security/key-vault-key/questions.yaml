@@ -38,7 +38,6 @@ groups:
         why: >
           One key per stage: key material is never shared between stages, a shared key would
           let development decrypt production data.
-        renders: the stage file the vault reference comes from
 
       - id: key_vault
         ask:
@@ -55,7 +54,6 @@ groups:
           The parent. The vault's tier decides whether the key may be HSM-backed, and its
           network posture decides who can create the key at all - a closed vault accepts a
           data-plane write only from inside the network (see `key-vault/notes.md`).
-        renders: key_vault_resource_id / keyVaultName
 
       - id: purpose
         ask:
@@ -79,7 +77,6 @@ groups:
           storage account's encryption only wraps and unwraps, one for signing only signs and
           verifies. Not an Azure term in the question: the customer knows whether the key is
           for their data at rest in a service, for signatures, or for their own application.
-        renders: key_opts / keyOps, and the role of the key's users (see `role_assignments`)
 
   # ----------------------------------------------------------------- identity
   - id: identity
@@ -103,7 +100,6 @@ groups:
           The consumer of a customer-managed key takes its identity here, and that identity
           is user-assigned so the role exists before the consumer does. The module's own
           interface is used for these; an assignment between two modules is a `role-assignment`.
-        renders: role_assignments / roleAssignments
 
   # ----------------------------------------------------------------- security
   - id: security
@@ -128,7 +124,6 @@ groups:
         forced_when: >
           purpose: encrypts_other_resources forces `RSA`; purpose: signs allows either;
           purpose: encrypts_application_data forces `RSA` (EC keys cannot encrypt or wrap)
-        renders: key_type / kty (RSA, RSA-HSM, EC or EC-HSM, with `protection`)
 
       - id: protection
         ask:
@@ -148,7 +143,6 @@ groups:
           Premium vault, which the same deployment answer forces on the vault. A software key
           cannot be turned into an HSM key later, so a spec that changes the answer creates a
           new key and rotates the consumer to it.
-        renders: key_type / kty suffix `-HSM`
 
       - id: key_operations
         ask:
@@ -176,7 +170,6 @@ groups:
         forced_when: >
           purpose: signs forces [sign, verify]; purpose: encrypts_application_data forces
           [encrypt, decrypt, wrapKey, unwrapKey]
-        renders: key_opts / keyOps
 
       - id: key_size
         ask:
@@ -194,7 +187,6 @@ groups:
           minimum Azure accepts, 3072 the floor recommended for keys that live for years, 4096
           slows every operation for no gain a consumer asks for. Fixed at creation - a larger
           key is a rotation to a new key, not an edit.
-        renders: key_size / keySize
 
       - id: curve
         ask:
@@ -213,7 +205,6 @@ groups:
           and is not accepted by most libraries - listed because the API allows it, never a
           default. The Bicep key module defaults the type to **EC** and the curve to P-256;
           written here either way.
-        renders: curve / curveName
 
   # ---------------------------------------------------------------- lifetime
   - id: data_protection
@@ -236,7 +227,6 @@ groups:
           must trust every version still in use, so the old public key stays published until
           the last signature made with it has expired. 0 disables rotation and is a recorded
           departure; a key nobody rotates is a key nobody replaces after a leak.
-        renders: rotation_policy.automatic.time_after_creation / rotationPolicy.lifetimeActions[rotate].trigger.timeAfterCreate
 
       - id: expiry_days
         ask:
@@ -253,7 +243,6 @@ groups:
           rotation is noticed before the old version dies. An expired customer-managed key
           makes the data it protects unreadable, which is the reason the notification
           below exists and the reason this is not shortened to match the rotation.
-        renders: rotation_policy.expire_after / rotationPolicy.attributes.expiryTime
 
       - id: notify_days_before_expiry
         ask:
@@ -270,4 +259,3 @@ groups:
           rotation has failed. Without a subscriber on the event the warning goes nowhere, and
           that subscriber is an `open:` entry owned by the platform team, not part of this
           set.
-        renders: rotation_policy.notify_before_expiry / rotationPolicy.lifetimeActions[notify].trigger.timeBeforeExpiry

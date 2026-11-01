@@ -44,7 +44,6 @@ groups:
           Drives the rendered name and the strictness of several defaults below. Nothing
           sensible can be guessed. A machine is one per stage: it is not shared, and its disks
           carry the stage's data.
-        renders: naming parameter `environment`, and the tag of that name where the repository uses one
 
       - id: location
         ask:
@@ -59,7 +58,6 @@ groups:
           Part of the rendered name and the home of the machine and its disks. The size is
           offered per region and per zone, and a region without availability zones changes the
           `availability` decision below. Backup needs the vault in the same region.
-        renders: location
 
       - id: resource_group_name
         ask:
@@ -75,7 +73,6 @@ groups:
         why: >
           The machine is placed into an existing group. Creating one here would make this set
           own a lifecycle wider than the resource it describes.
-        renders: resource_group_name (AVM Terraform, azurerm-based) / implicit in Bicep scope
 
   # ------------------------------------------------------------------ machine
   - id: machine
@@ -103,7 +100,6 @@ groups:
           administrator that has to live somewhere (see `credential_key_vault`). The OS type is
           fixed at creation, and with it the extension names, the patch modes and the
           authentication options below.
-        renders: os_type / osType (`Linux`, `Windows`)
 
       - id: image
         ask:
@@ -130,9 +126,6 @@ groups:
           `os_type: Windows` removes `ubuntu_24_04` and defaults to `windows_server_2022`;
           `os_type: Linux` removes both Windows images, recorded as forced with `os_type` as
           forced_by
-        renders: >
-          source_image_reference { publisher, offer, sku, version = "latest" } (a gallery image:
-          source_image_resource_id) / imageReference
 
       - id: gallery_image_id
         ask:
@@ -149,7 +142,6 @@ groups:
         why: >
           The image must exist, be generation 2, and be shared to the deployment's subscription
           or tenant. A gallery image is how an organisation ships its hardened base.
-        renders: source_image_resource_id / imageReference.id
 
       - id: size
         ask:
@@ -167,7 +159,6 @@ groups:
           machine. Whether a size exists in a region and a zone is checked with `az vm list-skus
           --location <region> --size <size>`, not remembered; some sizes lack encryption at
           host, premium storage (the `s` in the name) or an availability zone.
-        renders: sku_size / vmSize
 
       - id: license_type
         ask:
@@ -188,7 +179,6 @@ groups:
         why: >
           Azure Hybrid Benefit is a licensing fact only the customer can state; claiming it
           without the licences is a compliance finding, not a saving, so it is never defaulted.
-        renders: license_type (`Windows_Server`) / licenseType
 
       - id: instance_count
         ask:
@@ -206,7 +196,6 @@ groups:
           Several machines are not a scale set - each is created, patched and replaced on
           its own, and nothing adds or removes them under load (use
           `virtual-machine-scale-set` for that).
-        renders: one module call per machine (for_each over the instance numbers) / a module loop
 
       - id: availability
         ask:
@@ -232,9 +221,6 @@ groups:
         forced_when: >
           A region without availability zones forces `availability_set`, recorded as forced
           with `location` as forced_by
-        renders: >
-          terraform: zone = "1" / null, availability_set_resource_id; bicep: availabilityZone (1, 2, 3
-          or -1) and availabilitySetResourceId
 
       - id: zone
         ask:
@@ -251,7 +237,6 @@ groups:
           The logical zone number of the subscription, which maps to a different physical zone
           in other subscriptions. Zone 1 is the default; a second machine of the same workload
           takes another zone. The machine's data disks must be in the same zone.
-        renders: zone / availabilityZone
 
       - id: availability_set_id
         ask:
@@ -267,7 +252,6 @@ groups:
         why: >
           The set is its own resource (`availability-set`) and is created first. A machine
           cannot be moved into or out of a set without being recreated.
-        renders: availability_set_resource_id / availabilitySetResourceId
 
       - id: os_disk_storage
         ask:
@@ -298,7 +282,6 @@ groups:
           A size without premium storage (no `s` in its name) removes the Premium types, and a
           region without ZRS disks removes the ZRS types, recorded as forced with `size` or
           `location` as forced_by
-        renders: os_disk.storage_account_type / osDisk.managedDisk.storageAccountType
 
       - id: os_disk_size_gb
         ask:
@@ -316,7 +299,6 @@ groups:
           place and never shrinks.
         forced_when: >
           `os_type: Windows` forces 128, recorded as forced with `os_type` as forced_by
-        renders: os_disk.disk_size_gb / osDisk.diskSizeGB
 
       - id: data_disks
         ask:
@@ -333,7 +315,6 @@ groups:
           here. Data goes on a data disk, not on the system disk, so the machine can be
           rebuilt from its image without the data. A disk is in the machine's zone. Shared
           disks, ultra disks and write accelerator are departures that name the workload.
-        renders: data_disk_managed_disks / dataDisks
 
   # --------------------------------------------------------------- networking
   - id: networking
@@ -360,7 +341,6 @@ groups:
         forced_when: >
           `network_ownership: create` - the created network's workload subnet, recorded as
           forced with the network as forced_by
-        renders: network_interfaces.<key>.ip_configurations.<key>.private_ip_subnet_resource_id / nicConfigurations[].ipConfigurations[].subnetResourceId
 
       - id: public_ip
         ask:
@@ -380,7 +360,6 @@ groups:
           users reaches whatever serves it - a load balancer, an Application Gateway - never
           the machine directly. `network_exposure: public` does not change this: the exposure
           is the front door's, not the VM's. A departure names the machine and the reason.
-        renders: network_interfaces.<key>.ip_configurations.<key>.create_public_ip_address / nicConfigurations[].ipConfigurations[].pipConfiguration (absent)
 
       - id: private_ip_allocation
         ask:
@@ -401,7 +380,6 @@ groups:
           address (a DNS server, a database that firewalls by IP) and needs the address to be
           free and inside the subnet - the address is then an `open:` entry owned by the
           network owner, never invented.
-        renders: private_ip_address_allocation, private_ip_address / ipConfigurations[].privateIPAllocationMethod, privateIPAddress
 
       - id: accelerated_networking
         ask:
@@ -423,7 +401,6 @@ groups:
         forced_when: >
           A size that does not support it forces `false`, recorded as forced with `size` as
           forced_by
-        renders: network_interfaces.<key>.accelerated_networking_enabled / nicConfigurations[].enableAcceleratedNetworking
 
   # ----------------------------------------------------------------- identity
   - id: identity
@@ -448,7 +425,6 @@ groups:
           lives and dies with the machine, which is right for an identity used only by it.
         forced_when: >
           `entra_login: true` forces `true`, recorded as forced with `entra_login` as forced_by
-        renders: managed_identities.system_assigned / managedIdentities.systemAssigned
 
       - id: user_assigned_identity_ids
         ask:
@@ -466,7 +442,6 @@ groups:
           once and kept across a rebuild, or a customer-managed key unwrapped by the same
           identity as the disks. The identities must already exist; this set does not create
           them.
-        renders: managed_identities.user_assigned_resource_ids / managedIdentities.userAssignedResourceIds
 
       - id: entra_login
         ask:
@@ -486,9 +461,6 @@ groups:
           `AADLoginForWindows`) maps the sign-in to a role on the machine, so who may log in is
           a role assignment, not a user on the disk. It needs the system-assigned identity and
           the role `Virtual Machine Administrator Login` or `Virtual Machine User Login`.
-        renders: >
-          terraform: extensions.<key> (publisher `Microsoft.Azure.ActiveDirectory`); bicep:
-          extensionAadJoinConfig.enabled
 
       - id: role_assignments
         ask:
@@ -507,7 +479,6 @@ groups:
           the rest, scoped to the machine and given to groups, never to a person. An empty list
           is a working machine nobody can enter, and not an answer: with no one named it is an
           `open:` entry owned by the workload owner, blocking apply.
-        renders: role_assignments / roleAssignments
 
   # ----------------------------------------------------------------- security
   - id: security
@@ -534,9 +505,6 @@ groups:
         forced_when: >
           A generation 1 gallery image or a size without trusted launch forces `false`,
           recorded as forced with `image` or `size` as forced_by
-        renders: >
-          terraform: secure_boot_enabled, vtpm_enabled; bicep: securityType `TrustedLaunch`,
-          secureBootEnabled, vTpmEnabled
 
       - id: encryption_at_host
         ask:
@@ -556,7 +524,6 @@ groups:
           Bicep to off, so it is written. It needs the subscription feature
           `Microsoft.Compute/EncryptionAtHost` registered, or the deployment fails; a size
           without support forces it off. It cannot be combined with Azure Disk Encryption.
-        renders: encryption_at_host_enabled / encryptionAtHost
 
       - id: key_management
         ask:
@@ -577,7 +544,6 @@ groups:
           customer's Key Vault through a disk encryption set, so revoking the key makes every
           disk unreadable. That needs a vault with purge protection, an identity on the set
           and a rotation story; a machine whose key is lost does not start.
-        renders: os_disk.disk_encryption_set_id, data disks' disk_encryption_set_resource_id / osDisk.managedDisk.diskEncryptionSetResourceId
 
       - id: disk_encryption_set_id
         ask:
@@ -595,7 +561,6 @@ groups:
           The set references a key in the customer's Key Vault and carries its own identity. It
           must exist in the machine's region before the machine does, and every disk of the
           machine takes the same set.
-        renders: os_disk.disk_encryption_set_id / osDisk.managedDisk.diskEncryptionSetResourceId
 
       - id: admin_username
         ask:
@@ -610,7 +575,6 @@ groups:
           Required by the platform even when everyone signs in with Entra. Not `admin`,
           `administrator` or `root`: Azure refuses them, and a name that every scanner tries
           first is no help. The name is fixed at creation.
-        renders: account_credentials.admin_credentials.username / adminUsername
 
       - id: password_authentication
         ask:
@@ -623,7 +587,7 @@ groups:
         plain_values:
           true: { en: "allowed", de: "erlaubt" }
           false: { en: "not allowed; keys and company accounts only", de: "nicht erlaubt; nur Schlüssel und Firmenkonten" }
-        answer: { deployment: local_auth }
+        answer: { deployment: local_auth, map: { disabled: false, allowed_where_unavoidable: false } }
         depends_on: { question: os_type, equals: Linux }
         why: >
           Inherited, inverted: `local_auth: disabled` renders as `false`. SSH with a key or
@@ -631,7 +595,6 @@ groups:
           address is still a password that is guessed from inside the network. Windows has no
           choice - it always has the administrator password, held in a vault (see
           `credential_key_vault`).
-        renders: account_credentials.password_authentication_disabled (inverted) / disablePasswordAuthentication (inverted)
 
       - id: ssh_public_key
         ask:
@@ -650,7 +613,6 @@ groups:
           key into the state file, which is why the module's generation is switched off and the
           key supplied. With `entra_login`, the key is the break-glass path for when the
           extension is unhealthy.
-        renders: account_credentials.admin_credentials.ssh_keys / publicKeys
 
       - id: credential_key_vault
         ask:
@@ -670,7 +632,6 @@ groups:
           identity must be allowed to write a secret; the password is a generated secret with
           an expiry, never a parameter value typed by a person. The Terraform module generates
           it into state as well as the vault - the state is then as sensitive as the vault.
-        renders: account_credentials.key_vault_configuration.resource_id / adminPassword from a Key Vault reference (`getSecret`)
 
   # ---------------------------------------------------------- data_protection
   - id: data_protection
@@ -699,7 +660,6 @@ groups:
           The non-production stages take `false` while non_production_savings is enabled.
           Whether the backup survives an administrator who destroys the machine is
           `backup_isolation`, answered by the vault.
-        renders: azure_backup_configurations / backupVaultName and backupPolicyName
 
       - id: backup_vault_id
         ask:
@@ -717,7 +677,6 @@ groups:
           The vault of the `recovery-services-vault` set, in the machine's region and, for the
           Bicep module, in a resource group it can name. The vault and its policy exist before
           the machine's protection is configured. A pattern normally supplies it.
-        renders: azure_backup_configurations.<key>.recovery_vault_resource_id / backupVaultName, backupVaultResourceGroup
 
       - id: backup_policy_id
         ask:
@@ -736,7 +695,6 @@ groups:
           `data_loss_tolerance`; the machine only points at one. The Terraform module takes the
           policy's id, the Bicep module its name in the vault (it defaults to `DefaultPolicy`,
           which is not the retention the customer chose).
-        renders: azure_backup_configurations.<key>.backup_policy_resource_id / backupPolicyName
 
   # -------------------------------------------------------------- maintenance
   - id: maintenance
@@ -762,7 +720,6 @@ groups:
           ran. A scheduled window needs a maintenance configuration, which is a separate
           resource this set does not create; until one is attached, a reboot can happen at the
           platform's choosing.
-        renders: patch_mode, patch_assessment_mode / patchMode, patchAssessmentMode
 
       - id: auto_shutdown
         ask:
@@ -783,7 +740,6 @@ groups:
           and takes `true` in every stage but production while non_production_savings is
           enabled. The shutdown deallocates and does not start the machine again in the morning
           - that is the person's, or an automation's.
-        renders: shutdown_schedules / autoShutdownConfig
 
       - id: auto_shutdown_time
         ask:
@@ -798,7 +754,6 @@ groups:
         why: >
           Format `HHmm`, 24 hours, in the time zone below. 19:00 is after most working days
           and before most evening jobs.
-        renders: shutdown_schedules.<key>.daily_recurrence_time / autoShutdownConfig.dailyRecurrenceTime
 
       - id: auto_shutdown_timezone
         ask:
@@ -814,7 +769,6 @@ groups:
           A Windows time zone id (`W. Europe Standard Time`), not an IANA name. UTC is the
           default because the set cannot know where the people are; the customer's own zone is
           the usual departure.
-        renders: shutdown_schedules.<key>.timezone / autoShutdownConfig.timeZone
 
   # ------------------------------------------------------------ observability
   - id: observability
@@ -838,7 +792,6 @@ groups:
           account that Azure owns: no keys, no firewall to open and no account to own. A custom
           account is a departure that needs a reachable storage account, which the storage
           set's closed firewall makes a snag.
-        renders: boot_diagnostics (true means managed storage) / bootDiagnostics
 
       - id: diagnostic_workspace
         ask:
@@ -856,7 +809,6 @@ groups:
           Inherited: one deployment, one destination. A machine's platform diagnostic setting
           carries metrics only; the guest's logs and counters need the Azure Monitor Agent and
           a Data Collection Rule, which this set does not create.
-        renders: diagnostic_settings / diagnosticSettings (on the network interface in Bicep)
 
       - id: metrics_enabled
         ask:
@@ -873,4 +825,3 @@ groups:
         why: >
           CPU, disk and network throughput and the credits of a burstable size are the input to
           the right-sizing the `size` default defers, and they are cheap.
-        renders: diagnostic_settings.<key>.metric_categories = ["AllMetrics"] / diagnosticSettings[].metricCategories

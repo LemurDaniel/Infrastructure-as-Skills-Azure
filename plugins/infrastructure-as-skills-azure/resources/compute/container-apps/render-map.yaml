@@ -1,0 +1,330 @@
+# What each decision of questions.yaml renders to, per target and implementation.
+# Format: core/iac-rendering/references/render-map.md. The calls, the authored blocks and the
+# tests are in terraform.md and bicep.md.
+schema_version: 1
+resource: Microsoft.App/containerApps
+
+modules:
+  terraform: [Azure/avm-res-app-managedenvironment/azurerm, Azure/avm-res-app-containerapp/azurerm]
+  bicep: [avm/res/app/managed-environment, avm/res/app/container-app]
+
+decisions:
+
+  # ---------------------------------------------------------------- placement
+  placement.environments:
+    not_rendered: naming parameter `environment` and the tag of that name; no attribute of the environment or the app
+  placement.location:
+    terraform_avm:
+      module: Azure/avm-res-app-managedenvironment/azurerm
+      attribute: location
+      passthrough: true
+      note: the app call in the reference sets no location; read the app module's README
+    terraform: { attribute: location, passthrough: true, note: on the environment and the app }
+    bicep_avm: { module: avm/res/app/managed-environment, attribute: location, passthrough: true, note: the app module takes location too }
+    bicep: { attribute: location, passthrough: true, note: on the environment and the app }
+  placement.resource_group_name:
+    terraform_avm:
+      module: Azure/avm-res-app-managedenvironment/azurerm
+      attribute: resource_group_name
+      note: both modules take the name; the environment also accepts parent_id, which wins
+    terraform: { attribute: resource_group_name }
+    bicep_avm: { gap: the deployment's resource group scope; no parameter }
+    bicep: { gap: the deployment's resource group scope; no property }
+
+  # -------------------------------------------------------------- environment
+  environment.workload_profile:
+    terraform_avm:
+      module: Azure/avm-res-app-managedenvironment/azurerm
+      attribute: workload_profiles
+      values:
+        Consumption: { expr: '[{ name = "Consumption", workload_profile_type = "Consumption" }]' }
+        D4: { expr: '[{ name = "D4", workload_profile_type = "D4" }]' }
+        D8: { expr: '[{ name = "D8", workload_profile_type = "D8" }]' }
+        E4: { expr: '[{ name = "E4", workload_profile_type = "E4" }]' }
+      note: Consumption is a profile, the singular workload_profile is deprecated; a dedicated profile also takes minimum_count / maximum_count - no question decides them, an open item; the app module takes workload_profile_name - unset, workload profiles are not used
+    terraform:
+      attribute: workload_profile
+      values:
+        Consumption: { expr: '{ name = "Consumption", workload_profile_type = "Consumption" }' }
+        D4: { expr: '{ name = "D4", workload_profile_type = "D4" }' }
+        D8: { expr: '{ name = "D8", workload_profile_type = "D8" }' }
+        E4: { expr: '{ name = "E4", workload_profile_type = "E4" }' }
+      note: 'a block on azurerm_container_app_environment; a dedicated profile also takes minimum_count / maximum_count; the app takes workload_profile_name (source: azurerm 5.12 docs)'
+    bicep_avm:
+      module: avm/res/app/managed-environment
+      attribute: workloadProfiles
+      values:
+        Consumption: { expr: "[ { name: 'Consumption', workloadProfileType: 'Consumption' } ]" }
+        D4: { expr: "[ { name: 'D4', workloadProfileType: 'D4' } ]" }
+        D8: { expr: "[ { name: 'D8', workloadProfileType: 'D8' } ]" }
+        E4: { expr: "[ { name: 'E4', workloadProfileType: 'E4' } ]" }
+      note: required when zoneRedundant is true (the README - WAF compliance); the app module takes workloadProfileName
+    bicep:
+      attribute: properties.workloadProfiles
+      values:
+        Consumption: { expr: "[ { name: 'Consumption', workloadProfileType: 'Consumption' } ]" }
+        D4: { expr: "[ { name: 'D4', workloadProfileType: 'D4' } ]" }
+        D8: { expr: "[ { name: 'D8', workloadProfileType: 'D8' } ]" }
+        E4: { expr: "[ { name: 'E4', workloadProfileType: 'E4' } ]" }
+      note: on the environment; the app takes properties.workloadProfileName
+  environment.zone_redundant:
+    terraform_avm:
+      module: Azure/avm-res-app-managedenvironment/azurerm
+      attribute: zone_redundant
+      passthrough: true
+      note: module default true; written. zone_redundancy_enabled is deprecated
+    terraform: { attribute: zone_redundancy_enabled, passthrough: true }
+    bicep_avm:
+      module: avm/res/app/managed-environment
+      attribute: zoneRedundant
+      passthrough: true
+      note: default true; written. Needs infrastructureResourceGroupName; fixed at creation
+    bicep: { attribute: properties.zoneRedundant, passthrough: true }
+  environment.internal:
+    terraform_avm:
+      module: Azure/avm-res-app-managedenvironment/azurerm
+      attribute: vnet_configuration.internal
+      passthrough: true
+      note: internal_load_balancer_enabled is deprecated
+    terraform: { attribute: internal_load_balancer_enabled, passthrough: true }
+    bicep_avm: { module: avm/res/app/managed-environment, attribute: internal, passthrough: true, note: default false; the subnet is required with it }
+    bicep: { attribute: properties.vnetConfiguration.internal, passthrough: true }
+  environment.infrastructure_subnet:
+    terraform_avm:
+      module: Azure/avm-res-app-managedenvironment/azurerm
+      attribute: vnet_configuration.infrastructure_subnet_id
+      note: the top-level infrastructure_subnet_id is deprecated
+    terraform: { attribute: infrastructure_subnet_id }
+    bicep_avm: { module: avm/res/app/managed-environment, attribute: infrastructureSubnetResourceId }
+    bicep: { attribute: properties.vnetConfiguration.infrastructureSubnetId }
+  environment.public_network_access:
+    terraform_avm:
+      module: Azure/avm-res-app-managedenvironment/azurerm
+      attribute: public_network_access
+      values: { disabled: Disabled, enabled: Enabled }
+      note: forced Disabled by the module while internal
+    terraform:
+      attribute: public_network_access
+      values: { disabled: Disabled, enabled: Enabled }
+      note: a string on azurerm_container_app_environment
+    bicep_avm:
+      module: avm/res/app/managed-environment
+      attribute: publicNetworkAccess
+      values: { disabled: Disabled, enabled: Enabled }
+      note: default Disabled; written
+    bicep:
+      attribute: properties.publicNetworkAccess
+      values: { disabled: Disabled, enabled: Enabled }
+  environment.peer_traffic_encryption:
+    terraform_avm:
+      module: Azure/avm-res-app-managedenvironment/azurerm
+      attribute: peer_traffic_configuration.encryption.enabled
+      passthrough: true
+      note: module default unset; written
+    terraform:
+      gap: not on azurerm_container_app_environment in 5.12 (mutual_tls_enabled only - azurerm 5.12 schema); peerTrafficConfiguration through an azapi_update_resource on the environment
+    bicep_avm: { module: avm/res/app/managed-environment, attribute: peerTrafficEncryption, passthrough: true, note: default true; written }
+    bicep: { attribute: properties.peerTrafficConfiguration.encryption.enabled, passthrough: true }
+
+  # ---------------------------------------------------------------------- app
+  app.container_image:
+    terraform_avm:
+      module: Azure/avm-res-app-containerapp/azurerm
+      attribute: 'template.containers[].image'
+      passthrough: true
+      note: a tag or digest, never latest
+    terraform: { attribute: template.container.image, passthrough: true, note: 'a tag or digest, never latest (source: azurerm 5.12 schema)' }
+    bicep_avm: { module: avm/res/app/container-app, attribute: 'containers[].image', passthrough: true, note: a tag or digest - never latest }
+    bicep: { attribute: 'properties.template.containers[].image', passthrough: true, note: 'a tag or digest, never latest (source: bicep build, Microsoft.App/containerApps@2025-01-01)' }
+  app.container_size:
+    terraform_avm:
+      module: Azure/avm-res-app-containerapp/azurerm
+      attribute: 'template.containers[]'
+      values:
+        0.25-0.5Gi: { expr: 'cpu = 0.25, memory = "0.5Gi"' }
+        0.5-1Gi: { expr: 'cpu = 0.5, memory = "1Gi"' }
+        1-2Gi: { expr: 'cpu = 1, memory = "2Gi"' }
+        2-4Gi: { expr: 'cpu = 2, memory = "4Gi"' }
+      note: cpu a number, memory a string - the pair
+    terraform:
+      attribute: template.container
+      values:
+        0.25-0.5Gi: { expr: 'cpu = 0.25, memory = "0.5Gi"' }
+        0.5-1Gi: { expr: 'cpu = 0.5, memory = "1Gi"' }
+        1-2Gi: { expr: 'cpu = 1, memory = "2Gi"' }
+        2-4Gi: { expr: 'cpu = 2, memory = "4Gi"' }
+      note: 'cpu a number, memory a string with the Gi unit; the pair must be an allowed combination (source: azurerm 5.12 docs)'
+    bicep_avm:
+      module: avm/res/app/container-app
+      attribute: 'containers[].resources'
+      values:
+        0.25-0.5Gi: { expr: "{ cpu: json('0.25'), memory: '0.5Gi' }" }
+        0.5-1Gi: { expr: "{ cpu: json('0.5'), memory: '1Gi' }" }
+        1-2Gi: { expr: "{ cpu: json('1'), memory: '2Gi' }" }
+        2-4Gi: { expr: "{ cpu: json('2'), memory: '4Gi' }" }
+      note: cpu is a json() value
+    bicep: { gap: "properties.template.containers[].resources.cpu and .memory (bicep build @2025-01-01); memory is a free string the build does not check, so its spelling is unproven" }
+  app.min_replicas:
+    terraform_avm: { module: Azure/avm-res-app-containerapp/azurerm, attribute: template.min_replicas, passthrough: true }
+    terraform: { attribute: template.min_replicas, passthrough: true, note: '(source: azurerm 5.12 schema)' }
+    bicep_avm: { module: avm/res/app/container-app, attribute: scaleSettings.minReplicas, passthrough: true }
+    bicep: { attribute: properties.template.scale.minReplicas, passthrough: true, note: '(source: bicep build, Microsoft.App/containerApps@2025-01-01)' }
+  app.max_replicas:
+    terraform_avm: { module: Azure/avm-res-app-containerapp/azurerm, attribute: template.max_replicas, passthrough: true }
+    terraform: { attribute: template.max_replicas, passthrough: true, note: '(source: azurerm 5.12 schema)' }
+    bicep_avm: { module: avm/res/app/container-app, attribute: scaleSettings.maxReplicas, passthrough: true }
+    bicep: { attribute: properties.template.scale.maxReplicas, passthrough: true, note: '(source: bicep build, Microsoft.App/containerApps@2025-01-01)' }
+  app.revision_mode:
+    terraform_avm: { module: Azure/avm-res-app-containerapp/azurerm, attribute: revision_mode, passthrough: true, note: default Single; written }
+    terraform: { attribute: revision_mode, passthrough: true, note: the reference names the argument; Single / Multiple as on the module }
+    bicep_avm: { module: avm/res/app/container-app, attribute: activeRevisionsMode, passthrough: true, note: default Single; written }
+    bicep: { gap: "properties.configuration.activeRevisionsMode (bicep build @2025-01-01); the build accepts any string there, so Single / Multiple are unproven" }
+
+  # ------------------------------------------------------------------ ingress
+  ingress.ingress:
+    terraform_avm:
+      module: Azure/avm-res-app-containerapp/azurerm
+      attribute: ingress.external_enabled
+      values: { none: null, environment: false, external: true }
+      note: omit the whole ingress input for none; module default false - written; transport is a member of the ingress object beside it
+    terraform:
+      attribute: ingress.external_enabled
+      values: { none: null, environment: false, external: true }
+      note: 'none renders no ingress block (source: azurerm 5.12 schema)'
+    bicep_avm:
+      module: avm/res/app/container-app
+      attribute: ingressExternal
+      values: { none: null, environment: false, external: true }
+      also:
+        none: 'disableIngress: true'
+      note: module default true - always written
+    bicep:
+      attribute: properties.configuration.ingress.external
+      values: { none: null, environment: false, external: true }
+      note: none renders no ingress
+  ingress.target_port:
+    terraform_avm: { module: Azure/avm-res-app-containerapp/azurerm, attribute: ingress.target_port, passthrough: true }
+    terraform: { attribute: ingress.target_port, passthrough: true, note: '(source: azurerm 5.12 schema)' }
+    bicep_avm: { module: avm/res/app/container-app, attribute: ingressTargetPort, passthrough: true, note: module default 80; written }
+    bicep: { attribute: properties.configuration.ingress.targetPort, passthrough: true }
+  ingress.allow_insecure:
+    terraform_avm:
+      module: Azure/avm-res-app-containerapp/azurerm
+      attribute: ingress.allow_insecure_connections
+      passthrough: true
+      note: module default false; written
+    terraform: { attribute: ingress.allow_insecure_connections, passthrough: true, note: '(source: azurerm 5.12 schema)' }
+    bicep_avm: { module: avm/res/app/container-app, attribute: ingressAllowInsecure, passthrough: true, note: module default true; written }
+    bicep: { attribute: properties.configuration.ingress.allowInsecure, passthrough: true }
+
+  # ----------------------------------------------------------------- identity
+  identity.managed_identity:
+    terraform_avm:
+      module: Azure/avm-res-app-containerapp/azurerm
+      attribute: managed_identities
+      values:
+        system_assigned: { expr: '{ system_assigned = true }' }
+        user_assigned: { expr: '{ user_assigned_resource_ids = {identity.user_assigned_identity_ids} }' }
+        none: { expr: '{}' }
+    terraform:
+      attribute: identity.type
+      values: { system_assigned: SystemAssigned, user_assigned: UserAssigned, none: null }
+      note: none renders no identity block
+    bicep_avm:
+      module: avm/res/app/container-app
+      attribute: managedIdentities
+      values:
+        system_assigned: { expr: '{ systemAssigned: true }' }
+        user_assigned: { expr: '{ userAssignedResourceIds: {identity.user_assigned_identity_ids} }' }
+        none: { expr: '{}' }
+    bicep:
+      attribute: identity.type
+      values: { system_assigned: SystemAssigned, user_assigned: UserAssigned, none: null }
+      note: from the question's renders; the authored rendering names no property. none renders no identity block
+  identity.user_assigned_identity_ids:
+    terraform_avm:
+      module: Azure/avm-res-app-containerapp/azurerm
+      attribute: managed_identities.user_assigned_resource_ids
+      note: the same id goes on registries[].identity for the pull - never username/password_secret_name
+    terraform: { attribute: identity.identity_ids, note: 'a set of ids; the same id on registry.identity for the pull (source: azurerm 5.12 schema)' }
+    bicep_avm:
+      module: avm/res/app/container-app
+      attribute: managedIdentities.userAssignedResourceIds
+      note: the same id goes on registries[].identity for the pull - never username/passwordSecretRef
+    bicep: { attribute: identity.userAssignedIdentities, note: 'a map keyed by the identity id, each value {} (source: bicep build, Microsoft.App/containerApps@2025-01-01)' }
+  identity.secret_references:
+    terraform_avm:
+      module: Azure/avm-res-app-containerapp/azurerm
+      attribute: 'secrets.<k> = { name, key_vault_secret_id, identity }'
+      note: never value
+    terraform:
+      attribute: 'secret = { name, key_vault_secret_id, identity }'
+      note: 'one block per entry, never value; identity the user-assigned id or System (source: azurerm 5.12 docs)'
+    bicep_avm:
+      module: avm/res/app/container-app
+      attribute: 'secrets[] = { name, keyVaultUrl, identity }'
+      note: never value
+    bicep: { attribute: 'properties.configuration.secrets[] = { name, keyVaultUrl, identity }' }
+  identity.role_assignments:
+    terraform_avm:
+      module: Azure/avm-res-app-containerapp/azurerm
+      attribute: 'role_assignments.<key> = { role_definition_id_or_name, principal_id }'
+    terraform:
+      attribute: 'azurerm_role_assignment = { scope, role_definition_name, principal_id }'
+      note: 'one per entry, scope = the app''s id (source: azurerm 5.12 schema)'
+    bicep_avm:
+      module: avm/res/app/container-app
+      attribute: 'roleAssignments[] = { principalId, roleDefinitionIdOrName, principalType }'
+    bicep:
+      attribute: 'Microsoft.Authorization/roleAssignments properties = { principalId, roleDefinitionId, principalType }'
+      note: 'one per entry, scope the app; roleDefinitionId is the role''s id, not its name (source: bicep build, Microsoft.Authorization/roleAssignments@2022-04-01)'
+
+  # ------------------------------------------------------------ observability
+  observability.diagnostic_workspace:
+    terraform_avm:
+      module: Azure/avm-res-app-managedenvironment/azurerm
+      attribute: diagnostic_settings.workspace.workspace_resource_id
+      note: 'with app_logs_configuration = { destination = "azure-monitor" } - never log_analytics_workspace (shared key); omitted, app logs are off'
+    terraform: { attribute: azurerm_monitor_diagnostic_setting.log_analytics_workspace_id, note: on the environment }
+    bicep_avm:
+      module: avm/res/app/managed-environment
+      attribute: 'diagnosticSettings[].workspaceResourceId'
+      note: "with appLogsConfiguration: { destination: 'azure-monitor' } - never log-analytics (shared key)"
+    bicep:
+      attribute: Microsoft.Insights/diagnosticSettings properties.workspaceId
+      note: "scope the environment, whose properties.appLogsConfiguration.destination is the constant 'azure-monitor' (source: bicep build, Microsoft.Insights/diagnosticSettings@2021-05-01-preview)"
+  observability.diagnostic_categories:
+    terraform_avm:
+      module: Azure/avm-res-app-managedenvironment/azurerm
+      attribute: diagnostic_settings.workspace.log_categories
+      note: set log_groups = [] beside it - its default allLogs collects every log on top
+    terraform: { attribute: azurerm_monitor_diagnostic_setting.enabled_log.category, note: on the environment }
+    bicep_avm:
+      module: avm/res/app/managed-environment
+      attribute: 'diagnosticSettings[].logCategoriesAndGroups[].category'
+    bicep: { attribute: 'Microsoft.Insights/diagnosticSettings properties.logs[].category', note: 'scope the environment, each with enabled: true (source: bicep build, Microsoft.Insights/diagnosticSettings@2021-05-01-preview)' }
+  observability.metrics_enabled:
+    terraform_avm:
+      module: Azure/avm-res-app-managedenvironment/azurerm
+      attribute: diagnostic_settings.workspace.metric_categories
+      values: { true: { expr: '["AllMetrics"]' }, false: { expr: '[]' } }
+    terraform:
+      attribute: azurerm_monitor_diagnostic_setting.enabled_metric.category
+      values: { true: AllMetrics, false: null }
+      note: 'on the environment; false renders no enabled_metric block (source: azurerm 5.12 docs)'
+    bicep_avm:
+      module: avm/res/app/managed-environment
+      attribute: 'diagnosticSettings[].metricCategories'
+      values: { true: { expr: "[ { category: 'AllMetrics' } ]" }, false: { expr: '[]' } }
+    bicep: { gap: "Microsoft.Insights/diagnosticSettings properties.metrics[].category (bicep build @2021-05-01-preview); the category is a free string the build does not check, so the literal for true is unproven" }
+  observability.application_insights:
+    terraform_avm:
+      module: Azure/avm-res-app-containerapp/azurerm
+      attribute: 'template.containers[].env'
+      note: the component's connection string output, not its id - APPLICATIONINSIGHTS_CONNECTION_STRING plain, APPLICATIONINSIGHTS_AUTHENTICATION_STRING = Authorization=AAD;ClientId=<client id> with the app's user-assigned identity while local auth is off; omitted while empty
+    terraform: { gap: "template.container.env { name, value } (azurerm 5.12 schema); the variable's name is in no allowed source" }
+    bicep_avm:
+      module: avm/res/app/container-app
+      attribute: 'containers[].env'
+      note: the component's connection string output, not its id - APPLICATIONINSIGHTS_CONNECTION_STRING, and APPLICATIONINSIGHTS_AUTHENTICATION_STRING = Authorization=AAD;ClientId=<client id> with the app's user-assigned identity while local auth is off; omitted while empty
+    bicep: { gap: "properties.template.containers[].env[] { name, value } (bicep build @2025-01-01); the variable's name is a free string the build does not check" }

@@ -223,32 +223,57 @@ by role: `.data`, `.logs`, `.state`.
 Names of the Azure resources themselves always come from the naming provider. See
 [naming.md](naming.md); never `format()` a name together.
 
-## Referencing a network the deployment does not own
+## Referencing what the deployment does not own
 
-`network_ownership: reference` in the spec means the virtual network is read, never managed.
-That is a `data` block, and the distinction matters: a `resource` block pointed at
-someone else's network will try to converge it to what the configuration says.
+A reference in the spec to a resource outside it - `{ existing: <kind> }`
+([spec.md](../../iac-authoring/references/spec.md#references)): the platform's network or
+subnet, a central workspace, a DDoS plan, a key - is an **id variable**, filled from each
+stage file. It is never looked up: no `data` block, no `provider` alias into the platform's
+subscription.
 
 ```hcl
-data "azurerm_virtual_network" "platform" {
-  name                = var.vnet_name
-  resource_group_name = var.network_resource_group_name
-}
+variable "private_endpoint_subnet_id" {
+  description = "The platform's private endpoint subnet (deployment.private_endpoint_subnet). From the stage file."
+  type        = string
 
-data "azurerm_subnet" "private_endpoints" {
-  name                 = var.private_endpoint_subnet_name
-  virtual_network_name = data.azurerm_virtual_network.platform.name
-  resource_group_name  = data.azurerm_virtual_network.platform.resource_group_name
+  validation {
+    condition     = can(regex("^/subscriptions/[^/]+/resourceGroups/[^/]+/providers/Microsoft.Network/virtualNetworks/[^/]+/subnets/[^/]+$", var.private_endpoint_subnet_id))
+    error_message = "private_endpoint_subnet_id must be the resource id of a subnet."
+  }
 }
 ```
 
-By name and resource group, not by a hardcoded id — an id pins a subscription into the
-configuration and makes the same code undeployable in the next one.
+```hcl
+# environments/production.tfvars
+private_endpoint_subnet_id = "/subscriptions/<sub>/resourceGroups/rg-network/providers/Microsoft.Network/virtualNetworks/vnet-hub/subnets/snet-privatelink"
+```
 
-With `create`, the same subnet is a resource the deployment owns and the private endpoints
-reference it directly. Never both: a configuration that creates a network and also reads a
-foreign one has two sources of truth for its address space, and the overlap surfaces at the
-first peering.
+Why an id and not a lookup: a `data` block by name and resource group needs both, which are
+as unknown as the id until the platform team answers, and it makes every `plan` read the
+platform's subscription - a permission the deployer often does not have and should not need.
+The id in the stage file pins nothing into the configuration: the same code deploys into
+every subscription. The validation names the ARM type of the kind
+([ref-kinds.yaml](../../iac-authoring/references/ref-kinds.yaml)), so a workspace id handed to
+a subnet input fails at `plan`, not at `apply`.
+
+An id the spec does not have yet - `{ existing: <kind> }` with an `open:` entry - is still a
+variable; its stage file holds the placeholder
+`/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/OPEN-<owner>/providers/<type>/OPEN-<what>`,
+which passes the validation, lets `plan` and the tests run, and is refused by the pipeline
+before `apply` ([pipelines.md](pipelines.md), invariant 11).
+
+Most inputs take the id. Where one takes another property of the foreign resource,
+`render-map.yaml` names it: what the id carries - the name, the resource group, the
+subscription, a key's vault and name - is split out of it, never looked up; what it does not
+carry - a component's connection string, an identity's principal id, a site's host name - is a
+**second variable** from the stage file beside the id, placeholder and `open:` entry included.
+A secret among them is sensitive (`sensitive = true`) and comes from the pipeline's secrets,
+never from a stage file.
+
+A resource of the spec - `{ resource: <key> }` - is never a variable: it is the output of
+that resource's module (`module.network.subnet_ids["snet-app"]`). Never both for one network:
+a configuration that creates a network and also references a foreign one has two sources of
+truth for its address space, and the overlap surfaces at the first peering.
 
 ## Variables
 
@@ -380,8 +405,8 @@ terraform plan -var-file=environments/<stage>.tfvars
 
 The backend's values (its storage account and container) are the consuming repository's;
 the render adds the key convention as a comment in `providers.tf` and never a backend
-with values of its own. With a pipeline (`deployment.deploy_mechanism` other than
-`local`) it adds the **empty** block `backend "azurerm" {}` as well, because the pipeline
+with values of its own. With any `deployment.deploy_mechanism`, `local` included, it adds
+the **empty** block `backend "azurerm" {}` as well, because the pipeline or `deploy.ps1`
 passes the values as `-backend-config` and `terraform init` ignores `-backend-config`
 without raising an error when no backend block exists - the state would be local, and gone
 with the runner. A local run without a state uses `terraform init -backend=false`. The test file plans a non-production stage once besides the
@@ -460,14 +485,16 @@ sentence rather than a silence:
 marker naming a decision the spec no longer has. Run it with `terraform test`; a render
 that passes one and not the other is half done.
 
-Assert the value the spec records, through the attribute `renders` names. A decision
+Assert the value the spec records, through the attribute and literal the digest prints from
+the resource's `render-map.yaml`. A decision
 rendered as an absent block (`immutability: none`, `point_in_time_restore_days: 0`,
 `key_management: platform_managed`) is asserted as `length(...) == 0` — the absence is the
 decision.
 
 A referenced platform (`network_ownership: reference`, `observability_ownership:
-reference`) is `data` blocks, and a plan reads those from Azure — so the test would need
-credentials after all. Mock the `azurerm` provider for the test and give every mocked data
+reference`) is id variables, so a test needs no credentials for it: the ids go into the
+test's `variables` block, as ids that parse. Mock the `azurerm` provider for the data sources
+the root keeps (the resource group a module takes as `parent_id`) and give each mocked data
 source an **id that parses**: the provider validates the shape of every id it is handed,
 and the random string a bare mock returns fails that validation with a segment-by-segment
 error before any assertion runs. The naming provider stays real, so names are asserted as
@@ -475,22 +502,18 @@ they will be deployed:
 
 ```hcl
 mock_provider "azurerm" {
-  mock_data "azurerm_subnet" {
+  mock_data "azurerm_resource_group" {
     defaults = {
-      id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-network/providers/Microsoft.Network/virtualNetworks/vnet-hub/subnets/snet-privatelink"
-    }
-  }
-  mock_data "azurerm_log_analytics_workspace" {
-    defaults = {
-      id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-observability/providers/Microsoft.OperationalInsights/workspaces/log-platform"
+      id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-myapp"
     }
   }
 }
 
 variables {
-  environment = "production"
-  location    = "westeurope"
-  workload    = "myapp"
+  environment                = "production"
+  location                   = "westeurope"
+  workload                   = "myapp"
+  private_endpoint_subnet_id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-network/providers/Microsoft.Network/virtualNetworks/vnet-hub/subnets/snet-privatelink"
   # ...the rest of terraform.tfvars
 }
 

@@ -20,22 +20,14 @@ id) and requires `azapi ~> 2.5`, `modtm ~> 0.3`, `random`, `time ~> 0.10`, Terra
 
 ### Decision -> module input
 
-| Decision | Input | Note |
+What each decision renders to - the input and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.
+
+### Inputs no decision covers
+
+| Input | Module input | Note |
 |---|---|---|
-| `kind` | `kind` | One of the eight; the module accepts every Cognitive Services kind, the set narrows it |
-| `sku_name` | `sku_name` | `S0` or `F0`; **required** by the module |
 | (derived from the name) | `custom_subdomain_name` | **Required** for a firewall, private endpoints and token auth; default `null`; written. Fixed at creation |
-| `public_network_access` | `public_network_access_enabled` | **Bool**; module default **`true`** |
-| `ip_rules` | `network_acls = { default_action = "Deny", ip_rules, bypass }` | Needs `custom_subdomain_name`; `null` with `disabled` |
-| `restrict_outbound` | `outbound_network_access_restricted` | Default `null` (off); written |
-| `allowed_fqdns` | `fqdns` | Only with `restrict_outbound`; the host names, no wildcards |
-| `private_endpoint_subnet` | `private_endpoints = { account = { subnet_resource_id } }` | One zone, `privatelink.cognitiveservices.azure.com` |
 | `deployment.private_dns_records` | `private_endpoints_manage_dns_zone_group` | `false` under `policy` |
-| `managed_identity`, `user_assigned_identity_ids` | `managed_identities = { system_assigned, user_assigned_resource_ids }` | |
-| `role_assignments` | `role_assignments` | The per-kind roles by name |
-| `local_authentication_disabled` | `local_auth_enabled` | **Inverse**; default `null` (on); written |
-| `key_management`, `cmk_key_vault_key_id` | `customer_managed_key = { key_vault_resource_id, key_name, user_assigned_identity = { resource_id } }` | Unversioned; `is_hsm_key` beside it for `key_protection: hsm` |
-| `diagnostic_*`, `metrics_enabled` | `diagnostic_settings = { workspace = { workspace_resource_id, log_categories, log_groups = [], metric_categories = ["AllMetrics"] } }` | `log_groups` defaults to `["allLogs"]`: set it empty |
 | `deployment.module_telemetry` | `enable_telemetry` | |
 | `context.tags` | `tags = local.tags` | |
 
@@ -122,13 +114,10 @@ version. The private endpoint, role assignments and the diagnostic setting are c
 The fallback. Targets `azurerm` **5.x** (`azurerm_cognitive_account`); check against
 `terraform providers schema -json`.
 
-| Decision | Argument |
+What each decision renders to - the argument and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.
+
+### Arguments no decision covers
+
+| Input | Argument |
 |---|---|
-| `kind`, `sku_name`, subdomain | `kind`, `sku_name`, `custom_subdomain_name` |
-| `public_network_access`, `ip_rules` | `public_network_access_enabled`, `network_acls { default_action, ip_rules, bypass }` |
-| `restrict_outbound`, `allowed_fqdns` | `outbound_network_access_restricted`, `fqdns` |
-| `managed_identity` | `identity { type, identity_ids }` |
-| `local_authentication_disabled` | `local_auth_enabled` (inverse) |
-| `key_management` | `customer_managed_key { key_vault_key_id, identity_client_id }` |
-| private endpoint | `azurerm_private_endpoint` with `subresource_names = ["account"]` |
-| diagnostics | `azurerm_monitor_diagnostic_setting` with `enabled_log { category }` |
+| (derived from the name) | `custom_subdomain_name` |

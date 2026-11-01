@@ -46,7 +46,7 @@ ACTED_ON = ['forced_when', 'non_production_default', 'required']
 def acted_on(q):
     """A question a run acts on without asking: a consequence, a derivation, an open item."""
     ans = q.get('answer')
-    return any(k in q for k in ACTED_ON) or (isinstance(ans, dict) and 'question' in ans)
+    return any(k in q for k in ACTED_ON) or (isinstance(ans, dict) and ('question' in ans or 'map' in ans))
 
 
 def resolve(arg):
@@ -168,6 +168,9 @@ def digest(name, doc, language, why_ids, out):
             ans = q.get('answer')
             if isinstance(ans, dict) and 'question' in ans:
                 parts.append(f"derived from {ans.get('question')} {ans.get('map')}")
+            elif isinstance(ans, dict) and 'deployment' in ans and 'map' in ans:
+                # the deployment answer in this question's values - write the mapped value, source deployment
+                parts.append(f"from deployment.{ans['deployment']} translated {ans['map']}")
             if 'non_production_default' in q:
                 parts.append(f"non_production_default={q['non_production_default']}")
             if q.get('depends_on'):

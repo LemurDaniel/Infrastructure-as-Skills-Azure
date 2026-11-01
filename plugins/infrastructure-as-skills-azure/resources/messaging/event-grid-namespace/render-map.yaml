@@ -1,0 +1,305 @@
+# What each decision of questions.yaml renders to, per target and implementation.
+# Format: core/iac-rendering/references/render-map.md. The call, the authored blocks and the
+# tests are in terraform.md and bicep.md.
+schema_version: 1
+resource: Microsoft.EventGrid/namespaces
+
+modules:
+  terraform: [Azure/avm-res-eventgrid-namespace/azurerm]
+  bicep: [avm/res/event-grid/namespace]
+
+decisions:
+
+  # ---------------------------------------------------------------- placement
+  placement.environments:
+    not_rendered: naming parameter `environment` and the tag of that name; no attribute of the namespace
+  placement.location:
+    terraform_avm: { attribute: location, passthrough: true }
+    terraform: { attribute: location, passthrough: true }
+    bicep_avm: { attribute: location, passthrough: true }
+    bicep: { attribute: location, passthrough: true }
+  placement.resource_group_name:
+    terraform_avm:
+      attribute: parent_id
+      note: the group's id (data.azurerm_resource_group), not its name - AzAPI-based module
+    terraform: { attribute: parent_id, note: 'azapi_resource, as the reference renders the namespace; azurerm 5.12 also has azurerm_eventgrid_namespace (source: azurerm 5.12 schema)' }
+    bicep_avm: { gap: the deployment's resource group scope; no parameter }
+    bicep: { gap: the deployment's resource group scope; no property }
+
+  # ---------------------------------------------------------------- namespace
+  namespace.capacity:
+    terraform_avm: { attribute: capacity, passthrough: true, note: 'with sku = "Standard"; module defaults 1 and "Standard" - written; 1-20' }
+    terraform: { attribute: body.sku.capacity, passthrough: true, note: 'sku = { name = "Standard", capacity }' }
+    bicep_avm:
+      gap: "module README 0.8.0 has no sku or capacity parameter - the platform's one unit recorded forced, or the namespace authored with sku: { name: 'Standard', capacity }"
+    bicep: { attribute: sku.capacity, passthrough: true, note: "sku: { name: 'Standard', capacity } beside properties" }
+  namespace.minimum_tls_version:
+    terraform_avm:
+      gap: module README v0.1.2 has no input for the minimum TLS version - azapi_update_resource on the module's resource_id with body.properties.minimumTlsVersionAllowed
+    terraform: { attribute: body.properties.minimumTlsVersionAllowed, passthrough: true }
+    bicep_avm:
+      gap: module README 0.8.0 has no parameter for the minimum TLS version - the platform's value recorded forced, or the namespace authored with properties.minimumTlsVersionAllowed
+    bicep: { attribute: properties.minimumTlsVersionAllowed, passthrough: true }
+  namespace.local_auth:
+    not_rendered: the type has no switch - no listKeys, no key output; data-plane access through role_assignments only; recorded forced
+  namespace.zone_redundant:
+    terraform_avm:
+      gap: module README v0.1.2 has no zone input - the platform's regional default; a false in a zonal region renders the namespace authored
+    terraform: { attribute: body.properties.isZoneRedundant, passthrough: true, note: fixed at creation }
+    bicep_avm: { attribute: isZoneRedundant, passthrough: true, note: no module default (the platform decides when unset) - written; fixed at creation }
+    bicep: { attribute: properties.isZoneRedundant, passthrough: true, note: fixed at creation }
+  namespace.managed_identity:
+    terraform_avm:
+      attribute: managed_identities
+      values:
+        system_assigned: { expr: '{ system_assigned = true }' }
+        user_assigned: { expr: '{ user_assigned_resource_ids = {namespace.user_assigned_identity_ids} }' }
+        none: { expr: '{}' }
+    terraform:
+      attribute: identity.type
+      values: { system_assigned: SystemAssigned, user_assigned: UserAssigned, none: null }
+      note: none renders no identity block
+    bicep_avm:
+      attribute: managedIdentities
+      values:
+        system_assigned: { expr: '{ systemAssigned: true }' }
+        user_assigned: { expr: '{ userAssignedResourceIds: {namespace.user_assigned_identity_ids} }' }
+        none: { expr: '{}' }
+    bicep:
+      attribute: identity.type
+      values: { system_assigned: SystemAssigned, user_assigned: UserAssigned, none: null }
+      note: none renders no identity block
+  namespace.user_assigned_identity_ids:
+    terraform_avm: { attribute: managed_identities.user_assigned_resource_ids }
+    terraform: { attribute: identity.identity_ids }
+    bicep_avm: { attribute: managedIdentities.userAssignedResourceIds }
+    bicep:
+      attribute: identity.userAssignedIdentities
+      format: { expr: 'toObject({value}, id => id, id => {})' }
+      note: "an object keyed by each id - type: 'UserAssigned' (source: bicep build, Microsoft.EventGrid/namespaces@2025-02-15)"
+
+  # ------------------------------------------------------------------- topics
+  topics.namespace_topics:
+    terraform_avm:
+      attribute: 'namespace_topics.<k> = { name, event_retention_days, input_schema = "CloudEventSchemaV1_0" }'
+    terraform: { attribute: azapi_resource Microsoft.EventGrid/namespaces/topics@2025-02-15 }
+    bicep_avm:
+      attribute: "topics[] = { name, eventRetentionInDays, inputSchema: 'CloudEventSchemaV1_0', eventSubscriptions }"
+      note: untyped array; member names from the topic child README
+    bicep: { attribute: 'Microsoft.EventGrid/namespaces/topics properties: { eventRetentionInDays, inputSchema }' }
+  topics.event_retention_days:
+    terraform_avm:
+      attribute: 'namespace_topics.<k>.event_retention_days'
+      passthrough: true
+      note: 'also topic_event_subscriptions.<k>.event_time_to_live as ISO 8601 ("P7D", module default "P1D"); topic module default 7 - written'
+    terraform:
+      attribute: topics child body.properties.eventRetentionInDays
+      passthrough: true
+      note: also the subscription's properties.deliveryConfiguration.queue.eventTimeToLive, ISO 8601
+    bicep_avm:
+      attribute: 'topics[].eventRetentionInDays'
+      passthrough: true
+      note: "also eventSubscriptions[].deliveryConfiguration.queue.eventTimeToLive, ISO 8601 ('P7D')"
+    bicep:
+      attribute: topics child properties.eventRetentionInDays
+      passthrough: true
+      note: also the subscription's properties.deliveryConfiguration.queue.eventTimeToLive, ISO 8601
+  topics.topic_subscriptions:
+    terraform_avm:
+      attribute: 'topic_event_subscriptions.<k> = { topic_key, name, delivery_mode, destination, delivery_identity, filters_configuration }'
+    terraform: { attribute: azapi_resource Microsoft.EventGrid/namespaces/topics/eventSubscriptions@2025-02-15 }
+    bicep_avm:
+      attribute: "topics[].eventSubscriptions[] = { name, eventDeliverySchema, deliveryConfiguration }"
+    bicep: { attribute: Microsoft.EventGrid/namespaces/topics/eventSubscriptions properties.deliveryConfiguration }
+  topics.delivery_mode:
+    terraform_avm:
+      attribute: 'topic_event_subscriptions.<k>.delivery_mode'
+      values: { queue: Queue, push: Push }
+      note: push takes destination + delivery_identity = { type = "SystemAssigned" }; queue neither
+    terraform:
+      attribute: eventSubscriptions child body.properties.deliveryConfiguration.deliveryMode
+      values: { queue: Queue, push: Push }
+    bicep_avm:
+      attribute: 'topics[].eventSubscriptions[].deliveryConfiguration.deliveryMode'
+      values: { queue: Queue, push: Push }
+      note: push takes deliveryConfiguration.push.deliveryWithResourceIdentity with the namespace's identity
+    bicep:
+      attribute: eventSubscriptions child properties.deliveryConfiguration.deliveryMode
+      values: { queue: Queue, push: Push }
+  topics.max_delivery_count:
+    terraform_avm: { attribute: 'topic_event_subscriptions.<k>.max_delivery_count', passthrough: true, note: 'module default 30, service default 10 - written' }
+    terraform: { attribute: eventSubscriptions child body.properties.deliveryConfiguration.queue.maxDeliveryCount, passthrough: true }
+    bicep_avm: { attribute: 'topics[].eventSubscriptions[].deliveryConfiguration.queue.maxDeliveryCount', passthrough: true, note: service default 10 - written }
+    bicep: { attribute: eventSubscriptions child properties.deliveryConfiguration.queue.maxDeliveryCount, passthrough: true }
+  topics.receive_lock_duration_seconds:
+    terraform_avm: { attribute: 'topic_event_subscriptions.<k>.receive_lock_duration_in_seconds', passthrough: true }
+    terraform: { attribute: eventSubscriptions child body.properties.deliveryConfiguration.queue.receiveLockDurationInSeconds, passthrough: true }
+    bicep_avm: { attribute: 'topics[].eventSubscriptions[].deliveryConfiguration.queue.receiveLockDurationInSeconds', passthrough: true }
+    bicep: { attribute: eventSubscriptions child properties.deliveryConfiguration.queue.receiveLockDurationInSeconds, passthrough: true }
+  topics.keep_undeliverable_events:
+    terraform_avm:
+      attribute: 'topic_event_subscriptions.<k>.dead_letter_destination'
+      values:
+        true: { expr: '{ storage_account_id = {topics.dead_letter_storage_account}, blob_container_name = {topics.dead_letter_container}, identity_type = "SystemAssigned" }' }
+        false: null
+      note: the identity form; no key
+    terraform:
+      attribute: eventSubscriptions child body.properties.deliveryConfiguration.<mode>.deadLetterDestinationWithResourceIdentity
+      values:
+        true: { expr: '{ identity = { type = "SystemAssigned" }, deadLetterDestination = { endpointType = "StorageBlob", properties = { resourceId = {topics.dead_letter_storage_account}, blobContainerName = {topics.dead_letter_container} } } }' }
+        false: null
+      note: the ARM body of the Bicep reference's object, in HCL; the identity form, no key
+    bicep_avm:
+      attribute: 'topics[].eventSubscriptions[].deliveryConfiguration.<mode>.deadLetterDestinationWithResourceIdentity'
+      values:
+        true: { expr: "{ identity: { type: 'SystemAssigned' }, deadLetterDestination: { endpointType: 'StorageBlob', properties: { resourceId: {topics.dead_letter_storage_account}, blobContainerName: {topics.dead_letter_container} } } }" }
+        false: null
+      note: the identity form; no key
+    bicep:
+      attribute: eventSubscriptions child properties.deliveryConfiguration.<mode>.deadLetterDestinationWithResourceIdentity
+      values:
+        true: { expr: "{ identity: { type: 'SystemAssigned' }, deadLetterDestination: { endpointType: 'StorageBlob', properties: { resourceId: {topics.dead_letter_storage_account}, blobContainerName: {topics.dead_letter_container} } } }" }
+        false: null
+  topics.dead_letter_storage_account:
+    terraform_avm: { attribute: 'topic_event_subscriptions.<k>.dead_letter_destination.storage_account_id' }
+    terraform: { attribute: eventSubscriptions child body.properties.deliveryConfiguration.<mode>.deadLetterDestinationWithResourceIdentity.deadLetterDestination.properties.resourceId }
+    bicep_avm: { attribute: 'topics[].eventSubscriptions[].deliveryConfiguration.<mode>.deadLetterDestinationWithResourceIdentity.deadLetterDestination.properties.resourceId' }
+    bicep: { attribute: eventSubscriptions child properties.deliveryConfiguration.<mode>.deadLetterDestinationWithResourceIdentity.deadLetterDestination.properties.resourceId }
+  topics.dead_letter_container:
+    terraform_avm: { attribute: 'topic_event_subscriptions.<k>.dead_letter_destination.blob_container_name', passthrough: true }
+    terraform: { attribute: eventSubscriptions child body.properties.deliveryConfiguration.<mode>.deadLetterDestinationWithResourceIdentity.deadLetterDestination.properties.blobContainerName, passthrough: true }
+    bicep_avm: { attribute: 'topics[].eventSubscriptions[].deliveryConfiguration.<mode>.deadLetterDestinationWithResourceIdentity.deadLetterDestination.properties.blobContainerName', passthrough: true }
+    bicep: { attribute: eventSubscriptions child properties.deliveryConfiguration.<mode>.deadLetterDestinationWithResourceIdentity.deadLetterDestination.properties.blobContainerName, passthrough: true }
+
+  # --------------------------------------------------------------------- mqtt
+  mqtt.mqtt_broker:
+    terraform_avm:
+      gap: module README v0.1.2 - topic_spaces_configuration has no state member; azapi_update_resource with body.properties.topicSpacesConfiguration.state = "Enabled" / "Disabled"
+    terraform:
+      attribute: body.properties.topicSpacesConfiguration.state
+      values: { true: Enabled, false: Disabled }
+      note: cannot be disabled again once Enabled
+    bicep_avm:
+      attribute: topicSpacesState
+      values: { true: Enabled, false: Disabled }
+      note: module default Disabled - written; cannot be disabled again once Enabled
+    bicep:
+      attribute: properties.topicSpacesConfiguration.state
+      values: { true: Enabled, false: Disabled }
+      note: cannot be disabled again once Enabled
+  mqtt.topic_spaces:
+    terraform_avm: { attribute: 'topic_spaces.<k> = { name, topic_templates }' }
+    terraform: { attribute: azapi_resource Microsoft.EventGrid/namespaces/topicSpaces }
+    bicep_avm: { attribute: 'topicSpaces[] = { name, topicTemplates }' }
+    bicep: { attribute: Microsoft.EventGrid/namespaces/topicSpaces }
+  mqtt.clients:
+    terraform_avm: { attribute: 'clients.<k> = { name, authentication_name, attributes, client_certificate_authentication }' }
+    terraform: { attribute: azapi_resource Microsoft.EventGrid/namespaces/clients }
+    bicep_avm:
+      attribute: 'clients[] = { name, authenticationName, attributes, clientCertificateAuthenticationValidationScheme, clientCertificateAuthenticationAllowedThumbprints }'
+    bicep: { attribute: Microsoft.EventGrid/namespaces/clients }
+  mqtt.client_groups:
+    terraform_avm: { attribute: 'client_groups.<k> = { name, query }' }
+    terraform: { attribute: azapi_resource Microsoft.EventGrid/namespaces/clientGroups }
+    bicep_avm: { attribute: 'clientGroups[] = { name, query }' }
+    bicep: { attribute: Microsoft.EventGrid/namespaces/clientGroups }
+  mqtt.permission_bindings:
+    terraform_avm:
+      attribute: 'permission_bindings.<k> = { name, client_group_key, topic_space_key, permission }'
+      note: map keys of the group and the space, not names
+    terraform: { attribute: azapi_resource Microsoft.EventGrid/namespaces/permissionBindings }
+    bicep_avm:
+      attribute: 'permissionBindings[] = { name, clientGroupName, topicSpaceName, permission }'
+      note: by name, where the Terraform module takes map keys
+    bicep: { attribute: Microsoft.EventGrid/namespaces/permissionBindings }
+  mqtt.mqtt_routing:
+    terraform_avm:
+      attribute: topic_spaces_configuration.route_topic_resource_id
+      values: { none: null, event_grid_topic: { expr: '{mqtt.mqtt_routing_topic}' } }
+      note: two-pass when the topic is created in the same run
+    terraform:
+      attribute: body.properties.topicSpacesConfiguration.routeTopicResourceId
+      values: { none: null, event_grid_topic: { expr: '{mqtt.mqtt_routing_topic}' } }
+      also:
+        event_grid_topic: 'routingIdentityInfo = { type = "SystemAssigned" }'
+    bicep_avm:
+      attribute: routeTopicResourceId
+      values: { none: null, event_grid_topic: { expr: '{mqtt.mqtt_routing_topic}' } }
+      also:
+        event_grid_topic: "routingIdentityInfo: { type: 'SystemAssigned' }"
+      note: none leaves both out; a second deployment once the topic and the identity's role on it exist
+    bicep:
+      attribute: properties.topicSpacesConfiguration.routeTopicResourceId
+      values: { none: null, event_grid_topic: { expr: '{mqtt.mqtt_routing_topic}' } }
+      also:
+        event_grid_topic: "properties.topicSpacesConfiguration.routingIdentityInfo: { type: 'SystemAssigned' }"
+  mqtt.mqtt_routing_topic:
+    terraform_avm: { attribute: topic_spaces_configuration.route_topic_resource_id }
+    terraform: { attribute: body.properties.topicSpacesConfiguration.routeTopicResourceId }
+    bicep_avm: { attribute: routeTopicResourceId }
+    bicep: { attribute: properties.topicSpacesConfiguration.routeTopicResourceId }
+
+  # --------------------------------------------------------------- networking
+  networking.public_network_access:
+    terraform_avm:
+      attribute: public_network_access
+      values: { disabled: Disabled, enabled_with_firewall: Enabled, enabled: Enabled }
+      note: a string on this module, module default Enabled - written
+    terraform:
+      attribute: body.properties.publicNetworkAccess
+      values: { disabled: Disabled, enabled_with_firewall: Enabled, enabled: Enabled }
+    bicep_avm:
+      attribute: publicNetworkAccess
+      values: { disabled: Disabled, enabled_with_firewall: Enabled, enabled: Enabled }
+      note: module default Enabled - written
+    bicep:
+      attribute: properties.publicNetworkAccess
+      values: { disabled: Disabled, enabled_with_firewall: Enabled, enabled: Enabled }
+  networking.private_endpoint_subnet:
+    terraform_avm:
+      attribute: private_endpoints.topic.subnet_resource_id
+      note: the sub-resource is topic, fixed by the module
+    terraform: { attribute: azurerm_private_endpoint.subnet_id }
+    bicep_avm: { attribute: 'privateEndpoints[].subnetResourceId', note: "with service: 'topic'" }
+    bicep: { attribute: Microsoft.Network/privateEndpoints properties.subnet.id }
+  networking.ip_rules:
+    terraform_avm: { attribute: 'inbound_ip_rules[].ip_mask', note: 'action = "Allow"; used only with public access Enabled' }
+    terraform: { attribute: 'body.properties.inboundIpRules[].ipMask', note: '{ ipMask, action }' }
+    bicep_avm: { attribute: 'inboundIpRules[].ipMask', note: "action: 'Allow'; used only with public access Enabled" }
+    bicep: { attribute: 'properties.inboundIpRules[].ipMask' }
+
+  # ----------------------------------------------------------------- identity
+  identity.role_assignments:
+    terraform_avm: { attribute: 'role_assignments.<k> = { role_definition_id_or_name, principal_id, principal_type }' }
+    terraform: { attribute: azurerm_role_assignment, note: scope = the namespace's id }
+    bicep_avm: { attribute: 'roleAssignments[] = { principalId, roleDefinitionIdOrName, principalType }' }
+    bicep: { attribute: Microsoft.Authorization/roleAssignments, note: scope = the namespace }
+
+  # ------------------------------------------------------------ observability
+  observability.diagnostic_workspace:
+    terraform_avm: { attribute: 'diagnostic_settings.<key>.workspace_resource_id' }
+    terraform: { attribute: azurerm_monitor_diagnostic_setting.log_analytics_workspace_id }
+    bicep_avm: { attribute: 'diagnosticSettings[].workspaceResourceId' }
+    bicep: { attribute: Microsoft.Insights/diagnosticSettings properties.workspaceId }
+  observability.diagnostic_categories:
+    terraform_avm:
+      attribute: 'diagnostic_settings.<key>.log_categories'
+      note: 'log_groups defaults to ["allLogs"] - set to [] so the categories are the decision'
+    terraform: { attribute: azurerm_monitor_diagnostic_setting.enabled_log.category }
+    bicep_avm: { attribute: 'diagnosticSettings[].logCategoriesAndGroups[].category' }
+    bicep: { attribute: 'Microsoft.Insights/diagnosticSettings properties.logs[].category' }
+  observability.metrics_enabled:
+    terraform_avm:
+      attribute: 'diagnostic_settings.<key>.metric_categories'
+      values: { true: { expr: '["AllMetrics"]' }, false: { expr: '[]' } }
+    terraform:
+      attribute: azurerm_monitor_diagnostic_setting.enabled_metric
+      values: { true: { expr: '{ category = "AllMetrics" }' }, false: null }
+      note: a block (azurerm 5.x); false renders none. The reference's diagnostics row names enabled_log only
+    bicep_avm:
+      attribute: 'diagnosticSettings[].metricCategories'
+      values: { true: { expr: "[ { category: 'AllMetrics' } ]" }, false: { expr: '[]' } }
+    bicep:
+      attribute: 'Microsoft.Insights/diagnosticSettings properties.metrics[].category'
+      values: { true: AllMetrics, false: null }
+      note: false renders no metrics entry

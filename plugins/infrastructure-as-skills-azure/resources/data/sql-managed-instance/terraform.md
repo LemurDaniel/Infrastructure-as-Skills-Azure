@@ -22,38 +22,13 @@ NSG rule, and nothing inside a database.
 
 ### Decision -> module input
 
-| Decision | Input | Note |
+What each decision renders to - the input and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.
+
+### Deployment-wide inputs
+
+| Input | Module input | Note |
 |---|---|---|
-| `service_tier`, `hardware_family` | `sku_name` = `GP_Gen5`, `GP_Gen8IM`, `GP_Gen8IH`, `BC_Gen5`, `BC_Gen8IM`, `BC_Gen8IH` | One string carries two decisions; `Gen8IM` is premium-series, `Gen8IH` memory-optimized |
-| `vcores` | `vcores` | Required; the allowed list per hardware is in the question's `why` |
-| `storage_gb` | `storage_size_in_gb` | Required; a multiple of 32 |
-| `license_type` | `license_type` | Required, no module default |
-| `collation` | `collation` | Fixed at creation |
-| `timezone` | `timezone_id` | Fixed at creation |
-| `maintenance_window` | `maintenance_configuration_name` = `SQL_Default`, `SQL_<Region>_MI_1` (weekday nights), `SQL_<Region>_MI_2` (weekend nights) | The region is spelt without spaces (`SQL_WestEurope_MI_1`); check `az sql mi list-maintenance-configurations` |
-| `databases` | `databases = { <key> = { name, ... } }` | The map key is arbitrary |
-| `zone_redundant` | `zone_redundant_enabled` | Module default **`true`**; written |
-| `geo_failover_region` | **not one call** - a second instance with `dns_zone_partner_id` and `failover_group` on it | |
-| `subnet` | `subnet_id` | Required; fixed at creation |
-| `public_data_endpoint` | `public_data_endpoint_enabled` | **Bool**, default `false`; written |
-| `ip_rules` | **not the module** - `azurerm_network_security_rule` for 3342 on the subnet's NSG | Open entry when the platform owns the NSG |
-| `private_endpoint`, `private_endpoint_subnet` | `private_endpoints = { <key> = { subnet_resource_id, name } }` | The module fixes the sub-resource `managedInstance`; `{}` when off |
 | `deployment.private_dns_records` | `private_endpoints_manage_dns_zone_group` | `false` under `policy` |
-| `connection_type` | `proxy_override` | Module default `Default`; written |
-| `minimum_tls_version` | `minimum_tls_version` | `"1.2"`; written |
-| `managed_identity`, `user_assigned_identity_ids` | `managed_identities = { system_assigned, user_assigned_resource_ids }` | The module patches the identities through `azapi` after creation |
-| `entra_admin`, `local_authentication_disabled` | `active_directory_administrator = { login_username, object_id, principal_type = "Group", tenant_id, azuread_authentication_only_enabled = true }` | |
-| `local_authentication_disabled` (the gap) | `administrator_login`, `administrator_login_password` | **Required by the module and the provider** even with Entra-only on: a generated `random_password`, never output, never stored |
-| `database_users` | **not the module** | T-SQL after the deployment |
-| `role_assignments` | `role_assignments` | Control plane |
-| `key_management`, `cmk_key_vault_key_id` | `transparent_data_encryption = { key_vault_key_id (versioned URL), auto_rotation_enabled = true }` | Omitted for `platform_managed`; the module then renders the service-managed protector |
-| `threat_detection` | `advanced_threat_protection_enabled` | Default `false`; written. `security_alert_policy` (e-mail, storage) stays unset |
-| `vulnerability_assessment`, `vulnerability_assessment_storage_account` | `storage_account_resource_id` and `vulnerability_assessment = { storage_container_path, recurring_scans = { enabled } }` | Classic form; the module grants the identity `Storage Blob Data Contributor`. Both unset when off |
-| `short_term_retention_days` | `databases.<key>.short_term_retention_days` | |
-| `long_term_retention` | `databases.<key>.long_term_retention_policy = { weekly_retention }` | ISO 8601: `P13W`, `P52W` |
-| `backup_storage_redundancy` | `storage_account_type` = `LRS`, `ZRS`, `GRS` | Module default **`GRS`**; written. **No `GeoZone`**: recorded forced to `GRS` with the module as forced_by, or authored |
-| `diagnostic_workspace`, `diagnostic_categories`, `metrics_enabled` | `diagnostic_settings = { workspace = { workspace_resource_id, log_categories, log_groups = [], metric_categories = ["AllMetrics"] } }` | `log_groups` defaults to `["allLogs"]`; set empty beside the categories |
-| `auditing_enabled` | **not the module** - T-SQL, plus `SQLSecurityAuditEvents` above | |
 | `deployment.resource_lock` | `lock = { kind = "CanNotDelete" }` | |
 | `deployment.module_telemetry` | `enable_telemetry` | |
 | `context.tags` | `tags = local.tags` | |
@@ -212,16 +187,4 @@ The fallback - `implementation: authored`, or a repository that already renders 
 way, or a `GeoZone` backup answer. Targets `azurerm` **5.x**; check against
 `terraform providers schema -json`.
 
-| Decision | Resource and argument |
-|---|---|
-| the instance | `azurerm_mssql_managed_instance` (`subnet_id`, `sku_name`, `vcores`, `storage_size_in_gb`, `license_type`, `collation`, `timezone_id`, `maintenance_configuration_name`, `zone_redundant_enabled`, `public_data_endpoint_enabled`, `proxy_override`, `minimum_tls_version`, `storage_account_type`, `dns_zone_partner_id`) |
-| `entra_admin`, `local_authentication_disabled` | `azuread_administrator { login_username, object_id, principal_type, tenant_id, azuread_authentication_only_enabled }`; `administrator_login` and password still required |
-| `managed_identity` | `identity { type, identity_ids }` |
-| `key_management` | `azurerm_mssql_managed_instance_transparent_data_encryption` (`key_vault_key_id`, `auto_rotation_enabled`) |
-| `threat_detection` | `azapi_resource` `Microsoft.Sql/managedInstances/advancedThreatProtectionSettings` (`Default`, `state = "Enabled"`) or `azurerm_mssql_managed_instance_security_alert_policy` |
-| `vulnerability_assessment` | `azurerm_mssql_managed_instance_vulnerability_assessment` with a storage container path |
-| `databases`, retention | `azurerm_mssql_managed_database` (`short_term_retention_days`, `long_term_retention_policy { weekly_retention }`) |
-| `ip_rules` | `azurerm_network_security_rule` (3342) |
-| private endpoint | `azurerm_private_endpoint` with `subresource_names = ["managedInstance"]` |
-| `geo_failover_region` | `azurerm_mssql_managed_instance_failover_group` |
-| diagnostics | `azurerm_monitor_diagnostic_setting` with `enabled_log { category }` and `enabled_metric { category = "AllMetrics" }` |
+What each decision renders to - the argument and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.

@@ -1,0 +1,408 @@
+# What each decision of questions.yaml renders to, per target and implementation.
+# Format: core/iac-rendering/references/render-map.md. The call, the authored blocks and the
+# tests are in terraform.md and bicep.md.
+#
+# `hosting` picks the modules: standard is the plan and site modules, consumption the workflow
+# module. An entry spelt differently on site and workflow is a list, one element per module.
+schema_version: 1
+resource: Microsoft.Logic/workflows
+
+modules:
+  terraform: [Azure/avm-res-web-serverfarm/azurerm, Azure/avm-res-web-site/azurerm, Azure/avm-res-logic-workflow/azurerm]
+  bicep: [avm/res/web/serverfarm, avm/res/web/site, avm/res/logic/workflow]
+
+decisions:
+
+  # ---------------------------------------------------------------- placement
+  placement.environments:
+    not_rendered: naming parameter `environment` and the tag of that name; no attribute of the app
+  placement.location:
+    terraform_avm: { attribute: location, passthrough: true }
+    terraform: { attribute: location, passthrough: true }
+    bicep_avm: { attribute: location, passthrough: true }
+    bicep: { attribute: location, passthrough: true }
+  placement.resource_group_name:
+    terraform_avm:
+      - { module: Azure/avm-res-web-serverfarm/azurerm, attribute: parent_id }
+      - { module: Azure/avm-res-web-site/azurerm, attribute: parent_id }
+      - module: Azure/avm-res-logic-workflow/azurerm
+        attribute: resource_group_name, resource_group_id
+        note: the workflow module is azurerm-based (>= 4.21.1, < 5.0) - a root with a Consumption workflow cannot be on 5.x
+    terraform: { attribute: resource_group_name }
+    bicep_avm: { gap: the deployment's resource group scope; no parameter }
+    bicep: { gap: the deployment's resource group scope; no property }
+
+  # ------------------------------------------------------------------ hosting
+  hosting.hosting:
+    terraform_avm:
+      module: Azure/avm-res-web-site/azurerm
+      attribute: kind
+      values: { standard: logicapp, consumption: null }
+      also:
+        standard: 'os_type = "Windows"'
+      note: logicapp + Windows maps to the ARM kind functionapp,workflowapp; consumption calls no site - the workflow module, one call per workflows entry
+    terraform:
+      attribute: resource
+      values:
+        standard: { expr: 'azurerm_logic_app_standard' }
+        consumption: { expr: 'azurerm_logic_app_workflow' }
+      note: standard also renders azurerm_service_plan (os_type = "Windows")
+    bicep_avm:
+      module: avm/res/web/site
+      attribute: kind
+      values: { standard: 'functionapp,workflowapp', consumption: null }
+      note: required; 'functionapp,workflowapp,linux' for a Linux plan. consumption calls no site - the workflow module, one per workflows entry
+    bicep:
+      attribute: kind
+      values: { standard: 'functionapp,workflowapp', consumption: null }
+      note: on Microsoft.Web/sites; consumption renders Microsoft.Logic/workflows and no site
+  hosting.plan:
+    terraform_avm:
+      module: Azure/avm-res-web-site/azurerm
+      attribute: service_plan_resource_id
+      values:
+        own: { expr: 'module.logic_plan.resource_id' }
+        shared: { expr: '<the plan id of shared_plan_with>' }
+      note: shared calls no plan module
+    terraform:
+      attribute: azurerm_logic_app_standard.app_service_plan_id
+      values:
+        own: { expr: 'azurerm_service_plan.<name>.id' }
+        shared: { expr: '<the plan id of shared_plan_with>' }
+      note: own creates azurerm_service_plan; shared none
+    bicep_avm:
+      module: avm/res/web/site
+      attribute: serverFarmResourceId
+      values:
+        own: { expr: 'logicPlan.outputs.resourceId' }
+        shared: { expr: '<the plan id of shared_plan_with>' }
+      note: shared calls no plan module
+    bicep:
+      attribute: properties.serverFarmId
+      values:
+        own: { expr: '<the Microsoft.Web/serverFarms resource>.id' }
+        shared: { expr: '<the plan id of shared_plan_with>' }
+      note: the property the authored azapi site body of terraform.md sets (serverFarmId); shared renders no serverFarms
+  hosting.shared_plan_with:
+    terraform_avm: { module: Azure/avm-res-web-site/azurerm, attribute: service_plan_resource_id, note: the owner's plan id }
+    terraform: { attribute: azurerm_logic_app_standard.app_service_plan_id, note: the owner's plan id }
+    bicep_avm: { module: avm/res/web/site, attribute: serverFarmResourceId, note: the owner's plan id }
+    bicep: { attribute: properties.serverFarmId, note: the owner's plan id }
+  hosting.plan_sku:
+    terraform_avm:
+      module: Azure/avm-res-web-serverfarm/azurerm
+      attribute: sku_name
+      passthrough: true
+      note: module default P1v2, which a logic app refuses - written; os_type = "Windows"
+    terraform: { attribute: azurerm_service_plan.sku_name, passthrough: true }
+    bicep_avm: { module: avm/res/web/serverfarm, attribute: skuName, passthrough: true, note: "kind: 'elastic'; reserved follows kind" }
+    bicep: { attribute: Microsoft.Web/serverFarms sku.name, passthrough: true, note: "kind: 'elastic'" }
+  hosting.zone_redundant:
+    terraform_avm:
+      module: Azure/avm-res-web-serverfarm/azurerm
+      attribute: zone_balancing_enabled
+      passthrough: true
+      note: module default true; written. The minimum instance count of a zone-redundant WS plan is read from the documentation
+    terraform: { attribute: azurerm_service_plan.zone_balancing_enabled, passthrough: true }
+    bicep_avm: { module: avm/res/web/serverfarm, attribute: zoneRedundant, passthrough: true, note: computed from the SKU when unset; written }
+    bicep: { attribute: Microsoft.Web/serverFarms properties.zoneRedundant, passthrough: true }
+  hosting.instance_count:
+    terraform_avm: { module: Azure/avm-res-web-serverfarm/azurerm, attribute: worker_count, passthrough: true }
+    terraform: { attribute: azurerm_service_plan.worker_count, passthrough: true }
+    bicep_avm: { module: avm/res/web/serverfarm, attribute: skuCapacity, passthrough: true }
+    bicep: { attribute: Microsoft.Web/serverFarms sku.capacity, passthrough: true }
+  hosting.max_instance_count:
+    terraform_avm: { module: Azure/avm-res-web-serverfarm/azurerm, attribute: maximum_elastic_worker_count, passthrough: true }
+    terraform: { attribute: azurerm_service_plan.maximum_elastic_worker_count, passthrough: true }
+    bicep_avm: { module: avm/res/web/serverfarm, attribute: maximumElasticWorkerCount, passthrough: true }
+    bicep: { attribute: Microsoft.Web/serverFarms properties.maximumElasticWorkerCount, passthrough: true }
+
+  # ---------------------------------------------------------------- workflows
+  workflows.workflows:
+    terraform_avm:
+      module: Azure/avm-res-logic-workflow/azurerm
+      attribute: for_each
+      note: one workflow module call per entry, logic_app_definition left empty; on standard content from the repository - not-testable
+    terraform:
+      attribute: azurerm_logic_app_workflow.name
+      note: "one per entry on consumption; on standard the workflow folders of the app (content) (source: azurerm 5.12 schema)"
+    bicep_avm:
+      module: avm/res/logic/workflow
+      attribute: 'for wf in workflows'
+      note: workflowTriggers and workflowActions stay empty (content); on standard content - not_testable
+    bicep:
+      attribute: Microsoft.Logic/workflows name
+      note: "one per entry on consumption; on standard the workflow folders of the app (content) (source: bicep build, Microsoft.Logic/workflows@2019-05-01)"
+  workflows.state:
+    terraform_avm: { module: Azure/avm-res-logic-workflow/azurerm, attribute: state, passthrough: true, note: default "Enabled"; written }
+    terraform:
+      attribute: azurerm_logic_app_workflow.enabled
+      values: { Enabled: true, Disabled: false }
+      note: a bool on the authored resource, not the state string
+    bicep_avm: { module: avm/res/logic/workflow, attribute: state, passthrough: true, note: "default 'Enabled'; written" }
+    bicep: { attribute: Microsoft.Logic/workflows properties.state, passthrough: true }
+  workflows.trigger_authentication:
+    terraform_avm:
+      - module: Azure/avm-res-logic-workflow/azurerm
+        gap: >-
+          access_control.triggers.openAuthenticationPolicies (untyped map, ARM spelling) - entra_id is
+          { policies = { callers = { type = "AAD", claims = [{ name = "aud", value = <audience> }] } } };
+          the SAS switch's property name for sas is not in the reference (checked before a render)
+      - module: Azure/avm-res-web-site/azurerm
+        gap: auth_settings_v2 (Easy Auth in front of the request triggers) - the reference spells no value for either answer
+    terraform:
+      gap: >-
+        azurerm_logic_app_workflow access_control { trigger { open_authentication_policy } } - the
+        reference names the block without its members; standard - the authored rendering names no
+        authentication argument
+    bicep_avm:
+      - module: avm/res/logic/workflow
+        gap: >-
+          triggersAccessControlConfiguration.openAuthenticationPolicies (ARM spelling) - entra_id is
+          { policies: { callers: { type: 'AAD', claims: [ { name: 'aud', value: <audience> } ] } } };
+          the SAS switch's property for sas is not in the reference (checked before a render)
+      - module: avm/res/web/site
+        gap: "configs: [ { name: 'authsettingsV2', ... } ] (Easy Auth) - the reference spells no value for either answer"
+    bicep:
+      gap: Microsoft.Logic/workflows properties.accessControl.triggers - the authored rendering names it without its members; standard - no authentication property is named
+
+  # ------------------------------------------------------------------ storage
+  storage.host_storage_account:
+    terraform_avm: { module: Azure/avm-res-web-site/azurerm, attribute: storage_account_name, note: required by the module for logicapp }
+    terraform: { attribute: azurerm_logic_app_standard.storage_account_name }
+    bicep_avm:
+      module: avm/res/web/site
+      attribute: "configs[name = 'appsettings'].properties.AzureWebJobsStorage__accountName"
+      note: the module writes no logic-app settings; every host setting is written here
+    bicep: { attribute: config/appsettings AzureWebJobsStorage__accountName, note: child of the site }
+  storage.host_storage_auth:
+    terraform_avm:
+      module: Azure/avm-res-web-site/azurerm
+      gap: >-
+        key is storage_account_access_key = data.azurerm_key_vault_secret.host_storage_key.value with
+        storage_account_share_name; identity is not carried by the module (it writes the key for a
+        logicapp) - the site renders authored as an azapi_resource with a config/appsettings child
+        (AzureWebJobsStorage__accountName, AzureWebJobsStorage__credential = "managedidentity",
+        AzureWebJobsStorage__clientId)
+      note: >-
+        the module's logic-app settings write AzureWebJobsStorage with the account key after app_settings, without
+        the function-app override guard, and storage_account_access_key is validated non-null for logicapp; identity
+        records implementation authored (forced_by: avm-res-web-site v0.24.1 writes the storage key for a logic app) -
+        re-read the pinned README's logic-app settings before a render, the module may gain the identity path
+    terraform:
+      attribute: azurerm_logic_app_standard.app_settings
+      values:
+        identity: { expr: '{ AzureWebJobsStorage__accountName = {storage.host_storage_account}, AzureWebJobsStorage__credential = "managedidentity", AzureWebJobsStorage__clientId = <identity client id> }' }
+        key: null
+      also:
+        key: storage_key_vault_secret_id = <secret id>, key_vault_reference_identity_id = <identity id>
+      note: key writes no identity triple - storage_key_vault_secret_id + key_vault_reference_identity_id, or storage_account_access_key
+    bicep_avm:
+      module: avm/res/web/site
+      gap: >-
+        "configs[name = 'appsettings'].properties" - identity is { AzureWebJobsStorage__accountName,
+        AzureWebJobsStorage__credential: 'managedidentity', AzureWebJobsStorage__clientId } with
+        WEBSITE_CONTENTAZUREFILECONNECTIONSTRING a Key Vault reference; the reference spells no key path for Bicep
+    bicep:
+      gap: child config/appsettings with the settings of the module call - identity as there; the reference spells no key path for Bicep
+
+  # --------------------------------------------------------------- networking
+  networking.public_network_access:
+    terraform_avm:
+      module: Azure/avm-res-web-site/azurerm
+      attribute: public_network_access_enabled
+      values: { disabled: false, enabled_with_firewall: true, enabled: true }
+      also:
+        disabled: site_config.ip_restriction_default_action = "Deny"
+        enabled_with_firewall: site_config.ip_restriction_default_action = "Deny"
+      note: a bool, module default false - written; the call writes Deny beside disabled. Workflow - access_control.triggers.allowedCallerIpAddresses, no disabled exists
+    terraform:
+      attribute: azurerm_logic_app_standard.public_network_access
+      values: { disabled: Disabled, enabled_with_firewall: Enabled, enabled: Enabled }
+      note: workflow - access_control.trigger.allowed_caller_ip_address_range
+    bicep_avm:
+      module: avm/res/web/site
+      attribute: publicNetworkAccess
+      values: { disabled: Disabled, enabled_with_firewall: Enabled, enabled: Enabled }
+      also:
+        disabled: "siteConfig.ipSecurityRestrictionsDefaultAction: 'Deny'"
+        enabled_with_firewall: "siteConfig.ipSecurityRestrictionsDefaultAction: 'Deny'"
+      note: unset, disabled only with private endpoints - written. Workflow - triggersAccessControlConfiguration.allowedCallerIpAddresses, no Disabled
+    bicep:
+      attribute: properties.publicNetworkAccess
+      values: { disabled: Disabled, enabled_with_firewall: Enabled, enabled: Enabled }
+      also:
+        disabled: "siteConfig.ipSecurityRestrictionsDefaultAction: 'Deny'"
+        enabled_with_firewall: "siteConfig.ipSecurityRestrictionsDefaultAction: 'Deny'"
+  networking.allowed_caller_ip_ranges:
+    terraform_avm:
+      - { module: Azure/avm-res-web-site/azurerm, attribute: site_config.ip_restriction }
+      - { module: Azure/avm-res-logic-workflow/azurerm, attribute: 'access_control.triggers.allowedCallerIpAddresses[].addressRange' }
+    terraform: { attribute: 'azurerm_logic_app_standard site_config.ip_restriction; azurerm_logic_app_workflow access_control.trigger.allowed_caller_ip_address_range' }
+    bicep_avm:
+      - { module: avm/res/web/site, attribute: siteConfig.ipSecurityRestrictions }
+      - { module: avm/res/logic/workflow, attribute: 'triggersAccessControlConfiguration.allowedCallerIpAddresses[].addressRange' }
+    bicep: { attribute: 'properties.siteConfig.ipSecurityRestrictions; Microsoft.Logic/workflows properties.accessControl.triggers' }
+  networking.private_endpoint_subnet:
+    terraform_avm: { module: Azure/avm-res-web-site/azurerm, attribute: private_endpoints.sites.subnet_resource_id }
+    terraform:
+      attribute: azurerm_private_endpoint.subnet_id
+      note: "authored child with subresource_names = [\"sites\"]; (source: azurerm 5.12 schema)"
+    bicep_avm: { module: avm/res/web/site, attribute: 'privateEndpoints[].subnetResourceId', note: "service: 'sites'" }
+    bicep:
+      attribute: Microsoft.Network/privateEndpoints properties.subnet.id
+      note: "authored child with groupIds: [ 'sites' ]; (source: bicep build, Microsoft.Network/privateEndpoints@2024-05-01)"
+  networking.vnet_integration:
+    terraform_avm:
+      module: Azure/avm-res-web-site/azurerm
+      attribute: virtual_network_subnet_id
+      values: { true: { expr: '{networking.integration_subnet}' }, false: null }
+    terraform:
+      attribute: azurerm_logic_app_standard.virtual_network_subnet_id
+      values: { true: { expr: '{networking.integration_subnet}' }, false: null }
+    bicep_avm:
+      module: avm/res/web/site
+      attribute: virtualNetworkSubnetResourceId
+      values: { true: { expr: '{networking.integration_subnet}' }, false: null }
+    bicep:
+      attribute: properties.virtualNetworkSubnetId
+      values: { true: { expr: '{networking.integration_subnet}' }, false: null }
+  networking.integration_subnet:
+    terraform_avm: { module: Azure/avm-res-web-site/azurerm, attribute: virtual_network_subnet_id }
+    terraform: { attribute: azurerm_logic_app_standard.virtual_network_subnet_id }
+    bicep_avm: { module: avm/res/web/site, attribute: virtualNetworkSubnetResourceId }
+    bicep: { attribute: properties.virtualNetworkSubnetId }
+  networking.vnet_route_all:
+    terraform_avm: { module: Azure/avm-res-web-site/azurerm, attribute: vnet_route_all_traffic, passthrough: true }
+    terraform: { attribute: azurerm_logic_app_standard.site_config.vnet_route_all_enabled, passthrough: true }
+    bicep_avm: { module: avm/res/web/site, attribute: outboundVnetRouting.allTraffic, passthrough: true }
+    bicep: { attribute: properties.vnetRouteAllEnabled, passthrough: true }
+
+  # ----------------------------------------------------------------- identity
+  identity.managed_identity:
+    terraform_avm:
+      attribute: managed_identities
+      values:
+        system_assigned: { expr: '{ system_assigned = true }' }
+        user_assigned: { expr: '{ user_assigned_resource_ids = {identity.user_assigned_identity_ids} }' }
+      also:
+        user_assigned: key_vault_reference_identity = <identity id>
+      note: site and workflow; key_vault_reference_identity on the site only
+    terraform:
+      attribute: identity.type
+      values: { system_assigned: SystemAssigned, user_assigned: UserAssigned }
+      also:
+        user_assigned: key_vault_reference_identity_id = <identity id>
+      note: "on azurerm_logic_app_standard and azurerm_logic_app_workflow (source: azurerm 5.12 docs); key_vault_reference_identity_id on the standard app only (source: azurerm 5.12 schema)"
+    bicep_avm:
+      attribute: managedIdentities
+      values:
+        system_assigned: { expr: '{ systemAssigned: true }' }
+        user_assigned: { expr: '{ userAssignedResourceIds: {identity.user_assigned_identity_ids} }' }
+      also:
+        user_assigned: 'keyVaultAccessIdentityResourceId: <identity id>'
+      note: site and workflow; keyVaultAccessIdentityResourceId on the site only
+    bicep:
+      attribute: identity.type
+      values: { system_assigned: SystemAssigned, user_assigned: UserAssigned }
+      also:
+        user_assigned: 'properties.keyVaultReferenceIdentity: <identity id>'
+      note: "site and workflow, keyVaultReferenceIdentity on the site only; literals from the compiled type (source: bicep build, Microsoft.Web/sites@2025-03-01 and Microsoft.Logic/workflows@2019-05-01)"
+  identity.user_assigned_identity_ids:
+    terraform_avm: { attribute: managed_identities.user_assigned_resource_ids, note: site and workflow }
+    terraform: { attribute: identity.identity_ids }
+    bicep_avm: { attribute: managedIdentities.userAssignedResourceIds, note: site and workflow }
+    bicep:
+      attribute: identity.userAssignedIdentities
+      format: { expr: 'toObject({value}, id => id, id => {})' }
+      note: "an object keyed by identity id, each value empty (source: bicep build, Microsoft.Web/sites@2025-03-01 and Microsoft.Logic/workflows@2019-05-01)"
+  identity.role_assignments:
+    terraform_avm: { attribute: 'role_assignments.<key> = { role_definition_id_or_name, principal_id, principal_type }', note: site and workflow }
+    terraform:
+      attribute: 'azurerm_role_assignment = { scope, role_definition_name, principal_id }'
+      note: "one per entry, scope = the resource id (source: azurerm 5.12 schema)"
+    bicep_avm: { attribute: roleAssignments, note: site and workflow }
+    bicep:
+      attribute: 'Microsoft.Authorization/roleAssignments properties = { principalId, roleDefinitionId, principalType }'
+      note: "one per entry, scoped to the resource; roleDefinitionId takes the definition id, the render resolves the role name (source: bicep build, Microsoft.Authorization/roleAssignments@2022-04-01)"
+
+  # ----------------------------------------------------------------- security
+  security.https_only:
+    terraform_avm: { module: Azure/avm-res-web-site/azurerm, attribute: https_only, passthrough: true }
+    terraform: { attribute: azurerm_logic_app_standard.https_only, passthrough: true }
+    bicep_avm: { module: avm/res/web/site, attribute: httpsOnly, passthrough: true, note: default true; written }
+    bicep: { attribute: properties.httpsOnly, passthrough: true }
+  security.min_tls_version:
+    terraform_avm:
+      module: Azure/avm-res-web-site/azurerm
+      attribute: site_config.minimum_tls_version, site_config.scm_minimum_tls_version
+      passthrough: true
+      note: both take the answer; module default 1.3 - written
+    terraform: { attribute: 'azurerm_logic_app_standard.site_config.min_tls_version, scm_min_tls_version', passthrough: true, note: both take the answer }
+    bicep_avm: { module: avm/res/web/site, attribute: 'siteConfig.minTlsVersion, siteConfig.scmMinTlsVersion', passthrough: true, note: both take the answer }
+    bicep: { attribute: 'properties.siteConfig.minTlsVersion, properties.siteConfig.scmMinTlsVersion', passthrough: true, note: both take the answer }
+  security.basic_auth_enabled:
+    terraform_avm:
+      module: Azure/avm-res-web-site/azurerm
+      attribute: ftp_publish_basic_authentication_enabled, scm_publish_basic_authentication_enabled
+      passthrough: true
+      note: both take the answer; SCM default true - written
+    terraform: { attribute: 'azurerm_logic_app_standard.ftp_publish_basic_authentication_enabled, scm_publish_basic_authentication_enabled', passthrough: true, note: both take the answer }
+    bicep_avm:
+      module: avm/res/web/site
+      attribute: basicPublishingCredentialsPolicies
+      format: { expr: "[ { name: 'ftp', allow: {value} }, { name: 'scm', allow: {value} } ]" }
+    bicep: { attribute: basicPublishingCredentialsPolicies/ftp and /scm properties.allow, passthrough: true, note: children of the site; allow takes the answer }
+  security.application_insights:
+    terraform_avm: { module: Azure/avm-res-web-site/azurerm, attribute: app_settings.APPLICATIONINSIGHTS_CONNECTION_STRING, note: omitted while empty }
+    terraform:
+      attribute: azurerm_logic_app_standard.app_settings.APPLICATIONINSIGHTS_CONNECTION_STRING
+      note: the app_settings the authored rendering names, the key the module section names; omitted while empty
+    bicep_avm:
+      module: avm/res/web/site
+      attribute: "configs[name = 'appsettings'].properties.APPLICATIONINSIGHTS_CONNECTION_STRING"
+      note: omitted while empty
+    bicep: { attribute: config/appsettings APPLICATIONINSIGHTS_CONNECTION_STRING, note: child of the site }
+
+  # ------------------------------------------------------------ observability
+  observability.diagnostic_workspace:
+    terraform_avm: { attribute: diagnostic_settings.workspace.workspace_resource_id, note: on every module; site and plan take the older object form }
+    terraform:
+      attribute: azurerm_monitor_diagnostic_setting.log_analytics_workspace_id
+      note: "(source: azurerm 5.12 schema)"
+    bicep_avm: { attribute: 'diagnosticSettings[].workspaceResourceId', note: on every module }
+    bicep:
+      attribute: Microsoft.Insights/diagnosticSettings properties.workspaceId
+      note: "scoped to the resource, one per resource (source: bicep build, Microsoft.Insights/diagnosticSettings@2021-05-01-preview)"
+  observability.diagnostic_categories:
+    terraform_avm:
+      - { module: Azure/avm-res-web-site/azurerm, attribute: 'diagnostic_settings.workspace.logs[].category' }
+      - module: Azure/avm-res-logic-workflow/azurerm
+        attribute: diagnostic_settings.workspace.log_categories
+        note: the workflow's log_groups defaults to ["allLogs"] - set []
+      - { module: Azure/avm-res-web-serverfarm/azurerm, gap: the plan has metrics only }
+    terraform: { attribute: azurerm_monitor_diagnostic_setting.enabled_log.category }
+    bicep_avm: { attribute: 'diagnosticSettings[].logCategoriesAndGroups[].category', note: the plan has metrics only }
+    bicep:
+      attribute: 'Microsoft.Insights/diagnosticSettings properties.logs[].category'
+      note: "one { category, enabled: true } per entry, scoped to the resource, one per resource (source: bicep build, Microsoft.Insights/diagnosticSettings@2021-05-01-preview)"
+  observability.metrics_enabled:
+    terraform_avm:
+      - module: Azure/avm-res-web-site/azurerm
+        attribute: diagnostic_settings.workspace.metrics
+        values: { true: { expr: '[{ category = "AllMetrics" }]' }, false: { expr: '[]' } }
+      - module: Azure/avm-res-web-serverfarm/azurerm
+        attribute: diagnostic_settings.workspace.metrics
+        values: { true: { expr: '[{ category = "AllMetrics" }]' }, false: { expr: '[]' } }
+      - module: Azure/avm-res-logic-workflow/azurerm
+        attribute: diagnostic_settings.workspace.metric_categories
+        values: { true: { expr: '["AllMetrics"]' }, false: { expr: '[]' } }
+    terraform:
+      attribute: azurerm_monitor_diagnostic_setting.enabled_metric.category
+      values: { true: AllMetrics, false: null }
+      note: false renders no enabled_metric block
+    bicep_avm:
+      attribute: 'diagnosticSettings[].metricCategories'
+      values: { true: { expr: "[ { category: 'AllMetrics' } ]" }, false: { expr: '[]' } }
+    bicep:
+      gap: "Microsoft.Insights/diagnosticSettings properties.metrics[] { category, enabled } scoped to the resource is proven (bicep build, Microsoft.Insights/diagnosticSettings@2021-05-01-preview); the category is a free string in the type, so AllMetrics has no source for authored Bicep"

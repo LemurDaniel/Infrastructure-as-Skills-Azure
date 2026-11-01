@@ -17,7 +17,7 @@ plugin repo whose content is Markdown and YAML:
   5. Question sets: both naming identifier forms and the abbreviation, which
      must equal the type's ::default entry in naming.default.yaml
      declared, the Bicep one without an Azure:: prefix, unique ids,
-     required/default not both set, why and renders present. A
+     required/default not both set, why present (renders in the deployment set). A
      scope: deployment set names no resource and is exempt from the
      naming checks.
   6. Routing coverage: every resource's questions.yaml reachable from its
@@ -367,7 +367,9 @@ def main():
                     q_warnings.append(f"{r} - '{qid}' has neither a default, required: true nor an answer, so it is unclear whether it gets asked")
                 if not re.search(r'^\s+why:', b, re.M):
                     q_warnings.append(f"{r} - '{qid}' has no why. It is the only artefact that survives into a review.")
-                if not re.search(r'^\s+renders:', b, re.M):
+                # The deployment set's renderings are its renders field; a resource's are its
+                # render-map.yaml, which check_render_map.py holds to the set.
+                if is_deployment and not re.search(r'^\s+renders:', b, re.M):
                     q_warnings.append(f"{r} - '{qid}' has no renders, so a review cannot map code back to this decision")
 
         if not q_errors:

@@ -28,10 +28,15 @@ patterns:
       # <name_id>: "<pattern>"
       # <name_kind>: "<pattern>"
       
+    # App Service / Function App / Logic App (Standard): 2-60 chars, alphanumerics and hyphens;
+    # global (<name>.azurewebsites.net).
+    Microsoft.Web/sites:
+      default: "<TYPE>-<LOCATION>-<ENVIRONMENT>-<NAME>-<UNIQUE_ID_4>"
+
     # ----- Containers ------------------------------------------------------
-    # Container Registry: 5-50 chars, alphanumeric only (no hyphens).
+    # Container Registry: 5-50 chars, alphanumeric only (no hyphens); global (<name>.azurecr.io).
     Microsoft.ContainerRegistry/registries:
-      default: "<TYPE><LOCATION><ENVIRONMENT><NAME><INDEX;%02s>"
+      default: "<TYPE><LOCATION><ENVIRONMENT><NAME><UNIQUE_ID_4>"
 
     # ----- Management / Governance -----------------------------------------
     Microsoft.Resources/resourceGroups:
@@ -73,11 +78,62 @@ patterns:
     Microsoft.Search/searchServices:
       default: "<TYPE>-<LOCATION>-<ENVIRONMENT>-<NAME>-<UNIQUE_ID_4>"
 
+    # ----- Databases -------------------------------------------------------
+    # Azure SQL server / SQL managed instance: 1-63 chars, lowercase letters, digits, hyphens;
+    # global (<name>.database.windows.net).
+    Microsoft.Sql/servers:
+      default: "<TYPE>-<LOCATION>-<ENVIRONMENT>-<NAME>-<UNIQUE_ID_4>"
+
+    Microsoft.Sql/managedInstances:
+      default: "<TYPE>-<LOCATION>-<ENVIRONMENT>-<NAME>-<UNIQUE_ID_4>"
+
+    # PostgreSQL / MySQL flexible server: 3-63 chars, lowercase letters, digits, hyphens; global.
+    Microsoft.DBforPostgreSQL/flexibleServers:
+      default: "<TYPE>-<LOCATION>-<ENVIRONMENT>-<NAME>-<UNIQUE_ID_4>"
+
+    Microsoft.DBforMySQL/flexibleServers:
+      default: "<TYPE>-<LOCATION>-<ENVIRONMENT>-<NAME>-<UNIQUE_ID_4>"
+
+    # ----- Analytics / Integration -----------------------------------------
+    # Data Factory: 3-63 chars; global.
+    Microsoft.DataFactory/factories:
+      default: "<TYPE>-<LOCATION>-<ENVIRONMENT>-<NAME>-<UNIQUE_ID_4>"
+
+    # Purview account: 3-63 chars; global.
+    Microsoft.Purview/accounts:
+      default: "<TYPE>-<LOCATION>-<ENVIRONMENT>-<NAME>-<UNIQUE_ID_4>"
+
+    # API Management: 1-50 chars, must start with a letter; global (<name>.azure-api.net).
+    Microsoft.ApiManagement/service:
+      default: "<TYPE>-<LOCATION>-<ENVIRONMENT>-<NAME>-<UNIQUE_ID_4>"
+
+    # Communication Services: 1-63 chars; global (<name>.communication.azure.com).
+    Microsoft.Communication/communicationServices:
+      default: "<TYPE>-<LOCATION>-<ENVIRONMENT>-<NAME>-<UNIQUE_ID_4>"
+
+    # Bot Service: 2-64 chars; global (the bot handle).
+    Microsoft.BotService/botServices:
+      default: "<TYPE>-<LOCATION>-<ENVIRONMENT>-<NAME>-<UNIQUE_ID_4>"
+
+    # ----- Messaging -------------------------------------------------------
+    # Service Bus / Event Hubs / Relay namespace: 6-50 chars, must start with a letter;
+    # global (<name>.servicebus.windows.net).
+    Microsoft.ServiceBus/namespaces:
+      default: "<TYPE>-<LOCATION>-<ENVIRONMENT>-<NAME>-<UNIQUE_ID_4>"
+
+    Microsoft.EventHub/namespaces:
+      default: "<TYPE>-<LOCATION>-<ENVIRONMENT>-<NAME>-<UNIQUE_ID_4>"
+
+    Microsoft.Relay/namespaces:
+      default: "<TYPE>-<LOCATION>-<ENVIRONMENT>-<NAME>-<UNIQUE_ID_4>"
+
     # ----- Storage ---------------------------------------------------------
-    # Storage account: 3-24 chars, alphanumeric only (no hyphens), lowercase.
+    # Storage account: 3-24 chars, alphanumeric only (no hyphens), lowercase; global
+    # (<name>.blob.core.windows.net). With location and suffix 11-14 chars are fixed, leaving
+    # 10-13 for the workload name - list_names.py flags a longer one.
     Microsoft.Storage/storageAccounts:
-      default: "<TYPE><LOCATION><ENVIRONMENT><NAME><INDEX;%02s>"
-      vm_pattern: "<TYPE><LOCATION><ENVIRONMENT><NAME><INDEX;%02s>"
+      default: "<TYPE><LOCATION><ENVIRONMENT><NAME><UNIQUE_ID_4>"
+      vm_pattern: "<TYPE><LOCATION><ENVIRONMENT><NAME><UNIQUE_ID_4>"
       # <name_id>: "<pattern>"
       # <name_kind>: "<pattern>"
 

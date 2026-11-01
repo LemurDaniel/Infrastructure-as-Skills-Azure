@@ -19,18 +19,13 @@ needs no further provider: **a root calling it cannot be on 5.x**. The same modu
 
 ### Decision -> module input
 
+What each decision renders to - the input and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.
+
+### Inputs no decision covers
+
 | Decision | Input | Note |
 |---|---|---|
-| `key_vault` | `key_vault_resource_id` | The vault module's `resource_id` output |
 | name | `name` | From the naming interface |
-| `algorithm`, `protection` | `type` | `RSA`, `RSA-HSM`, `EC`, `EC-HSM`, case-sensitive; an HSM type needs a Premium vault (the vault module validates it, this submodule does not) |
-| `key_size` | `size` | RSA only; `null` for EC |
-| `curve` | `curve` | EC only; `null` for RSA |
-| `key_operations` | `opts` | Submodule default `[]`; the vault module's `keys` default `["sign", "verify"]`. Written |
-| `rotation_days` | `rotation_policy.automatic.time_after_creation` | ISO 8601 (`P90D`); `null` with 0 |
-| `expiry_days` | `rotation_policy.expire_after` | Dates each version **a rotation creates** |
-| `notify_days_before_expiry` | `rotation_policy.notify_before_expiry` | |
-| `role_assignments` | `role_assignments = { <k> = { role_definition_id_or_name, principal_id, principal_type } }` | Scoped to the key's versionless id |
 | `context.tags` | `tags` | `map(string)` |
 | `deployment.module_telemetry` | *none* | The submodule has no telemetry input |
 
@@ -98,15 +93,11 @@ recalled. A near-expiry subscription is `# not-testable:`.
 The fallback - `implementation: authored`, a root on `azurerm` **5.x**, or a repository that
 renders keys this way. Checked against `terraform providers schema -json` (5.11.0).
 
+What each decision renders to - the argument and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.
+
 | Decision | Argument on `azurerm_key_vault_key` |
 |---|---|
-| `algorithm`, `protection` | `key_type` |
-| `key_size` | `key_size` |
-| `curve` | `curve` |
-| `key_operations` | `key_opts` (**required**) |
-| `rotation_days`, `expiry_days`, `notify_days_before_expiry` | `rotation_policy { automatic { time_after_creation }, expire_after, notify_before_expiry }` |
 | first version expiry | `expiration_date` (an RFC 3339 date; a `time_offset` resource gives one that does not move on every plan) |
-| `role_assignments` | `azurerm_role_assignment` with `scope = azurerm_key_vault_key.this.resource_versionless_id` |
 
 ```hcl
 resource "azurerm_key_vault_key" "this" {

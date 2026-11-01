@@ -24,34 +24,13 @@ Entra ID. The root's provider set is the union with the other modules in the dep
 
 ### Decision → module input
 
-| Decision | Module | Input | Note |
+What each decision renders to - the input and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.
+
+### Deployment-wide inputs
+
+| Setting | Module | Input | Note |
 |---|---|---|---|
-| `os_type` | plan, site | `os_type` | Both take it; `Linux` sets `reserved` |
-| `sku` | plan | `sku_name` | Module default is **`P1v2`** - older hardware; must be written |
-| `zone_redundant` | plan | `zone_balancing_enabled` | Module default is **`true`** - a Basic SKU with the default fails the plan; must be written |
-| `instance_count` | plan | `worker_count` | Module default is **3**; must be written |
-| `public_network_access` | site | `public_network_access_enabled` | **Bool** - `disabled` is `false`; not the 5.x string |
-| `public_network_access` | site | `site_config.ip_restriction_default_action` | `Deny` unless `enabled`; module default `Allow` |
-| `private_endpoint_subnet` | site | `private_endpoints = { sites = { subnet_resource_id } }` | `subresource_name` defaults to `sites` |
 | `deployment.private_dns_records` | site | `private_endpoints_manage_dns_zone_group` | `false` under `policy` |
-| `vnet_integration`, `integration_subnet` | site | `virtual_network_subnet_id` | Delegated subnet; see below |
-| `vnet_route_all` | site | `vnet_route_all_traffic` | Module default `false`; the `site_config.vnet_route_all_enabled` form is older |
-| `ip_restrictions` | site | `site_config.ip_restriction` and `scm_ip_restriction` | `scm_use_main_ip_restriction = true` instead of a second list |
-| `managed_identity` | site | `managed_identities = { system_assigned, user_assigned_resource_ids }` | Module default `system_assigned = false`; written |
-| `https_only` | site | `https_only` | Module default `true`; written anyway |
-| `min_tls_version` | site | `site_config.minimum_tls_version`, `scm_minimum_tls_version` | Module default **`1.3`**; SCM `1.2` |
-| `ftps_state` | site | `site_config.ftps_state` | Module default `FtpsOnly` |
-| `basic_auth_enabled` | site | `ftp_publish_basic_authentication_enabled`, `scm_publish_basic_authentication_enabled` | SCM module default is **`true`** |
-| `runtime_stack`, `runtime_version`, `container_image` | site | `site_config.application_stack` | One of `dotnet`, `node`, `python`, `java`, `php`, `docker` |
-| `container_image_owner: image_pipeline` | site | `site_config.application_stack.docker_image_name` from a `data "azurerm_linux_web_app"` of the running site, `container_image` on the first run | A module call takes no `lifecycle`; the running image is read and passed back |
-| `entra_sign_in`, `entra_client_secret` | site | `auth_settings_v2` (require authentication, redirect to login, `active_directory_v2` with client id, tenant endpoint and `client_secret_setting_name`) and the app setting holding the Key Vault reference | Input names from the module README of the version pinned |
-| `always_on` | site | `site_config.always_on` | |
-| `health_check_path` | site | `site_config.health_check_path` | Omitted while empty |
-| `http2_enabled` | site | `site_config.http2_enabled` | Module default `false` |
-| `diagnostic_workspace`, `diagnostic_categories`, `metrics_enabled` | site | `diagnostic_settings = { workspace = { workspace_resource_id, logs = [{ category }], metrics = [{ category = "AllMetrics" }] } }` | Per-category, not `category_group` |
-| `metrics_enabled` | plan | `diagnostic_settings` | The plan has metrics only |
-| `application_insights` | site | `application_insights_connection_string` | Becomes the `APPLICATIONINSIGHTS_CONNECTION_STRING` app setting; the component is external, the module creates none (v0.24.1). Omitted while empty |
-| `application_insights` (local auth off) | site | `app_settings = { APPLICATIONINSIGHTS_AUTHENTICATION_STRING = "Authorization=AAD" }` | `;ClientId=<client id>` for a user-assigned identity; the role is a `role_assignments` entry on the component |
 | `deployment.module_telemetry` | both | `enable_telemetry` | |
 | `context.tags` | both | `tags = local.tags` | |
 
@@ -212,17 +191,7 @@ name. **A slot inherits nothing from the site**: the slot submodule has its own 
 and `docker_image_tag = "latest"` - so every site decision is written on each slot again,
 from the same variables as the site. Checked against v0.24.1 (2026-10-27).
 
-| Decision | Input | Note |
-|---|---|---|
-| `deployment_slots` | `deployment_slots = { <name> = { name = "<name>", ... } }` | Premium v3 plan; Basic rejects it at apply |
-| `slot_access: same_as_app` / `private` | `deployment_slots.<name>.private_endpoints = { sites = { subnet_resource_id } }` | `subresource_name` defaults to `sites-<slot>`, the slot's own private link group |
-| `slot_access: same_as_app` (waf) | an origin group and route of the slot on the Front Door call, origin `<app>-<slot>.azurewebsites.net` over private link to `sites-<slot>` | The route's own endpoint host name is the slot's address |
-| `slot_access: known_addresses`, `slot_ip_restrictions` | `public_network_access_enabled = true`, `site_config.ip_restriction`, `ip_restriction_default_action = "Deny"`, `scm_use_main_ip_restriction = true` | |
-| `managed_identity` (forced `user_assigned`) | `deployment_slots.<name>.managed_identities = { user_assigned_resource_ids = [...] }` and the same on the site | One identity, written twice |
-| `auto_swap` | `deployment_slots.<name>.site_config.auto_swap_slot_name = "production"` | Omitted while `false` |
-| `sticky_settings` | `sticky_settings = { names = { app_setting_names = [...] } }` on the **site** | Not on the slot; the setting names, not their values |
-| `application_insights` | `deployment_slots.<name>.site_config.application_insights_connection_string` and `deployment_slots.<name>.app_settings.APPLICATIONINSIGHTS_AUTHENTICATION_STRING` | The slot's own inputs; the same component as the site |
-| diagnostics | an `azapi_resource` of type `Microsoft.Insights/diagnosticSettings` with `parent_id` the slot's id | **Gap**: the slot object has no `diagnostic_settings`; same categories as the site |
+What each decision renders to - the input and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.
 
 ```hcl
   # decision: app-service.slots.deployment_slots
@@ -318,23 +287,7 @@ deliberately wrong and read the path off the failure.
 The fallback - `implementation: authored`, a repository that already renders the app this
 way, or reading what the modules do inside. Targets `azurerm` **5.x**.
 
-| Decision | Argument |
-|---|---|
-| `os_type` | `azurerm_service_plan.os_type` and `azurerm_linux_web_app` / `azurerm_windows_web_app` (the resource type is the OS choice) |
-| `sku` | `azurerm_service_plan.sku_name` |
-| `zone_redundant` | `azurerm_service_plan.zone_balancing_enabled` |
-| `instance_count` | `azurerm_service_plan.worker_count` |
-| `public_network_access` | `public_network_access_enabled` (a bool, unchanged in 5.x; only storage moved to a string) |
-| `vnet_integration` | `virtual_network_subnet_id` on the app, or `azurerm_app_service_virtual_network_swift_connection` (not both) |
-| `vnet_route_all` | `vnet_route_all_enabled` in `site_config` |
-| `https_only` | `https_only` |
-| `min_tls_version` | `site_config.minimum_tls_version`, `scm_minimum_tls_version` |
-| `ftps_state` | `site_config.ftps_state` |
-| `basic_auth_enabled` | `ftp_publish_basic_authentication_enabled`, `webdeploy_publish_basic_authentication_enabled` (the SCM switch is the WebDeploy one on the provider) |
-| `runtime_*` | `site_config.application_stack` |
-| `container_image_owner: image_pipeline` | `lifecycle { ignore_changes = [site_config[0].application_stack[0].docker_image_name] }` |
-| `entra_sign_in`, `entra_client_secret` | `auth_settings_v2 { auth_enabled, require_authentication, unauthenticated_action = "RedirectToLoginPage", active_directory_v2 { client_id, tenant_auth_endpoint, client_secret_setting_name } login {} }` |
-| diagnostics | `azurerm_monitor_diagnostic_setting` with `enabled_log { category }` |
+What each decision renders to - the argument and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.
 
 ```hcl
 resource "azurerm_service_plan" "this" {

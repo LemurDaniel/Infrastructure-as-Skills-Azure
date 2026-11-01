@@ -14,6 +14,10 @@ concurrency:
   group: infra-${{ inputs.stage }}
   cancel-in-progress: false
 
+defaults:
+  run:
+    shell: pwsh
+
 env:
   STAGE: ${{ inputs.stage }}
   ARM_USE_OIDC: "true"
@@ -34,39 +38,46 @@ jobs:
       - uses: actions/checkout@v7
       - name: Refuse placeholder values
         run: |
-          f="environments/${STAGE}.tfvars"
-          [ -f "$f" ] || { echo "::error::$f is missing"; exit 1; }
-          if grep -Eq '00000000-0000-0000-0000-000000000000|OPEN-|ASSUMED:' "$f"; then
-            echo "::error file=$f::Stage ${STAGE} still holds placeholder values - answer the open items first."
+          $f = "environments/$env:STAGE.tfvars"
+          if (-not (Test-Path $f)) { Write-Output "::error::${f} is missing"; exit 1 }
+          if (Select-String -Path $f -Pattern '00000000-0000-0000-0000-000000000000|OPEN-|ASSUMED:' -Quiet) {
+            Write-Output "::error file=${f}::Stage $env:STAGE still holds placeholder values - answer the open items first."
             exit 1
-          fi
+          }
       - uses: hashicorp/setup-terraform@v4
         with:
-          terraform_version: "~> 1.16.0"
+          terraform_version: "~> 1.17.0"
           terraform_wrapper: false      # the wrapper swallows the exit code the plan step reads
       - name: Init
         run: |
-          terraform init -input=false \
-            -backend-config="subscription_id=${{ vars.TF_STATE_SUBSCRIPTION_ID }}" \
-            -backend-config="resource_group_name=${{ vars.TF_STATE_RESOURCE_GROUP }}" \
-            -backend-config="storage_account_name=${{ vars.TF_STATE_STORAGE_ACCOUNT }}" \
-            -backend-config="container_name=${{ vars.TF_STATE_CONTAINER }}" \
-            -backend-config="key=${TF_STATE_KEY_PREFIX}/${STAGE}.tfstate" \
+          terraform init -input=false `
+            -backend-config="subscription_id=${{ vars.TF_STATE_SUBSCRIPTION_ID }}" `
+            -backend-config="resource_group_name=${{ vars.TF_STATE_RESOURCE_GROUP }}" `
+            -backend-config="storage_account_name=${{ vars.TF_STATE_STORAGE_ACCOUNT }}" `
+            -backend-config="container_name=${{ vars.TF_STATE_CONTAINER }}" `
+            -backend-config="key=$env:TF_STATE_KEY_PREFIX/$env:STAGE.tfstate" `
             -backend-config="use_azuread_auth=true"
       - name: Plan
         id: plan
         run: |
-          set +e
-          terraform plan -input=false -detailed-exitcode \
-            -var-file="environments/${STAGE}.tfvars" -out=tfplan
-          code=$?
-          set -e
-          if [ "$code" -eq 1 ]; then exit 1; fi
-          echo "changes=$([ "$code" -eq 2 ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
-          { echo "### Plan: ${STAGE}"; echo '```'; terraform show -no-color tfplan; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          terraform plan -input=false -detailed-exitcode `
+            -var-file="environments/$env:STAGE.tfvars" -out=tfplan
+          $code = $LASTEXITCODE
+          if ($code -eq 1) { exit 1 }
+          "changes=$(($code -eq 2).ToString().ToLower())" | Add-Content $env:GITHUB_OUTPUT
+          "### Plan: $env:STAGE", '```', ((terraform show -no-color tfplan) -join "`n"), '```' | Add-Content $env:GITHUB_STEP_SUMMARY
       - name: Refuse a plan that deletes a resource group
         run: |
-          terraform show -json tfplan | jq -e '[.resource_changes[]? | select(.change.actions | index("delete")) | select(.type == "azurerm_resource_group" or (.type == "azapi_resource" and ((.change.before.type // "") | startswith("Microsoft.Resources/resourceGroups"))))] | length == 0' > /dev/null \n            || { echo "::error::The plan deletes a resource group - a group is destroyed by hand, never by the pipeline."; exit 1; }
+          $plan = terraform show -json tfplan | ConvertFrom-Json
+          $groups = @($plan.resource_changes | Where-Object {
+            $_.change.actions -contains 'delete' -and (
+              $_.type -eq 'azurerm_resource_group' -or
+              ($_.type -eq 'azapi_resource' -and "$($_.change.before.type)".StartsWith('Microsoft.Resources/resourceGroups')))
+          })
+          if ($groups) {
+            Write-Output "::error::The plan deletes a resource group ($($groups.address -join ', ')) - a group is destroyed by hand, never by the pipeline."
+            exit 1
+          }
       - uses: actions/upload-artifact@v7
         if: steps.plan.outputs.changes == 'true'
         with:
@@ -80,7 +91,7 @@ jobs:
     runs-on: ubuntu-latest
     environment: ${{ inputs.stage }}-approval
     steps:
-      - run: echo "Approved for ${{ inputs.stage }}."
+      - run: Write-Output "Approved for ${{ inputs.stage }}."
 
   apply:
     needs: [plan, approve]
@@ -93,19 +104,19 @@ jobs:
       - uses: actions/checkout@v7
       - uses: hashicorp/setup-terraform@v4
         with:
-          terraform_version: "~> 1.16.0"
+          terraform_version: "~> 1.17.0"
           terraform_wrapper: false
       - uses: actions/download-artifact@v8
         with:
           name: tfplan-${{ inputs.stage }}
       - name: Init
         run: |
-          terraform init -input=false \
-            -backend-config="subscription_id=${{ vars.TF_STATE_SUBSCRIPTION_ID }}" \
-            -backend-config="resource_group_name=${{ vars.TF_STATE_RESOURCE_GROUP }}" \
-            -backend-config="storage_account_name=${{ vars.TF_STATE_STORAGE_ACCOUNT }}" \
-            -backend-config="container_name=${{ vars.TF_STATE_CONTAINER }}" \
-            -backend-config="key=${TF_STATE_KEY_PREFIX}/${STAGE}.tfstate" \
+          terraform init -input=false `
+            -backend-config="subscription_id=${{ vars.TF_STATE_SUBSCRIPTION_ID }}" `
+            -backend-config="resource_group_name=${{ vars.TF_STATE_RESOURCE_GROUP }}" `
+            -backend-config="storage_account_name=${{ vars.TF_STATE_STORAGE_ACCOUNT }}" `
+            -backend-config="container_name=${{ vars.TF_STATE_CONTAINER }}" `
+            -backend-config="key=$env:TF_STATE_KEY_PREFIX/$env:STAGE.tfstate" `
             -backend-config="use_azuread_auth=true"
       - name: Apply the approved plan
         run: terraform apply -input=false tfplan

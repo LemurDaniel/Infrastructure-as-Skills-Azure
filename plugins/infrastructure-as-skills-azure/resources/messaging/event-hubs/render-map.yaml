@@ -1,0 +1,299 @@
+# What each decision of questions.yaml renders to, per target and implementation.
+# Format: core/iac-rendering/references/render-map.md. The call, the authored blocks and the
+# tests are in terraform.md and bicep.md.
+schema_version: 1
+resource: Microsoft.EventHub/namespaces
+
+modules:
+  terraform: [Azure/avm-res-eventhub-namespace/azurerm]
+  bicep: [avm/res/event-hub/namespace]
+
+decisions:
+
+  # ---------------------------------------------------------------- placement
+  placement.environments:
+    not_rendered: naming parameter `environment` and the tag of that name; no attribute of the namespace
+  placement.location:
+    terraform_avm: { attribute: location, passthrough: true }
+    terraform: { attribute: location, passthrough: true }
+    bicep_avm: { attribute: location, passthrough: true }
+    bicep: { attribute: location, passthrough: true }
+  placement.resource_group_name:
+    terraform_avm: { attribute: resource_group_name, note: 'a name on this module, though AzAPI-based' }
+    terraform: { attribute: resource_group_name }
+    bicep_avm: { gap: the deployment's resource group scope; no parameter }
+    bicep: { gap: the deployment's resource group scope; no property }
+
+  # ---------------------------------------------------------------- namespace
+  namespace.sku:
+    terraform_avm: { attribute: sku, passthrough: true, note: module default Standard - written }
+    terraform: { attribute: azurerm_eventhub_namespace.sku, passthrough: true }
+    bicep_avm: { attribute: skuName, passthrough: true, note: module default Standard - written }
+    bicep: { attribute: sku.name, passthrough: true, note: 'sku: { name, tier, capacity }' }
+  namespace.capacity:
+    terraform_avm: { attribute: capacity, passthrough: true, note: default 1 - written }
+    terraform: { attribute: azurerm_eventhub_namespace.capacity, passthrough: true }
+    bicep_avm: { attribute: skuCapacity, passthrough: true, note: default 1 - written }
+    bicep: { attribute: sku.capacity, passthrough: true }
+  namespace.auto_inflate:
+    terraform_avm: { attribute: auto_inflate_enabled, passthrough: true, note: Standard only; default off }
+    terraform: { attribute: azurerm_eventhub_namespace.auto_inflate_enabled, passthrough: true }
+    bicep_avm: { attribute: isAutoInflateEnabled, passthrough: true, note: module default off - written }
+    bicep: { attribute: properties.isAutoInflateEnabled, passthrough: true }
+  namespace.maximum_throughput_units:
+    terraform_avm: { attribute: maximum_throughput_units, passthrough: true, note: Standard only }
+    terraform: { attribute: azurerm_eventhub_namespace.maximum_throughput_units, passthrough: true }
+    bicep_avm: { attribute: maximumThroughputUnits, passthrough: true, note: module default ceiling 1 - written }
+    bicep: { attribute: properties.maximumThroughputUnits, passthrough: true }
+  namespace.minimum_tls_version:
+    terraform_avm:
+      gap: module README v0.1.1 has no input for the minimum TLS version - the platform default applies; named in the handover, not-testable
+    terraform: { attribute: azurerm_eventhub_namespace.minimum_tls_version, passthrough: true }
+    bicep_avm: { attribute: minimumTlsVersion, passthrough: true, note: default 1.2 - written }
+    bicep: { attribute: properties.minimumTlsVersion, passthrough: true }
+  namespace.local_auth:
+    terraform_avm:
+      attribute: local_authentication_enabled
+      values: { disabled: false, allowed_where_unavoidable: true }
+      note: inverse; module default false - written
+    terraform:
+      attribute: azurerm_eventhub_namespace.local_authentication_enabled
+      values: { disabled: false, allowed_where_unavoidable: true }
+    bicep_avm:
+      attribute: disableLocalAuth
+      values: { disabled: true, allowed_where_unavoidable: false }
+      note: module default true
+    bicep:
+      attribute: properties.disableLocalAuth
+      values: { disabled: true, allowed_where_unavoidable: false }
+  namespace.managed_identity:
+    terraform_avm:
+      attribute: managed_identities
+      values:
+        system_assigned: { expr: '{ system_assigned = true }' }
+        user_assigned: { expr: '{ user_assigned_resource_ids = {namespace.user_assigned_identity_ids} }' }
+        none: { expr: '{}' }
+    terraform:
+      attribute: azurerm_eventhub_namespace.identity.type
+      values: { system_assigned: SystemAssigned, user_assigned: UserAssigned, none: null }
+      note: none renders no identity block
+    bicep_avm:
+      attribute: managedIdentities
+      values:
+        system_assigned: { expr: '{ systemAssigned: true }' }
+        user_assigned: { expr: '{ userAssignedResourceIds: {namespace.user_assigned_identity_ids} }' }
+        none: { expr: '{}' }
+    bicep:
+      attribute: identity.type
+      values: { system_assigned: SystemAssigned, user_assigned: UserAssigned, none: null }
+      note: none renders no identity block
+  namespace.user_assigned_identity_ids:
+    terraform_avm: { attribute: managed_identities.user_assigned_resource_ids }
+    terraform: { attribute: azurerm_eventhub_namespace.identity.identity_ids }
+    bicep_avm: { attribute: managedIdentities.userAssignedResourceIds }
+    bicep:
+      attribute: identity.userAssignedIdentities
+      format: { expr: 'toObject({value}, id => id, id => {})' }
+      note: "an object keyed by each id - type: 'UserAssigned'; bicep.md names no API version, the module's (source: bicep build, Microsoft.EventHub/namespaces@2024-01-01)"
+
+  # ----------------------------------------------------------------- entities
+  entities.event_hubs:
+    terraform_avm:
+      attribute: 'event_hubs.<name> = { namespace_name, resource_group_name, partition_count, message_retention }'
+      note: namespace_name and resource_group_name are required members of every entry
+    terraform: { attribute: azurerm_eventhub }
+    bicep_avm: { attribute: 'eventhubs[] = { name, partitionCount, messageRetentionInDays }' }
+    bicep: { attribute: Microsoft.EventHub/namespaces/eventhubs }
+  entities.partition_count:
+    terraform_avm: { attribute: 'event_hubs.<k>.partition_count', passthrough: true }
+    terraform: { attribute: azurerm_eventhub.partition_count, passthrough: true }
+    bicep_avm: { attribute: 'eventhubs[].partitionCount', passthrough: true }
+    bicep: { attribute: eventhubs child properties.partitionCount, passthrough: true }
+  entities.message_retention_days:
+    terraform_avm: { attribute: 'event_hubs.<k>.message_retention', passthrough: true, note: in days }
+    terraform: { attribute: azurerm_eventhub.message_retention, passthrough: true }
+    bicep_avm: { attribute: 'eventhubs[].messageRetentionInDays', passthrough: true, note: 1-7 below Premium }
+    bicep: { attribute: eventhubs child properties.messageRetentionInDays, passthrough: true }
+  entities.consumer_groups:
+    terraform_avm:
+      gap: module README v0.1.1 has no consumer-group input (event_hubs carries none) - one azapi_resource of type Microsoft.EventHub/namespaces/eventhubs/consumergroups per name, outside the module
+    terraform: { attribute: azurerm_eventhub_consumer_group }
+    bicep_avm: { attribute: 'eventhubs[].consumergroups[].name' }
+    bicep: { attribute: Microsoft.EventHub/namespaces/eventhubs/consumergroups }
+  entities.event_archive:
+    terraform_avm:
+      attribute: 'event_hubs.<k>.capture_description.enabled'
+      passthrough: true
+      note: encoding Avro; destination name stays EventHubArchive.AzureBlockBlob
+    terraform: { attribute: azurerm_eventhub.capture_description.enabled, passthrough: true, note: 'encoding = "Avro"; members as the module input names them' }
+    bicep_avm:
+      attribute: 'eventhubs[].captureDescription.enabled'
+      passthrough: true
+      note: "encoding: 'Avro'; member names from the README"
+    bicep: { attribute: eventhubs child properties.captureDescription.enabled, passthrough: true, note: "encoding: 'Avro'" }
+  entities.archive_storage_account:
+    terraform_avm: { attribute: 'event_hubs.<k>.capture_description.destination.storage_account_id' }
+    terraform: { attribute: azurerm_eventhub.capture_description.destination.storage_account_id }
+    bicep_avm: { attribute: 'eventhubs[].captureDescription.destination.properties.storageAccountResourceId' }
+    bicep: { attribute: eventhubs child properties.captureDescription.destination.properties.storageAccountResourceId }
+  entities.archive_container:
+    terraform_avm: { attribute: 'event_hubs.<k>.capture_description.destination.blob_container_name', passthrough: true }
+    terraform: { attribute: azurerm_eventhub.capture_description.destination.blob_container_name, passthrough: true }
+    bicep_avm: { attribute: 'eventhubs[].captureDescription.destination.properties.blobContainerName', passthrough: true }
+    bicep: { attribute: eventhubs child properties.captureDescription.destination.properties.blobContainerName, passthrough: true }
+  entities.archive_interval_seconds:
+    terraform_avm: { attribute: 'event_hubs.<k>.capture_description.interval_in_seconds', passthrough: true }
+    terraform: { attribute: azurerm_eventhub.capture_description.interval_in_seconds, passthrough: true }
+    bicep_avm: { attribute: 'eventhubs[].captureDescription.intervalInSeconds', passthrough: true }
+    bicep: { attribute: eventhubs child properties.captureDescription.intervalInSeconds, passthrough: true }
+
+  # --------------------------------------------------------------- networking
+  networking.public_network_access:
+    terraform_avm:
+      attribute: public_network_access_enabled
+      values: { disabled: false, enabled_with_firewall: true, enabled: true }
+      note: a bool, module default false; the same bool is a required member of network_rulesets
+    terraform:
+      attribute: azurerm_eventhub_namespace.public_network_access_enabled
+      values: { disabled: false, enabled_with_firewall: true, enabled: true }
+      note: also network_rulesets.public_network_access_enabled
+    bicep_avm:
+      attribute: publicNetworkAccess
+      values: { disabled: Disabled, enabled_with_firewall: Enabled, enabled: Enabled }
+      note: unset, disabled only when private endpoints are set; also networkRuleSets.publicNetworkAccess
+    bicep:
+      attribute: properties.publicNetworkAccess
+      values: { disabled: Disabled, enabled_with_firewall: Enabled, enabled: Enabled }
+  networking.private_endpoint_subnet:
+    terraform_avm:
+      attribute: private_endpoints.namespace.subnet_resource_id
+      note: subresource_name = "namespace"; Standard or above
+    terraform: { attribute: azurerm_private_endpoint.subnet_id }
+    bicep_avm: { attribute: 'privateEndpoints[].subnetResourceId', note: "service: 'namespace'; Standard or above" }
+    bicep: { attribute: Microsoft.Network/privateEndpoints properties.subnet.id }
+  networking.ip_rules:
+    terraform_avm:
+      attribute: 'network_rulesets.ip_rule[].ip_mask'
+      note: the README says "Requires Premium SKU" - check against the tier; default_action defaults to Deny
+    terraform: { attribute: 'azurerm_eventhub_namespace.network_rulesets.ip_rule[].ip_mask', note: one ip_rule per mask }
+    bicep_avm: { attribute: 'networkRuleSets.ipRules[].ipMask', note: "action: 'Allow'" }
+    bicep: { attribute: 'networkRuleSets/default properties.ipRules[].ipMask', note: "action: 'Allow'" }
+  networking.trusted_service_bypass:
+    terraform_avm: { attribute: network_rulesets.trusted_service_access_enabled, passthrough: true, note: a required member of network_rulesets }
+    terraform: { attribute: azurerm_eventhub_namespace.network_rulesets.trusted_service_access_enabled, passthrough: true }
+    bicep_avm: { attribute: networkRuleSets.trustedServiceAccessEnabled, passthrough: true }
+    bicep: { attribute: networkRuleSets/default properties.trustedServiceAccessEnabled, passthrough: true }
+
+  # --------------------------------------------------------------- encryption
+  encryption.key_management:
+    terraform_avm:
+      attribute: customer_managed_key
+      values:
+        platform_managed: null
+        customer_managed: { expr: '{ key_vault_resource_id, key_name, user_assigned_identity = { resource_id } }' }
+      note: key version unset - the latest
+    terraform:
+      attribute: azurerm_eventhub_namespace_customer_managed_key.key_vault_key_ids
+      values: { platform_managed: null, customer_managed: { expr: '[{encryption.cmk_key_vault_key_id}]' } }
+      note: 'a separate resource after the namespace, eventhub_namespace_id = the namespace id, user_assigned_identity_id beside it; platform_managed renders none (source: azurerm 5.12 schema, azurerm 5.12 docs)'
+    bicep_avm:
+      attribute: customerManagedKey
+      values:
+        platform_managed: null
+        customer_managed: { expr: '{ keyName: <keyName>, keyVaultResourceId: <keyVaultResourceId>, userAssignedIdentityResourceId: <userAssignedIdentityResourceId> }' }
+    bicep:
+      attribute: properties.encryption.keySource
+      values: { platform_managed: null, customer_managed: Microsoft.KeyVault }
+      note: platform_managed renders no encryption block
+  encryption.cmk_key_vault_key_id:
+    terraform_avm:
+      attribute: customer_managed_key.key_vault_resource_id, customer_managed_key.key_name
+      note: the key id split into the vault's id and the key's name
+    terraform:
+      attribute: azurerm_eventhub_namespace_customer_managed_key.key_vault_key_ids
+      format: { expr: '[{value}]' }
+      note: 'a set of key ids (source: azurerm 5.12 schema, azurerm 5.12 docs)'
+    bicep_avm:
+      attribute: customerManagedKey.keyVaultResourceId, customerManagedKey.keyName
+      note: the key id split into the vault's id and the key's name
+    bicep:
+      attribute: 'properties.encryption.keyVaultProperties[].keyName, properties.encryption.keyVaultProperties[].keyVaultUri'
+      note: "the key id split into the key's name and its vault's uri; identity.userAssignedIdentity beside them (source: bicep build, Microsoft.EventHub/namespaces@2024-01-01)"
+  encryption.infrastructure_encryption:
+    terraform_avm: { gap: 'module README v0.1.1 has no input (customer_managed_key has no such member) - taken from the platform; named in the handover, not-testable' }
+    terraform:
+      attribute: azurerm_eventhub_namespace_customer_managed_key.infrastructure_encryption_enabled
+      passthrough: true
+      note: 'on the key resource, so only with customer_managed; forces a new resource (source: azurerm 5.12 schema, azurerm 5.12 docs)'
+    bicep_avm: { attribute: requireInfrastructureEncryption, passthrough: true, note: default false - written }
+    bicep: { attribute: properties.encryption.requireInfrastructureEncryption, passthrough: true }
+
+  # ----------------------------------------------------------------- recovery
+  recovery.zone_redundant:
+    terraform_avm: { gap: module README v0.1.1 has no zone input - not-testable }
+    terraform: { gap: 'azurerm 5.12 schema has no zone argument on azurerm_eventhub_namespace - the platform default applies' }
+    bicep_avm: { attribute: zoneRedundant, passthrough: true, note: module default true - written }
+    bicep: { attribute: properties.zoneRedundant, passthrough: true }
+  recovery.geo_recovery:
+    terraform_avm:
+      gap: module README v0.1.1 has no input - an azapi_resource of type Microsoft.EventHub/namespaces/disasterRecoveryConfigs on the primary, outside the module
+    terraform:
+      attribute: azurerm_eventhub_namespace_disaster_recovery_config.partner_namespace_id
+      values: { none: null, paired_namespace: { expr: '{recovery.partner_namespace}' } }
+      note: 'one resource on the primary - name, namespace_name and resource_group_name of the primary; none renders none (source: azurerm 5.12 schema, azurerm 5.12 docs)'
+    bicep_avm:
+      attribute: disasterRecoveryConfig
+      values:
+        none: null
+        paired_namespace: { expr: '{ partnerNamespace: {recovery.partner_namespace}, alternateName: <alternateName> }' }
+      note: on the primary only
+    bicep:
+      attribute: Microsoft.EventHub/namespaces/disasterRecoveryConfigs properties.partnerNamespace
+      values: { none: null, paired_namespace: { expr: '{recovery.partner_namespace}' } }
+      note: 'a child of the primary; none renders none (source: bicep build, Microsoft.EventHub/namespaces/disasterRecoveryConfigs@2024-01-01)'
+  recovery.partner_namespace:
+    terraform_avm:
+      gap: module README v0.1.1 has no input - the disasterRecoveryConfigs azapi_resource outside the module carries the partner
+    terraform: { attribute: azurerm_eventhub_namespace_disaster_recovery_config.partner_namespace_id }
+    bicep_avm: { attribute: disasterRecoveryConfig.partnerNamespace }
+    bicep: { attribute: disasterRecoveryConfigs child properties.partnerNamespace }
+
+  # ----------------------------------------------------------------- identity
+  identity.role_assignments:
+    terraform_avm:
+      attribute: 'role_assignments.<k> = { role_definition_id_or_name, principal_id, principal_type }'
+      note: also per event hub
+    terraform: { attribute: azurerm_role_assignment, note: scope = the namespace's id }
+    bicep_avm:
+      attribute: 'roleAssignments[] = { principalId, roleDefinitionIdOrName, principalType }'
+      note: also per event hub
+    bicep: { attribute: Microsoft.Authorization/roleAssignments, note: scope = the namespace }
+
+  # ------------------------------------------------------------ observability
+  observability.diagnostic_workspace:
+    terraform_avm: { attribute: 'diagnostic_settings.<key>.workspace_resource_id', note: read the member names for the pinned version }
+    terraform: { attribute: azurerm_monitor_diagnostic_setting.log_analytics_workspace_id }
+    bicep_avm: { attribute: 'diagnosticSettings[].workspaceResourceId' }
+    bicep: { attribute: Microsoft.Insights/diagnosticSettings properties.workspaceId }
+  observability.diagnostic_categories:
+    terraform_avm:
+      attribute: 'diagnostic_settings.<key>.log_categories'
+      note: log_groups = [] so the categories are the decision
+    terraform: { attribute: azurerm_monitor_diagnostic_setting.enabled_log.category }
+    bicep_avm: { attribute: 'diagnosticSettings[].logCategoriesAndGroups[].category' }
+    bicep: { attribute: 'Microsoft.Insights/diagnosticSettings properties.logs[].category' }
+  observability.metrics_enabled:
+    terraform_avm:
+      attribute: 'diagnostic_settings.<key>.metric_categories'
+      values: { true: { expr: '["AllMetrics"]' }, false: { expr: '[]' } }
+    terraform:
+      attribute: azurerm_monitor_diagnostic_setting.enabled_metric
+      values: { true: { expr: '{ category = "AllMetrics" }' }, false: null }
+      note: a block (azurerm 5.x); false renders none. The reference's diagnostics row names enabled_log only
+    bicep_avm:
+      attribute: 'diagnosticSettings[].metricCategories'
+      values: { true: { expr: "[ { category: 'AllMetrics' } ]" }, false: { expr: '[]' } }
+    bicep:
+      attribute: 'Microsoft.Insights/diagnosticSettings properties.metrics[].category'
+      values: { true: AllMetrics, false: null }
+      note: false renders no metrics entry

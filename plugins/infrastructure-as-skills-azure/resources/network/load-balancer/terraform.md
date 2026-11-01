@@ -25,21 +25,13 @@ probe or frontend by its **map key / name** (`backend_address_pool_object_names`
 
 ### Decision -> module input
 
+What each decision renders to - the input and the literal of every answer - is in
+[render-map.yaml](render-map.yaml); the render digest prints it for a spec.
+
+### Deployment-wide inputs
+
 | Decision | Input | Note |
 |---|---|---|
-| `sku` | `sku = "Standard"`, `sku_tier = "Regional"` | Module default; written |
-| `zone_redundant` | `frontend_ip_configurations.<k>.zones = ["1", "2", "3"]` (or `["None"]` to omit them); the created public IP takes the same | A list of strings |
-| `frontend_exposure` | private: `frontend_private_ip_subnet_resource_id`; public: `create_public_ip_address = true` | One frontend per entry |
-| `frontend_subnet` | `frontend_ip_configurations.<k>.frontend_private_ip_subnet_resource_id` (or the module-wide `frontend_subnet_resource_id`) | |
-| `private_ip_allocation`, `private_ip_address` | `frontend_private_ip_address_allocation = "Static"`, `frontend_private_ip_address` | Module default `Dynamic` |
-| `public_ip_zone_redundant` | the same `zones` on the frontend; `public_ip_address_configuration = { allocation_method = "Static", sku = "Standard", sku_tier = "Regional" }` | Also `ddos_protection_mode = "VirtualNetworkInherited"`, the default |
-| `backend_pools` | `backend_address_pools = { <k> = { name, virtual_network_resource_id } }`, `backend_address_pool_addresses` | A pool whose members are a scale set's joins from the scale set |
-| `health_probe_protocol`, `health_probe_interval_seconds`, `health_probe_unhealthy_threshold` | `lb_probes.<k> = { name, protocol, port, interval_in_seconds, number_of_probes_before_removal, request_path }` | `request_path` only with `Http` / `Https`; the module validates the pair. `probe_threshold` (default 1) stays |
-| `tcp_reset`, `load_distribution`, `floating_ip` | `lb_rules.<k>.enable_tcp_reset`, `.load_distribution`, `.enable_floating_ip` | Module defaults `false` / `Default` / `false` |
-| `rules` | `lb_rules.<k> = { name, frontend_ip_configuration_name, protocol, frontend_port, backend_port, backend_address_pool_object_names, probe_object_name }` | Wiring: filled by the pattern; both ports always stated |
-| `inbound_nat_rules` | `lb_nat_rules` | Empty |
-| `outbound_snat`, `outbound_allocated_ports` | `lb_outbound_rules.<k> = { name, frontend_ip_configurations = [{ name }], backend_address_pool_object_name, number_of_allocated_outbound_ports }`; `lb_rules.<k>.disable_outbound_snat = true` | Only with the rule |
-| `diagnostic_*`, `metrics_enabled` | `diagnostic_settings = { workspace = { workspace_resource_id, log_categories = [], log_groups = [], metric_categories = ["AllMetrics"] } }` | `log_groups` defaults to `["allLogs"]`, so it is set empty |
 | `deployment.module_telemetry` | `enable_telemetry` | |
 | `context.tags` | `tags = local.tags` | |
 
@@ -149,13 +141,5 @@ output is the `azurerm_lb` echoed from the inputs: `sku`, `sku_tier` and the fro
 
 The fallback. Targets `azurerm` **5.x**; check against `terraform providers schema -json`.
 
-| Decision | Argument |
-|---|---|
-| `sku`, `zone_redundant` | `azurerm_lb.sku = "Standard"`, `.sku_tier`; `frontend_ip_configuration { zones }` |
-| `frontend_exposure` | `frontend_ip_configuration { subnet_id, private_ip_address_allocation, private_ip_address }` or `{ public_ip_address_id }`; `azurerm_public_ip` with `sku = "Standard"`, `allocation_method = "Static"`, `zones` |
-| `backend_pools` | `azurerm_lb_backend_address_pool` (+ `_address`) |
-| `health_probe_*` | `azurerm_lb_probe { protocol, port, request_path, interval_in_seconds, probe_threshold, number_of_probes }` |
-| `rules`, `tcp_reset`, `load_distribution`, `floating_ip` | `azurerm_lb_rule { protocol, frontend_port, backend_port, frontend_ip_configuration_name, backend_address_pool_ids, probe_id, tcp_reset_enabled, load_distribution, floating_ip_enabled, disable_outbound_snat }` |
-| `inbound_nat_rules` | `azurerm_lb_nat_rule` |
-| `outbound_snat` | `azurerm_lb_outbound_rule { protocol, backend_address_pool_id, allocated_outbound_ports, frontend_ip_configuration { name } }` |
-| diagnostics | `azurerm_monitor_diagnostic_setting` with `metric { category = "AllMetrics" }` |
+What each decision renders to - the argument and the literal of every answer - is in
+[render-map.yaml](render-map.yaml); the render digest prints it for a spec.
