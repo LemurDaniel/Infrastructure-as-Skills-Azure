@@ -22,6 +22,7 @@ decisions:
       attribute: keyVaultName
       note: "the vault's NAME, never the reference's id - the vault module's name output or the vault's name parameter; same resource group"
     bicep: { attribute: parent, note: an existing resource symbol for the vault (vaultRef) - never the id string }
+    import: {todo: 'not in the Resource Graph row: parent'}
 
   # ----------------------------------------------------------------- identity
   identity.role_assignments:
@@ -31,6 +32,7 @@ decisions:
     terraform: { attribute: azurerm_role_assignment, note: scope = the secret's resource_versionless_id }
     bicep_avm: { attribute: 'roleAssignments[] = { roleDefinitionIdOrName, principalId, principalType }', note: scoped to the secret }
     bicep: { attribute: Microsoft.Authorization/roleAssignments, note: scope = the secret }
+    import: {todo: 'not in the Resource Graph row: Microsoft.Authorization/roleAssignments'}
 
   # ----------------------------------------------------------------- security
   security.value_source:
@@ -57,11 +59,13 @@ decisions:
       also:
         placeholder: '@onlyIfNotExists()'
       note: secure_input from a @secure() parameter, never the answer
+    import: {todo: an answer renders as code or as nothing; needs cases}
   security.content_type:
     terraform_avm: { attribute: content_type, passthrough: true }
     terraform: { attribute: content_type, passthrough: true }
     bicep_avm: { attribute: contentType, passthrough: true, note: a securestring in the module }
     bicep: { attribute: properties.contentType, passthrough: true }
+    import: {path: properties.contentType, passthrough: true}
   security.expiry_days:
     terraform_avm:
       attribute: time_offset.<name>.offset_days
@@ -79,3 +83,4 @@ decisions:
       attribute: properties.attributes.exp
       format: { expr: "dateTimeToEpoch(dateTimeAdd(baseTime, 'P{value}D'))" }
       note: epoch seconds; for a placeholder the first version only
+    import: {todo: a composed or computed literal; needs its own reading}

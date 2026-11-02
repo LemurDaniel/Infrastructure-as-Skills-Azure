@@ -8,6 +8,10 @@ modules:
   terraform: [Azure/avm-res-servicebus-namespace/azurerm]
   bicep: [avm/res/service-bus/namespace]
 
+# The Azure resources besides `resource` the render creates for this set; an import adopts
+# them by id (adopt.parts). Format: core/iac-rendering/references/render-map.md.
+import_parts: [Microsoft.Network/privateEndpoints]
+
 decisions:
 
   # ---------------------------------------------------------------- placement
@@ -18,11 +22,13 @@ decisions:
     terraform: { attribute: location, passthrough: true }
     bicep_avm: { attribute: location, passthrough: true }
     bicep: { attribute: location, passthrough: true }
+    import: {path: location, passthrough: true}
   placement.resource_group_name:
     terraform_avm: { attribute: resource_group_name, note: a name - azurerm-based module }
     terraform: { attribute: resource_group_name }
     bicep_avm: { gap: the deployment's resource group scope; no parameter }
     bicep: { gap: the deployment's resource group scope; no property }
+    import: {path: resourceGroup, passthrough: true}
 
   # ---------------------------------------------------------------- namespace
   namespace.sku:
@@ -34,27 +40,32 @@ decisions:
     terraform: { attribute: azurerm_servicebus_namespace.sku, passthrough: true }
     bicep_avm: { attribute: skuObject.name, passthrough: true, note: module default Premium - written }
     bicep: { attribute: sku.name, passthrough: true, note: 'sku: { name, tier, capacity } beside properties' }
+    import: {path: sku.name, passthrough: true}
   namespace.capacity:
     terraform_avm: { attribute: capacity, passthrough: true, note: 'Premium only, 1/2/4/8/16; Standard and Basic take 0' }
     terraform: { attribute: azurerm_servicebus_namespace.capacity, passthrough: true }
     bicep_avm: { attribute: skuObject.capacity, passthrough: true, note: module default 1 - written; Standard and Basic take no capacity }
     bicep: { attribute: sku.capacity, passthrough: true }
+    import: {path: sku.capacity, passthrough: true}
   namespace.zone_redundant:
     terraform_avm:
       gap: module README 0.4.0 has no zone input - the platform's on Premium in a zonal region; not-testable
     terraform: { gap: 'azurerm 5.12 schema has no zone argument on azurerm_servicebus_namespace - the platform default applies' }
     bicep_avm: { attribute: zoneRedundant, passthrough: true, note: 'module default true requires Premium - written, false below Premium' }
     bicep: { attribute: properties.zoneRedundant, passthrough: true }
+    import: {path: properties.zoneRedundant, passthrough: true}
   namespace.premium_messaging_partitions:
     terraform_avm: { attribute: premium_messaging_partitions, passthrough: true, note: Premium only; 0 for Standard and Basic }
     terraform: { attribute: azurerm_servicebus_namespace.premium_messaging_partitions, passthrough: true }
     bicep_avm: { attribute: premiumMessagingPartitions, passthrough: true, note: default 1 - written }
     bicep: { attribute: properties.premiumMessagingPartitions, passthrough: true }
+    import: {path: properties.premiumMessagingPartitions, passthrough: true}
   namespace.minimum_tls_version:
     terraform_avm: { attribute: minimum_tls_version, passthrough: true, note: default 1.2 - written }
     terraform: { attribute: azurerm_servicebus_namespace.minimum_tls_version, passthrough: true }
     bicep_avm: { attribute: minimumTlsVersion, passthrough: true, note: default 1.2 - written }
     bicep: { attribute: properties.minimumTlsVersion, passthrough: true }
+    import: {path: properties.minimumTlsVersion, passthrough: true}
   namespace.local_auth:
     terraform_avm:
       attribute: local_auth_enabled
@@ -70,6 +81,7 @@ decisions:
     bicep:
       attribute: properties.disableLocalAuth
       values: { disabled: true, allowed_where_unavoidable: false }
+    import: {path: properties.disableLocalAuth, values: {true: disabled, false: allowed_where_unavoidable}}
   namespace.managed_identity:
     terraform_avm:
       attribute: managed_identities
@@ -91,6 +103,7 @@ decisions:
       attribute: identity.type
       values: { system_assigned: SystemAssigned, user_assigned: UserAssigned, none: null }
       note: none renders no identity block
+    import: {path: identity.type, values: {SystemAssigned: system_assigned, UserAssigned: user_assigned, None: none}, missing: none}
   namespace.user_assigned_identity_ids:
     terraform_avm: { attribute: managed_identities.user_assigned_resource_ids }
     terraform: { attribute: azurerm_servicebus_namespace.identity.identity_ids }
@@ -99,6 +112,7 @@ decisions:
       attribute: identity.userAssignedIdentities
       format: { expr: 'toObject({value}, id => id, id => {})' }
       note: "an object keyed by each id - type: 'UserAssigned'; bicep.md names no API version, the module's (source: bicep build, Microsoft.ServiceBus/namespaces@2024-01-01)"
+    import: {todo: 'in the row as the keys of identity.userAssignedIdentities; no form reads the keys of an object'}
 
   # ----------------------------------------------------------------- entities
   entities.queues:
@@ -106,6 +120,7 @@ decisions:
     terraform: { attribute: azurerm_servicebus_queue, note: one per name with namespace_id }
     bicep_avm: { attribute: 'queues[] = { name, ... }', note: the namespace-wide entity settings on each }
     bicep: { attribute: Microsoft.ServiceBus/namespaces/queues }
+    import: {todo: 'not in the Resource Graph row: Microsoft.ServiceBus/namespaces/queues'}
   entities.topics:
     terraform_avm:
       attribute: 'topics.<name> = { subscriptions = { <name> = { ... } } }'
@@ -113,6 +128,7 @@ decisions:
     terraform: { attribute: azurerm_servicebus_topic and azurerm_servicebus_subscription }
     bicep_avm: { attribute: 'topics[] = { name, subscriptions: [ { name, ... } ] }', note: Standard or Premium }
     bicep: { attribute: Microsoft.ServiceBus/namespaces/topics and topics/subscriptions }
+    import: {todo: 'not in the Resource Graph row: Microsoft.ServiceBus/namespaces/topics and topics/subscriptions'}
   entities.message_ordering:
     terraform_avm:
       attribute: 'queues.<k>.requires_session, topics.<k>.subscriptions.<s>.requires_session'
@@ -124,6 +140,7 @@ decisions:
       passthrough: true
       note: fixed at creation
     bicep: { attribute: queues child properties.requiresSession, passthrough: true, note: and on the subscription; fixed at creation }
+    import: {todo: 'not in the Resource Graph row: queues child properties.requiresSession'}
   entities.duplicate_protection:
     terraform_avm:
       attribute: 'queues.<k>.requires_duplicate_detection, topics.<k>.requires_duplicate_detection'
@@ -135,6 +152,7 @@ decisions:
       passthrough: true
       note: fixed at creation
     bicep: { attribute: queues child properties.requiresDuplicateDetection, passthrough: true, note: and on the topic; fixed at creation }
+    import: {todo: 'not in the Resource Graph row: queues child properties.requiresDuplicateDetection'}
   entities.message_retention_days:
     terraform_avm: { attribute: 'queues.<k>.default_message_ttl', format: 'P{value}D', note: ISO 8601 }
     terraform: { attribute: azurerm_servicebus_queue.default_message_ttl, format: 'P{value}D' }
@@ -143,26 +161,31 @@ decisions:
       format: 'P{value}D'
       note: ISO 8601; queue, topic and subscription
     bicep: { attribute: queues child properties.defaultMessageTimeToLive, format: 'P{value}D' }
+    import: {todo: 'not in the Resource Graph row: queues child properties.defaultMessageTimeToLive'}
   entities.dead_letter_on_expiry:
     terraform_avm: { attribute: 'queues.<k>.dead_lettering_on_message_expiration', passthrough: true, note: queue and subscription; module default false }
     terraform: { attribute: azurerm_servicebus_queue.dead_lettering_on_message_expiration, passthrough: true }
     bicep_avm: { attribute: 'queues[].deadLetteringOnMessageExpiration', passthrough: true, note: queue and subscription }
     bicep: { attribute: queues child properties.deadLetteringOnMessageExpiration, passthrough: true }
+    import: {todo: 'not in the Resource Graph row: queues child properties.deadLetteringOnMessageExpiration'}
   entities.max_delivery_count:
     terraform_avm: { attribute: 'queues.<k>.max_delivery_count', passthrough: true, note: queue and subscription; default 10 }
     terraform: { attribute: azurerm_servicebus_queue.max_delivery_count, passthrough: true }
     bicep_avm: { attribute: 'queues[].maxDeliveryCount', passthrough: true, note: queue and subscription }
     bicep: { attribute: queues child properties.maxDeliveryCount, passthrough: true }
+    import: {todo: 'not in the Resource Graph row: queues child properties.maxDeliveryCount'}
   entities.lock_duration_seconds:
     terraform_avm: { attribute: 'queues.<k>.lock_duration', format: 'PT{value}S', note: ISO 8601 duration (PT60S is PT1M); queue and subscription }
     terraform: { attribute: azurerm_servicebus_queue.lock_duration, format: 'PT{value}S', note: ISO 8601 duration (PT60S is PT1M) }
     bicep_avm: { attribute: 'queues[].lockDuration', format: 'PT{value}S', note: ISO 8601 duration (PT60S is PT1M); queue and subscription }
     bicep: { attribute: queues child properties.lockDuration, format: 'PT{value}S', note: ISO 8601 duration }
+    import: {todo: 'not in the Resource Graph row: queues child properties.lockDuration'}
   entities.max_size_megabytes:
     terraform_avm: { attribute: 'queues.<k>.max_size_in_megabytes', passthrough: true, note: queue and topic }
     terraform: { attribute: azurerm_servicebus_queue.max_size_in_megabytes, passthrough: true }
     bicep_avm: { attribute: 'queues[].maxSizeInMegabytes', passthrough: true, note: queue and topic }
     bicep: { attribute: queues child properties.maxSizeInMegabytes, passthrough: true }
+    import: {todo: 'not in the Resource Graph row: queues child properties.maxSizeInMegabytes'}
 
   # --------------------------------------------------------------- networking
   networking.public_network_access:
@@ -184,6 +207,7 @@ decisions:
     bicep:
       attribute: properties.publicNetworkAccess
       values: { disabled: Disabled, enabled_with_firewall: Enabled, enabled: Enabled }
+    import: {todo: 'Disabled reads from properties.publicNetworkAccess; Enabled vs enabled_with_firewall needs networkRuleSets/default properties.defaultAction'}
   networking.private_endpoint_subnet:
     terraform_avm:
       attribute: private_endpoints.namespace.subnet_resource_id
@@ -191,16 +215,19 @@ decisions:
     terraform: { attribute: azurerm_private_endpoint.subnet_id }
     bicep_avm: { attribute: 'privateEndpoints[].subnetResourceId', note: "service: 'namespace'; Premium only" }
     bicep: { attribute: Microsoft.Network/privateEndpoints properties.subnet.id }
+    import: {todo: 'not in the Resource Graph row: Microsoft.Network/privateEndpoints properties.subnet.id'}
   networking.ip_rules:
     terraform_avm: { attribute: network_rule_config.cidr_or_ip_rules, note: 'Premium only in Azure, whatever the README says for Basic/Standard' }
     terraform: { attribute: azurerm_servicebus_namespace.network_rule_set.ip_rules, note: an inline block in 5.x }
     bicep_avm: { attribute: 'networkRuleSets.ipRules[].ipMask', note: "action: 'Allow'; Premium only" }
     bicep: { attribute: 'networkRuleSets/default properties.ipRules[].ipMask', note: "action: 'Allow'" }
+    import: {todo: 'not in the Resource Graph row: networkRuleSets/default properties.ipRules[].ipMask'}
   networking.trusted_service_bypass:
     terraform_avm: { attribute: network_rule_config.trusted_services_allowed, passthrough: true }
     terraform: { attribute: azurerm_servicebus_namespace.network_rule_set.trusted_services_allowed, passthrough: true }
     bicep_avm: { attribute: networkRuleSets.trustedServiceAccessEnabled, passthrough: true, note: module default true - written }
     bicep: { attribute: networkRuleSets/default properties.trustedServiceAccessEnabled, passthrough: true }
+    import: {todo: 'not in the Resource Graph row: networkRuleSets/default properties.trustedServiceAccessEnabled'}
 
   # --------------------------------------------------------------- encryption
   encryption.key_management:
@@ -226,6 +253,7 @@ decisions:
       attribute: properties.encryption.keySource
       values: { platform_managed: null, customer_managed: Microsoft.KeyVault }
       note: platform_managed renders no encryption block
+    import: {path: properties.encryption.keySource, values: {Microsoft.KeyVault: customer_managed}, missing: platform_managed}
   encryption.cmk_key_vault_key_id:
     terraform_avm:
       attribute: customer_managed_key.key_vault_resource_id, customer_managed_key.key_name
@@ -237,11 +265,13 @@ decisions:
     bicep:
       attribute: 'properties.encryption.keyVaultProperties[].keyName, properties.encryption.keyVaultProperties[].keyVaultUri'
       note: the key id split into the key's name and the vault's uri; identity beside them
+    import: {todo: 'in the row as a list of objects: properties.encryption.keyVaultProperties[].keyName and keyVaultUri, a name and a URI, not the key resource id the question takes'}
   encryption.infrastructure_encryption:
     terraform_avm: { attribute: infrastructure_encryption_enabled, passthrough: true, note: module default true and then requires the key - written }
     terraform: { attribute: customer_managed_key.infrastructure_encryption_enabled, passthrough: true }
     bicep_avm: { attribute: requireInfrastructureEncryption, passthrough: true, note: module default true and then requires the key - written }
     bicep: { attribute: properties.encryption.requireInfrastructureEncryption, passthrough: true }
+    import: {path: properties.encryption.requireInfrastructureEncryption, passthrough: true}
 
   # ----------------------------------------------------------------- recovery
   recovery.geo_recovery:
@@ -261,12 +291,14 @@ decisions:
       attribute: Microsoft.ServiceBus/namespaces/disasterRecoveryConfigs properties.partnerNamespace
       values: { none: null, paired_namespace: { expr: '{recovery.partner_namespace}' } }
       note: 'a child of the primary; none renders none (source: bicep build, Microsoft.ServiceBus/namespaces/disasterRecoveryConfigs@2024-01-01)'
+    import: {todo: 'not in the Resource Graph row: Microsoft.ServiceBus/namespaces/disasterRecoveryConfigs properties.partnerNamespace'}
   recovery.partner_namespace:
     terraform_avm:
       gap: module README 0.4.0 has no input - partner_namespace_id on the azurerm_servicebus_namespace_disaster_recovery_config outside the module
     terraform: { attribute: azurerm_servicebus_namespace_disaster_recovery_config.partner_namespace_id }
     bicep_avm: { attribute: disasterRecoveryConfig.partnerNamespace }
     bicep: { attribute: disasterRecoveryConfigs child properties.partnerNamespace }
+    import: {todo: 'not in the Resource Graph row: disasterRecoveryConfigs child properties.partnerNamespace'}
 
   # ----------------------------------------------------------------- identity
   identity.role_assignments:
@@ -278,6 +310,7 @@ decisions:
       attribute: 'roleAssignments[] = { principalId, roleDefinitionIdOrName, principalType }'
       note: also per queue and topic
     bicep: { attribute: Microsoft.Authorization/roleAssignments, note: scope = the namespace }
+    import: {todo: 'not in the Resource Graph row: Microsoft.Authorization/roleAssignments'}
 
   # ------------------------------------------------------------ observability
   observability.diagnostic_workspace:
@@ -285,6 +318,7 @@ decisions:
     terraform: { attribute: azurerm_monitor_diagnostic_setting.log_analytics_workspace_id }
     bicep_avm: { attribute: 'diagnosticSettings[].workspaceResourceId' }
     bicep: { attribute: Microsoft.Insights/diagnosticSettings properties.workspaceId }
+    import: {todo: 'not in the Resource Graph row: Microsoft.Insights/diagnosticSettings properties.workspaceId'}
   observability.diagnostic_categories:
     terraform_avm:
       attribute: 'diagnostic_settings.<key>.log_categories'
@@ -292,6 +326,7 @@ decisions:
     terraform: { attribute: azurerm_monitor_diagnostic_setting.enabled_log.category }
     bicep_avm: { attribute: 'diagnosticSettings[].logCategoriesAndGroups[].category' }
     bicep: { attribute: 'Microsoft.Insights/diagnosticSettings properties.logs[].category' }
+    import: {todo: 'not in the Resource Graph row: Microsoft.Insights/diagnosticSettings properties.logs[].category'}
   observability.metrics_enabled:
     terraform_avm:
       attribute: 'diagnostic_settings.<key>.metric_categories'
@@ -307,3 +342,4 @@ decisions:
       attribute: 'Microsoft.Insights/diagnosticSettings properties.metrics[].category'
       values: { true: AllMetrics, false: null }
       note: false renders no metrics entry
+    import: {todo: 'not in the Resource Graph row: Microsoft.Insights/diagnosticSettings properties.metrics[].category'}

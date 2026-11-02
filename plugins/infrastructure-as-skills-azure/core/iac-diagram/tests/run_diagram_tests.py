@@ -399,6 +399,29 @@ def case_no_split_no_group_tags(cells):
     return bad
 
 
+def case_public_paas_imported(cells):
+    """Public services without a network: every line from outside enters its service from above,
+    on waypoints of its own (never draw.io's route through the icons left of it), each at its own
+    point; a principal read from Azure reads as its kind and the start of its id."""
+    bad = []
+    paas = {k for k, v in vertices(cells).items() if k.startswith('res-')}
+    into = {}
+    for k, e in edges(cells).items():
+        if e['target'] in paas and e['source'] and e['source'].startswith('act-'):
+            if 'entryY=0;' not in e['style'] or not e.get('points'):
+                bad.append(f"{k}: {e['source']} -> {e['target']} is not routed in from above on its own waypoints")
+            at = re.search(r'entryX=([0-9.]+);', e['style'])
+            into.setdefault(e['target'], []).append(at.group(1) if at else None)
+    if not into:
+        bad.append('no line from outside into a service')
+    for t, xs in into.items():
+        if len(xs) != len(set(xs)):
+            bad.append(f"{t}: two lines enter at the same point")
+    if not any('Person 33bb1760' in v['value'] for v in vertices(cells).values()):
+        bad.append('the principal is not drawn as "Person 33bb1760"')
+    return bad
+
+
 def case_entry_chain(cells):
     """Front Door stands with the actors, the gateway and API Management in their subnets in the
     order a request meets them, the containers are words on the account (no box of their own),
@@ -525,6 +548,7 @@ CASES = [
     ('four-apps-one-subnet', os.path.join(FIXTURES, 'four-apps-one-subnet.yaml'), 'en', case_four_apps_one_subnet),
     ('no-split-no-group-tags', os.path.join(FIXTURES, 'public-webshop.yaml'), 'en', case_no_split_no_group_tags),
     ('vault-children', os.path.join(FIXTURES, 'four-apps-one-subnet.yaml'), 'en', case_vault_children),
+    ('public-paas-imported', os.path.join(FIXTURES, 'public-paas-imported.yaml'), 'de', case_public_paas_imported),
 ]
 
 

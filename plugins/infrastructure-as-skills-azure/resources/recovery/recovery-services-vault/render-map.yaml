@@ -8,6 +8,10 @@ modules:
   terraform: [Azure/avm-res-recoveryservices-vault/azurerm]
   bicep: [avm/res/recovery-services/vault]
 
+# The Azure resources besides `resource` the render creates for this set; an import adopts
+# them by id (adopt.parts). Format: core/iac-rendering/references/render-map.md.
+import_parts: [Microsoft.Network/privateEndpoints]
+
 decisions:
 
   # ---------------------------------------------------------------- placement
@@ -18,11 +22,13 @@ decisions:
     terraform: { attribute: location, passthrough: true }
     bicep_avm: { attribute: location, passthrough: true }
     bicep: { attribute: location, passthrough: true }
+    import: {path: location, passthrough: true}
   placement.resource_group_name:
     terraform_avm: { attribute: resource_group_name, note: a name on this module }
     terraform: { attribute: resource_group_name }
     bicep_avm: { gap: the deployment's resource group scope; no parameter }
     bicep: { gap: the deployment's resource group scope; no property }
+    import: {todo: 'bicep renders it as a gap: the deployment''s resource group scope; no property'}
 
   # -------------------------------------------------------------------- vault
   vault.storage_redundancy:
@@ -36,11 +42,13 @@ decisions:
       passthrough: true
       note: a discriminated object on this member
     bicep: { attribute: backupstorageconfig/vaultstorageconfig properties.storageType, passthrough: true }
+    import: {todo: 'not in the Resource Graph row: backupstorageconfig/vaultstorageconfig properties.storag...'}
   vault.cross_region_restore:
     terraform_avm: { attribute: cross_region_restore_enabled, passthrough: true, note: module default true - written; needs GeoRedundant }
     terraform: { attribute: azurerm_recovery_services_vault.cross_region_restore_enabled, passthrough: true }
     bicep_avm: { attribute: redundancySettings.crossRegionRestore, passthrough: true, note: only in the GeoRedundant variant }
     bicep: { attribute: backupstorageconfig/vaultstorageconfig properties.crossRegionRestoreFlag, passthrough: true }
+    import: {todo: 'not in the Resource Graph row: backupstorageconfig/vaultstorageconfig properties.crossR...'}
   vault.soft_delete:
     terraform_avm: { attribute: soft_delete_enabled, passthrough: true, note: module default Enabled - written; AlwaysOn cannot be reverted }
     terraform:
@@ -55,17 +63,20 @@ decisions:
     bicep:
       attribute: properties.securitySettings.softDeleteSettings.softDeleteState
       values: { Enabled: Enabled, AlwaysOn: AlwaysON, Disabled: Disabled }
+    import: {path: properties.securitySettings.softDeleteSettings.softDeleteState, values: {Enabled: Enabled, AlwaysON: AlwaysOn, Disabled: Disabled}}
   vault.soft_delete_retention_days:
     terraform_avm:
       gap: 'module README v1.3.3 has no input for the soft-delete retention - the platform default (14 days) applies; named in the handover, not-testable'
     terraform: { gap: 'azurerm 5.12 schema has no soft-delete argument on azurerm_recovery_services_vault' }
     bicep_avm: { attribute: softDeleteSettings.softDeleteRetentionPeriodInDays, passthrough: true }
     bicep: { attribute: properties.securitySettings.softDeleteSettings.softDeleteRetentionPeriodInDays, passthrough: true }
+    import: {path: properties.securitySettings.softDeleteSettings.softDeleteRetentionPeriodInDays, passthrough: true}
   vault.immutability:
     terraform_avm: { attribute: immutability, passthrough: true, note: module default Unlocked - written }
     terraform: { attribute: azurerm_recovery_services_vault.immutability, passthrough: true }
     bicep_avm: { attribute: immutabilitySettingState, passthrough: true }
     bicep: { attribute: properties.securitySettings.immutabilitySettings.state, passthrough: true }
+    import: {path: properties.securitySettings.immutabilitySettings.state, passthrough: true}
   vault.multi_user_authorization:
     terraform_avm:
       attribute: resource_guard_association_enabled
@@ -81,11 +92,13 @@ decisions:
       attribute: Microsoft.RecoveryServices/vaults/backupResourceGuardProxies properties.resourceGuardResourceId
       values: { true: { expr: '{vault.resource_guard}' }, false: null }
       note: "a child of the vault; false renders none; the vault's identity needs Reader on the guard (source: bicep build, Microsoft.RecoveryServices/vaults/backupResourceGuardProxies@2025-08-01)"
+    import: {todo: 'not in the Resource Graph row: Microsoft.RecoveryServices/vaults/backupResourceGuardPro...'}
   vault.resource_guard:
     terraform_avm: { attribute: resource_guard_id }
     terraform: { attribute: azurerm_recovery_services_vault_resource_guard_association.resource_guard_id, note: '(source: azurerm 5.12 schema, azurerm 5.12 docs)' }
     bicep_avm: { gap: "module README 0.13.2 types resourceGuardOperationRequests as a free array of operation-request ids, not the guard id; it does not say how they derive from it" }
     bicep: { attribute: Microsoft.RecoveryServices/vaults/backupResourceGuardProxies properties.resourceGuardResourceId, note: '(source: bicep build, Microsoft.RecoveryServices/vaults/backupResourceGuardProxies@2025-08-01)' }
+    import: {todo: 'not in the Resource Graph row: Microsoft.RecoveryServices/vaults/backupResourceGuardPro...'}
   vault.job_failure_alerts:
     terraform_avm: { attribute: alerts_for_all_job_failures_enabled, passthrough: true, note: default true - written }
     terraform:
@@ -98,6 +111,7 @@ decisions:
       note: '(source: module README 0.13.2)'
     bicep:
       gap: 'properties.monitoringSettings.azureMonitorAlertSettings.alertsForAllJobFailures exists (bicep build, Microsoft.RecoveryServices/vaults@2025-08-01) but the type is an open string, so the build proves no literal per answer'
+    import: {todo: 'bicep renders it as a gap: properties.monitoringSettings.azureMonitorAlertSettings.aler...'}
 
   # --------------------------------------------------------------- protection
   protection.protected_resources:
@@ -107,6 +121,7 @@ decisions:
     terraform: { attribute: 'azurerm_backup_protected_vm, azurerm_backup_protected_file_share' }
     bicep_avm: { attribute: protectedItems }
     bicep: { attribute: backupFabrics/protectionContainers/protectedItems }
+    import: {todo: 'not in the Resource Graph row: backupFabrics/protectionContainers/protectedItems'}
   protection.backup_schedule:
     terraform_avm:
       attribute: 'vm_backup_policy.<k>.frequency'
@@ -121,6 +136,7 @@ decisions:
       gap: module README 0.13.2 types backupPolicies.properties as a free object - no schedule member stated
     bicep:
       gap: backupPolicies child properties.schedulePolicy - the reference names the object, not its members or literals
+    import: {todo: 'bicep renders it as a gap: backupPolicies child properties.schedulePolicy - the referen...'}
   protection.retention_days:
     terraform_avm:
       attribute: 'vm_backup_policy.<k>.retention_daily'
@@ -133,6 +149,7 @@ decisions:
       gap: module README 0.13.2 types backupPolicies.properties as a free object - no retention member stated
     bicep:
       gap: backupPolicies child properties.retentionPolicy - the reference names the object, not its members or duration format
+    import: {todo: 'bicep renders it as a gap: backupPolicies child properties.retentionPolicy - the refere...'}
 
   # --------------------------------------------------------------- networking
   networking.public_network_access:
@@ -150,6 +167,7 @@ decisions:
     bicep:
       attribute: properties.publicNetworkAccess
       values: { disabled: Disabled, enabled_with_firewall: Enabled, enabled: Enabled }
+    import: {todo: answers share the literal Enabled; needs cases over a second path}
   networking.private_endpoint_subnet:
     terraform_avm:
       attribute: private_endpoints.vault.subnet_resource_id
@@ -157,6 +175,7 @@ decisions:
     terraform: { attribute: azurerm_private_endpoint.subnet_id }
     bicep_avm: { attribute: 'privateEndpoints[].subnetResourceId', note: "service: 'AzureBackup'" }
     bicep: { attribute: Microsoft.Network/privateEndpoints properties.subnet.id }
+    import: {todo: 'not in the Resource Graph row: Microsoft.Network/privateEndpoints properties.subnet.id'}
 
   # --------------------------------------------------------------- encryption
   encryption.key_management:
@@ -184,6 +203,7 @@ decisions:
         platform_managed: null
         customer_managed: { expr: '{ keyVaultProperties: { keyUri: {encryption.cmk_key_vault_key_id} }, kekIdentity: { userAssignedIdentity: <userAssignedIdentity>, useSystemAssignedIdentity: <useSystemAssignedIdentity> } }' }
       note: 'platform_managed renders no encryption object (source: bicep build, Microsoft.RecoveryServices/vaults@2025-08-01; bicep.md names no API version - the one the module uses)'
+    import: {todo: an answer renders as code or as nothing; needs cases}
   encryption.cmk_key_vault_key_id:
     terraform_avm:
       attribute: customer_managed_key.key_vault_resource_id, customer_managed_key.key_name
@@ -193,6 +213,7 @@ decisions:
       attribute: customerManagedKey.keyVaultResourceId, customerManagedKey.keyName
       note: the key id split into the vault's id and the key's name
     bicep: { attribute: properties.encryption.keyVaultProperties.keyUri, note: '(source: bicep build, Microsoft.RecoveryServices/vaults@2025-08-01; bicep.md names no API version - the one the module uses)' }
+    import: {todo: a list or a reference; needs its own reading}
   encryption.managed_identity:
     terraform_avm:
       attribute: managed_identities
@@ -214,6 +235,7 @@ decisions:
       attribute: identity.type
       values: { system_assigned: SystemAssigned, user_assigned: UserAssigned, none: null }
       note: none renders no identity block
+    import: {todo: an answer renders as code or as nothing; needs cases}
 
   encryption.user_assigned_identity_id:
     terraform_avm: { attribute: managed_identities.user_assigned_resource_ids, format: { expr: '[{value}]' } }
@@ -226,6 +248,7 @@ decisions:
       attribute: identity.userAssignedIdentities
       format: { expr: 'toObject([{value}], id => id, id => {})' }
       note: "an object keyed by the id - type: 'UserAssigned' (source: bicep build, Microsoft.RecoveryServices/vaults@2025-08-01; bicep.md names no API version - the one the module uses)"
+    import: {todo: a composed or computed literal; needs its own reading}
 
   # ----------------------------------------------------------------- identity
   identity.role_assignments:
@@ -233,6 +256,7 @@ decisions:
     terraform: { attribute: azurerm_role_assignment, note: scope = the vault's id }
     bicep_avm: { attribute: 'roleAssignments[] = { principalId, roleDefinitionIdOrName, principalType }' }
     bicep: { attribute: Microsoft.Authorization/roleAssignments, note: scope = the vault }
+    import: {todo: 'not in the Resource Graph row: Microsoft.Authorization/roleAssignments'}
 
   # ------------------------------------------------------------ observability
   observability.diagnostic_workspace:
@@ -240,6 +264,7 @@ decisions:
     terraform: { attribute: azurerm_monitor_diagnostic_setting.log_analytics_workspace_id }
     bicep_avm: { attribute: 'diagnosticSettings[].workspaceResourceId' }
     bicep: { attribute: Microsoft.Insights/diagnosticSettings properties.workspaceId }
+    import: {todo: 'not in the Resource Graph row: Microsoft.Insights/diagnosticSettings properties.workspa...'}
   observability.diagnostic_categories:
     terraform_avm:
       attribute: 'diagnostic_settings.<key>.log_categories'
@@ -247,6 +272,7 @@ decisions:
     terraform: { attribute: azurerm_monitor_diagnostic_setting.enabled_log.category }
     bicep_avm: { attribute: 'diagnosticSettings[].logCategoriesAndGroups[].category' }
     bicep: { attribute: 'Microsoft.Insights/diagnosticSettings properties.logs[].category' }
+    import: {todo: 'not in the Resource Graph row: Microsoft.Insights/diagnosticSettings properties.logs[]....'}
   observability.metrics_enabled:
     terraform_avm:
       attribute: 'diagnostic_settings.<key>.metric_categories'
@@ -262,3 +288,4 @@ decisions:
       attribute: 'Microsoft.Insights/diagnosticSettings properties.metrics[].category'
       values: { true: AllMetrics, false: null }
       note: false renders no metrics entry
+    import: {todo: 'not in the Resource Graph row: Microsoft.Insights/diagnosticSettings properties.metrics...'}

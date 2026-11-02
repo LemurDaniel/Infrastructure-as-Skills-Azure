@@ -20,11 +20,13 @@ decisions:
     terraform: { attribute: location, passthrough: true }
     bicep_avm: { attribute: location, passthrough: true }
     bicep: { attribute: location, passthrough: true }
+    import: {path: location, passthrough: true}
   placement.resource_group_name:
     terraform_avm: { attribute: resource_group_name, note: 'the name, not parent_id - azurerm-based module' }
     terraform: { attribute: resource_group_name }
     bicep_avm: { gap: the deployment's resource group scope; no parameter }
     bicep: { gap: the deployment's resource group scope; no property }
+    import: {path: resourceGroup, passthrough: true}
 
   # --------------------------------------------------------------------- cost
   cost.retention_days:
@@ -38,6 +40,7 @@ decisions:
       passthrough: true
       note: module default 365, the guardrail 30 - must be written
     bicep: { attribute: properties.retentionInDays, passthrough: true }
+    import: {path: properties.retentionInDays, passthrough: true}
   cost.daily_quota_gb:
     terraform_avm: { attribute: log_analytics_workspace_daily_quota_gb, passthrough: true, note: -1 for no cap }
     terraform: { attribute: daily_quota_gb, passthrough: true, note: -1 for no cap }
@@ -46,6 +49,7 @@ decisions:
       format: '{value}'
       note: a string on this module ('-1' for no cap)
     bicep: { attribute: properties.workspaceCapping.dailyQuotaGb, passthrough: true, note: an int; -1 for no cap }
+    import: {path: properties.workspaceCapping.dailyQuotaGb, passthrough: true}
   cost.sku:
     terraform_avm:
       attribute: log_analytics_workspace_sku
@@ -54,6 +58,7 @@ decisions:
     terraform: { attribute: sku, passthrough: true, note: CapacityReservation also takes reservation_capacity_in_gb_per_day }
     bicep_avm: { attribute: skuName, passthrough: true, note: CapacityReservation also takes skuCapacityReservationLevel }
     bicep: { attribute: properties.sku.name, passthrough: true }
+    import: {path: properties.sku.name, passthrough: true}
 
   # ------------------------------------------------------------------- access
   access.public_network_access:
@@ -72,6 +77,7 @@ decisions:
     bicep:
       attribute: properties.publicNetworkAccessForIngestion, properties.publicNetworkAccessForQuery
       values: { disabled: Disabled, enabled: Enabled }
+    import: {cases: [{when: {properties.publicNetworkAccessForIngestion: Disabled, properties.publicNetworkAccessForQuery: Disabled}, answer: disabled}, {when: {properties.publicNetworkAccessForIngestion: Enabled, properties.publicNetworkAccessForQuery: Enabled}, answer: enabled}]}
   access.local_auth:
     terraform_avm:
       attribute: log_analytics_workspace_local_authentication_enabled
@@ -86,6 +92,7 @@ decisions:
       attribute: properties.features.disableLocalAuth
       values: { true: false, false: true }
       note: inverse
+    import: {path: properties.features.disableLocalAuth, values: {false: true, true: false}}
   access.rbac_only_access:
     terraform_avm:
       attribute: log_analytics_workspace_allow_resource_only_permissions
@@ -103,6 +110,7 @@ decisions:
       attribute: properties.features.enableLogAccessUsingOnlyResourcePermissions
       values: { true: false, false: true }
       note: inverse
+    import: {path: properties.features.enableLogAccessUsingOnlyResourcePermissions, values: {false: true, true: false}}
 
   # ---------------------------------------------------------- data_protection
   data_protection.immediate_purge_protection:
@@ -113,6 +121,7 @@ decisions:
       note: provider-side, inverted; not observable by a plan
     bicep_avm: { gap: not a template property; a permanent delete is the forceDelete=true query parameter on deletion }
     bicep: { gap: not a template property; a permanent delete is the forceDelete=true query parameter on deletion }
+    import: {not_readable: 'not a property: a permanent delete is the forceDelete=true query parameter of the deletion call'}
   data_protection.archive_to_storage:
     terraform_avm:
       attribute: 'diagnostic_settings.<key>.storage_account_resource_id'
@@ -130,3 +139,4 @@ decisions:
       attribute: Microsoft.Insights/diagnosticSettings properties.storageAccountId
       values: { true: { expr: '<archive_storage_account_id>' }, false: null }
       note: 'scope: the workspace; false renders no setting (source: bicep build, Microsoft.Insights/diagnosticSettings@2021-05-01-preview)'
+    import: {todo: 'not in the Resource Graph row: the extension resource Microsoft.Insights/diagnosticSettings (scope the resource) properties.storageAccountId'}

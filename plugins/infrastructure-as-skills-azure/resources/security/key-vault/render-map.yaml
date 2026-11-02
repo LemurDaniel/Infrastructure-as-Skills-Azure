@@ -10,6 +10,10 @@ modules:
   terraform: [Azure/avm-res-keyvault-vault/azurerm]
   bicep: [avm/res/key-vault/vault]
 
+# The Azure resources besides `resource` the render creates for this set; an import adopts
+# them by id (adopt.parts). Format: core/iac-rendering/references/render-map.md.
+import_parts: [Microsoft.Network/privateEndpoints]
+
 decisions:
 
   # ---------------------------------------------------------------- placement
@@ -20,11 +24,13 @@ decisions:
     terraform: { attribute: location, passthrough: true }
     bicep_avm: { attribute: location, passthrough: true }
     bicep: { attribute: location, passthrough: true }
+    import: {path: location, passthrough: true}
   placement.resource_group_name:
     terraform_avm: { attribute: resource_group_name, note: 'a name, not parent_id - azurerm-based module' }
     terraform: { attribute: resource_group_name, note: '(source: azurerm 5.12 schema)' }
     bicep_avm: { gap: the deployment's resource group scope; no parameter }
     bicep: { gap: the deployment's resource group scope; no property }
+    import: {path: resourceGroup, passthrough: true}
 
   # -------------------------------------------------------------------- vault
   vault.sku:
@@ -32,6 +38,7 @@ decisions:
     terraform: { attribute: sku_name, passthrough: true }
     bicep_avm: { attribute: sku, passthrough: true, note: module default premium - written }
     bicep: { attribute: properties.sku.name, passthrough: true, note: "family: 'A' beside it" }
+    import: {path: properties.sku.name, passthrough: true}
   vault.purge_protection:
     terraform_avm: { attribute: purge_protection_enabled, passthrough: true, note: module default true; written }
     terraform: { attribute: purge_protection_enabled, passthrough: true }
@@ -40,11 +47,13 @@ decisions:
       attribute: properties.enablePurgeProtection
       values: { true: true, false: null }
       note: only true or omitted - ARM rejects an explicit false
+    import: {path: properties.enablePurgeProtection, passthrough: true, missing: false}
   vault.soft_delete_retention_days:
     terraform_avm: { attribute: soft_delete_retention_days, passthrough: true, note: module default null (90); written }
     terraform: { attribute: soft_delete_retention_days, passthrough: true }
     bicep_avm: { attribute: softDeleteRetentionInDays, passthrough: true, note: module default 90; written; enableSoftDelete stays true }
     bicep: { attribute: properties.softDeleteRetentionInDays, passthrough: true }
+    import: {path: properties.softDeleteRetentionInDays, passthrough: true}
   vault.rbac_authorization:
     terraform_avm:
       attribute: legacy_access_policies_enabled
@@ -53,6 +62,7 @@ decisions:
     terraform: { attribute: rbac_authorization_enabled, passthrough: true }
     bicep_avm: { attribute: enableRbacAuthorization, passthrough: true, note: module default true; written }
     bicep: { attribute: properties.enableRbacAuthorization, passthrough: true }
+    import: {path: properties.enableRbacAuthorization, passthrough: true}
 
   # --------------------------------------------------------------- networking
   networking.public_network_access:
@@ -85,6 +95,7 @@ decisions:
         disabled: "defaultAction: 'Deny'"
         enabled_with_firewall: "defaultAction: 'Deny'"
       note: the also lines sit inside properties.networkAcls; what enabled writes there the reference does not state
+    import: {cases: [{when: {properties.publicNetworkAccess: Disabled}, answer: disabled}, {when: {properties.publicNetworkAccess: Enabled, properties.networkAcls.defaultAction: Deny}, answer: enabled_with_firewall}, {when: {properties.publicNetworkAccess: Enabled}, answer: enabled}]}
   networking.private_endpoint_subnet:
     terraform_avm: { attribute: private_endpoints.vault.subnet_resource_id, note: subresource_name defaults to vault }
     terraform:
@@ -94,11 +105,13 @@ decisions:
     bicep:
       attribute: Microsoft.Network/privateEndpoints properties.subnet.id
       note: 'privateLinkServiceConnections[].properties { privateLinkServiceId: the vault id, groupIds } beside it (source: bicep build, Microsoft.Network/privateEndpoints@2024-05-01)'
+    import: {todo: 'not in the Resource Graph row: Microsoft.Network/privateEndpoints properties.subnet.id'}
   networking.network_acl_bypass:
     terraform_avm: { attribute: network_acls.bypass, passthrough: true }
     terraform: { attribute: network_acls.bypass, passthrough: true }
     bicep_avm: { attribute: networkAcls.bypass, passthrough: true }
     bicep: { attribute: properties.networkAcls.bypass, passthrough: true }
+    import: {path: properties.networkAcls.bypass, passthrough: true}
   networking.ip_rules:
     terraform_avm: { attribute: network_acls.ip_rules }
     terraform: { attribute: network_acls.ip_rules }
@@ -108,6 +121,7 @@ decisions:
     bicep:
       attribute: properties.networkAcls.ipRules
       note: the item shape is not in the reference (the module's parameter is [ { value } ]); check the API schema - never the plain list
+    import: {todo: 'in the row as a list of objects: properties.networkAcls.ipRules[].value; no form reads a list element'}
 
   # ----------------------------------------------------------------- identity
   identity.role_assignments:
@@ -119,6 +133,7 @@ decisions:
     bicep:
       attribute: 'Microsoft.Authorization/roleAssignments = { properties.principalId, properties.roleDefinitionId, properties.principalType }'
       note: 'one per entry, scope: the vault; roleDefinitionId is the definition id, never the name (source: bicep build, Microsoft.Authorization/roleAssignments@2022-04-01)'
+    import: {todo: 'not in the Resource Graph row: Microsoft.Authorization/roleAssignments = { properties.principalId, properties.roleDefinitionId, properties.principalType }'}
 
   # ----------------------------------------------------------------- security
   security.enabled_for_services:
@@ -138,6 +153,7 @@ decisions:
       - { attribute: properties.enabledForDeployment, format: { expr: "contains({value}, 'vm_deployment')" } }
       - { attribute: properties.enabledForDiskEncryption, format: { expr: "contains({value}, 'disk_encryption')" } }
       - { attribute: properties.enabledForTemplateDeployment, format: { expr: "contains({value}, 'template_deployment')" } }
+    import: {todo: 'a list built from three bools: properties.enabledForDeployment, enabledForDiskEncryption, enabledForTemplateDeployment; no form builds a list'}
   security.secret_placeholders:
     terraform_avm: { gap: 'not the module; azurerm_key_vault_secret per name outside it, value placeholder, ignore_changes = [value, tags]' }
     terraform:
@@ -147,6 +163,7 @@ decisions:
     bicep:
       attribute: Microsoft.KeyVault/vaults/secrets name
       note: '[for name in secretPlaceholders: ...]; @onlyIfNotExists() - deployed once, never over a value somebody set'
+    import: {todo: 'not in the Resource Graph row: Microsoft.KeyVault/vaults/secrets name'}
 
   # --------------------------------------------------------------------- keys
   keys.key_management:
@@ -164,16 +181,19 @@ decisions:
     bicep:
       attribute: Microsoft.KeyVault/vaults/keys
       note: 'one per entry, parent: the vault; properties { kty, keySize, rotationPolicy } (source: bicep build, Microsoft.KeyVault/vaults/keys@2024-11-01)'
+    import: {todo: 'not in the Resource Graph row: Microsoft.KeyVault/vaults/keys'}
   keys.key_type:
     terraform_avm: { attribute: 'keys.<key>.key_type', passthrough: true }
     terraform: { attribute: azurerm_key_vault_key.key_type, passthrough: true, note: 'EC, EC-HSM, RSA, RSA-HSM (source: azurerm 5.12 docs)' }
     bicep_avm: { attribute: 'keys[].kty', passthrough: true }
     bicep: { gap: 'Microsoft.KeyVault/vaults/keys properties.kty (bicep build, @2024-11-01) is a plain string in the type - the RSA / RSA-HSM literals are not provable by a build' }
+    import: {todo: 'not in the Resource Graph row: Microsoft.KeyVault/vaults/keys properties.kty'}
   keys.key_size:
     terraform_avm: { attribute: 'keys.<key>.key_size', passthrough: true }
     terraform: { attribute: azurerm_key_vault_key.key_size, passthrough: true, note: 'a number; RSA only (source: azurerm 5.12 schema)' }
     bicep_avm: { attribute: 'keys[].keySize', passthrough: true }
     bicep: { attribute: Microsoft.KeyVault/vaults/keys properties.keySize, passthrough: true, note: 'an int (source: bicep build, Microsoft.KeyVault/vaults/keys@2024-11-01)' }
+    import: {todo: 'not in the Resource Graph row: Microsoft.KeyVault/vaults/keys properties.keySize'}
   keys.key_rotation_days:
     terraform_avm:
       attribute: 'keys.<key>.rotation_policy.automatic.time_after_creation'
@@ -188,11 +208,13 @@ decisions:
       format: 'P{value}D'
       note: "the entry with action: { type: 'rotate' }; the member path is the key child module's (key-vault-key) - confirm in the README"
     bicep: { gap: 'Microsoft.KeyVault/vaults/keys properties.rotationPolicy.lifetimeActions[].trigger.timeAfterCreate (bicep build, @2024-11-01) is a plain string - the duration literal is not provable by a build' }
+    import: {todo: 'not in the Resource Graph row: Microsoft.KeyVault/vaults/keys properties.rotationPolicy.lifetimeActions[].trigger.timeAfterCreate (P<n>D)'}
   keys.key_expiry_days:
     terraform_avm: { attribute: 'keys.<key>.rotation_policy.expire_after', format: 'P{value}D', note: an ISO 8601 duration; member names from the README }
     terraform: { attribute: azurerm_key_vault_key.rotation_policy.expire_after, format: 'P{value}D', note: 'an ISO 8601 duration (source: azurerm 5.12 docs)' }
     bicep_avm: { attribute: 'keys[].rotationPolicy.attributes.expiryTime', format: 'P{value}D', note: an ISO 8601 duration; member names from the README }
     bicep: { gap: 'Microsoft.KeyVault/vaults/keys properties.rotationPolicy.attributes.expiryTime (bicep build, @2024-11-01) is a plain string - the duration literal is not provable by a build' }
+    import: {todo: 'not in the Resource Graph row: Microsoft.KeyVault/vaults/keys properties.rotationPolicy.attributes.expiryTime (P<n>D)'}
 
   # ------------------------------------------------------------ observability
   observability.diagnostic_workspace:
@@ -204,6 +226,7 @@ decisions:
     bicep:
       attribute: Microsoft.Insights/diagnosticSettings properties.workspaceId
       note: 'scope: the vault (source: bicep build, Microsoft.Insights/diagnosticSettings@2021-05-01-preview)'
+    import: {todo: 'not in the Resource Graph row: Microsoft.Insights/diagnosticSettings properties.workspaceId'}
   observability.diagnostic_categories:
     terraform_avm:
       attribute: diagnostic_settings.workspace.log_categories
@@ -213,6 +236,7 @@ decisions:
     bicep:
       attribute: 'Microsoft.Insights/diagnosticSettings properties.logs[].category'
       note: 'one entry per category, enabled: true on each (source: bicep build, Microsoft.Insights/diagnosticSettings@2021-05-01-preview)'
+    import: {todo: 'not in the Resource Graph row: Microsoft.Insights/diagnosticSettings properties.logs[].category'}
   observability.metrics_enabled:
     terraform_avm:
       attribute: diagnostic_settings.workspace.metric_categories
@@ -227,3 +251,4 @@ decisions:
       values: { true: { expr: "[ { category: 'AllMetrics' } ]" }, false: { expr: '[]' } }
       note: false is an empty array, not left out
     bicep: { gap: 'Microsoft.Insights/diagnosticSettings properties.metrics[].category (bicep build, @2021-05-01-preview) is a plain string - the AllMetrics literal is not provable by a build' }
+    import: {todo: 'not in the Resource Graph row: Microsoft.Insights/diagnosticSettings properties.metrics[].category'}

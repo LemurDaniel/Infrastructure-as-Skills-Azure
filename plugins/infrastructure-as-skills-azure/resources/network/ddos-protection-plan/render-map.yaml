@@ -18,6 +18,7 @@ decisions:
     terraform: { attribute: location, passthrough: true }
     bicep_avm: { attribute: location, passthrough: true, note: module default is the group's location; written }
     bicep: { attribute: location, passthrough: true }
+    import: {path: location, passthrough: true}
   placement.resource_group_name:
     terraform_avm:
       attribute: resource_group_name
@@ -25,6 +26,7 @@ decisions:
     terraform: { attribute: resource_group_name }
     bicep_avm: { gap: the deployment's resource group scope; no parameter }
     bicep: { gap: the deployment's resource group scope; no property }
+    import: {todo: 'bicep renders it as a gap: the deployment''s resource group scope; no property'}
 
   # --------------------------------------------------------------------- plan
   plan.ownership:
@@ -40,6 +42,7 @@ decisions:
       attribute: param ddosProtectionPlanId
       note: platform only; an id from the stage files, never an existing lookup; it goes to the networks
     bicep: { attribute: param ddosProtectionPlanId, note: platform only - an id from the stage files }
+    import: {todo: 'not in the Resource Graph row: param ddosProtectionPlanId'}
   plan.stages_with_plan:
     terraform_avm:
       attribute: count
@@ -65,6 +68,7 @@ decisions:
         production: { expr: 'if (ddosProtectionPlanEnabled)' }
         all_stages: { expr: 'if (ddosProtectionPlanEnabled)' }
       note: the switch true in the production stage file only (production) or in every stage file (all_stages)
+    import: {todo: 'not in the Resource Graph row: resource condition'}
 
   # ------------------------------------------------------------------- access
   access.role_assignments:
@@ -74,3 +78,4 @@ decisions:
     terraform: { attribute: azurerm_role_assignment, note: scope = the plan's id }
     bicep_avm: { attribute: "roleAssignments[] = { principalId, roleDefinitionIdOrName, principalType }", note: "roleDefinitionIdOrName: 'Network Contributor'" }
     bicep: { attribute: Microsoft.Authorization/roleAssignments, note: extension resource with scope = the plan }
+    import: {todo: 'not in the Resource Graph row: Microsoft.Authorization/roleAssignments'}

@@ -11,7 +11,12 @@ extensions: a module in modules and companions, an authored entry naming a modul
 companion, a list over several modules with an entry naming none, `by_kind` without `kinds`, `kinds` on a question
 that is no enum, a `by_kind` key no answer, a sketch (`...`) instead of code, a format naming no question, a `part_of` whose
 format does not name it, values missing an answer, a scalar entry without values, format or
-passthrough, a passthrough that is not true or stands beside values. A companion, a list per
+passthrough, a passthrough that is not true or stands beside values, import_parts that is no
+list of ARM types or names the set's own resource, a decision without import, an import answer
+the question does not accept, an import with two forms, a todo without its reason, cases without
+when, a reference on a question that takes none, items on a question that is no list, present
+without missing, import_match that is no list of kind tokens. An import read back through cases
+must pass. A companion, a list per
 module, `by_kind`, a composite format, format beside values, format as code, null in values
 and a composite format with part_of used correctly must pass. Every render-map.yaml in the
 plugin must pass.
@@ -92,6 +97,38 @@ def main():
         ('an unknown field',
          lambda d: d['decisions']['security.min_tls_version']['bicep'].__setitem__('default', 'x'),
          'unknown field(s) default'),
+        ('a decision without import',
+         lambda d: d['decisions']['security.min_tls_version'].pop('import'), 'import missing'),
+        ('an import answer the question does not accept',
+         lambda d: d['decisions']['networking.public_network_access'].__setitem__(
+             'import', {'path': 'properties.publicNetworkAccess', 'values': {'Disabled': 'private'}}),
+         "import.values answer 'private' is not an answer"),
+        ('an import with two forms',
+         lambda d: d['decisions']['security.min_tls_version'].__setitem__(
+             'import', {'path': 'properties.minimumTlsVersion', 'passthrough': True, 'format': 'TLS{value}'}),
+         'exactly one of values, passthrough, format'),
+        ('a todo without its reason',
+         lambda d: d['decisions']['security.min_tls_version'].__setitem__('import', {'todo': ''}),
+         'todo carries its reason'),
+        ('cases without when',
+         lambda d: d['decisions']['networking.public_network_access'].__setitem__(
+             'import', {'cases': [{'answer': 'disabled'}]}), 'cases[0] is { when, answer }'),
+        ('a reference on a question that takes none',
+         lambda d: d['decisions']['security.min_tls_version'].__setitem__(
+             'import', {'path': 'properties.minimumTlsVersion', 'reference': True}), 'a question that takes no reference'),
+        ('items on a question that is no list',
+         lambda d: d['decisions']['security.min_tls_version'].__setitem__(
+             'import', {'path': 'properties.x', 'items': {'name': 'name'}}), 'items on a question that is no list'),
+        ('present without missing',
+         lambda d: d['decisions']['security.shared_access_key_enabled'].__setitem__(
+             'import', {'path': 'properties.allowSharedKeyAccess', 'present': True}), 'present needs missing'),
+        ('import_match that is no list of kind tokens',
+         lambda d: d.__setitem__('import_match', {'kind_has': 'functionapp'}), 'import_match is'),
+        ('import_parts that is no list of ARM types',
+         lambda d: d.__setitem__('import_parts', ['private endpoints']), 'import_parts is a list of ARM types'),
+        ('import_parts naming the set\'s own resource',
+         lambda d: d.__setitem__('import_parts', ['Microsoft.Storage/storageAccounts']),
+         "import_parts lists a type twice or the set's own resource"),
         ('a module not in modules',
          lambda d: d['decisions']['security.min_tls_version']['terraform_avm'].__setitem__('module', 'Azure/avm-res-x-y/azurerm'),
          'is neither in modules nor in companions'),
@@ -141,7 +178,14 @@ def main():
          'whose format does not name'),
     ]
     good = [
-        ('a list of attributes of one call', lambda d: d['decisions']['security.min_tls_version'].__setitem__(
+        ('an import read back through cases', lambda d: d['decisions']['networking.public_network_access'].__setitem__(
+            'import', {'cases': [
+                {'when': {'properties.publicNetworkAccess': 'Disabled'}, 'answer': 'disabled'},
+                {'when': {'properties.publicNetworkAccess': 'Enabled', 'properties.networkAcls.defaultAction': 'Deny'},
+                 'answer': 'enabled_with_firewall'},
+                {'when': {'properties.publicNetworkAccess': 'Enabled', 'properties.networkAcls.defaultAction': 'Allow'},
+                 'answer': 'enabled'}], 'missing': 'enabled'})),
+        ('a list of attributes of one call',lambda d: d['decisions']['security.min_tls_version'].__setitem__(
             'terraform', [{'attribute': 'a', 'passthrough': True}, {'attribute': 'b', 'passthrough': True}])),
         ('a companion on an authored entry', lambda d: (
             d.__setitem__('companions', {'terraform': [PE_MODULE]}),

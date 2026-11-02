@@ -18,9 +18,12 @@ This digest reads the spec and prints:
      what its render-map.yaml entry says for the target and implementation: the attribute with
      the literal the value becomes, further lines, the note or the gap. A line a resource
      sets on a part of another one (`on_part`: an NSG on a subnet) is printed under the part's
-     resource, `-- on parts`: that resource's module renders it.
+     resource, `-- on parts`: that resource's module renders it. A resource the spec adopts
+     (an import) prints its ids, which the render imports instead of creating; they are no
+     decisions and no test asserts them.
   5. Wiring, target overrides, the `assumed` values (an `ASSUMED:` marker in every stage
-     file) and the `open:` entries (placeholders), then the checks with their paths.
+     file), the `open:` entries (placeholders) and what an import found and does not render
+     (`unmapped:`, named in the hand-over), then the checks with their paths.
 
 spec.md is not read for a render; the digest says what it holds for this spec. Look a key
 up there only when the digest does not explain it.
@@ -377,7 +380,7 @@ def decisions_of(node, path=''):
     if 'value' in node:
         return [(path, node)]
     for k, v in node.items():
-        if str(k).startswith('_') or (k == 'meta' and path and '.' not in path):
+        if str(k).startswith('_') or (k in ('meta', 'adopt') and path and '.' not in path):
             continue
         out.extend(decisions_of(v, f"{path}.{k}" if path else str(k)))
     return out
@@ -578,6 +581,12 @@ def main():
         meta = (node or {}).get('meta') if isinstance(node, dict) else None
         if isinstance(meta, dict) and isinstance(meta.get('purpose'), dict):
             p(f"   purpose: {flat(meta['purpose'].get('value', ''))}")
+        adopt = (node or {}).get('adopt') if isinstance(node, dict) else None
+        if isinstance(adopt, dict):
+            p('   adopt: exists - imported, never created; its name is the one in the id, not the naming interface')
+            for k in ('id', 'lock_id', 'diagnostic_setting_id', 'parts'):
+                if isinstance(adopt.get(k), dict):
+                    p(f"      {k} = {show(adopt[k].get('value'))}  [per stage]")
         own = decisions_of(node, str(key))
         ctx = {
             'answers': {'.'.join(pth.split('.')[1:3]): e.get('value') for pth, e in own},
@@ -680,6 +689,11 @@ def main():
         p(f"    {flat(o.get('question', ''))}")
     if not spec.get('open'):
         p('  none - no placeholder in any stage file')
+    if spec.get('unmapped'):
+        p('-- unmapped (found in Azure, not rendered: name each in the hand-over)')
+        for u in spec['unmapped']:
+            if isinstance(u, dict):
+                p(f"  {u.get('type')}  {u.get('reason')}  {u.get('id')}")
     p()
 
     # ---- 6. the checks

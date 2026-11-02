@@ -8,6 +8,10 @@ modules:
   terraform: [Azure/avm-res-botservice-botservice/azurerm]
   bicep: []
 
+# The Azure resources besides `resource` the render creates for this set; an import adopts
+# them by id (adopt.parts). Format: core/iac-rendering/references/render-map.md.
+import_parts: [Microsoft.Network/privateEndpoints]
+
 decisions:
 
   # ---------------------------------------------------------------- placement
@@ -26,24 +30,29 @@ decisions:
       attribute: location
       passthrough: true
       note: "the answer defaults to 'global'; the private endpoints take the deployment's region"
+    import: {path: location, passthrough: true}
   placement.resource_group_name:
     terraform_avm: { attribute: resource_group_name, note: 'a name, not an id - AzAPI-only module without azurerm' }
     terraform: { attribute: resource_group_name }
     bicep: { gap: the deployment's resource group scope; no property }
+    import: {todo: 'bicep renders it as a gap: the deployment''s resource group scope; no property'}
 
   # ---------------------------------------------------------------------- bot
   bot.sku:
     terraform_avm: { attribute: sku, passthrough: true, note: module default F0; written anyway }
     terraform: { attribute: sku, passthrough: true }
     bicep: { attribute: sku.name, passthrough: true }
+    import: {path: sku.name, passthrough: true}
   bot.display_name:
     terraform_avm: { attribute: display_name, passthrough: true, note: null falls back to the name }
     terraform: { attribute: display_name, passthrough: true }
     bicep: { attribute: properties.displayName, passthrough: true, note: required by the API; the resource name when empty }
+    import: {path: properties.displayName, passthrough: true}
   bot.messaging_endpoint:
     terraform_avm: { attribute: endpoint, passthrough: true }
     terraform: { attribute: endpoint, passthrough: true }
     bicep: { attribute: properties.endpoint, passthrough: true }
+    import: {path: properties.endpoint, passthrough: true}
   bot.app_identity_type:
     terraform_avm:
       attribute: microsoft_app_type
@@ -55,6 +64,7 @@ decisions:
     bicep:
       attribute: properties.msaAppType
       values: { user_assigned_msi: UserAssignedMSI, single_tenant: SingleTenant, multi_tenant: MultiTenant }
+    import: {path: properties.msaAppType, values: {UserAssignedMSI: user_assigned_msi, SingleTenant: single_tenant, MultiTenant: multi_tenant}}
   bot.bot_identity:
     terraform_avm:
       attribute: microsoft_app_id, microsoft_app_msi_id, microsoft_app_tenant_id
@@ -65,6 +75,7 @@ decisions:
     bicep:
       attribute: properties.msaAppId, properties.msaAppMSIResourceId, properties.msaAppTenantId
       note: msaAppId = the identity's client id, msaAppMSIResourceId = its resource id, msaAppTenantId = tenant().tenantId
+    import: {todo: 'not in the Resource Graph row: properties.msaAppId, properties.msaAppMSIResourceId, pro...'}
   bot.app_registration_client_id:
     terraform_avm:
       attribute: microsoft_app_id
@@ -78,6 +89,7 @@ decisions:
       attribute: properties.msaAppId
       passthrough: true
       note: 'msaAppTenantId: tenant().tenantId beside it, never this id; no msaAppMSIResourceId'
+    import: {path: properties.msaAppId, passthrough: true}
   bot.channels:
     terraform_avm:
       attribute: 'channels.<key> = { channel_name, location = "global", properties }'
@@ -91,10 +103,12 @@ decisions:
     bicep:
       attribute: botServices/channels properties.channelName
       note: "a child per entry named after the channel, location: 'global'; the channel's settings are content"
+    import: {todo: 'not in the Resource Graph row: botServices/channels properties.channelName'}
   bot.streaming_endpoint:
     terraform_avm: { attribute: streaming_endpoint_enabled, passthrough: true, note: module default null (on per README); written }
     terraform: { attribute: streaming_endpoint_enabled, passthrough: true }
     bicep: { attribute: properties.isStreamingSupported, passthrough: true }
+    import: {path: properties.isStreamingSupported, passthrough: true}
 
   # --------------------------------------------------------------- networking
   networking.public_network_access:
@@ -110,6 +124,7 @@ decisions:
       attribute: properties.publicNetworkAccess
       values: { disabled: Disabled, enabled_with_firewall: Enabled, enabled: Enabled }
       note: enabled_with_firewall is Enabled - the resource has no IP rules
+    import: {todo: answers share the literal Enabled; needs cases over a second path}
   networking.private_endpoint_subnet:
     terraform_avm:
       attribute: 'private_endpoints.<key>.subnet_resource_id'
@@ -120,12 +135,14 @@ decisions:
     bicep:
       attribute: Microsoft.Network/privateEndpoints properties.subnet.id
       note: one per sub-resource in the deployment's region; no zone group under private_dns_records policy
+    import: {todo: 'not in the Resource Graph row: Microsoft.Network/privateEndpoints properties.subnet.id'}
   networking.private_endpoint_subresources:
     terraform_avm: { attribute: 'private_endpoints.<key>.subresource_name', note: 'one entry per sub-resource (Bot, Token)' }
     terraform: { attribute: azurerm_private_endpoint.private_service_connection.subresource_names, note: '["Bot"] and a second endpoint with ["Token"]; inside the private_service_connection block (source: azurerm 5.12 schema)' }
     bicep:
       attribute: 'Microsoft.Network/privateEndpoints properties.privateLinkServiceConnections[].properties.groupIds'
       note: one endpoint per sub-resource
+    import: {todo: 'not in the Resource Graph row: Microsoft.Network/privateEndpoints properties.privateLin...'}
 
   # ----------------------------------------------------------------- identity
   identity.role_assignments:
@@ -136,6 +153,7 @@ decisions:
     bicep:
       attribute: 'Microsoft.Authorization/roleAssignments properties = { principalId, roleDefinitionId, principalType }'
       note: one per entry, scoped to the bot; the role definition id, not the name - no module resolves names
+    import: {todo: 'not in the Resource Graph row: Microsoft.Authorization/roleAssignments properties = { p...'}
 
   # ----------------------------------------------------------------- security
   security.local_authentication_disabled:
@@ -148,6 +166,7 @@ decisions:
       values: { true: false, false: true }
       note: inverse
     bicep: { attribute: properties.disableLocalAuth, passthrough: true }
+    import: {path: properties.disableLocalAuth, passthrough: true}
   security.key_management:
     terraform_avm:
       attribute: is_cmek_enabled
@@ -159,10 +178,12 @@ decisions:
     bicep:
       attribute: properties.isCmekEnabled
       values: { platform_managed: false, customer_managed: true }
+    import: {path: properties.isCmekEnabled, values: {false: platform_managed, true: customer_managed}}
   security.cmk_key_vault_key_id:
     terraform_avm: { attribute: cmek_key_vault_url, note: "the key's URL (versioned or unversioned - unversioned follows a rotation), never its resource id" }
     terraform: { attribute: cmk_key_vault_key_url, note: "the key's URL (versioned or unversioned - unversioned follows a rotation), never its resource id" }
     bicep: { attribute: properties.cmekKeyVaultUrl, note: "the key's URL (versioned or unversioned - unversioned follows a rotation), never its resource id" }
+    import: {todo: a list or a reference; needs its own reading}
 
   # ------------------------------------------------------------ observability
   observability.diagnostic_workspace:
@@ -171,12 +192,14 @@ decisions:
       attribute: azurerm_monitor_diagnostic_setting.log_analytics_workspace_id
       note: "(source: azurerm 5.12 schema)"
     bicep: { attribute: Microsoft.Insights/diagnosticSettings properties.workspaceId, note: scoped to the bot }
+    import: {todo: 'not in the Resource Graph row: Microsoft.Insights/diagnosticSettings properties.workspa...'}
   observability.diagnostic_categories:
     terraform_avm:
       attribute: diagnostic_settings.workspace.log_categories
       note: log_groups defaults to ["allLogs"] - set it [] beside the categories
     terraform: { attribute: azurerm_monitor_diagnostic_setting.enabled_log.category }
     bicep: { attribute: 'Microsoft.Insights/diagnosticSettings properties.logs[].category' }
+    import: {todo: 'not in the Resource Graph row: Microsoft.Insights/diagnosticSettings properties.logs[]....'}
   observability.metrics_enabled:
     terraform_avm:
       attribute: diagnostic_settings.workspace.metric_categories
@@ -189,3 +212,4 @@ decisions:
       attribute: 'Microsoft.Insights/diagnosticSettings properties.metrics[].category'
       values: { true: AllMetrics, false: null }
       note: false renders no metrics entry
+    import: {todo: 'not in the Resource Graph row: Microsoft.Insights/diagnosticSettings properties.metrics...'}

@@ -18,6 +18,7 @@ decisions:
     terraform: { attribute: location, passthrough: true }
     bicep_avm: { attribute: location, passthrough: true }
     bicep: { attribute: location, passthrough: true }
+    import: {path: location, passthrough: true}
   placement.resource_group_name:
     terraform_avm:
       attribute: resource_group_name
@@ -25,6 +26,7 @@ decisions:
     terraform: { attribute: resource_group_name }
     bicep_avm: { gap: the deployment's resource group scope; no parameter }
     bicep: { gap: the deployment's resource group scope; no property }
+    import: {todo: 'bicep renders it as a gap: the deployment''s resource group scope; no property'}
 
   # ----------------------------------------------------------------- balancer
   balancer.sku:
@@ -46,6 +48,7 @@ decisions:
       attribute: sku.name
       values: { Standard: Standard }
       also: { Standard: "sku.tier: 'Regional'" }
+    import: {path: sku.name, values: {Standard: Standard}}
   balancer.zone_redundant:
     terraform_avm:
       attribute: 'frontend_ip_configurations.<k>.zones'
@@ -63,6 +66,7 @@ decisions:
       attribute: 'properties.frontendIPConfigurations[].zones'
       values: { true: { expr: "[ '1', '2', '3' ]" }, false: { expr: '[]' } }
       note: top level of the entry, not under its properties; ARM zones are strings, unlike the module's integers
+    import: {todo: 'not in the Resource Graph row: properties.frontendIPConfigurations[].zones'}
 
   # --------------------------------------------------------------- networking
   networking.frontend_exposure:
@@ -94,6 +98,7 @@ decisions:
         public: { expr: '{ publicIPAddress: { id: <the Microsoft.Network/publicIPAddresses id> } }' }
       also:
         public: "Microsoft.Network/publicIPAddresses with sku: { name: 'Standard' }, properties.publicIPAllocationMethod: 'Static', zones"
+    import: {todo: 'not in the Resource Graph row: properties.frontendIPConfigurations[].properties'}
   networking.frontend_subnet:
     terraform_avm:
       attribute: 'frontend_ip_configurations.<k>.frontend_private_ip_subnet_resource_id'
@@ -101,6 +106,7 @@ decisions:
     terraform: { attribute: frontend_ip_configuration.subnet_id }
     bicep_avm: { attribute: 'frontendIPConfigurations[].subnetResourceId' }
     bicep: { attribute: 'properties.frontendIPConfigurations[].properties.subnet.id' }
+    import: {todo: 'not in the Resource Graph row: properties.frontendIPConfigurations[].properties.subnet.id'}
   networking.private_ip_allocation:
     terraform_avm:
       attribute: 'frontend_ip_configurations.<k>.frontend_private_ip_address_allocation'
@@ -110,11 +116,13 @@ decisions:
     bicep_avm:
       gap: module README 0.8.0 has no allocation parameter - main.bicep derives Static from frontendIPConfigurations[].privateIPAddress set (private_ip_address), Dynamic from it unset
     bicep: { attribute: 'properties.frontendIPConfigurations[].properties.privateIPAllocationMethod', passthrough: true }
+    import: {todo: 'not in the Resource Graph row: properties.frontendIPConfigurations[].properties.private...'}
   networking.private_ip_address:
     terraform_avm: { attribute: 'frontend_ip_configurations.<k>.frontend_private_ip_address', passthrough: true }
     terraform: { attribute: azurerm_lb.frontend_ip_configuration.private_ip_address, passthrough: true }
     bicep_avm: { attribute: 'frontendIPConfigurations[].privateIPAddress', passthrough: true, note: set means Static - unset Dynamic }
     bicep: { attribute: 'properties.frontendIPConfigurations[].properties.privateIPAddress', passthrough: true }
+    import: {todo: 'not in the Resource Graph row: properties.frontendIPConfigurations[].properties.private...'}
   networking.public_ip_zone_redundant:
     terraform_avm:
       gap: 'module README v0.5.0 has no separate input - frontend_ip_configurations.<k>.zones zones the created address (balancer.zone_redundant); public_ip_address_configuration = { allocation_method = "Static", sku = "Standard", sku_tier = "Regional" }, ddos_protection_mode = "VirtualNetworkInherited" the default'
@@ -129,6 +137,7 @@ decisions:
     bicep:
       attribute: Microsoft.Network/publicIPAddresses zones
       values: { true: { expr: "[ '1', '2', '3' ]" }, false: { expr: '[]' } }
+    import: {todo: 'not in the Resource Graph row: Microsoft.Network/publicIPAddresses zones'}
   networking.backend_pools:
     terraform_avm:
       attribute: 'backend_address_pools.<k> = { name, virtual_network_resource_id }, backend_address_pool_addresses'
@@ -138,6 +147,7 @@ decisions:
       attribute: 'backendAddressPools[] = { name, loadBalancerBackendAddresses }'
       note: a pool whose members are a scale set's joins from the scale set
     bicep: { attribute: 'properties.backendAddressPools[]' }
+    import: {todo: 'not in the Resource Graph row: properties.backendAddressPools[]'}
   networking.health_probe_protocol:
     terraform_avm:
       attribute: 'lb_probes.<k>.protocol'
@@ -146,31 +156,37 @@ decisions:
     terraform: { attribute: azurerm_lb_probe.protocol, passthrough: true, note: request_path only with Http / Https }
     bicep_avm: { attribute: 'probes[].protocol', passthrough: true, note: requestPath only with Http / Https }
     bicep: { attribute: 'properties.probes[].properties.protocol', passthrough: true, note: requestPath only with Http / Https }
+    import: {todo: 'not in the Resource Graph row: properties.probes[].properties.protocol'}
   networking.health_probe_interval_seconds:
     terraform_avm: { attribute: 'lb_probes.<k>.interval_in_seconds', passthrough: true, note: module default 15 - written }
     terraform: { attribute: azurerm_lb_probe.interval_in_seconds, passthrough: true }
     bicep_avm: { attribute: 'probes[].intervalInSeconds', passthrough: true }
     bicep: { attribute: 'properties.probes[].properties.intervalInSeconds', passthrough: true }
+    import: {todo: 'not in the Resource Graph row: properties.probes[].properties.intervalInSeconds'}
   networking.health_probe_unhealthy_threshold:
     terraform_avm: { attribute: 'lb_probes.<k>.number_of_probes_before_removal', passthrough: true, note: probe_threshold (default 1) stays }
     terraform: { attribute: azurerm_lb_probe.number_of_probes, passthrough: true, note: the argument the module's number_of_probes_before_removal sets; probe_threshold beside it stays at its default }
     bicep_avm: { attribute: 'probes[].numberOfProbes', passthrough: true }
     bicep: { attribute: 'properties.probes[].properties.numberOfProbes', passthrough: true }
+    import: {todo: 'not in the Resource Graph row: properties.probes[].properties.numberOfProbes'}
   networking.tcp_reset:
     terraform_avm: { attribute: 'lb_rules.<k>.enable_tcp_reset', passthrough: true, note: module default false - written }
     terraform: { attribute: azurerm_lb_rule.tcp_reset_enabled, passthrough: true }
     bicep_avm: { attribute: 'loadBalancingRules[].enableTcpReset', passthrough: true, note: the Terraform module defaults to false; written }
     bicep: { attribute: 'properties.loadBalancingRules[].properties.enableTcpReset', passthrough: true }
+    import: {todo: 'not in the Resource Graph row: properties.loadBalancingRules[].properties.enableTcpReset'}
   networking.load_distribution:
     terraform_avm: { attribute: 'lb_rules.<k>.load_distribution', passthrough: true, note: module default Default; written }
     terraform: { attribute: azurerm_lb_rule.load_distribution, passthrough: true }
     bicep_avm: { attribute: 'loadBalancingRules[].loadDistribution', passthrough: true }
     bicep: { attribute: 'properties.loadBalancingRules[].properties.loadDistribution', passthrough: true }
+    import: {todo: 'not in the Resource Graph row: properties.loadBalancingRules[].properties.loadDistribution'}
   networking.floating_ip:
     terraform_avm: { attribute: 'lb_rules.<k>.enable_floating_ip', passthrough: true, note: module default false; written }
     terraform: { attribute: azurerm_lb_rule.floating_ip_enabled, passthrough: true }
     bicep_avm: { attribute: 'loadBalancingRules[].enableFloatingIP', passthrough: true }
     bicep: { attribute: 'properties.loadBalancingRules[].properties.enableFloatingIP', passthrough: true }
+    import: {todo: 'not in the Resource Graph row: properties.loadBalancingRules[].properties.enableFloatingIP'}
   networking.rules:
     terraform_avm:
       attribute: 'lb_rules.<k> = { name, frontend_ip_configuration_name, protocol, frontend_port, backend_port, backend_address_pool_object_names, probe_object_name }'
@@ -180,11 +196,13 @@ decisions:
       attribute: 'loadBalancingRules[] = { name, frontendIPConfigurationName, protocol, frontendPort, backendPort, backendAddressPoolName, probeName }'
       note: wiring filled by the pattern; references by name; both ports always stated
     bicep: { attribute: 'properties.loadBalancingRules[]', note: 'frontendIPConfiguration, backendAddressPool and probe by { id }' }
+    import: {todo: 'not in the Resource Graph row: properties.loadBalancingRules[]'}
   networking.inbound_nat_rules:
     terraform_avm: { attribute: lb_nat_rules, note: empty }
     terraform: { attribute: azurerm_lb_nat_rule }
     bicep_avm: { attribute: inboundNatRules, note: empty }
     bicep: { attribute: 'properties.inboundNatRules[]' }
+    import: {todo: 'not in the Resource Graph row: properties.inboundNatRules[]'}
   networking.outbound_snat:
     terraform_avm:
       attribute: 'lb_rules.<k>.disable_outbound_snat'
@@ -209,11 +227,13 @@ decisions:
       also:
         outbound_rule: 'properties.outboundRules[].properties: { protocol, allocatedOutboundPorts, backendAddressPool: { id }, frontendIPConfigurations: [ { id } ] }'
       note: set only with the rule
+    import: {todo: 'not in the Resource Graph row: properties.loadBalancingRules[].properties.disableOutbou...'}
   networking.outbound_allocated_ports:
     terraform_avm: { attribute: 'lb_outbound_rules.<k>.number_of_allocated_outbound_ports', passthrough: true, note: only with the outbound rule }
     terraform: { attribute: azurerm_lb_outbound_rule.allocated_outbound_ports, passthrough: true }
     bicep_avm: { attribute: 'outboundRules[].allocatedOutboundPorts', passthrough: true, note: only with the outbound rule }
     bicep: { attribute: 'properties.outboundRules[].properties.allocatedOutboundPorts', passthrough: true }
+    import: {todo: 'not in the Resource Graph row: properties.outboundRules[].properties.allocatedOutboundP...'}
 
   # ------------------------------------------------------------ observability
   observability.diagnostic_workspace:
@@ -223,6 +243,7 @@ decisions:
     terraform: { attribute: azurerm_monitor_diagnostic_setting.log_analytics_workspace_id }
     bicep_avm: { attribute: 'diagnosticSettings[].workspaceResourceId' }
     bicep: { attribute: Microsoft.Insights/diagnosticSettings properties.workspaceId, note: 'an extension resource with scope: the load balancer (source: bicep build, Microsoft.Insights/diagnosticSettings@2021-05-01-preview)' }
+    import: {todo: 'not in the Resource Graph row: Microsoft.Insights/diagnosticSettings properties.workspa...'}
   observability.metrics_enabled:
     terraform_avm:
       attribute: 'diagnostic_settings.<key>.metric_categories'
@@ -238,3 +259,4 @@ decisions:
       attribute: 'Microsoft.Insights/diagnosticSettings properties.metrics[].category'
       values: { true: AllMetrics, false: null }
       note: 'with enabled: true; false renders no metrics entry (source: bicep build, Microsoft.Insights/diagnosticSettings@2021-05-01-preview)'
+    import: {todo: 'not in the Resource Graph row: Microsoft.Insights/diagnosticSettings properties.metrics...'}

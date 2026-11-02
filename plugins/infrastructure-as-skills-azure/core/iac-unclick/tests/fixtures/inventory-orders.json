@@ -1,0 +1,98 @@
+{
+ "read_at": "2026-11-01T09:58:12Z",
+ "scopes": ["/subscriptions/11111111-1111-1111-1111-111111111111/resourceGroups/rg-orders-prod"],
+ "tag_filter": {},
+ "resources": [
+  {
+   "id": "/subscriptions/11111111-1111-1111-1111-111111111111/resourceGroups/rg-orders-prod/providers/Microsoft.Storage/storageAccounts/stordersprod01",
+   "name": "stordersprod01", "type": "microsoft.storage/storageaccounts", "kind": "StorageV2", "location": "westeurope",
+   "resourceGroup": "rg-orders-prod", "subscriptionId": "11111111-1111-1111-1111-111111111111",
+   "sku": {"name": "Standard_GRS", "tier": "Standard"}, "identity": null, "zones": null,
+   "tags": {"owner_team": "orders", "hidden-link:/app-insights": "x"},
+   "properties": {
+    "publicNetworkAccess": "Enabled", "networkAcls": {"defaultAction": "Allow", "bypass": "AzureServices"},
+    "allowSharedKeyAccess": true, "minimumTlsVersion": "TLS1_2", "supportsHttpsTrafficOnly": true,
+    "allowBlobPublicAccess": false, "encryption": {"keySource": "Microsoft.Storage", "requireInfrastructureEncryption": false},
+    "accessTier": "Hot", "isHnsEnabled": false, "isSftpEnabled": false
+   }
+  },
+  {
+   "id": "/subscriptions/11111111-1111-1111-1111-111111111111/resourceGroups/rg-orders-prod/providers/Microsoft.Web/serverFarms/asp-orders-prod",
+   "name": "asp-orders-prod", "type": "microsoft.web/serverfarms", "kind": "linux", "location": "westeurope",
+   "resourceGroup": "rg-orders-prod", "subscriptionId": "11111111-1111-1111-1111-111111111111",
+   "sku": {"name": "P1v3", "tier": "PremiumV3"}, "tags": {"owner_team": "orders"}, "properties": {"reserved": true}
+  },
+  {
+   "id": "/subscriptions/11111111-1111-1111-1111-111111111111/resourceGroups/rg-orders-prod/providers/Microsoft.Web/sites/app-orders-shop",
+   "name": "app-orders-shop", "type": "microsoft.web/sites", "kind": "app,linux", "location": "westeurope",
+   "resourceGroup": "rg-orders-prod", "subscriptionId": "11111111-1111-1111-1111-111111111111",
+   "identity": {"type": "SystemAssigned", "principalId": "aaaaaaaa-0000-4000-8000-000000000001"},
+   "tags": {"owner_team": "orders"},
+   "properties": {
+    "serverFarmId": "/subscriptions/11111111-1111-1111-1111-111111111111/resourceGroups/rg-orders-prod/providers/Microsoft.Web/serverFarms/asp-orders-prod",
+    "httpsOnly": true, "publicNetworkAccess": "Enabled",
+    "virtualNetworkSubnetId": "/subscriptions/11111111-1111-1111-1111-111111111111/resourceGroups/rg-orders-prod/providers/Microsoft.Network/virtualNetworks/vnet-orders/subnets/snet-app"
+   }
+  },
+  {
+   "id": "/subscriptions/11111111-1111-1111-1111-111111111111/resourceGroups/rg-orders-prod/providers/Microsoft.Network/virtualNetworks/vnet-orders",
+   "name": "vnet-orders", "type": "microsoft.network/virtualnetworks", "location": "westeurope",
+   "resourceGroup": "rg-orders-prod", "subscriptionId": "11111111-1111-1111-1111-111111111111",
+   "tags": {"owner_team": "orders"},
+   "properties": {"addressSpace": {"addressPrefixes": ["10.20.0.0/22"]},
+                  "subnets": [{"name": "snet-app", "properties": {"addressPrefix": "10.20.0.0/26"}}]}
+  },
+  {
+   "id": "/subscriptions/11111111-1111-1111-1111-111111111111/resourceGroups/rg-orders-prod/providers/Microsoft.Network/privateEndpoints/pe-st-blob",
+   "name": "pe-st-blob", "type": "microsoft.network/privateendpoints", "location": "westeurope",
+   "resourceGroup": "rg-orders-prod", "subscriptionId": "11111111-1111-1111-1111-111111111111",
+   "tags": {"owner_team": "orders"},
+   "properties": {"privateLinkServiceConnections": [{"properties": {
+    "privateLinkServiceId": "/subscriptions/11111111-1111-1111-1111-111111111111/resourceGroups/rg-orders-prod/providers/Microsoft.Storage/storageAccounts/stordersprod01",
+    "groupIds": ["blob"]}}]}
+  },
+  {
+   "id": "/subscriptions/11111111-1111-1111-1111-111111111111/resourceGroups/rg-orders-prod/providers/Microsoft.Databricks/workspaces/dbw-orders",
+   "name": "dbw-orders", "type": "microsoft.databricks/workspaces", "location": "westeurope",
+   "resourceGroup": "rg-orders-prod", "subscriptionId": "11111111-1111-1111-1111-111111111111",
+   "tags": {"owner_team": "orders"}, "properties": {}
+  },
+  {
+   "id": "/subscriptions/11111111-1111-1111-1111-111111111111/resourceGroups/rg-orders-prod/providers/microsoft.alertsmanagement/smartDetectorAlertRules/Failure Anomalies - appi-orders",
+   "name": "Failure Anomalies - appi-orders", "type": "microsoft.alertsmanagement/smartdetectoralertrules", "location": "global",
+   "resourceGroup": "rg-orders-prod", "subscriptionId": "11111111-1111-1111-1111-111111111111", "properties": {}
+  },
+  {
+   "id": "/subscriptions/11111111-1111-1111-1111-111111111111/resourceGroups/NetworkWatcherRG/providers/Microsoft.Network/networkWatchers/NetworkWatcher_westeurope",
+   "name": "NetworkWatcher_westeurope", "type": "microsoft.network/networkwatchers", "location": "westeurope",
+   "resourceGroup": "NetworkWatcherRG", "subscriptionId": "11111111-1111-1111-1111-111111111111", "properties": {}
+  }
+ ],
+ "resource_groups": [
+  {"id": "/subscriptions/11111111-1111-1111-1111-111111111111/resourceGroups/rg-orders-prod", "name": "rg-orders-prod", "managedBy": null}
+ ],
+ "role_assignments": [
+  {"id": "/subscriptions/11111111-1111-1111-1111-111111111111/resourceGroups/rg-orders-prod/providers/Microsoft.Storage/storageAccounts/stordersprod01/providers/Microsoft.Authorization/roleAssignments/9f3c1a2b-0000-4000-8000-000000000001",
+   "properties": {"principalId": "aaaaaaaa-0000-4000-8000-000000000001", "principalType": "ServicePrincipal",
+    "roleDefinitionId": "/subscriptions/11111111-1111-1111-1111-111111111111/providers/Microsoft.Authorization/roleDefinitions/ba92f5b4-2d11-453d-a403-e96b0029c9fe",
+    "scope": "/subscriptions/11111111-1111-1111-1111-111111111111/resourceGroups/rg-orders-prod/providers/Microsoft.Storage/storageAccounts/stordersprod01"}},
+  {"id": "/subscriptions/11111111-1111-1111-1111-111111111111/resourceGroups/rg-orders-prod/providers/Microsoft.Authorization/roleAssignments/c0ffee00-0000-4000-8000-000000000002",
+   "properties": {"principalId": "bbbbbbbb-0000-4000-8000-000000000002", "principalType": "Group",
+    "roleDefinitionId": "/subscriptions/11111111-1111-1111-1111-111111111111/providers/Microsoft.Authorization/roleDefinitions/acdd72a7-3385-48ef-bd42-f606fba81ae7",
+    "scope": "/subscriptions/11111111-1111-1111-1111-111111111111/resourceGroups/rg-orders-prod"}}
+ ],
+ "role_definitions": {
+  "ba92f5b4-2d11-453d-a403-e96b0029c9fe": "Storage Blob Data Contributor",
+  "acdd72a7-3385-48ef-bd42-f606fba81ae7": "Reader"
+ },
+ "locks": [
+  {"id": "/subscriptions/11111111-1111-1111-1111-111111111111/resourceGroups/rg-orders-prod/providers/Microsoft.Storage/storageAccounts/stordersprod01/providers/Microsoft.Authorization/locks/nodelete",
+   "properties": {"level": "CanNotDelete"}},
+  {"id": "/subscriptions/11111111-1111-1111-1111-111111111111/resourceGroups/rg-orders-prod/providers/Microsoft.Web/sites/app-orders-shop/providers/Microsoft.Authorization/locks/readonly",
+   "properties": {"level": "ReadOnly"}}
+ ],
+ "diagnostic_settings": [
+  {"id": "/subscriptions/11111111-1111-1111-1111-111111111111/resourceGroups/rg-orders-prod/providers/Microsoft.Storage/storageAccounts/stordersprod01/providers/Microsoft.Insights/diagnosticSettings/to-law-central",
+   "properties": {"workspaceId": "/subscriptions/22222222-2222-2222-2222-222222222222/resourceGroups/rg-mgmt/providers/Microsoft.OperationalInsights/workspaces/law-central"}}
+ ]
+}

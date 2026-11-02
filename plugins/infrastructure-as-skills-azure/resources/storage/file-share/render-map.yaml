@@ -19,6 +19,7 @@ decisions:
     terraform: { attribute: storage_account_id }
     bicep_avm: { gap: the shares are a parameter of the account's own module call; no parameter of their own }
     bicep: { attribute: parent, note: fileServices/default of the account }
+    import: {todo: 'not in the Resource Graph row: parent'}
 
   # ------------------------------------------------------------------- shares
   shares.share_names:
@@ -26,27 +27,32 @@ decisions:
     terraform: { attribute: name }
     bicep_avm: { attribute: 'fileServices.shares[].name' }
     bicep: { attribute: name, note: child of fileServices/default }
+    import: {todo: 'not in the Resource Graph row: name'}
   shares.protocol:
     terraform_avm: { attribute: 'shares.<key>.enabled_protocol', note: module default null; written. Fixed at creation, passthrough: true }
     terraform: { attribute: enabled_protocol, passthrough: true }
     bicep_avm: { attribute: 'fileServices.shares[].enabledProtocols', note: fixed at creation, passthrough: true }
     bicep: { attribute: properties.enabledProtocols, passthrough: true }
+    import: {path: properties.enabledProtocols, passthrough: true}
   shares.quota_gb:
     terraform_avm: { attribute: 'shares.<key>.quota', note: 'required member; GB, the provisioned size on Premium', passthrough: true }
     terraform: { attribute: quota, note: required, passthrough: true }
     bicep_avm: { attribute: 'fileServices.shares[].shareQuota', note: 'GB; up to 5,120, 102,400 with large file shares', passthrough: true }
     bicep: { attribute: properties.shareQuota, passthrough: true }
+    import: {path: properties.shareQuota, passthrough: true}
   shares.access_tier:
     terraform_avm: { attribute: 'shares.<key>.access_tier', note: module default null (the platform's); written, passthrough: true }
     terraform: { attribute: access_tier, passthrough: true }
     bicep_avm: { attribute: 'fileServices.shares[].accessTier', note: required on a FileStorage account (Premium), passthrough: true }
     bicep: { attribute: properties.accessTier, passthrough: true }
+    import: {path: properties.accessTier, passthrough: true}
   shares.root_squash:
     terraform_avm: { attribute: 'shares.<key>.root_squash', note: NFS only, passthrough: true }
     terraform:
       gap: not on azurerm_storage_share (source azurerm 5.12 schema); an azapi_update_resource on Microsoft.Storage/storageAccounts/fileServices/shares sets rootSquash
     bicep_avm: { attribute: 'fileServices.shares[].rootSquash', note: NFS only, passthrough: true }
     bicep: { attribute: properties.rootSquash, passthrough: true }
+    import: {path: properties.rootSquash, passthrough: true}
 
   # ----------------------------------------------------------------- identity
   identity.role_assignments:
@@ -60,3 +66,4 @@ decisions:
     bicep:
       attribute: 'Microsoft.Authorization/roleAssignments properties = { roleDefinitionId, principalId, principalType }'
       note: 'an extension resource, scope = the share (source: bicep build, Microsoft.Authorization/roleAssignments@2022-04-01)'
+    import: {todo: 'not in the Resource Graph row: Microsoft.Authorization/roleAssignments properties = { r...'}

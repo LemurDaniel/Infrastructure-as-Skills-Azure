@@ -77,6 +77,7 @@ def s(v):
 
 LABELS = {
     'en': {
+        'principal_kinds': {'user': 'User', 'group': 'Group', 'serviceprincipal': 'Service principal', 'principal': 'Principal'},
         'internet': 'Internet', 'users': 'Users', 'noPublic': 'no public access', 'existing': 'existing - not created', 'idOpen': 'existing, id open',
         'decisions': 'Decisions', 'open': 'Open', 'assumed': 'Assumed', 'exposure': 'Exposure',
         'network': 'Network', 'mandates': 'Mandates', 'dns': 'Private DNS', 'diag': 'Diagnostics',
@@ -106,6 +107,7 @@ LABELS = {
         'children_key-vault-secret': 'Secret', 'children_key-vault-key': 'Key',
     },
     'de': {
+        'principal_kinds': {'user': 'Person', 'group': 'Gruppe', 'serviceprincipal': 'Service Principal', 'principal': 'Principal'},
         'internet': 'Internet', 'users': 'Benutzer', 'noPublic': 'kein öffentlicher Zugriff', 'existing': 'vorhanden - wird nicht erstellt', 'idOpen': 'vorhanden, ID offen',
         'decisions': 'Entscheidungen', 'open': 'Offen', 'assumed': 'Angenommen', 'exposure': 'Erreichbarkeit',
         'network': 'Netzwerk', 'mandates': 'Vorgaben', 'dns': 'Private DNS', 'diag': 'Diagnose',
@@ -230,6 +232,8 @@ TYPE_NAMES = {
     'machine-learning-workspace': 'Machine Learning Workspace', 'bot-service': 'Azure Bot',
 }
 
+# A principal an import read from Azure: external:<type>-<objectId> (iac-unclick map_inventory.py).
+PRINCIPAL = re.compile(r'^(user|group|serviceprincipal|principal)-([0-9a-f]{8}-[0-9a-f-]{27})$', re.IGNORECASE)
 ACTOR_TITLES = {'entra-id': 'Entra ID', 'sharepoint-online': 'SharePoint Online', 'm365': 'Microsoft 365',
                 'azure-devops': 'Azure DevOps', 'github': 'GitHub'}
 
@@ -765,6 +769,9 @@ def main():
 
     def actor_title(name):
         base = actor_base(name)
+        principal = PRINCIPAL.match(base)
+        if principal:  # read from Azure: external:<type>-<objectId> (map_inventory.py)
+            return f"{T['principal_kinds'].get(principal.group(1), principal.group(1))} {principal.group(2)[:8]}"
         if base == 'internet':
             return T['internet']
         if base == 'users':
@@ -778,7 +785,9 @@ def main():
     role_lines = {}
     for ra in roles:
         if s(ra.get('to')) in resources:
-            role_lines.setdefault(s(ra.get('to')), []).append(f"{s(ra.get('from'))}: {s(ra.get('role'))}")
+            who = s(ra.get('from'))
+            who = actor_title(who) if who.startswith('external:') else who
+            role_lines.setdefault(s(ra.get('to')), []).append(f"{who}: {s(ra.get('role'))}")
     # The same on the resource itself: resources.<r>.identity.role_assignments, a list of
     # { principal, role } (per stage or one list). Every principal with its role is a line.
     # ... and identity.data_plane_role_assignments (Cosmos DB's own role model) the same way.
@@ -1550,6 +1559,7 @@ def main():
     pp_touched = {a['from'] for a in pp_edges} | {a['to'] for a in pp_edges}
     chain_lanes = {}   # chain layout: subnet -> its lane below the network
     strip_lines = 0   # PaaS -> PaaS lines along the strip above the row: each its own height
+    actor_paas = {}   # actor -> its track in the gap, for lines straight into a PaaS service
     gap_edges = 0  # actors <-> compute: tracks in the gap between the external zone and the group,
                    # so a vertical run never lies on the resource group's border
     for n, a in enumerate(access):
@@ -1731,6 +1741,26 @@ def main():
             fr = 0.2 + (0.6 * sib.index(a) / (len(sib) - 1) if len(sib) > 1 else 0.7)
             edge['style'] = style + f"exitX=0;exitY={num(round(fr, 2))};entryX=1;entryY=0.5;"
             edge['points'] = [{'x': gx, 'y': sc['y'] + sc['h'] * fr}, {'x': gx, 'y': dc['y'] + dc['h'] / 2}]
+        elif is_actor(a['from']) and a['to'] in paas:
+            # Straight to a service from outside (a public PaaS without a network in front): draw.io's
+            # own route ran in at the side, through every icon left of the target and through the
+            # labels and the legend below. Out to a track of the actor's own in the gap, up to a
+            # height of its own in the strip above the row, along it and down into the icon's top,
+            # each line at its own point there.
+            ext, grp = by_id.get('z-ext'), by_id.get('rg')
+            gap_l = ext['x'] + ext['w'] if ext else sc['x'] + sc['w']
+            gap_r = grp['x'] if grp else dc['x'] - 2 * TRK
+            k = actor_paas.setdefault(a['from'], len(actor_paas))
+            gx = gap_l + (gap_r - gap_l) * (k + 1) / (len({x['from'] for x in access if is_actor(x['from']) and x['to'] in paas}) + 1)
+            top_y = dc['slot']['y'] - 4 - 6 * strip_lines   # tighter than PaaS -> PaaS: an actor line
+            strip_lines += 1                                 # per target, and they stay in the zone's head
+            into = [x for x in access if is_actor(x['from']) and x['to'] == a['to']]
+            fr = 0.5 if len(into) == 1 else 0.25 + 0.5 * into.index(a) / (len(into) - 1)
+            edge['style'] = style + f"exitX=1;exitY=0.5;entryX={num(round(fr, 2))};entryY=0;"
+            edge['points'] = [{'x': gx, 'y': sc['y'] + sc['h'] / 2}, {'x': gx, 'y': top_y},
+                              {'x': dc['x'] + dc['w'] * fr, 'y': top_y}]
+            if edge_label:
+                edge['lx'] = 0.85   # beside the descent into the target, not on the shared runs
         elif is_actor(a['to']):
             # Outbound to an external service: out of the left side towards the external zone.
             # Up over the row and out along the subnet's left edge, so the line does not

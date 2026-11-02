@@ -11,6 +11,10 @@ modules:
   terraform: [Azure/avm-res-cdn-profile/azurerm]
   bicep: [avm/res/network/front-door-web-application-firewall-policy, avm/res/cdn/profile]
 
+# The Azure resources besides `resource` the render creates for this set; an import adopts
+# them by id (adopt.parts). Format: core/iac-rendering/references/render-map.md.
+import_parts: [Microsoft.Network/FrontDoorWebApplicationFirewallPolicies]
+
 decisions:
 
   # ---------------------------------------------------------------- placement
@@ -21,6 +25,7 @@ decisions:
     terraform: { gap: 'azurerm_cdn_frontdoor_profile has no location argument - the profile is global (source: azurerm 5.12 schema)' }
     bicep_avm: { gap: "location: 'global' on the profile module, a constant whatever the answer" }
     bicep: { gap: "location: 'global' on Microsoft.Cdn/profiles, a constant whatever the answer" }
+    import: {todo: 'the profile''s location is always Global; the region is the resource group''s location (resourcecontainers row), not in the profile''s row'}
   placement.resource_group_name:
     terraform_avm:
       attribute: resource_group_name
@@ -28,6 +33,7 @@ decisions:
     terraform: { attribute: resource_group_name }
     bicep_avm: { gap: the deployment's resource group scope; no parameter }
     bicep: { gap: the deployment's resource group scope; no property }
+    import: {path: resourceGroup, passthrough: true}
 
   # ------------------------------------------------------------------ profile
   profile.sku:
@@ -42,11 +48,13 @@ decisions:
       passthrough: true
       note: required, no module default; the WAF policy module's sku must match
     bicep: { attribute: sku.name, passthrough: true }
+    import: {path: sku.name, passthrough: true}
   profile.response_timeout_seconds:
     terraform_avm: { attribute: response_timeout_seconds, passthrough: true, note: module default 120 (Bicep 60) - written }
     terraform: { attribute: azurerm_cdn_frontdoor_profile.response_timeout_seconds, passthrough: true }
     bicep_avm: { attribute: originResponseTimeoutSeconds, module: avm/res/cdn/profile, passthrough: true, note: module default 60 (Terraform 120) - written }
     bicep: { attribute: properties.originResponseTimeoutSeconds, passthrough: true }
+    import: {path: properties.originResponseTimeoutSeconds, passthrough: true}
   profile.managed_identity:
     terraform_avm:
       attribute: managed_identities
@@ -71,11 +79,13 @@ decisions:
       attribute: identity.type
       values: { none: null, system_assigned: SystemAssigned, user_assigned: UserAssigned }
       note: 'none renders no identity (source: bicep build, Microsoft.Cdn/profiles@2025-06-01; literals from module main.bicep 0.20.0)'
+    import: {path: identity.type, values: {None: none, SystemAssigned: system_assigned, UserAssigned: user_assigned}, missing: none}
   profile.user_assigned_identity_ids:
     terraform_avm: { attribute: managed_identities.user_assigned_resource_ids }
     terraform: { attribute: azurerm_cdn_frontdoor_profile.identity.identity_ids, note: '(source: azurerm 5.12 schema)' }
     bicep_avm: { attribute: managedIdentities.userAssignedResourceIds, module: avm/res/cdn/profile }
     bicep: { attribute: identity.userAssignedIdentities, note: 'an object keyed by each id, { <id>: {} } - not the list (source: bicep build, Microsoft.Cdn/profiles@2025-06-01)' }
+    import: {todo: 'identity.userAssignedIdentities is an object keyed by the identity ids; no import form reads the keys'}
 
   # ----------------------------------------------------------------- delivery
   delivery.origins:
@@ -88,11 +98,13 @@ decisions:
       module: avm/res/cdn/profile
       note: member names from the README of the pinned version
     bicep: { attribute: child originGroups and originGroups/origins }
+    import: {todo: 'not in the Resource Graph row: child originGroups and originGroups/origins'}
   delivery.origin_host_names:
     terraform_avm: { attribute: 'front_door_origins.<k>.host_name', note: 'one origin per host name, in the pattern''s origin group' }
     terraform: { attribute: azurerm_cdn_frontdoor_origin.host_name }
     bicep_avm: { attribute: 'originGroups[].origins[].hostName', module: avm/res/cdn/profile }
     bicep: { attribute: originGroups/origins properties.hostName }
+    import: {todo: 'not in the Resource Graph row: originGroups/origins properties.hostName'}
   delivery.origin_connection:
     terraform_avm:
       attribute: 'front_door_origins.<k>.private_link'
@@ -116,11 +128,13 @@ decisions:
         public: null
         private_link: { expr: "{ privateLink: { id: <origin resource id> }, privateLinkLocation: '<origin location>', groupId: '<group id>', requestMessage: '<message>' }" }
       note: 'the connection arrives pending on the origin''s resource (source: bicep build, Microsoft.Cdn/profiles/originGroups/origins@2025-06-01)'
+    import: {todo: 'not in the Resource Graph row: originGroups/origins properties.sharedPrivateLinkResource'}
   delivery.forwarding_protocol:
     terraform_avm: { attribute: 'front_door_routes.<k>.forwarding_protocol', passthrough: true, note: 'module default HttpsOnly (the README description says MatchRequest, the variable type HttpsOnly) - written' }
     terraform: { attribute: azurerm_cdn_frontdoor_route.forwarding_protocol, passthrough: true, note: 'default MatchRequest - written (source: azurerm 5.12 docs)' }
     bicep_avm: { attribute: 'afdEndpoints[].routes[].forwardingProtocol', module: avm/res/cdn/profile, passthrough: true, note: 'written, whatever the module default' }
     bicep: { attribute: afdEndpoints/routes properties.forwardingProtocol, passthrough: true, note: '(source: bicep build, Microsoft.Cdn/profiles/afdEndpoints/routes@2025-06-01; literals from module README 0.20.0)' }
+    import: {todo: 'not in the Resource Graph row: afdEndpoints/routes properties.forwardingProtocol'}
   delivery.https_redirect:
     terraform_avm: { attribute: 'front_door_routes.<k>.https_redirect_enabled', passthrough: true }
     terraform: { attribute: azurerm_cdn_frontdoor_route.https_redirect_enabled, passthrough: true, note: 'true needs both Http and Https in supported_protocols (source: azurerm 5.12 docs)' }
@@ -133,6 +147,7 @@ decisions:
       attribute: afdEndpoints/routes properties.httpsRedirect
       values: { true: Enabled, false: Disabled }
       note: '(source: bicep build, Microsoft.Cdn/profiles/afdEndpoints/routes@2025-06-01; literals from module README 0.20.0)'
+    import: {todo: 'not in the Resource Graph row: afdEndpoints/routes properties.httpsRedirect'}
   delivery.caching:
     terraform_avm:
       attribute: 'front_door_routes.<k>.cache'
@@ -159,11 +174,13 @@ decisions:
         true: { expr: "{ queryStringCachingBehavior: '<query string behaviour of the route>' }" }
         false: null
       note: '(source: bicep build, Microsoft.Cdn/profiles/afdEndpoints/routes@2025-06-01)'
+    import: {todo: 'not in the Resource Graph row: afdEndpoints/routes properties.cacheConfiguration'}
   delivery.custom_domains:
     terraform_avm: { attribute: 'front_door_custom_domains.<k> = { host_name, tls = { certificate_type, minimum_tls_version } }' }
     terraform: { attribute: azurerm_cdn_frontdoor_custom_domain }
     bicep_avm: { attribute: 'customDomains[] = { name, hostName, certificateType, minimumTlsVersion }', module: avm/res/cdn/profile }
     bicep: { attribute: child customDomains }
+    import: {todo: 'not in the Resource Graph row: child customDomains'}
   delivery.certificate_source:
     terraform_avm:
       attribute: 'front_door_custom_domains.<k>.tls.certificate_type'
@@ -179,11 +196,13 @@ decisions:
       attribute: customDomains properties.tlsSettings.certificateType
       values: { managed: ManagedCertificate, customer: CustomerCertificate }
       note: '(source: bicep build, Microsoft.Cdn/profiles/customDomains@2025-06-01; literals from module README 0.20.0)'
+    import: {todo: 'not in the Resource Graph row: customDomains properties.tlsSettings.certificateType'}
   delivery.minimum_tls_version:
     terraform_avm: { attribute: 'front_door_custom_domains.<k>.tls.minimum_tls_version', passthrough: true }
     terraform: { attribute: azurerm_cdn_frontdoor_custom_domain.tls.minimum_tls_version, passthrough: true }
     bicep_avm: { attribute: 'customDomains[].minimumTlsVersion', module: avm/res/cdn/profile, passthrough: true }
     bicep: { attribute: customDomains properties.tlsSettings.minimumTlsVersion, passthrough: true, note: '(source: bicep build, Microsoft.Cdn/profiles/customDomains@2025-06-01)' }
+    import: {todo: 'not in the Resource Graph row: customDomains properties.tlsSettings.minimumTlsVersion'}
 
   # ----------------------------------------------------------------- security
   security.waf_enabled:
@@ -210,6 +229,7 @@ decisions:
       attribute: securityPolicies properties.parameters.wafPolicy.id
       values: { true: { expr: wafPolicy.id }, false: null }
       note: "true renders Microsoft.Network/FrontDoorWebApplicationFirewallPolicies and the child securityPolicies (type: 'WebApplicationFirewall', associations), false neither (source: bicep build, Microsoft.Cdn/profiles/securityPolicies@2025-06-01)"
+    import: {todo: 'not in the Resource Graph row: securityPolicies properties.parameters.wafPolicy.id'}
   security.waf_mode:
     terraform_avm:
       attribute: 'front_door_firewall_policies.<k>.mode'
@@ -218,6 +238,7 @@ decisions:
     terraform: { attribute: azurerm_cdn_frontdoor_firewall_policy.mode, passthrough: true, note: '(source: azurerm 5.12 docs)' }
     bicep_avm: { attribute: policySettings.mode, module: avm/res/network/front-door-web-application-firewall-policy, passthrough: true }
     bicep: { attribute: policy properties.policySettings.mode, passthrough: true }
+    import: {todo: 'not in the Resource Graph row: the WAF policy is its own resource (Microsoft.Network/FrontDoorWebApplicationFirewallPolicies, linked from child securityPolicies) - properties.policySettings.mode'}
   security.waf_managed_rules:
     terraform_avm:
       attribute: 'front_door_firewall_policies.<k>.managed_rules'
@@ -238,6 +259,7 @@ decisions:
         (Premium only); false is managedRules: { managedRuleSets: [] } - left out, the module
         default applies both sets (bot manager 1.0). Module README 0.3.3 shows no version 1.1
     bicep: { gap: "true sets the policy's properties.managedRules.managedRuleSets, false leaves it out; no Bicep source proves the bot manager version 1.1" }
+    import: {todo: 'not in the Resource Graph row: the WAF policy is its own resource (Microsoft.Network/FrontDoorWebApplicationFirewallPolicies) - properties.managedRules.managedRuleSets present or empty'}
   security.waf_rate_limit_per_minute:
     terraform_avm:
       attribute: 'front_door_firewall_policies.<k>.custom_rules.<r>.rate_limit_threshold'
@@ -256,6 +278,7 @@ decisions:
       attribute: 'properties.customRules.rules[].rateLimitThreshold'
       passthrough: true
       note: "on the policy, ruleType 'RateLimitRule', action 'Block'; 0 renders no rule (source: bicep build, Microsoft.Network/FrontDoorWebApplicationFirewallPolicies@2024-02-01; literals from module README 0.3.3)"
+    import: {todo: 'not in the Resource Graph row: the WAF policy is its own resource (Microsoft.Network/FrontDoorWebApplicationFirewallPolicies) - properties.customRules.rules[] of ruleType RateLimitRule, rateLimitThreshold'}
 
   # ------------------------------------------------------------ observability
   observability.diagnostic_workspace:
@@ -263,6 +286,7 @@ decisions:
     terraform: { attribute: azurerm_monitor_diagnostic_setting.log_analytics_workspace_id }
     bicep_avm: { attribute: 'diagnosticSettings[].workspaceResourceId', module: avm/res/cdn/profile }
     bicep: { attribute: Microsoft.Insights/diagnosticSettings properties.workspaceId, note: 'an extension resource with scope: the profile (source: bicep build, Microsoft.Insights/diagnosticSettings@2021-05-01-preview)' }
+    import: {todo: 'not in the Resource Graph row: extension resource Microsoft.Insights/diagnosticSettings on the profile - properties.workspaceId'}
   observability.diagnostic_categories:
     terraform_avm:
       attribute: 'diagnostic_settings.<key>.log_categories'
@@ -270,6 +294,7 @@ decisions:
     terraform: { attribute: azurerm_monitor_diagnostic_setting.enabled_log.category }
     bicep_avm: { attribute: 'diagnosticSettings[].logCategoriesAndGroups[].category', module: avm/res/cdn/profile }
     bicep: { attribute: 'Microsoft.Insights/diagnosticSettings properties.logs[].category', note: 'with enabled: true (source: bicep build, Microsoft.Insights/diagnosticSettings@2021-05-01-preview)' }
+    import: {todo: 'not in the Resource Graph row: extension resource Microsoft.Insights/diagnosticSettings on the profile - properties.logs[].category where enabled'}
   observability.metrics_enabled:
     terraform_avm:
       attribute: 'diagnostic_settings.<key>.metric_categories'
@@ -286,3 +311,4 @@ decisions:
       attribute: 'Microsoft.Insights/diagnosticSettings properties.metrics[].category'
       values: { true: AllMetrics, false: null }
       note: 'with enabled: true; false renders no metrics entry (source: bicep build, Microsoft.Insights/diagnosticSettings@2021-05-01-preview)'
+    import: {todo: 'not in the Resource Graph row: extension resource Microsoft.Insights/diagnosticSettings on the profile - properties.metrics[] AllMetrics enabled'}

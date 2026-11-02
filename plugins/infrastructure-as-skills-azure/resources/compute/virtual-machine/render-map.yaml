@@ -21,6 +21,7 @@ decisions:
     terraform: { attribute: location, passthrough: true }
     bicep_avm: { attribute: location, passthrough: true }
     bicep: { attribute: location, passthrough: true }
+    import: {path: location, passthrough: true}
   placement.resource_group_name:
     terraform_avm:
       attribute: resource_group_name
@@ -28,6 +29,7 @@ decisions:
     terraform: { attribute: resource_group_name }
     bicep_avm: { gap: the deployment's resource group scope; no parameter }
     bicep: { gap: the deployment's resource group scope; no property }
+    import: {path: resourceGroup, passthrough: true}
 
   # ------------------------------------------------------------------ machine
   machine.os_type:
@@ -44,6 +46,7 @@ decisions:
         Linux: { expr: 'linuxConfiguration: { <members per the other decisions> }' }
         Windows: { expr: 'windowsConfiguration: { <members per the other decisions> }' }
       note: 'source: bicep build, Microsoft.Compute/virtualMachines@2024-11-01'
+    import: {path: properties.storageProfile.osDisk.osType, values: {Linux: Linux, Windows: Windows}}
   machine.image:
     terraform_avm:
       attribute: source_image_reference
@@ -72,16 +75,19 @@ decisions:
         properties.storageProfile.imageReference; bicep.md spells no Windows image. Stated (module call):
         ubuntu_24_04 is { publisher: 'Canonical', offer: 'ubuntu-24_04-lts', sku: 'server', version: 'latest' },
         gallery_image is { id: {machine.gallery_image_id} }
+    import: {todo: 'properties.storageProfile.imageReference: ubuntu_24_04 is publisher Canonical, offer ubuntu-24_04-lts, sku server; the Windows SKUs vary (2022-datacenter*, 2025-datacenter*) and gallery_image is imageReference.id being set - needs prefix and presence matching'}
   machine.gallery_image_id:
     terraform_avm: { attribute: source_image_resource_id, note: and no source_image_reference }
     terraform: { attribute: source_image_id, note: 'instead of source_image_reference (source: azurerm 5.12 schema, azurerm 5.12 docs)' }
     bicep_avm: { attribute: imageReference.id }
     bicep: { attribute: properties.storageProfile.imageReference.id }
+    import: {path: properties.storageProfile.imageReference.id, reference: true}
   machine.size:
     terraform_avm: { attribute: sku_size, passthrough: true, note: module default Standard_D2ds_v5; written anyway }
     terraform: { attribute: size, passthrough: true }
     bicep_avm: { attribute: vmSize, passthrough: true, note: a required parameter }
     bicep: { attribute: properties.hardwareProfile.vmSize, passthrough: true }
+    import: {path: properties.hardwareProfile.vmSize, passthrough: true}
   machine.license_type:
     terraform_avm:
       attribute: license_type
@@ -96,6 +102,7 @@ decisions:
       attribute: properties.licenseType
       values: { included: null, azure_hybrid_benefit: Windows_Server }
       note: 'source: bicep build, Microsoft.Compute/virtualMachines@2024-11-01 (an open string there); literal per module README 0.22.3 licenseType'
+    import: {path: properties.licenseType, values: {Windows_Server: azure_hybrid_benefit, None: included}, missing: included}
   machine.instance_count:
     terraform_avm:
       attribute: for_each
@@ -109,6 +116,7 @@ decisions:
       note: each name with the instance number
     bicep:
       gap: the reference's authored rendering is silent on the count
+    import: {todo: 'one row is one machine; the count is the number of machines the import groups into this spec entry, not a property'}
   machine.availability:
     terraform_avm:
       attribute: zone
@@ -132,6 +140,7 @@ decisions:
       values: { zone: { expr: '{machine.zone}' }, availability_set: null, none: null }
       also:
         availability_set: 'properties.availabilitySet.id: {machine.availability_set_id}'
+    import: {todo: 'zone when zones is set, availability_set when properties.availabilitySet.id is set, none otherwise - needs presence matching'}
   machine.zone:
     terraform_avm:
       attribute: zone
@@ -145,11 +154,13 @@ decisions:
     bicep:
       attribute: zones
       values: { '1': { expr: "[ '1' ]" }, '2': { expr: "[ '2' ]" }, '3': { expr: "[ '3' ]" } }
+    import: {todo: 'zones is a list (["1"]) or absent in the row; no import form compares a list'}
   machine.availability_set_id:
     terraform_avm: { attribute: availability_set_resource_id, note: with zone = null }
     terraform: { attribute: availability_set_id }
     bicep_avm: { attribute: availabilitySetResourceId, note: with availabilityZone -1 }
     bicep: { attribute: properties.availabilitySet.id }
+    import: {path: properties.availabilitySet.id, reference: true}
   machine.os_disk_storage:
     terraform_avm:
       attribute: os_disk.storage_account_type
@@ -161,11 +172,13 @@ decisions:
       passthrough: true
       note: "with createOption: 'FromImage', deleteOption: 'Delete' so a rebuild leaves no orphan disk"
     bicep: { attribute: properties.storageProfile.osDisk.managedDisk.storageAccountType, passthrough: true }
+    import: {path: properties.storageProfile.osDisk.managedDisk.storageAccountType, passthrough: true}
   machine.os_disk_size_gb:
     terraform_avm: { attribute: os_disk.disk_size_gb, passthrough: true }
     terraform: { attribute: os_disk.disk_size_gb, passthrough: true }
     bicep_avm: { attribute: osDisk.diskSizeGB, passthrough: true }
     bicep: { attribute: properties.storageProfile.osDisk.diskSizeGB, passthrough: true }
+    import: {path: properties.storageProfile.osDisk.diskSizeGB, passthrough: true}
   machine.data_disks:
     terraform_avm:
       attribute: 'data_disk_managed_disks.<key> = { name, lun, caching, storage_account_type, disk_size_gb, disk_encryption_set_resource_id }'
@@ -175,6 +188,7 @@ decisions:
     bicep_avm: { attribute: dataDisks, note: same zone as the machine }
     bicep:
       gap: no property in the reference's authored rendering; standalone data disks are the managed-disk set
+    import: {todo: 'in the row as a list: properties.storageProfile.dataDisks[] (the disks are Microsoft.Compute/disks rows of their own); no import form reads a list'}
 
   # --------------------------------------------------------------- networking
   networking.workload_subnet:
@@ -184,6 +198,7 @@ decisions:
     terraform: { attribute: azurerm_network_interface.ip_configuration.subnet_id, note: network_interface_ids on the machine }
     bicep_avm: { attribute: 'nicConfigurations[].ipConfigurations[].subnetResourceId' }
     bicep: { attribute: 'Microsoft.Network/networkInterfaces properties.ipConfigurations[].properties.subnet.id' }
+    import: {todo: 'not in the Resource Graph row: the NIC is its own resource (Microsoft.Network/networkInterfaces, linked by properties.networkProfile.networkInterfaces[].id) - properties.ipConfigurations[].properties.subnet.id'}
   networking.public_ip:
     terraform_avm:
       attribute: network_interfaces.primary.ip_configurations.primary.create_public_ip_address
@@ -201,6 +216,7 @@ decisions:
       attribute: 'Microsoft.Network/networkInterfaces properties.ipConfigurations[].properties.publicIPAddress.id'
       values: { true: { expr: '<the public IP resource id>' }, false: null }
       note: 'true renders a Microsoft.Network/publicIPAddresses beside it (source: bicep build, Microsoft.Network/networkInterfaces@2024-05-01)'
+    import: {todo: 'not in the Resource Graph row: the NIC is its own resource (Microsoft.Network/networkInterfaces, linked by properties.networkProfile.networkInterfaces[].id) - properties.ipConfigurations[].properties.publicIPAddress.id set or absent'}
   networking.private_ip_allocation:
     terraform_avm:
       attribute: network_interfaces.primary.ip_configurations.primary.private_ip_address_allocation
@@ -214,6 +230,7 @@ decisions:
       attribute: 'Microsoft.Network/networkInterfaces properties.ipConfigurations[].properties.privateIPAllocationMethod'
       passthrough: true
       note: 'Static with privateIPAddress (source: bicep build, Microsoft.Network/networkInterfaces@2024-05-01 - an open string there; literals per module README 0.22.3)'
+    import: {todo: 'not in the Resource Graph row: the NIC is its own resource (Microsoft.Network/networkInterfaces, linked by properties.networkProfile.networkInterfaces[].id) - properties.ipConfigurations[].properties.privateIPAllocationMethod'}
   networking.accelerated_networking:
     terraform_avm: { attribute: network_interfaces.primary.accelerated_networking_enabled, passthrough: true }
     terraform: { attribute: azurerm_network_interface.accelerated_networking_enabled, passthrough: true }
@@ -222,6 +239,7 @@ decisions:
       attribute: Microsoft.Network/networkInterfaces properties.enableAcceleratedNetworking
       passthrough: true
       note: 'source: bicep build, Microsoft.Network/networkInterfaces@2024-05-01'
+    import: {todo: 'not in the Resource Graph row: the NIC is its own resource (Microsoft.Network/networkInterfaces, linked by properties.networkProfile.networkInterfaces[].id) - properties.enableAcceleratedNetworking'}
 
   # ----------------------------------------------------------------- identity
   identity.system_assigned_identity:
@@ -235,6 +253,7 @@ decisions:
       attribute: identity.type
       values: { true: SystemAssigned, false: null }
       note: with user-assigned ids beside it the type is "SystemAssigned, UserAssigned" (true) or UserAssigned (false)
+    import: {path: identity.type, values: {SystemAssigned: true, 'SystemAssigned, UserAssigned': true, UserAssigned: false, None: false}, missing: false}
   identity.user_assigned_identity_ids:
     terraform_avm: { attribute: managed_identities.user_assigned_resource_ids }
     terraform: { attribute: identity.identity_ids }
@@ -243,6 +262,7 @@ decisions:
       attribute: identity.userAssignedIdentities
       format: { expr: 'toObject({value}, id => id, id => {})' }
       note: 'an object keyed by each id (source: bicep build, Microsoft.Compute/virtualMachines@2024-11-01)'
+    import: {todo: 'identity.userAssignedIdentities is an object keyed by the identity ids; no import form reads the keys'}
   identity.entra_login:
     terraform_avm:
       attribute: extensions.entra_login
@@ -262,6 +282,7 @@ decisions:
       gap: >-
         true renders a child extension (AADSSHLoginForLinux / AADLoginForWindows), false none; its
         properties are not in the reference's authored rendering
+    import: {todo: 'not in the Resource Graph row: child Microsoft.Compute/virtualMachines/extensions of type AADSSHLoginForLinux / AADLoginForWindows present or absent'}
   identity.role_assignments:
     terraform_avm:
       attribute: 'role_assignments.<key> = { role_definition_id_or_name, principal_id }'
@@ -269,6 +290,7 @@ decisions:
     terraform: { attribute: azurerm_role_assignment, note: scope = the machine's id }
     bicep_avm: { attribute: roleAssignments }
     bicep: { attribute: Microsoft.Authorization/roleAssignments, note: scope = the machine }
+    import: {todo: 'not in the Resource Graph row: Microsoft.Authorization/roleAssignments scoped to the machine (authorizationresources table)'}
 
   # ----------------------------------------------------------------- security
   security.trusted_launch:
@@ -285,11 +307,13 @@ decisions:
       attribute: properties.securityProfile.securityType
       values: { true: TrustedLaunch, false: null }
       note: with uefiSettings { secureBootEnabled, vTpmEnabled } set to the answer
+    import: {path: properties.securityProfile.securityType, values: {TrustedLaunch: true, Standard: false}, missing: false}
   security.encryption_at_host:
     terraform_avm: { attribute: encryption_at_host_enabled, passthrough: true, note: module default true (Bicep's false); written anyway }
     terraform: { attribute: encryption_at_host_enabled, passthrough: true }
     bicep_avm: { attribute: encryptionAtHost, passthrough: true, note: module default false (Terraform's true) - always written }
     bicep: { attribute: properties.securityProfile.encryptionAtHost, passthrough: true }
+    import: {path: properties.securityProfile.encryptionAtHost, passthrough: true}
   security.key_management:
     terraform_avm:
       attribute: os_disk.disk_encryption_set_id
@@ -307,16 +331,19 @@ decisions:
       attribute: properties.storageProfile.osDisk.managedDisk.diskEncryptionSet.id
       values: { platform_managed: null, customer_managed: { expr: '{security.disk_encryption_set_id}' } }
       note: the id from security.disk_encryption_set_id
+    import: {todo: 'platform_managed when properties.storageProfile.osDisk.managedDisk.diskEncryptionSet.id is absent, customer_managed when set - needs presence matching'}
   security.disk_encryption_set_id:
     terraform_avm: { attribute: os_disk.disk_encryption_set_id }
     terraform: { attribute: os_disk.disk_encryption_set_id }
     bicep_avm: { attribute: osDisk.managedDisk.diskEncryptionSetResourceId }
     bicep: { attribute: properties.storageProfile.osDisk.managedDisk.diskEncryptionSet.id }
+    import: {path: properties.storageProfile.osDisk.managedDisk.diskEncryptionSet.id, reference: true}
   security.admin_username:
     terraform_avm: { attribute: account_credentials.admin_credentials.username, passthrough: true }
     terraform: { attribute: admin_username, passthrough: true }
     bicep_avm: { attribute: adminUsername, passthrough: true }
     bicep: { attribute: properties.osProfile.adminUsername, passthrough: true }
+    import: {path: properties.osProfile.adminUsername, passthrough: true}
   security.password_authentication:
     terraform_avm:
       attribute: account_credentials.password_authentication_disabled
@@ -334,6 +361,7 @@ decisions:
       attribute: properties.osProfile.linuxConfiguration.disablePasswordAuthentication
       values: { true: false, false: true }
       note: inverted
+    import: {path: properties.osProfile.linuxConfiguration.disablePasswordAuthentication, values: {false: true, true: false}}
   security.ssh_public_key:
     terraform_avm:
       attribute: account_credentials.admin_credentials.ssh_keys
@@ -345,6 +373,7 @@ decisions:
       attribute: 'properties.osProfile.linuxConfiguration.ssh.publicKeys[].keyData'
       passthrough: true
       note: with path /home/<admin_username>/.ssh/authorized_keys
+    import: {todo: 'in the row as a list: properties.osProfile.linuxConfiguration.ssh.publicKeys[].keyData; no import form reads a list'}
   security.credential_key_vault:
     terraform_avm:
       attribute: account_credentials.key_vault_configuration.resource_id
@@ -355,6 +384,7 @@ decisions:
       gap: adminPassword is getSecret(...) on this vault in the parameter file - a Key Vault reference, never a literal; the module takes it as string; the secret is not named by the reference
     bicep:
       gap: not in the reference's authored rendering; properties.osProfile.adminPassword would take a getSecret(...) reference to a secret in this vault
+    import: {not_readable: 'Azure never returns the admin password nor the vault it was taken from; a deployment input, no property'}
 
   # ---------------------------------------------------------- data_protection
   data_protection.backup_enabled:
@@ -377,6 +407,7 @@ decisions:
       attribute: Microsoft.RecoveryServices/vaults/backupFabrics/protectionContainers/protectedItems properties.protectedItemType
       values: { true: Microsoft.Compute/virtualMachines, false: null }
       note: 'with sourceResourceId = the machine id and policyId; false renders none; the fabric, container and item names are in no source - check them (source: bicep build, protectedItems@2025-02-01, a strict discriminator)'
+    import: {todo: 'not in the Resource Graph row: a Recovery Services protected item (recoveryservicesresources table) whose sourceResourceId is the machine'}
   data_protection.backup_vault_id:
     terraform_avm: { attribute: azure_backup_configurations.default.recovery_vault_resource_id }
     terraform:
@@ -387,6 +418,7 @@ decisions:
       note: the vault id split into its name and resource group
     bicep:
       gap: the protected item is a child of this vault by name (vaults/<vault>/backupFabrics/<fabric>/protectionContainers/<container>/protectedItems/<item>); the fabric, container and item names are in no source of record
+    import: {todo: 'not in the Resource Graph row: the vault that holds the protected item (recoveryservicesresources table) whose sourceResourceId is the machine'}
   data_protection.backup_policy_id:
     terraform_avm: { attribute: azure_backup_configurations.default.backup_policy_resource_id }
     terraform: { attribute: azurerm_backup_protected_vm.backup_policy_id, note: 'source: azurerm 5.12 schema, azurerm 5.12 docs' }
@@ -394,6 +426,7 @@ decisions:
     bicep:
       attribute: Microsoft.RecoveryServices/vaults/backupFabrics/protectionContainers/protectedItems properties.policyId
       note: 'source: bicep build, protectedItems@2025-02-01'
+    import: {todo: 'not in the Resource Graph row: the protected item (recoveryservicesresources table) properties.policyId'}
 
   # -------------------------------------------------------------- maintenance
   maintenance.patch_mode:
@@ -407,6 +440,7 @@ decisions:
       passthrough: true
       note: with patchAssessmentMode; module defaults '' and ImageDefault - written
     bicep: { attribute: properties.osProfile.linuxConfiguration.patchSettings.patchMode, passthrough: true, note: with assessmentMode }
+    import: {path: properties.osProfile.linuxConfiguration.patchSettings.patchMode, passthrough: true}
   maintenance.maintenance_configuration:
     terraform_avm:
       attribute: maintenance_configuration_resource_ids
@@ -424,6 +458,7 @@ decisions:
     bicep:
       attribute: Microsoft.Maintenance/configurationAssignments.properties.maintenanceConfigurationId
       note: an extension resource with scope the machine, and properties.osProfile.<os>Configuration.patchSettings.automaticByPlatformSettings.bypassPlatformSafetyChecksOnUserSchedule true; none while empty
+    import: {todo: 'not in the Resource Graph row: extension resource Microsoft.Maintenance/configurationAssignments on the machine (maintenanceresources table) - properties.maintenanceConfigurationId'}
   maintenance.auto_shutdown:
     terraform_avm:
       attribute: shutdown_schedules
@@ -447,6 +482,7 @@ decisions:
         taskType, dailyRecurrence.time, timeZoneId, targetResourceId and notificationSettings.status
         compile (bicep build, Microsoft.DevTestLab/schedules@2018-09-15), but taskType is an open string and
         its literal is in no source of record
+    import: {todo: 'not in the Resource Graph row: Microsoft.DevTestLab/schedules shutdown-computevm-<name> (its own row) present with properties.status Enabled'}
   maintenance.auto_shutdown_time:
     terraform_avm: { attribute: shutdown_schedules.nightly.daily_recurrence_time, passthrough: true }
     terraform:
@@ -458,11 +494,13 @@ decisions:
       passthrough: true
       note: HHmm; the module's own default is written 19:00 - check the first deployment
     bicep: { attribute: Microsoft.DevTestLab/schedules properties.dailyRecurrence.time, passthrough: true, note: 'source: bicep build, Microsoft.DevTestLab/schedules@2018-09-15' }
+    import: {todo: 'not in the Resource Graph row: Microsoft.DevTestLab/schedules shutdown-computevm-<name> (its own row) - properties.dailyRecurrence.time'}
   maintenance.auto_shutdown_timezone:
     terraform_avm: { attribute: shutdown_schedules.nightly.timezone, passthrough: true, note: a Windows time zone id }
     terraform: { attribute: azurerm_dev_test_global_vm_shutdown_schedule.timezone, passthrough: true, note: 'a time zone id (source: azurerm 5.12 docs)' }
     bicep_avm: { attribute: autoShutdownConfig.timeZone, passthrough: true }
     bicep: { attribute: Microsoft.DevTestLab/schedules properties.timeZoneId, passthrough: true, note: 'source: bicep build, Microsoft.DevTestLab/schedules@2018-09-15' }
+    import: {todo: 'not in the Resource Graph row: Microsoft.DevTestLab/schedules shutdown-computevm-<name> (its own row) - properties.timeZoneId'}
 
   # ------------------------------------------------------------ observability
   observability.boot_diagnostics:
@@ -473,6 +511,7 @@ decisions:
       note: an empty block is the managed account; false renders no block
     bicep_avm: { attribute: bootDiagnostics, passthrough: true, note: managed storage account; module default false - written }
     bicep: { attribute: properties.diagnosticsProfile.bootDiagnostics.enabled, passthrough: true }
+    import: {path: properties.diagnosticsProfile.bootDiagnostics.enabled, passthrough: true}
   observability.diagnostic_workspace:
     terraform_avm: { attribute: diagnostic_settings.workspace.workspace_resource_id, note: metrics only; the machine has no log categories }
     terraform: { attribute: azurerm_monitor_diagnostic_setting.log_analytics_workspace_id }
@@ -483,6 +522,7 @@ decisions:
       gap: >-
         whether the machine itself takes a diagnostic setting is in no Bicep source - module README
         0.22.3 sets diagnostic settings on the interface and the public IP only
+    import: {todo: 'bicep renders it as a gap: whether the machine itself takes a diagnostic setting is in...'}
   observability.metrics_enabled:
     terraform_avm:
       attribute: diagnostic_settings.workspace.metric_categories
@@ -498,3 +538,4 @@ decisions:
       gap: >-
         whether the machine itself takes a diagnostic setting is in no Bicep source - module README
         0.22.3 sets diagnostic settings on the interface and the public IP only
+    import: {todo: 'bicep renders it as a gap: whether the machine itself takes a diagnostic setting is in...'}

@@ -8,6 +8,10 @@ modules:
   terraform: [Azure/avm-res-compute-disk/azurerm]
   bicep: [avm/res/compute/disk]
 
+# The Azure resources besides `resource` the render creates for this set; an import adopts
+# them by id (adopt.parts). Format: core/iac-rendering/references/render-map.md.
+import_parts: [Microsoft.Network/privateEndpoints]
+
 decisions:
 
   # ---------------------------------------------------------------- placement
@@ -18,6 +22,7 @@ decisions:
     terraform: { attribute: location, passthrough: true }
     bicep_avm: { attribute: location, passthrough: true }
     bicep: { attribute: location, passthrough: true }
+    import: {path: location, passthrough: true}
   placement.resource_group_name:
     terraform_avm:
       attribute: resource_group_name
@@ -25,6 +30,7 @@ decisions:
     terraform: { attribute: resource_group_name }
     bicep_avm: { gap: the deployment's resource group scope; no parameter }
     bicep: { gap: the deployment's resource group scope; no property }
+    import: {todo: 'bicep renders it as a gap: the deployment''s resource group scope; no property'}
 
   # --------------------------------------------------------------------- disk
   disk.create_option:
@@ -32,21 +38,25 @@ decisions:
     terraform: { attribute: create_option, passthrough: true }
     bicep_avm: { attribute: createOption, passthrough: true, note: module default Empty; written anyway }
     bicep: { attribute: properties.creationData.createOption, passthrough: true }
+    import: {path: properties.creationData.createOption, passthrough: true}
   disk.source_resource_id:
     terraform_avm: { attribute: source_resource_id, note: a change forces a new disk }
     terraform: { attribute: source_resource_id }
     bicep_avm: { attribute: sourceResourceId }
     bicep: { attribute: properties.creationData.sourceResourceId }
+    import: {todo: a list or a reference; needs its own reading}
   disk.sku:
     terraform_avm: { attribute: storage_account_type, passthrough: true, note: a required input }
     terraform: { attribute: storage_account_type, passthrough: true }
     bicep_avm: { attribute: sku, passthrough: true, note: a required parameter }
     bicep: { attribute: sku.name, passthrough: true }
+    import: {path: sku.name, passthrough: true}
   disk.size_gb:
     terraform_avm: { attribute: disk_size_gb, passthrough: true }
     terraform: { attribute: disk_size_gb, passthrough: true }
     bicep_avm: { attribute: diskSizeGB, passthrough: true, note: module default 0 - always written }
     bicep: { attribute: properties.diskSizeGB, passthrough: true }
+    import: {path: properties.diskSizeGB, passthrough: true}
   disk.zone:
     terraform_avm:
       attribute: zone
@@ -60,6 +70,7 @@ decisions:
     bicep:
       attribute: zones
       values: { '1': { expr: "[ '1' ]" }, '2': { expr: "[ '2' ]" }, '3': { expr: "[ '3' ]" } }
+    import: {todo: an answer renders as code or as nothing; needs cases}
 
   # --------------------------------------------------------------- networking
   networking.network_access:
@@ -95,12 +106,14 @@ decisions:
         allow_private: "properties.publicNetworkAccess: 'Disabled'"
         allow_all: "properties.publicNetworkAccess: 'Enabled'"
       note: 'allow_private with properties.diskAccessId (source: bicep build, Microsoft.Compute/disks@2024-03-02; open strings there - literals per module README 0.6.1)'
+    import: {path: properties.networkAccessPolicy, values: {DenyAll: deny_all, AllowPrivate: allow_private, AllowAll: allow_all}}
   networking.disk_access_id:
     terraform_avm: { attribute: disk_access_id, note: allow_private only }
     terraform: { attribute: disk_access_id }
     bicep_avm:
       gap: module README 0.6.1 has no input for a disk access; allow_private renders the authored Microsoft.Compute/disks (authored_when on networking.network_access)
     bicep: { attribute: properties.diskAccessId }
+    import: {todo: a list or a reference; needs its own reading}
   networking.private_endpoint_subnet:
     terraform_avm:
       attribute: private_endpoints.disks.subnet_resource_id
@@ -111,6 +124,7 @@ decisions:
     bicep_avm:
       gap: module README 0.6.1 has no input for a private endpoint; an authored Microsoft.Network/privateEndpoints with group id disks
     bicep: { attribute: Microsoft.Network/privateEndpoints properties.subnet.id, note: group id disks }
+    import: {todo: 'not in the Resource Graph row: Microsoft.Network/privateEndpoints properties.subnet.id'}
 
   # ----------------------------------------------------------------- identity
   identity.role_assignments:
@@ -118,6 +132,7 @@ decisions:
     terraform: { attribute: azurerm_role_assignment, note: scope = the disk's id }
     bicep_avm: { attribute: roleAssignments }
     bicep: { attribute: Microsoft.Authorization/roleAssignments, note: scope = the disk }
+    import: {todo: 'not in the Resource Graph row: Microsoft.Authorization/roleAssignments'}
 
   # ----------------------------------------------------------------- security
   security.key_management:
@@ -137,8 +152,10 @@ decisions:
       attribute: properties.encryption.type
       values: { platform_managed: null, customer_managed: EncryptionAtRestWithCustomerKey }
       note: the encryption block only for customer_managed; diskEncryptionSetId beside it
+    import: {todo: an answer renders as code or as nothing; needs cases}
   security.disk_encryption_set_id:
     terraform_avm: { attribute: disk_encryption_set_id, note: a set the module does not create }
     terraform: { attribute: disk_encryption_set_id }
     bicep_avm: { attribute: diskEncryptionSetResourceId }
     bicep: { attribute: properties.encryption.diskEncryptionSetId }
+    import: {todo: a list or a reference; needs its own reading}

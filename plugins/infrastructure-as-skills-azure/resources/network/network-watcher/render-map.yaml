@@ -20,6 +20,7 @@ decisions:
     terraform: { attribute: azurerm_network_watcher_flow_log.location, passthrough: true }
     bicep_avm: { attribute: location, module: avm/res/network/network-watcher/flow-log, passthrough: true, note: the same on the parent module }
     bicep: { attribute: location, passthrough: true }
+    import: {path: location, passthrough: true}
   placement.resource_group_name:
     terraform_avm:
       attribute: resource_group_name
@@ -27,6 +28,7 @@ decisions:
     terraform: { attribute: azurerm_network_watcher_flow_log.resource_group_name, note: the watcher's group }
     bicep_avm: { gap: "the deployment's scope for the parent module (deployment); scope: resourceGroup('NetworkWatcherRG') for the flow-log module (platform)" }
     bicep: { gap: the deployment's scope; the flow log lands in NetworkWatcherRG under platform }
+    import: {todo: 'bicep renders it as a gap: the deployment''s scope; the flow log lands in NetworkWatcher...'}
 
   # ------------------------------------------------------------------ watcher
   watcher.ownership:
@@ -65,6 +67,7 @@ decisions:
       gap: >-
         platform: Microsoft.Network/networkWatchers as existing in NetworkWatcherRG and the flowLogs
         children with parent; deployment: the watcher as a resource with location and empty properties
+    import: {todo: 'bicep renders it as a gap: platform: Microsoft.Network/networkWatchers as existing in N...'}
 
   # ---------------------------------------------------------------- flow_logs
   flow_logs.flow_log_targets:
@@ -77,6 +80,7 @@ decisions:
       module: avm/res/network/network-watcher/flow-log
       note: one child module call per target; the parent takes flowLogs[].targetResourceId. The description says NSG - any vnet, subnet or NIC id is accepted
     bicep: { attribute: flowLogs properties.targetResourceId, note: "format: { type: 'JSON', version: 2 }" }
+    import: {todo: 'not in the Resource Graph row: flowLogs properties.targetResourceId'}
   flow_logs.flow_log_storage_account:
     terraform_avm: { attribute: 'flow_logs.<k>.storage_account_id' }
     terraform: { attribute: azurerm_network_watcher_flow_log.storage_account_id }
@@ -85,6 +89,7 @@ decisions:
       module: avm/res/network/network-watcher/flow-log
       note: the parent takes flowLogs[].storageResourceId
     bicep: { attribute: flowLogs properties.storageId }
+    import: {todo: 'not in the Resource Graph row: flowLogs properties.storageId'}
   flow_logs.retention_days:
     terraform_avm:
       attribute: 'flow_logs.<k>.retention_policy.days'
@@ -103,6 +108,7 @@ decisions:
       attribute: flowLogs properties.retentionPolicy.days
       passthrough: true
       note: 'retentionPolicy: { days, enabled }; enabled false only for 0'
+    import: {todo: 'not in the Resource Graph row: flowLogs properties.retentionPolicy.days'}
   flow_logs.traffic_analytics:
     terraform_avm: { attribute: 'flow_logs.<k>.traffic_analytics.enabled', passthrough: true }
     terraform: { attribute: azurerm_network_watcher_flow_log.traffic_analytics.enabled, passthrough: true }
@@ -112,6 +118,7 @@ decisions:
       values: { true: { expr: '{flow_logs.traffic_analytics_workspace}' }, false: null }
       note: no enabled parameter - true is the presence of the workspace id, false its absence; the handover says so. The parent takes flowLogs[].workspaceResourceId
     bicep: { attribute: flowLogs properties.flowAnalyticsConfiguration.networkWatcherFlowAnalyticsConfiguration.enabled, passthrough: true }
+    import: {todo: 'not in the Resource Graph row: flowLogs properties.flowAnalyticsConfiguration.networkWa...'}
   flow_logs.traffic_analytics_interval_minutes:
     terraform_avm: { attribute: 'flow_logs.<k>.traffic_analytics.interval_in_minutes', passthrough: true, note: module default 60 when left out; written }
     terraform: { attribute: azurerm_network_watcher_flow_log.traffic_analytics.interval_in_minutes, passthrough: true }
@@ -121,6 +128,7 @@ decisions:
       passthrough: true
       note: module default 60; written; the parent takes flowLogs[].trafficAnalyticsInterval
     bicep: { attribute: flowLogs properties.flowAnalyticsConfiguration.networkWatcherFlowAnalyticsConfiguration.trafficAnalyticsInterval, passthrough: true }
+    import: {todo: 'not in the Resource Graph row: flowLogs properties.flowAnalyticsConfiguration.networkWa...'}
   flow_logs.traffic_analytics_workspace:
     terraform_avm:
       attribute: 'flow_logs.<k>.traffic_analytics.workspace_resource_id'
@@ -133,6 +141,7 @@ decisions:
       module: avm/res/network/network-watcher/flow-log
       note: the id alone; the parent takes flowLogs[].workspaceResourceId
     bicep: { attribute: flowLogs properties.flowAnalyticsConfiguration.networkWatcherFlowAnalyticsConfiguration.workspaceResourceId }
+    import: {todo: 'not in the Resource Graph row: flowLogs properties.flowAnalyticsConfiguration.networkWa...'}
 
   # ----------------------------------------------------------------- monitors
   monitors.connection_monitors:
@@ -145,6 +154,7 @@ decisions:
       module: avm/res/network/network-watcher
       note: under platform the connection-monitor child module instead
     bicep: { attribute: networkWatchers/connectionMonitors }
+    import: {todo: 'not in the Resource Graph row: networkWatchers/connectionMonitors'}
 
   # ------------------------------------------------------------------- access
   access.role_assignments:
@@ -157,3 +167,4 @@ decisions:
       module: avm/res/network/network-watcher
       note: the flow-log module has none - under platform an extension resource in NetworkWatcherRG
     bicep: { attribute: Microsoft.Authorization/roleAssignments, note: extension resource with scope = the watcher }
+    import: {todo: 'not in the Resource Graph row: Microsoft.Authorization/roleAssignments'}

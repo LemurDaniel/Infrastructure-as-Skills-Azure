@@ -22,6 +22,7 @@ decisions:
       attribute: keyVaultName
       note: "the vault's NAME, never the reference's id - the vault module's name output or the vault's name parameter; same resource group"
     bicep: { attribute: parent, note: an existing resource symbol for the vault - never the id string }
+    import: {todo: 'not in the Resource Graph row: parent'}
   placement.purpose:
     not_rendered: drives the defaults of key_operations and the role in role_assignments; no attribute of its own
 
@@ -35,6 +36,7 @@ decisions:
       attribute: 'roleAssignments[] = { roleDefinitionIdOrName, principalId, principalType }'
       note: scoped to the key; the module knows a fixed set of role names - read it from the README
     bicep: { attribute: Microsoft.Authorization/roleAssignments, note: scope = the key }
+    import: {todo: 'not in the Resource Graph row: Microsoft.Authorization/roleAssignments'}
 
   # ----------------------------------------------------------------- security
   security.algorithm:
@@ -48,6 +50,7 @@ decisions:
       format: '{value}{security.protection}'
       note: module default EC - written
     bicep: { attribute: properties.kty, format: '{value}{security.protection}' }
+    import: {todo: a composed or computed literal; needs its own reading}
   security.protection:
     terraform_avm:
       attribute: type
@@ -57,6 +60,7 @@ decisions:
     terraform: { attribute: key_type, values: { software: '', hsm: -HSM }, part_of: security.algorithm }
     bicep_avm: { attribute: kty, values: { software: '', hsm: -HSM }, part_of: security.algorithm, note: hsm needs a Premium vault }
     bicep: { attribute: properties.kty, values: { software: '', hsm: -HSM }, part_of: security.algorithm }
+    import: {todo: a piece of security.algorithm; read back with it}
   security.key_operations:
     terraform_avm:
       attribute: opts
@@ -64,16 +68,19 @@ decisions:
     terraform: { attribute: key_opts, note: required }
     bicep_avm: { attribute: keyOps, note: 'unset by default (the type''s operations); written; allowed: decrypt, encrypt, import, sign, unwrapKey, verify, wrapKey' }
     bicep: { attribute: properties.keyOps }
+    import: {todo: a list or a reference; needs its own reading}
   security.key_size:
     terraform_avm: { attribute: size, passthrough: true, note: RSA only; null for EC }
     terraform: { attribute: key_size, passthrough: true, note: RSA only }
     bicep_avm: { attribute: keySize, passthrough: true, note: RSA only }
     bicep: { attribute: properties.keySize, passthrough: true, note: RSA only }
+    import: {path: properties.keySize, passthrough: true}
   security.curve:
     terraform_avm: { attribute: curve, passthrough: true, note: EC only; null for RSA }
     terraform: { attribute: curve, passthrough: true, note: EC only }
     bicep_avm: { attribute: curveName, passthrough: true, note: EC only; module default P-256 }
     bicep: { attribute: properties.curveName, passthrough: true, note: EC only }
+    import: {path: properties.curveName, passthrough: true}
 
   # ---------------------------------------------------------- data_protection
   data_protection.rotation_days:
@@ -90,6 +97,7 @@ decisions:
       attribute: 'properties.rotationPolicy.lifetimeActions[].trigger.timeAfterCreate'
       format: 'P{value}D'
       note: "action: { type: 'rotate' }"
+    import: {todo: 'not in the Resource Graph row: properties.rotationPolicy.lifetimeActions[].trigger.time...'}
   data_protection.expiry_days:
     terraform_avm:
       attribute: rotation_policy.expire_after
@@ -107,6 +115,7 @@ decisions:
       attribute: properties.rotationPolicy.attributes.expiryTime
       format: 'P{value}D'
       note: a first version that must expire takes properties.attributes.exp (epoch seconds)
+    import: {path: properties.rotationPolicy.attributes.expiryTime, format: 'P{value}D'}
   data_protection.notify_days_before_expiry:
     terraform_avm: { attribute: rotation_policy.notify_before_expiry, format: 'P{value}D' }
     terraform: { attribute: rotation_policy.notify_before_expiry, format: 'P{value}D' }
@@ -118,3 +127,4 @@ decisions:
       attribute: 'properties.rotationPolicy.lifetimeActions[].trigger.timeBeforeExpiry'
       format: 'P{value}D'
       note: "action: { type: 'notify' }"
+    import: {todo: 'not in the Resource Graph row: properties.rotationPolicy.lifetimeActions[].trigger.time...'}
