@@ -25,26 +25,36 @@ the convention is the module's or the repository's own. The spec still records
 
 ## The convention
 
-[naming.default.yaml](naming.default.yaml) is the plugin's convention: the one the
-`LemurDaniel/naming` provider bundles as `default` — CAF abbreviations, AVM region codes,
-one pattern per type where Azure's limits demand it. It is the default the guardrails
-prescribe; see [guardrails.md](../../iac-authoring/references/guardrails.md#1-naming-and-tags).
+[naming.default.yaml](naming.default.yaml) is the plugin's convention, and it is **the
+`default` convention the `LemurDaniel/naming` provider bundles**, byte for byte, of the
+version [below](#use-the-provider-not-the-modules) pins - CAF abbreviations, AVM region codes,
+one pattern per type where Azure's limits demand it. A change to it is made in the provider
+first and copied here; `check_repo_consistency.py` compares both when the provider's
+repository is checked out beside this one. It is the default the guardrails prescribe; see
+[guardrails.md](../../iac-authoring/references/guardrails.md#1-naming-and-tags).
 
 What it produces, with `location: westeurope`, `environment: production`,
-`name: payments`:
+`name: payments` (`a1b` stands for the unique id):
 
 | Type | Pattern | Name |
 |---|---|---|
-| Resource group | `<TYPE>-<LOCATION>-<ENVIRONMENT>-<NAME>-<INDEX>` | `rg-we-prod-payments-01` |
-| Virtual network | same | `vnet-we-prod-payments-01` |
-| Subnet | `<TYPE>-<ENVIRONMENT>-<NAME>-<INDEX>` | `snet-prod-payments-01` |
-| Log Analytics | Azure default, `<?SUBNAME;-%s>` optional | `log-we-prod-payments-01` |
-| Storage account, container registry | `<TYPE><LOCATION><ENVIRONMENT><NAME><UNIQUE_ID_4>`, lowercase | `stweprodpaymentsa1b2` |
-| Every other global name: key vault, Cosmos DB, Foundry, AI Search, App Service, SQL, PostgreSQL, MySQL, Service Bus, Event Hubs, Relay, Data Factory, Purview, API Management, Communication Services, Bot | `<TYPE>-<LOCATION>-<ENVIRONMENT>-<NAME>-<UNIQUE_ID_4>` | `kv-we-prod-payments-a1b2` |
+| Resource group, virtual network, subnet, most types | `<TYPE>-<LOCATION>-<ENVIRONMENT>-<NAME><?PURPOSE;-%s>-<INDEX>` | `rg-we-prod-payments-01`, `snet-we-prod-payments-01` |
+| The same with a purpose | `purpose: blob` | `pep-we-prod-payments-blob-01` |
+| No hyphens allowed (VM, batch, gallery, Synapse pools, ...) | `<TYPE><LOCATION><ENVIRONMENT><NAME><?PURPOSE><INDEX>` | `vmweprodpayments01` |
+| Storage account, container registry, Data Lake, Data Explorer | `<TYPE><LOCATION><ENVIRONMENT><NAME><?PURPOSE><UNIQUE_ID_3>`, lowercase | `stweprodpaymentsa1b` |
+| Every other global name: key vault, Cosmos DB, Foundry / AI Services, AI Search, App Service, SQL, PostgreSQL, MySQL, Redis, Service Bus, Event Hubs, Relay, Data Factory, Purview, API Management, Communication Services, Bot, Front Door | `<TYPE>-<LOCATION>-<ENVIRONMENT>-<NAME><?PURPOSE;-%s>-<UNIQUE_ID_3>` | `kv-we-prod-payments-a1b` |
 
-**A global name carries `<UNIQUE_ID_4>` in place of `<INDEX>`.** It is a DNS name across all
-of Azure, so workload, stage and region alone collide with another tenant's; a second
-instance differs in `<NAME>` (the instance suffix), not in an index.
+**Every pattern carries the location.** **A global name carries `<UNIQUE_ID_3>` in place of
+`<INDEX>`.** It is a DNS name across all of Azure, so workload, stage and region alone
+collide with another tenant's; a second instance differs in `<NAME>` (the instance suffix)
+or `<PURPOSE>`, not in an index. **`<?PURPOSE>` names a sub-resource or a role** (the private
+endpoint's `blob`, the route table's `spoke`) and stands before the index; left out, it
+leaves no separator behind.
+
+**The provider checks every name** against its type's naming rule (length, characters) at
+plan time and fails the plan on a name Azure would reject - a workload name too long for a
+key vault (`kv-we-prod-` and `-<id>` leave 9 of its 24 characters for name and purpose) fails `plan`,
+not the apply. Bicep has no such check; see [Character rules](#character-rules).
 
 ### `naming.yaml` in the user's repository — a full copy, both targets
 
@@ -116,7 +126,7 @@ terraform {
   required_providers {
     naming = {
       source  = "LemurDaniel/naming"
-      version = "~> 1.0"
+      version = "~> 2.1"
     }
   }
 }
@@ -142,7 +152,7 @@ data "naming_name" "storage_account" {
 }
 
 resource "azurerm_storage_account" "this" {
-  name = data.naming_name.storage_account.name # stwedevmyappa1b2 (environment: development)
+  name = data.naming_name.storage_account.name # stwedevmyappa1b (environment: development)
   # ...
 }
 ```
@@ -154,7 +164,7 @@ resource "azurerm_storage_account" "this" {
 | `resource` | Required. `"Azure::<Namespace>/<Type>[::<kind>]"`. |
 | `index` | `{ start, count }`. `count` is **how many names** to render, `start` only shifts the first index. |
 | `naming_id` | Selects a named pattern/abbreviation variant. Takes precedence over `kind`. |
-| `parameters` | Map of string, layered over the provider's `parameters`. |
+| `parameters` | Map of string, layered over the provider's `parameters`. `purpose` fills `<?PURPOSE>`. |
 
 Read-only: `name` (the first name), `at_index` (all of them, in index order), plus the
 aliases `result` and `by_index`.
@@ -186,7 +196,8 @@ resource "azurerm_virtual_network" "this" {
 | `convention` | Bundled convention name. Defaults to `"default"` (CAF abbreviations). |
 | `naming` | Path to a YAML file overriding the convention, merged per key. Always `naming.yaml` beside the spec — a full copy, see above. |
 | `parameters` | `location`, `environment`, `name`, … that the patterns render from. |
-| `random_seed` | Only needed if a pattern you use contains the `<UNIQUE_ID_n>` token. The same seed always resolves to the same id, so names stay stable with nothing in state. |
+| `random_seed` | Required: every global name contains `<UNIQUE_ID_3>`, and the plan fails without a seed. The same seed always resolves to the same id, so names stay stable with nothing in state. |
+| `validation` | Leave it unset (`"error"`): a name that breaks its type's rule fails the plan. Never set `"warn"` or `"off"` to make a plan pass - fix the pattern or the workload name. |
 
 Everything resolves during `plan`: embedded YAML merged in memory, no API calls, nothing
 persisted. That is why it is a data source rather than a resource — rendering is pure.
@@ -238,14 +249,17 @@ var loc = locationCodes[location]
 var env = environmentCodes[environment]
 var idx = padLeft(index, 2, '0')
 
-// <TYPE><LOCATION><ENVIRONMENT><NAME><UNIQUE_ID_4>, lowercase  ->  stwedevobjectsa1b2
-var storageAccountName = toLower('st${loc}${env}${workload}${take(uniqueString(resourceGroup().id), 4)}')
+// <TYPE><LOCATION><ENVIRONMENT><NAME><UNIQUE_ID_3>, lowercase  ->  stwedevobjectsa1b
+var storageAccountName = toLower('st${loc}${env}${workload}${take(uniqueString(resourceGroup().id), 3)}')
 
 // <TYPE>-<LOCATION>-<ENVIRONMENT>-<NAME>-<INDEX>  ->  vnet-we-dev-objects-01
 var virtualNetworkName = 'vnet-${loc}-${env}-${workload}-${idx}'
 
-// <TYPE>-<LOCATION>-<ENVIRONMENT>-<NAME>-<UNIQUE_ID_4>  ->  kv-we-dev-objects-a1b2
-var keyVaultName = 'kv-${loc}-${env}-${workload}-${take(uniqueString(resourceGroup().id), 4)}'
+// <TYPE>-<LOCATION>-<ENVIRONMENT>-<NAME>-<UNIQUE_ID_3>  ->  kv-we-dev-objects-a1b
+var keyVaultName = 'kv-${loc}-${env}-${workload}-${take(uniqueString(resourceGroup().id), 3)}'
+
+// <?PURPOSE;-%s> with a purpose: the literal before the index  ->  pep-we-dev-objects-blob-01
+var blobEndpointName = 'pep-${loc}-${env}-${workload}-blob-${idx}'
 ```
 
 ### The parts
@@ -276,9 +290,10 @@ Nothing checks a name assembled from `var`s, so the per-type rules are the rende
 
 - **Storage accounts, container registries**: lowercase alphanumeric only, no separators,
   3–24 characters (registry 5–50). `toLower()` and no `-`; `uniqueString()` is lowercase
-  already. With location and suffix that leaves 10–13 for the workload name.
-- **Key vaults**: 3–24 characters, hyphens allowed, must start with a letter; with location
-  and suffix that leaves 3–10 for the workload name.
+  already. Type, location, stage and id leave 8–15 for the workload name (13 with
+  `we` and `prod`), depending on the codes in `mappings`.
+- **Key vaults**: 3–24 characters, hyphens allowed, must start with a letter; type, location,
+  stage and id leave 4–11 for the workload name and purpose (9 with `we` and `prod`).
 - **Most others**: hyphens are conventional (`vnet-we-dev-myapp-01`).
 
 Every resource's `bicep.md` states its own limit. If a workload name can push the rendered
@@ -299,8 +314,8 @@ python scripts/list_names.py infra-spec.yaml [--stage production] [--language de
 It needs the spec alone (and PyYAML): the type's pattern from the convention - the
 `naming.yaml` beside the spec when there is one, else [naming.default.yaml](naming.default.yaml)
 - filled from `context` (location, workload, stage), the abbreviation from the question set.
-An instance (`storage-account__host`) joins the workload in `<NAME>` (`stweprodshophost01`);
-`<SUBNAME>` is for sub-resources only. It lists the resource groups (a stated name verbatim,
+An instance (`storage-account__host`) joins the workload in `<NAME>` (`stweprodshophost???`);
+`<PURPOSE>` is for sub-resources and roles. It lists the resource groups (a stated name verbatim,
 a created one from the pattern), each resource and the vnet's subnets, per stage, and exits 1
 on a name over its type's length, outside its characters, or used twice.
 

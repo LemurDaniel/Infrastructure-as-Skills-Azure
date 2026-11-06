@@ -219,7 +219,7 @@ def main():
                 continue
             type_id = terraform_id.removeprefix("Azure::").split("::")[0]
             abbr = naming.get("abbreviation") or abbreviations.get(f"{type_id}::default", "")
-            # An instance joins the workload in <NAME>; <SUBNAME> is for sub-resources.
+            # An instance joins the workload in <NAME>; <PURPOSE> is for sub-resources and roles.
             add(key, type_id, abbr, {"NAME": workload + instance} if instance else {}, t["create"])
             # Subnets are named by the spec, verbatim.
             if set_name == "virtual-network":
