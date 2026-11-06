@@ -187,7 +187,8 @@ groups:
           then P0v3, recorded as forced with `deployment_slots` as forced_by.
           `priority: cost` with `expected_load: small` sets P0v3 instead of P1v3 - the smallest
           Premium v3 size keeps VNet integration, zone redundancy and slots at about half the
-          price - recorded as forced with `priority` as forced_by; medium and large keep
+          price - recorded as `source: { derived_from: deployment.priority }`, a cost choice
+          and not a constraint, so it stays a stage-file parameter; medium and large keep
           their size, since the load was named and the priority only decides where nobody did
 
       - id: zone_redundant

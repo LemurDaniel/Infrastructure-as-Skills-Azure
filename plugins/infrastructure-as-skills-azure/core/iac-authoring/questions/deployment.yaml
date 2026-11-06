@@ -983,7 +983,7 @@ groups:
         renders: >
           forces non_production_savings to disabled on `protection`; derived by the
           resource sets: storage-account.change_feed_enabled,
-          virtual-network.flow_logs_enabled; `cost` forces app-service.sku to P0v3 where the
+          virtual-network.flow_logs_enabled; `cost` derives app-service.sku P0v3 where the
           load is small
 
   - id: modules
