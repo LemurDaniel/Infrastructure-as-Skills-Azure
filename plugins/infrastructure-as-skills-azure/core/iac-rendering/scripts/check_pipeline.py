@@ -20,7 +20,8 @@ renders under the root, and checks what a reviewer would otherwise check by eye:
   6. No secret: with pipeline_auth workload_identity no client secret and no
      `secrets.` reference; the login is federated.
   7. A plan artifact lives one day at most.
-  8. Versions are pinned: no @main / latest, a Terraform constraint.
+  8. Versions are pinned: no @main / latest, a Terraform constraint. Terraform runs
+     with TF_IN_AUTOMATION, so its log suggests no interactive next step.
   9. The validate step of the target is there (fmt / validate, build / lint).
  10. Terraform: the root holds `backend "azurerm" {}`. `init -backend-config`
      without a backend block is ignored without an error - local state.
@@ -34,6 +35,10 @@ renders under the root, and checks what a reviewer would otherwise check by eye:
  14. The shell is PowerShell 7: GitHub sets `defaults.run.shell: pwsh` in every
      workflow, Azure DevOps runs `pwsh:` steps and AzureCLI@2 with `scriptType:
      pscore`. GitLab keeps the image's sh - its images carry no pwsh.
+ 15. The render's tests run before any stage: Bicep's validate (and the local
+     script, before what-if) runs tests/run_arm_tests.py - Terraform's runs
+     `terraform test`, item 9; the Bicep what-if JSON is kept as an artifact,
+     on GitHub for seven days at most (Azure DevOps keeps it with the run).
 
 Platform-specific constructs are checked where the file can show them. What the
 file cannot - an environment's approval check, a lock check, the federated
@@ -67,6 +72,13 @@ def say(text, color=None):
 
 errors = []
 notes = []
+
+# The validate step of each target (items 9 and 15).
+VALIDATE_NEEDS = {
+    'terraform': ('terraform fmt', 'terraform validate'),
+    'bicep': ('bicep build', 'bicep lint', 'run_arm_tests.py'),
+}
+WHATIF_DAYS = 7  # invariant 8: the what-if JSON carries resource properties
 
 
 def err(msg):
@@ -259,14 +271,9 @@ def check_github(root, stages, target, auth, gated, exempt):
         if 'environment' in v or (v.get('permissions') or {}).get('id-token') == 'write':
             err(f"{erel}: validate holds an environment or id-token: write - it runs on pull requests and must hold no credential")
         vs = scripts_of(v)
-        if target == 'terraform':
-            for need in ('terraform fmt', 'terraform validate'):
-                if need not in vs:
-                    err(f"{erel}: validate does not run `{need}`")
-        else:
-            for need in ('bicep build', 'bicep lint'):
-                if need not in vs:
-                    err(f"{erel}: validate does not run `{need}`")
+        for need in VALIDATE_NEEDS[target]:
+            if need not in vs:
+                err(f"{erel}: validate does not run `{need}`")
     top = ed.get('permissions')
     if isinstance(top, dict) and top.get('id-token') == 'write':
         err(f"{erel}: `id-token: write` at workflow level - grant it on the jobs that log in")
@@ -335,6 +342,8 @@ def check_github(root, stages, target, auth, gated, exempt):
             err(f"{srel}: no plan artifact is uploaded - apply would have no saved plan")
         if 'download-artifact' not in stext:
             err(f"{srel}: apply does not download the plan artifact")
+        if not re.search(r"TF_IN_AUTOMATION:\s*[\"']?true", stext):
+            err(f"{srel}: TF_IN_AUTOMATION is not true - Terraform's log would suggest interactive next steps")
         versions = re.findall(r'terraform_version:\s*(\S+)', stext)
         if not versions or not all(v.strip('"\'').startswith('~>') for v in versions):
             err(f"{srel}: every setup-terraform needs a `~>` constraint on terraform_version, found {versions}")
@@ -345,6 +354,15 @@ def check_github(root, stages, target, auth, gated, exempt):
         elif 'NestedDeploymentShortCircuited' not in allscripts:
             err(f"{srel}: the what-if step does not report the modules what-if short-circuits - "
                 f"the approver would take a partial list for the whole plan")
+        kept = [st for j in sj.values() for st in (j.get('steps') or [])
+                if str(st.get('uses', '')).startswith('actions/upload-artifact')
+                and 'whatif.json' in str((st.get('with') or {}).get('path', ''))]
+        if not kept:
+            err(f"{srel}: the what-if JSON is not kept as an artifact - the record of what the approver was shown")
+        for st in kept:
+            days = (st.get('with') or {}).get('retention-days')
+            if days is None or int(days) > WHATIF_DAYS:
+                err(f"{srel}: the what-if artifact keeps {days} days - it carries resource properties; {WHATIF_DAYS} at most")
     if auth == 'workload_identity':
         if target == 'terraform' and not re.search(r'ARM_USE_OIDC:\s*["\']?true', stext):
             err(f"{srel}: ARM_USE_OIDC is not true - Terraform would look for a secret")
@@ -403,8 +421,7 @@ def check_ado(root, stages, target, auth, gated, exempt):
         if 'azureSubscription' in vtext or 'AzureCLI' in vtext:
             err("azure-pipelines.yml: validate uses a service connection - it runs on pull requests and must hold no credential")
         vs = scripts_of(validate)
-        needs = ('terraform fmt', 'terraform validate') if target == 'terraform' else ('bicep build', 'bicep lint')
-        for n in needs:
+        for n in VALIDATE_NEEDS[target]:
             if n not in vs:
                 err(f"azure-pipelines.yml: validate does not run `{n}`")
     if 'pr' not in ed and 'trigger' not in ed:
@@ -435,14 +452,26 @@ def check_ado(root, stages, target, auth, gated, exempt):
         if 'terraform-install.yml' not in tmpl:
             err(".azure-pipelines/terraform-install.yml: missing")
         else:
-            if 'Get-FileHash' not in tmpl['terraform-install.yml'][1]:
-                err(".azure-pipelines/terraform-install.yml: the download is not checksum-verified")
+            itext = tmpl['terraform-install.yml'][1]
+            if 'Get-FileHash' not in itext or 'TF_SHA256' not in itext:
+                err(".azure-pipelines/terraform-install.yml: the download is not checksum-verified against the committed TF_SHA256")
+            if 'SHA256SUMS' in itext:
+                err(".azure-pipelines/terraform-install.yml: the checksum is fetched in the run - the server that "
+                    "serves the binary would vouch for it; commit TF_SHA256 beside TF_VERSION")
+        sha = [v for v in (ed.get('variables') or []) if isinstance(v, dict) and v.get('name') == 'TF_SHA256']
+        if not sha or not re.match(r'^[0-9a-fA-F]{64}$', str(sha[0].get('value'))):
+            err("azure-pipelines.yml: TF_SHA256 is missing or not a SHA-256 - the hash of the release zip, looked up at render time")
+        tia = [v for v in (ed.get('variables') or []) if isinstance(v, dict) and v.get('name') == 'TF_IN_AUTOMATION']
+        if not tia or str(tia[0].get('value')).lower() != 'true':
+            err("azure-pipelines.yml: TF_IN_AUTOMATION is not true - Terraform's log would suggest interactive next steps")
         tfv = [v for v in (ed.get('variables') or []) if isinstance(v, dict) and v.get('name') == 'TF_VERSION']
         if not tfv or not re.match(r'^\d+\.\d+\.\d+$', str(tfv[0].get('value'))):
             err("azure-pipelines.yml: TF_VERSION is missing or not an exact version")
     else:
         if 'what-if' not in all_scripts:
             err(".azure-pipelines/stage.yml: no `az deployment ... what-if` before the deployment")
+        if not re.search(r'PublishPipelineArtifact@\d+[\s\S]{0,200}?targetPath:\s*\S*whatif\.json', stext):
+            err(".azure-pipelines/stage.yml: the what-if JSON is not published as an artifact - the record of what the approver was shown")
     if auth == 'workload_identity' and 'AzureCLI@2' in stext:
         # every Terraform task that logs in needs the token, not just the first
         if target == 'terraform' and (stext.count('addSpnToEnvironment: true') != stext.count('AzureCLI@2')
@@ -474,6 +503,8 @@ def check_gitlab(root, stages, target, auth, gated, exempt):
         return
     d, text = load_yaml(path)
     common_text(path, text, auth, '.gitlab-ci.yml')
+    if target == 'terraform' and not re.search(r"TF_IN_AUTOMATION:\s*[\"']?true", text):
+        err(".gitlab-ci.yml: TF_IN_AUTOMATION is not true - Terraform's log would suggest interactive next steps")
     expect = [s for s in stages if s not in exempt]
     if (d.get('stages') or []) != ['validate'] + expect:
         err(f".gitlab-ci.yml: stages are {d.get('stages')}, expected {['validate'] + expect}")
@@ -485,8 +516,7 @@ def check_gitlab(root, stages, target, auth, gated, exempt):
         vs = scripts_of(v)
         if 'id_tokens' in v:
             err(".gitlab-ci.yml: validate requests an OIDC token - it must hold no credential")
-        needs = ('terraform fmt', 'terraform validate') if target == 'terraform' else ('bicep build', 'bicep lint')
-        for n in needs:
+        for n in VALIDATE_NEEDS[target]:
             if n not in vs:
                 err(f".gitlab-ci.yml: validate does not run `{n}`")
     prev = 'validate'
@@ -573,6 +603,8 @@ def check_local(root, stages, target, auth, gated, exempt):
     else:
         if 'what-if' not in text:
             err("deploy.ps1: no what-if before the deployment")
+        elif 'run_arm_tests.py' not in text or text.find('run_arm_tests.py') > text.find('what-if'):
+            err("deploy.ps1: the decision tests (tests/run_arm_tests.py) do not run before what-if")
     note("local: no pipeline - the person at the keyboard is the approval; no record of who applied what")
 
 

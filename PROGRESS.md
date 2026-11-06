@@ -902,6 +902,18 @@ per-family` in `check_spec.py` and the `chatbot` spec, and `references/private-d
 
 ### Pipelines
 
+- **Bicep decision tests and the what-if record** (2026-11-06, branch `bicep-pipeline-tests`,
+  from the owner's `BICEP__Starter_Pipelines`): invariant 15 runs `tests/run_arm_tests.py` -
+  the plugin's runner, copied unchanged by the render (owner's call: one implementation, no
+  pwsh port) - in validate on every platform and in the local script; invariant 8 keeps
+  `whatif.json` as an artifact, seven days at most. Not yet run on a runner: `setup-python@v7`
+  / `UsePythonVersion@0`, the `az bicep install` fallback, and whether the `azure-cli` image's
+  `pip` installs PyYAML without a virtual environment (GitLab). `eval-agent/infra` has no
+  `tests/run_arm_tests.py` yet - `check_render_coverage.py` fails on it until the next render
+  of that tree (never by hand, CLAUDE.md), and `eval-agent-infra*.yaml` runs no tests until then.
+- Considered from the scaffold and left out again: Deployment Stacks (`denySettingsMode`,
+  `actionOnUnmanage`) - they would let Bicep delete what the spec drops and block portal
+  deletes; a deployment decision of its own if it comes back.
 - The pwsh pipelines have parsed and been dry-run with a mocked `az`, never run on a
   runner: the next push of `eval-agent/infra` to `dev` is the first real run of
   `eval-agent-infra*.yaml` in pwsh; the ADO and GitHub Terraform fixtures have not run at all.

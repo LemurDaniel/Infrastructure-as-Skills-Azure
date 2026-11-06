@@ -25,6 +25,19 @@ stages:
                 if ($LASTEXITCODE) { exit $LASTEXITCODE }
               }
             displayName: Parameter files compile against the template
+          - task: UsePythonVersion@0
+            inputs:
+              versionSpec: '3.12'
+          - pwsh: |
+              if (-not (Get-Command bicep -ErrorAction SilentlyContinue)) {
+                az bicep install
+                $env:PATH = "$HOME/.azure/bin" + [IO.Path]::PathSeparator + $env:PATH
+              }
+              python -m pip install --quiet --disable-pip-version-check pyyaml==6.0.3
+              if ($LASTEXITCODE) { exit $LASTEXITCODE }
+              python tests/run_arm_tests.py infra-spec.yaml --template main.bicep --tests tests
+              if ($LASTEXITCODE) { exit $LASTEXITCODE }
+            displayName: Decision tests against the compiled template
 
   - template: .azure-pipelines/stage.yml
     parameters:

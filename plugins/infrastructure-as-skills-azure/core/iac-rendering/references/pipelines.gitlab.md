@@ -195,6 +195,10 @@ validate:
     - az bicep build --file main.bicep --stdout > /dev/null
     - az bicep lint --file main.bicep
     - for f in main.*.bicepparam; do az bicep build-params --file "$f" --stdout > /dev/null; done
+    # The decision tests (invariant 15): the plugin's runner, copied into tests/ by the render.
+    - az bicep install && export PATH="$HOME/.azure/bin:$PATH"
+    - python3 -m pip install --quiet --disable-pip-version-check pyyaml==6.0.3
+    - python3 tests/run_arm_tests.py infra-spec.yaml --template main.bicep --tests tests
 
 .plan:
   script:
@@ -228,6 +232,9 @@ validate:
       --parameters "main.$CI_ENVIRONMENT_NAME.bicepparam"
 ```
 
-`!reference [.login]` pulls the two login lines into the job's script. The `jq` filter
+`!reference [.login]` pulls the two login lines into the job's script. The `azure-cli` image
+runs on the Python the Azure CLI is written in; whether its `pip` installs into it without a
+virtual environment is to confirm on the first run. `whatif.json` already is the plan job's
+artifact, for a day - within the seven days of invariant 8. The `jq` filter
 assumes the `changes[].changeType` shape of `az deployment group what-if --no-pretty-print`;
 check it against one real run before relying on the skip.

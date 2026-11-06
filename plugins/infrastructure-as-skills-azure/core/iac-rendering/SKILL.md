@@ -168,7 +168,7 @@ code, pipeline or fix agent of [agents.md](references/agents.md) - writes only t
 
 | What | Files |
 |---|---|
-| The code and its tests | Terraform: `*.tf`, `*.tftest.hcl`, `*.tfvars`, `.terraform.lock.hcl`. Bicep: `*.bicep`, `*.bicepparam`, `bicepconfig.json`, `tests/*.armtest.yaml` |
+| The code and its tests | Terraform: `*.tf`, `*.tftest.hcl`, `*.tfvars`, `.terraform.lock.hcl`. Bicep: `*.bicep`, `*.bicepparam`, `bicepconfig.json`, `tests/*.armtest.yaml`, `tests/run_arm_tests.py` (the plugin's runner, copied unchanged) |
 | The spec | `infra-spec.yaml`: `plugin_version` and what the render records (`implementation: authored`) |
 | The naming convention | `naming.yaml`, only when the root has none (step 5); an existing one is never changed |
 | The pipeline | The files of `deploy_mechanism` (step 10) |

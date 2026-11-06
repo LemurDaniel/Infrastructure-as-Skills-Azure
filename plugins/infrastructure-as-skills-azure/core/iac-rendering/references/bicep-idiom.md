@@ -415,6 +415,12 @@ carries every decision — as a module parameter value, or as an ARM expression 
 still names the literal. The tests read that JSON: `tests/<name>.armtest.yaml`, run by
 `scripts/run_arm_tests.py`, counted by `scripts/check_render_coverage.py`.
 
+**The runner goes with the tests.** The render copies `scripts/run_arm_tests.py` to
+`tests/run_arm_tests.py` of the root, byte for byte - never a rewrite - so the customer's
+pipeline runs the same check the render ran ([pipelines.md](pipelines.md), invariant 15).
+`check_render_coverage.py` fails on a Bicep root whose copy is missing or differs; a newer
+plugin replaces it on the next render.
+
 ```yaml
 - decision: storage-account.networking.public_network_access
   path: resources.storageAccount.properties.parameters.publicNetworkAccess.value
