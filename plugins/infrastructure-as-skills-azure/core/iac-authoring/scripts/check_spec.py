@@ -753,6 +753,45 @@ def main():
             errors.append(f"resources.{rkey} records no decision, but its set decides {shown} - "
                           f"resolve the set and write its values, defaults included")
 
+    # --- 9e. a required question that applies has a value or an open entry ------
+    # A `required` question has no default: when its depends_on holds, the spec carries its
+    # value or an open entry naming it - leaving it out reads as "nothing open" in the decision
+    # document and the diagram, and the render meets a parameter nobody can fill. Only a
+    # depends_on on a question of the same set whose value the spec records is evaluated; one
+    # nothing records cannot be decided here and is left to the interview.
+    def holds(cond, group_values):
+        conds = cond if isinstance(cond, list) else [cond]
+        for c in conds:
+            if not isinstance(c, dict) or c.get('question') not in group_values:
+                return False
+            v = group_values[c['question']]
+            if 'equals' in c and v != c['equals']:
+                return False
+            if 'not_equals' in c and v == c['not_equals']:
+                return False
+        return True
+
+    for rkey, rnode in (get(spec, 'resources') or {}).items():
+        if not isinstance(rnode, dict):
+            continue
+        recorded = {}
+        for gid, gnode in rnode.items():
+            for qid, d in (gnode.items() if isinstance(gnode, dict) else []):
+                if isinstance(d, dict) and 'value' in d:
+                    recorded[qid] = (gid, d['value'])
+        values = {qid: v for qid, (_, v) in recorded.items()}
+        for (owner, qid), q in questions.items():
+            if owner != rkey.split('__')[0] or not q.get('required') or 'answer' in q or qid in recorded:
+                continue
+            if not q.get('depends_on') or not holds(q['depends_on'], values):
+                continue
+            path = f"resources.{rkey}.{q.get('_group')}.{qid}"
+            if path not in open_keys and path not in open_stages:
+                # a warning: specs written before this rule may lack such a value and still render
+                warnings.append(f"{path} is required once {q['depends_on'].get('question') if isinstance(q['depends_on'], dict) else 'its condition'} "
+                              f"holds, but the spec has neither its value nor an open entry naming it - "
+                              f"a missing decision reads as nothing open")
+
     # --- 10. deployer roles ------------------------------------------------
     def filled(v):
         """A list value, or a stage map of lists, that holds at least one entry."""

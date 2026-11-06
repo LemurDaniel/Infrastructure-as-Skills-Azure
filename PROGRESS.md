@@ -737,6 +737,30 @@ per-family` in `check_spec.py` and the `chatbot` spec, and `references/private-d
 
 ### Interview and spec
 
+- **From the Bicep end-to-end run (TEMP2 chat app, 2026-11-06)** - fixed on
+  `fix/interview-signoff-from-spec`: the Phase 4 list is now read from a spec written first
+  (the run had shown "7 Tage" soft delete against a spec of 90, and "alles außer der App
+  privat" while the workspace and App Insights stayed public by default); a required question
+  whose `depends_on` holds needs a value or an `open:` entry (`check_spec.py` 9e, a warning),
+  and the App Service sign-in got `entra_client_id` per stage (the run had no `open:` entry and
+  the diagram said "Offen: keine"); dependent questions go into a later call; `priority: cost`
+  forces the small App Service plan to P0v3. Still open from that run:
+  - **Clean up the specs 9e warns on, then make it an error**: `eval-agent/infra`
+    (`container_image` of four apps), `examples/orders-integration` (`apim_subnet`,
+    `public_ip_address`), the fixtures `iac-diagram/tests/fixtures/entry-chain.yaml` and
+    `iac-rendering/tests/fixtures/render-digest-shapes.yaml`. Spec changes, so through the
+    spec process, not hand edits of the render.
+  - **`interview_digest.py --compact`**: one line per question - id, group, type, default,
+    `answer`, `depends_on`, `required`, `per_environment`. The run wrote its own script for
+    this after reading 700 lines of digest and 700 of `spec.md`.
+  - **A spec skeleton from the answers** (`spec_skeleton.py`): the interview answers plus every
+    set's defaults, `answer` paths and `forced_by` chains written as the spec, the run filling
+    only what is stated. The 505-line spec was written by hand, which is where the summary
+    drift and the missing `open:` entry came from. Structured data, no heuristics.
+  - **The diagram's decision box says "privat, Ausnahme App Service"** while its header names
+    the workspace and App Insights too - it reads `public_parts`, the header reads each
+    resource's `public_network_access`. And the run left `infra-diagram.drawio` beside the PNG.
+
 - **Wire the former `confirm_in` defaults to requirements** (2026-10-28): `confirm_in` was
   removed - a marker in a document nobody reads changes nothing. Defaults the customer can
   judge get a `derived_from` instead: `outage_impact` → `compute_tier`/`service_tier` (SQL,

@@ -184,7 +184,11 @@ groups:
         forced_when: >
           `deployment_slots` not empty removes B1, B2 and B3 in every stage - a Basic plan has
           no deployment slots - and with them `non_production_default`; the smallest size is
-          then P0v3, recorded as forced with `deployment_slots` as forced_by
+          then P0v3, recorded as forced with `deployment_slots` as forced_by.
+          `priority: cost` with `expected_load: small` sets P0v3 instead of P1v3 - the smallest
+          Premium v3 size keeps VNet integration, zone redundancy and slots at about half the
+          price - recorded as forced with `priority` as forced_by; medium and large keep
+          their size, since the load was named and the priority only decides where nobody did
 
       - id: zone_redundant
         ask:
@@ -477,6 +481,26 @@ groups:
           reference, and the authentication settings name that setting - the template never
           carries the value. Who creates the secret and writes it into the vault is an
           `open:` entry with the registration's owner.
+
+      - id: entra_client_id
+        ask:
+          en: "What is the client id of the app registration the sign-in uses?"
+          de: "Wie lautet die Client-ID der App-Registrierung, mit der angemeldet wird?"
+        type: string
+        plain:
+          en: "The sign-in uses the app registration {value}."
+          de: "Die Anmeldung nutzt die App-Registrierung {value}."
+        required: true
+        depends_on: { question: entra_sign_in, equals: existing_app_registration }
+        per_environment: true
+        why: >
+          The registration is not a resource of the deployment, so its client id is a value
+          only its owner knows - from the request, else an `open:` entry with the
+          registration's owner, blocking apply, that also asks them to add the redirect URI
+          (`https://<host>/.auth/login/aad/callback`) once the first deployment has a host.
+          Per stage, since a stage may sign in through a registration of its own. The tenant
+          is the subscription's (`tenant()` in Bicep, `azurerm_client_config` in Terraform)
+          and is not asked.
 
   # ----------------------------------------------------------------- security
   - id: security
