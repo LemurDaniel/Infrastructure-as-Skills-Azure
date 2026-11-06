@@ -63,6 +63,12 @@ jobs:
             $summary += "**Not predicted (what-if cannot expand these modules, they are deployed anyway):** $($skipped -join ', ')"
           }
           $summary | Tee-Object -FilePath $env:GITHUB_STEP_SUMMARY -Append
+      # The record of what the approver was shown; the summary above is a digest of it.
+      - uses: actions/upload-artifact@v7
+        with:
+          name: whatif-${{ inputs.stage }}
+          path: whatif.json
+          retention-days: 7             # it carries resource properties; a non-@secure() value is in clear
 
   approve:
     needs: plan

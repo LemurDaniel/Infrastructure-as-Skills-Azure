@@ -30,7 +30,7 @@ decisions:
 
   # ------------------------------------------------------------------ address
   address.purpose:
-    not_rendered: the naming convention's `name` parameter (<workload>-<purpose>) - the pattern has no SUBNAME token, Bicep assembles it from the pip abbreviation, affix, workload and purpose; and the SKU decision
+    not_rendered: the naming convention's `purpose` parameter (<?PURPOSE>, before the index) - Bicep assembles it from the pip abbreviation, affix, workload and purpose; and the SKU decision
   address.sku:
     terraform_avm: { attribute: sku, note: module default Standard; written anyway, passthrough: true }
     terraform: { attribute: sku, passthrough: true }

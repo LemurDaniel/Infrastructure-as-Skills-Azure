@@ -35,6 +35,9 @@ Then:
      moved and the test did not. Error.
   5. A `# decision:` marker not followed by an `assert` block is a label on
      nothing. Error.
+  6. Bicep: tests/run_arm_tests.py beside the spec is the plugin's runner, byte for
+     byte (line endings aside) - the customer's pipeline runs it (pipelines.md,
+     invariant 15). Missing or different is an error.
 
 Needs PyYAML (pip install pyyaml). Without it the script says so and exits 2.
 
@@ -51,6 +54,7 @@ import re
 import sys
 
 COLORS = {'cyan': '36', 'green': '32', 'red': '31', 'gray': '90'}
+RUNNER = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'run_arm_tests.py')
 USE_COLOR = sys.stdout.isatty() and not os.environ.get('NO_COLOR')
 
 
@@ -251,6 +255,19 @@ def main():
         ok(f"{kind} - {len(decisions)} decision(s) in resources:, {len(asserted)} asserted, {len(marked)} marked not-testable, {len(files)} test file(s)")
         for did in sorted(marked):
             say(f"  not-testable: {did} ({marked[did]})", 'gray')
+
+    # The runner the customer's pipeline calls is the one that ran here (bicep-idiom.md, Tests).
+    if arm_files:
+        copy = os.path.join(base, 'tests', 'run_arm_tests.py')
+        read = lambda path: open(path, 'rb').read().replace(b'\r\n', b'\n')
+        if not os.path.isfile(copy):
+            errors.append("bicep: tests/run_arm_tests.py is missing - the pipeline's validate job runs it; "
+                          "copy core/iac-rendering/scripts/run_arm_tests.py there unchanged")
+        elif read(copy) != read(RUNNER):
+            errors.append("bicep: tests/run_arm_tests.py differs from the plugin's runner - an older or "
+                          "edited copy; copy core/iac-rendering/scripts/run_arm_tests.py again")
+        else:
+            ok("bicep - tests/run_arm_tests.py is the plugin's runner")
 
     print('-' * 70)
     if errors:

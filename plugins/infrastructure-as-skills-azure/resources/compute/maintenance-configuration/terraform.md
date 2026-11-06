@@ -26,7 +26,7 @@ Not decisions of this set:
 
 | Decision | Input | Note |
 |---|---|---|
-| (the configuration) | `name` through the naming provider | `subname` carries the window's role: `mc-gwc-dev-telemetry-patch-01` |
+| (the configuration) | `name` through the naming provider | `purpose` carries the window's role: `mc-gwc-dev-telemetry-patch-01` |
 | (scope `InGuestPatch`) | `extension_properties = { InGuestPatchMode = "User" }` | Written with the scope, never asked |
 | `deployment.module_telemetry` | `enable_telemetry` | |
 | `context.tags` | `tags = local.tags` | |
@@ -41,7 +41,7 @@ unset (`lock`: `deployment.resource_lock` does not list this resource).
 ```hcl
 data "naming_name" "maintenance_configuration" {
   resource   = "Azure::Microsoft.Maintenance/maintenanceConfigurations"
-  parameters = { subname = "patch" }
+  parameters = { purpose = "patch" }
 }
 
 module "maintenance_configuration" {

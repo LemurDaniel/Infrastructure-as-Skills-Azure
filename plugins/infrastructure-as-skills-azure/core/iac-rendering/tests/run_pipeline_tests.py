@@ -4,7 +4,8 @@
 The fixtures under tests/pipelines/ are the pipelines of references/pipelines.*.md,
 one per platform and target. Each must pass clean. Then each mutation breaks one
 invariant in a copy of a fixture - drops the plan file from `terraform apply`,
-flips a gate, lets a pull request reach a stage - and the check must fail with
+flips a gate, lets a pull request reach a stage, drops the decision tests or the
+what-if record - and the check must fail with
 the message that names it. A mutation whose text is no longer in the fixture
 fails the run: a test that cannot break anything proves nothing.
 
@@ -223,6 +224,29 @@ MUTATIONS = [
      'az deployment group create', 'az deployment sub create', 'deploys with `az deployment sub`'),
     ('bicep what-if hides the modules it skips', 'github-bicep', GHS,
      'NestedDeploymentShortCircuited', 'NestedDeploymentSomethingElse', 'short-circuits'),
+    ('github terraform without TF_IN_AUTOMATION', 'github-terraform', GHS,
+     'TF_IN_AUTOMATION: "true"', 'TF_LOG: "warn"', 'TF_IN_AUTOMATION is not true'),
+    ('ado terraform without TF_IN_AUTOMATION', 'ado-terraform', ADO,
+     '  - name: TF_IN_AUTOMATION', '  - name: TF_LOG', 'TF_IN_AUTOMATION is not true'),
+    ('ado terraform checksum fetched in the run', 'ado-terraform', ADOI,
+     "-ne '$(TF_SHA256)')",
+     "-ne (Invoke-RestMethod \"https://releases.hashicorp.com/terraform/$v/terraform_${v}_SHA256SUMS\"))",
+     'the checksum is fetched in the run'),
+    ('ado terraform hash not committed', 'ado-terraform', ADO,
+     '  - name: TF_SHA256', '  - name: TF_HASH', 'TF_SHA256 is missing'),
+    ('gitlab terraform without TF_IN_AUTOMATION', 'gitlab-terraform', GL,
+     'TF_IN_AUTOMATION: "true"', 'TF_LOG: "warn"', 'TF_IN_AUTOMATION is not true'),
+    # the render's tests and the what-if record (invariants 15 and 8)
+    ('github bicep validate skips the decision tests', 'github-bicep', GH,
+     'python tests/run_arm_tests.py', 'python tests/smoke.py', 'run_arm_tests.py'),
+    ('ado bicep validate skips the decision tests', 'ado-bicep', ADO,
+     'python tests/run_arm_tests.py', 'python tests/smoke.py', 'run_arm_tests.py'),
+    ('github bicep what-if not kept', 'github-bicep', GHS,
+     'path: whatif.json', 'path: summary.md', 'the what-if JSON is not kept'),
+    ('github bicep what-if kept a month', 'github-bicep', GHS,
+     'retention-days: 7 ', 'retention-days: 30 ', 'the what-if artifact keeps 30 days'),
+    ('ado bicep what-if not published', 'ado-bicep', ADOS,
+     'targetPath: whatif.json', 'targetPath: summary.md', 'the what-if JSON is not published'),
     ('a job directory default drops the pwsh shell', 'github-terraform', '.github/workflows/infra.yaml',
      '  validate:\n    runs-on: ubuntu-latest\n',
      '  validate:\n    runs-on: ubuntu-latest\n    defaults:\n      run:\n        working-directory: infra\n',

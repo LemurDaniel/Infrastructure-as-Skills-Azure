@@ -203,7 +203,12 @@ the detail; this list says what was decided and why, so a session does not reope
 - **Naming.** Terraform uses the `LemurDaniel/naming` provider and copies `naming.yaml`;
   Bicep assembles names from `var`s and gets a `naming.yaml` only for a stated `custom`
   departure. `br/public:` needs no alias; `br/modules:` only when `bicepconfig.json`
-  already has it.
+  already has it. **`naming.default.yaml` is the provider's bundled default, byte for
+  byte** (2026-11-06, owner's call: one YAML across both repos): a change goes into
+  `terraform-provider-naming` first, is released, then copied here, and `naming.md` pins
+  that version. `check_repo_consistency.py` compares both when the provider repo is checked
+  out beside this one. Location in every pattern, `<?PURPOSE>` (was `<?SUBNAME>`) before the
+  index, `<UNIQUE_ID_3>` in place of the index on global names.
 - **Identity.** Container Apps and Function Apps default to a user-assigned identity
   (the first revision needs its roles before the app exists); App Service stays
   system-assigned. The Entra app registration is **not** a resource set: an `open:` entry
@@ -395,6 +400,15 @@ the detail; this list says what was decided and why, so a session does not reope
   sets read from the adopted endpoint. README section, `docs/unclick.drawio.png` and a teaser
   (`docs/teaser-unclick.*`, illustrative figures). Not rendered: see *Open, unclick*.
 
+- **One naming convention with the provider** (2026-11-06, branch `feature/naming-provider-2`):
+  `LemurDaniel/naming` 2.1.0 checks every name against its type's rule at plan time and
+  bundles the convention this plugin had, merged with its own; `naming.default.yaml` is now
+  that file. New names change only for new renders: a root keeps its `naming.yaml` copy.
+  `subname` became `purpose` in every rendering reference (same position, same names). Not
+  done: an eval or a render against 2.1.0. `examples/chat-sandbox` and `eval-agent/infra`
+  keep their names through their own `naming.yaml` copies; the other examples are specs
+  without code. The naming skill for other agents is its own repo,
+  `LemurDaniel/skills-azure-naming`.
 - **Three workload-scoped sets instead of a governance family** (2026-11-01, branch
   `feature/budget-maintenance-automation`; 70 resource sets, 1,517 questions): `observability/budget`
   (resource-group scope, one per stage; both targets authored - no Terraform module, and the Bicep
@@ -937,6 +951,18 @@ per-family` in `check_spec.py` and the `chatbot` spec, and `references/private-d
 
 ### Pipelines
 
+- **Bicep decision tests and the what-if record** (2026-11-06, branch `bicep-pipeline-tests`,
+  from the owner's `BICEP__Starter_Pipelines`): invariant 15 runs `tests/run_arm_tests.py` -
+  the plugin's runner, copied unchanged by the render (owner's call: one implementation, no
+  pwsh port) - in validate on every platform and in the local script; invariant 8 keeps
+  `whatif.json` as an artifact, seven days at most. Not yet run on a runner: `setup-python@v7`
+  / `UsePythonVersion@0`, the `az bicep install` fallback, and whether the `azure-cli` image's
+  `pip` installs PyYAML without a virtual environment (GitLab). `eval-agent/infra` has no
+  `tests/run_arm_tests.py` yet - `check_render_coverage.py` fails on it until the next render
+  of that tree (never by hand, CLAUDE.md), and `eval-agent-infra*.yaml` runs no tests until then.
+- Considered from the scaffold and left out again: Deployment Stacks (`denySettingsMode`,
+  `actionOnUnmanage`) - they would let Bicep delete what the spec drops and block portal
+  deletes; a deployment decision of its own if it comes back.
 - The pwsh pipelines have parsed and been dry-run with a mocked `az`, never run on a
   runner: the next push of `eval-agent/infra` to `dev` is the first real run of
   `eval-agent-infra*.yaml` in pwsh; the ADO and GitHub Terraform fixtures have not run at all.
