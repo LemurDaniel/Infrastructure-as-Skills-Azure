@@ -1,0 +1,738 @@
+{
+ "read_at": "2026-11-06T17:19:50Z",
+ "scopes": [
+  "/subscriptions/00000007-0000-0000-0000-000000000007/resourceGroups/rg-shop-we-prod-01"
+ ],
+ "tag_filter": {},
+ "resources": [
+  {
+   "extendedLocation": null,
+   "id": "/subscriptions/00000007-0000-0000-0000-000000000007/resourceGroups/rg-shop-we-prod-01/providers/Microsoft.KeyVault/vaults/kvshopvaultgwprod01",
+   "identity": null,
+   "kind": "",
+   "location": "westeurope",
+   "managedBy": "",
+   "name": "kvshopvaultgwprod01",
+   "plan": null,
+   "properties": {
+    "accessPolicies": [],
+    "enablePurgeProtection": true,
+    "enableRbacAuthorization": true,
+    "enableSoftDelete": true,
+    "enabledForDeployment": false,
+    "enabledForDiskEncryption": false,
+    "enabledForTemplateDeployment": false,
+    "privateEndpointConnections": [
+     {
+      "id": "/subscriptions/00000007-0000-0000-0000-000000000007/resourceGroups/rg-shop-we-prod-01/providers/Microsoft.KeyVault/vaults/kvshopvaultgwprod01/privateEndpointConnections/pse-kvshopvaultgwprod01",
+      "properties": {
+       "privateEndpoint": {
+        "id": "/subscriptions/00000007-0000-0000-0000-000000000007/resourceGroups/rg-shop-we-prod-01/providers/Microsoft.Network/privateEndpoints/pep-shop-vault-gw-prod",
+        "resourceGroup": "rg-shop-we-prod-01"
+       },
+       "privateLinkServiceConnectionState": {
+        "actionsRequired": "None",
+        "status": "Approved"
+       }
+      },
+      "resourceGroup": "rg-shop-we-prod-01"
+     }
+    ],
+    "publicNetworkAccess": "Enabled",
+    "sku": {
+     "family": "A",
+     "name": "premium"
+    },
+    "softDeleteRetentionInDays": 90
+   },
+   "resourceGroup": "rg-shop-we-prod-01",
+   "sku": null,
+   "subscriptionId": "00000007-0000-0000-0000-000000000007",
+   "type": "microsoft.keyvault/vaults",
+   "zones": null
+  },
+  {
+   "extendedLocation": null,
+   "id": "/subscriptions/00000007-0000-0000-0000-000000000007/resourceGroups/rg-shop-we-prod-01/providers/Microsoft.Network/networkInterfaces/nic-shop-vault-gw-prod",
+   "identity": null,
+   "kind": "Regular",
+   "location": "westeurope",
+   "managedBy": "/subscriptions/00000007-0000-0000-0000-000000000007/resourceGroups/rg-shop-we-prod-01/providers/Microsoft.Network/privateEndpoints/pep-shop-vault-gw-prod",
+   "name": "nic-shop-vault-gw-prod",
+   "plan": null,
+   "properties": {
+    "allowPort25Out": false,
+    "auxiliaryMode": "None",
+    "auxiliarySku": "None",
+    "defaultOutboundConnectivityEnabled": false,
+    "disableTcpStateTracking": false,
+    "dnsSettings": {
+     "appliedDnsServers": [],
+     "dnsServers": [],
+     "internalDomainNameSuffix": "cgv3sjruq2derld1grdzfoybgd.frax.internal.cloudapp.net"
+    },
+    "enableAcceleratedNetworking": false,
+    "enableIPForwarding": false,
+    "ipConfigurations": [
+     {
+      "id": "/subscriptions/00000007-0000-0000-0000-000000000007/resourceGroups/rg-shop-we-prod-01/providers/Microsoft.Network/networkInterfaces/nic-shop-vault-gw-prod/ipConfigurations/privateEndpointIpConfig.00000004-0000-0000-0000-000000000004",
+      "name": "privateEndpointIpConfig.00000004-0000-0000-0000-000000000004",
+      "properties": {
+       "primary": true,
+       "privateIPAddress": "10.111.11.4",
+       "privateIPAddressVersion": "IPv4",
+       "privateIPAllocationMethod": "Dynamic",
+       "privateLinkConnectionProperties": {
+        "fqdns": [
+         "kvshopvaultgwprod01.vault.azure.net"
+        ],
+        "groupId": "vault",
+        "requiredMemberName": "default"
+       },
+       "subnet": {
+        "id": "/subscriptions/00000007-0000-0000-0000-000000000007/resourceGroups/rg-shop-we-prod-01/providers/Microsoft.Network/virtualNetworks/vnet-shop-gw-prod/subnets/snet-shop-datape-gw-prod",
+        "resourceGroup": "rg-shop-we-prod-01"
+       }
+      },
+      "resourceGroup": "rg-shop-we-prod-01",
+      "type": "Microsoft.Network/networkInterfaces/ipConfigurations"
+     }
+    ],
+    "nicType": "Standard",
+    "privateEndpoint": {
+     "id": "/subscriptions/00000007-0000-0000-0000-000000000007/resourceGroups/rg-shop-we-prod-01/providers/Microsoft.Network/privateEndpoints/pep-shop-vault-gw-prod",
+     "resourceGroup": "rg-shop-we-prod-01"
+    },
+    "vnetEncryptionSupported": false
+   },
+   "resourceGroup": "rg-shop-we-prod-01",
+   "sku": null,
+   "subscriptionId": "00000007-0000-0000-0000-000000000007",
+   "type": "microsoft.network/networkinterfaces",
+   "zones": null
+  },
+  {
+   "extendedLocation": null,
+   "id": "/subscriptions/00000007-0000-0000-0000-000000000007/resourceGroups/rg-shop-we-prod-01/providers/Microsoft.Network/networkSecurityGroups/nsg-shop-backend-gw-prod",
+   "identity": null,
+   "kind": "",
+   "location": "westeurope",
+   "managedBy": "",
+   "name": "nsg-shop-backend-gw-prod",
+   "plan": null,
+   "properties": {
+    "securityRules": [
+     {
+      "id": "/subscriptions/00000007-0000-0000-0000-000000000007/resourceGroups/rg-shop-we-prod-01/providers/Microsoft.Network/networkSecurityGroups/nsg-shop-backend-gw-prod/securityRules/Allow_Any_From_Bootstrap_Network",
+      "name": "Allow_Any_From_Bootstrap_Network",
+      "properties": {
+       "access": "Allow",
+       "destinationAddressPrefix": "*",
+       "destinationAddressPrefixes": [],
+       "destinationPortRange": "*",
+       "destinationPortRanges": [],
+       "direction": "Inbound",
+       "priority": 100,
+       "protocol": "Tcp",
+       "sourceAddressPrefix": "",
+       "sourceAddressPrefixes": [
+        "10.0.0.0/27"
+       ],
+       "sourcePortRange": "*",
+       "sourcePortRanges": []
+      },
+      "resourceGroup": "rg-shop-we-prod-01",
+      "type": "Microsoft.Network/networkSecurityGroups/securityRules"
+     },
+     {
+      "id": "/subscriptions/00000007-0000-0000-0000-000000000007/resourceGroups/rg-shop-we-prod-01/providers/Microsoft.Network/networkSecurityGroups/nsg-shop-backend-gw-prod/securityRules/Deny_Any_From_Internet",
+      "name": "Deny_Any_From_Internet",
+      "properties": {
+       "access": "Deny",
+       "destinationAddressPrefix": "*",
+       "destinationAddressPrefixes": [],
+       "destinationPortRange": "*",
+       "destinationPortRanges": [],
+       "direction": "Inbound",
+       "priority": 4000,
+       "protocol": "Tcp",
+       "sourceAddressPrefix": "*",
+       "sourceAddressPrefixes": [],
+       "sourcePortRange": "*",
+       "sourcePortRanges": []
+      },
+      "resourceGroup": "rg-shop-we-prod-01",
+      "type": "Microsoft.Network/networkSecurityGroups/securityRules"
+     },
+     {
+      "id": "/subscriptions/00000007-0000-0000-0000-000000000007/resourceGroups/rg-shop-we-prod-01/providers/Microsoft.Network/networkSecurityGroups/nsg-shop-backend-gw-prod/securityRules/Allow_HTTPS_From_Frontend",
+      "name": "Allow_HTTPS_From_Frontend",
+      "properties": {
+       "access": "Allow",
+       "destinationAddressPrefix": "*",
+       "destinationAddressPrefixes": [],
+       "destinationPortRange": "443",
+       "destinationPortRanges": [],
+       "direction": "Inbound",
+       "priority": 1000,
+       "protocol": "Tcp",
+       "sourceAddressPrefix": "",
+       "sourceAddressPrefixes": [
+        "10.111.8.0/25"
+       ],
+       "sourcePortRange": "*",
+       "sourcePortRanges": []
+      },
+      "resourceGroup": "rg-shop-we-prod-01",
+      "type": "Microsoft.Network/networkSecurityGroups/securityRules"
+     },
+     {
+      "id": "/subscriptions/00000007-0000-0000-0000-000000000007/resourceGroups/rg-shop-we-prod-01/providers/Microsoft.Network/networkSecurityGroups/nsg-shop-backend-gw-prod/securityRules/Allow_HTTPS_From_Internet",
+      "name": "Allow_HTTPS_From_Internet",
+      "properties": {
+       "access": "Allow",
+       "destinationAddressPrefix": "*",
+       "destinationAddressPrefixes": [],
+       "destinationPortRange": "443",
+       "destinationPortRanges": [],
+       "direction": "Inbound",
+       "priority": 500,
+       "protocol": "Tcp",
+       "sourceAddressPrefix": "*",
+       "sourceAddressPrefixes": [],
+       "sourcePortRange": "*",
+       "sourcePortRanges": []
+      },
+      "resourceGroup": "rg-shop-we-prod-01",
+      "type": "Microsoft.Network/networkSecurityGroups/securityRules"
+     }
+    ],
+    "subnets": [
+     {
+      "id": "/subscriptions/00000007-0000-0000-0000-000000000007/resourceGroups/RG-shop-WE-PROD-01/providers/Microsoft.Network/virtualNetworks/VNET-SHOP-GW-PROD/subnets/SNET-SHOP-BACKENDPE-GW-PROD",
+      "resourceGroup": "RG-shop-WE-PROD-01"
+     },
+     {
+      "id": "/subscriptions/00000007-0000-0000-0000-000000000007/resourceGroups/RG-shop-WE-PROD-01/providers/Microsoft.Network/virtualNetworks/VNET-SHOP-GW-PROD/subnets/SNET-SHOP-BACKENDVNET-GW-PROD",
+      "resourceGroup": "RG-shop-WE-PROD-01"
+     }
+    ]
+   },
+   "resourceGroup": "rg-shop-we-prod-01",
+   "sku": null,
+   "subscriptionId": "00000007-0000-0000-0000-000000000007",
+   "type": "microsoft.network/networksecuritygroups",
+   "zones": null
+  },
+  {
+   "extendedLocation": null,
+   "id": "/subscriptions/00000007-0000-0000-0000-000000000007/resourceGroups/rg-shop-we-prod-01/providers/Microsoft.Network/networkSecurityGroups/nsg-shop-data-gw-prod",
+   "identity": null,
+   "kind": "",
+   "location": "westeurope",
+   "managedBy": "",
+   "name": "nsg-shop-data-gw-prod",
+   "plan": null,
+   "properties": {
+    "securityRules": [
+     {
+      "id": "/subscriptions/00000007-0000-0000-0000-000000000007/resourceGroups/rg-shop-we-prod-01/providers/Microsoft.Network/networkSecurityGroups/nsg-shop-data-gw-prod/securityRules/Deny_Any_From_Internet",
+      "name": "Deny_Any_From_Internet",
+      "properties": {
+       "access": "Deny",
+       "destinationAddressPrefix": "*",
+       "destinationAddressPrefixes": [],
+       "destinationPortRange": "*",
+       "destinationPortRanges": [],
+       "direction": "Inbound",
+       "priority": 4000,
+       "protocol": "Tcp",
+       "sourceAddressPrefix": "*",
+       "sourceAddressPrefixes": [],
+       "sourcePortRange": "*",
+       "sourcePortRanges": []
+      },
+      "resourceGroup": "rg-shop-we-prod-01",
+      "type": "Microsoft.Network/networkSecurityGroups/securityRules"
+     },
+     {
+      "id": "/subscriptions/00000007-0000-0000-0000-000000000007/resourceGroups/rg-shop-we-prod-01/providers/Microsoft.Network/networkSecurityGroups/nsg-shop-data-gw-prod/securityRules/Allow_HTTPS_From_Frontend",
+      "name": "Allow_HTTPS_From_Frontend",
+      "properties": {
+       "access": "Allow",
+       "destinationAddressPrefix": "*",
+       "destinationAddressPrefixes": [],
+       "destinationPortRange": "*",
+       "destinationPortRanges": [],
+       "direction": "Inbound",
+       "priority": 200,
+       "protocol": "Tcp",
+       "sourceAddressPrefix": "",
+       "sourceAddressPrefixes": [
+        "10.111.8.0/25"
+       ],
+       "sourcePortRange": "*",
+       "sourcePortRanges": []
+      },
+      "resourceGroup": "rg-shop-we-prod-01",
+      "type": "Microsoft.Network/networkSecurityGroups/securityRules"
+     },
+     {
+      "id": "/subscriptions/00000007-0000-0000-0000-000000000007/resourceGroups/rg-shop-we-prod-01/providers/Microsoft.Network/networkSecurityGroups/nsg-shop-data-gw-prod/securityRules/Allow_HTTPS_From_Backend",
+      "name": "Allow_HTTPS_From_Backend",
+      "properties": {
+       "access": "Allow",
+       "destinationAddressPrefix": "*",
+       "destinationAddressPrefixes": [],
+       "destinationPortRange": "*",
+       "destinationPortRanges": [],
+       "direction": "Inbound",
+       "priority": 210,
+       "protocol": "Tcp",
+       "sourceAddressPrefix": "",
+       "sourceAddressPrefixes": [
+        "10.111.9.0/24"
+       ],
+       "sourcePortRange": "*",
+       "sourcePortRanges": []
+      },
+      "resourceGroup": "rg-shop-we-prod-01",
+      "type": "Microsoft.Network/networkSecurityGroups/securityRules"
+     },
+     {
+      "id": "/subscriptions/00000007-0000-0000-0000-000000000007/resourceGroups/rg-shop-we-prod-01/providers/Microsoft.Network/networkSecurityGroups/nsg-shop-data-gw-prod/securityRules/Allow_Any_From_Bootstrap_Network",
+      "name": "Allow_Any_From_Bootstrap_Network",
+      "properties": {
+       "access": "Allow",
+       "destinationAddressPrefix": "*",
+       "destinationAddressPrefixes": [],
+       "destinationPortRange": "*",
+       "destinationPortRanges": [],
+       "direction": "Inbound",
+       "priority": 100,
+       "protocol": "Tcp",
+       "sourceAddressPrefix": "",
+       "sourceAddressPrefixes": [
+        "10.0.0.0/27"
+       ],
+       "sourcePortRange": "*",
+       "sourcePortRanges": []
+      },
+      "resourceGroup": "rg-shop-we-prod-01",
+      "type": "Microsoft.Network/networkSecurityGroups/securityRules"
+     }
+    ],
+    "subnets": [
+     {
+      "id": "/subscriptions/00000007-0000-0000-0000-000000000007/resourceGroups/RG-shop-WE-PROD-01/providers/Microsoft.Network/virtualNetworks/VNET-SHOP-GW-PROD/subnets/SNET-SHOP-DATAADDITIONAL-GW-PROD",
+      "resourceGroup": "RG-shop-WE-PROD-01"
+     },
+     {
+      "id": "/subscriptions/00000007-0000-0000-0000-000000000007/resourceGroups/RG-shop-WE-PROD-01/providers/Microsoft.Network/virtualNetworks/VNET-SHOP-GW-PROD/subnets/SNET-SHOP-DATAPE-GW-PROD",
+      "resourceGroup": "RG-shop-WE-PROD-01"
+     }
+    ]
+   },
+   "resourceGroup": "rg-shop-we-prod-01",
+   "sku": null,
+   "subscriptionId": "00000007-0000-0000-0000-000000000007",
+   "type": "microsoft.network/networksecuritygroups",
+   "zones": null
+  },
+  {
+   "extendedLocation": null,
+   "id": "/subscriptions/00000007-0000-0000-0000-000000000007/resourceGroups/rg-shop-we-prod-01/providers/Microsoft.Network/networkSecurityGroups/nsg-shop-frontend-gw-prod",
+   "identity": null,
+   "kind": "",
+   "location": "westeurope",
+   "managedBy": "",
+   "name": "nsg-shop-frontend-gw-prod",
+   "plan": null,
+   "properties": {
+    "securityRules": [
+     {
+      "id": "/subscriptions/00000007-0000-0000-0000-000000000007/resourceGroups/rg-shop-we-prod-01/providers/Microsoft.Network/networkSecurityGroups/nsg-shop-frontend-gw-prod/securityRules/Allow_HTTPS_From_Internet",
+      "name": "Allow_HTTPS_From_Internet",
+      "properties": {
+       "access": "Allow",
+       "destinationAddressPrefix": "*",
+       "destinationAddressPrefixes": [],
+       "destinationPortRange": "443",
+       "destinationPortRanges": [],
+       "direction": "Inbound",
+       "priority": 500,
+       "protocol": "Tcp",
+       "sourceAddressPrefix": "*",
+       "sourceAddressPrefixes": [],
+       "sourcePortRange": "*",
+       "sourcePortRanges": []
+      },
+      "resourceGroup": "rg-shop-we-prod-01",
+      "type": "Microsoft.Network/networkSecurityGroups/securityRules"
+     },
+     {
+      "id": "/subscriptions/00000007-0000-0000-0000-000000000007/resourceGroups/rg-shop-we-prod-01/providers/Microsoft.Network/networkSecurityGroups/nsg-shop-frontend-gw-prod/securityRules/Allow_Any_From_Bootstrap_Network",
+      "name": "Allow_Any_From_Bootstrap_Network",
+      "properties": {
+       "access": "Allow",
+       "destinationAddressPrefix": "*",
+       "destinationAddressPrefixes": [],
+       "destinationPortRange": "*",
+       "destinationPortRanges": [],
+       "direction": "Inbound",
+       "priority": 100,
+       "protocol": "Tcp",
+       "sourceAddressPrefix": "",
+       "sourceAddressPrefixes": [
+        "10.0.0.0/27"
+       ],
+       "sourcePortRange": "*",
+       "sourcePortRanges": []
+      },
+      "resourceGroup": "rg-shop-we-prod-01",
+      "type": "Microsoft.Network/networkSecurityGroups/securityRules"
+     },
+     {
+      "id": "/subscriptions/00000007-0000-0000-0000-000000000007/resourceGroups/rg-shop-we-prod-01/providers/Microsoft.Network/networkSecurityGroups/nsg-shop-frontend-gw-prod/securityRules/Deny_Any_From_Internet",
+      "name": "Deny_Any_From_Internet",
+      "properties": {
+       "access": "Deny",
+       "destinationAddressPrefix": "*",
+       "destinationAddressPrefixes": [],
+       "destinationPortRange": "*",
+       "destinationPortRanges": [],
+       "direction": "Inbound",
+       "priority": 4000,
+       "protocol": "Tcp",
+       "sourceAddressPrefix": "*",
+       "sourceAddressPrefixes": [],
+       "sourcePortRange": "*",
+       "sourcePortRanges": []
+      },
+      "resourceGroup": "rg-shop-we-prod-01",
+      "type": "Microsoft.Network/networkSecurityGroups/securityRules"
+     }
+    ],
+    "subnets": [
+     {
+      "id": "/subscriptions/00000007-0000-0000-0000-000000000007/resourceGroups/RG-shop-WE-PROD-01/providers/Microsoft.Network/virtualNetworks/VNET-SHOP-GW-PROD/subnets/SNET-SHOP-FRONTENDPE-GW-PROD",
+      "resourceGroup": "RG-shop-WE-PROD-01"
+     },
+     {
+      "id": "/subscriptions/00000007-0000-0000-0000-000000000007/resourceGroups/RG-shop-WE-PROD-01/providers/Microsoft.Network/virtualNetworks/VNET-SHOP-GW-PROD/subnets/SNET-SHOP-FRONTENDVNET-GW-PROD",
+      "resourceGroup": "RG-shop-WE-PROD-01"
+     }
+    ]
+   },
+   "resourceGroup": "rg-shop-we-prod-01",
+   "sku": null,
+   "subscriptionId": "00000007-0000-0000-0000-000000000007",
+   "type": "microsoft.network/networksecuritygroups",
+   "zones": null
+  },
+  {
+   "extendedLocation": null,
+   "id": "/subscriptions/00000007-0000-0000-0000-000000000007/resourceGroups/rg-shop-we-prod-01/providers/Microsoft.Network/privateEndpoints/pep-shop-vault-gw-prod",
+   "identity": null,
+   "kind": "",
+   "location": "westeurope",
+   "managedBy": "",
+   "name": "pep-shop-vault-gw-prod",
+   "plan": null,
+   "properties": {
+    "billingSku": "PayAsYouGo",
+    "customDnsConfigs": [],
+    "customNetworkInterfaceName": "nic-shop-vault-gw-prod",
+    "ipConfigurations": [],
+    "ipVersionType": "IPv4",
+    "manualPrivateLinkServiceConnections": [],
+    "networkInterfaces": [
+     {
+      "id": "/subscriptions/00000007-0000-0000-0000-000000000007/resourceGroups/rg-shop-we-prod-01/providers/Microsoft.Network/networkInterfaces/nic-shop-vault-gw-prod",
+      "resourceGroup": "rg-shop-we-prod-01"
+     }
+    ],
+    "privateLinkServiceConnections": [
+     {
+      "id": "/subscriptions/00000007-0000-0000-0000-000000000007/resourceGroups/rg-shop-we-prod-01/providers/Microsoft.Network/privateEndpoints/pep-shop-vault-gw-prod/privateLinkServiceConnections/pse-kvshopvaultgwprod01",
+      "name": "pse-kvshopvaultgwprod01",
+      "properties": {
+       "groupIds": [
+        "vault"
+       ],
+       "privateLinkServiceConnectionState": {
+        "actionsRequired": "None",
+        "description": "",
+        "status": "Approved"
+       },
+       "privateLinkServiceId": "/subscriptions/00000007-0000-0000-0000-000000000007/resourceGroups/rg-shop-we-prod-01/providers/Microsoft.KeyVault/vaults/kvshopvaultgwprod01"
+      },
+      "resourceGroup": "rg-shop-we-prod-01",
+      "type": "Microsoft.Network/privateEndpoints/privateLinkServiceConnections"
+     }
+    ],
+    "subnet": {
+     "id": "/subscriptions/00000007-0000-0000-0000-000000000007/resourceGroups/rg-shop-we-prod-01/providers/Microsoft.Network/virtualNetworks/vnet-shop-gw-prod/subnets/snet-shop-datape-gw-prod",
+     "resourceGroup": "rg-shop-we-prod-01"
+    }
+   },
+   "resourceGroup": "rg-shop-we-prod-01",
+   "sku": null,
+   "subscriptionId": "00000007-0000-0000-0000-000000000007",
+   "type": "microsoft.network/privateendpoints",
+   "zones": null
+  },
+  {
+   "extendedLocation": null,
+   "id": "/subscriptions/00000007-0000-0000-0000-000000000007/resourceGroups/rg-shop-we-prod-01/providers/Microsoft.Network/virtualNetworks/vnet-shop-gw-prod",
+   "identity": null,
+   "kind": "",
+   "location": "westeurope",
+   "managedBy": "",
+   "name": "vnet-shop-gw-prod",
+   "plan": null,
+   "properties": {
+    "addressSpace": {
+     "addressPrefixes": [
+      "10.111.8.0/22"
+     ]
+    },
+    "enableDdosProtection": false,
+    "privateEndpointVNetPolicies": "Disabled",
+    "subnets": [
+     {
+      "id": "/subscriptions/00000007-0000-0000-0000-000000000007/resourceGroups/rg-shop-we-prod-01/providers/Microsoft.Network/virtualNetworks/vnet-shop-gw-prod/subnets/snet-shop-backendvnet-gw-prod",
+      "name": "snet-shop-backendvnet-gw-prod",
+      "properties": {
+       "addressPrefix": "10.111.9.0/24",
+       "defaultOutboundAccess": false,
+       "delegations": [
+        {
+         "id": "/subscriptions/00000007-0000-0000-0000-000000000007/resourceGroups/rg-shop-we-prod-01/providers/Microsoft.Network/virtualNetworks/vnet-shop-gw-prod/subnets/snet-shop-backendvnet-gw-prod/delegations/Microsoft.Web.serverFarms",
+         "name": "Microsoft.Web.serverFarms",
+         "properties": {
+          "actions": [
+           "Microsoft.Network/virtualNetworks/subnets/action"
+          ],
+          "serviceName": "Microsoft.Web/serverFarms"
+         },
+         "resourceGroup": "rg-shop-we-prod-01",
+         "type": "Microsoft.Network/virtualNetworks/subnets/delegations"
+        }
+       ],
+       "networkSecurityGroup": {
+        "id": "/subscriptions/00000007-0000-0000-0000-000000000007/resourceGroups/rg-shop-we-prod-01/providers/Microsoft.Network/networkSecurityGroups/nsg-shop-backend-gw-prod",
+        "resourceGroup": "rg-shop-we-prod-01"
+       },
+       "privateEndpointNetworkPolicies": "Enabled",
+       "privateLinkServiceNetworkPolicies": "Enabled"
+      },
+      "resourceGroup": "rg-shop-we-prod-01",
+      "type": "Microsoft.Network/virtualNetworks/subnets"
+     },
+     {
+      "id": "/subscriptions/00000007-0000-0000-0000-000000000007/resourceGroups/rg-shop-we-prod-01/providers/Microsoft.Network/virtualNetworks/vnet-shop-gw-prod/subnets/snet-shop-frontendpe-gw-prod",
+      "name": "snet-shop-frontendpe-gw-prod",
+      "properties": {
+       "addressPrefix": "10.111.8.128/25",
+       "defaultOutboundAccess": false,
+       "delegations": [],
+       "networkSecurityGroup": {
+        "id": "/subscriptions/00000007-0000-0000-0000-000000000007/resourceGroups/rg-shop-we-prod-01/providers/Microsoft.Network/networkSecurityGroups/nsg-shop-frontend-gw-prod",
+        "resourceGroup": "rg-shop-we-prod-01"
+       },
+       "privateEndpointNetworkPolicies": "Enabled",
+       "privateLinkServiceNetworkPolicies": "Enabled"
+      },
+      "resourceGroup": "rg-shop-we-prod-01",
+      "type": "Microsoft.Network/virtualNetworks/subnets"
+     },
+     {
+      "id": "/subscriptions/00000007-0000-0000-0000-000000000007/resourceGroups/rg-shop-we-prod-01/providers/Microsoft.Network/virtualNetworks/vnet-shop-gw-prod/subnets/snet-shop-datape-gw-prod",
+      "name": "snet-shop-datape-gw-prod",
+      "properties": {
+       "addressPrefix": "10.111.11.0/25",
+       "defaultOutboundAccess": false,
+       "delegations": [],
+       "ipConfigurations": [
+        {
+         "id": "/subscriptions/00000007-0000-0000-0000-000000000007/resourceGroups/RG-shop-WE-PROD-01/providers/Microsoft.Network/networkInterfaces/NIC-SHOP-VAULT-GW-PROD/ipConfigurations/PRIVATEENDPOINTIPCONFIG.00000004-0000-0000-0000-000000000004",
+         "resourceGroup": "RG-shop-WE-PROD-01"
+        }
+       ],
+       "networkSecurityGroup": {
+        "id": "/subscriptions/00000007-0000-0000-0000-000000000007/resourceGroups/rg-shop-we-prod-01/providers/Microsoft.Network/networkSecurityGroups/nsg-shop-data-gw-prod",
+        "resourceGroup": "rg-shop-we-prod-01"
+       },
+       "privateEndpointNetworkPolicies": "Enabled",
+       "privateEndpoints": [
+        {
+         "id": "/subscriptions/00000007-0000-0000-0000-000000000007/resourceGroups/RG-shop-WE-PROD-01/providers/Microsoft.Network/privateEndpoints/PEP-SHOP-VAULT-GW-PROD",
+         "resourceGroup": "RG-shop-WE-PROD-01"
+        }
+       ],
+       "privateLinkServiceNetworkPolicies": "Enabled",
+       "purpose": "PrivateEndpoints"
+      },
+      "resourceGroup": "rg-shop-we-prod-01",
+      "type": "Microsoft.Network/virtualNetworks/subnets"
+     },
+     {
+      "id": "/subscriptions/00000007-0000-0000-0000-000000000007/resourceGroups/rg-shop-we-prod-01/providers/Microsoft.Network/virtualNetworks/vnet-shop-gw-prod/subnets/snet-shop-frontendvnet-gw-prod",
+      "name": "snet-shop-frontendvnet-gw-prod",
+      "properties": {
+       "addressPrefix": "10.111.8.0/25",
+       "defaultOutboundAccess": false,
+       "delegations": [
+        {
+         "id": "/subscriptions/00000007-0000-0000-0000-000000000007/resourceGroups/rg-shop-we-prod-01/providers/Microsoft.Network/virtualNetworks/vnet-shop-gw-prod/subnets/snet-shop-frontendvnet-gw-prod/delegations/Microsoft.Web.serverFarms",
+         "name": "Microsoft.Web.serverFarms",
+         "properties": {
+          "actions": [
+           "Microsoft.Network/virtualNetworks/subnets/action"
+          ],
+          "serviceName": "Microsoft.Web/serverFarms"
+         },
+         "resourceGroup": "rg-shop-we-prod-01",
+         "type": "Microsoft.Network/virtualNetworks/subnets/delegations"
+        }
+       ],
+       "networkSecurityGroup": {
+        "id": "/subscriptions/00000007-0000-0000-0000-000000000007/resourceGroups/rg-shop-we-prod-01/providers/Microsoft.Network/networkSecurityGroups/nsg-shop-frontend-gw-prod",
+        "resourceGroup": "rg-shop-we-prod-01"
+       },
+       "privateEndpointNetworkPolicies": "Enabled",
+       "privateLinkServiceNetworkPolicies": "Enabled"
+      },
+      "resourceGroup": "rg-shop-we-prod-01",
+      "type": "Microsoft.Network/virtualNetworks/subnets"
+     },
+     {
+      "id": "/subscriptions/00000007-0000-0000-0000-000000000007/resourceGroups/rg-shop-we-prod-01/providers/Microsoft.Network/virtualNetworks/vnet-shop-gw-prod/subnets/snet-shop-dataadditional-gw-prod",
+      "name": "snet-shop-dataadditional-gw-prod",
+      "properties": {
+       "addressPrefix": "10.111.11.128/25",
+       "defaultOutboundAccess": false,
+       "delegations": [
+        {
+         "id": "/subscriptions/00000007-0000-0000-0000-000000000007/resourceGroups/rg-shop-we-prod-01/providers/Microsoft.Network/virtualNetworks/vnet-shop-gw-prod/subnets/snet-shop-dataadditional-gw-prod/delegations/Microsoft.App.environments",
+         "name": "Microsoft.App.environments",
+         "properties": {
+          "actions": [
+           "Microsoft.Network/virtualNetworks/subnets/join/action"
+          ],
+          "serviceName": "Microsoft.App/environments"
+         },
+         "resourceGroup": "rg-shop-we-prod-01",
+         "type": "Microsoft.Network/virtualNetworks/subnets/delegations"
+        }
+       ],
+       "networkSecurityGroup": {
+        "id": "/subscriptions/00000007-0000-0000-0000-000000000007/resourceGroups/rg-shop-we-prod-01/providers/Microsoft.Network/networkSecurityGroups/nsg-shop-data-gw-prod",
+        "resourceGroup": "rg-shop-we-prod-01"
+       },
+       "privateEndpointNetworkPolicies": "Enabled",
+       "privateLinkServiceNetworkPolicies": "Enabled"
+      },
+      "resourceGroup": "rg-shop-we-prod-01",
+      "type": "Microsoft.Network/virtualNetworks/subnets"
+     },
+     {
+      "id": "/subscriptions/00000007-0000-0000-0000-000000000007/resourceGroups/rg-shop-we-prod-01/providers/Microsoft.Network/virtualNetworks/vnet-shop-gw-prod/subnets/snet-shop-backendpe-gw-prod",
+      "name": "snet-shop-backendpe-gw-prod",
+      "properties": {
+       "addressPrefix": "10.111.10.0/24",
+       "defaultOutboundAccess": false,
+       "delegations": [],
+       "networkSecurityGroup": {
+        "id": "/subscriptions/00000007-0000-0000-0000-000000000007/resourceGroups/rg-shop-we-prod-01/providers/Microsoft.Network/networkSecurityGroups/nsg-shop-backend-gw-prod",
+        "resourceGroup": "rg-shop-we-prod-01"
+       },
+       "privateEndpointNetworkPolicies": "Enabled",
+       "privateLinkServiceNetworkPolicies": "Enabled"
+      },
+      "resourceGroup": "rg-shop-we-prod-01",
+      "type": "Microsoft.Network/virtualNetworks/subnets"
+     }
+    ],
+    "virtualNetworkPeerings": [
+     {
+      "id": "/subscriptions/00000007-0000-0000-0000-000000000007/resourceGroups/rg-shop-we-prod-01/providers/Microsoft.Network/virtualNetworks/vnet-shop-gw-prod/virtualNetworkPeerings/peering-prod-to-bootstrap",
+      "name": "peering-prod-to-bootstrap",
+      "properties": {
+       "allowForwardedTraffic": true,
+       "allowGatewayTransit": false,
+       "allowVirtualNetworkAccess": false,
+       "doNotVerifyRemoteGateways": false,
+       "enableOnlyIPv6Peering": false,
+       "peerCompleteVnets": true,
+       "peeringState": "Connected",
+       "peeringSyncLevel": "FullyInSync",
+       "remoteAddressSpace": {
+        "addressPrefixes": [
+         "10.0.0.0/27"
+        ]
+       },
+       "remoteVirtualNetwork": {
+        "id": "/subscriptions/00000007-0000-0000-0000-000000000007/resourceGroups/rg-shop-shared-we/providers/Microsoft.Network/virtualNetworks/vnet-shop-shared-we",
+        "resourceGroup": "rg-shop-shared-we"
+       },
+       "remoteVirtualNetworkAddressSpace": {
+        "addressPrefixes": [
+         "10.0.0.0/27"
+        ]
+       },
+       "routeServiceVips": {},
+       "useRemoteGateways": false
+      },
+      "resourceGroup": "rg-shop-we-prod-01",
+      "type": "Microsoft.Network/virtualNetworks/virtualNetworkPeerings"
+     }
+    ]
+   },
+   "resourceGroup": "rg-shop-we-prod-01",
+   "sku": null,
+   "subscriptionId": "00000007-0000-0000-0000-000000000007",
+   "type": "microsoft.network/virtualnetworks",
+   "zones": null
+  }
+ ],
+ "resource_groups": [
+  {
+   "id": "/subscriptions/00000007-0000-0000-0000-000000000007/resourceGroups/rg-shop-we-prod-01",
+   "name": "rg-shop-we-prod-01",
+   "managedBy": ""
+  }
+ ],
+ "role_assignments": [
+  {
+   "id": "/subscriptions/00000007-0000-0000-0000-000000000007/resourceGroups/rg-shop-we-prod-01/providers/Microsoft.Authorization/RoleAssignments/00000003-0000-0000-0000-000000000003",
+   "properties": {
+    "description": "",
+    "principalId": "00000006-0000-0000-0000-000000000006",
+    "principalType": "User",
+    "roleDefinitionId": "/providers/Microsoft.Authorization/RoleDefinitions/8e3af657-a8ff-443c-a75c-2fe8c4bcb635",
+    "scope": "/subscriptions/00000007-0000-0000-0000-000000000007/resourceGroups/rg-shop-we-prod-01"
+   },
+   "resourceGroup": "rg-shop-we-prod-01"
+  },
+  {
+   "id": "/subscriptions/00000007-0000-0000-0000-000000000007/resourceGroups/rg-shop-we-prod-01/providers/Microsoft.KeyVault/vaults/kvshopvaultgwprod01/providers/Microsoft.Authorization/RoleAssignments/00000008-0000-0000-0000-000000000008",
+   "properties": {
+    "description": "",
+    "principalId": "00000006-0000-0000-0000-000000000006",
+    "principalType": "User",
+    "roleDefinitionId": "/providers/Microsoft.Authorization/RoleDefinitions/00482a5a-887f-4fb3-b363-3b7fe8e74483",
+    "scope": "/subscriptions/00000007-0000-0000-0000-000000000007/resourceGroups/rg-shop-we-prod-01/providers/Microsoft.KeyVault/vaults/kvshopvaultgwprod01"
+   },
+   "resourceGroup": "rg-shop-we-prod-01"
+  }
+ ],
+ "role_definitions": {
+  "8e3af657-a8ff-443c-a75c-2fe8c4bcb635": "Owner",
+  "00482a5a-887f-4fb3-b363-3b7fe8e74483": "Key Vault Administrator"
+ },
+ "locks": [],
+ "diagnostic_settings": [],
+ "diagnostics_read": true
+}

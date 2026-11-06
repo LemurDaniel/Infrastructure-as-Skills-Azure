@@ -90,7 +90,11 @@ decisions:
         deny_all: { expr: "{ name: 'deny-all-inbound', properties: { priority: 4096, direction: 'Inbound', access: 'Deny', protocol: '*', sourceAddressPrefix: '*', sourcePortRange: '*', destinationAddressPrefix: '*', destinationPortRange: '*' } }" }
         azure_default: null
       note: azure_default renders no rule
-    import: {todo: 'in the row as a properties.securityRules[] entry (Deny, Inbound, priority 4096, all *); no form tests a list element'}
+    import:
+      path: properties.securityRules
+      match: { properties.access: Deny, properties.direction: Inbound, properties.priority: 4096, properties.protocol: '*', properties.sourceAddressPrefix: '*', properties.sourcePortRange: '*', properties.destinationAddressPrefix: '*', properties.destinationPortRange: '*' }
+      present: deny_all
+      missing: azure_default
   rules.default_outbound:
     terraform_avm:
       gap: >-
@@ -110,7 +114,11 @@ decisions:
         deny_internet adds a properties.securityRules entry - Deny, Outbound, destinationAddressPrefix
         'Internet', priority 4096; bicep.md states no name, protocol, source or ports for it.
         azure_default adds none
-    import: {todo: 'in the row as a properties.securityRules[] entry (Deny, Outbound, destination Internet, priority 4096); no form tests a list element'}
+    import:
+      path: properties.securityRules
+      match: { properties.access: Deny, properties.direction: Outbound, properties.priority: 4096, properties.destinationAddressPrefix: Internet }
+      present: deny_internet
+      missing: azure_default
   rules.rules:
     terraform_avm:
       attribute: 'security_rules.<k> = { name, priority, direction, access = "Allow", protocol, source_*, destination_* }'
@@ -124,7 +132,24 @@ decisions:
     bicep:
       attribute: properties.securityRules
       note: inline or as child resources - mixing them makes a redeploy remove one or the other
-    import: {todo: 'in the row as properties.securityRules[] (Allow entries besides the baseline and default rules); a list of objects no form reads'}
+    import:
+      path: properties.securityRules
+      skip:
+      - { properties.access: Deny, properties.direction: Inbound, properties.priority: 4096, properties.protocol: '*', properties.sourceAddressPrefix: '*', properties.sourcePortRange: '*', properties.destinationAddressPrefix: '*', properties.destinationPortRange: '*' }
+      - { properties.access: Deny, properties.direction: Outbound, properties.priority: 4096, properties.destinationAddressPrefix: Internet }
+      items:
+        name: name
+        priority: properties.priority
+        direction: properties.direction
+        access: properties.access
+        protocol: properties.protocol
+        source: [properties.sourceAddressPrefix, properties.sourceAddressPrefixes, properties.sourceApplicationSecurityGroups]
+        source_ports: [properties.sourcePortRange, properties.sourcePortRanges]
+        destination: [properties.destinationAddressPrefix, properties.destinationAddressPrefixes, properties.destinationApplicationSecurityGroups]
+        destination_ports: [properties.destinationPortRange, properties.destinationPortRanges]
+      note: >-
+        every rule besides the two defaults, as it runs - a Deny among them is a departure from
+        `always Allow` the review names; the baseline of subnet_purpose is not told apart
 
   # ------------------------------------------------------------ observability
   observability.diagnostic_workspace:

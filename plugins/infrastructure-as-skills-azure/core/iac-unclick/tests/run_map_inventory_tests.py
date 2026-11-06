@@ -16,7 +16,15 @@ The written spec must pass check_spec.py and be canonical, and:
     role assignment), and the noise appears nowhere - nor does a tag Azure set itself;
   - the exposure follows from what was read (a public storage account: public);
   - the decision document lists the departures from the rules (public access, shared keys)
-    and what was found and not built.
+    and what was found and not built;
+  - the one workspace the storage account's setting writes to is the deployment's destination.
+
+tests/fixtures/inventory-network.json is a real group, anonymised: a vault behind a private
+endpoint (and its network interface), a network of six subnets and three NSGs with rules of
+their own, Deny among them; no diagnostic setting anywhere, the settings read. Its spec must:
+  - read every NSG rule as it runs, a Deny kept, prefixes merged from both fields;
+  - read no deny-all at 4096 as azure_default, never assume the default;
+  - write observability_ownership none and no diagnostic decision.
 
 Usage:
     python3 run_map_inventory_tests.py
@@ -31,6 +39,7 @@ import tempfile
 HERE = os.path.dirname(os.path.abspath(__file__))
 MAP = os.path.join(HERE, '..', 'scripts', 'map_inventory.py')
 FIXTURE = os.path.join(HERE, 'fixtures', 'inventory-orders.json')
+NETWORK = os.path.join(HERE, 'fixtures', 'inventory-network.json')
 CORE = os.path.join(HERE, '..', '..')
 CHECK = os.path.join(CORE, 'iac-authoring', 'scripts', 'check_spec.py')
 WRITE = os.path.join(CORE, 'iac-authoring', 'scripts', 'write_spec.py')
@@ -50,24 +59,32 @@ def main():
         if not cond:
             failures.append(what)
 
-    with tempfile.TemporaryDirectory() as tmp:
-        out = os.path.join(tmp, 'infra-spec.yaml')
-        r = subprocess.run([sys.executable, MAP, FIXTURE, '--stage', 'production', '--language', 'de', '--out', out],
-                           capture_output=True, text=True)
-        expect(r.returncode == 0, f"map_inventory.py writes the spec (exit {r.returncode}) {r.stdout[-300:]}{r.stderr[-300:]}")
-        if r.returncode != 0:
-            return 1
-        c = subprocess.run([sys.executable, CHECK, out], capture_output=True, text=True)
-        expect(c.returncode == 0, f"check_spec.py passes {c.stdout[-500:] if c.returncode else ''}")
-        w = subprocess.run([sys.executable, WRITE, out, '--check', '--no-stamp'], capture_output=True, text=True)
-        expect(w.returncode == 0, 'the spec is canonical')
-        with open(out, encoding='utf-8') as f:
-            text = f.read()
-        spec = yaml.safe_load(text)
-        md = os.path.join(tmp, 'infra-decisions.md')
-        subprocess.run([sys.executable, EXPORT, out, '--out', md], capture_output=True, text=True)
-        doc = open(md, encoding='utf-8').read() if os.path.isfile(md) else ''
+    def map_fixture(fixture):
+        """(spec, text, decision document, check_spec output) of one fixture, or None when not written."""
+        name = os.path.basename(fixture)
+        with tempfile.TemporaryDirectory() as tmp:
+            out = os.path.join(tmp, 'infra-spec.yaml')
+            r = subprocess.run([sys.executable, MAP, fixture, '--stage', 'production', '--language', 'de', '--out', out],
+                               capture_output=True, text=True)
+            expect(r.returncode == 0, f"{name}: map_inventory.py writes the spec (exit {r.returncode}) {r.stdout[-300:]}{r.stderr[-300:]}")
+            if r.returncode != 0:
+                return None
+            c = subprocess.run([sys.executable, CHECK, out], capture_output=True, text=True)
+            expect(c.returncode == 0, f"{name}: check_spec.py passes {c.stdout[-500:] if c.returncode else ''}")
+            w = subprocess.run([sys.executable, WRITE, out, '--check', '--no-stamp'], capture_output=True, text=True)
+            expect(w.returncode == 0, f"{name}: the spec is canonical")
+            with open(out, encoding='utf-8') as f:
+                text = f.read()
+            md = os.path.join(tmp, 'infra-decisions.md')
+            subprocess.run([sys.executable, EXPORT, out, '--out', md], capture_output=True, text=True)
+            doc = open(md, encoding='utf-8').read() if os.path.isfile(md) else ''
+            return yaml.safe_load(text), text, doc, c.stdout
 
+    # ---------------------------------------------------------------- orders
+    mapped = map_fixture(FIXTURE)
+    if mapped is None:
+        return 1
+    spec, text, doc, _ = mapped
     res = spec.get('resources') or {}
     expect(set(res) == {'virtual-network', 'storage-account', 'app-service'},
            f"three resources mapped, no part as its own resource: {sorted(res)}")
@@ -108,6 +125,26 @@ def main():
     expect('NetworkWatcher' not in text and 'Failure Anomalies' not in text, 'the noise is left out')
     expect('hidden-link' not in text and spec['context'].get('tags') == {'owner_team': 'orders'},
            'tags Azure sets itself are left out, the shared one kept')
+
+    # --------------------------------------------------------------- network
+    mapped = map_fixture(NETWORK)
+    if mapped is None:
+        return 1
+    spec, text, doc, checked = mapped
+    res = spec.get('resources') or {}
+    data = res.get('network-security-group__nsg-shop-data-gw-prod', {}).get('rules', {})
+    rules = (data.get('rules') or {}).get('value') or []
+    deny = next((x for x in rules if x.get('name') == 'Deny_Any_From_Internet'), {})
+    expect(len(rules) == 4 and deny.get('access') == 'Deny' and deny.get('priority') == 4000
+           and deny.get('source') == ['*'] and data.get('rules', {}).get('source') == 'imported',
+           'every NSG rule is read as it runs, a Deny among them kept with its access')
+    bootstrap = next((x for x in rules if x.get('name') == 'Allow_Any_From_Bootstrap_Network'), {})
+    expect(bootstrap.get('source') == ['10.0.0.0/27'], "a rule's prefixes are merged from the singular and the plural field")
+    expect(data.get('default_inbound') == {'value': 'azure_default', 'source': 'imported'},
+           'no deny-all at 4096 reads as azure_default - a departure, not the default assumed')
+    expect(spec.get('deployment', {}).get('observability_ownership') == {'value': 'none', 'source': 'imported'}
+           and 'diagnostic_categories' not in text,
+           'no diagnostic setting anywhere: ownership none, no diagnostic decision written')
 
     print('-' * 70)
     print('all passed' if not failures else f"{len(failures)} failed")

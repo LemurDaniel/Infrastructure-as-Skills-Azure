@@ -168,6 +168,21 @@ def same(a, b):
     return str(a).lower() == str(b).lower()
 
 
+def merged(element, paths):
+    """The values of several paths in one list, MISSING when none holds one.
+
+    {sourceAddressPrefix: '*', sourceAddressPrefixes: []}            -> ['*']
+    {sourceAddressPrefix: '', sourceAddressPrefixes: ['10.0.0.0/27']} -> ['10.0.0.0/27']
+    """
+    out = []
+    for p in paths:
+        x = at(element, p)
+        if x is MISSING or x in ('', [], {}):
+            continue
+        out += x if isinstance(x, list) else [x]
+    return out or MISSING
+
+
 def read(imp, row):
     """(found, value) - the raw answer an import entry reads from a row, before it is checked."""
     if not isinstance(imp, dict) or 'todo' in imp or 'not_readable' in imp:
@@ -180,6 +195,12 @@ def read(imp, row):
     v = at(row, imp['path'])
     if v is MISSING:
         return ('missing' in imp), imp.get('missing')
+    if 'match' in imp or 'skip' in imp:  # narrow a list to the elements the entry is about
+        if not isinstance(v, list):
+            return False, None
+        matches = lambda e, f: all(at(e, p) is not MISSING and same(at(e, p), lit) for p, lit in f.items())
+        v = [e for e in v if ('match' not in imp or matches(e, imp['match']))
+             and not any(matches(e, f) for f in imp.get('skip') or [])]
     if 'values' in imp:
         hit = next((a for lit, a in imp['values'].items() if same(lit, v)), MISSING)
         return (hit is not MISSING), (None if hit is MISSING else hit)
@@ -192,7 +213,7 @@ def read(imp, row):
             return False, None
         out = []
         for e in v:
-            item = {f: at(e, p) for f, p in imp['items'].items()}
+            item = {f: (merged(e, p) if isinstance(p, list) else at(e, p)) for f, p in imp['items'].items()}
             if any(x is MISSING for x in item.values()):
                 return False, None
             out.append(item)

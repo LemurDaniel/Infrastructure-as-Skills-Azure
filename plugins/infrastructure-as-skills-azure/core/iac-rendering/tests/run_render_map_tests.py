@@ -129,6 +129,15 @@ def main():
         ('a diagnostic_setting reading that does not exist',
          lambda d: d['decisions']['observability.metrics_enabled'].__setitem__('import', {'diagnostic_setting': 'retention'}),
          'diagnostic_setting is one of'),
+        ('a skip that is no list of maps',
+         lambda d: d['decisions']['networking.public_network_access'].__setitem__(
+             'import', {'path': 'properties.networkAcls.ipRules', 'skip': {'action': 'Allow'}, 'present': 'enabled',
+                        'missing': 'disabled'}),
+         'import.skip is a list of maps'),
+        ('items merging a list that holds no path',
+         lambda d: d['decisions']['networking.public_network_access'].__setitem__(
+             'import', {'path': 'properties.x', 'items': {'source': ['properties.a', 42]}}),
+         'or to a list of paths whose values are merged'),
         ('import_match that is no list of kind tokens',
          lambda d: d.__setitem__('import_match', {'kind_has': 'functionapp'}), 'import_match is'),
         ('import_parts that is no list of ARM types',

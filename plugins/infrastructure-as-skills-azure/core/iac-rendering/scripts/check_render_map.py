@@ -30,8 +30,9 @@ or the paths given:
      a path in the Resource Graph row with `values` (literal -> an answer it accepts),
      `passthrough`, a `format` with one `{value}`, `reference` (an id, on a question
      that takes a reference), `single` (the one element of a list), `items` (a list of
-     objects, field -> path, on a list question) or `present` (an answer when the path is
-     set, `missing` when not); `cases` over several paths, each
+     objects, field -> path or a list of paths merged, on a list question) or `present` (an
+     answer when the path is set, `missing` when not), a list narrowed first by `match` (keep)
+     or `skip` (drop) on its elements' paths; `cases` over several paths, each
      `when` with an answer; `diagnostic_setting: workspace | log_categories | metrics` (read
      from the resource's diagnostic setting, on a workspace reference, a list or a bool);
      `not_readable: <reason>`; or `todo: <what is missing>`. The
@@ -71,7 +72,7 @@ SCALAR_TYPES = {'enum', 'bool', 'int', 'string'}
 # How an import reads a decision back (references/render-map.md, "Reading it back").
 IMPORT_PATH = re.compile(r'^[A-Za-z][A-Za-z0-9_]*(\.[A-Za-z0-9_]+)*$')
 IMPORT_FIELDS = {'path', 'values', 'passthrough', 'format', 'reference', 'single', 'items', 'present', 'cases',
-                 'missing', 'note'}
+                 'missing', 'note', 'match', 'skip'}
 IMPORT_STATS = {'read': 0, 'not_readable': 0, 'todo': 0}
 # What a decision reads from the resource's diagnostic setting instead of its row.
 DIAGNOSTIC_READINGS = ('workspace', 'log_categories', 'metrics')
@@ -150,12 +151,23 @@ def check_import(where, imp, question):
         return errs + [f"{where}: import has exactly one of values, passthrough, format, reference, single, items or present"]
     if 'single' in imp and imp['single'] is not True:
         errs.append(f"{where}: import.single is true or absent")
+    # match keeps, skip drops the list elements whose paths all hold the literals
+    for key, filters in (('match', [imp.get('match')]), ('skip', imp.get('skip'))):
+        if key not in imp:
+            continue
+        if not isinstance(filters, list) or not filters or not all(
+                isinstance(f, dict) and f and all(isinstance(p, str) and IMPORT_PATH.match(p) for p in f) for f in filters):
+            errs.append(f"{where}: import.{key} is " + ('a map' if key == 'match' else 'a list of maps')
+                        + " of paths inside one list element to literals")
     if 'items' in imp:
         it = imp['items']
         if question.get('type') != 'list':
             errs.append(f"{where}: import.items on a question that is no list")
-        if not isinstance(it, dict) or not it or not all(isinstance(p, str) and IMPORT_PATH.match(p) for p in it.values()):
-            errs.append(f"{where}: import.items maps each field of an answer to a path inside one list element")
+        is_path = lambda p: isinstance(p, str) and IMPORT_PATH.match(p)
+        if not isinstance(it, dict) or not it or not all(
+                is_path(p) or (isinstance(p, list) and p and all(is_path(x) for x in p)) for p in it.values()):
+            errs.append(f"{where}: import.items maps each field of an answer to a path inside one list element, "
+                        f"or to a list of paths whose values are merged into one list")
     if 'present' in imp:
         answer_ok(imp['present'], 'import.present')
         if 'missing' not in imp:
