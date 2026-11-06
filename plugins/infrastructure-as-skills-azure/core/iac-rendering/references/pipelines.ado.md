@@ -122,7 +122,23 @@ service connection.
                 if ($LASTEXITCODE) { exit $LASTEXITCODE }
               }
             displayName: Parameter files compile against the template
+          - task: UsePythonVersion@0
+            inputs:
+              versionSpec: '3.12'
+          - pwsh: |
+              if (-not (Get-Command bicep -ErrorAction SilentlyContinue)) {
+                az bicep install
+                $env:PATH = "$HOME/.azure/bin" + [IO.Path]::PathSeparator + $env:PATH
+              }
+              python -m pip install --quiet --disable-pip-version-check pyyaml==6.0.3
+              if ($LASTEXITCODE) { exit $LASTEXITCODE }
+              python tests/run_arm_tests.py infra-spec.yaml --template main.bicep --tests tests
+              if ($LASTEXITCODE) { exit $LASTEXITCODE }
+            displayName: Decision tests against the compiled template
 ```
+
+`tests/run_arm_tests.py` is the plugin's runner, copied unchanged by the render (invariant 15);
+PyYAML is pinned as in [pipelines.github.md](pipelines.github.md#versions-snapshot-2026-10-18---look-them-up-again).
 
 ## Terraform install - `.azure-pipelines/terraform-install.yml`
 
@@ -303,6 +319,12 @@ and adds `--location`, in what-if and create alike (invariant 13).
                 $any = ($changes.Count -gt 0).ToString().ToLower()
                 Write-Output "##vso[task.setvariable variable=changes;isOutput=true]$any"
                 $changes | ForEach-Object { "$($_.changeType)`t$($_.resourceId)" }
+          # The record of what the approver was shown. Azure DevOps keeps an artifact as long
+          # as the run - set the run retention to seven days at most (invariant 8).
+          - task: PublishPipelineArtifact@1
+            inputs:
+              targetPath: whatif.json
+              artifact: whatif-${{ parameters.stage }}
 
       - deployment: apply
         dependsOn: plan

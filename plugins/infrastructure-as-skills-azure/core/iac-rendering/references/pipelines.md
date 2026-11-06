@@ -27,8 +27,8 @@ before. A `[sandbox]` spec has one block. The block is the unit:
 
 | Step | Terraform | Bicep |
 |---|---|---|
-| validate (once, before any stage) | `fmt -check -recursive`, `init -backend=false`, `validate`, `test` | `bicep build`, `bicep lint` |
-| plan | `plan -detailed-exitcode -var-file=environments/<stage>.tfvars -out=tfplan` | `az deployment group what-if` with `main.<stage>.bicepparam` |
+| validate (once, before any stage) | `fmt -check -recursive`, `init -backend=false`, `validate`, `test` | `bicep build`, `bicep lint`, `build-params`, the decision tests (`tests/run_arm_tests.py`) |
+| plan | `plan -detailed-exitcode -var-file=environments/<stage>.tfvars -out=tfplan` | `az deployment group what-if` with `main.<stage>.bicepparam`, its JSON kept as an artifact |
 | changes? | exit code 2 | any change type other than `NoChange` / `Ignore` |
 | approve | only if the stage is gated and there are changes | same |
 | apply | `apply tfplan` - the file the plan step wrote | `az deployment group create`, same template and parameter file |
@@ -72,7 +72,10 @@ reports as "not checkable" instead of passing them.
    the top, `id-token: write` on the Azure jobs only. The other platforms' equivalents
    are named in their files.
 8. **A plan file is a secret.** It can hold sensitive values in clear. The artifact keeps
-   for one day, and is downloaded by the apply job of the same run only.
+   for one day, and is downloaded by the apply job of the same run only. Bicep's what-if
+   JSON is kept too (`whatif-<stage>`), as the record of what the approver was shown - the
+   step summary is a digest of it - for seven days at most: it carries the resources'
+   properties, and a value a template does not mark `@secure()` is in it in clear.
 9. **Versions are pinned and looked up, never recalled.** The Terraform version as a
    constraint on the minor (`~> 1.17.0`), actions and tasks at a major tag, resolved at
    render time and dated in a comment. The numbers in the platform files are a snapshot of
@@ -125,6 +128,14 @@ reports as "not checkable" instead of passing them.
     `$LASTEXITCODE` after each one whose failure must stop it. GitLab is the exception: its
     job images (`hashicorp/terraform`, `azure-cli`) carry no pwsh, so its scripts stay `sh`.
 
+15. **The render's tests run before any stage.** Terraform: `terraform test` in validate.
+    Bicep: the decision tests of `tests/*.armtest.yaml`, run by `tests/run_arm_tests.py` - the
+    plugin's runner, copied into the root unchanged by the render - against the compiled
+    template and every stage's parameter file. It needs Python 3 with PyYAML (a pinned
+    `pip install`, on a Python the platform sets up) and the `bicep` CLI on `PATH`; a runner
+    without one installs it with `az bicep install`. The local script runs them too, before
+    what-if. A render that ships tests the pipeline never runs ships a promise nobody keeps.
+
 ## What the render hands over besides the files
 
 The pipeline cannot run until the platform side exists, so the render states it, in the
@@ -141,6 +152,8 @@ header comment of the entry file and in the reply, as a short list:
 - the platform objects: GitHub environments, an Azure DevOps service connection and
   environments, GitLab protected environments and CI/CD variables;
 - the approval check on each gated stage's environment;
+- Azure DevOps with a Bicep root: the run retention, seven days at most - an artifact lives as
+  long as its run, and the what-if JSON is one (invariant 8);
 - every variable the pipeline reads and where it is set.
 
 Paths in a pipeline are relative to the deployable root. When the root is the repository

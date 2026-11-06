@@ -30,7 +30,9 @@ git ls-remote --tags --refs https://github.com/<owner>/<action>.git | sed 's#.*/
 | `hashicorp/setup-terraform` | `v4` |
 | `actions/upload-artifact` / `download-artifact` | `v7` / `v8` (a pair; they must agree on the artifact format) |
 | `azure/login` | `v3` |
+| `actions/setup-python` | `v7` (Bicep: the decision tests) |
 | Terraform | `~> 1.17.0` |
+| PyYAML | `6.0.3` (looked up 2026-11-06: `pip index versions pyyaml`) |
 
 ## Environments
 
@@ -156,7 +158,24 @@ stages behind it.
             az bicep build-params --file $f.Name --stdout > $null
             if ($LASTEXITCODE) { exit $LASTEXITCODE }
           }
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - name: Decision tests against the compiled template
+        run: |
+          if (-not (Get-Command bicep -ErrorAction SilentlyContinue)) {
+            az bicep install
+            $env:PATH = "$HOME/.azure/bin" + [IO.Path]::PathSeparator + $env:PATH
+          }
+          python -m pip install --quiet --disable-pip-version-check pyyaml==6.0.3
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          python tests/run_arm_tests.py infra-spec.yaml --template main.bicep --tests tests
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
 ```
+
+`tests/run_arm_tests.py` is the plugin's runner, copied unchanged by the render (invariant 15).
+The Python of `setup-python` is the toolcache's, so `pip install` works where the image's own
+Python refuses it as externally managed.
 
 ## Stage workflow - Terraform
 
@@ -337,6 +356,12 @@ jobs:
             $summary += "**Not predicted (what-if cannot expand these modules, they are deployed anyway):** $($skipped -join ', ')"
           }
           $summary | Tee-Object -FilePath $env:GITHUB_STEP_SUMMARY -Append
+      # The record of what the approver was shown; the summary above is a digest of it.
+      - uses: actions/upload-artifact@v7
+        with:
+          name: whatif-${{ inputs.stage }}
+          path: whatif.json
+          retention-days: 7             # it carries resource properties; a non-@secure() value is in clear
 
   approve:
     # unchanged from the Terraform workflow

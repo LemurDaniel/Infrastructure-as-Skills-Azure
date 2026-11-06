@@ -117,6 +117,11 @@ try {
   }
 
   az bicep lint --file main.bicep;                 if ($LASTEXITCODE) { throw 'bicep lint failed' }
+  # The decision tests, as the pipelines' validate job runs them (Python 3 with PyYAML, bicep on PATH).
+  $python = (Get-Command python3, python -ErrorAction SilentlyContinue | Select-Object -First 1).Source
+  if (-not $python) { throw 'Python 3 is needed for the decision tests (tests/run_arm_tests.py)' }
+  & $python tests/run_arm_tests.py infra-spec.yaml --template main.bicep --tests tests
+  if ($LASTEXITCODE) { throw 'decision tests failed' }
   $whatIf = az deployment group what-if --subscription $SubscriptionId --resource-group $ResourceGroup `
     --template-file main.bicep --parameters $params --no-pretty-print | ConvertFrom-Json
   if ($LASTEXITCODE) { throw 'what-if failed' }
