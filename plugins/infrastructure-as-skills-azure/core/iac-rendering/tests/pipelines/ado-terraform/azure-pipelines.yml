@@ -12,6 +12,8 @@ pool:
 variables:
   - name: TF_VERSION
     value: "1.17.1"           # the newest patch of the ~> 1.17.0 constraint on 2026-11-01; re-resolve on render
+  - name: TF_IN_AUTOMATION   # no "run terraform apply next" hints in the log; the pipeline decides
+    value: "true"
 
 stages:
   - stage: validate

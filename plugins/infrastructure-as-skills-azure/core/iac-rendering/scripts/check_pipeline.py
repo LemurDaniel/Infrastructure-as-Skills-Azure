@@ -20,7 +20,8 @@ renders under the root, and checks what a reviewer would otherwise check by eye:
   6. No secret: with pipeline_auth workload_identity no client secret and no
      `secrets.` reference; the login is federated.
   7. A plan artifact lives one day at most.
-  8. Versions are pinned: no @main / latest, a Terraform constraint.
+  8. Versions are pinned: no @main / latest, a Terraform constraint. Terraform runs
+     with TF_IN_AUTOMATION, so its log suggests no interactive next step.
   9. The validate step of the target is there (fmt / validate, build / lint).
  10. Terraform: the root holds `backend "azurerm" {}`. `init -backend-config`
      without a backend block is ignored without an error - local state.
@@ -341,6 +342,8 @@ def check_github(root, stages, target, auth, gated, exempt):
             err(f"{srel}: no plan artifact is uploaded - apply would have no saved plan")
         if 'download-artifact' not in stext:
             err(f"{srel}: apply does not download the plan artifact")
+        if not re.search(r"TF_IN_AUTOMATION:\s*[\"']?true", stext):
+            err(f"{srel}: TF_IN_AUTOMATION is not true - Terraform's log would suggest interactive next steps")
         versions = re.findall(r'terraform_version:\s*(\S+)', stext)
         if not versions or not all(v.strip('"\'').startswith('~>') for v in versions):
             err(f"{srel}: every setup-terraform needs a `~>` constraint on terraform_version, found {versions}")
@@ -451,6 +454,9 @@ def check_ado(root, stages, target, auth, gated, exempt):
         else:
             if 'Get-FileHash' not in tmpl['terraform-install.yml'][1]:
                 err(".azure-pipelines/terraform-install.yml: the download is not checksum-verified")
+        tia = [v for v in (ed.get('variables') or []) if isinstance(v, dict) and v.get('name') == 'TF_IN_AUTOMATION']
+        if not tia or str(tia[0].get('value')).lower() != 'true':
+            err("azure-pipelines.yml: TF_IN_AUTOMATION is not true - Terraform's log would suggest interactive next steps")
         tfv = [v for v in (ed.get('variables') or []) if isinstance(v, dict) and v.get('name') == 'TF_VERSION']
         if not tfv or not re.match(r'^\d+\.\d+\.\d+$', str(tfv[0].get('value'))):
             err("azure-pipelines.yml: TF_VERSION is missing or not an exact version")
@@ -490,6 +496,8 @@ def check_gitlab(root, stages, target, auth, gated, exempt):
         return
     d, text = load_yaml(path)
     common_text(path, text, auth, '.gitlab-ci.yml')
+    if target == 'terraform' and not re.search(r"TF_IN_AUTOMATION:\s*[\"']?true", text):
+        err(".gitlab-ci.yml: TF_IN_AUTOMATION is not true - Terraform's log would suggest interactive next steps")
     expect = [s for s in stages if s not in exempt]
     if (d.get('stages') or []) != ['validate'] + expect:
         err(f".gitlab-ci.yml: stages are {d.get('stages')}, expected {['validate'] + expect}")

@@ -224,6 +224,12 @@ MUTATIONS = [
      'az deployment group create', 'az deployment sub create', 'deploys with `az deployment sub`'),
     ('bicep what-if hides the modules it skips', 'github-bicep', GHS,
      'NestedDeploymentShortCircuited', 'NestedDeploymentSomethingElse', 'short-circuits'),
+    ('github terraform without TF_IN_AUTOMATION', 'github-terraform', GHS,
+     'TF_IN_AUTOMATION: "true"', 'TF_LOG: "warn"', 'TF_IN_AUTOMATION is not true'),
+    ('ado terraform without TF_IN_AUTOMATION', 'ado-terraform', ADO,
+     '  - name: TF_IN_AUTOMATION', '  - name: TF_LOG', 'TF_IN_AUTOMATION is not true'),
+    ('gitlab terraform without TF_IN_AUTOMATION', 'gitlab-terraform', GL,
+     'TF_IN_AUTOMATION: "true"', 'TF_LOG: "warn"', 'TF_IN_AUTOMATION is not true'),
     # the render's tests and the what-if record (invariants 15 and 8)
     ('github bicep validate skips the decision tests', 'github-bicep', GH,
      'python tests/run_arm_tests.py', 'python tests/smoke.py', 'run_arm_tests.py'),
