@@ -133,6 +133,7 @@ groups:
           en: "Should this component's intake be capped per day?"
           de: "Soll die Datenaufnahme dieser Komponente pro Tag begrenzt werden?"
         type: int
+        stage_parameter: true
         plain:
           en: "Daily telemetry cap for this component: {value} GB (0: no cap)."
           de: "Tägliche Obergrenze für die Telemetrie dieser Komponente: {value} GB (0: keine)."

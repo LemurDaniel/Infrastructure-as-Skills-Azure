@@ -444,6 +444,7 @@ groups:
           en: "Which default access tier?"
           de: "Welche Standard-Zugriffsebene?"
         type: enum
+        stage_parameter: true
         plain:
           en: "Stored in the {value} class."
           de: "Gespeichert in der Klasse {value}."

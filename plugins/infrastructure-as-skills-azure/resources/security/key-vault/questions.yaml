@@ -75,6 +75,7 @@ groups:
           en: "Which vault tier?"
           de: "Welcher Vault-Tarif?"
         type: enum
+        stage_parameter: true
         plain:
           en: "The vault is the {value} tier."
           de: "Der Tresor ist die Stufe {value}."

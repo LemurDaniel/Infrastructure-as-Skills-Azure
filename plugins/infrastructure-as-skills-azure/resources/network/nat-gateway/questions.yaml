@@ -97,6 +97,7 @@ groups:
           en: "Which generation of NAT gateway should it be?"
           de: "Welche Generation von NAT Gateway soll es sein?"
         type: enum
+        stage_parameter: true
         plain:
           en: "The NAT gateway is of the type {value}."
           de: "Das NAT-Gateway hat den Typ {value}."

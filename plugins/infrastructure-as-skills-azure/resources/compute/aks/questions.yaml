@@ -461,6 +461,7 @@ groups:
           en: "Which VM size should the system pool use?"
           de: "Welche VM-Größe soll der System-Pool verwenden?"
         type: string
+        stage_parameter: true
         plain:
           en: "The system nodes are of the size {value}."
           de: "Die System-Knoten haben die Größe {value}."
@@ -500,6 +501,7 @@ groups:
           en: "How many system nodes may the pool scale out to?"
           de: "Auf wie viele System-Knoten darf der Pool skalieren?"
         type: int
+        stage_parameter: true
         plain:
           en: "The system pool may grow to at most {value} nodes."
           de: "Der System-Pool darf auf höchstens {value} Knoten wachsen."
@@ -531,6 +533,7 @@ groups:
           en: "Which VM size should the workload nodes use?"
           de: "Welche VM-Größe sollen die Workload-Knoten verwenden?"
         type: string
+        stage_parameter: true
         plain:
           en: "The workload nodes are of the size {value}."
           de: "Die Workload-Knoten haben die Größe {value}."
@@ -569,6 +572,7 @@ groups:
           en: "How many workload nodes may the pool scale out to?"
           de: "Auf wie viele Workload-Knoten darf der Pool skalieren?"
         type: int
+        stage_parameter: true
         plain:
           en: "The workload pool may grow to at most {value} nodes."
           de: "Der Workload-Pool darf auf höchstens {value} Knoten wachsen."

@@ -79,6 +79,7 @@ groups:
           en: "Which plan?"
           de: "Welcher Plan?"
         type: enum
+        stage_parameter: true
         plain:
           en: "The app is on the {value} plan."
           de: "Die App ist im Tarif {value}."

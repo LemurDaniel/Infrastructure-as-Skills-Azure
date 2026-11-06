@@ -145,6 +145,7 @@ groups:
           en: "How much storage should the server start with?"
           de: "Mit wie viel Speicher soll der Server starten?"
         type: int
+        stage_parameter: true
         plain:
           en: "The server starts with {value} GB of storage."
           de: "Der Server startet mit {value} GB Speicher."
