@@ -14,7 +14,9 @@ This digest reads the spec and prints:
      computed from the current files, so a moved heading never sends a run to the wrong line.
   3. Every deployment and context value with its source.
   4. Per resource: the AVM modules and the naming identifier, and every decision as
-     `<resource>.<group>.<question>` - the key a test asserts - with its value, its source and
+     `<resource>.<group>.<question>` - the key a test asserts - with its value, its source
+     (`[per stage]` for a stage map, `[stage file]` for a size or cost knob that is a parameter
+     from the stage files even where the stages agree) and
      what its render-map.yaml entry says for the target and implementation: the attribute with
      the literal the value becomes, further lines, the note or the gap. A line a resource
      sets on a part of another one (`on_part`: an NSG on a subnet) is printed under the part's
@@ -50,6 +52,7 @@ RESOURCES = os.path.join(PLUGIN, 'resources')
 REFS = os.path.join(CORE, 'iac-rendering', 'references')
 sys.path.insert(0, os.path.join(CORE, 'iac-authoring', 'scripts'))
 import spec_ref  # noqa: E402 - a reference as {resource: <key>} or {existing: <kind>}
+import spec_source  # noqa: E402 - what a decision's source says
 
 PIPELINE_FILES = {'github': 'github', 'azure_devops': 'ado', 'gitlab': 'gitlab', 'local': 'local'}
 AUTHORED_MARK = '## Authored rendering'
@@ -358,6 +361,15 @@ def render_lines(entry, value, stages, target, ctx):
     return list(dict.fromkeys(lines))
 
 
+def is_stage_parameter(question, entry):
+    """A size or cost knob - `stage_parameter` or `non_production_default` on its question - is a
+    parameter whose value stands in every stage file, also with one stage or stages that agree;
+    a value the spec records as forced stays in the template, so no stage file can loosen it."""
+    if not question or not (question.get('stage_parameter') or 'non_production_default' in question):
+        return False
+    return spec_source.kind(entry.get('source'))[0] != 'forced'
+
+
 def resolve(node, ctx):
     """An entry key's node as a list of entries: a list as it is, `by_kind` narrowed to the
     resource's answer of the kind question, a single entry in a list of one. None when the
@@ -599,6 +611,8 @@ def main():
         for path, entry in own:
             parts = path.split('.')
             tag = '  [per stage]' if is_stage_map(entry.get('value'), stages) else ''
+            if not tag and qpath and len(parts) >= 3 and is_stage_parameter(index.get((parts[1], parts[2])), entry):
+                tag = '  [stage file]'
             p(f"   {path} = {show(entry.get('value'))}  ({source_text(entry.get('source'))}){tag}")
             if qpath and len(parts) >= 3:
                 q = index.get((parts[1], parts[2]))

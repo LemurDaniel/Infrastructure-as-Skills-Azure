@@ -116,6 +116,7 @@ groups:
           en: "Which pricing tier?"
           de: "Welcher Tarif?"
         type: enum
+        stage_parameter: true
         plain:
           en: "The account uses the pricing tier {value}."
           de: "Das Konto nutzt die Preisstufe {value}."

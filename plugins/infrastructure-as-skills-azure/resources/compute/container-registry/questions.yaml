@@ -77,6 +77,7 @@ groups:
           en: "Which registry tier?"
           de: "Welcher Registry-Tarif?"
         type: enum
+        stage_parameter: true
         plain:
           en: "The registry is the {value} tier."
           de: "Die Registry hat die Stufe {value}."

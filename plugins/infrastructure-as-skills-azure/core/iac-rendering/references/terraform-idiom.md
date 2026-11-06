@@ -358,7 +358,10 @@ Comment the ones whose reason is not obvious from the name, and keep that commen
 ## The context values and the stage files
 
 `context:` and the refs under `deployment:` are variables, and so is every decision whose
-question is `per_environment` or whose spec value is a map keyed by stage. Their values go
+question is `per_environment` or whose spec value is a map keyed by stage, and every size or
+cost knob - a question with `stage_parameter` or `non_production_default`, `[stage file]` in
+the render digest - also with one stage, unless the spec records it `forced` (then a literal
+with its `forced_by` in the comment, so no stage file loosens it). Their values go
 into **one file per stage**, `environments/<stage>.tfvars` — the subscription, the resource
 group, the referenced network and workspace by name, the address ranges, the cost knobs
 (`replication`, `log_retention_days`) that `non_production_savings` sets cheaper outside

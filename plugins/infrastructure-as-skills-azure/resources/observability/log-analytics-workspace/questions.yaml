@@ -91,6 +91,7 @@ groups:
           en: "Should ingestion be capped per day?"
           de: "Soll die Datenaufnahme pro Tag begrenzt werden?"
         type: int
+        stage_parameter: true
         plain:
           en: "Daily log intake cap: {value} GB (-1: no cap)."
           de: "Tägliche Obergrenze für Logs: {value} GB (-1: keine)."
@@ -106,6 +107,7 @@ groups:
           en: "Which pricing tier?"
           de: "Welcher Tarif?"
         type: enum
+        stage_parameter: true
         plain:
           en: "Billed {value}."
           de: "Abgerechnet {value}."

@@ -21,7 +21,8 @@ not as a silently longer reading), and every resource's rendering reference with
 has the `## Authored rendering` heading the split depends on. On the import fixture of
 iac-authoring: the adopted ids are printed under their resource and are no decisions, and the
 unmapped items are listed. A resource kind without a question set
-exits 1, a spec that cannot be read exits 2.
+exits 1, a spec that cannot be read exits 2. A size or cost knob (`stage_parameter`) is tagged
+`[stage file]` with one value, and not when the spec records it as forced.
 
 Usage:
     python3 run_render_digest_tests.py
@@ -180,6 +181,18 @@ def main():
             yaml.safe_dump({**spec, 'resources': {'no-such-kind': {'g': {'q': {'value': 1, 'source': 'default'}}}}}, f)
         expect(run(bad).returncode == 1, 'a resource without a question set did not exit 1')
         expect(run(os.path.join(tmp, 'missing.yaml')).returncode == 2, 'a missing spec did not exit 2')
+
+        # A size or cost knob (stage_parameter) is a stage-file parameter with one value too;
+        # recorded as forced, it stays in the template.
+        knob = os.path.join(tmp, 'knob.yaml')
+        for source, tagged in (('default', True), ({'forced_by': 'deployment.key_protection'}, False)):
+            kv = {**spec['resources']['key-vault']}
+            kv['vault'] = {**kv['vault'], 'sku': {'value': 'standard', 'source': source}}
+            with open(knob, 'w', encoding='utf-8') as f:
+                yaml.safe_dump({**spec, 'resources': {**spec['resources'], 'key-vault': kv}}, f)
+            line = next((l for l in run(knob).stdout.splitlines() if 'key-vault.vault.sku = ' in l), '')
+            expect(('[stage file]' in line) == tagged,
+                   f"key-vault.vault.sku with source {source!r} {'not ' if tagged else ''}tagged [stage file]: {line!r}")
     finally:
         shutil.rmtree(tmp)
 

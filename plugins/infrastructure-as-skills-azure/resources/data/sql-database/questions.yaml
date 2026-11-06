@@ -116,6 +116,7 @@ groups:
           en: "Which kind of database is needed - a balanced one, one for very low latency and read scale-out, or one for very large data?"
           de: "Welche Art von Datenbank wird gebraucht - eine ausgewogene, eine für sehr geringe Latenz und Lese-Skalierung, oder eine für sehr große Datenmengen?"
         type: enum
+        stage_parameter: true
         plain:
           en: "The database is of the kind {value}."
           de: "Die Datenbank ist von der Art {value}."
@@ -172,6 +173,7 @@ groups:
           en: "How many virtual cores should the database have at most?"
           de: "Wie viele virtuelle Kerne soll die Datenbank höchstens haben?"
         type: int
+        stage_parameter: true
         plain:
           en: "The database may use up to {value} virtual cores."
           de: "Die Datenbank darf bis zu {value} virtuelle Kerne nutzen."
@@ -190,6 +192,7 @@ groups:
           en: "How many virtual cores should stay allocated while the database is awake?"
           de: "Wie viele virtuelle Kerne sollen zugewiesen bleiben, solange die Datenbank aktiv ist?"
         type: string
+        stage_parameter: true
         plain:
           en: "While running, at least {value} virtual cores stay allocated."
           de: "Im Betrieb bleiben mindestens {value} virtuelle Kerne reserviert."
@@ -222,6 +225,7 @@ groups:
           en: "How large may each database grow?"
           de: "Wie groß darf jede Datenbank werden?"
         type: int
+        stage_parameter: true
         plain:
           en: "A database may grow to {value} GB."
           de: "Eine Datenbank darf bis auf {value} GB wachsen."
@@ -259,6 +263,7 @@ groups:
           en: "How many virtual cores should the pool have?"
           de: "Wie viele virtuelle Kerne soll der Pool haben?"
         type: int
+        stage_parameter: true
         plain:
           en: "The shared pool has {value} virtual cores."
           de: "Der gemeinsame Pool hat {value} virtuelle Kerne."

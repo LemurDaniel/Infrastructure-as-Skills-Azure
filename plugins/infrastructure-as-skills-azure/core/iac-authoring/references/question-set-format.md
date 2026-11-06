@@ -141,6 +141,7 @@ different matter again, decided by `resolved_by` alone.
 | `per_environment` | no | `true` means the value differs per stage: it renders as a parameter whose value lives in each stage's parameter file, never as a literal in the template, and the spec holds a map keyed by stage. See *Stages*. |
 | `exclusive` | no | `true`, on a `list` of references only: a part it names is claimed by at most one resource of this set - a subnet takes one NSG, one route table, one NAT gateway. `check_spec.py` fails on a spec where two claim the same part, since the second association would overwrite the first. |
 | `non_production_default` | no | The value every stage but production takes while `deployment.non_production_savings` is enabled. Cost knobs only: refused in the security, networking, identity, access, DNS, compliance and posture groups. |
+| `stage_parameter` | no | `true` on a size or cost knob without a `non_production_default` - a SKU, a VM or plan size, a capacity, an instance count, a storage size, a quota: it renders as a parameter from the stage files even with one stage or stages that agree, so resizing a stage is an edit of its file. Refused where `non_production_default` is refused, and beside `per_environment` or `non_production_default`, which already make it one. See *Stages*. |
 
 ### Types
 
@@ -270,7 +271,7 @@ required, because the document falls back to it and says so; the plugin's own se
 reference); a bool or enum without `plain_values` prints the raw value, which is rarely
 what a customer should read.
 
-## Stages: `per_environment` and `non_production_default`
+## Stages: `per_environment`, `non_production_default` and `stage_parameter`
 
 One code base is deployed through a stack of stages — `context.environments`, default
 `[development, test, production]`, a `[sandbox]` for the throwaway case — each from its
@@ -290,6 +291,15 @@ own parameter file with its own state. Two fields say how a decision behaves acr
   it in the security, networking, identity, access, DNS, compliance and posture groups,
   because a development stage that is less secure than production is where the breach
   happens. Everything else is identical in every stage: parity is what the stack is for.
+- **`stage_parameter: true`** marks a size or cost knob the person may resize per stage
+  without the design changing - a SKU, a size, a capacity, a quota. It and every question
+  with a `non_production_default` render as a **parameter whose value stands in every stage
+  file**, also with one stage or where the stages agree; resizing is an edit of the stage
+  file, not of the template. The spec holds one value, or a map where the stages differ.
+  **A value the spec records as `forced` stays in the template**, with its `forced_by` in the
+  comment: Key Vault Premium for an HSM mandate, Premium Service Bus for a private endpoint -
+  a stage file must not be able to loosen what a constraint set. A cost choice from a
+  requirement (`derived_from`) is not forced and stays a parameter.
 
 A value the customer states holds in every stage unless they say which stage they mean —
 the savings relax defaults and derived values, never a stated one. A derived value

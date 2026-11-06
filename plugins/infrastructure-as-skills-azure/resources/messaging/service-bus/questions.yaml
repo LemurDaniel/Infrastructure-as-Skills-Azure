@@ -73,6 +73,7 @@ groups:
           en: "Which tier does the namespace need?"
           de: "Welchen Tarif braucht der Namespace?"
         type: enum
+        stage_parameter: true
         plain:
           en: "The namespace is the {value} tier."
           de: "Der Namensraum ist die Stufe {value}."

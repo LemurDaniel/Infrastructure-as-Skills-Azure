@@ -246,6 +246,7 @@ groups:
           en: "How large should each replica be?"
           de: "Wie groß soll jedes Replikat sein?"
         type: enum
+        stage_parameter: true
         plain:
           en: "Each copy of the app gets {value}."
           de: "Jede Kopie der App bekommt {value}."
@@ -290,6 +291,7 @@ groups:
           en: "How many copies may the app scale out to?"
           de: "Auf wie viele Kopien darf die App skalieren?"
         type: int
+        stage_parameter: true
         plain:
           en: "The app may scale out to at most {value} copies."
           de: "Die App darf auf höchstens {value} Kopien skalieren."

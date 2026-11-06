@@ -259,6 +259,12 @@ decisions:
     bicep:
       gap: authsettingsV2 identityProviders.azureActiveDirectory.registration.clientSecretSettingName takes the name of the app setting holding the Key Vault reference; the reference does not name the setting
     import: {todo: 'not in the Resource Graph row: Microsoft.Web/sites/config authsettingsV2 identityProviders.azureActiveDirectory.registration.clientSecretSettingName and the app setting it names'}
+  identity.entra_client_id:
+    terraform_avm: { module: Azure/avm-res-web-site/azurerm, attribute: auth_settings_v2.identity_providers.azure_active_directory.registration.client_id, passthrough: true, note: a stage parameter }
+    terraform: { attribute: auth_settings_v2.active_directory_v2.client_id, passthrough: true, note: a stage parameter }
+    bicep_avm: { module: avm/res/web/site, attribute: "configs[name: 'authsettingsV2'].properties.identityProviders.azureActiveDirectory.registration.clientId", passthrough: true, note: a stage parameter }
+    bicep: { attribute: authsettingsV2 identityProviders.azureActiveDirectory.registration.clientId, passthrough: true, note: a stage parameter }
+    import: {todo: 'not in the Resource Graph row: Microsoft.Web/sites/config authsettingsV2 identityProviders.azureActiveDirectory.registration.clientId'}
 
   # ----------------------------------------------------------------- security
   security.https_only:

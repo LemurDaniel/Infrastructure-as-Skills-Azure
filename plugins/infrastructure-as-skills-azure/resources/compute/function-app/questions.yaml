@@ -175,6 +175,7 @@ groups:
           en: "How many instances may the function app scale out to?"
           de: "Auf wie viele Instanzen darf die Function App skalieren?"
         type: int
+        stage_parameter: true
         plain:
           en: "The function app may scale out to at most {value} instances."
           de: "Die Function App darf auf höchstens {value} Instanzen skalieren."

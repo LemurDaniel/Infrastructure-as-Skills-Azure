@@ -148,6 +148,7 @@ groups:
           en: "How large should the disk be, in GiB?"
           de: "Wie groß soll die Disk sein, in GiB?"
         type: int
+        stage_parameter: true
         plain:
           en: "The disk is {value} GiB."
           de: "Die Platte ist {value} GiB groß."

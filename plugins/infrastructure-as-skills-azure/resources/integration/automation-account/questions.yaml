@@ -80,6 +80,7 @@ groups:
           en: "Which tier should the account use?"
           de: "Welche Stufe soll das Konto nutzen?"
         type: enum
+        stage_parameter: true
         plain:
           en: "The account runs on the {value} tier."
           de: "Das Konto läuft auf der Stufe {value}."

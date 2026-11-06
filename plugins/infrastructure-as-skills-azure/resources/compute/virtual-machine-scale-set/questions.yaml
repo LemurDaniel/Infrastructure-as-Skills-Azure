@@ -170,6 +170,7 @@ groups:
           en: "Which instance size?"
           de: "Welche Instanzgröße?"
         type: string
+        stage_parameter: true
         plain:
           en: "The instance size is {value}."
           de: "Die Instanzgröße ist {value}."
@@ -282,6 +283,7 @@ groups:
           en: "How large should each system disk be, in GiB?"
           de: "Wie groß soll jede System-Disk sein, in GiB?"
         type: int
+        stage_parameter: true
         plain:
           en: "Each system disk is {value} GiB."
           de: "Jede Systemplatte ist {value} GiB groß."

@@ -73,6 +73,7 @@ groups:
           en: "Which tier does the event stream need?"
           de: "Welchen Tarif braucht der Ereignisstrom?"
         type: enum
+        stage_parameter: true
         plain:
           en: "The namespace is the {value} tier."
           de: "Der Namensraum ist die Stufe {value}."
@@ -136,6 +137,7 @@ groups:
           en: "What is the ceiling for automatic growth?"
           de: "Wo liegt die Obergrenze für das automatische Wachstum?"
         type: int
+        stage_parameter: true
         plain:
           en: "Automatic growth stops at {value} throughput units."
           de: "Das automatische Wachstum endet bei {value} Durchsatzeinheiten."

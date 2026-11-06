@@ -149,6 +149,7 @@ groups:
           en: "Which machine size?"
           de: "Welche Maschinengröße?"
         type: string
+        stage_parameter: true
         plain:
           en: "The machine size is {value}."
           de: "Die Maschinengröße ist {value}."
@@ -186,6 +187,7 @@ groups:
           en: "How many identical machines of this kind?"
           de: "Wie viele gleiche Maschinen dieser Art?"
         type: int
+        stage_parameter: true
         plain:
           en: "Identical machines of this kind: {value}."
           de: "Gleiche Maschinen dieser Art: {value}."
@@ -289,6 +291,7 @@ groups:
           en: "How large should the system disk be, in GiB?"
           de: "Wie groß soll die System-Disk sein, in GiB?"
         type: int
+        stage_parameter: true
         plain:
           en: "The system disk is {value} GiB."
           de: "Die Systemplatte ist {value} GiB groß."
