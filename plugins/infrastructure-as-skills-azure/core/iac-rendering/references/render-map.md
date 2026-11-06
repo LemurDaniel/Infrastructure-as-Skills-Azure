@@ -137,11 +137,19 @@ entries at run time:
 | `path` + `items` | On a list question: the path holds a list of objects and each becomes one answer item, `{ <field>: <path inside the element> }` - `{ name: name, prefix: properties.addressPrefix }` for the subnets |
 | `path` + `present` + `missing` | The answer when the path holds a value (`virtualNetworkSubnetId` set -> `vnet_integration: true`), `missing` when it is absent or empty |
 | `cases` | A list of `{ when: { <path>: <literal>, ... }, answer }`, the first whose paths all match wins - for answers that share a literal on one path |
+| `diagnostic_setting: workspace \| log_categories \| metrics` | Read from the resource's own diagnostic setting (the one `adopt.diagnostic_setting_id` names), not from its row: `workspace` its `properties.workspaceId`, on the workspace reference that answers from `deployment.diagnostics_destination`; `log_categories` the `category` (or `categoryGroup`) of every enabled `properties.logs[]` entry, on a list; `metrics` whether any `properties.metrics[]` entry is enabled, on a bool. A setting that sits on a child resource (a storage account's `blobServices/default`, a Container Apps environment) is no reading of this form and stays `todo` |
 | `not_readable: <reason>` | The decision cannot be read from Azure at all (what a deployment decides, not a property); the import writes it `assumed` with an `open:` entry |
 | `todo: <what is missing>` | It can be read, the reading is not written yet - a property of a child resource the Resource Graph row does not hold, a shared literal that needs `cases`. The import treats it like `not_readable`; `check_render_map.py` counts it as the work list |
 
 `missing: <answer>` beside a path or `cases` names the answer when the path is absent from the
-row (Azure leaves a property out that was never set). A decision that is `not_rendered` carries
+row (Azure leaves a property out that was never set).
+
+The diagnostic settings were read for every resource or for none (`collect.py --no-diagnostics`,
+`diagnostics_read` in the inventory). Read and found on no adopted resource, the deployment has
+none (`observability_ownership: none`, imported) and the `diagnostic_setting` decisions are not
+written: nothing is rendered for them, so the first apply adds none. Found on some resources
+only, a resource without one gets its decisions `assumed` with an `open:` entry - the first
+apply would add a setting there. A decision that is `not_rendered` carries
 no `import`: nothing was rendered, so nothing is read back.
 
 ## What an import adopts: `import_parts`

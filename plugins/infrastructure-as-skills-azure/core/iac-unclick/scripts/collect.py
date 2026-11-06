@@ -133,6 +133,8 @@ def main():
         'role_definitions': {str(d['id']).rsplit('/', 1)[-1].lower(): d.get('roleName') for d in definitions},
         'locks': locks,
         'diagnostic_settings': diagnostics,
+        # an empty list read is "none configured"; skipped, it says nothing
+        'diagnostics_read': not args.no_diagnostics,
     }
     with open(args.out, 'w', encoding='utf-8') as f:
         json.dump(inventory, f, indent=1)

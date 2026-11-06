@@ -17,7 +17,10 @@ The inventory is what collect.py wrote (one scope read once), JSON:
                      {principalId, principalType, roleDefinitionId, scope}
   role_definitions   {role definition GUID (lower case): role name}
   locks              {id, properties: {level}} for every lock in scope
-  diagnostic_settings  {id, properties: {workspaceId, ...}} - an id below the resource it is on
+  diagnostic_settings  {id, properties: {workspaceId, logs, metrics, ...}} - an id below the
+                     resource it is on
+  diagnostics_read   true when the settings were read for every resource (an empty list is
+                     then "none configured"), false with --no-diagnostics
 
 What it writes, and from where:
 
@@ -28,7 +31,8 @@ What it writes, and from where:
     id in its properties (a site's serverFarmId); a private endpoint belongs to the resource its
     privateLinkServiceConnections point at. It is adopted as that resource's part, not mapped.
   - Every decision is read through its render-map.yaml `import:` entry and nothing else:
-    path + values | passthrough | format | reference | single | items | present, or cases.
+    path + values | passthrough | format | reference | single | items | present, or cases;
+    `diagnostic_setting` reads the resource's own diagnostic setting instead of its row.
     Read -> `source: imported`.
     Not read (todo, not_readable, absent from the row, not an answer) -> the question's default
     as `assumed`, and one open: entry per resource naming the decisions; a question without a
@@ -42,6 +46,11 @@ What it writes, and from where:
     (external:user-33bb1760-..., group, serviceprincipal) - a reader sees what kind of
     principal it is, the render keeps the object id. One
     on a scope the spec does not adopt (the group, the subscription) is `unmapped`.
+  - The diagnostic settings, when read: none on any adopted resource -> observability_ownership
+    `none` and the `diagnostic_setting` decisions not written (the render adds none); all to one
+    workspace -> diagnostics_destination that workspace, `reference` (or `create` when the
+    workspace is mapped too), each resource's workspace decision `source: deployment`. A
+    resource without a setting while others have one keeps its decisions `assumed`.
   - deployment.network_exposure follows from what was read: `public` when any adopted
     resource's public_network_access is enabled or enabled_with_firewall, `private` when every
     one read is disabled; none read, none written.
@@ -211,7 +220,32 @@ def fits(question, v):
             return MISSING
     if isinstance(acc, list) and t in ('enum',):
         return next((a for a in acc if same(a, v)), MISSING)
+    if isinstance(acc, list) and t == 'list':  # every item one the question accepts, or no answer
+        if not isinstance(v, list):
+            return MISSING
+        items = [next((a for a in acc if same(a, x)), MISSING) for x in v]
+        return MISSING if any(x is MISSING for x in items) else items
     return v
+
+
+def read_diagnostic(reading, setting):
+    """(found, value) - what a `diagnostic_setting` import reads from the resource's own setting.
+
+    workspace       properties.workspaceId
+    log_categories  [{category: AuditEvent, enabled: true}, {categoryGroup: audit, enabled: false}]
+                    -> [AuditEvent]; an enabled entry naming neither is no answer
+    metrics         any properties.metrics[] entry enabled -> true, none or no list -> false
+    """
+    if reading == 'workspace':
+        v = at(setting, 'properties.workspaceId')
+        return (v is not MISSING), (None if v is MISSING else v)
+    if reading == 'log_categories':
+        logs = at(setting, 'properties.logs')
+        enabled = [e for e in (logs if isinstance(logs, list) else []) if at(e, 'enabled') is True]
+        names = [at(e, 'category') if at(e, 'category') is not MISSING else at(e, 'categoryGroup') for e in enabled]
+        return (MISSING not in names), (None if MISSING in names else names)
+    metrics = at(setting, 'properties.metrics')
+    return True, any(at(e, 'enabled') is True for e in (metrics if isinstance(metrics, list) else []))
 
 
 def get_dec(node, group, qid):
@@ -315,6 +349,27 @@ def main():
             return {'existing': kind, 'id': {stage: v}}
         return MISSING
 
+    # --- diagnostic settings: each resource's own, the one adopt names --------------------
+    diags = inv.get('diagnostic_settings') or []
+    diagnostics_read = inv.get('diagnostics_read') is True
+
+    def settings_of(rid):
+        prefix = rid.lower() + '/providers/microsoft.insights/diagnosticsettings/'
+        return [d for d in diags if str(d['id']).lower().startswith(prefix)]
+
+    setting_of = {}
+    for _, r in mapped:
+        to_workspace = [d for d in settings_of(str(r['id'])) if at(d, 'properties.workspaceId') is not MISSING]
+        if to_workspace:
+            setting_of[str(r['id']).lower()] = to_workspace[0]
+    # Read and none anywhere: the deployment sends no diagnostics, and its decisions render nothing.
+    no_diagnostics = diagnostics_read and not setting_of
+    # One workspace for all: the deployment's destination, which each resource inherits.
+    workspaces = {str(at(d, 'properties.workspaceId')): None for d in setting_of.values()}
+    destination = MISSING
+    if len({w.lower() for w in workspaces}) == 1:
+        destination = reference({'accepts': {'ref': 'log_analytics_workspace'}}, next(iter(workspaces)), {})
+
     resources_out, opens, read_n, assumed_n = {}, [], 0, 0
     order = sorted(mapped, key=lambda m: (str(m[1].get('type', '')) != 'Microsoft.Network/virtualNetworks', m[1]['id']))
     for s, r in order:  # networks first, so a subnet reference finds its part
@@ -329,7 +384,20 @@ def main():
             if isinstance(imp, dict) and imp.get('reference'):
                 refs.append((gid, q, imp))
                 continue
-            found, v = read(imp, r)
+            if isinstance(imp, dict) and 'diagnostic_setting' in imp:
+                if no_diagnostics:
+                    continue  # observability_ownership none: nothing rendered, nothing to keep
+                setting = setting_of.get(str(r['id']).lower())
+                found, v = read_diagnostic(imp['diagnostic_setting'], setting) if setting else (False, None)
+                if imp['diagnostic_setting'] == 'workspace':
+                    if found and destination is not MISSING:
+                        node.setdefault(gid, {})[q['id']] = {'value': destination, 'source': 'deployment'}
+                        read_n += 1
+                    else:  # no setting here, or the resources write to several workspaces
+                        missed.append(qkey)
+                    continue
+            else:
+                found, v = read(imp, r)
             v = fits(q, v) if found else MISSING
             if v is not MISSING:
                 node.setdefault(gid, {})[q['id']] = {'value': v, 'source': 'imported'}
@@ -358,7 +426,6 @@ def main():
 
     # --- adopt: ids, locks, diagnostic settings, parts ------------------------------------
     locks = inv.get('locks') or []
-    diags = inv.get('diagnostic_settings') or []
     any_lock = False
     for s, r in mapped:
         rid = str(r['id'])
@@ -371,9 +438,8 @@ def main():
                 any_lock = True
             else:
                 unmapped.append({'type': 'Microsoft.Authorization/locks', 'id': l['id'], 'reason': 'outside_lock_policy'})
-        mine = [d for d in diags if str(d['id']).lower().startswith(rid.lower() + '/providers/microsoft.insights/diagnosticsettings/')]
-        for d in mine:
-            if 'diagnostic_setting_id' not in adopt and at(d, 'properties.workspaceId') is not MISSING:
+        for d in settings_of(rid):
+            if d is setting_of.get(rid.lower()):
                 adopt['diagnostic_setting_id'] = {'value': {stage: d['id']}, 'source': 'imported'}
             else:
                 unmapped.append({'type': 'Microsoft.Insights/diagnosticSettings', 'id': d['id'],
@@ -437,6 +503,18 @@ def main():
         'resource_lock': {'value': ('production' if stage == 'production' else 'all_stages') if any_lock else 'none',
                           'source': 'imported'},
     }
+    if no_diagnostics:
+        deployment['observability_ownership'] = {'value': 'none', 'source': 'imported'}
+    elif destination is not MISSING:
+        deployment['observability_ownership'] = {'value': 'create' if 'resource' in destination else 'reference',
+                                                 'source': 'imported'}
+        deployment['diagnostics_destination'] = {'value': destination, 'source': 'imported'}
+    elif len(workspaces) > 1:
+        opens.append({'key': 'deployment.diagnostics_destination',
+                      'question': (f"Die Diagnosedaten gehen heute in {len(workspaces)} Workspaces ({', '.join(workspaces)}) - welcher wird das Ziel?"
+                                   if args.language == 'de' else
+                                   f"Diagnostics go to {len(workspaces)} workspaces today ({', '.join(workspaces)}) - which one becomes the destination?"),
+                      'blocks': 'render'})
     exposure = [str(get_dec(n, 'networking', 'public_network_access')) for n in resources_out.values()
                 if get_dec(n, 'networking', 'public_network_access') is not None]
     if exposure:

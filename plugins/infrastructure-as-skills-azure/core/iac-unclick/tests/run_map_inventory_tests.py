@@ -92,6 +92,17 @@ def main():
         expect((t, why) in reasons, f"unmapped: {t} ({why})")
     expect(spec.get('deployment', {}).get('network_exposure') == {'value': 'public', 'source': 'imported'},
            'network_exposure follows from the public storage account')
+    dep = spec.get('deployment', {})
+    law = '/subscriptions/22222222-2222-2222-2222-222222222222/resourceGroups/rg-mgmt/providers/Microsoft.OperationalInsights/workspaces/law-central'
+    expect(dep.get('observability_ownership', {}).get('value') == 'reference'
+           and dep.get('diagnostics_destination', {}).get('value') == {'existing': 'log_analytics_workspace', 'id': {'production': law}},
+           'the one workspace the settings write to is the deployment\'s destination, referenced')
+    st_obs = st.get('observability', {})
+    expect(st_obs.get('diagnostic_workspace', {}).get('source') == 'deployment'
+           and st_obs.get('metrics_enabled') == {'value': True, 'source': 'imported'},
+           'the storage account inherits the workspace and its metrics are read from its setting')
+    expect(app.get('observability', {}).get('metrics_enabled', {}).get('source') == 'assumed',
+           'the web app has no setting while another resource has one: assumed, not read')
     expect('## Abweichungen von den Vorgaben' in doc and '## Gefunden, nicht gebaut' in doc and 'dbw-orders' in doc,
            'the decision document lists the departures and what was not built')
     expect('NetworkWatcher' not in text and 'Failure Anomalies' not in text, 'the noise is left out')

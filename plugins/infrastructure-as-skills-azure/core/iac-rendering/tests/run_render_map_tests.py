@@ -15,7 +15,8 @@ passthrough, a passthrough that is not true or stands beside values, import_part
 list of ARM types or names the set's own resource, a decision without import, an import answer
 the question does not accept, an import with two forms, a todo without its reason, cases without
 when, a reference on a question that takes none, items on a question that is no list, present
-without missing, import_match that is no list of kind tokens. An import read back through cases
+without missing, a diagnostic_setting reading on a question of the wrong shape or of no known
+kind, import_match that is no list of kind tokens. An import read back through cases
 must pass. A companion, a list per
 module, `by_kind`, a composite format, format beside values, format as code, null in values
 and a composite format with part_of used correctly must pass. Every render-map.yaml in the
@@ -122,6 +123,12 @@ def main():
         ('present without missing',
          lambda d: d['decisions']['security.shared_access_key_enabled'].__setitem__(
              'import', {'path': 'properties.allowSharedKeyAccess', 'present': True}), 'present needs missing'),
+        ('a diagnostic_setting reading no question of its shape takes',
+         lambda d: d['decisions']['security.min_tls_version'].__setitem__('import', {'diagnostic_setting': 'metrics'}),
+         'diagnostic_setting metrics on a question of the wrong shape'),
+        ('a diagnostic_setting reading that does not exist',
+         lambda d: d['decisions']['observability.metrics_enabled'].__setitem__('import', {'diagnostic_setting': 'retention'}),
+         'diagnostic_setting is one of'),
         ('import_match that is no list of kind tokens',
          lambda d: d.__setitem__('import_match', {'kind_has': 'functionapp'}), 'import_match is'),
         ('import_parts that is no list of ARM types',
