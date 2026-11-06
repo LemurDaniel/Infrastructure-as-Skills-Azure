@@ -138,10 +138,21 @@ def main():
          lambda d: d['decisions']['networking.public_network_access'].__setitem__(
              'import', {'path': 'properties.x', 'items': {'source': ['properties.a', 42]}}),
          'or to a list of paths whose values are merged'),
-        ('each beside no reference',
+        ('each beside another form',
          lambda d: d['decisions']['security.min_tls_version'].__setitem__(
              'import', {'path': 'properties.minimumTlsVersion', 'passthrough': True, 'each': 'id'}),
-         'import.each stands beside reference only'),
+         'exactly one of values, passthrough, format'),
+        ('a child the set does not list',
+         lambda d: d['decisions']['security.min_tls_version'].__setitem__(
+             'import', {'child': 'blobServices/default', 'path': 'properties.x', 'passthrough': True}),
+         "import.child names a path the set's import_children does not list"),
+        ('import_children without an API version',
+         lambda d: d.__setitem__('import_children', {'blobServices/default': 'latest'}),
+         'import_children maps a child path'),
+        ('keys on a question that is no list',
+         lambda d: d['decisions']['security.min_tls_version'].__setitem__(
+             'import', {'path': 'identity.userAssignedIdentities', 'keys': True}),
+         'import.keys is true, on a list question'),
         ('a part the set does not adopt',
          lambda d: d['decisions']['security.min_tls_version'].__setitem__(
              'import', {'part': 'Microsoft.Web/serverFarms', 'path': 'properties.x', 'passthrough': True}),

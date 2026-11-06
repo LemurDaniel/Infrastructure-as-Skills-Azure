@@ -2,14 +2,16 @@
 """Reads what runs in Azure into inventory.json for map_inventory.py. Read only, the one Azure step.
 
     python collect.py --resource-group rg-orders-prod [--resource-group rg-2] [--subscription <id>]
-                      [--tag workload=orders] [--no-diagnostics] [--out inventory.json]
+                      [--tag workload=orders] [--no-diagnostics] [--no-children] [--out inventory.json]
     python collect.py --subscription <id> [--tag ...]
 
 Every command it runs only reads: `az account show` (also of the subscription, to stop on a
 tenant other than the current account's, which Resource Graph cannot read), `az graph query` (resources,
 resourcecontainers, authorizationresources), `az role definition list`, `az lock list`, and per resource
 `az monitor diagnostic-settings list` (skipped with --no-diagnostics, the slow part on a large
-scope). It never writes to Azure and needs no more than Reader on the scope. The rest of the
+scope) and one `az rest --method get` per child resource a set's render-map.yaml names under
+`import_children` (blobServices/default, firewallRules, config/web; skipped with --no-children).
+It never writes to Azure and needs no more than Reader on the scope. The rest of the
 plugin never needs a login; this script is the only one that does.
 
 The output format is map_inventory.py's docstring. Resource Graph rows are paged until the
@@ -19,12 +21,15 @@ Exit 0 written, 1 a query failed, 2 not run (no az, not logged in, no scope).
 """
 import argparse
 import datetime
+import glob
 import json
+import os
 import shutil
 import subprocess
 import sys
 
 PAGE = 1000
+PLUGIN = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', '..'))
 
 
 def az(args, az_path):
@@ -50,6 +55,32 @@ def graph(query, subscription, az_path):
             return rows
 
 
+def children_by_type():
+    """ARM type (lower case) -> {child path: api version}, from every set's render-map.yaml."""
+    import yaml  # the plugin's one dependency; only this step needs it here
+    out = {}
+    for qs in glob.glob(os.path.join(PLUGIN, 'resources', '*', '*', 'questions.yaml')):
+        rm = os.path.join(os.path.dirname(qs), 'render-map.yaml')
+        if not os.path.isfile(rm):
+            continue
+        with open(qs, encoding='utf-8') as f:
+            rtype = str((yaml.safe_load(f) or {}).get('resource', '')).lower()
+        with open(rm, encoding='utf-8') as f:
+            children = (yaml.safe_load(f) or {}).get('import_children') or {}
+        out.setdefault(rtype, {}).update({str(k): str(v) for k, v in children.items()})
+    return out
+
+
+def read_child(rid, child, version, az_path):
+    """(read, body): the child's GET body; (True, None) when Azure has none (404), (False, None)
+    when it could not be read - map_inventory treats the two differently."""
+    try:
+        return True, az(['rest', '--method', 'get', '--url', f"{rid}/{child}?api-version={version}"], az_path)
+    except RuntimeError as e:
+        text = str(e).lower()
+        return ('notfound' in text or '(404)' in text or 'not found' in text), None
+
+
 def kql_list(values):
     return ', '.join("'" + v.replace("'", "\\'") + "'" for v in values)
 
@@ -60,6 +91,7 @@ def main():
     ap.add_argument('--resource-group', action='append', default=[], help='a group to read; repeat for several')
     ap.add_argument('--tag', action='append', default=[], help='name=value; only rows carrying it')
     ap.add_argument('--no-diagnostics', action='store_true', help='skip the diagnostic settings (one call per resource)')
+    ap.add_argument('--no-children', action='store_true', help='skip the child resources (one call per child)')
     ap.add_argument('--out', default='inventory.json')
     args = ap.parse_args()
 
@@ -130,6 +162,19 @@ def main():
                 diagnostics += [{'id': d['id'], 'properties': {k: v for k, v in d.items() if k not in ('id', 'name', 'type')}}
                                 for d in found]
             print()
+        children, unread = {}, 0
+        if not args.no_children:
+            wanted = children_by_type()
+            jobs = [(r['id'], c, v) for r in resources for c, v in sorted(wanted.get(str(r.get('type', '')).lower(), {}).items())]
+            for i, (rid, child, version) in enumerate(jobs, 1):
+                print(f"  child resources {i}/{len(jobs)}", end='\r')
+                ok, body = read_child(rid, child, version, az_path)
+                if ok:
+                    children.setdefault(rid.lower(), {})[child] = body
+                else:
+                    unread += 1
+            if jobs:
+                print()
     except RuntimeError as e:
         print(f"[fail] {e}")
         return 1
@@ -148,11 +193,16 @@ def main():
         'diagnostic_settings': diagnostics,
         # an empty list read is "none configured"; skipped, it says nothing
         'diagnostics_read': not args.no_diagnostics,
+        # {resource id (lower case): {child path: GET body, null when Azure has none}}; a child that
+        # could not be read is absent, and its decisions are assumed
+        'children': children,
     }
     with open(args.out, 'w', encoding='utf-8') as f:
         json.dump(inventory, f, indent=1)
     print(f"{args.out}: {len(resources)} resource(s), {len(assignments)} role assignment(s), {len(locks)} lock(s), "
-          f"{len(diagnostics)} diagnostic setting(s)")
+          f"{len(diagnostics)} diagnostic setting(s), {sum(len(c) for c in children.values())} child resource(s)")
+    if unread:
+        print(f"[warn] {unread} child resource(s) could not be read - their decisions are assumed")
     return 0
 
 

@@ -136,6 +136,8 @@ entries at run time:
 | `path` + `single: true` | The path holds a list and the answer is its one element (`addressSpace.addressPrefixes` -> one range); a list of two or more is not read, never cut to its first |
 | `path` + `items` | On a list question: the path holds a list of objects and each becomes one answer item, `{ <field>: <path inside the element> }` - `{ name: name, prefix: properties.addressPrefix }` for the subnets. A field may name a list of paths: their values are merged into one list (`source: [properties.sourceAddressPrefix, properties.sourceAddressPrefixes]`), and none holding one is no answer |
 | `part: <ARM type>` beside a path | The path is read from the row of the resource's adopted part of that type, one listed in `import_parts`, not from its own row: `{ part: Microsoft.Network/privateEndpoints, path: properties.subnet.id, reference: true }` for the endpoint's subnet. Several parts of the type must hold the same value, or none is read |
+| `child: <path>` beside a path or `cases` | The path is read from the GET body of a child resource below the resource's id, one `import_children` lists (`child: blobServices/default, path: properties.deleteRetentionPolicy.days`); a collection's body is `{ value: [...] }` (`child: firewallRules, path: value, items: ...`). Azure having none (404) reads as the path absent, so `missing` applies; a child that could not be read, or `--no-children`, is not read |
+| `path` + `keys: true` | On a list question: the path holds an object whose keys are the answer (`identity.userAssignedIdentities`); with `reference: true` each key is an id written as a reference |
 | `match` / `skip` beside a list path | Narrow the list before the form reads it: `match: { <path>: <literal>, ... }` keeps the elements whose paths all hold the literals, `skip: [ {...}, ... ]` drops those matching any entry. With `present`, whether a matching element exists (the NSG's deny-all at 4096); with `items`, the elements another decision already reads left out |
 | `path` + `present` + `missing` | The answer when the path holds a value (`virtualNetworkSubnetId` set -> `vnet_integration: true`), `missing` when it is absent or empty |
 | `cases` | A list of `{ when: { <path>: <literal>, ... }, answer }`, the first whose paths all match wins - for answers that share a literal on one path |
@@ -168,6 +170,21 @@ instead of creating a second one; `check_spec.py` refuses an id of a type not li
 that renders nothing besides its resource has no `import_parts`. Locks, diagnostic settings and
 role assignments are not listed: the spec names them on their own (`adopt.lock_id`,
 `adopt.diagnostic_setting_id`, `adopt_id`).
+
+## What an import reads beside the row: `import_children`
+
+```yaml
+import_children:
+  blobServices/default: 2023-05-01
+  firewallRules: 2023-08-01-preview
+```
+
+The child resources below the resource's id whose GET body a `child:` reading needs - the
+settings the Resource Graph row does not hold (a storage account's blob service, a server's
+firewall rules, a site's `config/web`). `collect.py` reads each with `az rest --method get` at
+the API version given, read only, for every row of the set's type. The version is one the
+provider publishes for that child type (`az provider show --namespace <ns>`), never recalled;
+the body's shape is that version's ARM template reference, the same in every tenant.
 
 ## Two sets of one type: `import_match`
 

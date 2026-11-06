@@ -97,5 +97,19 @@
                   "logs": [],
                   "metrics": [{"category": "Transaction", "enabled": true}]}}
  ],
- "diagnostics_read": true
+ "diagnostics_read": true,
+ "children": {
+  "/subscriptions/11111111-1111-1111-1111-111111111111/resourcegroups/rg-orders-prod/providers/microsoft.storage/storageaccounts/stordersprod01": {
+   "blobServices/default": {
+    "id": "/subscriptions/11111111-1111-1111-1111-111111111111/resourceGroups/rg-orders-prod/providers/Microsoft.Storage/storageAccounts/stordersprod01/blobServices/default",
+    "name": "default",
+    "type": "Microsoft.Storage/storageAccounts/blobServices",
+    "properties": {
+     "deleteRetentionPolicy": {"enabled": true, "days": 7},
+     "containerDeleteRetentionPolicy": {"enabled": false},
+     "isVersioningEnabled": true
+    }
+   }
+  }
+ }
 }

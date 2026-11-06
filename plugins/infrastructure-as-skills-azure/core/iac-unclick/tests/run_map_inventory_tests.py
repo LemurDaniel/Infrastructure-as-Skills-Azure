@@ -123,6 +123,14 @@ def main():
     expect(st_obs.get('diagnostic_workspace', {}).get('source') == 'deployment'
            and st_obs.get('metrics_enabled') == {'value': True, 'source': 'imported'},
            'the storage account inherits the workspace and its metrics are read from its setting')
+    dp = {k: (v or {}).get('value') for k, v in st.get('data_protection', {}).items()}
+    expect(dp.get('blob_soft_delete_days') == 7 and dp.get('container_soft_delete_days') == 0
+           and dp.get('versioning_enabled') is True and dp.get('change_feed_enabled') is False
+           and dp.get('point_in_time_restore_days') == 0
+           and st['data_protection']['blob_soft_delete_days'].get('source') == 'imported',
+           'the blob service is read from its child: 7 days, a disabled policy as 0, absent settings as their missing answer')
+    expect(st.get('networking', {}).get('firewall_ip_rules') == {'value': [], 'source': 'imported'},
+           'no network ACL rules read as an empty list')
     app_obs = app.get('observability', {})
     expect(app_obs.get('diagnostic_workspace') == {'value': 'none', 'source': 'imported'}
            and 'metrics_enabled' not in app_obs and 'diagnostic_categories' not in app_obs,

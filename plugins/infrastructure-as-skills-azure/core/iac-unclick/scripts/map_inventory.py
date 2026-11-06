@@ -21,6 +21,8 @@ The inventory is what collect.py wrote (one scope read once), JSON:
                      resource it is on
   diagnostics_read   true when the settings were read for every resource (an empty list is
                      then "none configured"), false with --no-diagnostics
+  children           {resource id: {child path: GET body}} for the import_children of its type;
+                     null is "Azure has none", an absent child was not read
 
 What it writes, and from where:
 
@@ -33,7 +35,8 @@ What it writes, and from where:
   - Every decision is read through its render-map.yaml `import:` entry and nothing else:
     path + values | passthrough | format | reference | single | items | present, or cases;
     `diagnostic_setting` reads the resource's own diagnostic setting instead of its row, `part:`
-    the row of one of its adopted parts (the private endpoint's subnet).
+    the row of one of its adopted parts (the private endpoint's subnet), `child:` the GET body of
+    a child resource (blobServices/default, firewallRules).
     Read -> `source: imported`.
     Not read (todo, not_readable, absent from the row, not an answer) -> the question's default
     as `assumed`, and one open: entry per resource naming the decisions; a question without a
@@ -195,7 +198,9 @@ def read(imp, row):
         for c in imp['cases']:
             if all(at(row, p) is not MISSING and same(at(row, p), lit) for p, lit in c['when'].items()):
                 return True, c['answer']
-        return ('missing' in imp and all(at(row, p) is MISSING for c in imp['cases'] for p in c['when'])), imp.get('missing')
+        if 'path' not in imp:
+            return ('missing' in imp and all(at(row, p) is MISSING for c in imp['cases'] for p in c['when'])), imp.get('missing')
+        # No case matched: the path form beside them reads the answer (enabled false -> 0, else days).
     v = at(row, imp['path'])
     if v is MISSING:
         return ('missing' in imp), imp.get('missing')
@@ -205,6 +210,8 @@ def read(imp, row):
         matches = lambda e, f: all(at(e, p) is not MISSING and same(at(e, p), lit) for p, lit in f.items())
         v = [e for e in v if ('match' not in imp or matches(e, imp['match']))
              and not any(matches(e, f) for f in imp.get('skip') or [])]
+    if imp.get('keys') is True:  # {"<id-a>": {...}, "<id-b>": {...}} -> [<id-a>, <id-b>]
+        return (isinstance(v, dict)), (list(v) if isinstance(v, dict) else None)
     if 'each' in imp:  # [{id: a}, {id: b}] with each: id -> [a, b]
         if not isinstance(v, list) or any(at(e, imp['each']) is MISSING for e in v):
             return False, None
@@ -383,9 +390,17 @@ def main():
             return {'existing': kind, 'id': {stage: v}}
         return MISSING
 
+    children = {str(k).lower(): v for k, v in (inv.get('children') or {}).items()}
+
     def read_row(imp, r):
         """read() on the resource's row, or with `part:` on the rows of its adopted parts of that
         type - every one found and holding the same value, else not read."""
+        if isinstance(imp, dict) and 'child' in imp:
+            # The child's GET body; null is "Azure has none" (missing applies), absent is "not read".
+            got = (children.get(str(r['id']).lower()) or {})
+            if imp['child'] not in got:
+                return False, None
+            return read({k: v for k, v in imp.items() if k != 'child'}, got[imp['child']] or {})
         if not (isinstance(imp, dict) and 'part' in imp):
             return read(imp, r)
         rid = str(r['id']).lower()
@@ -466,7 +481,7 @@ def main():
         resources_out[key] = node
         for gid, q, imp in refs:
             found, v = read_row(imp, r)
-            if found and 'each' in imp:  # a list of references: every one resolves, or none is read
+            if found and ('each' in imp or imp.get('keys') is True):  # a list of references: all resolve, or none is read
                 each = [reference(q, x, resources_out) for x in v]
                 ref = MISSING if MISSING in each else each
             else:
