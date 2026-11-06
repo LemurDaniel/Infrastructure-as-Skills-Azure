@@ -375,15 +375,24 @@ the detail; this list says what was decided and why, so a session does not reope
   `parts`), `wiring.role_assignments[].adopt_id`, `unmapped` and `spec.imported_from`
   (`spec_import.py`, rule 11 of `check_spec.py`). Every render-map decision carries `import:`
   (path + values / passthrough / format / reference / single / items / present, `cases`,
-  `not_readable`, `todo`), `import_parts` (a plan, a WAF policy, the private endpoints a set
-  renders) and `import_match` (two sets of one type by `kind`): 467 read back, 3 not readable,
-  884 todo. The decision document lists departures from the rules and what was found and not
-  built; the diagram routes lines from outside into PaaS from above. First real run on one of
-  the owner's resource groups (a registry, a vault, a storage account; its name and findings
-  are not recorded in this public repository): it found and fixed role definitions (tenant level, read through
-  `az role definition list`) and absent properties read as the default (identity, infrastructure
-  encryption). README section, `docs/unclick.drawio.png` and a teaser (`docs/teaser-unclick.*`,
-  illustrative figures). Not rendered: see *Open, unclick*.
+  `diagnostic_setting`, `part:`, list filters `match` / `skip`, `each` for a list of
+  references, `not_readable`, `todo`), `import_parts` (a plan, a WAF policy, the private
+  endpoints a set renders) and `import_match` (two sets of one type by `kind`): 618 read back,
+  3 not readable, 733 todo. The decision document lists departures from the rules and what was
+  found and not built; the diagram routes lines from outside into PaaS from above. First real
+  run on one of the owner's resource groups (a registry, a vault, a storage account; its name
+  and findings are not recorded in this public repository): it found and fixed role
+  definitions (tenant level, read through `az role definition list`) and absent properties read
+  as the default (identity, infrastructure encryption). Second real run (2026-11-06, a vault
+  behind an endpoint, a network of six subnets, three NSGs with rules of their own, no
+  diagnostic setting; anonymised as `tests/fixtures/inventory-network.json`): 9 -> 22
+  decisions read, 21 -> 7 assumed. Fixed: a subscription in another tenant stops with the
+  `az account set` to run; diagnostic settings read (none anywhere -> `observability_ownership:
+  none`, nothing written for them); NSG rules read 1:1 with `access`, a live Deny kept as a
+  departure (owner's call); the subnets an NSG guards as the network's parts (upper-case ids,
+  networks mapped first); an endpoint's network interface is noise; the endpoint subnet of 29
+  sets read from the adopted endpoint. README section, `docs/unclick.drawio.png` and a teaser
+  (`docs/teaser-unclick.*`, illustrative figures). Not rendered: see *Open, unclick*.
 
 - **Three workload-scoped sets instead of a governance family** (2026-11-01, branch
   `feature/budget-maintenance-automation`; 70 resource sets, 1,517 questions): `observability/budget`
@@ -1151,11 +1160,18 @@ regeneration from the spec loses them. All `render`:
   into the AVM module's resource address, ids from the stage file; Bicep deploys over the
   resource under the same name, never `existing`), so an imported spec today would plan to
   create every resource a second time. The skill stops after the sign-off and says so. The
-  acceptance is an empty `plan` / `what-if`.
-- **884 `todo` readings.** The 24 most used sets were gone through; the rest is the bootstrap's.
+  acceptance is an empty `plan` / `what-if`. Two rules the render must keep for an imported
+  NSG: a rule's `access` (a Deny read from Azure), and no baseline rules of `subnet_purpose`
+  added on top of the rules read - `subnet_purpose` stays an open entry on an import.
+- **733 `todo` readings.** The 24 most used sets were gone through; the rest is the bootstrap's.
   Most need a child resource the Resource Graph row does not hold (blobServices/default, queues,
-  databases, firewall rules, `sites/config/web`) - `collect.py` reads none yet - or a form not
-  written (a list element, the keys of `userAssignedIdentities`, a key URI for a CMK id).
+  databases, firewall rules, `sites/config/web`, the storage account's log categories, the
+  diagnostic settings of Container Apps and Redis) - `collect.py` reads none yet - or a form
+  not written (the keys of `userAssignedIdentities`, a key URI for a CMK id).
+- **Diagnostics on some resources only:** a resource without a setting keeps its diagnostic
+  decisions `assumed`, so the first apply would add one there; the spec cannot say "none on
+  this resource". Several workspaces raise an open entry for the destination.
+- NSG rules are written in the order Azure returns them; a second read may reorder them.
 - **Readings to check against a real row:** the eight `properties.siteConfig.*` readings on web,
   function and logic apps (Resource Graph often returns them empty, read as not found, so
   `assumed`); function-app `hosting.plan_type` (`properties.sku`); `key_management` with
