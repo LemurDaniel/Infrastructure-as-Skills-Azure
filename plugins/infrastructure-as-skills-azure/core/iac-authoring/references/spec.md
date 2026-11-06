@@ -211,13 +211,13 @@ resources:
       subnets:
         value:
           development:
-          - name: snet-app
+          - name: app
             prefix: 10.42.0.64/26
           test:
-          - name: snet-app
+          - name: app
             prefix: 10.43.0.64/26
           production:
-          - name: snet-app
+          - name: app
             prefix: 10.44.0.64/26
         source: asked
       private_endpoint_subnet_prefix:
@@ -233,7 +233,7 @@ resources:
       subnets:
         value:
         - resource: virtual-network
-          part: snet-app
+          part: app
         source:
           forced_by: resources.virtual-network.addressing.subnets
     rules:
@@ -275,7 +275,7 @@ resources:
       integration_subnet:
         value:  # a reference: a part of a resource of this spec, the same in every stage
           resource: virtual-network
-          part: snet-app
+          part: app
         source: stated
     identity:
       managed_identity:
@@ -469,7 +469,7 @@ around it, no name and resource group:
       integration_subnet:          # a resource of this spec: one value, every stage
         value:
           resource: virtual-network
-          part: snet-app           # where the kind is a part of the resource (a subnet)
+          part: app           # where the kind is a part of the resource (a subnet)
         source: stated
   diagnostics_destination:         # one outside it, its id known: the id per stage
     value:

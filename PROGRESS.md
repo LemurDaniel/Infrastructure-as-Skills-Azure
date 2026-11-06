@@ -761,6 +761,17 @@ per-family` in `check_spec.py` and the `chatbot` spec, and `references/private-d
     `stage_parameter` (2026-11-07, owner's call: sizes and cost settings, a forced value stays
     a literal) the digest tags them `[stage file]` and the idioms say so, but no script fails
     a render that writes one as a literal - `check_render_coverage.py` is the place.
+  - **Subnet names** (the run's Bicep held `snet-app` verbatim beside an endpoint subnet named
+    `snet-sdc-prod-chat-endpoints-01` from `naming.yaml`). Done 2026-11-07, owner's call for the
+    quick form: a spec subnet's `name` is its short purpose (`app`, `endpoints`), every Azure
+    name comes from the convention with it as `<PURPOSE>`, `azure_name` keeps an existing one;
+    `check_spec.py` 9f warns on an Azure-style name. The render-map already puts the endpoint
+    subnet into the same list as `endpoints` - the run's separate parameter was its own
+    departure. **Before the next render of `eval-agent/infra` and the examples**: their specs
+    carry Azure-style names (`snet-endpoints`, `snet-app-integration`, ...); give each a short
+    name and `azure_name` with the deployed name, or the render renames - recreates - the
+    subnets and everything in them. Not done: a `purpose` field beside the name, and the
+    diagram still prints the spec's short name, not the Azure name.
   - **The diagram's decision box says "privat, Ausnahme App Service"** while its header names
     the workspace and App Insights too - it reads `public_parts`, the header reads each
     resource's `public_network_access`. And the run left `infra-diagram.drawio` beside the PNG.

@@ -5,7 +5,8 @@
 
 The render is a Terraform root (providers.tf holding the table of contents, a flow chapter
 in avm.storage.tf, a collection chapter in variables.tf), a test file, a Bicep entry point,
-its stage file and a workflow with a YAML header. Each mutation changes one line and must
+its stage file and a workflow with a YAML header, beside them an infra-spec.yaml without one
+(the interview's file, which the check leaves out). Each mutation changes one line and must
 be named by the check: a short banner, a lowercase title, a step without its section, a
 section outside a chapter, a missing header, a stale table of contents, a chapter without
 description, an unclosed section.
@@ -217,6 +218,8 @@ FILES = {
     "bicep/main.bicep": BICEP,
     "bicep/main.production.bicepparam": PARAMS,
     ".github/workflows/infra.yaml": WORKFLOW,
+    # Beside the render, written by the interview: no header, and the check leaves it out.
+    "infra-spec.yaml": "schema_version: 1\n\nspec:\n  id: shop\n",
 }
 
 
