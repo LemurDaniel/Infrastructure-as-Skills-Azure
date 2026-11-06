@@ -161,6 +161,9 @@ def main():
     expect(guarded.get('value') == [{'resource': 'virtual-network', 'part': 'snet-shop-dataadditional-gw-prod'},
                                     {'resource': 'virtual-network', 'part': 'snet-shop-datape-gw-prod'}],
            'the subnets an NSG guards are the network\'s parts, in the network\'s spelling of an upper-case id')
+    listed = res.get('virtual-network', {}).get('addressing', {}).get('subnets', {}).get('value') or []
+    expect(listed and all(s.get('azure_name') == s.get('name') for s in listed),
+           'an adopted subnet keeps its deployed name as azure_name, so the render does not rename it')
     pe_subnet = res.get('key-vault', {}).get('networking', {}).get('private_endpoint_subnet', {})
     expect(pe_subnet == {'value': {'resource': 'virtual-network', 'part': 'snet-shop-datape-gw-prod'}, 'source': 'imported'},
            "the vault's endpoint subnet is read from its adopted private endpoint, as the network's part")

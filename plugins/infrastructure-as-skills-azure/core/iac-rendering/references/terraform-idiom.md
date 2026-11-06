@@ -271,7 +271,7 @@ A secret among them is sensitive (`sensitive = true`) and comes from the pipelin
 never from a stage file.
 
 A resource of the spec - `{ resource: <key> }` - is never a variable: it is the output of
-that resource's module (`module.network.subnet_ids["snet-app"]`). Never both for one network:
+that resource's module (`module.network.subnet_ids["app"]`). Never both for one network:
 a configuration that creates a network and also references a foreign one has two sources of
 truth for its address space, and the overlap surfaces at the first peering.
 

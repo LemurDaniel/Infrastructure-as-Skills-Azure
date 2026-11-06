@@ -221,12 +221,19 @@ def main():
             abbr = naming.get("abbreviation") or abbreviations.get(f"{type_id}::default", "")
             # An instance joins the workload in <NAME>; <PURPOSE> is for sub-resources and roles.
             add(key, type_id, abbr, {"NAME": workload + instance} if instance else {}, t["create"])
-            # Subnets are named by the spec, verbatim.
+            # Subnets from the convention, the spec's short name as <PURPOSE> - the private
+            # endpoint subnet's is `endpoints`; an existing subnet's azure_name stands verbatim.
             if set_name == "virtual-network":
-                subnets = per_stage(spec["resources"][key].get("addressing", {}).get("subnets"), stage) or []
+                addressing = spec["resources"][key].get("addressing", {})
+                subnets = list(per_stage(addressing.get("subnets"), stage) or [])
+                if per_stage(addressing.get("private_endpoint_subnet_prefix"), stage):
+                    subnets.append({"name": "endpoints"})
+                subnet_type = "Microsoft.Network/virtualNetworks/subnets"
+                subnet_abbr = abbreviations.get(f"{subnet_type}::default", "snet")
                 for sn in subnets:
                     if isinstance(sn, dict) and sn.get("name"):
-                        add(f"  subnet", "Microsoft.Network/virtualNetworks/subnets", "snet", {}, t["create"], fixed=sn["name"])
+                        add(f"  subnet {sn['name']}", subnet_type, subnet_abbr, {"PURPOSE": str(sn["name"])},
+                            t["create"], fixed=sn.get("azure_name"))
 
         # Two resources of one scope with one name: the pattern lacks what tells them apart.
         seen = {}

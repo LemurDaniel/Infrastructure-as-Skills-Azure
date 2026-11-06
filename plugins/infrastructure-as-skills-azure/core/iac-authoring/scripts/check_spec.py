@@ -841,6 +841,23 @@ def main():
                               f"holds, but the spec has neither its value nor an open entry naming it - "
                               f"a missing decision reads as nothing open")
 
+    # --- 9f. a subnet's name is its short purpose -------------------------------
+    # The render names every subnet from the convention with the spec's name as <PURPOSE>, so an
+    # Azure-style name (`snet-app`) comes out as snet-<loc>-<env>-<workload>-snet-app-01. A
+    # subnet that exists under such a name says so with azure_name. A warning: specs written
+    # before the rule carry Azure-style names and still render.
+    for rkey, rnode in (get(spec, 'resources') or {}).items():
+        if rkey.split('__')[0] != 'virtual-network' or not isinstance(rnode, dict):
+            continue
+        listed = get(get(get(rnode, 'addressing'), 'subnets'), 'value')
+        per = listed.values() if isinstance(listed, dict) else [listed]
+        named = {str(s.get('name')) for lst in per if isinstance(lst, list) for s in lst
+                 if isinstance(s, dict) and str(s.get('name', '')).lower().startswith('snet-') and not s.get('azure_name')}
+        for name in sorted(named):
+            warnings.append(f"resources.{rkey}.addressing.subnets names '{name}' - a subnet's name is its short "
+                            f"purpose ('{name[5:]}'), the render builds the Azure name from the convention; "
+                            f"a subnet that exists under this name carries azure_name: {name}")
+
     # --- 11. imports: adopt, unmapped, imported_from --------------------------
     # What an import (iac-unclick) leaves: the ids the render imports instead of creating a
     # second resource, and what it found and does not render.
