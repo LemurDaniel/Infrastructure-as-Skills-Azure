@@ -5,7 +5,8 @@
                       [--tag workload=orders] [--no-diagnostics] [--out inventory.json]
     python collect.py --subscription <id> [--tag ...]
 
-Every command it runs only reads: `az account show`, `az graph query` (resources,
+Every command it runs only reads: `az account show` (also of the subscription, to stop on a
+tenant other than the current account's, which Resource Graph cannot read), `az graph query` (resources,
 resourcecontainers, authorizationresources), `az role definition list`, `az lock list`, and per resource
 `az monitor diagnostic-settings list` (skipped with --no-diagnostics, the slow part on a large
 scope). It never writes to Azure and needs no more than Reader on the scope. The rest of the
@@ -77,7 +78,19 @@ def main():
         print(f"[fail] not logged in: {e}\n       az login, then run this again")
         return 2
     sub = args.subscription or account.get('id')
-    groups = [g.lower() for g in args.resource_group]
+    # Resource Graph reads only the tenant of the current account: a subscription of another tenant
+    # answers "NoValidSubscriptionsInQueryRequest", which names neither the tenant nor the fix.
+    try:
+        target = az(['account', 'show', '--subscription', sub], az_path)
+    except RuntimeError as e:
+        print(f"[fail] subscription {sub} is not among the logged-in accounts: {e}\n       az login, then run this again")
+        return 2
+    if str(target.get('tenantId', '')).lower() != str(account.get('tenantId', '')).lower():
+        print(f"[fail] subscription {sub} ({target.get('name')}) is in tenant {target.get('tenantId')}, the current az "
+              f"account ({account.get('name')}) in tenant {account.get('tenantId')} - Resource Graph reads only the "
+              f"current one.\n       az account set --subscription {sub}, then run this again (and set it back after)")
+        return 2
+    groups =[g.lower() for g in args.resource_group]
     tags = dict(t.split('=', 1) for t in args.tag if '=' in t)
     scopes = ([f"/subscriptions/{sub}/resourceGroups/{g}" for g in args.resource_group] if groups
               else [f"/subscriptions/{sub}"])

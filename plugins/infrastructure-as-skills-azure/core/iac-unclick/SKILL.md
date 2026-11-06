@@ -37,7 +37,9 @@ python <plugin>/core/iac-unclick/scripts/collect.py --resource-group <rg> [--tag
 Read only: `az graph query`, `az lock list`, `az monitor diagnostic-settings list`. Reader on
 the scope is enough. Never run an `az` command that changes anything, and never ask for more
 rights than Reader. Without `az` or a login the script says so: tell the person to `az login`
-and stop - nothing else in the plugin needs Azure. `--no-diagnostics` skips the one call per
+and stop - nothing else in the plugin needs Azure. A subscription in another tenant than the
+current az account stops the script with the `az account set` that fixes it: switching the
+person's az context is their call - ask, and set it back after the read. `--no-diagnostics` skips the one call per
 resource on a large scope (then no diagnostic setting is adopted, and the review says so).
 
 ## 3. Map - offline
