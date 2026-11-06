@@ -67,7 +67,8 @@ agent removed makes the patch orchestration fail quietly.
 Spot priority and eviction, dedicated hosts and host groups, capacity reservations,
 hibernation, ultra disks and write accelerator, domain join and DSC, custom script and
 run-command, the Azure Monitor Agent and Data Collection Rules, Defender for Servers,
-maintenance configurations, just-in-time access, Bastion and the image build pipeline each
+just-in-time access, Bastion and the image build pipeline each
 carry decisions of their own and have no question set; a request for one is said out loud,
-not improvised. A machine behind a load balancer is wiring, owned by a pattern; the second
+not improvised. The patch window is the `maintenance-configuration` set; this set assigns the
+machine to it. A machine behind a load balancer is wiring, owned by a pattern; the second
 machine of a zone-redundant pair is a second instance of this set.

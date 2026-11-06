@@ -13,6 +13,11 @@ diagram run outside the suite. How to run, check and read the suite is in the re
 `plugin-evals` skill (`.claude/skills/plugin-evals/`). Results land in `evals/results/`,
 which is ignored.
 
+Nothing in this directory downloads or installs anything. A case's `scaffold.sh` is a file
+of the case itself that copies the case's own fixture files into the run's working
+directory (`cp`, nothing else); the runner executes it only when the operator passes
+`--scaffold`.
+
 ## Layout
 
 One directory per group, one per case below it. The runner finds `**/case.yaml`, so the
@@ -46,8 +51,8 @@ most different situations rather than three variations of one:
 | `plugin-newer-halts` | Terraform | development | public | none | - | The spec carries `plugin_version: 99.0.0`: the run halts, changes and writes nothing, and says to update the plugin |
 | `claude-md-section-replaced` | Terraform | development | public | none | - | A CLAUDE.md with an older plugin section (no rev) between the team's own text: replaced, once, team text intact, the spec stamped |
 
-The two `sync/` cases start from a scaffold (`scaffold.sh` in the case directory, run with
-`--scaffold`): the eval sandbox has no shell, so the agent compares versions and edits the
+The two `sync/` cases start from fixture files their `scaffold.sh` copies into place (see
+above): the eval sandbox has no shell, so the agent compares versions and edits the
 section by hand with Read and Edit, which is also the path on a machine without Python. The
 scripts are tested by `run_plugin_version_tests.py` and `run_claude_md_tests.py`; the rule that a section with a
 higher rev is left alone is only there, since an eval run for it costs real money and the script test is free.

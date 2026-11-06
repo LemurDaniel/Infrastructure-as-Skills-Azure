@@ -15,9 +15,9 @@
 > **Terraform or Bicep is not required, but recommended.** The plugin writes the code without the CLI, but then it cannot run `fmt`, `validate`, `terraform test` or `bicep build` against it. The render is handed over marked as unverified.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Evals on Sonnet](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/LemurDaniel/Infrastructure-as-Skills-Azure/8e1bd6c30aa07bcfbc854dbb002c76f369d389da/badge-sonnet.json)](https://github.com/LemurDaniel/Infrastructure-as-Skills-Azure/blob/8e1bd6c30aa07bcfbc854dbb002c76f369d389da/README.md)
+[![Evals on Sonnet](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/LemurDaniel/Infrastructure-as-Skills-Azure/c98c6449f1aca9d0cbe06feddcd517c4cc0ef689/badge-sonnet.json)](https://github.com/LemurDaniel/Infrastructure-as-Skills-Azure/blob/c98c6449f1aca9d0cbe06feddcd517c4cc0ef689/README.md)
 
-A Claude Code plugin that authors Azure infrastructure as **Terraform or Bicep** from the decisions a resource actually forces - compute, network, data, security, messaging, integration, AI and recovery, 67 resource types in ten families. Not a module library and not a template collection. The interview writes an `infra-spec.yaml`; the code, its tests, a diagram and a decision document are rendered from that, onto [Azure Verified Modules](https://azure.github.io/Azure-Verified-Modules/) first.
+A Claude Code plugin that authors Azure infrastructure as **Terraform or Bicep** from the decisions a resource actually forces - compute, network, data, security, messaging, integration, AI and recovery, 70 resource types in ten families. Not a module library and not a template collection. The interview writes an `infra-spec.yaml`; the code, its tests, a diagram and a decision document are rendered from that, onto [Azure Verified Modules](https://azure.github.io/Azure-Verified-Modules/) first.
 
 ## 💡 The Idea
 
@@ -69,26 +69,6 @@ What a run leaves behind, from the [`chat-sandbox`](examples/chat-sandbox/) exam
 
 ![The architecture diagram of the chat-sandbox example, rendered from its infra-spec.yaml](examples/chat-sandbox/infra-diagram.drawio.png)
 
-and the spec it was drawn from, every decision with where it came from:
-
-```yaml
-deployment:
-  module_source:
-    value: authored
-    source: asked           # "Einzelne Ressourcen"
-  deploy_mechanism:
-    value: local
-    source: asked           # "Von Hand" - a script, no pipeline
-  outage_impact:
-    value: tolerable
-    source: asked
-  data_loss_tolerance:
-    value: one_week
-    source: asked
-```
-
-Complete runs, request to tests, live under [`examples/`](examples/README.md).
-
 ## Why This Plugin?
 
 - **Decisions, not syntax.** Every decision is explicit in the render and recorded with where it came from, so a review happens at the level decisions are actually made.
@@ -104,9 +84,9 @@ Complete runs, request to tests, live under [`examples/`](examples/README.md).
 ![From the request to a checked render: interview, spec, sign-off, render](docs/process.drawio.png)
 
 1. **`iac-authoring` triggers** on any request for Azure infrastructure — one that names the workload ("eine Chatapp mit RAG") as much as one that names a resource. **`azure-resources`** routes each resource through the family's `routing.md` to its question set.
-2. **The interview.** The deployment-wide set first (posture, network ownership, mandates, the six requirements), then each resource. Answers resolve in order: stated › carried spec › platform › pattern › deployment › default.
-3. **Sign-off.** The spec, the decision document and the diagram go to the customer. A correction is a spec change, and the loop runs again.
-4. **`iac-rendering` renders** the approved spec: AVM module and version, naming, layout, code, tests, pipeline. Then `fmt`, `validate`, `test`, and the coverage check.
+2. **The interview.** First how the code is built (target, building blocks, deployment scope, naming), then what is built: the deployment-wide set (posture, network ownership, mandates, the eight requirements, asked by topic), then each resource. Answers resolve in order: stated › carried spec › pattern › deployment › default. Phase 4 shows the design as a tick list with the security baseline and asks whether it fits.
+3. **Sign-off.** The spec, the decision document and a draft diagram go to the customer; once the content is right, a review and a fix agent polish the picture, and the customer says whether the code may be generated. A correction is a spec change, and the loop runs again.
+4. **`iac-rendering` renders** the approved spec, starting from the render digest: AVM module and version, naming, layout, code with a test per decision, pipeline, the repository's `CLAUDE.md` section and `.gitignore`. A test agent runs `fmt`, `validate`, `test`, the coverage, code-structure and pipeline checks.
 
 ## 📦 What's in the Plugin
 
@@ -121,33 +101,36 @@ Complete runs, request to tests, live under [`examples/`](examples/README.md).
 
 ### Resource coverage
 
-67 resource types in ten families. Each has a question set and both rendering references; a resource with an [Azure Verified Module](https://azure.github.io/Azure-Verified-Modules/) renders as a call to it.
+70 resource types in ten families. Each has a question set and both rendering references; a resource with an [Azure Verified Module](https://azure.github.io/Azure-Verified-Modules/) renders as a call to it.
 
 | Family | Resources |
 |---|---|
-| `compute` | virtual machine, VM scale set, managed disk, availability set and proximity placement group, AKS, App Service, function app, Container Apps, Container Instances, Static Web App, container registry |
+| `compute` | virtual machine, VM scale set, managed disk, availability set and proximity placement group, maintenance configuration (patch window), AKS, App Service, function app, Container Apps, Container Instances, Static Web App, container registry |
 | `network` | virtual network, network security group, public IP, private endpoint, private DNS zone, public DNS zone, route table, NAT gateway, Azure Firewall, load balancer, Bastion, VNet peering, Application Gateway with WAF, Front Door, Traffic Manager, DDoS protection plan, Network Watcher (VNet flow logs) |
 | `data` | Azure SQL, SQL Managed Instance, PostgreSQL flexible server, MySQL flexible server, Azure Managed Redis, Cosmos DB (NoSQL), Data Factory, Purview |
 | `storage` | storage account, blob container, file share, queue |
 | `security` | Key Vault, Key Vault key, Key Vault secret, user-assigned managed identity, role assignment (RBAC), Defender for Cloud |
 | `messaging` | Service Bus, Event Hubs, Event Grid topic, Event Grid namespace (MQTT, pull delivery), Event Grid system topic, Azure Relay |
-| `integration` | API Management, Logic Apps (Standard and Consumption), Communication Services |
+| `integration` | API Management, Logic Apps (Standard and Consumption), Automation account, Communication Services |
 | `ai` | AI Foundry (Azure OpenAI), AI Search, single-service AI accounts (Speech, Vision, Language, Document Intelligence, ...), Machine Learning workspace, Azure Bot |
-| `observability` | Log Analytics workspace, Application Insights, action group, alert rule (metric, log query, activity log), data collection rule and endpoint |
+| `observability` | Log Analytics workspace, Application Insights, action group, alert rule (metric, log query, activity log), data collection rule and endpoint, budget |
 | `recovery` | Backup vault, Recovery Services vault |
 
 Not covered yet: Synapse, Databricks, Data Explorer, Fabric; VPN and ExpressRoute gateways, Virtual WAN, Private Link Service; Managed Grafana, Azure Monitor workspace, dashboards; Notification Hubs, SignalR and Web PubSub; governance (policy, management groups, subscription vending: landing-zone topics, out of scope), budgets, Automation Accounts, Maintenance Configurations. The list is in [`PROGRESS.md`](PROGRESS.md); a request for one of them is said out loud and never improvised.
 
 The directory names below are the paths under `resources/<family>/<resource>/`.
 
-Each resource directory holds four files:
+Each resource directory holds five files:
 
 | File | Role |
 |---|---|
 | `questions.yaml` | The decisions, grouped by concern. **This is the content.** |
+| `render-map.yaml` | What each decision renders to, per target and implementation, with the literal of every answer; the render digest reads it |
 | `notes.md` | What the question set cannot express |
-| `terraform.md` | The AVM call with the decision → input mapping, the authored rendering below it |
+| `terraform.md` | The AVM call, the authored rendering below it, the tests |
 | `bicep.md` | The same for Bicep |
+
+AI Foundry carries a sixth, `models.yaml`: the model catalogue its interview offers, regenerated by a workflow.
 
 ### A question set, in short
 
@@ -216,12 +199,16 @@ open:
 
 The spec names **decisions, never a backend's attribute spelling**: `public_network_access: disabled`, not `public_network_access_enabled: false`. The mapping to an attribute and its literal lives in the resource's `render-map.yaml`, per target and implementation, with the rendering references for what cannot be data. Module coordinates and versions stay in the renderer, never in the spec.
 
-```
-infra-spec.yaml ──> module "storage" { source = "Azure/avm-res-storage-storageaccount/azurerm" ... }
-                ──> module storageAccount 'br/public:avm/res/storage/storage-account:0.33.1' = { ... }
-```
+One decision, three spellings - the storage account's public access:
 
-Names come from this author's own naming stack: Terraform uses the [`LemurDaniel/naming`](https://registry.terraform.io/providers/LemurDaniel/naming/latest) provider; Bicep assembles the name from `var`s, since the [`utility/naming` modules](https://github.com/LemurDaniel/BICEP__Registry/tree/master/modules/utility/naming) are not ready to ship.
+| | |
+|---|---|
+| Spec | `public_network_access: disabled` |
+| Terraform, AVM module | `public_network_access_enabled = false` - a bool on the module |
+| Terraform, authored | `public_network_access = "Disabled"` - a string on the provider |
+| Bicep, AVM module | `publicNetworkAccess: 'Disabled'` |
+
+Which module the call goes to, and in which version, is looked up live at render time and pinned in the code; the spec never names it.
 
 ## Layout
 
@@ -294,10 +281,6 @@ python3 plugins/infrastructure-as-skills-azure/core/iac-authoring/scripts/check_
 # a spec against the contract; --require-applyable also fails on assumed values and open items
 python3 plugins/infrastructure-as-skills-azure/core/iac-authoring/scripts/check_spec.py <spec>
 
-# a rendered example: fmt, validate, plan-only tests, then every decision asserted or excused
-terraform -chdir=examples/chat-sandbox init -backend=false && terraform -chdir=examples/chat-sandbox test
-python3 plugins/infrastructure-as-skills-azure/core/iac-rendering/scripts/check_render_coverage.py examples/chat-sandbox/infra-spec.yaml
-
 # diagram, PNG round-trip and pipeline invariants
 python3 plugins/infrastructure-as-skills-azure/core/iac-diagram/tests/run_diagram_tests.py
 python3 plugins/infrastructure-as-skills-azure/core/iac-diagram/tests/run_png_tests.py
@@ -315,7 +298,7 @@ Early, and the shape matters more than the coverage. The eval suite runs on Sonn
 - [x] Deployment-wide question set, inherited by every resource via `answer: { deployment: <id> }`
 - [x] The customer interview: requirements derived into decisions, landing-zone questions, decision document in the customer's language
 - [x] Azure Verified Modules as the primary rendering, both targets, with the test contract
-- [x] 67 resources in 10 families (the 42 added last are checked against their AVM modules, not yet rendered or tested)
+- [x] 70 resources in 10 families (the 45 added last are checked against their AVM modules, not yet rendered or tested)
 - [x] Rendering: naming, layout, idiom and pipelines (GitHub, Azure DevOps, GitLab, local)
 - [x] Diagram from the spec, editable draw.io embedded in the PNG
 - [x] Checks: `check_spec.py`, `check_question_set.py`, `check_render_coverage.py`, `check_pipeline.py`
@@ -323,7 +306,7 @@ Early, and the shape matters more than the coverage. The eval suite runs on Sonn
 - [ ] **Reference pattern skill.** `patterns/` is empty, so composition is specified but unproven
 - [x] **An applied render.** [`eval-agent/`](eval-agent/) - rendered Bicep from an `infra-spec.yaml`, what-if, approval and deploy through the rendered GitHub pipeline (OIDC, no secret). The first run found what the pipeline reference now says: a job without a checkout, a what-if that skips modules, immutable OIDC subjects. One spec override came from a quota, not from the interview. Terraform and the other pipelines are still unapplied
 - [x] A complex case in Bicep: a chat app with RAG (Front Door with WAF, App Service with a slot, Foundry, AI Search, storage, private endpoints), every decision covered by ARM tests, beside [`eval-agent/`](eval-agent/)
-- [ ] Remaining resources: Logic Apps, Data Factory, governance (policy, budgets), further network, data and AI services - listed in `PROGRESS.md`
+- [ ] Remaining resources: further network, data and AI services - listed in `PROGRESS.md`
 - [ ] AVM version drift check; cross-backend diff of one spec
 
 ## 🙏 Acknowledgments

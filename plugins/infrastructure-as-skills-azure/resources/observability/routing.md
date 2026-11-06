@@ -10,6 +10,7 @@ skill. Routing table — the request picks the question set:
 | action group, Aktionsgruppe, who is notified, on-call, Bereitschaft, Benachrichtigung, webhook, Teams channel | `action-group/questions.yaml` | [notes](action-group/notes.md) - the who of an alert; global, no logs or metrics |
 | alert, alert rule, metric alert, log alert, scheduled query, Service Health, activity log alert, Alarm, Schwellwert, Benachrichtigung bei | `alert-rule/questions.yaml` | [notes](alert-rule/notes.md) - one set for metric, log query and activity log alerts, chosen by kind |
 | data collection rule, DCR, data collection endpoint, DCE, Azure Monitor agent, AMA, syslog, performance counters, Windows event log, custom log, Leistungsdaten, Logdateien sammeln | `data-collection-rule/questions.yaml` | [notes](data-collection-rule/notes.md) - the rule and its endpoint; the association is wiring per machine |
+| budget, cost budget, Kostenbudget, cost alert, Kostenwarnung, spending limit | `budget/questions.yaml` | [notes](budget/notes.md) - resource group scope, one per stage; notifies only, stops nothing |
 | dashboard, workbook | *not yet written* | — |
 
 When a question set does not exist yet, say so rather than improvising one. Fall back to

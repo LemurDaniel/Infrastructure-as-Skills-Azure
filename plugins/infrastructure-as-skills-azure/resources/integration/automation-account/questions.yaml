@@ -1,0 +1,358 @@
+schema_version: 1
+
+resource: Microsoft.Automation/automationAccounts
+title: Azure Automation Account
+
+naming:
+  terraform: "Azure::Microsoft.Automation/automationAccounts"
+  bicep: "Microsoft.Automation/automationAccounts"
+  # Bicep assembles the name from vars - this is the prefix it renders. 6-50 characters,
+  # alphanumerics and hyphens, starting with a letter; unique in the resource group.
+  abbreviation: "aa"
+
+boundaries:
+  - "Does not create the resource group. Expects one from the spec's context."
+  - "Does not render runbooks, schedules, job schedules, webhooks, modules, Python packages, variables, credentials, certificates or connections - they are the automation team's content, deployed from its repository (source control or a pipeline) at its own pace. Credentials and certificates are secrets and never belong in a spec; a runbook reads them from Key Vault with the account's identity."
+  - "Does not create Hybrid Runbook Workers or their groups. A worker is a machine (the VM set) with the Hybrid Worker extension; the group and the registration are wiring, owned by a pattern. Only extension-based workers are supported; the agent-based worker depended on the Log Analytics agent, which is retired."
+  - "Does not configure Update Management, Change Tracking and Inventory or State Configuration (DSC). Update Management and the Log Analytics agent they ran on are retired: patching is Azure Update Manager with a maintenance configuration (the compute family's `maintenance-configuration` set), Change Tracking runs on the Azure Monitor agent with a data collection rule, and DSC is replaced by Machine Configuration. The account is therefore never linked to a Log Analytics workspace (Bicep `linkedWorkspaceResourceId`, `gallerySolutions`): that link existed for those solutions; diagnostics go through a diagnostic setting."
+  - "Does not create private DNS zones (`privatelink.azure-automation.net`) - shared infrastructure, owned by a pattern or the platform."
+  - "Does not create the Log Analytics workspace it routes diagnostics to, nor the Key Vault key it may be encrypted with."
+  - "Does not grant the roles the account's identity needs on what its runbooks manage (stopping VMs, rotating secrets). Those are wiring, owned by a pattern; `role_assignments` is for who may use this account."
+  - "Does not carry a resource lock: `deployment.resource_lock` lists resources whose loss cannot be undone from the spec, and an account is recreated from it with its content redeployed from the repository."
+
+groups:
+
+  # ---------------------------------------------------------------- placement
+  - id: placement
+    title: Placement
+    questions:
+      - id: environments
+        ask:
+          en: "Which stages is this deployed to?"
+          de: "In welche Stufen wird das ausgerollt?"
+        type: list
+        plain:
+          en: "Deployed in the stages {value}."
+          de: "Wird in den Stufen {value} ausgerollt."
+        accepts: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
+        answer: { context: environments }
+        why: >
+          Drives the rendered name. One account per stage: a runbook that is tested in a
+          development account and then pointed at production resources is the incident this
+          separation exists to prevent, and the identity of each account holds roles in its
+          own stage only.
+
+      - id: location
+        ask:
+          en: "Which Azure region?"
+          de: "Welche Azure-Region?"
+        type: string
+        plain:
+          en: "Created in the Azure region {value}."
+          de: "Wird in der Azure-Region {value} angelegt."
+        answer: { context: location }
+        why: >
+          The account is regional; jobs on Azure's sandboxes run in its region, and job
+          output, variables and credentials are stored there. A runbook can manage resources
+          in any region, so the account follows the workload's region, not its targets'.
+
+      - id: resource_group_name
+        ask:
+          en: "Which resource group?"
+          de: "Welche Ressourcengruppe?"
+        type: string
+        plain:
+          en: "Placed in the resource group {value}."
+          de: "Liegt in der Ressourcengruppe {value}."
+        accepts: { ref: resource_group }
+        answer: { context: resource_group_name }
+        per_environment: true
+        why: >
+          Placed into an existing group, the workload's own, so whoever owns the workload owns
+          the jobs that change it.
+
+  # ------------------------------------------------------------------ account
+  - id: account
+    title: Account
+    questions:
+      - id: sku
+        ask:
+          en: "Which tier should the account use?"
+          de: "Welche Stufe soll das Konto nutzen?"
+        type: enum
+        plain:
+          en: "The account runs on the {value} tier."
+          de: "Das Konto läuft auf der Stufe {value}."
+        plain_values:
+          Basic: { en: "pay-per-minute", de: "nutzungsabhängigen" }
+          Free: { en: "free (capped)", de: "kostenlosen (begrenzten)" }
+        accepts: [Basic, Free]
+        default: Basic
+        why: >
+          `Basic` bills job run time beyond a monthly free allowance and has no cap. `Free`
+          stops running jobs once the allowance is used up - in production that is a silent
+          outage of every schedule until the month turns. The free minutes are part of `Basic`
+          as well, so `Free` saves nothing a small workload would pay. Both modules require the
+          value.
+
+  # --------------------------------------------------------------- networking
+  - id: networking
+    title: Networking
+    questions:
+      - id: public_network_access
+        ask:
+          en: "Should this account depart from the deployment's exposure posture?"
+          de: "Soll dieses Konto von der Erreichbarkeit des Deployments abweichen?"
+        type: enum
+        plain:
+          en: "The automation account is {value}."
+          de: "Das Automation-Konto ist {value}."
+        plain_values:
+          disabled: { en: "not reachable from the internet at all", de: "aus dem Internet überhaupt nicht erreichbar" }
+          enabled: { en: "reachable from the internet", de: "aus dem Internet erreichbar" }
+        accepts: [disabled, enabled]
+        answer: { deployment: network_exposure, map: { private: disabled, private_with_exceptions: disabled, public: enabled } }
+        forced_when: >
+          `network_ownership: none` forces `enabled`, recorded as forced with
+          `network_ownership` as forced_by: without a network there is no private endpoint to
+          reach the account through. A webhook called by a service outside the network (a
+          SaaS alert, a ticketing system) needs `enabled` too, recorded as a departure on this
+          account with the caller as the reason
+        why: >
+          Asked only as a departure: exposure is a property of the system. The account has
+          no IP firewall - there is no `enabled_with_firewall` - so `public` maps to
+          `enabled`. With `disabled`, webhooks and the hybrid worker endpoint answer only
+          through the private endpoint, and the portal can still start jobs and edit runbooks
+          (the management plane is ARM, not the account's endpoint). **The modules
+          disagree**: Terraform defaults to `false`, Bicep leaves it unset and disables it only
+          when private endpoints are given - written on every call.
+
+      - id: private_endpoint_subnet
+        ask:
+          en: "Which subnet should the account's private endpoint live in?"
+          de: "In welchem Subnetz soll der Private Endpoint des Kontos liegen?"
+        type: string
+        resolved_by: derived
+        plain:
+          en: "Its private connection lands in subnet {value}."
+          de: "Seine private Anbindung landet im Subnetz {value}."
+        accepts: { ref: subnet }
+        answer: { deployment: private_endpoint_subnet }
+        depends_on: { question: public_network_access, equals: disabled }
+        per_environment: true
+        why: >
+          One subnet carries the deployment's private endpoints, so this is inherited. One
+          endpoint per sub-resource in `private_endpoint_subresources`, all in this subnet and
+          all in the zone `privatelink.azure-automation.net`.
+
+      - id: private_endpoint_subresources
+        ask:
+          en: "Which of the account's endpoints need a private connection?"
+          de: "Welche Endpunkte des Kontos brauchen eine private Anbindung?"
+        type: list
+        plain:
+          en: "Private connections for: {value}."
+          de: "Private Anbindungen für: {value}."
+        plain_values:
+          Webhook: { en: "starting jobs by webhook", de: "Jobs per Webhook starten" }
+          DSCAndHybridWorker: { en: "hybrid workers on your own machines", de: "Hybrid Worker auf eigenen Maschinen" }
+        accepts: [Webhook, DSCAndHybridWorker]
+        default: [Webhook, DSCAndHybridWorker]
+        depends_on: { question: public_network_access, equals: disabled }
+        why: >
+          The account exposes two sub-resources and each needs an endpoint of its own; the
+          module refuses an endpoint without one. `Webhook` carries webhook calls,
+          `DSCAndHybridWorker` the traffic of hybrid workers (the job queue and the worker
+          registration). Both by default: with public access disabled, a hybrid worker
+          without its endpoint cannot fetch a job, and the symptom is jobs that stay queued.
+          Drop `DSCAndHybridWorker` only for an account whose jobs all run in Azure's
+          sandboxes.
+
+  # ----------------------------------------------------------------- identity
+  - id: identity
+    title: Identity and access
+    questions:
+      - id: managed_identity
+        ask:
+          en: "Which managed identity should the account carry?"
+          de: "Welche Managed Identity soll das Konto tragen?"
+        type: enum
+        plain:
+          en: "The automation jobs act with {value}."
+          de: "Die Automatisierungsjobs handeln mit {value}."
+        plain_values:
+          system_assigned: { en: "an identity of the account's own", de: "einer eigenen Identität des Kontos" }
+          user_assigned: { en: "a separately managed identity", de: "einer separat verwalteten Identität" }
+        accepts: [system_assigned, user_assigned]
+        default: user_assigned
+        why: >
+          The identity is what every runbook signs in with (`Connect-AzAccount -Identity`),
+          and its roles are what the automation may change. A user-assigned identity holds
+          its roles before the account exists, so the first scheduled job does not fail on a
+          missing grant, it survives a recreated account, and it is what a customer-managed
+          key requires. `none` is not offered: the alternative is a Run As account or a
+          stored service principal secret, and Run As accounts are retired.
+
+      - id: user_assigned_identity_ids
+        ask:
+          en: "Which user-assigned identity?"
+          de: "Welche User-Assigned Identity?"
+        type: list
+        plain:
+          en: "It uses the identity {value}."
+          de: "Es nutzt die Identität {value}."
+        accepts: { ref: user_assigned_identity }
+        required: true
+        depends_on: { question: managed_identity, equals: user_assigned }
+        per_environment: true
+        why: >
+          The identity that holds the roles on the resources the runbooks manage, created
+          before the account by the identity set. A runbook names it by client id
+          (`Connect-AzAccount -Identity -AccountId`), so one identity per account keeps that
+          unambiguous.
+
+      - id: role_assignments
+        ask:
+          en: "Who needs which role on this automation account?"
+          de: "Wer braucht welche Rolle auf diesem Automation-Konto?"
+        type: list
+        plain:
+          en: "Access rights on the automation account granted to: {value}."
+          de: "Zugriffsrechte auf das Automation-Konto vergeben an: {value}."
+        default: []
+        per_environment: true
+        why: >
+          Who may author, start and read jobs: `Automation Contributor` for the team that
+          deploys runbooks, `Automation Operator` or `Automation Job Operator` for whoever
+          starts them, `Reader` for job output. Contributor on the account lets someone
+          change a runbook that runs with the account's identity, which is the identity's
+          rights in someone else's hands - scope it narrowly. A pattern fills it from the
+          teams it knows.
+
+  # ----------------------------------------------------------------- security
+  - id: security
+    title: Security
+    questions:
+      - id: local_authentication_disabled
+        ask:
+          en: "May clients authenticate to the account without Entra ID?"
+          de: "Dürfen sich Clients ohne Entra ID am Konto anmelden?"
+        type: bool
+        plain:
+          en: "Signing in without a company account is {value}."
+          de: "Die Anmeldung ohne Firmenkonto ist {value}."
+        plain_values:
+          true: { en: "switched off", de: "abgeschaltet" }
+          false: { en: "possible", de: "möglich" }
+        answer: { deployment: local_auth, map: { disabled: true, allowed_where_unavoidable: true } }
+        forced_when: >
+          A webhook is a URL with a token in it: with local authentication disabled no
+          webhook starts a job. An account whose jobs must be started by webhook records
+          `local_auth: allowed_where_unavoidable` for this account alone, with the caller in
+          the reason - or the caller starts the job through ARM with an identity instead
+        why: >
+          Inherited: `local_auth: disabled` renders as `true`. Local authentication is the
+          webhook token and the agent-based worker's key - bearer credentials that start
+          jobs with the account's identity and are not attributable. Extension-based hybrid
+          workers and every job started through ARM keep working. **The modules disagree**:
+          Bicep disables it by default, Terraform's `local_authentication_enabled` defaults on
+          and is the inverse.
+
+      - id: key_management
+        ask:
+          en: "Are the account's encryption keys platform-managed or customer-managed?"
+          de: "Werden die Schlüssel des Kontos von der Plattform verwaltet oder vom Kunden?"
+        type: enum
+        plain:
+          en: "Encryption keys are {value}."
+          de: "Verschlüsselungsschlüssel sind {value}."
+        plain_values:
+          platform_managed: { en: "managed by Azure - encrypted, rotated, no effort on your side", de: "von Azure verwaltet: verschlüsselt, rotiert, kein Aufwand bei euch" }
+          customer_managed: { en: "your own, held in your key vault, so you can revoke them", de: "eure eigenen in eurem Schlüsseltresor, damit ihr sie zurückziehen könnt" }
+        accepts: [platform_managed, customer_managed]
+        answer: { deployment: key_management }
+        why: >
+          Inherited. It covers what the account stores - credentials, certificates,
+          connections, encrypted variables and job output - not the runbook code. A revoked
+          key stops every job that reads an asset, which is the point of the capability and
+          the outage to plan for.
+
+      - id: cmk_key_vault_key_id
+        ask:
+          en: "Which Key Vault key should encrypt the account?"
+          de: "Welcher Key-Vault-Schlüssel soll das Konto verschlüsseln?"
+        type: string
+        plain:
+          en: "Encrypted with your key {value}."
+          de: "Verschlüsselt mit eurem Schlüssel {value}."
+        accepts: { ref: key_vault_key }
+        required: true
+        depends_on: { question: key_management, equals: customer_managed }
+        per_environment: true
+        why: >
+          The key must exist, the vault must have soft delete and purge protection, and the
+          account's user-assigned identity must hold get, wrap and unwrap on it before the
+          account is encrypted. The reference is the unversioned key, so a rotation reaches
+          the account without a change here.
+
+  # ------------------------------------------------------------ observability
+  - id: observability
+    title: Observability
+    questions:
+      - id: diagnostic_workspace
+        ask:
+          en: "Which Log Analytics workspace should receive diagnostics?"
+          de: "Welcher Log Analytics Workspace soll die Diagnosedaten erhalten?"
+        type: string
+        resolved_by: derived
+        plain:
+          en: "Its logs go to {value}."
+          de: "Seine Logs gehen in {value}."
+        accepts: { ref: log_analytics_workspace }
+        answer: { deployment: diagnostics_destination }
+        per_environment: true
+        why: >
+          Inherited: one deployment, one destination. Without a diagnostic setting the job
+          history is kept in the account for 30 days and nowhere else, and a failed nightly
+          job raises no alert.
+
+      - id: diagnostic_categories
+        ask:
+          en: "Which log categories should be collected?"
+          de: "Welche Log-Kategorien sollen erfasst werden?"
+        type: list
+        plain:
+          en: "Logged: {value}."
+          de: "Geloggt wird: {value}."
+        plain_values:
+          JobLogs: { en: "every job's start, end and status", de: "Start, Ende und Status jedes Jobs" }
+          JobStreams: { en: "what the jobs wrote (output, warnings, errors)", de: "was die Jobs ausgegeben haben (Ausgabe, Warnungen, Fehler)" }
+          AuditEvent: { en: "who changed runbooks, assets and settings", de: "wer Runbooks, Assets und Einstellungen geändert hat" }
+          DscNodeStatus: { en: "the configuration state of DSC nodes", de: "den Konfigurationsstand der DSC-Knoten" }
+        accepts: [JobLogs, JobStreams, AuditEvent, DscNodeStatus]
+        default: [JobLogs, JobStreams, AuditEvent]
+        why: >
+          `JobLogs` is what an alert on a failed job queries; `JobStreams` is the job's own
+          output, needed to see why, and as large as the runbooks are chatty - a runbook that
+          writes a secret to its output writes it here too. `AuditEvent` records changes to
+          runbooks and assets, the record a review of who changed an automation that runs
+          with elevated rights needs. `DscNodeStatus` only where State Configuration is still
+          in use. The names are the platform's and are checked against
+          `az monitor diagnostic-settings categories list` for the resource before a render,
+          not remembered.
+
+      - id: metrics_enabled
+        ask:
+          en: "Should all metrics be collected?"
+          de: "Sollen alle Metriken erfasst werden?"
+        type: bool
+        plain:
+          en: "Usage and performance figures are {value}."
+          de: "Nutzungs- und Leistungswerte werden {value}."
+        plain_values:
+          true: { en: "collected", de: "erfasst" }
+          false: { en: "not collected", de: "nicht erfasst" }
+        default: true
+        why: >
+          Total jobs by status and the hybrid worker ping count - cheap, and the numbers an
+          alert on failed jobs or a silent worker is built on.

@@ -407,6 +407,23 @@ decisions:
       passthrough: true
       note: with patchAssessmentMode; module defaults '' and ImageDefault - written
     bicep: { attribute: properties.osProfile.linuxConfiguration.patchSettings.patchMode, passthrough: true, note: with assessmentMode }
+  maintenance.maintenance_configuration:
+    terraform_avm:
+      attribute: maintenance_configuration_resource_ids
+      format: { expr: '{ patch = {value} }' }
+      omit_empty: true
+      note: with bypass_platform_safety_checks_on_user_schedule_enabled = true (module default false - without it the window is ignored); omitted while empty
+    terraform:
+      attribute: azurerm_maintenance_assignment_virtual_machine.maintenance_configuration_id
+      note: with virtual_machine_id and location, and bypass_platform_safety_checks_on_user_schedule_enabled = true on the machine; no assignment while empty
+    bicep_avm:
+      attribute: maintenanceConfigurationResourceId
+      omit_empty: true
+      passthrough: true
+      note: with bypassPlatformSafetyChecksOnUserSchedule true (module default true) - written; omitted while empty
+    bicep:
+      attribute: Microsoft.Maintenance/configurationAssignments.properties.maintenanceConfigurationId
+      note: an extension resource with scope the machine, and properties.osProfile.<os>Configuration.patchSettings.automaticByPlatformSettings.bypassPlatformSafetyChecksOnUserSchedule true; none while empty
   maintenance.auto_shutdown:
     terraform_avm:
       attribute: shutdown_schedules

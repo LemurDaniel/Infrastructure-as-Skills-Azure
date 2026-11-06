@@ -360,6 +360,17 @@ the detail; this list says what was decided and why, so a session does not reope
 
 ## State
 
+- **Three workload-scoped sets instead of a governance family** (2026-11-01, branch
+  `feature/budget-maintenance-automation`; 70 resource sets, 1,517 questions): `observability/budget`
+  (resource-group scope, one per stage; both targets authored - no Terraform module, and the Bicep
+  `rg-scope` module takes one `thresholdType` for all thresholds), `compute/maintenance-configuration`
+  (Update Manager window, `InGuestPatch`; the VM set assigns the machine through the new
+  `maintenance.maintenance_configuration` and the bypass flag), `integration/automation-account`
+  (account, identity, endpoints; runbooks are content, Update Management and DSC retired). Written by
+  three agents, checks green, `terraform validate` / `bicep build` on the calls; not exercised in a
+  render or an eval. Why no governance family: policy, management groups and subscriptions are the
+  landing zone's; only what a workload owns is a set.
+
 - **`render-map.yaml` for all 67 resources, the render digest mandatory** (2026-11-01, branch
   `render-yaml`): 5,190 entries, 980 of them `gap` (18% - the references do not state the
   literal), 1,658 explicit pass-throughs, 101 `not_rendered`. Written by 8 agents, reviewed by 3
@@ -624,6 +635,12 @@ contradicted. Left:
 
 ### Rendering references and question sets
 
+- From the 2026-11-01 sets: the scale-set sets cannot assign a maintenance configuration (neither
+  AVM module has the input; authored `azurerm_maintenance_assignment_virtual_machine_scale_set`,
+  check Update Manager's support for Flexible orchestration first). Whether the naming provider
+  knows `Azure::Microsoft.Consumption/budgets` is unchecked. azurerm 5.12 has no
+  `exclude_kbs_requiring_reboot` on the maintenance configuration (a `gap`).
+
 Done 2026-10-25: the azurerm 5.x spellings (checked against `terraform providers schema -json` of
 5.11 and the provider docs at the tag; only storage has the string `public_network_access`), the
 module `diagnostic_settings` interface (two forms, see `avm.md`), every diagnostic category name
@@ -659,8 +676,10 @@ per-family` in `check_spec.py` and the `chatbot` spec, and `references/private-d
   - **Medium, still open:** network: Virtual WAN / VPN Gateway / ExpressRoute, Private Link Service;
     data: Synapse, Databricks, Data Explorer, Fabric Capacity; observability: Diagnostic Settings as a
     resource of its own, Managed Grafana, Azure Monitor Workspace (Prometheus), Dashboards; messaging:
-    Notification Hubs, SignalR / Web PubSub; governance (the family itself is parked in `drafts/`): Budgets, a standalone lock,
-    Automation Account, Maintenance Configuration (resource groups stay a deployment decision).
+    Notification Hubs, SignalR / Web PubSub. No governance family: policy, management groups and
+    subscriptions are the landing zone's (parked in `drafts/governance/`), the lock is
+    `deployment.resource_lock`; the workload-scoped parts became sets of their own (2026-11-01:
+    `observability/budget`, `compute/maintenance-configuration`, `integration/automation-account`).
   - **Low:** storage: Table, Managed HSM, NetApp Files, Files Sync, Data Lake Gen2 as its own type;
     compute: Batch, Service Fabric, App Service Environment, Spring Apps, Compute Gallery, Dedicated
     Host, Virtual Desktop, Arc; security: Managed HSM, Sentinel, Confidential Ledger; data: Cosmos DB
@@ -883,6 +902,18 @@ per-family` in `check_spec.py` and the `chatbot` spec, and `references/private-d
 
 ### Pipelines
 
+- **Bicep decision tests and the what-if record** (2026-11-06, branch `bicep-pipeline-tests`,
+  from the owner's `BICEP__Starter_Pipelines`): invariant 15 runs `tests/run_arm_tests.py` -
+  the plugin's runner, copied unchanged by the render (owner's call: one implementation, no
+  pwsh port) - in validate on every platform and in the local script; invariant 8 keeps
+  `whatif.json` as an artifact, seven days at most. Not yet run on a runner: `setup-python@v7`
+  / `UsePythonVersion@0`, the `az bicep install` fallback, and whether the `azure-cli` image's
+  `pip` installs PyYAML without a virtual environment (GitLab). `eval-agent/infra` has no
+  `tests/run_arm_tests.py` yet - `check_render_coverage.py` fails on it until the next render
+  of that tree (never by hand, CLAUDE.md), and `eval-agent-infra*.yaml` runs no tests until then.
+- Considered from the scaffold and left out again: Deployment Stacks (`denySettingsMode`,
+  `actionOnUnmanage`) - they would let Bicep delete what the spec drops and block portal
+  deletes; a deployment decision of its own if it comes back.
 - The pwsh pipelines have parsed and been dry-run with a mocked `az`, never run on a
   runner: the next push of `eval-agent/infra` to `dev` is the first real run of
   `eval-agent-infra*.yaml` in pwsh; the ADO and GitHub Terraform fixtures have not run at all.
@@ -1080,7 +1111,10 @@ regeneration from the spec loses them. All `render`:
 - Idea: a cost estimate in Phase 4 (`ideas/cost-and-security-profiles.md`).
 - `examples/order-platform` was deleted (2026-10-29, owner's call): it predated the spec
   revision and was to be regenerated anyway. It was the only per-family and pipeline render;
-  `chat-sandbox` is now the rendered example the `CLAUDE.md` commands test.
+  `chat-sandbox` is now the rendered Terraform example. Its `terraform test` and
+  `check_render_coverage.py` are no standing check (2026-11-01): the render is frozen, so they
+  test that render, not the plugin - the Terraform eval cases render fresh. Run them after a
+  change to the example itself.
 
 ### After the spec revision (2026-10-29)
 

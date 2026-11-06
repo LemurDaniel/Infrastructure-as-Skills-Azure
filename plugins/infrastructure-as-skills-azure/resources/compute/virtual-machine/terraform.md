@@ -94,6 +94,11 @@ module "vm" {
   patch_assessment_mode      = "AutomaticByPlatform"
   boot_diagnostics           = true
 
+  # decision: virtual-machine.maintenance.maintenance_configuration - only with a window; without
+  # the bypass flag (module default false) the platform keeps its own schedule
+  # maintenance_configuration_resource_ids                 = { patch = var.maintenance_configuration_id }
+  # bypass_platform_safety_checks_on_user_schedule_enabled = true
+
   managed_identities = { system_assigned = true }
   extensions = {
     entra_login = {
@@ -157,7 +162,8 @@ needs elsewhere is `role_assignments_system_managed_identity` (external scopes) 
 
 With `azurerm` mocked, asserts target what the plan shows of the module's resources: the
 image, the size, the zone, secure boot and vTPM, encryption at host, password authentication,
-the patch mode and the OS disk type. The output paths are read off a first `terraform test` run
+the patch mode and the OS disk type; with a window, the bypass flag on the machine is `true`
+and the module's assignment holds the configuration's id. The output paths are read off a first `terraform test` run
 on the pinned version; the module builds a `azurerm_linux_virtual_machine` or
 `azurerm_windows_virtual_machine` by `os_type`, and a test addresses the one that exists. What
 the module builds in child resources - the extension, the shutdown schedule, the backup item,

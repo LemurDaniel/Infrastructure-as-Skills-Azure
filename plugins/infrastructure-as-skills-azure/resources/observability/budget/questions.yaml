@@ -1,0 +1,188 @@
+schema_version: 1
+
+resource: Microsoft.Consumption/budgets
+title: Azure cost budget (resource group)
+
+naming:
+  terraform: "Azure::Microsoft.Consumption/budgets"
+  bicep: "Microsoft.Consumption/budgets"
+  # Bicep assembles the name from vars - this is the prefix it renders.
+  abbreviation: "budget"
+
+boundaries:
+  - "Does not create the resource group. The budget is scoped to the stage's group from the spec's context, one budget per stage; a subscription or management group budget is the platform's and has no question set."
+  - "Never stops, scales down or deletes anything. A budget only notifies: a stage that runs past its amount keeps running and keeps being billed. Stopping spend is an action group receiver (an Automation runbook, a Logic App) the action-group set references, not this set."
+  - "Does not create the action group it notifies - that is the action-group set; the budget binds it by reference (`action_group`)."
+  - "Does not render filters. The budget counts every cost of its resource group; a budget over a tag, a meter or a subset of resources is a departure without a question here, and a group split by `resource_group_scheme` gets one budget per group instead."
+  - "Does not cover the `BillingMonth`, `BillingQuarter` and `BillingAnnual` grains. They exist only for Enterprise Agreement and web-direct billing accounts and cannot be checked from the spec."
+  - "Does not carry diagnostics, a private endpoint or a resource lock: a budget has none, and `deployment.resource_lock` does not list it."
+  - "Is not a cost estimate. The amount is what the customer allows, not what the design costs; a plan that exceeds it from the first day notifies from the first day."
+
+groups:
+
+  # ---------------------------------------------------------------- placement
+  - id: placement
+    title: Placement
+    questions:
+      - id: environments
+        ask:
+          en: "Which stages is this deployed to?"
+          de: "In welche Stufen wird das ausgerollt?"
+        type: list
+        plain:
+          en: "Deployed in the stages {value}."
+          de: "Wird in den Stufen {value} ausgerollt."
+        accepts: [development, test, qa, uat, integration, staging, preproduction, production, sandbox, demo, hotfix]
+        answer: { context: environments }
+        why: >
+          Drives the rendered name. One budget per stage, because each stage has its own
+          resource group and its own amount: a development stage that quietly costs as much as
+          production is exactly what the budget is there to show.
+
+      - id: resource_group_name
+        ask:
+          en: "Which resource group?"
+          de: "Welche Ressourcengruppe?"
+        type: string
+        plain:
+          en: "Watches the costs of the resource group {value}."
+          de: "Überwacht die Kosten der Ressourcengruppe {value}."
+        accepts: { ref: resource_group }
+        answer: { context: resource_group_name }
+        per_environment: true
+        why: >
+          The budget's scope is the group, not a place it lives in: it counts every cost
+          booked to that group, whoever created the resource. The stage's group is the one
+          whose costs the workload owner answers for.
+
+  # ------------------------------------------------------------------- budget
+  - id: budget
+    title: Budget
+    questions:
+      - id: amount
+        ask:
+          en: "How much may each stage cost per month, in the billing currency?"
+          de: "Wie viel darf jede Stufe pro Monat kosten, in der Abrechnungswährung?"
+        type: int
+        resolved_by: interview
+        topic: platform
+        plain:
+          en: "Each stage may cost up to {value} per period before the cost warning goes out."
+          de: "Jede Stufe darf bis zu {value} pro Zeitraum kosten, bevor die Kostenwarnung kommt."
+        required: true
+        per_environment: true
+        why: >
+          Only the customer knows what a stage is allowed to cost; a guessed amount either
+          warns every month and is ignored, or never warns. Per stage, because production and
+          development differ by an order of magnitude. A whole number in the billing account's
+          currency - the template carries no currency, the account does. A budget costs
+          nothing and stops nothing: the amount is a line the notifications are measured
+          against.
+
+      - id: time_grain
+        ask:
+          en: "Over which period is the cost counted before it starts again?"
+          de: "Über welchen Zeitraum wird gezählt, bevor die Zählung neu beginnt?"
+        type: enum
+        plain:
+          en: "The cost is counted {value}."
+          de: "Die Kosten werden {value} gezählt."
+        plain_values:
+          Monthly: { en: "per calendar month", de: "pro Kalendermonat" }
+          Quarterly: { en: "per calendar quarter", de: "pro Kalenderquartal" }
+          Annually: { en: "per calendar year", de: "pro Kalenderjahr" }
+        accepts: [Monthly, Quarterly, Annually]
+        default: Monthly
+        why: >
+          Monthly matches the invoice and finds an overrun while it can still be corrected; a
+          yearly budget warns in October about a mistake made in February. Quarterly and
+          annually suit a workload with seasonal spend, where a single month above the average
+          is planned rather than a fault.
+
+      - id: actual_thresholds
+        ask:
+          en: "At which share of the amount, actually spent, should a warning go out?"
+          de: "Bei welchem Anteil des tatsächlich ausgegebenen Betrags soll eine Warnung kommen?"
+        type: list
+        plain:
+          en: "A warning goes out when the spend reaches {value} percent of the amount."
+          de: "Eine Warnung kommt, wenn die Ausgaben {value} Prozent des Betrags erreichen."
+        default: [80, 100]
+        why: >
+          Percent of the amount, each a whole number from 1 to 1000. 80 leaves the rest of the
+          period to react, 100 says the line is crossed. More thresholds become noise: the
+          first warning is read, the third is filtered. A budget holds at most five
+          notifications, this list and `forecast_thresholds` together - the check of the
+          rendered code fails on more. Cost data reaches the budget with a delay of hours, so
+          an actual threshold is never an instant alarm.
+
+      - id: forecast_thresholds
+        ask:
+          en: "At which share of the amount, as forecast for the whole period, should a warning go out?"
+          de: "Bei welchem Anteil des für den ganzen Zeitraum vorhergesagten Betrags soll eine Warnung kommen?"
+        type: list
+        plain:
+          en: "A warning goes out when the forecast for the period reaches {value} percent of the amount."
+          de: "Eine Warnung kommt, wenn die Vorhersage für den Zeitraum {value} Prozent des Betrags erreicht."
+        default: [100]
+        why: >
+          The forecast is Cost Management's projection of the period's total, so a forecast
+          threshold at 100 warns early in the month that the amount will be crossed - the one
+          warning that comes while there is still most of the period to act. Empty is valid,
+          and right for a new stage whose first days give the forecast nothing to project from.
+          Counts toward the five notifications with `actual_thresholds`.
+
+  # ------------------------------------------------------------ notifications
+  - id: notifications
+    title: Notifications
+    questions:
+      - id: action_group
+        ask:
+          en: "Which action group should the budget notify?"
+          de: "Welche Aktionsgruppe soll das Budget benachrichtigen?"
+        type: string
+        plain:
+          en: "Cost warnings go to the action group {value}."
+          de: "Kostenwarnungen gehen an die Aktionsgruppe {value}."
+        accepts: { ref: action_group }
+        required: true
+        per_environment: true
+        why: >
+          The deployment's action group (the action-group set) reaches the people who already
+          get its alerts, by the channels they chose, and can start a runbook that acts on the
+          warning. Per stage, so a development overrun does not page production's on-call.
+          Addresses written into each budget drift from the action group the day someone
+          leaves; the group is the one list to maintain.
+
+      - id: contact_emails
+        ask:
+          en: "Who else should receive the cost warning by e-mail?"
+          de: "Wer soll die Kostenwarnung zusätzlich per E-Mail bekommen?"
+        type: list
+        resolved_by: interview
+        topic: platform
+        plain:
+          en: "The cost warning also goes by e-mail to {value}."
+          de: "Die Kostenwarnung geht zusätzlich per E-Mail an {value}."
+        default: []
+        why: >
+          The person who pays is often not on the operations team's action group - a cost
+          owner, a controller, the customer's budget holder. A short list of addresses, best a
+          shared mailbox rather than a person. Empty is the default: the action group and the
+          role owners below are reached anyway.
+
+      - id: contact_roles
+        ask:
+          en: "Which role holders on the resource group should receive the warning?"
+          de: "Welche Rolleninhaber der Ressourcengruppe sollen die Warnung bekommen?"
+        type: list
+        plain:
+          en: "Holders of these roles on the resource group are notified: {value}."
+          de: "Inhaber dieser Rollen auf der Ressourcengruppe werden benachrichtigt: {value}."
+        accepts: [Owner, Contributor, Reader]
+        default: [Owner]
+        why: >
+          The group's owners are notified by role, so the warning follows the role assignments
+          without a list to keep. Owner and not Contributor: the deployment pipeline's identity
+          holds Contributor and reads no mail, and a Contributor list in a busy group is
+          everyone. Empty is valid where the action group is the only channel wanted.
