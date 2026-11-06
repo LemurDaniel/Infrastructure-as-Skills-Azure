@@ -478,6 +478,26 @@ groups:
           carries the value. Who creates the secret and writes it into the vault is an
           `open:` entry with the registration's owner.
 
+      - id: entra_client_id
+        ask:
+          en: "What is the client id of the app registration the sign-in uses?"
+          de: "Wie lautet die Client-ID der App-Registrierung, mit der angemeldet wird?"
+        type: string
+        plain:
+          en: "The sign-in uses the app registration {value}."
+          de: "Die Anmeldung nutzt die App-Registrierung {value}."
+        required: true
+        depends_on: { question: entra_sign_in, equals: existing_app_registration }
+        per_environment: true
+        why: >
+          The registration is not a resource of the deployment, so its client id is a value
+          only its owner knows - from the request, else an `open:` entry with the
+          registration's owner, blocking apply, that also asks them to add the redirect URI
+          (`https://<host>/.auth/login/aad/callback`) once the first deployment has a host.
+          Per stage, since a stage may sign in through a registration of its own. The tenant
+          is the subscription's (`tenant()` in Bicep, `azurerm_client_config` in Terraform)
+          and is not asked.
+
   # ----------------------------------------------------------------- security
   - id: security
     title: Security
