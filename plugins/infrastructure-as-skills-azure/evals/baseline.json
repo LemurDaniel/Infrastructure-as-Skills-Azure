@@ -1,6 +1,44 @@
 {
-  "startedAt": "2026-10-29T21:08:04.869Z",
+  "startedAt": "2026-11-06T18:46:18.279Z",
   "cases": {
+    "diagram-no-invented-lines": {
+      "skill-fired": {
+        "passed": 2,
+        "total": 2
+      },
+      "target-bicep": {
+        "passed": 2,
+        "total": 2
+      },
+      "no-invented-calls": {
+        "passed": 2,
+        "total": 2
+      },
+      "has-app-service": {
+        "passed": 2,
+        "total": 2
+      },
+      "has-storage-account": {
+        "passed": 2,
+        "total": 2
+      },
+      "has-sql": {
+        "passed": 2,
+        "total": 2
+      },
+      "no-invented-purposes": {
+        "passed": 2,
+        "total": 2
+      },
+      "no-code-before-confirmation": {
+        "passed": 2,
+        "total": 2
+      },
+      "no-hand-drawn-diagram": {
+        "passed": 2,
+        "total": 2
+      }
+    },
     "language-en-first-question": {
       "skill-fired": {
         "passed": 4,
@@ -131,6 +169,136 @@
         "total": 4
       },
       "placeholders-not-through-the-module": {
+        "passed": 4,
+        "total": 4
+      }
+    },
+    "terraform-code-structure": {
+      "skill-fired": {
+        "passed": 2,
+        "total": 2
+      },
+      "providers-written": {
+        "passed": 2,
+        "total": 2
+      },
+      "providers-opens-with-header": {
+        "passed": 2,
+        "total": 2
+      },
+      "root-contents-in-providers": {
+        "passed": 2,
+        "total": 2
+      },
+      "providers-chapter-banner": {
+        "passed": 2,
+        "total": 2
+      },
+      "variables-chapter-banner": {
+        "passed": 2,
+        "total": 2
+      },
+      "resource-flow-chapter-with-sections": {
+        "passed": 2,
+        "total": 2
+      },
+      "no-banner-line-off-width": {
+        "passed": 2,
+        "total": 2
+      },
+      "test-file-contents": {
+        "passed": 2,
+        "total": 2
+      },
+      "decision-comments-kept": {
+        "passed": 2,
+        "total": 2
+      }
+    },
+    "terraform-existing-reference": {
+      "skill-fired": {
+        "passed": 2,
+        "total": 2
+      },
+      "workspace-id-variable": {
+        "passed": 2,
+        "total": 2
+      },
+      "id-validated-on-type": {
+        "passed": 2,
+        "total": 2
+      },
+      "development-id-in-stage-file": {
+        "passed": 2,
+        "total": 2
+      },
+      "production-placeholder": {
+        "passed": 2,
+        "total": 2
+      },
+      "production-id-not-invented": {
+        "passed": 2,
+        "total": 2
+      },
+      "no-workspace-data-source": {
+        "passed": 2,
+        "total": 2
+      },
+      "no-workspace-data-source-edited": {
+        "passed": 2,
+        "total": 2
+      },
+      "no-workspace-name-variable": {
+        "passed": 2,
+        "total": 2
+      },
+      "no-workspace-name-variable-edited": {
+        "passed": 2,
+        "total": 2
+      },
+      "no-workspace-mock": {
+        "passed": 2,
+        "total": 2
+      },
+      "no-workspace-mock-edited": {
+        "passed": 2,
+        "total": 2
+      }
+    },
+    "platform-workspace-reference": {
+      "skill-fired": {
+        "passed": 4,
+        "total": 4
+      },
+      "workspace-referenced": {
+        "passed": 4,
+        "total": 4
+      },
+      "no-workspace-resource": {
+        "passed": 4,
+        "total": 4
+      },
+      "destination-existing": {
+        "passed": 4,
+        "total": 4
+      },
+      "open-destination": {
+        "passed": 4,
+        "total": 4
+      },
+      "open-names-the-workspace": {
+        "passed": 4,
+        "total": 4
+      },
+      "no-name-as-value": {
+        "passed": 4,
+        "total": 4
+      },
+      "no-invented-workspace-id": {
+        "passed": 4,
+        "total": 4
+      },
+      "no-code-before-confirmation": {
         "passed": 4,
         "total": 4
       }
@@ -343,44 +511,6 @@
       "treated-as-infra-task": {
         "passed": 4,
         "total": 4
-      }
-    },
-    "diagram-no-invented-lines": {
-      "skill-fired": {
-        "passed": 2,
-        "total": 2
-      },
-      "target-bicep": {
-        "passed": 2,
-        "total": 2
-      },
-      "no-invented-calls": {
-        "passed": 2,
-        "total": 2
-      },
-      "has-app-service": {
-        "passed": 2,
-        "total": 2
-      },
-      "has-storage-account": {
-        "passed": 2,
-        "total": 2
-      },
-      "has-sql": {
-        "passed": 2,
-        "total": 2
-      },
-      "no-invented-purposes": {
-        "passed": 2,
-        "total": 2
-      },
-      "no-code-before-confirmation": {
-        "passed": 2,
-        "total": 2
-      },
-      "no-hand-drawn-diagram": {
-        "passed": 2,
-        "total": 2
       }
     }
   }
