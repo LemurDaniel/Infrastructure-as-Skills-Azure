@@ -179,7 +179,7 @@ decisions:
       attribute: 'privateEndpoints[].subnetResourceId'
       note: "with service: 'postgresqlServer'; no privateDnsZoneGroup under policy DNS"
     bicep: { attribute: Microsoft.Network/privateEndpoints properties.subnet.id, note: "groupIds ['postgresqlServer'] as the reference states (source: bicep build, Microsoft.Network/privateEndpoints@2025-01-01)" }
-    import: {todo: 'not in the Resource Graph row: the Microsoft.Network/privateEndpoints properties.subnet.id; the row holds only properties.privateEndpointConnections[].properties.privateEndpoint.id'}
+    import: {part: Microsoft.Network/privateEndpoints, path: properties.subnet.id, reference: true}
   networking.delegated_subnet:
     terraform_avm: { attribute: delegated_subnet_id }
     terraform: { attribute: delegated_subnet_id }

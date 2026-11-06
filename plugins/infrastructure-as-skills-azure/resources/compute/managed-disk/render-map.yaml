@@ -124,7 +124,7 @@ decisions:
     bicep_avm:
       gap: module README 0.6.1 has no input for a private endpoint; an authored Microsoft.Network/privateEndpoints with group id disks
     bicep: { attribute: Microsoft.Network/privateEndpoints properties.subnet.id, note: group id disks }
-    import: {todo: 'not in the Resource Graph row: Microsoft.Network/privateEndpoints properties.subnet.id'}
+    import: {part: Microsoft.Network/privateEndpoints, path: properties.subnet.id, reference: true}
 
   # ----------------------------------------------------------------- identity
   identity.role_assignments:

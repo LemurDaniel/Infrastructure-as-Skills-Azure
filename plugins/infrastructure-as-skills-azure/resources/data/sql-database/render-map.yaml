@@ -207,7 +207,7 @@ decisions:
       attribute: 'privateEndpoints[].subnetResourceId'
       note: "with service: 'sqlServer'; no privateDnsZoneGroup under policy DNS"
     bicep: { attribute: Microsoft.Network/privateEndpoints properties.subnet.id, note: "groupIds ['sqlServer'] as the reference states (source: bicep build, Microsoft.Network/privateEndpoints@2025-01-01)" }
-    import: {todo: 'not in the Resource Graph row: Microsoft.Network/privateEndpoints properties.subnet.id'}
+    import: {part: Microsoft.Network/privateEndpoints, path: properties.subnet.id, reference: true}
   networking.ip_rules:
     terraform_avm:
       attribute: 'firewall_rules.<key>'

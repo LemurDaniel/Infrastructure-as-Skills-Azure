@@ -186,7 +186,7 @@ decisions:
     terraform: { attribute: azurerm_private_endpoint.subnet_id }
     bicep_avm: { attribute: 'privateEndpoints[].subnetResourceId' }
     bicep: { attribute: Microsoft.Network/privateEndpoints properties.subnet.id, note: "one endpoint per sub-resource (source: bicep build, Microsoft.Network/privateEndpoints@2025-01-01)" }
-    import: {todo: 'not in the Resource Graph row: Microsoft.Network/privateEndpoints properties.subnet.id'}
+    import: {part: Microsoft.Network/privateEndpoints, path: properties.subnet.id, reference: true}
   networking.private_endpoint_subresources:
     terraform_avm:
       gap: 'the module fixes the sub-resource dataFactory (private_endpoints.dataFactory); portal in the list is an authored azurerm_private_endpoint with subresource_names = ["portal"]'

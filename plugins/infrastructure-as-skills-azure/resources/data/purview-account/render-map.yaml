@@ -95,7 +95,7 @@ decisions:
       attribute: '<kind>PrivateEndpoints[].subnetResourceId'
       note: on each of the five arrays (account, portal, storageBlob, storageQueue, eventHub)
     bicep: { attribute: Microsoft.Network/privateEndpoints properties.subnet.id, note: "one endpoint per sub-resource (source: bicep build, Microsoft.Network/privateEndpoints@2025-01-01)" }
-    import: {todo: 'not in the Resource Graph row: Microsoft.Network/privateEndpoints properties.subnet.id'}
+    import: {part: Microsoft.Network/privateEndpoints, path: properties.subnet.id, reference: true}
   networking.private_endpoint_subresources:
     terraform:
       attribute: azurerm_private_endpoint.private_service_connection.subresource_names

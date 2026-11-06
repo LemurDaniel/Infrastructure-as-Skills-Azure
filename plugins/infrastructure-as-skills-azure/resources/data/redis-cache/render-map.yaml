@@ -119,7 +119,7 @@ decisions:
       attribute: 'privateEndpoints[].subnetResourceId'
       note: "with service: 'redisEnterprise'; no privateDnsZoneGroup under policy DNS"
     bicep: { attribute: Microsoft.Network/privateEndpoints properties.subnet.id, note: "groupIds ['redisEnterprise'] as the reference states (source: bicep build, Microsoft.Network/privateEndpoints@2025-01-01)" }
-    import: {todo: 'not in the Resource Graph row: the Microsoft.Network/privateEndpoints properties.subnet.id; the row holds only properties.privateEndpointConnections[].properties.privateEndpoint.id'}
+    import: {part: Microsoft.Network/privateEndpoints, path: properties.subnet.id, reference: true}
 
   # ----------------------------------------------------------------- identity
   identity.managed_identity:

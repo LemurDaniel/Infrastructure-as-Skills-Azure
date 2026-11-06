@@ -199,7 +199,7 @@ decisions:
     terraform: { attribute: azurerm_private_endpoint.subnet_id }
     bicep_avm: { attribute: 'privateEndpoints[].subnetResourceId', note: "with service: 'topic'" }
     bicep: { attribute: Microsoft.Network/privateEndpoints properties.subnet.id }
-    import: {todo: 'not in the Resource Graph row: Microsoft.Network/privateEndpoints properties.subnet.id'}
+    import: {part: Microsoft.Network/privateEndpoints, path: properties.subnet.id, reference: true}
   networking.ip_rules:
     terraform_avm: { attribute: 'inbound_ip_rules[].ip_mask', note: 'action = "Allow"; used only with public access Enabled' }
     terraform: { attribute: inbound_ip_rule.ip_mask, note: '{ ip_mask, action }' }

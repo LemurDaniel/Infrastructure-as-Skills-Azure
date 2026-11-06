@@ -175,7 +175,7 @@ decisions:
     terraform: { attribute: azurerm_private_endpoint.subnet_id }
     bicep_avm: { attribute: 'privateEndpoints[].subnetResourceId', note: "service: 'AzureBackup'" }
     bicep: { attribute: Microsoft.Network/privateEndpoints properties.subnet.id }
-    import: {todo: 'not in the Resource Graph row: Microsoft.Network/privateEndpoints properties.subnet.id'}
+    import: {part: Microsoft.Network/privateEndpoints, path: properties.subnet.id, reference: true}
 
   # --------------------------------------------------------------- encryption
   encryption.key_management:

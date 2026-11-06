@@ -272,7 +272,7 @@ decisions:
     bicep:
       attribute: Microsoft.Network/privateEndpoints properties.subnet.id
       note: "authored child with groupIds: [ 'sites' ]; (source: bicep build, Microsoft.Network/privateEndpoints@2024-05-01)"
-    import: {todo: 'not in the Resource Graph row: the private endpoint is its own resource (Microsoft.Network/privateEndpoints, linked from properties.privateEndpointConnections[]) - properties.subnet.id'}
+    import: {part: Microsoft.Network/privateEndpoints, path: properties.subnet.id, reference: true}
   networking.vnet_integration:
     terraform_avm:
       module: Azure/avm-res-web-site/azurerm

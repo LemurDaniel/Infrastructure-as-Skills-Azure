@@ -135,7 +135,7 @@ decisions:
     bicep:
       attribute: Microsoft.Network/privateEndpoints properties.subnet.id
       note: one per sub-resource in the deployment's region; no zone group under private_dns_records policy
-    import: {todo: 'not in the Resource Graph row: Microsoft.Network/privateEndpoints properties.subnet.id'}
+    import: {part: Microsoft.Network/privateEndpoints, path: properties.subnet.id, reference: true}
   networking.private_endpoint_subresources:
     terraform_avm: { attribute: 'private_endpoints.<key>.subresource_name', note: 'one entry per sub-resource (Bot, Token)' }
     terraform: { attribute: azurerm_private_endpoint.private_service_connection.subresource_names, note: '["Bot"] and a second endpoint with ["Token"]; inside the private_service_connection block (source: azurerm 5.12 schema)' }

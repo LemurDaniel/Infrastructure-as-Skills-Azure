@@ -227,7 +227,7 @@ decisions:
     bicep_avm:
       gap: no module parameter - the subnet of the authored Microsoft.Network/privateEndpoints; no privateDnsZoneGroup under policy DNS
     bicep: { attribute: Microsoft.Network/privateEndpoints properties.subnet.id, note: "(source: bicep build, Microsoft.Network/privateEndpoints@2025-01-01)" }
-    import: {todo: 'not in the Resource Graph row: Microsoft.Network/privateEndpoints properties.subnet.id'}
+    import: {part: Microsoft.Network/privateEndpoints, path: properties.subnet.id, reference: true}
   networking.connection_type:
     terraform_avm: { attribute: proxy_override, passthrough: true, note: module default Default - always written }
     terraform: { attribute: proxy_override, passthrough: true }

@@ -224,7 +224,7 @@ decisions:
     bicep:
       attribute: Microsoft.Network/privateEndpoints properties.subnet.id
       note: 'privateLinkServiceConnections[].properties.groupIds takes the site''s group id, a string the build does not check (source: bicep build, Microsoft.Network/privateEndpoints@2024-05-01)'
-    import: {todo: 'not in the Resource Graph row: Microsoft.Network/privateEndpoints properties.subnet.id'}
+    import: {part: Microsoft.Network/privateEndpoints, path: properties.subnet.id, reference: true}
   networking.vnet_integration:
     terraform_avm:
       module: Azure/avm-res-web-site/azurerm

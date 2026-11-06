@@ -73,7 +73,7 @@ decisions:
     bicep:
       attribute: Microsoft.Network/privateEndpoints properties.subnet.id
       note: one per subresource; privateLinkServiceConnections[].properties.groupIds = [ the subresource ]
-    import: {todo: 'not in the Resource Graph row: Microsoft.Network/privateEndpoints properties.subnet.id'}
+    import: {part: Microsoft.Network/privateEndpoints, path: properties.subnet.id, reference: true}
   networking.private_endpoint_subresources:
     terraform_avm:
       attribute: private_endpoints.<key>.subresource_name
