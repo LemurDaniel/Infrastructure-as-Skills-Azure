@@ -14,6 +14,8 @@ variables:
     value: "1.17.1"           # the newest patch of the ~> 1.17.0 constraint on 2026-11-01; re-resolve on render
   - name: TF_IN_AUTOMATION   # no "run terraform apply next" hints in the log; the pipeline decides
     value: "true"
+  - name: TF_SHA256          # of terraform_<TF_VERSION>_linux_amd64.zip, from the release's SHA256SUMS at render time
+    value: "4638628058e71a55212b1c563712eac03b902128f40740f3dc8174df12135061"
 
 stages:
   - stage: validate

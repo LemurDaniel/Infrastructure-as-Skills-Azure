@@ -452,8 +452,15 @@ def check_ado(root, stages, target, auth, gated, exempt):
         if 'terraform-install.yml' not in tmpl:
             err(".azure-pipelines/terraform-install.yml: missing")
         else:
-            if 'Get-FileHash' not in tmpl['terraform-install.yml'][1]:
-                err(".azure-pipelines/terraform-install.yml: the download is not checksum-verified")
+            itext = tmpl['terraform-install.yml'][1]
+            if 'Get-FileHash' not in itext or 'TF_SHA256' not in itext:
+                err(".azure-pipelines/terraform-install.yml: the download is not checksum-verified against the committed TF_SHA256")
+            if 'SHA256SUMS' in itext:
+                err(".azure-pipelines/terraform-install.yml: the checksum is fetched in the run - the server that "
+                    "serves the binary would vouch for it; commit TF_SHA256 beside TF_VERSION")
+        sha = [v for v in (ed.get('variables') or []) if isinstance(v, dict) and v.get('name') == 'TF_SHA256']
+        if not sha or not re.match(r'^[0-9a-fA-F]{64}$', str(sha[0].get('value'))):
+            err("azure-pipelines.yml: TF_SHA256 is missing or not a SHA-256 - the hash of the release zip, looked up at render time")
         tia = [v for v in (ed.get('variables') or []) if isinstance(v, dict) and v.get('name') == 'TF_IN_AUTOMATION']
         if not tia or str(tia[0].get('value')).lower() != 'true':
             err("azure-pipelines.yml: TF_IN_AUTOMATION is not true - Terraform's log would suggest interactive next steps")

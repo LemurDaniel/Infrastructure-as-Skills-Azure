@@ -228,6 +228,12 @@ MUTATIONS = [
      'TF_IN_AUTOMATION: "true"', 'TF_LOG: "warn"', 'TF_IN_AUTOMATION is not true'),
     ('ado terraform without TF_IN_AUTOMATION', 'ado-terraform', ADO,
      '  - name: TF_IN_AUTOMATION', '  - name: TF_LOG', 'TF_IN_AUTOMATION is not true'),
+    ('ado terraform checksum fetched in the run', 'ado-terraform', ADOI,
+     "-ne '$(TF_SHA256)')",
+     "-ne (Invoke-RestMethod \"https://releases.hashicorp.com/terraform/$v/terraform_${v}_SHA256SUMS\"))",
+     'the checksum is fetched in the run'),
+    ('ado terraform hash not committed', 'ado-terraform', ADO,
+     '  - name: TF_SHA256', '  - name: TF_HASH', 'TF_SHA256 is missing'),
     ('gitlab terraform without TF_IN_AUTOMATION', 'gitlab-terraform', GL,
      'TF_IN_AUTOMATION: "true"', 'TF_LOG: "warn"', 'TF_IN_AUTOMATION is not true'),
     # the render's tests and the what-if record (invariants 15 and 8)

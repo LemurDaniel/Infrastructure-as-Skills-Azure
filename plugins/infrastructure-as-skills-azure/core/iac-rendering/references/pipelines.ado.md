@@ -61,6 +61,8 @@ variables:
     value: "1.17.1"           # the newest patch of the ~> 1.17.0 constraint on 2026-11-01; re-resolve on render
   - name: TF_IN_AUTOMATION   # no "run terraform apply next" hints in the log; the pipeline decides
     value: "true"
+  - name: TF_SHA256          # of terraform_<TF_VERSION>_linux_amd64.zip, from the release's SHA256SUMS at render time
+    value: "4638628058e71a55212b1c563712eac03b902128f40740f3dc8174df12135061"
 
 stages:
   - stage: validate
@@ -151,17 +153,18 @@ steps:
       $dir = '$(Agent.TempDirectory)'
       $zip = "terraform_${v}_linux_amd64.zip"
       Invoke-WebRequest "https://releases.hashicorp.com/terraform/$v/$zip" -OutFile "$dir/$zip"
-      $sums = Invoke-RestMethod "https://releases.hashicorp.com/terraform/$v/terraform_${v}_SHA256SUMS"
-      $want = (($sums -split "`n" | Where-Object { $_ -like "*  $zip" }) -split '\s+')[0]
-      if (-not $want -or (Get-FileHash "$dir/$zip" -Algorithm SHA256).Hash -ne $want) { throw "Checksum mismatch for $zip" }
+      # The hash is committed beside the version: what runs is fixed when the file is reviewed.
+      if ((Get-FileHash "$dir/$zip" -Algorithm SHA256).Hash -ne '$(TF_SHA256)') { throw "Checksum mismatch for $zip" }
       Expand-Archive "$dir/$zip" -DestinationPath "$dir/tf" -Force
       chmod +x "$dir/tf/terraform"
       Write-Output "##vso[task.prependpath]$dir/tf"
     displayName: Install Terraform $(TF_VERSION)
 ```
 
-The checksum guards a corrupt download, not a hostile mirror; an organisation that mirrors
-Terraform internally swaps the URL and keeps the shape.
+`TF_SHA256` is looked up when the version is - `terraform_<version>_SHA256SUMS` of the release,
+the `linux_amd64.zip` line - and committed with it: the run downloads the binary and refuses
+anything else, and nothing it fetches decides what runs. A version bump changes both lines in
+one commit. An organisation that mirrors Terraform internally swaps the URL and keeps the shape.
 
 ## Stage template - `.azure-pipelines/stage.yml`
 
@@ -357,7 +360,8 @@ and adds `--location`, in what-if and create alike (invariant 13).
   `PublishPipelineArtifact@1` is the current task, and a deployment job downloads the run's
   artifacts on its own.
 - The hand-rolled Terraform version cache: one pwsh step with a checksum
-  (`Get-FileHash` against the release's `SHA256SUMS`).
+  (`Get-FileHash` against the `TF_SHA256` committed beside the version, never a checksum file
+  fetched in the same run).
 - Fixed `dev` / `prod` and an `environment` pipeline parameter: the stages are the spec's,
   chained, and nobody picks one at queue time.
 - The "Fallback" block with state and subscription values in comments: they live in the

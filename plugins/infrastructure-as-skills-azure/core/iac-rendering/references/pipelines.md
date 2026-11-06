@@ -79,7 +79,10 @@ reports as "not checkable" instead of passing them.
 9. **Versions are pinned and looked up, never recalled.** The Terraform version as a
    constraint on the minor (`~> 1.17.0`), actions and tasks at a major tag, resolved at
    render time and dated in a comment. The numbers in the platform files are a snapshot of
-   2026-10-18 - `git ls-remote --tags --refs <repo>` is how to read the live ones. An
+   2026-10-18 - `git ls-remote --tags --refs <repo>` is how to read the live ones. A binary
+   the pipeline downloads itself (Terraform on Azure DevOps) is checked against a SHA-256
+   committed beside its version, looked up with it at render time - never against a checksum
+   file the same run fetches from the same server. An
    organisation that requires full-commit pins states it once and the render writes the SHA
    with the tag as a comment.
 10. **State comes from the stage, never a workspace.** The backend key is
