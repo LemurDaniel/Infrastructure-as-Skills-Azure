@@ -24,7 +24,8 @@ reference object written as one value fails, and so does every broken reference:
 a stage map, a resource of another kind or not in the spec, a subnet without its part or with
 one the network does not name, an existing one with no id and no open entry, an id of another
 type, a stage without an id, a name beside it. An existing one with its ids, or with an open
-entry, passes.
+entry, passes. A required question whose depends_on holds (the sign-in's client id) warns
+without a value and without an open entry, and is quiet with either.
 
 Usage:
     python3 run_spec_tests.py
@@ -413,8 +414,37 @@ def main():
                 ok = rc == 0 and 'Contract ok' in out if expected is None else rc == 1 and expected in out
                 report(ok, name if expected is None else f"breaks: {name}", f"expected {expected!r}; got exit {rc}:\n{out[-500:]}")
 
+        # A required question whose depends_on holds: its value, or an open entry naming it.
+        # Without either the check warns, so nothing reads as "nothing open".
+        identity = ("    identity:\n      managed_identity:\n        value: system_assigned\n"
+                    "        source: default\n\n  storage-account:")
+        sign_in = identity.replace("\n\n  storage-account:",
+                                   "\n      entra_sign_in:\n        value: existing_app_registration\n"
+                                   "        source: stated\n\n  storage-account:")
+        client_id = ("      entra_client_id:\n        value:\n"
+                     "          development: 00000000-0000-0000-0000-000000000001\n"
+                     "          test: 00000000-0000-0000-0000-000000000001\n"
+                     "          production: 00000000-0000-0000-0000-000000000002\n"
+                     "        source: stated\n\n  storage-account:")
+        open_entry = ("- key: resources.app-service.identity.entra_client_id\n  environments: [production]\n"
+                      "  question: Wie lautet die Client-ID der App-Registrierung?\n"
+                      "  owner: Workload-Owner\n  blocks: apply\n")
+        warning = 'resources.app-service.identity.entra_client_id is required once entra_sign_in holds'
+        if shape.count(identity) != 1:
+            for name in ('warns', 'open entry', 'value'):
+                report(False, f"a required question that applies ({name})",
+                       f"the Shape example holds the app-service identity {shape.count(identity)} times")
+        else:
+            text = shape.replace(identity, sign_in)
+            rc, out = run(text)
+            report(rc == 0 and warning in out, 'a required question that applies, with no value and no open entry, warns', out[-500:])
+            rc, out = run(text + open_entry)
+            report(rc == 0 and warning not in out, 'the same question named by an open entry does not warn', out[-500:])
+            rc, out = run(text.replace("        source: stated\n\n  storage-account:", "        source: stated\n" + client_id))
+            report(rc == 0 and warning not in out, 'the same question with its value does not warn', out[-500:])
+
     print('-' * 70)
-    total = 8 + len(MUTATIONS) + len(COMPONENT_MUTATIONS) + len(SHAPE_MUTATIONS)
+    total = 11 + len(MUTATIONS) + len(COMPONENT_MUTATIONS) + len(SHAPE_MUTATIONS)
     print(f"{total - failed}/{total} passed")
     return 1 if failed else 0
 
