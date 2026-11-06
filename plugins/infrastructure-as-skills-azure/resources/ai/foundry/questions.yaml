@@ -113,6 +113,7 @@ groups:
           en: "Which pricing tier?"
           de: "Welcher Tarif?"
         type: enum
+        stage_parameter: true
         plain:
           en: "The account uses the pricing tier {value}."
           de: "Das Konto nutzt die Preisstufe {value}."
@@ -230,6 +231,7 @@ groups:
           en: "How many tokens per minute may each model use?"
           de: "Wie viele Tokens pro Minute darf jedes Modell verwenden?"
         type: int
+        stage_parameter: true
         plain:
           en: "Each model may process up to {value} thousand tokens per minute."
           de: "Jedes Modell darf bis zu {value} Tausend Token pro Minute verarbeiten."

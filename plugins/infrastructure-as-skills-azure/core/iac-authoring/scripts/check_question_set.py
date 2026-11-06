@@ -84,7 +84,7 @@ KNOWN_FIELDS = {
     'id', 'ask', 'type', 'accepts', 'default', 'required', 'parameterized',
     'why', 'renders', 'depends_on', 'answer', 'forced_when',
     'resolved_by', 'topic', 'plain', 'plain_values', 'per_environment', 'non_production_default',
-    'offer', 'exclusive',
+    'offer', 'exclusive', 'stage_parameter',
 }
 # Groups whose decisions may never be relaxed for a non-production stage.
 NO_SAVINGS_GROUPS = {'security', 'networking', 'identity', 'access', 'dns', 'compliance', 'posture', 'modules', 'subnet_policy'}
@@ -457,6 +457,17 @@ def check_set(path, doc, deployment, rel):
                 err(f"{where}: non_production_default '{npd}' is not in accepts {values}")
             if pe:
                 err(f"{where}: non_production_default on a per_environment question - the stage file carries the value, not a default")
+
+        # stage_parameter: a size or cost knob whose value stands in the stage files. Never on a
+        # decision a stage may not loosen, and redundant where the question already is one.
+        sp = q.get('stage_parameter')
+        if sp is not None:
+            if sp is not True:
+                err(f"{where}: stage_parameter is true or absent")
+            elif gid in NO_SAVINGS_GROUPS:
+                err(f"{where}: stage_parameter in group '{gid}' - a stage file must not be able to loosen it")
+            elif pe or npd is not None:
+                err(f"{where}: stage_parameter beside {'per_environment' if pe else 'non_production_default'}, which already makes it a stage-file parameter")
 
         # --- 7. ask and plain: one line per language, en required
         for field in ('ask', 'plain'):

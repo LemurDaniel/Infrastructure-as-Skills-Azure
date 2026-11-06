@@ -367,7 +367,7 @@ def main():
                     if e not in open_stages.get(path, set()):
                         errors.append(f"{path} has no value for stage '{e}' and no open entry naming it")
                 q = question_of(path)
-                if q is not None and not q.get('per_environment') and 'non_production_default' not in q and src != 'overridden':
+                if q is not None and not q.get('per_environment') and 'non_production_default' not in q and not q.get('stage_parameter') and src != 'overridden':
                     errors.append(f"{path} is split by stage, but its question is neither per_environment nor a cost knob - one value for every stage, or the user's departure recorded as overridden")
             elif environments and isinstance(v, dict) and any(k in environments for k in v):
                 errors.append(f"{path} mixes stage names and other keys in its value")

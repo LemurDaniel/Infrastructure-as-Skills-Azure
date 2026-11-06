@@ -123,6 +123,7 @@ groups:
           en: "How many partitions should the index be spread over?"
           de: "Auf wie viele Partitionen soll der Index verteilt werden?"
         type: int
+        stage_parameter: true
         plain:
           en: "The index data is spread over {value} partition(s)."
           de: "Die Indexdaten sind auf {value} Partition(en) verteilt."

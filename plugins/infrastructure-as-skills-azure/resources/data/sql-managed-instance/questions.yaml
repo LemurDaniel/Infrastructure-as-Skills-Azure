@@ -81,6 +81,7 @@ groups:
           en: "Which kind of instance is needed - a balanced one, or one for very low latency with a built-in readable copy?"
           de: "Welche Art von Instanz wird gebraucht - eine ausgewogene, oder eine für sehr geringe Latenz mit eingebauter lesbarer Kopie?"
         type: enum
+        stage_parameter: true
         plain:
           en: "The instance is of the kind {value}."
           de: "Die Instanz ist von der Art {value}."

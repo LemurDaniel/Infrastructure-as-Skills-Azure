@@ -98,6 +98,7 @@ groups:
           en: "How large may the share grow?"
           de: "Wie groß darf die Freigabe werden?"
         type: int
+        stage_parameter: true
         plain:
           en: "The share holds at most {value} GB."
           de: "Die Freigabe fasst höchstens {value} GB."
@@ -114,6 +115,7 @@ groups:
           en: "How is the share used?"
           de: "Wie wird die Freigabe genutzt?"
         type: enum
+        stage_parameter: true
         plain:
           en: "The share is tuned for {value}."
           de: "Die Freigabe ist ausgelegt für {value}."

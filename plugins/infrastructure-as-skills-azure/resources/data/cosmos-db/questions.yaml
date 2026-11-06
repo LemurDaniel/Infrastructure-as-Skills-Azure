@@ -105,6 +105,7 @@ groups:
           en: "Should the throughput follow the load, or stay at a fixed rate?"
           de: "Soll der Durchsatz der Last folgen oder bei einer festen Rate bleiben?"
         type: enum
+        stage_parameter: true
         plain:
           en: "Throughput {value}."
           de: "Der Durchsatz {value}."
@@ -127,6 +128,7 @@ groups:
           en: "What is the highest throughput the data may use?"
           de: "Wie hoch ist der höchste Durchsatz, den die Daten nutzen dürfen?"
         type: int
+        stage_parameter: true
         plain:
           en: "Throughput is capped at {value} request units per second per container."
           de: "Der Durchsatz ist auf {value} Anfrageeinheiten pro Sekunde je Container begrenzt."
@@ -144,6 +146,7 @@ groups:
           en: "Should the whole account have a throughput ceiling?"
           de: "Soll das ganze Konto eine Obergrenze für den Durchsatz haben?"
         type: int
+        stage_parameter: true
         plain:
           en: "The account as a whole may use at most {value} request units per second (-1: no limit)."
           de: "Das gesamte Konto darf höchstens {value} Anfrageeinheiten pro Sekunde nutzen (-1: keine Grenze)."
