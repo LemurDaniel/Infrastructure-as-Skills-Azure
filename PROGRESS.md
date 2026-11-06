@@ -374,11 +374,12 @@ the detail; this list says what was decided and why, so a session does not reope
   (offline); the spec contract has `source: imported`, `adopt` (id, lock, diagnostic setting,
   `parts`), `wiring.role_assignments[].adopt_id`, `unmapped` and `spec.imported_from`
   (`spec_import.py`, rule 11 of `check_spec.py`). Every render-map decision carries `import:`
-  (path + values / passthrough / format / reference / single / items / present, `cases`,
-  `diagnostic_setting`, `part:`, list filters `match` / `skip`, `each` for a list of
-  references, `not_readable`, `todo`), `import_parts` (a plan, a WAF policy, the private
-  endpoints a set renders) and `import_match` (two sets of one type by `kind`): 618 read back,
-  3 not readable, 733 todo. The decision document lists departures from the rules and what was
+  (path + values / passthrough / format / reference / single / items / present / keys / each,
+  `cases` alone or beside a path form, `diagnostic_setting`, `part:`, `child:`, list filters
+  `match` / `skip`, `not_readable`, `todo`), `import_parts` (a plan, a WAF policy, the private
+  endpoints a set renders), `import_children` (child path -> API version, read by `collect.py`
+  with `az rest --method get`) and `import_match` (two sets of one type by `kind`): 626 read
+  back, 3 not readable, 725 todo. The decision document lists departures from the rules and what was
   found and not built; the diagram routes lines from outside into PaaS from above. First real
   run on one of the owner's resource groups (a registry, a vault, a storage account; its name
   and findings are not recorded in this public repository): it found and fixed role
@@ -1163,20 +1164,27 @@ regeneration from the spec loses them. All `render`:
   acceptance is an empty `plan` / `what-if`. Two rules the render must keep for an imported
   NSG: a rule's `access` (a Deny read from Azure), and no baseline rules of `subnet_purpose`
   added on top of the rules read - `subnet_purpose` stays an open entry on an import.
-- **733 `todo` readings.** The 24 most used sets were gone through; the rest is the bootstrap's.
-  Most need a child resource the Resource Graph row does not hold (blobServices/default, queues,
-  databases, firewall rules, `sites/config/web`, the storage account's log categories, the
-  diagnostic settings of Container Apps and Redis) - `collect.py` reads none yet - or a form
-  not written (the keys of `userAssignedIdentities`, a key URI for a CMK id).
-- **Diagnostics on some resources only:** a resource without a setting keeps its diagnostic
-  decisions `assumed`, so the first apply would add one there; the spec cannot say "none on
-  this resource". Several workspaces raise an open entry for the destination.
+- **725 `todo` readings - the mechanism is built, the sets are not converted** (postponed,
+  owner's call 2026-11-06). `import_children` + `child:`, `keys`, `each`, `cases` beside a
+  path exist since 2026-11-06; only `storage-account` is converted (the pilot, 26 read, 5
+  todo). Rough split of what is left: ~438 child or neighbour resources, ~103 lists, ~60
+  `cases`, ~130 render gaps or composed values (a CMK key URI from two paths - stays `todo`
+  unless a form fits). Plan: one agent per family group (8: ai+integration; compute VMs/AKS;
+  compute apps+security; data SQL/MySQL/PostgreSQL; data rest+recovery+storage; messaging;
+  network; observability), each editing only its render-maps, API versions from `az provider
+  show` (provider metadata, the only az command), paths from the ARM template reference, never
+  from a tenant - the plugin goes to customers. When unsure, `todo` stays.
+- **Readings fixed by construction in that pass, not against a real row** (owner: no tenant
+  binding): the `properties.siteConfig.*` readings on web, function and logic apps move to the
+  child `config/web` (Resource Graph often returns siteConfig empty); function-app
+  `hosting.plan_type` through `part: Microsoft.Web/serverFarms`; SQL `entra_admin` through the
+  child `administrators/ActiveDirectory` (it names `principalType`); `key_management` with
+  `missing: platform_managed` on Service Bus, Event Hubs, Redis, registry and PostgreSQL checked
+  against the ARM template reference.
+- Several workspaces raise an open entry for the destination; a resource without a setting
+  while others have one takes `diagnostic_workspace: none` (2026-11-06).
 - NSG rules are written in the order Azure returns them; a second read may reorder them.
-- **Readings to check against a real row:** the eight `properties.siteConfig.*` readings on web,
-  function and logic apps (Resource Graph often returns them empty, read as not found, so
-  `assumed`); function-app `hosting.plan_type` (`properties.sku`); `key_management` with
-  `missing: platform_managed` on Service Bus, Event Hubs, Redis, registry and PostgreSQL; SQL
-  `entra_admin` as a GUID reference (could be a user or a service principal).
+- The render must honour `diagnostic_workspace: none` (no setting for that resource).
 - **Several groups or a subscription** are read, but only one group yields a complete spec:
   more raise an `open:` entry for the group layout. One stage per run; matching stages across
   scopes is not built.
@@ -1217,7 +1225,8 @@ regeneration from the spec loses them. All `render`:
 **unclick: render what an import adopts** (*Open, unclick*): `import` blocks in iac-rendering
 for `adopt` (id, lock, diagnostic setting, parts, role assignments), the Bicep path, and an empty
 plan on the first real group as the acceptance. Then the registry's `admin_enabled` text and the
-child-resource readings `collect.py` would need. The draft PR into `dev` carries the rest.
+postponed conversion of the 725 `todo` readings with the child mechanism (plan in *Open,
+unclick*). The draft PR into `dev` carries the rest.
 
 
 **Regenerate the remaining examples and freeze the formats** (*Road to 1.0.0*): `render-yaml`
