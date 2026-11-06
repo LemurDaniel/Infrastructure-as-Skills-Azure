@@ -138,6 +138,10 @@ def main():
          lambda d: d['decisions']['networking.public_network_access'].__setitem__(
              'import', {'path': 'properties.x', 'items': {'source': ['properties.a', 42]}}),
          'or to a list of paths whose values are merged'),
+        ('each beside no reference',
+         lambda d: d['decisions']['security.min_tls_version'].__setitem__(
+             'import', {'path': 'properties.minimumTlsVersion', 'passthrough': True, 'each': 'id'}),
+         'import.each stands beside reference only'),
         ('import_match that is no list of kind tokens',
          lambda d: d.__setitem__('import_match', {'kind_has': 'functionapp'}), 'import_match is'),
         ('import_parts that is no list of ARM types',

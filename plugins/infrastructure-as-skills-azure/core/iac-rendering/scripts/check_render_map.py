@@ -72,7 +72,7 @@ SCALAR_TYPES = {'enum', 'bool', 'int', 'string'}
 # How an import reads a decision back (references/render-map.md, "Reading it back").
 IMPORT_PATH = re.compile(r'^[A-Za-z][A-Za-z0-9_]*(\.[A-Za-z0-9_]+)*$')
 IMPORT_FIELDS = {'path', 'values', 'passthrough', 'format', 'reference', 'single', 'items', 'present', 'cases',
-                 'missing', 'note', 'match', 'skip'}
+                 'missing', 'note', 'match', 'skip', 'each'}
 IMPORT_STATS = {'read': 0, 'not_readable': 0, 'todo': 0}
 # What a decision reads from the resource's diagnostic setting instead of its row.
 DIAGNOSTIC_READINGS = ('workspace', 'log_categories', 'metrics')
@@ -178,7 +178,12 @@ def check_import(where, imp, question):
             errs.append(f"{where}: import.reference is true or absent")
         elif not (isinstance(acc, dict) and acc.get('ref')):
             errs.append(f"{where}: import.reference on a question that takes no reference")
+        if 'each' in imp and not (question.get('type') == 'list' and isinstance(imp['each'], str)
+                                  and IMPORT_PATH.match(imp['each'])):
+            errs.append(f"{where}: import.each is the path of the id inside each list element, on a list question")
         return errs
+    if 'each' in imp:
+        errs.append(f"{where}: import.each stands beside reference only")
     if 'values' in imp:
         vals = imp['values']
         if not isinstance(vals, dict) or not vals:

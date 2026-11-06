@@ -42,7 +42,7 @@ decisions:
     bicep:
       on_part: "properties.subnets[name={part}].properties.networkSecurityGroup.id: {self}"
       note: the subnet takes the group's id; an NSG has no property naming its subnets
-    import: {todo: 'set on the subnet, a part of the virtual network; the row holds properties.subnets[].id, a list no form reads as references'}
+    import: {path: properties.subnets, reference: true, each: id}
 
   # -------------------------------------------------------------------- rules
   rules.subnet_purpose:

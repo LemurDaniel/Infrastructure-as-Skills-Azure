@@ -201,6 +201,10 @@ def read(imp, row):
         matches = lambda e, f: all(at(e, p) is not MISSING and same(at(e, p), lit) for p, lit in f.items())
         v = [e for e in v if ('match' not in imp or matches(e, imp['match']))
              and not any(matches(e, f) for f in imp.get('skip') or [])]
+    if 'each' in imp:  # [{id: a}, {id: b}] with each: id -> [a, b]
+        if not isinstance(v, list) or any(at(e, imp['each']) is MISSING for e in v):
+            return False, None
+        return True, [at(e, imp['each']) for e in v]
     if 'values' in imp:
         hit = next((a for lit, a in imp['values'].items() if same(lit, v)), MISSING)
         return (hit is not MISSING), (None if hit is MISSING else hit)
@@ -361,9 +365,12 @@ def main():
         m = re.match(r'^(.*/providers/microsoft\.network/virtualnetworks/[^/]+)/subnets/([^/]+)$', rid)
         if m and m.group(1) in key_of:
             vnet = key_of[m.group(1)]
-            names = json.dumps(resources_out.get(vnet, {}).get('addressing', {}).get('subnets', {})).lower()
-            if f'"{m.group(2)}"' in names:
-                return {'resource': vnet, 'part': str(v).split('/')[-1]}
+            subnets = (resources_out.get(vnet, {}).get('addressing', {}).get('subnets') or {}).get('value') or []
+            # Azure spells a subnet id in whatever case the referrer stored; the part takes the network's
+            # spelling: .../subnets/SNET-APP-PE -> snet-app-pe
+            part = next((s.get('name') for s in subnets if isinstance(s, dict) and same(s.get('name'), m.group(2))), None)
+            if part:
+                return {'resource': vnet, 'part': part}
         if rid in key_of:
             return {'resource': key_of[rid]}
         if kind and kind in ref_kinds:
@@ -392,7 +399,7 @@ def main():
         destination = reference({'accepts': {'ref': 'log_analytics_workspace'}}, next(iter(workspaces)), {})
 
     resources_out, opens, read_n, assumed_n = {}, [], 0, 0
-    order = sorted(mapped, key=lambda m: (str(m[1].get('type', '')) != 'Microsoft.Network/virtualNetworks', m[1]['id']))
+    order = sorted(mapped, key=lambda m: (str(m[1].get('type', '')).lower() != 'microsoft.network/virtualnetworks', m[1]['id']))
     for s, r in order:  # networks first, so a subnet reference finds its part
         key = key_of[str(r['id']).lower()]
         node, missed = {}, []
@@ -432,7 +439,11 @@ def main():
         resources_out[key] = node
         for gid, q, imp in refs:
             found, v = read(imp, r)
-            ref = reference(q, v, resources_out) if found else MISSING
+            if found and 'each' in imp:  # a list of references: every one resolves, or none is read
+                each = [reference(q, x, resources_out) for x in v]
+                ref = MISSING if MISSING in each else each
+            else:
+                ref = reference(q, v, resources_out) if found else MISSING
             if ref is not MISSING:
                 node.setdefault(gid, {})[q['id']] = {'value': ref, 'source': 'imported'}
                 read_n += 1

@@ -24,6 +24,8 @@ endpoint (and its network interface), a network of six subnets and three NSGs wi
 their own, Deny among them; no diagnostic setting anywhere, the settings read. Its spec must:
   - read every NSG rule as it runs, a Deny kept, prefixes merged from both fields;
   - read no deny-all at 4096 as azure_default, never assume the default;
+  - name the subnets each NSG guards as the network's parts (the NSG row spells their ids in
+    upper case), so check_spec.py reports no subnet without one;
   - write observability_ownership none and no diagnostic decision.
 
 Usage:
@@ -142,6 +144,11 @@ def main():
     expect(bootstrap.get('source') == ['10.0.0.0/27'], "a rule's prefixes are merged from the singular and the plural field")
     expect(data.get('default_inbound') == {'value': 'azure_default', 'source': 'imported'},
            'no deny-all at 4096 reads as azure_default - a departure, not the default assumed')
+    guarded = res.get('network-security-group__nsg-shop-data-gw-prod', {}).get('networking', {}).get('subnets', {})
+    expect(guarded.get('value') == [{'resource': 'virtual-network', 'part': 'snet-shop-dataadditional-gw-prod'},
+                                    {'resource': 'virtual-network', 'part': 'snet-shop-datape-gw-prod'}],
+           'the subnets an NSG guards are the network\'s parts, in the network\'s spelling of an upper-case id')
+    expect('has no network security group' not in checked, 'no subnet is reported without an NSG - all six have one')
     expect(spec.get('deployment', {}).get('observability_ownership') == {'value': 'none', 'source': 'imported'}
            and 'diagnostic_categories' not in text,
            'no diagnostic setting anywhere: ownership none, no diagnostic decision written')
