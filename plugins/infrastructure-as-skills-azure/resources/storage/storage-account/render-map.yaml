@@ -62,7 +62,7 @@ decisions:
   networking.private_endpoint_subresources:
     terraform_avm:
       attribute: 'private_endpoints.<sub>.subresource_name'
-      note: one map entry per sub-resource, named with the naming provider's subname parameter
+      note: one map entry per sub-resource, named with the naming provider's purpose parameter
     terraform: { attribute: azurerm_private_endpoint.private_service_connection.subresource_names }
     bicep_avm:
       attribute: 'privateEndpoints[].service'
