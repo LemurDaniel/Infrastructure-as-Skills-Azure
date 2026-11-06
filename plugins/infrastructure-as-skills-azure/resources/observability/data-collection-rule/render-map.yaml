@@ -449,7 +449,7 @@ decisions:
     bicep:
       attribute: Microsoft.Insights/diagnosticSettings properties.workspaceId
       note: 'scope: an existing reference to the rule (source: bicep build, Microsoft.Insights/diagnosticSettings@2021-05-01-preview)'
-    import: {todo: 'not in the Resource Graph row: Microsoft.Insights/diagnosticSettings properties.workspa...'}
+    import: {diagnostic_setting: workspace}
   observability.diagnostic_categories:
     terraform_avm:
       attribute: 'diagnostic_settings.<key>.log_categories'
@@ -458,4 +458,4 @@ decisions:
     terraform: { attribute: 'azurerm_monitor_diagnostic_setting.enabled_log { category }' }
     bicep_avm: { gap: 'no diagnosticSettings parameter on the rule module; authored Microsoft.Insights/diagnosticSettings with scope: the rule' }
     bicep: { attribute: 'Microsoft.Insights/diagnosticSettings properties.logs[].category', note: 'enabled: true on each' }
-    import: {todo: 'not in the Resource Graph row: Microsoft.Insights/diagnosticSettings properties.logs[]....'}
+    import: {diagnostic_setting: log_categories}

@@ -183,14 +183,14 @@ decisions:
     bicep:
       attribute: Microsoft.Insights/diagnosticSettings properties.workspaceId
       note: "scoped to the communication service (source: bicep build, Microsoft.Insights/diagnosticSettings@2021-05-01-preview)"
-    import: {todo: 'not in the Resource Graph row: Microsoft.Insights/diagnosticSettings properties.workspa...'}
+    import: {diagnostic_setting: workspace}
   observability.diagnostic_categories:
     terraform: { attribute: azurerm_monitor_diagnostic_setting.enabled_log.category }
     bicep_avm: { attribute: 'diagnosticSettings[].logCategoriesAndGroups[].category' }
     bicep:
       attribute: 'Microsoft.Insights/diagnosticSettings properties.logs[].category'
       note: "one { category, enabled: true } per entry, scoped to the communication service (source: bicep build, Microsoft.Insights/diagnosticSettings@2021-05-01-preview)"
-    import: {todo: 'not in the Resource Graph row: Microsoft.Insights/diagnosticSettings properties.logs[]....'}
+    import: {diagnostic_setting: log_categories}
   observability.metrics_enabled:
     terraform:
       attribute: azurerm_monitor_diagnostic_setting.enabled_metric.category
@@ -201,4 +201,4 @@ decisions:
       values: { true: { expr: "[ { category: 'AllMetrics' } ]" }, false: { expr: '[]' } }
     bicep:
       gap: "Microsoft.Insights/diagnosticSettings properties.metrics[] { category, enabled } scoped to the communication service is proven (bicep build, Microsoft.Insights/diagnosticSettings@2021-05-01-preview); the category is a free string in the type, so AllMetrics has no source for authored Bicep"
-    import: {todo: 'bicep renders it as a gap: Microsoft.Insights/diagnosticSettings properties.metrics[] {...'}
+    import: {diagnostic_setting: metrics}

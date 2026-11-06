@@ -104,7 +104,7 @@ decisions:
     terraform: { attribute: azurerm_monitor_diagnostic_setting.log_analytics_workspace_id }
     bicep_avm: { attribute: 'diagnosticSettings[].workspaceResourceId' }
     bicep: { attribute: Microsoft.Insights/diagnosticSettings properties.workspaceId, note: 'an extension resource with scope: publicIp' }
-    import: {todo: 'not in the Resource Graph row: the extension resource Microsoft.Insights/diagnosticSettings (scope the resource) properties.workspaceId'}
+    import: {diagnostic_setting: workspace}
   observability.diagnostic_categories:
     terraform_avm:
       attribute: 'diagnostic_settings.<key>.log_categories'
@@ -117,7 +117,7 @@ decisions:
       attribute: 'Microsoft.Insights/diagnosticSettings properties.logs'
       format: { expr: '[for c in {value}: { category: c, enabled: true }]' }
       note: 'an extension resource, scope = the public IP (source: bicep build, Microsoft.Insights/diagnosticSettings@2021-05-01-preview)'
-    import: {todo: 'not in the Resource Graph row: the extension resource Microsoft.Insights/diagnosticSettings (scope the resource) properties.logs[].category'}
+    import: {diagnostic_setting: log_categories}
   observability.metrics_enabled:
     terraform_avm:
       attribute: 'diagnostic_settings.<key>.metric_categories'
@@ -135,4 +135,4 @@ decisions:
         Microsoft.Insights/diagnosticSettings properties.metrics[] = { category, enabled } compiles
         (source: bicep build, Microsoft.Insights/diagnosticSettings@2021-05-01-preview), but the category
         literal is a free string the build does not check, and no allowed source names it for this target
-    import: {todo: 'not in the Resource Graph row: the extension resource Microsoft.Insights/diagnosticSettings (scope the resource) properties.metrics[]'}
+    import: {diagnostic_setting: metrics}

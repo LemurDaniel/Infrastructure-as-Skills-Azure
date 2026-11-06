@@ -318,7 +318,7 @@ decisions:
     terraform: { attribute: azurerm_monitor_diagnostic_setting.log_analytics_workspace_id }
     bicep_avm: { attribute: 'diagnosticSettings[].workspaceResourceId' }
     bicep: { attribute: Microsoft.Insights/diagnosticSettings properties.workspaceId }
-    import: {todo: 'not in the Resource Graph row: Microsoft.Insights/diagnosticSettings properties.workspaceId'}
+    import: {diagnostic_setting: workspace}
   observability.diagnostic_categories:
     terraform_avm:
       attribute: 'diagnostic_settings.<key>.log_categories'
@@ -326,7 +326,7 @@ decisions:
     terraform: { attribute: azurerm_monitor_diagnostic_setting.enabled_log.category }
     bicep_avm: { attribute: 'diagnosticSettings[].logCategoriesAndGroups[].category' }
     bicep: { attribute: 'Microsoft.Insights/diagnosticSettings properties.logs[].category' }
-    import: {todo: 'not in the Resource Graph row: Microsoft.Insights/diagnosticSettings properties.logs[].category'}
+    import: {diagnostic_setting: log_categories}
   observability.metrics_enabled:
     terraform_avm:
       attribute: 'diagnostic_settings.<key>.metric_categories'
@@ -342,4 +342,4 @@ decisions:
       attribute: 'Microsoft.Insights/diagnosticSettings properties.metrics[].category'
       values: { true: AllMetrics, false: null }
       note: false renders no metrics entry
-    import: {todo: 'not in the Resource Graph row: Microsoft.Insights/diagnosticSettings properties.metrics[].category'}
+    import: {diagnostic_setting: metrics}

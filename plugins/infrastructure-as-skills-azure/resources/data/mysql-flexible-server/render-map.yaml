@@ -360,7 +360,7 @@ decisions:
     terraform: { attribute: azurerm_monitor_diagnostic_setting.log_analytics_workspace_id, note: "target_resource_id = the server's id (source: azurerm 5.12 schema)" }
     bicep_avm: { attribute: 'diagnosticSettings[].workspaceResourceId' }
     bicep: { attribute: Microsoft.Insights/diagnosticSettings properties.workspaceId, note: "scope the server (source: bicep build, Microsoft.Insights/diagnosticSettings@2021-05-01-preview)" }
-    import: {todo: 'not in the Resource Graph row: Microsoft.Insights/diagnosticSettings properties.workspa...'}
+    import: {diagnostic_setting: workspace}
   observability.audit_logging:
     terraform_avm:
       gap: 'true is server_configuration audit_log_enabled = { name = "audit_log_enabled", value = "ON" } and audit_log_events = { name = "audit_log_events", value = "CONNECTION" }, with the log category MySqlAuditLogs; the reference states no literal for false'
@@ -376,7 +376,7 @@ decisions:
     terraform: { attribute: azurerm_monitor_diagnostic_setting.enabled_log.category }
     bicep_avm: { attribute: 'diagnosticSettings[].logCategoriesAndGroups[].category' }
     bicep: { attribute: 'Microsoft.Insights/diagnosticSettings properties.logs[].category', note: "(source: bicep build, Microsoft.Insights/diagnosticSettings@2021-05-01-preview)" }
-    import: {todo: 'not in the Resource Graph row: Microsoft.Insights/diagnosticSettings properties.logs[]....'}
+    import: {diagnostic_setting: log_categories}
   observability.metrics_enabled:
     terraform_avm:
       attribute: 'diagnostic_settings.<key>.metric_categories'
@@ -388,4 +388,4 @@ decisions:
       values: { true: { expr: "[ { category: 'AllMetrics' } ]" }, false: { expr: '[]' } }
     bicep:
       gap: "Microsoft.Insights/diagnosticSettings properties.metrics[].category is the property, but the type is a free string - bicep build proves no category name for the server"
-    import: {todo: 'bicep renders it as a gap: Microsoft.Insights/diagnosticSettings properties.metrics[].c...'}
+    import: {diagnostic_setting: metrics}

@@ -377,7 +377,7 @@ decisions:
     bicep:
       attribute: Microsoft.Insights/diagnosticSettings properties.workspaceId
       note: 'scope = the set; metrics only (source: bicep build, Microsoft.Insights/diagnosticSettings@2021-05-01-preview)'
-    import: {todo: 'not in the Resource Graph row: Microsoft.Insights/diagnosticSettings properties.workspa...'}
+    import: {diagnostic_setting: workspace}
   observability.metrics_enabled:
     terraform_avm:
       gap: module README v0.11.1 has no diagnostic input; the sibling azurerm_monitor_diagnostic_setting carries enabled_metric { category = "AllMetrics" }
@@ -392,4 +392,4 @@ decisions:
       attribute: Microsoft.Insights/diagnosticSettings properties.metrics
       values: { true: { expr: "[ { category: 'AllMetrics', enabled: true } ]" }, false: { expr: '[]' } }
       note: 'source: bicep build, Microsoft.Insights/diagnosticSettings@2021-05-01-preview; AllMetrics per module README 0.11.1'
-    import: {todo: 'not in the Resource Graph row: Microsoft.Insights/diagnosticSettings properties.metrics'}
+    import: {diagnostic_setting: metrics}

@@ -428,7 +428,7 @@ decisions:
       attribute: 'databases[].diagnosticSettings[].workspaceResourceId'
       note: the audit's setting on master is authored beside the module
     bicep: { attribute: Microsoft.Insights/diagnosticSettings properties.workspaceId, note: "scope each database; the audit setting on master takes the same workspace (source: bicep build, Microsoft.Insights/diagnosticSettings@2021-05-01-preview)" }
-    import: {todo: 'not in the Resource Graph row: Microsoft.Insights/diagnosticSettings properties.workspaceId'}
+    import: {diagnostic_setting: workspace}
   observability.auditing_enabled:
     terraform_avm:
       gap: not the module - azurerm_mssql_server_extended_auditing_policy (log_monitoring_enabled = true) and a diagnostic setting on master with SQLSecurityAuditEvents
@@ -455,7 +455,7 @@ decisions:
     terraform: { attribute: azurerm_monitor_diagnostic_setting.enabled_log.category, note: one enabled_log block per category }
     bicep_avm: { attribute: 'databases[].diagnosticSettings[].logCategoriesAndGroups[].category' }
     bicep: { attribute: 'Microsoft.Insights/diagnosticSettings properties.logs[].category', note: "scope each database (source: bicep build, Microsoft.Insights/diagnosticSettings@2021-05-01-preview)" }
-    import: {todo: 'not in the Resource Graph row: Microsoft.Insights/diagnosticSettings properties.logs[].category'}
+    import: {diagnostic_setting: log_categories}
   observability.metrics_enabled:
     terraform_avm:
       attribute: 'databases.<key>.diagnostic_settings.<key>.metric_categories'
@@ -469,4 +469,4 @@ decisions:
       note: Basic - not AllMetrics for a database
     bicep:
       gap: "Microsoft.Insights/diagnosticSettings properties.metrics[].category is the property, but the type is a free string - bicep build proves no category name for the database"
-    import: {todo: 'not in the Resource Graph row: Microsoft.Insights/diagnosticSettings properties.metrics[].category'}
+    import: {diagnostic_setting: metrics}

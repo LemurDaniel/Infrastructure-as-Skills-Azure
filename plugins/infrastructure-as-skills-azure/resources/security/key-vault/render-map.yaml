@@ -226,7 +226,7 @@ decisions:
     bicep:
       attribute: Microsoft.Insights/diagnosticSettings properties.workspaceId
       note: 'scope: the vault (source: bicep build, Microsoft.Insights/diagnosticSettings@2021-05-01-preview)'
-    import: {todo: 'not in the Resource Graph row: Microsoft.Insights/diagnosticSettings properties.workspaceId'}
+    import: {diagnostic_setting: workspace}
   observability.diagnostic_categories:
     terraform_avm:
       attribute: diagnostic_settings.workspace.log_categories
@@ -236,7 +236,7 @@ decisions:
     bicep:
       attribute: 'Microsoft.Insights/diagnosticSettings properties.logs[].category'
       note: 'one entry per category, enabled: true on each (source: bicep build, Microsoft.Insights/diagnosticSettings@2021-05-01-preview)'
-    import: {todo: 'not in the Resource Graph row: Microsoft.Insights/diagnosticSettings properties.logs[].category'}
+    import: {diagnostic_setting: log_categories}
   observability.metrics_enabled:
     terraform_avm:
       attribute: diagnostic_settings.workspace.metric_categories
@@ -251,4 +251,4 @@ decisions:
       values: { true: { expr: "[ { category: 'AllMetrics' } ]" }, false: { expr: '[]' } }
       note: false is an empty array, not left out
     bicep: { gap: 'Microsoft.Insights/diagnosticSettings properties.metrics[].category (bicep build, @2021-05-01-preview) is a plain string - the AllMetrics literal is not provable by a build' }
-    import: {todo: 'not in the Resource Graph row: Microsoft.Insights/diagnosticSettings properties.metrics[].category'}
+    import: {diagnostic_setting: metrics}

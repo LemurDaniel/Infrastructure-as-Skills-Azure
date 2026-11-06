@@ -352,7 +352,7 @@ decisions:
       attribute: 'diagnosticSettings[].workspaceResourceId'
       note: the account-level parameter is metrics-only; blobServices.diagnosticSettings carries the logs
     bicep: { attribute: Microsoft.Insights/diagnosticSettings properties.workspaceId }
-    import: {todo: 'not in the Resource Graph row: Microsoft.Insights/diagnosticSettings properties.workspaceId'}
+    import: {diagnostic_setting: workspace}
   observability.diagnostic_categories:
     terraform_avm:
       attribute: 'diagnostic_settings_blob.<key>.logs[].category_group'
@@ -378,4 +378,4 @@ decisions:
       attribute: 'Microsoft.Insights/diagnosticSettings properties.metrics[].category'
       values: { true: AllMetrics, false: null }
       note: false renders no metrics entry
-    import: {todo: 'not in the Resource Graph row: Microsoft.Insights/diagnosticSettings properties.metrics[].category'}
+    import: {diagnostic_setting: metrics}

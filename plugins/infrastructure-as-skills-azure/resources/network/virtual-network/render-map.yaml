@@ -142,7 +142,7 @@ decisions:
     terraform: { attribute: azurerm_monitor_diagnostic_setting.log_analytics_workspace_id }
     bicep_avm: { attribute: 'diagnosticSettings[].workspaceResourceId', note: with metricCategories }
     bicep: { attribute: Microsoft.Insights/diagnosticSettings properties.workspaceId, note: attached to the network - a subnet has no diagnostic surface }
-    import: {todo: 'not in the Resource Graph row: Microsoft.Insights/diagnosticSettings properties.workspaceId'}
+    import: {diagnostic_setting: workspace}
   observability.flow_logs_enabled:
     terraform_avm: { gap: reference names no module input; a flow log is a Network Watcher resource }
     terraform: { gap: 'an azurerm_network_watcher_flow_log - a Network Watcher resource (the network-watcher set), not an attribute of the network' }

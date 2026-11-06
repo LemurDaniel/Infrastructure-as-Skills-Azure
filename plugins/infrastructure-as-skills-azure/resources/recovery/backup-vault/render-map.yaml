@@ -225,7 +225,7 @@ decisions:
     bicep_avm:
       gap: module README 0.13.3 has no diagnosticSettings parameter - a Microsoft.Insights/diagnosticSettings extension resource beside the module, properties.workspaceId
     bicep: { attribute: Microsoft.Insights/diagnosticSettings properties.workspaceId }
-    import: {todo: 'not in the Resource Graph row: Microsoft.Insights/diagnosticSettings properties.workspa...'}
+    import: {diagnostic_setting: workspace}
   observability.diagnostic_categories:
     terraform_avm:
       attribute: 'diagnostic_settings.<key>.log_categories'
@@ -234,7 +234,7 @@ decisions:
     bicep_avm:
       gap: "module README 0.13.3 has no diagnosticSettings parameter - the extension resource beside the module, properties.logs[] = { category, enabled: true }"
     bicep: { attribute: 'Microsoft.Insights/diagnosticSettings properties.logs[].category', note: 'with enabled: true' }
-    import: {todo: 'not in the Resource Graph row: Microsoft.Insights/diagnosticSettings properties.logs[]....'}
+    import: {diagnostic_setting: log_categories}
   observability.metrics_enabled:
     terraform_avm:
       attribute: 'diagnostic_settings.<key>.metric_categories'
@@ -249,4 +249,4 @@ decisions:
       attribute: 'Microsoft.Insights/diagnosticSettings properties.metrics[].category'
       values: { true: AllMetrics, false: null }
       note: 'with enabled: true; false renders no metrics entry'
-    import: {todo: 'not in the Resource Graph row: Microsoft.Insights/diagnosticSettings properties.metrics...'}
+    import: {diagnostic_setting: metrics}

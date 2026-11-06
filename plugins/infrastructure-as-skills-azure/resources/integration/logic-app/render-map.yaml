@@ -405,7 +405,7 @@ decisions:
     bicep:
       attribute: Microsoft.Insights/diagnosticSettings properties.workspaceId
       note: "scoped to the resource, one per resource (source: bicep build, Microsoft.Insights/diagnosticSettings@2021-05-01-preview)"
-    import: {todo: 'not in the Resource Graph row: extension resource Microsoft.Insights/diagnosticSettings on the site or workflow - properties.workspaceId'}
+    import: {diagnostic_setting: workspace}
   observability.diagnostic_categories:
     terraform_avm:
       - { module: Azure/avm-res-web-site/azurerm, attribute: 'diagnostic_settings.workspace.logs[].category' }
@@ -418,7 +418,7 @@ decisions:
     bicep:
       attribute: 'Microsoft.Insights/diagnosticSettings properties.logs[].category'
       note: "one { category, enabled: true } per entry, scoped to the resource, one per resource (source: bicep build, Microsoft.Insights/diagnosticSettings@2021-05-01-preview)"
-    import: {todo: 'not in the Resource Graph row: extension resource Microsoft.Insights/diagnosticSettings on the site or workflow - properties.logs[].category where enabled'}
+    import: {diagnostic_setting: log_categories}
   observability.metrics_enabled:
     terraform_avm:
       - module: Azure/avm-res-web-site/azurerm
@@ -439,4 +439,4 @@ decisions:
       values: { true: { expr: "[ { category: 'AllMetrics' } ]" }, false: { expr: '[]' } }
     bicep:
       gap: "Microsoft.Insights/diagnosticSettings properties.metrics[] { category, enabled } scoped to the resource is proven (bicep build, Microsoft.Insights/diagnosticSettings@2021-05-01-preview); the category is a free string in the type, so AllMetrics has no source for authored Bicep"
-    import: {todo: 'not in the Resource Graph row: extension resource Microsoft.Insights/diagnosticSettings on the site or workflow - properties.metrics[] AllMetrics enabled'}
+    import: {diagnostic_setting: metrics}
