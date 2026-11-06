@@ -55,7 +55,8 @@ What it writes, and from where:
     resource's public_network_access is enabled or enabled_with_firewall, `private` when every
     one read is disabled; none read, none written.
   - Noise is left out and counted, never written: everything in NetworkWatcherRG and in a
-    managed group (managedBy set), Smart Detector alert rules, and the tags Azure sets itself
+    managed group (managedBy set), Smart Detector alert rules, the network interface Azure
+    creates with a private endpoint (properties.privateEndpoint set), and the tags Azure sets itself
     (hidden-*, ms-resource-usage, aks-managed-*).
 
 The spec is then laid out by core/iac-authoring/scripts/write_spec.py and is a draft for the
@@ -89,6 +90,8 @@ NOISE_GROUPS = {'networkwatcherrg'}
 NOISE_TYPES = {'microsoft.alertsmanagement/smartdetectoralertrules'}
 NOISE_TAG = re.compile(r'^(hidden-|ms-resource-usage$|aks-managed-)', re.IGNORECASE)
 PE_TYPE = 'microsoft.network/privateendpoints'
+# Azure creates and deletes a private endpoint's interface with it; nothing renders or imports it.
+NIC_TYPE = 'microsoft.network/networkinterfaces'
 # Decisions every resource's set asks that the spec records once, in context.
 CONTEXT_KEYS = {'placement.location', 'placement.resource_group_name', 'placement.environments'}
 MISSING = object()
@@ -311,6 +314,8 @@ def main():
             noise['in NetworkWatcherRG or a managed group'] += 1
         elif str(r.get('type', '')).lower() in NOISE_TYPES:
             noise[str(r.get('type'))] += 1
+        elif str(r.get('type', '')).lower() == NIC_TYPE and at(r, 'properties.privateEndpoint.id') is not MISSING:
+            noise['network interface of a private endpoint'] += 1
         else:
             rows.append(r)
     by_id = {str(r['id']).lower(): r for r in rows}

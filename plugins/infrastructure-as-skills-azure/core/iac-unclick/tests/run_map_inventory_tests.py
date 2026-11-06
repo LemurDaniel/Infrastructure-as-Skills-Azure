@@ -26,6 +26,7 @@ their own, Deny among them; no diagnostic setting anywhere, the settings read. I
   - read no deny-all at 4096 as azure_default, never assume the default;
   - name the subnets each NSG guards as the network's parts (the NSG row spells their ids in
     upper case), so check_spec.py reports no subnet without one;
+  - count the private endpoint's network interface as noise, not as unmapped;
   - write observability_ownership none and no diagnostic decision.
 
 Usage:
@@ -148,6 +149,8 @@ def main():
     expect(guarded.get('value') == [{'resource': 'virtual-network', 'part': 'snet-shop-dataadditional-gw-prod'},
                                     {'resource': 'virtual-network', 'part': 'snet-shop-datape-gw-prod'}],
            'the subnets an NSG guards are the network\'s parts, in the network\'s spelling of an upper-case id')
+    expect('networkInterfaces' not in text and 'nic-shop-vault' not in text,
+           "the private endpoint's network interface is noise, neither unmapped nor written")
     expect('has no network security group' not in checked, 'no subnet is reported without an NSG - all six have one')
     expect(spec.get('deployment', {}).get('observability_ownership') == {'value': 'none', 'source': 'imported'}
            and 'diagnostic_categories' not in text,

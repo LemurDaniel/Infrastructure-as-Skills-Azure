@@ -81,7 +81,7 @@ say so: the spec, the decision document and the diagram are the result of this r
 - Read only, always. The rest of the plugin never needs a login.
 - Nothing drops silently: what has no question set is `unmapped`, what could not be read is
   `assumed` with an `open:` entry.
-- Noise (NetworkWatcherRG, managed groups, Smart Detector rules, tags Azure sets) is counted,
-  not written.
+- Noise (NetworkWatcherRG, managed groups, Smart Detector rules, a private endpoint's network
+  interface, tags Azure sets) is counted, not written.
 - The inventory and the spec are the customer's: they belong in their repository, never in
   this plugin.
