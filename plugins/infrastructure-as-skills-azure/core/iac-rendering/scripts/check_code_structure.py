@@ -16,7 +16,8 @@ reviewer would otherwise count by eye:
      providers.tf instead, or of variables.tf in a module without one.
 
 A file the repository wrote in its own style is not this check's to judge: run it on the
-files the render wrote.
+files the render wrote. infra-spec.yaml beside them is skipped - the interview writes it,
+and write_spec.py --check holds it to its canonical form.
 
 Usage:
     python3 check_code_structure.py <file or directory>...
@@ -44,6 +45,9 @@ COMMENT_MARKS = {
     '.bicep': '//', '.bicepparam': '//',
 }
 SKIPPED_DIRS = {'.git', '.terraform', 'node_modules'}
+# Files beside a render that the interview wrote, not the render: the spec is laid out by
+# write_spec.py and held to its canonical form there (write_spec.py --check).
+NOT_RENDERED = {'infra-spec.yaml'}
 TERRAFORM_TOC_HOLDERS = ('providers.tf', 'variables.tf')
 
 # Indentation counted after the comment mark and its one space: `#   1. Plan` reads `  1. Plan`.
@@ -114,7 +118,10 @@ def mark_of(path):
 
     mark_of('tests/security.tftest.hcl')  => '#'
     mark_of('README.md')                  => None
+    mark_of('infra/infra-spec.yaml')      => None (the interview's, not the render's)
     """
+    if os.path.basename(path) in NOT_RENDERED:
+        return None
     if path.endswith('.tftest.hcl'):
         return '#'
     return COMMENT_MARKS.get(os.path.splitext(path)[1])
