@@ -27,6 +27,7 @@ their own, Deny among them; no diagnostic setting anywhere, the settings read. I
   - name the subnets each NSG guards as the network's parts (the NSG row spells their ids in
     upper case), so check_spec.py reports no subnet without one;
   - count the private endpoint's network interface as noise, not as unmapped;
+  - read the vault's endpoint subnet from the row of its adopted private endpoint;
   - write observability_ownership none and no diagnostic decision.
 
 Usage:
@@ -149,6 +150,9 @@ def main():
     expect(guarded.get('value') == [{'resource': 'virtual-network', 'part': 'snet-shop-dataadditional-gw-prod'},
                                     {'resource': 'virtual-network', 'part': 'snet-shop-datape-gw-prod'}],
            'the subnets an NSG guards are the network\'s parts, in the network\'s spelling of an upper-case id')
+    pe_subnet = res.get('key-vault', {}).get('networking', {}).get('private_endpoint_subnet', {})
+    expect(pe_subnet == {'value': {'resource': 'virtual-network', 'part': 'snet-shop-datape-gw-prod'}, 'source': 'imported'},
+           "the vault's endpoint subnet is read from its adopted private endpoint, as the network's part")
     expect('networkInterfaces' not in text and 'nic-shop-vault' not in text,
            "the private endpoint's network interface is noise, neither unmapped nor written")
     expect('has no network security group' not in checked, 'no subnet is reported without an NSG - all six have one')

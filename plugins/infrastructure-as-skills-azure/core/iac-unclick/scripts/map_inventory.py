@@ -32,7 +32,8 @@ What it writes, and from where:
     privateLinkServiceConnections point at. It is adopted as that resource's part, not mapped.
   - Every decision is read through its render-map.yaml `import:` entry and nothing else:
     path + values | passthrough | format | reference | single | items | present, or cases;
-    `diagnostic_setting` reads the resource's own diagnostic setting instead of its row.
+    `diagnostic_setting` reads the resource's own diagnostic setting instead of its row, `part:`
+    the row of one of its adopted parts (the private endpoint's subnet).
     Read -> `source: imported`.
     Not read (todo, not_readable, absent from the row, not an answer) -> the question's default
     as `assumed`, and one open: entry per resource naming the decisions; a question without a
@@ -382,6 +383,20 @@ def main():
             return {'existing': kind, 'id': {stage: v}}
         return MISSING
 
+    def read_row(imp, r):
+        """read() on the resource's row, or with `part:` on the rows of its adopted parts of that
+        type - every one found and holding the same value, else not read."""
+        if not (isinstance(imp, dict) and 'part' in imp):
+            return read(imp, r)
+        rid = str(r['id']).lower()
+        rows = [by_id[p] for p, owner in sorted(parent_of.items())
+                if owner == rid and same(by_id[p].get('type'), imp['part'])]
+        reads = [read(imp, row) for row in rows]
+        values = {json.dumps(v, sort_keys=True).lower() for _, v in reads}
+        if not reads or not all(f for f, _ in reads) or len(values) != 1:
+            return False, None
+        return reads[0]
+
     # --- diagnostic settings: each resource's own, the one adopt names --------------------
     diags = inv.get('diagnostic_settings') or []
     diagnostics_read = inv.get('diagnostics_read') is True
@@ -430,7 +445,7 @@ def main():
                         missed.append(qkey)
                     continue
             else:
-                found, v = read(imp, r)
+                found, v = read_row(imp, r)
             v = fits(q, v) if found else MISSING
             if v is not MISSING:
                 node.setdefault(gid, {})[q['id']] = {'value': v, 'source': 'imported'}
@@ -443,7 +458,7 @@ def main():
                 missed.append(qkey)
         resources_out[key] = node
         for gid, q, imp in refs:
-            found, v = read(imp, r)
+            found, v = read_row(imp, r)
             if found and 'each' in imp:  # a list of references: every one resolves, or none is read
                 each = [reference(q, x, resources_out) for x in v]
                 ref = MISSING if MISSING in each else each

@@ -142,6 +142,10 @@ def main():
          lambda d: d['decisions']['security.min_tls_version'].__setitem__(
              'import', {'path': 'properties.minimumTlsVersion', 'passthrough': True, 'each': 'id'}),
          'import.each stands beside reference only'),
+        ('a part the set does not adopt',
+         lambda d: d['decisions']['security.min_tls_version'].__setitem__(
+             'import', {'part': 'Microsoft.Web/serverFarms', 'path': 'properties.x', 'passthrough': True}),
+         "import.part names a type the set's import_parts does not list"),
         ('import_match that is no list of kind tokens',
          lambda d: d.__setitem__('import_match', {'kind_has': 'functionapp'}), 'import_match is'),
         ('import_parts that is no list of ARM types',

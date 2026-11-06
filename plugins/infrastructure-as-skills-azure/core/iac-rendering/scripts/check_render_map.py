@@ -32,7 +32,8 @@ or the paths given:
      that takes a reference), `single` (the one element of a list), `items` (a list of
      objects, field -> path or a list of paths merged, on a list question) or `present` (an
      answer when the path is set, `missing` when not), a list narrowed first by `match` (keep)
-     or `skip` (drop) on its elements' paths; `cases` over several paths, each
+     or `skip` (drop) on its elements' paths, `part: <type>` to read the row of an adopted part
+     the set's import_parts lists; `cases` over several paths, each
      `when` with an answer; `diagnostic_setting: workspace | log_categories | metrics` (read
      from the resource's diagnostic setting, on a workspace reference, a list or a bool);
      `not_readable: <reason>`; or `todo: <what is missing>`. The
@@ -72,7 +73,7 @@ SCALAR_TYPES = {'enum', 'bool', 'int', 'string'}
 # How an import reads a decision back (references/render-map.md, "Reading it back").
 IMPORT_PATH = re.compile(r'^[A-Za-z][A-Za-z0-9_]*(\.[A-Za-z0-9_]+)*$')
 IMPORT_FIELDS = {'path', 'values', 'passthrough', 'format', 'reference', 'single', 'items', 'present', 'cases',
-                 'missing', 'note', 'match', 'skip', 'each'}
+                 'missing', 'note', 'match', 'skip', 'each', 'part'}
 IMPORT_STATS = {'read': 0, 'not_readable': 0, 'todo': 0}
 # What a decision reads from the resource's diagnostic setting instead of its row.
 DIAGNOSTIC_READINGS = ('workspace', 'log_categories', 'metrics')
@@ -86,10 +87,15 @@ def answers_of(question):
     return list(acc) if isinstance(acc, list) else None
 
 
-def check_import(where, imp, question):
-    """One decision's `import:` - a path with values, passthrough or format; cases; or a marker."""
+def check_import(where, imp, question, parts=()):
+    """One decision's `import:` - a path with values, passthrough or format; cases; or a marker.
+
+    parts: the set's import_parts, lower case - a `part:` reads one of their rows.
+    """
     if not isinstance(imp, dict) or not imp:
         return [f"{where}: import is a mapping"]
+    if 'part' in imp and str(imp['part']).lower() not in parts:
+        return [f"{where}: import.part names a type the set's import_parts does not list"]
     for marker in ('not_readable', 'todo'):
         if marker in imp:
             IMPORT_STATS[marker] += 1
@@ -488,7 +494,8 @@ def check_file(path, yaml):
         if 'import' not in node:
             errs.append(f"{where}: import missing - how an import reads it back, or not_readable / todo")
         else:
-            errs.extend(check_import(f"{where}.import", node['import'], questions[key]))
+            errs.extend(check_import(f"{where}.import", node['import'], questions[key],
+                                     [str(t).lower() for t in doc.get('import_parts') or []]))
         for k in sorted(set(node) - expected - {'import'}):
             hint = ' (modules lists none for that target)' if k.endswith('_avm') else ''
             errs.append(f"{where}: {k} not expected{hint}")
