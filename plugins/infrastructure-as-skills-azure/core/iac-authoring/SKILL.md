@@ -69,7 +69,9 @@ in every run, in this order; the sections below carry the detail.
    with a placeholder, never a plausible value. A default is not a guess: the stage stack
    `[development, test, production]` stays unless the customer named the stages.
 6. **Spec, diagram, sign-off, then code.** No `.tf` or `.bicep` before the customer's yes,
-   also when the request already said "then write the code".
+   also when the request already said "then write the code". **The spec is written before the
+   design is shown** (Phase 4): the tick list, the security block and the account are read
+   from it, never composed from memory and checked against it afterwards.
 7. **The turn ends on a question** - the draft question on the rough picture, the code
    question on the polished one - also when the diagram could not be drawn.
 8. **A check is run, not read.** `check_spec.py`, `verify_diagram.py`, `check_render_coverage.py`
@@ -604,7 +606,15 @@ chip holds twelve characters). A topic of more is several calls in a row, and th
 header is numbered** - *Rahmen 1/3*, *Rahmen 2/3*, *Rahmen 3/3* - so the same word never
 appears twice in a row without telling the person how far along they are; a topic of one call
 carries no number; small neighbouring topics
-share a call only when each of them is a single question. Before each call one line of
+share a call only when each of them is a single question. **A question whose `depends_on` names
+another interview question, or whose options read its answer, goes into a later call than that
+question, never beside it**: whether
+it is asked, and what its options mean, follow from that answer. `central_logging`,
+`central_network` and `central_private_dns` come only after `landing_zone_exists` is answered
+`no`; `resource_lock` comes only once the stages are known - with production alone, "only in
+production" and "in every stage" are the same answer and the option is left out. This
+outranks the four-per-call cut: the call that splits off keeps the topic's numbered header.
+Before each call one line of
 plain text names the topic and the person's place ("Netzwerk - Frage 1-2, danach Sicherheit,
 Daten"); it is a message of its own, never part of a `question` text, which holds the question
 and nothing else. Nothing reasoned or reported stands between the calls - the batch is never
@@ -706,8 +716,25 @@ rather than deciding it for them.
 
 ## Phase 4 — Show the design, report what was defaulted, then ask once
 
+**The spec is written first, and everything this phase shows is read from it.** As soon as
+the interview is done, write `infra-spec.yaml` (where and how: *Then write the spec* in
+Phase 5), lay it out with `write_spec.py` and run `check_spec.py`; a violation or a warning
+is fixed before anything is shown. Every line below is then a value of that file: a number
+(retention days, soft-delete days, an address range), a role and its scope, a model, and
+which parts are reachable from the internet are read off it - never off memory, and never
+off the examples in this section, whose numbers illustrate the shape and are not defaults.
+A design shown first and written afterwards is one the spec quietly departs from, and the
+person has signed off on the departure without seeing it. **Every resource whose
+`public_network_access` is not `disabled` is named as reachable from the internet**, with
+what makes it so - a workspace or a monitoring component public by its set's default
+included - and the line that the rest stays private names only what is. Every `open:` entry
+is shown under *Offen* / *Open*, and "nothing open" is said only when the spec has no `open:`
+entry and `check_spec.py` reports no missing required value. A change at the sign-off is an edit of the spec, followed
+by `check_spec.py` and the list again. Nothing else - decision document, diagram, code - is
+written before the yes.
+
 **First the design, as a list the customer ticks off**. Before
-the account of defaults and before any file is written, say in the customer's words what
+the account of defaults, say in the customer's words what
 will be built: one line per part with what it is for, one line per connection, the handful
 of decisions that cost money or change what the system can do. Nothing technical, no
 attribute names - the customer recognises their system or says what is missing, which is
@@ -887,9 +914,9 @@ to see it to disagree with it, and the ones they never look at cost one glance.
 ## Phase 5 — Working mode, spec, diagram loop, then the code question
 
 Phase 5 runs in this order, for a new spec and for the extension of an existing one alike:
-**working mode, spec, diagram loop, code question.** Nothing before the working mode is
-written or drawn, and nothing after the diagram loop is generated until the code question
-has been answered with a yes.
+**working mode, spec, diagram loop, code question.** The spec exists from Phase 4 and is
+completed here; nothing else is written or drawn before the working mode, and nothing after
+the diagram loop is generated until the code question has been answered with a yes.
 
 **First, ask how the rest of the run works - once, as the first step of Phase 5, before
 the spec is written.** With the Agent tool available, ask through `AskUserQuestion`:
@@ -919,7 +946,8 @@ How should I continue?
   2. In this session - I do everything myself, one step after the other. Cheaper, no second review
 ```
 
-**Then write the spec.** `infra-spec.yaml` goes into the user's repository — the IaC root,
+**Then write the spec** - written in Phase 4 before the design was shown; this is where it
+goes and how. `infra-spec.yaml` goes into the user's repository — the IaC root,
 or `infra/` — is laid out with `write_spec.py` (order, group comments, the plugin version;
 it changes no value and keeps every comment; without a shell, write it in that
 [canonical form](references/spec.md#canonical-form) by hand) and validated with
