@@ -297,6 +297,10 @@ IMPORT_MUTATIONS = [
      APP_ID + "        source: imported\n      name:\n        value: app-payments-prod\n        source: imported\n",
      'adopt holds name'),
     ('a resource that records nothing but its id', APP_DECISIONS, '', 'resources.app-service records no decision'),
+    # `none` opts a resource out of the deployment's workspace only as a recorded departure.
+    ('a workspace none that is a default', APP_DECISIONS,
+     APP_DECISIONS + "    observability:\n      diagnostic_workspace:\n        value: none\n        source: default\n",
+     "holds 'none', which is no reference"),
     ('a part of a type the set does not render', 'Microsoft.Web/serverFarms/asp-payments-prod',
      'Microsoft.Web/certificates/asp-payments-prod', 'which the app-service set does not render'),
     ('a part that is no list', "          production:\n          - " + SUB + "Microsoft.Web/serverFarms/asp-payments-prod\n",

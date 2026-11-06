@@ -17,7 +17,8 @@ The written spec must pass check_spec.py and be canonical, and:
   - the exposure follows from what was read (a public storage account: public);
   - the decision document lists the departures from the rules (public access, shared keys)
     and what was found and not built;
-  - the one workspace the storage account's setting writes to is the deployment's destination.
+  - the one workspace the storage account's setting writes to is the deployment's destination;
+    the web app and the network, without one, take workspace `none` and no other diagnostic decision.
 
 tests/fixtures/inventory-network.json is a real group, anonymised: a vault behind a private
 endpoint (and its network interface), a network of six subnets and three NSGs with rules of
@@ -122,8 +123,10 @@ def main():
     expect(st_obs.get('diagnostic_workspace', {}).get('source') == 'deployment'
            and st_obs.get('metrics_enabled') == {'value': True, 'source': 'imported'},
            'the storage account inherits the workspace and its metrics are read from its setting')
-    expect(app.get('observability', {}).get('metrics_enabled', {}).get('source') == 'assumed',
-           'the web app has no setting while another resource has one: assumed, not read')
+    app_obs = app.get('observability', {})
+    expect(app_obs.get('diagnostic_workspace') == {'value': 'none', 'source': 'imported'}
+           and 'metrics_enabled' not in app_obs and 'diagnostic_categories' not in app_obs,
+           'the web app has no setting while another resource has one: workspace none, nothing else written')
     expect('## Abweichungen von den Vorgaben' in doc and '## Gefunden, nicht gebaut' in doc and 'dbw-orders' in doc,
            'the decision document lists the departures and what was not built')
     expect('NetworkWatcher' not in text and 'Failure Anomalies' not in text, 'the noise is left out')

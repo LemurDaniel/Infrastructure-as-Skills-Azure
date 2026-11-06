@@ -387,7 +387,13 @@ def main():
             src, ref = spec_source.kind(node.get('source'))
             v = node['value']
             kind = spec_ref.kind_of(question_of(path))
-            if kind:
+            # `none` on a reference the deployment answers: this resource takes no part in it (an
+            # imported resource without the diagnostic setting the others have), never by mistake.
+            opts_out = (v == 'none' and src in ('imported', 'overridden')
+                        and isinstance((question_of(path) or {}).get('answer'), dict))
+            if kind and opts_out:
+                pass
+            elif kind:
                 # A reference is one value; its per-stage part is the existing id inside it.
                 errors.extend(spec_ref.check(path, v, kind, ref_kinds, get(spec, 'resources') or {},
                                              environments, open_stages, open_keys))

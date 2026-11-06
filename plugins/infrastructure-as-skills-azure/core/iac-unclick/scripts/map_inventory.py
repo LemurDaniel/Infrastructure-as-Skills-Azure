@@ -436,6 +436,13 @@ def main():
                 if no_diagnostics:
                     continue  # observability_ownership none: nothing rendered, nothing to keep
                 setting = setting_of.get(str(r['id']).lower())
+                if setting is None and diagnostics_read:
+                    # Read, and none on this resource while others have one: its workspace is `none`,
+                    # a departure from the destination; categories and metrics render nothing.
+                    if imp['diagnostic_setting'] == 'workspace':
+                        node.setdefault(gid, {})[q['id']] = {'value': 'none', 'source': 'imported'}
+                        read_n += 1
+                    continue
                 found, v = read_diagnostic(imp['diagnostic_setting'], setting) if setting else (False, None)
                 if imp['diagnostic_setting'] == 'workspace':
                     if found and destination is not MISSING:

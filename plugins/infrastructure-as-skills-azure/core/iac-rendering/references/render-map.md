@@ -150,8 +150,9 @@ The diagnostic settings were read for every resource or for none (`collect.py --
 `diagnostics_read` in the inventory). Read and found on no adopted resource, the deployment has
 none (`observability_ownership: none`, imported) and the `diagnostic_setting` decisions are not
 written: nothing is rendered for them, so the first apply adds none. Found on some resources
-only, a resource without one gets its decisions `assumed` with an `open:` entry - the first
-apply would add a setting there. A decision that is `not_rendered` carries
+only, a resource without one takes `diagnostic_workspace: none` (imported) and no other
+diagnostic decision: the render gives that resource no diagnostic setting. Not read
+(`--no-diagnostics`), every diagnostic decision is `assumed` with an `open:` entry. A decision that is `not_rendered` carries
 no `import`: nothing was rendered, so nothing is read back.
 
 ## What an import adopts: `import_parts`
