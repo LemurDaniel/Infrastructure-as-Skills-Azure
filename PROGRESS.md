@@ -757,6 +757,10 @@ per-family` in `check_spec.py` and the `chatbot` spec, and `references/private-d
     set's defaults, `answer` paths and `forced_by` chains written as the spec, the run filling
     only what is stated. The 505-line spec was written by hand, which is where the summary
     drift and the missing `open:` entry came from. Structured data, no heuristics.
+  - **Check that a render writes size and cost knobs as stage-file parameters**: since
+    `stage_parameter` (2026-11-07, owner's call: sizes and cost settings, a forced value stays
+    a literal) the digest tags them `[stage file]` and the idioms say so, but no script fails
+    a render that writes one as a literal - `check_render_coverage.py` is the place.
   - **The diagram's decision box says "privat, Ausnahme App Service"** while its header names
     the workspace and App Insights too - it reads `public_parts`, the header reads each
     resource's `public_network_access`. And the run left `infra-diagram.drawio` beside the PNG.
