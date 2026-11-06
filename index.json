@@ -1839,6 +1839,204 @@
     }
    ],
    "note": "Composed: full suite on a4cf3c2; both terraform-* cases re-tested on 7fbbcb6 (#26, graders read file contents); terraform-code-structure not re-run after #27. Release PR #21."
+  },
+  {
+   "id": "2026-11-06T18-46-16-878Z",
+   "version": "0.7.2",
+   "model": "haiku",
+   "trigger": "release",
+   "pr": 48,
+   "commit": "dc9180ef85db",
+   "startedAt": "2026-11-06T18:46:16.878Z",
+   "costUsd": 1.53029757,
+   "durationSeconds": 255,
+   "partial": false,
+   "runsPerCase": 2,
+   "cases": [
+    {
+     "name": "diagram-no-invented-lines",
+     "passRate": 0.5,
+     "passRateWithout": null,
+     "delta": null
+    },
+    {
+     "name": "language-en-first-question",
+     "passRate": 1,
+     "passRateWithout": null,
+     "delta": null
+    },
+    {
+     "name": "language-en-request",
+     "passRate": 0.5,
+     "passRateWithout": null,
+     "delta": null
+    },
+    {
+     "name": "app-code-untouched",
+     "passRate": 1,
+     "passRateWithout": null,
+     "delta": null
+    },
+    {
+     "name": "bicep-rerender-keeps-names",
+     "passRate": 1,
+     "passRateWithout": null,
+     "delta": null
+    },
+    {
+     "name": "bicep-secret-placeholder-once",
+     "passRate": 0,
+     "passRateWithout": null,
+     "delta": null
+    },
+    {
+     "name": "terraform-code-structure",
+     "passRate": 0,
+     "passRateWithout": null,
+     "delta": null
+    },
+    {
+     "name": "terraform-existing-reference",
+     "passRate": 0.5,
+     "passRateWithout": null,
+     "delta": null
+    },
+    {
+     "name": "platform-workspace-reference",
+     "passRate": 0,
+     "passRateWithout": null,
+     "delta": null
+    },
+    {
+     "name": "requirements-stated",
+     "passRate": 0,
+     "passRateWithout": null,
+     "delta": null
+    },
+    {
+     "name": "vague-public-dev",
+     "passRate": 0,
+     "passRateWithout": null,
+     "delta": null
+    },
+    {
+     "name": "claude-md-section-replaced",
+     "passRate": 0.5,
+     "passRateWithout": null,
+     "delta": null
+    },
+    {
+     "name": "plugin-newer-halts",
+     "passRate": 1,
+     "passRateWithout": null,
+     "delta": null
+    },
+    {
+     "name": "trigger-workload-request",
+     "passRate": 1,
+     "passRateWithout": null,
+     "delta": null
+    }
+   ]
+  },
+  {
+   "id": "2026-11-06T18-46-18-279Z",
+   "version": "0.7.2",
+   "model": "sonnet",
+   "trigger": "release",
+   "pr": 48,
+   "commit": "dc9180ef85db",
+   "startedAt": "2026-11-06T18:46:18.279Z",
+   "costUsd": 21.0277376,
+   "durationSeconds": 537,
+   "partial": false,
+   "runsPerCase": 2,
+   "cases": [
+    {
+     "name": "diagram-no-invented-lines",
+     "passRate": 1,
+     "passRateWithout": null,
+     "delta": null
+    },
+    {
+     "name": "language-en-first-question",
+     "passRate": 1,
+     "passRateWithout": null,
+     "delta": null
+    },
+    {
+     "name": "language-en-request",
+     "passRate": 1,
+     "passRateWithout": null,
+     "delta": null
+    },
+    {
+     "name": "app-code-untouched",
+     "passRate": 1,
+     "passRateWithout": null,
+     "delta": null
+    },
+    {
+     "name": "bicep-rerender-keeps-names",
+     "passRate": 1,
+     "passRateWithout": null,
+     "delta": null
+    },
+    {
+     "name": "bicep-secret-placeholder-once",
+     "passRate": 1,
+     "passRateWithout": null,
+     "delta": null
+    },
+    {
+     "name": "terraform-code-structure",
+     "passRate": 1,
+     "passRateWithout": null,
+     "delta": null
+    },
+    {
+     "name": "terraform-existing-reference",
+     "passRate": 1,
+     "passRateWithout": null,
+     "delta": null
+    },
+    {
+     "name": "platform-workspace-reference",
+     "passRate": 1,
+     "passRateWithout": null,
+     "delta": null
+    },
+    {
+     "name": "requirements-stated",
+     "passRate": 1,
+     "passRateWithout": null,
+     "delta": null
+    },
+    {
+     "name": "vague-public-dev",
+     "passRate": 1,
+     "passRateWithout": null,
+     "delta": null
+    },
+    {
+     "name": "claude-md-section-replaced",
+     "passRate": 1,
+     "passRateWithout": null,
+     "delta": null
+    },
+    {
+     "name": "plugin-newer-halts",
+     "passRate": 1,
+     "passRateWithout": null,
+     "delta": null
+    },
+    {
+     "name": "trigger-workload-request",
+     "passRate": 1,
+     "passRateWithout": null,
+     "delta": null
+    }
+   ]
   }
  ]
 }
