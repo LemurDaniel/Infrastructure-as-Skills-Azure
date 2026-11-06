@@ -28,6 +28,8 @@ plugin repo whose content is Markdown and YAML:
      there and claude plugin validate warns about it. Every tracked
      infra-spec.yaml is in the canonical form write_spec.py lays out.
   8. Relative Markdown links resolve, and no tracked path contains a space.
+  9. naming.default.yaml equals the LemurDaniel/naming provider's default
+     convention, when that repository is checked out beside this one.
   9. `claude plugin validate` on the plugin and on the marketplace. It is the
      only check that reads the manifest the way the loader does. If the CLI
      cannot be found it warns rather than passing quietly.
@@ -489,6 +491,24 @@ def main():
             say('[fail] the CLAUDE.md block changed without a new rev', 'red')
             say(f"         {(p.stdout or p.stderr).strip()}", 'gray')
             errors.append('A customer repository only updates its CLAUDE.md section when rev rises. Bump rev in references/claude-md-block.md and write the line --verify-lock names into claude-md-block.lock.')
+
+    # --- 7d. the convention is the naming provider's own default ----------
+    # The provider's repository is only there on the owner's machine, beside this one; a
+    # cloud session has no sibling checkout, so the comparison is skipped, not failed.
+    convention_file = os.path.join(plugin_root, 'core', 'iac-rendering', 'references', 'naming.default.yaml')
+    provider_convention = os.path.join(os.path.dirname(repo), 'terraform-provider-naming', 'internal',
+                                       'schemaengine', 'convention', 'default.naming.yaml')
+    if os.path.isfile(convention_file) and os.path.isfile(provider_convention):
+        ours = read(convention_file).replace('\r\n', '\n')
+        theirs = read(provider_convention).replace('\r\n', '\n')
+        if ours == theirs:
+            say("[ ok ] naming.default.yaml is the naming provider's default convention", 'green')
+        else:
+            say("[fail] naming.default.yaml differs from the naming provider's default convention", 'red')
+            say(f"         {provider_convention}", 'gray')
+            errors.append("The plugin's convention is the provider's bundled default, byte for byte. Change it in terraform-provider-naming first, release it, then copy the file here and pin that version in naming.md.")
+    else:
+        say('[info] terraform-provider-naming not checked out beside this repo - convention not compared', 'darkyellow')
 
     # --- 7c2. every resource set has a resource group role in each scheme ---
     roles_file = os.path.join(plugin_root, 'core', 'iac-rendering', 'references', 'resource-group-roles.yaml')
