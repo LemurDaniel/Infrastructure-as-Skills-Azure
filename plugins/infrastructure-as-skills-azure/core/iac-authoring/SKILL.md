@@ -697,7 +697,7 @@ reference a name nobody has.
 
 **A reference is written in one of two forms** ([spec.md](references/spec.md#references)):
 `{ resource: <key> }` for a resource of this spec, with `part: <name>` where the kind is a part
-(`{ resource: virtual-network, part: snet-app }`), one value for every stage; or
+(`{ resource: virtual-network, part: app }`), one value for every stage; or
 `{ existing: <kind> }` for one outside it. An existing one carries `id:` per stage only where
 the person gave the resource ids; a name without an id ("the platform workspace
 law-platform-prod" / "der Plattform-Workspace law-platform-prod") is never written as a value -

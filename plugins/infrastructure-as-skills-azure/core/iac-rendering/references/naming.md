@@ -49,7 +49,10 @@ What it produces, with `location: westeurope`, `environment: production`,
 collide with another tenant's; a second instance differs in `<NAME>` (the instance suffix)
 or `<PURPOSE>`, not in an index. **`<?PURPOSE>` names a sub-resource or a role** (the private
 endpoint's `blob`, the route table's `spoke`) and stands before the index; left out, it
-leaves no separator behind.
+leaves no separator behind. **A subnet is named the same way**: the spec's subnet name is its
+purpose (`app`, `endpoints` for the private endpoint subnet), so `snet-we-prod-shop-app-01` -
+every subnet from the convention, none verbatim, unless the spec gives it an `azure_name`
+because it exists under that name already.
 
 **The provider checks every name** against its type's naming rule (length, characters) at
 plan time and fails the plan on a name Azure would reject - a workload name too long for a

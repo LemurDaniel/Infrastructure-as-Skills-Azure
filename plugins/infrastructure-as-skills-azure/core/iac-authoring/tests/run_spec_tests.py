@@ -25,7 +25,8 @@ a stage map, a resource of another kind or not in the spec, a subnet without its
 one the network does not name, an existing one with no id and no open entry, an id of another
 type, a stage without an id, a name beside it. An existing one with its ids, or with an open
 entry, passes. A required question whose depends_on holds (the sign-in's client id) warns
-without a value and without an open entry, and is quiet with either.
+without a value and without an open entry, and is quiet with either. An Azure-style subnet
+name (snet-app) warns - the name is the subnet's short purpose - unless it carries azure_name.
 
 Usage:
     python3 run_spec_tests.py
@@ -67,7 +68,7 @@ SHAPE_MUTATIONS = [
 ]
 
 # References (spec_ref.py): on the Shape example's integration subnet and a workspace outside it.
-SHAPE_SUBNET = "        value:  # a reference: a part of a resource of this spec, the same in every stage\n          resource: virtual-network\n          part: snet-app\n"
+SHAPE_SUBNET = "        value:  # a reference: a part of a resource of this spec, the same in every stage\n          resource: virtual-network\n          part: app\n"
 LAW = "  diagnostics_destination:\n    value:\n      existing: log_analytics_workspace\n"
 LAW_ID = "/subscriptions/00000000-0000-0000-0000-000000000001/resourceGroups/rg-platform/providers/Microsoft.OperationalInsights/workspaces/law-platform"
 LAW_IDS = "".join(f"        {s}: {LAW_ID}\n" for s in ('development', 'test', 'production'))
@@ -75,15 +76,15 @@ SHAPE_MUTATIONS += [
     ('a name and resource group instead of a reference', SHAPE_RANGES,
      SHAPE_RANGES + "  diagnostics_destination: {value: {name: law-platform, resource_group_name: rg-platform}, source: stated}\n",
      "deployment.diagnostics_destination holds {'name': 'law-platform'"),
-    ('a bare subnet name', SHAPE_SUBNET, "        value: snet-app\n", "integration_subnet holds 'snet-app', which is no reference"),
+    ('a bare subnet name', SHAPE_SUBNET, "        value: app\n", "integration_subnet holds 'app', which is no reference"),
     ('a reference split by stage', SHAPE_SUBNET,
-     "        value:\n          development: {resource: virtual-network, part: snet-app}\n"
-     "          test: {resource: virtual-network, part: snet-app}\n          production: {resource: virtual-network, part: snet-app}\n",
+     "        value:\n          development: {resource: virtual-network, part: app}\n"
+     "          test: {resource: virtual-network, part: app}\n          production: {resource: virtual-network, part: app}\n",
      'integration_subnet is a reference split by stage'),
     ('a resource of another kind', SHAPE_SUBNET, "        value:\n          resource: storage-account\n",
      "references 'storage-account', which is no subnet"),
     ('a subnet without its part', SHAPE_SUBNET, "        value:\n          resource: virtual-network\n", 'without part'),
-    ('a part the network does not name', SHAPE_SUBNET, SHAPE_SUBNET.replace('part: snet-app', 'part: snet-gone'),
+    ('a part the network does not name', SHAPE_SUBNET, SHAPE_SUBNET.replace('part: app', 'part: snet-gone'),
      "part 'snet-gone' of 'virtual-network', which its addressing.subnets does not name"),
     ('a resource the spec does not hold', SHAPE_SUBNET, SHAPE_SUBNET.replace('resource: virtual-network', 'resource: virtual-network__hub'),
      "references resource 'virtual-network__hub', which this spec does not hold"),
@@ -111,12 +112,12 @@ SHAPE_MUTATIONS += [
      'lifecycle_ignore is not { value, reason }'),
 ]
 
-# NSGs on the Shape example, which guards snet-app and the implied private endpoint subnet
+# NSGs on the Shape example, which guards app and the implied private endpoint subnet
 # `endpoints`: an association is exclusive (a subnet takes one NSG), and every subnet the spec
 # creates has one. (name, [(find, replace)], expected; None = must pass)
 def nsg(name):
     return (f"  network-security-group__{name}:\n    networking:\n      subnets:\n        value:\n"
-            "        - resource: virtual-network\n          part: snet-app\n        source: stated\n")
+            "        - resource: virtual-network\n          part: app\n        source: stated\n")
 
 
 SHAPE_MODULE = "    contains: [virtual-network, network-security-group__app, network-security-group__endpoints]\n"
@@ -129,13 +130,13 @@ SHAPE_NSG_ENDPOINTS = ("  network-security-group__endpoints:\n    networking:\n 
 SHAPE_EDITS = [
     ('a second NSG on a subnet', [("\n  app-service:\n", "\n" + nsg('a') + "  app-service:\n"),
                                   (SHAPE_MODULE, SHAPE_MODULE.replace(']', ', network-security-group__a]'))],
-     'snet-app of virtual-network is claimed by 2 network-security-group resources'),
+     'app of virtual-network is claimed by 2 network-security-group resources'),
     ('a subnet without an NSG', [(SHAPE_NSG_ENDPOINTS, ''),
                                  (SHAPE_MODULE, SHAPE_MODULE.replace(', network-security-group__endpoints', ''))],
      'subnet endpoints of virtual-network has no network security group'),
     # Listed with the private endpoint prefix, the subnet is that one by its own name: no `endpoints`.
     ('the private endpoint subnet listed by name',
-     [(f"          {s}:\n          - name: snet-app\n", f"          {s}:\n          - name: snet-pe\n            prefix: {p}\n          - name: snet-app\n")
+     [(f"          {s}:\n          - name: app\n", f"          {s}:\n          - name: snet-pe\n            prefix: {p}\n          - name: app\n")
       for s, p in (('development', '10.42.0.0/27'), ('test', '10.43.0.0/27'), ('production', '10.44.0.0/27'))]
      + [("          part: endpoints  # the private endpoint subnet: no listed subnet carries its prefix\n", "          part: snet-pe\n")],
      None),
@@ -443,8 +444,20 @@ def main():
             rc, out = run(text.replace("        source: stated\n\n  storage-account:", "        source: stated\n" + client_id))
             report(rc == 0 and warning not in out, 'the same question with its value does not warn', out[-500:])
 
+        # A subnet's name is its short purpose: an Azure-style name warns, unless the subnet
+        # exists under it (azure_name); the Shape example's short names do not.
+        subnet_warning = "a subnet's name is its short purpose"
+        rc, out = run(shape)
+        report(subnet_warning not in out, 'short subnet names do not warn', out[-500:])
+        azure_style = shape.replace('- name: app\n', '- name: snet-app\n').replace('part: app\n', 'part: snet-app\n')
+        rc, out = run(azure_style)
+        report(rc == 0 and subnet_warning in out and "('app')" in out, 'an Azure-style subnet name warns', out[-500:])
+        kept = azure_style.replace('- name: snet-app\n', '- name: snet-app\n            azure_name: snet-app\n')
+        rc, out = run(kept)
+        report(rc == 0 and subnet_warning not in out, 'an Azure-style name with azure_name does not warn', out[-500:])
+
     print('-' * 70)
-    total = 11 + len(MUTATIONS) + len(COMPONENT_MUTATIONS) + len(SHAPE_MUTATIONS)
+    total = 14 + len(MUTATIONS) + len(COMPONENT_MUTATIONS) + len(SHAPE_MUTATIONS)
     print(f"{total - failed}/{total} passed")
     return 1 if failed else 0
 
