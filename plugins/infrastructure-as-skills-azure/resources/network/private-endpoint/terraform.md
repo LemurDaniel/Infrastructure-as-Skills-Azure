@@ -40,7 +40,7 @@ fallback for that endpoint.
 ```hcl
 data "naming_name" "private_endpoint" {
   resource   = "Azure::Microsoft.Network/privateEndpoints"
-  parameters = { subname = "vault" } # the sub-resource, so the index stays last
+  parameters = { purpose = "vault" } # the sub-resource, so the index stays last
 }
 
 module "private_endpoint" {

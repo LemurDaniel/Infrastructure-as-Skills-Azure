@@ -38,7 +38,7 @@ decision for - leave them unset rather than inventing a default.
 ```hcl
 data "naming_name" "public_ip" {
   resource   = "Azure::Microsoft.Network/publicIPAddresses"
-  parameters = { name = "${var.workload}-natgw" } # the pattern for public IPs has no SUBNAME token
+  parameters = { purpose = "natgw" } # <?PURPOSE> before the index: pip-we-prod-<workload>-natgw-01
 }
 
 module "public_ip" {

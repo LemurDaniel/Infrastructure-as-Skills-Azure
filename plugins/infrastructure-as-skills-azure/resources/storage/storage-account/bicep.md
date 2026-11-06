@@ -186,8 +186,8 @@ var locationCodes = {
 }
 
 // patterns.Azure."Microsoft.Storage/storageAccounts":
-// <TYPE><LOCATION><ENVIRONMENT><NAME><UNIQUE_ID_4>, lowercase  ->  stwedevobjectsa1b2
-var storageAccountName = toLower('st${locationCodes[location]}${environmentCodes[environment]}${workload}${take(uniqueString(resourceGroup().id), 4)}')
+// <TYPE><LOCATION><ENVIRONMENT><NAME><UNIQUE_ID_3>, lowercase  ->  stwedevobjectsa1b
+var storageAccountName = toLower('st${locationCodes[location]}${environmentCodes[environment]}${workload}${take(uniqueString(resourceGroup().id), 3)}')
 
 resource storageAccount 'Microsoft.Storage/storageAccounts@2023-05-01' = {
   name: storageAccountName
@@ -286,7 +286,7 @@ One endpoint per sub-resource. The DNS zone is referenced, never created:
 ```bicep
 resource privateEndpoint 'Microsoft.Network/privateEndpoints@2023-11-01' = [
   for sub in privateEndpointSubresources: {
-    // patterns.Azure.default with <?SUBNAME>  ->  pep-we-dev-objects-blob-01
+    // patterns.Azure.default with <?PURPOSE>  ->  pep-we-dev-objects-blob-01
     name: 'pep-${locationCodes[location]}-${environmentCodes[environment]}-${workload}-${sub}-${padLeft(index, 2, '0')}'
     location: location
     tags: tags

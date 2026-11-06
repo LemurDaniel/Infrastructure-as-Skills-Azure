@@ -39,11 +39,11 @@ data "naming_name" "nat_gateway" {
   resource = "Azure::Microsoft.Network/natGateways"
 }
 
-# One name per address through the convention's `name` parameter: the pattern for public IPs has
-# no SUBNAME token. at_index holds `count` names in order.
+# One name per address through the convention's <?PURPOSE> token, so the index stays last.
+# at_index holds `count` names in order.
 data "naming_name" "nat_public_ip" {
   resource   = "Azure::Microsoft.Network/publicIPAddresses"
-  parameters = { name = "${var.workload}-nat" }
+  parameters = { purpose = "nat" }
   index      = { start = 0, count = 1 } # nat-gateway.gateway.public_ip_count
 }
 

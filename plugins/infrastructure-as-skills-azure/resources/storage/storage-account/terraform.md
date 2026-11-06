@@ -51,13 +51,13 @@ data "naming_name" "storage_account" {
   resource = "Azure::Microsoft.Storage/storageAccounts"
 }
 
-# One name per sub-resource through the convention's <?SUBNAME;-%s> token, so the
+# One name per sub-resource through the convention's <?PURPOSE;-%s> token, so the
 # index stays last: pep-we-prod-invoicing-blob-01.
 data "naming_name" "private_endpoint" {
   for_each = toset(var.private_endpoint_subresources)
 
   resource   = "Azure::Microsoft.Network/privateEndpoints"
-  parameters = { subname = each.key }
+  parameters = { purpose = each.key }
 }
 
 module "storage" {
@@ -325,7 +325,7 @@ One endpoint per sub-resource, in `res.storage.network.tf`. The DNS zone is refe
 created:
 
 ```hcl
-# One name per sub-resource through the convention's <?SUBNAME;-%s> token, so
+# One name per sub-resource through the convention's <?PURPOSE;-%s> token, so
 # the index stays last: pep-we-prod-invoicing-blob-01. Appending the sub-resource
 # to a finished name puts it after the index, and the Bicep render of the same
 # spec then names the endpoint differently.
@@ -333,7 +333,7 @@ data "naming_name" "private_endpoint" {
   for_each = toset(var.private_endpoint_subresources)
 
   resource   = "Azure::Microsoft.Network/privateEndpoints"
-  parameters = { subname = each.key }
+  parameters = { purpose = each.key }
 }
 
 resource "azurerm_private_endpoint" "storage" {
@@ -483,13 +483,13 @@ run "naming" {
   # The naming provider is not mocked: the name is asserted as it will be
   # deployed, which is also the test that catches an edited naming.yaml.
   assert {
-    condition     = can(regex("^stweprodinvoicing[a-z0-9]{4}$", azurerm_storage_account.this.name))
-    error_message = "The name must come from naming.yaml, not from a literal; the suffix is <UNIQUE_ID_4>."
+    condition     = can(regex("^stweprodinvoicing[a-z0-9]{3}$", azurerm_storage_account.this.name))
+    error_message = "The name must come from naming.yaml, not from a literal; the suffix is <UNIQUE_ID_3>."
   }
 
   assert {
     condition     = azurerm_private_endpoint.storage["blob"].name == "pep-we-prod-invoicing-blob-01"
-    error_message = "Private endpoint name: <?SUBNAME> before the index."
+    error_message = "Private endpoint name: <?PURPOSE> before the index."
   }
 }
 

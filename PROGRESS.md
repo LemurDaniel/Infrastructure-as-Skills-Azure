@@ -194,7 +194,12 @@ the detail; this list says what was decided and why, so a session does not reope
 - **Naming.** Terraform uses the `LemurDaniel/naming` provider and copies `naming.yaml`;
   Bicep assembles names from `var`s and gets a `naming.yaml` only for a stated `custom`
   departure. `br/public:` needs no alias; `br/modules:` only when `bicepconfig.json`
-  already has it.
+  already has it. **`naming.default.yaml` is the provider's bundled default, byte for
+  byte** (2026-11-06, owner's call: one YAML across both repos): a change goes into
+  `terraform-provider-naming` first, is released, then copied here, and `naming.md` pins
+  that version. `check_repo_consistency.py` compares both when the provider repo is checked
+  out beside this one. Location in every pattern, `<?PURPOSE>` (was `<?SUBNAME>`) before the
+  index, `<UNIQUE_ID_3>` in place of the index on global names.
 - **Identity.** Container Apps and Function Apps default to a user-assigned identity
   (the first revision needs its roles before the app exists); App Service stays
   system-assigned. The Entra app registration is **not** a resource set: an `open:` entry
@@ -360,6 +365,15 @@ the detail; this list says what was decided and why, so a session does not reope
 
 ## State
 
+- **One naming convention with the provider** (2026-11-06, branch `feature/naming-provider-2`):
+  `LemurDaniel/naming` 2.1.0 checks every name against its type's rule at plan time and
+  bundles the convention this plugin had, merged with its own; `naming.default.yaml` is now
+  that file. New names change only for new renders: a root keeps its `naming.yaml` copy.
+  `subname` became `purpose` in every rendering reference (same position, same names). Not
+  done: an eval or a render against 2.1.0. `examples/chat-sandbox` and `eval-agent/infra`
+  keep their names through their own `naming.yaml` copies; the other examples are specs
+  without code. The naming skill for other agents is its own repo,
+  `LemurDaniel/skills-azure-naming`.
 - **Three workload-scoped sets instead of a governance family** (2026-11-01, branch
   `feature/budget-maintenance-automation`; 70 resource sets, 1,517 questions): `observability/budget`
   (resource-group scope, one per stage; both targets authored - no Terraform module, and the Bicep
