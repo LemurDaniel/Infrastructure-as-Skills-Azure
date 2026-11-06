@@ -144,7 +144,7 @@ def main():
          'exactly one of values, passthrough, format'),
         ('a child the set does not list',
          lambda d: d['decisions']['security.min_tls_version'].__setitem__(
-             'import', {'child': 'blobServices/default', 'path': 'properties.x', 'passthrough': True}),
+             'import', {'child': 'queueServices/default', 'path': 'properties.x', 'passthrough': True}),
          "import.child names a path the set's import_children does not list"),
         ('import_children without an API version',
          lambda d: d.__setitem__('import_children', {'blobServices/default': 'latest'}),
