@@ -12,6 +12,10 @@ modules:
 # them by id (adopt.parts). Format: core/iac-rendering/references/render-map.md.
 import_parts: [Microsoft.Network/privateEndpoints]
 
+# The child resources an import reads beside the row, with the API version of their GET.
+import_children:
+  blobServices/default: 2025-06-01
+
 decisions:
 
   # ---------------------------------------------------------------- placement
@@ -88,7 +92,7 @@ decisions:
       attribute: properties.networkAcls.ipRules
       format: { expr: "[for ip in {value}: { value: ip, action: 'Allow' }]" }
       note: one object per address (source bicep build, Microsoft.Storage/storageAccounts@2023-05-01)
-    import: {todo: 'in the row as a list of objects: properties.networkAcls.ipRules[].value; no form reads a list element'}
+    import: { path: properties.networkAcls.ipRules, each: value, missing: [] }
   networking.firewall_subnet_rules:
     terraform_avm: { attribute: network_rules.virtual_network_subnet_ids }
     terraform: { attribute: network_rules.virtual_network_subnet_ids }
@@ -100,7 +104,7 @@ decisions:
       attribute: properties.networkAcls.virtualNetworkRules
       format: { expr: "[for s in {value}: { id: s, action: 'Allow' }]" }
       note: one object per subnet (source bicep build, Microsoft.Storage/storageAccounts@2023-05-01)
-    import: {todo: 'in the row as a list of objects: properties.networkAcls.virtualNetworkRules[].id; no form reads a list element'}
+    import: { path: properties.networkAcls.virtualNetworkRules, each: id, reference: true, missing: [] }
   networking.allow_azure_services_bypass:
     terraform_avm:
       attribute: network_rules.bypass
@@ -150,7 +154,7 @@ decisions:
       attribute: identity.userAssignedIdentities
       format: { expr: 'toObject({value}, id => id, id => {})' }
       note: an object keyed by id, each value empty (source bicep build, Microsoft.Storage/storageAccounts@2023-05-01)
-    import: {todo: 'in the row as the keys of identity.userAssignedIdentities; no form reads the keys of an object'}
+    import: { path: identity.userAssignedIdentities, keys: true, reference: true }
   identity.role_assignments:
     terraform_avm:
       attribute: 'role_assignments.<key> = { role_definition_id_or_name, principal_id }'
@@ -278,7 +282,12 @@ decisions:
       passthrough: true
       note: with deleteRetentionPolicyEnabled; 0 days renders Enabled false. The module default is not the guardrail's - written anyway
     bicep: { attribute: blobServices/default properties.deleteRetentionPolicy.days, passthrough: true }
-    import: {todo: 'not in the Resource Graph row: blobServices/default properties.deleteRetentionPolicy.days'}
+    import:
+      child: blobServices/default
+      cases: [{ when: { properties.deleteRetentionPolicy.enabled: false }, answer: 0 }]
+      path: properties.deleteRetentionPolicy.days
+      passthrough: true
+      missing: 0
   data_protection.container_soft_delete_days:
     terraform_avm:
       attribute: blob_properties.container_delete_retention_policy.days
@@ -293,19 +302,24 @@ decisions:
       passthrough: true
       note: with containerDeleteRetentionPolicyEnabled; 0 days renders Enabled false. The module default is not the guardrail's - written anyway
     bicep: { attribute: blobServices/default properties.containerDeleteRetentionPolicy.days, passthrough: true }
-    import: {todo: 'not in the Resource Graph row: blobServices/default properties.containerDeleteRetentionPolicy.days'}
+    import:
+      child: blobServices/default
+      cases: [{ when: { properties.containerDeleteRetentionPolicy.enabled: false }, answer: 0 }]
+      path: properties.containerDeleteRetentionPolicy.days
+      passthrough: true
+      missing: 0
   data_protection.versioning_enabled:
     terraform_avm: { attribute: blob_properties.versioning_enabled, passthrough: true }
     terraform: { attribute: blob_properties.versioning_enabled, passthrough: true }
     bicep_avm: { attribute: blobServices.isVersioningEnabled, passthrough: true }
     bicep: { attribute: blobServices/default properties.isVersioningEnabled, passthrough: true }
-    import: {todo: 'not in the Resource Graph row: blobServices/default properties.isVersioningEnabled'}
+    import: { child: blobServices/default, path: properties.isVersioningEnabled, passthrough: true, missing: false }
   data_protection.change_feed_enabled:
     terraform_avm: { attribute: blob_properties.change_feed.enabled, passthrough: true }
     terraform: { attribute: blob_properties.change_feed_enabled, passthrough: true }
     bicep_avm: { attribute: blobServices.changeFeedEnabled, passthrough: true }
     bicep: { attribute: blobServices/default properties.changeFeed.enabled, passthrough: true }
-    import: {todo: 'not in the Resource Graph row: blobServices/default properties.changeFeed.enabled'}
+    import: { child: blobServices/default, path: properties.changeFeed.enabled, passthrough: true, missing: false }
   data_protection.point_in_time_restore_days:
     terraform_avm:
       attribute: blob_properties.restore_policy.days
@@ -320,7 +334,12 @@ decisions:
       attribute: blobServices/default properties.restorePolicy.days
       passthrough: true
       note: requires isVersioningEnabled and changeFeed.enabled; days below the soft-delete days
-    import: {todo: 'not in the Resource Graph row: blobServices/default properties.restorePolicy.days'}
+    import:
+      child: blobServices/default
+      cases: [{ when: { properties.restorePolicy.enabled: false }, answer: 0 }]
+      path: properties.restorePolicy.days
+      passthrough: true
+      missing: 0
   data_protection.immutability:
     terraform_avm:
       gap: >-
