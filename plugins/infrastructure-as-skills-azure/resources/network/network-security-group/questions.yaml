@@ -191,6 +191,10 @@ groups:
           rule, which the guardrails reject. An empty list is valid for a subnet that only
           answers what it started; for the service in the subnet it is usually not enough, and
           the rule set follows the baseline for `subnet_purpose`. Address ranges are per stage.
+          An item is `{ name, priority, direction, access, protocol, source, source_ports,
+          destination, destination_ports }`, the four last as lists; `access` is `Allow`, and
+          `Deny` only where an import read one that runs - a departure the review names, kept
+          so the first apply changes nothing.
 
   # ------------------------------------------------------------ observability
   - id: observability
@@ -205,6 +209,8 @@ groups:
         plain:
           en: "Its logs go to {value}."
           de: "Seine Logs gehen in {value}."
+        plain_values:
+          none: { en: "no workspace - unlike the rest, it has no diagnostic setting", de: "keinen Workspace - anders als beim Rest gibt es hier keine Diagnoseeinstellung" }
         accepts: { ref: log_analytics_workspace }
         answer: { deployment: diagnostics_destination }
         per_environment: true

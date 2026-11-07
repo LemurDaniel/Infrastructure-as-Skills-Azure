@@ -26,6 +26,20 @@ or the paths given:
      `{group.question}` and holds no `...` sketch.
   6. A list of entries over several modules names the module on each; `by_kind` keys are
      answers of the question `kinds` names, and only with `kinds` declared.
+  7. Every decision that renders something says how an import reads it back (`import:`):
+     a path in the Resource Graph row with `values` (literal -> an answer it accepts),
+     `passthrough`, a `format` with one `{value}`, `reference` (an id, on a question
+     that takes a reference), `single` (the one element of a list), `items` (a list of
+     objects, field -> path or a list of paths merged, on a list question) or `present` (an
+     answer when the path is set, `missing` when not), a list narrowed first by `match` (keep)
+     or `skip` (drop) on its elements' paths, `part: <type>` to read the row of an adopted part
+     the set's import_parts lists, `child: <path>` to read the GET body of a child its
+     import_children lists (path -> API version), `keys` for an object's keys; `cases` over
+     several paths, each
+     `when` with an answer; `diagnostic_setting: workspace | log_categories | metrics` (read
+     from the resource's diagnostic setting, on a workspace reference, a list or a bool);
+     `not_readable: <reason>`; or `todo: <what is missing>`. The
+     count of each is printed - `todo` is the work list, not a failure.
 
 Without paths, a resource directory that has a questions.yaml and no render-map.yaml is an
 error too: the digest has nothing to print for it.
@@ -45,6 +59,8 @@ import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 PLUGIN = os.path.abspath(os.path.join(HERE, '..', '..', '..'))
+sys.path.insert(0, os.path.join(HERE, '..', '..', 'iac-authoring', 'scripts'))
+import yaml_cache  # noqa: E402 - render-maps and sets, parsed once and cached by content hash
 RESOURCES = os.path.join(PLUGIN, 'resources')
 REF_KINDS = os.path.join(PLUGIN, 'core', 'iac-authoring', 'references', 'ref-kinds.yaml')
 
@@ -58,7 +74,163 @@ ENTRY_FIELDS = {'attribute', 'values', 'format', 'also', 'module', 'note', 'gap'
 # Answer types a literal is written from. A reference (accepts: { ref }) resolves to an id and a
 # list is written as the list, so neither needs to say how it renders.
 SCALAR_TYPES = {'enum', 'bool', 'int', 'string'}
-TOP_FIELDS = {'schema_version', 'resource', 'modules', 'companions', 'kinds', 'decisions'}
+# How an import reads a decision back (references/render-map.md, "Reading it back").
+IMPORT_PATH = re.compile(r'^[A-Za-z][A-Za-z0-9_]*(\.[A-Za-z0-9_]+)*$')
+IMPORT_FIELDS = {'path', 'values', 'passthrough', 'format', 'reference', 'single', 'items', 'present', 'cases',
+                 'missing', 'note', 'match', 'skip', 'each', 'part', 'child', 'keys', 'listed', 'every_part'}
+IMPORT_STATS = {'read': 0, 'not_readable': 0, 'todo': 0}
+# What a decision reads from the resource's diagnostic setting instead of its row.
+DIAGNOSTIC_READINGS = ('workspace', 'log_categories', 'metrics')
+# import_children: a child path below the resource id -> the API version its GET is read with.
+CHILD_PATH = re.compile(r'^[A-Za-z][A-Za-z0-9]*(/[A-Za-z0-9._-]+)*$')
+API_VERSION = re.compile(r'^\d{4}-\d{2}-\d{2}(-preview)?$')
+
+
+def answers_of(question):
+    """The answers a question takes, or None when any value goes (int, string, list)."""
+    if question.get('type') == 'bool':
+        return [True, False]
+    acc = question.get('accepts')
+    return list(acc) if isinstance(acc, list) else None
+
+
+def check_import(where, imp, question, parts=(), children=()):
+    """One decision's `import:` - a path with values, passthrough or format; cases; or a marker.
+
+    parts: the set's import_parts, lower case - a `part:` reads one of their rows.
+    children: the set's import_children paths - a `child:` reads one of their GET bodies.
+    """
+    if not isinstance(imp, dict) or not imp:
+        return [f"{where}: import is a mapping"]
+    if 'part' in imp and str(imp['part']).lower() not in parts:
+        return [f"{where}: import.part names a type the set's import_parts does not list"]
+    if 'child' in imp and imp['child'] not in children:
+        return [f"{where}: import.child names a path the set's import_children does not list"]
+    if 'part' in imp and 'child' in imp:
+        return [f"{where}: import reads a part or a child, not both"]
+    for marker in ('not_readable', 'todo'):
+        if marker in imp:
+            IMPORT_STATS[marker] += 1
+            if set(imp) != {marker}:
+                return [f"{where}: {marker} stands alone"]
+            if not (isinstance(imp[marker], str) and imp[marker].strip()):
+                return [f"{where}: {marker} carries its reason"]
+            return []
+    IMPORT_STATS['read'] += 1
+    errs = []
+    # Read from the resource's diagnostic setting, not its row; each reading fits one question shape.
+    if 'diagnostic_setting' in imp:
+        reading = imp['diagnostic_setting']
+        if set(imp) - {'diagnostic_setting', 'note'}:
+            return [f"{where}: diagnostic_setting stands alone (a note beside it at most)"]
+        if reading not in DIAGNOSTIC_READINGS:
+            return [f"{where}: diagnostic_setting is one of {', '.join(DIAGNOSTIC_READINGS)}"]
+        acc = question.get('accepts')
+        shape_ok = {
+            'workspace': isinstance(acc, dict) and acc.get('ref') == 'log_analytics_workspace',
+            'log_categories': question.get('type') == 'list',
+            'metrics': question.get('type') == 'bool',
+        }[reading]
+        if not shape_ok:
+            errs.append(f"{where}: diagnostic_setting {reading} on a question of the wrong shape "
+                        f"(workspace: a log_analytics_workspace reference, log_categories: a list, metrics: a bool)")
+        return errs
+    unknown = set(imp) - IMPORT_FIELDS
+    if unknown:
+        errs.append(f"{where}: unknown field(s) {', '.join(sorted(unknown))}")
+    allowed = answers_of(question)
+
+    def answer_ok(a, what):
+        if allowed is not None and a not in allowed:
+            errs.append(f"{where}: {what} {a!r} is not an answer of the question")
+
+    if 'missing' in imp:
+        answer_ok(imp['missing'], 'missing')
+    if 'cases' in imp:
+        # Beside a path form the cases are tried first and the path reads the rest.
+        if ('path' in imp) != bool({'values', 'passthrough', 'format', 'reference', 'single', 'items', 'present'} & set(imp)):
+            errs.append(f"{where}: cases stands alone, or beside a path with its form (the answer when no case matches)")
+        cases = imp['cases']
+        if not isinstance(cases, list) or not cases:
+            return errs + [f"{where}: cases is a non-empty list of {{ when, answer }}"]
+        for i, c in enumerate(cases):
+            if not isinstance(c, dict) or set(c) != {'when', 'answer'}:
+                errs.append(f"{where}: cases[{i}] is {{ when, answer }}")
+                continue
+            when = c['when']
+            if not isinstance(when, dict) or not when or not all(isinstance(p, str) and IMPORT_PATH.match(p) for p in when):
+                errs.append(f"{where}: cases[{i}].when maps paths of the Resource Graph row to literals")
+            answer_ok(c['answer'], f"cases[{i}].answer")
+        if 'path' not in imp:
+            return errs
+    path = imp.get('path')
+    if not (isinstance(path, str) and IMPORT_PATH.match(path)):
+        errs.append(f"{where}: import.path is a dotted path in the Resource Graph row (properties.publicNetworkAccess)")
+    forms = [k for k in ('values', 'passthrough', 'format', 'reference', 'single', 'items', 'present', 'keys', 'each',
+                         'listed') if k in imp]
+    if 'listed' in imp and (imp['listed'] is not True or question.get('type') != 'list'):
+        errs.append(f"{where}: import.listed is true, on a list question - the path's one value is the list's one item")
+    if 'every_part' in imp and (imp['every_part'] is not True or 'part' not in imp or question.get('type') != 'list'):
+        errs.append(f"{where}: import.every_part is true beside part, on a list question - one item per adopted part")
+    if 'each' in imp:  # the value at a path inside every element: a list, alone or as references
+        if question.get('type') != 'list' or not (isinstance(imp['each'], str) and IMPORT_PATH.match(imp['each'])):
+            errs.append(f"{where}: import.each is the path of a value inside each list element, on a list question")
+        if set(forms) == {'each', 'reference'}:
+            forms = ['reference']
+    if 'keys' in imp:  # an object's keys are the answer: a list, alone or as references
+        if imp['keys'] is not True or question.get('type') != 'list':
+            errs.append(f"{where}: import.keys is true, on a list question")
+        if set(forms) == {'keys', 'reference'}:
+            forms = ['reference']
+    if len(forms) != 1:
+        return errs + [f"{where}: import has exactly one of values, passthrough, format, reference, single, items, "
+                       f"present, keys, each or listed"]
+    if 'single' in imp and imp['single'] is not True:
+        errs.append(f"{where}: import.single is true or absent")
+    # match keeps, skip drops the list elements whose paths all hold the literals
+    for key, filters in (('match', [imp.get('match')]), ('skip', imp.get('skip'))):
+        if key not in imp:
+            continue
+        if not isinstance(filters, list) or not filters or not all(
+                isinstance(f, dict) and f and all(isinstance(p, str) and IMPORT_PATH.match(p) for p in f) for f in filters):
+            errs.append(f"{where}: import.{key} is " + ('a map' if key == 'match' else 'a list of maps')
+                        + " of paths inside one list element to literals")
+    if 'items' in imp:
+        it = imp['items']
+        if question.get('type') != 'list':
+            errs.append(f"{where}: import.items on a question that is no list")
+        is_path = lambda p: isinstance(p, str) and IMPORT_PATH.match(p)
+        if not isinstance(it, dict) or not it or not all(
+                is_path(p) or (isinstance(p, list) and p and all(is_path(x) for x in p)) for p in it.values()):
+            errs.append(f"{where}: import.items maps each field of an answer to a path inside one list element, "
+                        f"or to a list of paths whose values are merged into one list")
+    if 'present' in imp:
+        answer_ok(imp['present'], 'import.present')
+        if 'missing' not in imp:
+            errs.append(f"{where}: import.present needs missing - the answer when the path is not set")
+    if 'reference' in imp:
+        acc = question.get('accepts')
+        if imp['reference'] is not True:
+            errs.append(f"{where}: import.reference is true or absent")
+        elif not (isinstance(acc, dict) and acc.get('ref')):
+            errs.append(f"{where}: import.reference on a question that takes no reference")
+        return errs
+    if 'values' in imp:
+        vals = imp['values']
+        if not isinstance(vals, dict) or not vals:
+            errs.append(f"{where}: import.values maps literals to answers")
+        else:
+            for a in vals.values():
+                answer_ok(a, 'import.values answer')
+    elif 'passthrough' in imp and imp['passthrough'] is not True:
+        errs.append(f"{where}: import.passthrough is true or absent")
+    elif 'format' in imp and not (isinstance(imp['format'], str) and imp['format'].count('{value}') == 1
+                                  and imp['format'].count('{') == 1):
+        errs.append(f"{where}: import.format carries one {{value}} and nothing else in braces")
+    return errs
+TOP_FIELDS = {'schema_version', 'resource', 'modules', 'companions', 'kinds', 'import_parts', 'import_match',
+              'import_children', 'decisions'}
+ARM_TYPE = re.compile(r'^[A-Za-z]+(\.[A-Za-z]+)+/[A-Za-z]+(/[A-Za-z]+)*$')
 # `{group.question}`: another answer of the same resource. `${var.x}` is target code, not one.
 PLACEHOLDER = re.compile(r'(?<!\$)\{([a-z0-9_]+\.[a-z0-9_]+)\}')
 
@@ -255,9 +427,9 @@ def check_file(path, yaml):
     qpath = os.path.join(os.path.dirname(path), 'questions.yaml')
     try:
         with open(path, encoding='utf-8') as f:
-            doc = yaml.safe_load(f) or {}
+            doc = yaml_cache.load(yaml, f) or {}
         with open(qpath, encoding='utf-8') as f:
-            qs = yaml.safe_load(f) or {}
+            qs = yaml_cache.load(yaml, f) or {}
     except (OSError, yaml.YAMLError) as e:
         return [f"{rel}: cannot read it or its questions.yaml: {e}"]
     if not isinstance(doc, dict):
@@ -276,6 +448,29 @@ def check_file(path, yaml):
     for t in TARGETS:
         for c in sorted(set(modules[t]) & set(companions[t])):
             errs.append(f"{rel}: {c} is in modules and in companions")
+
+    # The other Azure resources an import adopts with this one (adopt.parts in the spec).
+    if 'import_parts' in doc:
+        parts = doc['import_parts']
+        if not isinstance(parts, list) or not parts or not all(isinstance(t, str) and ARM_TYPE.match(t) for t in parts):
+            errs.append(f"{rel}: import_parts is a list of ARM types (Microsoft.Web/serverFarms)")
+        elif len(set(parts)) != len(parts) or doc.get('resource') in parts:
+            errs.append(f"{rel}: import_parts lists a type twice or the set's own resource")
+
+    # Two sets of one ARM type (a web app and a function app are both Microsoft.Web/sites): the
+    # The child resources an import reads by GET beside the row (collect.py), each with its API version.
+    if 'import_children' in doc:
+        ch = doc['import_children']
+        if not isinstance(ch, dict) or not ch or not all(
+                isinstance(k, str) and CHILD_PATH.match(k) and API_VERSION.match(str(v)) for k, v in ch.items()):
+            errs.append(f"{rel}: import_children maps a child path below the resource (blobServices/default) "
+                        f"to the API version of its GET (2023-05-01)")
+    # import tells them apart by the row's kind, never by a guess.
+    if 'import_match' in doc:
+        m = doc['import_match']
+        if (not isinstance(m, dict) or not m or set(m) - {'kind_has', 'kind_lacks'}
+                or not all(isinstance(v, list) and v and all(isinstance(x, str) for x in v) for v in m.values())):
+            errs.append(f"{rel}: import_match is {{ kind_has: [..], kind_lacks: [..] }}, lists of kind tokens")
 
     questions = {f"{g.get('id')}.{q.get('id')}": q
                  for g in qs.get('groups') or [] for q in g.get('questions') or []}
@@ -297,7 +492,7 @@ def check_file(path, yaml):
     def entries_of(key):
         """Every entry under a decision, through lists and by_kind - for part_of."""
         node = decisions.get(key)
-        stack = [v for k, v in node.items() if k != 'not_rendered'] if isinstance(node, dict) else []
+        stack = [v for k, v in node.items() if k not in ('not_rendered', 'import')] if isinstance(node, dict) else []
         out = []
         while stack:
             n = stack.pop()
@@ -329,7 +524,13 @@ def check_file(path, yaml):
         expected = set(TARGETS) | {f"{t}_avm" for t in TARGETS if modules[t]}
         for k in sorted(expected - set(node)):
             errs.append(f"{where}: {k} missing")
-        for k in sorted(set(node) - expected):
+        if 'import' not in node:
+            errs.append(f"{where}: import missing - how an import reads it back, or not_readable / todo")
+        else:
+            errs.extend(check_import(f"{where}.import", node['import'], questions[key],
+                                     [str(t).lower() for t in doc.get('import_parts') or []],
+                                     list((doc.get('import_children') or {}) if isinstance(doc.get('import_children'), dict) else [])))
+        for k in sorted(set(node) - expected - {'import'}):
             hint = ' (modules lists none for that target)' if k.endswith('_avm') else ''
             errs.append(f"{where}: {k} not expected{hint}")
         ctx = {'questions': questions, 'key': key, 'kinds': kinds, 'entries_of': entries_of,
@@ -372,6 +573,8 @@ def main():
     for e in errs:
         print(f"[fail] {e}")
     print(f"{len(files)} render-map.yaml file(s), {len(errs)} violation(s)")
+    s = IMPORT_STATS
+    print(f"import: {s['read']} read back, {s['not_readable']} not readable, {s['todo']} todo")
     return 1 if errs else 0
 
 

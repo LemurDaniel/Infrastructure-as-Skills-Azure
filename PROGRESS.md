@@ -18,6 +18,15 @@ Verified Modules first, authored resources second.
 The rules the plugin is built on, each with the reason. The skills and references carry
 the detail; this list says what was decided and why, so a session does not reopen it.
 
+- **unclick: a second way into the same spec, never a second generator** (2026-11-02). What
+  runs in Azure is read (read only, `az graph query`) into `infra-spec.yaml`; review, diagram and
+  render are the existing skills'. The live value is kept (`source: imported`), so the first
+  apply changes nothing; hardening is the person's call in the review (`overridden`). Each
+  decision is read back through an explicit `import:` in its `render-map.yaml`, never derived at
+  run time from the authored Bicep entry - measured: only 565 of 1,354 invert, ~100 of those
+  live on child resources, and some Bicep attributes are prose. What cannot be read is
+  `assumed` with an `open:` entry; what has no set is `unmapped`. Nothing drops silently.
+
 - **Question sets, not modules or templates.** The hard part of a resource is its
   decisions, not its syntax. Generic generation gets the syntax right and the decisions
   wrong.
@@ -364,6 +373,32 @@ the detail; this list says what was decided and why, so a session does not reope
   (`{ ref: resource }`) and `origin_host_names`, a backend outside Azure having no id.
 
 ## State
+
+- **unclick, the import entry** (2026-11-02, branch `feature/iac-unclick`, draft PR into `dev`):
+  `core/iac-unclick` with `collect.py` (the one Azure step, read only) and `map_inventory.py`
+  (offline); the spec contract has `source: imported`, `adopt` (id, lock, diagnostic setting,
+  `parts`), `wiring.role_assignments[].adopt_id`, `unmapped` and `spec.imported_from`
+  (`spec_import.py`, rule 11 of `check_spec.py`). Every render-map decision carries `import:`
+  (path + values / passthrough / format / reference / single / items / present / keys / each,
+  `cases` alone or beside a path form, `diagnostic_setting`, `part:`, `child:`, list filters
+  `match` / `skip`, `not_readable`, `todo`), `import_parts` (a plan, a WAF policy, the private
+  endpoints a set renders), `import_children` (child path -> API version, read by `collect.py`
+  with `az rest --method get`) and `import_match` (two sets of one type by `kind`): 626 read
+  back, 3 not readable, 725 todo. The decision document lists departures from the rules and what was
+  found and not built; the diagram routes lines from outside into PaaS from above. First real
+  run on one of the owner's resource groups (a registry, a vault, a storage account; its name
+  and findings are not recorded in this public repository): it found and fixed role
+  definitions (tenant level, read through `az role definition list`) and absent properties read
+  as the default (identity, infrastructure encryption). Second real run (2026-11-06, a vault
+  behind an endpoint, a network of six subnets, three NSGs with rules of their own, no
+  diagnostic setting; anonymised as `tests/fixtures/inventory-network.json`): 9 -> 22
+  decisions read, 21 -> 7 assumed. Fixed: a subscription in another tenant stops with the
+  `az account set` to run; diagnostic settings read (none anywhere -> `observability_ownership:
+  none`, nothing written for them); NSG rules read 1:1 with `access`, a live Deny kept as a
+  departure (owner's call); the subnets an NSG guards as the network's parts (upper-case ids,
+  networks mapped first); an endpoint's network interface is noise; the endpoint subnet of 29
+  sets read from the adopted endpoint. README section, `docs/unclick.drawio.png` and a teaser
+  (`docs/teaser-unclick.*`, illustrative figures). Not rendered: see *Open, unclick*.
 
 - **One naming convention with the provider** (2026-11-06, branch `feature/naming-provider-2`):
   `LemurDaniel/naming` 2.1.0 checks every name against its type's rule at plan time and
@@ -1185,6 +1220,114 @@ regeneration from the spec loses them. All `render`:
   resource); it duplicates `private-dns-zone.zone.zone_names` when the deployment owns the
   zones, and its `forced_by: deployment.network_exposure` is loose. Left until it diverges.
 
+### unclick (2026-11-02)
+
+- **No render yet.** iac-rendering writes no `import` blocks for `adopt` (Terraform `import {}`
+  into the AVM module's resource address, ids from the stage file; Bicep deploys over the
+  resource under the same name, never `existing`), so an imported spec today would plan to
+  create every resource a second time. The skill stops after the sign-off and says so. The
+  acceptance is an empty `plan` / `what-if`. Two rules the render must keep for an imported
+  NSG: a rule's `access` (a Deny read from Azure), and no baseline rules of `subnet_purpose`
+  added on top of the rules read - `subnet_purpose` stays an open entry on an import.
+- **725 `todo` readings - the mechanism is built, the sets are not converted** (postponed,
+  owner's call 2026-11-06). `import_children` + `child:`, `keys`, `each`, `cases` beside a
+  path exist since 2026-11-06; only `storage-account` is converted (the pilot, 26 read, 5
+  todo). Rough split of what is left: ~438 child or neighbour resources, ~103 lists, ~60
+  `cases`, ~130 render gaps or composed values (a CMK key URI from two paths - stays `todo`
+  unless a form fits). Plan: one agent per family group (8: ai+integration; compute VMs/AKS;
+  compute apps+security; data SQL/MySQL/PostgreSQL; data rest+recovery+storage; messaging;
+  network; observability), each editing only its render-maps, API versions from `az provider
+  show` (provider metadata, the only az command), paths from the ARM template reference, never
+  from a tenant - the plugin goes to customers. When unsure, `todo` stays.
+- **Readings fixed by construction in that pass, not against a real row** (owner: no tenant
+  binding): the `properties.siteConfig.*` readings on web, function and logic apps move to the
+  child `config/web` (Resource Graph often returns siteConfig empty); function-app
+  `hosting.plan_type` through `part: Microsoft.Web/serverFarms`; SQL `entra_admin` through the
+  child `administrators/ActiveDirectory` (it names `principalType`); `key_management` with
+  `missing: platform_managed` on Service Bus, Event Hubs, Redis, registry and PostgreSQL checked
+  against the ARM template reference.
+- Several workspaces raise an open entry for the destination; a resource without a setting
+  while others have one takes `diagnostic_workspace: none` (2026-11-06).
+- NSG rules are written in the order Azure returns them; a second read may reorder them.
+- The render must honour `diagnostic_workspace: none` (no setting for that resource).
+- **Several groups or a subscription** are read, but only one group yields a complete spec:
+  more raise an `open:` entry for the group layout. One stage per run; matching stages across
+  scopes is not built.
+- **Container registry `security.admin_enabled`:** its plain text ends "the access runs through
+  company accounts" for both answers - wrong when the admin account is on. Seen in the first
+  real decision document.
+- **Diagram:** an adopted resource without `meta.purpose` is labelled with its Azure name (the
+  last segment of `adopt.id`, since 2026-11-07); a created one still with its key.
+- `collect.py` reads diagnostic settings one call per resource (`--no-diagnostics` skips it);
+  locks through `az lock list`, not Resource Graph.
+
+#### Checks: speed (2026-11-07)
+
+- **The YAML cache is on for everyone.** `yaml_cache.py` writes parsed sets and render-maps as
+  JSON under `%LOCALAPPDATA%` / `~/.cache` - also on a customer's machine when the plugin runs
+  there. Decide: keep it on, or off by default and on only for the test runners
+  (`IAS_YAML_CACHE`).
+- **The test runners start a process per case** (`check_spec.py` about 90 times); after the cache
+  0.3-0.5 s of each run is Python start, the PyYAML import and Windows process overhead. The next
+  step is calling the check in-process from the runners - a larger change.
+
+#### The first real import: TEMP3, a chat app in `Import-Group` (2026-11-07)
+
+A clicked chat app (App Service on a plan, Foundry, Key Vault, two private endpoints, four
+`privatelink.*` zones with links, Log Analytics, App Insights, two NSGs, one stage) read with
+`collect.py` and mapped for Bicep. Fixed on `feature/iac-unclick` that night: zones and their links
+read (`listed`, `every_part`, a child as a part), `network_exposure` mixed ->
+`private_with_exceptions` with `public_parts`, the workload read back from the names through the
+convention, the App Service plan's hosting from the plan row, the Smart Detection action group as
+noise, App Service settings from `config/web` and the scm policy, Foundry deployments from the
+`deployments` child, `wiring.access` from the role assignments, the group's spelling kept, and
+the picture drawn from what was adopted (endpoints from `adopt.parts`, zones in the name area,
+Azure names, the panel in words). `inventory-chat.json` is that group cut down and anonymised.
+
+**State in TEMP3:** the inventory predates the child readings - the next step there is a fresh
+`collect.py` (other tenant: `az account set` with the person's yes, set back after), then
+`map_inventory.py`, the draft picture, the review. **Not verified against a real answer:** the
+API versions picked from `az provider show` (`config/web` and the scm policy with the
+`Microsoft.Web/sites` version 2026-07-15, `deployments` with the `accounts` version 2026-09-01)
+and the body shapes the readings assume - the fresh collect is the check.
+
+**Open, before the polish:**
+1. **DNS zones: the drawing and the check disagree.** `new_diagram.py` draws the zones as one
+   tile ("4× privatelink.*"), `verify_diagram.py` expects every zone on its own and fails 4× "not
+   drawn". Either the check accepts the bundled tile, or the script draws the zones one by one.
+
+**Open, content:**
+2. **A line is missing:** two of the three `wiring.access` entries are drawn; App Service ->
+   Application Insights is not (the monitoring zone is probably not an edge target).
+   `verify_diagram.py` should also report a missing line, not only a missing resource.
+3. **Departures table:** `deny_internet` on the endpoint NSG counts as a departure from the
+   default `azure_default`. The table is right by the set; the question is the set: either a
+   stricter default for `default_outbound` (at least for `subnet_purpose: private_endpoints`), or
+   a live value stricter than the default not counted as a departure.
+4. **Application Insights on the app stays assumed** (`observability.application_insights`).
+   The link is `APPLICATIONINSIGHTS_CONNECTION_STRING` in the app settings, which Azure returns
+   only through a POST list action, values and secrets included - `not_readable` since
+   2026-11-07. Reading it means `collect.py` calls that action, keeps the one setting, drops
+   every value but the component it names, and the mapping turns it into a reference. Decide
+   first whether an import may call a list action at all.
+5. **Line labels sit on the PaaS frame.** The polish can move them by hand; if it repeats on
+   every spec, the gap belongs in `new_diagram.py`.
+6. **Nearly everything is red:** every adopted resource carries one collected "so übernehmen?"
+   `open:` entry, so the picture flags each one. Assumed defaults and genuinely open decisions
+   need telling apart.
+
+**Open, the big one - the render of an imported spec** (see the first bullet of this section):
+iac-rendering cannot turn an imported spec into code yet, and that code is the point.
+- Terraform: `import {}` blocks from `adopt.id` (and the parts, locks, settings, assignments).
+- Bicep: no state, the same name updates in place - so every name comes **exactly from
+  `adopt.id`**, never from `naming.yaml` (`app-sdc-prod-chat-jaa` follows no convention), and the
+  resource group is set as an existing one (`Import-Group`).
+- Acceptance: `az deployment group what-if` shows no change apart from the values still
+  `assumed` on purpose (21 in TEMP3 before the fresh collect).
+
+**Decisions, no fix:** the 13 collected "so übernehmen?" questions and `deploy_mechanism` in
+TEMP3 are the owner's at the acceptance.
+
 ### Waiting on the owner
 
 - A sandbox subscription with a federated credential and a fenced resource group for the
@@ -1210,6 +1353,15 @@ regeneration from the spec loses them. All `render`:
   `~/.local/bin` itself. No Linux in WSL on the owner's machine.
 
 ## Next
+
+**unclick: finish TEMP3, then render what an import adopts** (*Open, unclick*, "The first real
+import"): a fresh `collect.py` in TEMP3 to check the child readings, the five open fixes there
+(DNS zones in the check first), then `import` blocks in iac-rendering for `adopt` (id, lock,
+diagnostic setting, parts, role assignments), the Bicep path with the names from `adopt.id`, and
+an empty plan / what-if on `Import-Group` as the acceptance. Then the registry's `admin_enabled` text and the
+postponed conversion of the 725 `todo` readings with the child mechanism (plan in *Open,
+unclick*). The draft PR into `dev` carries the rest.
+
 
 **Regenerate the remaining examples and freeze the formats** (*Road to 1.0.0*): `render-yaml`
 (#22) is in `dev`, rendered and graded with structured references in the 0.7.0 run (see

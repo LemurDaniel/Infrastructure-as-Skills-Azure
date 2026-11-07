@@ -77,8 +77,11 @@ def s(v):
 
 LABELS = {
     'en': {
+        'principal_kinds': {'user': 'User', 'group': 'Group', 'serviceprincipal': 'Service principal', 'principal': 'Principal'},
         'internet': 'Internet', 'users': 'Users', 'noPublic': 'no public access', 'existing': 'existing - not created', 'idOpen': 'existing, id open',
         'decisions': 'Decisions', 'open': 'Open', 'assumed': 'Assumed', 'exposure': 'Exposure',
+        'expValues': {'private': 'private', 'private_with_exceptions': 'private, except {names}', 'public': 'public'},
+        'dnsValues': {'platform': 'zones of the platform', 'deployment': 'zones in this deployment'},
         'network': 'Network', 'mandates': 'Mandates', 'dns': 'Private DNS', 'diag': 'Diagnostics',
         'peSubnet': 'private endpoints', 'owner': 'owner', 'noSet': 'no question set',
         'arch': 'Architecture', 'ext': 'Internet and external services', 'monitoring': 'Monitoring',
@@ -106,8 +109,11 @@ LABELS = {
         'children_key-vault-secret': 'Secret', 'children_key-vault-key': 'Key',
     },
     'de': {
+        'principal_kinds': {'user': 'Person', 'group': 'Gruppe', 'serviceprincipal': 'Service Principal', 'principal': 'Principal'},
         'internet': 'Internet', 'users': 'Benutzer', 'noPublic': 'kein öffentlicher Zugriff', 'existing': 'vorhanden - wird nicht erstellt', 'idOpen': 'vorhanden, ID offen',
         'decisions': 'Entscheidungen', 'open': 'Offen', 'assumed': 'Angenommen', 'exposure': 'Erreichbarkeit',
+        'expValues': {'private': 'privat', 'private_with_exceptions': 'privat, Ausnahme {names}', 'public': 'öffentlich'},
+        'dnsValues': {'platform': 'Zonen der Plattform', 'deployment': 'Zonen in diesem Deployment'},
         'network': 'Netzwerk', 'mandates': 'Vorgaben', 'dns': 'Private DNS', 'diag': 'Diagnose',
         'peSubnet': 'Private Endpoints', 'owner': 'zuständig', 'noSet': 'ohne Fragenset',
         'arch': 'Architektur', 'ext': 'Internet und externe Dienste', 'monitoring': 'Monitoring',
@@ -230,6 +236,8 @@ TYPE_NAMES = {
     'machine-learning-workspace': 'Machine Learning Workspace', 'bot-service': 'Azure Bot',
 }
 
+# A principal an import read from Azure: external:<type>-<objectId> (iac-unclick map_inventory.py).
+PRINCIPAL = re.compile(r'^(user|group|serviceprincipal|principal)-([0-9a-f]{8}-[0-9a-f-]{27})$', re.IGNORECASE)
 ACTOR_TITLES = {'entra-id': 'Entra ID', 'sharepoint-online': 'SharePoint Online', 'm365': 'Microsoft 365',
                 'azure-devops': 'Azure DevOps', 'github': 'GitHub'}
 
@@ -554,7 +562,7 @@ def main():
     compute = [k for k in res_keys if base(k) in COMPUTE_KINDS or is_hosted(k)]
     paas = [k for k in res_keys if base(k) not in COMPUTE_KINDS and base(k) not in MONITOR_KINDS
             and base(k) not in SUPPORT_KINDS and k != 'virtual-network' and k not in child_keys
-            and k not in edge_res and not is_hosted(k)]
+            and k not in edge_res and not is_hosted(k) and base(k) != 'private-dns-zone']
     support = [k for k in res_keys if base(k) in SUPPORT_KINDS]
     # With a split, the services and the support resources stand group by group, each group in a
     # frame of its own; one group in a zone is only a tag. The order puts a group's resources together.
@@ -590,13 +598,36 @@ def main():
     # and not a public-access departure. A Container Apps environment is injected into its
     # subnet (internal), it has no endpoint unless the spec names a subnet for one.
     INJECTED_KINDS = {'container-app', 'container-apps', 'container-apps-environment'}
-    with_pe = [k for k in drawn if base(k) not in SUPPORT_KINDS and not is_hosted(k)
-               and (base(k) not in INJECTED_KINDS or pe_subnet_of(k) is not None)
-               and (is_private or pe_subnet_of(k) is not None) and (pna(k) == 'disabled' or pe_subnet_of(k) is not None)]
+
+    def adopted_name(k):
+        """The Azure name of an adopted resource - the last segment of adopt.id - or ''."""
+        node = resources.get(k)
+        adopt = node.get('adopt') if isinstance(node, dict) else None
+        ids = (adopt.get('id') or {}).get('value') if isinstance(adopt, dict) and isinstance(adopt.get('id'), dict) else None
+        first = next(iter(ids.values()), None) if isinstance(ids, dict) else ids
+        return str(first).rstrip('/').rsplit('/', 1)[-1] if first else ''
+
+    def adopted_endpoints(k):
+        """An adopted resource's private endpoints - the privateEndpoints among adopt.parts, every
+        stage - or None when the resource is not adopted. What runs in Azure is the answer then:
+        a plan or a zone's network link is a part too, and no endpoint."""
+        node = resources.get(k)
+        adopt = node.get('adopt') if isinstance(node, dict) else None
+        if not isinstance(adopt, dict):
+            return None
+        parts = (adopt.get('parts') or {}).get('value') if isinstance(adopt.get('parts'), dict) else None
+        ids = [i for v in (parts.values() if isinstance(parts, dict) else [parts]) for i in as_list(v)]
+        return sorted({str(i).lower() for i in ids if '/providers/microsoft.network/privateendpoints/' in str(i).lower()})
+
+    with_pe = [k for k in drawn if base(k) not in SUPPORT_KINDS and base(k) != 'private-dns-zone' and not is_hosted(k)
+               and (adopted_endpoints(k) if adopted_endpoints(k) is not None else (
+                   (base(k) not in INJECTED_KINDS or pe_subnet_of(k) is not None)
+                   and (is_private or pe_subnet_of(k) is not None) and (pna(k) == 'disabled' or pe_subnet_of(k) is not None)))]
 
     # One endpoint per resource, unless it names several subresources (a storage account with
-    # blob, queue and table is three).
-    n_pe = sum(max(1, len([x for x in as_list(get_decision(resources.get(k), ['networking', 'private_endpoint_subresources'])) if x]))
+    # blob, queue and table is three); an adopted resource counts the endpoints it has.
+    n_pe = sum(len(adopted_endpoints(k)) if adopted_endpoints(k) is not None else
+               max(1, len([x for x in as_list(get_decision(resources.get(k), ['networking', 'private_endpoint_subresources'])) if x]))
                for k in with_pe)
 
     # A private posture with a named departure (a workspace left public) is not "no public access":
@@ -647,11 +678,16 @@ def main():
 
     roles = [r for r in as_list(get_decision(spec, ['wiring', 'role_assignments'])) if isinstance(r, dict)]
     zones = [z for z in as_list(get_decision(spec, ['wiring', 'private_dns_zones'])) if z]
+    # A zone that is a resource of the spec (adopted by an import) is drawn with the others.
+    zones += [n for k in res_keys if base(k) == 'private-dns-zone'
+              for n in as_list(get_decision(resources.get(k), ['zone', 'zone_names'])) if n and n not in zones]
     purposes = {k: get_decision(r, ['meta', 'purpose']) for k, r in (spec.get('resources') or {}).items()
                 if isinstance(r, dict)}
     diag_value = get_decision(dep, ['diagnostics_destination'])
     diag_ref = split_ref(diag_value)
     diag_target = diag_ref['name']
+    if isinstance(diag_value, dict) and diag_value.get('resource') in resources:
+        diag_target = adopted_name(diag_value['resource']) or diag_target  # an adopted workspace by its Azure name
     vnet_ref = split_ref(get_decision(dep, ['existing_vnet']))
     draw_law = has_law_res or spec_ref.is_ref(diag_value)
     has_ai = 'application-insights' in res_keys
@@ -765,6 +801,9 @@ def main():
 
     def actor_title(name):
         base = actor_base(name)
+        principal = PRINCIPAL.match(base)
+        if principal:  # read from Azure: external:<type>-<objectId> (map_inventory.py)
+            return f"{T['principal_kinds'].get(principal.group(1), principal.group(1))} {principal.group(2)[:8]}"
         if base == 'internet':
             return T['internet']
         if base == 'users':
@@ -778,7 +817,9 @@ def main():
     role_lines = {}
     for ra in roles:
         if s(ra.get('to')) in resources:
-            role_lines.setdefault(s(ra.get('to')), []).append(f"{s(ra.get('from'))}: {s(ra.get('role'))}")
+            who = s(ra.get('from'))
+            who = actor_title(who) if who.startswith('external:') else who
+            role_lines.setdefault(s(ra.get('to')), []).append(f"{who}: {s(ra.get('role'))}")
     # The same on the resource itself: resources.<r>.identity.role_assignments, a list of
     # { principal, role } (per stage or one list). Every principal with its role is a line.
     # ... and identity.data_plane_role_assignments (Cosmos DB's own role model) the same way.
@@ -923,7 +964,7 @@ def main():
                 label += f"<br><font style='font-size:12px' color='{RG_COLORS[rg_role(k)][1]}'>{RG_IMG_TAG} {esc(rg_title(rg_role(k)))}</font>"
             return label
         kind_title = TYPE_NAMES.get(base(k), base(k).replace('-', ' ').title())
-        sub = s(purposes.get(k)) or (k.partition('__')[2] or k)
+        sub = s(purposes.get(k)) or adopted_name(k) or (k.partition('__')[2] or k)
         note = T['noSet'] if not has_question_set(base(k)) else ''
         label = format_label(kind_title, sub, note)
         if rg_split and k not in framed and not (k == 'application-insights' and rg_role(k) == rg_role('log-analytics-workspace')):
@@ -1119,7 +1160,8 @@ def main():
     ai_h = max(SLOT_H, pitch_of(labels['application-insights'])) if has_ai else 0   # roles make its label taller
 
     def law_label_of(existing):
-        law_name = s(purposes.get('log-analytics-workspace')) or (s(diag_target) if diag_target else 'log-analytics-workspace')
+        law_name = (s(purposes.get('log-analytics-workspace')) or adopted_name('log-analytics-workspace')
+                    or (s(diag_target) if diag_target else 'log-analytics-workspace'))
         label = format_label('Log Analytics', law_name, T['existing'] if existing else '')
         if 'log-analytics-workspace' in public_exceptions:
             label += f"<br><font style='font-size:10px' color='{PUBLIC_COLOR}'>&#9888; {esc(T['publicMark'])}</font>"
@@ -1550,6 +1592,7 @@ def main():
     pp_touched = {a['from'] for a in pp_edges} | {a['to'] for a in pp_edges}
     chain_lanes = {}   # chain layout: subnet -> its lane below the network
     strip_lines = 0   # PaaS -> PaaS lines along the strip above the row: each its own height
+    actor_paas = {}   # actor -> its track in the gap, for lines straight into a PaaS service
     gap_edges = 0  # actors <-> compute: tracks in the gap between the external zone and the group,
                    # so a vertical run never lies on the resource group's border
     for n, a in enumerate(access):
@@ -1731,6 +1774,26 @@ def main():
             fr = 0.2 + (0.6 * sib.index(a) / (len(sib) - 1) if len(sib) > 1 else 0.7)
             edge['style'] = style + f"exitX=0;exitY={num(round(fr, 2))};entryX=1;entryY=0.5;"
             edge['points'] = [{'x': gx, 'y': sc['y'] + sc['h'] * fr}, {'x': gx, 'y': dc['y'] + dc['h'] / 2}]
+        elif is_actor(a['from']) and a['to'] in paas:
+            # Straight to a service from outside (a public PaaS without a network in front): draw.io's
+            # own route ran in at the side, through every icon left of the target and through the
+            # labels and the legend below. Out to a track of the actor's own in the gap, up to a
+            # height of its own in the strip above the row, along it and down into the icon's top,
+            # each line at its own point there.
+            ext, grp = by_id.get('z-ext'), by_id.get('rg')
+            gap_l = ext['x'] + ext['w'] if ext else sc['x'] + sc['w']
+            gap_r = grp['x'] if grp else dc['x'] - 2 * TRK
+            k = actor_paas.setdefault(a['from'], len(actor_paas))
+            gx = gap_l + (gap_r - gap_l) * (k + 1) / (len({x['from'] for x in access if is_actor(x['from']) and x['to'] in paas}) + 1)
+            top_y = dc['slot']['y'] - 4 - 6 * strip_lines   # tighter than PaaS -> PaaS: an actor line
+            strip_lines += 1                                 # per target, and they stay in the zone's head
+            into = [x for x in access if is_actor(x['from']) and x['to'] == a['to']]
+            fr = 0.5 if len(into) == 1 else 0.25 + 0.5 * into.index(a) / (len(into) - 1)
+            edge['style'] = style + f"exitX=1;exitY=0.5;entryX={num(round(fr, 2))};entryY=0;"
+            edge['points'] = [{'x': gx, 'y': sc['y'] + sc['h'] / 2}, {'x': gx, 'y': top_y},
+                              {'x': dc['x'] + dc['w'] * fr, 'y': top_y}]
+            if edge_label:
+                edge['lx'] = 0.85   # beside the descent into the target, not on the shared runs
         elif is_actor(a['to']):
             # Outbound to an external service: out of the left side towards the external zone.
             # Up over the row and out along the subnet's left edge, so the line does not
@@ -1855,7 +1918,10 @@ def main():
     # a page that should fit A4 landscape. The first column keeps the id `panel`.
     lines = [f"<b>{T['decisions']}</b>"]
     if exposure:
-        lines.append(f"{T['exposure']}: <b>{esc(exposure)}</b>")
+        # The deployment's words, short: the decision document carries the full sentence.
+        public = ', '.join(TYPE_NAMES.get(base(k), k) for k in as_list(get_decision(dep, ['public_parts'])) if k)
+        shown = T['expValues'].get(exposure, exposure).replace('{names}', public or '?')
+        lines.append(f"{T['exposure']}: <b>{esc(shown)}</b>")
     if net_ownership:
         lines.append(f"{T['network']}: {esc(net_ownership)}" + (f", {esc(vn_sub)}" if vn_sub else ''))
     if rg_split:
@@ -1864,7 +1930,7 @@ def main():
     if mand:
         lines.append(f"{T['mandates']}: {esc(', '.join(s(m) for m in mand))}")
     if dns_ownership:
-        lines.append(f"{T['dns']}: {esc(dns_ownership)}")
+        lines.append(f"{T['dns']}: {esc(T['dnsValues'].get(dns_ownership, dns_ownership))}")
     if diag_target:
         lines.append(f"{T['diag']}: {esc(diag_target)}" + (f" ({esc(diag_ref['rg'])})" if diag_ref['rg'] else ''))
     elif isinstance(diag_value, dict) and 'existing' in diag_value:

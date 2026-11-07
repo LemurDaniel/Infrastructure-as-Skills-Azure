@@ -60,7 +60,17 @@ LABELS = {
         'stage_file': 'in stage', 'savings': 'cheaper outside production',
         'answers': 'What follows from your answers',
         'answered': 'your answer', 'stated': 'from your description', 'assumed_default': 'not said, so the usual answer applies',
-        'carried': 'as decided earlier',
+        'carried': 'as decided earlier', 'imported': 'as it runs in Azure today',
+        'departures': 'Departures from the rules',
+        'departures_intro': 'What runs in Azure today and differs from the rule behind the default. The first deployment '
+                            'keeps every one of them; say for each whether it stays or is hardened.',
+        'part': 'Part', 'today': 'Today', 'rule_col': 'Rule',
+        'unmapped': 'Found, not built', 'unmapped_intro': 'Found in Azure and not part of the code: it keeps running as it is, '
+                                                          'outside of what is deployed.',
+        'u_type': 'Type', 'u_name': 'Name', 'u_reason': 'Why',
+        'u_reasons': {'no_question_set': 'no decisions known for this type yet', 'outside_lock_policy': 'a lock the rules do not set',
+                      'destination_not_supported': 'diagnostics to another destination', 'scope_not_adopted': 'a permission on the whole group or subscription',
+                      'not_readable': 'could not be read'},
         'groups': 'Resource groups',
         'groups_intro': 'A resource group is the unit that is deleted, permitted and costed as a whole. Each group is either created with the system or already exists and is only used.',
         'g_group': 'Group', 'g_state': 'State', 'g_name': 'Name', 'g_contains': 'Contains',
@@ -84,7 +94,7 @@ LABELS = {
         'sources': {'stated': 'your description', 'asked': 'your answer', 'platform': 'the landing zone',
                     'pattern': 'the pattern', 'requirement': 'derived from your answer', 'deployment': 'inherited',
                     'forced': 'forced', 'assumed': 'placeholder', 'default': 'rule', 'carried': 'carried',
-                    'overridden': 'your departure'},
+                    'imported': 'Azure today', 'overridden': 'your departure'},
     },
     'de': {
         'title': 'Entscheidungen für „{workload}“',
@@ -96,7 +106,17 @@ LABELS = {
         'stage_file': 'in Stufe', 'savings': 'außerhalb der Produktion günstiger',
         'answers': 'Was aus euren Antworten folgt',
         'answered': 'eure Antwort', 'stated': 'aus eurer Beschreibung', 'assumed_default': 'nicht gesagt, daher gilt die übliche Antwort',
-        'carried': 'wie früher entschieden',
+        'carried': 'wie früher entschieden', 'imported': 'wie es heute in Azure läuft',
+        'departures': 'Abweichungen von den Vorgaben',
+        'departures_intro': 'Was heute in Azure läuft und von der Regel hinter der Vorgabe abweicht. Das erste Ausrollen '
+                            'behält jede davon bei; sagt pro Zeile, ob sie bleibt oder gehärtet wird.',
+        'part': 'Teil', 'today': 'Heute', 'rule_col': 'Vorgabe',
+        'unmapped': 'Gefunden, nicht gebaut', 'unmapped_intro': 'In Azure gefunden und nicht Teil des Codes: läuft weiter wie bisher, '
+                                                                'außerhalb dessen, was ausgerollt wird.',
+        'u_type': 'Typ', 'u_name': 'Name', 'u_reason': 'Warum',
+        'u_reasons': {'no_question_set': 'für diesen Typ sind noch keine Entscheidungen hinterlegt', 'outside_lock_policy': 'eine Sperre, die die Vorgaben nicht setzen',
+                      'destination_not_supported': 'Diagnose an ein anderes Ziel', 'scope_not_adopted': 'eine Berechtigung auf die ganze Gruppe oder Subscription',
+                      'not_readable': 'nicht lesbar'},
         'groups': 'Ressourcengruppen',
         'groups_intro': 'Eine Ressourcengruppe wird als Ganzes gelöscht, berechtigt und abgerechnet. Jede Gruppe wird entweder mit dem System angelegt oder existiert bereits und wird nur verwendet.',
         'g_group': 'Gruppe', 'g_state': 'Zustand', 'g_name': 'Name', 'g_contains': 'Enthält',
@@ -120,11 +140,11 @@ LABELS = {
         'sources': {'stated': 'eure Beschreibung', 'asked': 'eure Antwort', 'platform': 'die Landing Zone',
                     'pattern': 'das Muster', 'requirement': 'abgeleitet aus eurer Antwort', 'deployment': 'übernommen',
                     'forced': 'erzwungen', 'assumed': 'Platzhalter', 'default': 'Regel', 'carried': 'übernommen',
-                    'overridden': 'eure Abweichung'},
+                    'imported': 'Azure heute', 'overridden': 'eure Abweichung'},
     },
 }
 
-CUSTOMER_ANSWER_SOURCES = {'stated', 'asked', 'carried', 'overridden'}
+CUSTOMER_ANSWER_SOURCES = {'stated', 'asked', 'carried', 'imported', 'overridden'}
 # Groups whose defaults are shown together, ahead of the per-resource lists (a managed
 # identity's own `identity` group describes the identity, not a baseline, and stays with it).
 SECURITY_GROUPS = {'security', 'identity'}
@@ -429,6 +449,8 @@ def main():
             how = L['answered']
         elif src == 'carried':
             how = L['carried']
+        elif src == 'imported':
+            how = L['imported']
         w(f"- **{R.line(q, d.get('value'))}** _({how})_")
         for res, line in derived.get(qid, []):
             w(f"  - {L['derived']}, {titles.get(res, res)}: {line}")
@@ -465,7 +487,7 @@ def main():
         qset = sets.get(res, {})
         lines = []
         for gid, qs in (groups or {}).items():
-            if not isinstance(qs, dict) or str(gid).startswith('_') or gid == 'meta':
+            if not isinstance(qs, dict) or str(gid).startswith('_') or gid in ('meta', 'adopt'):
                 continue  # meta describes the resource; only the appendix lists it
             for qid, d in qs.items():
                 if not isinstance(d, dict):
@@ -510,6 +532,57 @@ def main():
         w(f"### {title}")
         w('')
         out.extend(lines)
+        w('')
+
+    # --- departures: what an import read that differs from the rule ------------------
+    # The rule is the question's default, or for a question that inherits a deployment answer
+    # that question's default through the map. A value nobody imported is never a departure.
+    def rule_of(q):
+        if 'default' in q:
+            return q['default']
+        inherit = (q.get('answer') or {}).get('deployment')
+        if inherit and inherit in dep_q and 'default' in dep_q[inherit][1]:
+            base = dep_q[inherit][1]['default']
+            mapping = (q.get('answer') or {}).get('map')
+            return mapping.get(base) if isinstance(mapping, dict) else base
+        return None
+
+    departures = []
+    for res, groups in resources.items():
+        qset = sets.get(res, {})
+        for gid, qs in (groups or {}).items():
+            if not isinstance(qs, dict) or str(gid).startswith('_') or gid in ('meta', 'adopt'):
+                continue
+            for qid, d in qs.items():
+                if not (isinstance(d, dict) and d.get('source') == 'imported' and qid in qset):
+                    continue
+                q = qset[qid][1]
+                rule = rule_of(q)
+                if rule is None or isinstance(rule, (dict, list)) or str(d.get('value')).lower() == str(rule).lower():
+                    continue
+                departures.append((titles.get(res, res), R.line(q, d.get('value')), R.line(q, rule)))
+    if departures:
+        w(f"## {L['departures']}")
+        w('')
+        w(L['departures_intro'])
+        w('')
+        w(f"| {L['part']} | {L['today']} | {L['rule_col']} |")
+        w('|---|---|---|')
+        for part, today, rule in departures:
+            w(f"| {part} | {today} | {rule} |")
+        w('')
+    unmapped = [u for u in spec.get('unmapped') or [] if isinstance(u, dict)]
+    if unmapped:
+        w(f"## {L['unmapped']}")
+        w('')
+        w(L['unmapped_intro'])
+        w('')
+        w(f"| {L['u_type']} | {L['u_name']} | {L['u_reason']} |")
+        w('|---|---|---|')
+        for u in unmapped:
+            name = str(u.get('id', '')).rstrip('/').rsplit('/', 1)[-1]
+            why = L['u_reasons'].get(u.get('reason'), u.get('reason'))
+            w(f"| `{u.get('type')}` | {name} | {why}" + (f" ({u['note']})" if u.get('note') else '') + ' |')
         w('')
 
     # --- overridden ------------------------------------------------------------

@@ -103,6 +103,106 @@ one of two ways:
 
 A `${...}` is the target's own interpolation and never a placeholder.
 
+## Reading it back: `import`
+
+An import (iac-unclick) writes a spec from what runs in Azure: for each decision it reads the
+resource's row in Azure Resource Graph and needs the answer that row stands for. Every decision
+that renders something says how, in one of the forms below - none is derived from the target
+entries at run time:
+
+```yaml
+  networking.public_network_access:
+    import:                                    # several paths decide the answer
+      cases:
+      - { when: { properties.publicNetworkAccess: Disabled }, answer: disabled }
+      - { when: { properties.publicNetworkAccess: Enabled, properties.networkAcls.defaultAction: Deny }, answer: enabled_with_firewall }
+      - { when: { properties.publicNetworkAccess: Enabled, properties.networkAcls.defaultAction: Allow }, answer: enabled }
+  security.min_tls_version:
+    import: { path: properties.minimumTlsVersion, passthrough: true }
+  security.key_management:
+    import: { path: properties.encryption.keySource, values: { Microsoft.Storage: platform_managed, Microsoft.Keyvault: customer_managed } }
+  data_protection.replication:
+    import: { path: sku.name, format: 'Standard_{value}' }
+  data_protection.blob_soft_delete_days:
+    import: { todo: 'not in the Resource Graph row: blobServices/default properties.deleteRetentionPolicy.days' }
+```
+
+| Form | Holds |
+|---|---|
+| `path` + `values` | A dotted path in the Resource Graph row and literal -> answer; every answer an answer of the question. Literals compare without case: Azure returns `Microsoft.Keyvault` and `Microsoft.KeyVault` alike |
+| `path` + `passthrough: true` | The value is the answer as it is |
+| `path` + `format` | The literal with one `{value}`: `Standard_GRS` reads back as `GRS` |
+| `path` + `reference: true` | On a question that takes a reference: the path holds an id (`properties.virtualNetworkSubnetId`), which the import writes as the spec resource or part it belongs to, or as `{ existing: <kind>, id }` when it lies outside the scope. On a list question `each: <path>` names the id inside every element of a list (`path: properties.subnets, each: id` for the subnets an NSG guards); every one must resolve, or none is read. A subnet part takes the network's spelling of its name, whatever case the id was stored in |
+| `path` + `listed: true` | On a list question: the path holds one value and the answer is the list of it (a private DNS zone's `name` -> `zone_names: [privatelink.vaultcore.azure.net]`) |
+| `every_part: true` beside `part` | On a list question: one item from each adopted part of that type instead of one value they all share (`vnet_links`: every link's `properties.virtualNetwork.id`, as references); every part must hold one, or none is read |
+| `path` + `single: true` | The path holds a list and the answer is its one element (`addressSpace.addressPrefixes` -> one range); a list of two or more is not read, never cut to its first |
+| `path` + `items` | On a list question: the path holds a list of objects and each becomes one answer item, `{ <field>: <path inside the element> }` - `{ name: name, prefix: properties.addressPrefix }` for the subnets. A field may name a list of paths: their values are merged into one list (`source: [properties.sourceAddressPrefix, properties.sourceAddressPrefixes]`), and none holding one is no answer |
+| `part: <ARM type>` beside a path | The path is read from the row of the resource's adopted part of that type, one listed in `import_parts`, not from its own row: `{ part: Microsoft.Network/privateEndpoints, path: properties.subnet.id, reference: true }` for the endpoint's subnet. Several parts of the type must hold the same value, or none is read |
+| `child: <path>` beside a path or `cases` | The path is read from the GET body of a child resource below the resource's id, one `import_children` lists (`child: blobServices/default, path: properties.deleteRetentionPolicy.days`); a collection's body is `{ value: [...] }` (`child: firewallRules, path: value, items: ...`). Azure having none (404) reads as the path absent, so `missing` applies; a child that could not be read, or `--no-children`, is not read |
+| `path` + `keys: true` | On a list question: the path holds an object whose keys are the answer (`identity.userAssignedIdentities`); with `reference: true` each key is an id written as a reference |
+| `match` / `skip` beside a list path | Narrow the list before the form reads it: `match: { <path>: <literal>, ... }` keeps the elements whose paths all hold the literals, `skip: [ {...}, ... ]` drops those matching any entry. With `present`, whether a matching element exists (the NSG's deny-all at 4096); with `items`, the elements another decision already reads left out |
+| `path` + `present` + `missing` | The answer when the path holds a value (`virtualNetworkSubnetId` set -> `vnet_integration: true`), `missing` when it is absent or empty |
+| `cases` | A list of `{ when: { <path>: <literal>, ... }, answer }`, the first whose paths all match wins - for answers that share a literal on one path |
+| `diagnostic_setting: workspace \| log_categories \| metrics` | Read from the resource's own diagnostic setting (the one `adopt.diagnostic_setting_id` names), not from its row: `workspace` its `properties.workspaceId`, on the workspace reference that answers from `deployment.diagnostics_destination`; `log_categories` the `category` (or `categoryGroup`) of every enabled `properties.logs[]` entry, on a list; `metrics` whether any `properties.metrics[]` entry is enabled, on a bool. A setting that sits on a child resource (a storage account's `blobServices/default`, a Container Apps environment) is no reading of this form and stays `todo` |
+| `not_readable: <reason>` | The decision cannot be read from Azure at all (what a deployment decides, not a property); the import writes it `assumed` with an `open:` entry |
+| `todo: <what is missing>` | It can be read, the reading is not written yet - a property of a child resource the Resource Graph row does not hold, a shared literal that needs `cases`. The import treats it like `not_readable`; `check_render_map.py` counts it as the work list |
+
+`missing: <answer>` beside a path or `cases` names the answer when the path is absent from the
+row (Azure leaves a property out that was never set).
+
+The diagnostic settings were read for every resource or for none (`collect.py --no-diagnostics`,
+`diagnostics_read` in the inventory). Read and found on no adopted resource, the deployment has
+none (`observability_ownership: none`, imported) and the `diagnostic_setting` decisions are not
+written: nothing is rendered for them, so the first apply adds none. Found on some resources
+only, a resource without one takes `diagnostic_workspace: none` (imported) and no other
+diagnostic decision: the render gives that resource no diagnostic setting. Not read
+(`--no-diagnostics`), every diagnostic decision is `assumed` with an `open:` entry. A decision that is `not_rendered` carries
+no `import`: nothing was rendered, so nothing is read back.
+
+## What an import adopts: `import_parts`
+
+```yaml
+import_parts: [Microsoft.Web/serverFarms, Microsoft.Network/privateEndpoints]
+```
+
+The Azure resources besides the set's own `resource` that the render creates for it - a plan
+under a web app, a WAF policy, the private endpoints its module makes. A spec written from what
+runs in Azure lists their ids under `resources.<key>.adopt.parts`, and the render imports them
+- a part is found by its owner naming its id (a web app's `serverFarmId`), by the endpoint's
+connection (a private endpoint), or by its id lying below the owner's (a DNS zone's
+`virtualNetworkLinks`) -
+instead of creating a second one; `check_spec.py` refuses an id of a type not listed here. A set
+that renders nothing besides its resource has no `import_parts`. Locks, diagnostic settings and
+role assignments are not listed: the spec names them on their own (`adopt.lock_id`,
+`adopt.diagnostic_setting_id`, `adopt_id`).
+
+## What an import reads beside the row: `import_children`
+
+```yaml
+import_children:
+  blobServices/default: 2023-05-01
+  firewallRules: 2023-08-01-preview
+```
+
+The child resources below the resource's id whose GET body a `child:` reading needs - the
+settings the Resource Graph row does not hold (a storage account's blob service, a server's
+firewall rules, a site's `config/web`). `collect.py` reads each with `az rest --method get` at
+the API version given, read only, for every row of the set's type. The version is one the
+provider publishes for that child type (`az provider show --namespace <ns>`), never recalled;
+the body's shape is that version's ARM template reference, the same in every tenant.
+
+## Two sets of one type: `import_match`
+
+```yaml
+import_match: { kind_has: [functionapp] }                    # function-app
+import_match: { kind_lacks: [functionapp, workflowapp] }     # app-service
+```
+
+Where two sets create the same ARM type (`Microsoft.Web/sites`: a web app and a function app),
+an import tells a row apart by its `kind`, split at the commas: `kind_has` - one of these tokens
+is in it, `kind_lacks` - none is. Every set sharing a type carries one, and a row that fits
+none or several is `unmapped`, never guessed.
+
 ## Beyond one entry
 
 Four shapes for resources that do not fit one module and one attribute per decision.

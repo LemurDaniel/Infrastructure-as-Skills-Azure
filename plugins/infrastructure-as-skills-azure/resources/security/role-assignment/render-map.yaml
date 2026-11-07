@@ -31,6 +31,7 @@ decisions:
       module: avm/ptn/authorization/resource-role-assignment
       note: 'the three scope modules take it from the call''s scope: / targetScope; mg-scope also takes managementGroupId'
     bicep: { attribute: scope, note: an existing resource symbol - never the id string; omitted for the group }
+    import: {todo: 'not in the Resource Graph row: scope'}
 
   # ----------------------------------------------------------------- identity
   identity.principal:
@@ -38,6 +39,7 @@ decisions:
     terraform: { attribute: principal_id }
     bicep_avm: { attribute: principalId }
     bicep: { attribute: properties.principalId }
+    import: {todo: a list or a reference; needs its own reading}
   identity.principal_type:
     terraform_avm:
       attribute: 'role_assignments_azure_resource_manager.<key>.principal_type'
@@ -46,6 +48,7 @@ decisions:
     terraform: { attribute: principal_type, passthrough: true, note: with it set the AAD lookup is skipped }
     bicep_avm: { attribute: principalType, passthrough: true, note: "ServicePrincipal for a managed identity - the allowed list is '', Device, ForeignGroup, Group, ServicePrincipal, User, with no managed-identity value; written always" }
     bicep: { attribute: properties.principalType, passthrough: true }
+    import: {path: properties.principalType, passthrough: true}
   identity.role:
     terraform_avm:
       attribute: 'role_assignments_azure_resource_manager.<key>.role_definition_name'
@@ -60,6 +63,7 @@ decisions:
         gap: "the name is resolved to its GUID live, never recalled; roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '<guid>'), roleName: the name, for logging"
     bicep:
       gap: "the name is resolved to its GUID live, never recalled; properties.roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '<guid>')"
+    import: {todo: 'bicep renders it as a gap: the name is resolved to its GUID live, never recalled; prope...'}
   identity.role_may_assign:
     not_rendered: gates security.condition - true with no condition is refused; no attribute
 
@@ -76,10 +80,12 @@ decisions:
       - { module: avm/res/authorization/role-assignment/mg-scope, attribute: condition, passthrough: true, note: "empty is no condition; conditionVersion '2.0' by default" }
       - { module: avm/ptn/authorization/resource-role-assignment, gap: no condition parameter - a conditioned assignment on a resource renders authored }
     bicep: { attribute: properties.condition, passthrough: true, note: "conditionVersion: empty(condition) ? null : '2.0'" }
+    import: {path: properties.condition, passthrough: true}
   security.description:
     terraform_avm: { attribute: 'role_assignments_azure_resource_manager.<key>.description', passthrough: true }
     terraform: { attribute: description, passthrough: true }
     bicep_avm: { attribute: description, passthrough: true, note: on all four modules }
     bicep: { attribute: properties.description, passthrough: true }
+    import: {path: properties.description, passthrough: true}
   security.deployer_role:
     not_rendered: the handover's list of rights the deploying identity needs; nothing in the template

@@ -1,0 +1,141 @@
+schema_version: 1
+
+# A spec written from what runs in Azure (iac-unclick): one stage, two adopted resources with
+# the ids of their lock and diagnostic setting, an adopted role assignment and one beside it
+# to a principal outside the spec, the live values as imported, what could not be read as
+# assumed with an open entry, and what has no question set under unmapped.
+spec:
+  id: payments-api
+  target: terraform
+  generated_by: hand-written fixture for run_spec_tests.py
+  at: 2026-11-01T10:00:00Z
+  imported_from:
+    scopes: [/subscriptions/11111111-1111-1111-1111-111111111111/resourceGroups/rg-payments-prod]
+    tag_filter: {}
+    read_at: 2026-11-01T09:58:12Z
+
+context:
+  environments: [production]
+  language: de
+  location: westeurope
+  workload: payments
+  subscription_id:
+    production: 11111111-1111-1111-1111-111111111111
+  resource_group_name:
+    production: rg-payments-prod
+
+deployment:
+  # --- context ---
+  deployment_scope:
+    value: resource_group
+    source: imported
+
+  # --- resource_groups ---
+  resource_groups_created:
+    value: []
+    source:
+      forced_by: deployment.deployment_scope
+  resource_lock:
+    value: production
+    source: imported
+
+  # --- delivery ---
+  deployer_roles:
+    value:
+    - role: Role Based Access Control Administrator
+      scope: resource_group
+      for: [wiring.role_assignments]
+    source:
+      forced_by: wiring.role_assignments
+
+  # --- posture ---
+  network_exposure:
+    value: public
+    source: imported
+
+resources:
+  storage-account:
+    meta:
+      purpose:
+        value: Belege
+        source: stated
+    adopt:
+      id:
+        value:
+          production: /subscriptions/11111111-1111-1111-1111-111111111111/resourceGroups/rg-payments-prod/providers/Microsoft.Storage/storageAccounts/stpaymentsprod01
+        source: imported
+      lock_id:
+        value:
+          production: /subscriptions/11111111-1111-1111-1111-111111111111/resourceGroups/rg-payments-prod/providers/Microsoft.Storage/storageAccounts/stpaymentsprod01/providers/Microsoft.Authorization/locks/nodelete
+        source: imported
+      diagnostic_setting_id:
+        value:
+          production: /subscriptions/11111111-1111-1111-1111-111111111111/resourceGroups/rg-payments-prod/providers/Microsoft.Storage/storageAccounts/stpaymentsprod01/providers/Microsoft.Insights/diagnosticSettings/to-law-central
+        source: imported
+    networking:
+      public_network_access:
+        value: enabled
+        source: imported
+    security:
+      shared_access_key_enabled:
+        value: true
+        source: imported
+      min_tls_version:
+        value: TLS1_2
+        source: imported
+    data_protection:
+      replication:
+        value: GRS
+        source: imported
+      blob_soft_delete_days:
+        value: 7
+        source: assumed
+
+  app-service:
+    adopt:
+      id:
+        value:
+          production: /subscriptions/11111111-1111-1111-1111-111111111111/resourceGroups/rg-payments-prod/providers/Microsoft.Web/sites/app-payments-prod
+        source: imported
+      parts:
+        value:
+          production:
+          - /subscriptions/11111111-1111-1111-1111-111111111111/resourceGroups/rg-payments-prod/providers/Microsoft.Web/serverFarms/asp-payments-prod
+        source: imported
+    hosting:
+      sku:
+        value: P1v3
+        source: imported
+    identity:
+      managed_identity:
+        value: system_assigned
+        source: imported
+
+wiring:
+  role_assignments:
+    value:
+    - from: app-service
+      to: storage-account
+      role: Storage Blob Data Contributor
+      adopt_id:
+        production: /subscriptions/11111111-1111-1111-1111-111111111111/resourceGroups/rg-payments-prod/providers/Microsoft.Storage/storageAccounts/stpaymentsprod01/providers/Microsoft.Authorization/roleAssignments/9f3c1a2b-0000-4000-8000-000000000001
+    - from: external:3b7e0c4d-0000-4000-8000-000000000002
+      to: storage-account
+      role: Storage Blob Data Reader
+      adopt_id:
+        production: /subscriptions/11111111-1111-1111-1111-111111111111/resourceGroups/rg-payments-prod/providers/Microsoft.Storage/storageAccounts/stpaymentsprod01/providers/Microsoft.Authorization/roleAssignments/a71d2e3f-0000-4000-8000-000000000003
+    source: imported
+
+unmapped:
+- type: Microsoft.Databricks/workspaces
+  id: /subscriptions/11111111-1111-1111-1111-111111111111/resourceGroups/rg-payments-prod/providers/Microsoft.Databricks/workspaces/dbw-payments
+  reason: no_question_set
+- type: Microsoft.Authorization/locks
+  id: /subscriptions/11111111-1111-1111-1111-111111111111/resourceGroups/rg-payments-prod/providers/Microsoft.Web/sites/app-payments-prod/providers/Microsoft.Authorization/locks/readonly
+  reason: outside_lock_policy
+  note: ReadOnly, and on a resource that holds no data
+
+open:
+- key: resources.storage-account.data_protection.blob_soft_delete_days
+  question: Soft Delete war im Import nicht lesbar - sieben Tage übernehmen?
+  blocks: apply

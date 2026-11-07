@@ -20,11 +20,13 @@ decisions:
     terraform: { attribute: location, passthrough: true }
     bicep_avm: { attribute: location, passthrough: true }
     bicep: { attribute: location, passthrough: true }
+    import: {path: location, passthrough: true}
   placement.resource_group_name:
     terraform_avm: { attribute: resource_group_name, note: 'a name, not an id - the table is an azurerm_route_table' }
     terraform: { attribute: resource_group_name, note: 'a name, not an id (source: azurerm 5.12 schema)' }
     bicep_avm: { gap: the deployment's resource group scope; no parameter }
     bicep: { gap: the deployment's resource group scope; no property }
+    import: {todo: 'bicep renders it as a gap: the deployment''s resource group scope; no property'}
 
   # --------------------------------------------------------------- networking
   networking.subnets:
@@ -40,6 +42,7 @@ decisions:
     bicep:
       on_part: "properties.subnets[name={part}].properties.routeTable.id: {self}"
       note: 'properties.subnets is read-only on the route table (source: bicep build BCP073, Microsoft.Network/routeTables@2024-05-01)'
+    import: {todo: set on a part of another resource; read from that resource}
   networking.default_route:
     terraform_avm:
       attribute: routes.default
@@ -65,11 +68,13 @@ decisions:
         firewall: { expr: "{ name: 'default-to-firewall', properties: { addressPrefix: '0.0.0.0/0', nextHopType: 'VirtualAppliance', nextHopIpAddress: {networking.firewall_private_ip} } }" }
         none: null
       note: none renders no entry; inline routes and .../routes children are alternatives - mixing them makes a redeploy remove one
+    import: {todo: 'not in the Resource Graph row: properties.routes[]'}
   networking.firewall_private_ip:
     terraform_avm: { attribute: routes.default.next_hop_in_ip_address, passthrough: true }
     terraform: { attribute: azurerm_route.next_hop_in_ip_address, passthrough: true }
     bicep_avm: { attribute: 'routes[].properties.nextHopIpAddress', passthrough: true }
     bicep: { attribute: 'properties.routes[].properties.nextHopIpAddress', passthrough: true }
+    import: {todo: 'not in the Resource Graph row: properties.routes[].properties.nextHopIpAddress'}
   networking.routes:
     terraform_avm:
       attribute: 'routes.<key> = { name, address_prefix, next_hop_type, next_hop_in_ip_address }'
@@ -81,6 +86,7 @@ decisions:
       attribute: "routes[] = { name, properties: { addressPrefix, nextHopType, nextHopIpAddress } }"
       note: nextHopType one of VirtualAppliance, VirtualNetworkGateway, VnetLocal, Internet, None; nextHopIpAddress only for VirtualAppliance
     bicep: { attribute: 'properties.routes[] = { name, properties: { addressPrefix, nextHopType, nextHopIpAddress } }' }
+    import: {todo: 'not in the Resource Graph row: properties.routes[] = { name, properties: { addressPrefi...'}
   networking.bgp_route_propagation:
     terraform_avm:
       attribute: bgp_route_propagation_enabled
@@ -98,3 +104,4 @@ decisions:
       attribute: properties.disableBgpRoutePropagation
       values: { disabled: true, enabled: false }
       note: inverted - disabled renders true
+    import: {path: properties.disableBgpRoutePropagation, values: {true: disabled, false: enabled}}

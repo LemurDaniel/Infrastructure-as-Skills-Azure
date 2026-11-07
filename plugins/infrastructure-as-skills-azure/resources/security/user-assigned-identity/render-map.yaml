@@ -19,11 +19,13 @@ decisions:
     terraform: { attribute: location, passthrough: true }
     bicep_avm: { attribute: location, passthrough: true }
     bicep: { attribute: location, passthrough: true }
+    import: {path: location, passthrough: true}
   placement.resource_group_name:
     terraform_avm: { attribute: resource_group_name, note: 'a name, not parent_id - azurerm-based module' }
     terraform: { attribute: resource_group_name, note: 'required (source: azurerm 5.12 schema)' }
     bicep_avm: { gap: the deployment's resource group scope; no parameter }
     bicep: { gap: the deployment's resource group scope; no property }
+    import: {path: resourceGroup, passthrough: true}
 
   # ----------------------------------------------------------------- identity
   identity.purpose:
@@ -31,6 +33,7 @@ decisions:
     terraform: { attribute: tags.purpose, passthrough: true, note: from the question's renders; the reference's authored rendering names none }
     bicep_avm: { attribute: tags.purpose, passthrough: true, note: 'union(tags, { purpose: purpose }); also the workload part of the name' }
     bicep: { attribute: tags.purpose, passthrough: true, note: from the question's renders; the reference's authored rendering names none }
+    import: {path: tags.purpose, passthrough: true}
   identity.federated_credentials:
     terraform_avm:
       attribute: 'federated_identity_credentials.<key> = { name, issuer, subject, audience }'
@@ -40,6 +43,7 @@ decisions:
     bicep:
       attribute: 'federatedIdentityCredentials child properties: { issuer, subject, audiences }'
       note: '@batchSize(1) - created one after another'
+    import: {todo: 'not in the Resource Graph row: the child Microsoft.ManagedIdentity/userAssignedIdentities/federatedIdentityCredentials properties { issuer, subject, audiences }'}
   identity.isolation_scope:
     terraform_avm:
       attribute: isolation_scope
@@ -51,8 +55,10 @@ decisions:
       note: only "Regional" or unset (None is null); the argument exists only where the provider has it - check terraform providers schema -json
     bicep_avm: { attribute: isolationScope, passthrough: true, note: both values valid; written }
     bicep: { attribute: properties.isolationScope, passthrough: true }
+    import: {path: properties.isolationScope, passthrough: true}
   identity.role_assignments:
     terraform_avm: { attribute: 'role_assignments.<key> = { role_definition_id_or_name, principal_id }' }
     terraform: { attribute: azurerm_role_assignment, note: scoped to the identity's id }
     bicep_avm: { attribute: 'roleAssignments[] = { principalId, roleDefinitionIdOrName, principalType }' }
     bicep: { attribute: Microsoft.Authorization/roleAssignments, note: scope = the identity }
+    import: {todo: 'not in the Resource Graph row: the extension resources Microsoft.Authorization/roleAssignments scoped to the resource'}

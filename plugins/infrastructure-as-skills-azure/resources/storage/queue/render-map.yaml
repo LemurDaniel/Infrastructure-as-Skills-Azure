@@ -19,6 +19,7 @@ decisions:
     terraform: { attribute: storage_account_id }
     bicep_avm: { gap: the queues are a parameter of the account's own module call; no parameter of their own }
     bicep: { attribute: parent, note: queueServices/default of the account }
+    import: {todo: 'not in the Resource Graph row: parent'}
 
   # ------------------------------------------------------------------- queues
   queues.queue_names:
@@ -26,6 +27,7 @@ decisions:
     terraform: { attribute: name }
     bicep_avm: { attribute: 'queueServices.queues[].name' }
     bicep: { attribute: name, note: child of queueServices/default }
+    import: {todo: 'not in the Resource Graph row: name'}
   queues.needs_dead_letter_or_ordering:
     not_rendered: true swaps this set for service-bus; no attribute of the queue
   queues.metadata:
@@ -42,6 +44,7 @@ decisions:
     bicep:
       attribute: properties.metadata
       format: { expr: "toObject({value}, kv => split(kv, '=')[0], kv => split(kv, '=')[1])" }
+    import: {todo: a composed or computed literal; needs its own reading}
 
   # ----------------------------------------------------------------- identity
   identity.role_assignments:
@@ -53,3 +56,4 @@ decisions:
     bicep:
       attribute: 'Microsoft.Authorization/roleAssignments properties = { roleDefinitionId, principalId, principalType }'
       note: 'an extension resource, scope = the queue (source: bicep build, Microsoft.Authorization/roleAssignments@2022-04-01)'
+    import: {todo: 'not in the Resource Graph row: Microsoft.Authorization/roleAssignments properties = { r...'}

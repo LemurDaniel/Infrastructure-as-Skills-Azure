@@ -19,11 +19,13 @@ decisions:
     terraform: { gap: 'azurerm_dns_zone has no location argument - the zone is global (source: azurerm 5.12 schema)' }
     bicep_avm: { attribute: location, note: "always 'global'; the module default as well, written anyway", passthrough: true }
     bicep: { attribute: location, note: "always 'global'", passthrough: true }
+    import: {path: location, passthrough: true}
   placement.resource_group_name:
     terraform_avm: { attribute: resource_group_name, note: 'a name, not an id' }
     terraform: { attribute: azurerm_dns_zone.resource_group_name }
     bicep_avm: { gap: the deployment's resource group scope; no parameter }
     bicep: { gap: the deployment's resource group scope; no property }
+    import: {todo: 'bicep renders it as a gap: the deployment''s resource group scope; no property'}
 
   # --------------------------------------------------------------------- zone
   zone.zone_name:
@@ -31,6 +33,7 @@ decisions:
     terraform: { attribute: azurerm_dns_zone.name, passthrough: true }
     bicep_avm: { attribute: name, note: a parameter of the stage file; not assembled from the naming vars, passthrough: true }
     bicep: { attribute: Microsoft.Network/dnsZones name, note: "properties.zoneType: 'Public'", passthrough: true }
+    import: {todo: 'not in the Resource Graph row: Microsoft.Network/dnsZones name'}
   zone.registrar_owner:
     not_rendered: the handover's `open:` entry for the delegation; the name servers are the module's name_servers / nameServers output
   zone.child_zone_delegations:
@@ -42,6 +45,7 @@ decisions:
       attribute: 'ns[] = { name, ttl, nsRecords: [ { nsdname } ] }'
       note: 'no nested for inside a property - the inner list is map(child.nameServers, ns => { nsdname: ns })'
     bicep: { attribute: Microsoft.Network/dnsZones/NS properties.NSRecords }
+    import: {todo: 'not in the Resource Graph row: Microsoft.Network/dnsZones/NS properties.NSRecords'}
 
   # ------------------------------------------------------------------ records
   records.record_sets:
@@ -57,6 +61,7 @@ decisions:
     bicep:
       attribute: 'Microsoft.Network/dnsZones/A, /AAAA, /CNAME, /TXT, /MX, /CAA'
       note: the typed ARecords / CNAMERecord / TXTRecords / MXRecords / caaRecords, or targetResource.id for an alias
+    import: {todo: 'not in the Resource Graph row: Microsoft.Network/dnsZones/A, /AAAA, /CNAME, /TXT, /MX,...'}
   records.verification_records:
     terraform_avm:
       attribute: 'txt_records, cname_records'
@@ -64,11 +69,13 @@ decisions:
     terraform: { attribute: 'azurerm_dns_txt_record, _cname_record' }
     bicep_avm: { attribute: 'txt, cname', note: 'from wiring.dns_records, concatenated into the same arrays' }
     bicep: { attribute: 'Microsoft.Network/dnsZones/TXT, /CNAME' }
+    import: {todo: 'not in the Resource Graph row: Microsoft.Network/dnsZones/TXT, /CNAME'}
   records.record_ttl_seconds:
     terraform_avm: { attribute: ttl, note: on every record object; required per record - the question's value unless the entry states one, passthrough: true }
     terraform: { attribute: ttl, note: on every record, passthrough: true }
     bicep_avm: { attribute: ttl, note: per record; the module default is 3600 too - written, passthrough: true }
     bicep: { attribute: properties.TTL, note: on every record child, passthrough: true }
+    import: {path: properties.TTL, passthrough: true}
 
   # ------------------------------------------------------------------- access
   access.role_assignments:
@@ -77,6 +84,7 @@ decisions:
     terraform: { attribute: azurerm_role_assignment, note: "scope = the zone's id" }
     bicep_avm: { attribute: "roleAssignments[] = { principalId, roleDefinitionIdOrName: 'DNS Zone Contributor', principalType }" }
     bicep: { attribute: Microsoft.Authorization/roleAssignments, note: an extension resource with scope = the zone }
+    import: {todo: 'not in the Resource Graph row: Microsoft.Authorization/roleAssignments'}
 
   # ----------------------------------------------------------------- security
   security.dnssec:
@@ -89,3 +97,4 @@ decisions:
       passthrough: true
       note: deploys the dnssecConfigs child; the DS record for the parent is read after the deployment, not an output
     bicep: { gap: 'an authored child Microsoft.Network/dnsZones/dnssecConfigs@2023-07-01-preview named default, declared only when true; no property of the zone' }
+    import: {todo: 'bicep renders it as a gap: an authored child Microsoft.Network/dnsZones/dnssecConfigs@2...'}

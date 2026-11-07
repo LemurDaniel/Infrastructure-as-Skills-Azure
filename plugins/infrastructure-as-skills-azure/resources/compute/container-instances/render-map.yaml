@@ -18,6 +18,7 @@ decisions:
     terraform: { attribute: location, passthrough: true }
     bicep_avm: { attribute: location, passthrough: true }
     bicep: { attribute: location, passthrough: true }
+    import: {path: location, passthrough: true}
   placement.resource_group_name:
     terraform_avm:
       attribute: resource_group_name
@@ -25,6 +26,7 @@ decisions:
     terraform: { attribute: resource_group_name }
     bicep_avm: { gap: the deployment's resource group scope; no parameter }
     bicep: { gap: the deployment's resource group scope; no property }
+    import: {todo: 'bicep renders it as a gap: the deployment''s resource group scope; no property'}
 
   # ---------------------------------------------------------- container group
   container_group.container_image:
@@ -35,11 +37,13 @@ decisions:
     terraform: { attribute: container.image, passthrough: true }
     bicep_avm: { attribute: 'containers[].properties.image', passthrough: true }
     bicep: { attribute: 'properties.containers[].properties.image', passthrough: true }
+    import: {todo: 'not in the Resource Graph row: properties.containers[].properties.image'}
   container_group.cpu:
     terraform_avm: { attribute: containers.main.cpu, passthrough: true, note: a number }
     terraform: { attribute: container.cpu, passthrough: true }
     bicep_avm: { attribute: 'containers[].properties.resources.requests.cpu', passthrough: true, note: an integer }
     bicep: { attribute: 'properties.containers[].properties.resources.requests.cpu', passthrough: true }
+    import: {todo: 'not in the Resource Graph row: properties.containers[].properties.resources.requests.cpu'}
   container_group.memory_in_gb:
     terraform_avm: { attribute: containers.main.memory, passthrough: true, note: a number in GB }
     terraform: { attribute: container.memory, passthrough: true }
@@ -48,11 +52,13 @@ decisions:
       format: '{value}'
       note: a string, not a number
     bicep: { attribute: 'properties.containers[].properties.resources.requests.memoryInGB', passthrough: true }
+    import: {todo: 'not in the Resource Graph row: properties.containers[].properties.resources.requests.me...'}
   container_group.restart_policy:
     terraform_avm: { attribute: restart_policy, passthrough: true, note: a required input }
     terraform: { attribute: restart_policy, passthrough: true }
     bicep_avm: { attribute: restartPolicy, passthrough: true, note: module default Always - always written }
     bicep: { attribute: properties.restartPolicy, passthrough: true }
+    import: {path: properties.restartPolicy, passthrough: true}
   container_group.availability_zone:
     terraform_avm:
       attribute: zones
@@ -69,6 +75,7 @@ decisions:
       attribute: zones
       values: { none: null, '1': { expr: "[ '1' ]" }, '2': { expr: "[ '2' ]" }, '3': { expr: "[ '3' ]" } }
       note: none leaves zones unset
+    import: {todo: an answer renders as code or as nothing; needs cases}
 
   # --------------------------------------------------------------- networking
   networking.ip_address_type:
@@ -86,11 +93,13 @@ decisions:
     bicep:
       attribute: properties.ipAddress.type
       values: { private: Private, public: Public }
+    import: {path: properties.ipAddress.type, values: {Private: private, Public: public}}
   networking.subnet_id:
     terraform_avm: { attribute: subnet_ids, format: { expr: '[{value}]' }, note: a list of one id }
     terraform: { attribute: subnet_ids, format: { expr: '[{value}]' }, note: a list of one id; set at creation }
     bicep_avm: { attribute: 'subnets[].subnetResourceId' }
     bicep: { attribute: 'properties.subnetIds[].id', note: 'a list of one object (source: bicep build, Microsoft.ContainerInstance/containerGroups@2025-09-01)' }
+    import: {todo: 'not in the Resource Graph row: properties.subnetIds[].id'}
   networking.exposed_ports:
     terraform_avm:
       attribute: 'exposed_ports = [{ port, protocol }], containers.main.ports'
@@ -102,6 +111,7 @@ decisions:
       attribute: 'ipAddress.ports[] = { port, protocol }, containers[].properties.ports'
       note: both lists must agree
     bicep: { attribute: 'properties.ipAddress.ports, properties.containers[].properties.ports' }
+    import: {todo: 'not in the Resource Graph row: properties.ipAddress.ports, properties.containers[].prop...'}
 
   # ----------------------------------------------------------------- identity
   identity.managed_identity:
@@ -126,6 +136,7 @@ decisions:
     bicep:
       attribute: identity.type
       values: { system_assigned: SystemAssigned, user_assigned: UserAssigned, none: None }
+    import: {path: identity.type, values: {SystemAssigned: system_assigned, UserAssigned: user_assigned, None: none}, missing: none}
   identity.user_assigned_identity_ids:
     terraform_avm: { attribute: managed_identities.user_assigned_resource_ids }
     terraform: { attribute: identity.identity_ids }
@@ -134,6 +145,7 @@ decisions:
       attribute: identity.userAssignedIdentities
       format: { expr: 'toObject({value}, id => id, id => {})' }
       note: 'an object keyed by each id (source: bicep build, Microsoft.ContainerInstance/containerGroups@2025-09-01)'
+    import: {todo: a composed or computed literal; needs its own reading}
   identity.registry_login_server:
     terraform_avm:
       attribute: 'image_registry_credential.<k>.server'
@@ -148,12 +160,14 @@ decisions:
       passthrough: true
       note: with identity, the identity's resource id - never username / password; empty omits the parameter
     bicep: { attribute: 'properties.imageRegistryCredentials[].server', passthrough: true, note: with identity; empty renders no credential }
+    import: {todo: 'not in the Resource Graph row: properties.imageRegistryCredentials[].server'}
   identity.role_assignments:
     terraform_avm: { attribute: 'role_assignments.<key> = { role_definition_id_or_name, principal_id }' }
     terraform: { attribute: azurerm_role_assignment, note: scope = the group's id }
     bicep_avm:
       gap: module README 0.7.1 has no input for role assignments; a Microsoft.Authorization/roleAssignments resource beside the module, scoped to the group, by role definition id
     bicep: { attribute: Microsoft.Authorization/roleAssignments, note: scope = the group }
+    import: {todo: 'not in the Resource Graph row: Microsoft.Authorization/roleAssignments'}
 
   # ----------------------------------------------------------------- security
   security.key_management:
@@ -179,6 +193,7 @@ decisions:
       values:
         platform_managed: null
         customer_managed: { expr: '{ vaultBaseUrl: <vaultBaseUrl>, keyName: <keyName>, keyVersion: <keyVersion>, identity: <identity> }' }
+    import: {todo: an answer renders as code or as nothing; needs cases}
   security.cmk_key_vault_key_id:
     terraform_avm:
       attribute: key_vault_key_id
@@ -188,6 +203,7 @@ decisions:
       attribute: customerManagedKey.keyVaultResourceId, customerManagedKey.keyName
       note: the key id split into the vault's id and the key's name; the module resolves the current version at deployment
     bicep: { attribute: 'properties.encryptionProperties.vaultBaseUrl, keyName, keyVersion' }
+    import: {todo: 'not in the Resource Graph row: properties.encryptionProperties.vaultBaseUrl, keyName, k...'}
 
   # ------------------------------------------------------------ observability
   observability.diagnostic_workspace:
@@ -201,8 +217,10 @@ decisions:
       attribute: logAnalytics.workspaceResourceId
       note: the module reads the shared key itself
     bicep: { attribute: properties.diagnostics.logAnalytics.workspaceId, note: "the workspace's customer id (GUID) as on the Terraform side, not its resource id; with workspaceKey" }
+    import: {todo: a list or a reference; needs its own reading}
   observability.log_type:
     terraform_avm: { gap: module README v0.2.0 has no input for log_type (diagnostics_log_analytics takes workspace_id and workspace_key only); left to the provider and named in the handover }
     terraform: { attribute: diagnostics.log_analytics.log_type, passthrough: true }
     bicep_avm: { attribute: logAnalytics.logType, passthrough: true }
     bicep: { attribute: properties.diagnostics.logAnalytics.logType, passthrough: true }
+    import: {path: properties.diagnostics.logAnalytics.logType, passthrough: true}

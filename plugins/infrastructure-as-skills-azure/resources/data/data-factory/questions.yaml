@@ -512,6 +512,8 @@ groups:
         plain:
           en: "Its logs go to {value}."
           de: "Seine Logs gehen in {value}."
+        plain_values:
+          none: { en: "no workspace - unlike the rest, it has no diagnostic setting", de: "keinen Workspace - anders als beim Rest gibt es hier keine Diagnoseeinstellung" }
         accepts: { ref: log_analytics_workspace }
         answer: { deployment: diagnostics_destination }
         per_environment: true

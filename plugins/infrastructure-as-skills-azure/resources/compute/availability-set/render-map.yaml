@@ -13,6 +13,10 @@ companions:
   terraform: [Azure/avm-res-compute-proximityplacementgroup/azurerm]
   bicep: [avm/res/compute/proximity-placement-group]
 
+# The Azure resources besides `resource` the render creates for this set; an import adopts
+# them by id (adopt.parts). Format: core/iac-rendering/references/render-map.md.
+import_parts: [Microsoft.Compute/proximityPlacementGroups]
+
 decisions:
 
   # ---------------------------------------------------------------- placement
@@ -25,12 +29,14 @@ decisions:
       passthrough: true
       note: the group's call takes the same location
     bicep: { attribute: location, passthrough: true }
+    import: {path: location, passthrough: true}
   placement.resource_group_name:
     terraform:
       attribute: resource_group_name
       note: the group's module is azurerm-based (a name, not an id) and caps azurerm below 5.0
     bicep_avm: { gap: the deployment's resource group scope; no parameter }
     bicep: { gap: the deployment's resource group scope; no property }
+    import: {todo: 'bicep renders it as a gap: the deployment''s resource group scope; no property'}
 
   # ---------------------------------------------------------------------- set
   set.sku:
@@ -45,6 +51,7 @@ decisions:
     bicep:
       attribute: sku.name
       values: { Aligned: Aligned, Classic: Classic }
+    import: {path: sku.name, values: {Aligned: Aligned, Classic: Classic}}
   set.fault_domain_count:
     terraform:
       attribute: platform_fault_domain_count
@@ -55,6 +62,7 @@ decisions:
       passthrough: true
       note: module default 2; written anyway
     bicep: { attribute: properties.platformFaultDomainCount, passthrough: true }
+    import: {path: properties.platformFaultDomainCount, passthrough: true}
   set.update_domain_count:
     terraform: { attribute: platform_update_domain_count, passthrough: true, note: set at creation }
     bicep_avm:
@@ -62,6 +70,7 @@ decisions:
       passthrough: true
       note: module default 5; written anyway
     bicep: { attribute: properties.platformUpdateDomainCount, passthrough: true }
+    import: {path: properties.platformUpdateDomainCount, passthrough: true}
 
   # ---------------------------------------------------- proximity placement
   proximity.proximity_placement_group:
@@ -83,6 +92,7 @@ decisions:
         true: { expr: proximityPlacementGroup.id }
         false: null
       note: true also renders Microsoft.Compute/proximityPlacementGroups (with properties.proximityPlacementGroupType); absent for false
+    import: {todo: an answer renders as code or as nothing; needs cases}
   proximity.proximity_zone:
     terraform:
       module: Azure/avm-res-compute-proximityplacementgroup/azurerm
@@ -98,6 +108,7 @@ decisions:
       attribute: zones
       values: { none: null, '1': { expr: "[ '1' ]" }, '2': { expr: "[ '2' ]" }, '3': { expr: "[ '3' ]" } }
       note: on Microsoft.Compute/proximityPlacementGroups; omitted for none
+    import: {todo: an answer renders as code or as nothing; needs cases}
   proximity.proximity_vm_sizes:
     terraform:
       module: Azure/avm-res-compute-proximityplacementgroup/azurerm
@@ -108,3 +119,4 @@ decisions:
       attribute: intent.vmSizes
       note: "intent: { vmSizes: [...] }; type: 'Standard' is written beside it at the default"
     bicep: { attribute: properties.intent.vmSizes, note: on Microsoft.Compute/proximityPlacementGroups }
+    import: {todo: a list or a reference; needs its own reading}

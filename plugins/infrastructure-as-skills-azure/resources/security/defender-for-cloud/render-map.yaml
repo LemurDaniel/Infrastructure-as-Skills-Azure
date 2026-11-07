@@ -19,6 +19,7 @@ decisions:
     terraform: { attribute: provider azurerm subscription_id, note: 'a root variable, the bare GUID; the azapi contact''s parent_id prefixes it as /subscriptions/<id>' }
     bicep_avm: { gap: "the deployment's target scope (targetScope = 'subscription'); no parameter" }
     bicep: { gap: "the deployment's target scope (targetScope = 'subscription'); no property" }
+    import: {todo: 'bicep renders it as a gap: the deployment''s target scope (targetScope = ''subscription'')...'}
   placement.defender_ownership:
     not_rendered: whether the resources exist at all (count / the module call); no attribute
 
@@ -30,6 +31,7 @@ decisions:
       note: one semicolon-separated string; name default
     bicep_avm: { attribute: securityContactProperties.emails, format: { expr: "join({value}, ';')" }, note: 'one string, semicolon-separated - never the array' }
     bicep: { attribute: Microsoft.Security/securityContacts properties.emails, format: { expr: "join({value}, ';')" }, note: 'name default; one string - never the array' }
+    import: {todo: 'not in the Resource Graph row: Microsoft.Security/securityContacts properties.emails'}
   identity.notify_subscription_owners:
     terraform:
       attribute: azapi_resource Microsoft.Security/securityContacts body.properties.notificationsByRole.state
@@ -49,6 +51,7 @@ decisions:
       also:
         true: "roles: [ 'Owner' ]"
         false: "roles: [ 'Owner' ]"
+    import: {todo: 'not in the Resource Graph row: Microsoft.Security/securityContacts properties.notificat...'}
   identity.alert_minimum_severity:
     terraform:
       attribute: 'azapi_resource Microsoft.Security/securityContacts body.properties.notificationsSources[].minimalSeverity'
@@ -56,6 +59,7 @@ decisions:
       note: 'sourceType = "Alert"; azurerm_security_center_contact cannot carry it'
     bicep_avm: { attribute: 'securityContactProperties.notificationsSources[].minimalSeverity', passthrough: true, note: "sourceType: 'Alert'" }
     bicep: { attribute: 'Microsoft.Security/securityContacts properties.notificationsSources[].minimalSeverity', passthrough: true, note: "sourceType: 'Alert'" }
+    import: {todo: 'not in the Resource Graph row: Microsoft.Security/securityContacts properties.notificat...'}
 
   # ----------------------------------------------------------------- security
   security.plans:
@@ -68,10 +72,12 @@ decisions:
     bicep:
       attribute: Microsoft.Security/pricings name
       note: "properties.pricingTier: 'Standard'; @batchSize(1) - concurrent plan writes conflict"
+    import: {todo: 'not in the Resource Graph row: Microsoft.Security/pricings name'}
   security.servers_plan:
     terraform: { attribute: azurerm_security_center_subscription_pricing.subplan, passthrough: true, note: on the VirtualMachines pricing }
     bicep_avm: { attribute: 'defenderPlans[].subPlan', passthrough: true, note: on the VirtualMachines entry }
     bicep: { attribute: Microsoft.Security/pricings properties.subPlan, passthrough: true, note: on the VirtualMachines pricing }
+    import: {todo: 'not in the Resource Graph row: Microsoft.Security/pricings properties.subPlan'}
   security.storage_malware_scanning:
     terraform:
       attribute: azurerm_security_center_subscription_pricing.extension
@@ -85,6 +91,7 @@ decisions:
       attribute: "Microsoft.Security/pricings properties.extensions[] = { name: 'OnUploadMalwareScanning', isEnabled }"
       values: { true: 'True', false: 'False' }
       note: isEnabled is a string in the pricings API
+    import: {todo: 'not in the Resource Graph row: Microsoft.Security/pricings properties.extensions[] = {...'}
   security.storage_malware_scan_cap_gb:
     terraform:
       attribute: extension.additional_extension_properties.CapGBPerMonth
@@ -98,6 +105,7 @@ decisions:
       attribute: 'Microsoft.Security/pricings properties.extensions[].additionalExtensionProperties.CapGBPerMonth'
       format: '{value}'
       note: a string
+    import: {todo: 'not in the Resource Graph row: Microsoft.Security/pricings properties.extensions[].addi...'}
   security.storage_sensitive_data_discovery:
     terraform:
       attribute: azurerm_security_center_subscription_pricing.extension
@@ -109,3 +117,4 @@ decisions:
     bicep:
       attribute: "Microsoft.Security/pricings properties.extensions[] = { name: 'SensitiveDataDiscovery', isEnabled }"
       values: { true: 'True', false: 'False' }
+    import: {todo: 'not in the Resource Graph row: Microsoft.Security/pricings properties.extensions[] = {...'}
