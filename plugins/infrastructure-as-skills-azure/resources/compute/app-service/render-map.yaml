@@ -14,6 +14,11 @@ import_parts: [Microsoft.Web/serverFarms, Microsoft.Network/privateEndpoints]
 
 # This set shares its ARM type with another; an import tells a row apart by its kind (render-map.md).
 import_match: {kind_lacks: [functionapp, workflowapp]}
+# The site's settings the Resource Graph row leaves null; the API version is the one the
+# provider publishes for Microsoft.Web/sites, which config/* children are read with.
+import_children:
+  config/web: 2026-07-15
+  basicPublishingCredentialsPolicies/scm: 2026-07-15
 
 decisions:
 
@@ -124,7 +129,12 @@ decisions:
     bicep:
       attribute: properties.publicNetworkAccess
       values: { disabled: Disabled, enabled_with_firewall: Enabled, enabled: Enabled }
-    import: {todo: 'Disabled reads from properties.publicNetworkAccess; Enabled vs enabled_with_firewall needs Microsoft.Web/sites/config web properties.ipSecurityRestrictionsDefaultAction, null in the site row (verify)'}
+    import:
+      child: config/web
+      cases:
+      - { when: { properties.publicNetworkAccess: Disabled }, answer: disabled }
+      - { when: { properties.ipSecurityRestrictionsDefaultAction: Deny }, answer: enabled_with_firewall }
+      - { when: { properties.ipSecurityRestrictionsDefaultAction: Allow }, answer: enabled }
   networking.private_endpoint_subnet:
     terraform_avm:
       module: Azure/avm-res-web-site/azurerm
@@ -184,7 +194,7 @@ decisions:
     terraform: { attribute: site_config.ip_restriction, note: from the question's renders - the authored rendering names none }
     bicep_avm: { module: avm/res/web/site, attribute: siteConfig.ipSecurityRestrictions }
     bicep: { attribute: properties.siteConfig.ipSecurityRestrictions }
-    import: {todo: 'not in the Resource Graph row: Microsoft.Web/sites/config web properties.ipSecurityRestrictions, a list of objects (null in the siteConfig of the site row)'}
+    import: {child: config/web, path: properties.ipSecurityRestrictions, each: ipAddress, match: {action: Allow}, skip: [{ipAddress: Any}], note: the allowed ranges; the Allow all entry Azure adds without a rule is left out}
 
   # ----------------------------------------------------------------- identity
   identity.managed_identity:
@@ -282,13 +292,13 @@ decisions:
     terraform: { attribute: 'site_config.minimum_tls_version, site_config.scm_minimum_tls_version', passthrough: true }
     bicep_avm: { module: avm/res/web/site, attribute: 'siteConfig.minTlsVersion, siteConfig.scmMinTlsVersion', passthrough: true }
     bicep: { attribute: properties.siteConfig.minTlsVersion, passthrough: true }
-    import: {path: properties.siteConfig.minTlsVersion, passthrough: true}
+    import: {child: config/web, path: properties.minTlsVersion, passthrough: true}
   security.ftps_state:
     terraform_avm: { module: Azure/avm-res-web-site/azurerm, attribute: site_config.ftps_state, passthrough: true, note: module default FtpsOnly }
     terraform: { attribute: site_config.ftps_state, passthrough: true }
     bicep_avm: { module: avm/res/web/site, attribute: siteConfig.ftpsState, passthrough: true }
     bicep: { attribute: properties.siteConfig.ftpsState, passthrough: true }
-    import: {path: properties.siteConfig.ftpsState, passthrough: true}
+    import: {child: config/web, path: properties.ftpsState, passthrough: true}
   security.basic_auth_enabled:
     terraform_avm:
       module: Azure/avm-res-web-site/azurerm
@@ -309,7 +319,7 @@ decisions:
       attribute: basicPublishingCredentialsPolicies/ftp and /scm properties.allow
       passthrough: true
       note: two child resources, not a property of the site - the part authored renders forget
-    import: {todo: 'not in the Resource Graph row: Microsoft.Web/sites/basicPublishingCredentialsPolicies ftp and scm properties.allow'}
+    import: {child: basicPublishingCredentialsPolicies/scm, path: properties.allow, passthrough: true, note: the scm policy; ftp follows ftps_state}
 
   # ------------------------------------------------------------------ runtime
   runtime.runtime_stack:
@@ -402,7 +412,7 @@ decisions:
     terraform: { attribute: site_config.health_check_path, passthrough: true, note: from the question's renders; omitted while empty }
     bicep_avm: { module: avm/res/web/site, attribute: siteConfig.healthCheckPath, passthrough: true, note: omitted while empty }
     bicep: { attribute: properties.siteConfig.healthCheckPath, passthrough: true, note: omitted while empty }
-    import: {path: properties.siteConfig.healthCheckPath, passthrough: true}
+    import: {child: config/web, path: properties.healthCheckPath, passthrough: true, missing: ''}
   runtime.http2_enabled:
     terraform_avm: { module: Azure/avm-res-web-site/azurerm, attribute: site_config.http2_enabled, passthrough: true, note: module default false }
     terraform: { attribute: site_config.http2_enabled, passthrough: true, note: from the question's renders - the authored rendering names none }
@@ -541,4 +551,4 @@ decisions:
       attribute: "configs[name: 'appsettings'].properties.APPLICATIONINSIGHTS_CONNECTION_STRING"
       note: the component's connectionString output, not its id; with APPLICATIONINSIGHTS_AUTHENTICATION_STRING = Authorization=AAD (;ClientId=<client id> user-assigned) while local auth is off; slots[].configs too; omitted while empty
     bicep: { gap: "Microsoft.Web/sites/config appsettings properties is a string map - the build does not check the setting's key" }
-    import: {todo: 'not in the Resource Graph row: Microsoft.Web/sites/config appsettings (a list action) APPLICATIONINSIGHTS_CONNECTION_STRING, which names the component by its connection string, not its id'}
+    import: {not_readable: 'the app settings are read with a POST list action that returns their values, secrets among them; an import reads nothing that way'}

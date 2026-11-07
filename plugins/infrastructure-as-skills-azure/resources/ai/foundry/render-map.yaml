@@ -14,6 +14,10 @@ import_parts: [Microsoft.Network/privateEndpoints]
 
 # This set shares its ARM type with another; an import tells a row apart by its kind (render-map.md).
 import_match: {kind_has: [AIServices, OpenAI]}
+# The model deployments are a collection below the account, read with the API version the
+# provider publishes for Microsoft.CognitiveServices/accounts.
+import_children:
+  deployments: 2026-09-01
 
 decisions:
 
@@ -91,7 +95,7 @@ decisions:
     bicep:
       attribute: accounts/deployments properties.model
       note: child resources created one after another (@batchSize(1))
-    import: {todo: 'not in the Resource Graph row: child Microsoft.CognitiveServices/accounts/deployments - properties.model { format, name, version }'}
+    import: {child: deployments, path: value, items: {name: name, model: properties.model.name, version: properties.model.version}}
   models.deployment_sku:
     terraform_avm: { attribute: 'cognitive_deployments.<key>.scale.type', passthrough: true }
     terraform:
