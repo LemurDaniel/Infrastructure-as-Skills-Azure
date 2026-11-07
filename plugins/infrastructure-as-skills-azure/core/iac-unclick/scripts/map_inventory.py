@@ -89,11 +89,14 @@ CORE = os.path.abspath(os.path.join(HERE, '..', '..'))
 PLUGIN = os.path.abspath(os.path.join(CORE, '..'))
 WRITE_SPEC = os.path.join(CORE, 'iac-authoring', 'scripts', 'write_spec.py')
 REF_KINDS = os.path.join(CORE, 'iac-authoring', 'references', 'ref-kinds.yaml')
+NAMING_DEFAULT = os.path.join(CORE, 'iac-rendering', 'references', 'naming.default.yaml')
 sys.path.insert(0, os.path.join(CORE, 'iac-authoring', 'scripts'))
 import yaml_cache  # noqa: E402 - parsed sets and render-maps, cached by content hash
 
 NOISE_GROUPS = {'networkwatcherrg'}
 NOISE_TYPES = {'microsoft.alertsmanagement/smartdetectoralertrules'}
+# Azure creates these itself, by type and fixed name, beside an Application Insights component.
+NOISE_NAMED = {('microsoft.insights/actiongroups', 'application insights smart detection')}
 NOISE_TAG = re.compile(r'^(hidden-|ms-resource-usage$|aks-managed-)', re.IGNORECASE)
 PE_TYPE = 'microsoft.network/privateendpoints'
 # Azure creates and deletes a private endpoint's interface with it; nothing renders or imports it.
@@ -225,6 +228,8 @@ def read(imp, row):
         return True, (imp['present'] if v not in ('', [], {}) else imp.get('missing'))
     if 'single' in imp:
         return (isinstance(v, list) and len(v) == 1), (v[0] if isinstance(v, list) and len(v) == 1 else None)
+    if imp.get('listed') is True:  # one value, the list's one item
+        return (v not in ('', None)), ([v] if v not in ('', None) else None)
     if 'items' in imp:
         if not isinstance(v, list):
             return False, None
@@ -286,6 +291,35 @@ def read_diagnostic(reading, setting):
     return True, any(at(e, 'enabled') is True for e in (metrics if isinstance(metrics, list) else []))
 
 
+def workload_from_names(rows, locs, stage):
+    """The workload the adopted names carry, read through the default convention, or None.
+
+    A name `<type>-<location code>-<stage code>-<workload>-<suffix>` (kv-sdc-prod-chat-jaa) holds the
+    workload after the two codes. The one more than half of the names carry is the workload - a
+    second instance (`nsg-sdc-prod-chatapp-01`) is outvoted; with no majority, None.
+    """
+    try:
+        with open(NAMING_DEFAULT, encoding='utf-8') as f:
+            maps = (yaml.safe_load(f) or {}).get('mappings') or {}
+    except (OSError, yaml.YAMLError):
+        return None
+    loc = (maps.get('location') or {}).get(locs.most_common(1)[0][0]) if locs else None
+    env = (maps.get('environment') or {}).get(stage)
+    if not loc or not env:
+        return None
+    found = collections.Counter()
+    for r in rows:
+        parts = str(r.get('name', '')).lower().split('-')
+        for i in range(len(parts) - 3):
+            if parts[i] == str(loc).lower() and parts[i + 1] == str(env).lower():
+                found[parts[i + 2]] += 1
+                break
+    if not found:
+        return None
+    name, n = found.most_common(1)[0]
+    return name if n * 2 > sum(found.values()) else None
+
+
 def get_dec(node, group, qid):
     """An imported decision's value in a resource being written, None when it was not read."""
     d = (node.get(group) or {}).get(qid) if isinstance(node, dict) else None
@@ -324,6 +358,8 @@ def main():
             noise['in NetworkWatcherRG or a managed group'] += 1
         elif str(r.get('type', '')).lower() in NOISE_TYPES:
             noise[str(r.get('type'))] += 1
+        elif (str(r.get('type', '')).lower(), str(r.get('name', '')).lower()) in NOISE_NAMED:
+            noise[f"{r.get('type')} '{r.get('name')}' (created by Azure)"] += 1
         elif str(r.get('type', '')).lower() == NIC_TYPE and at(r, 'properties.privateEndpoint.id') is not MISSING:
             noise['network interface of a private endpoint'] += 1
         else:
@@ -346,6 +382,9 @@ def main():
                       if at(c, 'properties.privateLinkServiceId') is not MISSING]
         else:
             owners = [i for i, b in blobs.items() if i != rid and rid in b]
+            if not owners:  # a child resource: its owner is the resource its id lies below
+                below = [i for i in by_id if rid.startswith(i + '/')]
+                owners = [max(below, key=len)] if below else []
         owners = [o for o in owners if o in by_id and t in sets.get(set_of(by_id[o], sets) or '', {}).get('parts', [])]
         if len(set(owners)) == 1:
             parent_of[rid] = owners[0]
@@ -409,6 +448,8 @@ def main():
         rows = [by_id[p] for p, owner in sorted(parent_of.items())
                 if owner == rid and same(by_id[p].get('type'), imp['part'])]
         reads = [read(imp, row) for row in rows]
+        if imp.get('every_part') is True:  # one item per part, every part holding one
+            return (bool(reads) and all(f for f, _ in reads)), [v for _, v in reads]
         values = {json.dumps(v, sort_keys=True).lower() for _, v in reads}
         if not reads or not all(f for f, _ in reads) or len(values) != 1:
             return False, None
@@ -483,7 +524,7 @@ def main():
         resources_out[key] = node
         for gid, q, imp in refs:
             found, v = read_row(imp, r)
-            if found and ('each' in imp or imp.get('keys') is True):  # a list of references: all resolve, or none is read
+            if found and ('each' in imp or imp.get('keys') is True or imp.get('every_part') is True):  # a list of references: all resolve, or none is read
                 each = [reference(q, x, resources_out) for x in v]
                 ref = MISSING if MISSING in each else each
             else:
@@ -551,7 +592,8 @@ def main():
     locs = collections.Counter(str(r.get('location')) for _, r in mapped if r.get('location') not in (None, 'global'))
     tag_sets = [{k: v for k, v in (r.get('tags') or {}).items() if not NOISE_TAG.match(k)} for _, r in mapped]
     common = dict(set.intersection(*[set(t.items()) for t in tag_sets])) if tag_sets else {}
-    workload = args.workload or re.sub(r'^rg-|-(prod|production|dev|test|tst|stg)$', '', (groups or ['workload'])[0].lower())
+    workload = args.workload or workload_from_names([r for _, r in mapped], locs, stage) or \
+        re.sub(r'^rg-|-(prod|production|dev|test|tst|stg)$', '', (groups or ['workload'])[0].lower())
     context = {'environments': [stage], 'language': args.language}
     if locs:
         context['location'] = locs.most_common(1)[0][0]
@@ -591,12 +633,22 @@ def main():
                                    if args.language == 'de' else
                                    f"Diagnostics go to {len(workspaces)} workspaces today ({', '.join(workspaces)}) - which one becomes the destination?"),
                       'blocks': 'render'})
-    exposure = [str(get_dec(n, 'networking', 'public_network_access')) for n in resources_out.values()
-                if get_dec(n, 'networking', 'public_network_access') is not None]
+    # Public access sits in `networking` for most sets and in `access` for a workspace.
+    exposure = {k: str(next(v for v in (get_dec(n, g, 'public_network_access') for g in ('networking', 'access'))
+                            if v is not None))
+                for k, n in resources_out.items()
+                if any(get_dec(n, g, 'public_network_access') is not None for g in ('networking', 'access'))}
+    public = sorted(k for k, e in exposure.items() if e in ('enabled', 'enabled_with_firewall'))
     if exposure:
-        deployment['network_exposure'] = {
-            'value': 'public' if any(e in ('enabled', 'enabled_with_firewall') for e in exposure) else 'private',
-            'source': 'imported'}
+        # All public is public, none is private; some is private with those named as exceptions -
+        # never `public` for a mix, which would open what is private today on the next render.
+        value = 'public' if len(public) == len(exposure) else ('private' if not public else 'private_with_exceptions')
+        deployment['network_exposure'] = {'value': value, 'source': 'imported'}
+        if value == 'private_with_exceptions':
+            deployment['public_parts'] = {'value': public, 'source': {'forced_by': 'deployment.network_exposure'}}
+    if any(s == 'private-dns-zone' for s, _ in mapped):
+        # A zone adopted in the scope is the deployment's own: created and owned here.
+        deployment['private_dns_ownership'] = {'value': 'deployment', 'source': 'imported'}
     if assignments:
         deployment['deployer_roles'] = {
             'value': [{'role': 'Role Based Access Control Administrator', 'scope': 'resource_group',

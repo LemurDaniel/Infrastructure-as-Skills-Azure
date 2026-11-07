@@ -1,0 +1,641 @@
+{
+  "read_at": "2026-11-07T00:26:28Z",
+  "scopes": [
+    "/subscriptions/66666666-6666-6666-6666-666666666666/resourceGroups/Import-Group"
+  ],
+  "tag_filter": {},
+  "resources": [
+    {
+      "extendedLocation": null,
+      "id": "/subscriptions/66666666-6666-6666-6666-666666666666/resourceGroups/Import-Group/providers/microsoft.insights/actiongroups/Application Insights Smart Detection",
+      "kind": "",
+      "location": "global",
+      "managedBy": "",
+      "name": "Application Insights Smart Detection",
+      "plan": null,
+      "properties": {
+        "armRoleReceivers": [
+          {
+            "name": "Monitoring Contributor",
+            "roleId": "00000000-0000-4000-8000-000000000001",
+            "useCommonAlertSchema": true
+          },
+          {
+            "name": "Monitoring Reader",
+            "roleId": "00000000-0000-4000-8000-000000000002",
+            "useCommonAlertSchema": true
+          }
+        ],
+        "automationRunbookReceivers": [],
+        "azureAppPushReceivers": [],
+        "azureFunctionReceivers": [],
+        "emailReceivers": [],
+        "enabled": true,
+        "eventHubReceivers": [],
+        "groupShortName": "SmartDetect",
+        "itsmReceivers": [],
+        "logicAppReceivers": [],
+        "smsReceivers": [],
+        "voiceReceivers": [],
+        "webhookReceivers": []
+      },
+      "resourceGroup": "import-group",
+      "sku": null,
+      "subscriptionId": "66666666-6666-6666-6666-666666666666",
+      "tags": null,
+      "type": "microsoft.insights/actiongroups",
+      "zones": null
+    },
+    {
+      "extendedLocation": null,
+      "id": "/subscriptions/66666666-6666-6666-6666-666666666666/resourceGroups/Import-Group/providers/Microsoft.KeyVault/vaults/kv-sdc-prod-chat-jaa",
+      "kind": "",
+      "location": "swedencentral",
+      "managedBy": "",
+      "name": "kv-sdc-prod-chat-jaa",
+      "plan": null,
+      "properties": {
+        "accessPolicies": [],
+        "enablePurgeProtection": true,
+        "enableRbacAuthorization": true,
+        "enableSoftDelete": true,
+        "enabledForDeployment": false,
+        "enabledForDiskEncryption": false,
+        "enabledForTemplateDeployment": false,
+        "networkAcls": {
+          "bypass": "None",
+          "defaultAction": "Deny",
+          "ipRules": [],
+          "virtualNetworkRules": []
+        },
+        "privateEndpointConnections": [
+          {
+            "id": "/subscriptions/66666666-6666-6666-6666-666666666666/resourceGroups/Import-Group/providers/Microsoft.KeyVault/vaults/kv-sdc-prod-chat-jaa/privateEndpointConnections/pep-sdc-prod-chat-vault-01",
+            "properties": {
+              "privateEndpoint": {
+                "id": "/subscriptions/66666666-6666-6666-6666-666666666666/resourceGroups/Import-Group/providers/Microsoft.Network/privateEndpoints/pep-sdc-prod-chat-vault-01",
+                "resourceGroup": "Import-Group"
+              },
+              "privateLinkServiceConnectionState": {
+                "actionsRequired": "None",
+                "status": "Approved"
+              },
+              "provisioningState": "Succeeded"
+            },
+            "resourceGroup": "Import-Group"
+          }
+        ],
+        "provisioningState": "Succeeded",
+        "publicNetworkAccess": "Disabled",
+        "sku": {
+          "family": "A",
+          "name": "standard"
+        },
+        "softDeleteRetentionInDays": 90,
+        "tenantId": "00000000-0000-4000-8000-000000000003"
+      },
+      "resourceGroup": "import-group",
+      "sku": null,
+      "subscriptionId": "66666666-6666-6666-6666-666666666666",
+      "tags": {},
+      "type": "microsoft.keyvault/vaults",
+      "zones": null
+    },
+    {
+      "extendedLocation": null,
+      "id": "/subscriptions/66666666-6666-6666-6666-666666666666/resourceGroups/Import-Group/providers/Microsoft.Network/privateDnsZones/privatelink.vaultcore.azure.net",
+      "kind": "",
+      "location": "global",
+      "managedBy": "",
+      "name": "privatelink.vaultcore.azure.net",
+      "plan": null,
+      "properties": {
+        "internalId": "SW1tdXRhYmxlWm9uZUlkZW50aXR5OzkxODFkZDA0LTk5YzktNGE5Mi1iMzM3LTc4NmJlMjZlN2JmMTsw",
+        "maxNumberOfRecordSets": 25000,
+        "maxNumberOfVirtualNetworkLinks": 1000,
+        "maxNumberOfVirtualNetworkLinksWithRegistration": 100,
+        "numberOfRecordSets": 2,
+        "numberOfVirtualNetworkLinks": 1,
+        "numberOfVirtualNetworkLinksWithRegistration": 0,
+        "provisioningState": "Succeeded"
+      },
+      "resourceGroup": "import-group",
+      "sku": null,
+      "subscriptionId": "66666666-6666-6666-6666-666666666666",
+      "tags": {},
+      "type": "microsoft.network/privatednszones",
+      "zones": null
+    },
+    {
+      "extendedLocation": null,
+      "id": "/subscriptions/66666666-6666-6666-6666-666666666666/resourceGroups/Import-Group/providers/Microsoft.Network/virtualNetworks/vnet-sdc-prod-chat-01",
+      "kind": "",
+      "location": "swedencentral",
+      "managedBy": "",
+      "name": "vnet-sdc-prod-chat-01",
+      "plan": null,
+      "properties": {
+        "addressSpace": {
+          "addressPrefixes": [
+            "10.100.0.0/25"
+          ]
+        },
+        "enableDdosProtection": false,
+        "privateEndpointVNetPolicies": "Disabled",
+        "provisioningState": "Succeeded",
+        "resourceGuid": "00000000-0000-4000-8000-000000000004",
+        "subnets": [
+          {
+            "etag": "W/\"00000000-0000-4000-8000-000000000005\"",
+            "id": "/subscriptions/66666666-6666-6666-6666-666666666666/resourceGroups/Import-Group/providers/Microsoft.Network/virtualNetworks/vnet-sdc-prod-chat-01/subnets/snet-app",
+            "name": "snet-app",
+            "properties": {
+              "addressPrefix": "10.100.0.64/26",
+              "delegations": [
+                {
+                  "etag": "W/\"00000000-0000-4000-8000-000000000005\"",
+                  "id": "/subscriptions/66666666-6666-6666-6666-666666666666/resourceGroups/Import-Group/providers/Microsoft.Network/virtualNetworks/vnet-sdc-prod-chat-01/subnets/snet-app/delegations/delegation",
+                  "name": "delegation",
+                  "properties": {
+                    "actions": [
+                      "Microsoft.Network/virtualNetworks/subnets/action"
+                    ],
+                    "provisioningState": "Succeeded",
+                    "serviceName": "Microsoft.Web/serverFarms"
+                  },
+                  "resourceGroup": "Import-Group",
+                  "type": "Microsoft.Network/virtualNetworks/subnets/delegations"
+                }
+              ],
+              "networkSecurityGroup": {
+                "id": "/subscriptions/66666666-6666-6666-6666-666666666666/resourceGroups/Import-Group/providers/Microsoft.Network/networkSecurityGroups/nsg-sdc-prod-chatapp-01",
+                "resourceGroup": "Import-Group"
+              },
+              "privateEndpointNetworkPolicies": "Disabled",
+              "privateLinkServiceNetworkPolicies": "Enabled",
+              "provisioningState": "Succeeded",
+              "resourceGuid": "00000000-0000-4000-8000-000000000006",
+              "serviceAssociationLinks": [
+                {
+                  "etag": "W/\"00000000-0000-4000-8000-000000000005\"",
+                  "id": "/subscriptions/66666666-6666-6666-6666-666666666666/resourceGroups/Import-Group/providers/Microsoft.Network/virtualNetworks/vnet-sdc-prod-chat-01/subnets/snet-app/serviceAssociationLinks/AppServiceLink",
+                  "name": "AppServiceLink",
+                  "properties": {
+                    "allowDelete": false,
+                    "enabledForArmDeployments": false,
+                    "infrastructureServices": [],
+                    "link": "/subscriptions/66666666-6666-6666-6666-666666666666/resourceGroups/Import-Group/providers/Microsoft.Web/serverfarms/plan-sdc-prod-chat-01",
+                    "linkedResourceType": "Microsoft.Web/serverfarms",
+                    "locations": [],
+                    "provisioningState": "Succeeded",
+                    "subnetId": "00000000-0000-4000-8000-000000000007"
+                  },
+                  "resourceGroup": "Import-Group",
+                  "type": "Microsoft.Network/virtualNetworks/subnets/serviceAssociationLinks"
+                }
+              ]
+            },
+            "resourceGroup": "Import-Group",
+            "type": "Microsoft.Network/virtualNetworks/subnets"
+          },
+          {
+            "etag": "W/\"00000000-0000-4000-8000-000000000005\"",
+            "id": "/subscriptions/66666666-6666-6666-6666-666666666666/resourceGroups/Import-Group/providers/Microsoft.Network/virtualNetworks/vnet-sdc-prod-chat-01/subnets/snet-sdc-prod-chat-endpoints-01",
+            "name": "snet-sdc-prod-chat-endpoints-01",
+            "properties": {
+              "addressPrefix": "10.100.0.0/27",
+              "delegations": [],
+              "ipConfigurations": [
+                {
+                  "id": "/subscriptions/66666666-6666-6666-6666-666666666666/resourceGroups/IMPORT-GROUP/providers/Microsoft.Network/networkInterfaces/NIC-SDC-PROD-CHAT-ACCOUNT-01/ipConfigurations/PRIVATEENDPOINTIPCONFIG.00000000-0000-4000-8000-000000000008",
+                  "resourceGroup": "IMPORT-GROUP"
+                },
+                {
+                  "id": "/subscriptions/66666666-6666-6666-6666-666666666666/resourceGroups/IMPORT-GROUP/providers/Microsoft.Network/networkInterfaces/NIC-SDC-PROD-CHAT-ACCOUNT-01/ipConfigurations/PRIVATEENDPOINTIPCONFIG.00000000-0000-4000-8000-000000000009",
+                  "resourceGroup": "IMPORT-GROUP"
+                },
+                {
+                  "id": "/subscriptions/66666666-6666-6666-6666-666666666666/resourceGroups/IMPORT-GROUP/providers/Microsoft.Network/networkInterfaces/NIC-SDC-PROD-CHAT-ACCOUNT-01/ipConfigurations/PRIVATEENDPOINTIPCONFIG.00000000-0000-4000-8000-000000000010",
+                  "resourceGroup": "IMPORT-GROUP"
+                },
+                {
+                  "id": "/subscriptions/66666666-6666-6666-6666-666666666666/resourceGroups/IMPORT-GROUP/providers/Microsoft.Network/networkInterfaces/NIC-SDC-PROD-CHAT-VAULT-01/ipConfigurations/PRIVATEENDPOINTIPCONFIG.00000000-0000-4000-8000-000000000011",
+                  "resourceGroup": "IMPORT-GROUP"
+                }
+              ],
+              "networkSecurityGroup": {
+                "id": "/subscriptions/66666666-6666-6666-6666-666666666666/resourceGroups/Import-Group/providers/Microsoft.Network/networkSecurityGroups/nsg-sdc-prod-chatendpoints-01",
+                "resourceGroup": "Import-Group"
+              },
+              "privateEndpointNetworkPolicies": "Enabled",
+              "privateEndpoints": [
+                {
+                  "id": "/subscriptions/66666666-6666-6666-6666-666666666666/resourceGroups/IMPORT-GROUP/providers/Microsoft.Network/privateEndpoints/PEP-SDC-PROD-CHAT-ACCOUNT-01",
+                  "resourceGroup": "IMPORT-GROUP"
+                },
+                {
+                  "id": "/subscriptions/66666666-6666-6666-6666-666666666666/resourceGroups/IMPORT-GROUP/providers/Microsoft.Network/privateEndpoints/PEP-SDC-PROD-CHAT-VAULT-01",
+                  "resourceGroup": "IMPORT-GROUP"
+                }
+              ],
+              "privateLinkServiceNetworkPolicies": "Enabled",
+              "provisioningState": "Succeeded",
+              "purpose": "PrivateEndpoints",
+              "resourceGuid": "00000000-0000-4000-8000-000000000012"
+            },
+            "resourceGroup": "Import-Group",
+            "type": "Microsoft.Network/virtualNetworks/subnets"
+          }
+        ],
+        "virtualNetworkPeerings": []
+      },
+      "resourceGroup": "import-group",
+      "sku": null,
+      "subscriptionId": "66666666-6666-6666-6666-666666666666",
+      "tags": {},
+      "type": "microsoft.network/virtualnetworks",
+      "zones": null
+    },
+    {
+      "extendedLocation": null,
+      "id": "/subscriptions/66666666-6666-6666-6666-666666666666/resourceGroups/Import-Group/providers/Microsoft.OperationalInsights/workspaces/log-sdc-prod-chat-01",
+      "kind": "",
+      "location": "swedencentral",
+      "managedBy": "",
+      "name": "log-sdc-prod-chat-01",
+      "plan": null,
+      "properties": {
+        "createdDate": "2026-11-06T22:33:55.688Z",
+        "customerId": "00000000-0000-4000-8000-000000000013",
+        "features": {
+          "disableLocalAuth": true,
+          "enableLogAccessUsingOnlyResourcePermissions": false,
+          "legacy": 0,
+          "searchVersion": 1
+        },
+        "modifiedDate": "2026-11-06T22:37:07.158Z",
+        "provisioningState": "Succeeded",
+        "publicNetworkAccessForIngestion": "Enabled",
+        "publicNetworkAccessForQuery": "Enabled",
+        "retentionInDays": 30,
+        "sku": {
+          "lastSkuUpdate": "2026-11-06T22:33:55.688Z",
+          "name": "PerGB2018"
+        },
+        "workspaceCapping": {
+          "dailyQuotaGb": -1.0,
+          "dataIngestionStatus": "RespectQuota",
+          "quotaNextResetTime": "2026-11-07T10:00:00Z"
+        }
+      },
+      "resourceGroup": "import-group",
+      "sku": null,
+      "subscriptionId": "66666666-6666-6666-6666-666666666666",
+      "tags": {},
+      "type": "microsoft.operationalinsights/workspaces",
+      "zones": null
+    },
+    {
+      "extendedLocation": null,
+      "id": "/subscriptions/66666666-6666-6666-6666-666666666666/resourceGroups/Import-Group/providers/Microsoft.Web/serverFarms/plan-sdc-prod-chat-01",
+      "kind": "linux",
+      "location": "swedencentral",
+      "managedBy": "",
+      "name": "plan-sdc-prod-chat-01",
+      "plan": null,
+      "properties": {
+        "activeBackupHomeServerFarmName": null,
+        "adminRuntimeSiteName": null,
+        "adminSiteName": null,
+        "allowEquivalentSku": false,
+        "asyncScalingEnabled": false,
+        "computeMode": "Dedicated",
+        "createdTime": "2026-11-06T22:38:34.906Z",
+        "currentNumberOfWorkers": 1,
+        "currentNumberOfZonesUtilized": 1,
+        "currentWorkerSize": "SmallV3",
+        "currentWorkerSizeId": 6,
+        "elasticScaleEnabled": false,
+        "eligibleLogCategories": "",
+        "existingServerFarmIds": null,
+        "freeOfferExpirationTime": null,
+        "geoRegion": "Sweden Central",
+        "hostingEnvironment": null,
+        "hostingEnvironmentId": null,
+        "hostingEnvironmentProfile": null,
+        "hyperV": false,
+        "isCustomMode": false,
+        "isSpot": false,
+        "isXenon": false,
+        "kind": "linux",
+        "kubeEnvironmentProfile": null,
+        "maximumElasticWorkerCount": 1,
+        "maximumNumberOfWorkers": 30,
+        "maximumNumberOfZones": 3,
+        "mdmId": "waws-prod-sec-063_2045",
+        "migrateToVMSS": null,
+        "name": "plan-sdc-prod-chat-01",
+        "numberOfSites": 1,
+        "numberOfWorkers": 1,
+        "perSiteScaling": false,
+        "planName": "VirtualDedicatedPlan",
+        "powerState": "Running",
+        "provisioningState": "Succeeded",
+        "reserved": true,
+        "resourceGroup": "Import-Group",
+        "serverFarmId": 2045,
+        "siteMode": null,
+        "spotExpirationTime": null,
+        "status": "Ready",
+        "subscription": "66666666-6666-6666-6666-666666666666",
+        "tags": {},
+        "targetWorkerCount": 0,
+        "targetWorkerSizeId": 0,
+        "targetWorkerSku": null,
+        "vnetConnectionsMax": 2,
+        "vnetConnectionsUsed": 1,
+        "webSiteId": null,
+        "webSpace": "Import-Group-SwedenCentralwebspace-Linux",
+        "workerSize": "SmallV3",
+        "workerSizeId": 6,
+        "workerTierName": null,
+        "zoneRedundant": false
+      },
+      "resourceGroup": "import-group",
+      "sku": {
+        "capacity": 1,
+        "family": "Pv3",
+        "name": "P1v3",
+        "size": "P1v3",
+        "tier": "PremiumV3"
+      },
+      "subscriptionId": "66666666-6666-6666-6666-666666666666",
+      "tags": {},
+      "type": "microsoft.web/serverfarms",
+      "zones": null
+    },
+    {
+      "extendedLocation": null,
+      "id": "/subscriptions/66666666-6666-6666-6666-666666666666/resourceGroups/Import-Group/providers/Microsoft.Web/sites/app-sdc-prod-chat-jaa",
+      "kind": "app,linux,container",
+      "location": "swedencentral",
+      "managedBy": "",
+      "name": "app-sdc-prod-chat-jaa",
+      "plan": null,
+      "properties": {
+        "adminEnabled": true,
+        "afdEnabled": false,
+        "aiIntegration": null,
+        "autoGeneratedDomainNameLabelScope": null,
+        "availabilityState": "Normal",
+        "blockPathTraversal": false,
+        "buildVersion": null,
+        "cers": null,
+        "clientAffinityEnabled": true,
+        "clientAffinityProxyEnabled": false,
+        "clientCertEnabled": false,
+        "clientCertExclusionEndPoints": null,
+        "clientCertExclusionPaths": null,
+        "clientCertMode": "Required",
+        "cloningInfo": null,
+        "computeMode": null,
+        "containerAllocationSubnet": null,
+        "containerSize": 0,
+        "contentAvailabilityState": "Normal",
+        "csrs": [],
+        "dailyMemoryTimeQuota": 0,
+        "daprConfig": null,
+        "deploymentId": "app-sdc-prod-chat-jaa",
+        "dnsConfiguration": {},
+        "domainVerificationIdentifiers": null,
+        "eligibleLogCategories": "AppServiceAppLogs,AppServiceConsoleLogs,AppServiceHTTPLogs,AppServicePlatformLogs,ScanLogs,AppServiceAntivirusScanAuditLogs,AppServiceAuthenticationLogs,AppServiceFileAuditLogs,AppServiceAuditLogs,AppServiceIPSecAuditLogs",
+        "enabled": true,
+        "endToEndEncryptionEnabled": false,
+        "ftpUsername": "app-sdc-prod-chat-jaa\\$app-sdc-prod-chat-jaa",
+        "ftpsHostName": "ftps://waws-prod-sec-063.ftp.azurewebsites.windows.net/site/wwwroot",
+        "functionAppConfig": null,
+        "functionExecutionUnitsCache": null,
+        "functionsRuntimeAdminIsolationEnabled": false,
+        "geoDistributions": null,
+        "homeStamp": "waws-prod-sec-063",
+        "hostNamePrivateStates": [],
+        "hostNamesDisabled": false,
+        "hostingEnvironment": null,
+        "hostingEnvironmentId": null,
+        "hostingEnvironmentProfile": null,
+        "httpsOnly": true,
+        "hyperV": false,
+        "inFlightFeatures": [
+          "SiteContainers"
+        ],
+        "inProgressOperationId": null,
+        "ipMode": "IPv4",
+        "isXenon": false,
+        "jA4Forwarding": false,
+        "keyVaultReferenceIdentity": "SystemAssigned",
+        "kind": "app,linux,container",
+        "lastModifiedTimeUtc": "2026-11-06T22:39:15.936Z",
+        "legacyServiceEndpointTrafficEvaluation": null,
+        "maintenanceEnabled": false,
+        "managedEnvironmentId": null,
+        "maxNumberOfWorkers": null,
+        "migrationState": null,
+        "name": "app-sdc-prod-chat-jaa",
+        "outboundVnetRouting": {
+          "allTraffic": true,
+          "applicationTraffic": true,
+          "backupRestoreTraffic": true,
+          "contentShareTraffic": true,
+          "imagePullTraffic": true,
+          "managedIdentityTraffic": true
+        },
+        "owner": null,
+        "platformVersion": "110.0.7.48",
+        "possibleInboundIpAddresses": "51.12.74.12,51.12.74.13",
+        "possibleInboundIpv6Addresses": "2603:1020:1004:3::12d",
+        "privateEndpointConnections": [],
+        "privateLinkIdentifiers": null,
+        "publicNetworkAccess": "Enabled",
+        "redundancyMode": "None",
+        "reserved": true,
+        "resourceConfig": null,
+        "resourceGroup": "Import-Group",
+        "runtimeAvailabilityState": "Normal",
+        "sandboxType": null,
+        "scmSiteAlsoStopped": false,
+        "serverFarm": null,
+        "serverFarmId": "/subscriptions/66666666-6666-6666-6666-666666666666/resourceGroups/Import-Group/providers/Microsoft.Web/serverfarms/plan-sdc-prod-chat-01",
+        "siteConfig": {
+          "acrUseManagedIdentityCreds": false,
+          "acrUserManagedIdentityID": null,
+          "alwaysOn": true,
+          "antivirusScanEnabled": null,
+          "apiDefinition": null,
+          "apiManagementConfig": null,
+          "appCommandLine": null,
+          "appSettings": null,
+          "autoHealEnabled": null,
+          "autoHealRules": null,
+          "autoSwapSlotName": null,
+          "azureMonitorLogCategories": null,
+          "azureStorageAccounts": null,
+          "clusteringEnabled": false,
+          "cors": null,
+          "customAppPoolIdentityAdminState": null,
+          "customAppPoolIdentityTenantState": null,
+          "defaultDocuments": null,
+          "detailedErrorLoggingEnabled": null,
+          "documentRoot": null,
+          "elasticWebAppScaleLimit": null,
+          "experiments": null,
+          "fileChangeAuditEnabled": null,
+          "ftpsState": null,
+          "functionAppScaleLimit": 0,
+          "functionsRuntimeScaleMonitoringEnabled": null,
+          "handlerMappings": null,
+          "healthCheckPath": null,
+          "http20Enabled": true,
+          "http20ProxyFlag": null,
+          "httpLoggingEnabled": null,
+          "ipSecurityRestrictions": null,
+          "ipSecurityRestrictionsDefaultAction": null,
+          "javaContainer": null,
+          "javaContainerVersion": null,
+          "javaVersion": null,
+          "limits": null,
+          "linuxFxVersion": "DOCKER|docker.io/library/demo:1.0.0",
+          "loadBalancing": null,
+          "localMySqlEnabled": null,
+          "logsDirectorySizeLimit": null,
+          "managedPipelineMode": null,
+          "managedServiceIdentityId": null,
+          "metadata": null,
+          "minTlsCipherSuite": null,
+          "minTlsVersion": null,
+          "minimumElasticInstanceCount": 0,
+          "netFrameworkVersion": null,
+          "nodeVersion": null,
+          "numberOfWorkers": 1,
+          "phpVersion": null,
+          "powerShellVersion": null,
+          "preWarmedInstanceCount": null,
+          "publicNetworkAccess": null,
+          "publishingUsername": null,
+          "push": null,
+          "pythonVersion": null,
+          "remoteDebuggingEnabled": null,
+          "remoteDebuggingVersion": null,
+          "requestTracingEnabled": null,
+          "routingRules": null,
+          "runtimeADUser": null,
+          "sandboxType": null,
+          "scmIpSecurityRestrictions": null,
+          "scmIpSecurityRestrictionsDefaultAction": null,
+          "scmIpSecurityRestrictionsUseMain": null,
+          "scmMinTlsCipherSuite": null,
+          "scmMinTlsVersion": null,
+          "scmSupportedTlsCipherSuites": null,
+          "scmType": null,
+          "sitePort": null,
+          "sitePrivateLinkHostEnabled": null,
+          "storageType": null,
+          "supportedTlsCipherSuites": null,
+          "tracingOptions": null,
+          "use32BitWorkerProcess": null,
+          "virtualApplications": null,
+          "vnetName": null,
+          "vnetPrivatePortsCount": null,
+          "vnetRouteAllEnabled": null,
+          "webJobsEnabled": false,
+          "webSocketsEnabled": null,
+          "websiteTimeZone": null,
+          "winAuthAdminState": null,
+          "winAuthTenantState": null,
+          "windowsConfiguredStacks": null,
+          "windowsFxVersion": null,
+          "xManagedServiceIdentityId": null
+        },
+        "siteDisabledReason": 0,
+        "siteMode": null,
+        "siteProperties": {
+          "appSettings": null,
+          "metadata": null,
+          "properties": [
+            {
+              "name": "LinuxFxVersion",
+              "value": "DOCKER|docker.io/library/demo:1.0.0"
+            },
+            {
+              "name": "WindowsFxVersion",
+              "value": null
+            }
+          ]
+        },
+        "siteScopedCertificatesEnabled": false,
+        "sku": "PremiumV3",
+        "slotName": null,
+        "slotSwapStatus": null,
+        "sshEnabled": null,
+        "sslCertificates": null,
+        "state": "Running",
+        "storageAccountRequired": false,
+        "storageRecoveryDefaultState": "Running",
+        "suspendedTill": null,
+        "tags": {},
+        "targetBuildVersion": null,
+        "targetSwapSlot": null,
+        "trafficManagerHostNames": null,
+        "usageState": "Normal",
+        "useContainerLocalhostBindings": null,
+        "useQueryStringAffinity": false,
+        "virtualNetworkSubnetId": "/subscriptions/66666666-6666-6666-6666-666666666666/resourceGroups/Import-Group/providers/Microsoft.Network/virtualNetworks/vnet-sdc-prod-chat-01/subnets/snet-app",
+        "webSpace": "Import-Group-SwedenCentralwebspace-Linux",
+        "workloadProfileName": null
+      },
+      "resourceGroup": "import-group",
+      "sku": null,
+      "subscriptionId": "66666666-6666-6666-6666-666666666666",
+      "tags": {},
+      "type": "microsoft.web/sites",
+      "zones": null
+    },
+    {
+      "extendedLocation": null,
+      "id": "/subscriptions/66666666-6666-6666-6666-666666666666/resourceGroups/Import-Group/providers/Microsoft.Network/privateDnsZones/privatelink.vaultcore.azure.net/virtualNetworkLinks/vnet-sdc-prod-chat-01",
+      "kind": "",
+      "location": "global",
+      "managedBy": "",
+      "name": "vnet-sdc-prod-chat-01",
+      "plan": null,
+      "properties": {
+        "provisioningState": "Succeeded",
+        "registrationEnabled": false,
+        "resolutionPolicy": "Default",
+        "virtualNetwork": {
+          "id": "/subscriptions/66666666-6666-6666-6666-666666666666/resourceGroups/Import-Group/providers/Microsoft.Network/virtualNetworks/vnet-sdc-prod-chat-01",
+          "resourceGroup": "Import-Group"
+        },
+        "virtualNetworkLinkState": "Completed"
+      },
+      "resourceGroup": "import-group",
+      "sku": null,
+      "subscriptionId": "66666666-6666-6666-6666-666666666666",
+      "tags": {},
+      "type": "microsoft.network/privatednszones/virtualnetworklinks",
+      "zones": null
+    }
+  ],
+  "resource_groups": [
+    {
+      "id": "/subscriptions/66666666-6666-6666-6666-666666666666/resourceGroups/Import-Group",
+      "name": "Import-Group",
+      "managedBy": null
+    }
+  ],
+  "role_assignments": [],
+  "role_definitions": {},
+  "locks": [],
+  "diagnostic_settings": [],
+  "diagnostics_read": true,
+  "children": {}
+}

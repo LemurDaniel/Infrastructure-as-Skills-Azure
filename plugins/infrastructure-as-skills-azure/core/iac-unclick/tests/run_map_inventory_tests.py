@@ -31,6 +31,15 @@ their own, Deny among them; no diagnostic setting anywhere, the settings read. I
   - read the vault's endpoint subnet from the row of its adopted private endpoint;
   - write observability_ownership none and no diagnostic decision.
 
+tests/fixtures/inventory-chat.json is a real chat app, anonymised and cut to a few rows: a private
+vault, a public workspace, a private DNS zone with its network link, a web app on its plan, and
+the action group Azure creates beside Application Insights. Its spec must:
+  - read the workload from the adopted names through the convention, not from the group's name;
+  - read the zone's name and its links (adopted as the zone's parts: children below its id);
+  - make the zones the deployment's, and a private vault beside a public workspace
+    private_with_exceptions with the workspace named, never public;
+  - read the plan's size and OS from the plan's row, and count the action group as noise.
+
 Usage:
     python3 run_map_inventory_tests.py
 
@@ -45,6 +54,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 MAP = os.path.join(HERE, '..', 'scripts', 'map_inventory.py')
 FIXTURE = os.path.join(HERE, 'fixtures', 'inventory-orders.json')
 NETWORK = os.path.join(HERE, 'fixtures', 'inventory-network.json')
+CHAT = os.path.join(HERE, 'fixtures', 'inventory-chat.json')
 CORE = os.path.join(HERE, '..', '..')
 CHECK = os.path.join(CORE, 'iac-authoring', 'scripts', 'check_spec.py')
 WRITE = os.path.join(CORE, 'iac-authoring', 'scripts', 'write_spec.py')
@@ -173,6 +183,33 @@ def main():
     expect(spec.get('deployment', {}).get('observability_ownership') == {'value': 'none', 'source': 'imported'}
            and 'diagnostic_categories' not in text,
            'no diagnostic setting anywhere: ownership none, no diagnostic decision written')
+
+    # ------------------------------------------------------------------ chat
+    mapped = map_fixture(CHAT)
+    if mapped is None:
+        return 1
+    spec, text, _, _ = mapped
+    res, dep = spec.get('resources', {}), spec.get('deployment', {})
+    expect(spec.get('context', {}).get('workload') == 'chat',
+           "the workload is read from the adopted names (kv-sdc-prod-chat-...), not from the group Import-Group")
+    zone = res.get('private-dns-zone', {})  # the one zone, so no instance suffix
+    expect(zone.get('zone', {}).get('zone_names', {}).get('value') == ['privatelink.vaultcore.azure.net'],
+           "a private DNS zone's name is read as its zone_names")
+    expect(zone.get('networking', {}).get('vnet_links', {}).get('value') == [{'resource': 'virtual-network'}]
+           and zone.get('networking', {}).get('resolution_policy', {}).get('value') == 'Default',
+           'the virtual network links are read from the adopted links, the network as a reference')
+    links = (zone.get('adopt', {}).get('parts', {}).get('value') or {}).get('production') or []
+    expect(len(links) == 1 and '/virtualNetworkLinks/' in links[0] and 'virtualnetworklinks' not in str(spec.get('unmapped', '')).lower(),
+           'a link is adopted as its zone\'s part - a child found by its id below the zone - not left unmapped')
+    expect(dep.get('private_dns_ownership', {}).get('value') == 'deployment', 'an adopted zone makes the zones the deployment\'s')
+    expect(dep.get('network_exposure', {}).get('value') == 'private_with_exceptions'
+           and dep.get('public_parts', {}).get('value') == ['log-analytics-workspace'],
+           'a private vault beside a public workspace is private with the workspace as the exception, never public')
+    hosting = res.get('app-service', {}).get('hosting', {})
+    expect(hosting.get('sku', {}).get('value') == 'P1v3' and hosting.get('os_type', {}).get('value') == 'Linux',
+           "the App Service plan's size and OS are read from the adopted plan's row")
+    expect('action-group' not in res and 'Smart Detection' not in text,
+           'the action group Azure creates beside Application Insights is noise')
 
     print('-' * 70)
     print('all passed' if not failures else f"{len(failures)} failed")
