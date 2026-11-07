@@ -1256,10 +1256,77 @@ regeneration from the spec loses them. All `render`:
 - **Container registry `security.admin_enabled`:** its plain text ends "the access runs through
   company accounts" for both answers - wrong when the admin account is on. Seen in the first
   real decision document.
-- **Diagram:** a resource without `meta.purpose` is labelled with its key (`key-vault`); an
-  import has no purpose to read, the review gives it.
+- **Diagram:** an adopted resource without `meta.purpose` is labelled with its Azure name (the
+  last segment of `adopt.id`, since 2026-11-07); a created one still with its key.
 - `collect.py` reads diagnostic settings one call per resource (`--no-diagnostics` skips it);
   locks through `az lock list`, not Resource Graph.
+
+#### Checks: speed (2026-11-07)
+
+- **The YAML cache is on for everyone.** `yaml_cache.py` writes parsed sets and render-maps as
+  JSON under `%LOCALAPPDATA%` / `~/.cache` - also on a customer's machine when the plugin runs
+  there. Decide: keep it on, or off by default and on only for the test runners
+  (`IAS_YAML_CACHE`).
+- **The test runners start a process per case** (`check_spec.py` about 90 times); after the cache
+  0.3-0.5 s of each run is Python start, the PyYAML import and Windows process overhead. The next
+  step is calling the check in-process from the runners - a larger change.
+
+#### The first real import: TEMP3, a chat app in `Import-Group` (2026-11-07)
+
+A clicked chat app (App Service on a plan, Foundry, Key Vault, two private endpoints, four
+`privatelink.*` zones with links, Log Analytics, App Insights, two NSGs, one stage) read with
+`collect.py` and mapped for Bicep. Fixed on `feature/iac-unclick` that night: zones and their links
+read (`listed`, `every_part`, a child as a part), `network_exposure` mixed ->
+`private_with_exceptions` with `public_parts`, the workload read back from the names through the
+convention, the App Service plan's hosting from the plan row, the Smart Detection action group as
+noise, App Service settings from `config/web` and the scm policy, Foundry deployments from the
+`deployments` child, `wiring.access` from the role assignments, the group's spelling kept, and
+the picture drawn from what was adopted (endpoints from `adopt.parts`, zones in the name area,
+Azure names, the panel in words). `inventory-chat.json` is that group cut down and anonymised.
+
+**State in TEMP3:** the inventory predates the child readings - the next step there is a fresh
+`collect.py` (other tenant: `az account set` with the person's yes, set back after), then
+`map_inventory.py`, the draft picture, the review. **Not verified against a real answer:** the
+API versions picked from `az provider show` (`config/web` and the scm policy with the
+`Microsoft.Web/sites` version 2026-07-15, `deployments` with the `accounts` version 2026-09-01)
+and the body shapes the readings assume - the fresh collect is the check.
+
+**Open, before the polish:**
+1. **DNS zones: the drawing and the check disagree.** `new_diagram.py` draws the zones as one
+   tile ("4× privatelink.*"), `verify_diagram.py` expects every zone on its own and fails 4× "not
+   drawn". Either the check accepts the bundled tile, or the script draws the zones one by one.
+
+**Open, content:**
+2. **A line is missing:** two of the three `wiring.access` entries are drawn; App Service ->
+   Application Insights is not (the monitoring zone is probably not an edge target).
+   `verify_diagram.py` should also report a missing line, not only a missing resource.
+3. **Departures table:** `deny_internet` on the endpoint NSG counts as a departure from the
+   default `azure_default`. The table is right by the set; the question is the set: either a
+   stricter default for `default_outbound` (at least for `subnet_purpose: private_endpoints`), or
+   a live value stricter than the default not counted as a departure.
+4. **Application Insights on the app stays assumed** (`observability.application_insights`).
+   The link is `APPLICATIONINSIGHTS_CONNECTION_STRING` in the app settings, which Azure returns
+   only through a POST list action, values and secrets included - `not_readable` since
+   2026-11-07. Reading it means `collect.py` calls that action, keeps the one setting, drops
+   every value but the component it names, and the mapping turns it into a reference. Decide
+   first whether an import may call a list action at all.
+5. **Line labels sit on the PaaS frame.** The polish can move them by hand; if it repeats on
+   every spec, the gap belongs in `new_diagram.py`.
+6. **Nearly everything is red:** every adopted resource carries one collected "so übernehmen?"
+   `open:` entry, so the picture flags each one. Assumed defaults and genuinely open decisions
+   need telling apart.
+
+**Open, the big one - the render of an imported spec** (see the first bullet of this section):
+iac-rendering cannot turn an imported spec into code yet, and that code is the point.
+- Terraform: `import {}` blocks from `adopt.id` (and the parts, locks, settings, assignments).
+- Bicep: no state, the same name updates in place - so every name comes **exactly from
+  `adopt.id`**, never from `naming.yaml` (`app-sdc-prod-chat-jaa` follows no convention), and the
+  resource group is set as an existing one (`Import-Group`).
+- Acceptance: `az deployment group what-if` shows no change apart from the values still
+  `assumed` on purpose (21 in TEMP3 before the fresh collect).
+
+**Decisions, no fix:** the 13 collected "so übernehmen?" questions and `deploy_mechanism` in
+TEMP3 are the owner's at the acceptance.
 
 ### Waiting on the owner
 
@@ -1287,9 +1354,11 @@ regeneration from the spec loses them. All `render`:
 
 ## Next
 
-**unclick: render what an import adopts** (*Open, unclick*): `import` blocks in iac-rendering
-for `adopt` (id, lock, diagnostic setting, parts, role assignments), the Bicep path, and an empty
-plan on the first real group as the acceptance. Then the registry's `admin_enabled` text and the
+**unclick: finish TEMP3, then render what an import adopts** (*Open, unclick*, "The first real
+import"): a fresh `collect.py` in TEMP3 to check the child readings, the five open fixes there
+(DNS zones in the check first), then `import` blocks in iac-rendering for `adopt` (id, lock,
+diagnostic setting, parts, role assignments), the Bicep path with the names from `adopt.id`, and
+an empty plan / what-if on `Import-Group` as the acceptance. Then the registry's `admin_enabled` text and the
 postponed conversion of the 725 `todo` readings with the child mechanism (plan in *Open,
 unclick*). The draft PR into `dev` carries the rest.
 
