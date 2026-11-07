@@ -125,6 +125,7 @@ import rg_roles  # noqa: E402 - the role table per scheme, shared with the diagr
 sys.path.insert(0, HERE)
 import spec_source  # noqa: E402 - a source as a word or {forced_by | derived_from | overridden: ...}
 import spec_ref  # noqa: E402 - a reference as {resource: <key>} or {existing: <kind>}
+import yaml_cache  # noqa: E402 - parsed sets, cached by content hash
 import spec_import  # noqa: E402 - adopt, unmapped and imported_from, what an import leaves
 # Resource keys every resource may carry without its set asking them (spec.md: placement, meta).
 BUILTIN_RESOURCE_KEYS = {('placement', 'resource_group'), ('placement', 'location'), ('meta', 'purpose')}
@@ -136,8 +137,8 @@ ROLES_CREATE_GROUP = ['Contributor', 'Owner']
 
 
 def fast_load(yaml, f):
-    """safe_load through libyaml's C loader where PyYAML has it - the sets are read on every check."""
-    return yaml.load(f, Loader=getattr(yaml, 'CSafeLoader', yaml.SafeLoader))
+    """safe_load through libyaml's C loader, cached by content hash - the sets are read on every check."""
+    return yaml_cache.load(yaml, f)
 
 
 def load_question_index(yaml):

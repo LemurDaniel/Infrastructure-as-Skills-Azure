@@ -89,6 +89,8 @@ CORE = os.path.abspath(os.path.join(HERE, '..', '..'))
 PLUGIN = os.path.abspath(os.path.join(CORE, '..'))
 WRITE_SPEC = os.path.join(CORE, 'iac-authoring', 'scripts', 'write_spec.py')
 REF_KINDS = os.path.join(CORE, 'iac-authoring', 'references', 'ref-kinds.yaml')
+sys.path.insert(0, os.path.join(CORE, 'iac-authoring', 'scripts'))
+import yaml_cache  # noqa: E402 - parsed sets and render-maps, cached by content hash
 
 NOISE_GROUPS = {'networkwatcherrg'}
 NOISE_TYPES = {'microsoft.alertsmanagement/smartdetectoralertrules'}
@@ -105,7 +107,7 @@ MISSING = object()
 
 def fast_load(f):
     """safe_load through libyaml's C loader where PyYAML has it: every set and render-map is read."""
-    return yaml.load(f, Loader=getattr(yaml, 'CSafeLoader', yaml.SafeLoader))
+    return yaml_cache.load(yaml, f)
 
 
 def load_sets():

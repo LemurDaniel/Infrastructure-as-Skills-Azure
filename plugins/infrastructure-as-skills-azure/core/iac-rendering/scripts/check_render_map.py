@@ -59,6 +59,8 @@ import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 PLUGIN = os.path.abspath(os.path.join(HERE, '..', '..', '..'))
+sys.path.insert(0, os.path.join(HERE, '..', '..', 'iac-authoring', 'scripts'))
+import yaml_cache  # noqa: E402 - render-maps and sets, parsed once and cached by content hash
 RESOURCES = os.path.join(PLUGIN, 'resources')
 REF_KINDS = os.path.join(PLUGIN, 'core', 'iac-authoring', 'references', 'ref-kinds.yaml')
 
@@ -420,9 +422,9 @@ def check_file(path, yaml):
     qpath = os.path.join(os.path.dirname(path), 'questions.yaml')
     try:
         with open(path, encoding='utf-8') as f:
-            doc = yaml.safe_load(f) or {}
+            doc = yaml_cache.load(yaml, f) or {}
         with open(qpath, encoding='utf-8') as f:
-            qs = yaml.safe_load(f) or {}
+            qs = yaml_cache.load(yaml, f) or {}
     except (OSError, yaml.YAMLError) as e:
         return [f"{rel}: cannot read it or its questions.yaml: {e}"]
     if not isinstance(doc, dict):

@@ -48,6 +48,8 @@ PLUGIN = HERE.parents[2]
 PLUGIN_JSON = PLUGIN / ".claude-plugin" / "plugin.json"
 DEPLOYMENT_SET = HERE.parent / "questions" / "deployment.yaml"
 WRITE_NAMING = PLUGIN / "core" / "iac-rendering" / "scripts" / "write_naming.py"
+sys.path.insert(0, str(HERE))
+import yaml_cache  # noqa: E402 - the sets, parsed once and cached by content hash
 
 SECTIONS = ['schema_version', 'spec', 'context', 'deployment', 'pattern', 'composition', 'resources', 'wiring', 'unmapped',
             'open']
@@ -70,7 +72,8 @@ KEY = re.compile(r"""^('(?:[^']|'')*'|"[^"]*"|[^\s#'"\[\]{},&*!|>%@`][^#]*?):(?:
 def question_sets():
     """'deployment' or a set's directory name -> [(group id, [question ids])]."""
     def groups(path):
-        doc = yaml.safe_load(path.read_text(encoding='utf-8')) or {}
+        with open(path, encoding='utf-8') as f:
+            doc = yaml_cache.load(yaml, f) or {}
         return [(g.get('id'), [q['id'] for q in g.get('questions') or [] if isinstance(q, dict) and q.get('id')])
                 for g in doc.get('groups') or [] if isinstance(g, dict)]
     sets = {'deployment': groups(DEPLOYMENT_SET)}
