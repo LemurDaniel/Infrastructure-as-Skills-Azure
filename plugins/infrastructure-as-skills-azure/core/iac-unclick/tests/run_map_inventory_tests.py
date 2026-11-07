@@ -38,7 +38,10 @@ the action group Azure creates beside Application Insights. Its spec must:
   - read the zone's name and its links (adopted as the zone's parts: children below its id);
   - make the zones the deployment's, and a private vault beside a public workspace
     private_with_exceptions with the workspace named, never public;
-  - read the plan's size and OS from the plan's row, and count the action group as noise.
+  - read the plan's size and OS from the plan's row, and count the action group as noise;
+  - read the app's access, ranges, TLS, FTPS and health check from config/web and basic auth from
+    the scm policy (children the fixture carries), and draw the app's role on the vault as an
+    access line; keep the group's spelling (Import-Group).
 
 Usage:
     python3 run_map_inventory_tests.py
@@ -46,6 +49,7 @@ Usage:
 Needs PyYAML. Exit 0 all pass, 1 a test failed, 2 could not run.
 """
 import os
+import re
 import subprocess
 import sys
 import tempfile
@@ -59,6 +63,7 @@ CORE = os.path.join(HERE, '..', '..')
 CHECK = os.path.join(CORE, 'iac-authoring', 'scripts', 'check_spec.py')
 WRITE = os.path.join(CORE, 'iac-authoring', 'scripts', 'write_spec.py')
 EXPORT = os.path.join(CORE, 'iac-authoring', 'scripts', 'export_decisions.py')
+DRAW = os.path.join(CORE, 'iac-diagram', 'scripts', 'new_diagram.py')
 
 
 def main():
@@ -203,8 +208,41 @@ def main():
            'a link is adopted as its zone\'s part - a child found by its id below the zone - not left unmapped')
     expect(dep.get('private_dns_ownership', {}).get('value') == 'deployment', 'an adopted zone makes the zones the deployment\'s')
     expect(dep.get('network_exposure', {}).get('value') == 'private_with_exceptions'
-           and dep.get('public_parts', {}).get('value') == ['log-analytics-workspace'],
-           'a private vault beside a public workspace is private with the workspace as the exception, never public')
+           and dep.get('public_parts', {}).get('value') == ['app-service', 'log-analytics-workspace'],
+           'a private vault beside a public app and workspace is private with those as the exceptions, never public')
+    app = res.get('app-service', {})
+    expect(app.get('networking', {}).get('public_network_access', {}).get('value') == 'enabled_with_firewall'
+           and app.get('networking', {}).get('ip_restrictions', {}).get('value') == ['203.0.113.5/32'],
+           "the app's access and its allowed ranges are read from config/web, the Deny all entry left out")
+    expect(app.get('security', {}).get('min_tls_version', {}).get('value') == '1.2'
+           and app.get('security', {}).get('ftps_state', {}).get('value') == 'Disabled'
+           and app.get('security', {}).get('basic_auth_enabled', {}).get('value') is False
+           and app.get('runtime', {}).get('health_check_path', {}).get('value') == '/health',
+           "TLS, FTPS, health check (config/web) and basic auth (the scm policy) are read, not assumed")
+    expect(spec.get('wiring', {}).get('access', {}).get('value') == [{'from': 'app-service', 'to': 'key-vault', 'label': 'Key Vault Secrets User'}],
+           'a role assignment between two adopted resources is an access line, labelled with the role')
+    expect(spec.get('context', {}).get('resource_group_name') == {'production': 'Import-Group'},
+           "the group keeps Azure's spelling, not the Resource Graph row's lower case")
+
+    # The picture of an imported spec: endpoints from adopt.parts, adopted zones as zones,
+    # adopted resources by their Azure names, the decisions in words.
+    with tempfile.TemporaryDirectory() as tmp:
+        spec_path, drawio = os.path.join(tmp, 'infra-spec.yaml'), os.path.join(tmp, 'd.drawio')
+        with open(spec_path, 'w', encoding='utf-8') as f:
+            f.write(text)
+        d = subprocess.run([sys.executable, DRAW, spec_path, '--out', drawio], capture_output=True, text=True)
+        xml = open(drawio, encoding='utf-8').read() if os.path.isfile(drawio) else ''
+    # The fixture adopts no private endpoint: the plan and the zone's link are parts, no endpoint,
+    # and a private posture alone does not draw one for an adopted resource.
+    expect(d.returncode == 0 and not re.search(r'\d+× (AI Foundry|Key Vault|App Service|Private)', xml),
+           f"no endpoint tile: an adopted resource has the endpoints adopt.parts holds, none here {d.stdout[-200:]}")
+    expect('1× privatelink.*' in xml and 'privatelink-vaultcore' not in xml,
+           'an adopted zone is drawn in the name-resolution area, not as a service')
+    expect('kv-sdc-prod-chat-jaa' in xml and 'log-sdc-prod-chat-01' in xml,
+           'adopted resources are named by their Azure names')
+    expect('Ausnahme App Service, Log Analytics Workspace' in xml and 'Zonen in diesem Deployment' in xml
+           and 'private_with_exceptions' not in xml,
+           'the decisions panel says the exposure and the zone ownership in words')
     hosting = res.get('app-service', {}).get('hosting', {})
     expect(hosting.get('sku', {}).get('value') == 'P1v3' and hosting.get('os_type', {}).get('value') == 'Linux',
            "the App Service plan's size and OS are read from the adopted plan's row")

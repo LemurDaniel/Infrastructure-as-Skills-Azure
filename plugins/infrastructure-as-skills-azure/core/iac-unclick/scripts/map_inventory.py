@@ -587,7 +587,9 @@ def main():
                             'role': role, 'adopt_id': {stage: a['id']}})
 
     # --- context, deployment, head ---------------------------------------------------------
-    groups = sorted({str(r.get('resourceGroup')) for _, r in mapped})
+    # Resource Graph spells a row's group in lower case; the group list keeps Azure's spelling.
+    spelled = {str(g.get('name', '')).lower(): str(g.get('name')) for g in inv.get('resource_groups') or [] if g.get('name')}
+    groups = sorted({spelled.get(str(r.get('resourceGroup')).lower(), str(r.get('resourceGroup'))) for _, r in mapped})
     subs = sorted({str(r.get('subscriptionId')) for _, r in mapped})
     locs = collections.Counter(str(r.get('location')) for _, r in mapped if r.get('location') not in (None, 'global'))
     tag_sets = [{k: v for k, v in (r.get('tags') or {}).items() if not NOISE_TAG.match(k)} for _, r in mapped]
@@ -667,6 +669,16 @@ def main():
     }
     if assignments:
         spec['wiring'] = {'role_assignments': {'value': assignments, 'source': 'imported'}}
+        # Who reaches what, as far as a role grants it: one line per pair of adopted resources,
+        # labelled with the roles - evidence from Azure, never a call guessed from the types.
+        pairs = {}
+        for a in assignments:
+            if a['from'] in resources_out and a['to'] in resources_out:
+                pairs.setdefault((a['from'], a['to']), []).append(a['role'])
+        if pairs:
+            spec['wiring']['access'] = {
+                'value': [{'from': f, 'to': t, 'label': ', '.join(sorted(set(roles)))} for (f, t), roles in sorted(pairs.items())],
+                'source': {'forced_by': 'wiring.role_assignments'}}
     if unmapped:
         spec['unmapped'] = unmapped
     opens.append({'key': 'deployment.deploy_mechanism',

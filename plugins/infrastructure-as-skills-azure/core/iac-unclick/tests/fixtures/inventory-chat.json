@@ -597,7 +597,12 @@
       "subscriptionId": "66666666-6666-6666-6666-666666666666",
       "tags": {},
       "type": "microsoft.web/sites",
-      "zones": null
+      "zones": null,
+      "identity": {
+        "type": "SystemAssigned",
+        "principalId": "00000000-0000-4000-8000-000000000901",
+        "tenantId": "00000000-0000-4000-8000-000000000902"
+      }
     },
     {
       "extendedLocation": null,
@@ -632,10 +637,53 @@
       "managedBy": null
     }
   ],
-  "role_assignments": [],
-  "role_definitions": {},
+  "role_assignments": [
+    {
+      "id": "/subscriptions/66666666-6666-6666-6666-666666666666/resourceGroups/Import-Group/providers/Microsoft.KeyVault/vaults/kv-sdc-prod-chat-jaa/providers/Microsoft.Authorization/roleAssignments/00000000-0000-4000-8000-000000000903",
+      "properties": {
+        "principalId": "00000000-0000-4000-8000-000000000901",
+        "principalType": "ServicePrincipal",
+        "roleDefinitionId": "/subscriptions/66666666-6666-6666-6666-666666666666/providers/Microsoft.Authorization/roleDefinitions/4633458b-17de-408a-b874-0445c86b69e6",
+        "scope": "/subscriptions/66666666-6666-6666-6666-666666666666/resourceGroups/Import-Group/providers/Microsoft.KeyVault/vaults/kv-sdc-prod-chat-jaa"
+      }
+    }
+  ],
+  "role_definitions": {
+    "4633458b-17de-408a-b874-0445c86b69e6": "Key Vault Secrets User"
+  },
   "locks": [],
   "diagnostic_settings": [],
   "diagnostics_read": true,
-  "children": {}
+  "children": {
+    "/subscriptions/66666666-6666-6666-6666-666666666666/resourcegroups/import-group/providers/microsoft.web/sites/app-sdc-prod-chat-jaa": {
+      "config/web": {
+        "properties": {
+          "publicNetworkAccess": "Enabled",
+          "ipSecurityRestrictionsDefaultAction": "Deny",
+          "ipSecurityRestrictions": [
+            {
+              "ipAddress": "203.0.113.5/32",
+              "action": "Allow",
+              "priority": 100,
+              "name": "home"
+            },
+            {
+              "ipAddress": "Any",
+              "action": "Deny",
+              "priority": 2147483647,
+              "name": "Deny all"
+            }
+          ],
+          "minTlsVersion": "1.2",
+          "ftpsState": "Disabled",
+          "healthCheckPath": "/health"
+        }
+      },
+      "basicPublishingCredentialsPolicies/scm": {
+        "properties": {
+          "allow": false
+        }
+      }
+    }
+  }
 }
