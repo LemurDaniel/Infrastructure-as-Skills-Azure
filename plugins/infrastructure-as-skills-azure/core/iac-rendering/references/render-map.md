@@ -133,6 +133,8 @@ entries at run time:
 | `path` + `passthrough: true` | The value is the answer as it is |
 | `path` + `format` | The literal with one `{value}`: `Standard_GRS` reads back as `GRS` |
 | `path` + `reference: true` | On a question that takes a reference: the path holds an id (`properties.virtualNetworkSubnetId`), which the import writes as the spec resource or part it belongs to, or as `{ existing: <kind>, id }` when it lies outside the scope. On a list question `each: <path>` names the id inside every element of a list (`path: properties.subnets, each: id` for the subnets an NSG guards); every one must resolve, or none is read. A subnet part takes the network's spelling of its name, whatever case the id was stored in |
+| `path` + `listed: true` | On a list question: the path holds one value and the answer is the list of it (a private DNS zone's `name` -> `zone_names: [privatelink.vaultcore.azure.net]`) |
+| `every_part: true` beside `part` | On a list question: one item from each adopted part of that type instead of one value they all share (`vnet_links`: every link's `properties.virtualNetwork.id`, as references); every part must hold one, or none is read |
 | `path` + `single: true` | The path holds a list and the answer is its one element (`addressSpace.addressPrefixes` -> one range); a list of two or more is not read, never cut to its first |
 | `path` + `items` | On a list question: the path holds a list of objects and each becomes one answer item, `{ <field>: <path inside the element> }` - `{ name: name, prefix: properties.addressPrefix }` for the subnets. A field may name a list of paths: their values are merged into one list (`source: [properties.sourceAddressPrefix, properties.sourceAddressPrefixes]`), and none holding one is no answer |
 | `part: <ARM type>` beside a path | The path is read from the row of the resource's adopted part of that type, one listed in `import_parts`, not from its own row: `{ part: Microsoft.Network/privateEndpoints, path: properties.subnet.id, reference: true }` for the endpoint's subnet. Several parts of the type must hold the same value, or none is read |
@@ -166,6 +168,9 @@ import_parts: [Microsoft.Web/serverFarms, Microsoft.Network/privateEndpoints]
 The Azure resources besides the set's own `resource` that the render creates for it - a plan
 under a web app, a WAF policy, the private endpoints its module makes. A spec written from what
 runs in Azure lists their ids under `resources.<key>.adopt.parts`, and the render imports them
+- a part is found by its owner naming its id (a web app's `serverFarmId`), by the endpoint's
+connection (a private endpoint), or by its id lying below the owner's (a DNS zone's
+`virtualNetworkLinks`) -
 instead of creating a second one; `check_spec.py` refuses an id of a type not listed here. A set
 that renders nothing besides its resource has no `import_parts`. Locks, diagnostic settings and
 role assignments are not listed: the spec names them on their own (`adopt.lock_id`,

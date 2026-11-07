@@ -77,7 +77,7 @@ SCALAR_TYPES = {'enum', 'bool', 'int', 'string'}
 # How an import reads a decision back (references/render-map.md, "Reading it back").
 IMPORT_PATH = re.compile(r'^[A-Za-z][A-Za-z0-9_]*(\.[A-Za-z0-9_]+)*$')
 IMPORT_FIELDS = {'path', 'values', 'passthrough', 'format', 'reference', 'single', 'items', 'present', 'cases',
-                 'missing', 'note', 'match', 'skip', 'each', 'part', 'child', 'keys'}
+                 'missing', 'note', 'match', 'skip', 'each', 'part', 'child', 'keys', 'listed', 'every_part'}
 IMPORT_STATS = {'read': 0, 'not_readable': 0, 'todo': 0}
 # What a decision reads from the resource's diagnostic setting instead of its row.
 DIAGNOSTIC_READINGS = ('workspace', 'log_categories', 'metrics')
@@ -166,7 +166,12 @@ def check_import(where, imp, question, parts=(), children=()):
     path = imp.get('path')
     if not (isinstance(path, str) and IMPORT_PATH.match(path)):
         errs.append(f"{where}: import.path is a dotted path in the Resource Graph row (properties.publicNetworkAccess)")
-    forms = [k for k in ('values', 'passthrough', 'format', 'reference', 'single', 'items', 'present', 'keys', 'each') if k in imp]
+    forms = [k for k in ('values', 'passthrough', 'format', 'reference', 'single', 'items', 'present', 'keys', 'each',
+                         'listed') if k in imp]
+    if 'listed' in imp and (imp['listed'] is not True or question.get('type') != 'list'):
+        errs.append(f"{where}: import.listed is true, on a list question - the path's one value is the list's one item")
+    if 'every_part' in imp and (imp['every_part'] is not True or 'part' not in imp or question.get('type') != 'list'):
+        errs.append(f"{where}: import.every_part is true beside part, on a list question - one item per adopted part")
     if 'each' in imp:  # the value at a path inside every element: a list, alone or as references
         if question.get('type') != 'list' or not (isinstance(imp['each'], str) and IMPORT_PATH.match(imp['each'])):
             errs.append(f"{where}: import.each is the path of a value inside each list element, on a list question")
@@ -179,7 +184,7 @@ def check_import(where, imp, question, parts=(), children=()):
             forms = ['reference']
     if len(forms) != 1:
         return errs + [f"{where}: import has exactly one of values, passthrough, format, reference, single, items, "
-                       f"present, keys or each"]
+                       f"present, keys, each or listed"]
     if 'single' in imp and imp['single'] is not True:
         errs.append(f"{where}: import.single is true or absent")
     # match keeps, skip drops the list elements whose paths all hold the literals
