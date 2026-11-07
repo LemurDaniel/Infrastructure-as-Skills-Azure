@@ -127,6 +127,7 @@ groups:
           en: "Which networks should resolve names in the zone?"
           de: "Welche Netze sollen Namen in der Zone auflösen?"
         type: list
+        accepts: { ref: virtual_network }
         plain:
           en: "The zone can be resolved from the networks {value}."
           de: "Die Zone lässt sich aus den Netzen {value} auflösen."

@@ -69,13 +69,13 @@ decisions:
       also:
         Linux: 'properties.reserved: true'
       note: on Microsoft.Web/serverfarms
-    import: {path: kind, values: {linux: Linux, app: Windows}}
+    import: {part: Microsoft.Web/serverFarms, path: kind, values: {linux: Linux, app: Windows}}
   hosting.sku:
     terraform_avm: { module: Azure/avm-res-web-serverfarm/azurerm, attribute: sku_name, passthrough: true, note: module default P1v2 (older hardware) - must be written }
     terraform: { attribute: azurerm_service_plan.sku_name, passthrough: true }
     bicep_avm: { module: avm/res/web/serverfarm, attribute: skuName, passthrough: true, note: module default P1v3; written }
     bicep: { attribute: sku.name, passthrough: true, note: on the plan }
-    import: {path: sku.name, passthrough: true}
+    import: {part: Microsoft.Web/serverFarms, path: sku.name, passthrough: true}
   hosting.zone_redundant:
     terraform_avm:
       module: Azure/avm-res-web-serverfarm/azurerm
@@ -89,13 +89,13 @@ decisions:
       passthrough: true
       note: module default true for P/EP sizes - computed from the SKU; written
     bicep: { attribute: properties.zoneRedundant, passthrough: true, note: on the plan }
-    import: {path: properties.zoneRedundant, passthrough: true}
+    import: {part: Microsoft.Web/serverFarms, path: properties.zoneRedundant, passthrough: true}
   hosting.instance_count:
     terraform_avm: { module: Azure/avm-res-web-serverfarm/azurerm, attribute: worker_count, passthrough: true, note: module default 3 - must be written }
     terraform: { attribute: azurerm_service_plan.worker_count, passthrough: true }
     bicep_avm: { module: avm/res/web/serverfarm, attribute: skuCapacity, passthrough: true }
     bicep: { attribute: sku.capacity, passthrough: true, note: on the plan }
-    import: {path: sku.capacity, passthrough: true}
+    import: {part: Microsoft.Web/serverFarms, path: sku.capacity, passthrough: true}
 
   # --------------------------------------------------------------- networking
   networking.public_network_access:
