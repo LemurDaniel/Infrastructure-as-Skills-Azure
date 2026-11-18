@@ -7,7 +7,7 @@ skill. Routing table - the request picks the question set:
 |---|---|---|
 | App Service, web app, App Service plan, webapp, azurewebsites, deployment slot, staging slot | `app-service/questions.yaml` | [notes](app-service/notes.md) - slots are its `slots` group |
 | function app, Azure Functions, Flex Consumption | `function-app/questions.yaml` | [notes](function-app/notes.md) - same module as App Service, `kind: functionapp` |
-| Container Apps, container app environment, containerapp | `container-apps/questions.yaml` | [notes](container-apps/notes.md) - environment and one app |
+| Container Apps, container app environment, containerapp | `container-apps/questions.yaml` | [notes](container-apps/notes.md) - one app per instance; several instances share one environment |
 | Container Registry, ACR, image registry | `container-registry/questions.yaml` | [notes](container-registry/notes.md) |
 | AKS, Kubernetes, managed cluster, node pool, kubernetes cluster | `aks/questions.yaml` | [notes](aks/notes.md) - cluster with one system and one user pool |
 | Static Web App, static site, SWA, azurestaticapps | `static-web-app/questions.yaml` | [notes](static-web-app/notes.md) |

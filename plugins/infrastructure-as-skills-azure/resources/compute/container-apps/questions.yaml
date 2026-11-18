@@ -1,12 +1,12 @@
 schema_version: 1
 
 resource: Microsoft.App/containerApps
-title: Azure Container Apps (environment and one container app)
+title: Azure Container Apps (container app in an environment of its own or a shared one)
 
 # The app is the resource; the managed environment it runs in (Microsoft.App/managedEnvironments,
 # abbreviation `cae`, identifier `Azure::Microsoft.App/managedEnvironments`) is created with it
-# and decided in the `environment` group. One app per environment here: an environment shared
-# by several apps is a pattern's wiring, not this set's.
+# and decided in the `environment` group, or - with `hosting_environment: shared` - belongs to
+# another instance of this set whose environment this app runs in.
 naming:
   terraform: "Azure::Microsoft.App/containerApps"
   bicep: "Microsoft.App/containerApps"
@@ -21,7 +21,7 @@ boundaries:
   - "Does not grant the app's identity its roles (`AcrPull` on the registry, secret access on a vault) - wiring between resources, owned by a pattern; the app's identity must hold the pull role before the first revision, which is why the identity is user-assigned."
   - "Does not render secret values. A secret is a Key Vault reference resolved with the app's identity."
   - "Does not render Dapr, KEDA scale rules, jobs, session pools (dynamic sessions, as used for sandboxed code execution), custom domains, certificates, Easy Auth or health probes. Each is a separate concern and has no question set yet."
-  - "Does not render several apps per environment, sidecars or init containers."
+  - "Does not render sidecars or init containers. Several apps in one environment are several instances of this set, one owning the environment (`hosting_environment`)."
 
 groups:
 
@@ -77,6 +77,58 @@ groups:
   - id: environment
     title: Environment
     questions:
+      - id: hosting_environment
+        ask:
+          en: "Should the app run in an environment of its own, or in another app's environment?"
+          de: "Soll die App in einer eigenen Umgebung laufen oder in der Umgebung einer anderen App?"
+        type: enum
+        plain:
+          en: "The app runs in {value}."
+          de: "Die App läuft in {value}."
+        plain_values:
+          own: { en: "an environment of its own", de: "einer eigenen Umgebung" }
+          shared: { en: "the environment of another app, sharing its network and its logs", de: "der Umgebung einer anderen App und teilt sich deren Netz und Logs" }
+        accepts: [own, shared]
+        default: own
+        why: >
+          An environment is the network boundary the apps run inside: one delegated subnet, one
+          exposure (internal or public), one zone setting, one log destination. Apps in one
+          environment call each other by name over its network and need no second subnet; apps
+          in two environments are strangers that meet over the virtual network, and every
+          environment takes a subnet of its own. Own is the default because a single app has
+          nothing to share. Shared is right for the parts of one workload (an API and its
+          worker, a web app and the services behind it): `ingress: environment` only reaches
+          apps of the same environment, and a second environment buys isolation at the price
+          of a second subnet and a second set of logs. A shared environment has **one**
+          subnet, one exposure, one zone setting, one peer encryption setting and one diagnostic
+          setting - the owner's - so the questions about them are not asked of the second app.
+          Size, replicas, ingress, identity and secrets stay per app.
+        forced_when: >
+          `shared` removes `workload_profile`, `zone_redundant`, `internal`,
+          `infrastructure_subnet`, `public_network_access`, `peer_traffic_encryption`,
+          `diagnostic_workspace`, `diagnostic_categories` and `metrics_enabled` from this
+          instance (they are the environment owner's). The owner's `zone_redundant: true`
+          forces this instance's `min_replicas` to at least 2, recorded as forced with
+          `hosting_environment` as forced_by
+
+      - id: shared_environment_with
+        ask:
+          en: "Whose environment does the app run in?"
+          de: "In wessen Umgebung läuft die App?"
+        type: string
+        plain:
+          en: "It shares the environment of {value}."
+          de: "Es teilt sich die Umgebung von {value}."
+        accepts: { ref: container_apps }
+        required: true
+        depends_on: { question: hosting_environment, equals: shared }
+        why: >
+          The instance of this set (`container-apps__<name>`) that owns the environment. It is
+          created first; the second app takes its environment id and runs on its workload
+          profile, so the order is owner's environment, then this app. An owner that is itself
+          shared is refused: the environment is created exactly once. The app is in the
+          environment's region.
+
       - id: workload_profile
         ask:
           en: "Which compute should the app run on?"
@@ -92,6 +144,7 @@ groups:
           E4: { en: "reserved capacity of 4 cores with extra memory", de: "reservierter Kapazität mit 4 Kernen und mehr Arbeitsspeicher" }
         accepts: [Consumption, D4, D8, E4]
         default: Consumption
+        depends_on: { question: hosting_environment, equals: own }
         why: >
           The environment is the workload-profiles kind, which the Bicep module asks for
           when zone redundancy is on (its README calls profiles required to be WAF compliant);
@@ -100,7 +153,7 @@ groups:
           that wants reserved cores or more than the consumption sizes allow, and is billed
           for its instances whether the app is busy or not. GPU and the larger sizes are not
           offered. The profile is fixed per app but a profile can be added or removed from the
-          environment.
+          environment; an app sharing the environment runs on this profile too.
 
       - id: zone_redundant
         ask:
@@ -116,6 +169,7 @@ groups:
         answer:
           question: outage_impact
           map: { tolerable: false, disruptive: true, critical: true }
+        depends_on: { question: hosting_environment, equals: own }
         non_production_default: false
         why: >
           Derived from how bad an outage is. Zone redundancy spreads the environment's
@@ -142,6 +196,7 @@ groups:
           true: { en: "reachable only from inside the company network, through an internal load balancer", de: "nur aus dem Firmennetz erreichbar, über einen internen Lastverteiler" }
           false: { en: "given a public address of its own", de: "mit einer eigenen öffentlichen Adresse versehen" }
         answer: { deployment: network_exposure, map: { private: true, private_with_exceptions: true, public: false } }
+        depends_on: { question: hosting_environment, equals: own }
         why: >
           Inherited: `private` renders as `true`, `public` as `false`. An internal environment
           has no public IP at all and is reached through an address in the infrastructure
@@ -160,6 +215,7 @@ groups:
           de: "Die Infrastruktur der Umgebung liegt im Subnetz {value}."
         accepts: { ref: subnet }
         required: true
+        depends_on: { question: hosting_environment, equals: own }
         per_environment: true
         why: >
           The subnet must be **delegated to `Microsoft.App/environments`**, used by nothing
@@ -186,6 +242,7 @@ groups:
           enabled: { en: "open to public traffic", de: "für öffentlichen Verkehr geöffnet" }
         accepts: [disabled, enabled]
         answer: { deployment: network_exposure, map: { private: disabled, private_with_exceptions: disabled, public: enabled } }
+        depends_on: { question: hosting_environment, equals: own }
         why: >
           The platform switch for all public traffic to the environment, beside `internal`.
           `private` is `disabled`, `public` is `enabled`; the firewalling of a public app is
@@ -212,6 +269,7 @@ groups:
           true: { en: "encrypted", de: "verschlüsselt" }
           false: { en: "sent in the clear", de: "unverschlüsselt gesendet" }
         default: true
+        depends_on: { question: hosting_environment, equals: own }
         why: >
           Inside an environment apps talk to each other over the environment's network;
           peer-to-peer encryption wraps that traffic, and mutual TLS authenticates the peers
@@ -476,6 +534,7 @@ groups:
           de: "Seine Logs gehen in {value}."
         accepts: { ref: log_analytics_workspace }
         answer: { deployment: diagnostics_destination }
+        depends_on: { question: hosting_environment, equals: own }
         per_environment: true
         why: >
           Inherited: one deployment, one destination. **The environment sends its logs through
@@ -499,6 +558,7 @@ groups:
           ContainerAppSystemLogs: { en: "the platform's own messages about the app and its revisions", de: "die eigenen Meldungen der Plattform zur App und ihren Revisionen" }
         accepts: [ContainerAppConsoleLogs, ContainerAppSystemLogs]
         default: [ContainerAppConsoleLogs, ContainerAppSystemLogs]
+        depends_on: { question: hosting_environment, equals: own }
         why: >
           Console output is the only way to see what an app did, and the system log is the
           only way to see why a revision did not start - an image that could not be pulled, a
@@ -519,6 +579,7 @@ groups:
           true: { en: "collected", de: "erfasst" }
           false: { en: "not collected", de: "nicht erfasst" }
         default: true
+        depends_on: { question: hosting_environment, equals: own }
         why: >
           Replica count, CPU, memory and request counts are what decide whether the size and
           the replica bounds above were right, and they are cheap.

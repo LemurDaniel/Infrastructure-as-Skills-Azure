@@ -26,6 +26,7 @@ kinds:
   availability_set:         { sets: [availability-set],         type: Microsoft.Compute/availabilitySets,                 id: arm }
   backup_policy:            { sets: [],                         type: Microsoft.RecoveryServices/vaults/backupPolicies,   id: arm }
   backup_vault:             { sets: [backup-vault],             type: Microsoft.DataProtection/backupVaults,               id: arm }
+  container_apps:           { sets: [container-apps],           type: Microsoft.App/containerApps,                        id: arm }
   container_registry:       { sets: [container-registry],       type: Microsoft.ContainerRegistry/registries,             id: arm }
   data_collection_endpoint: { sets: [],                         type: Microsoft.Insights/dataCollectionEndpoints,         id: arm }
   ddos_protection_plan:     { sets: [ddos-protection-plan],     type: Microsoft.Network/ddosProtectionPlans,              id: arm }

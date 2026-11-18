@@ -14,7 +14,8 @@
 ## Ordering
 
 The identity, its roles on the registry (`AcrPull`) and on the vault, the network and the
-delegated subnet, the environment, then the app. The first revision pulls its image and
+delegated subnet, the environment, then the app - and after it every app that shares the
+environment. The first revision pulls its image and
 resolves its secrets *during creation*, so every role must already be effective: a role granted
 at the same apply is usually not yet. The workspace before the environment's diagnostic setting.
 An internal environment's private DNS zone before anything calls the app.
@@ -53,6 +54,15 @@ once the setting exists.
 request after idle waits for a replica to start. Zone redundancy and a minimum of one do not go
 together: spread needs two.
 
+**A shared environment shares everything but the app.** Apps in one environment sit in the same
+subnet, behind the same exposure (internal or public), with the same zone setting and peer
+encryption, and their logs leave through the owner's one diagnostic setting; none of that can
+differ between them, and neither can the region. Every replica of every app takes an address
+from the one subnet, so a subnet sized for one app is undersized for three. The environment is
+the owner's decision (`hosting_environment: own`); the second app's `hosting_environment: shared`
+names the owner and nothing else about the environment. Removing the owner removes the
+environment under every app in it, so the owner is the app that lives as long as the workload.
+
 **Deprecated inputs in the Terraform environment module.** `internal_load_balancer_enabled`,
 `infrastructure_subnet_id`, `zone_redundancy_enabled`, `workload_profile`, `peer_authentication_enabled`
 and `peer_traffic_encryption_enabled` are deprecated for `vnet_configuration`, `zone_redundant`,
@@ -65,6 +75,5 @@ categories list --resource <environment id>` before a render.
 ## Not covered here, and why
 
 Dapr, KEDA scale rules, jobs, dynamic sessions and session pools (sandboxed code execution),
-custom domains and certificates, Easy Auth, health probes, volumes and several apps per
-environment each carry decisions of their own and have no question set; a request for one is
-said out loud, not improvised.
+custom domains and certificates, Easy Auth, health probes and volumes each carry decisions of
+their own and have no question set; a request for one is said out loud, not improvised.
