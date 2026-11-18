@@ -395,6 +395,15 @@ mapping:
   `workload: payments`, a per-stage map), not `value:`/`source:` records; the provenance
   of a context value is the deployment set's, under `deployment:`.
 
+**Then look for a pattern.** Once the request or the description says what the system is,
+read [patterns/routing.md](../../patterns/routing.md) - by its absolute path under
+`<plugin>` - and take the row it fits. One row fits: that pattern is the design's starting
+point, recorded `pattern.id` with `source: stated`; it is never a question of its own, the
+customer confirms the system at Phase 4's list. Two fit, or it is unclear: one
+`AskUserQuestion` with the candidates' `summary` as options and "none of these" / "Keins
+davon" last (`source: asked`). No row fits, or the request names single resources: no
+pattern, and nothing in this skill changes. A request is never bent into a pattern.
+
 What remains open goes into Phase 3's batches. The description does not replace them; it
 shrinks them by what it happened to settle.
 
@@ -496,7 +505,9 @@ are guesses.
 <family>/<resource>... --language <context.language>` prints the deployment set and every set
 named - each interview question with its values and `forced_when`, every question that is
 forced, derived or required, and each set's boundaries - at a fifth of the files'
-size; `--why <id>` adds the reasoning where a default is justified. Never extract the
+size; `--why <id>` adds the reasoning where a default is justified; `--pattern <id>` puts the
+chosen pattern in front - its parts, its asks, what it answers and wires - and adds the sets
+of its parts, so they are not named again. Never extract the
 questions with a script of the run's own: one that keeps `ask` and `accepts` drops
 `forced_when`, and a question a rule settles is asked anyway.
 
@@ -506,7 +517,7 @@ For each question, the answer then comes from the first source that has one:
 |---|---|---|
 | 1 | What the user said — the request and the Phase 0 description | `stated`, or `overridden` where it changes a carried value |
 | 2 | The existing `infra-spec.yaml` | The source it already has; `carried` only for what the repository holds without one (a pipeline, a `modules/` layout) |
-| 3 | A pattern skill's pre-answers | `pattern` |
+| 3 | The chosen pattern's pre-answers, written by `apply_pattern.py` | `pattern` |
 | 4 | The deployment set's answer: copied for an `answer: { deployment }` question, mapped through the question's table for an `answer: { question, map }` one | `deployment`, or `{ derived_from: deployment.<id> }` |
 | 5 | The question's `default` | `default` |
 
@@ -1159,50 +1170,30 @@ Do not skip the explanation on the grounds that the plan output is right there. 
 list of attribute diffs; what a reviewer needs is which of those diffs are
 service-affecting and which are noise, and that is a judgement the plan cannot make.
 
-## Composition: how a pattern drives a resource
+## Patterns: a whole system at once
 
-A pattern skill does not re-ask a resource's questions. It supplies a pre-answer block
-keyed by resource, entering resolution at precedence 2:
+A pattern ([patterns/routing.md](../../patterns/routing.md)) names the parts of a system,
+asks the few questions only it can ask, answers what the system implies in the parts'
+question sets, and owns what no single set can: the wiring - which identity holds which role
+on which part, which setting reads which secret. It is chosen in Phase 0, read through the
+digest and written by a script; the format and the rules are in
+[references/pattern-format.md](references/pattern-format.md#in-the-interview).
 
-```yaml
-pre_answers:
-  storage-account:
-    public_network_access: disabled
-    shared_access_key_enabled: false
-    replication: ZRS
-  key-vault:
-    rbac_authorization: true
-```
-
-Two rules make this work:
-
-- **A pattern may pre-answer, never contradict the user.** If the user asked for something
-  the pattern pre-answers differently, the user wins — and you say what the pattern
-  expected and what the departure implies for the rest of the system.
-- **The wiring belongs to the pattern.** Private endpoints, DNS zone links, role
-  assignments between the parts, diagnostic routing: no single resource question set can own a
-  relationship, so the pattern renders it. This is the genuinely hard part and the main
-  reason pattern skills exist.
-
-A pattern may also fix the module split, since it is the only layer that knows which parts
-get reused separately. It does that by supplying `composition.modules` entries, recorded
-with `source: pattern` like any other pre-answer:
-
-```yaml
-composition:
-  granularity: per-resource
-  modules:
-    - id: storage
-      contains: [storage-account]
-      outputs: [id, principal_id]
-    - id: app
-      contains: [app-service]
-      needs: [storage]
-```
-
-The wiring between them stays in `wiring:` and renders into the root, not into a module —
-a module that reaches into another module's resources is the failure this split exists to
-prevent.
+- **The pattern's share is written by `apply_pattern.py`, never by hand**: `python3
+  <plugin>/core/iac-authoring/scripts/apply_pattern.py <id> --answer <ask>=<value> ...
+  --language <context.language> --environments <stages>` prints `pattern:`, the parts with
+  their purposes and pre-answers, and `wiring:`, every value `source: pattern`. Which lines
+  hold for which answers is the script's to work out. Without a shell the pattern is read
+  from its file and every `when` applied by hand, said so in Phase 4.
+- **The customer wins.** A pre-answer they contradict takes their value with `source:
+  { overridden: <reason> }`, and Phase 4 says what the pattern expected and what the
+  departure changes. A part they do not want goes with every wiring line that names it; a
+  wiring list changed that way is `stated`, no longer `pattern`.
+- **Everything else is resolved as always.** The pattern answers no question the customer is
+  asked, none a requirement derives and no deployment decision: the batch, the requirements
+  and the sets' defaults run over the pattern's parts as over any resource, and the network,
+  its security groups, the endpoints and the monitoring come from the deployment decisions.
+- **Its boundaries are said out loud** in Phase 4, with the open items they name.
 
 ## Adding a resource
 
@@ -1252,6 +1243,7 @@ Read as needed, not up front:
 |---|---|
 | [references/spec.md](references/spec.md) | Writing or reading `infra-spec.yaml` |
 | [references/question-set-format.md](references/question-set-format.md) | Authoring or extending a `questions.yaml` |
+| [references/pattern-format.md](references/pattern-format.md) | A pattern was chosen, or one is being written |
 | [references/guardrails.md](references/guardrails.md) | Choosing or justifying any default, or weighing an exception |
 | `scripts/export_decisions.py` | Rendering the spec as `infra-decisions.md`, the customer's decision document |
 | [iac-diagram](../iac-diagram/SKILL.md) | Drawing the spec as `infra-diagram.drawio.png` for the customer |

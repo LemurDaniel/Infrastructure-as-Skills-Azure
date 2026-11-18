@@ -16,6 +16,10 @@ is the one shortcut that keeps them. For the deployment set (always) and every s
   3. A resource set's boundaries: what it does not create, said out loud rather than
      improvised.
 
+`--pattern <id>` prints a pattern in front of them - its parts, its asks as interview
+questions, what it answers and wires, its boundaries - and adds the sets of its parts, so one
+call covers a whole system.
+
 A question with `accepts: { catalogue: ... }` also prints the newest generally available entries of
 that catalogue (the Foundry models), so the options come from it and not from memory.
 
@@ -25,7 +29,7 @@ justified or an answer read against its reasoning.
 Needs PyYAML (pip install pyyaml). Without it the script says so and exits 2.
 
 Usage:
-    python3 interview_digest.py [<set>...] [--language de] [--why <id> ...]
+    python3 interview_digest.py [<set>...] [--pattern <id>] [--language de] [--why <id> ...]
 
 A set is a questions.yaml, a resource directory, or `<family>/<resource>` under resources/
 (`compute/app-service`). Exit 0 printed, 2 could not read a set.
@@ -196,9 +200,58 @@ def digest(name, doc, language, why_ids, out):
     out.append('')
 
 
+def set_of(kind):
+    """The questions.yaml of a set name (`app-service`), whichever family holds it; or None."""
+    for family in sorted(os.listdir(RESOURCES)) if os.path.isdir(RESOURCES) else []:
+        p = os.path.join(RESOURCES, family, kind, 'questions.yaml')
+        if os.path.isfile(p):
+            return os.path.abspath(p)
+    return None
+
+
+def pattern_digest(pattern, language, why_ids, out):
+    """A pattern as the interview needs it: what it is, its parts, its asks as interview
+    questions, what it answers and wires - conditions included, since which of them hold is
+    apply_pattern.py's to work out, never the run's."""
+    import pattern_lib as lib
+
+    def when(node):
+        conds = [f"{c.get('ask')} {op} {c[op]}" for c in lib.conditions((node or {}).get('when'))
+                 for op in lib.OPERATORS if isinstance(c, dict) and op in c]
+        return f"  (only if {' and '.join(conds)})" if conds else ''
+
+    pid = pattern.get('id')
+    out.append(f"== pattern {pid} - {wording(pattern.get('title'), language)}")
+    out.append(f"   {flat(wording(pattern.get('summary'), language))}")
+    out.append('-- parts (the resources of the system; each one is resolved through its question set)')
+    for key, part in (pattern.get('parts') or {}).items():
+        out.append(f"  {key} - {wording((part or {}).get('purpose'), language)}{when(part)}")
+    asks = pattern.get('asks') or []
+    if asks:
+        digest(f"pattern {pid}: asks (join the batch under their topics; the answers go to apply_pattern.py)",
+               {'groups': [{'id': 'asks', 'questions': asks}]}, language, why_ids, out)
+    out.append(f"== pattern {pid}: answers and wiring (never asked; written by apply_pattern.py, source: pattern)")
+    for owner, entries in (pattern.get('pre_answers') or {}).items():
+        for qid, entry in (entries or {}).items():
+            for e in entry if isinstance(entry, list) else [entry]:
+                out.append(f"  {owner}.{qid} = {e.get('value')}{when(e)}")
+                if qid in why_ids:
+                    out.append(f"   why: {flat(e.get('why', ''))}")
+    for section, lines in (pattern.get('wiring') or {}).items():
+        for line in lines or []:
+            body = ', '.join(f"{k}: {wording(v, language)}" for k, v in line.items() if k != 'when')
+            out.append(f"  wiring.{section}: {body}{when(line)}")
+    if pattern.get('boundaries'):
+        out.append('-- boundaries (not the pattern\'s; say so, never improvise)')
+        for b in pattern['boundaries']:
+            out.append(f"  - {flat(b)}")
+    out.append('')
+
+
 def main():
     ap = argparse.ArgumentParser(description='Print the interview digest of the deployment set and the sets given.')
     ap.add_argument('sets', nargs='*', help='questions.yaml, a resource directory, or <family>/<resource>')
+    ap.add_argument('--pattern', metavar='ID', help="also print this pattern and the sets of its parts")
     ap.add_argument('--language', default='en', help='customer wording of the values: en (default) or de')
     ap.add_argument('--why', nargs='*', default=[], metavar='ID', help='also print the why of these questions')
     args = ap.parse_args()
@@ -221,6 +274,19 @@ def main():
             paths.append(p)
 
     out = []
+    if args.pattern:
+        sys.path.insert(0, HERE)
+        import pattern_lib
+        pattern = pattern_lib.load(yaml, args.pattern)
+        if not isinstance(pattern, dict):
+            print(f"[fail] no pattern at {args.pattern} - the plugin has {', '.join(pattern_lib.pattern_ids()) or 'none'}", file=sys.stderr)
+            return 2
+        pattern_digest(pattern, args.language, set(args.why), out)
+        for key in pattern.get('parts') or {}:
+            p = set_of(pattern_lib.kind(key))
+            if p and p not in paths:
+                paths.append(p)
+
     for p in paths:
         with open(p, encoding='utf-8') as f:
             doc = yaml.safe_load(f)

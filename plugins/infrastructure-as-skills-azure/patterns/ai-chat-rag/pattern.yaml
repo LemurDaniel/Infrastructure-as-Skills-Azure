@@ -1,0 +1,216 @@
+schema_version: 1
+
+id: ai-chat-rag
+title:
+  en: "Chat application over your own documents"
+  de: "Chat-Anwendung über eigene Dokumente"
+summary:
+  en: "A chat application that answers from your documents: the app, a language model, a search index over the documents and the storage they lie in."
+  de: "Eine Chat-Anwendung, die aus euren Dokumenten antwortet: die Anwendung, ein Sprachmodell, ein Suchindex über die Dokumente und die Ablage, in der sie liegen."
+
+selects_when:
+  - "chat app with RAG / Chatapp mit RAG"
+  - "chatbot over our documents / Chatbot über unsere Dokumente"
+  - "question answering over internal knowledge / Fragen an das interne Wissen stellen"
+  - "an assistant that searches our files / ein Assistent, der unsere Dateien durchsucht"
+
+boundaries:
+  - "The network, its security groups, the private endpoints with their DNS zones, the Log Analytics workspace and the Application Insights component are not parts: the deployment decisions (network_exposure, observability_ownership, application_monitoring) bring them, as for any system."
+  - "The models are the customer's choice from the catalogue (foundry.model_deployments); the pattern names none."
+  - "Index, indexer, data source and skillset are content of the search service, created by the application or its pipeline - not infrastructure, and not rendered."
+  - "Under a private exposure the indexer reaches the storage account and the model over shared private links of the search service. No question set renders one: it is an open item for the workload owner, named in Phase 4."
+  - "Cosmos DB's containers and their partition keys are the application's data model: cosmos-db.containers.databases stays the workload owner's open item."
+  - "One application. A system of several containers that call each other is container-microservices, with the model, the search service and the storage account added as resources outside the pattern."
+
+parts:
+  app-service__chat:
+    purpose:
+      en: "Chat application"
+      de: "Chat-Anwendung"
+  foundry:
+    purpose:
+      en: "Language model and embedding model"
+      de: "Sprachmodell und Embedding-Modell"
+  search-service:
+    purpose:
+      en: "Search index over the documents"
+      de: "Suchindex über die Dokumente"
+  storage-account:
+    purpose:
+      en: "Documents"
+      de: "Dokumente"
+  cosmos-db:
+    when: { ask: chat_history, equals: true }
+    purpose:
+      en: "Chat histories"
+      de: "Gesprächsverläufe"
+  key-vault:
+    when: { ask: sign_in, equals: company_accounts }
+    purpose:
+      en: "Secret of the company sign-in"
+      de: "Geheimnis der Firmenanmeldung"
+
+asks:
+  - id: sign_in
+    ask:
+      en: "Who signs the users in - the application itself, or should everyone be sent to the company sign-in before they reach it?"
+      de: "Wer meldet die Nutzer an - die Anwendung selbst, oder soll jeder zuerst zur Firmenanmeldung geschickt werden, bevor er sie erreicht?"
+    type: enum
+    accepts: [application, company_accounts]
+    default: application
+    resolved_by: interview
+    topic: security
+    plain:
+      en: "Sign-in: {value}."
+      de: "Anmeldung: {value}."
+    plain_values:
+      application: { en: "the application handles it itself", de: "die Anwendung regelt sie selbst" }
+      company_accounts: { en: "everyone is sent to the company sign-in first, before a request reaches the application", de: "jeder wird zuerst zur Firmenanmeldung geschickt, bevor eine Anfrage die Anwendung erreicht" }
+    why: >
+      A sign-in in front of the application is a platform feature and brings three things
+      no single resource owns: the authentication setting on the app, a secret in a key
+      vault, and the app's right to read it. With `application` none of them exists - the
+      system then has no secret at all and no key vault. The app registration itself is
+      never created here: its client id and redirect address stay the open items the
+      App Service set names.
+
+  - id: chat_history
+    ask:
+      en: "Should conversations be kept, so that a user can pick one up again later?"
+      de: "Sollen Gespräche gespeichert bleiben, damit ein Nutzer sie später fortsetzen kann?"
+    type: bool
+    default: false
+    resolved_by: interview
+    topic: data
+    plain:
+      en: "Conversations are {value}."
+      de: "Gespräche werden {value}."
+    plain_values:
+      true: { en: "kept in a database", de: "in einer Datenbank gespeichert" }
+      false: { en: "not kept - a conversation ends with the browser session", de: "nicht gespeichert - ein Gespräch endet mit der Browser-Sitzung" }
+    why: >
+      Kept conversations are personal data with a retention question of their own and a
+      database that costs money every month; a system without them has neither. The
+      default is the smaller system, and the customer is asked either way.
+
+  - id: document_source
+    ask:
+      en: "How do the documents get into the system - do users upload them in the application, or are they loaded separately?"
+      de: "Wie kommen die Dokumente ins System - laden Nutzer sie in der Anwendung hoch, oder werden sie getrennt eingespielt?"
+    type: enum
+    accepts: [loaded_separately, uploaded_in_app]
+    default: loaded_separately
+    resolved_by: interview
+    topic: data
+    plain:
+      en: "The documents are {value}."
+      de: "Die Dokumente werden {value}."
+    plain_values:
+      loaded_separately: { en: "loaded separately; the application only reads them", de: "getrennt eingespielt; die Anwendung liest sie nur" }
+      uploaded_in_app: { en: "uploaded by users in the application, which may therefore write to the document storage", de: "von Nutzern in der Anwendung hochgeladen; sie darf deshalb in die Dokumentenablage schreiben" }
+    why: >
+      It decides whether the application may write to the document storage. An application
+      that only answers needs to read; one that takes uploads writes, and a compromised
+      application can then change or delete the documents every answer is built on.
+
+pre_answers:
+  app-service__chat:
+    managed_identity:
+      value: system_assigned
+      why: >
+        Every connection of this system is keyless: the application reaches the model, the
+        search service and the documents with its own identity, and the roles below are
+        granted to it. Without an identity nothing in the wiring could hold a role.
+    entra_sign_in:
+      when: { ask: sign_in, equals: company_accounts }
+      value: existing_app_registration
+      why: >
+        The customer asked for the company sign-in in front of the application, so the
+        platform redirects every visitor before the code runs.
+  search-service:
+    managed_identity:
+      value: system_assigned
+      why: >
+        The indexer reads the documents and the search service calls the embedding model,
+        both with the service's own identity; the two roles below are granted to it.
+  cosmos-db:
+    capacity_mode:
+      value: serverless
+      why: >
+        Chat histories are written a few items per conversation and the store is idle most
+        of the day; serverless bills per request and has no provisioned floor. It is one
+        region and has no geo replicas - enough for a history a user can do without.
+  key-vault:
+    secret_placeholders:
+      value: [entra-client-secret]
+      why: >
+        The sign-in redeems its code with the app registration's client secret; the app
+        setting references it, so the secret must exist before the first start. Its value
+        is written by whoever owns the registration, never by the deployment.
+
+wiring:
+  access:
+    - from: users
+      to: app-service__chat
+      label: { en: "HTTPS 443", de: "HTTPS 443" }
+    - from: app-service__chat
+      to: external:entra-id
+      label: { en: "company sign-in", de: "Firmenanmeldung" }
+      when: { ask: sign_in, equals: company_accounts }
+    - from: app-service__chat
+      to: foundry
+      label: { en: "asks the model", de: "fragt das Modell" }
+    - from: app-service__chat
+      to: search-service
+      label: { en: "searches the documents", de: "durchsucht die Dokumente" }
+    - from: app-service__chat
+      to: storage-account
+      label: { en: "reads the documents", de: "liest die Dokumente" }
+      when: { ask: document_source, equals: loaded_separately }
+    - from: app-service__chat
+      to: storage-account
+      label: { en: "stores and reads the documents", de: "legt Dokumente ab und liest sie" }
+      when: { ask: document_source, equals: uploaded_in_app }
+    - from: search-service
+      to: storage-account
+      label: { en: "indexes the documents", de: "indexiert die Dokumente" }
+    - from: search-service
+      to: foundry
+      label: { en: "embeddings", de: "Embeddings" }
+    - from: app-service__chat
+      to: cosmos-db
+      label: { en: "chat histories", de: "Gesprächsverläufe" }
+      when: { ask: chat_history, equals: true }
+    - from: app-service__chat
+      to: key-vault
+      label: { en: "reads the sign-in secret", de: "liest das Anmelde-Geheimnis" }
+      when: { ask: sign_in, equals: company_accounts }
+
+  role_assignments:
+    - { from: app-service__chat, to: foundry, role: Cognitive Services OpenAI User }
+    - { from: app-service__chat, to: search-service, role: Search Index Data Reader }
+    - from: app-service__chat
+      to: storage-account
+      role: Storage Blob Data Reader
+      when: { ask: document_source, equals: loaded_separately }
+    - from: app-service__chat
+      to: storage-account
+      role: Storage Blob Data Contributor
+      when: { ask: document_source, equals: uploaded_in_app }
+    - { from: search-service, to: storage-account, role: Storage Blob Data Reader }
+    - { from: search-service, to: foundry, role: Cognitive Services OpenAI User }
+    - from: app-service__chat
+      to: cosmos-db
+      role: Cosmos DB Built-in Data Contributor
+      when: { ask: chat_history, equals: true }
+    - from: app-service__chat
+      to: key-vault
+      role: Key Vault Secrets User
+      when: { ask: sign_in, equals: company_accounts }
+
+  secrets:
+    - app: app-service__chat
+      setting: MICROSOFT_PROVIDER_AUTHENTICATION_SECRET
+      vault: key-vault
+      secret_name: entra-client-secret
+      when: { ask: sign_in, equals: company_accounts }

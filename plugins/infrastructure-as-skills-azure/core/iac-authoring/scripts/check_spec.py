@@ -66,6 +66,17 @@ Read-only. Checks what the contract in references/spec.md promises:
      group's name is computed by the render. A resource's `placement.location`
      is the Foundry account's only: one region, named by a person with a
      reason, not `context.location`, never under `data_residency: country`.
+  9g. Wiring: an access line runs between resources of the spec and actors (users,
+     internet, external:<name>); a role assignment in `wiring.role_assignments` is
+     { from, to, role } onto a resource of the spec with a role of built-in-roles.yaml (a
+     role Microsoft renamed is a warning naming the current name); a
+     `wiring.secrets` line is { app, setting, vault, secret_name } naming an application and a
+     key vault of the spec and a secret the vault's `secret_placeholders` creates.
+  9h. Pattern: `pattern.id` names a pattern the plugin ships and `pattern.answers` its
+     asks, each a value the ask accepts. A value recorded `source: pattern` is exactly
+     what that pattern answers for those answers - a resource decision, or a wiring list
+     as a whole; anything else was decided by someone and says so (`stated`,
+     `{ overridden: <reason> }`). `source: pattern` without a pattern fails.
  10. Deployer roles: what the spec asks of the identity that deploys is in
      `deployment.deployer_roles` - `Contributor` on `subscription` for a
      `create` group, `Role Based Access Control Administrator` for any role
@@ -118,6 +129,7 @@ import rg_roles  # noqa: E402 - the role table per scheme, shared with the diagr
 sys.path.insert(0, HERE)
 import spec_source  # noqa: E402 - a source as a word or {forced_by | derived_from | overridden: ...}
 import spec_ref  # noqa: E402 - a reference as {resource: <key>} or {existing: <kind>}
+import pattern_lib  # noqa: E402 - a pattern resolved for its answers
 # Resource keys every resource may carry without its set asking them (spec.md: placement, meta).
 BUILTIN_RESOURCE_KEYS = {('placement', 'resource_group'), ('placement', 'location'), ('meta', 'purpose')}
 RG_LOCKS = ['production', 'all_stages', 'none']
@@ -421,7 +433,7 @@ def main():
             walk(node[k], f"{path}.{key}")
 
     claims = {}  # (set, question, resource, part) -> the decisions claiming it, for `exclusive`
-    for section in ('deployment', 'resources', 'wiring'):
+    for section in ('deployment', 'pattern', 'resources', 'wiring'):
         if has(spec, section):
             walk(spec[section], section)
     for (owner, qid, res, part), by in claims.items():
@@ -718,6 +730,119 @@ def main():
                 errors.append(f"wiring.access[{i}] has no '{side}'")
         if 'label' in a and not isinstance(a['label'], str):
             errors.append(f"wiring.access[{i}] label is not text")
+
+    # --- 9g. wiring names what exists --------------------------------------------
+    # The diagram skips an endpoint it does not know and the render has nothing to bind a
+    # role or a secret reference to; a misspelt role passes every check until the first apply.
+    wiring_node = get(spec, 'wiring') or {}
+
+    def wiring_list(section):
+        d = get(wiring_node, section)
+        v = d.get('value') if isinstance(d, dict) else None
+        return [x for x in v if isinstance(x, dict)] if isinstance(v, list) else []
+
+    for a in wiring_list('access'):
+        for side in ('from', 'to'):
+            name = a.get(side)
+            if isinstance(name, str) and name and name not in res_keys and not pattern_lib.is_actor(name):
+                errors.append(f"wiring.access {a.get('from')} -> {a.get('to')}: '{name}' is neither a resource of this "
+                              f"spec nor users, internet or external:<name> - the line is not drawn and nothing is wired")
+    try:
+        rbac_roles, data_plane_roles = pattern_lib.load_roles(yaml)
+        renamed_roles = pattern_lib.load_renamed_roles(yaml)
+    except (yaml.YAMLError, OSError):
+        rbac_roles, data_plane_roles, renamed_roles = set(), set(), {}
+    for r in wiring_list('role_assignments'):
+        where = f"wiring.role_assignments {r.get('from')} -> {r.get('to')}"
+        extra = sorted(str(k) for k in r if k not in ('from', 'to', 'role'))
+        if extra or not all(isinstance(r.get(k), str) and r.get(k) for k in ('from', 'to', 'role')):
+            errors.append(f"{where} is not {{ from, to, role }}" + (f" (unknown: {', '.join(extra)})" if extra else ''))
+            continue
+        if r['to'] not in res_keys:
+            errors.append(f"{where}: '{r['to']}' is not a resource of this spec - the role has no scope")
+        if r['role'] in renamed_roles:
+            # a warning: the definition id is the same, and a spec written before the rename is valid
+            warnings.append(f"{where}: '{r['role']}' is called '{renamed_roles[r['role']]}' now (same role definition) - "
+                            f"a render that looks the role up by name needs the current one")
+        elif rbac_roles and r['role'] not in rbac_roles and r['role'] not in data_plane_roles:
+            errors.append(f"{where}: '{r['role']}' is not a built-in role (built-in-roles.yaml) - a misspelt role "
+                          f"fails at the first apply")
+    for sref in wiring_list('secrets'):
+        where = f"wiring.secrets {sref.get('app')}.{sref.get('setting')}"
+        extra = sorted(str(k) for k in sref if k not in ('app', 'setting', 'vault', 'secret_name'))
+        if extra or not all(isinstance(sref.get(k), str) and sref.get(k) for k in ('app', 'setting', 'vault', 'secret_name')):
+            errors.append(f"{where} is not {{ app, setting, vault, secret_name }}" + (f" (unknown: {', '.join(extra)})" if extra else ''))
+            continue
+        if sref['app'] not in res_keys or pattern_lib.kind(sref['app']) not in pattern_lib.APP_KINDS:
+            errors.append(f"{where}: '{sref['app']}' is not an application of this spec")
+        if sref['vault'] not in res_keys or pattern_lib.kind(sref['vault']) != 'key-vault':
+            errors.append(f"{where}: '{sref['vault']}' is not a key vault of this spec")
+            continue
+        held = get(get(get(get(spec, 'resources'), sref['vault']), 'security'), 'secret_placeholders')
+        held = held.get('value') if isinstance(held, dict) else None
+        names = {n for lst in (held.values() if isinstance(held, dict) else [held]) if isinstance(lst, list) for n in lst}
+        if sref['secret_name'] not in names:
+            errors.append(f"{where}: secret '{sref['secret_name']}' is not in resources.{sref['vault']}.security.secret_placeholders - "
+                          f"the reference resolves to nothing at the first start")
+
+    # --- 9h. the pattern, and what is recorded as its answer ------------------------
+    # `source: pattern` is a claim a script can check: the pattern is data, so the value it
+    # gives for the recorded answers is known. A value that differs was decided by someone.
+    pattern_node = get(spec, 'pattern')
+    applied = None
+    if pattern_node is not None:
+        pid = get(get(pattern_node, 'id'), 'value')
+        pattern_doc = pattern_lib.load(yaml, str(pid)) if isinstance(pid, str) and pid in pattern_lib.pattern_ids() else None
+        if not isinstance(pattern_doc, dict):
+            errors.append(f"pattern.id '{pid}' is not a pattern of this plugin ({', '.join(pattern_lib.pattern_ids()) or 'it ships none'})")
+        else:
+            asks = {a.get('id'): a for a in (pattern_doc.get('asks') or []) if isinstance(a, dict)}
+            given = {}
+            for aid, d in (get(pattern_node, 'answers') or {}).items():
+                value = d.get('value') if isinstance(d, dict) else d
+                ask = asks.get(aid)
+                if ask is None:
+                    errors.append(f"pattern.answers.{aid} is no ask of pattern {pid} ({', '.join(map(str, asks)) or 'it asks nothing'})")
+                elif isinstance(ask.get('accepts'), list) and value not in ask['accepts']:
+                    errors.append(f"pattern.answers.{aid} is '{value}', which the ask does not accept: {', '.join(map(str, ask['accepts']))}")
+                elif ask.get('type') == 'bool' and not isinstance(value, bool):
+                    errors.append(f"pattern.answers.{aid} is '{value}', but the ask is answered true or false")
+                else:
+                    given[aid] = value
+            applied, _ = pattern_lib.apply(pattern_doc, questions, given, environments=environments)
+
+    def pattern_sourced(node, path):
+        if not isinstance(node, dict):
+            return
+        if 'value' in node:
+            if spec_source.kind(node.get('source'))[0] == 'pattern':
+                yield path, node['value']
+            return
+        for k, v in node.items():
+            yield from pattern_sourced(v, path + [str(k)])
+
+    def lines(section, value):
+        keys = {'access': ('from', 'to'), 'role_assignments': ('from', 'to', 'role'),
+                'secrets': ('app', 'setting', 'vault', 'secret_name')}.get(section, ())
+        return sorted(tuple(str(x.get(k)) for k in keys) for x in (value or []) if isinstance(x, dict))
+
+    for section in ('deployment', 'resources', 'wiring'):
+        for p, value in pattern_sourced(get(spec, section), [section]):
+            where = '.'.join(p)
+            if pattern_node is None:
+                errors.append(f"{where} has source pattern, but the spec names no pattern (pattern.id)")
+                continue
+            if applied is None or p[-2:] == ['meta', 'purpose']:
+                continue   # an unknown pattern is reported above; a purpose is the customer's wording
+            expected = applied
+            for part in p:
+                expected = expected.get(part) if isinstance(expected, dict) else None
+            if not isinstance(expected, dict) or 'value' not in expected:
+                errors.append(f"{where} has source pattern, but pattern {pid} does not answer it for the recorded "
+                              f"answers - a value someone decided is stated or {{ overridden: <reason> }}")
+            elif (lines(p[1], value) != lines(p[1], expected['value'])) if section == 'wiring' else (value != expected['value']):
+                errors.append(f"{where} has source pattern, but differs from what pattern {pid} answers for the "
+                              f"recorded answers - a departure is {{ overridden: <reason> }}, an addition stated")
 
     # --- 9c. application monitoring brings its component ------------------------
     # `application_monitoring: enabled` with an application means one application-insights

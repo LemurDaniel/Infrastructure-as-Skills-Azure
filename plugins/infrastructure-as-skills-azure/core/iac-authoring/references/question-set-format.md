@@ -31,7 +31,7 @@ naming:
 # What this resource cannot do, so the skill can hand off instead of improvising.
 boundaries:
   - "Does not create the resource group; expects one (see placement.resource_group)."
-  - "Private DNS zones are shared infrastructure — a pattern skill owns them."
+  - "Private DNS zones are shared infrastructure - the deployment decides who owns them."
 
 groups:
   - id: placement

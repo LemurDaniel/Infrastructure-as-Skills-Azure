@@ -1,0 +1,126 @@
+schema_version: 1
+
+# Hand-written fixture for run_pattern_tests.py, never a pattern of the plugin: one of
+# everything the format has - a system-assigned application, a function app acting with a
+# user-assigned identity, references between parts, two conditional parts, a secret, a
+# data-plane role. It must pass check_pattern.py; the tests break one rule of it at a time.
+id: helpdesk
+title:
+  en: "Help desk"
+  de: "Helpdesk"
+summary:
+  en: "A ticket application with background jobs."
+  de: "Eine Ticket-Anwendung mit Hintergrundjobs."
+
+selects_when:
+  - "a help desk / ein Helpdesk"
+
+boundaries:
+  - "The network is not a part."
+
+parts:
+  app-service__web:
+    purpose: { en: "Ticket application", de: "Ticket-Anwendung" }
+  function-app__jobs:
+    purpose: { en: "Background jobs", de: "Hintergrundjobs" }
+  user-assigned-identity__jobs:
+    purpose: { en: "Identity of the jobs", de: "Identität der Jobs" }
+  storage-account__host:
+    purpose: { en: "Working storage of the jobs", de: "Arbeitsspeicher der Jobs" }
+  cosmos-db:
+    when: { ask: history, equals: true }
+    purpose: { en: "Ticket history", de: "Ticket-Verlauf" }
+  key-vault:
+    when: { ask: sign_in, equals: company_accounts }
+    purpose: { en: "Sign-in secret", de: "Anmelde-Geheimnis" }
+
+asks:
+  - id: sign_in
+    ask:
+      en: "Who signs the users in?"
+      de: "Wer meldet die Nutzer an?"
+    type: enum
+    accepts: [application, company_accounts]
+    default: application
+    resolved_by: interview
+    topic: security
+    plain:
+      en: "Sign-in: {value}."
+      de: "Anmeldung: {value}."
+    why: >
+      A sign-in in front of the application brings a secret, a vault and the right to
+      read it; without one the system has none of the three.
+
+  - id: history
+    ask:
+      en: "Should closed tickets be kept?"
+      de: "Sollen geschlossene Tickets aufbewahrt werden?"
+    type: bool
+    default: false
+    resolved_by: interview
+    topic: data
+    plain:
+      en: "Closed tickets are kept: {value}."
+      de: "Geschlossene Tickets werden aufbewahrt: {value}."
+    why: >
+      Kept tickets need a database with a retention question of its own; a system
+      without them has neither.
+
+pre_answers:
+  app-service__web:
+    managed_identity:
+      value: system_assigned
+      why: The application reaches the vault and the history with its own identity, keyless.
+  function-app__jobs:
+    managed_identity:
+      value: user_assigned
+      why: The jobs need their storage role before the function app exists at all.
+    user_assigned_identity_ids:
+      value: [{ resource: user-assigned-identity__jobs }]
+      why: The one identity of the jobs - every role of theirs is granted to it.
+    host_storage_account:
+      value: { resource: storage-account__host }
+      why: The host keeps its keys and locks in a storage account of its own.
+  user-assigned-identity__jobs:
+    purpose:
+      value: the jobs' access to their host storage
+      why: The identity holds its role before the function app exists.
+  key-vault:
+    secret_placeholders:
+      value: [entra-client-secret]
+      why: The app setting references the secret, so it exists before the first start.
+
+wiring:
+  access:
+    - from: users
+      to: app-service__web
+      label: { en: "HTTPS 443", de: "HTTPS 443" }
+    - from: function-app__jobs
+      to: storage-account__host
+      label: { en: "working storage", de: "Arbeitsspeicher" }
+    - from: app-service__web
+      to: cosmos-db
+      label: { en: "ticket history", de: "Ticket-Verlauf" }
+      when: { ask: history, equals: true }
+    - from: app-service__web
+      to: key-vault
+      label: { en: "reads the secret", de: "liest das Geheimnis" }
+      when: { ask: sign_in, equals: company_accounts }
+
+  role_assignments:
+    - { from: user-assigned-identity__jobs, to: storage-account__host, role: Storage Blob Data Owner }
+    - from: app-service__web
+      to: cosmos-db
+      role: Cosmos DB Built-in Data Contributor
+      when: { ask: history, equals: true }
+    - from: app-service__web
+      to: key-vault
+      role: Key Vault Secrets User
+      when: { ask: sign_in, equals: company_accounts }
+
+  secrets:
+    - app: app-service__web
+      setting: MICROSOFT_PROVIDER_AUTHENTICATION_SECRET
+      vault: key-vault
+      secret_name: entra-client-secret
+      when: { ask: sign_in, equals: company_accounts }

@@ -357,6 +357,14 @@ wiring:
     - from: app-service
       to: key-vault
     source: stated
+  # Which application setting reads which secret of a vault of this spec.
+  secrets:
+    value:
+    - app: app-service
+      setting: PAYMENT_API_KEY
+      vault: key-vault
+      secret_name: payment-api-key
+    source: stated
 
 # What nothing could resolve, each with who has to answer it. Applying waits for it.
 open:
@@ -638,7 +646,7 @@ both what kind of source it is and where it points:
 | `stated` | The user said it in their request, before being asked |
 | `asked` | The user answered it in the interview |
 | `platform` | Derived from the landing-zone answers (`landing_zone_exists`, `central_*`), a platform-owned decision the customer was not asked |
-| `pattern` | A pattern skill pre-answered it |
+| `pattern` | The pattern named in `pattern.id` answered it, written by `apply_pattern.py` - see *Patterns and the wiring* |
 | `deployment` | Inherited from the deployment set, via the question's `answer: { deployment: <id> }` |
 | `default` | The question set's opinionated default applied |
 | `carried` | Taken from what the repository already holds without a spec - an existing pipeline, an existing `modules/` layout. A value of this spec keeps its own source on a re-run |
@@ -703,6 +711,42 @@ reviewer accepting it and reopening the decision from scratch.
         source:
           forced_by: deployment.key_protection  # hsm, from mandate BSI C5
 ```
+
+## Patterns and the wiring
+
+`wiring:` holds what belongs to no single resource, and the root renders it - never a module,
+since only the root sees both ends:
+
+| Key | Entries | Renders as |
+|---|---|---|
+| `access` | `{ from, to, label? }` - a resource of the spec or an actor (`users`, `internet`, `external:<name>`) on each side | The lines of the picture; no code of its own |
+| `role_assignments` | `{ from, to, role }` - the identity (a resource of the spec, or a group by name), the resource the role is on, a role of [built-in-roles.yaml](built-in-roles.yaml) | One role assignment at the target's scope, through the target module's `role_assignments` interface or authored |
+| `secrets` | `{ app, setting, vault, secret_name }` - an application and a key vault of the spec, the setting's name, a secret the vault's `secret_placeholders` creates | An app setting holding a Key Vault reference (App Service, Function App), or a secret with its Key Vault URL and an environment variable naming it (Container Apps); never a value |
+| `private_dns_zones` | The privatelink zones of the endpoints | See [private-dns-zones.md](../../iac-rendering/references/private-dns-zones.md) |
+
+A role may equally be recorded on its target (`resources.<key>.identity.role_assignments`,
+`{ principal, role }`), which is where a single resource's interview puts it; `wiring` is
+where a relationship between two resources of a system belongs. One grant is written once.
+
+A spec built from a pattern ([pattern-format.md](pattern-format.md)) names it at the top:
+
+```yaml
+pattern:
+  id:
+    value: ai-chat-rag
+    source: stated  # the request described it; asked when the person picked among several
+  answers:
+    sign_in:
+      value: company_accounts
+      source: asked
+```
+
+What the pattern answered - a part's `meta.purpose`, a pre-answer, a wiring list - carries
+`source: pattern`, and `check_spec.py` compares each such value with what the pattern gives
+for the recorded answers. A value the customer changed is `{ overridden: <reason> }`, a
+wiring list they added to or removed from is `stated`; a re-run keeps both, as it keeps any
+carried value. `pattern:` is never removed because a value departed: it still says what the
+rest was built from.
 
 ## `meta`: what a resource is for
 

@@ -1,0 +1,147 @@
+schema_version: 1
+
+id: container-microservices
+title:
+  en: "Several services as containers"
+  de: "Mehrere Dienste als Container"
+summary:
+  en: "Two or more services as containers in one shared environment, each with an identity of its own, and the registry their images come from."
+  de: "Zwei oder mehr Dienste als Container in einer gemeinsamen Umgebung, jeder mit eigener Identität, und die Registry, aus der ihre Images kommen."
+
+selects_when:
+  - "microservices / Microservices"
+  - "several containers that call each other / mehrere Container, die sich gegenseitig aufrufen"
+  - "an API with a background worker as containers / eine API mit einem Hintergrunddienst als Container"
+  - "services on Container Apps / Dienste auf Container Apps"
+
+boundaries:
+  - "The network with the environment's subnet, its security groups, the private endpoints with their DNS zones, the Log Analytics workspace and the Application Insights component are not parts: the deployment decisions bring them, as for any system."
+  - "The pattern names two services. A third one is a further container-apps instance the run adds: it shares the first service's environment, gets an identity of its own and the image pull role, and is recorded `stated`."
+  - "The images, their tags and the ports the services listen on are the application's (container-apps.app.container_image, ingress.target_port): open items for the workload owner."
+  - "Whether the first service is reachable from the internet follows from the deployment's exposure answers, not from this pattern."
+  - "What the services need beyond each other - a database, a queue, a model - are resources outside the pattern, interviewed through their own sets; their roles go to the service's identity."
+  - "How the images get into the registry is the image pipeline's (container-registry.networking.image_push_path); the pattern grants only the pull."
+
+parts:
+  container-apps__api:
+    purpose:
+      en: "First service - takes the requests in"
+      de: "Erster Dienst - nimmt die Anfragen an"
+  container-apps__worker:
+    purpose:
+      en: "Second service"
+      de: "Zweiter Dienst"
+  user-assigned-identity__api:
+    purpose:
+      en: "Identity of the first service"
+      de: "Identität des ersten Dienstes"
+  user-assigned-identity__worker:
+    purpose:
+      en: "Identity of the second service"
+      de: "Identität des zweiten Dienstes"
+  container-registry:
+    purpose:
+      en: "Images of the services"
+      de: "Images der Dienste"
+
+asks:
+  - id: second_service
+    ask:
+      en: "What does the second service do - is it called by the first one, or does it work in the background without anyone calling it?"
+      de: "Was macht der zweite Dienst - wird er vom ersten aufgerufen, oder arbeitet er im Hintergrund, ohne dass ihn jemand aufruft?"
+    type: enum
+    accepts: [called_by_first, background_worker]
+    default: called_by_first
+    resolved_by: interview
+    topic: application
+    plain:
+      en: "The second service {value}."
+      de: "Der zweite Dienst {value}."
+    plain_values:
+      called_by_first: { en: "is called by the first one, and by nothing outside the environment", de: "wird vom ersten aufgerufen und von nichts außerhalb der Umgebung" }
+      background_worker: { en: "works in the background and accepts no calls at all", de: "arbeitet im Hintergrund und nimmt gar keine Aufrufe an" }
+    why: >
+      It decides whether the second service listens at all. A service another one calls
+      is reachable inside the environment and nowhere else; a background worker has no
+      entry, so there is nothing to reach and nothing to protect. An entry nobody needs
+      is the one that gets found.
+
+pre_answers:
+  container-apps__api:
+    managed_identity:
+      value: user_assigned
+      why: >
+        The service pulls its image with its identity, so the pull role must exist before
+        the first revision starts; an identity created with the app comes too late.
+    user_assigned_identity_ids:
+      value: [{ resource: user-assigned-identity__api }]
+      why: >
+        One identity per service: a role granted for the first service must not be usable
+        by the second, and the audit log names which of them acted.
+  container-apps__worker:
+    hosting_environment:
+      value: shared
+      why: >
+        The services form one system: in one environment they reach each other by name
+        without leaving it, share one subnet and one log destination. An environment per
+        service would put a network boundary between parts that belong together.
+    shared_environment_with:
+      value: { resource: container-apps__api }
+      why: >
+        The first service owns the environment and its settings; the second joins it and
+        brings only its own app.
+    managed_identity:
+      value: user_assigned
+      why: >
+        The service pulls its image with its identity, so the pull role must exist before
+        the first revision starts; an identity created with the app comes too late.
+    user_assigned_identity_ids:
+      value: [{ resource: user-assigned-identity__worker }]
+      why: >
+        One identity per service: a role granted for the first service must not be usable
+        by the second, and the audit log names which of them acted.
+    ingress:
+      - when: { ask: second_service, equals: called_by_first }
+        value: environment
+        why: >
+          The second service is called by the first one only, so it listens inside the
+          environment and has no address outside it.
+      - when: { ask: second_service, equals: background_worker }
+        value: none
+        why: >
+          Nobody calls a background worker, so it has no entry at all - the smallest
+          surface a service can have.
+  user-assigned-identity__api:
+    purpose:
+      value: "the first service's image pull and its access to what it calls"
+      why: >
+        The identity holds its roles before the service exists, which is the guardrails'
+        reason for a user-assigned identity; recording it keeps the identity from being
+        shared with the other service.
+  user-assigned-identity__worker:
+    purpose:
+      value: "the second service's image pull and its access to what it calls"
+      why: >
+        The identity holds its roles before the service exists, which is the guardrails'
+        reason for a user-assigned identity; recording it keeps the identity from being
+        shared with the other service.
+
+wiring:
+  access:
+    - from: users
+      to: container-apps__api
+      label: { en: "HTTPS 443", de: "HTTPS 443" }
+    - from: container-apps__api
+      to: container-apps__worker
+      label: { en: "calls it inside the environment", de: "ruft ihn innerhalb der Umgebung auf" }
+      when: { ask: second_service, equals: called_by_first }
+    - from: container-apps__api
+      to: container-registry
+      label: { en: "pulls its image", de: "holt sein Image" }
+    - from: container-apps__worker
+      to: container-registry
+      label: { en: "pulls its image", de: "holt sein Image" }
+
+  role_assignments:
+    - { from: user-assigned-identity__api, to: container-registry, role: AcrPull }
+    - { from: user-assigned-identity__worker, to: container-registry, role: AcrPull }
