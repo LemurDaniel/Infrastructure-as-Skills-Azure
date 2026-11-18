@@ -21,23 +21,12 @@ rendering, as [avm.md](../../../core/iac-rendering/references/avm.md) says. Pin 
 
 ### Decision -> module parameter
 
+What each decision renders to - the parameter and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.
+
+### Deployment-wide inputs
+
 | Decision | `metric` | `log_query` | `activity_log` |
 |---|---|---|---|
-| `location` | `location: 'global'` (module default `'global'`) | `location` (default `resourceGroup().location`) | `location: 'global'` |
-| `action_group` | `actions: [ <id> ]` (strings) | `actions: { actionGroupResourceIds: [ <id> ] }` | `actions: [ { actionGroupId } ]` |
-| `severity` | `severity` (module default **3**) | `severity` (module default **3**) | - |
-| `enabled` | `enabled` | `enabled` | `enabled` |
-| `auto_mitigate` | `autoMitigate` | `autoMitigate` | - |
-| `scopes` | `scopes` (module default **the subscription**), `targetResourceType`, `targetResourceRegion` | `scopes: [ workspace id ]` | `scopes: [ subscription().id ]` |
-| `metric_name`, `aggregation`, `operator`, `threshold`, `dimensions` | `criteria: { 'odata.type': 'Microsoft.Azure.Monitor.MultipleResourceMultipleMetricCriteria', allof: [ { criterionType: 'StaticThresholdCriterion', metricNamespace, metricName, timeAggregation, operator, threshold, dimensions } ] }` | | |
-| `threshold_mode: dynamic`, `dynamic_sensitivity` | `criterionType: 'DynamicThresholdCriterion'`, `alertSensitivity`, `failingPeriods` | | |
-| `window_size`, `frequency` | `windowSize` (module default **PT15M**), `evaluationFrequency` | | |
-| `query_file` | | `criterias.allOf[].query: loadTextContent('queries/<rule>.kql')` | |
-| `time_aggregation`, `log_operator`, `log_threshold` | | `criterias.allOf[].timeAggregation`, `.operator`, `.threshold` (+ `metricMeasureColumn` for non-Count), `failingPeriods` | |
-| `evaluation_frequency`, `window_duration` | | `evaluationFrequency`, `windowSize` (required for `kind: 'LogAlert'`) | |
-| `mute_actions_duration` | | `muteActionsDuration` (left out for `none`) | |
-| `query_identity`, `user_assigned_identity_id` | | `managedIdentities: { userAssignedResourceIds }` | |
-| `category`, `service_health_event_types`, `impacted_regions`, `resource_health_statuses`, `operation_name` | | | `conditions: [ { field, equals } , { anyOf: [...] }, { field, containsAny } ]` |
 | `deployment.resource_lock` | `lock` | `lock` | `lock` |
 | `deployment.module_telemetry` | `enableTelemetry` | `enableTelemetry` | `enableTelemetry` |
 | `context.tags` | `tags` | `tags` | `tags` |
@@ -196,8 +185,11 @@ a line of the KQL.
 
 The fallback, one resource type per kind:
 
-| Decision | Property |
+| `rule.kind` | Resource |
 |---|---|
-| `metric` | `Microsoft.Insights/metricAlerts@2018-03-01`, `location: 'global'`, `properties.{ severity, enabled, autoMitigate, windowSize, evaluationFrequency, scopes, targetResourceType, targetResourceRegion, criteria, actions[].actionGroupId }` |
-| `log_query` | `Microsoft.Insights/scheduledQueryRules@2023-12-01`, `kind: 'LogAlert'`, `identity`, `properties.{ severity, enabled, autoMitigate, muteActionsDuration, evaluationFrequency, windowSize, scopes, criteria.allOf[], actions.actionGroups[] }` |
-| `activity_log` | `Microsoft.Insights/activityLogAlerts@2020-10-01`, `location: 'global'`, `properties.{ enabled, scopes, condition.allOf[], actions.actionGroups[].actionGroupId }` |
+| `metric` | `Microsoft.Insights/metricAlerts@2018-03-01`, `location: 'global'` |
+| `log_query` | `Microsoft.Insights/scheduledQueryRules@2023-12-01`, `kind: 'LogAlert'`, `identity` |
+| `activity_log` | `Microsoft.Insights/activityLogAlerts@2020-10-01`, `location: 'global'` |
+
+What each decision renders to - the property and the literal of every answer - is in
+[render-map.yaml](render-map.yaml); the render digest prints it for a spec.

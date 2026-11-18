@@ -23,33 +23,14 @@ Resolve the current versions and re-read the README parameters before rendering,
 
 ### Decision -> module parameter
 
-| Decision | Module | Parameter | Note |
+What each decision renders to - the parameter and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.
+
+### Parameters no decision covers
+
+| Input | Module | Parameter | Note |
 |---|---|---|---|
-| `hosting: standard` | site | `kind: 'functionapp,workflowapp'` | **Required**; `'functionapp,workflowapp,linux'` for a Linux plan |
-| `hosting: consumption` | workflow | the module itself | One module per `workflows` entry |
-| `plan: shared`, `shared_plan_with` | site | `serverFarmResourceId` = the owner's plan id; no plan module | |
-| `plan_sku` | plan | `skuName: 'WS1'`, `kind: 'elastic'` | `reserved` follows `kind`; Windows |
-| `zone_redundant` | plan | `zoneRedundant` | Computed by the module from the SKU when unset; written |
-| `instance_count` | plan | `skuCapacity` | |
-| `max_instance_count` | plan | `maximumElasticWorkerCount` | |
-| `workflows` | site | - (content) | Standard: `not_testable` |
-| `state` | workflow | `state` | Default `'Enabled'`; written |
-| `trigger_authentication` | workflow | `triggersAccessControlConfiguration: { allowedCallerIpAddresses, openAuthenticationPolicies }` | ARM spelling; the SAS switch's property is checked before a render |
-| `trigger_authentication` | site | `configs: [ { name: 'authsettingsV2', ... } ]` | Easy Auth in front of the request triggers |
-| `host_storage_account`, `host_storage_auth` | site | `configs: [ { name: 'appsettings', properties: { AzureWebJobsStorage__accountName, AzureWebJobsStorage__credential: 'managedidentity', AzureWebJobsStorage__clientId, WEBSITE_CONTENTAZUREFILECONNECTIONSTRING: <Key Vault reference>, WEBSITE_CONTENTSHARE } } ]` | The module writes no logic-app settings of its own; **every host setting is written here**, including `FUNCTIONS_EXTENSION_VERSION`, `FUNCTIONS_WORKER_RUNTIME: 'dotnet'`, `WEBSITE_NODE_DEFAULT_VERSION` and the workflow extension bundle - the list is in the call |
-| `public_network_access` | site | `publicNetworkAccess`, `siteConfig.ipSecurityRestrictionsDefaultAction` | Unset, disabled only with private endpoints; written |
-| `public_network_access` | workflow | `triggersAccessControlConfiguration.allowedCallerIpAddresses` | No `Disabled` exists |
-| `allowed_caller_ip_ranges` | site / workflow | `siteConfig.ipSecurityRestrictions` / `allowedCallerIpAddresses[].addressRange` | |
-| `private_endpoint_subnet` | site | `privateEndpoints: [ { service: 'sites', subnetResourceId } ]` | |
+| (host settings) | site | `configs: [ { name: 'appsettings', properties: { FUNCTIONS_EXTENSION_VERSION, FUNCTIONS_WORKER_RUNTIME: 'dotnet', WEBSITE_NODE_DEFAULT_VERSION, WEBSITE_CONTENTSHARE, the workflow extension bundle } } ]` | The module writes no logic-app settings of its own; **every host setting is written here** - the list is in the call |
 | `deployment.private_dns_records: policy` | site | no `privateDnsZoneGroup` on the endpoint | |
-| `vnet_integration`, `integration_subnet`, `vnet_route_all` | site | `virtualNetworkSubnetResourceId`, `outboundVnetRouting: { allTraffic }` | |
-| `managed_identity`, `user_assigned_identity_ids` | site / workflow | `managedIdentities: { userAssignedResourceIds }`, site also `keyVaultAccessIdentityResourceId` | |
-| `role_assignments` | site / workflow | `roleAssignments` | |
-| `https_only` | site | `httpsOnly` | Default `true`; written |
-| `min_tls_version` | site | `siteConfig.minTlsVersion`, `scmMinTlsVersion` | |
-| `basic_auth_enabled` | site | `basicPublishingCredentialsPolicies: [ { name: 'ftp', allow: false }, { name: 'scm', allow: false } ]` | |
-| `application_insights` | site | `APPLICATIONINSIGHTS_CONNECTION_STRING` in the `appsettings` config | Omitted while empty |
-| `diagnostic_*`, `metrics_enabled` | all | `diagnosticSettings: [ { workspaceResourceId, logCategoriesAndGroups: [ { category } ], metricCategories: [ { category: 'AllMetrics' } ] } ]` | The plan has metrics only |
 | `deployment.module_telemetry` | all | `enableTelemetry` | |
 | `context.tags` | all | `tags` | |
 
@@ -206,7 +187,7 @@ a bot or application audience replaces the management one.
 ### Tests
 
 A module call compiles to a nested deployment whose `properties.parameters.<param>.value` is the
-decision, so every decision above is observable in `tests/*.armtest.yaml`
+decision, so every decision in render-map.yaml is observable in `tests/*.armtest.yaml`
 ([bicep-idiom.md](../../../core/iac-rendering/references/bicep-idiom.md#tests)); the Consumption
 loop compiles to a `copy`, so its decisions are matched on the expression text. `workflows` on
 Standard is `not_testable` (content).
@@ -215,16 +196,12 @@ Standard is `not_testable` (content).
 
 The fallback. `Microsoft.Web/serverFarms` (`sku: { name: 'WS1', capacity }`, `kind: 'elastic'`,
 `properties.zoneRedundant`, `maximumElasticWorkerCount`), `Microsoft.Web/sites` with
-`kind: 'functionapp,workflowapp'` and `properties`:
+`kind: 'functionapp,workflowapp'` and `properties`.
 
-| Decision | Property |
+What each decision renders to - the property and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.
+
+### Properties no decision covers
+
+| Input | Property |
 |---|---|
-| `host_storage_*`, `application_insights` | child `config/appsettings` with the settings above |
-| `public_network_access`, `allowed_caller_ip_ranges` | `properties.publicNetworkAccess`, `siteConfig.ipSecurityRestrictions`, `ipSecurityRestrictionsDefaultAction` |
-| `vnet_integration`, `vnet_route_all` | `properties.virtualNetworkSubnetId`, `vnetRouteAllEnabled` |
-| `managed_identity` | `identity` (top level), `properties.keyVaultReferenceIdentity` |
-| `https_only`, `min_tls_version` | `properties.httpsOnly`, `siteConfig.minTlsVersion`, `scmMinTlsVersion` |
-| `basic_auth_enabled` | children `basicPublishingCredentialsPolicies/ftp` and `/scm` with `allow: false` |
-| `private_endpoint_subnet` | `Microsoft.Network/privateEndpoints` with `groupIds: [ 'sites' ]` |
-| Consumption | `Microsoft.Logic/workflows` with `properties.state`, `accessControl.triggers`, `definition`, `identity` |
-| diagnostics | `Microsoft.Insights/diagnosticSettings` scoped to each resource |
+| (workflow content) | `Microsoft.Logic/workflows` `properties.definition` |

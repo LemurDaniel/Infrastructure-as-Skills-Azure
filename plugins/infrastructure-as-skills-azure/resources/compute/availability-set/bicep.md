@@ -20,14 +20,12 @@ Resolve the current versions and re-read the README parameters before rendering,
 
 ### Decision -> module parameter
 
+What each decision renders to - the parameter and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.
+
+Deployment-wide and fixed parameters, not decisions of this set:
+
 | Decision | Parameter | Note |
 |---|---|---|
-| `sku` | `skuName: 'Aligned'` / `'Classic'` | Default `'Aligned'`; written |
-| `fault_domain_count` | `platformFaultDomainCount` | Default `2`; written |
-| `update_domain_count` | `platformUpdateDomainCount` | Default `5`; written |
-| `proximity_placement_group` | `proximityPlacementGroupResourceId` on the set | The group is a second module call; `null` for none |
-| `proximity_zone` | `availabilityZone` on the group | **Required**: `-1` for none |
-| `proximity_vm_sizes` | `intent: { vmSizes: [...] }` | |
 | not offered | `type: 'Standard'` on the group | `'Ultra'` is for ultra disks - written at the default |
 | `deployment.module_telemetry` | `enableTelemetry` | |
 | `context.tags` | `tags` | |
@@ -74,16 +72,11 @@ pinned versions.
 ### Tests
 
 A module call compiles to a nested deployment whose `properties.parameters.<param>.value` is
-the decision, so every decision above is observable in `tests/*.armtest.yaml`
+the decision, so every decision in render-map.yaml is observable in `tests/*.armtest.yaml`
 ([bicep-idiom.md](../../../core/iac-rendering/references/bicep-idiom.md#tests)).
 
 ## Authored rendering
 
-The fallback. `Microsoft.Compute/availabilitySets` with `sku` and `properties`:
+The fallback. `Microsoft.Compute/availabilitySets` with `sku` and `properties`.
 
-| Decision | Property |
-|---|---|
-| `sku` | `sku.name` |
-| `fault_domain_count`, `update_domain_count` | `properties.platformFaultDomainCount`, `properties.platformUpdateDomainCount` |
-| `proximity_placement_group` | `properties.proximityPlacementGroup.id` |
-| group | `Microsoft.Compute/proximityPlacementGroups` with `properties.proximityPlacementGroupType`, `properties.intent.vmSizes`, `zones` |
+What each decision renders to - the property and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.

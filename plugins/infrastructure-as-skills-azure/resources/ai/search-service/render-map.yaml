@@ -1,0 +1,204 @@
+# What each decision of questions.yaml renders to, per target and implementation.
+# Format: core/iac-rendering/references/render-map.md. The call, the authored blocks and the
+# tests are in terraform.md and bicep.md.
+schema_version: 1
+resource: Microsoft.Search/searchServices
+
+modules:
+  terraform: [Azure/avm-res-search-searchservice/azurerm]
+  bicep: [avm/res/search/search-service]
+
+decisions:
+
+  # ---------------------------------------------------------------- placement
+  placement.environments:
+    not_rendered: naming parameter `environment` and the tag of that name; no attribute of the service
+  placement.location:
+    terraform_avm: { attribute: location, passthrough: true }
+    terraform: { attribute: location, passthrough: true }
+    bicep_avm: { attribute: location, passthrough: true }
+    bicep: { attribute: location, passthrough: true }
+  placement.resource_group_name:
+    terraform_avm: { attribute: resource_group_name, note: 'azurerm-based module on azurerm ~> 4.0 - the root cannot be on 5.x' }
+    terraform: { attribute: resource_group_name }
+    bicep_avm: { gap: the deployment's resource group scope; no parameter }
+    bicep: { gap: the deployment's resource group scope; no property }
+
+  # ------------------------------------------------------------------ service
+  service.sku:
+    terraform_avm: { attribute: sku, passthrough: true, note: module default standard; written anyway }
+    terraform: { attribute: sku, passthrough: true }
+    bicep_avm: { attribute: sku, passthrough: true, note: "module default 'standard'; written anyway" }
+    bicep: { attribute: sku.name, passthrough: true }
+  service.replica_count:
+    terraform_avm: { attribute: replica_count, passthrough: true, note: 'module default 1 (Bicep: 3); written' }
+    terraform: { attribute: replica_count, passthrough: true }
+    bicep_avm: { attribute: replicaCount, passthrough: true, note: 'module default 3 (Terraform: 1); written' }
+    bicep: { attribute: properties.replicaCount, passthrough: true }
+  service.partition_count:
+    terraform_avm: { attribute: partition_count, passthrough: true, note: module default 1; written anyway }
+    terraform: { attribute: partition_count, passthrough: true }
+    bicep_avm: { attribute: partitionCount, passthrough: true, note: module default 1; written anyway }
+    bicep: { attribute: properties.partitionCount, passthrough: true }
+  service.semantic_ranker:
+    terraform_avm:
+      attribute: semantic_search_sku
+      values: { disabled: { expr: 'null' }, free: free, standard: standard }
+    terraform:
+      attribute: semantic_search_sku
+      values: { disabled: null, free: free, standard: standard }
+      note: the literals of the azurerm-based module's input, which passes them to this argument; disabled leaves it out
+    bicep_avm:
+      attribute: semanticSearch
+      values: { disabled: disabled, free: free, standard: standard }
+    bicep:
+      attribute: properties.semanticSearch
+      values: { disabled: disabled, free: free, standard: standard }
+
+  # --------------------------------------------------------------- networking
+  networking.public_network_access:
+    terraform_avm:
+      attribute: public_network_access_enabled
+      values: { disabled: false, enabled_with_firewall: true, enabled: true }
+      note: a bool, module default true - always written; the firewall is allowed_ips
+    terraform:
+      attribute: public_network_access_enabled
+      values: { disabled: false, enabled_with_firewall: true, enabled: true }
+      note: the firewall is allowed_ips
+    bicep_avm:
+      attribute: publicNetworkAccess
+      values: { disabled: Disabled, enabled_with_firewall: Enabled, enabled: Enabled }
+      note: module default 'Enabled' - always written
+    bicep:
+      attribute: properties.publicNetworkAccess
+      values: { disabled: Disabled, enabled_with_firewall: Enabled, enabled: Enabled }
+  networking.private_endpoint_subnet:
+    terraform_avm:
+      attribute: private_endpoints.search.subnet_resource_id
+      note: subresource_name defaults to searchService; private_endpoints_manage_dns_zone_group = false under policy
+    terraform:
+      attribute: azurerm_private_endpoint.subnet_id
+      note: "authored child; (source: azurerm 5.12 schema)"
+    bicep_avm:
+      attribute: 'privateEndpoints[].subnetResourceId'
+      note: "service: 'searchService'; no privateDnsZoneGroup under private_dns_records policy"
+    bicep:
+      attribute: Microsoft.Network/privateEndpoints properties.subnet.id
+      note: "authored child; (source: bicep build, Microsoft.Network/privateEndpoints@2024-05-01)"
+  networking.ip_rules:
+    terraform_avm: { attribute: allowed_ips, note: addresses or CIDR blocks }
+    terraform: { attribute: allowed_ips }
+    bicep_avm:
+      attribute: networkRuleSet.ipRules
+      format: { expr: '[for ip in {value}: { value: ip }]' }
+      note: one { value } object per address; member names from the README
+    bicep:
+      attribute: properties.networkRuleSet.ipRules
+      format: { expr: '[for ip in {value}: { value: ip }]' }
+      note: the item shape the module parameter states
+  networking.network_rule_bypass:
+    terraform_avm: { attribute: network_rule_bypass_option, passthrough: true, note: module default None; written anyway }
+    terraform: { attribute: network_rule_bypass_option, passthrough: true }
+    bicep_avm: { attribute: networkRuleSet.bypass, passthrough: true, note: the answer is spelled as the value terraform.md states (None / AzureServices) }
+    bicep: { attribute: properties.networkRuleSet.bypass, passthrough: true }
+
+  # ----------------------------------------------------------------- identity
+  identity.managed_identity:
+    terraform_avm:
+      attribute: managed_identities
+      values:
+        system_assigned: { expr: '{ system_assigned = true }' }
+        user_assigned: { expr: '{ user_assigned_resource_ids = {identity.user_assigned_identity_ids} }' }
+        none: { expr: '{}' }
+    terraform:
+      attribute: identity.type
+      values: { system_assigned: SystemAssigned, user_assigned: UserAssigned, none: null }
+      note: "none writes no identity block (source: azurerm 5.12 docs)"
+    bicep_avm:
+      attribute: managedIdentities
+      values:
+        system_assigned: { expr: '{ systemAssigned: true }' }
+        user_assigned: { expr: '{ userAssignedResourceIds: {identity.user_assigned_identity_ids} }' }
+        none: { expr: '{}' }
+    bicep:
+      attribute: identity.type
+      values: { system_assigned: SystemAssigned, user_assigned: UserAssigned, none: null }
+      note: "none writes no identity; literals from the compiled type (source: bicep build, Microsoft.Search/searchServices@2025-05-01)"
+  identity.user_assigned_identity_ids:
+    terraform_avm: { attribute: managed_identities.user_assigned_resource_ids }
+    terraform:
+      attribute: identity.identity_ids
+      note: "(source: azurerm 5.12 schema)"
+    bicep_avm: { attribute: managedIdentities.userAssignedResourceIds }
+    bicep:
+      attribute: identity.userAssignedIdentities
+      format: { expr: 'toObject({value}, id => id, id => {})' }
+      note: "an object keyed by identity id, each value empty (source: bicep build, Microsoft.Search/searchServices@2025-05-01)"
+  identity.role_assignments:
+    terraform_avm: { attribute: 'role_assignments.<key> = { role_definition_id_or_name, principal_id }' }
+    terraform:
+      attribute: 'azurerm_role_assignment = { scope, role_definition_name, principal_id }'
+      note: "one per entry, scope = the search service id (source: azurerm 5.12 schema)"
+    bicep_avm: { attribute: roleAssignments }
+    bicep:
+      attribute: 'Microsoft.Authorization/roleAssignments properties = { principalId, roleDefinitionId, principalType }'
+      note: "one per entry, scoped to the search service; roleDefinitionId takes the definition id, the render resolves the role name (source: bicep build, Microsoft.Authorization/roleAssignments@2022-04-01)"
+
+  # ----------------------------------------------------------------- security
+  security.local_authentication_disabled:
+    terraform_avm:
+      attribute: local_authentication_enabled
+      values: { true: false, false: true }
+      note: inverse; module default null (on) - written
+    terraform:
+      attribute: local_authentication_enabled
+      values: { true: false, false: true }
+      note: inverse
+    bicep_avm: { attribute: disableLocalAuth, passthrough: true, note: module default true; authOptions is ignored while it is true }
+    bicep: { attribute: properties.disableLocalAuth, passthrough: true }
+  security.key_management:
+    not_rendered: decides whether cmk_enforcement is asked; no attribute of its own
+  security.cmk_enforcement:
+    terraform_avm: { attribute: customer_managed_key_enforcement_enabled, passthrough: true, note: module default null (false); written }
+    terraform: { attribute: customer_managed_key_enforcement_enabled, passthrough: true }
+    bicep_avm:
+      attribute: cmkEnforcement
+      values: { true: Enabled, false: Disabled }
+      note: module default 'Unspecified' - always written
+    bicep:
+      attribute: properties.encryptionWithCmk.enforcement
+      values: { true: Enabled, false: Disabled }
+      note: the literals the module's cmkEnforcement states, which sets this property
+
+  # ------------------------------------------------------------ observability
+  observability.diagnostic_workspace:
+    terraform_avm: { attribute: diagnostic_settings.workspace.workspace_resource_id }
+    terraform:
+      attribute: azurerm_monitor_diagnostic_setting.log_analytics_workspace_id
+      note: "(source: azurerm 5.12 schema)"
+    bicep_avm: { attribute: 'diagnosticSettings[].workspaceResourceId' }
+    bicep:
+      attribute: Microsoft.Insights/diagnosticSettings properties.workspaceId
+      note: "scoped to the search service (source: bicep build, Microsoft.Insights/diagnosticSettings@2021-05-01-preview)"
+  observability.diagnostic_categories:
+    terraform_avm:
+      attribute: diagnostic_settings.workspace.log_categories
+      note: log_groups defaults to ["allLogs"] - set it [] beside the categories, or every log is collected
+    terraform: { attribute: azurerm_monitor_diagnostic_setting.enabled_log.category }
+    bicep_avm: { attribute: 'diagnosticSettings[].logCategoriesAndGroups[].category' }
+    bicep:
+      attribute: 'Microsoft.Insights/diagnosticSettings properties.logs[].category'
+      note: "one { category, enabled: true } per entry, scoped to the search service (source: bicep build, Microsoft.Insights/diagnosticSettings@2021-05-01-preview)"
+  observability.metrics_enabled:
+    terraform_avm:
+      attribute: diagnostic_settings.workspace.metric_categories
+      values: { true: { expr: '["AllMetrics"]' }, false: { expr: '[]' } }
+    terraform:
+      attribute: azurerm_monitor_diagnostic_setting.enabled_metric.category
+      values: { true: AllMetrics, false: null }
+      note: "false renders no enabled_metric block (source: azurerm 5.12 schema); AllMetrics from the 5.12 docs example"
+    bicep_avm:
+      attribute: 'diagnosticSettings[].metricCategories'
+      values: { true: { expr: "[ { category: 'AllMetrics' } ]" }, false: { expr: '[]' } }
+    bicep:
+      gap: "Microsoft.Insights/diagnosticSettings properties.metrics[] { category, enabled } scoped to the search service is proven (bicep build, Microsoft.Insights/diagnosticSettings@2021-05-01-preview); the category is a free string in the type, so AllMetrics has no source for authored Bicep"

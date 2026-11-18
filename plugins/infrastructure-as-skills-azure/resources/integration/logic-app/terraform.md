@@ -26,35 +26,13 @@ renders a Consumption workflow cannot be on `azurerm` 5.x. A Standard-only root 
 
 ### Decision -> module input
 
-| Decision | Module | Input | Note |
+What each decision renders to - the input and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.
+
+### Deployment-wide inputs
+
+| Input | Module | Input | Note |
 |---|---|---|---|
-| `hosting: standard` | site | `kind = "logicapp"`, `os_type = "Windows"` | The module maps `logicapp` + Windows to the ARM kind `functionapp,workflowapp` |
-| `hosting: consumption` | workflow | the module itself | One module call per `workflows` entry |
-| `plan: shared`, `shared_plan_with` | site | `service_plan_resource_id` = the owner's plan id; no plan module | |
-| `plan_sku` | plan | `sku_name = "WS1"` | Module default **`P1v2`**, which a logic app refuses; written |
-| `zone_redundant` | plan | `zone_balancing_enabled` | Module default `true`; written. The minimum instance count for a zone-redundant WS plan is read from the documentation |
-| `instance_count` | plan | `worker_count` | |
-| `max_instance_count` | plan | `maximum_elastic_worker_count` | |
-| `workflows` | site | - (content, deployed from the repository) | `# not-testable:` on Standard |
-| `state` | workflow | `state` | Default `"Enabled"`; written |
-| `trigger_authentication` | workflow | `access_control = { triggers = { openAuthenticationPolicies = {...}, allowedCallerIpAddresses = [...] } }` | Untyped map in ARM spelling; the SAS switch's property name is checked before a render |
-| `trigger_authentication` | site | `auth_settings_v2` | Easy Auth in front of the request triggers |
-| `host_storage_account` | site | `storage_account_name` | **Required by the module for `logicapp`** |
-| `host_storage_auth` | site | **`identity` is not carried by the module** for a logic app: its logic-app settings always write `AzureWebJobsStorage` as a connection string with the account key, merged *after* `app_settings` and without the override guard the function-app settings have, and `storage_account_access_key` is validated non-null for `kind = "logicapp"`. `identity` renders the site **authored** (`azapi_resource`, below) and the spec records `implementation: authored` with `source: { forced_by: avm-res-web-site v0.24.1 writes the storage key for a logic app }`. `key` renders the module with `storage_account_access_key = data.azurerm_key_vault_secret.host_storage_key.value` and `storage_account_share_name` | Re-read the pinned README's logic-app settings before a render; the module may gain the identity path |
-| `public_network_access` | site | `public_network_access_enabled` (bool), `site_config.ip_restriction_default_action` | Module default `false`; written |
-| `public_network_access` | workflow | `access_control.triggers.allowedCallerIpAddresses` | No `disabled` exists |
-| `allowed_caller_ip_ranges` | site / workflow | `site_config.ip_restriction` / `access_control.triggers.allowedCallerIpAddresses[].addressRange` | |
-| `private_endpoint_subnet` | site | `private_endpoints = { sites = { subnet_resource_id } }` | |
 | `deployment.private_dns_records` | site | `private_endpoints_manage_dns_zone_group` | `false` under `policy` |
-| `vnet_integration`, `integration_subnet`, `vnet_route_all` | site | `virtual_network_subnet_id`, `vnet_route_all_traffic` | |
-| `managed_identity`, `user_assigned_identity_ids` | site / workflow | `managed_identities = { user_assigned_resource_ids }`, site also `key_vault_reference_identity` | |
-| `role_assignments` | site / workflow | `role_assignments` | |
-| `https_only` | site | `https_only` | |
-| `min_tls_version` | site | `site_config.minimum_tls_version`, `scm_minimum_tls_version` | Module default **1.3**; written |
-| `basic_auth_enabled` | site | `ftp_publish_basic_authentication_enabled`, `scm_publish_basic_authentication_enabled` | SCM default **true** |
-| `application_insights` | site | `APPLICATIONINSIGHTS_CONNECTION_STRING` in `app_settings` | Omitted while empty |
-| `diagnostic_*`, `metrics_enabled` | site / plan | `diagnostic_settings = { workspace = { workspace_resource_id, logs = [{ category }], metrics = [{ category }] } }` | The older object form; the plan has metrics only |
-| `diagnostic_*`, `metrics_enabled` | workflow | `diagnostic_settings = { workspace = { workspace_resource_id, log_categories, log_groups = [], metric_categories } }` | `log_groups` defaults to `["allLogs"]`; set empty |
 | `deployment.module_telemetry` | all | `enable_telemetry` | |
 | `context.tags` | all | `tags = local.tags` | |
 
@@ -305,10 +283,11 @@ role assignments and the diagnostic settings are children and `# not-testable:` 
 
 The fallback. Targets `azurerm` **5.x**; check against `terraform providers schema -json`.
 
-| Decision | Resource / argument |
+What each decision renders to - the argument and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.
+
+### Arguments no decision covers
+
+| Input | Resource / argument |
 |---|---|
-| the plan | `azurerm_service_plan` (`os_type = "Windows"`, `sku_name = "WS1"`, `worker_count`, `maximum_elastic_worker_count`, `zone_balancing_enabled`) |
-| the Standard app | `azurerm_logic_app_standard` (`app_service_plan_id`, `storage_account_name` with `storage_account_access_key` **or** `storage_key_vault_secret_id` + `key_vault_reference_identity_id`, `app_settings` for the identity triple, `https_only`, `public_network_access`, `virtual_network_subnet_id`, `ftp_publish_basic_authentication_enabled`, `scm_publish_basic_authentication_enabled`, `identity`, `site_config { min_tls_version, scm_min_tls_version, ftps_state, ip_restriction, ip_restriction_default_action, vnet_route_all_enabled, dotnet_framework_version }`) |
-| the Consumption workflow | `azurerm_logic_app_workflow` (`enabled`, `identity`, `access_control { trigger { allowed_caller_ip_address_range, open_authentication_policy } }`, `workflow_parameters`) |
-| private endpoint | `azurerm_private_endpoint` with `subresource_names = ["sites"]` |
-| diagnostics | `azurerm_monitor_diagnostic_setting` with `enabled_log { category }` and `enabled_metric { category }` |
+| (the Standard app) | `azurerm_logic_app_standard` `site_config { ftps_state, dotnet_framework_version }` |
+| (the Consumption workflow) | `azurerm_logic_app_workflow` `workflow_parameters` |

@@ -35,7 +35,8 @@ deployment:
     source: stated
   private_endpoint_subnet:
     value:
-      production: snet-privatelink
+      resource: virtual-network
+      part: snet-privatelink
     source: stated
   private_endpoint_subnet_prefix:
     value:
@@ -52,9 +53,7 @@ deployment:
     source: stated
   diagnostics_destination:
     value:
-      production:
-        name: log-platform-prod-gwc
-        resource_group_name: rg-observability-prod-gwc
+      existing: log_analytics_workspace
     source: stated
   mandates:
     value:
@@ -130,14 +129,16 @@ resources:
     networking:
       integration_subnet:
         value:
-          production: virtual-network.snet-app-integration
+          resource: virtual-network
+          part: snet-app-integration
         source: stated
       public_network_access:
         value: disabled
         source: deployment
       private_endpoint_subnet:
         value:
-          production: snet-privatelink
+          resource: virtual-network
+          part: snet-privatelink
         source: deployment
   app-service__worker:
     meta:
@@ -145,14 +146,16 @@ resources:
     networking:
       integration_subnet:
         value:
-          production: virtual-network.snet-app-integration
+          resource: virtual-network
+          part: snet-app-integration
         source: stated
       public_network_access:
         value: disabled
         source: deployment
       private_endpoint_subnet:
         value:
-          production: snet-privatelink
+          resource: virtual-network
+          part: snet-privatelink
         source: deployment
   app-service__tuner:
     meta:
@@ -160,14 +163,16 @@ resources:
     networking:
       integration_subnet:
         value:
-          production: virtual-network.snet-app-integration
+          resource: virtual-network
+          part: snet-app-integration
         source: stated
       public_network_access:
         value: disabled
         source: deployment
       private_endpoint_subnet:
         value:
-          production: snet-privatelink
+          resource: virtual-network
+          part: snet-privatelink
         source: deployment
   app-service__scheduler:
     meta:
@@ -175,14 +180,16 @@ resources:
     networking:
       integration_subnet:
         value:
-          production: virtual-network.snet-app-integration
+          resource: virtual-network
+          part: snet-app-integration
         source: stated
       public_network_access:
         value: disabled
         source: deployment
       private_endpoint_subnet:
         value:
-          production: snet-privatelink
+          resource: virtual-network
+          part: snet-privatelink
         source: deployment
   storage-account:
     meta:
@@ -193,7 +200,8 @@ resources:
         source: deployment
       private_endpoint_subnet:
         value:
-          production: snet-privatelink
+          resource: virtual-network
+          part: snet-privatelink
         source: deployment
   key-vault:
     meta:
@@ -204,8 +212,28 @@ resources:
         source: deployment
       private_endpoint_subnet:
         value:
-          production: snet-privatelink
+          resource: virtual-network
+          part: snet-privatelink
         source: deployment
+  key-vault-secret__signin:
+    placement:
+      key_vault: { value: { resource: key-vault }, source: stated }
+    identity:
+      role_assignments:
+        value:
+        - { principal: app-service__dashboard, role: Key Vault Secrets User }
+        source: stated
+  key-vault-secret__github:
+    placement:
+      key_vault: { value: { resource: key-vault }, source: stated }
+    identity:
+      role_assignments:
+        value:
+        - { principal: app-service__tuner, role: Key Vault Secrets User }
+        source: stated
+  key-vault-key__signing:
+    placement:
+      key_vault: { value: { resource: key-vault }, source: stated }
   container-registry:
     meta:
       purpose: { value: Images, source: stated }
@@ -220,3 +248,10 @@ resources:
       public_network_access:
         value: disabled
         source: deployment
+
+open:
+- key: deployment.diagnostics_destination
+  question: Which resource id does log_analytics_workspace log-platform-prod-gwc (rg-observability-prod-gwc) have in the stages
+    development, test, production?
+  owner: platform team
+  blocks: apply

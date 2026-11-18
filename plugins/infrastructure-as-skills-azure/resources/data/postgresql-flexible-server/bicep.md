@@ -18,33 +18,14 @@ Resolve the current version and re-read the README parameters before rendering, 
 
 ### Decision -> module parameter
 
-| Decision | Parameter | Note |
+What each decision renders to - the parameter and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.
+
+### Deployment-wide inputs and inputs no decision covers
+
+| Input | Parameter | Note |
 |---|---|---|
-| `postgres_version` | `version` | A string; module default **`'18'`**; written |
-| `compute_tier`, `sku_name` | `tier: 'GeneralPurpose'` and `skuName: 'Standard_D2ds_v5'` | Two parameters that must agree; both required |
-| `storage_size_gb` | `storageSizeGB` | Default 32; written |
-| `storage_auto_grow` | `autoGrow` | `'Enabled'` / `'Disabled'`; required |
-| `databases` | `databases: [ { name, charset, collation } ]` | |
-| `high_availability` | `highAvailability: 'ZoneRedundant'` / `'SameZone'` / `'Disabled'` | Default `'ZoneRedundant'`; written. `'Disabled'` on burstable |
-| `availability_zone` | `availabilityZone: -1` | **Required** by the module; `-1` is no preference |
-| `maintenance_window` | `maintenanceWindow: { customWindow: 'Enabled', dayOfWeek: 0, startHour: 2, startMinute: 0 }` | Module default 01:00; written |
-| `private_connectivity: private_endpoint` | `privateEndpoints`, with `delegatedSubnetResourceId` and `privateDnsZoneArmResourceId` unset | Fixed at creation |
-| `private_connectivity: vnet_integration` | `delegatedSubnetResourceId`, `privateDnsZoneArmResourceId` | |
-| `public_network_access` | `publicNetworkAccess: 'Disabled'` | A string here, a bool in Terraform; default disabled; written |
-| `ip_rules`, `allow_azure_services` | `firewallRules: [ { name, startIpAddress, endIpAddress } ]` | |
-| `private_endpoint_subnet` | `privateEndpoints: [ { subnetResourceId, service: 'postgresqlServer' } ]` | |
+| `availability_zone` (not a question of the set) | `availabilityZone: -1` | **Required** by the module; `-1` is no preference |
 | `deployment.private_dns_records: policy` | no `privateDnsZoneGroup` on the endpoint | |
-| `managed_identity` | `managedIdentities: { systemAssigned, userAssignedResourceIds }` | |
-| `entra_admins` | `administrators: [ { objectId, principalName, principalType: 'Group', tenantId } ]` | |
-| `password_authentication_disabled` | `authConfig: { activeDirectoryAuth: 'Enabled', passwordAuth: 'Disabled', tenantId }` and **no** `administratorLogin`/`administratorLoginPassword` | Module default has Entra on and password off; written |
-| `database_roles` | **not the module** | SQL after the deployment |
-| `role_assignments` | `roleAssignments` | Control plane |
-| `minimum_tls_version` | `configurations: [ { name: 'ssl_min_protocol_version', source: 'user-override', value: 'TLSv1.2' } ]` | |
-| `key_management`, `cmk_key_vault_key_id` | `customerManagedKey: { keyVaultResourceId, keyName, autoRotationEnabled: true, userAssignedIdentityResourceId }` | Unversioned |
-| `threat_protection` | `enableAdvancedThreatProtection` | Default `true`; written |
-| `backup_retention_days` | `backupRetentionDays` | Default 7; written |
-| `geo_redundant_backup` | `geoRedundantBackup: 'Enabled'` / `'Disabled'` | Module default **`'Enabled'`** - differs from Terraform; written |
-| `diagnostic_*`, `metrics_enabled` | `diagnosticSettings: [ { workspaceResourceId, logCategoriesAndGroups: [ { category } ], metricCategories: [ { category: 'AllMetrics' } ] } ]` | |
 | `deployment.module_telemetry` | `enableTelemetry` | |
 | `context.tags` | `tags` | |
 
@@ -157,7 +138,7 @@ step after the deployment, recorded in the spec as `database_roles`.
 ### Tests
 
 A module call compiles to a nested deployment whose `properties.parameters.<param>.value` is the
-decision, so every decision above is observable in `tests/*.armtest.yaml`
+decision, so every decision in render-map.yaml is observable in `tests/*.armtest.yaml`
 ([bicep-idiom.md](../../../core/iac-rendering/references/bicep-idiom.md#tests)), including the
 databases, the administrators and the configurations. `database_roles` and the Defender plan are
 `not-testable` (not a resource of this template).
@@ -166,19 +147,10 @@ databases, the administrators and the configurations. `database_roles` and the D
 
 The fallback. `Microsoft.DBforPostgreSQL/flexibleServers`:
 
-| Decision | Property |
+What each decision renders to - the property and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.
+
+### Inputs no decision covers
+
+| Input | Property |
 |---|---|
-| `postgres_version`, `compute_tier`, `sku_name` | `properties.version`, `sku { name, tier }` |
-| `storage_size_gb`, `storage_auto_grow` | `properties.storage { storageSizeGB, autoGrow }` |
-| `high_availability`, `availability_zone` | `properties.highAvailability { mode }`, `properties.availabilityZone` |
-| `maintenance_window` | `properties.maintenanceWindow` |
-| `public_network_access` | `properties.network.publicNetworkAccess`, child `firewallRules` |
-| `private_connectivity: vnet_integration` | `properties.network { delegatedSubnetResourceId, privateDnsZoneArmResourceId }` |
-| `private_connectivity: private_endpoint` | `Microsoft.Network/privateEndpoints` with `groupIds: ['postgresqlServer']` |
-| `password_authentication_disabled` | `properties.authConfig { activeDirectoryAuth, passwordAuth, tenantId }` |
-| `entra_admins` | child `administrators` |
-| `minimum_tls_version` | child `configurations` |
-| `key_management` | `properties.dataEncryption`, `identity` |
-| `backup_retention_days`, `geo_redundant_backup` | `properties.backup { backupRetentionDays, geoRedundantBackup }` |
-| `databases` | child `databases` |
-| `threat_protection` | child `advancedThreatProtectionSettings/Default` |
+| `availability_zone` (not a question of the set) | `properties.availabilityZone` |

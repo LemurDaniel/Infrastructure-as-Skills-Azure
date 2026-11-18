@@ -18,29 +18,12 @@ Resolve the current version and re-read the README parameters before rendering, 
 
 ### Decision -> module parameter
 
+What each decision renders to - the parameter and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.
+
+Deployment-wide parameters, not decisions of this set:
+
 | Decision | Parameter | Note |
 |---|---|---|
-| `os_type` | `osType: 'Linux'` / `'Windows'` | Required |
-| `image` | `imageReference: { publisher, offer, sku, version: 'latest' }` | A gallery image: `imageReference: { id }` |
-| `instance_count` | a module loop `[for i in range(1, count): ...]` | Each name with the instance number |
-| `size` | `vmSize` | Required; written |
-| `license_type` | `licenseType: 'Windows_Server'` | |
-| `availability`, `zone` | `availabilityZone: 1` (`-1` for none), `availabilitySetResourceId` | `availabilityZone` is **required**; `-1` when a set or no zone |
-| `os_disk_storage`, `os_disk_size_gb`, `disk_encryption_set_id` | `osDisk: { caching, createOption: 'FromImage', deleteOption: 'Delete', diskSizeGB, managedDisk: { storageAccountType, diskEncryptionSetResourceId } }` | `deleteOption: 'Delete'` so a rebuild leaves no orphan disk |
-| `data_disks` | `dataDisks` | Same zone as the machine |
-| `workload_subnet`, `public_ip`, `private_ip_allocation`, `accelerated_networking` | `nicConfigurations: [ { enableAcceleratedNetworking, ipConfigurations: [ { name, subnetResourceId, privateIPAllocationMethod } ] } ]` | No `pipConfiguration` is no public IP |
-| `system_assigned_identity`, `user_assigned_identity_ids` | `managedIdentities: { systemAssigned, userAssignedResourceIds }` | The Entra extension forces the system-assigned identity on |
-| `entra_login` | `extensionAadJoinConfig: { enabled: true }` | The module picks `AADLoginForWindows` or `AADSSHLoginforLinux` by `osType`; `settings.mdmId` would enrol in Intune - left out |
-| `role_assignments` | `roleAssignments` | |
-| `trusted_launch` | `securityType: 'TrustedLaunch'`, `secureBootEnabled`, `vTpmEnabled` | Module defaults: no security type, both `false`; written |
-| `encryption_at_host` | `encryptionAtHost` | Module default **`false`** (Terraform on); written |
-| `admin_username`, `password_authentication`, `ssh_public_key` | `adminUsername`, `disablePasswordAuthentication: true`, `publicKeys: [ { keyData, path } ]` | Linux. Module default `disablePasswordAuthentication` is `false`; written |
-| `credential_key_vault` | `adminPassword: getSecret(...)` in the parameter file | Windows: a Key Vault reference, never a literal; the module takes it as `string` |
-| `backup_enabled`, `backup_vault_id`, `backup_policy_id` | `backupVaultName`, `backupVaultResourceGroup`, `backupPolicyName` | Policy **name**, default `DefaultPolicy`; empty vault name is no backup |
-| `patch_mode` | `patchMode: 'AutomaticByPlatform'`, `patchAssessmentMode: 'AutomaticByPlatform'` | Module defaults `''` and `'ImageDefault'`; written |
-| `auto_shutdown*` | `autoShutdownConfig: { status: 'Enabled', dailyRecurrenceTime: '1900', timeZone, notificationSettings: { status: 'Disabled' } }` | `{}` is none; time is `HHmm` |
-| `boot_diagnostics` | `bootDiagnostics: true` | Managed storage account; module default `false`; written |
-| `diagnostic_*`, `metrics_enabled` | `nicConfigurations[].diagnosticSettings: [ { workspaceResourceId, metricCategories: [ { category: 'AllMetrics' } ] } ]` | The module has no machine-level diagnostic setting; metrics go on the interface |
 | `deployment.module_telemetry` | `enableTelemetry` | |
 | `context.tags` | `tags` | |
 
@@ -145,25 +128,12 @@ where the module's own default is written `19:00` - check the first deployment.
 ### Tests
 
 A module call compiles to a nested deployment whose `properties.parameters.<param>.value` is
-the decision, so every decision above is observable in `tests/*.armtest.yaml`
+the decision, so every decision in render-map.yaml is observable in `tests/*.armtest.yaml`
 ([bicep-idiom.md](../../../core/iac-rendering/references/bicep-idiom.md#tests)).
 
 ## Authored rendering
 
 The fallback. `Microsoft.Compute/virtualMachines` with a `Microsoft.Network/networkInterfaces`
-beside it:
+beside it.
 
-| Decision | Property |
-|---|---|
-| `image`, `size` | `properties.storageProfile.imageReference`, `properties.hardwareProfile.vmSize` |
-| `availability`, `zone` | `zones: [ '1' ]`, `properties.availabilitySet.id` |
-| `os_disk_storage`, `os_disk_size_gb` | `properties.storageProfile.osDisk { managedDisk.storageAccountType, diskSizeGB, managedDisk.diskEncryptionSet.id }` |
-| `trusted_launch`, `encryption_at_host` | `properties.securityProfile { securityType, uefiSettings { secureBootEnabled, vTpmEnabled }, encryptionAtHost }` |
-| `admin_username`, `password_authentication`, `ssh_public_key` | `properties.osProfile { adminUsername, linuxConfiguration { disablePasswordAuthentication, ssh.publicKeys } }` |
-| `patch_mode` | `osProfile.linuxConfiguration.patchSettings { patchMode, assessmentMode }` |
-| `system_assigned_identity`, `user_assigned_identity_ids` | `identity { type, userAssignedIdentities }` |
-| `entra_login` | child `extensions` (`AADSSHLoginForLinux` / `AADLoginForWindows`) |
-| `boot_diagnostics` | `properties.diagnosticsProfile.bootDiagnostics.enabled` |
-| `auto_shutdown` | `Microsoft.DevTestLab/schedules` (`shutdown-computevm-<name>`) |
-| `backup_*` | `Microsoft.RecoveryServices/vaults/backupFabrics/protectionContainers/protectedItems` |
-| `public_ip`, `workload_subnet` | `networkInterfaces.properties.ipConfigurations[].properties.subnet.id`; no `publicIPAddress` |
+What each decision renders to - the property and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.

@@ -1,0 +1,85 @@
+# What each decision of questions.yaml renders to, per target and implementation.
+# Format: core/iac-rendering/references/render-map.md. The calls, the authored blocks and the
+# tests are in terraform.md and bicep.md.
+# Terraform: one utility-module call for every standalone assignment (azurerm < 5.0, needs azuread).
+# Bicep: one module per scope_kind - rg-scope, sub-scope, mg-scope, and the resource pattern.
+schema_version: 1
+resource: Microsoft.Authorization/roleAssignments
+
+modules:
+  terraform: [Azure/avm-res-authorization-roleassignment/azurerm]
+  bicep:
+    - avm/res/authorization/role-assignment/rg-scope
+    - avm/res/authorization/role-assignment/sub-scope
+    - avm/res/authorization/role-assignment/mg-scope
+    - avm/ptn/authorization/resource-role-assignment
+
+decisions:
+
+  # ---------------------------------------------------------------- placement
+  placement.environments:
+    not_rendered: the stage file the scope and principal values come from; no attribute
+  placement.scope_kind:
+    not_rendered: picks the Bicep module (and the caller's targetScope) and the form of the scope id; no attribute of its own
+  placement.scope:
+    terraform_avm:
+      attribute: 'role_assignments_azure_resource_manager.<key>.scope'
+      note: a resource id, group id, /subscriptions/<id> or /providers/Microsoft.Management/managementGroups/<name>; not checked for existence
+    terraform: { attribute: scope }
+    bicep_avm:
+      attribute: resourceId
+      module: avm/ptn/authorization/resource-role-assignment
+      note: 'the three scope modules take it from the call''s scope: / targetScope; mg-scope also takes managementGroupId'
+    bicep: { attribute: scope, note: an existing resource symbol - never the id string; omitted for the group }
+
+  # ----------------------------------------------------------------- identity
+  identity.principal:
+    terraform_avm: { attribute: 'role_assignments_azure_resource_manager.<key>.principal_id', note: an object id; from the identity module's principal_id output }
+    terraform: { attribute: principal_id }
+    bicep_avm: { attribute: principalId }
+    bicep: { attribute: properties.principalId }
+  identity.principal_type:
+    terraform_avm:
+      attribute: 'role_assignments_azure_resource_manager.<key>.principal_type'
+      passthrough: true
+      note: ServicePrincipal for a managed identity; the module's *ManagedIdentity values are helper-map only - check the README
+    terraform: { attribute: principal_type, passthrough: true, note: with it set the AAD lookup is skipped }
+    bicep_avm: { attribute: principalType, passthrough: true, note: "ServicePrincipal for a managed identity - the allowed list is '', Device, ForeignGroup, Group, ServicePrincipal, User, with no managed-identity value; written always" }
+    bicep: { attribute: properties.principalType, passthrough: true }
+  identity.role:
+    terraform_avm:
+      attribute: 'role_assignments_azure_resource_manager.<key>.role_definition_name'
+      passthrough: true
+      note: by name; role_definition_id for a role the name table does not resolve
+    terraform: { attribute: role_definition_name, passthrough: true, note: or role_definition_id - exclusive with the name }
+    bicep_avm:
+      - { module: avm/res/authorization/role-assignment/rg-scope, attribute: roleDefinitionIdOrName, passthrough: true, note: a built-in name resolved by the module's table }
+      - { module: avm/res/authorization/role-assignment/sub-scope, attribute: roleDefinitionIdOrName, passthrough: true, note: a built-in name resolved by the module's table }
+      - { module: avm/res/authorization/role-assignment/mg-scope, attribute: roleDefinitionIdOrName, passthrough: true, note: a built-in name resolved by the module's table }
+      - module: avm/ptn/authorization/resource-role-assignment
+        gap: "the name is resolved to its GUID live, never recalled; roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '<guid>'), roleName: the name, for logging"
+    bicep:
+      gap: "the name is resolved to its GUID live, never recalled; properties.roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '<guid>')"
+  identity.role_may_assign:
+    not_rendered: gates security.condition - true with no condition is refused; no attribute
+
+  # ----------------------------------------------------------------- security
+  security.condition:
+    terraform_avm:
+      attribute: 'role_assignments_azure_resource_manager.<key>.condition'
+      passthrough: true
+      note: null when empty; condition_version = "2.0" beside a condition, null otherwise
+    terraform: { attribute: condition, passthrough: true, note: 'condition_version = "2.0" beside it, null when empty' }
+    bicep_avm:
+      - { module: avm/res/authorization/role-assignment/rg-scope, attribute: condition, passthrough: true, note: "empty is no condition; conditionVersion '2.0' by default" }
+      - { module: avm/res/authorization/role-assignment/sub-scope, attribute: condition, passthrough: true, note: "empty is no condition; conditionVersion '2.0' by default" }
+      - { module: avm/res/authorization/role-assignment/mg-scope, attribute: condition, passthrough: true, note: "empty is no condition; conditionVersion '2.0' by default" }
+      - { module: avm/ptn/authorization/resource-role-assignment, gap: no condition parameter - a conditioned assignment on a resource renders authored }
+    bicep: { attribute: properties.condition, passthrough: true, note: "conditionVersion: empty(condition) ? null : '2.0'" }
+  security.description:
+    terraform_avm: { attribute: 'role_assignments_azure_resource_manager.<key>.description', passthrough: true }
+    terraform: { attribute: description, passthrough: true }
+    bicep_avm: { attribute: description, passthrough: true, note: on all four modules }
+    bicep: { attribute: properties.description, passthrough: true }
+  security.deployer_role:
+    not_rendered: the handover's list of rights the deploying identity needs; nothing in the template

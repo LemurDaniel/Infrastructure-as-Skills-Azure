@@ -21,24 +21,14 @@ for Microsoft.BotService/botServices }`. Check the index before a render; when t
 ### Decision -> ARM property
 
 `Microsoft.BotService/botServices@2022-09-15` (the current stable version; check
-`az provider show -n Microsoft.BotService` before a render), `kind: 'azurebot'`, `location: 'global'`:
+`az provider show -n Microsoft.BotService` before a render), `kind: 'azurebot'`, `location: 'global'`.
 
-| Decision | Property | Note |
+What each decision renders to - the property and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.
+
+### Deployment-wide properties
+
+| Input | Property | Note |
 |---|---|---|
-| `sku` | `sku.name` | `'F0'` / `'S1'` |
-| `display_name` | `properties.displayName` | Required by the API; the resource name when empty |
-| `messaging_endpoint` | `properties.endpoint` | |
-| `app_identity_type` | `properties.msaAppType` | `'UserAssignedMSI'` / `'SingleTenant'` / `'MultiTenant'` |
-| `bot_identity` | `properties.msaAppId` (client id), `msaAppMSIResourceId`, `msaAppTenantId` | |
-| `app_registration_client_id` | `properties.msaAppId`, `msaAppTenantId` | |
-| `channels` | child `botServices/channels` named after the channel, `properties.channelName` | The channel's own `properties` (Teams calling, Direct Line sites) are content |
-| `streaming_endpoint` | `properties.isStreamingSupported` | |
-| `public_network_access` | `properties.publicNetworkAccess` | `'Enabled'` / `'Disabled'` / `'SecuredByPerimeter'` |
-| `private_endpoint_subnet`, `private_endpoint_subresources` | `Microsoft.Network/privateEndpoints`, one per sub-resource, `groupIds: [ 'Bot' ]` and `[ 'Token' ]` | No zone group under `private_dns_records: policy` |
-| `role_assignments` | `Microsoft.Authorization/roleAssignments` scoped to the bot | |
-| `local_authentication_disabled` | `properties.disableLocalAuth` | |
-| `key_management`, `cmk_key_vault_key_id` | `properties.isCmekEnabled`, `cmekKeyVaultUrl` | |
-| `diagnostic_*`, `metrics_enabled` | `Microsoft.Insights/diagnosticSettings` scoped to the bot, `logs: [ { category: 'BotRequest' } ]`, `metrics: [ { category: 'AllMetrics' } ]` | |
 | `context.tags` | `tags` | |
 
 ### The template

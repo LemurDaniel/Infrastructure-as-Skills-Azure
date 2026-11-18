@@ -1,0 +1,111 @@
+# The spec run_render_digest_tests.py digests: Terraform, AVM, per-family, GitHub, three
+# families, one stage map, one assumed value and one open stage.
+schema_version: 1
+
+spec:
+  id: digest-fixture
+  target: terraform
+  generated_by: infrastructure-as-skills-azure
+  plugin_version: 0.7.0
+
+context:
+  environments: [development, production]
+  language: de
+  workload: payments
+
+deployment:
+  deploy_mechanism:
+    value: github
+    source: asked
+  pipeline_auth:
+    value: workload_identity
+    source: default
+  pipeline_approvals:
+    value: production
+    source: default
+  module_source:
+    value: avm
+    source: asked
+  network_ownership:
+    value: create
+    source: default
+  private_dns_ownership:
+    value: platform
+    source: default
+  address_space:
+    value:
+      development: 10.10.0.0/24
+      production: 10.20.0.0/24
+    source: asked
+
+composition:
+  granularity: per-family
+  source: default
+  modules:
+  - id: network
+    contains: [virtual-network]
+    outputs: [id, private_endpoint_subnet_id]
+  - id: storage
+    contains: [storage-account]
+    needs: [network]
+    outputs: [id]
+  - id: security
+    contains: [key-vault]
+    implementation: authored
+    needs: [network]
+    outputs: [id, vault_uri]
+
+resources:
+  virtual-network:
+    addressing:
+      address_space:
+        value:
+          development: 10.10.0.0/24
+          production: 10.20.0.0/24
+        source: deployment
+      dns_servers:
+        value: []
+        source: default
+  storage-account:
+    meta:
+      purpose:
+        value: Belege
+        source: stated
+    networking:
+      public_network_access:
+        value: disabled
+        source: deployment
+    security:
+      min_tls_version:
+        value: TLS1_2
+        source: default
+    data_protection:
+      replication:
+        value:
+          development: LRS
+          production: ZRS
+        source:
+          derived_from: deployment.outage_impact
+      blob_soft_delete_days:
+        value: 14
+        source: assumed
+  key-vault:
+    vault:
+      purge_protection:
+        value: true
+        source: default
+
+wiring:
+  role_assignments:
+    value:
+    - from: storage-account
+      to: key-vault
+      role: Key Vault Crypto Service Encryption User
+    source: default
+
+open:
+- key: context.subscription_id
+  environments: [production]
+  question: Welche Subscription bekommt die Produktion?
+  owner: Plattform-Team
+  blocks: apply

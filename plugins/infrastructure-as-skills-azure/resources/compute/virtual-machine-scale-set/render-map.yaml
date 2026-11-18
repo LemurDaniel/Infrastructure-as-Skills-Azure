@@ -1,0 +1,360 @@
+# What each decision of questions.yaml renders to, per target and implementation.
+# Format: core/iac-rendering/references/render-map.md. The call, the authored blocks and the
+# tests are in terraform.md and bicep.md.
+# Authored Terraform: Flexible is azurerm_orchestrated_virtual_machine_scale_set, Uniform is
+# azurerm_linux_virtual_machine_scale_set / azurerm_windows_virtual_machine_scale_set - the
+# attribute paths below are the Flexible resource's unless a note says otherwise.
+schema_version: 1
+resource: Microsoft.Compute/virtualMachineScaleSets
+
+modules:
+  terraform: [Azure/avm-res-compute-virtualmachinescaleset/azurerm]
+  bicep: [avm/res/compute/virtual-machine-scale-set]
+
+decisions:
+
+  # ---------------------------------------------------------------- placement
+  placement.environments:
+    not_rendered: naming parameter `environment` and the tag of that name; no attribute of the set
+  placement.location:
+    terraform_avm: { attribute: location, passthrough: true }
+    terraform: { attribute: location, passthrough: true }
+    bicep_avm: { attribute: location, passthrough: true }
+    bicep: { attribute: location, passthrough: true }
+  placement.resource_group_name:
+    terraform_avm:
+      attribute: parent_id
+      note: the group's id, not its name - AzAPI-based module; it constrains no azurerm
+    terraform: { attribute: resource_group_name }
+    bicep_avm: { gap: the deployment's resource group scope; no parameter }
+    bicep: { gap: the deployment's resource group scope; no property }
+
+  # ---------------------------------------------------------------- scale_set
+  scale_set.orchestration_mode:
+    terraform_avm:
+      gap: module README v0.11.1 has no input for the orchestration mode - Flexible is fixed; Uniform renders the authored azurerm_linux/windows_virtual_machine_scale_set
+    terraform:
+      attribute: resource type
+      values:
+        Flexible: { expr: azurerm_orchestrated_virtual_machine_scale_set }
+        Uniform: { expr: azurerm_linux_virtual_machine_scale_set / azurerm_windows_virtual_machine_scale_set }
+      note: set at creation; a set does not convert
+    bicep_avm: { attribute: orchestrationMode, passthrough: true, note: module default Flexible; written anyway }
+    bicep: { attribute: properties.orchestrationMode, passthrough: true }
+  scale_set.os_type:
+    terraform_avm:
+      attribute: os_profile
+      values:
+        Linux: { expr: '{ linux_configuration = { <members per terraform.md> } }' }
+        Windows: { expr: '{ windows_configuration = { <members per terraform.md> } }' }
+    terraform:
+      attribute: os_profile
+      values:
+        Linux: { expr: 'linux_configuration { <members per terraform.md> }' }
+        Windows: { expr: 'windows_configuration { <members per terraform.md> }' }
+      note: Uniform picks the linux or windows resource instead
+    bicep_avm: { attribute: osType, passthrough: true, note: a required parameter }
+    bicep:
+      attribute: properties.virtualMachineProfile.osProfile
+      values:
+        Linux: { expr: 'linuxConfiguration: { <members per the other decisions> }' }
+        Windows: { expr: 'windowsConfiguration: { <members per the other decisions> }' }
+      note: 'source: bicep build, Microsoft.Compute/virtualMachineScaleSets@2024-11-01'
+  scale_set.image:
+    terraform_avm:
+      gap: >-
+        source_image_reference; the Windows images are not spelled in the reference. Stated:
+        ubuntu_24_04 is { publisher = "Canonical", offer = "ubuntu-24_04-lts", sku = "server",
+        version = "latest" }; gallery_image is source_image_id and no reference
+    terraform:
+      gap: >-
+        source_image_reference; the Windows images are not spelled in the reference. Stated (module call):
+        ubuntu_24_04 is { publisher = "Canonical", offer = "ubuntu-24_04-lts", sku = "server",
+        version = "latest" }; the authored rendering names no gallery image argument
+    bicep_avm:
+      gap: >-
+        imageReference; the Windows images are not spelled in the reference. Stated: ubuntu_24_04 is
+        { publisher: 'Canonical', offer: 'ubuntu-24_04-lts', sku: 'server', version: 'latest' };
+        gallery_image is { id: {scale_set.gallery_image_id} }
+    bicep:
+      gap: >-
+        properties.virtualMachineProfile.storageProfile.imageReference; the Windows images are not
+        spelled in the reference. Stated (module call): ubuntu_24_04 is { publisher: 'Canonical',
+        offer: 'ubuntu-24_04-lts', sku: 'server', version: 'latest' }; gallery_image is { id: {scale_set.gallery_image_id} }
+  scale_set.gallery_image_id:
+    terraform_avm: { attribute: source_image_id }
+    terraform: { attribute: source_image_id, note: 'instead of source_image_reference; on the Uniform resources too (source: azurerm 5.12 schema, azurerm 5.12 docs)' }
+    bicep_avm: { attribute: imageReference.id }
+    bicep: { attribute: properties.virtualMachineProfile.storageProfile.imageReference.id }
+  scale_set.size:
+    terraform_avm: { attribute: sku_name, passthrough: true, note: module default null - always written }
+    terraform: { attribute: sku_name, passthrough: true, note: sku on the Uniform resources }
+    bicep_avm: { attribute: skuName, passthrough: true, note: a required parameter }
+    bicep: { attribute: sku.name, passthrough: true }
+  scale_set.instances:
+    terraform_avm: { attribute: instances, passthrough: true, note: module default null - always written }
+    terraform: { attribute: instances, passthrough: true }
+    bicep_avm: { attribute: skuCapacity, passthrough: true, note: module default 1; written anyway }
+    bicep: { attribute: sku.capacity, passthrough: true }
+  scale_set.zones:
+    terraform_avm: { attribute: zones, note: module default all three; written anyway; set at creation }
+    terraform: { attribute: zones, note: set at creation }
+    bicep_avm: { attribute: availabilityZones, note: 'integers ([ 1, 2, 3 ]), not strings; module default all three - written' }
+    bicep: { attribute: zones, note: "strings ([ '1', '2', '3' ])" }
+  scale_set.zone_balance:
+    terraform_avm: { attribute: zone_balance, passthrough: true, note: module default false; written anyway }
+    terraform: { attribute: zone_balance, passthrough: true }
+    bicep_avm: { attribute: zoneBalance, passthrough: true, note: module default false; written anyway }
+    bicep: { attribute: properties.zoneBalance, passthrough: true }
+  scale_set.fault_domain_count:
+    terraform_avm: { attribute: platform_fault_domain_count, passthrough: true, note: module default 1; written anyway }
+    terraform: { attribute: platform_fault_domain_count, passthrough: true, note: set at creation }
+    bicep_avm: { attribute: scaleSetFaultDomain, passthrough: true, note: module default 1; written anyway }
+    bicep: { attribute: properties.platformFaultDomainCount, passthrough: true }
+  scale_set.os_disk_storage:
+    terraform_avm: { attribute: os_disk.storage_account_type, passthrough: true }
+    terraform: { attribute: os_disk.storage_account_type, passthrough: true }
+    bicep_avm:
+      attribute: osDisk.managedDisk.storageAccountType
+      passthrough: true
+      note: "osDisk is a raw API object: { createOption: 'FromImage', caching, deleteOption: 'Delete', diskSizeGB, managedDisk }"
+    bicep: { attribute: properties.virtualMachineProfile.storageProfile.osDisk.managedDisk.storageAccountType, passthrough: true }
+  scale_set.os_disk_size_gb:
+    terraform_avm: { attribute: os_disk.disk_size_gb, passthrough: true }
+    terraform: { attribute: os_disk.disk_size_gb, passthrough: true }
+    bicep_avm: { attribute: osDisk.diskSizeGB, passthrough: true }
+    bicep: { attribute: properties.virtualMachineProfile.storageProfile.osDisk.diskSizeGB, passthrough: true }
+  scale_set.upgrade_mode:
+    terraform_avm:
+      attribute: upgrade_policy.upgrade_mode
+      passthrough: true
+      note: module default Manual - written; Rolling needs rolling_upgrade_policy with all four members
+    terraform:
+      attribute: upgrade_mode
+      passthrough: true
+      note: 'on the Uniform and the Flexible resources alike, with rolling_upgrade_policy beside it for Rolling (source: azurerm 5.12 schema)'
+    bicep_avm:
+      attribute: upgradePolicyMode
+      passthrough: true
+      note: module default Manual - written; Rolling also sets the batch and unhealthy percentages (default 20 each) and pauseTimeBetweenBatches
+    bicep: { attribute: properties.upgradePolicy.mode, passthrough: true }
+  scale_set.health_check_port:
+    terraform_avm:
+      attribute: 'extension[].settings.port'
+      passthrough: true
+      note: settings = jsonencode({ protocol, port, requestPath }) on ApplicationHealthLinux / ApplicationHealthWindows; the module's precondition for repair, rolling and platform patching
+    terraform: { attribute: 'extension[].settings.port', passthrough: true, note: ApplicationHealthLinux / ApplicationHealthWindows }
+    bicep_avm:
+      attribute: extensionHealthConfig.port
+      passthrough: true
+      note: 'with enabled: true and protocol; module default enabled on port 80 - written'
+    bicep:
+      gap: >-
+        an ApplicationHealthLinux / ApplicationHealthWindows entry in
+        properties.virtualMachineProfile.extensionProfile.extensions; the settings path of the port is
+        not in the reference
+  scale_set.health_check_path:
+    terraform_avm: { attribute: 'extension[].settings.requestPath', passthrough: true, note: inside the jsonencode'd settings }
+    terraform: { attribute: 'extension[].settings.requestPath', passthrough: true }
+    bicep_avm: { attribute: extensionHealthConfig.requestPath, passthrough: true, note: module default /; written anyway }
+    bicep:
+      gap: >-
+        an ApplicationHealthLinux / ApplicationHealthWindows entry in
+        properties.virtualMachineProfile.extensionProfile.extensions; the settings path of the request
+        path is not in the reference
+  scale_set.instance_repair:
+    terraform_avm:
+      attribute: automatic_instance_repair.enabled
+      passthrough: true
+      note: with grace_period = "PT30M"; module default on, PT30M - written
+    terraform: { attribute: automatic_instance_repair.enabled, passthrough: true, note: with grace_period }
+    bicep_avm:
+      attribute: automaticRepairsPolicyEnabled
+      passthrough: true
+      note: "with gracePeriod: 'PT30M'; module default on - written"
+    bicep: { attribute: properties.automaticRepairsPolicy.enabled, passthrough: true, note: with gracePeriod }
+
+  # --------------------------------------------------------------- networking
+  networking.workload_subnet:
+    terraform_avm: { attribute: 'network_interface[].ip_configuration[].subnet_id' }
+    terraform: { attribute: 'network_interface[].ip_configuration[].subnet_id' }
+    bicep_avm: { attribute: 'nicConfigurations[].ipConfigurations[].properties.subnet.id', note: ipConfigurations is a free array of API objects }
+    bicep: { attribute: 'properties.virtualMachineProfile.networkProfile.networkInterfaceConfigurations[].properties.ipConfigurations[].properties.subnet.id' }
+  networking.public_ip:
+    terraform_avm:
+      attribute: 'network_interface[].ip_configuration[].public_ip_address'
+      values: { true: { expr: '[{ name = "<name>" }]' }, false: { expr: 'null' } }
+      note: 'a set of objects, name required (source: module README v0.11.1)'
+    terraform:
+      attribute: 'network_interface[].ip_configuration[].public_ip_address'
+      values: { true: { expr: 'public_ip_address { name = "<name>" }' }, false: null }
+      note: 'a block, name required; false renders none (source: azurerm 5.12 schema)'
+    bicep_avm:
+      attribute: 'nicConfigurations[].ipConfigurations[].properties.publicIPAddressConfiguration'
+      values: { true: { expr: "{ name: '<name>' }" }, false: null }
+      note: 'source: module README 0.11.1 (example)'
+    bicep:
+      attribute: 'properties.virtualMachineProfile.networkProfile.networkInterfaceConfigurations[].properties.ipConfigurations[].properties.publicIPAddressConfiguration'
+      values: { true: { expr: "{ name: '<name>' }" }, false: null }
+      note: 'source: bicep build, Microsoft.Compute/virtualMachineScaleSets@2024-11-01'
+  networking.load_balancer_backend_pool_ids:
+    terraform_avm:
+      attribute: 'network_interface[].ip_configuration[].load_balancer_backend_address_pool_ids'
+      note: the reference names no input for Application Gateway pools
+    terraform: { attribute: 'network_interface[].ip_configuration[].load_balancer_backend_address_pool_ids' }
+    bicep_avm: { attribute: 'nicConfigurations[].ipConfigurations[].properties.loadBalancerBackendAddressPools[].id' }
+    bicep: { attribute: 'properties.virtualMachineProfile.networkProfile.networkInterfaceConfigurations[].properties.ipConfigurations[].properties.loadBalancerBackendAddressPools[].id' }
+  networking.accelerated_networking:
+    terraform_avm: { attribute: 'network_interface[].enable_accelerated_networking', passthrough: true, note: module default false - always written }
+    terraform: { attribute: 'network_interface[].accelerated_networking_enabled', passthrough: true, note: 'the 4.x enable_accelerated_networking is gone (source: azurerm 5.12 schema)' }
+    bicep_avm: { attribute: 'nicConfigurations[].enableAcceleratedNetworking', passthrough: true }
+    bicep: { attribute: 'properties.virtualMachineProfile.networkProfile.networkInterfaceConfigurations[].properties.enableAcceleratedNetworking', passthrough: true }
+
+  # ----------------------------------------------------------------- identity
+  identity.user_assigned_identity_ids:
+    terraform_avm: { attribute: managed_identities.user_assigned_resource_ids, note: the module refuses a system-assigned identity }
+    terraform: { attribute: identity.identity_ids, note: type UserAssigned }
+    bicep_avm: { attribute: managedIdentities.userAssignedResourceIds, note: a Flexible set takes no system-assigned identity }
+    bicep:
+      attribute: identity.userAssignedIdentities
+      format: { expr: 'toObject({value}, id => id, id => {})' }
+      note: 'an object keyed by each id, with type UserAssigned (source: bicep build, Microsoft.Compute/virtualMachineScaleSets@2024-11-01)'
+  identity.role_assignments:
+    terraform_avm: { attribute: 'role_assignments.<key> = { role_definition_id_or_name, principal_id }' }
+    terraform: { attribute: azurerm_role_assignment, note: scope = the set's id }
+    bicep_avm: { attribute: roleAssignments }
+    bicep: { attribute: Microsoft.Authorization/roleAssignments, note: scope = the set }
+
+  # ----------------------------------------------------------------- security
+  security.trusted_launch:
+    terraform_avm: { gap: module README v0.11.1 has no input for secure boot or vTPM; a named gap in the handover }
+    terraform:
+      attribute: secure_boot_enabled, vtpm_enabled
+      passthrough: true
+      note: on the Uniform resources; the reference names neither for the Flexible resource
+    bicep_avm:
+      attribute: securityType
+      values: { true: TrustedLaunch, false: null }
+      note: with secureBootEnabled and vTpmEnabled set to the answer; module defaults empty, false, false - written
+    bicep:
+      attribute: properties.virtualMachineProfile.securityProfile.securityType
+      values: { true: TrustedLaunch, false: null }
+      note: with uefiSettings { secureBootEnabled, vTpmEnabled }
+  security.encryption_at_host:
+    terraform_avm: { attribute: encryption_at_host_enabled, passthrough: true, note: module default null - always written }
+    terraform: { attribute: encryption_at_host_enabled, passthrough: true }
+    bicep_avm: { attribute: encryptionAtHost, passthrough: true, note: module default true; written anyway }
+    bicep: { attribute: properties.virtualMachineProfile.securityProfile.encryptionAtHost, passthrough: true }
+  security.key_management:
+    terraform_avm:
+      attribute: os_disk.disk_encryption_set_id
+      values: { platform_managed: null, customer_managed: { expr: '{security.disk_encryption_set_id}' } }
+      note: the id from security.disk_encryption_set_id
+    terraform:
+      attribute: os_disk.disk_encryption_set_id
+      values: { platform_managed: null, customer_managed: { expr: '{security.disk_encryption_set_id}' } }
+      note: the id from security.disk_encryption_set_id
+    bicep_avm:
+      attribute: osDisk.managedDisk.diskEncryptionSet.id
+      values: { platform_managed: null, customer_managed: { expr: '{security.disk_encryption_set_id}' } }
+      note: the id from security.disk_encryption_set_id
+    bicep:
+      attribute: properties.virtualMachineProfile.storageProfile.osDisk.managedDisk.diskEncryptionSet.id
+      values: { platform_managed: null, customer_managed: { expr: '{security.disk_encryption_set_id}' } }
+      note: the id from security.disk_encryption_set_id
+  security.disk_encryption_set_id:
+    terraform_avm: { attribute: os_disk.disk_encryption_set_id }
+    terraform: { attribute: os_disk.disk_encryption_set_id }
+    bicep_avm: { attribute: osDisk.managedDisk.diskEncryptionSet.id }
+    bicep: { attribute: properties.virtualMachineProfile.storageProfile.osDisk.managedDisk.diskEncryptionSet.id }
+  security.admin_username:
+    terraform_avm: { attribute: os_profile.linux_configuration.admin_username, passthrough: true, note: windows_configuration.admin_username on Windows }
+    terraform: { attribute: os_profile.linux_configuration.admin_username, passthrough: true, note: set at creation }
+    bicep_avm: { attribute: adminUsername, passthrough: true }
+    bicep: { attribute: properties.virtualMachineProfile.osProfile.adminUsername, passthrough: true }
+  security.password_authentication:
+    terraform_avm:
+      attribute: os_profile.linux_configuration.disable_password_authentication
+      values: { true: false, false: true }
+      note: inverted
+    terraform:
+      attribute: os_profile.linux_configuration.disable_password_authentication
+      values: { true: false, false: true }
+      note: inverted
+    bicep_avm:
+      attribute: disablePasswordAuthentication
+      values: { true: false, false: true }
+      note: "inverted; module default false - written; adminPassword is required: '' for key-only Linux"
+    bicep:
+      attribute: properties.virtualMachineProfile.osProfile.linuxConfiguration.disablePasswordAuthentication
+      values: { true: false, false: true }
+      note: inverted
+  security.ssh_public_key:
+    terraform_avm:
+      attribute: 'admin_ssh_keys[].public_key'
+      passthrough: true
+      note: with id and username; os_profile.linux_configuration.admin_ssh_key_id lists the keys' ids
+    terraform: { attribute: os_profile.linux_configuration.admin_ssh_key.public_key, passthrough: true, note: admin_ssh_key on the Uniform resource }
+    bicep_avm:
+      attribute: 'publicKeys[].keyData'
+      passthrough: true
+      note: with path /home/<admin_username>/.ssh/authorized_keys
+    bicep:
+      attribute: 'properties.virtualMachineProfile.osProfile.linuxConfiguration.ssh.publicKeys[].keyData'
+      passthrough: true
+      note: with path /home/<admin_username>/.ssh/authorized_keys
+  security.admin_password_secret:
+    terraform_avm:
+      attribute: admin_password
+      note: the secret's value (a sensitive variable or data source), not its id - never a literal; admin_password_version to rotate
+    terraform: { attribute: admin_password, note: "the secret's value (a sensitive variable), not its id" }
+    bicep_avm: { attribute: adminPassword, note: "the secret's value from getSecret(...) - a Key Vault reference, not its id" }
+    bicep: { attribute: properties.virtualMachineProfile.osProfile.adminPassword, note: "the secret's value through a secure parameter, not its id" }
+  security.patch_mode:
+    terraform_avm:
+      attribute: os_profile.linux_configuration.patch_mode
+      passthrough: true
+      note: with patch_assessment_mode; module default AutomaticByPlatform - written
+    terraform: { attribute: os_profile.linux_configuration.patch_mode, passthrough: true, note: with patch_assessment_mode }
+    bicep_avm:
+      attribute: patchMode
+      passthrough: true
+      note: with patchAssessmentMode, whose module default is ImageDefault - written
+    bicep: { attribute: properties.virtualMachineProfile.osProfile.linuxConfiguration.patchSettings.patchMode, passthrough: true }
+
+  # ------------------------------------------------------------ observability
+  observability.boot_diagnostics:
+    terraform_avm:
+      attribute: boot_diagnostics
+      values: { true: { expr: '{}' }, false: { expr: 'null' } }
+      note: an empty object is the managed storage account
+    terraform:
+      attribute: boot_diagnostics
+      values: { true: { expr: '{}' }, false: null }
+      note: false renders no block
+    bicep_avm: { attribute: bootDiagnosticEnabled, passthrough: true, note: the managed storage account when no account name is given }
+    bicep: { attribute: properties.virtualMachineProfile.diagnosticsProfile.bootDiagnostics.enabled, passthrough: true }
+  observability.diagnostic_workspace:
+    terraform_avm:
+      gap: module README v0.11.1 has no diagnostic input; a sibling azurerm_monitor_diagnostic_setting (log_analytics_workspace_id), unverified for this type
+    terraform:
+      attribute: azurerm_monitor_diagnostic_setting.log_analytics_workspace_id
+      note: unverified for this type
+    bicep_avm: { attribute: 'diagnosticSettings[].workspaceResourceId', note: metrics-only }
+    bicep:
+      attribute: Microsoft.Insights/diagnosticSettings properties.workspaceId
+      note: 'scope = the set; metrics only (source: bicep build, Microsoft.Insights/diagnosticSettings@2021-05-01-preview)'
+  observability.metrics_enabled:
+    terraform_avm:
+      gap: module README v0.11.1 has no diagnostic input; the sibling azurerm_monitor_diagnostic_setting carries enabled_metric { category = "AllMetrics" }
+    terraform:
+      attribute: azurerm_monitor_diagnostic_setting.enabled_metric
+      values: { true: { expr: '{ category = "AllMetrics" }' }, false: null }
+      note: false renders no enabled_metric block
+    bicep_avm:
+      attribute: 'diagnosticSettings[].metricCategories'
+      values: { true: { expr: "[ { category: 'AllMetrics' } ]" }, false: { expr: '[]' } }
+    bicep:
+      attribute: Microsoft.Insights/diagnosticSettings properties.metrics
+      values: { true: { expr: "[ { category: 'AllMetrics', enabled: true } ]" }, false: { expr: '[]' } }
+      note: 'source: bicep build, Microsoft.Insights/diagnosticSettings@2021-05-01-preview; AllMetrics per module README 0.11.1'

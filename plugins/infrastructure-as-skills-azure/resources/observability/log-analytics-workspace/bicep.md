@@ -18,14 +18,12 @@ an `existing` reference as below.
 
 ### Decision → module parameter
 
+What each decision renders to - the parameter and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.
+
+### Parameters no decision covers
+
 | Decision | Parameter | Note |
 |---|---|---|
-| `retention_days` | `dataRetention` | Module default is **365** — the guardrail says 30; must be written |
-| `daily_quota_gb` | `dailyQuotaGb: '-1'` | A **string** on this module |
-| `sku` | `skuName`, `skuCapacityReservationLevel` | |
-| `public_network_access: disabled` | `publicNetworkAccessForIngestion: 'Disabled'` **and** `publicNetworkAccessForQuery: 'Disabled'` | Module defaults are **`'Enabled'`** — both must be written |
-| `local_auth: disabled` | `features: { disableLocalAuth: true }` | |
-| `rbac_only_access` | `features: { enableLogAccessUsingOnlyResourcePermissions: false }` | |
 | `managed_identity` | `managedIdentities: { systemAssigned: true }` | |
 | `key_management: customer_managed` | `features.enableDataExport` is unrelated; CMK is a linked dedicated cluster, outside this question set | |
 | diagnostics of the workspace itself | `diagnosticSettings: [ { workspaceResourceId, … } ]` | |
@@ -75,14 +73,7 @@ workspace this way, or reading what the module does inside.
 
 ## Decision → property
 
-| Decision | Property |
-|---|---|
-| `retention_days` | `properties.retentionInDays` |
-| `daily_quota_gb` | `properties.workspaceCapping.dailyQuotaGb` — `-1` for no cap |
-| `sku` | `properties.sku.name` |
-| `public_network_access: disabled` | `properties.publicNetworkAccessForIngestion` **and** `...ForQuery`, both `'Disabled'` |
-| `local_auth: disabled` | `properties.features.disableLocalAuth: true` |
-| `rbac_only_access` | `properties.features.enableLogAccessUsingOnlyResourcePermissions: false` |
+What each decision renders to - the property and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.
 
 Note the shape difference from Terraform: the two access switches are string enums
 (`'Enabled'` / `'Disabled'`) rather than booleans, and the feature flags sit in a nested
@@ -129,19 +120,17 @@ output name string = workspace.name
 
 ## Referencing one instead
 
-`observability_ownership: reference` renders an `existing` reference, and the workspace
-usually lives in a platform resource group — so the `scope:` is not optional:
+`observability_ownership: reference` makes `deployment.diagnostics_destination`
+`{ existing: log_analytics_workspace }`: an id parameter from the stage files, never an
+`existing` lookup by name and scope ([bicep-idiom.md](../../../core/iac-rendering/references/bicep-idiom.md#referencing-what-the-deployment-does-not-own)):
 
 ```bicep
-resource platformWorkspace 'Microsoft.OperationalInsights/workspaces@2023-09-01' existing = {
-  name: workspaceName
-  scope: resourceGroup(workspaceResourceGroupName)
-}
+@description('The platform\'s Log Analytics workspace (deployment.diagnostics_destination). From the stage file.')
+param diagnosticsWorkspaceId string
 ```
 
-Pass `platformWorkspace.id` down to the modules that diagnose into it, rather than
-repeating the `existing` block in each one — the lookup is free, but five copies of a name
-parameter is five places to change.
+Pass it down to every module that diagnoses into it as it is - one parameter, not a name and
+a resource group in each.
 
 ## Deletion
 

@@ -39,9 +39,6 @@ groups:
         why: >
           Drives the rendered name and the strictness of several defaults below. Nothing
           sensible can be guessed.
-        renders: >
-          naming parameter `environment`, and the tag of that name where the repository uses
-          one
 
       - id: location
         ask:
@@ -56,7 +53,6 @@ groups:
           A firewall is regional and sits in the virtual network it filters, so it follows
           that network's region. Traffic from another region reaches it through peering and
           pays for the crossing.
-        renders: location
 
       - id: resource_group_name
         ask:
@@ -72,7 +68,6 @@ groups:
         why: >
           The firewall is placed into an existing group. In a split deployment it belongs to
           the `network` role, with the network it protects.
-        renders: resource_group_name (AVM Terraform) / implicit in Bicep scope
 
   # --------------------------------------------------------------- the firewall
   - id: firewall
@@ -101,7 +96,6 @@ groups:
           firewall policy must be the same tier, and a move between tiers is a maintenance
           window, not an edit. The Terraform module requires the tier, the Bicep module
           defaults to `Standard`.
-        renders: firewall_sku_tier, firewall_policy_sku / azureSkuTier, tier (policy)
 
       - id: zone_redundant
         ask:
@@ -125,7 +119,6 @@ groups:
           zones are fixed at creation: a firewall without them does not gain them, it is
           rebuilt. A region without zones takes `false`, said out loud. The public IP
           addresses take the same zones. Both modules default to all three zones.
-        renders: firewall_zones / availabilityZones
 
       - id: firewall_subnet
         ask:
@@ -143,9 +136,6 @@ groups:
           The subnet must be called `AzureFirewallSubnet`, hold nothing else and be a /26 at
           least, so that scale-out never runs out of addresses. Looked up from the platform
           or created by the network set. Its name is not a choice.
-        renders: >
-          firewall_ip_configuration.subnet_id / virtualNetworkResourceId (the module finds the
-          subnet by its fixed name)
 
       - id: public_ip_count
         ask:
@@ -163,7 +153,6 @@ groups:
           the `SNAT port utilization` metric says otherwise, and the address list is also what
           partners allowlist, so it is better small and stable. Each additional address is
           billed per hour.
-        renders: firewall_ip_configuration (one per address) / publicIPAddressObject, additionalPublicIpConfigurations
 
   # ---------------------------------------------------------------- networking
   - id: networking
@@ -191,7 +180,6 @@ groups:
           (the management NIC is part of the firewall's shape), so the question belongs
           here and not in the routing. Off unless a mandate wants all egress inspected
           on-premises.
-        renders: firewall_management_ip_configuration / enableManagementNic, managementIPAddressObject
 
       - id: management_subnet
         ask:
@@ -210,7 +198,6 @@ groups:
           Fixed name `AzureFirewallManagementSubnet`, a /26 at least, nothing else in it. The
           management public IP is created beside it, Standard and static, with the same
           zones as the firewall.
-        renders: firewall_management_ip_configuration.subnet_id / the subnet the module finds by name
 
       - id: dns_proxy
         ask:
@@ -231,7 +218,6 @@ groups:
           resolved for every spoke. On, because the guardrails put private resolution in the
           platform and this is the usual way to reach it from a spoke. Off for a firewall
           whose spokes resolve on their own. The setting lives on the firewall policy.
-        renders: firewall_policy_dns.proxy_enabled / policy enableProxy (the firewall's additionalProperties `Network.DNS.EnableProxy` with no policy)
 
       - id: dns_servers
         ask:
@@ -250,7 +236,6 @@ groups:
           linked to the firewall's network. A hybrid network lists its resolvers instead, and
           then the privatelink zones must be forwarded to Azure DNS or private endpoints
           resolve to their public addresses.
-        renders: firewall_policy_dns.servers / policy servers
 
       - id: snat_private_ranges
         ask:
@@ -268,7 +253,6 @@ groups:
           range - needs listing here, or on-premises systems see the firewall's address
           instead of the client's and any source-based rule fails. Written, because both
           modules leave it to the platform.
-        renders: firewall_policy_private_ip_ranges / policy snat.privateRanges
 
   # ------------------------------------------------------------------ identity
   - id: identity
@@ -293,7 +277,6 @@ groups:
           The policy needs an identity for one thing: reading the inspection certificate
           from Key Vault. Without TLS inspection there is nothing for it to read. A
           user-assigned identity can hold the role before the policy exists.
-        renders: firewall_policy_identity / managedIdentities
 
       - id: user_assigned_identity_ids
         ask:
@@ -310,7 +293,6 @@ groups:
         why: >
           The identity that holds `Key Vault Secrets User` on the vault with the
           certificate, created by the identity set before the policy.
-        renders: firewall_policy_identity.identity_ids / managedIdentities.userAssignedResourceIds
 
   # ------------------------------------------------------------------ security
   - id: security
@@ -339,7 +321,6 @@ groups:
           default, because a firewall that logs the connection to a known command-and-control
           address and lets it through is a record of the breach. Both modules default to
           `Deny`; it is written. Moving to `Alert` is a recorded departure with an owner.
-        renders: firewall_policy_threat_intelligence_mode / policy threatIntelMode
 
       - id: idps_mode
         ask:
@@ -362,7 +343,6 @@ groups:
           the same reason the firewall in front of a web application prevents instead of
           detecting; the way out of a false positive is a bypass entry for one source and one
           signature, never `Off`. Premium only.
-        renders: firewall_policy_intrusion_detection.mode / policy intrusionDetection.mode
 
       - id: tls_inspection
         ask:
@@ -383,7 +363,6 @@ groups:
           Key Vault that every client trusts, an identity that reads it, and a decision per
           destination category about what is exempt (banking, health) - a rollout, not a
           switch. Off unless a mandate asks; Premium only.
-        renders: firewall_policy_tls_certificate, firewall_policy_identity / policy certificateName, keyVaultSecretId, managedIdentities
 
       - id: tls_certificate_secret_id
         ask:
@@ -401,7 +380,6 @@ groups:
           An intermediate CA certificate with its key, issued by the organisation's CA and
           stored as a Key Vault secret; the policy's identity reads it. Issuing and renewing
           it is the certificate owner's - an expired one stops the inspection or the traffic.
-        renders: firewall_policy_tls_certificate.key_vault_secret_id / policy keyVaultSecretId
 
       - id: rule_collection_groups
         ask:
@@ -419,7 +397,6 @@ groups:
           the firewall; the pattern or the platform fills them. A firewall with no rule
           denies everything - the first state, and a valid one. Rules are named for the
           workload they serve and never `Any` to `Any`.
-        renders: rule_collection_groups (policy submodule) / ruleCollectionGroups (policy module)
 
   # ------------------------------------------------------------ observability
   - id: observability
@@ -441,7 +418,6 @@ groups:
           Inherited: one deployment, one destination. The firewall's log is the record of
           every connection it allowed and every one it refused - the evidence an incident
           review starts from.
-        renders: diagnostic_settings / diagnosticSettings
 
       - id: diagnostic_categories
         ask:
@@ -470,9 +446,6 @@ groups:
           proxy. Flow trace, fat flow and the aggregations are volume on top of volume and
           left out until an investigation wants them. The names are the platform's and are
           checked against `az monitor diagnostic-settings categories list` before a render.
-        renders: >
-          diagnostic_settings.<key>.log_categories (log_analytics_destination_type = Dedicated) /
-          diagnosticSettings[].logCategoriesAndGroups[].category
 
       - id: metrics_enabled
         ask:
@@ -489,4 +462,3 @@ groups:
         why: >
           Throughput, firewall health, SNAT port utilization (the number to alert on, because
           exhaustion looks like timeouts) and latency probe. Cheap.
-        renders: metric_categories = ["AllMetrics"] / metricCategories[].category

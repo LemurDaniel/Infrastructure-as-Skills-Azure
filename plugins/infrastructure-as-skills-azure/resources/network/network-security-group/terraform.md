@@ -18,13 +18,13 @@ provider set is the union with the other modules.
 
 ### Decision -> module input
 
+What each decision renders to - the input and the literal of every answer - is in
+[render-map.yaml](render-map.yaml); the render digest prints it for a spec.
+
+### Deployment-wide inputs
+
 | Decision | Input | Note |
 |---|---|---|
-| `subnet_purpose` | the name `nsg-<purpose>`, and the baseline rules | See `notes.md` |
-| `default_inbound` | `security_rules` entry: Deny, Inbound, any to any, priority 4096 | Written as a rule |
-| `default_outbound` | `security_rules` entry: Deny, Outbound, destination `Internet`, priority 4096 | Only for `deny_internet` |
-| `rules` | `security_rules = { <k> = { name, priority, direction, access = "Allow", protocol, source_*, destination_* } }` | The module's map key is arbitrary; names unique |
-| `diagnostic_*` | `diagnostic_settings = { workspace = { workspace_resource_id, log_categories = [...], log_groups = [], metric_categories = [] } }` | `log_groups` defaults to `["allLogs"]`: set it empty when `log_categories` names the categories, or every log is collected beside them; no metrics for an NSG |
 | `deployment.module_telemetry` | `enable_telemetry` | |
 | `context.tags` | `tags = local.tags` | |
 
@@ -90,9 +90,10 @@ diagnostic setting is `# not-testable:` where the plan hides it. The paths are r
 
 The fallback. Targets `azurerm` **5.x**; check against `terraform providers schema -json`.
 
+What each decision renders to - the argument and the literal of every answer - is in
+[render-map.yaml](render-map.yaml); the render digest prints it for a spec.
+
 | Decision | Resource |
 |---|---|
 | the NSG | `azurerm_network_security_group` |
-| `rules` and the defaults | `azurerm_network_security_rule` **or** inline `security_rule` blocks - **not both**, the two fight on every apply |
 | the association | `azurerm_subnet_network_security_group_association` - or the subnet's own argument; one of them, never both |
-| diagnostics | `azurerm_monitor_diagnostic_setting` with `enabled_log { category }` |

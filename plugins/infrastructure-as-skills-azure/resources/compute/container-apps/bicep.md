@@ -22,27 +22,13 @@ Resolve the current versions and re-read the README parameters before rendering,
 
 ### Decision -> module parameter
 
-| Decision | Module | Parameter | Note |
+What each decision renders to - the parameter and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.
+
+### Deployment-wide and other inputs
+
+| Input | Module | Parameter | Note |
 |---|---|---|---|
-| `workload_profile` | env | `workloadProfiles: [ { name, workloadProfileType } ]` | **Required when `zoneRedundant` is true** (the README: WAF compliance) |
-| `workload_profile` | app | `workloadProfileName` | |
-| `zone_redundant` | env | `zoneRedundant` | Default `true`; written. Also needs `infrastructureResourceGroupName` per the README |
-| `internal`, `infrastructure_subnet` | env | `internal`, `infrastructureSubnetResourceId` | `internal` default `false`; the subnet is required with it |
-| `public_network_access` | env | `publicNetworkAccess: 'Disabled'` / `'Enabled'` | Default `'Disabled'`; written |
-| `peer_traffic_encryption` | env | `peerTrafficEncryption` | Default `true`; written |
-| `diagnostic_workspace` | env | `appLogsConfiguration: { destination: 'azure-monitor' }` | Not `log-analytics` (shared key) |
-| `diagnostic_*`, `metrics_enabled` | env | `diagnosticSettings: [ { workspaceResourceId, logCategoriesAndGroups: [ { category } ], metricCategories: [ { category: 'AllMetrics' } ] } ]` | |
-| `container_image`, `container_size` | app | `containers: [ { name, image, resources: { cpu, memory } } ]` | `cpu` is a `json('0.5')` |
-| `application_insights` | app | `containers[].env: [ { name: 'APPLICATIONINSIGHTS_CONNECTION_STRING', value }, { name: 'APPLICATIONINSIGHTS_AUTHENTICATION_STRING', value: 'Authorization=AAD;ClientId=<client id>' } ]` | The second while local auth is off, with the app's user-assigned identity; omitted while empty |
-| `min_replicas`, `max_replicas` | app | `scaleSettings: { minReplicas, maxReplicas }` | |
-| `revision_mode` | app | `activeRevisionsMode` | Default `'Single'`; written |
-| `ingress` | app | `disableIngress` (for `none`), `ingressExternal` | **`ingressExternal` defaults to `true`**; written |
-| `target_port` | app | `ingressTargetPort` | **Default 80**; written |
-| `allow_insecure` | app | `ingressAllowInsecure` | **Default `true`**; written |
-| `managed_identity` | app | `managedIdentities: { userAssignedResourceIds }` | |
 | (the pull) | app | `registries: [ { server, identity } ]` | `identity` is the user-assigned identity's resource id - never `username`/`passwordSecretRef` |
-| `secret_references` | app | `secrets: [ { name, keyVaultUrl, identity } ]` | Never `value` |
-| `role_assignments` | app | `roleAssignments` | |
 | `deployment.module_telemetry` | both | `enableTelemetry` | |
 | `context.tags` | both | `tags` | |
 
@@ -136,7 +122,7 @@ are granted before either module is deployed, outside these calls.
 ### Tests
 
 A module call compiles to a nested deployment whose `properties.parameters.<param>.value` is
-the decision, so every decision above is observable in `tests/*.armtest.yaml`
+the decision, so every decision in render-map.yaml is observable in `tests/*.armtest.yaml`
 ([bicep-idiom.md](../../../core/iac-rendering/references/bicep-idiom.md#tests)).
 `application_insights` is matched by the `env` entry's name; its value is the component's
 output, an expression in the compiled template.
@@ -145,14 +131,8 @@ output, an expression in the compiled template.
 
 The fallback. `Microsoft.App/managedEnvironments` and `Microsoft.App/containerApps`:
 
-| Decision | Property |
+What each decision renders to - the property and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.
+
+| Input | Property |
 |---|---|
-| `zone_redundant` | `properties.zoneRedundant` on the environment |
-| `internal`, `infrastructure_subnet` | `properties.vnetConfiguration: { internal, infrastructureSubnetId }` |
-| `public_network_access` | `properties.publicNetworkAccess` on the environment |
-| `peer_traffic_encryption` | `properties.peerTrafficConfiguration.encryption.enabled` |
-| `workload_profile` | `properties.workloadProfiles[]` on the environment, `properties.workloadProfileName` on the app |
-| `diagnostic_workspace` | `properties.appLogsConfiguration.destination: 'azure-monitor'` |
-| ingress | `properties.configuration.ingress: { external, targetPort, allowInsecure }` |
 | the pull | `properties.configuration.registries[]: { server, identity }` |
-| `secret_references` | `properties.configuration.secrets[]: { name, keyVaultUrl, identity }` |

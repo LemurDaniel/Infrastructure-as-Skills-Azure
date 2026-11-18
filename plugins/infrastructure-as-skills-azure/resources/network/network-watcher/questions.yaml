@@ -41,7 +41,6 @@ groups:
           Each stage has its own networks and, by default, its own subscription with its own
           auto-created watcher per region. The flow logs are rendered per stage over that
           stage's networks; the retention differs per stage (`retention_days`).
-        renders: naming parameter `environment` for the flow log names; one flow log set per stage
 
       - id: location
         ask:
@@ -57,7 +56,6 @@ groups:
           and the storage account it writes to. The context's region names the auto-created
           watcher (`NetworkWatcher_<region>`); a network in a second region needs that region's
           watcher and its own flow log.
-        renders: location; the name of the auto-created watcher
 
       - id: resource_group_name
         ask:
@@ -76,7 +74,6 @@ groups:
           value: a flow log is a child of the watcher and lives in the watcher's group, which
           under `platform` is Azure's `NetworkWatcherRG` - the render deploys the flow logs there,
           whatever the context says, and the deploying identity needs rights on that group.
-        renders: resource_group_name of a created watcher; the flow logs render into the watcher's group
 
   # ------------------------------------------------------------------ watcher
   - id: watcher
@@ -105,7 +102,6 @@ groups:
           (`Microsoft.Network/DisableNetworkWatcherAutocreation`) and no watcher exists; the
           created one is then the region's single watcher for every workload in the subscription,
           which is why it is a platform answer and not a workload's.
-        renders: data source / `existing` reference to `NetworkWatcher_<region>` in `NetworkWatcherRG` (platform); the module creating the watcher (deployment)
 
   # ---------------------------------------------------------------- flow_logs
   - id: flow_logs
@@ -128,7 +124,6 @@ groups:
           including traffic through subnets that have no security group, and a network not
           listed has no record when the investigation comes. The deployment's own network is
           the entry a pattern fills; a referenced platform network is the platform's to log.
-        renders: flow_logs.<k>.target_resource_id / flowLogs[].targetResourceId (one child per entry)
 
       - id: flow_log_storage_account
         ask:
@@ -149,7 +144,6 @@ groups:
           logging account from the spec, and the account's own retention and lock are that
           set's. The blobs can be large on a busy network: the storage bill is the flow log's
           main cost, which is why `retention_days` is short.
-        renders: flow_logs.<k>.storage_account_id / flowLogs[].storageResourceId
 
       - id: retention_days
         ask:
@@ -168,7 +162,6 @@ groups:
           that only grows; 365 is the ceiling. Outside production a week is enough to debug a
           connectivity problem, which is what a development stage's flow log is for; a stated
           retention holds in every stage.
-        renders: flow_logs.<k>.retention_policy = { days, enabled = true } / flowLogs[].retentionInDays
 
       - id: traffic_analytics
         ask:
@@ -188,7 +181,6 @@ groups:
           Tuesday" and the map shows the flows. It is billed per gigabyte processed on top of the
           storage, and it is still the cheaper form of looking at the data than a person parsing
           JSON. On by default because a flow log without it is collected and never read.
-        renders: flow_logs.<k>.traffic_analytics.enabled / flowLogs[].workspaceResourceId set (Bicep enables analytics by the workspace's presence)
 
       - id: traffic_analytics_interval_minutes
         ask:
@@ -209,7 +201,6 @@ groups:
           processing at a higher price per gigabyte and is for a network where the analysis
           feeds alerts that have to fire within minutes. The two are the only values the service
           accepts.
-        renders: flow_logs.<k>.traffic_analytics.interval_in_minutes / flowLogs[].trafficAnalyticsInterval
 
       - id: traffic_analytics_workspace
         ask:
@@ -229,7 +220,6 @@ groups:
           resources' diagnostics and a query can join them. The workspace may be in any region;
           the Terraform module needs its region and its workspace GUID beside the id, which the
           data source provides.
-        renders: flow_logs.<k>.traffic_analytics.workspace_resource_id, workspace_id, workspace_region / flowLogs[].workspaceResourceId
 
   # ----------------------------------------------------------------- monitors
   - id: monitors
@@ -253,7 +243,6 @@ groups:
           synthetic test that needs an agent on the source and costs per test, and it is content
           an operations team edits - the render takes the list as given. The classic use is
           "can the app subnet still reach the on-premises database", tested every 30 seconds.
-        renders: condition_monitor (Terraform module input name) / connectionMonitors
 
   # ------------------------------------------------------------------- access
   - id: access
@@ -275,4 +264,3 @@ groups:
           subscription holds `Network Contributor` on the watcher (there is no narrower built-in
           role). Empty by default: under `platform` the watcher is Azure's and the platform's
           RBAC applies; a pattern lists the operations identity when it knows one.
-        renders: role_assignments / roleAssignments

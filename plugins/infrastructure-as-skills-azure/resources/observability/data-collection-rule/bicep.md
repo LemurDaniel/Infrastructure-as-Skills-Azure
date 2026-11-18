@@ -24,26 +24,12 @@ and renders authored.
 
 ### Decision -> module parameter
 
+What each decision renders to - the parameter and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.
+
+### Deployment-wide inputs
+
 | Decision | Parameter | Note |
 |---|---|---|
-| `kind` | `dataCollectionRuleProperties.kind` | |
-| `performance_counter_set`, `custom_performance_counters`, `performance_sampling_seconds` | `dataCollectionRuleProperties.dataSources.performanceCounters[].{ counterSpecifiers, samplingFrequencyInSeconds, streams }` | The set resolves to the OS dialect in a `var` |
-| `syslog_facilities`, `syslog_min_level` | `dataSources.syslog[].{ facilityNames, logLevels, streams }` | Two entries, see the call |
-| `windows_event_logs`, `windows_security_events` | `dataSources.windowsEventLogs[].xPathQueries` | |
-| `iis_logs` | `dataSources.iisLogs[]` | |
-| `custom_text_logs` | `dataSources.logFiles[]` + `streamDeclarations` | |
-| `extensions` | `dataSources.extensions[]`, `dataSources.prometheusForwarder[]` | Settings from `loadJsonContent('dcr/<extension>.json')` |
-| `stream_declarations` | `dataCollectionRuleProperties.streamDeclarations` | Columns from `loadJsonContent('dcr/<stream>.json')` |
-| `transformations` | `dataFlows[].transformKql: loadTextContent(...)`, `.outputStream` | |
-| `workspace` | `destinations.logAnalytics[].{ name, workspaceResourceId }` | |
-| `azure_monitor_metrics` | `destinations.azureMonitorMetrics.name` + a data flow on `Microsoft-InsightsMetrics` | |
-| `archive_to_storage`, `storage_account`, `forward_to_event_hub`, `event_hub` | not carried by 0.11.0 (`AgentDirectToStore` is not a variant); authored `Microsoft.Insights/dataCollectionRules` with `destinations.storageBlobsDirect[]` / `eventHubsDirect[]` | |
-| `endpoint`, `endpoint_id` | `dataCollectionRuleProperties.dataCollectionEndpointResourceId` | `create`: the endpoint module's `outputs.resourceId` |
-| `endpoint_public_access` | endpoint module `publicNetworkAccess` | Module default **`'Disabled'`**, the Terraform module `Enabled`; written |
-| `private_link_scope` | not carried; authored `Microsoft.Insights/privateLinkScopes/scopedResources` with the scope as parent | |
-| `associations` | not carried; `Microsoft.Insights/dataCollectionRuleAssociations` with `scope:` the machine, plus one named `configurationAccessEndpoint` | |
-| `managed_identity`, `user_assigned_identity_id` | `managedIdentities: { systemAssigned, userAssignedResourceIds }` | |
-| `diagnostic_workspace`, `diagnostic_categories` | **no `diagnosticSettings` parameter on the rule module**; authored `Microsoft.Insights/diagnosticSettings` with `scope:` the rule | |
 | `deployment.resource_lock` | `lock: { kind: 'CanNotDelete' }` | |
 | `deployment.module_telemetry` | `enableTelemetry` | |
 | `context.tags` | `tags` | |
@@ -185,17 +171,6 @@ to a `copy` and are matched on `configurationAccessEndpoint` in the expression t
 
 ## Authored rendering
 
-The fallback, and the path for `AgentDirectToStore`. `Microsoft.Insights/dataCollectionRules@2023-03-11`:
+The fallback, and the path for `AgentDirectToStore`. `Microsoft.Insights/dataCollectionRules@2023-03-11`.
 
-| Decision | Property |
-|---|---|
-| `kind` | `kind` (top level) |
-| data sources | `properties.dataSources.{ performanceCounters, syslog, windowsEventLogs, iisLogs, logFiles, extensions, prometheusForwarder }` |
-| `stream_declarations` | `properties.streamDeclarations` |
-| `transformations` | `properties.dataFlows[].{ transformKql, outputStream }` |
-| `workspace`, `azure_monitor_metrics` | `properties.destinations.{ logAnalytics[], azureMonitorMetrics }` |
-| `archive_to_storage`, `forward_to_event_hub` | `properties.destinations.{ storageBlobsDirect[], eventHubsDirect[] }` |
-| `endpoint` | `properties.dataCollectionEndpointId`; the endpoint is `Microsoft.Insights/dataCollectionEndpoints@2023-03-11` with `kind` and `properties.networkAcls.publicNetworkAccess` |
-| `managed_identity` | `identity` (top level) |
-| `associations` | `Microsoft.Insights/dataCollectionRuleAssociations@2023-03-11` with `scope:` |
-| `diagnostic_*` | `Microsoft.Insights/diagnosticSettings` with `scope:` the rule |
+What each decision renders to - the property and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.

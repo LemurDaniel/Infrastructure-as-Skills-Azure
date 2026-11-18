@@ -21,21 +21,13 @@ feature the service does not have. Validated with `terraform validate` against v
 
 ### Decision -> module input
 
+What each decision renders to - the input and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.
+
+Deployment-wide and fixed inputs, not decisions of this set:
+
 | Decision | Input | Note |
 |---|---|---|
-| `container_image`, `cpu`, `memory_in_gb` | `containers = { main = { image, cpu, memory, ports, volumes = {} } }` | `cpu` and `memory` are numbers (GB); `ports` and `volumes` are required members, empty here |
 | (OS) | `os_type = "Linux"` | Required input |
-| `restart_policy` | `restart_policy` | Required input; Bicep defaults to `Always` |
-| `availability_zone` | `zones` | List of strings; `[]` for `none` |
-| `ip_address_type` | `subnet_ids` | The module derives `Private` from a non-empty list and `Public` otherwise; there is no type input |
-| `subnet_id` | `subnet_ids = [ <id> ]` | |
-| `exposed_ports` | `exposed_ports = [{ port, protocol }]` and the container's `ports` | Both lists must agree |
-| `managed_identity`, `user_assigned_identity_ids` | `managed_identities = { system_assigned, user_assigned_resource_ids }` | |
-| `registry_login_server` | `image_registry_credential = { <k> = { server, user_assigned_identity_id } }` | Never `username` / `password`; only a user-assigned identity |
-| `role_assignments` | `role_assignments` | |
-| `key_management`, `cmk_key_vault_key_id` | `key_vault_key_id`, `key_vault_user_assigned_identity_id` | The key id as the provider takes it (versioned); the identity is the group's |
-| `diagnostic_workspace` | `diagnostics_log_analytics = { workspace_id, workspace_key }` | `workspace_id` is the workspace's customer id (a GUID), not its resource id; the key is sensitive and in state |
-| `log_type` | none | **Not carried by the module**; named in the handover |
 | `deployment.resource_lock` | none | Compute carries no lock |
 | `deployment.module_telemetry` | `enable_telemetry` | |
 | `context.tags` | `tags = local.tags` | |
@@ -122,13 +114,4 @@ that decides the address type, and the zone list.
 The fallback. Targets `azurerm` **5.x**; checked against `terraform providers schema -json`
 (azurerm 5.11.0).
 
-| Decision | Argument on `azurerm_container_group` |
-|---|---|
-| `restart_policy`, `availability_zone` | `restart_policy`, `zones` |
-| `ip_address_type`, `subnet_id` | `ip_address_type` (`Public`, `Private`), `subnet_ids` |
-| `container_image`, `cpu`, `memory_in_gb`, `exposed_ports` | `container { name, image, cpu, memory, ports { port, protocol } }` and `exposed_port { port, protocol }` |
-| `managed_identity` | `identity { type, identity_ids }` |
-| `registry_login_server` | `image_registry_credential { server, user_assigned_identity_id }` |
-| `key_management` | `key_vault_key_id`, `key_vault_user_assigned_identity_id` |
-| `diagnostic_workspace`, `log_type` | `diagnostics { log_analytics { workspace_id, workspace_key, log_type } }` |
-| `role_assignments` | `azurerm_role_assignment` |
+What each decision renders to - the argument and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.

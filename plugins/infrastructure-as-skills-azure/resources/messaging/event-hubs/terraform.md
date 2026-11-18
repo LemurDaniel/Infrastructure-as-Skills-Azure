@@ -21,27 +21,13 @@ API version); leave them at their defaults.
 
 ### Decision -> module input
 
-| Decision | Input | Note |
+What each decision renders to - the input and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.
+
+### Inputs no decision covers
+
+| Input | Module input | Note |
 |---|---|---|
-| `sku` | `sku` | Module default `Standard`; written |
-| `capacity` | `capacity` | Default 1; written |
-| `auto_inflate`, `maximum_throughput_units` | `auto_inflate_enabled`, `maximum_throughput_units` | Standard only; default off |
-| `minimum_tls_version` | - | **No input** in this version; the platform default applies. Named in the handover, `# not-testable:` |
-| `local_auth` | `local_authentication_enabled` | **Inverse**: `disabled` is `false`; module default `false`, written |
-| `managed_identity`, `user_assigned_identity_ids` | `managed_identities = { system_assigned, user_assigned_resource_ids }` | |
-| `public_network_access` | `public_network_access_enabled` | **Bool**; module default `false`. Also a member of `network_rulesets` |
-| `public_network_access`, `ip_rules`, `trusted_service_bypass` | `network_rulesets = { default_action, public_network_access_enabled, trusted_service_access_enabled, ip_rule = [{ ip_mask }] }` | `public_network_access_enabled` and `trusted_service_access_enabled` are **required members**; `default_action` defaults to `Deny`. The README says "Requires Premium SKU": check it against the tier before relying on a firewall below Premium |
-| `private_endpoint_subnet` | `private_endpoints = { namespace = { subnet_resource_id, subresource_name = "namespace" } }` | Standard or above |
 | `deployment.private_dns_records` | `private_endpoints_manage_dns_zone_group` | `false` under `policy` |
-| `key_management`, `cmk_key_vault_key_id` | `customer_managed_key = { key_vault_resource_id, key_name, user_assigned_identity = { resource_id } }` | Version unset: the latest |
-| `infrastructure_encryption` | - | **No input.** Taken from the platform; named in the handover |
-| `event_hubs`, `partition_count`, `message_retention_days` | `event_hubs = { <name> = { namespace_name, resource_group_name, partition_count, message_retention } }` | `namespace_name` and `resource_group_name` are **required members of every entry**; `message_retention` is days |
-| `event_archive`, `archive_*` | `event_hubs.<k>.capture_description = { enabled, encoding, interval_in_seconds, destination = { archive_name_format, blob_container_name, storage_account_id } }` | `encoding` `Avro`; destination `name` stays `EventHubArchive.AzureBlockBlob` |
-| `consumer_groups` | - | **No input.** One `azapi_resource` of type `Microsoft.EventHub/namespaces/eventhubs/consumergroups` per name, outside the module |
-| `zone_redundant` | - | **No input**; `# not-testable:` |
-| `geo_recovery`, `partner_namespace` | - | **No input.** A `azapi_resource` of type `Microsoft.EventHub/namespaces/disasterRecoveryConfigs` on the primary, outside the module |
-| `role_assignments` | `role_assignments = { <k> = { role_definition_id_or_name, principal_id, principal_type } }` | Also per event hub |
-| `diagnostic_*`, `metrics_enabled` | `diagnostic_settings = { workspace = { workspace_resource_id, log_categories, log_groups = [], metric_categories = ["AllMetrics"] } }` | Read the member names for the pinned version |
 | `deployment.module_telemetry` | `enable_telemetry` | |
 | `context.tags` | `tags = local.tags` | |
 
@@ -145,17 +131,4 @@ marked `# not-testable:` with a reason, as are `minimum_tls_version`, `zone_redu
 
 The fallback. Targets `azurerm` **5.x**; check against `terraform providers schema -json`.
 
-| Decision | Argument |
-|---|---|
-| `sku`, `capacity` | `azurerm_eventhub_namespace.sku`, `.capacity` |
-| `auto_inflate`, `maximum_throughput_units` | `.auto_inflate_enabled`, `.maximum_throughput_units` |
-| `minimum_tls_version` | `.minimum_tls_version` |
-| `local_auth` | `.local_authentication_enabled` |
-| `public_network_access` | `.public_network_access_enabled` |
-| `network_rulesets` | `.network_rulesets { default_action, public_network_access_enabled, trusted_service_access_enabled, ip_rule, virtual_network_rule }` |
-| `managed_identity` | `.identity { type, identity_ids }` |
-| `key_management` | `azurerm_eventhub_namespace_customer_managed_key` |
-| `event_hubs` | `azurerm_eventhub` with `partition_count`, `message_retention`, `capture_description` |
-| `consumer_groups` | `azurerm_eventhub_consumer_group` |
-| `geo_recovery` | `azurerm_eventhub_namespace_disaster_recovery_config` |
-| diagnostics | `azurerm_monitor_diagnostic_setting` with `enabled_log { category }` |
+What each decision renders to - the argument and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.

@@ -25,25 +25,13 @@ provider set is the union with the other modules.
 
 ### Decision -> module input
 
-| Decision | Module | Input | Note |
+What each decision renders to - the input and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.
+
+### Deployment-wide and other inputs
+
+| Setting | Module | Input | Note |
 |---|---|---|---|
-| `workload_profile` | env | `workload_profiles = [{ name, workload_profile_type, minimum_count, maximum_count }]` | `Consumption` is a profile; the old singular `workload_profile` is deprecated |
-| `workload_profile` | app | `workload_profile_name` | Unset: workload profiles are not used |
-| `zone_redundant` | env | `zone_redundant` | Module default **`true`**; written. The old `zone_redundancy_enabled` is deprecated |
-| `internal`, `infrastructure_subnet` | env | `vnet_configuration = { internal, infrastructure_subnet_id }` | The old `internal_load_balancer_enabled` and `infrastructure_subnet_id` are deprecated |
-| `public_network_access` | env | `public_network_access` | `"Enabled"`/`"Disabled"`; **forced `Disabled` while `internal`** |
-| `peer_traffic_encryption` | env | `peer_traffic_configuration = { encryption = { enabled } }` | Module default unset; written |
-| `diagnostic_workspace` | env | `app_logs_configuration = { destination = "azure-monitor" }` | Omit it and app logs are off; **not** `log_analytics_workspace` (shared key) |
-| `diagnostic_*`, `metrics_enabled` | env | `diagnostic_settings = { workspace = { workspace_resource_id, log_categories = [...], log_groups = [], metric_categories = ["AllMetrics"] } }` | `log_groups` defaults to `["allLogs"]`: set it empty when `log_categories` names the categories, or every log is collected beside them |
-| `container_image`, `container_size` | app | `template = { containers = [{ name, image, cpu, memory }] }` | cpu and memory are the pair, e.g. `0.5` and `"1Gi"` |
-| `application_insights` | app | `template.containers[].env = [{ name = "APPLICATIONINSIGHTS_CONNECTION_STRING", value }, { name = "APPLICATIONINSIGHTS_AUTHENTICATION_STRING", value = "Authorization=AAD;ClientId=<client id>" }]` | The connection string as a plain value; the second while local auth is off, with the app's user-assigned identity; omitted while empty |
-| `min_replicas`, `max_replicas` | app | `template.min_replicas`, `template.max_replicas` | |
-| `revision_mode` | app | `revision_mode` | Default `Single`; written |
-| `ingress`, `target_port`, `allow_insecure` | app | `ingress = { external_enabled, target_port, allow_insecure_connections, transport }` | **Omit `ingress` for `none`.** Module default `external_enabled = false`, insecure `false`; written |
-| `managed_identity`, `user_assigned_identity_ids` | app | `managed_identities = { system_assigned, user_assigned_resource_ids }` | |
 | (the pull) | app | `registries = [{ server, identity }]` | `identity` is the user-assigned identity's resource id - never `username`/`password_secret_name` |
-| `secret_references` | app | `secrets = { <k> = { name, key_vault_secret_id, identity } }` | Never `value` |
-| `role_assignments` | app | `role_assignments` | |
 | `deployment.module_telemetry` | both | `enable_telemetry` | |
 | `context.tags` | both | `tags = local.tags` | |
 
@@ -172,10 +160,4 @@ The exact paths are read off a first `terraform test` run on the pinned version.
 
 The fallback. Targets `azurerm` **5.x**; check against `terraform providers schema -json`.
 
-| Decision | Resource and argument |
-|---|---|
-| the environment | `azurerm_container_app_environment` (`zone_redundancy_enabled`, `infrastructure_subnet_id`, `internal_load_balancer_enabled`, `workload_profile`) |
-| `peer_traffic_encryption` | not on `azurerm_container_app_environment` in 5.x (it has `mutual_tls_enabled` only): set `peerTrafficConfiguration` with an `azapi_update_resource` on the environment |
-| `public_network_access` | `public_network_access` (a string, `Enabled` / `Disabled`) |
-| the app | `azurerm_container_app` (`revision_mode`, `template`, `ingress`, `registry`, `secret`, `identity`) |
-| diagnostics | `azurerm_monitor_diagnostic_setting` with `enabled_log { category }` on the environment |
+What each decision renders to - the argument and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.

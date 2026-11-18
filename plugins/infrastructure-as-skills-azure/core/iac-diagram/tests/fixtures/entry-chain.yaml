@@ -55,7 +55,7 @@ resources:
       sku: { value: Premium_AzureFrontDoor, source: stated }
   application-gateway:
     gateway:
-      gateway_subnet: { value: { production: snet-gateway }, source: { forced_by: deployment.network_ownership } }
+      gateway_subnet: { value: { resource: virtual-network, part: snet-gateway }, source: { forced_by: deployment.network_ownership } }
     networking:
       frontend_exposure: { value: public, source: { overridden: Front Door reaches the gateway over its public frontend. } }
   api-management:
@@ -63,18 +63,18 @@ resources:
       sku: { value: Premium, source: stated }
     networking:
       network_integration: { value: internal, source: stated }
-      apim_subnet: { value: { production: snet-apim }, source: { forced_by: deployment.network_ownership } }
+      apim_subnet: { value: { resource: virtual-network, part: snet-apim }, source: { forced_by: deployment.network_ownership } }
       public_network_access: { value: disabled, source: deployment }
   function-app:
     networking:
       public_network_access: { value: enabled_with_firewall, source: { overridden: Event Grid delivers over the public path. } }
-      integration_subnet: { value: { production: snet-func }, source: { forced_by: deployment.network_ownership } }
+      integration_subnet: { value: { resource: virtual-network, part: snet-func }, source: { forced_by: deployment.network_ownership } }
   storage-account:
     networking:
       public_network_access: { value: disabled, source: deployment }
   blob-container:
     placement:
-      storage_account: { value: { production: storage-account }, source: stated }
+      storage_account: { value: { resource: storage-account }, source: stated }
     containers:
       container_names: { value: [order-documents, eventgrid-deadletter], source: stated }
   event-grid-topic:

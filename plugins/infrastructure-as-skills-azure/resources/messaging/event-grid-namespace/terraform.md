@@ -19,31 +19,13 @@ provider set is the union with the other modules.
 
 ### Decision -> module input
 
-| Decision | Input | Note |
+What each decision renders to - the input and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.
+
+### Inputs no decision covers
+
+| Input | Module input | Note |
 |---|---|---|
-| `capacity` | `capacity`, with `sku = "Standard"` | Module defaults `1` and `"Standard"`; written. 1-20 |
-| `minimum_tls_version` | **not carried by the module**; `azapi_update_resource` below | The API accepts `1.2` only |
-| `local_auth` | no input - the type has no switch | Recorded `forced`; no `listKeys`, no key output. Roles only |
-| `zone_redundant` | **not carried by the module** | The platform's regional default (`true` in a zonal region); fixed at creation, so an update resource cannot set it - a `false` in a zonal region is authored |
-| `managed_identity`, `user_assigned_identity_ids` | `managed_identities = { system_assigned, user_assigned_resource_ids }` | |
-| `namespace_topics`, `event_retention_days` | `namespace_topics = { <k> = { name, event_retention_days, input_schema = "CloudEventSchemaV1_0" } }` | Module default 7 days; written |
-| `topic_subscriptions`, `delivery_mode` | `topic_event_subscriptions = { <k> = { topic_key, name, delivery_mode = "Queue" / "Push", destination, delivery_identity, filters_configuration } }` | A push subscription takes `destination` + `delivery_identity = { type = "SystemAssigned" }`; a queue one neither |
-| `event_retention_days` (again) | `topic_event_subscriptions.<k>.event_time_to_live` | ISO 8601, `"P7D"`; module default `"P1D"` |
-| `max_delivery_count` | `topic_event_subscriptions.<k>.max_delivery_count` | Module default 30, service default 10; written |
-| `receive_lock_duration_seconds` | `topic_event_subscriptions.<k>.receive_lock_duration_in_seconds` | |
-| `keep_undeliverable_events`, `dead_letter_*` | `topic_event_subscriptions.<k>.dead_letter_destination = { storage_account_id, blob_container_name, identity_type = "SystemAssigned" }` | The identity form; no key |
-| `mqtt_broker` | **not carried by the module** - `topic_spaces_configuration` has no `state`; `azapi_update_resource` below | Cannot be disabled again once `Enabled` |
-| `topic_spaces` | `topic_spaces = { <k> = { name, topic_templates } }` | |
-| `clients` | `clients = { <k> = { name, authentication_name, attributes, client_certificate_authentication } }` | |
-| `client_groups` | `client_groups = { <k> = { name, query } }` | |
-| `permission_bindings` | `permission_bindings = { <k> = { name, client_group_key, topic_space_key, permission } }` | Map **keys** of the group and the space, not names |
-| `mqtt_routing`, `mqtt_routing_topic` | `topic_spaces_configuration = { route_topic_resource_id }` | Two-pass when the topic is created in the same run |
-| `public_network_access` | `public_network_access` | **A string** (`"Enabled"` / `"Disabled"`), module default `"Enabled"`; written |
-| `ip_rules` | `inbound_ip_rules = [{ ip_mask, action = "Allow" }]` | Used only with public access `Enabled` |
-| `private_endpoint_subnet` | `private_endpoints = { topic = { subnet_resource_id } }` | The sub-resource is `topic`, fixed by the module |
 | `deployment.private_dns_records` | `private_endpoints_manage_dns_zone_group` | `false` under `policy`; a zone group needs at least one zone id |
-| `role_assignments` | `role_assignments = { <k> = { role_definition_id_or_name, principal_id, principal_type } }` | |
-| `diagnostic_*`, `metrics_enabled` | `diagnostic_settings = { workspace = { workspace_resource_id, log_categories, log_groups = [], metric_categories = ["AllMetrics"] } }` | `log_groups` defaults to `["allLogs"]`; emptied so the categories are the decision |
 | `deployment.resource_lock` | `lock = { kind = "CanNotDelete" }` | In the stages the deployment names |
 | `deployment.module_telemetry` | `enable_telemetry` | |
 | `context.tags` | `tags = local.tags` | |
@@ -191,14 +173,10 @@ The fallback, and the path for a `zone_redundant: false` in a zonal region. `azu
 resource for the namespace; the authored render is `azapi_resource` with
 `type = "Microsoft.EventGrid/namespaces@2025-02-15"`:
 
-| Decision | Body |
+What each decision renders to - the property and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.
+
+### Properties no decision covers
+
+| Input | Body |
 |---|---|
-| `capacity` | `sku = { name = "Standard", capacity }` |
-| `minimum_tls_version` | `properties.minimumTlsVersionAllowed` |
-| `zone_redundant` | `properties.isZoneRedundant` |
-| `public_network_access`, `ip_rules` | `properties.publicNetworkAccess`, `properties.inboundIpRules[{ ipMask, action }]` |
-| `managed_identity` | `identity { type, identity_ids }` |
-| `mqtt_broker`, `mqtt_routing*` | `properties.topicSpacesConfiguration = { state, routeTopicResourceId, routingIdentityInfo }` |
-| `namespace_topics`, `topic_subscriptions` | child `Microsoft.EventGrid/namespaces/topics@2025-02-15` and `.../topics/eventSubscriptions@2025-02-15` |
-| MQTT content | child `topicSpaces`, `clients`, `clientGroups`, `permissionBindings`, `caCertificates` |
-| diagnostics | `azurerm_monitor_diagnostic_setting` with `enabled_log { category }` |
+| MQTT content without a decision | child `caCertificates` |

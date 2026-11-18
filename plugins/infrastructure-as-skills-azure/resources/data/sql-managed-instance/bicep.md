@@ -22,37 +22,12 @@ threat-protection setting without a storage account, no audit and no NSG rule.
 
 ### Decision -> module parameter
 
-| Decision | Parameter | Note |
+What each decision renders to - the parameter and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.
+
+### Deployment-wide inputs
+
+| Input | Parameter | Note |
 |---|---|---|
-| `service_tier`, `hardware_family` | `skuTier: 'GeneralPurpose' / 'BusinessCritical'`, `skuName: 'GP_Gen5'` (`GP_Gen8IM`, `GP_Gen8IH`, `BC_...`), `hardwareFamily: 'Gen5' / 'Gen8IM' / 'Gen8IH'` | Three parameters; the defaults are `GP_Gen5` / `GeneralPurpose` / `Gen5`; written |
-| `vcores` | `vCores` | Default `4`; written |
-| `storage_gb` | `storageSizeInGB` | Default `32`; a multiple of 32; written |
-| `license_type` | `licenseType` | Default `LicenseIncluded`; written |
-| `collation` | `collation` | Fixed at creation |
-| `timezone` | `timezoneId` | Fixed at creation |
-| `maintenance_window` | `maintenanceWindow: 'SystemManaged' / 'Custom1' (weekday nights) / 'Custom2' (weekend nights)` | The module resolves the region's configuration id |
-| `databases` | `databases: [ { name, ... } ]` | |
-| `zone_redundant` | `zoneRedundant` | Module default **`false`**; written |
-| `geo_failover_region` | **not one call** - a second instance with `dnsZonePartnerResourceId` and an authored `Microsoft.Sql/instanceFailoverGroups` | |
-| `subnet` | `subnetResourceId` | Required; fixed at creation |
-| `public_data_endpoint` | `publicDataEndpointEnabled` | Bool, default `false`; written |
-| `ip_rules` | **not the module** - a `securityRules` entry (3342) on the subnet's NSG | Open entry when the platform owns the NSG |
-| `private_endpoint`, `private_endpoint_subnet` | **not the module** - an authored `Microsoft.Network/privateEndpoints` with `groupIds: ['managedInstance']` | |
-| `connection_type` | `proxyOverride` | Module default **`Proxy`**; written |
-| `minimum_tls_version` | `minimalTlsVersion: '1.2'` | Written |
-| `managed_identity`, `user_assigned_identity_ids` | `managedIdentities: { systemAssigned, userAssignedResourceIds }`, `primaryUserAssignedIdentityResourceId` | The primary id is required with a user-assigned identity |
-| `entra_admin`, `local_authentication_disabled` | `administrators: { azureADOnlyAuthentication: true, login, sid, principalType: 'Group', tenantId }` and **no** `administratorLogin` / `administratorLoginPassword` | The module makes the pair conditional on `administrators` being absent |
-| `database_users` | **not the module** | T-SQL after the deployment |
-| `role_assignments` | `roleAssignments` | Control plane |
-| `key_management`, `cmk_key_vault_key_id` | `keys: [ { name: '<vault>_<key>_<version>', serverKeyType: 'AzureKeyVault', uri } ]` and `encryptionProtector: { serverKeyName, serverKeyType: 'AzureKeyVault', autoRotationEnabled: true }` | |
-| `threat_detection` | **not the module** (`securityAlertPolicy` wants a storage account when enabled) - an authored `advancedThreatProtectionSettings/Default` | |
-| `vulnerability_assessment`, `vulnerability_assessment_storage_account` | `vulnerabilityAssessment: { name: 'default', storageAccountResourceId, createStorageRoleAssignment: true, recurringScans: { isEnabled: true } }` | Classic form; unset when off |
-| `short_term_retention_days` | `databases[].backupShortTermRetentionPolicy: { retentionDays }` | |
-| `long_term_retention` | `databases[].backupLongTermRetentionPolicy: { weeklyRetention }` | `'P13W'`, `'P52W'` |
-| `backup_storage_redundancy` | `requestedBackupStorageRedundancy` | Module default **`Geo`**; written; all four values |
-| `diagnostic_workspace`, `diagnostic_categories` | `diagnosticSettings: [ { workspaceResourceId, logCategoriesAndGroups: [ { category } ] } ]` | **Logs only** - the type has no `metricCategories` |
-| `metrics_enabled` | **not the module** - a second, authored `Microsoft.Insights/diagnosticSettings` with `metrics: [ { category: 'AllMetrics' } ]` | |
-| `auditing_enabled` | **not the module** - T-SQL, plus `SQLSecurityAuditEvents` above | |
 | `deployment.resource_lock` | `lock: { kind: 'CanNotDelete' }` | |
 | `deployment.module_telemetry` | `enableTelemetry` | |
 | `context.tags` | `tags` | |
@@ -206,16 +181,4 @@ template).
 
 The fallback. `Microsoft.Sql/managedInstances`:
 
-| Decision | Property |
-|---|---|
-| the instance | `sku { name, tier, family, capacity }`, `properties.vCores`, `storageSizeInGB`, `licenseType`, `collation`, `timezoneId`, `maintenanceConfigurationId`, `zoneRedundant`, `subnetId`, `publicDataEndpointEnabled`, `proxyOverride`, `minimalTlsVersion`, `requestedBackupStorageRedundancy`, `dnsZonePartner` |
-| `entra_admin`, `local_authentication_disabled` | `properties.administrators { administratorType: 'ActiveDirectory', azureADOnlyAuthentication, login, sid, principalType, tenantId }`, no `administratorLogin` |
-| `managed_identity` | `identity { type, userAssignedIdentities }`, `properties.primaryUserAssignedIdentityId` |
-| `key_management` | child `keys` and `encryptionProtector/current` |
-| `threat_detection` | child `advancedThreatProtectionSettings/Default` |
-| `vulnerability_assessment` | child `vulnerabilityAssessments/default` with `storageContainerPath` |
-| `databases`, retention | child `databases`, `databases/backupShortTermRetentionPolicies/default`, `databases/backupLongTermRetentionPolicies/default` |
-| `ip_rules` | a `securityRules` entry on the subnet's NSG |
-| private endpoint | `Microsoft.Network/privateEndpoints` with `groupIds: ['managedInstance']` |
-| `geo_failover_region` | `Microsoft.Sql/locations/instanceFailoverGroups` |
-| diagnostics | `Microsoft.Insights/diagnosticSettings` with `logs: [ { category } ]` and `metrics: [ { category: 'AllMetrics' } ]` |
+What each decision renders to - the property and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.

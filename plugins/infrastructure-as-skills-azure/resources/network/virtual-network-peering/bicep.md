@@ -29,19 +29,12 @@ are written in every call.
 
 ### Decision -> module parameter
 
+What each decision renders to - the parameter and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.
+
+Not decisions of this set:
+
 | Decision | Parameter | Note |
 |---|---|---|
-| `local_virtual_network` | `localVnetName` (and the module's scope) | The name of the parent network; the call is scoped to its group |
-| `remote_virtual_network` | `remoteVirtualNetworkResourceId` | The hub's id |
-| `both_directions` | a second module call scoped to the remote network | `false`: no second call |
-| `allow_virtual_network_access` | `allowVirtualNetworkAccess` | |
-| `reverse_allow_virtual_network_access` | `allowVirtualNetworkAccess` on the second call | |
-| `allow_forwarded_traffic` | `allowForwardedTraffic` | Module default `true` - written |
-| `reverse_allow_forwarded_traffic` | `allowForwardedTraffic` on the second call | |
-| `allow_gateway_transit` | `allowGatewayTransit` | Hub side only |
-| `use_remote_gateways` | `useRemoteGateways` | Spoke side only |
-| `reverse_allow_gateway_transit` | `allowGatewayTransit` on the second call | |
-| `verify_remote_gateways` | `doNotVerifyRemoteGateways` | Inverted; module default `true` (no check) - written `false` |
 | names | `name` | Assembled from vars per side; the module default is `peer-<local>-<remote>` |
 | `deployment.module_telemetry` | `enableTelemetry` | |
 
@@ -107,7 +100,7 @@ its output are dropped.
 ### Tests
 
 A module call compiles to a nested deployment whose `properties.parameters.<param>.value` is the
-decision, so every decision above is observable in `tests/*.armtest.yaml`
+decision, so every decision in render-map.yaml is observable in `tests/*.armtest.yaml`
 ([bicep-idiom.md](../../../core/iac-rendering/references/bicep-idiom.md#tests)); the two calls are two
 nested deployments, the second with its own `resourceGroup` scope.
 
@@ -116,9 +109,4 @@ nested deployments, the second with its own `resourceGroup` scope.
 The fallback. `Microsoft.Network/virtualNetworks/virtualNetworkPeerings`, a child resource of the
 network (`parent:` or a nested resource), once per direction:
 
-| Decision | Property |
-|---|---|
-| `remote_virtual_network` | `properties.remoteVirtualNetwork: { id }` |
-| `allow_virtual_network_access`, `allow_forwarded_traffic`, `allow_gateway_transit`, `use_remote_gateways` | `properties.allowVirtualNetworkAccess`, `.allowForwardedTraffic`, `.allowGatewayTransit`, `.useRemoteGateways` |
-| `verify_remote_gateways` | `properties.doNotVerifyRemoteGateways` (inverted) |
-| `both_directions` | a second resource, declared `existing` for the remote network in `resourceGroup(subscriptionId, name)` through a module scoped to it |
+What each decision renders to - the property and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.

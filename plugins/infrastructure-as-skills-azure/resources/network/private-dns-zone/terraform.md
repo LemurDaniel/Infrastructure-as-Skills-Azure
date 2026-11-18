@@ -19,14 +19,12 @@ set is the union with the other modules.
 
 ### Decision -> module input
 
+What each decision renders to - the input and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.
+
+Deployment-wide inputs, not decisions of this set:
+
 | Decision | Input | Note |
 |---|---|---|
-| `zone_names` | `domain_name` | One module call per zone, `for_each` over the names so the address is the zone: `module.private_dns_zone["privatelink.blob.core.windows.net"]` |
-| `vnet_links` | `virtual_network_links = { <k> = { name, virtual_network_id, registration_enabled, resolution_policy } }` | A map keyed by the network's role; the module also takes the older `vnetlinkname` / `vnetid` / `autoregistration` spellings - not used |
-| `auto_registration` | `virtual_network_links.<k>.registration_enabled` | `false` unless `zone_kind: internal_domain` says otherwise |
-| `resolution_policy` | `virtual_network_links.<k>.resolution_policy` | `"Default"` or `"NxDomainRedirect"` |
-| `static_records` | `a_records`, `aaaa_records`, `cname_records`, `txt_records` ... | A map per type; `a_records = { <k> = { name, ttl, records = [...] } }` |
-| `resource_group_name` | `parent_id` | The resource group's id (the module also accepts a virtual network's) |
 | `deployment.module_telemetry` | `enable_telemetry` | |
 | `context.tags` | `tags = local.tags` | |
 
@@ -102,13 +100,7 @@ over that file is the place for these.
 
 The fallback. Targets `azurerm` **5.x**; check against `terraform providers schema -json`.
 
-| Decision | Resource |
-|---|---|
-| the zone | `azurerm_private_dns_zone` (`name`, `resource_group_name`) |
-| `vnet_links` | `azurerm_private_dns_zone_virtual_network_link` - **`private_dns_zone_id`** and `virtual_network_id`; on 5.x there is no `resource_group_name` or `private_dns_zone_name` |
-| `auto_registration` | `registration_enabled` |
-| `resolution_policy` | `resolution_policy` |
-| `static_records` | `azurerm_private_dns_a_record`, `_cname_record`, `_txt_record` - **`private_dns_zone_id`** on 5.x, not `zone_name` and `resource_group_name` |
+What each decision renders to - the resource and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.
 
 Validated against `azurerm` 5.x. The 4.x spelling (zone name plus resource group on links and
 records) is rejected by 5.x.

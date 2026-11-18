@@ -1,0 +1,81 @@
+# What each decision of questions.yaml renders to, per target and implementation.
+# Format: core/iac-rendering/references/render-map.md. The call, the authored blocks and the
+# tests are in terraform.md and bicep.md.
+# No module call of its own: the AVM entries are paths inside the storage account's call.
+schema_version: 1
+resource: Microsoft.Storage/storageAccounts/blobServices/containers
+
+modules:
+  terraform: [Azure/avm-res-storage-storageaccount/azurerm]
+  bicep: [avm/res/storage/storage-account]
+
+decisions:
+
+  # ---------------------------------------------------------------- placement
+  placement.environments:
+    not_rendered: the tag of the environment where the repository uses one; no attribute of the container
+  placement.storage_account:
+    terraform_avm: { gap: the containers are an input of the account's own module call; no input of their own }
+    terraform: { attribute: storage_account_id, note: "5.x takes the account's id, not its name" }
+    bicep_avm: { gap: the containers are a parameter of the account's own module call; no parameter of their own }
+    bicep: { attribute: parent, note: blobServices/default of the account }
+
+  # --------------------------------------------------------------- containers
+  containers.container_names:
+    terraform_avm: { attribute: 'containers.<key>.name', note: the map key is arbitrary; the name is the decision }
+    terraform: { attribute: name }
+    bicep_avm: { attribute: 'blobServices.containers[].name' }
+    bicep: { attribute: name, note: child of blobServices/default }
+  containers.public_access:
+    terraform_avm:
+      attribute: 'containers.<key>.public_access'
+      passthrough: true
+      note: module default None; written. Anything but None needs allow_nested_items_to_be_public on the account
+    terraform:
+      attribute: container_access_type
+      values: { None: private, Blob: blob, Container: container }
+    bicep_avm:
+      attribute: 'blobServices.containers[].publicAccess'
+      passthrough: true
+      note: anything but None needs allowBlobPublicAccess on the account; written
+    bicep: { attribute: properties.publicAccess, passthrough: true }
+  containers.immutable_storage:
+    terraform_avm:
+      attribute: 'containers.<key>.immutable_storage_with_versioning.enabled'
+      passthrough: true
+      note: needs blob versioning on the account; cannot be combined with blob_properties.restore_policy
+    terraform:
+      gap: not on azurerm_storage_container (source azurerm 5.12 schema - has_immutability_policy is computed only); an azapi_update_resource on Microsoft.Storage/storageAccounts/blobServices/containers sets immutableStorageWithVersioning.enabled
+    bicep_avm:
+      attribute: 'blobServices.containers[].immutableStorageWithVersioningEnabled'
+      passthrough: true
+      note: needs blobServices.isVersioningEnabled; cannot be combined with restorePolicyEnabled
+    bicep: { attribute: properties.immutableStorageWithVersioning.enabled, passthrough: true }
+  containers.encryption_scope_locked:
+    terraform_avm:
+      attribute: 'containers.<key>.deny_encryption_scope_override'
+      passthrough: true
+      note: with default_encryption_scope; the scope itself is an account resource
+    terraform:
+      attribute: encryption_scope_override_enabled
+      values: { true: false, false: true }
+      note: the inverse of the decision; with default_encryption_scope
+    bicep_avm:
+      attribute: 'blobServices.containers[].denyEncryptionScopeOverride'
+      passthrough: true
+      note: with defaultEncryptionScope - both or neither, Azure refuses one alone; false with no scope writes neither
+    bicep:
+      attribute: properties.denyEncryptionScopeOverride
+      passthrough: true
+      note: with defaultEncryptionScope, written together or both left out when no scope is set
+
+  # ----------------------------------------------------------------- identity
+  identity.role_assignments:
+    terraform_avm:
+      attribute: 'containers.<key>.role_assignments.<key> = { role_definition_id_or_name, principal_id, principal_type }'
+      note: scoped to the container
+    terraform: { attribute: azurerm_role_assignment, note: 'scope = azurerm_storage_container.<k>.id, the Resource Manager id in 5.x' }
+    bicep_avm: { attribute: 'blobServices.containers[].roleAssignments[] = { principalId, roleDefinitionIdOrName, principalType }' }
+    bicep:
+      attribute: 'Microsoft.Authorization/roleAssignments properties = { roleDefinitionId, principalId, principalType }'
+      note: 'an extension resource, scope = the container (source: bicep build, Microsoft.Authorization/roleAssignments@2022-04-01)'

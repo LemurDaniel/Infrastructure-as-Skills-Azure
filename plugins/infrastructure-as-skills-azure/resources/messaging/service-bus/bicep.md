@@ -18,32 +18,13 @@ Resolve the current version and re-read the README parameters before rendering, 
 
 ### Decision -> module parameter
 
-| Decision | Parameter | Note |
+What each decision renders to - the parameter and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.
+
+### Parameters no decision covers
+
+| Input | Parameter | Note |
 |---|---|---|
-| `sku`, `capacity` | `skuObject: { name, capacity }` | Module default `Premium`, capacity 1; written. Standard and Basic take no capacity |
-| `zone_redundant` | `zoneRedundant` | Module default **`true`**, which requires Premium; written, `false` below Premium |
-| `premium_messaging_partitions` | `premiumMessagingPartitions` | Default 1; written |
-| `minimum_tls_version` | `minimumTlsVersion` | Default `'1.2'`; written |
-| `local_auth` | `disableLocalAuth` | **Inverse**: `disabled` is `true`; module default `true`. Terraform's default is the opposite |
-| `managed_identity`, `user_assigned_identity_ids` | `managedIdentities: { systemAssigned, userAssignedResourceIds }` | |
-| `public_network_access` | `publicNetworkAccess: 'Disabled'` / `'Enabled'` | Unset, it is disabled only when private endpoints are set |
-| `public_network_access`, `ip_rules`, `trusted_service_bypass` | `networkRuleSets: { publicNetworkAccess, defaultAction, trustedServiceAccessEnabled, ipRules: [ { ipMask, action: 'Allow' } ] }` | Module default for trusted services is **`true`**; written. Premium only |
-| `private_endpoint_subnet` | `privateEndpoints: [ { subnetResourceId, service: 'namespace' } ]` | Premium only |
 | `deployment.private_dns_records: policy` | no `privateDnsZoneGroup` on the endpoint | |
-| `key_management`, `cmk_key_vault_key_id` | `customerManagedKey: { keyName, keyVaultResourceId, userAssignedIdentityResourceId }` | Version unset: the latest, followed on rotation. Premium |
-| `infrastructure_encryption` | `requireInfrastructureEncryption` | Module default **`true`** and then requires the key; written |
-| `queues` | `queues: [ { name, ... } ]` | The namespace-wide settings below on each |
-| `topics` | `topics: [ { name, subscriptions: [ { name, ... } ] } ]` | Standard or Premium |
-| `message_ordering` | `queues[].requiresSession`, `topics[].subscriptions[].requiresSession` | Fixed at creation |
-| `duplicate_protection` | `queues[].requiresDuplicateDetection`, `topics[].requiresDuplicateDetection` | Fixed at creation |
-| `message_retention_days` | `defaultMessageTimeToLive` | ISO 8601: `'P14D'`; queue, topic and subscription |
-| `dead_letter_on_expiry` | `deadLetteringOnMessageExpiration` | Queue and subscription |
-| `max_delivery_count` | `maxDeliveryCount` | Queue and subscription |
-| `lock_duration_seconds` | `lockDuration` | Queue and subscription; `'PT1M'` for 60 |
-| `max_size_megabytes` | `maxSizeInMegabytes` | Queue and topic |
-| `geo_recovery`, `partner_namespace` | `disasterRecoveryConfig: { partnerNamespace, alternateName }` | On the **primary** only; the partner is a second module call with no entities |
-| `role_assignments` | `roleAssignments: [ { principalId, roleDefinitionIdOrName, principalType } ]` | Also per queue and topic |
-| `diagnostic_*`, `metrics_enabled` | `diagnosticSettings: [ { workspaceResourceId, logCategoriesAndGroups: [ { category } ], metricCategories: [ { category: 'AllMetrics' } ] } ]` | |
 | `deployment.module_telemetry` | `enableTelemetry` | |
 | `context.tags` | `tags` | |
 
@@ -122,7 +103,7 @@ that sets only one leaves the other at the module's default.
 ### Tests
 
 A module call compiles to a nested deployment whose `properties.parameters.<param>.value` is the
-decision, so every decision above is observable in `tests/*.armtest.yaml`
+decision, so every decision in render-map.yaml is observable in `tests/*.armtest.yaml`
 ([bicep-idiom.md](../../../core/iac-rendering/references/bicep-idiom.md#tests)). Entities are
 checked in `parameters.queues.value[*]`.
 
@@ -130,16 +111,4 @@ checked in `parameters.queues.value[*]`.
 
 The fallback. `Microsoft.ServiceBus/namespaces` with `properties`:
 
-| Decision | Property |
-|---|---|
-| `sku`, `capacity` | `sku: { name, tier, capacity }` (top level, beside `properties`) |
-| `zone_redundant` | `properties.zoneRedundant` |
-| `premium_messaging_partitions` | `properties.premiumMessagingPartitions` |
-| `minimum_tls_version` | `properties.minimumTlsVersion` |
-| `local_auth` | `properties.disableLocalAuth` |
-| `public_network_access` | `properties.publicNetworkAccess` (`'Disabled'`, `'Enabled'`) |
-| `key_management` | `properties.encryption: { keySource: 'Microsoft.KeyVault', keyVaultProperties: [ { keyName, keyVaultUri, identity } ], requireInfrastructureEncryption }` |
-| `network_rule_config` | child `networkRuleSets/default`: `defaultAction`, `ipRules`, `virtualNetworkRules`, `trustedServiceAccessEnabled`, `publicNetworkAccess` |
-| `queues` | child `queues` with `properties` of the same names as the module's |
-| `topics` | child `topics` and `topics/subscriptions` |
-| `geo_recovery` | child `disasterRecoveryConfigs` on the primary |
+What each decision renders to - the property and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.

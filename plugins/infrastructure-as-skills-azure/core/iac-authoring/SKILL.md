@@ -69,9 +69,16 @@ in every run, in this order; the sections below carry the detail.
    with a placeholder, never a plausible value. A default is not a guess: the stage stack
    `[development, test, production]` stays unless the customer named the stages.
 6. **Spec, diagram, sign-off, then code.** No `.tf` or `.bicep` before the customer's yes,
-   also when the request already said "then write the code".
+   also when the request already said "then write the code". **The spec is written before the
+   design is shown** (Phase 4): the tick list, the security block and the account are read
+   from it, never composed from memory and checked against it afterwards.
 7. **The turn ends on a question** - the draft question on the rough picture, the code
    question on the polished one - also when the diagram could not be drawn.
+8. **A check is run, not read.** `check_spec.py`, `verify_diagram.py`, `check_render_coverage.py`
+   and every other check script of the plugin are judged by their output: a failure names what
+   is wrong, and the fix goes into the spec, the layout or the code it names. Never open a check
+   script to learn what passes - a result tuned to the check satisfies the script and still
+   misleads the customer. Unclear output is said out loud, not decoded from the source.
 
 **Where `<plugin>` is.** Every `<plugin>/...` path in these skills is relative to the plugin's
 root: two levels above this skill's base directory, which is shown when the skill loads
@@ -371,7 +378,8 @@ mapping:
 - **A referenced platform part answers its central question.** A named hub network or
   shared private-endpoint subnet answers `central_network` as `yes`, a named central
   workspace `central_logging` as `yes`, a named zone resource group `central_private_dns` as
-  `yes`, a named backup vault `central_backup` as `yes` - recorded `stated`, never an open item, because the reference is the answer. It does
+  `yes`, a named backup vault `central_backup` as `yes` - recorded `stated`, never an open item, because the reference is the answer (the
+  reference itself is `{ existing: <kind> }`, its id an open item unless the person gave it). It does
   not answer `landing_zone_exists`: only the customer saying there is a landing zone does,
   and without one `landing_zone` stays `standalone` while each central answer sets its own
   ownership decision. An explicit answer beats an archetype's pre-answer.
@@ -451,7 +459,10 @@ resource, in two halves:
   the ingestion cap.
 
 Resolve it once and every resource inherits it. A resource question carrying
-`answer: { deployment: <id> }` is answered from there and never asked again — eight resources in
+`answer: { deployment: <id> }` is answered from there and never asked again - with its `map`, in the
+question's own values, which the interview digest prints (`network_exposure: private` is
+`public_network_access: disabled`, `local_auth: disabled` is `shared_access_key_enabled: false`);
+never translated by hand. Eight resources in
 one run must not produce eight separate exposure answers, and a system is not private
 because seven of them are.
 
@@ -466,7 +477,9 @@ technology where the set needs it.
 
 **Read every question set before Phase 3 asks anything.** That is the set of each resource
 the request names **plus** every resource a deployment decision forces into the design: a
-private network exposure brings the virtual network and its private-endpoint subnet,
+private network exposure brings the virtual network and its private-endpoint subnet, a virtual
+network brings one `network-security-group` per subnet purpose naming its subnets (guardrails,
+network exposure),
 `observability_ownership: create` brings a `log-analytics-workspace` resource whose set is
 resolved and written like any other - its access and authentication decisions live there, not
 in the deployment set - `application_monitoring:
@@ -593,7 +606,15 @@ chip holds twelve characters). A topic of more is several calls in a row, and th
 header is numbered** - *Rahmen 1/3*, *Rahmen 2/3*, *Rahmen 3/3* - so the same word never
 appears twice in a row without telling the person how far along they are; a topic of one call
 carries no number; small neighbouring topics
-share a call only when each of them is a single question. Before each call one line of
+share a call only when each of them is a single question. **A question whose `depends_on` names
+another interview question, or whose options read its answer, goes into a later call than that
+question, never beside it**: whether
+it is asked, and what its options mean, follow from that answer. `central_logging`,
+`central_network` and `central_private_dns` come only after `landing_zone_exists` is answered
+`no`; `resource_lock` comes only once the stages are known - with production alone, "only in
+production" and "in every stage" are the same answer and the option is left out. This
+outranks the four-per-call cut: the call that splits off keeps the topic's numbered header.
+Before each call one line of
 plain text names the topic and the person's place ("Netzwerk - Frage 1-2, danach Sicherheit,
 Daten"); it is a message of its own, never part of a `question` text, which holds the question
 and nothing else. Nothing reasoned or reported stands between the calls - the batch is never
@@ -667,12 +688,21 @@ ask it; default it and say so in Phase 4, or open it with its owner.
 **Never invent a value nobody gave.** Grouped options work for an `enum`, where the
 values come from the question set. A reference (`accepts: { ref: ... }`), an address range, a subscription id, a
 workspace name — anything only the environment knows — is never offered as an option and
-never guessed: it comes from the stage file or from the person's
-own prose in Phase 0, and otherwise it is an `open:` entry naming its owner. An
+never guessed: it comes from the person's own prose in Phase 0, and otherwise it is an
+`open:` entry naming its owner. An
 unassigned address range is a blocker to say out loud, not a gap to fill with
 `10.0.0.0/16`; a workspace that does not exist yet is a boundary — something this run
 does not create — and the honest answer is to record it as missing rather than to
 reference a name nobody has.
+
+**A reference is written in one of two forms** ([spec.md](references/spec.md#references)):
+`{ resource: <key> }` for a resource of this spec, with `part: <name>` where the kind is a part
+(`{ resource: virtual-network, part: app }`), one value for every stage; or
+`{ existing: <kind> }` for one outside it. An existing one carries `id:` per stage only where
+the person gave the resource ids; a name without an id ("the platform workspace
+law-platform-prod" / "der Plattform-Workspace law-platform-prod") is never written as a value -
+it goes into the `open:` entry's question, which asks the owner for the id. Never a bare name,
+a stage map around a reference, or a name and resource group.
 
 **Ask in the user's language; keep the artefacts in English.** A question's `ask`,
 `plain`, `plain_values` and `offer` carry the customer's wording per language: put the
@@ -686,8 +716,25 @@ rather than deciding it for them.
 
 ## Phase 4 — Show the design, report what was defaulted, then ask once
 
+**The spec is written first, and everything this phase shows is read from it.** As soon as
+the interview is done, write `infra-spec.yaml` (where and how: *Then write the spec* in
+Phase 5), lay it out with `write_spec.py` and run `check_spec.py`; a violation or a warning
+is fixed before anything is shown. Every line below is then a value of that file: a number
+(retention days, soft-delete days, an address range), a role and its scope, a model, and
+which parts are reachable from the internet are read off it - never off memory, and never
+off the examples in this section, whose numbers illustrate the shape and are not defaults.
+A design shown first and written afterwards is one the spec quietly departs from, and the
+person has signed off on the departure without seeing it. **Every resource whose
+`public_network_access` is not `disabled` is named as reachable from the internet**, with
+what makes it so - a workspace or a monitoring component public by its set's default
+included - and the line that the rest stays private names only what is. Every `open:` entry
+is shown under *Offen* / *Open*, and "nothing open" is said only when the spec has no `open:`
+entry and `check_spec.py` reports no missing required value. A change at the sign-off is an edit of the spec, followed
+by `check_spec.py` and the list again. Nothing else - decision document, diagram, code - is
+written before the yes.
+
 **First the design, as a list the customer ticks off**. Before
-the account of defaults and before any file is written, say in the customer's words what
+the account of defaults, say in the customer's words what
 will be built: one line per part with what it is for, one line per connection, the handful
 of decisions that cost money or change what the system can do. Nothing technical, no
 attribute names - the customer recognises their system or says what is missing, which is
@@ -867,9 +914,9 @@ to see it to disagree with it, and the ones they never look at cost one glance.
 ## Phase 5 — Working mode, spec, diagram loop, then the code question
 
 Phase 5 runs in this order, for a new spec and for the extension of an existing one alike:
-**working mode, spec, diagram loop, code question.** Nothing before the working mode is
-written or drawn, and nothing after the diagram loop is generated until the code question
-has been answered with a yes.
+**working mode, spec, diagram loop, code question.** The spec exists from Phase 4 and is
+completed here; nothing else is written or drawn before the working mode, and nothing after
+the diagram loop is generated until the code question has been answered with a yes.
 
 **First, ask how the rest of the run works - once, as the first step of Phase 5, before
 the spec is written.** With the Agent tool available, ask through `AskUserQuestion`:
@@ -899,7 +946,8 @@ How should I continue?
   2. In this session - I do everything myself, one step after the other. Cheaper, no second review
 ```
 
-**Then write the spec.** `infra-spec.yaml` goes into the user's repository — the IaC root,
+**Then write the spec** - written in Phase 4 before the design was shown; this is where it
+goes and how. `infra-spec.yaml` goes into the user's repository — the IaC root,
 or `infra/` — is laid out with `write_spec.py` (order, group comments, the plugin version;
 it changes no value and keeps every comment; without a shell, write it in that
 [canonical form](references/spec.md#canonical-form) by hand) and validated with
@@ -1166,8 +1214,10 @@ family:
 1. Create `<resource>/` in the family and write `<resource>/questions.yaml`. Copy an existing one and keep the group order:
    placement, networking, identity, security, data_protection, observability. The order is
    the review order, and a reviewer reading three resources should not relearn the layout.
-2. Fill `why` and `renders` for every question. `why` is what a reviewer reads; `renders`
-   names the attribute it drives, which is what lets a review map code back to a decision.
+2. Fill `why` for every question - it is what a reviewer reads - and write the resource's
+   `render-map.yaml` beside the set: what each question renders to, per target and
+   implementation ([render-map.md](../iac-rendering/references/render-map.md)).
+   `check_render_map.py` fails on a question the map misses.
 3. Take defaults from [references/guardrails.md](references/guardrails.md) rather than from the
    Azure portal. They differ often, and the portal default is not a baseline worth
    inheriting.

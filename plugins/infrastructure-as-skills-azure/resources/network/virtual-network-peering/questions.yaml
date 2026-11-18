@@ -40,9 +40,6 @@ groups:
           Drives the rendered name and the strictness of several defaults below. Nothing
           sensible can be guessed. Each stage is peered to its own stage's hub (or to the one
           hub the platform has), and the remote network is a per-stage value.
-        renders: >
-          naming parameter `environment`, and the tag of that name where the repository uses
-          one
 
       - id: location
         ask:
@@ -58,7 +55,6 @@ groups:
           global peering: it works, is billed for the data crossing regions at both ends,
           and the gateway transit and forwarded-traffic switches below behave the same. The
           peering resource itself has no location.
-        renders: naming parameter `location` (a peering is a child of the network and carries no location)
 
       - id: resource_group_name
         ask:
@@ -74,7 +70,6 @@ groups:
         why: >
           The group of the local network - a peering is a child of it and lives where it
           lives. In a split deployment that is the `network` role.
-        renders: parent_id (the local network's id) / implicit in Bicep scope
 
   # ----------------------------------------------------------------- peering
   - id: peering
@@ -104,7 +99,6 @@ groups:
           a spoke peered to the hub reaches another spoke only through something in the hub that
           forwards - a firewall or a gateway - which is what the two switches are for. A
           workload deployment is a spoke; it does not make itself a hub.
-        renders: decides which of the local and reverse switches below is the spoke's
 
       - id: local_virtual_network
         ask:
@@ -121,7 +115,6 @@ groups:
           Usually the network this deployment created: the network set's output, passed by
           reference, never an id typed into the template. An id pins a subscription into the
           code, and a stage file carries the value instead.
-        renders: parent_id / localVnetName (the name of the parent network)
 
       - id: remote_virtual_network
         ask:
@@ -140,7 +133,6 @@ groups:
           space must not overlap the local one - a peering is refused, at apply time, when it
           does - and the remote network may sit in another subscription; the
           pipeline's identity then needs rights there for the reverse side (below).
-        renders: remote_virtual_network_id / remoteVirtualNetworkResourceId
 
       - id: both_directions
         ask:
@@ -162,7 +154,6 @@ groups:
           rights). Where the platform owns its side - by policy, by a network manager or by hand -
           `false` creates the local half and the handover says who has to add the other, because a
           half-peering is a connection that looks created.
-        renders: create_reverse_peering / a second peering module call scoped to the remote network
 
       - id: allow_virtual_network_access
         ask:
@@ -182,7 +173,6 @@ groups:
           security groups and firewalls decide what actually passes - this switch is the outer
           door. Written, because the Terraform and Bicep modules agree on `true` and a release
           can move it.
-        renders: allow_virtual_network_access / allowVirtualNetworkAccess
 
       - id: reverse_allow_virtual_network_access
         ask:
@@ -201,7 +191,6 @@ groups:
           The same switch on the other side. A spoke that must stay unreachable from the hub
           (rare: a hub is usually what administers it) sets this `false`, and then
           management from the hub fails in only one direction, which is hard to diagnose.
-        renders: reverse_allow_virtual_network_access / allowVirtualNetworkAccess (reverse module call)
 
   # ---------------------------------------------------------------- networking
   - id: networking
@@ -226,7 +215,6 @@ groups:
           spoke from the firewall did not originate in the hub network, and without the switch
           it is dropped. Recorded rather than asked of a person; it is a property of the
           platform. Without a hub appliance the switches stay off.
-        renders: decides allow_forwarded_traffic and reverse_allow_forwarded_traffic
 
       - id: allow_forwarded_traffic
         ask:
@@ -250,7 +238,6 @@ groups:
           peer. Off unless something inspects, because on without an inspector lets a
           peer vouch for addresses it does not own. The two modules disagree on the default;
           written.
-        renders: allow_forwarded_traffic / allowForwardedTraffic
 
       - id: reverse_allow_forwarded_traffic
         ask:
@@ -274,7 +261,6 @@ groups:
           so the hub side stays off unless the spoke hosts an appliance of its own; with a
           central inspector both are typically on, and the second is the one forgotten, which
           shows as one-way traffic.
-        renders: reverse_allow_forwarded_traffic / allowForwardedTraffic (reverse module call)
 
       - id: hub_gateway
         ask:
@@ -295,7 +281,6 @@ groups:
           (`use_remote_gateways`) - one gateway for all spokes instead of one each. The local
           network must have no gateway of its own then, and the hub's gateway must exist
           before the spoke side is created.
-        renders: decides allow_gateway_transit, use_remote_gateways and reverse_allow_gateway_transit
 
       - id: allow_gateway_transit
         ask:
@@ -316,7 +301,6 @@ groups:
           Gateway transit lets a peer use this network's VPN or ExpressRoute gateway. It
           belongs on the hub's side only; on a spoke it either does nothing or, worse, shares a
           gateway the spoke should not have.
-        renders: allow_gateway_transit / allowGatewayTransit
 
       - id: use_remote_gateways
         ask:
@@ -336,7 +320,6 @@ groups:
           The spoke's half of the pair: routes to on-premises learned by the hub's gateway reach
           the spoke through the peering. It fails if the remote side does not offer transit, or
           if the local network has a gateway, and it must not be set on both sides.
-        renders: use_remote_gateways / useRemoteGateways
 
       - id: reverse_allow_gateway_transit
         ask:
@@ -357,7 +340,6 @@ groups:
         why: >
           The hub's half of the pair, set on the reverse peering. Order matters: this side has
           to exist before the spoke side asks to use it, or the spoke's peering is refused.
-        renders: reverse_allow_gateway_transit / allowGatewayTransit (reverse module call)
 
       - id: verify_remote_gateways
         ask:
@@ -377,4 +359,3 @@ groups:
           which is the message wanted. Off hides the mistake until the first on-premises
           connection fails. The Bicep module defaults to not checking (`doNotVerifyRemoteGateways:
           true`), the Terraform module to checking; written as the check.
-        renders: do_not_verify_remote_gateways (inverted) / doNotVerifyRemoteGateways (inverted)

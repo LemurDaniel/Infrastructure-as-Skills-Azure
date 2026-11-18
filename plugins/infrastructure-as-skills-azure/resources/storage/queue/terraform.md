@@ -13,12 +13,7 @@ provider-constrained as there.
 
 ### Decision -> module input
 
-| Decision | Input | Note |
-|---|---|---|
-| `queue_names` | `queues = { <key> = { name } }` | The map key is arbitrary; the name is the decision |
-| `metadata` | `queues.<k>.metadata` | A map of lowercase keys |
-| `role_assignments` | `queues.<k>.role_assignments = { <k> = { role_definition_id_or_name, principal_id, principal_type } }` | Scoped to the queue |
-| `needs_dead_letter_or_ordering` | - | Not a module input: `true` swaps this set for `service-bus` |
+What each decision renders to - the input and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.
 
 ```hcl
   # inside module "storage" - decision: queue.queues.*
@@ -39,8 +34,4 @@ marked `# not-testable:` with a reason, as for the account's other children.
 
 The fallback. Targets `azurerm` **5.x**; check against `terraform providers schema -json`.
 
-| Decision | Argument on `azurerm_storage_queue` |
-|---|---|
-| `queue_names` | `name`, `storage_account_id` |
-| `metadata` | `metadata` |
-| `role_assignments` | `azurerm_role_assignment` with `scope = azurerm_storage_queue.<k>.id` (the Resource Manager id in 5.x) |
+What each decision renders to - the argument and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.

@@ -55,6 +55,11 @@ def main():
                 checked += 1
                 if f"{g}.{q['id']}" not in text:
                     failures.append(f"{rel}: {g}.{q['id']} missing")
+            ans = q.get('answer')
+            if isinstance(ans, dict) and 'deployment' in ans and 'map' in ans:
+                checked += 1
+                if f"from deployment.{ans['deployment']} translated" not in text:
+                    failures.append(f"{rel}: the deployment translation of {q['id']} missing")
             if q.get('forced_when') and d.flat(q['forced_when']) not in text:
                 failures.append(f"{rel}: forced_when of {q['id']} missing")
             cat = q.get('accepts').get('catalogue') if isinstance(q.get('accepts'), dict) else None

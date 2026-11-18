@@ -16,23 +16,30 @@ $ErrorActionPreference = 'Stop'
 $plan = Join-Path ([IO.Path]::GetTempPath()) "tfplan-$Stage-$PID"
 $env:ARM_USE_AZUREAD = 'true'
 
-# A placeholder never deploys: a stage whose open items are unanswered stops here.
-$stageFile = "environments/$Stage.tfvars"
-if (-not (Test-Path $stageFile)) { throw "$stageFile is missing" }
-if (Select-String -Path $stageFile -Pattern '00000000-0000-0000-0000-000000000000|OPEN-|ASSUMED:' -Quiet) {
-  throw "Stage $Stage still holds placeholder values in $stageFile - answer the open items first."
-}
-
+# The stage file, the root and its tests are relative to the script, not to the caller.
+Push-Location $PSScriptRoot
 try {
+  # A placeholder never deploys: a stage whose open items are unanswered stops here.
+  $stageFile = "environments/$Stage.tfvars"
+  if (-not (Test-Path $stageFile)) { throw "$stageFile is missing" }
+  if (Select-String -Path $stageFile -Pattern '00000000-0000-0000-0000-000000000000|OPEN-|ASSUMED:' -Quiet) {
+    throw "Stage $Stage still holds placeholder values in $stageFile - answer the open items first."
+  }
+
+  # Validate and test without the state, as the pipelines' validate job does.
   terraform fmt -check -recursive;                 if ($LASTEXITCODE) { throw 'terraform fmt: files need formatting' }
-  terraform init -input=false `
+  terraform init -backend=false -input=false;      if ($LASTEXITCODE) { throw 'terraform init failed' }
+  terraform validate;                              if ($LASTEXITCODE) { throw 'terraform validate failed' }
+  terraform test;                                  if ($LASTEXITCODE) { throw 'terraform test failed' }
+
+  # The stage's state: -reconfigure, so a run for another stage never migrates this one.
+  terraform init -input=false -reconfigure `
     "-backend-config=subscription_id=$StateSubscriptionId" `
     "-backend-config=resource_group_name=$StateResourceGroup" `
     "-backend-config=storage_account_name=$StateStorageAccount" `
     "-backend-config=container_name=$StateContainer" `
     "-backend-config=key=$Workload/$Stage.tfstate" `
     '-backend-config=use_azuread_auth=true';       if ($LASTEXITCODE) { throw 'terraform init failed' }
-  terraform validate;                              if ($LASTEXITCODE) { throw 'terraform validate failed' }
 
   terraform plan -input=false -detailed-exitcode "-var-file=environments/$Stage.tfvars" "-out=$plan"
   switch ($LASTEXITCODE) { 0 { Write-Host 'No changes.'; return } 1 { throw 'terraform plan failed' } }
@@ -46,4 +53,7 @@ try {
   if ($answer -ne $Stage) { Write-Host 'Not applied.'; return }
   terraform apply -input=false $plan;              if ($LASTEXITCODE) { throw 'terraform apply failed' }
 }
-finally { Remove-Item $plan -ErrorAction SilentlyContinue }
+finally {
+  Remove-Item $plan -ErrorAction SilentlyContinue
+  Pop-Location
+}

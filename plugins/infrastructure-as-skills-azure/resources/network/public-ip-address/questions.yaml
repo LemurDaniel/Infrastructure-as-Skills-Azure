@@ -39,7 +39,6 @@ groups:
           Drives the rendered name. An address is allocated per stage and per consumer:
           a development stage that shares the production address shares its allowlist
           entries with every partner that trusts it.
-        renders: naming parameter `environment`, and the tag of that name where the repository uses one
 
       - id: location
         ask:
@@ -53,7 +52,6 @@ groups:
         why: >
           A regional address can be attached only to a resource of its own region, and
           the zones it spans are that region's.
-        renders: location
 
       - id: resource_group_name
         ask:
@@ -69,7 +67,6 @@ groups:
         why: >
           Placed into an existing group, normally that of the resource that uses the
           address, so the people who own the consumer own the address.
-        renders: resource_group_name (azurerm modules) / parent_id (AzAPI modules) / implicit in Bicep scope
 
   # ------------------------------------------------------------------ address
   - id: address
@@ -103,7 +100,6 @@ groups:
           whether the posture allows the address at all, and which SKU the consumer accepts
           (below). An address with no stated purpose is the one that stays in a subscription
           for two years after its consumer was deleted.
-        renders: the `name` parameter of the naming convention (`<workload>-<purpose>`) and the SKU decision
 
       - id: sku
         ask:
@@ -129,7 +125,6 @@ groups:
           `StandardV2` exists for the zone-redundant NAT gateway generation and is not
           interchangeable with `Standard`: the pair has to match, and the SKU of an address
           cannot be changed in place.
-        renders: azurerm_public_ip.sku / properties (sku.name) - `sku` (AVM Terraform), `skuName` (AVM Bicep)
 
       - id: sku_tier
         ask:
@@ -148,7 +143,6 @@ groups:
           `Global` is only for the front end of a cross-region load balancer; every other
           consumer needs a regional address. A global address is the more expensive form and
           cannot be attached to a regional resource.
-        renders: sku_tier / sku.tier
 
       - id: allocation_method
         ask:
@@ -169,7 +163,6 @@ groups:
           address. `Static` is the only allocation a Standard address supports, and the one
           that does not change under the people depending on it. The question exists to make
           the decision visible, not because the other value is available.
-        renders: allocation_method / properties.publicIPAllocationMethod
 
       - id: ip_version
         ask:
@@ -185,7 +178,6 @@ groups:
           IPv4 is what every partner allowlist and most consumers expect. IPv6 is chosen when
           a consumer demands a dual-stack front end, and then needs a second address - one
           resource per family.
-        renders: ip_version / properties.publicIPAddressVersion
 
       - id: zones
         ask:
@@ -204,7 +196,6 @@ groups:
           zone of an address cannot be changed. Empty is a non-zonal address, which exists
           only in regions without zones.
         forced_when: "A zonal NAT gateway (`nat-gateway.zone`) takes the same single zone"
-        renders: zones / availabilityZones / zones[]
 
       - id: idle_timeout_minutes
         ask:
@@ -221,7 +212,6 @@ groups:
           is better kept alive by the client than by raising this to the 30-minute ceiling,
           which holds the port for everyone else too. Only an outbound or load-balancer
           address uses it.
-        renders: idle_timeout_in_minutes / idleTimeoutInMinutes
 
       - id: dns_label
         ask:
@@ -238,7 +228,6 @@ groups:
           anyone enumerating Azure what exists. The customer's own domain is the stable name;
           a label is for a short-lived test endpoint with no DNS zone, and it is released
           with the address.
-        renders: domain_name_label / dnsSettings.domainNameLabel
 
   # ----------------------------------------------------------------- security
   - id: security
@@ -267,7 +256,6 @@ groups:
           is a platform decision and usually shared. The question exists so the choice is
           written, because inherited from a network with no plan means unprotected, and a
           reviewer should see that.
-        renders: ddos_protection_mode / ddosSettings.protectionMode (Bicep - omitted for inherited)
 
       - id: ddos_protection_plan
         ask:
@@ -284,8 +272,7 @@ groups:
         per_environment: true
         why: >
           The plan is shared across a subscription and owned by the platform, so it is
-          referenced and never created here. Read by name and resource group, not by id.
-        renders: ddos_protection_plan_id / ddosSettings.ddosProtectionPlan.id
+          referenced and never created here: its id, a parameter in each stage file.
 
   # ------------------------------------------------------------ observability
   - id: observability
@@ -307,7 +294,6 @@ groups:
           Inherited: one deployment, one destination. The address's logs are DDoS
           notifications and mitigation records; without a destination an attack on the address
           is visible only as its symptoms.
-        renders: diagnostic_settings / diagnosticSettings
 
       - id: diagnostic_categories
         ask:
@@ -328,7 +314,6 @@ groups:
           rest of the time, and an incident review without them has nothing to read. The names
           are the platform's and are checked against `az monitor diagnostic-settings
           categories list --resource <pip id>` before a render, not remembered.
-        renders: diagnostic_settings.<key>.log_categories / diagnosticSettings[].logCategoriesAndGroups[].category
 
       - id: metrics_enabled
         ask:
@@ -346,4 +331,3 @@ groups:
           Byte and packet counts, SYN counts and the DDoS attack indicators
           (`IfUnderDDoSAttack`) are the metrics an alert on an attack rests on, and `AllMetrics`
           is cheap.
-        renders: diagnostic_settings.<key>.metric_categories = ["AllMetrics"] / metricCategories[].category

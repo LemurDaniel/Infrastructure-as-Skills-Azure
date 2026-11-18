@@ -16,6 +16,7 @@ skill. Routing table - the request picks the question set:
 | managed disk, data disk, OS disk, disk encryption set, Premium SSD, ZRS disk | `managed-disk/questions.yaml` | [notes](managed-disk/notes.md) - a standalone disk; a machine's own disks are in the VM set |
 | availability set, fault domain, update domain, proximity placement group, PPG | `availability-set/questions.yaml` | [notes](availability-set/notes.md) - the PPG is a question group of this set |
 | scale set, VMSS, Flexible orchestration, instance repair, rolling upgrade | `virtual-machine-scale-set/questions.yaml` | [notes](virtual-machine-scale-set/notes.md) - Flexible by default |
+| maintenance configuration, patch window, Wartungsfenster, Update Manager schedule, scheduled patching | `maintenance-configuration/questions.yaml` | [notes](maintenance-configuration/notes.md) - the window; machines are assigned on the VM set |
 | autoscale, custom domain | *not yet written* | Decisions of an existing app; listed as boundaries of the App Service set |
 
 When a question set does not exist yet, say so rather than improvising one. Fall back to

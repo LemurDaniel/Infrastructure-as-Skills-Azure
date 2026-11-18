@@ -5,7 +5,8 @@ this plugin:
 
 | File | Where | Purpose |
 |---|---|---|
-| `questions.yaml` | `resources/<family>/<resource>/` | The decisions the resource forces, each with its default, `why` and `renders`. This file's subject |
+| `questions.yaml` | `resources/<family>/<resource>/` | The decisions the resource forces, each with its default and `why`. This file's subject |
+| `render-map.yaml` | beside it | What each decision renders to, per target and implementation - [render-map.md](../../iac-rendering/references/render-map.md) |
 | `notes.md` | `resources/<family>/<resource>/` | What a question set cannot express: decisions fixed at creation, dependency order, pitfalls to name out loud |
 | `terraform.md` | `resources/<family>/<resource>/` | How the resource's decisions become Terraform: the AVM module with its version snapshot and provider requirements, a decision → module input table, the `azurerm` resource as the fallback, and how to verify arguments against the provider schema |
 | `bicep.md` | `resources/<family>/<resource>/` | How the resource's decisions become Bicep: the `br/public:avm/...` module with its version snapshot, a decision → module parameter table, the raw resource type as the fallback, the name length limit, and `bicep build` as the check |
@@ -46,7 +47,6 @@ groups:
         why: >
           Drives the rendered name, the tags, and the strictness of several
           defaults below. Nothing sensible can be guessed here.
-        renders: naming parameter `environment`, tag `environment`
 
       - id: replication
         ask:
@@ -60,8 +60,41 @@ groups:
           anything that is not scratch data. GRS only pays off with a documented
           cross-region recovery plan — without one it is cost for a capability
           nobody will exercise.
-        renders: azurerm_storage_account.account_replication_type / sku.name
 ```
+
+## What the answer may be
+
+`accepts` takes one of three forms. `check_question_set.py` fails on any other.
+
+| `accepts` | The answer is |
+|---|---|
+| `[LRS, ZRS, ...]` | One of the listed values: required on an `enum`, optional on a `list` |
+| `{ ref: <kind> }` | A reference to another resource of a kind [ref-kinds.yaml](ref-kinds.yaml) defines (`subnet`, `resource_group`, `log_analytics_workspace`, ...), on a `string` or a `list`. In the spec `{ resource: <key> }` or `{ existing: <kind> }` ([spec.md](spec.md#references)); never offered as a guessed option |
+| `{ catalogue: <file> }` | A value from a generated catalogue beside the set (`models.yaml`), never one from memory |
+
+### How a reference resolves
+
+A `{ ref: <kind> }` question's answer takes one of three paths from the interview to the code.
+The kind ([ref-kinds.yaml](ref-kinds.yaml)) says which sets may answer it and what an id of it
+looks like; the spec form says where the id comes from:
+
+| The resource | In the spec | Rendered as | `check_spec.py` checks |
+|---|---|---|---|
+| Created by this spec | `{ resource: <key> }`, with `part: <name>` where the kind is a part (a subnet); one value for every stage | The output of that resource's module the input takes, per stage - the id, or the property `render-map.yaml` names (a name, a connection string) | The key exists, its set is one of the kind's `sets`, the part is named by the kind's `part` question |
+| Outside it, id known | `{ existing: <kind>, id: { <stage>: <id> } }` | An id variable / param; the render writes each stage's id into its stage file. A property the id does not carry is a second variable / param (below) | Every stage has an id, of the kind's ARM `type` (or a GUID, any resource id) |
+| Outside it, id unknown | `{ existing: <kind> }` and an `open:` entry with its owner | The same variable / param; the stage file holds a placeholder id, refused by the pipeline before `apply` | The `open:` entry exists |
+
+A name or a resource group is never part of a reference: an existing resource is never looked
+up, so `plan` needs no access to the platform, and a name the person gives without an id goes
+into the `open:` entry's question. What the input takes is `render-map.yaml`'s to say. From an
+existing one's id the render derives its name, group and subscription, and a key's vault and
+name, by splitting it; a property the id does not carry (a component's connection string, an
+identity's principal id, a site's host name) is a **second variable / param** beside the id,
+from the stage file too, and the spec does not hold it: the `open:` entry asks the owner for
+it with the id, or alone where the id is known. A secret among them (a connection string) is
+a sensitive variable / `@secure()` param from the pipeline's secrets, never in a stage file. The rendering is in
+[terraform-idiom.md](../../iac-rendering/references/terraform-idiom.md#referencing-what-the-deployment-does-not-own)
+and [bicep-idiom.md](../../iac-rendering/references/bicep-idiom.md#referencing-what-the-deployment-does-not-own).
 
 ## Where the value comes from
 
@@ -71,7 +104,8 @@ states one. `check_question_set.py` fails on a question with none, and on one wi
 | Answer path | The value comes from |
 |---|---|
 | `default` | The question itself |
-| `answer: { deployment: <id> }` | The answer to the deployment-set question with id `<id>`, taken unchanged |
+| `answer: { deployment: <id> }` | The answer to the deployment-set question with id `<id>`, taken unchanged - only where this question takes the same values |
+| `answer: { deployment: <id>, map: { <answer>: <value> } }` | The deployment answer translated into this question's values, one entry per deployment answer (`network_exposure: private` → `public_network_access: disabled`; `local_auth: disabled` → `shared_access_key_enabled: false`). Source stays `deployment` |
 | `answer: { context: <id> }` | The spec's `context.<id>`: `environments`, `location`, `subscription_id`, `resource_group_name`. Missing, it becomes an `open:` entry |
 | `answer: { question: <id>, map: {...} }` | A customer's answer to a `requirements` question of the deployment set, translated through the map |
 | `parameterized: true` | An input of the rendered code (Terraform `variable`, Bicep `param`), filled per stage from that stage's parameter file (`.tfvars`, `.bicepparam`) |
@@ -94,9 +128,9 @@ different matter again, decided by `resolved_by` alone.
 | `default` | no | The value taken when nobody states another, from the [guardrails](guardrails.md). It does not decide whether the question is asked - `resolved_by` does; on an `interview` question it is the answer preselected for the customer. |
 | `required` | no | `true`: no safe value exists and none can be guessed. An `interview` question is asked; any other becomes an `open:` entry with a placeholder, owned by the platform team (`derived`) or the workload owner. |
 | `parameterized` | no | `true` means the value is never asked and never rendered as a literal: the template takes it as an input variable (Terraform `variable`, Bicep `param`) without a default. Used for deployment context that is supplied at deploy time. |
-| `answer` | no | Where an inherited answer comes from, in one of three forms: `{ deployment: <id> }` takes a deployment-set answer unchanged; `{ context: <id> }` reads the spec's `context:`; `{ question: <id>, map: { <answer>: <value> } }` translates a customer requirement through a map covering every one of its answers (`outage_impact: disruptive` → `replication: ZRS`). See *Where the value comes from* and *Requirements*. |
+| `answer` | no | Where an inherited answer comes from, in one of three forms: `{ deployment: <id> }` takes a deployment-set answer unchanged, and with `map: { <answer>: <value> }` translates it where this question answers in other values (a bool, another enum) - required then, so no run derives the translation itself; `{ context: <id> }` reads the spec's `context:`; `{ question: <id>, map: { <answer>: <value> } }` translates a customer requirement through a map covering every one of its answers (`outage_impact: disruptive` → `replication: ZRS`). See *Where the value comes from* and *Requirements*. |
 | `why` | yes | The reasoning. This is what a reviewer reads and what justifies the default. |
-| `renders` | yes | Which attribute(s) the answer drives, per target where they differ. Lets a review skill map code back to a decision. |
+| `renders` | deployment set only | Which attribute(s) the answer drives. A resource set has none: its renderings are its `render-map.yaml`, one record checked against the set, where a second one here drifted from the references. |
 | `depends_on` | no | `{ question: <id>, equals: <value> }`, `not_equals`, or `contains` (a `list` question holds the value) — skip unless the condition holds. Gates a question that would be dead otherwise: firewall rules mean nothing while public access is disabled, so they are not asked and discarded. |
 | `forced_when` | no | Which answer elsewhere removes a value from `accepts`, or determines this one: `key_protection: hsm` requires Key Vault Premium, and a software key cannot be converted later. The forced value is set, not asked, and recorded as `source: { forced_by: <what drove it> }` in the spec - a value determined silently is worse than one asked, so the spec always names what drove it. Prose, because the conditions are not uniform enough to encode. |
 | `resolved_by` | no | Who supplies the value. `interview`: the customer is asked. `derived`: never asked - it follows from interview answers, else its default, else an `open:` entry for the platform team. Absent: never asked - its default or derivation applies, else an `open:` entry for the workload owner. See *Who resolves it*. |
@@ -105,14 +139,20 @@ different matter again, decided by `resolved_by` alone.
 | `plain_values` | no | What `{value}` becomes for each answer, per language, where the raw value would mean nothing to the customer: `ZRS` → "in three datacenters of the region, so one can fail". Also the label of each option in the interview. Keys are the values in `accepts`, `true`/`false` for a bool, or the options of `offer`. Not needed where the raw value reads fine - a number of days, a name. |
 | `offer` | no | Suggestions, not a restriction: on an `interview` question whose answer stays open (an `int`, a free `list`), the options the interview shows, `<option>: { en, de }` with their labels. Any other answer remains valid through "Other" - `mandates` offers GDPR, BSI C5 and ISO 27001 and still takes PCI DSS. Four at most, three for a `list`, whose fourth option is the explicit empty answer. Without it each run invents its own options. Where only the listed answers are valid, it is an `enum` with `accepts` instead. |
 | `per_environment` | no | `true` means the value differs per stage: it renders as a parameter whose value lives in each stage's parameter file, never as a literal in the template, and the spec holds a map keyed by stage. See *Stages*. |
+| `exclusive` | no | `true`, on a `list` of references only: a part it names is claimed by at most one resource of this set - a subnet takes one NSG, one route table, one NAT gateway. `check_spec.py` fails on a spec where two claim the same part, since the second association would overwrite the first. |
 | `non_production_default` | no | The value every stage but production takes while `deployment.non_production_savings` is enabled. Cost knobs only: refused in the security, networking, identity, access, DNS, compliance and posture groups. |
+| `stage_parameter` | no | `true` on a size or cost knob without a `non_production_default` - a SKU, a VM or plan size, a capacity, an instance count, a storage size, a quota: it renders as a parameter from the stage files even with one stage or stages that agree, so resizing a stage is an edit of its file. Refused where `non_production_default` is refused, and beside `per_environment` or `non_production_default`, which already make it one. See *Stages*. |
 
 ### Types
 
 A reference - a subnet, a workspace, a key - is a `string` or a `list` whose `accepts` is
-`{ ref: <kind> }`: `resource_group`, `subnet`, `log_analytics_workspace`, `key_vault_key`,
-`storage_account`, .... Its value is usually supplied by a pattern or the platform rather
-than stated, and never offered as a guessed option.
+`{ ref: <kind> }`, the kind one of [ref-kinds.yaml](ref-kinds.yaml) (`resource_group`, `subnet`,
+`log_analytics_workspace`, `key_vault_key`, `storage_account`, ...): the sets that create it, the
+part where it is one, the ARM type and form of its id. A kind missing there fails
+`check_question_set.py`; a new kind is added there in the same commit. In the spec the value is
+`{ resource: <key> }` for a resource of the spec or `{ existing: <kind> }` for one outside it
+([spec.md](spec.md#references)). It is usually supplied by a pattern or the platform rather than
+stated, and never offered as a guessed option.
 
 Values that move faster than a release - the Foundry models - come from a generated
 catalogue beside the set: `accepts: { catalogue: models.yaml }`, with `retrieved: <date>` and a
@@ -123,7 +163,7 @@ offers only those, never one from memory. A workflow regenerates the file, never
 |---|---|---|---|
 | `enum` | One of the values in `accepts` | `accepts: [...]` | `replication`: `accepts: [LRS, ZRS, GRS, GZRS]` |
 | `bool` | `true` or `false` | - | `restrict_outbound` |
-| `string` | Free text, or with `accepts: { ref: <kind> }` the name or id of another resource of that kind | - | `location`; `private_endpoint_subnet`: `accepts: { ref: subnet }` |
+| `string` | Free text, or with `accepts: { ref: <kind> }` a reference to another resource of that kind | - | `location`; `private_endpoint_subnet`: `accepts: { ref: subnet }` |
 | `int` | A whole number | - | `deployment_capacity` |
 | `list` | Several values: from `accepts: [...]` where given, otherwise free; references with `accepts: { ref: <kind> }` | - | `environments`; `subnets`: `accepts: { ref: subnet }` |
 
@@ -157,7 +197,8 @@ and a decision with `answer: { deployment: <id> }`.
 A deployment set declares `scope: deployment` and names no resource, so it carries no
 `resource:` and no `naming:` block, and its groups keep no review order. `answer` is
 refused inside it; `parameterized` belongs only there. Everything
-else — groups, ids, `why`, `renders`, `depends_on` — is the same in both scopes.
+else — groups, ids, `why`, `depends_on` — is the same in both scopes; `renders` is the
+deployment set's alone.
 
 ## Who resolves it: `resolved_by`
 
@@ -230,7 +271,7 @@ required, because the document falls back to it and says so; the plugin's own se
 reference); a bool or enum without `plain_values` prints the raw value, which is rarely
 what a customer should read.
 
-## Stages: `per_environment` and `non_production_default`
+## Stages: `per_environment`, `non_production_default` and `stage_parameter`
 
 One code base is deployed through a stack of stages — `context.environments`, default
 `[development, test, production]`, a `[sandbox]` for the throwaway case — each from its
@@ -250,6 +291,15 @@ own parameter file with its own state. Two fields say how a decision behaves acr
   it in the security, networking, identity, access, DNS, compliance and posture groups,
   because a development stage that is less secure than production is where the breach
   happens. Everything else is identical in every stage: parity is what the stack is for.
+- **`stage_parameter: true`** marks a size or cost knob the person may resize per stage
+  without the design changing - a SKU, a size, a capacity, a quota. It and every question
+  with a `non_production_default` render as a **parameter whose value stands in every stage
+  file**, also with one stage or where the stages agree; resizing is an edit of the stage
+  file, not of the template. The spec holds one value, or a map where the stages differ.
+  **A value the spec records as `forced` stays in the template**, with its `forced_by` in the
+  comment: Key Vault Premium for an HSM mandate, Premium Service Bus for a private endpoint -
+  a stage file must not be able to loosen what a constraint set. A cost choice from a
+  requirement (`derived_from`) is not forced and stays a parameter.
 
 A value the customer states holds in every stage unless they say which stage they mean —
 the savings relax defaults and derived values, never a stated one. A derived value

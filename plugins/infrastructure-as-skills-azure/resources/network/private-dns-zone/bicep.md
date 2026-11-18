@@ -19,14 +19,12 @@ Resolve the current version and re-read the README parameters before rendering, 
 
 ### Decision -> module parameter
 
+What each decision renders to - the parameter and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.
+
+Deployment-wide inputs, not decisions of this set:
+
 | Decision | Parameter | Note |
 |---|---|---|
-| `zone_names` | `name` | One module call per zone, in a `[for zone in zoneNames: ...]` loop |
-| (global resource) | `location: 'global'` | The module's default is `'global'` as well; written anyway |
-| `vnet_links` | `virtualNetworkLinks: [ { name, virtualNetworkResourceId, registrationEnabled, resolutionPolicy } ]` | `name` is `pdnsz-<role>` |
-| `auto_registration` | `virtualNetworkLinks[].registrationEnabled` | |
-| `resolution_policy` | `virtualNetworkLinks[].resolutionPolicy` | `'Default'` or `'NxDomainRedirect'` |
-| `static_records` | `a`, `aaaa`, `cname`, `txt` ... | An array per type: `a: [ { name, ttl, aRecords: [ { ipv4Address } ] } ]`, `cname: [ { name, ttl, cnameRecord: { cname } } ]`, `txt: [ { name, ttl, txtRecords: [ { value: [ ... ] } ] } ]` |
 | `deployment.module_telemetry` | `enableTelemetry` | |
 | `context.tags` | `tags` | |
 
@@ -73,7 +71,7 @@ The ids go to the private-endpoint renders (`privateDnsZoneGroup`) and to the re
 ### Tests
 
 A module call compiles to a nested deployment whose `properties.parameters.<param>.value` is
-the decision, so every decision above is observable in `tests/*.armtest.yaml`
+the decision, so every decision in render-map.yaml is observable in `tests/*.armtest.yaml`
 ([bicep-idiom.md](../../../core/iac-rendering/references/bicep-idiom.md#tests)): the zone name,
 the link count, `registrationEnabled` and `resolutionPolicy` per link, the record arrays.
 

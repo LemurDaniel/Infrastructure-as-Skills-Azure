@@ -18,15 +18,12 @@ an `existing` reference as below.
 
 ### Decision → module parameter
 
+What each decision renders to - the parameter and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.
+
+Not decisions of this set:
+
 | Decision | Parameter | Note |
 |---|---|---|
-| `address_space` | `addressPrefixes: [addressSpace]` | |
-| `dns_servers` | `dnsServers` | Omit for Azure DNS |
-| `ddos_protection` | `ddosProtectionPlanResourceId` | |
-| `subnets` | `subnets: [ { name, addressPrefix, … } ]` | The module declares them inline on the vnet — the safe form, as the authored render says — and still outputs `subnetResourceIds` |
-| `private_endpoint_network_policies` | `subnets[].privateEndpointNetworkPolicies: 'Enabled'` | |
-| `service_endpoints` | `subnets[].serviceEndpoints: ['Microsoft.Storage']` | Strings, not `{ service }` objects |
-| `subnet_delegations` | `subnets[].delegation: 'Microsoft.Web/serverFarms'` | A single string per subnet |
 | diagnostics (from the deployment set) | `diagnosticSettings: [ { workspaceResourceId, metricCategories } ]` | |
 | `deployment.module_telemetry` | `enableTelemetry` | |
 | `context.tags` | `tags` | |
@@ -49,11 +46,17 @@ module virtualNetwork 'br/public:avm/res/network/virtual-network:0.10.2' = {
 
     subnets: [
       for subnet in subnets: {
-        name: subnet.name
+        // The short name is the purpose (<?PURPOSE;-%s>); an existing subnet keeps its azureName.
+        name: subnet.?azureName ?? 'snet-${loc}-${env}-${workload}-${subnet.name}-${idx}'
         addressPrefix: subnet.prefix
         // NSG and routes apply to private endpoint traffic.
         privateEndpointNetworkPolicies: 'Enabled'
         serviceEndpoints: subnet.?serviceEndpoints ?? []
+        // Set by the NSG, route table and NAT gateway sets that reference this subnet (the
+        // digest's `-- on parts`): subnet name -> id objects from the root, null where none claims it.
+        networkSecurityGroupResourceId: networkSecurityGroupIds[?subnet.name]
+        routeTableResourceId: routeTableIds[?subnet.name]
+        natGatewayResourceId: natGatewayIds[?subnet.name]
       }
     ]
 
@@ -76,15 +79,7 @@ this way, or reading what the module does inside.
 
 ## Decision → property
 
-| Decision | Property |
-|---|---|
-| `address_space` | `properties.addressSpace.addressPrefixes` (array) |
-| `dns_servers` | `properties.dhcpOptions.dnsServers` — omit for Azure DNS |
-| `ddos_protection` | `properties.enableDdosProtection` + `properties.ddosProtectionPlan.id` |
-| `subnets` | `properties.subnets[]`, inline — see below |
-| `private_endpoint_network_policies` | `properties.subnets[].privateEndpointNetworkPolicies` |
-| `service_endpoints` | `properties.subnets[].serviceEndpoints[].service` |
-| `subnet_delegations` | `properties.subnets[].delegations[].properties.serviceName` |
+What each decision renders to - the property and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.
 
 ## Inline subnets, unlike Terraform
 
@@ -106,7 +101,8 @@ resource virtualNetwork 'Microsoft.Network/virtualNetworks@2023-11-01' = {
 
     subnets: [
       for subnet in subnets: {
-        name: subnet.name
+        // The short name is the purpose (<?PURPOSE;-%s>); an existing subnet keeps its azureName.
+        name: subnet.?azureName ?? 'snet-${affix}-${workload}-${subnet.name}-01'
         properties: {
           addressPrefix: subnet.prefix
           // NSG and routes apply to private endpoint traffic.

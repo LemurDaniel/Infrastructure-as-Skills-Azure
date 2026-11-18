@@ -178,7 +178,7 @@ composition:
   source: default
   modules:
   - id: network
-    contains: [virtual-network]
+    contains: [virtual-network, network-security-group__app, network-security-group__endpoints]
     inputs: [environment, location, workload, resource_group_name]
     outputs: [id, private_endpoint_subnet_id, integration_subnet_id]
   - id: compute
@@ -208,12 +208,53 @@ resources:
           test: 10.43.0.0/24
           production: 10.44.0.0/24
         source: deployment
+      subnets:
+        value:
+          development:
+          - name: app
+            prefix: 10.42.0.64/26
+          test:
+          - name: app
+            prefix: 10.43.0.64/26
+          production:
+          - name: app
+            prefix: 10.44.0.64/26
+        source: asked
       private_endpoint_subnet_prefix:
         value:
           development: 10.42.0.0/27
           test: 10.43.0.0/27
           production: 10.44.0.0/27
         source: deployment
+
+  # One NSG per subnet purpose; every subnet the spec creates has one (guardrails, network).
+  network-security-group__app:
+    networking:
+      subnets:
+        value:
+        - resource: virtual-network
+          part: app
+        source:
+          forced_by: resources.virtual-network.addressing.subnets
+    rules:
+      subnet_purpose:
+        value: app_integration
+        source:
+          forced_by: resources.app-service.networking.integration_subnet
+
+  network-security-group__endpoints:
+    networking:
+      subnets:
+        value:
+        - resource: virtual-network
+          part: endpoints  # the private endpoint subnet: no listed subnet carries its prefix
+        source:
+          forced_by: resources.virtual-network.addressing.subnets
+    rules:
+      subnet_purpose:
+        value: private_endpoints
+        source:
+          forced_by: resources.virtual-network.addressing.private_endpoint_subnet_prefix
 
   app-service:
     meta:
@@ -231,6 +272,11 @@ resources:
       public_network_access:
         value: disabled
         source: deployment
+      integration_subnet:
+        value:  # a reference: a part of a resource of this spec, the same in every stage
+          resource: virtual-network
+          part: app
+        source: stated
     identity:
       managed_identity:
         value: system_assigned
@@ -321,6 +367,24 @@ open:
   blocks: apply
 ```
 
+## The head and the context
+
+| Key | Holds |
+|---|---|
+| `schema_version` | The version of this file's format, an integer: `1`. Not the question sets' `schema_version`, which versions their format and moves on its own. `check_spec.py` fails on a version newer than the plugin reads |
+| `spec.id` | The root's name, stable across runs; lower case and hyphens |
+| `spec.target` | `terraform` or `bicep` |
+| `spec.generated_by` | `infrastructure-as-skills-azure`: what wrote the file |
+| `spec.plugin_version` | The plugin version that last wrote it; set by `write_spec.py`, never lowered (see *Reading one back*) |
+| `spec.at` | When it was last written, UTC, ISO 8601 (`2026-10-17T09:14:00Z`); the decision document prints its date |
+| `context.environments` | The stages, in deployment order (see *Stages*) |
+| `context.language` | The customer's language (see *Language*) |
+| `context.location` | The region; a value or an `open:` entry, never picked by the run |
+| `context.workload` | The workload's short name; the naming interface and the state key read it |
+| `context.subscription_id` | A stage map; a stage nobody named is an `open:` entry |
+| `context.resource_group_name` | The main group of a single layout, a stage map (see *Resource groups*) |
+| `context.tags` | A flat map of tag name to value, taken from the repository or the request - the plugin prescribes none ([guardrails.md](guardrails.md#1-naming-and-tags)). Every resource gets it; absent or empty renders an empty set |
+
 ## Language
 
 `context.language` is the customer's language, `en` or `de`: the fixed labels of the picture,
@@ -335,11 +399,14 @@ their `--language` only overrides it for a check. A spec without it is drawn in 
 
 `context.environments` lists the stages the code is deployed through — `[development,
 test, production]` by default, `[sandbox]` for one throwaway environment. Every value in
-the spec is then either **one value for every stage** (a scalar, a list, a reference
-object) or **a map keyed by stage**:
+the spec is then either **one value for every stage** (a scalar, a list, a reference) or
+**a map keyed by stage**:
 
 ```yaml
-      replication:
+      min_tls_version:  # one value: a literal in the template, the same in every stage
+        value: TLS1_2
+        source: default
+      replication:      # a map: a parameter, each stage's value in its stage file
         value:
           development: LRS
           test: LRS
@@ -350,12 +417,11 @@ object) or **a map keyed by stage**:
 
 When a map, when one value:
 
-- **Always a map:** a `per_environment` value from outside the spec - an address range, an
-  id, a subscription, a platform resource. Even when every stage has the same value: one
-  value would end up hard-coded in the template.
-- **One value:** a `per_environment` value that only names parts of this spec - a resource
-  key (`storage-account__datalake`), subnet names, or `[]`. It is the same in every stage;
-  the render finds that stage's resource.
+- **Always a map:** a `per_environment` value from outside the spec - an address range, a
+  subscription, a name. Even when every stage has the same value: one value would end up
+  hard-coded in the template.
+- **One value:** a reference (see *References* below) and `[]`. A reference to an existing
+  resource carries its per-stage ids inside it.
 - **A map if a stage departs:** a cost knob that takes its cheaper `non_production_default`
   outside production, or a departure the user named for one stage (`{ overridden: <reason> }`).
 - **Never a map:** everything else. A posture holds for the whole system.
@@ -363,9 +429,7 @@ When a map, when one value:
 `check_spec.py` enforces all four. A map's keys are stages of `context.environments`.
 
 The renderer reads a map as a parameter and writes each stage's value into that stage's
-parameter file; one value is a literal in the template. A reference object
-(`{ name, resource_group_name }`) is told apart from a stage map by its keys, which are never
-stage names.
+parameter file; one value is a literal in the template.
 
 Which stages took the cheaper `non_production_default` is not recorded: it follows from the
 question, `deployment.non_production_savings` and the values, and the decision document
@@ -394,6 +458,59 @@ stage whose file holds no placeholder (the values were guessed) and a resolved s
 file still holds one. A placeholder never deploys; the pipeline refuses it
 ([pipelines.md](../../iac-rendering/references/pipelines.md), invariant 11), and the stage
 chain then holds every stage behind it.
+
+## References
+
+A question with `accepts: { ref: <kind> }` (question-set-format.md) points at another
+resource. Its value takes one of two forms, and nothing else - no bare name, no stage map
+around it, no name and resource group:
+
+```yaml
+      integration_subnet:          # a resource of this spec: one value, every stage
+        value:
+          resource: virtual-network
+          part: app           # where the kind is a part of the resource (a subnet)
+        source: stated
+  diagnostics_destination:         # one outside it, its id known: the id per stage
+    value:
+      existing: log_analytics_workspace
+      id:
+        development: /subscriptions/<sub>/resourceGroups/rg-mgmt-dev/providers/Microsoft.OperationalInsights/workspaces/law-dev
+        test: /subscriptions/<sub>/resourceGroups/rg-mgmt-tst/providers/Microsoft.OperationalInsights/workspaces/law-tst
+        production: /subscriptions/<sub>/resourceGroups/rg-mgmt-prod/providers/Microsoft.OperationalInsights/workspaces/law-prod
+    source: platform
+```
+
+- **`resource:`** names a resource key of this spec whose question set creates that kind;
+  `part:` names the part where the kind is one (a subnet in the network's `subnets`, an event
+  hub, a backend pool). The render takes the id from the resource's module, per stage.
+- **`existing:`** names the kind of a resource outside the spec - the platform's workspace, a
+  hub subnet, a key the security team holds. The render never looks it up (no data source:
+  name and group are as unknown as the id, and `plan` would need read access to the platform):
+  it becomes an id parameter (`variable` / `param`) filled from each stage file. The spec
+  carries the id, never a name or a resource group. An id the person names goes into `id:`
+  per stage; without one, `{ existing: <kind> }` stands alone and an `open:` entry with its
+  owner names the key - the stage file gets a placeholder, `plan` and the tests run, the
+  pipeline refuses `apply`, and answering the entry is an edit of the stage files, no
+  re-render. A stage whose id is still missing is named by an `open:` entry with
+  `environments:`. A property the input
+  needs that the id does not carry (a connection string, a principal id, a host name) is a
+  second parameter from the stage file, never in the spec: the `open:` entry asks for it,
+  with the id or alone.
+
+What each kind is - the sets that create it, the part, the ARM type its id carries, the id's
+form (`arm`, `arm_any`, `guid`) - is [ref-kinds.yaml](ref-kinds.yaml); `check_spec.py` reads it
+for every reference (`scripts/spec_ref.py`).
+
+**An association is recorded on the resource that attaches.** An NSG, a route table and a NAT
+gateway each reference the subnets they take (`networking.subnets`, `gateway.subnets`), never
+the other way round: the subnet's list stays `{ name, prefix }` per stage, and the reference is
+one value for every stage. The association is still a property of the subnet, so the network's
+module renders it (`on_part` in render-map.yaml). Such a question is `exclusive`: a subnet takes
+at most one of each, and `check_spec.py` fails on a second claim - and on a subnet the spec
+creates that no NSG names. The private endpoint subnet is a part too: the listed subnet
+carrying `private_endpoint_subnet_prefix`, or `endpoints` when none does (`implied` in
+ref-kinds.yaml).
 
 ## Resource groups: roles, modes, names
 
@@ -558,6 +675,14 @@ open:
     blocks: apply
 ```
 
+| Field | Holds |
+|---|---|
+| `key` | Required. The key path the entry stands for (`context.subscription_id`, `deployment.address_space`, `resources.<key>.<group>.<id>`) |
+| `environments` | The stages still missing, where the value is a stage map; absent means every stage |
+| `question` | What has to be answered, in `context.language` |
+| `owner` | Who answers it, in `context.language` (`Plattform-Team`, `network / IPAM owner`); absent when the person asking is the one to answer |
+| `blocks` | Required. The first step it stops: `render` - the part is not rendered until it is answered (nothing to render it from); `plan` - rendered, but `plan` cannot run on a placeholder; `apply` - rendered and planned with a placeholder in the stage file, the pipeline refuses `apply`. Most entries are `apply`: the placeholder exists so that everything before it runs |
+
 Neither is a defect in the spec. A run that invents a resource group to avoid an empty
 field is the defect, and it is invisible until someone deploys it.
 
@@ -617,8 +742,8 @@ The spec names **decisions**, not attributes. `public_network_access: disabled`,
 `azurerm` provider and would leak one backend's vocabulary into the interface the other
 backends have to read.
 
-The mapping from a decision to an attribute lives in the question set's `renders` field and
-in each target's rendering reference. That is the layer allowed to know about
+The mapping from a decision to an attribute and its literal lives in the resource's
+`render-map.yaml` and in each target's rendering reference. That is the layer allowed to know about
 `networkAcls.defaultAction` versus `public_network_access_enabled`.
 
 Target-specific escape hatches do exist, and are quarantined:
@@ -628,12 +753,159 @@ resources:
   storage-account:
     _target_overrides:
       terraform:
-        # Needed until azurerm supports it as a first-class argument.
-        lifecycle_ignore: [tags["created_at"]]
+        lifecycle_ignore:
+          value: [tags["created_at"]]
+          reason: Needed until azurerm supports it as a first-class argument.
 ```
 
-Anything under `_target_overrides` needs a comment saying why, and a spec that accumulates
-them is telling you the question set is missing a question.
+`_target_overrides` sits on a resource or at the top level, keyed by target (`terraform`,
+`bicep`); each override is `{ value, reason }` and nothing else. The reason is data, not a
+YAML comment: the render reads the spec through a parser, which drops comments, and writes
+the reason as the comment above the code it produces. `check_spec.py` fails on an override
+without one. A spec that accumulates overrides is telling you the question set is missing a
+question.
+
+## One decision, end to end
+
+`storage-account.data_protection.replication` of the [Shape](#shape) example, from the question
+to the test. Each station is a file a script reads; nothing between them is improvised.
+
+**1. The question** - `resources/storage/storage-account/questions.yaml`, abridged:
+
+```yaml
+      - id: replication
+        type: enum
+        accepts: [LRS, ZRS, GRS, GZRS]
+        answer:                       # derived from a requirement, never asked itself
+          question: outage_impact
+          map: { tolerable: LRS, disruptive: ZRS, critical: GZRS }
+        non_production_default: LRS   # a cost knob: cheaper outside production
+        plain:
+          de: "Die Daten liegen {value}."
+        plain_values:
+          LRS: { de: "dreifach in einem Rechenzentrum" }
+          ZRS: { de: "in drei Rechenzentren der Region, eines darf ausfallen" }
+```
+
+**2. The customer's answer** - in the deployment set, once for the whole system:
+
+```yaml
+deployment:
+  outage_impact:
+    value: disruptive        # "Ein Tag Ausfall wäre störend"
+    source: asked
+```
+
+**3. The spec** - the map turns `disruptive` into `ZRS` for production, and
+`deployment.non_production_savings: enabled` gives the other stages `LRS`. A stage departs,
+so the value is a stage map (see *Stages*), and the source names the requirement:
+
+```yaml
+resources:
+  storage-account:
+    data_protection:
+      replication:
+        value:
+          development: LRS
+          test: LRS
+          production: ZRS
+        source:
+          derived_from: deployment.outage_impact
+```
+
+**4. What the customer reads** - `export_decisions.py`, from `plain` and `plain_values`:
+
+> Azure Storage Account: Die Daten liegen Entwicklung: dreifach in einem Rechenzentrum; Test:
+> dreifach in einem Rechenzentrum; Echtbetrieb: in drei Rechenzentren der Region, eines darf
+> ausfallen. _(außerhalb der Produktion günstiger)_
+
+**5. What it renders to** - `resources/storage/storage-account/render-map.yaml`, one entry per
+target and implementation:
+
+```yaml
+  data_protection.replication:
+    terraform_avm:
+      attribute: account_sku_name
+      format: Standard_{value}
+      note: defaults to Standard_ZRS and overrides account_tier + account_replication_type unless set to null
+    terraform: { attribute: account_replication_type, passthrough: true }
+    bicep_avm:
+      attribute: skuName
+      format: Standard_{value}
+      note: module default Standard_GRS - must be written
+    bicep:
+      attribute: sku.name
+      format: Standard_{value}
+```
+
+**6. What the render reads** - `render_digest.py <spec>` joins the spec and the entry (Terraform,
+AVM):
+
+```
+storage-account.data_protection.replication = {development: LRS, test: LRS, production: ZRS}  (derived_from deployment.outage_impact)  [per stage]
+   renders: account_sku_name = "Standard_LRS" (development), "Standard_LRS" (test), "Standard_ZRS" (production)
+   note: defaults to Standard_ZRS and overrides account_tier + account_replication_type unless set to null
+```
+
+**7. The code** - `[per stage]` makes it a variable whose value lives in each stage file; the
+`format` stays in the template, so the stage file holds the answer, not the SKU:
+
+```hcl
+# modules/storage/main.tf
+module "storage" {
+  source  = "Azure/avm-res-storage-storageaccount/azurerm"
+  # ...
+  # decision: storage-account.data_protection.replication - the SKU name carries it
+  account_sku_name = "Standard_${var.replication}"
+}
+
+# environments/development.tfvars             # environments/production.tfvars
+replication = "LRS"                            replication = "ZRS"
+```
+
+```bicep
+// modules/storage.bicep - replication comes in as a param from main.bicep
+module storageAccount 'br/public:avm/res/storage/storage-account:<version>' = {
+  params: {
+    // decision: storage-account.data_protection.replication - the module default is Standard_GRS
+    skuName: 'Standard_${replication}'
+  }
+}
+
+// main.development.bicepparam: param replication = 'LRS'
+// main.production.bicepparam:  param replication = 'ZRS'
+```
+
+**8. The test** - one assertion per decision, named by its key path, against production's
+value (`check_render_coverage.py` fails on a decision without one):
+
+```hcl
+# tests/storage-account.data_protection.tftest.hcl - variables {} carries production's stage file
+run "data_protection" {
+  command = plan
+
+  # decision: storage-account.data_protection.replication
+  assert {
+    condition     = module.storage.resource.body.sku.name == "Standard_ZRS"
+    error_message = "Production survives a zone loss: outage_impact is disruptive."
+  }
+}
+```
+
+```yaml
+# tests/storage.armtest.yaml - evaluated against main.production.bicepparam
+- decision: storage-account.data_protection.replication
+  stage: production
+  path: parameters.replication.value
+  equals: ZRS
+```
+
+A later change runs the same chain backwards. If the customer now says an outage would be
+critical, `outage_impact` changes, every `derived_from` value is re-derived (*Extending one*),
+`production.tfvars` reads `GZRS`, and the git diff shows that line and the spec - not a
+rewrite of the module. That step crosses from a local to a geo tier, which the question's
+`why` says cannot be changed in place - the plan shows what it replaces, and the run says so
+before rendering.
 
 ## Modularity
 
@@ -667,7 +939,8 @@ existing spec, decides this before the interview starts.
 | `inputs` | Context keys and values the caller passes in. Not the full decision set — the decisions stay in `resources:` |
 | `outputs` | What other modules or the caller may consume. Nothing secret |
 | `needs` | Other module ids it consumes outputs from. The dependency is declared here, never discovered from the rendered code |
-| `implementation` | `avm` (default), `authored`, or `reuse` — see below. Never a module path |
+| `implementation` | `avm` (default), `authored`, or `reuse` — see below. Never a module path. Written only where it departs from `deployment.module_source` |
+| `source` | Beside `implementation`, where the departure came from: `{ forced_by: ... }` or `{ overridden: <reason> }` |
 
 Three rules that hold in both targets:
 
@@ -686,17 +959,20 @@ Whether a module is a call to a published one or authored here is a decision, so
 the spec. *Which* published module, and how it is addressed, is not:
 
 ```yaml
-    - id: storage
+    - id: storage                # follows deployment.module_source: avm - nothing written
       contains: [storage-account]
-      implementation: avm        # avm | authored | reuse
-      source: deployment         # follows deployment.module_source unless overridden
+    - id: container
+      contains: [container-apps]
+      implementation: authored   # avm | authored | reuse - written where it departs
+      source:
+        overridden: The repository's container module is authored; this one joins it.
 ```
 
 | Value | Meaning |
 |---|---|
 | `avm` | **Default.** A call to the resource's Azure Verified Module, in whichever target renders. Follows `deployment.module_source: avm`; not written per module unless it departs |
 | `authored` | Resources written out from the resource's own rendering reference. The fallback when no AVM module exists for the type — then `source: { forced_by: no AVM module for <type> }` — or the deployment chose it |
-| `reuse` | A published module that is not AVM, named by the user. The coordinate goes into `_target_overrides` with a comment |
+| `reuse` | A published module that is not AVM, named by the user. The coordinate goes into `_target_overrides` with its reason |
 
 The coordinate stays in the renderer, because it is target knowledge with target rules
 attached — `br/public:avm/res/...` and the exact version on the Bicep side,
@@ -719,7 +995,7 @@ Two consequences worth stating before generating:
   the user should see it. The rules per kind of gap are in
   [avm.md](../../iac-rendering/references/avm.md#gaps-what-the-module-does-not-carry).
 - If the user named a specific module, that is a target-specific instruction and goes in
-  `_target_overrides` with a comment, not into `implementation`.
+  `_target_overrides` with its reason, not into `implementation`.
 
 ### Rendering it
 
@@ -836,8 +1112,11 @@ Three cases need care:
   predates it and is not held back. Every run that writes the spec sets the field to the
   installed version and never lowers it.
 - **A question was added to the set since.** See the table above.
-- **`schema_version` is older than the question set's.** Say what changed before
-  regenerating. Silently migrating a file whose purpose is auditability defeats the file.
+- **`schema_version` differs from the spec format this plugin writes** (`1`). Newer: the
+  file is in a format this plugin does not know - `check_spec.py` fails, and nothing is
+  written until the plugin is updated. Older: say what changed before regenerating. Silently
+  migrating a file whose purpose is auditability defeats the file. The question sets'
+  `schema_version` plays no part here.
 
 ## Canonical form
 

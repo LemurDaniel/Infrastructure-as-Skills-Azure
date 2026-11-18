@@ -126,7 +126,9 @@ Each agent starts without this conversation. Its prompt carries:
 
 1. **The role**, one sentence, and its place in the graph.
 2. **Absolute paths**: the spec, the render root, the repository (read only).
-3. **What to read first**: the skill file for its job, by path, then its references.
+3. **What to read first**: the skill file for its job, by path, then its references. A code
+   or fix agent in Loop 2 runs `render_digest.py <spec>` and reads the ranges it lists, not
+   the whole references.
 4. **The write boundary**: which files it may write, by type
    ([SKILL.md](../SKILL.md#what-a-render-may-write)), not only by directory; that application
    code (`.js`, `.ts`, `.cs`, `.py`, `package.json`, `Dockerfile`) is out of bounds even inside

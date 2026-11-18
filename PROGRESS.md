@@ -181,6 +181,10 @@ the detail; this list says what was decided and why, so a session does not reope
   invariants, `run_pipeline_tests.py` breaks them one at a time. The root holds an empty
   `backend "azurerm" {}` because `init -backend-config` without one is ignored silently.
   A resolved stage's file must not spell a placeholder marker even in a comment.
+- **Pipelines run PowerShell 7, not bash** (2026-11-01, invariant 14). Bash was never a
+  decision, only the runner default copied from vendor docs; the stack is pwsh, both hosted
+  Ubuntu images ship it, JSON is read with `ConvertFrom-Json` instead of `jq`. Not a spec
+  question: a fixed default. GitLab stays `sh` - its job images carry no pwsh.
 - **Grouped AVM calls: `granularity: per-family`** (2026-10-23, Terraform only). The root
   is `modules.<family>.tf` calls, `modules/<family>/` holds the family's AVM calls, roles,
   endpoints, tests. A module-level `depends_on` defers `data` lookups to apply, so the
@@ -190,7 +194,12 @@ the detail; this list says what was decided and why, so a session does not reope
 - **Naming.** Terraform uses the `LemurDaniel/naming` provider and copies `naming.yaml`;
   Bicep assembles names from `var`s and gets a `naming.yaml` only for a stated `custom`
   departure. `br/public:` needs no alias; `br/modules:` only when `bicepconfig.json`
-  already has it.
+  already has it. **`naming.default.yaml` is the provider's bundled default, byte for
+  byte** (2026-11-06, owner's call: one YAML across both repos): a change goes into
+  `terraform-provider-naming` first, is released, then copied here, and `naming.md` pins
+  that version. `check_repo_consistency.py` compares both when the provider repo is checked
+  out beside this one. Location in every pattern, `<?PURPOSE>` (was `<?SUBNAME>`) before the
+  index, `<UNIQUE_ID_3>` in place of the index on global names.
 - **Identity.** Container Apps and Function Apps default to a user-assigned identity
   (the first revision needs its roles before the app exists); App Service stays
   system-assigned. The Entra app registration is **not** a resource set: an `open:` entry
@@ -320,9 +329,74 @@ the detail; this list says what was decided and why, so a session does not reope
   the plugin. Azure customers sit on Copilot licences; Codex reaches few of them and has no
   eval harness here. An Agent Plugins 1.0 root `plugin.json` would serve both, but fixes
   skills to `skills/` - not worth moving `core/` for until a host needs it.
+- **What a decision renders to is data, `render-map.yaml`, read through a digest**
+  (2026-11-01). A render read the skill, `spec.md` and every reference whole (~250 KB) and
+  took the attribute from the question's `renders` string - prose, partly stale (azurerm 4.x
+  names, inverted polarity, the authored spelling under AVM: `account_replication_type` where
+  the module takes `account_sku_name`). Now each resource has a `render-map.yaml` beside its
+  set: per target and implementation the attribute and the literal of every answer
+  (`references/render-map.md`); `render_digest.py <spec>` prints each decision with that
+  literal filled in, plus the line ranges of only the references the spec needs (~50% less
+  read). Data, not prose, because the renderer's core must not rest on heuristics: the digest
+  does `dict` lookups, `check_render_map.py` holds every file to its question set. A literal
+  no reference states is a `gap`, never a guess; every scalar answer says how it renders
+  (`values` complete, `format`, or an explicit `passthrough: true`) - the pass-through of an
+  answer into an id, a block or another unit was the error class the reviews found most. YAML
+  in its own file, not in `questions.yaml`: the set stays backend-neutral, as the spec does.
+- **A reference is `{ resource: <key> }` or `{ existing: <kind> }`, its kind registered**
+  (2026-11-01). `accepts: { ref: <kind> }` named a bare word, and a spec held a reference in
+  five shapes - key, plain name, id, `{ name, resource_group_name }`, a stage map of any - told
+  apart by a regex; nothing checked a value was of its kind. Now
+  `core/iac-authoring/references/ref-kinds.yaml` defines every kind (the sets that create it,
+  the part where it is one, the ARM type and form of its id: `arm`, `arm_any`, `guid`), and a
+  spec writes a resource of the spec as `{ resource: <key>[, part: <name>] }` (one value, every
+  stage; a subnet is a part of the network) or one outside it as `{ existing: <kind> }`.
+  **The spec carries the id, never a name or a resource group** (owner's call): an id the
+  person gives goes in per stage (`id: { <stage>: <id> }`); without one an `open:` entry names
+  the owner and the stage file holds a placeholder id the pipeline refuses before `apply`.
+  **Rendered as an id variable / param, never a lookup**: a data source needs a name and a
+  group as unknown as the id, and makes every `plan` read the platform; the id in the stage
+  file pins nothing into the code, and tests pass it as a variable instead of mocking a data
+  source. `scripts/spec_ref.py` reads both forms for `check_spec.py`, the diagram, the
+  decision document and the digest. Kept outside the rule on purpose: the resource groups
+  (named in `context`), the private DNS zones (a fixed name in a group) and the Network
+  Watcher (Azure's fixed name). Front Door's origins split into `origins`
+  (`{ ref: resource }`) and `origin_host_names`, a backend outside Azure having no id.
 
 ## State
 
+- **One naming convention with the provider** (2026-11-06, branch `feature/naming-provider-2`):
+  `LemurDaniel/naming` 2.1.0 checks every name against its type's rule at plan time and
+  bundles the convention this plugin had, merged with its own; `naming.default.yaml` is now
+  that file. New names change only for new renders: a root keeps its `naming.yaml` copy.
+  `subname` became `purpose` in every rendering reference (same position, same names). Not
+  done: an eval or a render against 2.1.0. `examples/chat-sandbox` and `eval-agent/infra`
+  keep their names through their own `naming.yaml` copies; the other examples are specs
+  without code. The naming skill for other agents is its own repo,
+  `LemurDaniel/skills-azure-naming`.
+- **Three workload-scoped sets instead of a governance family** (2026-11-01, branch
+  `feature/budget-maintenance-automation`; 70 resource sets, 1,517 questions): `observability/budget`
+  (resource-group scope, one per stage; both targets authored - no Terraform module, and the Bicep
+  `rg-scope` module takes one `thresholdType` for all thresholds), `compute/maintenance-configuration`
+  (Update Manager window, `InGuestPatch`; the VM set assigns the machine through the new
+  `maintenance.maintenance_configuration` and the bypass flag), `integration/automation-account`
+  (account, identity, endpoints; runbooks are content, Update Management and DSC retired). Written by
+  three agents, checks green, `terraform validate` / `bicep build` on the calls; not exercised in a
+  render or an eval. Why no governance family: policy, management groups and subscriptions are the
+  landing zone's; only what a workload owns is a set.
+
+- **`render-map.yaml` for all 67 resources, the render digest mandatory** (2026-11-01, branch
+  `render-yaml`): 5,190 entries, 980 of them `gap` (18% - the references do not state the
+  literal), 1,658 explicit pass-throughs, 101 `not_rendered`. Written by 8 agents, reviewed by 3
+  (330 ERRORs - the hand-written storage pilot had 9), corrected by 8, sample-reviewed once more
+  (75 of 81 former ERRORs fixed or honestly a gap, the 6 left fixed by hand, 0 unit errors new).
+  `check_render_map.py` and both test runners are in the repository checks. The format has
+  `companions`, lists per attribute or module, `kinds`/`by_kind`, composite formats with
+  `part_of`, `format: { expr }`, `omit_empty`; code names `{group.question}` (filled by the
+  digest) and `<name>` (filled by the render), never `...`; `authored_when` names the answers a
+  module refuses, which render the resource authored. The map is the one record: `renders` is
+  gone from the resource sets (the check refuses it there; the deployment set keeps its own),
+  and the references' decision tables are gone, their remarks moved into the maps.
 - **18 more sets written 2026-10-26 (67 resource sets in 10 families, 1,442 questions with the deployment
   set), checked, not exercised:** network public-dns-zone, traffic-manager, ddos-protection-plan, network-watcher (VNet flow logs only);
   observability action-group, alert-rule (metric, log query and activity log by `kind`),
@@ -547,7 +621,39 @@ until it is fixed or decided against.
   by hand, and whether it does is unmeasured. The diagram and spec-test fixtures are not
   named `infra-spec.yaml` and not laid out; `run_spec_tests.py` edits its fixture as text.
 
+### The sources behind `render-map.yaml`
+
+Done on `render-yaml`: `renders` dropped, the self-contradicting references corrected, the
+decision tables removed, the design gaps closed, the inherited deployment answers translated
+(`answer: { deployment, map }`, 54 questions, required where the values differ), and the gaps
+filled from primary sources - 969 to 513 (18% to 9% of 5,216 entries): the azurerm 5.12
+schema and docs, the module READMEs at the documented versions, `bicep build` for paths. Each
+fill names its source in its note; the pass also corrected eight entries the sources
+contradicted. Left:
+
+- **The remaining 513 gaps.** About 160 are permanent: the Bicep resource-group scope,
+  inputs a module README shows it does not have. The rest: Bicep literals of loosely typed
+  properties - `bicep build` proves the path, not the value, where the type is `string` or
+  `'A' | 'B' | string` (diagnostic `AllMetrics`, `linuxFxVersion`, `activeRevisionsMode`) - and
+  shapes no source states (Windows image literals, policy schedules, NSG baseline rules, the
+  question-less app setting names). A live deployment or the ARM REST specs would settle the
+  loose literals; neither is a source this pass used.
+- **API versions the authored Bicep was proven against** are named in each note; most
+  `bicep.md` files name none for their sibling types (diagnostic settings, role assignments,
+  private endpoints). Writing them into the references is open.
+- **Prose that may be outdated**: ai-services, foundry and api-management say the Bicep module
+  has no `allowedFqdnList`; README 0.19.1 has it (the maps are filled, terraform.md and
+  questions.yaml are not). event-grid-namespace renders the namespace with azapi although
+  azurerm 5.12 has `azurerm_eventgrid_namespace`. cosmos-db's note that the Terraform module
+  refuses `AllMetrics` is not in its README - only its source would show it.
+
 ### Rendering references and question sets
+
+- From the 2026-11-01 sets: the scale-set sets cannot assign a maintenance configuration (neither
+  AVM module has the input; authored `azurerm_maintenance_assignment_virtual_machine_scale_set`,
+  check Update Manager's support for Flexible orchestration first). Whether the naming provider
+  knows `Azure::Microsoft.Consumption/budgets` is unchecked. azurerm 5.12 has no
+  `exclude_kbs_requiring_reboot` on the maintenance configuration (a `gap`).
 
 Done 2026-10-25: the azurerm 5.x spellings (checked against `terraform providers schema -json` of
 5.11 and the provider docs at the tag; only storage has the string `public_network_access`), the
@@ -584,8 +690,10 @@ per-family` in `check_spec.py` and the `chatbot` spec, and `references/private-d
   - **Medium, still open:** network: Virtual WAN / VPN Gateway / ExpressRoute, Private Link Service;
     data: Synapse, Databricks, Data Explorer, Fabric Capacity; observability: Diagnostic Settings as a
     resource of its own, Managed Grafana, Azure Monitor Workspace (Prometheus), Dashboards; messaging:
-    Notification Hubs, SignalR / Web PubSub; governance (the family itself is parked in `drafts/`): Budgets, a standalone lock,
-    Automation Account, Maintenance Configuration (resource groups stay a deployment decision).
+    Notification Hubs, SignalR / Web PubSub. No governance family: policy, management groups and
+    subscriptions are the landing zone's (parked in `drafts/governance/`), the lock is
+    `deployment.resource_lock`; the workload-scoped parts became sets of their own (2026-11-01:
+    `observability/budget`, `compute/maintenance-configuration`, `integration/automation-account`).
   - **Low:** storage: Table, Managed HSM, NetApp Files, Files Sync, Data Lake Gen2 as its own type;
     compute: Batch, Service Fabric, App Service Environment, Spring Apps, Compute Gallery, Dedicated
     Host, Virtual Desktop, Arc; security: Managed HSM, Sentinel, Confidential Ledger; data: Cosmos DB
@@ -628,6 +736,45 @@ per-family` in `check_spec.py` and the `chatbot` spec, and `references/private-d
   - `run_arm_tests.py` and the other scripts are run with `python -I`; the skills do not say so.
 
 ### Interview and spec
+
+- **From the Bicep end-to-end run (TEMP2 chat app, 2026-11-06)** - fixed on
+  `fix/interview-signoff-from-spec`: the Phase 4 list is now read from a spec written first
+  (the run had shown "7 Tage" soft delete against a spec of 90, and "alles außer der App
+  privat" while the workspace and App Insights stayed public by default); a required question
+  whose `depends_on` holds needs a value or an `open:` entry (`check_spec.py` 9e, a warning),
+  and the App Service sign-in got `entra_client_id` per stage (the run had no `open:` entry and
+  the diagram said "Offen: keine"); dependent questions go into a later call; `priority: cost`
+  forces the small App Service plan to P0v3. Still open from that run:
+  - **Clean up the specs 9e warns on, then make it an error**: `eval-agent/infra`
+    (`container_image` of four apps), `examples/orders-integration` (`apim_subnet`,
+    `public_ip_address`), the fixtures `iac-diagram/tests/fixtures/entry-chain.yaml` and
+    `iac-rendering/tests/fixtures/render-digest-shapes.yaml`. Spec changes, so through the
+    spec process, not hand edits of the render.
+  - **`interview_digest.py --compact`**: one line per question - id, group, type, default,
+    `answer`, `depends_on`, `required`, `per_environment`. The run wrote its own script for
+    this after reading 700 lines of digest and 700 of `spec.md`.
+  - **A spec skeleton from the answers** (`spec_skeleton.py`): the interview answers plus every
+    set's defaults, `answer` paths and `forced_by` chains written as the spec, the run filling
+    only what is stated. The 505-line spec was written by hand, which is where the summary
+    drift and the missing `open:` entry came from. Structured data, no heuristics.
+  - **Check that a render writes size and cost knobs as stage-file parameters**: since
+    `stage_parameter` (2026-11-07, owner's call: sizes and cost settings, a forced value stays
+    a literal) the digest tags them `[stage file]` and the idioms say so, but no script fails
+    a render that writes one as a literal - `check_render_coverage.py` is the place.
+  - **Subnet names** (the run's Bicep held `snet-app` verbatim beside an endpoint subnet named
+    `snet-sdc-prod-chat-endpoints-01` from `naming.yaml`). Done 2026-11-07, owner's call for the
+    quick form: a spec subnet's `name` is its short purpose (`app`, `endpoints`), every Azure
+    name comes from the convention with it as `<PURPOSE>`, `azure_name` keeps an existing one;
+    `check_spec.py` 9f warns on an Azure-style name. The render-map already puts the endpoint
+    subnet into the same list as `endpoints` - the run's separate parameter was its own
+    departure. **Before the next render of `eval-agent/infra` and the examples**: their specs
+    carry Azure-style names (`snet-endpoints`, `snet-app-integration`, ...); give each a short
+    name and `azure_name` with the deployed name, or the render renames - recreates - the
+    subnets and everything in them. Not done: a `purpose` field beside the name, and the
+    diagram still prints the spec's short name, not the Azure name.
+  - **The diagram's decision box says "privat, Ausnahme App Service"** while its header names
+    the workspace and App Insights too - it reads `public_parts`, the header reads each
+    resource's `public_network_access`. And the run left `infra-diagram.drawio` beside the PNG.
 
 - **Wire the former `confirm_in` defaults to requirements** (2026-10-28): `confirm_in` was
   removed - a marker in a document nobody reads changes nothing. Defaults the customer can
@@ -724,9 +871,16 @@ per-family` in `check_spec.py` and the `chatbot` spec, and `references/private-d
   import worker) render two environments and two subnets - it needs several apps per
   environment; `central_backup` is asked before `backup_isolation` and so also when no copy
   leaves the system; the round-5 spec and diagram live in a scratchpad only.
-- The diagrams of `chatbot-rag`, `chat-sandbox` and `orders-integration` were not redrawn
-  after region/subscription became `open:` (2026-10-26); `chat-sandbox`'s carries hand edits
-  a redraw would lose.
+- The diagrams of `chatbot-rag` and `orders-integration` were not redrawn after
+  region/subscription became `open:` (2026-10-26). `chat-sandbox` was (2026-11-01): its spec is
+  now English (`context.language: en`; the quotes of the German request and the owner names
+  stay), the picture regenerated and then laid out by hand - App Service label right, one trunk
+  down to the PaaS row, the resource group as a dashed frame, legend and panel side by side,
+  subtitle cell cut from 1300 to 1076px. A redraw loses that; the generator faults behind it
+  (fixed 1300px subtitle, exits from the top looping around the zone, labels on frame borders)
+  are open in `new_diagram.py`. The README now opens with `docs/teaser.gif` instead of
+  `docs/social-preview.png` (kept, likely the GitHub social preview); the teaser carries an
+  `AI-generated` mark top right.
 - `wiring:` is validated by example only. (`check_spec.py` knows `granularity: per-family`
   since 2026-10-25 and the `chatbot` spec declares its seven family modules.)
 - `export_decisions.py` prints `reason` and `open:` texts untranslated. `infra-decisions.docx` is missing everywhere (no `pandoc`).
@@ -801,18 +955,27 @@ per-family` in `check_spec.py` and the `chatbot` spec, and `references/private-d
 
 ### Pipelines
 
-- `check_pipeline.py` counts an `open:` entry without `environments` as resolved (a false
-  fail on every such entry; the runs name the stage on each entry as a workaround),
-  applies the workload-identity secret grep to `local`, and its `client[-_]?secret`
-  pattern matches the placeholder name `entra-client-secret`.
-- `pipelines.local.md`'s script runs `validate` after the backend init, has no
-  `terraform test`, no `-reconfigure`, no cd to its own directory; `terraform-idiom.md`
-  says the empty backend block is for non-local only, but the local script passes
-  `-backend-config` too.
-- `pipelines.github.md` says nothing about a render in a subfolder (working directory,
-  artifact paths, path filters) and pins Terraform `~> 1.16.0` (live 1.17). GitLab has no
-  scaffold behind it and is untested; Azure DevOps and GitLab accepting their file was
-  never checked.
+- **Bicep decision tests and the what-if record** (2026-11-06, branch `bicep-pipeline-tests`,
+  from the owner's `BICEP__Starter_Pipelines`): invariant 15 runs `tests/run_arm_tests.py` -
+  the plugin's runner, copied unchanged by the render (owner's call: one implementation, no
+  pwsh port) - in validate on every platform and in the local script; invariant 8 keeps
+  `whatif.json` as an artifact, seven days at most. Not yet run on a runner: `setup-python@v7`
+  / `UsePythonVersion@0`, the `az bicep install` fallback, and whether the `azure-cli` image's
+  `pip` installs PyYAML without a virtual environment (GitLab). `eval-agent/infra` has no
+  `tests/run_arm_tests.py` yet - `check_render_coverage.py` fails on it until the next render
+  of that tree (never by hand, CLAUDE.md), and `eval-agent-infra*.yaml` runs no tests until then.
+- Considered from the scaffold and left out again: Deployment Stacks (`denySettingsMode`,
+  `actionOnUnmanage`) - they would let Bicep delete what the spec drops and block portal
+  deletes; a deployment decision of its own if it comes back.
+- The pwsh pipelines have parsed and been dry-run with a mocked `az`, never run on a
+  runner: the next push of `eval-agent/infra` to `dev` is the first real run of
+  `eval-agent-infra*.yaml` in pwsh; the ADO and GitHub Terraform fixtures have not run at all.
+- An `open:` entry without `environments` allows a placeholder in every stage file and
+  requires none (`check_pipeline.py`): it may be a per-stage value (`context.location`) or
+  none at all (a model list). The runs no longer need to name the stage as a workaround.
+- GitLab has no scaffold behind it and is untested; Azure DevOps and GitLab accepting their
+  file was never checked. The Terraform pin is `~> 1.17.0` (ADO `1.17.1`, GitLab image
+  `1.17`), resolved on 2026-11-01.
 - `naming.tftest.hcl` proves "from naming.yaml", not the deployed suffix, while the stage
   file holds placeholders. `terraform providers schema -json` refuses a root with an
   empty backend block unless run on a copy without it. `terraform init` fails on the
@@ -829,8 +992,6 @@ per-family` in `check_spec.py` and the `chatbot` spec, and `references/private-d
   NSG pattern has no `<?SUBNAME>` (two NSGs got one name); the web app name has no unique
   id (global hostname); `wiring.private_dns_zones` lacks `oms`/`ods`/`agentsvc` for a
   monitor scope; the Key Vault has no caller in the picture until its access is decided.
-- `chat-sandbox`'s decision panel was finished by hand before the two SKU corrections and
-  does not list the new forced chain (`verify_diagram.py` passes).
 - Not exercised: a fresh export through `export_diagram.py` end to end; the customer-edit
   diff path (extract, regenerate, diff).
 
@@ -955,6 +1116,14 @@ regeneration from the spec loses them. All `render`:
   The composed Sonnet run is `baseline.json` since (owner's call): 11 cases, every grader at
   its full rate. Haiku keeps failing the same rules as on 0.5.4/0.5.5: invented subscription and
   region, the default stack, `@onlyIfNotExists()`, the CLAUDE.md sync in one of four runs.
+- **0.7.0 (2026-11-01)**: Sonnet 14/14, recorded on `eval-history` as `8e1bd6c`, composed - the
+  full suite on `a4cf3c2`, the `terraform-*` cases re-tested after #26 (graders read file
+  contents), `terraform-code-structure` after #27; the badge pinned to it (#29). New since
+  0.6.0: `spec/platform-workspace-reference` (the interview writes `{ existing:
+  log_analytics_workspace }` with an open id) and `render/terraform-existing-reference` (id
+  variable validated on the ARM type, the id per stage file, no data source) - every render
+  case now runs through the mandatory render digest, though no grader asserts it was read.
+  `baseline.json` is still the 0.6.0 run (11 cases).
 - **CI by hand**: `.github/workflows/eval.plugin.yaml` (`workflow_dispatch`, Sonnet/low by
   default, one case per call with progress, `--scaffold`, report only);
   `record_eval_history.py` writes each run to `eval-history`. `review-agent-separate` never loaded before 2026-10-27 (`focus:
@@ -995,7 +1164,10 @@ regeneration from the spec loses them. All `render`:
 - Idea: a cost estimate in Phase 4 (`ideas/cost-and-security-profiles.md`).
 - `examples/order-platform` was deleted (2026-10-29, owner's call): it predated the spec
   revision and was to be regenerated anyway. It was the only per-family and pipeline render;
-  `chat-sandbox` is now the rendered example the `CLAUDE.md` commands test.
+  `chat-sandbox` is now the rendered Terraform example. Its `terraform test` and
+  `check_render_coverage.py` are no standing check (2026-11-01): the render is frozen, so they
+  test that render, not the plugin - the Terraform eval cases render fresh. Run them after a
+  change to the example itself.
 
 ### After the spec revision (2026-10-29)
 
@@ -1039,11 +1211,13 @@ regeneration from the spec loses them. All `render`:
 
 ## Next
 
-**Merge #15 (0.6.0)**: pushed, ready for review, evals run, recorded and accepted as the
-baseline (see *Evals*). Left: the owner's squash merge. After it, regenerate the remaining examples against the revised spec, and freeze the
-formats (*Road to 1.0.0*).
+**Regenerate the remaining examples and freeze the formats** (*Road to 1.0.0*): `render-yaml`
+(#22) is in `dev`, rendered and graded with structured references in the 0.7.0 run (see
+*Evals*). The examples go against the revised spec first, then `spec.md`,
+`question-set-format.md` and the render-map format name their stable interface. What is
+left of the sources (*Open*) is small and can follow.
 
-**The pattern skill** (`ideas/pattern-skill.md`): the wiring that `chatbot` and
+**The pattern skill** (`ideas/pattern-skill.md`, draft PR #16): the wiring that `chatbot` and
 `chatbot-rag` carry by hand — roles between resources, the private link, the order
 identity → vault → consumer — becomes the first pattern, `./patterns/` enters
 `plugin.json` in the same commit, and `wiring:` becomes a schema `check_spec.py` validates.

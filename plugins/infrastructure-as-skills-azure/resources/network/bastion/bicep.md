@@ -35,22 +35,13 @@ it with `enablePrivateOnlyBastion`.
 
 ### Decision -> module parameter
 
+What each decision renders to - the parameter and the literal of every answer - is in
+[render-map.yaml](render-map.yaml); the render digest prints it for a spec.
+
+### Deployment-wide parameters
+
 | Decision | Parameter | Note |
 |---|---|---|
-| `admin_access` | `enablePrivateOnlyBastion` | `true` for `private_network`; Premium. The public IP is then not created |
-| `sku` | `skuName` | `'Developer'` / `'Basic'` / `'Standard'` / `'Premium'`; module default `'Basic'` - written |
-| `zone_redundant` | `availabilityZones`; `publicIPAddressObject.availabilityZones` | `[1, 2, 3]` or `[]`; module default none. `Developer` has none |
-| `scale_units` | `scaleUnits` | Module default `2`; the module forces `2` on Basic and Developer |
-| `bastion_subnet` | `virtualNetworkResourceId` | The vnet; the module finds `AzureBastionSubnet`. `Developer` uses the same parameter |
-| `public_ip_zone_redundant` | `publicIPAddressObject: { name, skuName: 'Standard', publicIPAllocationMethod: 'Static', availabilityZones }` | |
-| `shareable_link` | `enableShareableLink` | |
-| `native_client` | **not carried** | see above |
-| `ip_connect` | `enableIpConnect` | |
-| `file_copy` | `enableFileCopy` | Module default `true` - written `false` |
-| `copy_paste` | `disableCopyPaste` | Inverted |
-| `session_recording` | `enableSessionRecording` | Premium |
-| `diagnostic_categories` | `diagnosticSettings: [ { workspaceResourceId, logCategoriesAndGroups: [ { category } ] } ]` | |
-| `metrics_enabled` | **not carried** | a second diagnostic setting, below |
 | `deployment.module_telemetry` | `enableTelemetry` | |
 | `context.tags` | `tags` | |
 
@@ -128,7 +119,7 @@ With `admin_access: private_network` the call is `skuName: 'Premium'` and
 ### Tests
 
 A module call compiles to a nested deployment whose `properties.parameters.<param>.value` is the
-decision, so every decision above except the two gaps is observable in `tests/*.armtest.yaml`
+decision, so every decision in render-map.yaml except the two gaps is observable in `tests/*.armtest.yaml`
 ([bicep-idiom.md](../../../core/iac-rendering/references/bicep-idiom.md#tests)). `native_client` is
 marked `# not-testable:` with the module's fixed value as the reason, or asserted on the authored
 resource if the render departs from the module; the metrics setting is a plain resource in the
@@ -137,13 +128,7 @@ compiled template.
 ## Authored rendering
 
 The fallback, and the render for `native_client: false` on `Standard`.
-`Microsoft.Network/bastionHosts` with `properties`, and `Microsoft.Network/publicIPAddresses`:
+`Microsoft.Network/bastionHosts` with `properties`, and `Microsoft.Network/publicIPAddresses`.
 
-| Decision | Property |
-|---|---|
-| `sku`, `zone_redundant` | `sku: { name }`; `zones` (top level; none for `Developer`) |
-| `scale_units` | `properties.scaleUnits` |
-| `bastion_subnet`, `admin_access` | `properties.ipConfigurations[].properties: { subnet: { id }, publicIPAddress: { id }, privateIPAllocationMethod: 'Dynamic' }`; `properties.enablePrivateOnlyBastion`; `Developer`: `properties.virtualNetwork.id` and no `ipConfigurations` |
-| `shareable_link`, `native_client`, `ip_connect`, `file_copy`, `copy_paste`, `session_recording` | `properties.enableShareableLink`, `.enableTunneling`, `.enableIpConnect`, `.enableFileCopy`, `.disableCopyPaste` (inverted), `.enableSessionRecording` - the switches exist from `Standard` upward |
-| public address | `Microsoft.Network/publicIPAddresses` with `sku: { name: 'Standard' }`, `properties.publicIPAllocationMethod: 'Static'`, `zones` |
-| diagnostics | `Microsoft.Insights/diagnosticSettings` on the host with `logs: [ { category: 'BastionAuditLogs', enabled: true } ]` and `metrics: [ { category: 'AllMetrics', enabled: true } ]` |
+What each decision renders to - the property and the literal of every answer - is in
+[render-map.yaml](render-map.yaml); the render digest prints it for a spec.

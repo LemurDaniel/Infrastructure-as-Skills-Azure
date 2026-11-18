@@ -21,22 +21,13 @@ already calls an AzAPI module and this one carries both families.
 
 ### Decision -> module input
 
+What each decision renders to - the input and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.
+
+### Deployment-wide inputs
+
 | Decision | Input | Note |
 |---|---|---|
-| `sku` | `sku_name` | Module default is **`premium`**; must be written |
-| `purge_protection` | `purge_protection_enabled` | Default `true`; written |
-| `soft_delete_retention_days` | `soft_delete_retention_days` | Default `null` (90); written |
-| `rbac_authorization` | `legacy_access_policies_enabled` | **Inverse**: RBAC is `false`; default `false` |
-| `public_network_access` | `public_network_access_enabled` | **Bool**; module default **`true`** |
-| `public_network_access`, `ip_rules`, `network_acl_bypass` | `network_acls = { bypass, default_action, ip_rules }` | `null` means *no firewall*; unset means Deny + no bypass. Written for every posture except `enabled` |
-| `private_endpoint_subnet` | `private_endpoints = { vault = { subnet_resource_id } }` | `subresource_name` defaults to `vault` |
 | `deployment.private_dns_records` | `private_endpoints_manage_dns_zone_group` | `false` under `policy` |
-| `role_assignments` | `role_assignments = { <k> = { role_definition_id_or_name, principal_id, principal_type } }` | |
-| `enabled_for_services` | `enabled_for_deployment`, `enabled_for_disk_encryption`, `enabled_for_template_deployment` | All default `false`; written |
-| `customer_managed_keys`, `key_type`, `key_size` | `keys = { <k> = { name, key_type, key_size, key_opts, rotation_policy } }` | Read the exact member names from the README |
-| `key_rotation_days`, `key_expiry_days` | `keys.<k>.rotation_policy` | |
-| `secret_placeholders` | **not the module** - see below | |
-| `diagnostic_*`, `metrics_enabled` | `diagnostic_settings = { workspace = { workspace_resource_id, log_categories = [...], log_groups = [], metric_categories = ["AllMetrics"] } }` | `log_groups` defaults to `["allLogs"]`: set it empty when `log_categories` names the categories, or every log is collected beside them |
 | `deployment.module_telemetry` | `enable_telemetry` | |
 | `context.tags` | `tags = local.tags` | |
 
@@ -145,16 +136,7 @@ placeholder's guard is `not-testable` as well and named in the handover.
 The fallback - `implementation: authored`, or a repository that already renders the vault this
 way. Targets `azurerm` **5.x**; check against `terraform providers schema -json`.
 
-| Decision | Argument on `azurerm_key_vault` |
-|---|---|
-| `sku` | `sku_name` |
-| `purge_protection` | `purge_protection_enabled` |
-| `soft_delete_retention_days` | `soft_delete_retention_days` |
-| `rbac_authorization` | `rbac_authorization_enabled` |
-| `public_network_access` | `public_network_access_enabled` (a bool, unchanged in 5.x; only storage moved to a string) |
-| `network_acl_bypass`, `ip_rules` | `network_acls { bypass, default_action, ip_rules }` |
-| `enabled_for_services` | `enabled_for_deployment`, `enabled_for_disk_encryption`, `enabled_for_template_deployment` |
-| diagnostics | `azurerm_monitor_diagnostic_setting` with `enabled_log { category }` |
+What each decision renders to - the argument and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.
 
 An inline `access_policy` block and an `azurerm_key_vault_access_policy` fight on every apply;
 with RBAC neither is used.

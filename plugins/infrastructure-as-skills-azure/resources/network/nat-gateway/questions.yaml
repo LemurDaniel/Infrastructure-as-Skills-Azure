@@ -11,7 +11,7 @@ naming:
 
 boundaries:
   - "Does not create the resource group. Expects one from the spec's context."
-  - "Does not associate itself with a subnet. The association is a property of the subnet, which the virtual-network set carries (`nat_gateway` on a subnet); a NAT gateway nobody associates changes nothing. `subnets` records which subnets expect it."
+  - "Does not render the association itself. `subnets` references the subnets that go out through this gateway; the association is a property of the subnet, so the virtual-network module renders it (`on_part` in render-map.yaml). A NAT gateway no subnet takes changes nothing."
   - "Does not make a subnet reachable from the internet. A NAT gateway is outbound only: it carries replies to what a machine started and never accepts a connection from outside, so it is compatible with `network_exposure: private`."
   - "Does not work together with a default route to a firewall. A route table with `0.0.0.0/0` to a virtual appliance (`route-table.default_route: firewall`) overrides the NAT gateway for that subnet; the NAT gateway then belongs on the firewall's own subnet, which the platform owns."
   - "Does not switch off the implicit default outbound access of a subnet (`defaultOutboundAccess` on the subnet, which Azure is retiring for new networks). A subnet that needs a stable, owned outbound address uses this resource; that property is the virtual network's and is not a decision in its set yet."
@@ -40,7 +40,6 @@ groups:
           Drives the rendered name. One NAT gateway per network and stage: a gateway shared
           across stages shares its addresses, and a partner's allowlist then trusts the
           development stage as much as production.
-        renders: naming parameter `environment`, and the tag of that name where the repository uses one
 
       - id: location
         ask:
@@ -54,7 +53,6 @@ groups:
         why: >
           A NAT gateway is regional and serves subnets of virtual networks in its own region
           only; another region means another gateway.
-        renders: location
 
       - id: resource_group_name
         ask:
@@ -70,7 +68,6 @@ groups:
         why: >
           Placed into an existing group, usually the network's, together with the addresses it
           creates.
-        renders: parent_id (AVM Terraform, AzAPI) / implicit in Bicep scope
 
   # ------------------------------------------------------------------ gateway
   - id: gateway
@@ -84,21 +81,23 @@ groups:
         plain:
           en: "Subnets that go out through the gateway: {value}."
           de: "Subnetze, die über das Gateway nach außen gehen: {value}."
+        accepts: { ref: subnet }
+        exclusive: true
         required: true
-        per_environment: true
         why: >
-          Recorded and rendered where the subnet is: the gateway is only effective once a
-          subnet takes its id. A subnet has at most one NAT gateway; one gateway serves many
+          Recorded here and rendered where the subnet is: the gateway is only effective once a
+          subnet takes its id. A reference to a subnet of the network, the same in every
+          stage. A subnet has at most one NAT gateway; one gateway serves many
           subnets of the same network. Not `GatewaySubnet`, `AzureFirewallSubnet` and
           `AzureBastionSubnet`, which do not take one, and not a subnet whose route table
           sends `0.0.0.0/0` to an appliance.
-        renders: virtual-network subnets.<k>.nat_gateway.id / natGatewayResourceId
 
       - id: sku
         ask:
           en: "Which generation of NAT gateway should it be?"
           de: "Welche Generation von NAT Gateway soll es sein?"
         type: enum
+        stage_parameter: true
         plain:
           en: "The NAT gateway is of the type {value}."
           de: "Das NAT-Gateway hat den Typ {value}."
@@ -117,7 +116,6 @@ groups:
           every region, and the SKU cannot be changed in place - a gateway is recreated, and
           its addresses with it, which changes what partners have allowlisted. The
           regional availability is looked up before a render, not assumed.
-        renders: sku_name / natGatewaySku
 
       - id: zone
         ask:
@@ -139,7 +137,6 @@ groups:
           is the neutral value when the subnet's machines spread across zones; a single zone
           is right only for a subnet that is itself pinned there, and then `public-ip-address.zones`
           takes the same one. A `StandardV2` gateway ignores the question.
-        renders: zones / availabilityZone (-1 for none)
 
       - id: public_ip_source
         ask:
@@ -161,7 +158,6 @@ groups:
           addresses of the `public-ip-address` set (`purpose: nat_gateway`) and is for
           addresses that must outlive the gateway: a partner has allowlisted them, and a
           recreated gateway keeps them.
-        renders: public_ips + public_ip_configuration / publicIPAddresses (with_gateway), public_ip_resource_ids / publicIpResourceIds (separate)
 
       - id: public_ip_count
         ask:
@@ -179,7 +175,6 @@ groups:
           metric says otherwise; adding addresses later is possible, so this is not sized
           for peak. More than one also multiplies what a partner must allowlist, which is a
           reason to ask for a prefix instead.
-        renders: public_ips (one map entry per address) / publicIPAddresses (one array entry per address)
 
       - id: public_ip_prefix_ids
         ask:
@@ -196,7 +191,6 @@ groups:
           Empty. A prefix is one contiguous range a partner can allowlist as a single line;
           it is needed when more addresses than one must be listed, and the customer owns
           or has reserved it. Referenced, never created here.
-        renders: public_ip_prefix_resource_ids / publicIPPrefixResourceIds
 
       - id: idle_timeout_minutes
         ask:
@@ -212,7 +206,6 @@ groups:
           quickly, which is what keeps a busy subnet from running out of them. Raise it for a
           client with a long-lived idle connection that cannot send keep-alives, knowing each
           held port is lost to every other machine behind the gateway.
-        renders: idle_timeout_in_minutes / idleTimeoutInMinutes
 
   # ------------------------------------------------------------ observability
   - id: observability
@@ -234,7 +227,6 @@ groups:
           Inherited: one deployment, one destination. A NAT gateway has no logs, but its
           metrics are what show SNAT exhaustion and dropped packets, and that question comes
           during an incident rather than before one.
-        renders: diagnostic_settings (Terraform) / a diagnostic setting on the gateway (authored; the Bicep module has none)
 
       - id: metrics_enabled
         ask:
@@ -252,4 +244,3 @@ groups:
           `SNAT Connection Count` (failed attempts mean exhaustion), `Dropped Packets`, byte
           and packet counts. `AllMetrics` is cheap, and it is the only thing a NAT gateway
           emits - there is no log to fall back on.
-        renders: diagnostic_settings.<key>.metrics[].category = "AllMetrics" / metricCategories[].category

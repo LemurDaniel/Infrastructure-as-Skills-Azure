@@ -1,0 +1,81 @@
+# What each decision of questions.yaml renders to, per target and implementation.
+# Format: core/iac-rendering/references/render-map.md. The calls, the placeholder blocks and the
+# tests are in terraform.md and bicep.md.
+# The modules are used for value_source: secure_input only; a placeholder renders authored in both
+# targets. Terraform: the vault module's secret submodule - Orphaned with it, azurerm-based (< 5.0).
+schema_version: 1
+resource: Microsoft.KeyVault/vaults/secrets
+
+modules:
+  terraform: [Azure/avm-res-keyvault-vault/azurerm//modules/secret]
+  bicep: [avm/res/key-vault/vault/secret]
+
+decisions:
+
+  # ---------------------------------------------------------------- placement
+  placement.environments:
+    not_rendered: the stage file the vault reference comes from; no attribute of the secret
+  placement.key_vault:
+    terraform_avm: { attribute: key_vault_resource_id, note: the vault module's resource_id }
+    terraform: { attribute: key_vault_id }
+    bicep_avm:
+      attribute: keyVaultName
+      note: "the vault's NAME, never the reference's id - the vault module's name output or the vault's name parameter; same resource group"
+    bicep: { attribute: parent, note: an existing resource symbol for the vault (vaultRef) - never the id string }
+
+  # ----------------------------------------------------------------- identity
+  identity.role_assignments:
+    terraform_avm:
+      attribute: 'role_assignments.<key> = { role_definition_id_or_name, principal_id, principal_type }'
+      note: scoped to the secret's versionless id
+    terraform: { attribute: azurerm_role_assignment, note: scope = the secret's resource_versionless_id }
+    bicep_avm: { attribute: 'roleAssignments[] = { roleDefinitionIdOrName, principalId, principalType }', note: scoped to the secret }
+    bicep: { attribute: Microsoft.Authorization/roleAssignments, note: scope = the secret }
+
+  # ----------------------------------------------------------------- security
+  security.value_source:
+    terraform_avm:
+      attribute: value_wo
+      values: { secure_input: { expr: 'var.<secret_variable>' }, placeholder: null }
+      also:
+        secure_input: value_wo_version = 1
+      note: secure_input only - write-only, from an ephemeral root variable (ephemeral = true), never the answer; raise value_wo_version for a new version; placeholder never goes through the module (renders authored)
+    terraform:
+      attribute: value
+      values: { placeholder: placeholder - replace after deployment, secure_input: null }
+      also:
+        placeholder: lifecycle { ignore_changes = [value, tags, expiration_date] }
+        secure_input: value_wo = var.<secret_variable>
+      note: secure_input leaves value (stored in state) out and writes value_wo from an ephemeral variable with value_wo_version = 1 beside it
+    bicep_avm:
+      attribute: value
+      values: { secure_input: { expr: '<secure_parameter>' }, placeholder: null }
+      note: secure_input only - a @secure() root parameter, required, never the answer; a redeploy writes a new version, so placeholder never goes through the module (renders authored)
+    bicep:
+      attribute: properties.value
+      values: { placeholder: placeholder - replace after deployment, secure_input: { expr: '<secure_parameter>' } }
+      also:
+        placeholder: '@onlyIfNotExists()'
+      note: secure_input from a @secure() parameter, never the answer
+  security.content_type:
+    terraform_avm: { attribute: content_type, passthrough: true }
+    terraform: { attribute: content_type, passthrough: true }
+    bicep_avm: { attribute: contentType, passthrough: true, note: a securestring in the module }
+    bicep: { attribute: properties.contentType, passthrough: true }
+  security.expiry_days:
+    terraform_avm:
+      attribute: time_offset.<name>.offset_days
+      passthrough: true
+      note: expiration_date = time_offset.<name>.rfc3339 (a UTC datetime computed once at creation), never the day count; 0 renders no expiry
+    terraform:
+      attribute: time_offset.<name>.offset_days
+      passthrough: true
+      note: expiration_date = time_offset.<name>.rfc3339, never the day count; for a placeholder the first version only - expiration_date is in ignore_changes
+    bicep_avm:
+      attribute: attributesExp
+      format: { expr: "dateTimeToEpoch(dateTimeAdd(baseTime, 'P{value}D'))" }
+      note: epoch seconds, baseTime a param defaulting to utcNow(); never the day count
+    bicep:
+      attribute: properties.attributes.exp
+      format: { expr: "dateTimeToEpoch(dateTimeAdd(baseTime, 'P{value}D'))" }
+      note: epoch seconds; for a placeholder the first version only

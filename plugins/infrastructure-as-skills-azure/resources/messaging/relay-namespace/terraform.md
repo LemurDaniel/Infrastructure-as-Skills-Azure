@@ -27,19 +27,14 @@ that take `relay_namespace_id`. The `authorization-rule` submodule is never call
 
 ### Decision -> module input
 
-| Decision | Input | Note |
+What each decision renders to - the input and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.
+
+### Inputs no decision covers
+
+| Input | Module input | Note |
 |---|---|---|
 | tier (no decision) | `sku = { name = "Standard", tier = "Standard" }` | The module default; written because it is the only value and the module takes the object |
-| `hybrid_connections` | `module "hybrid_connection"` (`//modules/hybrid-connection`), one per entry: `name`, `relay_namespace_id`, `user_metadata` | `user_metadata` is a JSON string; the App Service Hybrid Connection Manager reads `[{ key = "endpoint", value = "host:port" }]` |
-| `client_authorization_required` | `requires_client_authorization` on each hybrid-connection call | Submodule default `true`; written |
-| `wcf_relays` | `module "wcf_relay"` (`//modules/wcf-relay`), one per entry | Read the submodule README for `relay_type`; SAS-only, a named departure |
-| `local_auth` | no input - the type has no switch; **no `authorization-rule` submodule call**, no `listKeys` | Recorded `forced`; roles only |
-| `public_network_access` | `public_network_access` on the root | **A string** (`"Enabled"` / `"Disabled"`), module default `"Enabled"`; written |
-| `ip_rules` | `module "network_rule_set"` (`//modules/network-rule-set`): `public_network_access = "Enabled"`, `default_action = "Deny"`, `ip_rules = [{ ipMask, action = "Allow" }]` | Called only under `enabled_with_firewall`; the key is `ipMask` (camel case), as the submodule spells it |
-| `private_endpoint_subnet` | `private_endpoints = { namespace = { subnet_resource_id } }` | The sub-resource is `namespace`, fixed by the module |
 | `deployment.private_dns_records` | `private_endpoints_manage_dns_zone_group` | `false` under `policy`; a zone group needs at least one zone id |
-| `role_assignments` | `role_assignments = { <k> = { role_definition_id_or_name, principal_id, principal_type } }` | On the namespace; a per-connection role is an `azurerm_role_assignment` scoped to the submodule's `resource_id` |
-| `diagnostic_*`, `metrics_enabled` | `diagnostic_settings = { workspace = { workspace_resource_id, log_categories, log_groups = [], metric_categories = ["AllMetrics"] } }` | `log_groups` defaults to `["allLogs"]`; emptied so the categories are the decision |
 | `deployment.resource_lock` | `lock = { kind = "CanNotDelete" }` | In the stages the deployment names |
 | `deployment.module_telemetry` | `enable_telemetry` | |
 | `context.tags` | `tags = local.tags` | |
@@ -145,12 +140,10 @@ reason where the plan does not show them.
 
 The fallback. Targets `azurerm` **5.x**; check against `terraform providers schema -json`.
 
-| Decision | Argument |
+What each decision renders to - the argument and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.
+
+### Arguments no decision covers
+
+| Input | Argument |
 |---|---|
 | tier | `azurerm_relay_namespace.sku_name = "Standard"` |
-| `hybrid_connections`, `client_authorization_required` | `azurerm_relay_hybrid_connection { requires_client_authorization, user_metadata }` |
-| `wcf_relays` | no `azurerm` resource - `azapi_resource` `Microsoft.Relay/namespaces/wcfRelays@2024-01-01` |
-| `local_auth` | no `azurerm_relay_namespace_authorization_rule`, no `*_connection_string` output |
-| `public_network_access`, `ip_rules` | no `azurerm` argument - `azapi_resource` `Microsoft.Relay/namespaces/networkRuleSets@2024-01-01` named `default` with `properties: { publicNetworkAccess, defaultAction, ipRules }`, or `azapi_update_resource` on the namespace for `properties.publicNetworkAccess` |
-| `private_endpoint_subnet` | `azurerm_private_endpoint` with `subresource_names = ["namespace"]` |
-| diagnostics | `azurerm_monitor_diagnostic_setting` with `enabled_log { category }`, `enabled_metric { category }` |

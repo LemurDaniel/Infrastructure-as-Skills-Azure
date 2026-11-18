@@ -19,21 +19,13 @@ module is `Available`, unlike the Terraform one.
 
 ### Decision -> module parameter
 
+What each decision renders to - the parameter and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.
+
+### Deployment-wide inputs
+
 | Decision | Parameter | Note |
 |---|---|---|
-| `sku` | `sku` | Module default **`premium`**; written |
-| `purge_protection` | `enablePurgeProtection` | Default `true`; written |
-| `soft_delete_retention_days` | `softDeleteRetentionInDays` | Default 90; written. `enableSoftDelete` stays `true` |
-| `rbac_authorization` | `enableRbacAuthorization` | Default `true`; written |
-| `public_network_access` | `publicNetworkAccess: 'Disabled'` / `'Enabled'` | Unset, it is disabled only when private endpoints are set |
-| `public_network_access`, `ip_rules`, `network_acl_bypass` | `networkAcls: { defaultAction, bypass, ipRules: [ { value } ] }` | `defaultAction: 'Deny'` unless `enabled` |
-| `private_endpoint_subnet` | `privateEndpoints: [ { subnetResourceId, service: 'vault' } ]` | |
 | `deployment.private_dns_records: policy` | no `privateDnsZoneGroup` on the endpoint | |
-| `role_assignments` | `roleAssignments: [ { principalId, roleDefinitionIdOrName, principalType } ]` | |
-| `enabled_for_services` | `enableVaultForDeployment`, `enableVaultForDiskEncryption`, `enableVaultForTemplateDeployment` | **`enableVaultForDeployment` defaults to `true`** - written |
-| `customer_managed_keys`, `key_type`, `key_size`, rotation | `keys: [ { name, kty, keySize, rotationPolicy, attributes } ]` | Read member names from the README |
-| `secret_placeholders` | not `secrets` - **see below** | The module requires a `value` |
-| diagnostics | `diagnosticSettings: [ { workspaceResourceId, logCategoriesAndGroups: [ { category } ], metricCategories: [ { category: 'AllMetrics' } ] } ]` | |
 | `deployment.module_telemetry` | `enableTelemetry` | |
 | `context.tags` | `tags` | |
 
@@ -126,23 +118,15 @@ rejects the decorator is a toolchain to update, not a reason to write a lookup.
 ### Tests
 
 A module call compiles to a nested deployment whose `properties.parameters.<param>.value` is
-the decision, so every decision above is observable in `tests/*.armtest.yaml`
+the decision, so every decision in render-map.yaml is observable in `tests/*.armtest.yaml`
 ([bicep-idiom.md](../../../core/iac-rendering/references/bicep-idiom.md#tests)). How the
 decorator shows in the compiled ARM is read from a compile, not recalled; the placeholder
 resources are matched by that.
 
 ## Authored rendering
 
-The fallback. A single `Microsoft.KeyVault/vaults` with `properties`:
+The fallback. A single `Microsoft.KeyVault/vaults` with `properties`.
 
-| Decision | Property |
-|---|---|
-| `sku` | `properties.sku: { family: 'A', name }` |
-| `purge_protection` | `properties.enablePurgeProtection` |
-| `soft_delete_retention_days` | `properties.softDeleteRetentionInDays` |
-| `rbac_authorization` | `properties.enableRbacAuthorization` |
-| `public_network_access` | `properties.publicNetworkAccess` (`'Disabled'`, `'Enabled'`) |
-| `network_acl_bypass`, `ip_rules` | `properties.networkAcls: { bypass, defaultAction, ipRules }` |
-| `enabled_for_services` | `properties.enabledForDeployment`, `enabledForDiskEncryption`, `enabledForTemplateDeployment` |
+What each decision renders to - the property and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.
 
 `enablePurgeProtection` may only be `true` or omitted; ARM rejects an explicit `false`.

@@ -1,0 +1,293 @@
+# What each decision of questions.yaml renders to, per target and implementation.
+# Format: core/iac-rendering/references/render-map.md. The call, the authored blocks and the
+# tests are in terraform.md and bicep.md.
+schema_version: 1
+resource: Microsoft.ApiManagement/service
+
+modules:
+  terraform: [Azure/avm-res-apimanagement-service/azurerm]
+  bicep: [avm/res/api-management/service]
+
+decisions:
+
+  # ---------------------------------------------------------------- placement
+  placement.environments:
+    not_rendered: naming parameter `environment` and the tag of that name; no attribute of the instance
+  placement.location:
+    terraform_avm: { attribute: location, passthrough: true }
+    terraform: { attribute: location, passthrough: true }
+    bicep_avm: { attribute: location, passthrough: true }
+    bicep: { attribute: location, passthrough: true }
+  placement.resource_group_name:
+    terraform_avm:
+      attribute: resource_group_name
+      note: a name, not an id - AzAPI-based, but it pins azurerm >= 4.0, < 5.0, so the root cannot be on 5.x
+    terraform: { attribute: resource_group_name }
+    bicep_avm: { gap: the deployment's resource group scope; no parameter }
+    bicep: { gap: the deployment's resource group scope; no property }
+
+  # ------------------------------------------------------------------ service
+  service.publisher_name:
+    terraform_avm: { attribute: publisher_name, passthrough: true, note: 'module default is the placeholder "Apim Example Publisher"; always written' }
+    terraform: { attribute: publisher_name, passthrough: true }
+    bicep_avm: { attribute: publisherName, passthrough: true, note: required }
+    bicep: { attribute: properties.publisherName, passthrough: true }
+  service.publisher_email:
+    terraform_avm: { attribute: publisher_email, passthrough: true, note: required }
+    terraform: { attribute: publisher_email, passthrough: true }
+    bicep_avm: { attribute: publisherEmail, passthrough: true, note: required }
+    bicep: { attribute: properties.publisherEmail, passthrough: true }
+  service.sku:
+    terraform_avm:
+      attribute: sku_name
+      format: '{value}_{service.capacity}'
+      note: one string with the capacity (StandardV2_1, Consumption_0); module default Developer_1 - written
+    terraform: { attribute: sku_name, format: '{value}_{service.capacity}' }
+    bicep_avm: { attribute: sku, passthrough: true, note: module default Premium - written }
+    bicep: { attribute: sku.name, passthrough: true }
+  service.capacity:
+    terraform_avm: { attribute: sku_name, part_of: service.sku, note: 'the suffix of "<Tier>_<capacity>"' }
+    terraform: { attribute: sku_name, part_of: service.sku, note: 'the suffix of "<Tier>_<capacity>"' }
+    bicep_avm: { attribute: skuCapacity, passthrough: true, note: module default 3 - written }
+    bicep: { attribute: sku.capacity, passthrough: true }
+  service.zone_redundant:
+    terraform_avm:
+      attribute: zones
+      values: { true: { expr: '["1", "2", "3"]' }, false: { expr: 'null' } }
+      note: Premium/PremiumV2 only; capacity a multiple of the zones
+    terraform:
+      attribute: zones
+      values: { true: { expr: '["1", "2", "3"]' }, false: null }
+      note: the literals the module section states for the same list; Premium/PremiumV2 only
+    bicep_avm:
+      attribute: availabilityZones
+      values: { true: { expr: '[1, 2, 3]' }, false: { expr: '[]' } }
+      note: Premium/PremiumV2 only
+    bicep:
+      gap: "zones (top level) is string[] in the compiled type (bicep build, Microsoft.ApiManagement/service@2024-05-01); the zone literals have no source for authored Bicep"
+  service.additional_regions:
+    terraform_avm: { attribute: additional_location, note: '[{ location, capacity, zones, ... }]; Premium only' }
+    terraform:
+      attribute: additional_location
+      note: "one block per entry { location, capacity, zones }; Premium only (source: azurerm 5.12 schema)"
+    bicep_avm: { attribute: additionalLocations, note: Premium only }
+    bicep:
+      attribute: properties.additionalLocations
+      note: "[{ location, sku: { name, capacity }, zones }]; Premium only (source: bicep build, Microsoft.ApiManagement/service@2024-05-01)"
+  service.managed_identity:
+    terraform_avm:
+      attribute: managed_identities
+      values:
+        system_assigned: { expr: '{ system_assigned = true }' }
+        user_assigned: { expr: '{ user_assigned_resource_ids = {service.user_assigned_identity_ids} }' }
+        none: { expr: '{}' }
+    terraform:
+      attribute: identity.type
+      values: { system_assigned: SystemAssigned, user_assigned: UserAssigned, none: null }
+      note: "none writes no identity block (source: azurerm 5.12 docs)"
+    bicep_avm:
+      attribute: managedIdentities
+      values:
+        system_assigned: { expr: '{ systemAssigned: true }' }
+        user_assigned: { expr: '{ userAssignedResourceIds: {service.user_assigned_identity_ids} }' }
+        none: { expr: '{}' }
+    bicep:
+      attribute: identity.type
+      values: { system_assigned: SystemAssigned, user_assigned: UserAssigned, none: null }
+      note: "none writes no identity; literals from the compiled type (source: bicep build, Microsoft.ApiManagement/service@2024-05-01)"
+  service.user_assigned_identity_ids:
+    terraform_avm: { attribute: managed_identities.user_assigned_resource_ids }
+    terraform: { attribute: identity.identity_ids }
+    bicep_avm: { attribute: managedIdentities.userAssignedResourceIds }
+    bicep:
+      attribute: identity.userAssignedIdentities
+      format: { expr: 'toObject({value}, id => id, id => {})' }
+      note: "an object keyed by identity id, each value empty (source: bicep build, Microsoft.ApiManagement/service@2024-05-01)"
+
+  # ------------------------------------------------------------------- access
+  access.caller_authentication:
+    terraform_avm:
+      gap: >-
+        policy.xml_content (local.apim_global_policy) - entra_id renders the validate-jwt element of
+        terraform.md (openid-config of the tenant, the audience an open entry); subscription_key,
+        entra_id_and_key and open are not spelled in the reference
+    terraform:
+      gap: >-
+        azurerm_api_management_policy.xml_content (azurerm 5.12 schema) carries the global policy XML; only
+        entra_id's validate-jwt element is in terraform.md - the XML for subscription_key, entra_id_and_key
+        and open is in no source
+    bicep_avm:
+      gap: >-
+        "policies[] = { name: 'policy', format: 'rawxml', value }" - the same XML as the Terraform
+        reference (loadTextContent, tenant and audience substituted); only entra_id is spelled
+    bicep:
+      gap: >-
+        the child policies (name 'policy') carries the XML in properties.value with format 'rawxml'
+        (bicep build, Microsoft.ApiManagement/service/policies@2024-05-01); only entra_id's validate-jwt element is in
+        the references - the XML for subscription_key, entra_id_and_key and open is in no source
+  access.rate_limit_calls_per_minute:
+    terraform_avm:
+      attribute: policy.xml_content
+      format: '<rate-limit-by-key calls="{value}" renewal-period="60" counter-key="@(context.Request.IpAddress)" />'
+      note: one element inside <inbound> of the global policy (local.apim_global_policy), never the whole value
+    terraform:
+      attribute: azurerm_api_management_policy.xml_content
+      format: '<rate-limit-by-key calls="{value}" renewal-period="60" counter-key="@(context.Request.IpAddress)" />'
+      note: "one element inside <inbound> of the global policy, never the whole value (source: azurerm 5.12 schema); the element from terraform.md"
+    bicep_avm:
+      attribute: "policies[].value (name: 'policy', format: 'rawxml')"
+      format: '<rate-limit-by-key calls="{value}" renewal-period="60" counter-key="@(context.Request.IpAddress)" />'
+      note: one element inside <inbound> of the same XML as the Terraform reference, never the whole value
+    bicep:
+      attribute: "Microsoft.ApiManagement/service/policies properties.value (name: 'policy', format: 'rawxml')"
+      format: '<rate-limit-by-key calls="{value}" renewal-period="60" counter-key="@(context.Request.IpAddress)" />'
+      note: "one element inside <inbound> of the XML of terraform.md, never the whole value (source: bicep build, Microsoft.ApiManagement/service/policies@2024-05-01)"
+  access.developer_portal:
+    terraform_avm:
+      gap: no module input switches the portal - sign_in, sign_up and delegation configure it; not-testable
+    terraform:
+      gap: the azurerm 5.12 schema has no switch for the portal on azurerm_api_management - sign_in, sign_up and delegation configure it
+    bicep_avm: { attribute: enableDeveloperPortal, passthrough: true, note: module default false; written }
+    bicep:
+      gap: "properties.developerPortalStatus exists (bicep build, Microsoft.ApiManagement/service@2024-05-01) but is a plain string in the type; Enabled and Disabled have no source for authored Bicep"
+  access.apis:
+    terraform_avm: { attribute: apis, note: 'with api_version_sets, backends, named_values; content of the API team - the names and the backend only' }
+    terraform:
+      attribute: 'azurerm_api_management_api = { name, path, service_url, revision }'
+      note: "one per entry; the names and the backend only, operations are content (source: azurerm 5.12 schema)"
+    bicep_avm: { attribute: apis, note: 'with apiVersionSets, backends, namedValues; content of the API team - the names and the backend only' }
+    bicep:
+      attribute: 'Microsoft.ApiManagement/service/apis = { name, properties.path, properties.serviceUrl }'
+      note: "a child per entry; the names and the backend only, operations are content (source: bicep build, Microsoft.ApiManagement/service/apis@2024-05-01)"
+  access.products:
+    terraform_avm: { attribute: products, note: with subscriptions; the names only }
+    terraform:
+      attribute: 'azurerm_api_management_product = { product_id, display_name, published }'
+      note: "one per entry; the names only (source: azurerm 5.12 schema)"
+    bicep_avm: { attribute: products, note: with subscriptions; the names only }
+    bicep:
+      attribute: 'Microsoft.ApiManagement/service/products = { name, properties.displayName }'
+      note: "a child per entry; the names only (source: bicep build, Microsoft.ApiManagement/service/products@2024-05-01)"
+
+  # --------------------------------------------------------------- networking
+  networking.network_integration:
+    terraform_avm:
+      attribute: virtual_network_type
+      values: { none: None, external: External, internal: Internal }
+      note: module default None; written
+    terraform:
+      attribute: virtual_network_type
+      values: { none: None, external: External, internal: Internal }
+    bicep_avm:
+      attribute: virtualNetworkType
+      values: { none: None, external: External, internal: Internal }
+      note: module default None; written
+    bicep:
+      attribute: properties.virtualNetworkType
+      values: { none: None, external: External, internal: Internal }
+  networking.apim_subnet:
+    terraform_avm: { attribute: virtual_network_subnet_id, note: injection (classic tiers) }
+    terraform: { attribute: virtual_network_configuration.subnet_id }
+    bicep_avm: { attribute: subnetResourceId }
+    bicep: { attribute: properties.virtualNetworkConfiguration.subnetResourceId }
+  networking.public_ip_address:
+    terraform_avm: { attribute: public_ip_address_id, note: Standard static IPv4; Developer and Premium in a network }
+    terraform: { attribute: public_ip_address_id }
+    bicep_avm: { attribute: publicIpAddressResourceId, note: Standard static IPv4; classic tiers in a network }
+    bicep: { attribute: properties.publicIpAddressId }
+  networking.public_network_access:
+    terraform_avm:
+      attribute: public_network_access_enabled
+      values: { disabled: false, enabled: true }
+      note: a bool, management plane only; module default true - written
+    terraform:
+      attribute: public_network_access_enabled
+      values: { disabled: false, enabled: true }
+    bicep_avm:
+      attribute: publicNetworkAccess
+      values: { disabled: Disabled, enabled: Enabled }
+      note: unset by default; written
+    bicep:
+      attribute: properties.publicNetworkAccess
+      values: { disabled: Disabled, enabled: Enabled }
+  networking.private_endpoint_subnet:
+    terraform_avm:
+      attribute: private_endpoints.gateway.subnet_resource_id
+      note: subresource_name = "Gateway"; tiers with private endpoint support only
+    terraform:
+      attribute: azurerm_private_endpoint.subnet_id
+      note: "authored child; (source: azurerm 5.12 schema)"
+    bicep_avm:
+      attribute: 'privateEndpoints[].subnetResourceId'
+      note: "service: 'Gateway'; tiers with private endpoint support only"
+    bicep:
+      attribute: Microsoft.Network/privateEndpoints properties.subnet.id
+      note: "authored child; (source: bicep build, Microsoft.Network/privateEndpoints@2024-05-01)"
+
+  # ----------------------------------------------------------------- identity
+  identity.role_assignments:
+    terraform_avm: { attribute: 'role_assignments.<key> = { role_definition_id_or_name, principal_id, principal_type }' }
+    terraform:
+      attribute: 'azurerm_role_assignment = { scope, role_definition_name, principal_id }'
+      note: "one per entry, scope = the service id (source: azurerm 5.12 schema)"
+    bicep_avm: { attribute: 'roleAssignments[] = { principalId, roleDefinitionIdOrName, principalType }' }
+    bicep:
+      attribute: 'Microsoft.Authorization/roleAssignments properties = { principalId, roleDefinitionId, principalType }'
+      note: "one per entry, scoped to the service; roleDefinitionId takes the definition id, the render resolves the role name (source: bicep build, Microsoft.Authorization/roleAssignments@2022-04-01)"
+
+  # ----------------------------------------------------------------- security
+  security.legacy_protocols_disabled:
+    terraform_avm:
+      gap: >-
+        security - true is { enable_frontend_ssl30 = false, enable_frontend_tls10 = false,
+        enable_frontend_tls11 = false, enable_backend_ssl30 = false, enable_backend_tls10 = false,
+        enable_backend_tls11 = false, tls_*_ciphers_enabled = false } (every member written, the cipher
+        toggles from the README); the reference states nothing for false
+    terraform:
+      gap: >-
+        .security { frontend_ssl30_enabled, frontend_tls10_enabled, frontend_tls11_enabled,
+        backend_ssl30_enabled, backend_tls10_enabled, backend_tls11_enabled, triple_des_ciphers_enabled,
+        tls_*_ciphers_enabled } - the reference names the members without their values for either answer
+    bicep_avm:
+      gap: >-
+        customProperties - true is { 'Microsoft.WindowsAzure.ApiManagement.Gateway.Security.Protocols.Tls10':
+        'False', ... } with every key written (the list is in the README); the reference states nothing for false
+      note: the module sets a block of these by default; every key is written so a release cannot move it
+    bicep:
+      gap: properties.customProperties - the reference names the object without its keys or values
+  security.client_certificate_required:
+    terraform_avm: { attribute: client_certificate_enabled, passthrough: true, note: default false; written }
+    terraform: { attribute: client_certificate_enabled, passthrough: true }
+    bicep_avm: { attribute: enableClientCertificate, passthrough: true, note: default false; written }
+    bicep: { attribute: properties.enableClientCertificate, passthrough: true }
+
+  # ------------------------------------------------------------ observability
+  observability.diagnostic_workspace:
+    terraform_avm: { attribute: diagnostic_settings.workspace.workspace_resource_id }
+    terraform:
+      attribute: azurerm_monitor_diagnostic_setting.log_analytics_workspace_id
+      note: "(source: azurerm 5.12 schema)"
+    bicep_avm: { attribute: 'diagnosticSettings[].workspaceResourceId' }
+    bicep:
+      attribute: Microsoft.Insights/diagnosticSettings properties.workspaceId
+      note: "scoped to the service (source: bicep build, Microsoft.Insights/diagnosticSettings@2021-05-01-preview)"
+  observability.diagnostic_categories:
+    terraform_avm: { attribute: diagnostic_settings.workspace.log_categories, note: 'log_groups = [] beside it' }
+    terraform: { attribute: azurerm_monitor_diagnostic_setting.enabled_log.category }
+    bicep_avm: { attribute: 'diagnosticSettings[].logCategoriesAndGroups[].category' }
+    bicep:
+      attribute: 'Microsoft.Insights/diagnosticSettings properties.logs[].category'
+      note: "one { category, enabled: true } per entry, scoped to the service (source: bicep build, Microsoft.Insights/diagnosticSettings@2021-05-01-preview)"
+  observability.metrics_enabled:
+    terraform_avm:
+      attribute: diagnostic_settings.workspace.metric_categories
+      values: { true: { expr: '["AllMetrics"]' }, false: { expr: '[]' } }
+    terraform:
+      attribute: azurerm_monitor_diagnostic_setting.enabled_metric.category
+      values: { true: AllMetrics, false: null }
+      note: "false renders no enabled_metric block (source: azurerm 5.12 schema); AllMetrics from the 5.12 docs example"
+    bicep_avm:
+      attribute: 'diagnosticSettings[].metricCategories'
+      values: { true: { expr: "[ { category: 'AllMetrics' } ]" }, false: { expr: '[]' } }
+    bicep:
+      gap: "Microsoft.Insights/diagnosticSettings properties.metrics[] { category, enabled } scoped to the service is proven (bicep build, Microsoft.Insights/diagnosticSettings@2021-05-01-preview); the category is a free string in the type, so AllMetrics has no source for authored Bicep"

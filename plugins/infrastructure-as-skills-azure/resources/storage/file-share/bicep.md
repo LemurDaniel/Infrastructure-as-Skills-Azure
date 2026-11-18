@@ -12,14 +12,7 @@ Module: `br/public:avm/res/storage/storage-account:0.33.1` (resolved 2026-10-25)
 
 ### Decision -> module parameter
 
-| Decision | Parameter | Note |
-|---|---|---|
-| `share_names` | `fileServices.shares: [ { name } ]` | |
-| `protocol` | `fileServices.shares[].enabledProtocols` | `'SMB'` or `'NFS'`; fixed at creation |
-| `quota_gb` | `fileServices.shares[].shareQuota` | GB; up to 5,120, 102,400 with large file shares |
-| `access_tier` | `fileServices.shares[].accessTier` | `'TransactionOptimized'`, `'Hot'`, `'Cool'`, `'Premium'`. **Required** on a FileStorage account (`'Premium'`) |
-| `root_squash` | `fileServices.shares[].rootSquash` | NFS only |
-| `role_assignments` | `fileServices.shares[].roleAssignments: [ { principalId, roleDefinitionIdOrName, principalType } ]` | |
+What each decision renders to - the parameter and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.
 
 ```bicep
     // inside module storage - decision: file-share.shares.*
@@ -36,7 +29,7 @@ Module: `br/public:avm/res/storage/storage-account:0.33.1` (resolved 2026-10-25)
 ### Tests
 
 A module call compiles to a nested deployment whose `properties.parameters.fileServices.value`
-carries the shares, so every decision above is observable in `tests/*.armtest.yaml`
+carries the shares, so every decision in render-map.yaml is observable in `tests/*.armtest.yaml`
 ([bicep-idiom.md](../../../core/iac-rendering/references/bicep-idiom.md#tests)).
 
 ## Authored rendering
@@ -44,9 +37,4 @@ carries the shares, so every decision above is observable in `tests/*.armtest.ya
 The fallback. `Microsoft.Storage/storageAccounts/fileServices/shares` (parent `fileServices/default`)
 with `properties`:
 
-| Decision | Property |
-|---|---|
-| `protocol` | `properties.enabledProtocols` |
-| `quota_gb` | `properties.shareQuota` |
-| `access_tier` | `properties.accessTier` |
-| `root_squash` | `properties.rootSquash` |
+What each decision renders to - the property and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.

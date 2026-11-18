@@ -18,25 +18,13 @@ Terraform `>= 1.8`. The root's provider set is the union with the other modules.
 
 ### Decision -> module input
 
+What each decision renders to - the input and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.
+
+Deployment-wide inputs, not decisions of this set:
+
 | Decision | Input | Note |
 |---|---|---|
-| `sku` | `sku` | Module default `Premium`; written |
-| `zone_redundant` | `zone_redundancy_enabled` | Module default **`true`**; written. Modifying forces a new registry |
-| `geo_replicas` | `georeplications = [{ location, zone_redundancy_enabled, regional_endpoint_enabled }]` | Premium only |
-| `retention_untagged_days` | `retention_policy_in_days` | Module default 7 (Bicep 15); written. `null` disables |
-| `public_network_access` | `public_network_access_enabled` | **Bool**; module default **`true`** |
-| `ip_rules` | `network_rule_set = { default_action = "Deny", ip_rule = [{ ip_range }] }` | Premium only; member names from the README |
-| `network_rule_bypass` | `network_rule_bypass_option` | `None` / `AzureServices`; default `None`; written |
-| `export_policy_enabled` | `export_policy_enabled` | Default `true`; `false` needs public access off |
-| `image_push_path` | nothing on the registry | The image pipeline's steps and the AcrPush assignment for its identity; with `pipeline_opens_registry` the registry's public access is the pipeline's between its steps, so the render keeps `disabled` |
-| `private_endpoint_subnet` | `private_endpoints = { registry = { subnet_resource_id } }` | `subresource_name` defaults to `registry` |
 | `deployment.private_dns_records` | `private_endpoints_manage_dns_zone_group` | `false` under `policy` |
-| `managed_identity`, `user_assigned_identity_ids` | `managed_identities = { system_assigned, user_assigned_resource_ids }` | |
-| `role_assignments` | `role_assignments` | `role_assignment_mode` stays `LegacyRegistryPermissions` |
-| `admin_enabled` | `admin_enabled` | Default off; written |
-| `anonymous_pull_enabled` | `anonymous_pull_enabled` | Default `false`; written |
-| `key_management`, `cmk_key_vault_key_id` | `customer_managed_key = { key_vault_resource_id, key_name, user_assigned_identity = { resource_id } }` | `key_version` left unset: unversioned |
-| `diagnostic_*`, `metrics_enabled` | `diagnostic_settings = { workspace = { workspace_resource_id, log_categories = [...], log_groups = [], metric_categories = ["AllMetrics"] } }` | `log_groups` defaults to `["allLogs"]`: set it empty when `log_categories` names the categories, or every log is collected beside them |
 | `deployment.module_telemetry` | `enable_telemetry` | |
 | `context.tags` | `tags = local.tags` | |
 
@@ -116,14 +104,4 @@ in child resources - the endpoint, the diagnostic setting, role assignments - is
 
 The fallback. Targets `azurerm` **5.x**; check against `terraform providers schema -json`.
 
-| Decision | Argument on `azurerm_container_registry` |
-|---|---|
-| `sku` | `sku` |
-| `zone_redundant`, `geo_replicas` | `zone_redundancy_enabled`, `georeplications { location, zone_redundancy_enabled }` |
-| `retention_untagged_days` | `retention_policy_in_days` |
-| `public_network_access` | `public_network_access_enabled`, `network_rule_set` |
-| `network_rule_bypass` | `network_rule_bypass_option` |
-| `export_policy_enabled` | `export_policy_enabled` |
-| `admin_enabled`, `anonymous_pull_enabled` | `admin_enabled`, `anonymous_pull_enabled` |
-| `key_management` | `encryption { key_vault_key_id, identity_client_id }` |
-| diagnostics | `azurerm_monitor_diagnostic_setting` with `enabled_log { category }` |
+What each decision renders to - the argument and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.

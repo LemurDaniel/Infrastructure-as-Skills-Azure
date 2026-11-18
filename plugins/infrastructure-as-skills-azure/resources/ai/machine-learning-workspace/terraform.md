@@ -19,31 +19,14 @@ when their `resource_id` is null; this set always passes ids, so nothing is crea
 
 ### Decision -> module input
 
-| Decision | Input | Note |
+What each decision renders to - the input and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.
+
+### Inputs no decision covers
+
+| Input | Module input | Note |
 |---|---|---|
 | (kind) | `kind = "Default"` | Module default `Default`; written. `Hub` / `Project` are not this set |
-| `storage_account` | `storage_account = { resource_id }` | Null makes the module **create one**; always set |
-| `key_vault` | `key_vault = { resource_id }` | As above |
-| `application_insights` | `application_insights = { resource_id }` | As above |
-| `container_registry` | `container_registry = { resource_id }` | `{ resource_id = null }` when empty |
-| `hbi_workspace` | `hbi_workspace` | Default `false`; written |
-| `v1_legacy_mode` | - | **Not carried by the module** (`properties.v1LegacyMode`); `_target_overrides` or authored. The platform default is off, which is the set's default |
-| `image_build_compute` | `image_build_compute` | `null` when empty |
-| `computes` | - | **Not carried by the module**: `azapi_resource` `Microsoft.MachineLearningServices/workspaces/computes` beside it, after the workspace |
-| `managed_network_isolation` | `workspace_managed_network = { isolation_mode }` | `AllowOnlyApprovedOutbound` / `AllowInternetOutbound` / `Disabled`; module default **`Disabled`**; written. `spark_ready` defaults `true` |
-| `outbound_fqdns` | `workspace_managed_network.outbound_rules.fqdn = { <k> = { destination } }` | The first rule provisions a firewall (`firewall_sku`, default `Standard`) |
-| `provision_network_now` | `provision_network_now_enabled` | Default `false`; written |
-| `public_network_access` | `public_network_access_enabled` | **Bool**; module default `false`. `is_private` is deprecated |
-| `ip_allowlist` | `ip_allowlist` | |
-| `private_endpoint_subnet` | `private_endpoints = { amlworkspace = { subnet_resource_id } }` | Two zones |
 | `deployment.private_dns_records` | `private_endpoints_manage_dns_zone_group` | `false` under `policy` |
-| `serverless_compute_no_public_ip` | `serverless_compute = { public_ip_enabled }` | **Inverse**; default `false` = no public IP |
-| `managed_identity`, `user_assigned_identity_ids` | `managed_identities`, `primary_user_assigned_identity = { resource_id }` | The primary is required with user-assigned |
-| `role_assignments` | `role_assignments` | |
-| `storage_datastore_auth` | `storage_access_type` | `identity` / `accessKey`; module default `identity`; written. Documented as deprecated with a future API version |
-| `key_management`, `cmk_key_vault_key_id` | `customer_managed_key = { key_vault_resource_id, key_name, user_assigned_identity = { resource_id } }` | |
-| `service_side_cmk` | `service_side_cmk_encryption_enabled` | Default `false`; written |
-| `diagnostic_*`, `metrics_enabled` | `diagnostic_settings = { workspace = { workspace_resource_id, log_categories, log_groups = [], metric_categories = ["AllMetrics"] } }` | `log_groups` defaults to `["allLogs"]`: set it empty |
 | `deployment.module_telemetry` | `enable_telemetry` | |
 | `context.tags` | `tags = local.tags` | |
 
@@ -169,18 +152,4 @@ on the authored resource.
 The fallback. Targets `azurerm` **5.x** (`azurerm_machine_learning_workspace`); check against
 `terraform providers schema -json`.
 
-| Decision | Argument |
-|---|---|
-| dependencies | `storage_account_id`, `key_vault_id`, `application_insights_id`, `container_registry_id` |
-| `hbi_workspace` | `high_business_impact` |
-| `v1_legacy_mode` | `v1_legacy_mode_enabled` |
-| `image_build_compute` | `image_build_compute_name` |
-| `managed_network_isolation`, `provision_network_now` | `managed_network { isolation_mode, provision_on_creation_enabled }`; FQDN rules are `azurerm_machine_learning_workspace_network_outbound_rule_fqdn` |
-| `public_network_access` | `public_network_access_enabled` |
-| `serverless_compute_no_public_ip` | `serverless_compute { public_ip_enabled }` (inverse) |
-| `managed_identity` | `identity { type, identity_ids }`, `primary_user_assigned_identity` |
-| `storage_datastore_auth` | `storage_account_access_type` (`Identity` / `AccessKey`) |
-| `key_management`, `service_side_cmk` | `encryption { key_vault_id, key_id, user_assigned_identity_id }`, `service_side_encryption_enabled` |
-| `computes` | `azurerm_machine_learning_compute_cluster`, `azurerm_machine_learning_compute_instance` |
-| private endpoint | `azurerm_private_endpoint` with `subresource_names = ["amlworkspace"]` |
-| diagnostics | `azurerm_monitor_diagnostic_setting` with `enabled_log { category }` |
+What each decision renders to - the argument and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.

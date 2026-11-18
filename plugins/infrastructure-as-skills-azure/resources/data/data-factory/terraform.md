@@ -23,23 +23,13 @@ endpoint.
 
 ### Decision -> module input
 
-| Decision | Input | Note |
+What each decision renders to - the input and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.
+
+### Deployment-wide inputs
+
+| Input | Module input | Note |
 |---|---|---|
-| `managed_virtual_network` | `managed_virtual_network_enabled` **and** an authored `azurerm_data_factory_integration_runtime_azure` with `virtual_network_enabled = true` | Module default `false`; written. Without the runtime the network exists and nothing runs in it |
-| `managed_private_endpoints` | **not the module** - `azurerm_data_factory_managed_private_endpoint` per entry | Approval on the source is a step after the apply |
-| `self_hosted_integration_runtime` | `integration_runtime_self_hosted = { <key> = { name } }` | `{}` for `none`; the key is read with `azapi_resource_action` `listAuthKeys` after the apply |
-| `global_parameters` | `global_parameters = [ { name, type, value } ]` | A list, not a map |
-| `purview_account` | `purview_id` | `null` for none |
-| `git_provider`, `git_account`, `git_repository`, `git_collaboration_branch`, `git_root_folder`, `git_host` | `github_configuration = { account_name, repository_name, branch_name, root_folder, git_url }` | `git_url` only for an Enterprise Server; both configurations `null` on every stage but development |
-| `git_provider: azure_devops`, `git_project` | `vsts_configuration = { account_name, project_name, repository_name, branch_name, root_folder, tenant_id }` | |
-| `public_network_access` | `public_network_enabled` | **Bool**, module default **`true`**; written |
-| `private_endpoint_subnet`, `private_endpoint_subresources` | `private_endpoints = { dataFactory = { subnet_resource_id, name } }` | The module fixes the sub-resource `dataFactory`; the **`portal`** endpoint is an authored `azurerm_private_endpoint` |
 | `deployment.private_dns_records` | `private_endpoints_manage_dns_zone_group` | `false` under `policy` |
-| `managed_identity`, `user_assigned_identity_ids` | `managed_identities = { system_assigned = true, user_assigned_resource_ids }` | System-assigned stays on with `user_assigned` |
-| `source_access` | **not the module** - role assignments beside the sources | Wiring |
-| `role_assignments` | `role_assignments` | Control plane |
-| `key_management`, `cmk_key_vault_key_id` | `customer_managed_key_id` (versioned URL) and `customer_managed_key_identity_id` | Both or neither |
-| `diagnostic_workspace`, `diagnostic_categories`, `metrics_enabled` | `diagnostic_settings = { workspace = { workspace_resource_id, log_categories, log_groups = [], metric_categories = ["AllMetrics"], log_analytics_destination_type = "Dedicated" } }` | `log_groups` defaults to `["allLogs"]`; set empty beside the categories |
 | `deployment.resource_lock` | `lock` | Not on the lock list: a factory is recreated from the spec and its repository |
 | `deployment.module_telemetry` | `enable_telemetry` | |
 | `context.tags` | `tags = local.tags` | |
@@ -180,13 +170,4 @@ the endpoint approvals and the runtime key are `# not-testable:` (not a resource
 The fallback - `implementation: authored`, or a repository that already renders the factory this
 way. Targets `azurerm` **5.x**; check against `terraform providers schema -json`.
 
-| Decision | Resource and argument |
-|---|---|
-| the factory | `azurerm_data_factory` (`public_network_enabled`, `managed_virtual_network_enabled`, `purview_id`, `customer_managed_key_id`, `customer_managed_key_identity_id`, `identity { type, identity_ids }`, `global_parameter { name, type, value }`) |
-| `git_provider` and details | `github_configuration { account_name, repository_name, branch_name, root_folder, git_url, publishing_enabled }` / `vsts_configuration { ... , project_name, tenant_id }` |
-| `managed_virtual_network` | `azurerm_data_factory_integration_runtime_azure` with `virtual_network_enabled` |
-| `managed_private_endpoints` | `azurerm_data_factory_managed_private_endpoint` |
-| `self_hosted_integration_runtime` | `azurerm_data_factory_integration_runtime_self_hosted` |
-| private endpoints | `azurerm_private_endpoint` with `subresource_names = ["dataFactory"]` and `["portal"]` |
-| `role_assignments` | `azurerm_role_assignment` |
-| diagnostics | `azurerm_monitor_diagnostic_setting` with `log_analytics_destination_type = "Dedicated"`, `enabled_log { category }`, `enabled_metric { category = "AllMetrics" }` |
+What each decision renders to - the argument and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.

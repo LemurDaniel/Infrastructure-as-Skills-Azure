@@ -97,10 +97,11 @@ Never hardcode a resource name, and never hand-write a tag per resource.
 
 **Names follow the plugin's convention unless the customer specifies another.** The
 convention is [naming.default.yaml](../../iac-rendering/references/naming.default.yaml) —
-CAF abbreviations, AVM region codes, `<TYPE>-<LOCATION>-<ENVIRONMENT>-<NAME>-<INDEX>` with
-per-type patterns where Azure's limits force them (`stweprodpayments01`,
-`kv-we-prod-payments-a1b2`). Every root gets a full copy as `naming.yaml` beside the spec on
-the first run: Terraform's provider reads it, Bicep's name `var`s are generated from it.
+the `LemurDaniel/naming` provider's own default: CAF abbreviations, AVM region codes,
+`<TYPE>-<LOCATION>-<ENVIRONMENT>-<NAME><?PURPOSE;-%s>-<INDEX>` with per-type patterns where
+Azure's limits force them, the location in every one, and `<UNIQUE_ID_3>` in place of
+`<INDEX>` for every global name (`stweprodpaymentsa1b`, `kv-we-prod-payments-a1b`). Every root gets
+a full copy as `naming.yaml` beside the spec on the first run: Terraform's provider reads it, Bicep's name `var`s are generated from it.
 From then on the convention is what the repository holds:
 
 - **The customer's word wins.** A different pattern, abbreviation or environment code goes
@@ -141,6 +142,17 @@ The posture ladder, in order of preference:
    a firewall rule is not an allowlist.
 4. **Public, unrestricted** — only with a stated reason recorded in the spec as
    `overridden`.
+
+**Every subnet the deployment creates has a network security group**, with or without a
+landing zone - the private endpoint subnet included. Without one, everything in the network
+reaches everything in the subnet, and a landing zone's policy (*Subnets should have a Network
+Security Group*, deny) refuses the subnet at apply time. One NSG per subnet purpose
+(`private_endpoints`, `app_integration`, `container_apps`, `workload`), derived from what is in
+the subnet and never asked; it costs nothing. The exceptions are the subnets Azure refuses one
+on - `GatewaySubnet`, `AzureFirewallSubnet`, `AzureFirewallManagementSubnet`,
+`RouteServerSubnet`. A subnet the platform hands out carries the platform's NSG: the
+deployment does not attach its own, since a subnet takes one. `check_spec.py` fails on a
+created subnet without one.
 
 Private DNS zones are shared infrastructure. No resource that needs one creates it: in a
 landing zone the platform owns them, without one the deployment creates each zone once, as a

@@ -25,22 +25,39 @@ the convention is the module's or the repository's own. The spec still records
 
 ## The convention
 
-[naming.default.yaml](naming.default.yaml) is the plugin's convention: the one the
-`LemurDaniel/naming` provider bundles as `default` — CAF abbreviations, AVM region codes,
-one pattern per type where Azure's limits demand it. It is the default the guardrails
-prescribe; see [guardrails.md](../../iac-authoring/references/guardrails.md#1-naming-and-tags).
+[naming.default.yaml](naming.default.yaml) is the plugin's convention, and it is **the
+`default` convention the `LemurDaniel/naming` provider bundles**, byte for byte, of the
+version [below](#use-the-provider-not-the-modules) pins - CAF abbreviations, AVM region codes,
+one pattern per type where Azure's limits demand it. A change to it is made in the provider
+first and copied here; `check_repo_consistency.py` compares both when the provider's
+repository is checked out beside this one. It is the default the guardrails prescribe; see
+[guardrails.md](../../iac-authoring/references/guardrails.md#1-naming-and-tags).
 
 What it produces, with `location: westeurope`, `environment: production`,
-`name: payments`:
+`name: payments` (`a1b` stands for the unique id):
 
 | Type | Pattern | Name |
 |---|---|---|
-| Resource group | `<TYPE>-<LOCATION>-<ENVIRONMENT>-<NAME>-<INDEX>` | `rg-we-prod-payments-01` |
-| Virtual network | same | `vnet-we-prod-payments-01` |
-| Subnet | `<TYPE>-<ENVIRONMENT>-<NAME>-<INDEX>` | `snet-prod-payments-01` |
-| Log Analytics | Azure default, `<?SUBNAME;-%s>` optional | `log-we-prod-payments-01` |
-| Storage account | `<TYPE><LOCATION><ENVIRONMENT><NAME><INDEX>`, lowercase | `stweprodpayments01` |
-| Key vault, Cosmos DB, Foundry, AI Search | `<TYPE>-<LOCATION>-<ENVIRONMENT>-<NAME>-<UNIQUE_ID_4>` | `kv-we-prod-payments-a1b2` |
+| Resource group, virtual network, subnet, most types | `<TYPE>-<LOCATION>-<ENVIRONMENT>-<NAME><?PURPOSE;-%s>-<INDEX>` | `rg-we-prod-payments-01`, `snet-we-prod-payments-01` |
+| The same with a purpose | `purpose: blob` | `pep-we-prod-payments-blob-01` |
+| No hyphens allowed (VM, batch, gallery, Synapse pools, ...) | `<TYPE><LOCATION><ENVIRONMENT><NAME><?PURPOSE><INDEX>` | `vmweprodpayments01` |
+| Storage account, container registry, Data Lake, Data Explorer | `<TYPE><LOCATION><ENVIRONMENT><NAME><?PURPOSE><UNIQUE_ID_3>`, lowercase | `stweprodpaymentsa1b` |
+| Every other global name: key vault, Cosmos DB, Foundry / AI Services, AI Search, App Service, SQL, PostgreSQL, MySQL, Redis, Service Bus, Event Hubs, Relay, Data Factory, Purview, API Management, Communication Services, Bot, Front Door | `<TYPE>-<LOCATION>-<ENVIRONMENT>-<NAME><?PURPOSE;-%s>-<UNIQUE_ID_3>` | `kv-we-prod-payments-a1b` |
+
+**Every pattern carries the location.** **A global name carries `<UNIQUE_ID_3>` in place of
+`<INDEX>`.** It is a DNS name across all of Azure, so workload, stage and region alone
+collide with another tenant's; a second instance differs in `<NAME>` (the instance suffix)
+or `<PURPOSE>`, not in an index. **`<?PURPOSE>` names a sub-resource or a role** (the private
+endpoint's `blob`, the route table's `spoke`) and stands before the index; left out, it
+leaves no separator behind. **A subnet is named the same way**: the spec's subnet name is its
+purpose (`app`, `endpoints` for the private endpoint subnet), so `snet-we-prod-shop-app-01` -
+every subnet from the convention, none verbatim, unless the spec gives it an `azure_name`
+because it exists under that name already.
+
+**The provider checks every name** against its type's naming rule (length, characters) at
+plan time and fails the plan on a name Azure would reject - a workload name too long for a
+key vault (`kv-we-prod-` and `-<id>` leave 9 of its 24 characters for name and purpose) fails `plan`,
+not the apply. Bicep has no such check; see [Character rules](#character-rules).
 
 ### `naming.yaml` in the user's repository — a full copy, both targets
 
@@ -112,7 +129,7 @@ terraform {
   required_providers {
     naming = {
       source  = "LemurDaniel/naming"
-      version = "~> 1.0"
+      version = "~> 2.1"
     }
   }
 }
@@ -122,7 +139,7 @@ terraform {
 provider "naming" {
   convention  = "default"
   naming      = "${path.module}/naming.yaml"
-  # Read only by <UNIQUE_ID_n> - the key vault pattern. Key vault names are global,
+  # Read only by <UNIQUE_ID_n> - the patterns of global names (key vault, storage, ...),
   # so the seed carries the deployment scope, not just the workload.
   random_seed = "${var.subscription_id}/${var.resource_group_name}"
 
@@ -138,7 +155,7 @@ data "naming_name" "storage_account" {
 }
 
 resource "azurerm_storage_account" "this" {
-  name = data.naming_name.storage_account.name # stwedevmyapp01 (environment: development)
+  name = data.naming_name.storage_account.name # stwedevmyappa1b (environment: development)
   # ...
 }
 ```
@@ -150,7 +167,7 @@ resource "azurerm_storage_account" "this" {
 | `resource` | Required. `"Azure::<Namespace>/<Type>[::<kind>]"`. |
 | `index` | `{ start, count }`. `count` is **how many names** to render, `start` only shifts the first index. |
 | `naming_id` | Selects a named pattern/abbreviation variant. Takes precedence over `kind`. |
-| `parameters` | Map of string, layered over the provider's `parameters`. |
+| `parameters` | Map of string, layered over the provider's `parameters`. `purpose` fills `<?PURPOSE>`. |
 
 Read-only: `name` (the first name), `at_index` (all of them, in index order), plus the
 aliases `result` and `by_index`.
@@ -182,7 +199,8 @@ resource "azurerm_virtual_network" "this" {
 | `convention` | Bundled convention name. Defaults to `"default"` (CAF abbreviations). |
 | `naming` | Path to a YAML file overriding the convention, merged per key. Always `naming.yaml` beside the spec — a full copy, see above. |
 | `parameters` | `location`, `environment`, `name`, … that the patterns render from. |
-| `random_seed` | Only needed if a pattern you use contains the `<UNIQUE_ID_n>` token. The same seed always resolves to the same id, so names stay stable with nothing in state. |
+| `random_seed` | Required: every global name contains `<UNIQUE_ID_3>`, and the plan fails without a seed. The same seed always resolves to the same id, so names stay stable with nothing in state. |
+| `validation` | Leave it unset (`"error"`): a name that breaks its type's rule fails the plan. Never set `"warn"` or `"off"` to make a plan pass - fix the pattern or the workload name. |
 
 Everything resolves during `plan`: embedded YAML merged in memory, no API calls, nothing
 persisted. That is why it is a data source rather than a resource — rendering is pure.
@@ -234,14 +252,17 @@ var loc = locationCodes[location]
 var env = environmentCodes[environment]
 var idx = padLeft(index, 2, '0')
 
-// <TYPE><LOCATION><ENVIRONMENT><NAME><INDEX>, lowercase  ->  stwedevobjects01
-var storageAccountName = toLower('st${loc}${env}${workload}${idx}')
+// <TYPE><LOCATION><ENVIRONMENT><NAME><UNIQUE_ID_3>, lowercase  ->  stwedevobjectsa1b
+var storageAccountName = toLower('st${loc}${env}${workload}${take(uniqueString(resourceGroup().id), 3)}')
 
 // <TYPE>-<LOCATION>-<ENVIRONMENT>-<NAME>-<INDEX>  ->  vnet-we-dev-objects-01
 var virtualNetworkName = 'vnet-${loc}-${env}-${workload}-${idx}'
 
-// <TYPE>-<LOCATION>-<ENVIRONMENT>-<NAME>-<UNIQUE_ID_4>  ->  kv-we-dev-objects-a1b2
-var keyVaultName = 'kv-${loc}-${env}-${workload}-${take(uniqueString(resourceGroup().id), 4)}'
+// <TYPE>-<LOCATION>-<ENVIRONMENT>-<NAME>-<UNIQUE_ID_3>  ->  kv-we-dev-objects-a1b
+var keyVaultName = 'kv-${loc}-${env}-${workload}-${take(uniqueString(resourceGroup().id), 3)}'
+
+// <?PURPOSE;-%s> with a purpose: the literal before the index  ->  pep-we-dev-objects-blob-01
+var blobEndpointName = 'pep-${loc}-${env}-${workload}-blob-${idx}'
 ```
 
 ### The parts
@@ -258,7 +279,7 @@ var keyVaultName = 'kv-${loc}-${env}-${workload}-${take(uniqueString(resourceGro
 
 **`<UNIQUE_ID_n>` is the one part the targets do not share.** The provider derives it from
 `random_seed`, Bicep from `uniqueString()`; the same spec therefore names a key vault
-differently in Terraform and in Bicep. Say so when a spec is rendered to both, and do not
+differently in Terraform and in Bicep - and every other global name with it. Say so when a spec is rendered to both, and do not
 paper over it with a literal.
 
 Declare the maps once per deployment — in `main.bicep`, or in a shared `naming.bicep`
@@ -271,9 +292,11 @@ regenerate the block.
 Nothing checks a name assembled from `var`s, so the per-type rules are the render's to keep:
 
 - **Storage accounts, container registries**: lowercase alphanumeric only, no separators,
-  3–24 characters. `toLower()` and no `-`.
-- **Key vaults**: 3–24 characters, hyphens allowed, must start with a letter; with location
-  and suffix that leaves 3–10 for the workload name.
+  3–24 characters (registry 5–50). `toLower()` and no `-`; `uniqueString()` is lowercase
+  already. Type, location, stage and id leave 8–15 for the workload name (13 with
+  `we` and `prod`), depending on the codes in `mappings`.
+- **Key vaults**: 3–24 characters, hyphens allowed, must start with a letter; type, location,
+  stage and id leave 4–11 for the workload name and purpose (9 with `we` and `prod`).
 - **Most others**: hyphens are conventional (`vnet-we-dev-myapp-01`).
 
 Every resource's `bicep.md` states its own limit. If a workload name can push the rendered
@@ -294,15 +317,16 @@ python scripts/list_names.py infra-spec.yaml [--stage production] [--language de
 It needs the spec alone (and PyYAML): the type's pattern from the convention - the
 `naming.yaml` beside the spec when there is one, else [naming.default.yaml](naming.default.yaml)
 - filled from `context` (location, workload, stage), the abbreviation from the question set.
-An instance (`storage-account__host`) joins the workload in `<NAME>` (`stweprodshophost01`);
-`<SUBNAME>` is for sub-resources only. It lists the resource groups (a stated name verbatim,
+An instance (`storage-account__host`) joins the workload in `<NAME>` (`stweprodshophost???`);
+`<PURPOSE>` is for sub-resources and roles. It lists the resource groups (a stated name verbatim,
 a created one from the pattern), each resource and the vnet's subnets, per stage, and exits 1
 on a name over its type's length, outside its characters, or used twice.
 
 What it cannot know it says, per row, and the hand-over repeats it:
 
 - **`<UNIQUE_ID_n>` is printed as `?`.** The seed (Terraform) and `uniqueString()` (Bicep)
-  decide it; a key vault, Cosmos DB, Search or Foundry name is final only at the deploy.
+  decide it; every global name (storage, key vault, registry, App Service, ...) is final only
+  at the deploy.
 - **A global name is never "free".** Storage, key vault, registry, App Service, Cosmos DB,
   Search and the Foundry subdomain are marked `availability unchecked`; the check needs a login.
 - **Not listed:** private endpoints, diagnostic settings, role assignments and what an AVM

@@ -19,19 +19,12 @@ Resolve the current version and re-read the README parameters before rendering, 
 
 ### Decision -> module parameter
 
+What each decision renders to - the parameter and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.
+
+Deployment-wide inputs, not decisions of this set:
+
 | Decision | Parameter | Note |
 |---|---|---|
-| `purpose` | the name, assembled from the `pip` abbreviation, affix, workload and purpose | |
-| `sku` | `skuName` | `'Standard'`; module default is `Standard` too, written anyway. `'StandardV2'` and `'Basic'` are allowed values |
-| `sku_tier` | `skuTier` | |
-| `allocation_method` | `publicIPAllocationMethod` | |
-| `ip_version` | `publicIPAddressVersion` | |
-| `zones` | `availabilityZones: [1, 2, 3]` | Integers; the module default is all three too |
-| `idle_timeout_minutes` | `idleTimeoutInMinutes` | |
-| `dns_label` | `dnsSettings: { domainNameLabel }` | Omit for none |
-| `ddos_protection_mode: Enabled` | `ddosSettings: { protectionMode: 'Enabled', ddosProtectionPlan: { id } }` | `'Enabled'` is the only allowed mode |
-| `ddos_protection_mode: VirtualNetworkInherited` / `Disabled` | omit `ddosSettings` | The module cannot express either explicitly; Azure applies inheritance. Not carried: a recorded `Disabled` renders the same as inherited, and the handover says so |
-| `diagnostic_*`, `metrics_enabled` | `diagnosticSettings: [ { workspaceResourceId, logCategoriesAndGroups: [ { category } ], metricCategories: [ { category: 'AllMetrics' } ] } ]` | Without either list the module collects everything; both are written |
 | `deployment.module_telemetry` | `enableTelemetry` | |
 | `context.tags` | `tags` | |
 
@@ -87,7 +80,7 @@ the deployment for an address that is not yet allocated; a Static one has it.
 ### Tests
 
 A module call compiles to a nested deployment whose `properties.parameters.<param>.value` is
-the decision, so every decision above except the two DDoS rows is observable in
+the decision, so every decision in render-map.yaml except the two DDoS rows is observable in
 `tests/*.armtest.yaml`
 ([bicep-idiom.md](../../../core/iac-rendering/references/bicep-idiom.md#tests)): `skuName`,
 `skuTier`, `publicIPAllocationMethod`, `publicIPAddressVersion`, `availabilityZones`,

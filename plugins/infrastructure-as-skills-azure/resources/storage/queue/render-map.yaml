@@ -1,0 +1,55 @@
+# What each decision of questions.yaml renders to, per target and implementation.
+# Format: core/iac-rendering/references/render-map.md. The call, the authored blocks and the
+# tests are in terraform.md and bicep.md.
+# No module call of its own: the AVM entries are paths inside the storage account's call.
+schema_version: 1
+resource: Microsoft.Storage/storageAccounts/queueServices/queues
+
+modules:
+  terraform: [Azure/avm-res-storage-storageaccount/azurerm]
+  bicep: [avm/res/storage/storage-account]
+
+decisions:
+
+  # ---------------------------------------------------------------- placement
+  placement.environments:
+    not_rendered: the tag of the environment where the repository uses one; no attribute of the queue
+  placement.storage_account:
+    terraform_avm: { gap: the queues are an input of the account's own module call; no input of their own }
+    terraform: { attribute: storage_account_id }
+    bicep_avm: { gap: the queues are a parameter of the account's own module call; no parameter of their own }
+    bicep: { attribute: parent, note: queueServices/default of the account }
+
+  # ------------------------------------------------------------------- queues
+  queues.queue_names:
+    terraform_avm: { attribute: 'queues.<key>.name', note: the map key is arbitrary; the name is the decision }
+    terraform: { attribute: name }
+    bicep_avm: { attribute: 'queueServices.queues[].name' }
+    bicep: { attribute: name, note: child of queueServices/default }
+  queues.needs_dead_letter_or_ordering:
+    not_rendered: true swaps this set for service-bus; no attribute of the queue
+  queues.metadata:
+    terraform_avm:
+      attribute: 'queues.<key>.metadata'
+      format: { expr: '{ for kv in {value} : split("=", kv)[0] => split("=", kv)[1] }' }
+      note: a map of lowercase keys, built from the key=value entries
+    terraform:
+      attribute: azurerm_storage_queue.metadata
+      format: { expr: '{ for kv in {value} : split("=", kv)[0] => split("=", kv)[1] }' }
+    bicep_avm:
+      attribute: 'queueServices.queues[].metadata'
+      format: { expr: "toObject({value}, kv => split(kv, '=')[0], kv => split(kv, '=')[1])" }
+    bicep:
+      attribute: properties.metadata
+      format: { expr: "toObject({value}, kv => split(kv, '=')[0], kv => split(kv, '=')[1])" }
+
+  # ----------------------------------------------------------------- identity
+  identity.role_assignments:
+    terraform_avm:
+      attribute: 'queues.<key>.role_assignments.<key> = { role_definition_id_or_name, principal_id, principal_type }'
+      note: scoped to the queue
+    terraform: { attribute: azurerm_role_assignment, note: 'scope = azurerm_storage_queue.<k>.id, the Resource Manager id in 5.x' }
+    bicep_avm: { attribute: 'queueServices.queues[].roleAssignments[] = { principalId, roleDefinitionIdOrName, principalType }' }
+    bicep:
+      attribute: 'Microsoft.Authorization/roleAssignments properties = { roleDefinitionId, principalId, principalType }'
+      note: 'an extension resource, scope = the queue (source: bicep build, Microsoft.Authorization/roleAssignments@2022-04-01)'

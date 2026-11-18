@@ -23,27 +23,12 @@ authored resources use `azurerm` 5.x in the same root.
 
 ### Decision -> module input / resource argument
 
+What each decision renders to - the input or argument and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.
+
+### Deployment-wide inputs
+
 | Decision | `activity_log` (module) | `metric` (`azurerm_monitor_metric_alert`) | `log_query` (`azurerm_monitor_scheduled_query_rules_alert_v2`) |
 |---|---|---|---|
-| `location` | `location` (telemetry) + `resource_location = "global"` | - (global) | `location` |
-| `resource_group_name` | `parent_id` (id) | `resource_group_name` | `resource_group_name` |
-| `action_group` | `action_groups = { <k> = { action_group_id } }` | `action { action_group_id }` | `action { action_groups = [...] }` |
-| `severity` | - (activity log alerts carry none) | `severity` (provider default **3**) | `severity` (required) |
-| `enabled` | `enabled` | `enabled` | `enabled` |
-| `auto_mitigate` | - | `auto_mitigate` | `auto_mitigation_enabled` |
-| `scopes` | `scopes = ["/subscriptions/<id>"]` | `scopes`, `target_resource_type`, `target_resource_location` | `scopes = [workspace id]` |
-| `metric_name` | | `criteria.metric_namespace`, `.metric_name` | |
-| `aggregation`, `operator`, `threshold` | | `criteria.aggregation`, `.operator`, `.threshold` | |
-| `threshold_mode: dynamic`, `dynamic_sensitivity` | | `dynamic_criteria { alert_sensitivity, ... }` instead of `criteria` | |
-| `window_size`, `frequency` | | `window_size`, `frequency` | |
-| `dimensions` | | `criteria.dimension { name, operator, values }` | |
-| `workspace` | | | `scopes` |
-| `query_file` | | | `criteria.query = file("${path.module}/queries/<rule>.kql")` |
-| `time_aggregation`, `log_operator`, `log_threshold` | | | `criteria.time_aggregation_method`, `.operator`, `.threshold` (+ `metric_measure_column` for non-Count) |
-| `evaluation_frequency`, `window_duration` | | | `evaluation_frequency`, `window_duration` |
-| `mute_actions_duration` | | | `mute_actions_after_alert_duration` (`null` for `none`) |
-| `category`, `service_health_event_types`, `impacted_regions`, `resource_health_statuses`, `operation_name` | `condition.all_of[]` leaves (`field` + `equals` / `contains_any`, `any_of` groups) | | |
-| `query_identity`, `user_assigned_identity_id` | | | `identity { type = "UserAssigned", identity_ids }` |
 | `deployment.resource_lock` | `lock = { kind }` | `azurerm_management_lock` | `azurerm_management_lock` |
 | `deployment.module_telemetry` | `enable_telemetry` | - | - |
 | `context.tags` | `tags` | `tags` | `tags` |
@@ -196,14 +181,6 @@ activity log alert module exposes **`resource_id` only**, so its decisions (`cat
 ## Authored rendering
 
 For `metric` and `log_query` the authored resources above **are** the rendering (no module).
-The activity log alert's fallback:
+The activity log alert's fallback is authored.
 
-| Decision | Argument |
-|---|---|
-| `location` | `azurerm_monitor_activity_log_alert.location = "global"` (required in 5.x) |
-| `category` | `criteria { category = "ServiceHealth" }` (`ResourceHealth`, `Administrative`, `Security`) |
-| `service_health_event_types`, `impacted_regions` | `criteria.service_health { events, locations }` |
-| `resource_health_statuses` | `criteria.resource_health { current, reason = ["PlatformInitiated"] }` |
-| `operation_name` | `criteria { operation_name, status = "Succeeded" }` |
-| `action_group` | `action { action_group_id }` |
-| `enabled` | `enabled` |
+What each decision renders to - the argument and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.

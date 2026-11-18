@@ -4,7 +4,8 @@
 Read-only. Checks what the contract in references/spec.md promises:
 
   1. The file parses as YAML, and carries schema_version, spec.id and
-     spec.target.
+     spec.target. schema_version is the spec format's (SPEC_SCHEMA_VERSION); a newer
+     one fails - this plugin does not know the format.
   2. Every decision value carries a known `source`: a word (spec_source.WORDS) or
      a map of one key. A value without one is a settings dump entry, not a
      recorded decision.
@@ -29,11 +30,23 @@ Read-only. Checks what the contract in references/spec.md promises:
   6. composition: unique module ids, every resource contained exactly once,
      `needs` pointing at declared modules and acyclic, `implementation`
      being avm|authored|reuse rather than a module path.
+  6a. _target_overrides (top level or a resource's): keyed by terraform or bicep, each
+     override { value, reason } with a reason - data, since a comment does not
+     survive the parser the render reads the spec through.
   7. Stages: context.environments is a non-empty list; a value that is a map
      keyed by stage names uses only those stages, and a stage it leaves out
      is named by an open entry (`environments:`) for that key. A per_environment
-     question with more than one stage is a map unless its value names only
-     what the spec defines (a resource key, names of its parts, nothing).
+     question with more than one stage is a map, unless it takes a reference.
+  7a. References: a question with `accepts: { ref: <kind> }` holds {resource: <key>}
+     (a resource of this spec of that kind, with `part:` where the kind is a part) or
+     {existing: <kind>} with an id per stage of the kind's form, or an open entry for
+     the id - never a bare name, a stage map or a name and resource group
+     (spec_ref.py, references/ref-kinds.yaml).
+  7b. A question marked `exclusive` (a subnet takes one NSG, one route table, one NAT
+     gateway): no part is named by two resources of its set through it.
+  7c. Every subnet a virtual-network of the spec creates - listed, or the implied private
+     endpoint subnet - is named by a network-security-group, but those Azure refuses one on
+     (NO_NSG_SUBNETS).
   8. Resource groups: the groups are derived (rg_roles.groups) - one, `main`, unless
      `resource_group_layout` is split; under a split every role of the scheme
      (`resource_group_scheme`: concern by default, lifecycle, protection, or component:
@@ -81,8 +94,16 @@ import sys
 
 KNOWN_BLOCKS = ['render', 'plan', 'apply']
 
+# The version of the spec format this plugin reads and writes - not the question sets'
+# schema_version, which versions their own format.
+SPEC_SCHEMA_VERSION = 1
+# Subnets Azure refuses an NSG on (guardrails.md, Network exposure); every other one the spec
+# creates has one.
+NO_NSG_SUBNETS = {'GatewaySubnet', 'AzureFirewallSubnet', 'AzureFirewallManagementSubnet', 'RouteServerSubnet'}
+TARGETS = ('terraform', 'bicep')
+
 # Attribute spellings that belong to a backend, not to a decision. Matched
-# against decision keys only - a `renders:` field naming them is correct.
+# against decision keys only - a render-map.yaml naming them is correct.
 BACKEND_SPELLINGS = [
     'public_network_access_enabled', 'allow_nested_items_to_be_public',
     'shared_access_key_enabled_bool', 'https_traffic_only_enabled',
@@ -96,6 +117,7 @@ sys.path.insert(0, os.path.join(HERE, '..', '..', 'iac-rendering', 'scripts'))
 import rg_roles  # noqa: E402 - the role table per scheme, shared with the diagram and the documents
 sys.path.insert(0, HERE)
 import spec_source  # noqa: E402 - a source as a word or {forced_by | derived_from | overridden: ...}
+import spec_ref  # noqa: E402 - a reference as {resource: <key>} or {existing: <kind>}
 # Resource keys every resource may carry without its set asking them (spec.md: placement, meta).
 BUILTIN_RESOURCE_KEYS = {('placement', 'resource_group'), ('placement', 'location'), ('meta', 'purpose')}
 RG_LOCKS = ['production', 'all_stages', 'none']
@@ -190,12 +212,17 @@ def main():
     for k in ('schema_version', 'spec'):
         if not has(spec, k):
             errors.append(f"top level: '{k}' is missing")
+    sv = get(spec, 'schema_version')
+    if has(spec, 'schema_version') and (not isinstance(sv, int) or isinstance(sv, bool) or sv < 1):
+        errors.append(f"schema_version '{sv}' is not a spec format version (an integer, {SPEC_SCHEMA_VERSION} today)")
+    elif isinstance(sv, int) and sv > SPEC_SCHEMA_VERSION:
+        errors.append(f"schema_version {sv} is a spec format newer than this plugin reads ({SPEC_SCHEMA_VERSION}) - update the plugin")
     head = get(spec, 'spec')
     for k in ('id', 'target'):
         if not has(head, k):
             errors.append(f"spec.{k} is missing")
     target = get(head, 'target')
-    if target and target not in ('terraform', 'bicep'):
+    if target and target not in TARGETS:
         errors.append(f"spec.target '{target}' is not terraform or bicep")
     pv = get(head, 'plugin_version')
     if pv is not None and not re.match(r'^\d+\.\d+\.\d+', str(pv)):
@@ -215,9 +242,11 @@ def main():
         ok(f"envelope - id '{get(head, 'id')}', target '{target}', stages {environments}")
 
     # open entries naming stages, keyed by decision path
-    open_stages = {}
+    open_stages, open_keys = {}, set()
     for o in (get(spec, 'open') or []):
         if isinstance(o, dict) and o.get('key'):
+            if not o.get('environments'):
+                open_keys.add(str(o['key']))
             for e in (o.get('environments') or []):
                 open_stages.setdefault(str(o['key']), set()).add(e)
     stage_maps = 0
@@ -225,6 +254,10 @@ def main():
         questions = load_question_index(yaml)
     except (yaml.YAMLError, OSError):
         questions = {}
+    try:
+        ref_kinds = spec_ref.load_kinds(yaml)
+    except (yaml.YAMLError, OSError):
+        ref_kinds = {}
 
     # --- 2-5. walk every decision ------------------------------------------
     decisions = 0
@@ -302,18 +335,11 @@ def main():
                     where = f" (stage {stage})" if stage else ''
                     errors.append(f"{path}{where} is '{item}', which is not one of its question's accepts: {', '.join(str(a) for a in acc)}")
 
-    resource_keys = {str(k) for k in (get(spec, 'resources') or {})}
-
-    def names_this_spec(v):
-        # Empty, a resource key of this spec, or a list of resource keys and plain names of
-        # parts the spec defines (subnets) - the same in every stage by construction.
-        if v in (None, '', [], {}):
-            return True
-        if isinstance(v, str):
-            return v in resource_keys
-        if isinstance(v, list):
-            return all(isinstance(i, str) and (i in resource_keys or re.match(r'^[a-z][a-z0-9-]*$', i)) for i in v)
-        return False
+    def question_of(path):
+        # The question a decision path answers: deployment.<id> or resources.<key>.<group>.<id>.
+        parts = path.split('.')
+        owner = 'deployment' if parts[0] == 'deployment' else (parts[1].split('__')[0] if parts[0] == 'resources' and len(parts) > 1 else None)  # <set>__<instance>: a second one of a kind
+        return questions.get((owner, parts[-1]))
 
     def walk(node, path):
         nonlocal decisions, stage_maps
@@ -324,27 +350,32 @@ def main():
             decisions += 1
             src, ref = spec_source.kind(node.get('source'))
             v = node['value']
-            if environments and isinstance(v, dict) and v and all(k in environments for k in v):
+            kind = spec_ref.kind_of(question_of(path))
+            if kind:
+                # A reference is one value; its per-stage part is the existing id inside it.
+                errors.extend(spec_ref.check(path, v, kind, ref_kinds, get(spec, 'resources') or {},
+                                             environments, open_stages, open_keys))
+                if (question_of(path) or {}).get('exclusive'):
+                    owner = path.split('.')[1].split('__')[0]
+                    for r in spec_ref.items(v):
+                        if isinstance(r, dict) and r.get('resource') and r.get('part'):
+                            claims.setdefault((owner, path.split('.')[-1], r['resource'], r['part']), []).append(path)
+            elif environments and isinstance(v, dict) and v and all(k in environments for k in v):
                 stage_maps += 1
                 missing = [e for e in environments if e not in v]
                 for e in missing:
                     if e not in open_stages.get(path, set()):
                         errors.append(f"{path} has no value for stage '{e}' and no open entry naming it")
-                parts = path.split('.')
-                owner = 'deployment' if parts[0] == 'deployment' else (parts[1].split('__')[0] if parts[0] == 'resources' and len(parts) > 1 else None)  # <set>__<instance>: a second one of a kind
-                q = questions.get((owner, parts[-1]))
-                if q is not None and not q.get('per_environment') and 'non_production_default' not in q and src != 'overridden':
+                q = question_of(path)
+                if q is not None and not q.get('per_environment') and 'non_production_default' not in q and not q.get('stage_parameter') and src != 'overridden':
                     errors.append(f"{path} is split by stage, but its question is neither per_environment nor a cost knob - one value for every stage, or the user's departure recorded as overridden")
             elif environments and isinstance(v, dict) and any(k in environments for k in v):
                 errors.append(f"{path} mixes stage names and other keys in its value")
-            elif len(environments) > 1 and not names_this_spec(v):
-                # per_environment: what lies outside the spec (a range, an id, a platform
-                # part) is a parameter from the stage file, a map even where the stages agree -
-                # one value would render as a literal. A resource key of this spec, or names of
-                # parts it defines, is the same in every stage; the render resolves it per stage.
-                parts = path.split('.')
-                owner = 'deployment' if parts[0] == 'deployment' else (parts[1].split('__')[0] if parts[0] == 'resources' and len(parts) > 1 else None)
-                q = questions.get((owner, parts[-1]))
+            elif len(environments) > 1 and v not in (None, '', [], {}):
+                # per_environment: what lies outside the spec (a range, a name, a prefix) is a
+                # parameter from the stage file, a map even where the stages agree - one value
+                # would render as a literal. A reference is the exception, handled above.
+                q = question_of(path)
                 if q is not None and q.get('per_environment'):
                     errors.append(f"{path} is one value, but its question is per_environment and the value lies outside "
                                   f"this spec - a map keyed by stage ({', '.join(environments)}), a stage nobody could "
@@ -389,9 +420,25 @@ def main():
                 errors.append(f"{path}.{key} uses a backend's attribute spelling. The spec names decisions; renderers know attributes.")
             walk(node[k], f"{path}.{key}")
 
+    claims = {}  # (set, question, resource, part) -> the decisions claiming it, for `exclusive`
     for section in ('deployment', 'resources', 'wiring'):
         if has(spec, section):
             walk(spec[section], section)
+    for (owner, qid, res, part), by in claims.items():
+        if len(by) > 1:
+            errors.append(f"{part} of {res} is claimed by {len(by)} {owner} resources ({', '.join(by)}) - "
+                          f"a part takes at most one, so all but one would be overwritten")
+    # A subnet this spec creates without an NSG is open inside the network, and a landing zone's
+    # policy refuses it at apply time.
+    guarded = {(res, part) for (owner, _, res, part) in claims if owner == 'network-security-group'}
+    subnet_kind = ref_kinds.get('subnet') or {}
+    for rkey, rnode in (get(spec, 'resources') or {}).items():
+        if str(rkey).split('__')[0] != 'virtual-network':
+            continue
+        for name in sorted(spec_ref.part_names(rnode, subnet_kind.get('part') or 'addressing.subnets', subnet_kind.get('implied'))):
+            if name not in NO_NSG_SUBNETS and (str(rkey), name) not in guarded:
+                errors.append(f"subnet {name} of {rkey} has no network security group - every subnet the spec "
+                              f"creates gets one (a network-security-group whose networking.subnets names it)")
 
     # context values that are per-stage maps follow the same rule
     for key, v in (get(spec, 'context') or {}).items():
@@ -459,6 +506,33 @@ def main():
 
         if modules:
             ok(f"composition - {len(modules)} module(s), needs acyclic")
+
+    # --- 6a. _target_overrides: per target, each override a value with its reason --------------
+    # The reason is data, not a YAML comment: the render reads the spec through a parser (the
+    # digest), and a comment does not survive one.
+    overrides = [('_target_overrides', get(spec, '_target_overrides'))]
+    overrides += [(f"resources.{r}._target_overrides", get(n, '_target_overrides'))
+                   for r, n in (get(spec, 'resources') or {}).items()]
+    for path, node in overrides:
+        if node is None:
+            continue
+        if not isinstance(node, dict):
+            errors.append(f"{path} is not a map keyed by target ({', '.join(TARGETS)})")
+            continue
+        for t, entries in node.items():
+            if t not in TARGETS:
+                errors.append(f"{path}.{t} is not a target - {', '.join(TARGETS)}")
+                continue
+            if not isinstance(entries, dict):
+                errors.append(f"{path}.{t} is not a map of overrides")
+                continue
+            for name, o in entries.items():
+                if not isinstance(o, dict) or 'value' not in o:
+                    errors.append(f"{path}.{t}.{name} is not {{ value, reason }}")
+                elif not str(o.get('reason') or '').strip():
+                    errors.append(f"{path}.{t}.{name} has no reason - an override nobody explained reads as an accident")
+                elif set(o) - {'value', 'reason'}:
+                    errors.append(f"{path}.{t}.{name} holds {', '.join(sorted(set(o) - {'value', 'reason'}))} beside value and reason")
 
     # --- 8. resource groups ------------------------------------------------
     rg_errors = len(errors)
@@ -678,6 +752,62 @@ def main():
             shown = ', '.join(decided[:5]) + (f" and {len(decided) - 5} more" if len(decided) > 5 else '')
             errors.append(f"resources.{rkey} records no decision, but its set decides {shown} - "
                           f"resolve the set and write its values, defaults included")
+
+    # --- 9e. a required question that applies has a value or an open entry ------
+    # A `required` question has no default: when its depends_on holds, the spec carries its
+    # value or an open entry naming it - leaving it out reads as "nothing open" in the decision
+    # document and the diagram, and the render meets a parameter nobody can fill. Only a
+    # depends_on on a question of the same set whose value the spec records is evaluated; one
+    # nothing records cannot be decided here and is left to the interview.
+    def holds(cond, group_values):
+        conds = cond if isinstance(cond, list) else [cond]
+        for c in conds:
+            if not isinstance(c, dict) or c.get('question') not in group_values:
+                return False
+            v = group_values[c['question']]
+            if 'equals' in c and v != c['equals']:
+                return False
+            if 'not_equals' in c and v == c['not_equals']:
+                return False
+        return True
+
+    for rkey, rnode in (get(spec, 'resources') or {}).items():
+        if not isinstance(rnode, dict):
+            continue
+        recorded = {}
+        for gid, gnode in rnode.items():
+            for qid, d in (gnode.items() if isinstance(gnode, dict) else []):
+                if isinstance(d, dict) and 'value' in d:
+                    recorded[qid] = (gid, d['value'])
+        values = {qid: v for qid, (_, v) in recorded.items()}
+        for (owner, qid), q in questions.items():
+            if owner != rkey.split('__')[0] or not q.get('required') or 'answer' in q or qid in recorded:
+                continue
+            if not q.get('depends_on') or not holds(q['depends_on'], values):
+                continue
+            path = f"resources.{rkey}.{q.get('_group')}.{qid}"
+            if path not in open_keys and path not in open_stages:
+                # a warning: specs written before this rule may lack such a value and still render
+                warnings.append(f"{path} is required once {q['depends_on'].get('question') if isinstance(q['depends_on'], dict) else 'its condition'} "
+                              f"holds, but the spec has neither its value nor an open entry naming it - "
+                              f"a missing decision reads as nothing open")
+
+    # --- 9f. a subnet's name is its short purpose -------------------------------
+    # The render names every subnet from the convention with the spec's name as <PURPOSE>, so an
+    # Azure-style name (`snet-app`) comes out as snet-<loc>-<env>-<workload>-snet-app-01. A
+    # subnet that exists under such a name says so with azure_name. A warning: specs written
+    # before the rule carry Azure-style names and still render.
+    for rkey, rnode in (get(spec, 'resources') or {}).items():
+        if rkey.split('__')[0] != 'virtual-network' or not isinstance(rnode, dict):
+            continue
+        listed = get(get(get(rnode, 'addressing'), 'subnets'), 'value')
+        per = listed.values() if isinstance(listed, dict) else [listed]
+        named = {str(s.get('name')) for lst in per if isinstance(lst, list) for s in lst
+                 if isinstance(s, dict) and str(s.get('name', '')).lower().startswith('snet-') and not s.get('azure_name')}
+        for name in sorted(named):
+            warnings.append(f"resources.{rkey}.addressing.subnets names '{name}' - a subnet's name is its short "
+                            f"purpose ('{name[5:]}'), the render builds the Azure name from the convention; "
+                            f"a subnet that exists under this name carries azure_name: {name}")
 
     # --- 10. deployer roles ------------------------------------------------
     def filled(v):

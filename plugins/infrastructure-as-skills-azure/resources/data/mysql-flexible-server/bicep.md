@@ -18,34 +18,14 @@ Resolve the current version and re-read the README parameters before rendering, 
 
 ### Decision -> module parameter
 
-| Decision | Parameter | Note |
+What each decision renders to - the parameter and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.
+
+### Deployment-wide inputs and inputs no decision covers
+
+| Input | Parameter | Note |
 |---|---|---|
-| `mysql_version` | `version` | Allowed `'5.7'`, `'8.0.21'`, `'8.4'`, `'9.3'`; module default **`'8.0.21'`**; written |
-| `compute_tier`, `sku_name` | `tier: 'GeneralPurpose'` and `skuName: 'Standard_D2ds_v4'` | Two parameters that must agree; both required |
-| `storage_size_gb` | `storageSizeGB` | Only the listed sizes; default 64; written |
-| `storage_auto_grow` | `storageAutoGrow` | Module default **`'Disabled'`**; written |
-| `databases` | `databases: [ { name, charset, collation } ]` | |
-| `high_availability` | `highAvailability: 'ZoneRedundant'` / `'SameZone'` / `'Disabled'` | Default `'ZoneRedundant'`; written. `'Disabled'` on burstable |
-| `availability_zone` | `availabilityZone: -1` | **Required** by the module; `-1` is no preference |
-| `maintenance_window` | `maintenanceWindow: { customWindow: 'Enabled', dayOfWeek: 0, startHour: 2, startMinute: 0 }` | Module default `{}` |
-| `private_connectivity: private_endpoint` | `privateEndpoints`, with `delegatedSubnetResourceId` and `privateDnsZoneResourceId` unset | |
-| `private_connectivity: vnet_integration` | `delegatedSubnetResourceId`, `privateDnsZoneResourceId` | Fixed at creation |
-| `public_network_access` | `publicNetworkAccess: 'Disabled'` | Default disabled; written |
-| `ip_rules`, `allow_azure_services` | `firewallRules: [ { name, startIpAddress, endIpAddress } ]` | |
-| `private_endpoint_subnet` | `privateEndpoints: [ { subnetResourceId, service: 'mysqlServer' } ]` | |
+| `availability_zone` (not a question of the set) | `availabilityZone: -1` | **Required** by the module; `-1` is no preference |
 | `deployment.private_dns_records: policy` | no `privateDnsZoneGroup` on the endpoint | |
-| `user_assigned_identity_ids` | `managedIdentities: { userAssignedResourceIds }` | User-assigned only; no system-assigned form |
-| `entra_admin` | `administrators: [ { identityResourceId, login, sid } ]` | |
-| `password_authentication_disabled` | `configurations: [ { name: 'aad_auth_only', source: 'user-override', value: 'ON' } ]` | The administrator login and a secure password are still required at creation |
-| `database_users` | **not the module** | SQL after the deployment |
-| `role_assignments` | `roleAssignments` | Control plane |
-| `minimum_tls_version` | `configurations` `tls_version` = `'TLSv1.2,TLSv1.3'` (or `'TLSv1.3'`) and `require_secure_transport` = `'ON'` | A list, not a minimum |
-| `key_management`, `cmk_key_vault_key_id` | `customerManagedKey: { keyVaultResourceId, keyName, userAssignedIdentityResourceId }` | Unversioned |
-| `threat_protection` | `advancedThreatProtection: 'Enabled'` | Default `'Enabled'`; written |
-| `audit_logging` | `configurations` `audit_log_enabled` = `'ON'`, `audit_log_events` = `'CONNECTION'` | And the category below |
-| `backup_retention_days` | `backupRetentionDays` | Default 7; written |
-| `geo_redundant_backup` | `geoRedundantBackup: 'Enabled'` / `'Disabled'` | Module default **`'Enabled'`**; written |
-| `diagnostic_*`, `metrics_enabled` | `diagnosticSettings: [ { workspaceResourceId, logCategoriesAndGroups: [ { category } ], metricCategories: [ { category: 'AllMetrics' } ] } ]` | |
 | `deployment.module_telemetry` | `enableTelemetry` | |
 | `context.tags` | `tags` | |
 
@@ -161,7 +141,7 @@ deployment, recorded in the spec as `database_users`.
 ### Tests
 
 A module call compiles to a nested deployment whose `properties.parameters.<param>.value` is the
-decision, so every decision above is observable in `tests/*.armtest.yaml`
+decision, so every decision in render-map.yaml is observable in `tests/*.armtest.yaml`
 ([bicep-idiom.md](../../../core/iac-rendering/references/bicep-idiom.md#tests)), including the
 databases, the administrator and the configurations. `database_users` and the Defender plan are
 `not-testable` (not a resource of this template).
@@ -170,19 +150,10 @@ databases, the administrator and the configurations. `database_users` and the De
 
 The fallback. `Microsoft.DBforMySQL/flexibleServers`:
 
-| Decision | Property |
+What each decision renders to - the property and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.
+
+### Inputs no decision covers
+
+| Input | Property |
 |---|---|
-| `mysql_version`, `compute_tier`, `sku_name` | `properties.version`, `sku { name, tier }` |
-| `storage_size_gb`, `storage_auto_grow` | `properties.storage { storageSizeGB, autoGrow }` |
-| `high_availability`, `availability_zone` | `properties.highAvailability { mode }`, `properties.availabilityZone` |
-| `maintenance_window` | `properties.maintenanceWindow` |
-| `public_network_access` | `properties.network.publicNetworkAccess`, child `firewallRules` |
-| `private_connectivity: vnet_integration` | `properties.network { delegatedSubnetResourceId, privateDnsZoneResourceId }` |
-| `private_connectivity: private_endpoint` | `Microsoft.Network/privateEndpoints` with `groupIds: ['mysqlServer']` |
-| `user_assigned_identity_ids` | `identity { type: 'UserAssigned', userAssignedIdentities }` |
-| `entra_admin` | child `administrators` |
-| `password_authentication_disabled`, `minimum_tls_version`, `audit_logging` | child `configurations` |
-| `key_management` | `properties.dataEncryption` |
-| `backup_retention_days`, `geo_redundant_backup` | `properties.backup { backupRetentionDays, geoRedundantBackup }` |
-| `databases` | child `databases` |
-| `threat_protection` | child `advancedThreatProtectionSettings/Default` |
+| `availability_zone` (not a question of the set) | `properties.availabilityZone` |

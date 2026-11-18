@@ -20,22 +20,14 @@ Resolve the current version and re-read the README parameters before rendering, 
 
 ### Decision -> module parameter
 
-| Decision | Parameter | Note |
+What each decision renders to - the parameter and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.
+
+### Parameters no decision covers
+
+| Input | Parameter | Note |
 |---|---|---|
-| `kind` | `kind` | **Required** |
-| `sku_name` | `sku` | Default `'S0'`; written |
 | (derived from the name) | `customSubDomainName` | **Required** with `networkAcls` or `privateEndpoints`; written |
-| `public_network_access` | `publicNetworkAccess: 'Disabled'` / `'Enabled'` | Unset, disabled only with private endpoints and no `networkAcls`; written |
-| `ip_rules` | `networkAcls: { defaultAction: 'Deny', ipRules: [ { value } ] }` | |
-| `restrict_outbound` | `restrictOutboundNetworkAccess` | Default **`true`**; written |
-| `allowed_fqdns` | - | **No parameter** in the module. The allowlist is `properties.allowedFqdnList`: render it with a second deployment against the account (an `existing` reference and a `Microsoft.CognitiveServices/accounts` update), and say so in the handover |
-| `private_endpoint_subnet` | `privateEndpoints: [ { subnetResourceId, service: 'account' } ]` | |
 | `deployment.private_dns_records: policy` | no `privateDnsZoneGroup` on the endpoint | |
-| `managed_identity`, `user_assigned_identity_ids` | `managedIdentities: { systemAssigned, userAssignedResourceIds }` | |
-| `role_assignments` | `roleAssignments` | The per-kind roles by name |
-| `local_authentication_disabled` | `disableLocalAuth` | Default `true`; written |
-| `key_management`, `cmk_key_vault_key_id` | `customerManagedKey: { keyName, keyVaultResourceId, userAssignedIdentityResourceId }` | Spelling from the README |
-| `diagnostic_*`, `metrics_enabled` | `diagnosticSettings: [ { workspaceResourceId, logCategoriesAndGroups: [ { category } ], metricCategories: [ { category: 'AllMetrics' } ] } ]` | |
 | `deployment.module_telemetry` | `enableTelemetry` | |
 | `context.tags` | `tags` | |
 
@@ -96,20 +88,18 @@ output endpoint string = speech.outputs.endpoint
 ### Tests
 
 A module call compiles to a nested deployment whose `properties.parameters.<param>.value` is
-the decision, so every decision above is observable in `tests/*.armtest.yaml`
+the decision, so every decision in render-map.yaml is observable in `tests/*.armtest.yaml`
 ([bicep-idiom.md](../../../core/iac-rendering/references/bicep-idiom.md#tests)); `allowed_fqdns`
 is asserted on the second deployment or `not_testable` when empty.
 
 ## Authored rendering
 
-The fallback. `Microsoft.CognitiveServices/accounts` with `kind`, `sku`, `identity` and `properties`:
+The fallback. `Microsoft.CognitiveServices/accounts` with `kind`, `sku`, `identity` and `properties`.
 
-| Decision | Property |
+What each decision renders to - the property and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.
+
+### Properties no decision covers
+
+| Input | Property |
 |---|---|
 | (subdomain) | `properties.customSubDomainName` |
-| `public_network_access`, `ip_rules` | `properties.publicNetworkAccess`, `properties.networkAcls` |
-| `restrict_outbound`, `allowed_fqdns` | `properties.restrictOutboundNetworkAccess`, `properties.allowedFqdnList` |
-| `local_authentication_disabled` | `properties.disableLocalAuth` |
-| `key_management` | `properties.encryption: { keySource: 'Microsoft.KeyVault', keyVaultProperties }` |
-| private endpoint | `Microsoft.Network/privateEndpoints` with `groupIds: [ 'account' ]` |
-| diagnostics | `Microsoft.Insights/diagnosticSettings` scoped to the account |

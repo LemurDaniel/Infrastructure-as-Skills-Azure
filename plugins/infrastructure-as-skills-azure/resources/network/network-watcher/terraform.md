@@ -22,19 +22,14 @@ watcher with a data source. The root's provider set is the union with the other 
 
 ### Decision -> module input
 
+What each decision renders to - the input and the literal of every answer - is in
+[render-map.yaml](render-map.yaml); the render digest prints it for a spec.
+
+### Inputs no decision covers
+
 | Decision | Input | Note |
 |---|---|---|
-| `ownership: platform` | `data "azurerm_network_watcher"` with `name = "NetworkWatcher_${var.location}"`, `resource_group_name = "NetworkWatcherRG"`; its `id`, `name` and group into the module | |
-| `ownership: deployment` | an authored `azurerm_network_watcher` beside the module, its attributes into the same three inputs | **Not carried by the module** |
-| `location` | `location` | The flow logs' region; the watcher's name is derived from it |
-| `resource_group_name` | `resource_group_name` | **The watcher's group** (`NetworkWatcherRG` under `platform`), not the context's |
-| `flow_log_targets` | `flow_logs = { <k> = { enabled = true, name, target_resource_id, ... } }` | One map entry per target; the key is the target's role (`vnet`, `vnet_hub`) |
-| `flow_log_storage_account` | `flow_logs.<k>.storage_account_id` | |
-| `retention_days` | `flow_logs.<k>.retention_policy = { days, enabled = true }` | `enabled = false` only for 0 (keep forever) |
-| `traffic_analytics`, `traffic_analytics_interval_minutes`, `traffic_analytics_workspace` | `flow_logs.<k>.traffic_analytics = { enabled, interval_in_minutes, workspace_id, workspace_region, workspace_resource_id }` | **Three workspace values**: the GUID (`data.azurerm_log_analytics_workspace.this.workspace_id`), the region and the id. `interval_in_minutes` defaults to 60 inside the module when left out; written |
 | (format) | `flow_logs.<k>.version = 2` | No question: version 2 is the only one that carries flow state and bytes; written |
-| `connection_monitors` | `condition_monitor = { <k> = { name, endpoint, test_configuration, test_group, output_workspace_resource_ids } }` | The input is named `condition_monitor` in the module; `null` when empty |
-| `role_assignments` | `role_assignments = { <k> = { role_definition_id_or_name, principal_id, principal_type } }` | On the watcher's id, also under `platform` |
 | `deployment.module_telemetry` | `enable_telemetry` | |
 | `context.tags` | `tags = local.tags` | |
 
@@ -157,14 +152,11 @@ run "flow_logs" {
 
 The fallback. Targets `azurerm` **5.x**; check against `terraform providers schema -json`.
 
+What each decision renders to - the argument and the literal of every answer - is in
+[render-map.yaml](render-map.yaml); the render digest prints it for a spec.
+
 | Decision | Resource / argument |
 |---|---|
-| `ownership: platform` | `data "azurerm_network_watcher"` |
-| `ownership: deployment` | `azurerm_network_watcher` (`name`, `location`, `resource_group_name`) |
 | the flow log | `azurerm_network_watcher_flow_log` (`network_watcher_name`, `resource_group_name` = the watcher's group, `name`, `location`, `target_resource_id`, `storage_account_id`, `enabled`, `version = 2`) |
-| `retention_days` | `retention_policy { enabled, days }` |
-| `traffic_analytics`, interval, workspace | `traffic_analytics { enabled, interval_in_minutes, workspace_id, workspace_region, workspace_resource_id }` |
-| `connection_monitors` | `azurerm_network_connection_monitor` |
-| `role_assignments` | `azurerm_role_assignment` on the watcher's id |
 
 Validated against `azurerm` 5.x; the arguments match the module's shape one to one.

@@ -4,7 +4,8 @@
 The fixtures under tests/pipelines/ are the pipelines of references/pipelines.*.md,
 one per platform and target. Each must pass clean. Then each mutation breaks one
 invariant in a copy of a fixture - drops the plan file from `terraform apply`,
-flips a gate, lets a pull request reach a stage - and the check must fail with
+flips a gate, lets a pull request reach a stage, drops the decision tests or the
+what-if record - and the check must fail with
 the message that names it. A mutation whose text is no longer in the fixture
 fails the run: a test that cannot break anything proves nothing.
 
@@ -59,7 +60,7 @@ MUTATIONS = [
      '    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH\n  script:', '    - if: $CI_PIPELINE_SOURCE == "merge_request_event"\n  script:',
      'not restricted to the default branch'),
     ('github token at workflow level', 'github-terraform', GH,
-     'permissions:\n  contents: read\n\njobs:', 'permissions:\n  contents: read\n  id-token: write\n\njobs:',
+     'permissions:\n  contents: read\n\ndefaults:', 'permissions:\n  contents: read\n  id-token: write\n\ndefaults:',
      'at workflow level'),
 
     # the saved plan
@@ -84,6 +85,15 @@ MUTATIONS = [
      'expire_in: 1 day', 'expire_in: 30 days', 'one day'),
     ('local plan file not removed', 'local-terraform', 'deploy.ps1',
      'Remove-Item', 'Write-Host', 'plan file is not removed'),
+    ('local script runs from the caller directory', 'local-terraform', 'deploy.ps1',
+     'Push-Location $PSScriptRoot', 'Push-Location .', 'its own directory'),
+    ('local validate only after the stage init', 'local-terraform', 'deploy.ps1',
+     'terraform init -backend=false -input=false;', 'terraform init -input=false;', 'init -backend=false'),
+    ('local without terraform test', 'local-terraform', 'deploy.ps1',
+     "terraform test;                                  if ($LASTEXITCODE) { throw 'terraform test failed' }\n", '',
+     'no `terraform test`'),
+    ('local stage init without -reconfigure', 'local-terraform', 'deploy.ps1',
+     'terraform init -input=false -reconfigure', 'terraform init -input=false', '-reconfigure'),
 
     # the gate
     ('github production not gated', 'github-terraform', GH,
@@ -131,6 +141,12 @@ MUTATIONS = [
     ('github client secret', 'github-terraform', GHS,
      '  ARM_USE_AZUREAD: "true"\n', '  ARM_USE_AZUREAD: "true"\n  ARM_CLIENT_SECRET: ${{ secrets.AZURE_SECRET }}\n',
      'nothing secret exists'),
+    ('github client secret from a variable', 'github-terraform', GHS,
+     '  ARM_USE_AZUREAD: "true"\n', '  ARM_USE_AZUREAD: "true"\n  AZURE_CLIENT_SECRET: ${{ vars.SP_KEY }}\n',
+     'a client secret'),
+    ('github login input client-secret', 'github-terraform', GHS,
+     '  ARM_USE_AZUREAD: "true"\n', '  ARM_USE_AZUREAD: "true"\n  LOGIN_ARGS: --client-secret abc\n',
+     'a client secret'),
     ('github terraform without OIDC', 'github-terraform', GHS,
      'ARM_USE_OIDC: "true"', 'ARM_USE_OIDC: "false"', 'ARM_USE_OIDC'),
     ('github stage job without id-token', 'github-terraform', GH,
@@ -141,18 +157,28 @@ MUTATIONS = [
     ('ado terraform without the token', 'ado-terraform', ADOS,
      'addSpnToEnvironment: true', 'addSpnToEnvironment: false', 'federated token'),
     ('a shell fed from event text', 'github-terraform', GHS,
-     'echo "Approved for ${{ inputs.stage }}."', 'echo "${{ github.event.head_commit.message }}"', 'attacker-controlled'),
+     'Write-Output "Approved for ${{ inputs.stage }}."', 'Write-Output "${{ github.event.head_commit.message }}"', 'attacker-controlled'),
 
     # versions
     ('action on a branch', 'github-terraform', GH,
      'uses: actions/checkout@v7', 'uses: actions/checkout@main', 'not pinned'),
     ('terraform unconstrained', 'github-terraform', GHS,
-     'terraform_version: "~> 1.16.0"\n          terraform_wrapper: false      # the wrapper',
+     'terraform_version: "~> 1.17.0"\n          terraform_wrapper: false      # the wrapper',
      'terraform_version: latest\n          terraform_wrapper: false      # the wrapper', '~>'),
     ('gitlab image latest', 'gitlab-terraform', GL,
-     'name: hashicorp/terraform:1.16 ', 'name: hashicorp/terraform:latest ', 'not pinned'),
+     'name: hashicorp/terraform:1.17 ', 'name: hashicorp/terraform:latest ', 'not pinned'),
     ('ado install without checksum', 'ado-terraform', ADOI,
-     'sha256sum -c -', 'cat', 'checksum'),
+     '(Get-FileHash "$dir/$zip" -Algorithm SHA256).Hash', '$want', 'checksum'),
+
+    # the shell is PowerShell 7
+    ('github workflow without the pwsh default', 'github-terraform', GHS,
+     'defaults:\n  run:\n    shell: pwsh\n\n', '', 'invariant 14'),
+    ('github step back on bash', 'github-bicep', GHS,
+     '      - name: Deploy\n', '      - name: Deploy\n        shell: bash\n', 'invariant 14'),
+    ('ado bash step', 'ado-terraform', ADO,
+     '- pwsh: terraform fmt', '- bash: terraform fmt', 'invariant 14'),
+    ('ado azure cli task on bash', 'ado-bicep', ADOS,
+     'scriptType: pscore', 'scriptType: bash', 'invariant 14'),
 
     # the code beside the pipeline
     ('no backend block: -backend-config is ignored', 'github-terraform', 'providers.tf',
@@ -180,8 +206,8 @@ MUTATIONS = [
     ('ado bicep stage file missing', 'ado-bicep', 'main.test.bicepparam',
      '@remove', '', 'missing'),
     ('ado bicep validate holds a service connection', 'ado-bicep', ADO,
-     '          - script: az bicep lint --file main.bicep\n',
-     '          - task: AzureCLI@2\n            inputs: { azureSubscription: sc-x, scriptType: bash, scriptLocation: inlineScript, inlineScript: "az bicep lint --file main.bicep" }\n',
+     '          - pwsh: az bicep lint --file main.bicep\n',
+     '          - task: AzureCLI@2\n            inputs: { azureSubscription: sc-x, scriptType: pscore, scriptLocation: inlineScript, inlineScript: "az bicep lint --file main.bicep" }\n',
      'validate uses a service connection'),
     # validate and state
     ('github validate skips fmt', 'github-terraform', GH,
@@ -198,6 +224,33 @@ MUTATIONS = [
      'az deployment group create', 'az deployment sub create', 'deploys with `az deployment sub`'),
     ('bicep what-if hides the modules it skips', 'github-bicep', GHS,
      'NestedDeploymentShortCircuited', 'NestedDeploymentSomethingElse', 'short-circuits'),
+    ('github terraform without TF_IN_AUTOMATION', 'github-terraform', GHS,
+     'TF_IN_AUTOMATION: "true"', 'TF_LOG: "warn"', 'TF_IN_AUTOMATION is not true'),
+    ('ado terraform without TF_IN_AUTOMATION', 'ado-terraform', ADO,
+     '  - name: TF_IN_AUTOMATION', '  - name: TF_LOG', 'TF_IN_AUTOMATION is not true'),
+    ('ado terraform checksum fetched in the run', 'ado-terraform', ADOI,
+     "-ne '$(TF_SHA256)')",
+     "-ne (Invoke-RestMethod \"https://releases.hashicorp.com/terraform/$v/terraform_${v}_SHA256SUMS\"))",
+     'the checksum is fetched in the run'),
+    ('ado terraform hash not committed', 'ado-terraform', ADO,
+     '  - name: TF_SHA256', '  - name: TF_HASH', 'TF_SHA256 is missing'),
+    ('gitlab terraform without TF_IN_AUTOMATION', 'gitlab-terraform', GL,
+     'TF_IN_AUTOMATION: "true"', 'TF_LOG: "warn"', 'TF_IN_AUTOMATION is not true'),
+    # the render's tests and the what-if record (invariants 15 and 8)
+    ('github bicep validate skips the decision tests', 'github-bicep', GH,
+     'python tests/run_arm_tests.py', 'python tests/smoke.py', 'run_arm_tests.py'),
+    ('ado bicep validate skips the decision tests', 'ado-bicep', ADO,
+     'python tests/run_arm_tests.py', 'python tests/smoke.py', 'run_arm_tests.py'),
+    ('github bicep what-if not kept', 'github-bicep', GHS,
+     'path: whatif.json', 'path: summary.md', 'the what-if JSON is not kept'),
+    ('github bicep what-if kept a month', 'github-bicep', GHS,
+     'retention-days: 7 ', 'retention-days: 30 ', 'the what-if artifact keeps 30 days'),
+    ('ado bicep what-if not published', 'ado-bicep', ADOS,
+     'targetPath: whatif.json', 'targetPath: summary.md', 'the what-if JSON is not published'),
+    ('a job directory default drops the pwsh shell', 'github-terraform', '.github/workflows/infra.yaml',
+     '  validate:\n    runs-on: ubuntu-latest\n',
+     '  validate:\n    runs-on: ubuntu-latest\n    defaults:\n      run:\n        working-directory: infra\n',
+     'falls back to bash'),
     ('approve inherits a directory it never checked out', 'github-terraform', GHS,
      '\njobs:\n', '\ndefaults:\n  run:\n    working-directory: infra\n\njobs:\n', 'inherits working-directory'),
     ('state key without the stage', 'ado-terraform', ADOS,
@@ -208,6 +261,8 @@ OPEN_DEV = 'open:\n  - key: context.subscription_id\n    environments: [developm
 DEV = 'environments/development.tfvars'
 DEV_REAL = 'subscription_id     = "11111111-2222-3333-4444-dev000000000"'
 DEV_OPEN = 'subscription_id     = "00000000-0000-0000-0000-000000000000"'
+OPEN_ANY = 'open:\n  - key: context.subscription_id\n    blocks: apply\n'
+STAGE_SUBSCRIPTIONS = {'development': 'dev', 'test': 'tes', 'production': 'pro'}
 ASSUMED_RES = ('resources:\n  virtual-machine:\n    machine:\n      instance_count:\n        value: 3\n'
                '        source: assumed\n\n')
 ASSUMED_LINE = '\nvm_instance_count   = 3  # ASSUMED: resources.virtual-machine.machine.instance_count'
@@ -233,6 +288,19 @@ VARIANTS = [
      [(SPEC, 'deployment:', OPEN_DEV + 'deployment:'), (DEV, DEV_REAL, DEV_OPEN),
       (GH, "  development:\n    needs: validate\n    if: github.event_name != 'pull_request'\n    uses: ./.github/workflows/infra-stage.yaml\n    permissions:\n      contents: read\n      id-token: write\n    with:\n      stage: development\n      gated: false\n\n", '')],
      1, 'stages are'),
+    # an open entry without environments names no stage: placeholders allowed everywhere, required nowhere
+    ('open entry without stages, placeholder in every file', 'github-terraform',
+     [(SPEC, 'deployment:', OPEN_ANY + 'deployment:')]
+     + [(f'environments/{s}.tfvars', f'11111111-2222-3333-4444-{k}000000000', '00000000-0000-0000-0000-000000000000')
+        for s, k in STAGE_SUBSCRIPTIONS.items()], 0, ''),
+    ('open entry without stages, no placeholder', 'github-terraform',
+     [(SPEC, 'deployment:', OPEN_ANY + 'deployment:')], 0, ''),
+    # a secret checks the pipeline login, not a name that only ends in client-secret
+    ('vault secret named entra-client-secret', 'github-terraform',
+     [(GHS, '  ARM_USE_AZUREAD: "true"\n', '  ARM_USE_AZUREAD: "true"\n  SIGN_IN_SECRET_NAME: entra-client-secret\n')], 0, ''),
+    ('local script that mentions a client secret', 'local-terraform',
+     [('deploy.ps1', 'Signs in through the current `az login`.',
+       'Signs in through the current `az login`, never with a client_secret.')], 0, ''),
     # an assumed value is a parameter in every stage file, marked so the guard refuses it
     ('assumed value marked in every stage file', 'github-terraform',
      [(SPEC, 'deployment:', ASSUMED_RES + 'deployment:')] + [(f'environments/{s}.tfvars', f'environment         = "{s}"', f'environment         = "{s}"' + ASSUMED_LINE)
@@ -258,7 +326,8 @@ def edit(root, rel, find, repl):
     if find == '@remove':
         os.remove(path)
         return
-    with open(path, encoding='utf-8', newline='') as f:
+    # Read with universal newlines: a CRLF checkout (core.autocrlf) must match the LF mutations.
+    with open(path, encoding='utf-8') as f:
         text = f.read()
     if find not in text:
         raise AssertionError(f"mutation text not found in {rel}: {find[:60]!r}")

@@ -1,0 +1,110 @@
+# What each decision of questions.yaml renders to, per target and implementation.
+# Format: core/iac-rendering/references/render-map.md. The call, the authored blocks and the
+# tests are in terraform.md and bicep.md.
+schema_version: 1
+resource: Microsoft.Compute/availabilitySets
+
+# Terraform has no module for the set (not published) - the set is the authored
+# azurerm_availability_set; the proximity placement group is a companion module call beside it.
+modules:
+  terraform: []
+  bicep: [avm/res/compute/availability-set]
+companions:
+  terraform: [Azure/avm-res-compute-proximityplacementgroup/azurerm]
+  bicep: [avm/res/compute/proximity-placement-group]
+
+decisions:
+
+  # ---------------------------------------------------------------- placement
+  placement.environments:
+    not_rendered: naming parameter `environment` and the tag of that name; no attribute of the set
+  placement.location:
+    terraform: { attribute: location, passthrough: true, note: on the group's module call and on the authored set alike }
+    bicep_avm:
+      attribute: location
+      passthrough: true
+      note: the group's call takes the same location
+    bicep: { attribute: location, passthrough: true }
+  placement.resource_group_name:
+    terraform:
+      attribute: resource_group_name
+      note: the group's module is azurerm-based (a name, not an id) and caps azurerm below 5.0
+    bicep_avm: { gap: the deployment's resource group scope; no parameter }
+    bicep: { gap: the deployment's resource group scope; no property }
+
+  # ---------------------------------------------------------------------- set
+  set.sku:
+    terraform:
+      attribute: managed
+      values: { Aligned: true, Classic: false }
+      note: set at creation
+    bicep_avm:
+      attribute: skuName
+      values: { Aligned: Aligned, Classic: Classic }
+      note: module default Aligned; written anyway
+    bicep:
+      attribute: sku.name
+      values: { Aligned: Aligned, Classic: Classic }
+  set.fault_domain_count:
+    terraform:
+      attribute: platform_fault_domain_count
+      passthrough: true
+      note: provider default 3 fails in a two-domain region - always written; set at creation
+    bicep_avm:
+      attribute: platformFaultDomainCount
+      passthrough: true
+      note: module default 2; written anyway
+    bicep: { attribute: properties.platformFaultDomainCount, passthrough: true }
+  set.update_domain_count:
+    terraform: { attribute: platform_update_domain_count, passthrough: true, note: set at creation }
+    bicep_avm:
+      attribute: platformUpdateDomainCount
+      passthrough: true
+      note: module default 5; written anyway
+    bicep: { attribute: properties.platformUpdateDomainCount, passthrough: true }
+
+  # ---------------------------------------------------- proximity placement
+  proximity.proximity_placement_group:
+    terraform:
+      attribute: proximity_placement_group_id
+      values:
+        true: { expr: module.proximity_placement_group.resource_id }
+        false: { expr: 'null' }
+      note: on the authored set; the group's companion call is rendered only when true (on azurerm 5.x the authored azurerm_proximity_placement_group.this.id)
+    bicep_avm:
+      attribute: proximityPlacementGroupResourceId
+      values:
+        true: { expr: proximityPlacementGroup.outputs.resourceId }
+        false: { expr: 'null' }
+      note: the group is a second module call, rendered only when true
+    bicep:
+      attribute: properties.proximityPlacementGroup.id
+      values:
+        true: { expr: proximityPlacementGroup.id }
+        false: null
+      note: true also renders Microsoft.Compute/proximityPlacementGroups (with properties.proximityPlacementGroupType); absent for false
+  proximity.proximity_zone:
+    terraform:
+      module: Azure/avm-res-compute-proximityplacementgroup/azurerm
+      attribute: zone
+      values: { none: { expr: 'null' }, '1': '1', '2': '2', '3': '3' }
+      note: a string; module default "1" - always written (authored azurerm_proximity_placement_group on azurerm 5.x omits it for none)
+    bicep_avm:
+      module: avm/res/compute/proximity-placement-group
+      attribute: availabilityZone
+      values: { none: { expr: '-1' }, '1': { expr: '1' }, '2': { expr: '2' }, '3': { expr: '3' } }
+      note: required parameter; -1 is none
+    bicep:
+      attribute: zones
+      values: { none: null, '1': { expr: "[ '1' ]" }, '2': { expr: "[ '2' ]" }, '3': { expr: "[ '3' ]" } }
+      note: on Microsoft.Compute/proximityPlacementGroups; omitted for none
+  proximity.proximity_vm_sizes:
+    terraform:
+      module: Azure/avm-res-compute-proximityplacementgroup/azurerm
+      attribute: allowed_vm_sizes
+      note: null when empty (the same argument on the authored azurerm_proximity_placement_group)
+    bicep_avm:
+      module: avm/res/compute/proximity-placement-group
+      attribute: intent.vmSizes
+      note: "intent: { vmSizes: [...] }; type: 'Standard' is written beside it at the default"
+    bicep: { attribute: properties.intent.vmSizes, note: on Microsoft.Compute/proximityPlacementGroups }

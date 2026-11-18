@@ -18,12 +18,12 @@ Terraform `>= 1.9`. The root's provider set is the union with the other modules.
 
 ### Decision -> module input
 
+What each decision renders to - the input and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.
+
+### Deployment-wide inputs
+
 | Decision | Input | Note |
 |---|---|---|
-| `purpose` | `tags` | `purpose` tag merged into `local.tags` |
-| `federated_credentials` | `federated_identity_credentials = { <k> = { name, issuer, subject, audience } }` | `audience` is a **list**; default `{}` |
-| `isolation_scope` | `isolation_scope` | Only `"Regional"` or `null`; `None` is `null` |
-| `role_assignments` | `role_assignments = { <k> = { role_definition_id_or_name, principal_id } }` | |
 | `deployment.module_telemetry` | `enable_telemetry` | |
 | `context.tags` | `tags = local.tags` | |
 
@@ -73,9 +73,8 @@ the module are `# not-testable:` where the plan hides them.
 
 The fallback. Targets `azurerm` **5.x**.
 
+What each decision renders to - the argument and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.
+
 | Decision | Resource |
 |---|---|
 | the identity | `azurerm_user_assigned_identity` |
-| `federated_credentials` | `azurerm_federated_identity_credential` (`parent_id`, `issuer`, `subject`, `audience`) |
-| `isolation_scope` | `isolation_scope` on the identity where the provider has it - check `terraform providers schema -json` |
-| `role_assignments` | `azurerm_role_assignment` scoped to the identity's id |

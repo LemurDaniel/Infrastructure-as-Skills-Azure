@@ -1,0 +1,229 @@
+# What each decision of questions.yaml renders to, per target and implementation.
+# Format: core/iac-rendering/references/render-map.md. The call, the authored blocks and the
+# tests are in terraform.md and bicep.md.
+# The Terraform module is Orphaned in the index and azurerm-based (azurerm < 5.0): a root calling
+# it cannot be on 5.x - say so in the handover.
+schema_version: 1
+resource: Microsoft.KeyVault/vaults
+
+modules:
+  terraform: [Azure/avm-res-keyvault-vault/azurerm]
+  bicep: [avm/res/key-vault/vault]
+
+decisions:
+
+  # ---------------------------------------------------------------- placement
+  placement.environments:
+    not_rendered: naming parameter `environment` and the tag of that name; no attribute of the vault
+  placement.location:
+    terraform_avm: { attribute: location, passthrough: true }
+    terraform: { attribute: location, passthrough: true }
+    bicep_avm: { attribute: location, passthrough: true }
+    bicep: { attribute: location, passthrough: true }
+  placement.resource_group_name:
+    terraform_avm: { attribute: resource_group_name, note: 'a name, not parent_id - azurerm-based module' }
+    terraform: { attribute: resource_group_name, note: '(source: azurerm 5.12 schema)' }
+    bicep_avm: { gap: the deployment's resource group scope; no parameter }
+    bicep: { gap: the deployment's resource group scope; no property }
+
+  # -------------------------------------------------------------------- vault
+  vault.sku:
+    terraform_avm: { attribute: sku_name, passthrough: true, note: module default premium - must be written }
+    terraform: { attribute: sku_name, passthrough: true }
+    bicep_avm: { attribute: sku, passthrough: true, note: module default premium - written }
+    bicep: { attribute: properties.sku.name, passthrough: true, note: "family: 'A' beside it" }
+  vault.purge_protection:
+    terraform_avm: { attribute: purge_protection_enabled, passthrough: true, note: module default true; written }
+    terraform: { attribute: purge_protection_enabled, passthrough: true }
+    bicep_avm: { attribute: enablePurgeProtection, passthrough: true, note: module default true; written }
+    bicep:
+      attribute: properties.enablePurgeProtection
+      values: { true: true, false: null }
+      note: only true or omitted - ARM rejects an explicit false
+  vault.soft_delete_retention_days:
+    terraform_avm: { attribute: soft_delete_retention_days, passthrough: true, note: module default null (90); written }
+    terraform: { attribute: soft_delete_retention_days, passthrough: true }
+    bicep_avm: { attribute: softDeleteRetentionInDays, passthrough: true, note: module default 90; written; enableSoftDelete stays true }
+    bicep: { attribute: properties.softDeleteRetentionInDays, passthrough: true }
+  vault.rbac_authorization:
+    terraform_avm:
+      attribute: legacy_access_policies_enabled
+      values: { true: false, false: true }
+      note: inverse - RBAC is false; module default false
+    terraform: { attribute: rbac_authorization_enabled, passthrough: true }
+    bicep_avm: { attribute: enableRbacAuthorization, passthrough: true, note: module default true; written }
+    bicep: { attribute: properties.enableRbacAuthorization, passthrough: true }
+
+  # --------------------------------------------------------------- networking
+  networking.public_network_access:
+    terraform_avm:
+      attribute: public_network_access_enabled
+      values: { disabled: false, enabled_with_firewall: true, enabled: true }
+      also:
+        disabled: 'network_acls = { default_action = "Deny" }'
+        enabled_with_firewall: 'network_acls = { default_action = "Deny" }'
+        enabled: network_acls = null
+      note: a bool, module default true; network_acls null means no firewall, unset means Deny + no bypass
+    terraform:
+      attribute: public_network_access_enabled
+      values: { disabled: false, enabled_with_firewall: true, enabled: true }
+      also:
+        disabled: default_action = "Deny"
+        enabled_with_firewall: default_action = "Deny"
+      note: a bool, unchanged in 5.x; the also lines sit inside the network_acls { } block; what enabled writes into network_acls the reference does not state
+    bicep_avm:
+      attribute: publicNetworkAccess
+      values: { disabled: Disabled, enabled_with_firewall: Enabled, enabled: Enabled }
+      also:
+        disabled: "networkAcls: { defaultAction: 'Deny' }"
+        enabled_with_firewall: "networkAcls: { defaultAction: 'Deny' }"
+      note: unset, it is disabled only when private endpoints are set - always write it
+    bicep:
+      attribute: properties.publicNetworkAccess
+      values: { disabled: Disabled, enabled_with_firewall: Enabled, enabled: Enabled }
+      also:
+        disabled: "defaultAction: 'Deny'"
+        enabled_with_firewall: "defaultAction: 'Deny'"
+      note: the also lines sit inside properties.networkAcls; what enabled writes there the reference does not state
+  networking.private_endpoint_subnet:
+    terraform_avm: { attribute: private_endpoints.vault.subnet_resource_id, note: subresource_name defaults to vault }
+    terraform:
+      attribute: azurerm_private_endpoint.subnet_id
+      note: 'private_service_connection { private_connection_resource_id = the vault id, subresource_names } beside it (source: azurerm 5.12 schema)'
+    bicep_avm: { attribute: 'privateEndpoints[].subnetResourceId', note: "service: 'vault'" }
+    bicep:
+      attribute: Microsoft.Network/privateEndpoints properties.subnet.id
+      note: 'privateLinkServiceConnections[].properties { privateLinkServiceId: the vault id, groupIds } beside it (source: bicep build, Microsoft.Network/privateEndpoints@2024-05-01)'
+  networking.network_acl_bypass:
+    terraform_avm: { attribute: network_acls.bypass, passthrough: true }
+    terraform: { attribute: network_acls.bypass, passthrough: true }
+    bicep_avm: { attribute: networkAcls.bypass, passthrough: true }
+    bicep: { attribute: properties.networkAcls.bypass, passthrough: true }
+  networking.ip_rules:
+    terraform_avm: { attribute: network_acls.ip_rules }
+    terraform: { attribute: network_acls.ip_rules }
+    bicep_avm:
+      attribute: networkAcls.ipRules
+      note: 'one object per address - [for ip in ipRules: { value: ip }], never the plain list'
+    bicep:
+      attribute: properties.networkAcls.ipRules
+      note: the item shape is not in the reference (the module's parameter is [ { value } ]); check the API schema - never the plain list
+
+  # ----------------------------------------------------------------- identity
+  identity.role_assignments:
+    terraform_avm: { attribute: 'role_assignments.<key> = { role_definition_id_or_name, principal_id, principal_type }' }
+    terraform:
+      attribute: 'azurerm_role_assignment = { role_definition_name, principal_id, principal_type }'
+      note: 'one per entry, scope = the vault id; role_definition_id instead of the name for a custom role (source: azurerm 5.12 schema)'
+    bicep_avm: { attribute: 'roleAssignments[] = { principalId, roleDefinitionIdOrName, principalType }' }
+    bicep:
+      attribute: 'Microsoft.Authorization/roleAssignments = { properties.principalId, properties.roleDefinitionId, properties.principalType }'
+      note: 'one per entry, scope: the vault; roleDefinitionId is the definition id, never the name (source: bicep build, Microsoft.Authorization/roleAssignments@2022-04-01)'
+
+  # ----------------------------------------------------------------- security
+  security.enabled_for_services:
+    terraform_avm:
+      - { attribute: enabled_for_deployment, format: { expr: 'contains({value}, "vm_deployment")' }, note: module default false; written }
+      - { attribute: enabled_for_disk_encryption, format: { expr: 'contains({value}, "disk_encryption")' }, note: module default false; written }
+      - { attribute: enabled_for_template_deployment, format: { expr: 'contains({value}, "template_deployment")' }, note: module default false; written }
+    terraform:
+      - { attribute: enabled_for_deployment, format: { expr: 'contains({value}, "vm_deployment")' } }
+      - { attribute: enabled_for_disk_encryption, format: { expr: 'contains({value}, "disk_encryption")' } }
+      - { attribute: enabled_for_template_deployment, format: { expr: 'contains({value}, "template_deployment")' } }
+    bicep_avm:
+      - { attribute: enableVaultForDeployment, format: { expr: "contains({value}, 'vm_deployment')" }, note: module default true - written }
+      - { attribute: enableVaultForDiskEncryption, format: { expr: "contains({value}, 'disk_encryption')" } }
+      - { attribute: enableVaultForTemplateDeployment, format: { expr: "contains({value}, 'template_deployment')" } }
+    bicep:
+      - { attribute: properties.enabledForDeployment, format: { expr: "contains({value}, 'vm_deployment')" } }
+      - { attribute: properties.enabledForDiskEncryption, format: { expr: "contains({value}, 'disk_encryption')" } }
+      - { attribute: properties.enabledForTemplateDeployment, format: { expr: "contains({value}, 'template_deployment')" } }
+  security.secret_placeholders:
+    terraform_avm: { gap: 'not the module; azurerm_key_vault_secret per name outside it, value placeholder, ignore_changes = [value, tags]' }
+    terraform:
+      attribute: azurerm_key_vault_secret.name
+      note: 'one per name (for_each, name = each.key); value placeholder, content_type placeholder, lifecycle ignore_changes = [value, tags]'
+    bicep_avm: { gap: 'not secrets - the module requires a value and rewrites it as a new version; Microsoft.KeyVault/vaults/secrets with @onlyIfNotExists() outside the call' }
+    bicep:
+      attribute: Microsoft.KeyVault/vaults/secrets name
+      note: '[for name in secretPlaceholders: ...]; @onlyIfNotExists() - deployed once, never over a value somebody set'
+
+  # --------------------------------------------------------------------- keys
+  keys.key_management:
+    not_rendered: whether the keys below are rendered at all; no attribute
+  keys.customer_managed_keys:
+    terraform_avm:
+      attribute: 'keys = { <key> = { name, key_type, key_size, key_opts, rotation_policy } }'
+      note: exact member names from the README of the pinned version
+    terraform:
+      attribute: azurerm_key_vault_key
+      note: 'one per entry, key_vault_id = the vault id; name, key_type, key_size, key_opts (required), rotation_policy (source: azurerm 5.12 schema)'
+    bicep_avm:
+      attribute: 'keys[] = { name, kty, keySize, rotationPolicy, attributes }'
+      note: member names from the README
+    bicep:
+      attribute: Microsoft.KeyVault/vaults/keys
+      note: 'one per entry, parent: the vault; properties { kty, keySize, rotationPolicy } (source: bicep build, Microsoft.KeyVault/vaults/keys@2024-11-01)'
+  keys.key_type:
+    terraform_avm: { attribute: 'keys.<key>.key_type', passthrough: true }
+    terraform: { attribute: azurerm_key_vault_key.key_type, passthrough: true, note: 'EC, EC-HSM, RSA, RSA-HSM (source: azurerm 5.12 docs)' }
+    bicep_avm: { attribute: 'keys[].kty', passthrough: true }
+    bicep: { gap: 'Microsoft.KeyVault/vaults/keys properties.kty (bicep build, @2024-11-01) is a plain string in the type - the RSA / RSA-HSM literals are not provable by a build' }
+  keys.key_size:
+    terraform_avm: { attribute: 'keys.<key>.key_size', passthrough: true }
+    terraform: { attribute: azurerm_key_vault_key.key_size, passthrough: true, note: 'a number; RSA only (source: azurerm 5.12 schema)' }
+    bicep_avm: { attribute: 'keys[].keySize', passthrough: true }
+    bicep: { attribute: Microsoft.KeyVault/vaults/keys properties.keySize, passthrough: true, note: 'an int (source: bicep build, Microsoft.KeyVault/vaults/keys@2024-11-01)' }
+  keys.key_rotation_days:
+    terraform_avm:
+      attribute: 'keys.<key>.rotation_policy.automatic.time_after_creation'
+      format: 'P{value}D'
+      note: an ISO 8601 duration; the member path is the key submodule's (key-vault-key) - confirm in the README
+    terraform:
+      attribute: azurerm_key_vault_key.rotation_policy.automatic.time_after_creation
+      format: 'P{value}D'
+      note: 'an ISO 8601 duration (source: azurerm 5.12 docs)'
+    bicep_avm:
+      attribute: 'keys[].rotationPolicy.lifetimeActions[].trigger.timeAfterCreate'
+      format: 'P{value}D'
+      note: "the entry with action: { type: 'rotate' }; the member path is the key child module's (key-vault-key) - confirm in the README"
+    bicep: { gap: 'Microsoft.KeyVault/vaults/keys properties.rotationPolicy.lifetimeActions[].trigger.timeAfterCreate (bicep build, @2024-11-01) is a plain string - the duration literal is not provable by a build' }
+  keys.key_expiry_days:
+    terraform_avm: { attribute: 'keys.<key>.rotation_policy.expire_after', format: 'P{value}D', note: an ISO 8601 duration; member names from the README }
+    terraform: { attribute: azurerm_key_vault_key.rotation_policy.expire_after, format: 'P{value}D', note: 'an ISO 8601 duration (source: azurerm 5.12 docs)' }
+    bicep_avm: { attribute: 'keys[].rotationPolicy.attributes.expiryTime', format: 'P{value}D', note: an ISO 8601 duration; member names from the README }
+    bicep: { gap: 'Microsoft.KeyVault/vaults/keys properties.rotationPolicy.attributes.expiryTime (bicep build, @2024-11-01) is a plain string - the duration literal is not provable by a build' }
+
+  # ------------------------------------------------------------ observability
+  observability.diagnostic_workspace:
+    terraform_avm: { attribute: diagnostic_settings.workspace.workspace_resource_id }
+    terraform:
+      attribute: azurerm_monitor_diagnostic_setting.log_analytics_workspace_id
+      note: 'target_resource_id = the vault id (source: azurerm 5.12 schema)'
+    bicep_avm: { attribute: 'diagnosticSettings[].workspaceResourceId' }
+    bicep:
+      attribute: Microsoft.Insights/diagnosticSettings properties.workspaceId
+      note: 'scope: the vault (source: bicep build, Microsoft.Insights/diagnosticSettings@2021-05-01-preview)'
+  observability.diagnostic_categories:
+    terraform_avm:
+      attribute: diagnostic_settings.workspace.log_categories
+      note: 'log_groups defaults to ["allLogs"] - set it [] beside named categories, or every log is collected'
+    terraform: { attribute: 'azurerm_monitor_diagnostic_setting.enabled_log { category }', note: one enabled_log block per category (dynamic) }
+    bicep_avm: { attribute: 'diagnosticSettings[].logCategoriesAndGroups[].category' }
+    bicep:
+      attribute: 'Microsoft.Insights/diagnosticSettings properties.logs[].category'
+      note: 'one entry per category, enabled: true on each (source: bicep build, Microsoft.Insights/diagnosticSettings@2021-05-01-preview)'
+  observability.metrics_enabled:
+    terraform_avm:
+      attribute: diagnostic_settings.workspace.metric_categories
+      values: { true: { expr: '["AllMetrics"]' }, false: { expr: '[]' } }
+      note: false is an empty list, not left out - the interface defaults to metrics
+    terraform:
+      attribute: azurerm_monitor_diagnostic_setting.enabled_metric.category
+      values: { true: AllMetrics, false: null }
+      note: 'a block; false renders no enabled_metric block (source: azurerm 5.12 schema; AllMetrics: azurerm 5.12 docs)'
+    bicep_avm:
+      attribute: 'diagnosticSettings[].metricCategories'
+      values: { true: { expr: "[ { category: 'AllMetrics' } ]" }, false: { expr: '[]' } }
+      note: false is an empty array, not left out
+    bicep: { gap: 'Microsoft.Insights/diagnosticSettings properties.metrics[].category (bicep build, @2021-05-01-preview) is a plain string - the AllMetrics literal is not provable by a build' }

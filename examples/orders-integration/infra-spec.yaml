@@ -133,7 +133,8 @@ resources:
         source: stated
     delivery:
       origins:
-        value: [application-gateway]
+        value:
+        - resource: application-gateway
         source: stated
       origin_connection:
         value: public
@@ -255,7 +256,8 @@ resources:
         value: true
         source: stated
       archive_storage_account:
-        value: storage-account
+        value:
+          resource: storage-account
         source: stated
     networking:
       public_network_access:

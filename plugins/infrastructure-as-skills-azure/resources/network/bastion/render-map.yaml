@@ -1,0 +1,182 @@
+# What each decision of questions.yaml renders to, per target and implementation.
+# Format: core/iac-rendering/references/render-map.md. The call, the authored blocks and the
+# tests are in terraform.md and bicep.md.
+schema_version: 1
+resource: Microsoft.Network/bastionHosts
+
+modules:
+  terraform: [Azure/avm-res-network-bastionhost/azurerm]
+  bicep: [avm/res/network/bastion-host]
+
+decisions:
+
+  # ---------------------------------------------------------------- placement
+  placement.environments:
+    not_rendered: naming parameter `environment` and the tag of that name; no attribute of the host
+  placement.location:
+    terraform_avm: { attribute: location, passthrough: true }
+    terraform: { attribute: location, passthrough: true }
+    bicep_avm: { attribute: location, passthrough: true }
+    bicep: { attribute: location, passthrough: true }
+  placement.resource_group_name:
+    terraform_avm:
+      attribute: parent_id
+      note: the group's id (data.azurerm_resource_group), not its name - AzAPI-based, pins azurerm to 4.x
+    terraform: { attribute: resource_group_name }
+    bicep_avm: { gap: the deployment's resource group scope; no parameter }
+    bicep: { gap: the deployment's resource group scope; no property }
+
+  # ------------------------------------------------------------------ bastion
+  bastion.admin_access:
+    terraform_avm:
+      attribute: private_only_enabled
+      values: { internet: false, private_network: true }
+      also:
+        internet: ip_configuration.create_public_ip = true
+        private_network: ip_configuration.create_public_ip = false
+      note: private_network needs Premium and no public_ip_address_id
+    terraform:
+      attribute: private_only_enabled
+      values: { internet: false, private_network: true }
+      note: private_network renders no public IP resource
+    bicep_avm:
+      attribute: enablePrivateOnlyBastion
+      values: { internet: false, private_network: true }
+      note: private_network needs Premium and drops publicIPAddressObject
+    bicep:
+      attribute: properties.enablePrivateOnlyBastion
+      values: { internet: false, private_network: true }
+      note: private_network renders no publicIPAddress on the ipConfiguration
+  bastion.sku:
+    terraform_avm:
+      attribute: sku
+      values: { Developer: Developer, Basic: Basic, Standard: Standard, Premium: Premium }
+      note: module default Basic - written
+    terraform:
+      attribute: sku
+      values: { Developer: Developer, Basic: Basic, Standard: Standard, Premium: Premium }
+    bicep_avm:
+      attribute: skuName
+      values: { Developer: Developer, Basic: Basic, Standard: Standard, Premium: Premium }
+      note: module default Basic - written
+    bicep:
+      attribute: sku.name
+      values: { Developer: Developer, Basic: Basic, Standard: Standard, Premium: Premium }
+  bastion.zone_redundant:
+    terraform_avm:
+      attribute: zones
+      values: { true: { expr: '["1", "2", "3"]' }, false: { expr: '[]' } }
+      note: a set of strings; module default all three; Developer requires []
+    terraform:
+      attribute: zones
+      values: { true: { expr: '["1", "2", "3"]' }, false: { expr: '[]' } }
+    bicep_avm:
+      attribute: availabilityZones
+      values: { true: { expr: '[ 1, 2, 3 ]' }, false: { expr: '[]' } }
+      note: module default none, the Terraform module's all three - written; Developer has none
+    bicep:
+      attribute: zones
+      values: { true: { expr: "[ '1', '2', '3' ]" }, false: { expr: '[]' } }
+      note: top level; none for Developer; ARM zones are strings, unlike the module's integers
+  bastion.scale_units:
+    terraform_avm: { attribute: scale_units, passthrough: true, note: module default 2; written }
+    terraform: { attribute: scale_units, passthrough: true }
+    bicep_avm: { attribute: scaleUnits, passthrough: true, note: module default 2; forced to 2 on Basic and Developer }
+    bicep: { attribute: properties.scaleUnits, passthrough: true }
+
+  # --------------------------------------------------------------- networking
+  networking.bastion_subnet:
+    terraform_avm:
+      attribute: ip_configuration.subnet_id
+      note: 'ip_configuration = { name, subnet_id, create_public_ip, public_ip_address_name }; Developer: virtual_network_id and no ip_configuration; the subnet is AzureBastionSubnet'
+    terraform:
+      attribute: azurerm_bastion_host.ip_configuration.subnet_id
+      note: 'ip_configuration { name, subnet_id, public_ip_address_id }; Developer: virtual_network_id'
+    bicep_avm:
+      attribute: virtualNetworkResourceId
+      format: { expr: "join(take(split({value}, '/'), 9), '/')" }
+      note: the vnet's id, the parent of the subnet's - the module finds AzureBastionSubnet by name; Developer too
+    bicep:
+      attribute: 'properties.ipConfigurations[].properties.subnet.id'
+      note: "privateIPAllocationMethod: 'Dynamic' beside subnet and publicIPAddress; Developer: properties.virtualNetwork.id and no ipConfigurations"
+  networking.public_ip_zone_redundant:
+    terraform_avm: { gap: 'module README v0.9.0 has no input for the address zones; the created address takes the Bastion''s zones (default ["1", "2", "3"])' }
+    terraform:
+      attribute: azurerm_public_ip.zones
+      values: { true: { expr: '["1", "2", "3"]' }, false: { expr: '[]' } }
+      note: 'sku = "Standard", allocation_method = "Static"'
+    bicep_avm:
+      attribute: publicIPAddressObject.availabilityZones
+      values: { true: { expr: '[ 1, 2, 3 ]' }, false: { expr: '[]' } }
+      note: "publicIPAddressObject: { name, skuName: 'Standard', publicIPAllocationMethod: 'Static', availabilityZones }"
+    bicep:
+      attribute: Microsoft.Network/publicIPAddresses zones
+      values: { true: { expr: "[ '1', '2', '3' ]" }, false: { expr: '[]' } }
+      note: "sku: { name: 'Standard' }, properties.publicIPAllocationMethod: 'Static'"
+
+  # ----------------------------------------------------------------- security
+  security.shareable_link:
+    terraform_avm: { attribute: shareable_link_enabled, passthrough: true, note: rejected on Basic and Developer }
+    terraform: { attribute: shareable_link_enabled, passthrough: true }
+    bicep_avm: { attribute: enableShareableLink, passthrough: true }
+    bicep: { attribute: properties.enableShareableLink, passthrough: true, note: the switch exists from Standard upward }
+  security.native_client:
+    terraform_avm: { attribute: tunneling_enabled, passthrough: true, note: not compatible with session recording }
+    terraform: { attribute: tunneling_enabled, passthrough: true }
+    bicep_avm:
+      gap: 'module 0.8.2 has no enableTunneling parameter - main.bicep fixes it on for Standard and for Premium without session recording; false on Standard renders the Bastion authored (forced_by: avm/res/network/bastion-host fixes tunneling on) or records true as forced'
+    bicep: { attribute: properties.enableTunneling, passthrough: true, note: the switch exists from Standard upward }
+  security.ip_connect:
+    terraform_avm: { attribute: ip_connect_enabled, passthrough: true, note: rejected on Basic and Developer }
+    terraform: { attribute: ip_connect_enabled, passthrough: true }
+    bicep_avm: { attribute: enableIpConnect, passthrough: true }
+    bicep: { attribute: properties.enableIpConnect, passthrough: true, note: the switch exists from Standard upward }
+  security.file_copy:
+    terraform_avm: { attribute: file_copy_enabled, passthrough: true, note: rejected on Basic and Developer }
+    terraform: { attribute: file_copy_enabled, passthrough: true }
+    bicep_avm: { attribute: enableFileCopy, passthrough: true, note: "module default true, the Terraform module's false - written" }
+    bicep: { attribute: properties.enableFileCopy, passthrough: true, note: the switch exists from Standard upward }
+  security.copy_paste:
+    terraform_avm: { attribute: copy_paste_enabled, passthrough: true, note: false is rejected on Basic and Developer }
+    terraform: { attribute: copy_paste_enabled, passthrough: true }
+    bicep_avm:
+      attribute: disableCopyPaste
+      values: { true: false, false: true }
+      note: inverted
+    bicep:
+      attribute: properties.disableCopyPaste
+      values: { true: false, false: true }
+      note: inverted; the switch exists from Standard upward
+  security.session_recording:
+    terraform_avm: { attribute: session_recording_enabled, passthrough: true, note: Premium; the module has no input for the recording container }
+    terraform: { attribute: session_recording_enabled, passthrough: true }
+    bicep_avm: { attribute: enableSessionRecording, passthrough: true, note: Premium }
+    bicep: { attribute: properties.enableSessionRecording, passthrough: true, note: the switch exists from Standard upward }
+
+  # ------------------------------------------------------------ observability
+  observability.diagnostic_workspace:
+    terraform_avm: { attribute: 'diagnostic_settings.<key>.workspace_resource_id' }
+    terraform: { attribute: azurerm_monitor_diagnostic_setting.log_analytics_workspace_id }
+    bicep_avm: { attribute: 'diagnosticSettings[].workspaceResourceId', note: the metrics setting takes the same workspace }
+    bicep: { attribute: Microsoft.Insights/diagnosticSettings properties.workspaceId }
+  observability.diagnostic_categories:
+    terraform_avm:
+      attribute: 'diagnostic_settings.<key>.log_categories'
+      note: log_groups defaults to ["allLogs"] - set it to []
+    terraform: { attribute: azurerm_monitor_diagnostic_setting.enabled_log.category }
+    bicep_avm: { attribute: 'diagnosticSettings[].logCategoriesAndGroups[].category' }
+    bicep: { attribute: 'Microsoft.Insights/diagnosticSettings properties.logs[].category' }
+  observability.metrics_enabled:
+    terraform_avm:
+      attribute: 'diagnostic_settings.<key>.metric_categories'
+      values: { true: { expr: '["AllMetrics"]' }, false: { expr: '[]' } }
+    terraform:
+      attribute: azurerm_monitor_diagnostic_setting.enabled_metric
+      values: { true: { expr: '{ category = "AllMetrics" }' }, false: null }
+      note: a block (azurerm 5.x); false renders no enabled_metric block
+    bicep_avm:
+      gap: "module README 0.8.2 has no metricCategories on the host's diagnosticSettings (logs only); true renders a second Microsoft.Insights/diagnosticSettings on the existing host with metrics: [ { category: 'AllMetrics', enabled: true } ], false none"
+    bicep:
+      attribute: Microsoft.Insights/diagnosticSettings properties.metrics
+      values: { true: { expr: "[ { category: 'AllMetrics', enabled: true } ]" }, false: null }
+      note: false renders no metrics entry

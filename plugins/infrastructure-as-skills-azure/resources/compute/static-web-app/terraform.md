@@ -19,15 +19,13 @@ Terraform `>= 1.7`. The root's provider set is the union with the other modules.
 
 ### Decision -> module input
 
-| Decision | Input | Note |
+What each decision renders to - the input and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.
+
+### Deployment-wide and other inputs
+
+| Setting | Input | Note |
 |---|---|---|
-| `sku` | `sku_tier` and `sku_size` | Both `"Free"` / `"Standard"`; module default `"Free"` for both; written |
-| `preview_environments_enabled` | `preview_environments_enabled` | Module default **`true`**; written |
-| `public_network_access` | `public_network_access_enabled` | **Bool**; module default **`true`** |
-| `private_endpoint_subnet` | `private_endpoints = { staticsite = { subnet_resource_id } }` | The sub-resource is fixed by the module; no `subresource_name` input |
 | `deployment.private_dns_records` | `private_endpoints_manage_dns_zone_group` | `false` under `policy`; under `deployment` the zone ids go into `private_dns_zone_resource_ids` once the zone exists |
-| `managed_identity`, `user_assigned_identity_ids` | `managed_identities = { system_assigned, user_assigned_resource_ids }` | Omit the input for `none` |
-| `role_assignments` | `role_assignments` | `role_definition_id_or_name`, `principal_id` |
 | `deployment.module_telemetry` | `enable_telemetry` | |
 | `context.tags` | `tags = local.tags` | |
 | (no diagnostics) | none | The module has no `diagnostic_settings` input; see the notes |
@@ -92,11 +90,4 @@ endpoint and the role assignments - is `# not-testable:` with a reason where the
 The fallback. Targets `azurerm` **5.x**; checked against `terraform providers schema -json`
 (azurerm 5.11.0).
 
-| Decision | Argument on `azurerm_static_web_app` |
-|---|---|
-| `sku` | `sku_tier`, `sku_size` |
-| `preview_environments_enabled` | `preview_environments_enabled` |
-| `public_network_access` | `public_network_access_enabled` |
-| `managed_identity` | `identity { type, identity_ids }` |
-| private endpoint | `azurerm_private_endpoint` with `subresource_names = ["staticSites"]` |
-| `role_assignments` | `azurerm_role_assignment` |
+What each decision renders to - the argument and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.

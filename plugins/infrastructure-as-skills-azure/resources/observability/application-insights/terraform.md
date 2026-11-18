@@ -18,17 +18,12 @@ union with the other modules.
 
 ### Decision -> module input
 
+What each decision renders to - the input and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.
+
+### Inputs no decision covers
+
 | Decision | Input | Note |
 |---|---|---|
-| `workspace` | `workspace_id` | **Required** |
-| `application_type` | `application_type` | Default `web`; written |
-| `sampling_percentage` | `sampling_percentage` | Default 100; written |
-| `daily_cap_gb` | `daily_data_cap_in_gb` | Module default **100**; `0` is unlimited; written |
-| `store_client_ip` | `disable_ip_masking` | Same polarity: storing the address is disabling the masking (`true`); not storing is `false`, the default; written |
-| `public_network_access` | `internet_ingestion_enabled`, `internet_query_enabled` | **Bools**; module defaults **`true`** for both; written |
-| `private_link_scope` | `monitor_private_link_scope = { scope = { resource_id } }` | Adds the component to the platform's scope; member names from the README |
-| `local_authentication_disabled` | `local_authentication_enabled` (inverse; the 4.x `local_authentication_disabled` is gone in 5.x) | Module default **`false`**; written |
-| `role_assignments` | `role_assignments` | |
 | (retention) | `retention_in_days` | Module default 90; set to the workspace's retention, not a decision |
 | `deployment.module_telemetry` | `enable_telemetry` | |
 | `context.tags` | `tags = local.tags` | |
@@ -99,12 +94,4 @@ hides them.
 
 The fallback. Targets `azurerm` **5.x**; check against `terraform providers schema -json`.
 
-| Decision | Argument on `azurerm_application_insights` |
-|---|---|
-| `workspace` | `workspace_id` (always; the classic form is not offered) |
-| `application_type` | `application_type` |
-| `sampling_percentage`, `daily_cap_gb` | `sampling_percentage`; `daily_data_cap_in_gb` |
-| `store_client_ip` | `ip_masking_enabled` (**opposite polarity** to the AVM module's `disable_ip_masking`: storing the address is `ip_masking_enabled = false`) |
-| `public_network_access` | `internet_ingestion_enabled`, `internet_query_enabled` |
-| `local_authentication_disabled` | `local_authentication_enabled` (inverse; the 4.x `local_authentication_disabled` is gone in 5.x) |
-| `private_link_scope` | `azurerm_monitor_private_link_scoped_service` |
+What each decision renders to - the argument and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.

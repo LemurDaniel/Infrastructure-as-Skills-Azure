@@ -4,7 +4,8 @@
 //     --template-file main.bicep --parameters main.<stage>.bicepparam
 // Composition (granularity per-concern, authored resources): one file per module in modules/.
 // This file holds the module calls and all wiring that spans two modules: the private DNS zones,
-// the role assignments between modules and the diagnostics of the virtual network.
+// the role assignments between modules and the diagnostics of the virtual network and its
+// network security groups.
 
 targetScope = 'resourceGroup'
 
@@ -165,6 +166,9 @@ var driftPrivateEndpointName = '${privateEndpointNamePrefix}-drift-${idx}'
 var fuzzPrivateEndpointName = '${privateEndpointNamePrefix}-fuzz-${idx}'
 var tunePrivateEndpointName = '${privateEndpointNamePrefix}-tune-${idx}'
 var dnsLinkName = 'vnl-${loc}-${env}-${workload}-${idx}'
+// <TYPE>-<LOCATION>-<ENVIRONMENT>-<NAME>-<INDEX>, the instance joins the workload in <NAME>
+var endpointsSecurityGroupName = 'nsg-${loc}-${env}-${workload}-endpoints-${idx}'
+var appsSecurityGroupName = 'nsg-${loc}-${env}-${workload}-apps-${idx}'
 
 // Subnet names (spec: virtual-network.addressing.subnets, resources.*.networking.private_endpoint_subnet,
 // app-service.networking.integration_subnet).
@@ -198,6 +202,8 @@ module network 'modules/network.bicep' = {
     privateEndpointSubnetName: privateEndpointSubnetName
     privateEndpointSubnetPrefix: privateEndpointSubnetPrefix
     integrationSubnetName: integrationSubnetName
+    endpointsSecurityGroupName: endpointsSecurityGroupName
+    appsSecurityGroupName: appsSecurityGroupName
   }
 }
 
@@ -704,6 +710,56 @@ resource virtualNetworkDiagnostics 'Microsoft.Insights/diagnosticSettings@2021-0
 
 // decision: virtual-network.observability.flow_logs_enabled - false: no flow log resource (a
 // Network Watcher flow log would be rendered here).
+
+// ---------------------------------------------------------------------------------------------
+// Wiring: diagnostics of the network security groups (the network module does not need the workspace)
+// ---------------------------------------------------------------------------------------------
+
+resource endpointsSecurityGroupRef 'Microsoft.Network/networkSecurityGroups@2025-01-01' existing = {
+  name: endpointsSecurityGroupName
+}
+
+resource endpointsSecurityGroupDiagnostics 'Microsoft.Insights/diagnosticSettings@2021-05-01-preview' = {
+  name: 'diag'
+  scope: endpointsSecurityGroupRef
+  properties: {
+    // decision: network-security-group__endpoints.observability.diagnostic_workspace
+    workspaceId: observability.outputs.id
+    // decision: network-security-group__endpoints.observability.diagnostic_categories
+    // An NSG has no metrics, so the setting carries logs only.
+    logs: [
+      { category: 'NetworkSecurityGroupEvent', enabled: true }
+      { category: 'NetworkSecurityGroupRuleCounter', enabled: true }
+    ]
+  }
+  dependsOn: [
+    // The scope is an existing reference: Bicep cannot see that the network module creates it.
+    network
+  ]
+}
+
+resource appsSecurityGroupRef 'Microsoft.Network/networkSecurityGroups@2025-01-01' existing = {
+  name: appsSecurityGroupName
+}
+
+resource appsSecurityGroupDiagnostics 'Microsoft.Insights/diagnosticSettings@2021-05-01-preview' = {
+  name: 'diag'
+  scope: appsSecurityGroupRef
+  properties: {
+    // decision: network-security-group__apps.observability.diagnostic_workspace
+    workspaceId: observability.outputs.id
+    // decision: network-security-group__apps.observability.diagnostic_categories
+    // An NSG has no metrics, so the setting carries logs only.
+    logs: [
+      { category: 'NetworkSecurityGroupEvent', enabled: true }
+      { category: 'NetworkSecurityGroupRuleCounter', enabled: true }
+    ]
+  }
+  dependsOn: [
+    // The scope is an existing reference: Bicep cannot see that the network module creates it.
+    network
+  ]
+}
 
 // ---------------------------------------------------------------------------------------------
 // Outputs (nothing secret)

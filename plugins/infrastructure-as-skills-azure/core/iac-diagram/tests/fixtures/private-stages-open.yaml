@@ -80,9 +80,7 @@ deployment:
     source: { forced_by: deployment.landing_zone }
   diagnostics_destination:
     value:
-      development: log-analytics-workspace
-      test: log-analytics-workspace
-      production: log-analytics-workspace
+      resource: log-analytics-workspace
     source: { forced_by: deployment.observability_ownership }
   log_retention_days:
     value: 30
@@ -118,24 +116,10 @@ resources:
       ddos_protection:
         value: false
         source: default
-      subnets_expecting_nsg:
-        value:
-          development:
-          - snet-endpoints
-          - snet-web
-          test:
-          - snet-endpoints
-          - snet-web
-          production:
-          - snet-endpoints
-          - snet-web
-        source: { forced_by: resources.network-security-group__endpoints.rules.subnet_purpose }
     observability:
       diagnostic_workspace:
         value:
-          development: log-analytics-workspace
-          test: log-analytics-workspace
-          production: log-analytics-workspace
+          resource: log-analytics-workspace
         source: deployment
       flow_logs_enabled:
         value: false
@@ -162,9 +146,7 @@ resources:
     observability:
       diagnostic_workspace:
         value:
-          development: log-analytics-workspace
-          test: log-analytics-workspace
-          production: log-analytics-workspace
+          resource: log-analytics-workspace
         source: deployment
       diagnostic_categories:
         value:
@@ -193,9 +175,7 @@ resources:
     observability:
       diagnostic_workspace:
         value:
-          development: log-analytics-workspace
-          test: log-analytics-workspace
-          production: log-analytics-workspace
+          resource: log-analytics-workspace
         source: deployment
       diagnostic_categories:
         value:
@@ -236,9 +216,7 @@ resources:
     component:
       workspace:
         value:
-          development: log-analytics-workspace
-          test: log-analytics-workspace
-          production: log-analytics-workspace
+          resource: log-analytics-workspace
         source: deployment
       application_type:
         value: web
@@ -295,9 +273,8 @@ resources:
         source: deployment
       private_endpoint_subnet:
         value:
-          development: snet-endpoints
-          test: snet-endpoints
-          production: snet-endpoints
+          resource: virtual-network
+          part: snet-endpoints
         source: { forced_by: deployment.network_ownership }
       network_acl_bypass:
         value: None
@@ -316,9 +293,7 @@ resources:
     observability:
       diagnostic_workspace:
         value:
-          development: log-analytics-workspace
-          test: log-analytics-workspace
-          production: log-analytics-workspace
+          resource: log-analytics-workspace
         source: deployment
       diagnostic_categories:
         value:
@@ -337,9 +312,8 @@ resources:
         source: deployment
       private_endpoint_subnet:
         value:
-          development: snet-endpoints
-          test: snet-endpoints
-          production: snet-endpoints
+          resource: virtual-network
+          part: snet-endpoints
         source: { forced_by: deployment.network_ownership }
       private_endpoint_subresources:
         value:
@@ -414,9 +388,7 @@ resources:
     observability:
       diagnostic_workspace:
         value:
-          development: log-analytics-workspace
-          test: log-analytics-workspace
-          production: log-analytics-workspace
+          resource: log-analytics-workspace
         source: deployment
       diagnostic_categories:
         value:
@@ -460,9 +432,8 @@ resources:
         source: deployment
       private_endpoint_subnet:
         value:
-          development: snet-endpoints
-          test: snet-endpoints
-          production: snet-endpoints
+          resource: virtual-network
+          part: snet-endpoints
         source: { forced_by: deployment.network_ownership }
       restrict_outbound:
         value: true
@@ -499,9 +470,7 @@ resources:
     observability:
       diagnostic_workspace:
         value:
-          development: log-analytics-workspace
-          test: log-analytics-workspace
-          production: log-analytics-workspace
+          resource: log-analytics-workspace
         source: deployment
       diagnostic_categories:
         value:
@@ -537,9 +506,8 @@ resources:
         source: deployment
       private_endpoint_subnet:
         value:
-          development: snet-endpoints
-          test: snet-endpoints
-          production: snet-endpoints
+          resource: virtual-network
+          part: snet-endpoints
         source: { forced_by: deployment.network_ownership }
       network_rule_bypass:
         value: None
@@ -570,9 +538,7 @@ resources:
     observability:
       diagnostic_workspace:
         value:
-          development: log-analytics-workspace
-          test: log-analytics-workspace
-          production: log-analytics-workspace
+          resource: log-analytics-workspace
         source: deployment
       diagnostic_categories:
         value:
@@ -606,18 +572,16 @@ resources:
         source: deployment
       private_endpoint_subnet:
         value:
-          development: snet-endpoints
-          test: snet-endpoints
-          production: snet-endpoints
+          resource: virtual-network
+          part: snet-endpoints
         source: { forced_by: deployment.network_ownership }
       vnet_integration:
         value: true
         source: default
       integration_subnet:
         value:
-          development: snet-web
-          test: snet-web
-          production: snet-web
+          resource: virtual-network
+          part: snet-web
         source: { forced_by: deployment.network_ownership }
       vnet_route_all:
         value: true
@@ -652,9 +616,7 @@ resources:
     observability:
       diagnostic_workspace:
         value:
-          development: log-analytics-workspace
-          test: log-analytics-workspace
-          production: log-analytics-workspace
+          resource: log-analytics-workspace
         source: deployment
       diagnostic_categories:
         value:

@@ -40,7 +40,6 @@ groups:
         why: >
           Drives the rendered name and the strictness of several defaults below.
           Nothing sensible can be guessed.
-        renders: naming parameter `environment`, and the tag of that name where the repository uses one
 
       - id: location
         ask:
@@ -56,7 +55,6 @@ groups:
           the endpoint. Azure Managed Redis is not offered in every region, nor every size in
           every region, and zones differ; the region is checked against the service's
           availability before a render, not assumed.
-        renders: location
 
       - id: resource_group_name
         ask:
@@ -72,7 +70,6 @@ groups:
         why: >
           The cluster is placed into an existing group. Creating one here would make this
           set own a lifecycle wider than the resource it describes.
-        renders: parent_id (the resource group's id; AVM Terraform, azapi-based) / implicit in Bicep scope
 
   # -------------------------------------------------------------------- cache
   - id: cache
@@ -100,7 +97,6 @@ groups:
           too high is paid every hour. A cost knob, which is the only reason a stage may
           differ - a development stage on the smallest does not rehearse the throughput
           of the production one. Sizes and tunings are not offered in every region.
-        renders: sku_name / skuName
 
       - id: clustering_policy
         ask:
@@ -126,7 +122,6 @@ groups:
           changed, and it cannot use the RediSearch module. **The Terraform module offers
           `NoEviction` where the API says `NoCluster`**, so that value is rendered by the
           authored form on that target.
-        renders: clustering_policy / database.clusteringPolicy
 
       - id: eviction_policy
         ask:
@@ -155,7 +150,6 @@ groups:
           have an expiry, and behave like `NoEviction` for the rest. A changeable setting,
           but the application is written for one of them. The Terraform module's
           validation does not accept the two LFU values.
-        renders: eviction_policy / database.evictionPolicy
 
       - id: redis_modules
         ask:
@@ -172,7 +166,6 @@ groups:
           afterwards**; a missing one is a new cache. Empty until an application names one.
           RediSearch needs `EnterpriseCluster` or `OSSCluster` and an eviction policy of
           `NoEviction`.
-        renders: redis_modules [{ name, args }] / database.modules
 
   # --------------------------------------------------------------- resilience
   - id: resilience
@@ -205,7 +198,6 @@ groups:
           highly available Managed Redis cluster in different zones itself: there is no zone
           decision to take, and the module's `zones` input applies to the Enterprise SKUs
           only.
-        renders: high_availability / highAvailability ('Enabled' / 'Disabled')
 
       - id: geo_replicas
         ask:
@@ -229,7 +221,6 @@ groups:
           every region named must satisfy `data_residency` (`country`: the same country,
           `data_zone`: the same data zone), and a region that does not is refused with the
           residency as the reason
-        renders: a second instance of this set per region and azurerm_managed_redis_geo_replication / database.geoReplication { groupNickname, linkedDatabases } (the AVM Terraform module does not render it)
 
   # --------------------------------------------------------------- networking
   - id: networking
@@ -248,7 +239,7 @@ groups:
           enabled_with_firewall: { en: "reachable from the internet, with sign-in as the only gate", de: "aus dem Internet erreichbar, mit der Anmeldung als einziger Schranke" }
           enabled: { en: "reachable from the internet", de: "aus dem Internet erreichbar" }
         accepts: [disabled, enabled_with_firewall, enabled]
-        answer: { deployment: network_exposure }
+        answer: { deployment: network_exposure, map: { private: disabled, private_with_exceptions: disabled, public: enabled_with_firewall } }
         why: >
           Asked only as a departure: exposure is a property of the system. `private` is
           `disabled`. **Azure Managed Redis has no IP allowlist**: public access is on or
@@ -261,7 +252,6 @@ groups:
           `network_ownership: none` (a public deployment without a network) forces
           `enabled`, recorded as forced with `network_ownership` as forced_by; and
           `enabled_with_firewall` is rendered `enabled`, recorded `overridden`
-        renders: public_network_access ("Enabled" / "Disabled") / publicNetworkAccess
 
       - id: private_endpoint_subnet
         ask:
@@ -280,7 +270,6 @@ groups:
           sub-resource is `redisEnterprise` and the zone `privatelink.redis.azure.net`; the
           endpoint is on the cluster, and the database `default` is reached through it. The
           cluster has no virtual-network injection.
-        renders: private_endpoints.<key>.subnet_resource_id / privateEndpoints[].subnetResourceId (service `redisEnterprise`)
 
   # ----------------------------------------------------------------- identity
   - id: identity
@@ -308,7 +297,6 @@ groups:
         forced_when: >
           `key_management: customer_managed` forces `user_assigned`, recorded as forced
           with `key_management` as forced_by
-        renders: managed_identities / managedIdentities
 
       - id: user_assigned_identity_ids
         ask:
@@ -323,7 +311,6 @@ groups:
         depends_on: { question: managed_identity, equals: user_assigned }
         per_environment: true
         why: The identity must already exist; this set does not create it.
-        renders: managed_identities.user_assigned_resource_ids / managedIdentities.userAssignedResourceIds
 
       - id: data_access_assignments
         ask:
@@ -345,7 +332,6 @@ groups:
           by the workload owner, blocking apply. The object id is the identity's (a managed
           identity's principal id, a group's object id). A pattern fills this from the
           consumers it knows.
-        renders: access_policy_assignments { object_id, access_policy_name = "default" } / database.accessPolicyAssignments [{ userObjectId, accessPolicyName }]
 
       - id: role_assignments
         ask:
@@ -362,7 +348,6 @@ groups:
           reading the access keys if they were enabled. Separate from the data access
           above on purpose, and usually the deploying principal's alone, so empty is a
           normal answer.
-        renders: role_assignments / roleAssignments
 
   # ----------------------------------------------------------------- security
   - id: security
@@ -379,7 +364,7 @@ groups:
         plain_values:
           true: { en: "switched off", de: "abgeschaltet" }
           false: { en: "possible", de: "möglich" }
-        answer: { deployment: local_auth }
+        answer: { deployment: local_auth, map: { disabled: true, allowed_where_unavoidable: true } }
         why: >
           Inherited: `local_auth: disabled` renders as access-key authentication disabled.
           An access key is a password that every client shares, does not expire and is not
@@ -388,7 +373,6 @@ groups:
           nor the API default is written for you**: the module has no input for the
           database's `accessKeysAuthentication`, so the Terraform render sets it with an
           update beside the module.
-        renders: azapi_update_resource accessKeysAuthentication = "Disabled" on the database (no module input) / database.accessKeysAuthentication
 
       - id: encrypted_connections_only
         ask:
@@ -408,7 +392,6 @@ groups:
           so there is no version question. A client that cannot do TLS is replaced, not
           accommodated. The question exists because the modules expose the switch and
           the departure must be recorded where someone makes it.
-        renders: enable_non_ssl_port = false, minimum_tls_version = "1.2" / database.clientProtocol = 'Encrypted', minimumTlsVersion = '1.2'
 
       - id: key_management
         ask:
@@ -429,7 +412,6 @@ groups:
           in a Key Vault with purge protection, an identity that can wrap and unwrap it, and
           a rotation story. **It is set at creation**, and a cache that loses access to the
           key becomes unreadable.
-        renders: customer_managed_key_encryption / customerManagedKey
 
       - id: cmk_key_vault_key_id
         ask:
@@ -449,7 +431,6 @@ groups:
           User` on it before the cache is created - an ordering that bites the first
           attempt. The Terraform module takes the key URL (`key_encryption_key_url`), the
           Bicep module the vault, the key name and the identity.
-        renders: customer_managed_key_encryption { key_encryption_key_url, identity_type, user_assigned_identity_resource_id } / customerManagedKey { keyVaultResourceId, keyName, userAssignedIdentityResourceId }
 
   # ---------------------------------------------------------- data protection
   - id: data_protection
@@ -482,7 +463,6 @@ groups:
           derives it; both are named in the decision document as not met by a cache. The
           Terraform module has no input for it: the render sets it with an update beside the
           module.
-        renders: azapi_update_resource persistence { rdbEnabled, rdbFrequency } or { aofEnabled, aofFrequency } on the database (no module input) / database.persistence { type, frequency }
 
   # ------------------------------------------------------------ observability
   - id: observability
@@ -504,7 +484,6 @@ groups:
           Inherited: one deployment, one destination. Without a diagnostic setting the cache
           keeps no record of who connected, and a client that fails to sign in leaves no
           trace beyond its own log. The setting sits on the database, not the cluster.
-        renders: diagnostic_settings (an authored `azurerm_monitor_diagnostic_setting` in Terraform, the module has none) / database.diagnosticSettings
 
       - id: diagnostic_categories
         ask:
@@ -523,7 +502,6 @@ groups:
           authentication; it is cheap. The category name is the platform's and is checked
           against `az monitor diagnostic-settings categories list --resource <database id>`
           before a render, not remembered.
-        renders: diagnostic_settings.<key>.enabled_log.category / database.diagnosticSettings[].logCategoriesAndGroups[].category
 
       - id: metrics_enabled
         ask:
@@ -540,4 +518,3 @@ groups:
         why: >
           Used memory, the evicted-key counter, the hit ratio and the server load decide
           whether `sku_name` was right, and they are cheap.
-        renders: diagnostic_settings.<key>.metric.category = "AllMetrics" / diagnosticSettings[].metricCategories[].category = "AllMetrics" (on the cluster)

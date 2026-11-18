@@ -19,30 +19,15 @@ carries `computes`, `connections` and `datastores` as nested parameters.
 
 ### Decision -> module parameter
 
-| Decision | Parameter | Note |
+What each decision renders to - the parameter and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.
+
+### Parameters no decision covers
+
+| Input | Parameter | Note |
 |---|---|---|
 | (kind) | `kind: 'Default'` | Default `'Default'`; written |
 | (edition) | `sku: 'Basic'` | **Required** by the module; the only edition in use |
-| `storage_account`, `key_vault`, `application_insights` | `associatedStorageAccountResourceId`, `associatedKeyVaultResourceId`, `associatedApplicationInsightsResourceId` | Required for `Default`; a missing key vault makes the service create a Microsoft-managed one |
-| `container_registry` | `associatedContainerRegistryResourceId` | Omitted when empty |
-| `hbi_workspace` | `hbiWorkspace` | Default `false`; written |
-| `v1_legacy_mode` | - | **Not carried by the module** (`properties.v1LegacyMode`); a second deployment against the workspace when `true`; off is the platform default |
-| `image_build_compute` | `imageBuildCompute` | |
-| `computes` | `computes: [ { name, computeType, location, sku, properties } ]` | Names only from the set; the sizing is content |
-| `managed_network_isolation` | `managedNetworkSettings: { isolationMode }` | Unset by default; written |
-| `outbound_fqdns` | `managedNetworkSettings.outboundRules: { <name>: { type: 'FQDN', destination, category: 'UserDefined' } }` | The rule name is the object key; `firewallSku` beside it |
-| `provision_network_now` | `provisionNetworkNow` | Unset by default; written |
-| `public_network_access` | `publicNetworkAccess: 'Disabled'` / `'Enabled'` | Module default `'Disabled'`; written |
-| `ip_allowlist` | `ipAllowlist` | |
-| `private_endpoint_subnet` | `privateEndpoints: [ { subnetResourceId, service: 'amlworkspace' } ]` | |
 | `deployment.private_dns_records: policy` | no `privateDnsZoneGroup` on the endpoint | |
-| `serverless_compute_no_public_ip` | `serverlessComputeSettings: { serverlessComputeNoPublicIP }` | |
-| `managed_identity`, `user_assigned_identity_ids` | `managedIdentities: { systemAssigned, userAssignedResourceIds }`, `primaryUserAssignedIdentity` | Module default `{ systemAssigned: true }`; the primary is required with user-assigned and may not be set with system-assigned |
-| `role_assignments` | `roleAssignments` | |
-| `storage_datastore_auth` | `systemDatastoresAuthMode: 'Identity'` / `'AccessKey'` | Unset by default (key); written |
-| `key_management`, `cmk_key_vault_key_id` | `customerManagedKey: { keyName, keyVaultResourceId, userAssignedIdentityResourceId }` | |
-| `service_side_cmk` | `enableServiceSideCMKEncryption` | Unset by default; written |
-| `diagnostic_*`, `metrics_enabled` | `diagnosticSettings: [ { workspaceResourceId, logCategoriesAndGroups: [ { category } ], metricCategories: [ { category: 'AllMetrics' } ] } ]` | |
 | `deployment.module_telemetry` | `enableTelemetry` | |
 | `context.tags` | `tags` | |
 
@@ -124,25 +109,13 @@ is a second deployment against the workspace (an `existing` reference and an upd
 ### Tests
 
 A module call compiles to a nested deployment whose `properties.parameters.<param>.value` is the
-decision, so every decision above is observable in `tests/*.armtest.yaml`
+decision, so every decision in render-map.yaml is observable in `tests/*.armtest.yaml`
 ([bicep-idiom.md](../../../core/iac-rendering/references/bicep-idiom.md#tests)); `v1_legacy_mode`
 at its default is `not_testable` (rendered nowhere).
 
 ## Authored rendering
 
 The fallback. `Microsoft.MachineLearningServices/workspaces` with `kind`, `sku`, `identity` and
-`properties`:
+`properties`.
 
-| Decision | Property |
-|---|---|
-| dependencies | `properties.storageAccount`, `keyVault`, `applicationInsights`, `containerRegistry` |
-| `hbi_workspace`, `v1_legacy_mode`, `image_build_compute` | `properties.hbiWorkspace`, `v1LegacyMode`, `imageBuildCompute` |
-| `managed_network_isolation`, `outbound_fqdns`, `provision_network_now` | `properties.managedNetwork: { isolationMode, outboundRules }`, `provisionNetworkNow` |
-| `public_network_access`, `ip_allowlist` | `properties.publicNetworkAccess`, `ipAllowlist` |
-| `serverless_compute_no_public_ip` | `properties.serverlessComputeSettings.serverlessComputeNoPublicIP` |
-| `managed_identity` | `identity` (top level), `properties.primaryUserAssignedIdentity` |
-| `storage_datastore_auth` | `properties.systemDatastoresAuthMode` |
-| `key_management`, `service_side_cmk` | `properties.encryption`, `enableServiceSideCMKEncryption` |
-| `computes` | child `workspaces/computes` |
-| private endpoint | `Microsoft.Network/privateEndpoints` with `groupIds: [ 'amlworkspace' ]` |
-| diagnostics | `Microsoft.Insights/diagnosticSettings` scoped to the workspace |
+What each decision renders to - the property and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.

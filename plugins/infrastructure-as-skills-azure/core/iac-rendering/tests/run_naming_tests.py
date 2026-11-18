@@ -3,9 +3,10 @@
 
     python run_naming_tests.py
 
-A fresh root gets the default as it is; a Bicep root whose Key Vault predates <LOCATION>
-gets the copy with its own pattern; an existing file, a Terraform root on another naming
-source, a name var it cannot read and an abbreviation two types share are each left alone.
+A fresh root gets the default as it is; a Bicep root whose Key Vault predates <LOCATION> and
+whose storage account predates <UNIQUE_ID_4> gets the copy with their own patterns; an existing
+file, a Terraform root on another naming source, a name var it cannot read and an abbreviation
+two types share are each left alone.
 write_spec.py writes the file too, and its --check writes nothing.
 """
 import subprocess
@@ -23,6 +24,7 @@ DEFAULT_TEXT = DEFAULT.read_text(encoding="utf-8")
 DEFAULT_KV = yaml.safe_load(DEFAULT_TEXT)["patterns"]["Azure"]["Microsoft.KeyVault/vaults"]["default"]
 
 OLD_KV = "<TYPE>-<ENVIRONMENT>-<NAME>-<UNIQUE_ID_4>"
+OLD_ST = "<TYPE><LOCATION><ENVIRONMENT><NAME><INDEX;%02s>"
 BICEP = """\
 var keyVaultName = 'kv-${env}-${workload}-${uid4}'
 var storageAccountName = toLower('st${loc}${env}${workload}${idx}')
@@ -56,6 +58,10 @@ def kv(text):
     return yaml.safe_load(text)["patterns"]["Azure"]["Microsoft.KeyVault/vaults"]["default"]
 
 
+def st(text):
+    return yaml.safe_load(text)["patterns"]["Azure"]["Microsoft.Storage/storageAccounts"]["default"]
+
+
 def case(name, ok, detail=""):
     print(("  ok  " if ok else " FAIL ") + name + ("" if ok else f"\n{detail}"))
     return ok
@@ -73,8 +79,9 @@ def main():
     code, out, text = run(spec("bicep"), bicep=BICEP)
     results.append(case("deployed bicep root: the old Key Vault pattern pinned", code == 0 and text and kv(text) == OLD_KV, out))
     results.append(case("the pin says why", text and "Pinned: the root names it so" in text, out))
-    results.append(case("a pattern that matches the default is not pinned",
-                        text and text.count("Pinned:") == 1, out))
+    results.append(case("deployed bicep root: the storage pattern before <UNIQUE_ID_4> pinned",
+                        text and st(text) == OLD_ST, out))
+    results.append(case("only the two older patterns are pinned", text and text.count("Pinned:") == 2, out))
     results.append(case("still a full copy", text and "abbreviations:" in text and "mappings:" in text
                         and len(text.splitlines()) >= len(DEFAULT_TEXT.splitlines()), out))
     results.append(case("a name with a literal sub-name is reported, not pinned",

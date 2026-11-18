@@ -20,7 +20,13 @@ question of its set, sits in another group, or sits directly under the resource.
 longer in the fixture fails the run: a test that cannot break anything proves nothing. Last, the
 Shape example of references/spec.md must pass the check and be in write_spec.py's canonical form,
 so the reference cannot show a spec the plugin would refuse. On it, a per_environment range or
-reference object written as one value fails; subnet names written as one value pass.
+reference object written as one value fails, and so does every broken reference: a bare name,
+a stage map, a resource of another kind or not in the spec, a subnet without its part or with
+one the network does not name, an existing one with no id and no open entry, an id of another
+type, a stage without an id, a name beside it. An existing one with its ids, or with an open
+entry, passes. A required question whose depends_on holds (the sign-in's client id) warns
+without a value and without an open entry, and is quiet with either. An Azure-style subnet
+name (snet-app) warns - the name is the subnet's short purpose - unless it carries azure_name.
 
 Usage:
     python3 run_spec_tests.py
@@ -59,11 +65,81 @@ SHAPE_RANGES = "    value:\n      development: 10.42.0.0/24\n      test: 10.43.0
 SHAPE_MUTATIONS = [
     ('a per_environment range as one value', SHAPE_RANGES, "    value: 10.42.0.0/24\n    source: asked\n",
      'deployment.address_space is one value, but its question is per_environment'),
-    ('a per_environment reference object as one value', SHAPE_RANGES,
+]
+
+# References (spec_ref.py): on the Shape example's integration subnet and a workspace outside it.
+SHAPE_SUBNET = "        value:  # a reference: a part of a resource of this spec, the same in every stage\n          resource: virtual-network\n          part: app\n"
+LAW = "  diagnostics_destination:\n    value:\n      existing: log_analytics_workspace\n"
+LAW_ID = "/subscriptions/00000000-0000-0000-0000-000000000001/resourceGroups/rg-platform/providers/Microsoft.OperationalInsights/workspaces/law-platform"
+LAW_IDS = "".join(f"        {s}: {LAW_ID}\n" for s in ('development', 'test', 'production'))
+SHAPE_MUTATIONS += [
+    ('a name and resource group instead of a reference', SHAPE_RANGES,
      SHAPE_RANGES + "  diagnostics_destination: {value: {name: law-platform, resource_group_name: rg-platform}, source: stated}\n",
-     'deployment.diagnostics_destination is one value'),
-    ('per_environment subnet names as one value stay valid', "      private_endpoint_subnet_prefix:\n",
-     "      subnets: {value: [private-endpoints, app-integration], source: default}\n      private_endpoint_subnet_prefix:\n", None),
+     "deployment.diagnostics_destination holds {'name': 'law-platform'"),
+    ('a bare subnet name', SHAPE_SUBNET, "        value: app\n", "integration_subnet holds 'app', which is no reference"),
+    ('a reference split by stage', SHAPE_SUBNET,
+     "        value:\n          development: {resource: virtual-network, part: app}\n"
+     "          test: {resource: virtual-network, part: app}\n          production: {resource: virtual-network, part: app}\n",
+     'integration_subnet is a reference split by stage'),
+    ('a resource of another kind', SHAPE_SUBNET, "        value:\n          resource: storage-account\n",
+     "references 'storage-account', which is no subnet"),
+    ('a subnet without its part', SHAPE_SUBNET, "        value:\n          resource: virtual-network\n", 'without part'),
+    ('a part the network does not name', SHAPE_SUBNET, SHAPE_SUBNET.replace('part: app', 'part: snet-gone'),
+     "part 'snet-gone' of 'virtual-network', which its addressing.subnets does not name"),
+    ('a resource the spec does not hold', SHAPE_SUBNET, SHAPE_SUBNET.replace('resource: virtual-network', 'resource: virtual-network__hub'),
+     "references resource 'virtual-network__hub', which this spec does not hold"),
+    ('an existing reference with no id and no open entry', SHAPE_RANGES, SHAPE_RANGES + LAW + "    source: stated\n",
+     'with no id and no open entry'),
+    ('an existing reference whose id is open', SHAPE_RANGES, SHAPE_RANGES + LAW + "    source: stated\n",
+     None, "- key: deployment.diagnostics_destination\n  question: Welche Resource-ID hat der zentrale Workspace?\n  owner: Plattform-Team\n  blocks: apply\n"),
+    ('an existing reference with an id per stage', SHAPE_RANGES, SHAPE_RANGES + LAW + "      id:\n" + LAW_IDS + "    source: stated\n", None),
+    ('an existing reference with an id of another type', SHAPE_RANGES,
+     SHAPE_RANGES + LAW + "      id:\n" + LAW_IDS.replace('Microsoft.OperationalInsights/workspaces', 'Microsoft.Storage/storageAccounts') + "    source: stated\n",
+     'which is not the id of a Microsoft.OperationalInsights/workspaces'),
+    ('an existing reference missing a stage', SHAPE_RANGES,
+     SHAPE_RANGES + LAW + "      id:\n" + LAW_IDS.split('\n', 1)[1] + "    source: stated\n", "has no id for stage 'development'"),
+    ('an existing reference with a name beside it', SHAPE_RANGES,
+     SHAPE_RANGES + LAW + "      name: law-platform\n" + "    source: stated\n", 'never a name or a resource group'),
+]
+
+# The envelope and the escape hatch: a format this plugin does not know, an override without its reason.
+OVERRIDE = "    _target_overrides:\n      terraform:\n        lifecycle_ignore:\n          value: [created_at]\n"
+SHAPE_MUTATIONS += [
+    ('a spec format newer than the plugin', "schema_version: 1\n", "schema_version: 2\n", 'a spec format newer than this plugin reads'),
+    ('an override with its reason', "\n  key-vault:\n", "\n" + OVERRIDE + "          reason: azurerm sets the tag itself\n  key-vault:\n", None),
+    ('an override without a reason', "\n  key-vault:\n", "\n" + OVERRIDE + "  key-vault:\n", 'lifecycle_ignore has no reason'),
+    ('an override as a bare value', "\n  key-vault:\n", "\n    _target_overrides:\n      terraform:\n        lifecycle_ignore: [created_at]\n  key-vault:\n",
+     'lifecycle_ignore is not { value, reason }'),
+]
+
+# NSGs on the Shape example, which guards app and the implied private endpoint subnet
+# `endpoints`: an association is exclusive (a subnet takes one NSG), and every subnet the spec
+# creates has one. (name, [(find, replace)], expected; None = must pass)
+def nsg(name):
+    return (f"  network-security-group__{name}:\n    networking:\n      subnets:\n        value:\n"
+            "        - resource: virtual-network\n          part: app\n        source: stated\n")
+
+
+SHAPE_MODULE = "    contains: [virtual-network, network-security-group__app, network-security-group__endpoints]\n"
+SHAPE_NSG_ENDPOINTS = ("  network-security-group__endpoints:\n    networking:\n      subnets:\n        value:\n"
+                       "        - resource: virtual-network\n"
+                       "          part: endpoints  # the private endpoint subnet: no listed subnet carries its prefix\n"
+                       "        source:\n          forced_by: resources.virtual-network.addressing.subnets\n"
+                       "    rules:\n      subnet_purpose:\n        value: private_endpoints\n        source:\n"
+                       "          forced_by: resources.virtual-network.addressing.private_endpoint_subnet_prefix\n\n")
+SHAPE_EDITS = [
+    ('a second NSG on a subnet', [("\n  app-service:\n", "\n" + nsg('a') + "  app-service:\n"),
+                                  (SHAPE_MODULE, SHAPE_MODULE.replace(']', ', network-security-group__a]'))],
+     'app of virtual-network is claimed by 2 network-security-group resources'),
+    ('a subnet without an NSG', [(SHAPE_NSG_ENDPOINTS, ''),
+                                 (SHAPE_MODULE, SHAPE_MODULE.replace(', network-security-group__endpoints', ''))],
+     'subnet endpoints of virtual-network has no network security group'),
+    # Listed with the private endpoint prefix, the subnet is that one by its own name: no `endpoints`.
+    ('the private endpoint subnet listed by name',
+     [(f"          {s}:\n          - name: app\n", f"          {s}:\n          - name: snet-pe\n            prefix: {p}\n          - name: app\n")
+      for s, p in (('development', '10.42.0.0/27'), ('test', '10.43.0.0/27'), ('production', '10.44.0.0/27'))]
+     + [("          part: endpoints  # the private endpoint subnet: no listed subnet carries its prefix\n", "          part: snet-pe\n")],
+     None),
 ]
 
 # The fixture's storage account up to its first group: its meta comes first.
@@ -319,16 +395,69 @@ def main():
         report(rc == 0 and 'Contract ok' in out, 'the Shape example of spec.md passes', out[-600:])
         rc, out = run(shape, [WRITE, '--check', '--no-stamp'])
         report(rc == 0, 'the Shape example of spec.md is canonical', out[-400:])
-        for name, find, replace, expected in SHAPE_MUTATIONS:
+        for name, find, replace, expected, *appended in SHAPE_MUTATIONS:
             if shape.count(find) != 1:
                 report(False, name, f"the mutation text is in the Shape example {shape.count(find)} times: {find[:60]!r}")
                 continue
-            rc, out = run(shape.replace(find, replace))
+            # a fifth field is appended to the example's open: list, its last section
+            rc, out = run(shape.replace(find, replace) + ''.join(appended))
             ok = rc == 0 and 'Contract ok' in out if expected is None else rc == 1 and expected in out
             report(ok, name if expected is None else f"breaks: {name}", f"expected {expected!r}; got exit {rc}:\n{out[-500:]}")
+        for name, edits, expected in SHAPE_EDITS:
+            text = shape
+            for find, replace in edits:
+                if text.count(find) != 1:
+                    report(False, name, f"the edit text is in the Shape example {text.count(find)} times: {find[:60]!r}")
+                    break
+                text = text.replace(find, replace)
+            else:
+                rc, out = run(text)
+                ok = rc == 0 and 'Contract ok' in out if expected is None else rc == 1 and expected in out
+                report(ok, name if expected is None else f"breaks: {name}", f"expected {expected!r}; got exit {rc}:\n{out[-500:]}")
+
+        # A required question whose depends_on holds: its value, or an open entry naming it.
+        # Without either the check warns, so nothing reads as "nothing open".
+        identity = ("    identity:\n      managed_identity:\n        value: system_assigned\n"
+                    "        source: default\n\n  storage-account:")
+        sign_in = identity.replace("\n\n  storage-account:",
+                                   "\n      entra_sign_in:\n        value: existing_app_registration\n"
+                                   "        source: stated\n\n  storage-account:")
+        client_id = ("      entra_client_id:\n        value:\n"
+                     "          development: 00000000-0000-0000-0000-000000000001\n"
+                     "          test: 00000000-0000-0000-0000-000000000001\n"
+                     "          production: 00000000-0000-0000-0000-000000000002\n"
+                     "        source: stated\n\n  storage-account:")
+        open_entry = ("- key: resources.app-service.identity.entra_client_id\n  environments: [production]\n"
+                      "  question: Wie lautet die Client-ID der App-Registrierung?\n"
+                      "  owner: Workload-Owner\n  blocks: apply\n")
+        warning = 'resources.app-service.identity.entra_client_id is required once entra_sign_in holds'
+        if shape.count(identity) != 1:
+            for name in ('warns', 'open entry', 'value'):
+                report(False, f"a required question that applies ({name})",
+                       f"the Shape example holds the app-service identity {shape.count(identity)} times")
+        else:
+            text = shape.replace(identity, sign_in)
+            rc, out = run(text)
+            report(rc == 0 and warning in out, 'a required question that applies, with no value and no open entry, warns', out[-500:])
+            rc, out = run(text + open_entry)
+            report(rc == 0 and warning not in out, 'the same question named by an open entry does not warn', out[-500:])
+            rc, out = run(text.replace("        source: stated\n\n  storage-account:", "        source: stated\n" + client_id))
+            report(rc == 0 and warning not in out, 'the same question with its value does not warn', out[-500:])
+
+        # A subnet's name is its short purpose: an Azure-style name warns, unless the subnet
+        # exists under it (azure_name); the Shape example's short names do not.
+        subnet_warning = "a subnet's name is its short purpose"
+        rc, out = run(shape)
+        report(subnet_warning not in out, 'short subnet names do not warn', out[-500:])
+        azure_style = shape.replace('- name: app\n', '- name: snet-app\n').replace('part: app\n', 'part: snet-app\n')
+        rc, out = run(azure_style)
+        report(rc == 0 and subnet_warning in out and "('app')" in out, 'an Azure-style subnet name warns', out[-500:])
+        kept = azure_style.replace('- name: snet-app\n', '- name: snet-app\n            azure_name: snet-app\n')
+        rc, out = run(kept)
+        report(rc == 0 and subnet_warning not in out, 'an Azure-style name with azure_name does not warn', out[-500:])
 
     print('-' * 70)
-    total = 8 + len(MUTATIONS) + len(COMPONENT_MUTATIONS) + len(SHAPE_MUTATIONS)
+    total = 14 + len(MUTATIONS) + len(COMPONENT_MUTATIONS) + len(SHAPE_MUTATIONS)
     print(f"{total - failed}/{total} passed")
     return 1 if failed else 0
 

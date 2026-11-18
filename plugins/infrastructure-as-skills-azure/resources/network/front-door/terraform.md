@@ -25,17 +25,14 @@ modules. The firewall policy is part of this module (`front_door_firewall_polici
 
 ### Decision -> module input
 
+What each decision renders to - the input and the literal of every answer - is in
+[render-map.yaml](render-map.yaml); the render digest prints it for a spec.
+
+### Inputs no decision covers
+
 | Decision | Input | Note |
 |---|---|---|
-| `sku` | `sku` | `Standard_AzureFrontDoor` (module default) / `Premium_AzureFrontDoor`; written |
-| `response_timeout_seconds` | `response_timeout_seconds` | **Module default 120** (Bicep 60); written |
-| `managed_identity`, `user_assigned_identity_ids` | `managed_identities = { system_assigned, user_assigned_resource_ids }` | |
-| `origins`, `origin_connection` | `front_door_origin_groups`, `front_door_origins` | A private-link origin sets the `private_link` member; the connection is created *pending* |
-| `forwarding_protocol`, `https_redirect`, `caching` | `front_door_routes.<k> = { forwarding_protocol, https_redirect_enabled, cache }` | Route default for the protocol is `MatchRequest`; written |
-| `custom_domains`, `certificate_source`, `minimum_tls_version` | `front_door_custom_domains.<k> = { host_name, tls = { certificate_type, minimum_tls_version } }` | `ManagedCertificate` / `CustomerCertificate`; `TLS12` |
-| `waf_enabled`, `waf_mode`, `waf_managed_rules`, `waf_rate_limit_per_minute` | `front_door_firewall_policies = { <k> = { name, resource_group_name, sku_name, mode, custom_rules, managed_rules } }`, `front_door_security_policies` | `resource_group_name`, `sku_name` and `mode` are **required** members; the policy's `sku_name` must match the profile's; managed rule sets need Premium; the rate limit is a custom rule of type `RateLimitRule`; the security policy binds the policy to the endpoint and domains |
 | `role_assignments` | `role_assignments` | None here |
-| `diagnostic_*`, `metrics_enabled` | `diagnostic_settings = { workspace = { workspace_resource_id, log_categories, log_groups = [], metric_categories = ["AllMetrics"] } }` | |
 | `deployment.module_telemetry` | `enable_telemetry` | |
 | `context.tags` | `tags = local.tags` | |
 
@@ -128,11 +125,5 @@ security policy are marked `# not-testable:` with a reason where the plan does n
 
 The fallback. Targets `azurerm` **5.x**; check against `terraform providers schema -json`.
 
-| Decision | Argument |
-|---|---|
-| `sku`, `response_timeout_seconds` | `azurerm_cdn_frontdoor_profile.sku_name`, `.response_timeout_seconds` |
-| `origins` | `azurerm_cdn_frontdoor_origin_group`, `azurerm_cdn_frontdoor_origin` (`private_link { ... }`) |
-| `forwarding_protocol`, `https_redirect`, `caching` | `azurerm_cdn_frontdoor_route` |
-| `custom_domains` | `azurerm_cdn_frontdoor_custom_domain { tls { certificate_type, minimum_tls_version } }` |
-| WAF | `azurerm_cdn_frontdoor_firewall_policy`, `azurerm_cdn_frontdoor_security_policy` |
-| diagnostics | `azurerm_monitor_diagnostic_setting` with `enabled_log { category }` |
+What each decision renders to - the argument and the literal of every answer - is in
+[render-map.yaml](render-map.yaml); the render digest prints it for a spec.

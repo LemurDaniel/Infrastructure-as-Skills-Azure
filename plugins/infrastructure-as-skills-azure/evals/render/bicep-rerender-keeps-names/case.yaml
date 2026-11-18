@@ -28,7 +28,7 @@ graders:
     pattern: '''kv-\$\{loc'
     match: not_contains
 
-  # The storage name already follows the current default and must not move either.
+  # The storage name predates <UNIQUE_ID_4> in the default and must not move either.
   - name: storage-name-kept
     type: regex
     weight: 2

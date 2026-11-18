@@ -33,7 +33,6 @@ groups:
         answer: { context: environments }
         why: >
           Drives the strictness of several defaults below. Nothing sensible can be guessed.
-        renders: tag of the environment where the repository uses one
 
       - id: storage_account
         ask:
@@ -51,7 +50,6 @@ groups:
           authentication and public access are the account's. The account is resolved first,
           in `storage-account`, and this set only names the objects inside it. Looked up
           from the deployment when the account is created in the same run.
-        renders: storage account id / parent of the child resource
 
   - id: containers
     title: The containers
@@ -73,7 +71,6 @@ groups:
           its own. The names are the workload's own and part of its contract with whatever
           writes and reads them, so they are asked, not invented. At least one: an account
           with no container stores nothing.
-        renders: containers / blobServices.containers
 
       - id: public_access
         ask:
@@ -96,7 +93,6 @@ groups:
           (`allow_blob_public_access`), which the account set turns off. A public container
           is a static asset host and belongs behind Front Door or a CDN, a named departure
           with its own reason. The module default is `None`; written anyway.
-        renders: containers.<k>.public_access / blobServices.containers[].publicAccess
 
       - id: immutable_storage
         ask:
@@ -125,9 +121,6 @@ groups:
           with point-in-time restore** (the account set drops one or the other, recorded as
           forced), and a retention set too long is paid for until it ends. Off for ordinary
           data.
-        renders: >
-          containers.<k>.immutable_storage_with_versioning.enabled /
-          blobServices.containers[].immutableStorageWithVersioningEnabled
 
       - id: encryption_scope_locked
         ask:
@@ -146,9 +139,6 @@ groups:
           customer-managed) beside the account's. This switch stops a writer from overriding
           the container's scope per upload. Meaningful only with a scope created on the
           account; off by default, and the account set owns the scope.
-        renders: >
-          containers.<k>.deny_encryption_scope_override /
-          blobServices.containers[].denyEncryptionScopeOverride
 
   - id: identity
     title: Identity and access
@@ -173,5 +163,4 @@ groups:
           and grants a consumer's role in the pattern, not here. A role on the *container*,
           share or queue is scoped narrower than one on the account; the account-level roles
           belong to the storage set.
-        renders: role_assignments / roleAssignments
 

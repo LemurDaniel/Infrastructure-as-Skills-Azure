@@ -20,27 +20,13 @@ of the App Service reference.
 
 ### Decision -> module input
 
-| Decision | Module | Input | Note |
+What each decision renders to - the input and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.
+
+### Deployment-wide inputs
+
+| Setting | Module | Input | Note |
 |---|---|---|---|
-| `plan_type` | plan | `sku_name = "FC1"` / `"EP1"`..`"EP3"`, `os_type = "Linux"` | Flex is Linux only; Premium also `maximum_elastic_worker_count` and elastic scale |
-| `plan_type` | site | `kind = "functionapp"`, `function_app_uses_fc1 = true` for Flex | |
-| `runtime_stack`, `runtime_version` | site | `fc1_runtime_name`, `fc1_runtime_version` (Flex); `site_config.application_stack` (Premium) | The Flex stack names: `node`, `dotnet-isolated`, `powershell`, `python`, `java` |
-| `zone_redundant` | plan | `zone_balancing_enabled` | Module default `true`; the plan module **fails early** in regions without `FCZONEREDUNDANCY` for FC1; written |
-| `max_instance_count` | site | `maximum_instance_count` | Default `null` |
-| `always_ready_instances` | site | `always_ready = { http = { instance_count } }` (Flex) | On Premium the plan's `worker_count` |
-| `instance_memory_mb` | site | `instance_memory_in_mb` | Default 2048; written |
-| `host_storage_account`, `host_storage_auth` | site | `storage_account_name`, `storage_uses_managed_identity = true`, `storage_user_assigned_identity_client_id` | Host connection (`AzureWebJobsStorage__accountName`, `__credential`, `__clientId`); **never** `storage_account_access_key` |
-| `host_storage_auth`, `deployment_container` | site | `storage_authentication_type = "UserAssignedIdentity"`, `storage_user_assigned_identity_id`, `storage_container_endpoint` | **The second connection**, Flex only: the deployment package |
-| `public_network_access` | site | `public_network_access_enabled` and `site_config.ip_restriction_default_action` | **Bool**; `Deny` unless `enabled` |
-| `private_endpoint_subnet` | site | `private_endpoints = { sites = { subnet_resource_id } }` | |
 | `deployment.private_dns_records` | site | `private_endpoints_manage_dns_zone_group` | `false` under `policy` |
-| `vnet_integration`, `integration_subnet`, `vnet_route_all` | site | `virtual_network_subnet_id`, `vnet_route_all_traffic` | Delegation per plan; see `notes.md` |
-| `ip_restrictions` | site | `site_config.ip_restriction`, `scm_ip_restriction` | `scm_use_main_ip_restriction = true` |
-| `managed_identity`, `user_assigned_identity_ids` | site | `managed_identities = { user_assigned_resource_ids }`, `key_vault_reference_identity` | |
-| `https_only`, `min_tls_version` | site | `https_only`, `site_config.minimum_tls_version`, `scm_minimum_tls_version` | Module TLS default is **1.3**; written |
-| `basic_auth_enabled` | site | `ftp_publish_basic_authentication_enabled`, `scm_publish_basic_authentication_enabled` | SCM default is **true** |
-| `application_insights` | site | `application_insights_connection_string`, and `app_settings.APPLICATIONINSIGHTS_AUTHENTICATION_STRING = "Authorization=AAD"` (`;ClientId=<client id>` user-assigned) while local auth is off | Omitted while empty |
-| `diagnostic_*`, `metrics_enabled` | both | `diagnostic_settings = { workspace = { workspace_resource_id, logs, metrics } }` | The plan has metrics only |
 | `deployment.module_telemetry` | both | `enable_telemetry` | |
 | `context.tags` | both | `tags = local.tags` | |
 
@@ -160,9 +146,4 @@ As for the App Service: with `azapi` and `modtm` mocked, asserts target
 
 The fallback. Targets `azurerm` **5.x**; check against `terraform providers schema -json`.
 
-| Decision | Resource |
-|---|---|
-| the plan | `azurerm_service_plan` (`sku_name = "FC1"` or `"EP1"`) |
-| the Flex app | `azurerm_function_app_flex_consumption` (`runtime_name`, `runtime_version`, `storage_authentication_type`, `storage_container_endpoint`, `maximum_instance_count`, `instance_memory_in_mb`) |
-| the Premium app | `azurerm_linux_function_app` (`storage_uses_managed_identity`, `storage_account_name`) |
-| diagnostics | `azurerm_monitor_diagnostic_setting` with `enabled_log { category }` |
+What each decision renders to - the argument and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.

@@ -1,0 +1,186 @@
+# What each decision of questions.yaml renders to, per target and implementation.
+# Format: core/iac-rendering/references/render-map.md. The call, the authored blocks and the
+# tests are in terraform.md and bicep.md.
+schema_version: 1
+resource: Microsoft.EventGrid/systemTopics
+
+# Terraform: avm-res-eventgrid-systemtopic is Proposed - authored is the primary path.
+modules:
+  terraform: []
+  bicep: [avm/res/event-grid/system-topic]
+
+decisions:
+
+  # ---------------------------------------------------------------- placement
+  placement.environments:
+    not_rendered: naming parameter `environment` and the tag of that name; no attribute of the topic
+  placement.location:
+    terraform:
+      attribute: azurerm_eventgrid_system_topic.location
+      passthrough: true
+      note: the source's region, global for Microsoft.Resources.* topic types
+    bicep_avm:
+      attribute: location
+      passthrough: true
+      note: module default resourceGroup().location - written; the source's region, 'global' for Microsoft.Resources.*
+    bicep: { attribute: location, passthrough: true, note: "the source's region, or 'global'" }
+  placement.resource_group_name:
+    terraform:
+      attribute: resource_group_name
+      note: also on every subscription, beside system_topic (the topic's name)
+    bicep_avm: { gap: the deployment's resource group scope; no parameter }
+    bicep: { gap: the deployment's resource group scope; no property }
+
+  # ------------------------------------------------------------------- source
+  source.source_resource:
+    terraform: { attribute: azurerm_eventgrid_system_topic.source_resource_id, note: fixed at creation }
+    bicep_avm: { attribute: source, note: required by the module; fixed at creation }
+    bicep: { attribute: properties.source, note: fixed at creation }
+  source.topic_type:
+    terraform: { attribute: azurerm_eventgrid_system_topic.topic_type, passthrough: true, note: exact casing; fixed at creation }
+    bicep_avm: { attribute: topicType, passthrough: true, note: required by the module; exact casing; fixed at creation }
+    bicep: { attribute: properties.topicType, passthrough: true, note: exact casing; fixed at creation }
+  source.managed_identity:
+    terraform:
+      attribute: identity.type
+      values: { system_assigned: SystemAssigned, user_assigned: UserAssigned, none: null }
+      also:
+        system_assigned: 'delivery_identity { type = "SystemAssigned" } and dead_letter_identity { type = "SystemAssigned" } on every subscription'
+        user_assigned: 'delivery_identity and dead_letter_identity with type = "UserAssigned" and user_assigned_identity on every subscription'
+      note: none renders no identity block and no identity delivery; a webhook or hybrid connection has no identity delivery; the provider also takes SystemAssigned, UserAssigned together, but each subscription delivers with one, so the set offers one
+    bicep_avm:
+      attribute: managedIdentities
+      values:
+        system_assigned: { expr: '{ systemAssigned: true }' }
+        user_assigned: { expr: '{ userAssignedResourceIds: {source.user_assigned_identity_ids} }' }
+        none: { expr: '{}' }
+      also:
+        system_assigned: "deliveryWithResourceIdentity.identity: { type: 'SystemAssigned' } and deadLetterWithResourceIdentity.identity on every subscription"
+      note: under none, the key-based destination and deadLetterDestination members instead
+    bicep:
+      attribute: identity.type
+      values: { system_assigned: SystemAssigned, user_assigned: UserAssigned, none: null }
+      note: none renders no identity block
+  source.user_assigned_identity_ids:
+    terraform: { attribute: identity.identity_ids }
+    bicep_avm: { attribute: managedIdentities.userAssignedResourceIds }
+    bicep:
+      attribute: identity.userAssignedIdentities
+      format: { expr: 'toObject({value}, id => id, id => {})' }
+      note: "an object keyed by each id - type: 'UserAssigned' (source: bicep build, Microsoft.EventGrid/systemTopics@2025-02-15)"
+
+  # ----------------------------------------------------------------- delivery
+  delivery.event_subscriptions:
+    terraform:
+      attribute: azurerm_eventgrid_system_topic_event_subscription
+      note: one per entry, for_each; system_topic is the topic's name, with resource_group_name; no tags
+    bicep_avm:
+      attribute: 'eventSubscriptions[] = { name, deliveryWithResourceIdentity, filter, retryPolicy, deadLetterWithResourceIdentity, eventDeliverySchema }'
+      note: untyped array in the ARM systemTopics/eventSubscriptions shape; one member per entry
+    bicep: { attribute: Microsoft.EventGrid/systemTopics/eventSubscriptions@2025-02-15 }
+  delivery.destination_kind:
+    terraform:
+      gap: the answer picks which endpoint argument of azurerm_eventgrid_system_topic_event_subscription is set, it is not a value - the line per kind below
+      also:
+        service_bus_queue: service_bus_queue_id = <target_id>
+        service_bus_topic: service_bus_topic_id = <target_id>
+        storage_queue: storage_queue_endpoint { storage_account_id, queue_name }
+        event_hub: eventhub_id = <target_id>
+        azure_function: azure_function_endpoint { function_id }
+        webhook: webhook_endpoint { url }
+        hybrid_connection: hybrid_connection_id = <target_id>
+      note: exactly one per subscription; 5.x names - 4.x had *_endpoint_id
+    bicep_avm:
+      attribute: 'eventSubscriptions[].deliveryWithResourceIdentity.destination.endpointType'
+      values:
+        service_bus_queue: ServiceBusQueue
+        service_bus_topic: ServiceBusTopic
+        storage_queue: StorageQueue
+        event_hub: EventHub
+        azure_function: AzureFunction
+        webhook: WebHook
+        hybrid_connection: HybridConnection
+      note: with properties.resourceId - endpointUrl for a webhook, queueName added for a storage queue
+    bicep:
+      attribute: eventSubscriptions child properties.deliveryWithResourceIdentity.destination.endpointType
+      values:
+        service_bus_queue: ServiceBusQueue
+        service_bus_topic: ServiceBusTopic
+        storage_queue: StorageQueue
+        event_hub: EventHub
+        azure_function: AzureFunction
+        webhook: WebHook
+        hybrid_connection: HybridConnection
+  delivery.event_delivery_schema:
+    terraform: { attribute: event_delivery_schema, passthrough: true, note: platform default EventGridSchema - written }
+    bicep_avm: { attribute: 'eventSubscriptions[].eventDeliverySchema', passthrough: true, note: platform default EventGridSchema - written }
+    bicep: { attribute: eventSubscriptions child properties.eventDeliverySchema, passthrough: true }
+  delivery.included_event_types:
+    terraform: { attribute: included_event_types, note: an empty list delivers every type }
+    bicep_avm: { attribute: 'eventSubscriptions[].filter.includedEventTypes', note: empty delivers every type }
+    bicep: { attribute: eventSubscriptions child properties.filter.includedEventTypes }
+  delivery.max_delivery_attempts:
+    terraform: { attribute: retry_policy.max_delivery_attempts, passthrough: true }
+    bicep_avm: { attribute: 'eventSubscriptions[].retryPolicy.maxDeliveryAttempts', passthrough: true }
+    bicep: { attribute: eventSubscriptions child properties.retryPolicy.maxDeliveryAttempts, passthrough: true }
+  delivery.event_ttl_minutes:
+    terraform: { attribute: retry_policy.event_time_to_live, passthrough: true, note: in minutes }
+    bicep_avm: { attribute: 'eventSubscriptions[].retryPolicy.eventTimeToLiveInMinutes', passthrough: true }
+    bicep: { attribute: eventSubscriptions child properties.retryPolicy.eventTimeToLiveInMinutes, passthrough: true }
+  delivery.keep_undeliverable_events:
+    terraform:
+      attribute: storage_blob_dead_letter_destination
+      values:
+        true: { expr: '{ storage_account_id = {delivery.dead_letter_storage_account}, storage_blob_container_name = {delivery.dead_letter_container} }' }
+        false: null
+      also:
+        true: 'dead_letter_identity { type = "SystemAssigned" }'
+      note: a block on the subscription; false renders neither block
+    bicep_avm:
+      attribute: 'eventSubscriptions[].deadLetterWithResourceIdentity'
+      values:
+        true: { expr: "{ identity: { type: 'SystemAssigned' }, deadLetterDestination: { endpointType: 'StorageBlob', properties: { resourceId: {delivery.dead_letter_storage_account}, blobContainerName: {delivery.dead_letter_container} } } }" }
+        false: null
+    bicep:
+      attribute: eventSubscriptions child properties.deadLetterWithResourceIdentity
+      values:
+        true: { expr: "{ identity: { type: 'SystemAssigned' }, deadLetterDestination: { endpointType: 'StorageBlob', properties: { resourceId: {delivery.dead_letter_storage_account}, blobContainerName: {delivery.dead_letter_container} } } }" }
+        false: null
+  delivery.dead_letter_storage_account:
+    terraform: { attribute: storage_blob_dead_letter_destination.storage_account_id }
+    bicep_avm: { attribute: 'eventSubscriptions[].deadLetterWithResourceIdentity.deadLetterDestination.properties.resourceId' }
+    bicep: { attribute: eventSubscriptions child properties.deadLetterWithResourceIdentity.deadLetterDestination.properties.resourceId }
+  delivery.dead_letter_container:
+    terraform: { attribute: storage_blob_dead_letter_destination.storage_blob_container_name, passthrough: true }
+    bicep_avm: { attribute: 'eventSubscriptions[].deadLetterWithResourceIdentity.deadLetterDestination.properties.blobContainerName', passthrough: true }
+    bicep: { attribute: eventSubscriptions child properties.deadLetterWithResourceIdentity.deadLetterDestination.properties.blobContainerName, passthrough: true }
+
+  # ----------------------------------------------------------------- identity
+  identity.role_assignments:
+    terraform: { attribute: azurerm_role_assignment, note: scope = the topic's id }
+    bicep_avm:
+      attribute: 'roleAssignments[] = { principalId, roleDefinitionIdOrName, principalType }'
+      note: externalResourceRoleAssignments exists and is not used - roles on the targets are the pattern's wiring
+    bicep: { attribute: Microsoft.Authorization/roleAssignments, note: scope = the topic }
+
+  # ------------------------------------------------------------ observability
+  observability.diagnostic_workspace:
+    terraform: { attribute: azurerm_monitor_diagnostic_setting.log_analytics_workspace_id }
+    bicep_avm: { attribute: 'diagnosticSettings[].workspaceResourceId' }
+    bicep: { attribute: Microsoft.Insights/diagnosticSettings properties.workspaceId, note: scoped to the topic }
+  observability.diagnostic_categories:
+    terraform: { attribute: azurerm_monitor_diagnostic_setting.enabled_log.category }
+    bicep_avm: { attribute: 'diagnosticSettings[].logCategoriesAndGroups[].category' }
+    bicep: { attribute: 'Microsoft.Insights/diagnosticSettings properties.logs[].category', note: 'with enabled: true' }
+  observability.metrics_enabled:
+    terraform:
+      attribute: azurerm_monitor_diagnostic_setting.enabled_metric
+      values: { true: { expr: '{ category = "AllMetrics" }' }, false: null }
+      note: a block (azurerm 5.x; 4.x metric); false renders no enabled_metric block
+    bicep_avm:
+      attribute: 'diagnosticSettings[].metricCategories'
+      values: { true: { expr: "[ { category: 'AllMetrics' } ]" }, false: { expr: '[]' } }
+    bicep:
+      attribute: 'Microsoft.Insights/diagnosticSettings properties.metrics[].category'
+      values: { true: AllMetrics, false: null }
+      note: 'with enabled: true; false renders no metrics entry'

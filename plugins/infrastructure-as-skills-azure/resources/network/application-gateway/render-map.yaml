@@ -1,0 +1,329 @@
+# What each decision of questions.yaml renders to, per target and implementation.
+# Format: core/iac-rendering/references/render-map.md. The call, the authored blocks and the
+# tests are in terraform.md and bicep.md.
+schema_version: 1
+resource: Microsoft.Network/applicationGateways
+
+# Called in this order: the WAF policy, the public address, the gateway taking both by id.
+modules:
+  terraform: [Azure/avm-res-network-applicationgatewaywebapplicationfirewallpolicy/azurerm, Azure/avm-res-network-publicipaddress/azurerm, Azure/avm-res-network-applicationgateway/azurerm]
+  bicep: [avm/res/network/application-gateway-web-application-firewall-policy, avm/res/network/public-ip-address, avm/res/network/application-gateway]
+
+decisions:
+
+  # ---------------------------------------------------------------- placement
+  placement.environments:
+    not_rendered: naming parameter `environment` and the tag of that name; no attribute of the gateway
+  placement.location:
+    terraform_avm: { attribute: location, module: Azure/avm-res-network-applicationgateway/azurerm, passthrough: true, note: the same on the policy and the public IP modules }
+    terraform: { attribute: location, passthrough: true }
+    bicep_avm: { attribute: location, module: avm/res/network/application-gateway, passthrough: true, note: the same on the policy module }
+    bicep: { attribute: location, passthrough: true }
+  placement.resource_group_name:
+    terraform_avm:
+      attribute: parent_id
+      module: Azure/avm-res-network-applicationgateway/azurerm
+      note: the group's id on the AzAPI gateway module; the policy and public IP modules take resource_group_name, a name
+    terraform: { attribute: resource_group_name }
+    bicep_avm: { gap: the deployment's resource group scope; no parameter }
+    bicep: { gap: the deployment's resource group scope; no property }
+
+  # ------------------------------------------------------------------ gateway
+  gateway.waf_enabled:
+    terraform_avm:
+      attribute: sku
+      module: Azure/avm-res-network-applicationgateway/azurerm
+      values:
+        true: { expr: '{ name = "WAF_v2", tier = "WAF_v2" }' }
+        false: { expr: '{ name = "Standard_v2", tier = "Standard_v2" }' }
+      also:
+        true: firewall_policy = { id = module.waf_policy.resource_id }
+      note: module default null - written; never the inline web_application_firewall_configuration
+    terraform:
+      attribute: azurerm_application_gateway.sku
+      values:
+        true: { expr: '{ name = "WAF_v2", tier = "WAF_v2" }' }
+        false: { expr: '{ name = "Standard_v2", tier = "Standard_v2" }' }
+      also:
+        true: firewall_policy_id = azurerm_web_application_firewall_policy.this.id
+    bicep_avm:
+      attribute: sku
+      module: avm/res/network/application-gateway
+      values: { true: WAF_v2, false: Standard_v2 }
+      also:
+        true: 'firewallPolicyResourceId: wafPolicy.outputs.resourceId'
+      note: module default WAF_v2; written
+    bicep:
+      attribute: properties.sku
+      values:
+        true: { expr: "{ name: 'WAF_v2', tier: 'WAF_v2' }" }
+        false: { expr: "{ name: 'Standard_v2', tier: 'Standard_v2' }" }
+      also:
+        true: 'properties.firewallPolicy: { id: wafPolicy.id }'
+  gateway.waf_mode:
+    terraform_avm:
+      attribute: policy_settings.mode
+      module: Azure/avm-res-network-applicationgatewaywebapplicationfirewallpolicy/azurerm
+      passthrough: true
+      note: with enabled = true; written
+    terraform: { attribute: azurerm_web_application_firewall_policy.policy_settings.mode, passthrough: true }
+    bicep_avm:
+      attribute: policySettings.mode
+      module: avm/res/network/application-gateway-web-application-firewall-policy
+      passthrough: true
+      note: "with state: 'Enabled'; written"
+    bicep: { attribute: policy properties.policySettings.mode, passthrough: true }
+  gateway.waf_rule_set:
+    terraform_avm:
+      attribute: 'managed_rules.managed_rule_set[]'
+      module: Azure/avm-res-network-applicationgatewaywebapplicationfirewallpolicy/azurerm
+      values:
+        Microsoft_DefaultRuleSet_2.1: { expr: '{ type = "Microsoft_DefaultRuleSet", version = "2.1" }' }
+        OWASP_3.2: { expr: '{ type = "OWASP", version = "3.2" }' }
+      note: one element of the list, beside the bot set; terraform.md says type and version - confirm the member names in the README
+    terraform:
+      attribute: 'azurerm_web_application_firewall_policy.managed_rules.managed_rule_set[]'
+      values:
+        Microsoft_DefaultRuleSet_2.1: { expr: '{ type = "Microsoft_DefaultRuleSet", version = "2.1" }' }
+        OWASP_3.2: { expr: '{ type = "OWASP", version = "3.2" }' }
+      note: one managed_rule_set block, beside the bot set
+    bicep_avm:
+      attribute: 'managedRules.managedRuleSets[]'
+      module: avm/res/network/application-gateway-web-application-firewall-policy
+      values:
+        Microsoft_DefaultRuleSet_2.1: { expr: "{ ruleSetType: 'Microsoft_DefaultRuleSet', ruleSetVersion: '2.1' }" }
+        OWASP_3.2: { expr: "{ ruleSetType: 'OWASP', ruleSetVersion: '3.2' }" }
+      note: one element of the list, beside the bot set
+    bicep:
+      attribute: 'policy properties.managedRules.managedRuleSets[]'
+      values:
+        Microsoft_DefaultRuleSet_2.1: { expr: "{ ruleSetType: 'Microsoft_DefaultRuleSet', ruleSetVersion: '2.1' }" }
+        OWASP_3.2: { expr: "{ ruleSetType: 'OWASP', ruleSetVersion: '3.2' }" }
+  gateway.waf_bot_protection:
+    terraform_avm:
+      attribute: 'managed_rules.managed_rule_set[]'
+      module: Azure/avm-res-network-applicationgatewaywebapplicationfirewallpolicy/azurerm
+      values: { true: { expr: '{ type = "Microsoft_BotManagerRuleSet", version = "1.1" }' }, false: null }
+      note: a second element beside the rule set; false leaves it out
+    terraform:
+      attribute: 'azurerm_web_application_firewall_policy.managed_rules.managed_rule_set[]'
+      values: { true: { expr: '{ type = "Microsoft_BotManagerRuleSet", version = "1.1" }' }, false: null }
+      note: a second managed_rule_set block; false renders none
+    bicep_avm:
+      attribute: 'managedRules.managedRuleSets[]'
+      module: avm/res/network/application-gateway-web-application-firewall-policy
+      values: { true: { expr: "{ ruleSetType: 'Microsoft_BotManagerRuleSet', ruleSetVersion: '1.1' }" }, false: null }
+      note: a second element beside the rule set; false leaves it out
+    bicep:
+      attribute: 'policy properties.managedRules.managedRuleSets[]'
+      values: { true: { expr: "{ ruleSetType: 'Microsoft_BotManagerRuleSet', ruleSetVersion: '1.1' }" }, false: null }
+  gateway.capacity_min:
+    terraform_avm:
+      attribute: autoscale_configuration.min_capacity
+      module: Azure/avm-res-network-applicationgateway/azurerm
+      passthrough: true
+      note: sku.capacity stays unset while autoscale is set
+    terraform: { attribute: azurerm_application_gateway.autoscale_configuration.min_capacity, passthrough: true }
+    bicep_avm:
+      attribute: autoscaleMinCapacity
+      module: avm/res/network/application-gateway
+      passthrough: true
+      note: module default -1 (autoscale off) with a fixed capacity of 2 - written, capacity left unset
+    bicep: { attribute: properties.autoscaleConfiguration.minCapacity, passthrough: true }
+  gateway.capacity_max:
+    terraform_avm: { attribute: autoscale_configuration.max_capacity, module: Azure/avm-res-network-applicationgateway/azurerm, passthrough: true }
+    terraform: { attribute: azurerm_application_gateway.autoscale_configuration.max_capacity, passthrough: true }
+    bicep_avm: { attribute: autoscaleMaxCapacity, module: avm/res/network/application-gateway, passthrough: true, note: module default -1 - written }
+    bicep: { attribute: properties.autoscaleConfiguration.maxCapacity, passthrough: true }
+  gateway.zone_redundant:
+    terraform_avm:
+      attribute: zones
+      module: Azure/avm-res-network-applicationgateway/azurerm
+      values: { true: { expr: '["1", "2", "3"]' }, false: { expr: 'null' } }
+      note: a list; also on the public IP
+    terraform:
+      attribute: azurerm_application_gateway.zones
+      values: { true: { expr: '["1", "2", "3"]' }, false: null }
+    bicep_avm:
+      attribute: availabilityZones
+      module: avm/res/network/application-gateway
+      values: { true: { expr: '[ 1, 2, 3 ]' }, false: { expr: '[]' } }
+    bicep:
+      attribute: zones
+      values: { true: { expr: "[ '1', '2', '3' ]" }, false: { expr: '[]' } }
+      note: top level; ARM zones are strings, unlike the module's integers
+  gateway.gateway_subnet:
+    terraform_avm:
+      attribute: 'gateway_ip_configurations[].properties.subnet.id'
+      module: Azure/avm-res-network-applicationgateway/azurerm
+      note: 'a list of one { name, properties = { subnet = { id } } }'
+    terraform: { attribute: azurerm_application_gateway.gateway_ip_configuration.subnet_id }
+    bicep_avm:
+      attribute: 'gatewayIPConfigurations[].properties.subnet.id'
+      module: avm/res/network/application-gateway
+      note: 'a list of one { name, properties: { subnet: { id } } }'
+    bicep: { attribute: 'properties.gatewayIPConfigurations[].properties.subnet.id', note: 'a list of one { name, properties: { subnet: { id } } } (source: bicep build, Microsoft.Network/applicationGateways@2025-05-01)' }
+  gateway.managed_identity:
+    terraform_avm:
+      attribute: managed_identities
+      module: Azure/avm-res-network-applicationgateway/azurerm
+      values:
+        none: null
+        user_assigned: { expr: '{ user_assigned_resource_ids = {gateway.user_assigned_identity_ids} }' }
+      note: none leaves the input out
+    terraform:
+      attribute: azurerm_application_gateway.identity.type
+      values: { none: null, user_assigned: UserAssigned }
+      note: none renders no identity block
+    bicep_avm:
+      attribute: managedIdentities
+      module: avm/res/network/application-gateway
+      values:
+        none: null
+        user_assigned: { expr: '{ userAssignedResourceIds: {gateway.user_assigned_identity_ids} }' }
+      note: none leaves the parameter out
+    bicep:
+      attribute: identity.type
+      values: { none: null, user_assigned: UserAssigned }
+      note: top-level identity; none renders no identity block
+  gateway.user_assigned_identity_ids:
+    terraform_avm: { attribute: managed_identities.user_assigned_resource_ids, module: Azure/avm-res-network-applicationgateway/azurerm }
+    terraform: { attribute: azurerm_application_gateway.identity.identity_ids }
+    bicep_avm: { attribute: managedIdentities.userAssignedResourceIds, module: avm/res/network/application-gateway }
+    bicep: { attribute: identity.userAssignedIdentities, note: 'an object keyed by each id, { <id>: {} } - not the list (source: bicep build, Microsoft.Network/applicationGateways@2025-05-01)' }
+
+  # --------------------------------------------------------------- networking
+  networking.frontend_exposure:
+    terraform_avm:
+      attribute: frontend_ip_configurations
+      module: Azure/avm-res-network-applicationgateway/azurerm
+      values:
+        public: { expr: '[{ name = "public", properties = { public_ip_address = { id = module.public_ip.resource_id } } }]' }
+        private: { expr: '[{ name = "private", properties = { subnet = { id = <frontend_subnet_id> }, private_ip_address = <private_ip_address>, private_ip_allocation_method = <allocation_method> } }]' }
+      note: the gateway module creates no public IP; private-only needs the subscription enrolled in the private application gateway feature
+    terraform:
+      attribute: azurerm_application_gateway.frontend_ip_configuration
+      values:
+        public: { expr: '{ name = "public", public_ip_address_id = azurerm_public_ip.<name>.id }' }
+        private: { expr: '{ name = "private", subnet_id = <frontend_subnet_id>, private_ip_address = <private_ip_address>, private_ip_address_allocation = "<allocation_method>" }' }
+      note: 'a block; allocation Dynamic or Static (source: azurerm 5.12 schema and docs)'
+    bicep_avm:
+      attribute: frontendIPConfigurations
+      module: avm/res/network/application-gateway
+      values:
+        public: { expr: "[ { name: 'public', properties: { publicIPAddress: { id: <public IP module>.outputs.resourceId } } } ]" }
+        private: { expr: "[ { name: 'private', properties: { subnet: { id: <frontend_subnet_id> }, privateIPAddress: '<private_ip_address>', privateIPAllocationMethod: '<allocation_method>' } } ]" }
+      note: 'with frontendPorts; the public IP is the module beside the gateway (source: module README 0.10.0, its examples)'
+    bicep:
+      attribute: properties.frontendIPConfigurations
+      values:
+        public: { expr: "[ { name: 'public', properties: { publicIPAddress: { id: <public IP>.id } } } ]" }
+        private: { expr: "[ { name: 'private', properties: { subnet: { id: <frontend_subnet_id> }, privateIPAddress: '<private_ip_address>', privateIPAllocationMethod: '<allocation_method>' } } ]" }
+      note: 'with frontendPorts (source: bicep build, Microsoft.Network/applicationGateways@2025-05-01)'
+  networking.public_ip_zone_redundant:
+    terraform_avm:
+      attribute: zones
+      module: Azure/avm-res-network-publicipaddress/azurerm
+      values: { true: { expr: '[1, 2, 3]' }, false: { expr: '[]' } }
+      note: 'set(number), module default [1, 2, 3] - false writes []; allocation_method = "Static", sku = "Standard" (source: module README v0.2.1)'
+    terraform:
+      attribute: azurerm_public_ip.zones
+      values: { true: { expr: '["1", "2", "3"]' }, false: null }
+      note: 'Standard, Static; no zones is not zone-redundant (source: azurerm 5.12 docs)'
+    bicep_avm: { gap: 'the public-ip-address module beside the gateway takes the zones; bicep.md documents no version of that module' }
+    bicep:
+      attribute: Microsoft.Network/publicIPAddresses zones
+      values: { true: { expr: "[ '1', '2', '3' ]" }, false: null }
+      note: "top level, strings; sku Standard, publicIPAllocationMethod 'Static' (source: bicep build, Microsoft.Network/publicIPAddresses@2025-05-01 - bicep.md names no API version)"
+  networking.tls_policy:
+    terraform_avm:
+      attribute: ssl_policy.policy_name
+      module: Azure/avm-res-network-applicationgateway/azurerm
+      passthrough: true
+      note: with policy_type = "Predefined"; module default null - written; min_protocol_version is for a custom policy
+    terraform: { attribute: azurerm_application_gateway.ssl_policy.policy_name, passthrough: true, note: with policy_type }
+    bicep_avm:
+      attribute: sslPolicyName
+      module: avm/res/network/application-gateway
+      passthrough: true
+      note: "with sslPolicyType: 'Predefined'; module default is 'Custom' with TLS 1.2 minimum - written"
+    bicep: { attribute: properties.sslPolicy.policyName, passthrough: true, note: with policyType }
+  networking.backend_protocol:
+    terraform_avm:
+      attribute: 'backend_http_settings_collection.<k>.protocol'
+      module: Azure/avm-res-network-applicationgateway/azurerm
+      passthrough: true
+      note: port 443 for Https, 80 for Http
+    terraform: { attribute: azurerm_application_gateway.backend_http_settings.protocol, passthrough: true, note: 'port 443 for Https, 80 for Http (source: azurerm 5.12 docs)' }
+    bicep_avm: { attribute: 'backendHttpSettingsCollection[].properties.protocol', module: avm/res/network/application-gateway, passthrough: true }
+    bicep: { attribute: 'properties.backendHttpSettingsCollection[].properties.protocol', passthrough: true, note: '(source: bicep build, Microsoft.Network/applicationGateways@2025-05-01; literals from module README 0.10.0 examples)' }
+  networking.redirect_http_to_https:
+    terraform_avm:
+      gap: >-
+        true adds a redirect_configurations entry and a request_routing_rules entry on the port-80
+        listener, false neither; the entries span three inputs and the question fixes no redirect type
+    terraform: { gap: "terraform.md's authored rendering names no argument for the redirect" }
+    bicep_avm:
+      gap: >-
+        true adds a redirectConfigurations entry and a routing rule on the port-80 listener, false
+        neither; the README 0.10.0 example shows the shape, but the question fixes no redirect type
+    bicep: { gap: "bicep.md's authored rendering names no property for the redirect" }
+  networking.http2_enabled:
+    terraform_avm: { attribute: enable_http2, module: Azure/avm-res-network-applicationgateway/azurerm, passthrough: true, note: module default null - written }
+    terraform: { attribute: azurerm_application_gateway.http2_enabled, passthrough: true, note: the module input is enable_http2 }
+    bicep_avm: { attribute: enableHttp2, module: avm/res/network/application-gateway, passthrough: true }
+    bicep: { attribute: properties.enableHttp2, passthrough: true }
+  networking.listeners:
+    terraform_avm:
+      attribute: http_listeners, backend_address_pools, probes, request_routing_rules, ssl_certificates
+      module: Azure/avm-res-network-applicationgateway/azurerm
+      note: wiring filled by the pattern; a certificate is { name, key_vault_secret_id }
+    terraform:
+      attribute: azurerm_application_gateway.http_listener, backend_address_pool, probe, request_routing_rule, ssl_certificate
+      note: 'blocks, wiring filled by the pattern; a certificate is { name, key_vault_secret_id } (source: azurerm 5.12 schema)'
+    bicep_avm:
+      attribute: httpListeners, backendAddressPools, probes, requestRoutingRules, sslCertificates
+      module: avm/res/network/application-gateway
+      note: wiring filled by the pattern
+    bicep:
+      attribute: properties.httpListeners, backendAddressPools, probes, requestRoutingRules, sslCertificates
+      note: 'wiring filled by the pattern (source: bicep build, Microsoft.Network/applicationGateways@2025-05-01)'
+
+  # ----------------------------------------------------------------- security
+  security.waf_exclusions:
+    terraform_avm: { attribute: managed_rules.exclusion, module: Azure/avm-res-network-applicationgatewaywebapplicationfirewallpolicy/azurerm }
+    terraform: { attribute: azurerm_web_application_firewall_policy.managed_rules.exclusion }
+    bicep_avm: { attribute: managedRules.exclusions, module: avm/res/network/application-gateway-web-application-firewall-policy }
+    bicep: { attribute: policy properties.managedRules.exclusions }
+
+  # ------------------------------------------------------------ observability
+  observability.diagnostic_workspace:
+    terraform_avm: { attribute: 'diagnostic_settings.<key>.workspace_resource_id', module: Azure/avm-res-network-applicationgateway/azurerm }
+    terraform: { attribute: azurerm_monitor_diagnostic_setting.log_analytics_workspace_id }
+    bicep_avm: { attribute: 'diagnosticSettings[].workspaceResourceId', module: avm/res/network/application-gateway }
+    bicep: { attribute: Microsoft.Insights/diagnosticSettings properties.workspaceId, note: 'an extension resource with scope: the gateway (source: bicep build, Microsoft.Insights/diagnosticSettings@2021-05-01-preview)' }
+  observability.diagnostic_categories:
+    terraform_avm:
+      attribute: 'diagnostic_settings.<key>.log_categories'
+      module: Azure/avm-res-network-applicationgateway/azurerm
+      note: log_groups = [] beside the categories
+    terraform: { attribute: azurerm_monitor_diagnostic_setting.enabled_log.category }
+    bicep_avm: { attribute: 'diagnosticSettings[].logCategoriesAndGroups[].category', module: avm/res/network/application-gateway }
+    bicep: { attribute: 'Microsoft.Insights/diagnosticSettings properties.logs[].category', note: 'with enabled: true (source: bicep build, Microsoft.Insights/diagnosticSettings@2021-05-01-preview)' }
+  observability.metrics_enabled:
+    terraform_avm:
+      attribute: 'diagnostic_settings.<key>.metric_categories'
+      module: Azure/avm-res-network-applicationgateway/azurerm
+      values: { true: { expr: '["AllMetrics"]' }, false: { expr: '[]' } }
+    terraform:
+      attribute: azurerm_monitor_diagnostic_setting.enabled_metric
+      values: { true: { expr: '{ category = "AllMetrics" }' }, false: null }
+      note: a block (azurerm 5.x); false renders no enabled_metric block
+    bicep_avm:
+      attribute: 'diagnosticSettings[].metricCategories'
+      module: avm/res/network/application-gateway
+      values: { true: { expr: "[ { category: 'AllMetrics' } ]" }, false: { expr: '[]' } }
+    bicep:
+      attribute: 'Microsoft.Insights/diagnosticSettings properties.metrics[].category'
+      values: { true: AllMetrics, false: null }
+      note: 'with enabled: true; false renders no metrics entry (source: bicep build, Microsoft.Insights/diagnosticSettings@2021-05-01-preview)'

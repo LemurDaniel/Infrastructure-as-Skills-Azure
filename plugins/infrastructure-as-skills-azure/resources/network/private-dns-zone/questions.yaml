@@ -41,7 +41,6 @@ groups:
           A zone is created once per stage that owns its resolution. Two stages sharing a
           zone share its records, so a development endpoint overwrites the production
           name - which is why each stage's network links its own zone.
-        renders: the stage the zone is rendered in; naming parameter `environment` for the link names
 
       - id: resource_group_name
         ask:
@@ -58,7 +57,6 @@ groups:
           A zone is a global resource and has no region; it still sits in a group. Usually
           the network's, so the people who own the network own what resolves in it - or a
           dedicated DNS group when several workloads share the zones.
-        renders: parent_id (AVM Terraform, AzAPI) / implicit in Bicep scope; location is always `global`
 
   # --------------------------------------------------------------------- zone
   - id: zone
@@ -82,7 +80,6 @@ groups:
           Inherited: one answer per deployment. `platform` renders nothing for the privatelink
           zones - they are referenced - and only an `internal_domain` zone of this deployment
           is created. `deployment` creates every zone in the spec's list.
-        renders: whether the privatelink zones are created here or only referenced
 
       - id: zone_kind
         ask:
@@ -103,7 +100,6 @@ groups:
           internal domain is the customer's own namespace, holds static records or registered
           machines and has no fallback. Mixing them in one zone is how a machine record
           ends up beside an endpoint record.
-        renders: which of the questions below are reached
 
       - id: zone_names
         ask:
@@ -121,7 +117,6 @@ groups:
           clouds' and a few carry a region (`privatelink.<region>.azurecontainerapps.io`). For
           `internal_domain` it is the customer's domain, which cannot be guessed. A zone is
           named after its domain: it cannot be renamed, only recreated.
-        renders: domain_name / name (one module call per zone)
 
   # --------------------------------------------------------------- networking
   - id: networking
@@ -144,7 +139,6 @@ groups:
           that has an endpoint - the traffic works and leaves the private path unnoticed,
           the worst way for this to fail. In a hub-and-spoke platform the DNS resolver in the
           hub is linked and the spokes forward to it; then only the hub is listed.
-        renders: virtual_network_links / virtualNetworkLinks
 
       - id: auto_registration
         ask:
@@ -165,7 +159,6 @@ groups:
           used for anything else, and only for virtual machines - not for endpoints, App
           Service or containers. Where it is wanted, exactly one link per network carries it.
           A privatelink zone never registers: the question is not reached.
-        renders: virtual_network_links.<k>.registration_enabled / virtualNetworkLinks[].registrationEnabled
 
       - id: resolution_policy
         ask:
@@ -189,7 +182,6 @@ groups:
           answer in a network that also uses services without endpoints. It is `Default`
           because a fallback to the public internet is a decision somebody makes, not a
           setting that should appear unnoticed on every zone.
-        renders: virtual_network_links.<k>.resolution_policy / virtualNetworkLinks[].resolutionPolicy
 
   # ------------------------------------------------------------------ records
   - id: records
@@ -213,4 +205,3 @@ groups:
           is a line nobody updates when the host moves. Use it for the few names that are
           genuinely fixed - an appliance, an on-premises service reached over the network.
           Addresses are per stage.
-        renders: a_records, cname_records, ... / a, cname, ...

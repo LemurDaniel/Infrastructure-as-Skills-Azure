@@ -1,0 +1,88 @@
+schema_version: 1
+
+# Signed off: the customer approved this spec and its diagram; the next step is the render.
+# The diagnostics go to the platform's workspace: its development id is known, its
+# production id is still open.
+spec:
+  id: reports
+  target: terraform
+  generated_by: infrastructure-as-skills-azure
+  plugin_version: 0.6.0
+  at: 2026-11-01T09:00:00Z
+
+context:
+  environments: [development, production]
+  language: de
+  location: westeurope
+  workload: reports
+  subscription_id:
+    development: 11111111-2222-3333-4444-555555555555
+    production: 66666666-7777-8888-9999-000000000000
+  resource_group_name:
+    development: rg-reports-dev-we
+    production: rg-reports-prod-we
+
+deployment:
+  # --- resource_groups ---
+  resource_groups_created:
+    value: []
+    source: default
+
+  # --- modules ---
+  module_source:
+    value: authored
+    source: stated
+
+  # --- posture ---
+  landing_zone:
+    value: standalone
+    source: stated
+  network_exposure:
+    value: public
+    source: stated
+  local_auth:
+    value: disabled
+    source: default
+
+  # --- network ---
+  network_ownership:
+    value: none
+    source: stated
+
+  # --- observability ---
+  observability_ownership:
+    value: reference
+    source: stated
+  diagnostics_destination:
+    value:
+      existing: log_analytics_workspace
+      id:
+        development: /subscriptions/11111111-2222-3333-4444-555555555555/resourceGroups/rg-mgmt-dev-we/providers/Microsoft.OperationalInsights/workspaces/law-platform-dev
+    source: platform
+
+composition:
+  granularity: single
+  source: stated
+
+resources:
+  storage-account:
+    meta:
+      purpose:
+        value: Monatsberichte als CSV
+        source: stated
+    networking:
+      public_network_access:
+        value: enabled
+        source: stated
+
+wiring:
+  access:
+    value: []
+    source: stated
+
+open:
+- key: deployment.diagnostics_destination
+  environments: [production]
+  question: Welche Resource-ID hat der Plattform-Workspace für die Produktion?
+  owner: Plattform-Team
+  blocks: apply

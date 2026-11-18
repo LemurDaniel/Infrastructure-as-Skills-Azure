@@ -124,7 +124,8 @@ It verifies, read-only:
   path fails to load the plugin.
 - **question sets**: `naming.terraform`, `naming.bicep` and `naming.abbreviation`
   declared, the Bicep identifier without an `Azure::` prefix, unique question
-  ids, `required`/`default`/`answer` not combined, and `why`/`renders`
+  ids, `required`/`default`/`answer` not combined, and `why` (and in the
+  deployment set `renders`)
   present. Error on the naming rules, warning on the rest. A `scope: deployment`
   set names no resource and is exempt from the naming checks.
 - **routing table coverage**: every resource's `questions.yaml` reachable from its
@@ -206,12 +207,23 @@ Beyond the script:
   into `master` as a merge commit (`gh pr merge <n> --merge`), never squash or
   rebase: `master` then holds the very commits of `dev`, and `dev` never falls
   behind it. That merge publishes a release.
+- **Clean up after every merge, local and remote.** A merged feature branch
+  goes on both sides: `gh pr merge <n> --squash --delete-branch` deletes the
+  remote and the local branch and switches to `dev`; a branch merged another
+  way goes with `git push origin --delete <branch>` and `git branch -D <branch>`
+  (a squash leaves it unmerged in git's eyes, so check the PR is merged
+  first). Then `git fetch --prune`, and every worktree the work used is
+  removed (`git worktree remove`). Never deleted: `dev`, `master`,
+  `eval-history` and a branch whose PR is still open - so never
+  `--delete-branch` on the release PR, whose head is `dev`. A deleted branch
+  of a merged PR stays restorable from the PR. Before a new branch, the old
+  ones of merged work are gone: one open branch per piece of work, not a pile.
 - **Before the release merge, the full eval suite on Sonnet and on Haiku, each run by a test agent.**
   No eval runs on a pull request: the suite needs a model that follows a
   multi-step skill. For a release whose `dev` touches `core/`, `resources/`
   or `evals/` of the plugin since the last release, before `gh pr merge`:
-  1. Say what it costs (low effort, each case's own `runs:` - 4, the four
-     costliest 2: Sonnet about $12-18, Haiku about $1-3) and start only on
+  1. Say what it costs (low effort, each case's own `runs:` - 4, the six
+     costliest 2: Sonnet about $18-24, Haiku about $1-3) and start only on
      the owner's yes.
   2. Start a **test agent** (Agent tool, background) with the run as its whole
      brief. It runs, from the repo root, with `$claude` the CLI (on the

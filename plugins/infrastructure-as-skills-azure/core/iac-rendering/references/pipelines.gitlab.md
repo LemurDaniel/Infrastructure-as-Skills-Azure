@@ -11,6 +11,10 @@ run on a throwaway project before it reaches production.
 
 ## What differs from the other platforms
 
+- **The scripts are `sh`, not pwsh.** The job images (`hashicorp/terraform`, `azure-cli`)
+  carry no PowerShell, and installing it on every job costs more than it buys. This is the
+  one exception to invariant 14; JSON is read with `jq`.
+
 - **The OIDC subject does not name the stage.** GitLab's token carries `project_path`,
   `ref_type` and `ref` in the subject, not the environment. A federated credential
   therefore trusts "this project, this branch", and every stage's identity can trust the
@@ -52,7 +56,7 @@ stages:
 
 default:
   image:
-    name: hashicorp/terraform:1.16        # latest 1.16.x; re-resolve on render
+    name: hashicorp/terraform:1.17        # latest 1.17.x; re-resolve on render
     entrypoint: [""]
 
 variables:
@@ -191,6 +195,10 @@ validate:
     - az bicep build --file main.bicep --stdout > /dev/null
     - az bicep lint --file main.bicep
     - for f in main.*.bicepparam; do az bicep build-params --file "$f" --stdout > /dev/null; done
+    # The decision tests (invariant 15): the plugin's runner, copied into tests/ by the render.
+    - az bicep install && export PATH="$HOME/.azure/bin:$PATH"
+    - python3 -m pip install --quiet --disable-pip-version-check pyyaml==6.0.3
+    - python3 tests/run_arm_tests.py infra-spec.yaml --template main.bicep --tests tests
 
 .plan:
   script:
@@ -224,6 +232,9 @@ validate:
       --parameters "main.$CI_ENVIRONMENT_NAME.bicepparam"
 ```
 
-`!reference [.login]` pulls the two login lines into the job's script. The `jq` filter
+`!reference [.login]` pulls the two login lines into the job's script. The `azure-cli` image
+runs on the Python the Azure CLI is written in; whether its `pip` installs into it without a
+virtual environment is to confirm on the first run. `whatif.json` already is the plan job's
+artifact, for a day - within the seven days of invariant 8. The `jq` filter
 assumes the `changes[].changeType` shape of `az deployment group what-if --no-pretty-print`;
 check it against one real run before relying on the skip.

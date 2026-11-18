@@ -39,7 +39,6 @@ groups:
         why: >
           One secret per stage, each in that stage's vault: a secret shared across stages
           gives development the credentials of production.
-        renders: the stage file the vault reference comes from
 
       - id: key_vault
         ask:
@@ -57,7 +56,6 @@ groups:
           only from inside the network, so the pipeline that creates the secret is a runner
           in the network or the vault is created open and closed in a second step (see
           `key-vault/notes.md`).
-        renders: key_vault_id / keyVaultName (parent)
 
   # ----------------------------------------------------------------- identity
   - id: identity
@@ -81,7 +79,6 @@ groups:
           slot stays a dummy - when nobody is named, the list stays empty and the decision is
           an `open:` entry owned by the workload owner. The module's interface is used for
           these; an assignment between two modules is a `role-assignment`.
-        renders: role_assignments / roleAssignments
 
   # ----------------------------------------------------------------- security
   - id: security
@@ -89,15 +86,15 @@ groups:
     questions:
       - id: value_source
         ask:
-          en: "Where does the secret's value come from?"
-          de: "Woher kommt der Wert des Secrets?"
+          en: "Where does the value of the secret in the Key Vault come from?"
+          de: "Woher kommt der Wert des Secrets im Key Vault?"
         type: enum
         plain:
-          en: "The secret's value {value}."
-          de: "Der Wert des Geheimnisses {value}."
+          en: "The value of the secret in the Key Vault {value}."
+          de: "Der Wert des Geheimnisses im Key Vault {value}."
         plain_values:
-          placeholder: { en: "is entered afterwards, by hand or by the application - the template only creates the empty slot", de: "wird danach von Hand oder von der Anwendung eingetragen, die Vorlage legt nur den leeren Platz an" }
-          secure_input: { en: "is handed to the deployment as a protected input and never appears in the code", de: "wird dem Ausrollen als geschützte Eingabe übergeben und steht nie im Code" }
+          placeholder: { en: "is entered in the Key Vault afterwards, by hand or by the application - the template only creates the secret there with a dummy value", de: "wird danach von Hand oder von der Anwendung im Key Vault eingetragen; die Vorlage legt das Secret dort nur mit einem Platzhalterwert an" }
+          secure_input: { en: "is handed to the deployment as a protected input (a pipeline secret), written to the Key Vault by it and never appears in the code", de: "wird dem Ausrollen als geschützte Eingabe (Pipeline-Secret) übergeben, von ihm in den Key Vault geschrieben und steht nie im Code" }
         accepts: [placeholder, secure_input]
         default: placeholder
         resolved_by: interview
@@ -113,9 +110,6 @@ groups:
           write-only value that never reaches the state, Bicep as a `@secure()` parameter.
           A secure input writes a new version on each Bicep deployment, and in Terraform when
           `value_wo_version` is raised. Never a value in a spec, a default or a file.
-        renders: >
-          placeholder: azurerm_key_vault_secret with ignore_changes / Microsoft.KeyVault/vaults/secrets
-          with @onlyIfNotExists(); secure_input: value_wo + value_wo_version / a @secure() param to the module
 
       - id: content_type
         ask:
@@ -133,7 +127,6 @@ groups:
           holding a connection string is not a password. The placeholder carries the same
           label as the value that replaces it will; `key-vault.secret_placeholders` marks its
           slots with `placeholder` instead, because those have no decision of their own.
-        renders: content_type / contentType
 
       - id: expiry_days
         ask:
@@ -153,4 +146,3 @@ groups:
           (`ignore_changes`, `@onlyIfNotExists()`). For a `secure_input` each new version is
           written with a new date, so the secret is renewed as often as the pipeline writes it. 0 means no expiry and is a recorded departure that names the policy it
           conflicts with.
-        renders: expiration_date / attributes.exp (a date computed from the creation day)

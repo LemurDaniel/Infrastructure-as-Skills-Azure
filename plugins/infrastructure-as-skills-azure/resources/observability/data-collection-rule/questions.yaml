@@ -37,7 +37,6 @@ groups:
         why: >
           Drives the rendered name. A rule exists per stage, associated with that stage's
           machines and sending to that stage's workspace.
-        renders: naming parameter `environment`
 
       - id: location
         ask:
@@ -53,7 +52,6 @@ groups:
           the machines that call it; a rule may send to a workspace in another region, and
           the machines it is associated with may be anywhere. One rule per region of
           machines, not per workspace.
-        renders: location
 
       - id: resource_group_name
         ask:
@@ -70,7 +68,6 @@ groups:
           The rule is placed into an existing group - the observability one where the
           deployment splits by role: it is shared by every machine of the stage and
           outlives any one of them.
-        renders: parent_id (AVM Terraform, the group's id) / implicit in Bicep scope
 
   # ----------------------------------------------------------------- the rule
   - id: rule
@@ -103,7 +100,6 @@ groups:
           `WorkspaceTransforms` is one rule per workspace that rewrites or drops rows at
           ingestion for every source; it has no data sources and no associations. Nothing
           can be guessed; a pattern pre-answers it.
-        renders: kind / dataCollectionRuleProperties.kind
 
   # -------------------------------------------------------------- data sources
   - id: data_sources
@@ -132,7 +128,6 @@ groups:
           CPU?") has no answer. `extended` is the VM Insights-grade set and roughly five
           times the volume; it is for machines whose per-disk or per-process behaviour is
           the thing being watched. Additional counters go into `custom_performance_counters`.
-        renders: data_sources.performance_counters[].counter_specifiers / dataSources.performanceCounters[].counterSpecifiers
 
       - id: custom_performance_counters
         ask:
@@ -150,7 +145,6 @@ groups:
           application-specific figure the sets do not carry. Each is a sampled time series
           billed by volume; the names are checked with `typeperf -q` (Windows) or the
           agent's documented Linux list before a render.
-        renders: data_sources.performance_counters[].counter_specifiers (appended) / dataSources.performanceCounters[].counterSpecifiers
 
       - id: performance_sampling_seconds
         ask:
@@ -168,7 +162,6 @@ groups:
           is for a machine whose spikes are shorter than a minute, and quadruples the
           counter volume. Longer than 300 makes a five-minute alert window hold a single
           sample.
-        renders: data_sources.performance_counters[].sampling_frequency_in_seconds / dataSources.performanceCounters[].samplingFrequencyInSeconds
 
       - id: syslog_facilities
         ask:
@@ -188,7 +181,6 @@ groups:
           asks for (`auth`, `authpriv`). `local0`-`local7` carry application logs by
           convention and are added when an application writes to them; `mail`, `news`,
           `uucp`, `lpr` are legacy and noise on most machines.
-        renders: data_sources.syslog[].facility_names / dataSources.syslog[].facilityNames
 
       - id: syslog_min_level
         ask:
@@ -217,7 +209,6 @@ groups:
           evidence - the render applies `Info` to those two facilities whenever they are
           collected, so the default is two syslog data sources, not one. `Debug` on a
           production machine is a bill, not a decision.
-        renders: data_sources.syslog[].log_levels / dataSources.syslog[].logLevels
 
       - id: windows_event_logs
         ask:
@@ -236,7 +227,6 @@ groups:
           most of a Windows machine's events. An application's own log is added by name
           (`MyApp!*`), a specific event by id (`System!*[System[EventID=6008]]`). The
           Security log is its own decision below because of its volume.
-        renders: data_sources.windows_event_logs[].x_path_queries / dataSources.windowsEventLogs[].xPathQueries
 
       - id: windows_security_events
         ask:
@@ -260,7 +250,6 @@ groups:
           already collects it through its own rule, and a second copy doubles the bill.
           `common` is the documented "common" event set (4624, 4625, 4648, 4672, 4720-4767,
           ...) rendered as one XPath; `all` is `Security!*` and is a mandate, not a default.
-        renders: data_sources.windows_event_logs[] (a second entry on the Security log) / dataSources.windowsEventLogs[]
 
       - id: iis_logs
         ask:
@@ -280,7 +269,6 @@ groups:
           directories are named. One row per request, so on a busy web server this is the
           largest stream of the rule; on for a machine that serves HTTP, off everywhere
           else. Requires the endpoint, like every file-based source.
-        renders: data_sources.iis_logs[] / dataSources.iisLogs[]
 
       - id: custom_text_logs
         ask:
@@ -301,7 +289,6 @@ groups:
           are the stream's declaration. The agent tails the file and ships new lines, raw,
           into a `RawData` column unless a transformation parses it. Empty is the common
           answer: most applications on Azure log through a SDK, not a file.
-        renders: data_sources.log_files[] + stream_declarations / dataSources.logFiles[] + streamDeclarations
 
       - id: extensions
         ask:
@@ -324,7 +311,6 @@ groups:
           loaded from `dcr/<extension>.json` at render; this set records which products
           the rule serves so the destinations are rendered. Empty is right for a machine
           that is not a Kubernetes node and not under VM Insights.
-        renders: data_sources.extensions[] / prometheus_forwarder[] / dataSources.extensions[], prometheusForwarder[]
 
       - id: stream_declarations
         ask:
@@ -344,7 +330,6 @@ groups:
           sender and table: the column names and types the API accepts, which the
           transformation maps to the table's. Built-in streams (`Microsoft-Perf`,
           `Microsoft-Syslog`, `Microsoft-Event`) are not declared.
-        renders: stream_declarations / dataCollectionRuleProperties.streamDeclarations
 
       - id: transformations
         ask:
@@ -364,7 +349,6 @@ groups:
           volume or the schema asks for it; a `WorkspaceTransforms` rule is nothing but
           these. The KQL is validated by the service at deployment and transformations
           beyond a free share of the volume are billed.
-        renders: data_flows[].transform_kql = file(...) + output_stream / dataFlows[].transformKql = loadTextContent(...) + outputStream
 
   # -------------------------------------------------------------- destinations
   - id: destinations
@@ -387,7 +371,6 @@ groups:
           platform logs of the resources around it. A `WorkspaceTransforms` rule is bound
           to exactly this workspace. For `AgentDirectToStore` the workspace is not a
           destination and the value is recorded unused.
-        renders: destinations.log_analytics[].workspace_resource_id / destinations.logAnalytics[].workspaceResourceId
 
       - id: azure_monitor_metrics
         ask:
@@ -409,7 +392,6 @@ groups:
           costs nothing and is what makes a near-real-time alert on a machine possible
           without a log query rule. Off for a rule whose counters are an application's
           and belong only in the logs.
-        renders: destinations.azure_monitor_metrics + a data flow on Microsoft-InsightsMetrics / destinations.azureMonitorMetrics
 
       - id: archive_to_storage
         ask:
@@ -429,7 +411,6 @@ groups:
           for a retention mandate the workspace price does not justify, not queryable with
           KQL. The account is referenced, the container named per stream, and the rule's
           identity needs `Storage Blob Data Contributor` on it, which is wiring.
-        renders: destinations.storage_blobs_direct[] / destinations.storageBlobsDirect[]
 
       - id: storage_account
         ask:
@@ -446,7 +427,6 @@ groups:
         why: >
           An existing account of the deployment or the platform. Public access and shared
           keys stay off; the agent authenticates with the rule's identity.
-        renders: destinations.storage_blobs_direct[].storage_account_resource_id / destinations.storageBlobsDirect[].storageAccountResourceId
 
       - id: forward_to_event_hub
         ask:
@@ -465,7 +445,6 @@ groups:
           For a SIEM or a stream processor outside Azure Monitor that reads the agent's
           data as it arrives. The hub is referenced; the rule's identity needs `Azure Event
           Hubs Data Sender` on it, which is wiring.
-        renders: destinations.event_hubs_direct[] / destinations.eventHubsDirect[]
 
       - id: event_hub
         ask:
@@ -482,7 +461,6 @@ groups:
         why: >
           An existing hub in a namespace that allows Entra ID authentication; the rule
           sends with its identity, never with a connection string.
-        renders: destinations.event_hubs_direct[].event_hub_resource_id / destinations.eventHubsDirect[].eventHubResourceId
 
   # ------------------------------------------------------------------ endpoint
   - id: endpoint
@@ -516,7 +494,6 @@ groups:
           `create` renders `Microsoft.Insights/dataCollectionEndpoints` beside the rule,
           with the rule's kind as its kind (`Windows` for a Windows rule, `Linux`
           otherwise).
-        renders: data_collection_endpoint_id + the endpoint module / dataCollectionEndpointResourceId + the endpoint module
 
       - id: endpoint_id
         ask:
@@ -535,7 +512,6 @@ groups:
           The platform's endpoint in the rule's region, already linked to the private link
           scope where one exists. With no answer the decision is an `open:` entry owned by
           the platform team.
-        renders: data_collection_endpoint_id / dataCollectionRuleProperties.dataCollectionEndpointResourceId
 
   # -------------------------------------------------------------- associations
   - id: associations
@@ -562,10 +538,6 @@ groups:
           association of its own on the same machine (`configurationAccessEndpoint`),
           which the render adds whenever `endpoint` is not `none`. A `WorkspaceTransforms`
           or `Direct` rule has no associations.
-        renders: >
-          azurerm_monitor_data_collection_rule_association per machine (authored, in the
-          root) / Microsoft.Insights/dataCollectionRuleAssociations with scope: the
-          machine - not an input of either AVM module
 
   # ---------------------------------------------------------------- networking
   - id: networking
@@ -597,7 +569,6 @@ groups:
           referenced: every call is authenticated with the machine's identity and
           encrypted. The two modules disagree on the default - **Terraform `Enabled`,
           Bicep `Disabled`** - so it is always written.
-        renders: public_network_access (endpoint module, string) / publicNetworkAccess (endpoint module)
 
       - id: private_link_scope
         ask:
@@ -620,7 +591,6 @@ groups:
           privately, and every other agent in that network does too, which is why a
           deployment never creates the scope. With no answer the decision is an `open:`
           entry owned by the platform team.
-        renders: a scoped resource on the AMPLS (wiring in the root) / Microsoft.Insights/privateLinkScopes/scopedResources
 
   # ----------------------------------------------------------------- identity
   - id: identity
@@ -651,7 +621,6 @@ groups:
           roles as wiring. `Direct` rules need no identity either; the application posting
           to the endpoint holds `Monitoring Metrics Publisher` on the rule, recorded as a
           role assignment by the pattern.
-        renders: managed_identities / managedIdentities
 
       - id: user_assigned_identity_id
         ask:
@@ -668,7 +637,6 @@ groups:
         why: >
           The identity that holds the data roles on the destinations before the rule
           exists. Created by the identity set.
-        renders: managed_identities.user_assigned_resource_ids / managedIdentities.userAssignedResourceIds
 
   # ------------------------------------------------------------- observability
   - id: observability
@@ -690,7 +658,6 @@ groups:
           Inherited. A rule fails quietly - a transformation that errors drops the row, a
           stream whose schema drifted is rejected - and the rule's own diagnostic log is
           the only place that says so. Usually the same workspace the data goes to.
-        renders: diagnostic_settings / diagnosticSettings (none on the Bicep module - see the notes)
 
       - id: diagnostic_categories
         ask:
@@ -711,4 +678,3 @@ groups:
           debugged. The names are the platform's and are checked against `az monitor
           diagnostic-settings categories list --resource <rule id>` before a render,
           not remembered; the rule has no metrics.
-        renders: diagnostic_settings.<key>.log_categories / diagnosticSettings[].logCategoriesAndGroups[].category

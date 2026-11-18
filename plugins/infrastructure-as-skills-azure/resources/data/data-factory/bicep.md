@@ -22,23 +22,13 @@ setting - and linked services this plugin never renders (content).
 
 ### Decision -> module parameter
 
-| Decision | Parameter | Note |
+What each decision renders to - the parameter and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.
+
+### Deployment-wide inputs
+
+| Input | Parameter | Note |
 |---|---|---|
-| `managed_virtual_network` | `managedVirtualNetwork: { name: 'default' }` **and** `integrationRuntimes: [ { name, type: 'Managed', managedVirtualNetworkName: 'default', typeProperties: { computeProperties: { location: 'AutoResolve' } } } ]` | Omitted by default; written. The runtime is what runs inside the network |
-| `managed_private_endpoints` | `managedVirtualNetwork.managedPrivateEndpoints: [ { name, privateLinkResourceId, groupId, fqdns } ]` | `fqdns` is required by the type; the source's endpoint host. Approval on the source follows |
-| `self_hosted_integration_runtime` | `integrationRuntimes[] { name, type: 'SelfHosted' }` | The key is read with `listAuthKeys()` on the runtime after the deployment, into a Key Vault secret |
-| `global_parameters` | `globalParameters: { <name>: { type, value } }` | An object keyed by name (a list in Terraform) |
-| `purview_account` | `purviewResourceId` | Omitted for none |
-| `git_provider: github` and details | `gitConfiguration: { type: 'FactoryGitHubConfiguration', accountName, repositoryName, collaborationBranch, rootFolder, hostName }` | The ARM `repoConfiguration` shape; omitted on every stage but development |
-| `git_provider: azure_devops`, `git_project` | `gitConfiguration: { type: 'FactoryVSTSConfiguration', accountName, projectName, repositoryName, collaborationBranch, rootFolder, tenantId }` | |
-| `public_network_access` | `publicNetworkAccess: 'Disabled'` | A string; the module default is `''` (disabled only when endpoints are passed); written |
-| `private_endpoint_subnet`, `private_endpoint_subresources` | `privateEndpoints: [ { service: 'dataFactory', subnetResourceId, name }, { service: 'portal', ... } ]` | Both services in one parameter |
 | `deployment.private_dns_records: policy` | no `privateDnsZoneGroup` on the endpoints | |
-| `managed_identity`, `user_assigned_identity_ids` | `managedIdentities: { systemAssigned: true, userAssignedResourceIds }` | |
-| `source_access` | **not the module** - role assignments beside the sources | Wiring |
-| `role_assignments` | `roleAssignments` | Control plane |
-| `key_management`, `cmk_key_vault_key_id` | `customerManagedKey: { keyVaultResourceId, keyName, userAssignedIdentityResourceId, autoRotationEnabled: true }` | Unversioned with rotation |
-| `diagnostic_workspace`, `diagnostic_categories`, `metrics_enabled` | `diagnosticSettings: [ { workspaceResourceId, logCategoriesAndGroups: [ { category } ], metricCategories: [ { category: 'AllMetrics' } ] } ]` | `logAnalyticsDestinationType` defaults to `Dedicated` |
 | `deployment.resource_lock` | `lock` | Not on the lock list |
 | `deployment.module_telemetry` | `enableTelemetry` | |
 | `context.tags` | `tags` | |
@@ -158,7 +148,7 @@ owns it.
 ### Tests
 
 A module call compiles to a nested deployment whose `properties.parameters.<param>.value` is the
-decision, so every decision above is observable in `tests/*.armtest.yaml`
+decision, so every decision in render-map.yaml is observable in `tests/*.armtest.yaml`
 ([bicep-idiom.md](../../../core/iac-rendering/references/bicep-idiom.md#tests)): the managed
 network and its endpoints, the runtimes, global parameters, the git object, public access, both
 private endpoints' services, the identity, the key, and the diagnostic categories. `source_access`,
@@ -168,12 +158,4 @@ the endpoint approvals and the runtime key are `not-testable` (not a resource of
 
 The fallback. `Microsoft.DataFactory/factories`:
 
-| Decision | Property |
-|---|---|
-| the factory | `identity { type, userAssignedIdentities }`, `properties.publicNetworkAccess`, `properties.repoConfiguration`, `properties.globalParameters`, `properties.encryption { keyName, vaultBaseUrl, identity }`, `properties.purviewConfiguration.purviewResourceId` |
-| `managed_virtual_network` | child `managedVirtualNetworks/default` and child `integrationRuntimes` (`type: 'Managed'`, `managedVirtualNetwork.referenceName`) |
-| `managed_private_endpoints` | child `managedVirtualNetworks/default/managedPrivateEndpoints` |
-| `self_hosted_integration_runtime` | child `integrationRuntimes` (`type: 'SelfHosted'`) |
-| private endpoints | `Microsoft.Network/privateEndpoints` with `groupIds: ['dataFactory']` and `['portal']` |
-| `role_assignments` | `Microsoft.Authorization/roleAssignments` |
-| diagnostics | `Microsoft.Insights/diagnosticSettings` with `logAnalyticsDestinationType: 'Dedicated'`, `logs: [ { category } ]`, `metrics: [ { category: 'AllMetrics' } ]` |
+What each decision renders to - the property and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.

@@ -18,17 +18,12 @@ Resolve the current version and re-read the README parameters before rendering, 
 
 ### Decision -> module parameter
 
+What each decision renders to - the parameter and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.
+
+### Parameters no decision covers
+
 | Decision | Parameter | Note |
 |---|---|---|
-| `workspace` | `workspaceResourceId` | **Required** |
-| `application_type` | `applicationType` | Default `'web'`; written |
-| `sampling_percentage` | `samplingPercentage` | Default 100; written |
-| `daily_cap_gb` | not a module parameter | The cap is a billing feature of the component (`Microsoft.Insights/components/pricingPlans/current`), rendered beside the module if wanted |
-| `store_client_ip` | `disableIpMasking` | Same polarity; module default **`true`** (stores IPs); written |
-| `public_network_access` | `publicNetworkAccessForIngestion`, `publicNetworkAccessForQuery` | Strings `'Enabled'`/`'Disabled'`; module defaults **`'Enabled'`**; written |
-| `private_link_scope` | not a module parameter | A scoped resource on the scope (`Microsoft.Insights/privateLinkScopes/scopedResources`), in the scope's resource group - the platform's |
-| `local_authentication_disabled` | `disableLocalAuth` | Module default **`false`**; written |
-| `role_assignments` | `roleAssignments` | |
 | (retention) | `retentionInDays` | Module default **365**; set to the workspace's retention |
 | `deployment.module_telemetry` | `enableTelemetry` | |
 | `context.tags` | `tags` | |
@@ -76,19 +71,11 @@ name it.
 ### Tests
 
 A module call compiles to a nested deployment whose `properties.parameters.<param>.value` is
-the decision, so every decision above is observable in `tests/*.armtest.yaml`
+the decision, so every decision in render-map.yaml is observable in `tests/*.armtest.yaml`
 ([bicep-idiom.md](../../../core/iac-rendering/references/bicep-idiom.md#tests)).
 
 ## Authored rendering
 
-The fallback. `Microsoft.Insights/components` with `kind: 'web'` and `properties`:
+The fallback. `Microsoft.Insights/components` with `kind: 'web'` and `properties`.
 
-| Decision | Property |
-|---|---|
-| `workspace` | `properties.WorkspaceResourceId` |
-| `application_type` | `properties.Application_Type` |
-| `sampling_percentage` | `properties.SamplingPercentage` |
-| `store_client_ip` | `properties.DisableIpMasking` |
-| `public_network_access` | `properties.publicNetworkAccessForIngestion`, `publicNetworkAccessForQuery` |
-| `local_authentication_disabled` | `properties.DisableLocalAuth` |
-| `daily_cap_gb` | child `pricingPlans/current` with `properties.cap` |
+What each decision renders to - the property and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.

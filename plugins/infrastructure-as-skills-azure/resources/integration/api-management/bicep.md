@@ -18,27 +18,13 @@ Resolve the current version and re-read the README parameters before rendering, 
 
 ### Decision -> module parameter
 
-| Decision | Parameter | Note |
+What each decision renders to - the parameter and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.
+
+### Deployment-wide parameters
+
+| Input | Parameter | Note |
 |---|---|---|
-| `publisher_name`, `publisher_email` | `publisherName`, `publisherEmail` | Required |
-| `sku` | `sku` | `Basic`, `BasicV2`, `Consumption`, `Developer`, `Premium`, `PremiumV2`, `Standard`, `StandardV2`. Module default **`Premium`**; written |
-| `capacity` | `skuCapacity` | Module default **3**; written |
-| `zone_redundant` | `availabilityZones` | Premium/PremiumV2 only; `[1, 2, 3]` or `[]` |
-| `additional_regions` | `additionalLocations` | Premium only |
-| `managed_identity`, `user_assigned_identity_ids` | `managedIdentities: { systemAssigned, userAssignedResourceIds }` | |
-| `caller_authentication`, `rate_limit_calls_per_minute` | `policies: [ { name: 'policy', format: 'rawxml', value } ]` | The service-level policy; the same XML as the Terraform reference |
-| `developer_portal` | `enableDeveloperPortal` | Module default `false`; written |
-| `apis`, `products` | `apis`, `products`, `apiVersionSets`, `backends`, `namedValues`, `subscriptions` | Content of the API team; the names and the backend only |
-| `network_integration` | `virtualNetworkType` | `'None'` / `'External'` / `'Internal'`; default `'None'`; written |
-| `apim_subnet` | `subnetResourceId` | |
-| `public_ip_address` | `publicIpAddressResourceId` | Standard static IPv4; classic tiers in a network |
-| `public_network_access` | `publicNetworkAccess` | `'Enabled'` / `'Disabled'`; unset by default; written |
-| `private_endpoint_subnet` | `privateEndpoints: [ { subnetResourceId, service: 'Gateway' } ]` | Tiers with private endpoint support only |
 | `deployment.private_dns_records: policy` | no `privateDnsZoneGroup` on the endpoint | |
-| `legacy_protocols_disabled` | `customProperties: { 'Microsoft.WindowsAzure.ApiManagement.Gateway.Security.Protocols.Tls10': 'False', ... }` | The module sets a block of these by default; every key is written so a release cannot move it. The key list is in the README |
-| `client_certificate_required` | `enableClientCertificate` | Default `false`; written |
-| `role_assignments` | `roleAssignments: [ { principalId, roleDefinitionIdOrName, principalType } ]` | |
-| `diagnostic_*`, `metrics_enabled` | `diagnosticSettings: [ { workspaceResourceId, logCategoriesAndGroups: [ { category } ], metricCategories: [ { category: 'AllMetrics' } ] } ]` | |
 | `deployment.module_telemetry` | `enableTelemetry` | |
 | `context.tags` | `tags` | |
 
@@ -109,23 +95,12 @@ an `open:` entry (app registrations are not rendered).
 ### Tests
 
 A module call compiles to a nested deployment whose `properties.parameters.<param>.value` is the
-decision, so every decision above is observable in `tests/*.armtest.yaml`
+decision, so every decision in render-map.yaml is observable in `tests/*.armtest.yaml`
 ([bicep-idiom.md](../../../core/iac-rendering/references/bicep-idiom.md#tests)). The policy text is
 matched on `validate-jwt` and `calls="600"`.
 
 ## Authored rendering
 
-The fallback. `Microsoft.ApiManagement/service` with `sku: { name, capacity }` and `properties`:
+The fallback. `Microsoft.ApiManagement/service` with `sku: { name, capacity }` and `properties`.
 
-| Decision | Property |
-|---|---|
-| `publisher_*` | `properties.publisherName`, `publisherEmail` |
-| `zone_redundant` | `zones` (top level, beside `properties`) |
-| `network_integration` | `properties.virtualNetworkType`, `virtualNetworkConfiguration.subnetResourceId` |
-| `public_ip_address` | `properties.publicIpAddressId` |
-| `public_network_access` | `properties.publicNetworkAccess` |
-| `legacy_protocols_disabled` | `properties.customProperties` |
-| `client_certificate_required` | `properties.enableClientCertificate` |
-| `managed_identity` | `identity` (top level) |
-| global policy | child `policies/policy` |
-| `apis`, `products` | child `apis`, `products` |
+What each decision renders to - the property and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.

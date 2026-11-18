@@ -22,18 +22,12 @@ the DNSSEC child needs `azapi`.
 
 ### Decision -> module input
 
+What each decision renders to - the input and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.
+
+Deployment-wide inputs, not decisions of this set:
+
 | Decision | Input | Note |
 |---|---|---|
-| `zone_name` | `name` | The domain, from the stage's file; never the naming provider |
-| `location` | - | No input; the module creates the zone `global` |
-| `resource_group_name` | `resource_group_name` | A name, not an id |
-| `registrar_owner` | - | Not an input: the `name_servers` output goes into the handover's `open:` entry owned by this person |
-| `child_zone_delegations` | `ns_records = { <k> = { name, ttl, records = [<name servers>], resource_group_name, zone_name } }` | One record set per child |
-| `record_sets` | `a_records`, `aaaa_records`, `cname_records`, `txt_records`, `mx_records`, `caa_records` | One map per type. **Every record object repeats `resource_group_name` and `zone_name`**; merge them in from one local. An alias is `target_resource_id` instead of `records` (A, AAAA, CNAME) |
-| `verification_records` | `txt_records`, `cname_records` | From `wiring.dns_records`, in the same maps - one map per type across both lists, keyed so the two cannot collide |
-| `record_ttl_seconds` | `ttl` on every record object | Required per record; the question's value unless the entry states one |
-| `role_assignments` | **not carried by the module** at v0.2.1 | An authored `azurerm_role_assignment` with `scope = module.public_dns_zone.resource_id` and `role_definition_name = "DNS Zone Contributor"` per entry |
-| `dnssec` | **not carried by the module** | An authored `azapi_resource` of type `Microsoft.Network/dnsZones/dnssecConfigs@2023-07-01-preview`, name `default`, `parent_id` the zone's id; `azurerm` 5.x has no DNSSEC resource either |
 | `deployment.resource_lock` | **not carried by the module** | An authored `azurerm_management_lock` on the zone's id in the stages the deployment names |
 | `deployment.module_telemetry` | `enable_telemetry` | |
 | `context.tags` | `tags = local.tags` | |
@@ -149,14 +143,13 @@ a pipeline check over that file is where the record lists are verified.
 
 The fallback. Targets `azurerm` **5.x**; check against `terraform providers schema -json`.
 
+What each decision renders to - the resource and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.
+
+Not decisions of this set:
+
 | Decision | Resource |
 |---|---|
 | the zone | `azurerm_dns_zone` (`name`, `resource_group_name`; `soa_record` optional) - outputs `name_servers` |
-| `child_zone_delegations` | `azurerm_dns_ns_record` (`zone_name`, `resource_group_name`, `name`, `ttl`, `records`) |
-| `record_sets`, `verification_records` | `azurerm_dns_a_record`, `_aaaa_record`, `_cname_record` (each with `records` / `record` **or** `target_resource_id` for an alias), `_txt_record` (`record { value }` blocks), `_mx_record` (`record { preference, exchange }`), `_caa_record` (`record { flags, tag, value }`) |
-| `record_ttl_seconds` | `ttl` on every record |
-| `role_assignments` | `azurerm_role_assignment` on the zone's id |
-| `dnssec` | `azapi_resource` `Microsoft.Network/dnsZones/dnssecConfigs@2023-07-01-preview` - **5.x has no `azurerm` resource for it** |
 | lock | `azurerm_management_lock` on the zone |
 
 Validated against `azurerm` 5.x: on 5.x the public DNS records still take `zone_name` plus

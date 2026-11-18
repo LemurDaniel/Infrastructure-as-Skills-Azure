@@ -30,17 +30,14 @@ Resolve the current version of each and re-read the README parameters before ren
 
 ### Decision -> module parameter
 
+What each decision renders to - the parameter and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.
+
+### Parameters no decision covers
+
 | Decision | Parameter | Note |
 |---|---|---|
-| `principal` | `principalId` | |
-| `principal_type` | `principalType` | **`ServicePrincipal`** for a managed identity - the allowed list is `''`, `Device`, `ForeignGroup`, `Group`, `ServicePrincipal`, `User`, with no managed-identity value. Written always |
-| `role` | `roleDefinitionIdOrName` (the three scope modules) / `roleDefinitionId` (the resource pattern) | The scope modules resolve a built-in **name** through their own table. The resource pattern needs the role definition id, `subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '<guid>')`, and takes `roleName` for logging. Ids are checked against the live definition, not recalled |
-| `scope` | the call's `scope:` / the template's `targetScope`, or `resourceId` (resource pattern) | See the table above |
-| `condition`, `condition_version` | `condition`, `conditionVersion` | The three scope modules only (`'2.0'` is their default). **The resource pattern has no condition parameter** - a conditioned assignment on a resource is rendered authored |
-| `description` | `description` | |
 | name | `name` | `guid(<scope id>, principalId, <role>)`. Optional on all four; pass it anyway so the name does not depend on a module's recipe |
 | `deployment.module_telemetry` | `enableTelemetry` | |
-| `deployer_role` | *none* | Not in the template; the handover (see `notes.md`) |
 
 ### The calls
 
@@ -91,7 +88,7 @@ root.
 ### Tests
 
 A module call compiles to a nested deployment whose `properties.parameters.<param>.value` is the
-decision, so every decision above except `deployer_role` is observable in `tests/*.armtest.yaml`
+decision, so every decision in render-map.yaml except `deployer_role` is observable in `tests/*.armtest.yaml`
 ([bicep-idiom.md](../../../core/iac-rendering/references/bicep-idiom.md#tests)).
 
 ## Authored rendering

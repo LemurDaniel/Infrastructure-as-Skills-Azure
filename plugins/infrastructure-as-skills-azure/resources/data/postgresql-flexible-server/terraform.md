@@ -21,32 +21,13 @@ build the threat-protection setting or any database role.
 
 ### Decision -> module input
 
-| Decision | Input | Note |
+What each decision renders to - the input and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.
+
+### Deployment-wide inputs
+
+| Input | Module input | Note |
 |---|---|---|
-| `postgres_version` | `server_version` | A string (`"17"`); the module's description lists up to `16` - check the provider |
-| `compute_tier`, `sku_name` | `sku_name = "GP_Standard_D2ds_v5"` | The tier is the **prefix** (`B_`, `GP_`, `MO_`) |
-| `storage_size_gb` | `storage_mb` | **Megabytes** (`131072`); only the values the provider lists |
-| `storage_auto_grow` | `auto_grow_enabled` | Default null; written |
-| `databases` | `databases = { <key> = { name, charset, collation } }` | |
-| `high_availability` | `high_availability = { mode = "ZoneRedundant" }`, or `null` for `disabled` | Module default **`ZoneRedundant`**; written. `null` on burstable compute |
-| `maintenance_window` | `maintenance_window = { day_of_week, start_hour, start_minute }` | `day_of_week` a string, `"0"` Sunday; module default 00:00 |
-| `private_connectivity: private_endpoint` | `private_endpoints`, with `delegated_subnet_id` and `private_dns_zone_id` unset | Fixed at creation |
-| `private_connectivity: vnet_integration` | `delegated_subnet_id`, `private_dns_zone_id` | |
-| `public_network_access` | `public_network_access_enabled` | **Bool**, default `false`; written |
-| `ip_rules`, `allow_azure_services` | `firewall_rules = { <key> = { name, start_ip_address, end_ip_address } }` | **Module default is a rule that admits `0.0.0.0` - `255.255.255.255`: `firewall_rules = {}` is written on every call** |
-| `private_endpoint_subnet` | `private_endpoints = { pg = { subnet_resource_id, subresource_name = "postgresqlServer" } }` | |
 | `deployment.private_dns_records` | `private_endpoints_manage_dns_zone_group` | `false` under `policy` |
-| `managed_identity`, `user_assigned_identity_ids` | `managed_identities = { system_assigned, user_assigned_resource_ids }` | |
-| `entra_admins` | `ad_administrator = { <key> = { object_id, principal_name, principal_type, tenant_id } }` | |
-| `password_authentication_disabled` | `authentication = { active_directory_auth_enabled = true, password_auth_enabled = false, tenant_id }` and **no** `administrator_login`/`administrator_password` | Module default is null, the provider's: password on |
-| `database_roles` | **not the module** | SQL after the deployment |
-| `role_assignments` | `role_assignments` | Control plane |
-| `minimum_tls_version` | `server_configuration = { ssl_min_protocol_version = { name, config }, require_secure_transport = { name, config } }` | |
-| `key_management`, `cmk_key_vault_key_id` | `customer_managed_key = { key_vault_key_id, primary_user_assigned_identity_id }` | Versionless key id; the geo-backup key is a second pair |
-| `threat_protection` | **not the module** - an `azapi_resource` child | |
-| `backup_retention_days` | `backup_retention_days` | |
-| `geo_redundant_backup` | `geo_redundant_backup_enabled` | Default null (the provider's `false`); written |
-| `diagnostic_*`, `metrics_enabled` | `diagnostic_settings = { workspace = { workspace_resource_id, log_categories, log_groups, metric_categories = ["AllMetrics"] } }` | |
 | `deployment.module_telemetry` | `enable_telemetry` | |
 | `context.tags` | `tags = local.tags` | |
 
@@ -190,19 +171,10 @@ with a reason where the plan hides it. `database_roles` and the Defender plan ar
 The fallback - `implementation: authored`, or a repository that already renders the server this way.
 Targets `azurerm` **5.x**; check against `terraform providers schema -json`.
 
-| Decision | Resource and argument |
+What each decision renders to - the argument and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.
+
+### Inputs no decision covers
+
+| Input | Resource and argument |
 |---|---|
 | the server | `azurerm_postgresql_flexible_server` |
-| `postgres_version`, `sku_name`, `storage_size_gb`, `storage_auto_grow` | `version`, `sku_name`, `storage_mb`, `auto_grow_enabled` |
-| `high_availability`, `maintenance_window` | `high_availability { mode }`, `maintenance_window { day_of_week, start_hour, start_minute }` |
-| `public_network_access` | `public_network_access_enabled`, `azurerm_postgresql_flexible_server_firewall_rule` |
-| `private_connectivity: vnet_integration` | `delegated_subnet_id`, `private_dns_zone_id` |
-| `private_connectivity: private_endpoint` | `azurerm_private_endpoint` with `subresource_names = ["postgresqlServer"]` |
-| `password_authentication_disabled` | `authentication { active_directory_auth_enabled, password_auth_enabled, tenant_id }` |
-| `entra_admins` | `azurerm_postgresql_flexible_server_active_directory_administrator` |
-| `minimum_tls_version` | `azurerm_postgresql_flexible_server_configuration` |
-| `key_management` | `customer_managed_key { key_vault_key_id, primary_user_assigned_identity_id }` |
-| `backup_retention_days`, `geo_redundant_backup` | `backup_retention_days`, `geo_redundant_backup_enabled` |
-| `databases` | `azurerm_postgresql_flexible_server_database` |
-| `threat_protection` | `azapi_resource` `advancedThreatProtectionSettings` |
-| diagnostics | `azurerm_monitor_diagnostic_setting` with `enabled_log { category }` |

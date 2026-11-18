@@ -1,0 +1,62 @@
+# What each decision of questions.yaml renders to, per target and implementation.
+# Format: core/iac-rendering/references/render-map.md. The call, the authored blocks and the
+# tests are in terraform.md and bicep.md.
+# No module on either target: Terraform has none, and the Bicep rg-scope module takes one
+# thresholdType for every threshold, so actual and forecast thresholds cannot share a budget
+# there (bicep.md).
+schema_version: 1
+resource: Microsoft.Consumption/budgets
+
+modules:
+  terraform: []
+  bicep: []
+
+decisions:
+
+  # ---------------------------------------------------------------- placement
+  placement.environments:
+    not_rendered: naming parameter `environment`; a budget carries no tags
+  placement.resource_group_name:
+    terraform:
+      attribute: resource_group_id
+      note: 'an id, not a name - the group id, also the budget scope (source: azurerm 5.12 schema)'
+    bicep: { gap: the deployment's resource group scope - the budget is deployed into the group it watches; no property }
+
+  # ------------------------------------------------------------------- budget
+  budget.amount:
+    terraform: { attribute: amount, passthrough: true }
+    bicep: { attribute: properties.amount, passthrough: true }
+  budget.time_grain:
+    terraform: { attribute: time_grain, passthrough: true }
+    bicep: { attribute: properties.timeGrain, passthrough: true }
+  budget.actual_thresholds:
+    terraform:
+      attribute: 'notification { enabled = true, threshold = <n>, threshold_type = "Actual", operator = "GreaterThanOrEqualTo" }'
+      note: one block per entry; contacts repeated in every block
+    bicep:
+      attribute: "properties.notifications['actual_<n>'] = { enabled: true, threshold: <n>, thresholdType: 'Actual', operator: 'GreaterThanOrEqualTo' }"
+      note: one key per entry, contacts repeated in every one; at most five keys with the forecast ones
+  budget.forecast_thresholds:
+    terraform:
+      attribute: 'notification { enabled = true, threshold = <n>, threshold_type = "Forecasted", operator = "GreaterThanOrEqualTo" }'
+      note: one block per entry
+    bicep:
+      attribute: "properties.notifications['forecast_<n>'] = { enabled: true, threshold: <n>, thresholdType: 'Forecasted', operator: 'GreaterThanOrEqualTo' }"
+      note: one key per entry
+
+  # ------------------------------------------------------------ notifications
+  notifications.action_group:
+    terraform:
+      attribute: 'notification.contact_groups = [ <id> ]'
+      note: in every notification block
+    bicep:
+      attribute: "properties.notifications[*].contactGroups: [ <id> ]"
+      note: in every notification
+  notifications.contact_emails:
+    terraform:
+      attribute: notification.contact_emails
+      note: in every notification block; an empty list is written as []
+    bicep: { attribute: "properties.notifications[*].contactEmails" }
+  notifications.contact_roles:
+    terraform: { attribute: notification.contact_roles }
+    bicep: { attribute: "properties.notifications[*].contactRoles" }

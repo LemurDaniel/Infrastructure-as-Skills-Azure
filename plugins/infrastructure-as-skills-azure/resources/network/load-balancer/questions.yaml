@@ -39,9 +39,6 @@ groups:
         why: >
           Drives the rendered name and the strictness of several defaults below. Nothing
           sensible can be guessed.
-        renders: >
-          naming parameter `environment`, and the tag of that name where the repository uses
-          one
 
       - id: location
         ask:
@@ -55,7 +52,6 @@ groups:
         why: >
           A regional balancer sits in the region of the network and the backends it serves;
           its backends are in one virtual network of that region.
-        renders: location
 
       - id: resource_group_name
         ask:
@@ -71,7 +67,6 @@ groups:
         why: >
           The balancer is placed into an existing group. In a split deployment it belongs to
           the `network` role, or to the `application` role when it serves one workload only.
-        renders: resource_group_name (AVM Terraform) / implicit in Bicep scope
 
   # ---------------------------------------------------------------- the balancer
   - id: balancer
@@ -96,7 +91,6 @@ groups:
           group has to allow the traffic - which is the posture the guardrails want, and it
           spans availability zones. Written, because the Terraform and Bicep modules both
           default to it and a module release can move that.
-        renders: sku / skuName
 
       - id: zone_redundant
         ask:
@@ -120,7 +114,6 @@ groups:
           have to be spread over the zones too, or the redundancy is only in the balancer. A
           region without zones takes `false`, said out loud. Both modules default to all three
           zones.
-        renders: frontend_ip_configurations.<k>.zones, public_ip_address_configuration / frontendIPConfigurations[].availabilityZones
 
   # ---------------------------------------------------------------- networking
   - id: networking
@@ -150,10 +143,6 @@ groups:
           reachable by anyone the backends' network security group lets through; it is the
           exception, and for web traffic Application Gateway or Front Door is usually the right
           front. `private` is the deployment's posture; `public` is a stated exception.
-        renders: >
-          frontend_ip_configurations (private: frontend_private_ip_subnet_resource_id; public:
-          create_public_ip_address) / frontendIPConfigurations[].subnetResourceId or
-          publicIPAddressConfiguration
 
       - id: frontend_subnet
         ask:
@@ -173,7 +162,6 @@ groups:
           not need a subnet of its own and a delegation is not required; the subnet needs a
           free address and a network security group that lets the probe through (the service
           tag `AzureLoadBalancer`).
-        renders: frontend_ip_configurations.<k>.frontend_private_ip_subnet_resource_id / frontendIPConfigurations[].subnetResourceId
 
       - id: private_ip_allocation
         ask:
@@ -194,7 +182,6 @@ groups:
           address, and a dynamic one stays only as long as the balancer exists. Fixed means one
           more value to take from the address plan; a dynamic address that is later rebuilt
           takes everything pointing at it down. Both modules default to dynamic.
-        renders: frontend_ip_configurations.<k>.frontend_private_ip_address_allocation / frontendIPConfigurations[].privateIPAllocationMethod (the Bicep module infers it from `privateIPAddress`)
 
       - id: private_ip_address
         ask:
@@ -212,7 +199,6 @@ groups:
           An unused address inside the subnet, not one of the five Azure reserves, taken from
           the address plan. Last in the first half of the range is the habit that keeps
           clear of what is allocated dynamically.
-        renders: frontend_ip_configurations.<k>.frontend_private_ip_address / frontendIPConfigurations[].privateIPAddress
 
       - id: public_ip_zone_redundant
         ask:
@@ -230,7 +216,6 @@ groups:
         why: >
           A zonal balancer with a non-zonal public IP is zonal in name only. Follows
           `zone_redundant`; the public IP is created with the same zones.
-        renders: public IP zones / publicIPAddressConfiguration.availabilityZones
 
       - id: backend_pools
         ask:
@@ -247,7 +232,6 @@ groups:
           the pool's virtual network. A pool whose members are a scale set joins through the
           scale set's network profile, not here. A balancer with no pool serves nothing - the
           first state, and a valid one.
-        renders: backend_address_pools, backend_address_pool_addresses / backendAddressPools
 
       - id: health_probe_protocol
         ask:
@@ -270,7 +254,6 @@ groups:
           is the default; a web backend takes `Https` - and then a health path is part of
           the answer, set in the probe. A probe that reports everything healthy is the usual
           cause of a balanced outage.
-        renders: lb_probes.<k>.protocol, request_path / probes[].protocol, requestPath
 
       - id: health_probe_interval_seconds
         ask:
@@ -286,7 +269,6 @@ groups:
           traffic: 5 s and two failed probes is ten seconds against the Terraform module's 15 s
           default (thirty). More often adds probe traffic and nothing else. Written, because the
           modules differ.
-        renders: lb_probes.<k>.interval_in_seconds / probes[].intervalInSeconds
 
       - id: health_probe_unhealthy_threshold
         ask:
@@ -300,7 +282,6 @@ groups:
         why: >
           Two is the lowest the Terraform module allows and avoids pulling a backend for one
           lost packet. A single probe is flapping, many is a long outage.
-        renders: lb_probes.<k>.number_of_probes_before_removal / probes[].numberOfProbes
 
       - id: tcp_reset
         ask:
@@ -319,7 +300,6 @@ groups:
           default) passes, and the client finds out on its next write after a long wait.
           With a reset both ends fail fast and reconnect. No cost. The Terraform module
           defaults to `false`; it is written.
-        renders: lb_rules.<k>.enable_tcp_reset / loadBalancingRules[].enableTcpReset
 
       - id: load_distribution
         ask:
@@ -340,7 +320,6 @@ groups:
           evenly; the source-IP modes pin a client to a backend while it exists, which a
           session-bound backend needs and a stateless one does not. Pinning makes the spread
           uneven behind a NAT, where many clients share one address.
-        renders: lb_rules.<k>.load_distribution / loadBalancingRules[].loadDistribution
 
       - id: floating_ip
         ask:
@@ -358,7 +337,6 @@ groups:
           Needed for exactly two cases: a SQL Server Always On availability group listener and
           a network appliance behind the balancer. Everywhere else it changes the address the
           backend sees and breaks it. Off, and a stated reason when on.
-        renders: lb_rules.<k>.enable_floating_ip / loadBalancingRules[].enableFloatingIP
 
       - id: rules
         ask:
@@ -376,7 +354,6 @@ groups:
           module's rule defaults are 3389 to 3389 (remote desktop) - never inherited: a rule
           states both ports. A balancer with no rule serves nothing, which is the safe first
           state.
-        renders: lb_rules / loadBalancingRules
 
       - id: inbound_nat_rules
         ask:
@@ -392,7 +369,6 @@ groups:
           administration port exposed on a public address, or on the network, for anyone who
           can route to it. Empty: administration goes through Azure Bastion, which needs no
           open port at all. An entry is a stated exception with the source range allowed.
-        renders: lb_nat_rules / inboundNatRules
 
       - id: outbound_snat
         ask:
@@ -415,7 +391,6 @@ groups:
           public balancer whose backends have no other way out; it allocates source ports per
           backend explicitly, and the inbound rules on the same address must then switch
           their own outbound translation off, or the two compete.
-        renders: lb_outbound_rules and lb_rules.<k>.disable_outbound_snat / outboundRules and loadBalancingRules[].disableOutboundSnat
 
       - id: outbound_allocated_ports
         ask:
@@ -432,7 +407,6 @@ groups:
           and starts dropping connections without a message. Each public address gives 64,000
           ports to share, so 1,024 per backend allows about sixty backends per address.
           The Bicep module's example uses the maximum; neither module forces a value.
-        renders: lb_outbound_rules.<k>.number_of_allocated_outbound_ports / outboundRules[].allocatedOutboundPorts
 
   # ------------------------------------------------------------ observability
   - id: observability
@@ -454,7 +428,6 @@ groups:
           Inherited: one deployment, one destination. A Standard balancer's useful record is
           its metrics: without them a backend that fell out of the pool is only visible as a
           slow site.
-        renders: diagnostic_settings / diagnosticSettings
 
       - id: metrics_enabled
         ask:
@@ -474,4 +447,3 @@ groups:
           used SNAT ports. The metrics are the record; Standard's resource log is a health
           event log whose categories are checked against `az monitor diagnostic-settings
           categories list` before anyone adds them.
-        renders: metric_categories = ["AllMetrics"] / metricCategories[].category

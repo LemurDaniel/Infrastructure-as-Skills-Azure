@@ -58,7 +58,11 @@ pool:
 # Terraform only - a Bicep root has no TF_VERSION and renders no `variables:` block here.
 variables:
   - name: TF_VERSION
-    value: "1.16.6"           # the newest patch of the ~> 1.16.0 constraint on 2026-10-18; re-resolve on render
+    value: "1.17.1"           # the newest patch of the ~> 1.17.0 constraint on 2026-11-01; re-resolve on render
+  - name: TF_IN_AUTOMATION   # no "run terraform apply next" hints in the log; the pipeline decides
+    value: "true"
+  - name: TF_SHA256          # of terraform_<TF_VERSION>_linux_amd64.zip, from the release's SHA256SUMS at render time
+    value: "4638628058e71a55212b1c563712eac03b902128f40740f3dc8174df12135061"
 
 stages:
   - stage: validate
@@ -99,45 +103,68 @@ service connection.
 
 ```yaml
           - template: .azure-pipelines/terraform-install.yml
-          - script: terraform fmt -check -recursive
+          - pwsh: terraform fmt -check -recursive
             displayName: Format
-          - script: terraform init -backend=false -input=false
+          - pwsh: terraform init -backend=false -input=false
             displayName: Init (no backend)
-          - script: terraform validate
+          - pwsh: terraform validate
             displayName: Validate
-          - script: terraform test
+          - pwsh: terraform test
             displayName: Test
 ```
 
 ### Validate steps - Bicep
 
 ```yaml
-          - script: az bicep build --file main.bicep --stdout > /dev/null
+          - pwsh: az bicep build --file main.bicep --stdout > $null
             displayName: Build
-          - script: az bicep lint --file main.bicep
+          - pwsh: az bicep lint --file main.bicep
             displayName: Lint
-          - script: for f in main.*.bicepparam; do az bicep build-params --file "$f" --stdout > /dev/null; done
+          - pwsh: |
+              foreach ($f in Get-ChildItem main.*.bicepparam) {
+                az bicep build-params --file $f.Name --stdout > $null
+                if ($LASTEXITCODE) { exit $LASTEXITCODE }
+              }
             displayName: Parameter files compile against the template
+          - task: UsePythonVersion@0
+            inputs:
+              versionSpec: '3.12'
+          - pwsh: |
+              if (-not (Get-Command bicep -ErrorAction SilentlyContinue)) {
+                az bicep install
+                $env:PATH = "$HOME/.azure/bin" + [IO.Path]::PathSeparator + $env:PATH
+              }
+              python -m pip install --quiet --disable-pip-version-check pyyaml==6.0.3
+              if ($LASTEXITCODE) { exit $LASTEXITCODE }
+              python tests/run_arm_tests.py infra-spec.yaml --template main.bicep --tests tests
+              if ($LASTEXITCODE) { exit $LASTEXITCODE }
+            displayName: Decision tests against the compiled template
 ```
+
+`tests/run_arm_tests.py` is the plugin's runner, copied unchanged by the render (invariant 15);
+PyYAML is pinned as in [pipelines.github.md](pipelines.github.md#versions-snapshot-2026-10-18---look-them-up-again).
 
 ## Terraform install - `.azure-pipelines/terraform-install.yml`
 
 ```yaml
 steps:
-  - bash: |
-      set -euo pipefail
-      v="$(TF_VERSION)"
-      cd "$(Agent.TempDirectory)"
-      curl -fsSLO "https://releases.hashicorp.com/terraform/${v}/terraform_${v}_linux_amd64.zip"
-      curl -fsSLO "https://releases.hashicorp.com/terraform/${v}/terraform_${v}_SHA256SUMS"
-      grep "terraform_${v}_linux_amd64.zip" "terraform_${v}_SHA256SUMS" | sha256sum -c -
-      mkdir -p "$(Agent.TempDirectory)/tf" && unzip -oq "terraform_${v}_linux_amd64.zip" -d "$(Agent.TempDirectory)/tf"
-      echo "##vso[task.prependpath]$(Agent.TempDirectory)/tf"
+  - pwsh: |
+      $v = '$(TF_VERSION)'
+      $dir = '$(Agent.TempDirectory)'
+      $zip = "terraform_${v}_linux_amd64.zip"
+      Invoke-WebRequest "https://releases.hashicorp.com/terraform/$v/$zip" -OutFile "$dir/$zip"
+      # The hash is committed beside the version: what runs is fixed when the file is reviewed.
+      if ((Get-FileHash "$dir/$zip" -Algorithm SHA256).Hash -ne '$(TF_SHA256)') { throw "Checksum mismatch for $zip" }
+      Expand-Archive "$dir/$zip" -DestinationPath "$dir/tf" -Force
+      chmod +x "$dir/tf/terraform"
+      Write-Output "##vso[task.prependpath]$dir/tf"
     displayName: Install Terraform $(TF_VERSION)
 ```
 
-The checksum guards a corrupt download, not a hostile mirror; an organisation that mirrors
-Terraform internally swaps the URL and keeps the shape.
+`TF_SHA256` is looked up when the version is - `terraform_<version>_SHA256SUMS` of the release,
+the `linux_amd64.zip` line - and committed with it: the run downloads the binary and refuses
+anything else, and nothing it fetches decides what runs. A version bump changes both lines in
+one commit. An organisation that mirrors Terraform internally swaps the URL and keeps the shape.
 
 ## Stage template - `.azure-pipelines/stage.yml`
 
@@ -165,13 +192,13 @@ stages:
       - job: plan
         steps:
           - checkout: self
-          - bash: |
-              f="environments/$(STAGE).tfvars"      # Bicep: main.$(STAGE).bicepparam
-              [ -f "$f" ] || { echo "##vso[task.logissue type=error]$f is missing"; exit 1; }
-              if grep -Eq '00000000-0000-0000-0000-000000000000|OPEN-|ASSUMED:' "$f"; then
-                echo "##vso[task.logissue type=error]Stage $(STAGE) still holds placeholder values in $f - answer the open items first."
+          - pwsh: |
+              $f = "environments/$(STAGE).tfvars"      # Bicep: main.$(STAGE).bicepparam
+              if (-not (Test-Path $f)) { Write-Output "##vso[task.logissue type=error]${f} is missing"; exit 1 }
+              if (Select-String -Path $f -Pattern '00000000-0000-0000-0000-000000000000|OPEN-|ASSUMED:' -Quiet) {
+                Write-Output "##vso[task.logissue type=error]Stage $(STAGE) still holds placeholder values in ${f} - answer the open items first."
                 exit 1
-              fi
+              }
             displayName: Refuse placeholder values
           # Terraform:
           - template: terraform-install.yml
@@ -181,26 +208,37 @@ stages:
             inputs:
               azureSubscription: ${{ parameters.serviceConnection }}
               addSpnToEnvironment: true
-              scriptType: bash
+              scriptType: pscore
               scriptLocation: inlineScript
               inlineScript: |
-                set -uo pipefail
-                export ARM_USE_OIDC=true ARM_USE_AZUREAD=true
-                export ARM_CLIENT_ID="$servicePrincipalId" ARM_TENANT_ID="$tenantId" ARM_OIDC_TOKEN="$idToken"
-                terraform init -input=false \
-                  -backend-config="subscription_id=$(TF_STATE_SUBSCRIPTION_ID)" \
-                  -backend-config="resource_group_name=$(TF_STATE_RESOURCE_GROUP)" \
-                  -backend-config="storage_account_name=$(TF_STATE_STORAGE_ACCOUNT)" \
-                  -backend-config="container_name=$(TF_STATE_CONTAINER)" \
-                  -backend-config="key=payments/$(STAGE).tfstate" \
-                  -backend-config="use_azuread_auth=true" || exit 1
-                terraform plan -input=false -detailed-exitcode \
-                  -var-file="environments/$(STAGE).tfvars" -out="$(Build.ArtifactStagingDirectory)/tfplan"
-                code=$?
-                [ "$code" -eq 1 ] && exit 1
-                echo "##vso[task.setvariable variable=changes;isOutput=true]$([ "$code" -eq 2 ] && echo true || echo false)"
-                terraform show -no-color "$(Build.ArtifactStagingDirectory)/tfplan"
-                terraform show -json "$(Build.ArtifactStagingDirectory)/tfplan" | jq -e '[.resource_changes[]? | select(.change.actions | index("delete")) | select(.type == "azurerm_resource_group" or (.type == "azapi_resource" and ((.change.before.type // "") | startswith("Microsoft.Resources/resourceGroups"))))] | length == 0' > /dev/null \n                  || { echo "##vso[task.logissue type=error]The plan deletes a resource group - a group is destroyed by hand, never by the pipeline."; exit 1; }
+                $env:ARM_USE_OIDC = 'true'; $env:ARM_USE_AZUREAD = 'true'
+                $env:ARM_CLIENT_ID = $env:servicePrincipalId; $env:ARM_TENANT_ID = $env:tenantId; $env:ARM_OIDC_TOKEN = $env:idToken
+                terraform init -input=false `
+                  -backend-config="subscription_id=$(TF_STATE_SUBSCRIPTION_ID)" `
+                  -backend-config="resource_group_name=$(TF_STATE_RESOURCE_GROUP)" `
+                  -backend-config="storage_account_name=$(TF_STATE_STORAGE_ACCOUNT)" `
+                  -backend-config="container_name=$(TF_STATE_CONTAINER)" `
+                  -backend-config="key=payments/$(STAGE).tfstate" `
+                  -backend-config="use_azuread_auth=true"
+                if ($LASTEXITCODE) { exit $LASTEXITCODE }
+                $planFile = "$(Build.ArtifactStagingDirectory)/tfplan"
+                terraform plan -input=false -detailed-exitcode `
+                  -var-file="environments/$(STAGE).tfvars" -out="$planFile"
+                $code = $LASTEXITCODE
+                if ($code -eq 1) { exit 1 }
+                $changes = ($code -eq 2).ToString().ToLower()
+                Write-Output "##vso[task.setvariable variable=changes;isOutput=true]$changes"
+                terraform show -no-color $planFile
+                $plan = terraform show -json $planFile | ConvertFrom-Json
+                $groups = @($plan.resource_changes | Where-Object {
+                  $_.change.actions -contains 'delete' -and (
+                    $_.type -eq 'azurerm_resource_group' -or
+                    ($_.type -eq 'azapi_resource' -and "$($_.change.before.type)".StartsWith('Microsoft.Resources/resourceGroups')))
+                })
+                if ($groups) {
+                  Write-Output "##vso[task.logissue type=error]The plan deletes a resource group ($($groups.address -join ', ')) - a group is destroyed by hand, never by the pipeline."
+                  exit 1
+                }
           - task: PublishPipelineArtifact@1
             condition: eq(variables['plan.changes'], 'true')
             inputs:
@@ -225,19 +263,19 @@ stages:
                   inputs:
                     azureSubscription: ${{ parameters.serviceConnection }}
                     addSpnToEnvironment: true
-                    scriptType: bash
+                    scriptType: pscore
                     scriptLocation: inlineScript
                     inlineScript: |
-                      set -euo pipefail
-                      export ARM_USE_OIDC=true ARM_USE_AZUREAD=true
-                      export ARM_CLIENT_ID="$servicePrincipalId" ARM_TENANT_ID="$tenantId" ARM_OIDC_TOKEN="$idToken"
-                      terraform init -input=false \
-                        -backend-config="subscription_id=$(TF_STATE_SUBSCRIPTION_ID)" \
-                        -backend-config="resource_group_name=$(TF_STATE_RESOURCE_GROUP)" \
-                        -backend-config="storage_account_name=$(TF_STATE_STORAGE_ACCOUNT)" \
-                        -backend-config="container_name=$(TF_STATE_CONTAINER)" \
-                        -backend-config="key=payments/$(STAGE).tfstate" \
+                      $env:ARM_USE_OIDC = 'true'; $env:ARM_USE_AZUREAD = 'true'
+                      $env:ARM_CLIENT_ID = $env:servicePrincipalId; $env:ARM_TENANT_ID = $env:tenantId; $env:ARM_OIDC_TOKEN = $env:idToken
+                      terraform init -input=false `
+                        -backend-config="subscription_id=$(TF_STATE_SUBSCRIPTION_ID)" `
+                        -backend-config="resource_group_name=$(TF_STATE_RESOURCE_GROUP)" `
+                        -backend-config="storage_account_name=$(TF_STATE_STORAGE_ACCOUNT)" `
+                        -backend-config="container_name=$(TF_STATE_CONTAINER)" `
+                        -backend-config="key=payments/$(STAGE).tfstate" `
                         -backend-config="use_azuread_auth=true"
+                      if ($LASTEXITCODE) { exit $LASTEXITCODE }
                       terraform apply -input=false "$(Pipeline.Workspace)/tfplan-$(STAGE)/tfplan"
 ```
 
@@ -261,29 +299,37 @@ and adds `--location`, in what-if and create alike (invariant 13).
       - job: plan
         steps:
           - checkout: self
-          - bash: |
-              f="main.$(STAGE).bicepparam"
-              [ -f "$f" ] || { echo "##vso[task.logissue type=error]$f is missing"; exit 1; }
-              if grep -Eq '00000000-0000-0000-0000-000000000000|OPEN-|ASSUMED:' "$f"; then
-                echo "##vso[task.logissue type=error]Stage $(STAGE) still holds placeholder values in $f - answer the open items first."
+          - pwsh: |
+              $f = "main.$(STAGE).bicepparam"
+              if (-not (Test-Path $f)) { Write-Output "##vso[task.logissue type=error]${f} is missing"; exit 1 }
+              if (Select-String -Path $f -Pattern '00000000-0000-0000-0000-000000000000|OPEN-|ASSUMED:' -Quiet) {
+                Write-Output "##vso[task.logissue type=error]Stage $(STAGE) still holds placeholder values in ${f} - answer the open items first."
                 exit 1
-              fi
+              }
             displayName: Refuse placeholder values
           - task: AzureCLI@2
             displayName: What-if
             name: plan
             inputs:
               azureSubscription: ${{ parameters.serviceConnection }}
-              scriptType: bash
+              scriptType: pscore
               scriptLocation: inlineScript
               inlineScript: |
-                set -euo pipefail
-                az deployment group what-if --subscription "$(AZURE_SUBSCRIPTION_ID)" \
-                  --resource-group "$(AZURE_RESOURCE_GROUP)" --template-file main.bicep \
+                az deployment group what-if --subscription "$(AZURE_SUBSCRIPTION_ID)" `
+                  --resource-group "$(AZURE_RESOURCE_GROUP)" --template-file main.bicep `
                   --parameters "main.$(STAGE).bicepparam" --no-pretty-print > whatif.json
-                n=$(jq '[.changes[] | select(.changeType != "NoChange" and .changeType != "Ignore")] | length' whatif.json)
-                echo "##vso[task.setvariable variable=changes;isOutput=true]$([ "$n" -gt 0 ] && echo true || echo false)"
-                jq -r '.changes[] | select(.changeType != "NoChange" and .changeType != "Ignore") | "\(.changeType)\t\(.resourceId)"' whatif.json
+                if ($LASTEXITCODE) { exit $LASTEXITCODE }
+                $whatif = Get-Content whatif.json -Raw | ConvertFrom-Json
+                $changes = @($whatif.changes | Where-Object changeType -notin 'NoChange', 'Ignore')
+                $any = ($changes.Count -gt 0).ToString().ToLower()
+                Write-Output "##vso[task.setvariable variable=changes;isOutput=true]$any"
+                $changes | ForEach-Object { "$($_.changeType)`t$($_.resourceId)" }
+          # The record of what the approver was shown. Azure DevOps keeps an artifact as long
+          # as the run - set the run retention to seven days at most (invariant 8).
+          - task: PublishPipelineArtifact@1
+            inputs:
+              targetPath: whatif.json
+              artifact: whatif-${{ parameters.stage }}
 
       - deployment: apply
         dependsOn: plan
@@ -299,11 +345,11 @@ and adds `--location`, in what-if and create alike (invariant 13).
                   displayName: Deploy
                   inputs:
                     azureSubscription: ${{ parameters.serviceConnection }}
-                    scriptType: bash
+                    scriptType: pscore
                     scriptLocation: inlineScript
                     inlineScript: |
-                      az deployment group create --name "payments-$(STAGE)" \
-                        --subscription "$(AZURE_SUBSCRIPTION_ID)" --resource-group "$(AZURE_RESOURCE_GROUP)" \
+                      az deployment group create --name "payments-$(STAGE)" `
+                        --subscription "$(AZURE_SUBSCRIPTION_ID)" --resource-group "$(AZURE_RESOURCE_GROUP)" `
                         --template-file main.bicep --parameters "main.$(STAGE).bicepparam"
 ```
 
@@ -313,8 +359,9 @@ and adds `--location`, in what-if and create alike (invariant 13).
 - `PublishBuildArtifacts@1` / `DownloadPipelineArtifact@2` with a Container location:
   `PublishPipelineArtifact@1` is the current task, and a deployment job downloads the run's
   artifacts on its own.
-- The Terraform path in a PowerShell task with a hand-rolled version cache: one bash step
-  with a checksum.
+- The hand-rolled Terraform version cache: one pwsh step with a checksum
+  (`Get-FileHash` against the `TF_SHA256` committed beside the version, never a checksum file
+  fetched in the same run).
 - Fixed `dev` / `prod` and an `environment` pipeline parameter: the stages are the spec's,
   chained, and nobody picks one at queue time.
 - The "Fallback" block with state and subscription values in comments: they live in the

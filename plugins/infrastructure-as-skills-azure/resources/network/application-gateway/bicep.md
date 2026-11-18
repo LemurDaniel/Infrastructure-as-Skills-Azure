@@ -20,25 +20,15 @@ is a **separate module**: the gateway takes the policy's id in `firewallPolicyRe
 
 ### Decision -> module parameter
 
-| Decision | Parameter | Note |
-|---|---|---|
-| `waf_enabled` | `sku` and `firewallPolicyResourceId` | `'WAF_v2'` (module default) or `'Standard_v2'`; written |
-| `waf_mode` | policy module `policySettings: { mode, state }` | `'Prevention'` / `'Detection'`; written |
-| `waf_rule_set`, `waf_bot_protection` | policy module `managedRules: { managedRuleSets: [ { ruleSetType, ruleSetVersion } ] }` | |
-| `waf_exclusions` | policy module `managedRules.exclusions` | |
-| `capacity_min`, `capacity_max` | `autoscaleMinCapacity`, `autoscaleMaxCapacity` | Module defaults **-1** (autoscale off) with a fixed `capacity` of 2; write both limits and leave `capacity` unset |
-| `zone_redundant` | `availabilityZones` | `[1, 2, 3]` or `[]` |
-| `gateway_subnet` | `gatewayIPConfigurations: [ { name, properties: { subnet: { id } } } ]` | |
-| `managed_identity`, `user_assigned_identity_ids` | `managedIdentities: { userAssignedResourceIds }` | |
-| `frontend_exposure`, `public_ip_zone_redundant` | `frontendIPConfigurations`, `frontendPorts` | The module takes an existing public IP id: render it with `br/public:avm/res/network/public-ip-address` (zones from the decision) beside it |
-| `tls_policy` | `sslPolicyType: 'Predefined'`, `sslPolicyName` | Module default `sslPolicyType: 'Custom'` with TLS 1.2 minimum; written |
-| `backend_protocol` | `backendHttpSettingsCollection[].properties.protocol` | |
-| `redirect_http_to_https` | `redirectConfigurations` + a routing rule on the port-80 listener | |
-| `http2_enabled` | `enableHttp2` | |
-| `listeners` | `httpListeners`, `backendAddressPools`, `probes`, `requestRoutingRules`, `sslCertificates` | Wiring: filled by the pattern |
-| `diagnostic_*`, `metrics_enabled` | `diagnosticSettings: [ { workspaceResourceId, logCategoriesAndGroups: [ { category } ], metricCategories: [ { category: 'AllMetrics' } ] } ]` | |
-| `deployment.module_telemetry` | `enableTelemetry` | |
-| `context.tags` | `tags` | |
+What each decision renders to - the parameter and the literal of every answer - is in
+[render-map.yaml](render-map.yaml); the render digest prints it for a spec.
+
+### Parameters no decision covers
+
+| Decision | Parameter |
+|---|---|
+| `deployment.module_telemetry` | `enableTelemetry` |
+| `context.tags` | `tags` |
 
 ### The call
 
@@ -124,21 +114,14 @@ output id string = applicationGateway.outputs.resourceId
 ### Tests
 
 A module call compiles to a nested deployment whose `properties.parameters.<param>.value` is the
-decision, so every decision above is observable in `tests/*.armtest.yaml`
+decision, so every decision in render-map.yaml is observable in `tests/*.armtest.yaml`
 ([bicep-idiom.md](../../../core/iac-rendering/references/bicep-idiom.md#tests)). The policy is
 its own nested deployment.
 
 ## Authored rendering
 
 The fallback. `Microsoft.Network/applicationGateways` with `properties`, and
-`Microsoft.Network/ApplicationGatewayWebApplicationFirewallPolicies`:
+`Microsoft.Network/ApplicationGatewayWebApplicationFirewallPolicies`.
 
-| Decision | Property |
-|---|---|
-| `waf_enabled` | `properties.sku: { name, tier }`, `properties.firewallPolicy.id` |
-| `capacity_*` | `properties.autoscaleConfiguration: { minCapacity, maxCapacity }` |
-| `zone_redundant` | `zones` (top level) |
-| `tls_policy` | `properties.sslPolicy: { policyType, policyName }` |
-| `http2_enabled` | `properties.enableHttp2` |
-| `managed_identity` | `identity` (top level) |
-| `waf_mode`, rule sets | the policy's `properties.policySettings`, `properties.managedRules` |
+What each decision renders to - the property and the literal of every answer - is in
+[render-map.yaml](render-map.yaml); the render digest prints it for a spec.

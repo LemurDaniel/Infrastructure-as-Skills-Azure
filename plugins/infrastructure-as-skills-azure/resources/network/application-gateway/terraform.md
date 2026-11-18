@@ -27,25 +27,14 @@ is not used - it cannot hold the managed rule set versions.
 
 ### Decision -> module input
 
+What each decision renders to - the input and the literal of every answer - is in
+[render-map.yaml](render-map.yaml); the render digest prints it for a spec.
+
+### Inputs no decision covers
+
 | Decision | Input | Note |
 |---|---|---|
-| `waf_enabled` | `sku = { name = "WAF_v2", tier = "WAF_v2" }` and `firewall_policy = { id }` | `Standard_v2` when off; module default `null` (unset) - written |
-| `waf_mode` | policy module `policy_settings = { mode, enabled }` | `Prevention` / `Detection`; written |
-| `waf_rule_set`, `waf_bot_protection` | policy module `managed_rules = { managed_rule_set = [...] }` | Type and version of each set; read the member names from the README |
-| `waf_exclusions` | policy module `managed_rules.exclusion` | |
-| `capacity_min`, `capacity_max` | `autoscale_configuration = { min_capacity, max_capacity }` | `sku.capacity` stays unset when autoscale is set |
-| `zone_redundant` | `zones = ["1", "2", "3"]` (a list) or `null` | Also on the public IP |
-| `gateway_subnet` | `gateway_ip_configurations = [{ name, properties = { subnet = { id } } }]` | A list of objects |
-| `managed_identity`, `user_assigned_identity_ids` | `managed_identities = { user_assigned_resource_ids }` | |
-| `frontend_exposure` | `frontend_ip_configurations = [{ name, properties = { public_ip_address = { id }, subnet = { id }, private_ip_address, private_ip_allocation_method } }]` | A public gateway: the public IP module's `resource_id` in `public_ip_address.id`. A private-only gateway needs the subscription enrolled in the private application gateway feature |
-| `public_ip_zone_redundant` | public IP module `zones` | `["1", "2", "3"]`; `allocation_method = "Static"`, `sku = "Standard"` |
-| `tls_policy` | `ssl_policy = { policy_type = "Predefined", policy_name }` | Module default `null`. `min_protocol_version` is for a custom policy |
-| `backend_protocol` | `backend_http_settings_collection.<k>.protocol` | `Https` / `Http`; port 443 / 80 |
-| `redirect_http_to_https` | `redirect_configurations` + a `request_routing_rules` entry on the port-80 listener | |
-| `http2_enabled` | `enable_http2` | Module default `null`; written |
-| `listeners` | `http_listeners`, `backend_address_pools`, `probes`, `request_routing_rules`, `ssl_certificates` | Wiring: filled by the pattern. A certificate is `{ name, key_vault_secret_id }` |
 | `role_assignments` | `role_assignments` | None here; the gateway has no data plane |
-| `diagnostic_*`, `metrics_enabled` | `diagnostic_settings = { workspace = { workspace_resource_id, log_categories, log_groups = [], metric_categories = ["AllMetrics"] } }` | |
 | `deployment.module_telemetry` | `enable_telemetry` | |
 | `context.tags` | `tags = local.tags` | |
 
@@ -178,13 +167,5 @@ does not show them.
 
 The fallback. Targets `azurerm` **5.x**; check against `terraform providers schema -json`.
 
-| Decision | Argument |
-|---|---|
-| `waf_enabled`, `capacity_*` | `azurerm_application_gateway.sku { name, tier }`, `.autoscale_configuration { min_capacity, max_capacity }` |
-| `zone_redundant` | `.zones` |
-| `waf_mode`, rule sets | `azurerm_web_application_firewall_policy` with `policy_settings`, `managed_rules`; `.firewall_policy_id` on the gateway |
-| `tls_policy` | `.ssl_policy { policy_type, policy_name }` |
-| `http2_enabled` | `.http2_enabled` (the AVM module input is `enable_http2`) |
-| `managed_identity` | `.identity { type, identity_ids }` |
-| `gateway_subnet` | `.gateway_ip_configuration { subnet_id }` |
-| diagnostics | `azurerm_monitor_diagnostic_setting` with `enabled_log { category }` |
+What each decision renders to - the argument and the literal of every answer - is in
+[render-map.yaml](render-map.yaml); the render digest prints it for a spec.

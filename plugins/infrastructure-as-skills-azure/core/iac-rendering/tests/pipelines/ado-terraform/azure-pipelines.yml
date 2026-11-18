@@ -11,7 +11,11 @@ pool:
 # Terraform only - a Bicep root has no TF_VERSION and renders no `variables:` block here.
 variables:
   - name: TF_VERSION
-    value: "1.16.6"           # the newest patch of the ~> 1.16.0 constraint on 2026-10-18; re-resolve on render
+    value: "1.17.1"           # the newest patch of the ~> 1.17.0 constraint on 2026-11-01; re-resolve on render
+  - name: TF_IN_AUTOMATION   # no "run terraform apply next" hints in the log; the pipeline decides
+    value: "true"
+  - name: TF_SHA256          # of terraform_<TF_VERSION>_linux_amd64.zip, from the release's SHA256SUMS at render time
+    value: "4638628058e71a55212b1c563712eac03b902128f40740f3dc8174df12135061"
 
 stages:
   - stage: validate
@@ -21,13 +25,13 @@ stages:
         steps:
           - checkout: self
           - template: .azure-pipelines/terraform-install.yml
-          - script: terraform fmt -check -recursive
+          - pwsh: terraform fmt -check -recursive
             displayName: Format
-          - script: terraform init -backend=false -input=false
+          - pwsh: terraform init -backend=false -input=false
             displayName: Init (no backend)
-          - script: terraform validate
+          - pwsh: terraform validate
             displayName: Validate
-          - script: terraform test
+          - pwsh: terraform test
             displayName: Test
 
   - template: .azure-pipelines/stage.yml

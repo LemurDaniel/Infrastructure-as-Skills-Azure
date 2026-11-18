@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
 """Tests list_names.py: the names a small spec gets, and the rules that fail the run.
 
+Every subnet is named from the convention with its short name as purpose, the private endpoint
+subnet as `endpoints`; a subnet with an azure_name keeps it.
+
     python run_names_tests.py
 """
 import copy
@@ -21,7 +24,10 @@ SPEC = {
     "deployment": {},
     "resources": {
         "storage-account__host": {}, "storage-account__uploads": {}, "key-vault": {},
-        "virtual-network": {"addressing": {"subnets": {"value": {"production": [{"name": "snet-a"}]}}}},
+        "virtual-network": {"addressing": {
+            "subnets": {"value": {"production": [{"name": "app"}, {"name": "legacy", "azure_name": "snet-legacy"}]}},
+            "private_endpoint_subnet_prefix": {"value": {"production": "10.0.0.0/27"}},
+        }},
     },
 }
 
@@ -46,8 +52,9 @@ def main():
 
     code, out = run(SPEC, "--stage", "production")
     results.append(case("valid spec exits 0", code == 0, out))
-    for expected in ("`stweprodshophost01`", "`stweprodshopuploads01`", "`kv-we-prod-shop-????`",
-                     "`vnet-we-prod-shop-01`", "`snet-a`", "`rg-x-prod`"):
+    for expected in ("`stweprodshophost???`", "`stweprodshopuploads???`", "`kv-we-prod-shop-???`",
+                     "`vnet-we-prod-shop-01`", "`snet-we-prod-shop-app-01`", "`snet-we-prod-shop-endpoints-01`",
+                     "`snet-legacy`", "`rg-x-prod`"):
         results.append(case(f"names {expected}", expected in out, out))
     results.append(case("global name is never reported free", "availability unchecked" in out, out))
 
@@ -67,7 +74,7 @@ def main():
 
     code, out = run(SPEC, "--stage", "production", naming={"mappings": {"location": {"westeurope": "weu"}}})
     results.append(case("naming.yaml beside the spec is merged over the default", "stweprodshop" not in out
-                        and "stweuprodshophost01" in out.replace("`", ""), out))
+                        and "stweuprodshophost???" in out.replace("`", ""), out))
 
     spec = copy.deepcopy(SPEC)
     spec["context"]["location"] = "mars"

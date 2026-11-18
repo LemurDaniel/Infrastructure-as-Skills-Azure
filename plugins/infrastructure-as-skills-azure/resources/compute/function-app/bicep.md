@@ -22,23 +22,12 @@ Resolve the current versions and re-read the README parameters before rendering,
 
 ### Decision -> module parameter
 
-| Decision | Module | Parameter | Note |
+What each decision renders to - the parameter and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.
+
+### Deployment-wide inputs
+
+| Input | Module | Parameter | Note |
 |---|---|---|---|
-| `plan_type` | plan | `skuName: 'FC1'` / `'EP1'`..`'EP3'`, `kind: 'linux'` | Flex is Linux only; `reserved` follows `kind` |
-| `plan_type` | site | `kind: 'functionapp,linux'` | |
-| `runtime_stack`, `runtime_version` | site | `functionAppConfig.runtime: { name, version }` (Flex); `siteConfig.linuxFxVersion` (Premium) | |
-| `zone_redundant` | plan | `zoneRedundant` | Computed by the module from the SKU; written |
-| `max_instance_count`, `always_ready_instances`, `instance_memory_mb` | site | `functionAppConfig.scaleAndConcurrency: { maximumInstanceCount, instanceMemoryMB, alwaysReady: [ { name: 'http', instanceCount } ] }` | Flex |
-| `host_storage_account`, `host_storage_auth` | site | `configs: [ { name: 'appsettings', properties: { AzureWebJobsStorage__accountName, AzureWebJobsStorage__credential: 'managedidentity', AzureWebJobsStorage__clientId } } ]` | The host connection; **never** `AzureWebJobsStorage` with a key |
-| `host_storage_auth`, `deployment_container` | site | `functionAppConfig.deployment.storage: { type: 'blobContainer', value, authentication: { type: 'UserAssignedIdentity', userAssignedIdentityResourceId } }` | The second connection, Flex only |
-| `public_network_access` | site | `publicNetworkAccess`, `siteConfig.ipSecurityRestrictionsDefaultAction` | |
-| `private_endpoint_subnet` | site | `privateEndpoints: [ { subnetResourceId, service: 'sites' } ]` | |
-| `vnet_integration`, `integration_subnet`, `vnet_route_all` | site | `virtualNetworkSubnetResourceId`, `outboundVnetRouting: { allTraffic }` | Delegation per plan |
-| `managed_identity` | site | `managedIdentities: { userAssignedResourceIds }`, `keyVaultAccessIdentityResourceId` | |
-| `https_only`, `min_tls_version` | site | `httpsOnly`, `siteConfig.minTlsVersion`, `scmMinTlsVersion` | |
-| `basic_auth_enabled` | site | `basicPublishingCredentialsPolicies: [ { name: 'ftp', allow: false }, { name: 'scm', allow: false } ]` | |
-| `application_insights` | site | the `APPLICATIONINSIGHTS_CONNECTION_STRING` setting through `configs`, and `APPLICATIONINSIGHTS_AUTHENTICATION_STRING` (`Authorization=AAD`, `;ClientId=<client id>` user-assigned) while local auth is off | Omitted while empty |
-| `diagnostic_*`, `metrics_enabled` | both | `diagnosticSettings: [ { workspaceResourceId, logCategoriesAndGroups, metricCategories } ]` | The plan has metrics only |
 | `deployment.module_telemetry` | both | `enableTelemetry` | |
 | `context.tags` | both | `tags` | |
 
@@ -158,7 +147,7 @@ outside these calls.
 ### Tests
 
 A module call compiles to a nested deployment whose `properties.parameters.<param>.value` is
-the decision, so every decision above is observable in `tests/*.armtest.yaml`
+the decision, so every decision in render-map.yaml is observable in `tests/*.armtest.yaml`
 ([bicep-idiom.md](../../../core/iac-rendering/references/bicep-idiom.md#tests)) - including the
 plan's, which the Terraform side cannot see. `functionAppConfig` is one object parameter; its
 members are matched inside it.

@@ -24,21 +24,13 @@ sources.
 
 ### Decision -> input
 
-| Decision | Where | Input | Note |
+What each decision renders to - the input and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.
+
+### Inputs no decision covers
+
+| Input | Where | Input | Note |
 |---|---|---|---|
-| `location` | both | `location = "global"` | Literal |
-| `data_location` | both | `body.properties.dataLocation` / `data_location` | Immutable; the e-mail service must match |
-| `email` | module | the module call exists, with `email_communication_service_domains = { <k> = { name, domain_management } }` | `AzureManaged` with name `AzureManagedDomain`; `CustomerManaged` with the domain name |
-| `custom_domain_name` | module | `email_communication_service_domains.<k>.name` | |
-| `sender_usernames` | module | `email_communication_service_domain_sender_usernames = { <k> = { name, email_communication_service_domain_name_key, display_name } }` | |
-| `user_engagement_tracking` | module | `email_communication_service_domains.<k>.user_engagement_tracking_enabled` | Default `false`; written |
 | (linking) | authored | `body.properties.linkedDomains = ["<email service id>/domains/<name>"]` | The domain id, not the service id |
-| `public_network_access` | authored | `body.properties.publicNetworkAccess` | `Enabled` / `Disabled` / `SecuredByPerimeter`; forced to `Enabled` without a perimeter |
-| `network_security_perimeter` | authored | `azapi_resource` `Microsoft.Network/networkSecurityPerimeters/profiles/resourceAssociations` | Only when set |
-| `managed_identity`, `user_assigned_identity_ids` | authored | `identity { type, identity_ids }` | |
-| `role_assignments` | authored / module | `azurerm_role_assignment` on the communication resource; `role_assignments` on the module | |
-| `local_authentication_disabled` | authored | `body.properties.disableLocalAuth` | Not in `azurerm`; written |
-| `diagnostic_*`, `metrics_enabled` | authored | `azurerm_monitor_diagnostic_setting` with `enabled_log { category }`, `enabled_metric { category }` | |
 | `deployment.module_telemetry` | module | `enable_telemetry` | |
 | `context.tags` | both | `tags = local.tags` | |
 
@@ -139,10 +131,10 @@ diagnostic setting is a root resource and is asserted directly.
 The fallback for the e-mail side, and the `azurerm` form where a repository already uses it.
 Targets `azurerm` **5.x**; check against `terraform providers schema -json`.
 
-| Decision | Resource / argument |
+What each decision renders to - the argument and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.
+
+### Arguments no decision covers
+
+| Input | Resource / argument |
 |---|---|
-| `data_location` | `azurerm_communication_service.data_location`, `azurerm_email_communication_service.data_location` |
-| `email`, `custom_domain_name`, `user_engagement_tracking` | `azurerm_email_communication_service_domain` (`domain_management`, `user_engagement_tracking_enabled`) |
-| `sender_usernames` | `azurerm_email_communication_service_domain_sender_username` |
-| `local_authentication_disabled`, `public_network_access`, linking, identity | **not in `azurerm`** - an `azapi_update_resource` on the communication service, or the `azapi_resource` above |
-| diagnostics | `azurerm_monitor_diagnostic_setting` |
+| (linking) | **not in `azurerm`** - an `azapi_update_resource` on the communication service, or the `azapi_resource` above |

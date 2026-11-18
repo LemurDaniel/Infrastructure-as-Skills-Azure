@@ -27,8 +27,8 @@ before. A `[sandbox]` spec has one block. The block is the unit:
 
 | Step | Terraform | Bicep |
 |---|---|---|
-| validate (once, before any stage) | `fmt -check -recursive`, `init -backend=false`, `validate`, `test` | `bicep build`, `bicep lint` |
-| plan | `plan -detailed-exitcode -var-file=environments/<stage>.tfvars -out=tfplan` | `az deployment group what-if` with `main.<stage>.bicepparam` |
+| validate (once, before any stage) | `fmt -check -recursive`, `init -backend=false`, `validate`, `test` | `bicep build`, `bicep lint`, `build-params`, the decision tests (`tests/run_arm_tests.py`) |
+| plan | `plan -detailed-exitcode -var-file=environments/<stage>.tfvars -out=tfplan` | `az deployment group what-if` with `main.<stage>.bicepparam`, its JSON kept as an artifact |
 | changes? | exit code 2 | any change type other than `NoChange` / `Ignore` |
 | approve | only if the stage is gated and there are changes | same |
 | apply | `apply tfplan` - the file the plan step wrote | `az deployment group create`, same template and parameter file |
@@ -72,11 +72,17 @@ reports as "not checkable" instead of passing them.
    the top, `id-token: write` on the Azure jobs only. The other platforms' equivalents
    are named in their files.
 8. **A plan file is a secret.** It can hold sensitive values in clear. The artifact keeps
-   for one day, and is downloaded by the apply job of the same run only.
+   for one day, and is downloaded by the apply job of the same run only. Bicep's what-if
+   JSON is kept too (`whatif-<stage>`), as the record of what the approver was shown - the
+   step summary is a digest of it - for seven days at most: it carries the resources'
+   properties, and a value a template does not mark `@secure()` is in it in clear.
 9. **Versions are pinned and looked up, never recalled.** The Terraform version as a
-   constraint on the minor (`~> 1.16.0`), actions and tasks at a major tag, resolved at
+   constraint on the minor (`~> 1.17.0`), actions and tasks at a major tag, resolved at
    render time and dated in a comment. The numbers in the platform files are a snapshot of
-   2026-10-18 - `git ls-remote --tags --refs <repo>` is how to read the live ones. An
+   2026-10-18 - `git ls-remote --tags --refs <repo>` is how to read the live ones. A binary
+   the pipeline downloads itself (Terraform on Azure DevOps) is checked against a SHA-256
+   committed beside its version, looked up with it at render time - never against a checksum
+   file the same run fetches from the same server. An
    organisation that requires full-commit pins states it once and the render writes the SHA
    with the tag as a comment.
 10. **State comes from the stage, never a workspace.** The backend key is
@@ -93,9 +99,10 @@ reports as "not checkable" instead of passing them.
     values. The stage chain then holds every stage
     behind it: nothing rolls out while a stage in front of it is open, which is what the
     decision document tells the customer ("Solange diese Punkte offen sind, wird nichts
-    ausgerollt"). The check is the same one line on every platform:
-    `grep -Eq '00000000-0000-0000-0000-000000000000|OPEN-|ASSUMED:'`. A resolved stage whose file
-    still holds a marker fails it too, which is the point - and the grep reads comments as
+    ausgerollt"). The check is the same pattern on every platform:
+    `Select-String -Pattern '00000000-0000-0000-0000-000000000000|OPEN-|ASSUMED:' -Quiet`
+    (`grep -Eq` with the same pattern on GitLab). A resolved stage whose file
+    still holds a marker fails it too, which is the point - and the search reads comments as
     well, so a resolved stage's file must not spell either marker out, not even to explain
     the convention (a staging file once did, and would have refused itself).
 12. **A plan that deletes a resource group does not reach apply.** Terraform only: after the
@@ -106,15 +113,31 @@ reports as "not checkable" instead of passing them.
     scrolls past one line in a long plan is not a safeguard; a deliberate teardown is done by
     hand, outside the pipeline, after the production lock is removed on purpose. Bicep
     deploys incrementally and never deletes: dropping a group from the spec leaves it
-    behind, orphaned, and the hand-over says so. The step needs `jq` (or PowerShell in the
-    local script); verify the `azapi_resource` branch against the AVM resource group
-    module's plan before relying on it.
+    behind, orphaned, and the hand-over says so. The step reads the plan with
+    `ConvertFrom-Json` (`jq` on GitLab); verify the `azapi_resource` branch against the AVM
+    resource group module's plan before relying on it.
 
 13. **The deployment command matches `deployment_scope`.** Bicep only: `resource_group` deploys
     with `az deployment group` into the stage's group (the main group, or the first group of a
     split), `subscription` with `az deployment sub` and `--location`, the root at
     `targetScope = 'subscription'` creating its groups. Both what-if and create use the same
     command; a root at one scope deployed with the other fails at the first run.
+14. **The shell is PowerShell 7.** GitHub: `defaults.run.shell: pwsh` in every workflow, no
+    step on another shell. Azure DevOps: `pwsh:` steps, never `bash:`, `script:` or
+    `powershell:` (Windows PowerShell 5.1), and `AzureCLI@2` with `scriptType: pscore`. Both
+    hosted Ubuntu images ship pwsh, the local script is PowerShell already, and JSON is read
+    with `ConvertFrom-Json` instead of `jq`. pwsh stops on a cmdlet error but not on a native
+    command's exit code: a step that runs more than one `terraform` or `az` command checks
+    `$LASTEXITCODE` after each one whose failure must stop it. GitLab is the exception: its
+    job images (`hashicorp/terraform`, `azure-cli`) carry no pwsh, so its scripts stay `sh`.
+
+15. **The render's tests run before any stage.** Terraform: `terraform test` in validate.
+    Bicep: the decision tests of `tests/*.armtest.yaml`, run by `tests/run_arm_tests.py` - the
+    plugin's runner, copied into the root unchanged by the render - against the compiled
+    template and every stage's parameter file. It needs Python 3 with PyYAML (a pinned
+    `pip install`, on a Python the platform sets up) and the `bicep` CLI on `PATH`; a runner
+    without one installs it with `az bicep install`. The local script runs them too, before
+    what-if. A render that ships tests the pipeline never runs ships a promise nobody keeps.
 
 ## What the render hands over besides the files
 
@@ -132,6 +155,8 @@ header comment of the entry file and in the reply, as a short list:
 - the platform objects: GitHub environments, an Azure DevOps service connection and
   environments, GitLab protected environments and CI/CD variables;
 - the approval check on each gated stage's environment;
+- Azure DevOps with a Bicep root: the run retention, seven days at most - an artifact lives as
+  long as its run, and the what-if JSON is one (invariant 8);
 - every variable the pipeline reads and where it is set.
 
 Paths in a pipeline are relative to the deployable root. When the root is the repository

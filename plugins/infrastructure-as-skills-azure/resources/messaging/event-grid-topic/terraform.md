@@ -19,22 +19,13 @@ with the other modules.
 
 ### Decision -> module input
 
-| Decision | Input | Note |
+What each decision renders to - the input and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.
+
+### Inputs no decision covers
+
+| Input | Module input | Note |
 |---|---|---|
-| `input_schema` | `input_schema` | Module default `"EventGridSchema"`; written. Fixed at creation |
-| `minimum_tls_version` | `minimum_tls_version_allowed` | Default `"1.2"`; written |
-| `local_auth` | `disable_local_auth` | Module default `true`; written. Not inverted here |
-| `data_residency_boundary` | `data_residency_boundary` | `"WithinRegion"` / `"WithinGeopair"`; default `null` |
-| `managed_identity`, `user_assigned_identity_ids` | `managed_identities = { system_assigned, user_assigned_resource_ids }` | |
-| `public_network_access` | `public_network_access` | **A string** (`"Enabled"` / `"Disabled"`), module default `"Disabled"`; written |
-| `ip_rules` | `inbound_ip_rules = [{ ip_mask, action = "Allow" }]` | Used only with public access `Enabled` |
-| `private_endpoint_subnet` | `private_endpoints = { topic = { subnet_resource_id } }` | The sub-resource is fixed to `topic` by the module |
 | `deployment.private_dns_records` | `private_endpoints_manage_dns_zone_group` | `false` under `policy`; a zone group needs at least one zone id |
-| `event_subscriptions` | `event_subscriptions = { <k> = { name, delivery_with_resource_identity, filter, ... } }` | Identity-based delivery, never a key; see below |
-| `max_delivery_attempts`, `event_ttl_minutes` | `event_subscriptions.<k>.retry_policy = { max_delivery_attempts, event_time_to_live_in_minutes }` | Written on every subscription |
-| `keep_undeliverable_events`, `dead_letter_*` | `event_subscriptions.<k>.dead_letter_with_resource_identity = { identity, dead_letter_destination = { storage_blob = { resource_id, blob_container_name } } }` | The identity form; the key-based `dead_letter_destination` is not used |
-| `role_assignments` | `role_assignments = { <k> = { role_definition_id_or_name, principal_id, principal_type } }` | |
-| `diagnostic_*`, `metrics_enabled` | `diagnostic_settings = { workspace = { workspace_resource_id, log_categories, log_groups = [], metric_categories = ["AllMetrics"] } }` | Read the member names for the pinned version |
 | `deployment.module_telemetry` | `enable_telemetry` | |
 | `context.tags` | `tags = local.tags` | |
 
@@ -142,12 +133,4 @@ not show them.
 
 The fallback. Targets `azurerm` **5.x**; check against `terraform providers schema -json`.
 
-| Decision | Argument on `azurerm_eventgrid_topic` |
-|---|---|
-| `input_schema` | `input_schema` |
-| `local_auth` | `local_auth_enabled` (inverse) |
-| `public_network_access` | `public_network_access_enabled` (a bool, unchanged in 5.x; only storage moved to a string) |
-| `ip_rules` | `inbound_ip_rule { ip_mask, action }` |
-| `managed_identity` | `identity { type, identity_ids }` |
-| `event_subscriptions` | `azurerm_eventgrid_event_subscription` with `retry_policy`, `storage_blob_dead_letter_destination`, `delivery_identity` |
-| diagnostics | `azurerm_monitor_diagnostic_setting` with `enabled_log { category }` |
+What each decision renders to - the argument and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.

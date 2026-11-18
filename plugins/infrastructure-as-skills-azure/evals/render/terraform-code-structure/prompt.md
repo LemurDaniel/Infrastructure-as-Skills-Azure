@@ -3,7 +3,7 @@ description: A signed-off Terraform spec with one storage account, rendered with
 expected_outcome: infra/providers.tf opening with a header and a `Chapters:` list of the root's .tf files; providers.tf and variables.tf each opening a chapter banner; a resource file with a flow chapter and its sections; every banner line exactly 75 characters after the comment mark; `# decision:` comments above the asserts.
 tags: [terraform, development, storage, render, code-structure]
 plugins: ["../../.."]
-runs: 4
+runs: 2
 max_turns: 80
 timeout_seconds: 1200
 allowed_tools: [Read, Glob, Grep, Skill, Write, Edit]

@@ -18,12 +18,12 @@ Resolve the current version and re-read the README parameters before rendering, 
 
 ### Decision -> module parameter
 
+What each decision renders to - the parameter and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.
+
+### Deployment-wide inputs
+
 | Decision | Parameter | Note |
 |---|---|---|
-| `purpose` | `tags` | `purpose` merged into `tags` |
-| `federated_credentials` | `federatedIdentityCredentials: [ { name, issuer, subject, audiences } ]` | `audiences` is an array |
-| `isolation_scope` | `isolationScope: 'None'` / `'Regional'` | Written; both values are valid here |
-| `role_assignments` | `roleAssignments: [ { principalId, roleDefinitionIdOrName, principalType } ]` | |
 | `deployment.module_telemetry` | `enableTelemetry` | |
 | `context.tags` | `tags` | |
 
@@ -63,13 +63,13 @@ Output names are read from the README of the pinned version.
 ### Tests
 
 A module call compiles to a nested deployment whose `properties.parameters.<param>.value` is
-the decision, so every decision above is observable in `tests/*.armtest.yaml`
+the decision, so every decision in render-map.yaml is observable in `tests/*.armtest.yaml`
 ([bicep-idiom.md](../../../core/iac-rendering/references/bicep-idiom.md#tests)).
 
 ## Authored rendering
 
+What each decision renders to - the property and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.
+
 | Decision | Resource |
 |---|---|
 | the identity | `Microsoft.ManagedIdentity/userAssignedIdentities`, `properties.isolationScope` |
-| `federated_credentials` | child `federatedIdentityCredentials` with `properties: { issuer, subject, audiences }` - created one after another (`@batchSize(1)`) |
-| `role_assignments` | `Microsoft.Authorization/roleAssignments` with `scope` set to the identity |

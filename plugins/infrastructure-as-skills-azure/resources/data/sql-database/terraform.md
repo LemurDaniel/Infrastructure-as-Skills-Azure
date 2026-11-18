@@ -21,36 +21,13 @@ the server security alert policy, or anything inside a database.
 
 ### Decision -> module input
 
-| Decision | Input | Note |
+What each decision renders to - the input and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.
+
+### Deployment-wide inputs
+
+| Input | Module input | Note |
 |---|---|---|
-| `databases` | `databases = { <key> = { name, ... } }` | The map key is arbitrary |
-| `collation` | `databases.<key>.collation` | Fixed at creation |
-| `service_tier`, `compute_tier`, `vcores` | `databases.<key>.sku_name` = `GP_Gen5_2`, `GP_S_Gen5_2` (serverless), `BC_Gen5_2`, `HS_Gen5_2` | One string carries three decisions |
-| `min_vcores` | `databases.<key>.min_capacity` | A number (`0.5`) |
-| `auto_pause_delay_minutes` | `databases.<key>.auto_pause_delay_in_minutes` | Serverless only |
-| `max_size_gb` | `databases.<key>.max_size_gb` | |
-| `elastic_pool`, `pool_vcores` | `elastic_pools = { <key> = { name, sku = { name, tier, family, capacity }, per_database_settings, zone_redundant } }` and `databases.<key>.elastic_pool_key` | The database then carries `sku_name = "ElasticPool"`; the pool's `zone_redundant` module default is **`true`** - written |
-| `zone_redundant` | `databases.<key>.zone_redundant` | Provider: Premium / Business Critical only; the module passes it through. Written |
-| `geo_failover_region` | **not the module** - see below | |
-| `public_network_access` | `public_network_access_enabled` | **Bool**, default `false`; written |
-| `ip_rules` | `firewall_rules = { <key> = { start_ip_address, end_ip_address } }` | |
-| `allow_azure_services` | `firewall_rules` entry `0.0.0.0` - `0.0.0.0` | |
-| `private_endpoint_subnet` | `private_endpoints = { sql = { subnet_resource_id, subresource_name = "sqlServer" } }` | |
 | `deployment.private_dns_records` | `private_endpoints_manage_dns_zone_group` | `false` under `policy` |
-| `minimum_tls_version` | **fixed** `minimum_tls_version = "1.2"` inside the module | No input; `1.3` means the authored server |
-| `managed_identity`, `user_assigned_identity_ids` | `managed_identities = { system_assigned, user_assigned_resource_ids }` and `primary_user_assigned_identity_id` | The primary id is required with a user-assigned identity |
-| `entra_admin` | `azuread_administrator = { login_username, object_id, tenant_id, azuread_authentication_only }` | `principal_type` is not an input |
-| `local_authentication_disabled` | `azuread_administrator.azuread_authentication_only = true`, and **no** `administrator_login`/`administrator_login_password` | The module's `generate_administrator_login_password` default is `false`; written |
-| `database_users` | **not the module** | T-SQL after the deployment |
-| `role_assignments` | `role_assignments` | Control plane |
-| `key_management`, `cmk_key_vault_key_id` | `transparent_data_encryption_key_vault_key_id` (the **versioned** key URL) and `databases.<key>.transparent_data_encryption_key_vault_key_id` | `databases.<key>.transparent_data_encryption_enabled` stays `true`; written |
-| `threat_detection` | **not the module** (only a per-database policy that wants a storage key) - `azurerm_mssql_server_security_alert_policy` | |
-| `vulnerability_assessment` | `express_vulnerability_assessment_enabled` | Default `false`; written |
-| `short_term_retention_days` | `databases.<key>.short_term_retention_policy = { retention_days, backup_interval_in_hours }` | Interval default `12`; written |
-| `long_term_retention` | `databases.<key>.long_term_retention_policy = { weekly_retention }` | ISO 8601: `P13W`, `P52W` |
-| `backup_storage_redundancy` | `databases.<key>.storage_account_type` | Module default **`Geo`**; written. `geo_backup_enabled` is the data-warehouse switch; left at its default |
-| `diagnostic_workspace`, `diagnostic_categories`, `metrics_enabled` | `databases.<key>.diagnostic_settings = { workspace = { workspace_resource_id, log_categories, log_groups, metric_categories = ["Basic"] } }` | Not `AllMetrics` for a database |
-| `auditing_enabled` | **not the module** - `azurerm_mssql_server_extended_auditing_policy` and a diagnostic setting on `master` | |
 | `deployment.module_telemetry` | `enable_telemetry` | |
 | `context.tags` | `tags = local.tags` | |
 
@@ -206,19 +183,10 @@ rules, diagnostic settings - is marked `# not-testable:` with a reason where the
 The fallback - `implementation: authored`, or a repository that already renders the server this way.
 Targets `azurerm` **5.x**; check against `terraform providers schema -json`.
 
-| Decision | Resource and argument |
+What each decision renders to - the argument and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.
+
+### Inputs no decision covers
+
+| Input | Resource and argument |
 |---|---|
 | the server | `azurerm_mssql_server` (`version = "12.0"`) |
-| `minimum_tls_version` | `minimum_tls_version` |
-| `public_network_access` | `public_network_access_enabled` |
-| `local_authentication_disabled`, `entra_admin` | `azuread_administrator { azuread_authentication_only, login_username, object_id }`, no `administrator_login` |
-| `managed_identity` | `identity { type, identity_ids }`, `primary_user_assigned_identity_id` |
-| `key_management` | `transparent_data_encryption_key_vault_key_id` and `azurerm_mssql_server_transparent_data_encryption` |
-| `databases` | `azurerm_mssql_database` (`sku_name`, `collation`, `max_size_gb`, `zone_redundant`, `storage_account_type`, `min_capacity`, `auto_pause_delay_in_minutes`) |
-| `short_term_retention_days`, `long_term_retention` | `short_term_retention_policy`, `long_term_retention_policy` blocks of the database |
-| `elastic_pool` | `azurerm_mssql_elasticpool` and `elastic_pool_id` on the database |
-| `ip_rules`, `allow_azure_services` | `azurerm_mssql_firewall_rule` |
-| private endpoint | `azurerm_private_endpoint` with `subresource_names = ["sqlServer"]` |
-| `auditing_enabled` | `azurerm_mssql_server_extended_auditing_policy` and `azurerm_monitor_diagnostic_setting` on `master` |
-| `threat_detection`, `vulnerability_assessment` | `azurerm_mssql_server_security_alert_policy`, `express_vulnerability_assessment_enabled` |
-| diagnostics | `azurerm_monitor_diagnostic_setting` per database with `enabled_log { category }` |

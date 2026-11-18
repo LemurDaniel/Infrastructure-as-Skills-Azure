@@ -19,26 +19,13 @@ cluster and, through its `database` parameter, the database `default`.
 
 ### Decision -> module parameter
 
-| Decision | Parameter | Note |
+What each decision renders to - the parameter and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.
+
+### Deployment-wide inputs
+
+| Input | Parameter | Note |
 |---|---|---|
-| `sku_name` | `skuName: 'Balanced_B1'` | Module default **`'Balanced_B5'`**; written. `capacity` applies to the older `Enterprise_*` SKUs only |
-| `clustering_policy` | `database.clusteringPolicy` | `'EnterpriseCluster'`, `'OSSCluster'`, `'NoCluster'` |
-| `eviction_policy` | `database.evictionPolicy` | |
-| `redis_modules` | `database.modules: [ { name, args } ]` | |
-| `high_availability` | `highAvailability: 'Enabled'` / `'Disabled'` | Module default `'Enabled'`; written. `availabilityZones` (default `[1, 2, 3]`) is documented as supported on the Enterprise SKUs only and is left at its default |
-| `geo_replicas` | `database.geoReplication: { groupNickname, linkedDatabases }` | One instance per region; shape read from the pinned README |
-| `public_network_access` | `publicNetworkAccess: 'Disabled'` | A string; **required**; written |
-| `private_endpoint_subnet` | `privateEndpoints: [ { subnetResourceId, service: 'redisEnterprise' } ]` | |
 | `deployment.private_dns_records: policy` | no `privateDnsZoneGroup` on the endpoint | |
-| `managed_identity`, `user_assigned_identity_ids` | `managedIdentities: { userAssignedResourceIds }` | User-assigned only |
-| `data_access_assignments` | `database.accessPolicyAssignments: [ { userObjectId, accessPolicyName: 'default' } ]` | |
-| `role_assignments` | `roleAssignments` | Control plane |
-| `access_keys_authentication_disabled` | `database.accessKeysAuthentication: 'Disabled'` / `'Enabled'` | Written |
-| `encrypted_connections_only` | `database.clientProtocol: 'Encrypted'`, `minimumTlsVersion: '1.2'` | `'1.2'` is the only allowed value; written |
-| `key_management`, `cmk_key_vault_key_id` | `customerManagedKey: { keyVaultResourceId, keyName, userAssignedIdentityResourceId }` | Unversioned |
-| `persistence` | `database.persistence: { type: 'rdb', frequency: '1h' }`, `{ type: 'aof', frequency: '1s' }` or `{ type: 'disabled' }` | Written |
-| `diagnostic_workspace`, `diagnostic_categories` | `database.diagnosticSettings: [ { workspaceResourceId, logCategoriesAndGroups: [ { category: 'ConnectionEvents' } ] } ]` | Logs only on the database |
-| `metrics_enabled` | `diagnosticSettings: [ { workspaceResourceId, metricCategories: [ { category: 'AllMetrics' } ] } ]` | Metrics only on the cluster |
 | `deployment.module_telemetry` | `enableTelemetry` | |
 | `context.tags` | `tags` | |
 
@@ -124,7 +111,7 @@ authentication and refresh the token before it expires.
 ### Tests
 
 A module call compiles to a nested deployment whose `properties.parameters.<param>.value` is the
-decision, so every decision above is observable in `tests/*.armtest.yaml`
+decision, so every decision in render-map.yaml is observable in `tests/*.armtest.yaml`
 ([bicep-idiom.md](../../../core/iac-rendering/references/bicep-idiom.md#tests)), including the database's
 policies, persistence and access-policy assignments.
 
@@ -132,18 +119,7 @@ policies, persistence and access-policy assignments.
 
 The fallback. `Microsoft.Cache/redisEnterprise` with a child `databases` named `default`:
 
-| Decision | Property |
-|---|---|
-| `sku_name` | `sku.name` |
-| `high_availability` | `properties.highAvailability` |
-| `public_network_access` | `properties.publicNetworkAccess` |
-| `encrypted_connections_only` | `properties.minimumTlsVersion`; database `properties.clientProtocol` |
-| `clustering_policy`, `eviction_policy`, `redis_modules` | database `properties.clusteringPolicy`, `evictionPolicy`, `modules` |
-| `access_keys_authentication_disabled`, `persistence` | database `properties.accessKeysAuthentication`, `persistence` |
-| `data_access_assignments` | database child `accessPolicyAssignments` |
-| `key_management` | `properties.encryption.customerManagedKeyEncryption`, `identity` |
-| private endpoint | `Microsoft.Network/privateEndpoints` with `groupIds: ['redisEnterprise']` |
-| diagnostics | `Microsoft.Insights/diagnosticSettings` on the database (logs) and the cluster (metrics) |
+What each decision renders to - the property and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.
 
 ## Azure Cache for Redis (Basic, Standard, Premium)
 

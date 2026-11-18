@@ -27,6 +27,8 @@ CHECKS = [
     '.claude/skills/git-commit-conventions/scripts/check_repo_consistency.py',
     f'{PLUGIN_DIR}/core/iac-authoring/scripts/check_question_set.py',
     f'{PLUGIN_DIR}/core/iac-authoring/tests/run_interview_digest_tests.py',
+    f'{PLUGIN_DIR}/core/iac-rendering/tests/run_render_digest_tests.py',
+    f'{PLUGIN_DIR}/core/iac-rendering/tests/run_render_map_tests.py',
     f'{PLUGIN_DIR}/core/iac-diagram/tests/run_diagram_tests.py',
 ]
 

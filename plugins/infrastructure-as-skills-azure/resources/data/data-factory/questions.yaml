@@ -42,7 +42,6 @@ groups:
           factory model is one factory per stage: the development factory is bound to git,
           the others receive the published content from the pipeline. Nothing sensible can
           be guessed.
-        renders: naming parameter `environment`, and the tag of that name where the repository uses one
 
       - id: location
         ask:
@@ -59,7 +58,6 @@ groups:
           managed network resolves to this region as well, which decides where the data
           moves through - a factory in another region than its sources pays egress and
           latency on every copy.
-        renders: location
 
       - id: resource_group_name
         ask:
@@ -75,7 +73,6 @@ groups:
         why: >
           The factory is placed into an existing group. Creating one here would make this
           set own a lifecycle wider than the resource it describes.
-        renders: resource_group_name / implicit in Bicep scope
 
   # ------------------------------------------------------------------ factory
   - id: factory
@@ -102,11 +99,6 @@ groups:
           (switching it on later is possible, off is not) and costs a few minutes of
           warm-up per activity unless time-to-live is set on the runtime, plus the managed
           endpoints. Both modules default to off; written.
-        renders: >
-          managed_virtual_network_enabled plus an authored
-          `azurerm_data_factory_integration_runtime_azure` with virtual_network_enabled /
-          managedVirtualNetwork { name: 'default' } and integrationRuntimes[] { type: 'Managed',
-          managedVirtualNetworkName }
 
       - id: managed_private_endpoints
         ask:
@@ -128,10 +120,6 @@ groups:
           cannot connect. Empty is a normal answer for a factory whose sources are still
           being decided: the list is wiring that grows with the content, and a pattern
           fills it from the stores it knows.
-        renders: >
-          an authored `azurerm_data_factory_managed_private_endpoint` per entry (not an input of
-          the Terraform module) / managedVirtualNetwork.managedPrivateEndpoints[] { name,
-          privateLinkResourceId, groupId, fqdns }
 
       - id: self_hosted_integration_runtime
         ask:
@@ -155,9 +143,6 @@ groups:
           machine, recorded in the handover. The key is a secret: it is read from the
           runtime's resource at deploy time into the Key Vault, never into state outputs or
           a parameter file.
-        renders: >
-          integration_runtime_self_hosted.<key> { name } / integrationRuntimes[] { name, type:
-          'SelfHosted' }; the key is read from `listAuthKeys` after the deployment
 
       - id: global_parameters
         ask:
@@ -177,8 +162,6 @@ groups:
           CI/CD of the content must be told to keep them (`includeFactoryTemplate` off, or
           the parameters excluded from the ARM template), or the next publish overwrites
           what the deployment set.
-        renders: >
-          global_parameters[] { name, type, value } / globalParameters { <name>: { type, value } }
 
       - id: purview_account
         ask:
@@ -198,7 +181,6 @@ groups:
           role the Purview set records as `collection_roles`. Empty when the organisation
           has no catalog; the purview-account set is the one to read when it is about to
           get one.
-        renders: purview_id / purviewResourceId
 
   # ----------------------------------------------------------- source control
   - id: source_control
@@ -228,9 +210,6 @@ groups:
           is reviewable, which is the state a team drifts into when nobody decides. The
           repository itself is the team's and is not created here; its details follow.
           Binding GitHub still needs an interactive sign-in in the authoring portal once.
-        renders: >
-          github_configuration / vsts_configuration (one of them) / gitConfiguration { type:
-          'FactoryGitHubConfiguration' | 'FactoryVSTSConfiguration', ... }
 
       - id: git_account
         ask:
@@ -247,7 +226,6 @@ groups:
           The GitHub owner or the Azure DevOps organisation name. Only the team knows it;
           with no answer the decision is an `open:` entry owned by the engineer, blocking
           apply for the development stage.
-        renders: github_configuration.account_name / vsts_configuration.account_name / gitConfiguration.accountName
 
       - id: git_repository
         ask:
@@ -264,7 +242,6 @@ groups:
           The repository name without the organisation. It must exist before the factory
           binds to it; the factory does not create it. With no answer the decision is an
           `open:` entry owned by the engineer.
-        renders: github_configuration.repository_name / vsts_configuration.repository_name / gitConfiguration.repositoryName
 
       - id: git_project
         ask:
@@ -278,7 +255,6 @@ groups:
         depends_on: { question: git_provider, equals: azure_devops }
         per_environment: true
         why: Azure DevOps scopes a repository to a project; GitHub has no equivalent.
-        renders: vsts_configuration.project_name / gitConfiguration.projectName
 
       - id: git_collaboration_branch
         ask:
@@ -296,7 +272,6 @@ groups:
           ARM template is generated into `adf_publish`). `main` is the convention; the
           branching model around it - feature branches, pull requests, who may merge - is
           the team's and is not rendered.
-        renders: github_configuration.branch_name / vsts_configuration.branch_name / gitConfiguration.collaborationBranch
 
       - id: git_root_folder
         ask:
@@ -312,7 +287,6 @@ groups:
           `/` for a repository that holds the factory alone; a subfolder (`/adf`) for a
           monorepo that also holds the application. Changing it later leaves the old
           folder behind and starts the new one empty.
-        renders: github_configuration.root_folder / vsts_configuration.root_folder / gitConfiguration.rootFolder
 
       - id: git_host
         ask:
@@ -328,7 +302,6 @@ groups:
           `https://github.com` for GitHub and GitHub Enterprise Cloud; a GitHub Enterprise
           Server gives its own URL, which the factory must be able to reach - a server
           behind the corporate firewall needs a rule for the factory's region.
-        renders: github_configuration.git_url / gitConfiguration.hostName
 
   # --------------------------------------------------------------- networking
   - id: networking
@@ -347,7 +320,7 @@ groups:
           enabled_with_firewall: { en: "reachable from the internet (the factory has no address allowlist, so this means reachable)", de: "aus dem Internet erreichbar (die Factory kennt keine Adressliste, also bedeutet dies erreichbar)" }
           enabled: { en: "reachable from the internet", de: "aus dem Internet erreichbar" }
         accepts: [disabled, enabled_with_firewall, enabled]
-        answer: { deployment: network_exposure }
+        answer: { deployment: network_exposure, map: { private: disabled, private_with_exceptions: disabled, public: enabled_with_firewall } }
         why: >
           Asked only as a departure: exposure is a property of the system. `disabled`
           closes the factory's own endpoints - the management API the pipelines and the
@@ -363,7 +336,6 @@ groups:
           `enabled_with_firewall` is rendered as `enabled`, recorded as forced with "no
           firewall on a factory" as forced_by; `network_ownership: none` forces `enabled`,
           recorded as forced with `network_ownership` as forced_by
-        renders: public_network_enabled (bool) / publicNetworkAccess ('Disabled' | 'Enabled')
 
       - id: private_endpoint_subnet
         ask:
@@ -383,7 +355,6 @@ groups:
           `privatelink.datafactory.azure.net`) and `portal` (the authoring portal, zone
           `privatelink.adf.azure.com`); without the second the portal loads but cannot
           open the factory.
-        renders: private_endpoints.<key>.subnet_resource_id / privateEndpoints[].subnetResourceId
 
       - id: private_endpoint_subresources
         ask:
@@ -404,7 +375,6 @@ groups:
           Terraform module creates `dataFactory` endpoints only** - the sub-resource is
           fixed in the module - so the `portal` endpoint is authored beside it on that
           target. Each endpoint is one address and one DNS record.
-        renders: private_endpoints (dataFactory; the portal endpoint authored) / privateEndpoints[].service
 
   # ----------------------------------------------------------------- identity
   - id: identity
@@ -434,7 +404,6 @@ groups:
         forced_when: >
           `key_management: customer_managed` forces `user_assigned`, recorded as forced
           with `key_management` as forced_by
-        renders: managed_identities { system_assigned, user_assigned_resource_ids } / managedIdentities { systemAssigned, userAssignedResourceIds }
 
       - id: user_assigned_identity_ids
         ask:
@@ -449,7 +418,6 @@ groups:
         depends_on: { question: managed_identity, equals: user_assigned }
         per_environment: true
         why: The identity must already exist; this set does not create it.
-        renders: managed_identities.user_assigned_resource_ids / managedIdentities.userAssignedResourceIds
 
       - id: source_access
         ask:
@@ -470,7 +438,6 @@ groups:
           store by the pattern or the render skill, and every store named here that is
           private also needs an entry in `managed_private_endpoints`. Empty is a working
           factory with nothing to copy; a pattern fills it from the stores it knows.
-        renders: role assignments on the sources (not an input of either module)
 
       - id: role_assignments
         ask:
@@ -488,7 +455,6 @@ groups:
           views for operators, and nothing for people on the other stages, which the
           pipeline deploys. Empty is a normal answer for a factory the deploying principal
           alone manages.
-        renders: role_assignments / roleAssignments
 
   # ----------------------------------------------------------------- security
   - id: security
@@ -514,9 +480,6 @@ groups:
           encrypts it with a key in a Key Vault with purge protection, read through the
           user-assigned identity, **at creation**: a key cannot be added to an existing
           factory. A factory that loses access to its key stops running pipelines.
-        renders: >
-          customer_managed_key_id and customer_managed_key_identity_id / customerManagedKey {
-          keyVaultResourceId, keyName, userAssignedIdentityResourceId, autoRotationEnabled }
 
       - id: cmk_key_vault_key_id
         ask:
@@ -535,7 +498,6 @@ groups:
           user-assigned identity must hold `Key Vault Crypto Service Encryption User` on it
           before the factory is created. The Terraform module takes the versioned key URL;
           the Bicep module the vault id and the key name with auto-rotation.
-        renders: customer_managed_key_id (versioned URL) / customerManagedKey.keyName and keyVaultResourceId
 
   # ------------------------------------------------------------ observability
   - id: observability
@@ -560,7 +522,6 @@ groups:
           The destination type is `Dedicated` (resource-specific tables such as
           `ADFPipelineRun`), which both modules default to; `AzureDiagnostics` truncates
           long activity outputs.
-        renders: diagnostic_settings / diagnosticSettings
 
       - id: diagnostic_categories
         ask:
@@ -590,7 +551,6 @@ groups:
           so neither is defaulted. The category names are the platform's and are checked
           against `az monitor diagnostic-settings categories list --resource <factory id>`
           before a render, not remembered.
-        renders: diagnostic_settings.<key>.log_categories / diagnosticSettings[].logCategoriesAndGroups[].category
 
       - id: metrics_enabled
         ask:
@@ -608,4 +568,3 @@ groups:
           Succeeded and failed runs per pipeline, trigger and activity as numbers, plus the
           integration runtimes' CPU, memory and queue length - cheap, and what an alert
           rule on "a pipeline failed" reads. The category is `AllMetrics`.
-        renders: diagnostic_settings.<key>.metric_categories = ["AllMetrics"] / diagnosticSettings[].metricCategories[].category = "AllMetrics"

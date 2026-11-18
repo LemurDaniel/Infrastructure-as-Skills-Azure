@@ -20,18 +20,12 @@ three child modules, one per kind.
 
 ### Decision -> module input
 
+What each decision renders to - the input and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.
+
+Deployment-wide inputs, not decisions of this set:
+
 | Decision | Input | Note |
 |---|---|---|
-| `traffic_goal` | - | Pre-answers `routing_method`; nothing of its own in the call |
-| `routing_method` | `traffic_routing_method` | **Required** by the module (no default); `"Priority"` for `failover` |
-| `relative_dns_name`, `dns_ttl_seconds` | `dns_config = { relative_name, ttl }` | Required object; the resource name when the decision is empty |
-| `profile_status` | `profile_status` | Module default `"Enabled"`; written |
-| `traffic_view` | `traffic_view_enrollment_status` | `"Enabled"` / `"Disabled"`; module default `"Disabled"`; written |
-| `max_return` | `max_return` | `null` unless `MultiValue` |
-| `monitor_protocol`, `monitor_port`, `monitor_path`, `expected_status_codes`, `probe_profile` | `monitor_config = { protocol, port, path, interval_in_seconds, timeout_in_seconds, tolerated_number_of_failures, expected_status_code_ranges = [{ min, max }] }` | Required object. `standard`: 30 / 10 / 3; `fast`: 10 / 9 / 3. Protocol uppercase |
-| `endpoints` | `azure_endpoints`, `external_endpoints`, `nested_endpoints` | Three maps, keyed by the entry's name. `azure`: `target_resource_id`; `external`: `target` (hostname or address); `nested`: `target_resource_id` and `min_child_endpoints`. Each takes `priority`, `weight`, `endpoint_location`, `geo_mapping`, `enabled` |
-| `role_assignments` | `role_assignments = { <k> = { role_definition_id_or_name, principal_id, principal_type } }` | `"Traffic Manager Contributor"` |
-| `diagnostic_workspace`, `diagnostic_categories`, `metrics_enabled` | `diagnostic_settings = { workspace = { workspace_resource_id, log_categories, log_groups = [], metric_categories } }` | `log_groups` defaults to `["allLogs"]`: set it empty beside `log_categories` |
 | `deployment.module_telemetry` | `enable_telemetry` | |
 | `context.tags` | `tags = local.tags` | |
 
@@ -161,17 +155,12 @@ pipeline check over that file is the place for these.
 
 The fallback. Targets `azurerm` **5.x**; check against `terraform providers schema -json`.
 
+What each decision renders to - the argument and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.
+
+Not decisions of this set:
+
 | Decision | Resource / argument |
 |---|---|
 | the profile | `azurerm_traffic_manager_profile` (`name`, `resource_group_name`; no `location`) |
-| `routing_method` | `traffic_routing_method` |
-| `relative_dns_name`, `dns_ttl_seconds` | `dns_config { relative_name, ttl }` |
-| `profile_status` | `profile_status` |
-| `traffic_view` | `traffic_view_enabled` (**bool**) |
-| `max_return` | `max_return` |
-| monitoring | `monitor_config { protocol, port, path, interval_in_seconds, timeout_in_seconds, tolerated_number_of_failures, expected_status_code_ranges = ["200-299"] }` - ranges as **strings** here, objects in the module |
-| `endpoints` | `azurerm_traffic_manager_azure_endpoint` (`profile_id`, `target_resource_id`, `priority`, `weight`, `enabled`), `azurerm_traffic_manager_external_endpoint` (`target`, `endpoint_location`), `azurerm_traffic_manager_nested_endpoint` |
-| `role_assignments` | `azurerm_role_assignment` on the profile's id |
-| diagnostics | `azurerm_monitor_diagnostic_setting` with `enabled_log { category = "ProbeHealthStatusEvents" }` and `enabled_metric { category = "AllMetrics" }` |
 
 Validated against `azurerm` 5.x.

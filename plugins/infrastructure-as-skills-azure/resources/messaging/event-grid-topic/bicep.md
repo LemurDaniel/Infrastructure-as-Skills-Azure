@@ -18,22 +18,13 @@ Resolve the current version and re-read the README parameters before rendering, 
 
 ### Decision -> module parameter
 
-| Decision | Parameter | Note |
+What each decision renders to - the parameter and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.
+
+### Parameters no decision covers
+
+| Input | Parameter | Note |
 |---|---|---|
-| `input_schema` | `inputSchema` | Module default `'EventGridSchema'`; written. Fixed at creation |
-| `minimum_tls_version` | `minimumTlsVersionAllowed` | Default `'1.2'`; written |
-| `local_auth` | `disableLocalAuth` | Module default `true`; written |
-| `data_residency_boundary` | `dataResidencyBoundary` | `'WithinRegion'` / `'WithinGeopair'` |
-| `managed_identity`, `user_assigned_identity_ids` | `managedIdentities: { systemAssigned, userAssignedResourceIds }` | |
-| `public_network_access` | `publicNetworkAccess: 'Disabled'` / `'Enabled'` | Module default `''` (left to the platform); written |
-| `ip_rules` | `inboundIpRules: [ { ipMask, action: 'Allow' } ]` | Used only with public access `Enabled` |
-| `private_endpoint_subnet` | `privateEndpoints: [ { subnetResourceId, service: 'topic' } ]` | |
 | `deployment.private_dns_records: policy` | no `privateDnsZoneGroup` on the endpoint | |
-| `event_subscriptions` | `eventSubscriptions: [ { name, destination, deliveryWithResourceIdentity, filter, retryPolicy, deadLetterWithResourceIdentity } ]` | Identity-based delivery, never a key; read the member names from the README |
-| `max_delivery_attempts`, `event_ttl_minutes` | `eventSubscriptions[].retryPolicy: { maxDeliveryAttempts, eventTimeToLiveInMinutes }` | |
-| `keep_undeliverable_events`, `dead_letter_*` | `eventSubscriptions[].deadLetterWithResourceIdentity` | |
-| `role_assignments` | `roleAssignments: [ { principalId, roleDefinitionIdOrName, principalType } ]` | |
-| `diagnostic_*`, `metrics_enabled` | `diagnosticSettings: [ { workspaceResourceId, logCategoriesAndGroups: [ { category } ], metricCategories: [ { category: 'AllMetrics' } ] } ]` | |
 | `deployment.module_telemetry` | `enableTelemetry` | |
 | `context.tags` | `tags` | |
 
@@ -94,19 +85,11 @@ data-plane role on the target before the subscription exists. A webhook destinat
 ### Tests
 
 A module call compiles to a nested deployment whose `properties.parameters.<param>.value` is the
-decision, so every decision above is observable in `tests/*.armtest.yaml`
+decision, so every decision in render-map.yaml is observable in `tests/*.armtest.yaml`
 ([bicep-idiom.md](../../../core/iac-rendering/references/bicep-idiom.md#tests)).
 
 ## Authored rendering
 
 The fallback. `Microsoft.EventGrid/topics` with `properties`:
 
-| Decision | Property |
-|---|---|
-| `input_schema` | `properties.inputSchema` |
-| `minimum_tls_version` | `properties.minimumTlsVersionAllowed` |
-| `local_auth` | `properties.disableLocalAuth` |
-| `data_residency_boundary` | `properties.dataResidencyBoundary` |
-| `public_network_access` | `properties.publicNetworkAccess` |
-| `ip_rules` | `properties.inboundIpRules` |
-| `event_subscriptions` | child `eventSubscriptions` with `properties: { destination, filter, retryPolicy, deadLetterWithResourceIdentity }` |
+What each decision renders to - the property and the literal of every answer - is in [render-map.yaml](render-map.yaml); the render digest prints it for a spec.
