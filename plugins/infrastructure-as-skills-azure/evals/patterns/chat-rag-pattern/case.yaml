@@ -1,0 +1,113 @@
+schema_version: "1.1"
+name: chat-rag-pattern
+
+graders:
+  - name: skill-fired
+    type: tool_used
+    tool: Skill
+    input_match: infrastructure-as-skills-azure
+
+  # The request describes the system, so the pattern is chosen and recorded.
+  - name: pattern-recorded
+    type: regex
+    weight: 3
+    target: { source: file, path: infra/infra-spec.yaml }
+    pattern: '^pattern:\s*\n\s+id:\s*(?:#[^\n]*\s*)*(?:\{\s*)?(?:value:\s*)?\W?ai-chat-rag\b'
+    flags: m
+
+  # What the pattern answered says so.
+  - name: source-pattern
+    type: regex
+    weight: 2
+    target: { source: file, path: infra/infra-spec.yaml }
+    pattern: 'source:\s*pattern\b'
+
+  - name: part-app
+    type: regex
+    weight: 2
+    target: { source: file, path: infra/infra-spec.yaml }
+    pattern: '^  app-service__chat:'
+    flags: m
+
+  - name: part-model
+    type: regex
+    weight: 1
+    target: { source: file, path: infra/infra-spec.yaml }
+    pattern: '^  foundry:'
+    flags: m
+
+  - name: part-search
+    type: regex
+    weight: 1
+    target: { source: file, path: infra/infra-spec.yaml }
+    pattern: '^  search-service:'
+    flags: m
+
+  - name: part-documents
+    type: regex
+    weight: 1
+    target: { source: file, path: infra/infra-spec.yaml }
+    pattern: '^  storage-account:'
+    flags: m
+
+  # sign_in: company_accounts brings the vault, its secret and the setting that reads it.
+
+  - name: vault-for-the-sign-in
+    type: regex
+    weight: 2
+    target: { source: file, path: infra/infra-spec.yaml }
+    pattern: '^  key-vault:'
+    flags: m
+
+  - name: secret-reference
+    type: regex
+    weight: 3
+    target: { source: file, path: infra/infra-spec.yaml }
+    pattern: 'setting:\s*\W?MICROSOFT_PROVIDER_AUTHENTICATION_SECRET\b[\s\S]*secret_name:\s*\W?entra-client-secret\b|secret_name:\s*\W?entra-client-secret\b[\s\S]*setting:\s*\W?MICROSOFT_PROVIDER_AUTHENTICATION_SECRET\b'
+    flags: m
+
+  # chat_history: false - no database nobody asked for.
+
+  - name: no-history-database
+    type: regex
+    weight: 3
+    target: { source: file, path: infra/infra-spec.yaml }
+    pattern: '^  cosmos-db:'
+    flags: m
+    match: not_contains
+
+  # The wiring no single set owns: the search service reads the documents and calls the model.
+
+  - name: indexer-reads-documents
+    type: regex
+    weight: 3
+    target: { source: file, path: infra/infra-spec.yaml }
+    pattern: 'from:\s*\W?search-service\W?\s*\n\s+to:\s*\W?storage-account\W?\s*\n\s+role:\s*\W?Storage Blob Data Reader\b'
+    flags: m
+
+  - name: search-calls-the-model
+    type: regex
+    weight: 2
+    target: { source: file, path: infra/infra-spec.yaml }
+    pattern: 'from:\s*\W?search-service\W?\s*\n\s+to:\s*\W?foundry\W?\s*\n\s+role:\s*\W?Cognitive Services OpenAI User\b'
+    flags: m
+
+  # The documents are loaded separately: the application reads, it does not write.
+
+  - name: app-only-reads-documents
+    type: regex
+    weight: 2
+    target: { source: file, path: infra/infra-spec.yaml }
+    pattern: 'from:\s*\W?app-service__chat\W?\s*\n\s+to:\s*\W?storage-account\W?\s*\n\s+role:\s*\W?Storage Blob Data Contributor\b'
+    flags: m
+    match: not_contains
+
+  - name: no-code-before-confirmation
+    type: file_exists
+    path: '**/*.tf'
+    exists: false
+
+  - name: no-bicep-before-confirmation
+    type: file_exists
+    path: '**/*.bicep'
+    exists: false
