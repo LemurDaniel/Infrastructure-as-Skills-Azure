@@ -365,6 +365,24 @@ the detail; this list says what was decided and why, so a session does not reope
 
 ## State
 
+- **The spec format moved three times on 2026-11-18** (branch `pattern-skills`): the
+  `pattern:` block and `wiring.secrets`, the shared vocabulary, roles in the wiring only.
+  Every tracked spec is moved over and every check is green, but **no eval has run against
+  the new format** (owner's call: the runs wait, for the token budget) and nothing is
+  re-rendered: the rendered examples changed in comments and test markers only.
+  `examples/chat-sandbox` still reads `var.role_assignments` keyed by resource, and
+  `eval-agent/infra` still passes empty `*RoleAssignments` parameters - correct code of the
+  old shape, to be re-rendered from the spec. `examples/orders-integration` has three real
+  gaps the new warning names (the function app on the Service Bus, Event Hubs capture and
+  the backup vault on the storage account hold no role). The decision document names the
+  pattern and has a section "Who reaches what"; the four tracked ones are re-exported.
+  The skills' contradictions the review found are resolved (when the spec is written,
+  `per-family` under AVM, the leftover "mode" and "profile", the source words the checker
+  accepts), both READMEs name Python and PyYAML as a prerequisite and 70 resource types.
+  Left from that review, not done: `iac-authoring/SKILL.md` is ~13,700 words loaded on
+  every run; no eval lane with a shell, so no eval runs the scripts; `new_diagram.main` is
+  ~1,500 lines; the tests and fixtures ship inside the plugin directory.
+
 - **Four patterns, checked, not seen in a run** (2026-11-18, branch `pattern-skills`, on top
   of `dev` at #53): `ai-chat-rag` (app, model, search, documents; chat history and a company
   sign-in by ask; 8 variants), `private-webapp` (app, Azure SQL or PostgreSQL, file storage
@@ -390,8 +408,7 @@ the detail; this list says what was decided and why, so a session does not reope
   ungated questions are gone), and "an owner that is itself shared" is prose only.
   Open on the patterns: no render and no example built from one; no Bicep or Terraform test
   of `wiring.secrets`; the shared private links a private `ai-chat-rag` needs are a
-  boundary, not rendered; `export_decisions.py` prints a wiring list as JSON; the
-  decision document does not name the pattern; a third service in
+  boundary, not rendered; a third service in
   `container-microservices` is prose for the run, not data; `private-dns-zone` through the
   AVM pattern module (decided 2026-10-29) is not done. `eval-agent/infra` and the Foundry
   set's `why`/notes still say `Azure AI User`.
@@ -595,9 +612,9 @@ the detail; this list says what was decided and why, so a session does not reope
   No `SKILL.md`, not declared in `plugin.json`: the listing is at 90% (1,802 of 2,000).
   - **A pattern answers defaults and references, never the customer or the posture**:
     `check_pattern.py` refuses a pre-answer for an `interview` question, one a requirement
-    derives, and one that inherits a deployment decision. The sketch's example
-    (`shared_access_key_enabled: false`) is such an inherited question and is therefore not
-    a pre-answer; `local_auth` decides it for every resource.
+    derives, and one that inherits a deployment decision. The sketch's example (the storage
+    account's shared-key switch) is such an inherited question and is therefore not a
+    pre-answer; `local_auth` decides it for every resource.
   - **Every variant is checked, not the file**: the conditions (`when` on an ask of the
     pattern) make one file several systems, so the check and the test resolve each value of
     each enum or bool ask and hold every variant to the rules - a role only for a part with an
@@ -616,6 +633,41 @@ the detail; this list says what was decided and why, so a session does not reope
     (`{ app, setting, vault, secret_name }`), which the re-render of `eval-agent/infra` had
     found missing. The field is `secret_name`, not `secret`: the repository's secret scan
     reads `secret: <value>` as a credential.
+
+- **A role assignment lives in the wiring, and nowhere else** (2026-11-18, owner's call:
+  option 2 of two, the larger change for the cleaner format). `wiring.role_assignments` is
+  a list of `{ from, to, role }`, one value for every stage: `to` a resource of the spec,
+  `from` a resource of the spec or a principal outside it (`{ existing: entra_group }` for
+  people, `{ existing: principal }` for a workload identity), `role` a name of
+  `built-in-roles.yaml`. The question `role_assignments` is gone from 48 sets (and Cosmos
+  DB's `data_plane_role_assignments`), its knowledge moved into each set's notes under
+  *Roles*; `check_question_set.py` refuses it. One reference renders it,
+  `iac-rendering/references/role-assignments.md`. The sets' "an empty list is not an answer"
+  became a check: `check_spec.py` warns on a keyless resource (`local_auth: disabled`) that
+  another resource reaches without holding a role on it. The `role-assignment` set stays for
+  a scope that is no resource of the spec (resource group, subscription) and for a
+  conditioned assignment. `database_users` / `database_roles` stay: rights inside a database.
+  What the form cannot say: a scope narrower than a resource of the spec (one queue, one hub,
+  one Cosmos database), a role in one stage only, and a single entry marked `assumed` or
+  forced - the list has one source.
+- **Cross-cutting decisions share one id and speak in decision words** (2026-11-18, owner's
+  call). `local_auth: disabled | enabled` on every resource with the service's own key
+  authentication (it was four ids with mixed polarity) and `min_tls_version: "1.0" .. "1.3"`
+  (two ids, four spellings); 28 questions in 21 sets. The literal a backend takes is the
+  render map's (`values:`); `check_question_set.py` refuses the retired ids. The
+  mechanism-specific switches (`basic_auth_enabled`, `admin_enabled`,
+  `password_authentication`, `rbac_authorization`, ...) keep their names: they are other
+  decisions. The rule for the next one is in `question-set-format.md`, *Shared vocabulary*.
+- **One library for the scripts, one meaning per exit code** (2026-11-18):
+  `lib/plugin_lib.py` holds the paths, the printer, the set lookup and the question index;
+  0 clean, 1 found something, 2 could not run, 3 the version gate's alone. The version gate
+  exited 1 without PyYAML, which the skills read as nothing; it exits 2 and the skills treat
+  any exit but 0 and 3 as "compare by hand". `run_arm_tests.py` stays self-contained (the
+  render copies it). Not moved yet: `export_decisions.py` and `check_render_map.py` load
+  the sets themselves, and each script's own `import yaml` block.
+- **The repository checks find the test runners** (2026-11-18): `run_repository_checks.py`
+  globs `core/*/tests/run_*_tests.py` instead of a hand list that had left nine runners
+  out, and runs everything even after a failure. 18 checks, about eight minutes.
 
 ## Road to 1.0.0
 
@@ -1279,12 +1331,12 @@ regeneration from the spec loses them. All `render`:
 `question-set-format.md` and the render-map format name their stable interface. What is
 left of the sources (*Open*) is small and can follow.
 
-**The patterns in a run** (`ideas/pattern-skill.md`, draft PR #16): the four patterns are
-built and script-tested (*State*); what no script can show is the interview. Run
-`evals/patterns/` once on Sonnet, read the transcripts - is the pattern proposed without a
-question of its own, do its asks land in their topics, is `apply_pattern.py` called - and fix
-what they show in `iac-authoring` and `pattern-format.md`. Then render one example from
-`ai-chat-rag` in both targets: it is the cross-backend test the sets from 2026-10-23 waited
-for, and the first render of `wiring.secrets`. Beside it, when a run is paid for anyway: the
-eval case that asserts the `requirements` group reaches the customer, and `agents.md`'s two
-missing rules.
+**The evals against the new format** (release 0.8.0): the branch changed the spec format
+three times - patterns, the shared vocabulary, roles in the wiring - and no eval has seen
+it. Run the suite on Sonnet and on Haiku on the release pull request (`dev` -> `master`),
+read the transcripts of `evals/patterns/` first - is the pattern proposed without a question
+of its own, do its asks land in their topics, is `apply_pattern.py` called - and expect the
+graders that name a role or an open role entry to move. The baseline is accepted only after
+reading the run. Then re-render `examples/chat-sandbox` and `eval-agent/infra` from their
+specs (roles from the wiring), and render one example from `ai-chat-rag` in both targets: the
+first render of `wiring.secrets` and of a pattern.
