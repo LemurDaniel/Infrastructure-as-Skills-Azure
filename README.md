@@ -6,6 +6,11 @@
 > **AI disclaimer:** Yes, an AI helped write this, and yes, an AI is the one doing the interviewing. No, it does not get to `terraform apply`. Every decision it makes is written down with where it came from, and every render ships with a test per decision. 🤖
 
 > [!IMPORTANT]
+> **The plugin's scripts need Python 3.9+ with PyYAML** (`pip install pyyaml`). They lay out
+> and check the spec, draw the diagram and write the decision document. Without them the
+> interview still runs, but the spec is unvalidated and no diagram is drawn.
+
+> [!IMPORTANT]
 > **This plugin requires [draw.io desktop](https://github.com/jgraph/drawio-desktop/releases).** The architecture diagram is exported to `infra-diagram.drawio.png` with it (`winget install JGraph.Draw`, `brew install --cask drawio`). Without it you get the editable `.drawio` file only, no PNG, and the diagram review has nothing to look at.
 
 > [!TIP]
