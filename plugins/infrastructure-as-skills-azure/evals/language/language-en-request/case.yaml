@@ -20,7 +20,7 @@ graders:
     weight: 3
     target: { source: file, path: infra/infra-spec.yaml }
     flags: i
-    pattern: '[äöüß]|\b(zugriff|und|der|die|das|für|nicht|liest|schreibt|speicher|anwendung|benutzer|nachricht)\b'
+    pattern: '[äöüß]|\b(zugriff|und|der|die|das|dem|den|für|nicht|nur|aus|aller|alle|ist|sind|wird|oder|eine|einen|welche|welcher|wer|wie|liest|schreibt|speicher|anwendung|benutzer|nachricht|antworten|firmennetz)\b'
     match: not_contains
 
   # German function words and umlauts in the final message: deterministic, free, and a failure
