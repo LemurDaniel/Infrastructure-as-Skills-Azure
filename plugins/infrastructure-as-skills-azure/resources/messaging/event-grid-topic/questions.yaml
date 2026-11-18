@@ -14,7 +14,7 @@ boundaries:
   - "Does not create private DNS zones - shared infrastructure, owned by a pattern or the platform (`privatelink.eventgrid.azure.net`)."
   - "Does not create the Log Analytics workspace it routes diagnostics to, nor the storage account that receives undeliverable events."
   - "Does not create system topics (one per Azure source resource, owned by it), domains or namespaces (MQTT, pull delivery). Those are separate resource types."
-  - "Does not grant the publishers and the delivery targets their roles - that is wiring between resources, owned by a pattern. It records the topic's own role assignments in `role_assignments`."
+  - "Does not decide the roles on this resource. A role is a `wiring.role_assignments` entry of the spec with this resource as `to`; which roles the service has is in `notes.md`, *Roles*."
   - "Does not render access keys. With `local_auth: disabled` there are none; a publisher that cannot use Entra ID is a named departure and an `open:` entry."
   - "Subscription filters (subject prefixes, advanced filters), webhook validation and per-subscription delivery tuning are recorded in `event_subscriptions` as free text and rendered from the module README."
 
@@ -342,28 +342,6 @@ groups:
           every public caller, which is valid and deliberate. `0.0.0.0/0` is not an
           allowlist and is rejected by the guardrails; a single address takes `/32`.
 
-  - id: identity
-    title: Identity and access
-    questions:
-      - id: role_assignments
-        ask:
-          en: "Who needs which role on this topic?"
-          de: "Wer braucht welche Rolle auf diesem Topic?"
-        type: list
-        plain:
-          en: "Access rights on the topic granted to: {value}."
-          de: "Zugriffsrechte vergeben an: {value}."
-        default: []
-        per_environment: true
-        why: >
-          Data-plane access is granted by role, never by key. The publisher role is
-          `EventGrid Data Sender`; `EventGrid Contributor` manages topics and subscriptions
-          and is for the deploying principal, never for a workload. Scope to the narrowest
-          resource the consumer needs, never the subscription. A pattern normally fills this
-          from the consumers it knows about and grants a consumer's role in the pattern, not
-          here. A delivery target is granted its role on the *target*, in the pattern; this
-          list is who may publish.
-
   - id: observability
     title: Observability
     questions:
@@ -421,4 +399,3 @@ groups:
           Published, matched, delivered and dropped event counts and the dead-lettered count
           - a delivered count that stops rising is how a dead subscriber shows up, and the
           one to alert on.
-

@@ -120,7 +120,7 @@ module adf 'br/public:avm/res/data-factory/factory:0.13.0' = {
       }
     ]
 
-    // decision: data-factory.identity.role_assignments
+    // decision: wiring.role_assignments
     roleAssignments: roleAssignments
     enableTelemetry: true
   }
@@ -140,8 +140,8 @@ with the object in that stage's parameter file. A customer-managed key adds `man
 
 `create_key_only` adds `{ name: 'shir-onprem', type: 'SelfHosted' }` to `integrationRuntimes`; the
 key is `listAuthKeys('<runtime id>', '2018-06-01').authKey1`, written into a Key Vault secret in the
-same template and never output. `source_access` is a `roleAssignments` entry on each source's module
-with `principalId: adf.outputs.systemAssignedMIPrincipalId` - rendered beside the source. Managed
+same template and never output. `source_access` is a `wiring.role_assignments` entry per source with
+the factory as `from` (`principalId: adf.outputs.systemAssignedMIPrincipalId`) - rendered at the source. Managed
 private endpoint connections are approved on the source by the pipeline where this deployment
 owns it.
 

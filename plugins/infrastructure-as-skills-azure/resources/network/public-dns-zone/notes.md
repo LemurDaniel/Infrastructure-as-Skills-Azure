@@ -42,6 +42,18 @@ The child zones are deployed first and their name servers read, then the product
 delegation list is filled. A `[sandbox]` stack is one zone, usually a child of a domain the customer
 already runs elsewhere - the delegation is then at that provider, not in Azure.
 
+## Roles
+
+A role on the zone is a `wiring.role_assignments` entry with it as `to`. It names an
+identity that writes records at run time: a certificate issuer solving ACME DNS-01
+challenges (cert-manager; an App Service managed certificate does not need it), a pipeline
+that flips a CNAME on release, a mail provider's connector. The role is `DNS Zone
+Contributor` on the zone, never Contributor on the resource group and never the
+subscription.
+
+The records a render writes are written by the deploying identity, which already holds the
+right, so a zone nobody writes to at run time has no entry.
+
 ## Pitfalls
 
 **A zone without a delegation answers nobody.** The zone exists, the records are right, and the

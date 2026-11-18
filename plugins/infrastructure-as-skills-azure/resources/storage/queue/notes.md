@@ -11,6 +11,15 @@
 The account first, then the queue, then its role assignments, then the producer and the worker.
 With the account module the queue is part of the account's call and the order is internal.
 
+## Roles
+
+A role on a queue is a `wiring.role_assignments` entry with this queue resource as `to` -
+narrower than one on the account. Data-plane access is granted by role, never by key:
+`Storage Queue Data Message Sender` to add messages, `Storage Queue Data Message Processor`
+to read and delete them, `Storage Queue Data Reader` to peek and `Storage Queue Data
+Contributor` to manage. A producer needs only Sender, a worker only Processor. Never the
+subscription.
+
 ## Pitfalls
 
 **A storage queue is not Service Bus.** No ordering, no duplicate detection, no dead-letter

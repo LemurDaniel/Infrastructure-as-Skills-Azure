@@ -145,11 +145,6 @@ decisions:
       attribute: database.accessPolicyAssignments
       note: "one object per principal - { userObjectId: <principal>, accessPolicyName: 'default' }"
     bicep: { attribute: child databases/accessPolicyAssignments properties.user.objectId, note: "one per principal; accessPolicyName beside it (source: bicep build, Microsoft.Cache/redisEnterprise/databases/accessPolicyAssignments@2025-07-01)" }
-  identity.role_assignments:
-    terraform_avm: { attribute: role_assignments, note: control plane }
-    terraform: { attribute: azurerm_role_assignment, note: "scope = the instance id; control plane (source: azurerm 5.12 schema)" }
-    bicep_avm: { attribute: roleAssignments, note: control plane }
-    bicep: { attribute: Microsoft.Authorization/roleAssignments, note: "scope the cluster; control plane (source: bicep build, Microsoft.Authorization/roleAssignments@2022-04-01)" }
 
   # ----------------------------------------------------------------- security
   security.local_auth:

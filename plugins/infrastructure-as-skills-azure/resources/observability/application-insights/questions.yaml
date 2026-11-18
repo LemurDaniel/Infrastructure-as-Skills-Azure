@@ -17,6 +17,7 @@ boundaries:
   - "Does not create alerts or action groups - their own sets (observability/alert-rule, observability/action-group)."
   - "Does not create availability tests, workbooks or dashboards. Each is a separate concern and has no question set yet."
   - "Does not render the profiler and debugger storage (`linked_storage_account`)."
+  - "Does not decide the roles on this resource. A role is a `wiring.role_assignments` entry of the spec with this resource as `to`; which roles the service has is in `notes.md`, *Roles*."
 
 groups:
 
@@ -217,33 +218,6 @@ groups:
           `agentsvc`, blob). The component is added to the scope as a scoped resource; the
           scope is not created here. Without one, a closed component cannot receive telemetry
           at all. With no answer the decision is an `open:` entry owned by the platform team.
-
-  # ----------------------------------------------------------------- identity
-  - id: identity
-    title: Identity and access
-    questions:
-      - id: role_assignments
-        ask:
-          en: "Who needs which role on this component?"
-          de: "Wer braucht welche Rolle auf dieser Komponente?"
-        type: list
-        plain:
-          en: "Access rights on the component granted to: {value}."
-          de: "Zugriffsrechte auf die Komponente vergeben an: {value}."
-        default: []
-        per_environment: true
-        forced_when: >
-          `application_monitoring: enabled` with `local_auth: disabled` grants every
-          application whose `application_insights` names this component `Monitoring Metrics
-          Publisher` on it, recorded as forced with `application_monitoring` as forced_by
-        why: >
-          With local authentication off, an application sends telemetry only with an Entra
-          token, so its identity needs `Monitoring Metrics Publisher` on the component, and its
-          `APPLICATIONINSIGHTS_AUTHENTICATION_STRING` setting tells the agent to use that
-          identity; an application still on the instrumentation key
-          loses its telemetry the moment the switch is turned. People who read the data need
-          `Monitoring Reader` or a role on the workspace. A pattern fills this from the
-          consumers it knows.
 
   # ----------------------------------------------------------------- security
   - id: security

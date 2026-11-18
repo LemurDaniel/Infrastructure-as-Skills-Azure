@@ -81,7 +81,7 @@ module "action_group" {
   # decision: action-group.notification.itsm_receivers
   itsm_receivers = {}
 
-  # decision: action-group.identity.role_assignments
+  # decision: wiring.role_assignments
   role_assignments = var.role_assignments
 
   enable_telemetry = true

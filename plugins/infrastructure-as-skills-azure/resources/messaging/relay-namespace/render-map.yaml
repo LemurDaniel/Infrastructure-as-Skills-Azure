@@ -118,18 +118,6 @@ decisions:
       note: "action: 'Allow', networkRuleSets.defaultAction: 'Deny' (the child forces Deny when rules exist); only under enabled_with_firewall"
     bicep: { attribute: 'networkRuleSets child properties.ipRules[].ipMask', note: "action: 'Allow', defaultAction: 'Deny'" }
 
-  # ----------------------------------------------------------------- identity
-  identity.role_assignments:
-    terraform_avm:
-      module: Azure/avm-res-relay-namespace/azurerm
-      attribute: 'role_assignments.<k> = { role_definition_id_or_name, principal_id, principal_type }'
-      note: on the namespace; a per-connection role is an azurerm_role_assignment on the submodule's resource_id
-    terraform: { attribute: azurerm_role_assignment, note: scope = the namespace's id }
-    bicep_avm:
-      attribute: 'roleAssignments[] = { principalId, roleDefinitionIdOrName, principalType }'
-      note: on the namespace; a per-connection role goes in hybridConnections[].roleAssignments
-    bicep: { attribute: Microsoft.Authorization/roleAssignments, note: scope = the namespace }
-
   # ------------------------------------------------------------ observability
   observability.diagnostic_workspace:
     terraform_avm: { module: Azure/avm-res-relay-namespace/azurerm, attribute: 'diagnostic_settings.<key>.workspace_resource_id' }

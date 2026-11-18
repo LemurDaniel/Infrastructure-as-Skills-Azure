@@ -23,15 +23,6 @@ decisions:
       note: "the vault's NAME, never the reference's id - the vault module's name output or the vault's name parameter; same resource group"
     bicep: { attribute: parent, note: an existing resource symbol for the vault (vaultRef) - never the id string }
 
-  # ----------------------------------------------------------------- identity
-  identity.role_assignments:
-    terraform_avm:
-      attribute: 'role_assignments.<key> = { role_definition_id_or_name, principal_id, principal_type }'
-      note: scoped to the secret's versionless id
-    terraform: { attribute: azurerm_role_assignment, note: scope = the secret's resource_versionless_id }
-    bicep_avm: { attribute: 'roleAssignments[] = { roleDefinitionIdOrName, principalId, principalType }', note: scoped to the secret }
-    bicep: { attribute: Microsoft.Authorization/roleAssignments, note: scope = the secret }
-
   # ----------------------------------------------------------------- security
   security.value_source:
     terraform_avm:

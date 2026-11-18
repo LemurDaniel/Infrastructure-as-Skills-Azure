@@ -13,7 +13,7 @@ boundaries:
   - "Does not create the resource group. Expects one from the spec's context."
   - "Does not create private DNS zones - shared infrastructure, owned by a pattern or the platform (`privatelink.servicebus.windows.net`, shared with Service Bus)."
   - "Does not create the Log Analytics workspace it routes diagnostics to, nor the storage account that receives Capture."
-  - "Does not grant the producers and consumers their roles - that is wiring between resources, owned by a pattern. It records the namespace's own role assignments in `role_assignments`."
+  - "Does not decide the roles on this resource. A role is a `wiring.role_assignments` entry of the spec with this resource as `to`; which roles the service has is in `notes.md`, *Roles*."
   - "Does not render SAS authorization rules or connection strings. With `local_auth: disabled` there are none."
   - "Does not create Event Hubs Dedicated clusters or schema registry groups. A dedicated cluster is a separate resource with its own cost model; a request for one is said out loud."
 
@@ -570,29 +570,6 @@ groups:
           tier and no event hubs when paired. It is an `open:` entry owned by the workload
           owner when nobody named one.
 
-  - id: identity
-    title: Identity and access
-    questions:
-      - id: role_assignments
-        ask:
-          en: "Who needs which role on this namespace?"
-          de: "Wer braucht welche Rolle auf diesem Namespace?"
-        type: list
-        plain:
-          en: "Access rights on the namespace granted to: {value}."
-          de: "Zugriffsrechte vergeben an: {value}."
-        default: []
-        per_environment: true
-        why: >
-          Data-plane access is granted by role, never by key. The narrow roles are `Azure
-          Event Hubs Data Sender` and `Azure Event Hubs Data Receiver`; `Azure Event Hubs
-          Data Owner` is for the deploying principal and a person, never for a workload.
-          Scope to the narrowest resource the consumer needs, never the subscription. A
-          pattern normally fills this from the consumers it knows about and grants a
-          consumer's role in the pattern, not here. A producer needs only Sender, a consumer
-          only Receiver; a consumer that checkpoints into a storage account also needs its
-          blob role there, which is the pattern's wiring.
-
   - id: observability
     title: Observability
     questions:
@@ -655,4 +632,3 @@ groups:
         why: >
           Incoming and outgoing events and bytes, throttled and server-busy requests, and
           the capture backlog - throttling is how an under-sized namespace shows up.
-

@@ -139,17 +139,6 @@ decisions:
       attribute: identity.userAssignedIdentities
       format: { expr: 'toObject({value}, id => id, id => {})' }
       note: "an object keyed by identity id, each value empty (source: bicep build, Microsoft.Communication/communicationServices@2025-09-01)"
-  identity.role_assignments:
-    terraform:
-      module: Azure/avm-res-communication-emailservice/azurerm
-      attribute: 'role_assignments.<key> = { role_definition_id_or_name, principal_id, principal_type }'
-      note: on the e-mail module; the communication resource takes an azurerm_role_assignment (scope = the communication resource)
-    bicep_avm:
-      attribute: roleAssignments
-      note: on both modules; 'Communication and Email Service Owner' by name
-    bicep:
-      attribute: 'Microsoft.Authorization/roleAssignments properties = { principalId, roleDefinitionId, principalType }'
-      note: "one per entry, scoped to the communication service; roleDefinitionId takes the definition id, the render resolves the role name (source: bicep build, Microsoft.Authorization/roleAssignments@2022-04-01)"
 
   # ----------------------------------------------------------------- security
   security.local_auth:

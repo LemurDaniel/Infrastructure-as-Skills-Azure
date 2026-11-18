@@ -186,13 +186,6 @@ decisions:
     bicep_avm: { attribute: 'inboundIpRules[].ipMask', note: "action: 'Allow'; used only with public access Enabled" }
     bicep: { attribute: 'properties.inboundIpRules[].ipMask', note: "action: 'Allow'" }
 
-  # ----------------------------------------------------------------- identity
-  identity.role_assignments:
-    terraform_avm: { attribute: 'role_assignments.<k> = { role_definition_id_or_name, principal_id, principal_type }' }
-    terraform: { attribute: azurerm_role_assignment, note: scope = the topic's id }
-    bicep_avm: { attribute: 'roleAssignments[] = { principalId, roleDefinitionIdOrName, principalType }' }
-    bicep: { attribute: Microsoft.Authorization/roleAssignments, note: scope = the topic }
-
   # ------------------------------------------------------------ observability
   observability.diagnostic_workspace:
     terraform_avm: { attribute: 'diagnostic_settings.<key>.workspace_resource_id', note: read the member names for the pinned version }

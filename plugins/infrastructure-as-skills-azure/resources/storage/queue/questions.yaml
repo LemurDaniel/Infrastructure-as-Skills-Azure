@@ -14,6 +14,7 @@ boundaries:
   - "Is not Service Bus. A storage queue has no ordering guarantee, no dead-letter queue, no duplicate detection and no topics; a request that needs any of them is `service-bus`. The interview asks which is meant."
   - "Does not render access policies, SAS or messages. The content is the application's."
   - "Does not decide message handling: visibility timeout, poison-message handling and retries are the consumer's code, not the queue's."
+  - "Does not decide the roles on this resource. A role is a `wiring.role_assignments` entry of the spec with this resource as `to`; which roles the service has is in `notes.md`, *Roles*."
 
 groups:
 
@@ -107,28 +108,3 @@ groups:
           Key-value metadata on a queue, one `key=value` entry per label, lowercase keys
           (`team=billing`). A list, because the format has no map type; the render builds the
           map the queue takes. Usually empty; used by tools that discover queues by label.
-
-  - id: identity
-    title: Identity and access
-    questions:
-      - id: role_assignments
-        ask:
-          en: "Who needs which role on this queue?"
-          de: "Wer braucht welche Rolle auf dieser Queue?"
-        type: list
-        plain:
-          en: "Access rights on the queue granted to: {value}."
-          de: "Zugriffsrechte vergeben an: {value}."
-        default: []
-        per_environment: true
-        why: >
-          Data-plane access is granted by role, never by key. The narrow roles are `Storage
-          Queue Data Message Sender` to add messages, `Storage Queue Data Message Processor`
-          to read and delete them, `Storage Queue Data Reader` to peek and `Storage Queue
-          Data Contributor` to manage; a producer needs only Sender, a worker only
-          Processor. Scope to the narrowest resource the consumer needs, never the
-          subscription. A pattern normally fills this from the consumers it knows about and
-          grants a consumer's role in the pattern, not here. A role on the *container*,
-          share or queue is scoped narrower than one on the account; the account-level roles
-          belong to the storage set.
-

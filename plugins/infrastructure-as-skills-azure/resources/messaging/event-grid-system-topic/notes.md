@@ -20,6 +20,16 @@ storage account and container, the topic, then the role assignments of the topic
 is validated against its target when created, so the role and the target must exist first),
 then the handlers. The workspace before the diagnostic setting.
 
+## Roles
+
+A role on the topic is a `wiring.role_assignments` entry with it as `to`. A system topic has
+no data plane of its own - nobody publishes to it - so the only roles are control-plane
+ones: `EventGrid EventSubscription Contributor` for a team that manages its own
+subscriptions on a shared topic, `EventGrid Contributor` for the deploying principal.
+
+The roles the topic's identity needs on its delivery targets are entries with the topic as
+`from` and the target as `to`.
+
 ## Pitfalls
 
 **A system topic is not a custom topic.** Nobody publishes to it; the source does. There is no

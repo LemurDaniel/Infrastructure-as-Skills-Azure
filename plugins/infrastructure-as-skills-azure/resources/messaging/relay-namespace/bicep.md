@@ -95,9 +95,9 @@ output id string = relayNamespace.outputs.resourceId
 
 The `hybridConnections` array is built from the spec's entries. Under `enabled_with_firewall`
 the rule set takes `publicNetworkAccess: 'Enabled'` and the allowlist in `ipRules`. A listener's
-and a sender's roles (`Azure Relay Listener`, `Azure Relay Sender`) are granted on the
-connection by the pattern that owns both sides - `hybridConnections[].roleAssignments` is the
-place when the principal is known at render time. A WCF relay entry takes its `Listen` rule in
+and a sender's roles (`Azure Relay Listener`, `Azure Relay Sender`) are `wiring.role_assignments`
+entries on the namespace; `hybridConnections[].roleAssignments` is the module's place for a role
+on one connection. A WCF relay entry takes its `Listen` rule in
 `wcfRelays[].authorizationRules`, the one SAS case, recorded as a departure.
 
 ### Tests

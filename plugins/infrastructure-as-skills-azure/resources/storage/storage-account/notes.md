@@ -26,16 +26,19 @@ For a **new** account it is free — there are no consumers yet, which is exactl
 switch belongs in the initial generation and not in a hardening pass later. For an
 **existing** account, say what has to move to managed identity first.
 
-## A locked-down account nobody can read is the default outcome
+## Roles
 
-With shared keys off, access needs a role assignment, and `role_assignments` defaults to
-empty. An account generated with no assignment is working as specified and useless.
+A role on the account is a `wiring.role_assignments` entry with it as `to`. With shared keys
+off, nothing can read the account until one exists, so an account without a role for its
+caller is working as specified and useless. A consumer nobody has named is an `open:` entry
+(key `wiring.role_assignments`) owned by the workload owner, blocking apply.
 
-Flag it: either name the consumer and assign the role, or state explicitly that assignments
-come later. And use the **data-plane** roles — `Storage Blob Data Reader`,
-`Storage Blob Data Contributor`. `Contributor` is control-plane and grants no data access
-whatsoever, which is worth catching in review: an application given `Contributor` on a
-storage account still cannot read a blob.
+Give each consumer the container it needs where that is enough - a `blob-container` resource
+as `to` - rather than the account, and never the subscription.
+
+Use the **data-plane** roles — `Storage Blob Data Reader`, `Storage Blob Data Contributor`.
+`Contributor` is control-plane and grants no data access whatsoever, which is worth catching
+in review: an application given `Contributor` on a storage account still cannot read a blob.
 
 ## Dependency order
 

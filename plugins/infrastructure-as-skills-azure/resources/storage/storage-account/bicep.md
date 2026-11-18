@@ -110,7 +110,7 @@ module storageAccount 'br/public:avm/res/storage/storage-account:0.33.1' = {
       }
     ]
 
-    // Data-plane roles, by name. Empty until the consumer is named (spec: open).
+    // decision: wiring.role_assignments - the entries with this account as `to`
     roleAssignments: [
       for ra in roleAssignments: {
         principalId: ra.principalId
@@ -339,6 +339,10 @@ nothing, which presents as a connection timeout rather than a DNS error — so u
 `policy`, confirm the policy is actually assigned to the landing zone.
 
 ## Role assignments
+
+The entries of `wiring.role_assignments` with this account as `to`; where they render and
+where the principal id comes from is in [role-assignments.md](../../../core/iac-rendering/references/role-assignments.md).
+What follows is the authored form on this account.
 
 With a `br/modules` alias in `bicepconfig.json`, the registry's `utility/role` module
 carries the built-in role definition ids (check its `var.builtIn.bicep` for the names).

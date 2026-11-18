@@ -19,6 +19,16 @@ another subscription. The workspace before the diagnostic setting. A backup inst
 before the role is effective fails in `ConfiguringProtection`; the module's wait covers the
 service delay, not a missing role.
 
+## Roles
+
+A role on the vault is a `wiring.role_assignments` entry with it as `to`. Access is granted
+by role, never by key. The narrow roles are `Backup Reader` to see jobs and items, `Backup
+Operator` to run and restore, and `Backup Contributor` to manage policies; `Owner` and
+`Contributor` can also delete the vault and are not for a workload. Never the subscription.
+
+The vault's own identity needs a role on each protected resource: an entry with the vault as
+`from` and the protected resource as `to`.
+
 ## Pitfalls
 
 **A separate vault is not a separate authority.** `isolated` means the copies live outside the

@@ -21,6 +21,25 @@ then the account, then databases and containers, then the data-plane role assign
 need the account and the database or container as scope), then the consumers. The workspace
 before the diagnostic setting.
 
+## Roles
+
+**Cosmos DB's data access is its own role system**, separate from Azure RBAC: `Cosmos DB
+Built-in Data Reader` and `Cosmos DB Built-in Data Contributor` are assigned on the account
+with `sqlRoleAssignments`, and an Azure `Contributor` or `Owner` role does not read a single
+item. Both kinds are `wiring.role_assignments` entries with the account as `to`; the role's
+name says which model it belongs to (`data_plane` in built-in-roles.yaml), and the render
+writes it accordingly.
+
+With local authentication off, nothing reads the data until a data role is assigned, so an
+account without one for its caller works and is of no use to anyone. A consumer nobody has
+named is an `open:` entry (key `wiring.role_assignments`) owned by the workload owner,
+blocking apply. The scope of an entry is the account - a database or a container is a part
+of it, no resource of the spec.
+
+An Azure RBAC role on the account is the control plane - creating databases, changing
+throughput, reading keys if they were enabled - kept apart from the data roles on purpose.
+Usually the deploying principal holds these alone, and the spec then has no entry for it.
+
 ## Pitfalls
 
 **Two permission systems.** Azure RBAC governs the control plane; the data plane has its own

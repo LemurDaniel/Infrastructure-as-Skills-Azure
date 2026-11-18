@@ -16,6 +16,7 @@ boundaries:
   - "Does not create the Resource Guard. A guard lives in a different subscription (and ideally tenant) owned by a security team so the vault's administrators cannot approve their own deletes; the set takes its id, an `open:` entry when nobody supplied one."
   - "Does not protect virtual machines, Azure Files shares or SQL in a VM - those use the Recovery Services vault (`recovery-services-vault`). The Backup vault protects blobs, data lake storage, managed disks, PostgreSQL flexible server and AKS."
   - "Has no network surface to close: backup data moves over the Azure backbone and the vault takes no private endpoint in this set."
+  - "Does not decide the roles on this resource. A role is a `wiring.role_assignments` entry of the spec with this resource as `to`; which roles the service has is in `notes.md`, *Roles*."
 
 groups:
 
@@ -370,29 +371,6 @@ groups:
           must exist first - a customer-managed key forces it, because the key role is granted
           to that identity before the key is set. Without its id the vault has nothing to take.
 
-  - id: identity
-    title: Identity and access
-    questions:
-      - id: role_assignments
-        ask:
-          en: "Who needs which role on this vault?"
-          de: "Wer braucht welche Rolle auf diesem Vault?"
-        type: list
-        plain:
-          en: "Access rights on the vault granted to: {value}."
-          de: "Zugriffsrechte vergeben an: {value}."
-        default: []
-        per_environment: true
-        why: >
-          Data-plane access is granted by role, never by key. The narrow roles are `Backup
-          Reader` to see jobs and items, `Backup Operator` to run and restore, and `Backup
-          Contributor` to manage policies; `Owner` and `Contributor` can also delete the
-          vault and are not for a workload. Scope to the narrowest resource the consumer
-          needs, never the subscription. A pattern normally fills this from the consumers it
-          knows about and grants a consumer's role in the pattern, not here. The vault's own
-          identity needs a role on each protected resource - that is wiring, owned by the
-          pattern, not listed here.
-
   - id: observability
     title: Observability
     questions:
@@ -451,4 +429,3 @@ groups:
           Backup health and restore health - the failed-backup count is the number to alert
           on, because a vault that quietly stopped backing up looks the same as a healthy
           one.
-

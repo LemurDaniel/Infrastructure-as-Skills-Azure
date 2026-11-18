@@ -21,6 +21,7 @@ boundaries:
   - "Does not create the Application Insights component the bot application reports to, nor the API key the bot resource's developer-insights fields take - the application carries its own connection string."
   - "Does not create the Log Analytics workspace it routes diagnostics to."
   - "Does not render the bot's language understanding, Foundry agent or knowledge sources - application content; a Foundry account is the foundry set's."
+  - "Does not decide the roles on this resource. A role is a `wiring.role_assignments` entry of the spec with this resource as `to`; which roles the service has is in `notes.md`, *Roles*."
 
 groups:
 
@@ -313,26 +314,6 @@ groups:
           Direct Line tokens the client exchanges its secret for. One without the other is a
           bot that connects but cannot authenticate its users, or the reverse. Each is its own
           endpoint resource and zone.
-
-  # ----------------------------------------------------------------- identity
-  - id: identity
-    title: Identity and access
-    questions:
-      - id: role_assignments
-        ask:
-          en: "Who needs which role on this bot?"
-          de: "Wer braucht welche Rolle auf diesem Bot?"
-        type: list
-        plain:
-          en: "Access rights on the bot granted to: {value}."
-          de: "Zugriffsrechte auf den Bot vergeben an: {value}."
-        default: []
-        per_environment: true
-        why: >
-          The bot has no data plane to grant; roles here are for whoever edits the channels
-          (`Contributor` on the resource, scoped to it, for the application team's pipeline)
-          and reads the configuration (`Reader`). The application's identity needs no role
-          on the bot - it authenticates as the app identity, not through RBAC.
 
   # ----------------------------------------------------------------- security
   - id: security

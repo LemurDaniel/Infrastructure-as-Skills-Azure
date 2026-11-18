@@ -21,6 +21,7 @@ boundaries:
   - "Does not create snapshots, restore points, images or galleries - copies of a disk are content of the workload and its recovery plan, not configuration of the disk."
   - "Does not offer Ultra or Premium SSD v2 disks, shared disks (`max_shares`), on-demand bursting, performance tiers or provisioned IOPS and throughput. They carry decisions tied to one workload and a zone; a request for one is said out loud."
   - "Does not create a resource lock: the deployment's `resource_lock` names the kinds that carry one, and the disk is not among them."
+  - "Does not decide the roles on this resource. A role is a `wiring.role_assignments` entry of the spec with this resource as `to`; which roles the service has is in `notes.md`, *Roles*."
 
 groups:
 
@@ -247,28 +248,6 @@ groups:
           endpoint's sub-resource is `disks` and its zone `privatelink.blob.core.windows.net`,
           the same as the storage account's blob endpoint - the platform zone must hold the
           record.
-
-  # ----------------------------------------------------------------- identity
-  - id: identity
-    title: Identity and access
-    questions:
-      - id: role_assignments
-        ask:
-          en: "Who needs which role on this disk?"
-          de: "Wer braucht welche Rolle auf dieser Disk?"
-        type: list
-        plain:
-          en: "Access rights on the disk granted to: {value} (empty: none)."
-          de: "Zugriffsrechte auf die Platte vergeben an: {value} (leer: keine)."
-        default: []
-        per_environment: true
-        why: >
-          The roles over the disk itself - `Disk Snapshot Contributor` for the identity that
-          takes snapshots, `Disk Backup Reader` for the backup vault's identity, `Disk Pool
-          Operator` for the storage pool that uses it - never `Contributor`, and never on the
-          resource group for the sake of one disk. The machine that carries the disk needs no
-          role on it. An empty list is a working disk; a snapshot or backup identity that was
-          named and not granted is an `open:` entry owned by the workload owner.
 
   # ----------------------------------------------------------------- security
   - id: security

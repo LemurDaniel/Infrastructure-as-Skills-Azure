@@ -25,6 +25,18 @@ Routing to a topic created in the same run is a **two-pass deployment**: the top
 and the identity's role on it be effective before `routeTopicResourceId` is accepted. The
 pattern orders it and the render waits (`time_sleep` in Terraform, a second stage in Bicep).
 
+## Roles
+
+A role on the namespace is a `wiring.role_assignments` entry with it as `to`. Data-plane
+access is granted by role, never by key: a publisher holds `EventGrid Data Sender`, a pull
+receiver `EventGrid Data Receiver`; `EventGrid Data Contributor` and `EventGrid Contributor`
+are for the deploying principal. The scope of an entry is the namespace - a topic of it is a
+part, no resource of the spec - and never the subscription. MQTT clients are not Entra
+principals: their access is `permission_bindings`.
+
+The roles the namespace's identity needs on its delivery targets are entries with the
+namespace as `from` and the target as `to`.
+
 ## Pitfalls
 
 **Pull is the point.** A namespace topic with queue subscriptions gives a receiver behind a
@@ -53,7 +65,7 @@ decisions is dropped from the spec.
 
 **MQTT clients are not Entra principals.** They authenticate with X.509 certificates against
 a CA certificate or a thumbprint, and their permissions are bindings of client groups to topic
-spaces. `role_assignments` does nothing for them. A device fleet is registered against the
+spaces. A role on the namespace does nothing for them. A device fleet is registered against the
 namespace by its own provisioning process - the template holds the simulator and the gateway,
 not ten thousand devices.
 

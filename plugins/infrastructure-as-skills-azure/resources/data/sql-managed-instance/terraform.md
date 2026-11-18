@@ -124,7 +124,7 @@ module "sqlmi" {
     }
   }
 
-  # decision: sql-managed-instance.identity.role_assignments
+  # decision: wiring.role_assignments
   role_assignments = {}
 
   enable_telemetry = true

@@ -29,6 +29,14 @@ Plan the pipeline around the duration: the deploy job's timeout and the Terrafor
 (the module's default is 24 hours) must cover it, and a failed first attempt costs the same time
 again. A development stage that is torn down nightly is the wrong shape for this resource.
 
+## Roles
+
+A role on the instance is a `wiring.role_assignments` entry with it as `to`. It is Azure
+RBAC on the instance - the control plane: scaling, the maintenance window, the backup
+settings, reading the diagnostics. It is separate from the logins and database roles on
+purpose (`database_users` are rights inside the database, created by a statement). Usually
+the deploying principal holds these alone, and the spec then has no entry for the instance.
+
 ## Pitfalls
 
 **The subnet is the deployment.** Too small a prefix (`/27` is the minimum, `/26` for a

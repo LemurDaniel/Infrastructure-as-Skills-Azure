@@ -274,11 +274,6 @@ decisions:
       note: the group's object id; login its name, administratorType and tenantId beside it
   identity.database_users:
     not_rendered: a T-SQL step after the deployment (CREATE USER FROM EXTERNAL PROVIDER as the Entra administrator); no module input and no ARM resource
-  identity.role_assignments:
-    terraform_avm: { attribute: role_assignments, note: control plane }
-    terraform: { attribute: azurerm_role_assignment, note: "scope = the server id; control plane (source: azurerm 5.12 schema)" }
-    bicep_avm: { attribute: roleAssignments, note: control plane }
-    bicep: { attribute: Microsoft.Authorization/roleAssignments, note: "scope the server; control plane (source: bicep build, Microsoft.Authorization/roleAssignments@2022-04-01)" }
 
   # ----------------------------------------------------------------- security
   security.local_auth:

@@ -23,6 +23,7 @@ boundaries:
   - "Does not render a custom content-filter policy. `content_filter` names a built-in policy; defining one is a decision with its own question set."
   - "Does not cover other Cognitive Services kinds (Speech, Vision, Language, Document Intelligence). They decide differently and have no question set."
   - "Does not create an Azure Machine Learning hub or workspace; the account-based Foundry resource needs none."
+  - "Does not decide the roles on this resource. A role is a `wiring.role_assignments` entry of the spec with this resource as `to`; which roles the service has is in `notes.md`, *Roles*."
 
 groups:
 
@@ -435,26 +436,6 @@ groups:
         depends_on: { question: managed_identity, equals: user_assigned }
         per_environment: true
         why: The identity must already exist; this set does not create it.
-
-      - id: role_assignments
-        ask:
-          en: "Who needs which role on this account?"
-          de: "Wer braucht welche Rolle auf diesem Konto?"
-        type: list
-        plain:
-          en: "Access rights on the account granted to: {value}."
-          de: "Zugriffsrechte auf das Konto vergeben an: {value}."
-        default: []
-        per_environment: true
-        why: >
-          With keys off, nothing calls a model until a role is assigned, so an empty list is a
-          working account nobody can use, and not an answer: with no consumer named it is an
-          `open:` entry owned by the workload owner, blocking apply. The roles are the narrow
-          ones - `Cognitive Services OpenAI User` for an application that only calls models,
-          `Azure AI User` for one that also uses projects and agents - and `Cognitive
-          Services Contributor` or an owner role is a departure that names a person. A role
-          that can *list keys* has no business in a keyless account. A pattern fills this
-          from the consumers it knows about.
 
   # ----------------------------------------------------------------- security
   - id: security

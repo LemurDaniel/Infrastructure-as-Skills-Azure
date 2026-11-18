@@ -278,19 +278,6 @@ decisions:
       attribute: 'secrets[] = { name, keyVaultUrl, identity }'
       note: never value
     bicep: { attribute: 'properties.configuration.secrets[] = { name, keyVaultUrl, identity }' }
-  identity.role_assignments:
-    terraform_avm:
-      module: Azure/avm-res-app-containerapp/azurerm
-      attribute: 'role_assignments.<key> = { role_definition_id_or_name, principal_id }'
-    terraform:
-      attribute: 'azurerm_role_assignment = { scope, role_definition_name, principal_id }'
-      note: 'one per entry, scope = the app''s id (source: azurerm 5.12 schema)'
-    bicep_avm:
-      module: avm/res/app/container-app
-      attribute: 'roleAssignments[] = { principalId, roleDefinitionIdOrName, principalType }'
-    bicep:
-      attribute: 'Microsoft.Authorization/roleAssignments properties = { principalId, roleDefinitionId, principalType }'
-      note: 'one per entry, scope the app; roleDefinitionId is the role''s id, not its name (source: bicep build, Microsoft.Authorization/roleAssignments@2022-04-01)'
 
   # ------------------------------------------------------------ observability
   observability.diagnostic_workspace:

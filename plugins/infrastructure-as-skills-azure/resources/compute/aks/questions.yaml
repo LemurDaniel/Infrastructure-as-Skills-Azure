@@ -23,6 +23,7 @@ boundaries:
   - "Does not render what runs in the cluster: namespaces, Helm charts, GitOps (Flux), ingress controllers, service meshes, Gateway API, admission policies or the workloads. Kubernetes objects are application content, not Azure configuration."
   - "Does not render managed Prometheus and Grafana, alert rules, AKS backup, maintenance windows, the cluster autoscaler profile, KMS etcd encryption, API-server VNet integration, a proxy, Windows pools, GPU pools, spot pools or AKS Automatic. Each carries decisions of its own and has no question set yet."
   - "Does not render more than one system and one user node pool."
+  - "Does not decide the roles on this resource. A role is a `wiring.role_assignments` entry of the spec with this resource as `to`; which roles the service has is in `notes.md`, *Roles*."
 
 groups:
 
@@ -702,8 +703,8 @@ groups:
           Azure RBAC for Kubernetes authorisation means `Azure Kubernetes Service RBAC Reader`,
           `Writer` and `Admin` roles at cluster or namespace scope, audited and removed with the
           rest of the access reviews; Kubernetes `RoleBinding`s are a second system nobody
-          reviews. The roles themselves are `role_assignments` below. Kubernetes RBAC stays
-          enabled either way.
+          reviews. The roles themselves are `wiring.role_assignments` entries on the
+          cluster. Kubernetes RBAC stays enabled either way.
 
       - id: admin_group_object_ids
         ask:
@@ -800,23 +801,6 @@ groups:
           input); a pull before the role has propagated ends in `ImagePullBackOff` that looks like
           a bad image. An empty list is a cluster that can run only public images: with no
           registry named it is an `open:` entry owned by the workload owner.
-
-      - id: role_assignments
-        ask:
-          en: "Who may manage the cluster, and who may use it?"
-          de: "Wer darf den Cluster verwalten und wer darf ihn nutzen?"
-        type: list
-        plain:
-          en: "Access rights on the cluster granted to: {value}."
-          de: "Zugriffsrechte auf den Cluster vergeben an: {value}."
-        default: []
-        per_environment: true
-        why: >
-          Azure RBAC on the cluster: `Azure Kubernetes Service Cluster User Role` so a person can
-          fetch a kubeconfig at all, and with `azure_rbac_enabled` the `Azure Kubernetes Service
-          RBAC Reader` / `Writer` / `Admin` roles, at cluster scope or narrower (a namespace is
-          `<cluster id>/namespaces/<name>`). Scope as tightly as the consumer allows; an empty
-          list is a cluster only the admin group can use.
 
   # ----------------------------------------------------------------- security
   - id: security

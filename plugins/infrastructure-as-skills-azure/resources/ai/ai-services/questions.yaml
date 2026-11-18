@@ -24,6 +24,7 @@ boundaries:
   - "Does not render the trained content: custom speech and custom vision models, Document Intelligence custom models, Language projects, Translator glossaries - application content that lives in the service or in a storage account the application owns."
   - "Does not create the storage account a kind needs for its training data or batch results, nor grant the account's identity its role on it - wiring between resources, owned by a pattern."
   - "Does not create a commitment tier (reserved capacity) - a purchase with its own lifecycle."
+  - "Does not decide the roles on this resource. A role is a `wiring.role_assignments` entry of the spec with this resource as `to`; which roles the service has is in `notes.md`, *Roles*."
 
 groups:
 
@@ -289,26 +290,6 @@ groups:
         depends_on: { question: managed_identity, equals: user_assigned }
         per_environment: true
         why: The identity must already exist; this set does not create it.
-
-      - id: role_assignments
-        ask:
-          en: "Who needs which role on this account?"
-          de: "Wer braucht welche Rolle auf diesem Konto?"
-        type: list
-        plain:
-          en: "Access rights on the account granted to: {value}."
-          de: "Zugriffsrechte auf das Konto vergeben an: {value}."
-        default: []
-        per_environment: true
-        why: >
-          With keys off, nothing calls the service until a role is assigned, so an empty list
-          is a working account nobody can use, and not an answer: with no consumer named it
-          is an `open:` entry owned by the workload owner, blocking apply. The narrow roles
-          are per kind - `Cognitive Services Speech User`, `Cognitive Services Language
-          Reader`, `Cognitive Services Custom Vision Trainer`, `Cognitive Services Face
-          Recognizer` - and `Cognitive Services User` where a kind has none of its own; a
-          role that can *list keys* has no business in a keyless account. A pattern fills
-          this from the consumers it knows about.
 
   # ----------------------------------------------------------------- security
   - id: security

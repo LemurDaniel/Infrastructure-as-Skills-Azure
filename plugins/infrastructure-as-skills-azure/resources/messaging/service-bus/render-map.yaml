@@ -268,17 +268,6 @@ decisions:
     bicep_avm: { attribute: disasterRecoveryConfig.partnerNamespace }
     bicep: { attribute: disasterRecoveryConfigs child properties.partnerNamespace }
 
-  # ----------------------------------------------------------------- identity
-  identity.role_assignments:
-    terraform_avm:
-      attribute: 'role_assignments.<k> = { role_definition_id_or_name, principal_id, principal_type }'
-      note: also per queue and topic
-    terraform: { attribute: azurerm_role_assignment, note: scope = the namespace's id }
-    bicep_avm:
-      attribute: 'roleAssignments[] = { principalId, roleDefinitionIdOrName, principalType }'
-      note: also per queue and topic
-    bicep: { attribute: Microsoft.Authorization/roleAssignments, note: scope = the namespace }
-
   # ------------------------------------------------------------ observability
   observability.diagnostic_workspace:
     terraform_avm: { attribute: 'diagnostic_settings.<key>.workspace_resource_id' }

@@ -20,6 +20,7 @@ boundaries:
   - "Does not create an Azure Firewall for FQDN outbound rules - the managed network provisions one on the first FQDN rule, which is a cost named in `outbound_fqdns`."
   - "Does not create a Foundry hub or project (kinds `Hub`, `Project`) - the account-based foundry set replaces them. A registry (`Microsoft.MachineLearningServices/registries`) has no question set."
   - "Does not create the Log Analytics workspace it routes diagnostics to."
+  - "Does not decide the roles on this resource. A role is a `wiring.role_assignments` entry of the spec with this resource as `to`; which roles the service has is in `notes.md`, *Roles*."
 
 groups:
 
@@ -420,24 +421,6 @@ groups:
           The identity that holds the roles listed above before the workspace is created. The
           first entry is the primary identity the workspace acts as.
 
-      - id: role_assignments
-        ask:
-          en: "Who needs which role on this workspace?"
-          de: "Wer braucht welche Rolle auf diesem Workspace?"
-        type: list
-        plain:
-          en: "Access rights on the workspace granted to: {value}."
-          de: "Zugriffsrechte auf den Arbeitsbereich vergeben an: {value}."
-        default: []
-        per_environment: true
-        why: >
-          `AzureML Data Scientist` for the people who run jobs and register models, `AzureML
-          Compute Operator` for whoever creates and resizes compute, and the reader role for
-          an auditor; `Contributor` on the group gives compute creation and the bill with it,
-          and is a departure that names a person. A pattern fills this from the team it knows
-          about. The workspace identity's own roles on its dependencies are wiring, not listed
-          here.
-
   # ----------------------------------------------------------------- security
   - id: security
     title: Security
@@ -460,8 +443,8 @@ groups:
           which forces shared-key access on the storage account and puts the key in the
           workspace's vault. `identity` uses the workspace identity (and the user's for the
           studio), which is what lets the storage set keep `local_auth: disabled`.
-          Users then need `Storage Blob Data Contributor` themselves, which `role_assignments`
-          on the storage account carries - a pattern's wiring. The Terraform module defaults
+          Users then need `Storage Blob Data Contributor` themselves - `wiring.role_assignments`
+          entries with the storage account as `to`. The Terraform module defaults
           to `identity`, the Bicep module leaves it unset (key) - written.
 
       - id: key_management

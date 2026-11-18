@@ -18,6 +18,14 @@ account, the integration subnet and its delegation, the plan, then the app, then
 setting and the roles *of* the app. The app reads its storage as it starts: a role granted at
 the same apply is usually not yet effective, and the first start fails.
 
+## Roles
+
+A role on the function app is a `wiring.role_assignments` entry with it as `to`. It is Azure
+RBAC on the app - the control plane. Usually the deploying principal holds these alone, and
+the spec then has no entry for the app. The roles the app's identity holds on what it calls
+(its host storage, a queue, a vault) are entries with the app (or its user-assigned
+identity) as `from`.
+
 ## Pitfalls
 
 **The host storage account is a dependency with its own network.** If the account's firewall is

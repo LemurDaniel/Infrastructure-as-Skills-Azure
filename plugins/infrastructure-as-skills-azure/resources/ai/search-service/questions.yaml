@@ -16,7 +16,7 @@ boundaries:
   - "Does not create the Log Analytics workspace it routes diagnostics to."
   - "Does not create indexes, indexers, data sources, skillsets or synonym maps - they are data-plane content of the application, not ARM resources."
   - "Does not create shared private link resources to the data sources an indexer reads (storage, Cosmos DB, SQL) - that is wiring between resources, owned by a pattern."
-  - "Does not grant the roles on the services an indexer reads from. `role_assignments` is for who may use this service."
+  - "Does not decide the roles on this resource. A role is a `wiring.role_assignments` entry of the spec with this resource as `to`; which roles the service has is in `notes.md`, *Roles*."
   - "Does not create a customer-managed key; it records whether the service enforces one."
 
 groups:
@@ -275,25 +275,6 @@ groups:
         depends_on: { question: managed_identity, equals: user_assigned }
         per_environment: true
         why: The identity must already exist; this set does not create it.
-
-      - id: role_assignments
-        ask:
-          en: "Who needs which role on this service?"
-          de: "Wer braucht welche Rolle auf diesem Dienst?"
-        type: list
-        plain:
-          en: "Access rights on the search service granted to: {value}."
-          de: "Zugriffsrechte auf den Suchdienst vergeben an: {value}."
-        default: []
-        per_environment: true
-        why: >
-          With keys off, nothing reads or writes an index until a role is assigned, so an
-          empty list is a working service nobody can use, and not an answer: with no
-          consumer named it is an `open:` entry owned by the workload owner, blocking apply.
-          The roles are the narrow ones - `Search Index Data Reader` for a query client,
-          `Search Index Data Contributor` for whatever loads documents, `Search Service
-          Contributor` for whatever manages indexes and indexers. A pattern fills this from
-          the consumers it knows about.
 
   # ----------------------------------------------------------------- security
   - id: security

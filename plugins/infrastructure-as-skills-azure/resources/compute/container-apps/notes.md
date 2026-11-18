@@ -20,6 +20,13 @@ resolves its secrets *during creation*, so every role must already be effective:
 at the same apply is usually not yet. The workspace before the environment's diagnostic setting.
 An internal environment's private DNS zone before anything calls the app.
 
+## Roles
+
+A role on the app is a `wiring.role_assignments` entry with it as `to`. It is Azure RBAC on
+the app - the control plane. Usually the deploying principal holds these alone, and the spec
+then has no entry for the app. The roles the app's identity holds on what it calls are
+entries with the app (or its user-assigned identity) as `from`.
+
 ## Pitfalls
 
 **The first revision fails for want of a role.** An app created with a system-assigned identity

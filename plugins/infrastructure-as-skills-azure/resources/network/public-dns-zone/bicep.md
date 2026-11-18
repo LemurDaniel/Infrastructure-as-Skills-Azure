@@ -72,7 +72,7 @@ module publicDnsZone 'br/public:avm/res/network/dns-zone:0.6.2' = {
     // decision: public-dns-zone.security.dnssec
     enableDnsSec: true
 
-    // decision: public-dns-zone.access.role_assignments
+    // decision: wiring.role_assignments
     roleAssignments: []
     // deployment.resource_lock: production
     lock: { kind: 'CanNotDelete' }

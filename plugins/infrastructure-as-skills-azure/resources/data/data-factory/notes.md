@@ -23,6 +23,17 @@ connection where this deployment owns the source) - then the private endpoints (
 last the content through the factory's own CI/CD. A GitHub binding needs one interactive sign-in
 in the authoring portal after the deployment; Azure DevOps binds with the tenant alone.
 
+## Roles
+
+A role on the factory is a `wiring.role_assignments` entry with it as `to`. Azure RBAC on
+the factory: `Data Factory Contributor` for the authors of the development factory (the
+portal needs it to save), `Reader` plus the monitoring views for operators, and nothing for
+people on the other stages, which the pipeline deploys. A factory the deploying principal
+alone manages has no entry.
+
+A role holds in every stage, so authors who work on the development factory only get theirs
+outside the spec, from the platform team.
+
 ## Pitfalls
 
 **Infrastructure and content are two deployments.** This set renders the factory; the pipelines,

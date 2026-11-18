@@ -80,7 +80,7 @@ module trafficManager 'br/public:avm/res/network/trafficmanagerprofile:0.4.0' = 
       }
     ]
 
-    // decision: traffic-manager.access.role_assignments
+    // decision: wiring.role_assignments
     roleAssignments: []
 
     diagnosticSettings: [

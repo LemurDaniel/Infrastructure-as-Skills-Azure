@@ -89,7 +89,7 @@ module actionGroup 'br/public:avm/res/insights/action-group:0.8.0' = {
     // decision: action-group.notification.itsm_receivers
     itsmReceivers: []
 
-    // decision: action-group.identity.role_assignments
+    // decision: wiring.role_assignments
     roleAssignments: roleAssignments
     enableTelemetry: true
   }

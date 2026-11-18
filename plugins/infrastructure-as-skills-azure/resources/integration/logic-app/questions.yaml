@@ -24,6 +24,7 @@ boundaries:
   - "Does not create the VNet integration subnet (delegated to `Microsoft.Web/serverFarms`) or the private endpoint subnet - the platform's or the network set's."
   - "Does not create an integration account (B2B, EDI) or an App Service Environment - each has decisions of its own and no question set."
   - "Does not cover the Integration Service Environment: it is retired, and a request for one is answered with Standard hosting."
+  - "Does not decide the roles on this resource. A role is a `wiring.role_assignments` entry of the spec with this resource as `to`; which roles the service has is in `notes.md`, *Roles*."
 
 groups:
 
@@ -526,24 +527,6 @@ groups:
         why: >
           The identity that holds the roles on the host storage account and on the systems
           the connections reach. It is created before the app, by the identity set.
-
-      - id: role_assignments
-        ask:
-          en: "Who needs which role on this logic app?"
-          de: "Wer braucht welche Rolle auf dieser Logic App?"
-        type: list
-        plain:
-          en: "Access rights on the logic app granted to: {value}."
-          de: "Zugriffsrechte auf die Logic App vergeben an: {value}."
-        default: []
-        per_environment: true
-        why: >
-          Who may edit, run and read the workflows: `Logic App Standard Developer` and `Logic
-          App Standard Operator` on a Standard app, `Logic App Contributor` and `Logic App
-          Operator` on Consumption; a reader of run history needs the operator role, not
-          Contributor on the group. Scope to the app. A pattern fills it from the teams it
-          knows; the app's own roles on storage, Key Vault and the systems it calls are
-          wiring, not listed here.
 
   - id: security
     title: Security

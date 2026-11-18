@@ -23,18 +23,7 @@ decisions:
       note: "the vault's NAME, never the reference's id - the vault module's name output or the vault's name parameter; same resource group"
     bicep: { attribute: parent, note: an existing resource symbol for the vault - never the id string }
   placement.purpose:
-    not_rendered: drives the defaults of key_operations and the role in role_assignments; no attribute of its own
-
-  # ----------------------------------------------------------------- identity
-  identity.role_assignments:
-    terraform_avm:
-      attribute: 'role_assignments.<key> = { role_definition_id_or_name, principal_id, principal_type }'
-      note: scoped to the key's versionless id
-    terraform: { attribute: azurerm_role_assignment, note: scope = azurerm_key_vault_key.this.resource_versionless_id }
-    bicep_avm:
-      attribute: 'roleAssignments[] = { roleDefinitionIdOrName, principalId, principalType }'
-      note: scoped to the key; the module knows a fixed set of role names - read it from the README
-    bicep: { attribute: Microsoft.Authorization/roleAssignments, note: scope = the key }
+    not_rendered: drives the defaults of key_operations and the role its consumer takes (wiring.role_assignments); no attribute of its own
 
   # ----------------------------------------------------------------- security
   security.algorithm:

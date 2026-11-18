@@ -18,6 +18,7 @@ boundaries:
   - "Does not create the Key Vault or the key a customer-managed key points at, nor the identity that unwraps it - those are the security family's."
   - "Does not size or tune a container's indexing policy, and does not render stored procedures, triggers or user-defined functions - application code, not infrastructure."
   - "Does not create Synapse Link, the dedicated gateway or a vCore/MongoDB cluster (`Microsoft.DocumentDB/mongoClusters` is a different resource)."
+  - "Does not decide the roles on this resource. A role is a `wiring.role_assignments` entry of the spec with this resource as `to`; which roles the service has is in `notes.md`, *Roles*."
 
 groups:
 
@@ -397,43 +398,6 @@ groups:
         depends_on: { question: managed_identity, equals: user_assigned }
         per_environment: true
         why: The identity must already exist; this set does not create it.
-
-      - id: data_plane_role_assignments
-        ask:
-          en: "Who needs to read or write the data?"
-          de: "Wer muss die Daten lesen oder schreiben?"
-        type: list
-        plain:
-          en: "Access to the data itself granted to: {value}."
-          de: "Zugriff auf die Daten selbst vergeben an: {value}."
-        default: []
-        per_environment: true
-        why: >
-          **Cosmos DB's data access is its own role system**, separate from Azure RBAC: the
-          roles `Cosmos DB Built-in Data Reader` and `Built-in Data Contributor` are
-          assigned on the account with `sqlRoleAssignments`, and an Azure `Contributor` or
-          `Owner` role does not read a single item. With local authentication off, nothing
-          reads the data until one is assigned, so an empty list is a working account nobody
-          can use, and not an answer: with no consumer named, the decision is an `open:`
-          entry owned by the workload owner, blocking apply. Scope to the database or
-          container where the consumer allows it, never wider. A pattern fills this from the
-          consumers it knows.
-
-      - id: role_assignments
-        ask:
-          en: "Who may manage the account itself?"
-          de: "Wer darf das Konto selbst verwalten?"
-        type: list
-        plain:
-          en: "Management rights on the account granted to: {value}."
-          de: "Verwaltungsrechte am Konto vergeben an: {value}."
-        default: []
-        per_environment: true
-        why: >
-          Azure RBAC on the account - the control plane: creating databases, changing
-          throughput, reading keys if they were enabled. Separate from the data roles above
-          on purpose, and usually the deploying principal's alone, so empty is a normal
-          answer.
 
   # ----------------------------------------------------------------- security
   - id: security

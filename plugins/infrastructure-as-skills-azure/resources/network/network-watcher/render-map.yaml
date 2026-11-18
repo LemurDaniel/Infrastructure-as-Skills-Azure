@@ -145,15 +145,3 @@ decisions:
       module: avm/res/network/network-watcher
       note: under platform the connection-monitor child module instead
     bicep: { attribute: networkWatchers/connectionMonitors }
-
-  # ------------------------------------------------------------------- access
-  access.role_assignments:
-    terraform_avm:
-      attribute: 'role_assignments.<k> = { role_definition_id_or_name, principal_id, principal_type }'
-      note: on the watcher's id, also under platform
-    terraform: { attribute: azurerm_role_assignment, note: scope = the watcher's id }
-    bicep_avm:
-      attribute: roleAssignments
-      module: avm/res/network/network-watcher
-      note: the flow-log module has none - under platform an extension resource in NetworkWatcherRG
-    bicep: { attribute: Microsoft.Authorization/roleAssignments, note: extension resource with scope = the watcher }

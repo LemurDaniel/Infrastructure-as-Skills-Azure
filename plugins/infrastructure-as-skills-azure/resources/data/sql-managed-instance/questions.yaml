@@ -21,6 +21,7 @@ boundaries:
   - "Does not create logins, database users or grant database roles, and does not create the server audit: on a managed instance all of that is T-SQL, not Azure Resource Manager. They are recorded as decisions and executed by a step after the deployment."
   - "Does not create a failover group or a secondary instance. A second region is a second instance of this set plus the failover group; `critical` records it as an open entry."
   - "Does not render instance pools, the free offer, a restore or point-in-time create mode, Windows authentication for Entra principals, link to SQL Server, or the next-generation General Purpose variant."
+  - "Does not decide the roles on this resource. A role is a `wiring.role_assignments` entry of the spec with this resource as `to`; which roles the service has is in `notes.md`, *Roles*."
 
 groups:
 
@@ -555,22 +556,6 @@ groups:
           identity and a database role, least privilege first (`db_datareader`,
           `db_datawriter`, never `sysadmin`). A pattern fills this from the consumers it
           knows.
-
-      - id: role_assignments
-        ask:
-          en: "Who may manage the instance itself?"
-          de: "Wer darf die Instanz selbst verwalten?"
-        type: list
-        plain:
-          en: "Management rights on the instance granted to: {value}."
-          de: "Verwaltungsrechte an der Instanz vergeben an: {value}."
-        default: []
-        per_environment: true
-        why: >
-          Azure RBAC on the instance - the control plane: scaling, the maintenance window,
-          the backup settings, reading the diagnostics. Separate from the logins and
-          database roles on purpose, and usually the deploying principal's alone, so empty
-          is a normal answer.
 
   # ----------------------------------------------------------------- security
   - id: security

@@ -86,7 +86,7 @@ module automationAccount 'br/public:avm/res/automation/automation-account:0.19.3
       }
     ]
 
-    roleAssignments: [] // decision: automation-account.identity.role_assignments
+    roleAssignments: [] // decision: wiring.role_assignments
 
     enableTelemetry: false // deployment.module_telemetry: disabled
   }

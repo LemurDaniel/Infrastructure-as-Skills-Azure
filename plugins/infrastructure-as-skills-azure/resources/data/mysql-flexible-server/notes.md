@@ -19,6 +19,14 @@ for the identity; `active_directory_administrator_wait_seconds` lengthens the wa
 parameters, then the `database_users` step (SQL, as a member of the administrator group), then the consumers.
 The workspace before the diagnostic setting.
 
+## Roles
+
+A role on the server is a `wiring.role_assignments` entry with it as `to`. It is Azure RBAC
+on the server - the control plane: scaling, restarting, changing parameters. It is separate
+from the database accounts on purpose (`database_users` are rights inside the database,
+created by a statement). Usually the deploying principal holds these alone, and the spec
+then has no entry for the server.
+
 ## Pitfalls
 
 **An administrator account is demanded even for Entra-only.** MySQL requires `administrator_login` and a

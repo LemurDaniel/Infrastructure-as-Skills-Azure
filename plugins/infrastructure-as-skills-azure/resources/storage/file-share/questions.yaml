@@ -15,6 +15,7 @@ boundaries:
   - "Does not decide soft delete or backup of the share: share soft delete is a property of the account's file service and share backup is the Recovery Services vault's (`recovery-services-vault`)."
   - "Does not render the mount on a machine or a container app. Mounting is the consumer's wiring."
   - "Does not render stored access policies or SAS."
+  - "Does not decide the roles on this resource. A role is a `wiring.role_assignments` entry of the spec with this resource as `to`; which roles the service has is in `notes.md`, *Roles*."
 
 groups:
 
@@ -159,28 +160,3 @@ groups:
           compromised client cannot act as root on the share; `AllSquash` maps every user;
           `NoRootSquash` trusts the client. RootSquash is the answer unless an application
           needs to chown files as root, named at this share.
-
-  - id: identity
-    title: Identity and access
-    questions:
-      - id: role_assignments
-        ask:
-          en: "Who needs which role on this share?"
-          de: "Wer braucht welche Rolle auf dieser Freigabe?"
-        type: list
-        plain:
-          en: "Access rights on the share granted to: {value}."
-          de: "Zugriffsrechte vergeben an: {value}."
-        default: []
-        per_environment: true
-        why: >
-          Data-plane access is granted by role, never by key. The narrow roles are `Storage
-          File Data SMB Share Reader` to read, `Storage File Data SMB Share Contributor` to
-          read and write, `Storage File Data SMB Share Elevated Contributor` to also change
-          permissions. They apply to SMB with identity-based authentication; an NFS share
-          has no role-based access. Scope to the narrowest resource the consumer needs,
-          never the subscription. A pattern normally fills this from the consumers it knows
-          about and grants a consumer's role in the pattern, not here. A role on the
-          *container*, share or queue is scoped narrower than one on the account; the
-          account-level roles belong to the storage set.
-

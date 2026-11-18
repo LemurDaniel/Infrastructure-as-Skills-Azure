@@ -29,6 +29,17 @@ A role granted in the same apply as the cluster is usually not yet effective: th
 pull or load balancer creation fails on propagation, and the failure looks like a broken cluster.
 Grant first, then create.
 
+## Roles
+
+A role on the cluster is a `wiring.role_assignments` entry with it as `to`. Azure RBAC on
+the cluster: `Azure Kubernetes Service Cluster User Role` so a person can fetch a kubeconfig
+at all, and with `azure_rbac_enabled` the `Azure Kubernetes Service RBAC Reader` / `Writer`
+/ `Admin` roles. Scope as tightly as the consumer allows. A cluster without any entry is one
+only the admin group can use.
+
+The scope of an entry is the cluster. A namespace (`<cluster id>/namespaces/<name>`) is
+narrower and no resource of the spec, so an entry cannot name one.
+
 ## Pitfalls
 
 **Private means the pipeline sits inside the network.** `kubectl`, Helm and the GitOps agent

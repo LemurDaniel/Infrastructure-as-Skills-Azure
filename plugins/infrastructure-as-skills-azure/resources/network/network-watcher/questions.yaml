@@ -20,6 +20,7 @@ boundaries:
   - "Connection monitors are content, not infrastructure: the entries name what to test from where, and the render takes them as given. Packet captures, topology, next-hop and IP-flow-verify are on-demand tools of the watcher and are not rendered."
   - "Does not render a diagnostic setting: the watcher has no resource logs and no metrics; the flow log *is* its output."
   - "Does not carry a resource lock: a flow log is recreated from the spec and keeps nothing itself - the record is in the storage account and the workspace, which carry their own locks."
+  - "Does not decide the roles on this resource. A role is a `wiring.role_assignments` entry of the spec with this resource as `to`; which roles the service has is in `notes.md`, *Roles*."
 
 groups:
 
@@ -243,24 +244,3 @@ groups:
           synthetic test that needs an agent on the source and costs per test, and it is content
           an operations team edits - the render takes the list as given. The classic use is
           "can the app subnet still reach the on-premises database", tested every 30 seconds.
-
-  # ------------------------------------------------------------------- access
-  - id: access
-    title: Access
-    questions:
-      - id: role_assignments
-        ask:
-          en: "Who needs to run diagnostics with the watcher?"
-          de: "Wer muss mit dem Watcher Diagnosen ausführen?"
-        type: list
-        plain:
-          en: "Diagnostic rights on the watcher granted to: {value}."
-          de: "Diagnoserechte auf dem Watcher vergeben an: {value}."
-        default: []
-        per_environment: true
-        why: >
-          Packet capture, next hop, IP flow verify and the topology view are actions on the
-          watcher; an operations group that runs them without being Contributor on the
-          subscription holds `Network Contributor` on the watcher (there is no narrower built-in
-          role). Empty by default: under `platform` the watcher is Azure's and the platform's
-          RBAC applies; a pattern lists the operations identity when it knows one.

@@ -1,24 +1,25 @@
 # Role assignment - what the question set cannot express
 
-## Interface or standalone
+## Wiring or this set
 
-Every AVM resource module carries a `role_assignments` interface
-([avm.md](../../../core/iac-rendering/references/avm.md#the-shared-interfaces)); the other sets
-decide *their* list (`key-vault.identity.role_assignments`, `user-assigned-identity.identity.role_assignments`).
-The rule for which one a spec entry becomes:
+**A role between two resources of the spec is wiring; an assignment at a scope that is no
+resource of the spec is a resource of this set.** The first is a relationship the spec can
+name on both ends (`wiring.role_assignments`, `{ from, to, role }`), and how it renders is
+[role-assignments.md](../../../core/iac-rendering/references/role-assignments.md).
+The second has no `to` the wiring could name, so it is a resource with decisions of its own:
+the scope, the principal, the role, a condition.
 
-| The assignment is... | Rendered as |
+| The assignment is... | Recorded as |
 |---|---|
-| Granted **on** a resource this spec creates, to a principal that exists before it (a person group, the pipeline, an identity created earlier), and the resource's module has the interface | **The module's `role_assignments`**, in that resource's own set. It is the same call, one fewer resource address, and it is created and destroyed with the resource |
-| Between two modules - the consumer's identity on the vault, the app on the storage account (`wiring.role_assignments`) | **This set**, standalone, in the root. Neither module may know the other (`spec.md`, *wiring lives in the root*), and the principal usually exists only after one of them |
-| On a **sub-resource** the module has no interface for (one secret, one key, one container) | This set with `scope_kind: resource`; the key and secret sets carry their own interface for their own readers |
-| At **resource group, subscription or management group** scope | This set. A resource's interface cannot reach above itself |
-| On a resource the spec does not create (a referenced platform workspace, a hub) | This set, and the principal's right to write there is an `open:` entry owned by the platform team |
-| Needing a **condition** the module's interface does not take | This set |
+| Between two resources of the spec - the app on the vault, an identity on the storage account - or from a principal outside the spec (a group of people, a pipeline) onto a resource of the spec | A `wiring.role_assignments` entry. No resource of this set |
+| On a narrower resource of the spec - one secret, one key, one container that has a resource key of its own | A `wiring.role_assignments` entry with that resource as `to` |
+| At **resource group, subscription or management group** scope | A resource of this set. No resource of the spec is the scope |
+| On a resource the spec does not create (a referenced platform workspace, a hub) | A resource of this set, and the principal's right to write there is an `open:` entry owned by the platform team |
+| On a resource of the spec, with a **condition** | A resource of this set (`scope_kind: resource`): a wiring entry is `{ from, to, role }` and carries no condition |
 
-The two never render the same assignment. An assignment in a resource's own
-`role_assignments` is not repeated in `wiring.role_assignments`; the check that finds a
-duplicate is the plan - two writers of one assignment fail at apply with `RoleAssignmentExists`.
+The two never record the same assignment: a role in `wiring.role_assignments` is not repeated
+as a resource of this set. The check that finds a duplicate is the plan - two writers of one
+assignment fail at apply with `RoleAssignmentExists`.
 
 ## What the deploying identity needs
 

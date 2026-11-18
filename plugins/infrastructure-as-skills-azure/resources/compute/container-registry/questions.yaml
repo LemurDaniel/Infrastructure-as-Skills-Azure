@@ -15,7 +15,7 @@ boundaries:
   - "Does not create private DNS zones - shared infrastructure, owned by a pattern or the platform."
   - "Does not create the Log Analytics workspace it routes diagnostics to."
   - "Does not push, build or sign images. Tasks, webhooks, tokens, scope maps and cache rules are content and automation of the registry, not its configuration."
-  - "Does not grant the pulling identities their role. `role_assignments` records who may use this registry; a consumer's pull role (`AcrPull` for its identity) is wiring, owned by a pattern."
+  - "Does not decide the roles on this resource. A role is a `wiring.role_assignments` entry of the spec with this resource as `to`; which roles the service has is in `notes.md`, *Roles*."
   - "Does not create the Key Vault key for a customer-managed key, nor the identity that unwraps it."
 
 groups:
@@ -332,26 +332,6 @@ groups:
         depends_on: { question: managed_identity, equals: user_assigned }
         per_environment: true
         why: The identity must already exist; this set does not create it.
-
-      - id: role_assignments
-        ask:
-          en: "Who needs which role on this registry?"
-          de: "Wer braucht welche Rolle auf dieser Registry?"
-        type: list
-        plain:
-          en: "Access rights on the registry granted to: {value}."
-          de: "Zugriffsrechte auf die Registry vergeben an: {value}."
-        default: []
-        per_environment: true
-        why: >
-          With the admin user off, nothing pulls or pushes until a role is assigned: `AcrPull`
-          for whatever runs the images, `AcrPush` for the pipeline that builds them - and
-          never both on the same principal. An empty list is a working registry nobody can use,
-          and not an answer: with no consumer named it is an `open:` entry owned by the
-          workload owner, blocking apply. Scope to the registry (or, with attribute-based
-          access, to a repository), never to the subscription. A pattern fills this from the
-          consumers it knows; the puller's role is granted there, because the puller's
-          identity exists only after the registry does.
 
   # ----------------------------------------------------------------- security
   - id: security

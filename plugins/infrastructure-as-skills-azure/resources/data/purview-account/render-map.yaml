@@ -119,10 +119,6 @@ decisions:
       note: "an object keyed by id, built from the list (source: bicep build, Microsoft.Purview/accounts@2021-12-01)"
   identity.collection_roles:
     not_rendered: a step after the deployment against the account's metadata policy API, run as a Collection admin; no provider resource and no ARM resource
-  identity.role_assignments:
-    terraform: { attribute: azurerm_role_assignment, note: scope = the account's id; role by name; control plane }
-    bicep_avm: { attribute: roleAssignments, note: control plane }
-    bicep: { attribute: Microsoft.Authorization/roleAssignments }
 
   # ------------------------------------------------------------ observability
   observability.diagnostic_workspace:

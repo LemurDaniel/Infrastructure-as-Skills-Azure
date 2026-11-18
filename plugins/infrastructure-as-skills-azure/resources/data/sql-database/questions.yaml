@@ -20,6 +20,7 @@ boundaries:
   - "Does not create database users or grant database roles: that is T-SQL, not Azure Resource Manager. They are recorded as a decision and executed by a step after the deployment."
   - "Does not create a failover group or a geo-secondary server. A second region is a second instance of this set plus the failover group; `critical` records it as an open entry."
   - "Does not render long-term-retention immutability, ledger databases, Always Encrypted enclaves, elastic jobs, or a sample/import/restore create mode."
+  - "Does not decide the roles on this resource. A role is a `wiring.role_assignments` entry of the spec with this resource as `to`; which roles the service has is in `notes.md`, *Roles*."
 
 groups:
 
@@ -509,21 +510,6 @@ groups:
           the workload owner, blocking apply. Each entry is an identity and a database role,
           least privilege first (`db_datareader`, `db_datawriter`, never `db_owner`). A
           pattern fills this from the consumers it knows.
-
-      - id: role_assignments
-        ask:
-          en: "Who may manage the server itself?"
-          de: "Wer darf den Server selbst verwalten?"
-        type: list
-        plain:
-          en: "Management rights on the server granted to: {value}."
-          de: "Verwaltungsrechte am Server vergeben an: {value}."
-        default: []
-        per_environment: true
-        why: >
-          Azure RBAC on the server - the control plane: creating databases, changing
-          firewall rules, reading the audit settings. Separate from the database roles on
-          purpose, and usually the deploying principal's alone, so empty is a normal answer.
 
   # ----------------------------------------------------------------- security
   - id: security

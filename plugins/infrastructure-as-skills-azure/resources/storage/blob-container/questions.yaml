@@ -15,6 +15,7 @@ boundaries:
   - "Does not create data lake (ADLS Gen2) file systems. They are containers of an account with the hierarchical namespace; the account set decides that and the module takes them as `storage_data_lake_gen2_filesystems`."
   - "Does not render shared access signatures, stored access policies or blobs. No SAS in a template, and the content of a container is the application's."
   - "Does not render lifecycle management rules (tiering, deletion by age): they are rules of the account, with their own decisions."
+  - "Does not decide the roles on this resource. A role is a `wiring.role_assignments` entry of the spec with this resource as `to`; which roles the service has is in `notes.md`, *Roles*."
 
 groups:
 
@@ -139,28 +140,3 @@ groups:
           customer-managed) beside the account's. This switch stops a writer from overriding
           the container's scope per upload. Meaningful only with a scope created on the
           account; off by default, and the account set owns the scope.
-
-  - id: identity
-    title: Identity and access
-    questions:
-      - id: role_assignments
-        ask:
-          en: "Who needs which role on this container?"
-          de: "Wer braucht welche Rolle auf diesem Container?"
-        type: list
-        plain:
-          en: "Access rights on the container granted to: {value}."
-          de: "Zugriffsrechte vergeben an: {value}."
-        default: []
-        per_environment: true
-        why: >
-          Data-plane access is granted by role, never by key. The narrow roles are `Storage
-          Blob Data Reader` to read, `Storage Blob Data Contributor` to read and write,
-          `Storage Blob Data Owner` to also set access control; the deploying principal
-          needs `Storage Blob Data Contributor` when the render creates the container
-          through the data plane. Scope to the narrowest resource the consumer needs, never
-          the subscription. A pattern normally fills this from the consumers it knows about
-          and grants a consumer's role in the pattern, not here. A role on the *container*,
-          share or queue is scoped narrower than one on the account; the account-level roles
-          belong to the storage set.
-

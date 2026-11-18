@@ -110,7 +110,7 @@ module sqlmi 'br/public:avm/res/sql/managed-instance:0.5.1' = {
       }
     ]
 
-    // decision: sql-managed-instance.identity.role_assignments
+    // decision: wiring.role_assignments
     roleAssignments: roleAssignments
     enableTelemetry: true
   }

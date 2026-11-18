@@ -93,17 +93,6 @@ decisions:
     bicep:
       gap: a Microsoft.Insights/privateLinkScopes/scopedResources in the scope's resource group, outside this deployment; the reference names none of its properties
 
-  # ----------------------------------------------------------------- identity
-  identity.role_assignments:
-    terraform_avm: { attribute: 'role_assignments.<key> = { role_definition_id_or_name, principal_id }' }
-    terraform:
-      attribute: 'azurerm_role_assignment = { role_definition_name, principal_id, principal_type }'
-      note: 'one per entry, scope = the component''s id; role_definition_id instead of the name for a custom role (source: azurerm 5.12 schema)'
-    bicep_avm: { attribute: roleAssignments }
-    bicep:
-      attribute: 'Microsoft.Authorization/roleAssignments = { properties.principalId, properties.roleDefinitionId, properties.principalType }'
-      note: 'one per entry, scope: the component; roleDefinitionId is the definition id, never the name (source: bicep build, Microsoft.Authorization/roleAssignments@2022-04-01)'
-
   # ----------------------------------------------------------------- security
   security.local_auth:
     terraform_avm:

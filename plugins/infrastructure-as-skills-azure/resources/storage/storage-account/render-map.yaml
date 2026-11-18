@@ -137,15 +137,6 @@ decisions:
       attribute: identity.userAssignedIdentities
       format: { expr: 'toObject({value}, id => id, id => {})' }
       note: an object keyed by id, each value empty (source bicep build, Microsoft.Storage/storageAccounts@2023-05-01)
-  identity.role_assignments:
-    terraform_avm:
-      attribute: 'role_assignments.<key> = { role_definition_id_or_name, principal_id }'
-      note: role by name, scoped to the account; container scope is on the containers input
-    terraform: { attribute: azurerm_role_assignment, note: scope = the account's id }
-    bicep_avm:
-      attribute: 'roleAssignments[] = { principalId, roleDefinitionIdOrName, principalType }'
-      note: role by name - the GUID table of the authored render goes away; container scope is on blobServices.containers[].roleAssignments
-    bicep: { attribute: Microsoft.Authorization/roleAssignments, note: scope = the account }
 
   # ----------------------------------------------------------------- security
   security.local_auth:

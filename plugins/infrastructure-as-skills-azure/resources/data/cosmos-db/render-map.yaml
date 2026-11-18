@@ -205,19 +205,6 @@ decisions:
       attribute: identity.userAssignedIdentities
       format: { expr: 'toObject({value}, id => id, id => {})' }
       note: "an object keyed by id, built from the list (source: bicep build, Microsoft.DocumentDB/databaseAccounts@2024-11-15)"
-  identity.data_plane_role_assignments:
-    terraform_avm:
-      gap: the module has no input - azurerm_cosmosdb_sql_role_assignment beside the call, role_definition_id under the account's sqlRoleDefinitions
-    terraform: { attribute: azurerm_cosmosdb_sql_role_assignment, note: scope the account or one database or container }
-    bicep_avm:
-      attribute: 'sqlRoleAssignments[] = { principalId, roleDefinitionId, scope }'
-      note: roleDefinitionId is the full id of the built-in definition (...0001 reader, ...0002 contributor)
-    bicep: { attribute: child sqlRoleAssignments }
-  identity.role_assignments:
-    terraform_avm: { attribute: role_assignments, note: control plane; principal_type and condition unsupported }
-    terraform: { attribute: azurerm_role_assignment, note: "scope = the account's id; control plane (source: azurerm 5.12 schema)" }
-    bicep_avm: { attribute: roleAssignments, note: control plane }
-    bicep: { attribute: Microsoft.Authorization/roleAssignments, note: "scope the account; control plane (source: bicep build, Microsoft.Authorization/roleAssignments@2022-04-01)" }
 
   # ----------------------------------------------------------------- security
   security.local_auth:

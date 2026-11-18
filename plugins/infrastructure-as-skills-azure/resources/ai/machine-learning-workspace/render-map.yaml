@@ -205,15 +205,6 @@ decisions:
       - attribute: properties.primaryUserAssignedIdentity
         format: { expr: '{value}[0]' }
         note: "the first entry (source: bicep build, Microsoft.MachineLearningServices/workspaces@2024-10-01-preview)"
-  identity.role_assignments:
-    terraform_avm: { attribute: 'role_assignments.<key> = { role_definition_id_or_name, principal_id, principal_type }' }
-    terraform:
-      attribute: 'azurerm_role_assignment = { scope, role_definition_name, principal_id }'
-      note: "one per entry, scope = the workspace id (source: azurerm 5.12 schema)"
-    bicep_avm: { attribute: roleAssignments }
-    bicep:
-      attribute: 'Microsoft.Authorization/roleAssignments properties = { principalId, roleDefinitionId, principalType }'
-      note: "one per entry, scoped to the workspace; roleDefinitionId takes the definition id, the render resolves the role name (source: bicep build, Microsoft.Authorization/roleAssignments@2022-04-01)"
 
   # ----------------------------------------------------------------- security
   security.storage_datastore_auth:

@@ -246,11 +246,6 @@ decisions:
       note: "one per group, filled from it (source: bicep build, Microsoft.DBforPostgreSQL/flexibleServers/administrators@2026-01-01-preview)"
   identity.database_roles:
     not_rendered: a SQL step after the deployment (pgaadauth_create_principal and GRANT as the Entra administrator); no module input and no ARM resource
-  identity.role_assignments:
-    terraform_avm: { attribute: role_assignments, note: control plane }
-    terraform: { attribute: azurerm_role_assignment, note: "scope = the server id; control plane (source: azurerm 5.12 schema)" }
-    bicep_avm: { attribute: roleAssignments, note: control plane }
-    bicep: { attribute: Microsoft.Authorization/roleAssignments, note: "scope the server; control plane (source: bicep build, Microsoft.Authorization/roleAssignments@2022-04-01)" }
 
   # ----------------------------------------------------------------- security
   security.password_authentication_disabled:

@@ -21,7 +21,7 @@ boundaries:
   - "Does not create the Log Analytics workspace it logs to."
   - "Does not create a network security perimeter - the only way to close the public endpoint, and a platform resource with a question set of its own."
   - "Does not render identities for end users (the identity and token API), chat threads, rooms or call automation flows - application content."
-  - "Does not grant the application's identity its role on this resource - wiring between resources, owned by a pattern. It records this resource's own role assignments in `role_assignments`."
+  - "Does not decide the roles on this resource. A role is a `wiring.role_assignments` entry of the spec with this resource as `to`; which roles the service has is in `notes.md`, *Roles*."
 
 groups:
 
@@ -287,23 +287,6 @@ groups:
         depends_on: { question: managed_identity, equals: user_assigned }
         per_environment: true
         why: The identity must already exist; this set does not create it.
-
-      - id: role_assignments
-        ask:
-          en: "Who needs which role on this resource?"
-          de: "Wer braucht welche Rolle auf dieser Ressource?"
-        type: list
-        plain:
-          en: "Access rights on the resource granted to: {value}."
-          de: "Zugriffsrechte auf die Ressource vergeben an: {value}."
-        default: []
-        per_environment: true
-        why: >
-          With keys off, an application sends a mail or issues a user token only through a
-          role on this resource, so an empty list is a working resource nobody can use. The
-          narrow role is `Communication and Email Service Owner` for the application that
-          sends and manages identities; `Contributor` is a departure that names a person. A
-          pattern fills this from the application it knows about.
 
   - id: security
     title: Security

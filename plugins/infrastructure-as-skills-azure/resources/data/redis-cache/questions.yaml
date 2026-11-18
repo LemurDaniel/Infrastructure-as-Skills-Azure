@@ -20,6 +20,7 @@ boundaries:
   - "Does not create a second cluster for active geo-replication; the decision is recorded and a replica is a second instance of this set."
   - "Does not tune the cache: the maximum memory policy beyond `eviction_policy`, client output buffers, keyspace notifications and the Redis modules' own settings are application concerns."
   - "Redis is not a system of record. Persistence is a restart-survival feature, not a backup, and `backup_isolation` has nothing to attach to here."
+  - "Does not decide the roles on this resource. A role is a `wiring.role_assignments` entry of the spec with this resource as `to`; which roles the service has is in `notes.md`, *Roles*."
 
 groups:
 
@@ -332,22 +333,6 @@ groups:
           by the workload owner, blocking apply. The object id is the identity's (a managed
           identity's principal id, a group's object id). A pattern fills this from the
           consumers it knows.
-
-      - id: role_assignments
-        ask:
-          en: "Who may manage the cache itself?"
-          de: "Wer darf den Cache selbst verwalten?"
-        type: list
-        plain:
-          en: "Management rights on the cache granted to: {value}."
-          de: "Verwaltungsrechte am Cache vergeben an: {value}."
-        default: []
-        per_environment: true
-        why: >
-          Azure RBAC on the cluster - the control plane: scaling, changing persistence,
-          reading the access keys if they were enabled. Separate from the data access
-          above on purpose, and usually the deploying principal's alone, so empty is a
-          normal answer.
 
   # ----------------------------------------------------------------- security
   - id: security

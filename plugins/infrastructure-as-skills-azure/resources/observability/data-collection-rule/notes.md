@@ -74,8 +74,8 @@ rendered authored beside the module call, `Microsoft.Insights/diagnosticSettings
 `scope:` the rule. The rule has no metrics.
 
 **`Direct` rules authorise senders by role on the rule.** An application posting to the
-ingestion API needs `Monitoring Metrics Publisher` on the rule (or the endpoint); the role
-assignment is wiring the pattern records in `role_assignments` of the module.
+ingestion API needs `Monitoring Metrics Publisher` on the rule (or the endpoint): a
+`wiring.role_assignments` entry with the rule as `to`.
 
 ## Not covered here, and why
 

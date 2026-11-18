@@ -134,15 +134,6 @@ decisions:
       note: 'one array; the kind is the ARM type: Microsoft.Network/trafficManagerProfiles/azureEndpoints, /externalEndpoints, /nestedEndpoints. Typed from the resource schema, so a misspelt property fails bicep build'
     bicep: { attribute: 'properties.endpoints[]', note: "the same shape as the module's parameter" }
 
-  # ------------------------------------------------------------------- access
-  access.role_assignments:
-    terraform_avm:
-      attribute: 'role_assignments.<key> = { role_definition_id_or_name, principal_id, principal_type }'
-      note: Traffic Manager Contributor
-    terraform: { attribute: azurerm_role_assignment, note: "scope = the profile's id" }
-    bicep_avm: { attribute: "roleAssignments[] = { principalId, roleDefinitionIdOrName: 'Traffic Manager Contributor', principalType }" }
-    bicep: { attribute: Microsoft.Authorization/roleAssignments, note: 'an extension resource with scope: trafficManager' }
-
   # ------------------------------------------------------------ observability
   observability.diagnostic_workspace:
     terraform_avm: { attribute: 'diagnostic_settings.<key>.workspace_resource_id' }

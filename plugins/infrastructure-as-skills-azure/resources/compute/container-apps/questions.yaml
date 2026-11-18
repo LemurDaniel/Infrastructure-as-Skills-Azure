@@ -22,6 +22,7 @@ boundaries:
   - "Does not render secret values. A secret is a Key Vault reference resolved with the app's identity."
   - "Does not render Dapr, KEDA scale rules, jobs, session pools (dynamic sessions, as used for sandboxed code execution), custom domains, certificates, Easy Auth or health probes. Each is a separate concern and has no question set yet."
   - "Does not render sidecars or init containers. Several apps in one environment are several instances of this set, one owning the environment (`hosting_environment`)."
+  - "Does not decide the roles on this resource. A role is a `wiring.role_assignments` entry of the spec with this resource as `to`; which roles the service has is in `notes.md`, *Roles*."
 
 groups:
 
@@ -504,20 +505,6 @@ groups:
           secret in a template is in the deployment history. The URL is versionless where the
           app should follow a rotation. The identity needs the vault's secret-reader role
           before the first revision (see `managed_identity`).
-
-      - id: role_assignments
-        ask:
-          en: "Who may manage the app?"
-          de: "Wer darf die App verwalten?"
-        type: list
-        plain:
-          en: "Management rights on the app granted to: {value}."
-          de: "Verwaltungsrechte an der App vergeben an: {value}."
-        default: []
-        per_environment: true
-        why: >
-          Azure RBAC on the app - the control plane. Usually the deploying principal's alone,
-          so empty is a normal answer.
 
   # ------------------------------------------------------------ observability
   - id: observability

@@ -70,14 +70,6 @@ decisions:
     bicep_avm: { attribute: ttl, note: per record; the module default is 3600 too - written, passthrough: true }
     bicep: { attribute: properties.TTL, note: on every record child, passthrough: true }
 
-  # ------------------------------------------------------------------- access
-  access.role_assignments:
-    terraform_avm:
-      gap: 'module README v0.2.1 has no input for role assignments; an authored azurerm_role_assignment per entry, scope = module.public_dns_zone.resource_id, role_definition_name = "DNS Zone Contributor"'
-    terraform: { attribute: azurerm_role_assignment, note: "scope = the zone's id" }
-    bicep_avm: { attribute: "roleAssignments[] = { principalId, roleDefinitionIdOrName: 'DNS Zone Contributor', principalType }" }
-    bicep: { attribute: Microsoft.Authorization/roleAssignments, note: an extension resource with scope = the zone }
-
   # ----------------------------------------------------------------- security
   security.dnssec:
     terraform_avm:

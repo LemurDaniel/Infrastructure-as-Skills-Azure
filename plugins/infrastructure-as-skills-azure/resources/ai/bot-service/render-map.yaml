@@ -127,16 +127,6 @@ decisions:
       attribute: 'Microsoft.Network/privateEndpoints properties.privateLinkServiceConnections[].properties.groupIds'
       note: one endpoint per sub-resource
 
-  # ----------------------------------------------------------------- identity
-  identity.role_assignments:
-    terraform_avm: { attribute: 'role_assignments.<key> = { role_definition_id_or_name, principal_id, principal_type }' }
-    terraform:
-      attribute: 'azurerm_role_assignment = { scope, role_definition_name, principal_id }'
-      note: "one per entry, scope = the bot id (source: azurerm 5.12 schema)"
-    bicep:
-      attribute: 'Microsoft.Authorization/roleAssignments properties = { principalId, roleDefinitionId, principalType }'
-      note: one per entry, scoped to the bot; the role definition id, not the name - no module resolves names
-
   # ----------------------------------------------------------------- security
   security.local_auth:
     terraform_avm:
