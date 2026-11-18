@@ -2,7 +2,7 @@
 description: >-
   A web application with PostgreSQL and file storage, and one stated departure from the pattern: the application only reads the files. Tests that private-webapp is chosen with the right database part, that the customer's word wins over the pattern's role, and that the changed role list no longer claims the pattern as its source.
 expected_outcome: >-
-  infra/infra-spec.yaml with pattern.id private-webapp, postgresql-flexible-server and no sql-database, a storage-account whose role for app-service__web is Storage Blob Data Reader and nowhere Contributor, wiring.role_assignments not source pattern, no key-vault.
+  infra/infra-spec.yaml with pattern.id private-webapp, postgresql-flexible-server and no sql-database, a storage-account whose role for app-service__web is Storage Blob Data Reader and no entry grants Contributor, wiring.role_assignments not source pattern, no key-vault.
 tags: [terraform, pattern, webapp, departure]
 plugins: ["../../.."]
 runs: 4
