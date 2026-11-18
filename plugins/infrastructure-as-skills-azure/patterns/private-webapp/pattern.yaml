@@ -19,7 +19,7 @@ boundaries:
   - "The database's Entra administrator is a group of the organisation (sql-database.identity.entra_admin, postgresql-flexible-server.identity.entra_admins): an open item for the platform team, never chosen here."
   - "The application's database user is created inside the database by a statement run as that administrator, not by a resource: the pattern records who gets which rights, the hand-over names the step."
   - "Which databases exist is the customer's answer (Azure SQL) or the workload owner's open item (PostgreSQL); the pattern names none."
-  - "One application. A system of several containers that call each other is container-microservices, with the database added as a resource outside the pattern."
+  - "One application. A system of several services as containers is container-microservices, with the database added as a resource outside the pattern."
 
 parts:
   app-service__web:

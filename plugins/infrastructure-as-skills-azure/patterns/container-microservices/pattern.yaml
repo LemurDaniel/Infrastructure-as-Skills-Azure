@@ -10,7 +10,7 @@ summary:
 
 selects_when:
   - "microservices / Microservices"
-  - "several containers that call each other / mehrere Container, die sich gegenseitig aufrufen"
+  - "several services as containers, calling each other or not / mehrere Dienste als Container, ob sie sich aufrufen oder nicht"
   - "an API with a background worker as containers / eine API mit einem Hintergrunddienst als Container"
   - "services on Container Apps / Dienste auf Container Apps"
 
