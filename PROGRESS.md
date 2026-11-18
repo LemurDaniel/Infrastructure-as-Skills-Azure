@@ -374,8 +374,11 @@ the detail; this list says what was decided and why, so a session does not reope
   new format** (2026-11-18, commit `b36b7aa`, numbers in the description of #55): Sonnet 12
   of 18 cases at 100%, 47 of 57 runs, **incomplete** - it stopped at $34.72 against the $30
   ceiling, the four pattern cases alone cost about $12.40 - and Haiku 5 of 18, 22 of 60,
-  $1.71. Neither is on `eval-history`, the badge is not re-pinned, `baseline.json` is
-  untouched, and no temp directory was kept, so no failing spec was read. Three findings
+  $1.71. That run kept no temp directory, so no failing spec was read. On `eval-history`
+  since (`5fc62b6`, badge pinned to it): Haiku as that run, Sonnet as a **composed** entry, its
+  note saying so - twelve cases from that run, five from the re-test on `909e397`,
+  `language-en-request` from the re-test on the branch of #59; 18 of 18, $44.23. No single
+  complete Sonnet run on one commit exists for 0.8.0, and `baseline.json` is untouched. Three findings
   were fixed without a re-run: `no-contributor-role` matched the role's name anywhere,
   also in the reason of the override (0 of 4 on Sonnet); the rule for a keyless resource
   covered only one that another resource reaches, so a lone storage account got no open
